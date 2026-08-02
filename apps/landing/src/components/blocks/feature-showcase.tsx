@@ -1,7 +1,8 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useTranslations } from 'next-intl'
+import { motion } from 'motion/react'
 import {
   BarChart3Icon,
   BellRingIcon,
@@ -12,6 +13,7 @@ import {
   FileCodeIcon,
   GitBranchIcon,
   LayersIcon,
+  MonitorPlayIcon,
   MousePointerClickIcon,
   PanelsTopLeftIcon,
   SearchIcon,
@@ -22,8 +24,10 @@ import {
 import { MotionPreset } from '@workspace/ui/components/ui/motion-preset'
 import { Badge } from '@workspace/ui/components/ui/badge'
 import { FeatureImageSphere, type FeatureSphereItem } from '@/components/image-sphere/feature-image-sphere'
+import { LandingFrame } from '@/components/layout/landing-frame'
 
 type FeatureKey =
+  | 'agent'
   | 'run'
   | 'browser'
   | 'search'
@@ -46,6 +50,8 @@ type FeatureDefinition = {
 
 /** Only features with a dedicated demo video are shown — no intro fallback. */
 const FEATURE_VIDEOS = {
+  // Hero product overview (moved from the first section)
+  agent: '/videos/agent-terminal-use-flow.mp4',
   run: '/videos/built-in-terminal-agents.mp4',
   browser: '/videos/Browser-Element-Inspector.mp4',
   search: '/videos/global-search-command-panel.mp4',
@@ -63,6 +69,7 @@ const FEATURE_VIDEOS = {
 } as const satisfies Record<FeatureKey, string>
 
 const featureDefinitions = [
+  { key: 'agent', icon: MonitorPlayIcon },
   { key: 'run', icon: BotIcon },
   { key: 'browser', icon: MousePointerClickIcon },
   { key: 'search', icon: SearchIcon },
@@ -81,6 +88,7 @@ const featureDefinitions = [
 
 export default function FeatureShowcase() {
   const t = useTranslations('featureShowcase')
+  const [mediaFocused, setMediaFocused] = useState(false)
 
   const features = useMemo(
     () =>
@@ -104,33 +112,51 @@ export default function FeatureShowcase() {
         blur
         transition={{ duration: 0.5 }}
         delay={0.15}
-        className="relative overflow-hidden border-y xl:flex"
+        className="relative overflow-hidden border-y"
       >
-        <div className="m-6 w-full shrink-2 max-xl:hidden" />
+        <LandingFrame>
+          {/* Sphere fills the whole section; title + edge dust overlays on top */}
+          <div className="relative w-full min-w-0">
+            <FeatureImageSphere
+              features={features}
+              onFocusChange={setMediaFocused}
+              className="min-h-[min(88vh,860px)] h-[min(88vh,860px)] sm:min-h-[min(90vh,920px)] sm:h-[min(90vh,920px)]"
+            />
 
-        <div className="mx-auto w-full min-w-0 max-w-6xl shrink-0 space-y-6 px-4 py-8 min-[1158px]:border-x sm:space-y-10 sm:px-6 sm:py-16 lg:px-8">
-          <div className="space-y-2.5">
-            <MotionPreset fade blur slide={{ direction: 'down', offset: 50 }} transition={{ duration: 0.5 }}>
-              <Badge variant="outline" className="rounded-none">
+            {/* Soft edge dust — thin, hugs the section rails (fade out while focused) */}
+            <div
+              className={`pointer-events-none absolute inset-0 z-10 transition-opacity duration-300 ease-out ${
+                mediaFocused ? 'opacity-0' : 'opacity-100'
+              }`}
+              aria-hidden
+            >
+              <div className="absolute inset-x-0 top-0 h-12 bg-gradient-to-b from-background via-background/50 to-transparent sm:h-14" />
+              <div className="absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-background via-background/45 to-transparent sm:h-12" />
+              <div className="absolute inset-y-0 left-0 w-6 bg-gradient-to-r from-background via-background/40 to-transparent sm:w-8" />
+              <div className="absolute inset-y-0 right-0 w-6 bg-gradient-to-l from-background via-background/40 to-transparent sm:w-8" />
+            </div>
+
+            {/*
+              Always mount heading so SSR/client HTML match. Animate only after
+              hydration via mediaFocused (initial={false} avoids enter mismatch).
+            */}
+            <motion.div
+              className="pointer-events-none absolute inset-x-0 top-0 z-20 space-y-2.5 px-4 pt-8 sm:px-6 sm:pt-16 lg:px-8"
+              initial={false}
+              animate={{
+                opacity: mediaFocused ? 0 : 1,
+                y: mediaFocused ? -10 : 0,
+              }}
+              transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
+              aria-hidden={mediaFocused}
+            >
+              <Badge variant="outline" className="rounded-none bg-background/70 backdrop-blur-sm">
                 {t('badge')}
               </Badge>
-            </MotionPreset>
-            <MotionPreset delay={0.3} transition={{ duration: 0.5 }}>
               <h2 className="text-balance text-2xl font-semibold sm:text-3xl lg:text-4xl">{t('title')}</h2>
-            </MotionPreset>
-            <MotionPreset delay={0.35} fade transition={{ duration: 0.5 }}>
-              <p className="max-w-2xl text-pretty text-sm text-muted-foreground sm:text-base">
-                {t('sphere.subtitle')}
-              </p>
-            </MotionPreset>
+            </motion.div>
           </div>
-
-          <MotionPreset fade slide blur transition={{ duration: 0.5 }} delay={0.4} inView={false}>
-            <FeatureImageSphere features={features} />
-          </MotionPreset>
-        </div>
-
-        <div className="m-6 w-full shrink-2 max-xl:hidden" />
+        </LandingFrame>
       </MotionPreset>
     </section>
   )

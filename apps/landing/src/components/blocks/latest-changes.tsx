@@ -9,6 +9,7 @@ import { Separator } from '@workspace/ui/components/ui/separator'
 import { MotionPreset } from '@workspace/ui/components/ui/motion-preset'
 import { CraftButton, CraftButtonIcon, CraftButtonLabel } from '@workspace/ui/components/ui/craft-button'
 import { BlinkingGrid } from '@/components/ui/blinking-grid'
+import { LandingFrame, landingRailClassName } from '@/components/layout/landing-frame'
 import { changelogData } from '@/lib/changelog-data'
 import { cn, formatDate } from '@/lib/utils'
 
@@ -79,11 +80,10 @@ const LatestChanges = () => {
         blur
         transition={{ duration: 0.5 }}
         delay={0.15}
-        className='relative overflow-hidden border-y xl:flex'
+        className='relative overflow-hidden border-y'
       >
-        <BlinkingGrid className='m-6 w-full shrink-2 bg-[radial-gradient(circle_at_center,color-mix(in_oklab,var(--primary)_15%,transparent)_2px,transparent_2px)] bg-size-[18px_18px] max-xl:hidden' />
-
-        <div className='mx-auto w-full min-w-0 max-w-6xl space-y-6 px-4 py-8 min-[1158px]:border-x sm:space-y-16 sm:px-6 sm:py-16 lg:px-8'>
+        <LandingFrame side={<BlinkingGrid className={landingRailClassName} />}>
+        <div className='space-y-6 px-4 py-8 sm:space-y-16 sm:px-6 sm:py-16 lg:px-8'>
           {/* Header */}
           <div className='space-y-2.5'>
             <MotionPreset fade blur slide={{ direction: 'down', offset: 50 }} transition={{ duration: 0.5 }}>
@@ -225,8 +225,7 @@ const LatestChanges = () => {
             </CraftButton>
           </MotionPreset>
         </div>
-
-        <BlinkingGrid className='m-6 w-full shrink-2 bg-[radial-gradient(circle_at_center,color-mix(in_oklab,var(--primary)_15%,transparent)_2px,transparent_2px)] bg-size-[18px_18px] max-xl:hidden' />
+        </LandingFrame>
       </MotionPreset>
     </section>
   )

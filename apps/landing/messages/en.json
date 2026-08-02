@@ -29,7 +29,9 @@
       "subtitle": "Drag to spin the cloud of demos. Hover to zoom, click a card to play the video in focus.",
       "hint": "Drag to orbit · Click a card to play",
       "loading": "Assembling demos…",
-      "close": "Close focused video"
+      "close": "Close focused video",
+      "prev": "Back",
+      "next": "Next"
     },
     "video": {
       "play": "Play",
@@ -40,8 +42,8 @@
     "features": {
       "agent": {
         "title": "Agent Terminal Use Flow",
-        "label": "Agent Terminal Use Flow",
-        "description": "Streaming responses, tool-call updates, permissions, and custom ACP agents in one workspace."
+        "label": "Overview",
+        "description": "Streaming responses, tool-call updates, permissions, and custom ACP agents in one unified workspace."
       },
       "browser": {
         "title": "Browser Element Inspector",

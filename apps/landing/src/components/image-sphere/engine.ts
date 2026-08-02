@@ -2,8 +2,8 @@ import * as THREE from 'three'
 
 const RADIUS = 190
 const PLANE_SIZE = 56
-const AUTO_ROT_Y = 0.00045
-const AUTO_ROT_X = 0.00018
+const AUTO_ROT_Y = 0.0005
+const AUTO_ROT_X = 0.0002
 const DRAG_EASE = 0.2
 const HOVER_SCALE = 1.2
 const SCALE_EASE = 0.1
@@ -13,14 +13,17 @@ const FLICK_SCALE = 0.9
 
 const CLICK_SLOP = 6
 const FOCUS_EASE = 0.14
-const FOCUS_DISTANCE = 300
-const FOCUS_FILL = 0.62
-const BACKDROP_DIM = 0.16
+const FOCUS_DISTANCE = 260
+/** Focused plane fills nearly the entire section canvas. */
+const FOCUS_FILL = 0.96
+const BACKDROP_DIM = 0.12
 
 export interface ImageSphereOptions {
   distance?: number
   fov?: number
   onFocusChange?: (id: string | null, index: number | null) => void
+  onVideoEnded?: (id: string, index: number) => void
+  onProgress?: (progress01: number) => void
 }
 
 export interface SphereItem {
@@ -43,6 +46,7 @@ type PlaneUserData = {
   videoUrl?: string
   video?: HTMLVideoElement
   videoMap?: THREE.VideoTexture
+  onEnded?: () => void
 }
 
 export class ImageSphere {
@@ -86,11 +90,14 @@ export class ImageSphere {
   private ro?: ResizeObserver
   private cleanup: (() => void)[] = []
   private onFocusChange?: ImageSphereOptions['onFocusChange']
-  private pendingLoads = 0
+  private onVideoEnded?: ImageSphereOptions['onVideoEnded']
+  private onProgress?: ImageSphereOptions['onProgress']
 
   constructor(host: HTMLElement, items: SphereItem[], opts: ImageSphereOptions = {}) {
     this.host = host
     this.onFocusChange = opts.onFocusChange
+    this.onVideoEnded = opts.onVideoEnded
+    this.onProgress = opts.onProgress
     const w = host.clientWidth || 1
     const h = host.clientHeight || 1
 
@@ -122,9 +129,7 @@ export class ImageSphere {
   private loadPlanes(items: SphereItem[]) {
     const loader = new THREE.TextureLoader()
     loader.crossOrigin = 'anonymous'
-    this.pendingLoads = items.length
 
-    // Even-ish distribution with a seeded jitter so covers don't clump.
     items.forEach((item, index) => {
       loader.load(
         item.coverUrl,
@@ -144,6 +149,7 @@ export class ImageSphere {
           mat.depthWrite = false
           const plane = new THREE.Mesh(geo, mat) as PlaneMesh
 
+          // Fibonacci sphere distribution (stable, even)
           const golden = Math.PI * (3 - Math.sqrt(5))
           const y = 1 - (index / Math.max(items.length - 1, 1)) * 2
           const radiusAtY = Math.sqrt(Math.max(0, 1 - y * y))
@@ -171,13 +177,12 @@ export class ImageSphere {
 
           this.group.add(plane)
           this.planes.push(plane)
-          this.pendingLoads -= 1
 
           if (!this.running) this.renderStill()
         },
         undefined,
         () => {
-          this.pendingLoads -= 1
+          // skip failed covers
         }
       )
     })
@@ -194,6 +199,7 @@ export class ImageSphere {
     let downX = 0
     let downY = 0
     const onDown = (e: PointerEvent) => {
+      // Don't start drag when UI chrome handles the event (buttons live outside canvas host usually)
       this.dragging = true
       this.startX = e.clientX
       this.startY = e.clientY
@@ -224,10 +230,9 @@ export class ImageSphere {
     const release = () => {
       if (!this.dragging) return
       this.dragging = false
-
       this.velY = this.lastDX * FLICK_SCALE
       this.velX = -this.lastDY * FLICK_SCALE
-      this.renderer.domElement.style.cursor = 'grab'
+      this.renderer.domElement.style.cursor = this.hovered ? 'pointer' : 'grab'
     }
     const onUp = (e: PointerEvent) => {
       const moved = Math.hypot(e.clientX - downX, e.clientY - downY)
@@ -238,8 +243,10 @@ export class ImageSphere {
         localMouse(e.clientX, e.clientY)
         const hit = this.pick()
         if (this.focused) {
-          this.setFocused(hit === this.focused ? null : hit)
-        } else {
+          // Same card or empty space → unfocus (flies home). Another card → switch.
+          if (!hit || hit === this.focused) this.setFocused(null)
+          else this.setFocused(hit)
+        } else if (hit) {
           this.setFocused(hit)
         }
       }
@@ -283,6 +290,7 @@ export class ImageSphere {
       const data = plane.userData as PlaneUserData
       this.onFocusChange?.(data.id, data.index)
     } else {
+      this.onProgress?.(0)
       this.onFocusChange?.(null, null)
     }
   }
@@ -296,13 +304,22 @@ export class ImageSphere {
       video.src = data.videoUrl
       video.crossOrigin = 'anonymous'
       video.muted = true
-      video.loop = true
+      video.loop = false
       video.playsInline = true
       video.preload = 'auto'
       data.video = video
     }
 
     const video = data.video
+    if (data.onEnded) {
+      video.removeEventListener('ended', data.onEnded)
+    }
+    data.onEnded = () => {
+      const d = plane.userData as PlaneUserData
+      this.onVideoEnded?.(d.id, d.index)
+    }
+    video.addEventListener('ended', data.onEnded)
+
     if (!data.videoMap) {
       const map = new THREE.VideoTexture(video)
       map.colorSpace = THREE.SRGBColorSpace
@@ -314,13 +331,21 @@ export class ImageSphere {
 
     plane.material.map = data.videoMap
     plane.material.needsUpdate = true
-    video.currentTime = 0
+    try {
+      video.currentTime = 0
+    } catch {
+      // ignore
+    }
     video.play().catch(() => {})
   }
 
   private detachVideo(plane: PlaneMesh) {
     const data = plane.userData as PlaneUserData
     if (data.video) {
+      if (data.onEnded) {
+        data.video.removeEventListener('ended', data.onEnded)
+        data.onEnded = undefined
+      }
       data.video.pause()
       try {
         data.video.currentTime = 0
@@ -354,7 +379,9 @@ export class ImageSphere {
       if (this.hovered) (this.hovered.userData as PlaneUserData).isHovered = false
       this.hovered = next
       if (this.hovered) (this.hovered.userData as PlaneUserData).isHovered = true
-      this.renderer.domElement.style.cursor = next ? 'pointer' : this.dragging ? 'grabbing' : 'grab'
+      if (!this.dragging) {
+        this.renderer.domElement.style.cursor = next ? 'pointer' : 'grab'
+      }
     }
   }
 
@@ -374,6 +401,15 @@ export class ImageSphere {
     this.setFocused(null)
   }
 
+  focusById(id: string) {
+    const plane = this.planes.find((p) => (p.userData as PlaneUserData).id === id)
+    if (plane) this.setFocused(plane)
+  }
+
+  getFocusedId(): string | null {
+    return this.focused ? (this.focused.userData as PlaneUserData).id : null
+  }
+
   private loop = () => {
     if (!this.running) return
 
@@ -386,6 +422,8 @@ export class ImageSphere {
       if (Math.abs(this.velY) < 0.01) this.velY = 0
     }
 
+    // Keep orbiting even while a card is focused — focused plane stays
+    // camera-locked via worldToLocal(centerPos) below.
     this.baseRotationY += AUTO_ROT_Y
     this.baseRotationX += AUTO_ROT_X
     this.currentRotationX += (this.rotationX - this.currentRotationX) * DRAG_EASE
@@ -402,7 +440,7 @@ export class ImageSphere {
 
     this.centerPos.set(0, 0, this.camera.position.z - FOCUS_DISTANCE)
     const viewH = 2 * FOCUS_DISTANCE * Math.tan((this.camera.fov * Math.PI) / 360)
-    const focusScale = (viewH * FOCUS_FILL) / PLANE_SIZE
+    const viewW = viewH * this.camera.aspect
 
     this.invQuat.copy(this.group.quaternion).invert()
     for (const plane of this.planes) {
@@ -413,11 +451,12 @@ export class ImageSphere {
       const f = data.focus + (focusTarget - data.focus) * FOCUS_EASE
       data.focus = f
 
+      // Fly between home (sphere slot) and camera-center focus — same as original prompt
       if (f > 0.0005) {
         this.tmpPos.copy(this.centerPos)
         this.group.worldToLocal(this.tmpPos)
         plane.position.copy(data.home).lerp(this.tmpPos, f)
-      } else if (plane.position.x !== data.home.x || plane.position.z !== data.home.z) {
+      } else {
         plane.position.copy(data.home)
       }
 
@@ -425,6 +464,9 @@ export class ImageSphere {
       const depth = this.worldPos.z
 
       const zScale = 0.8 + depth / 2000
+      const planeW = PLANE_SIZE * (data.aspect || 16 / 10)
+      const planeH = PLANE_SIZE
+      const focusScale = Math.min((viewH * FOCUS_FILL) / planeH, (viewW * FOCUS_FILL) / planeW)
       let target = data.isHovered ? zScale * HOVER_SCALE : zScale
       target = target + (focusScale - target) * f
       const s = plane.scale.x + (target - plane.scale.x) * SCALE_EASE
@@ -436,9 +478,12 @@ export class ImageSphere {
       data.opacity = o
       plane.material.opacity = o
 
-      // Keep video texture current while focused
       if (plane === this.focused && data.videoMap) {
         data.videoMap.needsUpdate = true
+        const video = data.video
+        if (video && video.duration > 0 && Number.isFinite(video.duration)) {
+          this.onProgress?.(Math.min(1, Math.max(0, video.currentTime / video.duration)))
+        }
       }
 
       plane.renderOrder = f > 0.5 ? 1 : 0
@@ -473,6 +518,7 @@ export class ImageSphere {
       data.coverMap.dispose()
       if (data.videoMap) data.videoMap.dispose()
       if (data.video) {
+        if (data.onEnded) data.video.removeEventListener('ended', data.onEnded)
         data.video.pause()
         data.video.src = ''
         data.video.load()

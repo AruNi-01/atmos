@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 
 import { ArrowRightIcon, ChevronDownIcon, CheckIcon, CopyIcon, TerminalIcon } from 'lucide-react'
 import Link from 'next/link'
@@ -20,9 +20,11 @@ import { MotionPreset } from '@workspace/ui/components/ui/motion-preset'
 import { TextShimmer } from '@workspace/ui/components/ui/text-shimmer'
 import { GithubIcon } from '@workspace/ui/components/icons/github-icon'
 import { BlinkingGrid } from '@/components/ui/blinking-grid'
+import { LandingFrame, landingRailClassName } from '@/components/layout/landing-frame'
 import { Button } from '@workspace/ui/components/ui/button'
 import { Badge } from '@workspace/ui/components/ui/badge'
 import { OsIcon } from '@/components/os-icon'
+import type { DownloadLinks } from '@/lib/desktop-download-links'
 
 const RELEASES_URL = 'https://github.com/AruNi-01/atmos/releases'
 const APP_URL = 'https://app.atmos.land'
@@ -45,40 +47,16 @@ const DESKTOP_TABS = [
   { id: 'homebrew', labelKey: 'tabs.homebrew', icon: HomebrewIcon },
 ] as const
 
-type DownloadLinks = {
-  macAppleSilicon: string
-  macIntel: string
-  windows: string
-  linux: string
+type ReadyDownloadProps = {
+  /** Server-resolved direct R2 installer URLs (install.atmos.land). */
+  downloadLinks: Pick<DownloadLinks, 'macAppleSilicon' | 'macIntel' | 'windows' | 'linux'>
 }
 
-const createDefaultDownloadLinks = (): DownloadLinks => ({
-  macAppleSilicon: RELEASES_URL,
-  macIntel: RELEASES_URL,
-  windows: RELEASES_URL,
-  linux: RELEASES_URL
-})
-
-const ReadyDownload = () => {
+const ReadyDownload = ({ downloadLinks }: ReadyDownloadProps) => {
   const t = useTranslations('readyDownload')
   const [copied, setCopied] = useState('')
   const [desktopTabIndex, setDesktopTabIndex] = useState(0)
   const desktopTab = DESKTOP_TABS[desktopTabIndex]?.id ?? 'bash'
-  const [downloadLinks, setDownloadLinks] = useState<DownloadLinks>(createDefaultDownloadLinks)
-
-  useEffect(() => {
-    fetch('/api/download-links')
-      .then(res => res.json())
-      .then((data: Partial<DownloadLinks>) => {
-        setDownloadLinks({
-          macAppleSilicon: data.macAppleSilicon ?? RELEASES_URL,
-          macIntel: data.macIntel ?? RELEASES_URL,
-          windows: data.windows ?? RELEASES_URL,
-          linux: data.linux ?? RELEASES_URL
-        })
-      })
-      .catch(console.error)
-  }, [])
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text)
@@ -112,10 +90,12 @@ const ReadyDownload = () => {
 
   return (
     <section id='ready-download'>
-      <MotionPreset className='relative overflow-hidden border-y bg-background xl:flex'>
-        <BlinkingGrid className='m-6 w-full shrink-2 bg-[radial-gradient(circle_at_center,color-mix(in_oklab,var(--primary)_15%,transparent)_2px,transparent_2px)] bg-size-[18px_18px] max-xl:hidden' />
-
-        <div className='mx-auto flex w-full min-w-0 max-w-6xl shrink-0 flex-col items-center justify-center bg-background px-4 py-12 min-[1158px]:border-x sm:px-6 sm:py-16 lg:px-8 lg:py-20'>
+      <MotionPreset className='relative overflow-hidden border-y bg-background'>
+        <LandingFrame
+          side={<BlinkingGrid className={landingRailClassName} />}
+          contentClassName='bg-background'
+        >
+        <div className='flex w-full min-w-0 flex-col items-center justify-center px-4 py-12 sm:px-6 sm:py-16 lg:px-8 lg:py-20'>
           <MotionPreset
             fade
             slide={{ direction: 'down', offset: 50 }}
@@ -240,8 +220,7 @@ const ReadyDownload = () => {
             </div>
           </MotionPreset>
         </div>
-
-        <BlinkingGrid className='m-6 w-full shrink-2 bg-[radial-gradient(circle_at_center,color-mix(in_oklab,var(--primary)_15%,transparent)_2px,transparent_2px)] bg-size-[18px_18px] max-xl:hidden' />
+        </LandingFrame>
       </MotionPreset>
     </section>
   )

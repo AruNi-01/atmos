@@ -25,6 +25,7 @@ import { Button } from "@workspace/ui/components/ui/button";
 import { Badge } from "@workspace/ui/components/ui/badge";
 import { ScrollToc } from "@workspace/ui/components/ui/scroll-toc";
 import { BlinkingGrid } from "@/components/ui/blinking-grid";
+import { LandingFrame, landingRailClassName } from "@/components/layout/landing-frame";
 import { changelogData } from "@/lib/changelog-data";
 import { cn, formatDate } from "@/lib/utils";
 
@@ -155,9 +156,6 @@ export default function ChangelogPage() {
     setIsTocOpen(false);
   };
 
-  const gridPaneClass =
-    "m-6 w-full shrink-2 bg-[radial-gradient(circle_at_center,color-mix(in_oklab,var(--primary)_15%,transparent)_2px,transparent_2px)] bg-size-[18px_18px] max-xl:hidden";
-
   return (
     <div className="relative min-h-screen pt-0">
       <button
@@ -200,9 +198,8 @@ export default function ChangelogPage() {
         </div>
       )}
 
-      <section className="relative overflow-hidden xl:flex">
-        <BlinkingGrid className={gridPaneClass} />
-        <div className="mx-auto w-full max-w-6xl shrink-0 min-[1158px]:border-x">
+      <section className="relative overflow-hidden">
+        <LandingFrame side={<BlinkingGrid className={landingRailClassName} />}>
           <div className="">
             <CTA1
               title={t("changelog.heroTitle")}
@@ -241,35 +238,38 @@ export default function ChangelogPage() {
               }
             />
           </div>
-        </div>
-        <BlinkingGrid className={gridPaneClass} />
+        </LandingFrame>
       </section>
 
       <section className="relative border-t">
         <div className="pointer-events-none absolute inset-0 z-40 hidden xl:block">
-          <div className="mx-auto h-full w-full max-w-6xl">
-            <div className="sticky top-8 flex justify-end">
-              <aside className="pointer-events-auto relative mt-0">
-                <ScrollToc
-                  items={changelogData.map((item) => ({
-                    id: item.version ? `v${item.version}` : item.id,
-                    label: item.title[language],
-                    index: item.version ? `v${item.version}` : undefined,
-                  }))}
-                  activeId={activeId}
-                  onItemClick={(item, idx) => {
-                    const entry = changelogData[idx];
-                    if (entry?.version) handleTocClick(entry.version);
-                  }}
-                  height={350}
-                  width={280}
-                />
-              </aside>
+          <div className="mx-auto grid h-full w-full max-w-6xl xl:max-w-none xl:grid-cols-[minmax(0,1fr)_72rem_minmax(0,1fr)]">
+            <div aria-hidden />
+            <div className="relative min-w-0">
+              <div className="sticky top-8 flex justify-end">
+                <aside className="pointer-events-auto relative mt-0">
+                  <ScrollToc
+                    items={changelogData.map((item) => ({
+                      id: item.version ? `v${item.version}` : item.id,
+                      label: item.title[language],
+                      index: item.version ? `v${item.version}` : undefined,
+                    }))}
+                    activeId={activeId}
+                    onItemClick={(item, idx) => {
+                      const entry = changelogData[idx];
+                      if (entry?.version) handleTocClick(entry.version);
+                    }}
+                    height={350}
+                    width={280}
+                  />
+                </aside>
+              </div>
             </div>
+            <div aria-hidden />
           </div>
         </div>
 
-        <div className="mx-auto w-full max-w-6xl">
+        <LandingFrame>
           <div className="px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
             <div className="mx-auto min-w-0 max-w-4xl pr-2 xl:ml-0 xl:max-w-3xl">
               <div className="relative">
@@ -470,7 +470,7 @@ export default function ChangelogPage() {
               </div>
             </div>
           </div>
-        </div>
+        </LandingFrame>
       </section>
 
       {lightbox && (

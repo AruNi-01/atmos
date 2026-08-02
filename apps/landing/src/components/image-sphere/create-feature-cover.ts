@@ -1,10 +1,13 @@
 import { createElement, type ComponentType, type SVGProps } from 'react'
 import { createRoot } from 'react-dom/client'
 
-export type CoverIcon = ComponentType<SVGProps<SVGSVGElement> & { size?: number | string; absoluteStrokeWidth?: boolean }>
+export type CoverIcon = ComponentType<
+  SVGProps<SVGSVGElement> & { size?: number | string; absoluteStrokeWidth?: boolean }
+>
 
-const COVER_W = 720
-const COVER_H = 450
+const COVER_W = 960
+const COVER_H = 540
+const FALLBACK_POSTER = '/videos/atmos-intro-editorial-poster.jpg'
 
 function roundRect(
   ctx: CanvasRenderingContext2D,
@@ -48,14 +51,12 @@ async function renderLucideSvg(Icon: CoverIcon, size = 72): Promise<SVGSVGElemen
     throw new Error('Failed to render lucide icon')
   }
 
-  // Detach a clone before unmount so we keep the DOM nodes.
   const clone = svg.cloneNode(true) as SVGSVGElement
   root.unmount()
   host.remove()
   return clone
 }
 
-/** Stroke lucide glyph paths directly onto a canvas (no image decode). */
 function drawLucideSvg(
   ctx: CanvasRenderingContext2D,
   svg: SVGSVGElement,
@@ -74,8 +75,6 @@ function drawLucideSvg(
   ctx.scale(scale, scale)
   ctx.strokeStyle = color
   ctx.fillStyle = color
-  // Thicker than lucide default so the glyph stays readable when the
-  // plane is scaled down in the 3D sphere.
   ctx.lineWidth = 2.35
   ctx.lineCap = 'round'
   ctx.lineJoin = 'round'
@@ -84,7 +83,7 @@ function drawLucideSvg(
     const el = node as SVGElement
     const tag = el.tagName.toLowerCase()
     const fillAttr = el.getAttribute('fill')
-    const shouldFill = fillAttr && fillAttr !== 'none' && fillAttr !== 'transparent'
+    const shouldFill = Boolean(fillAttr && fillAttr !== 'none' && fillAttr !== 'transparent')
 
     if (tag === 'path') {
       const d = el.getAttribute('d')
@@ -145,19 +144,106 @@ function drawLucideSvg(
   ctx.restore()
 }
 
+function loadImage(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image()
+    img.crossOrigin = 'anonymous'
+    img.onload = () => resolve(img)
+    img.onerror = () => reject(new Error(`Failed to load image: ${src}`))
+    img.src = src
+  })
+}
+
+/** Capture a still frame from a demo video for use as sphere cover art. */
+async function captureVideoPoster(videoUrl: string): Promise<HTMLCanvasElement | HTMLImageElement> {
+  const video = document.createElement('video')
+  video.crossOrigin = 'anonymous'
+  video.muted = true
+  video.playsInline = true
+  video.preload = 'auto'
+  video.src = videoUrl
+
+  await new Promise<void>((resolve, reject) => {
+    const onReady = () => {
+      cleanup()
+      resolve()
+    }
+    const onError = () => {
+      cleanup()
+      reject(new Error(`Failed to load video: ${videoUrl}`))
+    }
+    const cleanup = () => {
+      video.removeEventListener('loadeddata', onReady)
+      video.removeEventListener('error', onError)
+    }
+    video.addEventListener('loadeddata', onReady)
+    video.addEventListener('error', onError)
+    video.load()
+  })
+
+  const targetTime = Number.isFinite(video.duration) && video.duration > 0
+    ? Math.min(1.2, Math.max(0.15, video.duration * 0.08))
+    : 0.4
+
+  if (video.readyState >= 2) {
+    try {
+      video.currentTime = targetTime
+      await new Promise<void>((resolve) => {
+        const onSeeked = () => {
+          video.removeEventListener('seeked', onSeeked)
+          resolve()
+        }
+        video.addEventListener('seeked', onSeeked)
+        // Fallback if seeked never fires (already at target)
+        window.setTimeout(() => {
+          video.removeEventListener('seeked', onSeeked)
+          resolve()
+        }, 600)
+      })
+    } catch {
+      // keep current frame
+    }
+  }
+
+  const vw = video.videoWidth || COVER_W
+  const vh = video.videoHeight || COVER_H
+  const frame = document.createElement('canvas')
+  frame.width = vw
+  frame.height = vh
+  const fctx = frame.getContext('2d')
+  if (!fctx) throw new Error('2D context unavailable for video frame')
+  fctx.drawImage(video, 0, 0, vw, vh)
+
+  // Release media resources
+  video.pause()
+  video.removeAttribute('src')
+  video.load()
+
+  return frame
+}
+
+function drawCoverContain(
+  ctx: CanvasRenderingContext2D,
+  source: CanvasImageSource,
+  sw: number,
+  sh: number
+) {
+  // Cover-fit into COVER_W x COVER_H
+  const scale = Math.max(COVER_W / sw, COVER_H / sh)
+  const dw = sw * scale
+  const dh = sh * scale
+  const dx = (COVER_W - dw) / 2
+  const dy = (COVER_H - dh) / 2
+  ctx.drawImage(source, dx, dy, dw, dh)
+}
+
 function wrapLines(ctx: CanvasRenderingContext2D, text: string, maxWidth: number, maxLines: number) {
   const words = text.split(/\s+/).filter(Boolean)
+  const tokens = words.length <= 1 && text.length > 14 ? Array.from(text) : words
+  const join = (parts: string[]) =>
+    words.length <= 1 && text.length > 14 ? parts.join('') : parts.join(' ')
+
   const lines: string[] = []
-  let current = ''
-
-  // Prefer wrapping on spaces; for CJK-heavy strings fall back to char chunks.
-  const tokens =
-    words.length <= 1 && text.length > 12
-      ? Array.from(text)
-      : words
-
-  const join = (parts: string[]) => (words.length <= 1 && text.length > 12 ? parts.join('') : parts.join(' '))
-
   let buf: string[] = []
   for (const token of tokens) {
     const next = join([...buf, token])
@@ -169,17 +255,10 @@ function wrapLines(ctx: CanvasRenderingContext2D, text: string, maxWidth: number
       buf.push(token)
     }
   }
-  if (lines.length < maxLines && buf.length) {
-    lines.push(join(buf))
-  }
+  if (lines.length < maxLines && buf.length) lines.push(join(buf))
 
-  if (lines.length > maxLines) {
-    return lines.slice(0, maxLines)
-  }
-
-  // Ellipsis last line if truncated
   if (tokens.length && lines.length === maxLines) {
-    const used = lines.join(words.length <= 1 && text.length > 12 ? '' : ' ')
+    const used = lines.join(words.length <= 1 && text.length > 14 ? '' : ' ')
     if (used.length < text.length) {
       let last = lines[maxLines - 1] ?? ''
       while (last.length > 1 && ctx.measureText(`${last}…`).width > maxWidth) {
@@ -193,11 +272,11 @@ function wrapLines(ctx: CanvasRenderingContext2D, text: string, maxWidth: number
 }
 
 /**
- * Build a data-URL cover card with feature icon + title for the image sphere.
+ * Build a data-URL cover from a video frame, with feature icon + title overlay.
  */
 export async function createFeatureCover(opts: {
   title: string
-  label?: string
+  videoUrl: string
   icon: CoverIcon
   accent?: string
 }): Promise<string> {
@@ -207,45 +286,79 @@ export async function createFeatureCover(opts: {
   const ctx = canvas.getContext('2d')
   if (!ctx) throw new Error('2D canvas context unavailable')
 
-  // Card background
-  const pad = 0
-  roundRect(ctx, pad, pad, COVER_W - pad * 2, COVER_H - pad * 2, 28)
-  const bg = ctx.createLinearGradient(0, 0, COVER_W, COVER_H)
-  bg.addColorStop(0, '#141416')
-  bg.addColorStop(0.55, '#0c0c0e')
-  bg.addColorStop(1, '#18181b')
-  ctx.fillStyle = bg
-  ctx.fill()
+  // 1) Video poster frame (fallback to editorial poster)
+  try {
+    const frame = await captureVideoPoster(opts.videoUrl)
+    const sw =
+      frame instanceof HTMLVideoElement
+        ? frame.videoWidth
+        : frame instanceof HTMLImageElement
+          ? frame.naturalWidth
+          : frame.width
+    const sh =
+      frame instanceof HTMLVideoElement
+        ? frame.videoHeight
+        : frame instanceof HTMLImageElement
+          ? frame.naturalHeight
+          : frame.height
+    drawCoverContain(ctx, frame, sw || COVER_W, sh || COVER_H)
+  } catch {
+    try {
+      const img = await loadImage(FALLBACK_POSTER)
+      drawCoverContain(ctx, img, img.naturalWidth || COVER_W, img.naturalHeight || COVER_H)
+    } catch {
+      ctx.fillStyle = '#0c0c0e'
+      ctx.fillRect(0, 0, COVER_W, COVER_H)
+    }
+  }
 
-  // Soft accent glow
-  const accent = opts.accent ?? '#38bdf8'
-  const glow = ctx.createRadialGradient(COVER_W * 0.28, COVER_H * 0.32, 10, COVER_W * 0.28, COVER_H * 0.32, COVER_W * 0.55)
-  glow.addColorStop(0, hexToRgba(accent, 0.22))
-  glow.addColorStop(1, hexToRgba(accent, 0))
-  ctx.fillStyle = glow
+  // 2) Center scrim so icon + title stay readable on busy video frames
+  const scrim = ctx.createRadialGradient(
+    COVER_W / 2,
+    COVER_H / 2,
+    COVER_H * 0.08,
+    COVER_W / 2,
+    COVER_H / 2,
+    COVER_W * 0.55
+  )
+  scrim.addColorStop(0, 'rgba(0,0,0,0.62)')
+  scrim.addColorStop(0.55, 'rgba(0,0,0,0.38)')
+  scrim.addColorStop(1, 'rgba(0,0,0,0.12)')
+  ctx.fillStyle = scrim
   ctx.fillRect(0, 0, COVER_W, COVER_H)
 
-  // Inner border
-  roundRect(ctx, 1.5, 1.5, COVER_W - 3, COVER_H - 3, 26)
-  ctx.strokeStyle = 'rgba(255,255,255,0.10)'
+  // 3) Soft card border
+  roundRect(ctx, 1.5, 1.5, COVER_W - 3, COVER_H - 3, 22)
+  ctx.strokeStyle = 'rgba(255,255,255,0.12)'
   ctx.lineWidth = 2
   ctx.stroke()
 
-  // Icon chip
-  const chipX = 48
-  const chipY = 52
-  const chipSize = 104
-  roundRect(ctx, chipX, chipY, chipSize, chipSize, 24)
-  ctx.fillStyle = hexToRgba(accent, 0.22)
+  // 4) Centered icon chip + title (stacked, slightly larger)
+  const accent = opts.accent ?? '#38bdf8'
+  const chipSize = 88
+  const iconDraw = 50
+  const titleMaxW = COVER_W * 0.78
+  const lineH = 48
+  const gapIconTitle = 22
+
+  ctx.font = '600 42px ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif'
+  const lines = wrapLines(ctx, opts.title, titleMaxW, 2)
+  const titleBlockH = lines.length * lineH
+  const stackH = chipSize + gapIconTitle + titleBlockH
+  const stackTop = (COVER_H - stackH) / 2
+
+  const chipX = (COVER_W - chipSize) / 2
+  const chipY = stackTop
+  roundRect(ctx, chipX, chipY, chipSize, chipSize, 22)
+  ctx.fillStyle = 'rgba(0,0,0,0.5)'
   ctx.fill()
-  roundRect(ctx, chipX, chipY, chipSize, chipSize, 24)
-  ctx.strokeStyle = hexToRgba(accent, 0.45)
-  ctx.lineWidth = 2
+  roundRect(ctx, chipX, chipY, chipSize, chipSize, 22)
+  ctx.strokeStyle = hexToRgba(accent, 0.6)
+  ctx.lineWidth = 1.75
   ctx.stroke()
 
   try {
     const iconSvg = await renderLucideSvg(opts.icon, 72)
-    const iconDraw = 60
     drawLucideSvg(
       ctx,
       iconSvg,
@@ -255,18 +368,31 @@ export async function createFeatureCover(opts: {
       '#fafafa'
     )
   } catch {
-    // Icon is decorative — continue without it
+    // decorative
   }
 
-  // Play badge
+  // 5) Title centered under icon
+  ctx.fillStyle = '#fafafa'
+  ctx.font = '600 42px ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif'
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'top'
+  let ty = chipY + chipSize + gapIconTitle
+  for (const line of lines) {
+    ctx.fillText(line, COVER_W / 2, ty)
+    ty += lineH
+  }
+  ctx.textAlign = 'start'
+  ctx.textBaseline = 'alphabetic'
+
+  // 6) Small play badge (corner)
   const playR = 22
-  const playX = COVER_W - 64
-  const playY = 72
+  const playX = COVER_W - 56
+  const playY = 48
   ctx.beginPath()
   ctx.arc(playX, playY, playR, 0, Math.PI * 2)
-  ctx.fillStyle = 'rgba(255,255,255,0.10)'
+  ctx.fillStyle = 'rgba(0,0,0,0.45)'
   ctx.fill()
-  ctx.strokeStyle = 'rgba(255,255,255,0.22)'
+  ctx.strokeStyle = 'rgba(255,255,255,0.28)'
   ctx.lineWidth = 1.5
   ctx.stroke()
   ctx.beginPath()
@@ -274,41 +400,10 @@ export async function createFeatureCover(opts: {
   ctx.lineTo(playX - 5, playY + 10)
   ctx.lineTo(playX + 12, playY)
   ctx.closePath()
-  ctx.fillStyle = 'rgba(255,255,255,0.92)'
+  ctx.fillStyle = 'rgba(255,255,255,0.95)'
   ctx.fill()
 
-  // Title
-  ctx.fillStyle = '#fafafa'
-  ctx.font = '600 42px ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif'
-  ctx.textBaseline = 'top'
-  const titleMaxW = COVER_W - 96
-  const titleLines = wrapLines(ctx, opts.title, titleMaxW, 2)
-  let ty = 190
-  for (const line of titleLines) {
-    ctx.fillText(line, 48, ty)
-    ty += 52
-  }
-
-  // Label / caption
-  if (opts.label && opts.label !== opts.title) {
-    ctx.fillStyle = 'rgba(255,255,255,0.55)'
-    ctx.font = '500 22px ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif'
-    const label = opts.label.length > 42 ? `${opts.label.slice(0, 41)}…` : opts.label
-    ctx.fillText(label, 48, Math.min(ty + 12, COVER_H - 56))
-  } else {
-    ctx.fillStyle = 'rgba(255,255,255,0.42)'
-    ctx.font = '500 20px ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif'
-    ctx.fillText('Click to play', 48, COVER_H - 56)
-  }
-
-  // Bottom accent line
-  const lineGrad = ctx.createLinearGradient(48, 0, COVER_W - 48, 0)
-  lineGrad.addColorStop(0, hexToRgba(accent, 0.55))
-  lineGrad.addColorStop(1, hexToRgba(accent, 0))
-  ctx.fillStyle = lineGrad
-  ctx.fillRect(48, COVER_H - 28, COVER_W - 96, 3)
-
-  return canvas.toDataURL('image/png')
+  return canvas.toDataURL('image/jpeg', 0.88)
 }
 
 function hexToRgba(hex: string, alpha: number) {

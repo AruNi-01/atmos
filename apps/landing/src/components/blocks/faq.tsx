@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils'
 import Image from 'next/image'
 import AtmosPreview from '@/assets/img/atmos_preview.png'
 import { Badge } from '@workspace/ui/components/ui/badge'
+import { LandingFrame } from '@/components/layout/landing-frame'
 
 
 export type FAQs = {
@@ -29,7 +30,8 @@ const FAQ = () => {
 
   return (
     <section id='faq'>
-      <div className='mx-auto flex w-full min-w-0 max-w-6xl flex-col gap-8 bg-background px-4 py-10 min-[1147px]:border-x sm:gap-12 sm:px-6 sm:py-16 lg:gap-16 lg:px-8 lg:py-24'>
+      <LandingFrame contentClassName='bg-background'>
+      <div className='flex w-full min-w-0 flex-col gap-8 px-4 py-10 sm:gap-12 sm:px-6 sm:py-16 lg:gap-16 lg:px-8 lg:py-24'>
         {/* FAQ Header */}
         <MotionPreset
           fade
@@ -93,6 +95,7 @@ const FAQ = () => {
           </div>
         </div>
       </div>
+      </LandingFrame>
     </section>
   )
 }
