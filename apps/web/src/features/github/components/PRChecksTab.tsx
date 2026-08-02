@@ -825,81 +825,85 @@ export function PRChecksTab({
 
         {/* Mergeability + merge controls */}
         {prState === "OPEN" && (
-          <div
-            className={cn(
-              "flex flex-col gap-3 rounded-xl border p-4 shadow-sm",
-              isMergeable
-                ? "border-emerald-500/20 bg-emerald-500/5"
-                : hasConflicts
-                  ? "border-border/60 bg-muted/20"
-                  : "border-border/60 bg-muted/30",
-            )}
-          >
-            <div className="flex items-start gap-3">
-              <div
-                className={cn(
-                  "mt-0.5 rounded-full p-1.5",
-                  isMergeable
-                    ? "bg-emerald-500 text-white"
-                    : "bg-muted-foreground/20 text-muted-foreground",
-                )}
-              >
-                {isMergeable ? (
-                  <CheckCircle2 className="size-4" />
-                ) : (
-                  <AlertCircle className="size-4" />
-                )}
-              </div>
-              <div className="min-w-0 flex-1">
-                <h5 className="text-sm font-semibold">
-                  {hasConflicts
-                    ? t("conflicts.title")
-                    : isMergeable
-                      ? tStatus("mergeableTitle")
-                      : isCheckingMerge
-                        ? tStatus("checkingTitle")
-                        : tStatus("checkingTitle")}
-                </h5>
-                <p className="mt-0.5 text-[11px] text-muted-foreground">
-                  {hasConflicts
-                    ? t("conflicts.description")
-                    : isMergeable
-                      ? tStatus("mergeableDescription")
-                      : tStatus("checkingDescription")}
-                </p>
-                {!isDraft && onConvertToDraft ? (
-                  <p className="mt-1.5 text-[11px] text-muted-foreground">
-                    {tStatus("stillInProgress")}{" "}
-                    <button
-                      type="button"
-                      onClick={onConvertToDraft}
-                      disabled={!!actionLoading}
-                      className="underline decoration-dotted underline-offset-4 hover:text-foreground"
-                    >
-                      {tStatus("convertToDraft")}
-                    </button>
+          <div className="flex flex-col gap-2">
+            <div
+              className={cn(
+                "flex flex-col gap-3 rounded-xl border p-4 shadow-sm",
+                isMergeable
+                  ? "border-emerald-500/20 bg-emerald-500/5"
+                  : hasConflicts
+                    ? "border-border/60 bg-muted/20"
+                    : "border-border/60 bg-muted/30",
+              )}
+            >
+              <div className="flex items-start gap-3">
+                <div
+                  className={cn(
+                    "mt-0.5 rounded-full p-1.5",
+                    isMergeable
+                      ? "bg-emerald-500 text-white"
+                      : "bg-muted-foreground/20 text-muted-foreground",
+                  )}
+                >
+                  {isMergeable ? (
+                    <CheckCircle2 className="size-4" />
+                  ) : (
+                    <AlertCircle className="size-4" />
+                  )}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <h5 className="text-sm font-semibold">
+                    {hasConflicts
+                      ? t("conflicts.title")
+                      : isMergeable
+                        ? tStatus("mergeableTitle")
+                        : isCheckingMerge
+                          ? tStatus("checkingTitle")
+                          : tStatus("checkingTitle")}
+                  </h5>
+                  <p className="mt-0.5 text-[11px] text-muted-foreground">
+                    {hasConflicts
+                      ? t("conflicts.description")
+                      : isMergeable
+                        ? tStatus("mergeableDescription")
+                        : tStatus("checkingDescription")}
                   </p>
-                ) : null}
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-3 border-t border-border/40 pt-3">
+                <PRMergeControls
+                  pr={{
+                    state: prState,
+                    isDraft,
+                    mergeable,
+                    commits: Array.from({ length: commitsCount }),
+                  }}
+                  actionLoading={actionLoading}
+                  mergeStrategy={mergeStrategy}
+                  onMergeStrategyChange={onMergeStrategyChange}
+                  onMerge={onMerge}
+                />
+                <span className="text-[11px] text-muted-foreground">
+                  {t("merge.hint")}
+                </span>
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-3 border-t border-border/40 pt-3">
-              <PRMergeControls
-                pr={{
-                  state: prState,
-                  isDraft,
-                  mergeable,
-                  commits: Array.from({ length: commitsCount }),
-                }}
-                actionLoading={actionLoading}
-                mergeStrategy={mergeStrategy}
-                onMergeStrategyChange={onMergeStrategyChange}
-                onMerge={onMerge}
-              />
-              <span className="text-[11px] text-muted-foreground">
-                {t("merge.hint")}
-              </span>
-            </div>
+            {/* Outside the merge/conflict card — bottom-right of this section */}
+            {!isDraft && onConvertToDraft ? (
+              <p className="self-end text-right text-[11px] text-muted-foreground">
+                {tStatus("stillInProgress")}{" "}
+                <button
+                  type="button"
+                  onClick={onConvertToDraft}
+                  disabled={!!actionLoading}
+                  className="underline decoration-dotted underline-offset-4 hover:text-foreground"
+                >
+                  {tStatus("convertToDraft")}
+                </button>
+              </p>
+            ) : null}
           </div>
         )}
       </div>
