@@ -4,12 +4,56 @@
 
 /* Import UI package global styles */
 @import "@workspace/ui/globals.css";
+@import "@xyflow/react/dist/style.css";
 
 /* Tell Tailwind to scan our UI package components */
 @source "../../../../packages/ui/src";
 
 /* Streamdown - streaming markdown */
 @source "../../../node_modules/streamdown/dist/*.js";
+
+.actions-workflow-flow .react-flow__pane {
+  cursor: grab;
+  touch-action: none;
+}
+
+.actions-workflow-flow .react-flow__pane.dragging {
+  cursor: grabbing;
+}
+
+.actions-workflow-flow .actions-workflow-controls {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  margin: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--background);
+  box-shadow: var(--shadow-sm);
+}
+
+.actions-workflow-flow .actions-workflow-controls > button {
+  display: flex;
+  width: 28px;
+  height: 28px;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  background: var(--background);
+  color: var(--foreground);
+}
+
+.actions-workflow-flow .actions-workflow-controls > button:hover {
+  background: var(--muted);
+}
+
+.actions-workflow-flow .actions-workflow-controls > button:last-child {
+  border-bottom: 0;
+}
 
 /* Hack Nerd Font Mono - Terminal font with Powerline/icon support */
 @font-face {

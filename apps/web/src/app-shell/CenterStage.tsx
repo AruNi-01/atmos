@@ -201,6 +201,9 @@ const CenterStage: React.FC = () => {
   const openGithubActionRun = useGithubCenterTabsStore(
     (state) => state.openActionRun,
   );
+  const openGithubCommit = useGithubCenterTabsStore(
+    (state) => state.openCommit,
+  );
   const closeGithubTab = useGithubCenterTabsStore((state) => state.closeTab);
   const browserTabs = useBrowserCenterTabsStore((state) =>
     effectiveContextId
@@ -490,20 +493,33 @@ const CenterStage: React.FC = () => {
       if (!currentBranch) return;
       openGithubPullRequest(effectiveContextId, {
         branch: currentBranch,
-        label: githubTabsT("pullRequest", { number: target.itemId }),
+        label: githubTabsT("pullRequest", { number: Number(target.itemId) }),
         owner: githubOwner,
-        prNumber: target.itemId,
+        prNumber: Number(target.itemId),
         repo: githubRepo,
       });
       return;
     }
 
-    openGithubActionRun(effectiveContextId, {
-      label: githubTabsT("actionRun", { number: target.itemId }),
+    if (target.kind === "github-action") {
+      openGithubActionRun(effectiveContextId, {
+        label: githubTabsT("actionRun", { number: Number(target.itemId) }),
+        owner: githubOwner,
+        repo: githubRepo,
+        run: null,
+        runId: Number(target.itemId),
+      });
+      return;
+    }
+
+    // github-commit: auto-open from URL
+    openGithubCommit(effectiveContextId, {
+      label: target.itemId.substring(0, 7),
       owner: githubOwner,
       repo: githubRepo,
-      run: null,
-      runId: target.itemId,
+      sha: target.itemId,
+      subject: target.itemId.substring(0, 7),
+      authorName: "",
     });
   }, [
     currentBranch,
@@ -513,6 +529,7 @@ const CenterStage: React.FC = () => {
     githubTabs,
     githubTabsT,
     openGithubActionRun,
+    openGithubCommit,
     openGithubPullRequest,
     tabFromUrl,
   ]);

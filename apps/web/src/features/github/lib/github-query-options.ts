@@ -9,6 +9,10 @@ import type { ComputerQueryScope } from "@/api/query/query-scope";
 import { wsGithubApi, type GithubPrPayload } from "@/api/ws/github-api";
 import { wsRequest } from "@/api/ws/request";
 import type { BranchPr } from "@/features/github/lib/github-pr-cache";
+import type {
+  GithubActionsDetailPayload,
+  GithubActionsRunPayload,
+} from "@atmos/api-types/ws/dto/github";
 
 type ConnectionState = "connecting" | "connected" | "disconnected" | "reconnecting";
 
@@ -248,13 +252,12 @@ export function githubActionsListQueryOptions(
     scope,
     connectionState,
     queryKey: queryKeys.computer.githubActionsList(scope, { owner, repo, branch }),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    queryFn: async (): Promise<any[]> => {
+    queryFn: async (): Promise<GithubActionsRunPayload[]> => {
       const result = await wsRequest("github_actions_list", { owner, repo, branch });
       return Array.isArray(result) ? result : [];
     },
-    // List is small; keep Query cache warm while session snapshot owns hop paint.
-    staleTime: 60_000,
+    // Completed runs rarely change. In-progress runs still poll every 30 seconds.
+    staleTime: 5 * 60_000,
     gcTime: 30 * 60_000,
     enabled: (options?.enabled ?? true) && Boolean(owner && repo && branch),
   });
@@ -271,10 +274,11 @@ export function githubActionsDetailQueryOptions(
     scope,
     connectionState,
     queryKey: queryKeys.computer.githubActionsDetail(scope, { owner, repo, runId }),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    queryFn: (): Promise<any> =>
+    queryFn: (): Promise<GithubActionsDetailPayload> =>
       wsRequest("github_actions_detail", { owner, repo, run_id: runId }),
-    staleTime: 30_000, // 30s
+    // A completed run's jobs, annotations, artifacts, and workflow source are immutable.
+    staleTime: 5 * 60_000,
+    gcTime: 30 * 60_000,
     enabled: (options?.enabled ?? true) && Boolean(owner && repo && runId),
   });
 }
@@ -293,7 +297,45 @@ export function githubCiStatusQueryOptions(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     queryFn: (): Promise<any> =>
       wsRequest("github_ci_status", { owner, repo, branch }),
-    staleTime: 30_000, // 30s
+    // Pending runs still poll every 30 seconds through useGithubCIStatus.
+    staleTime: 5 * 60_000,
+    gcTime: 30 * 60_000,
     enabled: (options?.enabled ?? true) && Boolean(owner && repo && branch),
+  });
+}
+
+export function githubCommitDetailQueryOptions(
+  scope: ComputerQueryScope,
+  connectionState: ConnectionState,
+  params: { owner: string; repo: string; sha: string },
+  options?: { enabled?: boolean },
+) {
+  const { owner, repo, sha } = params;
+  return wsQueryOptions({
+    scope,
+    connectionState,
+    queryKey: queryKeys.computer.githubCommitDetail(scope, { owner, repo, sha }),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    queryFn: async (): Promise<any> => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const result: any = await wsRequest("github_commit_detail", { owner, repo, sha });
+      if (!result || typeof result !== "object") return null;
+      // Classify files like PR files
+      const files = Array.isArray(result.files) ? result.files : [];
+      const { classifyPrFileWithoutPatch } = await import(
+        "@/features/diff/lib/diff-content-kind"
+      );
+      const classifiedFiles = (files as PrFile[]).map((file) => {
+        if (file.patch) {
+          return { ...file, kind: "text" as const, preview_kind: "none" as const };
+        }
+        const classified = classifyPrFileWithoutPatch(file.filename);
+        return { ...file, ...classified };
+      });
+      return { ...result, files: classifiedFiles };
+    },
+    staleTime: 5 * 60_000,
+    gcTime: 30 * 60_000,
+    enabled: (options?.enabled ?? true) && Boolean(owner && repo && sha),
   });
 }

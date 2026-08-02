@@ -352,6 +352,20 @@ export const queryKeys = {
         params.branch,
       ] as const,
 
+    /** GitHub: Commit detail (metadata + changed files) */
+    githubCommitDetail: (
+      scope: ComputerQueryScope,
+      params: { owner: string; repo: string; sha: string },
+    ) =>
+      [
+        ...queryKeys.computer.root(scope),
+        "github",
+        "commitDetail",
+        params.owner,
+        params.repo,
+        params.sha,
+      ] as const,
+
     /** Review: session list for a given target */
     reviewSessions: (
       scope: ComputerQueryScope,

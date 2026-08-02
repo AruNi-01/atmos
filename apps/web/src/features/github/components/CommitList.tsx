@@ -7,6 +7,7 @@ import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@works
 import { formatDistanceToNow, format } from 'date-fns';
 import { enUS, zhCN } from 'date-fns/locale';
 import { motion, AnimatePresence } from 'motion/react';
+import { cn } from '@/shared/lib/utils';
 
 export interface CommitListItem {
   hash: string;
@@ -67,7 +68,7 @@ function HashCopyButton({ hash, shortHash }: { hash: string; shortHash: string }
   );
 }
 
-function CommitRow({ commit, owner, repo }: { commit: CommitListItem; owner?: string; repo?: string }) {
+function CommitRow({ commit, owner, repo, onCommitClick }: { commit: CommitListItem; owner?: string; repo?: string; onCommitClick?: (commit: CommitListItem) => void }) {
   const locale = useLocale();
   const t = useTranslations('github.commitList');
   const dateLocale = locale.startsWith('zh') ? zhCN : enUS;
@@ -80,7 +81,13 @@ function CommitRow({ commit, owner, repo }: { commit: CommitListItem; owner?: st
   const canOpenGithub = githubUrl && commit.isPushed !== false;
 
   return (
-    <div className="flex items-start gap-2.5 px-3 py-2.5 hover:bg-sidebar-accent/40 transition-colors group">
+    <div
+      className={cn(
+        "flex items-start gap-2.5 px-3 py-2.5 hover:bg-sidebar-accent/40 transition-colors group",
+        onCommitClick && commit.isPushed !== false && "cursor-pointer",
+      )}
+      onClick={() => onCommitClick?.(commit)}
+    >
       <div className="shrink-0 mt-0.5">
         <Tooltip>
           <TooltipTrigger asChild>
@@ -143,9 +150,10 @@ interface CommitListProps {
   loading?: boolean;
   owner?: string;
   repo?: string;
+  onCommitClick?: (commit: CommitListItem) => void;
 }
 
-export function CommitList({ commits, loading, owner, repo }: CommitListProps) {
+export function CommitList({ commits, loading, owner, repo, onCommitClick }: CommitListProps) {
   const locale = useLocale();
   const t = useTranslations('github.commitList');
   const dateLocale = locale.startsWith('zh') ? zhCN : enUS;
@@ -194,7 +202,7 @@ export function CommitList({ commits, loading, owner, repo }: CommitListProps) {
             </div>
             <div className="border border-sidebar-border/40 rounded-md mx-2 my-1.5 overflow-hidden divide-y divide-sidebar-border/25">
               {group.commits.map((commit) => (
-                <CommitRow key={commit.hash} commit={commit} owner={owner} repo={repo} />
+                <CommitRow key={commit.hash} commit={commit} owner={owner} repo={repo} onCommitClick={onCommitClick} />
               ))}
             </div>
           </div>

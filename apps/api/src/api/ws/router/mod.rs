@@ -815,6 +815,10 @@ impl WsMessageService {
                 self.handle_github_pr_files(parse_request(request.data)?)
                     .await
             }
+            WsAction::GithubCommitDetail => {
+                self.handle_github_commit_detail(parse_request(request.data)?)
+                    .await
+            }
 
             // Function settings
             WsAction::SettingsBootstrapGet => self.handle_settings_bootstrap_get().await,

@@ -1,23 +1,13 @@
 import React from 'react';
 import { useTranslations } from 'next-intl';
 import { useGithubActionsList } from '@/features/github/hooks/use-github';
-import { ExternalLink, Search, Loader2, Workflow, CheckCircle2, XCircle, FileText, Rocket, Github, AlertCircle } from 'lucide-react';
+import { Loader2, Workflow, CheckCircle2, XCircle, Rocket, Github } from 'lucide-react';
 import { cn } from '@/shared/lib/utils';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger, Button } from '@workspace/ui';
 import { formatActionTimestamp, formatActionTimeAgo } from '@/features/github/lib/action-run-time';
+import type { GithubActionsRunPayload } from '@atmos/api-types/ws/dto/github';
 
-export interface ActionRun {
-  databaseId: number;
-  workflowName: string;
-  displayTitle: string;
-  status: string;
-  conclusion: string;
-  createdAt: string;
-  url: string;
-  event: string;
-  headBranch: string;
-  headSha: string;
-}
+export type ActionRun = GithubActionsRunPayload;
 
 export interface ActionsStats {
   total: number;
@@ -106,14 +96,13 @@ interface ActionsPanelProps {
   repo: string;
   branch: string;
   onRunClick?: (run: ActionRun) => void;
-  refreshKey?: number;
   enabled?: boolean;
 }
 
-export function ActionsPanel({ owner, repo, branch, onRunClick, refreshKey, enabled = true }: ActionsPanelProps) {
+export function ActionsPanel({ owner, repo, branch, onRunClick, enabled = true }: ActionsPanelProps) {
   const t = useTranslations('github.actionsPanel');
   const { data: runs, loading } = useGithubActionsList({ owner, repo, branch, enabled });
-  const { latestRuns, stats } = useProcessedActions(runs);
+  const { latestRuns } = useProcessedActions(runs);
 
   if (loading && !runs) {
     return (
@@ -133,11 +122,6 @@ export function ActionsPanel({ owner, repo, branch, onRunClick, refreshKey, enab
         </div>
       ) : (
         <>
-          <div className="px-3 h-8 flex items-center justify-between shrink-0 border-b border-sidebar-border/50">
-            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider leading-none">{t('header')}</span>
-            <ActionsSummaryHeader stats={stats} />
-          </div>
-
           <div className="flex-1 overflow-y-auto no-scrollbar p-2 space-y-2">
             {latestRuns.map((run) => {
               const isSuccess = run.conclusion === 'success';
@@ -152,11 +136,14 @@ export function ActionsPanel({ owner, repo, branch, onRunClick, refreshKey, enab
                   onClick={() => onRunClick?.(run)}
                   className="flex flex-col p-3 rounded-md border border-sidebar-border bg-transparent hover:bg-sidebar-accent/50 transition-colors cursor-pointer group"
                 >
-                  <div className="flex justify-between items-start mb-1">
-                    <span className="text-[13px] font-medium leading-tight group-hover:text-foreground line-clamp-2">
-                      {run.displayTitle || run.workflowName}
+                  <div className="flex items-start justify-between gap-2">
+                    <span
+                      className="min-w-0 truncate text-[13px] font-medium leading-tight text-foreground/90"
+                      title={run.workflowName}
+                    >
+                      {run.workflowName}
                     </span>
-                    <div className="flex gap-1.5 ml-2 shrink-0">
+                    <div className="ml-2 flex shrink-0 gap-1.5">
                       <TooltipProvider delayDuration={300}>
                         <Tooltip>
                           <TooltipTrigger asChild>
@@ -183,18 +170,22 @@ export function ActionsPanel({ owner, repo, branch, onRunClick, refreshKey, enab
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2 text-[11px] text-muted-foreground mt-2">
-                    <Rocket className="size-3.5 shrink-0" />
-                    <span className="font-medium truncate max-w-[120px] text-foreground/80" title={run.workflowName}>
-                      {run.workflowName}
+                  <p
+                    className="mt-2 line-clamp-2 text-[12px] leading-5 text-muted-foreground"
+                    title={run.displayTitle || run.workflowName}
+                  >
+                    {run.displayTitle || run.workflowName}
+                  </p>
+
+                  <div className="mt-3 flex items-center justify-between gap-3 text-[11px] text-muted-foreground">
+                    <span className="flex min-w-0 items-center gap-1.5 truncate">
+                      <Rocket className="size-3.5 shrink-0" />
+                      <span className="truncate capitalize">{run.event}</span>
                     </span>
-                    <span>•</span>
-                    <span className="capitalize">{run.event}</span>
-                    <span>•</span>
                     <TooltipProvider delayDuration={300}>
                       <Tooltip>
                         <TooltipTrigger asChild>
-                          <span className="cursor-default">
+                          <span className="shrink-0 cursor-default tabular-nums">
                             {createdAtTimeAgo ?? t('unknownTime')}
                           </span>
                         </TooltipTrigger>

@@ -22,8 +22,11 @@ import {
 } from "@/features/github/lib/action-run-time";
 import { buildGithubActionsJobFixPrompt } from "@/features/github/lib/agent-fix-prompts";
 import { cn } from "@/shared/lib/utils";
+import type {
+  GithubActionsJobPayload as ActionJob,
+  GithubActionsStepPayload as ActionStep,
+} from "@atmos/api-types/ws/dto/github";
 import type { ActionRun } from "./ActionsPanel";
-import type { ActionJob, ActionStep } from "./actions-detail-types";
 
 export function ActionsJobsList({
   agentFixContext,
@@ -48,8 +51,8 @@ export function ActionsJobsList({
   const [expandedJobIds, setExpandedJobIds] = React.useState<Set<string>>(
     () => new Set(),
   );
-  const [selectedStepKey, setSelectedStepKey] = React.useState<string | null>(
-    null,
+  const [expandedStepKeys, setExpandedStepKeys] = React.useState<Set<string>>(
+    () => new Set(),
   );
   const [openAgentFixSettingsSourceId, setOpenAgentFixSettingsSourceId] =
     React.useState<string | null>(null);
@@ -66,10 +69,22 @@ export function ActionsJobsList({
     });
   }, []);
 
+  const toggleStep = React.useCallback((stepKey: string) => {
+    setExpandedStepKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(stepKey)) {
+        next.delete(stepKey);
+      } else {
+        next.add(stepKey);
+      }
+      return next;
+    });
+  }, []);
+
   React.useEffect(() => {
     if (!isOpen || !runId || jobs.length === 0) {
       setExpandedJobIds(new Set());
-      setSelectedStepKey(null);
+      setExpandedStepKeys(new Set());
       return;
     }
 
@@ -81,7 +96,7 @@ export function ActionsJobsList({
           .map(({ job, index }) => getActionJobKey(job, index)),
       ),
     );
-    setSelectedStepKey(null);
+    setExpandedStepKeys(new Set());
   }, [isOpen, jobs, runId]);
 
   React.useEffect(() => {
@@ -143,11 +158,14 @@ export function ActionsJobsList({
                 jobKey={jobKey}
                 owner={owner}
                 repo={repo}
+                run={run}
                 runId={run.databaseId}
-                selectedStepKey={selectedStepKey}
+                agentFixContext={agentFixContext}
+                expandedStepKeys={expandedStepKeys}
                 steps={steps}
                 onAgentFixSettingsSourceChange={setOpenAgentFixSettingsSourceId}
-                onSelectedStepKeyChange={setSelectedStepKey}
+                openAgentFixSettingsSourceId={openAgentFixSettingsSourceId}
+                onToggleStep={toggleStep}
                 isExpanded={expandedJobIds.has(jobKey)}
                 onToggleJob={toggleJob}
               />
@@ -216,32 +234,38 @@ function ActionsJobsSkeleton() {
 function ActionJobRow({
   agentFixSettingsOpen,
   agentFixSource,
+  agentFixContext,
   isExpanded,
   job,
   jobKey,
   onAgentFixSettingsSourceChange,
-  onSelectedStepKeyChange,
+  openAgentFixSettingsSourceId,
+  onToggleStep,
   onToggleJob,
   owner,
   repo,
+  run,
   runId,
-  selectedStepKey,
+  expandedStepKeys,
   steps,
 }: {
   agentFixSettingsOpen: boolean;
   agentFixSource: AgentFixPromptSource | null;
+  agentFixContext: AgentFixContextRef | null;
   isExpanded: boolean;
   job: ActionJob;
   jobKey: string;
   onAgentFixSettingsSourceChange: React.Dispatch<
     React.SetStateAction<string | null>
   >;
-  onSelectedStepKeyChange: React.Dispatch<React.SetStateAction<string | null>>;
+  openAgentFixSettingsSourceId: string | null;
+  onToggleStep: (stepKey: string) => void;
   onToggleJob: (jobKey: string) => void;
   owner: string;
   repo: string;
+  run: ActionRun;
   runId: number;
-  selectedStepKey: string | null;
+  expandedStepKeys: Set<string>;
   steps: ActionStep[];
 }) {
   const t = useTranslations("github.actionsJobsList");
@@ -322,10 +346,14 @@ function ActionJobRow({
           jobKey={jobKey}
           owner={owner}
           repo={repo}
+          run={run}
           runId={runId}
-          selectedStepKey={selectedStepKey}
+          agentFixContext={agentFixContext}
+          expandedStepKeys={expandedStepKeys}
           steps={steps}
-          onSelectedStepKeyChange={onSelectedStepKeyChange}
+          openAgentFixSettingsSourceId={openAgentFixSettingsSourceId}
+          onAgentFixSettingsSourceChange={onAgentFixSettingsSourceChange}
+          onToggleStep={onToggleStep}
         />
       )}
     </div>
@@ -402,27 +430,66 @@ function ActionJobTrailingMeta({
 }
 
 function ActionStepsList({
+  agentFixContext,
   isExpanded,
   job,
   jobKey,
-  onSelectedStepKeyChange,
+  onAgentFixSettingsSourceChange,
+  onToggleStep,
+  openAgentFixSettingsSourceId,
   owner,
   repo,
+  run,
   runId,
-  selectedStepKey,
+  expandedStepKeys,
   steps,
 }: {
+  agentFixContext: AgentFixContextRef | null;
   isExpanded: boolean;
   job: ActionJob;
   jobKey: string;
-  onSelectedStepKeyChange: React.Dispatch<React.SetStateAction<string | null>>;
+  onAgentFixSettingsSourceChange: React.Dispatch<
+    React.SetStateAction<string | null>
+  >;
+  onToggleStep: (stepKey: string) => void;
+  openAgentFixSettingsSourceId: string | null;
   owner: string;
   repo: string;
+  run: ActionRun;
   runId: number;
-  selectedStepKey: string | null;
+  expandedStepKeys: Set<string>;
   steps: ActionStep[];
 }) {
   const t = useTranslations("github.actionsJobsList");
+  const buildStepAgentFixSource = React.useCallback(
+    (step: ActionStep, stepIndex: number): AgentFixPromptSource => {
+      const jobName = job.name || run.workflowName || t("agentFix.fallbackJobName");
+      const stepName = step.name || t("stepFallback", { index: stepIndex + 1 });
+      const stepId = step.number ?? step.name ?? stepIndex + 1;
+
+      return {
+        id: `ci-step:${owner}/${repo}:${run.databaseId}:${job.databaseId ?? job.id ?? jobName}:${stepId}`,
+        family: "ci_job",
+        context: agentFixContext,
+        label: t("agentFix.label", { jobName: stepName }),
+        disabledReason: agentFixContext
+          ? null
+          : t("agentFix.disabledReason"),
+        getPrompt: () => ({
+          prompt: buildGithubActionsJobFixPrompt({
+            owner,
+            repo,
+            run,
+            job: { ...job, steps: [step] },
+          }),
+          terminalTabTitle: t("agentFix.terminalTabTitle", { jobName: stepName }),
+          terminalPaneLabel: t("agentFix.terminalPaneLabel", { jobName }),
+        }),
+      };
+    },
+    [agentFixContext, job, owner, repo, run, t],
+  );
+
   return (
     <div
       className={cn(
@@ -437,7 +504,7 @@ function ActionStepsList({
           <div className="ml-6 flex flex-col gap-1.5">
             {steps.map((step, stepIndex) => {
               const stepKey = getActionStepKey(jobKey, step, stepIndex);
-              const isSelected = selectedStepKey === stepKey;
+              const isSelected = expandedStepKeys.has(stepKey);
               const stepStatus = formatGithubActionState(
                 step.conclusion || step.status || "unknown",
                 t,
@@ -450,23 +517,29 @@ function ActionStepsList({
                 stepStartedAt,
                 stepCompletedAt,
               );
+              const stepFailure =
+                step.conclusion === "failure" || step.status === "failure";
+              const agentFixSource = stepFailure
+                ? buildStepAgentFixSource(step, stepIndex)
+                : null;
+              const agentFixSettingsOpen =
+                !!agentFixSource &&
+                openAgentFixSettingsSourceId === agentFixSource.id;
 
               return (
                 <div
                   key={stepKey}
                   role="button"
                   tabIndex={isExpanded ? 0 : -1}
-                  onClick={() =>
-                    onSelectedStepKeyChange(isSelected ? null : stepKey)
-                  }
+                  onClick={() => onToggleStep(stepKey)}
                   onKeyDown={(event) => {
                     if (event.key === "Enter" || event.key === " ") {
                       event.preventDefault();
-                      onSelectedStepKeyChange(isSelected ? null : stepKey);
+                      onToggleStep(stepKey);
                     }
                   }}
                   className={cn(
-                    "group/step flex cursor-pointer items-start gap-2 rounded-md border px-2 py-2 text-xs transition-colors duration-180 ease-[cubic-bezier(0.22,1,0.36,1)] outline-none",
+                    "group/step flex flex-wrap items-start gap-x-2 rounded-md border px-2 py-2 text-xs transition-colors duration-180 ease-[cubic-bezier(0.22,1,0.36,1)] outline-none",
                     isSelected
                       ? "border-border/70 bg-background shadow-sm"
                       : "border-transparent text-muted-foreground/85 hover:bg-background/70 focus-visible:border-ring/40",
@@ -490,40 +563,74 @@ function ActionStepsList({
                       >
                         {step.name || t("stepFallback", { index: stepIndex + 1 })}
                       </span>
-                      <div className="flex shrink-0 items-center gap-2">
+                      <div className="relative flex shrink-0 items-center justify-end">
                         {stepDuration && (
-                          <span className="hidden font-mono text-[10px] text-muted-foreground/70 sm:inline">
+                          <span className="hidden font-mono text-[10px] text-muted-foreground/70 transition-opacity duration-180 ease-[cubic-bezier(0.22,1,0.36,1)] sm:inline group-hover/step:opacity-0 group-focus-within/step:opacity-0">
                             {stepDuration}
                           </span>
                         )}
-                        <button
-                          type="button"
-                          aria-label={t("openStepAriaLabel", {
-                            stepName: step.name || t("stepAriaFallback"),
-                          })}
-                          tabIndex={isExpanded ? 0 : -1}
-                          onKeyDown={(event) => {
-                            event.stopPropagation();
-                          }}
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            openActionStepInGitHub(
-                              owner,
-                              repo,
-                              runId,
-                              job,
-                              step,
-                            );
-                          }}
-                          className="flex size-6 items-center justify-center rounded-md text-muted-foreground/60 opacity-0 transition-all duration-180 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-muted hover:text-foreground group-hover/step:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+                        <span
+                          className={cn(
+                            "invisible pointer-events-none absolute right-0 flex items-center gap-1 opacity-0 transition-opacity duration-180 ease-[cubic-bezier(0.22,1,0.36,1)]",
+                            "group-hover/step:visible group-hover/step:pointer-events-auto group-hover/step:opacity-100",
+                            "group-focus-within/step:visible group-focus-within/step:pointer-events-auto group-focus-within/step:opacity-100",
+                            agentFixSettingsOpen &&
+                              "!visible !pointer-events-auto !opacity-100",
+                          )}
+                          onClick={(event) => event.stopPropagation()}
+                          onKeyDown={(event) => event.stopPropagation()}
                         >
-                          <ExternalLink className="size-3" />
-                        </button>
+                          {agentFixSource && isExpanded && (
+                            <AgentFixButton
+                              source={agentFixSource}
+                              mode="label"
+                              appearance="subtle"
+                              onSettingsOpenChange={(open) => {
+                                onAgentFixSettingsSourceChange((current) => {
+                                  if (open) return agentFixSource.id;
+                                  return current === agentFixSource.id ? null : current;
+                                });
+                              }}
+                            />
+                          )}
+                          <button
+                            type="button"
+                            aria-label={t("openStepAriaLabel", {
+                              stepName: step.name || t("stepAriaFallback"),
+                            })}
+                            tabIndex={isExpanded ? 0 : -1}
+                            onKeyDown={(event) => {
+                              event.stopPropagation();
+                            }}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              openActionStepInGitHub(
+                                owner,
+                                repo,
+                                runId,
+                                job,
+                                step,
+                              );
+                            }}
+                            className="flex size-6 items-center justify-center rounded-md text-muted-foreground/60 transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+                          >
+                            <ExternalLink className="size-3" />
+                          </button>
+                        </span>
                       </div>
                     </div>
 
-                    {isSelected && (
-                      <div className="mt-2 grid grid-cols-1 gap-1.5 rounded-md border border-border/40 bg-muted/20 p-2 sm:grid-cols-2">
+                  </div>
+                  <div
+                    className={cn(
+                      "grid basis-full overflow-hidden transition-[grid-template-rows,opacity] duration-240 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
+                      isSelected
+                        ? "mt-2 grid-rows-[1fr] opacity-100"
+                        : "mt-0 grid-rows-[0fr] opacity-0",
+                    )}
+                  >
+                    <div className="min-h-0 overflow-hidden">
+                      <div className="grid grid-cols-1 gap-1.5 rounded-md border border-border/40 bg-muted/20 p-2 sm:grid-cols-2">
                         <StepMeta label={t("meta.status")} value={stepStatus} />
                         <StepMeta label={t("meta.duration")} value={stepDuration ?? "-"} />
                         <StepMeta
@@ -535,7 +642,7 @@ function ActionStepsList({
                           value={stepCompletedLabel ?? "-"}
                         />
                       </div>
-                    )}
+                    </div>
                   </div>
                 </div>
               );
@@ -642,10 +749,10 @@ function StepStatusIcon({
 function StepMeta({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex min-w-0 items-center justify-between gap-3">
-      <span className="shrink-0 text-[10px] font-semibold uppercase text-muted-foreground/70">
+      <span className="shrink-0 text-[10px] font-semibold text-muted-foreground/70">
         {label}
       </span>
-      <span className="min-w-0 truncate text-right font-mono text-[10px] text-foreground/80 capitalize">
+      <span className="min-w-0 truncate text-right font-mono text-[10px] text-foreground/80">
         {value}
       </span>
     </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useCallback } from 'react';
 import { useTranslations } from 'next-intl';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@workspace/ui';
@@ -8,6 +8,7 @@ import { cn } from '@/shared/lib/utils';
 import type { GitCommit } from '@/features/github/hooks/use-github';
 import { fromUnixTime } from 'date-fns';
 import { CommitList, type CommitListItem } from './CommitList';
+import { useOpenGithubCenterTab } from '@/features/github/hooks/use-open-github-center-tab';
 
 interface CommitsPanelProps {
   commits: GitCommit[];
@@ -45,13 +46,25 @@ export function CommitsPanel({
   repo,
 }: CommitsPanelProps) {
   const t = useTranslations('github.commitsPanel');
+  const { openCommitTab } = useOpenGithubCenterTab();
   const items = useMemo(() => commits.map(c => toCommitListItem(c, owner, repo)), [commits, owner, repo]);
+
+  const handleCommitClick = useCallback((commit: CommitListItem) => {
+    if (!owner || !repo || commit.isPushed === false) return;
+    openCommitTab({
+      owner,
+      repo,
+      sha: commit.hash,
+      subject: commit.subject,
+      authorName: commit.authorName,
+    });
+  }, [openCommitTab, owner, repo]);
 
   return (
     <TooltipProvider delayDuration={300}>
       <div className="flex flex-col h-full w-full">
         <div className="flex-1 overflow-y-auto no-scrollbar">
-          <CommitList commits={items} loading={loading} owner={owner} repo={repo} />
+          <CommitList commits={items} loading={loading} owner={owner} repo={repo} onCommitClick={handleCommitClick} />
 
           {(page > 0 || hasMore) && (
             <div className="flex items-center justify-between px-4 py-4 border-t border-sidebar-border/10">

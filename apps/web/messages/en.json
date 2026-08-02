@@ -5888,6 +5888,36 @@
         "unknownBranch": "Unknown branch",
         "atCommit": "At commit"
       },
+      "tabs": {
+        "summary": "Summary",
+        "workflow": "Workflow file"
+      },
+      "sections": {
+        "workflow": "Workflow",
+        "workflowFile": "Workflow file",
+        "jobSummary": "Job summary",
+        "annotations": "Annotations ({count})",
+        "artifacts": "Artifacts ({count})"
+      },
+      "jobSummary": {
+        "unnamed": "Unnamed job",
+        "empty": "No jobs available"
+      },
+      "annotations": {
+        "agentFixLabel": "Fix annotations",
+        "agentFixDisabled": "Open this repository in a workspace to use Agent Fix.",
+        "agentFixTerminalTab": "Agent Fix - Annotations",
+        "agentFixTerminalPane": "Annotations"
+      },
+      "artifacts": {
+        "unnamed": "Unnamed artifact",
+        "expired": "Expired",
+        "expires": "Expires {time}",
+        "download": "Download artifact"
+      },
+      "workflowFile": {
+        "unavailable": "Workflow file is unavailable"
+      },
       "statusCard": {
         "unknownStartTime": "Unknown start time",
         "currently": "Currently {status}"
@@ -5940,7 +5970,7 @@
       "agentFix": {
         "fallbackJobName": "Unnamed job",
         "label": "Fix with Agent: {jobName}",
-        "disabledReason": "Agent Fix is only available for failed jobs.",
+        "disabledReason": "Agent Fix is only available for failed jobs or steps.",
         "terminalTabTitle": "Agent Fix - {jobName}",
         "terminalPaneLabel": "Job: {jobName}"
       },
@@ -5982,6 +6012,10 @@
       "loading": "Loading commits...",
       "empty": "No commits yet.",
       "groupTitle": "{date}"
+    },
+    "commitDetail": {
+      "loading": "Loading commit...",
+      "filesChanged": "{count} files changed"
     },
     "actionsPanel": {
       "summary": {

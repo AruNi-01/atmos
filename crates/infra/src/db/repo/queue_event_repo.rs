@@ -289,12 +289,10 @@ impl<'a> QueueEventRepo<'a> {
             .filter(
                 queue_event::Column::Status.is_in([event_status::SUCCEEDED, event_status::FAILED]),
             )
-            .filter(
-                Expr::cust_with_values(
-                    "(COALESCE(processed_at, updated_at) < ?)",
-                    [cutoff],
-                ),
-            )
+            .filter(Expr::cust_with_values(
+                "(COALESCE(processed_at, updated_at) < ?)",
+                [cutoff],
+            ))
             .exec(self.db)
             .await?;
         Ok(result.rows_affected)

@@ -101,6 +101,13 @@ const ActionsDetailView = dynamic(
     ),
   { ssr: false },
 );
+const CommitDetailView = dynamic(
+  () =>
+    import("@/features/github/components/CommitDetailView").then(
+      (mod) => mod.CommitDetailView,
+    ),
+  { ssr: false },
+);
 const TerminalGrid = dynamic(
   () =>
     import("@/features/terminal/components/TerminalGrid").then(
@@ -525,7 +532,7 @@ function WorkspaceCenterFrameImpl({
                 prNumber={tab.prNumber}
                 repo={tab.repo}
               />
-            ) : (
+            ) : tab.kind === "github-action" ? (
               <ActionsDetailView
                 active={
                   isActiveContext &&
@@ -544,6 +551,27 @@ function WorkspaceCenterFrameImpl({
                 repo={tab.repo}
                 run={tab.run}
                 runId={tab.runId}
+              />
+            ) : (
+              <CommitDetailView
+                active={
+                  isActiveContext &&
+                  isFramePanelVisible({
+                    isActiveFrame: isActiveContext,
+                    frameActiveTab,
+                    panelTabId: tab.value,
+                  })
+                }
+                onRequestClose={
+                  isUrlSyncedActive && handleCloseGithubTab
+                    ? () => handleCloseGithubTab(tab.value)
+                    : () => {}
+                }
+                owner={tab.owner}
+                repo={tab.repo}
+                sha={tab.sha}
+                subject={tab.subject}
+                authorName={tab.authorName}
               />
             )}
           </div>

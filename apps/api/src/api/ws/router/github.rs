@@ -1,15 +1,17 @@
 use serde_json::{json, Value};
 
 use core_service::{Result, ServiceError};
+use futures_util::future;
 
 use super::{
     GithubActionsDetailRequest, GithubActionsListRequest, GithubActionsRerunRequest,
-    GithubCiOpenBrowserRequest, GithubCiStatusRequest, GithubIssueGetRequest,
-    GithubIssueLabelPayload, GithubIssueListRequest, GithubIssuePayload, GithubPrCloseRequest,
-    GithubPrCommentRequest, GithubPrCreateRequest, GithubPrDetailRequest, GithubPrDraftRequest,
-    GithubPrFilesRequest, GithubPrGetRequest, GithubPrListRepoRequest, GithubPrListRequest,
-    GithubPrMergeRequest, GithubPrOpenBrowserRequest, GithubPrPayload, GithubPrReadyRequest,
-    GithubPrReopenRequest, GithubPrTimelinePageRequest, WsEvent, WsMessage, WsMessageService,
+    GithubCiOpenBrowserRequest, GithubCiStatusRequest, GithubCommitDetailRequest,
+    GithubIssueGetRequest, GithubIssueLabelPayload, GithubIssueListRequest, GithubIssuePayload,
+    GithubPrCloseRequest, GithubPrCommentRequest, GithubPrCreateRequest, GithubPrDetailRequest,
+    GithubPrDraftRequest, GithubPrFilesRequest, GithubPrGetRequest, GithubPrListRepoRequest,
+    GithubPrListRequest, GithubPrMergeRequest, GithubPrOpenBrowserRequest, GithubPrPayload,
+    GithubPrReadyRequest, GithubPrReopenRequest, GithubPrTimelinePageRequest, WsEvent, WsMessage,
+    WsMessageService,
 };
 
 impl WsMessageService {
@@ -701,35 +703,176 @@ impl WsMessageService {
         Ok(result)
     }
 
+    pub(super) async fn handle_github_commit_detail(
+        &self,
+        req: GithubCommitDetailRequest,
+    ) -> Result<Value> {
+        let endpoint = format!(
+            "repos/{}/{}/commits/{}?per_page=300",
+            req.owner, req.repo, req.sha
+        );
+        let args = vec!["api", &endpoint];
+        let result =
+            self.github_engine.run_gh(&args).await.map_err(|e| {
+                ServiceError::Validation(format!("Failed to get commit detail: {}", e))
+            })?;
+        Ok(result)
+    }
+
     pub(super) async fn handle_github_actions_detail(
         &self,
         req: GithubActionsDetailRequest,
     ) -> Result<Value> {
         let run_id_str = req.run_id.to_string();
         let repo_arg = format!("{}/{}", req.owner, req.repo);
+
+        // --- Phase 1: Fetch run details, jobs, and artifacts in parallel ---
         let api_endpoint = format!("/repos/{}/actions/runs/{}", repo_arg, run_id_str);
+        let jobs_endpoint = format!(
+            "/repos/{}/{}/actions/runs/{}/jobs?per_page=100",
+            req.owner, req.repo, run_id_str
+        );
+        let artifacts_endpoint = format!(
+            "/repos/{}/{}/actions/runs/{}/artifacts?per_page=100",
+            req.owner, req.repo, run_id_str
+        );
 
         let api_args = vec!["api", &api_endpoint];
-        let api_output = self
-            .github_engine
-            .run_gh(&api_args)
-            .await
-            .unwrap_or_else(|_| json!({}));
+        let jobs_args = vec!["api", &jobs_endpoint];
+        let artifacts_args = vec!["api", &artifacts_endpoint];
 
-        let jobs_args = vec![
-            "run",
-            "view",
-            &run_id_str,
-            "--repo",
-            &repo_arg,
-            "--json",
-            "jobs",
-        ];
-        let jobs_output = self
-            .github_engine
-            .run_gh(&jobs_args)
-            .await
-            .unwrap_or_else(|_| json!({}));
+        let (api_output, jobs_output, artifacts_output) = tokio::join!(
+            self.github_engine.run_gh(&api_args),
+            self.github_engine.run_gh(&jobs_args),
+            self.github_engine.run_gh(&artifacts_args),
+        );
+
+        let api_output = api_output.unwrap_or_else(|_| json!({}));
+        let jobs_output = jobs_output.unwrap_or_else(|_| json!({}));
+        let artifacts_output = artifacts_output.unwrap_or_else(|_| json!({}));
+
+        // --- Phase 2: Fetch per-job summaries + annotations and workflow file in parallel ---
+
+        let job_infos: Vec<(u64, String)> = jobs_output
+            .get("jobs")
+            .and_then(Value::as_array)
+            .map(|jobs| {
+                jobs.iter()
+                    .filter_map(|job| {
+                        let job_id = job
+                            .get("databaseId")
+                            .or_else(|| job.get("database_id"))
+                            .or_else(|| job.get("id"))
+                            .and_then(Value::as_u64)?;
+                        let job_name = job
+                            .get("name")
+                            .and_then(Value::as_str)
+                            .unwrap_or_default()
+                            .to_string();
+                        Some((job_id, job_name))
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
+
+        // Per-job futures: fetch summary + annotations concurrently for each job
+        let job_futures = job_infos.iter().map(|(job_id, job_name)| {
+            let summary_endpoint =
+                format!("/repos/{}/{}/check-runs/{}", req.owner, req.repo, job_id);
+            let annotations_endpoint = format!(
+                "/repos/{}/{}/check-runs/{}/annotations?per_page=100",
+                req.owner, req.repo, job_id
+            );
+            let job_name = job_name.clone();
+            async move {
+                let summary_args = vec!["api", &summary_endpoint];
+                let annotations_args = vec!["api", &annotations_endpoint];
+                let (summary, annotations) = tokio::join!(
+                    self.github_engine.run_gh(&summary_args),
+                    self.github_engine.run_gh(&annotations_args),
+                );
+                (*job_id, job_name, summary, annotations)
+            }
+        });
+
+        // Workflow file fetch (depends on api_output which is already available)
+        let workflow_path = api_output
+            .get("path")
+            .and_then(Value::as_str)
+            .map(String::from);
+        let workflow_ref = api_output
+            .get("head_sha")
+            .and_then(Value::as_str)
+            .map(String::from);
+
+        let workflow_future = async {
+            if let (Some(path), Some(reference)) = (workflow_path.as_ref(), workflow_ref.as_ref()) {
+                let endpoint = format!(
+                    "/repos/{}/{}/contents/{}?ref={}",
+                    req.owner, req.repo, path, reference
+                );
+                let wf_args = vec![
+                    "api",
+                    &endpoint,
+                    "-H",
+                    "Accept: application/vnd.github.raw+json",
+                ];
+                if let Ok(Value::String(content)) = self.github_engine.run_gh(&wf_args).await {
+                    Some(content)
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        };
+
+        // Run all per-job fetches and workflow file fetch in parallel
+        let (job_results, workflow_file_content) =
+            future::join(future::join_all(job_futures), workflow_future).await;
+
+        // --- Phase 3: Build result ---
+
+        // Insert summaries into jobs and collect annotations
+        let mut jobs_value = jobs_output
+            .get("jobs")
+            .cloned()
+            .unwrap_or(Value::Array(vec![]));
+        let mut annotations = Vec::new();
+
+        for (job_id, job_name, summary_result, annotations_result) in job_results {
+            if let Ok(check_run) = &summary_result {
+                if let Some(summary) = check_run
+                    .get("output")
+                    .and_then(|output| output.get("summary"))
+                    .and_then(Value::as_str)
+                    .filter(|summary| !summary.trim().is_empty())
+                {
+                    if let Some(jobs) = jobs_value.as_array_mut() {
+                        if let Some(job) = jobs.iter_mut().find(|j| {
+                            j.get("databaseId")
+                                .or_else(|| j.get("database_id"))
+                                .or_else(|| j.get("id"))
+                                .and_then(Value::as_u64)
+                                == Some(job_id)
+                        }) {
+                            if let Some(job_obj) = job.as_object_mut() {
+                                job_obj.insert("summary".to_string(), json!(summary));
+                            }
+                        }
+                    }
+                }
+            }
+
+            if let Ok(Value::Array(job_annotations)) = annotations_result {
+                annotations.extend(job_annotations.into_iter().filter_map(|annotation| {
+                    let mut annotation = annotation.as_object()?.clone();
+                    annotation.insert("job_id".to_string(), json!(job_id));
+                    annotation.insert("job_name".to_string(), json!(&job_name));
+                    Some(Value::Object(annotation))
+                }));
+            }
+        }
 
         let mut result = json!({});
         if let Some(obj) = result.as_object_mut() {
@@ -772,8 +915,20 @@ impl WsMessageService {
             if let Some(triggering_actor) = api_output.get("triggering_actor") {
                 obj.insert("triggering_actor".to_string(), triggering_actor.clone());
             }
-            if let Some(jobs) = jobs_output.get("jobs") {
-                obj.insert("jobs".to_string(), jobs.clone());
+            obj.insert("jobs".to_string(), jobs_value);
+            if let Some(artifacts) = artifacts_output.get("artifacts") {
+                obj.insert("artifacts".to_string(), artifacts.clone());
+            }
+            if !annotations.is_empty() {
+                obj.insert("annotations".to_string(), Value::Array(annotations));
+            }
+            if let Some(content) = workflow_file_content {
+                if let Some(path) = &workflow_path {
+                    obj.insert(
+                        "workflow_file".to_string(),
+                        json!({ "path": path, "content": content }),
+                    );
+                }
             }
         }
 

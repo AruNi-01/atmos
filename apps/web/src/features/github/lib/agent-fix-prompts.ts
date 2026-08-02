@@ -40,6 +40,20 @@ export interface ActionRunPromptInfo {
   headSha?: string;
 }
 
+export interface ActionAnnotationPromptInfo {
+  annotation_level?: string;
+  annotationLevel?: string;
+  message?: string;
+  title?: string;
+  path?: string;
+  start_line?: number;
+  startLine?: number;
+  end_line?: number;
+  endLine?: number;
+  job_name?: string;
+  jobName?: string;
+}
+
 export interface PullRequestReviewFixPromptInfo {
   author?: string | null;
   body?: string | null;
@@ -214,5 +228,53 @@ export function buildGithubActionsJobFixPrompt(args: {
     "- Focus on this workflow failure only.",
     "- Do not rewrite unrelated code or chase unrelated warnings.",
     "- If logs are needed, inspect the GitHub Actions job URL or run the relevant local test command.",
+  ]);
+}
+
+export function buildGithubActionsAnnotationsFixPrompt(args: {
+  annotations: ActionAnnotationPromptInfo[];
+  owner: string;
+  repo: string;
+  run: ActionRunPromptInfo;
+}): string {
+  const annotationLines = args.annotations.map((annotation, index) => {
+    const level = annotation.annotation_level ?? annotation.annotationLevel ?? "notice";
+    const jobName = annotation.job_name ?? annotation.jobName;
+    const line = annotation.start_line ?? annotation.startLine;
+    const endLine = annotation.end_line ?? annotation.endLine;
+    const location = annotation.path
+      ? `${annotation.path}${line ? `:${line}${endLine && endLine !== line ? `-${endLine}` : ""}` : ""}`
+      : null;
+
+    return compactLines([
+      `${index + 1}. [${level}] ${annotation.title || annotation.message || "Untitled annotation"}`,
+      jobName ? `   Job: ${jobName}` : null,
+      location ? `   Location: ${location}` : null,
+      annotation.message && annotation.title
+        ? `   Message: ${annotation.message}`
+        : null,
+    ]);
+  });
+
+  return compactLines([
+    "Fix the GitHub Actions annotations below. Make the smallest relevant code or configuration change.",
+    "",
+    "Scope:",
+    `- Repository: ${args.owner}/${args.repo}`,
+    `- Workflow: ${args.run.workflowName}`,
+    args.run.displayTitle ? `- Run title: ${args.run.displayTitle}` : null,
+    `- Run ID: ${args.run.databaseId}`,
+    args.run.event ? `- Event: ${args.run.event}` : null,
+    args.run.headBranch ? `- Branch: ${args.run.headBranch}` : null,
+    args.run.headSha ? `- Commit: ${args.run.headSha}` : null,
+    args.run.url ? `- Run URL: ${args.run.url}` : null,
+    "",
+    "Annotations:",
+    ...annotationLines,
+    "",
+    "Instructions:",
+    "- Address the annotations above only.",
+    "- Keep unrelated code and configuration unchanged.",
+    "- If logs are needed, inspect the linked Actions run or run the relevant local command.",
   ]);
 }
