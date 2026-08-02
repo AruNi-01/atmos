@@ -25,6 +25,12 @@
   "featureShowcase": {
     "badge": "Features",
     "title": "See Atmos in Action",
+    "sphere": {
+      "subtitle": "Drag to spin the cloud of demos. Hover to zoom, click a card to play the video in focus.",
+      "hint": "Drag to orbit · Click a card to play",
+      "loading": "Assembling demos…",
+      "close": "Close focused video"
+    },
     "video": {
       "play": "Play",
       "pause": "Pause",

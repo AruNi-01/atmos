@@ -22,7 +22,7 @@
     },
     "apps/desktop-electron": {
       "name": "desktop-electron",
-      "version": "2026.7.31-beta.1",
+      "version": "2026.8.2-beta.1",
       "dependencies": {
         "koffi": "^3.1.2",
       },
@@ -92,6 +92,7 @@
         "react-use": "^17.6.0",
         "remark-gfm": "^4.0.1",
         "tailwind-merge": "^3.4.0",
+        "three": "^0.184.0",
       },
       "devDependencies": {
         "@tailwindcss/postcss": "^4.3.0",
@@ -99,6 +100,7 @@
         "@types/node": "^20",
         "@types/react": "^19",
         "@types/react-dom": "^19",
+        "@types/three": "^0.184.0",
         "eslint": "^9",
         "eslint-config-next": "16.2.0",
         "tailwindcss": "^4.3.0",

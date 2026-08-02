@@ -25,6 +25,12 @@
   "featureShowcase": {
     "badge": "功能",
     "title": "看看 Atmos 如何运作",
+    "sphere": {
+      "subtitle": "拖拽旋转演示云。悬停放大，点击卡片即可聚焦播放视频。",
+      "hint": "拖拽环绕 · 点击卡片播放",
+      "loading": "正在组装演示…",
+      "close": "关闭聚焦视频"
+    },
     "video": {
       "play": "播放",
       "pause": "暂停",
