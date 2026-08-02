@@ -86,6 +86,7 @@ pub(super) fn pr_as_issue_payload(pr: &GithubPrPayload) -> GithubIssuePayload {
         state: pr.state.clone(),
         created_at: None,
         updated_at: None,
+        comments_count: 0,
         labels: pr
             .labels
             .iter()
@@ -95,6 +96,8 @@ pub(super) fn pr_as_issue_payload(pr: &GithubPrPayload) -> GithubIssuePayload {
                 description: label.description.clone(),
             })
             .collect(),
+        author: None,
+        assignees: vec![],
     }
 }
 

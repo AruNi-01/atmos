@@ -56,6 +56,6 @@ pub use service::terminal_overview::build_terminal_overview_active_sessions_json
 pub use service::test::TestService;
 pub use service::workspace::{WorkspaceDto, WorkspaceService};
 pub use types::{
-    GithubIssueLabelPayload, GithubIssuePayload, GithubPrPayload, SharedString, SkillFile,
-    SkillInfo, SkillPlacement, WorkspaceAttachmentPayload,
+    GithubIssueAssigneePayload, GithubIssueLabelPayload, GithubIssuePayload, GithubPrPayload,
+    SharedString, SkillFile, SkillInfo, SkillPlacement, WorkspaceAttachmentPayload,
 };

@@ -1,6 +1,8 @@
 use serde::{Deserialize, Serialize};
 
-pub use core_service::{GithubIssueLabelPayload, GithubIssuePayload, GithubPrPayload};
+pub use core_service::{
+    GithubIssueAssigneePayload, GithubIssueLabelPayload, GithubIssuePayload, GithubPrPayload,
+};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GithubIssueListRequest {
@@ -28,6 +30,35 @@ pub struct GithubIssueGetRequest {
     pub issue_number: Option<u64>,
     #[serde(default)]
     pub issue_url: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GithubIssueTimelinePageRequest {
+    pub owner: String,
+    pub repo: String,
+    pub issue_number: u64,
+    pub page: u64,
+    pub per_page: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GithubIssuePageRequest {
+    pub owner: String,
+    pub repo: String,
+    pub state: String,
+    pub page: u64,
+    pub per_page: u64,
+    #[serde(default = "default_github_issue_sort")]
+    pub sort: String,
+    #[serde(default = "default_github_issue_direction")]
+    pub direction: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GithubIssueLinkedPrsRequest {
+    pub owner: String,
+    pub repo: String,
+    pub issue_number: u64,
 }
 
 fn default_github_issue_state() -> String {
@@ -76,6 +107,16 @@ pub struct GithubPrListRequest {
     pub state: Option<String>,
     #[serde(default)]
     pub emit_branch_status_refresh: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GithubPrBranchPageRequest {
+    pub owner: String,
+    pub repo: String,
+    pub branch: String,
+    pub state: String,
+    pub page: u64,
+    pub per_page: u64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -181,6 +222,48 @@ pub struct GithubPrUpdateAssigneesRequest {
     pub add: Vec<String>,
     #[serde(default)]
     pub remove: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GithubIssueUpdateLabelsRequest {
+    pub owner: String,
+    pub repo: String,
+    pub issue_number: u64,
+    #[serde(default)]
+    pub add: Vec<String>,
+    #[serde(default)]
+    pub remove: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GithubIssueUpdateAssigneesRequest {
+    pub owner: String,
+    pub repo: String,
+    pub issue_number: u64,
+    #[serde(default)]
+    pub add: Vec<String>,
+    #[serde(default)]
+    pub remove: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GithubIssueActionRequest {
+    pub owner: String,
+    pub repo: String,
+    pub issue_number: u64,
+    #[serde(default)]
+    pub body: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GithubPrUpdateLinkedIssuesRequest {
+    pub owner: String,
+    pub repo: String,
+    pub pr_number: u64,
+    #[serde(default)]
+    pub add: Vec<u64>,
+    #[serde(default)]
+    pub remove: Vec<u64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

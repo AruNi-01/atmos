@@ -6,13 +6,17 @@ use futures_util::future;
 use super::{
     GithubActionsDetailRequest, GithubActionsListRequest, GithubActionsRerunRequest,
     GithubCiOpenBrowserRequest, GithubCiStatusRequest, GithubCommitDetailRequest,
-    GithubIssueGetRequest, GithubIssueLabelPayload, GithubIssueListRequest, GithubIssuePayload,
+    GithubIssueActionRequest, GithubIssueAssigneePayload, GithubIssueGetRequest,
+    GithubIssueLabelPayload, GithubIssueLinkedPrsRequest, GithubIssueListRequest,
+    GithubIssuePageRequest, GithubIssuePayload, GithubIssueTimelinePageRequest,
+    GithubIssueUpdateAssigneesRequest, GithubIssueUpdateLabelsRequest, GithubPrBranchPageRequest,
     GithubPrCloseRequest, GithubPrCommentRequest, GithubPrConflictFilesRequest,
     GithubPrCreateRequest, GithubPrDetailRequest, GithubPrDraftRequest, GithubPrFilesRequest,
     GithubPrGetRequest, GithubPrListRepoRequest, GithubPrListRequest, GithubPrMergeRequest,
     GithubPrOpenBrowserRequest, GithubPrPayload, GithubPrReadyRequest, GithubPrReopenRequest,
     GithubPrTimelinePageRequest, GithubPrUpdateAssigneesRequest, GithubPrUpdateLabelsRequest,
-    GithubRepoAssigneesRequest, GithubRepoLabelsRequest, WsEvent, WsMessage, WsMessageService,
+    GithubPrUpdateLinkedIssuesRequest, GithubRepoAssigneesRequest, GithubRepoLabelsRequest,
+    WsEvent, WsMessage, WsMessageService,
 };
 
 impl WsMessageService {
@@ -27,6 +31,7 @@ impl WsMessageService {
             state: issue.state,
             created_at: Some(issue.created_at),
             updated_at: Some(issue.updated_at),
+            comments_count: issue.comments_count,
             labels: issue
                 .labels
                 .into_iter()
@@ -34,6 +39,18 @@ impl WsMessageService {
                     name: label.name,
                     color: label.color,
                     description: label.description,
+                })
+                .collect(),
+            author: issue.author.map(|author| GithubIssueAssigneePayload {
+                login: author.login,
+                avatar_url: author.avatar_url,
+            }),
+            assignees: issue
+                .assignees
+                .into_iter()
+                .map(|assignee| GithubIssueAssigneePayload {
+                    login: assignee.login,
+                    avatar_url: assignee.avatar_url,
                 })
                 .collect(),
         }
@@ -66,6 +83,49 @@ impl WsMessageService {
         Ok(json!(payloads))
     }
 
+    pub(super) async fn handle_github_issue_page(
+        &self,
+        req: GithubIssuePageRequest,
+    ) -> Result<Value> {
+        // GitHub's `/issues` REST endpoint mixes PRs into the list. Filtering them
+        // after fetch produces sparse pages (e.g. 1 real issue out of 20 items)
+        // while `has_more` stays true. Prefer `list_issues` (gh issue list / filtered
+        // API) which returns only issues, then slice the requested page.
+        let per_page = req.per_page.clamp(1, 100) as usize;
+        let page = req.page.max(1) as usize;
+        let fetch_limit = page.saturating_mul(per_page);
+
+        let issues = self
+            .github_engine
+            .list_issues(
+                &req.owner,
+                &req.repo,
+                core_engine::github::GithubIssueListOptions {
+                    state: &req.state,
+                    limit: fetch_limit,
+                    sort: &req.sort,
+                    direction: &req.direction,
+                    search: None,
+                },
+            )
+            .await
+            .map_err(|error| {
+                ServiceError::Validation(format!("Failed to list GitHub issues: {error}"))
+            })?;
+
+        let total_fetched = issues.len();
+        let start = (page - 1).saturating_mul(per_page);
+        let items: Vec<GithubIssuePayload> = issues
+            .into_iter()
+            .skip(start)
+            .take(per_page)
+            .map(Self::to_issue_payload)
+            .collect();
+        let has_more = total_fetched == fetch_limit;
+
+        Ok(json!({ "items": items, "has_more": has_more }))
+    }
+
     pub(super) async fn handle_github_issue_get(
         &self,
         req: GithubIssueGetRequest,
@@ -95,6 +155,88 @@ impl WsMessageService {
             })?;
 
         Ok(json!(Self::to_issue_payload(issue)))
+    }
+
+    pub(super) async fn handle_github_issue_timeline_page(
+        &self,
+        req: GithubIssueTimelinePageRequest,
+    ) -> Result<Value> {
+        let per_page = req.per_page.clamp(1, 100);
+        let endpoint = format!(
+            "repos/{}/{}/issues/{}/timeline?per_page={}&page={}",
+            req.owner, req.repo, req.issue_number, per_page, req.page
+        );
+        let args = vec!["api", &endpoint];
+        let items = self
+            .github_engine
+            .run_gh(&args)
+            .await
+            .unwrap_or(Value::Array(vec![]));
+        let count = items.as_array().map(|items| items.len()).unwrap_or(0);
+
+        Ok(json!({
+            "items": items,
+            "page": req.page,
+            "per_page": per_page,
+            "has_more": count == per_page as usize,
+        }))
+    }
+
+    pub(super) async fn handle_github_issue_linked_prs(
+        &self,
+        req: GithubIssueLinkedPrsRequest,
+    ) -> Result<Value> {
+        let repo_arg = format!("{}/{}", req.owner, req.repo);
+        let issue_reference = format!("#{}", req.issue_number);
+        let search_query = format!("{issue_reference} in:body");
+        let args = vec![
+            "pr",
+            "list",
+            "--repo",
+            &repo_arg,
+            "--state",
+            "all",
+            "--search",
+            &search_query,
+            "--limit",
+            "100",
+            "--json",
+            "number,title,url,state,headRefName",
+        ];
+        let candidates = self.github_engine.run_gh(&args).await.map_err(|error| {
+            ServiceError::Validation(format!("Failed to list linked pull requests: {error}"))
+        })?;
+        let mut linked_prs = Vec::new();
+        for candidate in candidates.as_array().into_iter().flatten() {
+            let Some(number) = candidate.get("number").and_then(|value| value.as_u64()) else {
+                continue;
+            };
+            let pr_number = number.to_string();
+            let detail_args = vec![
+                "pr",
+                "view",
+                &pr_number,
+                "--repo",
+                &repo_arg,
+                "--json",
+                "closingIssuesReferences",
+            ];
+            let Ok(detail) = self.github_engine.run_gh(&detail_args).await else {
+                continue;
+            };
+            let is_linked = detail
+                .get("closingIssuesReferences")
+                .and_then(Value::as_array)
+                .is_some_and(|issues| {
+                    issues.iter().any(|issue| {
+                        issue.get("number").and_then(Value::as_u64) == Some(req.issue_number)
+                    })
+                });
+            if is_linked {
+                linked_prs.push(candidate.clone());
+            }
+        }
+        Ok(json!(linked_prs))
     }
 
     fn to_pr_payload(pr: core_engine::github::GithubPullRequest) -> GithubPrPayload {
@@ -171,63 +313,52 @@ impl WsMessageService {
     ) -> Result<Value> {
         let repo_arg = format!("{}/{}", req.owner, req.repo);
         let state = req.state.as_deref().unwrap_or("open").to_lowercase();
-
-        let head_args = vec![
+        let args = vec![
             "pr",
             "list",
             "--repo",
             &repo_arg,
-            "--head",
-            &req.branch,
             "--state",
-            &state,
+            "all",
             "--limit",
-            "30",
+            "100",
             "--json",
-            "number,title,state,mergeable,reviewDecision,baseRefName,headRefName,createdAt,url,author,isDraft,comments,commits,reviews",
+            "number,title,state,mergeable,reviewDecision,baseRefName,headRefName,createdAt,url,author,isDraft",
         ];
+        let output = self.github_engine.run_gh(&args).await.map_err(|error| {
+            ServiceError::Validation(format!("Failed to list pull requests: {error}"))
+        })?;
+        let mut prs = output
+            .as_array()
+            .cloned()
+            .unwrap_or_default()
+            .into_iter()
+            .filter(|pr| {
+                let matches_branch = pr
+                    .get("baseRefName")
+                    .or_else(|| pr.get("base_ref"))
+                    .and_then(Value::as_str)
+                    == Some(req.branch.as_str())
+                    || pr
+                        .get("headRefName")
+                        .or_else(|| pr.get("head_ref"))
+                        .and_then(Value::as_str)
+                        == Some(req.branch.as_str());
+                let pr_state = pr
+                    .get("state")
+                    .and_then(Value::as_str)
+                    .unwrap_or_default()
+                    .to_ascii_lowercase();
+                let matches_state = match state.as_str() {
+                    "closed" => pr_state == "closed" || pr_state == "merged",
+                    "open" => pr_state == "open",
+                    _ => true,
+                };
+                matches_branch && matches_state
+            })
+            .collect::<Vec<_>>();
 
-        let base_args = vec![
-            "pr",
-            "list",
-            "--repo",
-            &repo_arg,
-            "--base",
-            &req.branch,
-            "--state",
-            &state,
-            "--limit",
-            "30",
-            "--json",
-            "number,title,state,mergeable,reviewDecision,baseRefName,headRefName,createdAt,url,author,isDraft,comments,commits,reviews",
-        ];
-
-        let (head_res, base_res) = tokio::join!(
-            self.github_engine.run_gh(&head_args),
-            self.github_engine.run_gh(&base_args)
-        );
-
-        let mut all_prs = Vec::new();
-
-        if let Ok(Value::Array(prs)) = head_res {
-            all_prs.extend(prs);
-        }
-        if let Ok(Value::Array(prs)) = base_res {
-            all_prs.extend(prs);
-        }
-
-        let mut seen_numbers = std::collections::HashSet::new();
-        let mut unique_prs = Vec::new();
-
-        for pr in all_prs {
-            if let Some(num) = pr.get("number").and_then(|n| n.as_u64()) {
-                if seen_numbers.insert(num) {
-                    unique_prs.push(pr);
-                }
-            }
-        }
-
-        unique_prs.sort_by(|a, b| {
+        prs.sort_by(|a, b| {
             let a_time = a.get("createdAt").and_then(|t| t.as_str()).unwrap_or("");
             let b_time = b.get("createdAt").and_then(|t| t.as_str()).unwrap_or("");
             b_time.cmp(a_time)
@@ -247,7 +378,74 @@ impl WsMessageService {
             }
         }
 
-        Ok(json!(unique_prs))
+        Ok(json!(prs))
+    }
+
+    pub(super) async fn handle_github_pr_branch_page(
+        &self,
+        req: GithubPrBranchPageRequest,
+    ) -> Result<Value> {
+        let per_page = req.per_page.clamp(1, 100);
+        let state = if req.state.eq_ignore_ascii_case("closed") {
+            "closed"
+        } else {
+            "open"
+        };
+        let page = req.page.max(1);
+        let base_endpoint = format!(
+            "repos/{}/{}/pulls?state={state}&base={}&per_page={per_page}&page={page}",
+            req.owner, req.repo, req.branch
+        );
+        let head_endpoint = format!(
+            "repos/{}/{}/pulls?state={state}&head={}:{}&per_page={per_page}&page={page}",
+            req.owner, req.repo, req.owner, req.branch
+        );
+        let (base, head) = future::try_join(
+            self.github_engine.run_gh(&["api", &base_endpoint]),
+            self.github_engine.run_gh(&["api", &head_endpoint]),
+        )
+        .await
+        .map_err(|error| {
+            ServiceError::Validation(format!("Failed to list pull requests: {error}"))
+        })?;
+
+        let base_items = base.as_array().cloned().unwrap_or_default();
+        let head_items = head.as_array().cloned().unwrap_or_default();
+        let mut prs = base_items
+            .iter()
+            .chain(head_items.iter())
+            .cloned()
+            .collect::<Vec<_>>();
+        prs.sort_by(|a, b| {
+            b.get("created_at")
+                .and_then(Value::as_str)
+                .cmp(&a.get("created_at").and_then(Value::as_str))
+        });
+        prs.dedup_by_key(|pr| pr.get("number").and_then(Value::as_u64));
+
+        let items = prs
+            .into_iter()
+            .take(per_page as usize)
+            .map(|pr| {
+                let merged = pr.get("merged_at").is_some_and(|value| !value.is_null());
+                json!({
+                    "number": pr.get("number").and_then(Value::as_u64).unwrap_or_default(),
+                    "title": pr.get("title").and_then(Value::as_str).unwrap_or_default(),
+                    "state": if merged { "MERGED" } else { pr.get("state").and_then(Value::as_str).unwrap_or_default() },
+                    "url": pr.get("html_url").and_then(Value::as_str).unwrap_or_default(),
+                    "headRefName": pr.pointer("/head/ref").and_then(Value::as_str).unwrap_or_default(),
+                    "baseRefName": pr.pointer("/base/ref").and_then(Value::as_str).unwrap_or_default(),
+                    "isDraft": pr.get("draft").and_then(Value::as_bool).unwrap_or(false),
+                    "createdAt": pr.get("created_at").and_then(Value::as_str),
+                    "author": pr.get("user"),
+                    "commits": pr.get("commits").and_then(Value::as_u64).map(|count| vec![Value::Null; count as usize]),
+                })
+            })
+            .collect::<Vec<_>>();
+        Ok(json!({
+            "items": items,
+            "has_more": base_items.len() == per_page as usize || head_items.len() == per_page as usize,
+        }))
     }
 
     pub(super) async fn handle_github_pr_detail(
@@ -608,11 +806,10 @@ impl WsMessageService {
             "--json",
             "name,color,description",
         ];
-        let output = self
-            .github_engine
-            .run_gh(&args)
-            .await
-            .map_err(|e| ServiceError::Validation(format!("Failed to list repo labels: {}", e)))?;
+        let output =
+            self.github_engine.run_gh(&args).await.map_err(|e| {
+                ServiceError::Validation(format!("Failed to list repo labels: {}", e))
+            })?;
 
         let labels = output
             .as_array()
@@ -650,13 +847,9 @@ impl WsMessageService {
     ) -> Result<Value> {
         let endpoint = format!("repos/{}/{}/assignees?per_page=100", req.owner, req.repo);
         let args = vec!["api", "--paginate", &endpoint];
-        let output = self
-            .github_engine
-            .run_gh(&args)
-            .await
-            .map_err(|e| {
-                ServiceError::Validation(format!("Failed to list repo assignees: {}", e))
-            })?;
+        let output = self.github_engine.run_gh(&args).await.map_err(|e| {
+            ServiceError::Validation(format!("Failed to list repo assignees: {}", e))
+        })?;
 
         let assignees = output
             .as_array()
@@ -768,13 +961,190 @@ impl WsMessageService {
             owned.push(login.clone());
         }
         let args: Vec<&str> = owned.iter().map(String::as_str).collect();
-        self.github_engine
-            .run_gh(&args)
-            .await
-            .map_err(|e| {
-                ServiceError::Validation(format!("Failed to update PR assignees: {}", e))
-            })?;
+        self.github_engine.run_gh(&args).await.map_err(|e| {
+            ServiceError::Validation(format!("Failed to update PR assignees: {}", e))
+        })?;
         Ok(json!({ "success": true, "added": add, "removed": remove }))
+    }
+
+    pub(super) async fn handle_github_issue_update_labels(
+        &self,
+        req: GithubIssueUpdateLabelsRequest,
+    ) -> Result<Value> {
+        let repo_arg = format!("{}/{}", req.owner, req.repo);
+        let mut args = vec![
+            "issue".to_string(),
+            "edit".to_string(),
+            req.issue_number.to_string(),
+            "--repo".to_string(),
+            repo_arg,
+        ];
+        for label in &req.add {
+            args.extend(["--add-label".to_string(), label.trim().to_string()]);
+        }
+        for label in &req.remove {
+            args.extend(["--remove-label".to_string(), label.trim().to_string()]);
+        }
+        self.github_engine
+            .run_gh(&args.iter().map(String::as_str).collect::<Vec<_>>())
+            .await
+            .map_err(|error| {
+                ServiceError::Validation(format!("Failed to update issue labels: {error}"))
+            })?;
+        Ok(json!({ "success": true }))
+    }
+
+    pub(super) async fn handle_github_issue_update_assignees(
+        &self,
+        req: GithubIssueUpdateAssigneesRequest,
+    ) -> Result<Value> {
+        let repo_arg = format!("{}/{}", req.owner, req.repo);
+        let mut args = vec![
+            "issue".to_string(),
+            "edit".to_string(),
+            req.issue_number.to_string(),
+            "--repo".to_string(),
+            repo_arg,
+        ];
+        for login in &req.add {
+            args.extend(["--add-assignee".to_string(), login.trim().to_string()]);
+        }
+        for login in &req.remove {
+            args.extend(["--remove-assignee".to_string(), login.trim().to_string()]);
+        }
+        self.github_engine
+            .run_gh(&args.iter().map(String::as_str).collect::<Vec<_>>())
+            .await
+            .map_err(|error| {
+                ServiceError::Validation(format!("Failed to update issue assignees: {error}"))
+            })?;
+        Ok(json!({ "success": true }))
+    }
+
+    pub(super) async fn handle_github_issue_comment(
+        &self,
+        req: GithubIssueActionRequest,
+    ) -> Result<Value> {
+        let body = req.body.unwrap_or_default();
+        if body.trim().is_empty() {
+            return Err(ServiceError::Validation(
+                "Comment body is required".to_string(),
+            ));
+        }
+        let number = req.issue_number.to_string();
+        let repo = format!("{}/{}", req.owner, req.repo);
+        self.github_engine
+            .run_gh(&[
+                "issue", "comment", &number, "--repo", &repo, "--body", &body,
+            ])
+            .await
+            .map_err(|error| {
+                ServiceError::Validation(format!("Failed to comment on issue: {error}"))
+            })?;
+        Ok(json!({ "success": true }))
+    }
+
+    pub(super) async fn handle_github_issue_close(
+        &self,
+        req: GithubIssueActionRequest,
+    ) -> Result<Value> {
+        self.run_github_issue_state_action(req, "close").await
+    }
+
+    pub(super) async fn handle_github_issue_reopen(
+        &self,
+        req: GithubIssueActionRequest,
+    ) -> Result<Value> {
+        self.run_github_issue_state_action(req, "reopen").await
+    }
+
+    async fn run_github_issue_state_action(
+        &self,
+        req: GithubIssueActionRequest,
+        action: &str,
+    ) -> Result<Value> {
+        let number = req.issue_number.to_string();
+        let repo = format!("{}/{}", req.owner, req.repo);
+        let mut args = vec![
+            "issue".to_string(),
+            action.to_string(),
+            number,
+            "--repo".to_string(),
+            repo,
+        ];
+        if let Some(body) = req.body.filter(|body| !body.trim().is_empty()) {
+            args.extend(["--comment".to_string(), body]);
+        }
+        self.github_engine
+            .run_gh(&args.iter().map(String::as_str).collect::<Vec<_>>())
+            .await
+            .map_err(|error| {
+                ServiceError::Validation(format!("Failed to {action} issue: {error}"))
+            })?;
+        Ok(json!({ "success": true }))
+    }
+
+    pub(super) async fn handle_github_pr_update_linked_issues(
+        &self,
+        req: GithubPrUpdateLinkedIssuesRequest,
+    ) -> Result<Value> {
+        if req.add.is_empty() && req.remove.is_empty() {
+            return Ok(json!({ "success": true }));
+        }
+
+        let repo_arg = format!("{}/{}", req.owner, req.repo);
+        let pr_number = req.pr_number.to_string();
+        let view_args = vec![
+            "pr", "view", &pr_number, "--repo", &repo_arg, "--json", "body",
+        ];
+        let output = self
+            .github_engine
+            .run_gh(&view_args)
+            .await
+            .map_err(|error| {
+                ServiceError::Validation(format!("Failed to read pull request body: {error}"))
+            })?;
+        let mut body = output
+            .get("body")
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .trim_end()
+            .to_string();
+
+        body = body
+            .lines()
+            .filter(|line| {
+                let normalized = line.trim().to_ascii_lowercase();
+                !req.remove.iter().any(|number| {
+                    normalized == format!("closes #{number}")
+                        || normalized == format!("close #{number}")
+                        || normalized == format!("fixes #{number}")
+                        || normalized == format!("resolves #{number}")
+                })
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
+
+        for number in &req.add {
+            let reference = format!("#{number}");
+            if !body.contains(&reference) {
+                if !body.is_empty() {
+                    body.push_str("\n\n");
+                }
+                body.push_str(&format!("Closes {reference}"));
+            }
+        }
+
+        let edit_args = vec![
+            "pr", "edit", &pr_number, "--repo", &repo_arg, "--body", &body,
+        ];
+        self.github_engine
+            .run_gh(&edit_args)
+            .await
+            .map_err(|error| {
+                ServiceError::Validation(format!("Failed to update linked issues: {error}"))
+            })?;
+        Ok(json!({ "success": true, "added": req.add, "removed": req.remove }))
     }
 
     pub(super) async fn handle_github_ci_status(
@@ -898,7 +1268,12 @@ impl WsMessageService {
         &self,
         req: GithubPrConflictFilesRequest,
     ) -> Result<Value> {
-        let repo_path = match req.repo_path.as_deref().map(str::trim).filter(|p| !p.is_empty()) {
+        let repo_path = match req
+            .repo_path
+            .as_deref()
+            .map(str::trim)
+            .filter(|p| !p.is_empty())
+        {
             Some(path) => std::path::PathBuf::from(path),
             None => {
                 return Ok(json!({
@@ -1064,7 +1439,9 @@ impl WsMessageService {
             .output()
             .map_err(|_| "merge_tree_spawn_failed")?;
 
-        let stderr = String::from_utf8_lossy(&merge_tree_output.stderr).trim().to_string();
+        let stderr = String::from_utf8_lossy(&merge_tree_output.stderr)
+            .trim()
+            .to_string();
         if !merge_tree_output.status.success()
             && stderr.to_ascii_lowercase().contains("unrelated histories")
         {
@@ -1091,11 +1468,16 @@ impl WsMessageService {
 
         let mut contents = serde_json::Map::new();
         if include_contents && !files.is_empty() {
-            let merge_base = Self::git_merge_base(repo_path, &base_tip, head_oid).unwrap_or_default();
+            let merge_base =
+                Self::git_merge_base(repo_path, &base_tip, head_oid).unwrap_or_default();
             for path in &files {
-                if let Some(text) =
-                    Self::build_conflict_marked_content(repo_path, &merge_base, &base_tip, head_oid, path)
-                {
+                if let Some(text) = Self::build_conflict_marked_content(
+                    repo_path,
+                    &merge_base,
+                    &base_tip,
+                    head_oid,
+                    path,
+                ) {
                     contents.insert(path.clone(), json!(text));
                 }
             }
@@ -1174,7 +1556,8 @@ impl WsMessageService {
         .collect();
 
         for base in &base_candidates {
-            let base_resolved = Self::git_rev_parse(repo_path, base).unwrap_or_else(|| base.clone());
+            let base_resolved =
+                Self::git_rev_parse(repo_path, base).unwrap_or_else(|| base.clone());
             if Self::git_merge_base_ok(repo_path, &base_resolved, head_oid) {
                 return Ok(());
             }
@@ -1193,7 +1576,12 @@ impl WsMessageService {
             for deepen in [100u32, 500, 2000] {
                 let _ = std::process::Command::new("git")
                     .current_dir(repo_path)
-                    .args(["fetch", "--no-tags", &format!("--deepen={deepen}"), "origin"])
+                    .args([
+                        "fetch",
+                        "--no-tags",
+                        &format!("--deepen={deepen}"),
+                        "origin",
+                    ])
                     .output();
                 for base in &base_candidates {
                     let base_resolved =

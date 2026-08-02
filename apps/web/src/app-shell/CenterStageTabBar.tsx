@@ -376,6 +376,7 @@ function isTabGroupItemClosable(tab: TabGroupItem) {
     tab.kind === "review-diff" ||
     tab.kind === "conflict" ||
     tab.kind === "github-pr" ||
+    tab.kind === "github-issue" ||
     tab.kind === "github-action" ||
     tab.kind === "browser"
   );

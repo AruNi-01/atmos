@@ -831,8 +831,8 @@ export function PRDetailView({ owner, repo, branch, prNumber, active, onRequestC
                                 icon = <Tag className="size-3.5 text-muted-foreground" />;
                                 colorClass = "bg-muted";
                                 actionText = item.event === 'labeled'
-                                  ? t('activity.addedLabel', { label: item.label?.name || t('activity.labelFallback') })
-                                  : t('activity.removedLabel', { label: item.label?.name || t('activity.labelFallback') });
+                                  ? t('activity.addedLabelShort')
+                                  : t('activity.removedLabelShort');
                                 break;
                               case 'review_requested':
                               case 'review_request_removed':
@@ -910,6 +910,18 @@ export function PRDetailView({ owner, repo, branch, prNumber, active, onRequestC
                                       </span>
                                     )}
                                     <span className="text-muted-foreground">{actionText}</span>
+                                    {(item.event === 'labeled' || item.event === 'unlabeled') && item.label && (
+                                      <span
+                                        className="shrink-0 text-[10px] px-1.5 py-0.5 rounded-full font-medium"
+                                        style={{
+                                          backgroundColor: `#${item.label.color}20`,
+                                          color: `#${item.label.color}`,
+                                          border: `1px solid #${item.label.color}40`,
+                                        }}
+                                      >
+                                        {item.label.name}
+                                      </span>
+                                    )}
                                     {(item.event === 'committed' || item.event === 'referenced') && item.body && (
                                       <Tooltip>
                                         <TooltipTrigger asChild>
@@ -947,21 +959,6 @@ export function PRDetailView({ owner, repo, branch, prNumber, active, onRequestC
                                         })}
                                       </span>
                                     </div>
-                                  </div>
-                                )}
-
-                                {item.event === 'labeled' && item.label && (
-                                  <div className="pl-7 pb-1">
-                                    <span
-                                      className="text-[10px] px-1.5 py-0.5 rounded-full font-medium"
-                                      style={{
-                                        backgroundColor: `#${item.label.color}20`,
-                                        color: `#${item.label.color}`,
-                                        border: `1px solid #${item.label.color}40`
-                                      }}
-                                    >
-                                      {item.label.name}
-                                    </span>
                                   </div>
                                 )}
 

@@ -7,7 +7,13 @@ import { useWebSocketStore } from "@/features/connection/hooks/use-websocket";
 import { queryKeys } from "@/api/query/query-keys";
 import {
   repoPrListQueryOptions,
+  githubIssueListQueryOptions,
+  githubIssuePageQueryOptions,
+  githubIssueDetailQueryOptions,
+  githubIssueTimelineInfiniteQueryOptions,
+  githubIssueLinkedPrsQueryOptions,
   branchPrListQueryOptions,
+  branchPrPageQueryOptions,
   githubPrDetailQueryOptions,
   githubPrDetailSidebarQueryOptions,
   githubRepoLabelsQueryOptions,
@@ -19,7 +25,11 @@ import {
   githubCiStatusQueryOptions,
   githubCommitDetailQueryOptions,
   type RepoPrListParams,
+  type GithubIssueListParams,
+  type GithubIssuePageParams,
+  type GithubIssueIdentityParams,
   type BranchPrListParams,
+  type BranchPrPageParams,
   type GithubPrIdentityParams,
   type GithubRepoLabelsParams,
   type GithubRepoAssigneesParams,
@@ -39,6 +49,51 @@ export function useRepoPrListQuery(params: RepoPrListParams & { enabled?: boolea
       enabled: enabled && Boolean(params.owner && params.repo),
     }),
   );
+}
+
+export function useGithubIssueListQuery(params: GithubIssueListParams & { enabled?: boolean }) {
+  const scope = useComputerQueryScope();
+  const connectionState = useWebSocketStore((s) => s.connectionState);
+  const { enabled = true, ...restParams } = params;
+  return useQuery(githubIssueListQueryOptions(scope, connectionState, restParams, {
+    enabled: enabled && Boolean(params.owner && params.repo),
+  }));
+}
+
+export function useGithubIssuePageQuery(params: GithubIssuePageParams & { enabled?: boolean }) {
+  const scope = useComputerQueryScope();
+  const connectionState = useWebSocketStore((s) => s.connectionState);
+  const { enabled = true, ...restParams } = params;
+  return useQuery(githubIssuePageQueryOptions(scope, connectionState, restParams, {
+    enabled: enabled && Boolean(params.owner && params.repo),
+  }));
+}
+
+export function useGithubIssueDetailQuery(params: GithubIssueIdentityParams & { enabled?: boolean }) {
+  const scope = useComputerQueryScope();
+  const connectionState = useWebSocketStore((s) => s.connectionState);
+  const { enabled = true, ...restParams } = params;
+  return useQuery(githubIssueDetailQueryOptions(scope, connectionState, restParams, {
+    enabled: enabled && Boolean(params.owner && params.repo && params.issueNumber),
+  }));
+}
+
+export function useGithubIssueTimelineInfiniteQuery(params: GithubIssueIdentityParams & { enabled?: boolean }) {
+  const scope = useComputerQueryScope();
+  const connectionState = useWebSocketStore((s) => s.connectionState);
+  const { enabled = true, ...restParams } = params;
+  return useInfiniteQuery(githubIssueTimelineInfiniteQueryOptions(scope, connectionState, restParams, {
+    enabled: enabled && Boolean(params.owner && params.repo && params.issueNumber),
+  }));
+}
+
+export function useGithubIssueLinkedPrsQuery(params: GithubIssueIdentityParams & { enabled?: boolean }) {
+  const scope = useComputerQueryScope();
+  const connectionState = useWebSocketStore((s) => s.connectionState);
+  const { enabled = true, ...restParams } = params;
+  return useQuery(githubIssueLinkedPrsQueryOptions(scope, connectionState, restParams, {
+    enabled: enabled && Boolean(params.owner && params.repo && params.issueNumber),
+  }));
 }
 
 export function useBranchPrListQuery(params: BranchPrListParams & { enabled?: boolean }) {
@@ -62,6 +117,15 @@ export function useBranchPrListQuery(params: BranchPrListParams & { enabled?: bo
       enabled: enabled && Boolean(params.owner && params.repo && params.branch),
     }),
   );
+}
+
+export function useBranchPrPageQuery(params: BranchPrPageParams & { enabled?: boolean }) {
+  const scope = useComputerQueryScope();
+  const connectionState = useWebSocketStore((s) => s.connectionState);
+  const { enabled = true, ...restParams } = params;
+  return useQuery(branchPrPageQueryOptions(scope, connectionState, restParams, {
+    enabled: enabled && Boolean(params.owner && params.repo && params.branch),
+  }));
 }
 
 export function useGithubPrDetailQuery(params: GithubPrIdentityParams & { enabled?: boolean }) {

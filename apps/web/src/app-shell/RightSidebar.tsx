@@ -27,6 +27,13 @@ import {
   Tabs,
   TabsList,
   TabsTab,
+  TabsSubtle,
+  TabsSubtleItem,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from "@workspace/ui";
 import {
   Play,
@@ -34,12 +41,14 @@ import {
   GitPullRequest,
   GitPullRequestCreate,
   GitPullRequestClosed,
+  CircleDot,
   GitBranch,
   GitCommit as GitCommitIcon,
   FileDiff,
   FolderOpen,
   FolderTree,
   Workflow,
+  Github,
 } from "lucide-react";
 import { cn } from "@/shared/lib/utils";
 import { useQueryStates } from "nuqs";
@@ -53,6 +62,7 @@ import { useContextParams } from "@/shared/hooks/use-context-params";
 import type { ActionRun } from "@/features/github/components/ActionsPanel";
 import dynamic from "next/dynamic";
 import { PRPanel, type PRPanelHandle } from "@/features/github/components/PRPanel";
+import { IssuePanel } from "@/features/github/components/IssuePanel";
 import { CommitsPanel } from "@/features/github/components/CommitsPanel";
 import { ActionsPanel } from "@/features/github/components/ActionsPanel";
 import { useGitLog } from "@/features/github/hooks/use-github";
@@ -117,8 +127,7 @@ const BASE_TABS: Array<{
   { value: "review", labelKey: "rightSidebar.topTabs.review", Icon: FileDiff },
   { value: "browser", labelKey: "rightSidebar.topTabs.browser", Icon: Globe },
   { value: "run", labelKey: "rightSidebar.topTabs.run", Icon: Play },
-  { value: "pr", labelKey: "rightSidebar.topTabs.pullRequests", Icon: GitPullRequest },
-  { value: "actions", labelKey: "rightSidebar.topTabs.actions", Icon: Workflow },
+  { value: "github", labelKey: "rightSidebar.topTabs.github", Icon: Github },
 ];
 
 const FILES_TAB = { value: "files" as RightSidebarTab, labelKey: "common.files", Icon: FolderTree };
@@ -212,7 +221,9 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
       browser: rsShowBrowser,
       run: rsShowRun,
       pr: rsShowPr,
+      issues: true,
       actions: rsShowActions,
+      github: rsShowPr || rsShowActions,
       files: true, // controlled separately by projectFilesSide
     }),
     [rsShowChanges, rsShowReview, rsShowBrowser, rsShowRun, rsShowPr, rsShowActions],
@@ -326,7 +337,7 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
   const [{ rsCreatePr }, setDialogParams] = useQueryStates(
     rightSidebarDialogParams,
   );
-  const { openActionRunTab, openPullRequestTab } = useOpenGithubCenterTab();
+  const { openActionRunTab, openPullRequestTab, openIssueTab } = useOpenGithubCenterTab();
 
   const [changesSubTab, setChangesSubTab] = useState<"changes" | "commits">(
     "changes",
@@ -336,6 +347,7 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
   const setChangesFileViewMode = (mode: "list" | "tree") =>
     setSidebarUi({ changesFileViewMode: mode });
   const [prSubTab, setPRSubTab] = useState<"open" | "closed">("open");
+  const [githubSubTab, setGithubSubTab] = useState<"pr" | "issues" | "actions">("pr");
   const [hasVisitedCommits, setHasVisitedCommits] = useState(false);
   const [actionsRefreshKey] = useState(0);
   const prPanelRef = useRef<PRPanelHandle>(null);
@@ -343,6 +355,9 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
     open: false,
     closed: false,
   });
+  const [issueSubTab, setIssueSubTab] = useState<"open" | "closed">("open");
+  const issuePanelRef = useRef<{ refresh: () => Promise<void> }>(null);
+  const [issuePanelLoading, setIssuePanelLoading] = useState(false);
 
   const githubOwner = statusQuery.data?.github_owner ?? null;
   const githubRepo = statusQuery.data?.github_repo ?? null;
@@ -629,6 +644,23 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
               );
             })}
           </TabsList>
+
+          {activeTab === "github" ? (
+            <div className="shrink-0 px-2 py-2">
+              <TabsSubtle
+                activeLabel
+                idPrefix="right-sidebar-github"
+                selectedIndex={githubSubTab === "pr" ? 0 : githubSubTab === "issues" ? 1 : 2}
+                onSelect={(index) =>
+                  setGithubSubTab(index === 0 ? "pr" : index === 1 ? "issues" : "actions")
+                }
+              >
+                <TabsSubtleItem index={0} icon={GitPullRequest} label={t("rightSidebar.topTabs.pullRequests")} />
+                <TabsSubtleItem index={1} icon={CircleDot} label={t("rightSidebar.topTabs.issues")} />
+                <TabsSubtleItem index={2} icon={Workflow} label={t("rightSidebar.topTabs.actions")} />
+              </TabsSubtle>
+            </div>
+          ) : null}
 
           {/* Files tab content */}
           {showFilesTab && (
@@ -929,57 +961,34 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
           <div
             className={cn(
               "flex-1 flex flex-col min-h-0",
-              activeTab !== "pr" && "hidden",
+              (activeTab !== "github" || githubSubTab !== "pr") && "hidden",
             )}
           >
             {hasWorkingContext ? (
               githubOwner && githubRepo && currentBranch ? (
-                <>
-                  {/* Open / Closed sub-tabs */}
-                  <div className="flex border-b border-sidebar-border shrink-0 bg-background/50 backdrop-blur-sm h-9">
-                    <Tabs
+                <div className="flex min-h-0 flex-1 flex-col gap-1">
+                  <div className="flex h-7 shrink-0 items-center px-2">
+                    <Select
                       value={prSubTab}
-                      onValueChange={(v) => setPRSubTab(v as "open" | "closed")}
-                      className="flex-1 h-full min-w-0"
+                      onValueChange={(value) => setPRSubTab(value as "open" | "closed")}
                     >
-                      <TabsList
-                        variant="underline"
-                        className="h-full w-full gap-0 py-0!"
+                      <SelectTrigger
+                        size="sm"
+                        className="!h-6 w-auto min-w-0 gap-1 px-2 py-0 text-[11px] shadow-none [&_svg:not([class*='size-'])]:size-3"
                       >
-                        <RefreshableTabsTab
-                          value="open"
-                          activeValue={prSubTab}
-                          refreshTitle={t("rightSidebar.pr.refreshOpenPullRequests")}
-                          onRefresh={async () => {
-                            await prPanelRef.current?.refreshOpen();
-                          }}
-                          isRefreshing={
-                            prSubTab === "open" && prPanelLoading.open
-                          }
-                          className="flex-1 h-full! text-sm gap-1.5 focus-visible:ring-0 focus-visible:ring-offset-0 rounded-none border-0!"
-                        >
-                          <GitPullRequestCreate className="size-3.5" />
-                          <span>{t("common.open")}</span>
-                        </RefreshableTabsTab>
-                        <RefreshableTabsTab
-                          value="closed"
-                          activeValue={prSubTab}
-                          refreshTitle={t("rightSidebar.pr.refreshClosedPullRequests")}
-                          onRefresh={async () => {
-                            await prPanelRef.current?.refreshClosed();
-                          }}
-                          isRefreshing={
-                            prSubTab === "closed" && prPanelLoading.closed
-                          }
-                          className="flex-1 h-full! text-sm gap-1.5 focus-visible:ring-0 focus-visible:ring-offset-0 rounded-none border-0!"
-                        >
-                          <GitPullRequestClosed className="size-3.5" />
-                          <span>{t("common.closed")}</span>
-                        </RefreshableTabsTab>
-                      </TabsList>
-                    </Tabs>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="open" className="text-[11px]">
+                          {t("common.open")}
+                        </SelectItem>
+                        <SelectItem value="closed" className="text-[11px]">
+                          {t("common.closed")}
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
-                  <div className="flex-1 min-h-0 no-scrollbar overflow-y-auto pt-0 px-2 pb-2">
+                  <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-2 pt-0 no-scrollbar">
                     <PRPanel
                       ref={prPanelRef}
                       owner={githubOwner}
@@ -996,10 +1005,10 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
                       }
                       prSubTab={prSubTab}
                       onLoadingChange={setPRPanelLoading}
-                      enabled={activeTab === "pr"}
+                      enabled={activeTab === "github" && githubSubTab === "pr"}
                     />
                   </div>
-                </>
+                </div>
               ) : (
                 <div className="flex flex-col items-center justify-center h-full text-muted-foreground/50 py-10">
                   <GitPullRequest className="size-8 opacity-20 mb-2" />
@@ -1014,12 +1023,42 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
           </div>
           )}
 
+          {/* Issues tab content */}
+          <div
+            className={cn(
+              "flex-1 flex flex-col min-h-0",
+              (activeTab !== "github" || githubSubTab !== "issues") && "hidden",
+            )}
+          >
+            {hasWorkingContext ? (
+              githubOwner && githubRepo ? (
+                <>
+                  <IssuePanel
+                    ref={issuePanelRef}
+                    owner={githubOwner}
+                    repo={githubRepo}
+                    state={issueSubTab}
+                    onStateChange={setIssueSubTab}
+                    enabled={activeTab === "github" && githubSubTab === "issues"}
+                    onLoadingChange={setIssuePanelLoading}
+                    onIssueClick={(issueNumber, title) => openIssueTab({ owner: githubOwner, repo: githubRepo, issueNumber, title })}
+                  />
+                </>
+              ) : (
+                <div className="flex flex-col items-center justify-center h-full text-muted-foreground/50 py-10">
+                  <CircleDot className="size-8 opacity-20 mb-2" />
+                  <span className="text-xs text-center">{t("rightSidebar.notAGitHubRepository")}</span>
+                </div>
+              )
+            ) : renderNoContextMessage}
+          </div>
+
           {/* Actions tab content */}
           {rsShowActions && (
           <div
             className={cn(
               "flex-1 flex flex-col min-h-0",
-              activeTab !== "actions" && "hidden",
+              (activeTab !== "github" || githubSubTab !== "actions") && "hidden",
             )}
           >
             {hasWorkingContext ? (
@@ -1030,7 +1069,7 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
                     owner={githubOwner}
                     repo={githubRepo}
                     branch={currentBranch}
-                    enabled={activeTab === "actions"}
+                    enabled={activeTab === "github" && githubSubTab === "actions"}
                     onRunClick={(run: ActionRun) =>
                       openActionRunTab({
                         owner: githubOwner,

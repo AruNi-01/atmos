@@ -1,14 +1,12 @@
 import React, { useEffect } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
-import { useGithubPRList } from '@/features/github/hooks/use-github';
+import { useGithubPRPage } from '@/features/github/hooks/use-github';
 import {
   GitPullRequest,
   Loader2,
   GitBranch,
   MessageSquare,
   GitCommit,
-  LoaderCircle,
-  RotateCcw,
   ArrowLeft,
 } from 'lucide-react';
 import {
@@ -19,11 +17,11 @@ import {
   TooltipTrigger,
   TooltipContent,
   TooltipProvider,
-  Button,
 } from '@workspace/ui';
 import { formatDistanceToNow, format } from 'date-fns';
 import { enUS, zhCN } from 'date-fns/locale';
 import { cn } from '@/shared/lib/utils';
+import { GithubListPagination } from '@/features/github/components/GithubListPagination';
 
 interface PRPanelProps {
   owner: string;
@@ -51,89 +49,64 @@ export const PRPanel = React.forwardRef<PRPanelHandle, PRPanelProps>(function PR
   const relativeTimeLocale = locale.startsWith('zh') ? zhCN : enUS;
   const stateFilter: PRState = prSubTab === 'closed' ? 'CLOSED' : 'OPEN';
 
-  const openPrList = useGithubPRList({
+  const [page, setPage] = React.useState(1);
+  const activePrList = useGithubPRPage({
     owner,
     repo,
     branch,
-    state: 'open',
-    emitBranchStatusRefresh: true,
+    state: stateFilter,
+    page,
     enabled,
   });
-  const closedPrList = useGithubPRList({
-    owner,
-    repo,
-    branch,
-    state: 'closed',
-    emitBranchStatusRefresh: true,
-    enabled: enabled && prSubTab === 'closed',
-  });
-
-  const openBusy = openPrList.loading || openPrList.refreshing;
-  const closedBusy = closedPrList.loading || closedPrList.refreshing;
+  const activeBusy = activePrList.loading || activePrList.refreshing;
 
   useEffect(() => {
-    onLoadingChange?.({ open: openBusy, closed: closedBusy });
-  }, [closedBusy, onLoadingChange, openBusy]);
+    onLoadingChange?.({
+      open: stateFilter === 'OPEN' && activeBusy,
+      closed: stateFilter === 'CLOSED' && activeBusy,
+    });
+  }, [activeBusy, onLoadingChange, stateFilter]);
 
   React.useImperativeHandle(ref, () => ({
-    // Return the refetch promise so hover-tab Refresh can await and show pending state.
-    refreshOpen: () => openPrList.refresh(),
-    refreshClosed: () => closedPrList.refresh(),
-    isOpenLoading: openBusy,
-    isClosedLoading: closedBusy,
-  }), [openPrList.refresh, openBusy, closedPrList.refresh, closedBusy]);
+    refreshOpen: () => activePrList.refresh(),
+    refreshClosed: () => activePrList.refresh(),
+    isOpenLoading: stateFilter === 'OPEN' && activeBusy,
+    isClosedLoading: stateFilter === 'CLOSED' && activeBusy,
+  }), [activeBusy, activePrList.refresh, stateFilter]);
 
-  const activePrList = stateFilter === 'OPEN' ? openPrList : closedPrList;
-  const prs = activePrList.data;
+  const prs = activePrList.data.items;
+  const hasMore = activePrList.data.has_more;
   const loading = activePrList.loading;
-  const refresh = activePrList.refresh;
-  const refreshLabel = stateFilter === 'OPEN'
-    ? t("rightSidebar.pr.refreshOpenPullRequests")
-    : t("rightSidebar.pr.refreshClosedPullRequests");
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const prList: any[] = prs || [];
 
+  useEffect(() => {
+    setPage(1);
+  }, [branch, stateFilter]);
+
   return (
     <TooltipProvider delayDuration={400}>
-      <div className="flex flex-col h-full w-full overflow-hidden">
-        <div className="flex-1 overflow-y-auto no-scrollbar p-2">
+      <div className="flex h-full w-full min-w-0 flex-col overflow-hidden">
+        <div className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto no-scrollbar p-2">
           {loading && !prs ? (
-            <div className="flex flex-col items-center justify-center min-h-[300px] text-muted-foreground gap-3">
-              <Loader2 className="size-5 animate-spin opacity-50" />
-              <span className="text-xs font-medium">
-                {stateFilter === 'OPEN'
-                  ? t("rightSidebar.pr.loadingOpen")
-                  : t("rightSidebar.pr.loadingClosed")}
-              </span>
+            <div className="flex min-h-40 items-center justify-center text-muted-foreground">
+              <Loader2 className="size-4 animate-spin" />
             </div>
           ) : prList.length === 0 ? (
-            <div className="flex flex-col items-center justify-center min-h-[300px] text-muted-foreground px-6">
-              <div className="size-16 rounded-full bg-primary/5 flex items-center justify-center mb-6 border border-primary/10">
-                <GitPullRequest className="size-8 text-primary/40" />
-              </div>
-              <span className="text-sm text-center font-medium mb-8">
-                {t.rich(stateFilter === 'OPEN' ? 'rightSidebar.pr.noOpenFound' : 'rightSidebar.pr.noClosedFound', {
-                  branch,
-                  highlight: (chunks) => (
-                    <span className="text-foreground font-mono bg-muted px-1.5 py-0.5 rounded border border-border/40">
-                      {chunks}
-                    </span>
-                  ),
-                })}
-              </span>
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => refresh()}
-                className="h-9 px-6 text-[11px] font-bold tracking-widest gap-2.5 shadow-sm cursor-pointer"
-              >
-                {loading ? <LoaderCircle className="size-3.5 animate-spin" /> : <RotateCcw className="size-3.5" />}
-                {refreshLabel}
-              </Button>
+            <div className="flex min-h-40 items-center justify-center px-6 text-center text-xs text-muted-foreground">
+              {stateFilter === 'OPEN'
+                ? t.rich("rightSidebar.pr.noOpenFound", {
+                    branch,
+                    highlight: (chunks) => <>{chunks}</>,
+                  })
+                : t.rich("rightSidebar.pr.noClosedFound", {
+                    branch,
+                    highlight: (chunks) => <>{chunks}</>,
+                  })}
             </div>
           ) : (
-            <div className="space-y-2">
+            <div className="min-w-0 space-y-2">
               {prList.map((pr) => {
                 const isFrom = pr.headRefName === branch;
                 const isTo = pr.baseRefName === branch;
@@ -214,10 +187,12 @@ export const PRPanel = React.forwardRef<PRPanelHandle, PRPanelProps>(function PR
                         <span className="font-mono">{pr.number}</span>
                       </div>
 
-                      <div className="flex items-center gap-1.5">
-                        <GitCommit className="size-3" />
-                        <span className="font-mono tabular-nums">{pr.commits?.length || 0}</span>
-                      </div>
+                      {Array.isArray(pr.commits) && pr.commits.length > 0 ? (
+                        <div className="flex items-center gap-1.5">
+                          <GitCommit className="size-3" />
+                          <span className="font-mono tabular-nums">{pr.commits.length}</span>
+                        </div>
+                      ) : null}
 
                       <div className="ml-auto flex items-center gap-1 opacity-70">
                         <Tooltip>
@@ -240,6 +215,13 @@ export const PRPanel = React.forwardRef<PRPanelHandle, PRPanelProps>(function PR
                   </div>
                 );
               })}
+              <GithubListPagination
+                page={page}
+                hasMore={hasMore}
+                onPageChange={setPage}
+                previousLabel={t("rightSidebar.pr.previousPage")}
+                nextLabel={t("rightSidebar.pr.nextPage")}
+              />
             </div>
           )}
         </div>
