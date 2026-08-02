@@ -39,6 +39,7 @@ import {
   FileText,
   PanelRightClose,
   PanelRightOpen,
+  ListChecks,
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { enUS, zhCN } from 'date-fns/locale';
@@ -65,6 +66,7 @@ import {
   type TimelineItem,
 } from '../lib/pr-detail-parts';
 import { PRMetadataSidebar } from '../lib/pr-detail-sidebar';
+import { PRChecksTab } from './PRChecksTab';
 
 interface PRDetailViewProps {
   owner: string;
@@ -77,8 +79,8 @@ interface PRDetailViewProps {
   onClosed?: () => void;
 }
 
-type PRMainTab = 'description' | 'discussion' | 'commits' | 'files';
-const PR_MAIN_TABS: PRMainTab[] = ['description', 'discussion', 'commits', 'files'];
+type PRMainTab = 'description' | 'checks' | 'discussion' | 'commits' | 'files';
+const PR_MAIN_TABS: PRMainTab[] = ['description', 'checks', 'discussion', 'commits', 'files'];
 
 // Persist PR tab selection across center tab switches (survives unmount/remount).
 const prMainTabCache = new Map<number, PRMainTab>();
@@ -501,16 +503,36 @@ export function PRDetailView({ owner, repo, branch, prNumber, active, onRequestC
                           <TabsSubtleItem index={0} icon={FileText} label={t('tabs.description')} />
                           <TabsSubtleItem
                             index={1}
+                            icon={ListChecks}
+                            label={(() => {
+                              const checks: StatusCheck[] = Array.isArray(pr.statusCheckRollup)
+                                ? pr.statusCheckRollup
+                                : [];
+                              const failing = checks.filter(
+                                (c) =>
+                                  c.state === 'FAILURE' ||
+                                  c.state === 'ERROR' ||
+                                  c.conclusion === 'FAILURE' ||
+                                  c.conclusion === 'ERROR' ||
+                                  c.conclusion === 'ACTION_REQUIRED',
+                              ).length;
+                              return failing > 0
+                                ? t('tabs.checksWithFailures', { count: failing })
+                                : t('tabs.checks', { count: checks.length });
+                            })()}
+                          />
+                          <TabsSubtleItem
+                            index={2}
                             icon={MessageSquare}
                             label={`${t('tabs.discussion')}${sidebarData?.totalCommentsCount != null ? ` (${sidebarData.totalCommentsCount})` : ''}`}
                           />
                           <TabsSubtleItem
-                            index={2}
+                            index={3}
                             icon={GitCommit}
                             label={t('tabs.commits', { count: pr.commits?.length || 0 })}
                           />
                           <TabsSubtleItem
-                            index={3}
+                            index={4}
                             icon={FileCode}
                             label={t('tabs.filesChanged', { count: pr.changedFiles ?? 0 })}
                           />
@@ -529,67 +551,58 @@ export function PRDetailView({ owner, repo, branch, prNumber, active, onRequestC
                     </div>
                   )}
 
-                  {/* PR Status Section */}
-                  <div className="flex flex-col gap-3 py-2">
-                    {pr.state === 'OPEN' && (
-                      <div className={cn(
-                        "flex items-start gap-4 p-4 border rounded-xl transition-all duration-180 ease-[cubic-bezier(0.22,1,0.36,1)] shadow-sm",
-                        pr.mergeable === 'MERGEABLE' ? "bg-emerald-500/5 border-emerald-500/20" : "bg-muted/30 border-border"
-                      )}>
-                        <div className={cn(
-                          "mt-0.5 rounded-full p-1.5 shadow-sm",
-                          pr.mergeable === 'MERGEABLE' ? "bg-emerald-500 text-white" : "bg-muted-foreground/20 text-muted-foreground"
-                        )}>
-                          {pr.mergeable === 'MERGEABLE' ? <CheckCircle2 className="size-4" /> : <AlertCircle className="size-4" />}
-                        </div>
-                        <div className="flex-1 select-none">
-                          <h5 className="text-sm font-bold">
-                            {pr.mergeable === 'MERGEABLE' ? t('status.mergeableTitle') : t('status.checkingTitle')}
-                          </h5>
-                          <div className="flex items-center justify-between gap-4">
-                            <p className="text-[11px] text-muted-foreground mt-0.5">
-                              {pr.mergeable === 'MERGEABLE' ? t('status.mergeableDescription') : t('status.checkingDescription')}
-                            </p>
-                            {!pr.isDraft && (
-                              <div className="text-[11px] text-muted-foreground shrink-0">
-                                {t('status.stillInProgress')}{' '}
-                                <button
-                                  onClick={handleDraft}
-                                  disabled={!!actionLoading}
-                                  className="hover:text-foreground transition-colors duration-180 ease-[cubic-bezier(0.22,1,0.36,1)] underline decoration-dotted underline-offset-4"
-                                >
-                                  {t('status.convertToDraft')}
-                                </button>
-                              </div>
-                            )}
-                          </div>
-                        </div>
+                  {pr.isDraft && (
+                    <div className="flex items-start gap-4 p-4 border rounded-xl bg-muted/40 border-border shadow-sm">
+                      <div className="mt-0.5 rounded-full p-1.5 bg-sidebar-accent text-sidebar-foreground shadow-sm">
+                        <GitPullRequest className="size-4" />
                       </div>
-                    )}
+                      <div className="flex-1 flex items-center justify-between gap-4">
+                        <div className="min-w-0">
+                          <h5 className="text-sm font-bold text-foreground">{t('draftBanner.title')}</h5>
+                          <p className="text-[11px] text-muted-foreground mt-0.5">{t('draftBanner.description')}</p>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-8 text-xs bg-background hover:bg-muted shadow-sm whitespace-nowrap"
+                          onClick={handleReady}
+                          disabled={!!actionLoading}
+                        >
+                          {t('draftBanner.readyForReview')}
+                        </Button>
+                      </div>
+                    </div>
+                  )}
 
-                    {pr.isDraft && (
-                      <div className="flex items-start gap-4 p-4 border rounded-xl bg-muted/40 border-border shadow-sm">
-                        <div className="mt-0.5 rounded-full p-1.5 bg-sidebar-accent text-sidebar-foreground shadow-sm">
-                          <GitPullRequest className="size-4" />
-                        </div>
-                        <div className="flex-1 flex items-center justify-between gap-4">
-                          <div className="min-w-0">
-                            <h5 className="text-sm font-bold text-foreground">{t('draftBanner.title')}</h5>
-                            <p className="text-[11px] text-muted-foreground mt-0.5">{t('draftBanner.description')}</p>
-                          </div>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-8 text-xs bg-background hover:bg-muted shadow-sm whitespace-nowrap"
-                            onClick={handleReady}
-                            disabled={!!actionLoading}
-                          >
-                            {t('draftBanner.readyForReview')}
-                          </Button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
+                  {!pr.body && !pr.isDraft && (
+                    <div className="rounded-md border border-dashed border-border/50 px-4 py-8 text-center text-[12px] text-muted-foreground">
+                      {t('emptyDescription')}
+                    </div>
+                  )}
+                </div>
+
+                {/* Checks tab */}
+                <div className={cn(activeMainTab !== 'checks' && 'hidden')}>
+                  <PRChecksTab
+                    owner={owner}
+                    repo={repo}
+                    prNumber={prNumber}
+                    prTitle={pr.title}
+                    prUrl={pr.url}
+                    headRefName={pr.headRefName || branch}
+                    baseRefName={pr.baseRefName}
+                    checks={Array.isArray(pr.statusCheckRollup) ? pr.statusCheckRollup : []}
+                    mergeable={pr.mergeable}
+                    mergeStateStatus={pr.mergeStateStatus}
+                    isDraft={pr.isDraft}
+                    prState={pr.state}
+                    commitsCount={pr.commits?.length || 0}
+                    actionLoading={actionLoading}
+                    mergeStrategy={mergeStrategy}
+                    onMergeStrategyChange={setMergeStrategy}
+                    onMerge={() => handleMerge()}
+                    onConvertToDraft={handleDraft}
+                  />
                 </div>
 
                 {/* Discussion tab */}
@@ -1042,8 +1055,6 @@ export function PRDetailView({ owner, repo, branch, prNumber, active, onRequestC
 
               <PRMetadataSidebar
                 pr={pr}
-                owner={owner}
-                repo={repo}
                 sidebarData={sidebarData}
                 sidebarLoading={sidebarLoading}
                 isSidebarCollapsed={isSidebarCollapsed}

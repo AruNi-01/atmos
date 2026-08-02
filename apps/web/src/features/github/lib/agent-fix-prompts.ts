@@ -184,6 +184,51 @@ export function buildPrReviewFixPrompt(
   ]);
 }
 
+/** Fix prompt for a single failed PR status check (from Checks tab). */
+export function buildGithubActionsCheckFixPrompt(args: {
+  owner: string;
+  repo: string;
+  check: {
+    name: string;
+    workflowName?: string;
+    conclusion?: string;
+    status?: string;
+    detailsUrl?: string;
+  };
+  runId?: number | null;
+  pr?: {
+    number: number;
+    title?: string | null;
+    headRefName?: string | null;
+    baseRefName?: string | null;
+    url?: string | null;
+  };
+}): string {
+  return compactLines([
+    "Fix the failing GitHub Actions / status check below. Make the smallest relevant code or configuration change.",
+    "",
+    "Scope:",
+    `- Repository: ${args.owner}/${args.repo}`,
+    args.pr
+      ? `- Pull request: #${args.pr.number}${args.pr.title ? ` — ${args.pr.title}` : ""}`
+      : null,
+    args.pr?.url ? `- PR URL: ${args.pr.url}` : null,
+    args.pr?.headRefName ? `- Head branch: ${args.pr.headRefName}` : null,
+    args.pr?.baseRefName ? `- Base branch: ${args.pr.baseRefName}` : null,
+    args.check.workflowName ? `- Workflow: ${args.check.workflowName}` : null,
+    `- Check: ${args.check.name}`,
+    args.check.status ? `- Status: ${args.check.status}` : null,
+    args.check.conclusion ? `- Conclusion: ${args.check.conclusion}` : null,
+    args.runId != null ? `- Run ID: ${args.runId}` : null,
+    args.check.detailsUrl ? `- Check URL: ${args.check.detailsUrl}` : null,
+    "",
+    "Instructions:",
+    "- Focus on this check failure only.",
+    "- Do not rewrite unrelated code or chase unrelated warnings.",
+    "- If logs are needed, inspect the check URL or run the relevant local command.",
+  ]);
+}
+
 export function buildGithubActionsJobFixPrompt(args: {
   owner: string;
   repo: string;

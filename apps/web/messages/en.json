@@ -6216,9 +6216,54 @@
       },
       "tabs": {
         "description": "Description",
+        "checks": "Checks ({count})",
+        "checksWithFailures": "Checks ({count} failing)",
         "discussion": "Discussion",
         "commits": "Commits ({count})",
         "filesChanged": "Files changed ({count})"
+      },
+      "emptyDescription": "No description provided.",
+      "checksTab": {
+        "summary": {
+          "allPassed": "All checks have passed",
+          "someFailed": "Some checks were not successful",
+          "inProgress": "Checks in progress",
+          "awaitingConflicts": "Checks awaiting conflict resolution",
+          "none": "No checks yet",
+          "noneDescription": "Status checks will appear here when CI runs on this pull request.",
+          "counts": "{failing} failing, {pending} pending, {skipped} skipped, {successful} successful"
+        },
+        "groups": {
+          "failing": "{count} failing checks",
+          "pending": "{count} pending checks",
+          "skipped": "{count} skipped checks",
+          "successful": "{count} successful checks"
+        },
+        "row": {
+          "failingAfter": "Failing after {duration}",
+          "successfulIn": "Successful in {duration}",
+          "skipped": "Skipped",
+          "inProgress": "In progress",
+          "failed": "Failed",
+          "passed": "Passed"
+        },
+        "openAction": "Open {name} in Actions",
+        "openExternal": "Open {name}",
+        "empty": "No status checks reported for this pull request.",
+        "conflicts": {
+          "title": "This branch has conflicts that must be resolved",
+          "description": "Use the command line or GitHub to resolve conflicts before merging.",
+          "resolve": "Resolve conflicts"
+        },
+        "merge": {
+          "hint": "You can also merge from the bottom toolbar."
+        },
+        "agentFix": {
+          "label": "Fix {name}",
+          "disabledReason": "Open a workspace or project to run Agent Fix.",
+          "terminalTabTitle": "PR #{prNumber} check fix",
+          "terminalPaneLabel": "Fix {name}"
+        }
       },
       "status": {
         "mergeableTitle": "No conflicts with base branch",

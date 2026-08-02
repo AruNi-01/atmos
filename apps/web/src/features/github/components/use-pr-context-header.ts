@@ -1,6 +1,6 @@
 import React from "react";
 
-type PRMainTab = "description" | "discussion" | "commits" | "files";
+type PRMainTab = "description" | "checks" | "discussion" | "commits" | "files";
 
 export function usePrContextHeader(activeMainTab: PRMainTab) {
   const mainScrollRef = React.useRef<HTMLDivElement | null>(null);

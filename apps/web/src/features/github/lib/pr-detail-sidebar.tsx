@@ -23,13 +23,11 @@ import {
 } from 'lucide-react';
 import { cn } from '@/shared/lib/utils';
 import {
-  ChecksSection,
   SidebarSection,
   type Assignee,
   type ClosingIssue,
   type Label,
   type Reviewer,
-  type StatusCheck,
 } from './pr-detail-parts';
 
 interface PRSidebarData {
@@ -38,7 +36,6 @@ interface PRSidebarData {
 }
 
 interface PRSidebarModel {
-  statusCheckRollup?: StatusCheck[];
   reviews?: Array<{ author?: { login?: string; avatarUrl?: string; avatar_url?: string }; state?: string }>;
   reviewRequests?: Array<{ login?: string; name?: string; avatarUrl?: string; avatar_url?: string }>;
   assignees?: Assignee[];
@@ -47,8 +44,6 @@ interface PRSidebarModel {
 
 interface PRMetadataSidebarProps {
   pr: PRSidebarModel;
-  owner: string;
-  repo: string;
   sidebarData?: PRSidebarData | null;
   sidebarLoading: boolean;
   isSidebarCollapsed: boolean;
@@ -56,8 +51,6 @@ interface PRMetadataSidebarProps {
 
 export function PRMetadataSidebar({
   pr,
-  owner,
-  repo,
   sidebarData,
   sidebarLoading,
   isSidebarCollapsed,
@@ -70,10 +63,6 @@ export function PRMetadataSidebar({
         isSidebarCollapsed ? "max-w-0 opacity-0" : "max-w-[240px] opacity-100"
       )}>
         <div className="flex flex-col gap-5 text-xs pr-2 pt-1 pb-16 w-[240px]">
-          {pr.statusCheckRollup && pr.statusCheckRollup.length > 0 && (
-            <ChecksSection checks={pr.statusCheckRollup} owner={owner} repo={repo} />
-          )}
-
           <SidebarSection title={t('sections.reviewers')} icon={<Eye className="size-3.5" />}>
             <ReviewersList pr={pr} />
           </SidebarSection>

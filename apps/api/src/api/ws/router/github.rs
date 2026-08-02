@@ -262,7 +262,7 @@ impl WsMessageService {
             "--repo",
             &repo_arg,
             "--json",
-            "number,title,body,state,mergeable,reviewDecision,baseRefName,headRefName,createdAt,url,statusCheckRollup,comments,reviews,author,commits,isDraft,assignees,labels,reviewRequests,closingIssuesReferences,changedFiles",
+            "number,title,body,state,mergeable,mergeStateStatus,reviewDecision,baseRefName,headRefName,createdAt,url,statusCheckRollup,comments,reviews,author,commits,isDraft,assignees,labels,reviewRequests,closingIssuesReferences,changedFiles",
         ];
         let output = self
             .github_engine

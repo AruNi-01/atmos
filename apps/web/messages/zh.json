@@ -6216,9 +6216,54 @@
       },
       "tabs": {
         "description": "描述",
+        "checks": "Checks（{count}）",
+        "checksWithFailures": "Checks（{count} 失败）",
         "discussion": "讨论",
         "commits": "提交（{count}）",
         "filesChanged": "变更文件（{count}）"
+      },
+      "emptyDescription": "暂无描述。",
+      "checksTab": {
+        "summary": {
+          "allPassed": "所有检查已通过",
+          "someFailed": "部分检查未通过",
+          "inProgress": "检查进行中",
+          "awaitingConflicts": "检查等待冲突解决",
+          "none": "尚无检查",
+          "noneDescription": "此 Pull Request 的 CI 运行后，状态检查会显示在这里。",
+          "counts": "{failing} 失败，{pending} 进行中，{skipped} 已跳过，{successful} 成功"
+        },
+        "groups": {
+          "failing": "{count} 个失败检查",
+          "pending": "{count} 个进行中检查",
+          "skipped": "{count} 个已跳过检查",
+          "successful": "{count} 个成功检查"
+        },
+        "row": {
+          "failingAfter": "失败，耗时 {duration}",
+          "successfulIn": "成功，耗时 {duration}",
+          "skipped": "已跳过",
+          "inProgress": "进行中",
+          "failed": "失败",
+          "passed": "通过"
+        },
+        "openAction": "在 Actions 中打开 {name}",
+        "openExternal": "打开 {name}",
+        "empty": "此 Pull Request 暂无状态检查。",
+        "conflicts": {
+          "title": "此分支存在必须解决的冲突",
+          "description": "合并前请使用命令行或 GitHub 解决冲突。",
+          "resolve": "解决冲突"
+        },
+        "merge": {
+          "hint": "也可以使用底部工具栏合并。"
+        },
+        "agentFix": {
+          "label": "修复 {name}",
+          "disabledReason": "请先打开工作区或项目再运行 Agent Fix。",
+          "terminalTabTitle": "PR #{prNumber} 检查修复",
+          "terminalPaneLabel": "修复 {name}"
+        }
       },
       "status": {
         "mergeableTitle": "与基准分支没有冲突",

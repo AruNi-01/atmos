@@ -22,11 +22,116 @@ import { cn } from '@/shared/lib/utils';
 
 export type PRMergeStrategy = 'merge' | 'squash' | 'rebase';
 
-interface PRActionBarModel {
+export interface PRActionBarModel {
   state?: string;
   isDraft?: boolean;
   mergeable?: string;
   commits?: unknown[];
+}
+
+interface PRMergeControlsProps {
+  pr: PRActionBarModel;
+  actionLoading: 'merge' | 'close' | 'reopen' | 'comment' | null;
+  mergeStrategy: PRMergeStrategy;
+  onMergeStrategyChange: (strategy: PRMergeStrategy) => void;
+  onMerge: () => void;
+  /** Controlled merge menu (toolbar keeps hover open while menu is open). */
+  mergeMenuOpen?: boolean;
+  onMergeMenuOpenChange?: (open: boolean) => void;
+  className?: string;
+}
+
+/** Shared merge primary button + strategy dropdown (toolbar + Checks tab). */
+export function PRMergeControls({
+  pr,
+  actionLoading,
+  mergeStrategy,
+  onMergeStrategyChange,
+  onMerge,
+  mergeMenuOpen,
+  onMergeMenuOpenChange,
+  className,
+}: PRMergeControlsProps) {
+  const t = useTranslations('github.prDetailActions');
+  const [uncontrolledMenuOpen, setUncontrolledMenuOpen] = React.useState(false);
+  const isMenuOpen = mergeMenuOpen ?? uncontrolledMenuOpen;
+  const setMenuOpen = onMergeMenuOpenChange ?? setUncontrolledMenuOpen;
+  const mergeDisabled =
+    !!actionLoading || pr.isDraft || pr.mergeable !== 'MERGEABLE';
+  const mergeLabel =
+    mergeStrategy === 'merge'
+      ? t('mergeStrategies.merge.label')
+      : mergeStrategy === 'squash'
+        ? t('mergeStrategies.squash.label')
+        : t('mergeStrategies.rebase.label');
+
+  return (
+    <div className={cn('flex items-stretch shadow-sm', className)}>
+      <Button
+        variant="default"
+        size="sm"
+        onClick={onMerge}
+        disabled={mergeDisabled}
+        className={cn(
+          'h-8 sm:h-8 rounded-r-none border-0 shadow-none before:rounded-none transition-all transform active:scale-[0.98] text-white',
+          mergeDisabled
+            ? 'bg-muted text-muted-foreground cursor-not-allowed'
+            : 'bg-emerald-600 hover:bg-emerald-700',
+        )}
+      >
+        {actionLoading === 'merge' ? (
+          <Loader2 className="mr-2 size-4 animate-spin" />
+        ) : (
+          <GitMerge className="mr-2 size-4" />
+        )}
+        {mergeLabel}
+      </Button>
+
+      <DropdownMenu open={isMenuOpen} onOpenChange={setMenuOpen}>
+        <DropdownMenuTrigger asChild>
+          <Button
+            variant="default"
+            size="sm"
+            className={cn(
+              'h-8 sm:h-8 min-w-0 rounded-l-none border-0 border-l border-white/15 px-2 shadow-none before:rounded-none transition-all text-white',
+              mergeDisabled
+                ? 'bg-muted text-muted-foreground cursor-not-allowed border-l-border/40'
+                : 'bg-emerald-600 hover:bg-emerald-700',
+            )}
+            disabled={mergeDisabled}
+          >
+            <ChevronDown className="size-3.5" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-[320px] p-1">
+          <MergeStrategyItem
+            title={t('mergeStrategies.merge.title')}
+            description={t('mergeStrategies.merge.description')}
+            selected={mergeStrategy === 'merge'}
+            onSelect={() => onMergeStrategyChange('merge')}
+          />
+          <div className="h-px bg-border/40 my-1" />
+          <MergeStrategyItem
+            title={t('mergeStrategies.squash.title')}
+            description={t('mergeStrategies.squash.description', {
+              count: pr.commits?.length || 0,
+            })}
+            selected={mergeStrategy === 'squash'}
+            onSelect={() => onMergeStrategyChange('squash')}
+          />
+          <div className="h-px bg-border/40 my-1" />
+          <MergeStrategyItem
+            title={t('mergeStrategies.rebase.title')}
+            description={t('mergeStrategies.rebase.description', {
+              count: pr.commits?.length || 0,
+            })}
+            selected={mergeStrategy === 'rebase'}
+            onSelect={() => onMergeStrategyChange('rebase')}
+          />
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
+  );
 }
 
 interface PRActionBarProps {
@@ -186,63 +291,15 @@ export function PRActionBar({
                     {actionLoading === 'close' ? <Loader2 className="mr-2 size-4 animate-spin" /> : <XCircle className="mr-2 size-4" />}
                     {t('closePr')}
                   </Button>
-                  <div className="flex items-stretch shadow-sm">
-                    <Button
-                      variant="default"
-                      size="sm"
-                      onClick={onMerge}
-                      disabled={!!actionLoading || pr.isDraft || pr.mergeable !== 'MERGEABLE'}
-                      className={cn(
-                        "h-8 sm:h-8 rounded-r-none border-0 shadow-none before:rounded-none transition-all transform active:scale-[0.98] text-white",
-                        (pr.isDraft || pr.mergeable !== 'MERGEABLE')
-                          ? "bg-muted text-muted-foreground cursor-not-allowed"
-                          : "bg-emerald-600 hover:bg-emerald-700",
-                      )}
-                    >
-                      {actionLoading === 'merge' ? <Loader2 className="mr-2 size-4 animate-spin" /> : <GitMerge className="mr-2 size-4" />}
-                      {mergeStrategy === 'merge' ? t('mergeStrategies.merge.label') : mergeStrategy === 'squash' ? t('mergeStrategies.squash.label') : t('mergeStrategies.rebase.label')}
-                    </Button>
-
-                    <DropdownMenu open={isMergeMenuOpen} onOpenChange={handleMergeMenuOpenChange}>
-                      <DropdownMenuTrigger asChild>
-                        <Button
-                          variant="default"
-                          size="sm"
-                          className={cn(
-                            "h-8 sm:h-8 min-w-0 rounded-l-none border-0 border-l border-white/15 px-2 shadow-none before:rounded-none transition-all text-white",
-                            (pr.isDraft || pr.mergeable !== 'MERGEABLE')
-                              ? "bg-muted text-muted-foreground cursor-not-allowed border-l-border/40"
-                              : "bg-emerald-600 hover:bg-emerald-700",
-                          )}
-                          disabled={!!actionLoading || pr.isDraft || pr.mergeable !== 'MERGEABLE'}
-                        >
-                          <ChevronDown className="size-3.5" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-[320px] p-1">
-                        <MergeStrategyItem
-                          title={t('mergeStrategies.merge.title')}
-                          description={t('mergeStrategies.merge.description')}
-                          selected={mergeStrategy === 'merge'}
-                          onSelect={() => onMergeStrategyChange('merge')}
-                        />
-                        <div className="h-px bg-border/40 my-1" />
-                        <MergeStrategyItem
-                          title={t('mergeStrategies.squash.title')}
-                          description={t('mergeStrategies.squash.description', { count: pr.commits?.length || 0 })}
-                          selected={mergeStrategy === 'squash'}
-                          onSelect={() => onMergeStrategyChange('squash')}
-                        />
-                        <div className="h-px bg-border/40 my-1" />
-                        <MergeStrategyItem
-                          title={t('mergeStrategies.rebase.title')}
-                          description={t('mergeStrategies.rebase.description', { count: pr.commits?.length || 0 })}
-                          selected={mergeStrategy === 'rebase'}
-                          onSelect={() => onMergeStrategyChange('rebase')}
-                        />
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
+                  <PRMergeControls
+                    pr={pr}
+                    actionLoading={actionLoading}
+                    mergeStrategy={mergeStrategy}
+                    onMergeStrategyChange={onMergeStrategyChange}
+                    onMerge={onMerge}
+                    mergeMenuOpen={isMergeMenuOpen}
+                    onMergeMenuOpenChange={handleMergeMenuOpenChange}
+                  />
                 </>
               ) : pr?.state === 'CLOSED' ? (
                 <Button
