@@ -6,7 +6,8 @@
   "header": {
     "docs": "文档",
     "changelog": "更新日志",
-    "build": "开始构建"
+    "build": "开始构建",
+    "menu": "菜单"
   },
   "hero": {
     "line1Primary": "Atmosphere",
@@ -24,6 +25,14 @@
   "featureShowcase": {
     "badge": "功能",
     "title": "看看 Atmos 如何运作",
+    "sphere": {
+      "subtitle": "拖拽旋转演示云。悬停放大，点击卡片即可聚焦播放视频。",
+      "hint": "拖拽环绕 · 点击卡片播放",
+      "loading": "正在组装演示…",
+      "close": "关闭聚焦视频",
+      "prev": "上一个",
+      "next": "下一个"
+    },
     "video": {
       "play": "播放",
       "pause": "暂停",
@@ -32,8 +41,8 @@
     },
     "features": {
       "agent": {
-        "title": "Agent Terminal Use Flow",
-        "label": "智能体",
+        "title": "智能体终端使用流",
+        "label": "总览",
         "description": "在同一个工作区查看流式回复、工具调用更新、权限控制和自定义 ACP 智能体。"
       },
       "browser": {

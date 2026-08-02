@@ -9,6 +9,7 @@ import { Separator } from '@workspace/ui/components/ui/separator'
 import { MotionPreset } from '@workspace/ui/components/ui/motion-preset'
 import { CraftButton, CraftButtonIcon, CraftButtonLabel } from '@workspace/ui/components/ui/craft-button'
 import { BlinkingGrid } from '@/components/ui/blinking-grid'
+import { LandingFrame, landingRailClassName } from '@/components/layout/landing-frame'
 import { changelogData } from '@/lib/changelog-data'
 import { cn, formatDate } from '@/lib/utils'
 
@@ -37,7 +38,7 @@ const LatestChanges = () => {
       }}
       onClick={clearCurrentHashBeforeNavigation}
       className={cn(
-        'group w-full rounded-2xl border bg-background p-5 transition-colors hover:bg-muted/30',
+        'group block w-full min-w-0 rounded-2xl border bg-background p-5 transition-colors hover:bg-muted/30',
         'outline-hidden ring-offset-background focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
       )}
     >
@@ -79,11 +80,10 @@ const LatestChanges = () => {
         blur
         transition={{ duration: 0.5 }}
         delay={0.15}
-        className='relative overflow-hidden border-y xl:flex'
+        className='relative overflow-hidden border-y'
       >
-        <BlinkingGrid className='m-6 w-full shrink-2 bg-[radial-gradient(circle_at_center,color-mix(in_oklab,var(--primary)_15%,transparent)_2px,transparent_2px)] bg-size-[18px_18px] max-xl:hidden' />
-
-        <div className='mx-auto max-w-6xl space-y-8 px-4 py-8 min-[1158px]:border-x sm:space-y-16 sm:px-6 sm:py-16 lg:px-8'>
+        <LandingFrame side={<BlinkingGrid className={landingRailClassName} />}>
+        <div className='space-y-6 px-4 py-8 sm:space-y-16 sm:px-6 sm:py-16 lg:px-8'>
           {/* Header */}
           <div className='space-y-2.5'>
             <MotionPreset fade blur slide={{ direction: 'down', offset: 50 }} transition={{ duration: 0.5 }}>
@@ -91,9 +91,9 @@ const LatestChanges = () => {
                 {t('badge')}
               </Badge>
             </MotionPreset>
-            <div className='flex justify-between gap-4 max-md:flex-col'>
+            <div className='flex flex-col justify-between gap-3 md:flex-row md:gap-4'>
               <MotionPreset delay={0.3} transition={{ duration: 0.5 }} className='max-w-100'>
-                <h2 className='text-2xl font-semibold sm:text-3xl lg:text-4xl'>
+                <h2 className='text-balance text-2xl font-semibold sm:text-3xl lg:text-4xl'>
                   {t('title')} ✨
                 </h2>
               </MotionPreset>
@@ -104,7 +104,7 @@ const LatestChanges = () => {
                 slide={{ direction: 'down', offset: 50 }}
                 transition={{ duration: 0.5 }}
               >
-                <p className='text-muted-foreground max-w-xl text-lg'>
+                <p className='max-w-xl text-pretty text-base text-muted-foreground sm:text-lg'>
                   {t('description')}
                 </p>
               </MotionPreset>
@@ -166,7 +166,7 @@ const LatestChanges = () => {
             </div>
 
             {/* ── Mobile: vertical list ── */}
-            <div className='space-y-4 md:hidden'>
+            <div className='flex flex-col gap-3 md:hidden'>
               {latestChangesData.map((item) => {
                 return (
                   <Link
@@ -177,25 +177,28 @@ const LatestChanges = () => {
                     }}
                     onClick={clearCurrentHashBeforeNavigation}
                     className={cn(
-                      'group rounded-2xl border bg-background p-5 transition-colors hover:bg-muted/30',
+                      // Links default to inline — must be block so rounded borders paint fully
+                      'group block w-full min-w-0 rounded-2xl border bg-background p-4 transition-colors hover:bg-muted/30 sm:p-5',
                       'outline-hidden ring-offset-background focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
                     )}
                   >
-                    <div className='min-w-0 space-y-1'>
-                      <div className='mb-3 flex items-start justify-between gap-3'>
+                    <div className='mb-2 flex items-start justify-between gap-3'>
+                      <div className='min-w-0 flex flex-wrap items-center gap-x-2 gap-y-1'>
                         {item.version ? (
                           <p className='font-mono text-xs font-medium text-primary'>v{item.version}</p>
-                        ) : (
-                          <span />
-                        )}
-                        <ArrowUpRightIcon className='size-3.5 shrink-0 text-muted-foreground transition-transform group-hover:rotate-45 group-hover:text-foreground' />
+                        ) : null}
+                        <p className='text-[11px] font-medium text-muted-foreground'>
+                          {item.time}
+                        </p>
                       </div>
-                      <p className='text-[11px] font-medium text-muted-foreground'>
-                        {item.time}
-                      </p>
-                      <h3 className='line-clamp-1 pt-1 text-sm font-semibold text-foreground'>{item.title}</h3>
-                      <p className='line-clamp-2 text-xs leading-relaxed text-muted-foreground'>{item.description}</p>
+                      <ArrowUpRightIcon className='mt-0.5 size-3.5 shrink-0 text-muted-foreground transition-transform group-hover:rotate-45 group-hover:text-foreground' />
                     </div>
+                    <h3 className='line-clamp-2 text-sm font-semibold leading-snug text-foreground'>
+                      {item.title}
+                    </h3>
+                    <p className='mt-2 line-clamp-3 text-xs leading-relaxed text-muted-foreground'>
+                      {item.description}
+                    </p>
                   </Link>
                 )
               })}
@@ -222,8 +225,7 @@ const LatestChanges = () => {
             </CraftButton>
           </MotionPreset>
         </div>
-
-        <BlinkingGrid className='m-6 w-full shrink-2 bg-[radial-gradient(circle_at_center,color-mix(in_oklab,var(--primary)_15%,transparent)_2px,transparent_2px)] bg-size-[18px_18px] max-xl:hidden' />
+        </LandingFrame>
       </MotionPreset>
     </section>
   )

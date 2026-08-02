@@ -104,12 +104,12 @@ export function HeroVideoDialog({
           className="w-full rounded-md border shadow-lg transition-all duration-200 ease-out group-hover:brightness-[0.8]"
         />
         <div className="absolute inset-0 flex scale-[0.9] items-center justify-center rounded-2xl transition-all duration-200 ease-out group-hover:scale-100">
-          <div className="bg-primary/10 flex size-28 items-center justify-center rounded-full backdrop-blur-md">
+          <div className="flex size-16 items-center justify-center rounded-full bg-primary/10 backdrop-blur-md sm:size-20 md:size-28">
             <div
-              className={`from-primary/30 to-primary relative flex size-20 scale-100 items-center justify-center rounded-full bg-linear-to-b shadow-md transition-all duration-200 ease-out group-hover:scale-[1.2]`}
+              className="relative flex size-12 scale-100 items-center justify-center rounded-full bg-linear-to-b from-primary/30 to-primary shadow-md transition-all duration-200 ease-out group-hover:scale-[1.2] sm:size-14 md:size-20"
             >
               <Play
-                className="size-8 scale-100 fill-white text-white transition-transform duration-200 ease-out group-hover:scale-105"
+                className="size-5 scale-100 fill-white text-white transition-transform duration-200 ease-out group-hover:scale-105 sm:size-6 md:size-8"
                 style={{
                   filter:
                     "drop-shadow(0 4px 3px rgb(0 0 0 / 0.07)) drop-shadow(0 2px 2px rgb(0 0 0 / 0.06))",
@@ -139,12 +139,12 @@ export function HeroVideoDialog({
               <motion.div
                 {...selectedAnimation}
                 transition={{ type: "spring", damping: 30, stiffness: 300 }}
-                className="relative aspect-video w-full max-w-[94vw] md:max-w-[90vw] lg:max-w-[85vw] xl:max-w-[1400px] mx-4 md:mx-0"
+                className="relative mx-3 aspect-video w-full max-w-[min(94vw,1400px)] sm:mx-4 md:mx-0 md:max-w-[90vw] lg:max-w-[85vw] xl:max-w-[1400px]"
                 onClick={(e) => e.stopPropagation()} // Prevent closing dialog when clicking inside video content
               >
                 <motion.button 
                   onClick={() => setIsVideoOpen(false)}
-                  className="absolute -top-16 right-0 rounded-full bg-neutral-900/50 p-2 text-xl text-white ring-1 backdrop-blur-md dark:bg-neutral-100/50 dark:text-black cursor-pointer"
+                  className="absolute -top-12 right-0 cursor-pointer rounded-full bg-neutral-900/50 p-2 text-xl text-white ring-1 backdrop-blur-md sm:-top-16 dark:bg-neutral-100/50 dark:text-black"
                 >
                   <XIcon className="size-5" />
                 </motion.button>
