@@ -47,6 +47,8 @@ interface PRSidebarModel {
 
 interface PRMetadataSidebarProps {
   pr: PRSidebarModel;
+  owner: string;
+  repo: string;
   sidebarData?: PRSidebarData | null;
   sidebarLoading: boolean;
   isSidebarCollapsed: boolean;
@@ -54,6 +56,8 @@ interface PRMetadataSidebarProps {
 
 export function PRMetadataSidebar({
   pr,
+  owner,
+  repo,
   sidebarData,
   sidebarLoading,
   isSidebarCollapsed,
@@ -67,7 +71,7 @@ export function PRMetadataSidebar({
       )}>
         <div className="flex flex-col gap-5 text-xs pr-2 pt-1 pb-16 w-[240px]">
           {pr.statusCheckRollup && pr.statusCheckRollup.length > 0 && (
-            <ChecksSection checks={pr.statusCheckRollup} />
+            <ChecksSection checks={pr.statusCheckRollup} owner={owner} repo={repo} />
           )}
 
           <SidebarSection title={t('sections.reviewers')} icon={<Eye className="size-3.5" />}>

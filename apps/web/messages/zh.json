@@ -6057,7 +6057,9 @@
         "groups": {
           "vercel": "Vercel",
           "other": "其他 Checks"
-        }
+        },
+        "openAction": "在 Actions 中打开 {name}",
+        "openExternal": "打开 {name}"
       },
       "thread": {
         "line": "第 {line} 行",

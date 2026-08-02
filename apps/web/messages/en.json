@@ -6057,7 +6057,9 @@
         "groups": {
           "vercel": "Vercel",
           "other": "Other Checks"
-        }
+        },
+        "openAction": "Open {name} in Actions",
+        "openExternal": "Open {name}"
       },
       "thread": {
         "line": "line {line}",

@@ -24,9 +24,15 @@ import {
   Loader2,
   MessageSquare,
   RotateCw,
+  SquareArrowOutUpRight,
   XCircle,
 } from 'lucide-react';
-import { getFileIconProps } from '@workspace/ui';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+  getFileIconProps,
+} from '@workspace/ui';
 import { formatDistanceToNow } from 'date-fns';
 import { enUS, zhCN } from 'date-fns/locale';
 import {
@@ -40,8 +46,10 @@ import { currentAppLocale } from '@/shared/lib/current-app-locale';
 import enMessages from '../../../../messages/en.json';
 import zhMessages from '../../../../messages/zh.json';
 import type { CommitListItem } from '../components/CommitList';
+import type { ActionRun } from '../components/ActionsPanel';
 import { AgentFixButton } from '@/features/agent-fix/components/AgentFixButton';
 import type { AgentFixPromptSource } from '@/features/agent-fix/types';
+import { useOpenGithubCenterTab } from '../hooks/use-open-github-center-tab';
 
 export interface StatusCheck {
   state?: string;
@@ -50,6 +58,75 @@ export interface StatusCheck {
   name?: string;
   context?: string;
   workflowName?: string;
+  detailsUrl?: string;
+  targetUrl?: string;
+  startedAt?: string;
+  completedAt?: string;
+  __typename?: string;
+}
+
+/** Parse GitHub Actions run id from a check details URL. */
+export function parseGithubActionsRunId(url?: string | null): number | null {
+  if (!url) return null;
+  const match = url.match(/\/actions\/runs\/(\d+)/);
+  if (!match) return null;
+  const id = Number(match[1]);
+  return Number.isFinite(id) && id > 0 ? id : null;
+}
+
+function pickGroupActionTarget(checks: StatusCheck[]): {
+  runId: number | null;
+  externalUrl: string | null;
+} {
+  for (const check of checks) {
+    const runId = parseGithubActionsRunId(check.detailsUrl);
+    if (runId != null) {
+      return { runId, externalUrl: null };
+    }
+  }
+  for (const check of checks) {
+    const externalUrl = check.detailsUrl || check.targetUrl;
+    if (externalUrl) {
+      return { runId: null, externalUrl };
+    }
+  }
+  return { runId: null, externalUrl: null };
+}
+
+function buildActionRunFromChecks(
+  groupName: string,
+  checks: StatusCheck[],
+  runId: number,
+  owner: string,
+  repo: string,
+): ActionRun {
+  const hasFailure = checks.some(
+    (c) =>
+      c.state === 'FAILURE' ||
+      c.state === 'ERROR' ||
+      c.conclusion === 'FAILURE' ||
+      c.conclusion === 'ACTION_REQUIRED',
+  );
+  const hasInProgress = checks.some(
+    (c) =>
+      c.state === 'PENDING' ||
+      c.state === 'IN_PROGRESS' ||
+      c.state === 'EXPECTED' ||
+      (c.status && c.status !== 'COMPLETED'),
+  );
+  const first = checks[0];
+  return {
+    databaseId: runId,
+    workflowName: groupName,
+    displayTitle: first?.name || first?.context || groupName,
+    status: hasInProgress ? 'in_progress' : 'completed',
+    conclusion: hasFailure ? 'failure' : hasInProgress ? '' : 'success',
+    createdAt: first?.startedAt || first?.completedAt || '',
+    url: `https://github.com/${owner}/${repo}/actions/runs/${runId}`,
+    event: '',
+    headBranch: '',
+    headSha: '',
+  };
 }
 
 export interface TimelineItem {
@@ -151,31 +228,107 @@ function prDetailT(key: string): string {
   return cachedPrDetailTranslator(key as never);
 }
 
-function CheckGroupItem({ groupName, checks }: { groupName: string, checks: StatusCheck[] }) {
+function CheckGroupItem({
+  groupName,
+  checks,
+  owner,
+  repo,
+}: {
+  groupName: string;
+  checks: StatusCheck[];
+  owner: string;
+  repo: string;
+}) {
+  const t = useTranslations('github.prDetailParts');
+  const { openActionRunTab } = useOpenGithubCenterTab();
   const hasFailure = checks.some(c => c.state === 'FAILURE' || c.state === 'ERROR' || c.conclusion === 'FAILURE' || c.conclusion === 'ACTION_REQUIRED');
   const hasInProgress = checks.some(c => c.state === 'PENDING' || c.state === 'IN_PROGRESS' || c.state === 'EXPECTED' || (c.status && c.status !== 'COMPLETED'));
 
   const [isOpen, setIsOpen] = React.useState(hasFailure || hasInProgress);
+  const { runId, externalUrl } = React.useMemo(
+    () => pickGroupActionTarget(checks),
+    [checks],
+  );
+  const canOpen = runId != null || !!externalUrl;
 
   const GroupIcon = hasFailure ? XCircle : hasInProgress ? Loader2 : CheckCircle2;
   const groupIconClass = hasFailure ? "text-red-500" : hasInProgress ? "text-amber-500 animate-spin" : "text-emerald-500";
 
+  const handleOpen = React.useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (runId != null) {
+        openActionRunTab({
+          owner,
+          repo,
+          run: buildActionRunFromChecks(groupName, checks, runId, owner, repo),
+          runId,
+        });
+        return;
+      }
+      if (externalUrl) {
+        window.open(externalUrl, '_blank', 'noopener,noreferrer');
+      }
+    },
+    [checks, externalUrl, groupName, openActionRunTab, owner, repo, runId],
+  );
+
   return (
     <div className="flex flex-col border-b border-border/40 last:border-0 overflow-hidden bg-background">
-      <button
-        className="flex items-center gap-2.5 px-4 py-3 hover:bg-muted/40 transition-colors duration-180 ease-[cubic-bezier(0.22,1,0.36,1)] w-full text-left"
-        onClick={(e) => { e.preventDefault(); setIsOpen(!isOpen); }}
-      >
-        <div className={cn("shrink-0 flex items-center justify-center size-3 text-muted-foreground/50 transition-transform duration-180 ease-[cubic-bezier(0.22,1,0.36,1)]", isOpen ? "rotate-90" : "rotate-0")}>
-          <ChevronRight className="size-3.5" />
+      <div className="group flex items-center gap-2.5 px-4 py-3 hover:bg-muted/40 transition-colors duration-180 ease-[cubic-bezier(0.22,1,0.36,1)] w-full">
+        <button
+          type="button"
+          className="flex min-w-0 flex-1 items-center gap-2.5 text-left"
+          onClick={(e) => {
+            e.preventDefault();
+            setIsOpen(!isOpen);
+          }}
+        >
+          <div className={cn("shrink-0 flex items-center justify-center size-3 text-muted-foreground/50 transition-transform duration-180 ease-[cubic-bezier(0.22,1,0.36,1)]", isOpen ? "rotate-90" : "rotate-0")}>
+            <ChevronRight className="size-3.5" />
+          </div>
+          <div className="min-w-0 flex-1 font-medium text-[13px] text-foreground truncate">
+            {groupName}
+          </div>
+        </button>
+        <div className="relative shrink-0 size-3.5">
+          <GroupIcon
+            className={cn(
+              "absolute inset-0 size-3.5 transition-opacity duration-150",
+              canOpen && "group-hover:opacity-0",
+              groupIconClass,
+            )}
+          />
+          {canOpen && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  onClick={handleOpen}
+                  className={cn(
+                    "absolute inset-0 flex items-center justify-center rounded-sm",
+                    "opacity-0 transition-opacity duration-150 group-hover:opacity-100",
+                    "text-muted-foreground hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+                  )}
+                  aria-label={
+                    runId != null
+                      ? t('checks.openAction', { name: groupName })
+                      : t('checks.openExternal', { name: groupName })
+                  }
+                >
+                  <SquareArrowOutUpRight className="size-3.5" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="left" className="text-xs">
+                {runId != null
+                  ? t('checks.openAction', { name: groupName })
+                  : t('checks.openExternal', { name: groupName })}
+              </TooltipContent>
+            </Tooltip>
+          )}
         </div>
-        <div className="flex-1 min-w-0 font-medium text-[13px] text-foreground truncate">
-          {groupName}
-        </div>
-        <div className="shrink-0 flex items-center">
-          <GroupIcon className={cn("size-3.5", groupIconClass)} />
-        </div>
-      </button>
+      </div>
 
       <AnimatePresence initial={false}>
         {isOpen && (
@@ -191,9 +344,42 @@ function CheckGroupItem({ groupName, checks }: { groupName: string, checks: Stat
                 const isFailure = check.state === 'FAILURE' || check.state === 'ERROR' || check.conclusion === 'FAILURE';
                 const isSkipped = check.conclusion === 'SKIPPED' || check.conclusion === 'NEUTRAL';
                 const isSuccess = check.state === 'SUCCESS' || check.conclusion === 'SUCCESS';
+                const checkRunId = parseGithubActionsRunId(check.detailsUrl);
+                const checkExternalUrl =
+                  checkRunId == null
+                    ? check.detailsUrl || check.targetUrl || null
+                    : null;
+                const checkCanOpen = checkRunId != null || !!checkExternalUrl;
+                const checkLabel = check.name || check.context || groupName;
+
+                const handleCheckOpen = (e: React.MouseEvent) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  if (checkRunId != null) {
+                    openActionRunTab({
+                      owner,
+                      repo,
+                      run: buildActionRunFromChecks(
+                        groupName,
+                        [check],
+                        checkRunId,
+                        owner,
+                        repo,
+                      ),
+                      runId: checkRunId,
+                    });
+                    return;
+                  }
+                  if (checkExternalUrl) {
+                    window.open(checkExternalUrl, '_blank', 'noopener,noreferrer');
+                  }
+                };
 
                 return (
-                  <div key={idx} className="flex items-center justify-between text-[13px] px-4 py-2 pl-10 hover:bg-muted/40 group transition-colors duration-180 ease-[cubic-bezier(0.22,1,0.36,1)]">
+                  <div
+                    key={idx}
+                    className="group/check flex items-center justify-between gap-2 text-[13px] px-4 py-2 pl-10 hover:bg-muted/40 transition-colors duration-180 ease-[cubic-bezier(0.22,1,0.36,1)]"
+                  >
                     <div className="flex items-center gap-3 min-w-0">
                       <div className="shrink-0 flex items-center justify-center">
                         {isFailure ? <XCircle className="size-3.5 text-red-500" /> :
@@ -202,9 +388,37 @@ function CheckGroupItem({ groupName, checks }: { groupName: string, checks: Stat
                               <Loader2 className="size-3.5 text-amber-500 animate-spin" />}
                       </div>
                       <span className={cn("font-medium truncate", isFailure ? "text-red-500" : "text-foreground/80")}>
-                        {check.name || check.context}
+                        {checkLabel}
                       </span>
                     </div>
+                    {checkCanOpen && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button
+                            type="button"
+                            onClick={handleCheckOpen}
+                            className={cn(
+                              "shrink-0 flex items-center justify-center size-5 rounded-sm",
+                              "opacity-0 transition-opacity duration-150 group-hover/check:opacity-100",
+                              "text-muted-foreground hover:text-foreground hover:bg-muted/60",
+                              "focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+                            )}
+                            aria-label={
+                              checkRunId != null
+                                ? t('checks.openAction', { name: checkLabel })
+                                : t('checks.openExternal', { name: checkLabel })
+                            }
+                          >
+                            <SquareArrowOutUpRight className="size-3.5" />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent side="left" className="text-xs">
+                          {checkRunId != null
+                            ? t('checks.openAction', { name: checkLabel })
+                            : t('checks.openExternal', { name: checkLabel })}
+                        </TooltipContent>
+                      </Tooltip>
+                    )}
                   </div>
                 );
               })}
@@ -343,7 +557,15 @@ function SafePatchDiffBlock({ path, options, isMounted, diffHunk }: {
   );
 }
 
-export function ChecksSection({ checks }: { checks: StatusCheck[] }) {
+export function ChecksSection({
+  checks,
+  owner,
+  repo,
+}: {
+  checks: StatusCheck[];
+  owner: string;
+  repo: string;
+}) {
   const t = useTranslations('github.prDetailParts');
   const [open, setOpen] = React.useState(false);
   const allPassed = checks.every((c: StatusCheck) => c.state === 'SUCCESS' || c.conclusion === 'SUCCESS');
@@ -360,6 +582,7 @@ export function ChecksSection({ checks }: { checks: StatusCheck[] }) {
   return (
     <div className="flex flex-col gap-2">
       <button
+        type="button"
         className="flex items-center gap-1.5 text-muted-foreground font-semibold text-[11px] uppercase tracking-wider w-full text-left group cursor-pointer"
         onClick={() => setOpen(v => !v)}
       >
@@ -375,7 +598,13 @@ export function ChecksSection({ checks }: { checks: StatusCheck[] }) {
       {open && (
         <div className="flex flex-col border rounded-lg overflow-hidden border-border/50">
           {Object.entries(groups).map(([groupName, groupChecks]) => (
-            <CheckGroupItem key={groupName} groupName={groupName} checks={groupChecks} />
+            <CheckGroupItem
+              key={groupName}
+              groupName={groupName}
+              checks={groupChecks}
+              owner={owner}
+              repo={repo}
+            />
           ))}
         </div>
       )}
