@@ -6258,6 +6258,8 @@
           "loading": "Computing conflict files…",
           "noLocalFiles": "Open a workspace for this repository to list conflict files (GitHub does not expose them via API).",
           "noFilesFound": "No conflicting paths found via merge-tree. Try fetching the latest base and head branches.",
+          "shallowHistory": "Local git history is too shallow to compute conflicts. Atmos tried to deepen the clone; if this persists, run git fetch --unshallow in the workspace.",
+          "missingCommits": "PR base/head commits are not in the local clone yet. Wait for fetch to finish, or pull the latest remotes.",
           "loadFailed": "Failed to compute conflict files. Check the local repository path and git access.",
           "agentFixLabel": "Fix conflicts",
           "agentFixTerminalTab": "PR #{prNumber} conflict fix",

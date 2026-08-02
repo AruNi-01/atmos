@@ -751,7 +751,16 @@ export function PRChecksTab({
                   ? t("conflicts.noLocalFiles")
                   : conflictFilesQuery.isError
                     ? t("conflicts.loadFailed")
-                    : t("conflicts.noFilesFound")}
+                    : conflictFilesQuery.data?.reason === "shallow_no_merge_base" ||
+                        conflictFilesQuery.data?.reason === "unrelated_histories" ||
+                        conflictFilesQuery.data?.reason === "no_merge_base"
+                      ? t("conflicts.shallowHistory")
+                      : conflictFilesQuery.data?.reason === "missing_commit_objects"
+                        ? t("conflicts.missingCommits")
+                        : conflictFilesQuery.data?.reason === "missing_repo_path" ||
+                            conflictFilesQuery.data?.reason === "repo_path_not_found"
+                          ? t("conflicts.noLocalFiles")
+                          : t("conflicts.noFilesFound")}
               </p>
             )}
           </div>

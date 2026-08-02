@@ -6258,6 +6258,8 @@
           "loading": "正在计算冲突文件…",
           "noLocalFiles": "请打开对应仓库的工作区以列出冲突文件（GitHub API 不提供冲突文件列表）。",
           "noFilesFound": "merge-tree 未找到冲突路径。可尝试拉取最新的 base/head 分支后再试。",
+          "shallowHistory": "本地 git 历史过浅，无法计算冲突。Atmos 已尝试 deepen；若仍失败，可在工作区执行 git fetch --unshallow。",
+          "missingCommits": "本地尚未包含 PR 的 base/head 提交。请等待 fetch 完成，或拉取最新远程分支。",
           "loadFailed": "计算冲突文件失败。请检查本地仓库路径与 git 权限。",
           "agentFixLabel": "修复冲突",
           "agentFixTerminalTab": "PR #{prNumber} 冲突修复",

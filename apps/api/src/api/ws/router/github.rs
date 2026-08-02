@@ -786,25 +786,36 @@ impl WsMessageService {
         let is_conflicting = mergeable.eq_ignore_ascii_case("CONFLICTING")
             || merge_state.eq_ignore_ascii_case("DIRTY");
 
-        // Best-effort fetch so oids exist in the local object store.
-        let path_for_git = repo_path.clone();
+        // Ensure base/head objects (and enough ancestry for merge-base) exist.
+        // Shallow clones + `--depth 1` produce "unrelated histories" and empty conflict lists.
+        let path_for_prepare = repo_path.clone();
         let base_ref_fetch = base_ref.clone();
         let head_ref_fetch = head_ref.clone();
-        let _ = tokio::task::spawn_blocking(move || {
-            let _ = std::process::Command::new("git")
-                .current_dir(&path_for_git)
-                .args([
-                    "fetch",
-                    "--no-tags",
-                    "--depth",
-                    "1",
-                    "origin",
-                    &base_ref_fetch,
-                    &head_ref_fetch,
-                ])
-                .output();
+        let base_for_prepare = base_oid.clone();
+        let head_for_prepare = head_oid.clone();
+        let prepare = tokio::task::spawn_blocking(move || {
+            Self::prepare_repo_for_merge_tree(
+                &path_for_prepare,
+                &base_ref_fetch,
+                &head_ref_fetch,
+                &base_for_prepare,
+                &head_for_prepare,
+            )
         })
-        .await;
+        .await
+        .map_err(|e| ServiceError::Validation(format!("prepare join failed: {}", e)))?;
+
+        if let Err(reason) = prepare {
+            return Ok(json!({
+                "files": [],
+                "source": "unavailable",
+                "reason": reason,
+                "base_ref": base_ref,
+                "head_ref": head_ref,
+                "base_oid": base_oid,
+                "head_oid": head_oid,
+            }));
+        }
 
         let path_for_tree = repo_path.clone();
         let base_for_tree = base_oid.clone();
@@ -826,8 +837,25 @@ impl WsMessageService {
         .map_err(|e| ServiceError::Validation(format!("merge-tree join failed: {}", e)))?
         .map_err(|e| ServiceError::Validation(format!("merge-tree spawn failed: {}", e)))?;
 
+        let stderr = String::from_utf8_lossy(&merge_tree_output.stderr).trim().to_string();
         // Exit 0 = clean merge (no conflicts). Exit 1 = conflicts listed.
-        // Output: first line may be a tree oid; subsequent lines are paths.
+        // "unrelated histories" / missing objects → empty stdout, non-zero exit.
+        if !merge_tree_output.status.success()
+            && stderr.to_ascii_lowercase().contains("unrelated histories")
+        {
+            return Ok(json!({
+                "files": [],
+                "source": "unavailable",
+                "reason": "unrelated_histories",
+                "detail": stderr,
+                "base_ref": base_ref,
+                "head_ref": head_ref,
+                "base_oid": base_oid,
+                "head_oid": head_oid,
+            }));
+        }
+
+        // Output: first line may be a tree oid; subsequent lines are conflict paths.
         let stdout = String::from_utf8_lossy(&merge_tree_output.stdout);
         let mut files: Vec<String> = Vec::new();
         for (i, line) in stdout.lines().enumerate() {
@@ -851,12 +879,95 @@ impl WsMessageService {
         Ok(json!({
             "files": files,
             "source": "merge_tree",
-            "is_conflicting": is_conflicting || !merge_tree_output.status.success(),
+            "is_conflicting": is_conflicting || (!merge_tree_output.status.success() && !files.is_empty()),
             "base_ref": base_ref,
             "head_ref": head_ref,
             "base_oid": base_oid,
             "head_oid": head_oid,
+            "stderr": if stderr.is_empty() { Value::Null } else { json!(stderr) },
         }))
+    }
+
+    /// Fetch PR tips and deepen shallow history until `merge-base(base, head)` works.
+    fn prepare_repo_for_merge_tree(
+        repo_path: &std::path::Path,
+        base_ref: &str,
+        head_ref: &str,
+        base_oid: &str,
+        head_oid: &str,
+    ) -> std::result::Result<(), &'static str> {
+        // Full ref fetch (no --depth): shallow depth-1 breaks merge-base.
+        if !base_ref.is_empty() && !head_ref.is_empty() {
+            let _ = std::process::Command::new("git")
+                .current_dir(repo_path)
+                .args(["fetch", "--no-tags", "origin", base_ref, head_ref])
+                .output();
+        }
+
+        // Also request the exact PR SHAs (works when the server allows sha fetch).
+        let _ = std::process::Command::new("git")
+            .current_dir(repo_path)
+            .args(["fetch", "--no-tags", "origin", base_oid, head_oid])
+            .output();
+
+        // Ensure objects exist at all.
+        for oid in [base_oid, head_oid] {
+            let ok = std::process::Command::new("git")
+                .current_dir(repo_path)
+                .args(["cat-file", "-e", &format!("{}^{{commit}}", oid)])
+                .status()
+                .map(|s| s.success())
+                .unwrap_or(false);
+            if !ok {
+                return Err("missing_commit_objects");
+            }
+        }
+
+        if Self::git_merge_base_ok(repo_path, base_oid, head_oid) {
+            return Ok(());
+        }
+
+        let is_shallow = std::process::Command::new("git")
+            .current_dir(repo_path)
+            .args(["rev-parse", "--is-shallow-repository"])
+            .output()
+            .ok()
+            .and_then(|o| String::from_utf8(o.stdout).ok())
+            .map(|s| s.trim() == "true")
+            .unwrap_or(false);
+
+        if is_shallow {
+            // Progressive deepen — enough for typical PR divergence without full unshallow.
+            for deepen in [100u32, 500, 2000] {
+                let _ = std::process::Command::new("git")
+                    .current_dir(repo_path)
+                    .args(["fetch", "--no-tags", &format!("--deepen={deepen}"), "origin"])
+                    .output();
+                if Self::git_merge_base_ok(repo_path, base_oid, head_oid) {
+                    return Ok(());
+                }
+            }
+            // Last resort for very old PR bases on shallow clones.
+            let _ = std::process::Command::new("git")
+                .current_dir(repo_path)
+                .args(["fetch", "--no-tags", "--unshallow", "origin"])
+                .output();
+            if Self::git_merge_base_ok(repo_path, base_oid, head_oid) {
+                return Ok(());
+            }
+            return Err("shallow_no_merge_base");
+        }
+
+        Err("no_merge_base")
+    }
+
+    fn git_merge_base_ok(repo_path: &std::path::Path, a: &str, b: &str) -> bool {
+        std::process::Command::new("git")
+            .current_dir(repo_path)
+            .args(["merge-base", a, b])
+            .output()
+            .map(|o| o.status.success() && !o.stdout.is_empty())
+            .unwrap_or(false)
     }
 
     pub(super) async fn handle_github_commit_detail(
