@@ -583,7 +583,7 @@ export function ChecksSection({
     <div className="flex flex-col gap-2">
       <button
         type="button"
-        className="flex items-center gap-1.5 text-muted-foreground font-semibold text-[11px] uppercase tracking-wider w-full text-left group cursor-pointer"
+        className="flex items-center gap-1.5 text-muted-foreground font-semibold text-[11px] tracking-wide w-full text-left group cursor-pointer"
         onClick={() => setOpen(v => !v)}
       >
         <div className="relative size-3.5 shrink-0">
@@ -615,7 +615,7 @@ export function ChecksSection({
 export function SidebarSection({ title, icon, children }: { title: string; icon: React.ReactNode; children: React.ReactNode }) {
   return (
     <div className="flex flex-col gap-2">
-      <div className="flex items-center gap-1.5 text-muted-foreground font-semibold text-[11px] uppercase tracking-wider">
+      <div className="flex items-center gap-1.5 text-muted-foreground font-semibold text-[11px] tracking-wide">
         {icon}
         <span>{title}</span>
       </div>
