@@ -260,15 +260,23 @@ interface TabsSubtleItemProps extends HTMLAttributes<HTMLButtonElement> {
   index: number;
 }
 
-/** Split trailing "(…)" / fullwidth "（…）" so inactive activeLabel tabs keep the badge. */
-function splitTrailingParen(label: string): { title: string; meta: string | null } {
+/**
+ * Split trailing "(…)" / fullwidth "（…）" so inactive activeLabel tabs keep the badge.
+ * `meta` is the full parenthesized segment; `metaInner` is the content without parens.
+ */
+function splitTrailingParen(label: string): {
+  title: string;
+  meta: string | null;
+  metaInner: string | null;
+} {
   // Halfwidth: Checks (3)  |  Fullwidth (zh): Checks（3）/ 提交（3）
-  const match = label.match(/^(.*?)\s*([(\uFF08][^)\uFF09]*[)\uFF09])\s*$/u);
-  if (!match) return { title: label, meta: null };
+  const match = label.match(/^(.*?)\s*([(\uFF08]([^)\uFF09]*)[)\uFF09])\s*$/u);
+  if (!match) return { title: label, meta: null, metaInner: null };
   const title = match[1]?.trim() ?? "";
   const meta = match[2] ?? null;
-  if (!title || !meta) return { title: label, meta: null };
-  return { title, meta };
+  const metaInner = match[3]?.trim() ?? null;
+  if (!title || !meta || !metaInner) return { title: label, meta: null, metaInner: null };
+  return { title, meta, metaInner };
 }
 
 function DualWeightLabel({
@@ -323,9 +331,11 @@ const TabsSubtleItem = forwardRef<HTMLButtonElement, TabsSubtleItemProps>(
     const isSelected = selectedIndex === index;
     const isActive = hoveredIndex === index || isSelected;
     const collapseLabel = activeLabel && !!Icon;
-    // In activeLabel mode: always show trailing "(meta)"; expand title when selected.
-    const { title, meta } = splitTrailingParen(label);
+    // In activeLabel mode: always show trailing count; expand title when selected.
+    // Inactive: show inner text only (no parens). Active: full parenthesized meta.
+    const { title, meta, metaInner } = splitTrailingParen(label);
     const showTitle = !collapseLabel || isSelected;
+    const metaDisplay = isSelected ? meta : metaInner;
 
     const fullLabelContent = (
       <DualWeightLabel text={label} isActive={isActive} isSelected={isSelected} />
@@ -392,13 +402,13 @@ const TabsSubtleItem = forwardRef<HTMLButtonElement, TabsSubtleItemProps>(
                 </motion.span>
               )}
             </AnimatePresence>
-            {meta ? (
+            {metaDisplay ? (
               <span
                 className={cn(
                   "shrink-0 text-[13px] whitespace-nowrap transition-colors duration-80",
                   // When title is hidden, keep a small gap after the icon.
                   !showTitle && "ml-1.5",
-                  // When title is shown, a thin space before the paren reads naturally.
+                  // When title is shown, space before parenthesized meta.
                   showTitle && "ml-1",
                   isActive ? "text-foreground" : "text-muted-foreground",
                 )}
@@ -408,7 +418,7 @@ const TabsSubtleItem = forwardRef<HTMLButtonElement, TabsSubtleItemProps>(
                     : fontWeights.normal,
                 }}
               >
-                {meta}
+                {metaDisplay}
               </span>
             ) : null}
           </span>

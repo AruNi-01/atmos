@@ -6219,6 +6219,7 @@
         "checks": "Checks ({count})",
         "checksWithFailures": "Checks ({count} failing)",
         "discussion": "Discussion",
+        "discussionWithCount": "Discussion ({count})",
         "commits": "Commits ({count})",
         "filesChanged": "Files changed ({count})"
       },

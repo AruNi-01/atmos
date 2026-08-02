@@ -524,7 +524,13 @@ export function PRDetailView({ owner, repo, branch, prNumber, active, onRequestC
                           <TabsSubtleItem
                             index={2}
                             icon={MessageSquare}
-                            label={`${t('tabs.discussion')}${sidebarData?.totalCommentsCount != null ? ` (${sidebarData.totalCommentsCount})` : ''}`}
+                            label={
+                              sidebarData?.totalCommentsCount != null
+                                ? t('tabs.discussionWithCount', {
+                                    count: sidebarData.totalCommentsCount,
+                                  })
+                                : t('tabs.discussion')
+                            }
                           />
                           <TabsSubtleItem
                             index={3}
