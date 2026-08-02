@@ -88,27 +88,64 @@ function DiffHeaderPrefix<LAnnotation>(args: {
   );
 }
 
+export type CodeViewSelectionSide = 'additions' | 'deletions';
+
+/**
+ * Scroll a multi-file CodeView to a file, optionally centering a line.
+ *
+ * For diffs, `side` matters: GitHub LEFT → deletions, RIGHT → additions.
+ * When a line is provided we scroll to the line only (not file-start first),
+ * and fall back to the opposite side then the file header if the line cannot
+ * be resolved yet (common while layout is still measuring).
+ */
 export function scrollCodeViewToItem<LAnnotation = undefined>(
   handle: CodeViewHandle<LAnnotation> | null | undefined,
   id: string,
-  opts?: { line?: number; behavior?: CodeViewScrollBehavior },
+  opts?: {
+    line?: number;
+    side?: CodeViewSelectionSide;
+    behavior?: CodeViewScrollBehavior;
+  },
 ) {
+  if (!handle) return false;
   const behavior = opts?.behavior ?? 'smooth';
-  handle?.scrollTo({
-    type: 'item',
-    id,
-    align: 'start',
-    behavior,
-  });
-  if (opts?.line != null && opts.line > 0) {
-    handle?.scrollTo({
-      type: 'line',
+  const line =
+    opts?.line != null && Number.isFinite(opts.line) && opts.line > 0
+      ? Math.floor(opts.line)
+      : undefined;
+
+  if (line == null) {
+    handle.scrollTo({
+      type: 'item',
       id,
-      lineNumber: opts.line,
-      align: 'center',
+      align: 'start',
       behavior,
     });
+    return true;
   }
+
+  const side: CodeViewSelectionSide = opts?.side ?? 'additions';
+
+  handle.scrollTo({
+    type: 'line',
+    id,
+    lineNumber: line,
+    side,
+    align: 'center',
+    behavior,
+  });
+
+  // Highlight so the jump is obvious even when the annotation is just off-center.
+  try {
+    handle.setSelectedLines({
+      id,
+      range: { start: line, end: line, side },
+    });
+  } catch {
+    // Selection is best-effort; ignore if the viewer rejects it.
+  }
+
+  return true;
 }
 
 /** File whose diff occupies the viewport center, with a top-of-viewport fallback. */

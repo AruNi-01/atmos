@@ -52,6 +52,8 @@ interface ReviewComment {
 export interface PRFilesFocusTarget {
   path: string;
   line?: number | null;
+  /** Diff side for the line (GitHub LEFT → deletions, RIGHT → additions). */
+  side?: 'additions' | 'deletions' | null;
   /** Monotonic token so the same path/line can be re-focused. */
   token: number;
 }
@@ -550,38 +552,78 @@ export function PRFilesTab({
 
   // Jump to a reviewer's comment location when requested from the sidebar.
   useEffect(() => {
-    if (!focusTarget?.path || !viewerMounted || loading) return;
-    const path = focusTarget.path;
-    if (!codeViewItems.some((item) => item.id === path)) return;
+    if (!focusTarget?.path || !viewerMounted || loading || !workerPoolReady) return;
 
-    setSelectedPath(path);
-    scrollActiveIdRef.current = path;
+    // Resolve path against loaded items (exact match first, then suffix match for renames).
+    const requestedPath = focusTarget.path;
+    const resolvedPath =
+      codeViewItems.find((item) => item.id === requestedPath)?.id ??
+      codeViewItems.find(
+        (item) =>
+          item.id.endsWith(`/${requestedPath}`) ||
+          requestedPath.endsWith(`/${item.id}`),
+      )?.id;
+    if (!resolvedPath) return;
 
-    // CodeView needs a moment after tab mount to compute item offsets.
+    // Ensure the target file isn't collapsed so line positions resolve.
+    if (collapseMode === 'collapsed') {
+      setCollapseMode('expanded');
+      applyCollapseModeToItems(codeViewRef, itemIdsRef.current, 'expanded');
+    }
+
+    setSelectedPath(resolvedPath);
+    scrollActiveIdRef.current = resolvedPath;
+
+    // Layout/measure is async on first Files open — retry with instant jumps,
+    // then a final smooth pass so the user lands on the review line.
     let cancelled = false;
-    let retryTimer: ReturnType<typeof setTimeout> | undefined;
+    const timers: Array<ReturnType<typeof setTimeout>> = [];
     const line =
       focusTarget.line != null && focusTarget.line > 0
         ? focusTarget.line
         : undefined;
-    const runScroll = () => {
+    const side = focusTarget.side ?? undefined;
+
+    const runScroll = (behavior: 'instant' | 'smooth') => {
       if (cancelled) return;
-      scrollCodeViewToItem(codeViewRef.current, path, {
+      // If a line target fails to resolve (layout not ready / collapsed hunk),
+      // still bring the file into view first so later retries can center the line.
+      if (line != null) {
+        scrollCodeViewToItem(codeViewRef.current, resolvedPath, {
+          behavior: 'instant',
+        });
+      }
+      scrollCodeViewToItem(codeViewRef.current, resolvedPath, {
         line,
-        behavior: 'smooth',
+        side,
+        behavior,
       });
     };
-    const frame = requestAnimationFrame(() => {
-      runScroll();
-      // Second pass after layout settles (first open of Files tab).
-      retryTimer = setTimeout(runScroll, 120);
+
+    const delaysMs = [0, 50, 150, 350, 700, 1200];
+    delaysMs.forEach((delay, index) => {
+      timers.push(
+        setTimeout(() => {
+          runScroll(index === delaysMs.length - 1 ? 'smooth' : 'instant');
+        }, delay),
+      );
     });
+
     return () => {
       cancelled = true;
-      cancelAnimationFrame(frame);
-      if (retryTimer != null) clearTimeout(retryTimer);
+      for (const timer of timers) clearTimeout(timer);
     };
-  }, [codeViewItems, focusTarget?.token, focusTarget?.path, focusTarget?.line, loading, viewerMounted]);
+  }, [
+    codeViewItems,
+    collapseMode,
+    focusTarget?.token,
+    focusTarget?.path,
+    focusTarget?.line,
+    focusTarget?.side,
+    loading,
+    viewerMounted,
+    workerPoolReady,
+  ]);
 
   const totalStats = useMemo(
     () => ({

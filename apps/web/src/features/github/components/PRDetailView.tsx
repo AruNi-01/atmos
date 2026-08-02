@@ -408,26 +408,51 @@ export function PRDetailView({ owner, repo, branch, prNumber, active, onRequestC
   const handleReviewerClick = React.useCallback(
     (login: string) => {
       const loginNorm = login.trim().toLowerCase();
+
+      // Map a GitHub review comment onto CodeView line coordinates.
+      // LEFT = old/deletions side, RIGHT = new/additions side.
+      const toLocation = (comment: ReviewComment) => {
+        const path = comment.path?.trim();
+        if (!path) return null;
+        const lineRaw = comment.line ?? comment.original_line ?? null;
+        const line =
+          lineRaw != null && Number.isFinite(lineRaw) && lineRaw > 0
+            ? lineRaw
+            : null;
+        const ghSide = (comment.side ?? '').toUpperCase();
+        let side: 'additions' | 'deletions' | null = null;
+        if (ghSide === 'LEFT') side = 'deletions';
+        else if (ghSide === 'RIGHT') side = 'additions';
+        else if (comment.line == null && comment.original_line != null) side = 'deletions';
+        else if (line != null) side = 'additions';
+
+        return {
+          path,
+          line,
+          side,
+          id: comment.id ?? null,
+          isRoot: comment.in_reply_to_id == null,
+        };
+      };
+
       const locations = reviewCommentsList
         .filter((comment) => {
           const author = comment.user?.login?.trim().toLowerCase();
           return Boolean(author && author === loginNorm && comment.path);
         })
-        .map((comment) => ({
-          path: comment.path as string,
-          line: comment.line ?? comment.original_line ?? null,
-          id: comment.id ?? null,
-        }));
+        .map(toLocation)
+        .filter((loc): loc is NonNullable<typeof loc> => loc != null);
 
-      // Prefer line-anchored comments; fall back to file-level threads.
+      // Prefer: root line comments → other line comments → file-level only.
       const ordered = [
-        ...locations.filter((loc) => loc.line != null && loc.line > 0),
-        ...locations.filter((loc) => loc.line == null || loc.line <= 0),
+        ...locations.filter((loc) => loc.isRoot && loc.line != null),
+        ...locations.filter((loc) => !loc.isRoot && loc.line != null),
+        ...locations.filter((loc) => loc.line == null),
       ];
-      // Dedupe identical path+line pairs while preserving order.
+      // Dedupe identical path+line+side pairs while preserving order.
       const seen = new Set<string>();
       const unique = ordered.filter((loc) => {
-        const key = `${loc.path}:${loc.line ?? 'file'}`;
+        const key = `${loc.path}:${loc.line ?? 'file'}:${loc.side ?? 'none'}`;
         if (seen.has(key)) return false;
         seen.add(key);
         return true;
@@ -442,6 +467,7 @@ export function PRDetailView({ owner, repo, branch, prNumber, active, onRequestC
         setFilesFocusTarget({
           path: target.path,
           line: target.line,
+          side: target.side,
           token: Date.now(),
         });
       } else {
