@@ -6361,7 +6361,7 @@
         "assigneesFailed": "Could not update assignees. Check your GitHub permissions and try again."
       },
       "reviewers": {
-        "jumpToFiles": "Open Files changed (jump to their comments when available)"
+        "jumpToFiles": "Open Files changed"
       },
       "development": {
         "description": "Successfully merging this pull request may close these issues.",

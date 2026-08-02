@@ -77,8 +77,8 @@ interface PRMetadataSidebarProps {
   sidebarLoading: boolean;
   isSidebarCollapsed: boolean;
   onPrMetadataChanged?: () => void;
-  /** Click a reviewer to jump to their review comments in Files changed. */
-  onReviewerClick?: (login: string) => void;
+  /** Click a reviewer to open Files changed. */
+  onReviewerClick?: () => void;
 }
 
 export function PRMetadataSidebar({
@@ -163,7 +163,7 @@ function ReviewersList({
   onReviewerClick,
 }: {
   pr: PRSidebarModel;
-  onReviewerClick?: (login: string) => void;
+  onReviewerClick?: () => void;
 }) {
   const t = useTranslations('github.prDetailSidebar');
   const reviewers: Reviewer[] = [];
@@ -236,7 +236,7 @@ function ReviewersList({
               "cursor-pointer hover:bg-muted/60 transition-colors",
               "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
             )}
-            onClick={() => onReviewerClick(r.login)}
+            onClick={() => onReviewerClick()}
           >
             <Avatar className="size-5 border border-border/50 shrink-0">
               <AvatarImage src={r.avatar_url || `https://github.com/${r.login.replace('[bot]', '')}.png?size=32`} />

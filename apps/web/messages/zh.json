@@ -6361,7 +6361,7 @@
         "assigneesFailed": "无法更新指派人。请检查 GitHub 权限后重试。"
       },
       "reviewers": {
-        "jumpToFiles": "打开 Files changed（有评论时定位到对应位置）"
+        "jumpToFiles": "打开 Files changed"
       },
       "development": {
         "description": "成功合并这个 Pull Request 后，可能会关闭以下 issues。",
