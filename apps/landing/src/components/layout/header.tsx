@@ -106,13 +106,14 @@ const Header = ({ className }: HeaderProps) => {
       {/* Same 72rem center track as LandingFrame — rails never drift between sections */}
       <div className='mx-auto grid h-full w-full max-w-6xl xl:max-w-none xl:grid-cols-[minmax(0,1fr)_72rem_minmax(0,1fr)]'>
         <div className='hidden xl:block' aria-hidden />
-        <div className='relative flex h-full min-w-0 w-full items-center justify-between gap-2 border-x px-4 sm:gap-4 sm:px-6 lg:px-8'>
+        <div className='relative flex h-full min-w-0 w-full items-center justify-between gap-2 min-[72rem]:border-x px-4 sm:gap-4 sm:px-6 lg:px-8'>
+          {/* Rail progress only when gutters exist (same breakpoint as border-x) */}
           <motion.div
-            className="absolute -left-px top-0 bottom-0 w-px origin-bottom bg-primary"
+            className="absolute -left-px top-0 bottom-0 hidden w-px origin-bottom bg-primary min-[72rem]:block"
             style={{ scaleY: leftScaleY }}
           />
           <motion.div
-            className="absolute -right-px top-0 bottom-0 w-px origin-bottom bg-primary"
+            className="absolute -right-px top-0 bottom-0 hidden w-px origin-bottom bg-primary min-[72rem]:block"
             style={{ scaleY: rightScaleY }}
           />
           {/* Logo */}

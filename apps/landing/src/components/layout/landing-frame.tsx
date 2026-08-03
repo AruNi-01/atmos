@@ -11,7 +11,9 @@ import { cn } from '@/lib/utils'
  * and a fixed 72rem center — the vertical lines never drift relative to each
  * other as the viewport shrinks within the xl range.
  *
- * Narrower screens: single centered column, still max-w-6xl, same border-x.
+ * Below `max-w-6xl` the column is edge-to-edge — hide border-x so mobile does
+ * not show a pair of vertical “split lines” flush with the screen edges.
+ * Borders appear only once the viewport is wider than the content track.
  */
 export function LandingFrame({
   children,
@@ -43,7 +45,8 @@ export function LandingFrame({
         <div
           className={cn(
             'relative min-w-0 w-full',
-            showBorder && 'border-x',
+            // max-w-6xl = 72rem — only rail when gutters exist outside the column
+            showBorder && 'min-[72rem]:border-x',
             contentClassName
           )}
         >
