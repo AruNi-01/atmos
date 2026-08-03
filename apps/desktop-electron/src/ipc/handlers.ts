@@ -607,6 +607,18 @@ export function createAllHandlers(
       const client = await import("../desktop-use/client.js");
       return client.desktopUseCapture();
     },
+    async desktop_use_doctor() {
+      const client = await import("../desktop-use/client.js");
+      return client.desktopUseDoctor();
+    },
+    async desktop_use_grant_permissions() {
+      const client = await import("../desktop-use/client.js");
+      return client.desktopUseGrantPermissions();
+    },
+    async desktop_use_drive_verify() {
+      const client = await import("../desktop-use/client.js");
+      return client.desktopUseDriveVerify();
+    },
 
     // --- tunnel ---
     async tunnel_connector_detect() {

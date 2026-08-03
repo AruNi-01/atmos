@@ -8,6 +8,20 @@
 4. **No public vendor names** in UI, help, or default errors. Internal adapter modules may call a pinned external binary; that name never surfaces.
 5. **Orthogonal to APP-016**: Desktop Use is a *capability on a machine*, not a Computer identity. Do not nest under `atmos computer`.
 
+### 1.1 Control-engine supply chain (locked)
+
+| Choice | Decision |
+|--------|----------|
+| Source | **Pin official `cua-driver-rs-v*` release artifacts** (not monorepo compile-in-tree as default) |
+| Pin | `0.17.0` / tag `cua-driver-rs-v0.17.0` in `crates/desktop-use/manifest/default.json` |
+| Install path | `atmos desktop-use driver ensure` downloads + sha256-verifies + extracts into `~/.atmos/desktop-use/` |
+| Managed binary name | `atmos-desktop-control` (white-label; never teach users `cua-driver`) |
+| macOS host identity | Rebrand extracted host app to **Atmos Desktop Use.app** (`com.atmos.desktop.use`) + ad-hoc/product codesign so TCC grants show **one** product name for AppShot + control |
+| Rejected as primary | Separate **CuaDriver.app** grant UX; public MCP; user install from cua.ai |
+| Offline / CI | `ATMOS_DESKTOP_USE_ENGINE_ARCHIVE` fixture tarball or `ATMOS_DESKTOP_USE_ENGINE_SOURCE` raw binary |
+
+Daemon: managed socket `~/.atmos/desktop-use/engine.sock`; `drive` uses `call` over socket with permissions gate disabled so **Settings** owns grant UX (`driver grant-permissions` → host app).
+
 ## 2. Layout
 
 ```

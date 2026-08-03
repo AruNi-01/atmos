@@ -22,11 +22,24 @@ type DesktopUseStatus = {
   data_dir: string;
   capture: { available: boolean; platform: string; reason?: string | null };
   driver: DriverStatus;
+  host_app_name?: string | null;
+  host_app_path?: string | null;
+  pinned_version?: string | null;
+};
+
+type DoctorStatus = {
+  host_app_name?: string;
+  engine_installed?: boolean;
+  engine_ready?: boolean;
+  accessibility?: boolean | null;
+  screen_recording?: boolean | null;
+  notes?: string[];
 };
 
 export function DesktopUseSettingsSection() {
   const t = useTranslations("settings.desktopUse");
   const [status, setStatus] = useState<DesktopUseStatus | null>(null);
+  const [doctor, setDoctor] = useState<DoctorStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -50,6 +63,12 @@ export function DesktopUseSettingsSection() {
       }
       const res = await desktopInvoke<DesktopUseStatus>("desktop_use_status");
       setStatus(res);
+      try {
+        const d = await desktopInvoke<DoctorStatus>("desktop_use_doctor");
+        setDoctor(d);
+      } catch {
+        setDoctor(null);
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : t("errors.statusFailed"));
     } finally {
@@ -98,8 +117,35 @@ export function DesktopUseSettingsSection() {
     }
   };
 
+  const grantPermissions = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      await desktopInvoke("desktop_use_grant_permissions");
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t("errors.grantFailed"));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const verifyEngine = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      await desktopInvoke("desktop_use_drive_verify");
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t("errors.verifyFailed"));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const driver = status?.driver;
   const capture = status?.capture;
+  const hostName = status?.host_app_name ?? doctor?.host_app_name ?? "Atmos Desktop Use";
 
   return (
     <div className="space-y-8">
@@ -134,6 +180,28 @@ export function DesktopUseSettingsSection() {
           </p>
         ) : null}
 
+        <p className="text-xs text-muted-foreground">
+          {t("host.label")}: <span className="font-medium text-foreground">{hostName}</span>
+          {status?.pinned_version ? ` · v${status.pinned_version}` : ""}
+        </p>
+        {doctor ? (
+          <p className="text-xs text-muted-foreground">
+            {t("doctor.ax")}:{" "}
+            {doctor.accessibility == null
+              ? t("doctor.unknown")
+              : doctor.accessibility
+                ? t("doctor.granted")
+                : t("doctor.missing")}
+            {" · "}
+            {t("doctor.screen")}:{" "}
+            {doctor.screen_recording == null
+              ? t("doctor.unknown")
+              : doctor.screen_recording
+                ? t("doctor.granted")
+                : t("doctor.missing")}
+          </p>
+        ) : null}
+
         {driver?.error ? (
           <p className="text-xs text-destructive">{driver.error}</p>
         ) : null}
@@ -153,6 +221,26 @@ export function DesktopUseSettingsSection() {
               <Download className="size-4" />
             )}
             {t("actions.ensure")}
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={busy || loading || !driver?.installed}
+            onClick={() => void grantPermissions()}
+            className="cursor-pointer"
+          >
+            {t("actions.grantPermissions")}
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={busy || loading || !driver?.installed}
+            onClick={() => void verifyEngine()}
+            className="cursor-pointer"
+          >
+            {t("actions.verify")}
           </Button>
           <Button
             type="button"
@@ -190,7 +278,8 @@ export function DesktopUseSettingsSection() {
         </div>
       </section>
 
-      <section className="rounded-xl border border-border p-4">
+      <section className="rounded-xl border border-border p-4 space-y-2">
+        <p className="text-xs text-muted-foreground">{t("permissions.unifiedHint")}</p>
         <AppshotPermissionsPanel embedded />
       </section>
     </div>

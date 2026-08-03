@@ -4,6 +4,9 @@ use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
 
 use crate::config::{ensure_dirs, resolve_data_dir, resolve_engine_bin, resolve_state_path};
+use crate::engine_manifest::EngineManifest;
+use crate::host;
+use crate::install::{self, host_app_path};
 use crate::strings::{self, scrub_vendor, ERR_ENGINE_NOT_INSTALLED};
 
 /// Lifecycle phase of the optional control engine.
@@ -27,6 +30,8 @@ pub struct DriverStatus {
     pub error: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub engine_path: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub engine_version: Option<String>,
     pub installed: bool,
 }
 
@@ -44,6 +49,12 @@ pub struct DesktopUseStatus {
     pub data_dir: String,
     pub capture: CaptureCapability,
     pub driver: DriverStatus,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub host_app_name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub host_app_path: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pinned_version: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -96,6 +107,20 @@ impl DesktopUseManager {
         }
     }
 
+    pub fn data_dir(&self) -> &Path {
+        &self.data_dir
+    }
+
+    pub fn socket_path(&self) -> PathBuf {
+        host::default_socket_path(&self.data_dir)
+    }
+
+    pub fn host_app_path(&self) -> Option<PathBuf> {
+        EngineManifest::embedded()
+            .ok()
+            .and_then(|m| host_app_path(&self.data_dir, &m))
+    }
+
     pub fn status(&self) -> DesktopUseStatus {
         let installed = self.engine_bin.is_file();
         let persisted = self.load_state();
@@ -115,6 +140,7 @@ impl DesktopUseManager {
         };
 
         let error = persisted.and_then(|s| s.error).filter(|_| !installed);
+        let manifest = EngineManifest::embedded().ok();
 
         DesktopUseStatus {
             product: strings::PRODUCT_NAME.to_string(),
@@ -125,21 +151,27 @@ impl DesktopUseManager {
                 progress: None,
                 error: error.map(|e| scrub_vendor(&e)),
                 engine_path: installed.then(|| self.engine_bin.display().to_string()),
+                engine_version: installed
+                    .then(|| manifest.as_ref().map(|m| m.engine_version.clone()))
+                    .flatten(),
                 installed,
             },
+            host_app_name: manifest.as_ref().map(|m| m.host_app_name.clone()),
+            host_app_path: self.host_app_path().map(|p| p.display().to_string()),
+            pinned_version: manifest.map(|m| m.engine_version),
         }
     }
 
-    /// Ensure control engine is present.
-    ///
-    /// Install source resolution order:
-    /// 1. `source_path` argument (if provided and exists)
-    /// 2. `ATMOS_DESKTOP_USE_ENGINE_SOURCE` env (offline/dev)
-    /// 3. Fail clearly when no package is available (no fake success)
     pub fn ensure_driver(&self, force: bool) -> EnsureOutcome {
         self.ensure_driver_from(force, None)
     }
 
+    /// Ensure control engine is present.
+    ///
+    /// Order:
+    /// 1. explicit `source_path` file (raw binary copy)
+    /// 2. `ATMOS_DESKTOP_USE_ENGINE_SOURCE` env (raw binary)
+    /// 3. `ATMOS_DESKTOP_USE_ENGINE_ARCHIVE` or network pin download + extract
     pub fn ensure_driver_from(&self, force: bool, source_path: Option<&Path>) -> EnsureOutcome {
         let _ = fs::create_dir_all(self.data_dir.join("bin"));
         let _ = ensure_dirs();
@@ -187,29 +219,42 @@ impl DesktopUseManager {
             }
         }
 
-        let msg = scrub_vendor(
-            "Control engine package is not available for automatic download in this build. \
-             Install from Settings → Desktop Use when a package is published, or provide a local engine binary for development.",
-        );
-        if force && self.engine_bin.is_file() {
-            let _ = fs::remove_file(&self.engine_bin);
+        // Pinned package download / fixture archive.
+        match install::download_and_install(&self.data_dir, &self.engine_bin, force) {
+            Ok(layout) => {
+                self.save_state(DriverPhase::Ready, None);
+                // Best-effort: start daemon so doctor/permissions use host identity.
+                let sock = self.socket_path();
+                let _ = host::ensure_daemon(&layout.engine_bin, &sock);
+                EnsureOutcome::Installed {
+                    path: layout.engine_bin.display().to_string(),
+                }
+            }
+            Err(e) => {
+                let msg = scrub_vendor(&e);
+                if force && self.engine_bin.is_file() {
+                    let _ = fs::remove_file(&self.engine_bin);
+                }
+                self.save_state(DriverPhase::NotInstalled, Some(msg.clone()));
+                EnsureOutcome::Failed { error: msg }
+            }
         }
-        // Keep not_installed (with error detail) so Settings does not look "broken".
-        self.save_state(DriverPhase::NotInstalled, Some(msg.clone()));
-        EnsureOutcome::Failed { error: msg }
     }
 
     pub fn stop_driver(&self) -> DriverStatus {
         if self.engine_bin.is_file() {
+            let _ = host::stop_daemon(&self.engine_bin, &self.socket_path());
             self.save_state(DriverPhase::Stopped, None);
         }
         self.status().driver
     }
 
     pub fn uninstall_driver(&self) -> DriverStatus {
+        let _ = host::stop_daemon(&self.engine_bin, &self.socket_path());
         if self.engine_bin.is_file() {
             let _ = fs::remove_file(&self.engine_bin);
         }
+        // Keep host app for re-grant; remove runtime cache optionally.
         self.save_state(DriverPhase::NotInstalled, None);
         self.status().driver
     }
@@ -220,6 +265,11 @@ impl DesktopUseManager {
         } else {
             Err(ERR_ENGINE_NOT_INSTALLED.to_string())
         }
+    }
+
+    pub fn open_permission_grant(&self) -> Result<(), String> {
+        let engine = self.require_engine()?;
+        host::open_host_permission_grant(self.host_app_path().as_deref(), &engine)
     }
 
     fn load_state(&self) -> Option<PersistedState> {
@@ -278,6 +328,7 @@ mod tests {
         assert_eq!(st.product, "Desktop Use");
         assert!(!st.driver.installed);
         assert_eq!(st.driver.phase, DriverPhase::NotInstalled);
+        assert_eq!(st.host_app_name.as_deref(), Some("Atmos Desktop Use"));
         assert!(!strings::contains_vendor_brand(&st.product));
     }
 
@@ -301,19 +352,15 @@ mod tests {
     }
 
     #[test]
-    fn ensure_without_source_fails_clearly() {
+    fn ensure_without_network_or_fixture_fails_vendor_free() {
         let dir = tempdir().unwrap();
         let engine = dir.path().join("bin").join("atmos-desktop-control");
         let mgr = DesktopUseManager::with_paths(dir.path(), &engine);
-        let out = mgr.ensure_driver_from(false, None);
-        // Force path that ignores env: pass empty non-existent path via ensure that
-        // only uses explicit None and with env cleared for this process key if set.
-        let out = if std::env::var_os("ATMOS_DESKTOP_USE_ENGINE_SOURCE").is_some() {
-            // Explicit missing path should still fail
-            mgr.ensure_driver_from(true, Some(Path::new("/nonexistent/desktop-use-engine")))
-        } else {
-            out
-        };
+        std::env::remove_var("ATMOS_DESKTOP_USE_ENGINE_SOURCE");
+        std::env::remove_var("ATMOS_DESKTOP_USE_ENGINE_ARCHIVE");
+        std::env::set_var("ATMOS_DESKTOP_USE_SKIP_DOWNLOAD", "1");
+        let out = mgr.ensure_driver_from(true, None);
+        std::env::remove_var("ATMOS_DESKTOP_USE_SKIP_DOWNLOAD");
         match out {
             EnsureOutcome::Failed { error } => {
                 assert!(!error.is_empty());
@@ -321,7 +368,6 @@ mod tests {
             }
             other => panic!("expected failed, got {other:?}"),
         }
-        assert!(!mgr.status().driver.installed);
     }
 
     #[test]

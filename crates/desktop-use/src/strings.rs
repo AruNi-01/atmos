@@ -5,7 +5,7 @@ pub const CLI_NAME: &str = "desktop-use";
 pub const USER_DATA_DIR_NAME: &str = "desktop-use";
 
 pub const ERR_ENGINE_NOT_INSTALLED: &str =
-    "Desktop control engine is not installed. Run: atmos desktop-use driver ensure";
+    "Desktop control engine is not installed. Run: atmos desktop-use driver ensure (Settings → Desktop Use)";
 pub const ERR_ENGINE_FAILED: &str = "Desktop control engine failed";
 pub const ERR_CAPTURE_UNSUPPORTED: &str = "Desktop capture is not supported on this platform";
 pub const ERR_CAPTURE_FAILED: &str = "Desktop capture failed";

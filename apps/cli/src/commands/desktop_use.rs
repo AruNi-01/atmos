@@ -2,18 +2,21 @@
 
 use clap::{Args, Subcommand};
 use desktop_use::{
-    capture, drive, CaptureRequest, DesktopUseManager, DriveAction, DriveRequest, EnsureOutcome,
+    capture, drive, permission_doctor, CaptureRequest, DesktopUseManager, DriveAction,
+    DriveRequest, EnsureOutcome,
 };
 use serde_json::{json, Value};
 
 pub async fn execute(command: DesktopUseCommand) -> Result<Value, String> {
     match command {
         DesktopUseCommand::Status => status(),
+        DesktopUseCommand::Doctor => doctor(),
         DesktopUseCommand::Driver { command } => match command {
             DriverCommand::Ensure(args) => driver_ensure(args),
             DriverCommand::Status => driver_status(),
             DriverCommand::Stop => driver_stop(),
             DriverCommand::Uninstall => driver_uninstall(),
+            DriverCommand::GrantPermissions => driver_grant(),
         },
         DesktopUseCommand::Capture(args) => capture_cmd(args),
         DesktopUseCommand::Drive { command } => drive_cmd(command),
@@ -24,6 +27,8 @@ pub async fn execute(command: DesktopUseCommand) -> Result<Value, String> {
 pub enum DesktopUseCommand {
     /// Show Desktop Use capture + control-engine status.
     Status,
+    /// Permission doctor for Atmos Desktop Use host (unified TCC surface).
+    Doctor,
     /// Manage the optional desktop control engine.
     Driver {
         #[command(subcommand)]
@@ -31,7 +36,7 @@ pub enum DesktopUseCommand {
     },
     /// Capture the frontmost window (screenshot + identity).
     Capture(CaptureArgs),
-    /// Drive desktop actions (screenshot / click / type).
+    /// Drive desktop actions (screenshot / click / type / verify).
     Drive {
         #[command(subcommand)]
         command: DriveCommand,
@@ -40,14 +45,16 @@ pub enum DesktopUseCommand {
 
 #[derive(Debug, Subcommand)]
 pub enum DriverCommand {
-    /// Install or refresh the desktop control engine.
+    /// Install or refresh the desktop control engine (pinned package).
     Ensure(EnsureArgs),
     /// Show control-engine status only.
     Status,
-    /// Mark the control engine stopped (does not delete the binary).
+    /// Stop the control engine daemon (does not delete the binary).
     Stop,
     /// Remove the installed control engine binary.
     Uninstall,
+    /// Open OS permission grant flow for Atmos Desktop Use host.
+    GrantPermissions,
 }
 
 #[derive(Debug, Args)]
@@ -75,6 +82,8 @@ pub enum DriveCommand {
     Click(ClickArgs),
     /// Type text (requires control engine).
     Type(TypeArgs),
+    /// Verify engine is live (list windows).
+    Verify,
 }
 
 #[derive(Debug, Args)]
@@ -89,17 +98,30 @@ pub struct ClickArgs {
     pub x: i32,
     #[arg(long)]
     pub y: i32,
+    #[arg(long)]
+    pub pid: Option<i32>,
+    #[arg(long)]
+    pub window_id: Option<i64>,
 }
 
 #[derive(Debug, Args)]
 pub struct TypeArgs {
     #[arg(long)]
     pub text: String,
+    #[arg(long)]
+    pub pid: Option<i32>,
+    #[arg(long)]
+    pub window_id: Option<i64>,
 }
 
 fn status() -> Result<Value, String> {
     let mgr = DesktopUseManager::new();
     serde_json::to_value(mgr.status()).map_err(|e| e.to_string())
+}
+
+fn doctor() -> Result<Value, String> {
+    let mgr = DesktopUseManager::new();
+    serde_json::to_value(permission_doctor(&mgr)).map_err(|e| e.to_string())
 }
 
 fn driver_status() -> Result<Value, String> {
@@ -117,12 +139,18 @@ fn driver_ensure(args: EnsureArgs) -> Result<Value, String> {
             "action": "already_installed",
             "path": path,
             "status": status.driver,
+            "host_app_name": status.host_app_name,
+            "host_app_path": status.host_app_path,
+            "pinned_version": status.pinned_version,
         })),
         EnsureOutcome::Installed { path } => Ok(json!({
             "ok": true,
             "action": "installed",
             "path": path,
             "status": status.driver,
+            "host_app_name": status.host_app_name,
+            "host_app_path": status.host_app_path,
+            "pinned_version": status.pinned_version,
         })),
         EnsureOutcome::Failed { error } => Ok(json!({
             "ok": false,
@@ -143,6 +171,17 @@ fn driver_uninstall() -> Result<Value, String> {
     let mgr = DesktopUseManager::new();
     let driver = mgr.uninstall_driver();
     Ok(json!({ "ok": true, "action": "uninstalled", "status": driver }))
+}
+
+fn driver_grant() -> Result<Value, String> {
+    let mgr = DesktopUseManager::new();
+    mgr.open_permission_grant()?;
+    Ok(json!({
+        "ok": true,
+        "action": "grant_permissions",
+        "host": "Atmos Desktop Use",
+        "hint": "Complete Accessibility and Screen Recording grants in System Settings for Atmos Desktop Use.",
+    }))
 }
 
 fn capture_cmd(args: CaptureArgs) -> Result<Value, String> {
@@ -166,11 +205,19 @@ fn drive_cmd(command: DriveCommand) -> Result<Value, String> {
             action: DriveAction::Click,
             x: Some(a.x),
             y: Some(a.y),
+            pid: a.pid,
+            window_id: a.window_id,
             ..Default::default()
         },
         DriveCommand::Type(a) => DriveRequest {
             action: DriveAction::Type,
             text: Some(a.text),
+            pid: a.pid,
+            window_id: a.window_id,
+            ..Default::default()
+        },
+        DriveCommand::Verify => DriveRequest {
+            action: DriveAction::Verify,
             ..Default::default()
         },
     };

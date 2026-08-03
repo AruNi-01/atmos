@@ -41,7 +41,11 @@ export type DesktopUseStatusJson = {
     progress?: number | null;
     error?: string | null;
     engine_path?: string | null;
+    engine_version?: string | null;
   };
+  host_app_name?: string | null;
+  host_app_path?: string | null;
+  pinned_version?: string | null;
 };
 
 function repoRootFromHere(): string | null {
@@ -124,4 +128,16 @@ export async function desktopUseDriverUninstall(): Promise<unknown> {
 
 export async function desktopUseCapture(): Promise<DesktopUseCaptureJson> {
   return (await runDesktopUseJson(["capture"], 25_000)) as DesktopUseCaptureJson;
+}
+
+export async function desktopUseDoctor(): Promise<unknown> {
+  return runDesktopUseJson(["doctor"]);
+}
+
+export async function desktopUseGrantPermissions(): Promise<unknown> {
+  return runDesktopUseJson(["driver", "grant-permissions"], 60_000);
+}
+
+export async function desktopUseDriveVerify(): Promise<unknown> {
+  return runDesktopUseJson(["drive", "verify"], 30_000);
 }
