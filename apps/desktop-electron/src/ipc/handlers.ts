@@ -81,9 +81,16 @@ export function createAllHandlers(
       } catch {
         /* unit / smoke without app ready */
       }
+      // Match Tauri: derive channel from prerelease suffix so About can show
+      // stable / rc / beta / alpha versions correctly.
+      const lower = version.toLowerCase();
+      let version_type = "stable";
+      if (lower.includes("-rc.")) version_type = "rc";
+      else if (lower.includes("-beta.")) version_type = "beta";
+      else if (lower.includes("-alpha.")) version_type = "alpha";
       return {
         version,
-        version_type: "desktop",
+        version_type,
         product_name: APP_PRODUCT_NAME,
         app_id: APP_ID,
       };
