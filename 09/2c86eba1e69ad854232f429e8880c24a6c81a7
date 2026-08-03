@@ -1,0 +1,30 @@
+apps/web/messages/en.json
+  h_5be255725524c8 6271
+apps/web/messages/zh.json
+  h_5be255725524c8 6271
+apps/web/src/app-shell/header-git-context.tsx
+  h_5be255725524c8 147
+apps/web/src/app-shell/header-parts.tsx
+  h_5be255725524c8 39,83
+apps/web/src/features/github/components/ActionsActionBar.tsx
+  h_5be255725524c8 92
+apps/web/src/features/github/components/ActionsDetailView.tsx
+  h_5be255725524c8 281
+apps/web/src/features/github/components/IssueDetailView.tsx
+  h_5be255725524c8 191,434
+apps/web/src/features/github/components/PRDetailView.tsx
+  h_5be255725524c8 440
+apps/web/src/features/github/lib/pr-detail-actions.tsx
+  h_5be255725524c8 246
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "092c86eba1e69ad854232f429e8880c24a6c81a7",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
