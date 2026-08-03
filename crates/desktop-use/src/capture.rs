@@ -2,12 +2,22 @@
 //! Owned by Desktop Use (not Electron AppShot business logic).
 
 use std::path::PathBuf;
-use std::process::Command;
 
-use base64::{engine::general_purpose::STANDARD as B64, Engine as _};
 use serde::{Deserialize, Serialize};
 
-use crate::strings::{scrub_vendor, ERR_CAPTURE_FAILED};
+use crate::strings::scrub_vendor;
+
+#[cfg(target_os = "macos")]
+use std::process::Command;
+
+#[cfg(target_os = "macos")]
+use base64::{engine::general_purpose::STANDARD as B64, Engine as _};
+
+#[cfg(target_os = "macos")]
+use crate::strings::ERR_CAPTURE_FAILED;
+
+#[cfg(not(target_os = "macos"))]
+use crate::strings::ERR_CAPTURE_UNSUPPORTED;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct WindowBounds {
