@@ -149,5 +149,7 @@
 ## 11. 结果提交与推送
 
 - 修复分支：`grokbuild/quality-fix/2026-08-03`
-- 结果文件与修复同分支推送；PR base：`main`
-- PR URL / 提交 hash 在 push 与 `gh pr create` 后回填。
+- 修复 + 结果提交：`334f453ab2d289ecb0f8b4de2f865e762524891a`
+- 推送目标：`origin/grokbuild/quality-fix/2026-08-03`
+- PR：https://github.com/AruNi-01/atmos/pull/198
+- Labels：已添加 `GrokBuild`
