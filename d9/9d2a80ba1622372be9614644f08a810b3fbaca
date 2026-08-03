@@ -1,0 +1,68 @@
+apps/api/src/api/ws/router/settings.rs
+  h_5be255725524c8 46-49
+apps/desktop-electron/src/ipc/handlers.ts
+  h_5be255725524c8 159-181,183-212
+apps/web/messages/en.json
+  h_5be255725524c8 134-138,2134-2140,4947,4951,4955-4959
+apps/web/messages/zh.json
+  h_5be255725524c8 134-138,2134-2140,4947,4951,4955-4959
+apps/web/src/app-shell/CenterStageTabBar.tsx
+  h_5be255725524c8 51-53,466-486,497-502
+apps/web/src/app-shell/Header.tsx
+  h_5be255725524c8 20,22,462-463,467-488,551-575
+apps/web/src/app-shell/HeaderAttentionBell.tsx
+  h_5be255725524c8 1-89
+apps/web/src/app-shell/LeftSidebar.tsx
+  h_5be255725524c8 95-101,110,114-116,118-139,988,1387,1417-1433
+apps/web/src/app-shell/center-stage-tabs.tsx
+  h_5be255725524c8 26,28-31,134-153
+apps/web/src/app-shell/sidebar/ProjectItem.tsx
+  h_5be255725524c8 53,55,238-240,460,466-468
+apps/web/src/app-shell/sidebar/WorkspaceContent.tsx
+  h_5be255725524c8 37,39,458-460,576,582-588
+apps/web/src/app/globals.css
+  h_5be255725524c8 359-395
+apps/web/src/features/agent/components/AgentAttentionIndicator.tsx
+  h_5be255725524c8 1-53
+apps/web/src/features/agent/hooks/use-agent-notifications.tsx
+  h_5be255725524c8 19-23,26,28,43-46,73-118,126-145,150-156,161,163,168-172,174,184-190,195,200-202,204,326-348
+apps/web/src/features/agent/store/agent-attention-store.test.ts
+  h_5be255725524c8 1-108
+apps/web/src/features/agent/store/agent-attention-store.ts
+  h_5be255725524c8 1-273
+apps/web/src/features/agent/store/agent-hooks-store.ts
+  h_5be255725524c8 7,128,146-172
+apps/web/src/features/settings/components/NotifySettingsSection.tsx
+  h_5be255725524c8 292-316
+apps/web/src/features/settings/store/notification-settings-store.ts
+  h_5be255725524c8 25-26,38
+apps/web/src/features/terminal/components/TerminalChrome.tsx
+  h_5be255725524c8 240-241,248-250
+apps/web/src/features/terminal/components/TerminalGrid.tsx
+  h_5be255725524c8 50,270-283,286,290,647,653,711,713,718,720,904,943
+apps/web/src/features/terminal/components/terminal-grid.css
+  h_5be255725524c8 26-64,354-391,557,563-574,578-587
+apps/web/src/features/terminal/components/terminal-mosaic-scoped-pane-window.tsx
+  h_5be255725524c8 16-17,218-224,232
+apps/web/src/features/terminal/components/terminal-mosaic-workspace-pane-window.tsx
+  h_5be255725524c8 16,19,56,58-66,68-72,282-288,296,323
+apps/web/src/shared/lib/__tests__/notifications.test.ts
+  h_5be255725524c8 1-112
+apps/web/src/shared/lib/notifications.ts
+  h_5be255725524c8 3-7,19-51,55-191,208,215-226,230-233,239-241
+crates/core-service/src/service/notification.rs
+  h_5be255725524c8 28-32,51,96-104,195-198,453-456
+e2e/fixtures/local-api.ts
+  h_5be255725524c8 13
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "d99d2a80ba1622372be9614644f08a810b3fbaca",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
