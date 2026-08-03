@@ -8,9 +8,6 @@ import {
   AvatarImage,
   Skeleton,
   Button,
-  Tabs,
-  TabsList,
-  TabsTrigger,
   Textarea,
   TabsSubtle,
   TabsSubtleItem,
@@ -20,6 +17,7 @@ import {
   CheckCircle2,
   Check,
   ExternalLink,
+  Eye,
   FileText,
   Github,
   GitBranch,
@@ -29,6 +27,7 @@ import {
   Loader2,
   PanelRightClose,
   PanelRightOpen,
+  PenLine,
   RotateCw,
   Settings2,
   Plus,
@@ -547,12 +546,15 @@ function IssueDiscussionComposer({
           <MessageSquare className="size-3.5" />
           {t("composer.title")}
         </span>
-        <Tabs value={tab} onValueChange={(value) => setTab(value as "write" | "preview")}>
-          <TabsList>
-            <TabsTrigger value="write" className="px-3 text-[11px]">{t("composer.write")}</TabsTrigger>
-            <TabsTrigger value="preview" className="px-3 text-[11px]">{t("composer.preview")}</TabsTrigger>
-          </TabsList>
-        </Tabs>
+        <TabsSubtle
+          activeLabel
+          idPrefix="issue-discussion-composer"
+          selectedIndex={tab === "write" ? 0 : 1}
+          onSelect={(index) => setTab(index === 0 ? "write" : "preview")}
+        >
+          <TabsSubtleItem index={0} icon={PenLine} label={t("composer.write")} />
+          <TabsSubtleItem index={1} icon={Eye} label={t("composer.preview")} />
+        </TabsSubtle>
       </div>
       {tab === "write" ? (
         <Textarea
@@ -681,38 +683,29 @@ function IssueTimelineItem({
     event in activity
       ? activity[event as keyof typeof activity]
       : event.replace(/_/g, " ") || t("activity");
+  // Unified neutral timeline icon treatment (same shell for every event)
+  const timelineIconClass = "size-3.5 text-muted-foreground";
   const eventIcon =
     event === "closed" ? (
-      <XCircle className="size-3.5 text-white" />
+      <XCircle className={timelineIconClass} />
     ) : event === "reopened" ? (
-      <RotateCw className="size-3.5 text-white" />
+      <RotateCw className={timelineIconClass} />
     ) : event === "assigned" || event === "unassigned" ? (
-      <User className="size-3.5 text-white" />
+      <User className={timelineIconClass} />
     ) : event === "labeled" || event === "unlabeled" ? (
-      <Tag className="size-3.5 text-muted-foreground" />
+      <Tag className={timelineIconClass} />
     ) : event === "referenced" || event === "cross-referenced" ? (
-      <ExternalLink className="size-3.5 text-muted-foreground" />
+      <ExternalLink className={timelineIconClass} />
     ) : event === "milestoned" || event === "demilestoned" ? (
-      <Milestone className="size-3.5 text-muted-foreground" />
+      <Milestone className={timelineIconClass} />
     ) : (
-      <CheckCircle2 className="size-3.5 text-muted-foreground" />
+      <CheckCircle2 className={timelineIconClass} />
     );
-  const iconClass =
-    event === "closed"
-      ? "bg-red-500"
-      : event === "reopened"
-        ? "bg-emerald-500"
-        : event === "assigned"
-          ? "bg-blue-600"
-          : "bg-muted";
 
   return (
     <div className="flex flex-col gap-1.5 pl-2.5">
       <div className="flex items-center gap-3">
-        <div className={cn(
-          "z-10 flex size-4 shrink-0 items-center justify-center rounded-full ring-4 ring-background",
-          iconClass,
-        )}>
+        <div className="z-10 flex size-4 shrink-0 items-center justify-center rounded-full border border-border/50 bg-muted ring-4 ring-background">
           {eventIcon}
         </div>
         <Avatar className="size-4 shrink-0 border border-border/50">

@@ -81,7 +81,7 @@ export const IssuePanel = React.forwardRef<
     [issues, selectedAssignees, selectedLabels],
   );
   return (
-    <div className="flex h-full min-h-0 min-w-0 flex-col gap-1 overflow-hidden">
+    <div className="flex h-full min-h-0 min-w-0 flex-col gap-2 overflow-hidden">
       <div className="flex h-7 shrink-0 items-center gap-0.5 overflow-hidden px-2">
         <Select
           value={state}
@@ -129,6 +129,12 @@ export const IssuePanel = React.forwardRef<
           />
         </div>
       </div>
+      {/* Inset divider under issue filters */}
+      <div
+        className="mx-3 h-px shrink-0 bg-sidebar-border"
+        role="separator"
+        aria-hidden
+      />
 
       <div className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto px-2 pb-2 pt-0">
         {loading ? (

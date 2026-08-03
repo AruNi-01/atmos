@@ -8,9 +8,8 @@ import {
   AvatarImage,
   Button,
   Skeleton,
-  Tabs,
-  TabsList,
-  TabsTrigger,
+  TabsSubtle,
+  TabsSubtleItem,
   Textarea,
 } from '@workspace/ui';
 import type { FileContents } from '@pierre/diffs';
@@ -19,10 +18,12 @@ import {
   AlertCircle,
   CheckCircle2,
   ChevronRight,
+  Eye,
   GitMerge,
   Github,
   Loader2,
   MessageSquare,
+  PenLine,
   RotateCw,
   SquareArrowOutUpRight,
   XCircle,
@@ -803,12 +804,15 @@ export function CommentBox({ prState, isDraft, mergeable, actionLoading, onComme
         <span className="text-xs font-semibold flex items-center gap-2">
           <MessageSquare className="size-3.5" /> {t('commentBox.title')}
         </span>
-        <Tabs value={tab} onValueChange={(v: string) => setTab(v as 'write' | 'preview')}>
-          <TabsList>
-            <TabsTrigger value="write" className="text-[11px] px-3">{t('commentBox.tabs.write')}</TabsTrigger>
-            <TabsTrigger value="preview" className="text-[11px] px-3">{t('commentBox.tabs.preview')}</TabsTrigger>
-          </TabsList>
-        </Tabs>
+        <TabsSubtle
+          activeLabel
+          idPrefix="pr-discussion-composer"
+          selectedIndex={tab === 'write' ? 0 : 1}
+          onSelect={(index) => setTab(index === 0 ? 'write' : 'preview')}
+        >
+          <TabsSubtleItem index={0} icon={PenLine} label={t('commentBox.tabs.write')} />
+          <TabsSubtleItem index={1} icon={Eye} label={t('commentBox.tabs.preview')} />
+        </TabsSubtle>
       </div>
       <div className="p-0">
         {tab === 'write' ? (

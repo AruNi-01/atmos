@@ -750,24 +750,22 @@ export function PRDetailView({ owner, repo, branch, prNumber, active, onRequestC
                             }
 
                             // Activity Row (Commit, Merge, Close, etc)
-                            let icon = <GitCommit className="size-3.5 text-muted-foreground" />;
-                            let colorClass = "bg-muted";
+                            // Unified neutral timeline icon treatment (same shell for every event)
+                            const timelineIconClass = "size-3.5 text-muted-foreground";
+                            let icon = <GitCommit className={timelineIconClass} />;
                             let actionText: React.ReactNode = "";
 
                             switch (item.event) {
                               case 'closed':
-                                icon = <XCircle className="size-3.5 text-white" />;
-                                colorClass = "bg-red-500";
+                                icon = <XCircle className={timelineIconClass} />;
                                 actionText = t('activity.closed');
                                 break;
                               case 'reopened':
-                                icon = <RotateCw className="size-3.5 text-white" />;
-                                colorClass = "bg-emerald-500";
+                                icon = <RotateCw className={timelineIconClass} />;
                                 actionText = t('activity.reopened');
                                 break;
                               case 'merged':
-                                icon = <GitMerge className="size-3.5 text-white" />;
-                                colorClass = "bg-purple-600";
+                                icon = <GitMerge className={timelineIconClass} />;
                                 const commitId = item.commit_id || item.merge_commit_sha || item.commit_sha;
                                 const shortId = commitId?.substring(0, 7);
                                 actionText = (
@@ -780,47 +778,39 @@ export function PRDetailView({ owner, repo, branch, prNumber, active, onRequestC
                                 );
                                 break;
                               case 'committed':
-                                icon = <GitCommit className="size-3.5 text-muted-foreground" />;
-                                colorClass = "bg-muted border border-border/50";
+                                icon = <GitCommit className={timelineIconClass} />;
                                 actionText = t('activity.committed');
                                 break;
                               case 'head_ref_force_pushed':
-                                icon = <GitCommit className="size-3.5 text-white" />;
-                                colorClass = "bg-amber-500";
+                                icon = <GitCommit className={timelineIconClass} />;
                                 actionText = t('activity.forcePushed');
                                 break;
                               case 'reviewed':
                                 if (item.state === 'APPROVED') {
-                                  icon = <CheckCircle2 className="size-3.5 text-white" />;
-                                  colorClass = "bg-emerald-500";
+                                  icon = <CheckCircle2 className={timelineIconClass} />;
                                   actionText = t('activity.approvedPr');
                                 } else {
-                                  icon = <MessageSquare className="size-3.5 text-white" />;
-                                  colorClass = "bg-muted-foreground";
+                                  icon = <MessageSquare className={timelineIconClass} />;
                                   actionText = t('activity.leftReview');
                                 }
                                 break;
                               case 'referenced':
                               case 'cross-referenced':
-                                icon = <ExternalLink className="size-3.5 text-muted-foreground" />;
-                                colorClass = "bg-muted border border-border/50";
+                                icon = <ExternalLink className={timelineIconClass} />;
                                 actionText = item.event === 'cross-referenced' ? t('activity.crossReferenced') : t('activity.referenced');
                                 break;
                               case 'ready_for_review':
-                                icon = <Eye className="size-3.5 text-white" />;
-                                colorClass = "bg-blue-500";
+                                icon = <Eye className={timelineIconClass} />;
                                 actionText = t('activity.readyForReview');
                                 break;
                               case 'converted_to_draft':
                               case 'convert_to_draft':
-                                icon = <GitPullRequest className="size-3.5 text-muted-foreground" />;
-                                colorClass = "bg-muted border border-border/50";
+                                icon = <GitPullRequest className={timelineIconClass} />;
                                 actionText = t('activity.convertedToDraft');
                                 break;
                               case 'assigned':
                               case 'unassigned':
-                                icon = <User className="size-3.5 text-white" />;
-                                colorClass = item.event === 'assigned' ? "bg-blue-600" : "bg-muted-foreground";
+                                icon = <User className={timelineIconClass} />;
                                 const isSelf = item.assignee?.login === (item.actor?.login || item.author?.login);
                                 actionText = item.event === 'assigned'
                                   ? (isSelf ? t('activity.selfAssigned') : t('activity.assigned', { login: item.assignee?.login || '' }))
@@ -828,31 +818,27 @@ export function PRDetailView({ owner, repo, branch, prNumber, active, onRequestC
                                 break;
                               case 'labeled':
                               case 'unlabeled':
-                                icon = <Tag className="size-3.5 text-muted-foreground" />;
-                                colorClass = "bg-muted";
+                                icon = <Tag className={timelineIconClass} />;
                                 actionText = item.event === 'labeled'
                                   ? t('activity.addedLabelShort')
                                   : t('activity.removedLabelShort');
                                 break;
                               case 'review_requested':
                               case 'review_request_removed':
-                                icon = <Eye className="size-3.5 text-muted-foreground" />;
-                                colorClass = "bg-muted";
+                                icon = <Eye className={timelineIconClass} />;
                                 actionText = item.event === 'review_requested'
                                   ? t('activity.requestedReview', { login: item.requested_reviewer?.login || t('activity.someone') })
                                   : t('activity.removedReviewRequest', { login: item.requested_reviewer?.login || t('activity.someone') });
                                 break;
                               case 'milestoned':
                               case 'demilestoned':
-                                icon = <Milestone className="size-3.5 text-muted-foreground" />;
-                                colorClass = "bg-muted";
+                                icon = <Milestone className={timelineIconClass} />;
                                 actionText = item.event === 'milestoned'
                                   ? t('activity.addedToMilestone', { title: item.milestone?.title || '' })
                                   : t('activity.removedFromMilestone', { title: item.milestone?.title || '' });
                                 break;
                               case 'renamed':
-                                icon = <Edit2 className="size-3.5 text-muted-foreground" />;
-                                colorClass = "bg-muted";
+                                icon = <Edit2 className={timelineIconClass} />;
                                 actionText = t('activity.renamed', {
                                   from: item.rename?.from || '',
                                   to: item.rename?.to || '',
@@ -860,8 +846,7 @@ export function PRDetailView({ owner, repo, branch, prNumber, active, onRequestC
                                 break;
                               case 'deployed':
                               case 'deployment_status':
-                                icon = <Rocket className="size-3.5 text-white" />;
-                                colorClass = "bg-sidebar-accent shadow-sm";
+                                icon = <Rocket className={timelineIconClass} />;
                                 const env = item.deployment?.environment || item.environment || t('activity.preview');
                                 actionText = (
                                   <>
@@ -880,8 +865,7 @@ export function PRDetailView({ owner, repo, branch, prNumber, active, onRequestC
                                 );
                                 break;
                               case 'head_ref_deleted':
-                                icon = <GitBranch className="size-3.5 text-muted-foreground" />;
-                                colorClass = "bg-muted";
+                                icon = <GitBranch className={timelineIconClass} />;
                                 actionText = t('activity.deletedBranch');
                                 break;
                               default:
@@ -892,10 +876,7 @@ export function PRDetailView({ owner, repo, branch, prNumber, active, onRequestC
                             return (
                               <div key={i} className="flex flex-col gap-1.5 pl-2.5 relative">
                                 <div className="flex items-center gap-3">
-                                  <div className={cn(
-                                    "size-4 rounded-full flex items-center justify-center ring-4 ring-background z-10 shrink-0",
-                                    colorClass
-                                  )}>
+                                  <div className="z-10 flex size-4 shrink-0 items-center justify-center rounded-full border border-border/50 bg-muted ring-4 ring-background">
                                     {icon}
                                   </div>
                                   <div className="flex items-center gap-2 text-xs truncate flex-1">

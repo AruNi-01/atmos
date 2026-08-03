@@ -119,17 +119,25 @@ export function GithubLabelsFilter({
                   key={label.name}
                   value={`${label.name} ${label.description ?? ""}`}
                   onSelect={() => toggle(label.name, onSelectedChange)}
+                  className="gap-2"
                 >
                   <span
-                    className="size-2.5 rounded-full"
+                    className="size-2.5 shrink-0 rounded-full border border-black/10"
                     style={{
                       backgroundColor: label.color
                         ? `#${label.color.replace(/^#/, "")}`
                         : "var(--muted-foreground)",
                     }}
                   />
-                  <span className="min-w-0 flex-1 truncate">{label.name}</span>
-                  {isSelected ? <Check className="size-3.5" /> : null}
+                  <div className="flex min-w-0 flex-1 flex-col">
+                    <span className="truncate text-xs font-medium">{label.name}</span>
+                    {label.description ? (
+                      <span className="truncate text-[10px] text-muted-foreground">
+                        {label.description}
+                      </span>
+                    ) : null}
+                  </div>
+                  {isSelected ? <Check className="size-3.5 shrink-0" /> : null}
                 </CommandItem>
               );
             })}
