@@ -1,0 +1,24 @@
+apps/web/src/app-shell/Footer.tsx
+  h_5be255725524c8 355-356,360,364-365
+crates/core-engine/src/github/mod.rs
+  h_5be255725524c8 553
+crates/core-engine/src/lib.rs
+  h_5be255725524c8 31-32
+crates/core-engine/src/local_services/process.rs
+  h_5be255725524c8 340-342,397,408-410
+crates/core-service/src/service/local_services.rs
+  h_5be255725524c8 328-330,339-341
+crates/core-service/src/service/local_services/process_tree.rs
+  h_5be255725524c8 89,109-111,243-249
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "19cfeabe8ea08ad8d9ea88452ddf6847ecd66deb",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
