@@ -712,6 +712,8 @@ pub enum WsEvent {
     QuotaOverviewUpdated,
     /// Local token usage overview changed and should be refreshed on all clients
     TokenUsageUpdated,
+    /// Local services scan snapshot changed (job tick or post-stop refresh)
+    LocalServicesUpdated,
     /// Git commit message 流式生成 chunk
     GitCommitMessageChunk,
     /// LLM provider test 流式输出 chunk

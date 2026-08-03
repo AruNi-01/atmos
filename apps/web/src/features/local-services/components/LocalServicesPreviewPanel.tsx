@@ -37,9 +37,9 @@ export function LocalServicesPreviewPanel({
     }),
     [projectId, workspaceId],
   );
+  // Auto-refresh is server-driven via `local_services_updated` (no client polling).
   const query = useLocalServicesScanQuery(request, {
     enabled: connectionState === "connected",
-    refetchInterval: 30_000,
   });
 
   const services = query.data?.services ?? [];

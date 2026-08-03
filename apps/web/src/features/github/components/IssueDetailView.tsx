@@ -21,6 +21,7 @@ import {
   FileText,
   Github,
   GitBranch,
+  GitCommit,
   GitPullRequest,
   Milestone,
   MessageSquare,
@@ -66,6 +67,8 @@ import {
 } from "@/features/github/lib/pr-detail-sidebar";
 import { useOpenGithubCenterTab } from "@/features/github/hooks/use-open-github-center-tab";
 import { useRepoPrListQuery } from "@/features/github/hooks/use-github-pr-query";
+import { groupConsecutiveTimelineCommits } from "@/features/github/lib/timeline-commits";
+import { TimelineCommitsGroup } from "@/features/github/components/TimelineCommitsGroup";
 import { wsRequest } from "@/api/ws/request";
 import { useComputerQueryScope } from "@/api/query/query-scope";
 import { useQueryClient } from "@tanstack/react-query";
@@ -96,6 +99,7 @@ export function IssueDetailView({
   const locale = useLocale();
   const t = useTranslations("github.issueDetail");
   const relativeTimeLocale = locale.startsWith("zh") ? zhCN : enUS;
+  const { openCommitTab } = useOpenGithubCenterTab();
   const { data: issue, loading } = useGithubIssueDetail(
     issueNumber,
     owner,
@@ -123,14 +127,29 @@ export function IssueDetailView({
       items
         .map((item: TimelineItem) => {
           const actor = item.actor ?? item.author ?? item.user;
-          const user = actor as
-            | { login?: string; avatar_url?: string; avatarUrl?: string }
+          // `committed` events expose {name,email,date} without login/avatar.
+          const rawAuthor = item.author as
+            | { login?: string; name?: string; avatar_url?: string; avatarUrl?: string }
             | undefined;
+          const user =
+            item.event === "committed" && rawAuthor && !rawAuthor.login
+              ? {
+                  login: rawAuthor.name,
+                  avatar_url: `https://github.com/${encodeURIComponent(rawAuthor.name ?? "ghost")}.png?size=32`,
+                  avatarUrl: `https://github.com/${encodeURIComponent(rawAuthor.name ?? "ghost")}.png?size=32`,
+                }
+              : (actor as
+                  | { login?: string; avatar_url?: string; avatarUrl?: string }
+                  | undefined);
           return {
             ...item,
             author: user,
             createdAt:
-              item.created_at ?? item.submitted_at ?? item.authoredDate ?? "",
+              item.created_at ??
+              item.author?.date ??
+              item.submitted_at ??
+              item.authoredDate ??
+              "",
             body: item.body ?? item.message ?? item.messageHeadline ?? "",
             isComment: item.event === "commented",
           };
@@ -141,6 +160,11 @@ export function IssueDetailView({
             new Date(right.createdAt).getTime(),
         ),
     [items],
+  );
+
+  const groupedDiscussion = React.useMemo(
+    () => groupConsecutiveTimelineCommits(discussion),
+    [discussion],
   );
 
   const selectTab = (tab: IssueMainTab) => {
@@ -284,16 +308,36 @@ export function IssueDetailView({
                     <div className="relative">
                       <div className="absolute bottom-0 left-4 top-4 w-0.5 bg-border/60" />
                       <div className="relative flex flex-col gap-5">
-                        {discussion.map((item, index) => (
-                          <IssueTimelineItem
-                            key={`${item.createdAt}-${index}`}
-                            item={item}
-                            locale={relativeTimeLocale}
-                            t={t}
-                            owner={owner}
-                            repo={repo}
-                          />
-                        ))}
+                        {groupedDiscussion.map((entry, index) => {
+                          if (entry.kind === "commits") {
+                            return (
+                              <TimelineCommitsGroup
+                                key={`commits-${entry.startIndex}`}
+                                commits={entry.commits}
+                                locale={relativeTimeLocale}
+                                onCommitClick={({ sha, subject, authorName }) => {
+                                  openCommitTab({
+                                    owner,
+                                    repo,
+                                    sha,
+                                    subject,
+                                    authorName,
+                                  });
+                                }}
+                              />
+                            );
+                          }
+                          return (
+                            <IssueTimelineItem
+                              key={`${entry.item.createdAt}-${index}`}
+                              item={entry.item}
+                              locale={relativeTimeLocale}
+                              t={t}
+                              owner={owner}
+                              repo={repo}
+                            />
+                          );
+                        })}
                       </div>
                     </div>
                   )}
@@ -619,7 +663,7 @@ function IssueTimelineItem({
   owner: string;
   repo: string;
 }) {
-  const { openPullRequestTab } = useOpenGithubCenterTab();
+  const { openPullRequestTab, openCommitTab } = useOpenGithubCenterTab();
   const login = item.author?.login ?? t("unknownUser");
   const time = item.createdAt
     ? formatDistanceToNow(new Date(item.createdAt), { addSuffix: true, locale })
@@ -698,9 +742,16 @@ function IssueTimelineItem({
       <ExternalLink className={timelineIconClass} />
     ) : event === "milestoned" || event === "demilestoned" ? (
       <Milestone className={timelineIconClass} />
+    ) : event === "committed" ? (
+      <GitCommit className={timelineIconClass} />
     ) : (
       <CheckCircle2 className={timelineIconClass} />
     );
+
+  const refSha = item.sha || item.commit_sha || item.commit_id;
+  const canOpenCommit =
+    Boolean(refSha) &&
+    (event === "referenced" || event === "committed");
 
   return (
     <div className="flex flex-col gap-1.5 pl-2.5">
@@ -741,6 +792,40 @@ function IssueTimelineItem({
           >
             {item.label.name}
           </span>
+        ) : null}
+        {canOpenCommit && item.body ? (
+          <button
+            type="button"
+            onClick={() =>
+              openCommitTab({
+                owner,
+                repo,
+                sha: refSha!,
+                subject: item.body,
+                authorName: login,
+              })
+            }
+            className="min-w-0 max-w-[280px] truncate text-left font-medium text-foreground/70 transition-colors hover:text-foreground hover:underline underline-offset-2"
+          >
+            {item.body}
+          </button>
+        ) : null}
+        {canOpenCommit && refSha ? (
+          <button
+            type="button"
+            onClick={() =>
+              openCommitTab({
+                owner,
+                repo,
+                sha: refSha,
+                subject: item.body || refSha.slice(0, 7),
+                authorName: login,
+              })
+            }
+            className="shrink-0 font-mono text-[10px] text-muted-foreground/70 transition-colors hover:text-foreground"
+          >
+            {refSha.slice(0, 7)}
+          </button>
         ) : null}
         <span className="ml-auto whitespace-nowrap text-xs text-muted-foreground/60">
           {time}

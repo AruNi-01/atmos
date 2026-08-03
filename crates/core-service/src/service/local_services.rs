@@ -4,8 +4,10 @@ use std::time::{Duration, Instant};
 
 use chrono::Utc;
 use core_engine::LocalServicesEngine;
+use infra::jobs::{IntervalSpec, JobError, JobId, LocalScheduler, RetryPolicy};
 use serde::{Deserialize, Serialize};
-use tokio::sync::RwLock;
+use tokio::sync::{broadcast, RwLock};
+use tracing::{debug, warn};
 
 use crate::service::{project::ProjectService, workspace::WorkspaceService};
 use crate::{Result, ServiceError};
@@ -21,6 +23,8 @@ use ownership::attribute_listener;
 use process_tree::{build_process_tree_plan, is_safe_tree_root, ProcessTreeNode};
 
 const CACHE_TTL: Duration = Duration::from_secs(5);
+/// Backend auto-refresh interval (replaces former frontend 30s polling).
+const AUTO_REFRESH_INTERVAL: Duration = Duration::from_secs(30);
 /// Wait after listener TERM before verifying the port is free.
 const LISTENER_STOP_VERIFY_WAIT: Duration = Duration::from_millis(1600);
 /// Wait after tree TERM before escalating to KILL.
@@ -28,18 +32,16 @@ const TREE_TERM_VERIFY_WAIT: Duration = Duration::from_millis(1600);
 /// Wait after tree KILL before final verification.
 const TREE_KILL_VERIFY_WAIT: Duration = Duration::from_millis(1000);
 
+/// Product job id for local-services auto-refresh (APP-051 LocalScheduler).
+pub const LOCAL_SERVICES_AUTO_REFRESH_JOB_ID: &str = "local_services.auto_refresh";
+
 /// Ambient process owner for tree-stop authorization.
-/// Unix: `$USER` (then `$USERNAME`); Windows: `$USERNAME` (then `$USER`).
-/// Empty values are skipped so a blank env var does not block the fallback.
+/// Unix: `$USER`; Windows: `$USERNAME` (then `$USER` as fallback).
 fn ambient_user() -> Option<String> {
-    #[cfg(windows)]
-    let variables = ["USERNAME", "USER"];
-    #[cfg(not(windows))]
-    let variables = ["USER", "USERNAME"];
-    variables
-        .into_iter()
-        .filter_map(|name| std::env::var(name).ok())
-        .find(|value| !value.is_empty())
+    std::env::var("USER")
+        .or_else(|_| std::env::var("USERNAME"))
+        .ok()
+        .filter(|s| !s.is_empty())
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
@@ -229,6 +231,7 @@ pub struct LocalServicesService {
     project_service: Arc<ProjectService>,
     workspace_service: Arc<WorkspaceService>,
     cache: RwLock<Option<CacheEntry>>,
+    update_tx: broadcast::Sender<LocalServicesScanResponse>,
 }
 
 impl LocalServicesService {
@@ -236,12 +239,73 @@ impl LocalServicesService {
         project_service: Arc<ProjectService>,
         workspace_service: Arc<WorkspaceService>,
     ) -> Self {
+        let (update_tx, _) = broadcast::channel(32);
         Self {
             engine: LocalServicesEngine::new(),
             project_service,
             workspace_service,
             cache: RwLock::new(None),
+            update_tx,
         }
+    }
+
+    /// Register the 30s all-projects scan job on the process LocalScheduler.
+    pub async fn start_auto_refresh(self: Arc<Self>, jobs: Arc<LocalScheduler>) {
+        let service = Arc::clone(&self);
+        if let Err(error) = jobs
+            .set_interval_job(
+                JobId::new(LOCAL_SERVICES_AUTO_REFRESH_JOB_ID),
+                IntervalSpec {
+                    every: AUTO_REFRESH_INTERVAL,
+                    skip_if_running: true,
+                    // Initial load is owned by the client's first `local_services_scan` request.
+                    fire_immediately: false,
+                },
+                RetryPolicy::none(),
+                move || {
+                    let service = Arc::clone(&service);
+                    async move {
+                        debug!("Running scheduled local-services scan");
+                        if let Err(error) = service.refresh_all_and_publish().await {
+                            warn!(error = %error, "Scheduled local-services scan failed");
+                            return Err(JobError::Retryable(error.to_string()));
+                        }
+                        Ok(())
+                    }
+                },
+            )
+            .await
+        {
+            warn!("Failed to register local-services auto-refresh job: {}", error);
+        }
+    }
+
+    pub fn subscribe_updates(&self) -> broadcast::Receiver<LocalServicesScanResponse> {
+        self.update_tx.subscribe()
+    }
+
+    /// Force-scan all Atmos projects and push the snapshot to WS subscribers.
+    pub async fn refresh_all_and_publish(&self) -> Result<LocalServicesScanResponse> {
+        let response = self
+            .scan(LocalServicesScanRequest {
+                scope: LocalServicesScope::AllAtmosProjects,
+                force: true,
+                include_diagnostics: false,
+                project_id: None,
+                workspace_id: None,
+            })
+            .await?;
+        self.publish_update(&response);
+        Ok(response)
+    }
+
+    /// Broadcast an existing all-projects scan snapshot (e.g. after a forced API scan).
+    pub fn publish_scan_snapshot(&self, response: &LocalServicesScanResponse) {
+        self.publish_update(response);
+    }
+
+    fn publish_update(&self, response: &LocalServicesScanResponse) {
+        let _ = self.update_tx.send(response.clone());
     }
 
     pub async fn scan(
@@ -266,11 +330,25 @@ impl LocalServicesService {
         Ok(response)
     }
 
-    pub async fn stop(&self, request: LocalServiceStopRequest) -> Result<LocalServiceStopResponse> {
-        match request.mode {
-            LocalServiceStopMode::Listener => self.stop_listener(request).await,
-            LocalServiceStopMode::Tree => self.stop_tree(request).await,
+    pub async fn stop(
+        self: &Arc<Self>,
+        request: LocalServiceStopRequest,
+    ) -> Result<LocalServiceStopResponse> {
+        let response = match request.mode {
+            LocalServiceStopMode::Listener => self.stop_listener(request).await?,
+            LocalServiceStopMode::Tree => self.stop_tree(request).await?,
+        };
+        // After a successful stop, push a fresh snapshot in the background so
+        // the stop RPC is not blocked by a full rescan (clients may also refetch).
+        if response.ok {
+            let service = Arc::clone(self);
+            tokio::spawn(async move {
+                if let Err(error) = service.refresh_all_and_publish().await {
+                    warn!(error = %error, "Local-services post-stop refresh failed");
+                }
+            });
         }
+        Ok(response)
     }
 
     async fn stop_listener(
@@ -280,15 +358,7 @@ impl LocalServicesService {
         let service = self.revalidate_stop_target(&request, true).await?;
 
         // Graceful signal on the listening leaf only.
-        // ESRCH / already-exited is not fatal — still verify the port is free.
-        if let Err(err) = self.engine.terminate_process(request.pid).await {
-            tracing::debug!(
-                pid = request.pid,
-                port = request.port,
-                error = %err,
-                "listener terminate_process failed; continuing to port verification"
-            );
-        }
+        self.engine.terminate_process(request.pid).await?;
         tokio::time::sleep(LISTENER_STOP_VERIFY_WAIT).await;
         *self.cache.write().await = None;
 

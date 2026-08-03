@@ -123,6 +123,10 @@ impl WsMessageService {
         Arc::clone(&self.disk_analyzer_service)
     }
 
+    pub fn local_services_service(&self) -> Arc<LocalServicesService> {
+        Arc::clone(&self.local_services_service)
+    }
+
     pub fn set_ws_manager(&self, manager: Arc<WsManager>) -> Result<()> {
         self.ws_manager
             .set(manager)

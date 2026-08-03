@@ -2135,6 +2135,7 @@
       "permissionNeeded": "需要授权",
       "taskComplete": "任务完成 — 待查看",
       "filterTitle": "需要关注列表",
+      "filterDescription": "仅显示需要你处理的工作区 / 项目",
       "clearFilter": "显示全部"
     },
     "components": {
@@ -6075,6 +6076,11 @@
     "commitDetail": {
       "loading": "正在加载提交...",
       "filesChanged": "{count} 个文件变更"
+    },
+    "timeline": {
+      "addedCommits": "添加了 {count} 个提交",
+      "unknownUser": "未知用户",
+      "unknownCommit": "未知提交"
     },
     "actionsPanel": {
       "summary": {

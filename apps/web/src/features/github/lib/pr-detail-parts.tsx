@@ -143,6 +143,8 @@ export interface TimelineItem {
   message?: string;
   messageHeadline?: string;
   state?: string;
+  /** Full commit SHA from GitHub timeline `committed` events. */
+  sha?: string;
   commit_id?: string;
   merge_commit_sha?: string;
   commit_sha?: string;

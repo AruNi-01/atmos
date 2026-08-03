@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 import { Loader2, RotateCcw, Server } from "lucide-react";
 import {
@@ -11,8 +12,10 @@ import {
   cn,
 } from "@workspace/ui";
 
+import { useComputerQueryScope } from "@/api/query/query-scope";
 import { useWebSocketStore } from "@/features/connection/hooks/use-websocket";
 import { localServiceOpenUrl } from "@/features/local-services/lib/local-service-url";
+import { localServicesScanQueryOptions } from "@/features/local-services/lib/local-services-query-options";
 import type { LocalService } from "@/features/local-services/types";
 import { useAppRouter } from "@/shared/hooks/use-app-router";
 import { useLocalServicesScanQuery } from "@/features/local-services/hooks/use-local-services-query";
@@ -26,10 +29,12 @@ export function LocalServicesFooterItem() {
   const t = useTranslations("localServices.footerItem");
   const [open, setOpen] = React.useState(false);
   const router = useAppRouter();
+  const queryClient = useQueryClient();
+  const scope = useComputerQueryScope();
   const connectionState = useWebSocketStore((s) => s.connectionState);
+  // Auto-refresh is server-driven via `local_services_updated` (no client polling).
   const query = useLocalServicesScanQuery(FOOTER_REQUEST, {
     enabled: connectionState === "connected",
-    refetchInterval: 30_000,
   });
 
   const services = query.data?.services ?? [];
@@ -37,6 +42,16 @@ export function LocalServicesFooterItem() {
   const error = query.error
     ? (query.error instanceof Error ? query.error.message : t("errorFallback"))
     : (query.data?.unavailable?.message ?? null);
+
+  const forceRefresh = React.useCallback(async () => {
+    if (connectionState !== "connected") return;
+    await queryClient.fetchQuery(
+      localServicesScanQueryOptions(scope, connectionState, {
+        ...FOOTER_REQUEST,
+        force: true,
+      }),
+    );
+  }, [connectionState, queryClient, scope]);
 
   const label = React.useCallback(
     (key: string, values?: Record<string, string | number>) =>
@@ -96,7 +111,7 @@ export function LocalServicesFooterItem() {
               variant="ghost"
               size="icon"
               className="size-7"
-              onClick={() => void query.refetch()}
+              onClick={() => void forceRefresh()}
               disabled={loading || connectionState !== "connected"}
               title={label("refresh")}
             >
@@ -116,7 +131,7 @@ export function LocalServicesFooterItem() {
             compact
             emptyLabel={label("emptyLabel")}
             onOpen={handleOpen}
-            onRefresh={() => void query.refetch()}
+            onRefresh={() => void forceRefresh()}
           />
         </div>
       </PopoverContent>

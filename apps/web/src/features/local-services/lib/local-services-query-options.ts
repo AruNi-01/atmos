@@ -16,7 +16,7 @@ export function localServicesScanQueryOptions(
   scope: ComputerQueryScope,
   connectionState: ConnectionState,
   request: LocalServicesScanRequest,
-  options?: { enabled?: boolean; refetchInterval?: number | false },
+  options?: { enabled?: boolean },
 ) {
   const scopeKey = localServicesScopeKey(request);
   return wsQueryOptions({
@@ -26,9 +26,7 @@ export function localServicesScanQueryOptions(
     queryKey: queryKeys.computer.localServicesScan(scope, scopeKey),
     queryFn: (): Promise<LocalServicesScanResponse> => localServicesApi.scan(request),
     // Forced scans must bypass the normal stale window so Refresh hits the network.
-    staleTime: request.force ? 0 : 15_000,
-    ...(options?.refetchInterval !== undefined
-      ? { refetchInterval: options.refetchInterval }
-      : {}),
+    // Auto-refresh is server-driven (`local_services_updated`); no client refetchInterval.
+    staleTime: request.force ? 0 : 30_000,
   });
 }
