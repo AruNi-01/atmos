@@ -64,6 +64,8 @@ export function overlayWindowOpenHandler(
         ...bounds,
         frame: false,
         transparent: true,
+        // Critical for macOS: without this, transparent windows often paint opaque black.
+        backgroundColor: "#00000000",
         hasShadow: false,
         resizable: false,
         maximizable: false,
@@ -72,10 +74,12 @@ export function overlayWindowOpenHandler(
         skipTaskbar: true,
         show: false,
         focusable: true,
+        // Avoid stealing key focus from the host when the overlay appears.
         webPreferences: {
           contextIsolation: true,
           nodeIntegration: false,
           sandbox: true,
+          backgroundThrottling: false,
         },
       },
     };
@@ -169,8 +173,20 @@ export class OverlaySurfaceManager {
       }
     }
     entry.overlay = child;
+    try {
+      // Reinforce transparency after create (some platforms ignore options alone).
+      child.setBackgroundColor("#00000000");
+    } catch {
+      /* ignore */
+    }
     this.syncBounds(entry);
-    this.applyPointerMode(entry);
+    // Start non-interactive + hidden until noteActivity.
+    try {
+      child.setIgnoreMouseEvents(true, { forward: true });
+      if (child.isVisible()) child.hide();
+    } catch {
+      /* ignore */
+    }
 
     child.on("closed", () => {
       if (entry.overlay === child) entry.overlay = null;
@@ -229,10 +245,13 @@ export class OverlaySurfaceManager {
     const win = entry.overlay;
     if (!win || win.isDestroyed()) return;
     try {
-      // v1: always receive mouse events so elevated menus/dialogs are clickable.
-      // setIgnoreMouseEvents(true) makes the whole window unclickable; CSS cannot override.
-      void entry.pointerMode;
-      win.setIgnoreMouseEvents(false);
+      // Only capture while elevated content is active (noteActivity path).
+      // release() always forces ignore+hide separately.
+      if (entry.pointerMode === "pass-through") {
+        win.setIgnoreMouseEvents(true, { forward: true });
+      } else {
+        win.setIgnoreMouseEvents(false);
+      }
     } catch {
       /* ignore */
     }
@@ -278,12 +297,18 @@ export class OverlaySurfaceManager {
     const entry = this.byHostId.get(this.hostKey(h));
     if (!entry) return;
     entry.lifecycle.noteActivity();
+    entry.pointerMode = "capture";
     // Layers open: surface must be visible and receive input.
     const win = entry.overlay;
     if (win && !win.isDestroyed()) {
       try {
-        if (!win.isVisible()) win.showInactive();
-        win.setIgnoreMouseEvents(false);
+        win.setBackgroundColor("#00000000");
+        this.syncBounds(entry);
+        this.applyPointerMode(entry);
+        if (!win.isVisible()) {
+          // showInactive: do not steal keyboard focus from the host shell.
+          win.showInactive();
+        }
       } catch {
         /* ignore */
       }
@@ -296,12 +321,13 @@ export class OverlaySurfaceManager {
     const entry = this.byHostId.get(this.hostKey(h));
     if (!entry) return;
     entry.lifecycle.release();
-    // R1: empty overlay must not block host/preview input during idle window.
+    entry.pointerMode = "pass-through";
+    // Empty overlay must not block host/preview input (and must not stay painted black).
     const win = entry.overlay;
     if (win && !win.isDestroyed()) {
       try {
         win.setIgnoreMouseEvents(true, { forward: true });
-        win.hide();
+        if (win.isVisible()) win.hide();
       } catch {
         /* ignore */
       }
