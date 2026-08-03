@@ -131,6 +131,11 @@
     }
   },
   "header": {
+    "attention": {
+      "ariaLabel": "需要关注",
+      "tooltip": "只显示需要关注的工作区 / 项目",
+      "tooltipActive": "正在筛选需要关注的项 — 点击显示全部"
+    },
     "leftSidebar": {
       "expand": "展开左侧边栏",
       "collapse": "收起左侧边栏",
@@ -2126,6 +2131,13 @@
     }
   },
   "Agent": {
+    "attention": {
+      "permissionNeeded": "需要授权",
+      "taskComplete": "任务完成 — 待查看",
+      "filterTitle": "Need attention list",
+      "filterDescription": "仅显示需要你处理的工作区 / 项目",
+      "clearFilter": "显示全部"
+    },
     "components": {
       "common": {
         "cancel": "取消",
@@ -4932,15 +4944,19 @@
         "description": "选择当 Agent 需要你关注时如何通知你。",
         "browser": {
           "title": "浏览器通知",
-          "description": "当 Agent 需要你关注时显示浏览器原生通知。"
+          "description": "当 Agent 需要你关注时显示浏览器原生通知。默认仅在 Atmos 处于后台时弹出。"
         },
         "desktop": {
           "title": "桌面通知",
-          "description": "通过桌面应用显示系统级通知。"
+          "description": "通过桌面应用显示系统级通知。点击通知可跳转到对应 Agent 或自动化。默认仅在 Atmos 处于后台时弹出。"
         },
         "inAppToast": {
           "title": "应用内 Toast",
-          "description": "当 Agent 需要你关注或完成时，在右上角显示应用内提示。"
+          "description": "当 Agent 需要你关注或完成时，在右上角显示应用内提示。适合你正在使用 Atmos 时的提醒。"
+        },
+        "whenFocused": {
+          "title": "使用 Atmos 时仍显示系统通知",
+          "description": "即使 Atmos 处于前台，也弹出浏览器/桌面系统通知。默认关闭，避免打断工作；前台提醒请用应用内 Toast。"
         }
       },
       "events": {

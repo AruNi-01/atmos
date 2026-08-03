@@ -47,6 +47,7 @@ import { TerminalGridEmptyState, TerminalGridLoadingState } from "./terminal-gri
 import { useTerminalGridCanvasPins } from "../hooks/use-terminal-grid-canvas-pins";
 import { useTerminalGridHotkeys } from "../hooks/use-terminal-grid-hotkeys";
 import { useContestedCliOwners } from "../hooks/use-contested-cli-owners";
+import { useAgentAttentionStore } from "@/features/agent/store/agent-attention-store";
 import { useAgentHooksStore } from "@/features/agent/store/agent-hooks-store";
 import {
   toPendingTerminalRun,
@@ -266,13 +267,27 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
     ? activePaneId
     : paneOrder[0] ?? null;
 
+  const setActivePaneIdWithAttention = useCallback(
+    (paneId: string | null) => {
+      setActivePaneId(paneId);
+      if (!paneId) return;
+      const pane = panes[paneId];
+      if (!pane) return;
+      const stablePaneId = pane.tmuxWindowName
+        ? `${workspaceId}:${pane.tmuxWindowName}`
+        : pane.sessionId;
+      useAgentAttentionStore.getState().notifyPaneFocused(stablePaneId);
+    },
+    [panes, workspaceId],
+  );
+
   const focusPane = useCallback((paneId: string | undefined | null) => {
     if (!paneId || !panes[paneId]) return;
-    setActivePaneId(paneId);
+    setActivePaneIdWithAttention(paneId);
     window.setTimeout(() => {
       terminalRefsMap.current.get(paneId)?.focus();
     }, 0);
-  }, [panes]);
+  }, [panes, setActivePaneIdWithAttention]);
 
   const rememberGridFocus = React.useCallback((target: EventTarget | null) => {
     if (!(target instanceof HTMLElement) || !isRestorableTerminalFocusElement(target)) return;
@@ -629,13 +644,13 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
       ? splitProjectWikiTerminal(workspaceId, id, direction, agent)
       : splitTerminalInStore(workspaceId, id, direction, terminalTabId, agent);
     if (newPaneId) {
-      setActivePaneId(newPaneId);
+      setActivePaneIdWithAttention(newPaneId);
       window.setTimeout(() => {
         terminalRefsMap.current.get(newPaneId)?.focus();
       }, 0);
     }
     return newPaneId;
-  }, [workspaceId, isCodeReview, isProjectWiki, splitCodeReviewTerminal, splitProjectWikiTerminal, splitTerminalInStore, terminalTabId]);
+  }, [workspaceId, isCodeReview, isProjectWiki, splitCodeReviewTerminal, splitProjectWikiTerminal, splitTerminalInStore, terminalTabId, setActivePaneIdWithAttention]);
 
   const splitAndRunAgent = useCallback(
     (id: string, direction: "row" | "column", command: string, agent: TerminalPaneAgent) => {
@@ -693,16 +708,16 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
   const toggleFocusedAgentInput = useCallback(() => {
     const paneId = getFocusedPaneId();
     if (!paneId) return;
-    setActivePaneId(paneId);
+    setActivePaneIdWithAttention(paneId);
     agentInputOverlayRefsMap.current.get(paneId)?.toggle();
-  }, [getFocusedPaneId]);
+  }, [getFocusedPaneId, setActivePaneIdWithAttention]);
 
   const togglePinFocusedAgentInput = useCallback(() => {
     const paneId = getFocusedPaneId();
     if (!paneId) return;
-    setActivePaneId(paneId);
+    setActivePaneIdWithAttention(paneId);
     agentInputOverlayRefsMap.current.get(paneId)?.togglePin();
-  }, [getFocusedPaneId]);
+  }, [getFocusedPaneId, setActivePaneIdWithAttention]);
 
   useTerminalGridHotkeys({
     terminalHotkeyScopeRef,
@@ -886,7 +901,7 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
           pinPaneToCanvas={pinPaneToCanvas}
           onToggleMaximize={onToggleMaximize}
           requestCloseTerminal={requestCloseTerminal}
-          setActivePaneId={setActivePaneId}
+          setActivePaneId={setActivePaneIdWithAttention}
           setIsPaneDragging={setIsPaneDragging}
           terminalRefsMap={terminalRefsMap}
           agentInputOverlayRefsMap={agentInputOverlayRefsMap}
@@ -925,7 +940,7 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
         pinPaneToCanvas={pinPaneToCanvas}
         onToggleMaximize={onToggleMaximize}
         requestCloseTerminal={requestCloseTerminal}
-        setActivePaneId={setActivePaneId}
+        setActivePaneId={setActivePaneIdWithAttention}
         setIsPaneDragging={setIsPaneDragging}
         terminalRefsMap={terminalRefsMap}
         agentInputOverlayRefsMap={agentInputOverlayRefsMap}

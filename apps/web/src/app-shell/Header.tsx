@@ -17,7 +17,9 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@workspace/ui';
+import { motion } from "motion/react";
 import { QuickOpen } from './QuickOpen';
+import { HeaderAttentionBell } from './HeaderAttentionBell';
 import { useGitInfoStore } from '@/features/git/store/use-git-info-store';
 import { useGitStatusQuery } from '@/features/git/hooks/use-git-status-query';
 import { useGitBranchesQuery } from '@/features/git/hooks/use-git-branches-query';
@@ -457,31 +459,33 @@ const Header: React.FC = () => {
         {/* Left: Identity */}
         <div
           className={cn(
-            "relative z-10 flex items-center space-x-4 transition-[opacity,transform] duration-300 ease-out",
+            // gap-6 separates chrome controls (left) from app actions (bell / quick open).
+            "relative z-10 flex items-center gap-6 transition-[opacity,transform] duration-300 ease-out",
             isDesktopFullscreenExiting ? "opacity-0 translate-x-2" : "opacity-100 translate-x-0"
           )}
         >
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                type="button"
-                aria-label={isLeftCollapsed ? t("leftSidebar.expand") : t("leftSidebar.collapse")}
-                onClick={toggleLeftSidebar}
-                className="desktop-no-drag inline-flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-              >
-                {isLeftCollapsed ? <PanelLeftOpen className="size-4" /> : <PanelLeftClose className="size-4" />}
-              </button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <div className="flex items-center gap-2">
-                <span>{isLeftCollapsed ? t("leftSidebar.expandLabel") : t("leftSidebar.collapseLabel")}</span>
-                <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-foreground/90">
-                  <Command className="size-3" /><span className="text-xs">B</span>
-                </kbd>
-              </div>
-            </TooltipContent>
-          </Tooltip>
-          <div className="desktop-no-drag flex h-8 items-center gap-1">
+          {/* Chrome controls: sidebar toggle + history — one tight group. */}
+          <div className="desktop-no-drag flex h-8 shrink-0 items-center gap-1">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  aria-label={isLeftCollapsed ? t("leftSidebar.expand") : t("leftSidebar.collapse")}
+                  onClick={toggleLeftSidebar}
+                  className="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                >
+                  {isLeftCollapsed ? <PanelLeftOpen className="size-4" /> : <PanelLeftClose className="size-4" />}
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <div className="flex items-center gap-2">
+                  <span>{isLeftCollapsed ? t("leftSidebar.expandLabel") : t("leftSidebar.collapseLabel")}</span>
+                  <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-foreground/90">
+                    <Command className="size-3" /><span className="text-xs">B</span>
+                  </kbd>
+                </div>
+              </TooltipContent>
+            </Tooltip>
             <Tooltip>
               <TooltipTrigger asChild>
                 <button
@@ -543,25 +547,32 @@ const Header: React.FC = () => {
               </TooltipContent>
             </Tooltip>
           </div>
-          <div
-            className={cn(
-              "flex items-center overflow-hidden transition-[opacity,max-width] duration-200 ease-out",
-              isLeftCollapsed ? "max-w-[340px] opacity-100" : "max-w-0 opacity-0"
-            )}
-          >
-            <span className="mr-4 text-lg font-light text-muted-foreground/30">/</span>
-            <span className="text-[12px] text-muted-foreground font-medium whitespace-nowrap text-balance">
-              {currentProject?.name || t("projectFallback")}
-            </span>
-          </div>
 
-          <div className="desktop-no-drag pl-2">
-            {showHeaderQuickOpen && (currentWorkspace || currentProject) && (
-              <QuickOpen
-                workspace={currentWorkspace}
-                path={!currentWorkspace ? currentProject?.mainFilePath : null}
-              />
-            )}
+          {isLeftCollapsed ? (
+            <div className="flex min-w-0 max-w-[340px] items-center overflow-hidden">
+              <span className="mr-2 text-lg font-light text-muted-foreground/30">/</span>
+              <span className="text-balance truncate whitespace-nowrap text-[12px] font-medium text-muted-foreground">
+                {currentProject?.name || t("projectFallback")}
+              </span>
+            </div>
+          ) : null}
+
+          {/* App actions (bell + quick open). Parent gap-6 always separates this from chrome,
+              including when the bell is hidden and only Quick Open remains. */}
+          <div className="desktop-no-drag flex shrink-0 items-center gap-1">
+            <HeaderAttentionBell />
+            {showHeaderQuickOpen && (currentWorkspace || currentProject) ? (
+              <motion.div
+                layout
+                transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+                className="min-w-0"
+              >
+                <QuickOpen
+                  workspace={currentWorkspace}
+                  path={!currentWorkspace ? currentProject?.mainFilePath : null}
+                />
+              </motion.div>
+            ) : null}
           </div>
           {currentWorkspace && currentWorkspaceSetupProgress && (
             <div className="desktop-no-drag">

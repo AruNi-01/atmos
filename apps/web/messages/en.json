@@ -131,6 +131,11 @@
     }
   },
   "header": {
+    "attention": {
+      "ariaLabel": "Needs attention",
+      "tooltip": "Show only workspaces and projects that need attention",
+      "tooltipActive": "Showing items that need attention — click to show all"
+    },
     "leftSidebar": {
       "expand": "Expand left sidebar",
       "collapse": "Collapse left sidebar",
@@ -2126,6 +2131,13 @@
     }
   },
   "Agent": {
+    "attention": {
+      "permissionNeeded": "Permission needed",
+      "taskComplete": "Task complete — needs review",
+      "filterTitle": "Need attention list",
+      "filterDescription": "Only workspaces and projects that need you",
+      "clearFilter": "Show all"
+    },
     "components": {
       "common": {
         "cancel": "Cancel",
@@ -4932,15 +4944,19 @@
         "description": "Choose how you want to be notified when agents need attention.",
         "browser": {
           "title": "Browser notifications",
-          "description": "Show native browser notifications when agents need attention."
+          "description": "Show native browser notifications when agents need attention. By default only while Atmos is in the background."
         },
         "desktop": {
           "title": "Desktop notifications",
-          "description": "Show system-level notifications via the desktop app."
+          "description": "Show system-level notifications via the desktop app. Click a notification to jump to the agent or automation. By default only while Atmos is in the background."
         },
         "inAppToast": {
           "title": "In-app toast",
-          "description": "Show top-right app toasts when agents need attention or finish."
+          "description": "Show top-right app toasts when agents need attention or finish. Best for when you are already using Atmos."
+        },
+        "whenFocused": {
+          "title": "System notifications while using Atmos",
+          "description": "Also show browser/desktop system notifications when Atmos is focused. Leave off to avoid noise while working; use in-app toast for foreground alerts."
         }
       },
       "events": {

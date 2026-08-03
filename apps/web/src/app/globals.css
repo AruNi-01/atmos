@@ -356,6 +356,43 @@ html:not([data-theme-ready="true"]) body {
   from { opacity: 0; }
 }
 
+/* Agent need-attention rings (tabs + panes). Soft pulse — avoid loud alerts. */
+@keyframes agent-attention-ring-pulse {
+  0%,
+  100% {
+    box-shadow: inset 0 0 0 1px transparent;
+  }
+  50% {
+    box-shadow: inset 0 0 0 1px var(--agent-attention-ring-color, rgb(148 163 184 / 0.35));
+  }
+}
+
+@keyframes agent-attention-ring-tab-pulse {
+  0%,
+  100% {
+    box-shadow: inset 0 -2px 0 0 transparent;
+  }
+  50% {
+    box-shadow: inset 0 -2px 0 0 var(--agent-attention-ring-color, rgb(148 163 184 / 0.4));
+  }
+}
+
+.agent-attention-ring {
+  animation: agent-attention-ring-pulse 2.4s ease-in-out infinite;
+}
+
+.agent-attention-ring-tab {
+  animation: agent-attention-ring-tab-pulse 2.4s ease-in-out infinite;
+}
+
+.agent-attention-ring-permission {
+  --agent-attention-ring-color: rgb(245 158 11 / 0.42);
+}
+
+.agent-attention-ring-complete {
+  --agent-attention-ring-color: rgb(16 185 129 / 0.4);
+}
+
 @keyframes welcome-placeholder-enter {
   from {
     opacity: 0;

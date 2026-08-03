@@ -237,19 +237,17 @@ export function TerminalChrome({
         data-connected={isConnected}
         data-status={uiStatus}
       />
-      {showScrollDown && (
-        <Button
+      {showScrollDown ? (
+        <button
           type="button"
-          variant="ghost"
-          size="icon-sm"
           aria-label="Scroll to bottom"
           title="Scroll to bottom"
           className="terminal-scroll-to-bottom"
           onClick={onScrollToBottom}
         >
-          <ArrowDown className="size-3.5" />
-        </Button>
-      )}
+          <ArrowDown className="size-3.5" strokeWidth={2} />
+        </button>
+      ) : null}
       {selectionToolbar}
     </div>
   );

@@ -13,8 +13,10 @@ import {
   cn,
 } from "@workspace/ui";
 import { AgentIcon } from "@/features/agent/components/AgentIcon";
+import { AgentAttentionIndicator, attentionBorderClass } from "@/features/agent/components/AgentAttentionIndicator";
 import { AgentHookStatusIndicator } from "@/features/agent/components/AgentHookStatusIndicator";
 import { buildCanvasTerminalPinKey } from "@/features/canvas/lib/canvas-terminal-shape";
+import { useAgentAttentionStore } from "@/features/agent/store/agent-attention-store";
 import { AGENT_STATE, useAgentHooksStore } from "@/features/agent/store/agent-hooks-store";
 import type { Project } from "@/shared/types/domain";
 import { Terminal, type TerminalRef } from "./Terminal";
@@ -51,16 +53,23 @@ export function TerminalPaneAgentStatus({ paneId }: { paneId: string; contextId:
   // state, which would cause all windows in the same workspace to show RUNNING
   // whenever any one of them has an agent active.
   const paneState = useAgentHooksStore((s) => s.getAgentStateForPaneId(paneId));
+  const attentionReason = useAgentAttentionStore((s) => s.panes.get(paneId)?.reason ?? null);
 
-  if (paneState === AGENT_STATE.IDLE) return null;
+  if (paneState !== AGENT_STATE.IDLE) {
+    return (
+      <AgentHookStatusIndicator
+        state={paneState}
+        variant="full"
+        className="shrink-0"
+      />
+    );
+  }
 
-  return (
-    <AgentHookStatusIndicator
-      state={paneState}
-      variant="full"
-      className="shrink-0"
-    />
-  );
+  if (attentionReason) {
+    return <AgentAttentionIndicator reason={attentionReason} className="shrink-0" size={14} />;
+  }
+
+  return null;
 }
 
 type TerminalMosaicWorkspacePaneWindowProps = {
@@ -270,6 +279,13 @@ export function TerminalMosaicWorkspacePaneWindow(props: TerminalMosaicWorkspace
     ? t("close.title")
     : "Close (⌘W)";
 
+  const stablePaneId = pane.tmuxWindowName
+    ? `${workspaceId}:${pane.tmuxWindowName}`
+    : pane.sessionId;
+  const attentionReason = useAgentAttentionStore(
+    (s) => s.panes.get(stablePaneId)?.reason ?? null,
+  );
+
   return (
     <MosaicWindow<string>
       path={path}
@@ -277,6 +293,7 @@ export function TerminalMosaicWorkspacePaneWindow(props: TerminalMosaicWorkspace
       className={cn(
         maximizedId === id && "is-maximized",
         hasMultiplePanes && (effectiveActivePaneId === id ? "is-active-pane" : "is-inactive-pane"),
+        attentionBorderClass(attentionReason),
       )}
       onDragStart={() => setIsPaneDragging(true)}
       onDragEnd={() => setIsPaneDragging(false)}
@@ -303,7 +320,7 @@ export function TerminalMosaicWorkspacePaneWindow(props: TerminalMosaicWorkspace
             </div>
 
             <div className="terminal-mosaic-toolbar-end">
-              <TerminalPaneAgentStatus paneId={pane.tmuxWindowName ? `${workspaceId}:${pane.tmuxWindowName}` : pane.sessionId} contextId={workspaceId} />
+              <TerminalPaneAgentStatus paneId={stablePaneId} contextId={workspaceId} />
               {(actions.split || actions.maximize || actions.close) && (
               <div className="terminal-mosaic-toolbar-right">
                 <button

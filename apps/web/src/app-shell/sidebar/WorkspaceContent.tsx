@@ -34,7 +34,9 @@ import { formatRelativeTime } from "@atmos/shared";
 import { getWorkspaceShortName } from "@/features/workspace/lib/workspace";
 import { gitApi } from "@/api/ws-api";
 import { AGENT_STATE, useAgentHooksStore } from "@/features/agent/store/agent-hooks-store";
+import { AgentAttentionIndicator } from "@/features/agent/components/AgentAttentionIndicator";
 import { AgentHookStatusIndicator } from "@/features/agent/components/AgentHookStatusIndicator";
+import { useAgentAttentionStore } from "@/features/agent/store/agent-attention-store";
 import {
   WorkspaceGroupSelect,
   WorkspaceLabelBadges,
@@ -453,6 +455,9 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
   const workspaceAgentState = useAgentHooksStore((s) =>
     s.getAgentStateForContextId(workspace.id),
   );
+  const workspaceAttentionReason = useAgentAttentionStore(
+    (s) => s.getContextReason(workspace.id),
+  );;
 
   const handleSaveName = React.useCallback(async () => {
     const nextName = editableName.trim();
@@ -568,13 +573,19 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
                     </Tooltip>
                   </TooltipProvider>
                 )}
-                {workspaceAgentState !== AGENT_STATE.IDLE && (
+                {workspaceAgentState !== AGENT_STATE.IDLE ? (
                   <AgentHookStatusIndicator
                     state={workspaceAgentState}
                     variant="compact"
                     className="shrink-0"
                   />
-                )}
+                ) : workspaceAttentionReason ? (
+                  <AgentAttentionIndicator
+                    reason={workspaceAttentionReason}
+                    className="shrink-0"
+                    size={12}
+                  />
+                ) : null}
               </div>
               {/* Trailing slot in normal flow: status/time/label, or archive on hover. */}
               <div className="flex shrink-0 items-center justify-end">

@@ -48,6 +48,9 @@ import {
   CenterStageTabGroupItemContent,
   CenterStageTabList,
 } from "@/app-shell/center-stage-shared-tabs";
+import { useAgentAttentionStore } from "@/features/agent/store/agent-attention-store";
+import { useTerminalStore } from "@/features/terminal/store/use-terminal-store";
+import { useShallow } from "zustand/react/shallow";
 import type { FileTabContextMenuState } from "@/app-shell/center-stage-file-menu";
 import type { GithubCenterTab } from "@/features/github/store/use-github-center-tabs";
 import type { BrowserCenterTab } from "@/features/run-preview/store/use-browser-center-tabs";
@@ -460,6 +463,27 @@ function TerminalExtraTab({
     requestAnimationFrame(() => el.focus());
   }, []);
 
+  const stablePaneIds = useTerminalStore(
+    useShallow((s) => {
+      const panes = s.getPanes(effectiveContextId, tab.id);
+      return Object.values(panes)
+        .map((pane) =>
+          pane.tmuxWindowName ? `${effectiveContextId}:${pane.tmuxWindowName}` : null,
+        )
+        .filter((id): id is string => Boolean(id));
+    }),
+  );
+  const attentionReason = useAgentAttentionStore((s) => {
+    let best: "permission_request" | "task_complete" | null = null;
+    for (const id of stablePaneIds) {
+      const reason = s.panes.get(id)?.reason;
+      if (!reason) continue;
+      if (reason === "permission_request") return "permission_request" as const;
+      best = reason;
+    }
+    return best;
+  });
+
   return (
     <>
       <Tooltip>
@@ -470,7 +494,12 @@ function TerminalExtraTab({
             event.preventDefault();
             setMenuPos({ x: event.clientX, y: event.clientY });
           }}
-          className="group/term-tab relative !h-full pl-4 pr-4 data-active:bg-muted/40 data-active:text-foreground text-muted-foreground hover:bg-muted/50 transition-colors gap-2 grow-0 shrink-0 justify-start rounded-none !border-0"
+          className={cn(
+            "group/term-tab relative !h-full pl-4 pr-4 data-active:bg-muted/40 data-active:text-foreground text-muted-foreground hover:bg-muted/50 transition-colors gap-2 grow-0 shrink-0 justify-start rounded-none !border-0",
+            attentionReason && "agent-attention-ring-tab",
+            attentionReason === "permission_request" && "agent-attention-ring-permission",
+            attentionReason === "task_complete" && "agent-attention-ring-complete",
+          )}
         >
           <span className="relative flex size-4 shrink-0 items-center justify-center">
             <TerminalIcon

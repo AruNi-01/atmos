@@ -10,6 +10,7 @@ const defaultNotificationSettings = {
   browser_notification: false,
   desktop_notification: false,
   app_toast_notification: false,
+  system_notification_when_focused: false,
   notify_on_permission_request: true,
   notify_on_task_complete: true,
   notify_on_automation_outcome: true,

@@ -50,7 +50,9 @@ import {
   WorkspaceListShowMoreLess,
 } from "./workspace-list-pagination";
 import { AGENT_STATE, useAgentHooksStore } from "@/features/agent/store/agent-hooks-store";
+import { AgentAttentionIndicator } from "@/features/agent/components/AgentAttentionIndicator";
 import { AgentHookStatusIndicator } from "@/features/agent/components/AgentHookStatusIndicator";
+import { useAgentAttentionStore } from "@/features/agent/store/agent-attention-store";
 import type { WorkspaceWorkflowStatus } from "@/shared/types/domain";
 import { FileBrowser } from "@/features/files/components/FileBrowser";
 import { getRuntimeApiConfig, httpBase } from "@/shared/lib/desktop-runtime";
@@ -233,6 +235,9 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
   const projectAgentState = useAgentHooksStore((s) =>
     s.getAgentStateForContextId(project.id)
   );
+  const projectAttentionReason = useAgentAttentionStore(
+    (s) => s.getContextReason(project.id),
+  );;
   const [showLogoDialog, setShowLogoDialog] = useState(false);
   const [showLogoBrowser, setShowLogoBrowser] = useState(false);
   const [logoInput, setLogoInput] = useState("");
@@ -452,13 +457,15 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
             <span className="text-[13px] font-medium truncate text-sidebar-foreground group-hover/project:text-sidebar-foreground transition-colors">
               {project.name}
             </span>
-            {projectAgentState !== AGENT_STATE.IDLE && (
+            {projectAgentState !== AGENT_STATE.IDLE ? (
               <AgentHookStatusIndicator
                 state={projectAgentState}
                 variant="compact"
                 className="shrink-0"
               />
-            )}
+            ) : projectAttentionReason ? (
+              <AgentAttentionIndicator reason={projectAttentionReason} className="shrink-0" size={12} />
+            ) : null}
           </div>
         </div>
 

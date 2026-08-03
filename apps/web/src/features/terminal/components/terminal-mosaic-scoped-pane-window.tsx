@@ -13,6 +13,8 @@ import {
   cn,
 } from "@workspace/ui";
 import { AgentIcon } from "@/features/agent/components/AgentIcon";
+import { attentionBorderClass } from "@/features/agent/components/AgentAttentionIndicator";
+import { useAgentAttentionStore } from "@/features/agent/store/agent-attention-store";
 import { buildCanvasTerminalPinKey } from "@/features/canvas/lib/canvas-terminal-shape";
 import type { Project } from "@/shared/types/domain";
 import { Terminal, type TerminalRef } from "./Terminal";
@@ -213,6 +215,13 @@ export function TerminalMosaicScopedPaneWindow({
     sourceTmuxWindowName: pane.tmuxWindowName ?? null,
   });
 
+  const stablePaneId = pane.tmuxWindowName
+    ? `${workspaceId}:${pane.tmuxWindowName}`
+    : pane.sessionId;
+  const attentionReason = useAgentAttentionStore(
+    (s) => s.panes.get(stablePaneId)?.reason ?? null,
+  );
+
   return (
     <MosaicWindow<string>
       path={path}
@@ -220,6 +229,7 @@ export function TerminalMosaicScopedPaneWindow({
       className={cn(
         maximizedId === id && "is-maximized",
         hasMultiplePanes && (effectiveActivePaneId === id ? "is-active-pane" : "is-inactive-pane"),
+        attentionBorderClass(attentionReason),
       )}
       onDragStart={() => setIsPaneDragging(true)}
       onDragEnd={() => setIsPaneDragging(false)}

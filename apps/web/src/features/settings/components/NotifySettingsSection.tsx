@@ -289,6 +289,31 @@ export function NotifySettingsSection({
               </div>
             </div>
           </div>
+
+          <div className="border-b border-border px-2 py-4 last:border-b-0">
+            <div className="grid grid-cols-[minmax(0,1fr)_100px] gap-8">
+              <div>
+                <p className="text-sm font-medium text-foreground">
+                  {t('channels.whenFocused.title')}
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {t('channels.whenFocused.description')}
+                </p>
+              </div>
+              <div className="flex items-center justify-end">
+                <Switch
+                  checked={settings.system_notification_when_focused}
+                  onCheckedChange={(checked) =>
+                    void updateNotificationField('system_notification_when_focused', checked)
+                  }
+                  disabled={
+                    isSaving ||
+                    (!settings.browser_notification && !settings.desktop_notification)
+                  }
+                />
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
