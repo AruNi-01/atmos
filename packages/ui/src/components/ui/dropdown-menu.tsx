@@ -5,7 +5,7 @@ import { CheckIcon, ChevronRightIcon, CircleIcon } from "lucide-react"
 import { DropdownMenu as DropdownMenuPrimitive } from "radix-ui"
 
 import { cn } from "../../lib/utils"
-import { usePortalContainer } from "./portal-container"
+import { asHtmlElement, usePortalContainer } from "./portal-container"
 
 function DropdownMenu({
   ...props
@@ -17,9 +17,7 @@ function DropdownMenuPortal({
   container: containerProp,
   ...props
 }: React.ComponentProps<typeof DropdownMenuPrimitive.Portal>) {
-  const container = usePortalContainer(
-    containerProp instanceof HTMLElement ? containerProp : null,
-  )
+  const container = usePortalContainer(asHtmlElement(containerProp))
   return (
     <DropdownMenuPrimitive.Portal
       data-slot="dropdown-menu-portal"

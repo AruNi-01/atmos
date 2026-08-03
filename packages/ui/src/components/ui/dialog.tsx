@@ -6,7 +6,7 @@ import { Dialog as DialogPrimitive, VisuallyHidden } from "radix-ui"
 
 import { cn } from "../../lib/utils"
 import { Button } from "./button"
-import { usePortalContainer } from "./portal-container"
+import { asHtmlElement, usePortalContainer } from "./portal-container"
 
 function Dialog({
   ...props
@@ -24,9 +24,7 @@ function DialogPortal({
   container: containerProp,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Portal>) {
-  const container = usePortalContainer(
-    containerProp instanceof HTMLElement ? containerProp : null,
-  )
+  const container = usePortalContainer(asHtmlElement(containerProp))
   return (
     <DialogPrimitive.Portal
       data-slot="dialog-portal"

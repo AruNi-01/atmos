@@ -26,6 +26,16 @@ export function PortalContainerProvider({
   )
 }
 
+/**
+ * SSR-safe HTMLElement check. `instanceof HTMLElement` throws in Node
+ * (HTMLElement is not defined), which breaks Next.js prerender.
+ */
+export function asHtmlElement(value: unknown): HTMLElement | null {
+  return typeof HTMLElement !== "undefined" && value instanceof HTMLElement
+    ? value
+    : null
+}
+
 /** Resolve portal container: explicit prop wins, then context, else undefined (body). */
 export function usePortalContainer(
   explicit?: HTMLElement | null,
