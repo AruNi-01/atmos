@@ -85,9 +85,9 @@ Given not installed control engine, when `drive click` runs, then error code/mes
 
 | Check | Result |
 |-------|--------|
-| `cargo test -p desktop-use` | 12 passed (state, brand scrub, ensure dry, drive without engine, capture parse) |
-| `atmos desktop-use --help/status/drive click` | CLI surface works; vendor-free; click returns `control_engine_not_installed` |
-| AppShot `frontmost.ts` | No direct `osascript`/`screencapture` production calls; uses Desktop Use client |
-| Settings wiring unit tests | `desktop-use` section + AppshotPermissionsPanel embed + permission primary path |
-| Electron client unit test | resolveAtmosCliPath vendor-free |
-| Live TCC dual-shift | not_run (environment / non-gating) |
+| `cargo test -p desktop-use` | 14 passed (+ inspect context markdown + brand scrub) |
+| `atmos desktop-use --help/status/inspect/drive click` | CLI includes `inspect`; vendor-free |
+| AppShot `frontmost.ts` | Capture + Inspect composition; no direct AX/osascript in appshot/ |
+| Electron inspect tests | context.md includes `## UI structure` from tree |
+| Settings wiring unit tests | `desktop-use` section + permissions panel |
+| Live TCC dual-shift full tree | manual / environment |

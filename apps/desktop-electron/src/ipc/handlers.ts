@@ -607,6 +607,17 @@ export function createAllHandlers(
       const client = await import("../desktop-use/client.js");
       return client.desktopUseCapture();
     },
+    async desktop_use_inspect(args) {
+      const inspect = await import("../desktop-use/inspect.js");
+      const pid = Number(args?.pid ?? args?.process_id ?? args?.processId ?? 0);
+      const appName =
+        typeof args?.app_name === "string"
+          ? args.app_name
+          : typeof args?.appName === "string"
+            ? args.appName
+            : null;
+      return inspect.desktopUseInspect({ processId: pid, appName });
+    },
 
     // --- tunnel ---
     async tunnel_connector_detect() {

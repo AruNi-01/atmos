@@ -1,8 +1,9 @@
-//! `atmos desktop-use` — Desktop Use status, control engine, capture, and drive.
+//! `atmos desktop-use` — Desktop Use status, control engine, capture, inspect, and drive.
 
 use clap::{Args, Subcommand};
 use desktop_use::{
-    capture, drive, CaptureRequest, DesktopUseManager, DriveAction, DriveRequest, EnsureOutcome,
+    capture, drive, inspect, CaptureRequest, DesktopUseManager, DriveAction, DriveRequest,
+    EnsureOutcome, InspectRequest,
 };
 use serde_json::{json, Value};
 
@@ -16,6 +17,7 @@ pub async fn execute(command: DesktopUseCommand) -> Result<Value, String> {
             DriverCommand::Uninstall => driver_uninstall(),
         },
         DesktopUseCommand::Capture(args) => capture_cmd(args),
+        DesktopUseCommand::Inspect(args) => inspect_cmd(args),
         DesktopUseCommand::Drive { command } => drive_cmd(command),
     }
 }
@@ -31,6 +33,8 @@ pub enum DesktopUseCommand {
     },
     /// Capture the frontmost window (screenshot + identity).
     Capture(CaptureArgs),
+    /// Inspect UI structure (accessibility tree) for a process — primary agent text context.
+    Inspect(InspectArgs),
     /// Drive desktop actions (screenshot / click / type).
     Drive {
         #[command(subcommand)]
@@ -65,6 +69,16 @@ pub struct CaptureArgs {
     /// Always include base64 in JSON (default when --out is omitted).
     #[arg(long, default_value_t = false)]
     pub base64: bool,
+}
+
+#[derive(Debug, Args)]
+pub struct InspectArgs {
+    /// Target process id (unix pid).
+    #[arg(long)]
+    pub pid: i32,
+    /// Optional app display name for the tree header.
+    #[arg(long)]
+    pub app_name: Option<String>,
 }
 
 #[derive(Debug, Subcommand)]
@@ -150,6 +164,19 @@ fn capture_cmd(args: CaptureArgs) -> Result<Value, String> {
     let result = capture(CaptureRequest {
         out_path: args.out.map(Into::into),
         include_base64,
+    });
+    serde_json::to_value(result).map_err(|e| e.to_string())
+}
+
+fn inspect_cmd(args: InspectArgs) -> Result<Value, String> {
+    let result = inspect(InspectRequest {
+        process_id: args.pid,
+        app_name: args.app_name,
+        node_limit: None,
+        depth_limit: None,
+        child_limit: None,
+        byte_limit: None,
+        timeout_ms: None,
     });
     serde_json::to_value(result).map_err(|e| e.to_string())
 }

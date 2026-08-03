@@ -4,7 +4,7 @@
 
 ## 1. Summary
 
-Ship **Desktop Use**: an Atmos-owned local capability for **desktop capture** and optional **desktop control**, managed from **Settings** and **`atmos desktop-use`**, without MCP and without public third-party branding. AppShot keeps its product surface (records, protocol, pending UI) but no longer shells out to `osascript` / `screencapture` directly for production capture.
+Ship **Desktop Use**: an Atmos-owned local capability for **desktop capture**, **inspect** (accessibility / UI tree — primary agent-readable context), and optional **desktop control**, managed from **Settings** and **`atmos desktop-use`**, without MCP and without public third-party branding. AppShot keeps its product surface (records, protocol, pending UI) but obtains pixels via Capture and UI structure via Inspect rather than owning OS shell tools itself.
 
 ## 2. Goals
 
@@ -39,10 +39,11 @@ Ship **Desktop Use**: an Atmos-owned local capability for **desktop capture** an
 - **M7** Section embeds **OS permission** management for Screen Recording and Accessibility by **reusing** the AppShot permissions UI content/components.
 - **M8** Primary recovery path for missing permissions is **Settings → Desktop Use** (not a dedicated AppShot permissions window). Call sites that previously opened the standalone window open Settings Desktop Use (or equivalent in-app section) instead. Standalone window may remain as a thin redirect shell for old deep links.
 
-### 4.3 Capture migration
+### 4.3 Capture + Inspect migration
 
-- **M9** Production AppShot capture path in `apps/desktop-electron/src/appshot/` does **not** directly invoke `osascript` or `screencapture`.
-- **M10** Capture is performed via the Desktop Use capture surface (CLI helper and/or Desktop IPC that calls the same control plane).
+- **M9** Production AppShot path in `apps/desktop-electron/src/appshot/` does **not** directly invoke `osascript` / `screencapture` / raw AX.
+- **M10** **Capture** (screenshot + window identity) goes through Desktop Use Capture.
+- **M10b** **Inspect** (accessibility UI tree) is a **first-class Desktop Use capability** (own module/CLI), not folded into Capture. AppShot `context.md` body is primarily Inspect output.
 - **M11** AppShot business remains: records under `~/.atmos/appshots/`, `atmos://appshots/{ts}`, pending preview, history.
 
 ### 4.4 CLI
@@ -50,6 +51,7 @@ Ship **Desktop Use**: an Atmos-owned local capability for **desktop capture** an
 - **M12** `atmos desktop-use status`
 - **M13** `atmos desktop-use driver ensure|status|stop`
 - **M14** `atmos desktop-use capture` (JSON-capable)
+- **M14b** `atmos desktop-use inspect --pid …` (accessibility tree JSON-capable)
 - **M15** Core `drive` actions: at least `screenshot`, `click`, `type` (and optional `shell` only if TECH keeps it non-colliding with terminal agents; default M1 may omit shell).
 - **M16** User-facing CLI help/errors contain no vendor strings.
 

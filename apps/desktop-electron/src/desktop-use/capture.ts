@@ -11,20 +11,15 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
 import { promisify } from "node:util";
+import {
+  buildAppshotContextMarkdown,
+  type DesktopUseFrontmost,
+} from "./context.js";
+
+export type { DesktopUseFrontmost } from "./context.js";
+export { buildAppshotContextMarkdown } from "./context.js";
 
 const execFileAsync = promisify(execFile);
-
-export type DesktopUseFrontmost = {
-  appName: string;
-  windowTitle: string | null;
-  bundleId: string | null;
-  processId: number | null;
-  windowId: string | null;
-  x: number | null;
-  y: number | null;
-  width: number | null;
-  height: number | null;
-};
 
 export type DesktopUseCaptureResult = {
   ok: boolean;
@@ -180,32 +175,6 @@ async function captureScreenshotPng(
       /* ignore */
     }
   }
-}
-
-export function buildAppshotContextMarkdown(
-  frontmost: DesktopUseFrontmost,
-  warnings: string[],
-): string {
-  const lines = ["# Appshot Context", "", `- App: ${frontmost.appName}`];
-  if (frontmost.windowTitle) lines.push(`- Window: ${frontmost.windowTitle}`);
-  if (frontmost.bundleId) lines.push(`- Bundle ID: ${frontmost.bundleId}`);
-  if (frontmost.processId != null) lines.push(`- Process ID: ${frontmost.processId}`);
-  if (
-    frontmost.x != null &&
-    frontmost.y != null &&
-    frontmost.width != null &&
-    frontmost.height != null
-  ) {
-    lines.push(
-      `- Bounds: ${frontmost.x},${frontmost.y} ${frontmost.width}×${frontmost.height}`,
-    );
-  }
-  if (warnings.length) {
-    lines.push("", "## Warnings");
-    for (const w of warnings) lines.push(`- ${w}`);
-  }
-  lines.push("");
-  return lines.join("\n");
 }
 
 export function parseFrontmostScriptOutput(stdout: string): DesktopUseFrontmost {

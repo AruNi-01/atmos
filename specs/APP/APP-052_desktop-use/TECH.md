@@ -11,11 +11,19 @@
 ## 2. Layout
 
 ```
-crates/desktop-use/          # state, config, capture, control adapter, manager
-apps/cli/… desktop_use.rs    # atmos desktop-use
+crates/desktop-use/
+  capture.rs                 # screenshot + window identity
+  inspect/                   # accessibility UI tree (AX) — primary agent context
+  control.rs                 # optional control engine drive
+  manager.rs                 # lifecycle
+apps/cli/… desktop_use.rs    # atmos desktop-use {status,driver,capture,inspect,drive}
 apps/desktop-electron/
-  src/desktop-use/           # spawn/IPC client to CLI or helper
-  src/appshot/frontmost.ts   # thin client → desktop-use capture (no osascript)
+  src/desktop-use/
+    capture.ts               # in-process screenshot (TCC on Atmos Desktop)
+    inspect.ts               # UI tree via CLI inspect (Rust AX)
+    context.ts               # context.md composition
+    client.ts                # CLI spawn for status/driver/inspect
+  src/appshot/               # business only: records, protocol, pending UI
 apps/web/
   features/settings/…DesktopUseSettingsSection
   features/appshot/… permissions panel (reusable, embedded in Settings)
@@ -91,10 +99,18 @@ atmos desktop-use driver ensure [--force]
 atmos desktop-use driver status
 atmos desktop-use driver stop
 atmos desktop-use capture [--out path] [--json]
+atmos desktop-use inspect --pid <n> [--app-name …]   # accessibility tree (primary agent text)
 atmos desktop-use drive screenshot [--out path]
 atmos desktop-use drive click --x <n> --y <n>
 atmos desktop-use drive type --text "…"
 ```
+
+### Inspect (accessibility tree)
+
+- **Why separate from Capture:** AppShot’s main agent value is structured UI text (`context.md`), not only pixels. Capture owns Screen Recording; Inspect owns Accessibility; Control owns input.
+- **Implementation:** `crates/desktop-use/src/inspect/` ports the AppShot Tauri AX walker (`AXUIElement` compact tree, depth/node/byte caps, secure-field redaction).
+- **AppShot flow:** one Capture (PNG) + one Inspect (tree) → compose `context.md` with quality `screenshot_and_accessibility` when both succeed.
+
 
 Drive adapter:
 
@@ -120,7 +136,8 @@ Manifest ensure mirrors `local-model-runtime`: platform URL + sha256 when artifa
 desktop_use_status
 desktop_use_driver_ensure
 desktop_use_driver_stop
-desktop_use_capture   # used by AppShot service
+desktop_use_capture   # pixels
+desktop_use_inspect   # accessibility tree (pid + optional app_name)
 ```
 
 Handlers invoke the same crate logic via CLI subprocess or embedded binary path resolution (prefer resolving workspace/release `atmos` or bundled helper).

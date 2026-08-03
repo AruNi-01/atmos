@@ -41,12 +41,16 @@ Atmos control plane (CLI + Settings + optional IPC)
         │
         ▼
 Desktop Use surface (crate + CLI + Desktop helper path)
-  ├── Capture  — frontmost + screenshot + a11y (replaces Electron osascript path)
-  └── Control  — optional engine (lazy ensure); drive click/type/screenshot
+  ├── Capture  — frontmost + screenshot (pixels)
+  ├── Inspect  — accessibility UI tree (primary agent text / context.md)
+  └── Control  — optional engine (lazy ensure); drive click/type
         ▲
         │
  Electron AppShot (records / protocol / pending UI only)
 ```
+
+**Why Inspect is separate:** AppShot’s main agent value is the UI structure tree (historical Tauri AX `context.md`), not only the PNG. Capture needs Screen Recording; Inspect needs Accessibility; Control needs input. Mixing tree walk into Capture hides the primary product surface.
+
 
 ## Open decisions (autonomous defaults for ship)
 
