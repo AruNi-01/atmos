@@ -4142,6 +4142,10 @@
         "about": {
           "label": "About",
           "description": "Version details, links, and product information."
+        },
+        "desktopUse": {
+          "label": "Desktop Use",
+          "description": "Local desktop capture, control engine, and macOS permissions"
         }
       },
       "dialog": {
@@ -4615,6 +4619,16 @@
             },
             "checkForUpdates": {
               "label": "Check for updates"
+            }
+          },
+          "desktopUse": {
+            "engine": {
+              "label": "Control engine",
+              "description": "Install or remove the Desktop Use control engine"
+            },
+            "permissions": {
+              "label": "Desktop permissions",
+              "description": "Screen Recording and Accessibility for capture"
             }
           }
         }
@@ -5511,6 +5525,34 @@
       "centerWikiTab": {
         "title": "Project Wiki (Center Tabs)",
         "description": "Enable Project Wiki as a center stage tab for quick access to your project documentation and knowledge base."
+      }
+    },
+    "desktopUse": {
+      "title": "Desktop Use",
+      "description": "Capture the local desktop and manage the optional control engine. This is separate from Atmos Computer (remote machines).",
+      "desktopOnly": "Desktop Use settings require the Atmos Desktop app.",
+      "engine": {
+        "title": "Control engine",
+        "hint": "Optional component for click/type automation. Capture works without it.",
+        "installed": "Installed",
+        "notInstalled": "Not installed"
+      },
+      "capture": {
+        "label": "Capture",
+        "available": "Available",
+        "unavailable": "Unavailable"
+      },
+      "actions": {
+        "ensure": "Install / update",
+        "stop": "Stop",
+        "uninstall": "Remove",
+        "refresh": "Refresh"
+      },
+      "errors": {
+        "statusFailed": "Could not load Desktop Use status",
+        "ensureFailed": "Could not install control engine",
+        "stopFailed": "Could not stop control engine",
+        "uninstallFailed": "Could not remove control engine"
       }
     }
   },

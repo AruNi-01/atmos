@@ -6,6 +6,7 @@ use api_client::ApiClientArgs;
 use clap::{Parser, Subcommand};
 use commands::canvas::{execute as execute_canvas, CanvasCommand, CanvasOpts};
 use commands::computer::{execute as execute_computer, ComputerCommand};
+use commands::desktop_use::{execute as execute_desktop_use, DesktopUseCommand};
 use commands::review::{execute as execute_review, ReviewCommand};
 use commands::runtime::{execute as execute_runtime, RuntimeCommand};
 use commands::update::{execute as execute_update, update_hint_if_needed, UpdateArgs};
@@ -51,6 +52,12 @@ enum Commands {
         #[command(subcommand)]
         command: ComputerCommand,
     },
+    /// Local Desktop Use: capture and optional desktop control (not Atmos Computer / Relay).
+    #[command(name = "desktop-use")]
+    DesktopUse {
+        #[command(subcommand)]
+        command: DesktopUseCommand,
+    },
     /// Check for or install CLI updates.
     Update(UpdateArgs),
 }
@@ -72,6 +79,7 @@ async fn run() -> Result<(), String> {
         Commands::Review { command } => execute_review(cli.api, command).await,
         Commands::Runtime { command } => execute_runtime(command).await,
         Commands::Computer { command } => execute_computer(command).await,
+        Commands::DesktopUse { command } => execute_desktop_use(command).await,
         Commands::Canvas { canvas, command } => execute_canvas(cli.api, canvas, command).await,
         Commands::Update(args) => execute_update(args).await,
     }

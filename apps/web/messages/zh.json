@@ -4142,6 +4142,10 @@
         "about": {
           "label": "关于",
           "description": "版本信息、链接和产品说明。"
+        },
+        "desktopUse": {
+          "label": "Desktop Use",
+          "description": "本机桌面捕获、控制引擎与 macOS 权限"
         }
       },
       "dialog": {
@@ -4615,6 +4619,16 @@
             },
             "checkForUpdates": {
               "label": "检查更新"
+            }
+          },
+          "desktopUse": {
+            "engine": {
+              "label": "控制引擎",
+              "description": "安装或移除 Desktop Use 控制引擎"
+            },
+            "permissions": {
+              "label": "桌面权限",
+              "description": "用于捕获的屏幕录制与辅助功能权限"
             }
           }
         }
@@ -5511,6 +5525,34 @@
       "centerWikiTab": {
         "title": "Project Wiki（Center Tabs）",
         "description": "启用 Project Wiki 作为中心区域标签页，便于快速访问项目文档和知识库。"
+      }
+    },
+    "desktopUse": {
+      "title": "Desktop Use",
+      "description": "捕获本机桌面并管理可选控制引擎。与 Atmos Computer（远程机器）相互独立。",
+      "desktopOnly": "Desktop Use 设置需要 Atmos Desktop 应用。",
+      "engine": {
+        "title": "控制引擎",
+        "hint": "用于点击/输入自动化的可选组件。捕获无需安装即可使用。",
+        "installed": "已安装",
+        "notInstalled": "未安装"
+      },
+      "capture": {
+        "label": "捕获",
+        "available": "可用",
+        "unavailable": "不可用"
+      },
+      "actions": {
+        "ensure": "安装 / 更新",
+        "stop": "停止",
+        "uninstall": "移除",
+        "refresh": "刷新"
+      },
+      "errors": {
+        "statusFailed": "无法加载 Desktop Use 状态",
+        "ensureFailed": "无法安装控制引擎",
+        "stopFailed": "无法停止控制引擎",
+        "uninstallFailed": "无法移除控制引擎"
       }
     }
   },

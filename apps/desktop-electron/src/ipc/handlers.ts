@@ -565,11 +565,47 @@ export function createAllHandlers(
       return null;
     },
     async appshot_show_permissions_window(args) {
+      // APP-052: primary path is Settings → Desktop Use (not standalone window).
+      const { BrowserWindow } = await import("electron");
+      const win =
+        BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0];
+      if (win && !win.isDestroyed()) {
+        const url = new URL(win.webContents.getURL());
+        url.searchParams.set("settingsModal", "true");
+        url.searchParams.set("activeSettingTab", "desktop-use");
+        await win.loadURL(url.toString());
+        win.show();
+        win.focus();
+        return null;
+      }
       const { openAppshotPermissionsWindow } = await import(
         "../windows/secondary.js"
       );
       openAppshotPermissionsWindow(state, args);
       return null;
+    },
+
+    // --- desktop use (APP-052) ---
+    async desktop_use_status() {
+      const client = await import("../desktop-use/client.js");
+      return client.desktopUseStatus();
+    },
+    async desktop_use_driver_ensure(args) {
+      const client = await import("../desktop-use/client.js");
+      const force = Boolean(args?.force);
+      return client.desktopUseDriverEnsure(force);
+    },
+    async desktop_use_driver_stop() {
+      const client = await import("../desktop-use/client.js");
+      return client.desktopUseDriverStop();
+    },
+    async desktop_use_driver_uninstall() {
+      const client = await import("../desktop-use/client.js");
+      return client.desktopUseDriverUninstall();
+    },
+    async desktop_use_capture() {
+      const client = await import("../desktop-use/client.js");
+      return client.desktopUseCapture();
     },
 
     // --- tunnel ---
