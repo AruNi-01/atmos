@@ -492,6 +492,7 @@ dependencies = [
  "base64 0.22.1",
  "chrono",
  "clap",
+ "desktop-use",
  "dirs 5.0.1",
  "reqwest 0.12.28",
  "runtime-manager",
@@ -1604,6 +1605,20 @@ dependencies = [
  "rustc_version",
  "syn 2.0.114",
  "unicode-xid",
+]
+
+[[package]]
+name = "desktop-use"
+version = "0.1.0"
+dependencies = [
+ "base64 0.22.1",
+ "dirs 5.0.1",
+ "hex",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tempfile",
+ "thiserror 2.0.17",
 ]
 
 [[package]]

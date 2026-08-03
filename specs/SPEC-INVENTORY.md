@@ -61,3 +61,5 @@
 - partial: 1
 - open: 0
 - obsolete: 0
+
+| APP | `APP-052_desktop-use` | **in_progress** | Desktop Use: capture migration, Settings, CLI `atmos desktop-use` |

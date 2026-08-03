@@ -44,7 +44,7 @@ export const SETTINGS_GROUPS = [
     id: "system-integration",
     label: settingsModalT("groups.systemIntegration.label"),
     description: settingsModalT("groups.systemIntegration.description"),
-    items: ["integrations", "tunnel-connector", "atmos-computer", "notify"] as const,
+    items: ["integrations", "tunnel-connector", "atmos-computer", "desktop-use", "notify"] as const,
   },
   {
     id: "workspace-projects",
@@ -120,6 +120,11 @@ export const SETTINGS_SECTIONS = [
     id: "atmos-computer",
     label: settingsModalT("sections.atmosComputer.label"),
     description: settingsModalT("sections.atmosComputer.description"),
+  },
+  {
+    id: "desktop-use",
+    label: settingsModalT("sections.desktopUse.label"),
+    description: settingsModalT("sections.desktopUse.description"),
   },
   {
     id: "shortcuts",
