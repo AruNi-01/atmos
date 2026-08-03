@@ -452,7 +452,9 @@ html:not([data-theme-ready="true"]) body {
 
   .welcome-placeholder-enter,
   .welcome-placeholder-exit,
-  .welcome-placeholder-hint {
+  .welcome-placeholder-hint,
+  .agent-attention-ring,
+  .agent-attention-ring-tab {
     animation-duration: 0s !important;
   }
 }

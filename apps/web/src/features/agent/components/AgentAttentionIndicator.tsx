@@ -20,23 +20,17 @@ export function AgentAttentionIndicator({
 }) {
   const t = useTranslations("Agent.attention");
   const isPermission = reason === "permission_request";
+  const label = isPermission ? t("permissionNeeded") : t("taskComplete");
   return (
     <span
+      role="img"
       className={cn(
         "inline-flex shrink-0 items-center justify-center",
         isPermission ? "text-amber-500/80" : "text-emerald-500/80",
         className,
       )}
-      title={
-        isPermission
-          ? t("permissionNeeded")
-          : t("taskComplete")
-      }
-      aria-label={
-        isPermission
-          ? t("permissionNeeded")
-          : t("taskComplete")
-      }
+      title={label}
+      aria-label={label}
     >
       <FilledBellIcon size={size} color="currentColor" strokeWidth={0} />
     </span>

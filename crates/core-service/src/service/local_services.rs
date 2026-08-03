@@ -28,6 +28,15 @@ const TREE_TERM_VERIFY_WAIT: Duration = Duration::from_millis(1600);
 /// Wait after tree KILL before final verification.
 const TREE_KILL_VERIFY_WAIT: Duration = Duration::from_millis(1000);
 
+/// Ambient process owner for tree-stop authorization.
+/// Unix: `$USER`; Windows: `$USERNAME` (then `$USER` as fallback).
+fn ambient_user() -> Option<String> {
+    std::env::var("USER")
+        .or_else(|_| std::env::var("USERNAME"))
+        .ok()
+        .filter(|s| !s.is_empty())
+}
+
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum LocalServicesScope {
@@ -346,7 +355,7 @@ impl LocalServicesService {
             .await
             .unwrap_or_default();
         let workspace_root = PathBuf::from(&service.owner.root_path);
-        let current_user = std::env::var("USER").ok();
+        let current_user = ambient_user();
         let plan = build_process_tree_plan(
             &chain,
             listener_pid,
@@ -496,7 +505,7 @@ impl LocalServicesService {
             .await
             .unwrap_or_default();
         let workspace_root = PathBuf::from(&service.owner.root_path);
-        let current_user = std::env::var("USER").ok();
+        let current_user = ambient_user();
         let plan = build_process_tree_plan(
             &chain,
             listener_pid,

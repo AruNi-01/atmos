@@ -193,6 +193,11 @@ export const useAgentHooksStore = create<AgentHooksStore>((set, get) => ({
           for (const id of session_ids) sessions.delete(id);
           return { sessions };
         });
+        // Drop sticky attention latches for removed panes so they do not linger.
+        const attention = useAgentAttentionStore.getState();
+        for (const id of session_ids) {
+          attention.clearPane(id);
+        }
       }
     );
 

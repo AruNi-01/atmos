@@ -212,6 +212,13 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
     useEffect(() => { loadLayoutSettings(); }, [loadLayoutSettings]);
 
     const [activeTab, setActiveTab] = useQueryState("lsTab", leftSidebarParams.lsTab);
+    // Attention list lives on the Projects tab; force that tab when the filter turns on
+    // so the bell does not appear ineffective while Files is selected.
+    useEffect(() => {
+        if (!attentionFilterMode || filesOnRight) return;
+        if (activeTab === 'projects') return;
+        void setActiveTab('projects');
+    }, [attentionFilterMode, filesOnRight, activeTab, setActiveTab]);
     const [newWorkspace, setNewWorkspace] = useQueryState("newWorkspace", centerStageParams.newWorkspace);
     const [canvasOpen, setCanvasOpen] = useQueryState("canvas", centerStageParams.canvas);
     const [isKanbanExpanded, setIsKanbanExpanded] = useQueryState("lsKanban", leftSidebarParams.lsKanban);

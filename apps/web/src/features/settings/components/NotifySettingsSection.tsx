@@ -302,6 +302,7 @@ export function NotifySettingsSection({
               </div>
               <div className="flex items-center justify-end">
                 <Switch
+                  aria-label={t('channels.whenFocused.title')}
                   checked={settings.system_notification_when_focused}
                   onCheckedChange={(checked) =>
                     void updateNotificationField('system_notification_when_focused', checked)

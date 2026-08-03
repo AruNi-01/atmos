@@ -405,6 +405,7 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
     const windowName = pane.tmuxWindowName;
     if (!windowName || !workspaceId) return;
     const stablePaneId = `${workspaceId}:${windowName}`;
+    useAgentAttentionStore.getState().clearPane(stablePaneId);
     void useAgentHooksStore.getState().removeSession(stablePaneId);
   }, [workspaceId]);
 

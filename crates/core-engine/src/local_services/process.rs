@@ -208,12 +208,10 @@ fn signal_process_tree(root_pid: u32, signal: &str) -> Result<()> {
 
     // Root is not a group leader (or group kill failed): walk the process tree
     // and signal every descendant, children before parents.
-    let mut targets = descendant_pids(root_pid);
-    if targets.is_empty() {
-        targets.push(root_pid);
-    }
+    // Enumeration failure is fatal — never pretend a root-only stop is a tree stop.
+    let targets = descendant_pids(root_pid)?;
+    let mut root_ok = false;
     let mut last_err: Option<EngineError> = None;
-    let mut any_ok = false;
     for pid in targets {
         if pid <= 1 || pid == self_pid {
             continue;
@@ -224,11 +222,25 @@ fn signal_process_tree(root_pid: u32, signal: &str) -> Result<()> {
             terminate_process(pid)
         };
         match result {
-            Ok(()) => any_ok = true,
-            Err(e) => last_err = Some(e),
+            Ok(()) => {
+                if pid == root_pid {
+                    root_ok = true;
+                }
+            }
+            Err(e) => {
+                // Already-exited root counts as success for the tree contract.
+                if pid == root_pid && process_snapshot(root_pid).is_none() {
+                    root_ok = true;
+                } else if pid == root_pid {
+                    last_err = Some(e);
+                } else {
+                    // Descendant signal failures are best-effort; keep trying.
+                    last_err = last_err.or(Some(e));
+                }
+            }
         }
     }
-    if any_ok {
+    if root_ok {
         Ok(())
     } else {
         Err(last_err.unwrap_or_else(|| {
@@ -240,13 +252,13 @@ fn signal_process_tree(root_pid: u32, signal: &str) -> Result<()> {
 }
 
 /// Collect PIDs in the subtree of `root_pid` (children first, root last).
+/// Always includes `root_pid`. Fails if the process listing cannot be obtained.
 #[cfg(any(target_os = "macos", target_os = "linux"))]
-fn descendant_pids(root_pid: u32) -> Vec<u32> {
-    let children_of = process_children_map();
-    let mut ordered = Vec::new();
+fn descendant_pids(root_pid: u32) -> Result<Vec<u32>> {
+    let children_of = process_children_map()?;
     let mut stack = vec![root_pid];
     let mut seen = std::collections::HashSet::new();
-    // Depth-first post-order via two-pass: collect then reverse children-before-parent.
+    // Depth-first discovery; reverse so children are signalled before parents.
     let mut visit_order = Vec::new();
     while let Some(pid) = stack.pop() {
         if !seen.insert(pid) {
@@ -261,23 +273,31 @@ fn descendant_pids(root_pid: u32) -> Vec<u32> {
             }
         }
     }
-    // visit_order is root-first BFS/DFS discovery; reverse so children are signalled first.
+    let mut ordered = Vec::with_capacity(visit_order.len());
     for pid in visit_order.into_iter().rev() {
         ordered.push(pid);
     }
-    ordered
+    if ordered.is_empty() {
+        ordered.push(root_pid);
+    }
+    Ok(ordered)
 }
 
-/// Build a map of parent pid → child pids from a best-effort process listing.
+/// Build a map of parent pid → child pids from a process listing.
 #[cfg(any(target_os = "macos", target_os = "linux"))]
-fn process_children_map() -> std::collections::HashMap<u32, Vec<u32>> {
+fn process_children_map() -> Result<std::collections::HashMap<u32, Vec<u32>>> {
     let mut map: std::collections::HashMap<u32, Vec<u32>> = std::collections::HashMap::new();
-    let output = Command::new("ps").args(["-axo", "pid=,ppid="]).output();
-    let Ok(output) = output else {
-        return map;
-    };
+    let output = Command::new("ps")
+        .args(["-axo", "pid=,ppid="])
+        .output()
+        .map_err(|e| {
+            EngineError::Processing(format!("failed to enumerate process tree via ps: {e}"))
+        })?;
     if !output.status.success() {
-        return map;
+        return Err(EngineError::Processing(format!(
+            "ps process listing failed: exit {:?}",
+            output.status.code()
+        )));
     }
     for line in String::from_utf8_lossy(&output.stdout).lines() {
         let mut parts = line.split_whitespace();
@@ -289,7 +309,7 @@ fn process_children_map() -> std::collections::HashMap<u32, Vec<u32>> {
         };
         map.entry(ppid).or_default().push(pid);
     }
-    map
+    Ok(map)
 }
 
 #[cfg(any(target_os = "macos", target_os = "linux"))]
@@ -453,7 +473,12 @@ if ($null -eq $p) {{ exit 1 }}
 $parent = $p.ParentProcessId
 $cmd = if ($p.CommandLine) {{ $p.CommandLine }} else {{ "" }}
 $name = if ($p.Name) {{ $p.Name }} else {{ "" }}
-Write-Output "$parent`t$name`t$cmd"
+$owner = ""
+try {{
+  $o = Invoke-CimMethod -InputObject $p -MethodName GetOwner -ErrorAction SilentlyContinue
+  if ($null -ne $o -and $o.User) {{ $owner = [string]$o.User }}
+}} catch {{ }}
+Write-Output "$parent`t$name`t$owner`t$cmd"
 "#
     );
     let output = Command::new("powershell")
@@ -465,13 +490,14 @@ Write-Output "$parent`t$name`t$cmd"
     }
     let line = String::from_utf8_lossy(&output.stdout);
     let line = line.lines().find(|l| !l.trim().is_empty())?.trim();
-    let columns: Vec<&str> = line.splitn(3, '\t').collect();
-    if columns.len() < 3 {
+    let columns: Vec<&str> = line.splitn(4, '\t').collect();
+    if columns.len() < 4 {
         return None;
     }
     let ppid = columns[0].parse::<u32>().ok();
     let process_name = (!columns[1].is_empty()).then(|| columns[1].to_string());
-    let command_line = shell_words(columns[2]);
+    let user_id = (!columns[2].is_empty()).then(|| columns[2].to_string());
+    let command_line = shell_words(columns[3]);
     Some(ProcessSnapshot {
         pid,
         ppid,
@@ -479,7 +505,7 @@ Write-Output "$parent`t$name`t$cmd"
         process_name,
         command_line,
         cwd: None,
-        user_id: None,
+        user_id,
         tty: None,
     })
 }
