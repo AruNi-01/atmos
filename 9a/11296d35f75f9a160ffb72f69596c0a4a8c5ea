@@ -1,0 +1,16 @@
+apps/desktop-electron/src/overlay/overlay-surface-manager.ts
+  h_5be255725524c8 67-68,77,82,176-181,183-189,248-254,300,305-311,324-325,330
+apps/web/src/shared/lib/desktop-overlay/floating-elevation-provider.tsx
+  h_5be255725524c8 4,6-13,30-56,61,67-74,99-116,153-154,159-160,179,186,196-197,203-212,224,243,246,255,259,266,282,290-323,326-328,334,342,347-351,353-363,365-367,373-378,385-387,452,500-501,505,507,510-511,519-520,533,543
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "9a11296d35f75f9a160ffb72f69596c0a4a8c5ea",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
