@@ -1,0 +1,14 @@
+apps/web/src/shared/lib/desktop-overlay/floating-elevation-provider.tsx
+  h_5be255725524c8 6-11,13,30,152-157,193-194,196,204-205,223,227,242,255,261-265,271,284,289-292,301-307,309-321,323,325-326,328-332,337,340-348,357-359,361-369,373,380-395,401,485-488,497,508,513-514,526
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "a60fd1070ceea5ea4eaa2684268da9d7dcf37967",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
