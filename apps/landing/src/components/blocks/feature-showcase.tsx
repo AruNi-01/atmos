@@ -120,7 +120,10 @@ export default function FeatureShowcase() {
             <FeatureImageSphere
               features={features}
               onFocusChange={setMediaFocused}
-              className="min-h-[min(88vh,860px)] h-[min(88vh,860px)] sm:min-h-[min(90vh,920px)] sm:h-[min(90vh,920px)]"
+              // Cap under the visual viewport (dvh). The sphere uses
+              // touch-action:none for 3D drag — if this block fills the screen,
+              // mobile users cannot page-scroll past it.
+              className="h-[min(68dvh,560px)] max-h-[100dvh] sm:h-[min(78dvh,720px)] md:h-[min(85dvh,860px)] lg:h-[min(88dvh,920px)]"
             />
 
             {/* Soft edge dust — thin, hugs the section rails (fade out while focused) */}
