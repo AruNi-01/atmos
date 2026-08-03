@@ -1,0 +1,20 @@
+packages/ui/src/components/ui/dialog.tsx
+  h_b3eac5fd0698eb 9,27
+packages/ui/src/components/ui/dropdown-menu.tsx
+  h_b3eac5fd0698eb 8,20
+packages/ui/src/components/ui/portal-container.tsx
+  h_b3eac5fd0698eb 29-38
+packages/ui/src/components/ui/sheet.tsx
+  h_b3eac5fd0698eb 9,27
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "091f9dd52dec46f94ff8797e00524931aba176fb",
+  "prompts": {},
+  "humans": {
+    "h_b3eac5fd0698eb": {
+      "author": "lurunrun820 <lurunrun820@hellobike.com>"
+    }
+  }
+}
