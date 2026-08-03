@@ -9,9 +9,10 @@ use crate::capture::{capture, CaptureRequest, CaptureResult};
 use crate::manager::DesktopUseManager;
 use crate::strings::{self, scrub_vendor, ERR_ENGINE_NOT_INSTALLED};
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum DriveAction {
+    #[default]
     Screenshot,
     Click,
     Type,
@@ -24,12 +25,6 @@ pub struct DriveRequest {
     pub y: Option<i32>,
     pub text: Option<String>,
     pub out_path: Option<std::path::PathBuf>,
-}
-
-impl Default for DriveAction {
-    fn default() -> Self {
-        Self::Screenshot
-    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -123,7 +118,9 @@ fn run_engine(engine: &Path, req: &DriveRequest, action_name: &str) -> DriveResu
                     action: action_name.into(),
                     detail: None,
                     capture: None,
-                    error: Some(DriveError::InvalidArgs("click requires --x and --y".into()).message()),
+                    error: Some(
+                        DriveError::InvalidArgs("click requires --x and --y".into()).message(),
+                    ),
                     error_code: Some("invalid_args".into()),
                 };
             };
@@ -175,7 +172,10 @@ fn run_engine(engine: &Path, req: &DriveRequest, action_name: &str) -> DriveResu
             action: action_name.into(),
             detail: None,
             capture: None,
-            error: Some(scrub_vendor(&format!("{}: {e}", strings::ERR_ENGINE_FAILED))),
+            error: Some(scrub_vendor(&format!(
+                "{}: {e}",
+                strings::ERR_ENGINE_FAILED
+            ))),
             error_code: Some("control_engine_failed".into()),
         },
     }

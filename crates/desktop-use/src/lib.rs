@@ -10,8 +10,6 @@ pub mod manager;
 pub mod strings;
 
 pub use capture::{capture, CaptureRequest, CaptureResult, WindowBounds};
-pub use config::{desktop_use_dir, ensure_dirs, engine_bin_path, state_path};
+pub use config::{desktop_use_dir, engine_bin_path, ensure_dirs, state_path};
 pub use control::{drive, DriveAction, DriveError, DriveRequest, DriveResult};
-pub use manager::{
-    DesktopUseManager, DesktopUseStatus, DriverPhase, DriverStatus, EnsureOutcome,
-};
+pub use manager::{DesktopUseManager, DesktopUseStatus, DriverPhase, DriverStatus, EnsureOutcome};

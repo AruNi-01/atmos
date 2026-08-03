@@ -9,7 +9,8 @@ pub const ERR_ENGINE_NOT_INSTALLED: &str =
 pub const ERR_ENGINE_FAILED: &str = "Desktop control engine failed";
 pub const ERR_CAPTURE_UNSUPPORTED: &str = "Desktop capture is not supported on this platform";
 pub const ERR_CAPTURE_FAILED: &str = "Desktop capture failed";
-pub const HINT_ENSURE: &str = "Run `atmos desktop-use driver ensure` to install the control engine.";
+pub const HINT_ENSURE: &str =
+    "Run `atmos desktop-use driver ensure` to install the control engine.";
 
 /// Tokens that must never appear in user-facing Desktop Use strings.
 const FORBIDDEN_VENDOR_TOKENS: &[&str] = &["cua", "Cua", "CUA", "trycua", "cua.ai", "CuaDriver"];

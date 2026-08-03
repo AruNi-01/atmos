@@ -99,12 +99,12 @@ pub struct TypeArgs {
 
 fn status() -> Result<Value, String> {
     let mgr = DesktopUseManager::new();
-    Ok(serde_json::to_value(mgr.status()).map_err(|e| e.to_string())?)
+    serde_json::to_value(mgr.status()).map_err(|e| e.to_string())
 }
 
 fn driver_status() -> Result<Value, String> {
     let mgr = DesktopUseManager::new();
-    Ok(serde_json::to_value(mgr.status().driver).map_err(|e| e.to_string())?)
+    serde_json::to_value(mgr.status().driver).map_err(|e| e.to_string())
 }
 
 fn driver_ensure(args: EnsureArgs) -> Result<Value, String> {
@@ -151,7 +151,7 @@ fn capture_cmd(args: CaptureArgs) -> Result<Value, String> {
         out_path: args.out.map(Into::into),
         include_base64,
     });
-    Ok(serde_json::to_value(result).map_err(|e| e.to_string())?)
+    serde_json::to_value(result).map_err(|e| e.to_string())
 }
 
 fn drive_cmd(command: DriveCommand) -> Result<Value, String> {
@@ -175,5 +175,5 @@ fn drive_cmd(command: DriveCommand) -> Result<Value, String> {
         },
     };
     let result = drive(&mgr, req);
-    Ok(serde_json::to_value(result).map_err(|e| e.to_string())?)
+    serde_json::to_value(result).map_err(|e| e.to_string())
 }

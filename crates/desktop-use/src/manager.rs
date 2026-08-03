@@ -140,11 +140,7 @@ impl DesktopUseManager {
         self.ensure_driver_from(force, None)
     }
 
-    pub fn ensure_driver_from(
-        &self,
-        force: bool,
-        source_path: Option<&Path>,
-    ) -> EnsureOutcome {
+    pub fn ensure_driver_from(&self, force: bool, source_path: Option<&Path>) -> EnsureOutcome {
         let _ = fs::create_dir_all(self.data_dir.join("bin"));
         let _ = ensure_dirs();
 

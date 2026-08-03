@@ -143,14 +143,7 @@ fn capture_macos(req: CaptureRequest) -> CaptureResult {
         None
     };
 
-    let png_path = req
-        .out_path
-        .as_ref()
-        .map(|p| p.display().to_string())
-        .or_else(|| {
-            // keep temp path only if we wrote there and caller wants path
-            None
-        });
+    let png_path = req.out_path.as_ref().map(|p| p.display().to_string());
 
     // If out_path set, file is already there; if not, still may have written tmp — copy base64 only.
     if req.out_path.is_none() {
