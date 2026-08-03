@@ -1,5 +1,6 @@
 mod ampcode;
 mod antigravity;
+mod child_agent;
 mod claude_code;
 mod codex;
 mod cursor;
@@ -23,6 +24,10 @@ use tokio::sync::broadcast;
 use tracing::{debug, info, warn};
 
 use super::notification::NotificationService;
+
+pub(super) use child_agent::{
+    extract_child_agent_id, is_child_start_event, is_child_stop_event,
+};
 
 /// How long late mid-turn progress events are ignored after a terminal idle /
 /// forced idle transition. Prevents a delayed PostToolUse from resurrecting a
@@ -60,6 +65,9 @@ pub(super) enum StateUpdateKind {
     TerminalIdle,
     /// Manual force, interrupt inference, stale TTL, or pane teardown.
     ForcedIdle,
+    /// Settle Idle after child-only work without a new task-complete notify
+    /// (lead already completed; children briefly revived the pane).
+    QuietIdle,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -160,10 +168,25 @@ pub enum AgentHookEvent {
     SessionsCleared { session_ids: Vec<String> },
 }
 
+/// Snapshot of a lead TerminalIdle that arrived while child agents were still
+/// active. Flushed when the last child stops so task-complete fires once.
+#[derive(Debug, Clone)]
+struct PendingTerminalIdle {
+    tool: AgentToolType,
+    project_path: Option<String>,
+    ctx: AtmosContext,
+    /// When false, flush with QuietIdle (no task-complete notification).
+    fire_completion: bool,
+}
+
 pub struct AgentHooksService {
     sessions: RwLock<HashMap<String, AgentHookSession>>,
     /// After terminal/forced idle, ignore Progress→Running until this time.
     suppress_running_until: RwLock<HashMap<String, DateTime<Utc>>>,
+    /// Lead session → active child agent ids (Task / SubagentStart roster).
+    active_children: RwLock<HashMap<String, HashSet<String>>>,
+    /// Lead TerminalIdle deferred until `active_children` drains.
+    pending_terminal_idle: RwLock<HashMap<String, PendingTerminalIdle>>,
     notification_service: RwLock<Option<Arc<NotificationService>>>,
     event_tx: broadcast::Sender<AgentHookEvent>,
     /// Known project root paths. Kept for diagnostics / future use but
@@ -177,6 +200,8 @@ impl AgentHooksService {
         Self {
             sessions: RwLock::new(HashMap::new()),
             suppress_running_until: RwLock::new(HashMap::new()),
+            active_children: RwLock::new(HashMap::new()),
+            pending_terminal_idle: RwLock::new(HashMap::new()),
             notification_service: RwLock::new(None),
             event_tx,
             known_project_paths: RwLock::new(HashSet::new()),
@@ -214,6 +239,7 @@ impl AgentHooksService {
     pub fn remove_session(&self, session_id: &str) -> bool {
         let removed = self.sessions.write().remove(session_id).is_some();
         self.suppress_running_until.write().remove(session_id);
+        self.clear_child_tracking(session_id);
         if removed {
             self.broadcast_sessions_cleared(vec![session_id.to_string()]);
         }
@@ -248,6 +274,9 @@ impl AgentHooksService {
                 suppress.remove(id);
             }
         }
+        for id in &removed {
+            self.clear_child_tracking(id);
+        }
         if !removed.is_empty() {
             info!(
                 "Cleared {} agent hook session(s) for destroyed pane {}",
@@ -266,6 +295,7 @@ impl AgentHooksService {
         }?;
 
         if existing.state == AgentHookState::Idle {
+            self.clear_child_tracking(session_id);
             return Some(existing);
         }
 
@@ -277,6 +307,10 @@ impl AgentHooksService {
             source_pane_id: existing.source_pane_id.clone(),
             hook_version: existing.hook_version,
         };
+
+        // Interrupt / teardown owns the lead — drop child roster so a late
+        // SubagentStop cannot resurrect the pane.
+        self.clear_child_tracking(session_id);
 
         self.update_state(
             session_id,
@@ -306,6 +340,9 @@ impl AgentHooksService {
             for id in &idle_ids {
                 suppress.remove(id);
             }
+        }
+        for id in &idle_ids {
+            self.clear_child_tracking(id);
         }
         if !idle_ids.is_empty() {
             self.broadcast_sessions_cleared(idle_ids.clone());
@@ -343,6 +380,9 @@ impl AgentHooksService {
             for id in &removed {
                 suppress.remove(id);
             }
+        }
+        for id in &removed {
+            self.clear_child_tracking(id);
         }
 
         if removed.is_empty() {
@@ -426,6 +466,14 @@ impl AgentHooksService {
         match kind {
             StateUpdateKind::NewTurn => {
                 self.suppress_running_until.write().remove(session_id);
+                // A fresh user prompt supersedes a deferred completion; child
+                // agents from background work may still be tracked.
+                self.pending_terminal_idle.write().remove(session_id);
+                // SessionStart maps to NewTurn+Idle — reset the child roster for
+                // a new lead session on the same pane.
+                if state == AgentHookState::Idle {
+                    self.active_children.write().remove(session_id);
+                }
             }
             StateUpdateKind::Progress if state == AgentHookState::Running => {
                 if self.is_running_suppressed(session_id) {
@@ -436,10 +484,26 @@ impl AgentHooksService {
                     return;
                 }
             }
-            StateUpdateKind::TerminalIdle | StateUpdateKind::ForcedIdle
+            StateUpdateKind::TerminalIdle if state == AgentHookState::Idle => {
+                if self.has_active_children(session_id) {
+                    self.arm_pending_terminal_idle(
+                        session_id,
+                        tool,
+                        project_path.clone(),
+                        ctx,
+                        true,
+                    );
+                    // Keep the lead non-idle so spinners / attention stay live
+                    // while background children finish.
+                    self.touch_session_activity(session_id, tool, project_path, ctx);
+                    return;
+                }
+                self.pending_terminal_idle.write().remove(session_id);
+            }
+            StateUpdateKind::ForcedIdle | StateUpdateKind::QuietIdle
                 if state == AgentHookState::Idle =>
             {
-                // armed below after the write
+                self.clear_child_tracking(session_id);
             }
             _ => {}
         }
@@ -477,7 +541,9 @@ impl AgentHooksService {
         if state == AgentHookState::Idle
             && matches!(
                 kind,
-                StateUpdateKind::TerminalIdle | StateUpdateKind::ForcedIdle
+                StateUpdateKind::TerminalIdle
+                    | StateUpdateKind::ForcedIdle
+                    | StateUpdateKind::QuietIdle
             )
         {
             let until = Utc::now()
@@ -506,18 +572,308 @@ impl AgentHooksService {
         if previous_state != Some(state) {
             self.broadcast_state_update(update.clone());
 
-            if let Some(ref notification_service) = *self.notification_service.read() {
-                notification_service.on_agent_state_change(&update, previous_state);
+            // QuietIdle settles UI without a second task-complete notification.
+            if kind != StateUpdateKind::QuietIdle {
+                if let Some(ref notification_service) = *self.notification_service.read() {
+                    notification_service.on_agent_state_change(&update, previous_state);
+                }
             }
         } else if matches!(
             kind,
-            StateUpdateKind::TerminalIdle | StateUpdateKind::ForcedIdle
+            StateUpdateKind::TerminalIdle
+                | StateUpdateKind::ForcedIdle
+                | StateUpdateKind::QuietIdle
         ) {
             // Re-arm suppress without spamming clients when already idle.
             debug!(
                 "Re-armed running suppress for already-idle session {}",
                 session_id
             );
+        }
+    }
+
+    /// Track SubagentStart / SubagentStop under the lead session. Child start
+    /// keeps the pane Running; last child stop flushes a deferred TerminalIdle.
+    pub(super) fn handle_child_lifecycle(
+        &self,
+        session_id: &str,
+        tool: AgentToolType,
+        project_path: Option<String>,
+        ctx: &AtmosContext,
+        child_id: &str,
+        started: bool,
+    ) {
+        if child_id.trim().is_empty() {
+            return;
+        }
+
+        if started {
+            {
+                let mut children = self.active_children.write();
+                children
+                    .entry(session_id.to_string())
+                    .or_default()
+                    .insert(child_id.to_string());
+            }
+            // Child work is real activity — do not let the post-idle Progress
+            // suppress window hide a live background agent.
+            self.suppress_running_until.write().remove(session_id);
+            debug!(
+                "Child agent started: session={} child={} (active={})",
+                session_id,
+                child_id,
+                self.active_child_count(session_id)
+            );
+            // Lead may already be Idle from an early Stop; child work must
+            // surface as Running without inventing a new turn suppress clear.
+            let current = self
+                .sessions
+                .read()
+                .get(session_id)
+                .map(|s| s.state);
+            // If the lead already settled, re-arm a quiet pending idle so the
+            // pane returns to Idle when children drain — without a second
+            // task-complete notification.
+            if current == Some(AgentHookState::Idle)
+                && !self
+                    .pending_terminal_idle
+                    .read()
+                    .contains_key(session_id)
+            {
+                self.arm_pending_terminal_idle(
+                    session_id,
+                    tool,
+                    project_path.clone(),
+                    ctx,
+                    false,
+                );
+            }
+            if current != Some(AgentHookState::PermissionRequest) {
+                self.update_state(
+                    session_id,
+                    tool,
+                    AgentHookState::Running,
+                    project_path,
+                    ctx,
+                    StateUpdateKind::Progress,
+                );
+            }
+            return;
+        }
+
+        let remaining = {
+            let mut children = self.active_children.write();
+            if let Some(set) = children.get_mut(session_id) {
+                set.remove(child_id);
+                let left = set.len();
+                if set.is_empty() {
+                    children.remove(session_id);
+                }
+                left
+            } else {
+                0
+            }
+        };
+        debug!(
+            "Child agent stopped: session={} child={} (remaining={})",
+            session_id, child_id, remaining
+        );
+
+        if remaining > 0 {
+            // Refresh activity so stale-TTL does not force-idle while siblings run.
+            self.touch_session_activity(session_id, tool, project_path, ctx);
+            return;
+        }
+
+        let pending = self.pending_terminal_idle.write().remove(session_id);
+        if let Some(pending) = pending {
+            let kind = if pending.fire_completion {
+                StateUpdateKind::TerminalIdle
+            } else {
+                StateUpdateKind::QuietIdle
+            };
+            debug!(
+                "Flushing deferred idle for session {} after last child stopped (completion={})",
+                session_id, pending.fire_completion
+            );
+            self.update_state(
+                session_id,
+                pending.tool,
+                AgentHookState::Idle,
+                pending.project_path.or(project_path),
+                &pending.ctx,
+                kind,
+            );
+        }
+    }
+
+    /// Child-origin tool / permission traffic shares the lead pane but must not
+    /// own lead completion. Never invents roster rows (only lifecycle does).
+    pub(super) fn handle_child_origin_event(
+        &self,
+        session_id: &str,
+        tool: AgentToolType,
+        project_path: Option<String>,
+        ctx: &AtmosContext,
+        child_id: &str,
+        state: AgentHookState,
+        kind: StateUpdateKind,
+    ) {
+        if matches!(
+            kind,
+            StateUpdateKind::TerminalIdle | StateUpdateKind::ForcedIdle
+        ) || state == AgentHookState::Idle
+        {
+            debug!(
+                "Ignoring child-origin idle for session {} child={} (tool={})",
+                session_id, child_id, tool
+            );
+            return;
+        }
+
+        // Permission from a child still needs user attention on this pane.
+        if state == AgentHookState::PermissionRequest {
+            self.update_state(
+                session_id,
+                tool,
+                AgentHookState::PermissionRequest,
+                project_path,
+                ctx,
+                StateUpdateKind::Permission,
+            );
+            return;
+        }
+
+        if state == AgentHookState::Running {
+            // Only surface activity if this child is already on the roster
+            // (or the lead is already non-idle). Avoid resurrecting a settled
+            // lead from stray late tool events after SubagentStop.
+            let tracked = self
+                .active_children
+                .read()
+                .get(session_id)
+                .is_some_and(|s| s.contains(child_id));
+            let lead_busy = self
+                .sessions
+                .read()
+                .get(session_id)
+                .is_some_and(|s| s.state != AgentHookState::Idle);
+            if tracked || lead_busy || self.has_active_children(session_id) {
+                self.update_state(
+                    session_id,
+                    tool,
+                    AgentHookState::Running,
+                    project_path,
+                    ctx,
+                    StateUpdateKind::Progress,
+                );
+            } else {
+                debug!(
+                    "Ignoring untracked child tool traffic for idle session {} child={}",
+                    session_id, child_id
+                );
+            }
+        }
+    }
+
+    fn has_active_children(&self, session_id: &str) -> bool {
+        self.active_children
+            .read()
+            .get(session_id)
+            .is_some_and(|s| !s.is_empty())
+    }
+
+    fn active_child_count(&self, session_id: &str) -> usize {
+        self.active_children
+            .read()
+            .get(session_id)
+            .map(|s| s.len())
+            .unwrap_or(0)
+    }
+
+    fn clear_child_tracking(&self, session_id: &str) {
+        self.active_children.write().remove(session_id);
+        self.pending_terminal_idle.write().remove(session_id);
+    }
+
+    fn arm_pending_terminal_idle(
+        &self,
+        session_id: &str,
+        tool: AgentToolType,
+        project_path: Option<String>,
+        ctx: &AtmosContext,
+        fire_completion: bool,
+    ) {
+        debug!(
+            "Deferring TerminalIdle for session {} ({} active child agent(s), completion={})",
+            session_id,
+            self.active_child_count(session_id),
+            fire_completion
+        );
+        // Prefer keeping an existing "fire completion" arm if a quieter one races in.
+        let mut pending = self.pending_terminal_idle.write();
+        if let Some(existing) = pending.get_mut(session_id) {
+            existing.fire_completion = existing.fire_completion || fire_completion;
+            if project_path.is_some() {
+                existing.project_path = project_path;
+            }
+            return;
+        }
+        pending.insert(
+            session_id.to_string(),
+            PendingTerminalIdle {
+                tool,
+                project_path,
+                ctx: AtmosContext {
+                    context_id: ctx.context_id.clone(),
+                    pane_id: ctx.pane_id.clone(),
+                    terminal_kind: ctx.terminal_kind.clone(),
+                    side_chat_id: ctx.side_chat_id.clone(),
+                    source_pane_id: ctx.source_pane_id.clone(),
+                    hook_version: ctx.hook_version,
+                },
+                fire_completion,
+            },
+        );
+    }
+
+    /// Refresh last-activity timestamp without changing visible state when the
+    /// lead is already non-idle; promote Idle→Running when children outlive the
+    /// lead turn so the UI does not look settled mid-child-work.
+    fn touch_session_activity(
+        &self,
+        session_id: &str,
+        tool: AgentToolType,
+        project_path: Option<String>,
+        ctx: &AtmosContext,
+    ) {
+        let current = self
+            .sessions
+            .read()
+            .get(session_id)
+            .map(|s| s.state);
+        match current {
+            Some(AgentHookState::PermissionRequest) => {
+                // Keep permission attention; only bump timestamp via same state.
+                self.update_state(
+                    session_id,
+                    tool,
+                    AgentHookState::PermissionRequest,
+                    project_path,
+                    ctx,
+                    StateUpdateKind::Permission,
+                );
+            }
+            Some(AgentHookState::Running) | Some(AgentHookState::Idle) | None => {
+                self.update_state(
+                    session_id,
+                    tool,
+                    AgentHookState::Running,
+                    project_path,
+                    ctx,
+                    StateUpdateKind::Progress,
+                );
+            }
         }
     }
 
@@ -757,5 +1113,202 @@ mod tests {
         let removed = service.clear_sessions_for_stable_pane("ws-1:win");
         assert_eq!(removed, vec!["ws-1:win".to_string()]);
         assert!(service.get_all_sessions().is_empty());
+    }
+
+    #[test]
+    fn terminal_idle_deferred_while_child_agents_active() {
+        let service = AgentHooksService::new();
+        let ctx = ctx_with_pane("ws-1:lead");
+        service.update_state(
+            "ws-1:lead",
+            AgentToolType::ClaudeCode,
+            AgentHookState::Running,
+            Some("/tmp/p".into()),
+            &ctx,
+            StateUpdateKind::NewTurn,
+        );
+        service.handle_child_lifecycle(
+            "ws-1:lead",
+            AgentToolType::ClaudeCode,
+            Some("/tmp/p".into()),
+            &ctx,
+            "child-a",
+            true,
+        );
+        service.update_state(
+            "ws-1:lead",
+            AgentToolType::ClaudeCode,
+            AgentHookState::Idle,
+            Some("/tmp/p".into()),
+            &ctx,
+            StateUpdateKind::TerminalIdle,
+        );
+        assert_eq!(
+            service.get_all_sessions()[0].state,
+            AgentHookState::Running,
+            "lead Stop must not complete while a child is active"
+        );
+        assert!(service.has_active_children("ws-1:lead"));
+        assert!(service
+            .pending_terminal_idle
+            .read()
+            .contains_key("ws-1:lead"));
+    }
+
+    #[test]
+    fn last_child_stop_flushes_deferred_terminal_idle() {
+        let service = AgentHooksService::new();
+        let ctx = ctx_with_pane("ws-1:lead");
+        service.update_state(
+            "ws-1:lead",
+            AgentToolType::ClaudeCode,
+            AgentHookState::Running,
+            Some("/tmp/p".into()),
+            &ctx,
+            StateUpdateKind::NewTurn,
+        );
+        service.handle_child_lifecycle(
+            "ws-1:lead",
+            AgentToolType::ClaudeCode,
+            Some("/tmp/p".into()),
+            &ctx,
+            "child-a",
+            true,
+        );
+        service.update_state(
+            "ws-1:lead",
+            AgentToolType::ClaudeCode,
+            AgentHookState::Idle,
+            Some("/tmp/p".into()),
+            &ctx,
+            StateUpdateKind::TerminalIdle,
+        );
+        service.handle_child_lifecycle(
+            "ws-1:lead",
+            AgentToolType::ClaudeCode,
+            Some("/tmp/p".into()),
+            &ctx,
+            "child-a",
+            false,
+        );
+        assert_eq!(service.get_all_sessions()[0].state, AgentHookState::Idle);
+        assert!(!service.has_active_children("ws-1:lead"));
+        assert!(!service
+            .pending_terminal_idle
+            .read()
+            .contains_key("ws-1:lead"));
+    }
+
+    #[test]
+    fn child_origin_idle_never_settles_lead() {
+        let service = AgentHooksService::new();
+        let ctx = ctx_with_pane("ws-1:lead");
+        service.update_state(
+            "ws-1:lead",
+            AgentToolType::ClaudeCode,
+            AgentHookState::Running,
+            Some("/tmp/p".into()),
+            &ctx,
+            StateUpdateKind::NewTurn,
+        );
+        service.handle_child_origin_event(
+            "ws-1:lead",
+            AgentToolType::ClaudeCode,
+            Some("/tmp/p".into()),
+            &ctx,
+            "child-a",
+            AgentHookState::Idle,
+            StateUpdateKind::TerminalIdle,
+        );
+        assert_eq!(
+            service.get_all_sessions()[0].state,
+            AgentHookState::Running
+        );
+    }
+
+    #[test]
+    fn forced_idle_clears_child_roster_and_pending() {
+        let service = AgentHooksService::new();
+        let ctx = ctx_with_pane("ws-1:lead");
+        service.update_state(
+            "ws-1:lead",
+            AgentToolType::ClaudeCode,
+            AgentHookState::Running,
+            Some("/tmp/p".into()),
+            &ctx,
+            StateUpdateKind::NewTurn,
+        );
+        service.handle_child_lifecycle(
+            "ws-1:lead",
+            AgentToolType::ClaudeCode,
+            Some("/tmp/p".into()),
+            &ctx,
+            "child-a",
+            true,
+        );
+        service.update_state(
+            "ws-1:lead",
+            AgentToolType::ClaudeCode,
+            AgentHookState::Idle,
+            Some("/tmp/p".into()),
+            &ctx,
+            StateUpdateKind::TerminalIdle,
+        );
+        service.force_session_idle("ws-1:lead");
+        assert_eq!(service.get_all_sessions()[0].state, AgentHookState::Idle);
+        assert!(!service.has_active_children("ws-1:lead"));
+        assert!(service.pending_terminal_idle.read().is_empty());
+    }
+
+    #[test]
+    fn child_start_after_lead_idle_revives_then_quietly_settles() {
+        let service = AgentHooksService::new();
+        let ctx = ctx_with_pane("ws-1:lead");
+        service.update_state(
+            "ws-1:lead",
+            AgentToolType::ClaudeCode,
+            AgentHookState::Running,
+            Some("/tmp/p".into()),
+            &ctx,
+            StateUpdateKind::NewTurn,
+        );
+        service.update_state(
+            "ws-1:lead",
+            AgentToolType::ClaudeCode,
+            AgentHookState::Idle,
+            Some("/tmp/p".into()),
+            &ctx,
+            StateUpdateKind::TerminalIdle,
+        );
+        // Background child can outlive the lead turn.
+        service.handle_child_lifecycle(
+            "ws-1:lead",
+            AgentToolType::ClaudeCode,
+            Some("/tmp/p".into()),
+            &ctx,
+            "child-late",
+            true,
+        );
+        assert_eq!(
+            service.get_all_sessions()[0].state,
+            AgentHookState::Running
+        );
+        service.handle_child_lifecycle(
+            "ws-1:lead",
+            AgentToolType::ClaudeCode,
+            Some("/tmp/p".into()),
+            &ctx,
+            "child-late",
+            false,
+        );
+        assert_eq!(
+            service.get_all_sessions()[0].state,
+            AgentHookState::Idle,
+            "pane must re-settle after child-only revive"
+        );
+        assert!(!service
+            .pending_terminal_idle
+            .read()
+            .contains_key("ws-1:lead"));
     }
 }

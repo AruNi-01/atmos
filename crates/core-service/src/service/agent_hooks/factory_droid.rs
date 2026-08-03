@@ -1,7 +1,10 @@
 use serde_json::Value;
 use tracing::debug;
 
-use super::{AgentHookState, AgentHooksService, AgentToolType, AtmosContext, StateUpdateKind};
+use super::{
+    extract_child_agent_id, is_child_start_event, is_child_stop_event, AgentHookState,
+    AgentHooksService, AgentToolType, AtmosContext, StateUpdateKind,
+};
 
 fn extract_tool_name(payload: &Value) -> Option<&str> {
     payload
@@ -61,6 +64,80 @@ pub(super) fn handle_event(service: &AgentHooksService, payload: &Value, ctx: &A
         }
     }
 
+    // Explicit child lifecycle.
+    if is_child_start_event(hook_event) || is_child_stop_event(hook_event) {
+        if let Some(child_id) = extract_child_agent_id(payload) {
+            service.handle_child_lifecycle(
+                &session_id,
+                AgentToolType::FactoryDroid,
+                project_path,
+                ctx,
+                child_id,
+                is_child_start_event(hook_event),
+            );
+        } else if is_child_start_event(hook_event) {
+            // Older payloads may omit agent_id — still surface activity.
+            service.update_state(
+                &session_id,
+                AgentToolType::FactoryDroid,
+                AgentHookState::Running,
+                project_path,
+                ctx,
+                StateUpdateKind::Progress,
+            );
+        }
+        // SubagentStop without agent_id: leave lead state unchanged.
+        return;
+    }
+
+    if let Some(child_id) = extract_child_agent_id(payload) {
+        match hook_event {
+            "PreToolUse" => {
+                let tool_name = extract_tool_name(payload);
+                if tool_name == Some("AskUser") {
+                    service.handle_child_origin_event(
+                        &session_id,
+                        AgentToolType::FactoryDroid,
+                        project_path,
+                        ctx,
+                        child_id,
+                        AgentHookState::PermissionRequest,
+                        StateUpdateKind::Permission,
+                    );
+                } else {
+                    service.handle_child_origin_event(
+                        &session_id,
+                        AgentToolType::FactoryDroid,
+                        project_path,
+                        ctx,
+                        child_id,
+                        AgentHookState::Running,
+                        StateUpdateKind::Progress,
+                    );
+                }
+            }
+            "PostToolUse" | "PreCompact" => {
+                service.handle_child_origin_event(
+                    &session_id,
+                    AgentToolType::FactoryDroid,
+                    project_path,
+                    ctx,
+                    child_id,
+                    AgentHookState::Running,
+                    StateUpdateKind::Progress,
+                );
+            }
+            "Stop" | "SessionEnd" | "UserPromptSubmit" | "SessionStart" => {
+                debug!(
+                    "Ignoring child-origin Factory Droid {} for session {} child={}",
+                    hook_event, session_id, child_id
+                );
+            }
+            _ => {}
+        }
+        return;
+    }
+
     match hook_event {
         "SessionStart" => {
             service.update_state(
@@ -104,7 +181,7 @@ pub(super) fn handle_event(service: &AgentHooksService, payload: &Value, ctx: &A
                 StateUpdateKind::NewTurn,
             );
         }
-        "PostToolUse" | "SubagentStart" | "PreCompact" => {
+        "PostToolUse" | "PreCompact" => {
             service.update_state(
                 &session_id,
                 AgentToolType::FactoryDroid,
@@ -148,7 +225,7 @@ pub(super) fn handle_event(service: &AgentHooksService, payload: &Value, ctx: &A
                 );
             }
         }
-        "Stop" | "SessionEnd" => {
+        "Stop" => {
             service.update_state(
                 &session_id,
                 AgentToolType::FactoryDroid,
@@ -158,8 +235,18 @@ pub(super) fn handle_event(service: &AgentHooksService, payload: &Value, ctx: &A
                 StateUpdateKind::TerminalIdle,
             );
         }
-        "SubagentStop" => {
-            // SubagentStop doesn't mean the main agent stopped — keep current state
+        "SessionEnd" => {
+            service.force_session_idle(&session_id);
+            if service.sessions.read().get(&session_id).is_none() {
+                service.update_state(
+                    &session_id,
+                    AgentToolType::FactoryDroid,
+                    AgentHookState::Idle,
+                    project_path,
+                    ctx,
+                    StateUpdateKind::ForcedIdle,
+                );
+            }
         }
         _ => {
             debug!("Unhandled Factory Droid hook event: {}", hook_event);
@@ -258,6 +345,7 @@ mod tests {
             "hook_event_name": "SubagentStop",
             "session_id": "droid-session",
             "cwd": "/tmp/project",
+            "agent_id": "child-1",
         });
 
         handle_event(&service, &running, &AtmosContext::default());
@@ -266,6 +354,52 @@ mod tests {
         let sessions = service.get_all_sessions();
         assert_eq!(sessions.len(), 1);
         assert_eq!(sessions[0].state, AgentHookState::Running);
+    }
+
+    #[test]
+    fn factory_droid_lead_stop_defers_while_child_active() {
+        let service = AgentHooksService::new();
+        let ctx = AtmosContext::default();
+        handle_event(
+            &service,
+            &serde_json::json!({
+                "hook_event_name": "UserPromptSubmit",
+                "session_id": "droid-session",
+                "cwd": "/tmp/project",
+            }),
+            &ctx,
+        );
+        handle_event(
+            &service,
+            &serde_json::json!({
+                "hook_event_name": "SubagentStart",
+                "session_id": "droid-session",
+                "cwd": "/tmp/project",
+                "agent_id": "child-1",
+            }),
+            &ctx,
+        );
+        handle_event(
+            &service,
+            &serde_json::json!({
+                "hook_event_name": "Stop",
+                "session_id": "droid-session",
+                "cwd": "/tmp/project",
+            }),
+            &ctx,
+        );
+        assert_eq!(service.get_all_sessions()[0].state, AgentHookState::Running);
+        handle_event(
+            &service,
+            &serde_json::json!({
+                "hook_event_name": "SubagentStop",
+                "session_id": "droid-session",
+                "cwd": "/tmp/project",
+                "agent_id": "child-1",
+            }),
+            &ctx,
+        );
+        assert_eq!(service.get_all_sessions()[0].state, AgentHookState::Idle);
     }
 
     #[test]

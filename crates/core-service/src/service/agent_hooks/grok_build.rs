@@ -1,7 +1,10 @@
 use serde_json::Value;
 use tracing::debug;
 
-use super::{AgentHookState, AgentHooksService, AgentToolType, AtmosContext, StateUpdateKind};
+use super::{
+    extract_child_agent_id, is_child_start_event, is_child_stop_event, AgentHookState,
+    AgentHooksService, AgentToolType, AtmosContext, StateUpdateKind,
+};
 
 fn hook_event_name(payload: &Value) -> &str {
     payload
@@ -53,6 +56,78 @@ pub(super) fn handle_event(service: &AgentHooksService, payload: &Value, ctx: &A
             );
             return;
         }
+    }
+
+    if is_child_start_event(raw_event)
+        || is_child_stop_event(raw_event)
+        || event.starts_with("subagent")
+    {
+        if let Some(child_id) = extract_child_agent_id(payload) {
+            let started = is_child_start_event(raw_event)
+                || event == "subagentstart"
+                || event == "subagent_start";
+            let stopped = is_child_stop_event(raw_event)
+                || event == "subagentstop"
+                || event == "subagent_stop";
+            if started || stopped {
+                service.handle_child_lifecycle(
+                    &session_id,
+                    AgentToolType::GrokBuild,
+                    project_path,
+                    ctx,
+                    child_id,
+                    started,
+                );
+                return;
+            }
+        }
+        // Compact / unknown subagent* — parent owns status.
+        return;
+    }
+
+    if let Some(child_id) = extract_child_agent_id(payload) {
+        match event.as_str() {
+            "pretooluse"
+            | "pre_tool_use"
+            | "posttooluse"
+            | "post_tool_use"
+            | "posttoolusefailure"
+            | "post_tool_use_failure" => {
+                service.handle_child_origin_event(
+                    &session_id,
+                    AgentToolType::GrokBuild,
+                    project_path,
+                    ctx,
+                    child_id,
+                    AgentHookState::Running,
+                    StateUpdateKind::Progress,
+                );
+            }
+            "notification" => {
+                if matches!(
+                    notification_type(payload),
+                    Some("permission_prompt") | Some("elicitation_dialog")
+                ) {
+                    service.handle_child_origin_event(
+                        &session_id,
+                        AgentToolType::GrokBuild,
+                        project_path,
+                        ctx,
+                        child_id,
+                        AgentHookState::PermissionRequest,
+                        StateUpdateKind::Permission,
+                    );
+                }
+            }
+            "stop" | "stopfailure" | "stop_failure" | "sessionend" | "session_end" => {
+                debug!(
+                    "Ignoring child-origin Grok Build {} for session {} child={}",
+                    raw_event, session_id, child_id
+                );
+            }
+            _ => {}
+        }
+        return;
     }
 
     match event.as_str() {
@@ -112,7 +187,7 @@ pub(super) fn handle_event(service: &AgentHooksService, payload: &Value, ctx: &A
         "permissiondenied" | "permission_denied" => {
             // Already denied; not waiting on the user.
         }
-        "stop" | "stopfailure" | "stop_failure" | "sessionend" | "session_end" => {
+        "stop" | "stopfailure" | "stop_failure" => {
             service.update_state(
                 &session_id,
                 AgentToolType::GrokBuild,
@@ -122,8 +197,21 @@ pub(super) fn handle_event(service: &AgentHooksService, payload: &Value, ctx: &A
                 StateUpdateKind::TerminalIdle,
             );
         }
-        name if name.starts_with("subagent") || name.contains("compact") => {
-            // Subagent / compact lifecycle — parent owns status.
+        "sessionend" | "session_end" => {
+            service.force_session_idle(&session_id);
+            if service.sessions.read().get(&session_id).is_none() {
+                service.update_state(
+                    &session_id,
+                    AgentToolType::GrokBuild,
+                    AgentHookState::Idle,
+                    project_path,
+                    ctx,
+                    StateUpdateKind::ForcedIdle,
+                );
+            }
+        }
+        name if name.contains("compact") => {
+            // Compact lifecycle — parent owns status.
         }
         _ => {
             debug!("Unhandled Grok Build hook event: {}", raw_event);

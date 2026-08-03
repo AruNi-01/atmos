@@ -20,9 +20,11 @@ use tracing::info;
 
 use crate::error::{EngineError, Result};
 
+// v4: Claude Code stdin-forwarded hooks + SubagentStart/SubagentStop so child
+// agent_id traffic can defer lead TerminalIdle until background children finish.
 // v3: optional `${VAR:-}` expansion so Grok's required-env preflight does not
 // skip Atmos hooks when side-chat (or other) vars are unset in the process env.
-pub const CURRENT_HOOK_VERSION: u32 = 3;
+pub const CURRENT_HOOK_VERSION: u32 = 4;
 const LEGACY_HOOK_VERSION: u32 = 1;
 
 /// Canonical tool keys used by install/uninstall APIs and opt-out persistence.
