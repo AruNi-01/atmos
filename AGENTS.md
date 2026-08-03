@@ -11,6 +11,8 @@
 | Task | Go To |
 |------|-------|
 | **Cross-Cutting References** (Shortcuts, Debug, etc.) | [agents/AGENTS.md](agents/AGENTS.md) |
+| **Write/edit AGENTS.md** (progressive disclosure) | [agents/references/agents-md-authoring.md](agents/references/agents-md-authoring.md) |
+| **Desktop floating UI over native preview** | [agents/references/desktop-floating-ui.md](agents/references/desktop-floating-ui.md) |
 | **Design System / UI Visual Language** | [DESIGN.md](DESIGN.md) |
 | **Marketing Creative Production** (video/audio/social assets) | [marketing/AGENTS.md](marketing/AGENTS.md) |
 | **Rust crates index** (layer map) | [crates/AGENTS.md](crates/AGENTS.md) |
@@ -135,6 +137,7 @@ Full conventions (zones, naming, the 4-file rule, optional spec logs, review che
 - **Backend Access**: Each app manages its own `api/client.ts` and `types/api.ts`
 - **Rust Services**: Inject `core-service` into `apps/api` via `AppState`; HTTP and browser WebSocket protocols are owned by `apps/api`
 - **Inline Feedback Over Toasts**: Do not show success toasts for direct user actions when the initiating control or nearby UI can reflect the result, such as copy, save, toggle, stash, inline edit, or local state changes. Use inline button states, labels, counts, disabled states, or immediate UI transitions instead. Reserve toasts for errors, background work, cross-context outcomes, or unexpected fallbacks that the current UI cannot clearly show.
+- **Desktop floating UI / native preview**: Host DOM `z-index` cannot cover desktop `WebContentsView` preview. New dialogs, popovers, menus, tooltips, or other portaled chrome that may overlap native preview need the shared overlay + occlusion rules — **load only when relevant**: [agents/references/desktop-floating-ui.md](agents/references/desktop-floating-ui.md) (APP-052 / APP-029).
 
 ### Internationalization
 
@@ -208,6 +211,16 @@ When compressing context, create a continuation-oriented coding handoff summary.
 
 ---
 
+## 📘 AGENTS.md authoring (progressive disclosure)
+
+- **Root / package `AGENTS.md`**: navigation, contracts, short NEVER/ALWAYS — not full playbooks.
+- **Deep rules**: `agents/references/**`, indexed by [agents/AGENTS.md](agents/AGENTS.md). Load only when the task matches “When to load”.
+- **After a non-obvious constraint ships** (cross-layer stacking, security, transport, shared package edges, recurring footguns): **ask the user** whether to add a short pointer and/or a deep reference — do not silently bloat AGENTS files or leave the rule only in chat.
+
+→ **[Full authoring guide](agents/references/agents-md-authoring.md)**
+
+---
+
 ## Coding Behavioral Guidelines
 
 **Tradeoff**: These guidelines bias toward caution over speed. For trivial tasks, use judgment.
@@ -236,6 +249,16 @@ Before implementing:
 - If you write 200 lines and it could be 50, rewrite it.
 
 Ask yourself: "Would a senior engineer say this is overcomplicated?" If yes, simplify.
+
+### 3. Document recurring constraints (with user consent)
+
+When a change introduces a rule the **next** agent will miss (same class of bug as desktop floating UI vs `WebContentsView`, WS-first exceptions, package boundary edges):
+
+1. State the constraint briefly in the reply.
+2. **Ask** whether to update the relevant package/root AGENTS pointer and/or `agents/references/...`.
+3. Prefer progressive disclosure over pasting long checklists into every AGENTS.md.
+
+→ [agents/references/agents-md-authoring.md](agents/references/agents-md-authoring.md)
 
 ---
 

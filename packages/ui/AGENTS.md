@@ -50,15 +50,25 @@ packages/ui/
 
 ---
 
+## Floating / portaled primitives (desktop)
+
+New **dialog, sheet, drawer, popover, menu, select, tooltip, hover-card**, or other **Portal** surfaces must use `usePortalContainer()` (see `portal-container.tsx`) so desktop can elevate them above native preview. Do not hard-require a desktop-only container — default remains document body for web.
+
+→ Load full rules only when relevant: [agents/references/desktop-floating-ui.md](../../agents/references/desktop-floating-ui.md) (APP-052).
+
+---
+
 ## Safety Rails
 
 ### NEVER
 - Add API calls or side effects to UI components
 - Break semantic color variable conventions
 - Add business logic to components
+- Assume CSS `z-index` alone stacks above desktop native preview (`WebContentsView`)
 
 ### ALWAYS
 - Keep components atomic and reusable
 - Use semantic CSS variables for theming
 - Keep icon placement consistent: reusable icon files live under `src/components/icons/`
+- Wire new floating portals through `usePortalContainer()` when adding primitives under `components/ui/`
 

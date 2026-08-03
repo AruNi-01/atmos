@@ -12,6 +12,8 @@ This directory contains cross-cutting references and guidelines that apply acros
 
 | File | When to Load |
 |------|--------------|
+| `references/agents-md-authoring.md` | Creating/editing any `AGENTS.md`, or deciding whether a new constraint should become agent docs (progressive disclosure) |
+| `references/desktop-floating-ui.md` | Dialogs/modals/sheets/popovers/menus/tooltips or other portaled UI that can cover **desktop native preview** (`WebContentsView`); preview occlusion / portal roots / overlay IPC |
 | `references/keyboard-shortcuts.md` | When implementing keyboard shortcuts, global hotkeys, or overlay focus management |
 | `references/debug-logging.md` | When adding debug logging or instrumenting lifecycle flows |
 | `references/compact-instructions.md` | When compressing context or creating coding handoff summaries |
@@ -25,21 +27,15 @@ This directory contains cross-cutting references and guidelines that apply acros
 ```
 agents/
 ├── AGENTS.md              # This file - index and usage guide
-└── references/            # Cross-cutting references
-    ├── keyboard-shortcuts.md  # Keyboard shortcuts and overlay focus
-    ├── debug-logging.md        # Debug logging infrastructure
-    ├── compact-instructions.md # Context compression and handoff summaries
-    ├── mobile/                 # Mobile app setup and native UI references
-    │   ├── dev-setup.md         # Expo mobile native dev environment setup
-    │   └── native-navigation.md # Native headers, titles, bars, and menus
-    ├── design/                 # Design system references for agents
-    │   ├── AGENTS.md
-    │   ├── foundations.md
-    │   ├── components.md
-    │   ├── web-desktop.md
-    │   └── mobile.md
-    └── runtime/                # Local runtime and Atmos Computer references
-        └── AGENTS.md
+└── references/            # Cross-cutting references (load on demand)
+    ├── agents-md-authoring.md   # How to write AGENTS.md (progressive disclosure)
+    ├── desktop-floating-ui.md   # Desktop overlay / native preview stacking (APP-052)
+    ├── keyboard-shortcuts.md
+    ├── debug-logging.md
+    ├── compact-instructions.md
+    ├── mobile/
+    ├── design/
+    └── runtime/
 ```
 
 ## Architecture pointers (not loaded by default)
@@ -56,14 +52,18 @@ For **local runtime**, **Desktop/CLI ensure**, or **Atmos Computer / relay**, st
 When adding a new reference file:
 
 1. Create the file in `agents/references/` or a focused subdirectory such as `agents/references/mobile/`
-2. Add a clear "When to load" section at the top
+2. Add a clear "When to load" / "Do not load" section at the top
 3. Update this index file with the new entry
-4. Link to it from the root `AGENTS.md` if it's a commonly-used reference
+4. Link from the root `Agents.md` **only if** the topic is commonly hit
+5. Add a **short pointer** from the package AGENTS that owns the code — do not paste the full checklist there
 
-## Authoring Guidelines
+Full progressive-disclosure rules and “ask the user before documenting learnings”:
+
+→ **[agents-md-authoring.md](references/agents-md-authoring.md)**
+
+## Authoring Guidelines (summary)
 
 - Keep reference files focused on a single topic
-- Include practical examples and code patterns
-- Provide checklists for verification
-- Link to related files where appropriate
-- Use clear section headers for navigation
+- Include practical examples, real paths, and checklists
+- Prefer **links down** over copy-paste across root / package / reference
+- After a non-obvious constraint ships, **ask** before adding long AGENTS prose

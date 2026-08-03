@@ -40,6 +40,19 @@ imports and feature store writes.
 
 ---
 
+## Desktop floating UI over native preview
+
+On Electron desktop, native preview is a `WebContentsView` above host DOM. **Do not** rely on `z-index` to cover it. Prefer `@workspace/ui` portals (already elevation-aware). Avoid unconditional “hide preview when my popover opens” flags when elevation covers; use markers / shared policy.
+
+| When | Action |
+|------|--------|
+| Adding dialogs/popovers/menus/tooltips that may overlap preview | Load [agents/references/desktop-floating-ui.md](../../agents/references/desktop-floating-ui.md) |
+| Changing elevation / occlusion | `src/shared/lib/desktop-overlay/*`, `features/run-preview` occlusion + Preview suspend composition |
+
+Web-only paths stay unchanged (portal default body). Spec: APP-052 / APP-029.
+
+---
+
 ## API & transport
 
 ### Resolving the Server
