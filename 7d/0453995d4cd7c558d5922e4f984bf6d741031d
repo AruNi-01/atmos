@@ -1,0 +1,14 @@
+apps/web/src/features/github/components/ChecksStatusRing.tsx
+  h_5be255725524c8 7-8,12,17-27,48,55-63,70-176,179-180,195-196,211,218-221,241,252-259
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "7d0453995d4cd7c558d5922e4f984bf6d741031d",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
