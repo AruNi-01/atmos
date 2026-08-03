@@ -27,4 +27,13 @@ describe("AppShot capture route structure", () => {
     expect(src).toContain("desktopUseDriveScreenshot");
     expect(src).toContain("via: \"host_engine\"");
   });
+
+  it("electron in-process capture is documented as pre-ensure fallback only", () => {
+    const src = readFileSync(
+      join(import.meta.dir, "../desktop-use/capture.ts"),
+      "utf8",
+    );
+    expect(src).toContain("pre-ensure fallback");
+    expect(src).not.toMatch(/Single shot for AppShot hot path/);
+  });
 });
