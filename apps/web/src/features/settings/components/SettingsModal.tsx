@@ -275,12 +275,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     setFileLinkOpenMode,
     setFileLinkOpenApp,
   } = useTerminalLinkSettingsStore();
-  const {
-    useLastSplitAgentOnSplit,
-    lastSplitAgentId,
-    hydrate: hydrateTerminalSplitPrefs,
-    setUseLastSplitAgentOnSplit,
-  } = useTerminalSplitPrefsStore();
+  const loadTerminalSplitPrefs = useTerminalSplitPrefsStore((state) => state.loadSettings);
   const {
     sideContextPromptBudgetBytes,
     loadSettings: loadTerminalSideChatSettings,
@@ -304,9 +299,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     void loadTerminalSideChatSettings();
     void loadTerminalRichInputSettings();
     void loadWorkspaceSurfaceSettings();
-    hydrateTerminalSplitPrefs();
+    void loadTerminalSplitPrefs();
   }, [
-    hydrateTerminalSplitPrefs,
+    loadTerminalSplitPrefs,
     loadTerminalLinkSettings,
     loadTerminalRichInputSettings,
     loadTerminalSideChatSettings,
@@ -974,14 +969,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     onCheckForUpdate={() => void handleCheckForUpdate()}
                     fileLinkOpenMode={fileLinkOpenMode}
                     fileLinkOpenApp={fileLinkOpenApp}
-                    useLastSplitAgentOnSplit={useLastSplitAgentOnSplit}
-                    lastSplitAgentId={lastSplitAgentId}
                     sideContextPromptBudgetBytes={sideContextPromptBudgetBytes}
                     richInputEnabled={richInputEnabled}
                     richInputTriggerBarVisible={richInputTriggerBarVisible}
                     setFileLinkOpenMode={setFileLinkOpenMode}
                     setFileLinkOpenApp={setFileLinkOpenApp}
-                    setUseLastSplitAgentOnSplit={setUseLastSplitAgentOnSplit}
                     setSideContextPromptBudgetBytes={setSideContextPromptBudgetBytes}
                     setRichInputEnabled={setRichInputEnabled}
                     setRichInputTriggerBarVisible={setRichInputTriggerBarVisible}

@@ -642,7 +642,15 @@ const SETTINGS_SETTING_ITEMS: Record<SettingsSectionId, readonly SettingsSearchI
       keywords: ["external app", "finder", "terminal", "cursor", "zed", "vs code"],
     }),
     settingsModalSearchItem("terminal.defaultSplitAgent", {
-      keywords: ["split terminal", "last agent", "toolbar click", "command d", "context menu"],
+      keywords: [
+        "split terminal",
+        "default agent",
+        "run config",
+        "new terminal tab",
+        "toolbar click",
+        "command d",
+        "context menu",
+      ],
     }),
     settingsModalSearchItem("terminal.richInputEnabled", {
       keywords: [

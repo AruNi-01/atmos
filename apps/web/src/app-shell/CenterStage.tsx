@@ -64,6 +64,8 @@ import { useReviewSnapshotStore } from "@/features/code-review/store/review-snap
 import { usePrewarmCodeLanguages } from "@/shared/hooks/use-prewarm-code-languages";
 import { useAppRouter } from "@/shared/hooks/use-app-router";
 import { buildInteractiveAgentRunPlan } from "@/features/agent/lib/terminal-agent-run-config";
+import { resolveDefaultSplitAgent } from "@/features/terminal/lib/terminal-split-prefs";
+import { useTerminalSplitPrefsStore } from "@/features/settings/store/terminal-split-prefs-store";
 import { resolveAgentFixLaunchPrompt } from "@/features/agent-fix/lib/agent-fix-prompt-file";
 import { useWorkspaceCreationStore } from "@/features/workspace/store/workspace-creation-store";
 import { useExperimentSettingsStore } from "@/features/settings/store/experiment-settings-store";
@@ -1055,8 +1057,39 @@ const CenterStage: React.FC = () => {
     setActiveTerminalTab(effectiveContextId, nextTab.id);
     setUrlParams({ tab: nextTab.id, wikiPage: null });
     setActiveFile(null, effectiveContextId);
-    runWhenTerminalGridReady(nextTab.id, (grid) => grid.focusActivePane());
-  }, [effectiveContextId, createTerminalTab, runWhenTerminalGridReady, setActiveFile, setActiveTerminalTab, setUrlParams]);
+
+    const splitPrefsStore = useTerminalSplitPrefsStore.getState();
+    // Fire-and-forget load if prefs are not yet on disk-hydrated; use current
+    // in-memory snapshot for this click (usually already loaded via TerminalGrid).
+    if (!splitPrefsStore.loaded) {
+      void splitPrefsStore.loadSettings();
+    }
+    const splitPrefs = useTerminalSplitPrefsStore.getState();
+    const defaultAgent =
+      splitPrefs.enabled && splitPrefs.applyToNewTerminalTab
+        ? resolveDefaultSplitAgent(splitPrefs, terminalQuickOpenAgents)
+        : null;
+
+    runWhenTerminalGridReady(nextTab.id, (grid) => {
+      if (defaultAgent) {
+        void grid.createAndRunTerminal({
+          label: defaultAgent.agent.label,
+          command: defaultAgent.command,
+          agent: defaultAgent.agent,
+        });
+        return;
+      }
+      grid.focusActivePane();
+    });
+  }, [
+    effectiveContextId,
+    createTerminalTab,
+    runWhenTerminalGridReady,
+    setActiveFile,
+    setActiveTerminalTab,
+    setUrlParams,
+    terminalQuickOpenAgents,
+  ]);
 
   const handleRenameTerminalCenterTab = React.useCallback((tabId: string, title: string) => {
     if (!effectiveContextId) return;

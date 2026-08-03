@@ -3946,6 +3946,13 @@
       "enabledFailed": "Failed to update Terminal Rich Input.",
       "triggerBarFailed": "Failed to update the Rich Input trigger bar."
     },
+    "terminalSplitPrefsStore": {
+      "syncFailedTitle": "Settings Sync Failed",
+      "enabledFailed": "Failed to update Default split agent.",
+      "agentFailed": "Failed to update the default split agent.",
+      "runConfigFailed": "Failed to update the default split agent run config.",
+      "newTabFailed": "Failed to update New Terminal Tab default agent."
+    },
     "notificationStore": {
       "unknownError": "Unknown error"
     },
@@ -5138,8 +5145,15 @@
       },
       "defaultSplitAgent": {
         "title": "Default split agent",
-        "description": "When enabled, plain split (toolbar click, ⌘D, or context menu) reuses the last agent you picked from a split submenu. Hover split to choose a different agent.",
-        "lastAgent": "Last split agent:"
+        "description": "When enabled, plain split (toolbar click, ⌘D, or context menu) launches the agent you select below. Hover split to choose a different agent.",
+        "agent": {
+          "title": "Agent",
+          "description": "Agent and optional run config used for default split. Changes save immediately."
+        },
+        "newTerminalTab": {
+          "title": "New Terminal Tab",
+          "description": "When enabled, creating a new Terminal tab also launches this default agent in the first pane."
+        }
       },
       "richInputEnabled": {
         "title": "Terminal Rich Input",

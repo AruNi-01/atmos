@@ -3946,6 +3946,13 @@
       "enabledFailed": "更新 Terminal Rich Input 失败。",
       "triggerBarFailed": "更新 Rich Input 触发条失败。"
     },
+    "terminalSplitPrefsStore": {
+      "syncFailedTitle": "设置同步失败",
+      "enabledFailed": "更新默认分屏 Agent 失败。",
+      "agentFailed": "更新默认分屏 Agent 失败。",
+      "runConfigFailed": "更新默认分屏 Agent run config 失败。",
+      "newTabFailed": "更新新建 Terminal Tab 默认 Agent 失败。"
+    },
     "notificationStore": {
       "unknownError": "未知错误"
     },
@@ -5138,8 +5145,15 @@
       },
       "defaultSplitAgent": {
         "title": "默认分屏 Agent",
-        "description": "启用后，普通分屏操作（工具栏点击、⌘D 或右键菜单）会复用你上次在分屏子菜单中选择的 Agent。悬停分屏按钮可选择其他 Agent。",
-        "lastAgent": "上次分屏 Agent："
+        "description": "启用后，普通分屏操作（工具栏点击、⌘D 或右键菜单）会启动你在下方选择的 Agent。悬停分屏按钮可选择其他 Agent。",
+        "agent": {
+          "title": "Agent",
+          "description": "默认分屏使用的 Agent 及可选 run config。更改会立即保存。"
+        },
+        "newTerminalTab": {
+          "title": "新建 Terminal Tab",
+          "description": "启用后，新建 Terminal tab 时也会在首个 pane 中启动该默认 Agent。"
+        }
       },
       "richInputEnabled": {
         "title": "Terminal Rich Input",

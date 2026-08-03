@@ -18,6 +18,7 @@ import { isPathLikeTitle } from "./terminal-title";
 import { systemApi } from "@/api/rest-api";
 import { useTerminalStore, FIXED_TERMINAL_TAB_VALUE } from "@/features/terminal/store/use-terminal-store";
 import { useTerminalSplitPrefsStore } from "@/features/settings/store/terminal-split-prefs-store";
+import { resolveDefaultSplitAgent } from "@/features/terminal/lib/terminal-split-prefs";
 import {
   useProjects,
   useProjectsLoading,
@@ -124,14 +125,14 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
   );
   const contestedOwners = useContestedCliOwners();
 
-  const hydrateTerminalSplitPrefs = useTerminalSplitPrefsStore((state) => state.hydrate);
-  const useLastSplitAgentOnSplit = useTerminalSplitPrefsStore((state) => state.useLastSplitAgentOnSplit);
-  const lastSplitAgentId = useTerminalSplitPrefsStore((state) => state.lastSplitAgentId);
-  const rememberLastSplitAgent = useTerminalSplitPrefsStore((state) => state.rememberLastSplitAgent);
+  const loadTerminalSplitPrefs = useTerminalSplitPrefsStore((state) => state.loadSettings);
+  const defaultSplitAgentEnabled = useTerminalSplitPrefsStore((state) => state.enabled);
+  const defaultSplitAgentId = useTerminalSplitPrefsStore((state) => state.agentId);
+  const defaultSplitAgentRunConfig = useTerminalSplitPrefsStore((state) => state.runConfig);
 
   React.useEffect(() => {
-    hydrateTerminalSplitPrefs();
-  }, [hydrateTerminalSplitPrefs]);
+    void loadTerminalSplitPrefs();
+  }, [loadTerminalSplitPrefs]);
 
   const {
     getPanes,
@@ -636,29 +637,40 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
     return newPaneId;
   }, [workspaceId, isCodeReview, isProjectWiki, splitCodeReviewTerminal, splitProjectWikiTerminal, splitTerminalInStore, terminalTabId]);
 
-  const splitAndRunAgentWithRemember = useCallback(
+  const splitAndRunAgent = useCallback(
     (id: string, direction: "row" | "column", command: string, agent: TerminalPaneAgent) => {
-      rememberLastSplitAgent(agent.id);
       const newPaneId = splitTerminal(id, direction, agent);
       if (!newPaneId) return;
       pendingRunsRef.current.set(newPaneId, toPendingTerminalRun(command.trim()));
       setSplitMenuKey(null);
     },
-    [rememberLastSplitAgent, splitTerminal],
+    [splitTerminal],
   );
 
   const performSplit = useCallback(
     (id: string, direction: "row" | "column") => {
-      if (useLastSplitAgentOnSplit && lastSplitAgentId) {
-        const match = quickOpenAgents.find(({ agent }) => agent.id === lastSplitAgentId);
-        if (match) {
-          splitAndRunAgentWithRemember(id, direction, match.command, match.agent);
-          return;
-        }
+      const match = resolveDefaultSplitAgent(
+        {
+          enabled: defaultSplitAgentEnabled,
+          agentId: defaultSplitAgentId,
+          runConfig: defaultSplitAgentRunConfig,
+        },
+        quickOpenAgents,
+      );
+      if (match) {
+        splitAndRunAgent(id, direction, match.command, match.agent);
+        return;
       }
       splitTerminal(id, direction);
     },
-    [lastSplitAgentId, quickOpenAgents, splitAndRunAgentWithRemember, splitTerminal, useLastSplitAgentOnSplit],
+    [
+      defaultSplitAgentEnabled,
+      defaultSplitAgentId,
+      defaultSplitAgentRunConfig,
+      quickOpenAgents,
+      splitAndRunAgent,
+      splitTerminal,
+    ],
   );
 
   const splitFocusedTerminal = useCallback(
@@ -740,9 +752,9 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
       setContextSplitSubmenu(null);
       const focusedPaneId = getFocusedPaneId();
       if (!focusedPaneId) return;
-      splitAndRunAgentWithRemember(focusedPaneId, direction, command, agent);
+      splitAndRunAgent(focusedPaneId, direction, command, agent);
     },
-    [getFocusedPaneId, splitAndRunAgentWithRemember],
+    [getFocusedPaneId, splitAndRunAgent],
   );
 
   const handleContextMenu = useCallback((event: React.MouseEvent) => {
@@ -868,7 +880,7 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
           splitMenuKey={splitMenuKey}
           setSplitMenuKey={setSplitMenuKey}
           onSplitPane={performSplit}
-          splitAndRunAgent={splitAndRunAgentWithRemember}
+          splitAndRunAgent={splitAndRunAgent}
           handleSplitMenuEnter={handleSplitMenuEnter}
           handleSplitMenuLeave={handleSplitMenuLeave}
           pinPaneToCanvas={pinPaneToCanvas}
@@ -907,7 +919,7 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
         splitMenuKey={splitMenuKey}
         setSplitMenuKey={setSplitMenuKey}
         onSplitPane={performSplit}
-        splitAndRunAgent={splitAndRunAgentWithRemember}
+        splitAndRunAgent={splitAndRunAgent}
         handleSplitMenuEnter={handleSplitMenuEnter}
         handleSplitMenuLeave={handleSplitMenuLeave}
         pinPaneToCanvas={pinPaneToCanvas}
@@ -931,7 +943,7 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
     isSurfaceActive,
     panes,
     performSplit,
-    splitAndRunAgentWithRemember,
+    splitAndRunAgent,
     requestCloseTerminal,
     workspaceInfo,
     maximizedId,

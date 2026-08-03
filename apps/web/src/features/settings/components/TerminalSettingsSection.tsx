@@ -36,18 +36,17 @@ import {
   SettingsGroupCard,
   SettingsGroupRow,
 } from '@/features/settings/components/settings/SettingsGroupCard';
+import { AgentSelect, AGENT_OPTIONS } from '@/features/wiki/components/AgentSelect';
+import { useTerminalSplitPrefsStore } from '@/features/settings/store/terminal-split-prefs-store';
 
 export function TerminalSettingsSection({
   fileLinkOpenMode,
   fileLinkOpenApp,
-  useLastSplitAgentOnSplit,
-  lastSplitAgentId,
   sideContextPromptBudgetBytes,
   richInputEnabled,
   richInputTriggerBarVisible,
   setFileLinkOpenMode,
   setFileLinkOpenApp,
-  setUseLastSplitAgentOnSplit,
   setSideContextPromptBudgetBytes,
   setRichInputEnabled,
   setRichInputTriggerBarVisible,
@@ -58,14 +57,11 @@ export function TerminalSettingsSection({
 }: {
   fileLinkOpenMode: TerminalFileLinkOpenMode;
   fileLinkOpenApp: QuickOpenAppName;
-  useLastSplitAgentOnSplit: boolean;
-  lastSplitAgentId: string | null;
   sideContextPromptBudgetBytes: number;
   richInputEnabled: boolean;
   richInputTriggerBarVisible: boolean;
   setFileLinkOpenMode: (mode: TerminalFileLinkOpenMode) => Promise<void> | void;
   setFileLinkOpenApp: (app: QuickOpenAppName) => Promise<void> | void;
-  setUseLastSplitAgentOnSplit: (enabled: boolean) => void;
   setSideContextPromptBudgetBytes: (bytes: number) => Promise<void> | void;
   setRichInputEnabled: (enabled: boolean) => Promise<void> | void;
   setRichInputTriggerBarVisible: (visible: boolean) => Promise<void> | void;
@@ -76,6 +72,17 @@ export function TerminalSettingsSection({
 }) {
   const t = useTranslations('settings.terminalSection');
   const locale = useLocale();
+  const {
+    enabled: defaultSplitAgentEnabled,
+    agentId: defaultSplitAgentId,
+    runConfig: defaultSplitAgentRunConfig,
+    applyToNewTerminalTab,
+    loadSettings: loadTerminalSplitPrefs,
+    setEnabled: setDefaultSplitAgentEnabled,
+    setAgentId: setDefaultSplitAgentId,
+    setRunConfig: setDefaultSplitAgentRunConfig,
+    setApplyToNewTerminalTab,
+  } = useTerminalSplitPrefsStore();
   const [behaviorExpanded, setBehaviorExpanded] = React.useState(true);
   const [richInputExpanded, setRichInputExpanded] = React.useState(true);
   const [sideChatExpanded, setSideChatExpanded] = React.useState(true);
@@ -112,6 +119,10 @@ export function TerminalSettingsSection({
     MAX_TERMINAL_SIDE_CONTEXT_PROMPT_BUDGET_BYTES.toLocaleString(locale);
 
   React.useEffect(() => {
+    void loadTerminalSplitPrefs();
+  }, [loadTerminalSplitPrefs]);
+
+  React.useEffect(() => {
     setLocalSideContextBudget(sideContextPromptBudgetBytes.toString());
   }, [sideContextPromptBudgetBytes]);
 
@@ -122,6 +133,11 @@ export function TerminalSettingsSection({
   React.useEffect(() => {
     setLocalTerminalCacheMaxPanels(maxGlobalTerminalPanes.toString());
   }, [maxGlobalTerminalPanes]);
+
+  const resolvedDefaultAgentId =
+    defaultSplitAgentId && AGENT_OPTIONS.some((agent) => agent.id === defaultSplitAgentId)
+      ? defaultSplitAgentId
+      : (AGENT_OPTIONS[0]?.id ?? 'claude');
 
   const handleTerminalCacheMaxSizeCommit = async (value: string) => {
     const parsed = Number.parseInt(value, 10);
@@ -236,20 +252,44 @@ export function TerminalSettingsSection({
         <SettingsGroupRow
           title={t('defaultSplitAgent.title')}
           description={t('defaultSplitAgent.description')}
-          footer={
-            lastSplitAgentId ? (
-              <p className="mt-2 text-xs text-muted-foreground">
-                {t('defaultSplitAgent.lastAgent')}{' '}
-                <span className="font-medium text-foreground">{lastSplitAgentId}</span>
-              </p>
-            ) : null
-          }
         >
           <Switch
-            checked={useLastSplitAgentOnSplit}
-            onCheckedChange={setUseLastSplitAgentOnSplit}
+            checked={defaultSplitAgentEnabled}
+            onCheckedChange={(value) => void setDefaultSplitAgentEnabled(!!value)}
           />
         </SettingsGroupRow>
+        {defaultSplitAgentEnabled ? (
+          <>
+            <SettingsGroupRow
+              title={t('defaultSplitAgent.agent.title')}
+              description={t('defaultSplitAgent.agent.description')}
+              wide
+            >
+              <div className="w-full max-w-xs">
+                <AgentSelect
+                  value={resolvedDefaultAgentId}
+                  onValueChange={(agentId) => void setDefaultSplitAgentId(agentId)}
+                  enableRunConfig
+                  runConfig={defaultSplitAgentRunConfig}
+                  onRunConfigChange={(agentId, runConfig) =>
+                    void setDefaultSplitAgentRunConfig(agentId, runConfig)
+                  }
+                  helperText={null}
+                  className="[&>label]:hidden"
+                />
+              </div>
+            </SettingsGroupRow>
+            <SettingsGroupRow
+              title={t('defaultSplitAgent.newTerminalTab.title')}
+              description={t('defaultSplitAgent.newTerminalTab.description')}
+            >
+              <Switch
+                checked={applyToNewTerminalTab}
+                onCheckedChange={(value) => void setApplyToNewTerminalTab(!!value)}
+              />
+            </SettingsGroupRow>
+          </>
+        ) : null}
       </SettingsGroupCard>
 
       <SettingsGroupCard
