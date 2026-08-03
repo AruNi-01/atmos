@@ -105,8 +105,12 @@ HTTP probing:
 
 Process signaling:
 
-- Provide `terminate_process(pid)` and optional `kill_process(pid)` helpers, but do not encode Project/Workspace safety in engine.
+- Provide `terminate_process(pid)` (listener leaf, graceful), `terminate_process_tree(root_pid)`, and `kill_process_tree(root_pid)` helpers. Do not encode Project/Workspace safety in engine.
+- Provide `process_snapshot` / `ancestor_chain` for stop-escalation UI (pid, ppid, pgid, command, cwd, tty, user).
+- Unix tree stop prefers process-group TERM/KILL when the root is the group leader (`pgid == pid` and `pgid > 1`); otherwise signals the root PID only.
+- Windows tree stop uses `taskkill /T` (and `/F` for force).
 - Engine returns structured errors for missing process, permission denied, and platform unsupported.
+- Engine never signals pid ≤ 1.
 
 ### crates/core-service
 
@@ -179,10 +183,13 @@ Command-line redaction:
 
 Stop guardrails:
 
-- `stop` accepts a service id, pid, port, and owner identifiers from the latest UI row.
-- Before signaling, re-scan or revalidate that the same pid still owns the same port and still attributes to the same Project/Workspace.
+- `stop` accepts a service id, pid, port, owner identifiers, optional `mode` (`listener` default | `tree`), and optional `root_pid` (required for tree mode).
+- **Step 1 (`mode: listener`)**: revalidate exact service_id + pid + port + owner; graceful TERM on the listening leaf only; wait ~1.6s; rescan listeners. Success only when the port is no longer LISTEN (`ok: true` is never returned solely because `kill` exited 0).
+- **Escalation**: if the port still listens for a same-owner stoppable workspace service after Step 1, return `ok: false, needs_escalation: true` with process tree, orphan hints, and `recommended_root_pid` (highest safe launcher / workspace-attributed ancestor such as `just` / package manager / `next dev`). Never recommend pid 1, tmux, Atmos Server, or other protected processes.
+- **Step 2 (`mode: tree`)**: requires explicit user confirmation and `root_pid`. Revalidate by port + owner (pid/service_id may have changed after respawn). Refuse roots not in the revalidated listener's ancestor chain or not marked stop-candidate. Graceful tree TERM, wait, then force tree KILL if still listening; success only when the port is free.
+- `not_http` status does **not** block `can_stop` when ownership confidence is high (orphaned `next-server` with timed-out HTTP probe remains stoppable).
 - Refuse root/system-owned processes, protected Atmos internals, unattributed listeners, stale listeners, and low-confidence matches.
-- Use graceful termination first. Force kill is a separate future action unless UI explicitly exposes a second confirmation.
+- Tree kill is never automatic; it is always a second, explicit UI action.
 
 Cache:
 
@@ -284,7 +291,9 @@ Router:
 - Register it in `apps/api/src/api/ws/router/mod.rs`.
 - Route `WsAction::LocalServicesScan` to `LocalServicesService::scan`.
 - Route `WsAction::LocalServicesStop` to `LocalServicesService::stop`.
-- The stop response should return `{ ok: true, service_id }` and the frontend should force-refresh afterward.
+- Listener success: `{ ok: true, service_id, mode: "listener" }` then frontend force-refresh.
+- Listener escalation: `{ ok: false, needs_escalation: true, reason, port, attempted_pid, current_listener_pid, orphan_hints, process_tree, recommended_root_pid, service_id }` (WS success envelope; not a transport error).
+- Tree success: `{ ok: true, service_id, mode: "tree" }` after verified port free.
 
 Transport choice:
 
@@ -302,13 +311,15 @@ Add a feature-owned Local Services area:
 - `apps/web/src/features/local-services/components/LocalServicesPopover.tsx`
 - `apps/web/src/features/local-services/components/LocalServiceList.tsx`
 - `apps/web/src/features/local-services/components/LocalServiceRow.tsx`
+- `apps/web/src/features/local-services/components/LocalServiceStopEscalationDialog.tsx`
 - `apps/web/src/features/local-services/components/LocalServicesPreviewPanel.tsx`
 
 Update action typing:
 
 - Add `"local_services_scan"` and `"local_services_stop"` to `apps/web/src/features/connection/hooks/use-websocket.ts`.
 - `localServicesApi.scan(request)` calls `wsRequest<LocalServicesScanResponse>("local_services_scan", request)`.
-- `localServicesApi.stop(request)` calls `wsRequest<{ ok: boolean; service_id: string }>("local_services_stop", request)`.
+- `localServicesApi.stop(request)` calls `wsRequest<LocalServiceStopResponse>("local_services_stop", request)`.
+- Step 1 stop uses `mode: "listener"` (default). On `needs_escalation`, open escalation dialog with process tree + recommended root; user confirms → `mode: "tree"` + `root_pid`.
 
 Store behavior:
 
@@ -471,5 +482,5 @@ Stable service ids:
 ## Open questions
 
 - [ ] Should diagnostics for unattributed listeners ship in Phase 1 or wait until after default filtering is validated?
-- [ ] Should stop offer a second "force kill" confirmation, or only graceful terminate in v1?
+- [x] Stop escalation: listener TERM first; if still listening, explicit "Stop process tree" confirmation runs tree TERM then auto-escalates to tree KILL within that confirmed action (no third dialog).
 - [ ] Where should local user overrides live if N1 ships: function settings, a dedicated local JSON file, or a future settings store?

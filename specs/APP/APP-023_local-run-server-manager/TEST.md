@@ -20,7 +20,7 @@
 | M5 | S7 |
 | M6 | S8, S9 |
 | M7 | S10 |
-| M8 | S12, S13 |
+| M8 | S12, S13, S15, S16, S17 |
 | M9 | S11 |
 
 ## Scenarios
@@ -139,6 +139,31 @@
 - **Then**: Preview navigates to that URL using the existing Preview browser tab behavior.
 - **Signals**: active Preview tab URL updates; iframe or desktop preview starts loading; no Run terminal output is involved.
 
+### S15 - Listener stop succeeds without escalation
+
+- **Level**: Unit / integration
+- **Given**: a healthy workspace Vite/Next listener that exits on SIGTERM of the listening PID.
+- **When**: the client sends `local_services_stop` with `mode = "listener"`.
+- **Then**: after brief wait + rescan, the port is free and the response is `{ ok: true, mode: "listener" }` with no `needs_escalation`.
+- **Signals**: no process-tree dialog; list refresh removes the row.
+
+### S16 - Listener stop escalates when parent respawns or leaf ignores TERM
+
+- **Level**: Unit / integration
+- **Given**: a workspace-attributed listener whose parent (`just` / `next dev`) respawns the child, or the leaf ignores TERM while the port stays LISTEN.
+- **When**: Step 1 `mode = "listener"` runs.
+- **Then**: response is `{ ok: false, needs_escalation: true }` with `process_tree`, orphan/respawn hints, and a `recommended_root_pid` that is not pid 1, tmux, or Atmos Server.
+- **Signals**: UI opens escalation dialog; no automatic tree kill is sent.
+
+### S17 - Explicit tree stop frees port; protected roots refused
+
+- **Level**: Unit / integration
+- **Given**: escalation payload with a safe recommended root (`just` / package manager).
+- **When**: the client sends `mode = "tree"` with that `root_pid` after user confirmation.
+- **Then**: backend revalidates port + owner, rejects protected/out-of-chain roots, performs tree TERM then KILL if needed, and returns `ok: true` only when the port is no longer LISTEN.
+- **And**: `not_http` + high-confidence workspace attribution still has `can_stop = true`.
+- **Signals**: unit tests for `build_process_tree_plan` / `is_safe_tree_root` / `can_stop`; integration refuse for tmux/pid 1.
+
 ## Performance & load budgets
 
 - Local scan completes within 3 seconds on a developer machine with fewer than 100 TCP listeners.
@@ -156,6 +181,9 @@
 - [ ] Full raw command lines are not rendered in normal Local Services rows.
 - [ ] Protected Atmos runtime services cannot be stopped.
 - [ ] Unattributed local app/system listeners do not appear in the default managed list.
+- [ ] Listener stop verifies port free before `ok: true`.
+- [ ] Tree stop is never automatic; recommended root never targets pid 1 / tmux / Atmos Server.
+- [ ] `not_http` high-confidence workspace services remain stoppable.
 
 ## Acceptance criteria
 

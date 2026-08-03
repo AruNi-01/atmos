@@ -150,6 +150,8 @@ pub(super) fn can_stop(
     ) {
         return false;
     }
+    // not_http must remain stoppable when ownership/confidence is solid — only
+    // protected/stale status blocks stop (APP-023 follow-up: orphan next-server).
     if matches!(
         status,
         LocalServiceStatus::Protected | LocalServiceStatus::Stale
@@ -224,7 +226,9 @@ pub(super) fn service_kind_rank(service: &LocalServiceDto) -> u8 {
 
 #[cfg(test)]
 mod tests {
-    use super::{browser_url, command_preview, probe_url};
+    use super::{browser_url, can_stop, command_preview, probe_url};
+    use crate::service::local_services::{LocalServiceKind, LocalServiceStatus};
+    use core_engine::LocalTcpListener;
 
     #[test]
     fn command_preview_redacts_secretish_values() {
@@ -249,5 +253,56 @@ mod tests {
         assert_eq!(probe_url("127.0.0.1", 3031), "http://127.0.0.1:3031");
         assert_eq!(probe_url("::1", 5173), "http://[::1]:5173");
         assert_eq!(probe_url("[::1]", 5173), "http://[::1]:5173");
+    }
+
+    #[test]
+    fn not_http_high_confidence_workspace_server_can_stop() {
+        let listener = LocalTcpListener {
+            pid: Some(4242),
+            process_name: Some("next-server".into()),
+            local_addr: "127.0.0.1".into(),
+            port: 3000,
+            cwd: None,
+            exe: None,
+            command_line: vec!["next-server".into()],
+            parent_pids: vec![1],
+            user_id: None,
+        };
+        assert!(can_stop(
+            &listener,
+            false,
+            0.95,
+            &LocalServiceStatus::NotHttp,
+            &LocalServiceKind::LikelyWorkspaceServer,
+        ));
+    }
+
+    #[test]
+    fn protected_and_stale_cannot_stop() {
+        let listener = LocalTcpListener {
+            pid: Some(1),
+            process_name: Some("tmux".into()),
+            local_addr: "127.0.0.1".into(),
+            port: 1,
+            cwd: None,
+            exe: None,
+            command_line: vec![],
+            parent_pids: vec![],
+            user_id: None,
+        };
+        assert!(!can_stop(
+            &listener,
+            true,
+            0.99,
+            &LocalServiceStatus::Protected,
+            &LocalServiceKind::ProtectedAtmosInternal,
+        ));
+        assert!(!can_stop(
+            &listener,
+            false,
+            0.99,
+            &LocalServiceStatus::Stale,
+            &LocalServiceKind::WorkspaceDevServer,
+        ));
     }
 }

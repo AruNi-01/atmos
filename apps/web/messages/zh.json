@@ -3388,6 +3388,7 @@
       },
       "list": {
         "failedToStopTitle": "停止服务失败",
+        "stopDidNotClear": "该端口上的服务仍在监听。",
         "emptyLabel": "未检测到本地服务。",
         "emptyDescription": "先在当前项目或工作区内启动一个服务，然后再刷新。"
       },
@@ -3398,6 +3399,28 @@
         "stopConfirmTitle": "停止服务？",
         "stopConfirmDescription": "要停止端口 {port} 上的 <strong>{url}</strong> 吗？",
         "stop": "停止"
+      },
+      "escalation": {
+        "title": "停止未完全生效",
+        "description": "端口 {port} 上的 {url} 仍在监听。父进程可能已重新拉起子进程，或监听进程忽略了停止信号。",
+        "reasonStillListening": "优雅停止后端口仍被占用。",
+        "reasonRespawned": "同一端口出现了新的监听进程（很可能被父进程重新拉起）。",
+        "reasonTermIgnored": "监听进程忽略了终止信号。",
+        "processTree": "进程链",
+        "processTreeEmpty": "无法读取该服务的进程链。",
+        "listenerBadge": "监听进程",
+        "recommendedBadge": "建议停止根",
+        "protectedBadge": "受保护",
+        "treeStopNote": "将停止进程树根 <strong>pid {pid}</strong>（先优雅终止；若端口仍占用再强制结束）。不会对 Atmos Server、tmux 等受保护进程下手。",
+        "noSafeRoot": "未找到安全的进程树根。请在原终端中停止服务，或手动释放端口。",
+        "stopProcessTree": "停止进程树",
+        "hints": {
+          "orphan_ppid": "进程看起来已成孤儿（父进程为 init / pid 1）。",
+          "no_tty": "没有控制终端（标准输出/错误可能已失效）。",
+          "respawned": "停止后监听 PID 已变化——父进程很可能重新拉起了子进程。",
+          "term_ignored_or_still_listening": "优雅停止未能释放端口。",
+          "not_http_still_listen": "HTTP 探测失败，但 TCP 仍在监听。"
+        }
       },
       "preview": {
         "title": "本地服务",

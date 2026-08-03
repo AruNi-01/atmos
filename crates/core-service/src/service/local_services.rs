@@ -13,12 +13,20 @@ use crate::{Result, ServiceError};
 mod classification;
 mod dto;
 mod ownership;
+mod process_tree;
 
 use classification::{is_default_visible, owner_sort_key, service_kind_rank};
 use dto::build_service_dto;
 use ownership::attribute_listener;
+use process_tree::{build_process_tree_plan, is_safe_tree_root, ProcessTreeNode};
 
 const CACHE_TTL: Duration = Duration::from_secs(5);
+/// Wait after listener TERM before verifying the port is free.
+const LISTENER_STOP_VERIFY_WAIT: Duration = Duration::from_millis(1600);
+/// Wait after tree TERM before escalating to KILL.
+const TREE_TERM_VERIFY_WAIT: Duration = Duration::from_millis(1600);
+/// Wait after tree KILL before final verification.
+const TREE_KILL_VERIFY_WAIT: Duration = Duration::from_millis(1000);
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -42,6 +50,14 @@ pub struct LocalServicesScanRequest {
     pub include_diagnostics: bool,
 }
 
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum LocalServiceStopMode {
+    #[default]
+    Listener,
+    Tree,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LocalServiceStopRequest {
     pub service_id: String,
@@ -51,12 +67,63 @@ pub struct LocalServiceStopRequest {
     pub project_id: Option<String>,
     #[serde(default)]
     pub workspace_id: Option<String>,
+    /// Stop mode. Default `listener` = single-pid graceful TERM + verify.
+    /// `tree` requires `root_pid` and is only used after explicit user confirmation.
+    #[serde(default)]
+    pub mode: LocalServiceStopMode,
+    /// Required when `mode = tree`. Must be a revalidated stop candidate in the
+    /// current listener's ancestor chain (never pid 1 / protected processes).
+    #[serde(default)]
+    pub root_pid: Option<u32>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum LocalServiceStopEscalationReason {
+    StillListening,
+    Respawned,
+    TermIgnored,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LocalServiceProcessNodeDto {
+    pub pid: u32,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ppid: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pgid: Option<u32>,
+    pub command_preview: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cwd_display: Option<String>,
+    pub is_listener: bool,
+    pub stop_candidate: bool,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub protected: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LocalServiceStopResponse {
     pub ok: bool,
     pub service_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mode: Option<LocalServiceStopMode>,
+    /// When `ok = false` after a listener-mode stop that left the port listening.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub needs_escalation: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reason: Option<LocalServiceStopEscalationReason>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub port: Option<u16>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub attempted_pid: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub current_listener_pid: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub orphan_hints: Option<Vec<String>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub process_tree: Option<Vec<LocalServiceProcessNodeDto>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub recommended_root_pid: Option<u32>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -186,6 +253,153 @@ impl LocalServicesService {
     }
 
     pub async fn stop(&self, request: LocalServiceStopRequest) -> Result<LocalServiceStopResponse> {
+        match request.mode {
+            LocalServiceStopMode::Listener => self.stop_listener(request).await,
+            LocalServiceStopMode::Tree => self.stop_tree(request).await,
+        }
+    }
+
+    async fn stop_listener(
+        &self,
+        request: LocalServiceStopRequest,
+    ) -> Result<LocalServiceStopResponse> {
+        let service = self.revalidate_stop_target(&request, true).await?;
+
+        // Graceful signal on the listening leaf only.
+        self.engine.terminate_process(request.pid).await?;
+        tokio::time::sleep(LISTENER_STOP_VERIFY_WAIT).await;
+        *self.cache.write().await = None;
+
+        // Success only when the port is no longer LISTEN for this service.
+        if !self.port_still_listening(request.port).await? {
+            return Ok(LocalServiceStopResponse {
+                ok: true,
+                service_id: request.service_id,
+                mode: Some(LocalServiceStopMode::Listener),
+                needs_escalation: None,
+                reason: None,
+                port: None,
+                attempted_pid: None,
+                current_listener_pid: None,
+                orphan_hints: None,
+                process_tree: None,
+                recommended_root_pid: None,
+            });
+        }
+
+        // Still listening — build escalation payload (pid may have changed via respawn).
+        let remaining = self
+            .find_stoppable_on_port(
+                request.port,
+                request.project_id.as_deref(),
+                request.workspace_id.as_deref(),
+            )
+            .await?;
+        let raw_listener_pid = self.listener_pid_on_port(request.port).await?;
+
+        let current_listener_pid = remaining
+            .as_ref()
+            .and_then(|s| s.pid)
+            .or(raw_listener_pid)
+            .or(Some(request.pid));
+        let reason = match (current_listener_pid, request.pid) {
+            (Some(current), attempted) if current != attempted => {
+                LocalServiceStopEscalationReason::Respawned
+            }
+            _ => LocalServiceStopEscalationReason::StillListening,
+        };
+
+        let escalation = self
+            .build_escalation(
+                remaining.as_ref().unwrap_or(&service),
+                request.pid,
+                current_listener_pid,
+                reason,
+            )
+            .await?;
+
+        Ok(escalation)
+    }
+
+    async fn stop_tree(
+        &self,
+        request: LocalServiceStopRequest,
+    ) -> Result<LocalServiceStopResponse> {
+        let root_pid = request.root_pid.ok_or_else(|| {
+            ServiceError::Validation("local_service_tree_root_required".into())
+        })?;
+        if root_pid <= 1 {
+            return Err(ServiceError::Validation(
+                "local_service_tree_root_protected".into(),
+            ));
+        }
+
+        // Revalidate by port + owner (service_id/pid may have changed after respawn).
+        let service = self.revalidate_stop_target(&request, false).await?;
+        let listener_pid = service.pid.ok_or_else(|| {
+            ServiceError::Validation("local_service_stop_not_allowed".into())
+        })?;
+
+        let chain = self
+            .engine
+            .process_ancestor_chain(listener_pid)
+            .await
+            .unwrap_or_default();
+        let workspace_root = PathBuf::from(&service.owner.root_path);
+        let current_user = std::env::var("USER").ok();
+        let plan = build_process_tree_plan(
+            &chain,
+            listener_pid,
+            Some(workspace_root.as_path()),
+            current_user.as_deref(),
+        );
+
+        if !is_safe_tree_root(&plan, root_pid, listener_pid) {
+            return Err(ServiceError::Validation(
+                "local_service_tree_root_not_allowed".into(),
+            ));
+        }
+
+        // Graceful tree stop, then force if the port is still listening.
+        let _ = self.engine.terminate_process_tree(root_pid).await;
+        tokio::time::sleep(TREE_TERM_VERIFY_WAIT).await;
+        *self.cache.write().await = None;
+
+        if self.port_still_listening(request.port).await? {
+            let _ = self.engine.kill_process_tree(root_pid).await;
+            tokio::time::sleep(TREE_KILL_VERIFY_WAIT).await;
+            *self.cache.write().await = None;
+        }
+
+        if self.port_still_listening(request.port).await? {
+            return Err(ServiceError::Processing(
+                "local_service_still_listening".into(),
+            ));
+        }
+
+        Ok(LocalServiceStopResponse {
+            ok: true,
+            service_id: service.id,
+            mode: Some(LocalServiceStopMode::Tree),
+            needs_escalation: None,
+            reason: None,
+            port: None,
+            attempted_pid: None,
+            current_listener_pid: None,
+            orphan_hints: None,
+            process_tree: None,
+            recommended_root_pid: None,
+        })
+    }
+
+    /// Revalidate that a stoppable workspace service still owns the request port.
+    /// When `require_exact_identity` is true, also require matching service_id + pid
+    /// (listener-mode Step 1). Tree mode correlates by port + owner only.
+    async fn revalidate_stop_target(
+        &self,
+        request: &LocalServiceStopRequest,
+        require_exact_identity: bool,
+    ) -> Result<LocalServiceDto> {
         let scan = self
             .scan(LocalServicesScanRequest {
                 scope: LocalServicesScope::AllAtmosProjects,
@@ -196,15 +410,22 @@ impl LocalServicesService {
             })
             .await?;
 
-        let service = scan
-            .services
-            .into_iter()
-            .find(|service| {
+        let service = if require_exact_identity {
+            scan.services.into_iter().find(|service| {
                 service.pid == Some(request.pid)
                     && service.port == request.port
                     && service.id == request.service_id
             })
-            .ok_or_else(|| ServiceError::Validation("local_service_stale".into()))?;
+        } else {
+            scan.services.into_iter().find(|service| {
+                service.port == request.port
+                    && service.owner.project_id == request.project_id
+                    && service.owner.workspace_id == request.workspace_id
+                    && service.can_stop
+                    && !service.protected
+            })
+        }
+        .ok_or_else(|| ServiceError::Validation("local_service_stale".into()))?;
 
         if !service.can_stop || service.protected {
             return Err(ServiceError::Validation(
@@ -218,12 +439,93 @@ impl LocalServicesService {
                 "local_service_owner_changed".into(),
             ));
         }
+        Ok(service)
+    }
 
-        self.engine.terminate_process(request.pid).await?;
-        *self.cache.write().await = None;
+    async fn find_stoppable_on_port(
+        &self,
+        port: u16,
+        project_id: Option<&str>,
+        workspace_id: Option<&str>,
+    ) -> Result<Option<LocalServiceDto>> {
+        let scan = self
+            .scan(LocalServicesScanRequest {
+                scope: LocalServicesScope::AllAtmosProjects,
+                force: true,
+                include_diagnostics: true,
+                project_id: project_id.map(ToOwned::to_owned),
+                workspace_id: workspace_id.map(ToOwned::to_owned),
+            })
+            .await?;
+        Ok(scan.services.into_iter().find(|service| {
+            service.port == port
+                && service.owner.project_id.as_deref() == project_id
+                && service.owner.workspace_id.as_deref() == workspace_id
+                && service.can_stop
+                && !service.protected
+        }))
+    }
+
+    async fn port_still_listening(&self, port: u16) -> Result<bool> {
+        Ok(self.listener_pid_on_port(port).await?.is_some())
+    }
+
+    async fn listener_pid_on_port(&self, port: u16) -> Result<Option<u32>> {
+        let listeners = self
+            .engine
+            .scan_listeners()
+            .await
+            .map_err(|e| ServiceError::Processing(e.to_string()))?;
+        Ok(listeners
+            .into_iter()
+            .find(|listener| listener.port == port)
+            .and_then(|listener| listener.pid))
+    }
+
+    async fn build_escalation(
+        &self,
+        service: &LocalServiceDto,
+        attempted_pid: u32,
+        current_listener_pid: Option<u32>,
+        reason: LocalServiceStopEscalationReason,
+    ) -> Result<LocalServiceStopResponse> {
+        let listener_pid = current_listener_pid.unwrap_or(attempted_pid);
+        let chain = self
+            .engine
+            .process_ancestor_chain(listener_pid)
+            .await
+            .unwrap_or_default();
+        let workspace_root = PathBuf::from(&service.owner.root_path);
+        let current_user = std::env::var("USER").ok();
+        let plan = build_process_tree_plan(
+            &chain,
+            listener_pid,
+            Some(workspace_root.as_path()),
+            current_user.as_deref(),
+        );
+
+        let mut orphan_hints = plan.orphan_hints;
+        if matches!(reason, LocalServiceStopEscalationReason::Respawned) {
+            orphan_hints.push("respawned".into());
+        } else {
+            orphan_hints.push("term_ignored_or_still_listening".into());
+        }
+        if matches!(service.status, LocalServiceStatus::NotHttp) {
+            orphan_hints.push("not_http_still_listen".into());
+        }
+
         Ok(LocalServiceStopResponse {
-            ok: true,
-            service_id: request.service_id,
+            ok: false,
+            service_id: service.id.clone(),
+            mode: Some(LocalServiceStopMode::Listener),
+            needs_escalation: Some(true),
+            reason: Some(reason),
+            port: Some(service.port),
+            attempted_pid: Some(attempted_pid),
+            current_listener_pid: Some(listener_pid),
+            orphan_hints: Some(unique_strings(orphan_hints)),
+            process_tree: Some(plan.nodes.into_iter().map(process_node_dto).collect()),
+            recommended_root_pid: plan.recommended_root_pid,
         })
     }
 
@@ -409,4 +711,27 @@ fn scan_cache_key(request: &LocalServicesScanRequest) -> String {
         "{:?}:{:?}:{:?}:{}",
         request.scope, request.project_id, request.workspace_id, request.include_diagnostics
     )
+}
+
+fn process_node_dto(node: ProcessTreeNode) -> LocalServiceProcessNodeDto {
+    LocalServiceProcessNodeDto {
+        pid: node.pid,
+        ppid: node.ppid,
+        pgid: node.pgid,
+        command_preview: node.command_preview,
+        cwd_display: node.cwd_display,
+        is_listener: node.is_listener,
+        stop_candidate: node.stop_candidate,
+        protected: node.protected,
+    }
+}
+
+fn unique_strings(items: Vec<String>) -> Vec<String> {
+    let mut out = Vec::new();
+    for item in items {
+        if !out.contains(&item) {
+            out.push(item);
+        }
+    }
+    out
 }

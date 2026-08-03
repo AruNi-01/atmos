@@ -3388,6 +3388,7 @@
       },
       "list": {
         "failedToStopTitle": "Failed to stop service",
+        "stopDidNotClear": "The service is still listening on that port.",
         "emptyLabel": "No Local Services detected.",
         "emptyDescription": "Start a server inside this Project or Workspace, then refresh."
       },
@@ -3398,6 +3399,28 @@
         "stopConfirmTitle": "Stop service?",
         "stopConfirmDescription": "Stop <strong>{url}</strong> on port {port}?",
         "stop": "Stop"
+      },
+      "escalation": {
+        "title": "Stop did not fully clear the service",
+        "description": "{url} on port {port} is still listening. A parent process may have respawned it, or the listener ignored the stop signal.",
+        "reasonStillListening": "The port is still in use after a graceful stop.",
+        "reasonRespawned": "A new process is listening on the same port (likely respawned by a parent).",
+        "reasonTermIgnored": "The listener ignored the terminate signal.",
+        "processTree": "Process chain",
+        "processTreeEmpty": "Could not read the process chain for this service.",
+        "listenerBadge": "listener",
+        "recommendedBadge": "recommended root",
+        "protectedBadge": "protected",
+        "treeStopNote": "This will stop process tree root <strong>pid {pid}</strong> (graceful first, then force if the port remains open). Protected processes such as Atmos Server and tmux are never targeted.",
+        "noSafeRoot": "No safe process-tree root was found. Stop the service from its original terminal, or free the port manually.",
+        "stopProcessTree": "Stop process tree",
+        "hints": {
+          "orphan_ppid": "Process looks orphaned (parent is init / pid 1).",
+          "no_tty": "No controlling terminal (stdout/stderr may be gone).",
+          "respawned": "Listener PID changed after stop — parent likely respawned a child.",
+          "term_ignored_or_still_listening": "Graceful stop did not free the port.",
+          "not_http_still_listen": "HTTP probe failed, but TCP is still listening."
+        }
       },
       "preview": {
         "title": "Local Services",

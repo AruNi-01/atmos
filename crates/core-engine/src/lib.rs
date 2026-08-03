@@ -28,7 +28,8 @@ pub use git::{
 };
 pub use github::GithubEngine;
 pub use local_services::{
-    LocalHttpProbeResult, LocalServiceProtocol, LocalServicesEngine, LocalTcpListener,
+    orphan_hints, process_snapshot, LocalHttpProbeResult, LocalServiceProtocol, LocalServicesEngine,
+    LocalTcpListener, ProcessSnapshot,
 };
 pub use search::{search_content, SearchMatch, SearchResult};
 pub use test_engine::TestEngine;
