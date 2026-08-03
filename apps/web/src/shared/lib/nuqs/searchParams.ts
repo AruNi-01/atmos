@@ -178,9 +178,6 @@ export const leftSidebarParams = {
 export type RightSidebarTab =
   | "files"
   | "changes"
-  | "pr"
-  | "issues"
-  | "actions"
   | "github"
   | "review"
   | "browser"
@@ -190,9 +187,6 @@ export const rightSidebarParams = {
   rsTab: parseAsStringEnum<RightSidebarTab>([
     "files",
     "changes",
-    "pr",
-    "issues",
-    "actions",
     "github",
     "review",
     "browser",

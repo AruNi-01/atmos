@@ -5216,12 +5216,8 @@
       "browserDescription": "显示用于运行开发服务器的应用内预览浏览器。",
       "runTitle": "运行",
       "runDescription": "启动并监控项目运行脚本。",
-      "prTitle": "拉取请求",
-      "prDescription": "浏览打开和已关闭的拉取请求。隐藏后将停止 PR 查询。",
-      "issuesTitle": "议题",
-      "issuesDescription": "浏览打开和已关闭的 GitHub 议题。隐藏后将停止议题查询。",
-      "actionsTitle": "操作",
-      "actionsDescription": "浏览 GitHub Actions 工作流运行记录。隐藏后将停止工作流查询。"
+      "githubTitle": "GitHub",
+      "githubDescription": "浏览拉取请求、议题和 Actions 工作流运行记录。隐藏后将移除 GitHub 标签页并停止相关查询。"
     },
     "agentHookStatusCard": {
       "title": "Agent Hook 状态",

@@ -78,25 +78,16 @@ test.describe("smoke workspace", () => {
       .poll(async () => new URL(page.url()).searchParams.get("rsTab"))
       .toBe("run");
 
-    await gotoContextRoute(page, withSearchParams(contextUrl, { rsTab: "pr" }), {
+    await gotoContextRoute(page, withSearchParams(contextUrl, { rsTab: "github" }), {
       locale: "zh",
     });
     await expect
       .poll(async () => new URL(page.url()).searchParams.get("rsTab"))
-      .toBe("pr");
-    const prSidebar = await getRightSidebar(page);
-    const closedPrTab = prSidebar.getByRole("tab", { name: "已关闭" });
-    if (await closedPrTab.isVisible().catch(() => false)) {
-      await closedPrTab.click();
-      await expect(closedPrTab).toBeVisible();
-    }
-
-    await gotoContextRoute(page, withSearchParams(contextUrl, { rsTab: "actions" }), {
-      locale: "zh",
-    });
-    await expect
-      .poll(async () => new URL(page.url()).searchParams.get("rsTab"))
-      .toBe("actions");
+      .toBe("github");
+    const githubSidebar = await getRightSidebar(page);
+    await expect(githubSidebar.getByRole("tab", { name: "拉取请求" })).toBeVisible();
+    await expect(githubSidebar.getByRole("tab", { name: "议题" })).toBeVisible();
+    await expect(githubSidebar.getByRole("tab", { name: "操作" })).toBeVisible();
   });
 
   test("@smoke @stateful boots direct workspace urls with read-only sidebar toggles and settings modal", async ({

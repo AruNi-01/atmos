@@ -150,7 +150,7 @@ export function IssueDetailView({
   };
 
   return (
-    <div className="relative mx-auto flex h-full min-h-0 w-full max-w-6xl flex-col overflow-hidden px-6 pb-8">
+    <div className="relative mx-auto flex h-full min-h-0 w-full max-w-6xl flex-col overflow-hidden px-6">
       <header className="relative flex shrink-0 items-center gap-3 pb-4 pt-6 pr-12">
         <Github className="size-4.5 text-muted-foreground/60" />
         <div className="flex min-w-0 items-center gap-2.5">
@@ -188,7 +188,7 @@ export function IssueDetailView({
         <>
         <div className="flex min-h-0 flex-1 gap-3 text-sm">
           <div className="min-w-0 flex-1 overflow-hidden">
-            <div className="h-full overflow-y-auto pb-16 pr-1">
+            <div className="h-full overflow-y-auto pr-1">
               <div className="sticky top-0 z-20 bg-background pb-3 pt-1">
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
@@ -484,7 +484,6 @@ function IssueActionToolbar({
           onClick={openToolbar}
           onFocus={openToolbar}
           onMouseEnter={openToolbar}
-          onMouseLeave={closeToolbar}
           className={cn(
             "h-1.5 w-40 rounded-full border-0 bg-foreground/20 p-0 shadow-[0_1px_8px_rgba(0,0,0,0.18)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40",
             !isOpen
@@ -798,7 +797,7 @@ function IssueMetadataSidebar({
         collapsed ? "max-w-0 opacity-0" : "max-w-[240px] opacity-100",
       )}
     >
-      <div className="flex w-[240px] flex-col gap-5 px-2 pb-16 pt-1 text-xs">
+      <div className="flex w-[240px] flex-col gap-5 px-2 pt-1 text-xs">
         <SidebarSection
           title={t("sidebar.assignees")}
           icon={<User className="size-3.5" />}

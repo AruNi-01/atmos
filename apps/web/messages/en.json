@@ -5216,12 +5216,8 @@
       "browserDescription": "Show the in-app preview browser for running dev servers.",
       "runTitle": "Run",
       "runDescription": "Start and monitor project run scripts.",
-      "prTitle": "Pull Requests",
-      "prDescription": "Browse open and closed pull requests. Hiding this stops PR lookups.",
-      "issuesTitle": "Issues",
-      "issuesDescription": "Browse open and closed GitHub issues. Hiding this stops issue lookups.",
-      "actionsTitle": "Actions",
-      "actionsDescription": "Browse GitHub Actions workflow runs. Hiding this stops workflow lookups."
+      "githubTitle": "GitHub",
+      "githubDescription": "Browse pull requests, issues, and Actions workflow runs. Hiding this removes the GitHub tab and stops related lookups."
     },
     "agentHookStatusCard": {
       "title": "Agent Hook Status",

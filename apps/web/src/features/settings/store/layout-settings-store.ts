@@ -30,8 +30,8 @@ export interface RightSidebarLayoutPrefs {
   rsShowReview: boolean;
   rsShowBrowser: boolean;
   rsShowRun: boolean;
-  rsShowPr: boolean;
-  rsShowActions: boolean;
+  /** Single GitHub tab (PRs, Issues, Actions). */
+  rsShowGithub: boolean;
 }
 
 interface LayoutSettingsState extends FooterLayoutPrefs, HeaderLayoutPrefs, RightSidebarLayoutPrefs {
@@ -72,8 +72,7 @@ interface LayoutSettingsState extends FooterLayoutPrefs, HeaderLayoutPrefs, Righ
   setRightSidebarShowReview: (value: boolean) => Promise<void>;
   setRightSidebarShowBrowser: (value: boolean) => Promise<void>;
   setRightSidebarShowRun: (value: boolean) => Promise<void>;
-  setRightSidebarShowPr: (value: boolean) => Promise<void>;
-  setRightSidebarShowActions: (value: boolean) => Promise<void>;
+  setRightSidebarShowGithub: (value: boolean) => Promise<void>;
 }
 
 function readFooterLayout(layout: Record<string, unknown> | undefined): FooterLayoutPrefs {
@@ -114,8 +113,7 @@ function readRightSidebarLayout(layout: Record<string, unknown> | undefined): Ri
     rsShowReview: layout?.right_sidebar_show_review !== false,
     rsShowBrowser: layout?.right_sidebar_show_browser !== false,
     rsShowRun: layout?.right_sidebar_show_run !== false,
-    rsShowPr: layout?.right_sidebar_show_pr !== false,
-    rsShowActions: layout?.right_sidebar_show_actions !== false,
+    rsShowGithub: layout?.right_sidebar_show_github !== false,
   };
 }
 
@@ -160,8 +158,7 @@ export const useLayoutSettingsStore = create<LayoutSettingsState>((set, get) => 
     rsShowReview: true,
     rsShowBrowser: true,
     rsShowRun: true,
-    rsShowPr: true,
-    rsShowActions: true,
+    rsShowGithub: true,
     loaded: false,
 
     loadSettings: async (force = false) => {
@@ -302,10 +299,7 @@ export const useLayoutSettingsStore = create<LayoutSettingsState>((set, get) => 
     setRightSidebarShowRun: (value) =>
       updateLayoutSetting({ rsShowRun: value }, 'right_sidebar_show_run', value),
 
-    setRightSidebarShowPr: (value) =>
-      updateLayoutSetting({ rsShowPr: value }, 'right_sidebar_show_pr', value),
-
-    setRightSidebarShowActions: (value) =>
-      updateLayoutSetting({ rsShowActions: value }, 'right_sidebar_show_actions', value),
+    setRightSidebarShowGithub: (value) =>
+      updateLayoutSetting({ rsShowGithub: value }, 'right_sidebar_show_github', value),
   };
 });

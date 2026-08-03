@@ -404,7 +404,7 @@ export function PRDetailView({ owner, repo, branch, prNumber, active, onRequestC
   }, [handleMainTabChange]);
 
   return (
-    <div className="mx-auto flex h-full min-h-0 w-full max-w-6xl flex-col gap-0 overflow-hidden px-6 pb-6">
+    <div className="relative mx-auto flex h-full min-h-0 w-full max-w-6xl flex-col gap-0 overflow-hidden px-6">
         <div className="flex flex-col flex-1 min-h-0">
           <header className="pr-12 flex flex-row items-center gap-3 pt-6 pb-4 shrink-0 relative">
             <Github className="size-4.5 text-muted-foreground/60" />
@@ -437,7 +437,7 @@ export function PRDetailView({ owner, repo, branch, prNumber, active, onRequestC
               <div className="flex-1 min-w-0 overflow-hidden">
                 <div
                   ref={mainScrollRef}
-                  className="h-full overflow-y-auto pr-1 pb-16"
+                  className="h-full overflow-y-auto pr-1"
                   onScroll={handleMainScroll}
                   onWheelCapture={handleMainWheelCapture}
                 >

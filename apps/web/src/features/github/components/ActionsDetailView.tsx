@@ -278,7 +278,7 @@ export function ActionsDetailView({
         onScroll={handleScroll}
         onWheelCapture={handleWheelCapture}
       >
-        <div className="relative mx-auto w-full max-w-2xl px-6 pb-16">
+        <div className="relative mx-auto w-full max-w-2xl px-6">
           <div className="flex flex-col text-sm relative">
             <div
               ref={contextRef}

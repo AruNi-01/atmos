@@ -209,8 +209,7 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
   const rsShowReview = useLayoutSettingsStore((s) => s.rsShowReview);
   const rsShowBrowser = useLayoutSettingsStore((s) => s.rsShowBrowser);
   const rsShowRun = useLayoutSettingsStore((s) => s.rsShowRun);
-  const rsShowPr = useLayoutSettingsStore((s) => s.rsShowPr);
-  const rsShowActions = useLayoutSettingsStore((s) => s.rsShowActions);
+  const rsShowGithub = useLayoutSettingsStore((s) => s.rsShowGithub);
   const loadLayoutSettings = useLayoutSettingsStore((s) => s.loadSettings);
   useEffect(() => { loadLayoutSettings(); }, [loadLayoutSettings]);
   const showFilesTab = projectFilesSide === "right";
@@ -220,13 +219,10 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
       review: rsShowReview,
       browser: rsShowBrowser,
       run: rsShowRun,
-      pr: rsShowPr,
-      issues: true,
-      actions: rsShowActions,
-      github: rsShowPr || rsShowActions,
+      github: rsShowGithub,
       files: true, // controlled separately by projectFilesSide
     }),
-    [rsShowChanges, rsShowReview, rsShowBrowser, rsShowRun, rsShowPr, rsShowActions],
+    [rsShowChanges, rsShowReview, rsShowBrowser, rsShowRun, rsShowGithub],
   );
   const topTabs = useMemo(() => {
     // Insert FILES_TAB into the canonical order first, then filter by
@@ -956,8 +952,8 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
           </div>
           )}
 
-          {/* PR tab content */}
-          {rsShowPr && (
+          {/* GitHub → Pull Requests */}
+          {rsShowGithub && (
           <div
             className={cn(
               "flex-1 flex flex-col min-h-0",
@@ -1023,7 +1019,8 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
           </div>
           )}
 
-          {/* Issues tab content */}
+          {/* GitHub → Issues */}
+          {rsShowGithub && (
           <div
             className={cn(
               "flex-1 flex flex-col min-h-0",
@@ -1052,9 +1049,10 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
               )
             ) : renderNoContextMessage}
           </div>
+          )}
 
-          {/* Actions tab content */}
-          {rsShowActions && (
+          {/* GitHub → Actions */}
+          {rsShowGithub && (
           <div
             className={cn(
               "flex-1 flex flex-col min-h-0",
