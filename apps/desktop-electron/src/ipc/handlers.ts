@@ -70,6 +70,14 @@ export function createAllHandlers(
       return { host: state.apiHost, port: state.apiPort };
     },
 
+    /** APP-052: shell capability discovery for web elevation gate. */
+    async get_desktop_capabilities() {
+      return {
+        overlaySurface: state.overlay != null,
+        shell: "electron",
+      };
+    },
+
     async get_version_info() {
       const { APP_ID, APP_PRODUCT_NAME } = await import("../branding-paths.js");
       let version = process.env.npm_package_version ?? "0.0.0";
@@ -485,6 +493,38 @@ export function createAllHandlers(
       } catch {
         throw new Error(`Invalid URL: ${url}`);
       }
+      return null;
+    },
+
+    // --- overlay surface (APP-052) ---
+    async overlay_bridge_ensure(args) {
+      const host = await hostWindowFromArgs(args, state);
+      const result = await state.overlay?.ensure(host);
+      return result ?? { ok: false, ready: false };
+    },
+
+    async overlay_bridge_set_pointer_mode(args) {
+      const host = await hostWindowFromArgs(args, state);
+      const mode = str(args.mode) === "capture" ? "capture" : "pass-through";
+      state.overlay?.setPointerMode(host, mode);
+      return null;
+    },
+
+    async overlay_bridge_note_activity(args) {
+      const host = await hostWindowFromArgs(args, state);
+      state.overlay?.noteActivity(host);
+      return null;
+    },
+
+    async overlay_bridge_release(args) {
+      const host = await hostWindowFromArgs(args, state);
+      state.overlay?.release(host);
+      return null;
+    },
+
+    async overlay_bridge_destroy(args) {
+      const host = await hostWindowFromArgs(args, state);
+      if (host) state.overlay?.destroyForHost(host);
       return null;
     },
 

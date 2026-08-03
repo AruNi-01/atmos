@@ -3,6 +3,7 @@
 import { cn } from "@/lib/utils";
 import { Drawer as DrawerPrimitive } from "@base-ui/react/drawer";
 import { createContext, use } from "react";
+import { usePortalContainer } from "./portal-container";
 
 const DrawerContext =
   createContext<DrawerPrimitive.Root.Props["swipeDirection"]>("down");
@@ -27,10 +28,12 @@ function DrawerTrigger({ ...props }: DrawerPrimitive.Trigger.Props) {
 }
 
 function DrawerPortal({ className, ...props }: DrawerPrimitive.Portal.Props) {
+  const container = usePortalContainer();
   return (
     <DrawerPrimitive.Portal
       data-slot="drawer-portal"
       className={cn("z-50", className)}
+      container={container}
       {...props}
     />
   );

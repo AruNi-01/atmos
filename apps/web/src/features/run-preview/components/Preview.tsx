@@ -37,6 +37,11 @@ import { usePreviewIframeLoad } from "../hooks/use-preview-iframe-load";
 import { usePreviewLifecycleEffects } from "../hooks/use-preview-lifecycle-effects";
 import { usePreviewNavigation } from "../hooks/use-preview-navigation";
 import { useNativePreviewOcclusion } from "../hooks/use-native-preview-occlusion";
+import { useDesktopElevationStore } from "@/shared/lib/desktop-overlay/elevation-store";
+import {
+  shouldSuspendDesktopNativePreview,
+  shouldSuspendFromOcclusion,
+} from "@/shared/lib/desktop-overlay/elevation-policy";
 import { usePreviewSelection } from "../hooks/use-preview-selection";
 import { usePreviewToolbarLayout } from "../hooks/use-preview-toolbar-layout";
 import { usePreviewWindowState } from "../hooks/use-preview-window-state";
@@ -323,26 +328,61 @@ export const Preview: React.FC<PreviewProps> = ({
     }
   }, [normalizedActiveUrl]);
   const isDesktopNativePreviewOccluded = useNativePreviewOcclusion({
+    // APP-052 M5: standalone/detached browser hosts also need occlusion fallback.
     enabled:
       preferredTransportMode === 'desktop-native' &&
       isActive &&
-      !isStandaloneBrowserWindow &&
       !disableNativePreviewOcclusion &&
       !suppressNativePreviewOcclusion,
     surfaceRef: desktopViewportRef,
     ignoredRootRef: previewRootRef,
   });
+  // APP-052: when elevation covers open floaters, do not hide native preview.
+  // Requires a live portal container so host-only floaters still use APP-029 hide.
+  const elevationCovers = useDesktopElevationStore(
+    (s) =>
+      s.capability &&
+      s.surfaceReady &&
+      !s.ensureFailed &&
+      s.elevatedLayerCount > 0 &&
+      s.portalContainer != null,
+  );
+  // Mark native preview presence for FloatingElevationProvider (lazy elevate).
+  // Refcount so multi-Preview hosts and standalone windows do not clear each other.
+  useEffect(() => {
+    const present =
+      preferredTransportMode === "desktop-native" && isActive;
+    if (!present) return;
+    useDesktopElevationStore.getState().acquireNativePreviewSurface();
+    return () => {
+      useDesktopElevationStore.getState().releaseNativePreviewSurface();
+    };
+  }, [preferredTransportMode, isActive]);
   // NOTE: Do not suspend based on right-sidebar collapse — that used to hide
   // *every* desktop-native surface (including center browsers). Sidebar
   // visibility is handled via BrowserPanel `isActive` in RightSidebar instead.
-  const shouldSuspendDesktopPreview =
-      preferredTransportMode === 'desktop-native' && (
-        (!isStandaloneBrowserWindow && isPreviewStandaloneOpen) ||
-        isPreviewLoading ||
-        (!disableNativePreviewOcclusion && !suppressNativePreviewOcclusion && isDesktopNativePreviewOccluded) ||
-        favoritesListOpen || favoritePopoverOpen ||
-        headerHasOpenOverlay || isGlobalSearchOpen
-      );
+  const suspendFromOcclusion =
+    !disableNativePreviewOcclusion &&
+    !suppressNativePreviewOcclusion &&
+    shouldSuspendFromOcclusion({
+      isOccluded: isDesktopNativePreviewOccluded,
+      elevationCovers,
+    });
+  // Elevatable chrome (popover/header/search) must not force hide when elevation covers (AC2/M3).
+  const elevatableChromeOpen =
+    favoritesListOpen ||
+    favoritePopoverOpen ||
+    headerHasOpenOverlay ||
+    isGlobalSearchOpen;
+  const shouldSuspendDesktopPreview = shouldSuspendDesktopNativePreview({
+    isDesktopNative: preferredTransportMode === "desktop-native",
+    isStandaloneHandoffOpen:
+      !isStandaloneBrowserWindow && isPreviewStandaloneOpen,
+    isPreviewLoading,
+    suspendFromOcclusion,
+    elevationCovers,
+    elevatableChromeOpen,
+  });
   const {
     checkExtensionUpdate,
     extensionDownloadStarted,

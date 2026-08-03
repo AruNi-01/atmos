@@ -12,6 +12,7 @@ import { DesktopExternalUrlBridge } from "@/providers/app/desktop-external-url-b
 import { WorkbenchIntlProvider } from "@/providers/app/workbench-intl-provider";
 import UpdateNotification from "@/app-shell/UpdateNotification";
 import { ServerStateEventBridge } from "@/providers/app/server-state-event-bridge";
+import { FloatingElevationProvider } from "@/shared/lib/desktop-overlay/floating-elevation-provider";
 import {
   AgentToastProvider,
   AnchoredToastProvider,
@@ -82,7 +83,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                     <AgentToastProvider>
                       <AnchoredToastProvider>
                         <TooltipProvider>
-                          {children}
+                          <FloatingElevationProvider>
+                            {children}
+                          </FloatingElevationProvider>
                         </TooltipProvider>
                       </AnchoredToastProvider>
                     </AgentToastProvider>

@@ -100,4 +100,20 @@ describe("readNativePreviewOcclusionSnapshot", () => {
     const snapshot = readNativePreviewOcclusionSnapshot(surface, portal);
     expect(snapshot.isOccluded).toBe(false);
   });
+
+  it("treats tooltips as occluding candidates when they intersect (APP-052)", () => {
+    const surface = document.createElement("div");
+    setRect(surface, { left: 200, top: 80, width: 600, height: 400 });
+    document.body.appendChild(surface);
+
+    const tip = document.createElement("div");
+    tip.setAttribute("data-slot", "tooltip-content");
+    tip.style.opacity = "1";
+    setRect(tip, { left: 250, top: 100, width: 120, height: 32 });
+    document.body.appendChild(tip);
+
+    const snapshot = readNativePreviewOcclusionSnapshot(surface, null);
+    expect(snapshot.isOccluded).toBe(true);
+    expect(snapshot.candidates).toContain(tip);
+  });
 });

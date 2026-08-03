@@ -68,6 +68,12 @@ export function createMainWindow(state: AppState, uiUrl: string): BrowserWindow 
   });
 
   state.mainWindow = win;
+  // APP-052: intercept overlay window.open + track per-host surface.
+  try {
+    state.overlay?.attachHost(win);
+  } catch (e) {
+    console.warn("[desktop-electron] overlay attachHost failed", e);
+  }
   return win;
 }
 

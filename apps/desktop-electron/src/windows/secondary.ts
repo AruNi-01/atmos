@@ -50,6 +50,11 @@ function openOrFocus(
   });
 
   wireFullscreenEvents(win);
+  try {
+    state.overlay?.attachHost(win);
+  } catch {
+    /* optional until overlay manager boots */
+  }
   secondaryWindows.set(label, win);
   win.on("closed", () => {
     secondaryWindows.delete(label);

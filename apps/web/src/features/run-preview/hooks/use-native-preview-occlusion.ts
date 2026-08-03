@@ -18,10 +18,9 @@ const OVERLAY_CANDIDATE_SELECTOR = [
   "[data-radix-popper-content-wrapper]",
   "[role=\"dialog\"]",
   "[aria-modal=\"true\"]",
-].join(", ");
-
-const TOOLTIP_CANDIDATE_SELECTOR = [
+  // APP-052: tooltips elevate + participate in fallback occlusion (no longer ignored).
   "[data-slot=\"tooltip-content\"]",
+  "[data-slot=\"hover-card-content\"]",
   "[role=\"tooltip\"]",
 ].join(", ");
 
@@ -42,11 +41,6 @@ function rectsIntersect(a: DOMRect, b: DOMRect): boolean {
   return a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
 }
 
-function isTooltipCandidate(element: Element): boolean {
-  if (element.matches(TOOLTIP_CANDIDATE_SELECTOR)) return true;
-  return Boolean(element.querySelector(TOOLTIP_CANDIDATE_SELECTOR));
-}
-
 function isVisibleOverlayCandidate(
   element: Element,
   ignoredRoot: HTMLElement | null,
@@ -57,7 +51,7 @@ function isVisibleOverlayCandidate(
   if (element.contains(surface)) return false;
   if (ignoredRoot?.contains(element)) return false;
   if (element.closest("[data-atmos-ignore-native-surface-occlusion]")) return false;
-  if (isTooltipCandidate(element)) return false;
+  // APP-052: tooltips/hover-cards are elevatable and participate in fallback occlusion.
   if (element.getAttribute("data-state") === "closed") return false;
   if (!isNativeSurfaceOverlay && element.getAttribute("aria-hidden") === "true") return false;
 

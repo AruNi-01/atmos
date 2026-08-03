@@ -17,6 +17,7 @@ import { createMainWindow, uiBaseUrl } from "./windows/main-window.js";
 import { markAllowWindowDestroy } from "./windows/close-behavior.js";
 import { ensureMacDockVisible } from "./windows/mac-dock.js";
 import { PreviewSurfaceManager } from "./preview/surface-manager.js";
+import { OverlaySurfaceManager } from "./overlay/overlay-surface-manager.js";
 import { ALL_PROVIDERS, TunnelService } from "./tunnel/service.js";
 import { mainLog, mainLogPath } from "./main-log.js";
 import { existsSync } from "node:fs";
@@ -89,6 +90,9 @@ async function boot() {
   // Only create services once — activate must not clobber live tunnels/previews.
   if (!state.preview) {
     state.preview = new PreviewSurfaceManager(state);
+  }
+  if (!state.overlay) {
+    state.overlay = new OverlaySurfaceManager(state);
   }
   if (!state.tunnel) {
     state.tunnel = new TunnelService();
