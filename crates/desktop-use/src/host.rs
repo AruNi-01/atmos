@@ -69,7 +69,8 @@ pub fn ensure_daemon(
 fn spawn_daemon(
     engine_bin: &Path,
     socket: &Path,
-    host_app: Option<&Path>,
+    // LaunchServices host app is macOS-only; keep param for API symmetry on all targets.
+    #[cfg_attr(not(target_os = "macos"), allow(unused_variables))] host_app: Option<&Path>,
 ) -> Result<(), String> {
     let socket_str = socket.display().to_string();
 
@@ -100,12 +101,7 @@ fn spawn_daemon(
 
     // Direct spawn (Linux/Windows, or macOS fallback when host app missing).
     let child = Command::new(engine_bin)
-        .args([
-            "serve",
-            "--socket",
-            &socket_str,
-            "--no-permissions-gate",
-        ])
+        .args(["serve", "--socket", &socket_str, "--no-permissions-gate"])
         .env("CUA_DRIVER_RS_PERMISSIONS_GATE", "0")
         .stdin(Stdio::null())
         .stdout(Stdio::null())
@@ -176,7 +172,10 @@ pub fn call_tool(
 }
 
 /// Open system permission grant flow for the rebranded host app when present.
-pub fn open_host_permission_grant(host_app: Option<&Path>, engine_bin: &Path) -> Result<(), String> {
+pub fn open_host_permission_grant(
+    host_app: Option<&Path>,
+    engine_bin: &Path,
+) -> Result<(), String> {
     #[cfg(target_os = "macos")]
     {
         if let Some(app) = host_app {
@@ -227,7 +226,12 @@ pub fn permissions_status_json(
             return Ok(parsed);
         }
     }
-    if let Ok(v) = call_tool(engine_bin, socket, "check_permissions", &serde_json::json!({})) {
+    if let Ok(v) = call_tool(
+        engine_bin,
+        socket,
+        "check_permissions",
+        &serde_json::json!({}),
+    ) {
         let accessibility = v.get("accessibility").and_then(|x| x.as_bool());
         let screen_recording = v.get("screen_recording").and_then(|x| x.as_bool());
         let bundle = v

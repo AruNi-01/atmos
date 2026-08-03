@@ -154,12 +154,7 @@ fn screenshot_via_engine(
             error_code: Some("control_engine_failed".into()),
         };
     }
-    match host::call_tool(
-        &engine,
-        &socket,
-        "get_desktop_state",
-        &json!({}),
-    ) {
+    match host::call_tool(&engine, &socket, "get_desktop_state", &json!({})) {
         Ok(v) => {
             // Optionally write PNG if base64 present and out_path set.
             if let (Some(out), Some(b64)) = (
@@ -188,7 +183,10 @@ fn screenshot_via_engine(
             detail: None,
             result: None,
             capture: None,
-            error: Some(scrub_vendor(&format!("{}: {e}", strings::ERR_ENGINE_FAILED))),
+            error: Some(scrub_vendor(&format!(
+                "{}: {e}",
+                strings::ERR_ENGINE_FAILED
+            ))),
             error_code: Some("control_engine_failed".into()),
         },
     }

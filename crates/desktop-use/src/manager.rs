@@ -226,10 +226,7 @@ impl DesktopUseManager {
                 // Best-effort: start daemon via Atmos Desktop Use.app (unified TCC).
                 let sock = self.socket_path();
                 let host_fallback = self.host_app_path();
-                let host_app = layout
-                    .host_app
-                    .as_deref()
-                    .or(host_fallback.as_deref());
+                let host_app = layout.host_app.as_deref().or(host_fallback.as_deref());
                 let _ = host::ensure_daemon(&layout.engine_bin, &sock, host_app);
                 EnsureOutcome::Installed {
                     path: layout.engine_bin.display().to_string(),
