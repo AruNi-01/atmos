@@ -177,7 +177,11 @@ const terminalSplitPrefsStore = create<TerminalSplitPrefsState>((set, get) => ({
           });
         }
       } finally {
-        if (inFlightLoad === promise) {
+        // Clear only while this request still owns the in-flight slot.
+        // Prefer requestToken over promise identity so we avoid a self-referential
+        // const (TS2454: used before assigned) and still ignore superseded loads
+        // after resetForConnectionChange bumps the token.
+        if (loadRequestToken === requestToken) {
           inFlightLoad = null;
         }
       }

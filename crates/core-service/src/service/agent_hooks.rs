@@ -709,6 +709,7 @@ impl AgentHooksService {
 
     /// Child-origin tool / permission traffic shares the lead pane but must not
     /// own lead completion. Never invents roster rows (only lifecycle does).
+    #[allow(clippy::too_many_arguments)] // mirrors update_state; keep call sites explicit
     pub(super) fn handle_child_origin_event(
         &self,
         session_id: &str,
