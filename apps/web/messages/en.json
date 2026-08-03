@@ -5529,7 +5529,7 @@
     },
     "desktopUse": {
       "title": "Desktop Use",
-      "description": "Capture the local desktop and manage the optional control engine. This is separate from Atmos Computer (remote machines).",
+      "description": "Capture, inspect UI structure, and drive the desktop with a visible Agent pointer. Separate from Atmos Computer (remote machines).",
       "desktopOnly": "Desktop Use settings require the Atmos Desktop app.",
       "engine": {
         "title": "Control engine",
@@ -5552,7 +5552,16 @@
         "statusFailed": "Could not load Desktop Use status",
         "ensureFailed": "Could not install control engine",
         "stopFailed": "Could not stop control engine",
-        "uninstallFailed": "Could not remove control engine"
+        "uninstallFailed": "Could not remove control engine",
+        "pointerFailed": "Could not update agent pointer"
+      },
+      "pointer": {
+        "title": "Agent pointer",
+        "hint": "Show a synthetic Agent cursor when Desktop Use drives the desktop. Your real mouse stays put.",
+        "on": "On",
+        "off": "Off",
+        "preview": "Preview pointer",
+        "previewTypeSample": "Hello from Agent"
       }
     }
   },

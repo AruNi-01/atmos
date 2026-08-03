@@ -111,6 +111,20 @@ atmos desktop-use drive type --text "…"
 - **Implementation:** `crates/desktop-use/src/inspect/` ports the AppShot Tauri AX walker (`AXUIElement` compact tree, depth/node/byte caps, secure-field redaction).
 - **AppShot flow:** one Capture (PNG) + one Inspect (tree) → compose `context.md` with quality `screenshot_and_accessibility` when both succeed.
 
+### Agent pointer (synthetic cursor)
+
+Computer-use must be **visible**: when Control drives the desktop, Atmos paints an **Agent pointer** overlay that does **not** move the user’s system cursor.
+
+| Item | Spec |
+|------|------|
+| Surface | Electron transparent `panel` window, click-through, always-on-top, multi-monitor virtual bounds |
+| Ownership | `apps/desktop-electron/src/desktop-use/agent-pointer.ts` (+ pure math helpers) |
+| Default | **On** (`~/.atmos/desktop-use/agent-pointer.json`) |
+| Actions | show / move (eased) / click ripple / type chip / hide |
+| Product path | `desktop_use_drive` IPC: play pointer choreography, then control engine |
+| Settings | Desktop Use → Agent pointer toggle + Preview |
+| Out of scope M1 | Vendoring Cua `cursor-overlay`; multi-agent multi-color cursors |
+
 
 Drive adapter:
 

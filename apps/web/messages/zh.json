@@ -5529,7 +5529,7 @@
     },
     "desktopUse": {
       "title": "Desktop Use",
-      "description": "捕获本机桌面并管理可选控制引擎。与 Atmos Computer（远程机器）相互独立。",
+      "description": "捕获、检视界面结构，并以可见的 Agent 指针驱动桌面。与 Atmos Computer（远程机器）相互独立。",
       "desktopOnly": "Desktop Use 设置需要 Atmos Desktop 应用。",
       "engine": {
         "title": "控制引擎",
@@ -5552,7 +5552,16 @@
         "statusFailed": "无法加载 Desktop Use 状态",
         "ensureFailed": "无法安装控制引擎",
         "stopFailed": "无法停止控制引擎",
-        "uninstallFailed": "无法移除控制引擎"
+        "uninstallFailed": "无法移除控制引擎",
+        "pointerFailed": "无法更新 Agent 指针"
+      },
+      "pointer": {
+        "title": "Agent 指针",
+        "hint": "Desktop Use 操控桌面时显示合成 Agent 光标，不移动你的真实鼠标。",
+        "on": "开",
+        "off": "关",
+        "preview": "预览指针",
+        "previewTypeSample": "来自 Agent 的输入"
       }
     }
   },

@@ -44,6 +44,19 @@ describe("Desktop Use settings wiring", () => {
     expect(section.toLowerCase()).not.toContain("trycua");
   });
 
+  it("includes agent pointer toggle and preview controls", () => {
+    const section = readFileSync(
+      join(
+        root,
+        "apps/web/src/features/settings/components/DesktopUseSettingsSection.tsx",
+      ),
+      "utf8",
+    );
+    expect(section).toContain("desktop_use_pointer_set_enabled");
+    expect(section).toContain("desktop_use_pointer_play");
+    expect(section).toContain("pointer.title");
+  });
+
   it("permission primary path opens Settings Desktop Use", () => {
     const client = readFileSync(
       join(root, "apps/web/src/features/appshot/lib/appshot-client.ts"),

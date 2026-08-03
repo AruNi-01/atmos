@@ -5,7 +5,8 @@ import { useTranslations } from "next-intl";
 import { Button } from "@workspace/ui/components/ui/button";
 import { Badge } from "@workspace/ui/components/ui/badge";
 import { Skeleton } from "@workspace/ui/components/ui/skeleton";
-import { Download, Loader2, Square, Trash2, RefreshCw } from "lucide-react";
+import { Download, Loader2, Square, Trash2, RefreshCw, MousePointer2 } from "lucide-react";
+import { Switch } from "@workspace/ui/components/ui/switch";
 import { AppshotPermissionsPanel } from "@/features/appshot/components/AppshotPermissionsPanel";
 import { desktopInvoke, isDesktopRuntime } from "@/shared/lib/desktop-bridge";
 
@@ -30,6 +31,8 @@ export function DesktopUseSettingsSection() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [pointerEnabled, setPointerEnabled] = useState(true);
+  const [pointerBusy, setPointerBusy] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -50,6 +53,14 @@ export function DesktopUseSettingsSection() {
       }
       const res = await desktopInvoke<DesktopUseStatus>("desktop_use_status");
       setStatus(res);
+      try {
+        const ptr = await desktopInvoke<{ enabled: boolean }>(
+          "desktop_use_pointer_status",
+        );
+        setPointerEnabled(ptr?.enabled !== false);
+      } catch {
+        /* pointer optional on older shells */
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : t("errors.statusFailed"));
     } finally {
@@ -95,6 +106,56 @@ export function DesktopUseSettingsSection() {
       setError(e instanceof Error ? e.message : t("errors.uninstallFailed"));
     } finally {
       setBusy(false);
+    }
+  };
+
+  const togglePointer = async (enabled: boolean) => {
+    setPointerEnabled(enabled);
+    if (!isDesktopRuntime()) return;
+    try {
+      await desktopInvoke("desktop_use_pointer_set_enabled", { enabled });
+      if (!enabled) {
+        await desktopInvoke("desktop_use_pointer_hide");
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t("errors.pointerFailed"));
+    }
+  };
+
+  const previewPointer = async () => {
+    if (!isDesktopRuntime()) return;
+    setPointerBusy(true);
+    setError(null);
+    try {
+      // Demo path across primary display: show → move → click → type chip → hide
+      await desktopInvoke("desktop_use_pointer_play", {
+        kind: "show",
+        x: 220,
+        y: 180,
+      });
+      await desktopInvoke("desktop_use_pointer_play", {
+        kind: "move",
+        x: 520,
+        y: 320,
+      });
+      await desktopInvoke("desktop_use_pointer_play", {
+        kind: "click",
+        x: 520,
+        y: 320,
+      });
+      await desktopInvoke("desktop_use_pointer_play", {
+        kind: "type",
+        x: 520,
+        y: 320,
+        text: t("pointer.previewTypeSample"),
+      });
+      window.setTimeout(() => {
+        void desktopInvoke("desktop_use_pointer_hide");
+      }, 1200);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t("errors.pointerFailed"));
+    } finally {
+      setPointerBusy(false);
     }
   };
 
@@ -186,6 +247,49 @@ export function DesktopUseSettingsSection() {
           >
             <RefreshCw className="size-4" />
             {t("actions.refresh")}
+          </Button>
+        </div>
+      </section>
+
+      <section className="space-y-3 rounded-xl border border-border p-4">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              <MousePointer2 className="size-4 text-muted-foreground" />
+              <p className="text-sm font-medium">{t("pointer.title")}</p>
+            </div>
+            <p className="mt-1 text-xs leading-5 text-muted-foreground">
+              {t("pointer.hint")}
+            </p>
+          </div>
+          <div className="flex items-center gap-2 pt-0.5">
+            <span className="text-xs text-muted-foreground">
+              {pointerEnabled ? t("pointer.on") : t("pointer.off")}
+            </span>
+            <Switch
+              checked={pointerEnabled}
+              disabled={!isDesktopRuntime() || loading}
+              onCheckedChange={(v) => void togglePointer(v)}
+            />
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={
+              !isDesktopRuntime() || loading || pointerBusy || !pointerEnabled
+            }
+            onClick={() => void previewPointer()}
+            className="cursor-pointer"
+          >
+            {pointerBusy ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <MousePointer2 className="size-4" />
+            )}
+            {t("pointer.preview")}
           </Button>
         </div>
       </section>

@@ -618,6 +618,84 @@ export function createAllHandlers(
             : null;
       return inspect.desktopUseInspect({ processId: pid, appName });
     },
+    async desktop_use_pointer_status() {
+      const ptr = await import("../desktop-use/agent-pointer.js");
+      return ptr.agentPointerStatus();
+    },
+    async desktop_use_pointer_set_enabled(args) {
+      const ptr = await import("../desktop-use/agent-pointer.js");
+      const enabled = Boolean(args?.enabled ?? true);
+      return ptr.setAgentPointerEnabled(enabled);
+    },
+    async desktop_use_pointer_play(args) {
+      const ptr = await import("../desktop-use/agent-pointer.js");
+      const kind = String(args?.kind ?? args?.action ?? "click") as
+        | "click"
+        | "type"
+        | "move"
+        | "show"
+        | "hide";
+      const x = args?.x != null ? Number(args.x) : undefined;
+      const y = args?.y != null ? Number(args.y) : undefined;
+      const text = typeof args?.text === "string" ? args.text : undefined;
+      return ptr.playAgentPointerAction({ kind, x, y, text });
+    },
+    async desktop_use_pointer_hide() {
+      const ptr = await import("../desktop-use/agent-pointer.js");
+      return ptr.hideAgentPointer();
+    },
+    /**
+     * Drive + agent pointer choreography (product path for Computer Use feel).
+     * Always plays the synthetic pointer when enabled; then delegates click/type
+     * to the control engine when installed.
+     */
+    async desktop_use_drive(args) {
+      const client = await import("../desktop-use/client.js");
+      const ptr = await import("../desktop-use/agent-pointer.js");
+      const action = String(args?.action ?? "click");
+      const x = args?.x != null ? Number(args.x) : undefined;
+      const y = args?.y != null ? Number(args.y) : undefined;
+      const text = typeof args?.text === "string" ? args.text : undefined;
+
+      let pointer: unknown = null;
+      if (action === "click" && x != null && y != null) {
+        pointer = await ptr.agentPointerClick(x, y);
+      } else if (action === "type") {
+        pointer = await ptr.agentPointerType(text ?? "", x, y);
+      } else if (action === "move" && x != null && y != null) {
+        pointer = await ptr.moveAgentPointer(x, y);
+      }
+
+      // Delegate real input to CLI control path (engine when present).
+      let drive: unknown = null;
+      try {
+        if (action === "click" && x != null && y != null) {
+          drive = await client.runDesktopUseJson(
+            ["drive", "click", "--x", String(x), "--y", String(y)],
+            30_000,
+          );
+        } else if (action === "type" && text != null) {
+          drive = await client.runDesktopUseJson(
+            ["drive", "type", "--text", text],
+            30_000,
+          );
+        } else if (action === "screenshot") {
+          drive = await client.runDesktopUseJson(["drive", "screenshot"], 30_000);
+        }
+      } catch (e) {
+        drive = {
+          ok: false,
+          error: e instanceof Error ? e.message : String(e),
+        };
+      }
+
+      return {
+        ok: true,
+        pointer,
+        drive,
+        note: "Agent pointer is synthetic and does not move the system cursor.",
+      };
+    },
 
     // --- tunnel ---
     async tunnel_connector_detect() {

@@ -53,6 +53,7 @@ Ship **Desktop Use**: an Atmos-owned local capability for **desktop capture**, *
 - **M14** `atmos desktop-use capture` (JSON-capable)
 - **M14b** `atmos desktop-use inspect --pid …` (accessibility tree JSON-capable)
 - **M15** Core `drive` actions: at least `screenshot`, `click`, `type` (and optional `shell` only if TECH keeps it non-colliding with terminal agents; default M1 may omit shell).
+- **M15b** **Agent pointer**: when driving the desktop from Atmos Desktop, show a synthetic Agent cursor (move / click pulse / type chip) that does **not** move the user’s system pointer. Default on; toggle + preview in Settings → Desktop Use.
 - **M16** User-facing CLI help/errors contain no vendor strings.
 
 ### 4.5 Control plane
