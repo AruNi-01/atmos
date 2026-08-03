@@ -1,0 +1,26 @@
+apps/web/src/app-shell/RightSidebar.tsx
+  h_5be255725524c8 645,658-665,973,995-1000
+apps/web/src/features/github/components/GithubMetadataFilters.tsx
+  h_5be255725524c8 122,125,132-140
+apps/web/src/features/github/components/IssueDetailView.tsx
+  h_5be255725524c8 20,30,549-557,686-687,690,692,694,696,698,700,702,708
+apps/web/src/features/github/components/IssuePanel.tsx
+  h_5be255725524c8 84,132-137
+apps/web/src/features/github/components/PRDetailView.tsx
+  h_5be255725524c8 753-755,760,764,768,781,785,790,793,799,803,808,813,821,828,835,841,849,868,879
+apps/web/src/features/github/lib/__tests__/pr-review-thread-agent-fix.test.tsx
+  h_5be255725524c8 41-56
+apps/web/src/features/github/lib/pr-detail-parts.tsx
+  h_5be255725524c8 11-12,21,26,807-815
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "36459b5ee90c296eb66bce29d4629a569557ec13",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
