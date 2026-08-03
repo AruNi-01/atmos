@@ -93,6 +93,7 @@ export function FloatingElevationProvider({
   const overlayWindowRef = React.useRef<Window | null>(null);
   const ensurePromiseRef = React.useRef<Promise<boolean> | null>(null);
   const overlayMoRef = React.useRef<MutationObserver | null>(null);
+  const overlayListenerDocRef = React.useRef<Document | null>(null);
   const rafIdsRef = React.useRef<number[]>([]);
 
   React.useEffect(() => {
@@ -236,6 +237,15 @@ export function FloatingElevationProvider({
     }
 
     let disposed = false;
+    let recountScheduled = false;
+    /** Gate bridge IPC so unchanged recounts do not spam note_activity/release. */
+    let lastBridgeState: "activity" | "release" | null = null;
+
+    const releaseBridge = () => {
+      if (lastBridgeState === "release") return;
+      lastBridgeState = "release";
+      void desktopInvoke("overlay_bridge_release", {}).catch(() => {});
+    };
 
     const applyCounts = (hostCount: number, portalCount: number) => {
       // elevationCovers uses portal-only count.
@@ -255,7 +265,10 @@ export function FloatingElevationProvider({
             if (disposed || !ok) return;
           }
           // Show only — never release on this path (B6).
-          await showOverlayWithLayers();
+          if (lastBridgeState !== "activity") {
+            lastBridgeState = "activity";
+            await showOverlayWithLayers();
+          }
           const p = useDesktopElevationStore.getState().portalContainer;
           setElevatedLayerCount(countOpenLayers([p ?? null]));
         })();
@@ -274,15 +287,18 @@ export function FloatingElevationProvider({
           const nextPortal = countOpenLayers([p ?? null]);
           setElevatedLayerCount(nextPortal);
           if (nextPortal > 0) {
-            await showOverlayWithLayers();
+            if (lastBridgeState !== "activity") {
+              lastBridgeState = "activity";
+              await showOverlayWithLayers();
+            }
           } else {
-            void desktopInvoke("overlay_bridge_release", {}).catch(() => {});
+            releaseBridge();
           }
         })();
         return;
       }
 
-      void desktopInvoke("overlay_bridge_release", {}).catch(() => {});
+      releaseBridge();
     };
 
     const recountNow = () => {
@@ -295,16 +311,22 @@ export function FloatingElevationProvider({
       applyCounts(hostCount, portalCount);
     };
 
-    /** Mutation + rAF follow-up so fade-in frames still re-evaluate (B5). */
+    /**
+     * Coalesce MutationObserver spam to one recount chain per burst.
+     * Still uses immediate + double rAF so fade-in frames re-evaluate (B5).
+     */
     const scheduleRecount = () => {
-      recountNow();
+      if (recountScheduled) return;
+      recountScheduled = true;
       for (const id of rafIdsRef.current) {
         cancelAnimationFrame(id);
       }
       rafIdsRef.current = [];
+      recountNow();
       const id1 = requestAnimationFrame(() => {
         recountNow();
         const id2 = requestAnimationFrame(() => {
+          recountScheduled = false;
           recountNow();
         });
         rafIdsRef.current.push(id2);
@@ -331,9 +353,27 @@ export function FloatingElevationProvider({
     document.addEventListener("transitionend", onTransitionOrAnimation, true);
     document.addEventListener("animationend", onTransitionOrAnimation, true);
 
+    const detachOverlayListeners = () => {
+      const prevDoc = overlayListenerDocRef.current;
+      if (prevDoc) {
+        prevDoc.removeEventListener(
+          "transitionend",
+          onTransitionOrAnimation,
+          true,
+        );
+        prevDoc.removeEventListener(
+          "animationend",
+          onTransitionOrAnimation,
+          true,
+        );
+        overlayListenerDocRef.current = null;
+      }
+    };
+
     const attachOverlayMo = (portal: HTMLElement | null) => {
       overlayMoRef.current?.disconnect();
       overlayMoRef.current = null;
+      detachOverlayListeners();
       if (!portal?.ownerDocument?.body) return;
       const doc = portal.ownerDocument;
       const mo = new MutationObserver(() => scheduleRecount());
@@ -352,6 +392,7 @@ export function FloatingElevationProvider({
       overlayMoRef.current = mo;
       doc.addEventListener("transitionend", onTransitionOrAnimation, true);
       doc.addEventListener("animationend", onTransitionOrAnimation, true);
+      overlayListenerDocRef.current = doc;
     };
 
     attachOverlayMo(useDesktopElevationStore.getState().portalContainer);
@@ -369,6 +410,7 @@ export function FloatingElevationProvider({
       disposed = true;
       hostMo.disconnect();
       overlayMoRef.current?.disconnect();
+      detachOverlayListeners();
       unsub();
       for (const id of rafIdsRef.current) cancelAnimationFrame(id);
       document.removeEventListener(

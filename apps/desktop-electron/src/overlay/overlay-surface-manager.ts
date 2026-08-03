@@ -23,6 +23,8 @@ type HostOverlay = {
   overlay: BrowserWindow | null;
   lifecycle: OverlayLifecycleController;
   pointerMode: OverlayPointerMode;
+  /** Bound once per host entry so recreate cycles do not leak listeners. */
+  syncBounds: () => void;
 };
 
 function isOverlayFrame(details: HandlerDetails): boolean {
@@ -92,10 +94,8 @@ export class OverlaySurfaceManager {
     );
 
     host.webContents.on("did-create-window", (child, details) => {
-      if (
-        details.frameName === "atmos-desktop-overlay" ||
-        (details.frameName ?? "").startsWith(OVERLAY_WINDOW_NAME_PREFIX)
-      ) {
+      // Same predicate as open-handler so every styled overlay is registered.
+      if (isOverlayFrame(details)) {
         this.registerOverlayWindow(host, child);
       }
     });
@@ -115,7 +115,13 @@ export class OverlaySurfaceManager {
       overlay: null,
       pointerMode: "pass-through",
       lifecycle: null as unknown as OverlayLifecycleController,
+      syncBounds: () => {},
     };
+
+    entryRef.syncBounds = () => this.syncBounds(entryRef);
+    // Once per host — overlay recreate cycles must not re-add listeners.
+    host.on("resize", entryRef.syncBounds);
+    host.on("move", entryRef.syncBounds);
 
     entryRef.lifecycle = new OverlayLifecycleController({
       now: () => Date.now(),
@@ -158,10 +164,6 @@ export class OverlaySurfaceManager {
     entry.overlay = child;
     this.syncBounds(entry);
     this.applyPointerMode(entry);
-
-    const syncBounds = () => this.syncBounds(entry);
-    host.on("resize", syncBounds);
-    host.on("move", syncBounds);
 
     child.on("closed", () => {
       if (entry.overlay === child) entry.overlay = null;
@@ -345,12 +347,28 @@ export class OverlaySurfaceManager {
     const entry = this.byHostId.get(id);
     if (!entry) return;
     entry.lifecycle.forceDestroy();
+    try {
+      if (!host.isDestroyed()) {
+        host.removeListener("resize", entry.syncBounds);
+        host.removeListener("move", entry.syncBounds);
+      }
+    } catch {
+      /* ignore */
+    }
     this.byHostId.delete(id);
   }
 
   destroyAll(): void {
     for (const entry of this.byHostId.values()) {
       entry.lifecycle.forceDestroy();
+      try {
+        if (!entry.host.isDestroyed()) {
+          entry.host.removeListener("resize", entry.syncBounds);
+          entry.host.removeListener("move", entry.syncBounds);
+        }
+      } catch {
+        /* ignore */
+      }
     }
     this.byHostId.clear();
   }

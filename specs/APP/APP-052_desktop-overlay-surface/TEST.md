@@ -308,6 +308,8 @@ If Electron launch is too flaky for CI initially: web E2E + Bun units **must** s
 
 Use **web** only (load Agent Browser skill or `agent-browser skills get core --full` first). Desktop stacking is out of scope for agent-browser.
 
+If the Agent Browser skill or CLI is unavailable, read `references/agent-browser-setup.md` and mark this section `not_run` if setup still cannot be completed.
+
 1. Open local web app, open dialog and popover/menu from primary chrome; confirm no desktop error copy and no broken portal.
 2. Narrow viewport: dialog still usable; no clipped primary actions.
 3. Toggle theme on web; floating UI still coherent.

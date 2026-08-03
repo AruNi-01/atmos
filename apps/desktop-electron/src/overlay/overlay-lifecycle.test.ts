@@ -100,4 +100,66 @@ describe("OverlayLifecycleController", () => {
     expect(destroys).toBe(1);
     expect(ctrl.getState().created).toBe(false);
   });
+
+  it("resets created on create rejection so ensure can retry", async () => {
+    let creates = 0;
+    const ctrl = new OverlayLifecycleController({
+      now: () => 0,
+      setTimeout: () => 1,
+      clearTimeout: () => {},
+      idleMs: 1000,
+      create: () => {
+        creates += 1;
+        if (creates === 1) throw new Error("create failed");
+      },
+      destroy: () => {},
+    });
+
+    await expect(ctrl.ensure()).rejects.toThrow("create failed");
+    expect(ctrl.getState().created).toBe(false);
+    expect(ctrl.getState().ready).toBe(false);
+
+    await ctrl.ensure();
+    expect(creates).toBe(2);
+    expect(ctrl.getState().ready).toBe(true);
+  });
+
+  it("ignores create completion after forceDestroy during in-flight create", async () => {
+    let resolveCreate!: () => void;
+    let destroys = 0;
+    let readyCalls = 0;
+    const createPromise = new Promise<void>((resolve) => {
+      resolveCreate = resolve;
+    });
+
+    const ctrl = new OverlayLifecycleController({
+      now: () => 0,
+      setTimeout: () => 1,
+      clearTimeout: () => {},
+      idleMs: 1000,
+      create: () => createPromise,
+      destroy: () => {
+        destroys += 1;
+      },
+      onReady: () => {
+        readyCalls += 1;
+      },
+    });
+
+    const ensurePromise = ctrl.ensure();
+    expect(ctrl.getState().created).toBe(true);
+    expect(ctrl.getState().ready).toBe(false);
+
+    ctrl.forceDestroy();
+    expect(destroys).toBe(1);
+    expect(ctrl.getState().created).toBe(false);
+    expect(ctrl.getState().ready).toBe(false);
+
+    resolveCreate();
+    const result = await ensurePromise;
+    expect(result.ready).toBe(false);
+    expect(ctrl.getState().created).toBe(false);
+    expect(ctrl.getState().ready).toBe(false);
+    expect(readyCalls).toBe(0);
+  });
 });

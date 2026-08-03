@@ -28,6 +28,9 @@ export class OverlayLifecycleController {
     idleTimerToken: null,
   };
 
+  /** Bumps on forceDestroy so in-flight create completions cannot mark ready. */
+  private createGeneration = 0;
+
   constructor(private readonly deps: OverlayLifecycleDeps) {}
 
   getState(): Readonly<OverlayLifecycleState> {
@@ -40,7 +43,21 @@ export class OverlayLifecycleController {
     if (!this.state.created) {
       this.state.created = true;
       this.state.ready = false;
-      await this.deps.create();
+      const gen = this.createGeneration;
+      try {
+        await this.deps.create();
+      } catch (err) {
+        // Retry-safe: only reset if this ensure attempt still owns the slot.
+        if (this.createGeneration === gen && this.state.created && !this.state.ready) {
+          this.state.created = false;
+          this.state.ready = false;
+        }
+        throw err;
+      }
+      // Stale completion after forceDestroy (or a newer ensure) — do not resurrect.
+      if (this.createGeneration !== gen || !this.state.created) {
+        return { created: this.state.created, ready: this.state.ready };
+      }
       this.state.ready = true;
       this.deps.onReady?.();
     }
@@ -63,6 +80,7 @@ export class OverlayLifecycleController {
   /** Force teardown (host closed / tests). */
   forceDestroy(): void {
     this.cancelIdle();
+    this.createGeneration += 1;
     if (!this.state.created) return;
     this.deps.destroy();
     this.state.created = false;
