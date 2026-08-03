@@ -52,6 +52,33 @@ describe("agent-attention-store", () => {
     expect(store.hasPaneAttention("ws-1:main")).toBe(false);
   });
 
+  test("notifyPaneFocused clears attention when focus key matches sessionId alias", () => {
+    const store = useAgentAttentionStore.getState();
+    // Raised under agent session key; sessionId records the stable pane identity.
+    store.raise({
+      stablePaneId: "agent-session-uuid",
+      contextId: "ws-1",
+      reason: "permission_request",
+      sessionId: "ws-1:main",
+    });
+    expect(store.hasPaneAttention("agent-session-uuid")).toBe(true);
+    // Terminal focus uses the reconstructed workspace:window key.
+    store.notifyPaneFocused("ws-1:main");
+    expect(store.hasPaneAttention("agent-session-uuid")).toBe(false);
+  });
+
+  test("raise under stable pane id clears on matching focus", () => {
+    const store = useAgentAttentionStore.getState();
+    store.raise({
+      stablePaneId: "ws-1:main",
+      contextId: "ws-1",
+      reason: "task_complete",
+      sessionId: "agent-session-uuid",
+    });
+    store.notifyPaneFocused("ws-1:main");
+    expect(store.hasPaneAttention("ws-1:main")).toBe(false);
+  });
+
   test("filter mode turns off when last attention clears", () => {
     useAgentAttentionStore.getState().raise({
       stablePaneId: "ws-1:main",

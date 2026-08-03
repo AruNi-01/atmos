@@ -151,8 +151,14 @@ export const useAgentHooksStore = create<AgentHooksStore>((set, get) => ({
           update.state === AGENT_STATE.PERMISSION_REQUEST &&
           previous?.state !== AGENT_STATE.PERMISSION_REQUEST
         ) {
+          // Prefer Atmos pane_id (same key terminal focus reconstructs) over
+          // raw agent session ids so focus can clear attention reliably.
+          const stablePaneId =
+            update.pane_id?.trim() ||
+            previous?.pane_id?.trim() ||
+            update.session_id;
           attention.raise({
-            stablePaneId: update.session_id,
+            stablePaneId,
             contextId,
             reason: "permission_request",
             sessionId: update.session_id,
@@ -162,8 +168,12 @@ export const useAgentHooksStore = create<AgentHooksStore>((set, get) => ({
           update.state === AGENT_STATE.IDLE &&
           previous?.state === AGENT_STATE.RUNNING
         ) {
+          const stablePaneId =
+            update.pane_id?.trim() ||
+            previous?.pane_id?.trim() ||
+            update.session_id;
           attention.raise({
-            stablePaneId: update.session_id,
+            stablePaneId,
             contextId,
             reason: "task_complete",
             sessionId: update.session_id,

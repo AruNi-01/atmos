@@ -4,7 +4,7 @@
 //! - Never recommend or accept pid <= 1, tmux, or the Atmos API process as a stop root.
 //! - Tree stop is an explicit user action; this module only builds candidates.
 
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use core_engine::{orphan_hints, ProcessSnapshot};
 
@@ -45,19 +45,17 @@ pub(super) fn build_process_tree_plan(
         hints.extend(orphan_hints(listener));
     }
 
+    // Keep workspace_root available for future attribution hints; candidacy must not
+    // rely on cwd alone (a shell under the repo is not a safe tree root).
+    let _ = workspace_root;
+
     for snap in chain.iter().take(MAX_CHAIN_DEPTH) {
         let protected = is_protected_snapshot(snap);
-        let same_user = match (current_user, snap.user_id.as_deref()) {
-            (Some(expected), Some(actual)) => expected == actual,
-            _ => true,
-        };
-        let under_workspace = workspace_root
-            .zip(snap.cwd.as_deref())
-            .is_some_and(|(root, cwd)| path_contains(root, cwd));
-        let stop_candidate = !protected
-            && snap.pid > 1
-            && same_user
-            && (is_reasonable_stop_root(snap) || under_workspace);
+        let same_user = is_same_user(current_user, snap.user_id.as_deref());
+        // Only recognized launchers / service processes may be tree roots.
+        // Workspace cwd alone must not promote shells or unrelated ancestors.
+        let stop_candidate =
+            !protected && snap.pid > 1 && same_user && is_reasonable_stop_root(snap);
 
         nodes.push(ProcessTreeNode {
             pid: snap.pid,
@@ -96,6 +94,44 @@ pub(super) fn is_safe_tree_root(plan: &ProcessTreePlan, root_pid: u32, listener_
     // If the ancestor walk failed (empty plan), allow only the current listener
     // itself when it is the requested root — never an out-of-band parent.
     plan.nodes.is_empty() && root_pid == listener_pid
+}
+
+/// Compare process owner identity with the ambient user.
+///
+/// Linux snapshots store numeric UIDs (`/proc/.../status`), while macOS `ps` and
+/// `$USER` are usernames. Normalize both sides and fail closed when either is unknown.
+fn is_same_user(current_user: Option<&str>, process_user: Option<&str>) -> bool {
+    let (Some(expected), Some(actual)) = (current_user, process_user) else {
+        return false;
+    };
+    if expected == actual {
+        return true;
+    }
+    // Numeric UID on either side: compare against `id -u` / parsed values.
+    let expected_uid = resolve_uid(expected);
+    let actual_uid = resolve_uid(actual);
+    match (expected_uid, actual_uid) {
+        (Some(a), Some(b)) => a == b,
+        _ => false,
+    }
+}
+
+fn resolve_uid(identity: &str) -> Option<u32> {
+    if let Ok(uid) = identity.parse::<u32>() {
+        return Some(uid);
+    }
+    // Resolve username → uid via `id -u <name>` (works for `$USER`).
+    let output = std::process::Command::new("id")
+        .args(["-u", identity])
+        .output()
+        .ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    String::from_utf8_lossy(&output.stdout)
+        .trim()
+        .parse::<u32>()
+        .ok()
 }
 
 fn is_protected_snapshot(snap: &ProcessSnapshot) -> bool {
@@ -185,16 +221,6 @@ fn is_launcher_name(name: &str) -> bool {
     )
 }
 
-fn path_contains(root: &Path, evidence: &Path) -> bool {
-    let root = canonical_or_original(root);
-    let evidence = canonical_or_original(evidence);
-    evidence == root || evidence.starts_with(&root)
-}
-
-fn canonical_or_original(path: &Path) -> PathBuf {
-    std::fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf())
-}
-
 fn unique_preserve(items: Vec<String>) -> Vec<String> {
     let mut out = Vec::new();
     for item in items {
@@ -257,8 +283,63 @@ mod tests {
         assert!(just.stop_candidate);
         assert!(!just.protected);
         let zsh = plan.nodes.iter().find(|n| n.pid == 50).unwrap();
-        // bare shell is not a launcher; not recommended even if under home
-        assert!(!zsh.stop_candidate || plan.recommended_root_pid != Some(50));
+        // bare shell is not a launcher; never a stop candidate
+        assert!(!zsh.stop_candidate);
+    }
+
+    #[test]
+    fn shell_under_workspace_is_not_stop_candidate() {
+        let chain = vec![
+            snap(
+                20,
+                Some(10),
+                "node",
+                &["node", "server.js"],
+                Some("/repo/apps/web"),
+            ),
+            snap(10, Some(1), "zsh", &["-zsh"], Some("/repo")),
+        ];
+        let plan = build_process_tree_plan(&chain, 20, Some(Path::new("/repo")), Some("dev"));
+        let zsh = plan.nodes.iter().find(|n| n.pid == 10).unwrap();
+        assert!(!zsh.stop_candidate);
+        assert_ne!(plan.recommended_root_pid, Some(10));
+        // node is a recognized launcher
+        assert_eq!(plan.recommended_root_pid, Some(20));
+    }
+
+    #[test]
+    fn username_matches_numeric_uid() {
+        // Simulate Linux snapshot (numeric uid) vs $USER (username).
+        let mut chain = vec![snap(10, Some(1), "node", &["node", "dev"], Some("/repo"))];
+        let uid = std::process::Command::new("id")
+            .arg("-u")
+            .output()
+            .ok()
+            .and_then(|o| {
+                String::from_utf8_lossy(&o.stdout)
+                    .trim()
+                    .parse::<u32>()
+                    .ok()
+            });
+        let Some(uid) = uid else {
+            return; // platform without `id`
+        };
+        chain[0].user_id = Some(uid.to_string());
+        let user = std::env::var("USER").ok();
+        let plan = build_process_tree_plan(&chain, 10, Some(Path::new("/repo")), user.as_deref());
+        assert!(
+            plan.nodes[0].stop_candidate,
+            "numeric UID should match ambient USER via id -u"
+        );
+    }
+
+    #[test]
+    fn unknown_identity_fails_closed() {
+        let mut chain = vec![snap(10, Some(1), "node", &["node"], Some("/repo"))];
+        chain[0].user_id = None;
+        let plan = build_process_tree_plan(&chain, 10, Some(Path::new("/repo")), Some("dev"));
+        assert!(!plan.nodes[0].stop_candidate);
+        assert!(plan.recommended_root_pid.is_none());
     }
 
     #[test]

@@ -132,8 +132,8 @@ pub fn kill_process(pid: u32) -> Result<()> {
 
 /// Terminate a process tree rooted at `root_pid`.
 ///
-/// Unix: prefer process-group TERM when `root` is the group leader (`pgid == pid`),
-/// otherwise TERM the root PID. Windows: `taskkill /T` (tree).
+/// Unix: prefer process-group TERM when `root` is the group leader (`pgid == pid`);
+/// otherwise enumerate descendants and TERM them (children first). Windows: `taskkill /T`.
 pub fn terminate_process_tree(root_pid: u32) -> Result<()> {
     if root_pid <= 1 {
         return Err(EngineError::Processing(
@@ -142,19 +142,7 @@ pub fn terminate_process_tree(root_pid: u32) -> Result<()> {
     }
     #[cfg(any(target_os = "macos", target_os = "linux"))]
     {
-        let snap = process_snapshot(root_pid);
-        if let Some(pgid) = snap.as_ref().and_then(|s| s.pgid) {
-            // Only signal a process group when the root is the group leader and the
-            // group is not the system-critical pgid 1.
-            if pgid == root_pid && pgid > 1 {
-                let group_arg = format!("-{pgid}");
-                // Group kill may fail if we lack permission for some members; fall back.
-                if run_kill(&["-TERM", &group_arg], root_pid, "kill -TERM -<pgid>").is_ok() {
-                    return Ok(());
-                }
-            }
-        }
-        terminate_process(root_pid)
+        signal_process_tree(root_pid, "TERM")
     }
     #[cfg(target_os = "windows")]
     {
@@ -178,16 +166,7 @@ pub fn kill_process_tree(root_pid: u32) -> Result<()> {
     }
     #[cfg(any(target_os = "macos", target_os = "linux"))]
     {
-        let snap = process_snapshot(root_pid);
-        if let Some(pgid) = snap.as_ref().and_then(|s| s.pgid) {
-            if pgid == root_pid && pgid > 1 {
-                let group_arg = format!("-{pgid}");
-                if run_kill(&["-KILL", &group_arg], root_pid, "kill -KILL -<pgid>").is_ok() {
-                    return Ok(());
-                }
-            }
-        }
-        kill_process(root_pid)
+        signal_process_tree(root_pid, "KILL")
     }
     #[cfg(target_os = "windows")]
     {
@@ -200,6 +179,117 @@ pub fn kill_process_tree(root_pid: u32) -> Result<()> {
             "process tree kill is not supported on this platform".into(),
         ))
     }
+}
+
+/// Unix tree signal: process-group when root is leader, else every descendant PID.
+#[cfg(any(target_os = "macos", target_os = "linux"))]
+fn signal_process_tree(root_pid: u32, signal: &str) -> Result<()> {
+    let self_pid = std::process::id();
+    if root_pid == self_pid {
+        return Err(EngineError::Processing(
+            "refusing to signal our own process tree".into(),
+        ));
+    }
+
+    let signal_flag = format!("-{signal}");
+    let snap = process_snapshot(root_pid);
+    if let Some(pgid) = snap.as_ref().and_then(|s| s.pgid) {
+        // Only signal a process group when the root is the group leader and the
+        // group is not the system-critical pgid 1.
+        if pgid == root_pid && pgid > 1 {
+            let group_arg = format!("-{pgid}");
+            let label = format!("kill -{signal} -<pgid>");
+            // Group kill may fail if we lack permission for some members; fall back.
+            if run_kill(&[&signal_flag, &group_arg], root_pid, &label).is_ok() {
+                return Ok(());
+            }
+        }
+    }
+
+    // Root is not a group leader (or group kill failed): walk the process tree
+    // and signal every descendant, children before parents.
+    let mut targets = descendant_pids(root_pid);
+    if targets.is_empty() {
+        targets.push(root_pid);
+    }
+    let mut last_err: Option<EngineError> = None;
+    let mut any_ok = false;
+    for pid in targets {
+        if pid <= 1 || pid == self_pid {
+            continue;
+        }
+        let result = if signal == "KILL" {
+            kill_process(pid)
+        } else {
+            terminate_process(pid)
+        };
+        match result {
+            Ok(()) => any_ok = true,
+            Err(e) => last_err = Some(e),
+        }
+    }
+    if any_ok {
+        Ok(())
+    } else {
+        Err(last_err.unwrap_or_else(|| {
+            EngineError::Processing(format!(
+                "failed to {signal} process tree rooted at {root_pid}"
+            ))
+        }))
+    }
+}
+
+/// Collect PIDs in the subtree of `root_pid` (children first, root last).
+#[cfg(any(target_os = "macos", target_os = "linux"))]
+fn descendant_pids(root_pid: u32) -> Vec<u32> {
+    let children_of = process_children_map();
+    let mut ordered = Vec::new();
+    let mut stack = vec![root_pid];
+    let mut seen = std::collections::HashSet::new();
+    // Depth-first post-order via two-pass: collect then reverse children-before-parent.
+    let mut visit_order = Vec::new();
+    while let Some(pid) = stack.pop() {
+        if !seen.insert(pid) {
+            continue;
+        }
+        visit_order.push(pid);
+        if let Some(children) = children_of.get(&pid) {
+            for child in children {
+                if *child > 1 {
+                    stack.push(*child);
+                }
+            }
+        }
+    }
+    // visit_order is root-first BFS/DFS discovery; reverse so children are signalled first.
+    for pid in visit_order.into_iter().rev() {
+        ordered.push(pid);
+    }
+    ordered
+}
+
+/// Build a map of parent pid → child pids from a best-effort process listing.
+#[cfg(any(target_os = "macos", target_os = "linux"))]
+fn process_children_map() -> std::collections::HashMap<u32, Vec<u32>> {
+    let mut map: std::collections::HashMap<u32, Vec<u32>> = std::collections::HashMap::new();
+    let output = Command::new("ps").args(["-axo", "pid=,ppid="]).output();
+    let Ok(output) = output else {
+        return map;
+    };
+    if !output.status.success() {
+        return map;
+    }
+    for line in String::from_utf8_lossy(&output.stdout).lines() {
+        let mut parts = line.split_whitespace();
+        let Some(pid) = parts.next().and_then(|v| v.parse::<u32>().ok()) else {
+            continue;
+        };
+        let Some(ppid) = parts.next().and_then(|v| v.parse::<u32>().ok()) else {
+            continue;
+        };
+        map.entry(ppid).or_default().push(pid);
+    }
+    map
 }
 
 #[cfg(any(target_os = "macos", target_os = "linux"))]

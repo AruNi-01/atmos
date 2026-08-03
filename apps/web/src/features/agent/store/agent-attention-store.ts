@@ -140,9 +140,18 @@ export const useAgentAttentionStore = create<AgentAttentionStore>((set, get) => 
         ? state
         : { focusedStablePaneId: stablePaneId, revision: state.revision + 1 },
     );
-    if (stablePaneId && get().panes.has(stablePaneId)) {
-      // User clicked / focused a panel that needs attention → clear immediately.
-      get().clearPane(stablePaneId);
+    if (!stablePaneId) return;
+    // Clear exact pane key and any attention latched under a hook session_id
+    // alias for this pane (raise may have stored session_id when pane_id was
+    // missing on an earlier event, or session_id may equal the stable key).
+    const toClear: string[] = [];
+    for (const [id, pane] of get().panes) {
+      if (id === stablePaneId || pane.sessionId === stablePaneId) {
+        toClear.push(id);
+      }
+    }
+    for (const id of toClear) {
+      get().clearPane(id);
     }
   },
 
