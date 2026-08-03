@@ -1,0 +1,24 @@
+.husky/commit-msg
+  h_5be255725524c8 1-39
+.husky/pre-commit
+  h_5be255725524c8 1-5
+CONTRIBUTING.md
+  h_5be255725524c8 7,10-12,14-16,18-19,22-42,54
+bun.lock
+  h_5be255725524c8 13-14,2680-2681,2900-2901,3702-3703
+lint-staged.config.mjs
+  h_5be255725524c8 1-19
+package.json
+  h_5be255725524c8 32-33,59-60
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "992120553ac33280a062730dda2e94370f208abb",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
