@@ -1,0 +1,24 @@
+apps/desktop-electron/src/overlay/overlay-lifecycle.test.ts
+  h_b3eac5fd0698eb 103-164
+apps/desktop-electron/src/overlay/overlay-lifecycle.ts
+  h_b3eac5fd0698eb 31-33,46-60,83
+apps/desktop-electron/src/overlay/overlay-surface-manager.ts
+  h_b3eac5fd0698eb 26-27,97-98,118,121-125,350-357,364-371
+apps/web/src/shared/lib/desktop-overlay/floating-elevation-provider.tsx
+  h_b3eac5fd0698eb 96,240-248,268-271,290-293,295,301,314-317,319-320,325,329,356-372,376,395,413
+specs/APP/APP-052_desktop-overlay-surface/PROGRESS.md
+  h_b3eac5fd0698eb 13-14
+specs/APP/APP-052_desktop-overlay-surface/TEST.md
+  h_b3eac5fd0698eb 311-312
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "c7d57eae0fb5296bdc76ae9cd481d8f690d15693",
+  "prompts": {},
+  "humans": {
+    "h_b3eac5fd0698eb": {
+      "author": "lurunrun820 <lurunrun820@hellobike.com>"
+    }
+  }
+}
