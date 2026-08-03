@@ -141,3 +141,7 @@ export async function desktopUseGrantPermissions(): Promise<unknown> {
 export async function desktopUseDriveVerify(): Promise<unknown> {
   return runDesktopUseJson(["drive", "verify"], 30_000);
 }
+
+export async function desktopUseDriveScreenshot(): Promise<unknown> {
+  return runDesktopUseJson(["drive", "screenshot"], 45_000);
+}
