@@ -1,0 +1,30 @@
+apps/web/messages/zh.json
+  h_5be255725524c8 2137
+apps/web/src/app-shell/LeftSidebar.tsx
+  h_5be255725524c8 215-221
+apps/web/src/app/globals.css
+  h_5be255725524c8 455-457
+apps/web/src/features/agent/components/AgentAttentionIndicator.tsx
+  h_5be255725524c8 23,26,32-33
+apps/web/src/features/agent/store/agent-hooks-store.ts
+  h_5be255725524c8 196-200
+apps/web/src/features/settings/components/NotifySettingsSection.tsx
+  h_5be255725524c8 305
+apps/web/src/features/terminal/components/TerminalGrid.tsx
+  h_5be255725524c8 408
+crates/core-engine/src/local_services/process.rs
+  h_5be255725524c8 211-213,225-240,243,255,257-258,261,276,280-283,286,288,290-295,297-300,312,476-481,493-494,499-500,508
+crates/core-service/src/service/local_services.rs
+  h_5be255725524c8 31-39,358,508
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "b4f4bdd4150c3ec2ef8798edd68db54af2f3b865",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
