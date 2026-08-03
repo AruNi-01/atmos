@@ -1,0 +1,163 @@
+NOTICE
+
+This project includes third-party software and assets. This file provides
+attribution and the license notices required for redistribution.
+
+-------------------------------------------------------------------------------
+1. VSCode Great Icons
+-------------------------------------------------------------------------------
+
+Source:   https://github.com/EmmanuelBeziat/vscode-great-icons
+Location: packages/ui/src/assets/fileicons/
+License:  MIT
+Copyright (c) 2016 Roberto Huertas
+Maintainer: Emmanuel Béziat
+
+The MIT License (MIT)
+
+Copyright (c) 2016 Roberto Huertas
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+-------------------------------------------------------------------------------
+2. Hack Nerd Font (Hack + Nerd Fonts patch)
+-------------------------------------------------------------------------------
+
+Base font source:  https://github.com/source-foundry/Hack
+Patcher source:    https://github.com/ryanoasis/nerd-fonts
+Locations:         apps/web/public/fonts/
+                   apps/mobile/assets/fonts/
+License:           MIT (Hack) + Bitstream Vera License (underlying Bitstream Vera Sans Mono)
+                   DejaVu contributions to Hack are public domain
+                   Nerd Fonts patches additional glyphs from multiple icon sets;
+                   see https://github.com/ryanoasis/nerd-fonts (LICENSE and license-audit)
+
+Copyright (c) 2018 Source Foundry Authors
+Copyright (c) 2003 Bitstream, Inc. (Bitstream Vera Sans Mono)
+Copyright (c) 2014 Ryan L McIntyre (Nerd Fonts project)
+
+The work in the Hack project is Copyright 2018 Source Foundry Authors and
+licensed under the MIT License.
+
+The work in the DejaVu project was committed to the public domain.
+
+Bitstream Vera Sans Mono Copyright 2003 Bitstream Inc. and licensed under the
+Bitstream Vera License with Reserved Font Names "Bitstream" and "Vera".
+
+### MIT License (Hack)
+
+Copyright (c) 2018 Source Foundry Authors
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+### BITSTREAM VERA LICENSE
+
+Copyright (c) 2003 by Bitstream, Inc. All Rights Reserved. Bitstream Vera is a
+trademark of Bitstream, Inc.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+the fonts accompanying this license ("Fonts") and associated documentation
+files (the "Font Software"), to reproduce and distribute the Font Software,
+including without limitation the rights to use, copy, merge, publish,
+distribute, and/or sell copies of the Font Software, and to permit persons to
+whom the Font Software is furnished to do so, subject to the following
+conditions:
+
+The above copyright and trademark notices and this permission notice shall be
+included in all copies of one or more of the Font Software typefaces.
+
+The Font Software may be modified, altered, or added to, and in particular the
+designs of glyphs or characters in the Fonts may be modified and additional
+glyphs or characters may be added to the Fonts, only if the fonts are renamed
+to names not containing either the words "Bitstream" or the word "Vera".
+
+This License becomes null and void to the extent applicable to Fonts or Font
+Software that has been modified and is distributed under the "Bitstream Vera"
+names.
+
+The Font Software may be sold as part of a larger software package but no copy
+of one or more of the Font Software typefaces may be sold by itself.
+
+THE FONT SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO ANY WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT OF COPYRIGHT, PATENT,
+TRADEMARK, OR OTHER RIGHT. IN NO EVENT SHALL BITSTREAM OR THE GNOME FOUNDATION
+BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, INCLUDING ANY GENERAL,
+SPECIAL, INDIRECT, INCIDENTAL, OR CONSEQUENTIAL DAMAGES, WHETHER IN AN ACTION
+OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF THE USE OR INABILITY TO
+USE THE FONT SOFTWARE OR FROM OTHER DEALINGS IN THE FONT SOFTWARE.
+
+Except as contained in this notice, the names of Gnome, the Gnome Foundation,
+and Bitstream Inc., shall not be used in advertising or otherwise to promote
+the sale, use or other dealings in this Font Software without prior written
+authorization from the Gnome Foundation or Bitstream Inc., respectively. For
+further information, contact: fonts at gnome dot org.
+
+-------------------------------------------------------------------------------
+3. Geist Fonts
+-------------------------------------------------------------------------------
+
+Source:     https://github.com/vercel/geist-font
+License:    SIL Open Font License, Version 1.1
+Copyright (c) 2023 Vercel, in collaboration with basement.studio
+
+Usage in this repository:
+  - Application UI: via the `geist` npm package (apps/web, apps/landing)
+  - Marketing creative local copies:
+      marketing/creative/projects/atmos-intro/hyperframes/assets/fonts/
+      marketing/creative/projects/atmos-intro-editorial/hyperframes/assets/fonts/
+
+Full OFL text: https://scripts.sil.org/OFL
+Also distributed with the `geist` package and upstream repository.
+
+-------------------------------------------------------------------------------
+4. Vendored source (license texts colocated)
+-------------------------------------------------------------------------------
+
+tokscale-core
+  Source:   https://github.com/junhoyeo/tokscale (core subset)
+  Location: vendor/tokscale-core/
+  License:  MIT — see vendor/tokscale-core/LICENSE
+  Copyright (c) 2025 Junho Yeo
+
+agent-client-protocol-schema
+  Source:   https://github.com/agentclientprotocol/agent-client-protocol
+  Location: vendor/agent-client-protocol-schema/
+  License:  Apache License, Version 2.0 — see vendor/agent-client-protocol-schema/LICENSE
+  Copyright 2025 Zed Industries, Inc. and contributors
+
+-------------------------------------------------------------------------------
+End of NOTICE
+-------------------------------------------------------------------------------
