@@ -13,7 +13,11 @@ import {
   type HandlerDetails,
 } from "electron";
 import type { AppState } from "../app-state.js";
-import { OVERLAY_IDLE_MS, OVERLAY_WINDOW_NAME_PREFIX } from "./constants.js";
+import {
+  OVERLAY_CREATE_BUDGET_MS,
+  OVERLAY_IDLE_MS,
+  OVERLAY_WINDOW_NAME_PREFIX,
+} from "./constants.js";
 import { OverlayLifecycleController } from "./overlay-lifecycle.js";
 
 export type OverlayPointerMode = "pass-through" | "capture";
@@ -129,10 +133,11 @@ export class OverlaySurfaceManager {
       clearTimeout: (t) => clearTimeout(t),
       idleMs: OVERLAY_IDLE_MS,
       create: async () => {
-        // Prefer host window.open registration. If host already opened the
-        // portal window, did-create-window registered it. Otherwise wait briefly
-        // for registration; only then fall back to main-owned window.
-        const deadline = Date.now() + 400;
+        // Overlay must be opened by the host renderer via window.open so the
+        // web side can install a createPortal root. Wait briefly for
+        // did-create-window registration; if none arrives, fail so lifecycle
+        // stays retryable and elevation falls back to APP-029 hide.
+        const deadline = Date.now() + OVERLAY_CREATE_BUDGET_MS;
         while (
           (!entryRef.overlay || entryRef.overlay.isDestroyed()) &&
           Date.now() < deadline
@@ -140,7 +145,9 @@ export class OverlaySurfaceManager {
           await new Promise((r) => setTimeout(r, 16));
         }
         if (!entryRef.overlay || entryRef.overlay.isDestroyed()) {
-          await this.createFallbackOverlay(entryRef);
+          throw new Error(
+            "overlay window not registered by host window.open within create budget",
+          );
         }
       },
       destroy: () => {
@@ -171,47 +178,6 @@ export class OverlaySurfaceManager {
 
     this.emitToHost(host, "desktop-overlay:ready", {
       windowId: child.id,
-      hostId: host.id,
-    });
-  }
-
-  private async createFallbackOverlay(entry: HostOverlay): Promise<void> {
-    if (entry.overlay && !entry.overlay.isDestroyed()) return;
-    const host = entry.host;
-    if (host.isDestroyed()) throw new Error("host window destroyed");
-
-    const bounds = host.getContentBounds();
-    const win = new BrowserWindow({
-      parent: host,
-      ...bounds,
-      frame: false,
-      transparent: true,
-      hasShadow: false,
-      resizable: false,
-      maximizable: false,
-      minimizable: false,
-      fullscreenable: false,
-      skipTaskbar: true,
-      show: false,
-      focusable: true,
-      webPreferences: {
-        contextIsolation: true,
-        nodeIntegration: false,
-        sandbox: true,
-      },
-    });
-    entry.overlay = win;
-    await win.loadURL("about:blank");
-    this.syncBounds(entry);
-    // Stay hidden until noteActivity (portal has real layers) — R4.
-    try {
-      win.setIgnoreMouseEvents(true, { forward: true });
-      if (win.isVisible()) win.hide();
-    } catch {
-      /* ignore */
-    }
-    this.emitToHost(host, "desktop-overlay:ready", {
-      windowId: win.id,
       hostId: host.id,
     });
   }
