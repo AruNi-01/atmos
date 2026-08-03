@@ -1,4 +1,7 @@
 //! Control-engine host: managed socket daemon + tool calls (Atmos wrap).
+//!
+//! On macOS, the daemon is launched via **Atmos Desktop Use.app** (LaunchServices)
+//! so TCC grants and the live process share `com.atmos.desktop.use`.
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -21,16 +24,21 @@ pub fn is_daemon_alive(socket: &Path) -> bool {
 
 /// Start managed control engine daemon if needed.
 ///
-/// Uses `--no-permissions-gate` so Atmos Settings owns the grant UX; the engine
-/// still requires OS grants on the **Atmos Desktop Use** host identity for live actions.
-pub fn ensure_daemon(engine_bin: &Path, socket: &Path) -> Result<(), String> {
+/// macOS: prefer LaunchServices `open -a "Atmos Desktop Use.app" --args serve …`
+/// so the running process is the rebranded host (unified TCC identity).
+/// Other platforms: spawn the managed binary with a permissions gate skip
+/// (Settings owns grant UX).
+pub fn ensure_daemon(
+    engine_bin: &Path,
+    socket: &Path,
+    host_app: Option<&Path>,
+) -> Result<(), String> {
     if !engine_bin.is_file() {
         return Err(scrub_vendor(
             "Control engine is not installed. Run: atmos desktop-use driver ensure",
         ));
     }
     if is_daemon_alive(socket) {
-        // Probe with a cheap call.
         if call_tool(engine_bin, socket, "get_config", &serde_json::json!({})).is_ok() {
             return Ok(());
         }
@@ -42,25 +50,9 @@ pub fn ensure_daemon(engine_bin: &Path, socket: &Path) -> Result<(), String> {
     }
     let _ = fs::remove_file(socket);
 
-    let child = Command::new(engine_bin)
-        .args([
-            "serve",
-            "--socket",
-            &socket.display().to_string(),
-            "--no-permissions-gate",
-        ])
-        .env("CUA_DRIVER_RS_PERMISSIONS_GATE", "0")
-        .stdin(Stdio::null())
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .spawn()
-        .map_err(|e| scrub_vendor(&format!("failed to start control engine: {e}")))?;
+    spawn_daemon(engine_bin, socket, host_app)?;
 
-    // Detach: don't wait on child; poll socket readiness.
-    let _ = child.id();
-    std::mem::forget(child);
-
-    let deadline = Instant::now() + Duration::from_secs(8);
+    let deadline = Instant::now() + Duration::from_secs(12);
     while Instant::now() < deadline {
         if is_daemon_alive(socket)
             && call_tool(engine_bin, socket, "get_config", &serde_json::json!({})).is_ok()
@@ -70,8 +62,59 @@ pub fn ensure_daemon(engine_bin: &Path, socket: &Path) -> Result<(), String> {
         thread::sleep(Duration::from_millis(150));
     }
     Err(scrub_vendor(
-        "Control engine did not become ready. Grant Accessibility and Screen Recording for Atmos Desktop Use in Settings, then retry.",
+        "Control engine did not become ready. Open Settings → Desktop Use and grant Accessibility and Screen Recording for Atmos Desktop Use, then retry.",
     ))
+}
+
+fn spawn_daemon(
+    engine_bin: &Path,
+    socket: &Path,
+    host_app: Option<&Path>,
+) -> Result<(), String> {
+    let socket_str = socket.display().to_string();
+
+    #[cfg(target_os = "macos")]
+    {
+        if let Some(app) = host_app {
+            if app.is_dir() {
+                // LaunchServices path: process is Atmos Desktop Use.app (com.atmos.desktop.use).
+                let status = Command::new("open")
+                    .args(["-n", "-g", "-a"])
+                    .arg(app)
+                    .args([
+                        "--args",
+                        "serve",
+                        "--socket",
+                        &socket_str,
+                        "--no-permissions-gate",
+                    ])
+                    .status()
+                    .map_err(|e| scrub_vendor(&format!("failed to launch host app: {e}")))?;
+                if status.success() {
+                    return Ok(());
+                }
+                // Fall through to direct spawn only if open failed.
+            }
+        }
+    }
+
+    // Direct spawn (Linux/Windows, or macOS fallback when host app missing).
+    let child = Command::new(engine_bin)
+        .args([
+            "serve",
+            "--socket",
+            &socket_str,
+            "--no-permissions-gate",
+        ])
+        .env("CUA_DRIVER_RS_PERMISSIONS_GATE", "0")
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()
+        .map_err(|e| scrub_vendor(&format!("failed to start control engine: {e}")))?;
+    let _ = child.id();
+    std::mem::forget(child);
+    Ok(())
 }
 
 pub fn stop_daemon(engine_bin: &Path, socket: &Path) -> Result<(), String> {
@@ -79,6 +122,13 @@ pub fn stop_daemon(engine_bin: &Path, socket: &Path) -> Result<(), String> {
         let _ = Command::new(engine_bin)
             .args(["stop", "--socket", &socket.display().to_string()])
             .output();
+    }
+    // Also try pkill host serve if socket leftover
+    #[cfg(target_os = "macos")]
+    {
+        let _ = Command::new("pkill")
+            .args(["-f", "Atmos Desktop Use.app/Contents/MacOS/.*serve"])
+            .status();
     }
     let _ = fs::remove_file(socket);
     Ok(())
@@ -119,7 +169,6 @@ pub fn call_tool(
     if stdout.is_empty() {
         return Ok(serde_json::json!({ "ok": true }));
     }
-    // Parse JSON if present; otherwise wrap text.
     match serde_json::from_str::<Value>(&stdout) {
         Ok(v) => Ok(v),
         Err(_) => Ok(serde_json::json!({ "ok": true, "raw": stdout })),
@@ -127,10 +176,7 @@ pub fn call_tool(
 }
 
 /// Open system permission grant flow for the rebranded host app when present.
-pub fn open_host_permission_grant(
-    host_app: Option<&Path>,
-    engine_bin: &Path,
-) -> Result<(), String> {
+pub fn open_host_permission_grant(host_app: Option<&Path>, engine_bin: &Path) -> Result<(), String> {
     #[cfg(target_os = "macos")]
     {
         if let Some(app) = host_app {
@@ -146,7 +192,6 @@ pub fn open_host_permission_grant(
                 }
             }
         }
-        // Fallback: run binary grant (Settings still names Atmos Desktop Use host).
         let _ = Command::new(engine_bin)
             .args(["permissions", "grant"])
             .status();
@@ -159,37 +204,90 @@ pub fn open_host_permission_grant(
     }
 }
 
-pub fn permissions_status_json(engine_bin: &Path, socket: &Path) -> Result<Value, String> {
+/// Parse live TCC booleans from `health_report` / `check_permissions` for the host identity.
+pub fn permissions_status_json(
+    engine_bin: &Path,
+    socket: &Path,
+    host_app: Option<&Path>,
+) -> Result<Value, String> {
     if !engine_bin.is_file() {
         return Ok(serde_json::json!({
             "installed": false,
             "accessibility": null,
             "screen_recording": null,
             "host": "Atmos Desktop Use",
+            "host_bundle_id": "com.atmos.desktop.use",
         }));
     }
-    // Prefer live daemon identity when running.
-    let _ = ensure_daemon(engine_bin, socket);
-    let output = Command::new(engine_bin)
-        .args([
-            "permissions",
-            "status",
-            "--json",
-            "--socket",
-            &socket.display().to_string(),
-        ])
-        .env("CUA_DRIVER_RS_PERMISSIONS_GATE", "0")
-        .output()
-        .map_err(|e| scrub_vendor(&e.to_string()))?;
-    let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
-    if let Ok(v) = serde_json::from_str::<Value>(&stdout) {
-        return Ok(v);
+    let _ = ensure_daemon(engine_bin, socket, host_app);
+
+    // Prefer health_report — reports tcc_* against the live process bundle id.
+    if let Ok(report) = call_tool(engine_bin, socket, "health_report", &serde_json::json!({})) {
+        if let Some(parsed) = parse_health_report_tcc(&report) {
+            return Ok(parsed);
+        }
     }
+    if let Ok(v) = call_tool(engine_bin, socket, "check_permissions", &serde_json::json!({})) {
+        let accessibility = v.get("accessibility").and_then(|x| x.as_bool());
+        let screen_recording = v.get("screen_recording").and_then(|x| x.as_bool());
+        let bundle = v
+            .pointer("/source/executable")
+            .and_then(|x| x.as_str())
+            .map(|s| s.to_string());
+        return Ok(serde_json::json!({
+            "installed": true,
+            "accessibility": accessibility,
+            "screen_recording": screen_recording,
+            "host": "Atmos Desktop Use",
+            "host_bundle_id": "com.atmos.desktop.use",
+            "executable": bundle,
+            "daemon_running": true,
+        }));
+    }
+
     Ok(serde_json::json!({
         "installed": true,
-        "raw": stdout,
+        "accessibility": null,
+        "screen_recording": null,
         "host": "Atmos Desktop Use",
-        "ok": output.status.success(),
+        "host_bundle_id": "com.atmos.desktop.use",
+        "daemon_running": is_daemon_alive(socket),
+    }))
+}
+
+fn parse_health_report_tcc(report: &Value) -> Option<Value> {
+    let checks = report.get("checks")?.as_array()?;
+    let mut accessibility: Option<bool> = None;
+    let mut screen_recording: Option<bool> = None;
+    let mut bundle_id: Option<String> = None;
+
+    for c in checks {
+        let name = c.get("name").and_then(|x| x.as_str()).unwrap_or("");
+        let status = c.get("status").and_then(|x| x.as_str()).unwrap_or("");
+        match name {
+            "tcc_accessibility" => accessibility = Some(status == "pass"),
+            "tcc_screen_recording" => screen_recording = Some(status == "pass"),
+            "bundle_identity" => {
+                bundle_id = c
+                    .pointer("/data/bundle_identifier")
+                    .and_then(|x| x.as_str())
+                    .map(|s| s.to_string());
+            }
+            _ => {}
+        }
+    }
+
+    if accessibility.is_none() && screen_recording.is_none() {
+        return None;
+    }
+
+    Some(serde_json::json!({
+        "installed": true,
+        "accessibility": accessibility,
+        "screen_recording": screen_recording,
+        "host": "Atmos Desktop Use",
+        "host_bundle_id": bundle_id.unwrap_or_else(|| "com.atmos.desktop.use".into()),
+        "daemon_running": true,
     }))
 }
 
@@ -203,5 +301,27 @@ mod tests {
         let dir = tempdir().unwrap();
         let sock = default_socket_path(dir.path());
         assert!(sock.ends_with("engine.sock"));
+    }
+
+    #[test]
+    fn parse_health_report_tcc_values() {
+        let report = serde_json::json!({
+            "checks": [
+                {
+                    "name": "bundle_identity",
+                    "status": "fail",
+                    "data": { "bundle_identifier": "com.atmos.desktop.use" }
+                },
+                { "name": "tcc_accessibility", "status": "pass" },
+                { "name": "tcc_screen_recording", "status": "fail" }
+            ]
+        });
+        let v = parse_health_report_tcc(&report).expect("parsed");
+        assert_eq!(v["accessibility"], true);
+        assert_eq!(v["screen_recording"], false);
+        assert_eq!(v["host_bundle_id"], "com.atmos.desktop.use");
+        assert!(!crate::strings::contains_vendor_brand(
+            v["host"].as_str().unwrap()
+        ));
     }
 }

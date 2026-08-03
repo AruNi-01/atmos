@@ -20,7 +20,16 @@
 | Rejected as primary | Separate **CuaDriver.app** grant UX; public MCP; user install from cua.ai |
 | Offline / CI | `ATMOS_DESKTOP_USE_ENGINE_ARCHIVE` fixture tarball or `ATMOS_DESKTOP_USE_ENGINE_SOURCE` raw binary |
 
-Daemon: managed socket `~/.atmos/desktop-use/engine.sock`; `drive` uses `call` over socket with permissions gate disabled so **Settings** owns grant UX (`driver grant-permissions` → host app).
+Daemon: managed socket `~/.atmos/desktop-use/engine.sock`.
+
+**macOS TCC unification (locked):**
+
+1. `ensure` installs rebranded **Atmos Desktop Use.app** (`com.atmos.desktop.use`) + `atmos-desktop-control` CLI shim binary.
+2. `ensure_daemon` starts serve via **`open -n -g -a "…/Atmos Desktop Use.app" --args serve --socket …`** (LaunchServices), not a naked binary spawn — live process Identifier = `com.atmos.desktop.use`.
+3. `doctor` / Settings permissions read **live host** TCC via `health_report` / `check_permissions` on that daemon (not Electron-only grants).
+4. `driver grant-permissions` launches **Atmos Desktop Use.app** `permissions grant`.
+5. When engine is installed, AppShot permission panel uses Desktop Use doctor + host grant (one product identity). Screenshot drive prefers host `get_desktop_state` when engine is present.
+6. Rejected: primary UX that asks users to grant **CuaDriver.app** / `com.trycua.driver`.
 
 ## 2. Layout
 

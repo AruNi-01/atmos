@@ -35,7 +35,7 @@ pub fn permission_doctor(manager: &DesktopUseManager) -> PermissionDoctor {
     let host_app = manager.host_app_path();
     let mut notes = Vec::new();
     notes.push(scrub_vendor(
-        "Grant Accessibility and Screen Recording to Atmos Desktop Use for capture and control. AppShot and control share this product identity.",
+        "Grant Accessibility and Screen Recording to Atmos Desktop Use for AppShot and desktop control. One host app identity is used for both.",
     ));
 
     let mut accessibility = None;
@@ -45,25 +45,22 @@ pub fn permission_doctor(manager: &DesktopUseManager) -> PermissionDoctor {
     if st.driver.installed {
         if let Ok(engine) = manager.require_engine() {
             let socket = manager.socket_path();
-            match host::permissions_status_json(&engine, &socket) {
+            match host::permissions_status_json(&engine, &socket, host_app.as_deref()) {
                 Ok(v) => {
-                    accessibility =
-                        v.get("accessibility")
-                            .and_then(|x| x.as_bool())
-                            .or_else(|| {
-                                v.pointer("/permissions/accessibility")
-                                    .and_then(|x| x.as_bool())
-                            });
-                    screen_recording = v
-                        .get("screen_recording")
+                    accessibility = v.get("accessibility").and_then(|x| x.as_bool());
+                    screen_recording = v.get("screen_recording").and_then(|x| x.as_bool());
+                    engine_ready = v
+                        .get("daemon_running")
                         .and_then(|x| x.as_bool())
-                        .or_else(|| v.get("screenRecording").and_then(|x| x.as_bool()))
-                        .or_else(|| {
-                            v.pointer("/permissions/screen_recording")
-                                .and_then(|x| x.as_bool())
-                        });
-                    engine_ready = host::is_daemon_alive(&socket)
-                        || host::ensure_daemon(&engine, &socket).is_ok();
+                        .unwrap_or(false)
+                        || host::is_daemon_alive(&socket);
+                    if let Some(bid) = v.get("host_bundle_id").and_then(|x| x.as_str()) {
+                        if bid != "com.atmos.desktop.use" {
+                            notes.push(scrub_vendor(&format!(
+                                "Live engine bundle is {bid}; expected com.atmos.desktop.use. Re-run ensure and grant permissions for Atmos Desktop Use."
+                            )));
+                        }
+                    }
                 }
                 Err(e) => notes.push(e),
             }

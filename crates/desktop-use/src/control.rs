@@ -73,7 +73,10 @@ impl DriveError {
     }
 }
 
-/// Execute a drive action. Screenshot may use Capture without the control engine.
+/// Execute a drive action.
+///
+/// Screenshot prefers the **host engine** when installed (same TCC identity as control),
+/// falling back to local Capture for pre-engine installs.
 pub fn drive(manager: &DesktopUseManager, req: DriveRequest) -> DriveResult {
     let action_name = match req.action {
         DriveAction::Screenshot => "screenshot",
@@ -84,6 +87,9 @@ pub fn drive(manager: &DesktopUseManager, req: DriveRequest) -> DriveResult {
 
     match req.action {
         DriveAction::Screenshot => {
+            if manager.require_engine().is_ok() {
+                return screenshot_via_engine(manager, &req, action_name);
+            }
             let cap = capture(CaptureRequest {
                 out_path: req.out_path.clone(),
                 include_base64: req.out_path.is_none(),
@@ -119,6 +125,80 @@ pub fn drive(manager: &DesktopUseManager, req: DriveRequest) -> DriveResult {
     }
 }
 
+fn screenshot_via_engine(
+    manager: &DesktopUseManager,
+    req: &DriveRequest,
+    action_name: &str,
+) -> DriveResult {
+    let Ok(engine) = manager.require_engine() else {
+        return DriveResult {
+            ok: false,
+            action: action_name.into(),
+            detail: None,
+            capture: None,
+            result: None,
+            error: Some(ERR_ENGINE_NOT_INSTALLED.into()),
+            error_code: Some("control_engine_not_installed".into()),
+        };
+    };
+    let socket = manager.socket_path();
+    let host_app = manager.host_app_path();
+    if let Err(e) = host::ensure_daemon(&engine, &socket, host_app.as_deref()) {
+        return DriveResult {
+            ok: false,
+            action: action_name.into(),
+            detail: None,
+            capture: None,
+            result: None,
+            error: Some(e),
+            error_code: Some("control_engine_failed".into()),
+        };
+    }
+    match host::call_tool(
+        &engine,
+        &socket,
+        "get_desktop_state",
+        &json!({}),
+    ) {
+        Ok(v) => {
+            // Optionally write PNG if base64 present and out_path set.
+            if let (Some(out), Some(b64)) = (
+                req.out_path.as_ref(),
+                v.get("screenshot_base64")
+                    .or_else(|| v.get("png_base64"))
+                    .and_then(|x| x.as_str()),
+            ) {
+                if let Ok(bytes) = base64_decode(b64) {
+                    let _ = std::fs::write(out, bytes);
+                }
+            }
+            DriveResult {
+                ok: true,
+                action: action_name.into(),
+                detail: Some("via host engine".into()),
+                result: Some(v),
+                capture: None,
+                error: None,
+                error_code: None,
+            }
+        }
+        Err(e) => DriveResult {
+            ok: false,
+            action: action_name.into(),
+            detail: None,
+            result: None,
+            capture: None,
+            error: Some(scrub_vendor(&format!("{}: {e}", strings::ERR_ENGINE_FAILED))),
+            error_code: Some("control_engine_failed".into()),
+        },
+    }
+}
+
+fn base64_decode(s: &str) -> Result<Vec<u8>, ()> {
+    use base64::{engine::general_purpose::STANDARD, Engine as _};
+    STANDARD.decode(s.trim()).map_err(|_| ())
+}
+
 fn run_engine(
     manager: &DesktopUseManager,
     engine: &Path,
@@ -126,7 +206,8 @@ fn run_engine(
     action_name: &str,
 ) -> DriveResult {
     let socket = manager.socket_path();
-    if let Err(e) = host::ensure_daemon(engine, &socket) {
+    let host_app = manager.host_app_path();
+    if let Err(e) = host::ensure_daemon(engine, &socket, host_app.as_deref()) {
         return DriveResult {
             ok: false,
             action: action_name.into(),

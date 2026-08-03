@@ -22,6 +22,7 @@ import {
   openAppshotPermissionTarget,
   watchAppshotStatusAfterPermissionOpen,
 } from "../lib/appshot-client";
+import { desktopInvoke, isDesktopRuntime } from "@/shared/lib/desktop-bridge";
 import type {
   AppshotPermissionName,
   AppshotPermissionState,
@@ -53,19 +54,42 @@ export function AppshotPermissionsPanel({
   const [error, setError] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [openingTarget, setOpeningTarget] = React.useState<AppshotSettingsTarget | null>(null);
+  const [useHostIdentity, setUseHostIdentity] = React.useState(false);
   const watcherRef = React.useRef<(() => void) | null>(null);
 
   const refreshStatus = React.useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
+      // Prefer Atmos Desktop Use host doctor when control engine is installed
+      // so AppShot + control share one TCC product identity.
+      if (isDesktopRuntime()) {
+        try {
+          const doctor = (await desktopInvoke("desktop_use_doctor")) as {
+            engine_installed?: boolean;
+            accessibility?: boolean | null;
+            screen_recording?: boolean | null;
+            host_app_name?: string;
+          };
+          if (doctor?.engine_installed) {
+            setUseHostIdentity(true);
+            setStatus(
+              statusFromHostDoctor(doctor, t("permissionsWindow.grant")),
+            );
+            return;
+          }
+        } catch {
+          /* fall through to AppShot Electron status */
+        }
+      }
+      setUseHostIdentity(false);
       setStatus(await getAppshotStatus());
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   React.useEffect(() => {
     void refreshStatus();
@@ -83,7 +107,12 @@ export function AppshotPermissionsPanel({
       setOpeningTarget(target);
       setError(null);
       try {
-        await openAppshotPermissionTarget(target);
+        if (useHostIdentity && isDesktopRuntime()) {
+          // Single host: Atmos Desktop Use.app grant flow for AppShot + control.
+          await desktopInvoke("desktop_use_grant_permissions");
+        } else {
+          await openAppshotPermissionTarget(target);
+        }
         watcherRef.current?.();
         watcherRef.current = watchAppshotStatusAfterPermissionOpen(refreshStatus, 20_000);
       } catch (err) {
@@ -95,7 +124,7 @@ export function AppshotPermissionsPanel({
         }, 700);
       }
     },
-    [refreshStatus],
+    [refreshStatus, useHostIdentity],
   );
 
   return (
@@ -251,6 +280,49 @@ function getPermissionCopy(
       description: t("permissionsWindow.permissions.screenRecording.description"),
       icon: MonitorUp,
     },
+  };
+}
+
+function statusFromHostDoctor(
+  doctor: {
+    accessibility?: boolean | null;
+    screen_recording?: boolean | null;
+    host_app_name?: string;
+  },
+  grantLabel: string,
+): AppshotStatus {
+  const ax = Boolean(doctor.accessibility);
+  const screen = Boolean(doctor.screen_recording);
+  const mk = (
+    name: AppshotPermissionName,
+    granted: boolean,
+  ): AppshotPermissionState => ({
+    name,
+    display_name: name === "accessibility" ? "Accessibility" : "Screen Recording",
+    granted,
+    required_for: name === "accessibility" ? ["accessibility_tree", "control"] : ["capture", "control"],
+    recovery_action: granted
+      ? null
+      : {
+          label: grantLabel,
+          target: name,
+          manual_steps: [
+            `Open System Settings → Privacy & Security and enable ${name === "accessibility" ? "Accessibility" : "Screen Recording"} for Atmos Desktop Use.`,
+          ],
+        },
+  });
+  return {
+    supported: true,
+    platform: "macos",
+    reason: null,
+    trigger: {
+      mode: "macos_modifier_gesture",
+      enabled: ax,
+      required_modifiers: [],
+      last_error: null,
+      permissions: [mk("accessibility", ax)],
+    },
+    permissions: [mk("accessibility", ax), mk("screen_recording", screen)],
   };
 }
 
