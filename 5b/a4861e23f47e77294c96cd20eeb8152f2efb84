@@ -1,0 +1,36 @@
+apps/web/messages/en.json
+  h_5be255725524c8 3949-3955,5148-5156
+apps/web/messages/zh.json
+  h_5be255725524c8 3949-3955,5148-5156
+apps/web/src/api/ws/settings-api.ts
+  h_5be255725524c8 9-12,65-72
+apps/web/src/app-shell/CenterStage.tsx
+  h_5be255725524c8 67-68,1060-1092
+apps/web/src/app-shell/bootstrap/connection-target-lifecycle.ts
+  h_5be255725524c8 29-35,37
+apps/web/src/features/settings/components/SettingsModal.tsx
+  h_5be255725524c8 278,302,304
+apps/web/src/features/settings/components/TerminalSettingsSection.tsx
+  h_5be255725524c8 39-40,75-85,121-124,137-141,257-258,261-292
+apps/web/src/features/settings/components/settings-modal-data.ts
+  h_5be255725524c8 645-653
+apps/web/src/features/settings/store/terminal-split-prefs-store.ts
+  h_5be255725524c8 3,5-6,8-11,14-15,18,21-29,32-90,92-141,143-206,209-261,264-351,354-370
+apps/web/src/features/terminal/components/TerminalGrid.tsx
+  h_5be255725524c8 21,128-131,134-135,640,647,652-662,666-673,755,757,883,922,946
+apps/web/src/features/terminal/lib/__tests__/terminal-split-prefs.test.ts
+  h_5be255725524c8 1-112
+apps/web/src/features/terminal/lib/terminal-split-prefs.ts
+  h_5be255725524c8 1-6,9-24,28-31,34-43,46-48,51-62,65-85
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "5ba4861e23f47e77294c96cd20eeb8152f2efb84",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
