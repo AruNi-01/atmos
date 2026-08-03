@@ -6268,7 +6268,7 @@
         "comment": "评论",
         "close": "关闭议题",
         "reopen": "重新打开议题",
-        "openOnGithub": "在 GitHub 中打开",
+        "openOnGithub": "GitHub",
         "showActions": "显示议题操作"
       },
       "composer": {

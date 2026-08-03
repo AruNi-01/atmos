@@ -6268,7 +6268,7 @@
         "comment": "Comment",
         "close": "Close issue",
         "reopen": "Reopen issue",
-        "openOnGithub": "Open on GitHub",
+        "openOnGithub": "GitHub",
         "showActions": "Show issue actions"
       },
       "composer": {

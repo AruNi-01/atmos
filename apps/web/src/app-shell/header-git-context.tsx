@@ -144,7 +144,7 @@ export function HeaderGitContext({
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
-          <div className="h-4 w-px bg-border/60 shrink-0 mx-0.5" />
+          <div className="h-4 w-px bg-border/60 shrink-0 mx-1.5" />
         </>
       )}
 

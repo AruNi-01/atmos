@@ -243,7 +243,7 @@ export function PRActionBar({
   }, []);
 
   return (
-    <div className="pointer-events-none absolute bottom-6 left-1/2 z-10 flex -translate-x-1/2 justify-center">
+    <div className="pointer-events-none absolute bottom-3 left-1/2 z-10 flex -translate-x-1/2 justify-center">
       <div className="pointer-events-auto relative flex items-end justify-center">
         {shouldRenderToolbar && (
           <div

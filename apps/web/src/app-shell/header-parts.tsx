@@ -36,7 +36,7 @@ interface BranchSyncIndicatorState {
 function BranchSyncIndicatorIcon({ direction }: { direction: BranchSyncDirection }) {
   if (direction === "diverged") {
     return (
-      <span className="flex size-4 shrink-0 items-center justify-center gap-[1px]">
+      <span className="flex h-4 shrink-0 items-center justify-center gap-px">
         <ArrowNarrowUpDashedIcon size={12} strokeWidth={2.1} className="text-success" />
         <ArrowNarrowDownDashedIcon size={12} strokeWidth={2.1} className="text-destructive" />
       </span>
@@ -80,7 +80,7 @@ export function BranchSyncIndicator({ state }: { state: BranchSyncIndicatorState
         <span
           role="status"
           aria-label={state.tooltip}
-          className="flex size-4 shrink-0 items-center justify-center"
+          className="flex h-4 shrink-0 items-center justify-center"
         >
           <BranchSyncIndicatorIcon direction={state.direction} />
         </span>

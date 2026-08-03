@@ -437,7 +437,7 @@ export function PRDetailView({ owner, repo, branch, prNumber, active, onRequestC
               <div className="flex-1 min-w-0 overflow-hidden">
                 <div
                   ref={mainScrollRef}
-                  className="h-full overflow-y-auto pr-1"
+                  className="h-full overflow-y-auto pr-1 pb-16"
                   onScroll={handleMainScroll}
                   onWheelCapture={handleMainWheelCapture}
                 >

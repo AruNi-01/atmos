@@ -188,7 +188,7 @@ export function IssueDetailView({
         <>
         <div className="flex min-h-0 flex-1 gap-3 text-sm">
           <div className="min-w-0 flex-1 overflow-hidden">
-            <div className="h-full overflow-y-auto pr-1">
+            <div className="h-full overflow-y-auto pr-1 pb-16">
               <div className="sticky top-0 z-20 bg-background pb-3 pt-1">
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
@@ -431,7 +431,7 @@ function IssueActionToolbar({
   };
 
   return (
-    <div className="pointer-events-none absolute bottom-6 left-1/2 z-30 flex -translate-x-1/2 justify-center">
+    <div className="pointer-events-none absolute bottom-3 left-1/2 z-30 flex -translate-x-1/2 justify-center">
       <div className="pointer-events-auto relative flex items-end justify-center">
         {shouldRenderToolbar ? (
           <div
