@@ -337,17 +337,9 @@ fn process_snapshot_linux(pid: u32) -> Option<ProcessSnapshot> {
         Some(0) | None => Some("?".into()),
         Some(_) => Some("tty".into()), // presence only; exact device name not required
     };
-    let user = std::fs::metadata(&base).ok().and_then(|meta| {
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::MetadataExt;
-            Some(meta.uid().to_string())
-        }
-        #[cfg(not(unix))]
-        {
-            let _ = meta;
-            None
-        }
+    let user = std::fs::metadata(&base).ok().map(|meta| {
+        use std::os::unix::fs::MetadataExt;
+        meta.uid().to_string()
     });
 
     Some(ProcessSnapshot {
@@ -402,6 +394,7 @@ Write-Output "$parent`t$name`t$cmd"
     })
 }
 
+#[cfg(any(target_os = "macos", target_os = "windows"))]
 fn shell_words(command: &str) -> Vec<String> {
     command
         .split_whitespace()
@@ -412,7 +405,9 @@ fn shell_words(command: &str) -> Vec<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{ancestor_chain, orphan_hints, process_snapshot, terminate_process, ProcessSnapshot};
+    use super::{
+        ancestor_chain, orphan_hints, process_snapshot, terminate_process, ProcessSnapshot,
+    };
 
     #[test]
     fn refuses_to_terminate_pid_one() {

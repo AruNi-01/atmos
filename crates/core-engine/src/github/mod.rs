@@ -550,12 +550,7 @@ fn parse_issue_value(
     let assignees = value
         .get("assignees")
         .and_then(|v| v.as_array())
-        .map(|items| {
-            items
-                .iter()
-                .filter_map(|assignee| parse_issue_user(assignee))
-                .collect()
-        })
+        .map(|items| items.iter().filter_map(parse_issue_user).collect())
         .unwrap_or_default();
     // gh CLI uses `author`; REST /issues uses `user`.
     let author = value

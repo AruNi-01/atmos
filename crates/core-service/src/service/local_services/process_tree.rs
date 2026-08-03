@@ -86,11 +86,7 @@ pub(super) fn build_process_tree_plan(
     }
 }
 
-pub(super) fn is_safe_tree_root(
-    plan: &ProcessTreePlan,
-    root_pid: u32,
-    listener_pid: u32,
-) -> bool {
+pub(super) fn is_safe_tree_root(plan: &ProcessTreePlan, root_pid: u32, listener_pid: u32) -> bool {
     if root_pid <= 1 || root_pid == std::process::id() {
         return false;
     }
@@ -110,11 +106,9 @@ fn is_protected_snapshot(snap: &ProcessSnapshot) -> bool {
         .process_name
         .as_deref()
         .or_else(|| {
-            snap.command_line.first().and_then(|cmd| {
-                Path::new(cmd)
-                    .file_name()
-                    .and_then(|v| v.to_str())
-            })
+            snap.command_line
+                .first()
+                .and_then(|cmd| Path::new(cmd).file_name().and_then(|v| v.to_str()))
         })
         .unwrap_or("")
         .to_ascii_lowercase();
@@ -246,7 +240,13 @@ mod tests {
                 &["next-server"],
                 Some("/repo/apps/web"),
             ),
-            snap(200, Some(100), "node", &["node", "next", "dev"], Some("/repo")),
+            snap(
+                200,
+                Some(100),
+                "node",
+                &["node", "next", "dev"],
+                Some("/repo"),
+            ),
             snap(100, Some(50), "just", &["just", "dev-web"], Some("/repo")),
             snap(50, Some(1), "zsh", &["-zsh"], Some("/Users/dev")),
         ];

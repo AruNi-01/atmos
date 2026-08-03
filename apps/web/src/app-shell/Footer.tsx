@@ -352,15 +352,17 @@ function PermissionBellFooter() {
 /** Map agent hook state → thinking-orbs preset for the footer ticker icon. */
 function footerAgentOrbState(state: string): OrbState {
   if (state === AGENT_STATE.PERMISSION_REQUEST) return "listening";
-  if (state === AGENT_STATE.RUNNING) return "composing";
-  return "working";
+  // running (and any other active) → solving
+  return "solving";
 }
 
 function FooterAgentStatusOrb({ state }: { state: string }) {
+  const orbState = footerAgentOrbState(state);
   return (
     <span className="inline-flex size-5 shrink-0 items-center justify-center">
       <ThinkingOrb
-        state={footerAgentOrbState(state)}
+        key={orbState}
+        state={orbState}
         size={20}
         theme="auto"
         aria-label={state}

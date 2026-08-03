@@ -325,9 +325,9 @@ impl LocalServicesService {
         &self,
         request: LocalServiceStopRequest,
     ) -> Result<LocalServiceStopResponse> {
-        let root_pid = request.root_pid.ok_or_else(|| {
-            ServiceError::Validation("local_service_tree_root_required".into())
-        })?;
+        let root_pid = request
+            .root_pid
+            .ok_or_else(|| ServiceError::Validation("local_service_tree_root_required".into()))?;
         if root_pid <= 1 {
             return Err(ServiceError::Validation(
                 "local_service_tree_root_protected".into(),
@@ -336,9 +336,9 @@ impl LocalServicesService {
 
         // Revalidate by port + owner (service_id/pid may have changed after respawn).
         let service = self.revalidate_stop_target(&request, false).await?;
-        let listener_pid = service.pid.ok_or_else(|| {
-            ServiceError::Validation("local_service_stop_not_allowed".into())
-        })?;
+        let listener_pid = service
+            .pid
+            .ok_or_else(|| ServiceError::Validation("local_service_stop_not_allowed".into()))?;
 
         let chain = self
             .engine
