@@ -1,0 +1,26 @@
+crates/core-engine/src/agent_hooks/claude_code.rs
+  h_5be255725524c8 43-44,48-49,54,56-76,79-91,93-97,99-140
+crates/core-engine/src/agent_hooks/mod.rs
+  h_5be255725524c8 23-24,27
+crates/core-service/src/service/agent_hooks.rs
+  h_5be255725524c8 3,28-31,68-70,171-181,186-189,203-204,242,277-279,298,311-314,344-346,384-386,469-476,487-503,506,544-546,575-579,583-585,595-879,1117-1313
+crates/core-service/src/service/agent_hooks/child_agent.rs
+  h_5be255725524c8 1-59
+crates/core-service/src/service/agent_hooks/claude_code.rs
+  h_5be255725524c8 4-7,37-116,174,184-198,228,230-250,252-285,287-297,376-412
+crates/core-service/src/service/agent_hooks/factory_droid.rs
+  h_5be255725524c8 4-7,67-140,184,228,238-249,348,359-404
+crates/core-service/src/service/agent_hooks/grok_build.rs
+  h_5be255725524c8 4-7,61-132,190,200-214
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "09fa973533d7fde66989db93ecac6239943f3d91",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
