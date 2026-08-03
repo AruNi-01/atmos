@@ -455,6 +455,17 @@ export const apiOperationInventory = [
     phase: "extended",
     status: "complete",
   },
+  {
+    domain: "localServices",
+    operation: "localServicesUpdated",
+    transport: "websocket-event",
+    classification: "event",
+    legacyOwner: "LocalServicesFooterItem refetchInterval",
+    queryKeyRoot: "queryKeys.computer.localServicesScan",
+    invalidatedBy: ["local_services_updated"],
+    phase: "extended",
+    status: "complete",
+  },
 
   // ──────────────────────────────────────────────────────────────────────────
   // EXTENDED: Local models

@@ -131,6 +131,11 @@
     }
   },
   "header": {
+    "attention": {
+      "ariaLabel": "Needs attention",
+      "tooltip": "Show only workspaces and projects that need attention",
+      "tooltipActive": "Showing items that need attention — click to show all"
+    },
     "leftSidebar": {
       "expand": "Expand left sidebar",
       "collapse": "Collapse left sidebar",
@@ -2126,6 +2131,13 @@
     }
   },
   "Agent": {
+    "attention": {
+      "permissionNeeded": "Permission needed",
+      "taskComplete": "Task complete — needs review",
+      "filterTitle": "Need attention list",
+      "filterDescription": "Only workspaces and projects that need you",
+      "clearFilter": "Show all"
+    },
     "components": {
       "common": {
         "cancel": "Cancel",
@@ -3388,6 +3400,7 @@
       },
       "list": {
         "failedToStopTitle": "Failed to stop service",
+        "stopDidNotClear": "The service is still listening on that port.",
         "emptyLabel": "No Local Services detected.",
         "emptyDescription": "Start a server inside this Project or Workspace, then refresh."
       },
@@ -3398,6 +3411,28 @@
         "stopConfirmTitle": "Stop service?",
         "stopConfirmDescription": "Stop <strong>{url}</strong> on port {port}?",
         "stop": "Stop"
+      },
+      "escalation": {
+        "title": "Stop did not fully clear the service",
+        "description": "{url} on port {port} is still listening. A parent process may have respawned it, or the listener ignored the stop signal.",
+        "reasonStillListening": "The port is still in use after a graceful stop.",
+        "reasonRespawned": "A new process is listening on the same port (likely respawned by a parent).",
+        "reasonTermIgnored": "The listener ignored the terminate signal.",
+        "processTree": "Process chain",
+        "processTreeEmpty": "Could not read the process chain for this service.",
+        "listenerBadge": "listener",
+        "recommendedBadge": "recommended root",
+        "protectedBadge": "protected",
+        "treeStopNote": "This will stop process tree root <strong>pid {pid}</strong> (graceful first, then force if the port remains open). Protected processes such as Atmos Server and tmux are never targeted.",
+        "noSafeRoot": "No safe process-tree root was found. Stop the service from its original terminal, or free the port manually.",
+        "stopProcessTree": "Stop process tree",
+        "hints": {
+          "orphan_ppid": "Process looks orphaned (parent is init / pid 1).",
+          "no_tty": "No controlling terminal (stdout/stderr may be gone).",
+          "respawned": "Listener PID changed after stop — parent likely respawned a child.",
+          "term_ignored_or_still_listening": "Graceful stop did not free the port.",
+          "not_http_still_listen": "HTTP probe failed, but TCP is still listening."
+        }
       },
       "preview": {
         "title": "Local Services",
@@ -3922,6 +3957,13 @@
       "syncFailedTitle": "Settings Sync Failed",
       "enabledFailed": "Failed to update Terminal Rich Input.",
       "triggerBarFailed": "Failed to update the Rich Input trigger bar."
+    },
+    "terminalSplitPrefsStore": {
+      "syncFailedTitle": "Settings Sync Failed",
+      "enabledFailed": "Failed to update Default split agent.",
+      "agentFailed": "Failed to update the default split agent.",
+      "runConfigFailed": "Failed to update the default split agent run config.",
+      "newTabFailed": "Failed to update New Terminal Tab default agent."
     },
     "notificationStore": {
       "unknownError": "Unknown error"
@@ -4902,15 +4944,19 @@
         "description": "Choose how you want to be notified when agents need attention.",
         "browser": {
           "title": "Browser notifications",
-          "description": "Show native browser notifications when agents need attention."
+          "description": "Show native browser notifications when agents need attention. By default only while Atmos is in the background."
         },
         "desktop": {
           "title": "Desktop notifications",
-          "description": "Show system-level notifications via the desktop app."
+          "description": "Show system-level notifications via the desktop app. Click a notification to jump to the agent or automation. By default only while Atmos is in the background."
         },
         "inAppToast": {
           "title": "In-app toast",
-          "description": "Show top-right app toasts when agents need attention or finish."
+          "description": "Show top-right app toasts when agents need attention or finish. Best for when you are already using Atmos."
+        },
+        "whenFocused": {
+          "title": "System notifications while using Atmos",
+          "description": "Also show browser/desktop system notifications when Atmos is focused. Leave off to avoid noise while working; use in-app toast for foreground alerts."
         }
       },
       "events": {
@@ -5115,8 +5161,15 @@
       },
       "defaultSplitAgent": {
         "title": "Default split agent",
-        "description": "When enabled, plain split (toolbar click, ⌘D, or context menu) reuses the last agent you picked from a split submenu. Hover split to choose a different agent.",
-        "lastAgent": "Last split agent:"
+        "description": "When enabled, plain split (toolbar click, ⌘D, or context menu) launches the agent you select below. Hover split to choose a different agent.",
+        "agent": {
+          "title": "Agent",
+          "description": "Agent and optional run config used for default split. Changes save immediately."
+        },
+        "newTerminalTab": {
+          "title": "New Terminal Tab",
+          "description": "When enabled, creating a new Terminal tab also launches this default agent in the first pane."
+        }
       },
       "richInputEnabled": {
         "title": "Terminal Rich Input",
@@ -5179,12 +5232,8 @@
       "browserDescription": "Show the in-app preview browser for running dev servers.",
       "runTitle": "Run",
       "runDescription": "Start and monitor project run scripts.",
-      "prTitle": "Pull Requests",
-      "prDescription": "Browse open and closed pull requests. Hiding this stops PR lookups.",
-      "issuesTitle": "Issues",
-      "issuesDescription": "Browse open and closed GitHub issues. Hiding this stops issue lookups.",
-      "actionsTitle": "Actions",
-      "actionsDescription": "Browse GitHub Actions workflow runs. Hiding this stops workflow lookups."
+      "githubTitle": "GitHub",
+      "githubDescription": "Browse pull requests, issues, and Actions workflow runs. Hiding this removes the GitHub tab and stops related lookups."
     },
     "agentHookStatusCard": {
       "title": "Agent Hook Status",
@@ -6028,6 +6077,11 @@
       "loading": "Loading commit...",
       "filesChanged": "{count} files changed"
     },
+    "timeline": {
+      "addedCommits": "added {count, plural, one {# commit} other {# commits}}",
+      "unknownUser": "unknown",
+      "unknownCommit": "unknown commit"
+    },
     "actionsPanel": {
       "summary": {
         "passed": "Passed",
@@ -6235,7 +6289,7 @@
         "comment": "Comment",
         "close": "Close issue",
         "reopen": "Reopen issue",
-        "openOnGithub": "Open on GitHub",
+        "openOnGithub": "GitHub",
         "showActions": "Show issue actions"
       },
       "composer": {

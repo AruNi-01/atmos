@@ -73,7 +73,7 @@ export function SidebarPeekShell({
         // previews hide while this panel is visible (opacity > 0).
         data-atmos-native-surface-overlay="true"
         className={cn(
-          "fixed top-12 bottom-6 z-[45] min-w-0 overflow-visible bg-background text-foreground shadow-2xl ring-1 ring-sidebar-border/80",
+          "fixed top-12 bottom-6 z-[45] min-w-0 overflow-hidden bg-background text-foreground shadow-2xl ring-1 ring-sidebar-border/80",
           "transition-[translate,opacity,box-shadow] duration-250 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-[translate,opacity]",
           isVisible
             ? "pointer-events-auto translate-x-0 opacity-100"

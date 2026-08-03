@@ -43,6 +43,10 @@ impl WsMessageService {
             state: "test".to_string(),
             session_id: "test".to_string(),
             project_path: None,
+            context_id: None,
+            pane_id: None,
+            side_chat_id: None,
+            source_pane_id: None,
         };
 
         match self

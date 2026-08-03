@@ -1,0 +1,39 @@
+#!/usr/bin/env sh
+
+# Enforce Conventional Commits (see CONTRIBUTING.md).
+# No just / node package required beyond husky itself.
+
+msg_file="$1"
+if [ ! -f "$msg_file" ]; then
+  echo "error: commit message file not found: $msg_file" >&2
+  exit 1
+fi
+
+first_line=$(head -n 1 "$msg_file" | tr -d '\r')
+
+# Empty message is handled by git itself; don't double-fail.
+if [ -z "$first_line" ]; then
+  exit 0
+fi
+
+# Allow Git / tooling generated subjects.
+case "$first_line" in
+  Merge\ *|Revert\ *|fixup!\ *|squash!\ *)
+    exit 0
+    ;;
+esac
+
+# type(scope)?: description   |   type!: description
+if ! printf '%s\n' "$first_line" | grep -Eq '^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\([a-zA-Z0-9/_,.-]+\))?(!)?: .+'; then
+  cat >&2 <<'EOF'
+error: commit message must follow Conventional Commits
+
+  format:  <type>(<optional-scope>): <description>
+  example: feat(web): add github issues sidebar
+  types:   feat fix docs style refactor perf test build ci chore revert
+
+  skip hooks for emergencies: git commit --no-verify
+  docs: CONTRIBUTING.md · https://www.conventionalcommits.org/
+EOF
+  exit 1
+fi

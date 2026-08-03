@@ -4,7 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { toastManager } from "@workspace/ui";
 import { systemApi } from "@/api/rest-api";
-import { isTauriRuntime } from "@/shared/lib/desktop-runtime";
+import { desktopInvoke } from "@/shared/lib/desktop-bridge";
+import { isDesktopRuntime, isTauriRuntime } from "@/shared/lib/desktop-runtime";
 import {
   checkForUpdate,
   downloadAndInstallUpdate,
@@ -27,10 +28,39 @@ export function useSettingsUpdateActions() {
   const [appVersion, setAppVersion] = useState("");
 
   useEffect(() => {
-    if (!isTauriRuntime()) return;
-    import("@tauri-apps/api/app").then(({ getVersion }) =>
-      getVersion().then(setAppVersion)
-    ).catch(() => {});
+    if (!isDesktopRuntime()) return;
+
+    let cancelled = false;
+
+    const loadAppVersion = async () => {
+      try {
+        // Shell-agnostic path: Electron + Tauri both implement get_version_info.
+        const info = await desktopInvoke<{ version?: string }>("get_version_info");
+        const version = info.version?.trim();
+        if (!cancelled && version) {
+          setAppVersion(version);
+          return;
+        }
+      } catch {
+        // Fall through to Tauri-only app.getVersion when bridge is unavailable.
+      }
+
+      if (!isTauriRuntime()) return;
+      try {
+        const { getVersion } = await import("@tauri-apps/api/app");
+        const version = (await getVersion())?.trim();
+        if (!cancelled && version) {
+          setAppVersion(version);
+        }
+      } catch {
+        // Leave empty → SettingsAboutSection shows "Unavailable".
+      }
+    };
+
+    void loadAppVersion();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const handleInstallUpdate = async (toastId?: string) => {

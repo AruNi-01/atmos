@@ -22,6 +22,8 @@ export interface NotificationSettings {
   browser_notification: boolean;
   desktop_notification: boolean;
   app_toast_notification: boolean;
+  /** When false, suppress browser/desktop system notifications while Atmos is focused. */
+  system_notification_when_focused: boolean;
   notify_on_permission_request: boolean;
   notify_on_task_complete: boolean;
   notify_on_automation_outcome: boolean;
@@ -33,6 +35,7 @@ const DEFAULT_SETTINGS: NotificationSettings = {
   browser_notification: false,
   desktop_notification: false,
   app_toast_notification: false,
+  system_notification_when_focused: false,
   notify_on_permission_request: true,
   notify_on_task_complete: true,
   notify_on_automation_outcome: true,

@@ -8,9 +8,6 @@ import {
   AvatarImage,
   Skeleton,
   Button,
-  Tabs,
-  TabsList,
-  TabsTrigger,
   Textarea,
   TabsSubtle,
   TabsSubtleItem,
@@ -20,15 +17,18 @@ import {
   CheckCircle2,
   Check,
   ExternalLink,
+  Eye,
   FileText,
   Github,
   GitBranch,
+  GitCommit,
   GitPullRequest,
   Milestone,
   MessageSquare,
   Loader2,
   PanelRightClose,
   PanelRightOpen,
+  PenLine,
   RotateCw,
   Settings2,
   Plus,
@@ -67,6 +67,8 @@ import {
 } from "@/features/github/lib/pr-detail-sidebar";
 import { useOpenGithubCenterTab } from "@/features/github/hooks/use-open-github-center-tab";
 import { useRepoPrListQuery } from "@/features/github/hooks/use-github-pr-query";
+import { groupConsecutiveTimelineCommits } from "@/features/github/lib/timeline-commits";
+import { TimelineCommitsGroup } from "@/features/github/components/TimelineCommitsGroup";
 import { wsRequest } from "@/api/ws/request";
 import { useComputerQueryScope } from "@/api/query/query-scope";
 import { useQueryClient } from "@tanstack/react-query";
@@ -97,6 +99,7 @@ export function IssueDetailView({
   const locale = useLocale();
   const t = useTranslations("github.issueDetail");
   const relativeTimeLocale = locale.startsWith("zh") ? zhCN : enUS;
+  const { openCommitTab } = useOpenGithubCenterTab();
   const { data: issue, loading } = useGithubIssueDetail(
     issueNumber,
     owner,
@@ -124,14 +127,29 @@ export function IssueDetailView({
       items
         .map((item: TimelineItem) => {
           const actor = item.actor ?? item.author ?? item.user;
-          const user = actor as
-            | { login?: string; avatar_url?: string; avatarUrl?: string }
+          // `committed` events expose {name,email,date} without login/avatar.
+          const rawAuthor = item.author as
+            | { login?: string; name?: string; avatar_url?: string; avatarUrl?: string }
             | undefined;
+          const user =
+            item.event === "committed" && rawAuthor && !rawAuthor.login
+              ? {
+                  login: rawAuthor.name,
+                  avatar_url: `https://github.com/${encodeURIComponent(rawAuthor.name ?? "ghost")}.png?size=32`,
+                  avatarUrl: `https://github.com/${encodeURIComponent(rawAuthor.name ?? "ghost")}.png?size=32`,
+                }
+              : (actor as
+                  | { login?: string; avatar_url?: string; avatarUrl?: string }
+                  | undefined);
           return {
             ...item,
             author: user,
             createdAt:
-              item.created_at ?? item.submitted_at ?? item.authoredDate ?? "",
+              item.created_at ??
+              item.author?.date ??
+              item.submitted_at ??
+              item.authoredDate ??
+              "",
             body: item.body ?? item.message ?? item.messageHeadline ?? "",
             isComment: item.event === "commented",
           };
@@ -144,13 +162,18 @@ export function IssueDetailView({
     [items],
   );
 
+  const groupedDiscussion = React.useMemo(
+    () => groupConsecutiveTimelineCommits(discussion),
+    [discussion],
+  );
+
   const selectTab = (tab: IssueMainTab) => {
     setActiveTab(tab);
     if (tab === "discussion") setVisitedDiscussion(true);
   };
 
   return (
-    <div className="relative mx-auto flex h-full min-h-0 w-full max-w-6xl flex-col overflow-hidden px-6 pb-8">
+    <div className="relative mx-auto flex h-full min-h-0 w-full max-w-6xl flex-col overflow-hidden px-6">
       <header className="relative flex shrink-0 items-center gap-3 pb-4 pt-6 pr-12">
         <Github className="size-4.5 text-muted-foreground/60" />
         <div className="flex min-w-0 items-center gap-2.5">
@@ -188,7 +211,7 @@ export function IssueDetailView({
         <>
         <div className="flex min-h-0 flex-1 gap-3 text-sm">
           <div className="min-w-0 flex-1 overflow-hidden">
-            <div className="h-full overflow-y-auto pb-16 pr-1">
+            <div className="h-full overflow-y-auto pr-1 pb-16">
               <div className="sticky top-0 z-20 bg-background pb-3 pt-1">
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
@@ -285,16 +308,36 @@ export function IssueDetailView({
                     <div className="relative">
                       <div className="absolute bottom-0 left-4 top-4 w-0.5 bg-border/60" />
                       <div className="relative flex flex-col gap-5">
-                        {discussion.map((item, index) => (
-                          <IssueTimelineItem
-                            key={`${item.createdAt}-${index}`}
-                            item={item}
-                            locale={relativeTimeLocale}
-                            t={t}
-                            owner={owner}
-                            repo={repo}
-                          />
-                        ))}
+                        {groupedDiscussion.map((entry, index) => {
+                          if (entry.kind === "commits") {
+                            return (
+                              <TimelineCommitsGroup
+                                key={`commits-${entry.startIndex}`}
+                                commits={entry.commits}
+                                locale={relativeTimeLocale}
+                                onCommitClick={({ sha, subject, authorName }) => {
+                                  openCommitTab({
+                                    owner,
+                                    repo,
+                                    sha,
+                                    subject,
+                                    authorName,
+                                  });
+                                }}
+                              />
+                            );
+                          }
+                          return (
+                            <IssueTimelineItem
+                              key={`${entry.item.createdAt}-${index}`}
+                              item={entry.item}
+                              locale={relativeTimeLocale}
+                              t={t}
+                              owner={owner}
+                              repo={repo}
+                            />
+                          );
+                        })}
                       </div>
                     </div>
                   )}
@@ -431,7 +474,7 @@ function IssueActionToolbar({
   };
 
   return (
-    <div className="pointer-events-none absolute bottom-6 left-1/2 z-30 flex -translate-x-1/2 justify-center">
+    <div className="pointer-events-none absolute bottom-3 left-1/2 z-30 flex -translate-x-1/2 justify-center">
       <div className="pointer-events-auto relative flex items-end justify-center">
         {shouldRenderToolbar ? (
           <div
@@ -484,7 +527,6 @@ function IssueActionToolbar({
           onClick={openToolbar}
           onFocus={openToolbar}
           onMouseEnter={openToolbar}
-          onMouseLeave={closeToolbar}
           className={cn(
             "h-1.5 w-40 rounded-full border-0 bg-foreground/20 p-0 shadow-[0_1px_8px_rgba(0,0,0,0.18)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40",
             !isOpen
@@ -548,12 +590,15 @@ function IssueDiscussionComposer({
           <MessageSquare className="size-3.5" />
           {t("composer.title")}
         </span>
-        <Tabs value={tab} onValueChange={(value) => setTab(value as "write" | "preview")}>
-          <TabsList>
-            <TabsTrigger value="write" className="px-3 text-[11px]">{t("composer.write")}</TabsTrigger>
-            <TabsTrigger value="preview" className="px-3 text-[11px]">{t("composer.preview")}</TabsTrigger>
-          </TabsList>
-        </Tabs>
+        <TabsSubtle
+          activeLabel
+          idPrefix="issue-discussion-composer"
+          selectedIndex={tab === "write" ? 0 : 1}
+          onSelect={(index) => setTab(index === 0 ? "write" : "preview")}
+        >
+          <TabsSubtleItem index={0} icon={PenLine} label={t("composer.write")} />
+          <TabsSubtleItem index={1} icon={Eye} label={t("composer.preview")} />
+        </TabsSubtle>
       </div>
       {tab === "write" ? (
         <Textarea
@@ -618,7 +663,7 @@ function IssueTimelineItem({
   owner: string;
   repo: string;
 }) {
-  const { openPullRequestTab } = useOpenGithubCenterTab();
+  const { openPullRequestTab, openCommitTab } = useOpenGithubCenterTab();
   const login = item.author?.login ?? t("unknownUser");
   const time = item.createdAt
     ? formatDistanceToNow(new Date(item.createdAt), { addSuffix: true, locale })
@@ -682,38 +727,36 @@ function IssueTimelineItem({
     event in activity
       ? activity[event as keyof typeof activity]
       : event.replace(/_/g, " ") || t("activity");
+  // Unified neutral timeline icon treatment (same shell for every event)
+  const timelineIconClass = "size-3.5 text-muted-foreground";
   const eventIcon =
     event === "closed" ? (
-      <XCircle className="size-3.5 text-white" />
+      <XCircle className={timelineIconClass} />
     ) : event === "reopened" ? (
-      <RotateCw className="size-3.5 text-white" />
+      <RotateCw className={timelineIconClass} />
     ) : event === "assigned" || event === "unassigned" ? (
-      <User className="size-3.5 text-white" />
+      <User className={timelineIconClass} />
     ) : event === "labeled" || event === "unlabeled" ? (
-      <Tag className="size-3.5 text-muted-foreground" />
+      <Tag className={timelineIconClass} />
     ) : event === "referenced" || event === "cross-referenced" ? (
-      <ExternalLink className="size-3.5 text-muted-foreground" />
+      <ExternalLink className={timelineIconClass} />
     ) : event === "milestoned" || event === "demilestoned" ? (
-      <Milestone className="size-3.5 text-muted-foreground" />
+      <Milestone className={timelineIconClass} />
+    ) : event === "committed" ? (
+      <GitCommit className={timelineIconClass} />
     ) : (
-      <CheckCircle2 className="size-3.5 text-muted-foreground" />
+      <CheckCircle2 className={timelineIconClass} />
     );
-  const iconClass =
-    event === "closed"
-      ? "bg-red-500"
-      : event === "reopened"
-        ? "bg-emerald-500"
-        : event === "assigned"
-          ? "bg-blue-600"
-          : "bg-muted";
+
+  const refSha = item.sha || item.commit_sha || item.commit_id;
+  const canOpenCommit =
+    Boolean(refSha) &&
+    (event === "referenced" || event === "committed");
 
   return (
     <div className="flex flex-col gap-1.5 pl-2.5">
       <div className="flex items-center gap-3">
-        <div className={cn(
-          "z-10 flex size-4 shrink-0 items-center justify-center rounded-full ring-4 ring-background",
-          iconClass,
-        )}>
+        <div className="z-10 flex size-4 shrink-0 items-center justify-center rounded-full border border-border/50 bg-muted ring-4 ring-background">
           {eventIcon}
         </div>
         <Avatar className="size-4 shrink-0 border border-border/50">
@@ -749,6 +792,40 @@ function IssueTimelineItem({
           >
             {item.label.name}
           </span>
+        ) : null}
+        {canOpenCommit && item.body ? (
+          <button
+            type="button"
+            onClick={() =>
+              openCommitTab({
+                owner,
+                repo,
+                sha: refSha!,
+                subject: item.body,
+                authorName: login,
+              })
+            }
+            className="min-w-0 max-w-[280px] truncate text-left font-medium text-foreground/70 transition-colors hover:text-foreground hover:underline underline-offset-2"
+          >
+            {item.body}
+          </button>
+        ) : null}
+        {canOpenCommit && refSha ? (
+          <button
+            type="button"
+            onClick={() =>
+              openCommitTab({
+                owner,
+                repo,
+                sha: refSha,
+                subject: item.body || refSha.slice(0, 7),
+                authorName: login,
+              })
+            }
+            className="shrink-0 font-mono text-[10px] text-muted-foreground/70 transition-colors hover:text-foreground"
+          >
+            {refSha.slice(0, 7)}
+          </button>
         ) : null}
         <span className="ml-auto whitespace-nowrap text-xs text-muted-foreground/60">
           {time}
@@ -798,7 +875,7 @@ function IssueMetadataSidebar({
         collapsed ? "max-w-0 opacity-0" : "max-w-[240px] opacity-100",
       )}
     >
-      <div className="flex w-[240px] flex-col gap-5 px-2 pb-16 pt-1 text-xs">
+      <div className="flex w-[240px] flex-col gap-5 px-2 pt-1 text-xs">
         <SidebarSection
           title={t("sidebar.assignees")}
           icon={<User className="size-3.5" />}

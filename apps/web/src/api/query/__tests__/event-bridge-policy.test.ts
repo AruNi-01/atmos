@@ -10,6 +10,7 @@
  * Policy table (mirrors server-state-event-bridge.tsx):
  *  quota_overview_updated          → setQueryData  (complete snapshot)
  *  token_usage_updated             → invalidateQueries (tokenUsage root)
+ *  local_services_updated          → setQueryData (all_atmos) + invalidate other scan keys
  *  local_model_state_changed       → invalidateQueries (localModelList)
  *  automation_definition_updated   → invalidateQueries (automationList)
  *  automation_run_updated          → invalidateQueries (automations/runs prefix)
@@ -20,8 +21,11 @@ import { describe, expect, test } from "bun:test";
 import { queryKeys } from "@/api/query/query-keys";
 import type { ComputerQueryScope } from "@/api/query/query-scope";
 import type { QuotaOverviewResponse } from "@/api/ws/quota-usage-api";
+import type { LocalServicesScanResponse } from "@/api/ws/local-services-api";
 import { applyQuotaOverviewUpdated } from "@/features/quota-usage/lib/quota-query-events";
 import { invalidateTokenUsageQueries } from "@/features/quota-usage/lib/token-usage-query-options";
+import { applyLocalServicesUpdated } from "@/features/local-services/lib/local-services-query-events";
+import { localServicesScopeKey } from "@/features/local-services/store/local-services-store";
 import { invalidateLocalModelQueries } from "@/features/local-services/lib/local-model-query-options";
 import {
   invalidateAutomationDefinitionQueries,
@@ -30,6 +34,7 @@ import {
 import {
   getQuotaOverviewBridgeSubscriberCount,
   getTokenUsageBridgeSubscriberCount,
+  getLocalServicesBridgeSubscriberCount,
   getLocalModelBridgeSubscriberCount,
   getAutomationDefinitionBridgeSubscriberCount,
   getAutomationRunBridgeSubscriberCount,
@@ -59,6 +64,15 @@ function makeQuotaOverview(ts = 1_700_000_000): QuotaOverviewResponse {
     },
     partial_failures: [],
     auto_refresh: { interval_minutes: null },
+  };
+}
+
+function makeLocalServicesScan(scannedAt = "2026-01-01T00:00:00Z"): LocalServicesScanResponse {
+  return {
+    scanned_at: scannedAt,
+    cache_ttl_ms: 5000,
+    services: [],
+    unavailable: null,
   };
 }
 
@@ -278,6 +292,46 @@ describe("event-bridge-policy", () => {
       expect(client.getQueryState(key)?.isInvalidated).toBe(false);
     });
 
+    test("local_services_updated (complete): sets all_atmos snapshot and invalidates other scan keys", async () => {
+      const client = createAtmosWebQueryClient({ defaultOptions: { queries: { retry: false } } });
+      const allKey = queryKeys.computer.localServicesScan(
+        scope,
+        localServicesScopeKey({ scope: "all_atmos_projects" }),
+      );
+      const contextKey = queryKeys.computer.localServicesScan(
+        scope,
+        localServicesScopeKey({
+          scope: "current_context",
+          project_id: "p1",
+          workspace_id: "w1",
+        }),
+      );
+      const snapshot = makeLocalServicesScan("2026-08-03T12:00:00Z");
+      client.setQueryData(contextKey, makeLocalServicesScan("old"));
+
+      const applied = applyLocalServicesUpdated(client, scope, snapshot);
+      await Promise.resolve();
+
+      expect(applied).toBe(true);
+      expect(client.getQueryData(allKey)).toEqual(snapshot);
+      expect(client.getQueryState(allKey)?.isInvalidated).toBe(false);
+      expect(client.getQueryState(contextKey)?.isInvalidated).toBe(true);
+    });
+
+    test("local_services_updated rejects partial payload", () => {
+      const client = createAtmosWebQueryClient();
+      const allKey = queryKeys.computer.localServicesScan(
+        scope,
+        localServicesScopeKey({ scope: "all_atmos_projects" }),
+      );
+      const seed = makeLocalServicesScan("seed");
+      client.setQueryData(allKey, seed);
+
+      const applied = applyLocalServicesUpdated(client, scope, { services: [] });
+      expect(applied).toBe(false);
+      expect(client.getQueryData(allKey)).toEqual(seed);
+    });
+
     test("each event handler targets only its own domain key root — no cross-domain contamination", async () => {
       const client = createAtmosWebQueryClient({ defaultOptions: { queries: { retry: false } } });
 
@@ -318,6 +372,7 @@ describe("event-bridge-policy", () => {
       // module-level counters start at 0 (the bridge increments on mount).
       expect(typeof getQuotaOverviewBridgeSubscriberCount()).toBe("number");
       expect(typeof getTokenUsageBridgeSubscriberCount()).toBe("number");
+      expect(typeof getLocalServicesBridgeSubscriberCount()).toBe("number");
       expect(typeof getLocalModelBridgeSubscriberCount()).toBe("number");
       expect(typeof getAutomationDefinitionBridgeSubscriberCount()).toBe("number");
       expect(typeof getAutomationRunBridgeSubscriberCount()).toBe("number");
@@ -326,6 +381,7 @@ describe("event-bridge-policy", () => {
     test("subscriber count helpers are non-negative", () => {
       expect(getQuotaOverviewBridgeSubscriberCount()).toBeGreaterThanOrEqual(0);
       expect(getTokenUsageBridgeSubscriberCount()).toBeGreaterThanOrEqual(0);
+      expect(getLocalServicesBridgeSubscriberCount()).toBeGreaterThanOrEqual(0);
       expect(getLocalModelBridgeSubscriberCount()).toBeGreaterThanOrEqual(0);
       expect(getAutomationDefinitionBridgeSubscriberCount()).toBeGreaterThanOrEqual(0);
       expect(getAutomationRunBridgeSubscriberCount()).toBeGreaterThanOrEqual(0);

@@ -209,8 +209,7 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
   const rsShowReview = useLayoutSettingsStore((s) => s.rsShowReview);
   const rsShowBrowser = useLayoutSettingsStore((s) => s.rsShowBrowser);
   const rsShowRun = useLayoutSettingsStore((s) => s.rsShowRun);
-  const rsShowPr = useLayoutSettingsStore((s) => s.rsShowPr);
-  const rsShowActions = useLayoutSettingsStore((s) => s.rsShowActions);
+  const rsShowGithub = useLayoutSettingsStore((s) => s.rsShowGithub);
   const loadLayoutSettings = useLayoutSettingsStore((s) => s.loadSettings);
   useEffect(() => { loadLayoutSettings(); }, [loadLayoutSettings]);
   const showFilesTab = projectFilesSide === "right";
@@ -220,13 +219,10 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
       review: rsShowReview,
       browser: rsShowBrowser,
       run: rsShowRun,
-      pr: rsShowPr,
-      issues: true,
-      actions: rsShowActions,
-      github: rsShowPr || rsShowActions,
+      github: rsShowGithub,
       files: true, // controlled separately by projectFilesSide
     }),
-    [rsShowChanges, rsShowReview, rsShowBrowser, rsShowRun, rsShowPr, rsShowActions],
+    [rsShowChanges, rsShowReview, rsShowBrowser, rsShowRun, rsShowGithub],
   );
   const topTabs = useMemo(() => {
     // Insert FILES_TAB into the canonical order first, then filter by
@@ -646,7 +642,7 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
           </TabsList>
 
           {activeTab === "github" ? (
-            <div className="shrink-0 px-2 py-2">
+            <div className="flex shrink-0 flex-col gap-2 px-2 pt-2 pb-2">
               <TabsSubtle
                 activeLabel
                 idPrefix="right-sidebar-github"
@@ -659,6 +655,14 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
                 <TabsSubtleItem index={1} icon={CircleDot} label={t("rightSidebar.topTabs.issues")} />
                 <TabsSubtleItem index={2} icon={Workflow} label={t("rightSidebar.topTabs.actions")} />
               </TabsSubtle>
+              {/* Actions has no filter row — keep the inset divider under the tabs */}
+              {githubSubTab === "actions" ? (
+                <div
+                  className="mx-1 h-px bg-sidebar-border"
+                  role="separator"
+                  aria-hidden
+                />
+              ) : null}
             </div>
           ) : null}
 
@@ -956,8 +960,8 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
           </div>
           )}
 
-          {/* PR tab content */}
-          {rsShowPr && (
+          {/* GitHub → Pull Requests */}
+          {rsShowGithub && (
           <div
             className={cn(
               "flex-1 flex flex-col min-h-0",
@@ -966,7 +970,7 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
           >
             {hasWorkingContext ? (
               githubOwner && githubRepo && currentBranch ? (
-                <div className="flex min-h-0 flex-1 flex-col gap-1">
+                <div className="flex min-h-0 flex-1 flex-col gap-2">
                   <div className="flex h-7 shrink-0 items-center px-2">
                     <Select
                       value={prSubTab}
@@ -988,6 +992,12 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
                       </SelectContent>
                     </Select>
                   </div>
+                  {/* Inset divider under PR filters */}
+                  <div
+                    className="mx-3 h-px shrink-0 bg-sidebar-border"
+                    role="separator"
+                    aria-hidden
+                  />
                   <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-2 pt-0 no-scrollbar">
                     <PRPanel
                       ref={prPanelRef}
@@ -1023,7 +1033,8 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
           </div>
           )}
 
-          {/* Issues tab content */}
+          {/* GitHub → Issues */}
+          {rsShowGithub && (
           <div
             className={cn(
               "flex-1 flex flex-col min-h-0",
@@ -1052,9 +1063,10 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
               )
             ) : renderNoContextMessage}
           </div>
+          )}
 
-          {/* Actions tab content */}
-          {rsShowActions && (
+          {/* GitHub → Actions */}
+          {rsShowGithub && (
           <div
             className={cn(
               "flex-1 flex flex-col min-h-0",

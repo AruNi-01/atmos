@@ -427,11 +427,21 @@ impl WsMessageService {
             .into_iter()
             .take(per_page as usize)
             .map(|pr| {
+                // GitHub REST `/pulls` returns lowercase `open`/`closed`. Normalize to the
+                // uppercase OPEN/CLOSED/MERGED shape used by `gh pr list --json` and the UI.
                 let merged = pr.get("merged_at").is_some_and(|value| !value.is_null());
+                let state = if merged {
+                    "MERGED".to_string()
+                } else {
+                    pr.get("state")
+                        .and_then(Value::as_str)
+                        .unwrap_or_default()
+                        .to_ascii_uppercase()
+                };
                 json!({
                     "number": pr.get("number").and_then(Value::as_u64).unwrap_or_default(),
                     "title": pr.get("title").and_then(Value::as_str).unwrap_or_default(),
-                    "state": if merged { "MERGED" } else { pr.get("state").and_then(Value::as_str).unwrap_or_default() },
+                    "state": state,
                     "url": pr.get("html_url").and_then(Value::as_str).unwrap_or_default(),
                     "headRefName": pr.pointer("/head/ref").and_then(Value::as_str).unwrap_or_default(),
                     "baseRefName": pr.pointer("/base/ref").and_then(Value::as_str).unwrap_or_default(),

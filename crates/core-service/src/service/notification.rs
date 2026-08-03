@@ -25,6 +25,11 @@ pub struct NotificationSettings {
     pub desktop_notification: bool,
     #[serde(default)]
     pub app_toast_notification: bool,
+    /// When false (default), browser/desktop system notifications are only
+    /// delivered while the app is unfocused/backgrounded. When true, system
+    /// notifications fire even while the user is actively using Atmos.
+    #[serde(default)]
+    pub system_notification_when_focused: bool,
     #[serde(default = "default_true")]
     pub notify_on_permission_request: bool,
     #[serde(default = "default_true")]
@@ -43,6 +48,7 @@ impl Default for NotificationSettings {
             browser_notification: false,
             desktop_notification: false,
             app_toast_notification: false,
+            system_notification_when_focused: false,
             notify_on_permission_request: true,
             notify_on_task_complete: true,
             notify_on_automation_outcome: true,
@@ -87,6 +93,15 @@ pub struct NotificationPayload {
     pub session_id: String,
     #[serde(default)]
     pub project_path: Option<String>,
+    /// Navigation targets for client click-to-jump (desktop/browser notifications).
+    #[serde(default)]
+    pub context_id: Option<String>,
+    #[serde(default)]
+    pub pane_id: Option<String>,
+    #[serde(default)]
+    pub side_chat_id: Option<String>,
+    #[serde(default)]
+    pub source_pane_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -177,6 +192,10 @@ impl NotificationService {
             state: format!("{}", update.state),
             session_id: update.session_id.clone(),
             project_path: update.project_path.clone(),
+            context_id: update.context_id.clone(),
+            pane_id: update.pane_id.clone(),
+            side_chat_id: update.side_chat_id.clone(),
+            source_pane_id: update.source_pane_id.clone(),
         };
 
         if settings.browser_notification || settings.desktop_notification {
@@ -431,6 +450,10 @@ fn automation_push_payload(payload: &AutomationNotificationPayload) -> Notificat
         state: payload.status.clone(),
         session_id: payload.run_guid.clone(),
         project_path: None,
+        context_id: None,
+        pane_id: None,
+        side_chat_id: None,
+        source_pane_id: None,
     }
 }
 

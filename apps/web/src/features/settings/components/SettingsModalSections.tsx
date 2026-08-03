@@ -45,14 +45,11 @@ interface SettingsModalSectionsProps {
   onCheckForUpdate: () => void;
   fileLinkOpenMode: TerminalFileLinkOpenMode;
   fileLinkOpenApp: QuickOpenAppName;
-  useLastSplitAgentOnSplit: boolean;
-  lastSplitAgentId: string | null;
   sideContextPromptBudgetBytes: number;
   richInputEnabled: boolean;
   richInputTriggerBarVisible: boolean;
   setFileLinkOpenMode: (mode: TerminalFileLinkOpenMode) => Promise<void> | void;
   setFileLinkOpenApp: (app: QuickOpenAppName) => Promise<void> | void;
-  setUseLastSplitAgentOnSplit: (enabled: boolean) => void;
   setSideContextPromptBudgetBytes: (bytes: number) => Promise<void> | void;
   setRichInputEnabled: (enabled: boolean) => Promise<void> | void;
   setRichInputTriggerBarVisible: (visible: boolean) => Promise<void> | void;
@@ -162,14 +159,11 @@ export function SettingsModalSections(props: SettingsModalSectionsProps) {
         <TerminalSettingsSection
           fileLinkOpenMode={props.fileLinkOpenMode}
           fileLinkOpenApp={props.fileLinkOpenApp}
-          useLastSplitAgentOnSplit={props.useLastSplitAgentOnSplit}
-          lastSplitAgentId={props.lastSplitAgentId}
           sideContextPromptBudgetBytes={props.sideContextPromptBudgetBytes}
           richInputEnabled={props.richInputEnabled}
           richInputTriggerBarVisible={props.richInputTriggerBarVisible}
           setFileLinkOpenMode={props.setFileLinkOpenMode}
           setFileLinkOpenApp={props.setFileLinkOpenApp}
-          setUseLastSplitAgentOnSplit={props.setUseLastSplitAgentOnSplit}
           setSideContextPromptBudgetBytes={props.setSideContextPromptBudgetBytes}
           setRichInputEnabled={props.setRichInputEnabled}
           setRichInputTriggerBarVisible={props.setRichInputTriggerBarVisible}

@@ -26,10 +26,15 @@ export async function prepareConnectionTargetChange(): Promise<void> {
   useFunctionSettingsStore.getState().invalidate();
   // Terminal preference stores keep `loaded` across targets; reset so the next
   // Computer's function_settings are re-hydrated instead of leaking prior prefs.
-  const { useTerminalRichInputSettingsStore } = await import(
-    '@/features/settings/store/terminal-rich-input-settings-store'
-  );
+  const [
+    { useTerminalRichInputSettingsStore },
+    { useTerminalSplitPrefsStore },
+  ] = await Promise.all([
+    import('@/features/settings/store/terminal-rich-input-settings-store'),
+    import('@/features/settings/store/terminal-split-prefs-store'),
+  ]);
   useTerminalRichInputSettingsStore.getState().resetForConnectionChange();
+  useTerminalSplitPrefsStore.getState().resetForConnectionChange();
 
   // Legacy Computer-scoped snapshots Query does not yet own.
   await resetLegacyServerStateForConnectionChange();

@@ -1,23 +1,16 @@
 use serde_json::Value;
 use tracing::debug;
 
-use super::{AgentHookState, AgentHooksService, AgentToolType, AtmosContext, StateUpdateKind};
+use super::{
+    extract_child_agent_id, is_child_start_event, is_child_stop_event, AgentHookState,
+    AgentHooksService, AgentToolType, AtmosContext, StateUpdateKind,
+};
 
 pub(super) fn handle_event(service: &AgentHooksService, payload: &Value, ctx: &AtmosContext) {
     let hook_event = payload
         .get("hook_event_name")
         .and_then(|v| v.as_str())
         .unwrap_or("");
-
-    if is_subagent(payload) {
-        debug!(
-            "Skipping Claude Code subagent hook event: {} agent_id={:?} agent_type={:?}",
-            hook_event,
-            payload.get("agent_id").and_then(|v| v.as_str()),
-            payload.get("agent_type").and_then(|v| v.as_str())
-        );
-        return;
-    }
 
     let session_id = service.resolve_session_id(payload, AgentToolType::ClaudeCode, ctx);
     let project_path = AgentHooksService::extract_cwd(payload).map(String::from);
@@ -39,6 +32,86 @@ pub(super) fn handle_event(service: &AgentHooksService, payload: &Value, ctx: &A
             );
             return;
         }
+    }
+
+    // Explicit child lifecycle (SubagentStart / SubagentStop).
+    if is_child_start_event(hook_event) || is_child_stop_event(hook_event) {
+        if let Some(child_id) = extract_child_agent_id(payload) {
+            service.handle_child_lifecycle(
+                &session_id,
+                AgentToolType::ClaudeCode,
+                project_path,
+                ctx,
+                child_id,
+                is_child_start_event(hook_event),
+            );
+        } else {
+            debug!(
+                "Claude Code {} missing agent_id; ignoring lifecycle event",
+                hook_event
+            );
+        }
+        return;
+    }
+
+    // Child-origin traffic carries agent_id; never owns lead completion.
+    if let Some(child_id) = extract_child_agent_id(payload) {
+        match hook_event {
+            "PreToolUse" | "PostToolUse" | "PostToolUseFailure" => {
+                service.handle_child_origin_event(
+                    &session_id,
+                    AgentToolType::ClaudeCode,
+                    project_path,
+                    ctx,
+                    child_id,
+                    AgentHookState::Running,
+                    StateUpdateKind::Progress,
+                );
+            }
+            "PermissionRequest" => {
+                service.handle_child_origin_event(
+                    &session_id,
+                    AgentToolType::ClaudeCode,
+                    project_path,
+                    ctx,
+                    child_id,
+                    AgentHookState::PermissionRequest,
+                    StateUpdateKind::Permission,
+                );
+            }
+            "Notification" => {
+                let notification_type = payload
+                    .get("notification_type")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("");
+                if notification_type == "permission_prompt"
+                    || notification_type == "permissionprompt"
+                {
+                    service.handle_child_origin_event(
+                        &session_id,
+                        AgentToolType::ClaudeCode,
+                        project_path,
+                        ctx,
+                        child_id,
+                        AgentHookState::PermissionRequest,
+                        StateUpdateKind::Permission,
+                    );
+                }
+            }
+            "Stop" | "StopFailure" | "SessionEnd" | "UserPromptSubmit" | "SessionStart" => {
+                debug!(
+                    "Ignoring child-origin {} for session {} child={}",
+                    hook_event, session_id, child_id
+                );
+            }
+            _ => {
+                debug!(
+                    "Ignoring child-origin Claude Code event {} child={}",
+                    hook_event, child_id
+                );
+            }
+        }
+        return;
     }
 
     match hook_event {
@@ -98,7 +171,7 @@ pub(super) fn handle_event(service: &AgentHooksService, payload: &Value, ctx: &A
                 );
             }
         }
-        "Stop" | "StopFailure" | "SessionEnd" => {
+        "Stop" | "StopFailure" => {
             service.update_state(
                 &session_id,
                 AgentToolType::ClaudeCode,
@@ -108,17 +181,25 @@ pub(super) fn handle_event(service: &AgentHooksService, payload: &Value, ctx: &A
                 StateUpdateKind::TerminalIdle,
             );
         }
+        "SessionEnd" => {
+            // Session teardown — drop child roster and settle.
+            service.force_session_idle(&session_id);
+            // force_session_idle no-ops when missing; ensure a row if needed.
+            if service.sessions.read().get(&session_id).is_none() {
+                service.update_state(
+                    &session_id,
+                    AgentToolType::ClaudeCode,
+                    AgentHookState::Idle,
+                    project_path,
+                    ctx,
+                    StateUpdateKind::ForcedIdle,
+                );
+            }
+        }
         _ => {
             debug!("Unhandled Claude Code hook event: {}", hook_event);
         }
     }
-}
-
-fn is_subagent(payload: &Value) -> bool {
-    payload
-        .get("agent_id")
-        .and_then(|v| v.as_str())
-        .is_some_and(|v| !v.trim().is_empty())
 }
 
 #[cfg(test)]
@@ -144,19 +225,76 @@ mod tests {
     }
 
     #[test]
-    fn claude_code_subagent_events_are_ignored() {
+    fn claude_code_child_stop_does_not_idle_lead() {
         let service = AgentHooksService::new();
-        let payload = serde_json::json!({
-            "hook_event_name": "UserPromptSubmit",
-            "session_id": "subagent-session",
-            "cwd": "/tmp/project",
-            "agent_id": "agent-123",
-            "agent_type": "Explore",
-        });
+        handle_event(
+            &service,
+            &serde_json::json!({
+                "hook_event_name": "UserPromptSubmit",
+                "session_id": "s1",
+                "cwd": "/tmp/project",
+            }),
+            &AtmosContext::default(),
+        );
+        handle_event(
+            &service,
+            &serde_json::json!({
+                "hook_event_name": "Stop",
+                "session_id": "s1",
+                "cwd": "/tmp/project",
+                "agent_id": "agent-123",
+            }),
+            &AtmosContext::default(),
+        );
+        assert_eq!(service.get_all_sessions()[0].state, AgentHookState::Running);
+    }
 
-        handle_event(&service, &payload, &AtmosContext::default());
+    #[test]
+    fn claude_code_lead_stop_defers_while_child_active() {
+        let service = AgentHooksService::new();
+        let ctx = AtmosContext::default();
+        handle_event(
+            &service,
+            &serde_json::json!({
+                "hook_event_name": "UserPromptSubmit",
+                "session_id": "s1",
+                "cwd": "/tmp/project",
+            }),
+            &ctx,
+        );
+        handle_event(
+            &service,
+            &serde_json::json!({
+                "hook_event_name": "SubagentStart",
+                "session_id": "s1",
+                "cwd": "/tmp/project",
+                "agent_id": "a1",
+                "agent_type": "Explore",
+            }),
+            &ctx,
+        );
+        handle_event(
+            &service,
+            &serde_json::json!({
+                "hook_event_name": "Stop",
+                "session_id": "s1",
+                "cwd": "/tmp/project",
+            }),
+            &ctx,
+        );
+        assert_eq!(service.get_all_sessions()[0].state, AgentHookState::Running);
 
-        assert!(service.get_all_sessions().is_empty());
+        handle_event(
+            &service,
+            &serde_json::json!({
+                "hook_event_name": "SubagentStop",
+                "session_id": "s1",
+                "cwd": "/tmp/project",
+                "agent_id": "a1",
+            }),
+            &ctx,
+        );
+        assert_eq!(service.get_all_sessions()[0].state, AgentHookState::Idle);
     }
 
     #[test]
@@ -229,6 +367,43 @@ mod tests {
             &serde_json::json!({
                 "hook_event_name": "PostToolUse",
                 "session_id": "s2",
+                "cwd": "/tmp/project",
+            }),
+            &AtmosContext::default(),
+        );
+        assert_eq!(service.get_all_sessions()[0].state, AgentHookState::Idle);
+    }
+
+    #[test]
+    fn claude_code_child_tool_does_not_invent_roster() {
+        let service = AgentHooksService::new();
+        handle_event(
+            &service,
+            &serde_json::json!({
+                "hook_event_name": "UserPromptSubmit",
+                "session_id": "s3",
+                "cwd": "/tmp/project",
+            }),
+            &AtmosContext::default(),
+        );
+        handle_event(
+            &service,
+            &serde_json::json!({
+                "hook_event_name": "PreToolUse",
+                "session_id": "s3",
+                "cwd": "/tmp/project",
+                "agent_id": "ghost",
+                "tool_name": "Bash",
+            }),
+            &AtmosContext::default(),
+        );
+        // Lead Stop should complete — untracked child tool traffic must not
+        // invent a roster row that defers completion forever.
+        handle_event(
+            &service,
+            &serde_json::json!({
+                "hook_event_name": "Stop",
+                "session_id": "s3",
                 "cwd": "/tmp/project",
             }),
             &AtmosContext::default(),

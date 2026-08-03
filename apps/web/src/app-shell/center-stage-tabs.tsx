@@ -23,7 +23,12 @@ import {
 } from "@workspace/ui";
 import { Command, GripVertical, Inbox, List } from "lucide-react";
 import { useShallow } from "zustand/react/shallow";
+import { AgentAttentionIndicator } from "@/features/agent/components/AgentAttentionIndicator";
 import { AgentHookStatusIndicator } from "@/features/agent/components/AgentHookStatusIndicator";
+import {
+  type AttentionReason,
+  useAgentAttentionStore,
+} from "@/features/agent/store/agent-attention-store";
 import { AGENT_STATE, useAgentHooksStore } from "@/features/agent/store/agent-hooks-store";
 import type { OpenFile } from "@/features/editor/store/use-editor-store";
 import type { CenterStageUiPrefs } from "@/shared/stores/use-ui-pref-hooks";
@@ -126,8 +131,26 @@ function TerminalTabAgentIndicator({ stablePaneIds }: { stablePaneIds: string[] 
     }
     return hasRunning ? AGENT_STATE.RUNNING : AGENT_STATE.IDLE;
   });
-  if (state === AGENT_STATE.IDLE) return null;
-  return <AgentHookStatusIndicator state={state} variant="compact" className="ml-0.5" />;
+  const attentionReason = useAgentAttentionStore((s) => {
+    let best: AttentionReason | null = null;
+    for (const id of stablePaneIds) {
+      const reason = s.panes.get(id)?.reason;
+      if (!reason) continue;
+      if (reason === "permission_request") return "permission_request" as const;
+      best = reason;
+    }
+    return best;
+  });
+
+  // Live run/permission indicator takes precedence when active.
+  if (state !== AGENT_STATE.IDLE) {
+    return <AgentHookStatusIndicator state={state} variant="compact" className="ml-0.5" />;
+  }
+  // Sticky task-complete (or leftover permission) until the user focuses every pane.
+  if (attentionReason) {
+    return <AgentAttentionIndicator reason={attentionReason} className="ml-0.5" size={12} />;
+  }
+  return null;
 }
 
 // Outer component keeps terminal and agent store subscriptions in separate render scopes.

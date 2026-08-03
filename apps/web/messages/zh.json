@@ -131,6 +131,11 @@
     }
   },
   "header": {
+    "attention": {
+      "ariaLabel": "需要关注",
+      "tooltip": "只显示需要关注的工作区 / 项目",
+      "tooltipActive": "正在筛选需要关注的项 — 点击显示全部"
+    },
     "leftSidebar": {
       "expand": "展开左侧边栏",
       "collapse": "收起左侧边栏",
@@ -2126,6 +2131,13 @@
     }
   },
   "Agent": {
+    "attention": {
+      "permissionNeeded": "需要授权",
+      "taskComplete": "任务完成 — 待查看",
+      "filterTitle": "需要关注列表",
+      "filterDescription": "仅显示需要你处理的工作区 / 项目",
+      "clearFilter": "显示全部"
+    },
     "components": {
       "common": {
         "cancel": "取消",
@@ -3388,6 +3400,7 @@
       },
       "list": {
         "failedToStopTitle": "停止服务失败",
+        "stopDidNotClear": "该端口上的服务仍在监听。",
         "emptyLabel": "未检测到本地服务。",
         "emptyDescription": "先在当前项目或工作区内启动一个服务，然后再刷新。"
       },
@@ -3398,6 +3411,28 @@
         "stopConfirmTitle": "停止服务？",
         "stopConfirmDescription": "要停止端口 {port} 上的 <strong>{url}</strong> 吗？",
         "stop": "停止"
+      },
+      "escalation": {
+        "title": "停止未完全生效",
+        "description": "端口 {port} 上的 {url} 仍在监听。父进程可能已重新拉起子进程，或监听进程忽略了停止信号。",
+        "reasonStillListening": "优雅停止后端口仍被占用。",
+        "reasonRespawned": "同一端口出现了新的监听进程（很可能被父进程重新拉起）。",
+        "reasonTermIgnored": "监听进程忽略了终止信号。",
+        "processTree": "进程链",
+        "processTreeEmpty": "无法读取该服务的进程链。",
+        "listenerBadge": "监听进程",
+        "recommendedBadge": "建议停止根",
+        "protectedBadge": "受保护",
+        "treeStopNote": "将停止进程树根 <strong>pid {pid}</strong>（先优雅终止；若端口仍占用再强制结束）。不会对 Atmos Server、tmux 等受保护进程下手。",
+        "noSafeRoot": "未找到安全的进程树根。请在原终端中停止服务，或手动释放端口。",
+        "stopProcessTree": "停止进程树",
+        "hints": {
+          "orphan_ppid": "进程看起来已成孤儿（父进程为 init / pid 1）。",
+          "no_tty": "没有控制终端（标准输出/错误可能已失效）。",
+          "respawned": "停止后监听 PID 已变化——父进程很可能重新拉起了子进程。",
+          "term_ignored_or_still_listening": "优雅停止未能释放端口。",
+          "not_http_still_listen": "HTTP 探测失败，但 TCP 仍在监听。"
+        }
       },
       "preview": {
         "title": "本地服务",
@@ -3922,6 +3957,13 @@
       "syncFailedTitle": "设置同步失败",
       "enabledFailed": "更新 Terminal Rich Input 失败。",
       "triggerBarFailed": "更新 Rich Input 触发条失败。"
+    },
+    "terminalSplitPrefsStore": {
+      "syncFailedTitle": "设置同步失败",
+      "enabledFailed": "更新默认分屏 Agent 失败。",
+      "agentFailed": "更新默认分屏 Agent 失败。",
+      "runConfigFailed": "更新默认分屏 Agent run config 失败。",
+      "newTabFailed": "更新新建 Terminal Tab 默认 Agent 失败。"
     },
     "notificationStore": {
       "unknownError": "未知错误"
@@ -4902,15 +4944,19 @@
         "description": "选择当 Agent 需要你关注时如何通知你。",
         "browser": {
           "title": "浏览器通知",
-          "description": "当 Agent 需要你关注时显示浏览器原生通知。"
+          "description": "当 Agent 需要你关注时显示浏览器原生通知。默认仅在 Atmos 处于后台时弹出。"
         },
         "desktop": {
           "title": "桌面通知",
-          "description": "通过桌面应用显示系统级通知。"
+          "description": "通过桌面应用显示系统级通知。点击通知可跳转到对应 Agent 或自动化。默认仅在 Atmos 处于后台时弹出。"
         },
         "inAppToast": {
           "title": "应用内 Toast",
-          "description": "当 Agent 需要你关注或完成时，在右上角显示应用内提示。"
+          "description": "当 Agent 需要你关注或完成时，在右上角显示应用内提示。适合你正在使用 Atmos 时的提醒。"
+        },
+        "whenFocused": {
+          "title": "使用 Atmos 时仍显示系统通知",
+          "description": "即使 Atmos 处于前台，也弹出浏览器/桌面系统通知。默认关闭，避免打断工作；前台提醒请用应用内 Toast。"
         }
       },
       "events": {
@@ -5115,8 +5161,15 @@
       },
       "defaultSplitAgent": {
         "title": "默认分屏 Agent",
-        "description": "启用后，普通分屏操作（工具栏点击、⌘D 或右键菜单）会复用你上次在分屏子菜单中选择的 Agent。悬停分屏按钮可选择其他 Agent。",
-        "lastAgent": "上次分屏 Agent："
+        "description": "启用后，普通分屏操作（工具栏点击、⌘D 或右键菜单）会启动你在下方选择的 Agent。悬停分屏按钮可选择其他 Agent。",
+        "agent": {
+          "title": "Agent",
+          "description": "默认分屏使用的 Agent 及可选 run config。更改会立即保存。"
+        },
+        "newTerminalTab": {
+          "title": "新建 Terminal Tab",
+          "description": "启用后，新建 Terminal tab 时也会在首个 pane 中启动该默认 Agent。"
+        }
       },
       "richInputEnabled": {
         "title": "Terminal Rich Input",
@@ -5179,12 +5232,8 @@
       "browserDescription": "显示用于运行开发服务器的应用内预览浏览器。",
       "runTitle": "运行",
       "runDescription": "启动并监控项目运行脚本。",
-      "prTitle": "拉取请求",
-      "prDescription": "浏览打开和已关闭的拉取请求。隐藏后将停止 PR 查询。",
-      "issuesTitle": "议题",
-      "issuesDescription": "浏览打开和已关闭的 GitHub 议题。隐藏后将停止议题查询。",
-      "actionsTitle": "操作",
-      "actionsDescription": "浏览 GitHub Actions 工作流运行记录。隐藏后将停止工作流查询。"
+      "githubTitle": "GitHub",
+      "githubDescription": "浏览拉取请求、议题和 Actions 工作流运行记录。隐藏后将移除 GitHub 标签页并停止相关查询。"
     },
     "agentHookStatusCard": {
       "title": "Agent Hook 状态",
@@ -6028,6 +6077,11 @@
       "loading": "正在加载提交...",
       "filesChanged": "{count} 个文件变更"
     },
+    "timeline": {
+      "addedCommits": "添加了 {count} 个提交",
+      "unknownUser": "未知用户",
+      "unknownCommit": "未知提交"
+    },
     "actionsPanel": {
       "summary": {
         "passed": "已通过",
@@ -6235,7 +6289,7 @@
         "comment": "评论",
         "close": "关闭议题",
         "reopen": "重新打开议题",
-        "openOnGithub": "在 GitHub 中打开",
+        "openOnGithub": "GitHub",
         "showActions": "显示议题操作"
       },
       "composer": {

@@ -2,6 +2,7 @@
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::path::PathBuf;
+#[cfg(any(target_os = "macos", target_os = "windows"))]
 use std::process::Command;
 
 use crate::error::{EngineError, Result};
@@ -28,48 +29,6 @@ pub fn scan_listeners() -> Result<Vec<LocalTcpListener>> {
     {
         Err(EngineError::Processing(
             "local service scanning is not supported on this platform".into(),
-        ))
-    }
-}
-
-pub fn terminate_process(pid: u32) -> Result<()> {
-    #[cfg(any(target_os = "macos", target_os = "linux"))]
-    {
-        let status = Command::new("kill")
-            .arg("-TERM")
-            .arg(pid.to_string())
-            .status()
-            .map_err(|e| EngineError::Processing(format!("failed to run kill: {e}")))?;
-        if status.success() {
-            Ok(())
-        } else {
-            Err(EngineError::Processing(format!(
-                "kill -TERM failed for pid {pid}: exit {:?}",
-                status.code()
-            )))
-        }
-    }
-
-    #[cfg(target_os = "windows")]
-    {
-        let status = Command::new("taskkill")
-            .args(["/PID", &pid.to_string()])
-            .status()
-            .map_err(|e| EngineError::Processing(format!("failed to run taskkill: {e}")))?;
-        if status.success() {
-            Ok(())
-        } else {
-            Err(EngineError::Processing(format!(
-                "taskkill failed for pid {pid}: exit {:?}",
-                status.code()
-            )))
-        }
-    }
-
-    #[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "windows")))]
-    {
-        Err(EngineError::Processing(
-            "process termination is not supported on this platform".into(),
         ))
     }
 }

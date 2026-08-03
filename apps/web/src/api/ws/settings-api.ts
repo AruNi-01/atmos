@@ -6,7 +6,10 @@ import {
   getComputerQueryScope,
   type ComputerQueryScope,
 } from "@/api/query/query-scope";
-import type { TerminalAgentSavedRunConfig } from "@/features/agent/lib/terminal-agent-run-config";
+import type {
+  TerminalAgentRunConfigInput,
+  TerminalAgentSavedRunConfig,
+} from "@/features/agent/lib/terminal-agent-run-config";
 
 export interface FunctionSettings {
   agent_cli?: {
@@ -59,6 +62,14 @@ export interface FunctionSettings {
     rich_input_enabled?: boolean;
     /** When false, hide the bottom trigger bar; shortcuts still open Rich Input. Default true. */
     rich_input_trigger_bar_visible?: boolean;
+    /** When true, plain split launches the configured default agent. */
+    default_split_agent_enabled?: boolean;
+    /** Explicit default agent id for plain split / optional new-tab launch. */
+    default_split_agent_id?: string | null;
+    /** Optional run config for the default split agent. */
+    default_split_agent_run_config?: TerminalAgentRunConfigInput | null;
+    /** When true (and enabled), new Terminal tabs also launch the default agent. */
+    default_split_agent_apply_to_new_tab?: boolean;
   };
   workspace_surface?: {
     max_warm_workspaces?: number;

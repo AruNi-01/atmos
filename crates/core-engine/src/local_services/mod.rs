@@ -1,9 +1,12 @@
 mod probe;
+mod process;
 mod scanner;
 
 use std::path::PathBuf;
 
 use crate::error::Result;
+
+pub use process::{orphan_hints, process_snapshot, ProcessSnapshot};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LocalTcpListener {
@@ -57,10 +60,35 @@ impl LocalServicesEngine {
     }
 
     pub async fn terminate_process(&self, pid: u32) -> Result<()> {
-        tokio::task::spawn_blocking(move || scanner::terminate_process(pid))
+        tokio::task::spawn_blocking(move || process::terminate_process(pid))
             .await
             .map_err(|e| {
                 crate::EngineError::Processing(format!("process terminate task failed: {e}"))
             })?
+    }
+
+    pub async fn terminate_process_tree(&self, root_pid: u32) -> Result<()> {
+        tokio::task::spawn_blocking(move || process::terminate_process_tree(root_pid))
+            .await
+            .map_err(|e| {
+                crate::EngineError::Processing(format!("process tree terminate task failed: {e}"))
+            })?
+    }
+
+    pub async fn kill_process_tree(&self, root_pid: u32) -> Result<()> {
+        tokio::task::spawn_blocking(move || process::kill_process_tree(root_pid))
+            .await
+            .map_err(|e| {
+                crate::EngineError::Processing(format!("process tree kill task failed: {e}"))
+            })?
+    }
+
+    /// Ancestor chain from listener pid toward init (listener first).
+    pub async fn process_ancestor_chain(&self, listener_pid: u32) -> Result<Vec<ProcessSnapshot>> {
+        tokio::task::spawn_blocking(move || process::ancestor_chain(listener_pid, 16))
+            .await
+            .map_err(|e| {
+                crate::EngineError::Processing(format!("process ancestor chain task failed: {e}"))
+            })
     }
 }

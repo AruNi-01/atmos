@@ -81,9 +81,16 @@ export function createAllHandlers(
       } catch {
         /* unit / smoke without app ready */
       }
+      // Match Tauri: derive channel from prerelease suffix so About can show
+      // stable / rc / beta / alpha versions correctly.
+      const lower = version.toLowerCase();
+      let version_type = "stable";
+      if (lower.includes("-rc.")) version_type = "rc";
+      else if (lower.includes("-beta.")) version_type = "beta";
+      else if (lower.includes("-alpha.")) version_type = "alpha";
       return {
         version,
-        version_type: "desktop",
+        version_type,
         product_name: APP_PRODUCT_NAME,
         app_id: APP_ID,
       };
@@ -149,10 +156,60 @@ export function createAllHandlers(
     async send_notification(args) {
       const title = str(args.title);
       const body = str(args.body);
-      const { Notification } = await electron();
-      if (Notification.isSupported()) {
-        new Notification({ title, body }).show();
+      // Opaque click payload (JSON-serializable). Echoed to the renderer on click
+      // so web can jump to the agent pane / automation — same as in-app toast Jump.
+      const data =
+        args.data && typeof args.data === "object" && !Array.isArray(args.data)
+          ? (args.data as Record<string, unknown>)
+          : null;
+      // Content icon (left on macOS). Prefer PNG data URL from the renderer so we
+      // can show the agent brand mark. The OS still attaches the Atmos app icon
+      // for identity (right side on macOS banners).
+      const iconArg = typeof args.icon === "string" ? args.icon : "";
+      const { Notification, nativeImage } = await electron();
+      if (!Notification.isSupported()) return null;
+
+      let icon: string | ReturnType<typeof nativeImage.createFromDataURL> | undefined;
+      if (iconArg.startsWith("data:image/")) {
+        try {
+          const image = nativeImage.createFromDataURL(iconArg);
+          if (!image.isEmpty()) icon = image;
+        } catch {
+          /* fall through without content icon */
+        }
+      } else if (iconArg && existsSync(iconArg)) {
+        icon = iconArg;
       }
+
+      const notification = new Notification({
+        title,
+        body,
+        ...(icon ? { icon } : {}),
+      });
+      notification.on("click", () => {
+        void (async () => {
+          try {
+            const { ensureMacDockVisible } = await import("../windows/mac-dock.js");
+            await ensureMacDockVisible();
+          } catch {
+            /* non-mac / tests */
+          }
+          const win = state.mainWindow;
+          if (!win || win.isDestroyed()) return;
+          if (win.isMinimized()) win.restore();
+          win.show();
+          win.focus();
+          try {
+            win.webContents.send(
+              "atmos:desktop-event:notification-clicked",
+              data ?? {},
+            );
+          } catch {
+            /* renderer may not be ready */
+          }
+        })();
+      });
+      notification.show();
       return null;
     },
 

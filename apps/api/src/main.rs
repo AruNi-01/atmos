@@ -611,6 +611,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
 
     spawn_ws_forwarder(
+        ws_message_service
+            .local_services_service()
+            .subscribe_updates(),
+        Arc::clone(&ws_manager),
+        WsEvent::LocalServicesUpdated,
+        "local services",
+    );
+    ws_message_service
+        .local_services_service()
+        .start_auto_refresh(Arc::clone(&jobs))
+        .await;
+
+    spawn_ws_forwarder(
         notification_service.subscribe_client_notifications(),
         Arc::clone(&ws_manager),
         WsEvent::AgentNotification,

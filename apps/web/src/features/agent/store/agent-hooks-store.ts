@@ -4,6 +4,7 @@ import { create } from "zustand";
 import { useWebSocketStore } from "@/features/connection/hooks/use-websocket";
 import { getRuntimeApiConfig, httpBase } from "@/shared/lib/desktop-runtime";
 import { agentHooksApi } from "@/api/rest-api";
+import { useAgentAttentionStore } from "@/features/agent/store/agent-attention-store";
 
 export const AGENT_STATE = {
   IDLE: "idle",
@@ -124,6 +125,7 @@ export const useAgentHooksStore = create<AgentHooksStore>((set, get) => ({
       "agent_hook_state_changed",
       (data: unknown) => {
         const update = data as AgentHookStateUpdate;
+        const previous = get().sessions.get(update.session_id);
         set((state) => {
           const sessions = new Map(state.sessions);
           sessions.set(update.session_id, {
@@ -141,6 +143,43 @@ export const useAgentHooksStore = create<AgentHooksStore>((set, get) => ({
           });
           return { sessions };
         });
+
+        // Sticky "need attention" latches — cleared only when the user focuses the pane.
+        const attention = useAgentAttentionStore.getState();
+        const contextId = update.context_id ?? previous?.context_id ?? null;
+        if (
+          update.state === AGENT_STATE.PERMISSION_REQUEST &&
+          previous?.state !== AGENT_STATE.PERMISSION_REQUEST
+        ) {
+          // Prefer Atmos pane_id (same key terminal focus reconstructs) over
+          // raw agent session ids so focus can clear attention reliably.
+          const stablePaneId =
+            update.pane_id?.trim() ||
+            previous?.pane_id?.trim() ||
+            update.session_id;
+          attention.raise({
+            stablePaneId,
+            contextId,
+            reason: "permission_request",
+            sessionId: update.session_id,
+            tool: update.tool,
+          });
+        } else if (
+          update.state === AGENT_STATE.IDLE &&
+          previous?.state === AGENT_STATE.RUNNING
+        ) {
+          const stablePaneId =
+            update.pane_id?.trim() ||
+            previous?.pane_id?.trim() ||
+            update.session_id;
+          attention.raise({
+            stablePaneId,
+            contextId,
+            reason: "task_complete",
+            sessionId: update.session_id,
+            tool: update.tool,
+          });
+        }
       }
     );
 
@@ -154,6 +193,10 @@ export const useAgentHooksStore = create<AgentHooksStore>((set, get) => ({
           for (const id of session_ids) sessions.delete(id);
           return { sessions };
         });
+        // Drop sticky attention latches for removed panes so they do not linger.
+        // Match map key OR stored sessionId — raise may key by pane_id while
+        // clear events only list the hook session_id (or vice versa).
+        useAgentAttentionStore.getState().clearMatchingSessionIds(session_ids);
       }
     );
 

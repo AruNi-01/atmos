@@ -37,10 +37,11 @@ pub use service::canvas_agent_relay::{
 pub use service::disk_analyzer::{DiskAnalyzerScanEvent, DiskAnalyzerService};
 pub use service::group::{GroupDto, GroupMemberDto, GroupService};
 pub use service::local_services::{
-    LocalServiceDto, LocalServiceKind, LocalServiceOwnerDto, LocalServiceStatus,
+    LocalServiceDto, LocalServiceKind, LocalServiceOwnerDto, LocalServiceProcessNodeDto,
+    LocalServiceStatus, LocalServiceStopEscalationReason, LocalServiceStopMode,
     LocalServiceStopRequest, LocalServiceStopResponse, LocalServicesScanRequest,
     LocalServicesScanResponse, LocalServicesScope, LocalServicesService,
-    LocalServicesUnavailableDto,
+    LocalServicesUnavailableDto, LOCAL_SERVICES_AUTO_REFRESH_JOB_ID,
 };
 pub use service::message_push::MessagePushService;
 pub use service::notification::NotificationService;

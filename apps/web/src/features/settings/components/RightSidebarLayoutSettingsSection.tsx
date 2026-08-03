@@ -10,11 +10,10 @@ import {
   ChevronDown,
   FileDiff,
   GitBranch,
-  GitPullRequest,
+  Github,
   Globe,
   PanelRight,
   Play,
-  Workflow,
 } from 'lucide-react';
 import { useLayoutSettingsStore } from '@/features/settings/store/layout-settings-store';
 import { SettingsToggleRow } from '@/features/settings/components/settings/SettingsToggleRow';
@@ -35,14 +34,12 @@ export function RightSidebarLayoutSettingsSection({
     rsShowReview,
     rsShowBrowser,
     rsShowRun,
-    rsShowPr,
-    rsShowActions,
+    rsShowGithub,
     setRightSidebarShowChanges,
     setRightSidebarShowReview,
     setRightSidebarShowBrowser,
     setRightSidebarShowRun,
-    setRightSidebarShowPr,
-    setRightSidebarShowActions,
+    setRightSidebarShowGithub,
   } = useLayoutSettingsStore();
 
   const enabledCount =
@@ -50,8 +47,7 @@ export function RightSidebarLayoutSettingsSection({
     Number(rsShowReview) +
     Number(rsShowBrowser) +
     Number(rsShowRun) +
-    Number(rsShowPr) +
-    Number(rsShowActions);
+    Number(rsShowGithub);
 
   return (
     <Collapsible
@@ -110,18 +106,11 @@ export function RightSidebarLayoutSettingsSection({
             onCheckedChange={(value) => void setRightSidebarShowRun(value)}
           />
           <SettingsToggleRow
-            icon={<GitPullRequest className="size-4" />}
-            title={t('prTitle')}
-            description={t('prDescription')}
-            checked={rsShowPr}
-            onCheckedChange={(value) => void setRightSidebarShowPr(value)}
-          />
-          <SettingsToggleRow
-            icon={<Workflow className="size-4" />}
-            title={t('actionsTitle')}
-            description={t('actionsDescription')}
-            checked={rsShowActions}
-            onCheckedChange={(value) => void setRightSidebarShowActions(value)}
+            icon={<Github className="size-4" />}
+            title={t('githubTitle')}
+            description={t('githubDescription')}
+            checked={rsShowGithub}
+            onCheckedChange={(value) => void setRightSidebarShowGithub(value)}
           />
         </div>
       </CollapsibleContent>

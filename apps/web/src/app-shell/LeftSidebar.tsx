@@ -88,10 +88,18 @@ import {
     TwoColumnSidebarContent,
 } from '@/app-shell/left-sidebar-controls';
 import { useLeftSidebarFileTreeSync } from '@/app-shell/use-left-sidebar-file-tree-sync';
+import { useEditorStore } from '@/features/editor/store/use-editor-store';
 import { useLeftSidebarTwoColumnResize } from '@/app-shell/use-left-sidebar-two-column-resize';
 import { useLeftSidebarWorkspaceDerived } from '@/app-shell/use-left-sidebar-workspace-derived';
 import { useLeftSidebarWorkspaceRenderers } from '@/app-shell/use-left-sidebar-workspace-renderers';
 import { useLeftSidebarDragHandlers } from '@/app-shell/use-left-sidebar-drag-handlers';
+import {
+    filterProjectsByAttention,
+    selectAttentionContextKey,
+    selectAttentionFilterMode,
+    useAgentAttentionStore,
+} from '@/features/agent/store/agent-attention-store';
+import { Bell } from 'lucide-react';
 
 interface LeftSidebarProps {
     projects?: Project[];
@@ -100,10 +108,36 @@ interface LeftSidebarProps {
 const LeftSidebar: React.FC<LeftSidebarProps> = () => {
     const storage = useAppStorage();
     const router = useAppRouter();
+    const attentionT = useTranslations('Agent.attention');
     const { workspaceId: currentWorkspaceId, projectId: currentProjectIdFromUrl, effectiveContextId, currentView } = useContextParams();
     // Row isActive follows URL only. Optimistic hop highlight is DOM-only
     // (applyWorkspaceSidebarSelectionDom) so this tree is not re-rendered on every click.
+    // Full catalog — used for selection/existence/current context. Never replace this with a
+    // filtered list: hiding attention-only rows would make the app think the active workspace
+    // was deleted and route to welcome (`router.replace('/')`).
     const projects = useProjects();
+    const attentionFilterMode = useAgentAttentionStore(selectAttentionFilterMode);
+    const attentionContextKey = useAgentAttentionStore(selectAttentionContextKey);
+    // Display-only subset for the sidebar tree when the header attention filter is on.
+    const listProjects = React.useMemo(() => {
+        if (!attentionFilterMode) return projects;
+        const ids = attentionContextKey ? attentionContextKey.split('\0').filter(Boolean) : [];
+        return filterProjectsByAttention(projects, ids);
+    }, [attentionContextKey, attentionFilterMode, projects]);
+
+    // When filtering to attention items, expand projects so matching workspaces are visible.
+    useEffect(() => {
+        if (!attentionFilterMode) return;
+        setExpandedProjects((prev) => {
+            const next = new Set(prev);
+            for (const project of listProjects) next.add(project.id);
+            const merged = Array.from(next);
+            if (merged.length === prev.length && merged.every((id, i) => id === prev[i])) {
+                return prev;
+            }
+            return merged;
+        });
+    }, [attentionFilterMode, listProjects]);
     const workspaceLabels = useWorkspaceLabels();
     const groups = useGroups();
     const groupsT = useTranslations('appShell.groups');
@@ -179,6 +213,17 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
     useEffect(() => { loadLayoutSettings(); }, [loadLayoutSettings]);
 
     const [activeTab, setActiveTab] = useQueryState("lsTab", leftSidebarParams.lsTab);
+    const fileTreeRevealTarget = useEditorStore((s) => s.fileTreeRevealTarget);
+    // Attention list lives on the Projects tab; force that tab when the filter turns on
+    // so the bell does not appear ineffective while Files is selected.
+    // A pending file-tree reveal must win until cleared — otherwise this effect
+    // and useLeftSidebarFileTreeSync fight (Projects ↔ Files oscillation).
+    useEffect(() => {
+        if (!attentionFilterMode || filesOnRight) return;
+        if (fileTreeRevealTarget) return;
+        if (activeTab === 'projects') return;
+        void setActiveTab('projects');
+    }, [attentionFilterMode, filesOnRight, activeTab, setActiveTab, fileTreeRevealTarget]);
     const [newWorkspace, setNewWorkspace] = useQueryState("newWorkspace", centerStageParams.newWorkspace);
     const [canvasOpen, setCanvasOpen] = useQueryState("canvas", centerStageParams.canvas);
     const [isKanbanExpanded, setIsKanbanExpanded] = useQueryState("lsKanban", leftSidebarParams.lsKanban);
@@ -952,7 +997,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
         kanbanFilters,
         labelGroupOrder: effectiveLabelGroupOrder,
         projectSidebarSelectionRouteKey,
-        projects,
+        projects: listProjects,
         selectedProjectSidebarId,
         selectedWorkspaceGroupKey,
         ungroupedLabel: groupsT('ungrouped'),
@@ -1351,7 +1396,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
                         managementTerminalsEnabled={managementTerminalsEnabled}
                         managementAgentsEnabled={managementAgentsEnabled}
                         automationsEnabled={automationsEnabled}
-                        projects={projects}
+                        projects={listProjects}
                         availableLabels={workspaceLabels}
                         groups={groups}
                         groupingMode={groupingMode}
@@ -1381,6 +1426,23 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
 
 
                 <div className="flex-1 flex flex-col min-h-0">
+                    {attentionFilterMode ? (
+                        <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border/60 px-3 py-2">
+                            <div className="flex min-w-0 items-center gap-1.5">
+                                <Bell className="size-3.5 shrink-0 text-muted-foreground" />
+                                <p className="truncate text-[12px] font-medium text-foreground">
+                                    {attentionT('filterTitle')}
+                                </p>
+                            </div>
+                            <button
+                                type="button"
+                                className="shrink-0 rounded-md px-2 py-1 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                                onClick={() => useAgentAttentionStore.getState().setFilterMode(false)}
+                            >
+                                {attentionT('clearFilter')}
+                            </button>
+                        </div>
+                    ) : null}
 
                     <Tabs
                         value={filesOnRight ? 'projects' : activeTab}

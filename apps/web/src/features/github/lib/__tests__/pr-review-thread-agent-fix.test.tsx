@@ -38,6 +38,22 @@ mock.module("@workspace/ui", () => ({
   }: React.ButtonHTMLAttributes<HTMLButtonElement>) => (
     <button {...props}>{children}</button>
   ),
+  TabsSubtle: ({ children, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
+    <div {...props}>{children}</div>
+  ),
+  TabsSubtleItem: ({
+    children,
+    label,
+    ...props
+  }: React.ButtonHTMLAttributes<HTMLButtonElement> & {
+    index?: number;
+    icon?: React.ComponentType<{ className?: string }>;
+    label?: string;
+  }) => (
+    <button type="button" {...props}>
+      {children ?? label}
+    </button>
+  ),
   Textarea: (props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) => (
     <textarea {...props} />
   ),

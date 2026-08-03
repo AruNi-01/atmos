@@ -40,67 +40,104 @@ fn is_atmos_hook(hook_entry: &Value) -> bool {
         .unwrap_or(false)
 }
 
-fn build_cmd(port: u16, json_body: &str) -> String {
+/// Fixed-body hook for events that only need the event name (session boundaries).
+fn build_fixed_cmd(port: u16, event_name: &str, r#async: bool) -> Value {
     let url = hook_url(port);
     let hook_version = hook_version_assignment();
     let hook_version_header = hook_version_header_shell();
-    format!(
-        r#"{guard} && {hook_version} && curl -sf -X POST -H 'Content-Type: application/json' {context_headers} {hook_version_header} -d '{json_body}' '{url}' >/dev/null 2>&1 || true"#,
+    let command = format!(
+        r#"{guard} && {hook_version} && curl -sf -X POST -H 'Content-Type: application/json' {context_headers} {hook_version_header} -d '{{"hook_event_name":"{event_name}"}}' '{url}' >/dev/null 2>&1 || true"#,
         guard = atmos_managed_guard(),
         hook_version = hook_version,
         context_headers = atmos_context_curl_headers(),
         hook_version_header = hook_version_header,
-        json_body = json_body,
+        event_name = event_name,
         url = url,
-    )
+    );
+    let mut entry = json!({
+        "hooks": [{
+            "type": "command",
+            "command": command,
+            "timeout": 5,
+        }]
+    });
+    if r#async {
+        if let Some(hooks) = entry
+            .get_mut("hooks")
+            .and_then(|h| h.as_array_mut())
+            .and_then(|a| a.first_mut())
+        {
+            hooks
+                .as_object_mut()
+                .unwrap()
+                .insert("async".to_string(), json!(true));
+        }
+    }
+    entry
+}
+
+/// Stdin-forwarding hook so Claude can deliver agent_id / tool metadata.
+/// Required for child-agent lifecycle (SubagentStart/Stop) and permission context.
+fn build_stdin_cmd(port: u16, r#async: bool) -> Value {
+    let url = hook_url(port);
+    let hook_version = hook_version_assignment();
+    let hook_version_header = hook_version_header_shell();
+    let command = format!(
+        r#"{guard} && {hook_version} && cat | curl -sf -X POST -H 'Content-Type: application/json' {context_headers} {hook_version_header} -d @- '{url}' >/dev/null 2>&1 || true"#,
+        guard = atmos_managed_guard(),
+        hook_version = hook_version,
+        context_headers = atmos_context_curl_headers(),
+        hook_version_header = hook_version_header,
+        url = url,
+    );
+    let mut entry = json!({
+        "hooks": [{
+            "type": "command",
+            "command": command,
+            "timeout": 5,
+        }]
+    });
+    if r#async {
+        if let Some(hooks) = entry
+            .get_mut("hooks")
+            .and_then(|h| h.as_array_mut())
+            .and_then(|a| a.first_mut())
+        {
+            hooks
+                .as_object_mut()
+                .unwrap()
+                .insert("async".to_string(), json!(true));
+        }
+    }
+    entry
 }
 
 fn build_hook_entries(port: u16) -> Value {
-    let session_start = build_cmd(port, r#"{"hook_event_name":"SessionStart"}"#);
-    let user_prompt = build_cmd(port, r#"{"hook_event_name":"UserPromptSubmit"}"#);
-    let pre_tool = build_cmd(port, r#"{"hook_event_name":"PreToolUse"}"#);
-    let post_tool = build_cmd(port, r#"{"hook_event_name":"PostToolUse"}"#);
-    let post_tool_fail = build_cmd(port, r#"{"hook_event_name":"PostToolUseFailure"}"#);
-    let perm_request = build_cmd(port, r#"{"hook_event_name":"PermissionRequest"}"#);
-    let notification = build_cmd(
-        port,
-        r#"{"hook_event_name":"Notification","notification_type":"permission_prompt"}"#,
-    );
-    let stop = build_cmd(port, r#"{"hook_event_name":"Stop"}"#);
-    let stop_failure = build_cmd(port, r#"{"hook_event_name":"StopFailure"}"#);
-    let session_end = build_cmd(port, r#"{"hook_event_name":"SessionEnd"}"#);
+    let notification = {
+        let mut entry = build_stdin_cmd(port, true);
+        entry
+            .as_object_mut()
+            .unwrap()
+            .insert("matcher".to_string(), json!("permission_prompt"));
+        entry
+    };
+
     json!({
-        "SessionStart": [{
-            "hooks": [{ "type": "command", "command": session_start, "timeout": 5 }]
-        }],
-        "UserPromptSubmit": [{
-            "hooks": [{ "type": "command", "command": user_prompt, "timeout": 5 }]
-        }],
-        "PreToolUse": [{
-            "hooks": [{ "type": "command", "command": pre_tool, "async": true }]
-        }],
-        "PostToolUse": [{
-            "hooks": [{ "type": "command", "command": post_tool, "async": true }]
-        }],
-        "PostToolUseFailure": [{
-            "hooks": [{ "type": "command", "command": post_tool_fail, "async": true }]
-        }],
-        "PermissionRequest": [{
-            "hooks": [{ "type": "command", "command": perm_request, "async": true }]
-        }],
-        "Notification": [{
-            "matcher": "permission_prompt",
-            "hooks": [{ "type": "command", "command": notification, "async": true }]
-        }],
-        "Stop": [{
-            "hooks": [{ "type": "command", "command": stop, "async": true }]
-        }],
-        "StopFailure": [{
-            "hooks": [{ "type": "command", "command": stop_failure, "async": true }]
-        }],
-        "SessionEnd": [{
-            "hooks": [{ "type": "command", "command": session_end, "async": true }]
-        }]
+        // Session boundaries only need the event name.
+        "SessionStart": [build_fixed_cmd(port, "SessionStart", false)],
+        "UserPromptSubmit": [build_fixed_cmd(port, "UserPromptSubmit", false)],
+        // Tool + lifecycle: forward full stdin so agent_id / tool_name arrive.
+        "PreToolUse": [build_stdin_cmd(port, true)],
+        "PostToolUse": [build_stdin_cmd(port, true)],
+        "PostToolUseFailure": [build_stdin_cmd(port, true)],
+        "PermissionRequest": [build_stdin_cmd(port, true)],
+        "Notification": [notification],
+        "Stop": [build_stdin_cmd(port, true)],
+        "StopFailure": [build_stdin_cmd(port, true)],
+        "SessionEnd": [build_fixed_cmd(port, "SessionEnd", true)],
+        // Child-agent lifecycle: keep lead Running while children outlive the turn.
+        "SubagentStart": [build_stdin_cmd(port, true)],
+        "SubagentStop": [build_stdin_cmd(port, true)],
     })
 }
 

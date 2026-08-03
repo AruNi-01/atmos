@@ -6,11 +6,13 @@ import { getComputerQueryScope } from "@/api/query/query-scope";
 import { useWebSocketStore } from "@/features/connection/hooks/use-websocket";
 import { applyQuotaOverviewUpdated } from "@/features/quota-usage/lib/quota-query-events";
 import { invalidateTokenUsageQueries } from "@/features/quota-usage/lib/token-usage-query-options";
+import { applyLocalServicesUpdated } from "@/features/local-services/lib/local-services-query-events";
 import { invalidateLocalModelQueries } from "@/features/local-services/lib/local-model-query-options";
 import { invalidateAutomationDefinitionQueries, invalidateAutomationRunQueries } from "@/features/automations/lib/automations-query-options";
 
 let quotaOverviewSubscriberCount = 0;
 let tokenUsageSubscriberCount = 0;
+let localServicesSubscriberCount = 0;
 let localModelSubscriberCount = 0;
 let automationDefinitionSubscriberCount = 0;
 let automationRunSubscriberCount = 0;
@@ -21,6 +23,9 @@ export function getQuotaOverviewBridgeSubscriberCount(): number {
 }
 export function getTokenUsageBridgeSubscriberCount(): number {
   return tokenUsageSubscriberCount;
+}
+export function getLocalServicesBridgeSubscriberCount(): number {
+  return localServicesSubscriberCount;
 }
 export function getLocalModelBridgeSubscriberCount(): number {
   return localModelSubscriberCount;
@@ -66,6 +71,7 @@ export function ServerStateEventBridge() {
     const store = useWebSocketStore.getState();
     const quotaOverviewCounter = { value: quotaOverviewSubscriberCount };
     const tokenUsageCounter = { value: tokenUsageSubscriberCount };
+    const localServicesCounter = { value: localServicesSubscriberCount };
     const localModelCounter = { value: localModelSubscriberCount };
     const automationDefinitionCounter = { value: automationDefinitionSubscriberCount };
     const automationRunCounter = { value: automationRunSubscriberCount };
@@ -90,6 +96,17 @@ export function ServerStateEventBridge() {
       tokenUsageCounter,
     );
     tokenUsageSubscriberCount = tokenUsageCounter.value;
+
+    const unsubLocalServices = subscribeOnce(
+      store,
+      "local_services_updated",
+      (data: unknown) => {
+        const client = getAtmosWebQueryClient();
+        applyLocalServicesUpdated(client, getComputerQueryScope(), data);
+      },
+      localServicesCounter,
+    );
+    localServicesSubscriberCount = localServicesCounter.value;
 
     const unsubLocalModel = subscribeOnce(
       store,
@@ -126,6 +143,8 @@ export function ServerStateEventBridge() {
       quotaOverviewSubscriberCount = Math.max(0, quotaOverviewSubscriberCount - 1);
       unsubTokenUsage();
       tokenUsageSubscriberCount = Math.max(0, tokenUsageSubscriberCount - 1);
+      unsubLocalServices();
+      localServicesSubscriberCount = Math.max(0, localServicesSubscriberCount - 1);
       unsubLocalModel();
       localModelSubscriberCount = Math.max(0, localModelSubscriberCount - 1);
       unsubAutomationDefinition();

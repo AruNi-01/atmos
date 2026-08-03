@@ -1,0 +1,5 @@
+#!/usr/bin/env sh
+
+# Lightweight local gate — do not mirror full CI here.
+# Uses bun + cargo only (no just required).
+bunx lint-staged

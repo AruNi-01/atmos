@@ -29,7 +29,8 @@
     "typecheck": "bun run scripts/typecheck-all.ts",
     "typecheck:bench": "bun run scripts/typecheck-bench.ts",
     "typecheck:mobile": "bun --filter @atmos/mobile typecheck",
-    "clean": "rm -rf node_modules apps/*/node_modules packages/*/node_modules"
+    "clean": "rm -rf node_modules apps/*/node_modules packages/*/node_modules",
+    "prepare": "husky"
   },
   "catalog": {
     "comment": "Unified management of core dependent versions of all front-end projects. typescript = TS 6 API for eslint; @typescript/native = TS 7 tsc binary (QUALITY-005).",
@@ -55,6 +56,8 @@
   },
   "devDependencies": {
     "@typescript/native": "npm:typescript@7.0.2",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.3.0",
     "typescript": "6.0.3"
   },
   "overrides": {

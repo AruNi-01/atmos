@@ -134,59 +134,57 @@ export function CommitDetailView({
         onScroll={handleMainScroll}
         onWheelCapture={handleMainWheelCapture}
       >
-        {/* Collapsible context header — metadata + commit message */}
+        {/* Collapsible context header — metadata + commit message (left-aligned) */}
         <div
           ref={prContextRef}
           className="sticky top-0 z-20 transform-gpu bg-background px-4 py-3 transition-transform duration-200 ease-out will-change-transform"
         >
-          <div className="mx-auto max-w-4xl">
-            <div className="flex items-start gap-3">
-              <Avatar className="size-8 border border-border/50 shrink-0">
-                {author?.avatar_url && (
-                  <AvatarImage src={author.avatar_url} alt={authorName} />
-                )}
-                <AvatarFallback className="text-[10px]">
-                  {authorName.substring(0, 2).toUpperCase()}
-                </AvatarFallback>
-              </Avatar>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 text-sm">
-                  <span className="font-medium text-foreground/90">
-                    {author?.login ?? commit?.author?.name ?? authorName}
-                  </span>
-                  {commitDate && (
-                    <>
-                      <span className="text-muted-foreground">·</span>
-                      <span className="text-xs text-muted-foreground">
-                        {formatDistanceToNow(commitDate, { addSuffix: true, locale: dateLocale })}
-                      </span>
-                    </>
-                  )}
-                </div>
-                <div className="mt-1 flex items-center gap-3 text-xs text-muted-foreground">
-                  <span className="font-mono">{sha.substring(0, 7)}</span>
-                  <span className="text-muted-foreground/60">
-                    {owner}/{repo}
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <span className="text-emerald-600">{totalAdditions}+</span>
-                    <span className="text-red-600">{totalDeletions}-</span>
-                    <span className="text-muted-foreground/60">
-                      {t("filesChanged", { count: files.length })}
+          <div className="flex items-start gap-3">
+            <Avatar className="size-8 border border-border/50 shrink-0">
+              {author?.avatar_url && (
+                <AvatarImage src={author.avatar_url} alt={authorName} />
+              )}
+              <AvatarFallback className="text-[10px]">
+                {authorName.substring(0, 2).toUpperCase()}
+              </AvatarFallback>
+            </Avatar>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 text-sm">
+                <span className="font-medium text-foreground/90">
+                  {author?.login ?? commit?.author?.name ?? authorName}
+                </span>
+                {commitDate && (
+                  <>
+                    <span className="text-muted-foreground">·</span>
+                    <span className="text-xs text-muted-foreground">
+                      {formatDistanceToNow(commitDate, { addSuffix: true, locale: dateLocale })}
                     </span>
+                  </>
+                )}
+              </div>
+              <div className="mt-1 flex items-center gap-3 text-xs text-muted-foreground">
+                <span className="font-mono">{sha.substring(0, 7)}</span>
+                <span className="text-muted-foreground/60">
+                  {owner}/{repo}
+                </span>
+                <span className="flex items-center gap-1">
+                  <span className="text-emerald-600">{totalAdditions}+</span>
+                  <span className="text-red-600">{totalDeletions}-</span>
+                  <span className="text-muted-foreground/60">
+                    {t("filesChanged", { count: files.length })}
                   </span>
-                </div>
+                </span>
               </div>
             </div>
-
-            {messageParts.body && (
-              <div className="mt-3">
-                <MarkdownRenderer className="prose prose-sm max-w-none text-sm dark:prose-invert prose-p:my-1.5 prose-headings:my-2 prose-li:my-0.5">
-                  {messageParts.body}
-                </MarkdownRenderer>
-              </div>
-            )}
           </div>
+
+          {messageParts.body && (
+            <div className="mt-3">
+              <MarkdownRenderer className="prose prose-sm max-w-none text-sm dark:prose-invert prose-p:my-1.5 prose-headings:my-2 prose-li:my-0.5">
+                {messageParts.body}
+              </MarkdownRenderer>
+            </div>
+          )}
         </div>
 
         {/* Diff — fills remaining space */}

@@ -50,7 +50,8 @@ import { AgentFixButton } from '@/features/agent-fix/components/AgentFixButton';
 import type { AgentFixPromptSource } from '@/features/agent-fix/types';
 import { buildPrReviewFixPrompt, buildPrReviewThreadFixPrompt } from '@/features/github/lib/agent-fix-prompts';
 import { useOpenGithubCenterTab } from '@/features/github/hooks/use-open-github-center-tab';
-import { CommitList, type CommitListItem } from './CommitList';
+import { CommitList } from './CommitList';
+import { TimelineCommitsGroup } from './TimelineCommitsGroup';
 import { PRFilesTab } from './PRFilesTab';
 import { usePrContextHeader } from './use-pr-context-header';
 import { PRActionBar, type PRMergeStrategy } from '../lib/pr-detail-actions';
@@ -65,6 +66,7 @@ import {
   type StatusCheck,
   type TimelineItem,
 } from '../lib/pr-detail-parts';
+import { groupConsecutiveTimelineCommits } from '../lib/timeline-commits';
 import { PRMetadataSidebar } from '../lib/pr-detail-sidebar';
 import { PRChecksTab } from './PRChecksTab';
 
@@ -254,10 +256,11 @@ export function PRDetailView({ owner, repo, branch, prNumber, active, onRequestC
         const reviewId = (item as Record<string, unknown>).id as number | undefined;
         const threads = (item.event === 'reviewed' && reviewId) ? reviewCommentThreadsByReviewId.get(reviewId) : undefined;
 
+        const normalizedAuthor = author as ConversationItem['author'];
         return {
           ...item,
           type: item.event === 'commented' ? 'comment' : (item.event === 'committed' ? 'commit' : (item.event === 'reviewed' ? 'review' : 'activity')),
-          author,
+          author: normalizedAuthor,
           createdAt: item.created_at || item.author?.date || item.submitted_at || item.authoredDate || pr.createdAt,
           body: item.body || item.message || item.messageHeadline || '',
           reviewCommentThreads: threads,
@@ -266,7 +269,13 @@ export function PRDetailView({ owner, repo, branch, prNumber, active, onRequestC
       .sort((a: ConversationItem, b: ConversationItem) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
   }, [pr, timelineItems, reviewCommentThreadsByReviewId]);
 
-  // Incremental rendering: yield main thread between chunks
+  // Group consecutive commits into GitHub-style "added N commits" batches.
+  const groupedConversation = React.useMemo(
+    () => groupConsecutiveTimelineCommits(conversation),
+    [conversation],
+  );
+
+  // Incremental rendering: yield main thread between chunks (grouped entries)
   const RENDER_CHUNK = 3;
   const [displayCount, setDisplayCount] = React.useState(RENDER_CHUNK);
   const timerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -274,13 +283,13 @@ export function PRDetailView({ owner, repo, branch, prNumber, active, onRequestC
   React.useEffect(() => {
     if (timerRef.current !== null) clearTimeout(timerRef.current);
     React.startTransition(() => setDisplayCount(RENDER_CHUNK));
-    if (conversation.length <= RENDER_CHUNK) return;
+    if (groupedConversation.length <= RENDER_CHUNK) return;
 
     let count = RENDER_CHUNK;
     const tick = () => {
-      count = Math.min(count + RENDER_CHUNK, conversation.length);
+      count = Math.min(count + RENDER_CHUNK, groupedConversation.length);
       React.startTransition(() => setDisplayCount(count));
-      if (count < conversation.length) {
+      if (count < groupedConversation.length) {
         timerRef.current = setTimeout(tick, 32);
       } else {
         timerRef.current = null;
@@ -288,9 +297,9 @@ export function PRDetailView({ owner, repo, branch, prNumber, active, onRequestC
     };
     timerRef.current = setTimeout(tick, 32);
     return () => { if (timerRef.current !== null) clearTimeout(timerRef.current); };
-  }, [conversation.length]);
+  }, [groupedConversation.length]);
 
-  const displayedConversation = conversation.slice(0, displayCount);
+  const displayedConversation = groupedConversation.slice(0, displayCount);
 
   const handleMerge = async (body = '') => {
     if (!prNumber) return;
@@ -404,7 +413,7 @@ export function PRDetailView({ owner, repo, branch, prNumber, active, onRequestC
   }, [handleMainTabChange]);
 
   return (
-    <div className="mx-auto flex h-full min-h-0 w-full max-w-6xl flex-col gap-0 overflow-hidden px-6 pb-6">
+    <div className="relative mx-auto flex h-full min-h-0 w-full max-w-6xl flex-col gap-0 overflow-hidden px-6">
         <div className="flex flex-col flex-1 min-h-0">
           <header className="pr-12 flex flex-row items-center gap-3 pt-6 pb-4 shrink-0 relative">
             <Github className="size-4.5 text-muted-foreground/60" />
@@ -640,7 +649,27 @@ export function PRDetailView({ owner, repo, branch, prNumber, active, onRequestC
 
                       <TooltipProvider delayDuration={300}>
                         <div className="flex flex-col gap-6 relative z-10">
-                          {displayedConversation.map((item: ConversationItem, i: number) => {
+                          {displayedConversation.map((entry, i: number) => {
+                            if (entry.kind === 'commits') {
+                              return (
+                                <TimelineCommitsGroup
+                                  key={`commits-${entry.startIndex}`}
+                                  commits={entry.commits}
+                                  locale={relativeTimeLocale}
+                                  onCommitClick={({ sha, subject, authorName }) => {
+                                    openCommitTab({
+                                      owner,
+                                      repo,
+                                      sha,
+                                      subject,
+                                      authorName,
+                                    });
+                                  }}
+                                />
+                              );
+                            }
+
+                            const item = entry.item;
                             const hasReviewThreads = item.reviewCommentThreads && item.reviewCommentThreads.length > 0;
                             const isMainComment = item.type === 'comment' || (item.type === 'review' && (item.body || hasReviewThreads));
                             const isBot = item.author?.is_bot || item.author?.login === 'cursor' || item.author?.login === 'vercel' || item.author?.login?.endsWith('[bot]');
@@ -750,77 +779,87 @@ export function PRDetailView({ owner, repo, branch, prNumber, active, onRequestC
                             }
 
                             // Activity Row (Commit, Merge, Close, etc)
-                            let icon = <GitCommit className="size-3.5 text-muted-foreground" />;
-                            let colorClass = "bg-muted";
+                            // Unified neutral timeline icon treatment (same shell for every event)
+                            const timelineIconClass = "size-3.5 text-muted-foreground";
+                            let icon = <GitCommit className={timelineIconClass} />;
                             let actionText: React.ReactNode = "";
 
                             switch (item.event) {
                               case 'closed':
-                                icon = <XCircle className="size-3.5 text-white" />;
-                                colorClass = "bg-red-500";
+                                icon = <XCircle className={timelineIconClass} />;
                                 actionText = t('activity.closed');
                                 break;
                               case 'reopened':
-                                icon = <RotateCw className="size-3.5 text-white" />;
-                                colorClass = "bg-emerald-500";
+                                icon = <RotateCw className={timelineIconClass} />;
                                 actionText = t('activity.reopened');
                                 break;
                               case 'merged':
-                                icon = <GitMerge className="size-3.5 text-white" />;
-                                colorClass = "bg-purple-600";
+                                icon = <GitMerge className={timelineIconClass} />;
                                 const commitId = item.commit_id || item.merge_commit_sha || item.commit_sha;
                                 const shortId = commitId?.substring(0, 7);
                                 actionText = (
                                   <>
                                     {t('activity.mergedCommit')}{' '}
-                                    <span className="font-mono bg-muted/50 px-1 rounded">{shortId || t('activity.unknownCommit')}</span>{' '}
+                                    {commitId ? (
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          openCommitTab({
+                                            owner,
+                                            repo,
+                                            sha: commitId,
+                                            subject: item.body || shortId || t('activity.unknownCommit'),
+                                            authorName: item.author?.login || pr.author?.login || '',
+                                          });
+                                        }}
+                                        className="font-mono bg-muted/50 px-1 rounded hover:bg-muted hover:text-foreground transition-colors"
+                                      >
+                                        {shortId}
+                                      </button>
+                                    ) : (
+                                      <span className="font-mono bg-muted/50 px-1 rounded">{t('activity.unknownCommit')}</span>
+                                    )}{' '}
                                     {t('activity.intoBase')}{' '}
                                     <span className="font-semibold text-foreground/80">{pr.baseRefName || 'main'}</span>
                                   </>
                                 );
                                 break;
                               case 'committed':
-                                icon = <GitCommit className="size-3.5 text-muted-foreground" />;
-                                colorClass = "bg-muted border border-border/50";
+                                // Consecutive commits are rendered via TimelineCommitsGroup;
+                                // this is a fallback for any ungrouped commit event.
+                                icon = <GitCommit className={timelineIconClass} />;
                                 actionText = t('activity.committed');
                                 break;
                               case 'head_ref_force_pushed':
-                                icon = <GitCommit className="size-3.5 text-white" />;
-                                colorClass = "bg-amber-500";
+                                icon = <GitCommit className={timelineIconClass} />;
                                 actionText = t('activity.forcePushed');
                                 break;
                               case 'reviewed':
                                 if (item.state === 'APPROVED') {
-                                  icon = <CheckCircle2 className="size-3.5 text-white" />;
-                                  colorClass = "bg-emerald-500";
+                                  icon = <CheckCircle2 className={timelineIconClass} />;
                                   actionText = t('activity.approvedPr');
                                 } else {
-                                  icon = <MessageSquare className="size-3.5 text-white" />;
-                                  colorClass = "bg-muted-foreground";
+                                  icon = <MessageSquare className={timelineIconClass} />;
                                   actionText = t('activity.leftReview');
                                 }
                                 break;
                               case 'referenced':
                               case 'cross-referenced':
-                                icon = <ExternalLink className="size-3.5 text-muted-foreground" />;
-                                colorClass = "bg-muted border border-border/50";
+                                icon = <ExternalLink className={timelineIconClass} />;
                                 actionText = item.event === 'cross-referenced' ? t('activity.crossReferenced') : t('activity.referenced');
                                 break;
                               case 'ready_for_review':
-                                icon = <Eye className="size-3.5 text-white" />;
-                                colorClass = "bg-blue-500";
+                                icon = <Eye className={timelineIconClass} />;
                                 actionText = t('activity.readyForReview');
                                 break;
                               case 'converted_to_draft':
                               case 'convert_to_draft':
-                                icon = <GitPullRequest className="size-3.5 text-muted-foreground" />;
-                                colorClass = "bg-muted border border-border/50";
+                                icon = <GitPullRequest className={timelineIconClass} />;
                                 actionText = t('activity.convertedToDraft');
                                 break;
                               case 'assigned':
                               case 'unassigned':
-                                icon = <User className="size-3.5 text-white" />;
-                                colorClass = item.event === 'assigned' ? "bg-blue-600" : "bg-muted-foreground";
+                                icon = <User className={timelineIconClass} />;
                                 const isSelf = item.assignee?.login === (item.actor?.login || item.author?.login);
                                 actionText = item.event === 'assigned'
                                   ? (isSelf ? t('activity.selfAssigned') : t('activity.assigned', { login: item.assignee?.login || '' }))
@@ -828,31 +867,27 @@ export function PRDetailView({ owner, repo, branch, prNumber, active, onRequestC
                                 break;
                               case 'labeled':
                               case 'unlabeled':
-                                icon = <Tag className="size-3.5 text-muted-foreground" />;
-                                colorClass = "bg-muted";
+                                icon = <Tag className={timelineIconClass} />;
                                 actionText = item.event === 'labeled'
                                   ? t('activity.addedLabelShort')
                                   : t('activity.removedLabelShort');
                                 break;
                               case 'review_requested':
                               case 'review_request_removed':
-                                icon = <Eye className="size-3.5 text-muted-foreground" />;
-                                colorClass = "bg-muted";
+                                icon = <Eye className={timelineIconClass} />;
                                 actionText = item.event === 'review_requested'
                                   ? t('activity.requestedReview', { login: item.requested_reviewer?.login || t('activity.someone') })
                                   : t('activity.removedReviewRequest', { login: item.requested_reviewer?.login || t('activity.someone') });
                                 break;
                               case 'milestoned':
                               case 'demilestoned':
-                                icon = <Milestone className="size-3.5 text-muted-foreground" />;
-                                colorClass = "bg-muted";
+                                icon = <Milestone className={timelineIconClass} />;
                                 actionText = item.event === 'milestoned'
                                   ? t('activity.addedToMilestone', { title: item.milestone?.title || '' })
                                   : t('activity.removedFromMilestone', { title: item.milestone?.title || '' });
                                 break;
                               case 'renamed':
-                                icon = <Edit2 className="size-3.5 text-muted-foreground" />;
-                                colorClass = "bg-muted";
+                                icon = <Edit2 className={timelineIconClass} />;
                                 actionText = t('activity.renamed', {
                                   from: item.rename?.from || '',
                                   to: item.rename?.to || '',
@@ -860,8 +895,7 @@ export function PRDetailView({ owner, repo, branch, prNumber, active, onRequestC
                                 break;
                               case 'deployed':
                               case 'deployment_status':
-                                icon = <Rocket className="size-3.5 text-white" />;
-                                colorClass = "bg-sidebar-accent shadow-sm";
+                                icon = <Rocket className={timelineIconClass} />;
                                 const env = item.deployment?.environment || item.environment || t('activity.preview');
                                 actionText = (
                                   <>
@@ -880,8 +914,7 @@ export function PRDetailView({ owner, repo, branch, prNumber, active, onRequestC
                                 );
                                 break;
                               case 'head_ref_deleted':
-                                icon = <GitBranch className="size-3.5 text-muted-foreground" />;
-                                colorClass = "bg-muted";
+                                icon = <GitBranch className={timelineIconClass} />;
                                 actionText = t('activity.deletedBranch');
                                 break;
                               default:
@@ -892,10 +925,7 @@ export function PRDetailView({ owner, repo, branch, prNumber, active, onRequestC
                             return (
                               <div key={i} className="flex flex-col gap-1.5 pl-2.5 relative">
                                 <div className="flex items-center gap-3">
-                                  <div className={cn(
-                                    "size-4 rounded-full flex items-center justify-center ring-4 ring-background z-10 shrink-0",
-                                    colorClass
-                                  )}>
+                                  <div className="z-10 flex size-4 shrink-0 items-center justify-center rounded-full border border-border/50 bg-muted ring-4 ring-background">
                                     {icon}
                                   </div>
                                   <div className="flex items-center gap-2 text-xs truncate flex-1">
@@ -922,18 +952,51 @@ export function PRDetailView({ owner, repo, branch, prNumber, active, onRequestC
                                         {item.label.name}
                                       </span>
                                     )}
-                                    {(item.event === 'committed' || item.event === 'referenced') && item.body && (
-                                      <Tooltip>
-                                        <TooltipTrigger asChild>
-                                          <span className="text-foreground/70 font-medium truncate max-w-[280px] cursor-help">
+                                    {(item.event === 'committed' || item.event === 'referenced') && item.body && (() => {
+                                      const refSha = item.sha || item.commit_sha || item.commit_id;
+                                      const openRefCommit = refSha
+                                        ? () =>
+                                            openCommitTab({
+                                              owner,
+                                              repo,
+                                              sha: refSha,
+                                              subject: item.body || refSha.slice(0, 7),
+                                              authorName: item.author?.login || '',
+                                            })
+                                        : undefined;
+                                      return (
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <span
+                                              role={openRefCommit ? 'button' : undefined}
+                                              tabIndex={openRefCommit ? 0 : undefined}
+                                              onClick={openRefCommit}
+                                              onKeyDown={
+                                                openRefCommit
+                                                  ? (e) => {
+                                                      if (e.key === 'Enter' || e.key === ' ') {
+                                                        e.preventDefault();
+                                                        openRefCommit();
+                                                      }
+                                                    }
+                                                  : undefined
+                                              }
+                                              className={cn(
+                                                'text-foreground/70 font-medium truncate max-w-[280px]',
+                                                openRefCommit
+                                                  ? 'cursor-pointer hover:text-foreground hover:underline underline-offset-2'
+                                                  : 'cursor-help',
+                                              )}
+                                            >
+                                              {item.body}
+                                            </span>
+                                          </TooltipTrigger>
+                                          <TooltipContent side="top" className="max-w-md text-xs break-all">
                                             {item.body}
-                                          </span>
-                                        </TooltipTrigger>
-                                        <TooltipContent side="top" className="max-w-md text-xs break-all">
-                                          {item.body}
-                                        </TooltipContent>
-                                      </Tooltip>
-                                    )}
+                                          </TooltipContent>
+                                        </Tooltip>
+                                      );
+                                    })()}
                                     <span className="text-muted-foreground opacity-60 ml-auto whitespace-nowrap">
                                       {formatDistanceToNow(new Date(item.createdAt), {
                                         addSuffix: true,

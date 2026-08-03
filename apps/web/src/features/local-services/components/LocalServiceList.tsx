@@ -8,6 +8,10 @@ import { cn, toastManager } from "@workspace/ui";
 import type { LocalService } from "@/features/local-services/types";
 import { localServicesApi } from "@/api/ws/local-services-api";
 import { LocalServiceRow } from "./LocalServiceRow";
+import {
+  LocalServiceStopEscalationDialog,
+  type LocalServiceStopEscalationState,
+} from "./LocalServiceStopEscalationDialog";
 
 interface LocalServiceListProps {
   services: LocalService[];
@@ -30,33 +34,96 @@ export function LocalServiceList({
 }: LocalServiceListProps) {
   const t = useTranslations("LocalServices.components");
   const [stoppingId, setStoppingId] = React.useState<string | null>(null);
+  const [escalation, setEscalation] = React.useState<LocalServiceStopEscalationState | null>(null);
+  const [treePending, setTreePending] = React.useState(false);
 
-  const handleStop = React.useCallback(async (service: LocalService) => {
-    if (!service.pid) return;
+  const handleStop = React.useCallback(
+    async (service: LocalService) => {
+      if (!service.pid) return;
+      // Serialize escalations: ignore new stops while a dialog is open so
+      // concurrent stops cannot clobber each other's escalation payload.
+      if (escalation || treePending) return;
 
-    setStoppingId(service.id);
-    try {
-      await localServicesApi.stop({
-        service_id: service.id,
-        pid: service.pid,
-        port: service.port,
-        project_id: service.owner.project_id,
-        workspace_id: service.owner.workspace_id,
-      });
-      onRefresh?.();
-    } catch (error) {
-      toastManager.add({
-        type: "error",
-        title: t("list.failedToStopTitle"),
-        description: error instanceof Error ? error.message : String(error),
-      });
-    } finally {
-      setStoppingId(null);
-    }
-  }, [onRefresh]);
+      setStoppingId(service.id);
+      try {
+        const result = await localServicesApi.stop({
+          service_id: service.id,
+          pid: service.pid,
+          port: service.port,
+          project_id: service.owner.project_id,
+          workspace_id: service.owner.workspace_id,
+          mode: "listener",
+        });
+        if (result.ok) {
+          onRefresh?.();
+          return;
+        }
+        if (result.needs_escalation) {
+          setEscalation((current) => current ?? { service, response: result });
+          return;
+        }
+        toastManager.add({
+          type: "error",
+          title: t("list.failedToStopTitle"),
+          description: t("list.stopDidNotClear"),
+        });
+      } catch (error) {
+        toastManager.add({
+          type: "error",
+          title: t("list.failedToStopTitle"),
+          description: error instanceof Error ? error.message : String(error),
+        });
+      } finally {
+        setStoppingId(null);
+      }
+    },
+    [escalation, onRefresh, t, treePending],
+  );
 
-  if (services.length === 0) {
-    return (
+  const handleTreeStop = React.useCallback(
+    async (rootPid: number) => {
+      if (!escalation) return;
+      const { service, response } = escalation;
+      const listenerPid =
+        response.current_listener_pid ?? service.pid ?? response.attempted_pid ?? null;
+      if (!listenerPid) return;
+
+      setTreePending(true);
+      try {
+        const result = await localServicesApi.stop({
+          service_id: response.service_id || service.id,
+          pid: listenerPid,
+          port: response.port ?? service.port,
+          project_id: service.owner.project_id,
+          workspace_id: service.owner.workspace_id,
+          mode: "tree",
+          root_pid: rootPid,
+        });
+        if (result.ok) {
+          setEscalation(null);
+          onRefresh?.();
+          return;
+        }
+        toastManager.add({
+          type: "error",
+          title: t("list.failedToStopTitle"),
+          description: t("list.stopDidNotClear"),
+        });
+      } catch (error) {
+        toastManager.add({
+          type: "error",
+          title: t("list.failedToStopTitle"),
+          description: error instanceof Error ? error.message : String(error),
+        });
+      } finally {
+        setTreePending(false);
+      }
+    },
+    [escalation, onRefresh, t],
+  );
+
+  const listBody =
+    services.length === 0 ? (
       <div className="flex min-h-24 flex-col items-center justify-center rounded-lg border border-dashed border-border/70 px-4 py-5 text-center">
         <Server className="size-5 text-muted-foreground" />
         <div className="mt-2 text-sm font-medium text-foreground">{emptyLabel ?? t("list.emptyLabel")}</div>
@@ -64,11 +131,7 @@ export function LocalServiceList({
           {t("list.emptyDescription")}
         </div>
       </div>
-    );
-  }
-
-  if (!grouped) {
-    return (
+    ) : !grouped ? (
       <div className="space-y-2">
         {services.map((service) => (
           <div key={service.id} className={cn(stoppingId === service.id && "opacity-60")}>
@@ -76,42 +139,58 @@ export function LocalServiceList({
               service={service}
               compact={compact}
               showOwner={showOwner}
-              stopPending={stoppingId === service.id}
+              // Serialize escalations: disable every stop control while a dialog
+              // or tree-stop is in flight so concurrent clicks are not silent no-ops.
+              stopPending={
+                stoppingId === service.id || escalation !== null || treePending
+              }
               onOpen={onOpen}
               onStop={handleStop}
             />
           </div>
         ))}
       </div>
-    );
-  }
-
-  const groups = groupServices(services);
-  return (
-    <div className="space-y-4">
-      {groups.map((group) => (
-        <div key={group.key} className="space-y-2">
-          <div className="flex items-center justify-between gap-3">
-            <div className="min-w-0">
-              <div className="truncate text-xs font-semibold text-foreground">{group.label}</div>
-              <div className="truncate text-[10px] text-muted-foreground">{group.rootPath}</div>
+    ) : (
+      <div className="space-y-4">
+        {groupServices(services).map((group) => (
+          <div key={group.key} className="space-y-2">
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <div className="truncate text-xs font-semibold text-foreground">{group.label}</div>
+                <div className="truncate text-[10px] text-muted-foreground">{group.rootPath}</div>
+              </div>
+              <span className="shrink-0 text-[10px] text-muted-foreground">{group.services.length}</span>
             </div>
-            <span className="shrink-0 text-[10px] text-muted-foreground">{group.services.length}</span>
+            {group.services.map((service) => (
+              <div key={service.id} className={cn(stoppingId === service.id && "opacity-60")}>
+                <LocalServiceRow
+                  service={service}
+                  compact={compact}
+                  stopPending={
+                    stoppingId === service.id || escalation !== null || treePending
+                  }
+                  onOpen={onOpen}
+                  onStop={handleStop}
+                />
+              </div>
+            ))}
           </div>
-          {group.services.map((service) => (
-            <div key={service.id} className={cn(stoppingId === service.id && "opacity-60")}>
-              <LocalServiceRow
-                service={service}
-                compact={compact}
-                stopPending={stoppingId === service.id}
-                onOpen={onOpen}
-                onStop={handleStop}
-              />
-            </div>
-          ))}
-        </div>
-      ))}
-    </div>
+        ))}
+      </div>
+    );
+
+  return (
+    <>
+      {listBody}
+      <LocalServiceStopEscalationDialog
+        state={escalation}
+        pending={treePending}
+        onOpenChange={(open) => {
+          if (!open && !treePending) setEscalation(null);
+        }}
+        onConfirmTreeStop={handleTreeStop}
+      />
+    </>
   );
 }
 
