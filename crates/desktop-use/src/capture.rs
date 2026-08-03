@@ -179,6 +179,7 @@ fn capture_macos(req: CaptureRequest) -> CaptureResult {
 }
 
 #[derive(Debug, Clone)]
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 struct Frontmost {
     app_name: String,
     window_title: Option<String>,
@@ -186,6 +187,7 @@ struct Frontmost {
     bounds: Option<WindowBounds>,
 }
 
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 fn is_self_app(name: &str) -> bool {
     matches!(
         name,
@@ -193,6 +195,7 @@ fn is_self_app(name: &str) -> bool {
     )
 }
 
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 fn build_context_markdown(frontmost: &Frontmost, warnings: &[String]) -> String {
     let mut lines = vec![
         format!("# Desktop Use Capture"),
@@ -257,6 +260,7 @@ end tell
 }
 
 /// Parse osascript frontmost stdout (testable without TCC).
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 fn parse_frontmost_stdout(stdout: &str) -> Result<Frontmost, String> {
     let normalized = stdout.replace('\r', "");
     let lines: Vec<&str> = normalized.lines().collect();

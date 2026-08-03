@@ -4620,6 +4620,16 @@
             "checkForUpdates": {
               "label": "检查更新"
             }
+          },
+          "desktopUse": {
+            "engine": {
+              "label": "控制引擎",
+              "description": "安装或移除 Desktop Use 控制引擎"
+            },
+            "permissions": {
+              "label": "桌面权限",
+              "description": "用于捕获的屏幕录制与辅助功能权限"
+            }
           }
         }
       }

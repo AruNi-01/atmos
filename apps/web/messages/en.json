@@ -4620,6 +4620,16 @@
             "checkForUpdates": {
               "label": "Check for updates"
             }
+          },
+          "desktopUse": {
+            "engine": {
+              "label": "Control engine",
+              "description": "Install or remove the Desktop Use control engine"
+            },
+            "permissions": {
+              "label": "Desktop permissions",
+              "description": "Screen Recording and Accessibility for capture"
+            }
           }
         }
       }

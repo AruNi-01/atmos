@@ -405,6 +405,19 @@ const SETTINGS_SECTION_KEYWORDS: Record<SettingsSectionId, readonly string[]> = 
     "remote computer",
     "github routes",
   ],
+  "desktop-use": [
+    "desktop use",
+    "desktop-use",
+    "capture",
+    "screen recording",
+    "accessibility",
+    "permissions",
+    "control engine",
+    "appshot permissions",
+    "screenshot",
+    "click",
+    "type",
+  ],
   shortcuts: [
     "shortcuts",
     "keyboard",
@@ -855,6 +868,14 @@ const SETTINGS_SETTING_ITEMS: Record<SettingsSectionId, readonly SettingsSearchI
     }),
     settingsModalSearchItem("tunnelConnector.viewTunnel", {
       keywords: ["view tunnel", "renew tunnel", "reuse token"],
+    }),
+  ],
+  "desktop-use": [
+    settingsModalSearchItem("desktopUse.engine", {
+      keywords: ["control engine", "install", "ensure", "download"],
+    }),
+    settingsModalSearchItem("desktopUse.permissions", {
+      keywords: ["screen recording", "accessibility", "macos permissions"],
     }),
   ],
   "atmos-computer": [
