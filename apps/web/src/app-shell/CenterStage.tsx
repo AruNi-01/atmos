@@ -1058,29 +1058,28 @@ const CenterStage: React.FC = () => {
     setUrlParams({ tab: nextTab.id, wikiPage: null });
     setActiveFile(null, effectiveContextId);
 
-    const splitPrefsStore = useTerminalSplitPrefsStore.getState();
-    // Fire-and-forget load if prefs are not yet on disk-hydrated; use current
-    // in-memory snapshot for this click (usually already loaded via TerminalGrid).
-    if (!splitPrefsStore.loaded) {
-      void splitPrefsStore.loadSettings();
-    }
-    const splitPrefs = useTerminalSplitPrefsStore.getState();
-    const defaultAgent =
-      splitPrefs.enabled && splitPrefs.applyToNewTerminalTab
-        ? resolveDefaultSplitAgent(splitPrefs, terminalQuickOpenAgents)
-        : null;
+    // Await prefs before resolving the default agent so a cold mount does not
+    // launch a plain shell while disk prefs still say "apply to new tab".
+    void (async () => {
+      await useTerminalSplitPrefsStore.getState().loadSettings();
+      const splitPrefs = useTerminalSplitPrefsStore.getState();
+      const defaultAgent =
+        splitPrefs.enabled && splitPrefs.applyToNewTerminalTab
+          ? resolveDefaultSplitAgent(splitPrefs, terminalQuickOpenAgents)
+          : null;
 
-    runWhenTerminalGridReady(nextTab.id, (grid) => {
-      if (defaultAgent) {
-        void grid.createAndRunTerminal({
-          label: defaultAgent.agent.label,
-          command: defaultAgent.command,
-          agent: defaultAgent.agent,
-        });
-        return;
-      }
-      grid.focusActivePane();
-    });
+      runWhenTerminalGridReady(nextTab.id, (grid) => {
+        if (defaultAgent) {
+          void grid.createAndRunTerminal({
+            label: defaultAgent.agent.label,
+            command: defaultAgent.command,
+            agent: defaultAgent.agent,
+          });
+          return;
+        }
+        grid.focusActivePane();
+      });
+    })();
   }, [
     effectiveContextId,
     createTerminalTab,

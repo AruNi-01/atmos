@@ -43,9 +43,26 @@ function readAgentId(value: unknown): string | null {
   return typeof value === 'string' && value.length > 0 ? value : null;
 }
 
+/**
+ * Soft-parse run config. Malformed JSON / unexpected shapes drop to null
+ * without failing the whole prefs parse.
+ */
 function readRunConfig(value: unknown): TerminalAgentRunConfigInput | null {
-  if (!value || typeof value !== 'object') return null;
-  return sanitizeRunConfig(value as TerminalAgentRunConfigInput);
+  if (value == null) return null;
+  try {
+    let candidate: unknown = value;
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      if (!trimmed) return null;
+      candidate = JSON.parse(trimmed) as unknown;
+    }
+    if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) {
+      return null;
+    }
+    return sanitizeRunConfig(candidate as TerminalAgentRunConfigInput);
+  } catch {
+    return null;
+  }
 }
 
 /** Parse terminal.default_split_agent_* fields from function settings. */

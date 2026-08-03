@@ -235,9 +235,19 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
   const projectAgentState = useAgentHooksStore((s) =>
     s.getAgentStateForContextId(project.id)
   );
-  const projectAttentionReason = useAgentAttentionStore(
-    (s) => s.getContextReason(project.id),
-  );;
+  // Collapsed project row must surface the highest-priority reason among the
+  // project itself and any of its workspaces (workspace rows are hidden).
+  const projectAttentionReason = useAgentAttentionStore((s) => {
+    let best = s.getContextReason(project.id);
+    for (const ws of project.workspaces) {
+      const reason = s.getContextReason(ws.id);
+      if (!reason) continue;
+      if (!best || (reason === "permission_request" && best !== "permission_request")) {
+        best = reason;
+      }
+    }
+    return best;
+  });
   const [showLogoDialog, setShowLogoDialog] = useState(false);
   const [showLogoBrowser, setShowLogoBrowser] = useState(false);
   const [logoInput, setLogoInput] = useState("");

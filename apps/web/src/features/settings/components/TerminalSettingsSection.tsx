@@ -134,10 +134,29 @@ export function TerminalSettingsSection({
     setLocalTerminalCacheMaxPanels(maxGlobalTerminalPanes.toString());
   }, [maxGlobalTerminalPanes]);
 
-  const resolvedDefaultAgentId =
-    defaultSplitAgentId && AGENT_OPTIONS.some((agent) => agent.id === defaultSplitAgentId)
-      ? defaultSplitAgentId
-      : (AGENT_OPTIONS[0]?.id ?? 'claude');
+  const agentIdInOptions =
+    !!defaultSplitAgentId && AGENT_OPTIONS.some((agent) => agent.id === defaultSplitAgentId);
+  const fallbackAgentId = AGENT_OPTIONS[0]?.id ?? 'claude';
+  // Prefer empty/disabled over showing the first agent while an invalid id is still active.
+  // Auto-correct the store once options are known so launch resolution and UI stay aligned.
+  const resolvedDefaultAgentId = agentIdInOptions
+    ? (defaultSplitAgentId as string)
+    : defaultSplitAgentId
+      ? ''
+      : fallbackAgentId;
+
+  React.useEffect(() => {
+    if (!defaultSplitAgentEnabled) return;
+    if (!defaultSplitAgentId) return;
+    if (AGENT_OPTIONS.some((agent) => agent.id === defaultSplitAgentId)) return;
+    if (!fallbackAgentId) return;
+    void setDefaultSplitAgentId(fallbackAgentId);
+  }, [
+    defaultSplitAgentEnabled,
+    defaultSplitAgentId,
+    fallbackAgentId,
+    setDefaultSplitAgentId,
+  ]);
 
   const handleTerminalCacheMaxSizeCommit = async (value: string) => {
     const parsed = Number.parseInt(value, 10);
@@ -256,6 +275,7 @@ export function TerminalSettingsSection({
           <Switch
             checked={defaultSplitAgentEnabled}
             onCheckedChange={(value) => void setDefaultSplitAgentEnabled(!!value)}
+            aria-label={t('defaultSplitAgent.title')}
           />
         </SettingsGroupRow>
         {defaultSplitAgentEnabled ? (
@@ -267,10 +287,10 @@ export function TerminalSettingsSection({
             >
               <div className="w-full max-w-xs">
                 <AgentSelect
-                  value={resolvedDefaultAgentId}
+                  value={resolvedDefaultAgentId || fallbackAgentId}
                   onValueChange={(agentId) => void setDefaultSplitAgentId(agentId)}
                   enableRunConfig
-                  runConfig={defaultSplitAgentRunConfig}
+                  runConfig={agentIdInOptions ? defaultSplitAgentRunConfig : null}
                   onRunConfigChange={(agentId, runConfig) =>
                     void setDefaultSplitAgentRunConfig(agentId, runConfig)
                   }
@@ -286,6 +306,7 @@ export function TerminalSettingsSection({
               <Switch
                 checked={applyToNewTerminalTab}
                 onCheckedChange={(value) => void setApplyToNewTerminalTab(!!value)}
+                aria-label={t('defaultSplitAgent.newTerminalTab.title')}
               />
             </SettingsGroupRow>
           </>

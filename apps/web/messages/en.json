@@ -2135,7 +2135,6 @@
       "permissionNeeded": "Permission needed",
       "taskComplete": "Task complete — needs review",
       "filterTitle": "Need attention list",
-      "filterDescription": "Only workspaces and projects that need you",
       "clearFilter": "Show all"
     },
     "components": {

@@ -127,9 +127,6 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
   const contestedOwners = useContestedCliOwners();
 
   const loadTerminalSplitPrefs = useTerminalSplitPrefsStore((state) => state.loadSettings);
-  const defaultSplitAgentEnabled = useTerminalSplitPrefsStore((state) => state.enabled);
-  const defaultSplitAgentId = useTerminalSplitPrefsStore((state) => state.agentId);
-  const defaultSplitAgentRunConfig = useTerminalSplitPrefsStore((state) => state.runConfig);
 
   React.useEffect(() => {
     void loadTerminalSplitPrefs();
@@ -665,28 +662,27 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
 
   const performSplit = useCallback(
     (id: string, direction: "row" | "column") => {
-      const match = resolveDefaultSplitAgent(
-        {
-          enabled: defaultSplitAgentEnabled,
-          agentId: defaultSplitAgentId,
-          runConfig: defaultSplitAgentRunConfig,
-        },
-        quickOpenAgents,
-      );
-      if (match) {
-        splitAndRunAgent(id, direction, match.command, match.agent);
-        return;
-      }
-      splitTerminal(id, direction);
+      // Await hydration before deciding the default agent so the first split
+      // after mount does not ignore a persisted default while loaded===false.
+      void (async () => {
+        await useTerminalSplitPrefsStore.getState().loadSettings();
+        const prefs = useTerminalSplitPrefsStore.getState();
+        const match = resolveDefaultSplitAgent(
+          {
+            enabled: prefs.enabled,
+            agentId: prefs.agentId,
+            runConfig: prefs.runConfig,
+          },
+          quickOpenAgents,
+        );
+        if (match) {
+          splitAndRunAgent(id, direction, match.command, match.agent);
+          return;
+        }
+        splitTerminal(id, direction);
+      })();
     },
-    [
-      defaultSplitAgentEnabled,
-      defaultSplitAgentId,
-      defaultSplitAgentRunConfig,
-      quickOpenAgents,
-      splitAndRunAgent,
-      splitTerminal,
-    ],
+    [quickOpenAgents, splitAndRunAgent, splitTerminal],
   );
 
   const splitFocusedTerminal = useCallback(

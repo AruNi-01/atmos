@@ -33,6 +33,11 @@ type AgentAttentionStore = {
 
   raise: (input: RaiseAttentionInput) => void;
   clearPane: (stablePaneId: string) => void;
+  /**
+   * Clear attention whose map key or stored `sessionId` matches any of the
+   * given IDs (used when hook sessions are cleared under an alias key).
+   */
+  clearMatchingSessionIds: (ids: readonly string[]) => void;
   /** Called when the user focuses a terminal pane (click / focus capture). */
   notifyPaneFocused: (stablePaneId: string | null) => void;
   setFilterMode: (on: boolean) => void;
@@ -128,6 +133,20 @@ export const useAgentAttentionStore = create<AgentAttentionStore>((set, get) => 
       const filterMode = panes.size === 0 ? false : state.filterMode;
       return { panes, filterMode, revision: state.revision + 1 };
     });
+  },
+
+  clearMatchingSessionIds: (ids) => {
+    const idSet = new Set(ids.filter((id) => !!id));
+    if (idSet.size === 0) return;
+    const toClear: string[] = [];
+    for (const [key, pane] of get().panes) {
+      if (idSet.has(key) || idSet.has(pane.sessionId)) {
+        toClear.push(key);
+      }
+    }
+    for (const id of toClear) {
+      get().clearPane(id);
+    }
   },
 
   notifyPaneFocused: (stablePaneId) => {

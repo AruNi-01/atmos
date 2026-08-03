@@ -29,12 +29,17 @@ const TREE_TERM_VERIFY_WAIT: Duration = Duration::from_millis(1600);
 const TREE_KILL_VERIFY_WAIT: Duration = Duration::from_millis(1000);
 
 /// Ambient process owner for tree-stop authorization.
-/// Unix: `$USER`; Windows: `$USERNAME` (then `$USER` as fallback).
+/// Unix: `$USER` (then `$USERNAME`); Windows: `$USERNAME` (then `$USER`).
+/// Empty values are skipped so a blank env var does not block the fallback.
 fn ambient_user() -> Option<String> {
-    std::env::var("USER")
-        .or_else(|_| std::env::var("USERNAME"))
-        .ok()
-        .filter(|s| !s.is_empty())
+    #[cfg(windows)]
+    let variables = ["USERNAME", "USER"];
+    #[cfg(not(windows))]
+    let variables = ["USER", "USERNAME"];
+    variables
+        .into_iter()
+        .filter_map(|name| std::env::var(name).ok())
+        .find(|value| !value.is_empty())
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
@@ -275,7 +280,15 @@ impl LocalServicesService {
         let service = self.revalidate_stop_target(&request, true).await?;
 
         // Graceful signal on the listening leaf only.
-        self.engine.terminate_process(request.pid).await?;
+        // ESRCH / already-exited is not fatal — still verify the port is free.
+        if let Err(err) = self.engine.terminate_process(request.pid).await {
+            tracing::debug!(
+                pid = request.pid,
+                port = request.port,
+                error = %err,
+                "listener terminate_process failed; continuing to port verification"
+            );
+        }
         tokio::time::sleep(LISTENER_STOP_VERIFY_WAIT).await;
         *self.cache.write().await = None;
 

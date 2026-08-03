@@ -91,6 +91,25 @@ describe("agent-attention-store", () => {
     expect(useAgentAttentionStore.getState().filterMode).toBe(false);
   });
 
+  test("clearMatchingSessionIds clears by map key or stored sessionId", () => {
+    const store = useAgentAttentionStore.getState();
+    store.raise({
+      stablePaneId: "ws-1:main",
+      contextId: "ws-1",
+      reason: "task_complete",
+      sessionId: "agent-session-uuid",
+    });
+    store.raise({
+      stablePaneId: "agent-session-other",
+      contextId: "ws-2",
+      reason: "permission_request",
+      sessionId: "ws-2:main",
+    });
+    store.clearMatchingSessionIds(["agent-session-uuid", "agent-session-other"]);
+    expect(store.hasPaneAttention("ws-1:main")).toBe(false);
+    expect(store.hasPaneAttention("agent-session-other")).toBe(false);
+  });
+
   test("tab aggregation: any pane keeps attention", () => {
     const store = useAgentAttentionStore.getState();
     store.raise({

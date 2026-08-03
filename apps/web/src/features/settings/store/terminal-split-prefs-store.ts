@@ -6,16 +6,19 @@ import { toastManager } from '@workspace/ui';
 import { useTranslations } from 'next-intl';
 
 import { functionSettingsApi } from '@/api/ws-api';
-import { getComputerQueryScope } from '@/api/query/query-scope';
+import {
+  getComputerQueryScope,
+  type ComputerQueryScope,
+} from '@/api/query/query-scope';
 import { useFunctionSettingsStore } from '@/features/settings/store/function-settings-store';
 import type { TerminalAgentRunConfigInput } from '@/features/agent/lib/terminal-agent-run-config';
+import { TERMINAL_AGENT_DEFINITIONS } from '@/features/agent/lib/terminal-agent-definitions';
 import {
   DEFAULT_TERMINAL_SPLIT_PREFS,
   TERMINAL_DEFAULT_SPLIT_AGENT_KEYS,
   parseTerminalSplitPrefsFromSettings,
   type TerminalSplitPrefs,
 } from '@/features/terminal/lib/terminal-split-prefs';
-import { AGENT_OPTIONS } from '@/features/wiki/components/AgentSelect';
 
 interface TerminalSplitPrefsState extends TerminalSplitPrefs {
   loaded: boolean;
@@ -37,11 +40,23 @@ let enabledRequestToken = 0;
 let agentIdRequestToken = 0;
 let runConfigRequestToken = 0;
 let applyToNewTabRequestToken = 0;
+/** Bumped on connection change so in-flight hydrates ignore stale writes. */
+let hydrateGeneration = 0;
 let lastPersisted: TerminalSplitPrefs = { ...DEFAULT_TERMINAL_SPLIT_PREFS };
 let hydratedFromServer = false;
+/** Shared in-flight load so concurrent callers await the same request. */
+let inFlightLoad: Promise<void> | null = null;
+
+function scopesMatch(a: ComputerQueryScope, b: ComputerQueryScope): boolean {
+  return (
+    a.activeInstanceId === b.activeInstanceId &&
+    a.connectionEpoch === b.connectionEpoch &&
+    a.relaySessionRevision === b.relaySessionRevision
+  );
+}
 
 function defaultAgentId(): string {
-  return AGENT_OPTIONS[0]?.id ?? 'claude';
+  return TERMINAL_AGENT_DEFINITIONS[0]?.id ?? 'claude';
 }
 
 function storeText(
@@ -70,8 +85,18 @@ function storeText(
   }
 }
 
-async function hydratePersistedFromServer(): Promise<TerminalSplitPrefs> {
+/**
+ * Load prefs from the server. Only assigns `lastPersisted` when the connection
+ * scope and hydrate generation still match the values captured at start.
+ * Returns null when a connection change made the result stale.
+ */
+async function hydratePersistedFromServer(): Promise<TerminalSplitPrefs | null> {
+  const expectedScope = getComputerQueryScope();
+  const generation = hydrateGeneration;
   const settings = await useFunctionSettingsStore.getState().load();
+  if (generation !== hydrateGeneration) return null;
+  if (!scopesMatch(getComputerQueryScope(), expectedScope)) return null;
+
   const terminal = settings.terminal as Record<string, unknown> | undefined;
   const parsed = parseTerminalSplitPrefsFromSettings(terminal);
   lastPersisted = parsed;
@@ -87,6 +112,14 @@ async function persistTerminalKey(
   await functionSettingsApi.update('terminal', key, value, expectedScope);
 }
 
+function isWriteStillCurrent(
+  requestToken: number,
+  currentToken: number,
+  expectedScope: ComputerQueryScope,
+): boolean {
+  return requestToken === currentToken && scopesMatch(getComputerQueryScope(), expectedScope);
+}
+
 const terminalSplitPrefsStore = create<TerminalSplitPrefsState>((set, get) => ({
   ...DEFAULT_TERMINAL_SPLIT_PREFS,
   loaded: false,
@@ -98,6 +131,8 @@ const terminalSplitPrefsStore = create<TerminalSplitPrefsState>((set, get) => ({
     agentIdRequestToken += 1;
     runConfigRequestToken += 1;
     applyToNewTabRequestToken += 1;
+    hydrateGeneration += 1;
+    inFlightLoad = null;
     lastPersisted = { ...DEFAULT_TERMINAL_SPLIT_PREFS };
     hydratedFromServer = false;
     set({
@@ -108,36 +143,48 @@ const terminalSplitPrefsStore = create<TerminalSplitPrefsState>((set, get) => ({
   },
 
   loadSettings: async () => {
-    if (get().loaded || get().loading) return;
+    if (get().loaded) return;
+    if (inFlightLoad) return inFlightLoad;
 
     const requestToken = ++loadRequestToken;
+    const expectedScope = getComputerQueryScope();
     set({ loading: true });
 
-    try {
-      const parsed = await hydratePersistedFromServer();
-      if (loadRequestToken !== requestToken) {
-        return;
-      }
-      // A setter may have marked loaded while this request was in flight —
-      // do not clobber the user's optimistic toggle with a stale load result.
-      if (get().loaded) {
-        set({ loading: false });
-        return;
-      }
-      set({
-        ...parsed,
-        loaded: true,
-        loading: false,
-      });
-    } catch {
-      if (loadRequestToken === requestToken) {
+    const promise = (async () => {
+      try {
+        const parsed = await hydratePersistedFromServer();
+        if (parsed === null) return;
+        if (loadRequestToken !== requestToken) return;
+        if (!scopesMatch(getComputerQueryScope(), expectedScope)) return;
+        // A setter may have marked loaded while this request was in flight —
+        // do not clobber the user's optimistic toggle with a stale load result.
+        if (get().loaded) {
+          set({ loading: false });
+          return;
+        }
         set({
-          ...DEFAULT_TERMINAL_SPLIT_PREFS,
+          ...parsed,
           loaded: true,
           loading: false,
         });
+      } catch {
+        if (loadRequestToken === requestToken && scopesMatch(getComputerQueryScope(), expectedScope)) {
+          // Keep defaults visible but leave loaded=false so a later mount can retry.
+          set({
+            ...DEFAULT_TERMINAL_SPLIT_PREFS,
+            loaded: false,
+            loading: false,
+          });
+        }
+      } finally {
+        if (inFlightLoad === promise) {
+          inFlightLoad = null;
+        }
       }
-    }
+    })();
+
+    inFlightLoad = promise;
+    return promise;
   },
 
   setEnabled: async (enabled) => {
@@ -181,12 +228,14 @@ const terminalSplitPrefsStore = create<TerminalSplitPrefsState>((set, get) => ({
       }
       await Promise.all(writes);
 
-      lastPersisted = {
-        ...lastPersisted,
-        enabled,
-        agentId: nextAgentId,
-        applyToNewTerminalTab: nextApplyToNewTab,
-      };
+      if (isWriteStillCurrent(requestToken, enabledRequestToken, expectedScope)) {
+        lastPersisted = {
+          ...lastPersisted,
+          enabled,
+          agentId: nextAgentId,
+          applyToNewTerminalTab: nextApplyToNewTab,
+        };
+      }
     } catch {
       if (enabledRequestToken === requestToken) {
         if (!hydratedFromServer) {
@@ -196,13 +245,15 @@ const terminalSplitPrefsStore = create<TerminalSplitPrefsState>((set, get) => ({
             /* keep last known */
           }
         }
-        set({ ...lastPersisted });
+        if (isWriteStillCurrent(requestToken, enabledRequestToken, expectedScope)) {
+          set({ ...lastPersisted });
+          toastManager.add({
+            title: storeText('syncFailedTitle'),
+            description: storeText('enabledFailed'),
+            type: 'error',
+          });
+        }
       }
-      toastManager.add({
-        title: storeText('syncFailedTitle'),
-        description: storeText('enabledFailed'),
-        type: 'error',
-      });
     }
   },
 
@@ -234,11 +285,13 @@ const terminalSplitPrefsStore = create<TerminalSplitPrefsState>((set, get) => ({
       }
       await Promise.all(writes);
 
-      lastPersisted = {
-        ...lastPersisted,
-        agentId,
-        runConfig: nextRunConfig,
-      };
+      if (isWriteStillCurrent(requestToken, agentIdRequestToken, expectedScope)) {
+        lastPersisted = {
+          ...lastPersisted,
+          agentId,
+          runConfig: nextRunConfig,
+        };
+      }
     } catch {
       if (agentIdRequestToken === requestToken) {
         if (!hydratedFromServer) {
@@ -248,16 +301,18 @@ const terminalSplitPrefsStore = create<TerminalSplitPrefsState>((set, get) => ({
             /* keep last known */
           }
         }
-        set({
-          agentId: lastPersisted.agentId,
-          runConfig: lastPersisted.runConfig,
-        });
+        if (isWriteStillCurrent(requestToken, agentIdRequestToken, expectedScope)) {
+          set({
+            agentId: lastPersisted.agentId,
+            runConfig: lastPersisted.runConfig,
+          });
+          toastManager.add({
+            title: storeText('syncFailedTitle'),
+            description: storeText('agentFailed'),
+            type: 'error',
+          });
+        }
       }
-      toastManager.add({
-        title: storeText('syncFailedTitle'),
-        description: storeText('agentFailed'),
-        type: 'error',
-      });
     }
   },
 
@@ -265,7 +320,6 @@ const terminalSplitPrefsStore = create<TerminalSplitPrefsState>((set, get) => ({
     const requestToken = ++runConfigRequestToken;
     const expectedScope = getComputerQueryScope();
     const previousAgentId = get().agentId;
-    const previousRunConfig = get().runConfig;
 
     set({
       agentId,
@@ -285,11 +339,13 @@ const terminalSplitPrefsStore = create<TerminalSplitPrefsState>((set, get) => ({
       }
       await Promise.all(writes);
 
-      lastPersisted = {
-        ...lastPersisted,
-        agentId,
-        runConfig,
-      };
+      if (isWriteStillCurrent(requestToken, runConfigRequestToken, expectedScope)) {
+        lastPersisted = {
+          ...lastPersisted,
+          agentId,
+          runConfig,
+        };
+      }
     } catch {
       if (runConfigRequestToken === requestToken) {
         if (!hydratedFromServer) {
@@ -299,16 +355,19 @@ const terminalSplitPrefsStore = create<TerminalSplitPrefsState>((set, get) => ({
             /* keep last known */
           }
         }
-        set({
-          agentId: lastPersisted.agentId ?? previousAgentId,
-          runConfig: lastPersisted.runConfig ?? previousRunConfig,
-        });
+        if (isWriteStillCurrent(requestToken, runConfigRequestToken, expectedScope)) {
+          // null is a valid persisted value — do not fall back with ??.
+          set({
+            agentId: lastPersisted.agentId,
+            runConfig: lastPersisted.runConfig,
+          });
+          toastManager.add({
+            title: storeText('syncFailedTitle'),
+            description: storeText('runConfigFailed'),
+            type: 'error',
+          });
+        }
       }
-      toastManager.add({
-        title: storeText('syncFailedTitle'),
-        description: storeText('runConfigFailed'),
-        type: 'error',
-      });
     }
   },
 
@@ -328,10 +387,12 @@ const terminalSplitPrefsStore = create<TerminalSplitPrefsState>((set, get) => ({
         enabled,
         expectedScope,
       );
-      lastPersisted = {
-        ...lastPersisted,
-        applyToNewTerminalTab: enabled,
-      };
+      if (isWriteStillCurrent(requestToken, applyToNewTabRequestToken, expectedScope)) {
+        lastPersisted = {
+          ...lastPersisted,
+          applyToNewTerminalTab: enabled,
+        };
+      }
     } catch {
       if (applyToNewTabRequestToken === requestToken) {
         if (!hydratedFromServer) {
@@ -341,13 +402,15 @@ const terminalSplitPrefsStore = create<TerminalSplitPrefsState>((set, get) => ({
             /* keep last known */
           }
         }
-        set({ applyToNewTerminalTab: lastPersisted.applyToNewTerminalTab });
+        if (isWriteStillCurrent(requestToken, applyToNewTabRequestToken, expectedScope)) {
+          set({ applyToNewTerminalTab: lastPersisted.applyToNewTerminalTab });
+          toastManager.add({
+            title: storeText('syncFailedTitle'),
+            description: storeText('newTabFailed'),
+            type: 'error',
+          });
+        }
       }
-      toastManager.add({
-        title: storeText('syncFailedTitle'),
-        description: storeText('newTabFailed'),
-        type: 'error',
-      });
     }
   },
 }));

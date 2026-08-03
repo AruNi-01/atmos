@@ -51,6 +51,38 @@ describe("parseTerminalSplitPrefsFromSettings", () => {
       applyToNewTerminalTab: true,
     });
   });
+
+  it("soft-fails malformed run_config without dropping other prefs", () => {
+    expect(
+      parseTerminalSplitPrefsFromSettings({
+        [TERMINAL_DEFAULT_SPLIT_AGENT_KEYS.enabled]: true,
+        [TERMINAL_DEFAULT_SPLIT_AGENT_KEYS.agentId]: "claude",
+        [TERMINAL_DEFAULT_SPLIT_AGENT_KEYS.runConfig]: "{not-json",
+        [TERMINAL_DEFAULT_SPLIT_AGENT_KEYS.applyToNewTerminalTab]: true,
+      }),
+    ).toEqual({
+      enabled: true,
+      agentId: "claude",
+      runConfig: null,
+      applyToNewTerminalTab: true,
+    });
+
+    expect(
+      parseTerminalSplitPrefsFromSettings({
+        [TERMINAL_DEFAULT_SPLIT_AGENT_KEYS.enabled]: true,
+        [TERMINAL_DEFAULT_SPLIT_AGENT_KEYS.agentId]: "claude",
+        [TERMINAL_DEFAULT_SPLIT_AGENT_KEYS.runConfig]: {
+          model: 123,
+          extra_args: "not-an-array",
+        },
+      }),
+    ).toEqual({
+      enabled: true,
+      agentId: "claude",
+      runConfig: null,
+      applyToNewTerminalTab: false,
+    });
+  });
 });
 
 describe("resolveDefaultSplitAgent", () => {

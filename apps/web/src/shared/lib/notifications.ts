@@ -1,6 +1,6 @@
 "use client";
 
-import { getAgentIconCandidates } from "@/features/agent/components/AgentIcon";
+import { getAgentIconCandidates } from "@/features/agent/lib/agent-icon-candidates";
 import {
   AGENT_TOOL_ICON_IDS,
   type AgentToolType,

@@ -88,6 +88,7 @@ import {
     TwoColumnSidebarContent,
 } from '@/app-shell/left-sidebar-controls';
 import { useLeftSidebarFileTreeSync } from '@/app-shell/use-left-sidebar-file-tree-sync';
+import { useEditorStore } from '@/features/editor/store/use-editor-store';
 import { useLeftSidebarTwoColumnResize } from '@/app-shell/use-left-sidebar-two-column-resize';
 import { useLeftSidebarWorkspaceDerived } from '@/app-shell/use-left-sidebar-workspace-derived';
 import { useLeftSidebarWorkspaceRenderers } from '@/app-shell/use-left-sidebar-workspace-renderers';
@@ -212,13 +213,17 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
     useEffect(() => { loadLayoutSettings(); }, [loadLayoutSettings]);
 
     const [activeTab, setActiveTab] = useQueryState("lsTab", leftSidebarParams.lsTab);
+    const fileTreeRevealTarget = useEditorStore((s) => s.fileTreeRevealTarget);
     // Attention list lives on the Projects tab; force that tab when the filter turns on
     // so the bell does not appear ineffective while Files is selected.
+    // A pending file-tree reveal must win until cleared — otherwise this effect
+    // and useLeftSidebarFileTreeSync fight (Projects ↔ Files oscillation).
     useEffect(() => {
         if (!attentionFilterMode || filesOnRight) return;
+        if (fileTreeRevealTarget) return;
         if (activeTab === 'projects') return;
         void setActiveTab('projects');
-    }, [attentionFilterMode, filesOnRight, activeTab, setActiveTab]);
+    }, [attentionFilterMode, filesOnRight, activeTab, setActiveTab, fileTreeRevealTarget]);
     const [newWorkspace, setNewWorkspace] = useQueryState("newWorkspace", centerStageParams.newWorkspace);
     const [canvasOpen, setCanvasOpen] = useQueryState("canvas", centerStageParams.canvas);
     const [isKanbanExpanded, setIsKanbanExpanded] = useQueryState("lsKanban", leftSidebarParams.lsKanban);

@@ -108,12 +108,30 @@ function readHeaderLayout(layout: Record<string, unknown> | undefined): HeaderLa
 }
 
 function readRightSidebarLayout(layout: Record<string, unknown> | undefined): RightSidebarLayoutPrefs {
+  let rsShowGithub: boolean;
+  if (!layout) {
+    rsShowGithub = true;
+  } else if ('right_sidebar_show_github' in layout) {
+    rsShowGithub = layout.right_sidebar_show_github !== false;
+  } else {
+    // Migrate pre-consolidation github sub-tabs (PR / Issues / Actions).
+    // Show GitHub if any legacy tab was explicitly on; hide only when every
+    // present legacy flag is false.
+    const legacy = [
+      layout.right_sidebar_show_pr,
+      layout.right_sidebar_show_actions,
+      layout.right_sidebar_show_issues,
+    ];
+    const present = legacy.filter((v): v is boolean => typeof v === 'boolean');
+    rsShowGithub = present.length === 0 ? true : present.some((v) => v === true);
+  }
+
   return {
     rsShowChanges: layout?.right_sidebar_show_changes !== false,
     rsShowReview: layout?.right_sidebar_show_review !== false,
     rsShowBrowser: layout?.right_sidebar_show_browser !== false,
     rsShowRun: layout?.right_sidebar_show_run !== false,
-    rsShowGithub: layout?.right_sidebar_show_github !== false,
+    rsShowGithub,
   };
 }
 

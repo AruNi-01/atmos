@@ -2135,7 +2135,6 @@
       "permissionNeeded": "需要授权",
       "taskComplete": "任务完成 — 待查看",
       "filterTitle": "需要关注列表",
-      "filterDescription": "仅显示需要你处理的工作区 / 项目",
       "clearFilter": "显示全部"
     },
     "components": {

@@ -40,6 +40,9 @@ export function LocalServiceList({
   const handleStop = React.useCallback(
     async (service: LocalService) => {
       if (!service.pid) return;
+      // Serialize escalations: ignore new stops while a dialog is open so
+      // concurrent stops cannot clobber each other's escalation payload.
+      if (escalation || treePending) return;
 
       setStoppingId(service.id);
       try {
@@ -56,7 +59,7 @@ export function LocalServiceList({
           return;
         }
         if (result.needs_escalation) {
-          setEscalation({ service, response: result });
+          setEscalation((current) => current ?? { service, response: result });
           return;
         }
         toastManager.add({
@@ -74,7 +77,7 @@ export function LocalServiceList({
         setStoppingId(null);
       }
     },
-    [onRefresh, t],
+    [escalation, onRefresh, t, treePending],
   );
 
   const handleTreeStop = React.useCallback(

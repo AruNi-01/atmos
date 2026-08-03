@@ -7,6 +7,7 @@
  */
 
 import {
+  createParser,
   parseAsString,
   parseAsStringEnum,
   parseAsBoolean,
@@ -183,15 +184,34 @@ export type RightSidebarTab =
   | "browser"
   | "run";
 
+const RIGHT_SIDEBAR_TABS = [
+  "files",
+  "changes",
+  "github",
+  "review",
+  "browser",
+  "run",
+] as const satisfies readonly RightSidebarTab[];
+
+/** Legacy deep-link values from before PR/Issues/Actions were merged into GitHub. */
+const LEGACY_RS_TAB_MAP: Record<string, RightSidebarTab> = {
+  pr: "github",
+  issues: "github",
+  actions: "github",
+};
+
+function parseRightSidebarTab(value: string): RightSidebarTab | null {
+  const mapped = LEGACY_RS_TAB_MAP[value] ?? value;
+  return (RIGHT_SIDEBAR_TABS as readonly string[]).includes(mapped)
+    ? (mapped as RightSidebarTab)
+    : null;
+}
+
 export const rightSidebarParams = {
-  rsTab: parseAsStringEnum<RightSidebarTab>([
-    "files",
-    "changes",
-    "github",
-    "review",
-    "browser",
-    "run",
-  ]).withDefault("changes"),
+  rsTab: createParser({
+    parse: parseRightSidebarTab,
+    serialize: (value: RightSidebarTab) => value,
+  }).withDefault("changes" satisfies RightSidebarTab),
 };
 
 // ---------------------------------------------------------------------------
