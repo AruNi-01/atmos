@@ -4,18 +4,41 @@ First off, thanks for taking the time to contribute!
 
 ## Development Verification
 
-We use [Just](https://github.com/casey/just) to manage development tasks.
+[Just](https://github.com/casey/just) is an optional task runner. Prefer `bun` / `cargo` when documenting commands that must work without Just:
 
 ```bash
-# Run linting
-just lint
+# Lint
+bun lint
+cargo clippy --workspace
 
-# Run tests
-just test
+# Test
+bun test
+cargo test --workspace
 
-# Format code
-just fmt
+# Format
+cargo fmt --all
 ```
+
+## Git Hooks (Husky)
+
+After `bun install`, [Husky](https://typicode.github.io/husky/) installs local Git hooks under `.husky/`. Hooks stay **light** (not full CI, no `just`):
+
+| Hook | What it does |
+|------|----------------|
+| `pre-commit` | `lint-staged`: `cargo fmt` on staged `*.rs`; package-boundary check when `packages/shared` TS changes |
+| `commit-msg` | Require a [Conventional Commits](https://www.conventionalcommits.org/) subject line |
+
+Examples:
+
+```text
+feat(web): add github issues sidebar
+fix(hooks): defer lead idle until child agents finish
+chore: bump desktop electron version
+```
+
+Emergency skip (sparingly): `git commit --no-verify`.
+
+Full lint / typecheck / test still run in CI (`bun lint`, `bun run typecheck`, `cargo test`, etc.).
 
 ## Pull Request Process
 
@@ -28,7 +51,7 @@ just fmt
 
 - **Frontend**: TypeScript, strict mode, no `any`. Component names in PascalCase.
 - **Backend**: Rust, handle errors explicitly with `Result`.
-- **Commits**: Follow [Conventional Commits](https://www.conventionalcommits.org/).
+- **Commits**: Follow [Conventional Commits](https://www.conventionalcommits.org/). Enforced by the `commit-msg` hook.
 
 ## Monorepo Workflow
 
