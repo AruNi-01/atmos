@@ -1,0 +1,48 @@
+apps/web/src/app-shell/CenterStage.tsx
+  h_5be255725524c8 1061-1082
+apps/web/src/app-shell/LeftSidebar.tsx
+  h_5be255725524c8 91,216,219-220,223,226
+apps/web/src/app-shell/sidebar/ProjectItem.tsx
+  h_5be255725524c8 238-250
+apps/web/src/features/agent/components/AgentIcon.tsx
+  h_5be255725524c8 7-12,14,31,62-63
+apps/web/src/features/agent/lib/agent-icon-candidates.ts
+  h_5be255725524c8 1-87
+apps/web/src/features/agent/store/agent-attention-store.test.ts
+  h_5be255725524c8 94-112
+apps/web/src/features/agent/store/agent-attention-store.ts
+  h_5be255725524c8 36-40,138-151
+apps/web/src/features/agent/store/agent-hooks-store.ts
+  h_5be255725524c8 197-199
+apps/web/src/features/local-services/components/LocalServiceList.tsx
+  h_5be255725524c8 43-45,62,80
+apps/web/src/features/settings/components/TerminalSettingsSection.tsx
+  h_5be255725524c8 137-159,278,290,293,309
+apps/web/src/features/settings/store/layout-settings-store.ts
+  h_5be255725524c8 111-128,134
+apps/web/src/features/settings/store/terminal-split-prefs-store.ts
+  h_5be255725524c8 9-12,15,43-44,47-56,59,88-95,97-99,115-122,134-135,146-147,150,153-164,166,170-182,184-187,231-238,248-255,288-294,304-314,342-348,358-369,390-395,405-412
+apps/web/src/features/terminal/components/TerminalGrid.tsx
+  h_5be255725524c8 665-683,685
+apps/web/src/features/terminal/lib/__tests__/terminal-split-prefs.test.ts
+  h_5be255725524c8 54-85
+apps/web/src/features/terminal/lib/terminal-split-prefs.ts
+  h_5be255725524c8 46-49,51-65
+apps/web/src/shared/lib/notifications.ts
+  h_5be255725524c8 3
+apps/web/src/shared/lib/nuqs/searchParams.ts
+  h_5be255725524c8 10,187-209,211-214
+crates/core-service/src/service/local_services.rs
+  h_5be255725524c8 32-33,35-42,283-291
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "2f57954bddf063510a3c35afb9f33d02f07b6bf8",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
