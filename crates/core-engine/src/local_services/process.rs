@@ -194,9 +194,13 @@ fn signal_process_tree(root_pid: u32, signal: &str) -> Result<()> {
     let signal_flag = format!("-{signal}");
     let snap = process_snapshot(root_pid);
     if let Some(pgid) = snap.as_ref().and_then(|s| s.pgid) {
+        // Never group-signal a pgid we ourselves belong to (same shell/job as a
+        // local dev server would kill the Atmos backend too). Fall back to
+        // per-PID walk below in that case.
+        let self_pgid = process_snapshot(self_pid).and_then(|s| s.pgid);
         // Only signal a process group when the root is the group leader and the
-        // group is not the system-critical pgid 1.
-        if pgid == root_pid && pgid > 1 {
+        // group is not the system-critical pgid 1, and we are not a member of it.
+        if pgid == root_pid && pgid > 1 && self_pgid != Some(pgid) {
             let group_arg = format!("-{pgid}");
             let label = format!("kill -{signal} -<pgid>");
             // Group kill may fail if we lack permission for some members; fall back.

@@ -139,7 +139,11 @@ export function LocalServiceList({
               service={service}
               compact={compact}
               showOwner={showOwner}
-              stopPending={stoppingId === service.id}
+              // Serialize escalations: disable every stop control while a dialog
+              // or tree-stop is in flight so concurrent clicks are not silent no-ops.
+              stopPending={
+                stoppingId === service.id || escalation !== null || treePending
+              }
               onOpen={onOpen}
               onStop={handleStop}
             />
@@ -162,7 +166,9 @@ export function LocalServiceList({
                 <LocalServiceRow
                   service={service}
                   compact={compact}
-                  stopPending={stoppingId === service.id}
+                  stopPending={
+                    stoppingId === service.id || escalation !== null || treePending
+                  }
                   onOpen={onOpen}
                   onStop={handleStop}
                 />

@@ -276,7 +276,10 @@ impl LocalServicesService {
             )
             .await
         {
-            warn!("Failed to register local-services auto-refresh job: {}", error);
+            warn!(
+                "Failed to register local-services auto-refresh job: {}",
+                error
+            );
         }
     }
 
