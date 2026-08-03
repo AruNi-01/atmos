@@ -1,0 +1,34 @@
+apps/web/messages/en.json
+  h_5be255725524c8 5219-5220
+apps/web/messages/zh.json
+  h_5be255725524c8 5219-5220
+apps/web/src/app-shell/RightSidebar.tsx
+  h_5be255725524c8 212,222,225,955-956,1022-1023,1052,1054-1055
+apps/web/src/app-shell/SidebarPeekShell.tsx
+  h_5be255725524c8 76
+apps/web/src/features/github/components/ActionsDetailView.tsx
+  h_5be255725524c8 281
+apps/web/src/features/github/components/IssueDetailView.tsx
+  h_5be255725524c8 153,191,800
+apps/web/src/features/github/components/PRDetailView.tsx
+  h_5be255725524c8 407,440
+apps/web/src/features/github/lib/pr-detail-sidebar.tsx
+  h_5be255725524c8 104
+apps/web/src/features/settings/components/RightSidebarLayoutSettingsSection.tsx
+  h_5be255725524c8 13,37,42,50,109-113
+apps/web/src/features/settings/store/layout-settings-store.ts
+  h_5be255725524c8 33-34,75,116,161,302-303
+e2e/tests/smoke/workspace/workspace-sidebar-routes.e2e.ts
+  h_5be255725524c8 81,86-90
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "fc894e958d222c897ad0d5e80f4595edb56fffb7",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
