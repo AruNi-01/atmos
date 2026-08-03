@@ -30,6 +30,7 @@ import { AgentIcon } from '@/features/agent/components/AgentIcon';
 import { AnimatePresence, motion } from 'motion/react';
 import { useProjects } from '@/features/project/hooks/use-project-bootstrap-query';
 import { LayoutDashboard, X } from 'lucide-react';
+import { ThinkingOrb, type OrbState } from 'thinking-orbs';
 import { ProviderGlyph } from '@/app-shell/QuotaPopover';
 import { BotMessageSquareIcon, type BotMessageSquareHandle, TextShimmer, FilledBellIcon } from '@workspace/ui';
 import type { AnimatedIconHandle } from '@workspace/ui';
@@ -348,6 +349,26 @@ function PermissionBellFooter() {
   );
 }
 
+/** Map agent hook state → thinking-orbs preset for the footer ticker icon. */
+function footerAgentOrbState(state: string): OrbState {
+  if (state === AGENT_STATE.PERMISSION_REQUEST) return "listening";
+  if (state === AGENT_STATE.RUNNING) return "composing";
+  return "working";
+}
+
+function FooterAgentStatusOrb({ state }: { state: string }) {
+  return (
+    <span className="inline-flex size-5 shrink-0 items-center justify-center">
+      <ThinkingOrb
+        state={footerAgentOrbState(state)}
+        size={20}
+        theme="auto"
+        aria-label={state}
+      />
+    </span>
+  );
+}
+
 function AcpChatButton({ onClick }: { onClick: () => void }) {
   const t = useTranslations("appShell");
   const iconRef = useRef<BotMessageSquareHandle>(null);
@@ -646,7 +667,7 @@ const Footer: React.FC = () => {
                 <button className="flex items-center gap-1.5 hover:text-foreground transition-colors cursor-pointer">
                   {tickerSession ? (
                     <>
-                      <AgentHookStatusIndicator state={tickerSession.state} variant="compact" />
+                      <FooterAgentStatusOrb state={tickerSession.state} />
                       <span
                         key={tickerSession.session_id}
                         className="flex items-center gap-0 animate-in fade-in slide-in-from-bottom-1 duration-200"
