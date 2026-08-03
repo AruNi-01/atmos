@@ -1,0 +1,14 @@
+apps/desktop-electron/src/overlay/overlay-surface-manager.ts
+  h_b3eac5fd0698eb 16-20,136-140,148-150
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "31482f5abac59c18080a02b7517b0d9eaf4c0838",
+  "prompts": {},
+  "humans": {
+    "h_b3eac5fd0698eb": {
+      "author": "lurunrun820 <lurunrun820@hellobike.com>"
+    }
+  }
+}
