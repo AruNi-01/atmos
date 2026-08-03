@@ -1,0 +1,22 @@
+apps/web/src/features/agent/hooks/use-agent-notifications.tsx
+  h_5be255725524c8 30-33,201-207
+apps/web/src/features/agent/lib/agent-hook-toast.tsx
+  h_5be255725524c8 1-140
+automations/review/quality/result/2026-08/08-04_score-82_RESULT.md
+  h_5be255725524c8 1-153
+crates/core-service/src/service/agent_hooks.rs
+  h_5be255725524c8 4,173
+crates/core-service/src/service/agent_hooks/child_lifecycle.rs
+  h_5be255725524c8 1-294
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "334f453ab2d289ecb0f8b4de2f865e762524891a",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
