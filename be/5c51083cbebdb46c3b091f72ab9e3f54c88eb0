@@ -1,0 +1,22 @@
+apps/api/src/api/ws/router/local_services.rs
+  h_5be255725524c8 3,17
+apps/web/src/features/local-services/components/LocalServiceList.tsx
+  h_5be255725524c8 142-146,169-171
+crates/core-engine/src/local_services/process.rs
+  h_5be255725524c8 197-200,202-203
+crates/core-service/src/service/agent_hooks.rs
+  h_5be255725524c8 28,188-190,206,244,300-304,480-481,506-514,518-524,630-638,657,662,664,750-771,786-793,868,1237,1303,1322-1387
+crates/core-service/src/service/local_services.rs
+  h_5be255725524c8 279-282
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "be5c51083cbebdb46c3b091f72ab9e3f54c88eb0",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
