@@ -110,6 +110,9 @@ export const PRPanel = React.forwardRef<PRPanelHandle, PRPanelProps>(function PR
               {prList.map((pr) => {
                 const isFrom = pr.headRefName === branch;
                 const isTo = pr.baseRefName === branch;
+                // Normalize casing: REST `/pulls` historically returned lowercase
+                // `open`/`closed`, while `gh pr list --json` returns OPEN/CLOSED/MERGED.
+                const prState = String(pr.state ?? "").toUpperCase();
 
                 // Detection logic for tooltip
                 const detectionMethod = isFrom && isTo
@@ -131,13 +134,13 @@ export const PRPanel = React.forwardRef<PRPanelHandle, PRPanelProps>(function PR
                       </span>
                       <span className={cn(
                         "text-[9px] font-black px-1.5 py-0.5 rounded-sm capitalize shrink-0 shadow-sm",
-                        pr.state === 'OPEN' ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' :
-                          pr.state === 'MERGED' ? 'bg-purple-500/10 text-purple-500 border border-purple-500/20' :
+                        prState === 'OPEN' ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' :
+                          prState === 'MERGED' ? 'bg-purple-500/10 text-purple-500 border border-purple-500/20' :
                             'bg-red-500/10 text-red-500 border border-red-500/20'
                       )}>
-                        {pr.state === 'OPEN'
+                        {prState === 'OPEN'
                           ? t("rightSidebar.pr.stateOpen")
-                          : pr.state === 'MERGED'
+                          : prState === 'MERGED'
                           ? t("rightSidebar.pr.stateMerged")
                           : t("rightSidebar.pr.stateClosed")}
                       </span>
