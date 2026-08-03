@@ -1,0 +1,14 @@
+crates/core-engine/src/local_services/scanner.rs
+  h_5be255725524c8 5
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "c7fdab75167510aa6c788a34263ef09d7c3541f9",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
