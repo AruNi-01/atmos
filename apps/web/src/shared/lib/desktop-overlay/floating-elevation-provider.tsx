@@ -3,14 +3,14 @@
 /**
  * APP-052: Elevate floating UI above desktop native preview (WebContentsView).
  *
- * Critical lifecycle (bugfix for black screen / silent menus):
- * 1. Never leave portalContainer set while the overlay window is hidden.
- * 2. Show overlay first, then set portal container (so createPortal is never
- *    into a hidden document).
- * 3. On release: clear portalContainer first (portals return to body), then hide.
- * 4. Overlay document must stay visually transparent (no dark theme body fill).
+ * Stability rule (fixes open/close flicker):
+ * - While native preview is present, keep portalContainer **fixed** on the overlay
+ *   document root. Do **not** flip it null↔root on every menu open (that remounts
+ *   Radix content and causes flash + APP-029 hide thrash).
+ * - Only show/hide the overlay BrowserWindow and toggle pointer capture.
+ * - When preview goes away, clear portal and release the surface.
  *
- * Pure web: capability false → PortalContainerProvider null → document body.
+ * Pure web: capability false → container null → document body.
  */
 
 import * as React from "react";
@@ -27,7 +27,7 @@ import { countOpenLayers } from "./layer-count";
 const OVERLAY_ROOT_ID = "atmos-overlay-root";
 const OVERLAY_WINDOW_NAME = "atmos-desktop-overlay";
 
-/** Force transparent chrome after theme class / stylesheet clone (prevents black fill). */
+/** Force transparent shell after theme/style clone (prevents black full-window fill). */
 const OVERLAY_TRANSPARENT_CSS = `
 html, body, #${OVERLAY_ROOT_ID} {
   background: transparent !important;
@@ -46,9 +46,6 @@ html, body {
   inset: 0 !important;
   pointer-events: none !important;
 }
-/* Floating content must receive clicks; root stays pass-through for empty areas
-   once we use ignoreMouseEvents(false) the whole window captures — content still
-   needs pointer-events auto for nested interactive nodes. */
 #${OVERLAY_ROOT_ID} > * {
   pointer-events: auto !important;
 }
@@ -58,13 +55,11 @@ function syncThemeToOverlayDocument(doc: Document) {
   try {
     const src = document.documentElement;
     const dst = doc.documentElement;
-    // Class for CSS variables / component tokens — backgrounds forced transparent below.
     dst.className = src.className;
     dst.style.colorScheme = src.style.colorScheme || "";
     const theme = src.getAttribute("data-theme");
     if (theme) dst.setAttribute("data-theme", theme);
     else dst.removeAttribute("data-theme");
-    // Never inherit opaque page background onto the overlay shell.
     dst.style.background = "transparent";
     dst.style.backgroundColor = "transparent";
     if (doc.body) {
@@ -106,7 +101,6 @@ function forceOverlayTransparent(doc: Document) {
       style.setAttribute("data-atmos-overlay-transparent", "1");
       doc.head?.appendChild(style);
     }
-    // Always re-apply after theme sync / late stylesheet clone.
     style.textContent = OVERLAY_TRANSPARENT_CSS;
     syncThemeToOverlayDocument(doc);
   } catch {
@@ -150,14 +144,17 @@ export function FloatingElevationProvider({
   );
 
   const overlayWindowRef = React.useRef<Window | null>(null);
-  /** Prepared portal root — only published to store while overlay is shown. */
   const portalRootRef = React.useRef<HTMLElement | null>(null);
   const ensurePromiseRef = React.useRef<Promise<boolean> | null>(null);
   const overlayMoRef = React.useRef<MutationObserver | null>(null);
   const overlayListenerDocRef = React.useRef<Document | null>(null);
   const rafIdsRef = React.useRef<number[]>([]);
-  /** True while we intentionally show the overlay and publish portalContainer. */
-  const elevationActiveRef = React.useRef(false);
+  /** Overlay window currently shown + capturing. */
+  const windowShownRef = React.useRef(false);
+  /** Debounce hide so brief 0-count frames during remount do not thrash. */
+  const hideTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const HIDE_DEBOUNCE_MS = 120;
 
   React.useEffect(() => {
     let cancelled = false;
@@ -193,18 +190,19 @@ export function FloatingElevationProvider({
   );
 
   /**
-   * Prepare overlay window + portal root. Does NOT publish portalContainer
-   * and does NOT show the window (avoids portal-into-hidden / black flash).
+   * Prepare overlay window and **keep portalContainer published** while preview
+   * is present so open menus never remount between body ↔ overlay.
    */
-  const ensureOverlay = React.useCallback(async (): Promise<boolean> => {
+  const ensureOverlayReady = React.useCallback(async (): Promise<boolean> => {
     if (!capability || !nativePreviewPresent) return false;
     if (ensurePromiseRef.current) return ensurePromiseRef.current;
 
-    // Already prepared.
     if (
       overlayWindowRef.current &&
       !overlayWindowRef.current.closed &&
       portalRootRef.current &&
+      useDesktopElevationStore.getState().portalContainer ===
+        portalRootRef.current &&
       useDesktopElevationStore.getState().surfaceReady
     ) {
       return true;
@@ -222,11 +220,11 @@ export function FloatingElevationProvider({
           setEnsureFailed(true);
           setSurfaceReady(false);
           portalRootRef.current = null;
+          setPortalContainer(null);
           return false;
         }
 
-        const started = Date.now();
-        const deadline = started + OVERLAY_CREATE_BUDGET_MS * 4;
+        const deadline = Date.now() + OVERLAY_CREATE_BUDGET_MS * 4;
         while (Date.now() < deadline) {
           try {
             if (win.document?.body) break;
@@ -241,6 +239,7 @@ export function FloatingElevationProvider({
           setEnsureFailed(true);
           setSurfaceReady(false);
           portalRootRef.current = null;
+          setPortalContainer(null);
           return false;
         }
         portalRootRef.current = root;
@@ -253,17 +252,23 @@ export function FloatingElevationProvider({
           setEnsureFailed(true);
           setSurfaceReady(false);
           portalRootRef.current = null;
+          setPortalContainer(null);
           return false;
         }
 
-        // Surface ready for activation — portal still unpublished until show.
         setSurfaceReady(true);
         setEnsureFailed(false);
+        // Stable portal target for the whole preview session (no flip on open).
+        setPortalContainer(root);
+        // Stay hidden until layers open.
+        windowShownRef.current = false;
+        await desktopInvoke("overlay_bridge_release", {}).catch(() => {});
         return true;
       } catch {
         setEnsureFailed(true);
         setSurfaceReady(false);
         portalRootRef.current = null;
+        setPortalContainer(null);
         return false;
       } finally {
         ensurePromiseRef.current = null;
@@ -276,26 +281,15 @@ export function FloatingElevationProvider({
     capability,
     nativePreviewPresent,
     setEnsureFailed,
+    setPortalContainer,
     setSurfaceReady,
   ]);
 
   const showOverlayWindow = React.useCallback(async () => {
-    useDesktopElevationStore.getState().setPointerMode("capture");
-    await desktopInvoke("overlay_bridge_set_pointer_mode", {
-      mode: "capture",
-    }).catch(() => {});
-    await desktopInvoke("overlay_bridge_note_activity", {}).catch(() => {});
-  }, []);
-
-  /**
-   * Activate elevation: show overlay, then publish portal root so Radix
-   * re-portals into a visible transparent window.
-   */
-  const activateElevation = React.useCallback(async (): Promise<boolean> => {
-    const ok = await ensureOverlay();
-    if (!ok || !portalRootRef.current) return false;
-
-    // Re-assert transparency right before show (theme may have changed).
+    if (hideTimerRef.current) {
+      clearTimeout(hideTimerRef.current);
+      hideTimerRef.current = null;
+    }
     const win = overlayWindowRef.current;
     if (win && !win.closed) {
       try {
@@ -304,34 +298,54 @@ export function FloatingElevationProvider({
         /* ignore */
       }
     }
+    useDesktopElevationStore.getState().setPointerMode("capture");
+    await desktopInvoke("overlay_bridge_set_pointer_mode", {
+      mode: "capture",
+    }).catch(() => {});
+    await desktopInvoke("overlay_bridge_note_activity", {}).catch(() => {});
+    windowShownRef.current = true;
+  }, []);
 
-    await showOverlayWindow();
-    elevationActiveRef.current = true;
-    setPortalContainer(portalRootRef.current);
-    return true;
-  }, [ensureOverlay, setPortalContainer, showOverlayWindow]);
+  const hideOverlayWindowDebounced = React.useCallback(() => {
+    if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+    hideTimerRef.current = setTimeout(() => {
+      hideTimerRef.current = null;
+      // Re-check: if layers reappeared, do not hide.
+      const portal = useDesktopElevationStore.getState().portalContainer;
+      const n = portal ? countOpenLayers([portal]) : 0;
+      if (n > 0) return;
+      windowShownRef.current = false;
+      setElevatedLayerCount(0);
+      void desktopInvoke("overlay_bridge_release", {}).catch(() => {});
+    }, HIDE_DEBOUNCE_MS);
+  }, [setElevatedLayerCount]);
 
-  /**
-   * Deactivate: unpublish portal first (menus return to body), then hide overlay.
-   */
-  const deactivateElevation = React.useCallback(() => {
-    elevationActiveRef.current = false;
-    setPortalContainer(null);
-    setElevatedLayerCount(0);
-    void desktopInvoke("overlay_bridge_release", {}).catch(() => {});
-  }, [setElevatedLayerCount, setPortalContainer]);
-
+  // When preview appears: prepare stable portal. When gone: full teardown.
   React.useEffect(() => {
+    if (!capability) return;
+
     if (!nativePreviewPresent) {
-      elevationActiveRef.current = false;
+      if (hideTimerRef.current) {
+        clearTimeout(hideTimerRef.current);
+        hideTimerRef.current = null;
+      }
+      windowShownRef.current = false;
       portalRootRef.current = null;
       overlayWindowRef.current = null;
       resetElevationRuntime();
       void desktopInvoke("overlay_bridge_release", {}).catch(() => {});
+      return;
     }
-  }, [nativePreviewPresent, resetElevationRuntime]);
 
-  // Recount host/portal layers; drive activate/deactivate.
+    void ensureOverlayReady();
+  }, [
+    capability,
+    ensureOverlayReady,
+    nativePreviewPresent,
+    resetElevationRuntime,
+  ]);
+
+  // Observe open layers in the **overlay portal** (and host only as bootstrap).
   React.useEffect(() => {
     if (!capability || !nativePreviewPresent || typeof document === "undefined") {
       return;
@@ -339,61 +353,52 @@ export function FloatingElevationProvider({
 
     let disposed = false;
     let recountScheduled = false;
-    let inFlight = false;
 
-    const applyCounts = (hostCount: number, portalCount: number) => {
-      setElevatedLayerCount(portalCount);
-
-      // Any open elevatable layer on host or portal → elevate.
-      // Host-only: content is still on body until we activate and re-portal.
-      if (hostCount > 0 || portalCount > 0) {
-        if (inFlight) return;
-        inFlight = true;
+    const applyLayerCount = (n: number) => {
+      setElevatedLayerCount(n);
+      if (n > 0) {
         void (async () => {
-          try {
-            if (elevationActiveRef.current && portalCount > 0) {
-              // Already elevated with content in portal — keep shown.
-              await showOverlayWindow();
-              return;
-            }
-            const ok = await activateElevation();
-            if (disposed || !ok) {
-              // Fail closed: clear portal so APP-029 hide can work.
-              deactivateElevation();
-              return;
-            }
-            // After re-portal, recount portal occupancy on next frames.
-          } finally {
-            inFlight = false;
+          const ok = await ensureOverlayReady();
+          if (disposed || !ok) return;
+          if (!windowShownRef.current) {
+            await showOverlayWindow();
+          } else {
+            // Keep idle timer cancelled while layers stay open.
+            await desktopInvoke("overlay_bridge_note_activity", {}).catch(
+              () => {},
+            );
           }
         })();
-        return;
-      }
-
-      // No open layers — deactivate so menus never stay portaled into a hidden window.
-      if (elevationActiveRef.current || useDesktopElevationStore.getState().portalContainer) {
-        deactivateElevation();
       } else {
-        void desktopInvoke("overlay_bridge_release", {}).catch(() => {});
+        hideOverlayWindowDebounced();
       }
     };
 
     const recountNow = () => {
       if (disposed) return;
       const portal = useDesktopElevationStore.getState().portalContainer;
-      const hostCount = countOpenLayers([document.body]);
-      // Only count portal root children when published (active elevation).
-      const portalCount = portal ? countOpenLayers([portal]) : 0;
-      // While elevating, also count host body (transition frames during re-portal).
-      applyCounts(hostCount, portalCount);
+      // Primary: layers already elevated into portal document.
+      let n = portal ? countOpenLayers([portal]) : 0;
+      // Bootstrap: first open still paints on body until portal is published;
+      // after ensureOverlayReady publishes portal, next open goes straight there.
+      // While portal is ready, also count host body layers that use the same
+      // markers only if they are NOT already under portal (hostCount for
+      // transition). Prefer max so we don't flicker hide.
+      if (portal) {
+        const hostN = countOpenLayers([document.body]);
+        // If portal is set, Radix should target portal — host body should be 0
+        // for elevated primitives. If host still has layers, keep shown.
+        n = Math.max(n, hostN);
+      } else {
+        n = countOpenLayers([document.body]);
+      }
+      applyLayerCount(n);
     };
 
     const scheduleRecount = () => {
       if (recountScheduled) return;
       recountScheduled = true;
-      for (const id of rafIdsRef.current) {
-        cancelAnimationFrame(id);
-      }
+      for (const id of rafIdsRef.current) cancelAnimationFrame(id);
       rafIdsRef.current = [];
       recountNow();
       const id1 = requestAnimationFrame(() => {
@@ -422,7 +427,6 @@ export function FloatingElevationProvider({
         "style",
       ],
     });
-
     document.addEventListener("transitionend", onTransitionOrAnimation, true);
     document.addEventListener("animationend", onTransitionOrAnimation, true);
 
@@ -478,7 +482,10 @@ export function FloatingElevationProvider({
       }
     });
 
-    scheduleRecount();
+    // Ensure portal is ready as soon as preview is present.
+    void ensureOverlayReady().then(() => {
+      if (!disposed) scheduleRecount();
+    });
 
     return () => {
       disposed = true;
@@ -487,6 +494,7 @@ export function FloatingElevationProvider({
       detachOverlayListeners();
       unsub();
       for (const id of rafIdsRef.current) cancelAnimationFrame(id);
+      if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
       document.removeEventListener(
         "transitionend",
         onTransitionOrAnimation,
@@ -497,17 +505,15 @@ export function FloatingElevationProvider({
         onTransitionOrAnimation,
         true,
       );
-      elevationActiveRef.current = false;
-      setPortalContainer(null);
+      windowShownRef.current = false;
       void desktopInvoke("overlay_bridge_release", {}).catch(() => {});
     };
   }, [
-    activateElevation,
     capability,
-    deactivateElevation,
+    ensureOverlayReady,
+    hideOverlayWindowDebounced,
     nativePreviewPresent,
     setElevatedLayerCount,
-    setPortalContainer,
     showOverlayWindow,
   ]);
 
@@ -517,7 +523,7 @@ export function FloatingElevationProvider({
     void desktopListen("desktop-overlay:destroyed", () => {
       overlayWindowRef.current = null;
       portalRootRef.current = null;
-      elevationActiveRef.current = false;
+      windowShownRef.current = false;
       resetElevationRuntime();
     }).then((u) => {
       unlisten = typeof u === "function" ? u : undefined;
@@ -540,7 +546,6 @@ export function FloatingElevationProvider({
     return () => mo.disconnect();
   }, [portalContainer]);
 
-  // Only publish portal while elevation is active (portalContainer non-null in store).
   const containerForPortals =
     capability && nativePreviewPresent && portalContainer
       ? portalContainer
