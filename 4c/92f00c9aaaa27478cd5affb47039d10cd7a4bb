@@ -1,0 +1,42 @@
+apps/desktop-electron/src/browser/event-remap.test.ts
+  h_5be255725524c8 23-25
+apps/desktop-electron/src/browser/runtime-events.ts
+  h_5be255725524c8 64-65
+apps/desktop-electron/src/browser/surface-manager.ts
+  h_5be255725524c8 113,115,189,195-226,228-230,235-237,255,261-263,267-269,273-274,278,566-569,589-590,605-609,700-703,713,716,728-774
+apps/desktop-electron/src/ipc/handlers.ts
+  h_5be255725524c8 32,417-427,459-462
+apps/web/src/app-shell/SidebarPeekShell.tsx
+  h_5be255725524c8 71-72
+apps/web/src/features/browser/components/BrowserPanel.tsx
+  h_5be255725524c8 279-280
+apps/web/src/features/browser/components/BrowserSession.tsx
+  h_5be255725524c8 353,372-374,379,407,668-671,677,794-797,924,931
+apps/web/src/features/browser/hooks/__tests__/webview-host-policy.test.ts
+  h_5be255725524c8 28-29
+apps/web/src/features/browser/hooks/use-browser-navigation.ts
+  h_5be255725524c8 199-200,206-208
+apps/web/src/features/browser/hooks/use-browser-selection.ts
+  h_5be255725524c8 124-137,139-162,165,170-172,178,186-270,279-282,299-302,325-331,362-365,481
+apps/web/src/features/browser/hooks/use-webview-pointer-policy.ts
+  h_5be255725524c8 18-19
+apps/web/src/features/browser/lib/__tests__/app-053-browser-webview.structural.test.ts
+  h_5be255725524c8 22-57,70-84,120-121,128-136
+apps/web/src/features/browser/lib/browser-bridge/types.ts
+  h_5be255725524c8 73-79,88-91,94-95
+apps/web/src/features/browser/lib/browser-transports/desktop-transport.ts
+  h_5be255725524c8 101-104,166-169,177-193
+packages/shared/browser/browser-runtime.js
+  h_5be255725524c8 474-482,1851-1853,1864-1865,2106-2121,2132-2133
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "4c92f00c9aaaa27478cd5affb47039d10cd7a4bb",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
