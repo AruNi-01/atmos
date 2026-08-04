@@ -1,0 +1,26 @@
+apps/desktop-electron/src/browser/browser-use-control.ts
+  h_5be255725524c8 52-60,172-178,210-238,242,426-427
+apps/web/src/features/terminal/components/TerminalAgentInputOverlay.tsx
+  h_5be255725524c8 548-553
+apps/web/src/features/welcome/components/WelcomePage.tsx
+  h_5be255725524c8 523-527
+apps/web/src/features/welcome/lib/__tests__/slash-browser-use.test.ts
+  h_5be255725524c8 34,38-49,54
+apps/web/src/features/welcome/lib/slash-browser-use.ts
+  h_5be255725524c8 40-41,53,59
+crates/browser-use/src/backends/embedded.rs
+  h_5be255725524c8 9,13-16,77-78,87-89,92-94,121-128
+crates/browser-use/src/engine_client.rs
+  h_5be255725524c8 6,8-9,13-15,70-76,84,91-93,96-124
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "851aeeca4a59ffe4c76c541d25b9253fde212712",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
