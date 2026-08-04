@@ -1,0 +1,184 @@
+apps/desktop-electron/AGENTS.md
+  h_5be255725524c8 58-59,71
+apps/desktop-electron/scripts/build.ts
+  h_5be255725524c8 43,55-56,66
+apps/desktop-electron/scripts/smoke-router.ts
+  h_5be255725524c8 17,23
+apps/desktop-electron/src/app-state.ts
+  h_5be255725524c8 2,9,20
+apps/desktop-electron/src/browser/browser-preload.ts
+  h_5be255725524c8 2-3,7,11-12
+apps/desktop-electron/src/browser/event-remap.test.ts
+  h_5be255725524c8 9-12,14-15,17-18,20-21,46,57,67,78,91,99
+apps/desktop-electron/src/browser/runtime-events.ts
+  h_5be255725524c8 2-3,6,28,33,35,44-65,79,81
+apps/desktop-electron/src/browser/surface-manager.ts
+  h_5be255725524c8 2-4,11,15,17,27-31,33,39,50-56,63-65,68,71-84,88,91,93,96,100-101,103,106-107,111,113,115,118,122,134-138,140-141,144-146,148-158,160-238,249,272-274,277,310-312,329,342,357,368,370-371,382-383,398-399,408-409,415-416,430,436,441,446,452,462,465,475,484,489,499,512-515,519,521,524,528,535-540,543-548,566-576,579-580,588-594,596-599,619-620,631,651-652,658-670,693,702,704,711-717,719-720,728,732-735,756-757,763-767,770-771
+apps/desktop-electron/src/browser/webview-attach-policy.test.ts
+  h_5be255725524c8 1-19,22-34,37-45,48-54,57-65,68-81,83-88,90-129
+apps/desktop-electron/src/browser/webview-attach-policy.ts
+  h_5be255725524c8 1-165
+apps/desktop-electron/src/browser/webview-hooks.ts
+  h_5be255725524c8 1-77
+apps/desktop-electron/src/cookies/service.ts
+  h_5be255725524c8 4,239,241,246,248,259,279,322
+apps/desktop-electron/src/ipc/handlers.ts
+  h_5be255725524c8 300-302,352-353,357-358,361,363-364,368,385,401-402,409-413,417-418,422-423,427-428,432-433,437-438,442,444,448,466,472,478
+apps/desktop-electron/src/main.ts
+  h_5be255725524c8 19,43-44,54,90-91
+apps/desktop-electron/src/windows/main-window.ts
+  h_5be255725524c8 5,30-31,39-42,53
+apps/desktop-electron/src/windows/secondary.ts
+  h_5be255725524c8 4,50,55-57,109,113,115,118,134,137-138,151-152
+apps/desktop/src-tauri/src/preview_bridge/mod.rs
+  h_5be255725524c8 34
+apps/web/messages/en.json
+  h_5be255725524c8 8419-8443,8445-8449,8451-8462,8464-8468,8470-8471,8473-8478,8480-8505,8507-8599,8601-8703
+apps/web/messages/zh.json
+  h_5be255725524c8 8419-8443,8445-8449,8451-8462,8464-8468,8470-8471,8473-8478,8480-8505,8507-8599,8601-8703
+apps/web/src/app-shell/CenterStage.tsx
+  h_5be255725524c8 123-124,128
+apps/web/src/app-shell/CenterStagePanels.tsx
+  h_5be255725524c8 24,36
+apps/web/src/app-shell/CenterStageTabBar.tsx
+  h_5be255725524c8 56,61
+apps/web/src/app-shell/RightSidebar.tsx
+  h_5be255725524c8 105,112
+apps/web/src/app-shell/SidebarPeekShell.tsx
+  h_5be255725524c8 71,74
+apps/web/src/app-shell/use-center-stage-tab-groups.ts
+  h_5be255725524c8 20,26
+apps/web/src/app-shell/workspace-center-frame-equality.ts
+  h_5be255725524c8 13
+apps/web/src/app-shell/workspace-center-frame.tsx
+  h_5be255725524c8 34,131
+apps/web/src/app/browser/page.tsx
+  h_5be255725524c8 3,5,8
+apps/web/src/features/browser/AGENTS.md
+  h_5be255725524c8 1-20
+apps/web/src/features/browser/components/BrowserContent.tsx
+  h_5be255725524c8 7-8,18,20,23,43,51-52,74
+apps/web/src/features/browser/components/BrowserCookieImportDialog.tsx
+  h_5be255725524c8 55,161
+apps/web/src/features/browser/components/BrowserFavoritesListPopover.tsx
+  h_5be255725524c8 13,31,46
+apps/web/src/features/browser/components/BrowserHome.tsx
+  h_5be255725524c8 15,21
+apps/web/src/features/browser/components/BrowserPanel.tsx
+  h_5be255725524c8 24-25,31,34-36,50,68,91,102,146,233,283,286
+apps/web/src/features/browser/components/BrowserSession.tsx
+  h_5be255725524c8 18,20-33,36-43,54,60,73,79,85,91,119,131,155,184,196-197,201,232,257-258,308,312,317,325,329,331-332,334,336,338-340,354,378,385-392,394,413-414,419,447,519-520,557,583,588,593,595,610,634,801-802,808,817,821,825,838,841-845,851,854,860,863-864,868,883-884,888,892,898,914,982,999,1008,1012,1033,1054,1107,1166,1170,1278,1280,1296,1364,1367-1376,1414,1417,1421,1440,1467
+apps/web/src/features/browser/components/BrowserStandalonePage.tsx
+  h_5be255725524c8 17-18,20,39,49,98
+apps/web/src/features/browser/components/BrowserTabBar.tsx
+  h_5be255725524c8 39,99,135,142-143,309,385,456
+apps/web/src/features/browser/components/BrowserToolbar.tsx
+  h_5be255725524c8 33-34,36,102,165-166,498,575,650
+apps/web/src/features/browser/components/BrowserViewport.tsx
+  h_5be255725524c8 9-10,15,17-19,21,24-29,48,52,68,71-75,109-122,124-197,205,214-218,222,226,230-239,242,244-247,271,274,279,287
+apps/web/src/features/browser/components/DesktopBrowserWebview.tsx
+  h_5be255725524c8 1-180
+apps/web/src/features/browser/components/RunScript.tsx
+  h_5be255725524c8 17
+apps/web/src/features/browser/hooks/__tests__/webview-host-policy.test.ts
+  h_5be255725524c8 1-29
+apps/web/src/features/browser/hooks/use-browser-extension-downloads.ts
+  h_5be255725524c8 7,11,13,29
+apps/web/src/features/browser/hooks/use-browser-favorites.ts
+  h_5be255725524c8 12,19
+apps/web/src/features/browser/hooks/use-browser-iframe-load.ts
+  h_5be255725524c8 7-9,14,34,43,46
+apps/web/src/features/browser/hooks/use-browser-lifecycle-effects.ts
+  h_5be255725524c8 9-11,18,21,46,61,65,108,132,160,213,215,219,231,338,365,368,373
+apps/web/src/features/browser/hooks/use-browser-navigation.ts
+  h_5be255725524c8 5-7,13,23,36,41,163,197,199
+apps/web/src/features/browser/hooks/use-browser-selection.ts
+  h_5be255725524c8 8-9,15,81,87,224,248,277,291
+apps/web/src/features/browser/hooks/use-browser-state.ts
+  h_5be255725524c8 11,18-19,135
+apps/web/src/features/browser/hooks/use-browser-toolbar-layout.ts
+  h_5be255725524c8 4,6,8,14,18,71,73,78,86,89
+apps/web/src/features/browser/hooks/use-browser-window-state.ts
+  h_5be255725524c8 12,18
+apps/web/src/features/browser/hooks/use-open-browser-center-tab.ts
+  h_5be255725524c8 7
+apps/web/src/features/browser/hooks/use-overlay-dismiss-on-webview.ts
+  h_5be255725524c8 1-32
+apps/web/src/features/browser/hooks/use-webview-pointer-policy.ts
+  h_5be255725524c8 3-17,20-25,28-29,33-38,41-51,54,57-66,68-70,72,74
+apps/web/src/features/browser/lib/__tests__/app-053-browser-webview.structural.test.ts
+  h_5be255725524c8 1-94
+apps/web/src/features/browser/lib/browser-bridge/types.ts
+  h_5be255725524c8 6,8,10,18-19,26-27,29,33,37,41,45,49,51,75-76,81
+apps/web/src/features/browser/lib/browser-helper/bootstrap.ts
+  h_5be255725524c8 48,211
+apps/web/src/features/browser/lib/browser-helper/bridge.ts
+  h_5be255725524c8 23,33,43,50,57,65,74,83
+apps/web/src/features/browser/lib/browser-helper/overlay.ts
+  h_5be255725524c8 39,84,380,397-398,401-402,405-407
+apps/web/src/features/browser/lib/browser-helper/types.ts
+  h_5be255725524c8 45,54,65,69,74,80,87,94,100,111
+apps/web/src/features/browser/lib/browser-labels.ts
+  h_5be255725524c8 1-2
+apps/web/src/features/browser/lib/browser-transports/desktop-transport.ts
+  h_5be255725524c8 2-4,6-8,10-17,22-29,31,35,44,70,74,78,82,93,97,105,107-122,129-131,133,135,138,140,144,146,150,152,156,158,164,171,179
+apps/web/src/features/browser/lib/browser-transports/extension-transport.ts
+  h_5be255725524c8 2-6,8,30,63,70,104,119,132,138,141,152,155,158,161,164,167,170,190,198,204,211,220
+apps/web/src/features/browser/lib/browser-transports/same-origin-transport.ts
+  h_5be255725524c8 1-2,7-8
+apps/web/src/features/browser/lib/browser-utils.tsx
+  h_5be255725524c8 21
+apps/web/src/features/browser/lib/desktop-browser-window.ts
+  h_5be255725524c8 11,19,21,23,25-27,30,33,36-37,42,54
+apps/web/src/features/canvas/components/widgets/CanvasBrowserWidget.tsx
+  h_5be255725524c8 6-7,23
+apps/web/src/shared/lib/__tests__/desktop-bridge.test.ts
+  h_5be255725524c8 165,173,178,180
+apps/web/src/shared/lib/__tests__/desktop-gates.test.ts
+  h_5be255725524c8 12
+apps/web/src/shared/lib/desktop-browser-bridge.ts
+  h_5be255725524c8 4,28,38,48
+apps/web/src/shared/lib/format-selection-for-ai.ts
+  h_5be255725524c8 32
+apps/web/src/shared/lib/standalone-window-handoff.ts
+  h_5be255725524c8 15,38-40,47,49,51,57,63,65-68,75,105,109,114,117,206
+e2e/fixtures/window-globals.d.ts
+  h_5be255725524c8 1-4
+e2e/tsconfig.json
+  h_5be255725524c8 20
+extension/AGENTS.md
+  h_5be255725524c8 11,13,22,25,40-41,47,49,62-63,73
+extension/browser-runtime.js
+  h_5be255725524c8 2,12,572,1124,1180,1188,1198,1212,1237,1265,1344,1369,1387,1427,1471,1474
+extension/content.js
+  h_5be255725524c8 20
+extension/injected.js
+  h_5be255725524c8 18-19,43,61,63,68,70,77,79,88,103,106
+extension/manifest.json
+  h_5be255725524c8 42
+packages/shared/browser/AGENTS.md
+  h_5be255725524c8 1-7
+packages/shared/browser/browser-runtime.js
+  h_5be255725524c8 3,1285-1287,1865,1874,1930,1938,1948,1964,1990,2039,2135,2169,2187,2227,2279,2282
+specs/APP/APP-053_desktop-browser-webview/BRAINSTORM.md
+  h_5be255725524c8 1-46
+specs/APP/APP-053_desktop-browser-webview/PRD.md
+  h_5be255725524c8 1-44
+specs/APP/APP-053_desktop-browser-webview/TECH.md
+  h_5be255725524c8 1-147
+specs/APP/APP-053_desktop-browser-webview/TEST.md
+  h_5be255725524c8 1-84
+specs/README.md
+  h_5be255725524c8 132
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "3d7a42392c3b3bcc8dd297a7d778480f3c8ae65d",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
