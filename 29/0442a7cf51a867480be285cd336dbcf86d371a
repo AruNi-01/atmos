@@ -1,0 +1,14 @@
+apps/web/src/features/browser/components/BrowserToolbar.tsx
+  h_5be255725524c8 268
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "290442a7cf51a867480be285cd336dbcf86d371a",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
