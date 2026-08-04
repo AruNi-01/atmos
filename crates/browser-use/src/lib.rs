@@ -7,9 +7,14 @@
 //! **No MCP.**
 
 mod backends;
+mod chrome;
 mod types;
 
 pub use backends::{CuaExternalBackend, EmbeddedBackend};
+pub use chrome::{
+    chrome_target_for_request, show_browser_action_chrome, status_for_browser_action,
+    wants_action_chrome, BrowserChromeTarget, DEFAULT_BROWSER_USE_SESSION,
+};
 pub use types::{
     BrowserAction, BrowserBackendKind, BrowserError, BrowserRequest, BrowserResult,
     ERR_EMBEDDED_HOST_UNAVAILABLE, ERR_NO_MCP,

@@ -11,11 +11,13 @@ import {
   MessagesSquare,
   Puzzle,
 } from "lucide-react";
+import { BrowserUseIconStatic } from "@workspace/ui/components/icons/browser-use-icon-static";
 import { DesktopUseIconStatic } from "@workspace/ui/components/icons/desktop-use-icon-static";
 
 import type { SkillInfo } from "@/api/ws-api";
 import { AgentIcon } from "@/features/agent/components/AgentIcon";
 import type { SlashCommandOption } from "@/features/welcome/hooks/use-welcome-slash-navigation";
+import { BROWSER_USE_SLASH_COMMAND_ID } from "@/features/welcome/lib/slash-browser-use";
 import { DESKTOP_USE_SLASH_COMMAND_ID } from "@/features/welcome/lib/slash-desktop-use";
 import { scrollActiveListItemIntoView } from "@/features/welcome/lib/popover-list-scroll";
 import type { AgentMenuOption } from "@/features/welcome/lib/welcome-page-helpers";
@@ -251,6 +253,8 @@ export function SlashCommandPopover({
                 <MessagesSquare className="size-4 text-green-600 dark:text-green-400" />
               ) : command.id === "dynamic-skills" ? (
                 <EyeOff className="size-4 text-red-600 dark:text-red-400" />
+              ) : command.id === BROWSER_USE_SLASH_COMMAND_ID ? (
+                <BrowserUseIconStatic className="size-4 text-sky-600 dark:text-sky-400" />
               ) : command.id === DESKTOP_USE_SLASH_COMMAND_ID ? (
                 <DesktopUseIconStatic className="size-4 text-violet-600 dark:text-violet-400" />
               ) : (
@@ -284,6 +288,14 @@ export function SlashCommandPopover({
               {visibleSkills.map((skill, index) => {
                 const isDisabled = skill.status === "disabled";
                 const navIndex = skillsStartIndex + index;
+                const isBrowserUse =
+                  skill.name === "atmos-browser-use" ||
+                  skill.id === "atmos-browser-use" ||
+                  skill.path.includes("atmos-browser-use");
+                const isDesktopUse =
+                  skill.name === "atmos-desktop-use" ||
+                  skill.id === "atmos-desktop-use" ||
+                  skill.path.includes("atmos-desktop-use");
                 return (
                   <button
                     key={skill.id}
@@ -306,7 +318,13 @@ export function SlashCommandPopover({
                       onSelectSkill(skill);
                     }}
                   >
-                    <Puzzle className="size-4 shrink-0 text-muted-foreground" />
+                    {isBrowserUse ? (
+                      <BrowserUseIconStatic className="size-4 shrink-0 text-sky-600 dark:text-sky-400" />
+                    ) : isDesktopUse ? (
+                      <DesktopUseIconStatic className="size-4 shrink-0 text-violet-600 dark:text-violet-400" />
+                    ) : (
+                      <Puzzle className="size-4 shrink-0 text-muted-foreground" />
+                    )}
                     <span className="min-w-0 flex-1 truncate">{skill.name}</span>
                     {isDisabled ? (
                       <span className="shrink-0 rounded-md border border-red-500/35 bg-red-500/10 px-1.5 py-0.5 text-[10px] font-medium text-red-700 dark:text-red-300">

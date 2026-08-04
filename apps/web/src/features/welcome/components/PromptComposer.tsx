@@ -246,6 +246,85 @@ function buildMessagesSquareIcon(): SVGSVGElement {
   return svg;
 }
 
+/** Mirrors `BrowserUseIconStatic` for contenteditable skill chips. */
+function buildBrowserUseChipIcon(): SVGSVGElement {
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("aria-hidden", "true");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("width", "13");
+  svg.setAttribute("height", "13");
+  svg.setAttribute("fill", "none");
+  svg.setAttribute("stroke", "currentColor");
+  svg.setAttribute("stroke-width", "2");
+  svg.setAttribute("stroke-linecap", "round");
+  svg.setAttribute("stroke-linejoin", "round");
+  svg.style.flexShrink = "0";
+
+  for (const d of [
+    "M13 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V10",
+    "M2 8h11",
+    "M6 4v4",
+    "M10 4v4",
+  ]) {
+    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    path.setAttribute("d", d);
+    svg.appendChild(path);
+  }
+  const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+  g.setAttribute("transform", "translate(22.6 0.2) scale(-0.48 0.48)");
+  for (const d of [
+    "M14 4.1 12 6",
+    "m5.1 8-2.9-.8",
+    "m6 12-1.9 2",
+    "M7.2 2.2 8 5.1",
+    "M9.037 9.69a.498.498 0 0 1 .653-.653l11 4.5a.5.5 0 0 1-.074.949l-4.349 1.041a1 1 0 0 0-.74.739l-1.04 4.35a.5.5 0 0 1-.95.074z",
+  ]) {
+    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    path.setAttribute("d", d);
+    if (!d.startsWith("M9.037")) path.setAttribute("opacity", "0.9");
+    g.appendChild(path);
+  }
+  svg.appendChild(g);
+  return svg;
+}
+
+/** Mirrors `DesktopUseIconStatic` for contenteditable skill chips. */
+function buildDesktopUseChipIcon(): SVGSVGElement {
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("aria-hidden", "true");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("width", "13");
+  svg.setAttribute("height", "13");
+  svg.setAttribute("fill", "none");
+  svg.setAttribute("stroke", "currentColor");
+  svg.setAttribute("stroke-width", "2");
+  svg.setAttribute("stroke-linecap", "round");
+  svg.setAttribute("stroke-linejoin", "round");
+  svg.style.flexShrink = "0";
+
+  for (const d of ["M13 3H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-3", "M8 21h8", "M12 17v4"]) {
+    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    path.setAttribute("d", d);
+    svg.appendChild(path);
+  }
+  const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+  g.setAttribute("transform", "translate(22.6 0.2) scale(-0.48 0.48)");
+  for (const d of [
+    "M14 4.1 12 6",
+    "m5.1 8-2.9-.8",
+    "m6 12-1.9 2",
+    "M7.2 2.2 8 5.1",
+    "M9.037 9.69a.498.498 0 0 1 .653-.653l11 4.5a.5.5 0 0 1-.074.949l-4.349 1.041a1 1 0 0 0-.74.739l-1.04 4.35a.5.5 0 0 1-.95.074z",
+  ]) {
+    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    path.setAttribute("d", d);
+    if (!d.startsWith("M9.037")) path.setAttribute("opacity", "0.9");
+    g.appendChild(path);
+  }
+  svg.appendChild(g);
+  return svg;
+}
+
 function buildStrokeIcon(paths: string[]): SVGSVGElement {
   const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
   svg.setAttribute("aria-hidden", "true");
@@ -412,8 +491,20 @@ function buildChipNode(token: string): HTMLSpanElement {
     const absolutePath = token.slice("/skill:".length);
     const filename = absolutePath.split("/").pop() || absolutePath;
     span.dataset.tooltip = absolutePath;
-    span.className += " border-yellow-500/30 bg-yellow-500/10 text-yellow-600 dark:text-yellow-400";
-    span.appendChild(buildMaskIcon("/icons/puzzle.svg"));
+    const isBrowserUse = absolutePath.includes("atmos-browser-use");
+    const isDesktopUse = absolutePath.includes("atmos-desktop-use");
+    if (isBrowserUse) {
+      span.className += " border-sky-500/35 bg-sky-500/10 text-sky-700 dark:text-sky-300";
+      span.appendChild(buildBrowserUseChipIcon());
+    } else if (isDesktopUse) {
+      span.className +=
+        " border-violet-500/35 bg-violet-500/10 text-violet-700 dark:text-violet-300";
+      span.appendChild(buildDesktopUseChipIcon());
+    } else {
+      span.className +=
+        " border-yellow-500/30 bg-yellow-500/10 text-yellow-600 dark:text-yellow-400";
+      span.appendChild(buildMaskIcon("/icons/puzzle.svg"));
+    }
     const label = document.createElement("span");
     label.textContent = filename;
     span.appendChild(label);

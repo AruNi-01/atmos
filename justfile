@@ -315,9 +315,41 @@ build-all:
 # 安装命令 (Install)
 # ============================================
 
-# 安装 CLI 到系统
+# 安装 CLI 到 cargo bin（~/.cargo/bin/atmos）
 install-cli:
     cargo install --path apps/cli
+
+# 一键用本仓库最新 CLI 替换本机 atmos
+# 写入产品路径 ~/.atmos/bin/atmos；若存在 ~/.cargo/bin 则一并覆盖
+# 用法: just use-local-cli
+use-local-cli:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    root="{{justfile_directory()}}"
+    cargo build --release -p atmos --manifest-path "${root}/apps/cli/Cargo.toml"
+    src="${root}/target/release/atmos"
+    if [[ ! -x "$src" ]]; then
+      echo "error: release binary missing: ${src}" >&2
+      exit 1
+    fi
+    dest_dir="${HOME}/.atmos/bin"
+    mkdir -p "$dest_dir"
+    install -m 755 "$src" "${dest_dir}/atmos"
+    if [[ -d "${HOME}/.cargo/bin" ]]; then
+      install -m 755 "$src" "${HOME}/.cargo/bin/atmos"
+    fi
+    hash -r 2>/dev/null || true
+    echo "replaced: ${dest_dir}/atmos"
+    if [[ -x "${HOME}/.cargo/bin/atmos" ]]; then
+      echo "replaced: ${HOME}/.cargo/bin/atmos"
+    fi
+    echo -n "version: "
+    "${dest_dir}/atmos" --version
+    if command -v atmos >/dev/null 2>&1; then
+      echo "path:    $(command -v atmos)"
+    else
+      echo "path:    atmos not on PATH — add export PATH=\"\$HOME/.atmos/bin:\$PATH\""
+    fi
 
 # 安装所有依赖
 install-deps:

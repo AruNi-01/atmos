@@ -457,6 +457,15 @@ export class BrowserSurfaceManager {
     return null;
   }
 
+  /** Host BrowserWindow for a browser session (main or standalone). */
+  getHostWindowForSession(sessionId: string): BrowserWindow | null {
+    const s = this.surfaces.get(sessionId);
+    if (s) return this.surfaceHost(s);
+    const main = this.state.mainWindow;
+    if (main && !main.isDestroyed()) return main;
+    return null;
+  }
+
   /**
    * Session summaries for `atmos browser-use --backend embedded` prepare/state bind.
    */

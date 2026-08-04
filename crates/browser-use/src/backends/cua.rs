@@ -221,6 +221,26 @@ impl BrowserBackend for CuaExternalBackend {
             };
         }
 
+        // Desktop Use-class chrome (session cursor + operation border) for spatial
+        // actions. Best-effort; does not replace browser_click / browser_type.
+        if crate::chrome::wants_action_chrome(req.action, req.element_ref.as_deref()) {
+            let bounds = req
+                .window_id
+                .and_then(crate::chrome::resolve_window_bounds);
+            if let Some(target) = crate::chrome::chrome_target_for_request(
+                req.action,
+                req.session
+                    .clone()
+                    .or_else(|| Some(crate::chrome::DEFAULT_BROWSER_USE_SESSION.into())),
+                req.window_id,
+                req.pid,
+                bounds,
+                None,
+            ) {
+                let _ = crate::chrome::show_browser_action_chrome(&target);
+            }
+        }
+
         match host::call_tool(&engine, &socket, tool, &args) {
             Ok(v) => {
                 if let Some(fail) = desktop_use::engine_protocol::engine_payload_is_failure(&v) {
