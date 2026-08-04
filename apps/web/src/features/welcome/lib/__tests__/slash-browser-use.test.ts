@@ -31,12 +31,26 @@ describe("slash-browser-use", () => {
         name: BROWSER_USE_SKILL_NAME,
         path: "/tmp/atmos-browser-use",
         scope: "global",
+        status: "enabled",
       } as never,
     ]);
     expect(found.absolutePath).toBe("/tmp/atmos-browser-use");
+    expect(found.status).toBe("enabled");
+
+    const disabled = resolveBrowserUseSkillRef([
+      {
+        id: BROWSER_USE_SKILL_NAME,
+        name: BROWSER_USE_SKILL_NAME,
+        path: "/tmp/atmos-browser-use",
+        scope: "global",
+        status: "disabled",
+      } as never,
+    ]);
+    expect(disabled.status).toBe("disabled");
 
     const fallback = resolveBrowserUseSkillRef([]);
     expect(fallback.name).toBe(BROWSER_USE_SKILL_NAME);
     expect(fallback.absolutePath).toContain("atmos-browser-use");
+    expect(fallback.status).toBe("enabled");
   });
 });

@@ -49,6 +49,15 @@ export class BrowserUseControlPlane {
     const server = createServer((req, res) => {
       void this.handle(req, res);
     });
+    // Handle async listen failures (e.g. EADDRINUSE) before listen() —
+    // without a listener Node throws and can crash the desktop process.
+    server.once("error", (err) => {
+      console.error("[browser-use] control plane listen failed:", err);
+      if (this.server === server) {
+        this.server = null;
+        this.port = 0;
+      }
+    });
     // Bind loopback only.
     server.listen(0, "127.0.0.1", () => {
       const addr = server.address();
@@ -160,7 +169,13 @@ export class BrowserUseControlPlane {
             role: el.getAttribute('role'),
             name,
             href: el.getAttribute('href'),
-            value: el.value != null ? String(el.value).slice(0, 200) : null,
+            // Never surface password field values in Browser Use snapshots.
+            value:
+              el instanceof HTMLInputElement && el.type === 'password'
+                ? null
+                : el.value != null
+                  ? String(el.value).slice(0, 200)
+                  : null,
             rect: { x: r.x, y: r.y, width: r.width, height: r.height },
           };
         }),
@@ -192,34 +207,39 @@ export class BrowserUseControlPlane {
     try {
       const dbg = guest.debugger;
       let attachedHere = false;
-      if (!dbg.isAttached()) {
-        dbg.attach("1.3");
-        attachedHere = true;
-      }
-      await dbg.sendCommand("Input.dispatchMouseEvent", {
-        type: "mousePressed",
-        x,
-        y,
-        button: "left",
-        clickCount: 1,
-      });
-      await dbg.sendCommand("Input.dispatchMouseEvent", {
-        type: "mouseReleased",
-        x,
-        y,
-        button: "left",
-        clickCount: 1,
-      });
-      if (attachedHere) {
-        try {
-          dbg.detach();
-        } catch {
-          /* ignore */
+      try {
+        if (!dbg.isAttached()) {
+          dbg.attach("1.3");
+          attachedHere = true;
+        }
+        await dbg.sendCommand("Input.dispatchMouseEvent", {
+          type: "mousePressed",
+          x,
+          y,
+          button: "left",
+          clickCount: 1,
+        });
+        await dbg.sendCommand("Input.dispatchMouseEvent", {
+          type: "mouseReleased",
+          x,
+          y,
+          button: "left",
+          clickCount: 1,
+        });
+        return;
+      } finally {
+        // Always detach if we attached — sendCommand failures must not leave
+        // the guest debugger stuck (blocks subsequent CDP / double-actions).
+        if (attachedHere) {
+          try {
+            dbg.detach();
+          } catch {
+            /* ignore */
+          }
         }
       }
-      return;
     } catch {
-      /* fall through */
+      /* fall through to DOM click */
     }
     const idx = Number(String(ref).replace(/^e/, ""));
     await guest.executeJavaScript(
@@ -403,6 +423,8 @@ export class BrowserUseControlPlane {
         } else {
           this.manager.navigate(targetId, navUrl);
         }
+        // Page document changed — drop stale element refs/coords.
+        this.snapshots.delete(targetId);
         this.send(res, 200, { ok: true, target_id: targetId, url: navUrl });
         return;
       }

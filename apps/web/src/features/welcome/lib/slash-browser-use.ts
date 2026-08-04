@@ -37,6 +37,8 @@ export function buildBrowserUseSlashCommand(opts: {
 export function resolveBrowserUseSkillRef(skills: SkillInfo[]): {
   absolutePath: string;
   name: string;
+  /** Mirrors SkillInfo.status; fallback path is treated as enabled until list syncs. */
+  status: SkillInfo["status"];
 } {
   const found = skills.find(
     (s) =>
@@ -48,10 +50,12 @@ export function resolveBrowserUseSkillRef(skills: SkillInfo[]): {
     return {
       absolutePath: found.path,
       name: found.name || BROWSER_USE_SKILL_NAME,
+      status: found.status,
     };
   }
   return {
     absolutePath: BROWSER_USE_SKILL_FALLBACK_PATH,
     name: BROWSER_USE_SKILL_NAME,
+    status: "enabled",
   };
 }

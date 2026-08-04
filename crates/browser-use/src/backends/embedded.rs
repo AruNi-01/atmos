@@ -6,9 +6,13 @@
 
 use std::fs;
 use std::io::{Read, Write};
-use std::net::TcpStream;
+use std::net::{SocketAddr, TcpStream, ToSocketAddrs};
 use std::path::PathBuf;
 use std::time::Duration;
+
+const CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
+/// Cap identity-framed HTTP responses so a broken host cannot unbounded-buffer.
+const MAX_RESPONSE_BYTES: u64 = 8 * 1024 * 1024;
 
 use serde_json::{json, Value};
 
@@ -70,7 +74,8 @@ pub fn http_post_json(base: &str, path: &str, body: &Value) -> Result<Value, Str
         parsed.port,
         payload.len()
     );
-    let mut stream = TcpStream::connect((parsed.host.as_str(), parsed.port))
+    let addr = resolve_socket_addr(&parsed.host, parsed.port)?;
+    let mut stream = TcpStream::connect_timeout(&addr, CONNECT_TIMEOUT)
         .map_err(|e| format!("connect embedded host failed: {e}"))?;
     stream.set_read_timeout(Some(Duration::from_secs(30))).ok();
     stream.set_write_timeout(Some(Duration::from_secs(10))).ok();
@@ -79,9 +84,14 @@ pub fn http_post_json(base: &str, path: &str, body: &Value) -> Result<Value, Str
         .and_then(|_| stream.write_all(&payload))
         .map_err(|e| format!("write embedded host failed: {e}"))?;
     let mut buf = Vec::new();
-    stream
+    // Read one past the cap so we can reject oversized responses.
+    let mut limited = (&mut stream).take(MAX_RESPONSE_BYTES + 1);
+    limited
         .read_to_end(&mut buf)
         .map_err(|e| format!("read embedded host failed: {e}"))?;
+    if buf.len() as u64 > MAX_RESPONSE_BYTES {
+        return Err("embedded host response too large".into());
+    }
     let text = String::from_utf8_lossy(&buf);
     let body_start = text
         .find("\r\n\r\n")
@@ -106,6 +116,14 @@ struct ParsedUrl {
     host: String,
     port: u16,
     path: String,
+}
+
+fn resolve_socket_addr(host: &str, port: u16) -> Result<SocketAddr, String> {
+    (host, port)
+        .to_socket_addrs()
+        .map_err(|e| format!("resolve embedded host failed: {e}"))?
+        .next()
+        .ok_or_else(|| format!("resolve embedded host failed: no address for {host}:{port}"))
 }
 
 fn parse_http_url(url: &str) -> Result<ParsedUrl, String> {

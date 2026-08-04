@@ -520,6 +520,11 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
         const popover = slashPopover;
         if (!popover) return;
         const skill = resolveBrowserUseSkillRef(allSkills);
+        // Match ordinary skill selection: do not insert disabled skills.
+        if (skill.status === "disabled") {
+          setSlashPopover(null);
+          return;
+        }
         composerRef.current?.applySlashAtRange(
           popover.slashOffset,
           popover.query.length,
