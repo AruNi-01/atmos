@@ -233,7 +233,9 @@ export class BrowserSurfaceManager {
         cur.guestWebContents = null;
         cur.guestWebContentsId = null;
         cur.listenersAttached = false;
-        cur.pendingAttach = !cur.detached;
+        // Only re-pending when surface still open (host will remount webview).
+        // Detached window path does not need in-panel re-attach.
+        cur.pendingAttach = !cur.detached && this.surfaces.has(sessionId);
       }
     });
   }
@@ -525,19 +527,21 @@ export class BrowserSurfaceManager {
     s.currentUrl = url;
     s.detached = false;
     s.pickMode = false;
-    s.pendingAttach = true;
 
     if (s.detachedWindow && !s.detachedWindow.isDestroyed()) {
       s.detachedWindow.close();
       s.detachedWindow = null;
     }
 
-    // Host will create/update webview; if guest already bound, navigate it.
+    // Host will create/update webview; if guest already bound, navigate only —
+    // do not re-mark pendingAttach (avoids multi-tab attach races / re-ALLOW churn).
     if (s.guestWebContents && !s.guestWebContents.isDestroyed()) {
       s.pendingAttach = false;
       void s.guestWebContents
         .loadURL(url)
         .catch((err) => this.emitLoadError(sessionId, url, err));
+    } else {
+      s.pendingAttach = true;
     }
 
     return {

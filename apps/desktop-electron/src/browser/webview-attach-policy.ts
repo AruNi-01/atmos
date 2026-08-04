@@ -5,6 +5,9 @@
 
 export const BROWSER_PARTITION = "persist:atmos-browser";
 
+/** Attribute the host renderer sets on <webview> so will-attach can bind uniquely. */
+export const ATMOS_SESSION_ATTR = "data-atmos-session";
+
 export type RegisteredBrowserSession = {
   sessionId: string;
   /** Last registered / current URL for this session (may be about:blank). */
@@ -15,6 +18,11 @@ export type RegisteredBrowserSession = {
 export type WillAttachInput = {
   partition: string | undefined | null;
   src: string | undefined | null;
+  /**
+   * Preferred session from host <webview data-atmos-session="…">.
+   * When present and registered, wins over URL matching (eliminates multi-tab races).
+   */
+  preferredSessionId?: string | null;
   /**
    * Registered sessions in stable registration order.
    * Pending sessions must be consumed (pendingAttach cleared) after a successful
@@ -49,19 +57,71 @@ export function isBootstrapAttachSrc(src: string): boolean {
   return !trimmed || trimmed === "about:blank";
 }
 
+/** Normalize http(s) URLs for loose equality (trailing slash, default ports). */
+export function normalizeBrowserUrl(raw: string): string {
+  const trimmed = raw.trim();
+  if (!trimmed || trimmed === "about:blank") return trimmed;
+  try {
+    const u = new URL(trimmed);
+    if (u.protocol !== "http:" && u.protocol !== "https:") return trimmed;
+    // href already normalizes trailing slash for bare origins
+    return u.href;
+  } catch {
+    return trimmed;
+  }
+}
+
+export function urlsLooselyEqual(a: string, b: string): boolean {
+  if (a === b) return true;
+  const na = normalizeBrowserUrl(a);
+  const nb = normalizeBrowserUrl(b);
+  return na.length > 0 && na === nb;
+}
+
+/**
+ * Pull preferred session id from Electron will-attach params / webPreferences.
+ * Host sets data-atmos-session on the <webview> element.
+ */
+export function extractPreferredSessionId(
+  params: Record<string, unknown> | null | undefined,
+  webPreferences?: Record<string, unknown> | null,
+): string | null {
+  const candidates: unknown[] = [];
+  if (params && typeof params === "object") {
+    candidates.push(
+      params[ATMOS_SESSION_ATTR],
+      params["dataAtmosSession"],
+      params["data-atmos-session"],
+      params.atmosSession,
+      params.sessionId,
+    );
+  }
+  if (webPreferences && typeof webPreferences === "object") {
+    const args = webPreferences.additionalArguments;
+    if (Array.isArray(args)) {
+      for (const arg of args) {
+        if (typeof arg !== "string") continue;
+        const m = /^--atmos-browser-session=(.+)$/.exec(arg);
+        if (m?.[1]) candidates.push(m[1]);
+      }
+    }
+  }
+  for (const c of candidates) {
+    if (typeof c === "string" && c.trim()) return c.trim();
+  }
+  return null;
+}
+
 /**
  * Default-deny evaluate for will-attach-webview.
  *
- * Binding rules (pending sessions only, registration order = FIFO):
- * 1. First pending session whose url loosely equals src
- * 2. Else if bootstrap src (empty / about:blank): first pending session
- *    (Electron often fires will-attach before React sets src)
- * 3. Else if exactly one pending session: that session
- * 4. Else re-attach existing non-pending session by URL
- * 5. Else deny
- *
- * Callers MUST clear `pendingAttach` for the returned sessionId immediately after
- * allow (see BrowserSurfaceManager.markAttachAllowed).
+ * Priority:
+ * 1. preferredSessionId if registered (pending preferred, else any)
+ * 2. First pending whose url matches src
+ * 3. Bootstrap (empty/about:blank): first pending
+ * 4. Single pending: that session
+ * 5. Any registered session matching src (re-attach)
+ * 6. Deny
  */
 export function evaluateWillAttach(input: WillAttachInput): WillAttachResult {
   const partition = (input.partition ?? "").trim();
@@ -83,6 +143,18 @@ export function evaluateWillAttach(input: WillAttachInput): WillAttachResult {
     return { allow: false, reason: "no registered browser sessions" };
   }
 
+  const preferred = (input.preferredSessionId ?? "").trim();
+  if (preferred) {
+    const hit = input.registered.find((s) => s.sessionId === preferred);
+    if (hit) {
+      return { allow: true, sessionId: hit.sessionId };
+    }
+    return {
+      allow: false,
+      reason: `preferred session not registered: ${preferred}`,
+    };
+  }
+
   const pending = input.registered.filter((s) => s.pendingAttach);
 
   if (pending.length > 0) {
@@ -93,10 +165,15 @@ export function evaluateWillAttach(input: WillAttachInput): WillAttachResult {
       }
     }
 
-    // Bootstrap (empty/about:blank) or single pending: bind first pending FIFO.
-    // Empty src is the common Electron path when <webview> mounts before src is set.
     if (bootstrap || pending.length === 1) {
       return { allow: true, sessionId: pending[0]!.sessionId };
+    }
+
+    // Multi-pending without preferred id and without URL match: still try all
+    // registered (including non-pending) by URL so re-attach during tab churn works.
+    const anyExact = input.registered.find((s) => urlsLooselyEqual(s.url, src));
+    if (anyExact) {
+      return { allow: true, sessionId: anyExact.sessionId };
     }
 
     return {
@@ -105,7 +182,6 @@ export function evaluateWillAttach(input: WillAttachInput): WillAttachResult {
     };
   }
 
-  // No pending: never allow empty bootstrap — only real navigations for known sessions.
   if (bootstrap) {
     return { allow: false, reason: "bootstrap src with no pending session" };
   }
@@ -129,17 +205,6 @@ export function consumePendingAttach(
   return registered.map((s) =>
     s.sessionId === sessionId ? { ...s, pendingAttach: false } : { ...s },
   );
-}
-
-export function urlsLooselyEqual(a: string, b: string): boolean {
-  if (a === b) return true;
-  try {
-    const ua = new URL(a);
-    const ub = new URL(b);
-    return ua.href === ub.href;
-  } catch {
-    return false;
-  }
 }
 
 /**

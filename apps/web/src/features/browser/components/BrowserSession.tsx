@@ -82,6 +82,10 @@ interface BrowserSessionProps {
   onMoveToCenter?: () => void;
 }
 
+/**
+ * Legacy hook for canvas camera/bounds sync against native WebContentsView.
+ * APP-053 in-DOM <webview> sizes via CSS — methods are intentional no-ops.
+ */
 export interface BrowserCanvasViewportController {
   syncViewport: () => void;
   hide: () => void;
@@ -213,10 +217,6 @@ export const BrowserSession: React.FC<BrowserSessionProps> = ({
   }, [isElementPickerEnabled]);
   const devToolsOcclusionTimerRef = useRef<number | null>(null);
   const desktopConnectingRef = useRef(false);
-  const canvasViewportSyncInFlightRef = useRef(false);
-  const canvasViewportSyncQueuedRef = useRef(false);
-  const canvasViewportSyncRafRef = useRef<number | null>(null);
-  const canvasViewportSyncRequesterRef = useRef<(() => void) | null>(null);
   const iframeLoadResolveRef = useRef<(() => void) | null>(null);
   const extensionVersionRef = useRef<string | null>(null);
   const extensionConnectingRef = useRef(false);
@@ -906,91 +906,25 @@ export const BrowserSession: React.FC<BrowserSessionProps> = ({
     });
   }, [preferredTransportMode, shouldSuspendDesktopPreview, showDesktopPreview]);
 
-  const runCanvasViewportSync = useCallback(async () => {
-    if (
-      preferredTransportMode !== 'desktop' ||
-      !desktopCommittedUrlRef.current ||
-      shouldSuspendDesktopPreview
-    ) {
-      await hideDesktopPreview();
-      return;
-    }
-
-    const surface = desktopViewportRef.current;
-    if (!surface) {
-      await hideDesktopPreview();
-      return;
-    }
-
-    const rect = surface.getBoundingClientRect();
-    const visibleWidth = Math.min(rect.right, window.innerWidth) - Math.max(rect.left, 0);
-    const visibleHeight = Math.min(rect.bottom, window.innerHeight) - Math.max(rect.top, 0);
-    if (
-      rect.width < 16 ||
-      rect.height < 16 ||
-      visibleWidth < 8 ||
-      visibleHeight < 8
-    ) {
-      await hideDesktopPreview();
-      return;
-    }
-
-    await showDesktopPreview();
-  }, [hideDesktopPreview, preferredTransportMode, shouldSuspendDesktopPreview, showDesktopPreview]);
-
-  const syncCanvasViewport = useCallback(() => {
-    if (canvasViewportSyncInFlightRef.current) {
-      canvasViewportSyncQueuedRef.current = true;
-      return;
-    }
-
-    canvasViewportSyncInFlightRef.current = true;
-    void (async () => {
-      try {
-        await runCanvasViewportSync();
-      } finally {
-        canvasViewportSyncInFlightRef.current = false;
-        if (!canvasViewportSyncQueuedRef.current) return;
-
-        canvasViewportSyncQueuedRef.current = false;
-        if (canvasViewportSyncRafRef.current != null) {
-          window.cancelAnimationFrame(canvasViewportSyncRafRef.current);
-        }
-        canvasViewportSyncRafRef.current = window.requestAnimationFrame(() => {
-          canvasViewportSyncRafRef.current = null;
-          canvasViewportSyncRequesterRef.current?.();
-        });
-      }
-    })().catch(() => undefined);
-  }, [runCanvasViewportSync]);
-  canvasViewportSyncRequesterRef.current = syncCanvasViewport;
-
-  useEffect(() => {
-    return () => {
-      if (canvasViewportSyncRafRef.current != null) {
-        window.cancelAnimationFrame(canvasViewportSyncRafRef.current);
-      }
-    };
-  }, []);
-
+  // APP-053: canvas no longer drives native bounds. Export a no-op controller
+  // so canvas widgets keep a stable ref shape without show/hide thrash.
   useEffect(() => {
     if (!canvasViewportControllerRef) return;
-
     const controller: BrowserCanvasViewportController = {
-      syncViewport: syncCanvasViewport,
+      syncViewport: () => {
+        /* in-DOM webview — CSS layout */
+      },
       hide: () => {
-        void hideDesktopPreview();
+        /* no native surface to hide */
       },
     };
     canvasViewportControllerRef.current = controller;
-    syncCanvasViewport();
-
     return () => {
       if (canvasViewportControllerRef.current === controller) {
         canvasViewportControllerRef.current = null;
       }
     };
-  }, [canvasViewportControllerRef, hideDesktopPreview, syncCanvasViewport]);
+  }, [canvasViewportControllerRef]);
 
   const handleOpenDeveloperTools = useCallback(async () => {
     if (preferredTransportMode !== 'desktop') return;

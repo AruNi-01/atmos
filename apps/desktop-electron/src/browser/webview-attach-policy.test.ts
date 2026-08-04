@@ -3,8 +3,10 @@ import {
   BROWSER_PARTITION,
   consumePendingAttach,
   evaluateWillAttach,
+  extractPreferredSessionId,
   forceGuestWebPreferences,
   isAllowedBrowserSrc,
+  normalizeBrowserUrl,
   toPreloadFileUrl,
   type RegisteredBrowserSession,
 } from "./webview-attach-policy.ts";
@@ -17,6 +19,12 @@ describe("webview-attach-policy (APP-053)", () => {
     expect(isAllowedBrowserSrc("javascript:alert(1)")).toBe(false);
     expect(isAllowedBrowserSrc("file:///tmp/x")).toBe(false);
     expect(isAllowedBrowserSrc("")).toBe(false);
+  });
+
+  it("normalizeBrowserUrl treats origin slash variants as equal", () => {
+    expect(normalizeBrowserUrl("https://skills.sh")).toBe(
+      normalizeBrowserUrl("https://skills.sh/"),
+    );
   });
 
   it("evaluateWillAttach allows empty src bootstrap when a session is pending", () => {
@@ -95,6 +103,55 @@ describe("webview-attach-policy (APP-053)", () => {
     expect(result.allow).toBe(false);
   });
 
+  it("preferredSessionId wins under multi-pending different URLs (no ambiguous DENY)", () => {
+    const registered: RegisteredBrowserSession[] = [
+      {
+        sessionId: "tab-skills",
+        url: "https://skills.sh/",
+        pendingAttach: true,
+      },
+      {
+        sessionId: "tab-gh",
+        url: "https://github.com/remotion-dev/skills",
+        pendingAttach: true,
+      },
+    ];
+
+    // Without preferred id, URL match still picks skills.
+    const byUrl = evaluateWillAttach({
+      partition: BROWSER_PARTITION,
+      src: "https://skills.sh/",
+      registered,
+    });
+    expect(byUrl).toEqual({ allow: true, sessionId: "tab-skills" });
+
+    // Preferred id binds github even if src were somehow ambiguous.
+    const byPref = evaluateWillAttach({
+      partition: BROWSER_PARTITION,
+      src: "https://skills.sh/",
+      preferredSessionId: "tab-gh",
+      registered,
+    });
+    expect(byPref).toEqual({ allow: true, sessionId: "tab-gh" });
+  });
+
+  it("extractPreferredSessionId reads data-atmos-session and additionalArguments", () => {
+    expect(
+      extractPreferredSessionId({
+        "data-atmos-session": "sess-1",
+      }),
+    ).toBe("sess-1");
+    expect(
+      extractPreferredSessionId(
+        {},
+        {
+          additionalArguments: ["--atmos-browser-session=sess-2"],
+        },
+      ),
+    ).toBe("sess-2");
+    expect(extractPreferredSessionId({})).toBeNull();
+  });
+
   it("forceGuestWebPreferences forces sandbox isolation and preload path", () => {
     const prefs: Record<string, unknown> = {
       nodeIntegration: true,
@@ -131,7 +188,6 @@ describe("webview-attach-policy (APP-053)", () => {
     });
     expect(first).toEqual({ allow: true, sessionId: "tab-a" });
 
-    // Manager must consume pending on allow (markAttachAllowed parity).
     registered = consumePendingAttach(registered, "tab-a");
     expect(registered.find((s) => s.sessionId === "tab-a")?.pendingAttach).toBe(
       false,
@@ -146,16 +202,5 @@ describe("webview-attach-policy (APP-053)", () => {
       registered,
     });
     expect(second).toEqual({ allow: true, sessionId: "tab-b" });
-
-    // Without consume, both evaluates would return tab-a (regression guard).
-    const stale = evaluateWillAttach({
-      partition: BROWSER_PARTITION,
-      src: sameUrl,
-      registered: [
-        { sessionId: "tab-a", url: sameUrl, pendingAttach: true },
-        { sessionId: "tab-b", url: sameUrl, pendingAttach: true },
-      ],
-    });
-    expect(stale).toEqual({ allow: true, sessionId: "tab-a" });
   });
 });

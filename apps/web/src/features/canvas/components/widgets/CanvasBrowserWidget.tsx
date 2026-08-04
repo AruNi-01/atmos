@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import { useEditor, useValue, type TLShapeId } from "tldraw";
 
 import { BrowserPanel } from "@/features/browser/components/BrowserPanel";
 import type { BrowserCanvasViewportController } from "@/features/browser/components/BrowserSession";
@@ -18,57 +17,11 @@ export function CanvasBrowserWidget({
 }: {
   shape: CanvasWidgetShape;
 }) {
-  const editor = useEditor();
+  // APP-053: in-DOM <webview> — no native bounds sync. Keep a ref for API
+  // compatibility with BrowserPanel (controller is a no-op stub now).
   const canvasViewportControllerRef =
     React.useRef<BrowserCanvasViewportController | null>(null);
   const source = shape.props.source as CanvasBrowserWidgetSource;
-
-  const viewportSignal = useValue(
-    `canvas-browser.viewport.${shape.id}`,
-    () => {
-      const camera = editor.getCamera();
-      let bounds: ReturnType<typeof editor.getShapePageBounds> | null = null;
-      try {
-        bounds = editor.getShapePageBounds(shape.id as TLShapeId) ?? null;
-      } catch {
-        bounds = null;
-      }
-      if (!bounds) {
-        return `missing|${camera.x}|${camera.y}|${camera.z}`;
-      }
-
-      try {
-        const topLeft = editor.pageToViewport({ x: bounds.minX, y: bounds.minY });
-        const bottomRight = editor.pageToViewport({ x: bounds.maxX, y: bounds.maxY });
-        return [
-          Math.round(topLeft.x),
-          Math.round(topLeft.y),
-          Math.round(bottomRight.x),
-          Math.round(bottomRight.y),
-        ].join("|");
-      } catch {
-        return `error|${camera.x}|${camera.y}|${camera.z}`;
-      }
-    },
-    [editor, shape.id],
-  );
-
-  React.useLayoutEffect(() => {
-    canvasViewportControllerRef.current?.syncViewport();
-    const frameId = window.requestAnimationFrame(() => {
-      canvasViewportControllerRef.current?.syncViewport();
-    });
-    return () => {
-      window.cancelAnimationFrame(frameId);
-    };
-  }, [viewportSignal]);
-
-  React.useEffect(() => {
-    const controllerRef = canvasViewportControllerRef;
-    return () => {
-      controllerRef.current?.hide();
-    };
-  }, []);
 
   if (source.type !== "browser") {
     return null;
@@ -95,7 +48,8 @@ export function CanvasBrowserWidget({
         browserContextId={`canvas-browser:${source.browserId || shape.id}`}
         allowStandaloneWindow={false}
         allowMaximize={false}
-        keepInactiveTabsMounted={false}
+        // Keep inactive tabs mounted so canvas multi-tab does not remount/flash.
+        keepInactiveTabsMounted
         syncUrlQueryParam={false}
         canvasViewportControllerRef={canvasViewportControllerRef}
       />

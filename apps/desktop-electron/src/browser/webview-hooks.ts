@@ -6,6 +6,7 @@ import type { BrowserWindow, WebContents } from "electron";
 import type { BrowserSurfaceManager } from "./surface-manager.js";
 import {
   evaluateWillAttach,
+  extractPreferredSessionId,
   forceGuestWebPreferences,
   BROWSER_PARTITION,
 } from "./webview-attach-policy.js";
@@ -24,52 +25,62 @@ export function installBrowserWebviewHooks(
   wired.add(hostWc);
 
   hostWc.on("will-attach-webview", (event, webPreferences, params) => {
+    const paramsRecord = (params ?? {}) as Record<string, unknown>;
+    const prefsRecord = webPreferences as unknown as Record<string, unknown>;
+
     const partitionFromPrefs =
       typeof webPreferences.partition === "string"
         ? webPreferences.partition
         : "";
     const partitionFromParams =
-      typeof (params as { partition?: string }).partition === "string"
-        ? (params as { partition: string }).partition
+      typeof paramsRecord.partition === "string"
+        ? (paramsRecord.partition as string)
         : "";
     const tagPartition =
       partitionFromParams || partitionFromPrefs || BROWSER_PARTITION;
 
     const src =
-      typeof (params as { src?: string }).src === "string"
-        ? (params as { src: string }).src
-        : "";
+      typeof paramsRecord.src === "string" ? (paramsRecord.src as string) : "";
+
+    const preferredSessionId = extractPreferredSessionId(
+      paramsRecord,
+      prefsRecord,
+    );
 
     const decision = evaluateWillAttach({
       partition: tagPartition,
       src,
+      preferredSessionId,
       registered: manager.listRegisteredSessions(),
     });
 
     if (!decision.allow) {
       console.warn(
-        `[browser] will-attach-webview DENY: ${decision.reason} src=${src || "(empty)"} partition=${tagPartition}`,
+        `[browser] will-attach-webview DENY: ${decision.reason} src=${src || "(empty)"} partition=${tagPartition} preferred=${preferredSessionId ?? "(none)"} registered=${manager.listRegisteredSessions().map((s) => `${s.sessionId.slice(0, 8)}:pending=${s.pendingAttach}`).join(",")}`,
       );
       event.preventDefault();
       return;
     }
 
     forceGuestWebPreferences(
-      webPreferences as unknown as Record<string, unknown>,
+      prefsRecord,
       manager.getPreloadAbsolutePath(),
     );
     webPreferences.partition = BROWSER_PARTITION;
 
-    (
-      webPreferences as { additionalArguments?: string[] }
-    ).additionalArguments = [
-      ...((webPreferences as { additionalArguments?: string[] })
-        .additionalArguments ?? []),
+    const existingArgs = Array.isArray(webPreferences.additionalArguments)
+      ? webPreferences.additionalArguments
+      : [];
+    webPreferences.additionalArguments = [
+      ...existingArgs.filter(
+        (a) =>
+          typeof a !== "string" || !a.startsWith("--atmos-browser-session="),
+      ),
       `--atmos-browser-session=${decision.sessionId}`,
     ];
 
     console.log(
-      `[browser] will-attach-webview ALLOW session=${decision.sessionId} src=${src || "(empty)"}`,
+      `[browser] will-attach-webview ALLOW session=${decision.sessionId} src=${src || "(empty)"} preferred=${preferredSessionId ?? "(none)"}`,
     );
     manager.markAttachAllowed(decision.sessionId, src);
   });

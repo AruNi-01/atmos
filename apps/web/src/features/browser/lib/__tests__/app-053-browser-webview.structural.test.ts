@@ -37,8 +37,17 @@ describe("APP-053 browser webview structural (shipped sources)", () => {
     expect(src).toContain("shouldMountGuest");
     expect(src).toContain("partition={attach.partition}");
     expect(src).toContain("preload={attach.preloadUrl}");
+    expect(src).toContain("data-atmos-session");
     // must not mount a bare webview without src attribute for first paint
     expect(src).not.toMatch(/<webview[\s\S]*?partition=\{attach\.partition\}[\s\S]*?\/>\s*;?\s*$/);
+  });
+
+  it("canvas browser keeps inactive tabs mounted and skips native bounds sync", () => {
+    const src = read("apps/web/src/features/canvas/components/widgets/CanvasBrowserWidget.tsx");
+    expect(src).toContain("keepInactiveTabsMounted");
+    expect(src).not.toContain("keepInactiveTabsMounted={false}");
+    expect(src).not.toContain("syncViewport()");
+    expect(src).not.toContain("getShapePageBounds");
   });
 
   it("DesktopBrowserWebview keeps guest mounted across layoutHidden (tab switch)", () => {

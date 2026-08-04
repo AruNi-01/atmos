@@ -261,6 +261,11 @@ export function DesktopBrowserWebview({
             "absolute inset-0 h-full w-full border-0 bg-transparent",
             pointerEventsNone && "pointer-events-none",
           )}
+          // partition + preload + src + session id must be present at first attach.
+          // data-atmos-session lets main will-attach bind uniquely under multi-tab races.
+          {...{
+            "data-atmos-session": attach.sessionId,
+          }}
           partition={attach.partition}
           preload={attach.preloadUrl}
           src={navUrl}
