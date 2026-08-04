@@ -70,30 +70,35 @@ export function hostWindowToFrontmost(w: HostWindowRow | null): DesktopUseFrontm
   };
 }
 
+/**
+ * Read Atmos-normalized PNG from `drive screenshot` JSON.
+ * Rust extracts engine shapes (MCP image / screenshot_file_path / --screenshot-out-file)
+ * and injects `png_base64` / `capture.png_base64` — do not re-invent phantom engine keys.
+ */
 function extractPngBase64(payload: unknown): string | null {
   if (!payload || typeof payload !== "object") return null;
   const o = payload as Record<string, unknown>;
+
+  // DriveResult.capture (Atmos CaptureResult)
+  const capture = o.capture;
+  if (capture && typeof capture === "object") {
+    const c = capture as Record<string, unknown>;
+    if (typeof c.png_base64 === "string" && c.png_base64.length > 32) {
+      return c.png_base64;
+    }
+  }
+
+  // DriveResult.result with Atmos-normalized png_base64
   const result = o.result;
   if (result && typeof result === "object") {
     const r = result as Record<string, unknown>;
-    for (const key of [
-      "screenshot_base64",
-      "png_base64",
-      "image_base64",
-      "screenshot",
-    ]) {
-      const v = r[key];
-      if (typeof v === "string" && v.length > 32) return v;
+    if (typeof r.png_base64 === "string" && r.png_base64.length > 32) {
+      return r.png_base64;
     }
-    // nested screenshot object
-    const shot = r.screenshot;
-    if (shot && typeof shot === "object") {
-      const s = shot as Record<string, unknown>;
-      for (const key of ["base64", "png_base64", "data"]) {
-        const v = s[key];
-        if (typeof v === "string" && v.length > 32) return v;
-      }
-    }
+  }
+
+  if (typeof o.png_base64 === "string" && o.png_base64.length > 32) {
+    return o.png_base64;
   }
   return null;
 }
@@ -131,12 +136,14 @@ export async function captureFrontmostViaHostEngine(options: {
     new Set(["Atmos", "Atmos Electron", "Atmos Desktop", "Electron"]);
 
   const shot = await desktopUseDriveScreenshot();
-  if (!(shot as { ok?: boolean })?.ok) {
+  const shotOk = Boolean((shot as { ok?: boolean })?.ok);
+  if (!shotOk) {
     const err =
       typeof (shot as { error?: string }).error === "string"
         ? (shot as { error: string }).error
         : "host engine screenshot failed";
-    warnings.push(err);
+    // Structured engine/TCC failure — do not soft-empty the shot as success.
+    throw new Error(err);
   }
 
   let png: Buffer | null = null;
@@ -149,8 +156,15 @@ export async function captureFrontmostViaHostEngine(options: {
       warnings.push("host_engine_png_decode_failed");
       png = null;
     }
-  } else {
-    warnings.push("host_engine_screenshot_missing");
+  }
+  if (!png) {
+    // DriveResult.ok true without PNG should not happen after Rust adapter;
+    // surface as hard failure so AppShot does not store empty host captures.
+    throw new Error(
+      typeof (shot as { error?: string }).error === "string"
+        ? (shot as { error: string }).error
+        : "host engine returned ok without screenshot image bytes",
+    );
   }
 
   let windows: HostWindowRow[] = [];

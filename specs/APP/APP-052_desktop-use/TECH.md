@@ -30,7 +30,8 @@ Daemon: managed socket `~/.atmos/desktop-use/engine.sock`.
 4. `driver grant-permissions` launches **Atmos Desktop Use.app** `permissions grant`.
 5. When engine is installed, AppShot permission panel uses Desktop Use doctor + host grant (one product identity).
 6. When engine is installed, **AppShot dual-shift capture** also uses the host engine (`drive screenshot` / window list under Atmos Desktop Use.app), not Electron `osascript`/`screencapture`. Electron in-process capture is **only** the pre-ensure fallback.
-7. Rejected: primary UX that asks users to grant **CuaDriver.app** / `com.trycua.driver`.
+7. **Screenshot wire (pinned 0.17.0):** `call --screenshot-out-file` + tool arg `screenshot_out_file`; parse MCP image `content[]` / `screenshot_file_path` only. Exit-0 plain-text engine errors are **Err** (not soft `ok:true`). Atmos injects `png_base64` / `png_path` into drive JSON for clients. Fixtures: `crates/desktop-use/tests/fixtures/engine_0_17_0/`.
+8. Rejected: primary UX that asks users to grant **CuaDriver.app** / `com.trycua.driver`.
 
 ## 2. Layout
 

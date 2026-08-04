@@ -1,0 +1,1 @@
+Desktop screenshot failed: screencapture failed for main display with status exit status: 1: could not create image from display

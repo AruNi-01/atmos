@@ -1,0 +1,19 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "desktop state"
+    },
+    {
+      "type": "image",
+      "mimeType": "image/png",
+      "data": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+    }
+  ],
+  "structuredContent": {
+    "screen_width": 1920,
+    "screen_height": 1080,
+    "screenshot_mime_type": "image/png",
+    "scale_factor": 2.0
+  }
+}

@@ -137,38 +137,63 @@ pub fn call_tool(
     tool: &str,
     args: &Value,
 ) -> Result<Value, String> {
-    let args_json = serde_json::to_string(args).map_err(|e| scrub_vendor(&e.to_string()))?;
-    let output = Command::new(engine_bin)
-        .args([
-            "call",
-            "--socket",
-            &socket.display().to_string(),
-            tool,
-            &args_json,
-        ])
-        .env("CUA_DRIVER_RS_PERMISSIONS_GATE", "0")
+    call_tool_inner(engine_bin, socket, tool, args, None)
+}
+
+/// Invoke a tool and ask the CLI to materialize the first MCP image block to `out_file`.
+///
+/// Also injects tool arg `screenshot_out_file` when `args` is an object (get_desktop_state contract).
+pub fn call_tool_with_screenshot_out(
+    engine_bin: &Path,
+    socket: &Path,
+    tool: &str,
+    args: &Value,
+    out_file: &Path,
+) -> Result<Value, String> {
+    call_tool_inner(engine_bin, socket, tool, args, Some(out_file))
+}
+
+fn call_tool_inner(
+    engine_bin: &Path,
+    socket: &Path,
+    tool: &str,
+    args: &Value,
+    screenshot_out_file: Option<&Path>,
+) -> Result<Value, String> {
+    let mut effective_args = args.clone();
+    if let Some(out) = screenshot_out_file {
+        if let Some(obj) = effective_args.as_object_mut() {
+            obj.insert(
+                "screenshot_out_file".into(),
+                Value::String(out.display().to_string()),
+            );
+        }
+    }
+    let args_json =
+        serde_json::to_string(&effective_args).map_err(|e| scrub_vendor(&e.to_string()))?;
+
+    let mut cmd = Command::new(engine_bin);
+    cmd.arg("call")
+        .arg("--socket")
+        .arg(socket.display().to_string());
+    if let Some(out) = screenshot_out_file {
+        cmd.arg("--screenshot-out-file").arg(out);
+    }
+    cmd.arg(tool)
+        .arg(&args_json)
+        .env("CUA_DRIVER_RS_PERMISSIONS_GATE", "0");
+
+    let output = cmd
         .output()
         .map_err(|e| scrub_vendor(&format!("control engine call failed: {e}")))?;
 
-    let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
-    let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
-    if !output.status.success() {
-        let msg = if !stderr.is_empty() {
-            stderr
-        } else if !stdout.is_empty() {
-            stdout
-        } else {
-            "control engine call failed".into()
-        };
-        return Err(scrub_vendor(&msg));
-    }
-    if stdout.is_empty() {
-        return Ok(serde_json::json!({ "ok": true }));
-    }
-    match serde_json::from_str::<Value>(&stdout) {
-        Ok(v) => Ok(v),
-        Err(_) => Ok(serde_json::json!({ "ok": true, "raw": stdout })),
-    }
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    crate::engine_protocol::parse_call_tool_output(
+        output.status.success(),
+        stdout.trim(),
+        stderr.trim(),
+    )
 }
 
 /// Open system permission grant flow for the rebranded host app when present.

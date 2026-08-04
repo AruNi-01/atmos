@@ -1,4 +1,6 @@
 import { describe, expect, it } from "bun:test";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import {
   hostWindowToFrontmost,
   pickFrontmostWindow,
@@ -16,6 +18,16 @@ describe("host engine capture routing", () => {
     ).toBe(false);
     expect(shouldUseHostEngineCapture(null)).toBe(false);
     expect(shouldUseHostEngineCapture(undefined)).toBe(false);
+  });
+
+  it("reads Atmos-normalized capture.png_base64 (not phantom engine keys only)", () => {
+    // Structural: host-capture must prefer drive capture/result png_base64.
+    const src = readFileSync(join(import.meta.dir, "host-capture.ts"), "utf8");
+    expect(src).toContain("capture.png_base64");
+    expect(src).toContain("r.png_base64");
+    expect(src).toContain("throw new Error");
+    // Must not soft-warn host_engine_screenshot_missing without throw path
+    expect(src).not.toContain("host_engine_screenshot_missing");
   });
 
   it("picks highest z_index on-screen window for frontmost", () => {

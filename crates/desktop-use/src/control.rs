@@ -154,47 +154,125 @@ fn screenshot_via_engine(
             error_code: Some("control_engine_failed".into()),
         };
     }
-    match host::call_tool(&engine, &socket, "get_desktop_state", &json!({})) {
-        Ok(v) => {
-            // Optionally write PNG if base64 present and out_path set.
-            if let (Some(out), Some(b64)) = (
-                req.out_path.as_ref(),
-                v.get("screenshot_base64")
-                    .or_else(|| v.get("png_base64"))
-                    .and_then(|x| x.as_str()),
-            ) {
-                if let Ok(bytes) = base64_decode(b64) {
-                    let _ = std::fs::write(out, bytes);
-                }
-            }
-            DriveResult {
-                ok: true,
-                action: action_name.into(),
-                detail: Some("via host engine".into()),
-                result: Some(v),
-                capture: None,
-                error: None,
-                error_code: None,
+
+    // Materialize PNG via real 0.17.0 contract: --screenshot-out-file + tool arg.
+    let tmp_guard = if req.out_path.is_none() {
+        match tempfile::Builder::new()
+            .prefix("atmos-du-shot-")
+            .suffix(".png")
+            .tempfile()
+        {
+            Ok(f) => Some(f),
+            Err(e) => {
+                return DriveResult {
+                    ok: false,
+                    action: action_name.into(),
+                    detail: None,
+                    capture: None,
+                    result: None,
+                    error: Some(scrub_vendor(&format!("temp screenshot path failed: {e}"))),
+                    error_code: Some("control_engine_failed".into()),
+                };
             }
         }
-        Err(e) => DriveResult {
-            ok: false,
-            action: action_name.into(),
-            detail: None,
-            result: None,
-            capture: None,
-            error: Some(scrub_vendor(&format!(
-                "{}: {e}",
-                strings::ERR_ENGINE_FAILED
-            ))),
-            error_code: Some("control_engine_failed".into()),
-        },
-    }
-}
+    } else {
+        None
+    };
+    let out_path: std::path::PathBuf = req
+        .out_path
+        .clone()
+        .or_else(|| tmp_guard.as_ref().map(|t| t.path().to_path_buf()))
+        .expect("out path set");
 
-fn base64_decode(s: &str) -> Result<Vec<u8>, ()> {
-    use base64::{engine::general_purpose::STANDARD, Engine as _};
-    STANDARD.decode(s.trim()).map_err(|_| ())
+    let args = json!({});
+    match host::call_tool_with_screenshot_out(
+        &engine,
+        &socket,
+        "get_desktop_state",
+        &args,
+        &out_path,
+    ) {
+        Ok(v) => match crate::engine_protocol::extract_screenshot_png(&v, Some(&out_path)) {
+            Ok(bytes) => {
+                // Ensure user-requested path has the bytes.
+                if let Some(user_out) = req.out_path.as_ref() {
+                    if user_out != &out_path {
+                        let _ = std::fs::write(user_out, &bytes);
+                    }
+                } else if !out_path.exists() {
+                    let _ = std::fs::write(&out_path, &bytes);
+                }
+                let b64 = crate::engine_protocol::encode_png_base64(&bytes);
+                let normalized = match v {
+                    serde_json::Value::Object(mut obj) => {
+                        obj.insert("png_base64".into(), json!(b64.clone()));
+                        obj.insert("png_path".into(), json!(out_path.display().to_string()));
+                        serde_json::Value::Object(obj)
+                    }
+                    other => json!({
+                        "engine": other,
+                        "png_base64": b64.clone(),
+                        "png_path": out_path.display().to_string(),
+                    }),
+                };
+                let capture = CaptureResult {
+                    ok: true,
+                    app_name: None,
+                    window_title: None,
+                    bundle_id: None,
+                    process_id: None,
+                    bounds: None,
+                    png_base64: Some(b64),
+                    png_path: Some(out_path.display().to_string()),
+                    context_markdown: "capture_via: Atmos Desktop Use host engine".into(),
+                    quality: "screenshot_only".into(),
+                    warnings: vec!["capture_via: Atmos Desktop Use host engine".into()],
+                    error: None,
+                };
+                // Keep temp file alive until after read; drop now that bytes are in memory.
+                drop(tmp_guard);
+                DriveResult {
+                    ok: true,
+                    action: action_name.into(),
+                    detail: Some("via host engine".into()),
+                    result: Some(normalized),
+                    capture: Some(capture),
+                    error: None,
+                    error_code: None,
+                }
+            }
+            Err(e) => {
+                drop(tmp_guard);
+                DriveResult {
+                    ok: false,
+                    action: action_name.into(),
+                    detail: None,
+                    result: Some(v),
+                    capture: None,
+                    error: Some(scrub_vendor(&format!(
+                        "{}: {e}",
+                        strings::ERR_ENGINE_FAILED
+                    ))),
+                    error_code: Some("screenshot_missing".into()),
+                }
+            }
+        },
+        Err(e) => {
+            drop(tmp_guard);
+            DriveResult {
+                ok: false,
+                action: action_name.into(),
+                detail: None,
+                result: None,
+                capture: None,
+                error: Some(scrub_vendor(&format!(
+                    "{}: {e}",
+                    strings::ERR_ENGINE_FAILED
+                ))),
+                error_code: Some("control_engine_failed".into()),
+            }
+        }
+    }
 }
 
 fn run_engine(

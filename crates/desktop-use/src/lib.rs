@@ -8,6 +8,7 @@ pub mod config;
 pub mod control;
 pub mod doctor;
 pub mod engine_manifest;
+pub mod engine_protocol;
 pub mod host;
 pub mod install;
 pub mod manager;
