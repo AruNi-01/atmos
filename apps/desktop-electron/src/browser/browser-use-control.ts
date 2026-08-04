@@ -227,6 +227,19 @@ export class BrowserUseControlPlane {
     res.end(data);
   }
 
+  /** Client-safe error text — never include stack traces (CodeQL js/stack-trace-exposure). */
+  private publicErrorMessage(e: unknown): string {
+    if (e instanceof Error) {
+      const msg = typeof e.message === "string" ? e.message.trim() : "";
+      return msg ? msg.slice(0, 500) : "browser engine failed";
+    }
+    if (typeof e === "string") {
+      const msg = e.trim();
+      return msg ? msg.slice(0, 500) : "browser engine failed";
+    }
+    return "browser engine failed";
+  }
+
   private guestFor(sessionId: string): WebContents | null {
     return this.manager.getGuestWebContents(sessionId);
   }
@@ -554,9 +567,11 @@ export class BrowserUseControlPlane {
 
       this.send(res, 404, { ok: false, error: "not found" });
     } catch (e) {
+      // Log full error server-side; response body stays message-only (no stack).
+      console.error("[browser-use] control plane request failed:", e);
       this.send(res, 500, {
         ok: false,
-        error: e instanceof Error ? e.message : String(e),
+        error: this.publicErrorMessage(e),
         error_code: "browser_engine_failed",
       });
     }

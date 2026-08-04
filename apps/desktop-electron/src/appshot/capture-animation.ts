@@ -164,6 +164,8 @@ function overlayLoadUrl(): string {
 let sharedOverlay: AnyBrowserWindow | null = null;
 let sharedOverlayReady: Promise<AnyBrowserWindow> | null = null;
 let playGeneration = 0;
+/** Generation that currently owns all-workspaces visibility on the shared overlay. */
+let workspaceVisibilityOwner: number | null = null;
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -309,6 +311,8 @@ export async function playCaptureAnimation(
 
     // Only while visible: fullscreen workspaces so the flash works over spaces.
     // Must be cleared after hide — leaving it on permanently can hide Dock.
+    // Claim ownership before await so a concurrent playback cannot be cleared by us.
+    workspaceVisibilityOwner = gen;
     await setOverlayVisibleOnAllWorkspaces(win, true);
     allWorkspacesOn = true;
 
@@ -337,12 +341,22 @@ export async function playCaptureAnimation(
     win = null;
     allWorkspacesOn = false;
   } finally {
-    // Always clear all-workspaces + restore Dock, including early-return races.
-    if (win && !win.isDestroyed() && allWorkspacesOn) {
+    // Only the owning generation may clear all-workspaces — stale cleanup must
+    // not disable visibility claimed by a newer overlapping playCaptureAnimation.
+    if (
+      win &&
+      !win.isDestroyed() &&
+      allWorkspacesOn &&
+      workspaceVisibilityOwner === gen
+    ) {
       try {
         await setOverlayVisibleOnAllWorkspaces(win, false);
       } catch {
         await ensureMacDockVisible();
+      } finally {
+        if (workspaceVisibilityOwner === gen) {
+          workspaceVisibilityOwner = null;
+        }
       }
     } else {
       await ensureMacDockVisible();
