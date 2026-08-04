@@ -262,7 +262,7 @@ pub fn drive(manager: &DesktopUseManager, req: DriveRequest) -> DriveResult {
             }
         }
         DriveAction::Highlight => run_highlight(&req, action_name),
-        DriveAction::SessionEnd => run_session_end(&req, action_name),
+        DriveAction::SessionEnd => run_session_end(manager, &req, action_name),
         _ => match manager.require_engine() {
             Err(msg) => DriveResult {
                 ok: false,
@@ -278,18 +278,21 @@ pub fn drive(manager: &DesktopUseManager, req: DriveRequest) -> DriveResult {
     }
 }
 
-fn run_session_end(req: &DriveRequest, action_name: &str) -> DriveResult {
+fn run_session_end(
+    manager: &DesktopUseManager,
+    req: &DriveRequest,
+    action_name: &str,
+) -> DriveResult {
     use crate::highlight::clear_highlight;
 
     let hl = clear_highlight();
     let mut engine_ended = false;
     let mut engine_error: Option<String> = None;
 
-    if let Ok(engine) = DesktopUseManager::new().require_engine() {
-        // Reuse manager paths via a lightweight path: call through host if socket alive.
-        let mgr = DesktopUseManager::new();
-        let socket = mgr.socket_path();
-        let host_app = mgr.host_app_path();
+    // Use the caller's manager (paths/data dir) — do not construct a fresh global one.
+    if let Ok(engine) = manager.require_engine() {
+        let socket = manager.socket_path();
+        let host_app = manager.host_app_path();
         if host::ensure_daemon(&engine, &socket, host_app.as_deref()).is_ok() {
             let sid = session_id(req).unwrap_or_else(|| DEFAULT_DRIVE_SESSION.to_string());
             match host::call_tool(&engine, &socket, "end_session", &json!({ "session": sid })) {
@@ -540,13 +543,41 @@ fn screenshot_via_engine(
     ) {
         Ok(v) => match crate::engine_protocol::extract_screenshot_png(&v, Some(&out_path)) {
             Ok(bytes) => {
-                // Ensure user-requested path has the bytes.
+                // Ensure user-requested path has the bytes; surface write failures.
                 if let Some(user_out) = req.out_path.as_ref() {
                     if user_out != &out_path {
-                        let _ = std::fs::write(user_out, &bytes);
+                        if let Err(e) = std::fs::write(user_out, &bytes) {
+                            drop(tmp_guard);
+                            return DriveResult {
+                                ok: false,
+                                action: action_name.into(),
+                                detail: None,
+                                result: Some(v),
+                                capture: None,
+                                error: Some(scrub_vendor(&format!(
+                                    "failed to write screenshot to {}: {e}",
+                                    user_out.display()
+                                ))),
+                                error_code: Some("screenshot_write_failed".into()),
+                            };
+                        }
                     }
                 } else if !out_path.exists() {
-                    let _ = std::fs::write(&out_path, &bytes);
+                    if let Err(e) = std::fs::write(&out_path, &bytes) {
+                        drop(tmp_guard);
+                        return DriveResult {
+                            ok: false,
+                            action: action_name.into(),
+                            detail: None,
+                            result: Some(v),
+                            capture: None,
+                            error: Some(scrub_vendor(&format!(
+                                "failed to write screenshot to {}: {e}",
+                                out_path.display()
+                            ))),
+                            error_code: Some("screenshot_write_failed".into()),
+                        };
+                    }
                 }
                 let b64 = crate::engine_protocol::encode_png_base64(&bytes);
                 let normalized = match v {

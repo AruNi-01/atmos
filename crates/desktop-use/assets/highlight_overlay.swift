@@ -100,9 +100,10 @@ func cocoaFrame(x: Double, y: Double, width: Double, height: Double) -> NSRect {
 func desktopBounds(inset: Double) -> (Double, Double, Double, Double) {
     // Highlight only the display that contains the mouse (or main), not a fake
     // spanning rect across all monitors that would look like "covering other displays".
-    let screen = NSScreen.main
-        ?? NSScreen.screens.first
-        ?? NSScreen.screens[0]
+    // Never index `NSScreen.screens[0]` — empty array traps. Prefer main, then first.
+    guard let screen = NSScreen.main ?? NSScreen.screens.first else {
+        return (0, 0, 0, 0)
+    }
     let f = screen.frame
     // Convert Cocoa frame (bottom-left global) → engine top-left relative to primary top.
     let primaryTop: CGFloat

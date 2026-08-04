@@ -504,9 +504,13 @@ fn show_with_args(mode: &str, extra: Vec<String>, target: HighlightTarget) -> Hi
         .stderr(Stdio::null());
 
     match cmd.spawn() {
-        Ok(child) => {
+        Ok(mut child) => {
             let pid = child.id();
-            std::mem::forget(child);
+            // Reap the child on a background thread so we do not leave zombies
+            // when the overlay exits on idle / SIGTERM (do not mem::forget).
+            std::thread::spawn(move || {
+                let _ = child.wait();
+            });
             let (_, pid_path, meta_path, _) = data_paths();
             let _ = fs::write(&pid_path, pid.to_string());
             let meta = serde_json::json!({

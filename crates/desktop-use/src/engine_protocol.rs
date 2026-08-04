@@ -141,16 +141,16 @@ fn looks_like_image(bytes: &[u8]) -> bool {
     if bytes.len() < 8 {
         return false;
     }
-    // PNG
+    // PNG magic — primary contract for get_desktop_state / window screenshots.
     if bytes.starts_with(&[0x89, b'P', b'N', b'G', b'\r', b'\n', 0x1a, b'\n']) {
         return true;
     }
-    // JPEG
+    // JPEG (zoom / some engine paths)
     if bytes[0] == 0xff && bytes[1] == 0xd8 {
         return true;
     }
-    // Accept non-empty unknown if reasonably large (engine may write other formats)
-    bytes.len() > 32
+    // Reject plain-text / empty TCC failure blobs that are only "long enough".
+    false
 }
 
 fn decode_image_b64(s: &str) -> Result<Vec<u8>, String> {

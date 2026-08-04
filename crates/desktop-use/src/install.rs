@@ -248,7 +248,10 @@ fn download_file(url: &str, dest: &Path) -> Result<(), String> {
 fn find_named_file(root: &Path, name: &str) -> Option<PathBuf> {
     let mut stack = vec![root.to_path_buf()];
     while let Some(dir) = stack.pop() {
-        let rd = fs::read_dir(&dir).ok()?;
+        // Skip unreadable dirs instead of aborting the whole search.
+        let Ok(rd) = fs::read_dir(&dir) else {
+            continue;
+        };
         for ent in rd.flatten() {
             let p = ent.path();
             if p.is_dir() {
@@ -416,9 +419,10 @@ fn copy_dir_recursive(src: &Path, dest: &Path) -> io::Result<()> {
 }
 
 fn chrono_lite_now() -> String {
-    // Avoid chrono dep; RFC3339-ish via system date if available.
+    // Avoid chrono dep; RFC3339-ish UTC via system date if available.
+    // `-u` is required so the trailing `Z` is truthful (not local wall time).
     Command::new("date")
-        .arg("+%Y-%m-%dT%H:%M:%SZ")
+        .args(["-u", "+%Y-%m-%dT%H:%M:%SZ"])
         .output()
         .ok()
         .and_then(|o| String::from_utf8(o.stdout).ok())
