@@ -1,0 +1,20 @@
+apps/web/src/features/browser/components/BrowserSession.tsx
+  h_5be255725524c8 817,848-849,1374
+apps/web/src/features/browser/components/BrowserViewport.tsx
+  h_5be255725524c8 29,77,238,241-244
+apps/web/src/features/browser/components/DesktopBrowserWebview.tsx
+  h_5be255725524c8 6-10,31-34,38-39,82,88,94-95,99-106,109,113,115-125,128,151,155-162,176,180-181,188-191,194,218-219,228,249,260-261
+apps/web/src/features/browser/lib/__tests__/app-053-browser-webview.structural.test.ts
+  h_5be255725524c8 44-52
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "8d82359b4cacf1275d4d1d6d2aadcc053122283d",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
