@@ -3292,6 +3292,10 @@
         "disableSkill": {
           "label": "Dynamic Skills",
           "description": "Dynamically adjust which skills Agents can see — takes effect in the current session"
+        },
+        "desktopUse": {
+          "label": "Desktop Use",
+          "description": "Capture and control the local desktop (screenshot, click, type)"
         }
       }
     },
@@ -5529,47 +5533,74 @@
     },
     "desktopUse": {
       "title": "Desktop Use",
-      "description": "Capture the desktop, install the control engine, and manage permissions for Atmos Desktop Use. Separate from Atmos Computer (remote machines).",
-      "desktopOnly": "Desktop Use settings require the Atmos Desktop app.",
+      "description": "Desktop capture and control for AppShot and agents. Managed under Atmos Desktop Use.",
+      "desktopOnly": "Open this page in Atmos Desktop to install the engine and grant permissions.",
       "engine": {
         "title": "Control engine",
-        "hint": "Installs the pinned desktop control engine package into Atmos-managed storage (white-label). Used for click/type verification.",
+        "hint": "Optional package for click / type under Atmos Desktop Use.",
         "installed": "Installed",
-        "notInstalled": "Not installed"
+        "notInstalled": "Not installed",
+        "updateAvailable": "Update available",
+        "installHint": "Download the pinned control engine into Atmos-managed storage.",
+        "updateHint": "Installed v{current}. A newer pin is available: v{next}.",
+        "upToDateHint": "Engine is installed and matches the pinned version.",
+        "pinnedVersion": "pin v{version}",
+        "stopHint": "Stop the control engine daemon. Capture and drive pause until it is started again.",
+        "removeHint": "Remove the installed control engine from Atmos-managed storage. You can install it again later."
       },
-      "capture": {
-        "label": "Capture",
-        "available": "Available",
-        "unavailable": "Unavailable"
+      "border": {
+        "title": "Operation border",
+        "description": "When agents drive the desktop, show a blinking border around the target app (or the desktop) plus a short status under the pointer. Clears automatically after idle or when a drive session ends."
       },
       "actions": {
-        "ensure": "Install / update",
+        "install": "Install",
+        "update": "Update",
         "stop": "Stop",
         "uninstall": "Remove",
         "refresh": "Refresh",
-        "grantPermissions": "Grant permissions",
-        "verify": "Verify engine"
+        "grantPermissions": "Open System Settings"
       },
       "errors": {
         "statusFailed": "Could not load Desktop Use status",
-        "ensureFailed": "Could not install control engine",
-        "stopFailed": "Could not stop control engine",
-        "uninstallFailed": "Could not remove control engine",
-        "grantFailed": "Could not open permission grant",
-        "verifyFailed": "Engine verification failed"
+        "installFailed": "Could not install the control engine",
+        "updateFailed": "Could not update the control engine",
+        "stopFailed": "Could not stop the control engine",
+        "uninstallFailed": "Could not remove the control engine",
+        "grantFailed": "Could not open System Settings",
+        "prefsFailed": "Could not update Desktop Use preferences"
       },
       "host": {
-        "label": "Permission host"
+        "label": "Permission host",
+        "defaultName": "Atmos Desktop Use"
       },
-      "doctor": {
-        "ax": "Accessibility",
-        "screen": "Screen Recording",
-        "granted": "granted",
-        "missing": "missing",
-        "unknown": "unknown"
+      "status": {
+        "webOnly": "Desktop only"
+      },
+      "advanced": {
+        "show": "More…",
+        "hide": "Hide"
       },
       "permissions": {
-        "unifiedHint": "AppShot and desktop control both use Atmos Desktop Use. Grant Accessibility and Screen Recording once for that host."
+        "title": "Permissions",
+        "unifiedHint": "AppShot and desktop control both use Atmos Desktop Use. Grant once for that host — there is no separate AppShot permission.",
+        "hostLine": "Grants apply to {host}",
+        "installFirst": "Install the control engine first. Permissions are granted to Atmos Desktop Use after install.",
+        "grantHint": "Open System Settings for each missing permission, enable Atmos Desktop Use, then Refresh.",
+        "ready": "All required permissions are granted.",
+        "done": "Granted",
+        "missing": "Missing",
+        "items": {
+          "accessibility": {
+            "title": "Accessibility",
+            "description": "Needed to read UI structure and drive click / type."
+          },
+          "screenRecording": {
+            "title": "Screen Recording",
+            "description": "Needed for AppShot capture and desktop screenshots."
+          }
+        },
+        "grantAccessibility": "Open Accessibility",
+        "grantScreenRecording": "Open Screen Recording"
       }
     }
   },
@@ -7182,8 +7213,8 @@
         },
         "unsupportedInThisRuntime": "Appshots are not supported in this runtime.",
         "permissionsRequiredTitle": "Permissions required",
-        "permissionsRequiredDescription": "Grant the required macOS permissions to capture Appshots.",
-        "enable": "Enable",
+        "permissionsRequiredDescription": "Grant Accessibility and Screen Recording for Atmos Desktop Use in Settings.",
+        "enable": "Open Desktop Use",
         "recentRecords": "Recent Appshot records",
         "recentRecordsAriaLabel": "Recent Appshot records",
         "noAppshotsYet": "No Appshots yet.",
@@ -8502,6 +8533,10 @@
         "selectionTooltip": "User-selected terminal context",
         "sideMissingContext": "This side chat context is no longer available.",
         "selectionTruncated": "Selection was truncated."
+      },
+      "desktopUseCommand": {
+        "label": "Desktop Use",
+        "description": "Capture and control the local desktop (screenshot, click, type)"
       }
     },
     "sideChat": {

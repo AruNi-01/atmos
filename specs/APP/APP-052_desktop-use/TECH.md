@@ -27,11 +27,12 @@ Daemon: managed socket `~/.atmos/desktop-use/engine.sock`.
 1. `ensure` installs rebranded **Atmos Desktop Use.app** (`com.atmos.desktop.use`) + `atmos-desktop-control` CLI shim binary.
 2. `ensure_daemon` starts serve via **`open -n -g -a "…/Atmos Desktop Use.app" --args serve --socket …`** (LaunchServices), not a naked binary spawn — live process Identifier = `com.atmos.desktop.use`.
 3. `doctor` / Settings permissions read **live host** TCC via `health_report` / `check_permissions` on that daemon (not Electron-only grants).
-4. `driver grant-permissions` launches **Atmos Desktop Use.app** `permissions grant`.
+4. `driver grant-permissions` is **Atmos-owned**: open System Settings Privacy panes (Screen Recording + Accessibility) + host-identity capture probe so **Atmos Desktop Use** appears in the list. Do **not** call upstream `permissions grant` (hardcodes `CuaDriver.app`).
 5. When engine is installed, AppShot permission panel uses Desktop Use doctor + host grant (one product identity).
 6. When engine is installed, **AppShot dual-shift capture** also uses the host engine (`drive screenshot` / window list under Atmos Desktop Use.app), not Electron `osascript`/`screencapture`. Electron in-process capture is **only** the pre-ensure fallback.
 7. **Screenshot wire (pinned 0.17.0):** `call --screenshot-out-file` + tool arg `screenshot_out_file`; parse MCP image `content[]` / `screenshot_file_path` only. Exit-0 plain-text engine errors are **Err** (not soft `ok:true`). Atmos injects `png_base64` / `png_path` into drive JSON for clients. Fixtures: `crates/desktop-use/tests/fixtures/engine_0_17_0/`.
-8. Rejected: primary UX that asks users to grant **CuaDriver.app** / `com.trycua.driver`.
+8. **Host icon:** install rewrites `AppIcon.icns` with Atmos product icon (`crates/desktop-use/assets/host-app-icon.icns`); ensure re-applies branding without re-download.
+9. Rejected: primary UX that asks users to grant **CuaDriver.app** / `com.trycua.driver`; rejected: relying on vendor `permissions grant` after white-label.
 
 ## 2. Layout
 

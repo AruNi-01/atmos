@@ -19,6 +19,63 @@ pub enum DriveAction {
     Type,
     /// Verification probe: list windows (requires live engine + grants).
     Verify,
+    /// AX tree + optional screenshot for one window (background-friendly).
+    WindowState,
+    /// Show/clear the target window or desktop border highlight.
+    Highlight,
+    /// End the drive session: clear border + end engine session cursor.
+    SessionEnd,
+}
+
+/// Visual border chrome while Desktop Use is driving UI.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum HighlightMode {
+    /// Window border when `window_id` is set; else full-desktop border.
+    #[default]
+    Auto,
+    /// Force primary-desktop border (green).
+    Desktop,
+    /// Clear overlay.
+    Clear,
+    /// Do not touch overlay for this call.
+    Off,
+}
+
+impl HighlightMode {
+    pub fn parse(s: &str) -> Option<Self> {
+        match s.trim().to_ascii_lowercase().as_str() {
+            "auto" => Some(Self::Auto),
+            "desktop" => Some(Self::Desktop),
+            "clear" | "off-clear" => Some(Self::Clear),
+            "off" | "none" | "disable" => Some(Self::Off),
+            _ => None,
+        }
+    }
+}
+
+/// Coordinate space for desktop-scope pixel actions (`scope=desktop`).
+///
+/// Engine 0.17 maps desktop clicks from the **get_desktop_state PNG pixels**
+/// (often 2× logical points on Retina). Passing logical screen points without
+/// conversion lands at ~half the intended position.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum CoordSpace {
+    /// PNG / screenshot pixels from `drive screenshot` / `get_desktop_state` (engine native).
+    #[default]
+    Png,
+    /// Logical screen points (same space as `list_windows` bounds / AX position).
+    /// Converted to PNG pixels via screenshot/screen scale before the engine call.
+    Points,
+}
+
+impl CoordSpace {
+    pub fn parse(s: &str) -> Option<Self> {
+        match s.trim().to_ascii_lowercase().as_str() {
+            "png" | "pixels" | "screenshot" | "image" => Some(Self::Png),
+            "points" | "point" | "logical" | "screen" => Some(Self::Points),
+            _ => None,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Default)]
@@ -30,6 +87,30 @@ pub struct DriveRequest {
     pub out_path: Option<std::path::PathBuf>,
     pub pid: Option<i32>,
     pub window_id: Option<i64>,
+    /// Engine delivery ladder: `background` (default) or `foreground`.
+    /// Pixel desktop clicks work best when the target is on-screen; use
+    /// `foreground` only when background delivery fails for Electron apps.
+    pub delivery_mode: Option<String>,
+    /// Desktop-scope coordinate space. Ignored for window-local (`window_id`) clicks.
+    pub coord_space: CoordSpace,
+    /// Agent session id for the engine cursor overlay. Default: `atmos-desktop-use`.
+    /// Pass empty string to disable session/cursor chrome.
+    pub session: Option<String>,
+    /// AX element handle from `drive window-state` (true background click path).
+    pub element_token: Option<String>,
+    pub element_index: Option<i32>,
+    pub snapshot_id: Option<String>,
+    /// For `window-state`: include window screenshot (default false for cheap reindex).
+    pub include_screenshot: bool,
+    /// Border highlight behavior for this call (default Auto on click/type).
+    pub highlight: HighlightMode,
+    /// Explicit highlight rect (logical points). Used by `drive highlight --x --y --width --height`.
+    pub width: Option<i32>,
+    pub height: Option<i32>,
+    /// Explicit under-arrow status (what the agent is doing right now).
+    pub status_label: Option<String>,
+    /// Agent identity for fallback caption `"{name} Operating"`.
+    pub agent_name: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -77,12 +158,20 @@ impl DriveError {
 ///
 /// Screenshot prefers the **host engine** when installed (same TCC identity as control),
 /// falling back to local Capture for pre-engine installs.
+///
+/// **Background by default:** click/type use engine `delivery_mode=background` (no
+/// persistent fronting). Prefer `element_token` from `window-state` for hidden/background
+/// apps; pixel clicks still need an on-screen window. Use `foreground` only as last resort
+/// (brief front → act → restore prior app).
 pub fn drive(manager: &DesktopUseManager, req: DriveRequest) -> DriveResult {
     let action_name = match req.action {
         DriveAction::Screenshot => "screenshot",
         DriveAction::Click => "click",
         DriveAction::Type => "type",
         DriveAction::Verify => "verify",
+        DriveAction::WindowState => "window_state",
+        DriveAction::Highlight => "highlight",
+        DriveAction::SessionEnd => "session_end",
     };
 
     match req.action {
@@ -108,7 +197,9 @@ pub fn drive(manager: &DesktopUseManager, req: DriveRequest) -> DriveResult {
                 capture: Some(cap),
             }
         }
-        DriveAction::Click | DriveAction::Type | DriveAction::Verify => {
+        DriveAction::Highlight => run_highlight(&req, action_name),
+        DriveAction::SessionEnd => run_session_end(&req, action_name),
+        DriveAction::Click | DriveAction::Type | DriveAction::Verify | DriveAction::WindowState => {
             match manager.require_engine() {
                 Err(msg) => DriveResult {
                     ok: false,
@@ -123,6 +214,193 @@ pub fn drive(manager: &DesktopUseManager, req: DriveRequest) -> DriveResult {
             }
         }
     }
+}
+
+fn run_session_end(req: &DriveRequest, action_name: &str) -> DriveResult {
+    use crate::highlight::clear_highlight;
+
+    let hl = clear_highlight();
+    let mut engine_ended = false;
+    let mut engine_error: Option<String> = None;
+
+    if let Ok(engine) = DesktopUseManager::new().require_engine() {
+        // Reuse manager paths via a lightweight path: call through host if socket alive.
+        let mgr = DesktopUseManager::new();
+        let socket = mgr.socket_path();
+        let host_app = mgr.host_app_path();
+        if host::ensure_daemon(&engine, &socket, host_app.as_deref()).is_ok() {
+            let sid = session_id(req).unwrap_or_else(|| DEFAULT_DRIVE_SESSION.to_string());
+            match host::call_tool(&engine, &socket, "end_session", &json!({ "session": sid })) {
+                Ok(_) => engine_ended = true,
+                Err(e) => engine_error = Some(scrub_vendor(&e)),
+            }
+        }
+    }
+
+    let result = json!({
+        "highlight_cleared": hl.ok,
+        "session_ended": engine_ended,
+        "session_error": engine_error,
+    });
+    DriveResult {
+        ok: true,
+        action: action_name.into(),
+        detail: None,
+        capture: None,
+        result: Some(result),
+        error: None,
+        error_code: None,
+    }
+}
+
+fn status_for_request(req: &DriveRequest, target_app: Option<&str>, action_name: &str) -> String {
+    crate::highlight::build_status_label(
+        req.status_label.as_deref(),
+        req.agent_name.as_deref(),
+        action_name,
+        target_app,
+    )
+}
+
+fn cursor_points_for_request(req: &DriveRequest) -> Option<(f64, f64)> {
+    // Prefer explicit screen points (logical). For png desktop clicks the engine
+    // uses 2× pixels; caption is best-effort near the pointer after move_cursor.
+    match (req.x, req.y) {
+        (Some(x), Some(y)) if matches!(req.coord_space, CoordSpace::Points) => {
+            Some((x as f64, y as f64))
+        }
+        (Some(x), Some(y)) => {
+            // Approximate: many Retina displays are 2×; caption still near target.
+            Some((x as f64 / 2.0, y as f64 / 2.0))
+        }
+        _ => None,
+    }
+}
+
+fn run_highlight(req: &DriveRequest, action_name: &str) -> DriveResult {
+    use crate::highlight::{
+        clear_highlight, show_desktop_highlight_styled, show_window_highlight_styled,
+        HighlightStyle,
+    };
+
+    let label = status_for_request(req, None, action_name);
+    let style = HighlightStyle {
+        label: Some(label),
+        cursor: cursor_points_for_request(req),
+        blink: true,
+        idle_ms: None,
+        above_window_id: req.window_id,
+    };
+
+    let hl = match req.highlight {
+        HighlightMode::Clear | HighlightMode::Off => clear_highlight(),
+        HighlightMode::Desktop => show_desktop_highlight_styled(style),
+        HighlightMode::Auto => {
+            if let (Some(x), Some(y), Some(w), Some(h)) = (req.x, req.y, req.width, req.height) {
+                if w > 0 && h > 0 {
+                    show_window_highlight_styled(x as f64, y as f64, w as f64, h as f64, style)
+                } else {
+                    show_desktop_highlight_styled(style)
+                }
+            } else {
+                show_desktop_highlight_styled(style)
+            }
+        }
+    };
+
+    DriveResult {
+        ok: hl.ok,
+        action: action_name.into(),
+        detail: None,
+        capture: None,
+        result: serde_json::to_value(&hl).ok(),
+        error: hl.error,
+        error_code: if hl.ok {
+            None
+        } else {
+            Some("highlight_failed".into())
+        },
+    }
+}
+
+/// Apply border chrome + under-arrow status for an in-progress drive action
+/// (best-effort; never fails the action).
+fn apply_action_highlight(
+    engine: &Path,
+    socket: &Path,
+    req: &DriveRequest,
+    action_name: &str,
+) -> Option<serde_json::Value> {
+    use crate::highlight::{
+        app_name_for_pid, app_name_for_window_id, bounds_for_window_id, clear_highlight,
+        show_desktop_highlight_styled, show_window_highlight_styled, HighlightStyle,
+    };
+
+    match req.highlight {
+        HighlightMode::Off => return None,
+        HighlightMode::Clear => {
+            let hl = clear_highlight();
+            return serde_json::to_value(hl).ok();
+        }
+        HighlightMode::Desktop | HighlightMode::Auto => {}
+    }
+
+    let list = host::call_tool(engine, socket, "list_windows", &json!({})).ok();
+    let target_app = list.as_ref().and_then(|l| {
+        if let Some(wid) = req.window_id {
+            app_name_for_window_id(l, wid)
+        } else if let Some(pid) = req.pid {
+            app_name_for_pid(l, pid)
+        } else {
+            None
+        }
+    });
+    let label = status_for_request(req, target_app.as_deref(), action_name);
+    let cursor = cursor_points_for_request(req);
+    let style = HighlightStyle {
+        label: Some(label.clone()),
+        cursor,
+        blink: true,
+        idle_ms: None,
+        above_window_id: req.window_id,
+    };
+
+    if matches!(req.highlight, HighlightMode::Desktop) {
+        let hl = show_desktop_highlight_styled(HighlightStyle {
+            above_window_id: None, // desktop chrome is not tied to one window stack
+            ..style
+        });
+        return serde_json::to_value(hl).ok();
+    }
+
+    if let Some(wid) = req.window_id {
+        if let Some(list) = list.as_ref() {
+            if let Some((x, y, w, h)) = bounds_for_window_id(list, wid) {
+                let hl = show_window_highlight_styled(
+                    x,
+                    y,
+                    w,
+                    h,
+                    HighlightStyle {
+                        above_window_id: Some(wid),
+                        ..style
+                    },
+                );
+                return serde_json::to_value(hl).ok();
+            }
+        }
+    }
+
+    // Desktop-scope / fallback chrome so the user always sees what is under control.
+    if matches!(
+        req.action,
+        DriveAction::Click | DriveAction::Type | DriveAction::WindowState
+    ) {
+        let hl = show_desktop_highlight_styled(style);
+        return serde_json::to_value(hl).ok();
+    }
+
+    None
 }
 
 fn screenshot_via_engine(
@@ -207,12 +485,21 @@ fn screenshot_via_engine(
                     serde_json::Value::Object(mut obj) => {
                         obj.insert("png_base64".into(), json!(b64.clone()));
                         obj.insert("png_path".into(), json!(out_path.display().to_string()));
+                        // Tell agents which coordinate space drive click expects.
+                        obj.insert("click_coord_space".into(), json!("png"));
+                        obj.insert(
+                            "click_coord_hint".into(),
+                            json!(
+                                "drive click --x/--y default is PNG pixels from this image (often 2× logical points on Retina). Use --coord-space points only for list_windows/AX logical coordinates."
+                            ),
+                        );
                         serde_json::Value::Object(obj)
                     }
                     other => json!({
                         "engine": other,
                         "png_base64": b64.clone(),
                         "png_path": out_path.display().to_string(),
+                        "click_coord_space": "png",
                     }),
                 };
                 let capture = CaptureResult {
@@ -275,6 +562,149 @@ fn screenshot_via_engine(
     }
 }
 
+/// Default session id so agent cursor chrome stays visible across drive actions.
+pub const DEFAULT_DRIVE_SESSION: &str = "atmos-desktop-use";
+
+fn session_id(req: &DriveRequest) -> Option<String> {
+    match req.session.as_deref() {
+        Some("") => None,
+        Some(s) => Some(s.to_string()),
+        None => Some(DEFAULT_DRIVE_SESSION.to_string()),
+    }
+}
+
+fn ensure_drive_session(engine: &Path, socket: &Path, session: &str) {
+    let _ = host::call_tool(
+        engine,
+        socket,
+        "start_session",
+        &json!({
+            "session": session,
+            "capture_scope": "desktop",
+        }),
+    );
+    // Keep the agent cursor visible for long runs (default engine idle hide ~20s).
+    let _ = host::call_tool(
+        engine,
+        socket,
+        "set_agent_cursor_enabled",
+        &json!({ "session": session, "enabled": true }),
+    );
+    let _ = host::call_tool(
+        engine,
+        socket,
+        "set_agent_cursor_motion",
+        &json!({
+            "session": session,
+            "idle_hide_ms": 3_600_000.0,
+        }),
+    );
+}
+
+/// Desktop-scope scale: PNG pixels / logical screen points (often 2.0 on Retina).
+/// Source of truth is get_desktop_state metadata, not get_screen_size.scale_factor
+/// (which can report 1.0 while the PNG is still 2×).
+fn desktop_png_scale(
+    engine: &Path,
+    socket: &Path,
+) -> Result<(f64, f64, serde_json::Value), String> {
+    let tmp = tempfile::Builder::new()
+        .prefix("atmos-du-scale-")
+        .suffix(".png")
+        .tempfile()
+        .map_err(|e| format!("scale probe tempfile failed: {e}"))?;
+    let path = tmp.path().to_path_buf();
+    let v = host::call_tool_with_screenshot_out(
+        engine,
+        socket,
+        "get_desktop_state",
+        &json!({}),
+        &path,
+    )?;
+    let screen_w = v
+        .get("screen_width")
+        .and_then(|x| x.as_f64())
+        .or_else(|| {
+            v.get("screen_width")
+                .and_then(|x| x.as_i64())
+                .map(|n| n as f64)
+        })
+        .unwrap_or(0.0);
+    let screen_h = v
+        .get("screen_height")
+        .and_then(|x| x.as_f64())
+        .or_else(|| {
+            v.get("screen_height")
+                .and_then(|x| x.as_i64())
+                .map(|n| n as f64)
+        })
+        .unwrap_or(0.0);
+    let shot_w = v
+        .get("screenshot_width")
+        .and_then(|x| x.as_f64())
+        .or_else(|| {
+            v.get("screenshot_width")
+                .and_then(|x| x.as_i64())
+                .map(|n| n as f64)
+        })
+        .unwrap_or(0.0);
+    let shot_h = v
+        .get("screenshot_height")
+        .and_then(|x| x.as_f64())
+        .or_else(|| {
+            v.get("screenshot_height")
+                .and_then(|x| x.as_i64())
+                .map(|n| n as f64)
+        })
+        .unwrap_or(0.0);
+    let sx = if screen_w > 0.0 && shot_w > 0.0 {
+        shot_w / screen_w
+    } else {
+        1.0
+    };
+    let sy = if screen_h > 0.0 && shot_h > 0.0 {
+        shot_h / screen_h
+    } else {
+        1.0
+    };
+    let meta = json!({
+        "screen_width": screen_w,
+        "screen_height": screen_h,
+        "screenshot_width": shot_w,
+        "screenshot_height": shot_h,
+        "scale_x": sx,
+        "scale_y": sy,
+        "coord_space_engine": "png",
+    });
+    // Keep tempfile until drop after read; engine already wrote PNG.
+    drop(tmp);
+    Ok((sx, sy, meta))
+}
+
+fn to_engine_desktop_xy(
+    engine: &Path,
+    socket: &Path,
+    x: i32,
+    y: i32,
+    space: CoordSpace,
+) -> Result<(i32, i32, Option<serde_json::Value>), String> {
+    match space {
+        CoordSpace::Png => Ok((x, y, None)),
+        CoordSpace::Points => {
+            let (sx, sy, meta) = desktop_png_scale(engine, socket)?;
+            let px = (x as f64 * sx).round() as i32;
+            let py = (y as f64 * sy).round() as i32;
+            Ok((px, py, Some(meta)))
+        }
+    }
+}
+
+fn inject_session(args: &mut serde_json::Value, session: Option<&str>) {
+    if let (Some(s), Some(obj)) = (session, args.as_object_mut()) {
+        obj.insert("session".into(), json!(s));
+    }
+}
+
 fn run_engine(
     manager: &DesktopUseManager,
     engine: &Path,
@@ -295,34 +725,112 @@ fn run_engine(
         };
     }
 
-    let (tool, args) = match req.action {
+    let delivery = req.delivery_mode.as_deref().unwrap_or("background");
+    let session = session_id(req);
+    if let Some(ref s) = session {
+        ensure_drive_session(engine, &socket, s);
+    }
+
+    let mut scale_meta: Option<serde_json::Value> = None;
+    let highlight_meta = apply_action_highlight(engine, &socket, req, action_name);
+
+    let (tool, mut args) = match req.action {
         DriveAction::Click => {
-            let (Some(x), Some(y)) = (req.x, req.y) else {
-                return DriveResult {
-                    ok: false,
-                    action: action_name.into(),
-                    detail: None,
-                    capture: None,
-                    result: None,
-                    error: Some(
-                        DriveError::InvalidArgs("click requires --x and --y".into()).message(),
-                    ),
-                    error_code: Some("invalid_args".into()),
+            // Preferred background path: AX element_token (works off-focus / off-Space).
+            if let Some(token) = req.element_token.as_ref() {
+                let mut a = json!({
+                    "element_token": token,
+                    "delivery_mode": delivery,
+                });
+                if let Some(pid) = req.pid {
+                    a["pid"] = json!(pid);
+                }
+                if let Some(wid) = req.window_id {
+                    a["window_id"] = json!(wid);
+                }
+                ("click", a)
+            } else if let (Some(idx), Some(snap)) = (req.element_index, req.snapshot_id.as_ref()) {
+                let mut a = json!({
+                    "element_index": idx,
+                    "snapshot_id": snap,
+                    "delivery_mode": delivery,
+                });
+                if let Some(pid) = req.pid {
+                    a["pid"] = json!(pid);
+                }
+                if let Some(wid) = req.window_id {
+                    a["window_id"] = json!(wid);
+                }
+                ("click", a)
+            } else {
+                let (Some(x), Some(y)) = (req.x, req.y) else {
+                    return DriveResult {
+                        ok: false,
+                        action: action_name.into(),
+                        detail: None,
+                        capture: None,
+                        result: None,
+                        error: Some(
+                            DriveError::InvalidArgs(
+                                "click requires --x/--y, or --element-token, or --element-index + --snapshot-id"
+                                    .into(),
+                            )
+                            .message(),
+                        ),
+                        error_code: Some("invalid_args".into()),
+                    };
                 };
-            };
-            // Desktop-scope pixel click for verification without window binding.
-            let mut args = json!({
-                "x": x,
-                "y": y,
-                "scope": "desktop",
-            });
-            if let Some(pid) = req.pid {
-                args["pid"] = json!(pid);
+                // Engine contract (0.17):
+                // - scope=desktop + x/y = get_desktop_state PNG pixels (often 2× points).
+                //   Do NOT also pass pid/window_id (those switch to window-local).
+                // - window-local pixels need window_id (+ optional pid).
+                // - Pixel path needs an on-screen window; AX path does not.
+                // Default delivery_mode is background (no persistent fronting).
+                let args = if req.window_id.is_some() {
+                    let mut a = json!({
+                        "x": x,
+                        "y": y,
+                        "delivery_mode": delivery,
+                    });
+                    if let Some(pid) = req.pid {
+                        a["pid"] = json!(pid);
+                    }
+                    if let Some(wid) = req.window_id {
+                        a["window_id"] = json!(wid);
+                    }
+                    a
+                } else {
+                    let (ex, ey, meta) =
+                        match to_engine_desktop_xy(engine, &socket, x, y, req.coord_space) {
+                            Ok(v) => v,
+                            Err(e) => {
+                                return DriveResult {
+                                    ok: false,
+                                    action: action_name.into(),
+                                    detail: None,
+                                    capture: None,
+                                    result: None,
+                                    error: Some(scrub_vendor(&format!(
+                                        "{}: {e}",
+                                        strings::ERR_ENGINE_FAILED
+                                    ))),
+                                    error_code: Some("control_engine_failed".into()),
+                                };
+                            }
+                        };
+                    scale_meta = meta;
+                    let mut move_args = json!({ "x": ex, "y": ey, "scope": "desktop" });
+                    inject_session(&mut move_args, session.as_deref());
+                    let _ = host::call_tool(engine, &socket, "move_cursor", &move_args);
+                    json!({
+                        "x": ex,
+                        "y": ey,
+                        "scope": "desktop",
+                        "delivery_mode": delivery,
+                    })
+                };
+                ("click", args)
             }
-            if let Some(wid) = req.window_id {
-                args["window_id"] = json!(wid);
-            }
-            ("click", args)
         }
         DriveAction::Type => {
             let Some(text) = req.text.as_ref() else {
@@ -336,29 +844,106 @@ fn run_engine(
                     error_code: Some("invalid_args".into()),
                 };
             };
-            let mut args = json!({ "text": text });
+            let mut args = json!({
+                "text": text,
+                "delivery_mode": delivery,
+            });
             if let Some(pid) = req.pid {
                 args["pid"] = json!(pid);
             }
             if let Some(wid) = req.window_id {
                 args["window_id"] = json!(wid);
             }
+            if let Some(token) = req.element_token.as_ref() {
+                args["element_token"] = json!(token);
+            }
             ("type_text", args)
         }
         DriveAction::Verify => ("list_windows", json!({})),
-        DriveAction::Screenshot => unreachable!(),
+        DriveAction::WindowState => {
+            let Some(pid) = req.pid else {
+                return DriveResult {
+                    ok: false,
+                    action: action_name.into(),
+                    detail: None,
+                    capture: None,
+                    result: None,
+                    error: Some(
+                        DriveError::InvalidArgs("window-state requires --pid".into()).message(),
+                    ),
+                    error_code: Some("invalid_args".into()),
+                };
+            };
+            let Some(wid) = req.window_id else {
+                return DriveResult {
+                    ok: false,
+                    action: action_name.into(),
+                    detail: None,
+                    capture: None,
+                    result: None,
+                    error: Some(
+                        DriveError::InvalidArgs("window-state requires --window-id".into())
+                            .message(),
+                    ),
+                    error_code: Some("invalid_args".into()),
+                };
+            };
+            (
+                "get_window_state",
+                json!({
+                    "pid": pid,
+                    "window_id": wid,
+                    "include_screenshot": req.include_screenshot,
+                }),
+            )
+        }
+        DriveAction::Screenshot | DriveAction::Highlight | DriveAction::SessionEnd => {
+            unreachable!()
+        }
     };
 
+    inject_session(&mut args, session.as_deref());
+
     match host::call_tool(engine, &socket, tool, &args) {
-        Ok(v) => DriveResult {
-            ok: true,
-            action: action_name.into(),
-            detail: Some(v.to_string()),
-            result: Some(v),
-            capture: None,
-            error: None,
-            error_code: None,
-        },
+        Ok(v) => {
+            let mut result = if let Some(meta) = scale_meta {
+                match v {
+                    serde_json::Value::Object(mut obj) => {
+                        obj.insert("coord_conversion".into(), meta);
+                        serde_json::Value::Object(obj)
+                    }
+                    other => json!({ "engine": other, "coord_conversion": meta }),
+                }
+            } else {
+                v
+            };
+            if let Some(hl) = highlight_meta {
+                if let Some(obj) = result.as_object_mut() {
+                    obj.insert("highlight".into(), hl);
+                } else {
+                    result = json!({ "engine": result, "highlight": hl });
+                }
+            }
+            // Annotate delivery so agents can see background was used.
+            if let Some(obj) = result.as_object_mut() {
+                obj.entry("delivery_mode_requested")
+                    .or_insert_with(|| json!(delivery));
+                obj.entry("background_note").or_insert_with(|| {
+                    json!(
+                        "Default is background (no persistent fronting). AX element_token works off-focus; pixel path needs on-screen window. Use --delivery-mode foreground only if background fails (brief front→act→restore)."
+                    )
+                });
+            }
+            DriveResult {
+                ok: true,
+                action: action_name.into(),
+                detail: Some(result.to_string()),
+                result: Some(result),
+                capture: None,
+                error: None,
+                error_code: None,
+            }
+        }
         Err(e) => DriveResult {
             ok: false,
             action: action_name.into(),
@@ -402,5 +987,33 @@ mod tests {
         let err = res.error.unwrap();
         assert!(!strings::contains_vendor_brand(&err));
         assert!(err.contains("desktop-use"));
+    }
+
+    #[test]
+    fn coord_space_parse_aliases() {
+        assert_eq!(CoordSpace::parse("png"), Some(CoordSpace::Png));
+        assert_eq!(CoordSpace::parse("pixels"), Some(CoordSpace::Png));
+        assert_eq!(CoordSpace::parse("points"), Some(CoordSpace::Points));
+        assert_eq!(CoordSpace::parse("logical"), Some(CoordSpace::Points));
+        assert_eq!(CoordSpace::parse("nope"), None);
+    }
+
+    #[test]
+    fn session_id_defaults_and_disable() {
+        let default_req = DriveRequest::default();
+        assert_eq!(
+            session_id(&default_req).as_deref(),
+            Some(DEFAULT_DRIVE_SESSION)
+        );
+        let off = DriveRequest {
+            session: Some(String::new()),
+            ..Default::default()
+        };
+        assert_eq!(session_id(&off), None);
+        let custom = DriveRequest {
+            session: Some("run-1".into()),
+            ..Default::default()
+        };
+        assert_eq!(session_id(&custom).as_deref(), Some("run-1"));
     }
 }

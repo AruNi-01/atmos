@@ -35,7 +35,7 @@ pub fn permission_doctor(manager: &DesktopUseManager) -> PermissionDoctor {
     let host_app = manager.host_app_path();
     let mut notes = Vec::new();
     notes.push(scrub_vendor(
-        "Grant Accessibility and Screen Recording to Atmos Desktop Use for AppShot and desktop control. One host app identity is used for both.",
+        "Grant Accessibility and Screen Recording to Atmos Desktop Use (not any third-party driver name) for AppShot and desktop control. Use Settings → Desktop Use → Grant permissions to open System Settings; on modern macOS enable the toggles there (a popup may not appear).",
     ));
 
     let mut accessibility = None;

@@ -50,4 +50,22 @@ describe("branding-paths", () => {
       rmSync(root, { recursive: true, force: true });
     }
   });
+
+  it("prefers high-res PNG over .icns for macOS dock path", () => {
+    const root = join(
+      tmpdir(),
+      `atmos-electron-icons-dock-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    );
+    mkdirSync(root, { recursive: true });
+    try {
+      writeFileSync(join(root, "icon.png"), "png");
+      writeFileSync(join(root, "icon.icns"), "icns");
+      const icons = resolveAppIcons([root], "darwin");
+      // Avoid nativeImage.createFromPath(.icns) low-res dock tile bug
+      expect(icons.dockIconPath).toBe(join(root, "icon.png"));
+      expect(icons.icnsPath).toBe(join(root, "icon.icns"));
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
 });

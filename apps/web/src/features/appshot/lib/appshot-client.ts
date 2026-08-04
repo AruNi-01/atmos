@@ -136,21 +136,15 @@ export async function openAppshotPermissionTarget(
 
 /**
  * Primary path (APP-052): open Settings → Desktop Use for permissions.
- * Falls back to the legacy secondary window only if in-app navigation fails.
+ * No separate AppShot permission product — always the Desktop Use section.
  */
 export async function showAppshotPermissionsWindow(
-  locale = currentAppLocale(),
+  _locale = currentAppLocale(),
 ): Promise<void> {
-  try {
-    const { openDesktopUseSettingsInApp } = await import(
-      "./open-desktop-use-settings"
-    );
-    openDesktopUseSettingsInApp();
-    return;
-  } catch {
-    /* fall through to legacy window */
-  }
-  await invokeAppshot<void>("appshot_show_permissions_window", { locale });
+  const { openDesktopUseSettingsInApp } = await import(
+    "./open-desktop-use-settings"
+  );
+  openDesktopUseSettingsInApp();
 }
 
 export async function listenAppshotPreview(

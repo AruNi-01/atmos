@@ -196,35 +196,99 @@ fn call_tool_inner(
     )
 }
 
-/// Open system permission grant flow for the rebranded host app when present.
+/// Open macOS Privacy panes used by Desktop Use (Screen Recording / Accessibility).
+///
+/// Modern macOS often will **not** show a one-shot Screen Recording dialog; the
+/// reliable recovery path is System Settings → Privacy & Security.
+pub fn open_system_privacy_pane(pane: &str) -> Result<(), String> {
+    let url = match pane {
+        "screen" | "screen_recording" | "Privacy_ScreenCapture" => {
+            "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture"
+        }
+        "accessibility" | "Privacy_Accessibility" => {
+            "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility"
+        }
+        _ => "x-apple.systempreferences:com.apple.preference.security?Privacy",
+    };
+    let status = Command::new("open")
+        .arg(url)
+        .status()
+        .map_err(|e| scrub_vendor(&format!("failed to open System Settings: {e}")))?;
+    if status.success() {
+        Ok(())
+    } else {
+        Err(scrub_vendor("failed to open System Settings Privacy pane"))
+    }
+}
+
+/// Which privacy pane to open for grant UX.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PermissionGrantTarget {
+    /// Both panes (legacy / bulk). Still **no** capture probe — avoids double dialog.
+    All,
+    Accessibility,
+    ScreenRecording,
+}
+
+impl PermissionGrantTarget {
+    pub fn parse(s: &str) -> Option<Self> {
+        match s.trim().to_ascii_lowercase().as_str() {
+            "all" | "" => Some(Self::All),
+            "accessibility" | "ax" | "privacy_accessibility" => Some(Self::Accessibility),
+            "screen" | "screen_recording" | "screencapture" | "privacy_screencapture" => {
+                Some(Self::ScreenRecording)
+            }
+            _ => None,
+        }
+    }
+}
+
+/// Atmos-owned permission grant for the rebranded host app.
+///
+/// Opens **only** System Settings → Privacy for the requested target.
+/// Does **not** fire a live screenshot / capture probe: that would raise the
+/// system “allow screen recording” alert *in addition* to Settings, which is
+/// noisy once the Settings pane is already open.
+///
+/// Never shells the vendor `permissions grant` path — it re-launches CuaDriver.
 pub fn open_host_permission_grant(
     host_app: Option<&Path>,
     engine_bin: &Path,
+    socket: &Path,
+    data_dir: &Path,
+    target: PermissionGrantTarget,
 ) -> Result<(), String> {
     #[cfg(target_os = "macos")]
     {
-        if let Some(app) = host_app {
-            if app.is_dir() {
-                let status = Command::new("open")
-                    .args(["-n", "-g", "-a"])
-                    .arg(app)
-                    .args(["--args", "permissions", "grant"])
-                    .status()
-                    .map_err(|e| scrub_vendor(&e.to_string()))?;
-                if status.success() {
-                    return Ok(());
-                }
+        let _ = (host_app, data_dir);
+        match target {
+            PermissionGrantTarget::Accessibility => {
+                open_system_privacy_pane("accessibility")?;
+            }
+            PermissionGrantTarget::ScreenRecording => {
+                open_system_privacy_pane("screen_recording")?;
+            }
+            PermissionGrantTarget::All => {
+                open_system_privacy_pane("screen_recording")?;
+                thread::sleep(Duration::from_millis(350));
+                open_system_privacy_pane("accessibility")?;
             }
         }
-        let _ = Command::new(engine_bin)
-            .args(["permissions", "grant"])
-            .status();
+
+        // Best-effort: keep host daemon alive so doctor reflects live TCC, but
+        // never trigger capture APIs here (no System Settings + TCC popup stack).
+        if engine_bin.is_file() {
+            let _ = ensure_daemon(engine_bin, socket, host_app);
+        }
+
         Ok(())
     }
     #[cfg(not(target_os = "macos"))]
     {
-        let _ = (host_app, engine_bin);
-        Ok(())
+        let _ = (host_app, engine_bin, socket, data_dir, target);
+        Err(scrub_vendor(
+            "Desktop Use permission grant is only supported on macOS.",
+        ))
     }
 }
 
@@ -352,5 +416,24 @@ mod tests {
         assert!(!crate::strings::contains_vendor_brand(
             v["host"].as_str().unwrap()
         ));
+    }
+
+    #[test]
+    fn privacy_pane_urls_are_system_settings() {
+        // Pure contract: open_system_privacy_pane uses these URL suffixes.
+        // Keep aligned with AppShot openPermissions.
+        for pane in ["screen_recording", "accessibility", "other"] {
+            let url = match pane {
+                "screen" | "screen_recording" | "Privacy_ScreenCapture" => {
+                    "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture"
+                }
+                "accessibility" | "Privacy_Accessibility" => {
+                    "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility"
+                }
+                _ => "x-apple.systempreferences:com.apple.preference.security?Privacy",
+            };
+            assert!(url.contains("x-apple.systempreferences"));
+            assert!(!crate::strings::contains_vendor_brand(url));
+        }
     }
 }

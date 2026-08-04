@@ -12,6 +12,9 @@ use tar::Archive;
 use crate::engine_manifest::{current_platform, BinaryEntry, EngineManifest};
 use crate::strings::scrub_vendor;
 
+/// Atmos product icon for the rebranded host app (replaces vendor AppIcon).
+const HOST_APP_ICON_ICNS: &[u8] = include_bytes!("../assets/host-app-icon.icns");
+
 pub struct InstallLayout {
     pub engine_bin: PathBuf,
     pub host_app: Option<PathBuf>,
@@ -114,6 +117,10 @@ pub fn download_and_install(
         .clone();
 
     if engine_bin.is_file() && !force {
+        // Refresh branding on already-installed hosts (icon / plist) without re-download.
+        if let Some(host) = host_app_path(data_dir, &manifest) {
+            let _ = rebrand_existing_host_app(&host, &manifest);
+        }
         return Ok(InstallLayout {
             engine_bin: engine_bin.to_path_buf(),
             host_app: host_app_path(data_dir, &manifest),
@@ -262,27 +269,92 @@ fn install_host_app(src: &Path, dest: &Path, manifest: &EngineManifest) -> Resul
         let _ = fs::remove_dir_all(dest);
     }
     copy_dir_recursive(src, dest).map_err(|e| scrub_vendor(&e.to_string()))?;
+    rebrand_existing_host_app(dest, manifest)
+}
 
-    // Rebrand to Atmos Desktop Use so TCC grants show one product name.
-    let plist = dest.join("Contents").join("Info.plist");
-    if plist.is_file() {
-        rewrite_host_plist(&plist, manifest)?;
+/// Rebrand an already-extracted host app: Atmos name/bundle id + product icon.
+///
+/// **Idempotent:** skips rewrite + codesign when branding is already correct so we
+/// do not rotate the ad-hoc signature (macOS TCC is keyed to code identity and
+/// re-signing would drop Accessibility / Screen Recording grants).
+pub fn rebrand_existing_host_app(dest: &Path, manifest: &EngineManifest) -> Result<(), String> {
+    if !dest.is_dir() {
+        return Err(scrub_vendor("host app path is not a directory"));
     }
 
-    // Ad-hoc sign so LaunchServices accepts the rebranded host on macOS dev/dogfood.
+    let mut dirty = false;
+    let plist = dest.join("Contents").join("Info.plist");
+    if plist.is_file() && host_plist_needs_rebrand(&plist, manifest) {
+        rewrite_host_plist(&plist, manifest)?;
+        dirty = true;
+    }
+    if host_icon_needs_replace(dest) {
+        apply_host_app_icon(dest)?;
+        dirty = true;
+    }
+
+    if !dirty {
+        return Ok(());
+    }
+
+    // Ad-hoc sign only when branding bits changed.
     #[cfg(target_os = "macos")]
     {
         let _ = Command::new("codesign")
             .args(["--force", "--deep", "-s", "-"])
             .arg(dest)
             .status();
-        // Refresh LaunchServices name (best-effort).
+        // Refresh LaunchServices name + icon (best-effort).
         let _ = Command::new("/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister")
             .args(["-f"])
             .arg(dest)
             .status();
+        // Touch bundle so Finder/Dock icon cache notices the change.
+        let _ = Command::new("touch").arg(dest).status();
     }
 
+    Ok(())
+}
+
+fn host_icon_needs_replace(dest: &Path) -> bool {
+    let icon_path = dest.join("Contents").join("Resources").join("AppIcon.icns");
+    match fs::read(&icon_path) {
+        Ok(bytes) => bytes.as_slice() != HOST_APP_ICON_ICNS,
+        Err(_) => true,
+    }
+}
+
+fn host_plist_needs_rebrand(plist: &Path, manifest: &EngineManifest) -> bool {
+    // plutil -extract returns the string value; treat any mismatch/missing as dirty.
+    let checks = [
+        ("CFBundleIdentifier", manifest.host_bundle_id.as_str()),
+        ("CFBundleDisplayName", manifest.host_app_name.as_str()),
+        ("CFBundleName", manifest.host_app_name.as_str()),
+    ];
+    for (key, expected) in checks {
+        let output = Command::new("plutil")
+            .args(["-extract", key, "raw", "-o", "-"])
+            .arg(plist)
+            .output();
+        match output {
+            Ok(o) if o.status.success() => {
+                let got = String::from_utf8_lossy(&o.stdout).trim().to_string();
+                if got != expected {
+                    return true;
+                }
+            }
+            _ => return true,
+        }
+    }
+    false
+}
+
+fn apply_host_app_icon(dest: &Path) -> Result<(), String> {
+    let resources = dest.join("Contents").join("Resources");
+    fs::create_dir_all(&resources).map_err(|e| scrub_vendor(&e.to_string()))?;
+    // Vendor package uses CFBundleIconFile = AppIcon → AppIcon.icns
+    let icon_path = resources.join("AppIcon.icns");
+    fs::write(&icon_path, HOST_APP_ICON_ICNS).map_err(|e| scrub_vendor(&e.to_string()))?;
     Ok(())
 }
 
@@ -295,6 +367,8 @@ fn rewrite_host_plist(plist: &Path, manifest: &EngineManifest) -> Result<(), Str
         ),
         ("CFBundleName", manifest.host_app_name.as_str()),
         ("CFBundleIdentifier", manifest.host_bundle_id.as_str()),
+        ("CFBundleIconFile", "AppIcon"),
+        ("CFBundleIconName", "AppIcon"),
         (
             "NSScreenCaptureUsageDescription",
             "Atmos Desktop Use captures the screen so agents can see and help with the interface you ask them to control.",
@@ -310,7 +384,11 @@ fn rewrite_host_plist(plist: &Path, manifest: &EngineManifest) -> Result<(), Str
             .arg(plist)
             .status();
         if status.map(|s| !s.success()).unwrap_or(true) {
-            // best-effort
+            // Key may be missing on some plists — try -insert then.
+            let _ = Command::new("plutil")
+                .args(["-insert", key, "-string", value])
+                .arg(plist)
+                .status();
         }
     }
     Ok(())
@@ -354,6 +432,28 @@ mod tests {
     use crate::engine_manifest::EngineManifest;
     use std::io::Write;
     use tempfile::tempdir;
+
+    #[test]
+    fn host_app_icon_asset_is_nonempty_icns() {
+        assert!(HOST_APP_ICON_ICNS.len() > 1000);
+        // icns magic
+        assert_eq!(&HOST_APP_ICON_ICNS[0..4], b"icns");
+    }
+
+    #[test]
+    fn apply_host_app_icon_writes_appicon() {
+        let dir = tempdir().unwrap();
+        let app = dir.path().join("Atmos Desktop Use.app");
+        let resources = app.join("Contents").join("Resources");
+        fs::create_dir_all(&resources).unwrap();
+        // Pretend vendor icon existed
+        fs::write(resources.join("AppIcon.icns"), b"vendor-icon").unwrap();
+        assert!(host_icon_needs_replace(&app));
+        apply_host_app_icon(&app).unwrap();
+        let written = fs::read(resources.join("AppIcon.icns")).unwrap();
+        assert_eq!(written, HOST_APP_ICON_ICNS);
+        assert!(!host_icon_needs_replace(&app));
+    }
 
     #[test]
     fn install_from_local_tarball_fixture() {

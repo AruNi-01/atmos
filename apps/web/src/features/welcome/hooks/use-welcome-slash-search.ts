@@ -34,9 +34,14 @@ export function useWelcomeSlashSearch({
   const debouncedSlashQuery = useDebouncedPopoverQuery(popover, 300);
   const skillsQuery = useSkillsListQuery();
 
-  const skills = React.useMemo(
-    () => (skillsQuery.data?.skills ?? []).filter(isSlashSurfacedSkill),
+  const allSkills = React.useMemo(
+    () => skillsQuery.data?.skills ?? [],
     [skillsQuery.data?.skills],
+  );
+
+  const skills = React.useMemo(
+    () => allSkills.filter(isSlashSurfacedSkill),
+    [allSkills],
   );
 
   const visibleSkills = React.useMemo(
@@ -96,6 +101,7 @@ export function useWelcomeSlashSearch({
   }, [debouncedSlashQuery, availableAgents, agentsFuse]);
 
   return {
+    allSkills,
     filteredAgents,
     filteredProjects,
     filteredSkills,

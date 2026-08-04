@@ -208,6 +208,22 @@ When compressing context, create a continuation-oriented coding handoff summary.
 
 ---
 
+## Third-party licenses & [NOTICE](NOTICE)
+
+Before adding a third-party dependency or asset, check its license is compatible with this repo. **Do not** take copyleft that would force Atmos itself open under GPL/AGPL-style terms without an explicit product decision.
+
+**Write an entry in root [`NOTICE`](NOTICE)** when we **redistribute** something whose license requires retaining copyright/attribution in our tree or install artifacts, for example:
+
+- Vendored source under `vendor/`
+- Fonts, icons, or other assets copied into the repo / product bundles
+- **Downloaded binaries / SDKs / engines we ship or install for users** (even if rebranded), e.g. pinned release tarballs
+
+**Usually skip `NOTICE`** for normal package-manager deps whose license files stay in the registry install (`bun`/`npm` → `node_modules`, `cargo` → crates.io). Those are not copied into our source tree; their licenses live with the package metadata.
+
+When in doubt: if the file is **in this monorepo** or **we redistribute the binary**, put it in `NOTICE`; if it only appears via install-time lockfiles, don’t.
+
+---
+
 ## Coding Behavioral Guidelines
 
 **Tradeoff**: These guidelines bias toward caution over speed. For trivial tasks, use judgment.
