@@ -3,12 +3,17 @@
 /**
  * APP-052: Elevate floating UI above desktop native preview (WebContentsView).
  *
- * Stability rule (fixes open/close flicker):
- * - While native preview is present, keep portalContainer **fixed** on the overlay
- *   document root. Do **not** flip it null↔root on every menu open (that remounts
- *   Radix content and causes flash + APP-029 hide thrash).
+ * Stability rules:
+ * - While native preview is present, keep portalContainer **fixed** on the
+ *   overlay document root. Do **not** flip it null↔root on every open (that
+ *   remounts Radix content and causes flash + APP-029 hide thrash).
  * - Only show/hide the overlay BrowserWindow and toggle pointer capture.
- * - When preview goes away, clear portal and release the surface.
+ * - Layer counting runs against the **overlay document only**. Floating UI
+ *   that stays in the host document is APP-029's job (occlusion hide); the
+ *   overlay window must never show/capture for layers it does not contain.
+ * - Pointer capture only when a non-hover layer (menu/popover/dialog…) is
+ *   open. Tooltip/hover-card–only frames stay click-through so host clicks
+ *   keep working.
  *
  * Pure web: capability false → container null → document body.
  */
@@ -22,10 +27,14 @@ import {
 } from "@/shared/lib/desktop-bridge";
 import { useDesktopElevationStore } from "./elevation-store";
 import { OVERLAY_CREATE_BUDGET_MS } from "./constants";
-import { countOpenLayers } from "./layer-count";
+import { summarizeOpenLayers, type OpenLayerSummary } from "./layer-count";
+import type { OverlayPointerMode } from "./elevation-policy";
 
 const OVERLAY_ROOT_ID = "atmos-overlay-root";
 const OVERLAY_WINDOW_NAME = "atmos-desktop-overlay";
+
+/** Debounce hide so brief 0-count frames during remount do not thrash. */
+const HIDE_DEBOUNCE_MS = 120;
 
 /** Force transparent shell after theme/style clone (prevents black full-window fill). */
 const OVERLAY_TRANSPARENT_CSS = `
@@ -72,19 +81,38 @@ function syncThemeToOverlayDocument(doc: Document) {
   }
 }
 
+function hostStyleSignature(): string {
+  const nodes = document.querySelectorAll("link[rel='stylesheet'], style");
+  let textLength = 0;
+  let hrefs = "";
+  nodes.forEach((node) => {
+    if (node.tagName === "LINK") hrefs += (node as HTMLLinkElement).href + ";";
+    else textLength += node.textContent?.length ?? 0;
+  });
+  return `${nodes.length}:${textLength}:${hrefs}`;
+}
+
+/**
+ * Mirror host stylesheets into the overlay document. Re-runs when the host
+ * head changes (HMR, lazy-loaded chunks) using a cheap signature diff.
+ */
 function cloneStylesToOverlay(doc: Document) {
   try {
     const head = doc.head;
     if (!head) return;
-    if (head.querySelector("[data-atmos-overlay-styles]")) return;
-    const mark = doc.createElement("meta");
-    mark.setAttribute("data-atmos-overlay-styles", "1");
-    head.appendChild(mark);
+    const signature = hostStyleSignature();
+    if (head.getAttribute("data-atmos-overlay-styles") === signature) return;
+    head.setAttribute("data-atmos-overlay-styles", signature);
 
+    head
+      .querySelectorAll("[data-atmos-overlay-style-clone]")
+      .forEach((node) => node.remove());
     for (const node of Array.from(
       document.querySelectorAll("link[rel='stylesheet'], style"),
     )) {
-      head.appendChild(node.cloneNode(true));
+      const clone = node.cloneNode(true) as HTMLElement;
+      clone.setAttribute("data-atmos-overlay-style-clone", "1");
+      head.appendChild(clone);
     }
   } catch {
     /* ignore */
@@ -149,12 +177,7 @@ export function FloatingElevationProvider({
   const overlayMoRef = React.useRef<MutationObserver | null>(null);
   const overlayListenerDocRef = React.useRef<Document | null>(null);
   const rafIdsRef = React.useRef<number[]>([]);
-  /** Overlay window currently shown + capturing. */
-  const windowShownRef = React.useRef(false);
-  /** Debounce hide so brief 0-count frames during remount do not thrash. */
   const hideTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const HIDE_DEBOUNCE_MS = 120;
 
   React.useEffect(() => {
     let cancelled = false;
@@ -261,7 +284,6 @@ export function FloatingElevationProvider({
         // Stable portal target for the whole preview session (no flip on open).
         setPortalContainer(root);
         // Stay hidden until layers open.
-        windowShownRef.current = false;
         await desktopInvoke("overlay_bridge_release", {}).catch(() => {});
         return true;
       } catch {
@@ -285,37 +307,19 @@ export function FloatingElevationProvider({
     setSurfaceReady,
   ]);
 
-  const showOverlayWindow = React.useCallback(async () => {
-    if (hideTimerRef.current) {
-      clearTimeout(hideTimerRef.current);
-      hideTimerRef.current = null;
-    }
-    const win = overlayWindowRef.current;
-    if (win && !win.closed) {
-      try {
-        forceOverlayTransparent(win.document);
-      } catch {
-        /* ignore */
-      }
-    }
-    useDesktopElevationStore.getState().setPointerMode("capture");
-    await desktopInvoke("overlay_bridge_set_pointer_mode", {
-      mode: "capture",
-    }).catch(() => {});
-    await desktopInvoke("overlay_bridge_note_activity", {}).catch(() => {});
-    windowShownRef.current = true;
-  }, []);
-
   const hideOverlayWindowDebounced = React.useCallback(() => {
     if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
     hideTimerRef.current = setTimeout(() => {
       hideTimerRef.current = null;
       // Re-check: if layers reappeared, do not hide.
       const portal = useDesktopElevationStore.getState().portalContainer;
-      const n = portal ? countOpenLayers([portal]) : 0;
-      if (n > 0) return;
-      windowShownRef.current = false;
+      const summary = portal
+        ? summarizeOpenLayers([portal])
+        : { open: 0, capture: 0 };
+      if (summary.open > 0) return;
       setElevatedLayerCount(0);
+      // Main resets to pass-through on release; keep the store in sync.
+      useDesktopElevationStore.getState().setPointerMode("pass-through");
       void desktopInvoke("overlay_bridge_release", {}).catch(() => {});
     }, HIDE_DEBOUNCE_MS);
   }, [setElevatedLayerCount]);
@@ -329,7 +333,6 @@ export function FloatingElevationProvider({
         clearTimeout(hideTimerRef.current);
         hideTimerRef.current = null;
       }
-      windowShownRef.current = false;
       portalRootRef.current = null;
       overlayWindowRef.current = null;
       resetElevationRuntime();
@@ -345,7 +348,7 @@ export function FloatingElevationProvider({
     resetElevationRuntime,
   ]);
 
-  // Observe open layers in the **overlay portal** (and host only as bootstrap).
+  // Observe open layers in the overlay portal document.
   React.useEffect(() => {
     if (!capability || !nativePreviewPresent || typeof document === "undefined") {
       return;
@@ -354,20 +357,29 @@ export function FloatingElevationProvider({
     let disposed = false;
     let recountScheduled = false;
 
-    const applyLayerCount = (n: number) => {
-      setElevatedLayerCount(n);
-      if (n > 0) {
+    const applyLayerSummary = (summary: OpenLayerSummary) => {
+      setElevatedLayerCount(summary.open);
+      if (summary.open > 0) {
+        if (hideTimerRef.current) {
+          clearTimeout(hideTimerRef.current);
+          hideTimerRef.current = null;
+        }
+        const mode: OverlayPointerMode =
+          summary.capture > 0 ? "capture" : "pass-through";
         void (async () => {
           const ok = await ensureOverlayReady();
           if (disposed || !ok) return;
-          if (!windowShownRef.current) {
-            await showOverlayWindow();
-          } else {
-            // Keep idle timer cancelled while layers stay open.
-            await desktopInvoke("overlay_bridge_note_activity", {}).catch(
-              () => {},
-            );
+          const store = useDesktopElevationStore.getState();
+          if (store.pointerMode !== mode) {
+            store.setPointerMode(mode);
+            await desktopInvoke("overlay_bridge_set_pointer_mode", {
+              mode,
+            }).catch(() => {});
           }
+          // Shows the surface when hidden and keeps the idle timer cancelled.
+          await desktopInvoke("overlay_bridge_note_activity", {}).catch(
+            () => {},
+          );
         })();
       } else {
         hideOverlayWindowDebounced();
@@ -376,23 +388,12 @@ export function FloatingElevationProvider({
 
     const recountNow = () => {
       if (disposed) return;
+      // Overlay document only: host-document floaters are handled by APP-029
+      // occlusion hide, never by showing an (empty) capture surface.
       const portal = useDesktopElevationStore.getState().portalContainer;
-      // Primary: layers already elevated into portal document.
-      let n = portal ? countOpenLayers([portal]) : 0;
-      // Bootstrap: first open still paints on body until portal is published;
-      // after ensureOverlayReady publishes portal, next open goes straight there.
-      // While portal is ready, also count host body layers that use the same
-      // markers only if they are NOT already under portal (hostCount for
-      // transition). Prefer max so we don't flicker hide.
-      if (portal) {
-        const hostN = countOpenLayers([document.body]);
-        // If portal is set, Radix should target portal — host body should be 0
-        // for elevated primitives. If host still has layers, keep shown.
-        n = Math.max(n, hostN);
-      } else {
-        n = countOpenLayers([document.body]);
-      }
-      applyLayerCount(n);
+      applyLayerSummary(
+        portal ? summarizeOpenLayers([portal]) : { open: 0, capture: 0 },
+      );
     };
 
     const scheduleRecount = () => {
@@ -413,22 +414,6 @@ export function FloatingElevationProvider({
     };
 
     const onTransitionOrAnimation = () => scheduleRecount();
-
-    const hostMo = new MutationObserver(() => scheduleRecount());
-    hostMo.observe(document.body, {
-      childList: true,
-      subtree: true,
-      attributes: true,
-      attributeFilter: [
-        "data-state",
-        "aria-hidden",
-        "aria-modal",
-        "class",
-        "style",
-      ],
-    });
-    document.addEventListener("transitionend", onTransitionOrAnimation, true);
-    document.addEventListener("animationend", onTransitionOrAnimation, true);
 
     const detachOverlayListeners = () => {
       const prevDoc = overlayListenerDocRef.current;
@@ -489,23 +474,11 @@ export function FloatingElevationProvider({
 
     return () => {
       disposed = true;
-      hostMo.disconnect();
       overlayMoRef.current?.disconnect();
       detachOverlayListeners();
       unsub();
       for (const id of rafIdsRef.current) cancelAnimationFrame(id);
       if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
-      document.removeEventListener(
-        "transitionend",
-        onTransitionOrAnimation,
-        true,
-      );
-      document.removeEventListener(
-        "animationend",
-        onTransitionOrAnimation,
-        true,
-      );
-      windowShownRef.current = false;
       void desktopInvoke("overlay_bridge_release", {}).catch(() => {});
     };
   }, [
@@ -514,7 +487,6 @@ export function FloatingElevationProvider({
     hideOverlayWindowDebounced,
     nativePreviewPresent,
     setElevatedLayerCount,
-    showOverlayWindow,
   ]);
 
   React.useEffect(() => {
@@ -523,7 +495,6 @@ export function FloatingElevationProvider({
     void desktopListen("desktop-overlay:destroyed", () => {
       overlayWindowRef.current = null;
       portalRootRef.current = null;
-      windowShownRef.current = false;
       resetElevationRuntime();
     }).then((u) => {
       unlisten = typeof u === "function" ? u : undefined;
@@ -533,17 +504,29 @@ export function FloatingElevationProvider({
     };
   }, [capability, resetElevationRuntime]);
 
+  // Keep theme + stylesheets mirrored while the portal is live (theme toggle,
+  // HMR style injection, lazy-loaded chunk CSS).
   React.useEffect(() => {
     if (!portalContainer) return;
     const doc = portalContainer.ownerDocument;
-    const sync = () => forceOverlayTransparent(doc);
+    const sync = () => {
+      forceOverlayTransparent(doc);
+      cloneStylesToOverlay(doc);
+    };
     sync();
-    const mo = new MutationObserver(sync);
-    mo.observe(document.documentElement, {
+    const themeMo = new MutationObserver(sync);
+    themeMo.observe(document.documentElement, {
       attributes: true,
       attributeFilter: ["class", "data-theme", "style"],
     });
-    return () => mo.disconnect();
+    const headMo = new MutationObserver(sync);
+    if (document.head) {
+      headMo.observe(document.head, { childList: true, subtree: true });
+    }
+    return () => {
+      themeMo.disconnect();
+      headMo.disconnect();
+    };
   }, [portalContainer]);
 
   const containerForPortals =

@@ -78,15 +78,19 @@ Stable selectors used by both APP-029 and APP-052 layer counting include:
 **Lifecycle open** (elevation refcount) treats `data-state !== "closed"` without requiring `opacity > 0` (fade-in).  
 **Exception**: permanent markers like peek shells with `data-atmos-native-surface-overlay` still require visible opacity so they do not pin the overlay forever.
 
+**Cross-realm footgun**: layer counting runs against the **overlay document** (a different window realm). Never use host-realm `instanceof HTMLElement` or host `window.getComputedStyle` on overlay nodes — use `nodeType === 1` and `el.ownerDocument.defaultView.getComputedStyle(el)` (`layer-count.ts`).
+
+**Pointer classification**: tooltip / hover-card–only frames keep the overlay window `pass-through` (click-through, `showInactive`); any menu / popover / dialog layer switches to `capture` (+ keyboard focus moves to the overlay window; returned to host on release).
+
 ### 4. Suspend / hide composition (do not re-hardcode force-hide)
 
 Preview suspend is composed in `shouldSuspendDesktopNativePreview` (`elevation-policy.ts`):
 
 - **Always suspend**: loading, standalone handoff (embedded → detached).
-- **Occlusion**: geometry intersect **and** elevation does **not** cover.
-- **Elevatable chrome** (favorites / header / global search, etc.): suspend **only if** `!elevationCovers`.
+- **Host occlusion**: geometry intersect against **host-document** floaters always suspends — elevated layers live in the overlay document and never appear as host occlusion candidates, so anything the geometry check still sees is by definition not covered.
+- **Elevatable chrome** (favorites / header / global search, etc.): suspend **only if** `!elevationHealthy` (capability + surface ready + portal published; deliberately no layer-count so opening a popover cannot race a hide flash).
 
-When adding a new “chrome open” flag that used to force-hide preview, **gate it on `!elevationCovers`** (or rely on occlusion + markers). Do not OR unconditional force-hide for elevatable popovers.
+When adding a new “chrome open” flag that used to force-hide preview, **gate it on `!elevationHealthy`** (or rely on occlusion + markers). Do not OR unconditional force-hide for elevatable popovers.
 
 ### 5. Presence of native preview
 
@@ -95,7 +99,8 @@ Desktop-native active preview instances use **refcount** (`acquireNativePreviewS
 ### 6. Electron shell (only when changing overlay behavior)
 
 - Attach overlay host handling on **every** product window that can host preview (`main-window`, `secondary`, etc.).
-- `ensure` prepares; **show/capture only when portal has open layers**; `release` hides and stops capturing input (empty overlay must not steal clicks).
+- `ensure` prepares; **show/capture only when portal has open layers**; `release` hides, stops capturing input, and refocuses the host (empty overlay must not steal clicks or keyboard focus).
+- The overlay `BrowserWindow` **must be constructed by main** via the `setWindowOpenHandler` `createWindow` callback — `transparent: true` through `overrideBrowserWindowOptions` alone is unreliable for renderer-initiated windows (electron#22281: paints opaque black).
 - Do not reintroduce per-widget native windows as the default path.
 
 ---

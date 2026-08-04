@@ -1,6 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { Window } from "happy-dom";
-import { countOpenLayers, isLifecycleOpenLayer } from "../layer-count";
+import {
+  countOpenLayers,
+  isLifecycleOpenLayer,
+  summarizeOpenLayers,
+} from "../layer-count";
 
 function installDom() {
   const window = new Window({ url: "https://atmos.test/" });
@@ -87,5 +91,69 @@ describe("isLifecycleOpenLayer / countOpenLayers (B5)", () => {
         },
       }) as DOMRect;
     expect(isLifecycleOpenLayer(el)).toBe(true);
+  });
+
+  it("counts layers from a foreign-realm document (overlay window)", () => {
+    // Simulate the overlay BrowserWindow: its nodes are instances of a
+    // DIFFERENT realm's HTMLElement — instanceof against the host realm
+    // must not be used (that regression made every elevated layer invisible).
+    class HostRealmHTMLElement {}
+    Object.assign(globalThis, { HTMLElement: HostRealmHTMLElement });
+
+    const foreign = new Window({ url: "https://atmos.test/overlay" });
+    const el = foreign.document.createElement("div");
+    el.setAttribute("data-slot", "dropdown-menu-content");
+    el.setAttribute("data-state", "open");
+    foreign.document.body.appendChild(el);
+
+    expect(
+      el instanceof (globalThis as unknown as { HTMLElement: typeof HostRealmHTMLElement }).HTMLElement,
+    ).toBe(false);
+    expect(
+      countOpenLayers([foreign.document as unknown as Document]),
+    ).toBe(1);
+  });
+});
+
+describe("summarizeOpenLayers pointer classification", () => {
+  let document: Document;
+
+  beforeEach(() => {
+    ({ document } = installDom());
+  });
+
+  it("tooltip/hover-card–only frames stay pass-through", () => {
+    const tooltip = document.createElement("div");
+    tooltip.setAttribute("data-slot", "tooltip-content");
+    tooltip.setAttribute("data-state", "open");
+    document.body.appendChild(tooltip);
+
+    const hoverCard = document.createElement("div");
+    hoverCard.setAttribute("data-slot", "hover-card-content");
+    hoverCard.setAttribute("data-state", "open");
+    document.body.appendChild(hoverCard);
+
+    expect(summarizeOpenLayers([document])).toEqual({ open: 2, capture: 0 });
+  });
+
+  it("menus and dialogs require capture", () => {
+    const tooltip = document.createElement("div");
+    tooltip.setAttribute("data-slot", "tooltip-content");
+    tooltip.setAttribute("data-state", "open");
+    document.body.appendChild(tooltip);
+
+    const menu = document.createElement("div");
+    menu.setAttribute("data-slot", "dropdown-menu-content");
+    menu.setAttribute("data-state", "open");
+    document.body.appendChild(menu);
+
+    expect(summarizeOpenLayers([document])).toEqual({ open: 2, capture: 1 });
+
+    const dialog = document.createElement("div");
+    dialog.setAttribute("role", "dialog");
+    dialog.setAttribute("data-state", "open");
+    document.body.appendChild(dialog);
+
+    expect(summarizeOpenLayers([document])).toEqual({ open: 3, capture: 2 });
   });
 });

@@ -38,10 +38,7 @@ import { usePreviewLifecycleEffects } from "../hooks/use-preview-lifecycle-effec
 import { usePreviewNavigation } from "../hooks/use-preview-navigation";
 import { useNativePreviewOcclusion } from "../hooks/use-native-preview-occlusion";
 import { useDesktopElevationStore } from "@/shared/lib/desktop-overlay/elevation-store";
-import {
-  shouldSuspendDesktopNativePreview,
-  shouldSuspendFromOcclusion,
-} from "@/shared/lib/desktop-overlay/elevation-policy";
+import { shouldSuspendDesktopNativePreview } from "@/shared/lib/desktop-overlay/elevation-policy";
 import { usePreviewSelection } from "../hooks/use-preview-selection";
 import { usePreviewToolbarLayout } from "../hooks/use-preview-toolbar-layout";
 import { usePreviewWindowState } from "../hooks/use-preview-window-state";
@@ -337,14 +334,14 @@ export const Preview: React.FC<PreviewProps> = ({
     surfaceRef: desktopViewportRef,
     ignoredRootRef: previewRootRef,
   });
-  // APP-052: when elevation covers open floaters, do not hide native preview.
-  // Requires a live portal container so host-only floaters still use APP-029 hide.
-  const elevationCovers = useDesktopElevationStore(
+  // APP-052: while the overlay surface is healthy, `@workspace/ui` portals
+  // mount into the overlay document, so elevatable chrome never needs the
+  // APP-029 hide. Host-document floaters still hide via geometry occlusion.
+  const elevationHealthy = useDesktopElevationStore(
     (s) =>
       s.capability &&
       s.surfaceReady &&
       !s.ensureFailed &&
-      s.elevatedLayerCount > 0 &&
       s.portalContainer != null,
   );
   // Mark native preview presence for FloatingElevationProvider (lazy elevate).
@@ -361,14 +358,13 @@ export const Preview: React.FC<PreviewProps> = ({
   // NOTE: Do not suspend based on right-sidebar collapse — that used to hide
   // *every* desktop-native surface (including center browsers). Sidebar
   // visibility is handled via BrowserPanel `isActive` in RightSidebar instead.
-  const suspendFromOcclusion =
+  // Host-document occlusion candidates are by definition not elevated
+  // (elevated layers live in the overlay document) → always hide for them.
+  const hostOcclusion =
     !disableNativePreviewOcclusion &&
     !suppressNativePreviewOcclusion &&
-    shouldSuspendFromOcclusion({
-      isOccluded: isDesktopNativePreviewOccluded,
-      elevationCovers,
-    });
-  // Elevatable chrome (popover/header/search) must not force hide when elevation covers (AC2/M3).
+    isDesktopNativePreviewOccluded;
+  // Elevatable chrome (popover/header/search) must not force hide when elevation is healthy (AC2/M3).
   const elevatableChromeOpen =
     favoritesListOpen ||
     favoritePopoverOpen ||
@@ -379,9 +375,9 @@ export const Preview: React.FC<PreviewProps> = ({
     isStandaloneHandoffOpen:
       !isStandaloneBrowserWindow && isPreviewStandaloneOpen,
     isPreviewLoading,
-    suspendFromOcclusion,
-    elevationCovers,
+    hostOcclusion,
     elevatableChromeOpen,
+    elevationHealthy,
   });
   const {
     checkExtensionUpdate,

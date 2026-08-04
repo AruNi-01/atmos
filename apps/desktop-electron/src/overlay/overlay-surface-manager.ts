@@ -31,7 +31,12 @@ type HostOverlay = {
   syncBounds: () => void;
 };
 
-function isOverlayFrame(details: HandlerDetails): boolean {
+/** Structural subset shared by HandlerDetails and DidCreateWindowDetails. */
+type OverlayFrameDetails = Pick<HandlerDetails, "url"> & {
+  frameName?: string;
+};
+
+function isOverlayFrame(details: OverlayFrameDetails): boolean {
   const name = details.frameName ?? "";
   if (name.startsWith(OVERLAY_WINDOW_NAME_PREFIX) || name === "atmos-desktop-overlay") {
     return true;
@@ -41,46 +46,62 @@ function isOverlayFrame(details: HandlerDetails): boolean {
   return false;
 }
 
+function overlayWindowOptions(
+  host: BrowserWindow,
+): BrowserWindowConstructorOptions {
+  return {
+    parent: host,
+    ...host.getContentBounds(),
+    frame: false,
+    transparent: true,
+    backgroundColor: "#00000000",
+    hasShadow: false,
+    roundedCorners: false,
+    resizable: false,
+    maximizable: false,
+    minimizable: false,
+    fullscreenable: false,
+    skipTaskbar: true,
+    show: false,
+    focusable: true,
+  };
+}
+
 export function overlayWindowOpenHandler(
   host: BrowserWindow,
   manager: OverlaySurfaceManager,
-): (details: HandlerDetails) =>
-  | { action: "deny" }
-  | {
-      action: "allow";
-      overrideBrowserWindowOptions?: BrowserWindowConstructorOptions;
-    } {
+): (details: HandlerDetails) => Electron.WindowOpenHandlerResponse {
   return (details) => {
-    if (!isOverlayFrame(details) && details.frameName !== "atmos-desktop-overlay") {
+    if (!isOverlayFrame(details)) {
       // Default: allow normal popups (rare); product mostly blocks elsewhere.
       return { action: "allow" };
     }
 
-    const bounds = host.getContentBounds();
     return {
       action: "allow",
+      // webPreferences apply to the child webContents which is created
+      // before createWindow runs — they must be returned here.
       overrideBrowserWindowOptions: {
-        parent: host,
-        ...bounds,
-        frame: false,
-        transparent: true,
-        // Critical for macOS: without this, transparent windows often paint opaque black.
-        backgroundColor: "#00000000",
-        hasShadow: false,
-        resizable: false,
-        maximizable: false,
-        minimizable: false,
-        fullscreenable: false,
-        skipTaskbar: true,
-        show: false,
-        focusable: true,
-        // Avoid stealing key focus from the host when the overlay appears.
         webPreferences: {
           contextIsolation: true,
           nodeIntegration: false,
           sandbox: true,
           backgroundThrottling: false,
         },
+      },
+      // Per-pixel transparency only works when the window is constructed
+      // transparent. Renderer-initiated windows (window.open +
+      // overrideBrowserWindowOptions) do not reliably honor `transparent`
+      // (electron#22281 — paints opaque black), so main constructs the
+      // BrowserWindow itself. `options` carries the child webContents that
+      // keeps the opener's window.open proxy wired for createPortal.
+      createWindow: (options) => {
+        const overlay = new BrowserWindow({
+          ...options,
+          ...overlayWindowOptions(host),
+        });
+        manager.registerOverlayWindow(host, overlay);
+        return overlay.webContents;
       },
     };
   };
@@ -102,7 +123,7 @@ export class OverlaySurfaceManager {
     );
 
     host.webContents.on("did-create-window", (child, details) => {
-      // Same predicate as open-handler so every styled overlay is registered.
+      // Safety net; createWindow already registered main-constructed overlays.
       if (isOverlayFrame(details)) {
         this.registerOverlayWindow(host, child);
       }
@@ -163,9 +184,10 @@ export class OverlaySurfaceManager {
     return entryRef;
   }
 
-  private registerOverlayWindow(host: BrowserWindow, child: BrowserWindow): void {
+  registerOverlayWindow(host: BrowserWindow, child: BrowserWindow): void {
     const entry = this.getOrCreateEntry(host);
-    if (entry.overlay && !entry.overlay.isDestroyed() && entry.overlay !== child) {
+    if (entry.overlay === child) return;
+    if (entry.overlay && !entry.overlay.isDestroyed()) {
       try {
         entry.overlay.close();
       } catch {
@@ -173,12 +195,6 @@ export class OverlaySurfaceManager {
       }
     }
     entry.overlay = child;
-    try {
-      // Reinforce transparency after create (some platforms ignore options alone).
-      child.setBackgroundColor("#00000000");
-    } catch {
-      /* ignore */
-    }
     this.syncBounds(entry);
     // Start non-interactive + hidden until noteActivity.
     try {
@@ -214,6 +230,11 @@ export class OverlaySurfaceManager {
     if (win && !win.isDestroyed()) {
       const hostId = entry.host.isDestroyed() ? null : entry.host.id;
       try {
+        if (win.isFocused() && !entry.host.isDestroyed()) entry.host.focus();
+      } catch {
+        /* ignore */
+      }
+      try {
         win.close();
       } catch {
         /* ignore */
@@ -245,13 +266,36 @@ export class OverlaySurfaceManager {
     const win = entry.overlay;
     if (!win || win.isDestroyed()) return;
     try {
-      // Only capture while elevated content is active (noteActivity path).
-      // release() always forces ignore+hide separately.
+      // Pass-through (tooltip/hover-card only): clicks reach host + preview.
+      // Capture (menu/popover/dialog): overlay owns pointer input.
       if (entry.pointerMode === "pass-through") {
         win.setIgnoreMouseEvents(true, { forward: true });
       } else {
         win.setIgnoreMouseEvents(false);
       }
+    } catch {
+      /* ignore */
+    }
+  }
+
+  /** Keyboard (Escape, menu nav, dialog inputs) must reach the overlay document. */
+  private focusOverlayForCapture(entry: HostOverlay): void {
+    const win = entry.overlay;
+    if (!win || win.isDestroyed()) return;
+    if (entry.pointerMode !== "capture") return;
+    try {
+      if (win.isVisible() && !win.isFocused()) win.focus();
+    } catch {
+      /* ignore */
+    }
+  }
+
+  /** Return keyboard focus to the host when the overlay gives up input. */
+  private refocusHost(entry: HostOverlay): void {
+    const { host, overlay } = entry;
+    if (!overlay || overlay.isDestroyed() || host.isDestroyed()) return;
+    try {
+      if (overlay.isFocused()) host.focus();
     } catch {
       /* ignore */
     }
@@ -287,8 +331,14 @@ export class OverlaySurfaceManager {
     if (!h || h.isDestroyed()) return;
     const entry = this.byHostId.get(this.hostKey(h));
     if (!entry) return;
+    const changed = entry.pointerMode !== mode;
     entry.pointerMode = mode;
     this.applyPointerMode(entry);
+    if (changed && mode === "capture") {
+      this.focusOverlayForCapture(entry);
+    } else if (changed && mode === "pass-through") {
+      this.refocusHost(entry);
+    }
   }
 
   noteActivity(host: BrowserWindow | null): void {
@@ -297,17 +347,17 @@ export class OverlaySurfaceManager {
     const entry = this.byHostId.get(this.hostKey(h));
     if (!entry) return;
     entry.lifecycle.noteActivity();
-    entry.pointerMode = "capture";
-    // Layers open: surface must be visible and receive input.
+    // Layers open: surface must be visible; pointer mode is owned by the host
+    // renderer via set_pointer_mode (do not force capture here).
     const win = entry.overlay;
     if (win && !win.isDestroyed()) {
       try {
-        win.setBackgroundColor("#00000000");
         this.syncBounds(entry);
         this.applyPointerMode(entry);
         if (!win.isVisible()) {
-          // showInactive: do not steal keyboard focus from the host shell.
+          // showInactive: never steal keyboard focus for pass-through layers.
           win.showInactive();
+          this.focusOverlayForCapture(entry);
         }
       } catch {
         /* ignore */
@@ -322,7 +372,8 @@ export class OverlaySurfaceManager {
     if (!entry) return;
     entry.lifecycle.release();
     entry.pointerMode = "pass-through";
-    // Empty overlay must not block host/preview input (and must not stay painted black).
+    // Empty overlay must not block host/preview input or hold keyboard focus.
+    this.refocusHost(entry);
     const win = entry.overlay;
     if (win && !win.isDestroyed()) {
       try {

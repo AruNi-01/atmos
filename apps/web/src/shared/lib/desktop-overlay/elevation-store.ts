@@ -5,7 +5,7 @@
 
 import { create } from "zustand";
 import {
-  computeElevationCovers,
+  computeElevationHealthy,
   type OverlayPointerMode,
 } from "./elevation-policy";
 
@@ -33,7 +33,7 @@ type ElevationState = {
   setPointerMode: (m: OverlayPointerMode) => void;
   setElevatedLayerCount: (n: number) => void;
   resetElevationRuntime: () => void;
-  elevationCovers: () => boolean;
+  elevationHealthy: () => boolean;
 };
 
 export const useDesktopElevationStore = create<ElevationState>((set, get) => ({
@@ -44,7 +44,7 @@ export const useDesktopElevationStore = create<ElevationState>((set, get) => ({
   ensureFailed: false,
   elevatedLayerCount: 0,
   portalContainer: null,
-  pointerMode: "capture",
+  pointerMode: "pass-through",
   setCapability: (v) => set({ capability: v }),
   acquireNativePreviewSurface: () =>
     set((s) => {
@@ -77,22 +77,17 @@ export const useDesktopElevationStore = create<ElevationState>((set, get) => ({
       ensureFailed: false,
       elevatedLayerCount: 0,
       portalContainer: null,
+      pointerMode: "pass-through",
       // Do not reset nativePreviewSurfaceCount — Preview instances own that.
     }),
-  elevationCovers: () => {
+  elevationHealthy: () => {
     const s = get();
     return (
-      computeElevationCovers({
+      computeElevationHealthy({
         capability: s.capability,
         surfaceReady: s.surfaceReady,
         ensureFailed: s.ensureFailed,
-        elevatedLayerCount: s.elevatedLayerCount,
       }) && s.portalContainer != null
     );
   },
 }));
-
-/** Non-hook read for lifecycle effects. */
-export function readElevationCovers(): boolean {
-  return useDesktopElevationStore.getState().elevationCovers();
-}
