@@ -20,6 +20,9 @@ describe("browser runtime-events (shipped pure unit)", () => {
     expect(remapRuntimeEventName("atmos-browser:open-tab")).toBe(
       "desktop-browser:open-tab",
     );
+    expect(remapRuntimeEventName("atmos-browser:viewport-changed")).toBe(
+      "desktop-browser:viewport-changed",
+    );
     expect(remapRuntimeEventName("unknown")).toBeNull();
   });
 

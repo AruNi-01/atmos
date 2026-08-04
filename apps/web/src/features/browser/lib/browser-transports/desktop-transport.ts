@@ -98,6 +98,10 @@ export async function connectDesktopBrowserTransport(
       if (payload.sessionId !== options.sessionId) return;
       options.onCursorChange?.((payload as { cursor?: string }).cursor || 'default');
     }),
+    listenDesktopBrowserBridge('desktop-browser:viewport-changed', (payload) => {
+      if (payload.sessionId !== options.sessionId) return;
+      options.onViewportChanged?.();
+    }),
   ]);
 
   let destroyed = false;
@@ -159,12 +163,33 @@ export async function connectDesktopBrowserTransport(
         sessionId: options.sessionId,
       });
     },
+    /**
+     * Bookkeeping / detached only. In-panel loads are driven by host webview src.
+     * Calling this for in-panel no longer loads (main navigates detached only).
+     */
     async navigate(url) {
       if (destroyed) return;
       await invokeDesktopBrowserBridge('browser_bridge_navigate', {
         sessionId: options.sessionId,
         url,
       });
+    },
+    async setZoom(zoom) {
+      if (destroyed) return;
+      await invokeDesktopBrowserBridge('browser_bridge_set_zoom', {
+        sessionId: options.sessionId,
+        zoom,
+      });
+    },
+    async queryElementRects(selectors) {
+      if (destroyed) return [];
+      const result = await invokeDesktopBrowserBridge<
+        Array<{ selector: string; rect: { x: number; y: number; width: number; height: number } | null }>
+      >('browser_bridge_query_element_rects', {
+        sessionId: options.sessionId,
+        selectors,
+      });
+      return Array.isArray(result) ? result : [];
     },
     async openDevTools() {
       if (destroyed) return;

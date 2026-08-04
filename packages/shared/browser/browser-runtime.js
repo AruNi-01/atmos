@@ -471,7 +471,15 @@
     const lockedBox = createBox(PICKER_LOCKED_COLOR);
     const hoverLabel = createLabel();
     const lockedLabel = createLabel();
-    const showHoverLabel = !!(options && options.showSelectionToolbar);
+    // Hover label is independent of host toolbar ownership. Host owns SelectionPopover
+    // when showSelectionToolbar is false; pick chrome (hover/locked box + labels) still
+    // lives in the guest. Default: show guest hover labels unless explicitly disabled.
+    // Desktop product sets showHoverLabel: true so pick mode matches the locked "motion.div" chip.
+    const showHoverLabel = options
+      ? (options.showHoverLabel != null
+        ? !!options.showHoverLabel
+        : !!options.showSelectionToolbar)
+      : false;
 
     function stopPropagation(event) {
       event.stopPropagation();
@@ -1840,6 +1848,9 @@
     var doc = win.document;
     var overlay = createPreviewOverlay(win, doc, {
       showSelectionToolbar: !!config.showSelectionToolbar,
+      showHoverLabel: config.showHoverLabel != null
+        ? !!config.showHoverLabel
+        : !!config.showSelectionToolbar,
     });
     var hoverCursor = createPreviewPickerCursor(PICKER_HOVER_COLOR, PICKER_HOVER_BORDER_COLOR);
     var lockedCursor = createPreviewPickerCursor(PICKER_LOCKED_COLOR, PICKER_LOCKED_BORDER_COLOR);
@@ -1850,6 +1861,8 @@
       locked: null,
       sessionId: null,
     };
+    // When host owns the toolbar, still emit hover so iframe/extension can drive NativeFollowCursor.
+    // Desktop with guest hover labels may also emit; host can ignore.
     var shouldEmitHover = !config.showSelectionToolbar;
 
     function emit(message) {
@@ -2090,6 +2103,22 @@
       overlay.lock(rect, buildElementSelector(state.locked));
     }
 
+    // Throttled notify so host can re-query annotation/selection rects after scroll.
+    var viewportChangedTimer = 0;
+    function emitViewportChanged() {
+      if (!state.sessionId) return;
+      if (viewportChangedTimer) return;
+      viewportChangedTimer = win.setTimeout(function () {
+        viewportChangedTimer = 0;
+        emit({ type: 'atmos-browser:viewport-changed' });
+      }, 48);
+    }
+
+    function handleViewportLayout() {
+      syncLockedOverlay();
+      emitViewportChanged();
+    }
+
     doc.addEventListener('mousemove', handleMouseMove, true);
     doc.addEventListener('pointerdown', blockPagePointerEvent, true);
     doc.addEventListener('mousedown', blockPagePointerEvent, true);
@@ -2100,8 +2129,8 @@
     doc.addEventListener('dblclick', blockPagePointerEvent, true);
     doc.addEventListener('contextmenu', blockPagePointerEvent, true);
     win.addEventListener('keydown', handleKeyDown, true);
-    win.addEventListener('scroll', syncLockedOverlay, true);
-    win.addEventListener('resize', syncLockedOverlay, true);
+    win.addEventListener('scroll', handleViewportLayout, true);
+    win.addEventListener('resize', handleViewportLayout, true);
 
     overlay.onCancel(function (event) {
       if (event) {

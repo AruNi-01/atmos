@@ -15,6 +15,8 @@ const OVERLAY_SELECTOR = [
   '[role="dialog"]',
   '[aria-modal="true"]',
   "[data-atmos-browser-surface-overlay]",
+  // Host element-select toolbar (SelectionPopover) over live webview
+  "[data-selection-popover]",
 ].join(", ");
 
 /**

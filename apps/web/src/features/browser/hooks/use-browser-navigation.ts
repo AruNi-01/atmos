@@ -196,26 +196,21 @@ export function useBrowserNavigation({
     (targetUrl: string): boolean => {
       if (preferredTransportMode === 'desktop') {
         const controller = transportControllerRef.current;
-        if (controller?.mode !== 'desktop' || !controller.navigate) return false;
+        // Need an open desktop session; host <webview> owns the actual load via src.
+        if (controller?.mode !== 'desktop') return false;
 
         const targetCanonicalUrl = canonicalizeUrl(targetUrl) || targetUrl;
         skipExternalHistorySyncRef.current = true;
         desktopCommittedUrlRef.current = targetCanonicalUrl;
         setDesktopCommittedUrl(targetCanonicalUrl);
+        // Single navigation owner: DesktopBrowserWebview reacts to desktopSrc change.
+        // Do not also call controller.navigate (that raced with webview loadURL).
+        desktopPreviewUrlRef.current = targetCanonicalUrl;
         setPreviewLoadError(null);
         setIsPreviewLoading(true);
         setCurrentPageTitle('');
         setUrl(targetUrl);
         setActiveUrl(targetUrl);
-        void Promise.resolve(controller.navigate(targetUrl)).then(() => {
-          if (
-            transportControllerRef.current !== controller ||
-            desktopCommittedUrlRef.current !== targetCanonicalUrl
-          ) {
-            return;
-          }
-          desktopPreviewUrlRef.current = targetCanonicalUrl;
-        });
         return true;
       }
 

@@ -110,7 +110,9 @@ ${runtime}
   const bridgeToken = ${tokenJson};
   const controller = window.__ATMOS_BROWSER_RUNTIME__.createRuntime({
     win: window,
+    // Host SelectionPopover owns toolbar chrome; guest still draws pick hover/lock labels.
     showSelectionToolbar: false,
+    showHoverLabel: true,
     emit(message) {
       invoke('browser_bridge_event', {
         payload: Object.assign({}, message, { bridgeToken })
@@ -184,16 +186,54 @@ export class BrowserSurfaceManager {
     // Consume pending immediately so a second concurrent same-URL attach cannot
     // re-select this session (APP-053 dual-tab bind).
     s.pendingAttach = false;
+    // Keep at most one queue entry per session (re-ALLOW must not duplicate FIFO slots).
     if (!this.attachQueue.includes(sessionId)) {
       this.attachQueue.push(sessionId);
     }
   }
 
+  /**
+   * Prefer session stamped on the guest via will-attach additionalArguments.
+   * FIFO attachQueue is fallback only when args are missing.
+   */
+  private sessionIdFromGuestWebContents(guestWc: WebContents): string | null {
+    try {
+      // Electron WebContents may expose getLastWebPreferences at runtime (not always in typings).
+      const wcWithPrefs = guestWc as WebContents & {
+        getLastWebPreferences?: () => { additionalArguments?: unknown };
+      };
+      const prefs =
+        typeof wcWithPrefs.getLastWebPreferences === "function"
+          ? wcWithPrefs.getLastWebPreferences()
+          : null;
+      const args = prefs?.additionalArguments;
+      if (!Array.isArray(args)) return null;
+      for (const arg of args) {
+        if (typeof arg !== "string") continue;
+        const m = /^--atmos-browser-session=(.+)$/.exec(arg);
+        if (m?.[1]?.trim()) return m[1].trim();
+      }
+    } catch {
+      /* guest prefs unavailable */
+    }
+    return null;
+  }
+
+  private takeAttachQueueSession(sessionId: string): void {
+    const idx = this.attachQueue.indexOf(sessionId);
+    if (idx >= 0) this.attachQueue.splice(idx, 1);
+  }
+
   onGuestAttached(guestWc: WebContents): void {
-    const sessionId = this.attachQueue.shift() ?? this.findPendingSessionId();
+    const fromArgs = this.sessionIdFromGuestWebContents(guestWc);
+    const sessionId =
+      fromArgs ?? this.attachQueue.shift() ?? this.findPendingSessionId();
     if (!sessionId) {
       console.warn("[browser] did-attach-webview with no pending session");
       return;
+    }
+    if (fromArgs) {
+      this.takeAttachQueueSession(sessionId);
     }
     this.bindGuestWebContents(sessionId, guestWc);
   }
@@ -212,21 +252,30 @@ export class BrowserSurfaceManager {
     if (!wc || wc.isDestroyed()) {
       throw new Error(`browser guest webContents not found: ${webContentsId}`);
     }
+    // Host bind is authoritative (dom-ready webContentsId) — always rebind if WC changed.
     this.bindGuestWebContents(sessionId, wc);
   }
 
   private bindGuestWebContents(sessionId: string, wc: WebContents): void {
     const s = this.getOrCreateState(sessionId);
+    const prevId = s.guestWebContentsId;
+    const needsListeners = !s.listenersAttached || prevId !== wc.id;
+
     s.guestWebContents = wc;
     s.guestWebContentsId = wc.id;
     s.pendingAttach = false;
-    if (!s.listenersAttached) {
+    this.takeAttachQueueSession(sessionId);
+
+    if (needsListeners) {
       this.attachWebContentsListeners(sessionId, wc);
       s.listenersAttached = true;
     }
+
+    // Default-deny guest permissions (media/notifications/etc.). Intentional lockdown.
     wc.session.setPermissionRequestHandler((_wc, _permission, callback) => {
       callback(false);
     });
+
     wc.once("destroyed", () => {
       const cur = this.surfaces.get(sessionId);
       if (cur && cur.guestWebContentsId === wc.id) {
@@ -514,6 +563,10 @@ export class BrowserSurfaceManager {
   /**
    * Register a desktop browser session for webview attach.
    * Does not create a native child view — host mounts `<webview>`.
+   *
+   * Navigation ownership (in-panel): the host `<webview>` src/loadURL is the
+   * single load owner. open() must not call guest.loadURL when a guest already
+   * exists — that raced with DesktopBrowserWebview and caused double loads.
    */
   open(
     sessionId: string,
@@ -533,13 +586,10 @@ export class BrowserSurfaceManager {
       s.detachedWindow = null;
     }
 
-    // Host will create/update webview; if guest already bound, navigate only —
-    // do not re-mark pendingAttach (avoids multi-tab attach races / re-ALLOW churn).
+    // Guest already bound: host webview owns navigation. Only bookkeep URL.
+    // No guest: mark pending for will-attach; host mounts with src.
     if (s.guestWebContents && !s.guestWebContents.isDestroyed()) {
       s.pendingAttach = false;
-      void s.guestWebContents
-        .loadURL(url)
-        .catch((err) => this.emitLoadError(sessionId, url, err));
     } else {
       s.pendingAttach = true;
     }
@@ -552,6 +602,11 @@ export class BrowserSurfaceManager {
     };
   }
 
+  /**
+   * Legacy surface detach into a bare BrowserWindow on the same partition.
+   * Product "Open in window" uses `open_browser_window` (full Atmos `/browser` shell)
+   * instead — keep this IPC for potential future dock/pop-out, not product toolbar.
+   */
   setDetached(
     sessionId: string,
     url: string,
@@ -642,6 +697,10 @@ export class BrowserSurfaceManager {
       .catch((err) => this.emitLoadError(sessionId, url, err));
   }
 
+  /**
+   * Navigate guest. In-panel webview is host-owned — only detached windows
+   * load here. In-panel calls update currentUrl bookkeeping only (no loadURL).
+   */
   navigate(sessionId: string, url: string): void {
     const s = this.surfaces.get(sessionId);
     if (!s) return;
@@ -650,15 +709,11 @@ export class BrowserSurfaceManager {
       void s.detachedWindow
         .loadURL(url)
         .catch((err) => this.emitLoadError(sessionId, url, err));
-      return;
     }
-    if (s.guestWebContents && !s.guestWebContents.isDestroyed()) {
-      void s.guestWebContents
-        .loadURL(url)
-        .catch((err) => this.emitLoadError(sessionId, url, err));
-    }
+    // In-panel: host <webview> src/loadURL is the sole navigation owner.
   }
 
+  /** Optional page zoom (no product toolbar yet). Safe no-op when unbound. */
   setZoom(sessionId: string, zoom: number): void {
     const s = this.surfaces.get(sessionId);
     if (!s) return;
@@ -669,6 +724,53 @@ export class BrowserSurfaceManager {
       wc.setZoomFactor(factor);
     } catch {
       /* ignore */
+    }
+  }
+
+  /**
+   * Resolve element rects in the guest for host annotation overlays after scroll.
+   * Selectors that miss or throw return rect: null.
+   */
+  async queryElementRects(
+    sessionId: string,
+    selectors: string[],
+  ): Promise<Array<{ selector: string; rect: { x: number; y: number; width: number; height: number } | null }>> {
+    const s = this.surfaces.get(sessionId);
+    if (!s) return selectors.map((selector) => ({ selector, rect: null }));
+    const wc = this.webContentsFor(s);
+    if (!wc || wc.isDestroyed()) {
+      return selectors.map((selector) => ({ selector, rect: null }));
+    }
+    const unique = [...new Set(selectors.filter((sel) => typeof sel === "string" && sel.length > 0))];
+    if (unique.length === 0) return [];
+    const script = `(() => {
+      const selectors = ${JSON.stringify(unique)};
+      return selectors.map(function (selector) {
+        try {
+          var el = document.querySelector(selector);
+          if (!el) return { selector: selector, rect: null };
+          var r = el.getBoundingClientRect();
+          return {
+            selector: selector,
+            rect: { x: r.left, y: r.top, width: r.width, height: r.height },
+          };
+        } catch (_) {
+          return { selector: selector, rect: null };
+        }
+      });
+    })()`;
+    try {
+      const result = await wc.executeJavaScript(script, true);
+      if (!Array.isArray(result)) {
+        return unique.map((selector) => ({ selector, rect: null }));
+      }
+      return result as Array<{
+        selector: string;
+        rect: { x: number; y: number; width: number; height: number } | null;
+      }>;
+    } catch (e) {
+      console.error("[browser] queryElementRects failed", e);
+      return unique.map((selector) => ({ selector, rect: null }));
     }
   }
 

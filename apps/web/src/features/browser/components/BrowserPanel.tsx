@@ -44,7 +44,6 @@ interface BrowserPanelProps {
   allowMaximize?: boolean;
   /** Show chrome action to hand off this browser into Center Stage. */
   allowMoveToCenter?: boolean;
-  disableNativePreviewOcclusion?: boolean;
   keepInactiveTabsMounted?: boolean;
   syncUrlQueryParam?: boolean;
   canvasViewportControllerRef?: React.MutableRefObject<BrowserCanvasViewportController | null>;
@@ -59,7 +58,6 @@ export const BrowserPanel: React.FC<BrowserPanelProps> = ({
   allowStandaloneWindow = true,
   allowMaximize = true,
   allowMoveToCenter = false,
-  disableNativePreviewOcclusion = false,
   keepInactiveTabsMounted = true,
   syncUrlQueryParam = true,
   canvasViewportControllerRef,
@@ -245,7 +243,6 @@ export const BrowserPanel: React.FC<BrowserPanelProps> = ({
           projectId={projectId}
           allowMaximize={allowMaximize}
           isPreviewStandaloneOpen={effectiveIsPreviewStandaloneOpen}
-          disableNativePreviewOcclusion={disableNativePreviewOcclusion}
           canvasViewportControllerRef={canvasViewportControllerRef}
           onOpenPreviewBrowserWindow={
             allowStandaloneWindow ? handleOpenPreviewBrowserWindow : undefined
@@ -279,9 +276,8 @@ export const BrowserPanel: React.FC<BrowserPanelProps> = ({
     return (
       <div className={panelShellClassName}>
         {createPortal(
-          // Fullscreen browser is a custom portal overlay. Mark it for APP-029
-          // native-surface occlusion so sibling desktop webviews (e.g.
-          // center-stage browser) hide instead of covering this surface.
+          // Fullscreen browser portal — mark for webview pointer-events policy
+          // so sibling desktop guests do not steal clicks under this overlay.
           <div
             data-atmos-browser-surface-overlay="true"
             className="fixed inset-0 z-[1000] h-screen w-screen overflow-hidden bg-background animate-in fade-in zoom-in-95 slide-in-from-bottom-2"

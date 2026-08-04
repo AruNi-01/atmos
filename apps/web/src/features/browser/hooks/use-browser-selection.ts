@@ -121,6 +121,84 @@ export function useBrowserSelection({
     }
   }, [isElementPickerEnabledRef, transportControllerRef]);
 
+  const getPopoverPositionFromRect = useCallback((rect: { x: number; y: number; width: number; height: number }) => {
+    // Prefer the live <webview> box so guest getBoundingClientRect maps 1:1 into host
+    // fixed coords. Fall back to the desktop shell, then the iframe for web transport.
+    let targetBounds: DOMRect | undefined;
+    if (transportControllerRef.current?.mode === 'desktop' || desktopViewportRef.current) {
+      const shell = desktopViewportRef.current;
+      const webview = shell?.querySelector('webview') as HTMLElement | null | undefined;
+      targetBounds = (webview ?? shell)?.getBoundingClientRect();
+    } else {
+      targetBounds = iframeRef.current?.getBoundingClientRect();
+    }
+
+    if (!targetBounds || (targetBounds.width <= 0 && targetBounds.height <= 0)) {
+      return { x: rect.x, y: rect.y + rect.height + 8 };
+    }
+
+    // Preview annotation card is ~320×280 when the note field is open.
+    const estimatedPopoverWidth = 320;
+    const estimatedPopoverHeight = 280;
+    // Center on the full element (old min(width, 220) left-biased wide targets).
+    const centerX = targetBounds.left + rect.x + rect.width / 2;
+    const rawX = centerX - estimatedPopoverWidth / 2;
+    const belowY = targetBounds.top + rect.y + rect.height + 12;
+    const aboveY = targetBounds.top + rect.y - estimatedPopoverHeight - 12;
+    const rawY =
+      belowY + estimatedPopoverHeight <= window.innerHeight - 8
+        ? belowY
+        : Math.max(8, aboveY);
+
+    return {
+      x: Math.max(8, Math.min(rawX, Math.max(8, window.innerWidth - estimatedPopoverWidth - 8))),
+      y: Math.max(8, rawY),
+    };
+  }, [desktopViewportRef, iframeRef, transportControllerRef]);
+
+  const applyRectMap = useCallback((
+    rectBySelector: Map<string, { x: number; y: number; width: number; height: number }>,
+  ) => {
+    if (rectBySelector.size === 0) return;
+
+    setSelectionAnnotations((previous) => {
+      if (previous.length === 0) return previous;
+      let didChange = false;
+      const nextAnnotations = previous.map((annotation) => {
+        const selector = annotation.info.selector;
+        if (!selector) return annotation;
+        const nextRect = rectBySelector.get(selector);
+        if (!nextRect) return annotation;
+        if (rectsEqual(annotation.info.previewRect, nextRect)) return annotation;
+        didChange = true;
+        return {
+          ...annotation,
+          info: {
+            ...annotation.info,
+            previewRect: { ...nextRect },
+          },
+        };
+      });
+      if (!didChange) return previous;
+      selectionAnnotationsRef.current = nextAnnotations;
+      return nextAnnotations;
+    });
+
+    const info = selectionInfoRef.current;
+    if (info?.selector) {
+      const nextRect = rectBySelector.get(info.selector);
+      if (nextRect && !rectsEqual(info.previewRect, nextRect)) {
+        const nextInfo = {
+          ...info,
+          previewRect: { ...nextRect },
+        };
+        selectionInfoRef.current = nextInfo;
+        setSelectionInfo(nextInfo);
+        setSelectionPopoverPosition(getPopoverPositionFromRect(nextRect));
+      }
+    }
+  }, [getPopoverPositionFromRect]);
+
   const syncSelectionAnnotationRects = useCallback(() => {
     const iframe = iframeRef.current;
     let frameDocument: Document | null = null;
@@ -129,48 +207,67 @@ export function useBrowserSelection({
     } catch {
       return;
     }
-    if (!iframe || !frameDocument || selectionAnnotationsRef.current.length === 0) return;
+    if (!iframe || !frameDocument) return;
 
-    setSelectionAnnotations((previous) => {
-      let didChange = false;
-      const nextAnnotations = previous.map((annotation) => {
-        const selector = annotation.info.selector;
-        if (!selector) return annotation;
+    const selectors = new Set<string>();
+    for (const annotation of selectionAnnotationsRef.current) {
+      if (annotation.info.selector) selectors.add(annotation.info.selector);
+    }
+    if (selectionInfoRef.current?.selector) {
+      selectors.add(selectionInfoRef.current.selector);
+    }
+    if (selectors.size === 0) return;
 
-        let element: Element | null = null;
-        try {
-          element = frameDocument.querySelector(selector);
-        } catch {
-          return annotation;
-        }
-        if (!element) return annotation;
-
+    const rectBySelector = new Map<string, { x: number; y: number; width: number; height: number }>();
+    for (const selector of selectors) {
+      try {
+        const element = frameDocument.querySelector(selector);
+        if (!element) continue;
         const rect = element.getBoundingClientRect();
-        const nextRect = {
+        rectBySelector.set(selector, {
           x: rect.x,
           y: rect.y,
           width: rect.width,
           height: rect.height,
-        };
-        if (rectsEqual(annotation.info.previewRect, nextRect)) {
-          return annotation;
+        });
+      } catch {
+        /* ignore invalid selectors */
+      }
+    }
+    applyRectMap(rectBySelector);
+  }, [applyRectMap, iframeRef]);
+
+  /** Desktop: re-query guest rects after scroll/resize (host annotation layer). */
+  const syncDesktopSelectionRects = useCallback(async () => {
+    const controller = transportControllerRef.current;
+    if (controller?.mode !== "desktop" || !controller.queryElementRects) return;
+
+    const selectors = new Set<string>();
+    for (const annotation of selectionAnnotationsRef.current) {
+      if (annotation.info.selector) selectors.add(annotation.info.selector);
+    }
+    if (selectionInfoRef.current?.selector) {
+      selectors.add(selectionInfoRef.current.selector);
+    }
+    if (selectors.size === 0) return;
+
+    try {
+      const results = await controller.queryElementRects([...selectors]);
+      const rectBySelector = new Map<string, { x: number; y: number; width: number; height: number }>();
+      for (const row of results) {
+        if (row.selector && row.rect) {
+          rectBySelector.set(row.selector, row.rect);
         }
+      }
+      applyRectMap(rectBySelector);
+    } catch {
+      /* guest may be navigating */
+    }
+  }, [applyRectMap, transportControllerRef]);
 
-        didChange = true;
-        return {
-          ...annotation,
-          info: {
-            ...annotation.info,
-            previewRect: nextRect,
-          },
-        };
-      });
-
-      if (!didChange) return previous;
-      selectionAnnotationsRef.current = nextAnnotations;
-      return nextAnnotations;
-    });
-  }, [iframeRef]);
+  const handleDesktopViewportChanged = useCallback(() => {
+    void syncDesktopSelectionRects();
+  }, [syncDesktopSelectionRects]);
 
   useEffect(() => {
     let disposed = false;
@@ -179,6 +276,10 @@ export function useBrowserSelection({
 
     const sync = () => {
       if (disposed) return;
+      if (transportControllerRef.current?.mode === "desktop") {
+        void syncDesktopSelectionRects();
+        return;
+      }
       syncSelectionAnnotationRects();
     };
 
@@ -194,6 +295,10 @@ export function useBrowserSelection({
     if (typeof ResizeObserver !== "undefined" && iframeRef.current) {
       resizeObserver = new ResizeObserver(syncAfterLayout);
       resizeObserver.observe(iframeRef.current);
+    }
+    if (typeof ResizeObserver !== "undefined" && desktopViewportRef.current) {
+      resizeObserver = resizeObserver ?? new ResizeObserver(syncAfterLayout);
+      resizeObserver.observe(desktopViewportRef.current);
     }
 
     try {
@@ -217,33 +322,13 @@ export function useBrowserSelection({
         // Ignore cross-origin frame access changes during navigation.
       }
     };
-  }, [iframeRef, syncSelectionAnnotationRects]);
-
-  const getPopoverPositionFromRect = useCallback((rect: { x: number; y: number; width: number; height: number }) => {
-    const targetBounds =
-      transportControllerRef.current?.mode === 'desktop'
-        ? desktopViewportRef.current?.getBoundingClientRect()
-        : iframeRef.current?.getBoundingClientRect();
-
-    if (!targetBounds) {
-      return { x: rect.x, y: rect.y + rect.height + 8 };
-    }
-
-    const estimatedPopoverWidth = 320;
-    const estimatedPopoverHeight = 180;
-    const rawX = targetBounds.left + rect.x + Math.min(rect.width, 220) / 2 - estimatedPopoverWidth / 2;
-    const belowY = targetBounds.top + rect.y + rect.height + 12;
-    const aboveY = targetBounds.top + rect.y - estimatedPopoverHeight - 12;
-    const rawY =
-      belowY + estimatedPopoverHeight <= window.innerHeight - 8
-        ? belowY
-        : Math.max(8, aboveY);
-
-    return {
-      x: Math.max(8, Math.min(rawX, Math.max(8, window.innerWidth - estimatedPopoverWidth - 8))),
-      y: Math.max(8, rawY),
-    };
-  }, [desktopViewportRef, iframeRef, transportControllerRef]);
+  }, [
+    desktopViewportRef,
+    iframeRef,
+    syncDesktopSelectionRects,
+    syncSelectionAnnotationRects,
+    transportControllerRef,
+  ]);
 
   const handleSelectedPayload = useCallback((mode: BrowserTransportMode, payload: PreviewHelperPayload) => {
     const nextSelectionInfo: SelectionInfo = {
@@ -274,12 +359,10 @@ export function useBrowserSelection({
     setEditingAnnotationId(null);
     selectionInfoRef.current = nextSelectionInfo;
     setSelectionInfo(nextSelectionInfo);
-    if (mode === 'desktop') {
-      setSelectionPopoverVisible(false);
-    } else {
-      setSelectionPopoverPosition(getPopoverPositionFromRect(payload.rect));
-      setSelectionPopoverVisible(true);
-    }
+    // Host SelectionPopover is the product path for both web (iframe) and desktop
+    // (<webview> with showSelectionToolbar: false). Never hide on select.
+    setSelectionPopoverPosition(getPopoverPositionFromRect(payload.rect));
+    setSelectionPopoverVisible(true);
     setSelectionPopoverExpanded(false);
   }, [getPopoverPositionFromRect]);
 
@@ -395,6 +478,7 @@ export function useBrowserSelection({
     handleDeleteSelectionAnnotation,
     handleCopySelectionAnnotations,
     handleDesktopToolbarCopy,
+    handleDesktopViewportChanged,
     handleEditSelectionAnnotation,
     handleSelectedPayload,
     handleUpdateSelectionAnnotation,

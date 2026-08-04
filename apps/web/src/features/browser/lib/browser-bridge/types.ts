@@ -70,6 +70,13 @@ export interface BrowserBridgeEventHandlers {
   onTitleChanged?: (pageTitle: string, faviconUrl?: string, pageUrl?: string) => void;
   onOpenTab?: (targetUrl: string, sourceUrl?: string) => void;
   onCursorChange?: (cursor: string) => void;
+  /** Guest scrolled/resized — host should re-query annotation rects (desktop). */
+  onViewportChanged?: () => void;
+}
+
+export interface BrowserElementRectResult {
+  selector: string;
+  rect: { x: number; y: number; width: number; height: number } | null;
 }
 
 export interface BrowserBridgeController {
@@ -78,10 +85,13 @@ export interface BrowserBridgeController {
   exitPickMode: () => Promise<void> | void;
   clearSelection: (notifyHost?: boolean) => Promise<void> | void;
   clearAnnotations?: () => Promise<void> | void;
-  updateViewport?: (viewport: BrowserTransportViewport) => Promise<void> | void;
+  /**
+   * In-panel desktop navigation is host webview–owned. Prefer updating host
+   * `src` / committed URL. `navigate` is for detached surfaces or bookkeeping.
+   */
   navigate?: (url: string) => Promise<void> | void;
   openDevTools?: () => Promise<void> | void;
-  show?: () => Promise<void> | void;
-  hide?: () => Promise<void> | void;
+  setZoom?: (zoom: number) => Promise<void> | void;
+  queryElementRects?: (selectors: string[]) => Promise<BrowserElementRectResult[]>;
   destroy: () => Promise<void> | void;
 }

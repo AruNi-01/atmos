@@ -25,5 +25,7 @@ describe("APP-053 host overlay policy (shipped hooks)", () => {
     expect(src).toContain("data-atmos-drag-active");
     expect(src).toContain("pointer-events");
     expect(src).toContain("dropdown-menu-content");
+    // Host SelectionPopover over live webview
+    expect(src).toContain("data-selection-popover");
   });
 });

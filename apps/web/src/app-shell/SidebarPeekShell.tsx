@@ -68,9 +68,8 @@ export function SidebarPeekShell({
       />
       <div
         ref={panelRef}
-        // Collapsed sidebar peek sits above center stage in DOM, but desktop
-        // child webviews ignore CSS z-index. Opt into APP-029 occlusion so center
-        // previews hide while this panel is visible (opacity > 0).
+        // Collapsed sidebar peek sits above center stage. Mark for webview
+        // pointer-events policy so guest webviews do not steal clicks while open.
         data-atmos-browser-surface-overlay="true"
         className={cn(
           "fixed top-12 bottom-6 z-[45] min-w-0 overflow-hidden bg-background text-foreground shadow-2xl ring-1 ring-sidebar-border/80",

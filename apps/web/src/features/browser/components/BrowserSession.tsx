@@ -55,8 +55,6 @@ import {
 
 type ViewMode = PreviewViewMode;
 
-const DEVTOOLS_OCCLUSION_SUPPRESSION_MS = 4000;
-
 interface BrowserSessionProps {
   url: string;
   setUrl: (url: string) => void;
@@ -75,7 +73,6 @@ interface BrowserSessionProps {
   isPreviewStandaloneOpen?: boolean;
   isMaximizedLayoutManaged?: boolean;
   allowMaximize?: boolean;
-  disableNativePreviewOcclusion?: boolean;
   canvasViewportControllerRef?: React.MutableRefObject<BrowserCanvasViewportController | null>;
   onOpenPreviewBrowserWindow?: (url: string) => Promise<void> | void;
   onCloseStandalonePreviewWindow?: () => void;
@@ -150,7 +147,6 @@ export const BrowserSession: React.FC<BrowserSessionProps> = ({
   isPreviewStandaloneOpen = false,
   isMaximizedLayoutManaged = false,
   allowMaximize = true,
-  disableNativePreviewOcclusion = false,
   canvasViewportControllerRef,
   onOpenPreviewBrowserWindow,
   onCloseStandalonePreviewWindow,
@@ -175,7 +171,6 @@ export const BrowserSession: React.FC<BrowserSessionProps> = ({
   } | null>(null);
   const [currentPageTitle, setCurrentPageTitle] = useState("");
   const [isUrlInputFocused, setIsUrlInputFocused] = useState(false);
-  const [suppressNativePreviewOcclusion, setSuppressNativePreviewOcclusion] = useState(false);
   const [transportState, setTransportState] = useState<PreviewTransportState>({
     mode: 'unavailable',
     connected: false,
@@ -215,7 +210,6 @@ export const BrowserSession: React.FC<BrowserSessionProps> = ({
       setHoverCursorLabel(null);
     }
   }, [isElementPickerEnabled]);
-  const devToolsOcclusionTimerRef = useRef<number | null>(null);
   const desktopConnectingRef = useRef(false);
   const iframeLoadResolveRef = useRef<(() => void) | null>(null);
   const extensionVersionRef = useRef<string | null>(null);
@@ -260,14 +254,6 @@ export const BrowserSession: React.FC<BrowserSessionProps> = ({
   const setIsElementPickerEnabled = useCallback((nextIsElementPickerEnabled: boolean) => {
     isElementPickerEnabledRef.current = nextIsElementPickerEnabled;
     setLocalIsElementPickerEnabled(nextIsElementPickerEnabled);
-  }, []);
-
-  useEffect(() => {
-    return () => {
-      if (devToolsOcclusionTimerRef.current != null) {
-        window.clearTimeout(devToolsOcclusionTimerRef.current);
-      }
-    };
   }, []);
 
   const normalizedActiveUrl = useMemo(() => canonicalizeUrl(activeUrl), [activeUrl]);
@@ -364,6 +350,7 @@ export const BrowserSession: React.FC<BrowserSessionProps> = ({
     handleCopySelectionAnnotations,
     handleDeleteSelectionAnnotation,
     handleDesktopToolbarCopy,
+    handleDesktopViewportChanged,
     handleEditSelectionAnnotation,
     handleSelectedPayload,
     handleUpdateSelectionAnnotation,
@@ -382,11 +369,14 @@ export const BrowserSession: React.FC<BrowserSessionProps> = ({
     transportControllerRef,
   });
 
+  // Only auto-dismiss when the picker is off. While pick mode is on, guest clicks
+  // intentionally select elements and must open the host SelectionPopover — webview
+  // focus/blur must not race-close it.
   useOverlayDismissOnWebview(
     () => {
       dismissSelectionPopover(false);
     },
-    preferredTransportMode === 'desktop' && isActive,
+    preferredTransportMode === 'desktop' && isActive && !isElementPickerEnabled,
   );
 
 
@@ -414,16 +404,7 @@ export const BrowserSession: React.FC<BrowserSessionProps> = ({
       setDesktopAttach(null);
     extensionConnectingRef.current = false;
     if (activeController) {
-      void (async () => {
-        try {
-          if (activeController.mode === 'desktop') {
-            // Hide first so the native child webview cannot cover sibling UI while close is in flight.
-            await Promise.resolve(activeController.hide?.());
-          }
-        } finally {
-          await Promise.resolve(activeController.destroy());
-        }
-      })().catch(() => undefined);
+      void Promise.resolve(activeController.destroy()).catch(() => undefined);
     }
 
     if (clearSelection) {
@@ -618,7 +599,6 @@ export const BrowserSession: React.FC<BrowserSessionProps> = ({
           setPreviewLoadError(loadError);
           setIsPreviewLoading(false);
           desktopPreviewVisibleRef.current = false;
-          void Promise.resolve(transportControllerRef.current?.hide?.());
         }
       }
       setTransportState((previous) => ({
@@ -685,11 +665,16 @@ export const BrowserSession: React.FC<BrowserSessionProps> = ({
       }
       extraHandlers?.onCursorChange?.(cursor);
     },
+    onViewportChanged: () => {
+      handleDesktopViewportChanged();
+      extraHandlers?.onViewportChanged?.();
+    },
   }), [
     dismissSelectionPopover,
     handleAddSelectionAnnotation,
     handleDeleteSelectionAnnotation,
     handleDesktopToolbarCopy,
+    handleDesktopViewportChanged,
     handleSelectedPayload,
     handleUpdateSelectionAnnotation,
     pushHistoryEntry,
@@ -806,13 +791,10 @@ export const BrowserSession: React.FC<BrowserSessionProps> = ({
     }
 
     if (transportControllerRef.current?.mode === 'desktop' && transportSessionIdRef.current) {
-      const activeController = transportControllerRef.current;
-      const shouldNavigate = forceDesktopNavigationRef.current || desktopPreviewUrlRef.current !== committedUrl;
-      if (shouldNavigate) {
-        forceDesktopNavigationRef.current = false;
-        await activeController.navigate?.(committedUrl);
-        desktopPreviewUrlRef.current = committedUrl;
-      }
+      // Session already open: host webview owns load via desktopSrc=committedUrl.
+      // Only bookkeep URL refs — never dual-call main navigate + webview loadURL.
+      forceDesktopNavigationRef.current = false;
+      desktopPreviewUrlRef.current = committedUrl;
       setPreviewLoadError(null);
       // Loading flag is owned by webview did-start/stop-loading for desktop.
       setTransportState((previous) =>
@@ -929,12 +911,6 @@ export const BrowserSession: React.FC<BrowserSessionProps> = ({
   const handleOpenDeveloperTools = useCallback(async () => {
     if (preferredTransportMode !== 'desktop') return;
 
-    if (devToolsOcclusionTimerRef.current != null) {
-      window.clearTimeout(devToolsOcclusionTimerRef.current);
-      devToolsOcclusionTimerRef.current = null;
-    }
-    setSuppressNativePreviewOcclusion(true);
-
     try {
       if (transportControllerRef.current?.mode !== 'desktop') {
         await syncDesktopPreview();
@@ -945,21 +921,14 @@ export const BrowserSession: React.FC<BrowserSessionProps> = ({
       }
       await controller.openDevTools();
     } catch (error) {
-      setSuppressNativePreviewOcclusion(false);
-      console.error('[preview] failed to open developer tools:', error);
+      console.error('[browser] failed to open developer tools:', error);
       toastManager.add({
         title: previewT('developerTools.openFailedTitle', 'Failed to open developer tools'),
         description: error instanceof Error ? error.message : String(error),
         type: 'error',
       });
-      return;
     }
-
-    devToolsOcclusionTimerRef.current = window.setTimeout(() => {
-      devToolsOcclusionTimerRef.current = null;
-      setSuppressNativePreviewOcclusion(false);
-    }, DEVTOOLS_OCCLUSION_SUPPRESSION_MS);
-  }, [preferredTransportMode, syncDesktopPreview]);
+  }, [preferredTransportMode, previewT, syncDesktopPreview]);
 
   const handleIframeLoad = useBrowserIframeLoad({
     connectIframeTransport,

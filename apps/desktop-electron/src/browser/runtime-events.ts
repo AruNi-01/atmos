@@ -61,6 +61,8 @@ export function remapRuntimeEventName(eventType: string): string | null {
       return "desktop-browser:open-tab";
     case "atmos-browser:cursor-changed":
       return "desktop-browser:cursor-changed";
+    case "atmos-browser:viewport-changed":
+      return "desktop-browser:viewport-changed";
     case "atmos-browser:detached-changed":
       return "desktop-browser:detached-changed";
     default:

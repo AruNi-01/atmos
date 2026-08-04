@@ -29,7 +29,7 @@ function str(v: unknown): string {
 
 /**
  * Resolve the BrowserWindow that invoked a desktop command (from main.ts inject).
- * Preview bridge needs this so standalone browser windows host their own WebContentsView.
+ * Browser bridge uses this so standalone browser windows bind guests to the correct host.
  */
 async function hostWindowFromArgs(
   args: DesktopInvokeArgs,
@@ -414,6 +414,17 @@ export function createAllHandlers(
       return null;
     },
 
+    async browser_bridge_query_element_rects(args) {
+      const sessionId = str(args.session_id ?? args.sessionId);
+      const raw = args.selectors;
+      const selectors = Array.isArray(raw)
+        ? raw.map((s) => str(s)).filter(Boolean)
+        : [];
+      return (
+        (await state.browser?.queryElementRects(sessionId, selectors)) ?? []
+      );
+    },
+
     async browser_bridge_enter_pick_mode(args) {
       state.browser?.enterPickMode(str(args.session_id ?? args.sessionId));
       return null;
@@ -445,6 +456,10 @@ export function createAllHandlers(
       return null;
     },
 
+    /**
+     * Lightweight URL shape check (http/https only). No network fetch.
+     * Product navigation does not require this; kept for tooling/smoke.
+     */
     async browser_bridge_probe_url(args) {
       const url = str(args.url);
       try {
