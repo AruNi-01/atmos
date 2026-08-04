@@ -265,7 +265,7 @@ export function BrowserToolbar({
             className="rounded-sm p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             title={t("navigation.refresh")}
           >
-            <RotateCcw className={cn("size-3.5", isPreviewLoading && "animate-spin")} />
+            <RotateCcw className={cn("size-3.5", isPreviewLoading && "animate-spin [animation-direction:reverse]")} />
           </button>
         </div>
 
