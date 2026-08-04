@@ -1,8 +1,8 @@
 "use client";
 
 /**
- * Reusable macOS permission panel for Desktop Use Settings and legacy shells.
- * Does not open a separate window — parent owns layout.
+ * @deprecated APP-052 — Settings and recovery paths use DesktopUsePermissionsPanel.
+ * Kept for any residual imports; host identity is Atmos Desktop Use when engine is installed.
  */
 
 import React from "react";
@@ -22,6 +22,7 @@ import {
   openAppshotPermissionTarget,
   watchAppshotStatusAfterPermissionOpen,
 } from "../lib/appshot-client";
+import { desktopInvoke, isDesktopRuntime } from "@/shared/lib/desktop-bridge";
 import type {
   AppshotPermissionName,
   AppshotPermissionState,
@@ -53,19 +54,42 @@ export function AppshotPermissionsPanel({
   const [error, setError] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [openingTarget, setOpeningTarget] = React.useState<AppshotSettingsTarget | null>(null);
+  const [useHostIdentity, setUseHostIdentity] = React.useState(false);
   const watcherRef = React.useRef<(() => void) | null>(null);
 
   const refreshStatus = React.useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
+      // Prefer Atmos Desktop Use host doctor when control engine is installed
+      // so AppShot + control share one TCC product identity.
+      if (isDesktopRuntime()) {
+        try {
+          const doctor = (await desktopInvoke("desktop_use_doctor")) as {
+            engine_installed?: boolean;
+            accessibility?: boolean | null;
+            screen_recording?: boolean | null;
+            host_app_name?: string;
+          };
+          if (doctor?.engine_installed) {
+            setUseHostIdentity(true);
+            setStatus(
+              statusFromHostDoctor(doctor, t("permissionsWindow.grant")),
+            );
+            return;
+          }
+        } catch {
+          /* fall through to AppShot Electron status */
+        }
+      }
+      setUseHostIdentity(false);
       setStatus(await getAppshotStatus());
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   React.useEffect(() => {
     void refreshStatus();
@@ -83,7 +107,12 @@ export function AppshotPermissionsPanel({
       setOpeningTarget(target);
       setError(null);
       try {
-        await openAppshotPermissionTarget(target);
+        if (useHostIdentity && isDesktopRuntime()) {
+          // Single host: Atmos Desktop Use.app grant flow for AppShot + control.
+          await desktopInvoke("desktop_use_grant_permissions");
+        } else {
+          await openAppshotPermissionTarget(target);
+        }
         watcherRef.current?.();
         watcherRef.current = watchAppshotStatusAfterPermissionOpen(refreshStatus, 20_000);
       } catch (err) {
@@ -95,7 +124,7 @@ export function AppshotPermissionsPanel({
         }, 700);
       }
     },
-    [refreshStatus],
+    [refreshStatus, useHostIdentity],
   );
 
   return (
@@ -119,27 +148,16 @@ export function AppshotPermissionsPanel({
             </p>
           </div>
         </div>
-      ) : (
-        <div className="mb-3">
-          <div className="flex flex-wrap items-center gap-2">
-            <h3 className="text-sm font-medium">{t("permissionsWindow.macosPermissions")}</h3>
-            <Badge variant="outline" className="rounded-md text-[10px] font-normal">
-              macOS
-            </Badge>
-          </div>
-          <p className="mt-1 text-xs leading-5 text-muted-foreground">
-            {t("permissionsWindow.description")}
-          </p>
-        </div>
-      )}
+      ) : null}
 
-      <div className={cn("space-y-3", embedded ? "mt-1" : "mt-8 flex-1")}>
+      <div className={cn("space-y-2.5", embedded ? "mt-0" : "mt-8 flex-1")}>
         {permissions.map((permission) => (
           <PermissionRow
             key={permission.name}
             permission={permission}
             opening={openingTarget === (permission.recovery_action?.target ?? permission.name)}
             onGrant={grantPermission}
+            compact={embedded}
           />
         ))}
       </div>
@@ -163,7 +181,7 @@ export function AppshotPermissionsPanel({
         </div>
         <Button
           type="button"
-          variant="outline"
+          variant="ghost"
           size="sm"
           onClick={() => void refreshStatus()}
           disabled={loading}
@@ -185,10 +203,12 @@ function PermissionRow({
   permission,
   opening,
   onGrant,
+  compact = false,
 }: {
   permission: AppshotPermissionState;
   opening: boolean;
   onGrant: (permission: AppshotPermissionState) => Promise<void>;
+  compact?: boolean;
 }) {
   const t = useTranslations("appshot.components");
   const copy = getPermissionCopy(t)[permission.name];
@@ -197,19 +217,34 @@ function PermissionRow({
   return (
     <div
       className={cn(
-        "flex items-center gap-4 rounded-xl border border-border bg-background/60 p-4",
+        "flex items-center gap-3 rounded-xl border border-border bg-background/60",
+        compact ? "px-3 py-2.5" : "gap-4 p-4",
         permission.granted && "border-emerald-500/25 bg-emerald-500/5",
       )}
     >
-      <div className="flex size-11 shrink-0 items-center justify-center rounded-lg border border-border bg-muted/40">
-        <Icon className="size-5 text-muted-foreground" />
+      <div
+        className={cn(
+          "flex shrink-0 items-center justify-center rounded-lg border border-border bg-muted/40",
+          compact ? "size-9" : "size-11",
+        )}
+      >
+        <Icon
+          className={cn(
+            "text-muted-foreground",
+            compact ? "size-4" : "size-5",
+          )}
+        />
       </div>
       <div className="min-w-0 flex-1">
         <p className="text-sm font-medium text-foreground">{copy.title}</p>
-        <p className="mt-1 text-xs leading-5 text-muted-foreground">{copy.description}</p>
+        {!compact ? (
+          <p className="mt-1 text-xs leading-5 text-muted-foreground">
+            {copy.description}
+          </p>
+        ) : null}
       </div>
       {permission.granted ? (
-        <span className="flex shrink-0 items-center gap-1.5 text-sm text-emerald-500">
+        <span className="flex shrink-0 items-center gap-1.5 text-sm text-emerald-600 dark:text-emerald-400">
           <Check className="size-4" />
           {t("permissionsWindow.done")}
         </span>
@@ -251,6 +286,49 @@ function getPermissionCopy(
       description: t("permissionsWindow.permissions.screenRecording.description"),
       icon: MonitorUp,
     },
+  };
+}
+
+function statusFromHostDoctor(
+  doctor: {
+    accessibility?: boolean | null;
+    screen_recording?: boolean | null;
+    host_app_name?: string;
+  },
+  grantLabel: string,
+): AppshotStatus {
+  const ax = Boolean(doctor.accessibility);
+  const screen = Boolean(doctor.screen_recording);
+  const mk = (
+    name: AppshotPermissionName,
+    granted: boolean,
+  ): AppshotPermissionState => ({
+    name,
+    display_name: name === "accessibility" ? "Accessibility" : "Screen Recording",
+    granted,
+    required_for: name === "accessibility" ? ["accessibility_tree", "control"] : ["capture", "control"],
+    recovery_action: granted
+      ? null
+      : {
+          label: grantLabel,
+          target: name,
+          manual_steps: [
+            `Open System Settings → Privacy & Security and enable ${name === "accessibility" ? "Accessibility" : "Screen Recording"} for Atmos Desktop Use.`,
+          ],
+        },
+  });
+  return {
+    supported: true,
+    platform: "macos",
+    reason: null,
+    trigger: {
+      mode: "macos_modifier_gesture",
+      enabled: ax,
+      required_modifiers: [],
+      last_error: null,
+      permissions: [mk("accessibility", ax)],
+    },
+    permissions: [mk("accessibility", ax), mk("screen_recording", screen)],
   };
 }
 

@@ -24,6 +24,7 @@ import BrainCircuitIcon from "@workspace/ui/components/icons/brain-circuit-icon"
 import { BellIcon } from "@workspace/ui/components/icons/bell-icon";
 import WorldIcon from "@workspace/ui/components/icons/world-icon";
 import ComputerIcon from "@workspace/ui/components/icons/computer-icon";
+import DesktopUseIcon from "@workspace/ui/components/icons/desktop-use-icon";
 import { FolderKanbanIcon } from "@workspace/ui/components/icons/folder-kanban-icon";
 import { TagIcon } from "@workspace/ui/components/icons/tag-icon";
 import KeyboardIcon from "@workspace/ui/components/icons/keyboard-icon";
@@ -107,6 +108,9 @@ function SettingsSectionIcon({
   if (sectionId === "notify") return <BellIcon ref={iconRef} className="shrink-0" size={16} />;
   if (sectionId === "tunnel-connector") return <WorldIcon ref={iconRef} className="shrink-0" size={16} />;
   if (sectionId === "atmos-computer") return <ComputerIcon ref={iconRef} className="shrink-0" size={16} />;
+  if (sectionId === "desktop-use") {
+    return <DesktopUseIcon ref={iconRef} className="shrink-0" size={16} />;
+  }
   if (sectionId === "shortcuts") return <KeyboardIcon ref={iconRef} className="shrink-0" size={16} />;
   if (sectionId === "experiments") {
     return <FlaskIcon ref={iconRef as React.Ref<FlaskIconHandle>} className="shrink-0" size={16} />;

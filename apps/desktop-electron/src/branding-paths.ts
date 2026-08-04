@@ -56,9 +56,13 @@ export function resolveAppIcons(
     windowIconPath = pngPath ?? hiResPng ?? icoPath;
   }
 
+  // Dock: prefer high-res PNG. Electron's nativeImage.createFromPath(.icns)
+  // often loads only a low-res representation, which then appears as a tiny
+  // glyph centered in the macOS Dock tile. Bundle CFBundleIconFile can still
+  // use .icns for Finder / Get Info.
   const dockIconPath =
     platform === "darwin"
-      ? icnsPath ?? pngPath ?? hiResPng
+      ? pngPath ?? hiResPng ?? icnsPath
       : windowIconPath;
 
   return {

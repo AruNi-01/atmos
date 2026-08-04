@@ -45,6 +45,7 @@ const calls = {
   read: [] as string[][],
   readSnapshot: [] as string[],
   showPermissions: 0,
+  openDesktopUseSettings: 0,
 };
 
 let recordItems: AppshotRecordListItem[] = [];
@@ -61,8 +62,8 @@ const historyMessages: Record<string, string> = {
   "history.unsupportedInThisRuntime": "Appshots are not supported in this runtime.",
   "history.permissionsRequiredTitle": "Permissions required",
   "history.permissionsRequiredDescription":
-    "Grant the required macOS permissions to capture Appshots.",
-  "history.enable": "Enable",
+    "Grant Accessibility and Screen Recording for Atmos Desktop Use in Settings.",
+  "history.enable": "Open Desktop Use",
   "history.recentRecords": "Recent Appshot records",
   "history.recentRecordsAriaLabel": "Recent Appshot records",
   "history.noAppshotsYet": "No Appshots yet.",
@@ -251,6 +252,22 @@ mock.module("../lib/appshot-client", () => ({
   watchAppshotStatusAfterPermissionOpen: () => () => undefined,
 }));
 
+mock.module("../lib/open-desktop-use-settings", () => ({
+  openDesktopUseSettingsInApp: () => {
+    calls.openDesktopUseSettings += 1;
+  },
+  useOpenDesktopUseSettings: () => () => {
+    calls.openDesktopUseSettings += 1;
+  },
+}));
+
+mock.module("@/shared/lib/desktop-bridge", () => ({
+  isDesktopRuntime: () => false,
+  desktopInvoke: async () => {
+    throw new Error("not desktop in test");
+  },
+}));
+
 const { AppshotsHistoryPopover } = await import(
   "../components/AppshotsHistoryPopover"
 );
@@ -280,6 +297,7 @@ beforeEach(() => {
   calls.read = [];
   calls.readSnapshot = [];
   calls.showPermissions = 0;
+  calls.openDesktopUseSettings = 0;
   recordItems = [];
   recordDetails = new Map();
   deniedPermissions = [];
@@ -356,13 +374,13 @@ describe("S7/S8 - Header Appshots history", () => {
     expect(container.textContent).toContain("App #10");
   });
 
-  it("shows one permission CTA that opens the dedicated Appshots window", async () => {
+  it("shows one permission CTA that opens Settings → Desktop Use", async () => {
     deniedPermissions = [
       makeDeniedPermission("accessibility", "Accessibility"),
       makeDeniedPermission("screen_recording", "Screen Recording"),
     ];
     // Native often also sets trigger.last_error when Accessibility is off — must not
-    // render a second warning above the Enable CTA.
+    // render a second warning above the Desktop Use CTA.
     appshotStatus = {
       ...defaultDesktopStatus(),
       trigger: {
@@ -376,13 +394,14 @@ describe("S7/S8 - Header Appshots history", () => {
     const container = await renderHistoryPopover();
     await flushUntil(() => container.textContent?.includes("Permissions required") ?? false);
 
-    expect(getButtonsByText(container, "Enable")).toHaveLength(1);
+    expect(getButtonsByText(container, "Open Desktop Use")).toHaveLength(1);
     expect(getButtonsByText(container, "Grant")).toHaveLength(0);
     expect(container.textContent).not.toContain("dual-shift will not receive keys");
 
-    await click(getButtonByText(container, "Enable"));
+    await click(getButtonByText(container, "Open Desktop Use"));
 
-    expect(calls.showPermissions).toBe(1);
+    expect(calls.openDesktopUseSettings).toBe(1);
+    expect(calls.showPermissions).toBe(0);
   });
 
   it("shows a history skeleton on first paint instead of the empty state", async () => {

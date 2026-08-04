@@ -31,6 +31,11 @@ export type DesktopUseCaptureJson = {
   error?: string | null;
 };
 
+export type DesktopUsePrefsJson = {
+  operation_border_enabled: boolean;
+  highlight_idle_ms: number;
+};
+
 export type DesktopUseStatusJson = {
   product: string;
   data_dir: string;
@@ -41,7 +46,14 @@ export type DesktopUseStatusJson = {
     progress?: number | null;
     error?: string | null;
     engine_path?: string | null;
+    engine_version?: string | null;
   };
+  host_app_name?: string | null;
+  host_app_path?: string | null;
+  pinned_version?: string | null;
+  installed_version?: string | null;
+  update_available?: boolean;
+  prefs?: DesktopUsePrefsJson;
 };
 
 function repoRootFromHere(): string | null {
@@ -124,4 +136,53 @@ export async function desktopUseDriverUninstall(): Promise<unknown> {
 
 export async function desktopUseCapture(): Promise<DesktopUseCaptureJson> {
   return (await runDesktopUseJson(["capture"], 25_000)) as DesktopUseCaptureJson;
+}
+
+export async function desktopUseDoctor(): Promise<unknown> {
+  return runDesktopUseJson(["doctor"]);
+}
+
+export async function desktopUseGrantPermissions(
+  target: "accessibility" | "screen_recording" | "all" = "all",
+): Promise<unknown> {
+  return runDesktopUseJson(
+    ["driver", "grant-permissions", "--target", target],
+    30_000,
+  );
+}
+
+export async function desktopUseDriveVerify(): Promise<unknown> {
+  return runDesktopUseJson(["drive", "verify"], 30_000);
+}
+
+export async function desktopUseDriveScreenshot(): Promise<unknown> {
+  return runDesktopUseJson(["drive", "screenshot"], 45_000);
+}
+
+export async function desktopUsePrefsGet(): Promise<{ ok: boolean; prefs: DesktopUsePrefsJson }> {
+  return (await runDesktopUseJson(["prefs", "get"])) as {
+    ok: boolean;
+    prefs: DesktopUsePrefsJson;
+  };
+}
+
+export async function desktopUsePrefsSet(args: {
+  operationBorder?: boolean;
+  highlightIdleMs?: number;
+}): Promise<{ ok: boolean; prefs: DesktopUsePrefsJson }> {
+  const cliArgs = ["prefs", "set"];
+  if (typeof args.operationBorder === "boolean") {
+    cliArgs.push("--operation-border", args.operationBorder ? "true" : "false");
+  }
+  if (typeof args.highlightIdleMs === "number" && Number.isFinite(args.highlightIdleMs)) {
+    cliArgs.push("--highlight-idle-ms", String(Math.max(0, Math.floor(args.highlightIdleMs))));
+  }
+  return (await runDesktopUseJson(cliArgs)) as {
+    ok: boolean;
+    prefs: DesktopUsePrefsJson;
+  };
+}
+
+export async function desktopUseDriveSessionEnd(): Promise<unknown> {
+  return runDesktopUseJson(["drive", "session-end"], 15_000);
 }

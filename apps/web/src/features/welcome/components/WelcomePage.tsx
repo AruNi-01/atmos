@@ -35,6 +35,12 @@ import {
   matchesBrowserUseSlashQuery,
   resolveBrowserUseSkillRef,
 } from "@/features/welcome/lib/slash-browser-use";
+import {
+  buildDesktopUseSlashCommand,
+  DESKTOP_USE_SLASH_COMMAND_ID,
+  matchesDesktopUseSlashQuery,
+  resolveDesktopUseSkillRef,
+} from "@/features/welcome/lib/slash-desktop-use";
 import { useProjectStore } from "@/features/project/store/use-project-store";
 import {
   useProjects,
@@ -255,6 +261,14 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
         buildBrowserUseSlashCommand({
           label: t("slashPopover.browserUse.label"),
           description: t("slashPopover.browserUse.description"),
+        }),
+      );
+    }
+    if (matchesDesktopUseSlashQuery(query)) {
+      commands.push(
+        buildDesktopUseSlashCommand({
+          label: t("slashPopover.desktopUse.label"),
+          description: t("slashPopover.desktopUse.description"),
         }),
       );
     }
@@ -531,6 +545,23 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
           { kind: "skill", absolutePath: skill.absolutePath, name: skill.name },
         );
         setSlashPopover(null);
+        return;
+      }
+      if (command.id === DESKTOP_USE_SLASH_COMMAND_ID) {
+        const popover = slashPopover;
+        if (!popover) return;
+        const skill = resolveDesktopUseSkillRef(allSkills);
+        if (skill.status === "disabled") {
+          setSlashPopover(null);
+          return;
+        }
+        composerRef.current?.applySlashAtRange(
+          popover.slashOffset,
+          popover.query.length,
+          { kind: "skill", absolutePath: skill.absolutePath, name: skill.name },
+        );
+        setSlashPopover(null);
+        return;
       }
     },
     [allSkills, enterDisableSkillsView, slashPopover],

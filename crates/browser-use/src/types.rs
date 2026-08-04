@@ -3,9 +3,6 @@ use serde::{Deserialize, Serialize};
 /// Structured error: Atmos embedded browser host control plane not reachable.
 pub const ERR_EMBEDDED_HOST_UNAVAILABLE: &str = "embedded_browser_host_unavailable";
 
-/// Legacy code still returned by older stubs.
-pub const ERR_EMBEDDED_NOT_IMPLEMENTED: &str = "embedded_browser_not_implemented";
-
 /// Product rule: Browser Use never exposes MCP.
 pub const ERR_NO_MCP: &str =
     "Browser Use has no MCP surface; use atmos browser-use CLI/skills only";

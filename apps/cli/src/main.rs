@@ -59,7 +59,7 @@ enum Commands {
         #[command(subcommand)]
         command: DesktopUseCommand,
     },
-    /// Browser Use: page control for system Chromium (cua) or Atmos embedded browser.
+    /// Browser Use: page CDP control (separate from Desktop Use; no MCP).
     #[command(name = "browser-use")]
     BrowserUse {
         #[command(subcommand)]

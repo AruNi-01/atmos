@@ -3296,6 +3296,10 @@
         "browserUse": {
           "label": "Browser Use",
           "description": "Control Atmos in-app browser pages (DOM click / type / navigate)"
+        },
+        "desktopUse": {
+          "label": "Desktop Use",
+          "description": "Capture and control the local desktop (screenshot, click, type)"
         }
       }
     },
@@ -5532,32 +5536,12 @@
       }
     },
     "desktopUse": {
-      "title": "Desktop Use",
-      "description": "Capture the local desktop and manage the optional control engine. This is separate from Atmos Computer (remote machines).",
-      "desktopOnly": "Desktop Use settings require the Atmos Desktop app.",
-      "engine": {
-        "title": "Control engine",
-        "hint": "Optional component for click/type automation. Capture works without it.",
-        "installed": "Installed",
-        "notInstalled": "Not installed"
-      },
-      "capture": {
-        "label": "Capture",
-        "available": "Available",
-        "unavailable": "Unavailable"
-      },
-      "actions": {
-        "ensure": "Install / update",
-        "stop": "Stop",
-        "uninstall": "Remove",
-        "refresh": "Refresh"
-      },
-      "errors": {
-        "statusFailed": "Could not load Desktop Use status",
-        "ensureFailed": "Could not install control engine",
-        "stopFailed": "Could not stop control engine",
-        "uninstallFailed": "Could not remove control engine"
-      }
+      "label": "Desktop Use",
+      "description": "Capture and control the local desktop (screenshot, click, type)"
+    },
+    "browserUse": {
+      "label": "Browser Use",
+      "description": "Control Atmos in-app browser pages (DOM click / type / navigate)"
     }
   },
   "agent": {
@@ -8244,6 +8228,10 @@
         "selectionTooltip": "User-selected terminal context",
         "sideMissingContext": "This side chat context is no longer available.",
         "selectionTruncated": "Selection was truncated."
+      },
+      "desktopUseCommand": {
+        "label": "Desktop Use",
+        "description": "Capture and control the local desktop (screenshot, click, type)"
       }
     },
     "sideChat": {
@@ -8461,7 +8449,8 @@
         "unavailable": "Element selection is only available for same-origin pages, local development URLs, or the desktop Browser.",
         "desktop": "{action} element selection. Source component detection runs through the desktop native Browser and supports React, Vue, Angular, and Svelte.",
         "extension": "{action} element selection. Cross-port pages use the Atmos Inspector extension. Source component detection supports React, Vue, Angular, and Svelte.",
-        "default": "{action} element selection. Source component detection supports React, Vue, Angular, and Svelte."
+        "default": "{action} element selection. Source component detection supports React, Vue, Angular, and Svelte.",
+        "desktopNative": "{action} element selection. Source component detection runs through the desktop native Browser and supports React, Vue, Angular, and Svelte."
       }
     },
     "toolbar": {

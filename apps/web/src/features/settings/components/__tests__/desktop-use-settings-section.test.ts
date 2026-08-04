@@ -31,7 +31,7 @@ describe("Desktop Use settings wiring", () => {
     expect(sections).toContain("case 'desktop-use'");
   });
 
-  it("Desktop Use section embeds AppshotPermissionsPanel", () => {
+  it("Desktop Use section owns DesktopUsePermissionsPanel (not AppShot brand)", () => {
     const section = readFileSync(
       join(
         root,
@@ -39,9 +39,75 @@ describe("Desktop Use settings wiring", () => {
       ),
       "utf8",
     );
-    expect(section).toContain("AppshotPermissionsPanel");
+    expect(section).toContain("DesktopUsePermissionsPanel");
+    expect(section).not.toContain("AppshotPermissionsPanel");
     expect(section.toLowerCase()).not.toContain("cua");
     expect(section.toLowerCase()).not.toContain("trycua");
+  });
+
+  it("separates install vs update and keeps grant only in permissions", () => {
+    const section = readFileSync(
+      join(
+        root,
+        "apps/web/src/features/settings/components/DesktopUseSettingsSection.tsx",
+      ),
+      "utf8",
+    );
+    // Install and update are distinct actions
+    expect(section).toContain('t("actions.install")');
+    expect(section).toContain('t("actions.update")');
+    expect(section).toContain("update_available");
+    expect(section).toContain("updateAvailable");
+    // Engine card does not call grant; permissions panel owns it
+    expect(section).toContain("DesktopUsePermissionsPanel");
+  });
+
+  it("exposes operation border toggle via prefs IPC", () => {
+    const section = readFileSync(
+      join(
+        root,
+        "apps/web/src/features/settings/components/DesktopUseSettingsSection.tsx",
+      ),
+      "utf8",
+    );
+    expect(section).toContain('t("border.title")');
+    expect(section).toContain("desktop_use_prefs_set");
+    expect(section).toContain("operationBorder");
+    expect(section).toContain("operation_border_enabled");
+  });
+
+  it("DesktopUsePermissionsPanel uses doctor + host grant only", () => {
+    const panel = readFileSync(
+      join(
+        root,
+        "apps/web/src/features/settings/components/DesktopUsePermissionsPanel.tsx",
+      ),
+      "utf8",
+    );
+    expect(panel).toContain("desktop_use_doctor");
+    expect(panel).toContain("desktop_use_grant_permissions");
+    // Per-permission grant buttons (not one bulk button)
+    expect(panel).toContain("grantAccessibility");
+    expect(panel).toContain("grantScreenRecording");
+    expect(panel).toContain('desktopInvoke("desktop_use_grant_permissions", { target })');
+    expect(panel).toContain("openGrant(name)");
+    expect(panel).not.toContain("getAppshotStatus");
+    expect(panel).not.toContain("openAppshotPermissionTarget");
+    expect(panel.toLowerCase()).not.toContain("cua");
+    expect(panel).not.toContain("onStatusChange");
+  });
+
+  it("Desktop Use settings does not reload engine status from permissions panel", () => {
+    const section = readFileSync(
+      join(
+        root,
+        "apps/web/src/features/settings/components/DesktopUseSettingsSection.tsx",
+      ),
+      "utf8",
+    );
+    expect(section).toContain("DesktopUsePermissionsPanel");
+    // Must not wire permissions → parent load callback (infinite refresh)
+    expect(section).not.toMatch(/onStatusChange\s*=/);
   });
 
   it("permission primary path opens Settings Desktop Use", () => {
@@ -51,5 +117,42 @@ describe("Desktop Use settings wiring", () => {
     );
     expect(client).toContain("openDesktopUseSettingsInApp");
     expect(client).toContain("Desktop Use");
+    // No legacy standalone permission window as primary recovery
+    expect(client).not.toMatch(
+      /appshot_show_permissions_window[\s\S]*openDesktopUseSettingsInApp/,
+    );
+  });
+
+  it("header Appshots authorize opens Desktop Use settings", () => {
+    const popover = readFileSync(
+      join(
+        root,
+        "apps/web/src/features/appshot/components/AppshotsHistoryPopover.tsx",
+      ),
+      "utf8",
+    );
+    expect(popover).toContain("useOpenDesktopUseSettings");
+    expect(popover).toContain("openDesktopUseSettings");
+    expect(popover).not.toContain("showAppshotPermissionsWindow");
+  });
+
+  it("settings sidebar uses DesktopUseIcon for desktop-use", () => {
+    const sidebar = readFileSync(
+      join(
+        root,
+        "apps/web/src/features/settings/components/settings-modal-sidebar.tsx",
+      ),
+      "utf8",
+    );
+    expect(sidebar).toContain("DesktopUseIcon");
+    expect(sidebar).toContain('sectionId === "desktop-use"');
+    const icon = readFileSync(
+      join(root, "packages/ui/src/components/icons/desktop-use-icon.tsx"),
+      "utf8",
+    );
+    // Combined monitor + notch pointer (hover wiggle on pointer)
+    expect(icon).toContain("du-pointer");
+    expect(icon).toContain("startAnimation");
+    expect(icon).toContain("M13 3H4a2 2 0 0 0-2 2v10");
   });
 });

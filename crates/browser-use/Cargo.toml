@@ -8,6 +8,7 @@ description = "Atmos Browser Use — page CDP control (separate from Desktop Use
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 dirs = "5.0"
+desktop-use = { path = "../desktop-use" }
 
 [dev-dependencies]
 tempfile = "3.10"

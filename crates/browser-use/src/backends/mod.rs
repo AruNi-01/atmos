@@ -9,5 +9,3 @@ use crate::types::{BrowserRequest, BrowserResult};
 pub trait BrowserBackend {
     fn execute(&self, req: BrowserRequest) -> BrowserResult;
 }
-
-pub(crate) use cua::build_tool_call;

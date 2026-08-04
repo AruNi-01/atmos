@@ -8,17 +8,48 @@
 4. **No public vendor names** in UI, help, or default errors. Internal adapter modules may call a pinned external binary; that name never surfaces.
 5. **Orthogonal to APP-016**: Desktop Use is a *capability on a machine*, not a Computer identity. Do not nest under `atmos computer`.
 
+### 1.1 Control-engine supply chain (locked)
+
+| Choice | Decision |
+|--------|----------|
+| Source | **Pin official `cua-driver-rs-v*` release artifacts** (not monorepo compile-in-tree as default) |
+| Pin | `0.17.0` / tag `cua-driver-rs-v0.17.0` in `crates/desktop-use/manifest/default.json` |
+| Install path | `atmos desktop-use driver ensure` downloads + sha256-verifies + extracts into `~/.atmos/desktop-use/` |
+| Managed binary name | `atmos-desktop-control` (white-label; never teach users `cua-driver`) |
+| macOS host identity | Rebrand extracted host app to **Atmos Desktop Use.app** (`com.atmos.desktop.use`) + ad-hoc/product codesign so TCC grants show **one** product name for AppShot + control |
+| Rejected as primary | Separate **CuaDriver.app** grant UX; public MCP; user install from cua.ai |
+| Offline / CI | `ATMOS_DESKTOP_USE_ENGINE_ARCHIVE` fixture tarball or `ATMOS_DESKTOP_USE_ENGINE_SOURCE` raw binary |
+
+Daemon: managed socket `~/.atmos/desktop-use/engine.sock`.
+
+**macOS TCC unification (locked):**
+
+1. `ensure` installs rebranded **Atmos Desktop Use.app** (`com.atmos.desktop.use`) + `atmos-desktop-control` CLI shim binary.
+2. `ensure_daemon` starts serve via **`open -n -g -a "…/Atmos Desktop Use.app" --args serve --socket …`** (LaunchServices), not a naked binary spawn — live process Identifier = `com.atmos.desktop.use`.
+3. `doctor` / Settings permissions read **live host** TCC via `health_report` / `check_permissions` on that daemon (not Electron-only grants).
+4. `driver grant-permissions` is **Atmos-owned**: open System Settings Privacy panes (Screen Recording + Accessibility) + host-identity capture probe so **Atmos Desktop Use** appears in the list. Do **not** call upstream `permissions grant` (hardcodes `CuaDriver.app`).
+5. When engine is installed, AppShot permission panel uses Desktop Use doctor + host grant (one product identity).
+6. When engine is installed, **AppShot dual-shift capture** also uses the host engine (`drive screenshot` / window list under Atmos Desktop Use.app), not Electron `osascript`/`screencapture`. Electron in-process capture is **only** the pre-ensure fallback.
+7. **Screenshot wire (pinned 0.17.0):** `call --screenshot-out-file` + tool arg `screenshot_out_file`; parse MCP image `content[]` / `screenshot_file_path` only. Exit-0 plain-text engine errors are **Err** (not soft `ok:true`). Atmos injects `png_base64` / `png_path` into drive JSON for clients. Fixtures: `crates/desktop-use/tests/fixtures/engine_0_17_0/`.
+8. **Host icon:** install rewrites `AppIcon.icns` with Atmos product icon (`crates/desktop-use/assets/host-app-icon.icns`); ensure re-applies branding without re-download.
+9. Rejected: primary UX that asks users to grant **CuaDriver.app** / `com.trycua.driver`; rejected: relying on vendor `permissions grant` after white-label.
+
 ## 2. Layout
 
 ```
-crates/desktop-use/          # state, config, capture, control adapter, manager
+crates/desktop-use/          # state, config, capture, control adapter, manager, drive_tools
+crates/browser-use/          # page CDP façade (CUA external + embedded stub)
 apps/cli/… desktop_use.rs    # atmos desktop-use
+apps/cli/… browser_use.rs    # atmos browser-use (not under Desktop Use branding)
 apps/desktop-electron/
   src/desktop-use/           # spawn/IPC client to CLI or helper
   src/appshot/frontmost.ts   # thin client → desktop-use capture (no osascript)
+  # APP-053 (PR #203, unmerged): browser webview + browser_bridge_* for future embedded backend
 apps/web/
   features/settings/…DesktopUseSettingsSection
   features/appshot/… permissions panel (reusable, embedded in Settings)
+skills/atmos-desktop-use/    # OS shell skill
+skills/atmos-browser-use/    # page CDP skill (no MCP)
 ```
 
 Data dir:
@@ -83,7 +114,7 @@ Rules:
 
 ## 5. Control / drive
 
-CLI:
+CLI (product lifecycle + desktop shell):
 
 ```bash
 atmos desktop-use status
@@ -91,9 +122,7 @@ atmos desktop-use driver ensure [--force]
 atmos desktop-use driver status
 atmos desktop-use driver stop
 atmos desktop-use capture [--out path] [--json]
-atmos desktop-use drive screenshot [--out path]
-atmos desktop-use drive click --x <n> --y <n>
-atmos desktop-use drive type --text "…"
+atmos desktop-use drive screenshot|click|type|verify|window-state|…
 ```
 
 Drive adapter:
@@ -101,8 +130,52 @@ Drive adapter:
 - Prefer optional pinned engine binary when present under managed bin path.
 - When absent: return structured error (`control_engine_not_installed`) with ensure hint — except pure screenshot may reuse Capture.
 - Never print vendor names.
+- **No MCP.** Agents use CLI/skills only.
 
 Manifest ensure mirrors `local-model-runtime`: platform URL + sha256 when artifacts exist; unit tests use fixtures / temp dirs without network.
+
+### 5.1 Desktop drive phases (product CLI, not 1:1 engine dump)
+
+| Phase | Goal | `atmos desktop-use drive` (representative) |
+|-------|------|-----------------------------------------------|
+| **0 (shipped)** | Install + capture + basic click/type | `screenshot`, `click`, `type`, `verify`, `window-state`, `highlight`, `session-end` |
+| **1** | Full computer shell for agents | `double-click`, `right-click`, `drag`, `scroll`, `hotkey`, `key`, `move`, `apps`, `launch`, `quit`, `clipboard get|set`, `screen`, `cursor`, `menu`, `ax-tree` |
+| **2** | Explicit extras (never default steal focus) | `front` (bring_to_front), `set-value`, `window-frame`, `zoom`, `verify-state` |
+| **3** | Page CDP — **not under Desktop Use** | See **§5.2 Browser Use** (`atmos browser-use`) |
+
+Defaults: `delivery_mode=background`; optional session + operation border chrome; foreground only when requested.
+
+### 5.2 Browser Use (page CDP) — separate from Desktop Use
+
+**Product split (locked):**
+
+| Surface | Object | CLI | Engine tools (external Chromium first) |
+|---------|--------|-----|----------------------------------------|
+| **Desktop Use** | OS windows, keys, AX, pixels | `atmos desktop-use` | `list_windows`, `click`, `type_text`, … |
+| **Browser Use** | Bound browser **tabs / DOM** | `atmos browser-use` | `browser_prepare`, `get_browser_state`, `browser_click`, `browser_type`, `browser_navigate`, … |
+
+Rules:
+
+1. **No MCP** on either surface.
+2. Browser Use is **not** branded Desktop Use; no operation-border chrome coupling.
+3. **Backend trait (crate `browser-use`):**
+   - **`CuaExternalBrowserBackend`** — attach system Chromium via managed desktop-use engine socket/`call` (Phase 3 first ship).
+   - **`AtmosEmbeddedBrowserBackend`** — **reserved stub** until APP-053 desktop browser webview (PR #203: in-DOM `<webview>`, `browser_bridge_*`, partition `persist:atmos-browser`) is merged and verified. Stub returns structured `embedded_browser_not_implemented` (fail closed, never fake `ok: true`).
+4. Reuse model: same Agent/CLI page actions (prepare/state/click/type/navigate); **attach path** differs (external CDP vs Electron debugger / host-owned endpoint). Do not force embedded tabs through “user Chrome prepare”.
+5. Skill decision: page/DOM → Browser Use; window chrome / any App → Desktop Use.
+
+```bash
+# prepare: pid required; existing_profile needs --window-id (do not default that strategy)
+atmos browser-use --json prepare --backend cua --pid <chrome_pid>
+atmos browser-use --json prepare --backend cua --pid <pid> --window-id <wid> --strategy existing_profile
+# state bind → mints target_id/tab_ids; snapshot uses those ids
+atmos browser-use --json state --backend cua --pid <pid> --window-id <wid>
+atmos browser-use --json state --backend cua --target-id … --tab-id …
+atmos browser-use --json click --backend cua --target-id … --tab-id … --ref …
+atmos browser-use --json type --backend cua --target-id … --tab-id … --ref … --text "…"
+atmos browser-use --json navigate --backend cua --target-id … --tab-id … --url https://…
+atmos browser-use --json prepare --backend embedded   # → not_implemented until APP-053
+```
 
 ## 6. Settings UI
 

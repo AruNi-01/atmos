@@ -73,7 +73,14 @@ export async function desktopUseReadFrontmost(): Promise<DesktopUseFrontmost> {
   return parseFrontmostScriptOutput(stdout);
 }
 
-/** Full capture: identity + screenshot. Single shot for AppShot hot path. */
+/**
+ * Electron in-process capture (osascript + screencapture).
+ *
+ * **Not** the AppShot production hot path when the control engine is installed.
+ * Production dual-shift goes through `host-capture.ts` /
+ * `captureFrontmostViaHostEngine` under Atmos Desktop Use.app TCC.
+ * This helper is only the pre-ensure fallback (see `appshot/frontmost.ts`).
+ */
 export async function desktopUseCaptureInProcess(
   options: { selfAppNames?: Set<string> } = {},
 ): Promise<DesktopUseCaptureResult> {

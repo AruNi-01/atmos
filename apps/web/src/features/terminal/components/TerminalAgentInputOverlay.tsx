@@ -49,6 +49,12 @@ import {
   resolveBrowserUseSkillRef,
 } from "@/features/welcome/lib/slash-browser-use";
 import {
+  buildDesktopUseSlashCommand,
+  DESKTOP_USE_SLASH_COMMAND_ID,
+  matchesDesktopUseSlashQuery,
+  resolveDesktopUseSkillRef,
+} from "@/features/welcome/lib/slash-desktop-use";
+import {
   getAgentContextDragItems,
   hasAgentContextDragData,
   type AgentContextDragItem,
@@ -259,6 +265,14 @@ export const TerminalAgentInputOverlay = React.forwardRef<
         buildBrowserUseSlashCommand({
           label: t("browserUseCommand.label"),
           description: t("browserUseCommand.description"),
+        }),
+      );
+    }
+    if (matchesDesktopUseSlashQuery(query)) {
+      commands.push(
+        buildDesktopUseSlashCommand({
+          label: t("desktopUseCommand.label"),
+          description: t("desktopUseCommand.description"),
         }),
       );
     }
@@ -546,6 +560,28 @@ export const TerminalAgentInputOverlay = React.forwardRef<
         if (!popover) return;
         const skill = resolveBrowserUseSkillRef(allSkills);
         // Match ordinary skill selection: do not insert disabled skills.
+        if (skill.status === "disabled") {
+          setSlashPopover(null);
+          setSlashPopoverView("menu");
+          return;
+        }
+        composerRef.current?.applySlashAtRange(
+          popover.slashOffset,
+          popover.query.length,
+          {
+            kind: "skill",
+            absolutePath: skill.absolutePath,
+            name: skill.name,
+          },
+        );
+        setSlashPopover(null);
+        setSlashPopoverView("menu");
+        return;
+      }
+      if (command.id === DESKTOP_USE_SLASH_COMMAND_ID) {
+        const popover = slashPopover;
+        if (!popover) return;
+        const skill = resolveDesktopUseSkillRef(allSkills);
         if (skill.status === "disabled") {
           setSlashPopover(null);
           setSlashPopoverView("menu");

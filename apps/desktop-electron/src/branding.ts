@@ -113,12 +113,18 @@ export function applyReadyAppBranding(): void {
   // Packaged Atmos.app already has CFBundleIconFile (icon.icns). Runtime
   // dock.setIcon has been observed to leave a zero-width Dock tile on
   // Electron 37 / recent macOS — only setIcon for unpackaged / dev shells.
+  // Prefer PNG over .icns for sharp Retina tiles when setIcon is used.
   if (process.platform === "darwin" && app.dock && !app.isPackaged) {
-    const dockPath = icons.pngPath ?? icons.dockIconPath;
+    const dockPath =
+      icons.pngPath ?? icons.dockIconPath ?? icons.windowIconPath;
     if (dockPath) {
       try {
-        const image = nativeImage.createFromPath(dockPath);
+        let image = nativeImage.createFromPath(dockPath);
         if (!image.isEmpty()) {
+          const size = image.getSize();
+          if (size.width >= 512 && size.height >= 512) {
+            image = image.resize({ width: 512, height: 512, quality: "best" });
+          }
           app.dock.setIcon(image);
         }
       } catch (e) {
