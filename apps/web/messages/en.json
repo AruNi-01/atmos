@@ -8459,7 +8459,7 @@
       "tooltip": {
         "enterUrlFirst": "Enter a URL first.",
         "unavailable": "Element selection is only available for same-origin pages, local development URLs, or the desktop Browser.",
-        "desktopNative": "{action} element selection. Source component detection runs through the desktop native Browser and supports React, Vue, Angular, and Svelte.",
+        "desktop": "{action} element selection. Source component detection runs through the desktop native Browser and supports React, Vue, Angular, and Svelte.",
         "extension": "{action} element selection. Cross-port pages use the Atmos Inspector extension. Source component detection supports React, Vue, Angular, and Svelte.",
         "default": "{action} element selection. Source component detection supports React, Vue, Angular, and Svelte."
       }

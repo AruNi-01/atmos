@@ -3,11 +3,13 @@ import type { AppState } from "../app-state.js";
 import { appWindowBranding } from "../branding.js";
 import { installBrowserWebviewHooks } from "../browser/webview-hooks.js";
 import { uiBaseUrl } from "./main-window.js";
-import { macWindowChromeOptions } from "./mac-chrome.js";
+import { MAC_TRAFFIC_LIGHTS, macWindowChromeOptions } from "./mac-chrome.js";
 import { wireFullscreenEvents } from "./fullscreen.js";
 import { resolveAppPreloadPath } from "./preload-path.js";
 
 const secondaryWindows = new Map<string, BrowserWindow>();
+
+type MacChromeVariant = keyof typeof MAC_TRAFFIC_LIGHTS;
 
 function openOrFocus(
   label: string,
@@ -18,7 +20,7 @@ function openOrFocus(
     height: number;
     minW: number;
     minH: number;
-    chrome?: "primary" | "compact";
+    chrome?: MacChromeVariant;
   },
   state: AppState,
 ): void {
@@ -142,7 +144,8 @@ export function openBrowserWindow(
       height: 860,
       minW: 760,
       minH: 520,
-      chrome: "primary",
+      // h-8 tab strip — raise lights vs primary (h-12); leave main/agent-chat alone
+      chrome: "browser",
     },
     state,
   );

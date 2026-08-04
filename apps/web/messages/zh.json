@@ -8459,7 +8459,7 @@
       "tooltip": {
         "enterUrlFirst": "请先输入 URL。",
         "unavailable": "元素选择仅适用于同源页面、本地开发 URL 或桌面浏览器。",
-        "desktopNative": "{action}元素选择。源码组件检测通过桌面原生浏览器运行，并支持 React、Vue、Angular 和 Svelte。",
+        "desktop": "{action}元素选择。源码组件检测通过桌面原生浏览器运行，并支持 React、Vue、Angular 和 Svelte。",
         "extension": "{action}元素选择。跨端口页面使用 Atmos Inspector 扩展。源码组件检测支持 React、Vue、Angular 和 Svelte。",
         "default": "{action}元素选择。源码组件检测支持 React、Vue、Angular 和 Svelte。"
       }
