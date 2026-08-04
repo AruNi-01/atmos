@@ -1,0 +1,28 @@
+apps/desktop-electron/src/browser/surface-manager.ts
+  h_5be255725524c8 236-238,536-537,543-544
+apps/desktop-electron/src/browser/webview-attach-policy.test.ts
+  h_5be255725524c8 6,9,24-29,106-154
+apps/desktop-electron/src/browser/webview-attach-policy.ts
+  h_5be255725524c8 8-10,21-25,60-114,118-124,146-157,172-178
+apps/desktop-electron/src/browser/webview-hooks.ts
+  h_5be255725524c8 9,28-30,36-37,43-48,53,59,66,71-78,83
+apps/web/src/features/browser/components/BrowserSession.tsx
+  h_5be255725524c8 85-88,909-910,914-916,918,927
+apps/web/src/features/browser/components/DesktopBrowserWebview.tsx
+  h_5be255725524c8 264-268
+apps/web/src/features/browser/lib/__tests__/app-053-browser-webview.structural.test.ts
+  h_5be255725524c8 40,45-52
+apps/web/src/features/canvas/components/widgets/CanvasBrowserWidget.tsx
+  h_5be255725524c8 20-21,51-52
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "7f8adce60d2dfc32ef703953f21e41b72bb986ba",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
