@@ -17,6 +17,7 @@ import { createMainWindow, uiBaseUrl } from "./windows/main-window.js";
 import { markAllowWindowDestroy } from "./windows/close-behavior.js";
 import { ensureMacDockVisible } from "./windows/mac-dock.js";
 import { BrowserSurfaceManager } from "./browser/surface-manager.js";
+import { BrowserUseControlPlane } from "./browser/browser-use-control.js";
 import { ALL_PROVIDERS, TunnelService } from "./tunnel/service.js";
 import { mainLog, mainLogPath } from "./main-log.js";
 import { existsSync } from "node:fs";
@@ -89,6 +90,10 @@ async function boot() {
   // Only create services once — activate must not clobber live tunnels/previews.
   if (!state.browser) {
     state.browser = new BrowserSurfaceManager(state);
+  }
+  if (!state.browserUseControl && state.browser) {
+    state.browserUseControl = new BrowserUseControlPlane(state.browser);
+    state.browserUseControl.start();
   }
   if (!state.tunnel) {
     state.tunnel = new TunnelService();
@@ -206,6 +211,11 @@ if (!gotLock) {
     isQuitting = true;
     void (async () => {
       try {
+        try {
+          state.browserUseControl?.stop();
+        } catch {
+          /* ignore */
+        }
         if (process.platform === "darwin") {
           try {
             const { stopTriggerListener } = await import("./appshot/trigger.js");

@@ -61,6 +61,9 @@
       "skills/atmos-canvas-agent/references/document-scripts.md",
       "skills/atmos-canvas-agent/references/documents.md",
       "skills/atmos-canvas-agent/references/command-reference.md"
+    ],
+    "atmos-browser-use": [
+      "skills/atmos-browser-use/SKILL.md"
     ]
   }
 }

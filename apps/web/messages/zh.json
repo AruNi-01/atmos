@@ -3292,6 +3292,10 @@
         "disableSkill": {
           "label": "Dynamic Skills",
           "description": "动态调整 Agent 可见的技能，当前 session 即可生效"
+        },
+        "browserUse": {
+          "label": "Browser Use",
+          "description": "控制 Atmos 内置浏览器页面（DOM 点击 / 输入 / 导航）"
         }
       }
     },
@@ -8211,6 +8215,10 @@
       "disableSkillCommand": {
         "label": "Dynamic Skills",
         "description": "动态调整 Agent 可见的技能，当前 session 即可生效"
+      },
+      "browserUseCommand": {
+        "label": "Browser Use",
+        "description": "控制 Atmos 内置浏览器页面（DOM 点击 / 输入 / 导航）"
       },
       "skillDisable": {
         "chip": "Dynamic Skills",

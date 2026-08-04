@@ -3292,6 +3292,10 @@
         "disableSkill": {
           "label": "Dynamic Skills",
           "description": "Dynamically adjust which skills Agents can see — takes effect in the current session"
+        },
+        "browserUse": {
+          "label": "Browser Use",
+          "description": "Control Atmos in-app browser pages (DOM click / type / navigate)"
         }
       }
     },
@@ -8211,6 +8215,10 @@
       "disableSkillCommand": {
         "label": "Dynamic Skills",
         "description": "Dynamically adjust which skills Agents can see — takes effect in the current session"
+      },
+      "browserUseCommand": {
+        "label": "Browser Use",
+        "description": "Control Atmos in-app browser pages (DOM click / type / navigate)"
       },
       "skillDisable": {
         "chip": "Dynamic Skills",

@@ -1,5 +1,6 @@
 import type { BrowserWindow } from "electron";
 import type { BrowserSurfaceManager } from "./browser/surface-manager.js";
+import type { BrowserUseControlPlane } from "./browser/browser-use-control.js";
 import type { TunnelService } from "./tunnel/service.js";
 
 export type AppState = {
@@ -7,6 +8,8 @@ export type AppState = {
   apiPort: number | null;
   mainWindow: BrowserWindow | null;
   browser: BrowserSurfaceManager | null;
+  /** Loopback control plane for `atmos browser-use --backend embedded`. */
+  browserUseControl: BrowserUseControlPlane | null;
   tunnel: TunnelService | null;
   /** Whether this Electron process started the Server (vs reused existing). */
   startedServer: boolean;
@@ -18,6 +21,7 @@ export function createAppState(): AppState {
     apiPort: null,
     mainWindow: null,
     browser: null,
+    browserUseControl: null,
     tunnel: null,
     startedServer: false,
   };

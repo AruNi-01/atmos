@@ -29,6 +29,12 @@ import {
   useWelcomeSlashNavigation,
 } from "@/features/welcome/hooks/use-welcome-slash-navigation";
 import type { SlashPopoverView } from "@/features/welcome/components/SlashCommandPopover";
+import {
+  BROWSER_USE_SLASH_COMMAND_ID,
+  buildBrowserUseSlashCommand,
+  matchesBrowserUseSlashQuery,
+  resolveBrowserUseSkillRef,
+} from "@/features/welcome/lib/slash-browser-use";
 import { useProjectStore } from "@/features/project/store/use-project-store";
 import {
   useProjects,
@@ -242,26 +248,33 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
   } = useComposerDisableSkills(skillsContext);
 
   const slashCommands = React.useMemo<SlashCommandOption[]>(() => {
-    if (!skillsContext) return [];
     const query = slashPopover?.query.trim().toLowerCase() ?? "";
-    if (
-      query &&
-      !"dynamic-skills".includes(query) &&
-      !"dynamic skills".includes(query) &&
-      !"disable-skill".includes(query) &&
-      !"disable skill".includes(query) &&
-      !"disable".includes(query) &&
-      !"skill".includes(query)
-    ) {
-      return [];
+    const commands: SlashCommandOption[] = [];
+    if (matchesBrowserUseSlashQuery(query)) {
+      commands.push(
+        buildBrowserUseSlashCommand({
+          label: t("slashPopover.browserUse.label"),
+          description: t("slashPopover.browserUse.description"),
+        }),
+      );
     }
-    return [
-      {
+    if (!skillsContext) return commands;
+    if (
+      !query ||
+      "dynamic-skills".includes(query) ||
+      "dynamic skills".includes(query) ||
+      "disable-skill".includes(query) ||
+      "disable skill".includes(query) ||
+      "disable".includes(query) ||
+      "skill".includes(query)
+    ) {
+      commands.push({
         id: "dynamic-skills",
         label: t("slashPopover.disableSkill.label"),
         description: t("slashPopover.disableSkill.description"),
-      },
-    ];
+      });
+    }
+    return commands;
   }, [skillsContext, slashPopover?.query, t]);
   const {
     autoExtractTodos,
@@ -326,6 +339,7 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
     filteredAgents,
     filteredProjects,
     filteredSkills,
+    allSkills,
     isSkillsLoading,
   } = useWelcomeSlashSearch({
     availableAgents,
@@ -500,9 +514,21 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
     (command: SlashCommandOption) => {
       if (command.id === "dynamic-skills") {
         enterDisableSkillsView();
+        return;
+      }
+      if (command.id === BROWSER_USE_SLASH_COMMAND_ID) {
+        const popover = slashPopover;
+        if (!popover) return;
+        const skill = resolveBrowserUseSkillRef(allSkills);
+        composerRef.current?.applySlashAtRange(
+          popover.slashOffset,
+          popover.query.length,
+          { kind: "skill", absolutePath: skill.absolutePath, name: skill.name },
+        );
+        setSlashPopover(null);
       }
     },
-    [enterDisableSkillsView],
+    [allSkills, enterDisableSkillsView, slashPopover],
   );
 
   const {

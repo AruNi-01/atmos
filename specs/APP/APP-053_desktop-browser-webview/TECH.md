@@ -7,6 +7,7 @@
 | Area | Change |
 |------|--------|
 | Specs | APP-053 browser + webview + host selection |
+| **Browser Use (embedded)** | Host control plane + `atmos browser-use --backend embedded` (see APP-052 §5.2) — CDP/DOM via guest WebContents, **not** user-Chrome `browser_prepare` |
 | `apps/desktop-electron/src/browser` | webviewTag, attach policy, surface manager without in-panel WebContentsView, `browser_bridge_*` |
 | `apps/web/src/features/browser` | mount `<webview>` for transport `desktop`; host selection UI; delete APP-029; rename symbols |
 | `packages/shared/browser` | `browser-runtime.js`; protocol `atmos-browser:*`; host toolbar path (`showSelectionToolbar: false` product) |

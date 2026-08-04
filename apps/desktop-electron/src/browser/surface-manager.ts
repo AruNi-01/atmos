@@ -449,6 +449,45 @@ export class BrowserSurfaceManager {
     return new Set(this.surfaces.keys());
   }
 
+  /** Bound guest WebContents for Browser Use embedded control (APP-053). */
+  getGuestWebContents(sessionId: string): WebContents | null {
+    const s = this.surfaces.get(sessionId);
+    const g = s?.guestWebContents;
+    if (g && !g.isDestroyed()) return g;
+    return null;
+  }
+
+  /**
+   * Session summaries for `atmos browser-use --backend embedded` prepare/state bind.
+   */
+  listBrowserUseSessions(): Array<{
+    target_id: string;
+    tab_id: string;
+    url: string;
+    title: string;
+    bound: boolean;
+  }> {
+    const out: Array<{
+      target_id: string;
+      tab_id: string;
+      url: string;
+      title: string;
+      bound: boolean;
+    }> = [];
+    for (const s of this.surfaces.values()) {
+      const g = s.guestWebContents;
+      const bound = Boolean(g && !g.isDestroyed());
+      out.push({
+        target_id: s.sessionId,
+        tab_id: "main",
+        url: bound ? g!.getURL() : s.currentUrl,
+        title: bound ? g!.getTitle() : "",
+        bound,
+      });
+    }
+    return out;
+  }
+
   private attachWebContentsListeners(
     sessionId: string,
     wc: WebContents,
