@@ -1,0 +1,22 @@
+apps/desktop-electron/src/browser/webview-attach-policy.test.ts
+  h_5be255725524c8 22-51
+apps/desktop-electron/src/browser/webview-attach-policy.ts
+  h_5be255725524c8 30-33,46-51,57-59,64,76-78,89-93,96-98,108-112
+apps/desktop-electron/src/browser/webview-hooks.ts
+  h_5be255725524c8 51,71-73
+apps/web/src/features/browser/components/DesktopBrowserWebview.tsx
+  h_5be255725524c8 5-12,44,57,66-70,82-83,87,89,92-93,103-104,107-118,120-122,137-151,153-163,166,168,170-172,176-185,188,190-196,201,212-213,215,220-238
+apps/web/src/features/browser/lib/__tests__/app-053-browser-webview.structural.test.ts
+  h_5be255725524c8 34-43
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "4c265d64d622f829c3fa75408f0e88f815d1f2b4",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
