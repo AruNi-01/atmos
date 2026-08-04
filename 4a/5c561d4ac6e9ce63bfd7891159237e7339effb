@@ -1,0 +1,100 @@
+AGENTS.md
+  h_5be255725524c8 211-226
+NOTICE
+  h_5be255725524c8 161-269
+apps/cli/src/commands/desktop_use.rs
+  h_5be255725524c8 5-7,20,24,46-68,82-89,113,119-124,135,137-138,140-141,144,147-173,184-228,290-296,298-303,307,309-311,324-352,361-418,421-426,429-457
+apps/desktop-electron/src/branding-paths.ts
+  h_5be255725524c8 59-62,65
+apps/desktop-electron/src/branding.test.ts
+  h_5be255725524c8 53-70
+apps/desktop-electron/src/branding.ts
+  h_5be255725524c8 114-117,120,122-126
+apps/desktop-electron/src/desktop-use/client.ts
+  h_5be255725524c8 34-38,54-56,145-151,161-188
+apps/desktop-electron/src/ipc/handlers.ts
+  h_5be255725524c8 614,616-622,628-653
+apps/web/messages/en.json
+  h_5be255725524c8 3295-3298,5536-5537,5540,5542-5553,5556-5557,5561,5565-5570,5573-5574,5576-5581,5584-5603,7216-7217,8536-8539
+apps/web/messages/zh.json
+  h_5be255725524c8 3295-3298,5536-5537,5540,5542-5553,5556-5557,5561,5565-5566,5569-5570,5573-5574,5576-5581,5584-5603,7216-7217,8536-8539
+apps/web/src/features/appshot/__tests__/appshots-history-popover.test.tsx
+  h_5be255725524c8 48,65-66,255-270,300,377,383,397,401,403-404
+apps/web/src/features/appshot/components/AppshotPermissionsPanel.tsx
+  h_5be255725524c8 4-5,151,153,160,184,206,211,220-221,225-236,240-244,247
+apps/web/src/features/appshot/components/AppshotPermissionsWindow.tsx
+  h_5be255725524c8 5-6,10-13,16-17,22-41
+apps/web/src/features/appshot/components/AppshotsHeaderButton.tsx
+  h_5be255725524c8 45-48
+apps/web/src/features/appshot/components/AppshotsHistoryPopover.tsx
+  h_5be255725524c8 26,28,30,39-40,47-50,52,79-95,212-218,452-492
+apps/web/src/features/appshot/lib/appshot-client.ts
+  h_5be255725524c8 139,142,144-147
+apps/web/src/features/appshot/lib/open-desktop-use-settings.ts
+  h_5be255725524c8 6-8,11-15,22-42
+apps/web/src/features/settings/components/DesktopUsePermissionsPanel.tsx
+  h_5be255725524c8 1-233
+apps/web/src/features/settings/components/DesktopUseSettingsSection.tsx
+  h_5be255725524c8 7-15,24-29,40-42,45-78,84,86,88-90,103-107,120-121,123-125,127-138,140-154,156-157,159,163-166,168-172,175-176,178-186,188,192-198,200-211,214-235,239-246,249,254,256-292,297-302,305-309,312-320,326-331,333-338,340-374,376,378-382
+apps/web/src/features/settings/components/__tests__/desktop-use-settings-section.test.ts
+  h_5be255725524c8 34,42-43,48-112,120-156
+apps/web/src/features/settings/components/settings-modal-sidebar.tsx
+  h_5be255725524c8 27,111-113
+apps/web/src/features/terminal/components/TerminalAgentInputOverlay.tsx
+  h_5be255725524c8 45-50,257-264,458,544-561,583
+apps/web/src/features/welcome/components/SlashCommandPopover.tsx
+  h_5be255725524c8 14,19,254-255
+apps/web/src/features/welcome/components/WelcomePage.tsx
+  h_5be255725524c8 31-36,252-278,280,342,520-537,540
+apps/web/src/features/welcome/hooks/use-welcome-slash-search.ts
+  h_5be255725524c8 37-38,42-46,104
+apps/web/src/features/welcome/lib/__tests__/slash-desktop-use.test.ts
+  h_5be255725524c8 1-40
+apps/web/src/features/welcome/lib/slash-desktop-use.ts
+  h_5be255725524c8 1-54
+crates/desktop-use/assets/highlight_overlay.swift
+  h_5be255725524c8 1-361
+crates/desktop-use/src/control.rs
+  h_5be255725524c8 22-78,90-113,161-165,172-174,200-202,219-405,488-495,502,565-707,728-737,739-836,843,848-849,857-860,862-864,871-873,877-901,905-906,908-946,991-1018
+crates/desktop-use/src/doctor.rs
+  h_5be255725524c8 38
+crates/desktop-use/src/highlight.rs
+  h_5be255725524c8 1-617
+crates/desktop-use/src/host.rs
+  h_5be255725524c8 199-253,257-259,263-274,277-283,288-291,420-438
+crates/desktop-use/src/install.rs
+  h_5be255725524c8 15-17,120-123,272-283,285,287,289-297,300,307,312-347,349-350,352-357,370-371,387-391,436-457
+crates/desktop-use/src/lib.rs
+  h_5be255725524c8 12,16,21-24,27-32,34
+crates/desktop-use/src/manager.rs
+  h_5be255725524c8 56,59-65,152-159,170,172,176,179-181,200-206,235-247,287,296,315-321,323-336,381-390,426-445
+crates/desktop-use/src/prefs.rs
+  h_5be255725524c8 1-109
+crates/infra/src/utils/system_skill_sync.rs
+  h_5be255725524c8 42-43
+packages/ui/src/components/icons/desktop-use-icon-static.tsx
+  h_5be255725524c8 1-40
+packages/ui/src/components/icons/desktop-use-icon.tsx
+  h_5be255725524c8 1-96
+skills/atmos-desktop-use/SKILL.md
+  h_5be255725524c8 1-173
+skills/atmos-desktop-use/references/cli.md
+  h_5be255725524c8 1-128
+skills/system-skills-manifest.json
+  h_5be255725524c8 64-67
+specs/APP/APP-052_desktop-use/REVIEW.md
+  h_5be255725524c8 1-227
+specs/APP/APP-052_desktop-use/TECH.md
+  h_5be255725524c8 30,34-35
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "4a5c561d4ac6e9ce63bfd7891159237e7339effb",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
