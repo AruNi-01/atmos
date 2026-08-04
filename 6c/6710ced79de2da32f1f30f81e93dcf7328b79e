@@ -1,0 +1,64 @@
+Cargo.lock
+  h_5be255725524c8 493,831-840
+apps/cli/Cargo.toml
+  h_5be255725524c8 19
+apps/cli/src/commands/browser_use.rs
+  h_5be255725524c8 1-176
+apps/cli/src/commands/desktop_use.rs
+  h_5be255725524c8 115-150,161-357,420,423-428,443,446-454,610-645,647-649,652-671,674,678-735,745-746,763-765,800-856,861-907
+apps/cli/src/commands/mod.rs
+  h_5be255725524c8 1
+apps/cli/src/main.rs
+  h_5be255725524c8 7,62-67,90
+apps/cli/src/output.rs
+  h_5be255725524c8 56-59
+crates/browser-use/Cargo.toml
+  h_5be255725524c8 1-13
+crates/browser-use/src/backends/cua.rs
+  h_5be255725524c8 1-263
+crates/browser-use/src/backends/embedded.rs
+  h_5be255725524c8 1-40
+crates/browser-use/src/backends/mod.rs
+  h_5be255725524c8 1-11
+crates/browser-use/src/lib.rs
+  h_5be255725524c8 1-225
+crates/browser-use/src/types.rs
+  h_5be255725524c8 1-101
+crates/desktop-use/assets/highlight_overlay.swift
+  h_5be255725524c8 4,33-34,62,232-234,298,326-355,359
+crates/desktop-use/src/control.rs
+  h_5be255725524c8 28-50,109-116,118-128,142-147,205-206,214-239,266-277,355-357,431-433,645-646,653,778-787,815-842,844,851-855,857,860-872,877-884,887-902,905-918,947-967
+crates/desktop-use/src/drive_tools.rs
+  h_5be255725524c8 1-632
+crates/desktop-use/src/engine_protocol.rs
+  h_5be255725524c8 12-50,241-270
+crates/desktop-use/src/highlight.rs
+  h_5be255725524c8 61-66,77-78,230-315,352,363,401,406,448-452,461,463,712-745
+crates/desktop-use/src/lib.rs
+  h_5be255725524c8 10,19,28,30,33-34,39
+crates/desktop-use/src/window_surface.rs
+  h_5be255725524c8 1-305
+crates/infra/src/utils/system_skill_sync.rs
+  h_5be255725524c8 44
+skills/atmos-browser-use/SKILL.md
+  h_5be255725524c8 1-64
+skills/atmos-desktop-use/SKILL.md
+  h_5be255725524c8 3,33-34,54-55,59-64,79,82,84,86-111,115,136-138,141,143,146,177-186,195
+skills/atmos-desktop-use/references/cli.md
+  h_5be255725524c8 67-68,70,75,88-91,94-96,102-118,123-125
+skills/system-skills-manifest.json
+  h_5be255725524c8 68-70
+specs/APP/APP-052_desktop-use/TECH.md
+  h_5be255725524c8 40-41,43,47,51-52,117,125,133,137-179
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "6c6710ced79de2da32f1f30f81e93dcf7328b79e",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
