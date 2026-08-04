@@ -1,0 +1,16 @@
+apps/web/messages/en.json
+  h_5be255725524c8 8476
+apps/web/messages/zh.json
+  h_5be255725524c8 8476
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "b369e228885045cf34360024ff18b7079dd12fdc",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
