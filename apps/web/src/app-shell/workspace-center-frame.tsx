@@ -31,7 +31,7 @@ import {
 import { isDiffGroupEditorPath } from "@/features/diff/lib/diff-editor-paths";
 import { cn } from "@/shared/lib/utils";
 import { useGithubCenterTabsStore } from "@/features/github/store/use-github-center-tabs";
-import { useBrowserCenterTabsStore } from "@/features/run-preview/store/use-browser-center-tabs";
+import { useBrowserCenterTabsStore } from "@/features/browser/store/use-browser-center-tabs";
 import {
   browserMountKey,
   editorMountKey,
@@ -128,7 +128,7 @@ const TerminalGrid = dynamic(
 );
 const BrowserPanel = dynamic(
   () =>
-    import("@/features/run-preview/components/BrowserPanel").then(
+    import("@/features/browser/components/BrowserPanel").then(
       (mod) => mod.BrowserPanel,
     ),
   { ssr: false },

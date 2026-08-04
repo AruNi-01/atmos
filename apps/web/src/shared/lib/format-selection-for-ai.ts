@@ -29,7 +29,7 @@ export interface SelectionInfo {
   componentChain?: string[];
   sourceConfidence?: 'high' | 'medium' | 'low';
   sourceDebugSignals?: string[];
-  transportMode?: 'same-origin' | 'extension' | 'desktop-native';
+  transportMode?: 'same-origin' | 'extension' | 'desktop';
   previewRect?: {
     x: number;
     y: number;

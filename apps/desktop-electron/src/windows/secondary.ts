@@ -1,6 +1,7 @@
 import { BrowserWindow } from "electron";
 import type { AppState } from "../app-state.js";
 import { appWindowBranding } from "../branding.js";
+import { installBrowserWebviewHooks } from "../browser/webview-hooks.js";
 import { uiBaseUrl } from "./main-window.js";
 import { macWindowChromeOptions } from "./mac-chrome.js";
 import { wireFullscreenEvents } from "./fullscreen.js";
@@ -46,10 +47,14 @@ function openOrFocus(
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false,
+      webviewTag: true,
     },
   });
 
   wireFullscreenEvents(win);
+  if (state.browser) {
+    installBrowserWebviewHooks(win, state.browser);
+  }
   secondaryWindows.set(label, win);
   win.on("closed", () => {
     secondaryWindows.delete(label);
@@ -101,16 +106,16 @@ export function openAgentChatWindow(
   );
 }
 
-export function previewBrowserWindowLabel(
+export function browserWindowLabel(
   browserContextId: string | undefined,
 ): string {
   const raw = browserContextId?.trim();
-  if (!raw) return "preview-browser";
+  if (!raw) return "browser";
   const safe = raw.replace(/[^a-zA-Z0-9_-]/g, "-").slice(0, 80);
-  return `preview-browser-${safe}`;
+  return `browser-${safe}`;
 }
 
-export function openPreviewBrowserWindow(
+export function openBrowserWindow(
   state: AppState,
   args: Record<string, unknown>,
 ): void {
@@ -126,10 +131,11 @@ export function openPreviewBrowserWindow(
   if (projectId) q.set("projectId", projectId);
   if (browserContextId) q.set("browserContextId", browserContextId);
   const qs = q.toString();
-  const label = previewBrowserWindowLabel(browserContextId);
+  const label = browserWindowLabel(browserContextId);
   openOrFocus(
     label,
-    `preview/${qs ? `?${qs}` : ""}`,
+    // APP-053: standalone route is apps/web/src/app/browser (not legacy preview/)
+    `browser/${qs ? `?${qs}` : ""}`,
     {
       title: "Atmos Browser",
       width: 1280,
@@ -141,6 +147,8 @@ export function openPreviewBrowserWindow(
     state,
   );
 }
+
+
 
 export function openAppshotPermissionsWindow(
   state: AppState,

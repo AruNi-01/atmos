@@ -16,7 +16,7 @@ import { createAllHandlers } from "./ipc/handlers.js";
 import { createMainWindow, uiBaseUrl } from "./windows/main-window.js";
 import { markAllowWindowDestroy } from "./windows/close-behavior.js";
 import { ensureMacDockVisible } from "./windows/mac-dock.js";
-import { PreviewSurfaceManager } from "./preview/surface-manager.js";
+import { BrowserSurfaceManager } from "./browser/surface-manager.js";
 import { ALL_PROVIDERS, TunnelService } from "./tunnel/service.js";
 import { mainLog, mainLogPath } from "./main-log.js";
 import { existsSync } from "node:fs";
@@ -40,8 +40,8 @@ function registerIpc() {
     const cmd = (payload as { cmd?: string })?.cmd ?? "";
     const args = {
       ...((payload as { args?: Record<string, unknown> })?.args ?? {}),
-      // Internal: let preview_bridge_* attach WebContentsView to the invoking window
-      // (standalone browser) instead of always using main. Not a public API.
+      // Internal: prefer the invoking window (standalone browser) for host context.
+      // Not a public API.
       __electronSenderWebContentsId: event.sender.id,
     };
     return router.invokeSafe(cmd, args);
@@ -51,7 +51,7 @@ function registerIpc() {
 function servicesReady(): boolean {
   return (
     state.apiPort != null &&
-    state.preview != null &&
+    state.browser != null &&
     state.tunnel != null
   );
 }
@@ -87,8 +87,8 @@ async function boot() {
   }
 
   // Only create services once — activate must not clobber live tunnels/previews.
-  if (!state.preview) {
-    state.preview = new PreviewSurfaceManager(state);
+  if (!state.browser) {
+    state.browser = new BrowserSurfaceManager(state);
   }
   if (!state.tunnel) {
     state.tunnel = new TunnelService();

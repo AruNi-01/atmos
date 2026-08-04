@@ -8,9 +8,9 @@ Chrome/Edge extension that bridges cross-port preview element selection for Atmo
 |------|------|
 | `manifest.json` | MV3 manifest — permissions, content script registration |
 | `background.js` | Service worker (minimal, install log only) |
-| `content.js` | Injected by Chrome into matching pages; loads `preview-runtime.js` and `injected.js` |
+| `content.js` | Injected by Chrome into matching pages; loads `browser-runtime.js` and `injected.js` |
 | `injected.js` | Page-level glue — receives `host-init` from Atmos, creates runtime controller, relays messages |
-| `preview-runtime.js` | Extension-specific preview runtime. Shares inspection logic with `packages/shared/preview/preview-runtime.js` but has a different overlay architecture (see below). |
+| `browser-runtime.js` | Extension-specific preview runtime. Shares inspection logic with `packages/shared/browser/browser-runtime.js` but has a different overlay architecture (see below). |
 
 ## How It Works
 
@@ -19,10 +19,10 @@ Atmos host (localhost:3030)
   │  postMessage("host-init")
   ▼
 injected.js (in target page)
-  │  creates controller from extension/preview-runtime.js
+  │  creates controller from extension/browser-runtime.js
   │  sends "ready" + extensionVersion
   ▼
-extension/preview-runtime.js
+extension/browser-runtime.js
   │  mousemove → hover overlay
   │  click → selected payload (DOM context + source location)
   │  pushState/popstate → navigation-changed
@@ -37,16 +37,16 @@ The extension includes a version-check mechanism. When users click the element p
 **When you modify any file in this directory, you MUST bump the version in TWO places:**
 
 1. **`manifest.json`** → `"version"` field
-2. **`extension/preview-runtime.js`** → `var EXTENSION_VERSION = '...'` (top of the IIFE)
-3. **`packages/shared/preview/preview-runtime.js`** → same `var EXTENSION_VERSION = '...'` value
+2. **`extension/browser-runtime.js`** → `var EXTENSION_VERSION = '...'` (top of the IIFE)
+3. **`packages/shared/browser/browser-runtime.js`** → same `var EXTENSION_VERSION = '...'` value
 
 All three values must always match. Forgetting any one will break the update detection.
 
 ## Two Runtime Variants
 
-There are two `preview-runtime.js` files. They share the same inspection logic (element selection, React/Vue/Angular/Svelte source locators, event handling) and public API (`createRuntime`), but differ in overlay implementation:
+There are two `browser-runtime.js` files. They share the same inspection logic (element selection, React/Vue/Angular/Svelte source locators, event handling) and public API (`createRuntime`), but differ in overlay implementation:
 
-| | `extension/preview-runtime.js` | `packages/shared/preview/preview-runtime.js` |
+| | `extension/browser-runtime.js` | `packages/shared/browser/browser-runtime.js` |
 |---|---|---|
 | **Used by** | Browser extension (Chrome MV3) | Desktop app (Tauri `include_str!`) |
 | **Overlay** | Single root container + single-box divs | Per-segment border divs (4 thin edges per box) |
@@ -59,8 +59,8 @@ When modifying inspection logic, source locators, or the public API, update **bo
 
 ## Downstream Consumers
 
-- **Desktop app** (`apps/desktop/src-tauri/src/preview_bridge/mod.rs`): embeds `packages/shared/preview/preview-runtime.js` at compile time via `include_str!`.
-- **Extension transport** (`apps/web/src/components/run-preview/preview-transports/extension-transport.ts`): communicates with `injected.js` via `postMessage`.
+- **Desktop Electron** (`apps/desktop-electron/src/browser`): injects `packages/shared/browser/browser-runtime.js` into guests (legacy Tauri path is non-product).
+- **Extension transport** (`apps/web/src/features/browser/lib/browser-transports/extension-transport.ts`): communicates with `injected.js` via `postMessage`.
 
 ## Supported Origins
 
@@ -70,7 +70,7 @@ Defined in `manifest.json` host_permissions / content_scripts matches:
 - `127.0.0.1`, `[::1]`
 - Both `http` and `https`
 
-To add new origins, update all three sections in `manifest.json`: `host_permissions`, `content_scripts.matches`, `web_accessible_resources.matches`. Also update `isLocalPreviewTarget()` in `Preview.tsx` and `defaultAllowedOrigins` in `injected.js`.
+To add new origins, update all three sections in `manifest.json`: `host_permissions`, `content_scripts.matches`, `web_accessible_resources.matches`. Also update `isLocalPreviewTarget()` in `BrowserSession.tsx` and `defaultAllowedOrigins` in `injected.js`.
 
 ## Local Development
 

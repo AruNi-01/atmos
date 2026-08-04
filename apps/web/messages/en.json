@@ -8087,255 +8087,6 @@
       }
     }
   },
-  "preview": {
-    "toolbar": {
-      "view": {
-        "desktop": "Desktop View",
-        "mobile": "Mobile View"
-      },
-      "navigation": {
-        "back": "Back",
-        "forward": "Forward",
-        "refresh": "Refresh",
-        "home": "Back to Browser home"
-      },
-      "url": {
-        "enter": "Enter URL..."
-      },
-      "actions": {
-        "openInBrowser": "Open in browser",
-        "openDeveloperTools": "Open developer tools",
-        "openPreviewBrowserWindow": "Open Browser in new window",
-        "failedToOpenPreviewBrowserWindow": "Failed to open Browser window",
-        "returnToEmbeddedPreview": "Return to embedded Browser"
-      },
-      "annotations": {
-        "copy": "Copy",
-        "copyAriaOne": "Copy {count} browser annotation",
-        "copyAriaOther": "Copy {count} browser annotations",
-        "copyTooltipOne": "Copy {count} queued browser annotation.",
-        "copyTooltipOther": "Copy {count} queued browser annotations."
-      },
-      "browserTabs": {
-        "preview": "Browser",
-        "newTab": "New tab",
-        "closeTab": "Close tab",
-        "closeTabAria": "Close {label}",
-        "moveToCenter": "Move Browser to center",
-        "maximize": "Maximize",
-        "maximizePreview": "Maximize Browser",
-        "minimize": "Minimize",
-        "minimizePreview": "Minimize Browser"
-      },
-      "overflow": {
-        "moreActions": "More actions"
-      },
-      "cookieSync": {
-        "menu": {
-          "import": "Import from your browser",
-          "clearCache": "Clear Cache Data",
-          "clearSiteData": "Clear Cookie & Storage"
-        },
-        "browsers": {
-          "Chrome": "Google Chrome",
-          "Edge": "Microsoft Edge",
-          "Brave": "Brave",
-          "Firefox": "Firefox",
-          "unknown": "Browser"
-        },
-        "import": {
-          "title": "Import from your browser",
-          "description": "Bring your existing sign-ins into Atmos Browser by importing cookies from another browser on this Mac. Everything stays on your device.",
-          "fromLabel": "From",
-          "profilePlaceholder": "Choose a browser profile",
-          "loading": "Looking for browsers…",
-          "noBrowsers": "No supported browsers found on this Mac",
-          "runningHint": "Close {browser} completely before importing.",
-          "cookiesToggleLabel": "Cookies",
-          "cookiesToggleHint": "Import saved sign-in cookies for this profile.",
-          "cancel": "Cancel",
-          "import": "Import",
-          "importing": "Importing…",
-          "result": {
-            "verified": "{count, plural, one {# cookie imported and verified} other {# cookies imported and verified}}",
-            "noneImported": "No cookies were imported.",
-            "skippedExpired": "{count, plural, one {# expired cookie skipped} other {# expired cookies skipped}}",
-            "skippedDecrypt": "{count, plural, one {# cookie could not be decrypted} other {# cookies could not be decrypted}}",
-            "skippedParse": "{count, plural, one {# cookie could not be read} other {# cookies could not be read}}",
-            "skippedUnsupported": "{count, plural, one {# unsupported cookie skipped} other {# unsupported cookies skipped}}",
-            "failedInjection": "{count, plural, one {# cookie was rejected by the browser store} other {# cookies were rejected by the browser store}}",
-            "reloadHint": "Reload the active tab to apply your imported session.",
-            "reload": "Reload to apply",
-            "done": "Done"
-          }
-        },
-        "clear": {
-          "cacheTitle": "Clear cache data?",
-          "cacheDescription": "Removes cached files only. Your cookies and sign-ins stay, so you remain logged in.",
-          "siteDataTitle": "Clear cookie & storage?",
-          "siteDataDescription": "Removes cookies and local storage (localStorage, IndexedDB, and more) along with cached files. This will sign you out of sites.",
-          "cancel": "Cancel",
-          "confirmCache": "Clear cache data",
-          "confirmSiteData": "Clear cookie & storage",
-          "retry": "Try again",
-          "clearing": "Clearing…",
-          "clearedCache": "Cache data cleared",
-          "clearedSiteData": "Cookie & storage cleared",
-          "done": "Done"
-        },
-        "errors": {
-          "UnsupportedPlatform": "Cookie import needs macOS 14 or later.",
-          "ProfileNotFound": "That browser profile could not be found. Try choosing it again.",
-          "BrowserRunning": "Close the source browser completely, then try again.",
-          "KeychainDenied": "Keychain access was denied. Allow access to import cookies.",
-          "KeychainUnavailable": "Keychain is unavailable, so cookies can't be decrypted.",
-          "DatabaseBusy": "The browser's cookie database is busy. Close the source browser and try again.",
-          "Busy": "Another cookie operation is still running. Wait for it to finish and try again.",
-          "Forbidden": "This action isn't allowed from here.",
-          "Io": "Something went wrong reading the browser data. Please try again.",
-          "InvalidSchema": "This browser version isn't supported yet.",
-          "Unknown": "Something went wrong. Please try again."
-        }
-      },
-      "standalone": {
-        "embeddedTitle": "Browser is open in a separate window",
-        "embeddedDescription": "The embedded Browser is paused so the standalone Browser stays the only active surface.",
-        "returnHere": "Return Browser here"
-      },
-      "favorite": {
-        "add": "Add favorite",
-        "edit": "Edit favorite",
-        "save": "Save favorite",
-        "saveAction": "Save",
-        "update": "Update",
-        "cancel": "Cancel",
-        "noPageSelected": "No page selected",
-        "name": "Name",
-        "namePlaceholder": "Favorite name"
-      },
-      "extensionUpdate": {
-        "trigger": "Update",
-        "title": "Extension update available",
-        "description": "A newer version of the Atmos Inspector extension is available. Download and replace the old files to get the latest features and fixes.",
-        "later": "Later",
-        "preparing": "Preparing…",
-        "downloadUpdate": "Download update",
-        "steps": {
-          "download": "Download the new extension package below.",
-          "unzipPrefix": "Unzip and",
-          "replace": "replace",
-          "unzipMiddle": "the old",
-          "reloadPrefix": "Open",
-          "reloadMiddle": "and click the",
-          "reloadSuffix": "button on the extension card.",
-          "reloadPage": "Reload the target page in Atmos Browser."
-        }
-      },
-      "extensionInstall": {
-        "trigger": "Install browser extension",
-        "description": "Cross-port element selection requires the Atmos Inspector extension. Pages that reject iframe embedding must use the desktop Browser.",
-        "downloadedDescription": "The extension package has been downloaded. Pages that reject iframe embedding still need the desktop Browser.",
-        "close": "Close",
-        "recheck": "Recheck",
-        "rechecking": "Rechecking…",
-        "preparing": "Preparing…",
-        "install": "Install",
-        "steps": {
-          "unzip": "Unzip",
-          "open": "Open",
-          "or": "or",
-          "turnOn": "Turn on",
-          "developerMode": "Developer mode",
-          "click": "Click",
-          "loadUnpacked": "Load unpacked",
-          "selectExtracted": "Select the extracted",
-          "returnAndReload": "Return to Atmos and reload the target page, then start element selection again."
-        }
-      }
-    },
-    "favoritesPopover": {
-      "favoritesLabel": "Favorites",
-      "searchPlaceholder": "Search favorites",
-      "emptyFavorites": "No favorites yet",
-      "noMatchingFavorites": "No matching favorites",
-      "favoriteNamePlaceholder": "Favorite name",
-      "save": "Save",
-      "cancel": "Cancel",
-      "rename": "Rename",
-      "delete": "Delete"
-    },
-    "utils": {
-      "selection": {
-        "unavailable": "Element selection is only available for same-origin or local browser pages.",
-        "extensionRequired": "Cross-port element selection requires the Atmos Inspector extension. Pages that reject iframe embedding must use the desktop Browser."
-      },
-      "error": {
-        "title": "Browser failed to load",
-        "browserLoadFailure": "The target page reported a browser-level load failure.",
-        "unknownNetwork": "Unknown network error",
-        "localHttpsHint": "The target local server may be speaking HTTP on an HTTPS URL or returning an invalid TLS response.",
-        "networkUnreachable": "The target page could not be reached cleanly."
-      },
-      "errorCard": {
-        "urlLabel": "URL",
-        "detailsLabel": "Details",
-        "retry": "Retry",
-        "openInBrowser": "Open in browser"
-      },
-      "loading": {
-        "label": "Loading Browser..."
-      },
-      "home": {
-        "title": "Browser",
-        "description": "Open a local app or website, inspect elements, and send clean page context to AI.",
-        "cards": {
-          "previewPages": {
-            "title": "Browse pages",
-            "description": "Load localhost apps, internal tools, or any URL you want to inspect."
-          },
-          "selectElements": {
-            "title": "Select elements",
-            "description": "Click elements to capture DOM context and source-component hints."
-          },
-          "workAcrossModes": {
-            "title": "Work across modes",
-            "description": "Same-origin works directly. Cross-port pages use the extension or desktop Browser."
-          }
-        },
-        "notes": {
-          "start": {
-            "title": "Start",
-            "description": "Enter a URL above and press <enter>Enter</enter>."
-          },
-          "crossPort": {
-            "title": "Cross-port",
-            "description": "If a page is on another port, install the Atmos Inspector extension or use the desktop Browser."
-          }
-        }
-      }
-    },
-    "selection": {
-      "aiContext": {
-        "annotationTitle": "Annotation {index}",
-        "title": "Browser Element Annotations",
-        "description": "Use these {count, plural, one {# selected browser element} other {# selected browser elements}} as context."
-      },
-      "toast": {
-        "copiedTitle": "Copied",
-        "selectionCopiedDescription": "Selection copied for AI",
-        "copyFailedTitle": "Failed to copy",
-        "selectionCopyFailedDescription": "Could not copy to clipboard",
-        "annotationAddedTitle": "Annotation added",
-        "annotationReadyDescription": "{count, plural, one {# annotation ready to copy} other {# annotations ready to copy}}",
-        "annotationUpdatedTitle": "Annotation updated",
-        "annotationUpdatedDescription": "Browser annotation note updated",
-        "annotationDeletedTitle": "Annotation deleted",
-        "annotationDeletedDescription": "Browser annotation removed",
-        "annotationsCopiedDescription": "{count, plural, one {# annotation copied for AI} other {# annotations copied for AI}}",
-        "annotationsCopyFailedDescription": "Could not copy annotations to clipboard"
-      }
-    }
-  },
   "run": {
     "tabs": {
       "run": "Run",
@@ -8665,46 +8416,292 @@
     }
   },
   "browser": {
-    "preview": {
-      "desktopTransport": {
-        "openFailedMessage": "Failed to open Browser window: {errorMessage}"
+    "desktopTransport": {
+      "openFailedMessage": "Failed to open Browser window: {errorMessage}"
+    },
+    "desktopPreview": {
+      "detachFailedTitle": "Failed to detach Browser",
+      "restoreFailedTitle": "Failed to restore Browser"
+    },
+    "developerTools": {
+      "openFailedTitle": "Failed to open developer tools"
+    },
+    "desktopNative": {
+      "occludedTitle": "A floating panel overlaps the browser page, so Browser is hidden temporarily",
+      "occludedDescription": "Browser will return after the overlapping panel closes."
+    },
+    "home": {
+      "title": "Browser",
+      "description": "Open a local service for this Project or Workspace, or enter a URL above."
+    },
+    "extension": {
+      "notDetectedTitle": "Extension not detected"
+    },
+    "elementPicker": {
+      "action": {
+        "disable": "Disable",
+        "enable": "Enable"
       },
-      "desktopPreview": {
-        "detachFailedTitle": "Failed to detach Browser",
-        "restoreFailedTitle": "Failed to restore Browser"
+      "title": {
+        "unavailable": "Element picker unavailable",
+        "enterUrlFirst": "Enter a URL first",
+        "disable": "Disable element picker",
+        "enable": "Enable element picker"
       },
-      "developerTools": {
-        "openFailedTitle": "Failed to open developer tools"
+      "tooltip": {
+        "enterUrlFirst": "Enter a URL first.",
+        "unavailable": "Element selection is only available for same-origin pages, local development URLs, or the desktop Browser.",
+        "desktopNative": "{action} element selection. Source component detection runs through the desktop native Browser and supports React, Vue, Angular, and Svelte.",
+        "extension": "{action} element selection. Cross-port pages use the Atmos Inspector extension. Source component detection supports React, Vue, Angular, and Svelte.",
+        "default": "{action} element selection. Source component detection supports React, Vue, Angular, and Svelte."
+      }
+    },
+    "toolbar": {
+      "view": {
+        "desktop": "Desktop View",
+        "mobile": "Mobile View"
       },
-      "desktopNative": {
-        "occludedTitle": "A floating panel overlaps the browser page, so Browser is hidden temporarily",
-        "occludedDescription": "Browser will return after the overlapping panel closes."
+      "navigation": {
+        "back": "Back",
+        "forward": "Forward",
+        "refresh": "Refresh",
+        "home": "Back to Browser home"
+      },
+      "url": {
+        "enter": "Enter URL..."
+      },
+      "actions": {
+        "openInBrowser": "Open in browser",
+        "openDeveloperTools": "Open developer tools",
+        "openBrowserWindow": "Open Browser in new window",
+        "openPreviewBrowserWindow": "Open Browser in new window",
+        "failedToOpenPreviewBrowserWindow": "Failed to open Browser window",
+        "returnToEmbeddedPreview": "Return to embedded Browser"
+      },
+      "annotations": {
+        "copy": "Copy",
+        "copyAriaOne": "Copy {count} browser annotation",
+        "copyAriaOther": "Copy {count} browser annotations",
+        "copyTooltipOne": "Copy {count} queued browser annotation.",
+        "copyTooltipOther": "Copy {count} queued browser annotations."
+      },
+      "browserTabs": {
+        "preview": "Browser",
+        "newTab": "New tab",
+        "closeTab": "Close tab",
+        "closeTabAria": "Close {label}",
+        "moveToCenter": "Move Browser to center",
+        "maximize": "Maximize",
+        "maximizePreview": "Maximize Browser",
+        "minimize": "Minimize",
+        "minimizePreview": "Minimize Browser"
+      },
+      "overflow": {
+        "moreActions": "More actions"
+      },
+      "cookieSync": {
+        "menu": {
+          "import": "Import from your browser",
+          "clearCache": "Clear Cache Data",
+          "clearSiteData": "Clear Cookie & Storage"
+        },
+        "browsers": {
+          "Chrome": "Google Chrome",
+          "Edge": "Microsoft Edge",
+          "Brave": "Brave",
+          "Firefox": "Firefox",
+          "unknown": "Browser"
+        },
+        "import": {
+          "title": "Import from your browser",
+          "description": "Bring your existing sign-ins into Atmos Browser by importing cookies from another browser on this Mac. Everything stays on your device.",
+          "fromLabel": "From",
+          "profilePlaceholder": "Choose a browser profile",
+          "loading": "Looking for browsers…",
+          "noBrowsers": "No supported browsers found on this Mac",
+          "runningHint": "Close {browser} completely before importing.",
+          "cookiesToggleLabel": "Cookies",
+          "cookiesToggleHint": "Import saved sign-in cookies for this profile.",
+          "cancel": "Cancel",
+          "import": "Import",
+          "importing": "Importing…",
+          "result": {
+            "verified": "{count, plural, one {# cookie imported and verified} other {# cookies imported and verified}}",
+            "noneImported": "No cookies were imported.",
+            "skippedExpired": "{count, plural, one {# expired cookie skipped} other {# expired cookies skipped}}",
+            "skippedDecrypt": "{count, plural, one {# cookie could not be decrypted} other {# cookies could not be decrypted}}",
+            "skippedParse": "{count, plural, one {# cookie could not be read} other {# cookies could not be read}}",
+            "skippedUnsupported": "{count, plural, one {# unsupported cookie skipped} other {# unsupported cookies skipped}}",
+            "failedInjection": "{count, plural, one {# cookie was rejected by the browser store} other {# cookies were rejected by the browser store}}",
+            "reloadHint": "Reload the active tab to apply your imported session.",
+            "reload": "Reload to apply",
+            "done": "Done"
+          }
+        },
+        "clear": {
+          "cacheTitle": "Clear cache data?",
+          "cacheDescription": "Removes cached files only. Your cookies and sign-ins stay, so you remain logged in.",
+          "siteDataTitle": "Clear cookie & storage?",
+          "siteDataDescription": "Removes cookies and local storage (localStorage, IndexedDB, and more) along with cached files. This will sign you out of sites.",
+          "cancel": "Cancel",
+          "confirmCache": "Clear cache data",
+          "confirmSiteData": "Clear cookie & storage",
+          "retry": "Try again",
+          "clearing": "Clearing…",
+          "clearedCache": "Cache data cleared",
+          "clearedSiteData": "Cookie & storage cleared",
+          "done": "Done"
+        },
+        "errors": {
+          "UnsupportedPlatform": "Cookie import needs macOS 14 or later.",
+          "ProfileNotFound": "That browser profile could not be found. Try choosing it again.",
+          "BrowserRunning": "Close the source browser completely, then try again.",
+          "KeychainDenied": "Keychain access was denied. Allow access to import cookies.",
+          "KeychainUnavailable": "Keychain is unavailable, so cookies can't be decrypted.",
+          "DatabaseBusy": "The browser's cookie database is busy. Close the source browser and try again.",
+          "Busy": "Another cookie operation is still running. Wait for it to finish and try again.",
+          "Forbidden": "This action isn't allowed from here.",
+          "Io": "Something went wrong reading the browser data. Please try again.",
+          "InvalidSchema": "This browser version isn't supported yet.",
+          "Unknown": "Something went wrong. Please try again."
+        }
+      },
+      "standalone": {
+        "embeddedTitle": "Browser is open in a separate window",
+        "embeddedDescription": "The embedded Browser is paused so the standalone Browser stays the only active surface.",
+        "returnHere": "Return Browser here"
+      },
+      "favorite": {
+        "add": "Add favorite",
+        "edit": "Edit favorite",
+        "save": "Save favorite",
+        "saveAction": "Save",
+        "update": "Update",
+        "cancel": "Cancel",
+        "noPageSelected": "No page selected",
+        "name": "Name",
+        "namePlaceholder": "Favorite name"
+      },
+      "extensionUpdate": {
+        "trigger": "Update",
+        "title": "Extension update available",
+        "description": "A newer version of the Atmos Inspector extension is available. Download and replace the old files to get the latest features and fixes.",
+        "later": "Later",
+        "preparing": "Preparing…",
+        "downloadUpdate": "Download update",
+        "steps": {
+          "download": "Download the new extension package below.",
+          "unzipPrefix": "Unzip and",
+          "replace": "replace",
+          "unzipMiddle": "the old",
+          "reloadPrefix": "Open",
+          "reloadMiddle": "and click the",
+          "reloadSuffix": "button on the extension card.",
+          "reloadPage": "Reload the target page in Atmos Browser."
+        }
+      },
+      "extensionInstall": {
+        "trigger": "Install browser extension",
+        "description": "Cross-port element selection requires the Atmos Inspector extension. Pages that reject iframe embedding must use the desktop Browser.",
+        "downloadedDescription": "The extension package has been downloaded. Pages that reject iframe embedding still need the desktop Browser.",
+        "close": "Close",
+        "recheck": "Recheck",
+        "rechecking": "Rechecking…",
+        "preparing": "Preparing…",
+        "install": "Install",
+        "steps": {
+          "unzip": "Unzip",
+          "open": "Open",
+          "or": "or",
+          "turnOn": "Turn on",
+          "developerMode": "Developer mode",
+          "click": "Click",
+          "loadUnpacked": "Load unpacked",
+          "selectExtracted": "Select the extracted",
+          "returnAndReload": "Return to Atmos and reload the target page, then start element selection again."
+        }
+      }
+    },
+    "favoritesPopover": {
+      "favoritesLabel": "Favorites",
+      "searchPlaceholder": "Search favorites",
+      "emptyFavorites": "No favorites yet",
+      "noMatchingFavorites": "No matching favorites",
+      "favoriteNamePlaceholder": "Favorite name",
+      "save": "Save",
+      "cancel": "Cancel",
+      "rename": "Rename",
+      "delete": "Delete"
+    },
+    "utils": {
+      "selection": {
+        "unavailable": "Element selection is only available for same-origin or local browser pages.",
+        "extensionRequired": "Cross-port element selection requires the Atmos Inspector extension. Pages that reject iframe embedding must use the desktop Browser."
+      },
+      "error": {
+        "title": "Browser failed to load",
+        "browserLoadFailure": "The target page reported a browser-level load failure.",
+        "unknownNetwork": "Unknown network error",
+        "localHttpsHint": "The target local server may be speaking HTTP on an HTTPS URL or returning an invalid TLS response.",
+        "networkUnreachable": "The target page could not be reached cleanly."
+      },
+      "errorCard": {
+        "urlLabel": "URL",
+        "detailsLabel": "Details",
+        "retry": "Retry",
+        "openInBrowser": "Open in browser"
+      },
+      "loading": {
+        "label": "Loading Browser..."
       },
       "home": {
         "title": "Browser",
-        "description": "Open a local service for this Project or Workspace, or enter a URL above."
-      },
-      "extension": {
-        "notDetectedTitle": "Extension not detected"
-      },
-      "elementPicker": {
-        "action": {
-          "disable": "Disable",
-          "enable": "Enable"
+        "description": "Open a local app or website, inspect elements, and send clean page context to AI.",
+        "cards": {
+          "previewPages": {
+            "title": "Browse pages",
+            "description": "Load localhost apps, internal tools, or any URL you want to inspect."
+          },
+          "selectElements": {
+            "title": "Select elements",
+            "description": "Click elements to capture DOM context and source-component hints."
+          },
+          "workAcrossModes": {
+            "title": "Work across modes",
+            "description": "Same-origin works directly. Cross-port pages use the extension or desktop Browser."
+          }
         },
-        "title": {
-          "unavailable": "Element picker unavailable",
-          "enterUrlFirst": "Enter a URL first",
-          "disable": "Disable element picker",
-          "enable": "Enable element picker"
-        },
-        "tooltip": {
-          "enterUrlFirst": "Enter a URL first.",
-          "unavailable": "Element selection is only available for same-origin pages, local development URLs, or the desktop Browser.",
-          "desktopNative": "{action} element selection. Source component detection runs through the desktop native Browser and supports React, Vue, Angular, and Svelte.",
-          "extension": "{action} element selection. Cross-port pages use the Atmos Inspector extension. Source component detection supports React, Vue, Angular, and Svelte.",
-          "default": "{action} element selection. Source component detection supports React, Vue, Angular, and Svelte."
+        "notes": {
+          "start": {
+            "title": "Start",
+            "description": "Enter a URL above and press <enter>Enter</enter>."
+          },
+          "crossPort": {
+            "title": "Cross-port",
+            "description": "If a page is on another port, install the Atmos Inspector extension or use the desktop Browser."
+          }
         }
+      }
+    },
+    "selection": {
+      "aiContext": {
+        "annotationTitle": "Annotation {index}",
+        "title": "Browser Element Annotations",
+        "description": "Use these {count, plural, one {# selected browser element} other {# selected browser elements}} as context."
+      },
+      "toast": {
+        "copiedTitle": "Copied",
+        "selectionCopiedDescription": "Selection copied for AI",
+        "copyFailedTitle": "Failed to copy",
+        "selectionCopyFailedDescription": "Could not copy to clipboard",
+        "annotationAddedTitle": "Annotation added",
+        "annotationReadyDescription": "{count, plural, one {# annotation ready to copy} other {# annotations ready to copy}}",
+        "annotationUpdatedTitle": "Annotation updated",
+        "annotationUpdatedDescription": "Browser annotation note updated",
+        "annotationDeletedTitle": "Annotation deleted",
+        "annotationDeletedDescription": "Browser annotation removed",
+        "annotationsCopiedDescription": "{count, plural, one {# annotation copied for AI} other {# annotations copied for AI}}",
+        "annotationsCopyFailedDescription": "Could not copy annotations to clipboard"
       }
     }
   },

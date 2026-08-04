@@ -29,7 +29,7 @@ function str(v: unknown): string {
 
 /**
  * Resolve the BrowserWindow that invoked a desktop command (from main.ts inject).
- * Preview bridge needs this so standalone browser windows host their own WebContentsView.
+ * Browser bridge uses this so standalone browser windows bind guests to the correct host.
  */
 async function hostWindowFromArgs(
   args: DesktopInvokeArgs,
@@ -297,9 +297,9 @@ export function createAllHandlers(
       return null;
     },
 
-    async open_preview_browser_window(args) {
-      const { openPreviewBrowserWindow } = await import("../windows/secondary.js");
-      openPreviewBrowserWindow(state, args);
+    async open_browser_window(args) {
+      const { openBrowserWindow } = await import("../windows/secondary.js");
+      openBrowserWindow(state, args);
       return null;
     },
 
@@ -349,53 +349,23 @@ export function createAllHandlers(
       return JSON.parse(raw);
     },
 
-    // --- preview bridge ---
-    async preview_bridge_open(args) {
+    // --- browser bridge (APP-053 webview) ---
+    async browser_bridge_open(args) {
       const sessionId = str(args.session_id ?? args.sessionId);
       const url = str(args.url);
-      const bounds = (args.bounds ?? args) as {
-        x: number;
-        y: number;
-        width: number;
-        height: number;
-        zoom?: number;
-      };
       const host = await hostWindowFromArgs(args, state);
-      state.preview?.open(
-        sessionId,
-        url,
-        {
-          x: Number(bounds.x),
-          y: Number(bounds.y),
-          width: Number(bounds.width),
-          height: Number(bounds.height),
-          zoom: bounds.zoom != null ? Number(bounds.zoom) : 1,
-        },
-        host,
-      );
-      return null;
+      const config = state.browser?.open(sessionId, url, null, host) ?? null;
+      return config;
     },
 
-    async preview_bridge_update_bounds(args) {
+    async browser_bridge_bind_guest(args) {
       const sessionId = str(args.session_id ?? args.sessionId);
-      const bounds = args.bounds as {
-        x: number;
-        y: number;
-        width: number;
-        height: number;
-        zoom?: number;
-      };
-      state.preview?.updateBounds(sessionId, {
-        x: Number(bounds.x),
-        y: Number(bounds.y),
-        width: Number(bounds.width),
-        height: Number(bounds.height),
-        zoom: bounds.zoom != null ? Number(bounds.zoom) : 1,
-      });
+      const webContentsId = Number(args.webContentsId ?? args.web_contents_id);
+      state.browser?.bindGuest(sessionId, webContentsId);
       return null;
     },
 
-    async preview_bridge_set_detached(args) {
+    async browser_bridge_set_detached(args) {
       const sessionId = str(args.session_id ?? args.sessionId);
       const url = str(args.url);
       const detached = Boolean(args.detached);
@@ -412,7 +382,7 @@ export function createAllHandlers(
         zoom?: number;
       };
       const host = await hostWindowFromArgs(args, state);
-      state.preview?.setDetached(
+      state.browser?.setDetached(
         sessionId,
         url,
         {
@@ -428,56 +398,78 @@ export function createAllHandlers(
       return null;
     },
 
-    async preview_bridge_navigate(args) {
-      state.preview?.navigate(
+    async browser_bridge_navigate(args) {
+      state.browser?.navigate(
         str(args.session_id ?? args.sessionId),
         str(args.url),
       );
       return null;
     },
 
-    async preview_bridge_enter_pick_mode(args) {
-      state.preview?.enterPickMode(str(args.session_id ?? args.sessionId));
+    async browser_bridge_set_zoom(args) {
+      state.browser?.setZoom(
+        str(args.session_id ?? args.sessionId),
+        Number(args.zoom ?? 1),
+      );
       return null;
     },
 
-    async preview_bridge_clear_selection(args) {
-      state.preview?.clearSelection(str(args.session_id ?? args.sessionId));
+    async browser_bridge_set_color_scheme(args) {
+      const sessionId = str(args.session_id ?? args.sessionId);
+      const raw = str(args.scheme ?? args.colorScheme ?? args.color_scheme);
+      const scheme = raw === "light" ? "light" : raw === "dark" ? "dark" : "";
+      if (!scheme) return null;
+      state.browser?.setPreferredColorScheme(sessionId, scheme);
       return null;
     },
 
-    async preview_bridge_clear_annotations(args) {
-      state.preview?.clearAnnotations(str(args.session_id ?? args.sessionId));
+    async browser_bridge_query_element_rects(args) {
+      const sessionId = str(args.session_id ?? args.sessionId);
+      const raw = args.selectors;
+      const selectors = Array.isArray(raw)
+        ? raw.map((s) => str(s)).filter(Boolean)
+        : [];
+      return (
+        (await state.browser?.queryElementRects(sessionId, selectors)) ?? []
+      );
+    },
+
+    async browser_bridge_enter_pick_mode(args) {
+      state.browser?.enterPickMode(str(args.session_id ?? args.sessionId));
       return null;
     },
 
-    async preview_bridge_open_devtools(args) {
-      state.preview?.openDevtools(str(args.session_id ?? args.sessionId));
+    async browser_bridge_clear_selection(args) {
+      state.browser?.clearSelection(str(args.session_id ?? args.sessionId));
       return null;
     },
 
-    async preview_bridge_close(args) {
-      state.preview?.close(str(args.session_id ?? args.sessionId));
+    async browser_bridge_clear_annotations(args) {
+      state.browser?.clearAnnotations(str(args.session_id ?? args.sessionId));
       return null;
     },
 
-    async preview_bridge_show(args) {
-      state.preview?.show(str(args.session_id ?? args.sessionId));
+    async browser_bridge_open_devtools(args) {
+      state.browser?.openDevtools(str(args.session_id ?? args.sessionId));
       return null;
     },
 
-    async preview_bridge_hide(args) {
-      state.preview?.hide(str(args.session_id ?? args.sessionId));
+    async browser_bridge_close(args) {
+      state.browser?.close(str(args.session_id ?? args.sessionId));
       return null;
     },
 
-    async preview_bridge_event(args) {
+    async browser_bridge_event(args) {
       const payload = args.payload ?? args;
-      state.preview?.forwardRuntimeEvent(payload);
+      state.browser?.forwardRuntimeEvent(payload);
       return null;
     },
 
-    async preview_bridge_probe_url(args) {
+    /**
+     * Lightweight URL shape check (http/https only). No network fetch.
+     * Product navigation does not require this; kept for tooling/smoke.
+     */
+    async browser_bridge_probe_url(args) {
       const url = str(args.url);
       try {
         const u = new URL(url);
@@ -495,19 +487,19 @@ export function createAllHandlers(
 
     async import_browser_cookies(args) {
       const handle = str(args.profile_handle ?? args.profileHandle);
-      const session = state.preview?.getPreviewSession();
+      const session = state.browser?.getBrowserSession();
       if (!session) throw { code: "Unknown" };
       return cookies.importBrowserCookies(session, handle);
     },
 
     async clear_browser_cache() {
-      const session = state.preview?.getPreviewSession();
+      const session = state.browser?.getBrowserSession();
       if (!session) throw { code: "Unknown" };
       return cookies.clearBrowserCache(session);
     },
 
     async clear_browser_site_data() {
-      const session = state.preview?.getPreviewSession();
+      const session = state.browser?.getBrowserSession();
       if (!session) throw { code: "Unknown" };
       return cookies.clearBrowserSiteData(session);
     },

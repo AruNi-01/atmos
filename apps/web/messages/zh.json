@@ -8087,255 +8087,6 @@
       }
     }
   },
-  "preview": {
-    "toolbar": {
-      "view": {
-        "desktop": "桌面视图",
-        "mobile": "移动端视图"
-      },
-      "navigation": {
-        "back": "返回",
-        "forward": "前进",
-        "refresh": "刷新",
-        "home": "返回浏览器首页"
-      },
-      "url": {
-        "enter": "输入 URL..."
-      },
-      "actions": {
-        "openInBrowser": "在浏览器中打开",
-        "openDeveloperTools": "打开开发者工具",
-        "openPreviewBrowserWindow": "在新窗口中打开浏览器",
-        "failedToOpenPreviewBrowserWindow": "无法打开浏览器窗口",
-        "returnToEmbeddedPreview": "回到嵌入浏览器"
-      },
-      "annotations": {
-        "copy": "复制",
-        "copyAriaOne": "复制 {count} 条浏览器标注",
-        "copyAriaOther": "复制 {count} 条浏览器标注",
-        "copyTooltipOne": "复制 {count} 条待处理的浏览器标注。",
-        "copyTooltipOther": "复制 {count} 条待处理的浏览器标注。"
-      },
-      "browserTabs": {
-        "preview": "浏览器",
-        "newTab": "新标签页",
-        "closeTab": "关闭标签页",
-        "closeTabAria": "关闭 {label}",
-        "moveToCenter": "移动浏览器到中间区域",
-        "maximize": "最大化",
-        "maximizePreview": "最大化浏览器",
-        "minimize": "还原",
-        "minimizePreview": "还原浏览器"
-      },
-      "overflow": {
-        "moreActions": "更多操作"
-      },
-      "cookieSync": {
-        "menu": {
-          "import": "从你的浏览器导入",
-          "clearCache": "清理缓存数据",
-          "clearSiteData": "清理 Cookie & Storage"
-        },
-        "browsers": {
-          "Chrome": "Google Chrome",
-          "Edge": "Microsoft Edge",
-          "Brave": "Brave",
-          "Firefox": "Firefox",
-          "unknown": "浏览器"
-        },
-        "import": {
-          "title": "从你的浏览器导入",
-          "description": "从这台 Mac 上的其他浏览器导入 Cookie，把已有的登录状态带入 Atmos 浏览器。所有数据都保留在本机。",
-          "fromLabel": "来源",
-          "profilePlaceholder": "选择一个浏览器配置文件",
-          "loading": "正在查找浏览器…",
-          "noBrowsers": "在这台 Mac 上未找到受支持的浏览器",
-          "runningHint": "导入前请彻底关闭 {browser}。",
-          "cookiesToggleLabel": "Cookie",
-          "cookiesToggleHint": "导入该配置文件已保存的登录 Cookie。",
-          "cancel": "取消",
-          "import": "导入",
-          "importing": "正在导入…",
-          "result": {
-            "verified": "已导入并验证 {count} 个 Cookie",
-            "noneImported": "未导入任何 Cookie。",
-            "skippedExpired": "跳过 {count} 个已过期的 Cookie",
-            "skippedDecrypt": "有 {count} 个 Cookie 无法解密",
-            "skippedParse": "有 {count} 个 Cookie 无法读取",
-            "skippedUnsupported": "跳过 {count} 个不支持的 Cookie",
-            "failedInjection": "有 {count} 个 Cookie 被浏览器存储拒绝",
-            "reloadHint": "重新加载当前标签页以应用导入的登录状态。",
-            "reload": "重新加载以应用",
-            "done": "完成"
-          }
-        },
-        "clear": {
-          "cacheTitle": "清理缓存数据？",
-          "cacheDescription": "仅删除缓存文件。你的 Cookie 和登录状态会保留，因此你仍处于登录状态。",
-          "siteDataTitle": "清理 Cookie & Storage？",
-          "siteDataDescription": "删除该浏览器的 Cookie 和本地存储（localStorage、IndexedDB 等），并一并清理缓存文件。这会让你退出已登录的站点。",
-          "cancel": "取消",
-          "confirmCache": "清理缓存数据",
-          "confirmSiteData": "清理 Cookie & Storage",
-          "retry": "重试",
-          "clearing": "正在清理…",
-          "clearedCache": "缓存数据已清理",
-          "clearedSiteData": "Cookie & Storage 已清理",
-          "done": "完成"
-        },
-        "errors": {
-          "UnsupportedPlatform": "导入 Cookie 需要 macOS 14 或更高版本。",
-          "ProfileNotFound": "找不到该浏览器配置文件，请重新选择。",
-          "BrowserRunning": "请彻底关闭来源浏览器，然后重试。",
-          "KeychainDenied": "钥匙串访问被拒绝。请允许访问以导入 Cookie。",
-          "KeychainUnavailable": "钥匙串不可用，无法解密 Cookie。",
-          "DatabaseBusy": "浏览器的 Cookie 数据库正忙。请关闭来源浏览器后重试。",
-          "Busy": "另一项 Cookie 操作仍在进行中。请等待其完成后再试。",
-          "Forbidden": "无法从此处执行该操作。",
-          "Io": "读取浏览器数据时出错。请重试。",
-          "InvalidSchema": "尚不支持该浏览器版本。",
-          "Unknown": "出现问题，请重试。"
-        }
-      },
-      "standalone": {
-        "embeddedTitle": "浏览器已在单独窗口中打开",
-        "embeddedDescription": "嵌入浏览器已暂停，避免和单独窗口同时操作同一个浏览器。",
-        "returnHere": "回到当前界面"
-      },
-      "favorite": {
-        "add": "添加收藏",
-        "edit": "编辑收藏",
-        "save": "保存收藏",
-        "saveAction": "保存",
-        "update": "更新",
-        "cancel": "取消",
-        "noPageSelected": "尚未选择页面",
-        "name": "名称",
-        "namePlaceholder": "收藏名称"
-      },
-      "extensionUpdate": {
-        "trigger": "更新",
-        "title": "有可用扩展更新",
-        "description": "Atmos Inspector 扩展有新版本可用。下载并替换旧文件后即可获得最新功能和修复。",
-        "later": "稍后",
-        "preparing": "准备中…",
-        "downloadUpdate": "下载更新",
-        "steps": {
-          "download": "下载下面的新扩展包。",
-          "unzipPrefix": "解压并",
-          "replace": "替换",
-          "unzipMiddle": "旧的",
-          "reloadPrefix": "打开",
-          "reloadMiddle": "并点击扩展卡片上的",
-          "reloadSuffix": "按钮。",
-          "reloadPage": "在 Atmos 浏览器中重新加载目标页面。"
-        }
-      },
-      "extensionInstall": {
-        "trigger": "安装浏览器扩展",
-        "description": "跨端口元素选择需要 Atmos Inspector 扩展。拒绝 iframe 嵌入的页面必须使用桌面浏览器。",
-        "downloadedDescription": "扩展包已下载完成。拒绝 iframe 嵌入的页面仍然需要桌面浏览器。",
-        "close": "关闭",
-        "recheck": "重新检查",
-        "rechecking": "重新检查中…",
-        "preparing": "准备中…",
-        "install": "安装",
-        "steps": {
-          "unzip": "解压",
-          "open": "打开",
-          "or": "或",
-          "turnOn": "开启",
-          "developerMode": "开发者模式",
-          "click": "点击",
-          "loadUnpacked": "加载已解压的扩展程序",
-          "selectExtracted": "选择已解压的",
-          "returnAndReload": "返回 Atmos 并重新加载目标页面，然后再次开始元素选择。"
-        }
-      }
-    },
-    "favoritesPopover": {
-      "favoritesLabel": "收藏夹",
-      "searchPlaceholder": "搜索收藏夹",
-      "emptyFavorites": "还没有收藏",
-      "noMatchingFavorites": "没有匹配的收藏",
-      "favoriteNamePlaceholder": "收藏名称",
-      "save": "保存",
-      "cancel": "取消",
-      "rename": "重命名",
-      "delete": "删除"
-    },
-    "utils": {
-      "selection": {
-        "unavailable": "元素选择仅适用于同源页面或本地浏览器页面。",
-        "extensionRequired": "跨端口元素选择需要 Atmos Inspector 扩展。拒绝 iframe 嵌入的页面必须使用桌面浏览器。"
-      },
-      "error": {
-        "title": "浏览器加载失败",
-        "browserLoadFailure": "目标页面报告了浏览器级别的加载失败。",
-        "unknownNetwork": "未知网络错误",
-        "localHttpsHint": "目标本地服务可能在 HTTPS URL 上实际提供的是 HTTP，或返回了无效的 TLS 响应。",
-        "networkUnreachable": "目标页面无法被正常访问。"
-      },
-      "errorCard": {
-        "urlLabel": "URL",
-        "detailsLabel": "详情",
-        "retry": "重试",
-        "openInBrowser": "在浏览器中打开"
-      },
-      "loading": {
-        "label": "正在加载浏览器..."
-      },
-      "home": {
-        "title": "浏览器",
-        "description": "打开本地应用或网站，检查元素，并把干净的页面上下文发送给 AI。",
-        "cards": {
-          "previewPages": {
-            "title": "浏览页面",
-            "description": "加载 localhost 应用、内部工具或任何你想检查的 URL。"
-          },
-          "selectElements": {
-            "title": "选择元素",
-            "description": "点击元素以捕获 DOM 上下文和源组件提示。"
-          },
-          "workAcrossModes": {
-            "title": "跨模式工作",
-            "description": "同源页面可直接使用。跨端口页面使用扩展或桌面浏览器。"
-          }
-        },
-        "notes": {
-          "start": {
-            "title": "开始",
-            "description": "在上方输入 URL，然后按 <enter>Enter</enter>。"
-          },
-          "crossPort": {
-            "title": "跨端口",
-            "description": "如果页面在另一个端口上，请安装 Atmos Inspector 扩展或使用桌面浏览器。"
-          }
-        }
-      }
-    },
-    "selection": {
-      "aiContext": {
-        "annotationTitle": "标注 {index}",
-        "title": "浏览器元素标注",
-        "description": "将这些{count, plural, one {# 个已选浏览器元素} other {# 个已选浏览器元素}}作为上下文使用。"
-      },
-      "toast": {
-        "copiedTitle": "已复制",
-        "selectionCopiedDescription": "已为 AI 复制选区",
-        "copyFailedTitle": "复制失败",
-        "selectionCopyFailedDescription": "无法复制到剪贴板",
-        "annotationAddedTitle": "标注已添加",
-        "annotationReadyDescription": "{count, plural, one {# 条标注可复制} other {# 条标注可复制}}",
-        "annotationUpdatedTitle": "标注已更新",
-        "annotationUpdatedDescription": "浏览器标注备注已更新",
-        "annotationDeletedTitle": "标注已删除",
-        "annotationDeletedDescription": "浏览器标注已移除",
-        "annotationsCopiedDescription": "{count, plural, one {# 条标注已为 AI 复制} other {# 条标注已为 AI 复制}}",
-        "annotationsCopyFailedDescription": "无法将标注复制到剪贴板"
-      }
-    }
-  },
   "run": {
     "tabs": {
       "run": "运行",
@@ -8665,46 +8416,292 @@
     }
   },
   "browser": {
-    "preview": {
-      "desktopTransport": {
-        "openFailedMessage": "打开浏览器窗口失败：{errorMessage}"
+    "desktopTransport": {
+      "openFailedMessage": "打开浏览器窗口失败：{errorMessage}"
+    },
+    "desktopPreview": {
+      "detachFailedTitle": "分离浏览器失败",
+      "restoreFailedTitle": "恢复浏览器失败"
+    },
+    "developerTools": {
+      "openFailedTitle": "打开开发者工具失败"
+    },
+    "desktopNative": {
+      "occludedTitle": "悬浮弹窗与浏览器页面有重叠，暂时隐藏浏览器",
+      "occludedDescription": "重叠弹窗关闭后，恢复浏览器界面"
+    },
+    "home": {
+      "title": "浏览器",
+      "description": "打开当前项目或工作区的本地服务，或在上方输入 URL。"
+    },
+    "extension": {
+      "notDetectedTitle": "未检测到扩展"
+    },
+    "elementPicker": {
+      "action": {
+        "disable": "关闭",
+        "enable": "启用"
       },
-      "desktopPreview": {
-        "detachFailedTitle": "分离浏览器失败",
-        "restoreFailedTitle": "恢复浏览器失败"
+      "title": {
+        "unavailable": "元素选择器不可用",
+        "enterUrlFirst": "请先输入 URL",
+        "disable": "关闭元素选择器",
+        "enable": "启用元素选择器"
       },
-      "developerTools": {
-        "openFailedTitle": "打开开发者工具失败"
+      "tooltip": {
+        "enterUrlFirst": "请先输入 URL。",
+        "unavailable": "元素选择仅适用于同源页面、本地开发 URL 或桌面浏览器。",
+        "desktopNative": "{action}元素选择。源码组件检测通过桌面原生浏览器运行，并支持 React、Vue、Angular 和 Svelte。",
+        "extension": "{action}元素选择。跨端口页面使用 Atmos Inspector 扩展。源码组件检测支持 React、Vue、Angular 和 Svelte。",
+        "default": "{action}元素选择。源码组件检测支持 React、Vue、Angular 和 Svelte。"
+      }
+    },
+    "toolbar": {
+      "view": {
+        "desktop": "桌面视图",
+        "mobile": "移动端视图"
       },
-      "desktopNative": {
-        "occludedTitle": "悬浮弹窗与浏览器页面有重叠，暂时隐藏浏览器",
-        "occludedDescription": "重叠弹窗关闭后，恢复浏览器界面"
+      "navigation": {
+        "back": "返回",
+        "forward": "前进",
+        "refresh": "刷新",
+        "home": "返回浏览器首页"
+      },
+      "url": {
+        "enter": "输入 URL..."
+      },
+      "actions": {
+        "openInBrowser": "在浏览器中打开",
+        "openDeveloperTools": "打开开发者工具",
+        "openBrowserWindow": "在新窗口中打开浏览器",
+        "openPreviewBrowserWindow": "在新窗口中打开浏览器",
+        "failedToOpenPreviewBrowserWindow": "无法打开浏览器窗口",
+        "returnToEmbeddedPreview": "回到嵌入浏览器"
+      },
+      "annotations": {
+        "copy": "复制",
+        "copyAriaOne": "复制 {count} 条浏览器标注",
+        "copyAriaOther": "复制 {count} 条浏览器标注",
+        "copyTooltipOne": "复制 {count} 条待处理的浏览器标注。",
+        "copyTooltipOther": "复制 {count} 条待处理的浏览器标注。"
+      },
+      "browserTabs": {
+        "preview": "浏览器",
+        "newTab": "新标签页",
+        "closeTab": "关闭标签页",
+        "closeTabAria": "关闭 {label}",
+        "moveToCenter": "移动浏览器到中间区域",
+        "maximize": "最大化",
+        "maximizePreview": "最大化浏览器",
+        "minimize": "还原",
+        "minimizePreview": "还原浏览器"
+      },
+      "overflow": {
+        "moreActions": "更多操作"
+      },
+      "cookieSync": {
+        "menu": {
+          "import": "从你的浏览器导入",
+          "clearCache": "清理缓存数据",
+          "clearSiteData": "清理 Cookie & Storage"
+        },
+        "browsers": {
+          "Chrome": "Google Chrome",
+          "Edge": "Microsoft Edge",
+          "Brave": "Brave",
+          "Firefox": "Firefox",
+          "unknown": "浏览器"
+        },
+        "import": {
+          "title": "从你的浏览器导入",
+          "description": "从这台 Mac 上的其他浏览器导入 Cookie，把已有的登录状态带入 Atmos 浏览器。所有数据都保留在本机。",
+          "fromLabel": "来源",
+          "profilePlaceholder": "选择一个浏览器配置文件",
+          "loading": "正在查找浏览器…",
+          "noBrowsers": "在这台 Mac 上未找到受支持的浏览器",
+          "runningHint": "导入前请彻底关闭 {browser}。",
+          "cookiesToggleLabel": "Cookie",
+          "cookiesToggleHint": "导入该配置文件已保存的登录 Cookie。",
+          "cancel": "取消",
+          "import": "导入",
+          "importing": "正在导入…",
+          "result": {
+            "verified": "已导入并验证 {count} 个 Cookie",
+            "noneImported": "未导入任何 Cookie。",
+            "skippedExpired": "跳过 {count} 个已过期的 Cookie",
+            "skippedDecrypt": "有 {count} 个 Cookie 无法解密",
+            "skippedParse": "有 {count} 个 Cookie 无法读取",
+            "skippedUnsupported": "跳过 {count} 个不支持的 Cookie",
+            "failedInjection": "有 {count} 个 Cookie 被浏览器存储拒绝",
+            "reloadHint": "重新加载当前标签页以应用导入的登录状态。",
+            "reload": "重新加载以应用",
+            "done": "完成"
+          }
+        },
+        "clear": {
+          "cacheTitle": "清理缓存数据？",
+          "cacheDescription": "仅删除缓存文件。你的 Cookie 和登录状态会保留，因此你仍处于登录状态。",
+          "siteDataTitle": "清理 Cookie & Storage？",
+          "siteDataDescription": "删除该浏览器的 Cookie 和本地存储（localStorage、IndexedDB 等），并一并清理缓存文件。这会让你退出已登录的站点。",
+          "cancel": "取消",
+          "confirmCache": "清理缓存数据",
+          "confirmSiteData": "清理 Cookie & Storage",
+          "retry": "重试",
+          "clearing": "正在清理…",
+          "clearedCache": "缓存数据已清理",
+          "clearedSiteData": "Cookie & Storage 已清理",
+          "done": "完成"
+        },
+        "errors": {
+          "UnsupportedPlatform": "导入 Cookie 需要 macOS 14 或更高版本。",
+          "ProfileNotFound": "找不到该浏览器配置文件，请重新选择。",
+          "BrowserRunning": "请彻底关闭来源浏览器，然后重试。",
+          "KeychainDenied": "钥匙串访问被拒绝。请允许访问以导入 Cookie。",
+          "KeychainUnavailable": "钥匙串不可用，无法解密 Cookie。",
+          "DatabaseBusy": "浏览器的 Cookie 数据库正忙。请关闭来源浏览器后重试。",
+          "Busy": "另一项 Cookie 操作仍在进行中。请等待其完成后再试。",
+          "Forbidden": "无法从此处执行该操作。",
+          "Io": "读取浏览器数据时出错。请重试。",
+          "InvalidSchema": "尚不支持该浏览器版本。",
+          "Unknown": "出现问题，请重试。"
+        }
+      },
+      "standalone": {
+        "embeddedTitle": "浏览器已在单独窗口中打开",
+        "embeddedDescription": "嵌入浏览器已暂停，避免和单独窗口同时操作同一个浏览器。",
+        "returnHere": "回到当前界面"
+      },
+      "favorite": {
+        "add": "添加收藏",
+        "edit": "编辑收藏",
+        "save": "保存收藏",
+        "saveAction": "保存",
+        "update": "更新",
+        "cancel": "取消",
+        "noPageSelected": "尚未选择页面",
+        "name": "名称",
+        "namePlaceholder": "收藏名称"
+      },
+      "extensionUpdate": {
+        "trigger": "更新",
+        "title": "有可用扩展更新",
+        "description": "Atmos Inspector 扩展有新版本可用。下载并替换旧文件后即可获得最新功能和修复。",
+        "later": "稍后",
+        "preparing": "准备中…",
+        "downloadUpdate": "下载更新",
+        "steps": {
+          "download": "下载下面的新扩展包。",
+          "unzipPrefix": "解压并",
+          "replace": "替换",
+          "unzipMiddle": "旧的",
+          "reloadPrefix": "打开",
+          "reloadMiddle": "并点击扩展卡片上的",
+          "reloadSuffix": "按钮。",
+          "reloadPage": "在 Atmos 浏览器中重新加载目标页面。"
+        }
+      },
+      "extensionInstall": {
+        "trigger": "安装浏览器扩展",
+        "description": "跨端口元素选择需要 Atmos Inspector 扩展。拒绝 iframe 嵌入的页面必须使用桌面浏览器。",
+        "downloadedDescription": "扩展包已下载完成。拒绝 iframe 嵌入的页面仍然需要桌面浏览器。",
+        "close": "关闭",
+        "recheck": "重新检查",
+        "rechecking": "重新检查中…",
+        "preparing": "准备中…",
+        "install": "安装",
+        "steps": {
+          "unzip": "解压",
+          "open": "打开",
+          "or": "或",
+          "turnOn": "开启",
+          "developerMode": "开发者模式",
+          "click": "点击",
+          "loadUnpacked": "加载已解压的扩展程序",
+          "selectExtracted": "选择已解压的",
+          "returnAndReload": "返回 Atmos 并重新加载目标页面，然后再次开始元素选择。"
+        }
+      }
+    },
+    "favoritesPopover": {
+      "favoritesLabel": "收藏夹",
+      "searchPlaceholder": "搜索收藏夹",
+      "emptyFavorites": "还没有收藏",
+      "noMatchingFavorites": "没有匹配的收藏",
+      "favoriteNamePlaceholder": "收藏名称",
+      "save": "保存",
+      "cancel": "取消",
+      "rename": "重命名",
+      "delete": "删除"
+    },
+    "utils": {
+      "selection": {
+        "unavailable": "元素选择仅适用于同源页面或本地浏览器页面。",
+        "extensionRequired": "跨端口元素选择需要 Atmos Inspector 扩展。拒绝 iframe 嵌入的页面必须使用桌面浏览器。"
+      },
+      "error": {
+        "title": "浏览器加载失败",
+        "browserLoadFailure": "目标页面报告了浏览器级别的加载失败。",
+        "unknownNetwork": "未知网络错误",
+        "localHttpsHint": "目标本地服务可能在 HTTPS URL 上实际提供的是 HTTP，或返回了无效的 TLS 响应。",
+        "networkUnreachable": "目标页面无法被正常访问。"
+      },
+      "errorCard": {
+        "urlLabel": "URL",
+        "detailsLabel": "详情",
+        "retry": "重试",
+        "openInBrowser": "在浏览器中打开"
+      },
+      "loading": {
+        "label": "正在加载浏览器..."
       },
       "home": {
         "title": "浏览器",
-        "description": "打开当前项目或工作区的本地服务，或在上方输入 URL。"
-      },
-      "extension": {
-        "notDetectedTitle": "未检测到扩展"
-      },
-      "elementPicker": {
-        "action": {
-          "disable": "关闭",
-          "enable": "启用"
+        "description": "打开本地应用或网站，检查元素，并把干净的页面上下文发送给 AI。",
+        "cards": {
+          "previewPages": {
+            "title": "浏览页面",
+            "description": "加载 localhost 应用、内部工具或任何你想检查的 URL。"
+          },
+          "selectElements": {
+            "title": "选择元素",
+            "description": "点击元素以捕获 DOM 上下文和源组件提示。"
+          },
+          "workAcrossModes": {
+            "title": "跨模式工作",
+            "description": "同源页面可直接使用。跨端口页面使用扩展或桌面浏览器。"
+          }
         },
-        "title": {
-          "unavailable": "元素选择器不可用",
-          "enterUrlFirst": "请先输入 URL",
-          "disable": "关闭元素选择器",
-          "enable": "启用元素选择器"
-        },
-        "tooltip": {
-          "enterUrlFirst": "请先输入 URL。",
-          "unavailable": "元素选择仅适用于同源页面、本地开发 URL 或桌面浏览器。",
-          "desktopNative": "{action}元素选择。源码组件检测通过桌面原生浏览器运行，并支持 React、Vue、Angular 和 Svelte。",
-          "extension": "{action}元素选择。跨端口页面使用 Atmos Inspector 扩展。源码组件检测支持 React、Vue、Angular 和 Svelte。",
-          "default": "{action}元素选择。源码组件检测支持 React、Vue、Angular 和 Svelte。"
+        "notes": {
+          "start": {
+            "title": "开始",
+            "description": "在上方输入 URL，然后按 <enter>Enter</enter>。"
+          },
+          "crossPort": {
+            "title": "跨端口",
+            "description": "如果页面在另一个端口上，请安装 Atmos Inspector 扩展或使用桌面浏览器。"
+          }
         }
+      }
+    },
+    "selection": {
+      "aiContext": {
+        "annotationTitle": "标注 {index}",
+        "title": "浏览器元素标注",
+        "description": "将这些{count, plural, one {# 个已选浏览器元素} other {# 个已选浏览器元素}}作为上下文使用。"
+      },
+      "toast": {
+        "copiedTitle": "已复制",
+        "selectionCopiedDescription": "已为 AI 复制选区",
+        "copyFailedTitle": "复制失败",
+        "selectionCopyFailedDescription": "无法复制到剪贴板",
+        "annotationAddedTitle": "标注已添加",
+        "annotationReadyDescription": "{count, plural, one {# 条标注可复制} other {# 条标注可复制}}",
+        "annotationUpdatedTitle": "标注已更新",
+        "annotationUpdatedDescription": "浏览器标注备注已更新",
+        "annotationDeletedTitle": "标注已删除",
+        "annotationDeletedDescription": "浏览器标注已移除",
+        "annotationsCopiedDescription": "{count, plural, one {# 条标注已为 AI 复制} other {# 条标注已为 AI 复制}}",
+        "annotationsCopyFailedDescription": "无法将标注复制到剪贴板"
       }
     }
   },

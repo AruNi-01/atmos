@@ -55,8 +55,8 @@ Release notes: `releasenotes/Atmos Desktop <version>.md`.
 
 - Preload: `window.__ATMOS_DESKTOP__` (`shell: 'electron'`, `invoke`, `on`)
 - UI from Atmos Server loopback static
-- Preview: `WebContentsView` + `persist:atmos-preview`
-- Commands match historical names (`get_api_config`, `preview_bridge_*`, `appshot_*`, `tunnel_connector_*`, …)
+- Browser (APP-053): in-DOM `<webview>` + `persist:atmos-browser` (default-deny `will-attach-webview`); `apps/desktop-electron/src/browser`
+- Commands: `get_api_config`, `browser_bridge_*`, `appshot_*`, `tunnel_connector_*`, …
 - AppShot: dual-shift, live TCC, frontmost capture, target-window border/flash overlay, pending auto-accept + fly-in preview (`source_bounds`), shared `appshots` layout
 - Cookies: `atmos-browser-cookies` under `resources/bin`
 - Tunnel: shared local gateway + share URL
@@ -68,5 +68,5 @@ Release notes: `releasenotes/Atmos Desktop <version>.md`.
 
 - Implement desktop product changes under deprecated `apps/desktop` (Tauri) — **always this package**
 - Ship from `apps/desktop`
-- Enable `nodeIntegration` for product UI or preview
+- Enable `nodeIntegration` for product UI or browser guests
 - Fork AppShot/Server on-disk contracts

@@ -120,12 +120,12 @@ import {
   parseBrowserCenterTabValue,
   type BrowserCenterTab,
   useBrowserCenterTabsStore,
-} from "@/features/run-preview/store/use-browser-center-tabs";
-import { useBrowserTabCommandsStore } from "@/features/run-preview/store/use-browser-tab-commands";
+} from "@/features/browser/store/use-browser-center-tabs";
+import { useBrowserTabCommandsStore } from "@/features/browser/store/use-browser-tab-commands";
 import {
   DEFAULT_PREVIEW_BROWSER_PREFS,
   type PreviewBrowserPrefs,
-} from "@/features/run-preview/lib/preview-browser-labels";
+} from "@/features/browser/lib/browser-labels";
 import { useConnectionStore } from "@/features/connection/store/connection-store";
 import { useUiPrefStore } from "@/shared/stores/use-ui-pref-store";
 

@@ -102,14 +102,14 @@ const AgentChatPanel = dynamic(
 );
 const BrowserPanel = dynamic(
   () =>
-    import("@/features/run-preview/components/BrowserPanel").then(
+    import("@/features/browser/components/BrowserPanel").then(
       (m) => m.BrowserPanel,
     ),
   { ssr: false },
 );
 const RunScript = dynamic(
   () =>
-    import("@/features/run-preview/components/RunScript").then(
+    import("@/features/browser/components/RunScript").then(
       (m) => m.RunScript,
     ),
   { ssr: false },

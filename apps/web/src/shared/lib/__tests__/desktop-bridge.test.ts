@@ -162,7 +162,7 @@ describe("invokeViaShell / desktopInvoke routing", () => {
 
     let unsupported: unknown;
     try {
-      await desktopInvoke("preview_bridge_open");
+      await desktopInvoke("browser_bridge_open");
     } catch (err) {
       unsupported = err;
     }
@@ -170,14 +170,14 @@ describe("invokeViaShell / desktopInvoke routing", () => {
       true,
     );
     expect((unsupported as { command?: string }).command).toBe(
-      "preview_bridge_open",
+      "browser_bridge_open",
     );
   });
 
   it("surfaces unsupported command errors with stable code", () => {
-    const err = createUnsupportedCommandError("preview_bridge_open");
+    const err = createUnsupportedCommandError("browser_bridge_open");
     expect(err.code).toBe(DESKTOP_CMD_UNSUPPORTED);
-    expect(err.message).toContain("preview_bridge_open");
+    expect(err.message).toContain("browser_bridge_open");
     expect(isDesktopBridgeError(err, DESKTOP_CMD_UNSUPPORTED)).toBe(true);
   });
 

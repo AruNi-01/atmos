@@ -15,8 +15,8 @@
   }
 
   function createController() {
-    if (!window.__ATMOS_PREVIEW_RUNTIME__) return null;
-    return window.__ATMOS_PREVIEW_RUNTIME__.createRuntime({
+    if (!window.__ATMOS_BROWSER_RUNTIME__) return null;
+    return window.__ATMOS_BROWSER_RUNTIME__.createRuntime({
       win: window,
       emit: function (message) {
         window.parent.postMessage(message, state.parentOrigin || '*');
@@ -40,7 +40,7 @@
     var data = event.data;
     if (!data || typeof data !== 'object' || typeof data.type !== 'string') return;
 
-    if (data.type === 'atmos-preview:host-init') {
+    if (data.type === 'atmos-browser:host-init') {
       if (!isAllowedOrigin(event.origin, data.allowedOrigins)) return;
       // Re-create the runtime if it was previously destroyed
       if (controller) {
@@ -58,25 +58,25 @@
     if (!controller || !state.sessionId || data.sessionId !== state.sessionId) return;
     if (!isAllowedOrigin(event.origin, state.allowedOrigins)) return;
 
-    if (data.type === 'atmos-preview:ping') {
+    if (data.type === 'atmos-browser:ping') {
       emitToParent({
-        type: 'atmos-preview:pong',
+        type: 'atmos-browser:pong',
         sessionId: state.sessionId,
         pageUrl: window.location.href,
         pageTitle: (document.title || '').trim(),
       });
-    } else if (data.type === 'atmos-preview:enter-pick-mode') {
+    } else if (data.type === 'atmos-browser:enter-pick-mode') {
       controller.enterPickMode(state.sessionId);
-    } else if (data.type === 'atmos-preview:exit-pick-mode') {
+    } else if (data.type === 'atmos-browser:exit-pick-mode') {
       // Graceful fallback: older runtimes may not have exitPickMode
       if (typeof controller.exitPickMode === 'function') {
         controller.exitPickMode();
       } else {
         controller.clearSelection(false);
       }
-    } else if (data.type === 'atmos-preview:clear-selection') {
+    } else if (data.type === 'atmos-browser:clear-selection') {
       controller.clearSelection(false);
-    } else if (data.type === 'atmos-preview:destroy') {
+    } else if (data.type === 'atmos-browser:destroy') {
       controller.destroy();
       controller = null;
       state.sessionId = null;
@@ -85,7 +85,7 @@
   }
 
   function boot() {
-    if (!window.__ATMOS_PREVIEW_RUNTIME__) return;
+    if (!window.__ATMOS_BROWSER_RUNTIME__) return;
     controller = createController();
     window.addEventListener('message', handleMessage);
   }
@@ -100,9 +100,9 @@
     },
   };
 
-  if (window.__ATMOS_PREVIEW_RUNTIME__) {
+  if (window.__ATMOS_BROWSER_RUNTIME__) {
     boot();
   } else {
-    window.addEventListener('atmos-preview-runtime-ready', boot, { once: true });
+    window.addEventListener('atmos-browser-runtime-ready', boot, { once: true });
   }
 }());
