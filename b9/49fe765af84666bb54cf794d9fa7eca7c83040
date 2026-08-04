@@ -1,0 +1,18 @@
+apps/web/src/features/browser/components/BrowserContent.tsx
+  h_5be255725524c8 40-41,43,46
+apps/web/src/features/browser/components/BrowserTabBar.tsx
+  h_5be255725524c8 66-110,211-213,220-221,225-227,239-242,245-249,251-259,262-265,298,319,327,333,434
+apps/web/src/features/browser/components/BrowserToolbar.tsx
+  h_5be255725524c8 188-190,192,196
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "b949fe765af84666bb54cf794d9fa7eca7c83040",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
