@@ -227,19 +227,6 @@ export class BrowserUseControlPlane {
     res.end(data);
   }
 
-  /** Client-safe error text — never include stack traces (CodeQL js/stack-trace-exposure). */
-  private publicErrorMessage(e: unknown): string {
-    if (e instanceof Error) {
-      const msg = typeof e.message === "string" ? e.message.trim() : "";
-      return msg ? msg.slice(0, 500) : "browser engine failed";
-    }
-    if (typeof e === "string") {
-      const msg = e.trim();
-      return msg ? msg.slice(0, 500) : "browser engine failed";
-    }
-    return "browser engine failed";
-  }
-
   private guestFor(sessionId: string): WebContents | null {
     return this.manager.getGuestWebContents(sessionId);
   }
@@ -567,11 +554,12 @@ export class BrowserUseControlPlane {
 
       this.send(res, 404, { ok: false, error: "not found" });
     } catch (e) {
-      // Log full error server-side; response body stays message-only (no stack).
+      // Log full error server-side only — never put Error/stack on the wire
+      // (CodeQL js/stack-trace-exposure). Clients get a stable generic message.
       console.error("[browser-use] control plane request failed:", e);
       this.send(res, 500, {
         ok: false,
-        error: this.publicErrorMessage(e),
+        error: "browser engine failed",
         error_code: "browser_engine_failed",
       });
     }

@@ -6,9 +6,7 @@
 use serde_json::{json, Value};
 
 use crate::types::BrowserAction;
-use desktop_use::control::{
-    drive, CoordSpace, DriveAction, DriveRequest, HighlightMode,
-};
+use desktop_use::control::{drive, CoordSpace, DriveAction, DriveRequest, HighlightMode};
 use desktop_use::highlight::bounds_for_window_id;
 use desktop_use::host;
 use desktop_use::manager::DesktopUseManager;
@@ -64,9 +62,8 @@ pub fn chrome_target_for_request(
         BrowserAction::Type => "Typing in page".to_string(),
         BrowserAction::Navigate | BrowserAction::Prepare | BrowserAction::State => return None,
     };
-    let cursor = cursor.or_else(|| {
-        window_bounds.map(|(x, y, w, h)| (x + w.max(1.0) / 2.0, y + h.max(1.0) / 2.0))
-    });
+    let cursor = cursor
+        .or_else(|| window_bounds.map(|(x, y, w, h)| (x + w.max(1.0) / 2.0, y + h.max(1.0) / 2.0)));
     Some(BrowserChromeTarget {
         session,
         status,
@@ -196,24 +193,13 @@ mod tests {
 
     #[test]
     fn chrome_target_builder_skips_prepare_state() {
-        assert!(chrome_target_for_request(
-            BrowserAction::Prepare,
-            None,
-            None,
-            None,
-            None,
-            None
-        )
-        .is_none());
-        assert!(chrome_target_for_request(
-            BrowserAction::State,
-            None,
-            None,
-            None,
-            None,
-            None
-        )
-        .is_none());
+        assert!(
+            chrome_target_for_request(BrowserAction::Prepare, None, None, None, None, None)
+                .is_none()
+        );
+        assert!(
+            chrome_target_for_request(BrowserAction::State, None, None, None, None, None).is_none()
+        );
         let t = chrome_target_for_request(
             BrowserAction::Click,
             Some("s1".into()),
