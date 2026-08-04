@@ -1,0 +1,22 @@
+apps/desktop-electron/src/browser/surface-manager.ts
+  h_5be255725524c8 57-58,71-75,286-287,338-339,346-408,552-555
+apps/desktop-electron/src/ipc/handlers.ts
+  h_5be255725524c8 417-425
+apps/web/src/features/browser/components/BrowserViewport.tsx
+  h_5be255725524c8 5,114-116,274-277,279-280
+apps/web/src/features/browser/components/DesktopBrowserWebview.tsx
+  h_5be255725524c8 14,17,51-52,55-59,95-96,251-299,324-329
+apps/web/src/features/browser/lib/__tests__/app-053-browser-webview.structural.test.ts
+  h_5be255725524c8 96-115
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "f0c5d05853998a08117c9c9ef634c61849723905",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
