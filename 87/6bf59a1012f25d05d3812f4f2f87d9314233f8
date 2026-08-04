@@ -1,0 +1,22 @@
+crates/desktop-use/assets/highlight_overlay.swift
+  h_5be255725524c8 103-106
+crates/desktop-use/src/control.rs
+  h_5be255725524c8 265,281-285,292-295,546,549-563,566-580
+crates/desktop-use/src/engine_protocol.rs
+  h_5be255725524c8 144,148,152-153
+crates/desktop-use/src/highlight.rs
+  h_5be255725524c8 507,509-513
+crates/desktop-use/src/install.rs
+  h_5be255725524c8 251-254,422-423,425
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "876bf59a1012f25d05d3812f4f2f87d9314233f8",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
