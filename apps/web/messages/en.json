@@ -8473,6 +8473,7 @@
       "actions": {
         "openInBrowser": "Open in browser",
         "openDeveloperTools": "Open developer tools",
+        "openBrowserWindow": "Open Browser in new window",
         "openPreviewBrowserWindow": "Open Browser in new window",
         "failedToOpenPreviewBrowserWindow": "Failed to open Browser window",
         "returnToEmbeddedPreview": "Return to embedded Browser"
