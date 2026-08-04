@@ -2,6 +2,7 @@ import { BrowserWindow } from "electron";
 import { existsSync } from "node:fs";
 import type { AppState } from "../app-state.js";
 import { APP_PRODUCT_NAME, appWindowBranding } from "../branding.js";
+import { installBrowserWebviewHooks } from "../browser/webview-hooks.js";
 import { macWindowChromeOptions } from "./mac-chrome.js";
 import { wireFullscreenEvents } from "./fullscreen.js";
 import { wireMainWindowCloseBehavior } from "./close-behavior.js";
@@ -26,12 +27,18 @@ export function createMainWindow(state: AppState, uiUrl: string): BrowserWindow 
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false,
+      // APP-053: in-DOM browser guests; attach is default-deny via will-attach-webview.
+      webviewTag: true,
     },
   });
 
   wireFullscreenEvents(win);
   // Close button hides/minimizes (keep process); Cmd+Q still quits fully.
   wireMainWindowCloseBehavior(win);
+
+  if (state.browser) {
+    installBrowserWebviewHooks(win, state.browser);
+  }
 
   void win.loadURL(uiUrl);
   win.webContents.on("did-finish-load", () => {
@@ -43,7 +50,7 @@ export function createMainWindow(state: AppState, uiUrl: string): BrowserWindow 
         console.log(`[desktop-electron] __ATMOS_DESKTOP__ present=${ok}`);
         if (!ok) {
           console.error(
-            "[desktop-electron] preload bridge missing — header AppShot/Computer and native preview will not work",
+            "[desktop-electron] preload bridge missing — header AppShot/Computer and native browser will not work",
           );
         }
       })

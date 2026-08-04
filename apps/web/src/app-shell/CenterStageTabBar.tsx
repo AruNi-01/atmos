@@ -53,12 +53,12 @@ import { useTerminalStore } from "@/features/terminal/store/use-terminal-store";
 import { useShallow } from "zustand/react/shallow";
 import type { FileTabContextMenuState } from "@/app-shell/center-stage-file-menu";
 import type { GithubCenterTab } from "@/features/github/store/use-github-center-tabs";
-import type { BrowserCenterTab } from "@/features/run-preview/store/use-browser-center-tabs";
+import type { BrowserCenterTab } from "@/features/browser/store/use-browser-center-tabs";
 import {
   getActivePreviewBrowserFaviconUrl,
   getActivePreviewBrowserLabel,
   type PreviewBrowserPrefs,
-} from "@/features/run-preview/lib/preview-browser-labels";
+} from "@/features/browser/lib/browser-labels";
 
 type SessionDisplay = {
   sessionTitle?: string | null;

@@ -31,7 +31,7 @@ pub struct PreviewBridgeBounds {
 }
 
 fn runtime_script() -> &'static str {
-    include_str!("../../../../../packages/shared/preview/preview-runtime.js")
+    include_str!("../../../../../packages/shared/browser/browser-runtime.js")
 }
 
 fn desktop_bridge_script(bridge_token: &str) -> String {

@@ -1,7 +1,7 @@
 /**
  * Browser cookie sync for Electron preview partition (APP-041 / APP-045).
  * List + Chromium extract use Rust helper `atmos-browser-cookies` (Keychain).
- * Inject into Electron `persist:atmos-preview` session.
+ * Inject into Electron `persist:atmos-browser` session.
  */
 
 import type { Session } from "electron";
@@ -236,16 +236,16 @@ export function listImportableBrowsers(): BrowserProfileDto[] {
 }
 
 export async function clearBrowserCache(
-  previewSession: Session,
+  browserSession: Session,
 ): Promise<{ ok: true }> {
-  await previewSession.clearCache();
+  await browserSession.clearCache();
   return { ok: true };
 }
 
 export async function clearBrowserSiteData(
-  previewSession: Session,
+  browserSession: Session,
 ): Promise<{ ok: true }> {
-  await previewSession.clearStorageData({
+  await browserSession.clearStorageData({
     storages: [
       "cookies",
       "localstorage",
@@ -256,7 +256,7 @@ export async function clearBrowserSiteData(
       "cachestorage",
     ],
   });
-  await previewSession.clearCache();
+  await browserSession.clearCache();
   return { ok: true };
 }
 
@@ -276,7 +276,7 @@ function sameSiteToElectron(
 }
 
 export async function importBrowserCookies(
-  previewSession: Session,
+  browserSession: Session,
   profileHandle: string,
 ): Promise<ImportReport> {
   if (process.platform !== "darwin") {
@@ -319,7 +319,7 @@ export async function importBrowserCookies(
     try {
       // Host-only: omit `domain` so Chromium treats the cookie as host-only
       // (Electron/Chromium ignore hostOnly flags; domain presence decides).
-      await previewSession.cookies.set({
+      await browserSession.cookies.set({
         url: `${scheme}://${urlHost}${c.identity.path || "/"}`,
         name: c.identity.name,
         value: c.value,

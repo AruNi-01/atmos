@@ -12,7 +12,7 @@ export interface StandaloneSurfaceEvent {
 }
 
 interface NativeStandaloneSurfaceClosedPayload {
-  surface?: "preview" | "agent-chat";
+  surface?: "browser" | "agent-chat";
   label?: string;
 }
 
@@ -35,42 +35,44 @@ function createEvent(key: string, action: StandaloneSurfaceAction): StandaloneSu
   return { key, action, sourceId: SOURCE_ID, at: Date.now() };
 }
 
-function surfaceFromKey(key: string): "preview" | "agent-chat" | null {
-  if (key.startsWith("preview:")) return "preview";
+function surfaceFromKey(key: string): "browser" | "agent-chat" | null {
+  if (key.startsWith("browser:")) return "browser";
+  if (key.startsWith("preview:")) return "browser"; // legacy keys
   if (key.startsWith("agent-chat:")) return "agent-chat";
   return null;
 }
 
 /**
  * Tauri webview window label for a browser instance.
- * Must stay in sync with `preview_browser_window_label` in desktop commands.rs.
+ * Must stay in sync with electron browserWindowLabel in desktop commands.rs.
  */
-export function makePreviewBrowserWindowLabel(browserContextId?: string | null): string {
+export function makeBrowserWindowLabel(browserContextId?: string | null): string {
   const raw = browserContextId?.trim() || "";
-  if (!raw) return "preview-browser";
+  if (!raw) return "browser";
 
   const safe = raw
     .replace(/[^a-zA-Z0-9_-]+/g, "-")
     .replace(/^-+|-+$/g, "")
     .slice(0, 100);
-  return safe ? `preview-browser-${safe}` : "preview-browser";
+  return safe ? `browser-${safe}` : "browser";
 }
 
 function expectedWindowLabelForKey(key: string): string | null {
   const surface = surfaceFromKey(key);
   if (surface === "agent-chat") return "agent-chat";
-  if (surface !== "preview") return null;
+  if (surface !== "browser") return null;
 
-  // preview:{workspaceId}:{projectId}:{encodeURIComponent(browserContextId)}
-  const match = /^preview:([^:]*):([^:]*):(.*)$/.exec(key);
-  if (!match) return "preview-browser";
+  // browser:{workspaceId}:{projectId}:{encodeURIComponent(browserContextId)}
+  // also accept legacy preview: keys for in-flight handoffs
+  const match = /^(?:browser|preview):([^:]*):([^:]*):(.*)$/.exec(key);
+  if (!match) return "browser";
   let browserContextId = "";
   try {
     browserContextId = decodeURIComponent(match[3] || "");
   } catch {
     browserContextId = match[3] || "";
   }
-  return makePreviewBrowserWindowLabel(browserContextId);
+  return makeBrowserWindowLabel(browserContextId);
 }
 
 function publishEvent(event: StandaloneSurfaceEvent): void {
@@ -100,19 +102,19 @@ function publishEvent(event: StandaloneSurfaceEvent): void {
 
 /**
  * Standalone surface identity.
- * Preview keys include browserContextId so each browser instance has its own
+ * Browser keys include browserContextId so each browser instance has its own
  * window handoff (sidebar vs each center browser).
  */
 export function makeStandaloneSurfaceKey(
-  surface: "preview" | "agent-chat",
+  surface: "browser" | "agent-chat",
   workspaceId?: string | null,
   projectId?: string | null,
   browserContextId?: string | null,
 ): string {
-  if (surface === "preview") {
+  if (surface === "browser") {
     // browserContextId may contain ":" (e.g. center-browser:uuid) — encode it.
     return [
-      "preview",
+      "browser",
       workspaceId || "",
       projectId || "",
       encodeURIComponent(browserContextId || ""),
@@ -201,7 +203,7 @@ export function subscribeStandaloneSurface(
             }
             // Only the browser instance that owns this window should unpause.
             if (
-              expectedSurface === "preview" &&
+              expectedSurface === "browser" &&
               event.payload?.label &&
               expectedWindowLabel &&
               event.payload.label !== expectedWindowLabel

@@ -40,7 +40,7 @@ await esbuild.build({
 });
 // First-party app preload as CommonJS (.cjs): Electron's preload loader does not
 // treat ESM via package.json "type":"module"; .cjs avoids the .mjs requirement
-// and matches the proven sandboxed preview-preload approach.
+// and matches the proven sandboxed browser-preload approach.
 await esbuild.build({
   ...shared,
   format: "cjs",
@@ -52,8 +52,8 @@ await esbuild.build({
 await esbuild.build({
   ...shared,
   format: "cjs",
-  entryPoints: [join(root, "src/preview/preview-preload.ts")],
-  outfile: join(dist, "preview-preload.cjs"),
+  entryPoints: [join(root, "src/browser/browser-preload.ts")],
+  outfile: join(dist, "browser-preload.cjs"),
 });
 // Dual-shift helper: spawned as ELECTRON_RUN_AS_NODE child (global keys).
 await esbuild.build({
@@ -63,5 +63,5 @@ await esbuild.build({
 });
 
 console.log(
-  "[build] dist/main.js, dist/preload.cjs, dist/preview-preload.cjs, dist/shift-helper-main.js",
+  "[build] dist/main.js, dist/preload.cjs, dist/browser-preload.cjs, dist/shift-helper-main.js",
 );

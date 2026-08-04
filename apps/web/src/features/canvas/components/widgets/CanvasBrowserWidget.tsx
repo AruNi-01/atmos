@@ -3,8 +3,8 @@
 import * as React from "react";
 import { useEditor, useValue, type TLShapeId } from "tldraw";
 
-import { BrowserPanel } from "@/features/run-preview/components/BrowserPanel";
-import type { PreviewCanvasViewportController } from "@/features/run-preview/components/Preview";
+import { BrowserPanel } from "@/features/browser/components/BrowserPanel";
+import type { BrowserCanvasViewportController } from "@/features/browser/components/BrowserSession";
 import type {
   CanvasWidgetShape,
   CanvasWidgetSourceRef,
@@ -20,7 +20,7 @@ export function CanvasBrowserWidget({
 }) {
   const editor = useEditor();
   const canvasViewportControllerRef =
-    React.useRef<PreviewCanvasViewportController | null>(null);
+    React.useRef<BrowserCanvasViewportController | null>(null);
   const source = shape.props.source as CanvasBrowserWidgetSource;
 
   const viewportSignal = useValue(

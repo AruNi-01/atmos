@@ -21,7 +21,7 @@ import type { Project, Workspace } from "@/shared/types/domain";
 import { useWorkspaceSurfaceCacheStore } from "@/features/workspace/store/use-workspace-surface-cache-store";
 import { useTerminalStore } from "@/features/terminal/store/use-terminal-store";
 import type { GithubCenterTab } from "@/features/github/store/use-github-center-tabs";
-import type { BrowserCenterTab } from "@/features/run-preview/store/use-browser-center-tabs";
+import type { BrowserCenterTab } from "@/features/browser/store/use-browser-center-tabs";
 import {
   pruneStickyLeavingContexts,
   pushStickyLeavingContext,
@@ -33,7 +33,7 @@ import { scheduleIdle } from "@/app-shell/workspace-surface-switch";
 import { readCenterStageLastTab } from "@/shared/stores/use-ui-pref-hooks";
 import { useEditorStore } from "@/features/editor/store/use-editor-store";
 import { useGithubCenterTabsStore } from "@/features/github/store/use-github-center-tabs";
-import { useBrowserCenterTabsStore } from "@/features/run-preview/store/use-browser-center-tabs";
+import { useBrowserCenterTabsStore } from "@/features/browser/store/use-browser-center-tabs";
 import {
   EMPTY_MOUNTED_TAB_IDS,
   WorkspaceCenterFrame,

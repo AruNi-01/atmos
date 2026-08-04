@@ -9,7 +9,7 @@ import {
 
 /**
  * Contract: product desktop features must use isDesktopRuntime(), not Tauri-only,
- * so Electron shell gets cookie tools + desktop-native preview.
+ * so Electron shell gets cookie tools + desktop preview.
  */
 describe("desktop runtime gates for dual-shell", () => {
   let previousWindow: PropertyDescriptor | undefined;

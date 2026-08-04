@@ -17,7 +17,7 @@
     (document.head || document.documentElement).appendChild(script);
   }
 
-  inject('preview-runtime.js');
+  inject('browser-runtime.js');
   inject('injected.js');
 }());
 

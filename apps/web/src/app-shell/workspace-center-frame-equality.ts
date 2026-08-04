@@ -10,7 +10,7 @@ import type { TerminalPaneAgent } from "@/features/terminal/types/index";
 import type { TerminalPaneProps } from "@/features/terminal/types/index";
 import type { Project, Workspace } from "@/shared/types/domain";
 import type { GithubCenterTab } from "@/features/github/store/use-github-center-tabs";
-import type { BrowserCenterTab } from "@/features/run-preview/store/use-browser-center-tabs";
+import type { BrowserCenterTab } from "@/features/browser/store/use-browser-center-tabs";
 import type { MountPlan } from "@/app-shell/workspace-surface-policies";
 import type { TerminalGridHandle } from "@/features/terminal/components/TerminalGrid";
 import type { RefObject } from "react";

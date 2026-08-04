@@ -14,13 +14,13 @@ function assert(cond: unknown, msg: string): asserts cond {
 const state = createAppState();
 state.apiPort = 30303;
 state.apiHost = "127.0.0.1";
-state.preview = null;
+state.browser = null;
 state.tunnel = new TunnelService();
 
 const router = createDesktopCommandRouter(createAllHandlers(state));
 const cmds = router.listCommands();
 assert(cmds.includes("get_api_config"), "get_api_config");
-assert(cmds.includes("preview_bridge_open"), "preview_bridge_open");
+assert(cmds.includes("browser_bridge_open"), "browser_bridge_open");
 assert(cmds.includes("list_importable_browsers"), "cookies");
 assert(cmds.includes("appshot_status"), "appshot");
 assert(cmds.includes("tunnel_connector_detect"), "tunnel");

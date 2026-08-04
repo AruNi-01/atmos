@@ -17,13 +17,13 @@ import {
 } from "@/shared/stores/use-ui-pref-hooks";
 import { isDiffGroupEditorPath } from "@/features/diff/lib/diff-editor-paths";
 import type { GithubCenterTab } from "@/features/github/store/use-github-center-tabs";
-import type { BrowserCenterTab } from "@/features/run-preview/store/use-browser-center-tabs";
+import type { BrowserCenterTab } from "@/features/browser/store/use-browser-center-tabs";
 import {
   DEFAULT_PREVIEW_BROWSER_PREFS,
   getPreviewBrowserTabFaviconUrl,
   getPreviewBrowserTabLabel,
   type PreviewBrowserPrefs,
-} from "@/features/run-preview/lib/preview-browser-labels";
+} from "@/features/browser/lib/browser-labels";
 import {
   applySavedTabGroupOrder,
   type TabGroupItem,
