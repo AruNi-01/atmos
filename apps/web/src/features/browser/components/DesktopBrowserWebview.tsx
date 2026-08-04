@@ -219,7 +219,6 @@ export function DesktopBrowserWebview({
       style={{ zIndex: BROWSER_Z.webview }}
     >
       {shouldMountGuest && attach ? (
-        // @ts-expect-error Electron custom element
         <webview
           ref={webviewRef as never}
           key={attach.sessionId}
