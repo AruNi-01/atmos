@@ -110,8 +110,11 @@ export function applyReadyAppBranding(): void {
       ` dockIcon=${icons.dockIconPath ?? "(missing)"}`,
   );
 
-  if (process.platform === "darwin" && app.dock) {
-    const dockPath = icons.dockIconPath;
+  // Packaged Atmos.app already has CFBundleIconFile (icon.icns). Runtime
+  // dock.setIcon has been observed to leave a zero-width Dock tile on
+  // Electron 37 / recent macOS — only setIcon for unpackaged / dev shells.
+  if (process.platform === "darwin" && app.dock && !app.isPackaged) {
+    const dockPath = icons.pngPath ?? icons.dockIconPath;
     if (dockPath) {
       try {
         const image = nativeImage.createFromPath(dockPath);

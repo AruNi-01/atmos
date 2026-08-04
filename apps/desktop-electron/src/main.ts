@@ -106,15 +106,10 @@ async function boot() {
 
   // Arm Appshots Left+Right Shift global gesture (macOS). Always attempt on boot.
   if (process.platform === "darwin") {
-    // Pre-create the transparent capture overlay so first dual-shift is smooth.
-    try {
-      const { warmCaptureAnimationOverlay } = await import(
-        "./appshot/capture-animation.js"
-      );
-      warmCaptureAnimationOverlay();
-    } catch (e) {
-      console.warn("[desktop-electron] AppShot overlay warm failed", e);
-    }
+    // Do NOT warm the capture overlay BrowserWindow at boot — creating that
+    // always-on-top surface (historically type:"panel") leaves a zero-width
+    // Dock tile so Atmos appears icon-less next to 豆包 / Downloads.
+    // First dual-shift creates the overlay lazily.
     try {
       const appshot = await import("./appshot/service.js");
       const status = await appshot.appshotStatus(state);
@@ -127,6 +122,8 @@ async function boot() {
         "error",
       );
     }
+    // Pin Dock after boot work (trigger arm, etc.) in case anything dismissed it.
+    void ensureMacDockVisible();
   }
 }
 
