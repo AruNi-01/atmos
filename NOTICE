@@ -159,5 +159,114 @@ agent-client-protocol-schema
   Copyright 2025 Zed Industries, Inc. and contributors
 
 -------------------------------------------------------------------------------
+5. Desktop control engine (cua-driver-rs / trycua)
+-------------------------------------------------------------------------------
+
+Source:     https://github.com/trycua/cua
+Component:  cua-driver / cua-driver-rs (pinned official release artifacts)
+Pin:        crates/desktop-use/manifest/default.json (e.g. cua-driver-rs-v0.17.0)
+Usage:      Optional Atmos Desktop Use runtime. Downloaded on demand into
+            user-managed storage (~/.atmos/desktop-use/), installed as the
+            managed binary atmos-desktop-control and host app
+            "Atmos Desktop Use" (com.atmos.desktop.use). Not vendored as full
+            monorepo source in this repository.
+License:    MIT
+Copyright (c) 2025 Cua AI, Inc.
+
+The MIT License (MIT)
+
+Copyright (c) 2025 Cua AI, Inc.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+Optional bundled file in upstream release packages:
+  cua_driver_node_runtime.node
+  Derived from uniffi-bindgen-react-native N-API runtime (MPL-2.0).
+  Upstream notice: libs/cua-driver/scripts/node-runtime-NOTICE.md in trycua/cua.
+  MPL-2.0: https://www.mozilla.org/MPL/2.0/
+  Source available at the matching trycua/cua release tag.
+
+Product branding for the managed host (Atmos Desktop Use) is Atmos-owned;
+this notice covers the upstream engine software license only and does not
+grant trademark rights to "Cua" or related marks.
+
+-------------------------------------------------------------------------------
+6. Local model runtime (llama.cpp / llama-server)
+-------------------------------------------------------------------------------
+
+Source:     https://github.com/ggml-org/llama.cpp
+Component:  llama-server (and related llama.cpp binaries from official releases)
+Usage:      Optional Atmos Local Model Runtime. Upstream release assets are
+            repackaged and published under Atmos release tags
+            (local-model-runtime-*), then downloaded on demand as
+            atmos-llama-server-* (managed install under user data). Pin /
+            packaging: crates/local-model-runtime/manifest/default.json and
+            .github/workflows/release-local-model-runtime.yml.
+License:    MIT
+Copyright (c) 2023-2026 The ggml authors
+
+The MIT License (MIT)
+
+Copyright (c) 2023-2026 The ggml authors
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+-------------------------------------------------------------------------------
+7. Catalog local models (GGUF weights, optional download)
+-------------------------------------------------------------------------------
+
+Catalog entries live in crates/local-model-runtime/manifest/default.json.
+Weights are downloaded on demand from Hugging Face (not vendored in-repo).
+Each entry carries SPDX license + license_url; the product surfaces the
+license before download. Current catalog (update NOTICE when the catalog
+gains a different license family):
+
+  Qwen3.5 2B / 4B Instruct GGUF (and related Qwen3.5 base model cards)
+    License: Apache License, Version 2.0
+    Model cards (license text / terms):
+      https://huggingface.co/Qwen/Qwen3.5-2B
+      https://huggingface.co/Qwen/Qwen3.5-4B
+    GGUF packaging may be hosted by third-party repos listed in the
+    manifest (e.g. unsloth / openresearchtools); weights remain subject to
+    the base model license above.
+
+User-imported custom GGUF URLs are the user's responsibility; Atmos does
+not re-license those weights.
+
+Full Apache-2.0 text: https://www.apache.org/licenses/LICENSE-2.0
+
+-------------------------------------------------------------------------------
 End of NOTICE
 -------------------------------------------------------------------------------

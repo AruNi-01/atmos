@@ -39,6 +39,9 @@ const ALL_SYSTEM_SKILL_NAMES: &[&str] = &[
     "atmos-review-fix",
     // Canvas terminal-agent integration (APP-015)
     "atmos-canvas-agent",
+    // Desktop capture / drive (APP-052)
+    "atmos-desktop-use",
+    "atmos-browser-use",
 ];
 
 #[derive(Clone, Debug, Deserialize)]

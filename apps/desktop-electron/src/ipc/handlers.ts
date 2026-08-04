@@ -599,6 +599,50 @@ export function createAllHandlers(
       const client = await import("../desktop-use/client.js");
       return client.desktopUseCapture();
     },
+    async desktop_use_doctor() {
+      const client = await import("../desktop-use/client.js");
+      return client.desktopUseDoctor();
+    },
+    async desktop_use_grant_permissions(args) {
+      const client = await import("../desktop-use/client.js");
+      const raw =
+        typeof args?.target === "string" ? args.target.trim().toLowerCase() : "all";
+      const target =
+        raw === "accessibility" || raw === "screen_recording" || raw === "all"
+          ? raw
+          : "all";
+      return client.desktopUseGrantPermissions(target);
+    },
+    async desktop_use_drive_verify() {
+      const client = await import("../desktop-use/client.js");
+      return client.desktopUseDriveVerify();
+    },
+    async desktop_use_prefs_get() {
+      const client = await import("../desktop-use/client.js");
+      return client.desktopUsePrefsGet();
+    },
+    async desktop_use_prefs_set(args) {
+      const client = await import("../desktop-use/client.js");
+      const operationBorder =
+        typeof args?.operationBorder === "boolean"
+          ? args.operationBorder
+          : typeof args?.operation_border === "boolean"
+            ? args.operation_border
+            : typeof args?.operation_border_enabled === "boolean"
+              ? args.operation_border_enabled
+              : undefined;
+      const highlightIdleMsRaw =
+        args?.highlightIdleMs ?? args?.highlight_idle_ms;
+      const highlightIdleMs =
+        typeof highlightIdleMsRaw === "number" && Number.isFinite(highlightIdleMsRaw)
+          ? highlightIdleMsRaw
+          : undefined;
+      return client.desktopUsePrefsSet({ operationBorder, highlightIdleMs });
+    },
+    async desktop_use_drive_session_end() {
+      const client = await import("../desktop-use/client.js");
+      return client.desktopUseDriveSessionEnd();
+    },
 
     // --- tunnel ---
     async tunnel_connector_detect() {

@@ -28,6 +28,12 @@ import {
   type WelcomeSlashPopoverState,
   useWelcomeSlashNavigation,
 } from "@/features/welcome/hooks/use-welcome-slash-navigation";
+import {
+  buildDesktopUseSlashCommand,
+  DESKTOP_USE_SLASH_COMMAND_ID,
+  matchesDesktopUseSlashQuery,
+  resolveDesktopUseSkillRef,
+} from "@/features/welcome/lib/slash-desktop-use";
 import type { SlashPopoverView } from "@/features/welcome/components/SlashCommandPopover";
 import { useProjectStore } from "@/features/project/store/use-project-store";
 import {
@@ -242,26 +248,36 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
   } = useComposerDisableSkills(skillsContext);
 
   const slashCommands = React.useMemo<SlashCommandOption[]>(() => {
-    if (!skillsContext) return [];
     const query = slashPopover?.query.trim().toLowerCase() ?? "";
-    if (
-      query &&
-      !"dynamic-skills".includes(query) &&
-      !"dynamic skills".includes(query) &&
-      !"disable-skill".includes(query) &&
-      !"disable skill".includes(query) &&
-      !"disable".includes(query) &&
-      !"skill".includes(query)
-    ) {
-      return [];
+    const commands: SlashCommandOption[] = [];
+
+    if (matchesDesktopUseSlashQuery(query)) {
+      commands.push(
+        buildDesktopUseSlashCommand({
+          label: t("slashPopover.desktopUse.label"),
+          description: t("slashPopover.desktopUse.description"),
+        }),
+      );
     }
-    return [
-      {
-        id: "dynamic-skills",
-        label: t("slashPopover.disableSkill.label"),
-        description: t("slashPopover.disableSkill.description"),
-      },
-    ];
+
+    if (skillsContext) {
+      if (
+        !query ||
+        "dynamic-skills".includes(query) ||
+        "dynamic skills".includes(query) ||
+        "disable-skill".includes(query) ||
+        "disable skill".includes(query) ||
+        "disable".includes(query) ||
+        "skill".includes(query)
+      ) {
+        commands.push({
+          id: "dynamic-skills",
+          label: t("slashPopover.disableSkill.label"),
+          description: t("slashPopover.disableSkill.description"),
+        });
+      }
+    }
+    return commands;
   }, [skillsContext, slashPopover?.query, t]);
   const {
     autoExtractTodos,
@@ -323,6 +339,7 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
   });
 
   const {
+    allSkills,
     filteredAgents,
     filteredProjects,
     filteredSkills,
@@ -500,9 +517,27 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
     (command: SlashCommandOption) => {
       if (command.id === "dynamic-skills") {
         enterDisableSkillsView();
+        return;
+      }
+      if (command.id === DESKTOP_USE_SLASH_COMMAND_ID) {
+        const popover = slashPopover;
+        if (!popover) return;
+        const skill = resolveDesktopUseSkillRef(allSkills);
+        composerRef.current?.applySlashAtRange(
+          popover.slashOffset,
+          popover.query.length,
+          {
+            kind: "skill",
+            absolutePath: skill.absolutePath,
+            name: skill.name,
+          },
+        );
+        setSlashPopover(null);
+        setSlashPopoverView("menu");
+        setSkillDisableFilter("");
       }
     },
-    [enterDisableSkillsView],
+    [allSkills, enterDisableSkillsView, slashPopover],
   );
 
   const {

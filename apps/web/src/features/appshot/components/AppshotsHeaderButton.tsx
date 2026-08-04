@@ -42,7 +42,10 @@ export function AppshotsHeaderButton({ onCloseAutoFocus }: AppshotsHeaderButtonP
         onCloseAutoFocus={onCloseAutoFocus}
         className="!z-[2147483647] w-[420px] max-w-[calc(100vw-1rem)] max-h-[min(72vh,var(--radix-popover-content-available-height,72vh))] overflow-x-hidden overflow-y-auto overscroll-contain p-3 bg-popover border border-border shadow-md"
       >
-        <AppshotsHistoryPopover open={open} />
+        <AppshotsHistoryPopover
+          open={open}
+          onClose={() => setOpen(false)}
+        />
       </PopoverContent>
     </Popover>
   );

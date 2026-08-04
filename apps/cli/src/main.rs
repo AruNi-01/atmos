@@ -4,6 +4,7 @@ mod output;
 
 use api_client::ApiClientArgs;
 use clap::{Parser, Subcommand};
+use commands::browser_use::{execute_cmd as execute_browser_use, BrowserUseCommand};
 use commands::canvas::{execute as execute_canvas, CanvasCommand, CanvasOpts};
 use commands::computer::{execute as execute_computer, ComputerCommand};
 use commands::desktop_use::{execute as execute_desktop_use, DesktopUseCommand};
@@ -58,6 +59,12 @@ enum Commands {
         #[command(subcommand)]
         command: DesktopUseCommand,
     },
+    /// Browser Use: page CDP control (separate from Desktop Use; no MCP).
+    #[command(name = "browser-use")]
+    BrowserUse {
+        #[command(subcommand)]
+        command: BrowserUseCommand,
+    },
     /// Check for or install CLI updates.
     Update(UpdateArgs),
 }
@@ -80,6 +87,7 @@ async fn run() -> Result<(), String> {
         Commands::Runtime { command } => execute_runtime(command).await,
         Commands::Computer { command } => execute_computer(command).await,
         Commands::DesktopUse { command } => execute_desktop_use(command).await,
+        Commands::BrowserUse { command } => execute_browser_use(command).await,
         Commands::Canvas { canvas, command } => execute_canvas(cli.api, canvas, command).await,
         Commands::Update(args) => execute_update(args).await,
     }

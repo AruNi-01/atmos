@@ -11,10 +11,12 @@ import {
   MessagesSquare,
   Puzzle,
 } from "lucide-react";
+import { DesktopUseIconStatic } from "@workspace/ui/components/icons/desktop-use-icon-static";
 
 import type { SkillInfo } from "@/api/ws-api";
 import { AgentIcon } from "@/features/agent/components/AgentIcon";
 import type { SlashCommandOption } from "@/features/welcome/hooks/use-welcome-slash-navigation";
+import { DESKTOP_USE_SLASH_COMMAND_ID } from "@/features/welcome/lib/slash-desktop-use";
 import { scrollActiveListItemIntoView } from "@/features/welcome/lib/popover-list-scroll";
 import type { AgentMenuOption } from "@/features/welcome/lib/welcome-page-helpers";
 
@@ -249,6 +251,8 @@ export function SlashCommandPopover({
                 <MessagesSquare className="size-4 text-green-600 dark:text-green-400" />
               ) : command.id === "dynamic-skills" ? (
                 <EyeOff className="size-4 text-red-600 dark:text-red-400" />
+              ) : command.id === DESKTOP_USE_SLASH_COMMAND_ID ? (
+                <DesktopUseIconStatic className="size-4 text-violet-600 dark:text-violet-400" />
               ) : (
                 <MessageCirclePlus className="size-4 text-cyan-600 dark:text-cyan-300" />
               )}

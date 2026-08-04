@@ -21,11 +21,13 @@ import {
   listAppshotRecords,
   readAppshotRecords,
   readAppshotSnapshot,
-  showAppshotPermissionsWindow,
   watchAppshotStatusAfterPermissionOpen,
 } from "../lib/appshot-client";
+import { useOpenDesktopUseSettings } from "../lib/open-desktop-use-settings";
 import { sanitizeRecordDetailPayloads } from "../lib/appshot-payload";
+import { desktopInvoke, isDesktopRuntime } from "@/shared/lib/desktop-bridge";
 import type {
+  AppshotPermissionState,
   AppshotRecordDetail,
   AppshotRecordListItem,
   AppshotStatus,
@@ -34,14 +36,20 @@ import { AppshotRecordRow } from "./AppshotRecordRow";
 
 type AppshotsHistoryPopoverProps = {
   open: boolean;
+  /** Close the header popover (e.g. before opening Settings). */
+  onClose?: () => void;
 };
 
 const PAGE_SIZE = 10;
 const DETAIL_BATCH_SIZE = 3;
 const APPSHOT_CAPTURE_SHORTCUT_KEYS = ["Left ⇧", "Right ⇧"];
 
-export function AppshotsHistoryPopover({ open }: AppshotsHistoryPopoverProps) {
+export function AppshotsHistoryPopover({
+  open,
+  onClose,
+}: AppshotsHistoryPopoverProps) {
   const t = useTranslations("appshot.components");
+  const openDesktopUseSettings = useOpenDesktopUseSettings();
   const [status, setStatus] = React.useState<AppshotStatus | null>(null);
   const [statusError, setStatusError] = React.useState<string | null>(null);
   const [statusLoading, setStatusLoading] = React.useState(false);
@@ -68,6 +76,23 @@ export function AppshotsHistoryPopover({ open }: AppshotsHistoryPopoverProps) {
     setStatusLoading(true);
     setStatusError(null);
     try {
+      // Prefer Desktop Use host doctor when control engine is installed —
+      // AppShot no longer has a separate permission product.
+      if (isDesktopRuntime()) {
+        try {
+          const doctor = (await desktopInvoke("desktop_use_doctor")) as {
+            engine_installed?: boolean;
+            accessibility?: boolean | null;
+            screen_recording?: boolean | null;
+          };
+          if (doctor?.engine_installed) {
+            setStatus(statusFromDesktopUseDoctor(doctor));
+            return;
+          }
+        } catch {
+          /* fall through */
+        }
+      }
       const nextStatus = await getAppshotStatus();
       setStatus(nextStatus);
     } catch (err) {
@@ -184,18 +209,13 @@ export function AppshotsHistoryPopover({ open }: AppshotsHistoryPopoverProps) {
     (records.length > 0 &&
       visibleRecords.every((item) => details[item.timestamp] == null));
 
-  const handleOpenPermission = React.useCallback(
-    async () => {
-      try {
-        await showAppshotPermissionsWindow();
-        permissionWatcherRef.current?.();
-        permissionWatcherRef.current = watchAppshotStatusAfterPermissionOpen(refreshStatus);
-      } catch (err) {
-        setStatusError(err instanceof Error ? err.message : String(err));
-      }
-    },
-    [refreshStatus],
-  );
+  const handleOpenPermission = React.useCallback(() => {
+    // Header Appshots → authorize: open Settings → Desktop Use (only path).
+    onClose?.();
+    openDesktopUseSettings();
+    permissionWatcherRef.current?.();
+    permissionWatcherRef.current = watchAppshotStatusAfterPermissionOpen(refreshStatus);
+  }, [onClose, openDesktopUseSettings, refreshStatus]);
 
   const handleCopy = React.useCallback(async (timestamp: string) => {
     setCopyingTimestamp(timestamp);
@@ -427,6 +447,47 @@ function InlineError({ message }: { message: string }) {
       <span className="min-w-0 break-words">{message}</span>
     </div>
   );
+}
+
+/** Map Desktop Use doctor → AppshotStatus shape for denied-permission UI. */
+function statusFromDesktopUseDoctor(doctor: {
+  accessibility?: boolean | null;
+  screen_recording?: boolean | null;
+}): AppshotStatus {
+  const ax = doctor.accessibility === true;
+  const screen = doctor.screen_recording === true;
+  const mk = (
+    name: "accessibility" | "screen_recording",
+    granted: boolean,
+  ): AppshotPermissionState => ({
+    name,
+    display_name: name === "accessibility" ? "Accessibility" : "Screen Recording",
+    granted,
+    required_for:
+      name === "accessibility"
+        ? ["accessibility_tree", "control"]
+        : ["capture", "control"],
+    recovery_action: granted
+      ? null
+      : {
+          label: "Open Desktop Use settings",
+          target: name,
+          manual_steps: [],
+        },
+  });
+  return {
+    supported: true,
+    platform: "macos",
+    reason: null,
+    trigger: {
+      mode: "macos_modifier_gesture",
+      enabled: ax,
+      required_modifiers: [],
+      last_error: null,
+      permissions: [mk("accessibility", ax)],
+    },
+    permissions: [mk("accessibility", ax), mk("screen_recording", screen)],
+  };
 }
 
 function HistorySkeleton({ count = 3 }: { count?: number }) {

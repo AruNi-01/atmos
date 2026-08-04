@@ -111,11 +111,19 @@ export function applyReadyAppBranding(): void {
   );
 
   if (process.platform === "darwin" && app.dock) {
-    const dockPath = icons.dockIconPath;
+    // Prefer PNG over .icns — createFromPath(icns) frequently yields a low-res
+    // NativeImage that macOS draws as a tiny mark in the Dock.
+    const dockPath =
+      icons.pngPath ?? icons.dockIconPath ?? icons.windowIconPath;
     if (dockPath) {
       try {
-        const image = nativeImage.createFromPath(dockPath);
+        let image = nativeImage.createFromPath(dockPath);
         if (!image.isEmpty()) {
+          // Ensure Retina Dock gets a sharp representation when source is ≥512.
+          const size = image.getSize();
+          if (size.width >= 512 && size.height >= 512) {
+            image = image.resize({ width: 512, height: 512, quality: "best" });
+          }
           app.dock.setIcon(image);
         }
       } catch (e) {

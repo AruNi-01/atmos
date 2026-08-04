@@ -43,6 +43,12 @@ import {
 } from "@/features/welcome/hooks/use-welcome-slash-navigation";
 import { useWelcomeSlashSearch } from "@/features/welcome/hooks/use-welcome-slash-search";
 import {
+  buildDesktopUseSlashCommand,
+  DESKTOP_USE_SLASH_COMMAND_ID,
+  matchesDesktopUseSlashQuery,
+  resolveDesktopUseSkillRef,
+} from "@/features/welcome/lib/slash-desktop-use";
+import {
   getAgentContextDragItems,
   hasAgentContextDragData,
   type AgentContextDragItem,
@@ -248,6 +254,14 @@ export const TerminalAgentInputOverlay = React.forwardRef<
   const slashCommands = React.useMemo<SlashCommandOption[]>(() => {
     const query = slashPopover?.query.trim().toLowerCase() ?? "";
     const commands: SlashCommandOption[] = [];
+    if (matchesDesktopUseSlashQuery(query)) {
+      commands.push(
+        buildDesktopUseSlashCommand({
+          label: t("desktopUseCommand.label"),
+          description: t("desktopUseCommand.description"),
+        }),
+      );
+    }
     if (onStartSideChat && (!query || "side".includes(query))) {
       commands.push({
         id: "side",
@@ -441,6 +455,7 @@ export const TerminalAgentInputOverlay = React.forwardRef<
   });
 
   const {
+    allSkills,
     filteredAgents,
     filteredProjects,
     filteredSkills,
@@ -526,6 +541,24 @@ export const TerminalAgentInputOverlay = React.forwardRef<
         enterDisableSkillsView();
         return;
       }
+      if (command.id === DESKTOP_USE_SLASH_COMMAND_ID) {
+        const popover = slashPopover;
+        if (!popover) return;
+        const skill = resolveDesktopUseSkillRef(allSkills);
+        composerRef.current?.applySlashAtRange(
+          popover.slashOffset,
+          popover.query.length,
+          {
+            kind: "skill",
+            absolutePath: skill.absolutePath,
+            name: skill.name,
+          },
+        );
+        setSlashPopover(null);
+        setSlashPopoverView("menu");
+        setSkillDisableFilter("");
+        return;
+      }
       if (command.id !== "side" && command.id !== "spawn") return;
       const popover = slashPopover;
       if (!popover) return;
@@ -547,7 +580,7 @@ export const TerminalAgentInputOverlay = React.forwardRef<
       setSlashPopoverView("menu");
       setSkillDisableFilter("");
     },
-    [createCapturePromptContext, enterDisableSkillsView, slashPopover],
+    [allSkills, createCapturePromptContext, enterDisableSkillsView, slashPopover],
   );
 
   const {
