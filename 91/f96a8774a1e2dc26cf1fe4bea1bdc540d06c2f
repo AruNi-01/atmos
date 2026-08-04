@@ -1,0 +1,22 @@
+apps/web/src/features/browser/components/BrowserSession.tsx
+  h_5be255725524c8 324-325,328
+apps/web/src/features/browser/components/BrowserTabBar.tsx
+  h_5be255725524c8 166-167,170,177,192-193,195-196,201,208,234-237,255,263,269,370
+apps/web/src/features/browser/components/BrowserToolbar.tsx
+  h_5be255725524c8 188-189
+apps/web/src/features/browser/hooks/__tests__/webview-host-policy.test.ts
+  h_5be255725524c8 30-32
+apps/web/src/features/browser/hooks/use-webview-pointer-policy.ts
+  h_5be255725524c8 3,25-28,30-33,50,56-58,71-76,87,92
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "91f96a8774a1e2dc26cf1fe4bea1bdc540d06c2f",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
