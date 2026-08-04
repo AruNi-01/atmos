@@ -19,6 +19,36 @@ describe("webview-attach-policy (APP-053)", () => {
     expect(isAllowedBrowserSrc("")).toBe(false);
   });
 
+  it("evaluateWillAttach allows empty src bootstrap when a session is pending", () => {
+    const result = evaluateWillAttach({
+      partition: BROWSER_PARTITION,
+      src: "",
+      registered: [
+        {
+          sessionId: "s1",
+          url: "https://skills.sh/",
+          pendingAttach: true,
+        },
+      ],
+    });
+    expect(result).toEqual({ allow: true, sessionId: "s1" });
+  });
+
+  it("evaluateWillAttach denies empty src when nothing is pending", () => {
+    const result = evaluateWillAttach({
+      partition: BROWSER_PARTITION,
+      src: "",
+      registered: [
+        {
+          sessionId: "s1",
+          url: "https://skills.sh/",
+          pendingAttach: false,
+        },
+      ],
+    });
+    expect(result.allow).toBe(false);
+  });
+
   it("evaluateWillAttach allows registered pending session with matching partition+url", () => {
     const result = evaluateWillAttach({
       partition: BROWSER_PARTITION,

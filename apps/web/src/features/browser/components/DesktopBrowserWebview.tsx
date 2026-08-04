@@ -2,7 +2,14 @@
 
 /**
  * In-DOM Electron `<webview>` host for transport mode `desktop` (APP-053).
- * Only renders in Electron; never emitted on pure web SSR paths.
+ *
+ * Mount order (critical):
+ * 1. Measure a host shell until it has non-zero size
+ * 2. Mount <webview> with partition + preload + src so will-attach sees a real src
+ * 3. Bind guest webContentsId on dom-ready
+ *
+ * Never leave src empty on first attach when a URL is known — empty src used to
+ * be default-denied and produced a permanent black guest.
  */
 
 import { useEffect, useRef, useState } from "react";
@@ -34,7 +41,7 @@ type ElectronWebviewElement = HTMLElement & {
   partition: string;
   preload: string;
   getWebContentsId?: () => number;
-  loadURL?: (url: string) => void;
+  loadURL?: (url: string) => Promise<void> | void;
   blur?: () => void;
 };
 
@@ -47,13 +54,18 @@ declare global {
           src?: string;
           partition?: string;
           preload?: string;
-          allowpopups?: string;
+          allowpopups?: string | boolean;
           webpreferences?: string;
         },
         HTMLElement
       >;
     }
   }
+}
+
+function normalizeNavUrl(url: string): string {
+  const t = url.trim();
+  return t.length > 0 ? t : "about:blank";
 }
 
 export function DesktopBrowserWebview({
@@ -67,15 +79,18 @@ export function DesktopBrowserWebview({
 }: DesktopBrowserWebviewProps) {
   const isElectron =
     typeof window !== "undefined" ? isElectronShell() : false;
-  const ref = useRef<ElectronWebviewElement | null>(null);
+  const hostRef = useRef<HTMLDivElement | null>(null);
+  const webviewRef = useRef<ElectronWebviewElement | null>(null);
   const [layoutReady, setLayoutReady] = useState(false);
   const boundIdRef = useRef<number | null>(null);
   const lastSrcRef = useRef<string>("");
+  const mountedSessionRef = useRef<string | null>(null);
 
+  // Measure host shell (not the webview) so we only mount guest with valid size.
   useEffect(() => {
     if (!isElectron) return;
-    const el = ref.current;
-    if (!el || layoutHidden) {
+    const host = hostRef.current;
+    if (!host || layoutHidden) {
       setLayoutReady(false);
       return;
     }
@@ -85,23 +100,26 @@ export function DesktopBrowserWebview({
         setLayoutReady(true);
       }
     });
-    ro.observe(el);
-    const rect = el.getBoundingClientRect();
+    ro.observe(host);
+    const rect = host.getBoundingClientRect();
     if (rect.width >= 2 && rect.height >= 2) setLayoutReady(true);
     return () => ro.disconnect();
-  }, [isElectron, layoutHidden]);
+  }, [isElectron, layoutHidden, attach?.sessionId]);
 
+  const navUrl = normalizeNavUrl(src);
+  const shouldMountGuest =
+    isElectron &&
+    Boolean(attach) &&
+    layoutReady &&
+    !layoutHidden &&
+    Boolean(attach?.partition) &&
+    Boolean(attach?.preloadUrl);
+
+  // Wire events + subsequent navigations after guest is mounted.
   useEffect(() => {
-    if (!isElectron) return;
-    const el = ref.current;
-    if (!el || !attach || !layoutReady || layoutHidden) return;
-
-    if (!el.getAttribute("partition")) {
-      el.setAttribute("partition", attach.partition);
-    }
-    if (!el.getAttribute("preload") && attach.preloadUrl) {
-      el.setAttribute("preload", attach.preloadUrl);
-    }
+    if (!shouldMountGuest || !attach) return;
+    const el = webviewRef.current;
+    if (!el) return;
 
     const onReady = () => {
       try {
@@ -116,31 +134,71 @@ export function DesktopBrowserWebview({
       onDomReady?.();
     };
 
-    el.addEventListener("dom-ready", onReady as EventListener);
+    const onFail = (event: Event) => {
+      const detail = event as Event & {
+        errorCode?: number;
+        errorDescription?: string;
+        validatedURL?: string;
+      };
+      // -3 = ERR_ABORTED (navigation superseded)
+      if (detail.errorCode === -3) return;
+      console.error(
+        "[browser] webview did-fail-load",
+        detail.errorCode,
+        detail.errorDescription,
+        detail.validatedURL,
+      );
+    };
 
-    if (src && lastSrcRef.current !== src) {
-      lastSrcRef.current = src;
+    el.addEventListener("dom-ready", onReady as EventListener);
+    el.addEventListener("did-fail-load", onFail as EventListener);
+
+    // First mount: src is set via attribute so will-attach sees a real URL.
+    // Later navigations: loadURL without remounting the guest.
+    const sessionChanged = mountedSessionRef.current !== attach.sessionId;
+    if (sessionChanged) {
+      mountedSessionRef.current = attach.sessionId;
+      lastSrcRef.current = navUrl;
+    } else if (navUrl && lastSrcRef.current !== navUrl) {
+      lastSrcRef.current = navUrl;
       try {
         if (typeof el.loadURL === "function") {
-          el.loadURL(src);
+          void el.loadURL(navUrl);
         } else {
-          el.setAttribute("src", src);
+          el.setAttribute("src", navUrl);
         }
-      } catch {
-        el.setAttribute("src", src);
+      } catch (err) {
+        console.error("[browser] webview loadURL failed", err);
+        el.setAttribute("src", navUrl);
       }
+    }
+
+    // If already ready when listener attaches, bind immediately.
+    try {
+      const id = el.getWebContentsId?.();
+      if (typeof id === "number" && id > 0) {
+        onReady();
+      }
+    } catch {
+      /* not ready */
     }
 
     return () => {
       el.removeEventListener("dom-ready", onReady as EventListener);
+      el.removeEventListener("did-fail-load", onFail as EventListener);
     };
-  }, [isElectron, attach, layoutReady, layoutHidden, src, onBindGuest, onDomReady]);
+  }, [
+    shouldMountGuest,
+    attach,
+    navUrl,
+    onBindGuest,
+    onDomReady,
+  ]);
 
   useEffect(() => {
     if (!isElectron || !layoutHidden) return;
-    const el = ref.current;
     try {
-      el?.blur?.();
+      webviewRef.current?.blur?.();
     } catch {
       /* ignore */
     }
@@ -150,31 +208,33 @@ export function DesktopBrowserWebview({
     return null;
   }
 
-  if (!attach) {
-    return (
-      <div
-        className={cn(
-          "absolute inset-0",
-          layoutHidden && "hidden",
-          className,
-        )}
-      />
-    );
-  }
-
   return (
-    <webview
-      ref={ref as never}
+    <div
+      ref={hostRef}
       className={cn(
-        "absolute inset-0 h-full w-full border-0",
-        pointerEventsNone && "pointer-events-none",
+        "absolute inset-0 h-full w-full",
         layoutHidden && "hidden",
         className,
       )}
       style={{ zIndex: BROWSER_Z.webview }}
-      partition={attach.partition}
-      preload={attach.preloadUrl}
-      webpreferences="contextIsolation=yes, nodeIntegration=no, sandbox=yes"
-    />
+    >
+      {shouldMountGuest && attach ? (
+        // @ts-expect-error Electron custom element
+        <webview
+          ref={webviewRef as never}
+          key={attach.sessionId}
+          className={cn(
+            "absolute inset-0 h-full w-full border-0 bg-white",
+            pointerEventsNone && "pointer-events-none",
+          )}
+          // partition + preload + src must be present at first attach.
+          partition={attach.partition}
+          preload={attach.preloadUrl}
+          src={navUrl}
+          webpreferences="contextIsolation=yes, nodeIntegration=no, sandbox=yes"
+          allowpopups={"false" as never}
+        />
+      ) : null}
+    </div>
   );
 }

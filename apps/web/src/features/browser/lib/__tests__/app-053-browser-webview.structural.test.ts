@@ -31,6 +31,16 @@ describe("APP-053 browser webview structural (shipped sources)", () => {
     expect(src).not.toMatch(/annotationOverlays = resolvedTransportMode === ["']desktop["']\s*\?\s*\[\]/);
   });
 
+  it("DesktopBrowserWebview mounts guest with src so will-attach is not empty", () => {
+    const src = read("apps/web/src/features/browser/components/DesktopBrowserWebview.tsx");
+    expect(src).toContain("src={navUrl}");
+    expect(src).toContain("shouldMountGuest");
+    expect(src).toContain("partition={attach.partition}");
+    expect(src).toContain("preload={attach.preloadUrl}");
+    // must not mount a bare webview without src attribute for first paint
+    expect(src).not.toMatch(/<webview[\s\S]*?partition=\{attach\.partition\}[\s\S]*?\/>\s*;?\s*$/);
+  });
+
   it("surface manager injects host-driven selection (showSelectionToolbar false)", () => {
     const src = read("apps/desktop-electron/src/browser/surface-manager.ts");
     expect(src).toContain("showSelectionToolbar: false");

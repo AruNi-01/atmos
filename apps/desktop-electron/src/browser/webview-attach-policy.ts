@@ -27,7 +27,10 @@ export type WillAttachResult =
   | { allow: true; sessionId: string }
   | { allow: false; reason: string };
 
-/** http(s) browser targets or about:blank bootstrap. */
+/**
+ * True when src may create/navigate a guest.
+ * Empty string is only a bootstrap placeholder (see evaluateWillAttach).
+ */
 export function isAllowedBrowserSrc(src: string): boolean {
   const trimmed = src.trim();
   if (!trimmed) return false;
@@ -40,19 +43,25 @@ export function isAllowedBrowserSrc(src: string): boolean {
   }
 }
 
+/** Empty / about:blank bootstrap attach for a pending session. */
+export function isBootstrapAttachSrc(src: string): boolean {
+  const trimmed = src.trim();
+  return !trimmed || trimmed === "about:blank";
+}
+
 /**
  * Default-deny evaluate for will-attach-webview.
  *
  * Binding rules (pending sessions only, registration order = FIFO):
  * 1. First pending session whose url loosely equals src
- * 2. Else if src is about:blank: first pending session
- * 3. Else if exactly one pending session: that session (URL may still be settling)
+ * 2. Else if bootstrap src (empty / about:blank): first pending session
+ *    (Electron often fires will-attach before React sets src)
+ * 3. Else if exactly one pending session: that session
  * 4. Else re-attach existing non-pending session by URL
  * 5. Else deny
  *
  * Callers MUST clear `pendingAttach` for the returned sessionId immediately after
- * allow (see BrowserSurfaceManager.markAttachAllowed) so concurrent same-URL tabs
- * do not both map to the first pending session.
+ * allow (see BrowserSurfaceManager.markAttachAllowed).
  */
 export function evaluateWillAttach(input: WillAttachInput): WillAttachResult {
   const partition = (input.partition ?? "").trim();
@@ -64,7 +73,9 @@ export function evaluateWillAttach(input: WillAttachInput): WillAttachResult {
   }
 
   const src = (input.src ?? "").trim();
-  if (!isAllowedBrowserSrc(src)) {
+  const bootstrap = isBootstrapAttachSrc(src);
+
+  if (!bootstrap && !isAllowedBrowserSrc(src)) {
     return { allow: false, reason: `src not allowed: ${src || "(empty)"}` };
   }
 
@@ -72,33 +83,33 @@ export function evaluateWillAttach(input: WillAttachInput): WillAttachResult {
     return { allow: false, reason: "no registered browser sessions" };
   }
 
-  // Preserve registration order (Map insertion order from listRegisteredSessions).
   const pending = input.registered.filter((s) => s.pendingAttach);
 
   if (pending.length > 0) {
-    const pendingExact = pending.find((s) => urlsLooselyEqual(s.url, src));
-    if (pendingExact) {
-      return { allow: true, sessionId: pendingExact.sessionId };
+    if (!bootstrap) {
+      const pendingExact = pending.find((s) => urlsLooselyEqual(s.url, src));
+      if (pendingExact) {
+        return { allow: true, sessionId: pendingExact.sessionId };
+      }
     }
 
-    if (src === "about:blank") {
+    // Bootstrap (empty/about:blank) or single pending: bind first pending FIFO.
+    // Empty src is the common Electron path when <webview> mounts before src is set.
+    if (bootstrap || pending.length === 1) {
       return { allow: true, sessionId: pending[0]!.sessionId };
     }
 
-    // Single pending guest: host may set src slightly before open() updates url.
-    if (pending.length === 1) {
-      return { allow: true, sessionId: pending[0]!.sessionId };
-    }
-
-    // Multiple pending with non-matching URLs: refuse ambiguous bind rather than
-    // stealing the first pending for an unrelated src.
     return {
       allow: false,
       reason: "ambiguous pending sessions; src does not match a pending URL",
     };
   }
 
-  // No pending attach: allow re-attach / navigation of an already-bound session.
+  // No pending: never allow empty bootstrap — only real navigations for known sessions.
+  if (bootstrap) {
+    return { allow: false, reason: "bootstrap src with no pending session" };
+  }
+
   const byUrl = input.registered.find((s) => urlsLooselyEqual(s.url, src));
   if (byUrl) {
     return { allow: true, sessionId: byUrl.sessionId };

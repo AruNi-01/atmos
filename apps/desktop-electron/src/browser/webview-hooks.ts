@@ -48,7 +48,7 @@ export function installBrowserWebviewHooks(
 
     if (!decision.allow) {
       console.warn(
-        `[browser] will-attach-webview DENY: ${decision.reason} src=${src}`,
+        `[browser] will-attach-webview DENY: ${decision.reason} src=${src || "(empty)"} partition=${tagPartition}`,
       );
       event.preventDefault();
       return;
@@ -68,6 +68,9 @@ export function installBrowserWebviewHooks(
       `--atmos-browser-session=${decision.sessionId}`,
     ];
 
+    console.log(
+      `[browser] will-attach-webview ALLOW session=${decision.sessionId} src=${src || "(empty)"}`,
+    );
     manager.markAttachAllowed(decision.sessionId, src);
   });
 
