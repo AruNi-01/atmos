@@ -18,6 +18,7 @@ const HELPER_NAME: &str = "atmos-desktop-highlight";
 const PID_FILE: &str = "highlight.pid";
 const META_FILE: &str = "highlight.json";
 /// Source is embedded next to the crate for `include_str!` at compile time of the helper.
+#[cfg(target_os = "macos")]
 const SWIFT_SOURCE: &str = include_str!("../assets/highlight_overlay.swift");
 
 #[derive(Debug, Clone, Serialize)]
@@ -102,7 +103,7 @@ fn data_paths() -> (PathBuf, PathBuf, PathBuf, PathBuf) {
 pub fn ensure_helper() -> Result<PathBuf, String> {
     #[cfg(not(target_os = "macos"))]
     {
-        return Err("window/desktop highlight overlay is only supported on macOS".into());
+        Err("window/desktop highlight overlay is only supported on macOS".into())
     }
     #[cfg(target_os = "macos")]
     {
@@ -139,6 +140,7 @@ pub fn ensure_helper() -> Result<PathBuf, String> {
     }
 }
 
+#[cfg(target_os = "macos")]
 fn source_newer_than_binary(src: &Path, bin: &Path) -> bool {
     let src_mtime = fs::metadata(src).and_then(|m| m.modified()).ok();
     let bin_mtime = fs::metadata(bin).and_then(|m| m.modified()).ok();

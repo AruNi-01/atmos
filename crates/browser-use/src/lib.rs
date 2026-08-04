@@ -20,12 +20,8 @@ use backends::BrowserBackend;
 /// Dispatch a browser-use request to the selected backend.
 pub fn execute(req: BrowserRequest) -> BrowserResult {
     match req.backend {
-        BrowserBackendKind::Cua | BrowserBackendKind::External => {
-            CuaExternalBackend::default().execute(req)
-        }
-        BrowserBackendKind::Embedded | BrowserBackendKind::Atmos => {
-            EmbeddedBackend::default().execute(req)
-        }
+        BrowserBackendKind::Cua | BrowserBackendKind::External => CuaExternalBackend.execute(req),
+        BrowserBackendKind::Embedded | BrowserBackendKind::Atmos => EmbeddedBackend.execute(req),
     }
 }
 

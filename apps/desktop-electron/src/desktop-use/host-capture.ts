@@ -135,7 +135,13 @@ export async function captureFrontmostViaHostEngine(options: {
     options.selfAppNames ??
     new Set(["Atmos", "Atmos Electron", "Atmos Desktop", "Electron"]);
 
-  const shot = await desktopUseDriveScreenshot();
+  let shot: unknown;
+  try {
+    shot = await desktopUseDriveScreenshot();
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    throw new Error(`host engine screenshot failed: ${msg}`);
+  }
   const shotOk = Boolean((shot as { ok?: boolean })?.ok);
   if (!shotOk) {
     const err =

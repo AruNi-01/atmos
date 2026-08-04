@@ -103,13 +103,8 @@ pub fn electron_likely(payload: &Value, app_name: Option<&str>) -> bool {
 
 pub fn classify_surface(payload: &Value) -> SurfaceKind {
     let count = element_count(payload);
-    let degraded = degraded_reason(payload).is_some()
-        || payload
-            .get("degraded")
-            .and_then(|v| v.as_bool())
-            .unwrap_or(false);
-
-    if count == 0 || (degraded && count == 0) {
+    // Empty tree is unusable (often with degraded_reason=ax_window_unresolved).
+    if count == 0 {
         return SurfaceKind::AxEmpty;
     }
     if count >= HEAVY_THRESHOLD {

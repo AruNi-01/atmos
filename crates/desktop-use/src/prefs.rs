@@ -96,9 +96,10 @@ mod tests {
         unsafe {
             std::env::set_var("ATMOS_DESKTOP_USE_HOME", dir.path());
         }
-        let mut p = DesktopUsePrefs::default();
-        p.operation_border_enabled = false;
-        p.highlight_idle_ms = 12_000;
+        let p = DesktopUsePrefs {
+            operation_border_enabled: false,
+            highlight_idle_ms: 12_000,
+        };
         save_prefs(&p).unwrap();
         let loaded = load_prefs();
         assert_eq!(loaded, p);

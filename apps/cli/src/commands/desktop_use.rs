@@ -20,7 +20,7 @@ pub async fn execute(command: DesktopUseCommand) -> Result<Value, String> {
             DriverCommand::GrantPermissions(args) => driver_grant(args),
         },
         DesktopUseCommand::Capture(args) => capture_cmd(args),
-        DesktopUseCommand::Drive { command } => drive_cmd(command),
+        DesktopUseCommand::Drive { command } => drive_cmd(*command),
         DesktopUseCommand::Prefs { command } => prefs_cmd(command),
     }
 }
@@ -41,7 +41,7 @@ pub enum DesktopUseCommand {
     /// Drive desktop actions (screenshot / click / type / verify).
     Drive {
         #[command(subcommand)]
-        command: DriveCommand,
+        command: Box<DriveCommand>,
     },
     /// Read or update Desktop Use user prefs (operation border, idle clear).
     Prefs {
@@ -734,7 +734,12 @@ fn drive_cmd(command: DriveCommand) -> Result<Value, String> {
             ..Default::default()
         },
         DriveCommand::Type(a) => {
-            let highlight = HighlightMode::parse(&a.highlight).unwrap_or(HighlightMode::Auto);
+            let highlight = HighlightMode::parse(&a.highlight).ok_or_else(|| {
+                format!(
+                    "invalid --highlight {:?} (use auto, desktop, clear, off)",
+                    a.highlight
+                )
+            })?;
             DriveRequest {
                 action: DriveAction::Type,
                 text: Some(a.text),
