@@ -7,6 +7,7 @@ pub mod capture;
 pub mod config;
 pub mod control;
 pub mod doctor;
+pub mod drive_tools;
 pub mod engine_manifest;
 pub mod engine_protocol;
 pub mod highlight;
@@ -15,6 +16,7 @@ pub mod install;
 pub mod manager;
 pub mod prefs;
 pub mod strings;
+pub mod window_surface;
 
 pub use capture::{capture, CaptureRequest, CaptureResult, WindowBounds};
 pub use config::{desktop_use_dir, engine_bin_path, ensure_dirs, state_path};
@@ -23,12 +25,15 @@ pub use control::{
     DEFAULT_DRIVE_SESSION,
 };
 pub use doctor::{permission_doctor, PermissionDoctor};
+pub use drive_tools::build_engine_call;
 pub use engine_manifest::{current_platform, EngineManifest};
+// engine_protocol is used by browser-use for soft-failure detection.
 pub use highlight::{
     build_status_label, clear_highlight, operation_border_enabled, resolve_agent_name,
-    show_cursor_caption, show_desktop_highlight, show_window_highlight, HighlightResult,
-    HighlightStyle,
+    session_cursor_fill_hex, show_cursor_caption, show_desktop_highlight, show_window_highlight,
+    HighlightResult, HighlightStyle,
 };
 pub use host::PermissionGrantTarget;
 pub use manager::{DesktopUseManager, DesktopUseStatus, DriverPhase, DriverStatus, EnsureOutcome};
 pub use prefs::{load_prefs, save_prefs, update_prefs, DesktopUsePrefs};
+pub use window_surface::{classify_surface, enrich_window_state, SurfaceKind};

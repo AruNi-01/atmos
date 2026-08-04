@@ -16,3 +16,4 @@ sysinfo = "0.30"
 tokio = { workspace = true }
 runtime-manager = { path = "../../crates/runtime-manager", features = ["supervisor"] }
 desktop-use = { path = "../../crates/desktop-use" }
+browser-use = { path = "../../crates/browser-use" }

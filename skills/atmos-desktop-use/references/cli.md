@@ -64,12 +64,15 @@ atmos desktop-use --json drive screenshot --out /path/to/out.png
 atmos desktop-use --json drive click --x <n> --y <n> [--coord-space png|points] [--delivery-mode background|foreground]
 # True background AX click (preferred when tree is non-empty):
 atmos desktop-use --json drive window-state --pid <pid> --window-id <id>
+atmos desktop-use --json drive window-state --pid <pid> --window-id <id> \
+  --max-elements 400 --max-depth 15 --query "Save" [--screenshot]
 atmos desktop-use --json drive click --element-token '<token>' [--pid <pid>] [--window-id <id>]
+atmos desktop-use --json drive click --element-index <n> --snapshot-id <id> --window-id <id> [--pid <pid>]
 # Logical points (list_windows bounds / AX positions):
 atmos desktop-use --json drive click --x <n> --y <n> --coord-space points
 # Window-local pixels:
 atmos desktop-use --json drive click --x <n> --y <n> --window-id <id> [--pid <n>]
-atmos desktop-use --json drive type --text "..." [--pid <n>] [--window-id <n>] [--delivery-mode background|foreground]
+atmos desktop-use --json drive type --text "..." [--element-token <tok>] [--pid <n>] [--window-id <n>]
 # Border highlight (auto on click/type; or explicit):
 atmos desktop-use --json drive highlight --mode desktop
 atmos desktop-use --json drive highlight --mode window --x N --y N --width N --height N
@@ -82,18 +85,44 @@ atmos desktop-use --json prefs set --operation-border true|false
 atmos desktop-use --json prefs set --highlight-idle-ms 8000
 # List windows (there is no `drive windows` subcommand)
 atmos desktop-use --json drive verify
+# Phase 1–2 desktop shell (subset)
+atmos desktop-use --json drive double-click|right-click|drag|scroll|hotkey|key|move|apps|launch|quit|…
+atmos desktop-use --json drive clipboard get|set
+atmos desktop-use --json drive screen|cursor|menu|ax-tree|front|set-value|window-frame|zoom|verify-state
 ```
+
+**Page CDP** is **not** under Desktop Use — use `atmos browser-use` (no MCP).  
+Slack / VS Code / Discord / other Electron **shells** stay on Desktop Use (AX → pixel), not Browser Use.
 
 `click` / `type` / `verify` require the control engine.  
 `screenshot` prefers the host engine when installed; otherwise local capture.
 
 Screenshot JSON includes `screen_width` / `screenshot_width` (and heights). On Retina, `screenshot_*` is often **2×** `screen_*`. Default click coords are **PNG pixels**.
 
+### `window-state` surface guidance (`atmos_surface`)
+
+Every successful `drive window-state` JSON includes `result.atmos_surface`:
+
+| Field | Meaning |
+|-------|---------|
+| `kind` | `ax_ok` \| `ax_sparse` \| `ax_heavy` \| `ax_empty` |
+| `electron_likely` | Heuristic for Chromium/Electron-style shells |
+| `preferred_path` | `element_token` or `pixel` |
+| `sample_element_token` | First token if present |
+| `next_steps` / `cli_examples` | Agent-facing ladder copy |
+| `action_ladder` | background AX → pixel → foreground |
+
+When `kind=ax_empty`, stop retrying tokens; use screenshot + pixel path.
+
+Pixel-path clicks also set `result.atmos_addressing` with the same ladder reminder.
+
 ### Click coordinate contract (engine 0.17)
 
 | Flags | Coordinate space | Notes |
 |-------|------------------|-------|
-| `--x --y` only | **PNG pixels** (`--coord-space png`, default) | From `drive screenshot` image. CLI sends `scope=desktop`. Session + `move_cursor` for visibility. |
+| `--element-token` | AX handle | Preferred true-background path. Re-run window-state each turn. |
+| `--element-index` + `--snapshot-id` + `--window-id` | AX index | Engine 0.17; prefer token. |
+| `--x --y` only | **PNG pixels** (`--coord-space png`, default) | From `drive screenshot` image. CLI sends `scope=desktop`. |
 | `--x --y --coord-space points` | **Logical points** | Same as window bounds / AX; CLI scales to PNG before the engine. |
 | `--x --y --window-id` | **Window-local** image pixels | Optional `--pid`. |
 | `--x --y --pid` (no window_id) | **Ignored pid** | CLI strips bare `--pid` so desktop coords stay valid. |

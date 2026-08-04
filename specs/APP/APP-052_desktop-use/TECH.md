@@ -37,14 +37,19 @@ Daemon: managed socket `~/.atmos/desktop-use/engine.sock`.
 ## 2. Layout
 
 ```
-crates/desktop-use/          # state, config, capture, control adapter, manager
+crates/desktop-use/          # state, config, capture, control adapter, manager, drive_tools
+crates/browser-use/          # page CDP façade (CUA external + embedded stub)
 apps/cli/… desktop_use.rs    # atmos desktop-use
+apps/cli/… browser_use.rs    # atmos browser-use (not under Desktop Use branding)
 apps/desktop-electron/
   src/desktop-use/           # spawn/IPC client to CLI or helper
   src/appshot/frontmost.ts   # thin client → desktop-use capture (no osascript)
+  # APP-053 (PR #203, unmerged): browser webview + browser_bridge_* for future embedded backend
 apps/web/
   features/settings/…DesktopUseSettingsSection
   features/appshot/… permissions panel (reusable, embedded in Settings)
+skills/atmos-desktop-use/    # OS shell skill
+skills/atmos-browser-use/    # page CDP skill (no MCP)
 ```
 
 Data dir:
@@ -109,7 +114,7 @@ Rules:
 
 ## 5. Control / drive
 
-CLI:
+CLI (product lifecycle + desktop shell):
 
 ```bash
 atmos desktop-use status
@@ -117,9 +122,7 @@ atmos desktop-use driver ensure [--force]
 atmos desktop-use driver status
 atmos desktop-use driver stop
 atmos desktop-use capture [--out path] [--json]
-atmos desktop-use drive screenshot [--out path]
-atmos desktop-use drive click --x <n> --y <n>
-atmos desktop-use drive type --text "…"
+atmos desktop-use drive screenshot|click|type|verify|window-state|…
 ```
 
 Drive adapter:
@@ -127,8 +130,52 @@ Drive adapter:
 - Prefer optional pinned engine binary when present under managed bin path.
 - When absent: return structured error (`control_engine_not_installed`) with ensure hint — except pure screenshot may reuse Capture.
 - Never print vendor names.
+- **No MCP.** Agents use CLI/skills only.
 
 Manifest ensure mirrors `local-model-runtime`: platform URL + sha256 when artifacts exist; unit tests use fixtures / temp dirs without network.
+
+### 5.1 Desktop drive phases (product CLI, not 1:1 engine dump)
+
+| Phase | Goal | `atmos desktop-use drive` (representative) |
+|-------|------|-----------------------------------------------|
+| **0 (shipped)** | Install + capture + basic click/type | `screenshot`, `click`, `type`, `verify`, `window-state`, `highlight`, `session-end` |
+| **1** | Full computer shell for agents | `double-click`, `right-click`, `drag`, `scroll`, `hotkey`, `key`, `move`, `apps`, `launch`, `quit`, `clipboard get|set`, `screen`, `cursor`, `menu`, `ax-tree` |
+| **2** | Explicit extras (never default steal focus) | `front` (bring_to_front), `set-value`, `window-frame`, `zoom`, `verify-state` |
+| **3** | Page CDP — **not under Desktop Use** | See **§5.2 Browser Use** (`atmos browser-use`) |
+
+Defaults: `delivery_mode=background`; optional session + operation border chrome; foreground only when requested.
+
+### 5.2 Browser Use (page CDP) — separate from Desktop Use
+
+**Product split (locked):**
+
+| Surface | Object | CLI | Engine tools (external Chromium first) |
+|---------|--------|-----|----------------------------------------|
+| **Desktop Use** | OS windows, keys, AX, pixels | `atmos desktop-use` | `list_windows`, `click`, `type_text`, … |
+| **Browser Use** | Bound browser **tabs / DOM** | `atmos browser-use` | `browser_prepare`, `get_browser_state`, `browser_click`, `browser_type`, `browser_navigate`, … |
+
+Rules:
+
+1. **No MCP** on either surface.
+2. Browser Use is **not** branded Desktop Use; no operation-border chrome coupling.
+3. **Backend trait (crate `browser-use`):**
+   - **`CuaExternalBrowserBackend`** — attach system Chromium via managed desktop-use engine socket/`call` (Phase 3 first ship).
+   - **`AtmosEmbeddedBrowserBackend`** — **reserved stub** until APP-053 desktop browser webview (PR #203: in-DOM `<webview>`, `browser_bridge_*`, partition `persist:atmos-browser`) is merged and verified. Stub returns structured `embedded_browser_not_implemented` (fail closed, never fake `ok: true`).
+4. Reuse model: same Agent/CLI page actions (prepare/state/click/type/navigate); **attach path** differs (external CDP vs Electron debugger / host-owned endpoint). Do not force embedded tabs through “user Chrome prepare”.
+5. Skill decision: page/DOM → Browser Use; window chrome / any App → Desktop Use.
+
+```bash
+# prepare: pid required; existing_profile needs --window-id (do not default that strategy)
+atmos browser-use --json prepare --backend cua --pid <chrome_pid>
+atmos browser-use --json prepare --backend cua --pid <pid> --window-id <wid> --strategy existing_profile
+# state bind → mints target_id/tab_ids; snapshot uses those ids
+atmos browser-use --json state --backend cua --pid <pid> --window-id <wid>
+atmos browser-use --json state --backend cua --target-id … --tab-id …
+atmos browser-use --json click --backend cua --target-id … --tab-id … --ref …
+atmos browser-use --json type --backend cua --target-id … --tab-id … --ref … --text "…"
+atmos browser-use --json navigate --backend cua --target-id … --tab-id … --url https://…
+atmos browser-use --json prepare --backend embedded   # → not_implemented until APP-053
+```
 
 ## 6. Settings UI
 

@@ -112,6 +112,42 @@ pub enum DriveCommand {
     Screenshot(ScreenshotArgs),
     /// Click at screen coordinates or AX element (requires control engine).
     Click(ClickArgs),
+    /// Double-click (Phase 1).
+    #[command(name = "double-click")]
+    DoubleClick(ClickArgs),
+    /// Right-click (Phase 1).
+    #[command(name = "right-click")]
+    RightClick(ClickArgs),
+    /// Drag from --from-x/y to --to-x/y (Phase 1).
+    Drag(DragArgs),
+    /// Scroll (Phase 1).
+    Scroll(ScrollArgs),
+    /// Hotkey chord, e.g. --keys cmd,c (Phase 1).
+    Hotkey(HotkeyArgs),
+    /// Single key press (Phase 1).
+    Key(KeyArgs),
+    /// Move cursor (Phase 1).
+    Move(MoveArgs),
+    /// List apps (Phase 1).
+    Apps,
+    /// Launch app by bundle id or name (Phase 1).
+    Launch(LaunchArgs),
+    /// Terminate process by pid (Phase 1).
+    Quit(QuitArgs),
+    /// Clipboard get/set (Phase 1).
+    Clipboard {
+        #[command(subcommand)]
+        command: ClipboardCommand,
+    },
+    /// Screen size (Phase 1).
+    Screen,
+    /// Cursor position (Phase 1).
+    Cursor,
+    /// Invoke application menu path (Phase 1).
+    Menu(MenuArgs),
+    /// Lightweight desktop accessibility tree (Phase 1).
+    #[command(name = "ax-tree")]
+    AxTree,
     /// Type text (requires control engine).
     Type(TypeArgs),
     /// Verify engine is live (list windows).
@@ -122,6 +158,203 @@ pub enum DriveCommand {
     Highlight(HighlightArgs),
     /// End drive session: clear operation border and agent cursor session.
     SessionEnd,
+    /// Bring app/window to front (Phase 2 — explicit only).
+    Front(FrontArgs),
+    /// Set AX value on an element (Phase 2).
+    #[command(name = "set-value")]
+    SetValue(SetValueArgs),
+    /// Set window frame (Phase 2).
+    #[command(name = "window-frame")]
+    WindowFrame(WindowFrameArgs),
+    /// Zoom/crop window region (Phase 2).
+    Zoom(ZoomArgs),
+    /// Verify structured window predicates (Phase 2).
+    #[command(name = "verify-state")]
+    VerifyState(VerifyStateArgs),
+}
+
+#[derive(Debug, Subcommand)]
+pub enum ClipboardCommand {
+    Get(ClipboardGetArgs),
+    Set(ClipboardSetArgs),
+}
+
+#[derive(Debug, Args)]
+pub struct ClipboardGetArgs {}
+
+#[derive(Debug, Args)]
+pub struct ClipboardSetArgs {
+    #[arg(long)]
+    pub text: String,
+}
+
+#[derive(Debug, Args)]
+pub struct DragArgs {
+    #[arg(long)]
+    pub from_x: i32,
+    #[arg(long)]
+    pub from_y: i32,
+    #[arg(long)]
+    pub to_x: i32,
+    #[arg(long)]
+    pub to_y: i32,
+    #[arg(long)]
+    pub pid: Option<i32>,
+    #[arg(long)]
+    pub window_id: Option<i64>,
+    #[arg(long, default_value = "background")]
+    pub delivery_mode: String,
+}
+
+#[derive(Debug, Args)]
+pub struct ScrollArgs {
+    #[arg(long)]
+    pub direction: String,
+    #[arg(long)]
+    pub amount: Option<i32>,
+    #[arg(long)]
+    pub by: Option<String>,
+    #[arg(long)]
+    pub x: Option<i32>,
+    #[arg(long)]
+    pub y: Option<i32>,
+    #[arg(long)]
+    pub pid: Option<i32>,
+    #[arg(long)]
+    pub window_id: Option<i64>,
+    #[arg(long)]
+    pub element_token: Option<String>,
+    #[arg(long, default_value = "background")]
+    pub delivery_mode: String,
+}
+
+#[derive(Debug, Args)]
+pub struct HotkeyArgs {
+    /// Comma-separated keys, e.g. cmd,c or ctrl,shift,t
+    #[arg(long)]
+    pub keys: String,
+    #[arg(long)]
+    pub pid: Option<i32>,
+    #[arg(long)]
+    pub window_id: Option<i64>,
+    #[arg(long, default_value = "background")]
+    pub delivery_mode: String,
+}
+
+#[derive(Debug, Args)]
+pub struct KeyArgs {
+    #[arg(long)]
+    pub key: String,
+    #[arg(long)]
+    pub pid: Option<i32>,
+    #[arg(long)]
+    pub window_id: Option<i64>,
+    #[arg(long, default_value = "background")]
+    pub delivery_mode: String,
+}
+
+#[derive(Debug, Args)]
+pub struct MoveArgs {
+    #[arg(long)]
+    pub x: i32,
+    #[arg(long)]
+    pub y: i32,
+    #[arg(long, default_value = "png")]
+    pub coord_space: String,
+    #[arg(long)]
+    pub session: Option<String>,
+}
+
+#[derive(Debug, Args)]
+pub struct LaunchArgs {
+    #[arg(long)]
+    pub bundle_id: Option<String>,
+    #[arg(long)]
+    pub name: Option<String>,
+}
+
+#[derive(Debug, Args)]
+pub struct QuitArgs {
+    #[arg(long)]
+    pub pid: i32,
+}
+
+#[derive(Debug, Args)]
+pub struct MenuArgs {
+    #[arg(long)]
+    pub pid: i32,
+    /// JSON array path, e.g. '["File","New"]'
+    #[arg(long)]
+    pub path: String,
+    #[arg(long)]
+    pub window_id: Option<i64>,
+}
+
+#[derive(Debug, Args)]
+pub struct FrontArgs {
+    #[arg(long)]
+    pub pid: i32,
+    #[arg(long)]
+    pub window_id: Option<i64>,
+}
+
+#[derive(Debug, Args)]
+pub struct SetValueArgs {
+    #[arg(long)]
+    pub text: String,
+    #[arg(long)]
+    pub pid: Option<i32>,
+    #[arg(long)]
+    pub window_id: Option<i64>,
+    #[arg(long)]
+    pub element_token: Option<String>,
+    #[arg(long)]
+    pub element_index: Option<i32>,
+    #[arg(long)]
+    pub snapshot_id: Option<String>,
+}
+
+#[derive(Debug, Args)]
+pub struct WindowFrameArgs {
+    #[arg(long)]
+    pub pid: i32,
+    #[arg(long)]
+    pub window_id: i64,
+    #[arg(long)]
+    pub x: i32,
+    #[arg(long)]
+    pub y: i32,
+    #[arg(long)]
+    pub width: i32,
+    #[arg(long)]
+    pub height: i32,
+}
+
+#[derive(Debug, Args)]
+pub struct ZoomArgs {
+    #[arg(long)]
+    pub window_id: i64,
+    #[arg(long)]
+    pub pid: Option<i32>,
+    #[arg(long)]
+    pub x1: f64,
+    #[arg(long)]
+    pub y1: f64,
+    #[arg(long)]
+    pub x2: f64,
+    #[arg(long)]
+    pub y2: f64,
+}
+
+#[derive(Debug, Args)]
+pub struct VerifyStateArgs {
+    #[arg(long)]
+    pub pid: i32,
+    #[arg(long)]
+    pub window_id: i64,
+    /// Optional JSON array for expect predicates.
+    #[arg(long)]
+    pub expect: Option<String>,
 }
 
 #[derive(Debug, Args)]
@@ -184,8 +417,15 @@ pub struct TypeArgs {
     /// background (default) or foreground.
     #[arg(long, default_value = "background")]
     pub delivery_mode: String,
+    /// AX element token from `drive window-state` (preferred for focused fields).
     #[arg(long)]
     pub element_token: Option<String>,
+    /// AX element index (requires --snapshot-id + --window-id). Prefer --element-token.
+    #[arg(long)]
+    pub element_index: Option<i32>,
+    /// Snapshot id from `drive window-state` (with --element-index).
+    #[arg(long)]
+    pub snapshot_id: Option<String>,
     #[arg(long, default_value = "auto")]
     pub highlight: String,
     #[arg(long)]
@@ -200,9 +440,18 @@ pub struct WindowStateArgs {
     pub pid: i32,
     #[arg(long)]
     pub window_id: i64,
-    /// Include window screenshot (heavier; default false).
+    /// Include window screenshot (heavier; default false). Use when AX is empty (pixel path).
     #[arg(long, default_value_t = false)]
     pub screenshot: bool,
+    /// Cap AX nodes walked (engine default ~2000). Lower for heavy Electron trees.
+    #[arg(long)]
+    pub max_elements: Option<i32>,
+    /// Cap AX walk depth (engine default ~25). Lower for deep Electron menus.
+    #[arg(long)]
+    pub max_depth: Option<i32>,
+    /// Case-insensitive substring filter over role / name / text (engine `query`).
+    #[arg(long)]
+    pub query: Option<String>,
 }
 
 #[derive(Debug, Args)]
@@ -358,46 +607,132 @@ fn drive_cmd(command: DriveCommand) -> Result<Value, String> {
             out_path: a.out.map(Into::into),
             ..Default::default()
         },
-        DriveCommand::Click(a) => {
-            let coord_space = CoordSpace::parse(&a.coord_space).ok_or_else(|| {
-                format!(
-                    "invalid --coord-space {:?} (use png or points)",
-                    a.coord_space
-                )
-            })?;
-            let highlight = HighlightMode::parse(&a.highlight).ok_or_else(|| {
-                format!(
-                    "invalid --highlight {:?} (use auto, desktop, clear, off)",
-                    a.highlight
-                )
-            })?;
-            let has_element =
-                a.element_token.is_some() || (a.element_index.is_some() && a.snapshot_id.is_some());
-            // Screen-absolute pixel path: ignore bare --pid. Keep pid for element /
-            // window-local addressing.
-            let pid = if has_element || a.window_id.is_some() {
-                a.pid
-            } else {
-                None
-            };
+        DriveCommand::Click(a) => click_like(DriveAction::Click, a)?,
+        DriveCommand::DoubleClick(a) => click_like(DriveAction::DoubleClick, a)?,
+        DriveCommand::RightClick(a) => click_like(DriveAction::RightClick, a)?,
+        DriveCommand::Drag(a) => DriveRequest {
+            action: DriveAction::Drag,
+            from_x: Some(a.from_x),
+            from_y: Some(a.from_y),
+            to_x: Some(a.to_x),
+            to_y: Some(a.to_y),
+            pid: a.pid,
+            window_id: a.window_id,
+            delivery_mode: Some(a.delivery_mode),
+            highlight: HighlightMode::Auto,
+            ..Default::default()
+        },
+        DriveCommand::Scroll(a) => DriveRequest {
+            action: DriveAction::Scroll,
+            direction: Some(a.direction),
+            amount: a.amount,
+            scroll_by: a.by,
+            x: a.x,
+            y: a.y,
+            pid: a.pid,
+            window_id: a.window_id,
+            element_token: a.element_token,
+            delivery_mode: Some(a.delivery_mode),
+            highlight: HighlightMode::Auto,
+            ..Default::default()
+        },
+        DriveCommand::Hotkey(a) => {
+            let keys: Vec<String> = a
+                .keys
+                .split(',')
+                .map(|s| s.trim().to_string())
+                .filter(|s| !s.is_empty())
+                .collect();
             DriveRequest {
-                action: DriveAction::Click,
-                x: a.x,
-                y: a.y,
-                pid,
+                action: DriveAction::Hotkey,
+                keys: Some(json!(keys)),
+                pid: a.pid,
                 window_id: a.window_id,
                 delivery_mode: Some(a.delivery_mode),
-                coord_space,
-                session: a.session,
-                element_token: a.element_token,
-                element_index: a.element_index,
-                snapshot_id: a.snapshot_id,
-                highlight,
-                status_label: a.status,
-                agent_name: a.agent_name,
+                highlight: HighlightMode::Off,
                 ..Default::default()
             }
         }
+        DriveCommand::Key(a) => DriveRequest {
+            action: DriveAction::PressKey,
+            key: Some(a.key),
+            pid: a.pid,
+            window_id: a.window_id,
+            delivery_mode: Some(a.delivery_mode),
+            highlight: HighlightMode::Off,
+            ..Default::default()
+        },
+        DriveCommand::Move(a) => {
+            let coord_space = CoordSpace::parse(&a.coord_space)
+                .ok_or_else(|| format!("invalid --coord-space {:?}", a.coord_space))?;
+            DriveRequest {
+                action: DriveAction::MoveCursor,
+                x: Some(a.x),
+                y: Some(a.y),
+                coord_space,
+                session: a.session,
+                highlight: HighlightMode::Off,
+                ..Default::default()
+            }
+        }
+        DriveCommand::Apps => DriveRequest {
+            action: DriveAction::ListApps,
+            highlight: HighlightMode::Off,
+            ..Default::default()
+        },
+        DriveCommand::Launch(a) => DriveRequest {
+            action: DriveAction::LaunchApp,
+            bundle_id: a.bundle_id,
+            app_name: a.name,
+            highlight: HighlightMode::Off,
+            ..Default::default()
+        },
+        DriveCommand::Quit(a) => DriveRequest {
+            action: DriveAction::KillApp,
+            pid: Some(a.pid),
+            highlight: HighlightMode::Off,
+            ..Default::default()
+        },
+        DriveCommand::Clipboard { command } => match command {
+            ClipboardCommand::Get(_) => DriveRequest {
+                action: DriveAction::ClipboardRead,
+                highlight: HighlightMode::Off,
+                ..Default::default()
+            },
+            ClipboardCommand::Set(a) => DriveRequest {
+                action: DriveAction::ClipboardWrite,
+                text: Some(a.text),
+                highlight: HighlightMode::Off,
+                ..Default::default()
+            },
+        },
+        DriveCommand::Screen => DriveRequest {
+            action: DriveAction::GetScreenSize,
+            highlight: HighlightMode::Off,
+            ..Default::default()
+        },
+        DriveCommand::Cursor => DriveRequest {
+            action: DriveAction::GetCursorPosition,
+            highlight: HighlightMode::Off,
+            ..Default::default()
+        },
+        DriveCommand::Menu(a) => {
+            let path: serde_json::Value = serde_json::from_str(&a.path)
+                .map_err(|e| format!("menu --path must be JSON array: {e}"))?;
+            DriveRequest {
+                action: DriveAction::InvokeMenu,
+                pid: Some(a.pid),
+                window_id: a.window_id,
+                menu_path: Some(path),
+                highlight: HighlightMode::Auto,
+                ..Default::default()
+            }
+        }
+        DriveCommand::AxTree => DriveRequest {
+            action: DriveAction::GetAccessibilityTree,
+            highlight: HighlightMode::Off,
+            ..Default::default()
+        },
         DriveCommand::Type(a) => {
             let highlight = HighlightMode::parse(&a.highlight).unwrap_or(HighlightMode::Auto);
             DriveRequest {
@@ -407,6 +742,8 @@ fn drive_cmd(command: DriveCommand) -> Result<Value, String> {
                 window_id: a.window_id,
                 delivery_mode: Some(a.delivery_mode),
                 element_token: a.element_token,
+                element_index: a.element_index,
+                snapshot_id: a.snapshot_id,
                 highlight,
                 status_label: a.status,
                 agent_name: a.agent_name,
@@ -423,6 +760,9 @@ fn drive_cmd(command: DriveCommand) -> Result<Value, String> {
             pid: Some(a.pid),
             window_id: Some(a.window_id),
             include_screenshot: a.screenshot,
+            max_elements: a.max_elements,
+            max_depth: a.max_depth,
+            query: a.query,
             highlight: HighlightMode::Auto,
             ..Default::default()
         },
@@ -457,7 +797,111 @@ fn drive_cmd(command: DriveCommand) -> Result<Value, String> {
             highlight: HighlightMode::Clear,
             ..Default::default()
         },
+        DriveCommand::Front(a) => DriveRequest {
+            action: DriveAction::BringToFront,
+            pid: Some(a.pid),
+            window_id: a.window_id,
+            highlight: HighlightMode::Off,
+            ..Default::default()
+        },
+        DriveCommand::SetValue(a) => DriveRequest {
+            action: DriveAction::SetValue,
+            text: Some(a.text),
+            pid: a.pid,
+            window_id: a.window_id,
+            element_token: a.element_token,
+            element_index: a.element_index,
+            snapshot_id: a.snapshot_id,
+            highlight: HighlightMode::Auto,
+            ..Default::default()
+        },
+        DriveCommand::WindowFrame(a) => DriveRequest {
+            action: DriveAction::SetWindowFrame,
+            pid: Some(a.pid),
+            window_id: Some(a.window_id),
+            x: Some(a.x),
+            y: Some(a.y),
+            width: Some(a.width),
+            height: Some(a.height),
+            highlight: HighlightMode::Off,
+            ..Default::default()
+        },
+        DriveCommand::Zoom(a) => DriveRequest {
+            action: DriveAction::Zoom,
+            window_id: Some(a.window_id),
+            pid: a.pid,
+            x1: Some(a.x1),
+            y1: Some(a.y1),
+            x2: Some(a.x2),
+            y2: Some(a.y2),
+            highlight: HighlightMode::Off,
+            ..Default::default()
+        },
+        DriveCommand::VerifyState(a) => {
+            let expect_json = match a.expect.as_ref() {
+                Some(s) => Some(
+                    serde_json::from_str(s)
+                        .map_err(|e| format!("verify-state --expect JSON: {e}"))?,
+                ),
+                None => None,
+            };
+            DriveRequest {
+                action: DriveAction::VerifyState,
+                pid: Some(a.pid),
+                window_id: Some(a.window_id),
+                expect_json,
+                highlight: HighlightMode::Off,
+                ..Default::default()
+            }
+        }
     };
     let result = drive(&mgr, req);
     serde_json::to_value(result).map_err(|e| e.to_string())
+}
+
+fn click_like(action: DriveAction, a: ClickArgs) -> Result<DriveRequest, String> {
+    let coord_space = CoordSpace::parse(&a.coord_space).ok_or_else(|| {
+        format!(
+            "invalid --coord-space {:?} (use png or points)",
+            a.coord_space
+        )
+    })?;
+    let highlight = HighlightMode::parse(&a.highlight).ok_or_else(|| {
+        format!(
+            "invalid --highlight {:?} (use auto, desktop, clear, off)",
+            a.highlight
+        )
+    })?;
+    let has_element =
+        a.element_token.is_some() || (a.element_index.is_some() && a.snapshot_id.is_some());
+    // Engine 0.17: double_click/right_click require pid. click may use scope=desktop without pid.
+    let needs_pid = matches!(action, DriveAction::DoubleClick | DriveAction::RightClick);
+    if needs_pid && a.pid.is_none() {
+        return Err(
+            "double-click/right-click require --pid (engine 0.17 has no desktop-scope path)".into(),
+        );
+    }
+    let pid = if needs_pid || has_element || a.window_id.is_some() {
+        a.pid
+    } else {
+        // Strip bare --pid on screen-absolute click so coords stay desktop-scope.
+        None
+    };
+    Ok(DriveRequest {
+        action,
+        x: a.x,
+        y: a.y,
+        pid,
+        window_id: a.window_id,
+        delivery_mode: Some(a.delivery_mode),
+        coord_space,
+        session: a.session,
+        element_token: a.element_token,
+        element_index: a.element_index,
+        snapshot_id: a.snapshot_id,
+        highlight,
+        status_label: a.status,
+        agent_name: a.agent_name,
+        ..Default::default()
+    })
 }

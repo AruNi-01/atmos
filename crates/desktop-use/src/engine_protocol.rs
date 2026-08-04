@@ -9,6 +9,45 @@ use serde_json::Value;
 
 use crate::strings::scrub_vendor;
 
+/// Detect engine JSON that is a soft failure (exit 0 but refused / invalid).
+/// Used so drive/browser-use surfaces `ok: false` instead of trusting bare success.
+pub fn engine_payload_is_failure(v: &Value) -> Option<String> {
+    if let Some(status) = v.get("status").and_then(|s| s.as_str()) {
+        let s = status.to_ascii_lowercase();
+        if s == "refused" || s == "error" || s == "failed" {
+            let detail = v
+                .get("message")
+                .or_else(|| v.get("detail"))
+                .or_else(|| v.pointer("/refusal/message"))
+                .and_then(|x| x.as_str())
+                .unwrap_or(status);
+            return Some(detail.to_string());
+        }
+    }
+    if v.get("refusal").is_some() {
+        let detail = v
+            .pointer("/refusal/message")
+            .or_else(|| v.pointer("/refusal/code"))
+            .and_then(|x| x.as_str())
+            .unwrap_or("refused");
+        return Some(detail.to_string());
+    }
+    // Engine soft-fail payloads often use a top-level `code` string
+    // (invalid_arguments, window_scope_disabled, …) without non-zero exit.
+    if let Some(code) = v.get("code").and_then(|s| s.as_str()) {
+        let c = code.to_ascii_lowercase();
+        if c != "ok" && c != "success" {
+            let detail = v
+                .get("detail")
+                .or_else(|| v.get("message"))
+                .and_then(|x| x.as_str())
+                .unwrap_or(code);
+            return Some(format!("{code}: {detail}"));
+        }
+    }
+    None
+}
+
 /// Parse `call` CLI stdout/stderr into JSON.
 ///
 /// Rules (locked against 0.17.0 live probe):
@@ -198,6 +237,36 @@ mod tests {
     use serde_json::json;
     use std::fs;
     use std::path::PathBuf;
+
+    #[test]
+    fn soft_failure_invalid_arguments() {
+        let v = json!({
+            "code": "invalid_arguments",
+            "detail": "unknown field `content_kind`",
+            "tool": "clipboard_write"
+        });
+        let msg = engine_payload_is_failure(&v).expect("should fail");
+        assert!(msg.contains("invalid_arguments"));
+        assert!(msg.contains("content_kind"));
+    }
+
+    #[test]
+    fn soft_failure_refused_status() {
+        let v = json!({
+            "status": "refused",
+            "message": "requires exact target_id"
+        });
+        assert_eq!(
+            engine_payload_is_failure(&v).as_deref(),
+            Some("requires exact target_id")
+        );
+    }
+
+    #[test]
+    fn success_payload_not_failure() {
+        let v = json!({ "width": 1512, "height": 982 });
+        assert!(engine_payload_is_failure(&v).is_none());
+    }
 
     fn fixture_dir() -> PathBuf {
         PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/engine_0_17_0")

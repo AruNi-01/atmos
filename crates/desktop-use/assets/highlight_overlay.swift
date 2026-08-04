@@ -1,6 +1,7 @@
 import AppKit
 import CoreGraphics
 import Foundation
+import QuartzCore
 
 /// Atmos Desktop Use — click-through **blinking** border that tracks target window z-order.
 ///
@@ -29,7 +30,8 @@ struct Args {
     var cursorY: Double? = nil
     var idleMs: Double = 8000
     var blink: Bool = true
-    var blinkPeriodMs: Double = 700
+    /// Full inhale+exhale cycle in ms (slower = calmer breath).
+    var blinkPeriodMs: Double = 2200
     /// CGWindowID of the app window we should sit just above (same stacking as that app).
     var aboveWindowId: Int? = nil
     /// Corner radius matching typical macOS app chrome (~10–12pt).
@@ -57,7 +59,7 @@ func parseArgs() -> Args {
         case "--idle-ms": a.idleMs = Double(it.next() ?? "8000") ?? 8000
         case "--blink": a.blink = true
         case "--no-blink": a.blink = false
-        case "--blink-period-ms": a.blinkPeriodMs = Double(it.next() ?? "700") ?? 700
+        case "--blink-period-ms": a.blinkPeriodMs = Double(it.next() ?? "2200") ?? 2200
         case "--above-window-id": a.aboveWindowId = Int(it.next() ?? "")
         case "--corner-radius": a.cornerRadius = CGFloat(Double(it.next() ?? "10") ?? 10)
         default: break
@@ -225,10 +227,11 @@ func makeCaptionWindow(
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
     var windows: [NSWindow] = []
-    var blinkTimer: Timer?
     var idleTimer: Timer?
     var reorderTimer: Timer?
-    var blinkOn = true
+    /// Breath phase: true = fading toward peak (inhale), false = toward trough (exhale).
+    var breathInhale = false
+    var breathActive = false
     let args: Args
 
     init(args: Args) {
@@ -292,7 +295,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
 
             if args.blink {
-                startBlink(periodMs: args.blinkPeriodMs)
+                startBreathing(periodMs: args.blinkPeriodMs)
             }
 
             // Keep sitting just above the target if the window stack reshuffles.
@@ -320,21 +323,40 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    func startBlink(periodMs: Double) {
-        let half = max(0.12, periodMs / 2000.0)
-        blinkTimer = Timer.scheduledTimer(withTimeInterval: half, repeats: true) { [weak self] _ in
-            guard let self = self, let border = self.windows.first else { return }
-            self.blinkOn.toggle()
-            let target: CGFloat = self.blinkOn ? 1.0 : 0.22
-            NSAnimationContext.runAnimationGroup { ctx in
-                ctx.duration = half * 0.9
-                border.animator().alphaValue = target
-            }
-        }
+    /// Soft continuous breath: ease-in-out between two alphas (no hard on/off flash).
+    func startBreathing(periodMs: Double) {
+        guard let border = windows.first else { return }
+        breathActive = true
+        // Peak stays readable; trough still visible — avoids “gone / on” strobe.
+        let peak: CGFloat = 0.92
+        let trough: CGFloat = 0.38
+        let half = max(0.7, periodMs / 2000.0) // one half-cycle (inhale or exhale)
+        border.alphaValue = peak
+        breathInhale = false
+        stepBreath(border: border, peak: peak, trough: trough, halfDuration: half)
+    }
+
+    func stepBreath(border: NSWindow, peak: CGFloat, trough: CGFloat, halfDuration: TimeInterval) {
+        guard breathActive else { return }
+        let target = breathInhale ? peak : trough
+        breathInhale.toggle()
+        NSAnimationContext.runAnimationGroup({ ctx in
+            ctx.duration = halfDuration
+            ctx.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+            ctx.allowsImplicitAnimation = true
+            border.animator().alphaValue = target
+        }, completionHandler: { [weak self] in
+            self?.stepBreath(
+                border: border,
+                peak: peak,
+                trough: trough,
+                halfDuration: halfDuration
+            )
+        })
     }
 
     func shutdown() {
-        blinkTimer?.invalidate()
+        breathActive = false
         idleTimer?.invalidate()
         reorderTimer?.invalidate()
         for w in windows {

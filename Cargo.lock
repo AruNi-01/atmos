@@ -490,6 +490,7 @@ name = "atmos"
 version = "2026.7.27"
 dependencies = [
  "base64 0.22.1",
+ "browser-use",
  "chrono",
  "clap",
  "desktop-use",
@@ -825,6 +826,16 @@ dependencies = [
  "sha1",
  "sha2",
  "thiserror 2.0.17",
+]
+
+[[package]]
+name = "browser-use"
+version = "0.1.0"
+dependencies = [
+ "desktop-use",
+ "serde",
+ "serde_json",
+ "tempfile",
 ]
 
 [[package]]

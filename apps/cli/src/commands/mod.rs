@@ -1,3 +1,4 @@
+pub mod browser_use;
 pub mod canvas;
 pub mod computer;
 pub mod desktop_use;

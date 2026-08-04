@@ -65,6 +65,9 @@
     "atmos-desktop-use": [
       "skills/atmos-desktop-use/SKILL.md",
       "skills/atmos-desktop-use/references/cli.md"
+    ],
+    "atmos-browser-use": [
+      "skills/atmos-browser-use/SKILL.md"
     ]
   }
 }

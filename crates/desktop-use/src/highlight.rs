@@ -58,6 +58,12 @@ pub struct HighlightStyle {
     /// Target CGWindowID — border is ordered just above this window so covering
     /// windows also cover the highlight (background-safe).
     pub above_window_id: Option<i64>,
+    /// Border/caption fill as 6-digit hex (no `#`). When `None`, derived from
+    /// [`session_id`] via the engine session-cursor palette.
+    pub color_hex: Option<String>,
+    /// Drive session id used to match the agent cursor color when `color_hex`
+    /// is not set. Defaults to [`crate::control::DEFAULT_DRIVE_SESSION`].
+    pub session_id: Option<String>,
 }
 
 impl Default for HighlightStyle {
@@ -68,6 +74,8 @@ impl Default for HighlightStyle {
             idle_ms: None,
             blink: true,
             above_window_id: None,
+            color_hex: None,
+            session_id: None,
         }
     }
 }
@@ -219,6 +227,92 @@ fn push_style(args: &mut Vec<String>, style: &HighlightStyle) {
     }
 }
 
+/// Anonymous / `default` session fill — original Cua blue (engine theme default).
+const DEFAULT_CURSOR_FILL: [u8; 3] = [94, 192, 232];
+
+/// Multi-session palette used by the control engine cursor overlay.
+///
+/// Mirrors `cursor-overlay::theme::SESSION_CURSOR_FILLS` so the operation border
+/// matches the agent pointer for the same session id. When several sessions are
+/// active, each maps to one entry; we only need the color for the current drive
+/// session (one at a time is enough).
+const SESSION_CURSOR_FILLS: &[[u8; 3]] = &[
+    [178, 132, 255],
+    [247, 132, 170],
+    [96, 218, 174],
+    [244, 178, 66],
+    [76, 204, 224],
+    [221, 113, 236],
+    [232, 82, 98],
+    [184, 220, 54],
+    [80, 126, 236],
+];
+
+fn stable_session_index(id: &str, count: usize) -> usize {
+    if count == 0 {
+        return 0;
+    }
+    let suffix = id
+        .rfind(['-', '_', '.'])
+        .map(|index| &id[index + 1..])
+        .unwrap_or(id);
+    if let Ok(number) = suffix.parse::<usize>() {
+        if number > 0 {
+            return (number - 1) % count;
+        }
+    }
+    if suffix.len() == 1 {
+        if let Some(character) = suffix.chars().next() {
+            if character.is_ascii_alphabetic() {
+                return (character.to_ascii_lowercase() as usize - b'a' as usize) % count;
+            }
+        }
+    }
+
+    // FNV-1a 32-bit over the full session id (engine-stable).
+    let mut hash: u32 = 2_166_136_261;
+    for character in id.chars() {
+        hash ^= character as u32;
+        hash = hash.wrapping_mul(16_777_619);
+    }
+    hash as usize % count
+}
+
+/// RGB fill for one session-owned agent cursor (no alpha).
+///
+/// Empty / `"default"` → engine default blue; otherwise palette-index from a
+/// stable hash of the session id (same rules as the control engine).
+pub fn session_cursor_fill_rgb(session_id: &str) -> [u8; 3] {
+    if session_id.is_empty() || session_id == "default" {
+        return DEFAULT_CURSOR_FILL;
+    }
+    SESSION_CURSOR_FILLS[stable_session_index(session_id, SESSION_CURSOR_FILLS.len())]
+}
+
+/// 6-digit uppercase hex (no `#`) for overlay `--color`.
+pub fn session_cursor_fill_hex(session_id: &str) -> String {
+    let [r, g, b] = session_cursor_fill_rgb(session_id);
+    format!("{r:02X}{g:02X}{b:02X}")
+}
+
+fn resolve_color_hex(style: &HighlightStyle) -> String {
+    if let Some(c) = style
+        .color_hex
+        .as_ref()
+        .map(|s| s.trim().trim_start_matches('#'))
+        .filter(|s| !s.is_empty())
+    {
+        return c.to_ascii_uppercase();
+    }
+    let sid = style
+        .session_id
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .unwrap_or(crate::control::DEFAULT_DRIVE_SESSION);
+    session_cursor_fill_hex(sid)
+}
+
 /// Whether Settings / prefs allow drawing the operation border.
 pub fn operation_border_enabled() -> bool {
     crate::prefs::load_prefs().operation_border_enabled
@@ -255,6 +349,7 @@ pub fn show_window_highlight_styled(
             error: None,
         };
     }
+    let color = resolve_color_hex(&style);
     let mut extra = vec![
         "--x".into(),
         format!("{x}"),
@@ -265,7 +360,7 @@ pub fn show_window_highlight_styled(
         "--height".into(),
         format!("{height}"),
         "--color".into(),
-        "3B82F6".into(),
+        color,
         "--thickness".into(),
         "3".into(),
     ];
@@ -303,11 +398,12 @@ pub fn show_desktop_highlight_styled(style: HighlightStyle) -> HighlightResult {
             error: None,
         };
     }
+    let color = resolve_color_hex(&style);
     let mut extra = vec![
         "--inset".into(),
         "4".into(),
         "--color".into(),
-        "22C55E".into(),
+        color,
         "--thickness".into(),
         "4".into(),
     ];
@@ -349,6 +445,11 @@ pub fn show_cursor_caption(x: f64, y: f64, label: &str) -> HighlightResult {
             error: Some("caption label is empty".into()),
         };
     }
+    let style = HighlightStyle {
+        blink: false,
+        ..Default::default()
+    };
+    let color = resolve_color_hex(&style);
     let mut extra = vec![
         "--x".into(),
         format!("{x}"),
@@ -357,15 +458,9 @@ pub fn show_cursor_caption(x: f64, y: f64, label: &str) -> HighlightResult {
         "--label".into(),
         label.into(),
         "--color".into(),
-        "3B82F6".into(),
+        color,
     ];
-    push_style(
-        &mut extra,
-        &HighlightStyle {
-            blink: false,
-            ..Default::default()
-        },
-    );
+    push_style(&mut extra, &style);
     show_with_args(
         "caption",
         extra,
@@ -613,5 +708,39 @@ mod tests {
     fn resolve_agent_defaults() {
         assert_eq!(resolve_agent_name(Some("  Claude  ")), "Claude");
         assert_eq!(resolve_agent_name(Some("")), "Agent");
+    }
+
+    #[test]
+    fn session_cursor_fill_matches_engine_palette() {
+        // Mirrors cursor-overlay::theme::session_fill_hex fixtures.
+        assert_eq!(session_cursor_fill_hex("default"), "5EC0E8");
+        assert_eq!(session_cursor_fill_hex(""), "5EC0E8");
+        assert_eq!(
+            session_cursor_fill_rgb("agent-1"),
+            session_cursor_fill_rgb("agent-1")
+        );
+        assert_ne!(
+            session_cursor_fill_rgb("agent-1"),
+            session_cursor_fill_rgb("agent-2")
+        );
+        assert_ne!(
+            session_cursor_fill_rgb("agent-2"),
+            session_cursor_fill_rgb("default")
+        );
+        // Default drive session lands on palette index 7 → lime.
+        assert_eq!(session_cursor_fill_hex("atmos-desktop-use"), "B8DC36");
+        // Numeric suffix shortcut: agent-1 → index 0.
+        assert_eq!(session_cursor_fill_hex("agent-1"), "B284FF");
+        assert_eq!(session_cursor_fill_hex("agent-2"), "F784AA");
+    }
+
+    #[test]
+    fn resolve_color_prefers_explicit_hex() {
+        let style = HighlightStyle {
+            color_hex: Some("#aabbcc".into()),
+            session_id: Some("agent-1".into()),
+            ..Default::default()
+        };
+        assert_eq!(resolve_color_hex(&style), "AABBCC");
     }
 }
