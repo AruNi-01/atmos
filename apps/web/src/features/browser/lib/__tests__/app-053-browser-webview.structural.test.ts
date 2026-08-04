@@ -43,8 +43,12 @@ describe("APP-053 browser webview structural (shipped sources)", () => {
 
   it("DesktopBrowserWebview keeps guest mounted across layoutHidden (tab switch)", () => {
     const src = read("apps/web/src/features/browser/components/DesktopBrowserWebview.tsx");
-    // must not gate mount on !layoutHidden (that remounted and flashed white on tab switch)
-    expect(src).not.toMatch(/shouldMountGuest[\s\S]*?!layoutHidden/);
+    // Extract shouldMountGuest expression — must not require !layoutHidden (that remounted).
+    const mountExpr = src.match(
+      /const shouldMountGuest =\s*([\s\S]*?);/,
+    )?.[1] ?? "";
+    expect(mountExpr).toContain("layoutReady");
+    expect(mountExpr).not.toContain("layoutHidden");
     expect(src).toContain("onLoadingChange");
     expect(src).toContain("did-start-loading");
     expect(src).toContain("did-stop-loading");
