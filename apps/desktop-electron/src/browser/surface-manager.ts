@@ -54,6 +54,8 @@ export type BrowserAttachConfig = {
   sessionId: string;
 };
 
+type GuestColorScheme = "light" | "dark";
+
 type SurfaceState = {
   sessionId: string;
   bridgeToken: string;
@@ -66,6 +68,11 @@ type SurfaceState = {
   hostWindow: BrowserWindow | null;
   detachedWindow: BrowserWindow | null;
   listenersAttached: boolean;
+  /**
+   * Preferred color scheme mirrored from Atmos host theme so guest scrollbars
+   * and prefers-color-scheme match Chrome-on-dark rather than always-light.
+   */
+  preferredColorScheme: GuestColorScheme;
 };
 
 function browserRuntimeScriptPath(): string {
@@ -276,6 +283,8 @@ export class BrowserSurfaceManager {
       callback(false);
     });
 
+    void this.applyGuestColorScheme(s);
+
     wc.once("destroyed", () => {
       const cur = this.surfaces.get(sessionId);
       if (cur && cur.guestWebContentsId === wc.id) {
@@ -326,10 +335,75 @@ export class BrowserSurfaceManager {
         hostWindow: null,
         detachedWindow: null,
         listenersAttached: false,
+        // Match Atmos defaultTheme="dark".
+        preferredColorScheme: "dark",
       };
       this.surfaces.set(sessionId, s);
     }
     return s;
+  }
+
+  /**
+   * Sync Atmos host theme into the guest so scrollbars / form controls / sites
+   * that honor prefers-color-scheme behave like system Chrome.
+   */
+  setPreferredColorScheme(
+    sessionId: string,
+    scheme: GuestColorScheme,
+  ): void {
+    const s = this.surfaces.get(sessionId);
+    if (!s) return;
+    if (scheme !== "light" && scheme !== "dark") return;
+    s.preferredColorScheme = scheme;
+    void this.applyGuestColorScheme(s);
+  }
+
+  private async applyGuestColorScheme(s: SurfaceState): Promise<void> {
+    const wc = this.webContentsFor(s);
+    if (!wc || wc.isDestroyed()) return;
+    const scheme = s.preferredColorScheme;
+    const css = `:root, html { color-scheme: ${scheme} !important; }`;
+    try {
+      await wc.insertCSS(css);
+    } catch {
+      /* navigation mid-flight */
+    }
+    try {
+      await wc.executeJavaScript(
+        `(() => {
+          var scheme = ${JSON.stringify(scheme)};
+          try {
+            document.documentElement.style.colorScheme = scheme;
+            document.documentElement.setAttribute('data-atmos-color-scheme', scheme);
+          } catch (_) {}
+        })();`,
+        true,
+      );
+    } catch {
+      /* guest not ready */
+    }
+    // Emulate prefers-color-scheme media so dark sites (e.g. skills.sh) style
+    // scrollbars like Chrome. Re-applied on every navigation in onBrowserPageFinished.
+    try {
+      const dbg = wc.debugger;
+      let attachedHere = false;
+      if (!dbg.isAttached()) {
+        dbg.attach("1.3");
+        attachedHere = true;
+      }
+      await dbg.sendCommand("Emulation.setEmulatedMedia", {
+        features: [{ name: "prefers-color-scheme", value: scheme }],
+      });
+      if (attachedHere) {
+        try {
+          dbg.detach();
+        } catch {
+          /* ignore */
+        }
+      }
+    } catch {
+      /* debugger busy (DevTools) — insertCSS / color-scheme still applied */
+    }
   }
 
   private emitToApp(
@@ -475,6 +549,10 @@ export class BrowserSurfaceManager {
       bridgeToken,
       pickMode ? "enterPickMode" : "announceReady",
     );
+    const surface = this.surfaces.get(sessionId);
+    if (surface) {
+      void this.applyGuestColorScheme(surface);
+    }
   }
 
   private async injectBridge(

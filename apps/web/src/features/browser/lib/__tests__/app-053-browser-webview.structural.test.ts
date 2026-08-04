@@ -93,6 +93,26 @@ describe("APP-053 browser webview structural (shipped sources)", () => {
     expect(src).not.toMatch(/<webview[\s\S]*?partition=\{attach\.partition\}[\s\S]*?\/>\s*;?\s*$/);
   });
 
+  it("guest color-scheme follows Atmos theme (scrollbars / prefers-color-scheme)", () => {
+    const webview = read("apps/web/src/features/browser/components/DesktopBrowserWebview.tsx");
+    expect(webview).toContain("useTheme");
+    expect(webview).toContain("guestColorScheme");
+    expect(webview).toContain("browser_bridge_set_color_scheme");
+    expect(webview).toContain("colorScheme: guestColorScheme");
+
+    const viewport = read("apps/web/src/features/browser/components/BrowserViewport.tsx");
+    expect(viewport).toContain("guestColorScheme");
+    expect(viewport).not.toContain('colorScheme: "dark"');
+
+    const surface = read("apps/desktop-electron/src/browser/surface-manager.ts");
+    expect(surface).toContain("setPreferredColorScheme");
+    expect(surface).toContain("applyGuestColorScheme");
+    expect(surface).toContain("prefers-color-scheme");
+
+    const handlers = read("apps/desktop-electron/src/ipc/handlers.ts");
+    expect(handlers).toContain("browser_bridge_set_color_scheme");
+  });
+
   it("canvas browser keeps inactive tabs mounted and skips native bounds sync", () => {
     const src = read("apps/web/src/features/canvas/components/widgets/CanvasBrowserWidget.tsx");
     expect(src).toContain("keepInactiveTabsMounted");

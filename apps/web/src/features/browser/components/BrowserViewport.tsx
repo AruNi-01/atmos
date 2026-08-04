@@ -2,6 +2,7 @@
 
 import type React from "react";
 import { MessageCirclePlus, Pencil, Trash2 } from "lucide-react";
+import { useTheme } from "next-themes";
 
 import { cn, NativeFollowCursor } from "@workspace/ui";
 import { SelectionPopover } from "@/features/selection/components/SelectionPopover";
@@ -110,6 +111,9 @@ export function BrowserViewport({
   viewMode,
 }: BrowserViewportProps) {
   void activeUrl;
+  const { resolvedTheme } = useTheme();
+  // Follow Atmos theme for nested frame color-scheme (scrollbars / controls).
+  const guestColorScheme = resolvedTheme === "light" ? "light" : "dark";
   const annotationOverlays = selectionAnnotations.flatMap((annotation) => {
     const rect = annotation.info.previewRect;
     if (!rect) return [];
@@ -267,9 +271,13 @@ export function BrowserViewport({
               ref={iframeRef}
               src={iframeSrc || undefined}
               onLoad={handleIframeLoad}
-              style={{ colorScheme: "dark" }}
+              style={{
+                colorScheme: guestColorScheme,
+                backgroundColor: guestColorScheme === "dark" ? "#0a0a0a" : "#ffffff",
+              }}
               className={cn(
-                "block h-full w-full border-0 bg-white outline-none transition-all duration-300",
+                "block h-full w-full border-0 outline-none transition-all duration-300",
+                guestColorScheme === "dark" ? "bg-neutral-950" : "bg-white",
                 ((requestedIframeUrl && requestedIframeUrl !== iframeSrc) || isPreviewLoading || previewLoadError) &&
                   "pointer-events-none opacity-0",
                 viewMode === "mobile" && "border-x border-border shadow-sm",

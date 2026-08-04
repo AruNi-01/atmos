@@ -11,8 +11,10 @@
  */
 
 import { useEffect, useRef, useState } from "react";
+import { useTheme } from "next-themes";
 import { cn } from "@workspace/ui";
 import { isElectronShell } from "@/shared/lib/desktop-bridge";
+import { invokeDesktopBrowserBridge } from "@/shared/lib/desktop-browser-bridge";
 import type { DesktopBrowserAttachConfig } from "../lib/browser-transports/desktop-transport";
 
 /** z-index tokens within the browser viewport stacking context. */
@@ -46,7 +48,14 @@ type ElectronWebviewElement = HTMLElement & {
   getWebContentsId?: () => number;
   loadURL?: (url: string) => Promise<void> | void;
   blur?: () => void;
+  executeJavaScript?: (code: string, userGesture?: boolean) => Promise<unknown>;
+  insertCSS?: (css: string) => Promise<string>;
 };
+
+/** Resolve Atmos host theme → guest color-scheme (default dark matches app). */
+function resolveGuestColorScheme(resolvedTheme: string | undefined): "light" | "dark" {
+  return resolvedTheme === "light" ? "light" : "dark";
+}
 
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
@@ -83,6 +92,8 @@ export function DesktopBrowserWebview({
 }: DesktopBrowserWebviewProps) {
   const isElectron =
     typeof window !== "undefined" ? isElectronShell() : false;
+  const { resolvedTheme } = useTheme();
+  const guestColorScheme = resolveGuestColorScheme(resolvedTheme);
   const hostRef = useRef<HTMLDivElement | null>(null);
   const webviewRef = useRef<ElectronWebviewElement | null>(null);
   /** Once true for a session, stay true so hide/show never remounts the guest. */
@@ -237,6 +248,55 @@ export function DesktopBrowserWebview({
     }
   }, [isElectron, layoutHidden]);
 
+  // Sync Atmos theme → guest color-scheme so scrollbars match system Chrome dark UI.
+  useEffect(() => {
+    if (!shouldMountGuest || !attach) return;
+    const el = webviewRef.current;
+    if (!el) return;
+
+    const applyLocal = () => {
+      try {
+        void el.insertCSS?.(
+          `:root, html { color-scheme: ${guestColorScheme} !important; }`,
+        );
+        void el.executeJavaScript?.(
+          `(() => {
+            try {
+              document.documentElement.style.colorScheme = ${JSON.stringify(guestColorScheme)};
+              document.documentElement.setAttribute('data-atmos-color-scheme', ${JSON.stringify(guestColorScheme)});
+            } catch (_) {}
+          })();`,
+          false,
+        );
+      } catch {
+        /* guest mid-navigation */
+      }
+    };
+
+    const pushToMain = () => {
+      void invokeDesktopBrowserBridge("browser_bridge_set_color_scheme", {
+        sessionId: attach.sessionId,
+        scheme: guestColorScheme,
+      }).catch(() => undefined);
+    };
+
+    const onPaintReady = () => {
+      applyLocal();
+      pushToMain();
+    };
+
+    el.addEventListener("dom-ready", onPaintReady as EventListener);
+    el.addEventListener("did-finish-load", onPaintReady as EventListener);
+    el.addEventListener("did-navigate-in-page", onPaintReady as EventListener);
+    onPaintReady();
+
+    return () => {
+      el.removeEventListener("dom-ready", onPaintReady as EventListener);
+      el.removeEventListener("did-finish-load", onPaintReady as EventListener);
+      el.removeEventListener("did-navigate-in-page", onPaintReady as EventListener);
+    };
+  }, [shouldMountGuest, attach, guestColorScheme]);
+
   if (!isElectron) {
     return null;
   }
@@ -261,6 +321,12 @@ export function DesktopBrowserWebview({
             "absolute inset-0 h-full w-full border-0 bg-transparent",
             pointerEventsNone && "pointer-events-none",
           )}
+          // color-scheme on the frame element influences guest preferred scheme
+          // (same idea as iframe colorScheme) so Chromium paints dark scrollbars.
+          style={{
+            colorScheme: guestColorScheme,
+            backgroundColor: guestColorScheme === "dark" ? "#0a0a0a" : "#ffffff",
+          }}
           // partition + preload + src + session id must be present at first attach.
           // data-atmos-session lets main will-attach bind uniquely under multi-tab races.
           {...{

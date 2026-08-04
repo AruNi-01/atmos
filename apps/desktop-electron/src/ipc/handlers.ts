@@ -414,6 +414,15 @@ export function createAllHandlers(
       return null;
     },
 
+    async browser_bridge_set_color_scheme(args) {
+      const sessionId = str(args.session_id ?? args.sessionId);
+      const raw = str(args.scheme ?? args.colorScheme ?? args.color_scheme);
+      const scheme = raw === "light" ? "light" : raw === "dark" ? "dark" : "";
+      if (!scheme) return null;
+      state.browser?.setPreferredColorScheme(sessionId, scheme);
+      return null;
+    },
+
     async browser_bridge_query_element_rects(args) {
       const sessionId = str(args.session_id ?? args.sessionId);
       const raw = args.selectors;
