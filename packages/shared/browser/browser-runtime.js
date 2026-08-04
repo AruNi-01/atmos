@@ -1984,7 +1984,7 @@
       }
     }
 
-    function selectElement(element) {
+    function selectElement(element, cursor) {
       var rect = getPreviewElementRect(element);
       var elementContext = inspectPreviewElement(element);
       var sourceLocation = locateSourceForElement(element, win);
@@ -1999,12 +1999,22 @@
         }
       );
       setPickerCursor(lockedCursor);
-      emit({
+      var payload = {
         type: 'atmos-browser:selected',
         rect: rect,
         elementContext: elementContext,
         sourceLocation: sourceLocation,
-      });
+        // Guest CSS viewport size — host maps rect/cursor through webview scale
+        // (critical when canvas CSS-transforms the widget).
+        viewport: {
+          width: win.innerWidth,
+          height: win.innerHeight,
+        },
+      };
+      if (cursor && Number.isFinite(cursor.x) && Number.isFinite(cursor.y)) {
+        payload.cursor = { x: cursor.x, y: cursor.y };
+      }
+      emit(payload);
     }
 
     function unlockSelectionForNextPick() {
@@ -2071,7 +2081,7 @@
       state.locked = target;
       overlay.clearHover();
       emitHover(null);
-      selectElement(target);
+      selectElement(target, { x: event.clientX, y: event.clientY });
     }
 
     function handleKeyDown(event) {

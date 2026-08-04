@@ -19,6 +19,14 @@ interface PreviewBridgeEventPayload {
     width: number;
     height: number;
   };
+  cursor?: {
+    x: number;
+    y: number;
+  };
+  viewport?: {
+    width: number;
+    height: number;
+  };
   elementContext?: unknown;
   sourceLocation?: unknown;
   /** Present on toolbar-action when the runtime includes a selection snapshot. */

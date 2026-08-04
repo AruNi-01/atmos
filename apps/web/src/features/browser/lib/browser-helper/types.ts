@@ -21,6 +21,10 @@ export interface PreviewHelperPayload {
   rect: PreviewElementRect;
   elementContext: PreviewElementContext;
   sourceLocation: SourceLocationResult | null;
+  /** Guest click position in guest CSS pixels (desktop popover anchors near mouse). */
+  cursor?: { x: number; y: number };
+  /** Guest layout viewport size for host scale mapping under CSS transform/zoom. */
+  viewport?: { width: number; height: number };
 }
 
 export interface PreviewHoverPayload {

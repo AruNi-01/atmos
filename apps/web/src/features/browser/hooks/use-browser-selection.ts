@@ -121,30 +121,65 @@ export function useBrowserSelection({
     }
   }, [isElementPickerEnabledRef, transportControllerRef]);
 
-  const getPopoverPositionFromRect = useCallback((rect: { x: number; y: number; width: number; height: number }) => {
-    // Prefer the live <webview> box so guest getBoundingClientRect maps 1:1 into host
-    // fixed coords. Fall back to the desktop shell, then the iframe for web transport.
-    let targetBounds: DOMRect | undefined;
+  const getPopoverPositionFromRect = useCallback((
+    rect: { x: number; y: number; width: number; height: number },
+    opts?: {
+      cursor?: { x: number; y: number };
+      viewport?: { width: number; height: number };
+    },
+  ) => {
+    // Map guest CSS pixels → host fixed coords via the live frame element.
+    // Scale is required when the host is CSS-transformed (canvas zoom/pan) or the
+    // guest viewport size differs from the element's visual getBoundingClientRect.
+    let frameEl: HTMLElement | null = null;
     if (transportControllerRef.current?.mode === 'desktop' || desktopViewportRef.current) {
       const shell = desktopViewportRef.current;
-      const webview = shell?.querySelector('webview') as HTMLElement | null | undefined;
-      targetBounds = (webview ?? shell)?.getBoundingClientRect();
+      frameEl = (shell?.querySelector('webview') as HTMLElement | null) ?? shell;
     } else {
-      targetBounds = iframeRef.current?.getBoundingClientRect();
+      frameEl = iframeRef.current;
     }
 
+    const targetBounds = frameEl?.getBoundingClientRect();
     if (!targetBounds || (targetBounds.width <= 0 && targetBounds.height <= 0)) {
-      return { x: rect.x, y: rect.y + rect.height + 8 };
+      const cx = opts?.cursor?.x ?? rect.x + rect.width / 2;
+      const cy = opts?.cursor?.y ?? rect.y + rect.height;
+      return { x: cx, y: cy + 12 };
     }
 
-    // Preview annotation card is ~320×280 when the note field is open.
+    const guestViewportW =
+      opts?.viewport?.width && opts.viewport.width > 0
+        ? opts.viewport.width
+        : frameEl && frameEl.clientWidth > 0
+          ? frameEl.clientWidth
+          : targetBounds.width;
+    const guestViewportH =
+      opts?.viewport?.height && opts.viewport.height > 0
+        ? opts.viewport.height
+        : frameEl && frameEl.clientHeight > 0
+          ? frameEl.clientHeight
+          : targetBounds.height;
+    const scaleX = guestViewportW > 0 ? targetBounds.width / guestViewportW : 1;
+    const scaleY = guestViewportH > 0 ? targetBounds.height / guestViewportH : 1;
+
+    const mapX = (guestX: number) => targetBounds.left + guestX * scaleX;
+    const mapY = (guestY: number) => targetBounds.top + guestY * scaleY;
+
+    // Prefer click point (near mouse); fall back to element bottom-center.
+    const guestAnchorX = opts?.cursor
+      ? opts.cursor.x
+      : rect.x + rect.width / 2;
+    const guestAnchorY = opts?.cursor
+      ? opts.cursor.y
+      : rect.y + rect.height;
+
     const estimatedPopoverWidth = 320;
     const estimatedPopoverHeight = 280;
-    // Center on the full element (old min(width, 220) left-biased wide targets).
-    const centerX = targetBounds.left + rect.x + rect.width / 2;
-    const rawX = centerX - estimatedPopoverWidth / 2;
-    const belowY = targetBounds.top + rect.y + rect.height + 12;
-    const aboveY = targetBounds.top + rect.y - estimatedPopoverHeight - 12;
+    const hostAnchorX = mapX(guestAnchorX);
+    const hostAnchorY = mapY(guestAnchorY);
+    // Sit just below/right of the click, similar to follow-cursor chrome.
+    const rawX = hostAnchorX - estimatedPopoverWidth / 2;
+    const belowY = hostAnchorY + 16;
+    const aboveY = hostAnchorY - estimatedPopoverHeight - 12;
     const rawY =
       belowY + estimatedPopoverHeight <= window.innerHeight - 8
         ? belowY
@@ -361,7 +396,12 @@ export function useBrowserSelection({
     setSelectionInfo(nextSelectionInfo);
     // Host SelectionPopover is the product path for both web (iframe) and desktop
     // (<webview> with showSelectionToolbar: false). Never hide on select.
-    setSelectionPopoverPosition(getPopoverPositionFromRect(payload.rect));
+    setSelectionPopoverPosition(
+      getPopoverPositionFromRect(payload.rect, {
+        cursor: payload.cursor,
+        viewport: payload.viewport,
+      }),
+    );
     setSelectionPopoverVisible(true);
     setSelectionPopoverExpanded(false);
   }, [getPopoverPositionFromRect]);

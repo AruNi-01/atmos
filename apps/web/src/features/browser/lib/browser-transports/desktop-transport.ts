@@ -34,11 +34,31 @@ export async function connectDesktopBrowserTransport(
     }),
     listenDesktopBrowserBridge('desktop-browser:selected', (payload) => {
       if (payload.sessionId !== options.sessionId || !payload.rect || !payload.elementContext) return;
+      const cursor =
+        payload.cursor &&
+        typeof (payload.cursor as { x?: unknown }).x === "number" &&
+        typeof (payload.cursor as { y?: unknown }).y === "number"
+          ? {
+              x: (payload.cursor as { x: number }).x,
+              y: (payload.cursor as { y: number }).y,
+            }
+          : undefined;
+      const viewportRaw = (payload as { viewport?: { width?: unknown; height?: unknown } }).viewport;
+      const viewport =
+        viewportRaw &&
+        typeof viewportRaw.width === "number" &&
+        typeof viewportRaw.height === "number" &&
+        viewportRaw.width > 0 &&
+        viewportRaw.height > 0
+          ? { width: viewportRaw.width, height: viewportRaw.height }
+          : undefined;
       options.onSelected?.({
         pageUrl: payload.pageUrl,
         rect: payload.rect,
         elementContext: payload.elementContext as never,
         sourceLocation: (payload.sourceLocation as never) ?? null,
+        cursor,
+        viewport,
       });
     }),
     listenDesktopBrowserBridge('desktop-browser:toolbar-action', (payload) => {
