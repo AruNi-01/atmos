@@ -37,11 +37,13 @@ export function BrowserContent({
   // layout space instead of relying on z-index when previewing external pages.
   const shouldReserveNativeChromeSpace =
     isChromeHidden && reserveNativeSurfaceChromeSpace;
+  // Strip surface wraps tabs + toolbar so toolbar rounded-t corners reveal the
+  // tab-strip color (same as Chrome) instead of blending into page background.
   const chrome = (
-    <>
+    <div className="flex shrink-0 flex-col bg-zinc-300/80 dark:bg-zinc-900">
       {browserTabBar}
       <BrowserToolbar {...toolbarProps} />
-    </>
+    </div>
   );
 
   const content = (

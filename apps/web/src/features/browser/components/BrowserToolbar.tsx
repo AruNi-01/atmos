@@ -185,15 +185,15 @@ export function BrowserToolbar({
       <div
         ref={toolbarRowRef}
         className={cn(
-          // Same surface as the active tab; light bottom edge separates chrome from page.
-          "flex items-center gap-2 overflow-hidden border-b border-border/40 bg-background px-2 transition-all duration-300 ease-in-out dark:border-white/[0.08]",
-          usesToolbarHoverOverlay || usesDesktopToolbarExpand ? "h-9" : "h-8",
+          // Same surface as the active tab. rounded-t reveals chrome wrapper strip
+          // color at the top corners (Chrome-style). Bottom border vs page content.
+          "relative z-[1] flex min-h-9 items-center gap-2 overflow-hidden rounded-t-xl border-b border-border/50 bg-background px-2 py-1.5 transition-all duration-300 ease-in-out",
           usesToolbarHoverOverlay &&
-            "absolute inset-x-0 top-0 z-20 -translate-y-full rounded-b-md border-b border-border/60 bg-background/92 opacity-0 shadow-lg backdrop-blur-md group-hover/toolbar:translate-y-0 group-hover/toolbar:opacity-100",
+            "absolute inset-x-0 top-0 z-20 -translate-y-full rounded-t-xl rounded-b-md border-b border-border/60 bg-background/92 py-1.5 opacity-0 shadow-lg backdrop-blur-md group-hover/toolbar:translate-y-0 group-hover/toolbar:opacity-100",
           usesToolbarHoverOverlay && needsDesktopPreviewSafeInset && "top-8",
           usesDesktopToolbarExpand &&
             cn(
-              "border-b border-border/60 bg-background/92 backdrop-blur-md",
+              "rounded-t-xl border-b border-border/60 bg-background/92 backdrop-blur-md",
               desktopToolbarExpanded ? "opacity-100" : "opacity-0",
             ),
         )}

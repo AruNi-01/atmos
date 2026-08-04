@@ -63,6 +63,51 @@ function scrollTabIntoView(
   }
 }
 
+/** Radius for top corners + bottom concave ears (Chrome-style). */
+const ACTIVE_TAB_CURVE = 12;
+
+/**
+ * Active tab paint: solid body + classic Chrome ears.
+ *
+ * Proven technique: a transparent square with only the inner bottom corner
+ * rounded, plus a same-size box-shadow offset toward the tab. That paints the
+ * concave “scoop” into the strip (radial quarter-disks invert this shape).
+ */
+function ActiveTabSurface() {
+  const c = ACTIVE_TAB_CURVE;
+  const shadow = c / 2;
+  return (
+    <span
+      aria-hidden
+      className="pointer-events-none absolute inset-x-0 top-0 -z-[1]"
+      style={{ bottom: -1, height: "calc(100% + 1px)" }}
+    >
+      <span className="absolute inset-x-0 top-0 bottom-0 rounded-t-[10px] bg-background" />
+      {/* Left ear */}
+      <span
+        className="absolute bottom-0 left-0 -translate-x-full bg-transparent"
+        style={{
+          width: c,
+          height: c,
+          borderBottomRightRadius: c,
+          // Horizontal fill + slight downward fill so the curve meets the toolbar.
+          boxShadow: `${shadow}px 0 0 0 var(--background), ${shadow}px 1px 0 0 var(--background)`,
+        }}
+      />
+      {/* Right ear (mirror) */}
+      <span
+        className="absolute bottom-0 right-0 translate-x-full bg-transparent"
+        style={{
+          width: c,
+          height: c,
+          borderBottomLeftRadius: c,
+          boxShadow: `-${shadow}px 0 0 0 var(--background), -${shadow}px 1px 0 0 var(--background)`,
+        }}
+      />
+    </span>
+  );
+}
+
 export interface PreviewBrowserTab {
   id: string;
   url: string;
@@ -163,21 +208,23 @@ export function BrowserTabBar({
       onMouseDown={handleDesktopWindowMouseDown}
       data-tauri-drag-region={isDesktopDragEnabled ? "true" : undefined}
       className={cn(
-        // Deep strip so active tabs (bg-background) read clearly; tabs sit on the
-        // bottom edge and grow Chrome-style ears into the toolbar surface below.
-        // Traffic-light inset stays on this non-scrolling outer bar.
-        // No bottom border: active tab + ears must flow flush into the toolbar surface.
-        "flex h-9 shrink-0 items-end gap-1 overflow-visible bg-zinc-200/90 pr-2 pt-1 select-none transition-[padding] duration-300 ease-out dark:bg-zinc-950",
+        // Strip color comes from BrowserContent chrome wrapper so toolbar
+        // rounded-t corners reveal the same strip (Chrome-style). Transparent here.
+        "flex h-8 shrink-0 items-end gap-1 overflow-visible bg-transparent pr-2 pt-0.5 select-none transition-[padding] duration-300 ease-out",
         needsTrafficLightsInset ? "pl-[92px]" : "pl-1.5",
         isDesktopDragEnabled && "desktop-drag-region",
       )}
     >
       <div
         ref={tabsScrollRef}
-        className="flex h-full min-w-0 flex-1 items-end gap-0.5 overflow-x-auto overflow-y-hidden no-scrollbar"
+        // Horizontal padding keeps first/last active-tab ears from being clipped.
+        className="flex h-full min-w-0 flex-1 items-end gap-0.5 overflow-x-auto overflow-y-hidden no-scrollbar pl-3 pr-1"
       >
         {tabs.map((tab, index) => {
           const isActive = tab.id === activeTabId;
+          const prevIsActive = index > 0 && tabs[index - 1]?.id === activeTabId;
+          // Divider only between inactive tabs; never against the active tab.
+          const showLeadingDivider = !isActive && index > 0 && !prevIsActive;
           const label = getTabLabel(tab, index, {
             preview: t("preview"),
             newTab: t("newTab"),
@@ -189,28 +236,33 @@ export function BrowserTabBar({
               key={tab.id}
               ref={isActive ? activeTabRef : undefined}
               className={cn(
-                "desktop-no-drag group/tab relative flex h-7 w-[156px] max-w-[42vw] shrink-0 items-center text-xs transition-colors",
-                isActive
-                  ? "z-[1] rounded-t-xl bg-background text-foreground"
-                  : "rounded-t-lg text-muted-foreground hover:bg-background/35 hover:text-foreground",
+                // Identical layout box for active/inactive (no -mb / height / padding
+                // deltas). Underlap into toolbar is paint-only via ActiveTabSurface.
+                "desktop-no-drag group/tab relative flex h-7 w-[156px] max-w-[42vw] shrink-0 items-center text-xs",
+                isActive ? "z-[2] text-foreground" : "z-0 text-muted-foreground",
               )}
             >
-              {/* Chrome-style concave ears: smooth bottom corners into the strip */}
-              {isActive ? (
-                <>
-                  <span
-                    aria-hidden
-                    className="pointer-events-none absolute bottom-0 left-0 size-2.5 -translate-x-full rounded-br-full shadow-[4px_0_0_0_var(--background)]"
-                  />
-                  <span
-                    aria-hidden
-                    className="pointer-events-none absolute bottom-0 right-0 size-2.5 translate-x-full rounded-bl-full shadow-[-4px_0_0_0_var(--background)]"
-                  />
-                </>
+              {showLeadingDivider ? (
+                <span
+                  aria-hidden
+                  className="pointer-events-none absolute left-[-2px] top-1/2 z-[1] h-3 w-px -translate-y-1/2 bg-border/70"
+                />
               ) : null}
+              {isActive ? (
+                <ActiveTabSurface />
+              ) : (
+                // Floating hover pill: slightly taller (less inset) while keeping a bottom gap.
+                <span
+                  aria-hidden
+                  className="pointer-events-none absolute inset-x-0.5 top-0.5 bottom-0.5 rounded-lg transition-colors group-hover/tab:bg-background/45"
+                />
+              )}
               <button
                 type="button"
-                className="flex h-full min-w-0 flex-1 items-center gap-1.5 px-2.5 text-left"
+                className={cn(
+                  "relative z-[1] flex h-full min-w-0 flex-1 items-center gap-1.5 px-2.5 text-left",
+                  !isActive && "group-hover/tab:text-foreground",
+                )}
                 title={label}
                 onClick={() => onSelectTab(tab.id)}
               >
@@ -243,7 +295,7 @@ export function BrowserTabBar({
                   aria-label={t("closeTabAria", { label })}
                   title={t("closeTab")}
                   className={cn(
-                    "mr-1 flex size-5 shrink-0 items-center justify-center rounded-sm text-muted-foreground transition-all",
+                    "relative z-[1] mr-1 flex size-5 shrink-0 items-center justify-center rounded-sm text-muted-foreground transition-colors",
                     isActive
                       ? "opacity-100 hover:bg-muted hover:text-foreground"
                       : "opacity-0 hover:bg-background/60 hover:text-foreground group-hover/tab:opacity-100",
@@ -264,7 +316,7 @@ export function BrowserTabBar({
           type="button"
           aria-label={t("newTab")}
           title={t("newTab")}
-          className="desktop-no-drag mb-0.5 flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-background/40 hover:text-foreground"
+          className="desktop-no-drag mb-0.5 flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-background/50 hover:text-foreground"
           onClick={onAddTab}
         >
           <Plus className="size-3.5" />
@@ -272,13 +324,13 @@ export function BrowserTabBar({
       </div>
 
       {chromeControls ? (
-        <div className="desktop-no-drag mb-0.5 flex shrink-0 items-center gap-0.5 border-l border-border/40 pl-1.5">
+        <div className="desktop-no-drag mb-0.5 flex shrink-0 items-center gap-0.5 border-l border-border/50 pl-1.5">
           {chromeControls.favoritesList}
           <button
             type="button"
             aria-label={chromeControls.toolbarToggleTitle}
             title={chromeControls.toolbarToggleTitle}
-            className="flex size-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-background/40 hover:text-foreground"
+            className="flex size-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-background/50 hover:text-foreground"
             onClick={chromeControls.onToggleToolbarHidden}
           >
             {chromeControls.isToolbarHidden ? (
@@ -379,7 +431,7 @@ function PreviewBrowserChromeOverflowMenu({ controls }: PreviewBrowserChromeOver
           type="button"
           aria-label={t("overflow.moreActions")}
           title={t("overflow.moreActions")}
-          className="flex size-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-background/40 hover:text-foreground data-[state=open]:bg-background/60 data-[state=open]:text-foreground"
+          className="flex size-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-background/50 hover:text-foreground data-[state=open]:bg-background/70 data-[state=open]:text-foreground"
         >
           <MoreHorizontal className="size-3.5" />
         </button>
