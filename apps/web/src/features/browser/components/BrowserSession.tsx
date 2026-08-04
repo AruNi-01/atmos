@@ -321,8 +321,11 @@ export const BrowserSession: React.FC<BrowserSessionProps> = ({
         (!isStandaloneBrowserWindow && isPreviewStandaloneOpen) ||
         !isActive
       );
+  // Pass viewport root so canvas (role=dialog) hosting this browser does not
+  // trip the overlay policy and freeze the guest with pointer-events: none.
   const desktopPointerBlocked = useWebviewPointerPolicy(
     preferredTransportMode === 'desktop' && isActive && !shouldSuspendDesktopPreview,
+    desktopViewportRef,
   );
   const {
     checkExtensionUpdate,

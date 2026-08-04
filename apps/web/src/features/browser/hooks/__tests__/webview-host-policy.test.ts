@@ -27,5 +27,8 @@ describe("APP-053 host overlay policy (shipped hooks)", () => {
     expect(src).toContain("dropdown-menu-content");
     // Host SelectionPopover over live webview
     expect(src).toContain("data-selection-popover");
+    // Canvas dialog hosts browser widgets — must not block its own guest.
+    expect(src).toContain("node.contains(guestRoot)");
+    expect(src).toContain("guestRootRef");
   });
 });

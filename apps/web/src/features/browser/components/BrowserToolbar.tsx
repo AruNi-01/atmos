@@ -185,7 +185,8 @@ export function BrowserToolbar({
       <div
         ref={toolbarRowRef}
         className={cn(
-          "flex items-center gap-2 overflow-hidden bg-muted/10 px-2 transition-all duration-300 ease-in-out",
+          // Same surface as the active tab (bg-background) so chrome reads as one piece.
+          "flex items-center gap-2 overflow-hidden border-b border-border/50 bg-background px-2 transition-all duration-300 ease-in-out",
           usesToolbarHoverOverlay || usesDesktopToolbarExpand ? "h-10" : "h-9",
           usesToolbarHoverOverlay &&
             "absolute inset-x-0 top-0 z-20 -translate-y-full rounded-b-md border-b border-border/60 bg-background/92 opacity-0 shadow-lg backdrop-blur-md group-hover/toolbar:translate-y-0 group-hover/toolbar:opacity-100",
