@@ -41,6 +41,15 @@ describe("APP-053 browser webview structural (shipped sources)", () => {
     expect(src).not.toMatch(/<webview[\s\S]*?partition=\{attach\.partition\}[\s\S]*?\/>\s*;?\s*$/);
   });
 
+  it("DesktopBrowserWebview keeps guest mounted across layoutHidden (tab switch)", () => {
+    const src = read("apps/web/src/features/browser/components/DesktopBrowserWebview.tsx");
+    // must not gate mount on !layoutHidden (that remounted and flashed white on tab switch)
+    expect(src).not.toMatch(/shouldMountGuest[\s\S]*?!layoutHidden/);
+    expect(src).toContain("onLoadingChange");
+    expect(src).toContain("did-start-loading");
+    expect(src).toContain("did-stop-loading");
+  });
+
   it("surface manager injects host-driven selection (showSelectionToolbar false)", () => {
     const src = read("apps/desktop-electron/src/browser/surface-manager.ts");
     expect(src).toContain("showSelectionToolbar: false");

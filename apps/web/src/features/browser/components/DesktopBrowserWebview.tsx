@@ -3,13 +3,11 @@
 /**
  * In-DOM Electron `<webview>` host for transport mode `desktop` (APP-053).
  *
- * Mount order (critical):
- * 1. Measure a host shell until it has non-zero size
- * 2. Mount <webview> with partition + preload + src so will-attach sees a real src
- * 3. Bind guest webContentsId on dom-ready
- *
- * Never leave src empty on first attach when a URL is known — empty src used to
- * be default-denied and produced a permanent black guest.
+ * Mount order:
+ * 1. Measure host shell until non-zero size (once)
+ * 2. Mount <webview> with partition + preload + src (will-attach must see real src)
+ * 3. Keep guest mounted across tab hide/show — CSS hide only, never remount on tab switch
+ * 4. Bind guest webContentsId on dom-ready
  */
 
 import { useEffect, useRef, useState } from "react";
@@ -30,10 +28,15 @@ type DesktopBrowserWebviewProps = {
   className?: string;
   /** When true, native pointer events must not reach the guest. */
   pointerEventsNone?: boolean;
-  /** Inactive tab / fully hidden: remove from layout so guest stops painting. */
+  /**
+   * Hide without destroying the guest (tab switch / suspend).
+   * Uses layout-removing CSS; React keeps the <webview> mounted so page state is preserved.
+   */
   layoutHidden?: boolean;
   onBindGuest?: (webContentsId: number) => void;
   onDomReady?: () => void;
+  /** Fired when the document finishes a navigation (for host loading chrome). */
+  onLoadingChange?: (loading: boolean) => void;
 };
 
 type ElectronWebviewElement = HTMLElement & {
@@ -76,46 +79,60 @@ export function DesktopBrowserWebview({
   layoutHidden = false,
   onBindGuest,
   onDomReady,
+  onLoadingChange,
 }: DesktopBrowserWebviewProps) {
   const isElectron =
     typeof window !== "undefined" ? isElectronShell() : false;
   const hostRef = useRef<HTMLDivElement | null>(null);
   const webviewRef = useRef<ElectronWebviewElement | null>(null);
+  /** Once true for a session, stay true so hide/show never remounts the guest. */
   const [layoutReady, setLayoutReady] = useState(false);
   const boundIdRef = useRef<number | null>(null);
   const lastSrcRef = useRef<string>("");
   const mountedSessionRef = useRef<string | null>(null);
 
-  // Measure host shell (not the webview) so we only mount guest with valid size.
+  // Measure host until it has size. Do NOT reset layoutReady when layoutHidden —
+  // inactive tabs use display:none but must keep the guest mounted.
   useEffect(() => {
     if (!isElectron) return;
     const host = hostRef.current;
-    if (!host || layoutHidden) {
-      setLayoutReady(false);
-      return;
-    }
+    if (!host) return;
+
+    if (layoutReady) return;
+
+    const markReady = (width: number, height: number) => {
+      if (width >= 2 && height >= 2) setLayoutReady(true);
+    };
+
     const ro = new ResizeObserver((entries) => {
       const rect = entries[0]?.contentRect;
-      if (rect && rect.width >= 2 && rect.height >= 2) {
-        setLayoutReady(true);
-      }
+      if (rect) markReady(rect.width, rect.height);
     });
     ro.observe(host);
     const rect = host.getBoundingClientRect();
-    if (rect.width >= 2 && rect.height >= 2) setLayoutReady(true);
+    markReady(rect.width, rect.height);
     return () => ro.disconnect();
-  }, [isElectron, layoutHidden, attach?.sessionId]);
+  }, [isElectron, layoutReady, attach?.sessionId]);
+
+  // Reset layout readiness only when the session identity changes (new tab surface).
+  useEffect(() => {
+    if (!attach?.sessionId) return;
+    if (mountedSessionRef.current && mountedSessionRef.current !== attach.sessionId) {
+      setLayoutReady(false);
+      boundIdRef.current = null;
+      lastSrcRef.current = "";
+    }
+  }, [attach?.sessionId]);
 
   const navUrl = normalizeNavUrl(src);
+  // Keep guest mounted across tab switches (layoutHidden). Only require layout once.
   const shouldMountGuest =
     isElectron &&
     Boolean(attach) &&
     layoutReady &&
-    !layoutHidden &&
     Boolean(attach?.partition) &&
     Boolean(attach?.preloadUrl);
 
-  // Wire events + subsequent navigations after guest is mounted.
   useEffect(() => {
     if (!shouldMountGuest || !attach) return;
     const el = webviewRef.current;
@@ -131,7 +148,16 @@ export function DesktopBrowserWebview({
       } catch {
         /* guest not ready */
       }
+      onLoadingChange?.(false);
       onDomReady?.();
+    };
+
+    const onStartLoading = () => {
+      onLoadingChange?.(true);
+    };
+
+    const onStopLoading = () => {
+      onLoadingChange?.(false);
     };
 
     const onFail = (event: Event) => {
@@ -140,7 +166,6 @@ export function DesktopBrowserWebview({
         errorDescription?: string;
         validatedURL?: string;
       };
-      // -3 = ERR_ABORTED (navigation superseded)
       if (detail.errorCode === -3) return;
       console.error(
         "[browser] webview did-fail-load",
@@ -148,19 +173,25 @@ export function DesktopBrowserWebview({
         detail.errorDescription,
         detail.validatedURL,
       );
+      onLoadingChange?.(false);
     };
 
     el.addEventListener("dom-ready", onReady as EventListener);
+    el.addEventListener("did-start-loading", onStartLoading as EventListener);
+    el.addEventListener("did-stop-loading", onStopLoading as EventListener);
     el.addEventListener("did-fail-load", onFail as EventListener);
 
-    // First mount: src is set via attribute so will-attach sees a real URL.
-    // Later navigations: loadURL without remounting the guest.
     const sessionChanged = mountedSessionRef.current !== attach.sessionId;
     if (sessionChanged) {
       mountedSessionRef.current = attach.sessionId;
       lastSrcRef.current = navUrl;
+      // Initial src is on the attribute; mark loading until stop-loading/dom-ready.
+      if (navUrl && navUrl !== "about:blank") {
+        onLoadingChange?.(true);
+      }
     } else if (navUrl && lastSrcRef.current !== navUrl) {
       lastSrcRef.current = navUrl;
+      onLoadingChange?.(true);
       try {
         if (typeof el.loadURL === "function") {
           void el.loadURL(navUrl);
@@ -173,7 +204,6 @@ export function DesktopBrowserWebview({
       }
     }
 
-    // If already ready when listener attaches, bind immediately.
     try {
       const id = el.getWebContentsId?.();
       if (typeof id === "number" && id > 0) {
@@ -185,6 +215,8 @@ export function DesktopBrowserWebview({
 
     return () => {
       el.removeEventListener("dom-ready", onReady as EventListener);
+      el.removeEventListener("did-start-loading", onStartLoading as EventListener);
+      el.removeEventListener("did-stop-loading", onStopLoading as EventListener);
       el.removeEventListener("did-fail-load", onFail as EventListener);
     };
   }, [
@@ -193,6 +225,7 @@ export function DesktopBrowserWebview({
     navUrl,
     onBindGuest,
     onDomReady,
+    onLoadingChange,
   ]);
 
   useEffect(() => {
@@ -213,6 +246,7 @@ export function DesktopBrowserWebview({
       ref={hostRef}
       className={cn(
         "absolute inset-0 h-full w-full",
+        // display:none stops guest paint but keeps the node mounted (no reparent/destroy).
         layoutHidden && "hidden",
         className,
       )}
@@ -223,10 +257,10 @@ export function DesktopBrowserWebview({
           ref={webviewRef as never}
           key={attach.sessionId}
           className={cn(
-            "absolute inset-0 h-full w-full border-0 bg-white",
+            // Match app chrome: avoid pure white flash under loading overlay.
+            "absolute inset-0 h-full w-full border-0 bg-transparent",
             pointerEventsNone && "pointer-events-none",
           )}
-          // partition + preload + src must be present at first attach.
           partition={attach.partition}
           preload={attach.preloadUrl}
           src={navUrl}

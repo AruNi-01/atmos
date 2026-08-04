@@ -814,9 +814,7 @@ export const BrowserSession: React.FC<BrowserSessionProps> = ({
         desktopPreviewUrlRef.current = committedUrl;
       }
       setPreviewLoadError(null);
-      if (isPreviewLoadingRef.current) {
-        setIsPreviewLoading(false);
-      }
+      // Loading flag is owned by webview did-start/stop-loading for desktop.
       setTransportState((previous) =>
         previous.mode === 'desktop'
           ? previous
@@ -847,9 +845,8 @@ export const BrowserSession: React.FC<BrowserSessionProps> = ({
       desktopPreviewUrlRef.current = committedUrl;
       desktopPreviewVisibleRef.current = true;
       setPreviewLoadError(null);
-      if (isPreviewLoadingRef.current) {
-        setIsPreviewLoading(false);
-      }
+      // Keep host loading chrome until webview did-stop-loading / dom-ready.
+      // Clearing here caused a white flash before the page painted.
       setTransportState({
         mode: 'desktop',
         connected: true,
@@ -1374,6 +1371,7 @@ export const BrowserSession: React.FC<BrowserSessionProps> = ({
         void c.bindGuest(webContentsId);
       }
     },
+    onDesktopLoadingChange: setIsPreviewLoading,
     dismissSelectionPopover,
     favoritesListOpen,
     handleIframeLoad,

@@ -26,6 +26,7 @@ type BrowserViewportProps = {
   desktopPointerEventsNone?: boolean;
   desktopLayoutHidden?: boolean;
   onDesktopBindGuest?: (webContentsId: number) => void;
+  onDesktopLoadingChange?: (loading: boolean) => void;
   dismissSelectionPopover: (resetBrowserSelection?: boolean) => void;
   favoritesListOpen: boolean;
   handleIframeLoad: () => void;
@@ -73,6 +74,7 @@ export function BrowserViewport({
   desktopPointerEventsNone = false,
   desktopLayoutHidden = false,
   onDesktopBindGuest,
+  onDesktopLoadingChange,
   dismissSelectionPopover,
   favoritesListOpen,
   handleIframeLoad,
@@ -233,9 +235,13 @@ export function BrowserViewport({
               pointerEventsNone={desktopPointerEventsNone}
               layoutHidden={desktopLayoutHidden}
               onBindGuest={onDesktopBindGuest}
+              onLoadingChange={onDesktopLoadingChange}
             />
             {isPreviewLoading ? (
-              <div className="absolute inset-0" style={{ zIndex: BROWSER_Z.insetChrome }}>
+              <div
+                className="absolute inset-0 bg-background/80 backdrop-blur-[1px]"
+                style={{ zIndex: BROWSER_Z.insetChrome }}
+              >
                 {renderPreviewLoadingOverlay(viewMode)}
               </div>
             ) : null}
