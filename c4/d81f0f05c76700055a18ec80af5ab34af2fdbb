@@ -1,0 +1,29 @@
+apps/cli/src/output.rs
+  s_bda3784eb2025c::t_00eac6b212c108 56-59
+apps/desktop-electron/src/app-state.ts
+  s_bda3784eb2025c::t_6c7e91162cbd04 3,11-12,24
+apps/desktop-electron/src/browser/browser-use-control.ts
+  s_bda3784eb2025c::t_abfb9f8962378b 1-419
+apps/desktop-electron/src/browser/surface-manager.ts
+  s_bda3784eb2025c::t_8e73ea6858b83c 452-490
+apps/web/src/features/welcome/lib/__tests__/slash-browser-use.test.ts
+  s_bda3784eb2025c::t_cdb00e60bac011 1-42
+apps/web/src/features/welcome/lib/slash-browser-use.ts
+  s_bda3784eb2025c::t_b0aeaaf4d7268d 1-57
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "c4d81f0f05c76700055a18ec80af5ab34af2fdbb",
+  "prompts": {},
+  "sessions": {
+    "s_bda3784eb2025c": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "e3a1d038-7e16-4e93-bcd5-a557cb259f68",
+        "model": "claude-opus-5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
