@@ -36,7 +36,10 @@ import { gitApi } from "@/api/ws-api";
 import { AGENT_STATE, useAgentHooksStore } from "@/features/agent/store/agent-hooks-store";
 import { AgentAttentionIndicator } from "@/features/agent/components/AgentAttentionIndicator";
 import { AgentHookStatusIndicator } from "@/features/agent/components/AgentHookStatusIndicator";
-import { useAgentAttentionStore } from "@/features/agent/store/agent-attention-store";
+import {
+  selectAttentionFilterMode,
+  useAgentAttentionStore,
+} from "@/features/agent/store/agent-attention-store";
 import {
   WorkspaceGroupSelect,
   WorkspaceLabelBadges,
@@ -455,9 +458,10 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
   const workspaceAgentState = useAgentHooksStore((s) =>
     s.getAgentStateForContextId(workspace.id),
   );
+  const attentionFilterMode = useAgentAttentionStore(selectAttentionFilterMode);
   const workspaceAttentionReason = useAgentAttentionStore(
     (s) => s.getContextReason(workspace.id),
-  );;
+  );
 
   const handleSaveName = React.useCallback(async () => {
     const nextName = editableName.trim();
@@ -573,10 +577,18 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
                     </Tooltip>
                   </TooltipProvider>
                 )}
-                {workspaceAgentState !== AGENT_STATE.IDLE ? (
+                {/* In attention filter mode, prefer the sticky bell over a live running spinner. */}
+                {attentionFilterMode && workspaceAttentionReason ? (
+                  <AgentAttentionIndicator
+                    reason={workspaceAttentionReason}
+                    className="shrink-0"
+                    size={12}
+                  />
+                ) : workspaceAgentState !== AGENT_STATE.IDLE ? (
                   <AgentHookStatusIndicator
                     state={workspaceAgentState}
                     variant="compact"
+                    placement="left_sidebar"
                     className="shrink-0"
                   />
                 ) : workspaceAttentionReason ? (

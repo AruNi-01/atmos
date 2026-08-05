@@ -52,7 +52,10 @@ import {
 import { AGENT_STATE, useAgentHooksStore } from "@/features/agent/store/agent-hooks-store";
 import { AgentAttentionIndicator } from "@/features/agent/components/AgentAttentionIndicator";
 import { AgentHookStatusIndicator } from "@/features/agent/components/AgentHookStatusIndicator";
-import { useAgentAttentionStore } from "@/features/agent/store/agent-attention-store";
+import {
+  selectAttentionFilterMode,
+  useAgentAttentionStore,
+} from "@/features/agent/store/agent-attention-store";
 import type { WorkspaceWorkflowStatus } from "@/shared/types/domain";
 import { FileBrowser } from "@/features/files/components/FileBrowser";
 import { getRuntimeApiConfig, httpBase } from "@/shared/lib/desktop-runtime";
@@ -235,9 +238,14 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
   const projectAgentState = useAgentHooksStore((s) =>
     s.getAgentStateForContextId(project.id)
   );
-  // Collapsed project row must surface the highest-priority reason among the
-  // project itself and any of its workspaces (workspace rows are hidden).
-  const projectAttentionReason = useAgentAttentionStore((s) => {
+  const attentionFilterMode = useAgentAttentionStore(selectAttentionFilterMode);
+  // Own project latch — used for filter-mode dimming and when children are visible.
+  const projectOwnAttentionReason = useAgentAttentionStore((s) =>
+    s.getContextReason(project.id),
+  );
+  // Collapsed project row surfaces the highest-priority reason among the project
+  // itself and any of its workspaces (workspace rows are hidden when collapsed).
+  const projectRolledAttentionReason = useAgentAttentionStore((s) => {
     let best = s.getContextReason(project.id);
     for (const ws of project.workspaces) {
       const reason = s.getContextReason(ws.id);
@@ -248,6 +256,19 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
     }
     return best;
   });
+  const childrenVisible =
+    !hideWorkspaceList && isExpanded && project.workspaces.length > 0;
+  // When expanded with children visible, only show the project's own latch so
+  // the row does not compete with workspace bells.
+  const projectAttentionReason = childrenVisible
+    ? projectOwnAttentionReason
+    : projectRolledAttentionReason;
+  // In attention filter mode, parent projects that only host attention workspaces
+  // stay visible for structure but are dimmed so the latched rows stand out.
+  const dimAsAttentionParent =
+    attentionFilterMode &&
+    !projectOwnAttentionReason &&
+    project.workspaces.length > 0;
   const [showLogoDialog, setShowLogoDialog] = useState(false);
   const [showLogoBrowser, setShowLogoBrowser] = useState(false);
   const [logoInput, setLogoInput] = useState("");
@@ -417,6 +438,7 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
           className={cn(
             "flex items-center flex-1 min-w-0 select-none pr-8",
             disableRowClick ? "cursor-default" : "cursor-pointer",
+            dimAsAttentionParent && "opacity-45",
           )}
           onClick={() => {
             if (disableRowClick) {
@@ -464,13 +486,24 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
                 </Tooltip>
               </TooltipProvider>
             </div>
-            <span className="text-[13px] font-medium truncate text-sidebar-foreground group-hover/project:text-sidebar-foreground transition-colors">
+            <span
+              className={cn(
+                "text-[13px] font-medium truncate transition-colors",
+                dimAsAttentionParent
+                  ? "text-muted-foreground"
+                  : "text-sidebar-foreground group-hover/project:text-sidebar-foreground",
+              )}
+            >
               {project.name}
             </span>
-            {projectAgentState !== AGENT_STATE.IDLE ? (
+            {/* In attention filter mode, prefer the sticky bell over a live running spinner. */}
+            {attentionFilterMode && projectAttentionReason ? (
+              <AgentAttentionIndicator reason={projectAttentionReason} className="shrink-0" size={12} />
+            ) : projectAgentState !== AGENT_STATE.IDLE ? (
               <AgentHookStatusIndicator
                 state={projectAgentState}
                 variant="compact"
+                placement="left_sidebar"
                 className="shrink-0"
               />
             ) : projectAttentionReason ? (
@@ -775,7 +808,7 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
               onShowLess={showLess}
               className="ml-4"
             />
-            {project.workspaces.length === 0 && (
+            {project.workspaces.length === 0 && !attentionFilterMode && (
               <div className="py-2 text-[12px] text-muted-foreground italic ml-4">{t("leftSidebarControls.noWorkspaces")}</div>
             )}
           </div>

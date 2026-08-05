@@ -144,7 +144,14 @@ function TerminalTabAgentIndicator({ stablePaneIds }: { stablePaneIds: string[] 
 
   // Live run/permission indicator takes precedence when active.
   if (state !== AGENT_STATE.IDLE) {
-    return <AgentHookStatusIndicator state={state} variant="compact" className="ml-0.5" />;
+    return (
+      <AgentHookStatusIndicator
+        state={state}
+        variant="compact"
+        placement="center_terminal"
+        className="ml-0.5"
+      />
+    );
   }
   // Sticky task-complete (or leftover permission) until the user focuses every pane.
   if (attentionReason) {

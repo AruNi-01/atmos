@@ -254,6 +254,14 @@ const SETTINGS_SECTION_KEYWORDS: Record<SettingsSectionId, readonly string[]> = 
     "uninstall hooks",
     "behaviour",
     "idle session cleanup",
+    "agent activity indicators",
+    "activity indicator",
+    "status indicator",
+    "orbs",
+    "unicode spinner",
+    "left sidebar indicator",
+    "terminal panel indicator",
+    "footer agent status",
   ],
   terminal: [
     "terminal",
@@ -930,7 +938,15 @@ const SETTINGS_SETTING_ITEMS: Record<SettingsSectionId, readonly SettingsSearchI
   ],
   shortcuts: [
     settingsModalSearchItem("shortcuts.globalShortcuts", {
-      keywords: ["toggle left sidebar", "toggle right sidebar", "command palette", "global search", "quick open file"],
+      keywords: [
+        "toggle left sidebar",
+        "toggle right sidebar",
+        "command palette",
+        "global search",
+        "quick open file",
+        "need attention",
+        "attention filter",
+      ],
     }),
     settingsModalSearchItem("shortcuts.workspaceShortcuts", {
       keywords: ["new workspace overlay", "canvas overlay", "kanban overlay", "open create workspace"],

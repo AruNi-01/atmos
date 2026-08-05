@@ -16,6 +16,19 @@ export interface FunctionSettings {
     center_fix_terminal_default_agent?: string;
     /** When true (default), agents launch with YOLO / skip-permissions flags. */
     yolo_mode?: boolean;
+    /**
+     * When true (default), detected agent brand text is shown in terminal pane
+     * and center-stage tab titles. Icon always shows; when false, only icon + OSC.
+     */
+    show_agent_name_in_terminal_titles?: boolean;
+    /**
+     * Running-state activity indicator style ids (unicode spinner or AIcss Orb).
+     * See `agent-activity-indicator-styles.ts`.
+     */
+    activity_indicator_left_sidebar?: string;
+    activity_indicator_center_terminal?: string;
+    activity_indicator_terminal_panel?: string;
+    activity_indicator_footer?: string;
     saved_run_configs?: TerminalAgentSavedRunConfig[];
   };
   editor?: {
