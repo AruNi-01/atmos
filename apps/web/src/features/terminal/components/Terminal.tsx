@@ -99,7 +99,12 @@ const INITIAL_CONNECT_STABLE_FRAMES = 2;
 const INITIAL_CONNECT_MAX_WAIT_FRAMES = 20;
 const CANVAS_TERMINAL_SCALE_FIT_DEBOUNCE_MS = 300;
 
-function fitTerminalPreservingScroll(term: XTerm, fit: FitAddon) {
+function fitTerminalPreservingScroll(
+  term: XTerm,
+  fit: FitAddon,
+): { cols: number; rows: number; changed: boolean } {
+  const prevCols = term.cols;
+  const prevRows = term.rows;
   const before = term.buffer.active;
   const wasAtBottom = before.viewportY >= before.baseY;
   const distanceFromBottom = Math.max(0, before.baseY - before.viewportY);
@@ -108,11 +113,23 @@ function fitTerminalPreservingScroll(term: XTerm, fit: FitAddon) {
 
   if (wasAtBottom) {
     jumpXtermToBottom(term);
-    return;
+  } else {
+    const after = term.buffer.active;
+    term.scrollToLine(Math.max(0, after.baseY - distanceFromBottom));
   }
 
-  const after = term.buffer.active;
-  term.scrollToLine(Math.max(0, after.baseY - distanceFromBottom));
+  return {
+    cols: term.cols,
+    rows: term.rows,
+    changed: term.cols !== prevCols || term.rows !== prevRows,
+  };
+}
+
+/** Hide local xterm cursor (DEC private mode 25). Inline TUIs (Grok) paint in
+ * the normal buffer; a brief clear/redraw would otherwise flash the theme's
+ * underline cursor as `_` at home before the app repaints. */
+function hideLocalXtermCursor(term: XTerm) {
+  term.write("\x1b[?25l");
 }
 
 const Terminal = ({
@@ -360,8 +377,13 @@ const Terminal = ({
       fitAddonRef.current &&
       isTerminalContainerVisible(containerRef.current)
     ) {
-      fitTerminalPreservingScroll(terminalRef.current, fitAddonRef.current);
-      sendResizeRef.current({ cols: terminalRef.current.cols, rows: terminalRef.current.rows });
+      const { cols, rows, changed } = fitTerminalPreservingScroll(
+        terminalRef.current,
+        fitAddonRef.current,
+      );
+      if (changed) {
+        sendResizeRef.current({ cols, rows });
+      }
     }
     scheduleInputReadyFallback();
   }, [resetInputReady, scheduleInputReadyFallback, sessionId]);
@@ -454,7 +476,9 @@ const Terminal = ({
     // tmux `capture-pane -N` preserves trailing spaces so background-coloured
     // TUI panels survive reconnect. Replay them with autowrap disabled so a
     // full-width captured row does not create an extra wrapped line in xterm.js.
-    const payload = `${clearScreen}\x1b[?7l${data}\x1b[?7h\x1b[0m${cursorRestore}${postHydrateScrollbackClear}${mouseRestore}`;
+    // Hide local cursor for inline mouse TUIs so a repaint never flashes `_` at 0,0.
+    const hideCursor = mouseRestore.length > 0 && !useAlternateScreen ? "\x1b[?25l" : "";
+    const payload = `${clearScreen}\x1b[?7l${data}\x1b[?7h\x1b[0m${cursorRestore}${postHydrateScrollbackClear}${mouseRestore}${hideCursor}`;
     writeXtermPayload(term, payload, () => {
       if (!useAlternateScreen) {
         jumpXtermToBottom(term);
@@ -813,6 +837,11 @@ const Terminal = ({
     hostForMouseChrome = containerRef.current?.parentElement ?? containerRef.current;
     const syncTuiMouseChrome = (active: boolean) => {
       hostForMouseChrome?.classList.toggle("atmos-tui-mouse-active", active);
+      // Inline TUI paint runs in the normal buffer; keep the local underline
+      // cursor hidden so warm-reveal / redraw never flashes `_` at home.
+      if (active) {
+        hideLocalXtermCursor(terminal);
+      }
     };
     attachTuiMouseWheelMultiplier(terminal, {
       onMouseTrackingActiveChange: syncTuiMouseChrome,
@@ -1362,6 +1391,8 @@ const Terminal = ({
   }, [sessionId, workspaceId, cwd, projectRootPath]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Warm/inactive: disconnect RO so sibling hops do not thrash. Reveal: re-observe + one fit.
+  // Only pin tmux when the grid actually changes — unnecessary SIGWINCH makes
+  // inline Grok-class TUIs clear+repaint (flash of xterm `_` cursor at home).
   useEffect(() => {
     const ro = resizeObserverRef.current;
     const el = containerRef.current;
@@ -1389,8 +1420,17 @@ const Terminal = ({
         const fit = fitAddonRef.current;
         if (!term || !fit) return;
         if (!isTerminalContainerVisible(containerRef.current)) return;
-        fitTerminalPreservingScroll(term, fit);
-        sendResizeRef.current({ cols: term.cols, rows: term.rows });
+        // Inline mouse TUI: hide local cursor before any possible repaint flash.
+        if (
+          tuiMouseDesiredRef.current ||
+          isTerminalMouseTrackingActive(term)
+        ) {
+          hideLocalXtermCursor(term);
+        }
+        const { cols, rows, changed } = fitTerminalPreservingScroll(term, fit);
+        if (changed) {
+          sendResizeRef.current({ cols, rows });
+        }
       });
     });
     return () => {
