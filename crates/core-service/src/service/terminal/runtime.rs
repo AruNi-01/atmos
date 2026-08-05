@@ -261,14 +261,29 @@ pub(super) fn run_control_mode_tmux_session(
                         // unwrapper so its state machine stays in sync
                         // with the live stream even while we drop them.
                         let data = passthrough_unwrapper.push(&data);
-                        if !data.is_empty() && mouse_modes.observe_bytes(&data) {
-                            if let Err(error) =
-                                tmux.set_pane_mouse_tracking_by_id(&reader_pane_id, &mouse_modes)
-                            {
-                                debug!(
-                                    "Failed to persist mouse tracking for {}: {}",
-                                    reader_session_id, error
-                                );
+                        if !data.is_empty() {
+                            let mouse_was_active = mouse_modes.is_active();
+                            if mouse_modes.observe_bytes(&data) {
+                                if let Err(error) = tmux
+                                    .set_pane_mouse_tracking_by_id(&reader_pane_id, &mouse_modes)
+                                {
+                                    debug!(
+                                        "Failed to persist mouse tracking for {}: {}",
+                                        reader_session_id, error
+                                    );
+                                }
+                                // Inline TUI exit: drop normal-buffer paint history so
+                                // refresh does not resurrect the TUI frame above the shell.
+                                if mouse_was_active && !mouse_modes.is_active() {
+                                    if let Err(error) =
+                                        tmux.clear_pane_history_by_id(&reader_pane_id)
+                                    {
+                                        debug!(
+                                            "Failed to clear pane history after mouse off for {}: {}",
+                                            reader_session_id, error
+                                        );
+                                    }
+                                }
                             }
                         }
                         if suppress_pane_output {

@@ -1073,7 +1073,9 @@ const Terminal = ({
         if (shouldDisableTuiMouseOnCmdEnd(terminal.buffer.active.type)) {
           tuiMouseDesiredRef.current = false;
           lastMouseRestoreSequenceRef.current = "";
-          terminal.write(DISABLE_TUI_MOUSE_TRACKING);
+          // Disable mouse + clear local scrollback so inline TUI (Grok) frames
+          // painted into the normal buffer do not linger above the shell.
+          terminal.write(`${DISABLE_TUI_MOUSE_TRACKING}\x1b[3J`);
           syncTuiMouseChrome(false);
         }
       }
