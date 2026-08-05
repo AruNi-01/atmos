@@ -569,6 +569,27 @@ pub fn bounds_for_window_id(
     None
 }
 
+/// Resolve owning pid for a CGWindowID from a list_windows payload.
+pub fn pid_for_window_id(list_windows: &serde_json::Value, window_id: i64) -> Option<i32> {
+    let windows = list_windows.get("windows")?.as_array()?;
+    for w in windows {
+        let id = w.get("window_id").and_then(|v| v.as_i64()).or_else(|| {
+            w.get("window_id")
+                .and_then(|v| v.as_u64())
+                .map(|n| n as i64)
+        })?;
+        if id != window_id {
+            continue;
+        }
+        return w
+            .get("pid")
+            .and_then(|v| v.as_i64())
+            .or_else(|| w.get("pid").and_then(|v| v.as_u64()).map(|n| n as i64))
+            .map(|n| n as i32);
+    }
+    None
+}
+
 pub fn app_name_for_window_id(list_windows: &serde_json::Value, window_id: i64) -> Option<String> {
     let windows = list_windows.get("windows")?.as_array()?;
     for w in windows {
@@ -714,6 +735,22 @@ mod tests {
     fn resolve_agent_defaults() {
         assert_eq!(resolve_agent_name(Some("  Claude  ")), "Claude");
         assert_eq!(resolve_agent_name(Some("")), "Agent");
+    }
+
+    #[test]
+    fn pid_for_window_id_reads_list_windows() {
+        let list = serde_json::json!({
+            "windows": [
+                { "window_id": 10, "pid": 111, "bounds": { "x": 0, "y": 0, "width": 10, "height": 10 } },
+                { "window_id": 22, "pid": 36904, "bounds": { "x": 1, "y": 2, "width": 3, "height": 4 } }
+            ]
+        });
+        assert_eq!(pid_for_window_id(&list, 22), Some(36904));
+        assert_eq!(pid_for_window_id(&list, 99), None);
+        assert_eq!(
+            bounds_for_window_id(&list, 22),
+            Some((1.0, 2.0, 3.0, 4.0))
+        );
     }
 
     #[test]

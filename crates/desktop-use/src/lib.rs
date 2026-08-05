@@ -29,9 +29,9 @@ pub use drive_tools::build_engine_call;
 pub use engine_manifest::{current_platform, EngineManifest};
 // engine_protocol is used by browser-use for soft-failure detection.
 pub use highlight::{
-    build_status_label, clear_highlight, operation_border_enabled, resolve_agent_name,
-    session_cursor_fill_hex, show_cursor_caption, show_desktop_highlight, show_window_highlight,
-    HighlightResult, HighlightStyle,
+    bounds_for_window_id, build_status_label, clear_highlight, operation_border_enabled,
+    pid_for_window_id, resolve_agent_name, session_cursor_fill_hex, show_cursor_caption,
+    show_desktop_highlight, show_window_highlight, HighlightResult, HighlightStyle,
 };
 pub use host::PermissionGrantTarget;
 pub use manager::{DesktopUseManager, DesktopUseStatus, DriverPhase, DriverStatus, EnsureOutcome};

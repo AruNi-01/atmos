@@ -241,6 +241,9 @@ pub fn drive(manager: &DesktopUseManager, req: DriveRequest) -> DriveResult {
     match req.action {
         DriveAction::Screenshot => {
             if manager.require_engine().is_ok() {
+                if let Some(denied) = permissions_block_for_capture(manager, action_name) {
+                    return denied;
+                }
                 return screenshot_via_engine(manager, &req, action_name);
             }
             let cap = capture(CaptureRequest {
@@ -252,7 +255,15 @@ pub fn drive(manager: &DesktopUseManager, req: DriveRequest) -> DriveResult {
                 action: action_name.into(),
                 detail: None,
                 result: None,
-                error: cap.error.clone(),
+                error: cap.error.clone().map(|e| {
+                    if e.contains("screencapture") || e.contains("could not create image") {
+                        format!(
+                            "{e}. Grant Screen Recording to Atmos Desktop Use (Settings → Desktop Use → Grant permissions), then retry."
+                        )
+                    } else {
+                        e
+                    }
+                }),
                 error_code: if cap.ok {
                     None
                 } else {
@@ -273,9 +284,68 @@ pub fn drive(manager: &DesktopUseManager, req: DriveRequest) -> DriveResult {
                 error: Some(msg),
                 error_code: Some(DriveError::EngineNotInstalled.code().into()),
             },
-            Ok(engine) => run_engine(manager, &engine, &req, action_name),
+            Ok(engine) => {
+                if action_needs_screen_recording(&req.action)
+                    && req.element_token.is_none()
+                {
+                    if let Some(denied) = permissions_block_for_capture(manager, action_name) {
+                        return denied;
+                    }
+                }
+                run_engine(manager, &engine, &req, action_name)
+            }
         },
     }
+}
+
+/// Pixel / desktop-state actions that require Screen Recording on the host identity.
+fn action_needs_screen_recording(action: &DriveAction) -> bool {
+    matches!(
+        action,
+        DriveAction::Click
+            | DriveAction::DoubleClick
+            | DriveAction::RightClick
+            | DriveAction::Drag
+            | DriveAction::Screenshot
+            | DriveAction::MoveCursor
+    )
+}
+
+/// Fail fast with a structured grant hint when the host lacks Screen Recording.
+fn permissions_block_for_capture(
+    manager: &DesktopUseManager,
+    action_name: &str,
+) -> Option<DriveResult> {
+    let doctor = crate::doctor::permission_doctor(manager);
+    if doctor.screen_recording == Some(true) {
+        return None;
+    }
+    // Unknown (null) — don't block; let the engine try.
+    if doctor.screen_recording.is_none() && doctor.engine_ready {
+        return None;
+    }
+    if doctor.screen_recording != Some(false) {
+        return None;
+    }
+    Some(DriveResult {
+        ok: false,
+        action: action_name.into(),
+        detail: None,
+        capture: None,
+        result: Some(json!({
+            "accessibility": doctor.accessibility,
+            "screen_recording": doctor.screen_recording,
+            "host_app_name": doctor.host_app_name,
+            "host_app_path": doctor.host_app_path,
+            "grant": "atmos desktop-use driver grant-permissions --target all",
+        })),
+        error: Some(scrub_vendor(
+            "Screen Recording is not granted to Atmos Desktop Use — pixel click/screenshot cannot run. \
+Open System Settings → Privacy & Security → Screen Recording, enable Atmos Desktop Use, then: \
+atmos desktop-use driver grant-permissions --target all",
+        )),
+        error_code: Some("permissions_required".into()),
+    })
 }
 
 fn run_session_end(
@@ -842,15 +912,25 @@ fn run_engine(
         ensure_drive_session(engine, &socket, s);
     }
 
+    // Scale desktop pixel coords for points→png before building the engine call.
+    // Also fill missing pid from window_id (engine 0.17 requires pid for window-scoped click).
+    let mut req_for_call = req.clone();
+    if req_for_call.pid.is_none() {
+        if let Some(wid) = req_for_call.window_id {
+            if let Ok(list) = host::call_tool(engine, &socket, "list_windows", &json!({})) {
+                if let Some(pid) = crate::highlight::pid_for_window_id(&list, wid) {
+                    req_for_call.pid = Some(pid);
+                }
+            }
+        }
+    }
+
     let mut scale_meta: Option<serde_json::Value> = None;
-    let highlight_meta = if crate::drive_tools::wants_action_highlight(req) {
-        apply_action_highlight(engine, &socket, req, action_name)
+    let highlight_meta = if crate::drive_tools::wants_action_highlight(&req_for_call) {
+        apply_action_highlight(engine, &socket, &req_for_call, action_name)
     } else {
         None
     };
-
-    // Scale desktop pixel coords for points→png before building the engine call.
-    let mut req_for_call = req.clone();
     if matches!(
         req.action,
         DriveAction::Click
@@ -905,6 +985,34 @@ fn run_engine(
         }
     };
 
+    // Window-scoped engine tools expect pid; we auto-fill above — surface a clear
+    // error if list_windows could not resolve it.
+    if args.get("window_id").is_some()
+        && args.get("pid").is_none()
+        && matches!(
+            req_for_call.action,
+            DriveAction::Click
+                | DriveAction::DoubleClick
+                | DriveAction::RightClick
+                | DriveAction::Type
+                | DriveAction::WindowState
+        )
+        && req_for_call.element_token.is_none()
+    {
+        return DriveResult {
+            ok: false,
+            action: action_name.into(),
+            detail: None,
+            capture: None,
+            result: None,
+            error: Some(
+                "window-scoped action needs --pid (could not resolve from --window-id; pass --pid explicitly)"
+                    .into(),
+            ),
+            error_code: Some("invalid_args".into()),
+        };
+    }
+
     if crate::drive_tools::wants_pre_move_cursor(&req_for_call) {
         if let (Some(x), Some(y)) = (req_for_call.x, req_for_call.y) {
             let mut move_args = json!({ "x": x, "y": y, "scope": "desktop" });
@@ -934,17 +1042,37 @@ fn run_engine(
     match host::call_tool(engine, &socket, tool, &args) {
         Ok(v) => {
             if let Some(fail) = crate::engine_protocol::engine_payload_is_failure(&v) {
+                let fail_l = fail.to_ascii_lowercase();
+                let capture_related = fail_l.contains("screencapture")
+                    || fail_l.contains("px_capture")
+                    || fail_l.contains("could not create image")
+                    || fail_l.contains("capture_unavailable");
+                let (error, error_code) = if capture_related {
+                    (
+                        scrub_vendor(&format!(
+                            "{fail}. Grant Screen Recording to Atmos Desktop Use \
+(System Settings → Privacy & Security → Screen Recording), then: \
+atmos desktop-use driver grant-permissions --target screen_recording"
+                        )),
+                        "permissions_required",
+                    )
+                } else {
+                    (
+                        scrub_vendor(&format!(
+                            "{}: {fail}",
+                            strings::ERR_ENGINE_FAILED
+                        )),
+                        "control_engine_failed",
+                    )
+                };
                 return DriveResult {
                     ok: false,
                     action: action_name.into(),
                     detail: Some(v.to_string()),
                     result: Some(v),
                     capture: None,
-                    error: Some(scrub_vendor(&format!(
-                        "{}: {fail}",
-                        strings::ERR_ENGINE_FAILED
-                    ))),
-                    error_code: Some("control_engine_failed".into()),
+                    error: Some(error),
+                    error_code: Some(error_code.into()),
                 };
             }
             let mut result = if let Some(meta) = scale_meta {
