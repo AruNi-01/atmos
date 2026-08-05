@@ -62,6 +62,24 @@ describe("Desktop Use settings wiring", () => {
     expect(section).toContain("DesktopUsePermissionsPanel");
   });
 
+  it("uninstall requires a confirm dialog that lists feature impact", () => {
+    const section = readFileSync(
+      join(
+        root,
+        "apps/web/src/features/settings/components/DesktopUseSettingsSection.tsx",
+      ),
+      "utf8",
+    );
+    expect(section).toContain("uninstallOpen");
+    expect(section).toContain('t("uninstallConfirm.title")');
+    expect(section).toContain('t("uninstallConfirm.consequences.appshotHost")');
+    expect(section).toContain('t("uninstallConfirm.consequences.agentControl")');
+    expect(section).toContain('t("uninstallConfirm.consequences.cli")');
+    expect(section).toContain("desktop_use_driver_uninstall");
+    // Must not uninstall on first click without opening confirm
+    expect(section).toMatch(/onClick=\{\(\)\s*=>\s*setUninstallOpen\(true\)\}/);
+  });
+
   it("exposes operation border toggle via prefs IPC", () => {
     const section = readFileSync(
       join(

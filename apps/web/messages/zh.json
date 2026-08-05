@@ -5537,7 +5537,79 @@
     },
     "desktopUse": {
       "label": "Desktop Use",
-      "description": "本机桌面捕获与控制（截图、点击、输入）"
+      "description": "本机桌面捕获与控制（截图、点击、输入）",
+      "desktopOnly": "Desktop Use 仅在 Atmos 桌面端可用。",
+      "status": {
+        "webOnly": "仅桌面端"
+      },
+      "host": {
+        "defaultName": "Atmos Desktop Use"
+      },
+      "engine": {
+        "title": "控制引擎",
+        "hint": "可选本机控制引擎，在独立 App 身份下完成截屏与 UI 操控。",
+        "installHint": "下载并安装控制引擎后，即可使用 Desktop Use 的捕获与控制能力。",
+        "updateHint": "有可用更新：v{current} → v{next}。",
+        "stopHint": "停止正在运行的引擎进程。之后可通过「安装 / 更新」再次启动。",
+        "removeHint": "从本机移除引擎。在重新安装前，相关捕获与 Agent 桌面控制会降级或不可用。",
+        "notInstalled": "未安装",
+        "installed": "已安装",
+        "updateAvailable": "有可用更新"
+      },
+      "actions": {
+        "install": "安装",
+        "update": "更新",
+        "stop": "停止",
+        "uninstall": "卸载",
+        "refresh": "刷新",
+        "cancel": "取消"
+      },
+      "uninstallConfirm": {
+        "title": "卸载 Desktop Use 引擎？",
+        "description": "将停止引擎并删除 ~/.atmos/desktop-use 下的本机 host 应用。",
+        "consequencesTitle": "卸载后，在重新安装前以下能力将不可用：",
+        "consequences": {
+          "appshotHost": "经 Desktop Use host 身份的 AppShot 双 Shift 捕获",
+          "agentControl": "经控制引擎的 Agent 桌面操控（截图、点击、输入）",
+          "cli": "依赖引擎的 CLI：atmos desktop-use drive / capture 等命令",
+          "chrome": "由引擎驱动的操作描边与 Agent 光标叠层"
+        },
+        "note": "系统设置里对「Atmos Desktop Use」的辅助功能 / 屏幕录制授权不会自动撤销；若需清除请到系统设置中手动移除。重新安装时会尽量复用同一 host 身份。",
+        "confirm": "确认卸载"
+      },
+      "border": {
+        "title": "操作描边",
+        "description": "Desktop Use 操作目标窗口或桌面时显示描边提示。"
+      },
+      "permissions": {
+        "title": "权限",
+        "unifiedHint": "请为 Desktop Use host 应用授予辅助功能与屏幕录制权限，以便稳定完成捕获与控制。",
+        "installFirst": "请先安装控制引擎再管理权限。",
+        "hostLine": "Host：{host}",
+        "done": "完成",
+        "grantAccessibility": "打开辅助功能设置",
+        "grantScreenRecording": "打开屏幕录制设置",
+        "items": {
+          "accessibility": {
+            "title": "辅助功能",
+            "description": "用于检查并控制其他应用。"
+          },
+          "screenRecording": {
+            "title": "屏幕录制",
+            "description": "用于 AppShot 与 Desktop Use 的屏幕捕获。"
+          }
+        }
+      },
+      "errors": {
+        "statusFailed": "加载 Desktop Use 状态失败。",
+        "installFailed": "安装控制引擎失败。",
+        "updateFailed": "更新控制引擎失败。",
+        "stopFailed": "停止控制引擎失败。",
+        "uninstallFailed": "卸载控制引擎失败。",
+        "prefsFailed": "更新偏好设置失败。",
+        "grantFailed": "打开权限设置失败。"
+      },
+      "title": "Desktop Use"
     },
     "browserUse": {
       "label": "Browser Use",
@@ -8640,6 +8712,7 @@
         "browserLoadFailure": "目标页面报告了浏览器级别的加载失败。",
         "unknownNetwork": "未知网络错误",
         "localHttpsHint": "目标本地服务可能在 HTTPS URL 上实际提供的是 HTTP，或返回了无效的 TLS 响应。",
+        "certProxyHint": "证书错误若只是偶尔出现，常见原因是系统代理、VPN 或 fake-ip DNS（例如 Clash/Surge）。可先关闭代理或改用系统 DNS 后再试。",
         "networkUnreachable": "目标页面无法被正常访问。"
       },
       "errorCard": {
@@ -8886,6 +8959,33 @@
       "xcuserdata": "Xcode 每用户数据",
       "zig_cache": "Zig 构建缓存",
       "zig_out": "Zig 构建输出"
+    }
+  },
+  "desktopUse": {
+    "readinessModal": {
+      "title": "Desktop Use 尚未就绪",
+      "dismiss": "暂不处理",
+      "openSettings": "打开 Desktop Use 设置",
+      "hint": "请安装或启动控制引擎，并为「Atmos Desktop Use」授予辅助功能与屏幕录制权限。",
+      "source": {
+        "generic": "此功能需要 Desktop Use 控制引擎。",
+        "appshot": "AppShot 捕获需要已安装并授权的 Desktop Use。",
+        "slash": "Desktop Use 斜杠技能需要控制引擎与 macOS 权限。"
+      },
+      "reason": {
+        "webOnly": "Desktop Use 仅在 Atmos 桌面端可用。",
+        "engineNotInstalled": "控制引擎尚未安装。",
+        "engineNotRunning": "控制引擎已安装但未运行。",
+        "permissionAccessibility": "尚未为 Atmos Desktop Use 授予辅助功能权限。",
+        "permissionScreenRecording": "尚未为 Atmos Desktop Use 授予屏幕录制权限。",
+        "permissionBoth": "尚未为 Atmos Desktop Use 授予辅助功能与屏幕录制权限。",
+        "unknown": "无法确认 Desktop Use 状态。请到设置中安装引擎并检查权限。"
+      },
+      "needs": {
+        "engine": "控制引擎已安装并运行",
+        "accessibility": "已为 Atmos Desktop Use 开启辅助功能",
+        "screenRecording": "已为 Atmos Desktop Use 开启屏幕录制"
+      }
     }
   }
 }

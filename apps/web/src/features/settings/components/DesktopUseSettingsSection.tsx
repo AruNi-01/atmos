@@ -2,9 +2,17 @@
 
 import React, { useCallback, useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
-import { Button } from "@workspace/ui/components/ui/button";
-import { Skeleton } from "@workspace/ui/components/ui/skeleton";
-import { Switch } from "@workspace/ui/components/ui/switch";
+import {
+  Button,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  Skeleton,
+  Switch,
+} from "@workspace/ui";
 import {
   ArrowUpCircle,
   Download,
@@ -13,6 +21,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { DesktopUsePermissionsPanel } from "@/features/settings/components/DesktopUsePermissionsPanel";
+import { invalidateDesktopUseReadinessCache } from "@/features/desktop-use/lib/readiness";
 import { desktopInvoke, isDesktopRuntime } from "@/shared/lib/desktop-bridge";
 
 type DriverStatus = {
@@ -84,6 +93,7 @@ export function DesktopUseSettingsSection() {
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [borderBusy, setBorderBusy] = useState(false);
+  const [uninstallOpen, setUninstallOpen] = useState(false);
 
   const load = useCallback(async (opts?: { silent?: boolean }) => {
     const silent = Boolean(opts?.silent);
@@ -173,6 +183,8 @@ export function DesktopUseSettingsSection() {
     setError(null);
     try {
       await fn();
+      // Install / stop / uninstall change doctor results — drop readiness cache.
+      invalidateDesktopUseReadinessCache();
       await load({ silent: true });
     } catch (e) {
       const fallback =
@@ -312,7 +324,7 @@ export function DesktopUseSettingsSection() {
         </SettingsItemCard>
       ) : null}
 
-      {/* Remove — always visible when installed */}
+      {/* Remove — always visible when installed; confirm before destructive uninstall */}
       {installed && desktop ? (
         <SettingsItemCard
           title={t("actions.uninstall")}
@@ -323,11 +335,7 @@ export function DesktopUseSettingsSection() {
             size="sm"
             variant="outline"
             disabled={busy || loading}
-            onClick={() =>
-              void run("uninstall", async () => {
-                await desktopInvoke("desktop_use_driver_uninstall");
-              })
-            }
+            onClick={() => setUninstallOpen(true)}
             className="cursor-pointer text-destructive hover:text-destructive"
           >
             {busyAction === "uninstall" ? (
@@ -339,6 +347,68 @@ export function DesktopUseSettingsSection() {
           </Button>
         </SettingsItemCard>
       ) : null}
+
+      <Dialog
+        open={uninstallOpen}
+        onOpenChange={(open) => {
+          if (busyAction === "uninstall") return;
+          setUninstallOpen(open);
+        }}
+      >
+        <DialogContent showCloseButton={busyAction !== "uninstall"}>
+          <DialogHeader>
+            <div className="mb-2 flex size-10 items-center justify-center rounded-full bg-destructive/10">
+              <Trash2 className="size-5 text-destructive" />
+            </div>
+            <DialogTitle>{t("uninstallConfirm.title")}</DialogTitle>
+            <DialogDescription asChild>
+              <div className="space-y-3 text-pretty text-sm text-muted-foreground">
+                <p>{t("uninstallConfirm.description")}</p>
+                <div>
+                  <p className="font-medium text-foreground">
+                    {t("uninstallConfirm.consequencesTitle")}
+                  </p>
+                  <ul className="mt-2 list-disc space-y-1.5 pl-5">
+                    <li>{t("uninstallConfirm.consequences.appshotHost")}</li>
+                    <li>{t("uninstallConfirm.consequences.agentControl")}</li>
+                    <li>{t("uninstallConfirm.consequences.cli")}</li>
+                    <li>{t("uninstallConfirm.consequences.chrome")}</li>
+                  </ul>
+                </div>
+                <p className="text-xs leading-5">{t("uninstallConfirm.note")}</p>
+              </div>
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={busyAction === "uninstall"}
+              onClick={() => setUninstallOpen(false)}
+              className="cursor-pointer"
+            >
+              {t("actions.cancel")}
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={busyAction === "uninstall"}
+              onClick={() =>
+                void run("uninstall", async () => {
+                  await desktopInvoke("desktop_use_driver_uninstall");
+                  setUninstallOpen(false);
+                })
+              }
+              className="cursor-pointer"
+            >
+              {busyAction === "uninstall" ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : null}
+              {t("uninstallConfirm.confirm")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Operation border chrome */}
       <SettingsItemCard

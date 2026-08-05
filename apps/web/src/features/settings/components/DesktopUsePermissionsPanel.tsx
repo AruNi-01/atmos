@@ -8,6 +8,7 @@ import React from "react";
 import { useTranslations } from "next-intl";
 import { Button, cn } from "@workspace/ui";
 import { Check, Loader2, RefreshCw, Settings2 } from "lucide-react";
+import { invalidateDesktopUseReadinessCache } from "@/features/desktop-use/lib/readiness";
 import { desktopInvoke, isDesktopRuntime } from "@/shared/lib/desktop-bridge";
 
 type PermissionName = "accessibility" | "screen_recording";
@@ -96,6 +97,7 @@ export function DesktopUsePermissionsPanel({
     setError(null);
     try {
       await desktopInvoke("desktop_use_grant_permissions", { target });
+      invalidateDesktopUseReadinessCache();
       stopPoll();
       const started = Date.now();
       pollRef.current = setInterval(() => {

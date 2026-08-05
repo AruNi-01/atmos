@@ -5537,7 +5537,79 @@
     },
     "desktopUse": {
       "label": "Desktop Use",
-      "description": "Capture and control the local desktop (screenshot, click, type)"
+      "description": "Capture and control the local desktop (screenshot, click, type)",
+      "desktopOnly": "Desktop Use is only available in Atmos Desktop.",
+      "status": {
+        "webOnly": "Desktop only"
+      },
+      "host": {
+        "defaultName": "Atmos Desktop Use"
+      },
+      "engine": {
+        "title": "Control engine",
+        "hint": "Optional host engine for screen capture and UI control under a dedicated app identity.",
+        "installHint": "Download and install the control engine to enable Desktop Use capture and control.",
+        "updateHint": "Update available: v{current} → v{next}.",
+        "stopHint": "Stop the running engine process. You can start it again with Install / Update.",
+        "removeHint": "Remove the engine from this Mac. Capture and agent desktop control will fall back or become unavailable until reinstalled.",
+        "notInstalled": "Not installed",
+        "installed": "Installed",
+        "updateAvailable": "Update available"
+      },
+      "actions": {
+        "install": "Install",
+        "update": "Update",
+        "stop": "Stop",
+        "uninstall": "Uninstall",
+        "refresh": "Refresh",
+        "cancel": "Cancel"
+      },
+      "uninstallConfirm": {
+        "title": "Uninstall Desktop Use engine?",
+        "description": "This stops the engine and deletes the local host app under ~/.atmos/desktop-use.",
+        "consequencesTitle": "After uninstall, these will be unavailable until you install again:",
+        "consequences": {
+          "appshotHost": "AppShot dual-shift capture via the dedicated Desktop Use host identity",
+          "agentControl": "Agent desktop control (screenshot, click, type) through the control engine",
+          "cli": "CLI: atmos desktop-use drive / capture commands that need the engine",
+          "chrome": "Operation border and agent cursor overlays driven by the engine"
+        },
+        "note": "macOS Accessibility and Screen Recording grants for “Atmos Desktop Use” stay in System Settings until you remove them there. Reinstall will reuse the same host identity when possible.",
+        "confirm": "Uninstall engine"
+      },
+      "border": {
+        "title": "Operation border",
+        "description": "Show a border around the target window or desktop while Desktop Use is operating."
+      },
+      "permissions": {
+        "title": "Permissions",
+        "unifiedHint": "Grant Accessibility and Screen Recording to the Desktop Use host app so capture and control work reliably.",
+        "installFirst": "Install the control engine first to manage permissions.",
+        "hostLine": "Host: {host}",
+        "done": "Done",
+        "grantAccessibility": "Open Accessibility settings",
+        "grantScreenRecording": "Open Screen Recording settings",
+        "items": {
+          "accessibility": {
+            "title": "Accessibility",
+            "description": "Required to inspect and control other apps."
+          },
+          "screenRecording": {
+            "title": "Screen Recording",
+            "description": "Required to capture the screen for AppShot and Desktop Use."
+          }
+        }
+      },
+      "errors": {
+        "statusFailed": "Failed to load Desktop Use status.",
+        "installFailed": "Failed to install the control engine.",
+        "updateFailed": "Failed to update the control engine.",
+        "stopFailed": "Failed to stop the control engine.",
+        "uninstallFailed": "Failed to uninstall the control engine.",
+        "prefsFailed": "Failed to update preferences.",
+        "grantFailed": "Failed to open permission settings."
+      },
+      "title": "Desktop Use"
     },
     "browserUse": {
       "label": "Browser Use",
@@ -8640,6 +8712,7 @@
         "browserLoadFailure": "The target page reported a browser-level load failure.",
         "unknownNetwork": "Unknown network error",
         "localHttpsHint": "The target local server may be speaking HTTP on an HTTPS URL or returning an invalid TLS response.",
+        "certProxyHint": "Certificate errors that appear only sometimes are often caused by a system proxy, VPN, or fake-ip DNS (for example Clash/Surge). Try disabling the proxy or use system DNS, then retry.",
         "networkUnreachable": "The target page could not be reached cleanly."
       },
       "errorCard": {
@@ -8885,6 +8958,33 @@
       "xcuserdata": "Xcode per-user data",
       "zig_cache": "Zig build cache",
       "zig_out": "Zig build output"
+    }
+  },
+  "desktopUse": {
+    "readinessModal": {
+      "title": "Desktop Use is not ready",
+      "dismiss": "Not now",
+      "openSettings": "Open Desktop Use settings",
+      "hint": "Install or start the control engine and grant Accessibility + Screen Recording to Atmos Desktop Use.",
+      "source": {
+        "generic": "This feature needs the Desktop Use control engine.",
+        "appshot": "AppShot capture works best when Desktop Use is installed and permitted.",
+        "slash": "The Desktop Use slash skill needs the control engine and macOS permissions."
+      },
+      "reason": {
+        "webOnly": "Desktop Use is only available in Atmos Desktop.",
+        "engineNotInstalled": "The control engine is not installed yet.",
+        "engineNotRunning": "The control engine is installed but not running.",
+        "permissionAccessibility": "Accessibility permission is not granted for Atmos Desktop Use.",
+        "permissionScreenRecording": "Screen Recording permission is not granted for Atmos Desktop Use.",
+        "permissionBoth": "Accessibility and Screen Recording are not granted for Atmos Desktop Use.",
+        "unknown": "Could not verify Desktop Use status. Check Settings to install and grant permissions."
+      },
+      "needs": {
+        "engine": "Control engine installed and running",
+        "accessibility": "Accessibility allowed for Atmos Desktop Use",
+        "screenRecording": "Screen Recording allowed for Atmos Desktop Use"
+      }
     }
   }
 }
