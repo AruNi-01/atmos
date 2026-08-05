@@ -55,7 +55,9 @@ Release notes: `releasenotes/Atmos Desktop <version>.md`.
 
 - Preload: `window.__ATMOS_DESKTOP__` (`shell: 'electron'`, `invoke`, `on`)
 - UI from Atmos Server loopback static
+- **Known debt (transport):** most session/terminal traffic still uses **HTTP + WebSocket** (web-first parity), not renderer→runtime IPC/UDS. Tracked for a future shared transport abstraction (web = WS/HTTP, desktop local = IPC). See [docs/architecture/known-debt-client-transport.md](../../docs/architecture/known-debt-client-transport.md).
 - Browser (APP-053): in-DOM `<webview>` + `persist:atmos-browser` (default-deny `will-attach-webview`); `apps/desktop-electron/src/browser`
+- Browser guest inject: `packages/shared/browser/browser-runtime.js` is **copied into `dist/browser-runtime.js` at build** (packaged apps must not rely on monorepo paths)
 - Commands: `get_api_config`, `browser_bridge_*`, `appshot_*`, `tunnel_connector_*`, …
 - AppShot: dual-shift, live TCC, frontmost capture, target-window border/flash overlay, pending auto-accept + fly-in preview (`source_bounds`), shared `appshots` layout
 - Cookies: `atmos-browser-cookies` under `resources/bin`
@@ -63,6 +65,7 @@ Release notes: `releasenotes/Atmos Desktop <version>.md`.
 - Quit: stop Server when this process started it
 - Dev Dock branding: `scripts/prepare-dev-app.ts` → `.cache/dev-app/Atmos.app`
 - Packaging: `electron-builder.yml`; ad-hoc sign by default (`identity: "-"`)
+- macOS icons: `resources/icons/icon.icon` (Liquid Glass / macOS 26+ via Xcode `actool` ≥ 26) + legacy `icon.icns`; CI uses `macos-26` / `macos-26-intel` runners
 
 ## Never
 
