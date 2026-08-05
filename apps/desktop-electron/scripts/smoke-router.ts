@@ -1,6 +1,9 @@
 /**
  * Headless router + pure handlers smoke (no Electron GUI process required).
  */
+import { existsSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { createAppState } from "../src/app-state.ts";
 import { createAllHandlers } from "../src/ipc/handlers.ts";
 import { createDesktopCommandRouter } from "../src/ipc/router.ts";
@@ -21,10 +24,23 @@ const router = createDesktopCommandRouter(createAllHandlers(state));
 const cmds = router.listCommands();
 assert(cmds.includes("get_api_config"), "get_api_config");
 assert(cmds.includes("browser_bridge_open"), "browser_bridge_open");
+assert(cmds.includes("browser_bridge_exit_pick_mode"), "browser_bridge_exit_pick_mode");
 assert(cmds.includes("list_importable_browsers"), "cookies");
 assert(cmds.includes("appshot_status"), "appshot");
 assert(cmds.includes("tunnel_connector_detect"), "tunnel");
 assert(cmds.length >= 40, `expected full command surface, got ${cmds.length}`);
+
+// Guest inject source must exist after build (or be resolvable from monorepo in dev).
+const electronRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
+const distRuntime = join(electronRoot, "dist/browser-runtime.js");
+const monorepoRuntime = join(
+  electronRoot,
+  "../../packages/shared/browser/browser-runtime.js",
+);
+assert(
+  existsSync(distRuntime) || existsSync(monorepoRuntime),
+  "browser-runtime.js missing (dist or packages/shared)",
+);
 
 const cfg = await router.invoke("get_api_config");
 assert((cfg as { port: number }).port === 30303, "port");

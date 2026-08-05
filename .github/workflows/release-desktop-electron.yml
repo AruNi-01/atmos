@@ -35,8 +35,8 @@ on:
         type: choice
         options:
           - "all"
-          - "macos-14"
-          - "macos-15-intel"
+          - "macos-26"
+          - "macos-26-intel"
           - "ubuntu-22.04"
           - "windows-latest"
       create_release:
@@ -126,13 +126,14 @@ jobs:
             case "$1" in
               "all" )
                 # electron-builder arch is selected via CLI on each runner OS.
-                printf '%s\n' '{"include":[{"platform":"macos-14","target":"aarch64-apple-darwin","builder_args":"--mac --arm64"},{"platform":"macos-15-intel","target":"x86_64-apple-darwin","builder_args":"--mac --x64"},{"platform":"ubuntu-22.04","target":"x86_64-unknown-linux-gnu","builder_args":"--linux --x64"},{"platform":"windows-latest","target":"x86_64-pc-windows-msvc","builder_args":"--win --x64"}]}'
+                # macOS 26 runners ship Xcode 26+ actool for Liquid Glass .icon → Assets.car.
+                printf '%s\n' '{"include":[{"platform":"macos-26","target":"aarch64-apple-darwin","builder_args":"--mac --arm64"},{"platform":"macos-26-intel","target":"x86_64-apple-darwin","builder_args":"--mac --x64"},{"platform":"ubuntu-22.04","target":"x86_64-unknown-linux-gnu","builder_args":"--linux --x64"},{"platform":"windows-latest","target":"x86_64-pc-windows-msvc","builder_args":"--win --x64"}]}'
                 ;;
-              "macos-14" )
-                printf '%s\n' '{"include":[{"platform":"macos-14","target":"aarch64-apple-darwin","builder_args":"--mac --arm64"}]}'
+              "macos-26" )
+                printf '%s\n' '{"include":[{"platform":"macos-26","target":"aarch64-apple-darwin","builder_args":"--mac --arm64"}]}'
                 ;;
-              "macos-15-intel" )
-                printf '%s\n' '{"include":[{"platform":"macos-15-intel","target":"x86_64-apple-darwin","builder_args":"--mac --x64"}]}'
+              "macos-26-intel" )
+                printf '%s\n' '{"include":[{"platform":"macos-26-intel","target":"x86_64-apple-darwin","builder_args":"--mac --x64"}]}'
                 ;;
               "ubuntu-22.04" )
                 printf '%s\n' '{"include":[{"platform":"ubuntu-22.04","target":"x86_64-unknown-linux-gnu","builder_args":"--linux --x64"}]}'
@@ -279,6 +280,46 @@ jobs:
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
+
+      # Liquid Glass icons: electron-builder compiles resources/icons/icon.icon via actool ≥ 26.
+      - name: Select Xcode 26+ and verify actool (macOS)
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Prefer newest Xcode_26* if multiple are installed on the image.
+          XCODE_APP=""
+          for candidate in \
+            /Applications/Xcode.app \
+            /Applications/Xcode_26.6.app \
+            /Applications/Xcode_26.6.0.app \
+            /Applications/Xcode_26.5.app \
+            /Applications/Xcode_26.4.1.app \
+            /Applications/Xcode_26.4.app \
+            /Applications/Xcode_26.3.app \
+            /Applications/Xcode_26.2.app \
+            /Applications/Xcode_26.1.app \
+            /Applications/Xcode_26.0.app; do
+            if [ -d "$candidate" ]; then
+              XCODE_APP="$candidate"
+              break
+            fi
+          done
+          if [ -z "$XCODE_APP" ]; then
+            # Fallback: first Xcode_26* directory
+            XCODE_APP="$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -1 || true)"
+          fi
+          if [ -z "${XCODE_APP:-}" ] || [ ! -d "$XCODE_APP" ]; then
+            echo "❌ No Xcode 26+ app found under /Applications (required for Liquid Glass .icon)"
+            ls /Applications/Xcode*.app 2>/dev/null || true
+            exit 1
+          fi
+          echo "Using Xcode at $XCODE_APP"
+          sudo xcode-select -s "$XCODE_APP"
+          xcodebuild -version
+          actool --version
+          # Fail early if actool is too old for Icon Composer (electron-builder check).
+          bun ./apps/desktop-electron/scripts/check-macos-icon-toolchain.ts
 
       # electron-builder AppImage on Ubuntu 22.04 needs libfuse2 + packaging tools.
       # Without these the Linux matrix fails during `appimagetool` / fpm steps.

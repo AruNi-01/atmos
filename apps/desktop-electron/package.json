@@ -10,6 +10,8 @@
   "scripts": {
     "postinstall": "bun run scripts/ensure-electron.ts",
     "sync-icons": "bun run scripts/sync-icons.ts",
+    "regen-legacy-icns": "bun run scripts/regen-legacy-icns.ts",
+    "check-macos-icon-toolchain": "bun run scripts/check-macos-icon-toolchain.ts",
     "build": "bun run scripts/build.ts",
     "prepare-package": "bun run scripts/prepare-package.ts",
     "package": "bun run scripts/package.ts",
