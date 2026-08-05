@@ -4,7 +4,13 @@ import { create } from "zustand";
 import { useWebSocketStore } from "@/features/connection/hooks/use-websocket";
 import { getRuntimeApiConfig, httpBase } from "@/shared/lib/desktop-runtime";
 import { agentHooksApi } from "@/api/rest-api";
-import { useAgentAttentionStore } from "@/features/agent/store/agent-attention-store";
+import {
+  setAgentPaneAcknowledgedHandler,
+  useAgentAttentionStore,
+} from "@/features/agent/store/agent-attention-store";
+import { collectIdleSessionIdsForPane } from "@/features/agent/store/agent-hooks-idle";
+
+export { collectIdleSessionIdsForPane } from "@/features/agent/store/agent-hooks-idle";
 
 export const AGENT_STATE = {
   IDLE: "idle",
@@ -110,6 +116,12 @@ interface AgentHooksStore {
   getGlobalState: () => AgentHookState;
   forceSessionIdle: (sessionId: string) => Promise<void>;
   removeSession: (sessionId: string) => Promise<void>;
+  /**
+   * Drop idle hook sessions for a focused/acknowledged pane.
+   * Sticky attention already holds "needs attention"; idle rows do not need to
+   * wait for the backend idle sweeper after the user has looked at the pane.
+   */
+  dismissIdleSessionsForPane: (stablePaneId: string) => void;
   clearIdleSessions: () => Promise<void>;
 }
 
@@ -120,6 +132,13 @@ export const useAgentHooksStore = create<AgentHooksStore>((set, get) => ({
   init: () => {
     const existing = get()._unsubscribe;
     if (existing) return;
+
+    // When the user focuses a pane (or attention auto-clears while focused),
+    // drop idle hook sessions for that pane — sticky attention already covered
+    // the "needs attention" signal until acknowledge.
+    setAgentPaneAcknowledgedHandler((stablePaneId) => {
+      get().dismissIdleSessionsForPane(stablePaneId);
+    });
 
     const unsubscribeStateChanged = useWebSocketStore.getState().onEvent(
       "agent_hook_state_changed",
@@ -193,16 +212,49 @@ export const useAgentHooksStore = create<AgentHooksStore>((set, get) => ({
           for (const id of session_ids) sessions.delete(id);
           return { sessions };
         });
-        // Drop sticky attention latches for removed panes so they do not linger.
-        // Match map key OR stored sessionId — raise may key by pane_id while
-        // clear events only list the hook session_id (or vice versa).
-        useAgentAttentionStore.getState().clearMatchingSessionIds(session_ids);
+        // Do NOT clear sticky attention here. Idle session sweeps must not drop
+        // need-attention latches — those live in API memory until acknowledge
+        // (or pane destroy / explicit remove, which emit agent_attention_cleared).
       }
+    );
+
+    const unsubscribeAttentionRaised = useWebSocketStore.getState().onEvent(
+      "agent_attention_raised",
+      (data: unknown) => {
+        const latch = data as {
+          stable_pane_id?: string;
+          context_id?: string;
+          reason?: "permission_request" | "task_complete";
+          session_id?: string;
+          tool?: string;
+          raised_at?: string;
+        };
+        if (!latch?.stable_pane_id || !latch.reason) return;
+        useAgentAttentionStore.getState().raise({
+          stablePaneId: latch.stable_pane_id,
+          contextId: latch.context_id,
+          reason: latch.reason,
+          sessionId: latch.session_id,
+          tool: latch.tool,
+          raisedAt: latch.raised_at ? Date.parse(latch.raised_at) : undefined,
+        });
+      },
+    );
+
+    const unsubscribeAttentionCleared = useWebSocketStore.getState().onEvent(
+      "agent_attention_cleared",
+      (data: unknown) => {
+        const { stable_pane_ids } = data as { stable_pane_ids?: string[] };
+        if (!stable_pane_ids?.length) return;
+        useAgentAttentionStore.getState().clearMatchingSessionIds(stable_pane_ids);
+      },
     );
 
     const _unsubscribe = () => {
       unsubscribeStateChanged();
       unsubscribeCleared();
+      unsubscribeAttentionRaised();
+      unsubscribeAttentionCleared();
     };
     set({ _unsubscribe });
 
@@ -219,12 +271,19 @@ export const useAgentHooksStore = create<AgentHooksStore>((set, get) => ({
         });
       }
     });
+
+    // Recover sticky attention from API memory after refresh / reconnect.
+    fetchInitialAttention().then((latches) => {
+      if (latches.length === 0) return;
+      useAgentAttentionStore.getState().hydrateFromServer(latches);
+    });
   },
 
   cleanup: () => {
     const { _unsubscribe } = get();
     if (_unsubscribe) {
       _unsubscribe();
+      setAgentPaneAcknowledgedHandler(null);
       set({ _unsubscribe: null, sessions: new Map() });
     }
   },
@@ -361,6 +420,13 @@ export const useAgentHooksStore = create<AgentHooksStore>((set, get) => ({
     }
   },
 
+  dismissIdleSessionsForPane: (stablePaneId) => {
+    const toRemove = collectIdleSessionIdsForPane(get().sessions, stablePaneId);
+    for (const id of toRemove) {
+      void get().removeSession(id);
+    }
+  },
+
   clearIdleSessions: async () => {
     try {
       const config = await getRuntimeApiConfig();
@@ -392,6 +458,17 @@ async function fetchInitialSessions(): Promise<AgentHookSession[]> {
     if (!res.ok) return [];
     const data = await res.json();
     return data.sessions ?? [];
+  } catch {
+    return [];
+  }
+}
+
+async function fetchInitialAttention(): Promise<
+  import("@/api/rest-api").AgentAttentionLatchDto[]
+> {
+  try {
+    const { attention } = await agentHooksApi.listAttention();
+    return attention ?? [];
   } catch {
     return [];
   }

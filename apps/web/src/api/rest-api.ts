@@ -657,12 +657,41 @@ export const agentHooksApi = {
     );
   },
 
+  /** Sticky need-attention latches held in API memory (survives browser refresh). */
+  listAttention: async (): Promise<{ attention: AgentAttentionLatchDto[] }> => {
+    return fetchHooksApi<{ attention: AgentAttentionLatchDto[] }>('/hooks/attention');
+  },
+
+  clearAttention: async (input: {
+    stablePaneId?: string;
+    stablePaneIds?: string[];
+  }): Promise<{ cleared: string[] }> => {
+    return fetchHooksApi<{ cleared: string[] }>('/hooks/attention/clear', {
+      method: 'POST',
+      body: JSON.stringify({
+        stable_pane_id: input.stablePaneId,
+        stable_pane_ids: input.stablePaneIds,
+      }),
+    });
+  },
+
   /** Resolve contested short CLI names (e.g. bare `agent`) to a product owner. */
   getCliIdentity: async (command = 'agent'): Promise<CliIdentityResponse> => {
     return fetchHooksApi<CliIdentityResponse>(
       `/hooks/cli-identity?command=${encodeURIComponent(command)}`,
     );
   },
+};
+
+export type AgentAttentionReasonDto = 'permission_request' | 'task_complete';
+
+export type AgentAttentionLatchDto = {
+  stable_pane_id: string;
+  context_id: string;
+  reason: AgentAttentionReasonDto;
+  session_id: string;
+  tool?: string | null;
+  raised_at: string;
 };
 
 // ===== Workspace Terminal Layout API =====
