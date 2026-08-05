@@ -4632,11 +4632,15 @@
           "desktopUse": {
             "engine": {
               "label": "Control engine",
-              "description": "Install or remove the Desktop Use control engine"
+              "description": "Install, stop, or remove the Desktop Use control engine"
             },
             "permissions": {
               "label": "Desktop permissions",
               "description": "Screen Recording and Accessibility for capture"
+            },
+            "border": {
+              "label": "Operation border",
+              "description": "Visual feedback while Desktop Use operates"
             }
           }
         }
@@ -5545,6 +5549,20 @@
       "host": {
         "defaultName": "Atmos Desktop Use"
       },
+      "groups": {
+        "engine": {
+          "title": "Control engine",
+          "description": "Install, update, stop, or remove the host engine used for capture and UI control."
+        },
+        "permissions": {
+          "title": "Permissions",
+          "description": "Grant Accessibility and Screen Recording to the Desktop Use host app so capture and control work reliably."
+        },
+        "visibility": {
+          "title": "Visual feedback",
+          "description": "On-screen cues while Desktop Use operates — borders now, under-cursor details later."
+        }
+      },
       "engine": {
         "title": "Control engine",
         "hint": "Optional host engine for screen capture and UI control under a dedicated app identity.",
@@ -5554,7 +5572,9 @@
         "removeHint": "Remove the engine from this Mac. Capture and agent desktop control will fall back or become unavailable until reinstalled.",
         "notInstalled": "Not installed",
         "installed": "Installed",
-        "updateAvailable": "Update available"
+        "updateAvailable": "Update available",
+        "statusTitle": "Engine",
+        "statusDescription": "Download state and version of the Desktop Use control engine."
       },
       "actions": {
         "install": "Install",

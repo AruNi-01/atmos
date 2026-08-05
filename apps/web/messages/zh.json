@@ -4632,11 +4632,15 @@
           "desktopUse": {
             "engine": {
               "label": "控制引擎",
-              "description": "安装或移除 Desktop Use 控制引擎"
+              "description": "安装、停止或移除 Desktop Use 控制引擎"
             },
             "permissions": {
               "label": "桌面权限",
               "description": "用于捕获的屏幕录制与辅助功能权限"
+            },
+            "border": {
+              "label": "操作描边",
+              "description": "Desktop Use 操作时的视觉反馈"
             }
           }
         }
@@ -5545,6 +5549,20 @@
       "host": {
         "defaultName": "Atmos Desktop Use"
       },
+      "groups": {
+        "engine": {
+          "title": "控制引擎",
+          "description": "安装、更新、停止或移除用于捕获与 UI 操控的 host 引擎。"
+        },
+        "permissions": {
+          "title": "权限",
+          "description": "为 Desktop Use host 应用授予辅助功能与屏幕录制权限，以便稳定完成捕获与控制。"
+        },
+        "visibility": {
+          "title": "视觉反馈",
+          "description": "Desktop Use 操作时的屏幕提示——当前支持描边，后续可扩展光标下方内容等。"
+        }
+      },
       "engine": {
         "title": "控制引擎",
         "hint": "可选本机控制引擎，在独立 App 身份下完成截屏与 UI 操控。",
@@ -5554,7 +5572,9 @@
         "removeHint": "从本机移除引擎。在重新安装前，相关捕获与 Agent 桌面控制会降级或不可用。",
         "notInstalled": "未安装",
         "installed": "已安装",
-        "updateAvailable": "有可用更新"
+        "updateAvailable": "有可用更新",
+        "statusTitle": "引擎",
+        "statusDescription": "Desktop Use 控制引擎的下载状态与版本。"
       },
       "actions": {
         "install": "安装",
