@@ -1,0 +1,32 @@
+apps/web/messages/en.json
+  h_5be255725524c8 5540-5612,8715,8962-8988
+apps/web/messages/zh.json
+  h_5be255725524c8 5540-5612,8715,8963-8989
+apps/web/src/features/desktop-use/components/DesktopUseReadinessDialog.tsx
+  h_5be255725524c8 1-114
+apps/web/src/features/desktop-use/components/DesktopUseReadinessHost.tsx
+  h_5be255725524c8 1-11
+apps/web/src/features/desktop-use/lib/__tests__/readiness.test.ts
+  h_5be255725524c8 1-106
+apps/web/src/features/desktop-use/lib/readiness-modal-bus.ts
+  h_5be255725524c8 1-78
+apps/web/src/features/desktop-use/lib/readiness.ts
+  h_5be255725524c8 1-242
+apps/web/src/features/settings/components/DesktopUsePermissionsPanel.tsx
+  h_5be255725524c8 11,100
+apps/web/src/features/settings/components/DesktopUseSettingsSection.tsx
+  h_5be255725524c8 5-15,24,96,186-187,327,338,351-412
+apps/web/src/features/settings/components/__tests__/desktop-use-settings-section.test.ts
+  h_5be255725524c8 65-82
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "8595ca8df4a7d8bf35191a72484fc451fa55877a",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
