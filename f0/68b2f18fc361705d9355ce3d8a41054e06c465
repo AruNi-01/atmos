@@ -1,0 +1,41 @@
+.github/workflows/release-desktop-electron.yml
+  s_a88dd643bb50c2::t_30ca6d53c19cff 38-39,129-130,132-133,135-136,284-323
+apps/desktop-electron/scripts/build.ts
+  s_1afb90bd9d6825::t_3a66c5a0127ed0 7,12,66-79,81
+apps/desktop-electron/scripts/check-macos-icon-toolchain.ts
+  s_e05a954936ce92::t_7361cc086fb310 1-26
+apps/desktop-electron/scripts/sync-icons.ts
+  s_e05a954936ce92::t_afd462cd649271 2-6,22,49-58
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "f068b2f18fc361705d9355ce3d8a41054e06c465",
+  "prompts": {},
+  "sessions": {
+    "s_1afb90bd9d6825": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "74654b0e-85b3-43cd-a762-1390fa38f6d7",
+        "model": "grok-4.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_a88dd643bb50c2": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "6314a43d-ceda-4e69-822b-31b81a9b2503",
+        "model": "cursor-grok-4.5-high"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_e05a954936ce92": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "85ede611-fdff-4b8c-97b5-f5db00c24a47",
+        "model": "cursor-grok-4.5-high"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
