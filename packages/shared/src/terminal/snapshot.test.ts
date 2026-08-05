@@ -50,10 +50,20 @@ describe("shouldRestoreTuiMouseTracking", () => {
     ).toBe(true);
     expect(
       shouldRestoreTuiMouseTracking({
-        alternate: true,
+        alternate: false,
         restore_mouse_tracking: false,
       }),
     ).toBe(false);
+  });
+
+  test("alternate screen always restores even if flag is false", () => {
+    // Stale inactive observation must not leave reattach on local scrollback.
+    expect(
+      shouldRestoreTuiMouseTracking({
+        alternate: true,
+        restore_mouse_tracking: false,
+      }),
+    ).toBe(true);
   });
 });
 

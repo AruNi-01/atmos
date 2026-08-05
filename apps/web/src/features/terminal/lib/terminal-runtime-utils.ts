@@ -34,11 +34,15 @@ export function mouseTrackingRestoreSequence(snapshot: {
   ) {
     return snapshot.mouse_tracking_sequence;
   }
-  const restore =
-    typeof snapshot.restore_mouse_tracking === "boolean"
-      ? snapshot.restore_mouse_tracking
-      : snapshot.alternate === true;
-  return restore ? ENABLE_TUI_MOUSE_TRACKING : "";
+  // Alternate-screen TUIs always restore (stale restore_mouse_tracking=false
+  // must not leave reattach on local xterm scrollback).
+  if (snapshot.alternate === true) {
+    return ENABLE_TUI_MOUSE_TRACKING;
+  }
+  if (snapshot.restore_mouse_tracking === true) {
+    return ENABLE_TUI_MOUSE_TRACKING;
+  }
+  return "";
 }
 
 /** Keep in sync with @atmos/shared and core-engine inline mouse TUI whitelist. */

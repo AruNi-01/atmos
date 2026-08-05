@@ -190,43 +190,48 @@ export default function TerminalDomView({
       });
 
       const CMD_START_DELAY_MS = 150;
-      terminal.parser.registerOscHandler(9999, (data: string) => {
-        const colonIdx = data.indexOf(":");
-        if (colonIdx === -1) return true;
+      // 9999 = shell shim; 9998 = server reattach title inject (title only).
+      const registerTitleOsc = (osc: number) => {
+        terminal.parser.registerOscHandler(osc, (data: string) => {
+          const colonIdx = data.indexOf(":");
+          if (colonIdx === -1) return true;
 
-        const metaType = data.substring(0, colonIdx);
-        const payload = data.substring(colonIdx + 1);
+          const metaType = data.substring(0, colonIdx);
+          const payload = data.substring(colonIdx + 1);
 
-        if (metaType === "CMD_START") {
-          const nextTitle = extractCommandName(payload);
-          if (cmdStartTimerRef.current) {
-            window.clearTimeout(cmdStartTimerRef.current);
+          if (metaType === "CMD_START") {
+            const nextTitle = extractCommandName(payload);
+            if (cmdStartTimerRef.current) {
+              window.clearTimeout(cmdStartTimerRef.current);
+            }
+            cmdStartTimerRef.current = window.setTimeout(() => {
+              cmdStartTimerRef.current = null;
+              if (nextTitle !== lastTitleRef.current) {
+                lastTitleRef.current = nextTitle;
+                void callbacksRef.current.onTitleChange(nextTitle).catch(reportError);
+              }
+            }, CMD_START_DELAY_MS);
+            return true;
           }
-          cmdStartTimerRef.current = window.setTimeout(() => {
-            cmdStartTimerRef.current = null;
+
+          if (metaType === "CMD_END") {
+            if (cmdStartTimerRef.current) {
+              window.clearTimeout(cmdStartTimerRef.current);
+              cmdStartTimerRef.current = null;
+            }
+            emitOscTitle(undefined);
+            const nextTitle = shortenPath(payload);
             if (nextTitle !== lastTitleRef.current) {
               lastTitleRef.current = nextTitle;
               void callbacksRef.current.onTitleChange(nextTitle).catch(reportError);
             }
-          }, CMD_START_DELAY_MS);
+          }
+
           return true;
-        }
-
-        if (metaType === "CMD_END") {
-          if (cmdStartTimerRef.current) {
-            window.clearTimeout(cmdStartTimerRef.current);
-            cmdStartTimerRef.current = null;
-          }
-          emitOscTitle(undefined);
-          const nextTitle = shortenPath(payload);
-          if (nextTitle !== lastTitleRef.current) {
-            lastTitleRef.current = nextTitle;
-            void callbacksRef.current.onTitleChange(nextTitle).catch(reportError);
-          }
-        }
-
-        return true;
-      });
+        });
+      };
+      registerTitleOsc(9998);
+      registerTitleOsc(9999);
 
       const resizeObserver =
         typeof ResizeObserver !== "undefined"

@@ -49,6 +49,12 @@ import {
   wrapBracketedPaste,
   writeXtermPayload,
 } from "../lib/terminal-runtime-utils";
+import {
+  attachTuiMouseWheelMultiplier,
+  isTerminalMouseTrackingActive,
+  shouldDisableTuiMouseOnCmdEnd,
+} from "../lib/tui-mouse-wheel";
+import { createTerminalInputCoalesceQueue } from "../lib/terminal-input-coalesce";
 import { TerminalChrome } from "./TerminalChrome";
 import { TerminalSelectionToolbar } from "./TerminalSelectionToolbar";
 import { buildTerminalWsUrl } from "../lib/terminal-ws-url";
@@ -201,6 +207,9 @@ const Terminal = ({
   // Track last emitted title and pending CMD_START timer for debounce/dedup
   const lastTitleRef = useRef<string>("");
   const cmdStartTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Snapshot asked for TUI mouse; used by real shell CMD_START belt-and-suspenders.
+  const tuiMouseDesiredRef = useRef(false);
+  const lastMouseRestoreSequenceRef = useRef("");
   // Debounce native OSC 0/2 so shell preexec (`ls`) → precmd (path) never paints.
   const oscSettleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingOscRawRef = useRef<string | undefined>(undefined);
@@ -283,26 +292,41 @@ const Terminal = ({
   // Batch terminal writes via rAF to reduce render passes. Keep websocket
   // binary frames as bytes so xterm.js owns the streaming UTF-8 parser; tmux
   // control mode can split multi-byte glyphs across arbitrary notifications.
+  // APP-054: small interactive bursts (TUI redraw frames) bypass rAF when the
+  // pipeline is empty so wheel-driven updates paint with less added delay.
   const pendingWriteRef = useRef<TerminalWriteChunk[]>([]);
   const rafScheduledRef = useRef(false);
   const outputTextDecoderRef = useRef(new TextDecoder());
+  const INTERACTIVE_OUTPUT_FAST_PATH_MAX = 512;
 
   const handleOutput = useCallback((data: string | Uint8Array) => {
     if (data.length > 0) {
-      pendingWriteRef.current.push(cloneTerminalWriteChunk(data));
-      if (!rafScheduledRef.current) {
-        rafScheduledRef.current = true;
-        requestAnimationFrame(() => {
-          rafScheduledRef.current = false;
-          const pending = pendingWriteRef.current;
-          pendingWriteRef.current = [];
-          const term = terminalRef.current;
-          if (pending.length > 0 && term) {
-            for (const chunk of coalesceTerminalWriteChunks(pending)) {
-              term.write(chunk);
+      const term = terminalRef.current;
+      const canFastPath =
+        term &&
+        !rafScheduledRef.current &&
+        pendingWriteRef.current.length === 0 &&
+        data.length > 0 &&
+        data.length <= INTERACTIVE_OUTPUT_FAST_PATH_MAX;
+
+      if (canFastPath) {
+        term.write(cloneTerminalWriteChunk(data));
+      } else {
+        pendingWriteRef.current.push(cloneTerminalWriteChunk(data));
+        if (!rafScheduledRef.current) {
+          rafScheduledRef.current = true;
+          requestAnimationFrame(() => {
+            rafScheduledRef.current = false;
+            const pending = pendingWriteRef.current;
+            pendingWriteRef.current = [];
+            const active = terminalRef.current;
+            if (pending.length > 0 && active) {
+              for (const chunk of coalesceTerminalWriteChunks(pending)) {
+                active.write(chunk);
+              }
             }
-          }
-        });
+          });
+        }
       }
     }
     if (data.length > 0 && status === "connected") {
@@ -410,6 +434,10 @@ const Terminal = ({
     const clearScreen = `${screenMode}\x1b[H\x1b[2J${clearScrollback}`;
     const data = normalizeSnapshotData(snapshot.data);
     const cursorRestore = `\x1b[${snapshot.cursor_y + 1};${snapshot.cursor_x + 1}H`;
+    // Authoritative mouse for reattach is the snapshot sequence. Synthetic
+    // reattach title uses OSC 9998 (title-only) so it cannot race-clear modes.
+    tuiMouseDesiredRef.current = mouseRestore.length > 0;
+    lastMouseRestoreSequenceRef.current = mouseRestore;
     term.reset();
     if (
       isUsableTerminalGrid(snapshot.cols, snapshot.rows) &&
@@ -425,6 +453,11 @@ const Terminal = ({
       if (!useAlternateScreen) {
         jumpXtermToBottom(term);
       }
+      const host = containerRef.current?.parentElement ?? containerRef.current;
+      host?.classList.toggle(
+        "atmos-tui-mouse-active",
+        isTerminalMouseTrackingActive(term) || mouseRestore.length > 0,
+      );
       scheduleInputReady();
     });
   }, [scheduleInputReady, sessionId]);
@@ -714,6 +747,10 @@ const Terminal = ({
     let selectionAnchorCleanup: (() => void) | null = null;
     let visibilityPollTimer: ReturnType<typeof setTimeout> | null = null;
     let connectRafId = 0;
+    let mouseClassObserver: MutationObserver | null = null;
+    let inputQueueAlive = true;
+    let inputCoalesceQueue: ReturnType<typeof createTerminalInputCoalesceQueue> | null = null;
+    let hostForMouseChrome: HTMLElement | null = null;
 
     const initTerminal = async () => {
       try {
@@ -763,6 +800,29 @@ const Terminal = ({
 
     // Open terminal in container
     terminal.open(containerRef.current);
+
+    // APP-054: while DEC mouse tracking is active, convert trackpad/wheel
+    // distance into multiple line reports so TUI viewports move proportionally.
+    // When tracking is off, xterm keeps local scrollback behavior.
+    hostForMouseChrome = containerRef.current?.parentElement ?? containerRef.current;
+    const syncTuiMouseChrome = (active: boolean) => {
+      hostForMouseChrome?.classList.toggle("atmos-tui-mouse-active", active);
+    };
+    attachTuiMouseWheelMultiplier(terminal, {
+      onMouseTrackingActiveChange: syncTuiMouseChrome,
+    });
+    // xterm toggles `.enable-mouse-events` when DEC mouse modes change; observe
+    // class mutations so scrollbar chrome stays in sync after hydrate/restore.
+    if (terminal.element && typeof MutationObserver !== "undefined") {
+      mouseClassObserver = new MutationObserver(() => {
+        syncTuiMouseChrome(isTerminalMouseTrackingActive(terminal));
+      });
+      mouseClassObserver.observe(terminal.element, {
+        attributes: true,
+        attributeFilter: ["class"],
+      });
+    }
+    syncTuiMouseChrome(isTerminalMouseTrackingActive(terminal));
 
     const readCurrentSelectionSnapshot = (): TerminalSelectionSnapshot | null => {
       const selectedText = terminal.hasSelection() ? terminal.getSelection() : "";
@@ -927,66 +987,93 @@ const Terminal = ({
       return false;
     });
 
-    // Register OSC 9999 handler for dynamic tab title updates.
-    // The shell shim emits: \033]9999;CMD_START:<command>\007
-    //                    or: \033]9999;CMD_END:<cwd>\007
-    // xterm.js intercepts these sequences and never renders them.
+    // Dynamic tab titles:
+    //   OSC 9999 — real shell shim (preexec/precmd). CMD_END may clear mouse.
+    //   OSC 9998 — server reattach inject only. Title only; never clear mouse
+    //              (APP-054: eliminates hydrate vs inject race on refresh).
     //
-    // Optimizations:
+    // Optimizations on 9999:
     //   1. Dedup — skip update if the new title equals the current one
     //   2. Debounce CMD_START — short-lived commands (ls, pwd, echo) finish
     //      before the timer fires, so CMD_END cancels the pending CMD_START
     //      and the title never flickers.
     const CMD_START_DELAY_MS = 150;
 
-    terminal.parser.registerOscHandler(9999, (data: string) => {
-      const colonIdx = data.indexOf(":");
-      if (colonIdx === -1) return true;
-
-      const metaType = data.substring(0, colonIdx);
-      const payload = data.substring(colonIdx + 1);
-
-      if (metaType === "CMD_START") {
-        const title = extractCommandName(payload);
-        // Belt-and-suspenders for reattach: inject_initial_title sends
-        // CMD_START:<pane_current_command>. Inline mouse TUIs (Grok) may not
-        // use alt-screen, so snapshot.alternate alone is not enough — re-enable
-        // mouse when the running command matches the whitelist.
-        if (isInlineMouseTuiCommand(payload) || isInlineMouseTuiCommand(title)) {
-          terminal.write(ENABLE_TUI_MOUSE_TRACKING);
-        }
-        // Cancel any previous pending CMD_START
-        if (cmdStartTimerRef.current) {
-          clearTimeout(cmdStartTimerRef.current);
-        }
-        // Debounce: only show the command name if it runs longer than the threshold
-        cmdStartTimerRef.current = setTimeout(() => {
-          cmdStartTimerRef.current = null;
-          if (title !== lastTitleRef.current) {
-            lastTitleRef.current = title;
-            onTitleChangeRef.current?.(title);
-          }
-        }, CMD_START_DELAY_MS);
-      } else if (metaType === "CMD_END") {
-        terminal.write(DISABLE_TUI_MOUSE_TRACKING);
-        // Cancel any pending CMD_START — the command finished fast
-        if (cmdStartTimerRef.current) {
-          clearTimeout(cmdStartTimerRef.current);
-          cmdStartTimerRef.current = null;
-        }
-        // Do NOT clear OSC on CMD_END. Shell preexec titles are never stored in
-        // lastOscTitleRef (nextOscTitleAfterIncoming discards them as they
-        // arrive). Reattach injects synthetic CMD_END and must not wipe agent
-        // session topics. Empty OSC 0/2 still clears via emitOscTitle.
-        const title = shortenPath(payload);
+    const applyDynamicTitleCmdStart = (payload: string) => {
+      const title = extractCommandName(payload);
+      // Enable mouse is safe for both 9998 and 9999 when a TUI is indicated.
+      // (Disable is gated separately — only real shell 9999 CMD_END may clear.)
+      const onAlternate = terminal.buffer.active.type === "alternate";
+      const wantMouse =
+        onAlternate ||
+        tuiMouseDesiredRef.current ||
+        isInlineMouseTuiCommand(payload) ||
+        isInlineMouseTuiCommand(title);
+      if (wantMouse) {
+        tuiMouseDesiredRef.current = true;
+        const seq =
+          lastMouseRestoreSequenceRef.current || ENABLE_TUI_MOUSE_TRACKING;
+        terminal.write(seq);
+        syncTuiMouseChrome(true);
+      }
+      if (cmdStartTimerRef.current) {
+        clearTimeout(cmdStartTimerRef.current);
+      }
+      cmdStartTimerRef.current = setTimeout(() => {
+        cmdStartTimerRef.current = null;
         if (title !== lastTitleRef.current) {
           lastTitleRef.current = title;
           onTitleChangeRef.current?.(title);
         }
-      }
+      }, CMD_START_DELAY_MS);
+    };
 
-      return true; // consumed — don't render the sequence
-    });
+    const applyDynamicTitleCmdEnd = (
+      payload: string,
+      opts: { allowMouseSideEffects: boolean },
+    ) => {
+      if (opts.allowMouseSideEffects) {
+        // Real shell idle: clear mouse only when not on alternate screen.
+        // Reattach inject must NOT take this path (uses OSC 9998).
+        if (shouldDisableTuiMouseOnCmdEnd(terminal.buffer.active.type)) {
+          tuiMouseDesiredRef.current = false;
+          lastMouseRestoreSequenceRef.current = "";
+          terminal.write(DISABLE_TUI_MOUSE_TRACKING);
+          syncTuiMouseChrome(false);
+        }
+      }
+      if (cmdStartTimerRef.current) {
+        clearTimeout(cmdStartTimerRef.current);
+        cmdStartTimerRef.current = null;
+      }
+      // Do NOT clear OSC on CMD_END. Shell preexec titles are never stored in
+      // lastOscTitleRef (nextOscTitleAfterIncoming discards them as they
+      // arrive). Empty OSC 0/2 still clears via emitOscTitle.
+      const title = shortenPath(payload);
+      if (title !== lastTitleRef.current) {
+        lastTitleRef.current = title;
+        onTitleChangeRef.current?.(title);
+      }
+    };
+
+    const registerTitleOsc = (osc: number, allowMouseSideEffects: boolean) => {
+      terminal.parser.registerOscHandler(osc, (data: string) => {
+        const colonIdx = data.indexOf(":");
+        if (colonIdx === -1) return true;
+        const metaType = data.substring(0, colonIdx);
+        const payload = data.substring(colonIdx + 1);
+        if (metaType === "CMD_START") {
+          applyDynamicTitleCmdStart(payload);
+        } else if (metaType === "CMD_END") {
+          applyDynamicTitleCmdEnd(payload, { allowMouseSideEffects });
+        }
+        return true;
+      });
+    };
+
+    // 9998 = reattach synthetic title (no mouse disable). 9999 = real shell.
+    registerTitleOsc(9998, false);
+    registerTitleOsc(9999, true);
 
     // Try to load WebGL addon for better performance and crisp text rendering.
     try {
@@ -1012,6 +1099,16 @@ const Terminal = ({
     terminalRef.current = terminal;
     fitAddonRef.current = fitAddon;
 
+    // APP-054: coalesce high-frequency mouse reports / short control bursts so
+    // trackpad multi-report scrolls do not enqueue one WS write per line.
+    inputQueueAlive = true;
+    inputCoalesceQueue = createTerminalInputCoalesceQueue({
+      send: (payload) => {
+        sendInput(payload);
+      },
+      isActive: () => inputQueueAlive && !cancelled,
+    });
+
     // Handle terminal input
     terminal.onData((data) => {
       if (!data) return;
@@ -1023,7 +1120,7 @@ const Terminal = ({
       if (isTerminalEmulatorReport(data)) {
         sendTerminalReport(data);
       } else {
-        sendInput(data);
+        inputCoalesceQueue?.enqueue(data);
         interruptInferenceRef.current?.observeInput(data);
       }
       onData?.(data); // Notify parent
@@ -1215,6 +1312,13 @@ const Terminal = ({
 
     return () => {
       cancelled = true;
+      inputQueueAlive = false;
+      inputCoalesceQueue?.clear();
+      inputCoalesceQueue = null;
+      mouseClassObserver?.disconnect();
+      mouseClassObserver = null;
+      hostForMouseChrome?.classList.remove("atmos-tui-mouse-active");
+      hostForMouseChrome = null;
       terminalInputCleanupRef.current?.();
       terminalInputCleanupRef.current = null;
       if (visibilityPollTimer) clearTimeout(visibilityPollTimer);

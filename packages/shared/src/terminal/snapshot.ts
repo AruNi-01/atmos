@@ -62,11 +62,15 @@ export function shouldRestoreTuiMouseTracking(snapshot: Pick<
   if (typeof snapshot.mouse_tracking_sequence === "string" && snapshot.mouse_tracking_sequence.length > 0) {
     return true;
   }
+  // Fullscreen TUIs always need mouse after reattach even if a stale
+  // restore_mouse_tracking=false was persisted (inactive observation lag).
+  if (snapshot.alternate === true) {
+    return true;
+  }
   if (typeof snapshot.restore_mouse_tracking === "boolean") {
     return snapshot.restore_mouse_tracking;
   }
-  // Older backends only set `alternate`; keep that heuristic as fallback.
-  return snapshot.alternate === true;
+  return false;
 }
 
 /** Exact or default DECSET sequence for post-hydrate mouse restore. */
