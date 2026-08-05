@@ -1,0 +1,26 @@
+apps/cli/src/commands/desktop_use.rs
+  h_5be255725524c8 401,404,413-418,426-428,752-753,757-758,762
+crates/desktop-use/assets/highlight_overlay.swift
+  h_5be255725524c8 169-225,233-238,315,349-351,366-367,371-374
+crates/desktop-use/src/control.rs
+  h_5be255725524c8 399-428,430-432,444-456,458-459,501-506,537-540,542-543,545,564-575,577-579,582-583,586-592,812-813,831-886,985-1035,1097-1116,1118-1140,1142-1163,1222-1236,1253-1267,1349-1370
+crates/desktop-use/src/drive_tools.rs
+  h_5be255725524c8 262-267,464-501
+crates/desktop-use/src/highlight.rs
+  h_5be255725524c8 660,662-666,674-700,729,733,737,741,745-755,762-775,777-783
+skills/atmos-desktop-use/SKILL.md
+  h_5be255725524c8 3,158-160,175-183
+skills/atmos-desktop-use/references/cli.md
+  h_5be255725524c8 73,75-81,123-131,142,144,149-151
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "bdd1b247495a315dd09cee96a335d188d0d73bc1",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
