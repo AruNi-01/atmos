@@ -11,10 +11,8 @@ import {
   type WebContents,
 } from "electron";
 import { randomUUID } from "node:crypto";
-import { readFileSync, existsSync } from "node:fs";
 import { createRequire } from "node:module";
-import { dirname, join } from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { pathToFileURL } from "node:url";
 import type { AppState } from "../app-state.js";
 import { appWindowBranding } from "../branding.js";
 import { areDevToolsAllowed } from "../devtools-policy.js";
@@ -29,23 +27,13 @@ import {
   toPreloadFileUrl,
   type RegisteredBrowserSession,
 } from "./webview-attach-policy.js";
+import {
+  browserPreloadPath,
+  buildBridgeInjection,
+} from "./webview-runtime.js";
+import { applyGuestColorScheme as applyGuestColorSchemeToWebContents } from "./webview-color-scheme.js";
 
 const requireElectron = createRequire(import.meta.url);
-const __dirname = dirname(fileURLToPath(import.meta.url));
-
-function findRepoRoot(start: string): string {
-  let dir = start;
-  for (let i = 0; i < 8; i++) {
-    if (existsSync(join(dir, "packages/shared/browser/browser-runtime.js"))) {
-      return dir;
-    }
-    const parent = dirname(dir);
-    if (parent === dir) break;
-    dir = parent;
-  }
-  return join(start, "../../..");
-}
-const REPO_ROOT = findRepoRoot(__dirname);
 
 export type BrowserAttachConfig = {
   partition: string;
@@ -74,71 +62,6 @@ type SurfaceState = {
    */
   preferredColorScheme: GuestColorScheme;
 };
-
-function browserRuntimeScriptPath(): string {
-  return join(REPO_ROOT, "packages/shared/browser/browser-runtime.js");
-}
-
-function browserPreloadPath(): string {
-  // Built as CommonJS (.cjs) so sandboxed guest preloads can load.
-  const candidates = [
-    join(__dirname, "browser-preload.cjs"),
-    join(__dirname, "browser-preload.js"),
-  ];
-  for (const p of candidates) {
-    if (existsSync(p)) return p;
-  }
-  return candidates[0]!;
-}
-
-function buildBridgeInjection(bridgeToken: string): string {
-  const runtimePath = browserRuntimeScriptPath();
-  const runtime = existsSync(runtimePath)
-    ? readFileSync(runtimePath, "utf8")
-    : "/* browser-runtime.js missing */";
-  if (!existsSync(runtimePath)) {
-    console.error(`[browser] runtime script missing: ${runtimePath}`);
-  }
-  const tokenJson = JSON.stringify(bridgeToken);
-  // Host SelectionPopover owns toolbar chrome — guest toolbar off (APP-053).
-  return `
-${runtime}
-(() => {
-  if (window.__ATMOS_DESKTOP_BROWSER_BRIDGE__) return;
-  const invoke = window.__ATMOS_BROWSER_INVOKE__;
-  if (!invoke) {
-    console.error('[atmos-browser] __ATMOS_BROWSER_INVOKE__ missing — browser preload failed');
-    return;
-  }
-  if (!window.__ATMOS_BROWSER_RUNTIME__) {
-    console.error('[atmos-browser] __ATMOS_BROWSER_RUNTIME__ missing — runtime inject failed');
-    return;
-  }
-  const bridgeToken = ${tokenJson};
-  const controller = window.__ATMOS_BROWSER_RUNTIME__.createRuntime({
-    win: window,
-    // Host SelectionPopover owns toolbar chrome; guest still draws pick hover/lock labels.
-    showSelectionToolbar: false,
-    showHoverLabel: true,
-    emit(message) {
-      invoke('browser_bridge_event', {
-        payload: Object.assign({}, message, { bridgeToken })
-      }).catch((err) => {
-        console.error('[atmos-browser] emit failed', err);
-      });
-    },
-  });
-  window.__ATMOS_DESKTOP_BROWSER_BRIDGE__ = {
-    announceReady(sessionId) { controller.announceReady(sessionId); },
-    enterPickMode(sessionId) { controller.enterPickMode(sessionId); },
-    clearSelection() { controller.exitPickMode(); },
-    clearAnnotations() { controller.clearAnnotations?.(); },
-    syncOverlays() { controller.syncOverlays?.(); },
-    destroy() { controller.destroy(); },
-  };
-})();
-`;
-}
 
 export class BrowserSurfaceManager {
   private readonly surfaces = new Map<string, SurfaceState>();
@@ -360,50 +283,8 @@ export class BrowserSurfaceManager {
 
   private async applyGuestColorScheme(s: SurfaceState): Promise<void> {
     const wc = this.webContentsFor(s);
-    if (!wc || wc.isDestroyed()) return;
-    const scheme = s.preferredColorScheme;
-    const css = `:root, html { color-scheme: ${scheme} !important; }`;
-    try {
-      await wc.insertCSS(css);
-    } catch {
-      /* navigation mid-flight */
-    }
-    try {
-      await wc.executeJavaScript(
-        `(() => {
-          var scheme = ${JSON.stringify(scheme)};
-          try {
-            document.documentElement.style.colorScheme = scheme;
-            document.documentElement.setAttribute('data-atmos-color-scheme', scheme);
-          } catch (_) {}
-        })();`,
-        true,
-      );
-    } catch {
-      /* guest not ready */
-    }
-    // Emulate prefers-color-scheme media so dark sites (e.g. skills.sh) style
-    // scrollbars like Chrome. Re-applied on every navigation in onBrowserPageFinished.
-    try {
-      const dbg = wc.debugger;
-      let attachedHere = false;
-      if (!dbg.isAttached()) {
-        dbg.attach("1.3");
-        attachedHere = true;
-      }
-      await dbg.sendCommand("Emulation.setEmulatedMedia", {
-        features: [{ name: "prefers-color-scheme", value: scheme }],
-      });
-      if (attachedHere) {
-        try {
-          dbg.detach();
-        } catch {
-          /* ignore */
-        }
-      }
-    } catch {
-      /* debugger busy (DevTools) — insertCSS / color-scheme still applied */
-    }
+    if (!wc) return;
+    await applyGuestColorSchemeToWebContents(wc, s.preferredColorScheme);
   }
 
   private emitToApp(
