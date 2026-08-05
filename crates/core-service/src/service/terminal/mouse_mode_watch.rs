@@ -308,21 +308,11 @@ fn run_mouse_mode_watch(
                     pane_id: pid, data, ..
                 }) if pid == pane_id => {
                     let data = passthrough.push(&data);
-                    if !data.is_empty() {
-                        let mouse_was_active = mouse_modes.is_active();
-                        if mouse_modes.observe_bytes(&data) {
-                            if let Err(error) =
-                                tmux.set_pane_mouse_tracking_by_id(&pane_id, &mouse_modes)
-                            {
-                                debug!("mouse-mode watch persist failed for {key}: {error}");
-                            }
-                            if mouse_was_active && !mouse_modes.is_active() {
-                                if let Err(error) = tmux.clear_pane_history_by_id(&pane_id) {
-                                    debug!(
-                                        "mouse-mode watch clear-history failed for {key}: {error}"
-                                    );
-                                }
-                            }
+                    if !data.is_empty() && mouse_modes.observe_bytes(&data) {
+                        if let Err(error) =
+                            tmux.set_pane_mouse_tracking_by_id(&pane_id, &mouse_modes)
+                        {
+                            debug!("mouse-mode watch persist failed for {key}: {error}");
                         }
                     }
                 }

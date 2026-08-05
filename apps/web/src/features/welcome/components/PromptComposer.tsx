@@ -261,8 +261,8 @@ function buildBrowserUseChipIcon(): SVGSVGElement {
   svg.style.flexShrink = "0";
 
   for (const d of [
-    "M13 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V10",
-    "M2 8h11",
+    "M12 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9",
+    "M2 8h10",
     "M6 4v4",
     "M10 4v4",
   ]) {
@@ -271,7 +271,7 @@ function buildBrowserUseChipIcon(): SVGSVGElement {
     svg.appendChild(path);
   }
   const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
-  g.setAttribute("transform", "translate(22.6 0.2) scale(-0.48 0.48)");
+  g.setAttribute("transform", "translate(23.4 2.0) scale(-0.45 0.45)");
   for (const d of [
     "M14 4.1 12 6",
     "m5.1 8-2.9-.8",
@@ -494,7 +494,7 @@ function buildChipNode(token: string): HTMLSpanElement {
     const isBrowserUse = absolutePath.includes("atmos-browser-use");
     const isDesktopUse = absolutePath.includes("atmos-desktop-use");
     if (isBrowserUse) {
-      span.className += " border-sky-500/35 bg-sky-500/10 text-sky-700 dark:text-sky-300";
+      span.className += " border-amber-500/35 bg-amber-500/10 text-amber-700 dark:text-amber-300";
       span.appendChild(buildBrowserUseChipIcon());
     } else if (isDesktopUse) {
       span.className +=

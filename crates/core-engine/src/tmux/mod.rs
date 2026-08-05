@@ -428,17 +428,6 @@ impl TmuxEngine {
         ])?;
         Ok(MouseModeState::decode_persist(raw.trim()))
     }
-
-    /// Drop scrollback for a pane (`clear-history`).
-    ///
-    /// Inline mouse TUIs (e.g. Grok) paint into the **normal** buffer, so every
-    /// full-frame redraw pollutes tmux history. After the app disables mouse
-    /// reporting (typically on exit), clear that junk so reattach does not
-    /// rehydrate a ghost TUI above the shell (APP-054).
-    pub fn clear_pane_history_by_id(&self, pane_id: &str) -> Result<()> {
-        self.run_tmux(&["clear-history", "-t", pane_id])?;
-        Ok(())
-    }
 }
 
 #[cfg(test)]

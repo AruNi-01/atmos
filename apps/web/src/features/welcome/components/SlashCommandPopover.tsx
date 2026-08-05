@@ -227,7 +227,7 @@ export function SlashCommandPopover({
   };
 
   const menuContent = (
-    <div ref={listRef} className="max-h-80 overflow-y-auto p-1">
+    <div ref={listRef} className="max-h-80 space-y-0.5 overflow-y-auto p-1">
       {showCommands && visibleCommands.length > 0 ? (
         <>
           <div className="px-2 py-1 text-xs font-medium text-muted-foreground">
@@ -241,7 +241,7 @@ export function SlashCommandPopover({
                 setItemRef(index, el);
               }}
               className={cn(
-                "flex w-full items-center gap-2 rounded-md px-2.5 py-1 text-left hover:bg-muted",
+                "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left hover:bg-muted",
                 index === activeIndex && "bg-muted",
               )}
               onMouseDown={(event) => {
@@ -254,7 +254,7 @@ export function SlashCommandPopover({
               ) : command.id === "dynamic-skills" ? (
                 <EyeOff className="size-4 text-red-600 dark:text-red-400" />
               ) : command.id === BROWSER_USE_SLASH_COMMAND_ID ? (
-                <BrowserUseIconStatic className="size-4 text-sky-600 dark:text-sky-400" />
+                <BrowserUseIconStatic className="size-4 text-amber-600 dark:text-amber-400" />
               ) : command.id === DESKTOP_USE_SLASH_COMMAND_ID ? (
                 <DesktopUseIconStatic className="size-4 text-violet-600 dark:text-violet-400" />
               ) : (
@@ -306,7 +306,7 @@ export function SlashCommandPopover({
                     disabled={isDisabled}
                     aria-disabled={isDisabled}
                     className={cn(
-                      "flex w-full items-center gap-2 rounded-md px-2.5 py-1 text-left",
+                      "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left",
                       isDisabled
                         ? "cursor-default text-muted-foreground opacity-80"
                         : "hover:bg-muted",
@@ -319,7 +319,7 @@ export function SlashCommandPopover({
                     }}
                   >
                     {isBrowserUse ? (
-                      <BrowserUseIconStatic className="size-4 shrink-0 text-sky-600 dark:text-sky-400" />
+                      <BrowserUseIconStatic className="size-4 shrink-0 text-amber-600 dark:text-amber-400" />
                     ) : isDesktopUse ? (
                       <DesktopUseIconStatic className="size-4 shrink-0 text-violet-600 dark:text-violet-400" />
                     ) : (
@@ -344,7 +344,7 @@ export function SlashCommandPopover({
                     setItemRef(skillsStartIndex + skillsCount, el);
                   }}
                   className={cn(
-                    "flex w-full items-center gap-2 rounded-md px-2.5 py-1 text-left text-[11px] text-muted-foreground hover:bg-muted",
+                    "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-[11px] text-muted-foreground hover:bg-muted",
                     skillsStartIndex + skillsCount === activeIndex && "bg-muted",
                   )}
                   onMouseDown={(event) => {
@@ -381,7 +381,7 @@ export function SlashCommandPopover({
                       setItemRef(navIndex, el);
                     }}
                     className={cn(
-                      "flex w-full items-center gap-2 rounded-md px-2.5 py-1 text-left hover:bg-muted",
+                      "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left hover:bg-muted",
                       navIndex === activeIndex && "bg-muted",
                     )}
                     onMouseDown={(event) => {
@@ -401,7 +401,7 @@ export function SlashCommandPopover({
                     setItemRef(projectsStartIndex + projectsCount, el);
                   }}
                   className={cn(
-                    "flex w-full items-center gap-2 rounded-md px-2.5 py-1 text-left text-[11px] text-muted-foreground hover:bg-muted",
+                    "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-[11px] text-muted-foreground hover:bg-muted",
                     projectsStartIndex + projectsCount === activeIndex && "bg-muted",
                   )}
                   onMouseDown={(event) => {
@@ -438,7 +438,7 @@ export function SlashCommandPopover({
                       setItemRef(navIndex, el);
                     }}
                     className={cn(
-                      "flex w-full items-center gap-2 rounded-md px-2.5 py-1 text-left hover:bg-muted",
+                      "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left hover:bg-muted",
                       navIndex === activeIndex && "bg-muted",
                     )}
                     onMouseDown={(event) => {
@@ -464,7 +464,7 @@ export function SlashCommandPopover({
                     setItemRef(agentsStartIndex + Math.min(filteredAgents.length, 3), el);
                   }}
                   className={cn(
-                    "flex w-full items-center gap-2 rounded-md px-2.5 py-1 text-left text-[11px] text-muted-foreground hover:bg-muted",
+                    "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-[11px] text-muted-foreground hover:bg-muted",
                     agentsStartIndex + Math.min(filteredAgents.length, 3) === activeIndex &&
                       "bg-muted",
                   )}

@@ -35,11 +35,11 @@ describe("composer slash command icons", () => {
     );
     expect(icon).toContain("BrowserUseIconStatic");
     // Title-bar chrome (browser window), not desktop stand
-    expect(icon).toContain("M13 4H4a2 2 0 0 0-2 2v12");
-    expect(icon).toContain("M2 8h11");
+    expect(icon).toContain("M12 4H4a2 2 0 0 0-2 2v12");
+    expect(icon).toContain("M2 8h10");
     expect(icon).not.toContain("M8 21h8");
-    // Shared pointer composition with Desktop Use
-    expect(icon).toContain("translate(22.6 0.2) scale(-0.48 0.48)");
+    // Pointer inset from window top edge (gap vs desktop-style spacing)
+    expect(icon).toContain("translate(23.4 2.0) scale(-0.45 0.45)");
   });
 
   it("Desktop Use static icon remains monitor + pointer", () => {

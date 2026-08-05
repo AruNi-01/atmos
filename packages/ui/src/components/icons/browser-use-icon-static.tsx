@@ -25,13 +25,14 @@ export function BrowserUseIconStatic({
       aria-hidden
     >
       {/* Window frame open at top-right (notch for the control cursor). */}
-      <path d="M13 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V10" />
+      <path d="M12 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9" />
       {/* Title-bar chrome (only under the closed portion of the top edge). */}
-      <path d="M2 8h11" />
+      <path d="M2 8h10" />
       <path d="M6 4v4" />
       <path d="M10 4v4" />
-      {/* Click pointer on the top-right notch, tip pointing ↗. */}
-      <g transform="translate(22.6 0.2) scale(-0.48 0.48)">
+      {/* Pointer sits in the notch with a clear gap from the window top edge
+          (matches Desktop Use spacing feel). */}
+      <g transform="translate(23.4 2.0) scale(-0.45 0.45)">
         <path d="M14 4.1 12 6" opacity={0.9} />
         <path d="m5.1 8-2.9-.8" opacity={0.9} />
         <path d="m6 12-1.9 2" opacity={0.9} />
