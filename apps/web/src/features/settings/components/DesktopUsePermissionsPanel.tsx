@@ -61,6 +61,14 @@ export function DesktopUsePermissionsPanel({
         }
         const d = await desktopInvoke<DoctorStatus>("desktop_use_doctor");
         if (mountedRef.current) setDoctor(d);
+        // Accessibility granted → dismiss drag panel if still open.
+        if (d?.accessibility === true) {
+          try {
+            await desktopInvoke("desktop_use_close_grant_overlay");
+          } catch {
+            /* overlay optional */
+          }
+        }
       } catch (e) {
         if (mountedRef.current) {
           if (mode !== "silent") {
@@ -96,12 +104,14 @@ export function DesktopUsePermissionsPanel({
     setGrantingTarget(target);
     setError(null);
     try {
-      await desktopInvoke("desktop_use_grant_permissions", { target });
+      const locale =
+        typeof navigator !== "undefined" ? navigator.language : undefined;
+      await desktopInvoke("desktop_use_grant_permissions", { target, locale });
       invalidateDesktopUseReadinessCache();
       stopPoll();
       const started = Date.now();
       pollRef.current = setInterval(() => {
-        if (Date.now() - started > 45_000) {
+        if (Date.now() - started > 120_000) {
           stopPoll();
           return;
         }
@@ -207,11 +217,18 @@ export function DesktopUsePermissionsPanel({
           {error ? (
             <p className="text-sm text-destructive">{error}</p>
           ) : (
-            <p className="text-xs text-muted-foreground">
-              {t("permissions.hostLine", {
-                host: doctor?.host_app_name ?? t("host.defaultName"),
-              })}
-            </p>
+            <div className="min-w-0 space-y-1">
+              <p className="text-xs text-muted-foreground">
+                {t("permissions.hostLine", {
+                  host: doctor?.host_app_name ?? t("host.defaultName"),
+                })}
+              </p>
+              {doctor?.accessibility !== true ? (
+                <p className="text-xs text-muted-foreground">
+                  {t("permissions.dragHint")}
+                </p>
+              ) : null}
+            </div>
           )}
         </div>
         <Button

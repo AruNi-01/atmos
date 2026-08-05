@@ -33,7 +33,7 @@ pub use highlight::{
     pid_for_window_id, resolve_agent_name, session_cursor_fill_hex, show_cursor_caption,
     show_desktop_highlight, show_window_highlight, HighlightResult, HighlightStyle,
 };
-pub use host::PermissionGrantTarget;
+pub use host::{PermissionGrantOutcome, PermissionGrantTarget};
 pub use manager::{DesktopUseManager, DesktopUseStatus, DriverPhase, DriverStatus, EnsureOutcome};
 pub use prefs::{load_prefs, save_prefs, update_prefs, DesktopUsePrefs};
 pub use window_surface::{classify_surface, enrich_window_state, SurfaceKind};

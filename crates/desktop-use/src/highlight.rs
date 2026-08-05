@@ -1,7 +1,10 @@
 //! Click-through border highlight + dynamic status caption under the agent pointer.
 //!
-//! macOS: compiles a small Swift overlay helper into the Desktop Use data dir and
-//! keeps a single long-lived process whose frame is replaced on each show.
+//! macOS: installs a **prebuilt** Swift overlay helper into the Desktop Use data dir
+//! and keeps a single long-lived process whose frame is replaced on each show.
+//! Production never requires `swiftc`. Maintainers rebuild the prebuilt under
+//! `native/highlight/` (see that folder's README). Set
+//! `ATMOS_DESKTOP_USE_BUILD_HELPERS=1` to compile from source for local iteration.
 
 use std::env;
 use std::fs;
@@ -17,9 +20,17 @@ use crate::strings::scrub_vendor;
 const HELPER_NAME: &str = "atmos-desktop-highlight";
 const PID_FILE: &str = "highlight.pid";
 const META_FILE: &str = "highlight.json";
-/// Source is embedded next to the crate for `include_str!` at compile time of the helper.
+const STAMP_FILE: &str = "highlight.prebuilt.sha256";
+
+/// Universal prebuilt helper (arm64 + x86_64). Shipped with the crate so users
+/// do not need Xcode / swiftc.
 #[cfg(target_os = "macos")]
-const SWIFT_SOURCE: &str = include_str!("../assets/highlight_overlay.swift");
+const PREBUILT_HIGHLIGHT: &[u8] =
+    include_bytes!("../native/highlight/prebuilt/atmos-desktop-highlight");
+
+/// Source for optional local rebuild (`ATMOS_DESKTOP_USE_BUILD_HELPERS=1`).
+#[cfg(target_os = "macos")]
+const SWIFT_SOURCE: &str = include_str!("../native/highlight/highlight_overlay.swift");
 
 #[derive(Debug, Clone, Serialize)]
 pub struct HighlightTarget {
@@ -90,16 +101,37 @@ impl HighlightStyle {
     }
 }
 
-fn data_paths() -> (PathBuf, PathBuf, PathBuf, PathBuf) {
+fn data_paths() -> (PathBuf, PathBuf, PathBuf, PathBuf, PathBuf) {
     let dir = desktop_use_dir();
     let bin = dir.join("bin").join(HELPER_NAME);
     let pid = dir.join(PID_FILE);
     let meta = dir.join(META_FILE);
     let src = dir.join("cache").join("highlight_overlay.swift");
-    (bin, pid, meta, src)
+    let stamp = dir.join("cache").join(STAMP_FILE);
+    (bin, pid, meta, src, stamp)
 }
 
-/// Ensure the Swift overlay helper is compiled into `~/.atmos/desktop-use/bin/`.
+fn prefer_build_from_source() -> bool {
+    matches!(
+        env::var("ATMOS_DESKTOP_USE_BUILD_HELPERS")
+            .map(|v| v == "1" || v.eq_ignore_ascii_case("true"))
+            .ok(),
+        Some(true)
+    )
+}
+
+#[cfg(target_os = "macos")]
+fn prebuilt_sha256_hex() -> String {
+    use sha2::{Digest, Sha256};
+    let mut hasher = Sha256::new();
+    hasher.update(PREBUILT_HIGHLIGHT);
+    hex::encode(hasher.finalize())
+}
+
+/// Ensure the overlay helper binary is present under `~/.atmos/desktop-use/bin/`.
+///
+/// Default: install the crate-shipped prebuilt (no `swiftc`).
+/// Dev: `ATMOS_DESKTOP_USE_BUILD_HELPERS=1` recompiles from embedded Swift source.
 pub fn ensure_helper() -> Result<PathBuf, String> {
     #[cfg(not(target_os = "macos"))]
     {
@@ -107,7 +139,7 @@ pub fn ensure_helper() -> Result<PathBuf, String> {
     }
     #[cfg(target_os = "macos")]
     {
-        let (bin, _, _, src) = data_paths();
+        let (bin, _, _, src, stamp) = data_paths();
         if let Some(parent) = bin.parent() {
             let _ = fs::create_dir_all(parent);
         }
@@ -115,39 +147,60 @@ pub fn ensure_helper() -> Result<PathBuf, String> {
             let _ = fs::create_dir_all(parent);
         }
 
-        fs::write(&src, SWIFT_SOURCE)
-            .map_err(|e| scrub_vendor(&format!("write highlight source failed: {e}")))?;
-        let need_compile = !bin.is_file() || source_newer_than_binary(&src, &bin);
-        if need_compile {
-            let output = Command::new("swiftc")
-                .args(["-O", "-o"])
-                .arg(&bin)
-                .arg(&src)
-                .output()
-                .map_err(|e| {
-                    scrub_vendor(&format!(
-                        "swiftc not available to build highlight helper: {e}"
-                    ))
-                })?;
-            if !output.status.success() {
-                let err = String::from_utf8_lossy(&output.stderr);
-                return Err(scrub_vendor(&format!(
-                    "failed to compile desktop highlight helper: {err}"
-                )));
-            }
+        if prefer_build_from_source() {
+            return compile_helper_from_source(&bin, &src);
         }
+
+        install_prebuilt_helper(&bin, &stamp)?;
         Ok(bin)
     }
 }
 
 #[cfg(target_os = "macos")]
-fn source_newer_than_binary(src: &Path, bin: &Path) -> bool {
-    let src_mtime = fs::metadata(src).and_then(|m| m.modified()).ok();
-    let bin_mtime = fs::metadata(bin).and_then(|m| m.modified()).ok();
-    match (src_mtime, bin_mtime) {
-        (Some(s), Some(b)) => s > b,
-        _ => true,
+fn install_prebuilt_helper(bin: &Path, stamp: &Path) -> Result<(), String> {
+    let expected = prebuilt_sha256_hex();
+    let stamp_ok = fs::read_to_string(stamp)
+        .ok()
+        .map(|s| s.trim() == expected)
+        .unwrap_or(false);
+    let bin_ok = bin.is_file() && stamp_ok;
+    if bin_ok {
+        return Ok(());
     }
+
+    fs::write(bin, PREBUILT_HIGHLIGHT)
+        .map_err(|e| scrub_vendor(&format!("install prebuilt highlight helper failed: {e}")))?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let _ = fs::set_permissions(bin, fs::Permissions::from_mode(0o755));
+    }
+    fs::write(stamp, format!("{expected}\n"))
+        .map_err(|e| scrub_vendor(&format!("write highlight stamp failed: {e}")))?;
+    Ok(())
+}
+
+#[cfg(target_os = "macos")]
+fn compile_helper_from_source(bin: &Path, src: &Path) -> Result<PathBuf, String> {
+    fs::write(src, SWIFT_SOURCE)
+        .map_err(|e| scrub_vendor(&format!("write highlight source failed: {e}")))?;
+    let output = Command::new("swiftc")
+        .args(["-O", "-o"])
+        .arg(bin)
+        .arg(src)
+        .output()
+        .map_err(|e| {
+            scrub_vendor(&format!(
+                "swiftc not available to build highlight helper: {e}"
+            ))
+        })?;
+    if !output.status.success() {
+        let err = String::from_utf8_lossy(&output.stderr);
+        return Err(scrub_vendor(&format!(
+            "failed to compile desktop highlight helper: {err}"
+        )));
+    }
+    Ok(bin.to_path_buf())
 }
 
 fn read_pid(pid_path: &Path) -> Option<u32> {
@@ -170,7 +223,7 @@ fn process_alive(pid: u32) -> bool {
 
 /// Clear any active highlight overlay.
 pub fn clear_highlight() -> HighlightResult {
-    let (_, pid_path, meta_path, _) = data_paths();
+    let (_, pid_path, meta_path, _, _) = data_paths();
     if let Some(pid) = read_pid(&pid_path) {
         if process_alive(pid) {
             let _ = Command::new("kill")
@@ -511,7 +564,7 @@ fn show_with_args(mode: &str, extra: Vec<String>, target: HighlightTarget) -> Hi
             std::thread::spawn(move || {
                 let _ = child.wait();
             });
-            let (_, pid_path, meta_path, _) = data_paths();
+            let (_, pid_path, meta_path, _, _) = data_paths();
             let _ = fs::write(&pid_path, pid.to_string());
             let meta = serde_json::json!({
                 "pid": pid,

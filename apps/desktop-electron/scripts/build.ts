@@ -62,6 +62,13 @@ await esbuild.build({
   entryPoints: [join(root, "src/appshot/shift-helper-main.ts")],
   outfile: join(dist, "shift-helper-main.js"),
 });
+// Desktop Use Accessibility grant panel (drag host .app into System Settings).
+await esbuild.build({
+  ...shared,
+  format: "cjs",
+  entryPoints: [join(root, "src/desktop-use/grant-preload.ts")],
+  outfile: join(dist, "grant-preload.cjs"),
+});
 
 // Guest element-select runtime is read at runtime via executeJavaScript inject.
 // Ship next to main.js so packaged apps resolve dist/browser-runtime.js (not monorepo).
@@ -78,5 +85,5 @@ if (!existsSync(browserRuntimeSrc)) {
 copyFileSync(browserRuntimeSrc, browserRuntimeDest);
 
 console.log(
-  "[build] dist/main.js, dist/preload.cjs, dist/browser-preload.cjs, dist/browser-runtime.js, dist/shift-helper-main.js",
+  "[build] dist/main.js, dist/preload.cjs, dist/browser-preload.cjs, dist/browser-runtime.js, dist/shift-helper-main.js, dist/grant-preload.cjs",
 );

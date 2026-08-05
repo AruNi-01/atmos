@@ -617,7 +617,45 @@ export function createAllHandlers(
         raw === "accessibility" || raw === "screen_recording" || raw === "all"
           ? raw
           : "all";
-      return client.desktopUseGrantPermissions(target);
+      const result = (await client.desktopUseGrantPermissions(target)) as {
+        ok?: boolean;
+        host_app_path?: string | null;
+        host_app_name?: string | null;
+        accessibility_pane?: boolean;
+        [key: string]: unknown;
+      };
+
+      // Desktop shell: Accessibility gets a drag-to-list panel (host .app path).
+      const wantsDrag =
+        result?.accessibility_pane === true ||
+        target === "accessibility" ||
+        target === "all";
+      const hostPath =
+        typeof result?.host_app_path === "string" ? result.host_app_path : "";
+      if (wantsDrag && hostPath && process.platform === "darwin") {
+        const { showAccessibilityGrantOverlay } = await import(
+          "../desktop-use/grant-overlay.js"
+        );
+        const locale =
+          typeof args?.locale === "string"
+            ? args.locale
+            : typeof args?.lang === "string"
+              ? args.lang
+              : undefined;
+        const overlay = showAccessibilityGrantOverlay({
+          hostAppPath: hostPath,
+          hostAppName:
+            typeof result?.host_app_name === "string"
+              ? result.host_app_name
+              : undefined,
+          locale,
+        });
+        return {
+          ...result,
+          drag_overlay: overlay,
+        };
+      }
+      return result;
     },
     async desktop_use_drive_verify() {
       const client = await import("../desktop-use/client.js");
@@ -648,6 +686,13 @@ export function createAllHandlers(
     async desktop_use_drive_session_end() {
       const client = await import("../desktop-use/client.js");
       return client.desktopUseDriveSessionEnd();
+    },
+    async desktop_use_close_grant_overlay() {
+      const { closeAccessibilityGrantOverlay } = await import(
+        "../desktop-use/grant-overlay.js"
+      );
+      closeAccessibilityGrantOverlay();
+      return { ok: true };
     },
 
     // --- tunnel ---

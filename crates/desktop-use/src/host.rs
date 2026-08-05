@@ -243,9 +243,29 @@ impl PermissionGrantTarget {
     }
 }
 
+/// Result of opening System Settings for a permission grant.
+///
+/// Desktop shell may show a drag-to-list overlay using [`host_app_path`]; the
+/// control plane only opens the OS pane and returns paths.
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct PermissionGrantOutcome {
+    pub opened_settings: bool,
+    pub target: String,
+    /// Absolute path to Atmos Desktop Use.app when installed (for drag / Reveal).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub host_app_path: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub host_app_name: Option<String>,
+    /// True when Accessibility was part of this grant (desktop may show drag UI).
+    pub accessibility_pane: bool,
+}
+
 /// Atmos-owned permission grant for the rebranded host app.
 ///
-/// Opens **only** System Settings → Privacy for the requested target.
+/// Opens System Settings → Privacy for the requested target and returns the
+/// host app path so the **desktop shell** can show a drag-to-list affordance.
+/// CLI callers get the path for Reveal-in-Finder style hints.
+///
 /// Does **not** fire a live screenshot / capture probe: that would raise the
 /// system “allow screen recording” alert *in addition* to Settings, which is
 /// noisy once the Settings pane is already open.
@@ -257,10 +277,19 @@ pub fn open_host_permission_grant(
     socket: &Path,
     data_dir: &Path,
     target: PermissionGrantTarget,
-) -> Result<(), String> {
+) -> Result<PermissionGrantOutcome, String> {
     #[cfg(target_os = "macos")]
     {
-        let _ = (host_app, data_dir);
+        let _ = data_dir;
+        let accessibility_pane = matches!(
+            target,
+            PermissionGrantTarget::Accessibility | PermissionGrantTarget::All
+        );
+        let target_label = match target {
+            PermissionGrantTarget::All => "all",
+            PermissionGrantTarget::Accessibility => "accessibility",
+            PermissionGrantTarget::ScreenRecording => "screen_recording",
+        };
         match target {
             PermissionGrantTarget::Accessibility => {
                 open_system_privacy_pane("accessibility")?;
@@ -281,7 +310,22 @@ pub fn open_host_permission_grant(
             let _ = ensure_daemon(engine_bin, socket, host_app);
         }
 
-        Ok(())
+        let host_app_path = host_app
+            .filter(|p| p.exists())
+            .map(|p| p.display().to_string());
+        let host_app_name = host_app.and_then(|p| {
+            p.file_stem()
+                .and_then(|s| s.to_str())
+                .map(|s| s.to_string())
+        });
+
+        Ok(PermissionGrantOutcome {
+            opened_settings: true,
+            target: target_label.into(),
+            host_app_path,
+            host_app_name,
+            accessibility_pane,
+        })
     }
     #[cfg(not(target_os = "macos"))]
     {

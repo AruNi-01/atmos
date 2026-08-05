@@ -311,14 +311,14 @@ impl DesktopUseManager {
         }
     }
 
-    pub fn open_permission_grant(&self) -> Result<(), String> {
+    pub fn open_permission_grant(&self) -> Result<host::PermissionGrantOutcome, String> {
         self.open_permission_grant_target(host::PermissionGrantTarget::All)
     }
 
     pub fn open_permission_grant_target(
         &self,
         target: host::PermissionGrantTarget,
-    ) -> Result<(), String> {
+    ) -> Result<host::PermissionGrantOutcome, String> {
         let engine = self.require_engine()?;
         // Refresh host branding only if icon/plist still wrong (idempotent; no TCC churn).
         if let (Ok(manifest), Some(host)) = (

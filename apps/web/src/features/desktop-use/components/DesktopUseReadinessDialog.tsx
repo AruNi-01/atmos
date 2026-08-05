@@ -10,9 +10,10 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  cn,
 } from "@workspace/ui";
 import { AlertCircle, Settings2 } from "lucide-react";
-import { openDesktopUseSettingsInApp } from "@/features/appshot/lib/open-desktop-use-settings";
+import { useOpenDesktopUseSettings } from "@/features/appshot/lib/open-desktop-use-settings";
 import {
   closeDesktopUseReadinessModal,
   subscribeDesktopUseReadinessModal,
@@ -20,6 +21,9 @@ import {
 } from "../lib/readiness-modal-bus";
 import { invalidateDesktopUseReadinessCache } from "../lib/readiness";
 import type { DesktopUseReadinessReason } from "../lib/readiness";
+
+/** Ignore dismiss / clicks for this long after open (Popover→Dialog handoff race). */
+const OPEN_SETTLE_MS = 400;
 
 function reasonMessageKey(
   reason: DesktopUseReadinessReason | null | undefined,
@@ -44,32 +48,94 @@ function reasonMessageKey(
 
 export function DesktopUseReadinessDialog() {
   const t = useTranslations("desktopUse.readinessModal");
+  const openDesktopUseSettings = useOpenDesktopUseSettings();
   const [state, setState] = React.useState<DesktopUseReadinessModalState>({
     open: false,
     readiness: null,
   });
+  /** After open, block outside-dismiss and button clicks until the open gesture settles. */
+  const [settled, setSettled] = React.useState(false);
+  const openedAtRef = React.useRef(0);
 
   React.useEffect(() => subscribeDesktopUseReadinessModal(setState), []);
+
+  React.useEffect(() => {
+    if (!state.open) {
+      setSettled(false);
+      return;
+    }
+    openedAtRef.current = Date.now();
+    setSettled(false);
+    const id = window.setTimeout(() => setSettled(true), OPEN_SETTLE_MS);
+    return () => window.clearTimeout(id);
+  }, [state.open, state.readiness?.checkedAt, state.source]);
 
   const reason = state.readiness?.reason ?? null;
   const source = state.source ?? "generic";
 
+  const isWithinSettleWindow = () =>
+    Date.now() - openedAtRef.current < OPEN_SETTLE_MS;
+
   const onOpenSettings = () => {
+    if (!settled || isWithinSettleWindow()) return;
     closeDesktopUseReadinessModal();
     // Force next entry to re-check after user may install / grant.
     invalidateDesktopUseReadinessCache();
-    // Non-hook path: safe in root layout prerender (no useSearchParams).
-    openDesktopUseSettingsInApp();
+    // nuqs path — reliable under NuqsAdapter (unlike bare pushState + popstate).
+    openDesktopUseSettings();
   };
 
   return (
     <Dialog
       open={state.open}
       onOpenChange={(open) => {
-        if (!open) closeDesktopUseReadinessModal();
+        // Swallow the synthetic dismiss that fires when a Popover closes in the
+        // same gesture that opened this dialog (Appshots / slash popovers).
+        if (!open) {
+          if (!settled || isWithinSettleWindow()) return;
+          closeDesktopUseReadinessModal();
+        }
       }}
+      modal
     >
-      <DialogContent showCloseButton>
+      {/*
+        High z-index: Appshots history uses an extreme ceiling. Settle window
+        disables pointer events so the opening click cannot ghost-activate
+        "Open settings" (which wrote URL params and made Settings appear later).
+      */}
+      <DialogContent
+        showCloseButton={settled}
+        className={cn(
+          "!z-[2147483647]",
+          !settled && "pointer-events-none",
+        )}
+        overlayClassName={cn(
+          "!z-[2147483647]",
+          !settled && "pointer-events-none",
+        )}
+        onOpenAutoFocus={(event) => {
+          // Do not focus the primary CTA — avoids Enter/ghost activation.
+          event.preventDefault();
+        }}
+        onCloseAutoFocus={(event) => {
+          event.preventDefault();
+        }}
+        onPointerDownOutside={(event) => {
+          if (!settled || isWithinSettleWindow()) {
+            event.preventDefault();
+          }
+        }}
+        onInteractOutside={(event) => {
+          if (!settled || isWithinSettleWindow()) {
+            event.preventDefault();
+          }
+        }}
+        onEscapeKeyDown={(event) => {
+          if (!settled || isWithinSettleWindow()) {
+            event.preventDefault();
+          }
+        }}
+      >
         <DialogHeader>
           <div className="mb-2 flex size-10 items-center justify-center rounded-full bg-amber-500/10">
             <AlertCircle className="size-5 text-amber-600" />
@@ -94,13 +160,18 @@ export function DesktopUseReadinessDialog() {
           <Button
             type="button"
             variant="outline"
-            onClick={() => closeDesktopUseReadinessModal()}
+            disabled={!settled}
+            onClick={() => {
+              if (!settled || isWithinSettleWindow()) return;
+              closeDesktopUseReadinessModal();
+            }}
             className="cursor-pointer"
           >
             {t("dismiss")}
           </Button>
           <Button
             type="button"
+            disabled={!settled}
             onClick={onOpenSettings}
             className="cursor-pointer"
           >
