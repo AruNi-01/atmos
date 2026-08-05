@@ -152,7 +152,7 @@ APP-052/053 在模块切分、纯函数协议层、attach policy 单测和上一
 - `DriveRequest` 字段袋未按动作族拆类型（API 面大）。
 - `highlight.rs` / `install.rs` 体量未动。
 
-PR URL：（创建后填写）
+PR URL：https://github.com/AruNi-01/atmos/pull/205
 
 ## 10. 结果文件
 
@@ -161,4 +161,5 @@ PR URL：（创建后填写）
 ## 11. 结果提交与推送
 
 - 结果与修复同在分支 `grokbuild/quality-fix/2026-08-04` 推送至 `origin`，经 PR 合入 `main`。
-- 详见第 9 节 PR URL。
+- 提交：`e2e9bf087`（修复+结果）
+- 分支：`grokbuild/quality-fix/2026-08-04` → PR https://github.com/AruNi-01/atmos/pull/205
