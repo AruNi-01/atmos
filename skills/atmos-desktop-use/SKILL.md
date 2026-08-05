@@ -1,6 +1,6 @@
 ---
 name: atmos-desktop-use
-version: "1.6.0"
+version: "1.6.1"
 description: >
   Capture and control the local macOS desktop via `atmos desktop-use` (screenshot,
   click, type, window list) without MCP. Use whenever the user or task needs local
@@ -155,8 +155,9 @@ atmos desktop-use --json drive click --x <png_x> --y <png_y> \
 |-------------|---------|
 | See where agent points | Session + `move_cursor`; idle hide extended to ~1h for drive session |
 | App / desktop **border highlight** | **Yes, blinking** — blue window / green desktop. Auto-clears after idle (~8s) or `drive session-end`. Toggle in Settings → Desktop Use → Operation border |
-| **Under-arrow status text** | **Dynamic** — what is being operated now (e.g. `Clicking Orca`). Explicit: `--status "…"`. Fallback: `{agent} Operating` via `--agent-name` or env `ATMOS_DESKTOP_USE_AGENT_NAME` / `AGENT_NAME` |
-| Must activate target app | **No** for default background path |
+| **Under-arrow status text** | **`{Agent} - {operation}`** under the pointer only. Explicit: `--status "…"`. Auto: `Clicking Orca` / `Operating`. No free-floating capsule without a cursor position. |
+| **Border z-order** | Window border sits just above the target; **hides** when another app covers the target (does not paint over your work). No full-desktop fallback for window-scoped actions. |
+| Must activate target app | **No** for default background path — avoid `drive front` every turn |
 
 ```bash
 # End a drive run (clears border + engine session cursor)
@@ -171,7 +172,15 @@ atmos desktop-use --json prefs set --operation-border false
 # Agent should pass its own identity + live status when known:
 export ATMOS_DESKTOP_USE_AGENT_NAME="Claude"
 atmos desktop-use --json drive click --x … --y … --agent-name "Claude" --status "Opening 智能体仪表盘"
-# Auto: "Clicking Orca" when window_id resolves; else "Claude Operating"
+# Caption: "Claude - Opening 智能体仪表盘" (under pointer only)
+# Auto without --status: "Claude - Clicking Orca" when window_id resolves
+
+# Empty-AX type (QQ Music / custom UI): pixel-focus then type at same coords
+atmos desktop-use --json drive click --x <png_x> --y <png_y>
+atmos desktop-use --json drive type --text "周杰伦" --x <png_x> --y <png_y>
+# logical screen points + window (auto-normalized to window-local PNG):
+atmos desktop-use --json drive type --text "周杰伦" --x 780 --y 78 \
+  --coord-space points --window-id <id> --pid <pid>
 ```
 
 ## Desktop vs page CDP

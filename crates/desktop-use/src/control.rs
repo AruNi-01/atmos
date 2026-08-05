@@ -396,17 +396,41 @@ fn status_for_request(req: &DriveRequest, target_app: Option<&str>, action_name:
 }
 
 fn cursor_points_for_request(req: &DriveRequest) -> Option<(f64, f64)> {
-    // Prefer explicit screen points (logical). For png desktop clicks the engine
-    // uses 2× pixels; caption is best-effort near the pointer after move_cursor.
-    match (req.x, req.y) {
-        (Some(x), Some(y)) if matches!(req.coord_space, CoordSpace::Points) => {
-            Some((x as f64, y as f64))
+    cursor_points_for_request_with_window(req, None)
+}
+
+/// Logical screen points for the under-arrow caption.
+///
+/// When `window_bounds` is known and coords are window-local PNG/points, convert
+/// to screen space so the capsule sits under the agent pointer — not at a free
+/// window corner.
+fn cursor_points_for_request_with_window(
+    req: &DriveRequest,
+    window_bounds: Option<(f64, f64, f64, f64)>,
+) -> Option<(f64, f64)> {
+    let (x, y) = match (req.x, req.y) {
+        (Some(x), Some(y)) => (x as f64, y as f64),
+        _ => return None,
+    };
+    match (req.coord_space, window_bounds, req.window_id) {
+        (CoordSpace::Points, Some((bx, by, bw, bh)), Some(_)) => {
+            // Agents often pass screen-absolute points with --window-id. If the
+            // point lies inside the window, use it as-is; otherwise treat as local.
+            if x >= bx && x <= bx + bw && y >= by && y <= by + bh {
+                Some((x, y))
+            } else {
+                Some((bx + x, by + y))
+            }
         }
-        (Some(x), Some(y)) => {
-            // Approximate: many Retina displays are 2×; caption still near target.
-            Some((x as f64 / 2.0, y as f64 / 2.0))
+        (CoordSpace::Points, _, _) => Some((x, y)),
+        (CoordSpace::Png, Some((bx, by, _, _)), Some(_)) => {
+            // Window-local PNG pixels → approximate screen points (Retina 2×).
+            Some((bx + x / 2.0, by + y / 2.0))
         }
-        _ => None,
+        (CoordSpace::Png, _, _) => {
+            // Desktop PNG → logical points (best-effort 2× Retina).
+            Some((x / 2.0, y / 2.0))
+        }
     }
 }
 
@@ -417,9 +441,22 @@ fn run_highlight(req: &DriveRequest, action_name: &str) -> DriveResult {
     };
 
     let label = status_for_request(req, None, action_name);
+    // Explicit `drive highlight --mode window --x --y --width --height` uses x/y as
+    // **window bounds**, not pointer position. Do not treat those as cursor anchors
+    // (that recreated the free-floating capsule at the window top-left).
+    let bounds_mode = matches!(
+        (req.width, req.height),
+        (Some(w), Some(h)) if w > 0 && h > 0
+    );
+    let cursor = if bounds_mode {
+        None
+    } else {
+        cursor_points_for_request(req)
+    };
+    // Capsule only when we have a real pointer anchor.
     let style = HighlightStyle {
-        label: Some(label),
-        cursor: cursor_points_for_request(req),
+        label: cursor.as_ref().map(|_| label),
+        cursor,
         blink: true,
         idle_ms: None,
         above_window_id: req.window_id,
@@ -461,6 +498,12 @@ fn run_highlight(req: &DriveRequest, action_name: &str) -> DriveResult {
 
 /// Apply border chrome + under-arrow status for an in-progress drive action
 /// (best-effort; never fails the action).
+///
+/// Rules:
+/// - Window border only when `window_id` resolves (no full-desktop fallback that
+///   paints over the user's other apps).
+/// - Status capsule only when a cursor position is known (under the agent arrow).
+/// - Explicit `HighlightMode::Desktop` still draws desktop chrome.
 fn apply_action_highlight(
     engine: &Path,
     socket: &Path,
@@ -491,10 +534,15 @@ fn apply_action_highlight(
             None
         }
     });
+    let window_bounds = list
+        .as_ref()
+        .and_then(|l| req.window_id.and_then(|wid| bounds_for_window_id(l, wid)));
+    let cursor = cursor_points_for_request_with_window(req, window_bounds);
     let label = status_for_request(req, target_app.as_deref(), action_name);
-    let cursor = cursor_points_for_request(req);
+    // Capsule only under the agent pointer — never a free-standing status pill.
+    let caption = cursor.map(|_| label.clone());
     let style = HighlightStyle {
-        label: Some(label.clone()),
+        label: caption,
         cursor,
         blink: true,
         idle_ms: None,
@@ -513,27 +561,35 @@ fn apply_action_highlight(
     }
 
     if let Some(wid) = req.window_id {
-        if let Some(list) = list.as_ref() {
-            if let Some((x, y, w, h)) = bounds_for_window_id(list, wid) {
-                let hl = show_window_highlight_styled(
-                    x,
-                    y,
-                    w,
-                    h,
-                    HighlightStyle {
-                        above_window_id: Some(wid),
-                        ..style
-                    },
-                );
-                return serde_json::to_value(hl).ok();
-            }
+        if let Some((x, y, w, h)) = window_bounds {
+            let hl = show_window_highlight_styled(
+                x,
+                y,
+                w,
+                h,
+                HighlightStyle {
+                    above_window_id: Some(wid),
+                    ..style
+                },
+            );
+            return serde_json::to_value(hl).ok();
         }
+        // Window requested but bounds unknown — do NOT fall back to full-desktop
+        // chrome (that paints over whatever app the user is working in).
+        return None;
     }
 
-    // Desktop-scope / fallback chrome so the user always sees what is under control.
+    // True desktop-scope actions (no window_id): border on the active display.
+    // Still only attach a caption when we know a cursor point.
     if matches!(
         req.action,
-        DriveAction::Click | DriveAction::Type | DriveAction::WindowState
+        DriveAction::Click
+            | DriveAction::DoubleClick
+            | DriveAction::RightClick
+            | DriveAction::MoveCursor
+            | DriveAction::Drag
+            | DriveAction::Scroll
+            | DriveAction::Type
     ) {
         let hl = show_desktop_highlight_styled(style);
         return serde_json::to_value(hl).ok();
@@ -753,6 +809,8 @@ fn ensure_drive_session(engine: &Path, socket: &Path, session: &str) {
         }),
     );
     // Keep the agent cursor visible for long runs (default engine idle hide ~20s).
+    // Note: the engine cursor is a session HUD; our border/caption stay window-scoped
+    // and hide when the target is covered so they do not paint over the user's work.
     let _ = host::call_tool(
         engine,
         socket,
@@ -768,6 +826,62 @@ fn ensure_drive_session(engine: &Path, socket: &Path, session: &str) {
             "idle_hide_ms": 3_600_000.0,
         }),
     );
+}
+
+/// Engine 0.17: `escalate_session` is one-way. After a desktop-scope click the
+/// live session is locked to desktop and window-scoped tools return
+/// `window_scope_disabled`. End + restart so the next window action works.
+fn reset_drive_session(engine: &Path, socket: &Path, session: &str) {
+    let _ = host::call_tool(
+        engine,
+        socket,
+        "end_session",
+        &json!({ "session": session }),
+    );
+    ensure_drive_session(engine, socket, session);
+}
+
+fn session_effective_scope(engine: &Path, socket: &Path, session: &str) -> Option<String> {
+    let v = host::call_tool(
+        engine,
+        socket,
+        "get_session_state",
+        &json!({ "session": session }),
+    )
+    .ok()?;
+    v.get("effective_scope")
+        .or_else(|| v.get("capture_scope"))
+        .or_else(|| v.pointer("/session/effective_scope"))
+        .and_then(|x| x.as_str())
+        .map(|s| s.to_ascii_lowercase())
+}
+
+fn needs_window_scope(req: &DriveRequest, args: &serde_json::Value) -> bool {
+    if req.element_token.is_some() || req.element_index.is_some() {
+        return true;
+    }
+    if req.window_id.is_some() {
+        return true;
+    }
+    // Engine args may carry window_id even when request was filled via auto-pid.
+    if args.get("window_id").is_some()
+        && args.get("scope").and_then(|s| s.as_str()) != Some("desktop")
+    {
+        return true;
+    }
+    matches!(
+        req.action,
+        DriveAction::WindowState
+            | DriveAction::BringToFront
+            | DriveAction::SetWindowFrame
+            | DriveAction::InvokeMenu
+            | DriveAction::VerifyState
+    )
+}
+
+fn is_window_scope_disabled(fail: &str) -> bool {
+    let f = fail.to_ascii_lowercase();
+    f.contains("window_scope_disabled") || f.contains("window scope disabled")
 }
 
 /// Desktop-scope scale: PNG pixels / logical screen points (often 2.0 on Retina).
@@ -868,6 +982,57 @@ fn to_engine_desktop_xy(
     }
 }
 
+/// Convert logical points → window-local PNG pixels for engine 0.17.
+///
+/// Screen-absolute points that fall inside the window bounds are converted to
+/// window-local; otherwise the values are treated as already window-local points.
+fn to_engine_window_xy(
+    engine: &Path,
+    socket: &Path,
+    window_id: i64,
+    x: i32,
+    y: i32,
+) -> Result<(i32, i32, Option<serde_json::Value>), String> {
+    let list = host::call_tool(engine, socket, "list_windows", &json!({}))
+        .map_err(|e| format!("list_windows for window coord conversion failed: {e}"))?;
+    let (bx, by, bw, bh) = crate::highlight::bounds_for_window_id(&list, window_id)
+        .ok_or_else(|| format!("window_id {window_id} not found in list_windows"))?;
+
+    let xf = x as f64;
+    let yf = y as f64;
+    let (local_x, local_y, input_kind) = if xf >= bx && xf <= bx + bw && yf >= by && yf <= by + bh {
+        (xf - bx, yf - by, "screen_points")
+    } else {
+        (xf, yf, "window_local_points")
+    };
+
+    let (sx, sy, mut meta) = desktop_png_scale(engine, socket)?;
+    let px = (local_x * sx).round() as i32;
+    let py = (local_y * sy).round() as i32;
+    if let Some(obj) = meta.as_object_mut() {
+        obj.insert("window_id".into(), json!(window_id));
+        obj.insert(
+            "window_local_points".into(),
+            json!({ "x": local_x, "y": local_y }),
+        );
+        obj.insert(
+            "window_bounds_points".into(),
+            json!({ "x": bx, "y": by, "width": bw, "height": bh }),
+        );
+        obj.insert("input_kind".into(), json!(input_kind));
+        obj.insert("output_space".into(), json!("window_png"));
+    } else {
+        meta = json!({
+            "window_id": window_id,
+            "window_local_points": { "x": local_x, "y": local_y },
+            "input_kind": input_kind,
+            "scale_x": sx,
+            "scale_y": sy,
+        });
+    }
+    Ok((px, py, Some(meta)))
+}
+
 fn inject_session(args: &mut serde_json::Value, session: Option<&str>) {
     if let (Some(s), Some(obj)) = (session, args.as_object_mut()) {
         obj.insert("session".into(), json!(s));
@@ -929,40 +1094,73 @@ fn run_engine(
     } else {
         None
     };
-    if matches!(
-        req.action,
-        DriveAction::Click
-            | DriveAction::DoubleClick
-            | DriveAction::RightClick
-            | DriveAction::MoveCursor
-    ) && req.window_id.is_none()
-        && req.pid.is_none()
-        && req.element_token.is_none()
-        && req.x.is_some()
-        && req.y.is_some()
-        && matches!(req.coord_space, CoordSpace::Points)
+
+    // Convert coordinates for the engine when agents pass logical points:
+    // - desktop-scope + points → desktop PNG pixels
+    // - window-scope + points → window-local PNG pixels
+    //   (screen-absolute points inside the window are auto-normalized — common
+    //   agent mistake when combining --window-id with list_windows / AX coords)
+    if req_for_call.element_token.is_none()
+        && req_for_call.element_index.is_none()
+        && req_for_call.x.is_some()
+        && req_for_call.y.is_some()
+        && matches!(req_for_call.coord_space, CoordSpace::Points)
+        && matches!(
+            req_for_call.action,
+            DriveAction::Click
+                | DriveAction::DoubleClick
+                | DriveAction::RightClick
+                | DriveAction::MoveCursor
+                | DriveAction::Type
+                | DriveAction::Scroll
+        )
     {
-        if let (Some(x), Some(y)) = (req.x, req.y) {
-            match to_engine_desktop_xy(engine, &socket, x, y, CoordSpace::Points) {
-                Ok((ex, ey, meta)) => {
-                    req_for_call.x = Some(ex);
-                    req_for_call.y = Some(ey);
-                    req_for_call.coord_space = CoordSpace::Png;
-                    scale_meta = meta;
+        if let (Some(x), Some(y)) = (req_for_call.x, req_for_call.y) {
+            if let Some(wid) = req_for_call.window_id {
+                match to_engine_window_xy(engine, &socket, wid, x, y) {
+                    Ok((ex, ey, meta)) => {
+                        req_for_call.x = Some(ex);
+                        req_for_call.y = Some(ey);
+                        req_for_call.coord_space = CoordSpace::Png;
+                        scale_meta = meta;
+                    }
+                    Err(e) => {
+                        return DriveResult {
+                            ok: false,
+                            action: action_name.into(),
+                            detail: None,
+                            capture: None,
+                            result: None,
+                            error: Some(scrub_vendor(&format!(
+                                "{}: {e}",
+                                strings::ERR_ENGINE_FAILED
+                            ))),
+                            error_code: Some("control_engine_failed".into()),
+                        };
+                    }
                 }
-                Err(e) => {
-                    return DriveResult {
-                        ok: false,
-                        action: action_name.into(),
-                        detail: None,
-                        capture: None,
-                        result: None,
-                        error: Some(scrub_vendor(&format!(
-                            "{}: {e}",
-                            strings::ERR_ENGINE_FAILED
-                        ))),
-                        error_code: Some("control_engine_failed".into()),
-                    };
+            } else if req_for_call.pid.is_none() {
+                match to_engine_desktop_xy(engine, &socket, x, y, CoordSpace::Points) {
+                    Ok((ex, ey, meta)) => {
+                        req_for_call.x = Some(ex);
+                        req_for_call.y = Some(ey);
+                        req_for_call.coord_space = CoordSpace::Png;
+                        scale_meta = meta;
+                    }
+                    Err(e) => {
+                        return DriveResult {
+                            ok: false,
+                            action: action_name.into(),
+                            detail: None,
+                            capture: None,
+                            result: None,
+                            error: Some(scrub_vendor(&format!(
+                                "{}: {e}",
+                                strings::ERR_ENGINE_FAILED
+                            ))),
+                            error_code: Some("control_engine_failed".into()),
+                        };
+                    }
                 }
             }
         }
@@ -1021,6 +1219,21 @@ fn run_engine(
 
     inject_session(&mut args, session.as_deref());
 
+    // If a prior desktop escalate locked this session, restore window capability
+    // before the next window-scoped tool (engine escalate is one-way).
+    let window_scoped = needs_window_scope(&req_for_call, &args);
+    if window_scoped {
+        if let Some(ref s) = session {
+            if session_effective_scope(engine, &socket, s)
+                .as_deref()
+                .is_some_and(|sc| sc.contains("desktop"))
+            {
+                reset_drive_session(engine, &socket, s);
+                inject_session(&mut args, Some(s));
+            }
+        }
+    }
+
     // Desktop-scope actions need an escalated auto session (engine 0.17).
     if args.get("scope").and_then(|s| s.as_str()) == Some("desktop") {
         if let Some(ref s) = session {
@@ -1037,7 +1250,21 @@ fn run_engine(
         }
     }
 
-    match host::call_tool(engine, &socket, tool, &args) {
+    let mut engine_result = host::call_tool(engine, &socket, tool, &args);
+    // One automatic recovery if escalate left us desktop-locked mid-run.
+    if window_scoped {
+        if let (Some(ref s), Ok(ref v)) = (session.as_ref(), &engine_result) {
+            if let Some(fail) = crate::engine_protocol::engine_payload_is_failure(v) {
+                if is_window_scope_disabled(&fail) {
+                    reset_drive_session(engine, &socket, s);
+                    inject_session(&mut args, Some(s));
+                    engine_result = host::call_tool(engine, &socket, tool, &args);
+                }
+            }
+        }
+    }
+
+    match engine_result {
         Ok(v) => {
             if let Some(fail) = crate::engine_protocol::engine_payload_is_failure(&v) {
                 let fail_l = fail.to_ascii_lowercase();
@@ -1116,6 +1343,28 @@ atmos desktop-use driver grant-permissions --target screen_recording"
                 if let Some(obj) = result.as_object_mut() {
                     obj.entry("atmos_addressing")
                         .or_insert_with(crate::window_surface::pixel_path_note);
+                }
+            }
+
+            // Type without element/pixel focus often lands in the wrong app on
+            // empty-AX surfaces — surface a short recovery ladder.
+            if matches!(req.action, DriveAction::Type)
+                && req.element_token.is_none()
+                && req.element_index.is_none()
+                && req.x.is_none()
+            {
+                if let Some(obj) = result.as_object_mut() {
+                    obj.entry("atmos_type_hint").or_insert_with(|| {
+                        json!({
+                            "note": "type without --element-token or --x/--y uses AX focus in the target pid (or frontmost). Empty-AX / custom UI apps often drop text.",
+                            "next_steps": [
+                                "Prefer: window-state → type --element-token … (true background when AX exists)",
+                                "Empty AX: click the field (PNG or points), then type --text … --x --y (same coords) --pid --window-id",
+                                "If still no input: --delivery-mode foreground once (brief front→type→restore)",
+                                "Do not drive front every turn"
+                            ]
+                        })
+                    });
                 }
             }
 

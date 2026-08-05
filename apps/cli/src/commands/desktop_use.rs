@@ -398,10 +398,10 @@ pub struct ClickArgs {
     /// Border highlight: auto (default) | desktop | clear | off
     #[arg(long, default_value = "auto")]
     pub highlight: String,
-    /// Under-arrow status text (what the agent is doing). Overrides auto copy.
+    /// Under-arrow operation text. Combined as "{agent} - {status}". Also used alone when already prefixed.
     #[arg(long)]
     pub status: Option<String>,
-    /// Agent display name for fallback "{name} Operating". Also reads ATMOS_DESKTOP_USE_AGENT_NAME.
+    /// Agent display name for "{name} - …". Also reads ATMOS_DESKTOP_USE_AGENT_NAME / AGENT_NAME.
     #[arg(long)]
     pub agent_name: Option<String>,
 }
@@ -410,6 +410,12 @@ pub struct ClickArgs {
 pub struct TypeArgs {
     #[arg(long)]
     pub text: String,
+    /// Optional pixel focus before type (engine 0.17). Use after a click fails to keep focus,
+    /// or for empty-AX apps: same coordinate rules as `drive click`.
+    #[arg(long)]
+    pub x: Option<i32>,
+    #[arg(long)]
+    pub y: Option<i32>,
     #[arg(long)]
     pub pid: Option<i32>,
     #[arg(long)]
@@ -417,6 +423,9 @@ pub struct TypeArgs {
     /// background (default) or foreground.
     #[arg(long, default_value = "background")]
     pub delivery_mode: String,
+    /// Desktop/window coord space for --x/--y: `png` (default) or `points` (screen/AX logical).
+    #[arg(long, default_value = "png")]
+    pub coord_space: String,
     /// AX element token from `drive window-state` (preferred for focused fields).
     #[arg(long)]
     pub element_token: Option<String>,
@@ -740,12 +749,17 @@ fn drive_cmd(command: DriveCommand) -> Result<Value, String> {
                     a.highlight
                 )
             })?;
+            let coord_space = CoordSpace::parse(&a.coord_space)
+                .ok_or_else(|| format!("invalid --coord-space {:?}", a.coord_space))?;
             DriveRequest {
                 action: DriveAction::Type,
                 text: Some(a.text),
+                x: a.x,
+                y: a.y,
                 pid: a.pid,
                 window_id: a.window_id,
                 delivery_mode: Some(a.delivery_mode),
+                coord_space,
                 element_token: a.element_token,
                 element_index: a.element_index,
                 snapshot_id: a.snapshot_id,

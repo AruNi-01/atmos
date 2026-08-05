@@ -166,11 +166,74 @@ func makeOverlayWindow(frame: NSRect) -> NSWindow {
     return win
 }
 
+func cgNumber(_ value: Any?) -> Int? {
+    if let i = value as? Int { return i }
+    if let n = value as? NSNumber { return n.intValue }
+    return nil
+}
+
+func cgFloatVal(_ value: Any?) -> CGFloat? {
+    if let d = value as? Double { return CGFloat(d) }
+    if let f = value as? CGFloat { return f }
+    if let i = value as? Int { return CGFloat(i) }
+    if let n = value as? NSNumber { return CGFloat(n.doubleValue) }
+    return nil
+}
+
+func cgRect(from bounds: [String: Any]?) -> CGRect? {
+    guard let bounds = bounds,
+          let x = cgFloatVal(bounds["X"]),
+          let y = cgFloatVal(bounds["Y"]),
+          let w = cgFloatVal(bounds["Width"]),
+          let h = cgFloatVal(bounds["Height"])
+    else { return nil }
+    return CGRect(x: x, y: y, width: w, height: h)
+}
+
+/// On-screen window list (front → back).
+func onScreenWindows() -> [[String: Any]] {
+    (CGWindowListCopyWindowInfo(
+        [.optionOnScreenOnly, .excludeDesktopElements],
+        kCGNullWindowID
+    ) as? [[String: Any]]) ?? []
+}
+
+/// True when another on-screen window intersects the target (user is working on top).
+/// When the target is covered we hide chrome so border/capsule never paint over other apps.
+func targetIsCovered(windowId: Int) -> Bool {
+    let list = onScreenWindows()
+    guard let target = list.first(where: { cgNumber($0[kCGWindowNumber as String]) == windowId }),
+          let targetRect = cgRect(from: target[kCGWindowBounds as String] as? [String: Any])
+    else {
+        // Unknown / off-screen target — hide rather than paint over the user's work.
+        return true
+    }
+    for info in list {
+        let num = cgNumber(info[kCGWindowNumber as String])
+        if num == windowId { break }
+        guard let r = cgRect(from: info[kCGWindowBounds as String] as? [String: Any]) else { continue }
+        // Ignore tiny system chrome / menubar-ish strips.
+        if r.height < 24 || r.width < 24 { continue }
+        // Skip fully transparent / zero-alpha if reported.
+        if let alpha = cgFloatVal(info[kCGWindowAlpha as String]), alpha < 0.05 { continue }
+        if r.intersects(targetRect) {
+            return true
+        }
+    }
+    return false
+}
+
 /// Place our window just above the target CGWindow so covering windows also cover us.
 func orderWithTarget(_ win: NSWindow, aboveWindowId: Int?) {
     guard let wid = aboveWindowId, wid > 0 else {
         // Desktop / no target: stay normal-level without force-topping over the user's work.
         win.orderFront(nil)
+        return
+    }
+    // If the user has another app covering the target, hide chrome entirely so we
+    // never flash a border/capsule on top of their work.
+    if targetIsCovered(windowId: wid) {
+        win.orderOut(nil)
         return
     }
     // CGWindowID matches Cocoa windowNumber for standard windows on modern macOS.
@@ -249,6 +312,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 NSApp.terminate(nil)
                 return
             }
+            // Caption mode is always anchored at the provided x/y (agent pointer).
             let win = makeCaptionWindow(
                 label: label,
                 accent: accent,
@@ -282,9 +346,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             orderWithTarget(win, aboveWindowId: args.aboveWindowId)
             windows.append(win)
 
-            if !label.isEmpty {
-                let cx = args.cursorX ?? (x + min(48, w * 0.08))
-                let cy = args.cursorY ?? (y + 8)
+            // Status capsule ONLY under the agent pointer (cursor-x/y). Never float a
+            // free-standing pill near the window chrome when there is no cursor.
+            if !label.isEmpty, let cx = args.cursorX, let cy = args.cursorY {
                 let cap = makeCaptionWindow(
                     label: label,
                     accent: accent,
@@ -299,10 +363,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 startBreathing(periodMs: args.blinkPeriodMs)
             }
 
-            // Keep sitting just above the target if the window stack reshuffles.
+            // Keep sitting just above the target if the window stack reshuffles;
+            // hide entirely while the user covers the target with another app.
             if let wid = args.aboveWindowId, wid > 0 {
                 reorderTimer = Timer.scheduledTimer(withTimeInterval: 0.35, repeats: true) { [weak self] _ in
                     guard let self = self else { return }
+                    if targetIsCovered(windowId: wid) {
+                        for w in self.windows { w.orderOut(nil) }
+                        return
+                    }
                     for w in self.windows {
                         w.order(.above, relativeTo: wid)
                     }

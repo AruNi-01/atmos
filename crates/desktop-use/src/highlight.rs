@@ -657,32 +657,47 @@ pub fn resolve_agent_name(explicit: Option<&str>) -> String {
     "Agent".into()
 }
 
-/// Build dynamic status text under the agent arrow.
+/// Build under-arrow status text as `{Agent} - {operation}`.
 ///
-/// Prefer an explicit status; otherwise describe the live action + target app;
-/// final fallback: `"{AgentName} Operating"`.
+/// Prefer an explicit `--status` as the operation; otherwise describe the live
+/// action + target app; final fallback operation: `Operating`.
+///
+/// If the explicit status already starts with `{Agent} - `, it is returned as-is
+/// (agents may pass a fully formatted string).
 pub fn build_status_label(
     explicit_status: Option<&str>,
     agent_name: Option<&str>,
     action: &str,
     target_app: Option<&str>,
 ) -> String {
-    if let Some(s) = explicit_status.map(str::trim).filter(|s| !s.is_empty()) {
-        return s.to_string();
-    }
     let agent = resolve_agent_name(agent_name);
-    let app = target_app.map(str::trim).filter(|s| !s.is_empty());
-    match (action, app) {
-        ("click", Some(app)) => format!("Clicking {app}"),
-        ("type", Some(app)) => format!("Typing in {app}"),
-        ("window_state", Some(app)) => format!("Inspecting {app}"),
-        ("screenshot", Some(app)) => format!("Capturing {app}"),
-        ("highlight", Some(app)) => format!("{agent} · {app}"),
-        (_, Some(app)) => format!("{agent} · {app}"),
-        ("click", None) => format!("{agent} clicking"),
-        ("type", None) => format!("{agent} typing"),
-        _ => format!("{agent} Operating"),
-    }
+    let operation = if let Some(s) = explicit_status.map(str::trim).filter(|s| !s.is_empty()) {
+        // Already fully formatted by the agent.
+        let prefix_dash = format!("{agent} - ");
+        let prefix_dot = format!("{agent} · ");
+        if s.starts_with(&prefix_dash) || s.starts_with(&prefix_dot) {
+            return s.to_string();
+        }
+        s.to_string()
+    } else {
+        let app = target_app.map(str::trim).filter(|s| !s.is_empty());
+        match (action, app) {
+            ("click", Some(app)) => format!("Clicking {app}"),
+            ("type", Some(app)) => format!("Typing in {app}"),
+            ("double_click", Some(app)) => format!("Double-clicking {app}"),
+            ("right_click", Some(app)) => format!("Right-clicking {app}"),
+            ("window_state", Some(app)) => format!("Inspecting {app}"),
+            ("screenshot", Some(app)) => format!("Capturing {app}"),
+            ("highlight", Some(app)) => app.to_string(),
+            (_, Some(app)) => format!("Operating {app}"),
+            ("click", None) => "Clicking".into(),
+            ("type", None) => "Typing".into(),
+            ("double_click", None) => "Double-clicking".into(),
+            ("right_click", None) => "Right-clicking".into(),
+            _ => "Operating".into(),
+        }
+    };
+    format!("{agent} - {operation}")
 }
 
 #[cfg(test)]
@@ -711,30 +726,61 @@ mod tests {
                 "click",
                 Some("Orca")
             ),
-            "Open dashboard"
+            "Claude - Open dashboard"
         );
         assert_eq!(
             build_status_label(None, Some("Claude"), "click", Some("Orca")),
-            "Clicking Orca"
+            "Claude - Clicking Orca"
         );
         assert_eq!(
             build_status_label(None, Some("Claude"), "type", Some("Notes")),
-            "Typing in Notes"
+            "Claude - Typing in Notes"
         );
         assert_eq!(
             build_status_label(None, Some("Grok"), "click", None),
-            "Grok clicking"
+            "Grok - Clicking"
         );
         assert_eq!(
             build_status_label(None, Some("Claude"), "verify", None),
-            "Claude Operating"
+            "Claude - Operating"
+        );
+        // Already formatted — do not double-prefix.
+        assert_eq!(
+            build_status_label(
+                Some("Claude - Opening QQ Music"),
+                Some("Claude"),
+                "click",
+                None
+            ),
+            "Claude - Opening QQ Music"
         );
     }
 
     #[test]
     fn resolve_agent_defaults() {
         assert_eq!(resolve_agent_name(Some("  Claude  ")), "Claude");
+        // Explicit empty falls through to env / default — isolate from developer env.
+        let keys = [
+            "ATMOS_DESKTOP_USE_AGENT_NAME",
+            "AGENT_NAME",
+            "ATMOS_AGENT_NAME",
+        ];
+        let saved: Vec<(String, Option<String>)> = keys
+            .iter()
+            .map(|k| ((*k).to_string(), std::env::var(k).ok()))
+            .collect();
+        for k in &keys {
+            // SAFETY: test-only; single-threaded unit test process.
+            unsafe { std::env::remove_var(k) };
+        }
         assert_eq!(resolve_agent_name(Some("")), "Agent");
+        assert_eq!(resolve_agent_name(None), "Agent");
+        for (k, v) in saved {
+            match v {
+                Some(val) => unsafe { std::env::set_var(&k, val) },
+                None => unsafe { std::env::remove_var(&k) },
+            }
+        }
     }
 
     #[test]

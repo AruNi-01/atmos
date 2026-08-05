@@ -259,6 +259,12 @@ pub fn build_engine_call(req: &DriveRequest) -> Result<(&'static str, Value), St
             let mut a = json!({ "text": text, "delivery_mode": delivery });
             inject_target(&mut a, req);
             inject_element(&mut a, req);
+            // Engine 0.17: pass either element_token/index (AX) OR x,y (pixel-focus
+            // the field then type). Pixel path is required for empty-AX apps
+            // (Electron / custom UI like QQ Music) after a focus click.
+            if req.element_token.is_none() && req.element_index.is_none() {
+                inject_xy_if_present(&mut a, req);
+            }
             Ok(("type_text", a))
         }
         DriveAction::SetValue => {
@@ -453,6 +459,44 @@ mod tests {
         assert_eq!(tool, "click");
         assert_eq!(args["element_token"], "tok");
         assert!(args.get("scope").is_none());
+    }
+
+    #[test]
+    fn type_with_pixel_focus_xy() {
+        let req = DriveRequest {
+            action: DriveAction::Type,
+            text: Some("hello".into()),
+            x: Some(120),
+            y: Some(40),
+            pid: Some(9),
+            window_id: Some(99),
+            ..Default::default()
+        };
+        let (tool, args) = build_engine_call(&req).unwrap();
+        assert_eq!(tool, "type_text");
+        assert_eq!(args["text"], "hello");
+        assert_eq!(args["x"], 120);
+        assert_eq!(args["y"], 40);
+        assert_eq!(args["pid"], 9);
+        assert_eq!(args["window_id"], 99);
+    }
+
+    #[test]
+    fn type_element_token_skips_xy() {
+        let req = DriveRequest {
+            action: DriveAction::Type,
+            text: Some("hello".into()),
+            x: Some(1),
+            y: Some(2),
+            element_token: Some("tok".into()),
+            pid: Some(1),
+            ..Default::default()
+        };
+        let (tool, args) = build_engine_call(&req).unwrap();
+        assert_eq!(tool, "type_text");
+        assert_eq!(args["element_token"], "tok");
+        assert!(args.get("x").is_none());
+        assert!(args.get("y").is_none());
     }
 
     #[test]

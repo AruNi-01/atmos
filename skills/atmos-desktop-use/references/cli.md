@@ -70,9 +70,15 @@ atmos desktop-use --json drive click --element-token '<token>' [--pid <pid>] [--
 atmos desktop-use --json drive click --element-index <n> --snapshot-id <id> --window-id <id> [--pid <pid>]
 # Logical points (list_windows bounds / AX positions):
 atmos desktop-use --json drive click --x <n> --y <n> --coord-space points
-# Window-local pixels:
+# Window-local PNG pixels (default when --window-id without --coord-space points):
 atmos desktop-use --json drive click --x <n> --y <n> --window-id <id> [--pid <n>]
-atmos desktop-use --json drive type --text "..." [--element-token <tok>] [--pid <n>] [--window-id <n>]
+# Screen/AX points + window_id: CLI normalizes to window-local PNG automatically
+atmos desktop-use --json drive click --x <n> --y <n> --coord-space points --window-id <id> [--pid <n>]
+# Type: AX token (preferred) or pixel-focus with --x/--y after a click
+atmos desktop-use --json drive type --text "..." --element-token <tok> [--pid <n>] [--window-id <n>]
+atmos desktop-use --json drive type --text "..." --x <n> --y <n> [--coord-space png|points] [--window-id <id>] [--pid <n>]
+# Status under pointer: "{agent} - {operation}"
+atmos desktop-use --json drive click --x … --y … --agent-name "Grok" --status "Searching Jay Chou"
 # Border highlight (auto on click/type; or explicit):
 atmos desktop-use --json drive highlight --mode desktop
 atmos desktop-use --json drive highlight --mode window --x N --y N --width N --height N
@@ -114,7 +120,15 @@ Every successful `drive window-state` JSON includes `result.atmos_surface`:
 
 When `kind=ax_empty`, stop retrying tokens; use screenshot + pixel path.
 
-Pixel-path clicks also set `result.atmos_addressing` with the same ladder reminder.
+Pixel-path clicks also set `result.atmos_addressing` with the same ladder reminder.  
+`type` without token/xy sets `result.atmos_type_hint` with the focus ladder.
+
+### Visibility chrome
+
+- Status format: **`{Agent} - {operation}`** (from `--agent-name` / env + `--status` or auto action text)
+- Capsule appears **only under the agent pointer** (never a free-standing pill without cursor)
+- Window border tracks the target window z-order and **hides while another app covers it**
+- Window-scoped actions do **not** fall back to a full-desktop border
 
 ### Click coordinate contract (engine 0.17)
 
@@ -125,12 +139,16 @@ Pixel-path clicks also set `result.atmos_addressing` with the same ladder remind
 | `--x --y` only | **PNG pixels** (`--coord-space png`, default) | From `drive screenshot` image. CLI sends `scope=desktop`. |
 | `--x --y --coord-space points` | **Logical points** | Same as window bounds / AX; CLI scales to PNG before the engine. |
 | `--x --y --window-id` | **Window-local** image pixels | Optional `--pid`. |
+| `--x --y --coord-space points --window-id` | Screen or local **points** | CLI converts to window-local PNG (screen-absolute points inside the window are auto-normalized). |
 | `--x --y --pid` (no window_id) | **Ignored pid** | CLI strips bare `--pid` so desktop coords stay valid. |
+| `type --x --y` | Same as click | Pixel-focus then type (needed for empty-AX / custom UI). |
 
 `delivery_mode`:
 
 - `background` (default): no focus steal when possible  
-- `foreground`: briefly front target (`window_id` recommended) for stubborn Electron UIs
+- `foreground`: briefly front target (`window_id` recommended) for stubborn Electron UIs  
+
+Avoid `drive front` every turn — only escalate after background pixel fails.
 
 `session`: defaults to `atmos-desktop-use` so the engine agent cursor stays active. Pass `--session ''` to disable.
 
