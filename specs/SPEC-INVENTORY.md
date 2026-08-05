@@ -50,6 +50,7 @@
 | APP | `APP-044_project-workspace-groups` | **shipped** | TEST Coverage Status present |
 | APP | `APP-045_desktop-electron-dual-shell` | **shipped** | TS Electron dual-shell + atmos-browser-cookies Keychain helper + AppShot screencapture records; smokes 52 cmds |
 | APP | `APP-046_terminal-tui-mouse-tracking` | **partial** | unit tests green; manual Claude/Grok hover dogfood pending |
+| APP | `APP-054_terminal-tui-scroll-stability` | **in_progress** | cross-chunk mouse observe, restore policy, gated CMD_END, proportional TUI wheel |
 | QUALITY | `QUALITY-001_large-file-code-debt-cleanup` | **shipped** | quality program docs; not product Must Have blocker |
 | QUALITY | `QUALITY-002_spec-test-execution-loop` | **shipped** | quality program docs; not product Must Have blocker |
 | QUALITY | `QUALITY-003_playwright-e2e-harness` | **shipped** | quality program docs; not product Must Have blocker |
