@@ -430,7 +430,13 @@ const Terminal = ({
     // heuristic with the full default (includes 1003 hover).
     const mouseRestore = mouseTrackingRestoreSequence(snapshot);
     const screenMode = useAlternateScreen ? "\x1b[?1049h" : "\x1b[?1049l";
+    // Always erase display; clear scrollback for non-alt. Inline mouse TUIs
+    // (Grok) paint in the normal buffer — after replaying cells, clear
+    // scrollback again so older backends that still ship long history do not
+    // leave multi-viewport junk under the TUI (APP-054).
     const clearScrollback = useAlternateScreen ? "" : "\x1b[3J";
+    const postHydrateScrollbackClear =
+      !useAlternateScreen && mouseRestore.length > 0 ? "\x1b[3J" : "";
     const clearScreen = `${screenMode}\x1b[H\x1b[2J${clearScrollback}`;
     const data = normalizeSnapshotData(snapshot.data);
     const cursorRestore = `\x1b[${snapshot.cursor_y + 1};${snapshot.cursor_x + 1}H`;
@@ -448,7 +454,7 @@ const Terminal = ({
     // tmux `capture-pane -N` preserves trailing spaces so background-coloured
     // TUI panels survive reconnect. Replay them with autowrap disabled so a
     // full-width captured row does not create an extra wrapped line in xterm.js.
-    const payload = `${clearScreen}\x1b[?7l${data}\x1b[?7h\x1b[0m${cursorRestore}${mouseRestore}`;
+    const payload = `${clearScreen}\x1b[?7l${data}\x1b[?7h\x1b[0m${cursorRestore}${postHydrateScrollbackClear}${mouseRestore}`;
     writeXtermPayload(term, payload, () => {
       if (!useAlternateScreen) {
         jumpXtermToBottom(term);

@@ -160,4 +160,36 @@ describe("buildTerminalSnapshotRestorePayload", () => {
     expect(restoreMouseTracking).toBe(false);
     expect(payload.includes(ENABLE_TUI_MOUSE_TRACKING)).toBe(false);
   });
+
+  test("clears scrollback after replaying inline mouse TUI cells", () => {
+    // CSI 3J after cell data so a tall capture cannot leave multi-viewport junk.
+    const { payload, restoreMouseTracking } = buildTerminalSnapshotRestorePayload(
+      baseSnapshot({
+        alternate: false,
+        restore_mouse_tracking: true,
+        data: "line-a\nline-b\nline-c",
+      }),
+    );
+    expect(restoreMouseTracking).toBe(true);
+    const dataIdx = payload.indexOf("line-a");
+    const postClearIdx = payload.indexOf("\x1b[3J", dataIdx);
+    const mouseIdx = payload.indexOf(ENABLE_TUI_MOUSE_TRACKING);
+    expect(dataIdx).toBeGreaterThan(-1);
+    expect(postClearIdx).toBeGreaterThan(dataIdx);
+    expect(mouseIdx).toBeGreaterThan(postClearIdx);
+  });
+
+  test("does not post-clear scrollback for idle shell history hydrate", () => {
+    const { payload, restoreMouseTracking } = buildTerminalSnapshotRestorePayload(
+      baseSnapshot({
+        alternate: false,
+        restore_mouse_tracking: false,
+        data: "hist1\nhist2",
+      }),
+    );
+    expect(restoreMouseTracking).toBe(false);
+    // Pre-clear may still use 3J once; no second 3J after cell data.
+    const dataIdx = payload.indexOf("hist1");
+    expect(payload.indexOf("\x1b[3J", dataIdx)).toBe(-1);
+  });
 });
