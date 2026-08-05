@@ -1,0 +1,38 @@
+apps/mobile/src/features/terminal/TerminalDomView.tsx
+  h_5be255725524c8 193-214,216-223,230-234
+apps/web/src/features/terminal/components/Terminal.tsx
+  h_5be255725524c8 52-57,210-212,295-296,300,304-326,328-329,437-440,456-460,750-753,804-826,990-993,995,1002-1023,1028-1047,1049-1057,1059-1076,1102-1111,1123,1315-1321
+apps/web/src/features/terminal/components/terminal-grid.css
+  h_5be255725524c8 666-679
+apps/web/src/features/terminal/lib/__tests__/terminal-input-coalesce.test.ts
+  h_5be255725524c8 1-49
+apps/web/src/features/terminal/lib/__tests__/tui-mouse-wheel.test.ts
+  h_5be255725524c8 1-89
+apps/web/src/features/terminal/lib/terminal-input-coalesce.ts
+  h_5be255725524c8 1-92
+apps/web/src/features/terminal/lib/terminal-runtime-utils.ts
+  h_5be255725524c8 37-45
+apps/web/src/features/terminal/lib/tui-mouse-wheel.ts
+  h_5be255725524c8 1-291
+packages/shared/src/terminal/index.ts
+  h_5be255725524c8 8
+packages/shared/src/terminal/snapshot.test.ts
+  h_5be255725524c8 53,58-67
+packages/shared/src/terminal/snapshot.ts
+  h_5be255725524c8 65-69,73
+packages/shared/src/terminal/title-osc.test.ts
+  h_5be255725524c8 1-24
+packages/shared/src/terminal/title-osc.ts
+  h_5be255725524c8 1-28
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "9cc525a5c9ad3a87dac99b4e94b3ac12b31186a5",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
