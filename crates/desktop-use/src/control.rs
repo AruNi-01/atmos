@@ -285,9 +285,7 @@ pub fn drive(manager: &DesktopUseManager, req: DriveRequest) -> DriveResult {
                 error_code: Some(DriveError::EngineNotInstalled.code().into()),
             },
             Ok(engine) => {
-                if action_needs_screen_recording(&req.action)
-                    && req.element_token.is_none()
-                {
+                if action_needs_screen_recording(&req.action) && req.element_token.is_none() {
                     if let Some(denied) = permissions_block_for_capture(manager, action_name) {
                         return denied;
                     }
@@ -1058,10 +1056,7 @@ atmos desktop-use driver grant-permissions --target screen_recording"
                     )
                 } else {
                     (
-                        scrub_vendor(&format!(
-                            "{}: {fail}",
-                            strings::ERR_ENGINE_FAILED
-                        )),
+                        scrub_vendor(&format!("{}: {fail}", strings::ERR_ENGINE_FAILED)),
                         "control_engine_failed",
                     )
                 };

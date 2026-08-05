@@ -747,10 +747,7 @@ mod tests {
         });
         assert_eq!(pid_for_window_id(&list, 22), Some(36904));
         assert_eq!(pid_for_window_id(&list, 99), None);
-        assert_eq!(
-            bounds_for_window_id(&list, 22),
-            Some((1.0, 2.0, 3.0, 4.0))
-        );
+        assert_eq!(bounds_for_window_id(&list, 22), Some((1.0, 2.0, 3.0, 4.0)));
     }
 
     #[test]
