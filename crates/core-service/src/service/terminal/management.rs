@@ -506,6 +506,18 @@ impl TerminalService {
                 socket_path: Some(PathBuf::from(&sock)),
             });
 
+            let watch_target = match (handle.tmux_session.clone(), handle.tmux_window_index) {
+                (Some(ts), Some(twi)) => Some((ts, twi)),
+                _ => None,
+            };
+            drop(sessions);
+
+            // APP-054: if no other browser client remains on this window, keep
+            // observing DEC mouse modes so reattach restore stays accurate.
+            if let Some((ts, twi)) = watch_target {
+                self.ensure_mouse_mode_watch_if_unattached(&ts, twi).await;
+            }
+
             info!(
                 "Terminal session closed (detached): {} - tmux window {:?}:{:?} preserved",
                 session_id, handle.tmux_session, handle.tmux_window_index
@@ -538,6 +550,7 @@ impl TerminalService {
 
             // Step 2: Kill the tmux window in the master session.
             if let (Some(ts), Some(twi)) = (&handle.tmux_session, handle.tmux_window_index) {
+                self.stop_mouse_mode_watch_for_window(ts, twi);
                 if handle.terminal_kind != super::TerminalKind::SideChat {
                     let source_name = handle.terminal_name.clone().or_else(|| {
                         self.tmux_engine.list_windows(ts).ok().and_then(|windows| {
@@ -706,6 +719,7 @@ impl TerminalService {
     /// PTY device exhaustion ("unable to allocate pty: Device not configured").
     pub async fn shutdown(&self) {
         info!("Shutting down terminal service, cleaning up all sessions...");
+        self.mouse_mode_watches.stop_all();
 
         let mut sessions = self.sessions.lock().await;
         let count = sessions.len();

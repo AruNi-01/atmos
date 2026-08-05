@@ -21,9 +21,11 @@ use tokio::sync::{mpsc, oneshot, Mutex};
 use tracing::{debug, error, info, warn};
 
 mod management;
+mod mouse_mode_watch;
 mod runtime;
 mod types;
 
+use mouse_mode_watch::{pane_watch_key, MouseModeWatchRegistry};
 use runtime::{run_control_mode_tmux_session, run_simple_pty_session};
 pub use types::{
     AttachSessionParams, CaptureSideContextParams, CapturedSideContext, CreateSessionParams,
@@ -72,6 +74,8 @@ pub struct TerminalService {
     db: Option<Arc<DatabaseConnection>>,
     /// Optional agent-hooks service so pane destroy can clear hook sessions.
     agent_hooks: std::sync::RwLock<Option<Arc<super::agent_hooks::AgentHooksService>>>,
+    /// Detached pane watchers that keep DEC mouse modes fresh while no browser is attached (APP-054).
+    mouse_mode_watches: Arc<MouseModeWatchRegistry>,
 }
 
 impl Default for TerminalService {
@@ -104,6 +108,7 @@ impl TerminalService {
             shims_dir,
             db: None,
             agent_hooks: std::sync::RwLock::new(None),
+            mouse_mode_watches: Arc::new(MouseModeWatchRegistry::new()),
         }
     }
 
@@ -165,7 +170,52 @@ impl TerminalService {
             shims_dir,
             db,
             agent_hooks: std::sync::RwLock::new(None),
+            mouse_mode_watches: Arc::new(MouseModeWatchRegistry::new()),
         }
+    }
+
+    /// Stop detached mouse-mode watch so a live control client owns observation.
+    pub(super) fn stop_mouse_mode_watch_for_window(&self, tmux_session: &str, window_index: u32) {
+        let key = pane_watch_key(tmux_session, window_index);
+        self.mouse_mode_watches.stop_for_pane(&key);
+    }
+
+    /// When no browser session remains for this master window, keep observing mouse modes.
+    ///
+    /// `remaining` is the sessions map **after** the closing handle was removed.
+    pub(super) async fn ensure_mouse_mode_watch_if_unattached(
+        &self,
+        tmux_session: &str,
+        window_index: u32,
+    ) {
+        let still_live = {
+            let sessions = self.sessions.lock().await;
+            sessions.values().any(|h| {
+                h.tmux_session.as_deref() == Some(tmux_session)
+                    && h.tmux_window_index == Some(window_index)
+            })
+        };
+        if still_live {
+            return;
+        }
+        let pane_id = match self.tmux_engine.get_pane_id(tmux_session, window_index) {
+            Ok(id) => id,
+            Err(error) => {
+                debug!(
+                    "Skip mouse-mode watch for {}:{} (no pane id): {}",
+                    tmux_session, window_index, error
+                );
+                return;
+            }
+        };
+        let key = pane_watch_key(tmux_session, window_index);
+        self.mouse_mode_watches.ensure_for_pane(
+            key,
+            tmux_session.to_string(),
+            window_index,
+            pane_id,
+            self.tmux_engine.socket_file_path(),
+        );
     }
 
     /// Get the TmuxEngine reference
@@ -920,6 +970,8 @@ impl TerminalService {
             .tmux_engine
             .get_pane_id(&tmux_session, window_index)
             .map_err(|e| ServiceError::Processing(format!("Failed to get tmux pane id: {}", e)))?;
+        // Live browser client takes over observation from any detached watcher.
+        self.stop_mouse_mode_watch_for_window(&tmux_session, window_index);
         let (control_cols, control_rows) = if is_usable_browser_size(cols, rows) {
             (cols, rows)
         } else {
@@ -996,8 +1048,7 @@ impl TerminalService {
         // Wait for initialization result
         match init_rx.await {
             Ok(Ok(())) => {
-                // Inject a synthetic OSC 9999 so the frontend gets an immediate
-                // dynamic title even on reconnect / page refresh.
+                // Inject synthetic OSC 9998 (reattach title only — not shell 9999).
                 // Query tmux for the current pane state (command + cwd).
                 self.inject_initial_title(&tmux_session, window_index, &title_tx);
 
@@ -1043,8 +1094,13 @@ impl TerminalService {
         }
     }
 
-    /// Inject a synthetic OSC 9999 sequence so the frontend gets an immediate
+    /// Inject a synthetic **OSC 9998** title so the frontend gets an immediate
     /// dynamic title on connect/reconnect without waiting for user interaction.
+    ///
+    /// Uses OSC **9998** (not the shell shim's 9999). The web client treats 9998
+    /// as title-only and never clears DEC mouse modes. Sharing 9999 with the
+    /// shell shim caused reattach races: snapshot restored TUI mouse, then a
+    /// synthetic CMD_END wiped it and left 100% local xterm scrollback (APP-054).
     ///
     /// Queries tmux for the pane's current foreground command and working directory,
     /// then decides whether to send CMD_START (program running) or CMD_END (shell idle).
@@ -1065,25 +1121,26 @@ impl TerminalService {
             }
         };
 
+        // OSC 9998 = reattach synthetic title (must not share 9999 with shell shim).
         let osc = if core_engine::is_shell_command(&current_cmd) {
             // Shell is idle at prompt — show the current working directory
             match self
                 .tmux_engine
                 .get_pane_current_path(tmux_session, window_index)
             {
-                Ok(path) if !path.is_empty() => format!("\x1b]9999;CMD_END:{}\x07", path),
+                Ok(path) if !path.is_empty() => format!("\x1b]9998;CMD_END:{}\x07", path),
                 _ => return, // Can't determine path, skip
             }
         } else {
             // A foreground program is running — show its name
-            format!("\x1b]9999;CMD_START:{}\x07", current_cmd)
+            format!("\x1b]9998;CMD_START:{}\x07", current_cmd)
         };
 
         if let Err(e) = output_tx.send(osc.into_bytes()) {
             debug!("Failed to inject initial title OSC: {}", e);
         } else {
             debug!(
-                "Injected initial title OSC for {}:{}",
+                "Injected reattach title OSC 9998 for {}:{}",
                 tmux_session, window_index
             );
         }
