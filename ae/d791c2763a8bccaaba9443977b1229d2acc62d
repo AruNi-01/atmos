@@ -1,0 +1,14 @@
+apps/web/src/features/terminal/components/Terminal.tsx
+  h_5be255725524c8 102-107,116-118,121-132,380-386,479-481,840-844,1394-1395,1423-1433
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "aed791c2763a8bccaaba9443977b1229d2acc62d",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
