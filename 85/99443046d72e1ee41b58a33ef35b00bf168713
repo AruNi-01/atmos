@@ -1,0 +1,28 @@
+apps/cli/src/commands/browser_use.rs
+  h_5be255725524c8 62-63,68,82-83,87,99,119,133,141,150,169-170
+crates/browser-use/src/backends/embedded.rs
+  h_5be255725524c8 1,177
+crates/browser-use/src/backends/external.rs
+  h_5be255725524c8 1,6-8,13,23,42,92,116,145,170,179
+crates/browser-use/src/backends/mod.rs
+  h_5be255725524c8 2,5
+crates/browser-use/src/lib.rs
+  h_5be255725524c8 4-5,13,28-29,33-34,37,40,73,75,81,84,91,99,101,107,110,117,125,127,134,137,145,153,155,159,163,168,176,182,186,193,200,202,206,209,215,221,227,238-247
+crates/browser-use/src/types.rs
+  h_5be255725524c8 6,13,16,23-24,31-32,53,55,101-121
+skills/atmos-browser-use/SKILL.md
+  h_5be255725524c8 3,18-19,23,26,39,41,47-50,58,65-66
+skills/atmos-desktop-use/SKILL.md
+  h_5be255725524c8 183
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "8599443046d72e1ee41b58a33ef35b00bf168713",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
