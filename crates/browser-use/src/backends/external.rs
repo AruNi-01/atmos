@@ -1,14 +1,16 @@
-//! CUA external Chromium path via managed desktop-use engine.
+//! External (system Chrome/Chromium) path via managed Desktop Use control engine.
 
 use serde_json::{json, Value};
 
 use super::BrowserBackend;
-use crate::types::{BrowserAction, BrowserError, BrowserRequest, BrowserResult};
+use crate::types::{
+    BrowserAction, BrowserBackendKind, BrowserError, BrowserRequest, BrowserResult,
+};
 use desktop_use::host;
 use desktop_use::manager::DesktopUseManager;
 
 #[derive(Debug, Default)]
-pub struct CuaExternalBackend;
+pub struct ExternalBackend;
 
 pub fn build_tool_call(req: &BrowserRequest) -> Result<(&'static str, Value), String> {
     let session = req
@@ -18,8 +20,7 @@ pub fn build_tool_call(req: &BrowserRequest) -> Result<(&'static str, Value), St
 
     match req.action {
         BrowserAction::Prepare => {
-            // Engine 0.17: pid required. strategy.kind=existing_profile also requires window_id.
-            // Do NOT default existing_profile without window_id (engine refuses / consent needs anchor).
+            // pid required. existing_profile also requires window_id.
             let pid = req
                 .pid
                 .ok_or_else(|| "prepare requires --pid (browser process)".to_string())?;
@@ -38,10 +39,7 @@ pub fn build_tool_call(req: &BrowserRequest) -> Result<(&'static str, Value), St
             match strategy {
                 Some(s) if s.contains("existing") => {
                     if req.window_id.is_none() {
-                        return Err(
-                            "prepare with existing_profile requires --window-id (engine 0.17)"
-                                .into(),
-                        );
+                        return Err("prepare with existing_profile requires --window-id".into());
                     }
                     a["strategy"] = json!({ "kind": "existing_profile" });
                 }
@@ -91,7 +89,7 @@ pub fn build_tool_call(req: &BrowserRequest) -> Result<(&'static str, Value), St
             Ok(("get_browser_state", a))
         }
         BrowserAction::Click => {
-            // Engine 0.17 required: target_id, tab_id (+ ref or x/y).
+            // target_id, tab_id, and ref are required.
             let target = req
                 .target_id
                 .as_ref()
@@ -115,7 +113,7 @@ pub fn build_tool_call(req: &BrowserRequest) -> Result<(&'static str, Value), St
             ))
         }
         BrowserAction::Type => {
-            // Engine 0.17 required: target_id, tab_id, ref, text.
+            // target_id, tab_id, ref, and text are required.
             let target = req
                 .target_id
                 .as_ref()
@@ -144,7 +142,7 @@ pub fn build_tool_call(req: &BrowserRequest) -> Result<(&'static str, Value), St
             ))
         }
         BrowserAction::Navigate => {
-            // Engine 0.17 required: target_id, tab_id, url.
+            // target_id, tab_id, and url are required.
             let target = req.target_id.as_ref().ok_or_else(|| {
                 "navigate requires --target-id (from browser-use state)".to_string()
             })?;
@@ -169,7 +167,7 @@ pub fn build_tool_call(req: &BrowserRequest) -> Result<(&'static str, Value), St
     }
 }
 
-impl BrowserBackend for CuaExternalBackend {
+impl BrowserBackend for ExternalBackend {
     fn execute(&self, req: BrowserRequest) -> BrowserResult {
         let action = match req.action {
             BrowserAction::Prepare => "prepare",
@@ -178,7 +176,7 @@ impl BrowserBackend for CuaExternalBackend {
             BrowserAction::Type => "type",
             BrowserAction::Navigate => "navigate",
         };
-        let backend = "cua";
+        let backend = BrowserBackendKind::External.as_str();
 
         let (tool, args) = match build_tool_call(&req) {
             Ok(v) => v,

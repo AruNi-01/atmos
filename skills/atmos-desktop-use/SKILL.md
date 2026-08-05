@@ -180,7 +180,7 @@ atmos desktop-use --json drive click --x … --y … --agent-name "Claude" --sta
 |--------|----------------|
 | Any app shell, keys, AX, pixels | **`atmos desktop-use drive …`** (this skill) |
 | Chrome/Chromium **page** DOM | **`atmos browser-use …`** (separate skill surface; **no MCP**) |
-| Atmos in-app browser (webview) | `browser-use --backend embedded` — **stub until APP-053 / PR #203** |
+| Atmos in-app browser (webview) | `atmos browser-use --backend embedded` |
 
 Do **not** use Desktop Use for deep webpage automation when Browser Use is available.
 

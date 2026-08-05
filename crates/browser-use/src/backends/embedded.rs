@@ -1,4 +1,4 @@
-//! Atmos embedded browser (APP-053 webview) via host-owned control plane.
+//! Atmos embedded browser (in-app webview) via host-owned control plane.
 //!
 //! Electron Desktop writes `~/.atmos/browser-use/control.json` with a loopback
 //! HTTP base URL. This backend talks to that plane — **not** user-Chrome
@@ -174,7 +174,7 @@ pub fn build_embedded_body(req: &BrowserRequest) -> Result<Value, String> {
     match req.action {
         BrowserAction::Prepare => Ok(json!({
             "session": session,
-            // Optional preferred APP-053 browser session id (maps to target_id)
+            // Optional preferred in-app browser session id (maps to target_id)
             "target_id": req.target_id,
             "url": req.url,
         })),

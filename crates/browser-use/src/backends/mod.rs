@@ -1,8 +1,8 @@
-pub(crate) mod cua;
 pub(crate) mod embedded;
+pub(crate) mod external;
 
-pub use cua::CuaExternalBackend;
 pub use embedded::EmbeddedBackend;
+pub use external::ExternalBackend;
 
 use crate::types::{BrowserRequest, BrowserResult};
 

@@ -1,6 +1,6 @@
 ---
 name: atmos-browser-use
-version: "1.1.0"
+version: "1.2.0"
 description: >
   Control web pages via Browser Use (`atmos browser-use`), separate from Desktop Use.
   Prefer for Chrome/Chromium page DOM or Atmos in-app browser (embedded). Do not use for
@@ -15,15 +15,15 @@ description: >
 
 | `--backend` | Meaning |
 |-------------|---------|
-| `cua` (default) | System Chromium via managed control engine (`browser_*` tools) |
-| `embedded` | Atmos in-app browser (APP-053 `<webview>`, partition `persist:atmos-browser`) via Desktop host control plane |
+| `external` (default) | System Chrome/Chromium via Desktop Use control engine |
+| `embedded` | Atmos in-app browser via Desktop host control plane |
 
 ## Atmos embedded loop (in-app browser)
 
-Requires **Atmos Desktop** running with at least one Browser tab open (so a webview guest is bound).
+Requires **Atmos Desktop** running with at least one Browser tab open.
 
 ```bash
-# 1) Host readiness + list sessions (target_id = APP-053 session id)
+# 1) Host readiness + list sessions (target_id = in-app browser session id)
 atmos browser-use --json prepare --backend embedded
 
 # 2) Bind list (omit target) or snapshot DOM refs for a session
@@ -36,18 +36,18 @@ atmos browser-use --json type --backend embedded --target-id <session_id> --tab-
 atmos browser-use --json navigate --backend embedded --target-id <session_id> --tab-id main --url https://example.com
 ```
 
-Host writes `~/.atmos/browser-use/control.json` with a loopback `base_url`. CLI talks only to that plane — **never** user-Chrome `browser_prepare`.
+Host writes `~/.atmos/browser-use/control.json` with a loopback `base_url`. CLI talks only to that plane — **never** user-Chrome prepare on the embedded path.
 
-## System Chrome loop (CUA)
+## System Chrome loop (external)
 
 ```bash
 # Find Chrome pid + window_id via Desktop Use
 atmos desktop-use --json drive verify
 
-atmos browser-use --json prepare --backend cua --pid <chrome_pid>
-atmos browser-use --json state --backend cua --pid <pid> --window-id <wid>
-atmos browser-use --json state --backend cua --target-id … --tab-id …
-atmos browser-use --json click --backend cua --target-id … --tab-id … --ref …
+atmos browser-use --json prepare --backend external --pid <chrome_pid>
+atmos browser-use --json state --backend external --pid <pid> --window-id <wid>
+atmos browser-use --json state --backend external --target-id … --tab-id …
+atmos browser-use --json click --backend external --target-id … --tab-id … --ref …
 ```
 
 ## Decision
@@ -55,13 +55,13 @@ atmos browser-use --json click --backend cua --target-id … --tab-id … --ref 
 | Target | Surface |
 |--------|---------|
 | Atmos in-app browser page | `--backend embedded` |
-| User Chrome/Chromium page | `--backend cua` |
+| User Chrome/Chromium page | `--backend external` |
 | Window chrome / Slack / VS Code / any non-browser app | **`atmos-desktop-use`** (AX / pixel) |
 
 ## Errors
 
 | Code | Meaning |
 |------|---------|
-| `embedded_browser_host_unavailable` | Desktop control plane not running / no control.json |
-| `control_engine_not_installed` / `browser_engine_failed` | CUA path needs Desktop Use engine install |
+| `embedded_browser_host_unavailable` | Desktop Browser Use host not running / no control.json |
+| `control_engine_not_installed` / `browser_engine_failed` | External path needs Desktop Use engine install |
 | `invalid_args` | Missing target_id / ref / url |
