@@ -1,0 +1,34 @@
+apps/cli/src/commands/desktop_use/args.rs
+  h_5be255725524c8 1
+apps/cli/src/commands/desktop_use/drive.rs
+  h_5be255725524c8 1-317
+apps/cli/src/commands/desktop_use/mod.rs
+  h_5be255725524c8 1-152
+apps/desktop-electron/src/browser/surface-manager.ts
+  h_5be255725524c8 15,30-34,286-287
+apps/desktop-electron/src/browser/webview-color-scheme.ts
+  h_5be255725524c8 1-55
+apps/desktop-electron/src/browser/webview-runtime.ts
+  h_5be255725524c8 1-89
+apps/web/src/features/browser/components/BrowserSession.tsx
+  h_5be255725524c8 4,52
+apps/web/src/features/browser/lib/browser-session-i18n.ts
+  h_5be255725524c8 1-49
+automations/review/quality/result/2026-08/08-05_score-77_RESULT.md
+  h_5be255725524c8 1-164
+crates/desktop-use/src/control.rs
+  h_5be255725524c8 171-223,320,355,520,525,537-540,567-570,573-576,582-585,588-591,644-650,655-658,818-876,886,926-929,938,971-977,979-988,990-993
+crates/desktop-use/src/drive_tools.rs
+  h_5be255725524c8 12,30-36,62-82
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "e2e9bf087ee560f5cec082415cb156510508d117",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
