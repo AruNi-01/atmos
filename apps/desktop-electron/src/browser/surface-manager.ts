@@ -29,6 +29,7 @@ import {
   toPreloadFileUrl,
   type RegisteredBrowserSession,
 } from "./webview-attach-policy.js";
+import { resolveBrowserRuntimeScriptPath } from "./browser-runtime-path.js";
 
 const requireElectron = createRequire(import.meta.url);
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -76,7 +77,7 @@ type SurfaceState = {
 };
 
 function browserRuntimeScriptPath(): string {
-  return join(REPO_ROOT, "packages/shared/browser/browser-runtime.js");
+  return resolveBrowserRuntimeScriptPath(__dirname, REPO_ROOT);
 }
 
 function browserPreloadPath(): string {
@@ -104,7 +105,6 @@ function buildBridgeInjection(bridgeToken: string): string {
   return `
 ${runtime}
 (() => {
-  if (window.__ATMOS_DESKTOP_BROWSER_BRIDGE__) return;
   const invoke = window.__ATMOS_BROWSER_INVOKE__;
   if (!invoke) {
     console.error('[atmos-browser] __ATMOS_BROWSER_INVOKE__ missing — browser preload failed');
@@ -115,23 +115,31 @@ ${runtime}
     return;
   }
   const bridgeToken = ${tokenJson};
-  const controller = window.__ATMOS_BROWSER_RUNTIME__.createRuntime({
-    win: window,
-    // Host SelectionPopover owns toolbar chrome; guest still draws pick hover/lock labels.
-    showSelectionToolbar: false,
-    showHoverLabel: true,
-    emit(message) {
-      invoke('browser_bridge_event', {
-        payload: Object.assign({}, message, { bridgeToken })
-      }).catch((err) => {
-        console.error('[atmos-browser] emit failed', err);
-      });
-    },
-  });
+  // Re-bind API on every inject (hot-fix clear vs exit pick mode).
+  // Only createRuntime once per document — destroy would drop overlay DOM mid-session.
+  if (!window.__ATMOS_DESKTOP_BROWSER_CONTROLLER__) {
+    window.__ATMOS_DESKTOP_BROWSER_CONTROLLER__ = window.__ATMOS_BROWSER_RUNTIME__.createRuntime({
+      win: window,
+      // Host SelectionPopover owns toolbar chrome; guest still draws pick hover/lock labels.
+      showSelectionToolbar: false,
+      showHoverLabel: true,
+      emit(message) {
+        invoke('browser_bridge_event', {
+          payload: Object.assign({}, message, { bridgeToken })
+        }).catch((err) => {
+          console.error('[atmos-browser] emit failed', err);
+        });
+      },
+    });
+  }
+  const controller = window.__ATMOS_DESKTOP_BROWSER_CONTROLLER__;
   window.__ATMOS_DESKTOP_BROWSER_BRIDGE__ = {
     announceReady(sessionId) { controller.announceReady(sessionId); },
     enterPickMode(sessionId) { controller.enterPickMode(sessionId); },
-    clearSelection() { controller.exitPickMode(); },
+    // Unlock only — keep pick mode (host SelectionPopover dismiss / re-pick).
+    clearSelection() { controller.clearSelection(false); },
+    // Full pick-mode off (toolbar toggle / tab hide).
+    exitPickMode() { controller.exitPickMode(); },
     clearAnnotations() { controller.clearAnnotations?.(); },
     syncOverlays() { controller.syncOverlays?.(); },
     destroy() { controller.destroy(); },
@@ -628,7 +636,7 @@ export class BrowserSurfaceManager {
   private async syncSessionBridge(
     wc: WebContents,
     sessionId: string,
-    method: "announceReady" | "enterPickMode" | "clearSelection",
+    method: "announceReady" | "enterPickMode" | "clearSelection" | "exitPickMode",
   ): Promise<void> {
     const sessionJson = JSON.stringify(sessionId);
     const methodJson = JSON.stringify(method);
@@ -642,6 +650,11 @@ export class BrowserSurfaceManager {
     const bridge = window.__ATMOS_DESKTOP_BROWSER_BRIDGE__;
     if (bridge && typeof bridge[method] === 'function') {
       bridge[method](sessionId);
+      return true;
+    }
+    // Legacy injects only had clearSelection === exitPickMode.
+    if (method === 'exitPickMode' && bridge && typeof bridge.clearSelection === 'function') {
+      bridge.clearSelection(sessionId);
       return true;
     }
     attempts += 1;
@@ -666,7 +679,7 @@ export class BrowserSurfaceManager {
     wc: WebContents,
     sessionId: string,
     bridgeToken: string,
-    method: "announceReady" | "enterPickMode" | "clearSelection",
+    method: "announceReady" | "enterPickMode" | "clearSelection" | "exitPickMode",
   ): Promise<void> {
     await this.injectBridge(wc, bridgeToken);
     await this.syncSessionBridge(wc, sessionId, method);
@@ -682,7 +695,7 @@ export class BrowserSurfaceManager {
       wc,
       sessionId,
       bridgeToken,
-      pick ? "enterPickMode" : "clearSelection",
+      pick ? "enterPickMode" : "exitPickMode",
     );
   }
 
@@ -705,7 +718,8 @@ export class BrowserSurfaceManager {
     s.hostWindow = host;
     s.currentUrl = url;
     s.detached = false;
-    s.pickMode = false;
+    // Do NOT reset pickMode here — host toolbar may still be pressed; navigation
+    // re-enters pick via onBrowserPageFinished when pickMode stays true.
 
     if (s.detachedWindow && !s.detachedWindow.isDestroyed()) {
       s.detachedWindow.close();
@@ -908,7 +922,30 @@ export class BrowserSurfaceManager {
     if (wc) void this.evalPickMode(wc, sessionId, true, s.bridgeToken);
   }
 
+  /**
+   * Unlock guest selection chrome only — does **not** exit pick mode.
+   * Used when host dismisses SelectionPopover and the toolbar pick button stays on.
+   *
+   * Older guest runtimes disabled pick mode on host clear; if `pickMode` is still
+   * desired we re-enter so hover outlines keep working without a page reload.
+   */
   clearSelection(sessionId: string): void {
+    const s = this.surfaces.get(sessionId);
+    if (!s) return;
+    const wc = this.webContentsFor(s);
+    if (!wc) return;
+    const bridgeToken = s.bridgeToken;
+    const keepPick = s.pickMode;
+    void (async () => {
+      await this.injectAndSync(wc, sessionId, bridgeToken, "clearSelection");
+      if (keepPick && this.surfaces.get(sessionId)?.pickMode) {
+        await this.injectAndSync(wc, sessionId, bridgeToken, "enterPickMode");
+      }
+    })();
+  }
+
+  /** Toolbar toggle / inactive tab — full pick mode off. */
+  exitPickMode(sessionId: string): void {
     const s = this.surfaces.get(sessionId);
     if (!s) return;
     s.pickMode = false;

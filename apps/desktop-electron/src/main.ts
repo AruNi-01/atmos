@@ -15,7 +15,10 @@ import { createDesktopCommandRouter } from "./ipc/router.js";
 import { createAllHandlers } from "./ipc/handlers.js";
 import { createMainWindow, uiBaseUrl } from "./windows/main-window.js";
 import { markAllowWindowDestroy } from "./windows/close-behavior.js";
-import { ensureMacDockVisible } from "./windows/mac-dock.js";
+import {
+  ensureMacDockVisible,
+  pinMacDockAfterBoot,
+} from "./windows/mac-dock.js";
 import { BrowserSurfaceManager } from "./browser/surface-manager.js";
 import { BrowserUseControlPlane } from "./browser/browser-use-control.js";
 import { ALL_PROVIDERS, TunnelService } from "./tunnel/service.js";
@@ -123,7 +126,8 @@ async function boot() {
       );
     }
     // Pin Dock after boot work (trigger arm, etc.) in case anything dismissed it.
-    void ensureMacDockVisible();
+    // Hard recycle + retries — soft show alone leaves 0-width tiles on macOS 26.
+    void pinMacDockAfterBoot();
   }
 }
 

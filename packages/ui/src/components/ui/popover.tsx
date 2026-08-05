@@ -25,17 +25,24 @@ function PopoverAnchor({
 
 const preventAutoFocus = (e: Event) => e.preventDefault()
 
-function PopoverContent({
-  className,
-  align = "center",
-  sideOffset = 4,
-  onOpenAutoFocus = preventAutoFocus,
-  onCloseAutoFocus,
-  ...props
-}: React.ComponentProps<typeof PopoverPrimitive.Content>) {
+const PopoverContent = React.forwardRef<
+  React.ComponentRef<typeof PopoverPrimitive.Content>,
+  React.ComponentPropsWithoutRef<typeof PopoverPrimitive.Content>
+>(function PopoverContent(
+  {
+    className,
+    align = "center",
+    sideOffset = 4,
+    onOpenAutoFocus = preventAutoFocus,
+    onCloseAutoFocus,
+    ...props
+  },
+  ref,
+) {
   return (
     <PopoverPrimitive.Portal>
       <PopoverPrimitive.Content
+        ref={ref}
         data-slot="popover-content"
         align={align}
         sideOffset={sideOffset}
@@ -49,6 +56,7 @@ function PopoverContent({
       />
     </PopoverPrimitive.Portal>
   )
-}
+})
+PopoverContent.displayName = "PopoverContent"
 
 export { Popover, PopoverTrigger, PopoverContent, PopoverAnchor }

@@ -176,13 +176,19 @@ export function DesktopBrowserWebview({
         errorCode?: number;
         errorDescription?: string;
         validatedURL?: string;
+        isMainFrame?: boolean;
       };
+      // -3 = aborted (navigation superseded); ignore.
       if (detail.errorCode === -3) return;
       console.error(
         "[browser] webview did-fail-load",
-        detail.errorCode,
-        detail.errorDescription,
-        detail.validatedURL,
+        {
+          errorCode: detail.errorCode,
+          errorDescription: detail.errorDescription,
+          validatedURL: detail.validatedURL,
+          isMainFrame: detail.isMainFrame,
+          sessionId: attach?.sessionId,
+        },
       );
       onLoadingChange?.(false);
     };

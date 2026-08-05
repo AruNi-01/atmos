@@ -7,6 +7,7 @@ import { formatPreviewSelectionForAI, type SelectionInfo } from "@/shared/lib/fo
 import { wrapAiContextClipboard } from "@/shared/lib/ai-context-protocol";
 import type { PreviewHelperPayload } from "../lib/browser-helper/types";
 import type { BrowserBridgeController, BrowserTransportMode } from "../lib/browser-bridge/types";
+import { mapGuestPointToViewport } from "../lib/map-guest-rect";
 
 interface UsePreviewSelectionParams {
   desktopViewportRef: MutableRefObject<HTMLDivElement | null>;
@@ -49,6 +50,8 @@ function rectsEqual(
     Math.abs(left.height - right.height) < 0.5
   );
 }
+
+
 
 type PreviewSelectionTranslator = (
   key: string,
@@ -108,11 +111,21 @@ export function useBrowserSelection({
     editingAnnotationIdRef.current = editingAnnotationId;
   }, [editingAnnotationId]);
 
+  /**
+   * Click offset within the selected element (guest CSS px).
+   * On scroll we re-query the element rect and rebuild the anchor as
+   * rect.origin + offset so the popover tracks the element, not the viewport.
+   */
+  const lastGuestClickOffsetRef = useRef<{ x: number; y: number } | null>(null);
+  const lastGuestViewportRef = useRef<{ width: number; height: number } | null>(null);
+
   const dismissSelectionPopover = useCallback((resetPreviewSelection: boolean = true) => {
     setSelectionPopoverVisible(false);
     setSelectionPopoverExpanded(false);
     setSelectionInfo(null);
     setEditingAnnotationId(null);
+    lastGuestClickOffsetRef.current = null;
+    lastGuestViewportRef.current = null;
     if (resetPreviewSelection) {
       void Promise.resolve(transportControllerRef.current?.clearSelection(false));
       if (isElementPickerEnabledRef.current) {
@@ -121,6 +134,18 @@ export function useBrowserSelection({
     }
   }, [isElementPickerEnabledRef, transportControllerRef]);
 
+  const resolveFrameEl = useCallback((): HTMLElement | null => {
+    if (transportControllerRef.current?.mode === "desktop" || desktopViewportRef.current) {
+      const shell = desktopViewportRef.current;
+      return (shell?.querySelector("webview") as HTMLElement | null) ?? shell;
+    }
+    return iframeRef.current;
+  }, [desktopViewportRef, iframeRef, transportControllerRef]);
+
+  /**
+   * Map guest click/element coords → host **viewport** anchor for Radix Popover.
+   * Anchor must be viewport-space because the preview popover portals to body.
+   */
   const getPopoverPositionFromRect = useCallback((
     rect: { x: number; y: number; width: number; height: number },
     opts?: {
@@ -128,68 +153,21 @@ export function useBrowserSelection({
       viewport?: { width: number; height: number };
     },
   ) => {
-    // Map guest CSS pixels → host fixed coords via the live frame element.
-    // Scale is required when the host is CSS-transformed (canvas zoom/pan) or the
-    // guest viewport size differs from the element's visual getBoundingClientRect.
-    let frameEl: HTMLElement | null = null;
-    if (transportControllerRef.current?.mode === 'desktop' || desktopViewportRef.current) {
-      const shell = desktopViewportRef.current;
-      frameEl = (shell?.querySelector('webview') as HTMLElement | null) ?? shell;
-    } else {
-      frameEl = iframeRef.current;
-    }
-
-    const targetBounds = frameEl?.getBoundingClientRect();
-    if (!targetBounds || (targetBounds.width <= 0 && targetBounds.height <= 0)) {
-      const cx = opts?.cursor?.x ?? rect.x + rect.width / 2;
-      const cy = opts?.cursor?.y ?? rect.y + rect.height;
-      return { x: cx, y: cy + 12 };
-    }
-
-    const guestViewportW =
-      opts?.viewport?.width && opts.viewport.width > 0
-        ? opts.viewport.width
-        : frameEl && frameEl.clientWidth > 0
-          ? frameEl.clientWidth
-          : targetBounds.width;
-    const guestViewportH =
-      opts?.viewport?.height && opts.viewport.height > 0
-        ? opts.viewport.height
-        : frameEl && frameEl.clientHeight > 0
-          ? frameEl.clientHeight
-          : targetBounds.height;
-    const scaleX = guestViewportW > 0 ? targetBounds.width / guestViewportW : 1;
-    const scaleY = guestViewportH > 0 ? targetBounds.height / guestViewportH : 1;
-
-    const mapX = (guestX: number) => targetBounds.left + guestX * scaleX;
-    const mapY = (guestY: number) => targetBounds.top + guestY * scaleY;
-
-    // Prefer click point (near mouse); fall back to element bottom-center.
+    const frameEl = resolveFrameEl();
+    // Prefer click point; fall back to element center (near where the user aimed).
     const guestAnchorX = opts?.cursor
       ? opts.cursor.x
       : rect.x + rect.width / 2;
     const guestAnchorY = opts?.cursor
       ? opts.cursor.y
-      : rect.y + rect.height;
+      : rect.y + rect.height / 2;
 
-    const estimatedPopoverWidth = 320;
-    const estimatedPopoverHeight = 280;
-    const hostAnchorX = mapX(guestAnchorX);
-    const hostAnchorY = mapY(guestAnchorY);
-    // Sit just below/right of the click, similar to follow-cursor chrome.
-    const rawX = hostAnchorX - estimatedPopoverWidth / 2;
-    const belowY = hostAnchorY + 16;
-    const aboveY = hostAnchorY - estimatedPopoverHeight - 12;
-    const rawY =
-      belowY + estimatedPopoverHeight <= window.innerHeight - 8
-        ? belowY
-        : Math.max(8, aboveY);
-
-    return {
-      x: Math.max(8, Math.min(rawX, Math.max(8, window.innerWidth - estimatedPopoverWidth - 8))),
-      y: Math.max(8, rawY),
-    };
-  }, [desktopViewportRef, iframeRef, transportControllerRef]);
+    return mapGuestPointToViewport(
+      { x: guestAnchorX, y: guestAnchorY },
+      frameEl,
+      opts?.viewport,
+    );
+  }, [resolveFrameEl]);
 
   const applyRectMap = useCallback((
     rectBySelector: Map<string, { x: number; y: number; width: number; height: number }>,
@@ -229,7 +207,16 @@ export function useBrowserSelection({
         };
         selectionInfoRef.current = nextInfo;
         setSelectionInfo(nextInfo);
-        setSelectionPopoverPosition(getPopoverPositionFromRect(nextRect));
+        const offset = lastGuestClickOffsetRef.current;
+        const cursor = offset
+          ? { x: nextRect.x + offset.x, y: nextRect.y + offset.y }
+          : undefined;
+        setSelectionPopoverPosition(
+          getPopoverPositionFromRect(nextRect, {
+            cursor,
+            viewport: lastGuestViewportRef.current ?? undefined,
+          }),
+        );
       }
     }
   }, [getPopoverPositionFromRect]);
@@ -394,12 +381,28 @@ export function useBrowserSelection({
     setEditingAnnotationId(null);
     selectionInfoRef.current = nextSelectionInfo;
     setSelectionInfo(nextSelectionInfo);
+    const clickX = payload.cursor
+      ? payload.cursor.x
+      : payload.rect.x + payload.rect.width / 2;
+    const clickY = payload.cursor
+      ? payload.cursor.y
+      : payload.rect.y + payload.rect.height / 2;
+    lastGuestClickOffsetRef.current = {
+      x: clickX - payload.rect.x,
+      y: clickY - payload.rect.y,
+    };
+    if (payload.viewport) {
+      lastGuestViewportRef.current = {
+        width: payload.viewport.width,
+        height: payload.viewport.height,
+      };
+    }
     // Host SelectionPopover is the product path for both web (iframe) and desktop
     // (<webview> with showSelectionToolbar: false). Never hide on select.
     setSelectionPopoverPosition(
       getPopoverPositionFromRect(payload.rect, {
-        cursor: payload.cursor,
-        viewport: payload.viewport,
+        cursor: { x: clickX, y: clickY },
+        viewport: lastGuestViewportRef.current ?? payload.viewport,
       }),
     );
     setSelectionPopoverVisible(true);

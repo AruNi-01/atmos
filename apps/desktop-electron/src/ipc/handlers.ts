@@ -440,7 +440,13 @@ export function createAllHandlers(
     },
 
     async browser_bridge_clear_selection(args) {
+      // Unlock guest selection only — pick mode stays on when the toolbar is still pressed.
       state.browser?.clearSelection(str(args.session_id ?? args.sessionId));
+      return null;
+    },
+
+    async browser_bridge_exit_pick_mode(args) {
+      state.browser?.exitPickMode(str(args.session_id ?? args.sessionId));
       return null;
     },
 

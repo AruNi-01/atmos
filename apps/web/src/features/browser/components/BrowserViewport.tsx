@@ -1,6 +1,7 @@
 "use client";
 
 import type React from "react";
+import { useMemo } from "react";
 import { MessageCirclePlus, Pencil, Trash2 } from "lucide-react";
 import { useTheme } from "next-themes";
 
@@ -14,6 +15,7 @@ import {
   renderPreviewLoadingOverlay,
   type PreviewLoadError,
 } from "../lib/browser-utils";
+import { mapGuestRectToShellLocal } from "../lib/map-guest-rect";
 import type { PreviewViewMode } from "@/shared/lib/nuqs/searchParams";
 import type { DesktopBrowserAttachConfig } from "../lib/browser-transports/desktop-transport";
 import { BrowserHome } from "./BrowserHome";
@@ -114,20 +116,41 @@ export function BrowserViewport({
   const { resolvedTheme } = useTheme();
   // Follow Atmos theme for nested frame color-scheme (scrollbars / controls).
   const guestColorScheme = resolvedTheme === "light" ? "light" : "dark";
-  const annotationOverlays = selectionAnnotations.flatMap((annotation) => {
-    const rect = annotation.info.previewRect;
-    if (!rect) return [];
-    return [{
-      annotation,
-      rect,
-      left: rect.x,
-      top: rect.y,
-      width: Math.max(2, rect.width),
-      height: Math.max(2, rect.height),
-    }];
-  });
   const hasIframeSrc = iframeSrc.trim().length > 0;
   const isDesktop = preferredTransportMode === "desktop";
+
+  // Guest client rects → shell-local absolute positions so pins track webview content.
+  const annotationOverlays = useMemo(() => {
+    const shell = isDesktop
+      ? desktopViewportRef.current
+      : (iframeRef.current?.parentElement as HTMLElement | null);
+    const frame = isDesktop
+      ? ((shell?.querySelector("webview") as HTMLElement | null) ?? shell)
+      : iframeRef.current;
+
+    return selectionAnnotations.flatMap((annotation) => {
+      const rect = annotation.info.previewRect;
+      if (!rect) return [];
+      const mapped = mapGuestRectToShellLocal(rect, frame, shell);
+      // Hide pins that have scrolled fully out of the shell viewport.
+      if (
+        mapped.y + mapped.height < -4 ||
+        mapped.x + mapped.width < -4 ||
+        (shell && mapped.y > shell.clientHeight + 4) ||
+        (shell && mapped.x > shell.clientWidth + 4)
+      ) {
+        return [];
+      }
+      return [{
+        annotation,
+        rect: mapped,
+        left: mapped.x,
+        top: mapped.y,
+        width: Math.max(2, mapped.width),
+        height: Math.max(2, mapped.height),
+      }];
+    });
+  }, [desktopViewportRef, iframeRef, isDesktop, selectionAnnotations]);
 
   const selectionPopover = (
     <SelectionPopover

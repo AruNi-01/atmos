@@ -30,5 +30,10 @@ describe("APP-053 host overlay policy (shipped hooks)", () => {
     // Canvas dialog hosts browser widgets — must not block its own guest.
     expect(src).toContain("node.contains(guestRoot)");
     expect(src).toContain("guestRootRef");
+    // Off-screen / non-hit overlays must not freeze element-select hover.
+    expect(src).toContain("rectIntersectsViewport");
+    expect(src).toContain('style.pointerEvents === "none"');
+    expect(src).toContain("data-canvas-open");
+    expect(src).toContain("inert");
   });
 });

@@ -167,12 +167,13 @@ export async function connectDesktopBrowserTransport(
     },
     async exitPickMode() {
       if (destroyed) return;
-      await invokeDesktopBrowserBridge('browser_bridge_clear_selection', {
+      await invokeDesktopBrowserBridge('browser_bridge_exit_pick_mode', {
         sessionId: options.sessionId,
       });
     },
     async clearSelection() {
       if (destroyed) return;
+      // Unlock only — keep pick mode while the toolbar button stays pressed.
       await invokeDesktopBrowserBridge('browser_bridge_clear_selection', {
         sessionId: options.sessionId,
       });

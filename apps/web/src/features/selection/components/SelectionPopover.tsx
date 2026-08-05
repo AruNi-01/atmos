@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import React, { useState, useCallback, useEffect, useLayoutEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useTranslations } from 'next-intl';
 import { Copy, ChevronDown, Check, Paperclip } from 'lucide-react';
 import {
@@ -38,6 +39,7 @@ export type SelectionAttachedPayload = SelectionCopiedPayload;
 
 interface SelectionPopoverProps {
   isVisible: boolean;
+  /** Host viewport coords for the pick/click anchor (not the card top-left). */
   position: { x: number; y: number };
   selectionInfo: SelectionInfo | null;
   isExpanded: boolean;
@@ -46,6 +48,10 @@ interface SelectionPopoverProps {
   type: SelectionType;
   popoverRef?: React.RefObject<HTMLDivElement | null>;
   className?: string;
+  /**
+   * Legacy: absolute vs fixed for non-preview chrome.
+   * Preview always uses Radix Popover portaled to body, anchored at `position`.
+   */
   positioning?: 'absolute' | 'fixed';
   onCopied?: (payload: SelectionCopiedPayload) => void;
   onAttach?: (payload: SelectionAttachedPayload) => Promise<void> | void;
@@ -77,20 +83,20 @@ export const SelectionPopover: React.FC<SelectionPopoverProps> = ({
   const [userNote, setUserNote] = useState('');
   const [copied, setCopied] = useState(false);
   const [attaching, setAttaching] = useState(false);
-  const [shouldRender, setShouldRender] = useState(false);
-  const [isAnimatingIn, setIsAnimatingIn] = useState(false);
   const [lastSelectionInfo, setLastSelectionInfo] = useState<SelectionInfo | null>(null);
-  const animationFrameRef = useRef<number>(0);
+  const [mounted, setMounted] = useState(false);
+  const anchorRef = useRef<HTMLSpanElement | null>(null);
   const canAttach = type === 'wiki' && typeof onAttach === 'function';
   const canAddPreviewAnnotation = type === 'preview' && typeof onAddAnnotation === 'function';
   const isEditingPreviewAnnotation = type === 'preview' && annotationMode === 'edit';
+  const isPreview = type === 'preview';
 
-  // Use the prop if available (active state), otherwise use cached version (exit animation state)
   const displayInfo = selectionInfo || lastSelectionInfo;
-  
-  // We are active if we are visible and have valid info (either current or cached while rendering)
-  // The animation trigger relies on the PROP `isVisible` to know when to enter/exit
   const isActive = isVisible && !!selectionInfo;
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (selectionInfo) {
@@ -99,33 +105,13 @@ export const SelectionPopover: React.FC<SelectionPopoverProps> = ({
     }
   }, [initialNote, selectionInfo]);
 
-  useEffect(() => {
-    if (isActive) {
-      setShouldRender(true);
-      setIsAnimatingIn(false);
-      animationFrameRef.current = requestAnimationFrame(() => {
-        animationFrameRef.current = requestAnimationFrame(() => {
-          setIsAnimatingIn(true);
-        });
-      });
-    } else {
-      // When becoming inactive, start exit animation
-      setIsAnimatingIn(false);
-    }
-    return () => {
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
-      }
-    };
-  }, [isActive]);
-
-  const handleTransitionEnd = useCallback(() => {
-    if (!isActive) {
-      setShouldRender(false);
-      // Optional: clear cached info after animation is done
-      // setLastSelectionInfo(null); 
-    }
-  }, [isActive]);
+  // Keep the body-level anchor in sync when host remaps click coords (scroll/zoom).
+  useLayoutEffect(() => {
+    const el = anchorRef.current;
+    if (!el) return;
+    el.style.left = `${Math.round(position.x)}px`;
+    el.style.top = `${Math.round(position.y)}px`;
+  }, [position.x, position.y, isActive]);
 
   const buildFormattedText = useCallback((includeNote: boolean) => {
     if (!displayInfo) return null;
@@ -160,7 +146,7 @@ export const SelectionPopover: React.FC<SelectionPopoverProps> = ({
         formattedText: formatted,
         includeNote,
       });
-      
+
       setTimeout(() => {
         setCopied(false);
         onDismiss();
@@ -192,7 +178,7 @@ export const SelectionPopover: React.FC<SelectionPopoverProps> = ({
       onDismiss();
       setUserNote('');
     } catch {
-      // Swallow attach failures to avoid unhandled rejections without adding extra UI noise.
+      // Swallow attach failures.
     } finally {
       setAttaching(false);
     }
@@ -220,7 +206,7 @@ export const SelectionPopover: React.FC<SelectionPopoverProps> = ({
     setUserNote('');
   }, [displayInfo, onUpdateAnnotation, userNote]);
 
-  if (!shouldRender || !displayInfo) {
+  if (!displayInfo || !isActive) {
     return null;
   }
 
@@ -243,6 +229,67 @@ export const SelectionPopover: React.FC<SelectionPopoverProps> = ({
     />
   );
 
+  // Browser element select: both anchor + content live on document.body so
+  // viewport-space click coords match Floating UI measurements (no transform
+  // ancestor skew). Key remounts positioning when the click point jumps.
+  if (isPreview) {
+    if (!mounted || typeof document === 'undefined') return null;
+
+    return createPortal(
+      <Popover
+        open={isActive}
+        onOpenChange={(open) => {
+          if (!open) onDismiss();
+        }}
+      >
+        <PopoverAnchor asChild>
+          <span
+            ref={anchorRef}
+            aria-hidden
+            data-selection-popover-anchor
+            // 2×2 hit box — 0×0 anchors are flaky for Floating UI.
+            className="pointer-events-none fixed z-[9998] block size-0.5 overflow-hidden opacity-0"
+            style={{
+              left: Math.round(position.x),
+              top: Math.round(position.y),
+            }}
+          />
+        </PopoverAnchor>
+        <PopoverContent
+          ref={popoverRef as React.Ref<HTMLDivElement>}
+          data-selection-popover
+          side="bottom"
+          align="center"
+          sideOffset={8}
+          collisionPadding={16}
+          avoidCollisions
+          // Do not use sticky — sticky keeps the panel viewport-fixed while the
+          // page scrolls and covers unrelated content.
+          onOpenAutoFocus={(e) => {
+            e.preventDefault();
+            const root = e.currentTarget;
+            if (!(root instanceof HTMLElement)) return;
+            const note = root.querySelector('textarea');
+            if (note instanceof HTMLTextAreaElement) {
+              note.focus({ preventScroll: true });
+            }
+          }}
+          onPointerDown={(e) => e.stopPropagation()}
+          onMouseDown={(e) => e.stopPropagation()}
+          onMouseUp={(e) => e.stopPropagation()}
+          onClick={(e) => e.stopPropagation()}
+          className={cn(
+            'z-[10000] w-80 max-h-[min(420px,calc(100vh-24px))] overflow-y-auto p-3',
+            className,
+          )}
+        >
+          {detailsContent}
+        </PopoverContent>
+      </Popover>,
+      document.body,
+    );
+  }
+
   return (
     <div
       ref={popoverRef}
@@ -251,30 +298,13 @@ export const SelectionPopover: React.FC<SelectionPopoverProps> = ({
       style={{
         left: position.x,
         top: position.y,
-        opacity: isAnimatingIn ? 1 : 0,
-        transform: isAnimatingIn
-          ? 'scale(1) translateY(0)'
-          : 'scale(0.95) translateY(4px)',
-        transition: isAnimatingIn
-          ? 'opacity 150ms ease-out, transform 150ms ease-out'
-          : 'opacity 150ms ease-in, transform 150ms ease-in',
-        pointerEvents: isAnimatingIn ? 'auto' : 'none',
       }}
-      onTransitionEnd={handleTransitionEnd}
       onPointerDown={(e) => e.stopPropagation()}
       onMouseDown={(e) => e.stopPropagation()}
       onMouseUp={(e) => e.stopPropagation()}
       onClick={(e) => e.stopPropagation()}
     >
-      {type === 'preview' ? (
-        <div
-          data-selection-popover
-          className="w-80 rounded-md border border-border bg-popover p-3 shadow-md"
-        >
-          {detailsContent}
-        </div>
-      ) : (
-        <Popover
+      <Popover
         open={isExpanded}
         onOpenChange={(open) => {
           if (open) {
@@ -283,9 +313,9 @@ export const SelectionPopover: React.FC<SelectionPopoverProps> = ({
             onDismiss();
           }
         }}
-        >
-          <PopoverAnchor asChild>
-            <div className="flex items-center gap-0.5 rounded-md border border-border bg-popover p-0.5 shadow-md">
+      >
+        <PopoverAnchor asChild>
+          <div className="flex items-center gap-0.5 rounded-md border border-border bg-popover p-0.5 shadow-md">
             <Button
               variant="ghost"
               size="icon"
@@ -318,7 +348,7 @@ export const SelectionPopover: React.FC<SelectionPopoverProps> = ({
                 className="h-7 w-7"
                 title={t('popover.actions.addNote')}
               >
-                <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", isExpanded && "rotate-180")} />
+                <ChevronDown className={cn('h-3.5 w-3.5 transition-transform', isExpanded && 'rotate-180')} />
               </Button>
             </PopoverTrigger>
           </div>
@@ -327,6 +357,8 @@ export const SelectionPopover: React.FC<SelectionPopoverProps> = ({
         <PopoverContent
           align="start"
           sideOffset={4}
+          collisionPadding={12}
+          avoidCollisions
           data-selection-popover
           className="z-[10000] w-80 p-3"
           onPointerDown={(e) => e.stopPropagation()}
@@ -340,7 +372,6 @@ export const SelectionPopover: React.FC<SelectionPopoverProps> = ({
           {detailsContent}
         </PopoverContent>
       </Popover>
-      )}
     </div>
   );
 };
