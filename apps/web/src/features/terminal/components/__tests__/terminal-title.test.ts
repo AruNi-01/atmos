@@ -318,6 +318,24 @@ describe("native OSC 0/2 title suffix (APP-047)", () => {
     });
   });
 
+  it("hides agent brand text while keeping agent and OSC alone (no pipe)", () => {
+    const meta = getTerminalDisplayMeta({
+      baseTitle: "Claude Code",
+      dynamicTitle: "claude",
+      configuredAgents: agents,
+      agent: { id: "claude", label: "Claude Code", command: "claude", iconType: "built-in" },
+      oscTitle: "debugging auth",
+      showAgentName: false,
+    });
+    expect(meta).toMatchObject({
+      primaryTitle: "",
+      oscSuffix: "debugging auth",
+      displayTitle: "debugging auth",
+      toolbarAgent: expect.objectContaining({ id: "claude" }),
+    });
+    expect(meta.displayTitle).not.toContain("|");
+  });
+
   it("shows OSC alone when auto title is empty", () => {
     expect(appendNativeOscTitle("", "session topic")).toBe("session topic");
     expect(

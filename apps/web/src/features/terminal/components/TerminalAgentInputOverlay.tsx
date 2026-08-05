@@ -565,17 +565,26 @@ export const TerminalAgentInputOverlay = React.forwardRef<
           setSlashPopoverView("menu");
           return;
         }
-        composerRef.current?.applySlashAtRange(
-          popover.slashOffset,
-          popover.query.length,
-          {
-            kind: "skill",
-            absolutePath: skill.absolutePath,
-            name: skill.name,
-          },
-        );
+        // Non-blocking readiness: insert only when engine + permissions OK.
         setSlashPopover(null);
         setSlashPopoverView("menu");
+        void import("@/features/desktop-use/lib/readiness-modal-bus").then(
+          ({ gateDesktopUseFeature }) => {
+            gateDesktopUseFeature("browser", {
+              onReady: () => {
+                composerRef.current?.applySlashAtRange(
+                  popover.slashOffset,
+                  popover.query.length,
+                  {
+                    kind: "skill",
+                    absolutePath: skill.absolutePath,
+                    name: skill.name,
+                  },
+                );
+              },
+            });
+          },
+        );
         return;
       }
       if (command.id === DESKTOP_USE_SLASH_COMMAND_ID) {
@@ -587,17 +596,26 @@ export const TerminalAgentInputOverlay = React.forwardRef<
           setSlashPopoverView("menu");
           return;
         }
-        composerRef.current?.applySlashAtRange(
-          popover.slashOffset,
-          popover.query.length,
-          {
-            kind: "skill",
-            absolutePath: skill.absolutePath,
-            name: skill.name,
-          },
-        );
+        // Non-blocking readiness: insert only when engine + permissions OK.
         setSlashPopover(null);
         setSlashPopoverView("menu");
+        void import("@/features/desktop-use/lib/readiness-modal-bus").then(
+          ({ gateDesktopUseFeature }) => {
+            gateDesktopUseFeature("slash", {
+              onReady: () => {
+                composerRef.current?.applySlashAtRange(
+                  popover.slashOffset,
+                  popover.query.length,
+                  {
+                    kind: "skill",
+                    absolutePath: skill.absolutePath,
+                    name: skill.name,
+                  },
+                );
+              },
+            });
+          },
+        );
         return;
       }
       if (command.id !== "side" && command.id !== "spawn") return;

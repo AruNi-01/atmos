@@ -58,7 +58,9 @@ import {
   hasNonIdleTerminalPanes,
   isTerminalPaneNonIdle,
 } from "@/features/terminal/lib/terminal-grid-utils";
+import { resolveTerminalCenterTabPresentation } from "@/features/terminal/lib/terminal-center-tab-presentation";
 import { getTerminalCloseConfirmName } from "@/features/terminal/lib/terminal-close-confirm-name";
+import { getScopeKey } from "@/features/terminal/store/terminal-store-helpers";
 import { CodeReviewDialog } from "@/features/code-review";
 import { useReviewSnapshotStore } from "@/features/code-review/store/review-snapshot-store";
 import { usePrewarmCodeLanguages } from "@/shared/hooks/use-prewarm-code-languages";
@@ -68,6 +70,7 @@ import { resolveDefaultSplitAgent } from "@/features/terminal/lib/terminal-split
 import { useTerminalSplitPrefsStore } from "@/features/settings/store/terminal-split-prefs-store";
 import { resolveAgentFixLaunchPrompt } from "@/features/agent-fix/lib/agent-fix-prompt-file";
 import { useWorkspaceCreationStore } from "@/features/workspace/store/workspace-creation-store";
+import { useAgentTitleSettingsStore } from "@/features/settings/store/agent-title-settings-store";
 import { useExperimentSettingsStore } from "@/features/settings/store/experiment-settings-store";
 import {
   FIXED_TABS,
@@ -1248,10 +1251,26 @@ const CenterStage: React.FC = () => {
       }
 
       if (hasNonIdleTerminalPanes(tabPanes, tmuxWindows)) {
-        const tab = useTerminalStore.getState().getTerminalTabs(effectiveContextId)
+        const store = useTerminalStore.getState();
+        const tab = store.getTerminalTabs(effectiveContextId)
           .find((item) => item.id === tabId);
-        const title = tab?.customTitle || tab?.title || t("fallbackTerminalTitle");
         const configuredAgents = terminalQuickOpenAgents.map(({ agent }) => agent);
+        const scopeKey = getScopeKey(effectiveContextId, tabId);
+        const title =
+          resolveTerminalCenterTabPresentation({
+            fallbackTitle: tab?.title || t("fallbackTerminalTitle"),
+            customTitle: tab?.customTitle,
+            panes: store.getPanes(effectiveContextId, tabId),
+            layout: store.getLayout(effectiveContextId, tabId),
+            lastActivePaneId: store.workspaceActivePaneIds[scopeKey] ?? null,
+            maximizedPaneId: store.getMaximizedTerminalId(effectiveContextId, tabId),
+            configuredAgents,
+            showAgentName:
+              useAgentTitleSettingsStore.getState().showAgentNameInTerminalTitles,
+          }).displayTitle ||
+          tab?.customTitle ||
+          tab?.title ||
+          t("fallbackTerminalTitle");
         const runningPaneNames = tabPanes
           .filter((pane) => isTerminalPaneNonIdle(pane, tmuxWindows))
           .map((pane) => getTerminalCloseConfirmName(pane, configuredAgents));

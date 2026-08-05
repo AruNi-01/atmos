@@ -25,7 +25,10 @@ import type { TerminalProps, TerminalSnapshot } from "../types/index";
 import { getRuntimeApiConfig, wsBase } from "@/shared/lib/desktop-runtime";
 import { createTerminalLinkProvider } from "../lib/terminal-link-routing";
 import {
+  applyTuiMouseScrollbackPolicy,
+  CLEAR_XTERM_SCROLLBACK,
   DISABLE_TUI_MOUSE_TRACKING,
+  discardXtermScrollbackWhileMouseTui,
   ENABLE_TUI_MOUSE_TRACKING,
   mouseTrackingRestoreSequence,
   SafeClipboardProvider,
@@ -99,37 +102,66 @@ const INITIAL_CONNECT_STABLE_FRAMES = 2;
 const INITIAL_CONNECT_MAX_WAIT_FRAMES = 20;
 const CANVAS_TERMINAL_SCALE_FIT_DEBOUNCE_MS = 300;
 
+function proposeTerminalGrid(
+  term: XTerm,
+  fit: FitAddon,
+): { cols: number; rows: number } | null {
+  const proposed = fit.proposeDimensions();
+  if (
+    !proposed ||
+    !Number.isFinite(proposed.cols) ||
+    !Number.isFinite(proposed.rows) ||
+    proposed.cols < 2 ||
+    proposed.rows < 1
+  ) {
+    return null;
+  }
+  return { cols: proposed.cols, rows: proposed.rows };
+}
+
 function fitTerminalPreservingScroll(
   term: XTerm,
   fit: FitAddon,
 ): { cols: number; rows: number; changed: boolean } {
   const prevCols = term.cols;
   const prevRows = term.rows;
+  const proposed = proposeTerminalGrid(term, fit);
+
+  // Same grid: do not call FitAddon.fit() (no-op) or jump/scroll — both can
+  // force a WebGL repaint that looks like a TUI flash on warm tab/workspace
+  // reveal (Grok paints in the normal buffer).
+  if (proposed && proposed.cols === prevCols && proposed.rows === prevRows) {
+    return { cols: prevCols, rows: prevRows, changed: false };
+  }
+
   const before = term.buffer.active;
   const wasAtBottom = before.viewportY >= before.baseY;
   const distanceFromBottom = Math.max(0, before.baseY - before.viewportY);
 
-  fit.fit();
-
-  if (wasAtBottom) {
-    jumpXtermToBottom(term);
+  // Prefer direct resize over FitAddon.fit() when we already know the target:
+  // FitAddon clears the render service before resize, which blanks the canvas
+  // for a frame and makes inline TUIs flash even when the app redraws quickly.
+  if (proposed) {
+    term.resize(proposed.cols, proposed.rows);
   } else {
-    const after = term.buffer.active;
-    term.scrollToLine(Math.max(0, after.baseY - distanceFromBottom));
+    fit.fit();
+  }
+
+  const changed = term.cols !== prevCols || term.rows !== prevRows;
+  if (changed) {
+    if (wasAtBottom) {
+      jumpXtermToBottom(term);
+    } else {
+      const after = term.buffer.active;
+      term.scrollToLine(Math.max(0, after.baseY - distanceFromBottom));
+    }
   }
 
   return {
     cols: term.cols,
     rows: term.rows,
-    changed: term.cols !== prevCols || term.rows !== prevRows,
+    changed,
   };
-}
-
-/** Hide local xterm cursor (DEC private mode 25). Inline TUIs (Grok) paint in
- * the normal buffer; a brief clear/redraw would otherwise flash the theme's
- * underline cursor as `_` at home before the app repaints. */
-function hideLocalXtermCursor(term: XTerm) {
-  term.write("\x1b[?25l");
 }
 
 const Terminal = ({
@@ -245,6 +277,26 @@ const Terminal = ({
   const missingWindowCreateAttemptedRef = useRef(false);
   // Ref to hold sendResize so handleConnected can call it without circular dependency
   const sendResizeRef = useRef<(size: { cols: number; rows: number }) => void>(() => {});
+  // Dedup pins so warm reveal / double onResize do not re-fire refresh-client
+  // (SIGWINCH → full Grok/TUI redraw flash) when the grid is already correct.
+  const lastPinnedSizeRef = useRef<{ cols: number; rows: number } | null>(null);
+  const pinTerminalSizeRef = useRef<
+    (size: { cols: number; rows: number }, options?: { force?: boolean }) => void
+  >(() => {});
+  pinTerminalSizeRef.current = (size, options) => {
+    if (!isUsableTerminalGrid(size.cols, size.rows)) return;
+    const last = lastPinnedSizeRef.current;
+    if (
+      !options?.force &&
+      last &&
+      last.cols === size.cols &&
+      last.rows === size.rows
+    ) {
+      return;
+    }
+    lastPinnedSizeRef.current = { cols: size.cols, rows: size.rows };
+    sendResizeRef.current(size);
+  };
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === "dark";
   const currentTheme = isDark ? atmosDarkTheme : atmosLightTheme;
@@ -377,13 +429,12 @@ const Terminal = ({
       fitAddonRef.current &&
       isTerminalContainerVisible(containerRef.current)
     ) {
-      const { cols, rows, changed } = fitTerminalPreservingScroll(
+      const { cols, rows } = fitTerminalPreservingScroll(
         terminalRef.current,
         fitAddonRef.current,
       );
-      if (changed) {
-        sendResizeRef.current({ cols, rows });
-      }
+      // Fresh control client: always re-pin (force) even if xterm grid matched.
+      pinTerminalSizeRef.current({ cols, rows }, { force: true });
     }
     scheduleInputReadyFallback();
   }, [resetInputReady, scheduleInputReadyFallback, sessionId]);
@@ -391,6 +442,8 @@ const Terminal = ({
   const handleDisconnected = useCallback(() => {
     // Grace clear so warm remount within ~2s does not flash Connecting overlay.
     scheduleTerminalSessionDead(sessionId);
+    // Next connect must re-pin even if the browser grid is unchanged.
+    lastPinnedSizeRef.current = null;
     // Keep attach/create error UI after the socket closes — otherwise a brief
     // "error" flash is replaced by a generic Disconnected badge and Retry is lost.
     setStatus((prev) => (prev === "error" ? prev : "disconnected"));
@@ -456,9 +509,9 @@ const Terminal = ({
     // (Grok) paint in the normal buffer — after replaying cells, clear
     // scrollback again so older backends that still ship long history do not
     // leave multi-viewport junk under the TUI (APP-054).
-    const clearScrollback = useAlternateScreen ? "" : "\x1b[3J";
+    const clearScrollback = useAlternateScreen ? "" : CLEAR_XTERM_SCROLLBACK;
     const postHydrateScrollbackClear =
-      !useAlternateScreen && mouseRestore.length > 0 ? "\x1b[3J" : "";
+      !useAlternateScreen && mouseRestore.length > 0 ? CLEAR_XTERM_SCROLLBACK : "";
     const clearScreen = `${screenMode}\x1b[H\x1b[2J${clearScrollback}`;
     const data = normalizeSnapshotData(snapshot.data);
     const cursorRestore = `\x1b[${snapshot.cursor_y + 1};${snapshot.cursor_x + 1}H`;
@@ -476,18 +529,20 @@ const Terminal = ({
     // tmux `capture-pane -N` preserves trailing spaces so background-coloured
     // TUI panels survive reconnect. Replay them with autowrap disabled so a
     // full-width captured row does not create an extra wrapped line in xterm.js.
-    // Hide local cursor for inline mouse TUIs so a repaint never flashes `_` at 0,0.
-    const hideCursor = mouseRestore.length > 0 && !useAlternateScreen ? "\x1b[?25l" : "";
-    const payload = `${clearScreen}\x1b[?7l${data}\x1b[?7h\x1b[0m${cursorRestore}${postHydrateScrollbackClear}${mouseRestore}${hideCursor}`;
+    // Do not force DEC cursor hide here: Grok-class TUIs use the real caret for
+    // input; a permanent ?25l leaves typing without a visible cursor.
+    const payload = `${clearScreen}\x1b[?7l${data}\x1b[?7h\x1b[0m${cursorRestore}${postHydrateScrollbackClear}${mouseRestore}`;
     writeXtermPayload(term, payload, () => {
       if (!useAlternateScreen) {
         jumpXtermToBottom(term);
       }
+      const mouseActive =
+        isTerminalMouseTrackingActive(term) || mouseRestore.length > 0;
       const host = containerRef.current?.parentElement ?? containerRef.current;
-      host?.classList.toggle(
-        "atmos-tui-mouse-active",
-        isTerminalMouseTrackingActive(term) || mouseRestore.length > 0,
-      );
+      host?.classList.toggle("atmos-tui-mouse-active", mouseActive);
+      // Pin zero local scrollback for the live session so later resizes cannot
+      // re-stack TUI frames into history after hydrate.
+      applyTuiMouseScrollbackPolicy(term, mouseActive);
       scheduleInputReady();
     });
   }, [scheduleInputReady, sessionId]);
@@ -755,8 +810,9 @@ const Terminal = ({
       if (!isTerminalContainerVisible(containerRef.current)) {
         return;
       }
-      fitTerminalPreservingScroll(terminal, fit);
-      sendResizeRef.current({ cols: terminal.cols, rows: terminal.rows });
+      const { cols, rows } = fitTerminalPreservingScroll(terminal, fit);
+      // Font metrics change the cell size; force pin even if cols/rows match.
+      pinTerminalSizeRef.current({ cols, rows }, { force: true });
     });
 
     return () => {
@@ -834,14 +890,13 @@ const Terminal = ({
     // APP-054: while DEC mouse tracking is active, convert trackpad/wheel
     // distance into multiple line reports so TUI viewports move proportionally.
     // When tracking is off, xterm keeps local scrollback behavior.
+    // Inline mouse TUIs (Grok) also get scrollback=0 so resize redraws cannot
+    // stack full frames into local history.
     hostForMouseChrome = containerRef.current?.parentElement ?? containerRef.current;
     const syncTuiMouseChrome = (active: boolean) => {
+      // Never force DEC ?25l here — Grok owns the caret for typing.
       hostForMouseChrome?.classList.toggle("atmos-tui-mouse-active", active);
-      // Inline TUI paint runs in the normal buffer; keep the local underline
-      // cursor hidden so warm-reveal / redraw never flashes `_` at home.
-      if (active) {
-        hideLocalXtermCursor(terminal);
-      }
+      applyTuiMouseScrollbackPolicy(terminal, active);
     };
     attachTuiMouseWheelMultiplier(terminal, {
       onMouseTrackingActiveChange: syncTuiMouseChrome,
@@ -1075,7 +1130,7 @@ const Terminal = ({
           lastMouseRestoreSequenceRef.current = "";
           // Disable mouse + clear local scrollback so inline TUI (Grok) frames
           // painted into the normal buffer do not linger above the shell.
-          terminal.write(`${DISABLE_TUI_MOUSE_TRACKING}\x1b[3J`);
+          terminal.write(`${DISABLE_TUI_MOUSE_TRACKING}${CLEAR_XTERM_SCROLLBACK}`);
           syncTuiMouseChrome(false);
         }
       }
@@ -1165,8 +1220,20 @@ const Terminal = ({
 
     // IMPORTANT: Register onResize BEFORE fitAddon.fit() so the initial
     // resize event (from default 80x24 to actual size) is captured.
+    // Dedup via pinTerminalSizeRef so warm reveal / double fit paths do not
+    // emit identical terminal_resize (SIGWINCH flash for inline TUIs).
     terminal.onResize(({ cols, rows }) => {
-      sendResize({ cols, rows });
+      pinTerminalSizeRef.current({ cols, rows });
+      // Even with scrollback=0, a rows change can briefly park cells as history
+      // before the TUI repaints. Drop saved lines while mouse TUI owns the surface.
+      const mouseTui =
+        isTerminalMouseTrackingActive(terminal) || tuiMouseDesiredRef.current;
+      if (mouseTui) {
+        if (terminal.options.scrollback !== 0) {
+          terminal.options.scrollback = 0;
+        }
+        discardXtermScrollbackWhileMouseTui(terminal, true);
+      }
     });
 
     let connectStarted = false;
@@ -1394,7 +1461,7 @@ const Terminal = ({
 
   // Warm/inactive: disconnect RO so sibling hops do not thrash. Reveal: re-observe + one fit.
   // Only pin tmux when the grid actually changes — unnecessary SIGWINCH makes
-  // inline Grok-class TUIs clear+repaint (flash of xterm `_` cursor at home).
+  // inline Grok-class TUIs clear+repaint (full-frame flash, not just `_` cursor).
   useEffect(() => {
     const ro = resizeObserverRef.current;
     const el = containerRef.current;
@@ -1413,8 +1480,14 @@ const Terminal = ({
       return;
     }
 
-    ro.observe(el);
     let cancelled = false;
+    // Defer RO re-attach until after layout settles. Observing immediately on
+    // unhide can measure an intermediate rect and pin a wrong grid (then the
+    // real size), which double-SIGWINCHes Grok.
+    //
+    // Warm shells use visibility stacking (not display:none), so the WebGL
+    // texture is already valid on reveal — do not force term.refresh() here
+    // (full-row redraw can itself flash). Only fit/pin when the grid changed.
     const outer = requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         if (cancelled || !surfaceActiveRef.current) return;
@@ -1422,17 +1495,25 @@ const Terminal = ({
         const fit = fitAddonRef.current;
         if (!term || !fit) return;
         if (!isTerminalContainerVisible(containerRef.current)) return;
-        // Inline mouse TUI: hide local cursor before any possible repaint flash.
+
+        const proposed = proposeTerminalGrid(term, fit);
         if (
-          tuiMouseDesiredRef.current ||
-          isTerminalMouseTrackingActive(term)
+          proposed &&
+          proposed.cols === term.cols &&
+          proposed.rows === term.rows
         ) {
-          hideLocalXtermCursor(term);
+          // Grid already correct — never fit/resize/pin (avoids TUI redraw).
+          ro.observe(el);
+          return;
         }
+
         const { cols, rows, changed } = fitTerminalPreservingScroll(term, fit);
         if (changed) {
-          sendResizeRef.current({ cols, rows });
+          // onResize → pinTerminalSizeRef also fires; explicit pin is a
+          // belt-and-suspenders for cases where resize was a no-op event.
+          pinTerminalSizeRef.current({ cols, rows });
         }
+        ro.observe(el);
       });
     });
     return () => {

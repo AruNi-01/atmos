@@ -177,6 +177,7 @@ export function TerminalTitleWithAgent({
   const osc = (oscSuffix ?? "").trim();
 
   // Structured path: fixed primary + marquee OSC (requested UX).
+  // Agent name hidden → primary empty → icon + OSC with row gap only (no ` | `).
   if (primary && osc) {
     return (
       <div className={cn("terminal-title-row", className)} title={`${primary} | ${osc}`}>
@@ -190,12 +191,21 @@ export function TerminalTitleWithAgent({
     );
   }
 
+  if (!primary && osc) {
+    return (
+      <div className={cn("terminal-title-row", className)} title={osc}>
+        <span className="terminal-title-icon">{icon}</span>
+        <TerminalTitleMarquee text={osc} />
+      </div>
+    );
+  }
+
   // Fallback identical to pre-marquee: one string (may already contain " | ").
   const text = displayTitle.trim() || primary || osc;
   return (
     <div className={cn("terminal-title-row", className)} title={text}>
       <span className="terminal-title-icon">{icon}</span>
-      <TerminalTitleMarquee text={text} />
+      {text ? <TerminalTitleMarquee text={text} /> : null}
     </div>
   );
 }

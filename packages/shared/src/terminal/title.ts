@@ -939,6 +939,11 @@ export function getTerminalDisplayTitle<TAgent extends TerminalTitleAgent>(optio
   contestedOwners?: ContestedOwnersMap;
   oscTitle?: string;
   suppressOscTitle?: boolean;
+  /**
+   * When false, hide the detected agent brand text (icon still shown by callers).
+   * Default true. OSC then joins with a space (no ` | `) because primary is empty.
+   */
+  showAgentName?: boolean;
 }) {
   return getTerminalDisplayMeta(options).displayTitle;
 }
@@ -956,6 +961,11 @@ export function getTerminalDisplayMeta<TAgent extends TerminalTitleAgent>(option
   oscTitle?: string;
   /** User set a custom pane label — hide OSC suffix. */
   suppressOscTitle?: boolean;
+  /**
+   * When false, hide the detected agent brand text (icon still shown by callers).
+   * Default true. With name hidden, primary is empty so OSC stands alone (no ` | `).
+   */
+  showAgentName?: boolean;
 }): {
   /** Combined title for plain string consumers (tabs, tooltips, a11y). */
   displayTitle: string;
@@ -973,6 +983,7 @@ export function getTerminalDisplayMeta<TAgent extends TerminalTitleAgent>(option
     contestedOwners,
     oscTitle,
     suppressOscTitle,
+    showAgentName = true,
   } = options;
   const dynamicTitleIsVersion = isVersionLikeTitle(dynamicTitle);
   const matchedDynamicAgent = resolveAgentForTitle(dynamicTitle, configuredAgents, {
@@ -997,19 +1008,30 @@ export function getTerminalDisplayMeta<TAgent extends TerminalTitleAgent>(option
     ? undefined
     : matchedDynamicAgent ?? fallbackAgent ?? labelAgent;
 
-  const primaryTitle =
-    toolbarAgent?.label ??
+  // Agent brand is optional: icon stays (callers), name can be hidden to save space.
+  // When hidden, primary is empty so OSC (if any) is shown without a ` | ` separator.
+  const nonAgentPrimary =
     (shouldPreferBaseTitleOverDynamic(dynamicTitle, dynamicTitleIsVersion, toolbarAgent)
       ? baseTitle
       : dynamicTitle) ??
     baseTitle ??
     "";
+  const primaryTitle = toolbarAgent
+    ? showAgentName !== false
+      ? toolbarAgent.label
+      : ""
+    : nonAgentPrimary;
+
+  // Redundancy filter still knows the agent brand even when name is hidden,
+  // so bare OSC "claude" does not replace the icon-only brand identity.
+  const oscFilterPrimary =
+    toolbarAgent && showAgentName === false ? toolbarAgent.label : primaryTitle;
 
   const oscSuffix =
     suppressOscTitle === true
       ? ""
       : resolveDisplayOscTitle(oscTitle, {
-          autoDisplayTitle: primaryTitle,
+          autoDisplayTitle: oscFilterPrimary,
           dynamicTitle,
           toolbarAgent,
         });
@@ -1019,7 +1041,7 @@ export function getTerminalDisplayMeta<TAgent extends TerminalTitleAgent>(option
     primaryTitle,
     oscSuffix,
     displayTitle: appendNativeOscTitle(primaryTitle, oscTitle, suppressOscTitle === true, {
-      autoDisplayTitle: primaryTitle,
+      autoDisplayTitle: oscFilterPrimary,
       dynamicTitle,
       toolbarAgent,
     }),

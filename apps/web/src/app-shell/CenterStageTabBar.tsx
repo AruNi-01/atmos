@@ -22,6 +22,7 @@ import {
 } from "@workspace/ui";
 import {
   BookOpen,
+  Bot,
   Globe,
   LoaderCircle,
   Pencil,
@@ -48,7 +49,9 @@ import {
   CenterStageTabGroupItemContent,
   CenterStageTabList,
 } from "@/app-shell/center-stage-shared-tabs";
+import { AgentIcon } from "@/features/agent/components/AgentIcon";
 import { useAgentAttentionStore } from "@/features/agent/store/agent-attention-store";
+import { useTerminalCenterTabPresentation } from "@/features/terminal/hooks/use-terminal-center-tab-presentation";
 import { useTerminalStore } from "@/features/terminal/store/use-terminal-store";
 import { useShallow } from "zustand/react/shallow";
 import type { FileTabContextMenuState } from "@/app-shell/center-stage-file-menu";
@@ -254,7 +257,6 @@ export function CenterStageTabBar({
               hoveredTabId={termTabPlusHoveredTabId}
               shortcutDigit={index + 1}
               newTerminalTabLabel={newTerminalTabLabel}
-              closeAriaLabel={t("centerStageTabBar.closeTab", { tab: tab.customTitle || tab.title })}
               tab={tab}
               onClose={handleCloseTerminalCenterTab}
               onCreateTab={handleCreateTerminalCenterTab}
@@ -392,7 +394,6 @@ function TerminalExtraTab({
   hoveredTabId,
   shortcutDigit,
   newTerminalTabLabel,
-  closeAriaLabel,
   tab,
   onClose,
   onCreateTab,
@@ -405,7 +406,6 @@ function TerminalExtraTab({
   hoveredTabId: string | null;
   shortcutDigit: number;
   newTerminalTabLabel: string;
-  closeAriaLabel: string;
   tab: { id: string; title: string; customTitle?: string };
   onClose: (tabId: string) => void;
   onCreateTab: () => void;
@@ -413,7 +413,13 @@ function TerminalExtraTab({
   setHoveredTabId: React.Dispatch<React.SetStateAction<string | null>>;
 }) {
   const t = useTranslations("appShell");
-  const displayTitle = tab.customTitle || tab.title;
+  const { displayTitle, toolbarAgent } = useTerminalCenterTabPresentation({
+    contextId: effectiveContextId,
+    tabId: tab.id,
+    fallbackTitle: tab.title,
+    customTitle: tab.customTitle,
+  });
+  const closeAriaLabel = t("centerStageTabBar.closeTab", { tab: displayTitle });
   const [menuPos, setMenuPos] = React.useState<{ x: number; y: number } | null>(null);
   const [renameDraft, setRenameDraft] = React.useState(tab.customTitle ?? "");
   const skipBlurCommitRef = React.useRef(false);
@@ -484,6 +490,32 @@ function TerminalExtraTab({
     return best;
   });
 
+  const tabIconHoverClass =
+    activeValue === tab.id
+      ? "group-hover/term-tab:opacity-0 group-hover/term-tab:scale-50 group-hover/term-tab:rotate-[-20deg]"
+      : "";
+
+  const tabLeadingIcon = toolbarAgent ? (
+    toolbarAgent.iconType === "built-in" ? (
+      <span
+        className={cn(
+          "flex size-3.5 items-center justify-center transition-all duration-200",
+          tabIconHoverClass,
+        )}
+      >
+        <AgentIcon registryId={toolbarAgent.id} name={toolbarAgent.label} size={14} />
+      </span>
+    ) : (
+      <Bot
+        className={cn("size-3.5 text-muted-foreground transition-all duration-200", tabIconHoverClass)}
+      />
+    )
+  ) : (
+    <TerminalIcon
+      className={cn("size-3.5 transition-all duration-200", tabIconHoverClass)}
+    />
+  );
+
   return (
     <>
       <Tooltip>
@@ -502,14 +534,7 @@ function TerminalExtraTab({
           )}
         >
           <span className="relative flex size-4 shrink-0 items-center justify-center">
-            <TerminalIcon
-              className={cn(
-                "size-3.5 transition-all duration-200",
-                activeValue === tab.id
-                  ? "group-hover/term-tab:opacity-0 group-hover/term-tab:scale-50 group-hover/term-tab:rotate-[-20deg]"
-                  : "",
-              )}
-            />
+            {tabLeadingIcon}
             {activeValue === tab.id ? (
             <CreateTerminalTabButton
               groupName="term-tab"
@@ -519,7 +544,9 @@ function TerminalExtraTab({
             />
           ) : null}
           </span>
-          <span className="text-[13px] font-medium whitespace-nowrap">{displayTitle}</span>
+          <span className="max-w-[180px] truncate text-[13px] font-medium whitespace-nowrap">
+            {displayTitle}
+          </span>
           <TerminalTabAgentIndicatorWithPanes contextId={effectiveContextId} tabId={tab.id} />
           <div
             className={cn(

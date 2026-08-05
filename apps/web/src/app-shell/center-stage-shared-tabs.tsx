@@ -16,6 +16,7 @@ import {
 } from "@workspace/ui";
 import {
   BookOpen,
+  Bot,
   FileCheckCorner,
   GitPullRequest,
   GitMergeIcon,
@@ -33,6 +34,8 @@ import {
   type OpenFile,
 } from "@/features/editor/store/use-editor-store";
 import { isDiffGroupEditorPath } from "@/features/diff/lib/diff-editor-paths";
+import { AgentIcon } from "@/features/agent/components/AgentIcon";
+import { useTerminalCenterTabPresentation } from "@/features/terminal/hooks/use-terminal-center-tab-presentation";
 import { cn } from "@/shared/lib/utils";
 import {
   TerminalTabAgentIndicatorWithPanes,
@@ -298,6 +301,50 @@ export function CenterStageSurfaceContentTab({
   );
 }
 
+function CenterStageTerminalTabGroupItemContent({
+  effectiveContextId,
+  tab,
+  label,
+}: {
+  effectiveContextId?: string;
+  tab: TabGroupItem;
+  label: (text: string) => React.ReactNode;
+}) {
+  // Reads customTitle + representative pane title from the terminal store.
+  const presentation = useTerminalCenterTabPresentation({
+    contextId: effectiveContextId ?? "",
+    tabId: tab.value,
+    fallbackTitle: tab.label,
+  });
+
+  const displayTitle = effectiveContextId ? presentation.displayTitle : tab.label;
+  const toolbarAgent = effectiveContextId ? presentation.toolbarAgent : undefined;
+
+  const leadingIcon = toolbarAgent ? (
+    toolbarAgent.iconType === "built-in" ? (
+      <AgentIcon
+        registryId={toolbarAgent.id}
+        name={toolbarAgent.label}
+        size={14}
+      />
+    ) : (
+      <Bot className="size-3.5 shrink-0 text-muted-foreground" />
+    )
+  ) : (
+    <TerminalIcon className="size-3.5 shrink-0" />
+  );
+
+  return (
+    <>
+      {leadingIcon}
+      {label(displayTitle)}
+      {effectiveContextId ? (
+        <TerminalTabAgentIndicatorWithPanes contextId={effectiveContextId} tabId={tab.value} />
+      ) : null}
+    </>
+  );
+}
+
 export function CenterStageTabGroupItemContent({
   effectiveContextId,
   tab,
@@ -358,13 +405,11 @@ export function CenterStageTabGroupItemContent({
 
   if (tab.kind === "terminal") {
     return (
-      <>
-        <TerminalIcon className="size-3.5 shrink-0" />
-        {label(tab.label)}
-        {effectiveContextId ? (
-          <TerminalTabAgentIndicatorWithPanes contextId={effectiveContextId} tabId={tab.value} />
-        ) : null}
-      </>
+      <CenterStageTerminalTabGroupItemContent
+        effectiveContextId={effectiveContextId}
+        tab={tab}
+        label={label}
+      />
     );
   }
 

@@ -317,75 +317,79 @@ export function CenterStagePanels({
   const fallbackTerminalTitle = t("fallbackTerminalTitle");
 
   return (
-    <>
+    // Single flex child so wiki does not share height 50/50 with workspace frames.
+    // Frames stay absolute-stacked inside; wiki overlays full inset when active.
+    <div className="relative flex-1 min-h-0 min-w-0 w-full">
       {/* Stack workspace frames: keep warm DOM mounted, CSS-hide only. */}
-      <div className="relative flex-1 min-h-0 min-w-0 w-full">
-        {contextIdsToRender.map((contextId) => {
-          // Shell paint follows live paint / visual id (not deferred rebind).
-          const isActiveContext = contextId === displayContextId;
-          // Heavy live props only after deferred URL context catches paint (IMP-013).
-          const isUrlSyncedActive =
-            isActiveContext &&
-            contextId === effectiveContextId &&
-            effectiveContextId === paintContextId;
-          const mountedTabIds =
-            mountedTerminalTabsByContext[contextId] ?? EMPTY_MOUNTED_TAB_IDS;
-          const mountPlanKeys = mountedKeysForContext(mountPlan, contextId).join("\0");
+      {contextIdsToRender.map((contextId) => {
+        // Shell paint follows live paint / visual id (not deferred rebind).
+        const isActiveContext = contextId === displayContextId;
+        // Heavy live props only after deferred URL context catches paint (IMP-013).
+        const isUrlSyncedActive =
+          isActiveContext &&
+          contextId === effectiveContextId &&
+          effectiveContextId === paintContextId;
+        const mountedTabIds =
+          mountedTerminalTabsByContext[contextId] ?? EMPTY_MOUNTED_TAB_IDS;
+        const mountPlanKeys = mountedKeysForContext(mountPlan, contextId).join("\0");
 
-          return (
-            <WorkspaceCenterFrame
-              key={contextId}
-              contextId={contextId}
-              isActiveContext={isActiveContext}
-              isUrlSyncedActive={isUrlSyncedActive}
-              mountPlan={mountPlan}
-              mountPlanKeys={mountPlanKeys}
-              mountedTabIds={mountedTabIds}
-              fallbackTerminalTitle={fallbackTerminalTitle}
-              activeValue={isUrlSyncedActive ? activeValue : null}
-              visibleTerminalTabs={isUrlSyncedActive ? visibleTerminalTabs : undefined}
-              openFiles={isUrlSyncedActive ? openFiles : undefined}
-              githubTabs={isUrlSyncedActive ? githubTabs : undefined}
-              browserTabs={isUrlSyncedActive ? browserTabs : undefined}
-              currentView={isUrlSyncedActive ? currentView : undefined}
-              currentProject={isUrlSyncedActive ? currentProject : undefined}
-              currentWorkspace={isUrlSyncedActive ? currentWorkspace : undefined}
-              currentBranch={isUrlSyncedActive ? currentBranch : undefined}
-              currentRepoPath={isUrlSyncedActive ? currentRepoPath : undefined}
-              reviewTarget={isUrlSyncedActive ? reviewTarget : undefined}
-              projectWikiTabVisible={projectWikiTabVisible}
-              codeReviewTabVisible={codeReviewTabVisible}
-              terminalQuickOpenAgents={
-                isUrlSyncedActive ? terminalQuickOpenAgents : undefined
-              }
-              terminalGridRef={isUrlSyncedActive ? terminalGridRef : undefined}
-              terminalGridRefs={isUrlSyncedActive ? terminalGridRefs : undefined}
-              projectWikiTerminalGridRef={
-                isUrlSyncedActive ? projectWikiTerminalGridRef : undefined
-              }
-              codeReviewTerminalGridRef={
-                isUrlSyncedActive ? codeReviewTerminalGridRef : undefined
-              }
-              handleCreateTerminalCenterTab={
-                isUrlSyncedActive ? handleCreateTerminalCenterTab : undefined
-              }
-              handleTerminalPaneClosed={
-                isUrlSyncedActive ? handleTerminalPaneClosed : undefined
-              }
-              handleCloseGithubTab={isUrlSyncedActive ? handleCloseGithubTab : undefined}
-              onGithubPullRequestChanged={
-                isUrlSyncedActive ? onGithubPullRequestChanged : undefined
-              }
-            />
-          );
-        })}
-      </div>
+        return (
+          <WorkspaceCenterFrame
+            key={contextId}
+            contextId={contextId}
+            isActiveContext={isActiveContext}
+            isUrlSyncedActive={isUrlSyncedActive}
+            mountPlan={mountPlan}
+            mountPlanKeys={mountPlanKeys}
+            mountedTabIds={mountedTabIds}
+            fallbackTerminalTitle={fallbackTerminalTitle}
+            activeValue={isUrlSyncedActive ? activeValue : null}
+            visibleTerminalTabs={isUrlSyncedActive ? visibleTerminalTabs : undefined}
+            openFiles={isUrlSyncedActive ? openFiles : undefined}
+            githubTabs={isUrlSyncedActive ? githubTabs : undefined}
+            browserTabs={isUrlSyncedActive ? browserTabs : undefined}
+            currentView={isUrlSyncedActive ? currentView : undefined}
+            currentProject={isUrlSyncedActive ? currentProject : undefined}
+            currentWorkspace={isUrlSyncedActive ? currentWorkspace : undefined}
+            currentBranch={isUrlSyncedActive ? currentBranch : undefined}
+            currentRepoPath={isUrlSyncedActive ? currentRepoPath : undefined}
+            reviewTarget={isUrlSyncedActive ? reviewTarget : undefined}
+            projectWikiTabVisible={projectWikiTabVisible}
+            codeReviewTabVisible={codeReviewTabVisible}
+            terminalQuickOpenAgents={
+              isUrlSyncedActive ? terminalQuickOpenAgents : undefined
+            }
+            terminalGridRef={isUrlSyncedActive ? terminalGridRef : undefined}
+            terminalGridRefs={isUrlSyncedActive ? terminalGridRefs : undefined}
+            projectWikiTerminalGridRef={
+              isUrlSyncedActive ? projectWikiTerminalGridRef : undefined
+            }
+            codeReviewTerminalGridRef={
+              isUrlSyncedActive ? codeReviewTerminalGridRef : undefined
+            }
+            handleCreateTerminalCenterTab={
+              isUrlSyncedActive ? handleCreateTerminalCenterTab : undefined
+            }
+            handleTerminalPaneClosed={
+              isUrlSyncedActive ? handleTerminalPaneClosed : undefined
+            }
+            handleCloseGithubTab={isUrlSyncedActive ? handleCloseGithubTab : undefined}
+            onGithubPullRequestChanged={
+              isUrlSyncedActive ? onGithubPullRequestChanged : undefined
+            }
+          />
+        );
+      })}
 
-      {/* Wiki stays host-active only (callbacks write URL); still paused when not activeValue */}
+      {/*
+        Wiki stays host-active only (callbacks write URL).
+        Absolute overlay — never a flex-1 sibling of frames (that split the stage 50/50).
+        display:none when inactive is fine: wiki has no xterm WebGL keep-alive need.
+      */}
       {wikiCenterEligible && (
         <div
           className={cn(
-            "flex-1 min-h-0 min-w-0 overflow-hidden",
+            "absolute inset-0 z-[2] min-h-0 min-w-0 overflow-hidden bg-background",
             activeValue !== "wiki" && "hidden",
           )}
         >
@@ -438,6 +442,6 @@ export function CenterStagePanels({
           />
         </div>
       )}
-    </>
+    </div>
   );
 }

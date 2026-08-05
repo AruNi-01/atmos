@@ -6,7 +6,7 @@ import type {
 import type { TerminalPaneAgent } from "../types/index";
 
 import { isDesktopRuntime } from "@/shared/lib/desktop-runtime";
-import { terminalFont } from "./theme";
+import { DEFAULT_TERMINAL_SCROLLBACK, terminalFont } from "./theme";
 
 const TERMINAL_FONT_REGULAR_PATH = "/fonts/HackNerdFontMono-Regular.ttf";
 const TERMINAL_FONT_BOLD_PATH = "/fonts/HackNerdFontMono-Bold.ttf";
@@ -21,6 +21,55 @@ const MIN_TERMINAL_ROWS = 8;
 // and only reports moves while a button is held.
 export const ENABLE_TUI_MOUSE_TRACKING = "\x1b[?1000h\x1b[?1002h\x1b[?1003h\x1b[?1006h";
 export const DISABLE_TUI_MOUSE_TRACKING = "\x1b[?1000l\x1b[?1002l\x1b[?1003l\x1b[?1006l";
+
+/** CSI 3 J — erase saved lines (xterm local scrollback only; viewport cells stay). */
+export const CLEAR_XTERM_SCROLLBACK = "\x1b[3J";
+
+export type TuiMouseScrollbackTerminal = {
+  options: { scrollback?: number };
+  write: (data: string) => void;
+};
+
+/**
+ * While DEC mouse tracking is active, force local scrollback to 0.
+ *
+ * Inline mouse TUIs (Grok) paint full frames into the **normal** buffer. On
+ * SIGWINCH they redraw without alt-screen, so each resize would otherwise push
+ * a full ghost frame into xterm history (stacked duplicate TUIs when scrolling).
+ * Idle shells keep {@link DEFAULT_TERMINAL_SCROLLBACK}.
+ *
+ * Writes CSI 3J only when entering the zero-scrollback policy so repeated
+ * chrome sync calls do not thrash.
+ */
+export function applyTuiMouseScrollbackPolicy(
+  term: TuiMouseScrollbackTerminal,
+  mouseActive: boolean,
+  idleScrollback: number = DEFAULT_TERMINAL_SCROLLBACK,
+): void {
+  if (mouseActive) {
+    const alreadyZero = term.options.scrollback === 0;
+    term.options.scrollback = 0;
+    if (!alreadyZero) {
+      term.write(CLEAR_XTERM_SCROLLBACK);
+    }
+    return;
+  }
+  if (term.options.scrollback !== idleScrollback) {
+    term.options.scrollback = idleScrollback;
+  }
+}
+
+/**
+ * Drop local scrollback while a mouse-owning TUI is active (e.g. after resize).
+ * No-op when mouse tracking is off so shell history stays intact.
+ */
+export function discardXtermScrollbackWhileMouseTui(
+  term: Pick<TuiMouseScrollbackTerminal, "write">,
+  mouseActive: boolean,
+): void {
+  if (!mouseActive) return;
+  term.write(CLEAR_XTERM_SCROLLBACK);
+}
 
 /** Prefer backend-observed sequence; else flag/alternate heuristic with full default. */
 export function mouseTrackingRestoreSequence(snapshot: {
