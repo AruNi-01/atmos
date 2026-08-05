@@ -125,12 +125,15 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
         return filterProjectsByAttention(projects, ids);
     }, [attentionContextKey, attentionFilterMode, projects]);
 
-    // When filtering to attention items, expand projects so matching workspaces are visible.
+    // When filtering to attention items, expand projects that still have workspaces
+    // to show. Project-only attention keeps the row collapsed (children are hidden).
     useEffect(() => {
         if (!attentionFilterMode) return;
         setExpandedProjects((prev) => {
             const next = new Set(prev);
-            for (const project of listProjects) next.add(project.id);
+            for (const project of listProjects) {
+                if (project.workspaces.length > 0) next.add(project.id);
+            }
             const merged = Array.from(next);
             if (merged.length === prev.length && merged.every((id, i) => id === prev[i])) {
                 return prev;

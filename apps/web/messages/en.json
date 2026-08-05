@@ -267,6 +267,7 @@
       "toggleLeftSidebar": "Toggle left sidebar",
       "refreshPage": "Refresh page",
       "toggleQuotaUsage": "Toggle Quota Usage",
+      "toggleNeedAttention": "Toggle need attention filter",
       "toggleMenu": "Toggle menu",
       "toggleRightSidebar": "Toggle right sidebar"
     },
@@ -4164,6 +4165,7 @@
       "errors": {
         "saveBuiltInAgentTitle": "Failed to save built-in agent",
         "updateYoloModeTitle": "Failed to update YOLO mode",
+        "updateShowAgentNameTitle": "Failed to update agent name display",
         "restoreYoloModeTitle": "Failed to restore YOLO mode",
         "updateAgentVisibilityTitle": "Failed to update agent visibility",
         "removeCustomAgentTitle": "Failed to remove custom agent",
@@ -4811,7 +4813,8 @@
             "navigateBack": "Navigate back",
             "navigateForward": "Navigate forward",
             "toggleActionMenu": "Toggle action menu",
-            "toggleQuotaPopover": "Toggle quota usage popover"
+            "toggleQuotaPopover": "Toggle quota usage popover",
+            "toggleNeedAttention": "Toggle need attention filter"
           }
         },
         "workspace": {
@@ -5057,6 +5060,40 @@
         "description": "When enabled, agents launch with skip-permissions / auto-approve flags (e.g. --yolo, --dangerously-skip-permissions). Turn off for safer, approval-gated runs.",
         "restoreHint": "Re-enable YOLO and clear custom flag overrides on all built-in agents so they use the built-in YOLO defaults again.",
         "restoreAll": "Restore YOLO for all agents"
+      },
+      "showAgentName": {
+        "title": "Show agent name in terminal titles",
+        "description": "When a terminal or terminal tab detects an agent, always show its icon. Turn this off to hide the agent brand name and save space — the session topic (OSC) then sits next to the icon with a space instead of a pipe."
+      },
+      "activityIndicators": {
+        "title": "Agent Activity Indicators",
+        "description": "Choose the running-state icon shown before agent status in each area of the app. Expand a row to preview and pick a unicode spinner or an AIcss Orb.",
+        "families": {
+          "unicode": "Unicode spinners",
+          "lattice": "Orbs · Lattice",
+          "lens": "Orbs · Lens",
+          "ring": "Orbs · Ring",
+          "helix": "Orbs · Helix",
+          "morph": "Orbs · Morph"
+        },
+        "placements": {
+          "left_sidebar": {
+            "title": "Left sidebar",
+            "description": "Project and workspace list rows."
+          },
+          "center_terminal": {
+            "title": "Center terminal tabs",
+            "description": "Terminal tab labels in the center stage."
+          },
+          "terminal_panel": {
+            "title": "Terminal panel",
+            "description": "Pane toolbar status next to the terminal title."
+          },
+          "footer": {
+            "title": "Footer",
+            "description": "Agent status ticker and session list in the footer."
+          }
+        }
       },
       "custom": {
         "title": "Custom Agents",
@@ -5607,18 +5644,19 @@
         "installFirst": "Install the control engine first to manage permissions.",
         "hostLine": "Host: {host}",
         "done": "Done",
-        "grantAccessibility": "Open Accessibility settings",
+        "grantAccessibility": "Grant Accessibility",
         "grantScreenRecording": "Open Screen Recording settings",
         "items": {
           "accessibility": {
             "title": "Accessibility",
-            "description": "Required to inspect and control other apps."
+            "description": "Required to inspect and control other apps. Opens System Settings so you can enable Atmos Desktop Use (drag the chip only if it is not already listed)."
           },
           "screenRecording": {
             "title": "Screen Recording",
             "description": "Required to capture the screen for AppShot and Desktop Use."
           }
-        }
+        },
+        "dragHint": "Turn on Atmos Desktop Use in the list. If it is missing, drag the floating chip into the list."
       },
       "errors": {
         "statusFailed": "Failed to load Desktop Use status.",
@@ -8989,7 +9027,8 @@
       "source": {
         "generic": "This feature needs the Desktop Use control engine.",
         "appshot": "AppShot capture works best when Desktop Use is installed and permitted.",
-        "slash": "The Desktop Use slash skill needs the control engine and macOS permissions."
+        "slash": "The Desktop Use slash skill needs the control engine and macOS permissions.",
+        "browser": "Browser Use needs the Desktop Use control engine and macOS permissions for agent chrome and capture."
       },
       "reason": {
         "webOnly": "Desktop Use is only available in Atmos Desktop.",

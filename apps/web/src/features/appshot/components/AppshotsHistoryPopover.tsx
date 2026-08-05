@@ -131,6 +131,13 @@ export function AppshotsHistoryPopover({
     }
   }, []);
 
+  // Keep latest onClose without re-running the open effect (parent may pass a
+  // new inline callback each render).
+  const onCloseRef = React.useRef(onClose);
+  React.useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
   React.useEffect(() => {
     if (!open) {
       return;
@@ -138,9 +145,13 @@ export function AppshotsHistoryPopover({
     void refreshStatus();
     void refreshHistory();
     // Background readiness gate — does not block popover open / history load.
+    // On block: close this popover first; the modal opens deferred so Radix
+    // does not treat Popover dismiss as Dialog outside-click (modal never stays open).
     void import("@/features/desktop-use/lib/readiness-modal-bus").then(
       ({ gateDesktopUseFeature }) => {
-        gateDesktopUseFeature("appshot");
+        gateDesktopUseFeature("appshot", {
+          onBlocked: () => onCloseRef.current?.(),
+        });
       },
     );
   }, [open, refreshHistory, refreshStatus]);

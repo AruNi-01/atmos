@@ -166,6 +166,48 @@ html:not([data-theme-ready="true"]) body {
   app-region: no-drag;
 }
 
+/*
+ * APP-043 warm workspace frames: never use display:none / content-visibility:hidden.
+ * Those discard WebGL terminal textures and cause a full-frame flash (blank →
+ * repaint) when hopping back to a warm Grok/CLI TUI. Visibility stacking keeps
+ * the canvas composited while surfaceActive still pauses ResizeObserver/fit.
+ */
+[data-workspace-frame][data-tier="warm"] {
+  visibility: hidden;
+  pointer-events: none;
+  z-index: 0;
+}
+
+[data-workspace-frame][data-tier="active"] {
+  visibility: visible;
+  pointer-events: auto;
+  z-index: 1;
+}
+
+/*
+ * Keep-alive terminal panels (tab switch within a frame). Same WebGL rule:
+ * stay mounted and sized without display:none so xterm does not blank.
+ */
+.atmos-terminal-panel-keepalive {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  visibility: hidden;
+  pointer-events: none;
+  min-height: 0;
+  min-width: 0;
+}
+
+.atmos-terminal-panel-active {
+  position: relative;
+  z-index: 1;
+  flex: 1 1 0%;
+  min-height: 0;
+  min-width: 0;
+  visibility: visible;
+  pointer-events: auto;
+}
+
   html,
   body {
     overflow: hidden;

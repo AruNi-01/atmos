@@ -539,12 +539,25 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
           setSlashPopover(null);
           return;
         }
-        composerRef.current?.applySlashAtRange(
-          popover.slashOffset,
-          popover.query.length,
-          { kind: "skill", absolutePath: skill.absolutePath, name: skill.name },
-        );
+        // Non-blocking readiness: insert skill only when engine + permissions OK.
         setSlashPopover(null);
+        void import("@/features/desktop-use/lib/readiness-modal-bus").then(
+          ({ gateDesktopUseFeature }) => {
+            gateDesktopUseFeature("browser", {
+              onReady: () => {
+                composerRef.current?.applySlashAtRange(
+                  popover.slashOffset,
+                  popover.query.length,
+                  {
+                    kind: "skill",
+                    absolutePath: skill.absolutePath,
+                    name: skill.name,
+                  },
+                );
+              },
+            });
+          },
+        );
         return;
       }
       if (command.id === DESKTOP_USE_SLASH_COMMAND_ID) {

@@ -32,11 +32,12 @@ async function softOpenWorkspace(page: import("@playwright/test").Page, workspac
 
 /**
  * APP-043: warm multi-context center frames.
- * Asserts data-workspace-frame warm/hidden continuity when switching workspaces
- * via client navigation (not full reload).
+ * Asserts data-workspace-frame warm/active continuity when switching workspaces
+ * via client navigation (not full reload). Warm frames stay mounted with
+ * data-tier visibility (not HTML hidden) so terminal WebGL is preserved.
  */
 test.describe("APP-043 workspace surface cache", () => {
-  test("@stateful keeps prior workspace frame warm/hidden when switching contexts", async ({
+  test("@stateful keeps prior workspace frame warm when switching contexts", async ({
     page,
   }) => {
     test.setTimeout(180_000);
@@ -179,7 +180,9 @@ test.describe("APP-043 workspace surface cache", () => {
               const read = (id: string) => {
                 const el = document.querySelector(`[data-workspace-frame="${id}"]`);
                 if (!el) return "missing";
-                return `${el.hasAttribute("hidden")}:${el.getAttribute("data-tier") ?? "?"}`;
+                // Warm frames use data-tier + visibility (not HTML hidden) so
+                // xterm WebGL is not discarded on hop.
+                return `${el.getAttribute("data-tier") ?? "?"}:${el.getAttribute("aria-hidden") ?? "?"}`;
               };
               return `${read(aId)}|${read(bId)}`;
             },
@@ -187,7 +190,7 @@ test.describe("APP-043 workspace surface cache", () => {
           ),
         { timeout: 45_000 },
       )
-      .toBe("true:warm|false:active");
+      .toBe("warm:true|active:false");
 
     // Soft switch B → A
     await softOpenWorkspace(page, pair.a);
@@ -200,7 +203,7 @@ test.describe("APP-043 workspace surface cache", () => {
               const read = (id: string) => {
                 const el = document.querySelector(`[data-workspace-frame="${id}"]`);
                 if (!el) return "missing";
-                return `${el.hasAttribute("hidden")}:${el.getAttribute("data-tier") ?? "?"}`;
+                return `${el.getAttribute("data-tier") ?? "?"}:${el.getAttribute("aria-hidden") ?? "?"}`;
               };
               return `${read(aId)}|${read(bId)}`;
             },
@@ -208,6 +211,6 @@ test.describe("APP-043 workspace surface cache", () => {
           ),
         { timeout: 45_000 },
       )
-      .toBe("false:active|true:warm");
+      .toBe("active:false|warm:true");
   });
 });

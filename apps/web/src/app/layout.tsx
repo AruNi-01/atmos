@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { GeistSans } from "geist/font/sans";
 import { GeistMono } from "geist/font/mono";
 import Script from "next/script";
@@ -84,7 +85,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                       <AnchoredToastProvider>
                         <TooltipProvider>
                           {children}
-                          <DesktopUseReadinessHost />
+                          {/*
+                            useOpenDesktopUseSettings → useQueryState → useSearchParams.
+                            Must be under Suspense so static prerender (/_not-found, /agents, …) succeeds.
+                          */}
+                          <Suspense fallback={null}>
+                            <DesktopUseReadinessHost />
+                          </Suspense>
                         </TooltipProvider>
                       </AnchoredToastProvider>
                     </AgentToastProvider>

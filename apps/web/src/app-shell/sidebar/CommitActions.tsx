@@ -9,14 +9,14 @@ import React, {
   useMemo,
 } from "react";
 import { useTranslations } from "next-intl";
+import { useTheme } from "next-themes";
 import {
+  BorderBeam,
   Upload,
   Loader2,
   ArrowDown,
   ChevronDown,
   RotateCw,
-} from "@workspace/ui";
-import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -158,6 +158,8 @@ export const CommitActions: React.FC<CommitActionsProps> = ({
   setAgentChatOpen,
 }) => {
   const t = useTranslations("AppShell.chrome");
+  const { resolvedTheme } = useTheme();
+  const beamTheme = resolvedTheme === "light" ? "light" : "dark";
   const [commitMessage, setCommitMessage] = useState("");
   const [isCommitting, setIsCommitting] = useState(false);
   const [isGeneratingCommitMessage, setIsGeneratingCommitMessage] =
@@ -581,7 +583,7 @@ export const CommitActions: React.FC<CommitActionsProps> = ({
       className={cn(
         isPanel
           ? "flex h-full min-h-0 flex-col overflow-hidden rounded-md border border-border bg-background"
-          : "shrink-0 space-y-3 border-t border-sidebar-border p-3 backdrop-blur-sm",
+          : "shrink-0 space-y-3 p-3 backdrop-blur-sm",
         className,
       )}
     >
@@ -609,43 +611,51 @@ export const CommitActions: React.FC<CommitActionsProps> = ({
           style={isPanel ? { width: "calc(40% - 0.5rem)" } : undefined}
         >
           <div className={cn("relative", isPanel && "min-h-0 flex-1")}>
-            <textarea
-              ref={commitMessageTextareaRef}
-              placeholder={
-                isGeneratingCommitMessage
-                  ? ""
-                  : t("commitActions.messagePlaceholder")
-              }
-              value={
-                isGeneratingCommitMessage && !commitMessage
-                  ? t("commitActions.generatingCommitMessage")
-                  : commitMessage
-              }
-              onChange={(e) => {
-                if (isGeneratingCommitMessage) return;
-                setCommitMessage(e.target.value);
-              }}
-              onKeyDown={(e) => {
-                if (isGeneratingCommitMessage) {
-                  e.preventDefault();
-                  return;
+            <BorderBeam
+              size="pulse-inner"
+              colorVariant="mono"
+              theme={beamTheme}
+              active={isGeneratingCommitMessage}
+              className={cn("w-full", isPanel && "h-full min-h-0")}
+              borderRadius={isPanel ? 8 : 6}
+            >
+              <textarea
+                ref={commitMessageTextareaRef}
+                placeholder={
+                  isGeneratingCommitMessage
+                    ? ""
+                    : t("commitActions.messagePlaceholder")
                 }
-                if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-                  e.preventDefault();
-                  handleCommit();
+                value={
+                  isGeneratingCommitMessage && !commitMessage
+                    ? t("commitActions.generatingCommitMessage")
+                    : commitMessage
                 }
-              }}
-              readOnly={isGeneratingCommitMessage}
-              disabled={isGeneratingCommitMessage}
-              className={cn(
-                "w-full resize-none focus:outline-none focus:ring-0 transition-all ease-out duration-200",
-                isPanel
-                  ? "h-full min-h-[220px] rounded-lg border border-border/70 bg-muted/30 p-3 pr-10 text-sm leading-6 text-foreground placeholder:text-muted-foreground/60 focus:border-border focus:bg-background"
-                  : "min-h-[60px] rounded-md border-transparent bg-sidebar-accent/50 p-2.5 pr-8 text-xs text-sidebar-foreground placeholder:text-muted-foreground/50 focus:border-sidebar-border/50 focus:bg-sidebar-accent",
-                isGeneratingCommitMessage &&
-                  "cursor-wait animate-pulse text-muted-foreground",
-              )}
-            />
+                onChange={(e) => {
+                  if (isGeneratingCommitMessage) return;
+                  setCommitMessage(e.target.value);
+                }}
+                onKeyDown={(e) => {
+                  if (isGeneratingCommitMessage) {
+                    e.preventDefault();
+                    return;
+                  }
+                  if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                    e.preventDefault();
+                    handleCommit();
+                  }
+                }}
+                readOnly={isGeneratingCommitMessage}
+                disabled={isGeneratingCommitMessage}
+                className={cn(
+                  "w-full resize-none focus:outline-none focus:ring-0 transition-all ease-out duration-200",
+                  isPanel
+                    ? "h-full min-h-[220px] rounded-lg border border-border/70 bg-muted/30 p-3 pr-10 text-sm leading-6 text-foreground placeholder:text-muted-foreground/60 focus:border-border focus:bg-background"
+                    : "min-h-[60px] rounded-md border border-transparent bg-sidebar-accent/50 p-2.5 pr-8 text-xs text-sidebar-foreground placeholder:text-muted-foreground/50 focus:border-sidebar-border/50 focus:bg-sidebar-accent",
+                  isGeneratingCommitMessage && "cursor-wait text-muted-foreground",
+                )}
+              />
+            </BorderBeam>
             <Popover open={aiPopoverOpen} onOpenChange={setAiPopoverOpen}>
               <PopoverTrigger asChild>
                 <button

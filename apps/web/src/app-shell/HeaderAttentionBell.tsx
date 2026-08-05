@@ -3,7 +3,7 @@
 import React from "react";
 import { useTranslations } from "next-intl";
 import { AnimatePresence, motion } from "motion/react";
-import { Bell } from "lucide-react";
+import { ArrowBigUp, Bell, Command } from "lucide-react";
 import { cn, Tooltip, TooltipContent, TooltipTrigger } from "@workspace/ui";
 import {
   selectAttentionCount,
@@ -79,7 +79,14 @@ export function HeaderAttentionBell() {
               </button>
             </TooltipTrigger>
             <TooltipContent side="bottom">
-              {filterMode ? t("tooltipActive") : t("tooltip")}
+              <div className="flex items-center gap-2">
+                <span>{filterMode ? t("tooltipActive") : t("tooltip")}</span>
+                <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-foreground/90">
+                  <Command className="size-3" />
+                  <ArrowBigUp className="size-3" />
+                  <span className="text-xs">U</span>
+                </kbd>
+              </div>
             </TooltipContent>
           </Tooltip>
         </motion.div>

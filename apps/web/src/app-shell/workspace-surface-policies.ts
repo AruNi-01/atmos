@@ -126,10 +126,10 @@ export function resolveFrameActiveTab(input: {
 /**
  * Whether a panel for `panelTabId` should stay layout-ready inside its frame.
  *
- * Only the outer workspace frame is toggled for Active/Warm paint (CSS `hidden` /
- * DOM flip). Last-tab panels inside Warm frames stay non-hidden so a hop only
- * needs to unhide the frame shell — no React rebuild of panel trees to reveal
- * the retained surface (IMP-010).
+ * Only the outer workspace frame is toggled for Active/Warm paint (`data-tier`
+ * visibility / DOM flip). Last-tab panels inside Warm frames stay layout-ready
+ * so a hop only needs to flip the frame shell — no React rebuild of panel trees
+ * to reveal the retained surface (IMP-010).
  *
  * Focus / polling / “surface active” still gate on `isActiveFrame` at call sites.
  */
@@ -140,6 +140,16 @@ export function isFramePanelVisible(input: {
 }): boolean {
   void input.isActiveFrame;
   return input.frameActiveTab === input.panelTabId;
+}
+
+/**
+ * Class list for terminal-like keep-alive panels (xterm WebGL).
+ *
+ * Prefer visibility stacking over Tailwind `hidden` (`display:none`), which
+ * blanks the terminal canvas on every tab hop.
+ */
+export function terminalKeepAlivePanelClass(visible: boolean): string {
+  return visible ? "atmos-terminal-panel-active" : "atmos-terminal-panel-keepalive";
 }
 
 /**

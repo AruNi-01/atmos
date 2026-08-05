@@ -110,21 +110,29 @@ describe("promoteWorkspaceSurfaceSwitch + prepareWorkspaceContextNavigation", ()
     expect(s.warm.map((w) => w.contextId)).toContain("ws-a");
   });
 
-  it("applyWorkspaceFrameVisualDom toggles shell hidden without unmount markers", () => {
+  it("applyWorkspaceFrameVisualDom toggles data-tier without display:none", () => {
     // jsdom may not exist in bun unit tests; skip when document is unavailable.
     if (typeof document === "undefined") return;
     document.body.innerHTML = `
       <div data-workspace-frame="ws-a" data-tier="active"></div>
-      <div data-workspace-frame="ws-b" data-tier="warm" hidden class="hidden"></div>
+      <div data-workspace-frame="ws-b" data-tier="warm" hidden class="hidden" style="content-visibility: hidden"></div>
     `;
     applyWorkspaceFrameVisualDom("ws-b");
     const a = document.querySelector('[data-workspace-frame="ws-a"]') as HTMLElement;
     const b = document.querySelector('[data-workspace-frame="ws-b"]') as HTMLElement;
-    expect(a.hidden).toBe(true);
+    // Warm uses visibility stacking (data-tier), not HTML hidden / display:none.
+    expect(a.hidden).toBe(false);
+    expect(a.hasAttribute("hidden")).toBe(false);
+    expect(a.classList.contains("hidden")).toBe(false);
     expect(a.getAttribute("data-tier")).toBe("warm");
+    expect(a.getAttribute("aria-hidden")).toBe("true");
+    expect(a.hasAttribute("inert")).toBe(true);
     expect(b.hidden).toBe(false);
     expect(b.getAttribute("data-tier")).toBe("active");
+    expect(b.getAttribute("aria-hidden")).toBe("false");
+    expect(b.hasAttribute("inert")).toBe(false);
     expect(b.classList.contains("hidden")).toBe(false);
+    expect(b.style.contentVisibility).toBe("");
   });
 
   it("prime does not claim cold targets and clears stale visual lead", () => {

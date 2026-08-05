@@ -267,6 +267,7 @@
       "toggleLeftSidebar": "切换左侧边栏",
       "refreshPage": "刷新页面",
       "toggleQuotaUsage": "切换配额用量",
+      "toggleNeedAttention": "切换需要关注筛选",
       "toggleMenu": "切换菜单",
       "toggleRightSidebar": "切换右侧边栏"
     },
@@ -4164,6 +4165,7 @@
       "errors": {
         "saveBuiltInAgentTitle": "保存内置 Agent 失败",
         "updateYoloModeTitle": "更新 YOLO 模式失败",
+        "updateShowAgentNameTitle": "更新 Agent 名称显示失败",
         "restoreYoloModeTitle": "恢复 YOLO 模式失败",
         "updateAgentVisibilityTitle": "更新 Agent 可见性失败",
         "removeCustomAgentTitle": "移除自定义 Agent 失败",
@@ -4811,7 +4813,8 @@
             "navigateBack": "返回上一步",
             "navigateForward": "前进",
             "toggleActionMenu": "切换操作菜单",
-            "toggleQuotaPopover": "切换配额用量弹层"
+            "toggleQuotaPopover": "切换配额用量弹层",
+            "toggleNeedAttention": "切换需要关注筛选"
           }
         },
         "workspace": {
@@ -5057,6 +5060,40 @@
         "description": "开启后，Agent 启动会带上跳过权限确认 / 自动批准参数（如 --yolo、--dangerously-skip-permissions）。关闭则使用更安全的需确认模式。",
         "restoreHint": "重新开启 YOLO，并清除所有内置 Agent 的自定义参数覆盖，使其恢复内置 YOLO 默认参数。",
         "restoreAll": "一键恢复全部 Agent 的 YOLO"
+      },
+      "showAgentName": {
+        "title": "在终端标题中显示 Agent 名称",
+        "description": "终端或 Terminal tabs 检测到 Agent 时始终显示图标。关闭后可隐藏 Agent 品牌名称以节省空间——此时会话主题（OSC）会直接跟在图标后，用空格分隔，不再使用竖线。"
+      },
+      "activityIndicators": {
+        "title": "Agent 活动指示器",
+        "description": "分别为应用中不同区域选择 Agent 运行状态前的图标。展开某一行即可预览并选择 Unicode 旋转指示器或 AIcss Orb。",
+        "families": {
+          "unicode": "Unicode 旋转指示器",
+          "lattice": "Orbs · 点阵 Lattice",
+          "lens": "Orbs · 透镜 Lens",
+          "ring": "Orbs · 圆环 Ring",
+          "helix": "Orbs · 螺旋 Helix",
+          "morph": "Orbs · 形变 Morph"
+        },
+        "placements": {
+          "left_sidebar": {
+            "title": "左侧边栏",
+            "description": "项目与工作区列表行。"
+          },
+          "center_terminal": {
+            "title": "中间 Terminal 标签",
+            "description": "中心区域 Terminal 标签标题旁。"
+          },
+          "terminal_panel": {
+            "title": "Terminal 面板",
+            "description": "终端窗格工具栏中、标题旁的状态。"
+          },
+          "footer": {
+            "title": "页脚",
+            "description": "页脚 Agent 状态 ticker 与会话列表。"
+          }
+        }
       },
       "custom": {
         "title": "自定义 Agents",
@@ -5607,18 +5644,19 @@
         "installFirst": "请先安装控制引擎再管理权限。",
         "hostLine": "Host：{host}",
         "done": "完成",
-        "grantAccessibility": "打开辅助功能设置",
+        "grantAccessibility": "授予辅助功能权限",
         "grantScreenRecording": "打开屏幕录制设置",
         "items": {
           "accessibility": {
             "title": "辅助功能",
-            "description": "用于检查并控制其他应用。"
+            "description": "用于检查并控制其他应用。会打开系统设置以便开启 Atmos Desktop Use（仅在列表中没有时才需拖入悬浮芯片）。"
           },
           "screenRecording": {
             "title": "屏幕录制",
             "description": "用于 AppShot 与 Desktop Use 的屏幕捕获。"
           }
-        }
+        },
+        "dragHint": "在列表中打开 Atmos Desktop Use 开关；若没有该项，再将悬浮芯片拖入列表。"
       },
       "errors": {
         "statusFailed": "加载 Desktop Use 状态失败。",
@@ -8990,7 +9028,8 @@
       "source": {
         "generic": "此功能需要 Desktop Use 控制引擎。",
         "appshot": "AppShot 捕获需要已安装并授权的 Desktop Use。",
-        "slash": "Desktop Use 斜杠技能需要控制引擎与 macOS 权限。"
+        "slash": "Desktop Use 斜杠技能需要控制引擎与 macOS 权限。",
+        "browser": "Browser Use 需要 Desktop Use 控制引擎与 macOS 权限，用于 Agent 光标与捕获。"
       },
       "reason": {
         "webOnly": "Desktop Use 仅在 Atmos 桌面端可用。",

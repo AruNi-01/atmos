@@ -12,6 +12,7 @@ import {
   resolveFrameActiveTab,
   selectEditorMountSet,
   sweepWarmByTtl,
+  terminalKeepAlivePanelClass,
   terminalMountKey,
   namedTerminalMountKey,
   isProtected,
@@ -77,6 +78,12 @@ describe("resolveFrameActiveTab / panel visibility", () => {
         panelTabId: "terminal",
       }),
     ).toBe(false);
+  });
+
+  it("terminal keep-alive panels avoid display:none class names", () => {
+    expect(terminalKeepAlivePanelClass(true)).toBe("atmos-terminal-panel-active");
+    expect(terminalKeepAlivePanelClass(false)).toBe("atmos-terminal-panel-keepalive");
+    expect(terminalKeepAlivePanelClass(false)).not.toContain("hidden");
   });
 });
 
