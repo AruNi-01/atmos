@@ -1,0 +1,20 @@
+apps/desktop-electron/AGENTS.md
+  h_5be255725524c8 58,60,68
+docs/adr/README.md
+  h_5be255725524c8 29-34
+docs/architecture.md
+  h_5be255725524c8 44-47
+docs/architecture/known-debt-client-transport.md
+  h_5be255725524c8 1-196
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "2c7d604784a212c6bb97a9eff3660b274dd9aba1",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
