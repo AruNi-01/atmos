@@ -1,0 +1,20 @@
+crates/core-engine/src/tmux/mouse_modes.rs
+  h_5be255725524c8 1,10-13,47-49,51-54,59-60,63-72,77-78,149,182-185,187-200,202-212,214-215,217-220,225,232-237,239,245-247,249,253,256-258,260,265-270,273-287,378-382,390,464,483,491-492,495-514,542-576
+crates/core-service/src/service/terminal.rs
+  h_5be255725524c8 24,28,77-78,111,173,177-220,973-974,1051,1097,1100-1104,1124,1131,1136,1143
+crates/core-service/src/service/terminal/management.rs
+  h_5be255725524c8 509-520,553,722
+crates/core-service/src/service/terminal/mouse_mode_watch.rs
+  h_5be255725524c8 1-372
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "cdaa248b756e9ebc102cce0f61a8ffe926802f35",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
