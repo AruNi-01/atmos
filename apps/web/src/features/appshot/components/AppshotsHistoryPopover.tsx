@@ -137,6 +137,12 @@ export function AppshotsHistoryPopover({
     }
     void refreshStatus();
     void refreshHistory();
+    // Background readiness gate — does not block popover open / history load.
+    void import("@/features/desktop-use/lib/readiness-modal-bus").then(
+      ({ gateDesktopUseFeature }) => {
+        gateDesktopUseFeature("appshot");
+      },
+    );
   }, [open, refreshHistory, refreshStatus]);
 
   React.useEffect(() => {

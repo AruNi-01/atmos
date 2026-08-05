@@ -12,6 +12,7 @@ import { DesktopExternalUrlBridge } from "@/providers/app/desktop-external-url-b
 import { WorkbenchIntlProvider } from "@/providers/app/workbench-intl-provider";
 import UpdateNotification from "@/app-shell/UpdateNotification";
 import { ServerStateEventBridge } from "@/providers/app/server-state-event-bridge";
+import { DesktopUseReadinessHost } from "@/features/desktop-use/components/DesktopUseReadinessHost";
 import {
   AgentToastProvider,
   AnchoredToastProvider,
@@ -83,6 +84,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                       <AnchoredToastProvider>
                         <TooltipProvider>
                           {children}
+                          <DesktopUseReadinessHost />
                         </TooltipProvider>
                       </AnchoredToastProvider>
                     </AgentToastProvider>

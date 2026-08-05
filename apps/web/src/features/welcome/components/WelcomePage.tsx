@@ -555,12 +555,26 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
           setSlashPopover(null);
           return;
         }
-        composerRef.current?.applySlashAtRange(
-          popover.slashOffset,
-          popover.query.length,
-          { kind: "skill", absolutePath: skill.absolutePath, name: skill.name },
-        );
+        // Non-blocking readiness: insert skill only when engine + permissions OK;
+        // otherwise open Settings guide modal (cached doctor, no UI freeze).
         setSlashPopover(null);
+        void import("@/features/desktop-use/lib/readiness-modal-bus").then(
+          ({ gateDesktopUseFeature }) => {
+            gateDesktopUseFeature("slash", {
+              onReady: () => {
+                composerRef.current?.applySlashAtRange(
+                  popover.slashOffset,
+                  popover.query.length,
+                  {
+                    kind: "skill",
+                    absolutePath: skill.absolutePath,
+                    name: skill.name,
+                  },
+                );
+              },
+            });
+          },
+        );
         return;
       }
     },

@@ -2,10 +2,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
   desktopInvoke,
-  desktopListen,
   isDesktopRuntime,
   isTauriShell,
 } from "@/shared/lib/desktop-bridge";
+import { subscribeDesktopFullscreen } from "@/shared/lib/desktop-fullscreen-bus";
 
 export function useHeaderFullscreen() {
   const [isDesktopFullscreen, setIsDesktopFullscreen] = useState(false);
@@ -81,20 +81,9 @@ export function useHeaderFullscreen() {
         unlisten = off;
       });
     } else {
-      void desktopListen("window-fullscreen-changed", (payload) => {
-        const fs = Boolean(
-          payload &&
-            typeof payload === "object" &&
-            "fullscreen" in payload &&
-            (payload as { fullscreen?: unknown }).fullscreen,
-        );
-        applyFullscreenState(fs);
-      }).then((off) => {
-        if (disposed) {
-          off();
-          return;
-        }
-        unlisten = off;
+      // Shared bus — one IPC listener for all fullscreen consumers.
+      unlisten = subscribeDesktopFullscreen((fs) => {
+        if (!disposed) applyFullscreenState(fs);
       });
     }
 
