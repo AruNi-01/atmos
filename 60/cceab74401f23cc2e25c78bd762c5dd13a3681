@@ -1,0 +1,14 @@
+apps/web/src/features/settings/components/DesktopUseSettingsSection.tsx
+  h_5be255725524c8 3,18,21-22,27-30,61-65,76-81,103-108,113-134,237-248,251-257,259-266,270,276,278,284,287,289,291-322,324-350,352-375,439-445,447-448,450-477
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "60cceab74401f23cc2e25c78bd762c5dd13a3681",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
