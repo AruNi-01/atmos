@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import {
   Button,
@@ -15,12 +15,19 @@ import {
 } from "@workspace/ui";
 import {
   ArrowUpCircle,
+  Cpu,
   Download,
   Loader2,
+  Scan,
+  Shield,
   Square,
   Trash2,
 } from "lucide-react";
 import { DesktopUsePermissionsPanel } from "@/features/settings/components/DesktopUsePermissionsPanel";
+import {
+  SettingsGroupCard,
+  SettingsGroupRow,
+} from "@/features/settings/components/settings/SettingsGroupCard";
 import { invalidateDesktopUseReadinessCache } from "@/features/desktop-use/lib/readiness";
 import { desktopInvoke, isDesktopRuntime } from "@/shared/lib/desktop-bridge";
 
@@ -51,40 +58,11 @@ type DesktopUseStatus = {
   prefs?: DesktopUsePrefs;
 };
 
-/** Same row chrome as Canvas / Terminal settings cards. */
-function SettingsItemCard({
-  title,
-  description,
-  children,
-  wide = true,
-}: {
-  title: string;
-  description?: string;
-  children: React.ReactNode;
-  wide?: boolean;
-}) {
-  return (
-    <div className="overflow-hidden rounded-2xl border border-border">
-      <div
-        className={
-          wide
-            ? "grid grid-cols-[minmax(0,1fr)_320px] gap-8 px-6 py-5"
-            : "grid grid-cols-[minmax(0,1fr)_100px] gap-8 px-6 py-5"
-        }
-      >
-        <div>
-          <p className="text-base font-medium text-foreground">{title}</p>
-          {description ? (
-            <p className="mt-2 text-sm leading-6 text-muted-foreground">
-              {description}
-            </p>
-          ) : null}
-        </div>
-        <div className="flex items-center justify-end">{children}</div>
-      </div>
-    </div>
-  );
-}
+type DoctorLite = {
+  engine_installed?: boolean;
+  accessibility?: boolean | null;
+  screen_recording?: boolean | null;
+};
 
 export function DesktopUseSettingsSection() {
   const t = useTranslations("settings.desktopUse");
@@ -94,6 +72,12 @@ export function DesktopUseSettingsSection() {
   const [error, setError] = useState<string | null>(null);
   const [borderBusy, setBorderBusy] = useState(false);
   const [uninstallOpen, setUninstallOpen] = useState(false);
+
+  // Collapsible groups — defaults applied once after first status/doctor load.
+  const [engineOpen, setEngineOpen] = useState(true);
+  const [permissionsOpen, setPermissionsOpen] = useState(true);
+  const [visibilityOpen, setVisibilityOpen] = useState(true);
+  const defaultsAppliedRef = useRef(false);
 
   const load = useCallback(async (opts?: { silent?: boolean }) => {
     const silent = Boolean(opts?.silent);
@@ -116,10 +100,38 @@ export function DesktopUseSettingsSection() {
             highlight_idle_ms: 8000,
           },
         });
+        if (!defaultsAppliedRef.current) {
+          defaultsAppliedRef.current = true;
+          // Not installed / not desktop → keep engine + permissions expanded.
+          setEngineOpen(true);
+          setPermissionsOpen(true);
+        }
         return;
       }
       const res = await desktopInvoke<DesktopUseStatus>("desktop_use_status");
       setStatus(res);
+
+      // One-shot default collapse: installed engine ready → collapse;
+      // all permissions granted → collapse. User can always re-expand.
+      if (!defaultsAppliedRef.current) {
+        defaultsAppliedRef.current = true;
+        const installed = Boolean(res?.driver?.installed);
+        const updateAvailable = Boolean(res?.update_available);
+        // Collapse when installed and no pending update (actions are secondary).
+        setEngineOpen(!(installed && !updateAvailable));
+
+        let allGranted = false;
+        try {
+          const doctor = await desktopInvoke<DoctorLite>("desktop_use_doctor");
+          allGranted =
+            Boolean(doctor?.engine_installed) &&
+            doctor?.accessibility === true &&
+            doctor?.screen_recording === true;
+        } catch {
+          allGranted = false;
+        }
+        setPermissionsOpen(!allGranted);
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : t("errors.statusFailed"));
     } finally {
@@ -222,131 +234,145 @@ export function DesktopUseSettingsSection() {
     return ver ? `${t("engine.installed")} · ${ver}` : t("engine.installed");
   })();
 
+  const engineGroupDescription = (() => {
+    if (!desktop) return t("desktopOnly");
+    if (!installed) return t("engine.installHint");
+    if (updateAvailable) {
+      return t("engine.updateHint", {
+        current: installedVersion ?? "—",
+        next: pinnedVersion ?? "—",
+      });
+    }
+    return t("groups.engine.description");
+  })();
+
   return (
     <div className="space-y-4">
-      {/* Control engine */}
-      <SettingsItemCard
-        title={t("engine.title")}
-        description={
-          !desktop
-            ? t("desktopOnly")
-            : !installed
-              ? t("engine.installHint")
-              : updateAvailable
-                ? t("engine.updateHint", {
-                    current: installedVersion ?? "—",
-                    next: pinnedVersion ?? "—",
-                  })
-                : t("engine.hint")
-        }
+      {/* 1. Control engine — install / status / stop / uninstall */}
+      <SettingsGroupCard
+        open={engineOpen}
+        onOpenChange={setEngineOpen}
+        icon={Cpu}
+        title={t("groups.engine.title")}
+        description={engineGroupDescription}
       >
-        {loading ? (
-          <Skeleton className="h-9 w-36" />
-        ) : !desktop ? (
-          <span className="text-sm text-muted-foreground">{engineStatusLabel}</span>
-        ) : !installed ? (
-          <Button
-            type="button"
-            size="sm"
-            disabled={busy}
-            onClick={() =>
-              void run("install", async () => {
-                await desktopInvoke("desktop_use_driver_ensure", {
-                  force: false,
-                });
-              })
-            }
-            className="cursor-pointer"
-          >
-            {busyAction === "install" ? (
-              <Loader2 className="size-4 animate-spin" />
-            ) : (
-              <Download className="size-4" />
-            )}
-            {t("actions.install")}
-          </Button>
-        ) : updateAvailable ? (
-          <div className="flex flex-col items-end gap-2">
+        <SettingsGroupRow
+          title={t("engine.statusTitle")}
+          description={t("engine.statusDescription")}
+          wide
+        >
+          {loading ? (
+            <Skeleton className="h-9 w-36" />
+          ) : !desktop ? (
             <span className="text-sm text-muted-foreground">
               {engineStatusLabel}
             </span>
+          ) : !installed ? (
             <Button
               type="button"
               size="sm"
               disabled={busy}
               onClick={() =>
-                void run("update", async () => {
+                void run("install", async () => {
                   await desktopInvoke("desktop_use_driver_ensure", {
-                    force: true,
+                    force: false,
                   });
                 })
               }
               className="cursor-pointer"
             >
-              {busyAction === "update" ? (
+              {busyAction === "install" ? (
                 <Loader2 className="size-4 animate-spin" />
               ) : (
-                <ArrowUpCircle className="size-4" />
+                <Download className="size-4" />
               )}
-              {t("actions.update")}
+              {t("actions.install")}
             </Button>
-          </div>
-        ) : (
-          <span className="text-sm text-muted-foreground">{engineStatusLabel}</span>
-        )}
-      </SettingsItemCard>
+          ) : updateAvailable ? (
+            <div className="flex flex-col items-end gap-2">
+              <span className="text-sm text-muted-foreground">
+                {engineStatusLabel}
+              </span>
+              <Button
+                type="button"
+                size="sm"
+                disabled={busy}
+                onClick={() =>
+                  void run("update", async () => {
+                    await desktopInvoke("desktop_use_driver_ensure", {
+                      force: true,
+                    });
+                  })
+                }
+                className="cursor-pointer"
+              >
+                {busyAction === "update" ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <ArrowUpCircle className="size-4" />
+                )}
+                {t("actions.update")}
+              </Button>
+            </div>
+          ) : (
+            <span className="text-sm text-muted-foreground">
+              {engineStatusLabel}
+            </span>
+          )}
+        </SettingsGroupRow>
 
-      {/* Stop — always visible when installed */}
-      {installed && desktop ? (
-        <SettingsItemCard
-          title={t("actions.stop")}
-          description={t("engine.stopHint")}
-        >
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            disabled={busy || loading}
-            onClick={() =>
-              void run("stop", async () => {
-                await desktopInvoke("desktop_use_driver_stop");
-              })
-            }
-            className="cursor-pointer"
-          >
-            {busyAction === "stop" ? (
-              <Loader2 className="size-4 animate-spin" />
-            ) : (
-              <Square className="size-4" />
-            )}
-            {t("actions.stop")}
-          </Button>
-        </SettingsItemCard>
-      ) : null}
+        {installed && desktop ? (
+          <>
+            <SettingsGroupRow
+              title={t("actions.stop")}
+              description={t("engine.stopHint")}
+              wide
+            >
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={busy || loading}
+                onClick={() =>
+                  void run("stop", async () => {
+                    await desktopInvoke("desktop_use_driver_stop");
+                  })
+                }
+                className="cursor-pointer"
+              >
+                {busyAction === "stop" ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <Square className="size-4" />
+                )}
+                {t("actions.stop")}
+              </Button>
+            </SettingsGroupRow>
 
-      {/* Remove — always visible when installed; confirm before destructive uninstall */}
-      {installed && desktop ? (
-        <SettingsItemCard
-          title={t("actions.uninstall")}
-          description={t("engine.removeHint")}
-        >
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            disabled={busy || loading}
-            onClick={() => setUninstallOpen(true)}
-            className="cursor-pointer text-destructive hover:text-destructive"
-          >
-            {busyAction === "uninstall" ? (
-              <Loader2 className="size-4 animate-spin" />
-            ) : (
-              <Trash2 className="size-4" />
-            )}
-            {t("actions.uninstall")}
-          </Button>
-        </SettingsItemCard>
-      ) : null}
+            <SettingsGroupRow
+              title={t("actions.uninstall")}
+              description={t("engine.removeHint")}
+              wide
+            >
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={busy || loading}
+                onClick={() => setUninstallOpen(true)}
+                className="cursor-pointer text-destructive hover:text-destructive"
+              >
+                {busyAction === "uninstall" ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <Trash2 className="size-4" />
+                )}
+                {t("actions.uninstall")}
+              </Button>
+            </SettingsGroupRow>
+          </>
+        ) : null}
+      </SettingsGroupCard>
 
       <Dialog
         open={uninstallOpen}
@@ -410,40 +436,45 @@ export function DesktopUseSettingsSection() {
         </DialogContent>
       </Dialog>
 
-      {/* Operation border chrome */}
-      <SettingsItemCard
-        title={t("border.title")}
-        description={t("border.description")}
-        wide={false}
+      {/* 2. Permissions — collapse by default when all granted */}
+      <SettingsGroupCard
+        open={permissionsOpen}
+        onOpenChange={setPermissionsOpen}
+        icon={Shield}
+        title={t("groups.permissions.title")}
+        description={t("groups.permissions.description")}
       >
-        {loading ? (
-          <Skeleton className="h-6 w-10" />
-        ) : !desktop ? (
-          <span className="text-sm text-muted-foreground">{t("status.webOnly")}</span>
-        ) : (
-          <Switch
-            checked={operationBorderEnabled}
-            disabled={borderBusy}
-            onCheckedChange={(checked) => void setOperationBorder(!!checked)}
-            aria-label={t("border.title")}
-          />
-        )}
-      </SettingsItemCard>
+        <DesktopUsePermissionsPanel />
+      </SettingsGroupCard>
 
-      {/* Permissions card — same outer chrome */}
-      <div className="overflow-hidden rounded-2xl border border-border">
-        <div className="border-b border-border px-6 py-5">
-          <p className="text-base font-medium text-foreground">
-            {t("permissions.title")}
-          </p>
-          <p className="mt-2 text-sm leading-6 text-muted-foreground">
-            {t("permissions.unifiedHint")}
-          </p>
-        </div>
-        <div className="px-4 py-1">
-          <DesktopUsePermissionsPanel />
-        </div>
-      </div>
+      {/* 3. Visual feedback — operation border (+ future under-cursor cues) */}
+      <SettingsGroupCard
+        open={visibilityOpen}
+        onOpenChange={setVisibilityOpen}
+        icon={Scan}
+        title={t("groups.visibility.title")}
+        description={t("groups.visibility.description")}
+      >
+        <SettingsGroupRow
+          title={t("border.title")}
+          description={t("border.description")}
+        >
+          {loading ? (
+            <Skeleton className="h-6 w-10" />
+          ) : !desktop ? (
+            <span className="text-sm text-muted-foreground">
+              {t("status.webOnly")}
+            </span>
+          ) : (
+            <Switch
+              checked={operationBorderEnabled}
+              disabled={borderBusy}
+              onCheckedChange={(checked) => void setOperationBorder(!!checked)}
+              aria-label={t("border.title")}
+            />
+          )}
+        </SettingsGroupRow>
+      </SettingsGroupCard>
 
       {(error || status?.driver?.error) && (
         <p className="px-1 text-sm text-destructive">
