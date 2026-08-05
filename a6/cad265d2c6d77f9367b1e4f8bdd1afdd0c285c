@@ -1,0 +1,26 @@
+apps/web/src/features/welcome/components/PromptComposer.tsx
+  h_5be255725524c8 264-265,274,497
+apps/web/src/features/welcome/components/SlashCommandPopover.tsx
+  h_5be255725524c8 230,244,257,309,322,347,384,404,441,467
+apps/web/src/features/welcome/components/WelcomeMentionPopover.tsx
+  h_5be255725524c8 114,136,169,221
+apps/web/src/features/welcome/components/__tests__/slash-command-icons.test.ts
+  h_5be255725524c8 38-39,41-42
+crates/core-service/src/service/terminal/mouse_mode_watch.rs
+  h_5be255725524c8 311-315
+crates/core-service/src/service/terminal/runtime.rs
+  h_5be255725524c8 264-271
+packages/ui/src/components/icons/browser-use-icon-static.tsx
+  h_5be255725524c8 28,30,33-35
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "a6cad265d2c6d77f9367b1e4f8bdd1afdd0c285c",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
