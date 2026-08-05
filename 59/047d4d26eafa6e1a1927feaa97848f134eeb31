@@ -1,0 +1,24 @@
+specs/APP/APP-054_terminal-tui-scroll-stability/BRAINSTORM.md
+  h_5be255725524c8 1-65
+specs/APP/APP-054_terminal-tui-scroll-stability/PRD.md
+  h_5be255725524c8 1-67
+specs/APP/APP-054_terminal-tui-scroll-stability/TECH.md
+  h_5be255725524c8 1-166
+specs/APP/APP-054_terminal-tui-scroll-stability/TEST.md
+  h_5be255725524c8 1-117
+specs/README.md
+  h_5be255725524c8 133
+specs/SPEC-INVENTORY.md
+  h_5be255725524c8 53
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "59047d4d26eafa6e1a1927feaa97848f134eeb31",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
