@@ -872,10 +872,25 @@ const SETTINGS_SETTING_ITEMS: Record<SettingsSectionId, readonly SettingsSearchI
   ],
   "desktop-use": [
     settingsModalSearchItem("desktopUse.engine", {
-      keywords: ["control engine", "install", "ensure", "download"],
+      keywords: [
+        "control engine",
+        "install",
+        "ensure",
+        "download",
+        "stop",
+        "uninstall",
+      ],
     }),
     settingsModalSearchItem("desktopUse.permissions", {
       keywords: ["screen recording", "accessibility", "macos permissions"],
+    }),
+    settingsModalSearchItem("desktopUse.border", {
+      keywords: [
+        "operation border",
+        "visual feedback",
+        "highlight",
+        "chrome",
+      ],
     }),
   ],
   "atmos-computer": [

@@ -62,6 +62,39 @@ describe("Desktop Use settings wiring", () => {
     expect(section).toContain("DesktopUsePermissionsPanel");
   });
 
+  it("groups engine (stop/uninstall), permissions, and visibility as collapsible cards", () => {
+    const section = readFileSync(
+      join(
+        root,
+        "apps/web/src/features/settings/components/DesktopUseSettingsSection.tsx",
+      ),
+      "utf8",
+    );
+    expect(section).toContain("SettingsGroupCard");
+    expect(section).toContain("SettingsGroupRow");
+    // Icons per group
+    expect(section).toContain("Cpu");
+    expect(section).toContain("Shield");
+    expect(section).toContain("Scan");
+    // Group order: engine → permissions → visibility
+    const engineIdx = section.indexOf('t("groups.engine.title")');
+    const permsIdx = section.indexOf('t("groups.permissions.title")');
+    const visIdx = section.indexOf('t("groups.visibility.title")');
+    expect(engineIdx).toBeGreaterThan(-1);
+    expect(permsIdx).toBeGreaterThan(engineIdx);
+    expect(visIdx).toBeGreaterThan(permsIdx);
+    // Stop / Uninstall live under the engine group (not standalone cards)
+    expect(section).toContain('t("actions.stop")');
+    expect(section).toContain('t("actions.uninstall")');
+    expect(section).toContain('t("engine.stopHint")');
+    expect(section).toContain('t("engine.removeHint")');
+    // Default collapse: installed engine (no update) → collapse; all perms → collapse
+    expect(section).toContain("defaultsAppliedRef");
+    expect(section).toContain("setEngineOpen");
+    expect(section).toContain("setPermissionsOpen");
+    expect(section).toContain("desktop_use_doctor");
+  });
+
   it("uninstall requires a confirm dialog that lists feature impact", () => {
     const section = readFileSync(
       join(
@@ -80,7 +113,7 @@ describe("Desktop Use settings wiring", () => {
     expect(section).toMatch(/onClick=\{\(\)\s*=>\s*setUninstallOpen\(true\)\}/);
   });
 
-  it("exposes operation border toggle via prefs IPC", () => {
+  it("exposes operation border toggle via prefs IPC inside visibility group", () => {
     const section = readFileSync(
       join(
         root,
@@ -89,6 +122,7 @@ describe("Desktop Use settings wiring", () => {
       "utf8",
     );
     expect(section).toContain('t("border.title")');
+    expect(section).toContain('t("groups.visibility.title")');
     expect(section).toContain("desktop_use_prefs_set");
     expect(section).toContain("operationBorder");
     expect(section).toContain("operation_border_enabled");
