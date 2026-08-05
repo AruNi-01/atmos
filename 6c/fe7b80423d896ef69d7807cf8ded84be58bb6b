@@ -1,0 +1,26 @@
+apps/web/src/app-shell/use-header-fullscreen.ts
+  h_5be255725524c8 8,84-86
+apps/web/src/app/layout.tsx
+  h_5be255725524c8 15,87
+apps/web/src/features/appshot/components/AppshotsHistoryPopover.tsx
+  h_5be255725524c8 140-145
+apps/web/src/features/welcome/components/WelcomePage.tsx
+  h_5be255725524c8 558-559,561-577
+apps/web/src/shared/hooks/use-desktop-traffic-lights-padding.ts
+  h_5be255725524c8 5,7,14-16,41-51,60,65
+apps/web/src/shared/lib/__tests__/desktop-fullscreen-bus.test.ts
+  h_5be255725524c8 1-26
+apps/web/src/shared/lib/desktop-fullscreen-bus.ts
+  h_5be255725524c8 1-100
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "6cfe7b80423d896ef69d7807cf8ded84be58bb6b",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
