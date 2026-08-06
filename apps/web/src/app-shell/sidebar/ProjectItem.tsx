@@ -49,9 +49,7 @@ import {
   useWorkspaceListVisibleCount,
   WorkspaceListShowMoreLess,
 } from "./workspace-list-pagination";
-import { AGENT_STATE, useAgentHooksStore } from "@/features/agent/store/agent-hooks-store";
-import { AgentAttentionIndicator } from "@/features/agent/components/AgentAttentionIndicator";
-import { AgentHookStatusIndicator } from "@/features/agent/components/AgentHookStatusIndicator";
+import { ProjectAgentStatusMark } from "@/features/agent/components/WorkspaceAgentStatusMark";
 import {
   selectAttentionFilterMode,
   useAgentAttentionStore,
@@ -235,34 +233,13 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
   const projectGroupId = findGroupIdForMember(groups, "project", project.id);
   const initialLetter = project.name.charAt(0).toUpperCase();
 
-  const projectAgentState = useAgentHooksStore((s) =>
-    s.getAgentStateForContextId(project.id)
-  );
   const attentionFilterMode = useAgentAttentionStore(selectAttentionFilterMode);
-  // Own project latch — used for filter-mode dimming and when children are visible.
+  // Own project latch — used for filter-mode dimming (child latches don't dim parent).
   const projectOwnAttentionReason = useAgentAttentionStore((s) =>
     s.getContextReason(project.id),
   );
-  // Collapsed project row surfaces the highest-priority reason among the project
-  // itself and any of its workspaces (workspace rows are hidden when collapsed).
-  const projectRolledAttentionReason = useAgentAttentionStore((s) => {
-    let best = s.getContextReason(project.id);
-    for (const ws of project.workspaces) {
-      const reason = s.getContextReason(ws.id);
-      if (!reason) continue;
-      if (!best || (reason === "permission_request" && best !== "permission_request")) {
-        best = reason;
-      }
-    }
-    return best;
-  });
   const childrenVisible =
     !hideWorkspaceList && isExpanded && project.workspaces.length > 0;
-  // When expanded with children visible, only show the project's own latch so
-  // the row does not compete with workspace bells.
-  const projectAttentionReason = childrenVisible
-    ? projectOwnAttentionReason
-    : projectRolledAttentionReason;
   // In attention filter mode, parent projects that only host attention workspaces
   // stay visible for structure but are dimmed so the latched rows stand out.
   const dimAsAttentionParent =
@@ -496,19 +473,12 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
             >
               {project.name}
             </span>
-            {/* In attention filter mode, prefer the sticky bell over a live running spinner. */}
-            {attentionFilterMode && projectAttentionReason ? (
-              <AgentAttentionIndicator reason={projectAttentionReason} className="shrink-0" size={12} />
-            ) : projectAgentState !== AGENT_STATE.IDLE ? (
-              <AgentHookStatusIndicator
-                state={projectAgentState}
-                variant="compact"
-                placement="left_sidebar"
-                className="shrink-0"
-              />
-            ) : projectAttentionReason ? (
-              <AgentAttentionIndicator reason={projectAttentionReason} className="shrink-0" size={12} />
-            ) : null}
+            <ProjectAgentStatusMark
+              projectId={project.id}
+              workspaceIds={project.workspaces.map((ws) => ws.id)}
+              // Collapsed (or no children list): roll up workspace attention onto the project row.
+              rollupAttention={!childrenVisible}
+            />
           </div>
         </div>
 

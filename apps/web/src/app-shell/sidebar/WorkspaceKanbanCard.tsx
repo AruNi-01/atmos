@@ -24,6 +24,15 @@ import {
   Timer,
   Trash2,
 } from "lucide-react";
+import { WorkspaceAgentStatusMark } from "@/features/agent/components/WorkspaceAgentStatusMark";
+import { WorkspacePrLifecycleIcon } from "@/features/github/components/WorkspacePrStatusIcon";
+import { WorkspacePrSummary } from "@/features/github/components/WorkspacePrSummary";
+import { useWorkspacePrStatus } from "@/features/github/hooks/use-workspace-pr-status";
+import { useOpenGithubCenterTab } from "@/features/github/hooks/use-open-github-center-tab";
+import {
+  buildActionRunFromChecks,
+  pickGroupActionTarget,
+} from "@/features/github/lib/pr-detail-parts";
 import type {
   Group,
   Workspace,
@@ -107,12 +116,65 @@ export function KanbanWorkspaceCard({
 }) {
   const t = useTranslations("AppShell.chrome");
   const locale = useLocale();
+  const { openPullRequestTab, openActionRunTab } = useOpenGithubCenterTab();
+  const [isCardHovered, setIsCardHovered] = React.useState(false);
   const isIssueOnly = workspace.createSource === "issue_only";
   const isAutomation = workspace.createSource === "automation";
   const workspaceTitle = isIssueOnly && workspace.githubIssue
     ? `#${workspace.githubIssue.number} ${workspace.githubIssue.title}`
     : workspace.name;
   const workspaceGroupId = resolveWorkspaceGroupId(groups, projectId, workspace.id);
+  const { presentation: managedPr } = useWorkspacePrStatus({
+    githubPr: workspace.githubPr,
+    branch: workspace.branch,
+    interested: isCardHovered,
+  });
+  const openManagedPullRequest = React.useCallback(() => {
+    if (!managedPr) return;
+    openPullRequestTab({
+      owner: managedPr.owner,
+      repo: managedPr.repo,
+      prNumber: managedPr.number,
+      title: managedPr.title,
+      branch: workspace.branch,
+      contextId: workspace.id,
+    });
+  }, [managedPr, openPullRequestTab, workspace.branch, workspace.id]);
+
+  const openManagedChecks = React.useCallback(() => {
+    if (!managedPr) return;
+    const target = pickGroupActionTarget(managedPr.checks);
+    if (target.runId != null) {
+      openActionRunTab({
+        owner: managedPr.owner,
+        repo: managedPr.repo,
+        runId: target.runId,
+        run: buildActionRunFromChecks(
+          target.groupName,
+          managedPr.checks,
+          target.runId,
+          managedPr.owner,
+          managedPr.repo,
+        ),
+        contextId: workspace.id,
+      });
+      return;
+    }
+    openPullRequestTab({
+      owner: managedPr.owner,
+      repo: managedPr.repo,
+      prNumber: managedPr.number,
+      title: managedPr.title,
+      branch: workspace.branch,
+      contextId: workspace.id,
+    });
+  }, [
+    managedPr,
+    openActionRunTab,
+    openPullRequestTab,
+    workspace.branch,
+    workspace.id,
+  ]);
   const labelsToRender = workspace.labels.length > 0
     ? workspace.labels
     : isIssueOnly
@@ -133,19 +195,23 @@ export function KanbanWorkspaceCard({
   };
 
   return (
-    <div className={cn(
-      "w-full rounded-md bg-background p-3 text-left shadow-xs",
-      isIssueOnly
-        ? "border border-border/50"
-        : workspace.isPinned
-          ? "border border-border"
-          : showUnpinnedBorder
-            ? "border border-border/50"
-            : "",
-    )}>
-      {cardProperties.project || cardProperties.priority || cardProperties.status ? (
+    <div
+      className={cn(
+        "w-full rounded-md bg-background p-3 text-left shadow-xs",
+        isIssueOnly
+          ? "border border-border/50"
+          : workspace.isPinned
+            ? "border border-border"
+            : showUnpinnedBorder
+              ? "border border-border/50"
+              : "",
+      )}
+      onMouseEnter={() => setIsCardHovered(true)}
+      onMouseLeave={() => setIsCardHovered(false)}
+    >
+      {cardProperties.project || cardProperties.priority || cardProperties.status || !cardProperties.workspace_name ? (
         <div className="mb-3 flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
+          <div className="flex min-w-0 items-center gap-2">
             {cardProperties.priority ? (
               <WorkspacePrioritySelect
                 value={workspace.priority}
@@ -156,7 +222,7 @@ export function KanbanWorkspaceCard({
               />
             ) : null}
             {cardProperties.project ? (
-              <span className="flex items-center gap-1.5 text-sm font-medium text-foreground">
+              <span className="flex min-w-0 items-center gap-1.5 text-sm font-medium text-foreground">
                 {projectName}
                 {workspace.createSource === "issue_only" && (
                   <Tooltip>
@@ -195,6 +261,10 @@ export function KanbanWorkspaceCard({
                   </Tooltip>
                 )}
               </span>
+            ) : null}
+            {/* When workspace title is hidden, keep status scannable on the header row. */}
+            {!cardProperties.workspace_name ? (
+              <WorkspaceAgentStatusMark contextId={workspace.id} />
             ) : null}
           </div>
           <div className="flex items-center gap-1">
@@ -268,7 +338,21 @@ export function KanbanWorkspaceCard({
 
       {cardProperties.workspace_name ? (
         <div className="mb-2 flex items-start gap-2">
-          <h3 className="min-w-0 flex-1 line-clamp-2 text-sm font-semibold">{workspaceTitle}</h3>
+          <div className="flex min-w-0 flex-1 items-start gap-1.5">
+            {managedPr ? (
+              <WorkspacePrLifecycleIcon
+                state={managedPr.state}
+                checksTone={managedPr.checksTone}
+                className="mt-0.5"
+                fallbackClassName="text-muted-foreground"
+              />
+            ) : null}
+            <h3 className="min-w-0 flex-1 line-clamp-2 text-sm font-semibold">{workspaceTitle}</h3>
+            <WorkspaceAgentStatusMark
+              contextId={workspace.id}
+              className="mt-0.5"
+            />
+          </div>
           {/* Always show group control (incl. Ungrouped) so users can assign from the card. */}
           <div
             className="max-w-[45%] shrink-0"
@@ -301,6 +385,21 @@ export function KanbanWorkspaceCard({
               labelClassName="text-[10px]"
             />
           </div>
+        </div>
+      ) : null}
+      {managedPr ? (
+        <div
+          className="mb-2"
+          onPointerDown={(event) => event.stopPropagation()}
+          onClick={(event) => event.stopPropagation()}
+        >
+          <WorkspacePrSummary
+            presentation={managedPr}
+            onOpenPr={openManagedPullRequest}
+            onOpenChecks={openManagedChecks}
+            ringSize={14}
+            className="-mx-1"
+          />
         </div>
       ) : null}
       {cardProperties.display_name && workspace.displayName?.trim() ? (

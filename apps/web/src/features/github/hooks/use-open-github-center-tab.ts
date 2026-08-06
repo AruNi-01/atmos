@@ -7,10 +7,12 @@ import type { ActionRun } from "@/features/github/components/ActionsPanel";
 import { useGithubCenterTabsStore } from "@/features/github/store/use-github-center-tabs";
 import { useEditorStore } from "@/features/editor/store/use-editor-store";
 import { useContextParams } from "@/shared/hooks/use-context-params";
+import { useAppRouter } from "@/shared/hooks/use-app-router";
 import { centerStageParams } from "@/shared/lib/nuqs/searchParams";
 
 export function useOpenGithubCenterTab() {
   const t = useTranslations("github.centerTabs");
+  const router = useAppRouter();
   const { effectiveContextId } = useContextParams();
   const [, setCenterStageParams] = useQueryStates(centerStageParams);
   const openPullRequest = useGithubCenterTabsStore(
@@ -25,13 +27,27 @@ export function useOpenGithubCenterTab() {
   );
   const setActiveFile = useEditorStore((state) => state.setActiveFile);
 
+  /**
+   * Activate a center tab on `contextId`. When opening for another workspace,
+   * navigate there with `tab` in the query so the surface switch keeps it.
+   */
   const activateTab = React.useCallback(
-    (value: string) => {
-      if (!effectiveContextId) return;
-      setActiveFile(null, effectiveContextId);
+    (value: string, contextId: string) => {
+      setActiveFile(null, contextId);
+      if (contextId !== effectiveContextId) {
+        router.push(
+          `/workspace?id=${encodeURIComponent(contextId)}&tab=${encodeURIComponent(value)}`,
+        );
+        return;
+      }
       void setCenterStageParams({ tab: value, wikiPage: null });
     },
-    [effectiveContextId, setActiveFile, setCenterStageParams],
+    [effectiveContextId, router, setActiveFile, setCenterStageParams],
+  );
+
+  const resolveContextId = React.useCallback(
+    (contextId?: string | null) => contextId || effectiveContextId || null,
+    [effectiveContextId],
   );
 
   const openPullRequestTab = React.useCallback(
@@ -42,6 +58,7 @@ export function useOpenGithubCenterTab() {
       prNumber,
       repo,
       title,
+      contextId,
     }: {
       branch: string;
       label?: string;
@@ -49,9 +66,12 @@ export function useOpenGithubCenterTab() {
       prNumber: number;
       repo: string;
       title?: string | null;
+      /** Workspace (or project) context that owns the center tab. */
+      contextId?: string | null;
     }) => {
-      if (!effectiveContextId) return;
-      const tab = openPullRequest(effectiveContextId, {
+      const targetContextId = resolveContextId(contextId);
+      if (!targetContextId) return false;
+      const tab = openPullRequest(targetContextId, {
         branch,
         label: label || t("pullRequest", { number: prNumber }),
         owner,
@@ -59,9 +79,10 @@ export function useOpenGithubCenterTab() {
         repo,
         description: title ?? undefined,
       });
-      activateTab(tab.value);
+      activateTab(tab.value, targetContextId);
+      return true;
     },
-    [activateTab, effectiveContextId, openPullRequest, t],
+    [activateTab, openPullRequest, resolveContextId, t],
   );
 
   const openActionRunTab = React.useCallback(
@@ -71,15 +92,18 @@ export function useOpenGithubCenterTab() {
       repo,
       run,
       runId = run.databaseId,
+      contextId,
     }: {
       label?: string;
       owner: string;
       repo: string;
       run: ActionRun;
       runId?: number;
+      contextId?: string | null;
     }) => {
-      if (!effectiveContextId) return;
-      const tab = openActionRun(effectiveContextId, {
+      const targetContextId = resolveContextId(contextId);
+      if (!targetContextId) return false;
+      const tab = openActionRun(targetContextId, {
         label:
           label ||
           run.workflowName ||
@@ -90,9 +114,10 @@ export function useOpenGithubCenterTab() {
         runId,
         description: run.displayTitle,
       });
-      activateTab(tab.value);
+      activateTab(tab.value, targetContextId);
+      return true;
     },
-    [activateTab, effectiveContextId, openActionRun, t],
+    [activateTab, openActionRun, resolveContextId, t],
   );
 
   const openCommitTab = React.useCallback(
@@ -102,16 +127,19 @@ export function useOpenGithubCenterTab() {
       sha,
       subject,
       authorName,
+      contextId,
     }: {
       owner: string;
       repo: string;
       sha: string;
       subject: string;
       authorName: string;
+      contextId?: string | null;
     }) => {
-      if (!effectiveContextId) return;
+      const targetContextId = resolveContextId(contextId);
+      if (!targetContextId) return false;
       const shortSha = sha.substring(0, 7);
-      const tab = openCommit(effectiveContextId, {
+      const tab = openCommit(targetContextId, {
         label: `${shortSha} ${subject}`.substring(0, 60),
         owner,
         repo,
@@ -120,26 +148,39 @@ export function useOpenGithubCenterTab() {
         authorName,
         description: subject,
       });
-      activateTab(tab.value);
+      activateTab(tab.value, targetContextId);
+      return true;
     },
-    [activateTab, effectiveContextId, openCommit],
+    [activateTab, openCommit, resolveContextId],
   );
 
   const openIssueTab = React.useCallback(
-    ({ owner, repo, issueNumber, title }: {
+    ({
+      owner,
+      repo,
+      issueNumber,
+      title,
+      contextId,
+    }: {
       owner: string;
       repo: string;
       issueNumber: number;
       title?: string | null;
+      contextId?: string | null;
     }) => {
-      if (!effectiveContextId) return;
-      const tab = openIssue(effectiveContextId, {
+      const targetContextId = resolveContextId(contextId);
+      if (!targetContextId) return false;
+      const tab = openIssue(targetContextId, {
         label: t("issue", { number: issueNumber }),
-        owner, repo, issueNumber, description: title ?? undefined,
+        owner,
+        repo,
+        issueNumber,
+        description: title ?? undefined,
       });
-      activateTab(tab.value);
+      activateTab(tab.value, targetContextId);
+      return true;
     },
-    [activateTab, effectiveContextId, openIssue, t],
+    [activateTab, openIssue, resolveContextId, t],
   );
 
   return { openActionRunTab, openPullRequestTab, openIssueTab, openCommitTab };

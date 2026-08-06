@@ -26,6 +26,7 @@ import {
 } from "@workspace/ui";
 import { HardDrive, Presentation } from "lucide-react";
 import { appApi } from "@/api/ws-api";
+import type { GithubPrPayload } from "@/api/ws/github-api";
 import { currentAppLocale } from "@/shared/lib/current-app-locale";
 import type { SettingsModalTab } from "@/shared/lib/nuqs/searchParams";
 import { writeQuickOpenLastUsed } from "@/shared/stores/use-ui-pref-hooks";
@@ -82,6 +83,7 @@ interface SearchWorkspace {
   name: string;
   branch: string;
   localPath?: string | null;
+  githubPr?: GithubPrPayload | null;
 }
 
 interface SearchProject {
@@ -186,6 +188,7 @@ export function buildGlobalSearchItems({
         ...project.name.split(/[-_/]/),
       ].filter(Boolean),
       icon: <Layers className="size-4 text-muted-foreground" />,
+      contextId: project.id,
       action: () => {
         router.push(`/project?id=${project.id}`);
         setGlobalSearchOpen(false);
@@ -193,21 +196,36 @@ export function buildGlobalSearchItems({
     });
 
     project.workspaces.forEach((workspace) => {
+      const prKeywords = workspace.githubPr
+        ? [
+            String(workspace.githubPr.number),
+            `#${workspace.githubPr.number}`,
+            workspace.githubPr.title,
+            "pull request",
+            "pr",
+          ]
+        : [];
       items.push({
         id: `workspace-${workspace.id}`,
         type: "workspace",
         title: workspace.name,
-        description: `${project.name} · ${workspace.branch}`,
+        description: workspace.githubPr
+          ? `${project.name} · #${workspace.githubPr.number} ${workspace.githubPr.title}`
+          : `${project.name} · ${workspace.branch}`,
         keywords: [
           "workspace",
           workspace.name,
           project.name,
           workspace.branch,
+          ...prKeywords,
           ...workspace.name.split(/[-_/]/),
           ...project.name.split(/[-_/]/),
           ...workspace.branch.split(/[-_/]/),
         ].filter(Boolean),
         icon: <Layers className="size-4 text-muted-foreground" />,
+        contextId: workspace.id,
+        githubPr: workspace.githubPr,
+        branch: workspace.branch,
         action: () => {
           router.push(`/workspace?id=${workspace.id}`);
           setGlobalSearchOpen(false);

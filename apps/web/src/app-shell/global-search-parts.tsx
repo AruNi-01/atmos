@@ -16,6 +16,9 @@ import {
   cn,
 } from "@workspace/ui";
 import type { SearchMatch } from "@/api/ws-api";
+import type { GithubPrPayload } from "@/api/ws/github-api";
+import { WorkspaceAgentStatusMark } from "@/features/agent/components/WorkspaceAgentStatusMark";
+import { WorkspacePrStatusIcon } from "@/features/github/components/WorkspacePrStatusIcon";
 
 export type SearchTab = "app" | "files" | "code";
 
@@ -29,6 +32,17 @@ export interface AppSearchItem {
   shortcut?: string;
   searchOnly?: boolean;
   action: () => void;
+  /**
+   * Workspace or project context GUID for live agent status.
+   * Rendered by SearchItem via WorkspaceAgentStatusMark (not at build time).
+   */
+  contextId?: string;
+  /**
+   * Managed GitHub PR snapshot for workspace rows — SearchItem renders a live
+   * PR lifecycle icon (open/closed/merged + checks color) when present.
+   */
+  githubPr?: GithubPrPayload | null;
+  branch?: string | null;
 }
 
 const AppIcon = ({ name, className, themed }: { name: string; className?: string; themed?: boolean }) => {
@@ -70,6 +84,10 @@ interface SearchItemProps {
   value: string;
   className?: string;
   isDir?: boolean;
+  /** When set, show live workspace/project agent status next to the title. */
+  contextId?: string;
+  githubPr?: GithubPrPayload | null;
+  branch?: string | null;
 }
 
 function HighlightedSearchText({
@@ -126,8 +144,12 @@ export function SearchItem({
   value,
   className,
   isDir = false,
+  contextId,
+  githubPr,
+  branch,
 }: SearchItemProps) {
-  const iconToRender = useMemo(() => {
+  const [isHovered, setIsHovered] = React.useState(false);
+  const fallbackIcon = useMemo(() => {
     if (icon) return icon;
     const props = getFileIconProps({ name: title, isDir });
     return <img {...props} alt="" className={cn("size-4", props.className)} />;
@@ -137,16 +159,34 @@ export function SearchItem({
     <CommandItem
       value={value}
       onSelect={onSelect}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
       className={cn("group", className)}
     >
       <div className="flex flex-1 items-center gap-3 overflow-hidden">
         <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground transition-colors group-data-[selected=true]:bg-background group-data-[selected=true]:text-primary">
-          {iconToRender}
+          {githubPr ? (
+            <WorkspacePrStatusIcon
+              githubPr={githubPr}
+              branch={branch}
+              interested={isHovered}
+              showBranchFallback
+              className="size-4"
+              fallbackClassName="text-muted-foreground group-data-[selected=true]:text-primary"
+            />
+          ) : (
+            fallbackIcon
+          )}
         </div>
         <div className="flex min-w-0 flex-col pr-2">
-          <span className="truncate font-medium">
-            <HighlightedSearchText text={title} query={highlightQuery} />
-          </span>
+          <div className="flex min-w-0 items-center gap-1.5">
+            <span className="truncate font-medium">
+              <HighlightedSearchText text={title} query={highlightQuery} />
+            </span>
+            {contextId ? (
+              <WorkspaceAgentStatusMark contextId={contextId} className="shrink-0" />
+            ) : null}
+          </div>
           {description ? (
             <span className="truncate text-xs text-muted-foreground opacity-80">
               <HighlightedSearchText text={description} query={highlightQuery} />
