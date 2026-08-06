@@ -15,4 +15,8 @@ contextBridge.exposeInMainWorld("atmosGrant", {
   close() {
     ipcRenderer.send("desktop-use-grant-close");
   },
+  /** Reveal host .app in Finder when drag is awkward / fails. */
+  reveal() {
+    ipcRenderer.send("desktop-use-grant-reveal");
+  },
 });
