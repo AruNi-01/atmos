@@ -1,0 +1,18 @@
+apps/desktop-electron/resources/icons/README.md
+  h_5be255725524c8 12-18,42,45-49,52-55,81-82
+apps/desktop-electron/scripts/macos-icon.test.ts
+  h_5be255725524c8 2-3,13-17,33-48
+apps/desktop-electron/scripts/regen-legacy-icns.ts
+  h_5be255725524c8 2-10,14,16-19,22-28,38-45,57-111,124,127,177-193,198-201
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "d90667882580237fdef3515fbfe7bbfebff4a687",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
