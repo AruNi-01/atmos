@@ -75,7 +75,8 @@ import { useLayoutSettingsStore } from '@/features/settings/store/layout-setting
 import { useExperimentSettingsStore } from '@/features/settings/store/experiment-settings-store';
 import { useInitialProjectsLoading } from '@/features/project/store/use-initial-projects-loading';
 import { ProjectsSidebarLoading } from '@/app-shell/ProjectsSidebarLoading';
-import { LeftSidebarManagementCenter } from '@/app-shell/LeftSidebarManagementCenter';
+import { LeftSidebarManagementCenter, LeftSidebarManagementCenterOutside } from '@/app-shell/LeftSidebarManagementCenter';
+
 import { LeftSidebarPinnedSection } from '@/app-shell/LeftSidebarPinnedSection';
 import {
     GroupedWorkspaceOneColumnContent,
@@ -282,10 +283,9 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
 
     const isInitialProjectsLoading = useInitialProjectsLoading();
 
-    const managementTerminalsEnabled = useExperimentSettingsStore((s) => s.managementTerminalsEnabled);
-    const managementAgentsEnabled = useExperimentSettingsStore((s) => s.managementAgentsEnabled);
-    const automationsEnabled = useExperimentSettingsStore((s) => s.automationsEnabled);
+    const managementCenterItems = useExperimentSettingsStore((s) => s.managementCenterItems);
     const loadExperimentSettings = useExperimentSettingsStore((s) => s.loadSettings);
+
     useEffect(() => {
         void loadExperimentSettings();
     }, [loadExperimentSettings]);
@@ -1389,16 +1389,44 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
     return (
         <>
             <aside className="@container w-full flex flex-col h-full select-none">
-                {/* Management Center */}
+                {/* Management Center items placed outside (top of sidebar) */}
+                <LeftSidebarManagementCenterOutside
+                    currentView={currentView}
+                    canvasOpen={Boolean(canvasOpen)}
+                    managementCenterItems={managementCenterItems}
+                    projects={listProjects}
+                    availableLabels={workspaceLabels}
+                    groups={groups}
+                    groupingMode={groupingMode}
+                    kanbanFilters={kanbanFilters}
+                    onFiltersChange={setKanbanFilters}
+                    onGroupingModeChange={setGroupingMode}
+                    onNavigate={(path) => router.push(path)}
+                    onOpenCanvas={() => void setCanvasOpen(true)}
+                    onOpenNewWorkspace={handleOpenNewWorkspace}
+                    onUpdateWorkflowStatus={updateWorkspaceWorkflowStatus}
+                    onUpdatePriority={updateWorkspacePriority}
+                    onSetWorkspaceGroup={handleSetWorkspaceGroup}
+                    onCreateGroup={handleCreateGroupNamed}
+                    onCreateLabel={createWorkspaceLabel}
+                    onUpdateLabel={updateWorkspaceLabel}
+                    onUpdateLabels={updateWorkspaceLabels}
+                    onPinWorkspace={pinWorkspace}
+                    onUnpinWorkspace={unpinWorkspace}
+                    onArchiveWorkspace={archiveWorkspace}
+                    onDeleteWorkspace={async (projectId, workspaceId) => {
+                        await deleteWorkspace(projectId, workspaceId);
+                    }}
+                />
+
+                {/* Management Center (inside) — hidden when no inside items */}
                 <div className="flex flex-col shrink-0">
                     <LeftSidebarManagementCenter
                         isExpanded={isWorkspacesExpanded}
                         onExpandedChange={setIsWorkspacesExpanded}
                         currentView={currentView}
                         canvasOpen={Boolean(canvasOpen)}
-                        managementTerminalsEnabled={managementTerminalsEnabled}
-                        managementAgentsEnabled={managementAgentsEnabled}
-                        automationsEnabled={automationsEnabled}
+                        managementCenterItems={managementCenterItems}
                         projects={listProjects}
                         availableLabels={workspaceLabels}
                         groups={groups}

@@ -4626,6 +4626,12 @@
             }
           },
           "experiments": {
+            "workspacesManagementCenter": {
+              "label": "Workspaces (Management Center)"
+            },
+            "skillsManagementCenter": {
+              "label": "Skills (Management Center)"
+            },
             "terminalsManagementCenter": {
               "label": "Terminals (Management Center)"
             },
@@ -4635,8 +4641,26 @@
             "automationsManagementCenter": {
               "label": "Automations (Management Center)"
             },
+            "diskAnalyzerManagementCenter": {
+              "label": "Disk Analyzer (Management Center)"
+            },
+            "canvasManagementCenter": {
+              "label": "Canvas (Management Center)"
+            },
+            "kanbanManagementCenter": {
+              "label": "Kanban (Management Center)"
+            },
+            "newWorkspaceManagementCenter": {
+              "label": "New Workspace (Management Center)"
+            },
             "projectWikiCenterTabs": {
               "label": "Project Wiki (Center Tabs)"
+            },
+            "managementCenterOutside": {
+              "label": "Management Center Outside placement"
+            },
+            "managementCenterInside": {
+              "label": "Management Center Inside placement"
             }
           },
           "about": {
@@ -5598,17 +5622,53 @@
       }
     },
     "experimentSection": {
-      "managementTerminals": {
-        "title": "Terminals (Management Center)",
-        "description": "Monitor and manage terminal usage across your system from the Management Center."
+      "managementCenter": {
+        "title": "Management Center entries",
+        "description": "Toggle each entry and place it Outside (sidebar top) or Inside (Management Center). Disabled entries are hidden.",
+        "tabs": {
+          "outside": "Outside",
+          "inside": "Inside"
+        },
+        "outsideHint": "When enabled, each entry sits alone at the top of the left sidebar with no dividers between items.",
+        "insideHint": "When enabled, entries appear inside Management Center. If none are enabled, the whole Management Center is hidden."
       },
-      "managementAgents": {
-        "title": "ACP Agents (Management Center and footer ACP Chat)",
-        "description": "Enable ACP Chat panel for GUI-based agent conversations with quick access from Management Center and footer."
-      },
-      "automations": {
-        "title": "Automations (Management Center)",
-        "description": "Enable automation creation, scheduled runs, and GitHub-triggered automation management."
+      "items": {
+        "workspaces": {
+          "title": "Workspaces",
+          "description": "Manage all workspaces from Management Center."
+        },
+        "skills": {
+          "title": "Skills",
+          "description": "Browse and manage available Skills."
+        },
+        "terminals": {
+          "title": "Terminals",
+          "description": "Monitor and manage terminal usage across your system from the Management Center."
+        },
+        "agents": {
+          "title": "ACP Agents",
+          "description": "Enable ACP Chat panel for GUI-based agent conversations with quick access from Management Center and footer."
+        },
+        "automations": {
+          "title": "Automations",
+          "description": "Enable automation creation, scheduled runs, and GitHub-triggered automation management."
+        },
+        "diskAnalyzer": {
+          "title": "Disk Analyzer",
+          "description": "Analyze Atmos-related disk usage and clean up safely."
+        },
+        "canvas": {
+          "title": "Canvas",
+          "description": "Open the full-screen Canvas ops surface."
+        },
+        "kanban": {
+          "title": "Kanban",
+          "description": "Browse and manage workspaces in a kanban board."
+        },
+        "newWorkspace": {
+          "title": "New Workspace",
+          "description": "Quickly create a new workspace."
+        }
       },
       "centerWikiTab": {
         "title": "Project Wiki (Center Tabs)",

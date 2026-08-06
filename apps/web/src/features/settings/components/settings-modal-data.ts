@@ -452,13 +452,22 @@ const SETTINGS_SECTION_KEYWORDS: Record<SettingsSectionId, readonly string[]> = 
     "feature flags",
     "optional",
     "management center",
+    "outside",
+    "inside",
+    "workspaces",
+    "skills",
     "terminals",
     "acp agents",
     "footer acp chat",
     "automations",
+    "disk analyzer",
+    "canvas",
+    "kanban",
+    "new workspace",
     "project wiki",
     "center tabs",
   ],
+
   about: [
     "about",
     "version",
@@ -971,6 +980,12 @@ const SETTINGS_SETTING_ITEMS: Record<SettingsSectionId, readonly SettingsSearchI
     }),
   ],
   experiments: [
+    settingsModalSearchItem("experiments.workspacesManagementCenter", {
+      keywords: ["workspaces management", "manage workspaces"],
+    }),
+    settingsModalSearchItem("experiments.skillsManagementCenter", {
+      keywords: ["skills management", "manage skills"],
+    }),
     settingsModalSearchItem("experiments.terminalsManagementCenter", {
       keywords: ["monitor terminal usage", "manage terminal usage"],
     }),
@@ -980,10 +995,29 @@ const SETTINGS_SETTING_ITEMS: Record<SettingsSectionId, readonly SettingsSearchI
     settingsModalSearchItem("experiments.automationsManagementCenter", {
       keywords: ["automation creation", "scheduled runs", "github-triggered automation"],
     }),
+    settingsModalSearchItem("experiments.diskAnalyzerManagementCenter", {
+      keywords: ["disk analyzer", "disk usage", "cleanup"],
+    }),
+    settingsModalSearchItem("experiments.canvasManagementCenter", {
+      keywords: ["canvas", "ops desk", "infinite canvas"],
+    }),
+    settingsModalSearchItem("experiments.kanbanManagementCenter", {
+      keywords: ["kanban board", "workspace kanban"],
+    }),
+    settingsModalSearchItem("experiments.newWorkspaceManagementCenter", {
+      keywords: ["new workspace", "create workspace"],
+    }),
+    settingsModalSearchItem("experiments.managementCenterOutside", {
+      keywords: ["outside", "sidebar top", "management center placement"],
+    }),
+    settingsModalSearchItem("experiments.managementCenterInside", {
+      keywords: ["inside", "management center placement"],
+    }),
     settingsModalSearchItem("experiments.projectWikiCenterTabs", {
       keywords: ["project documentation", "knowledge base", "center stage tab"],
     }),
   ],
+
   about: [
     settingsModalSearchItem("about.runtime", {
       keywords: ["web", "desktop", "runtime"],

@@ -4626,6 +4626,12 @@
             }
           },
           "experiments": {
+            "workspacesManagementCenter": {
+              "label": "Workspaces（Management Center）"
+            },
+            "skillsManagementCenter": {
+              "label": "Skills（Management Center）"
+            },
             "terminalsManagementCenter": {
               "label": "Terminals（Management Center）"
             },
@@ -4635,8 +4641,26 @@
             "automationsManagementCenter": {
               "label": "Automations（Management Center）"
             },
+            "diskAnalyzerManagementCenter": {
+              "label": "Disk Analyzer（Management Center）"
+            },
+            "canvasManagementCenter": {
+              "label": "Canvas（Management Center）"
+            },
+            "kanbanManagementCenter": {
+              "label": "Kanban（Management Center）"
+            },
+            "newWorkspaceManagementCenter": {
+              "label": "New Workspace（Management Center）"
+            },
             "projectWikiCenterTabs": {
               "label": "Project Wiki（Center Tabs）"
+            },
+            "managementCenterOutside": {
+              "label": "Management Center Outside 展示"
+            },
+            "managementCenterInside": {
+              "label": "Management Center Inside 展示"
             }
           },
           "about": {
@@ -5598,17 +5622,53 @@
       }
     },
     "experimentSection": {
-      "managementTerminals": {
-        "title": "Terminals（Management Center）",
-        "description": "在 Management Center 中监控并管理系统范围内的终端使用情况。"
+      "managementCenter": {
+        "title": "Management Center 入口",
+        "description": "为每个入口设置开关，并通过 Outside / Inside 选择展示位置。关闭后不显示对应入口。",
+        "tabs": {
+          "outside": "Outside（顶部）",
+          "inside": "Inside（管理中心）"
+        },
+        "outsideHint": "开启后，入口单独显示在左侧边栏顶部，入口之间无分割线。",
+        "insideHint": "开启后，入口显示在 Management Center 区域。若全部关闭，则隐藏整个 Management Center。"
       },
-      "managementAgents": {
-        "title": "ACP Agents（Management Center 和底部 ACP Chat）",
-        "description": "启用 ACP Chat 面板，用于图形界面的 Agent 对话，并可从 Management Center 和底部区域快速访问。"
-      },
-      "automations": {
-        "title": "Automations（Management Center）",
-        "description": "启用自动化创建、定时运行以及 GitHub 触发的自动化管理。"
+      "items": {
+        "workspaces": {
+          "title": "Workspaces",
+          "description": "在 Management Center 中管理所有工作区。"
+        },
+        "skills": {
+          "title": "Skills",
+          "description": "浏览与管理可用 Skills。"
+        },
+        "terminals": {
+          "title": "Terminals",
+          "description": "在 Management Center 中监控并管理系统范围内的终端使用情况。"
+        },
+        "agents": {
+          "title": "ACP Agents",
+          "description": "启用 ACP Chat 面板，用于图形界面的 Agent 对话，并可从 Management Center 和底部区域快速访问。"
+        },
+        "automations": {
+          "title": "Automations",
+          "description": "启用自动化创建、定时运行以及 GitHub 触发的自动化管理。"
+        },
+        "diskAnalyzer": {
+          "title": "Disk Analyzer",
+          "description": "分析 Atmos 相关磁盘占用并安全清理。"
+        },
+        "canvas": {
+          "title": "Canvas",
+          "description": "打开全屏 Canvas 运维画布。"
+        },
+        "kanban": {
+          "title": "Kanban",
+          "description": "以看板视图浏览与管理工作区。"
+        },
+        "newWorkspace": {
+          "title": "New Workspace",
+          "description": "快速创建新工作区。"
+        }
       },
       "centerWikiTab": {
         "title": "Project Wiki（Center Tabs）",
