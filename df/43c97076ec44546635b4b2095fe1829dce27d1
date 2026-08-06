@@ -1,0 +1,18 @@
+apps/web/next.config.ts
+  h_5be255725524c8 3,44-45,47-62
+packages/ui/src/components/ui/text-shimmer.tsx
+  h_5be255725524c8 23-37,43-67,69-70,78,81
+scripts/desktop/build-web-static.mjs
+  h_5be255725524c8 32,35,69-95
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "df43c97076ec44546635b4b2095fe1829dce27d1",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
