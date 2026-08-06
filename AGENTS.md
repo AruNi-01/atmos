@@ -145,6 +145,15 @@ Full conventions (zones, naming, the 4-file rule, optional spec logs, review che
 - **Keep meaning aligned**: Locale variants should express the same product meaning and UI scope, even when the wording is not a literal translation.
 - **Avoid hardcoded copy**: Prefer existing i18n lookup patterns for labels, titles, tooltips, empty states, and error text instead of hardcoded strings in components.
 
+### English UI casing (strict)
+
+**Do not set English UI words to ALL CAPS** (e.g. `OPEN`, `MERGED`, `DRAFT`, `SAVE ALL`). Agents default to this too often.
+
+- **Use sentence case or leading capital only**: `Open`, `Merged`, `Draft`, `Closed` — first letter capital, rest lowercase (unless a multi-word product name needs standard title case, e.g. `Pull Request`).
+- **Forbidden for labels, chips, badges, buttons, and status text**: CSS `uppercase` / `text-transform: uppercase` that forces full upcase, and source strings written as `OPEN` / `MERGED` solely for display.
+- **Exceptions** (narrow): true acronyms that are conventionally all-caps in product copy (`API`, `PR` as a short form when space-constrained, `CI`, `TUI`), keyboard shortcuts display (`⌘K`), or third-party brand marks that require a specific casing.
+- When in doubt, match nearby existing UI that is **not** all-caps.
+
 ---
 
 ## 🔌 Transport Rules
