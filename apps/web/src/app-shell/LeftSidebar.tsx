@@ -230,7 +230,6 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
     }, [attentionFilterMode, filesOnRight, activeTab, setActiveTab, fileTreeRevealTarget]);
     const [newWorkspace, setNewWorkspace] = useQueryState("newWorkspace", centerStageParams.newWorkspace);
     const [canvasOpen, setCanvasOpen] = useQueryState("canvas", centerStageParams.canvas);
-    const [isKanbanExpanded, setIsKanbanExpanded] = useQueryState("lsKanban", leftSidebarParams.lsKanban);
     const [expandedProjects, setExpandedProjects] = useState<string[]>([]);
     const [collapsedWorkspaceGroups, setCollapsedWorkspaceGroups] = useState<Record<string, boolean>>({});
     const [groupingMode, setGroupingMode] = useState<SidebarGroupingMode>('project');
@@ -243,7 +242,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
         : [];
     const [kanbanFilters, setKanbanFilters] = useState<WorkspaceKanbanFilters>(EMPTY_WORKSPACE_KANBAN_FILTERS);
     const [isWorkspacesExpanded, setIsWorkspacesExpanded] = useState(
-        currentView === 'workspaces' || currentView === 'skills' || currentView === 'terminals' || currentView === 'agents' || currentView === 'automations' || currentView === 'disk-analyzer'
+        currentView === 'workspaces' || currentView === 'skills' || currentView === 'terminals' || currentView === 'agents' || currentView === 'automations' || currentView === 'disk-analyzer' || currentView === 'kanban'
     );
     const [isPinnedSectionCollapsed, setIsPinnedSectionCollapsed] = useState(false);
     const [isPinnedDividerHovered, setIsPinnedDividerHovered] = useState(false);
@@ -940,15 +939,14 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
         [handleToggleCanvas],
     );
 
-    // ⌘⇧K → expand the Kanban board overlay. The kanban dialog is bound to the
-    // `lsKanban` URL state, so flipping it to true opens the board from anywhere.
+    // ⌘⇧K → open the Kanban board in center stage.
     useHotkeys(
         "mod+shift+k",
         () => {
-            void setIsKanbanExpanded(true);
+            router.push("/kanban");
         },
         { enableOnContentEditable: true, enableOnFormTags: true, preventDefault: true },
-        [setIsKanbanExpanded],
+        [router],
     );
 
     const handleQuickAddWorkspace = async (projectId: string) => {
@@ -1394,29 +1392,9 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
                     currentView={currentView}
                     canvasOpen={Boolean(canvasOpen)}
                     managementCenterItems={managementCenterItems}
-                    projects={listProjects}
-                    availableLabels={workspaceLabels}
-                    groups={groups}
-                    groupingMode={groupingMode}
-                    kanbanFilters={kanbanFilters}
-                    onFiltersChange={setKanbanFilters}
-                    onGroupingModeChange={setGroupingMode}
                     onNavigate={(path) => router.push(path)}
                     onOpenCanvas={() => void setCanvasOpen(true)}
                     onOpenNewWorkspace={handleOpenNewWorkspace}
-                    onUpdateWorkflowStatus={updateWorkspaceWorkflowStatus}
-                    onUpdatePriority={updateWorkspacePriority}
-                    onSetWorkspaceGroup={handleSetWorkspaceGroup}
-                    onCreateGroup={handleCreateGroupNamed}
-                    onCreateLabel={createWorkspaceLabel}
-                    onUpdateLabel={updateWorkspaceLabel}
-                    onUpdateLabels={updateWorkspaceLabels}
-                    onPinWorkspace={pinWorkspace}
-                    onUnpinWorkspace={unpinWorkspace}
-                    onArchiveWorkspace={archiveWorkspace}
-                    onDeleteWorkspace={async (projectId, workspaceId) => {
-                        await deleteWorkspace(projectId, workspaceId);
-                    }}
                 />
 
                 {/* Management Center (inside) — hidden when no inside items */}
@@ -1427,29 +1405,9 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
                         currentView={currentView}
                         canvasOpen={Boolean(canvasOpen)}
                         managementCenterItems={managementCenterItems}
-                        projects={listProjects}
-                        availableLabels={workspaceLabels}
-                        groups={groups}
-                        groupingMode={groupingMode}
-                        kanbanFilters={kanbanFilters}
-                        onFiltersChange={setKanbanFilters}
-                        onGroupingModeChange={setGroupingMode}
                         onNavigate={(path) => router.push(path)}
                         onOpenCanvas={() => void setCanvasOpen(true)}
                         onOpenNewWorkspace={handleOpenNewWorkspace}
-                        onUpdateWorkflowStatus={updateWorkspaceWorkflowStatus}
-                        onUpdatePriority={updateWorkspacePriority}
-                        onSetWorkspaceGroup={handleSetWorkspaceGroup}
-                        onCreateGroup={handleCreateGroupNamed}
-                        onCreateLabel={createWorkspaceLabel}
-                        onUpdateLabel={updateWorkspaceLabel}
-                        onUpdateLabels={updateWorkspaceLabels}
-                        onPinWorkspace={pinWorkspace}
-                        onUnpinWorkspace={unpinWorkspace}
-                        onArchiveWorkspace={archiveWorkspace}
-                        onDeleteWorkspace={async (projectId, workspaceId) => {
-                            await deleteWorkspace(projectId, workspaceId);
-                        }}
                     />
 
                 </div>
@@ -1516,24 +1474,10 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
                     filters={kanbanFilters}
                     groupingMode={groupingMode}
                     groups={groups}
-                    isKanbanExpanded={isKanbanExpanded}
                     projects={projects}
                     onAddProject={handleAddProject}
-                    onArchiveWorkspace={archiveWorkspace}
-                    onCreateLabel={createWorkspaceLabel}
-                    onDeleteWorkspace={async (projectId, workspaceId) => {
-                        await deleteWorkspace(projectId, workspaceId);
-                    }}
                     onFiltersChange={setKanbanFilters}
                     onGroupingModeChange={setGroupingMode}
-                    onPinWorkspace={pinWorkspace}
-                    onCreateGroup={handleCreateGroupNamed}
-                    onSetWorkspaceGroup={handleSetWorkspaceGroup}
-                    onUnpinWorkspace={unpinWorkspace}
-                    onUpdateLabel={updateWorkspaceLabel}
-                    onUpdateLabels={updateWorkspaceLabels}
-                    onUpdatePriority={updateWorkspacePriority}
-                    onUpdateWorkflowStatus={updateWorkspaceWorkflowStatus}
                 />
             </aside >
             <CreateProjectDialog

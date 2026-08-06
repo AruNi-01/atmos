@@ -2,8 +2,6 @@
 
 import React from "react";
 import { useTranslations } from "next-intl";
-import { useFocusRestore } from "@/shared/hooks/use-focus-restore";
-import { useDesktopTrafficLightsPadding } from "@/shared/hooks/use-desktop-traffic-lights-padding";
 import {
   Button,
   DndContext,
@@ -12,12 +10,6 @@ import {
   DropdownMenuContent,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
   Input,
   Select,
   SelectContent,
@@ -139,7 +131,6 @@ interface WorkspaceKanbanViewProps {
   onDeleteWorkspace?: (projectId: string, workspaceId: string) => Promise<void>;
   filters: WorkspaceKanbanFilters;
   onFiltersChange: (filters: WorkspaceKanbanFilters) => void;
-  trigger: React.ReactNode;
 }
 
 export function WorkspaceKanbanView({
@@ -161,14 +152,11 @@ export function WorkspaceKanbanView({
   onDeleteWorkspace,
   filters,
   onFiltersChange,
-  trigger,
 }: WorkspaceKanbanViewProps) {
   const t = useTranslations("appShell.kanban");
   const groupsT = useTranslations("appShell.groups");
   const groupingT = useTranslations("appShell.workspaceGrouping");
   const router = useAppRouter();
-  const [isKanbanExpanded, setIsKanbanExpanded] = useQueryState("lsKanban", leftSidebarParams.lsKanban);
-  const { onCloseAutoFocusPrevent } = useFocusRestore(!!isKanbanExpanded);
   const [searchQuery, setSearchQuery] = useQueryState("lsKanbanQ", leftSidebarParams.lsKanbanQ);
   const availableStatusSet = React.useMemo(
     () => new Set(WORKSPACE_WORKFLOW_STATUS_OPTIONS.map((option) => option.value)),
@@ -204,7 +192,6 @@ export function WorkspaceKanbanView({
   );
   const dragAssignable = isKanbanDragAssignable(groupingMode);
 
-  const needsTrafficLightsPadding = useDesktopTrafficLightsPadding();
   const [isBrowser, setIsBrowser] = React.useState(false);
   React.useEffect(() => {
     setIsBrowser(true);
@@ -244,13 +231,12 @@ export function WorkspaceKanbanView({
 
   // Fetch issue_only workspaces when showIssueOnly is toggled on
   React.useEffect(() => {
-    if (!isKanbanExpanded || !showIssueOnly || issueOnlyLoaded) return;
+    if (!showIssueOnly || issueOnlyLoaded) return;
     void fetchIssueOnlyWorkspaces();
-  }, [isKanbanExpanded, showIssueOnly, issueOnlyLoaded, fetchIssueOnlyWorkspaces]);
+  }, [showIssueOnly, issueOnlyLoaded, fetchIssueOnlyWorkspaces]);
 
   // Build kanbanProjects by merging store data with issue_only workspaces
   const kanbanProjects = React.useMemo(() => {
-    if (!isKanbanExpanded) return null;
     return projects.map((project) => {
       if (!showIssueOnly) return project;
       const extra = issueOnlyWorkspaces.get(project.id) ?? [];
@@ -259,7 +245,7 @@ export function WorkspaceKanbanView({
       const uniqueExtra = extra.filter((w) => !existingIds.has(w.id));
       return { ...project, workspaces: [...project.workspaces, ...uniqueExtra] };
     });
-  }, [isKanbanExpanded, projects, showIssueOnly, issueOnlyWorkspaces]);
+  }, [projects, showIssueOnly, issueOnlyWorkspaces]);
 
   const reloadKanbanProjects = React.useCallback(async () => {
     // Re-fetch issue_only workspaces after import
@@ -352,9 +338,9 @@ export function WorkspaceKanbanView({
   }, [availablePrioritySet, availableStatusSet, onFiltersChange, setSearchQuery]);
 
   React.useEffect(() => {
-    if (!isKanbanExpanded || isSettingsReady) return;
+    if (isSettingsReady) return;
     void loadWorkspaceKanbanSettings({ blocking: true });
-  }, [isKanbanExpanded, isSettingsReady, loadWorkspaceKanbanSettings]);
+  }, [isSettingsReady, loadWorkspaceKanbanSettings]);
 
   const persistWorkspaceKanbanSettings = React.useCallback(async () => {
     const payload: WorkspaceKanbanViewSavedState = {
@@ -555,10 +541,8 @@ export function WorkspaceKanbanView({
       return;
     }
 
-    void setIsKanbanExpanded(false).then(() => {
-      router.push(`/workspace?id=${workspaceId}`);
-    });
-  }, [kanbanProjects, projects, router, setIsKanbanExpanded]);
+    router.push(`/workspace?id=${workspaceId}`);
+  }, [kanbanProjects, projects, router]);
 
   const selectedFilterChips = React.useMemo(() => {
     const chips: Array<{
@@ -678,28 +662,8 @@ export function WorkspaceKanbanView({
     [t],
   );
 
-    return (
-    <Dialog
-      open={!!isKanbanExpanded}
-      onOpenChange={(open) => {
-        void setIsKanbanExpanded(open);
-      }}
-    >
-      <DialogTrigger asChild>{trigger}</DialogTrigger>
-      <DialogContent
-        showCloseButton={false}
-        onCloseAutoFocus={onCloseAutoFocusPrevent}
-        className={cn(
-          "top-1/2 left-1/2 h-[100dvh] w-[100vw] max-w-[100vw] translate-x-[-50%] translate-y-[-50%] gap-0 overflow-hidden rounded-none border-0 p-0 sm:h-[calc(100dvh-2rem)] sm:w-[calc(100vw-2rem)] sm:max-w-[calc(100vw-2rem)] sm:rounded-2xl sm:border sm:border-border",
-          needsTrafficLightsPadding &&
-            "top-[32px] h-[calc(100dvh-32px)] translate-y-0 sm:top-[32px] sm:h-[calc(100dvh-3rem)]"
-        )}
-      >
-        <DialogHeader className="sr-only">
-          <DialogTitle>{t("dialog.title")}</DialogTitle>
-          <DialogDescription>{t("dialog.description")}</DialogDescription>
-        </DialogHeader>
-        <div className="flex h-full min-h-0 min-w-0 flex-col">
+  return (
+    <div className="flex h-full min-h-0 min-w-0 flex-col bg-background">
           <div className="flex h-10 items-center justify-between border-b px-6 py-1.5">
             <div className="flex min-w-0 items-center gap-1.5">
               <WorkspaceKanbanFilterMenu
@@ -1002,8 +966,6 @@ export function WorkspaceKanbanView({
               <div className="grid h-full min-w-max grid-flow-col auto-cols-[348px] gap-2" />
             )}
           </div>
-        </div>
-      </DialogContent>
       <CreateWorkspaceDialog
         isOpen={isCreateWorkspaceOpen}
         onClose={() => {
@@ -1022,6 +984,6 @@ export function WorkspaceKanbanView({
         onClose={() => setIsImportIssuesOpen(false)}
         onImported={reloadKanbanProjects}
       />
-    </Dialog>
+    </div>
   );
 }

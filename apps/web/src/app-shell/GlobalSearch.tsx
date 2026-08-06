@@ -142,8 +142,8 @@ export function GlobalSearch() {
   const [, setSettingsOpen] = useQueryState("settingsModal", settingsModalParams.settingsModal);
   const [, setActiveSettingTab] = useQueryState("activeSettingTab", settingsModalParams.activeSettingTab);
   const [, setLeftSidebarTab] = useQueryState("lsTab", leftSidebarParams.lsTab);
-  const [, setKanbanExpanded] = useQueryState("lsKanban", leftSidebarParams.lsKanban);
   const [, setCanvasOpen] = useQueryState("canvas", centerStageParams.canvas);
+
   const { isLeftCollapsed, setIsLeftCollapsed } = useSidebarLayout();
 
   const managementTerminalsEnabled = useExperimentSettingsStore((s) => s.managementTerminalsEnabled);
@@ -355,7 +355,6 @@ export function GlobalSearch() {
       setAgentChatOpen,
       setTokenUsageOpen,
       setLeftSidebarTab,
-      setKanbanExpanded,
       setCanvasOpen,
       setIsLeftCollapsed,
       setActiveSettingTab,
@@ -365,7 +364,7 @@ export function GlobalSearch() {
       showOpening,
       clearWorkspaceCreationOverlay,
     });
-  }, [projects, router, setTheme, setGlobalSearchOpen, setCreateProjectOpen, setSelectedProjectId, setCreateWorkspaceOpen, quickAddWorkspace, isFullScreen, toggleFullScreen, currentProject, setLlmProvidersOpen, setAgentChatOpen, setTokenUsageOpen, setLeftSidebarTab, setKanbanExpanded, setCanvasOpen, isLeftCollapsed, setIsLeftCollapsed, setActiveSettingTab, setSettingsOpen, currentWorkspaceId, currentWorkspace, managementTerminalsEnabled, managementAgentsEnabled, automationsEnabled, clearWorkspaceCreationOverlay, currentEffectivePath, showCreating, showOpening]);
+  }, [projects, router, setTheme, setGlobalSearchOpen, setCreateProjectOpen, setSelectedProjectId, setCreateWorkspaceOpen, quickAddWorkspace, isFullScreen, toggleFullScreen, currentProject, setLlmProvidersOpen, setAgentChatOpen, setTokenUsageOpen, setLeftSidebarTab, setCanvasOpen, isLeftCollapsed, setIsLeftCollapsed, setActiveSettingTab, setSettingsOpen, currentWorkspaceId, currentWorkspace, managementTerminalsEnabled, managementAgentsEnabled, automationsEnabled, clearWorkspaceCreationOverlay, currentEffectivePath, showCreating, showOpening]);
 
   // Filter app items with deterministic matching. Single-word keyword hits must be exact
   // to keep broad keyword phrases from pulling unrelated results into the command palette.

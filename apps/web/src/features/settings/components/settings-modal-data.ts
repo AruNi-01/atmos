@@ -187,6 +187,18 @@ const SETTINGS_SECTION_KEYWORDS: Record<SettingsSectionId, readonly string[]> = 
     "local services",
     "ai quota usage carousel",
     "agent status panel",
+    "management center",
+    "outside",
+    "inside",
+    "workspaces",
+    "skills",
+    "terminals",
+    "acp agents",
+    "automations",
+    "disk analyzer",
+    "canvas",
+    "kanban",
+    "new workspace",
     "acp agent chat entry",
   ],
   editor: [
@@ -451,19 +463,6 @@ const SETTINGS_SECTION_KEYWORDS: Record<SettingsSectionId, readonly string[]> = 
     "preview",
     "feature flags",
     "optional",
-    "management center",
-    "outside",
-    "inside",
-    "workspaces",
-    "skills",
-    "terminals",
-    "acp agents",
-    "footer acp chat",
-    "automations",
-    "disk analyzer",
-    "canvas",
-    "kanban",
-    "new workspace",
     "project wiki",
     "center tabs",
   ],
@@ -569,7 +568,40 @@ const SETTINGS_SETTING_ITEMS: Record<SettingsSectionId, readonly SettingsSearchI
       keywords: ["running agent sessions", "agent hooks"],
     }),
     settingsModalSearchItem("layout.acpAgentChatEntry", {
-      keywords: ["floating acp chat", "footer", "experiments"],
+      keywords: ["floating acp chat", "footer", "layout", "management center"],
+    }),
+    settingsModalSearchItem("layout.workspacesManagementCenter", {
+      keywords: ["workspaces management", "manage workspaces", "management center"],
+    }),
+    settingsModalSearchItem("layout.skillsManagementCenter", {
+      keywords: ["skills management", "manage skills", "management center"],
+    }),
+    settingsModalSearchItem("layout.terminalsManagementCenter", {
+      keywords: ["monitor terminal usage", "manage terminal usage", "management center"],
+    }),
+    settingsModalSearchItem("layout.acpAgentsManagementCenter", {
+      keywords: ["acp chat panel", "gui agent conversations", "footer", "management center"],
+    }),
+    settingsModalSearchItem("layout.automationsManagementCenter", {
+      keywords: ["automation creation", "scheduled runs", "github-triggered automation", "management center"],
+    }),
+    settingsModalSearchItem("layout.diskAnalyzerManagementCenter", {
+      keywords: ["disk analyzer", "disk usage", "cleanup", "management center"],
+    }),
+    settingsModalSearchItem("layout.canvasManagementCenter", {
+      keywords: ["canvas", "ops desk", "infinite canvas", "management center"],
+    }),
+    settingsModalSearchItem("layout.kanbanManagementCenter", {
+      keywords: ["kanban board", "workspace kanban", "management center"],
+    }),
+    settingsModalSearchItem("layout.newWorkspaceManagementCenter", {
+      keywords: ["new workspace", "create workspace", "management center"],
+    }),
+    settingsModalSearchItem("layout.managementCenterOutside", {
+      keywords: ["outside", "sidebar top", "management center placement"],
+    }),
+    settingsModalSearchItem("layout.managementCenterInside", {
+      keywords: ["inside", "management center placement"],
     }),
   ],
   editor: [
@@ -958,7 +990,7 @@ const SETTINGS_SETTING_ITEMS: Record<SettingsSectionId, readonly SettingsSearchI
       ],
     }),
     settingsModalSearchItem("shortcuts.workspaceShortcuts", {
-      keywords: ["new workspace overlay", "canvas overlay", "kanban overlay", "open create workspace"],
+      keywords: ["new workspace overlay", "canvas overlay", "kanban board", "open create workspace"],
     }),
     settingsModalSearchItem("shortcuts.centerStageTabsShortcuts", {
       keywords: ["overview tab", "fixed terminal tab", "terminal tab"],
@@ -980,39 +1012,6 @@ const SETTINGS_SETTING_ITEMS: Record<SettingsSectionId, readonly SettingsSearchI
     }),
   ],
   experiments: [
-    settingsModalSearchItem("experiments.workspacesManagementCenter", {
-      keywords: ["workspaces management", "manage workspaces"],
-    }),
-    settingsModalSearchItem("experiments.skillsManagementCenter", {
-      keywords: ["skills management", "manage skills"],
-    }),
-    settingsModalSearchItem("experiments.terminalsManagementCenter", {
-      keywords: ["monitor terminal usage", "manage terminal usage"],
-    }),
-    settingsModalSearchItem("experiments.acpAgentsManagementCenter", {
-      keywords: ["acp chat panel", "gui agent conversations", "footer"],
-    }),
-    settingsModalSearchItem("experiments.automationsManagementCenter", {
-      keywords: ["automation creation", "scheduled runs", "github-triggered automation"],
-    }),
-    settingsModalSearchItem("experiments.diskAnalyzerManagementCenter", {
-      keywords: ["disk analyzer", "disk usage", "cleanup"],
-    }),
-    settingsModalSearchItem("experiments.canvasManagementCenter", {
-      keywords: ["canvas", "ops desk", "infinite canvas"],
-    }),
-    settingsModalSearchItem("experiments.kanbanManagementCenter", {
-      keywords: ["kanban board", "workspace kanban"],
-    }),
-    settingsModalSearchItem("experiments.newWorkspaceManagementCenter", {
-      keywords: ["new workspace", "create workspace"],
-    }),
-    settingsModalSearchItem("experiments.managementCenterOutside", {
-      keywords: ["outside", "sidebar top", "management center placement"],
-    }),
-    settingsModalSearchItem("experiments.managementCenterInside", {
-      keywords: ["inside", "management center placement"],
-    }),
     settingsModalSearchItem("experiments.projectWikiCenterTabs", {
       keywords: ["project documentation", "knowledge base", "center stage tab"],
     }),

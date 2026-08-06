@@ -24,10 +24,6 @@ import {
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 
-import type { Group, Project, WorkspaceLabel } from "@/shared/types/domain";
-import { WorkspaceKanbanView } from "@/app-shell/sidebar/WorkspaceKanbanView";
-import type { WorkspaceKanbanFilters } from "@/app-shell/sidebar/WorkspaceKanbanFilterMenu";
-import type { SidebarGroupingMode } from "@/app-shell/sidebar/workspace-status";
 import type {
   ManagementCenterItemId,
   ManagementCenterItems,
@@ -35,14 +31,12 @@ import type {
 } from "@/features/settings/store/experiment-settings-store";
 import { selectManagementCenterItemsByPlacement } from "@/features/settings/store/experiment-settings-store";
 
-type WorkspaceKanbanViewProps = React.ComponentProps<typeof WorkspaceKanbanView>;
-
 type ManagementCenterItemDef = {
   id: ManagementCenterItemId;
   labelKey: string;
   icon: typeof FolderKanban;
   path?: string;
-  kind?: "kanban" | "new-workspace" | "canvas";
+  kind?: "new-workspace" | "canvas";
 };
 
 const MANAGEMENT_CENTER_ITEM_DEFS: ManagementCenterItemDef[] = [
@@ -53,7 +47,7 @@ const MANAGEMENT_CENTER_ITEM_DEFS: ManagementCenterItemDef[] = [
   { id: "automations", labelKey: "managementCenter.items.automations", icon: Timer, path: "/automations" },
   { id: "disk-analyzer", labelKey: "managementCenter.items.diskAnalyzer", icon: HardDrive, path: "/disk-analyzer" },
   { id: "canvas", labelKey: "managementCenter.items.canvas", icon: Presentation, kind: "canvas" },
-  { id: "kanban", labelKey: "managementCenter.items.kanban", icon: SquareKanban, kind: "kanban" },
+  { id: "kanban", labelKey: "managementCenter.items.kanban", icon: SquareKanban, path: "/kanban" },
   { id: "new-workspace", labelKey: "managementCenter.items.newWorkspace", icon: Plus, kind: "new-workspace" },
 ];
 
@@ -64,27 +58,9 @@ const ITEM_DEF_BY_ID = Object.fromEntries(
 type ManagementCenterSharedProps = {
   currentView: string;
   canvasOpen: boolean;
-  projects: Project[];
-  availableLabels: WorkspaceLabel[];
-  groups?: Group[];
-  groupingMode?: SidebarGroupingMode;
-  kanbanFilters: WorkspaceKanbanFilters;
-  onFiltersChange: (filters: WorkspaceKanbanFilters) => void;
-  onGroupingModeChange?: (mode: SidebarGroupingMode) => void;
   onNavigate: (path: string) => void;
   onOpenCanvas: () => void;
   onOpenNewWorkspace: () => void;
-  onUpdateWorkflowStatus: WorkspaceKanbanViewProps["onUpdateWorkflowStatus"];
-  onUpdatePriority: WorkspaceKanbanViewProps["onUpdatePriority"];
-  onSetWorkspaceGroup?: WorkspaceKanbanViewProps["onSetWorkspaceGroup"];
-  onCreateGroup?: WorkspaceKanbanViewProps["onCreateGroup"];
-  onCreateLabel: WorkspaceKanbanViewProps["onCreateLabel"];
-  onUpdateLabel: WorkspaceKanbanViewProps["onUpdateLabel"];
-  onUpdateLabels: WorkspaceKanbanViewProps["onUpdateLabels"];
-  onPinWorkspace: WorkspaceKanbanViewProps["onPinWorkspace"];
-  onUnpinWorkspace: WorkspaceKanbanViewProps["onUnpinWorkspace"];
-  onArchiveWorkspace: WorkspaceKanbanViewProps["onArchiveWorkspace"];
-  onDeleteWorkspace: WorkspaceKanbanViewProps["onDeleteWorkspace"];
 };
 
 interface LeftSidebarManagementCenterProps extends ManagementCenterSharedProps {
@@ -196,27 +172,9 @@ function ManagementCenterCard({
   totalItems,
   isActive,
   variant,
-  projects,
-  availableLabels,
-  groups = [],
-  groupingMode = "status",
-  kanbanFilters,
-  onFiltersChange,
-  onGroupingModeChange,
   onNavigate,
   onOpenCanvas,
   onOpenNewWorkspace,
-  onUpdateWorkflowStatus,
-  onUpdatePriority,
-  onSetWorkspaceGroup,
-  onCreateGroup,
-  onCreateLabel,
-  onUpdateLabel,
-  onUpdateLabels,
-  onPinWorkspace,
-  onUnpinWorkspace,
-  onArchiveWorkspace,
-  onDeleteWorkspace,
 }: ManagementCenterSharedProps & {
   item: ManagementCenterItemDef;
   index: number;
@@ -276,32 +234,6 @@ function ManagementCenterCard({
       </div>
     </>
   );
-
-  if (item.kind === "kanban") {
-    return (
-      <WorkspaceKanbanView
-        projects={projects}
-        availableLabels={availableLabels}
-        groups={groups}
-        groupingMode={groupingMode}
-        onGroupingModeChange={onGroupingModeChange}
-        onUpdateWorkflowStatus={onUpdateWorkflowStatus}
-        onUpdatePriority={onUpdatePriority}
-        onSetWorkspaceGroup={onSetWorkspaceGroup}
-        onCreateGroup={onCreateGroup}
-        onCreateLabel={onCreateLabel}
-        onUpdateLabel={onUpdateLabel}
-        onUpdateLabels={onUpdateLabels}
-        onPinWorkspace={onPinWorkspace}
-        onUnpinWorkspace={onUnpinWorkspace}
-        onArchiveWorkspace={onArchiveWorkspace}
-        onDeleteWorkspace={onDeleteWorkspace}
-        filters={kanbanFilters}
-        onFiltersChange={onFiltersChange}
-        trigger={<div className={cardClassName}>{cardInner}</div>}
-      />
-    );
-  }
 
   if (item.kind === "canvas") {
     return (

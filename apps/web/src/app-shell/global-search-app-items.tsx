@@ -116,8 +116,8 @@ interface BuildGlobalSearchItemsParams {
   setAgentChatOpen: (open: boolean) => void;
   setTokenUsageOpen: (open: boolean) => void;
   setLeftSidebarTab: (tab: "projects") => void;
-  setKanbanExpanded: (expanded: boolean) => void;
   setCanvasOpen: (open: boolean) => void;
+
   setIsLeftCollapsed: (collapsed: boolean) => void;
   setActiveSettingTab: (tab: SettingsModalTab) => void;
   setSettingsOpen: (open: boolean) => void;
@@ -150,9 +150,9 @@ export function buildGlobalSearchItems({
   setAgentChatOpen,
   setTokenUsageOpen,
   setLeftSidebarTab,
-  setKanbanExpanded,
   setCanvasOpen,
   setIsLeftCollapsed,
+
   setActiveSettingTab,
   setSettingsOpen,
   setSubView,
@@ -420,11 +420,7 @@ export function buildGlobalSearchItems({
       keywords: ["kanban", "board", "workspace", "workspaces", "status", "priority", "view", "open"],
       icon: <SquareKanban className="size-4 text-muted-foreground" />,
       action: () => {
-        setLeftSidebarTab("projects");
-        setKanbanExpanded(true);
-        if (isLeftCollapsed) {
-          setIsLeftCollapsed(false);
-        }
+        router.push("/kanban");
         setGlobalSearchOpen(false);
       },
     },

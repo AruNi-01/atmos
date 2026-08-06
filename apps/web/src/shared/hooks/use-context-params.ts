@@ -2,7 +2,8 @@
 
 import { usePathname, useSearchParams } from "next/navigation";
 
-export type CurrentView = "welcome" | "workspace" | "project" | "workspaces" | "skills" | "terminals" | "agents" | "automations" | "disk-analyzer";
+export type CurrentView = "welcome" | "workspace" | "project" | "workspaces" | "skills" | "terminals" | "agents" | "automations" | "disk-analyzer" | "kanban";
+
 
 interface ContextParams {
   /** Workspace ID from query param ?id= on /workspace */
@@ -42,6 +43,7 @@ const EMPTY: Omit<ContextParams, "currentView"> = {
  *   /agents                  → agents management
  *   /automations             → automations management
  *   /disk-analyzer           → disk analyzer
+ *   /kanban                  → workspace kanban board
  */
 export function useContextParams(): ContextParams {
   const pathname = usePathname();
@@ -81,6 +83,7 @@ export function useContextParams(): ContextParams {
   if (firstSegment === "agents") return { ...EMPTY, currentView: "agents" };
   if (firstSegment === "automations") return { ...EMPTY, currentView: "automations" };
   if (firstSegment === "disk-analyzer") return { ...EMPTY, currentView: "disk-analyzer" };
+  if (firstSegment === "kanban") return { ...EMPTY, currentView: "kanban" };
 
   return { ...EMPTY, currentView: "welcome" };
 }
