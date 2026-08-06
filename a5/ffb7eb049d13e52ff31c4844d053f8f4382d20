@@ -1,0 +1,16 @@
+apps/web/src/features/appshot/__tests__/appshots-history-popover.test.tsx
+  h_5be255725524c8 165-169,295-302,305,318,333,346,353-355,358-360,367-369,599,638-716,718,732
+apps/web/src/features/appshot/components/AppshotsHistoryPopover.tsx
+  h_5be255725524c8 45-46,75-76,225,232-276,461-485,487-488
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "a5ffb7eb049d13e52ff31c4844d053f8f4382d20",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
