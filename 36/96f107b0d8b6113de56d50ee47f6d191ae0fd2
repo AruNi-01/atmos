@@ -1,0 +1,26 @@
+apps/web/src/app-shell/__tests__/workspace-surface-policies.test.ts
+  h_5be255725524c8 15,88-92
+apps/web/src/app-shell/workspace-center-frame.tsx
+  h_5be255725524c8 40,384-385,389,435-436,440,504-505,509,605-606,610
+apps/web/src/app-shell/workspace-surface-policies.ts
+  h_5be255725524c8 155-169
+apps/web/src/app/globals.css
+  h_5be255725524c8 190-193,203-219
+apps/web/src/features/terminal/components/TerminalAgentInputOverlay.tsx
+  h_5be255725524c8 123-128,160,695-710,1183,1204-1264
+apps/web/src/features/terminal/components/TerminalGrid.tsx
+  h_5be255725524c8 83-89
+apps/web/src/features/terminal/components/terminal-mosaic-scoped-pane-window.tsx
+  h_5be255725524c8 495
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "3696f107b0d8b6113de56d50ee47f6d191ae0fd2",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
