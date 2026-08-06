@@ -120,6 +120,12 @@ interface TerminalAgentInputOverlayProps {
   sideChatDots?: React.ReactNode;
   skillsContext?: ComposerSkillsContext | null;
   submitMode?: TerminalAgentSubmitMode;
+  /**
+   * When false (warm frame / inactive center tab), dismiss body-portal chrome
+   * (slash/mention/preview) so it cannot paint over other workspaces. Does not
+   * unmount the terminal tree — keep-alive hop stays seamless.
+   */
+  surfaceActive?: boolean;
 }
 
 export interface TerminalAgentInputOverlayHandle {
@@ -151,6 +157,7 @@ export const TerminalAgentInputOverlay = React.forwardRef<
   sideChatDots,
   skillsContext = null,
   submitMode = "text-enter",
+  surfaceActive = true,
 }, ref) {
   const t = useTranslations("terminal.agentInput");
   const {
@@ -685,6 +692,22 @@ export const TerminalAgentInputOverlay = React.forwardRef<
     });
   }, [setExpandedSections]);
 
+  /**
+   * Warm/inactive surfaces keep the terminal tree mounted for seamless hops,
+   * but body-portal chrome (slash/mention/preview/side picker) must dismiss so
+   * it cannot paint over PR/Action or another workspace.
+   */
+  React.useEffect(() => {
+    if (surfaceActive) return;
+    setMentionPopover(null);
+    closeSlashPopover();
+    setPreviewAttachment(null);
+    setFlyingMessage(null);
+    setPendingSidePrompt(null);
+    setPendingSideContexts([]);
+    setSideChatAgentSelectorOpen(false);
+  }, [closeSlashPopover, setPreviewAttachment, surfaceActive]);
+
   const handleSkillDisableSessionClosed = React.useCallback(() => {
     setSlashPopover(null);
     slashPopoverViewRef.current = "menu";
@@ -1157,7 +1180,7 @@ export const TerminalAgentInputOverlay = React.forwardRef<
         </div>
       </div>
 
-      {pendingSidePrompt && !shouldShowSideChatAgentSelector ? (
+      {surfaceActive && pendingSidePrompt && !shouldShowSideChatAgentSelector ? (
         <SideChatAgentPicker
           agents={sideChatAgentOptions}
           onCancel={() => {
@@ -1178,63 +1201,67 @@ export const TerminalAgentInputOverlay = React.forwardRef<
         />
       ) : null}
 
-      <TerminalAgentInputPopovers
-        activeMentionFileIndex={activeMentionFileIndex}
-        activeSlashItemIndex={activeSlashItemIndex}
-        disableSkills={
-          slashPopoverView === "disable_skills"
-            ? {
-                filter: skillDisableFilter,
-                loading: disableSkillsLoading,
-                pendingId: disableSkillsPendingId,
-                skills: disableSkillsList,
-                error: disableSkillsError,
-              }
-            : null
-        }
-        expandedSections={expandedSections}
-        filteredAgents={filteredAgents}
-        filteredCommands={slashCommands}
-        filteredProjects={filteredProjects}
-        filteredSkills={filteredSkills}
-        isMentionFilesLoading={isMentionFilesLoading}
-        isSkillsLoading={isSkillsLoading}
-        mentionFiles={mentionFiles}
-        mentionPopover={mentionPopover}
-        mentionPopoverListRef={mentionPopoverListRef}
-        onBackFromDisableSkills={backFromDisableSkills}
-        onCloseMention={() => setMentionPopover(null)}
-        onCloseSlash={closeSlashPopover}
-        onSelectMentionFile={selectMentionFile}
-        onSelectMentionNavItem={selectMentionNavItem}
-        onSelectSlashAgent={() => {
-          setSlashPopover(null);
-          setSlashPopoverView("menu");
-          setSkillDisableFilter("");
-        }}
-        onSelectSlashCommand={selectSlashCommand}
-        onSelectSlashProject={() => {
-          setSlashPopover(null);
-          setSlashPopoverView("menu");
-          setSkillDisableFilter("");
-        }}
-        onSelectSlashSkill={selectSlashSkill}
-        onToggleDisableSkill={(skill, enabled) => {
-          void toggleDisableSkill(skill, enabled);
-        }}
-        onClosePreviewAttachment={() => setPreviewAttachment(null)}
-        previewAttachment={previewAttachment}
-        setExpandedSections={setExpandedSections}
-        setMentionItemRef={setMentionItemRef}
-        setSlashItemRef={setSlashItemRef}
-        slashPopover={slashPopover}
-        slashPopoverListRef={slashPopoverListRef}
-        slashPopoverView={slashPopoverView}
-      />
-      <TerminalAgentFlyingMessagePortal
-        message={flyingMessage}
-        onDone={() => setFlyingMessage(null)}
-      />
+      {surfaceActive ? (
+        <TerminalAgentInputPopovers
+          activeMentionFileIndex={activeMentionFileIndex}
+          activeSlashItemIndex={activeSlashItemIndex}
+          disableSkills={
+            slashPopoverView === "disable_skills"
+              ? {
+                  filter: skillDisableFilter,
+                  loading: disableSkillsLoading,
+                  pendingId: disableSkillsPendingId,
+                  skills: disableSkillsList,
+                  error: disableSkillsError,
+                }
+              : null
+          }
+          expandedSections={expandedSections}
+          filteredAgents={filteredAgents}
+          filteredCommands={slashCommands}
+          filteredProjects={filteredProjects}
+          filteredSkills={filteredSkills}
+          isMentionFilesLoading={isMentionFilesLoading}
+          isSkillsLoading={isSkillsLoading}
+          mentionFiles={mentionFiles}
+          mentionPopover={mentionPopover}
+          mentionPopoverListRef={mentionPopoverListRef}
+          onBackFromDisableSkills={backFromDisableSkills}
+          onCloseMention={() => setMentionPopover(null)}
+          onCloseSlash={closeSlashPopover}
+          onSelectMentionFile={selectMentionFile}
+          onSelectMentionNavItem={selectMentionNavItem}
+          onSelectSlashAgent={() => {
+            setSlashPopover(null);
+            setSlashPopoverView("menu");
+            setSkillDisableFilter("");
+          }}
+          onSelectSlashCommand={selectSlashCommand}
+          onSelectSlashProject={() => {
+            setSlashPopover(null);
+            setSlashPopoverView("menu");
+            setSkillDisableFilter("");
+          }}
+          onSelectSlashSkill={selectSlashSkill}
+          onToggleDisableSkill={(skill, enabled) => {
+            void toggleDisableSkill(skill, enabled);
+          }}
+          onClosePreviewAttachment={() => setPreviewAttachment(null)}
+          previewAttachment={previewAttachment}
+          setExpandedSections={setExpandedSections}
+          setMentionItemRef={setMentionItemRef}
+          setSlashItemRef={setSlashItemRef}
+          slashPopover={slashPopover}
+          slashPopoverListRef={slashPopoverListRef}
+          slashPopoverView={slashPopoverView}
+        />
+      ) : null}
+      {surfaceActive ? (
+        <TerminalAgentFlyingMessagePortal
+          message={flyingMessage}
+          onDone={() => setFlyingMessage(null)}
+        />
+      ) : null}
     </div>
   );
 });

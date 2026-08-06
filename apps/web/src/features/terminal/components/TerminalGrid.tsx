@@ -80,6 +80,13 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
   const [activePaneId, setActivePaneId] = React.useState<string | null>(null);
   const [closeConfirmPaneId, setCloseConfirmPaneId] = React.useState<string | null>(null);
   const [contextMenu, setContextMenu] = React.useState<{ x: number; y: number } | null>(null);
+  // Body-portal context menu must not survive warm/inactive surfaces.
+  React.useEffect(() => {
+    if (isSurfaceActive) return;
+    setContextMenu(null);
+    setContextSplitSubmenu(null);
+    setSplitMenuKey(null);
+  }, [isSurfaceActive]);
   const splitMenuTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const contextSplitSubmenuTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const terminalHotkeyScopeRef = React.useRef<HTMLDivElement | null>(null);

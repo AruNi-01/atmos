@@ -12,6 +12,7 @@ import {
   resolveFrameActiveTab,
   selectEditorMountSet,
   sweepWarmByTtl,
+  lightSurfacePanelClass,
   terminalKeepAlivePanelClass,
   terminalMountKey,
   namedTerminalMountKey,
@@ -84,6 +85,11 @@ describe("resolveFrameActiveTab / panel visibility", () => {
     expect(terminalKeepAlivePanelClass(true)).toBe("atmos-terminal-panel-active");
     expect(terminalKeepAlivePanelClass(false)).toBe("atmos-terminal-panel-keepalive");
     expect(terminalKeepAlivePanelClass(false)).not.toContain("hidden");
+    expect(lightSurfacePanelClass(true)).toContain("absolute");
+    expect(lightSurfacePanelClass(true)).toContain("bg-background");
+    expect(lightSurfacePanelClass(true)).not.toContain("hidden");
+    expect(lightSurfacePanelClass(false)).toContain("hidden");
+    expect(lightSurfacePanelClass(false)).toContain("bg-background");
   });
 });
 

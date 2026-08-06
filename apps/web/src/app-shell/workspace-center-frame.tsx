@@ -29,7 +29,6 @@ import {
   useTerminalStore,
 } from "@/features/terminal/store/use-terminal-store";
 import { isDiffGroupEditorPath } from "@/features/diff/lib/diff-editor-paths";
-import { cn } from "@/shared/lib/utils";
 import { useGithubCenterTabsStore } from "@/features/github/store/use-github-center-tabs";
 import { useBrowserCenterTabsStore } from "@/features/browser/store/use-browser-center-tabs";
 import {
@@ -38,6 +37,7 @@ import {
   isFramePanelVisible,
   isKeyMounted,
   lightMountKey,
+  lightSurfacePanelClass,
   namedTerminalMountKey,
   resolveFrameActiveTab,
   terminalKeepAlivePanelClass,
@@ -381,13 +381,12 @@ function WorkspaceCenterFrameImpl({
           (!planReady ||
             isKeyMounted(mountPlan, lightMountKey(contextId, "overview"))))) && (
         <div
-          className={cn(
-            "flex-1 min-h-0 min-w-0 overflow-auto",
-            !isFramePanelVisible({
+          className={lightSurfacePanelClass(
+            isFramePanelVisible({
               isActiveFrame: isActiveContext,
               frameActiveTab,
               panelTabId: "overview",
-            }) && "hidden",
+            }),
           )}
         >
           <OverviewTab
@@ -433,13 +432,12 @@ function WorkspaceCenterFrameImpl({
             key={`${contextId}:${file.path}`}
             value={file.path}
             keepMounted
-            className={cn(
-              "flex-1 min-h-0 min-w-0",
-              !isFramePanelVisible({
+            className={lightSurfacePanelClass(
+              isFramePanelVisible({
                 isActiveFrame: isActiveContext,
                 frameActiveTab,
                 panelTabId: file.path,
-              }) && "hidden",
+              }),
             )}
           >
             {isDiffGroupEditorPath(file.path) && currentRepoPath && isUrlSyncedActive ? (
@@ -503,13 +501,12 @@ function WorkspaceCenterFrameImpl({
         return (
           <div
             key={`${contextId}-${tab.value}`}
-            className={cn(
-              "flex-1 min-h-0 min-w-0",
-              !isFramePanelVisible({
+            className={lightSurfacePanelClass(
+              isFramePanelVisible({
                 isActiveFrame: isActiveContext,
                 frameActiveTab,
                 panelTabId: tab.value,
-              }) && "hidden",
+              }),
             )}
           >
             {tab.kind === "github-pr" ? (
@@ -605,13 +602,12 @@ function WorkspaceCenterFrameImpl({
         return (
           <div
             key={`${contextId}-${tab.value}`}
-            className={cn(
-              "flex-1 min-h-0 min-w-0",
-              !isFramePanelVisible({
+            className={lightSurfacePanelClass(
+              isFramePanelVisible({
                 isActiveFrame: isActiveContext,
                 frameActiveTab,
                 panelTabId: tab.value,
-              }) && "hidden",
+              }),
             )}
           >
             <BrowserPanel

@@ -153,6 +153,21 @@ export function terminalKeepAlivePanelClass(visible: boolean): string {
 }
 
 /**
+ * Full-bleed opaque stacker for non-terminal center panels (overview, PR,
+ * files, browser, …). Terminal keep-alive sits at z-0 with visibility stacking;
+ * these panels must cover it with an opaque layer so transparent layout gaps
+ * cannot show the xterm canvas underneath.
+ *
+ * Uses `hidden` when inactive — safe here because these surfaces are not WebGL.
+ */
+export function lightSurfacePanelClass(visible: boolean): string {
+  return [
+    "absolute inset-0 z-[1] flex min-h-0 min-w-0 flex-col bg-background",
+    visible ? "overflow-auto" : "hidden pointer-events-none",
+  ].join(" ");
+}
+
+/**
  * Context ids that must keep their center-stage frames mounted.
  *
  * `warm` is updated in an effect after `effectiveContextId` changes. Without a
