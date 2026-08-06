@@ -283,6 +283,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
     const isInitialProjectsLoading = useInitialProjectsLoading();
 
     const managementCenterItems = useExperimentSettingsStore((s) => s.managementCenterItems);
+    const managementCenterLoaded = useExperimentSettingsStore((s) => s.loaded);
     const loadExperimentSettings = useExperimentSettingsStore((s) => s.loadSettings);
 
     useEffect(() => {
@@ -1384,33 +1385,31 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
                 ? userGroupOneColumnContent
                 : groupedOneColumnContent;
 
+    const managementCenterSharedProps = {
+        currentView,
+        canvasOpen: Boolean(canvasOpen),
+        managementCenterItems,
+        onNavigate: (path: string) => router.push(path),
+        onOpenCanvas: () => void setCanvasOpen(true),
+        onOpenNewWorkspace: handleOpenNewWorkspace,
+    };
+
     return (
         <>
             <aside className="@container w-full flex flex-col h-full select-none">
-                {/* Management Center items placed outside (top of sidebar) */}
-                <LeftSidebarManagementCenterOutside
-                    currentView={currentView}
-                    canvasOpen={Boolean(canvasOpen)}
-                    managementCenterItems={managementCenterItems}
-                    onNavigate={(path) => router.push(path)}
-                    onOpenCanvas={() => void setCanvasOpen(true)}
-                    onOpenNewWorkspace={handleOpenNewWorkspace}
-                />
-
-                {/* Management Center (inside) — hidden when no inside items */}
-                <div className="flex flex-col shrink-0">
-                    <LeftSidebarManagementCenter
-                        isExpanded={isWorkspacesExpanded}
-                        onExpandedChange={setIsWorkspacesExpanded}
-                        currentView={currentView}
-                        canvasOpen={Boolean(canvasOpen)}
-                        managementCenterItems={managementCenterItems}
-                        onNavigate={(path) => router.push(path)}
-                        onOpenCanvas={() => void setCanvasOpen(true)}
-                        onOpenNewWorkspace={handleOpenNewWorkspace}
-                    />
-
-                </div>
+                {/* Management Center — wait for settings to avoid default-config flash */}
+                {managementCenterLoaded ? (
+                    <>
+                        <LeftSidebarManagementCenterOutside {...managementCenterSharedProps} />
+                        <div className="flex flex-col shrink-0">
+                            <LeftSidebarManagementCenter
+                                isExpanded={isWorkspacesExpanded}
+                                onExpandedChange={setIsWorkspacesExpanded}
+                                {...managementCenterSharedProps}
+                            />
+                        </div>
+                    </>
+                ) : null}
 
 
 

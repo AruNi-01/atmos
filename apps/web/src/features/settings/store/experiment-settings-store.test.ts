@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   createDefaultManagementCenterItems,
+  readManagementCenterItems,
   selectManagementCenterItemsByPlacement,
   type ManagementCenterItems,
 } from "./experiment-settings-store";
@@ -38,5 +39,36 @@ describe("management center item placement helpers", () => {
       "kanban",
       "new-workspace",
     ]);
+  });
+
+  it("migrates legacy experiment flags when mgmt_center_items is absent", () => {
+    const items = readManagementCenterItems({
+      mgmt_terminals: true,
+      mgmt_agents: true,
+      automations: true,
+    });
+    expect(items.terminals).toEqual({ enabled: true, placement: "inside" });
+    expect(items.agents).toEqual({ enabled: true, placement: "inside" });
+    expect(items.automations).toEqual({ enabled: true, placement: "inside" });
+    // Defaults still apply for always-on entries.
+    expect(items.workspaces).toEqual({ enabled: true, placement: "inside" });
+  });
+
+  it("lets persisted mgmt_center_items win over conflicting legacy flags", () => {
+    const items = readManagementCenterItems({
+      mgmt_terminals: true,
+      mgmt_agents: true,
+      automations: true,
+      mgmt_center_items: {
+        terminals: { enabled: false, placement: "outside" },
+        agents: { enabled: true, placement: "outside" },
+        workspaces: { enabled: false, placement: "inside" },
+      },
+    });
+    expect(items.terminals).toEqual({ enabled: false, placement: "outside" });
+    expect(items.agents).toEqual({ enabled: true, placement: "outside" });
+    // Not listed in the map — falls back to legacy-enabled defaults for automations.
+    expect(items.automations).toEqual({ enabled: true, placement: "inside" });
+    expect(items.workspaces).toEqual({ enabled: false, placement: "inside" });
   });
 });

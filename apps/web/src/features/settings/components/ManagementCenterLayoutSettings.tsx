@@ -80,7 +80,10 @@ export function ManagementCenterLayoutSettings({
           >
             <div>
               <div className="flex flex-wrap items-center gap-2">
-                <p className="text-sm font-medium text-foreground">
+                <p
+                  id={`mgmt-item-${placement}-${id}`}
+                  className="text-sm font-medium text-foreground"
+                >
                   {t(`${ITEM_I18N_KEYS[id]}.title`)}
                 </p>
                 {experimental ? (
@@ -95,6 +98,7 @@ export function ManagementCenterLayoutSettings({
             </div>
             <div className="flex items-center justify-end">
               <Switch
+                aria-labelledby={`mgmt-item-${placement}-${id}`}
                 checked={checked}
                 onCheckedChange={(next) =>
                   void setManagementCenterItemEnabled(id, placement, next)

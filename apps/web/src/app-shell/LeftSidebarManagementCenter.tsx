@@ -39,21 +39,19 @@ type ManagementCenterItemDef = {
   kind?: "new-workspace" | "canvas";
 };
 
-const MANAGEMENT_CENTER_ITEM_DEFS: ManagementCenterItemDef[] = [
-  { id: "workspaces", labelKey: "managementCenter.items.workspaces", icon: FolderKanban, path: "/workspaces" },
-  { id: "skills", labelKey: "managementCenter.items.skills", icon: Puzzle, path: "/skills" },
-  { id: "terminals", labelKey: "managementCenter.items.terminals", icon: SquareTerminal, path: "/terminals" },
-  { id: "agents", labelKey: "managementCenter.items.agents", icon: Bot, path: "/agents" },
-  { id: "automations", labelKey: "managementCenter.items.automations", icon: Timer, path: "/automations" },
-  { id: "disk-analyzer", labelKey: "managementCenter.items.diskAnalyzer", icon: HardDrive, path: "/disk-analyzer" },
-  { id: "canvas", labelKey: "managementCenter.items.canvas", icon: Presentation, kind: "canvas" },
-  { id: "kanban", labelKey: "managementCenter.items.kanban", icon: SquareKanban, path: "/kanban" },
-  { id: "new-workspace", labelKey: "managementCenter.items.newWorkspace", icon: Plus, kind: "new-workspace" },
-];
+const ITEM_DEF_BY_ID: Record<ManagementCenterItemId, ManagementCenterItemDef> = {
+  workspaces: { id: "workspaces", labelKey: "managementCenter.items.workspaces", icon: FolderKanban, path: "/workspaces" },
+  skills: { id: "skills", labelKey: "managementCenter.items.skills", icon: Puzzle, path: "/skills" },
+  terminals: { id: "terminals", labelKey: "managementCenter.items.terminals", icon: SquareTerminal, path: "/terminals" },
+  agents: { id: "agents", labelKey: "managementCenter.items.agents", icon: Bot, path: "/agents" },
+  automations: { id: "automations", labelKey: "managementCenter.items.automations", icon: Timer, path: "/automations" },
+  "disk-analyzer": { id: "disk-analyzer", labelKey: "managementCenter.items.diskAnalyzer", icon: HardDrive, path: "/disk-analyzer" },
+  canvas: { id: "canvas", labelKey: "managementCenter.items.canvas", icon: Presentation, kind: "canvas" },
+  kanban: { id: "kanban", labelKey: "managementCenter.items.kanban", icon: SquareKanban, path: "/kanban" },
+  "new-workspace": { id: "new-workspace", labelKey: "managementCenter.items.newWorkspace", icon: Plus, kind: "new-workspace" },
+};
 
-const ITEM_DEF_BY_ID = Object.fromEntries(
-  MANAGEMENT_CENTER_ITEM_DEFS.map((item) => [item.id, item]),
-) as Record<ManagementCenterItemId, ManagementCenterItemDef>;
+const MANAGEMENT_CENTER_ITEM_DEFS: ManagementCenterItemDef[] = Object.values(ITEM_DEF_BY_ID);
 
 type ManagementCenterSharedProps = {
   currentView: string;
@@ -89,8 +87,6 @@ export function LeftSidebarManagementCenterOutside({
           <ManagementCenterCard
             key={item.id}
             item={item}
-            index={0}
-            totalItems={1}
             isActive={shared.currentView === item.id || (item.kind === "canvas" && shared.canvasOpen)}
             variant="outside"
             {...shared}
@@ -168,8 +164,8 @@ function resolveItemsForPlacement(
 
 function ManagementCenterCard({
   item,
-  index,
-  totalItems,
+  index = 0,
+  totalItems = 1,
   isActive,
   variant,
   onNavigate,
@@ -177,8 +173,9 @@ function ManagementCenterCard({
   onOpenNewWorkspace,
 }: ManagementCenterSharedProps & {
   item: ManagementCenterItemDef;
-  index: number;
-  totalItems: number;
+  /** Grid position — only used for inside variant. */
+  index?: number;
+  totalItems?: number;
   isActive: boolean;
   variant: ManagementCenterPlacement;
 }) {

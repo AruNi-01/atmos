@@ -73,7 +73,8 @@ function readItemConfig(
   };
 }
 
-function readManagementCenterItems(ex: Record<string, unknown> | undefined): ManagementCenterItems {
+/** Parse Management Center item config from experiments settings (incl. legacy flags). */
+export function readManagementCenterItems(ex: Record<string, unknown> | undefined): ManagementCenterItems {
   const defaults = createDefaultManagementCenterItems();
 
   // Legacy experiment flags (pre per-item map).
@@ -216,6 +217,8 @@ export const useExperimentSettingsStore = create<ExperimentSettingsState>((set, 
       try {
         await persistManagementCenterItems(nextItems);
       } catch {
+        // Only roll back when no later toggle replaced this optimistic state.
+        if (get().managementCenterItems !== nextItems) return;
         set({
           managementCenterItems: prevItems,
           ...deriveFlags(prevItems),
