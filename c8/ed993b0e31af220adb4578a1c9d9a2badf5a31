@@ -1,0 +1,16 @@
+apps/web/src/app-shell/sidebar/CommitActions.tsx
+  h_5be255725524c8 619-626,631,638,658,660-662,665
+apps/web/src/shared/components/ui/RefreshableTabsTab.tsx
+  h_5be255725524c8 109
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "c8ed993b0e31af220adb4578a1c9d9a2badf5a31",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
