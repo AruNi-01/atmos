@@ -1426,7 +1426,6 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
                 {/* Management Center — wait for first load attempt to avoid default-config flash */}
                 {managementCenterSettled ? (
                     <>
-                        <LeftSidebarManagementCenterOutside {...managementCenterSharedProps} />
                         <div className="flex flex-col shrink-0">
                             <LeftSidebarManagementCenter
                                 isExpanded={isWorkspacesExpanded}
@@ -1434,6 +1433,8 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
                                 {...managementCenterSharedProps}
                             />
                         </div>
+                        {/* Outside items: simple icon + name list below Management Center */}
+                        <LeftSidebarManagementCenterOutside {...managementCenterSharedProps} />
                     </>
                 ) : null}
 

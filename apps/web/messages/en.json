@@ -5236,13 +5236,11 @@
       },
       "managementCenter": {
         "title": "Management Center",
-        "description": "Toggle each entry and place it Outside (sidebar top) or Inside (Management Center). Disabled entries are hidden.",
+        "description": "Toggle each entry. When enabled, choose Outside (icon + name list below Management Center) or Inside (Management Center grid). Disabled entries are hidden.",
         "tabs": {
           "outside": "Outside",
           "inside": "Inside"
         },
-        "outsideHint": "When enabled, each entry sits alone at the top of the left sidebar with no dividers between items.",
-        "insideHint": "When enabled, entries appear inside Management Center. If none are enabled, the whole Management Center is hidden.",
         "experimentalBadge": "Experimental",
         "enabledCount": "{count} enabled",
         "allHidden": "All hidden",

@@ -598,10 +598,10 @@ const SETTINGS_SETTING_ITEMS: Record<SettingsSectionId, readonly SettingsSearchI
       keywords: ["new workspace", "create workspace", "management center"],
     }),
     settingsModalSearchItem("layout.managementCenterOutside", {
-      keywords: ["outside", "sidebar top", "management center placement"],
+      keywords: ["outside", "icon name list", "below management center", "placement"],
     }),
     settingsModalSearchItem("layout.managementCenterInside", {
-      keywords: ["inside", "management center placement"],
+      keywords: ["inside", "management center grid", "placement"],
     }),
   ],
   editor: [

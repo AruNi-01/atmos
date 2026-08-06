@@ -51,8 +51,6 @@ const ITEM_DEF_BY_ID: Record<ManagementCenterItemId, ManagementCenterItemDef> = 
   "new-workspace": { id: "new-workspace", labelKey: "managementCenter.items.newWorkspace", icon: Plus, kind: "new-workspace" },
 };
 
-const MANAGEMENT_CENTER_ITEM_DEFS: ManagementCenterItemDef[] = Object.values(ITEM_DEF_BY_ID);
-
 type ManagementCenterSharedProps = {
   currentView: string;
   canvasOpen: boolean;
@@ -73,6 +71,7 @@ export function LeftSidebarManagementCenterOutside({
 }: ManagementCenterSharedProps & {
   managementCenterItems: ManagementCenterItems;
 }) {
+  const t = useTranslations("AppShell.chrome");
   const items = useMemo(
     () => resolveItemsForPlacement(managementCenterItems, "outside"),
     [managementCenterItems],
@@ -81,19 +80,19 @@ export function LeftSidebarManagementCenterOutside({
   if (items.length === 0) return null;
 
   return (
-    <div className="flex flex-col shrink-0 border-b border-sidebar-border">
-      <div className="grid grid-cols-1">
-        {items.map((item) => (
-          <ManagementCenterCard
-            key={item.id}
-            item={item}
-            isActive={shared.currentView === item.id || (item.kind === "canvas" && shared.canvasOpen)}
-            variant="outside"
-            {...shared}
-          />
-        ))}
-      </div>
-    </div>
+    <nav
+      className="flex shrink-0 flex-col gap-0.5 border-b border-sidebar-border px-2 py-1.5"
+      aria-label={t("managementCenter.title")}
+    >
+      {items.map((item) => (
+        <OutsideNavRow
+          key={item.id}
+          item={item}
+          isActive={shared.currentView === item.id || (item.kind === "canvas" && shared.canvasOpen)}
+          {...shared}
+        />
+      ))}
+    </nav>
   );
 }
 
@@ -142,7 +141,6 @@ export function LeftSidebarManagementCenter({
                 index={index}
                 totalItems={items.length}
                 isActive={shared.currentView === item.id || (item.kind === "canvas" && shared.canvasOpen)}
-                variant="inside"
                 {...shared}
               />
             ))}
@@ -162,40 +160,116 @@ function resolveItemsForPlacement(
   );
 }
 
-function ManagementCenterCard({
+/** Simple icon + name row for items pinned outside the Management Center collapsible. */
+function OutsideNavRow({
   item,
-  index = 0,
-  totalItems = 1,
   isActive,
-  variant,
   onNavigate,
   onOpenCanvas,
   onOpenNewWorkspace,
 }: ManagementCenterSharedProps & {
   item: ManagementCenterItemDef;
-  /** Grid position — only used for inside variant. */
-  index?: number;
-  totalItems?: number;
   isActive: boolean;
-  variant: ManagementCenterPlacement;
 }) {
   const t = useTranslations("AppShell.chrome");
   const Icon = item.icon;
-  const isOutside = variant === "outside";
+  const label = t(item.labelKey);
+
+  const className = cn(
+    "flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm transition-colors outline-none",
+    "focus-visible:ring-1 focus-visible:ring-ring",
+    isActive
+      ? "bg-sidebar-accent text-sidebar-foreground"
+      : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
+  );
+
+  const content = (
+    <>
+      <Icon className="size-4 shrink-0" aria-hidden />
+      <span className="min-w-0 truncate">{label}</span>
+    </>
+  );
+
+  if (item.kind === "canvas") {
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button type="button" onClick={onOpenCanvas} className={className} aria-current={isActive ? "page" : undefined}>
+            {content}
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="right">
+          <div className="flex items-center gap-2">
+            <span>{label}</span>
+            <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-foreground/90">
+              <Command className="size-3" />
+              <span className="text-xs">⇧</span>
+              <span className="text-xs">H</span>
+            </kbd>
+          </div>
+        </TooltipContent>
+      </Tooltip>
+    );
+  }
+
+  if (item.kind === "new-workspace") {
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button type="button" onClick={onOpenNewWorkspace} className={className}>
+            {content}
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="right">
+          <div className="flex items-center gap-2">
+            <span>{label}</span>
+            <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-foreground/90">
+              <Command className="size-3" />
+              <span className="text-xs">N</span>
+            </kbd>
+          </div>
+        </TooltipContent>
+      </Tooltip>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={() => item.path && onNavigate(item.path)}
+      className={className}
+      aria-current={isActive ? "page" : undefined}
+    >
+      {content}
+    </button>
+  );
+}
+
+function ManagementCenterCard({
+  item,
+  index = 0,
+  totalItems = 1,
+  isActive,
+  onNavigate,
+  onOpenCanvas,
+  onOpenNewWorkspace,
+}: ManagementCenterSharedProps & {
+  item: ManagementCenterItemDef;
+  index?: number;
+  totalItems?: number;
+  isActive: boolean;
+}) {
+  const t = useTranslations("AppShell.chrome");
+  const Icon = item.icon;
   const isOddCount = totalItems % 2 === 1;
   const isLeftColumnOnTwoCol = index % 2 === 0;
   const isLastItemAlone = isOddCount && index === totalItems - 1;
   const cardClassName = cn(
     "group relative h-12 cursor-pointer overflow-hidden transition-all duration-300 outline-none",
-    // Outside items: each occupies its own full-width slot, no dividers between them.
-    isOutside
-      ? "w-full"
-      : cn(
-          "border-b border-b-sidebar-border/30 transition-colors",
-          isLastItemAlone
-            ? "@[200px]:col-span-2"
-            : isLeftColumnOnTwoCol && "@[200px]:border-r @[200px]:border-sidebar-border/30",
-        ),
+    "border-b border-b-sidebar-border/30 transition-colors",
+    isLastItemAlone
+      ? "@[200px]:col-span-2"
+      : isLeftColumnOnTwoCol && "@[200px]:border-r @[200px]:border-sidebar-border/30",
     isActive ? "text-sidebar-foreground" : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
   );
   const cardInner = (

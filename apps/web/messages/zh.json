@@ -5236,13 +5236,11 @@
       },
       "managementCenter": {
         "title": "Management Center",
-        "description": "为每个入口设置开关，并通过 Outside / Inside 选择展示位置。关闭后不显示对应入口。",
+        "description": "为每个入口设置开关。开启后可在开关左侧选择 Outside（Management Center 下方的图标+名称列表）或 Inside（管理中心网格）。关闭后不显示对应入口。",
         "tabs": {
-          "outside": "Outside（顶部）",
-          "inside": "Inside（管理中心）"
+          "outside": "Outside",
+          "inside": "Inside"
         },
-        "outsideHint": "开启后，入口单独显示在左侧边栏顶部，入口之间无分割线。",
-        "insideHint": "开启后，入口显示在 Management Center 区域。若全部关闭，则隐藏整个 Management Center。",
         "experimentalBadge": "实验性",
         "enabledCount": "已启用 {count} 项",
         "allHidden": "全部隐藏",

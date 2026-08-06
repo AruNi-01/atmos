@@ -8,13 +8,11 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
   Switch,
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
+  TabsSubtle,
+  TabsSubtleItem,
   cn,
 } from '@workspace/ui';
-import { ChevronDown, Layers } from 'lucide-react';
+import { ChevronDown, Layers, LayoutGrid, List } from 'lucide-react';
 import {
   MANAGEMENT_CENTER_ITEM_IDS,
   type ManagementCenterItemId,
@@ -41,6 +39,13 @@ const ITEM_I18N_KEYS: Record<ManagementCenterItemId, string> = {
   'new-workspace': 'items.newWorkspace',
 };
 
+/** Tab order: Outside (list below MC) → Inside (grid cards). */
+const PLACEMENT_ORDER: ManagementCenterPlacement[] = ['outside', 'inside'];
+
+function placementIndex(placement: ManagementCenterPlacement): number {
+  return PLACEMENT_ORDER.indexOf(placement);
+}
+
 export function ManagementCenterLayoutSettings({
   expanded,
   onExpandedChange,
@@ -62,54 +67,6 @@ export function ManagementCenterLayoutSettings({
   const enabledCount = MANAGEMENT_CENTER_ITEM_IDS.filter(
     (id) => managementCenterItems[id].enabled,
   ).length;
-
-  const renderItemRows = (placement: ManagementCenterPlacement) => (
-    <div className="overflow-hidden rounded-2xl border border-border">
-      {MANAGEMENT_CENTER_ITEM_IDS.map((id, index) => {
-        const config = managementCenterItems[id];
-        const checked = config.enabled && config.placement === placement;
-        const isLast = index === MANAGEMENT_CENTER_ITEM_IDS.length - 1;
-        const experimental = EXPERIMENTAL_MANAGEMENT_CENTER_ITEM_IDS.has(id);
-        return (
-          <div
-            key={`${placement}-${id}`}
-            className={cn(
-              'grid grid-cols-[minmax(0,1fr)_100px] gap-8 px-6 py-4',
-              !isLast && 'border-b border-border',
-            )}
-          >
-            <div>
-              <div className="flex flex-wrap items-center gap-2">
-                <p
-                  id={`mgmt-item-${placement}-${id}`}
-                  className="text-sm font-medium text-foreground"
-                >
-                  {t(`${ITEM_I18N_KEYS[id]}.title`)}
-                </p>
-                {experimental ? (
-                  <Badge variant="secondary" className="text-[10px] font-medium uppercase tracking-wide">
-                    {t('experimentalBadge')}
-                  </Badge>
-                ) : null}
-              </div>
-              <p className="mt-1 text-xs text-muted-foreground">
-                {t(`${ITEM_I18N_KEYS[id]}.description`)}
-              </p>
-            </div>
-            <div className="flex items-center justify-end">
-              <Switch
-                aria-labelledby={`mgmt-item-${placement}-${id}`}
-                checked={checked}
-                onCheckedChange={(next) =>
-                  void setManagementCenterItemEnabled(id, placement, next)
-                }
-              />
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
 
   return (
     <Collapsible
@@ -140,27 +97,87 @@ export function ManagementCenterLayoutSettings({
       </div>
 
       <CollapsibleContent>
-        <div className="space-y-4 border-t border-border px-6 py-5">
-          <Tabs defaultValue="inside" className="flex flex-col space-y-4">
-            <TabsList className="grid h-12 w-full shrink-0 grid-cols-2 rounded-lg border border-border/70 bg-muted/30 p-1">
-              <TabsTrigger value="outside" className="rounded-md text-sm">
-                {t('tabs.outside')}
-              </TabsTrigger>
-              <TabsTrigger value="inside" className="rounded-md text-sm">
-                {t('tabs.inside')}
-              </TabsTrigger>
-            </TabsList>
+        <div className="border-t border-border px-6 py-5">
+          <div className="overflow-hidden rounded-2xl border border-border">
+            {MANAGEMENT_CENTER_ITEM_IDS.map((id, index) => {
+              const config = managementCenterItems[id];
+              const isLast = index === MANAGEMENT_CENTER_ITEM_IDS.length - 1;
+              const experimental = EXPERIMENTAL_MANAGEMENT_CENTER_ITEM_IDS.has(id);
+              const labelId = `mgmt-item-${id}`;
 
-            <TabsContent value="outside" className="mt-0">
-              <p className="mb-3 text-xs text-muted-foreground">{t('outsideHint')}</p>
-              {renderItemRows('outside')}
-            </TabsContent>
+              return (
+                <div
+                  key={id}
+                  className={cn(
+                    'flex items-center gap-4 px-6 py-4',
+                    !isLast && 'border-b border-border',
+                  )}
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p
+                        id={labelId}
+                        className="text-sm font-medium text-foreground"
+                      >
+                        {t(`${ITEM_I18N_KEYS[id]}.title`)}
+                      </p>
+                      {experimental ? (
+                        <Badge
+                          variant="secondary"
+                          className="text-[10px] font-medium tracking-wide"
+                        >
+                          {t('experimentalBadge')}
+                        </Badge>
+                      ) : null}
+                    </div>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {t(`${ITEM_I18N_KEYS[id]}.description`)}
+                    </p>
+                  </div>
 
-            <TabsContent value="inside" className="mt-0">
-              <p className="mb-3 text-xs text-muted-foreground">{t('insideHint')}</p>
-              {renderItemRows('inside')}
-            </TabsContent>
-          </Tabs>
+                  <div className="flex shrink-0 items-center gap-3">
+                    {/* Placement chooser only when the entry is enabled */}
+                    {config.enabled ? (
+                      <TabsSubtle
+                        idPrefix={`mgmt-placement-${id}`}
+                        activeLabel
+                        selectedIndex={placementIndex(config.placement)}
+                        onSelect={(nextIndex) => {
+                          const nextPlacement = PLACEMENT_ORDER[nextIndex];
+                          if (!nextPlacement || nextPlacement === config.placement) return;
+                          void setManagementCenterItemEnabled(id, nextPlacement, true);
+                        }}
+                        className="justify-end"
+                      >
+                        <TabsSubtleItem
+                          index={0}
+                          icon={List}
+                          label={t('tabs.outside')}
+                        />
+                        <TabsSubtleItem
+                          index={1}
+                          icon={LayoutGrid}
+                          label={t('tabs.inside')}
+                        />
+                      </TabsSubtle>
+                    ) : null}
+
+                    <Switch
+                      aria-labelledby={labelId}
+                      checked={config.enabled}
+                      onCheckedChange={(next) =>
+                        void setManagementCenterItemEnabled(
+                          id,
+                          config.placement,
+                          next,
+                        )
+                      }
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       </CollapsibleContent>
     </Collapsible>
