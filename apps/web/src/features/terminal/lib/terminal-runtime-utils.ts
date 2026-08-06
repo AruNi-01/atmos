@@ -31,22 +31,27 @@ export type TuiMouseScrollbackTerminal = {
 };
 
 /**
- * While DEC mouse tracking is active, force local scrollback to 0.
+ * While an **inline** mouse TUI owns the normal buffer, force local scrollback
+ * to 0.
  *
  * Inline mouse TUIs (Grok) paint full frames into the **normal** buffer. On
  * SIGWINCH they redraw without alt-screen, so each resize would otherwise push
  * a full ghost frame into xterm history (stacked duplicate TUIs when scrolling).
- * Idle shells keep {@link DEFAULT_TERMINAL_SCROLLBACK}.
+ *
+ * Callers must pass `true` only for that case — **not** for every DEC mouse
+ * session. Alt-screen apps enable mouse too; setting `scrollback=0` trims the
+ * frozen normal buffer and destroys shell history. Idle shells keep
+ * {@link DEFAULT_TERMINAL_SCROLLBACK}.
  *
  * Writes CSI 3J only when entering the zero-scrollback policy so repeated
  * chrome sync calls do not thrash.
  */
 export function applyTuiMouseScrollbackPolicy(
   term: TuiMouseScrollbackTerminal,
-  mouseActive: boolean,
+  inlineMouseTuiActive: boolean,
   idleScrollback: number = DEFAULT_TERMINAL_SCROLLBACK,
 ): void {
-  if (mouseActive) {
+  if (inlineMouseTuiActive) {
     const alreadyZero = term.options.scrollback === 0;
     term.options.scrollback = 0;
     if (!alreadyZero) {
@@ -60,14 +65,14 @@ export function applyTuiMouseScrollbackPolicy(
 }
 
 /**
- * Drop local scrollback while a mouse-owning TUI is active (e.g. after resize).
- * No-op when mouse tracking is off so shell history stays intact.
+ * Drop local scrollback while an inline mouse TUI is active (e.g. after resize).
+ * No-op when not in that mode so shell / alt-screen history stays intact.
  */
 export function discardXtermScrollbackWhileMouseTui(
   term: Pick<TuiMouseScrollbackTerminal, "write">,
-  mouseActive: boolean,
+  inlineMouseTuiActive: boolean,
 ): void {
-  if (!mouseActive) return;
+  if (!inlineMouseTuiActive) return;
   term.write(CLEAR_XTERM_SCROLLBACK);
 }
 

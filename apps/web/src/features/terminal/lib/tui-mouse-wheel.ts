@@ -281,6 +281,26 @@ export function isTerminalMouseTrackingActive(
 }
 
 /**
+ * Inline mouse TUIs (Grok) paint into the **normal** buffer with DEC mouse on.
+ * Only then may we zero local scrollback / CSI 3J on resize.
+ *
+ * Alt-screen apps also enable mouse tracking (vim, htop, …). They must **not**
+ * trigger scrollback=0: that option trims the frozen normal buffer and wipes
+ * shell history. Idle shells (no mouse) must keep full scrollback on resize.
+ */
+export function isInlineMouseTuiScrollbackSurface(
+  terminal: Pick<TuiWheelTerminalLike, "modes"> & {
+    element?: HTMLElement | undefined;
+    buffer: { active: { type: string } };
+  },
+): boolean {
+  if (terminal.buffer.active.type === "alternate") {
+    return false;
+  }
+  return isTerminalMouseTrackingActive(terminal);
+}
+
+/**
  * Whether **real shell** title CMD_END (OSC 9999) should clear TUI mouse.
  *
  * Fullscreen TUIs stay on the alternate buffer — never wipe there.

@@ -20,6 +20,7 @@ import "@xterm/xterm/css/xterm.css";
 import "./terminal-grid.css";
 
 import { defaultTerminalOptions, atmosDarkTheme, atmosLightTheme, terminalFont } from "../lib/theme";
+import { useTerminalAppearanceSettingsStore } from "@/features/settings/store/terminal-appearance-settings-store";
 import { useTerminalWebSocket } from "../hooks/use-terminal-websocket";
 import type { TerminalProps, TerminalSnapshot } from "../types/index";
 import { getRuntimeApiConfig, wsBase } from "@/shared/lib/desktop-runtime";
@@ -54,6 +55,7 @@ import {
 } from "../lib/terminal-runtime-utils";
 import {
   attachTuiMouseWheelMultiplier,
+  isInlineMouseTuiScrollbackSurface,
   isTerminalMouseTrackingActive,
   shouldDisableTuiMouseOnCmdEnd,
 } from "../lib/tui-mouse-wheel";
@@ -74,6 +76,7 @@ import { useAgentHooksStore } from "@/features/agent/store/agent-hooks-store";
 import {
   isShellPreexecCommandOscTitle,
   nextOscTitleAfterIncoming,
+  shouldClearNativeOscOnCmdEnd,
 } from "@atmos/shared/terminal";
 
 export interface TerminalRef {
@@ -195,6 +198,11 @@ const Terminal = ({
   surfaceActive = true,
   ref,
 }: TerminalProps & { ref?: React.Ref<TerminalRef>; onInputWhileReadOnly?: () => void }) => {
+  const cursorStyle = useTerminalAppearanceSettingsStore((state) => state.cursorStyle);
+  const cursorBlink = useTerminalAppearanceSettingsStore((state) => state.cursorBlink);
+  const loadTerminalAppearanceSettings = useTerminalAppearanceSettingsStore(
+    (state) => state.loadSettings,
+  );
   const containerRef = useRef<HTMLDivElement>(null);
   const terminalRef = useRef<XTerm | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
@@ -540,9 +548,9 @@ const Terminal = ({
         isTerminalMouseTrackingActive(term) || mouseRestore.length > 0;
       const host = containerRef.current?.parentElement ?? containerRef.current;
       host?.classList.toggle("atmos-tui-mouse-active", mouseActive);
-      // Pin zero local scrollback for the live session so later resizes cannot
-      // re-stack TUI frames into history after hydrate.
-      applyTuiMouseScrollbackPolicy(term, mouseActive);
+      // Zero local scrollback only for inline mouse TUIs (normal buffer).
+      // Alt-screen hydrate must keep normal-buffer shell history intact.
+      applyTuiMouseScrollbackPolicy(term, !useAlternateScreen && mouseActive);
       scheduleInputReady();
     });
   }, [scheduleInputReady, sessionId]);
@@ -762,12 +770,25 @@ const Terminal = ({
     [sendDestroy, disconnect, sendInput, sendEnter, getCursorClientPoint]
   );
 
+  // Hydrate appearance prefs so new / remounted terminals pick up server values.
+  useEffect(() => {
+    void loadTerminalAppearanceSettings();
+  }, [loadTerminalAppearanceSettings]);
+
   // Update terminal theme when system theme changes
   useEffect(() => {
     if (terminalRef.current) {
       terminalRef.current.options.theme = currentTheme;
     }
   }, [currentTheme]);
+
+  // Live-apply cursor appearance from Settings → Terminal.
+  useEffect(() => {
+    const terminal = terminalRef.current;
+    if (!terminal) return;
+    terminal.options.cursorStyle = cursorStyle;
+    terminal.options.cursorBlink = cursorBlink;
+  }, [cursorStyle, cursorBlink]);
 
   // Sync readOnly prop to ref
   useEffect(() => {
@@ -848,8 +869,11 @@ const Terminal = ({
       if (cancelled || !containerRef.current || terminalRef.current) return;
 
     // Create terminal instance
+    const appearance = useTerminalAppearanceSettingsStore.getState();
     const terminal = new XTerm({
       ...defaultTerminalOptions,
+      cursorStyle: appearance.cursorStyle,
+      cursorBlink: appearance.cursorBlink,
       theme: currentTheme,
       fontSize: scaledTerminalFontSize,
       linkHandler: {
@@ -890,13 +914,24 @@ const Terminal = ({
     // APP-054: while DEC mouse tracking is active, convert trackpad/wheel
     // distance into multiple line reports so TUI viewports move proportionally.
     // When tracking is off, xterm keeps local scrollback behavior.
-    // Inline mouse TUIs (Grok) also get scrollback=0 so resize redraws cannot
-    // stack full frames into local history.
+    // Inline mouse TUIs (Grok, normal buffer only) get scrollback=0 so resize
+    // redraws cannot stack full frames into local history. Alt-screen mouse
+    // apps must not trigger that policy (it trims frozen shell scrollback).
     hostForMouseChrome = containerRef.current?.parentElement ?? containerRef.current;
     const syncTuiMouseChrome = (active: boolean) => {
       // Never force DEC ?25l here — Grok owns the caret for typing.
       hostForMouseChrome?.classList.toggle("atmos-tui-mouse-active", active);
-      applyTuiMouseScrollbackPolicy(terminal, active);
+      const inlineMouseTui =
+        active && terminal.buffer.active.type !== "alternate";
+      // Leaving inline zero-scrollback policy: drop any TUI frames that leaked
+      // into local history (Grok quit). Idle shells never pin scrollback to 0,
+      // so this does not run for normal prompts.
+      const leavingInlinePolicy =
+        !inlineMouseTui && terminal.options.scrollback === 0;
+      applyTuiMouseScrollbackPolicy(terminal, inlineMouseTui);
+      if (leavingInlinePolicy) {
+        terminal.write(CLEAR_XTERM_SCROLLBACK);
+      }
     };
     attachTuiMouseWheelMultiplier(terminal, {
       onMouseTrackingActiveChange: syncTuiMouseChrome,
@@ -1120,7 +1155,7 @@ const Terminal = ({
 
     const applyDynamicTitleCmdEnd = (
       payload: string,
-      opts: { allowMouseSideEffects: boolean },
+      opts: { allowMouseSideEffects: boolean; clearOscTitle: boolean },
     ) => {
       if (opts.allowMouseSideEffects) {
         // Real shell idle: clear mouse only when not on alternate screen.
@@ -1128,9 +1163,10 @@ const Terminal = ({
         if (shouldDisableTuiMouseOnCmdEnd(terminal.buffer.active.type)) {
           tuiMouseDesiredRef.current = false;
           lastMouseRestoreSequenceRef.current = "";
-          // Disable mouse + clear local scrollback so inline TUI (Grok) frames
-          // painted into the normal buffer do not linger above the shell.
-          terminal.write(`${DISABLE_TUI_MOUSE_TRACKING}${CLEAR_XTERM_SCROLLBACK}`);
+          // Disable mouse only. Scrollback clear (if any) runs inside
+          // syncTuiMouseChrome when leaving the inline zero-scrollback policy —
+          // not on every shell precmd (that wiped normal history).
+          terminal.write(DISABLE_TUI_MOUSE_TRACKING);
           syncTuiMouseChrome(false);
         }
       }
@@ -1138,9 +1174,19 @@ const Terminal = ({
         clearTimeout(cmdStartTimerRef.current);
         cmdStartTimerRef.current = null;
       }
-      // Do NOT clear OSC on CMD_END. Shell preexec titles are never stored in
-      // lastOscTitleRef (nextOscTitleAfterIncoming discards them as they
-      // arrive). Empty OSC 0/2 still clears via emitOscTitle.
+      // Real shell CMD_END (9999): agent/CLI exited → clear native OSC topic
+      // (APP-047). Reattach inject (9998) must keep topics across refresh.
+      // Always notify even when local ref is empty — store may still hold a
+      // restored topic after warm remount.
+      if (opts.clearOscTitle) {
+        if (oscSettleTimerRef.current) {
+          clearTimeout(oscSettleTimerRef.current);
+          oscSettleTimerRef.current = null;
+        }
+        pendingOscRawRef.current = undefined;
+        lastOscTitleRef.current = undefined;
+        onOscTitleChangeRef.current?.(undefined);
+      }
       const title = shortenPath(payload);
       if (title !== lastTitleRef.current) {
         lastTitleRef.current = title;
@@ -1149,6 +1195,7 @@ const Terminal = ({
     };
 
     const registerTitleOsc = (osc: number, allowMouseSideEffects: boolean) => {
+      const clearOscTitle = shouldClearNativeOscOnCmdEnd(osc);
       terminal.parser.registerOscHandler(osc, (data: string) => {
         const colonIdx = data.indexOf(":");
         if (colonIdx === -1) return true;
@@ -1157,13 +1204,14 @@ const Terminal = ({
         if (metaType === "CMD_START") {
           applyDynamicTitleCmdStart(payload);
         } else if (metaType === "CMD_END") {
-          applyDynamicTitleCmdEnd(payload, { allowMouseSideEffects });
+          applyDynamicTitleCmdEnd(payload, { allowMouseSideEffects, clearOscTitle });
         }
         return true;
       });
     };
 
-    // 9998 = reattach synthetic title (no mouse disable). 9999 = real shell.
+    // 9998 = reattach synthetic title (no mouse disable, keep OSC topic).
+    // 9999 = real shell (may clear mouse + native OSC on CMD_END).
     registerTitleOsc(9998, false);
     registerTitleOsc(9999, true);
 
@@ -1224,11 +1272,10 @@ const Terminal = ({
     // emit identical terminal_resize (SIGWINCH flash for inline TUIs).
     terminal.onResize(({ cols, rows }) => {
       pinTerminalSizeRef.current({ cols, rows });
-      // Even with scrollback=0, a rows change can briefly park cells as history
-      // before the TUI repaints. Drop saved lines while mouse TUI owns the surface.
-      const mouseTui =
-        isTerminalMouseTrackingActive(terminal) || tuiMouseDesiredRef.current;
-      if (mouseTui) {
+      // Inline mouse TUIs (Grok) only: a rows change can briefly park the old
+      // frame as history before repaint. Idle shells and alt-screen apps must
+      // keep local scrollback intact across resize.
+      if (isInlineMouseTuiScrollbackSurface(terminal)) {
         if (terminal.options.scrollback !== 0) {
           terminal.options.scrollback = 0;
         }
