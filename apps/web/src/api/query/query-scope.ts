@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import type { ConnectionInstanceId } from "@/features/connection/lib/connection-instance";
 import { useConnectionStore } from "@/features/connection/store/connection-store";
 import {
@@ -36,15 +37,26 @@ export function getRelayQueryScope(): RelayQueryScope {
   };
 }
 
+/**
+ * Stable object identity while the three primitives are unchanged.
+ * Callers that put the return value in effect/query deps must not see a new
+ * object every render (that causes fetch → setState → re-render loops).
+ */
 export function useComputerQueryScope(): ComputerQueryScope {
   const activeInstanceId = useConnectionStore((s) => s.activeInstanceId);
   const connectionEpoch = useConnectionStore((s) => s.connectionEpoch);
   const relaySessionRevision = useAtmosComputerStore((s) => s.relaySessionRevision);
-  return { activeInstanceId, connectionEpoch, relaySessionRevision };
+  return useMemo(
+    () => ({ activeInstanceId, connectionEpoch, relaySessionRevision }),
+    [activeInstanceId, connectionEpoch, relaySessionRevision],
+  );
 }
 
 export function useRelayQueryScope(): RelayQueryScope {
   const relayUrl = useAtmosComputerStore((s) => resolveRelayUrl(s.relayUrl));
   const authRevision = useAtmosComputerStore((s) => s.relayAuthRevision);
-  return { relayUrl, authRevision };
+  return useMemo(
+    () => ({ relayUrl, authRevision }),
+    [relayUrl, authRevision],
+  );
 }

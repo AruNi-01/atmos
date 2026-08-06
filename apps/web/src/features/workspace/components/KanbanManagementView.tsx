@@ -52,7 +52,12 @@ export function KanbanManagementView() {
     })),
   );
 
-  const computerQueryScope = useComputerQueryScope();
+  // Destructure primitives so effect deps stay stable. Do not depend on the
+  // scope object itself — even with memoization, prefer value equality here
+  // to match LeftSidebar's settings-load pattern.
+  const { activeInstanceId, connectionEpoch, relaySessionRevision } =
+    useComputerQueryScope();
+  const settingsScopeKey = `${activeInstanceId}:${connectionEpoch}:${relaySessionRevision}`;
   const [filters, setFilters] = useState<WorkspaceKanbanFilters>(EMPTY_WORKSPACE_KANBAN_FILTERS);
   const [groupingMode, setGroupingMode] = useState<SidebarGroupingMode>("status");
 
@@ -81,12 +86,16 @@ export function KanbanManagementView() {
     return () => {
       cancelled = true;
     };
-  }, [computerQueryScope]);
+  }, [settingsScopeKey]);
 
   const handleGroupingModeChange = useCallback(
     (mode: SidebarGroupingMode) => {
       setGroupingMode(mode);
-      const expectedScope = computerQueryScope;
+      const expectedScope = {
+        activeInstanceId,
+        connectionEpoch,
+        relaySessionRevision,
+      };
       void functionSettingsApi
         .update("workspace_sidebar", "grouping_mode", mode, expectedScope)
         .catch((error) => {
@@ -94,7 +103,7 @@ export function KanbanManagementView() {
           console.error('Failed to persist workspace sidebar setting "grouping_mode":', error);
         });
     },
-    [computerQueryScope],
+    [activeInstanceId, connectionEpoch, relaySessionRevision],
   );
 
   const handleSetWorkspaceGroup = useCallback(async (workspaceId: string, groupId: string | null) => {
