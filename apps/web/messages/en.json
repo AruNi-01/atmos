@@ -7095,6 +7095,16 @@
       "actions": {
         "addReviewComment": "Add review comment"
       },
+      "edit": {
+        "edit": "Edit",
+        "save": "Save",
+        "reset": "Reset",
+        "saveShortcut": "Save (⌘S)",
+        "unsavedTitle": "Unsaved edits",
+        "unsavedDescription": "Save or reset the current file before editing another.",
+        "saveFailedTitle": "Failed to save file",
+        "saveFailedFallback": "Could not write the file"
+      },
       "unknownChangesGroup": "Unknown changes group",
       "fileTreeAria": "{label} files",
       "errors": {
