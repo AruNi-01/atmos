@@ -282,7 +282,7 @@ export function BrowserToolbar({
           {isUrlInputFocused ? (
             <input
               ref={urlInputRef}
-              className="h-full min-w-0 flex-1 border-none bg-transparent text-xs text-foreground placeholder:text-muted-foreground/50 focus:outline-none"
+              className="h-full min-w-0 flex-1 border-none bg-transparent px-0.5 text-xs text-foreground placeholder:text-muted-foreground/50 focus:outline-none"
               value={url ?? ""}
               onBlur={handleUrlInputBlur}
               onChange={(event) => {
