@@ -1,0 +1,18 @@
+apps/web/src/app-shell/RightSidebar.tsx
+  h_5be255725524c8 13,254-258
+apps/web/src/features/browser/components/BrowserToolbar.tsx
+  h_5be255725524c8 285
+apps/web/src/features/browser/components/RunScript.tsx
+  h_5be255725524c8 104-105,134-135,152-153,216-221,230-236,238-254,265,286,302,304,326-327,331,333-334,338,385-390,401-407,489-490,494,510-521,523-527,598
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "0c42c30e0a19d1992bc8c943fec5143ee46088c3",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
