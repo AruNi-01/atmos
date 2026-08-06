@@ -639,6 +639,8 @@ function installIntersectionObserver(): void {
   class MockIntersectionObserver implements IntersectionObserver {
     readonly root: Element | Document | null = null;
     readonly rootMargin = "";
+    /** Required by newer DOM lib typings (e.g. TypeScript / Next 16.3). */
+    readonly scrollMargin = "";
     readonly thresholds: ReadonlyArray<number> = [];
     private readonly instance: MockIntersectionObserverInstance;
 
@@ -679,10 +681,12 @@ function installIntersectionObserver(): void {
   }
 
   setGlobal("IntersectionObserver", MockIntersectionObserver);
-  const win = globalThis.window as Window &
-    typeof globalThis & {
-      IntersectionObserver?: typeof IntersectionObserver;
-    };
+  const win = globalThis.window as unknown as
+    | (Window &
+        typeof globalThis & {
+          IntersectionObserver?: typeof IntersectionObserver;
+        })
+    | undefined;
   if (win) {
     Object.defineProperty(win, "IntersectionObserver", {
       configurable: true,
