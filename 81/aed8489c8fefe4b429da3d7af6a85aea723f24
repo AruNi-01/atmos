@@ -1,0 +1,18 @@
+apps/web/messages/en.json
+  h_5be255725524c8 7098-7107
+apps/web/messages/zh.json
+  h_5be255725524c8 7098-7107
+apps/web/src/features/diff/components/ChangesCodeView.tsx
+  h_5be255725524c8 4-10,12,15-18,20-24,32,48-49,69,74-80,89-124,214-216,225-229,251-435,957-971,992-1076,1104-1115
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "81aed8489c8fefe4b429da3d7af6a85aea723f24",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
