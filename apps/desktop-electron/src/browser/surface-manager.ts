@@ -31,7 +31,10 @@ import {
   browserPreloadPath,
   buildBridgeInjection,
 } from "./webview-runtime.js";
-import { applyGuestColorScheme as applyGuestColorSchemeToWebContents } from "./webview-color-scheme.js";
+import {
+  applyGuestColorScheme as applyGuestColorSchemeToWebContents,
+  type GuestColorScheme,
+} from "./webview-color-scheme.js";
 
 const requireElectron = createRequire(import.meta.url);
 
@@ -41,8 +44,6 @@ export type BrowserAttachConfig = {
   bridgeToken: string;
   sessionId: string;
 };
-
-type GuestColorScheme = "light" | "dark";
 
 type SurfaceState = {
   sessionId: string;

@@ -195,6 +195,24 @@ impl DriveResult {
         }
     }
 
+    /// Attach an engine JSON payload (success or soft-failure context).
+    fn with_result(mut self, result: serde_json::Value) -> Self {
+        self.result = Some(result);
+        self
+    }
+
+    /// Attach a human/agent detail string without replacing structured result.
+    fn with_detail(mut self, detail: impl Into<String>) -> Self {
+        self.detail = Some(detail.into());
+        self
+    }
+
+    /// Attach capture metadata (screenshot path).
+    fn with_capture(mut self, capture: CaptureResult) -> Self {
+        self.capture = Some(capture);
+        self
+    }
+
     /// Successful engine/tool payload (detail mirrors JSON string for agents).
     fn ok_result(action: &str, result: serde_json::Value) -> Self {
         Self {
@@ -217,6 +235,23 @@ impl DriveResult {
             result,
             error: None,
             error_code: None,
+        }
+    }
+
+    /// Local Capture fallback (pre-engine or engine unavailable).
+    fn from_capture(action: &str, cap: CaptureResult) -> Self {
+        Self {
+            ok: cap.ok,
+            action: action.into(),
+            detail: None,
+            result: None,
+            error: cap.error.clone(),
+            error_code: if cap.ok {
+                None
+            } else {
+                Some("capture_failed".into())
+            },
+            capture: Some(cap),
         }
     }
 }
@@ -300,19 +335,7 @@ pub fn drive(manager: &DesktopUseManager, req: DriveRequest) -> DriveResult {
                 out_path: req.out_path.clone(),
                 include_base64: req.out_path.is_none(),
             });
-            DriveResult {
-                ok: cap.ok,
-                action: action_name.into(),
-                detail: None,
-                result: None,
-                error: cap.error.clone(),
-                error_code: if cap.ok {
-                    None
-                } else {
-                    Some("capture_failed".into())
-                },
-                capture: Some(cap),
-            }
+            DriveResult::from_capture(action_name, cap)
         }
         DriveAction::Highlight => run_highlight(&req, action_name),
         DriveAction::SessionEnd => run_session_end(manager, &req, action_name),
@@ -564,31 +587,29 @@ fn screenshot_via_engine(
                     if user_out != &out_path {
                         if let Err(e) = std::fs::write(user_out, &bytes) {
                             drop(tmp_guard);
-                            let mut r = DriveResult::err_code(
+                            return DriveResult::err_code(
                                 action_name,
                                 "screenshot_write_failed",
                                 scrub_vendor(&format!(
                                     "failed to write screenshot to {}: {e}",
                                     user_out.display()
                                 )),
-                            );
-                            r.result = Some(v);
-                            return r;
+                            )
+                            .with_result(v);
                         }
                     }
                 } else if !out_path.exists() {
                     if let Err(e) = std::fs::write(&out_path, &bytes) {
                         drop(tmp_guard);
-                        let mut r = DriveResult::err_code(
+                        return DriveResult::err_code(
                             action_name,
                             "screenshot_write_failed",
                             scrub_vendor(&format!(
                                 "failed to write screenshot to {}: {e}",
                                 out_path.display()
                             )),
-                        );
-                        r.result = Some(v);
-                        return r;
+                        )
+                        .with_result(v);
                     }
                 }
                 let b64 = crate::engine_protocol::encode_png_base64(&bytes);
@@ -629,25 +650,21 @@ fn screenshot_via_engine(
                 };
                 // Keep temp file alive until after read; drop now that bytes are in memory.
                 drop(tmp_guard);
-                DriveResult {
-                    ok: true,
-                    action: action_name.into(),
-                    detail: Some("via host engine".into()),
-                    result: Some(normalized),
-                    capture: Some(capture),
-                    error: None,
-                    error_code: None,
-                }
+                DriveResult::ok_detail(
+                    action_name,
+                    Some("via host engine".into()),
+                    Some(normalized),
+                )
+                .with_capture(capture)
             }
             Err(e) => {
                 drop(tmp_guard);
-                let mut r = DriveResult::err_code(
+                DriveResult::err_code(
                     action_name,
                     "screenshot_missing",
                     scrub_vendor(&format!("{}: {e}", strings::ERR_ENGINE_FAILED)),
-                );
-                r.result = Some(v);
-                r
+                )
+                .with_result(v)
             }
         },
         Err(e) => {
@@ -968,13 +985,12 @@ fn run_engine(
     match host::call_tool(engine, &socket, tool, &args) {
         Ok(v) => {
             if let Some(fail) = crate::engine_protocol::engine_payload_is_failure(&v) {
-                let mut r = DriveResult::err(
+                return DriveResult::err(
                     action_name,
                     DriveError::EngineFailed(format!("{}: {fail}", strings::ERR_ENGINE_FAILED)),
-                );
-                r.detail = Some(v.to_string());
-                r.result = Some(v);
-                return r;
+                )
+                .with_detail(v.to_string())
+                .with_result(v);
             }
             let result = enrich_drive_success(
                 engine,
