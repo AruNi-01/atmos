@@ -21,6 +21,13 @@ const codexAgent = {
   iconType: "built-in" as const,
 };
 
+const grokAgent = {
+  id: "grok-build",
+  label: "Grok Build",
+  command: "grok",
+  iconType: "built-in" as const,
+};
+
 function pane(partial: Partial<TerminalPaneProps> & Pick<TerminalPaneProps, "id" | "label">): TerminalPaneProps {
   return {
     sessionId: partial.sessionId ?? `session-${partial.id}`,
@@ -113,10 +120,11 @@ describe("resolveTerminalCenterTabPresentation", () => {
       displayTitle: "My Tab",
       toolbarAgent: undefined,
       sourcePaneId: null,
+      sessionOscTitle: undefined,
     });
   });
 
-  it("mirrors the single pane title (including OSC) and agent", () => {
+  it("mirrors the single pane agent + stable session OSC (not live churn)", () => {
     const panes = {
       a: pane({
         id: "a",
@@ -133,11 +141,79 @@ describe("resolveTerminalCenterTabPresentation", () => {
       configuredAgents: [claudeAgent],
     });
     expect(result.displayTitle).toBe("Claude Code | debugging auth");
+    expect(result.sessionOscTitle).toBe("debugging auth");
     expect(result.toolbarAgent?.id).toBe("claude");
     expect(result.sourcePaneId).toBe("a");
   });
 
-  it("hides agent name but keeps agent icon and OSC without a pipe", () => {
+  it("strips Grok realtime OSC prefixes down to the fixed session name", () => {
+    const panes = {
+      a: pane({
+        id: "a",
+        label: "Grok Build",
+        agent: grokAgent,
+        dynamicTitle: "grok",
+        // Default Grok title items: action/spinner/activity/session-name/grok
+        oscTitle: "Action Required - ⠋ - Responding - Optimize Terminal Tab - grok",
+      }),
+    };
+    const result = resolveTerminalCenterTabPresentation({
+      fallbackTitle: "Term",
+      panes,
+      layout: "a",
+      configuredAgents: [grokAgent],
+    });
+    expect(result.displayTitle).toBe("Grok Build | Optimize Terminal Tab");
+    expect(result.sessionOscTitle).toBe("Optimize Terminal Tab");
+    expect(result.displayTitle).not.toContain("Responding");
+    expect(result.displayTitle).not.toContain("Action Required");
+    expect(result.toolbarAgent?.id).toBe("grok-build");
+  });
+
+  it("keeps the sticky session topic when live OSC becomes pure realtime", () => {
+    const panes = {
+      a: pane({
+        id: "a",
+        label: "Grok Build",
+        agent: grokAgent,
+        dynamicTitle: "grok",
+        // Spinner frame only — no session segment this tick
+        oscTitle: "⠋ - Responding - grok",
+      }),
+    };
+    const result = resolveTerminalCenterTabPresentation({
+      fallbackTitle: "Term",
+      panes,
+      layout: "a",
+      configuredAgents: [grokAgent],
+      previousSessionOscByPaneId: { a: "Optimize Terminal Tab" },
+    });
+    expect(result.displayTitle).toBe("Grok Build | Optimize Terminal Tab");
+    expect(result.sessionOscTitle).toBe("Optimize Terminal Tab");
+  });
+
+  it("clears the sticky session topic when OSC is cleared", () => {
+    const panes = {
+      a: pane({
+        id: "a",
+        label: "Grok Build",
+        agent: grokAgent,
+        dynamicTitle: "grok",
+        oscTitle: undefined,
+      }),
+    };
+    const result = resolveTerminalCenterTabPresentation({
+      fallbackTitle: "Term",
+      panes,
+      layout: "a",
+      configuredAgents: [grokAgent],
+      previousSessionOscByPaneId: { a: "Optimize Terminal Tab" },
+    });
+    expect(result.displayTitle).toBe("Grok Build");
+    expect(result.sessionOscTitle).toBeUndefined();
+  });
+
+  it("hides agent name but keeps agent icon and stable session OSC without a pipe", () => {
     const panes = {
       a: pane({
         id: "a",
@@ -197,6 +273,7 @@ describe("resolveTerminalCenterTabPresentation", () => {
     ).toEqual({
       displayTitle: "Review · Claude Code",
       toolbarAgent: expect.objectContaining({ id: "claude" }),
+      sessionOscTitle: undefined,
     });
   });
 
@@ -211,6 +288,7 @@ describe("resolveTerminalCenterTabPresentation", () => {
       displayTitle: "Term",
       toolbarAgent: undefined,
       sourcePaneId: null,
+      sessionOscTitle: undefined,
     });
   });
 });

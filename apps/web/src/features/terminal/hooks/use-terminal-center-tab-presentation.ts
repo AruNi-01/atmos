@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useRef } from "react";
 import { useShallow } from "zustand/react/shallow";
 import {
   FIXED_TERMINAL_TAB_VALUE,
@@ -24,6 +24,11 @@ const EMPTY_PANES: Record<string, TerminalPaneProps> = {};
  * Live center-stage terminal tab title + agent icon, driven by the representative pane.
  * Custom tab titles short-circuit to the user override (terminal icon kept).
  *
+ * OSC titles are **stabilized** for the center tab: Grok-style realtime prefixes
+ * (spinner / activity) are stripped to the fixed session name, and once a session
+ * topic is known, pure realtime updates no longer change the tab text (pane
+ * toolbars still follow live OSC).
+ *
  * When `customTitle` is omitted, the hook reads the tab's stored `customTitle` so
  * tab-group popovers stay correct without re-threading the prop.
  */
@@ -40,6 +45,8 @@ export function useTerminalCenterTabPresentation(options: {
   const contestedOwners = useContestedCliOwners();
   const showAgentName = useAgentTitleSettingsStore((s) => s.showAgentNameInTerminalTitles);
   const terminalTabId = tabId || FIXED_TERMINAL_TAB_VALUE;
+  /** Sticky session topics per pane so realtime OSC churn does not resize the tab. */
+  const stickySessionOscByPaneRef = useRef(new Map<string, string>());
 
   const live = useTerminalStore(
     useShallow((s) => {
@@ -70,29 +77,42 @@ export function useTerminalCenterTabPresentation(options: {
     customTitleProp !== undefined ? customTitleProp : live.storeCustomTitle;
   const resolvedFallback = live.storeFallbackTitle || fallbackTitle;
 
-  return useMemo(
-    () =>
-      resolveTerminalCenterTabPresentation({
-        fallbackTitle: resolvedFallback,
-        customTitle,
-        panes: live.panes,
-        layout: live.layout,
-        lastActivePaneId: live.lastActivePaneId,
-        maximizedPaneId: live.maximizedPaneId,
-        configuredAgents,
-        contestedOwners,
-        showAgentName,
-      }),
-    [
-      resolvedFallback,
+  return useMemo(() => {
+    const presentation = resolveTerminalCenterTabPresentation({
+      fallbackTitle: resolvedFallback,
       customTitle,
-      live.panes,
-      live.layout,
-      live.lastActivePaneId,
-      live.maximizedPaneId,
+      panes: live.panes,
+      layout: live.layout,
+      lastActivePaneId: live.lastActivePaneId,
+      maximizedPaneId: live.maximizedPaneId,
       configuredAgents,
       contestedOwners,
       showAgentName,
-    ],
-  );
+      previousSessionOscByPaneId: stickySessionOscByPaneRef.current,
+    });
+
+    // Persist sticky session topic for the representative pane.
+    if (presentation.sourcePaneId) {
+      if (presentation.sessionOscTitle) {
+        stickySessionOscByPaneRef.current.set(
+          presentation.sourcePaneId,
+          presentation.sessionOscTitle,
+        );
+      } else {
+        stickySessionOscByPaneRef.current.delete(presentation.sourcePaneId);
+      }
+    }
+
+    return presentation;
+  }, [
+    resolvedFallback,
+    customTitle,
+    live.panes,
+    live.layout,
+    live.lastActivePaneId,
+    live.maximizedPaneId,
+    configuredAgents,
+    contestedOwners,
+    showAgentName,
+  ]);
 }

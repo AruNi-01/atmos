@@ -4,6 +4,7 @@ import {
   ATMOS_REATTACH_TITLE_OSC,
   ATMOS_SHELL_TITLE_OSC,
   formatReattachTitleOsc,
+  shouldClearNativeOscOnCmdEnd,
 } from "./title-osc";
 
 describe("title OSC codes", () => {
@@ -20,5 +21,12 @@ describe("title OSC codes", () => {
     expect(end).toBe("\x1b]9998;CMD_END:/tmp\x07");
     expect(start.includes("9999")).toBe(false);
     expect(end.includes("9999")).toBe(false);
+  });
+
+  test("only real shell CMD_END clears native OSC topics", () => {
+    expect(shouldClearNativeOscOnCmdEnd(ATMOS_SHELL_TITLE_OSC)).toBe(true);
+    expect(shouldClearNativeOscOnCmdEnd(ATMOS_REATTACH_TITLE_OSC)).toBe(false);
+    expect(shouldClearNativeOscOnCmdEnd(0)).toBe(false);
+    expect(shouldClearNativeOscOnCmdEnd(2)).toBe(false);
   });
 });

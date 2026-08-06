@@ -2,13 +2,18 @@
 import { describe, expect, it } from "bun:test";
 import {
   appendNativeOscTitle,
+  extractStableCenterTabOscTitle,
   getTerminalDisplayMeta,
   isDynamicTitleDowngrade,
   isShellPreexecCommandOscTitle,
   MAX_NATIVE_OSC_TITLE_CHARS,
+  nextCenterTabSessionOscTitle,
   nextOscTitleAfterIncoming,
   resolveAgentForTitle,
   sanitizeNativeOscTitle,
+  shouldClearNativeOscOnCmdEnd,
+  ATMOS_REATTACH_TITLE_OSC,
+  ATMOS_SHELL_TITLE_OSC,
 } from "@atmos/shared/terminal";
 import type { TerminalPaneAgent } from "../../types";
 
@@ -536,7 +541,8 @@ describe("native OSC 0/2 title suffix (APP-047)", () => {
       ),
     ).toBeUndefined();
     // Path/host redraw after a real agent topic → keep topic (agent may not
-    // re-emit immediately; prompt redraw must not erase it).
+    // re-emit immediately; prompt redraw must not erase it while still running).
+    // Shell CMD_END (9999) is what clears after the agent exits — see below.
     expect(
       nextOscTitleAfterIncoming(
         "debugging auth",
@@ -548,6 +554,17 @@ describe("native OSC 0/2 title suffix (APP-047)", () => {
     expect(nextOscTitleAfterIncoming("debugging auth", undefined)).toBeUndefined();
     // New meaningful topic replaces previous.
     expect(nextOscTitleAfterIncoming(pipeline, "fix auth")).toBe("fix auth");
+  });
+
+  it("clears native OSC on real shell CMD_END, not on reattach inject", () => {
+    // APP-047 S7: agent exit → OSC 9999 CMD_END clears the suffix.
+    // Reattach OSC 9998 must not wipe topics restored for the session.
+    expect(shouldClearNativeOscOnCmdEnd(ATMOS_SHELL_TITLE_OSC)).toBe(true);
+    expect(shouldClearNativeOscOnCmdEnd(ATMOS_REATTACH_TITLE_OSC)).toBe(false);
+    // Simulates Terminal applyDynamicTitleCmdEnd clear path for 9999.
+    expect(nextOscTitleAfterIncoming("debugging auth", undefined)).toBeUndefined();
+    expect(nextOscTitleAfterIncoming("claude", undefined)).toBeUndefined();
+    expect(nextOscTitleAfterIncoming("codex", undefined)).toBeUndefined();
   });
 
   it("keeps multi-word OSC topics that contain slashes (not bare paths)", () => {
@@ -596,5 +613,30 @@ describe("native OSC 0/2 title suffix (APP-047)", () => {
         oscTitle: "debugging auth",
       }).displayTitle,
     ).toBe("Claude Code | debugging auth");
+  });
+});
+
+describe("center-tab stable OSC session topic", () => {
+  it("extracts Grok session name and drops spinner/activity/brand", () => {
+    expect(
+      extractStableCenterTabOscTitle(
+        "Action Required - ⠋ - Responding - Optimize Terminal Tab - grok",
+      ),
+    ).toBe("Optimize Terminal Tab");
+    expect(extractStableCenterTabOscTitle("Thinking - proj - grok-3 - workspace - grok")).toBe(
+      "proj",
+    );
+    expect(extractStableCenterTabOscTitle("⠋ - Responding - grok")).toBe("");
+    expect(extractStableCenterTabOscTitle("grok")).toBe("");
+  });
+
+  it("keeps plain session topics and sticky realtime updates", () => {
+    expect(extractStableCenterTabOscTitle("debugging auth")).toBe("debugging auth");
+    expect(nextCenterTabSessionOscTitle(undefined, "debugging auth")).toBe("debugging auth");
+    expect(nextCenterTabSessionOscTitle("debugging auth", "Responding - grok")).toBe(
+      "debugging auth",
+    );
+    expect(nextCenterTabSessionOscTitle("debugging auth", "")).toBeUndefined();
+    expect(nextCenterTabSessionOscTitle("old", "new session topic")).toBe("new session topic");
   });
 });

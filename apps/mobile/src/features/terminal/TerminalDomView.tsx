@@ -14,6 +14,7 @@ import {
   isTerminalSnapshot,
   isUsableTerminalGrid,
   sanitizeNativeOscTitle,
+  shouldClearNativeOscOnCmdEnd,
   shortenPath,
   type TerminalSnapshot,
   type TerminalThemeTokens,
@@ -219,7 +220,11 @@ export default function TerminalDomView({
               window.clearTimeout(cmdStartTimerRef.current);
               cmdStartTimerRef.current = null;
             }
-            emitOscTitle(undefined);
+            // Real shell (9999) idle clears native OSC topics (APP-047).
+            // Reattach inject (9998) must keep them across refresh.
+            if (shouldClearNativeOscOnCmdEnd(osc)) {
+              emitOscTitle(undefined);
+            }
             const nextTitle = shortenPath(payload);
             if (nextTitle !== lastTitleRef.current) {
               lastTitleRef.current = nextTitle;
