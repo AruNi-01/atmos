@@ -1,0 +1,16 @@
+AGENTS.md
+  h_5be255725524c8 148-156
+apps/desktop-electron/AGENTS.md
+  h_5be255725524c8 68
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "963563e55aa41894994e3d82496d42b96a2e5067",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
