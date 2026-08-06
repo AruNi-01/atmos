@@ -270,7 +270,26 @@ impl TmuxEngine {
             "#{cursor_x}|#{cursor_y}|#{pane_width}|#{pane_height}|#{alternate_on}",
         ])?;
         let metadata = parse_pane_metadata(&metadata);
-        let capture_lines = if metadata.alternate {
+        let current_command = self
+            .get_pane_current_command(session_name, window_index)
+            .unwrap_or_default();
+        let observed = self
+            .get_pane_mouse_tracking(session_name, window_index)
+            .ok()
+            .flatten();
+        let (restore_mouse_tracking, mouse_tracking_sequence) =
+            resolve_mouse_tracking_restore(observed, metadata.alternate, &current_command);
+
+        // Viewport-only when the pane is a TUI that will own the wheel (alt-screen
+        // or inline mouse TUI). Dumping tmux history for those apps re-hydrates
+        // stale TUI frames into xterm scrollback on every refresh (APP-054).
+        let viewport_only = metadata.alternate
+            || restore_mouse_tracking
+            || super::types::should_restore_tui_mouse_tracking(
+                metadata.alternate,
+                &current_command,
+            );
+        let capture_lines = if viewport_only {
             Some(metadata.rows.max(1) as i32)
         } else {
             lines
@@ -281,15 +300,6 @@ impl TmuxEngine {
             capture_lines,
             metadata.alternate,
         )?;
-        let current_command = self
-            .get_pane_current_command(session_name, window_index)
-            .unwrap_or_default();
-        let observed = self
-            .get_pane_mouse_tracking(session_name, window_index)
-            .ok()
-            .flatten();
-        let (restore_mouse_tracking, mouse_tracking_sequence) =
-            resolve_mouse_tracking_restore(observed, metadata.alternate, &current_command);
 
         Ok(TmuxPaneSnapshot {
             data,

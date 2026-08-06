@@ -29,7 +29,6 @@ import {
   useTerminalStore,
 } from "@/features/terminal/store/use-terminal-store";
 import { isDiffGroupEditorPath } from "@/features/diff/lib/diff-editor-paths";
-import { cn } from "@/shared/lib/utils";
 import { useGithubCenterTabsStore } from "@/features/github/store/use-github-center-tabs";
 import { useBrowserCenterTabsStore } from "@/features/browser/store/use-browser-center-tabs";
 import {
@@ -38,8 +37,10 @@ import {
   isFramePanelVisible,
   isKeyMounted,
   lightMountKey,
+  lightSurfacePanelClass,
   namedTerminalMountKey,
   resolveFrameActiveTab,
+  terminalKeepAlivePanelClass,
   terminalMountKey,
 } from "@/app-shell/workspace-surface-policies";
 import { readCenterStageLastTab } from "@/shared/stores/use-ui-pref-hooks";
@@ -241,19 +242,11 @@ function WorkspaceCenterFrameImpl({
       data-tier={isActiveContext ? "active" : "warm"}
       data-url-synced={isUrlSyncedActive ? "true" : "false"}
       // Outer shell is the only Active/Warm paint gate (IMP-010).
-      hidden={!isActiveContext}
-      className={cn(
-        "absolute inset-0 flex flex-col min-h-0 min-w-0",
-        !isActiveContext && "hidden",
-      )}
-      style={
-        !isActiveContext
-          ? ({
-              contentVisibility: "hidden",
-              containIntrinsicSize: "auto 800px",
-            } as React.CSSProperties)
-          : undefined
-      }
+      // Use data-tier visibility stacking (globals.css) — never display:none /
+      // content-visibility:hidden, which blanks warm xterm WebGL on hop.
+      aria-hidden={!isActiveContext}
+      inert={!isActiveContext ? true : undefined}
+      className="absolute inset-0 flex flex-col min-h-0 min-w-0"
     >
       {tabs
         .filter((tab) => {
@@ -269,13 +262,12 @@ function WorkspaceCenterFrameImpl({
         .map((tab) => (
           <div
             key={`${contextId}-${tab.id}`}
-            className={cn(
-              "flex-1 min-h-0 min-w-0",
-              !isFramePanelVisible({
+            className={terminalKeepAlivePanelClass(
+              isFramePanelVisible({
                 isActiveFrame: isActiveContext,
                 frameActiveTab,
                 panelTabId: tab.id,
-              }) && "hidden",
+              }),
             )}
           >
             <div className="h-full w-full">
@@ -321,13 +313,12 @@ function WorkspaceCenterFrameImpl({
           isKeyMounted(mountPlan, namedTerminalMountKey(contextId, "project-wiki")) ||
           frameActiveTab === "project-wiki") && (
           <div
-            className={cn(
-              "flex-1 min-h-0 min-w-0",
-              !isFramePanelVisible({
+            className={terminalKeepAlivePanelClass(
+              isFramePanelVisible({
                 isActiveFrame: isActiveContext,
                 frameActiveTab,
                 panelTabId: "project-wiki",
-              }) && "hidden",
+              }),
             )}
           >
             <TerminalGrid
@@ -356,13 +347,12 @@ function WorkspaceCenterFrameImpl({
           isKeyMounted(mountPlan, namedTerminalMountKey(contextId, "code-review")) ||
           frameActiveTab === "code-review") && (
           <div
-            className={cn(
-              "flex-1 min-h-0 min-w-0",
-              !isFramePanelVisible({
+            className={terminalKeepAlivePanelClass(
+              isFramePanelVisible({
                 isActiveFrame: isActiveContext,
                 frameActiveTab,
                 panelTabId: "code-review",
-              }) && "hidden",
+              }),
             )}
           >
             <TerminalGrid
@@ -391,13 +381,12 @@ function WorkspaceCenterFrameImpl({
           (!planReady ||
             isKeyMounted(mountPlan, lightMountKey(contextId, "overview"))))) && (
         <div
-          className={cn(
-            "flex-1 min-h-0 min-w-0 overflow-auto",
-            !isFramePanelVisible({
+          className={lightSurfacePanelClass(
+            isFramePanelVisible({
               isActiveFrame: isActiveContext,
               frameActiveTab,
               panelTabId: "overview",
-            }) && "hidden",
+            }),
           )}
         >
           <OverviewTab
@@ -443,13 +432,12 @@ function WorkspaceCenterFrameImpl({
             key={`${contextId}:${file.path}`}
             value={file.path}
             keepMounted
-            className={cn(
-              "flex-1 min-h-0 min-w-0",
-              !isFramePanelVisible({
+            className={lightSurfacePanelClass(
+              isFramePanelVisible({
                 isActiveFrame: isActiveContext,
                 frameActiveTab,
                 panelTabId: file.path,
-              }) && "hidden",
+              }),
             )}
           >
             {isDiffGroupEditorPath(file.path) && currentRepoPath && isUrlSyncedActive ? (
@@ -513,13 +501,12 @@ function WorkspaceCenterFrameImpl({
         return (
           <div
             key={`${contextId}-${tab.value}`}
-            className={cn(
-              "flex-1 min-h-0 min-w-0",
-              !isFramePanelVisible({
+            className={lightSurfacePanelClass(
+              isFramePanelVisible({
                 isActiveFrame: isActiveContext,
                 frameActiveTab,
                 panelTabId: tab.value,
-              }) && "hidden",
+              }),
             )}
           >
             {tab.kind === "github-pr" ? (
@@ -615,13 +602,12 @@ function WorkspaceCenterFrameImpl({
         return (
           <div
             key={`${contextId}-${tab.value}`}
-            className={cn(
-              "flex-1 min-h-0 min-w-0",
-              !isFramePanelVisible({
+            className={lightSurfacePanelClass(
+              isFramePanelVisible({
                 isActiveFrame: isActiveContext,
                 frameActiveTab,
                 panelTabId: tab.value,
-              }) && "hidden",
+              }),
             )}
           >
             <BrowserPanel

@@ -6,6 +6,7 @@
 import { readFileSync, existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { resolveBrowserRuntimeScriptPath } from "./browser-runtime-path.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -24,7 +25,7 @@ function findRepoRoot(start: string): string {
 const REPO_ROOT = findRepoRoot(__dirname);
 
 export function browserRuntimeScriptPath(): string {
-  return join(REPO_ROOT, "packages/shared/browser/browser-runtime.js");
+  return resolveBrowserRuntimeScriptPath(__dirname, REPO_ROOT);
 }
 
 export function browserPreloadPath(): string {
@@ -52,7 +53,6 @@ export function buildBridgeInjection(bridgeToken: string): string {
   return `
 ${runtime}
 (() => {
-  if (window.__ATMOS_DESKTOP_BROWSER_BRIDGE__) return;
   const invoke = window.__ATMOS_BROWSER_INVOKE__;
   if (!invoke) {
     console.error('[atmos-browser] __ATMOS_BROWSER_INVOKE__ missing — browser preload failed');
@@ -63,23 +63,31 @@ ${runtime}
     return;
   }
   const bridgeToken = ${tokenJson};
-  const controller = window.__ATMOS_BROWSER_RUNTIME__.createRuntime({
-    win: window,
-    // Host SelectionPopover owns toolbar chrome; guest still draws pick hover/lock labels.
-    showSelectionToolbar: false,
-    showHoverLabel: true,
-    emit(message) {
-      invoke('browser_bridge_event', {
-        payload: Object.assign({}, message, { bridgeToken })
-      }).catch((err) => {
-        console.error('[atmos-browser] emit failed', err);
-      });
-    },
-  });
+  // Re-bind API on every inject (hot-fix clear vs exit pick mode).
+  // Only createRuntime once per document — destroy would drop overlay DOM mid-session.
+  if (!window.__ATMOS_DESKTOP_BROWSER_CONTROLLER__) {
+    window.__ATMOS_DESKTOP_BROWSER_CONTROLLER__ = window.__ATMOS_BROWSER_RUNTIME__.createRuntime({
+      win: window,
+      // Host SelectionPopover owns toolbar chrome; guest still draws pick hover/lock labels.
+      showSelectionToolbar: false,
+      showHoverLabel: true,
+      emit(message) {
+        invoke('browser_bridge_event', {
+          payload: Object.assign({}, message, { bridgeToken })
+        }).catch((err) => {
+          console.error('[atmos-browser] emit failed', err);
+        });
+      },
+    });
+  }
+  const controller = window.__ATMOS_DESKTOP_BROWSER_CONTROLLER__;
   window.__ATMOS_DESKTOP_BROWSER_BRIDGE__ = {
     announceReady(sessionId) { controller.announceReady(sessionId); },
     enterPickMode(sessionId) { controller.enterPickMode(sessionId); },
-    clearSelection() { controller.exitPickMode(); },
+    // Unlock only — keep pick mode (host SelectionPopover dismiss / re-pick).
+    clearSelection() { controller.clearSelection(false); },
+    // Full pick-mode off (toolbar toggle / tab hide).
+    exitPickMode() { controller.exitPickMode(); },
     clearAnnotations() { controller.clearAnnotations?.(); },
     syncOverlays() { controller.syncOverlays?.(); },
     destroy() { controller.destroy(); },

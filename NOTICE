@@ -268,5 +268,16 @@ not re-license those weights.
 Full Apache-2.0 text: https://www.apache.org/licenses/LICENSE-2.0
 
 -------------------------------------------------------------------------------
+8. AIcss Orbs (agent activity indicators)
+-------------------------------------------------------------------------------
+
+Source:   https://www.aicss.dev/components/orbs
+Location: apps/web/src/features/agent/components/orbs/
+Author:   Kevin (@kvnkld) / AIcss
+Notes:    Free-tier copy-paste UI component (React + CSS Module), vendored
+          and lightly adapted for Atmos theme (html.dark) and sizing.
+          No external runtime dependency beyond the vendored source.
+
+-------------------------------------------------------------------------------
 End of NOTICE
 -------------------------------------------------------------------------------

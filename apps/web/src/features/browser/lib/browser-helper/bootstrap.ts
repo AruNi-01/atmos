@@ -137,7 +137,9 @@ export function installPreviewHelper(
   });
 
   const clearSelection = (notifyHost: boolean = false) => {
+    // Unlock only — keep pick mode so dismiss + re-hover does not race exit/re-enter.
     state.locked = null;
+    state.hovered = null;
     overlay.clearLocked();
     overlay.clearHover();
     options.onHover?.(null);
@@ -146,12 +148,6 @@ export function installPreviewHelper(
     if (notifyHost) {
       options.onCleared?.();
       bridge.cleared();
-    } else {
-      // Host-initiated clear also disables pick mode so hover
-      // overlays do not reappear after the selection is removed.
-      state.enabled = false;
-      state.hovered = null;
-      overlay.setCursor('default');
     }
   };
 
@@ -225,6 +221,23 @@ export function installPreviewHelper(
     event.preventDefault();
     event.stopPropagation();
     if (state.locked) {
+      const target = event.target;
+      if (
+        isInspectableElement(target, elementCtor) &&
+        !isIgnoredElement(target) &&
+        target !== state.locked
+      ) {
+        state.locked = null;
+        overlay.clearLocked();
+        overlay.clearHover();
+        options.onHover?.(null);
+        bridge.hover(null);
+        state.locked = target;
+        emitSelection(target);
+        return;
+      }
+      // Blank / same element: dismiss host popover, stay in pick mode.
+      clearSelection(true);
       return;
     }
     const target = event.target;

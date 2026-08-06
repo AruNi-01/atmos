@@ -250,6 +250,13 @@ export const detectBrowserErrorDocument = (
   return createPreviewLoadError(pageUrl, nextTitle, message, details);
 };
 
+const isCertOrTlsErrorMessage = (value: string): boolean =>
+  /\bERR_CERT_/i.test(value) ||
+  /\bERR_SSL_/i.test(value) ||
+  /\bERR_CONNECTION_CLOSED\b/i.test(value) ||
+  /certificate/i.test(value) ||
+  /SSL/i.test(value);
+
 export const createPreviewNetworkError = (url: string, error: unknown): PreviewLoadError => {
   const errorMessage =
     error instanceof Error
@@ -262,6 +269,9 @@ export const createPreviewNetworkError = (url: string, error: unknown): PreviewL
 
   if (/^https:\/\/(localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\])/i.test(url)) {
     details.push(previewUtilsT("error.localHttpsHint"));
+  }
+  if (isCertOrTlsErrorMessage(errorMessage)) {
+    details.push(previewUtilsT("error.certProxyHint"));
   }
 
   details.push(errorMessage);
@@ -503,6 +513,10 @@ export const parseTransportLoadError = (
   const contentLines = hasStandardLoadErrorLine ? lines.slice(1) : lines;
   const primaryMessage = contentLines[0] ?? previewUtilsT("error.browserLoadFailure");
   const details = contentLines.slice(1);
+  if (isCertOrTlsErrorMessage(joined) || isCertOrTlsErrorMessage(primaryMessage)) {
+    const hint = previewUtilsT("error.certProxyHint");
+    if (!details.includes(hint)) details.push(hint);
+  }
 
   return createPreviewLoadError(fallbackUrl, title, primaryMessage, details);
 };

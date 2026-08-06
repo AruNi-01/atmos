@@ -1,4 +1,4 @@
-//! Track DEC mouse-reporting modes from pane output (Ghostty-style state).
+//! Track DEC mouse-reporting modes from pane output.
 //!
 //! `capture-pane` restores cells only. Full-screen TUIs enable mouse via DECSET
 //! (`1000`/`1002`/`1003`/`1006`/…). Atmos observes those sequences on the live
@@ -7,6 +7,10 @@
 //!
 //! Event modes follow xterm.js exclusivity (last enable wins among
 //! 9/1000/1002/1003). Format modes are independent (1005/1006/1015/1016).
+//!
+//! Control-mode `%output` can split CSI private-mode sequences across chunks;
+//! incomplete trailing prefixes are retained and completed on the next chunk
+//! (APP-054).
 
 use std::fmt;
 
@@ -40,19 +44,38 @@ pub enum MouseFormat {
     SgrPixels,
 }
 
+/// Cap residual incomplete CSI so a hostile/corrupt stream cannot grow unbounded.
+const PRIVATE_MODE_RESIDUAL_LIMIT: usize = 4096;
+
 /// Effective mouse-reporting state observed from the application stream.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+///
+/// Equality ignores the residual CSI buffer (only event/format/focus matter for
+/// persist and restore decisions).
+#[derive(Debug, Clone, Default)]
 pub struct MouseModeState {
     pub event: MouseEventMode,
     pub format: MouseFormat,
     pub focus_event: bool,
+    /// Incomplete trailing `ESC[?…` / C1 CSI private-mode prefix from a prior chunk.
+    residual: Vec<u8>,
 }
+
+impl PartialEq for MouseModeState {
+    fn eq(&self, other: &Self) -> bool {
+        self.event == other.event
+            && self.format == other.format
+            && self.focus_event == other.focus_event
+    }
+}
+
+impl Eq for MouseModeState {}
 
 /// tmux pane user-option key for persisted mouse tracking state.
 pub const ATMOS_MOUSE_TRACKING_OPTION: &str = "@atmos_mouse_tracking";
 
 /// Default restore when we know the pane needs mouse but never observed modes
-/// (first attach to an already-running alt-screen / inline TUI).
+/// (first attach to an already-running alt-screen / inline TUI), or when a
+/// persisted inactive observation is treated as stale under alt/inline policy.
 ///
 /// Includes `1003` so hover works; xterm.js last-wins among event modes.
 pub const DEFAULT_TUI_MOUSE_RESTORE: &str = "\x1b[?1000h\x1b[?1002h\x1b[?1003h\x1b[?1006h";
@@ -123,6 +146,7 @@ impl MouseModeState {
             event,
             format,
             focus_event,
+            residual: Vec::new(),
         })
     }
 
@@ -155,52 +179,112 @@ impl MouseModeState {
     }
 
     /// Scan `data` for DEC private mode set/reset affecting mouse tracking.
-    /// Returns `true` when effective state changed.
+    /// Returns `true` when effective mode state changed.
+    ///
+    /// Incomplete trailing private CSI prefixes are retained and completed on
+    /// subsequent calls (control-mode chunks may split mid-sequence).
     pub fn observe_bytes(&mut self, data: &[u8]) -> bool {
-        let before = *self;
+        if data.is_empty() && self.residual.is_empty() {
+            return false;
+        }
+
+        let before = (self.event, self.format, self.focus_event);
+
+        let input: Vec<u8> = if self.residual.is_empty() {
+            data.to_vec()
+        } else {
+            let mut combined = std::mem::take(&mut self.residual);
+            combined.extend_from_slice(data);
+            combined
+        };
+
         let mut i = 0;
-        while i < data.len() {
+        while i < input.len() {
+            // Full reset (RIS) clears mouse modes and residual.
+            if input[i] == 0x1b && i + 1 < input.len() && input[i + 1] == b'c' {
+                self.event = MouseEventMode::None;
+                self.format = MouseFormat::Default;
+                self.focus_event = false;
+                self.residual.clear();
+                i += 2;
+                continue;
+            }
+
             // CSI: ESC [  or  0x9B
-            let csi_start = if data[i] == 0x1b {
-                if i + 1 < data.len() && data[i + 1] == b'[' {
+            let csi_start = if input[i] == 0x1b {
+                if i + 1 < input.len() && input[i + 1] == b'[' {
                     i + 2
+                } else if i + 1 >= input.len() {
+                    // Lone ESC at end — keep residual.
+                    self.store_residual(&input[i..]);
+                    break;
                 } else {
                     i += 1;
                     continue;
                 }
-            } else if data[i] == 0x9b {
+            } else if input[i] == 0x9b {
                 i + 1
             } else {
                 i += 1;
                 continue;
             };
 
+            // Incomplete after CSI introducer.
+            if csi_start >= input.len() {
+                self.store_residual(&input[i..]);
+                break;
+            }
+
             // Private DEC modes use '?' after CSI.
-            if csi_start >= data.len() || data[csi_start] != b'?' {
+            if input[csi_start] != b'?' {
                 i = csi_start;
                 continue;
             }
 
             let mut j = csi_start + 1;
-            while j < data.len() {
-                let b = data[j];
+            let mut terminated = false;
+            while j < input.len() {
+                let b = input[j];
                 if b == b'h' || b == b'l' {
-                    let params = &data[csi_start + 1..j];
+                    let params = &input[csi_start + 1..j];
                     let enable = b == b'h';
                     self.apply_private_params(params, enable);
                     j += 1;
+                    terminated = true;
                     break;
                 }
-                // Parameter bytes / intermediate: 0x20-0x3F and digits/semicolon
-                if !(b.is_ascii_digit() || b == b';' || (0x20..=0x3f).contains(&b)) {
+                // Parameter bytes: digits and semicolon (private params).
+                if !(b.is_ascii_digit() || b == b';') {
+                    // Invalid / unrelated private CSI — drop residual and skip.
                     j += 1;
+                    terminated = true;
                     break;
                 }
                 j += 1;
             }
+
+            if !terminated {
+                // Incomplete private mode CSI — retain from introducer.
+                self.store_residual(&input[i..]);
+                break;
+            }
             i = j;
         }
-        *self != before
+
+        let after = (self.event, self.format, self.focus_event);
+        before != after
+    }
+
+    fn store_residual(&mut self, bytes: &[u8]) {
+        if bytes.is_empty() {
+            self.residual.clear();
+            return;
+        }
+        if bytes.len() > PRIVATE_MODE_RESIDUAL_LIMIT {
+            self.residual.clear();
+            return;
+        }
+        self.residual = bytes.to_vec();
     }
 
     fn apply_private_params(&mut self, params: &[u8], enable: bool) {
@@ -291,9 +375,11 @@ impl fmt::Display for MouseModeState {
 
 /// Resolve what the frontend should inject after snapshot hydrate.
 ///
-/// - Observed active state → exact sequence  
-/// - Observed inactive (`none`) → do not restore  
-/// - Never observed → alt-screen / inline-TUI heuristic with full default  
+/// - Observed active state → exact sequence
+/// - Observed inactive (`none`) → still restore when alt-screen or known
+///   inline mouse TUI (stale/incomplete observation must not steal the wheel
+///   from an active TUI); otherwise no restore
+/// - Never observed → alt-screen / inline-TUI heuristic with full default
 pub fn resolve_mouse_tracking_restore(
     observed: Option<MouseModeState>,
     alternate: bool,
@@ -301,8 +387,7 @@ pub fn resolve_mouse_tracking_restore(
 ) -> (bool, Option<String>) {
     match observed {
         Some(state) if state.is_active() => (true, Some(state.restore_sequence())),
-        Some(_) => (false, None),
-        None => {
+        Some(_) | None => {
             if super::types::should_restore_tui_mouse_tracking(alternate, current_command) {
                 (true, Some(DEFAULT_TUI_MOUSE_RESTORE.to_string()))
             } else {
@@ -376,6 +461,7 @@ mod tests {
             event: MouseEventMode::Any,
             format: MouseFormat::Sgr,
             focus_event: true,
+            residual: Vec::new(),
         };
         let encoded = state.encode_persist();
         assert_eq!(encoded, "any+sgr+focus");
@@ -394,6 +480,7 @@ mod tests {
             event: MouseEventMode::Button,
             format: MouseFormat::Sgr,
             focus_event: false,
+            residual: Vec::new(),
         };
         let (restore, seq) = resolve_mouse_tracking_restore(Some(observed), true, "claude");
         assert!(restore);
@@ -401,9 +488,30 @@ mod tests {
     }
 
     #[test]
-    fn resolve_observed_none_skips_even_on_alternate() {
+    fn resolve_observed_none_still_restores_on_alternate() {
+        // APP-054: bare inactive must not suppress alt-screen TUI restore.
         let (restore, seq) =
             resolve_mouse_tracking_restore(Some(MouseModeState::default()), true, "vim");
+        assert!(restore);
+        assert_eq!(seq.as_deref(), Some(DEFAULT_TUI_MOUSE_RESTORE));
+        assert!(seq.unwrap().contains("1003"));
+    }
+
+    #[test]
+    fn resolve_observed_none_still_restores_inline_mouse_tui() {
+        let (restore, seq) = resolve_mouse_tracking_restore(
+            Some(MouseModeState::default()),
+            false,
+            "grok-0.2.103-ma",
+        );
+        assert!(restore);
+        assert_eq!(seq.as_deref(), Some(DEFAULT_TUI_MOUSE_RESTORE));
+    }
+
+    #[test]
+    fn resolve_observed_none_skips_idle_shell() {
+        let (restore, seq) =
+            resolve_mouse_tracking_restore(Some(MouseModeState::default()), false, "zsh");
         assert!(!restore);
         assert!(seq.is_none());
     }
@@ -430,5 +538,40 @@ mod tests {
         let changed = state.observe_bytes(b"hello\x1b[31mred\x1b[0m\x1b[?2004h");
         assert!(!changed);
         assert!(!state.is_active());
+    }
+
+    #[test]
+    fn multi_chunk_enable_completes_private_csi() {
+        let mut state = MouseModeState::default();
+        let changed1 = state.observe_bytes(b"\x1b[?1000;1002");
+        assert!(!changed1);
+        assert!(!state.is_active());
+        let changed2 = state.observe_bytes(b";1003;1006h");
+        assert!(changed2);
+        assert_eq!(state.event, MouseEventMode::Any);
+        assert_eq!(state.format, MouseFormat::Sgr);
+    }
+
+    #[test]
+    fn multi_chunk_disable_completes_private_csi() {
+        let mut state = MouseModeState::default();
+        state.observe_bytes(b"\x1b[?1000h\x1b[?1002h\x1b[?1003h\x1b[?1006h");
+        assert!(state.is_active());
+        let changed1 = state.observe_bytes(b"\x1b[?1000;1002;1003");
+        assert!(!changed1);
+        assert!(state.is_active());
+        let changed2 = state.observe_bytes(b";1006l");
+        assert!(changed2);
+        assert!(!state.is_active());
+        assert_eq!(state.format, MouseFormat::Default);
+    }
+
+    #[test]
+    fn multi_chunk_split_after_question_mark() {
+        let mut state = MouseModeState::default();
+        assert!(!state.observe_bytes(b"\x1b[?"));
+        assert!(state.observe_bytes(b"1003h\x1b[?1006h"));
+        assert_eq!(state.event, MouseEventMode::Any);
+        assert_eq!(state.format, MouseFormat::Sgr);
     }
 }

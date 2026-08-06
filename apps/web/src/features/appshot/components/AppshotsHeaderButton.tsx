@@ -19,6 +19,9 @@ type AppshotsHeaderButtonProps = {
 
 export function AppshotsHeaderButton({ onCloseAutoFocus }: AppshotsHeaderButtonProps) {
   const [open, setOpen] = React.useState(false);
+  // Stable callback — AppshotsHistoryPopover gates readiness in an effect that
+  // depends on onClose; an inline arrow would re-fire the gate every render.
+  const close = React.useCallback(() => setOpen(false), []);
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -42,10 +45,7 @@ export function AppshotsHeaderButton({ onCloseAutoFocus }: AppshotsHeaderButtonP
         onCloseAutoFocus={onCloseAutoFocus}
         className="!z-[2147483647] w-[420px] max-w-[calc(100vw-1rem)] max-h-[min(72vh,var(--radix-popover-content-available-height,72vh))] overflow-x-hidden overflow-y-auto overscroll-contain p-3 bg-popover border border-border shadow-md"
       >
-        <AppshotsHistoryPopover
-          open={open}
-          onClose={() => setOpen(false)}
-        />
+        <AppshotsHistoryPopover open={open} onClose={close} />
       </PopoverContent>
     </Popover>
   );

@@ -1,6 +1,9 @@
 /**
- * Copy Tauri production icons into apps/desktop-electron/resources/icons
- * so dev + future packaging both have local Atmos branding assets.
+ * Copy Tauri production bitmap/icns/ico into apps/desktop-electron/resources/icons
+ * so dev + packaging both have local Atmos branding assets.
+ *
+ * Does **not** touch `icon.icon/` (macOS 26 Liquid Glass Icon Composer package) —
+ * that tree is Electron-owned and must stay in resources/icons.
  */
 import {
   copyFileSync,
@@ -16,7 +19,7 @@ const repoRoot = join(appRoot, "../..");
 const sourceDir = join(repoRoot, "apps/desktop/src-tauri/icons");
 const destDir = join(appRoot, "resources/icons");
 
-/** Files needed for Electron window / dock / future installer. */
+/** Bitmap / classic macOS-Windows files synced from Tauri. */
 const REQUIRED = [
   "icon.png",
   "icon.icns",
@@ -43,6 +46,16 @@ function main() {
     copyFileSync(join(sourceDir, name), join(destDir, name));
     copied += 1;
   }
+
+  const liquidGlass = join(destDir, "icon.icon", "icon.json");
+  if (existsSync(liquidGlass)) {
+    console.log(`[sync-icons] kept Liquid Glass package: icon.icon/`);
+  } else {
+    console.warn(
+      `[sync-icons] icon.icon/ missing — macOS 26 packaging needs resources/icons/icon.icon`,
+    );
+  }
+
   console.log(
     `[sync-icons] ${copied}/${REQUIRED.length} icons → ${destDir}`,
   );

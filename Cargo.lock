@@ -833,6 +833,7 @@ name = "browser-use"
 version = "0.1.0"
 dependencies = [
  "desktop-use",
+ "dirs 5.0.1",
  "serde",
  "serde_json",
  "tempfile",

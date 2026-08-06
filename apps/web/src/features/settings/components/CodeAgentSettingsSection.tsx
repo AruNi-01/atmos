@@ -16,6 +16,7 @@ import { AGENT_OPTIONS, getInteractiveAgentParams } from "@/features/wiki/compon
 import { resolveAgentLaunchFlags } from "@/features/agent/lib/terminal-agent-yolo";
 import { AgentIcon } from "@/features/agent/components/AgentIcon";
 import type { CodeAgentCustomEntry } from "@/api/ws-api";
+import { AgentActivityIndicatorsSettingsSection } from "@/features/settings/components/AgentActivityIndicatorsSettingsSection";
 import { AgentHookStatusCard } from "@/features/settings/components/AgentHookStatusCard";
 import { CodeAgentRunConfigSettingsSection } from "@/features/settings/components/CodeAgentRunConfigSettingsSection";
 import { SaveActionButton } from "@/features/settings/components/settings/SaveActionButton";
@@ -51,6 +52,9 @@ interface CodeAgentSettingsSectionProps {
   yoloModeRestoring: boolean;
   onYoloModeChange: (enabled: boolean) => void;
   onRestoreAllYoloMode: () => void;
+  showAgentNameInTerminalTitles: boolean;
+  showAgentNameInTerminalTitlesSyncing: boolean;
+  onShowAgentNameInTerminalTitlesChange: (enabled: boolean) => void;
   onAddCustomAgent: () => void;
   onAgentSettingChange: (agentId: string, field: "cmd" | "flags" | "interactiveFlags" | "enabled", value: string | boolean) => void;
   onBuiltInEnabledChange: (agentId: string, enabled: boolean) => void;
@@ -95,6 +99,9 @@ export function CodeAgentSettingsSection({
   yoloModeRestoring,
   onYoloModeChange,
   onRestoreAllYoloMode,
+  showAgentNameInTerminalTitles,
+  showAgentNameInTerminalTitlesSyncing,
+  onShowAgentNameInTerminalTitlesChange,
   onAddCustomAgent,
   onAgentSettingChange,
   onBuiltInEnabledChange,
@@ -149,6 +156,29 @@ export function CodeAgentSettingsSection({
           </Button>
         </div>
       </div>
+
+      <div className="overflow-hidden rounded-2xl border border-border">
+        <div className="flex items-start justify-between gap-4 px-6 py-5">
+          <div className="flex min-w-0 items-start gap-3">
+            <Bot className="mt-0.5 size-5 shrink-0 text-foreground" />
+            <div className="min-w-0">
+              <p className="text-base font-medium text-foreground">
+                {t("showAgentName.title")}
+              </p>
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                {t("showAgentName.description")}
+              </p>
+            </div>
+          </div>
+          <Switch
+            checked={showAgentNameInTerminalTitles}
+            disabled={showAgentNameInTerminalTitlesSyncing}
+            onCheckedChange={(checked) => onShowAgentNameInTerminalTitlesChange(!!checked)}
+          />
+        </div>
+      </div>
+
+      <AgentActivityIndicatorsSettingsSection />
 
       <Collapsible
         open={builtInAgentsExpanded}

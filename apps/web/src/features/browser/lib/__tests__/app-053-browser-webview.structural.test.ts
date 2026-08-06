@@ -80,6 +80,19 @@ describe("APP-053 browser webview structural (shipped sources)", () => {
     // Webview focus dismiss must not run while pick mode is on (would race-close popover).
     expect(session).toContain("!isElementPickerEnabled");
     expect(session).toContain("useOverlayDismissOnWebview");
+
+    const transport = read(
+      "apps/web/src/features/browser/lib/browser-transports/desktop-transport.ts",
+    );
+    // Unlock vs full exit must be separate IPC (hover breaks if clear exits pick mode).
+    expect(transport).toContain("browser_bridge_exit_pick_mode");
+    expect(transport).toContain("browser_bridge_clear_selection");
+    expect(transport).toMatch(
+      /async exitPickMode\(\) \{\s*if \(destroyed\) return;\s*await invokeDesktopBrowserBridge\('browser_bridge_exit_pick_mode'/,
+    );
+    expect(transport).toMatch(
+      /async clearSelection\(\) \{\s*if \(destroyed\) return;[\s\S]*?browser_bridge_clear_selection/,
+    );
   });
 
   it("DesktopBrowserWebview mounts guest with src so will-attach is not empty", () => {
@@ -143,17 +156,57 @@ describe("APP-053 browser webview structural (shipped sources)", () => {
     expect(src).not.toContain("addChildView");
     expect(src).toContain("BROWSER_PARTITION");
     expect(src).toContain("browser-runtime.js");
+    // Packaged DMG must resolve dist-local runtime (not monorepo-only path).
+    expect(src).toContain("resolveBrowserRuntimeScriptPath");
+    const pathHelper = read("apps/desktop-electron/src/browser/browser-runtime-path.ts");
+    expect(pathHelper).toContain("browser-runtime.js");
+    const build = read("apps/desktop-electron/scripts/build.ts");
+    expect(build).toContain("browser-runtime.js");
+    expect(build).toContain("copyFileSync");
     const policy = read("apps/desktop-electron/src/browser/webview-attach-policy.ts");
     expect(policy).toContain('persist:atmos-browser');
     const runtime = read("packages/shared/browser/browser-runtime.js");
     expect(runtime).toContain("showHoverLabel");
   });
 
-  it("host selection popover centers on full element rect (not left-biased 220 cap)", () => {
+  it("host selection popover uses Radix anchor at click (not left-biased 220 cap)", () => {
     const src = read("apps/web/src/features/browser/hooks/use-browser-selection.ts");
-    expect(src).toContain("querySelector('webview')");
+    expect(src).toMatch(/querySelector\(["']webview["']\)/);
     expect(src).toContain("rect.width / 2");
+    expect(src).toContain("lastGuestClickOffsetRef");
+    expect(src).toContain("mapGuestPointToViewport");
+    expect(src).not.toContain("placePopoverNearAnchor");
     expect(src).not.toMatch(/Math\.min\(rect\.width,\s*220\)\s*\/\s*2/);
+    const popover = read("apps/web/src/features/selection/components/SelectionPopover.tsx");
+    expect(popover).toContain("avoidCollisions");
+    expect(popover).toContain("collisionPadding");
+    expect(popover).toContain("PopoverAnchor");
+    expect(popover).toContain("createPortal");
+    expect(popover).toContain("document.body");
+    // sticky would freeze the card on screen while the page scrolls
+    expect(popover).not.toContain('sticky="partial"');
+    const viewport = read("apps/web/src/features/browser/components/BrowserViewport.tsx");
+    expect(viewport).toContain("mapGuestRectToShellLocal");
+  });
+
+  it("open() preserves pickMode; package ships browser-runtime.js", () => {
+    const surface = read("apps/desktop-electron/src/browser/surface-manager.ts");
+    expect(surface).not.toMatch(/s\.currentUrl = url;\s*s\.detached = false;\s*s\.pickMode = false/);
+    expect(surface).toContain("Do NOT reset pickMode");
+    const pkg = read("apps/desktop-electron/scripts/package.ts");
+    expect(pkg).toContain("dist/browser-runtime.js");
+    const build = read("apps/desktop-electron/scripts/build.ts");
+    expect(build).toContain("browser-runtime.js");
+    expect(build).toContain("copyFileSync");
+  });
+
+  it("guest second-click dismisses or re-picks; cert errors hint proxy", () => {
+    const runtime = read("packages/shared/browser/browser-runtime.js");
+    expect(runtime).toContain("Second click while locked");
+    expect(runtime).toContain("clearSelection(true)");
+    const utils = read("apps/web/src/features/browser/lib/browser-utils.tsx");
+    expect(utils).toContain("certProxyHint");
+    expect(utils).toContain("isCertOrTlsErrorMessage");
   });
 
   it("main window enables webviewTag with attach hooks", () => {

@@ -5,6 +5,8 @@ import { useWebSocketStore } from '@/features/connection/hooks/use-websocket';
 import { useAgentHooksStore } from '@/features/agent/store/agent-hooks-store';
 import { useAgentNotifications } from '@/features/agent/hooks/use-agent-notifications';
 import { useLayoutSettingsStore } from '@/features/settings/store/layout-settings-store';
+import { useAgentTitleSettingsStore } from '@/features/settings/store/agent-title-settings-store';
+import { useAgentActivityIndicatorSettingsStore } from '@/features/settings/store/agent-activity-indicator-settings-store';
 import { useExperimentSettingsStore } from '@/features/settings/store/experiment-settings-store';
 import { useHostedConnectionStore } from '@/features/connection/store/hosted-connection-store';
 import { isHostedAtmosOrigin } from '@/shared/lib/desktop-runtime';
@@ -96,6 +98,8 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
       useAgentHooksStore.getState().init();
       useLayoutSettingsStore.getState().loadSettings();
       void useExperimentSettingsStore.getState().loadSettings();
+      void useAgentTitleSettingsStore.getState().loadSettings();
+      void useAgentActivityIndicatorSettingsStore.getState().loadSettings();
       // Project bootstrap is now Query-owned; reconnect invalidation handles refresh.
       void ensureProjectBootstrap().catch(() => undefined);
     }

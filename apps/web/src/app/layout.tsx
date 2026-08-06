@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { GeistSans } from "geist/font/sans";
 import { GeistMono } from "geist/font/mono";
 import Script from "next/script";
@@ -12,6 +13,7 @@ import { DesktopExternalUrlBridge } from "@/providers/app/desktop-external-url-b
 import { WorkbenchIntlProvider } from "@/providers/app/workbench-intl-provider";
 import UpdateNotification from "@/app-shell/UpdateNotification";
 import { ServerStateEventBridge } from "@/providers/app/server-state-event-bridge";
+import { DesktopUseReadinessHost } from "@/features/desktop-use/components/DesktopUseReadinessHost";
 import {
   AgentToastProvider,
   AnchoredToastProvider,
@@ -83,6 +85,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                       <AnchoredToastProvider>
                         <TooltipProvider>
                           {children}
+                          {/*
+                            useOpenDesktopUseSettings → useQueryState → useSearchParams.
+                            Must be under Suspense so static prerender (/_not-found, /agents, …) succeeds.
+                          */}
+                          <Suspense fallback={null}>
+                            <DesktopUseReadinessHost />
+                          </Suspense>
                         </TooltipProvider>
                       </AnchoredToastProvider>
                     </AgentToastProvider>

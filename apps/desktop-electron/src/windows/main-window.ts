@@ -6,7 +6,7 @@ import { installBrowserWebviewHooks } from "../browser/webview-hooks.js";
 import { macWindowChromeOptions } from "./mac-chrome.js";
 import { wireFullscreenEvents } from "./fullscreen.js";
 import { wireMainWindowCloseBehavior } from "./close-behavior.js";
-import { ensureMacDockVisible } from "./mac-dock.js";
+import { pinMacDockAfterBoot } from "./mac-dock.js";
 import { resolveAppPreloadPath } from "./preload-path.js";
 
 export function createMainWindow(state: AppState, uiUrl: string): BrowserWindow {
@@ -62,8 +62,9 @@ export function createMainWindow(state: AppState, uiUrl: string): BrowserWindow 
   win.once("ready-to-show", () => {
     win.show();
     win.focus();
-    // AppShot overlay warm can race first paint and dismiss Dock (electron#26350).
-    void ensureMacDockVisible();
+    // Soft show is not enough on macOS 26 — tile can stay Accessibility 0×N
+    // (looks like a tiny/missing Dock icon while DMG/Finder still show full art).
+    void pinMacDockAfterBoot();
   });
 
   if (process.env.ATMOS_ELECTRON_OPEN_DEVTOOLS === "1") {

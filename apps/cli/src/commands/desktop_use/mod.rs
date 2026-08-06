@@ -96,20 +96,36 @@ fn driver_grant(args: GrantPermissionsArgs) -> Result<Value, String> {
         )
     })?;
     let mgr = DesktopUseManager::new();
-    mgr.open_permission_grant_target(target)?;
-    let target_label = match target {
-        PermissionGrantTarget::All => "all",
-        PermissionGrantTarget::Accessibility => "accessibility",
-        PermissionGrantTarget::ScreenRecording => "screen_recording",
+    let outcome = mgr.open_permission_grant_target(target)?;
+    let target_label = outcome.target.as_str();
+    let host_name = outcome
+        .host_app_name
+        .as_deref()
+        .unwrap_or("Atmos Desktop Use");
+
+    // Do not open Finder / Reveal — Settings is enough; Desktop shows a grant panel.
+
+    let hint = if outcome.accessibility_pane {
+        format!(
+            "System Settings → Accessibility opened. Enable the toggle for {host_name}. If it is not listed, add the host app with + (path in host_app_path), then Refresh. Atmos Desktop shows a drag chip for the same path."
+        )
+    } else {
+        format!(
+            "System Settings → Screen Recording opened for {host_name}. Enable the toggle there, then return and Refresh."
+        )
     };
+
     Ok(json!({
         "ok": true,
         "action": "grant_permissions",
         "target": target_label,
-        "host": "Atmos Desktop Use",
+        "host": host_name,
+        "host_app_path": outcome.host_app_path,
+        "host_app_name": outcome.host_app_name,
+        "accessibility_pane": outcome.accessibility_pane,
         "applied": true,
-        "opened_settings": true,
-        "hint": "System Settings → Privacy & Security opened for Atmos Desktop Use. Enable the toggle there, then return and Refresh. No extra system alert is shown — Settings is the grant surface.",
+        "opened_settings": outcome.opened_settings,
+        "hint": hint,
     }))
 }
 

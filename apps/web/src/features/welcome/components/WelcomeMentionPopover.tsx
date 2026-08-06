@@ -111,7 +111,7 @@ export function WelcomeMentionPopover({
       />
       <div
         ref={listRef}
-        className="fixed z-[2147483647] max-h-80 w-[min(90vw,460px)] overflow-y-auto rounded-md border border-border/70 bg-popover p-1 text-sm text-popover-foreground shadow-md"
+        className="fixed z-[2147483647] max-h-80 w-[min(90vw,460px)] space-y-0.5 overflow-y-auto rounded-md border border-border/70 bg-popover p-1 text-sm text-popover-foreground shadow-md"
         style={{
           top: popover.top,
           bottom: popover.bottom,
@@ -133,7 +133,7 @@ export function WelcomeMentionPopover({
                       onSetItemRef(issueIndex, element);
                     }}
                     className={cn(
-                      "flex w-full items-center gap-2 rounded-md px-2.5 py-1 text-left hover:bg-muted",
+                      "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left hover:bg-muted",
                       issueIndex === activeIndex && "bg-muted",
                     )}
                     onMouseDown={(event) => {
@@ -166,7 +166,7 @@ export function WelcomeMentionPopover({
                       onSetItemRef(prIndex, element);
                     }}
                     className={cn(
-                      "flex w-full items-center gap-2 rounded-md px-2.5 py-1 text-left hover:bg-muted",
+                      "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left hover:bg-muted",
                       prIndex === activeIndex && "bg-muted",
                     )}
                     onMouseDown={(event) => {
@@ -218,7 +218,7 @@ export function WelcomeMentionPopover({
                       onSetItemRef(navIndex, element);
                     }}
                     className={cn(
-                      "flex w-full items-center gap-2 rounded-md px-2.5 py-1 text-left hover:bg-muted",
+                      "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left hover:bg-muted",
                       item.isHidden && "text-muted-foreground",
                       navIndex === activeIndex && "bg-muted",
                     )}

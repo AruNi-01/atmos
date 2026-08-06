@@ -10,7 +10,7 @@ Chrome/Edge extension that bridges cross-port preview element selection for Atmo
 | `background.js` | Service worker (minimal, install log only) |
 | `content.js` | Injected by Chrome into matching pages; loads `browser-runtime.js` and `injected.js` |
 | `injected.js` | Page-level glue — receives `host-init` from Atmos, creates runtime controller, relays messages |
-| `browser-runtime.js` | Extension-specific preview runtime. Shares inspection logic with `packages/shared/browser/browser-runtime.js` but has a different overlay architecture (see below). |
+| `browser-runtime.js` | **Synced copy** of `packages/shared/browser/browser-runtime.js` (run `bun run extension/scripts/sync-browser-runtime.ts`). Do not hand-edit. |
 
 ## How It Works
 
@@ -42,20 +42,20 @@ The extension includes a version-check mechanism. When users click the element p
 
 All three values must always match. Forgetting any one will break the update detection.
 
-## Two Runtime Variants
+## Single Runtime Source
 
-There are two `browser-runtime.js` files. They share the same inspection logic (element selection, React/Vue/Angular/Svelte source locators, event handling) and public API (`createRuntime`), but differ in overlay implementation:
+**Canonical file:** `packages/shared/browser/browser-runtime.js`
 
-| | `extension/browser-runtime.js` | `packages/shared/browser/browser-runtime.js` |
-|---|---|---|
-| **Used by** | Browser extension (Chrome MV3) | Desktop app (Tauri `include_str!`) |
-| **Overlay** | Single root container + single-box divs | Per-segment border divs (4 thin edges per box) |
-| **`setCursor()`** | Working — sets cursor on root, boxes, labels | No-op — Tauri manages cursor natively via Rust bridge |
-| **UI sizing** | Larger (44px buttons, 22px icons) | Compact (34px buttons, 17px icons) |
+- Desktop Electron injects that file (copied to `apps/desktop-electron/dist/browser-runtime.js` at build).
+- Extension ships a copy under `extension/browser-runtime.js` — regenerate with:
 
-The desktop variant uses per-segment borders to avoid intercepting pointer events in the cross-origin Tauri child webview, where a single overlay div would block the native cursor tracking.
+```bash
+bun run extension/scripts/sync-browser-runtime.ts
+```
 
-When modifying inspection logic, source locators, or the public API, update **both** files. Overlay/cursor changes are variant-specific.
+`injected.js` creates the runtime with `showSelectionToolbar: false` and `showHoverLabel: true` so host SelectionPopover matches desktop (guest draws hover/lock only).
+
+When changing inspection logic, edit **shared only**, then re-sync the extension.
 
 ## Downstream Consumers
 

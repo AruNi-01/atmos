@@ -106,14 +106,13 @@ export function RefreshableTabsTab({
             if (event.key !== "Enter" && event.key !== " ") return;
             handleRefresh(event);
           }}
-          className="flex h-full flex-1 items-center justify-center gap-1.5 cursor-pointer hover:bg-sidebar-accent"
+          className="flex h-full flex-1 items-center justify-center cursor-pointer hover:bg-sidebar-accent"
         >
           {isSpinning ? (
             <LoaderCircle className="size-3.5 animate-spin" />
           ) : (
             <RotateCcw className="size-3.5" />
           )}
-          <span className="text-xs font-medium">Refresh</span>
         </span>
         {trailingAction?.({ isVisible: showRefreshButton })}
       </div>

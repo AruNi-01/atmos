@@ -1,10 +1,10 @@
 ---
 name: atmos-browser-use
-version: "1.0.1"
+version: "1.2.0"
 description: >
-  Control web pages via CDP-style Browser Use (`atmos browser-use`), separate from
-  Desktop Use. Prefer for Chrome/Chromium page DOM (click ref, type, navigate).
-  Do not use for OS window chrome or non-browser apps. No MCP.
+  Control web pages via Browser Use (`atmos browser-use`), separate from Desktop Use.
+  Prefer for Chrome/Chromium page DOM or Atmos in-app browser (embedded). Do not use for
+  OS window chrome or non-browser apps (Slack/VS Code). No MCP.
 ---
 
 # Atmos Browser Use
@@ -15,50 +15,53 @@ description: >
 
 | `--backend` | Meaning |
 |-------------|---------|
-| `cua` (default) | System Chromium via managed control engine (`browser_*` tools) |
-| `embedded` | Atmos in-app browser (APP-053 webview) — **reserved stub** until PR #203 merges |
+| `external` (default) | System Chrome/Chromium via Desktop Use control engine |
+| `embedded` | Atmos in-app browser via Desktop host control plane |
 
-## Engine 0.17 loop (system Chrome)
+## Atmos embedded loop (in-app browser)
+
+Requires **Atmos Desktop** running with at least one Browser tab open.
 
 ```bash
-# 1) Find Chrome pid + window_id (Desktop Use)
-atmos desktop-use --json drive apps
-atmos desktop-use --json drive verify   # note pid + window_id for Chrome
+# 1) Host readiness + list sessions (target_id = in-app browser session id)
+atmos browser-use --json prepare --backend embedded
 
-# 2) Prepare CDP endpoint
-# Detect-only (no existing_profile unless you pass --window-id + --strategy):
-atmos browser-use --json prepare --backend cua --pid <chrome_pid>
+# 2) Bind list (omit target) or snapshot DOM refs for a session
+atmos browser-use --json state --backend embedded
+atmos browser-use --json state --backend embedded --target-id <session_id>
 
-# Attach existing user profile (requires window_id + host grants):
-atmos browser-use --json prepare --backend cua --pid <pid> --window-id <wid> \
-  --strategy existing_profile
-
-# 3) Bind → mint target_id + tab_ids  (requires pid + window_id)
-atmos browser-use --json state --backend cua --pid <pid> --window-id <wid>
-# read target_id / tab_id from JSON
-
-# 4) Snapshot DOM refs for a tab
-atmos browser-use --json state --backend cua --target-id <tid> --tab-id <tab>
-
-# 5) Act (all require target_id + tab_id; type also requires --ref)
-atmos browser-use --json click --backend cua --target-id <tid> --tab-id <tab> --ref <ref>
-atmos browser-use --json type --backend cua --target-id <tid> --tab-id <tab> --ref <ref> --text "…"
-atmos browser-use --json navigate --backend cua --target-id <tid> --tab-id <tab> --url https://…
+# 3) Act
+atmos browser-use --json click --backend embedded --target-id <session_id> --tab-id main --ref e0
+atmos browser-use --json type --backend embedded --target-id <session_id> --tab-id main --ref e3 --text "hello"
+atmos browser-use --json navigate --backend embedded --target-id <session_id> --tab-id main --url https://example.com
 ```
 
-**Do not** call bare `state` without bind or snapshot ids — engine needs `pid+window_id` or `target_id+tab_id`.
+Host writes `~/.atmos/browser-use/control.json` with a loopback `base_url`. CLI talks only to that plane — **never** user-Chrome prepare on the embedded path.
+
+## System Chrome loop (external)
+
+```bash
+# Find Chrome pid + window_id via Desktop Use
+atmos desktop-use --json drive verify
+
+atmos browser-use --json prepare --backend external --pid <chrome_pid>
+atmos browser-use --json state --backend external --pid <pid> --window-id <wid>
+atmos browser-use --json state --backend external --target-id … --tab-id …
+atmos browser-use --json click --backend external --target-id … --tab-id … --ref …
+```
 
 ## Decision
 
-- **Page content / DOM** → this skill  
-- **Window chrome, other apps, global keys** → `atmos-desktop-use`  
-- **Embedded Atmos browser** → `--backend embedded` only after APP-053; until then use `cua` or desktop path  
+| Target | Surface |
+|--------|---------|
+| Atmos in-app browser page | `--backend embedded` |
+| User Chrome/Chromium page | `--backend external` |
+| Window chrome / Slack / VS Code / any non-browser app | **`atmos-desktop-use`** (AX / pixel) |
 
 ## Errors
 
 | Code | Meaning |
 |------|---------|
-| `embedded_browser_not_implemented` | Stub; wait for APP-053 webview |
-| `control_engine_not_installed` | `atmos desktop-use driver ensure` first |
-| `invalid_args` | Missing pid / window_id / target_id / tab_id / ref |
-| `browser_engine_failed` | Engine refusal (consent, setup, scope) — read `result` |
+| `embedded_browser_host_unavailable` | Desktop Browser Use host not running / no control.json |
+| `control_engine_not_installed` / `browser_engine_failed` | External path needs Desktop Use engine install |
+| `invalid_args` | Missing target_id / ref / url |

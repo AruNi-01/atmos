@@ -296,6 +296,9 @@ function AppSearchResults({
                 description={showDescription ? item.description : undefined}
                 highlightQuery={searchQuery}
                 shortcut={item.shortcut}
+                contextId={item.contextId}
+                githubPr={item.githubPr}
+                branch={item.branch}
               />
             ))}
           </CommandGroup>

@@ -1,61 +1,17 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useEffect, useRef } from "react";
 import { useTranslations } from "next-intl";
 import { TextShimmer, FilledBellIcon, cn } from "@workspace/ui";
 import type { AnimatedIconHandle } from "@workspace/ui";
 import { AGENT_STATE, type AgentHookState } from "@/features/agent/store/agent-hooks-store";
-
-const SPINNER_NAMES = [
-  "braille", "helix", "scan", "cascade", "orbit",
-  "snake", "breathe", "pulse", "dna", "rain",
-] as const;
-
-const BRAILLE_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
-const BRAILLE_INTERVAL = 80;
-
-function useBrailleSpinner() {
-  const [frame, setFrame] = useState(0);
-
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setFrame((f) => (f + 1) % BRAILLE_FRAMES.length);
-    }, BRAILLE_INTERVAL);
-    return () => clearInterval(timer);
-  }, []);
-
-  return BRAILLE_FRAMES[frame];
-}
-
-function useFullSpinner() {
-  const [frame, setFrame] = useState(0);
-  const [spinner, setSpinner] = useState<{ frames: readonly string[]; interval: number } | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    const name = SPINNER_NAMES[Math.floor(Math.random() * SPINNER_NAMES.length)];
-
-    import("unicode-animations").then((mod) => {
-      if (cancelled) return;
-      const spinners = mod.default ?? mod;
-      const s = spinners[name as keyof typeof spinners];
-      if (s) setSpinner(s);
-    });
-
-    return () => { cancelled = true; };
-  }, []);
-
-  useEffect(() => {
-    if (!spinner) return;
-    const timer = setInterval(() => {
-      setFrame((f) => f + 1);
-    }, spinner.interval);
-    return () => clearInterval(timer);
-  }, [spinner]);
-
-  if (!spinner) return "⠋";
-  return spinner.frames[frame % spinner.frames.length];
-}
+import { AgentRunningGlyph } from "@/features/agent/components/AgentRunningGlyph";
+import {
+  DEFAULT_INDICATOR_BY_PLACEMENT,
+  type AgentActivityIndicatorId,
+  type AgentIndicatorPlacement,
+} from "@/features/agent/lib/agent-activity-indicator-styles";
+import { useAgentActivityIndicatorSettingsStore } from "@/features/settings/store/agent-activity-indicator-settings-store";
 
 export type AgentHookIndicatorVariant = "compact" | "full";
 
@@ -64,6 +20,16 @@ interface AgentHookStatusIndicatorProps {
   variant?: AgentHookIndicatorVariant;
   className?: string;
   tool?: string;
+  /**
+   * Where this indicator is shown. Selects the user-configured running glyph.
+   * Omit when forcing `styleId` (e.g. settings previews).
+   */
+  placement?: AgentIndicatorPlacement;
+  /**
+   * Force a specific running glyph (settings previews / tests).
+   * Wins over `placement` when both are set.
+   */
+  styleId?: AgentActivityIndicatorId;
 }
 
 const STATE_DOT_COLORS: Record<AgentHookState, string> = {
@@ -87,7 +53,10 @@ function PermissionBellCompact() {
   const bellRef = useRef<AnimatedIconHandle>(null);
   useLoopingBell(bellRef);
   return (
-    <span className="inline-flex items-center justify-center size-5 text-amber-400/70" title={t("permissionRequested")}>
+    <span
+      className="inline-flex size-5 items-center justify-center text-amber-400/70"
+      title={t("permissionRequested")}
+    >
       <FilledBellIcon ref={bellRef} size={14} color="currentColor" strokeWidth={0} />
     </span>
   );
@@ -109,9 +78,26 @@ function PermissionBellFull({ tool }: { tool?: string }) {
   );
 }
 
-function CompactIndicator({ state }: { state: AgentHookState }) {
+function useResolvedStyleId(
+  placement: AgentIndicatorPlacement | undefined,
+  styleId: AgentActivityIndicatorId | undefined,
+): AgentActivityIndicatorId {
+  const fromStore = useAgentActivityIndicatorSettingsStore((s) =>
+    placement ? s[placement] : DEFAULT_INDICATOR_BY_PLACEMENT.left_sidebar,
+  );
+  if (styleId) return styleId;
+  if (placement) return fromStore;
+  return DEFAULT_INDICATOR_BY_PLACEMENT.left_sidebar;
+}
+
+function CompactIndicator({
+  state,
+  styleId,
+}: {
+  state: AgentHookState;
+  styleId: AgentActivityIndicatorId;
+}) {
   const t = useTranslations("Agent.components.hookStatus");
-  const spinnerChar = useBrailleSpinner();
 
   if (state === AGENT_STATE.IDLE) {
     return null;
@@ -121,21 +107,20 @@ function CompactIndicator({ state }: { state: AgentHookState }) {
     return <PermissionBellCompact />;
   }
 
-  return (
-    <span className="inline-flex items-center justify-center size-5 font-mono text-sm text-muted-foreground/80" title={t("agentRunning")}>
-      {spinnerChar}
-    </span>
-  );
+  return <AgentRunningGlyph styleId={styleId} density="compact" title={t("agentRunning")} />;
 }
 
-function RunningFullSpinner({ tool }: { tool?: string }) {
+function RunningFullSpinner({
+  tool,
+  styleId,
+}: {
+  tool?: string;
+  styleId: AgentActivityIndicatorId;
+}) {
   const t = useTranslations("Agent.components.hookStatus");
-  const spinnerChar = useFullSpinner();
   return (
     <div className="flex items-center gap-1.5 whitespace-nowrap">
-      <span className="inline-flex items-center font-mono text-[11px] leading-none text-muted-foreground/80 dark:text-muted-foreground">
-        {spinnerChar}
-      </span>
+      <AgentRunningGlyph styleId={styleId} density="full" />
       <TextShimmer as="span" className="text-[10px] whitespace-nowrap" duration={1.5}>
         {tool ? t("runningWithTool", { tool }) : t("agentRunning")}
       </TextShimmer>
@@ -143,7 +128,15 @@ function RunningFullSpinner({ tool }: { tool?: string }) {
   );
 }
 
-function FullIndicator({ state, tool }: { state: AgentHookState; tool?: string }) {
+function FullIndicator({
+  state,
+  tool,
+  styleId,
+}: {
+  state: AgentHookState;
+  tool?: string;
+  styleId: AgentActivityIndicatorId;
+}) {
   const t = useTranslations("Agent.components.hookStatus");
   if (state === AGENT_STATE.IDLE) {
     return (
@@ -160,7 +153,7 @@ function FullIndicator({ state, tool }: { state: AgentHookState; tool?: string }
     return <PermissionBellFull tool={tool} />;
   }
 
-  return <RunningFullSpinner tool={tool} />;
+  return <RunningFullSpinner tool={tool} styleId={styleId} />;
 }
 
 export function AgentHookStatusIndicator({
@@ -168,13 +161,17 @@ export function AgentHookStatusIndicator({
   variant = "compact",
   className,
   tool,
+  placement,
+  styleId,
 }: AgentHookStatusIndicatorProps) {
+  const resolvedStyleId = useResolvedStyleId(placement, styleId);
+
   return (
     <div className={cn("flex items-center whitespace-nowrap", className)}>
       {variant === "compact" ? (
-        <CompactIndicator state={state} />
+        <CompactIndicator state={state} styleId={resolvedStyleId} />
       ) : (
-        <FullIndicator state={state} tool={tool} />
+        <FullIndicator state={state} tool={tool} styleId={resolvedStyleId} />
       )}
     </div>
   );

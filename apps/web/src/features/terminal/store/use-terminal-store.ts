@@ -91,6 +91,7 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => {
   return ({
   workspaceTerminalTabs: {},
   workspaceActiveTerminalTabIds: {},
+  workspaceActivePaneIds: {},
   workspacePanes: {},
   workspaceLayouts: {},
   workspaceMaximizedIds: {},
@@ -246,11 +247,13 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => {
       const restPanes = { ...state.workspacePanes };
       const restLayouts = { ...state.workspaceLayouts };
       const restMaximized = { ...state.workspaceMaximizedIds };
+      const restActivePanes = { ...state.workspaceActivePaneIds };
       const nextHydratedScopes = new Set(state.hydratedTerminalScopes);
       const nextInitializingScopes = new Set(state.initializingTerminalScopes);
       delete restPanes[scopeKey];
       delete restLayouts[scopeKey];
       delete restMaximized[scopeKey];
+      delete restActivePanes[scopeKey];
       nextHydratedScopes.delete(scopeKey);
       nextInitializingScopes.delete(scopeKey);
 
@@ -272,6 +275,7 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => {
         workspacePanes: restPanes,
         workspaceLayouts: restLayouts,
         workspaceMaximizedIds: restMaximized,
+        workspaceActivePaneIds: restActivePanes,
         hydratedTerminalScopes: nextHydratedScopes,
         initializingTerminalScopes: nextInitializingScopes,
       };
@@ -530,6 +534,18 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => {
 
     get().saveToBackend(workspaceId);
     return newId;
+  },
+
+  setActivePaneId: (workspaceId, paneId, terminalTabId = FIXED_TERMINAL_TAB_VALUE) => {
+    const scopeKey = getScopeKey(workspaceId, terminalTabId);
+    const current = get().workspaceActivePaneIds[scopeKey] ?? null;
+    if (current === paneId) return;
+    set((state) => ({
+      workspaceActivePaneIds: {
+        ...state.workspaceActivePaneIds,
+        [scopeKey]: paneId,
+      },
+    }));
   },
 
   toggleMaximize: (workspaceId: string, id: string, terminalTabId = FIXED_TERMINAL_TAB_VALUE) => {

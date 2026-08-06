@@ -1,13 +1,4 @@
-// Extension-specific preview runtime for the unpacked browser extension.
-// This is NOT a mirror of packages/shared/browser/browser-runtime.js — the two
-// files have intentionally diverged:
-//   - This version uses a single root container + single-box overlays and a
-//     working setCursor(), suitable for running directly in the target page.
-//   - packages/shared/ uses per-segment border overlays and a no-op setCursor(),
-//     designed for Tauri's cross-origin child webview where cursor is managed
-//     natively by the Rust bridge.
-// Both files share the same inspection logic (locateReact, locateVue, etc.) and
-// public API shape (createRuntime). Keep those in sync when changing either file.
+// Canonical preview runtime shared by the desktop preview bridge and browser extension.
 (function () {
   if (window.__ATMOS_BROWSER_RUNTIME__) return;
 
@@ -16,6 +7,10 @@
   var PICKER_HOVER_BORDER_COLOR = '#15803d';
   var PICKER_LOCKED_COLOR = '#fde047';
   var PICKER_LOCKED_BORDER_COLOR = '#ca8a04';
+  var Z_ANNOTATION_BOX = '2147483643';
+  var Z_SELECTION_SEGMENT = '2147483644';
+  var Z_ANNOTATION_MARKER = '2147483645';
+  var Z_TOP_OVERLAY = '2147483647';
 
   function createPreviewPickerCursor(fillColor, borderColor) {
     var cursorPath =
@@ -166,63 +161,325 @@
     cursorStyle.dataset.atmosPreviewOverlay = 'true';
     doc.head.appendChild(cursorStyle);
 
-    const root = doc.createElement('div');
-    root.dataset.atmosPreviewOverlay = 'true';
-    root.style.position = 'fixed';
-    root.style.inset = '0';
-    root.style.pointerEvents = 'none';
-    root.style.zIndex = '2147483646';
-    root.style.cursor = 'inherit';
-    doc.documentElement.appendChild(root);
-
     function createBox(color) {
-      const box = doc.createElement('div');
-      box.dataset.atmosPreviewOverlay = 'true';
-      box.style.position = 'fixed';
-      box.style.border = '2px solid ' + color;
-      box.style.borderRadius = '8px';
-      box.style.background = color === '#2563eb' ? 'rgba(37, 99, 235, 0.08)' : 'rgba(249, 115, 22, 0.12)';
-      box.style.pointerEvents = 'none';
-      box.style.display = 'none';
-      box.style.boxSizing = 'border-box';
-      box.style.cursor = 'inherit';
-      root.appendChild(box);
-      return box;
+      var segments = ['top', 'right', 'bottom', 'left'].map(function () {
+        var segment = doc.createElement('div');
+        segment.dataset.atmosPreviewOverlay = 'true';
+        segment.style.position = 'fixed';
+        segment.style.background = color;
+        segment.style.pointerEvents = 'none';
+        segment.style.display = 'none';
+        segment.style.zIndex = Z_SELECTION_SEGMENT;
+        doc.documentElement.appendChild(segment);
+        return segment;
+      });
+      return {
+        segments: segments,
+      };
     }
 
     function createLabel() {
       const label = doc.createElement('div');
       label.dataset.atmosPreviewOverlay = 'true';
       label.style.position = 'fixed';
-      label.style.padding = '4px 8px';
-      label.style.borderRadius = '8px';
+      label.style.left = '0';
+      label.style.top = '0';
+      label.style.padding = '6px 12px';
+      label.style.borderRadius = '999px';
+      label.style.border = '1px solid rgba(255, 255, 255, 0.1)';
       label.style.fontSize = '12px';
-      label.style.lineHeight = '16px';
+      label.style.fontWeight = '500';
+      label.style.lineHeight = '1';
       label.style.fontFamily = 'ui-monospace, SFMono-Regular, Menlo, monospace';
-      label.style.background = 'rgba(15, 23, 42, 0.92)';
-      label.style.color = '#f8fafc';
+      label.style.background = 'rgba(9, 9, 11, 0.88)';
+      label.style.color = '#fafafa';
       label.style.pointerEvents = 'none';
       label.style.display = 'none';
       label.style.maxWidth = '320px';
       label.style.whiteSpace = 'nowrap';
       label.style.overflow = 'hidden';
-      label.style.textOverflow = 'ellipsis';
-      label.style.cursor = 'inherit';
-      root.appendChild(label);
-      return label;
+      label.style.boxShadow = '0 14px 34px rgba(0, 0, 0, 0.28)';
+      label.style.backdropFilter = 'blur(18px)';
+      label.style.webkitBackdropFilter = 'blur(18px)';
+      label.style.transform = 'translate3d(-9999px, -9999px, 0)';
+      label.style.willChange = 'transform';
+      label.style.zIndex = Z_TOP_OVERLAY;
+
+      const text = doc.createElement('span');
+      text.style.position = 'relative';
+      text.style.display = 'inline-flex';
+      text.style.maxWidth = '100%';
+      text.style.overflow = 'hidden';
+      text.style.verticalAlign = 'top';
+      label.appendChild(text);
+      doc.documentElement.appendChild(label);
+
+      var visible = false;
+      var cursorKnown = false;
+      var cursorX = 0;
+      var cursorY = 0;
+      var fallbackX = 8;
+      var fallbackY = 8;
+      var x = 0;
+      var y = 0;
+      var velocityX = 0;
+      var velocityY = 0;
+      var animationFrame = 0;
+      var currentText = '';
+      var prefersReducedMotion = false;
+      try {
+        prefersReducedMotion = !!(win.matchMedia && win.matchMedia('(prefers-reduced-motion: reduce)').matches);
+      } catch (_) {}
+
+      var textTransition = 'opacity 160ms cubic-bezier(0.22, 1, 0.36, 1), transform 180ms cubic-bezier(0.22, 1, 0.36, 1)';
+
+      function truncateLabel(value) {
+        var normalized = (value || '').replace(/\s+/g, ' ').trim();
+        if (normalized.length <= 96) return normalized;
+        return normalized.slice(0, 95).trimEnd() + '…';
+      }
+
+      function textCharacters(value) {
+        var counts = {};
+        return value.split('').map(function (character) {
+          var lower = character.toLowerCase();
+          counts[lower] = (counts[lower] || 0) + 1;
+          return {
+            id: lower + counts[lower],
+            label: character === ' ' ? '\u00A0' : character,
+          };
+        });
+      }
+
+      function styleCharacter(span) {
+        span.style.display = 'inline-block';
+        span.style.whiteSpace = 'pre';
+        span.style.willChange = 'transform, opacity';
+        span.style.transition = textTransition;
+      }
+
+      function morphText(nextText) {
+        var previousSpans = {};
+        var previousRects = {};
+        Array.prototype.forEach.call(text.children, function (child) {
+          var id = child.dataset && child.dataset.morphId;
+          if (!id) return;
+          previousSpans[id] = child;
+          previousRects[id] = child.getBoundingClientRect();
+        });
+
+        var characters = textCharacters(nextText);
+        var nextIds = {};
+        var nextSpans = {};
+        var fragment = doc.createDocumentFragment();
+
+        characters.forEach(function (character) {
+          nextIds[character.id] = true;
+        });
+
+        Object.keys(previousSpans).forEach(function (id) {
+          if (nextIds[id] || prefersReducedMotion) return;
+          var rect = previousRects[id];
+          if (!rect) return;
+          var ghost = previousSpans[id].cloneNode(true);
+          styleCharacter(ghost);
+          ghost.style.position = 'fixed';
+          ghost.style.left = rect.left + 'px';
+          ghost.style.top = rect.top + 'px';
+          ghost.style.width = rect.width + 'px';
+          ghost.style.height = rect.height + 'px';
+          ghost.style.margin = '0';
+          ghost.style.pointerEvents = 'none';
+          ghost.style.zIndex = Z_TOP_OVERLAY;
+          doc.documentElement.appendChild(ghost);
+          win.requestAnimationFrame(function () {
+            ghost.style.opacity = '0';
+            ghost.style.transform = 'translateY(-6px)';
+          });
+          win.setTimeout(function () {
+            ghost.remove();
+          }, 190);
+        });
+
+        characters.forEach(function (character) {
+          var span = previousSpans[character.id] || doc.createElement('span');
+          span.dataset.morphId = character.id;
+          span.textContent = character.label;
+          styleCharacter(span);
+          if (!previousSpans[character.id] && !prefersReducedMotion) {
+            span.style.opacity = '0';
+            span.style.transform = 'translateY(6px)';
+          } else {
+            span.style.opacity = '1';
+            span.style.transform = 'translate(0, 0)';
+          }
+          nextSpans[character.id] = span;
+          fragment.appendChild(span);
+        });
+
+        text.replaceChildren(fragment);
+        if (prefersReducedMotion) return;
+
+        win.requestAnimationFrame(function () {
+          characters.forEach(function (character) {
+            var span = nextSpans[character.id];
+            var previousRect = previousRects[character.id];
+            if (!span) return;
+            if (!previousRect) {
+              span.style.opacity = '1';
+              span.style.transform = 'translateY(0)';
+              return;
+            }
+            var nextRect = span.getBoundingClientRect();
+            var deltaX = previousRect.left - nextRect.left;
+            var deltaY = previousRect.top - nextRect.top;
+            if (Math.abs(deltaX) < 0.5 && Math.abs(deltaY) < 0.5) return;
+            span.style.transition = 'none';
+            span.style.transform = 'translate(' + deltaX + 'px, ' + deltaY + 'px)';
+            span.getBoundingClientRect();
+            span.style.transition = textTransition;
+            span.style.transform = 'translate(0, 0)';
+          });
+        });
+      }
+
+      function setText(value) {
+        var nextText = truncateLabel(value || '');
+        if (nextText === currentText) return;
+        currentText = nextText;
+        morphText(nextText);
+      }
+
+      function targetPosition() {
+        var width = label.offsetWidth;
+        var height = label.offsetHeight;
+        var originX = cursorKnown ? cursorX : fallbackX;
+        var originY = cursorKnown ? cursorY : fallbackY;
+        var targetX = originX + 16;
+        var targetY = originY + 18;
+
+        if (targetX + width > win.innerWidth - 8) {
+          targetX = originX - width - 12;
+        }
+        if (targetY + height > win.innerHeight - 8) {
+          targetY = originY - height - 12;
+        }
+
+        return {
+          x: clamp(targetX, 8, Math.max(8, win.innerWidth - width - 8)),
+          y: clamp(targetY, 8, Math.max(8, win.innerHeight - height - 8)),
+        };
+      }
+
+      function applyTransform() {
+        label.style.transform = 'translate3d(' + Math.round(x) + 'px, ' + Math.round(y) + 'px, 0)';
+      }
+
+      function animate() {
+        if (!visible) {
+          animationFrame = 0;
+          return;
+        }
+
+        var target = targetPosition();
+        if (prefersReducedMotion) {
+          x = target.x;
+          y = target.y;
+          applyTransform();
+          animationFrame = 0;
+          return;
+        }
+
+        var nextX = x + (target.x - x) * 0.28;
+        var nextY = y + (target.y - y) * 0.28;
+        velocityX = nextX - x;
+        velocityY = nextY - y;
+        x = nextX;
+        y = nextY;
+        applyTransform();
+
+        if (
+          Math.abs(target.x - x) < 0.2 &&
+          Math.abs(target.y - y) < 0.2 &&
+          Math.abs(velocityX) < 0.2 &&
+          Math.abs(velocityY) < 0.2
+        ) {
+          x = target.x;
+          y = target.y;
+          velocityX = 0;
+          velocityY = 0;
+          applyTransform();
+          animationFrame = 0;
+          return;
+        }
+
+        animationFrame = win.requestAnimationFrame(animate);
+      }
+
+      function startAnimation() {
+        if (animationFrame) return;
+        animationFrame = win.requestAnimationFrame(animate);
+      }
+
+      return {
+        node: label,
+        updateCursor(xValue, yValue) {
+          if (!Number.isFinite(xValue) || !Number.isFinite(yValue)) return;
+          cursorKnown = true;
+          cursorX = xValue;
+          cursorY = yValue;
+          if (visible) startAnimation();
+        },
+        show(value, rect) {
+          if (!value) {
+            this.hide();
+            return;
+          }
+          fallbackX = rect.x;
+          fallbackY = Math.max(8, rect.y - 32);
+          setText(value);
+          label.style.display = 'block';
+          if (!visible) {
+            visible = true;
+            var target = targetPosition();
+            x = target.x;
+            y = target.y;
+            velocityX = 0;
+            velocityY = 0;
+            applyTransform();
+          }
+          startAnimation();
+        },
+        hide() {
+          visible = false;
+          label.style.display = 'none';
+          velocityX = 0;
+          velocityY = 0;
+          if (animationFrame) {
+            win.cancelAnimationFrame(animationFrame);
+            animationFrame = 0;
+          }
+        },
+        remove() {
+          this.hide();
+          label.remove();
+        },
+      };
     }
 
     const hoverBox = createBox(PICKER_HOVER_COLOR);
     const lockedBox = createBox(PICKER_LOCKED_COLOR);
     const hoverLabel = createLabel();
     const lockedLabel = createLabel();
-    const chromeRoot = doc.createElement('div');
-    chromeRoot.dataset.atmosPreviewOverlay = 'true';
-    chromeRoot.style.position = 'fixed';
-    chromeRoot.style.inset = '0';
-    chromeRoot.style.pointerEvents = 'none';
-    chromeRoot.style.zIndex = '2147483647';
-    doc.documentElement.appendChild(chromeRoot);
+    // Hover label is independent of host toolbar ownership. Host owns SelectionPopover
+    // when showSelectionToolbar is false; pick chrome (hover/locked box + labels) still
+    // lives in the guest. Default: show guest hover labels unless explicitly disabled.
+    // Desktop product sets showHoverLabel: true so pick mode matches the locked "motion.div" chip.
+    const showHoverLabel = options
+      ? (options.showHoverLabel != null
+        ? !!options.showHoverLabel
+        : !!options.showSelectionToolbar)
+      : false;
 
     function stopPropagation(event) {
       event.stopPropagation();
@@ -264,14 +521,14 @@
       button.style.display = 'inline-flex';
       button.style.alignItems = 'center';
       button.style.justifyContent = 'center';
-      button.style.gap = '10px';
-      button.style.height = '44px';
+      button.style.gap = '8px';
+      button.style.height = '34px';
       button.style.border = '0';
       button.style.outline = 'none';
       button.style.cursor = 'pointer';
       button.style.pointerEvents = 'auto';
       button.style.fontFamily = 'ui-sans-serif, -apple-system, BlinkMacSystemFont, sans-serif';
-      button.style.fontSize = '16px';
+      button.style.fontSize = '13px';
       button.style.lineHeight = '1';
       button.style.transition = 'background 140ms ease, color 140ms ease, transform 140ms ease, opacity 140ms ease';
       button.addEventListener('mousedown', function (event) {
@@ -286,10 +543,10 @@
 
     function createFooterButton(label, variant, iconPath) {
       const button = createButtonBase();
-      button.style.padding = '0 18px';
-      button.style.borderRadius = '16px';
+      button.style.padding = '0 15px';
+      button.style.borderRadius = '12px';
       button.style.fontWeight = '600';
-      button.style.minWidth = label === 'Cancel' ? '116px' : label === 'Add' ? '124px' : '232px';
+      button.style.minWidth = label === 'Cancel' ? '88px' : label === 'Add' || label === 'Copy' || label === 'Update' ? '96px' : '152px';
       if (variant === 'primary') {
         button.style.background = '#f4f4f6';
         button.style.color = '#1f1f24';
@@ -298,7 +555,7 @@
         button.style.color = '#f5f5f7';
       }
       if (iconPath) {
-        button.appendChild(createSvgIcon(iconPath, 22));
+        button.appendChild(createSvgIcon(iconPath, 17));
       }
       const text = doc.createElement('span');
       text.textContent = label;
@@ -314,18 +571,20 @@
 
     const detailsCard = doc.createElement('div');
     detailsCard.dataset.atmosPreviewOverlay = 'true';
+    detailsCard.dataset.atmosPreviewToolbar = 'true';
     detailsCard.style.position = 'fixed';
     detailsCard.style.display = 'none';
     detailsCard.style.pointerEvents = 'auto';
-    detailsCard.style.borderRadius = '18px';
+    detailsCard.style.borderRadius = '16px';
     detailsCard.style.border = '1px solid rgba(255, 255, 255, 0.14)';
     detailsCard.style.background = 'rgba(27, 27, 32, 0.98)';
     detailsCard.style.boxShadow = '0 22px 50px rgba(0, 0, 0, 0.34)';
     detailsCard.style.backdropFilter = 'blur(18px)';
     detailsCard.style.webkitBackdropFilter = 'blur(18px)';
-    detailsCard.style.padding = '22px 24px 24px';
+    detailsCard.style.padding = '18px 20px 20px';
     detailsCard.style.boxSizing = 'border-box';
-    chromeRoot.appendChild(detailsCard);
+    detailsCard.style.zIndex = Z_TOP_OVERLAY;
+    doc.documentElement.appendChild(detailsCard);
 
     detailsCard.addEventListener('mousedown', stopPropagation);
     detailsCard.addEventListener('mouseup', stopPropagation);
@@ -333,12 +592,14 @@
     detailsCard.addEventListener('dblclick', stopPropagation);
 
     const addIconPath = '<path d="M5 12h14"></path><path d="M12 5v14"></path>';
+    const copyIconPath = '<rect width="14" height="14" x="8" y="8" rx="2" ry="2"></rect><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"></path>';
+    const annotationIconPath = '<path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"></path><path d="M8 12h8"></path><path d="M12 8v8"></path>';
 
     const sourceSummary = doc.createElement('div');
     sourceSummary.style.color = '#b9b9c2';
-    sourceSummary.style.fontSize = '15px';
-    sourceSummary.style.lineHeight = '1.45';
-    sourceSummary.style.marginBottom = '18px';
+    sourceSummary.style.fontSize = '13px';
+    sourceSummary.style.lineHeight = '1.4';
+    sourceSummary.style.marginBottom = '14px';
     sourceSummary.style.whiteSpace = 'nowrap';
     sourceSummary.style.overflow = 'hidden';
     sourceSummary.style.textOverflow = 'ellipsis';
@@ -350,81 +611,138 @@
     noteInput.spellcheck = false;
     noteInput.dataset.atmosPreviewOverlay = 'true';
     noteInput.style.width = '100%';
-    noteInput.style.minHeight = '156px';
+    noteInput.style.minHeight = '104px';
     noteInput.style.resize = 'none';
     noteInput.style.boxSizing = 'border-box';
-    noteInput.style.borderRadius = '18px';
+    noteInput.style.borderRadius = '12px';
     noteInput.style.border = '1px solid rgba(255, 255, 255, 0.14)';
     noteInput.style.background = 'rgba(41, 41, 47, 0.98)';
     noteInput.style.boxShadow = 'inset 0 0 0 1px rgba(255, 255, 255, 0.05)';
     noteInput.style.color = '#f5f5f7';
-    noteInput.style.padding = '20px 22px';
-    noteInput.style.fontSize = '16px';
-    noteInput.style.lineHeight = '1.55';
+    noteInput.style.padding = '12px 14px';
+    noteInput.style.fontSize = '13px';
+    noteInput.style.lineHeight = '1.45';
     noteInput.style.outline = 'none';
-    noteInput.style.marginBottom = '22px';
-    noteInput.addEventListener('mousedown', stopPropagation, true);
-    noteInput.addEventListener('mouseup', stopPropagation, true);
-    noteInput.addEventListener('click', stopPropagation, true);
+    noteInput.style.marginBottom = '16px';
+    noteInput.addEventListener('mousedown', stopPropagation);
+    noteInput.addEventListener('mouseup', stopPropagation);
+    noteInput.addEventListener('click', stopPropagation);
     detailsCard.appendChild(noteInput);
 
     const confidenceSection = doc.createElement('div');
     confidenceSection.style.display = 'none';
-    confidenceSection.style.marginBottom = '24px';
+    confidenceSection.style.marginBottom = '18px';
     detailsCard.appendChild(confidenceSection);
 
-    const confidenceHeader = doc.createElement('div');
+    const confidenceHeader = doc.createElement('button');
+    confidenceHeader.type = 'button';
+    confidenceHeader.dataset.atmosPreviewOverlay = 'true';
+    confidenceHeader.setAttribute('aria-expanded', 'false');
     confidenceHeader.style.display = 'flex';
     confidenceHeader.style.alignItems = 'center';
     confidenceHeader.style.justifyContent = 'space-between';
     confidenceHeader.style.gap = '12px';
-    confidenceHeader.style.marginBottom = '14px';
+    confidenceHeader.style.width = '100%';
+    confidenceHeader.style.margin = '0';
+    confidenceHeader.style.padding = '0';
+    confidenceHeader.style.border = '0';
+    confidenceHeader.style.background = 'transparent';
+    confidenceHeader.style.cursor = 'pointer';
+    confidenceHeader.style.fontFamily = 'ui-sans-serif, -apple-system, BlinkMacSystemFont, sans-serif';
+    confidenceHeader.style.textAlign = 'left';
     confidenceSection.appendChild(confidenceHeader);
+
+    const confidenceTitleGroup = doc.createElement('span');
+    confidenceTitleGroup.style.display = 'inline-flex';
+    confidenceTitleGroup.style.alignItems = 'center';
+    confidenceTitleGroup.style.gap = '6px';
+    confidenceTitleGroup.style.minWidth = '0';
+    confidenceHeader.appendChild(confidenceTitleGroup);
+
+    const confidenceChevron = createSvgIcon('<path d="m6 9 6 6 6-6"></path>', 16);
+    confidenceChevron.style.color = '#8e8e98';
+    confidenceChevron.style.flex = '0 0 auto';
+    confidenceChevron.style.transition = 'transform 180ms cubic-bezier(0.22, 1, 0.36, 1)';
+    confidenceTitleGroup.appendChild(confidenceChevron);
 
     const confidenceTitle = doc.createElement('div');
     confidenceTitle.textContent = 'Source Code Confidence';
     confidenceTitle.style.color = '#b9b9c2';
-    confidenceTitle.style.fontSize = '14px';
+    confidenceTitle.style.fontSize = '12px';
     confidenceTitle.style.fontWeight = '600';
-    confidenceHeader.appendChild(confidenceTitle);
+    confidenceTitle.style.whiteSpace = 'nowrap';
+    confidenceTitle.style.overflow = 'hidden';
+    confidenceTitle.style.textOverflow = 'ellipsis';
+    confidenceTitleGroup.appendChild(confidenceTitle);
 
     const confidenceBadge = doc.createElement('span');
     confidenceBadge.style.display = 'inline-flex';
     confidenceBadge.style.alignItems = 'center';
     confidenceBadge.style.justifyContent = 'center';
-    confidenceBadge.style.minWidth = '76px';
-    confidenceBadge.style.padding = '0 16px';
-    confidenceBadge.style.height = '38px';
+    confidenceBadge.style.minWidth = '64px';
+    confidenceBadge.style.padding = '0 12px';
+    confidenceBadge.style.height = '30px';
     confidenceBadge.style.borderRadius = '999px';
-    confidenceBadge.style.fontSize = '14px';
+    confidenceBadge.style.fontSize = '11px';
     confidenceBadge.style.fontWeight = '700';
     confidenceBadge.style.letterSpacing = '0.12em';
     confidenceHeader.appendChild(confidenceBadge);
 
+    const confidenceSignalsWrap = doc.createElement('div');
+    confidenceSignalsWrap.style.display = 'grid';
+    confidenceSignalsWrap.style.gridTemplateRows = '0fr';
+    confidenceSignalsWrap.style.transition = 'grid-template-rows 200ms cubic-bezier(0.22, 1, 0.36, 1)';
+    confidenceSection.appendChild(confidenceSignalsWrap);
+
+    const confidenceSignalsInner = doc.createElement('div');
+    confidenceSignalsInner.style.minHeight = '0';
+    confidenceSignalsInner.style.overflow = 'hidden';
+    confidenceSignalsWrap.appendChild(confidenceSignalsInner);
+
     const confidenceSignals = doc.createElement('div');
-    confidenceSignals.style.borderRadius = '16px';
+    confidenceSignals.style.marginTop = '10px';
+    confidenceSignals.style.borderRadius = '12px';
     confidenceSignals.style.border = '1px solid rgba(255, 255, 255, 0.1)';
     confidenceSignals.style.background = 'rgba(35, 35, 41, 0.85)';
-    confidenceSignals.style.padding = '16px 18px';
+    confidenceSignals.style.padding = '12px 14px';
     confidenceSignals.style.color = '#b9b9c2';
-    confidenceSignals.style.fontSize = '14px';
-    confidenceSignals.style.lineHeight = '1.55';
-    confidenceSection.appendChild(confidenceSignals);
+    confidenceSignals.style.fontSize = '12px';
+    confidenceSignals.style.lineHeight = '1.45';
+    confidenceSignals.style.opacity = '0';
+    confidenceSignals.style.transform = 'translateY(-4px)';
+    confidenceSignals.style.transition = 'opacity 200ms cubic-bezier(0.22, 1, 0.36, 1), transform 200ms cubic-bezier(0.22, 1, 0.36, 1)';
+    confidenceSignalsInner.appendChild(confidenceSignals);
 
     const footer = doc.createElement('div');
     footer.style.display = 'flex';
     footer.style.alignItems = 'center';
     footer.style.justifyContent = 'space-between';
-    footer.style.gap = '18px';
+    footer.style.gap = '12px';
     detailsCard.appendChild(footer);
 
+    const footerActions = doc.createElement('div');
+    footerActions.style.display = 'flex';
+    footerActions.style.alignItems = 'center';
+    footerActions.style.justifyContent = 'flex-end';
+    footerActions.style.gap = '10px';
+
     const footerCancelButton = createFooterButton('Cancel', 'ghost');
-    const footerCopyButton = createFooterButton('Add', 'primary', addIconPath);
+    const footerAddButton = createFooterButton('Add', 'primary', addIconPath);
+    const footerCopyButton = createFooterButton('Copy', 'primary', copyIconPath);
+    const footerUpdateButton = createFooterButton('Update', 'primary');
     footer.appendChild(footerCancelButton);
-    footer.appendChild(footerCopyButton);
+    footer.appendChild(footerActions);
+    footerActions.appendChild(footerAddButton);
+    footerActions.appendChild(footerCopyButton);
+    footerActions.appendChild(footerUpdateButton);
+    footerUpdateButton.style.display = 'none';
 
     let currentMeta = null;
     let currentRect = null;
+    let confidenceExpanded = false;
+    let currentEditingAnnotation = null;
+    let nextAnnotationIndex = 1;
+    const annotations = [];
     let cancelHandler = null;
     let copyHandler = null;
 
@@ -442,6 +760,252 @@
         confidenceBadge.style.background = 'rgba(121, 44, 44, 0.26)';
         confidenceBadge.style.border = '1px solid rgba(241, 139, 139, 0.34)';
       }
+    }
+
+    function syncConfidenceDisclosure() {
+      confidenceHeader.setAttribute('aria-expanded', confidenceExpanded ? 'true' : 'false');
+      confidenceChevron.style.transform = confidenceExpanded ? 'rotate(180deg)' : 'rotate(0deg)';
+      confidenceSignalsWrap.style.gridTemplateRows = confidenceExpanded ? '1fr' : '0fr';
+      confidenceSignals.style.opacity = confidenceExpanded ? '1' : '0';
+      confidenceSignals.style.transform = confidenceExpanded ? 'translateY(0)' : 'translateY(-4px)';
+    }
+
+    confidenceHeader.addEventListener('mousedown', function (event) {
+      event.stopPropagation();
+    });
+    confidenceHeader.addEventListener('click', function (event) {
+      event.preventDefault();
+      event.stopPropagation();
+      confidenceExpanded = !confidenceExpanded;
+      syncConfidenceDisclosure();
+    });
+
+    function createAnnotationId() {
+      return 'annotation-' + Date.now().toString(36) + '-' + (nextAnnotationIndex++);
+    }
+
+    function createAnnotationActionButton(label) {
+      const button = doc.createElement('button');
+      var isDelete = label === 'Delete';
+      button.type = 'button';
+      button.dataset.atmosPreviewOverlay = 'true';
+      button.innerHTML =
+        '<span style="display:inline-flex;width:12px;height:12px;align-items:center;justify-content:center;">' +
+        '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+        (isDelete
+          ? '<path d="M3 6h18"></path><path d="M8 6V4h8v2"></path><path d="M19 6l-1 14H6L5 6"></path><path d="M10 11v5"></path><path d="M14 11v5"></path>'
+          : '<path d="M12 20h9"></path><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"></path>') +
+        '</svg></span><span>' + label + '</span>';
+      button.style.display = 'inline-flex';
+      button.style.alignItems = 'center';
+      button.style.justifyContent = 'center';
+      button.style.flex = '1 1 0';
+      button.style.gap = '4px';
+      button.style.height = '100%';
+      button.style.padding = '0';
+      button.style.border = '0';
+      button.style.borderRadius = '0';
+      button.style.background = 'transparent';
+      button.style.color = '#e5e7eb';
+      button.style.fontSize = '11px';
+      button.style.fontWeight = '700';
+      button.style.lineHeight = '1';
+      button.style.cursor = 'pointer';
+      button.style.pointerEvents = 'auto';
+      button.style.fontFamily = 'ui-sans-serif, -apple-system, BlinkMacSystemFont, sans-serif';
+      button.style.transition = 'background 150ms ease, color 150ms ease';
+      button.addEventListener('mousedown', function (event) {
+        event.stopPropagation();
+        button.style.background = isDelete ? 'rgba(239, 68, 68, 0.25)' : 'rgba(255, 255, 255, 0.15)';
+      });
+      button.addEventListener('mouseup', function () {
+        button.style.background = isDelete ? 'rgba(239, 68, 68, 0.2)' : 'rgba(255, 255, 255, 0.1)';
+      });
+      button.addEventListener('mouseenter', function () {
+        button.style.background = isDelete ? 'rgba(239, 68, 68, 0.2)' : 'rgba(255, 255, 255, 0.1)';
+        button.style.color = isDelete ? '#fee2e2' : '#ffffff';
+      });
+      button.addEventListener('mouseleave', function () {
+        button.style.background = 'transparent';
+        button.style.color = '#e5e7eb';
+      });
+      return button;
+    }
+
+    function setAnnotationMarkerExpanded(annotation, expanded) {
+      var ui = annotation && annotation.ui;
+      if (!ui) return;
+      ui.marker.style.width = expanded ? '124px' : '26px';
+      ui.marker.style.background = expanded ? 'rgba(15, 23, 42, 0.96)' : 'rgba(34, 197, 94, 0.92)';
+      ui.marker.style.borderColor = expanded ? 'rgba(52, 211, 153, 0.5)' : 'rgba(255, 255, 255, 0.72)';
+      ui.marker.style.boxShadow = '0 10px 24px rgba(15, 23, 42, 0.28)';
+      ui.compactIcon.style.opacity = expanded ? '0' : '1';
+      ui.compactIcon.style.transform = expanded ? 'scale(0.84)' : 'scale(1)';
+      ui.actions.style.opacity = expanded ? '1' : '0';
+      ui.actions.style.transform = expanded ? 'translateX(0)' : 'translateX(-4px)';
+      ui.actions.style.pointerEvents = expanded ? 'auto' : 'none';
+    }
+
+    function syncAnnotationOverlay(annotation) {
+      if (!annotation || !annotation.ui || !annotation.element || !doc.contains(annotation.element)) {
+        if (annotation && annotation.ui) {
+          annotation.ui.box.style.display = 'none';
+          annotation.ui.marker.style.display = 'none';
+        }
+        return;
+      }
+      var rect = getPreviewElementRect(annotation.element);
+      annotation.rect = rect;
+      var width = Math.max(2, rect.width);
+      var height = Math.max(2, rect.height);
+      annotation.ui.box.style.display = 'block';
+      annotation.ui.box.style.left = rect.x + 'px';
+      annotation.ui.box.style.top = rect.y + 'px';
+      annotation.ui.box.style.width = width + 'px';
+      annotation.ui.box.style.height = height + 'px';
+      annotation.ui.marker.style.display = 'inline-flex';
+      annotation.ui.marker.style.left = clamp(rect.x - 6, 6, Math.max(6, win.innerWidth - 124)) + 'px';
+      annotation.ui.marker.style.top = clamp(rect.y - 14, 6, Math.max(6, win.innerHeight - 28)) + 'px';
+    }
+
+    function syncAnnotationOverlays() {
+      annotations.forEach(syncAnnotationOverlay);
+    }
+
+    function updateFooterMode(mode) {
+      var isEdit = mode === 'edit';
+      footerAddButton.style.display = isEdit ? 'none' : 'inline-flex';
+      footerCopyButton.style.display = isEdit ? 'none' : 'inline-flex';
+      footerUpdateButton.style.display = isEdit ? 'inline-flex' : 'none';
+    }
+
+    function beginEditAnnotation(annotation, event) {
+      if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+      if (!annotation) return;
+      currentEditingAnnotation = annotation;
+      currentMeta = annotation.meta || {};
+      noteInput.value = annotation.note || '';
+      placeToolbar(annotation.rect || getPreviewElementRect(annotation.element));
+      updateFooterMode('edit');
+      win.setTimeout(function () {
+        try { noteInput.focus(); } catch (_) {}
+      }, 0);
+    }
+
+    function removeAnnotation(annotationId, emitDelete, event) {
+      if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+      var index = annotations.findIndex(function (annotation) {
+        return annotation.id === annotationId;
+      });
+      if (index < 0) return;
+      var annotation = annotations[index];
+      annotations.splice(index, 1);
+      if (annotation.ui) {
+        annotation.ui.box.remove();
+        annotation.ui.marker.remove();
+      }
+      if (currentEditingAnnotation && currentEditingAnnotation.id === annotationId) {
+        currentEditingAnnotation = null;
+        detailsCard.style.display = 'none';
+        noteInput.value = '';
+        updateFooterMode('select');
+      }
+      if (emitDelete && copyHandler) {
+        copyHandler('delete', '', event, annotationId);
+      }
+    }
+
+    function addAnnotationFromCurrent(note) {
+      var element = currentMeta && currentMeta.element;
+      if (!element || !doc.contains(element)) return null;
+      var annotation = {
+        id: createAnnotationId(),
+        element: element,
+        meta: currentMeta,
+        note: note || '',
+        rect: getPreviewElementRect(element),
+        ui: null,
+      };
+
+      const box = doc.createElement('div');
+      box.dataset.atmosPreviewOverlay = 'true';
+      box.dataset.atmosPreviewAnnotation = 'true';
+      box.style.position = 'fixed';
+      box.style.pointerEvents = 'none';
+      box.style.border = '2px solid #22c55e';
+      box.style.background = 'rgba(34, 197, 94, 0.08)';
+      box.style.boxShadow = '0 0 0 1px rgba(34, 197, 94, 0.18)';
+      box.style.borderRadius = '6px';
+      box.style.zIndex = Z_ANNOTATION_BOX;
+      doc.documentElement.appendChild(box);
+
+      const marker = doc.createElement('div');
+      marker.dataset.atmosPreviewOverlay = 'true';
+      marker.dataset.atmosPreviewAnnotation = 'true';
+      marker.style.position = 'fixed';
+      marker.style.display = 'inline-flex';
+      marker.style.alignItems = 'center';
+      marker.style.justifyContent = 'center';
+      marker.style.width = '26px';
+      marker.style.height = '26px';
+      marker.style.overflow = 'hidden';
+      marker.style.borderRadius = '6px';
+      marker.style.border = '1px solid rgba(255, 255, 255, 0.72)';
+      marker.style.background = 'rgba(34, 197, 94, 0.92)';
+      marker.style.color = '#ffffff';
+      marker.style.boxShadow = '0 10px 24px rgba(15, 23, 42, 0.28)';
+      marker.style.pointerEvents = 'auto';
+      marker.style.cursor = 'default';
+      marker.style.zIndex = Z_ANNOTATION_MARKER;
+      marker.style.transition = 'width 180ms cubic-bezier(0.22, 1, 0.36, 1), background 180ms cubic-bezier(0.22, 1, 0.36, 1), border-color 180ms ease, box-shadow 180ms ease';
+      doc.documentElement.appendChild(marker);
+
+      const compactIcon = createSvgIcon(annotationIconPath, 15);
+      compactIcon.style.transition = 'opacity 140ms ease, transform 140ms ease';
+      marker.appendChild(compactIcon);
+
+      const actions = doc.createElement('div');
+      actions.style.position = 'absolute';
+      actions.style.inset = '0';
+      actions.style.display = 'inline-flex';
+      actions.style.alignItems = 'center';
+      actions.style.justifyContent = 'center';
+      actions.style.gap = '0';
+      actions.style.opacity = '0';
+      actions.style.transform = 'translateX(-4px)';
+      actions.style.pointerEvents = 'none';
+      actions.style.transition = 'opacity 140ms ease, transform 140ms ease';
+      marker.appendChild(actions);
+
+      const editButton = createAnnotationActionButton('Edit');
+      const deleteButton = createAnnotationActionButton('Delete');
+      actions.appendChild(editButton);
+      actions.appendChild(deleteButton);
+
+      annotation.ui = { box: box, marker: marker, compactIcon: compactIcon, actions: actions };
+      annotations.push(annotation);
+      syncAnnotationOverlay(annotation);
+
+      marker.addEventListener('mouseenter', function () {
+        setAnnotationMarkerExpanded(annotation, true);
+      });
+      marker.addEventListener('mouseleave', function () {
+        setAnnotationMarkerExpanded(annotation, false);
+      });
+      editButton.addEventListener('click', function (event) {
+        beginEditAnnotation(annotation, event);
+      });
+      deleteButton.addEventListener('click', function (event) {
+        removeAnnotation(annotation.id, true, event);
+      });
+
+      return annotation;
     }
 
     function renderSelectionMeta() {
@@ -467,11 +1031,15 @@
 
       if (confidence || signals.length > 0) {
         confidenceSection.style.display = 'block';
+        confidenceExpanded = false;
+        syncConfidenceDisclosure();
         confidenceBadge.textContent = (confidence || 'low').toUpperCase();
         applyConfidence(confidence || 'low');
         confidenceSignals.textContent = signals.length > 0 ? signals.join(', ') : 'No extra debug signals';
       } else {
         confidenceSection.style.display = 'none';
+        confidenceExpanded = false;
+        syncConfidenceDisclosure();
       }
     }
 
@@ -484,8 +1052,8 @@
       currentRect = rect;
       renderSelectionMeta();
 
-      var detailsWidth = Math.min(640, Math.max(320, win.innerWidth - 16));
-      var detailsHeight = 346;
+      var detailsWidth = Math.min(480, Math.max(280, win.innerWidth - 16));
+      var detailsHeight = 260;
       var centerX = rect.x + Math.min(rect.width, 220) / 2;
       var belowTop = rect.y + rect.height + 12;
       var aboveTop = rect.y - detailsHeight - 12;
@@ -511,53 +1079,205 @@
         event.preventDefault();
         event.stopPropagation();
       }
+      if (currentEditingAnnotation) {
+        currentEditingAnnotation = null;
+        detailsCard.style.display = 'none';
+        noteInput.value = '';
+        updateFooterMode('select');
+        return;
+      }
       if (cancelHandler) {
         cancelHandler(event);
       }
     }
 
-    function copyWithNoteFromEvent(event) {
+    function writeClipboardText(text) {
+      var value = text == null ? '' : String(text);
+      if (!value) return false;
+      // Prefer the synchronous path first: it still has the click user gesture in
+      // WebKit/Tauri webviews. Async clipboard.writeText can race gesture expiry.
+      var synced = false;
+      try {
+        var helper = doc.createElement('textarea');
+        helper.value = value;
+        helper.setAttribute('readonly', '');
+        helper.style.position = 'fixed';
+        helper.style.left = '-9999px';
+        helper.style.top = '0';
+        helper.style.opacity = '0';
+        doc.documentElement.appendChild(helper);
+        helper.focus();
+        helper.select();
+        helper.setSelectionRange(0, value.length);
+        synced = doc.execCommand('copy');
+        helper.remove();
+      } catch (_) {
+        synced = false;
+      }
+      try {
+        if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+          void navigator.clipboard.writeText(value);
+        }
+      } catch (_) {}
+      return synced;
+    }
+
+    function formatSelectionForClipboard(meta, note) {
+      var source = (meta && meta.sourceLocation) || {};
+      var element = meta && meta.element;
+      var context = element && doc.contains(element) ? inspectPreviewElement(element) : null;
+      // Protocol first line so PromptComposer can collapse paste into a chip while
+      // keeping the body (from line 2) as the exact AI prompt on send.
+      var lines = ['atmos://context/preview-element', '## Preview Element'];
+      var pageUrl = (meta && meta.pageUrl) || win.location.href;
+      if (pageUrl) lines.push('- **Page**: `' + pageUrl + '`');
+      if (context && context.selector) lines.push('- **Selector**: `' + context.selector + '`');
+      if (context && context.tagName) lines.push('- **Tag**: `' + context.tagName + '`');
+      if (context && context.attributesSummary) lines.push('- **Attributes**: ' + context.attributesSummary);
+      if (source.framework) lines.push('- **Framework**: ' + source.framework);
+      if (source.componentName) lines.push('- **Source Component**: `' + source.componentName + '`');
+      if (source.filePath || source.fileName) {
+        var sourcePath = source.filePath || source.fileName;
+        var sourceLoc = sourcePath;
+        if (source.line != null) sourceLoc += ':' + source.line;
+        if (source.column != null) sourceLoc += ':' + source.column;
+        lines.push('- **Source**: `' + sourceLoc + '`');
+      }
+      if (source.confidence) lines.push('- **Confidence**: ' + source.confidence);
+      if (context && context.textPreview) {
+        lines.push('', '### Element Text', context.textPreview);
+      }
+      if (context && context.htmlPreview) {
+        lines.push('', '### Element HTML', '```html', context.htmlPreview, '```');
+      }
+      if (note) {
+        lines.push('', '## Note', note);
+      }
+      return lines.join('\n').trim();
+    }
+
+    // Prevent pointerdown + click + button listener from firing the same action thrice.
+    var toolbarActionInFlight = false;
+
+    function toolbarActionFromEvent(action, event) {
+      if (toolbarActionInFlight) return;
       if (event) {
         event.preventDefault();
         event.stopPropagation();
       }
+      toolbarActionInFlight = true;
+      win.setTimeout(function () {
+        toolbarActionInFlight = false;
+      }, 0);
+
+      var annotationId = null;
+      var note = (noteInput.value || '').trim();
+      if (action === 'copy') {
+        // Write clipboard in the inspector webview while the user gesture is still valid.
+        // Host-side clipboard after the Tauri bridge loses transient activation and fails silently.
+        writeClipboardText(formatSelectionForClipboard(currentMeta, note));
+        detailsCard.style.display = 'none';
+        noteInput.value = '';
+      } else if (action === 'add') {
+        var annotation = addAnnotationFromCurrent(note);
+        if (!annotation) {
+          toolbarActionInFlight = false;
+          return;
+        }
+        annotationId = annotation.id;
+        detailsCard.style.display = 'none';
+        currentMeta = null;
+        noteInput.value = '';
+      } else if (action === 'update') {
+        if (!currentEditingAnnotation) {
+          toolbarActionInFlight = false;
+          return;
+        }
+        currentEditingAnnotation.note = note;
+        annotationId = currentEditingAnnotation.id;
+        currentEditingAnnotation = null;
+        detailsCard.style.display = 'none';
+        currentMeta = null;
+        noteInput.value = '';
+        updateFooterMode('select');
+      }
       if (copyHandler) {
-        copyHandler((noteInput.value || '').trim(), event);
+        copyHandler(action, note, event, annotationId);
       }
     }
 
-    function handleOverlayButtonPointerDown(event) {
-      if (eventTargetInside(event, footerCancelButton)) {
-        cancelFromEvent(event);
-      } else if (eventTargetInside(event, footerCopyButton)) {
-        copyWithNoteFromEvent(event);
-      }
-    }
-
+    // Use capture-phase click only (not pointerdown) so we fire once per activation.
+    // Button-level listeners below are the primary path; this catches clicks that
+    // land on child SVG/text nodes when a parent stopPropagation interferes.
     function handleOverlayButtonClick(event) {
       if (eventTargetInside(event, footerCancelButton)) {
         cancelFromEvent(event);
+      } else if (eventTargetInside(event, footerAddButton)) {
+        toolbarActionFromEvent('add', event);
       } else if (eventTargetInside(event, footerCopyButton)) {
-        copyWithNoteFromEvent(event);
+        toolbarActionFromEvent('copy', event);
+      } else if (eventTargetInside(event, footerUpdateButton)) {
+        toolbarActionFromEvent('update', event);
       }
     }
 
-    win.addEventListener('pointerdown', handleOverlayButtonPointerDown, true);
     win.addEventListener('click', handleOverlayButtonClick, true);
 
     footerCancelButton.addEventListener('click', cancelFromEvent);
-    footerCopyButton.addEventListener('click', copyWithNoteFromEvent);
+    footerAddButton.addEventListener('click', function (event) {
+      toolbarActionFromEvent('add', event);
+    });
+    footerCopyButton.addEventListener('click', function (event) {
+      toolbarActionFromEvent('copy', event);
+    });
+    footerUpdateButton.addEventListener('click', function (event) {
+      toolbarActionFromEvent('update', event);
+    });
+    win.addEventListener('scroll', syncAnnotationOverlays, true);
+    win.addEventListener('resize', syncAnnotationOverlays, true);
 
     function place(box, label, rect, text) {
-      box.style.display = 'block';
-      box.style.left = rect.x + 'px';
-      box.style.top = rect.y + 'px';
-      box.style.width = rect.width + 'px';
-      box.style.height = rect.height + 'px';
-      label.style.display = text ? 'block' : 'none';
-      label.textContent = text || '';
-      label.style.left = rect.x + 'px';
-      label.style.top = Math.max(8, rect.y - 32) + 'px';
+      var thickness = 2;
+      var width = Math.max(rect.width, thickness);
+      var height = Math.max(rect.height, thickness);
+      var top = box.segments[0];
+      var right = box.segments[1];
+      var bottom = box.segments[2];
+      var left = box.segments[3];
+
+      top.style.display = 'block';
+      top.style.left = rect.x + 'px';
+      top.style.top = rect.y + 'px';
+      top.style.width = width + 'px';
+      top.style.height = thickness + 'px';
+
+      bottom.style.display = 'block';
+      bottom.style.left = rect.x + 'px';
+      bottom.style.top = (rect.y + height - thickness) + 'px';
+      bottom.style.width = width + 'px';
+      bottom.style.height = thickness + 'px';
+
+      left.style.display = 'block';
+      left.style.left = rect.x + 'px';
+      left.style.top = rect.y + 'px';
+      left.style.width = thickness + 'px';
+      left.style.height = height + 'px';
+
+      right.style.display = 'block';
+      right.style.left = (rect.x + width - thickness) + 'px';
+      right.style.top = rect.y + 'px';
+      right.style.width = thickness + 'px';
+      right.style.height = height + 'px';
+
+      if (label) {
+        label.show(text || '', rect);
+      }
+    }
+
+    function clearBox(box) {
+      box.segments.forEach(function (segment) {
+        segment.style.display = 'none';
+      });
     }
 
     return {
@@ -566,27 +1286,31 @@
         win.__ATMOS_PREVIEW_PICK_CURSOR__ = nextCursor === 'default' ? '' : nextCursor;
         if (nextCursor === 'default') {
           cursorStyle.textContent = '';
-        } else {
-          cursorStyle.textContent =
-            'html, body, body * { cursor: ' + nextCursor + ' !important; }' +
-            '[data-atmos-browser-overlay="true"], [data-atmos-browser-overlay="true"] * { cursor: revert !important; }';
+          return;
         }
-        root.style.cursor = nextCursor;
-        hoverBox.style.cursor = nextCursor;
-        lockedBox.style.cursor = nextCursor;
-        hoverLabel.style.cursor = nextCursor;
-        lockedLabel.style.cursor = nextCursor;
+        cursorStyle.textContent =
+          'html, body, body * { cursor: ' + nextCursor + ' !important; }' +
+          '[data-atmos-browser-overlay="true"], [data-atmos-browser-overlay="true"] * { cursor: default !important; }' +
+          '[data-atmos-browser-overlay="true"] button, [data-atmos-browser-overlay="true"] button * { cursor: pointer !important; }' +
+          '[data-atmos-browser-overlay="true"] input, [data-atmos-browser-overlay="true"] textarea, [data-atmos-browser-overlay="true"] [contenteditable="true"] { cursor: text !important; }';
       },
       updateHover(rect, label) {
-        place(hoverBox, hoverLabel, rect, label);
+        place(hoverBox, showHoverLabel ? hoverLabel : null, rect, label);
+      },
+      updateCursor(x, y) {
+        hoverLabel.updateCursor(x, y);
+        lockedLabel.updateCursor(x, y);
       },
       clearHover() {
-        hoverBox.style.display = 'none';
-        hoverLabel.style.display = 'none';
+        clearBox(hoverBox);
+        hoverLabel.hide();
       },
       lock(rect, label, meta) {
         if (meta) {
           currentMeta = meta;
+          currentEditingAnnotation = null;
+          noteInput.value = '';
+          updateFooterMode('select');
         }
         place(lockedBox, lockedLabel, rect, label);
         // Always show the input card directly on selection.
@@ -598,12 +1322,30 @@
         }
       },
       clearLocked() {
-        lockedBox.style.display = 'none';
-        lockedLabel.style.display = 'none';
+        clearBox(lockedBox);
+        lockedLabel.hide();
         detailsCard.style.display = 'none';
         noteInput.value = '';
         currentMeta = null;
         currentRect = null;
+      },
+      clearAnnotations() {
+        annotations.forEach(function (annotation) {
+          if (annotation.ui) {
+            annotation.ui.box.remove();
+            annotation.ui.marker.remove();
+          }
+        });
+        annotations.length = 0;
+        currentEditingAnnotation = null;
+        currentMeta = null;
+        currentRect = null;
+        detailsCard.style.display = 'none';
+        noteInput.value = '';
+        updateFooterMode('select');
+      },
+      syncAnnotations() {
+        syncAnnotationOverlays();
       },
       onCancel(handler) {
         cancelHandler = handler;
@@ -614,11 +1356,21 @@
       destroy() {
         cursorStyle.remove();
         win.__ATMOS_PREVIEW_PICK_CURSOR__ = '';
-        win.removeEventListener('pointerdown', handleOverlayButtonPointerDown, true);
+        win.removeEventListener('scroll', syncAnnotationOverlays, true);
+        win.removeEventListener('resize', syncAnnotationOverlays, true);
         win.removeEventListener('click', handleOverlayButtonClick, true);
         detailsCard.remove();
-        chromeRoot.remove();
-        root.remove();
+        annotations.forEach(function (annotation) {
+          if (annotation.ui) {
+            annotation.ui.box.remove();
+            annotation.ui.marker.remove();
+          }
+        });
+        annotations.length = 0;
+        hoverBox.segments.forEach(function (segment) { segment.remove(); });
+        lockedBox.segments.forEach(function (segment) { segment.remove(); });
+        hoverLabel.remove();
+        lockedLabel.remove();
       },
     };
   }
@@ -1096,6 +1848,9 @@
     var doc = win.document;
     var overlay = createPreviewOverlay(win, doc, {
       showSelectionToolbar: !!config.showSelectionToolbar,
+      showHoverLabel: config.showHoverLabel != null
+        ? !!config.showHoverLabel
+        : !!config.showSelectionToolbar,
     });
     var hoverCursor = createPreviewPickerCursor(PICKER_HOVER_COLOR, PICKER_HOVER_BORDER_COLOR);
     var lockedCursor = createPreviewPickerCursor(PICKER_LOCKED_COLOR, PICKER_LOCKED_BORDER_COLOR);
@@ -1106,6 +1861,9 @@
       locked: null,
       sessionId: null,
     };
+    // When host owns the toolbar, still emit hover so iframe/extension can drive NativeFollowCursor.
+    // Desktop with guest hover labels may also emit; host can ignore.
+    var shouldEmitHover = !config.showSelectionToolbar;
 
     function emit(message) {
       if (!state.sessionId) return;
@@ -1113,6 +1871,11 @@
         sessionId: state.sessionId,
         pageUrl: win.location.href,
       }, message));
+    }
+
+    function emitHover(payload) {
+      if (!shouldEmitHover) return;
+      emit(Object.assign({ type: 'atmos-browser:hover' }, payload || {}));
     }
 
     function setPickerCursor(cursor) {
@@ -1196,6 +1959,7 @@
       state.sessionId = sessionId;
       emit({
         type: 'atmos-browser:ready',
+        pageUrl: win.location.href,
         capabilities: getCapabilities(win),
         extensionVersion: EXTENSION_VERSION,
         pageTitle: getPageTitle(),
@@ -1204,22 +1968,21 @@
     }
 
     function clearSelection(notifyHost) {
+      // Unlock only — keep pick mode so the host can dismiss SelectionPopover
+      // and continue hovering without a racey exit+re-enter.
+      // Full disable is exitPickMode (toolbar toggle / tab hide).
       state.locked = null;
+      state.hovered = null;
       overlay.clearLocked();
       overlay.clearHover();
+      emitHover(null);
       setPickerCursor(state.enabled ? hoverCursor : 'default');
       if (notifyHost) {
         emit({ type: 'atmos-browser:cleared' });
-      } else {
-        // Host-initiated clear also disables pick mode so hover
-        // overlays do not reappear after the selection is removed.
-        state.enabled = false;
-        state.hovered = null;
-        setPickerCursor('default');
       }
     }
 
-    function selectElement(element) {
+    function selectElement(element, cursor) {
       var rect = getPreviewElementRect(element);
       var elementContext = inspectPreviewElement(element);
       var sourceLocation = locateSourceForElement(element, win);
@@ -1227,30 +1990,53 @@
         rect,
         (sourceLocation && sourceLocation.componentName) || buildElementSelector(element),
         {
+          element: element,
           pageUrl: win.location.href,
           sourceLocation: sourceLocation,
           label: buildElementSelector(element),
         }
       );
       setPickerCursor(lockedCursor);
-      emit({
+      var payload = {
         type: 'atmos-browser:selected',
         rect: rect,
         elementContext: elementContext,
         sourceLocation: sourceLocation,
-      });
+        // Guest CSS viewport size — host maps rect/cursor through webview scale
+        // (critical when canvas CSS-transforms the widget).
+        viewport: {
+          width: win.innerWidth,
+          height: win.innerHeight,
+        },
+      };
+      if (cursor && Number.isFinite(cursor.x) && Number.isFinite(cursor.y)) {
+        payload.cursor = { x: cursor.x, y: cursor.y };
+      }
+      emit(payload);
+    }
+
+    function unlockSelectionForNextPick() {
+      state.locked = null;
+      state.hovered = null;
+      overlay.clearLocked();
+      overlay.clearHover();
+      emitHover(null);
+      setPickerCursor(state.enabled ? hoverCursor : 'default');
     }
 
     function handleMouseMove(event) {
       if (!state.enabled) return;
+      overlay.updateCursor(event.clientX, event.clientY);
       if (state.locked) {
         overlay.clearHover();
+        emitHover(null);
         setPickerCursor(lockedCursor);
         return;
       }
       var target = event.target;
       if (!(target instanceof Element) || isIgnoredElement(target)) {
         overlay.clearHover();
+        emitHover(null);
         setPickerCursor(hoverCursor);
         state.hovered = null;
         return;
@@ -1258,7 +2044,16 @@
       state.hovered = target;
       setPickerCursor(hoverCursor);
       var rect = getPreviewElementRect(target);
-      overlay.updateHover(rect, buildElementSelector(target));
+      var label = buildElementSelector(target);
+      overlay.updateHover(rect, label);
+      emitHover({
+        label: label,
+        rect: rect,
+        cursor: {
+          x: event.clientX,
+          y: event.clientY,
+        },
+      });
     }
 
     function isOverlayEventTarget(target) {
@@ -1276,17 +2071,35 @@
       if (!state.enabled) return;
       var target = event.target;
       if (isOverlayEventTarget(target)) return;
+      overlay.updateCursor(event.clientX, event.clientY);
       event.preventDefault();
       event.stopPropagation();
-      if (state.locked) return;
+      var cursor = { x: event.clientX, y: event.clientY };
+      // Second click while locked: re-pick another element, or dismiss host
+      // SelectionPopover (cleared) when clicking ignored/blank chrome.
+      if (state.locked) {
+        if (target instanceof Element && !isIgnoredElement(target) && target !== state.locked) {
+          unlockSelectionForNextPick();
+          state.locked = target;
+          overlay.clearHover();
+          emitHover(null);
+          selectElement(target, cursor);
+          return;
+        }
+        clearSelection(true);
+        return;
+      }
       if (!(target instanceof Element) || isIgnoredElement(target)) return;
       state.locked = target;
       overlay.clearHover();
-      selectElement(target);
+      emitHover(null);
+      selectElement(target, cursor);
     }
 
     function handleKeyDown(event) {
       if (!state.enabled || event.key !== 'Escape') return;
+      // Esc: clear lock + notify host (popover dismiss) while pick mode stays on
+      // until the host exits pick mode explicitly.
       clearSelection(true);
     }
 
@@ -1314,6 +2127,23 @@
       overlay.lock(rect, buildElementSelector(state.locked));
     }
 
+    // Throttled notify so host can re-query annotation/selection rects after scroll.
+    // Keep latency low so host annotation pins track page scroll.
+    var viewportChangedTimer = 0;
+    function emitViewportChanged() {
+      if (!state.sessionId) return;
+      if (viewportChangedTimer) return;
+      viewportChangedTimer = win.setTimeout(function () {
+        viewportChangedTimer = 0;
+        emit({ type: 'atmos-browser:viewport-changed' });
+      }, 16);
+    }
+
+    function handleViewportLayout() {
+      syncLockedOverlay();
+      emitViewportChanged();
+    }
+
     doc.addEventListener('mousemove', handleMouseMove, true);
     doc.addEventListener('pointerdown', blockPagePointerEvent, true);
     doc.addEventListener('mousedown', blockPagePointerEvent, true);
@@ -1324,8 +2154,8 @@
     doc.addEventListener('dblclick', blockPagePointerEvent, true);
     doc.addEventListener('contextmenu', blockPagePointerEvent, true);
     win.addEventListener('keydown', handleKeyDown, true);
-    win.addEventListener('scroll', syncLockedOverlay, true);
-    win.addEventListener('resize', syncLockedOverlay, true);
+    win.addEventListener('scroll', handleViewportLayout, true);
+    win.addEventListener('resize', handleViewportLayout, true);
 
     overlay.onCancel(function (event) {
       if (event) {
@@ -1334,17 +2164,41 @@
       }
       clearSelection(true);
     });
-    overlay.onCopy(function (note, event) {
+    overlay.onCopy(function (action, note, event, annotationId) {
       if (event) {
         event.preventDefault();
         event.stopPropagation();
       }
-      if (!state.locked) return;
+      // Copy needs a live locked element. Add may still emit when the local
+      // annotation was already created even if lock was cleared mid-click.
+      if (action === 'copy' && !state.locked) return;
+      if (action === 'add' && !state.locked && !annotationId) return;
+      // Include selection snapshot so the host can recover if the earlier
+      // `selected` event was dropped or cleared before the toolbar action arrived.
+      var lockedElement = state.locked;
+      var rect = lockedElement && doc.contains(lockedElement)
+        ? getPreviewElementRect(lockedElement)
+        : null;
+      var elementContext = lockedElement && doc.contains(lockedElement)
+        ? inspectPreviewElement(lockedElement)
+        : null;
+      var sourceLocation = lockedElement && doc.contains(lockedElement)
+        ? locateSourceForElement(lockedElement, win)
+        : null;
       emit({
         type: 'atmos-browser:toolbar-action',
-        action: 'add',
+        action: action === 'copy' || action === 'update' || action === 'delete' ? action : 'add',
+        annotationId: annotationId || undefined,
         note: note || undefined,
+        rect: rect || undefined,
+        elementContext: elementContext || undefined,
+        sourceLocation: sourceLocation || undefined,
       });
+      // Copy already wrote the clipboard in the overlay click path (user gesture).
+      // Unlock so the host does not need a successful async clipboard write to clear UI.
+      if (action === 'add' || action === 'copy') {
+        unlockSelectionForNextPick();
+      }
     });
 
     var lastKnownPath = win.location.pathname + win.location.hash;
@@ -1432,12 +2286,20 @@
         });
       },
       clearSelection: clearSelection,
+      clearAnnotations: function () {
+        overlay.clearAnnotations();
+      },
+      syncOverlays: function () {
+        syncLockedOverlay();
+        overlay.syncAnnotations();
+      },
       exitPickMode: function () {
         state.enabled = false;
         state.locked = null;
         state.hovered = null;
         overlay.clearLocked();
         overlay.clearHover();
+        emitHover(null);
         setPickerCursor('default');
       },
       destroy: function () {

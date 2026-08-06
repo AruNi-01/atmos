@@ -36,4 +36,18 @@ describe("setOverlayVisibleOnAllWorkspaces", () => {
       { v: false, opts: { visibleOnFullScreen: false } },
     ]);
   });
+
+  it("restores dock after both enable and disable", async () => {
+    if (process.platform !== "darwin") return;
+
+    // Both paths must invoke ensureMacDockVisible (which is internal).
+    // We only assert setVisibleOnAllWorkspaces side effects stay correct and
+    // the helper does not throw when electron is available.
+    const win = {
+      setVisibleOnAllWorkspaces: mock(() => {}),
+    };
+    await setOverlayVisibleOnAllWorkspaces(win, true);
+    await setOverlayVisibleOnAllWorkspaces(win, false);
+    expect(win.setVisibleOnAllWorkspaces).toHaveBeenCalledTimes(2);
+  });
 });

@@ -7,7 +7,15 @@
 import React from "react";
 import { useTranslations } from "next-intl";
 import { Button, cn } from "@workspace/ui";
-import { Check, Loader2, RefreshCw, Settings2 } from "lucide-react";
+import {
+  Accessibility,
+  Check,
+  Loader2,
+  MonitorPlay,
+  RefreshCw,
+  type LucideIcon,
+} from "lucide-react";
+import { invalidateDesktopUseReadinessCache } from "@/features/desktop-use/lib/readiness";
 import { desktopInvoke, isDesktopRuntime } from "@/shared/lib/desktop-bridge";
 
 type PermissionName = "accessibility" | "screen_recording";
@@ -22,6 +30,12 @@ type DoctorStatus = {
 };
 
 const ORDER: PermissionName[] = ["accessibility", "screen_recording"];
+
+/** Match System Settings privacy icons (Accessibility figure / Screen Recording). */
+const PERMISSION_ICONS: Record<PermissionName, LucideIcon> = {
+  accessibility: Accessibility,
+  screen_recording: MonitorPlay,
+};
 
 export type DesktopUsePermissionsPanelProps = {
   className?: string;
@@ -60,6 +74,14 @@ export function DesktopUsePermissionsPanel({
         }
         const d = await desktopInvoke<DoctorStatus>("desktop_use_doctor");
         if (mountedRef.current) setDoctor(d);
+        // Accessibility granted → dismiss drag panel if still open.
+        if (d?.accessibility === true) {
+          try {
+            await desktopInvoke("desktop_use_close_grant_overlay");
+          } catch {
+            /* overlay optional */
+          }
+        }
       } catch (e) {
         if (mountedRef.current) {
           if (mode !== "silent") {
@@ -95,11 +117,14 @@ export function DesktopUsePermissionsPanel({
     setGrantingTarget(target);
     setError(null);
     try {
-      await desktopInvoke("desktop_use_grant_permissions", { target });
+      const locale =
+        typeof navigator !== "undefined" ? navigator.language : undefined;
+      await desktopInvoke("desktop_use_grant_permissions", { target, locale });
+      invalidateDesktopUseReadinessCache();
       stopPoll();
       const started = Date.now();
       pollRef.current = setInterval(() => {
-        if (Date.now() - started > 45_000) {
+        if (Date.now() - started > 120_000) {
           stopPoll();
           return;
         }
@@ -153,11 +178,8 @@ export function DesktopUsePermissionsPanel({
           name === "accessibility"
             ? t("permissions.items.accessibility.description")
             : t("permissions.items.screenRecording.description");
-        const grantLabel =
-          name === "accessibility"
-            ? t("permissions.grantAccessibility")
-            : t("permissions.grantScreenRecording");
         const isGranting = grantingTarget === name;
+        const PermissionIcon = PERMISSION_ICONS[name];
 
         return (
           <div
@@ -189,9 +211,9 @@ export function DesktopUsePermissionsPanel({
                     {isGranting ? (
                       <Loader2 className="size-4 animate-spin" />
                     ) : (
-                      <Settings2 className="size-4" />
+                      <PermissionIcon className="size-4" />
                     )}
-                    {grantLabel}
+                    {t("permissions.grant")}
                   </Button>
                 )}
               </div>
@@ -205,11 +227,18 @@ export function DesktopUsePermissionsPanel({
           {error ? (
             <p className="text-sm text-destructive">{error}</p>
           ) : (
-            <p className="text-xs text-muted-foreground">
-              {t("permissions.hostLine", {
-                host: doctor?.host_app_name ?? t("host.defaultName"),
-              })}
-            </p>
+            <div className="min-w-0 space-y-1">
+              <p className="text-xs text-muted-foreground">
+                {t("permissions.hostLine", {
+                  host: doctor?.host_app_name ?? t("host.defaultName"),
+                })}
+              </p>
+              {doctor?.accessibility !== true ? (
+                <p className="text-xs text-muted-foreground">
+                  {t("permissions.dragHint")}
+                </p>
+              ) : null}
+            </div>
           )}
         </div>
         <Button

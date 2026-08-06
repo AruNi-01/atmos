@@ -6,7 +6,6 @@ import { Badge, Button, ScrollArea, Skeleton, cn } from "@workspace/ui";
 import {
   AlertCircle,
   Camera,
-  ChevronDown,
   RefreshCw,
   ShieldAlert,
 } from "lucide-react";
@@ -43,6 +42,8 @@ type AppshotsHistoryPopoverProps = {
 const PAGE_SIZE = 10;
 const DETAIL_BATCH_SIZE = 3;
 const APPSHOT_CAPTURE_SHORTCUT_KEYS = ["Left ⇧", "Right ⇧"];
+/** Prefetch the next page slightly before the sentinel enters the viewport. */
+const LOAD_MORE_ROOT_MARGIN = "120px 0px";
 
 export function AppshotsHistoryPopover({
   open,
@@ -71,6 +72,8 @@ export function AppshotsHistoryPopover({
   const permissionWatcherRef = React.useRef<(() => void) | null>(null);
   const copyResetTimerRef = React.useRef<number | null>(null);
   const previewRequestRef = React.useRef(0);
+  const loadMoreSentinelRef = React.useRef<HTMLDivElement | null>(null);
+  const recordsLengthRef = React.useRef(0);
 
   const refreshStatus = React.useCallback(async () => {
     setStatusLoading(true);
@@ -131,12 +134,29 @@ export function AppshotsHistoryPopover({
     }
   }, []);
 
+  // Keep latest onClose without re-running the open effect (parent may pass a
+  // new inline callback each render).
+  const onCloseRef = React.useRef(onClose);
+  React.useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
   React.useEffect(() => {
     if (!open) {
       return;
     }
     void refreshStatus();
     void refreshHistory();
+    // Background readiness gate — does not block popover open / history load.
+    // On block: close this popover first; the modal opens deferred so Radix
+    // does not treat Popover dismiss as Dialog outside-click (modal never stays open).
+    void import("@/features/desktop-use/lib/readiness-modal-bus").then(
+      ({ gateDesktopUseFeature }) => {
+        gateDesktopUseFeature("appshot", {
+          onBlocked: () => onCloseRef.current?.(),
+        });
+      },
+    );
   }, [open, refreshHistory, refreshStatus]);
 
   React.useEffect(() => {
@@ -202,12 +222,58 @@ export function AppshotsHistoryPopover({
   const deniedPermissions = getDeniedAppshotPermissions(status);
   const visibleRecords = records.slice(0, visibleCount);
   const hasMore = visibleCount < records.length;
+  recordsLengthRef.current = records.length;
   // Full skeleton on first load (no rows yet), or after list arrives but before any
   // visible detail resolves. Keep existing rows visible during soft refresh.
   const showHistorySkeleton =
     (historyLoading && records.length === 0) ||
     (records.length > 0 &&
       visibleRecords.every((item) => details[item.timestamp] == null));
+  // Sentinel only mounts once rows render; include this so the observer attaches
+  // after the first paint of real content (not while the skeleton is up).
+  const listReady = !showHistorySkeleton && records.length > 0;
+
+  const loadMore = React.useCallback(() => {
+    setVisibleCount((current) => {
+      const total = recordsLengthRef.current;
+      if (current >= total) {
+        return current;
+      }
+      return Math.min(current + PAGE_SIZE, total);
+    });
+  }, []);
+
+  // Infinite scroll: when the bottom sentinel enters the scroll viewport, reveal
+  // the next page. No separate "More" button.
+  React.useEffect(() => {
+    if (!open || !hasMore || !listReady) {
+      return;
+    }
+    const sentinel = loadMoreSentinelRef.current;
+    if (!sentinel || typeof IntersectionObserver === "undefined") {
+      return;
+    }
+
+    const scrollRoot =
+      (sentinel.closest(
+        '[data-slot="scroll-area-viewport"]',
+      ) as Element | null) ?? null;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          loadMore();
+        }
+      },
+      {
+        root: scrollRoot,
+        rootMargin: LOAD_MORE_ROOT_MARGIN,
+        threshold: 0,
+      },
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [hasMore, listReady, loadMore, open, visibleCount]);
 
   const handleOpenPermission = React.useCallback(() => {
     // Header Appshots → authorize: open Settings → Desktop Use (only path).
@@ -392,41 +458,37 @@ export function AppshotsHistoryPopover({
                 {t("history.noAppshotsYet")}
               </div>
             ) : (
-              visibleRecords.map((item) => {
-                const detail = details[item.timestamp];
-                if (!detail) {
-                  return <HistorySkeletonRow key={item.timestamp} />;
-                }
-                return (
-                  <AppshotRecordRow
-                    key={item.timestamp}
-                    record={detail}
-                    copied={copiedTimestamp === item.timestamp}
-                    copying={copyingTimestamp === item.timestamp}
-                    deleting={deletingTimestamp === item.timestamp}
-                    onCopy={handleCopy}
-                    onDelete={handleDelete}
-                    onPreview={handlePreview}
+              <>
+                {visibleRecords.map((item) => {
+                  const detail = details[item.timestamp];
+                  if (!detail) {
+                    return <HistorySkeletonRow key={item.timestamp} />;
+                  }
+                  return (
+                    <AppshotRecordRow
+                      key={item.timestamp}
+                      record={detail}
+                      copied={copiedTimestamp === item.timestamp}
+                      copying={copyingTimestamp === item.timestamp}
+                      deleting={deletingTimestamp === item.timestamp}
+                      onCopy={handleCopy}
+                      onDelete={handleDelete}
+                      onPreview={handlePreview}
+                    />
+                  );
+                })}
+                {hasMore ? (
+                  <div
+                    ref={loadMoreSentinelRef}
+                    data-testid="appshot-history-load-more"
+                    aria-hidden
+                    className="h-px w-full shrink-0"
                   />
-                );
-              })
+                ) : null}
+              </>
             )}
           </div>
         </ScrollArea>
-
-        {hasMore ? (
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            disabled={detailLoading}
-            onClick={() => setVisibleCount((current) => current + PAGE_SIZE)}
-            className="w-full cursor-pointer"
-          >
-            <ChevronDown className="size-4" />
-            {t("history.more")}
-          </Button>
-        ) : null}
       </div>
       {previewImage ? (
         <ImagePreviewOverlay

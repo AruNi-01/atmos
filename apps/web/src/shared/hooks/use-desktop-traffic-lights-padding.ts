@@ -2,18 +2,18 @@
 
 import { useEffect, useState } from "react";
 
-import {
-  desktopInvoke,
-  desktopListen,
-  isTauriShell,
-} from "@/shared/lib/desktop-bridge";
+import { isTauriShell } from "@/shared/lib/desktop-bridge";
 import { isDesktopRuntime } from "@/shared/lib/desktop-runtime";
+import { subscribeDesktopFullscreen } from "@/shared/lib/desktop-fullscreen-bus";
 
 /**
  * True when the window shows macOS traffic lights that need content inset
  * (not fullscreen). Used by main Header (pl-[92px]), agent-chat, canvas, etc.
  *
  * Fullscreen: lights hide → padding off. Exit fullscreen → padding back.
+ *
+ * Electron path shares one IPC listener via desktop-fullscreen-bus (avoids
+ * MaxListenersExceededWarning when many components mount this hook).
  */
 export function useDesktopTrafficLightsPadding(): boolean {
   const [needsPadding, setNeedsPadding] = useState(false);
@@ -35,30 +35,20 @@ export function useDesktopTrafficLightsPadding(): boolean {
       if (!disposed) setNeedsPadding(!fullscreen);
     };
 
-    const sync = async () => {
-      try {
-        if (isTauriShell()) {
-          const { getCurrentWindow } = await import("@tauri-apps/api/window");
-          const fullscreen = await getCurrentWindow().isFullscreen();
-          apply(fullscreen);
-          return;
-        }
-        // Electron
-        const fullscreen = await desktopInvoke<boolean>("window_is_fullscreen");
-        apply(Boolean(fullscreen));
-      } catch {
-        // Desktop shell but query failed — still reserve lights when not browser-FS.
-        apply(!!document.fullscreenElement);
-      }
-    };
-
-    void sync();
-
     if (isTauriShell()) {
       void import("@tauri-apps/api/window").then(async ({ getCurrentWindow }) => {
         const currentWindow = getCurrentWindow();
-        const off = await currentWindow.onResized(() => {
-          void sync();
+        try {
+          apply(await currentWindow.isFullscreen());
+        } catch {
+          apply(!!document.fullscreenElement);
+        }
+        const off = await currentWindow.onResized(async () => {
+          try {
+            apply(await currentWindow.isFullscreen());
+          } catch {
+            apply(!!document.fullscreenElement);
+          }
         });
         if (disposed) {
           off();
@@ -67,30 +57,12 @@ export function useDesktopTrafficLightsPadding(): boolean {
         unlisten = off;
       });
     } else {
-      void desktopListen(
-        "window-fullscreen-changed",
-        (payload: unknown) => {
-          const fs = Boolean(
-            payload &&
-              typeof payload === "object" &&
-              "fullscreen" in payload &&
-              (payload as { fullscreen?: unknown }).fullscreen,
-          );
-          apply(fs);
-        },
-      ).then((off) => {
-        if (disposed) {
-          off();
-          return;
-        }
-        unlisten = off;
-      });
+      unlisten = subscribeDesktopFullscreen(apply);
     }
 
-    // Browser Fullscreen API (web / electron document FS fallback)
     const onDocFs = () => {
       if (isDesktopRuntime() && !isTauriShell()) {
-        void sync();
+        apply(!!document.fullscreenElement);
       }
     };
     document.addEventListener("fullscreenchange", onDocFs);

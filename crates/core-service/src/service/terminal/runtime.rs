@@ -383,6 +383,10 @@ pub(super) fn run_control_mode_tmux_session(
         .build()
         .unwrap();
     let mut detach_requested = false;
+    // Seed from the init refresh-client size so an immediate same-size pin from
+    // the browser does not re-fire SIGWINCH (inline Grok-class TUI full redraw).
+    let mut last_pinned_cols = cols;
+    let mut last_pinned_rows = rows;
 
     rt.block_on(async {
         while let Some(command) = command_rx.recv().await {
@@ -423,6 +427,11 @@ pub(super) fn run_control_mode_tmux_session(
                     if !is_usable_browser_size(cols, rows) {
                         continue;
                     }
+                    // Duplicate pins (warm reveal, double onResize) must not
+                    // re-run refresh-client — that SIGWINCHes interactive TUIs.
+                    if cols == last_pinned_cols && rows == last_pinned_rows {
+                        continue;
+                    }
                     if let Err(error) = write_control_command(
                         &mut stdin,
                         &format!("resize-window -t {pane_id} -x {cols} -y {rows}"),
@@ -443,6 +452,8 @@ pub(super) fn run_control_mode_tmux_session(
                         );
                         return;
                     }
+                    last_pinned_cols = cols;
+                    last_pinned_rows = rows;
                 }
                 SessionCommand::Close {
                     client_session,

@@ -48,11 +48,15 @@ export function scheduleNonUrgent(fn: () => void): void {
 
 /**
  * Instant paint: flip already-mounted workspace frames in the live DOM.
- * React will reconcile `hidden` / `data-tier` on the next commit; this avoids
- * waiting on multi-frame React work for the retained surface to reappear.
+ * React will reconcile `data-tier` on the next commit; this avoids waiting on
+ * multi-frame React work for the retained surface to reappear.
+ *
+ * Hide strategy is **visibility + inert**, not `display:none` /
+ * `content-visibility:hidden`. The latter discards WebGL terminal textures and
+ * flashes blank→repaint when hopping back to a warm CLI TUI (IMP-010 / APP-043).
  *
  * Requires last-tab panels inside Warm frames to stay layout-ready (see
- * {@link isFramePanelVisible}) so unhiding the shell reveals real content.
+ * {@link isFramePanelVisible}) so flipping the shell reveals real content.
  */
 export function applyWorkspaceFrameVisualDom(activeContextId: string | null): void {
   if (typeof document === "undefined") return;
@@ -63,15 +67,18 @@ export function applyWorkspaceFrameVisualDom(activeContextId: string | null): vo
     const id = el.getAttribute("data-workspace-frame");
     if (!id) continue;
     const isActive = activeContextId != null && id === activeContextId;
-    el.hidden = !isActive;
-    el.classList.toggle("hidden", !isActive);
     el.setAttribute("data-tier", isActive ? "active" : "warm");
+    el.setAttribute("aria-hidden", isActive ? "false" : "true");
+    // Clear legacy hide modes from older builds so they cannot re-blank WebGL.
+    el.hidden = false;
+    el.removeAttribute("hidden");
+    el.classList.remove("hidden");
+    el.style.removeProperty("content-visibility");
+    el.style.removeProperty("contain-intrinsic-size");
     if (isActive) {
-      el.style.removeProperty("content-visibility");
-      el.style.removeProperty("contain-intrinsic-size");
+      el.removeAttribute("inert");
     } else {
-      el.style.contentVisibility = "hidden";
-      el.style.containIntrinsicSize = "auto 800px";
+      el.setAttribute("inert", "");
     }
   }
 }

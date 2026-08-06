@@ -16,8 +16,11 @@
 
   function createController() {
     if (!window.__ATMOS_BROWSER_RUNTIME__) return null;
+    // Align with desktop guest: host owns SelectionPopover; guest draws hover/lock.
     return window.__ATMOS_BROWSER_RUNTIME__.createRuntime({
       win: window,
+      showSelectionToolbar: false,
+      showHoverLabel: true,
       emit: function (message) {
         window.parent.postMessage(message, state.parentOrigin || '*');
       },

@@ -663,6 +663,20 @@
   left: auto !important;
 }
 
+/* APP-054: while TUI mouse reporting is active, hide the local overlay
+   scrollbar so users are not misled into dragging xterm scrollback. */
+.atmos-terminal.atmos-tui-mouse-active .xterm-scrollable-element > .scrollbar.vertical,
+.atmos-terminal.atmos-tui-mouse-active .xterm-scrollable-element > .visible.scrollbar.vertical,
+.atmos-terminal.atmos-tui-mouse-active .xterm-scrollable-element > .invisible.scrollbar.vertical,
+.atmos-terminal.atmos-tui-mouse-active .xterm .xterm-scroll-area ~ .xterm-decoration-container + div,
+.atmos-terminal.atmos-tui-mouse-active .xterm-scrollbar,
+.atmos-terminal.atmos-tui-mouse-active .xterm .scrollbar {
+  display: none !important;
+  pointer-events: none !important;
+  opacity: 0 !important;
+  width: 0 !important;
+}
+
 
 /* xterm.js Custom Scrollbar - Slim & Modern Design */
 /* Target the xterm.js overlay scrollbar */

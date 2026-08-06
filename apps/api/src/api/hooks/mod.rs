@@ -6,6 +6,7 @@ use axum::{
     Json, Router,
 };
 use core_service::service::agent_hooks::AtmosContext;
+use serde::Deserialize;
 use serde_json::Value;
 
 use crate::app_state::AppState;
@@ -66,6 +67,9 @@ pub fn routes() -> Router<AppState> {
             post(force_session_idle),
         )
         .route("/sessions/{session_id}", delete(remove_hook_session))
+        // Attention routes before `/{tool}/…` so "attention" is not parsed as a tool name.
+        .route("/attention", get(list_attention))
+        .route("/attention/clear", post(clear_attention))
         .route("/install", post(install_hooks))
         .route("/uninstall", post(uninstall_hooks))
         .route("/status", get(hooks_status))
@@ -238,6 +242,40 @@ async fn handle_kiro_hook(
 async fn list_hook_sessions(State(state): State<AppState>) -> Json<Value> {
     let sessions = state.agent_hooks_service.get_all_sessions();
     Json(serde_json::json!({ "sessions": sessions }))
+}
+
+async fn list_attention(State(state): State<AppState>) -> Json<Value> {
+    let attention = state.agent_hooks_service.get_all_attention();
+    Json(serde_json::json!({ "attention": attention }))
+}
+
+#[derive(Debug, Deserialize)]
+struct ClearAttentionBody {
+    /// Prefer the stable pane id (`{context}:{tmux_window}`) the client focuses.
+    #[serde(default)]
+    stable_pane_id: Option<String>,
+    #[serde(default)]
+    stable_pane_ids: Option<Vec<String>>,
+}
+
+async fn clear_attention(
+    State(state): State<AppState>,
+    Json(body): Json<ClearAttentionBody>,
+) -> Json<Value> {
+    let mut ids: Vec<String> = body.stable_pane_ids.unwrap_or_default();
+    if let Some(id) = body.stable_pane_id {
+        if !id.trim().is_empty() {
+            ids.push(id);
+        }
+    }
+    let cleared = if ids.len() == 1 {
+        state
+            .agent_hooks_service
+            .clear_attention_for_pane(ids[0].as_str())
+    } else {
+        state.agent_hooks_service.clear_attention_matching_ids(&ids)
+    };
+    Json(serde_json::json!({ "cleared": cleared }))
 }
 
 async fn clear_idle_sessions(State(state): State<AppState>) -> Json<Value> {

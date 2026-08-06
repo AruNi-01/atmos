@@ -2,6 +2,7 @@ import { useCallback, useEffect } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 import { useTranslations } from "next-intl";
 import type { MutableRefObject } from "react";
+import { useAgentAttentionStore } from "@/features/agent/store/agent-attention-store";
 
 function isTerminalHotkeyTarget(target: EventTarget | null) {
   const candidates = [
@@ -86,6 +87,20 @@ export function useHeaderHotkeys({
     preventDefault: true,
     description: t("toggleQuotaUsage"),
   });
+
+  // Toggle need-attention sidebar filter (same control as the header bell).
+  useHotkeys(
+    "mod+shift+u",
+    () => {
+      useAgentAttentionStore.getState().toggleFilterMode();
+    },
+    {
+      enableOnContentEditable: true,
+      enableOnFormTags: true,
+      preventDefault: true,
+      description: t("toggleNeedAttention"),
+    },
+  );
 
   useHotkeys("mod+shift+m", () => {
     if (!isActionMenuOpen && document.activeElement instanceof HTMLElement) {

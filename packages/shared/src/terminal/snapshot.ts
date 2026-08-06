@@ -62,11 +62,15 @@ export function shouldRestoreTuiMouseTracking(snapshot: Pick<
   if (typeof snapshot.mouse_tracking_sequence === "string" && snapshot.mouse_tracking_sequence.length > 0) {
     return true;
   }
+  // Fullscreen TUIs always need mouse after reattach even if a stale
+  // restore_mouse_tracking=false was persisted (inactive observation lag).
+  if (snapshot.alternate === true) {
+    return true;
+  }
   if (typeof snapshot.restore_mouse_tracking === "boolean") {
     return snapshot.restore_mouse_tracking;
   }
-  // Older backends only set `alternate`; keep that heuristic as fallback.
-  return snapshot.alternate === true;
+  return false;
 }
 
 /** Exact or default DECSET sequence for post-hydrate mouse restore. */
@@ -90,12 +94,16 @@ export function buildTerminalSnapshotRestorePayload(snapshot: TerminalSnapshot):
   const restoreMouseTracking = mouseRestore.length > 0;
   const screenMode = useAlternateScreen ? "\x1b[?1049h" : "\x1b[?1049l";
   const clearScrollback = useAlternateScreen ? "" : "\x1b[3J";
+  // After replaying cells for an inline mouse TUI, clear scrollback again so a
+  // tall capture of prior TUI frames does not accumulate under the viewport.
+  const postHydrateScrollbackClear =
+    !useAlternateScreen && restoreMouseTracking ? "\x1b[3J" : "";
   const clearScreen = `${screenMode}\x1b[H\x1b[2J${clearScrollback}`;
   const data = normalizeSnapshotData(snapshot.data);
   const cursorRestore = `\x1b[${snapshot.cursor_y + 1};${snapshot.cursor_x + 1}H`;
 
   return {
-    payload: `${clearScreen}\x1b[?7l${data}\x1b[?7h\x1b[0m${cursorRestore}${mouseRestore}`,
+    payload: `${clearScreen}\x1b[?7l${data}\x1b[?7h\x1b[0m${cursorRestore}${postHydrateScrollbackClear}${mouseRestore}`,
     useAlternateScreen,
     restoreMouseTracking,
   };

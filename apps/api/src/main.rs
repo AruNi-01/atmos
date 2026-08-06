@@ -99,6 +99,13 @@ fn spawn_agent_hook_forwarder(
                             WsEvent::AgentHookSessionsCleared,
                             json!({ "session_ids": session_ids }),
                         ),
+                        AgentHookEvent::AttentionRaised(latch) => {
+                            (WsEvent::AgentAttentionRaised, json!(latch))
+                        }
+                        AgentHookEvent::AttentionCleared { stable_pane_ids } => (
+                            WsEvent::AgentAttentionCleared,
+                            json!({ "stable_pane_ids": stable_pane_ids }),
+                        ),
                     };
                     if let Err(error) = ws_manager
                         .broadcast(&WsMessage::notification(ws_event, data))

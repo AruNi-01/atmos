@@ -182,7 +182,7 @@ function SessionRow({ session, onNavigate, onCanvas = false }: { session: AgentH
       onClick={onNavigate}
     >
       <div className="flex items-center gap-1.5 min-w-0">
-        <AgentHookStatusIndicator state={session.state} variant="compact" />
+        <AgentHookStatusIndicator state={session.state} variant="compact" placement="footer" />
         <AgentToolName tool={session.tool} iconSize={11} className="text-[10px] font-medium" />
         {onCanvas && (
           <span title={t("footer.openOnCanvasLabel")} className="inline-flex shrink-0 text-sky-500">
@@ -646,7 +646,11 @@ const Footer: React.FC = () => {
                 <button className="flex items-center gap-1.5 hover:text-foreground transition-colors cursor-pointer">
                   {tickerSession ? (
                     <>
-                      <AgentHookStatusIndicator state={tickerSession.state} variant="compact" />
+                      <AgentHookStatusIndicator
+                        state={tickerSession.state}
+                        variant="compact"
+                        placement="footer"
+                      />
                       <span
                         key={tickerSession.session_id}
                         className="flex items-center gap-0 animate-in fade-in slide-in-from-bottom-1 duration-200"

@@ -75,26 +75,65 @@ export function parseGithubActionsRunId(url?: string | null): number | null {
   return Number.isFinite(id) && id > 0 ? id : null;
 }
 
-function pickGroupActionTarget(checks: StatusCheck[]): {
+/**
+ * Prefer a failed check’s Actions run, then an in-progress one, then any run id.
+ * Used by check groups and compact workspace PR summary.
+ */
+export function pickGroupActionTarget(checks: StatusCheck[]): {
   runId: number | null;
   externalUrl: string | null;
+  groupName: string;
 } {
-  for (const check of checks) {
+  const ordered = [...checks].sort((a, b) => {
+    const rank = (check: StatusCheck) => {
+      const tone = (check.state || check.conclusion || "").toUpperCase();
+      if (
+        tone === "FAILURE" ||
+        tone === "ERROR" ||
+        tone === "ACTION_REQUIRED" ||
+        tone === "TIMED_OUT" ||
+        tone === "STARTUP_FAILURE"
+      ) {
+        return 0;
+      }
+      if (
+        tone === "PENDING" ||
+        tone === "IN_PROGRESS" ||
+        tone === "EXPECTED" ||
+        tone === "QUEUED" ||
+        (check.status && check.status.toUpperCase() !== "COMPLETED")
+      ) {
+        return 1;
+      }
+      return 2;
+    };
+    return rank(a) - rank(b);
+  });
+
+  for (const check of ordered) {
     const runId = parseGithubActionsRunId(check.detailsUrl);
     if (runId != null) {
-      return { runId, externalUrl: null };
+      return {
+        runId,
+        externalUrl: null,
+        groupName: check.workflowName || check.name || check.context || "Actions",
+      };
     }
   }
-  for (const check of checks) {
+  for (const check of ordered) {
     const externalUrl = check.detailsUrl || check.targetUrl;
     if (externalUrl) {
-      return { runId: null, externalUrl };
+      return {
+        runId: null,
+        externalUrl,
+        groupName: check.workflowName || check.name || check.context || "Actions",
+      };
     }
   }
-  return { runId: null, externalUrl: null };
+  return { runId: null, externalUrl: null, groupName: "Actions" };
 }
 
-function buildActionRunFromChecks(
+export function buildActionRunFromChecks(
   groupName: string,
   checks: StatusCheck[],
   runId: number,

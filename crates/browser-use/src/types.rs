@@ -1,32 +1,35 @@
 use serde::{Deserialize, Serialize};
 
-/// Structured error: Atmos embedded browser backend not ready (APP-053).
-pub const ERR_EMBEDDED_NOT_IMPLEMENTED: &str = "embedded_browser_not_implemented";
+/// Structured error: Atmos embedded browser host control plane not reachable.
+pub const ERR_EMBEDDED_HOST_UNAVAILABLE: &str = "embedded_browser_host_unavailable";
 
-/// Product rule: Browser Use never exposes MCP.
+/// Browser Use has no MCP surface.
 pub const ERR_NO_MCP: &str =
     "Browser Use has no MCP surface; use atmos browser-use CLI/skills only";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum BrowserBackendKind {
-    /// System Chromium via managed control engine (CUA tools). Default.
+    /// System Chrome/Chromium via managed Desktop Use control engine.
     #[default]
-    Cua,
-    /// Alias for Cua.
     External,
-    /// Atmos in-app browser (APP-053 webview) — stub until PR #203 merges.
+    /// Atmos in-app browser (Desktop webview + host control plane).
     Embedded,
-    /// Alias for Embedded.
-    Atmos,
 }
 
 impl BrowserBackendKind {
     pub fn parse(s: &str) -> Option<Self> {
         match s.trim().to_ascii_lowercase().as_str() {
-            "cua" | "external" | "chrome" | "chromium" => Some(Self::Cua),
-            "embedded" | "atmos" | "webview" | "app" => Some(Self::Embedded),
+            "external" => Some(Self::External),
+            "embedded" => Some(Self::Embedded),
             _ => None,
+        }
+    }
+
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::External => "external",
+            Self::Embedded => "embedded",
         }
     }
 }
@@ -47,9 +50,9 @@ pub struct BrowserRequest {
     pub backend: BrowserBackendKind,
     pub action: BrowserAction,
     pub pid: Option<i32>,
-    /// Native CGWindowID — required for existing_profile prepare and bind-mode state.
+    /// Native window id — required for existing_profile prepare and bind-mode state.
     pub window_id: Option<i64>,
-    /// Opaque browser target id from get_browser_state (required for click/type/navigate).
+    /// Opaque browser target id (external bind target or embedded session id).
     pub target_id: Option<String>,
     pub tab_id: Option<String>,
     pub element_ref: Option<String>,
@@ -77,7 +80,7 @@ pub struct BrowserResult {
 pub enum BrowserError {
     InvalidArgs(String),
     Engine(String),
-    EmbeddedNotImplemented,
+    EmbeddedHostUnavailable(String),
 }
 
 impl BrowserError {
@@ -85,17 +88,34 @@ impl BrowserError {
         match self {
             Self::InvalidArgs(_) => "invalid_args",
             Self::Engine(_) => "browser_engine_failed",
-            Self::EmbeddedNotImplemented => ERR_EMBEDDED_NOT_IMPLEMENTED,
+            Self::EmbeddedHostUnavailable(_) => ERR_EMBEDDED_HOST_UNAVAILABLE,
         }
     }
 
     pub fn message(&self) -> String {
         match self {
-            Self::InvalidArgs(m) => m.clone(),
-            Self::Engine(m) => m.clone(),
-            Self::EmbeddedNotImplemented => {
-                "Atmos embedded browser backend is reserved until APP-053 webview (PR #203) is merged and verified. Use --backend cua for system Chromium.".into()
-            }
+            Self::InvalidArgs(m) | Self::Engine(m) | Self::EmbeddedHostUnavailable(m) => m.clone(),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_and_as_str() {
+        assert_eq!(
+            BrowserBackendKind::parse("external"),
+            Some(BrowserBackendKind::External)
+        );
+        assert_eq!(
+            BrowserBackendKind::parse("embedded"),
+            Some(BrowserBackendKind::Embedded)
+        );
+        assert_eq!(BrowserBackendKind::parse("nope"), None);
+        assert_eq!(BrowserBackendKind::External.as_str(), "external");
+        assert_eq!(BrowserBackendKind::Embedded.as_str(), "embedded");
+        assert_eq!(BrowserBackendKind::default().as_str(), "external");
     }
 }

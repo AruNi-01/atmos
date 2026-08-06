@@ -67,7 +67,6 @@ const historyMessages: Record<string, string> = {
   "history.recentRecords": "Recent Appshot records",
   "history.recentRecordsAriaLabel": "Recent Appshot records",
   "history.noAppshotsYet": "No Appshots yet.",
-  "history.more": "More",
   "history.previewAlt": "{appName} preview",
   "history.errorIconAriaLabel": "Error",
   "history.recordRow.untitledWindow": "Untitled window",
@@ -163,7 +162,11 @@ mock.module("@workspace/ui", () => ({
     ...props
   }: TestDivProps) => {
     void scrollbarGutter;
-    return <div {...props}>{children}</div>;
+    return (
+      <div {...props}>
+        <div data-slot="scroll-area-viewport">{children}</div>
+      </div>
+    );
   },
   Skeleton: (props: React.HTMLAttributes<HTMLDivElement>) => (
     <div data-testid="appshot-history-skeleton" {...props} />
@@ -289,8 +292,17 @@ const defaultDesktopStatus = (): AppshotStatus => ({
 let appshotStatus: AppshotStatus = defaultDesktopStatus();
 let root: Root | null = null;
 
+type MockIntersectionObserverInstance = {
+  callback: IntersectionObserverCallback;
+  elements: Set<Element>;
+  disconnect: () => void;
+};
+
+const mockIntersectionObservers: MockIntersectionObserverInstance[] = [];
+
 beforeEach(() => {
   installDom();
+  installIntersectionObserver();
   calls.copy = [];
   calls.delete = [];
   calls.list = 0;
@@ -303,6 +315,7 @@ beforeEach(() => {
   deniedPermissions = [];
   listDelayMs = 0;
   appshotStatus = defaultDesktopStatus();
+  mockIntersectionObservers.length = 0;
 });
 
 afterEach(async () => {
@@ -317,7 +330,7 @@ afterEach(async () => {
 });
 
 describe("S7/S8 - Header Appshots history", () => {
-  it("loads only the first 10 record details, pages more, copies, and deletes rows", async () => {
+  it("loads only the first 10 record details, infinite-scrolls more, copies, and deletes rows", async () => {
     seedRecords(12);
     const container = await renderHistoryPopover();
 
@@ -330,21 +343,30 @@ describe("S7/S8 - Header Appshots history", () => {
     expect(container.textContent).toContain("App #02");
     expect(container.textContent).not.toContain("App #01");
     expect(container.textContent).not.toContain("App #00");
+    expect(container.textContent).not.toContain("More");
 
     const recordsScrollArea = container.querySelector(
       '[aria-label="Recent Appshot records"]',
     );
     expect(recordsScrollArea?.className).toContain("h-[min(42vh,360px)]");
     expect(recordsScrollArea?.className).toContain("min-h-[160px]");
+    expect(
+      container.querySelector('[data-testid="appshot-history-load-more"]'),
+    ).not.toBeNull();
 
     const readCallCountBeforeMore = calls.read.length;
-    await click(getButtonByText(container, "More"));
+    await act(async () => {
+      triggerLoadMoreIntersection();
+    });
     await flushUntil(() => uniqueReadTimestamps().length === 12);
 
     expect(calls.read.length).toBeGreaterThan(readCallCountBeforeMore);
     expect(uniqueReadTimestamps()).toEqual(newestFirst);
     expect(container.textContent).toContain("App #01");
     expect(container.textContent).toContain("App #00");
+    expect(
+      container.querySelector('[data-testid="appshot-history-load-more"]'),
+    ).toBeNull();
 
     await click(getButtonsByLabel(container, "Copy Appshot reference")[0]);
     await flushUntil(
@@ -574,6 +596,7 @@ function installDom(): void {
   const win = browserWindow as unknown as Window &
     typeof globalThis & {
       ResizeObserver?: typeof ResizeObserver;
+      IntersectionObserver?: typeof IntersectionObserver;
     };
 
   const requestAnimationFrame = (callback: FrameRequestCallback): number =>
@@ -612,7 +635,87 @@ function installDom(): void {
   win.SyntaxError = SyntaxError;
 }
 
+function installIntersectionObserver(): void {
+  class MockIntersectionObserver implements IntersectionObserver {
+    readonly root: Element | Document | null = null;
+    readonly rootMargin = "";
+    readonly thresholds: ReadonlyArray<number> = [];
+    private readonly instance: MockIntersectionObserverInstance;
+
+    constructor(
+      callback: IntersectionObserverCallback,
+      _options?: IntersectionObserverInit,
+    ) {
+      void _options;
+      this.instance = {
+        callback,
+        elements: new Set(),
+        disconnect: () => {
+          this.instance.elements.clear();
+          const index = mockIntersectionObservers.indexOf(this.instance);
+          if (index >= 0) {
+            mockIntersectionObservers.splice(index, 1);
+          }
+        },
+      };
+      mockIntersectionObservers.push(this.instance);
+    }
+
+    observe(element: Element): void {
+      this.instance.elements.add(element);
+    }
+
+    unobserve(element: Element): void {
+      this.instance.elements.delete(element);
+    }
+
+    disconnect(): void {
+      this.instance.disconnect();
+    }
+
+    takeRecords(): IntersectionObserverEntry[] {
+      return [];
+    }
+  }
+
+  setGlobal("IntersectionObserver", MockIntersectionObserver);
+  const win = globalThis.window as Window &
+    typeof globalThis & {
+      IntersectionObserver?: typeof IntersectionObserver;
+    };
+  if (win) {
+    Object.defineProperty(win, "IntersectionObserver", {
+      configurable: true,
+      value: MockIntersectionObserver,
+      writable: true,
+    });
+  }
+}
+
+function triggerLoadMoreIntersection(): void {
+  const observers = [...mockIntersectionObservers];
+  for (const observer of observers) {
+    if (observer.elements.size === 0) {
+      continue;
+    }
+    const entries = Array.from(observer.elements).map(
+      (target) =>
+        ({
+          isIntersecting: true,
+          target,
+          intersectionRatio: 1,
+          time: Date.now(),
+          boundingClientRect: target.getBoundingClientRect(),
+          intersectionRect: target.getBoundingClientRect(),
+          rootBounds: null,
+        }) as IntersectionObserverEntry,
+    );
+    observer.callback(entries, observer as unknown as IntersectionObserver);
+  }
+}
+
 function cleanupDom(): void {
+  mockIntersectionObservers.length = 0;
   for (const key of [
     "window",
     "document",
@@ -626,6 +729,7 @@ function cleanupDom(): void {
     "MouseEvent",
     "MutationObserver",
     "ResizeObserver",
+    "IntersectionObserver",
     "getComputedStyle",
     "requestAnimationFrame",
     "cancelAnimationFrame",

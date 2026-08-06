@@ -502,24 +502,9 @@ export const BrowserSession: React.FC<BrowserSessionProps> = ({
       extraHandlers?.onSelected?.(payload);
     },
     onHover: (payload: PreviewHoverPayload | null) => {
-      if (!payload || mode === 'desktop') {
-        setHoverCursorLabel(null);
-        extraHandlers?.onHover?.(payload);
-        return;
-      }
-
-      const bounds = iframeRef.current?.getBoundingClientRect();
-      if (!bounds) {
-        setHoverCursorLabel(null);
-        extraHandlers?.onHover?.(payload);
-        return;
-      }
-
-      setHoverCursorLabel({
-        label: payload.label,
-        x: bounds.left + payload.cursor.x,
-        y: bounds.top + payload.cursor.y,
-      });
+      // Guest runtime draws hover chrome (desktop webview + extension/same-origin
+      // with showHoverLabel). Host NativeFollowCursor would double-draw labels.
+      setHoverCursorLabel(null);
       extraHandlers?.onHover?.(payload);
     },
     onToolbarAction: (

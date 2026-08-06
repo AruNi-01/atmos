@@ -9,6 +9,9 @@ release/
 # Synced from apps/desktop/src-tauri/icons at build time (see scripts/sync-icons.ts)
 resources/icons/*
 !resources/icons/README.md
+# macOS 26 Liquid Glass Icon Composer package — source of truth (not synced from Tauri)
+!resources/icons/icon.icon/
+!resources/icons/icon.icon/**
 
 # Staged Atmos Server + web for electron-builder extraResources
 resources/runtime/

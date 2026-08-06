@@ -80,6 +80,13 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
   const [activePaneId, setActivePaneId] = React.useState<string | null>(null);
   const [closeConfirmPaneId, setCloseConfirmPaneId] = React.useState<string | null>(null);
   const [contextMenu, setContextMenu] = React.useState<{ x: number; y: number } | null>(null);
+  // Body-portal context menu must not survive warm/inactive surfaces.
+  React.useEffect(() => {
+    if (isSurfaceActive) return;
+    setContextMenu(null);
+    setContextSplitSubmenu(null);
+    setSplitMenuKey(null);
+  }, [isSurfaceActive]);
   const splitMenuTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const contextSplitSubmenuTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const terminalHotkeyScopeRef = React.useRef<HTMLDivElement | null>(null);
@@ -267,6 +274,14 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
   const setActivePaneIdWithAttention = useCallback(
     (paneId: string | null) => {
       setActivePaneId(paneId);
+      // Mirror into the store so center-stage tab titles can follow the active pane.
+      if (!isProjectWiki && !isCodeReview) {
+        useTerminalStore.getState().setActivePaneId(
+          workspaceId,
+          paneId,
+          terminalTabId ?? FIXED_TERMINAL_TAB_VALUE,
+        );
+      }
       if (!paneId) return;
       const pane = panes[paneId];
       if (!pane) return;
@@ -275,7 +290,7 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
         : pane.sessionId;
       useAgentAttentionStore.getState().notifyPaneFocused(stablePaneId);
     },
-    [panes, workspaceId],
+    [isCodeReview, isProjectWiki, panes, terminalTabId, workspaceId],
   );
 
   const focusPane = useCallback((paneId: string | undefined | null) => {

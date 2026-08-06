@@ -1,6 +1,10 @@
 "use client";
 
 import { create } from "zustand";
+import {
+  agentHooksApi,
+  type AgentAttentionLatchDto,
+} from "@/api/rest-api";
 
 export type AttentionReason = "permission_request" | "task_complete";
 
@@ -20,6 +24,8 @@ export type RaiseAttentionInput = {
   reason: AttentionReason;
   sessionId?: string;
   tool?: string;
+  /** Optional absolute ms; used when hydrating from the API. */
+  raisedAt?: number;
 };
 
 type AgentAttentionStore = {
@@ -40,6 +46,11 @@ type AgentAttentionStore = {
   clearMatchingSessionIds: (ids: readonly string[]) => void;
   /** Called when the user focuses a terminal pane (click / focus capture). */
   notifyPaneFocused: (stablePaneId: string | null) => void;
+  /**
+   * Replace local latches with the API memory snapshot (browser refresh recovery).
+   * Does not touch filterMode / focused pane.
+   */
+  hydrateFromServer: (latches: readonly AgentAttentionLatchDto[]) => void;
   setFilterMode: (on: boolean) => void;
   toggleFilterMode: () => void;
 
@@ -52,8 +63,65 @@ type AgentAttentionStore = {
   getAttentionContextIds: () => string[];
 };
 
+function parseRaisedAt(value: string | number | undefined): number {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && value.trim()) {
+    const ms = Date.parse(value);
+    if (Number.isFinite(ms)) return ms;
+  }
+  return Date.now();
+}
+
+function latchFromDto(dto: AgentAttentionLatchDto): PaneAttention | null {
+  const stablePaneId = dto.stable_pane_id?.trim();
+  const contextId = dto.context_id?.trim();
+  if (!stablePaneId || !contextId) return null;
+  if (dto.reason !== "permission_request" && dto.reason !== "task_complete") {
+    return null;
+  }
+  return {
+    stablePaneId,
+    contextId,
+    reason: dto.reason,
+    sessionId: dto.session_id?.trim() || stablePaneId,
+    tool: dto.tool ?? undefined,
+    raisedAt: parseRaisedAt(dto.raised_at),
+  };
+}
+
+/** Fire-and-forget clear against API memory so refresh does not resurrect latches. */
+function clearAttentionOnServer(stablePaneId: string) {
+  const id = stablePaneId?.trim();
+  if (!id) return;
+  void agentHooksApi.clearAttention({ stablePaneId: id }).catch((error) => {
+    console.warn("[AgentAttentionStore] Failed to clear attention on server:", error);
+  });
+}
+
 const autoClearTimers = new Map<string, ReturnType<typeof setTimeout>>();
 const AUTO_CLEAR_MS = 3000;
+
+/**
+ * Optional side-effect when a pane is acknowledged (focused or auto-cleared while
+ * focused). Wired by agent-hooks-store to drop idle sessions — avoids a static
+ * import cycle between the two stores.
+ */
+let onPaneAcknowledged: ((stablePaneId: string) => void) | null = null;
+
+export function setAgentPaneAcknowledgedHandler(
+  handler: ((stablePaneId: string) => void) | null,
+): void {
+  onPaneAcknowledged = handler;
+}
+
+function notifyPaneAcknowledged(stablePaneId: string) {
+  if (!stablePaneId) return;
+  try {
+    onPaneAcknowledged?.(stablePaneId);
+  } catch (error) {
+    console.warn("[AgentAttentionStore] pane acknowledged handler failed:", error);
+  }
+}
 
 function contextIdFromStablePaneId(stablePaneId: string): string {
   const idx = stablePaneId.indexOf(":");
@@ -77,6 +145,10 @@ function scheduleAutoClear(stablePaneId: string) {
     if (state.focusedStablePaneId !== stablePaneId) return;
     if (!state.panes.has(stablePaneId)) return;
     state.clearPane(stablePaneId);
+    // Persist so refresh does not revive a latch the user already saw.
+    clearAttentionOnServer(stablePaneId);
+    // User already has the pane open — drop idle agent status with the latch.
+    notifyPaneAcknowledged(stablePaneId);
   }, AUTO_CLEAR_MS);
   autoClearTimers.set(stablePaneId, timer);
 }
@@ -112,7 +184,7 @@ export const useAgentAttentionStore = create<AgentAttentionStore>((set, get) => 
         reason,
         sessionId: input.sessionId ?? stablePaneId,
         tool: input.tool ?? existing?.tool,
-        raisedAt: Date.now(),
+        raisedAt: input.raisedAt ?? Date.now(),
       });
       return { panes, revision: state.revision + 1 };
     });
@@ -149,6 +221,28 @@ export const useAgentAttentionStore = create<AgentAttentionStore>((set, get) => 
     }
   },
 
+  hydrateFromServer: (latches) => {
+    const panes = new Map<string, PaneAttention>();
+    for (const dto of latches) {
+      const latch = latchFromDto(dto);
+      if (!latch) continue;
+      const existing = panes.get(latch.stablePaneId);
+      if (
+        existing &&
+        reasonPriority(existing.reason) > reasonPriority(latch.reason)
+      ) {
+        continue;
+      }
+      panes.set(latch.stablePaneId, latch);
+    }
+    set((state) => ({
+      panes,
+      // Empty snapshot turns filter off; non-empty keeps current mode.
+      filterMode: panes.size === 0 ? false : state.filterMode,
+      revision: state.revision + 1,
+    }));
+  },
+
   notifyPaneFocused: (stablePaneId) => {
     const prev = get().focusedStablePaneId;
     if (prev && prev !== stablePaneId) {
@@ -169,9 +263,18 @@ export const useAgentAttentionStore = create<AgentAttentionStore>((set, get) => 
         toClear.push(id);
       }
     }
+    const hadAttention = toClear.length > 0;
     for (const id of toClear) {
       get().clearPane(id);
     }
+    // Persist acknowledge to API memory so a refresh does not revive the latch.
+    // Always POST for the focused pane — backend is idempotent when empty.
+    if (hadAttention) {
+      clearAttentionOnServer(stablePaneId);
+    }
+    // Focusing a pane acknowledges it: drop sticky attention (above) and any
+    // leftover idle hook sessions so we do not wait for the idle sweeper.
+    notifyPaneAcknowledged(stablePaneId);
   },
 
   setFilterMode: (on) => {
@@ -276,7 +379,11 @@ export function selectContextAttention(
 
 /**
  * Filter projects/workspaces to those that currently need attention.
- * Projects stay if the project itself or any of its workspaces needs attention.
+ *
+ * - Project needs attention → keep the project, hide all workspaces under it
+ *   (the project row is the attention target; children would just noise the list).
+ * - Only workspaces need attention → keep the project as a dimmable parent and
+ *   only the workspaces that themselves need attention.
  */
 export function filterProjectsByAttention<
   TProject extends { id: string; workspaces: TWorkspace[] },
@@ -291,9 +398,11 @@ export function filterProjectsByAttention<
   return projects
     .map((project) => {
       const projectNeeds = ids.has(project.id);
-      const workspaces = project.workspaces.filter(
-        (ws) => ids.has(ws.id) || projectNeeds,
-      );
+      // When the project itself needs attention, hide every child workspace.
+      // Otherwise only keep workspaces that are latched for attention.
+      const workspaces = projectNeeds
+        ? []
+        : project.workspaces.filter((ws) => ids.has(ws.id));
       if (!projectNeeds && workspaces.length === 0) return null;
       return { ...project, workspaces };
     })

@@ -60,6 +60,7 @@ export function TerminalPaneAgentStatus({ paneId }: { paneId: string; contextId:
       <AgentHookStatusIndicator
         state={paneState}
         variant="full"
+        placement="terminal_panel"
         className="shrink-0"
       />
     );

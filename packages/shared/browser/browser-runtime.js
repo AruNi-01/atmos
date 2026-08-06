@@ -1968,19 +1968,17 @@
     }
 
     function clearSelection(notifyHost) {
+      // Unlock only — keep pick mode so the host can dismiss SelectionPopover
+      // and continue hovering without a racey exit+re-enter.
+      // Full disable is exitPickMode (toolbar toggle / tab hide).
       state.locked = null;
+      state.hovered = null;
       overlay.clearLocked();
       overlay.clearHover();
       emitHover(null);
       setPickerCursor(state.enabled ? hoverCursor : 'default');
       if (notifyHost) {
         emit({ type: 'atmos-browser:cleared' });
-      } else {
-        // Host-initiated clear also disables pick mode so hover
-        // overlays do not reappear after the selection is removed.
-        state.enabled = false;
-        state.hovered = null;
-        setPickerCursor('default');
       }
     }
 
@@ -2076,16 +2074,32 @@
       overlay.updateCursor(event.clientX, event.clientY);
       event.preventDefault();
       event.stopPropagation();
-      if (state.locked) return;
+      var cursor = { x: event.clientX, y: event.clientY };
+      // Second click while locked: re-pick another element, or dismiss host
+      // SelectionPopover (cleared) when clicking ignored/blank chrome.
+      if (state.locked) {
+        if (target instanceof Element && !isIgnoredElement(target) && target !== state.locked) {
+          unlockSelectionForNextPick();
+          state.locked = target;
+          overlay.clearHover();
+          emitHover(null);
+          selectElement(target, cursor);
+          return;
+        }
+        clearSelection(true);
+        return;
+      }
       if (!(target instanceof Element) || isIgnoredElement(target)) return;
       state.locked = target;
       overlay.clearHover();
       emitHover(null);
-      selectElement(target, { x: event.clientX, y: event.clientY });
+      selectElement(target, cursor);
     }
 
     function handleKeyDown(event) {
       if (!state.enabled || event.key !== 'Escape') return;
+      // Esc: clear lock + notify host (popover dismiss) while pick mode stays on
+      // until the host exits pick mode explicitly.
       clearSelection(true);
     }
 
@@ -2114,6 +2128,7 @@
     }
 
     // Throttled notify so host can re-query annotation/selection rects after scroll.
+    // Keep latency low so host annotation pins track page scroll.
     var viewportChangedTimer = 0;
     function emitViewportChanged() {
       if (!state.sessionId) return;
@@ -2121,7 +2136,7 @@
       viewportChangedTimer = win.setTimeout(function () {
         viewportChangedTimer = 0;
         emit({ type: 'atmos-browser:viewport-changed' });
-      }, 48);
+      }, 16);
     }
 
     function handleViewportLayout() {

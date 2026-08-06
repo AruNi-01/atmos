@@ -4,11 +4,12 @@
  */
 import * as esbuild from "esbuild";
 import { spawnSync } from "node:child_process";
-import { mkdirSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
+const repoRoot = join(root, "../..");
 const dist = join(root, "dist");
 mkdirSync(dist, { recursive: true });
 
@@ -61,7 +62,28 @@ await esbuild.build({
   entryPoints: [join(root, "src/appshot/shift-helper-main.ts")],
   outfile: join(dist, "shift-helper-main.js"),
 });
+// Desktop Use Accessibility grant panel (drag host .app into System Settings).
+await esbuild.build({
+  ...shared,
+  format: "cjs",
+  entryPoints: [join(root, "src/desktop-use/grant-preload.ts")],
+  outfile: join(dist, "grant-preload.cjs"),
+});
+
+// Guest element-select runtime is read at runtime via executeJavaScript inject.
+// Ship next to main.js so packaged apps resolve dist/browser-runtime.js (not monorepo).
+const browserRuntimeSrc = join(
+  repoRoot,
+  "packages/shared/browser/browser-runtime.js",
+);
+const browserRuntimeDest = join(dist, "browser-runtime.js");
+if (!existsSync(browserRuntimeSrc)) {
+  throw new Error(
+    `[build] missing browser runtime source: ${browserRuntimeSrc}`,
+  );
+}
+copyFileSync(browserRuntimeSrc, browserRuntimeDest);
 
 console.log(
-  "[build] dist/main.js, dist/preload.cjs, dist/browser-preload.cjs, dist/shift-helper-main.js",
+  "[build] dist/main.js, dist/preload.cjs, dist/browser-preload.cjs, dist/browser-runtime.js, dist/shift-helper-main.js, dist/grant-preload.cjs",
 );

@@ -164,6 +164,8 @@ function overlayLoadUrl(): string {
 let sharedOverlay: AnyBrowserWindow | null = null;
 let sharedOverlayReady: Promise<AnyBrowserWindow> | null = null;
 let playGeneration = 0;
+/** Generation that currently owns all-workspaces visibility on the shared overlay. */
+let workspaceVisibilityOwner: number | null = null;
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -191,10 +193,14 @@ async function ensureSharedOverlay(): Promise<AnyBrowserWindow> {
 
   sharedOverlayReady = (async () => {
     const { BrowserWindow } = await import("electron");
+    // IMPORTANT (macOS Dock): do NOT use type: "panel".
+    // A hidden panel BrowserWindow at boot leaves Atmos as a zero-width Dock
+    // tile (Accessibility still lists "Atmos", size 0×N — icon appears gone).
+    // Use a normal frameless window + showInactive() so we do not steal focus.
     const win = new BrowserWindow({
       // Off-screen placeholder; real bounds applied on each play.
-      x: 0,
-      y: 0,
+      x: -10_000,
+      y: -10_000,
       width: 200,
       height: 200,
       show: false,
@@ -208,8 +214,6 @@ async function ensureSharedOverlay(): Promise<AnyBrowserWindow> {
       skipTaskbar: true,
       hasShadow: false,
       focusable: false,
-      // panel avoids activating Atmos / stealing frontmost from the target app
-      type: "panel",
       backgroundColor: "#00000000",
       paintWhenInitiallyHidden: true,
       webPreferences: {
@@ -222,8 +226,10 @@ async function ensureSharedOverlay(): Promise<AnyBrowserWindow> {
 
     win.setIgnoreMouseEvents(true, { forward: true });
     win.setAlwaysOnTop(true, "screen-saver");
-    // Can dismiss Dock icon on macOS — helper restores immediately (electron#26350).
-    await setOverlayVisibleOnAllWorkspaces(win, true);
+    // Intentionally do NOT call setVisibleOnAllWorkspaces here.
+    // Enabling it on a hidden overlay at boot dismisses / zero-sizes the Dock
+    // icon for the whole session (electron#26350). Apply only while the
+    // overlay is actually shown during playCaptureAnimation.
 
     win.on("closed", () => {
       if (sharedOverlay === win) {
@@ -242,7 +248,6 @@ async function ensureSharedOverlay(): Promise<AnyBrowserWindow> {
     }
 
     sharedOverlay = win;
-    // Boot warm-path can still race Dock visibility; pin it again after load.
     await ensureMacDockVisible();
     return win;
   })().catch((error) => {
@@ -254,11 +259,16 @@ async function ensureSharedOverlay(): Promise<AnyBrowserWindow> {
 }
 
 /**
- * Pre-create the overlay renderer so the first capture does not hitch on window spawn.
- * Safe to call during app ready / first Appshot status poll.
+ * Pre-create the overlay renderer so the first capture does not hitch.
+ *
+ * On macOS this is intentionally a **no-op at call time**: creating any
+ * always-on-top overlay window during boot has been observed to leave a
+ * zero-width Dock tile. First capture pays the (small) window-create cost.
  */
 export function warmCaptureAnimationOverlay(): void {
-  if (process.platform !== "darwin") return;
+  // Do not create BrowserWindows during boot on darwin — Dock tile regresses.
+  // Kept as a named export so call sites stay stable.
+  if (process.platform === "darwin") return;
   void ensureSharedOverlay()
     .then(() => ensureMacDockVisible())
     .catch((error) => {
@@ -280,9 +290,11 @@ export async function playCaptureAnimation(
   if (!frame) return;
 
   const gen = ++playGeneration;
+  let win: AnyBrowserWindow | null = null;
+  let allWorkspacesOn = false;
 
   try {
-    const win = await ensureSharedOverlay();
+    win = await ensureSharedOverlay();
     if (gen !== playGeneration || win.isDestroyed()) return;
 
     // Hide first so setBounds does not animate a visible jump across monitors.
@@ -296,6 +308,13 @@ export async function playCaptureAnimation(
       width: frame.width,
       height: frame.height,
     });
+
+    // Only while visible: fullscreen workspaces so the flash works over spaces.
+    // Must be cleared after hide — leaving it on permanently can hide Dock.
+    // Claim ownership before await so a concurrent playback cannot be cleared by us.
+    workspaceVisibilityOwner = gen;
+    await setOverlayVisibleOnAllWorkspaces(win, true);
+    allWorkspacesOn = true;
 
     // Restart CSS animations without reloading (reload re-spawns the renderer).
     try {
@@ -315,12 +334,32 @@ export async function playCaptureAnimation(
 
     if (gen !== playGeneration || win.isDestroyed()) return;
     win.hide();
-    // Overlay show/hide can re-trigger Dock dismiss on some Electron/macOS builds.
-    await ensureMacDockVisible();
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
     mainLog(`[appshot-capture] animation overlay failed: ${msg}`, "error");
     destroySharedOverlay();
-    await ensureMacDockVisible();
+    win = null;
+    allWorkspacesOn = false;
+  } finally {
+    // Only the owning generation may clear all-workspaces — stale cleanup must
+    // not disable visibility claimed by a newer overlapping playCaptureAnimation.
+    if (
+      win &&
+      !win.isDestroyed() &&
+      allWorkspacesOn &&
+      workspaceVisibilityOwner === gen
+    ) {
+      try {
+        await setOverlayVisibleOnAllWorkspaces(win, false);
+      } catch {
+        await ensureMacDockVisible();
+      } finally {
+        if (workspaceVisibilityOwner === gen) {
+          workspaceVisibilityOwner = null;
+        }
+      }
+    } else {
+      await ensureMacDockVisible();
+    }
   }
 }

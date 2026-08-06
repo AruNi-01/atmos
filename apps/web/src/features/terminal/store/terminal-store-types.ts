@@ -21,6 +21,11 @@ export interface CreateTerminalTabWithInitialPaneOptions extends CreateTerminalT
 export interface TerminalStore {
   workspaceTerminalTabs: Record<string, TerminalCenterTab[]>;
   workspaceActiveTerminalTabIds: Record<string, string>;
+  /**
+   * Last focused pane id per tab scope (`getScopeKey(workspaceId, tabId)`).
+   * Ephemeral (not persisted) — drives multi-pane auto tab titles.
+   */
+  workspaceActivePaneIds: Record<string, string | null>;
   workspacePanes: Record<string, Record<string, TerminalPaneProps>>;
   workspaceLayouts: Record<string, MosaicNode<string> | null>;
   workspaceMaximizedIds: Record<string, string | null>;
@@ -60,6 +65,8 @@ export interface TerminalStore {
   removeTerminal: (workspaceId: string, id: string, terminalTabId?: string) => void;
   splitTerminal: (workspaceId: string, id: string, direction: MosaicDirection, terminalTabId?: string, agent?: TerminalPaneAgent) => string | null;
   toggleMaximize: (workspaceId: string, id: string, terminalTabId?: string) => void;
+  /** Record the last focused pane for a terminal tab (display-only / title source). */
+  setActivePaneId: (workspaceId: string, paneId: string | null, terminalTabId?: string) => void;
 
   primeWorkspace: (workspaceId: string, isProjectContext?: boolean) => void;
   initWorkspace: (workspaceId: string, isProjectContext?: boolean, terminalTabId?: string) => void;

@@ -41,8 +41,15 @@ asarUnpack:
   - "**/node_modules/koffi/**"
   - "**/dist/shift-helper-main.js"
 
+# afterPack injects Assets.car + CFBundleIconName when actool ≥ 26 is available.
+# (electron-builder's mac.icon=.icon path expects actool to also emit Icon.icns,
+# which Xcode 26.3 does not — so we compile Liquid Glass ourselves.)
+afterPack: scripts/after-pack-macos-icon.cjs
+
 mac:
   category: public.app-category.developer-tools
+  # Legacy ICNS for CFBundleIconFile + pre-Tahoe / DMG volume icon.
+  # macOS 26 Liquid Glass: afterPack compiles resources/icons/icon.icon → Assets.car.
   icon: resources/icons/icon.icns
   # Default ad-hoc codesign (sealed resources). Avoids Gatekeeper "damaged" for
   # packages without Developer ID. Override with CSC_LINK + CSC_KEY_PASSWORD
@@ -66,6 +73,7 @@ dmg:
   # Minimal plain backdrop: slogan + arrow + drag caption only (no Atmos title / art).
   # Regenerate: python3 scripts/generate-dmg-background.py
   background: resources/dmg/background.png
+  # Volume icon must remain .icns (not Icon Composer / Assets.car).
   icon: resources/icons/icon.icns
   iconSize: 96
   window:

@@ -89,6 +89,9 @@ export const terminalFont = {
   letterSpacing: 0,
 };
 
+/** Idle shell / non-mouse local history depth (xterm.js). */
+export const DEFAULT_TERMINAL_SCROLLBACK = 10_000;
+
 // Default terminal options
 export const defaultTerminalOptions = {
   allowProposedApi: true,
@@ -110,7 +113,10 @@ export const defaultTerminalOptions = {
   // Local xterm.js scrollback — scroll is handled natively by xterm.js,
   // providing smooth scrolling with a native scrollbar. Tmux copy-mode is
   // no longer used for scrolling (avoids ugly status bar and flickering).
-  scrollback: 10000,
+  // Only inline mouse TUIs (Grok on the normal buffer) force scrollback to 0
+  // so full-frame redraws cannot stack ghost history. Idle shells and
+  // alt-screen apps keep this default across resize.
+  scrollback: DEFAULT_TERMINAL_SCROLLBACK,
   theme: atmosDarkTheme,
   minimumContrastRatio: 1,
   rescaleOverlappingGlyphs: true,

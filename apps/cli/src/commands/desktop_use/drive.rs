@@ -145,12 +145,17 @@ pub(super) fn drive_cmd(command: DriveCommand) -> Result<Value, String> {
                     a.highlight
                 )
             })?;
+            let coord_space = CoordSpace::parse(&a.coord_space)
+                .ok_or_else(|| format!("invalid --coord-space {:?}", a.coord_space))?;
             DriveRequest {
                 action: DriveAction::Type,
                 text: Some(a.text),
+                x: a.x,
+                y: a.y,
                 pid: a.pid,
                 window_id: a.window_id,
                 delivery_mode: Some(a.delivery_mode),
+                coord_space,
                 element_token: a.element_token,
                 element_index: a.element_index,
                 snapshot_id: a.snapshot_id,

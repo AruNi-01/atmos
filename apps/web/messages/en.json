@@ -267,6 +267,7 @@
       "toggleLeftSidebar": "Toggle left sidebar",
       "refreshPage": "Refresh page",
       "toggleQuotaUsage": "Toggle Quota Usage",
+      "toggleNeedAttention": "Toggle need attention filter",
       "toggleMenu": "Toggle menu",
       "toggleRightSidebar": "Toggle right sidebar"
     },
@@ -1304,6 +1305,23 @@
         "baseBranch": "Base branch",
         "lastActive": "Last active",
         "path": "Path",
+        "openPullRequest": "Open pull request #{number}: {title}",
+        "openChecks": "Open checks / Actions",
+        "pullRequest": "Pull request",
+        "prState": {
+          "open": "Open",
+          "draft": "Draft",
+          "merged": "Merged",
+          "closed": "Closed"
+        },
+        "checksSummary": {
+          "none": "No checks",
+          "separator": ", ",
+          "passed": "{count, plural, one {# passed} other {# passed}}",
+          "inProgress": "{count, plural, one {# in progress} other {# in progress}}",
+          "failed": "{count, plural, one {# failed} other {# failed}}",
+          "skipped": "{count, plural, one {# skipped} other {# skipped}}"
+        },
         "gitWarning": {
           "title": "Git repository warning",
           "description": "This workspace has {issues}. Do you want to continue and {operation}?",
@@ -3293,6 +3311,10 @@
           "label": "Dynamic Skills",
           "description": "Dynamically adjust which skills Agents can see — takes effect in the current session"
         },
+        "browserUse": {
+          "label": "Browser Use",
+          "description": "Control Atmos in-app browser pages (DOM click / type / navigate)"
+        },
         "desktopUse": {
           "label": "Desktop Use",
           "description": "Capture and control the local desktop (screenshot, click, type)"
@@ -3962,6 +3984,11 @@
       "enabledFailed": "Failed to update Terminal Rich Input.",
       "triggerBarFailed": "Failed to update the Rich Input trigger bar."
     },
+    "terminalAppearanceSettingsStore": {
+      "syncFailedTitle": "Settings Sync Failed",
+      "cursorStyleFailed": "Failed to update the terminal cursor style.",
+      "cursorBlinkFailed": "Failed to update terminal cursor blink."
+    },
     "terminalSplitPrefsStore": {
       "syncFailedTitle": "Settings Sync Failed",
       "enabledFailed": "Failed to update Default split agent.",
@@ -4160,6 +4187,7 @@
       "errors": {
         "saveBuiltInAgentTitle": "Failed to save built-in agent",
         "updateYoloModeTitle": "Failed to update YOLO mode",
+        "updateShowAgentNameTitle": "Failed to update agent name display",
         "restoreYoloModeTitle": "Failed to restore YOLO mode",
         "updateAgentVisibilityTitle": "Failed to update agent visibility",
         "removeCustomAgentTitle": "Failed to remove custom agent",
@@ -4628,11 +4656,15 @@
           "desktopUse": {
             "engine": {
               "label": "Control engine",
-              "description": "Install or remove the Desktop Use control engine"
+              "description": "Install, stop, or remove the Desktop Use control engine"
             },
             "permissions": {
               "label": "Desktop permissions",
               "description": "Screen Recording and Accessibility for capture"
+            },
+            "border": {
+              "label": "Operation border",
+              "description": "Visual feedback while Desktop Use operates"
             }
           }
         }
@@ -4803,7 +4835,8 @@
             "navigateBack": "Navigate back",
             "navigateForward": "Navigate forward",
             "toggleActionMenu": "Toggle action menu",
-            "toggleQuotaPopover": "Toggle quota usage popover"
+            "toggleQuotaPopover": "Toggle quota usage popover",
+            "toggleNeedAttention": "Toggle need attention filter"
           }
         },
         "workspace": {
@@ -5050,6 +5083,40 @@
         "restoreHint": "Re-enable YOLO and clear custom flag overrides on all built-in agents so they use the built-in YOLO defaults again.",
         "restoreAll": "Restore YOLO for all agents"
       },
+      "showAgentName": {
+        "title": "Show agent name in terminal titles",
+        "description": "When a terminal or terminal tab detects an agent, always show its icon. Turn this off to hide the agent brand name and save space — the session topic (OSC) then sits next to the icon with a space instead of a pipe."
+      },
+      "activityIndicators": {
+        "title": "Agent Activity Indicators",
+        "description": "Choose the running-state icon shown before agent status in each area of the app. Expand a row to preview and pick a unicode spinner or an AIcss Orb.",
+        "families": {
+          "unicode": "Unicode spinners",
+          "lattice": "Orbs · Lattice",
+          "lens": "Orbs · Lens",
+          "ring": "Orbs · Ring",
+          "helix": "Orbs · Helix",
+          "morph": "Orbs · Morph"
+        },
+        "placements": {
+          "left_sidebar": {
+            "title": "Left sidebar",
+            "description": "Project and workspace list rows."
+          },
+          "center_terminal": {
+            "title": "Center terminal tabs",
+            "description": "Terminal tab labels in the center stage."
+          },
+          "terminal_panel": {
+            "title": "Terminal panel",
+            "description": "Pane toolbar status next to the terminal title."
+          },
+          "footer": {
+            "title": "Footer",
+            "description": "Agent status ticker and session list in the footer."
+          }
+        }
+      },
       "custom": {
         "title": "Custom Agents",
         "description": "Add your own agents with custom commands and parameters.",
@@ -5142,6 +5209,10 @@
     },
     "terminalSection": {
       "groups": {
+        "appearance": {
+          "title": "Appearance",
+          "description": "Cursor shape and blink for the terminal caret."
+        },
         "behavior": {
           "title": "Behavior",
           "description": "How terminal file links open and how plain split reuses the last agent."
@@ -5158,6 +5229,19 @@
           "title": "Performance",
           "description": "Warm workspace and mounted pane limits that trade memory for switch speed."
         }
+      },
+      "cursorStyle": {
+        "title": "Cursor style",
+        "description": "Choose the caret shape used in the terminal. The active tab icon follows the blink setting.",
+        "options": {
+          "block": "Block",
+          "underline": "Underline",
+          "bar": "Bar"
+        }
+      },
+      "cursorBlink": {
+        "title": "Cursor blink",
+        "description": "Blink the terminal caret when the pane is focused. Also applies to the active tab preview."
       },
       "fileLinkOpenMode": {
         "title": "File link open mode",
@@ -5532,76 +5616,100 @@
       }
     },
     "desktopUse": {
-      "title": "Desktop Use",
-      "description": "Desktop capture and control for AppShot and agents. Managed under Atmos Desktop Use.",
-      "desktopOnly": "Open this page in Atmos Desktop to install the engine and grant permissions.",
+      "label": "Desktop Use",
+      "description": "Capture and control the local desktop (screenshot, click, type)",
+      "desktopOnly": "Desktop Use is only available in Atmos Desktop.",
+      "status": {
+        "webOnly": "Desktop only"
+      },
+      "host": {
+        "defaultName": "Atmos Desktop Use"
+      },
+      "groups": {
+        "engine": {
+          "title": "Control engine",
+          "description": "Install, update, stop, or remove the host engine used for capture and UI control."
+        },
+        "permissions": {
+          "title": "Permissions",
+          "description": "Grant Accessibility and Screen Recording to the Desktop Use host app so capture and control work reliably."
+        },
+        "visibility": {
+          "title": "Visual feedback",
+          "description": "On-screen cues while Desktop Use operates — borders now, under-cursor details later."
+        }
+      },
       "engine": {
         "title": "Control engine",
-        "hint": "Optional package for click / type under Atmos Desktop Use.",
-        "installed": "Installed",
+        "hint": "Optional host engine for screen capture and UI control under a dedicated app identity.",
+        "installHint": "Download and install the control engine to enable Desktop Use capture and control.",
+        "updateHint": "Update available: v{current} → v{next}.",
+        "stopHint": "Stop the running engine process. You can start it again with Install / Update.",
+        "removeHint": "Remove the engine from this Mac. Capture and agent desktop control will fall back or become unavailable until reinstalled.",
         "notInstalled": "Not installed",
+        "installed": "Installed",
         "updateAvailable": "Update available",
-        "installHint": "Download the pinned control engine into Atmos-managed storage.",
-        "updateHint": "Installed v{current}. A newer pin is available: v{next}.",
-        "upToDateHint": "Engine is installed and matches the pinned version.",
-        "pinnedVersion": "pin v{version}",
-        "stopHint": "Stop the control engine daemon. Capture and drive pause until it is started again.",
-        "removeHint": "Remove the installed control engine from Atmos-managed storage. You can install it again later."
-      },
-      "border": {
-        "title": "Operation border",
-        "description": "When agents drive the desktop, show a blinking border around the target app (or the desktop) plus a short status under the pointer. Clears automatically after idle or when a drive session ends."
+        "statusTitle": "Engine",
+        "statusDescription": "Download state and version of the Desktop Use control engine."
       },
       "actions": {
         "install": "Install",
         "update": "Update",
         "stop": "Stop",
-        "uninstall": "Remove",
+        "uninstall": "Uninstall",
         "refresh": "Refresh",
-        "grantPermissions": "Open System Settings"
+        "cancel": "Cancel"
       },
-      "errors": {
-        "statusFailed": "Could not load Desktop Use status",
-        "installFailed": "Could not install the control engine",
-        "updateFailed": "Could not update the control engine",
-        "stopFailed": "Could not stop the control engine",
-        "uninstallFailed": "Could not remove the control engine",
-        "grantFailed": "Could not open System Settings",
-        "prefsFailed": "Could not update Desktop Use preferences"
+      "uninstallConfirm": {
+        "title": "Uninstall Desktop Use engine?",
+        "description": "This stops the engine and deletes the local host app under ~/.atmos/desktop-use.",
+        "consequencesTitle": "After uninstall, these will be unavailable until you install again:",
+        "consequences": {
+          "appshotHost": "AppShot dual-shift capture via the dedicated Desktop Use host identity",
+          "agentControl": "Agent desktop control (screenshot, click, type) through the control engine",
+          "cli": "CLI: atmos desktop-use drive / capture commands that need the engine",
+          "chrome": "Operation border and agent cursor overlays driven by the engine"
+        },
+        "note": "macOS Accessibility and Screen Recording grants for “Atmos Desktop Use” stay in System Settings until you remove them there. Reinstall will reuse the same host identity when possible.",
+        "confirm": "Uninstall engine"
       },
-      "host": {
-        "label": "Permission host",
-        "defaultName": "Atmos Desktop Use"
-      },
-      "status": {
-        "webOnly": "Desktop only"
-      },
-      "advanced": {
-        "show": "More…",
-        "hide": "Hide"
+      "border": {
+        "title": "Operation border",
+        "description": "Show a border around the target window or desktop while Desktop Use is operating."
       },
       "permissions": {
         "title": "Permissions",
-        "unifiedHint": "AppShot and desktop control both use Atmos Desktop Use. Grant once for that host — there is no separate AppShot permission.",
-        "hostLine": "Grants apply to {host}",
-        "installFirst": "Install the control engine first. Permissions are granted to Atmos Desktop Use after install.",
-        "grantHint": "Open System Settings for each missing permission, enable Atmos Desktop Use, then Refresh.",
-        "ready": "All required permissions are granted.",
-        "done": "Granted",
-        "missing": "Missing",
+        "unifiedHint": "Grant Accessibility and Screen Recording to the Desktop Use host app so capture and control work reliably.",
+        "installFirst": "Install the control engine first to manage permissions.",
+        "hostLine": "Host: {host}",
+        "done": "Done",
+        "grant": "Grant",
         "items": {
           "accessibility": {
             "title": "Accessibility",
-            "description": "Needed to read UI structure and drive click / type."
+            "description": "Required to inspect and control other apps. Opens System Settings so you can enable Atmos Desktop Use (drag the chip only if it is not already listed)."
           },
           "screenRecording": {
             "title": "Screen Recording",
-            "description": "Needed for AppShot capture and desktop screenshots."
+            "description": "Required to capture the screen for AppShot and Desktop Use."
           }
         },
-        "grantAccessibility": "Open Accessibility",
-        "grantScreenRecording": "Open Screen Recording"
-      }
+        "dragHint": "Turn on Atmos Desktop Use in the list. If it is missing, drag the floating chip into the list."
+      },
+      "errors": {
+        "statusFailed": "Failed to load Desktop Use status.",
+        "installFailed": "Failed to install the control engine.",
+        "updateFailed": "Failed to update the control engine.",
+        "stopFailed": "Failed to stop the control engine.",
+        "uninstallFailed": "Failed to uninstall the control engine.",
+        "prefsFailed": "Failed to update preferences.",
+        "grantFailed": "Failed to open permission settings."
+      },
+      "title": "Desktop Use"
+    },
+    "browserUse": {
+      "label": "Browser Use",
+      "description": "Control Atmos in-app browser pages (DOM click / type / navigate)"
     }
   },
   "agent": {
@@ -7223,12 +7331,11 @@
         },
         "unsupportedInThisRuntime": "Appshots are not supported in this runtime.",
         "permissionsRequiredTitle": "Permissions required",
-        "permissionsRequiredDescription": "Grant Accessibility and Screen Recording for Atmos Desktop Use in Settings.",
-        "enable": "Open Desktop Use",
+        "permissionsRequiredDescription": "Grant the required macOS permissions to capture Appshots.",
+        "enable": "Enable",
         "recentRecords": "Recent Appshot records",
         "recentRecordsAriaLabel": "Recent Appshot records",
         "noAppshotsYet": "No Appshots yet.",
-        "more": "More",
         "previewAlt": "{appName} preview",
         "errorIconAriaLabel": "Error",
         "recordRow": {
@@ -8270,6 +8377,10 @@
         "label": "Dynamic Skills",
         "description": "Dynamically adjust which skills Agents can see — takes effect in the current session"
       },
+      "browserUseCommand": {
+        "label": "Browser Use",
+        "description": "Control Atmos in-app browser pages (DOM click / type / navigate)"
+      },
       "skillDisable": {
         "chip": "Dynamic Skills",
         "chipTooltip": "Filter and toggle skills for Agents in this context",
@@ -8513,9 +8624,10 @@
       "tooltip": {
         "enterUrlFirst": "Enter a URL first.",
         "unavailable": "Element selection is only available for same-origin pages, local development URLs, or the desktop Browser.",
-        "desktopNative": "{action} element selection. Source component detection runs through the desktop native Browser and supports React, Vue, Angular, and Svelte.",
+        "desktop": "{action} element selection. Source component detection runs through the desktop native Browser and supports React, Vue, Angular, and Svelte.",
         "extension": "{action} element selection. Cross-port pages use the Atmos Inspector extension. Source component detection supports React, Vue, Angular, and Svelte.",
-        "default": "{action} element selection. Source component detection supports React, Vue, Angular, and Svelte."
+        "default": "{action} element selection. Source component detection supports React, Vue, Angular, and Svelte.",
+        "desktopNative": "{action} element selection. Source component detection runs through the desktop native Browser and supports React, Vue, Angular, and Svelte."
       }
     },
     "toolbar": {
@@ -8705,6 +8817,7 @@
         "browserLoadFailure": "The target page reported a browser-level load failure.",
         "unknownNetwork": "Unknown network error",
         "localHttpsHint": "The target local server may be speaking HTTP on an HTTPS URL or returning an invalid TLS response.",
+        "certProxyHint": "Certificate errors that appear only sometimes are often caused by a system proxy, VPN, or fake-ip DNS (for example Clash/Surge). Try disabling the proxy or use system DNS, then retry.",
         "networkUnreachable": "The target page could not be reached cleanly."
       },
       "errorCard": {
@@ -8950,6 +9063,35 @@
       "xcuserdata": "Xcode per-user data",
       "zig_cache": "Zig build cache",
       "zig_out": "Zig build output"
+    }
+  },
+  "desktopUse": {
+    "readinessModal": {
+      "title": "Desktop Use is not ready",
+      "dismiss": "Not now",
+      "grant": "Grant",
+      "openSettings": "Open settings",
+      "hint": "Install or start the control engine and grant Accessibility + Screen Recording to Atmos Desktop Use.",
+      "source": {
+        "generic": "This feature needs the Desktop Use control engine.",
+        "appshot": "AppShot capture works best when Desktop Use is installed and permitted.",
+        "slash": "The Desktop Use slash skill needs the control engine and macOS permissions.",
+        "browser": "Browser Use needs the Desktop Use control engine and macOS permissions for agent chrome and capture."
+      },
+      "reason": {
+        "webOnly": "Desktop Use is only available in Atmos Desktop.",
+        "engineNotInstalled": "The control engine is not installed yet.",
+        "engineNotRunning": "The control engine is installed but not running.",
+        "permissionAccessibility": "Accessibility permission is not granted for Atmos Desktop Use.",
+        "permissionScreenRecording": "Screen Recording permission is not granted for Atmos Desktop Use.",
+        "permissionBoth": "Accessibility and Screen Recording are not granted for Atmos Desktop Use.",
+        "unknown": "Could not verify Desktop Use status. Check Settings to install and grant permissions."
+      },
+      "needs": {
+        "engine": "Control engine installed and running",
+        "accessibility": "Accessibility allowed for Atmos Desktop Use",
+        "screenRecording": "Screen Recording allowed for Atmos Desktop Use"
+      }
     }
   }
 }

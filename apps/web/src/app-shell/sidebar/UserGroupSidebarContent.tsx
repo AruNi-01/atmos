@@ -48,6 +48,10 @@ import {
 import { GroupNamePopoverForm } from "@/app-shell/sidebar/GroupNamePopoverForm";
 import { ProjectItem, type ProjectItemProps } from "@/app-shell/sidebar/ProjectItem";
 import { TwoColumnSidebarToggleButton } from "@/app-shell/left-sidebar-controls";
+import {
+  selectAttentionFilterMode,
+  useAgentAttentionStore,
+} from "@/features/agent/store/agent-attention-store";
 
 type DndSensors = DndContextProps["sensors"];
 
@@ -333,6 +337,7 @@ function SortableUserGroupTwoColumnRow({
     isDragging,
   } = useSortable({ id: view.key, disabled: !canSort });
   const count = countUserGroupItems(view);
+  const attentionFilterMode = useAgentAttentionStore(selectAttentionFilterMode);
 
   return (
     <div
@@ -348,6 +353,7 @@ function SortableUserGroupTwoColumnRow({
           : "text-muted-foreground hover:bg-sidebar-accent/40 hover:text-sidebar-foreground",
         // Match project drag: placeholder opacity while reordering.
         isDragging ? "relative z-20 opacity-20" : "opacity-100",
+        attentionFilterMode && !isDragging && "opacity-45",
       )}
     >
       {/* Project pattern: plain div host for attributes/listeners (not a button). */}
@@ -408,7 +414,12 @@ export function UserGroupTwoColumnLeftContent({
   onGroupOrderChange?: (orderedGroupIds: string[]) => void | Promise<void>;
 }) {
   const t = useTranslations("appShell.groups");
-  const sortableIds = views
+  const attentionFilterMode = useAgentAttentionStore(selectAttentionFilterMode);
+  // Attention list: hide empty group buckets.
+  const visibleViews = attentionFilterMode
+    ? views.filter((view) => countUserGroupItems(view) > 0)
+    : views;
+  const sortableIds = visibleViews
     .filter((view) => view.groupId)
     .map((view) => view.key);
   const canReorder = Boolean(sensors && onGroupOrderChange && sortableIds.length > 1);
@@ -423,7 +434,7 @@ export function UserGroupTwoColumnLeftContent({
 
   const list = (
     <div className="space-y-1">
-      {views.map((view) =>
+      {visibleViews.map((view) =>
         canReorder && view.groupId ? (
           <SortableUserGroupTwoColumnRow
             key={view.key}
@@ -441,6 +452,7 @@ export function UserGroupTwoColumnLeftContent({
               selectedKey === view.key
                 ? "bg-sidebar-accent text-sidebar-foreground"
                 : "text-muted-foreground hover:bg-sidebar-accent/40 hover:text-sidebar-foreground",
+              attentionFilterMode && "opacity-45",
             )}
           >
             <button
@@ -648,6 +660,7 @@ function SortableUserGroupOneColumnSection({
     isDragging,
   } = useSortable({ id: view.key, disabled: !canSort });
   const count = countUserGroupItems(view);
+  const attentionFilterMode = useAgentAttentionStore(selectAttentionFilterMode);
   const { activeProjectId, activeWorkspaceId, ...sharedProjectItemProps } =
     projectItemProps;
   // Match ProjectItem: hide nested list while any group is dragging.
@@ -669,7 +682,13 @@ function SortableUserGroupOneColumnSection({
         isDragging ? "relative z-20 opacity-20" : "opacity-100",
       )}
     >
-      <div className="group/header flex items-center gap-0.5 rounded-lg px-1 py-0.5 hover:bg-sidebar-accent/40">
+      <div
+        className={cn(
+          "group/header flex items-center gap-0.5 rounded-lg px-1 py-0.5 hover:bg-sidebar-accent/40",
+          // Attention filter: dim group chrome so projects/workspaces stay the focus.
+          attentionFilterMode && "opacity-45",
+        )}
+      >
         {/*
           Project pattern: put useSortable attributes/listeners on a plain div
           (not CollapsibleTrigger/button). Click toggles collapse; drag uses the
@@ -815,7 +834,11 @@ export function UserGroupOneColumnContent({
 }) {
   const t = useTranslations("appShell.groups");
   const [activeDragId, setActiveDragId] = useState<string | null>(null);
-  const sortableIds = views
+  const attentionFilterMode = useAgentAttentionStore(selectAttentionFilterMode);
+  const visibleViews = attentionFilterMode
+    ? views.filter((view) => countUserGroupItems(view) > 0)
+    : views;
+  const sortableIds = visibleViews
     .filter((view) => view.groupId)
     .map((view) => view.key);
   const sortableIdSet = new Set(sortableIds);
@@ -825,7 +848,7 @@ export function UserGroupOneColumnContent({
   const canReorder = Boolean(sensors && onGroupOrderChange && sortableIds.length > 1);
 
   const activeDragView = activeDragId
-    ? views.find((view) => view.key === activeDragId) ?? null
+    ? visibleViews.find((view) => view.key === activeDragId) ?? null
     : null;
 
   const handleDragEnd = ({ active, over }: DragEndEvent) => {
@@ -837,7 +860,7 @@ export function UserGroupOneColumnContent({
     void onGroupOrderChange(arrayMove(sortableIds, oldIndex, newIndex));
   };
 
-  const sections = views.map((view) => {
+  const sections = visibleViews.map((view) => {
     const stateKey = `group:${view.key}`;
     const isCollapsed = collapsedKeys[stateKey] ?? false;
     return (

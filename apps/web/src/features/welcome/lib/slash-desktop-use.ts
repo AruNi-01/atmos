@@ -37,6 +37,8 @@ export function buildDesktopUseSlashCommand(opts: {
 export function resolveDesktopUseSkillRef(skills: SkillInfo[]): {
   absolutePath: string;
   name: string;
+  /** Mirrors SkillInfo.status; fallback path is treated as enabled until list syncs. */
+  status: SkillInfo["status"];
 } {
   const found = skills.find(
     (s) =>
@@ -45,10 +47,15 @@ export function resolveDesktopUseSkillRef(skills: SkillInfo[]): {
       s.path.includes("atmos-desktop-use"),
   );
   if (found) {
-    return { absolutePath: found.path, name: found.name || DESKTOP_USE_SKILL_NAME };
+    return {
+      absolutePath: found.path,
+      name: found.name || DESKTOP_USE_SKILL_NAME,
+      status: found.status,
+    };
   }
   return {
     absolutePath: DESKTOP_USE_SKILL_FALLBACK_PATH,
     name: DESKTOP_USE_SKILL_NAME,
+    status: "enabled",
   };
 }

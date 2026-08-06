@@ -267,6 +267,7 @@
       "toggleLeftSidebar": "切换左侧边栏",
       "refreshPage": "刷新页面",
       "toggleQuotaUsage": "切换配额用量",
+      "toggleNeedAttention": "切换需要关注筛选",
       "toggleMenu": "切换菜单",
       "toggleRightSidebar": "切换右侧边栏"
     },
@@ -1304,6 +1305,23 @@
         "baseBranch": "基准分支",
         "lastActive": "最近活跃",
         "path": "路径",
+        "openPullRequest": "打开 Pull Request #{number}：{title}",
+        "openChecks": "打开 Checks / Actions",
+        "pullRequest": "Pull Request",
+        "prState": {
+          "open": "开启",
+          "draft": "草稿",
+          "merged": "已合并",
+          "closed": "关闭"
+        },
+        "checksSummary": {
+          "none": "暂无 checks",
+          "separator": "，",
+          "passed": "{count} 通过",
+          "inProgress": "{count} 进行中",
+          "failed": "{count} 失败",
+          "skipped": "{count} 跳过"
+        },
         "gitWarning": {
           "title": "Git 仓库警告",
           "description": "该工作区存在 {issues}。是否仍要继续并{operation}？",
@@ -3293,6 +3311,10 @@
           "label": "Dynamic Skills",
           "description": "动态调整 Agent 可见的技能，当前 session 即可生效"
         },
+        "browserUse": {
+          "label": "Browser Use",
+          "description": "控制 Atmos 内置浏览器页面（DOM 点击 / 输入 / 导航）"
+        },
         "desktopUse": {
           "label": "Desktop Use",
           "description": "本机桌面捕获与控制（截图、点击、输入）"
@@ -3962,6 +3984,11 @@
       "enabledFailed": "更新 Terminal Rich Input 失败。",
       "triggerBarFailed": "更新 Rich Input 触发条失败。"
     },
+    "terminalAppearanceSettingsStore": {
+      "syncFailedTitle": "设置同步失败",
+      "cursorStyleFailed": "更新终端光标样式失败。",
+      "cursorBlinkFailed": "更新终端光标闪烁失败。"
+    },
     "terminalSplitPrefsStore": {
       "syncFailedTitle": "设置同步失败",
       "enabledFailed": "更新默认分屏 Agent 失败。",
@@ -4160,6 +4187,7 @@
       "errors": {
         "saveBuiltInAgentTitle": "保存内置 Agent 失败",
         "updateYoloModeTitle": "更新 YOLO 模式失败",
+        "updateShowAgentNameTitle": "更新 Agent 名称显示失败",
         "restoreYoloModeTitle": "恢复 YOLO 模式失败",
         "updateAgentVisibilityTitle": "更新 Agent 可见性失败",
         "removeCustomAgentTitle": "移除自定义 Agent 失败",
@@ -4628,11 +4656,15 @@
           "desktopUse": {
             "engine": {
               "label": "控制引擎",
-              "description": "安装或移除 Desktop Use 控制引擎"
+              "description": "安装、停止或移除 Desktop Use 控制引擎"
             },
             "permissions": {
               "label": "桌面权限",
               "description": "用于捕获的屏幕录制与辅助功能权限"
+            },
+            "border": {
+              "label": "操作描边",
+              "description": "Desktop Use 操作时的视觉反馈"
             }
           }
         }
@@ -4803,7 +4835,8 @@
             "navigateBack": "返回上一步",
             "navigateForward": "前进",
             "toggleActionMenu": "切换操作菜单",
-            "toggleQuotaPopover": "切换配额用量弹层"
+            "toggleQuotaPopover": "切换配额用量弹层",
+            "toggleNeedAttention": "切换需要关注筛选"
           }
         },
         "workspace": {
@@ -5050,6 +5083,40 @@
         "restoreHint": "重新开启 YOLO，并清除所有内置 Agent 的自定义参数覆盖，使其恢复内置 YOLO 默认参数。",
         "restoreAll": "一键恢复全部 Agent 的 YOLO"
       },
+      "showAgentName": {
+        "title": "在终端标题中显示 Agent 名称",
+        "description": "终端或 Terminal tabs 检测到 Agent 时始终显示图标。关闭后可隐藏 Agent 品牌名称以节省空间——此时会话主题（OSC）会直接跟在图标后，用空格分隔，不再使用竖线。"
+      },
+      "activityIndicators": {
+        "title": "Agent 活动指示器",
+        "description": "分别为应用中不同区域选择 Agent 运行状态前的图标。展开某一行即可预览并选择 Unicode 旋转指示器或 AIcss Orb。",
+        "families": {
+          "unicode": "Unicode 旋转指示器",
+          "lattice": "Orbs · 点阵 Lattice",
+          "lens": "Orbs · 透镜 Lens",
+          "ring": "Orbs · 圆环 Ring",
+          "helix": "Orbs · 螺旋 Helix",
+          "morph": "Orbs · 形变 Morph"
+        },
+        "placements": {
+          "left_sidebar": {
+            "title": "左侧边栏",
+            "description": "项目与工作区列表行。"
+          },
+          "center_terminal": {
+            "title": "中间 Terminal 标签",
+            "description": "中心区域 Terminal 标签标题旁。"
+          },
+          "terminal_panel": {
+            "title": "Terminal 面板",
+            "description": "终端窗格工具栏中、标题旁的状态。"
+          },
+          "footer": {
+            "title": "页脚",
+            "description": "页脚 Agent 状态 ticker 与会话列表。"
+          }
+        }
+      },
       "custom": {
         "title": "自定义 Agents",
         "description": "添加你自己的 Agent，并配置自定义命令和参数。",
@@ -5142,6 +5209,10 @@
     },
     "terminalSection": {
       "groups": {
+        "appearance": {
+          "title": "外观",
+          "description": "终端光标形状与是否闪烁。"
+        },
         "behavior": {
           "title": "行为",
           "description": "终端文件链接的打开方式，以及普通分屏如何复用上次选择的 Agent。"
@@ -5158,6 +5229,19 @@
           "title": "性能",
           "description": "Warm 工作区与挂载面板上限，用内存换取更快切换。"
         }
+      },
+      "cursorStyle": {
+        "title": "光标样式",
+        "description": "选择终端中使用的光标形状。选中项的图标会跟随闪烁开关实时变化。",
+        "options": {
+          "block": "方块",
+          "underline": "下划线",
+          "bar": "竖线"
+        }
+      },
+      "cursorBlink": {
+        "title": "光标闪烁",
+        "description": "在面板获得焦点时闪烁终端光标，同时作用于当前选中的预览图标。"
       },
       "fileLinkOpenMode": {
         "title": "文件链接打开方式",
@@ -5532,76 +5616,100 @@
       }
     },
     "desktopUse": {
-      "title": "Desktop Use",
-      "description": "用于 AppShot 与 Agent 的桌面捕获与控制，由 Atmos Desktop Use 统一管理。",
-      "desktopOnly": "请在 Atmos Desktop 中打开此页以安装引擎并授予权限。",
+      "label": "Desktop Use",
+      "description": "本机桌面捕获与控制（截图、点击、输入）",
+      "desktopOnly": "Desktop Use 仅在 Atmos 桌面端可用。",
+      "status": {
+        "webOnly": "仅桌面端"
+      },
+      "host": {
+        "defaultName": "Atmos Desktop Use"
+      },
+      "groups": {
+        "engine": {
+          "title": "控制引擎",
+          "description": "安装、更新、停止或移除用于捕获与 UI 操控的 host 引擎。"
+        },
+        "permissions": {
+          "title": "权限",
+          "description": "为 Desktop Use host 应用授予辅助功能与屏幕录制权限，以便稳定完成捕获与控制。"
+        },
+        "visibility": {
+          "title": "视觉反馈",
+          "description": "Desktop Use 操作时的屏幕提示——当前支持描边，后续可扩展光标下方内容等。"
+        }
+      },
       "engine": {
         "title": "控制引擎",
-        "hint": "可选组件，用于在 Atmos Desktop Use 下进行点击 / 输入控制。",
-        "installed": "已安装",
+        "hint": "可选本机控制引擎，在独立 App 身份下完成截屏与 UI 操控。",
+        "installHint": "下载并安装控制引擎后，即可使用 Desktop Use 的捕获与控制能力。",
+        "updateHint": "有可用更新：v{current} → v{next}。",
+        "stopHint": "停止正在运行的引擎进程。之后可通过「安装 / 更新」再次启动。",
+        "removeHint": "从本机移除引擎。在重新安装前，相关捕获与 Agent 桌面控制会降级或不可用。",
         "notInstalled": "未安装",
+        "installed": "已安装",
         "updateAvailable": "有可用更新",
-        "installHint": "将固定版本的控制引擎下载到 Atmos 托管目录。",
-        "updateHint": "当前已安装 v{current}，可用固定版本 v{next}。",
-        "upToDateHint": "引擎已安装，且与固定版本一致。",
-        "pinnedVersion": "固定 v{version}",
-        "stopHint": "停止控制引擎守护进程。再次启动前，捕获与桌面控制将不可用。",
-        "removeHint": "从 Atmos 托管目录移除已安装的控制引擎。之后可重新安装。"
-      },
-      "border": {
-        "title": "操作边框",
-        "description": "Agent 操控桌面时，在目标 App（或整个桌面）周围显示闪烁边框，并在指针旁显示简短状态。空闲一段时间或 drive session 结束后自动清除。"
+        "statusTitle": "引擎",
+        "statusDescription": "Desktop Use 控制引擎的下载状态与版本。"
       },
       "actions": {
         "install": "安装",
         "update": "更新",
         "stop": "停止",
-        "uninstall": "移除",
+        "uninstall": "卸载",
         "refresh": "刷新",
-        "grantPermissions": "打开系统设置"
+        "cancel": "取消"
       },
-      "errors": {
-        "statusFailed": "无法加载 Desktop Use 状态",
-        "installFailed": "无法安装控制引擎",
-        "updateFailed": "无法更新控制引擎",
-        "stopFailed": "无法停止控制引擎",
-        "uninstallFailed": "无法移除控制引擎",
-        "grantFailed": "无法打开系统设置",
-        "prefsFailed": "无法更新 Desktop Use 偏好设置"
+      "uninstallConfirm": {
+        "title": "卸载 Desktop Use 引擎？",
+        "description": "将停止引擎并删除 ~/.atmos/desktop-use 下的本机 host 应用。",
+        "consequencesTitle": "卸载后，在重新安装前以下能力将不可用：",
+        "consequences": {
+          "appshotHost": "经 Desktop Use host 身份的 AppShot 双 Shift 捕获",
+          "agentControl": "经控制引擎的 Agent 桌面操控（截图、点击、输入）",
+          "cli": "依赖引擎的 CLI：atmos desktop-use drive / capture 等命令",
+          "chrome": "由引擎驱动的操作描边与 Agent 光标叠层"
+        },
+        "note": "系统设置里对「Atmos Desktop Use」的辅助功能 / 屏幕录制授权不会自动撤销；若需清除请到系统设置中手动移除。重新安装时会尽量复用同一 host 身份。",
+        "confirm": "确认卸载"
       },
-      "host": {
-        "label": "权限宿主",
-        "defaultName": "Atmos Desktop Use"
-      },
-      "status": {
-        "webOnly": "仅桌面端"
-      },
-      "advanced": {
-        "show": "更多…",
-        "hide": "收起"
+      "border": {
+        "title": "操作描边",
+        "description": "Desktop Use 操作目标窗口或桌面时显示描边提示。"
       },
       "permissions": {
         "title": "权限",
-        "unifiedHint": "AppShot 与桌面控制共用 Atmos Desktop Use。只需为该宿主授权一次，不再有单独的 AppShot 权限。",
-        "hostLine": "授权对象：{host}",
-        "installFirst": "请先安装控制引擎。安装后，权限将授予 Atmos Desktop Use。",
-        "grantHint": "为每项缺失权限打开系统设置，打开 Atmos Desktop Use 开关后点刷新。",
-        "ready": "所需权限均已授予。",
-        "done": "已授权",
-        "missing": "未授权",
+        "unifiedHint": "请为 Desktop Use host 应用授予辅助功能与屏幕录制权限，以便稳定完成捕获与控制。",
+        "installFirst": "请先安装控制引擎再管理权限。",
+        "hostLine": "Host：{host}",
+        "done": "完成",
+        "grant": "授予",
         "items": {
           "accessibility": {
             "title": "辅助功能",
-            "description": "用于读取界面结构，以及点击 / 输入控制。"
+            "description": "用于检查并控制其他应用。会打开系统设置以便开启 Atmos Desktop Use（仅在列表中没有时才需拖入悬浮芯片）。"
           },
           "screenRecording": {
             "title": "屏幕录制",
-            "description": "用于 AppShot 捕获与桌面截图。"
+            "description": "用于 AppShot 与 Desktop Use 的屏幕捕获。"
           }
         },
-        "grantAccessibility": "打开辅助功能",
-        "grantScreenRecording": "打开屏幕录制"
-      }
+        "dragHint": "在列表中打开 Atmos Desktop Use 开关；若没有该项，再将悬浮芯片拖入列表。"
+      },
+      "errors": {
+        "statusFailed": "加载 Desktop Use 状态失败。",
+        "installFailed": "安装控制引擎失败。",
+        "updateFailed": "更新控制引擎失败。",
+        "stopFailed": "停止控制引擎失败。",
+        "uninstallFailed": "卸载控制引擎失败。",
+        "prefsFailed": "更新偏好设置失败。",
+        "grantFailed": "打开权限设置失败。"
+      },
+      "title": "Desktop Use"
+    },
+    "browserUse": {
+      "label": "Browser Use",
+      "description": "控制 Atmos 内置浏览器页面（DOM 点击 / 输入 / 导航）"
     }
   },
   "agent": {
@@ -7223,12 +7331,11 @@
         },
         "unsupportedInThisRuntime": "当前运行时不支持 Appshots。",
         "permissionsRequiredTitle": "需要权限",
-        "permissionsRequiredDescription": "请在设置中为 Atmos Desktop Use 打开辅助功能与屏幕录制。",
-        "enable": "打开 Desktop Use",
+        "permissionsRequiredDescription": "授予所需的 macOS 权限后才能捕获 Appshot。",
+        "enable": "启用",
         "recentRecords": "最近的 Appshot 记录",
         "recentRecordsAriaLabel": "最近的 Appshot 记录",
         "noAppshotsYet": "还没有 Appshot。",
-        "more": "更多",
         "previewAlt": "{appName} 预览",
         "errorIconAriaLabel": "错误",
         "recordRow": {
@@ -8270,6 +8377,10 @@
         "label": "Dynamic Skills",
         "description": "动态调整 Agent 可见的技能，当前 session 即可生效"
       },
+      "browserUseCommand": {
+        "label": "Browser Use",
+        "description": "控制 Atmos 内置浏览器页面（DOM 点击 / 输入 / 导航）"
+      },
       "skillDisable": {
         "chip": "Dynamic Skills",
         "chipTooltip": "筛选并开关当前上下文中的技能",
@@ -8513,9 +8624,10 @@
       "tooltip": {
         "enterUrlFirst": "请先输入 URL。",
         "unavailable": "元素选择仅适用于同源页面、本地开发 URL 或桌面浏览器。",
-        "desktopNative": "{action}元素选择。源码组件检测通过桌面原生浏览器运行，并支持 React、Vue、Angular 和 Svelte。",
+        "desktop": "{action}元素选择。源码组件检测通过桌面原生浏览器运行，并支持 React、Vue、Angular 和 Svelte。",
         "extension": "{action}元素选择。跨端口页面使用 Atmos Inspector 扩展。源码组件检测支持 React、Vue、Angular 和 Svelte。",
-        "default": "{action}元素选择。源码组件检测支持 React、Vue、Angular 和 Svelte。"
+        "default": "{action}元素选择。源码组件检测支持 React、Vue、Angular 和 Svelte。",
+        "desktopNative": "{action}元素选择。源码组件检测通过桌面原生浏览器运行，并支持 React、Vue、Angular 和 Svelte。"
       }
     },
     "toolbar": {
@@ -8705,6 +8817,7 @@
         "browserLoadFailure": "目标页面报告了浏览器级别的加载失败。",
         "unknownNetwork": "未知网络错误",
         "localHttpsHint": "目标本地服务可能在 HTTPS URL 上实际提供的是 HTTP，或返回了无效的 TLS 响应。",
+        "certProxyHint": "证书错误若只是偶尔出现，常见原因是系统代理、VPN 或 fake-ip DNS（例如 Clash/Surge）。可先关闭代理或改用系统 DNS 后再试。",
         "networkUnreachable": "目标页面无法被正常访问。"
       },
       "errorCard": {
@@ -8951,6 +9064,35 @@
       "xcuserdata": "Xcode 每用户数据",
       "zig_cache": "Zig 构建缓存",
       "zig_out": "Zig 构建输出"
+    }
+  },
+  "desktopUse": {
+    "readinessModal": {
+      "title": "Desktop Use 尚未就绪",
+      "dismiss": "暂不处理",
+      "grant": "授予",
+      "openSettings": "打开设置",
+      "hint": "请安装或启动控制引擎，并为「Atmos Desktop Use」授予辅助功能与屏幕录制权限。",
+      "source": {
+        "generic": "此功能需要 Desktop Use 控制引擎。",
+        "appshot": "AppShot 捕获需要已安装并授权的 Desktop Use。",
+        "slash": "Desktop Use 斜杠技能需要控制引擎与 macOS 权限。",
+        "browser": "Browser Use 需要 Desktop Use 控制引擎与 macOS 权限，用于 Agent 光标与捕获。"
+      },
+      "reason": {
+        "webOnly": "Desktop Use 仅在 Atmos 桌面端可用。",
+        "engineNotInstalled": "控制引擎尚未安装。",
+        "engineNotRunning": "控制引擎已安装但未运行。",
+        "permissionAccessibility": "尚未为 Atmos Desktop Use 授予辅助功能权限。",
+        "permissionScreenRecording": "尚未为 Atmos Desktop Use 授予屏幕录制权限。",
+        "permissionBoth": "尚未为 Atmos Desktop Use 授予辅助功能与屏幕录制权限。",
+        "unknown": "无法确认 Desktop Use 状态。请到设置中安装引擎并检查权限。"
+      },
+      "needs": {
+        "engine": "控制引擎已安装并运行",
+        "accessibility": "已为 Atmos Desktop Use 开启辅助功能",
+        "screenRecording": "已为 Atmos Desktop Use 开启屏幕录制"
+      }
     }
   }
 }

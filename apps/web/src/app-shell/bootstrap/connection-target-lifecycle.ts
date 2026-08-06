@@ -29,12 +29,15 @@ export async function prepareConnectionTargetChange(): Promise<void> {
   const [
     { useTerminalRichInputSettingsStore },
     { useTerminalSplitPrefsStore },
+    { useTerminalAppearanceSettingsStore },
   ] = await Promise.all([
     import('@/features/settings/store/terminal-rich-input-settings-store'),
     import('@/features/settings/store/terminal-split-prefs-store'),
+    import('@/features/settings/store/terminal-appearance-settings-store'),
   ]);
   useTerminalRichInputSettingsStore.getState().resetForConnectionChange();
   useTerminalSplitPrefsStore.getState().resetForConnectionChange();
+  useTerminalAppearanceSettingsStore.getState().resetForConnectionChange();
 
   // Legacy Computer-scoped snapshots Query does not yet own.
   await resetLegacyServerStateForConnectionChange();

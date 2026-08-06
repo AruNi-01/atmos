@@ -41,3 +41,7 @@ atmos/
 ## Key Decisions
 
 See [ADR](adr/) folder for detailed architectural decision records.
+
+## Known architecture debt
+
+- [Client transport (Web-first WS/HTTP vs Desktop IPC)](architecture/known-debt-client-transport.md) — record for a future transport abstraction; not a current bug fix.

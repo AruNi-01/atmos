@@ -911,6 +911,112 @@ export function resolveDisplayOscTitle(
 }
 
 /**
+ * Grok Build composes OSC 0/2 titles as `part - part - …` with realtime
+ * prefixes (`Action Required`, spinner, `Responding` / `Running: …`) and a
+ * trailing brand (`grok`). Session name is the stable part center tabs want.
+ *
+ * @see xai-org/grok-build `notifications/title.rs` (separator ` - `)
+ */
+const GROK_TITLE_PART_SEPARATOR = " - ";
+
+/** Braille / classic spinner glyphs used by agent CLIs in host titles. */
+const OSC_SPINNER_SEGMENT_RE =
+  /^[\u2800-\u28FF●○◉◎◐◑◒◓⣾⣽⣻⢿⡿⣟⣯⣷⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]+$/u;
+
+const REALTIME_OSC_ACTIVITY_EXACT = new Set([
+  "action required",
+  "thinking",
+  "responding",
+  "waiting",
+  "compacting",
+  "verifying",
+  "running tool",
+  "grok",
+]);
+
+function isRealtimeOscTitleSegment(segment: string): boolean {
+  const t = segment.trim();
+  if (!t) return true;
+  if (OSC_SPINNER_SEGMENT_RE.test(t)) return true;
+  const lower = t.toLowerCase();
+  if (REALTIME_OSC_ACTIVITY_EXACT.has(lower)) return true;
+  // Grok activity: "Running: cargo test", "Retrying (2/3)"
+  if (/^running:\s+/i.test(t)) return true;
+  if (/^retrying\b/i.test(t)) return true;
+  // Turn timer item: "42s", "12m"
+  if (/^\d+[smh]$/i.test(t)) return true;
+  return false;
+}
+
+/**
+ * Extract a **stable session topic** from a live native OSC title for center-tab
+ * display (not the pane toolbar).
+ *
+ * - Grok-style compound titles (`Responding - my-session - grok`) → `my-session`
+ * - Pure realtime segments only → empty (callers keep a sticky previous topic)
+ * - Plain multi-word / session topics (Claude/Codex) → the topic itself
+ *
+ * Pane toolbars should keep using {@link resolveDisplayOscTitle} / live OSC.
+ */
+export function extractStableCenterTabOscTitle(
+  oscTitle: string | undefined,
+  context: OscTitleDisplayContext = {},
+): string {
+  const osc = resolveDisplayOscTitle(oscTitle, context);
+  if (!osc) return "";
+
+  // Grok (and similar) join title items with " - ".
+  if (osc.includes(GROK_TITLE_PART_SEPARATOR)) {
+    const parts = osc
+      .split(GROK_TITLE_PART_SEPARATOR)
+      .map((p) => p.trim())
+      .filter(Boolean);
+
+    // Drop trailing brand / pure realtime tails, then leading realtime heads.
+    while (parts.length > 0 && isRealtimeOscTitleSegment(parts[parts.length - 1]!)) {
+      parts.pop();
+    }
+    while (parts.length > 0 && isRealtimeOscTitleSegment(parts[0]!)) {
+      parts.shift();
+    }
+
+    if (parts.length === 0) return "";
+    // Default Grok order places session-name first among remaining stable items
+    // (before optional model / cwd). Prefer that fixed identity for the tab.
+    return parts[0]!;
+  }
+
+  // Single-segment OSC: reject pure activity so center tabs do not thrash.
+  if (isRealtimeOscTitleSegment(osc)) return "";
+  return osc;
+}
+
+/**
+ * Sticky session-topic state for center-stage terminal tabs.
+ *
+ * - Live OSC cleared → forget the sticky topic
+ * - Extractable stable topic → adopt it (session rename / first topic)
+ * - Live OSC is pure realtime noise → keep the previous sticky topic
+ *
+ * Pane toolbars still follow live OSC; only center tabs use this.
+ */
+export function nextCenterTabSessionOscTitle(
+  previous: string | undefined,
+  liveOscTitle: string | undefined,
+  context: OscTitleDisplayContext = {},
+): string | undefined {
+  const cleaned = sanitizeNativeOscTitle(liveOscTitle);
+  if (!cleaned) return undefined;
+
+  const extracted = extractStableCenterTabOscTitle(liveOscTitle, context);
+  if (extracted) return extracted;
+
+  // Realtime-only update (spinner / activity) — hold the last session topic.
+  const prev = previous?.trim();
+  return prev || undefined;
+}
+
+/**
  * Append a native OSC title after an Atmos auto/custom display title.
  * Returns auto-only when `oscTitle` is empty, suppressed, or filtered as noise.
  */
@@ -939,6 +1045,11 @@ export function getTerminalDisplayTitle<TAgent extends TerminalTitleAgent>(optio
   contestedOwners?: ContestedOwnersMap;
   oscTitle?: string;
   suppressOscTitle?: boolean;
+  /**
+   * When false, hide the detected agent brand text (icon still shown by callers).
+   * Default true. OSC then joins with a space (no ` | `) because primary is empty.
+   */
+  showAgentName?: boolean;
 }) {
   return getTerminalDisplayMeta(options).displayTitle;
 }
@@ -956,6 +1067,11 @@ export function getTerminalDisplayMeta<TAgent extends TerminalTitleAgent>(option
   oscTitle?: string;
   /** User set a custom pane label — hide OSC suffix. */
   suppressOscTitle?: boolean;
+  /**
+   * When false, hide the detected agent brand text (icon still shown by callers).
+   * Default true. With name hidden, primary is empty so OSC stands alone (no ` | `).
+   */
+  showAgentName?: boolean;
 }): {
   /** Combined title for plain string consumers (tabs, tooltips, a11y). */
   displayTitle: string;
@@ -973,6 +1089,7 @@ export function getTerminalDisplayMeta<TAgent extends TerminalTitleAgent>(option
     contestedOwners,
     oscTitle,
     suppressOscTitle,
+    showAgentName = true,
   } = options;
   const dynamicTitleIsVersion = isVersionLikeTitle(dynamicTitle);
   const matchedDynamicAgent = resolveAgentForTitle(dynamicTitle, configuredAgents, {
@@ -997,19 +1114,30 @@ export function getTerminalDisplayMeta<TAgent extends TerminalTitleAgent>(option
     ? undefined
     : matchedDynamicAgent ?? fallbackAgent ?? labelAgent;
 
-  const primaryTitle =
-    toolbarAgent?.label ??
+  // Agent brand is optional: icon stays (callers), name can be hidden to save space.
+  // When hidden, primary is empty so OSC (if any) is shown without a ` | ` separator.
+  const nonAgentPrimary =
     (shouldPreferBaseTitleOverDynamic(dynamicTitle, dynamicTitleIsVersion, toolbarAgent)
       ? baseTitle
       : dynamicTitle) ??
     baseTitle ??
     "";
+  const primaryTitle = toolbarAgent
+    ? showAgentName !== false
+      ? toolbarAgent.label
+      : ""
+    : nonAgentPrimary;
+
+  // Redundancy filter still knows the agent brand even when name is hidden,
+  // so bare OSC "claude" does not replace the icon-only brand identity.
+  const oscFilterPrimary =
+    toolbarAgent && showAgentName === false ? toolbarAgent.label : primaryTitle;
 
   const oscSuffix =
     suppressOscTitle === true
       ? ""
       : resolveDisplayOscTitle(oscTitle, {
-          autoDisplayTitle: primaryTitle,
+          autoDisplayTitle: oscFilterPrimary,
           dynamicTitle,
           toolbarAgent,
         });
@@ -1019,7 +1147,7 @@ export function getTerminalDisplayMeta<TAgent extends TerminalTitleAgent>(option
     primaryTitle,
     oscSuffix,
     displayTitle: appendNativeOscTitle(primaryTitle, oscTitle, suppressOscTitle === true, {
-      autoDisplayTitle: primaryTitle,
+      autoDisplayTitle: oscFilterPrimary,
       dynamicTitle,
       toolbarAgent,
     }),

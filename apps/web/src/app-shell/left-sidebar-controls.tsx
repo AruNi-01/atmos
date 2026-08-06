@@ -44,6 +44,10 @@ import {
   type FlattenedWorkspaceEntry,
   type WorkspaceGroup,
 } from "@/app-shell/sidebar/workspace-grouping";
+import {
+  selectAttentionFilterMode,
+  useAgentAttentionStore,
+} from "@/features/agent/store/agent-attention-store";
 export { LeftSidebarFooter, LeftSidebarTabsHeader } from "./left-sidebar-tab-footer-controls";
 
 type DndSensors = React.ComponentProps<typeof DndContext>["sensors"];
@@ -434,6 +438,8 @@ function SortableWorkspaceGroupSection({
     showLess,
   } = useWorkspaceListVisibleCount(group.items.length, group.key);
   const visibleItems = group.items.slice(0, visibleCount);
+  // Attention filter: dim group chrome so latched workspaces stay the focus.
+  const attentionFilterMode = useAgentAttentionStore(selectAttentionFilterMode);
 
   return (
     <section
@@ -444,7 +450,12 @@ function SortableWorkspaceGroupSection({
       }}
       className={cn("space-y-1.5", isDragging && "relative z-20 opacity-60")}
     >
-      <div className="group relative flex items-center rounded-lg transition-colors hover:bg-sidebar-accent/40">
+      <div
+        className={cn(
+          "group relative flex items-center rounded-lg transition-colors hover:bg-sidebar-accent/40",
+          attentionFilterMode && "opacity-45",
+        )}
+      >
         <button
           type="button"
           onClick={toggleWorkspaceGroup}
@@ -525,7 +536,13 @@ export function GroupedWorkspaceOneColumnContent({
   toggleWorkspaceGroup: (stateKey: string) => void;
 }) {
   const [isAnyGroupDragging, setIsAnyGroupDragging] = React.useState(false);
-  const sortableLabelGroupIds = groups
+  const attentionFilterMode = useAgentAttentionStore(selectAttentionFilterMode);
+  // Attention list: drop empty status/priority/label buckets so only groups with
+  // latched workspaces remain.
+  const visibleGroups = attentionFilterMode
+    ? groups.filter((group) => group.items.length > 0)
+    : groups;
+  const sortableLabelGroupIds = visibleGroups
     .filter((group) => group.key !== UNTAGGED_WORKSPACE_GROUP_KEY)
     .map((group) => group.key);
 
@@ -560,7 +577,7 @@ export function GroupedWorkspaceOneColumnContent({
           strategy={verticalListSortingStrategy}
         >
           <div className="space-y-0.5 px-2">
-            {groups.map((group) => {
+            {visibleGroups.map((group) => {
               const stateKey = `${groupingMode}:${group.key}`;
               return (
                 <SortableWorkspaceGroupSection
@@ -595,10 +612,15 @@ export function GroupedWorkspaceTwoColumnLeftContent({
   groups: WorkspaceGroup[];
   onSelectGroup: (groupKey: string) => void;
 }) {
+  const attentionFilterMode = useAgentAttentionStore(selectAttentionFilterMode);
+  const visibleGroups = attentionFilterMode
+    ? groups.filter((group) => group.items.length > 0)
+    : groups;
+
   return (
     <div className="scrollbar-on-hover h-full overflow-y-auto px-2 py-1.5">
       <div className="space-y-1">
-        {groups.map((group) => {
+        {visibleGroups.map((group) => {
           const isSelected = effectiveSelectedWorkspaceGroupKey === group.key;
 
           return (
@@ -611,6 +633,8 @@ export function GroupedWorkspaceTwoColumnLeftContent({
                 isSelected
                   ? "bg-sidebar-accent text-sidebar-foreground"
                   : "text-muted-foreground hover:bg-sidebar-accent/40 hover:text-sidebar-foreground",
+                // Dim group chrome in attention filter so workspace rows stand out in the right pane.
+                attentionFilterMode && "opacity-45",
               )}
             >
               <WorkspaceGroupMarker group={group} groupingMode={groupingMode} />

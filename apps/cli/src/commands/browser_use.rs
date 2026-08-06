@@ -40,7 +40,7 @@ pub async fn execute_cmd(command: BrowserUseCommand) -> Result<Value, String> {
             target_id: Some(a.target_id),
             tab_id: Some(a.tab_id),
             text: Some(a.text),
-            element_ref: Some(a.element_ref),
+            element_ref: a.element_ref,
             session: a.session,
             ..Default::default()
         },
@@ -59,17 +59,13 @@ pub async fn execute_cmd(command: BrowserUseCommand) -> Result<Value, String> {
 }
 
 fn parse_backend(s: &str) -> Result<BrowserBackendKind, String> {
-    BrowserBackendKind::parse(s).ok_or_else(|| {
-        format!(
-            "invalid --backend {:?} (use cua|external|embedded|atmos)",
-            s
-        )
-    })
+    BrowserBackendKind::parse(s)
+        .ok_or_else(|| format!("invalid --backend {:?} (use external|embedded)", s))
 }
 
 #[derive(Debug, Subcommand)]
 pub enum BrowserUseCommand {
-    /// Attach / prepare a browser CDP endpoint (CUA external Chromium).
+    /// Attach / prepare a system Chrome or Chromium page for Browser Use.
     Prepare(PrepareArgs),
     /// Read browser state / tabs / snapshot refs.
     State(StateArgs),
@@ -83,12 +79,12 @@ pub enum BrowserUseCommand {
 
 #[derive(Debug, Args)]
 pub struct PrepareArgs {
-    /// Backend: cua (system Chromium) | embedded (Atmos webview stub until APP-053).
-    #[arg(long, default_value = "cua")]
+    /// Backend: `external` (system Chrome/Chromium) | `embedded` (Atmos in-app browser).
+    #[arg(long, default_value = "external")]
     pub backend: String,
     #[arg(long)]
     pub pid: Option<i32>,
-    /// Required when --strategy existing_profile (engine 0.17).
+    /// Required when --strategy existing_profile.
     #[arg(long)]
     pub window_id: Option<i64>,
     #[arg(long)]
@@ -100,7 +96,7 @@ pub struct PrepareArgs {
 
 #[derive(Debug, Args)]
 pub struct StateArgs {
-    #[arg(long, default_value = "cua")]
+    #[arg(long, default_value = "external")]
     pub backend: String,
     /// Bind mode: native browser pid (with --window-id).
     #[arg(long)]
@@ -120,7 +116,7 @@ pub struct StateArgs {
 
 #[derive(Debug, Args)]
 pub struct ClickArgs {
-    #[arg(long, default_value = "cua")]
+    #[arg(long, default_value = "external")]
     pub backend: String,
     #[arg(long)]
     pub target_id: String,
@@ -134,7 +130,7 @@ pub struct ClickArgs {
 
 #[derive(Debug, Args)]
 pub struct TypeArgs {
-    #[arg(long, default_value = "cua")]
+    #[arg(long, default_value = "external")]
     pub backend: String,
     #[arg(long)]
     pub target_id: String,
@@ -142,16 +138,16 @@ pub struct TypeArgs {
     pub tab_id: String,
     #[arg(long)]
     pub text: String,
-    /// Required by engine 0.17 browser_type.
+    /// Element ref from state (required for external; optional for embedded active element).
     #[arg(long = "ref")]
-    pub element_ref: String,
+    pub element_ref: Option<String>,
     #[arg(long)]
     pub session: Option<String>,
 }
 
 #[derive(Debug, Args)]
 pub struct NavigateArgs {
-    #[arg(long, default_value = "cua")]
+    #[arg(long, default_value = "external")]
     pub backend: String,
     #[arg(long)]
     pub target_id: String,
@@ -170,7 +166,7 @@ pub fn product_note() -> Value {
         "product": "Browser Use",
         "no_mcp": true,
         "desktop_use": "separate — OS windows / keys / AX",
-        "backends": ["cua", "embedded"],
-        "embedded": "stub until APP-053 / PR #203",
+        "backends": ["external", "embedded"],
+        "embedded": "Atmos Desktop in-app browser via host control plane",
     })
 }

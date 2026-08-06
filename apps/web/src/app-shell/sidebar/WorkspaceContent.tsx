@@ -9,7 +9,6 @@ import {
   Archive,
   Trash2,
   AlertTriangle,
-  GitBranch,
   Pencil,
   Timer,
   Popover,
@@ -33,10 +32,15 @@ import type { Group, Workspace, WorkspaceLabel, WorkspacePriority } from "@/shar
 import { formatRelativeTime } from "@atmos/shared";
 import { getWorkspaceShortName } from "@/features/workspace/lib/workspace";
 import { gitApi } from "@/api/ws-api";
-import { AGENT_STATE, useAgentHooksStore } from "@/features/agent/store/agent-hooks-store";
-import { AgentAttentionIndicator } from "@/features/agent/components/AgentAttentionIndicator";
-import { AgentHookStatusIndicator } from "@/features/agent/components/AgentHookStatusIndicator";
-import { useAgentAttentionStore } from "@/features/agent/store/agent-attention-store";
+import { WorkspaceAgentStatusMark } from "@/features/agent/components/WorkspaceAgentStatusMark";
+import { WorkspacePrLifecycleIcon } from "@/features/github/components/WorkspacePrStatusIcon";
+import { WorkspacePrSummary } from "@/features/github/components/WorkspacePrSummary";
+import { useWorkspacePrStatus } from "@/features/github/hooks/use-workspace-pr-status";
+import { useOpenGithubCenterTab } from "@/features/github/hooks/use-open-github-center-tab";
+import {
+  buildActionRunFromChecks,
+  pickGroupActionTarget,
+} from "@/features/github/lib/pr-detail-parts";
 import {
   WorkspaceGroupSelect,
   WorkspaceLabelBadges,
@@ -47,6 +51,7 @@ import {
 import type { WorkspaceWorkflowStatus } from "@/shared/types/domain";
 import { useWorkspaceSettingsStore } from "@/features/settings/store/workspace-settings-store";
 import { findGroupIdForMember } from "@/app-shell/sidebar/user-groups";
+import { GitBranch } from "lucide-react";
 
 export interface WorkspaceContentProps {
   workspace: Workspace;
@@ -167,6 +172,7 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
   const t = useTranslations("AppShell.chrome");
   const locale = useLocale();
   const router = useAppRouter();
+  const { openPullRequestTab, openActionRunTab } = useOpenGithubCenterTab();
   const isAutomation = workspace.createSource === "automation";
   const confirmBeforeDelete = useWorkspaceSettingsStore((s) => s.confirmBeforeDelete);
   const confirmBeforeArchive = useWorkspaceSettingsStore((s) => s.confirmBeforeArchive);
@@ -180,6 +186,7 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
   const [editableName, setEditableName] = useState("");
   const [isSavingName, setIsSavingName] = useState(false);
   const [isInfoPopoverOpen, setIsInfoPopoverOpen] = useState(false);
+  const [isRowHovered, setIsRowHovered] = useState(false);
   const [isStatusMenuOpen, setIsStatusMenuOpen] = useState(false);
   const [isPriorityMenuOpen, setIsPriorityMenuOpen] = useState(false);
   const [isGroupMenuOpen, setIsGroupMenuOpen] = useState(false);
@@ -188,6 +195,12 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
   const infoPopoverTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const infoPopoverTriggerRef = React.useRef<HTMLDivElement | null>(null);
   const ignoreNextClickRef = React.useRef(false);
+  const prStatusInterested = isRowHovered || isInfoPopoverOpen;
+  const { presentation: managedPr } = useWorkspacePrStatus({
+    githubPr: workspace.githubPr,
+    branch: workspace.branch,
+    interested: prStatusInterested,
+  });
   const gitWarningListFormatter = React.useMemo(
     () => new Intl.ListFormat(locale, { style: "long", type: "conjunction" }),
     [locale],
@@ -444,20 +457,62 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
   const rawDisplayName = workspace.displayName?.trim() || "";
   const primaryLabel = rawDisplayName || shortName;
   const timeAgo = formatRelativeTime(workspace.lastVisitedAt ?? workspace.createdAt, locale);
+  const leadingFallbackClass =
+    isActive || isDragging ? "text-sidebar-foreground" : "text-muted-foreground";
+
+  const openManagedPullRequest = React.useCallback(() => {
+    if (!managedPr) return;
+    openPullRequestTab({
+      owner: managedPr.owner,
+      repo: managedPr.repo,
+      prNumber: managedPr.number,
+      title: managedPr.title,
+      branch: workspace.branch,
+      contextId: workspace.id,
+    });
+    setIsInfoPopoverOpen(false);
+  }, [managedPr, openPullRequestTab, workspace.branch, workspace.id]);
+
+  const openManagedChecks = React.useCallback(() => {
+    if (!managedPr) return;
+    const target = pickGroupActionTarget(managedPr.checks);
+    if (target.runId != null) {
+      openActionRunTab({
+        owner: managedPr.owner,
+        repo: managedPr.repo,
+        runId: target.runId,
+        run: buildActionRunFromChecks(
+          target.groupName,
+          managedPr.checks,
+          target.runId,
+          managedPr.owner,
+          managedPr.repo,
+        ),
+        contextId: workspace.id,
+      });
+    } else {
+      // No Actions run id in rollup — fall back to the PR center tab.
+      openPullRequestTab({
+        owner: managedPr.owner,
+        repo: managedPr.repo,
+        prNumber: managedPr.number,
+        title: managedPr.title,
+        branch: workspace.branch,
+        contextId: workspace.id,
+      });
+    }
+    setIsInfoPopoverOpen(false);
+  }, [
+    managedPr,
+    openActionRunTab,
+    openPullRequestTab,
+    workspace.branch,
+    workspace.id,
+  ]);
 
   React.useEffect(() => {
     setEditableName(rawDisplayName);
   }, [rawDisplayName]);
-
-
-
-  // Primitive selector (enum string) — re-renders only when THIS workspace's agent state changes.
-  const workspaceAgentState = useAgentHooksStore((s) =>
-    s.getAgentStateForContextId(workspace.id),
-  );
-  const workspaceAttentionReason = useAgentAttentionStore(
-    (s) => s.getContextReason(workspace.id),
-  );;
 
   const handleSaveName = React.useCallback(async () => {
     const nextName = editableName.trim();
@@ -489,8 +544,14 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
             onClick={handleClick}
             // Do NOT open the info popover on focus: a click focuses the row first,
             // which previously mounted popover chrome and competed with navigation.
-            onMouseEnter={openInfoPopover}
-            onMouseLeave={scheduleInfoPopoverClose}
+            onMouseEnter={() => {
+              setIsRowHovered(true);
+              openInfoPopover();
+            }}
+            onMouseLeave={() => {
+              setIsRowHovered(false);
+              scheduleInfoPopoverClose();
+            }}
             onTouchStart={handleTouchStart}
             onKeyDown={(event) => {
               if (event.target !== event.currentTarget) return;
@@ -529,12 +590,21 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
                   </button>
                 ) : (
                   <>
-                    <GitBranch
-                      className={cn(
-                        "block size-3.5 group-hover/ws:hidden",
-                        isActive || isDragging ? "text-sidebar-foreground" : "text-muted-foreground",
-                      )}
-                    />
+                    {managedPr ? (
+                      <WorkspacePrLifecycleIcon
+                        state={managedPr.state}
+                        checksTone={managedPr.checksTone}
+                        className="block group-hover/ws:hidden"
+                        fallbackClassName={leadingFallbackClass}
+                      />
+                    ) : (
+                      <GitBranch
+                        className={cn(
+                          "block size-3.5 group-hover/ws:hidden",
+                          leadingFallbackClass,
+                        )}
+                      />
+                    )}
                     <button
                       onClick={handlePinClick}
                       className={cn(
@@ -573,19 +643,7 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
                     </Tooltip>
                   </TooltipProvider>
                 )}
-                {workspaceAgentState !== AGENT_STATE.IDLE ? (
-                  <AgentHookStatusIndicator
-                    state={workspaceAgentState}
-                    variant="compact"
-                    className="shrink-0"
-                  />
-                ) : workspaceAttentionReason ? (
-                  <AgentAttentionIndicator
-                    reason={workspaceAttentionReason}
-                    className="shrink-0"
-                    size={12}
-                  />
-                ) : null}
+                <WorkspaceAgentStatusMark contextId={workspace.id} />
               </div>
               {/* Trailing slot in normal flow: status/time/label, or archive on hover. */}
               <div className="flex shrink-0 items-center justify-end">
@@ -666,6 +724,15 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
                 ) : null}
                 <WorkspaceLabelBadges labels={workspace.labels} className="contents" />
               </div>
+
+              {managedPr ? (
+                <WorkspacePrSummary
+                  presentation={managedPr}
+                  onOpenPr={openManagedPullRequest}
+                  onOpenChecks={openManagedChecks}
+                  className="-mx-1"
+                />
+              ) : null}
             </div>
             <div className="space-y-2 text-xs text-muted-foreground">
               <div className="flex items-center gap-3">

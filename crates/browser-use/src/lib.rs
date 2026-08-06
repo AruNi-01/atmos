@@ -1,18 +1,23 @@
-//! Atmos **Browser Use** — page-level CDP control, orthogonal to Desktop Use.
+//! Atmos **Browser Use** — page-level control, orthogonal to Desktop Use.
 //!
 //! Backends:
-//! - [`CuaExternalBackend`]: system Chromium via managed desktop-use engine tools
-//! - [`EmbeddedBackend`]: reserved stub until APP-053 webview (PR #203) ships
+//! - [`ExternalBackend`]: system Chrome/Chromium via managed Desktop Use host/engine
+//! - [`EmbeddedBackend`]: Atmos in-app browser via host control plane
 //!
 //! **No MCP.**
 
 mod backends;
+mod chrome;
 mod types;
 
-pub use backends::{CuaExternalBackend, EmbeddedBackend};
+pub use backends::{EmbeddedBackend, ExternalBackend};
+pub use chrome::{
+    chrome_target_for_request, show_browser_action_chrome, status_for_browser_action,
+    wants_action_chrome, BrowserChromeTarget, DEFAULT_BROWSER_USE_SESSION,
+};
 pub use types::{
     BrowserAction, BrowserBackendKind, BrowserError, BrowserRequest, BrowserResult,
-    ERR_EMBEDDED_NOT_IMPLEMENTED, ERR_NO_MCP,
+    ERR_EMBEDDED_HOST_UNAVAILABLE, ERR_NO_MCP,
 };
 
 use backends::BrowserBackend;
@@ -20,16 +25,21 @@ use backends::BrowserBackend;
 /// Dispatch a browser-use request to the selected backend.
 pub fn execute(req: BrowserRequest) -> BrowserResult {
     match req.backend {
-        BrowserBackendKind::Cua | BrowserBackendKind::External => CuaExternalBackend.execute(req),
-        BrowserBackendKind::Embedded | BrowserBackendKind::Atmos => EmbeddedBackend.execute(req),
+        BrowserBackendKind::External => ExternalBackend.execute(req),
+        BrowserBackendKind::Embedded => EmbeddedBackend.execute(req),
     }
 }
 
-/// Pure mapping of browser request → engine tool + args (CUA path). Unit-tested.
-pub fn build_cua_tool_call(
+/// Map a browser request to control-engine tool + args (external path).
+pub fn build_external_tool_call(
     req: &BrowserRequest,
 ) -> Result<(&'static str, serde_json::Value), String> {
-    backends::cua::build_tool_call(req)
+    backends::external::build_tool_call(req)
+}
+
+/// Build the embedded host request body.
+pub fn build_embedded_body(req: &BrowserRequest) -> Result<serde_json::Value, String> {
+    backends::embedded::build_embedded_body(req)
 }
 
 #[cfg(test)]
@@ -38,7 +48,12 @@ mod tests {
     use serde_json::json;
 
     #[test]
-    fn embedded_prepare_fails_closed() {
+    fn embedded_without_host_fails_closed() {
+        let dir = tempfile::tempdir().unwrap();
+        // SAFETY: test isolation via env override
+        unsafe {
+            std::env::set_var("ATMOS_BROWSER_USE_HOME", dir.path());
+        }
         let res = execute(BrowserRequest {
             backend: BrowserBackendKind::Embedded,
             action: BrowserAction::Prepare,
@@ -47,31 +62,33 @@ mod tests {
         assert!(!res.ok);
         assert_eq!(
             res.error_code.as_deref(),
-            Some(ERR_EMBEDDED_NOT_IMPLEMENTED)
+            Some(ERR_EMBEDDED_HOST_UNAVAILABLE)
         );
-        assert!(!res.ok);
+        unsafe {
+            std::env::remove_var("ATMOS_BROWSER_USE_HOME");
+        }
     }
 
     #[test]
-    fn cua_navigate_requires_target_id_tab_url() {
+    fn external_navigate_requires_target_id_tab_url() {
         let missing = BrowserRequest {
-            backend: BrowserBackendKind::Cua,
+            backend: BrowserBackendKind::External,
             action: BrowserAction::Navigate,
             tab_id: Some("t1".into()),
             url: Some("https://example.com".into()),
             ..Default::default()
         };
-        assert!(build_cua_tool_call(&missing).is_err());
+        assert!(build_external_tool_call(&missing).is_err());
 
         let req = BrowserRequest {
-            backend: BrowserBackendKind::Cua,
+            backend: BrowserBackendKind::External,
             action: BrowserAction::Navigate,
             target_id: Some("tgt".into()),
             tab_id: Some("t1".into()),
             url: Some("https://example.com".into()),
             ..Default::default()
         };
-        let (tool, args) = build_cua_tool_call(&req).unwrap();
+        let (tool, args) = build_external_tool_call(&req).unwrap();
         assert_eq!(tool, "browser_navigate");
         assert_eq!(args["url"], "https://example.com");
         assert_eq!(args["tab_id"], "t1");
@@ -79,25 +96,25 @@ mod tests {
     }
 
     #[test]
-    fn cua_click_requires_target_tab_ref() {
+    fn external_click_requires_target_tab_ref() {
         let missing = BrowserRequest {
-            backend: BrowserBackendKind::Cua,
+            backend: BrowserBackendKind::External,
             action: BrowserAction::Click,
             tab_id: Some("t1".into()),
             element_ref: Some("p1:2".into()),
             ..Default::default()
         };
-        assert!(build_cua_tool_call(&missing).is_err());
+        assert!(build_external_tool_call(&missing).is_err());
 
         let req = BrowserRequest {
-            backend: BrowserBackendKind::Cua,
+            backend: BrowserBackendKind::External,
             action: BrowserAction::Click,
             target_id: Some("tgt".into()),
             tab_id: Some("t1".into()),
             element_ref: Some("p1:2".into()),
             ..Default::default()
         };
-        let (tool, args) = build_cua_tool_call(&req).unwrap();
+        let (tool, args) = build_external_tool_call(&req).unwrap();
         assert_eq!(tool, "browser_click");
         assert_eq!(args["ref"], "p1:2");
         assert_eq!(args["target_id"], "tgt");
@@ -105,19 +122,19 @@ mod tests {
     }
 
     #[test]
-    fn cua_type_requires_ref_and_target() {
+    fn external_type_requires_ref_and_target() {
         let missing_ref = BrowserRequest {
-            backend: BrowserBackendKind::Cua,
+            backend: BrowserBackendKind::External,
             action: BrowserAction::Type,
             target_id: Some("tgt".into()),
             tab_id: Some("t1".into()),
             text: Some("hi".into()),
             ..Default::default()
         };
-        assert!(build_cua_tool_call(&missing_ref).is_err());
+        assert!(build_external_tool_call(&missing_ref).is_err());
 
         let req = BrowserRequest {
-            backend: BrowserBackendKind::Cua,
+            backend: BrowserBackendKind::External,
             action: BrowserAction::Type,
             target_id: Some("tgt".into()),
             tab_id: Some("t1".into()),
@@ -125,7 +142,7 @@ mod tests {
             text: Some("hi".into()),
             ..Default::default()
         };
-        let (tool, args) = build_cua_tool_call(&req).unwrap();
+        let (tool, args) = build_external_tool_call(&req).unwrap();
         assert_eq!(tool, "browser_type");
         assert_eq!(args["ref"], "p1:0");
         assert_eq!(args["text"], "hi");
@@ -133,22 +150,22 @@ mod tests {
     }
 
     #[test]
-    fn cua_prepare_needs_pid_no_default_existing_profile() {
+    fn external_prepare_needs_pid_no_default_existing_profile() {
         let req = BrowserRequest {
-            backend: BrowserBackendKind::Cua,
+            backend: BrowserBackendKind::External,
             action: BrowserAction::Prepare,
             ..Default::default()
         };
-        assert!(build_cua_tool_call(&req).is_err());
+        assert!(build_external_tool_call(&req).is_err());
 
         // pid only: detect-only, must NOT inject existing_profile without window_id
         let req = BrowserRequest {
-            backend: BrowserBackendKind::Cua,
+            backend: BrowserBackendKind::External,
             action: BrowserAction::Prepare,
             pid: Some(123),
             ..Default::default()
         };
-        let (tool, args) = build_cua_tool_call(&req).unwrap();
+        let (tool, args) = build_external_tool_call(&req).unwrap();
         assert_eq!(tool, "browser_prepare");
         assert_eq!(args["pid"], 123);
         assert!(args.get("strategy").is_none());
@@ -156,58 +173,58 @@ mod tests {
 
         // existing_profile without window_id is invalid
         let bad = BrowserRequest {
-            backend: BrowserBackendKind::Cua,
+            backend: BrowserBackendKind::External,
             action: BrowserAction::Prepare,
             pid: Some(123),
             profile_strategy: Some("existing_profile".into()),
             ..Default::default()
         };
-        assert!(build_cua_tool_call(&bad).is_err());
+        assert!(build_external_tool_call(&bad).is_err());
 
         // existing_profile + window_id
         let ok = BrowserRequest {
-            backend: BrowserBackendKind::Cua,
+            backend: BrowserBackendKind::External,
             action: BrowserAction::Prepare,
             pid: Some(123),
             window_id: Some(99),
             profile_strategy: Some("existing_profile".into()),
             ..Default::default()
         };
-        let (tool, args) = build_cua_tool_call(&ok).unwrap();
+        let (tool, args) = build_external_tool_call(&ok).unwrap();
         assert_eq!(tool, "browser_prepare");
         assert_eq!(args["window_id"], 99);
         assert_eq!(args["strategy"]["kind"], "existing_profile");
     }
 
     #[test]
-    fn cua_state_bind_or_snapshot_required() {
+    fn external_state_bind_or_snapshot_required() {
         let bare = BrowserRequest {
-            backend: BrowserBackendKind::Cua,
+            backend: BrowserBackendKind::External,
             action: BrowserAction::State,
             ..Default::default()
         };
-        assert!(build_cua_tool_call(&bare).is_err());
+        assert!(build_external_tool_call(&bare).is_err());
 
         let bind = BrowserRequest {
-            backend: BrowserBackendKind::Cua,
+            backend: BrowserBackendKind::External,
             action: BrowserAction::State,
             pid: Some(1),
             window_id: Some(2),
             ..Default::default()
         };
-        let (tool, args) = build_cua_tool_call(&bind).unwrap();
+        let (tool, args) = build_external_tool_call(&bind).unwrap();
         assert_eq!(tool, "get_browser_state");
         assert_eq!(args["pid"], 1);
         assert_eq!(args["window_id"], 2);
 
         let snap = BrowserRequest {
-            backend: BrowserBackendKind::Cua,
+            backend: BrowserBackendKind::External,
             action: BrowserAction::State,
             target_id: Some("tgt".into()),
             tab_id: Some("tab".into()),
             ..Default::default()
         };
-        let (tool, args) = build_cua_tool_call(&snap).unwrap();
+        let (tool, args) = build_external_tool_call(&snap).unwrap();
         assert_eq!(tool, "get_browser_state");
         assert_eq!(args["target_id"], "tgt");
         assert_eq!(args["tab_id"], "tab");
@@ -217,5 +234,15 @@ mod tests {
     fn no_mcp_in_error_strings() {
         let _ = json!({ "note": ERR_NO_MCP });
         assert!(ERR_NO_MCP.contains("MCP"));
+    }
+
+    #[test]
+    fn result_backend_is_external_or_embedded() {
+        let res = execute(BrowserRequest {
+            backend: BrowserBackendKind::External,
+            action: BrowserAction::Prepare,
+            ..Default::default()
+        });
+        assert_eq!(res.backend, "external");
     }
 }

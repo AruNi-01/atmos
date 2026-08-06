@@ -88,6 +88,7 @@ type TerminalLookupState = {
 
 type TerminalRuntimeEvictState = TerminalLookupState & {
   workspaceActiveTerminalTabIds: Record<string, string>;
+  workspaceActivePaneIds: Record<string, string | null>;
   workspaceLayouts: Record<string, MosaicNode<string> | null>;
   workspaceMaximizedIds: Record<string, string | null>;
   loadedWorkspaces: Set<string>;
@@ -537,6 +538,7 @@ export function evictTerminalWorkspaceRuntimeState(
 } {
   const nextWorkspaceTerminalTabs = { ...state.workspaceTerminalTabs };
   const nextWorkspaceActiveTerminalTabIds = { ...state.workspaceActiveTerminalTabIds };
+  const nextWorkspaceActivePaneIds = { ...state.workspaceActivePaneIds };
   const nextWorkspacePanes = { ...state.workspacePanes };
   const nextWorkspaceLayouts = { ...state.workspaceLayouts };
   const nextWorkspaceMaximizedIds = { ...state.workspaceMaximizedIds };
@@ -599,6 +601,11 @@ export function evictTerminalWorkspaceRuntimeState(
       delete nextWorkspaceMaximizedIds[key];
     }
   }
+  for (const key of Object.keys(nextWorkspaceActivePaneIds)) {
+    if (key === workspaceId || key.startsWith(`${workspaceId}::`)) {
+      delete nextWorkspaceActivePaneIds[key];
+    }
+  }
 
   for (const key of Array.from(nextLoadedWorkspaces)) {
     if (isTerminalWorkspaceScopeKeyForWorkspace(key, workspaceId)) {
@@ -629,6 +636,7 @@ export function evictTerminalWorkspaceRuntimeState(
   return {
     workspaceTerminalTabs: nextWorkspaceTerminalTabs,
     workspaceActiveTerminalTabIds: nextWorkspaceActiveTerminalTabIds,
+    workspaceActivePaneIds: nextWorkspaceActivePaneIds,
     workspacePanes: nextWorkspacePanes,
     workspaceLayouts: nextWorkspaceLayouts,
     workspaceMaximizedIds: nextWorkspaceMaximizedIds,

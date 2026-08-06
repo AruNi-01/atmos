@@ -1,7 +1,10 @@
 //! Click-through border highlight + dynamic status caption under the agent pointer.
 //!
-//! macOS: compiles a small Swift overlay helper into the Desktop Use data dir and
-//! keeps a single long-lived process whose frame is replaced on each show.
+//! macOS: installs a **prebuilt** Swift overlay helper into the Desktop Use data dir
+//! and keeps a single long-lived process whose frame is replaced on each show.
+//! Production never requires `swiftc`. Maintainers rebuild the prebuilt under
+//! `native/highlight/` (see that folder's README). Set
+//! `ATMOS_DESKTOP_USE_BUILD_HELPERS=1` to compile from source for local iteration.
 
 use std::env;
 use std::fs;
@@ -17,9 +20,17 @@ use crate::strings::scrub_vendor;
 const HELPER_NAME: &str = "atmos-desktop-highlight";
 const PID_FILE: &str = "highlight.pid";
 const META_FILE: &str = "highlight.json";
-/// Source is embedded next to the crate for `include_str!` at compile time of the helper.
+const STAMP_FILE: &str = "highlight.prebuilt.sha256";
+
+/// Universal prebuilt helper (arm64 + x86_64). Shipped with the crate so users
+/// do not need Xcode / swiftc.
 #[cfg(target_os = "macos")]
-const SWIFT_SOURCE: &str = include_str!("../assets/highlight_overlay.swift");
+const PREBUILT_HIGHLIGHT: &[u8] =
+    include_bytes!("../native/highlight/prebuilt/atmos-desktop-highlight");
+
+/// Source for optional local rebuild (`ATMOS_DESKTOP_USE_BUILD_HELPERS=1`).
+#[cfg(target_os = "macos")]
+const SWIFT_SOURCE: &str = include_str!("../native/highlight/highlight_overlay.swift");
 
 #[derive(Debug, Clone, Serialize)]
 pub struct HighlightTarget {
@@ -90,16 +101,37 @@ impl HighlightStyle {
     }
 }
 
-fn data_paths() -> (PathBuf, PathBuf, PathBuf, PathBuf) {
+fn data_paths() -> (PathBuf, PathBuf, PathBuf, PathBuf, PathBuf) {
     let dir = desktop_use_dir();
     let bin = dir.join("bin").join(HELPER_NAME);
     let pid = dir.join(PID_FILE);
     let meta = dir.join(META_FILE);
     let src = dir.join("cache").join("highlight_overlay.swift");
-    (bin, pid, meta, src)
+    let stamp = dir.join("cache").join(STAMP_FILE);
+    (bin, pid, meta, src, stamp)
 }
 
-/// Ensure the Swift overlay helper is compiled into `~/.atmos/desktop-use/bin/`.
+fn prefer_build_from_source() -> bool {
+    matches!(
+        env::var("ATMOS_DESKTOP_USE_BUILD_HELPERS")
+            .map(|v| v == "1" || v.eq_ignore_ascii_case("true"))
+            .ok(),
+        Some(true)
+    )
+}
+
+#[cfg(target_os = "macos")]
+fn prebuilt_sha256_hex() -> String {
+    use sha2::{Digest, Sha256};
+    let mut hasher = Sha256::new();
+    hasher.update(PREBUILT_HIGHLIGHT);
+    hex::encode(hasher.finalize())
+}
+
+/// Ensure the overlay helper binary is present under `~/.atmos/desktop-use/bin/`.
+///
+/// Default: install the crate-shipped prebuilt (no `swiftc`).
+/// Dev: `ATMOS_DESKTOP_USE_BUILD_HELPERS=1` recompiles from embedded Swift source.
 pub fn ensure_helper() -> Result<PathBuf, String> {
     #[cfg(not(target_os = "macos"))]
     {
@@ -107,7 +139,7 @@ pub fn ensure_helper() -> Result<PathBuf, String> {
     }
     #[cfg(target_os = "macos")]
     {
-        let (bin, _, _, src) = data_paths();
+        let (bin, _, _, src, stamp) = data_paths();
         if let Some(parent) = bin.parent() {
             let _ = fs::create_dir_all(parent);
         }
@@ -115,39 +147,60 @@ pub fn ensure_helper() -> Result<PathBuf, String> {
             let _ = fs::create_dir_all(parent);
         }
 
-        fs::write(&src, SWIFT_SOURCE)
-            .map_err(|e| scrub_vendor(&format!("write highlight source failed: {e}")))?;
-        let need_compile = !bin.is_file() || source_newer_than_binary(&src, &bin);
-        if need_compile {
-            let output = Command::new("swiftc")
-                .args(["-O", "-o"])
-                .arg(&bin)
-                .arg(&src)
-                .output()
-                .map_err(|e| {
-                    scrub_vendor(&format!(
-                        "swiftc not available to build highlight helper: {e}"
-                    ))
-                })?;
-            if !output.status.success() {
-                let err = String::from_utf8_lossy(&output.stderr);
-                return Err(scrub_vendor(&format!(
-                    "failed to compile desktop highlight helper: {err}"
-                )));
-            }
+        if prefer_build_from_source() {
+            return compile_helper_from_source(&bin, &src);
         }
+
+        install_prebuilt_helper(&bin, &stamp)?;
         Ok(bin)
     }
 }
 
 #[cfg(target_os = "macos")]
-fn source_newer_than_binary(src: &Path, bin: &Path) -> bool {
-    let src_mtime = fs::metadata(src).and_then(|m| m.modified()).ok();
-    let bin_mtime = fs::metadata(bin).and_then(|m| m.modified()).ok();
-    match (src_mtime, bin_mtime) {
-        (Some(s), Some(b)) => s > b,
-        _ => true,
+fn install_prebuilt_helper(bin: &Path, stamp: &Path) -> Result<(), String> {
+    let expected = prebuilt_sha256_hex();
+    let stamp_ok = fs::read_to_string(stamp)
+        .ok()
+        .map(|s| s.trim() == expected)
+        .unwrap_or(false);
+    let bin_ok = bin.is_file() && stamp_ok;
+    if bin_ok {
+        return Ok(());
     }
+
+    fs::write(bin, PREBUILT_HIGHLIGHT)
+        .map_err(|e| scrub_vendor(&format!("install prebuilt highlight helper failed: {e}")))?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let _ = fs::set_permissions(bin, fs::Permissions::from_mode(0o755));
+    }
+    fs::write(stamp, format!("{expected}\n"))
+        .map_err(|e| scrub_vendor(&format!("write highlight stamp failed: {e}")))?;
+    Ok(())
+}
+
+#[cfg(target_os = "macos")]
+fn compile_helper_from_source(bin: &Path, src: &Path) -> Result<PathBuf, String> {
+    fs::write(src, SWIFT_SOURCE)
+        .map_err(|e| scrub_vendor(&format!("write highlight source failed: {e}")))?;
+    let output = Command::new("swiftc")
+        .args(["-O", "-o"])
+        .arg(bin)
+        .arg(src)
+        .output()
+        .map_err(|e| {
+            scrub_vendor(&format!(
+                "swiftc not available to build highlight helper: {e}"
+            ))
+        })?;
+    if !output.status.success() {
+        let err = String::from_utf8_lossy(&output.stderr);
+        return Err(scrub_vendor(&format!(
+            "failed to compile desktop highlight helper: {err}"
+        )));
+    }
+    Ok(bin.to_path_buf())
 }
 
 fn read_pid(pid_path: &Path) -> Option<u32> {
@@ -170,7 +223,7 @@ fn process_alive(pid: u32) -> bool {
 
 /// Clear any active highlight overlay.
 pub fn clear_highlight() -> HighlightResult {
-    let (_, pid_path, meta_path, _) = data_paths();
+    let (_, pid_path, meta_path, _, _) = data_paths();
     if let Some(pid) = read_pid(&pid_path) {
         if process_alive(pid) {
             let _ = Command::new("kill")
@@ -511,7 +564,7 @@ fn show_with_args(mode: &str, extra: Vec<String>, target: HighlightTarget) -> Hi
             std::thread::spawn(move || {
                 let _ = child.wait();
             });
-            let (_, pid_path, meta_path, _) = data_paths();
+            let (_, pid_path, meta_path, _, _) = data_paths();
             let _ = fs::write(&pid_path, pid.to_string());
             let meta = serde_json::json!({
                 "pid": pid,
@@ -565,6 +618,27 @@ pub fn bounds_for_window_id(
         let width = num(b.get("width")?)?;
         let height = num(b.get("height")?)?;
         return Some((x, y, width, height));
+    }
+    None
+}
+
+/// Resolve owning pid for a CGWindowID from a list_windows payload.
+pub fn pid_for_window_id(list_windows: &serde_json::Value, window_id: i64) -> Option<i32> {
+    let windows = list_windows.get("windows")?.as_array()?;
+    for w in windows {
+        let id = w.get("window_id").and_then(|v| v.as_i64()).or_else(|| {
+            w.get("window_id")
+                .and_then(|v| v.as_u64())
+                .map(|n| n as i64)
+        })?;
+        if id != window_id {
+            continue;
+        }
+        return w
+            .get("pid")
+            .and_then(|v| v.as_i64())
+            .or_else(|| w.get("pid").and_then(|v| v.as_u64()).map(|n| n as i64))
+            .map(|n| n as i32);
     }
     None
 }
@@ -636,32 +710,47 @@ pub fn resolve_agent_name(explicit: Option<&str>) -> String {
     "Agent".into()
 }
 
-/// Build dynamic status text under the agent arrow.
+/// Build under-arrow status text as `{Agent} - {operation}`.
 ///
-/// Prefer an explicit status; otherwise describe the live action + target app;
-/// final fallback: `"{AgentName} Operating"`.
+/// Prefer an explicit `--status` as the operation; otherwise describe the live
+/// action + target app; final fallback operation: `Operating`.
+///
+/// If the explicit status already starts with `{Agent} - `, it is returned as-is
+/// (agents may pass a fully formatted string).
 pub fn build_status_label(
     explicit_status: Option<&str>,
     agent_name: Option<&str>,
     action: &str,
     target_app: Option<&str>,
 ) -> String {
-    if let Some(s) = explicit_status.map(str::trim).filter(|s| !s.is_empty()) {
-        return s.to_string();
-    }
     let agent = resolve_agent_name(agent_name);
-    let app = target_app.map(str::trim).filter(|s| !s.is_empty());
-    match (action, app) {
-        ("click", Some(app)) => format!("Clicking {app}"),
-        ("type", Some(app)) => format!("Typing in {app}"),
-        ("window_state", Some(app)) => format!("Inspecting {app}"),
-        ("screenshot", Some(app)) => format!("Capturing {app}"),
-        ("highlight", Some(app)) => format!("{agent} · {app}"),
-        (_, Some(app)) => format!("{agent} · {app}"),
-        ("click", None) => format!("{agent} clicking"),
-        ("type", None) => format!("{agent} typing"),
-        _ => format!("{agent} Operating"),
-    }
+    let operation = if let Some(s) = explicit_status.map(str::trim).filter(|s| !s.is_empty()) {
+        // Already fully formatted by the agent.
+        let prefix_dash = format!("{agent} - ");
+        let prefix_dot = format!("{agent} · ");
+        if s.starts_with(&prefix_dash) || s.starts_with(&prefix_dot) {
+            return s.to_string();
+        }
+        s.to_string()
+    } else {
+        let app = target_app.map(str::trim).filter(|s| !s.is_empty());
+        match (action, app) {
+            ("click", Some(app)) => format!("Clicking {app}"),
+            ("type", Some(app)) => format!("Typing in {app}"),
+            ("double_click", Some(app)) => format!("Double-clicking {app}"),
+            ("right_click", Some(app)) => format!("Right-clicking {app}"),
+            ("window_state", Some(app)) => format!("Inspecting {app}"),
+            ("screenshot", Some(app)) => format!("Capturing {app}"),
+            ("highlight", Some(app)) => app.to_string(),
+            (_, Some(app)) => format!("Operating {app}"),
+            ("click", None) => "Clicking".into(),
+            ("type", None) => "Typing".into(),
+            ("double_click", None) => "Double-clicking".into(),
+            ("right_click", None) => "Right-clicking".into(),
+            _ => "Operating".into(),
+        }
+    };
+    format!("{agent} - {operation}")
 }
 
 #[cfg(test)]
@@ -690,30 +779,74 @@ mod tests {
                 "click",
                 Some("Orca")
             ),
-            "Open dashboard"
+            "Claude - Open dashboard"
         );
         assert_eq!(
             build_status_label(None, Some("Claude"), "click", Some("Orca")),
-            "Clicking Orca"
+            "Claude - Clicking Orca"
         );
         assert_eq!(
             build_status_label(None, Some("Claude"), "type", Some("Notes")),
-            "Typing in Notes"
+            "Claude - Typing in Notes"
         );
         assert_eq!(
             build_status_label(None, Some("Grok"), "click", None),
-            "Grok clicking"
+            "Grok - Clicking"
         );
         assert_eq!(
             build_status_label(None, Some("Claude"), "verify", None),
-            "Claude Operating"
+            "Claude - Operating"
+        );
+        // Already formatted — do not double-prefix.
+        assert_eq!(
+            build_status_label(
+                Some("Claude - Opening QQ Music"),
+                Some("Claude"),
+                "click",
+                None
+            ),
+            "Claude - Opening QQ Music"
         );
     }
 
     #[test]
     fn resolve_agent_defaults() {
         assert_eq!(resolve_agent_name(Some("  Claude  ")), "Claude");
+        // Explicit empty falls through to env / default — isolate from developer env.
+        let keys = [
+            "ATMOS_DESKTOP_USE_AGENT_NAME",
+            "AGENT_NAME",
+            "ATMOS_AGENT_NAME",
+        ];
+        let saved: Vec<(String, Option<String>)> = keys
+            .iter()
+            .map(|k| ((*k).to_string(), std::env::var(k).ok()))
+            .collect();
+        for k in &keys {
+            // SAFETY: test-only; single-threaded unit test process.
+            unsafe { std::env::remove_var(k) };
+        }
         assert_eq!(resolve_agent_name(Some("")), "Agent");
+        assert_eq!(resolve_agent_name(None), "Agent");
+        for (k, v) in saved {
+            match v {
+                Some(val) => unsafe { std::env::set_var(&k, val) },
+                None => unsafe { std::env::remove_var(&k) },
+            }
+        }
+    }
+
+    #[test]
+    fn pid_for_window_id_reads_list_windows() {
+        let list = serde_json::json!({
+            "windows": [
+                { "window_id": 10, "pid": 111, "bounds": { "x": 0, "y": 0, "width": 10, "height": 10 } },
+                { "window_id": 22, "pid": 36904, "bounds": { "x": 1, "y": 2, "width": 3, "height": 4 } }
+            ]
+        });
+        assert_eq!(pid_for_window_id(&list, 22), Some(36904));
+        assert_eq!(pid_for_window_id(&list, 99), None);
+        assert_eq!(bounds_for_window_id(&list, 22), Some((1.0, 2.0, 3.0, 4.0)));
     }
 
     #[test]

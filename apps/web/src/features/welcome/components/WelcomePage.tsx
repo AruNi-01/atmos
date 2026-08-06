@@ -28,13 +28,19 @@ import {
   type WelcomeSlashPopoverState,
   useWelcomeSlashNavigation,
 } from "@/features/welcome/hooks/use-welcome-slash-navigation";
+import type { SlashPopoverView } from "@/features/welcome/components/SlashCommandPopover";
+import {
+  BROWSER_USE_SLASH_COMMAND_ID,
+  buildBrowserUseSlashCommand,
+  matchesBrowserUseSlashQuery,
+  resolveBrowserUseSkillRef,
+} from "@/features/welcome/lib/slash-browser-use";
 import {
   buildDesktopUseSlashCommand,
   DESKTOP_USE_SLASH_COMMAND_ID,
   matchesDesktopUseSlashQuery,
   resolveDesktopUseSkillRef,
 } from "@/features/welcome/lib/slash-desktop-use";
-import type { SlashPopoverView } from "@/features/welcome/components/SlashCommandPopover";
 import { useProjectStore } from "@/features/project/store/use-project-store";
 import {
   useProjects,
@@ -250,7 +256,14 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
   const slashCommands = React.useMemo<SlashCommandOption[]>(() => {
     const query = slashPopover?.query.trim().toLowerCase() ?? "";
     const commands: SlashCommandOption[] = [];
-
+    if (matchesBrowserUseSlashQuery(query)) {
+      commands.push(
+        buildBrowserUseSlashCommand({
+          label: t("slashPopover.browserUse.label"),
+          description: t("slashPopover.browserUse.description"),
+        }),
+      );
+    }
     if (matchesDesktopUseSlashQuery(query)) {
       commands.push(
         buildDesktopUseSlashCommand({
@@ -259,23 +272,21 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
         }),
       );
     }
-
-    if (skillsContext) {
-      if (
-        !query ||
-        "dynamic-skills".includes(query) ||
-        "dynamic skills".includes(query) ||
-        "disable-skill".includes(query) ||
-        "disable skill".includes(query) ||
-        "disable".includes(query) ||
-        "skill".includes(query)
-      ) {
-        commands.push({
-          id: "dynamic-skills",
-          label: t("slashPopover.disableSkill.label"),
-          description: t("slashPopover.disableSkill.description"),
-        });
-      }
+    if (!skillsContext) return commands;
+    if (
+      !query ||
+      "dynamic-skills".includes(query) ||
+      "dynamic skills".includes(query) ||
+      "disable-skill".includes(query) ||
+      "disable skill".includes(query) ||
+      "disable".includes(query) ||
+      "skill".includes(query)
+    ) {
+      commands.push({
+        id: "dynamic-skills",
+        label: t("slashPopover.disableSkill.label"),
+        description: t("slashPopover.disableSkill.description"),
+      });
     }
     return commands;
   }, [skillsContext, slashPopover?.query, t]);
@@ -339,10 +350,10 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
   });
 
   const {
-    allSkills,
     filteredAgents,
     filteredProjects,
     filteredSkills,
+    allSkills,
     isSkillsLoading,
   } = useWelcomeSlashSearch({
     availableAgents,
@@ -519,22 +530,65 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
         enterDisableSkillsView();
         return;
       }
+      if (command.id === BROWSER_USE_SLASH_COMMAND_ID) {
+        const popover = slashPopover;
+        if (!popover) return;
+        const skill = resolveBrowserUseSkillRef(allSkills);
+        // Match ordinary skill selection: do not insert disabled skills.
+        if (skill.status === "disabled") {
+          setSlashPopover(null);
+          return;
+        }
+        // Non-blocking readiness: insert skill only when engine + permissions OK.
+        setSlashPopover(null);
+        void import("@/features/desktop-use/lib/readiness-modal-bus").then(
+          ({ gateDesktopUseFeature }) => {
+            gateDesktopUseFeature("browser", {
+              onReady: () => {
+                composerRef.current?.applySlashAtRange(
+                  popover.slashOffset,
+                  popover.query.length,
+                  {
+                    kind: "skill",
+                    absolutePath: skill.absolutePath,
+                    name: skill.name,
+                  },
+                );
+              },
+            });
+          },
+        );
+        return;
+      }
       if (command.id === DESKTOP_USE_SLASH_COMMAND_ID) {
         const popover = slashPopover;
         if (!popover) return;
         const skill = resolveDesktopUseSkillRef(allSkills);
-        composerRef.current?.applySlashAtRange(
-          popover.slashOffset,
-          popover.query.length,
-          {
-            kind: "skill",
-            absolutePath: skill.absolutePath,
-            name: skill.name,
+        if (skill.status === "disabled") {
+          setSlashPopover(null);
+          return;
+        }
+        // Non-blocking readiness: insert skill only when engine + permissions OK;
+        // otherwise open Settings guide modal (cached doctor, no UI freeze).
+        setSlashPopover(null);
+        void import("@/features/desktop-use/lib/readiness-modal-bus").then(
+          ({ gateDesktopUseFeature }) => {
+            gateDesktopUseFeature("slash", {
+              onReady: () => {
+                composerRef.current?.applySlashAtRange(
+                  popover.slashOffset,
+                  popover.query.length,
+                  {
+                    kind: "skill",
+                    absolutePath: skill.absolutePath,
+                    name: skill.name,
+                  },
+                );
+              },
+            });
           },
         );
-        setSlashPopover(null);
-        setSlashPopoverView("menu");
-        setSkillDisableFilter("");
+        return;
       }
     },
     [allSkills, enterDisableSkillsView, slashPopover],

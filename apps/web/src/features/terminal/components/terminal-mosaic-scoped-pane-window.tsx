@@ -492,6 +492,7 @@ export function TerminalMosaicScopedPaneWindow({
           isTerminalReady={isTerminalReady}
           localPath={workspaceInfo?.localPath}
           skillsContext={skillsContext}
+          surfaceActive={surfaceActive}
           onHide={() => {
             terminalRefsMap.current.get(id)?.focus();
           }}

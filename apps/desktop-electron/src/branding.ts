@@ -110,16 +110,17 @@ export function applyReadyAppBranding(): void {
       ` dockIcon=${icons.dockIconPath ?? "(missing)"}`,
   );
 
-  if (process.platform === "darwin" && app.dock) {
-    // Prefer PNG over .icns — createFromPath(icns) frequently yields a low-res
-    // NativeImage that macOS draws as a tiny mark in the Dock.
+  // Packaged Atmos.app already has CFBundleIconFile (icon.icns). Runtime
+  // dock.setIcon has been observed to leave a zero-width Dock tile on
+  // Electron 37 / recent macOS — only setIcon for unpackaged / dev shells.
+  // Prefer PNG over .icns for sharp Retina tiles when setIcon is used.
+  if (process.platform === "darwin" && app.dock && !app.isPackaged) {
     const dockPath =
       icons.pngPath ?? icons.dockIconPath ?? icons.windowIconPath;
     if (dockPath) {
       try {
         let image = nativeImage.createFromPath(dockPath);
         if (!image.isEmpty()) {
-          // Ensure Retina Dock gets a sharp representation when source is ≥512.
           const size = image.getSize();
           if (size.width >= 512 && size.height >= 512) {
             image = image.resize({ width: 512, height: 512, quality: "best" });

@@ -8,7 +8,8 @@
 
 - **Dev**: `just dev-cli`
 - **Build**: `just build-cli`
-- **Install**: `just install-cli`
+- **Install (cargo bin)**: `just install-cli` → `~/.cargo/bin/atmos`
+- **Use local CLI**: `just use-local-cli` → release build + replace `~/.atmos/bin/atmos` (and `~/.cargo/bin` if present)
 - **Test**: `cargo test -p atmos`
 
 ---

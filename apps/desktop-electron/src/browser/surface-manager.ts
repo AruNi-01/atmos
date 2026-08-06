@@ -330,6 +330,54 @@ export class BrowserSurfaceManager {
     return new Set(this.surfaces.keys());
   }
 
+  /** Bound guest WebContents for Browser Use embedded control (APP-053). */
+  getGuestWebContents(sessionId: string): WebContents | null {
+    const s = this.surfaces.get(sessionId);
+    const g = s?.guestWebContents;
+    if (g && !g.isDestroyed()) return g;
+    return null;
+  }
+
+  /** Host BrowserWindow for a browser session (main or standalone). */
+  getHostWindowForSession(sessionId: string): BrowserWindow | null {
+    const s = this.surfaces.get(sessionId);
+    if (s) return this.surfaceHost(s);
+    const main = this.state.mainWindow;
+    if (main && !main.isDestroyed()) return main;
+    return null;
+  }
+
+  /**
+   * Session summaries for `atmos browser-use --backend embedded` prepare/state bind.
+   */
+  listBrowserUseSessions(): Array<{
+    target_id: string;
+    tab_id: string;
+    url: string;
+    title: string;
+    bound: boolean;
+  }> {
+    const out: Array<{
+      target_id: string;
+      tab_id: string;
+      url: string;
+      title: string;
+      bound: boolean;
+    }> = [];
+    for (const s of this.surfaces.values()) {
+      const g = s.guestWebContents;
+      const bound = Boolean(g && !g.isDestroyed());
+      out.push({
+        target_id: s.sessionId,
+        tab_id: "main",
+        url: bound ? g!.getURL() : s.currentUrl,
+        title: bound ? g!.getTitle() : "",
+        bound,
+      });
+    }
+    return out;
+  }
+
   private attachWebContentsListeners(
     sessionId: string,
     wc: WebContents,
@@ -461,7 +509,7 @@ export class BrowserSurfaceManager {
   private async syncSessionBridge(
     wc: WebContents,
     sessionId: string,
-    method: "announceReady" | "enterPickMode" | "clearSelection",
+    method: "announceReady" | "enterPickMode" | "clearSelection" | "exitPickMode",
   ): Promise<void> {
     const sessionJson = JSON.stringify(sessionId);
     const methodJson = JSON.stringify(method);
@@ -475,6 +523,11 @@ export class BrowserSurfaceManager {
     const bridge = window.__ATMOS_DESKTOP_BROWSER_BRIDGE__;
     if (bridge && typeof bridge[method] === 'function') {
       bridge[method](sessionId);
+      return true;
+    }
+    // Legacy injects only had clearSelection === exitPickMode.
+    if (method === 'exitPickMode' && bridge && typeof bridge.clearSelection === 'function') {
+      bridge.clearSelection(sessionId);
       return true;
     }
     attempts += 1;
@@ -499,7 +552,7 @@ export class BrowserSurfaceManager {
     wc: WebContents,
     sessionId: string,
     bridgeToken: string,
-    method: "announceReady" | "enterPickMode" | "clearSelection",
+    method: "announceReady" | "enterPickMode" | "clearSelection" | "exitPickMode",
   ): Promise<void> {
     await this.injectBridge(wc, bridgeToken);
     await this.syncSessionBridge(wc, sessionId, method);
@@ -515,7 +568,7 @@ export class BrowserSurfaceManager {
       wc,
       sessionId,
       bridgeToken,
-      pick ? "enterPickMode" : "clearSelection",
+      pick ? "enterPickMode" : "exitPickMode",
     );
   }
 
@@ -538,7 +591,8 @@ export class BrowserSurfaceManager {
     s.hostWindow = host;
     s.currentUrl = url;
     s.detached = false;
-    s.pickMode = false;
+    // Do NOT reset pickMode here — host toolbar may still be pressed; navigation
+    // re-enters pick via onBrowserPageFinished when pickMode stays true.
 
     if (s.detachedWindow && !s.detachedWindow.isDestroyed()) {
       s.detachedWindow.close();
@@ -741,7 +795,30 @@ export class BrowserSurfaceManager {
     if (wc) void this.evalPickMode(wc, sessionId, true, s.bridgeToken);
   }
 
+  /**
+   * Unlock guest selection chrome only — does **not** exit pick mode.
+   * Used when host dismisses SelectionPopover and the toolbar pick button stays on.
+   *
+   * Older guest runtimes disabled pick mode on host clear; if `pickMode` is still
+   * desired we re-enter so hover outlines keep working without a page reload.
+   */
   clearSelection(sessionId: string): void {
+    const s = this.surfaces.get(sessionId);
+    if (!s) return;
+    const wc = this.webContentsFor(s);
+    if (!wc) return;
+    const bridgeToken = s.bridgeToken;
+    const keepPick = s.pickMode;
+    void (async () => {
+      await this.injectAndSync(wc, sessionId, bridgeToken, "clearSelection");
+      if (keepPick && this.surfaces.get(sessionId)?.pickMode) {
+        await this.injectAndSync(wc, sessionId, bridgeToken, "enterPickMode");
+      }
+    })();
+  }
+
+  /** Toolbar toggle / inactive tab — full pick mode off. */
+  exitPickMode(sessionId: string): void {
     const s = this.surfaces.get(sessionId);
     if (!s) return;
     s.pickMode = false;

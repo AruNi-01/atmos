@@ -26,6 +26,12 @@ An Architecture Decision Record (ADR) is a document that captures an important a
 | [004](./004-terminal-tmux-control-mode.md) | 终端改为 tmux Control Mode Transport | ✅ Accepted | 2026-04-19 | Aaryn, Codex |
 | [005](./005-release-download-installation-architecture.md) | 发布、下载与安装架构 | ✅ Accepted | 2026-06-23 | Aaryn, Codex |
 
+### Related known debt (not an ADR yet)
+
+| Note | Topic |
+|------|--------|
+| [known-debt-client-transport.md](../architecture/known-debt-client-transport.md) | Web-first HTTP/WS client path on Desktop; future transport abstraction (web WS/HTTP, desktop local IPC) |
+
 ---
 
 ## 📊 Status Definitions
