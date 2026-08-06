@@ -8333,6 +8333,10 @@
         "title": "未配置运行脚本",
         "description": "请先在设置中配置运行脚本。"
       },
+      "noProject": {
+        "title": "未选择项目",
+        "description": "请先打开项目或工作区，再运行脚本。"
+      },
       "terminalNotReady": {
         "title": "终端尚未就绪",
         "description": "请等待终端初始化完成。"

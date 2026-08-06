@@ -8333,6 +8333,10 @@
         "title": "No Run Script Configured",
         "description": "Please configure a run script in the settings."
       },
+      "noProject": {
+        "title": "No project selected",
+        "description": "Open a project or workspace before running a script."
+      },
       "terminalNotReady": {
         "title": "Terminal not ready",
         "description": "Please wait for the terminal to initialize."
