@@ -1,0 +1,26 @@
+apps/docs/package.json
+  h_5be255725524c8 26,38
+apps/landing/package.json
+  h_5be255725524c8 28,47
+apps/web/next.config.ts
+  h_5be255725524c8 102
+apps/web/package.json
+  h_5be255725524c8 49,87,122
+bun.lock
+  h_5be255725524c8 52,64,88,107,201,239,274,330,436,449-450,936,938,940,942,944,946,948,950,952,954,956,958,960,962,964,966,968,970,972,974,976,978,980,982,984,986,1082,1084,1086,1088,1090,1092,1094,1096,1098,1100,1150,1154,1156,2364,3162,3632,4066-4067,4402-4403,4580-4581,4618-4619,4709-4712
+package.json
+  h_5be255725524c8 37,50,64
+packages/i18n/package.json
+  h_5be255725524c8 27
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "dd4ef818b73b1ed838eea664ca3eee055d13af58",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
