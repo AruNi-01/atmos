@@ -1305,6 +1305,23 @@
         "baseBranch": "Base branch",
         "lastActive": "Last active",
         "path": "Path",
+        "openPullRequest": "Open pull request #{number}: {title}",
+        "openChecks": "Open checks / Actions",
+        "pullRequest": "Pull request",
+        "prState": {
+          "open": "Open",
+          "draft": "Draft",
+          "merged": "Merged",
+          "closed": "Closed"
+        },
+        "checksSummary": {
+          "none": "No checks",
+          "separator": ", ",
+          "passed": "{count, plural, one {# passed} other {# passed}}",
+          "inProgress": "{count, plural, one {# in progress} other {# in progress}}",
+          "failed": "{count, plural, one {# failed} other {# failed}}",
+          "skipped": "{count, plural, one {# skipped} other {# skipped}}"
+        },
         "gitWarning": {
           "title": "Git repository warning",
           "description": "This workspace has {issues}. Do you want to continue and {operation}?",
@@ -3967,6 +3984,11 @@
       "enabledFailed": "Failed to update Terminal Rich Input.",
       "triggerBarFailed": "Failed to update the Rich Input trigger bar."
     },
+    "terminalAppearanceSettingsStore": {
+      "syncFailedTitle": "Settings Sync Failed",
+      "cursorStyleFailed": "Failed to update the terminal cursor style.",
+      "cursorBlinkFailed": "Failed to update terminal cursor blink."
+    },
     "terminalSplitPrefsStore": {
       "syncFailedTitle": "Settings Sync Failed",
       "enabledFailed": "Failed to update Default split agent.",
@@ -5187,6 +5209,10 @@
     },
     "terminalSection": {
       "groups": {
+        "appearance": {
+          "title": "Appearance",
+          "description": "Cursor shape and blink for the terminal caret."
+        },
         "behavior": {
           "title": "Behavior",
           "description": "How terminal file links open and how plain split reuses the last agent."
@@ -5203,6 +5229,19 @@
           "title": "Performance",
           "description": "Warm workspace and mounted pane limits that trade memory for switch speed."
         }
+      },
+      "cursorStyle": {
+        "title": "Cursor style",
+        "description": "Choose the caret shape used in the terminal. The active tab icon follows the blink setting.",
+        "options": {
+          "block": "Block",
+          "underline": "Underline",
+          "bar": "Bar"
+        }
+      },
+      "cursorBlink": {
+        "title": "Cursor blink",
+        "description": "Blink the terminal caret when the pane is focused. Also applies to the active tab preview."
       },
       "fileLinkOpenMode": {
         "title": "File link open mode",
@@ -5644,8 +5683,7 @@
         "installFirst": "Install the control engine first to manage permissions.",
         "hostLine": "Host: {host}",
         "done": "Done",
-        "grantAccessibility": "Grant Accessibility",
-        "grantScreenRecording": "Open Screen Recording settings",
+        "grant": "Grant",
         "items": {
           "accessibility": {
             "title": "Accessibility",
@@ -7288,7 +7326,6 @@
         "recentRecords": "Recent Appshot records",
         "recentRecordsAriaLabel": "Recent Appshot records",
         "noAppshotsYet": "No Appshots yet.",
-        "more": "More",
         "previewAlt": "{appName} preview",
         "errorIconAriaLabel": "Error",
         "recordRow": {
@@ -9022,7 +9059,8 @@
     "readinessModal": {
       "title": "Desktop Use is not ready",
       "dismiss": "Not now",
-      "openSettings": "Open Desktop Use settings",
+      "grant": "Grant",
+      "openSettings": "Open settings",
       "hint": "Install or start the control engine and grant Accessibility + Screen Recording to Atmos Desktop Use.",
       "source": {
         "generic": "This feature needs the Desktop Use control engine.",

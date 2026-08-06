@@ -10,6 +10,9 @@ import {
   DropdownMenuTrigger,
   Input,
   Switch,
+  TabsSubtle,
+  TabsSubtleItem,
+  cn,
 } from '@workspace/ui';
 import {
   Check,
@@ -18,6 +21,7 @@ import {
   Keyboard,
   Link2,
   MessageSquareText,
+  Palette,
 } from 'lucide-react';
 import type { TerminalFileLinkOpenMode } from '@/features/settings/store/terminal-link-settings-store';
 import {
@@ -26,6 +30,11 @@ import {
   TERMINAL_SIDE_CONTEXT_PROMPT_BUDGET_STEP_BYTES,
   normalizeTerminalSideContextPromptBudgetBytes,
 } from '@/features/settings/store/terminal-side-chat-settings-store';
+import {
+  TERMINAL_CURSOR_STYLES,
+  type TerminalCursorStyle,
+  useTerminalAppearanceSettingsStore,
+} from '@/features/settings/store/terminal-appearance-settings-store';
 import {
   QUICK_OPEN_APP_MAP,
   QUICK_OPEN_APP_OPTIONS,
@@ -38,6 +47,67 @@ import {
 } from '@/features/settings/components/settings/SettingsGroupCard';
 import { AgentSelect, AGENT_OPTIONS } from '@/features/wiki/components/AgentSelect';
 import { useTerminalSplitPrefsStore } from '@/features/settings/store/terminal-split-prefs-store';
+
+/** Mini caret glyph used as TabsSubtle icons + live blink preview. */
+function CursorStylePreviewIcon({
+  style,
+  blink,
+  active,
+  className,
+  size = 16,
+}: {
+  style: TerminalCursorStyle;
+  blink: boolean;
+  active: boolean;
+  className?: string;
+  size?: number;
+}) {
+  const shouldBlink = active && blink;
+  return (
+    <span
+      className={cn(
+        'relative inline-flex shrink-0 items-end justify-center text-current',
+        className,
+      )}
+      style={{
+        width: size,
+        height: size,
+        animation: shouldBlink
+          ? 'atmos-cursor-blink 1.06s step-end infinite'
+          : undefined,
+      }}
+      aria-hidden
+    >
+      {style === 'block' ? (
+        <span className="mb-0.5 h-[70%] w-[55%] rounded-[1px] bg-current" />
+      ) : null}
+      {style === 'underline' ? (
+        <span className="mb-0.5 h-[12%] w-[70%] rounded-[1px] bg-current" />
+      ) : null}
+      {style === 'bar' ? (
+        <span className="mb-0.5 h-[75%] w-[12%] rounded-[1px] bg-current" />
+      ) : null}
+    </span>
+  );
+}
+
+function makeCursorStyleTabIcon(
+  style: TerminalCursorStyle,
+  blink: boolean,
+  active: boolean,
+): React.ComponentType<{ className?: string; size?: number }> {
+  return function CursorStyleTabIcon({ className, size }) {
+    return (
+      <CursorStylePreviewIcon
+        style={style}
+        blink={blink}
+        active={active}
+        className={className}
+        size={size}
+      />
+    );
+  };
+}
 
 export function TerminalSettingsSection({
   fileLinkOpenMode,
@@ -83,6 +153,14 @@ export function TerminalSettingsSection({
     setRunConfig: setDefaultSplitAgentRunConfig,
     setApplyToNewTerminalTab,
   } = useTerminalSplitPrefsStore();
+  const {
+    cursorStyle,
+    cursorBlink,
+    loadSettings: loadTerminalAppearanceSettings,
+    setCursorStyle,
+    setCursorBlink,
+  } = useTerminalAppearanceSettingsStore();
+  const [appearanceExpanded, setAppearanceExpanded] = React.useState(true);
   const [behaviorExpanded, setBehaviorExpanded] = React.useState(true);
   const [richInputExpanded, setRichInputExpanded] = React.useState(true);
   const [sideChatExpanded, setSideChatExpanded] = React.useState(true);
@@ -120,7 +198,19 @@ export function TerminalSettingsSection({
 
   React.useEffect(() => {
     void loadTerminalSplitPrefs();
-  }, [loadTerminalSplitPrefs]);
+    void loadTerminalAppearanceSettings();
+  }, [loadTerminalAppearanceSettings, loadTerminalSplitPrefs]);
+
+  const cursorStyleIndex = Math.max(0, TERMINAL_CURSOR_STYLES.indexOf(cursorStyle));
+  const cursorStyleOptions = React.useMemo(
+    () =>
+      TERMINAL_CURSOR_STYLES.map((style) => ({
+        style,
+        label: t(`cursorStyle.options.${style}`),
+        icon: makeCursorStyleTabIcon(style, cursorBlink, style === cursorStyle),
+      })),
+    [cursorBlink, cursorStyle, t],
+  );
 
   React.useEffect(() => {
     setLocalSideContextBudget(sideContextPromptBudgetBytes.toString());
@@ -194,6 +284,53 @@ export function TerminalSettingsSection({
 
   return (
     <div className="space-y-4">
+      <style>
+        {`@keyframes atmos-cursor-blink{0%,49%{opacity:1}50%,100%{opacity:0}}`}
+      </style>
+      <SettingsGroupCard
+        open={appearanceExpanded}
+        onOpenChange={setAppearanceExpanded}
+        icon={Palette}
+        title={t('groups.appearance.title')}
+        description={t('groups.appearance.description')}
+      >
+        <SettingsGroupRow
+          title={t('cursorStyle.title')}
+          description={t('cursorStyle.description')}
+          wide
+        >
+          <TabsSubtle
+            idPrefix="terminal-cursor-style"
+            activeLabel
+            selectedIndex={cursorStyleIndex}
+            onSelect={(index) => {
+              const next = TERMINAL_CURSOR_STYLES[index];
+              if (next) void setCursorStyle(next);
+            }}
+            className="justify-end"
+          >
+            {cursorStyleOptions.map((option, index) => (
+              <TabsSubtleItem
+                key={option.style}
+                index={index}
+                label={option.label}
+                icon={option.icon}
+              />
+            ))}
+          </TabsSubtle>
+        </SettingsGroupRow>
+        <SettingsGroupRow
+          title={t('cursorBlink.title')}
+          description={t('cursorBlink.description')}
+        >
+          <Switch
+            checked={cursorBlink}
+            onCheckedChange={(value) => void setCursorBlink(!!value)}
+            aria-label={t('cursorBlink.title')}
+          />
+        </SettingsGroupRow>
+      </SettingsGroupCard>
+
       <SettingsGroupCard
         open={behaviorExpanded}
         onOpenChange={setBehaviorExpanded}

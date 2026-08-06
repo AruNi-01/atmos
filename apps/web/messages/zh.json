@@ -1305,6 +1305,23 @@
         "baseBranch": "基准分支",
         "lastActive": "最近活跃",
         "path": "路径",
+        "openPullRequest": "打开 Pull Request #{number}：{title}",
+        "openChecks": "打开 Checks / Actions",
+        "pullRequest": "Pull Request",
+        "prState": {
+          "open": "开启",
+          "draft": "草稿",
+          "merged": "已合并",
+          "closed": "关闭"
+        },
+        "checksSummary": {
+          "none": "暂无 checks",
+          "separator": "，",
+          "passed": "{count} 通过",
+          "inProgress": "{count} 进行中",
+          "failed": "{count} 失败",
+          "skipped": "{count} 跳过"
+        },
         "gitWarning": {
           "title": "Git 仓库警告",
           "description": "该工作区存在 {issues}。是否仍要继续并{operation}？",
@@ -3967,6 +3984,11 @@
       "enabledFailed": "更新 Terminal Rich Input 失败。",
       "triggerBarFailed": "更新 Rich Input 触发条失败。"
     },
+    "terminalAppearanceSettingsStore": {
+      "syncFailedTitle": "设置同步失败",
+      "cursorStyleFailed": "更新终端光标样式失败。",
+      "cursorBlinkFailed": "更新终端光标闪烁失败。"
+    },
     "terminalSplitPrefsStore": {
       "syncFailedTitle": "设置同步失败",
       "enabledFailed": "更新默认分屏 Agent 失败。",
@@ -5187,6 +5209,10 @@
     },
     "terminalSection": {
       "groups": {
+        "appearance": {
+          "title": "外观",
+          "description": "终端光标形状与是否闪烁。"
+        },
         "behavior": {
           "title": "行为",
           "description": "终端文件链接的打开方式，以及普通分屏如何复用上次选择的 Agent。"
@@ -5203,6 +5229,19 @@
           "title": "性能",
           "description": "Warm 工作区与挂载面板上限，用内存换取更快切换。"
         }
+      },
+      "cursorStyle": {
+        "title": "光标样式",
+        "description": "选择终端中使用的光标形状。选中项的图标会跟随闪烁开关实时变化。",
+        "options": {
+          "block": "方块",
+          "underline": "下划线",
+          "bar": "竖线"
+        }
+      },
+      "cursorBlink": {
+        "title": "光标闪烁",
+        "description": "在面板获得焦点时闪烁终端光标，同时作用于当前选中的预览图标。"
       },
       "fileLinkOpenMode": {
         "title": "文件链接打开方式",
@@ -5644,8 +5683,7 @@
         "installFirst": "请先安装控制引擎再管理权限。",
         "hostLine": "Host：{host}",
         "done": "完成",
-        "grantAccessibility": "授予辅助功能权限",
-        "grantScreenRecording": "打开屏幕录制设置",
+        "grant": "授予",
         "items": {
           "accessibility": {
             "title": "辅助功能",
@@ -7288,7 +7326,6 @@
         "recentRecords": "最近的 Appshot 记录",
         "recentRecordsAriaLabel": "最近的 Appshot 记录",
         "noAppshotsYet": "还没有 Appshot。",
-        "more": "更多",
         "previewAlt": "{appName} 预览",
         "errorIconAriaLabel": "错误",
         "recordRow": {
@@ -9023,7 +9060,8 @@
     "readinessModal": {
       "title": "Desktop Use 尚未就绪",
       "dismiss": "暂不处理",
-      "openSettings": "打开 Desktop Use 设置",
+      "grant": "授予",
+      "openSettings": "打开设置",
       "hint": "请安装或启动控制引擎，并为「Atmos Desktop Use」授予辅助功能与屏幕录制权限。",
       "source": {
         "generic": "此功能需要 Desktop Use 控制引擎。",

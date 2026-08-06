@@ -83,6 +83,10 @@ export interface FunctionSettings {
     default_split_agent_run_config?: TerminalAgentRunConfigInput | null;
     /** When true (and enabled), new Terminal tabs also launch the default agent. */
     default_split_agent_apply_to_new_tab?: boolean;
+    /** xterm.js cursorStyle: block | underline | bar. Default underline. */
+    cursor_style?: "block" | "underline" | "bar";
+    /** When true (default), the terminal caret blinks. */
+    cursor_blink?: boolean;
   };
   workspace_surface?: {
     max_warm_workspaces?: number;
