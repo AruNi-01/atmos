@@ -1,0 +1,18 @@
+apps/web/src/features/desktop-use/components/DesktopUseReadinessDialog.tsx
+  h_5be255725524c8 15-21,55-82,109-110,214-215
+apps/web/src/features/settings/components/DesktopUsePermissionsPanel.tsx
+  h_5be255725524c8 10-17,34-39,182,214,216
+apps/web/src/features/settings/components/__tests__/desktop-use-settings-section.test.ts
+  h_5be255725524c8 142-144
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "c01090a672f5f2911e07d09c73f80d4b36798c9f",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
