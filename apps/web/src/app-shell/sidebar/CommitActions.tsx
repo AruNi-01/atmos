@@ -616,18 +616,26 @@ export const CommitActions: React.FC<CommitActionsProps> = ({
               colorVariant="mono"
               theme={beamTheme}
               active={isGeneratingCommitMessage}
-              className={cn("w-full", isPanel && "h-full min-h-0")}
+              className={cn(
+                // Fixed host size in sidebar; only the beam animation toggles.
+                // Bloom stays out of flow so it cannot stretch the frame.
+                "block w-full [&>[data-beam-bloom]]:pointer-events-none [&>[data-beam-bloom]]:!absolute [&>[data-beam-bloom]]:!inset-0 [&>[data-beam-bloom]]:!h-auto [&>[data-beam-bloom]]:!w-auto",
+                isPanel
+                  ? "h-full min-h-0 [&>:first-child]:h-full [&>:first-child]:w-full"
+                  : "h-[60px] [&>:first-child]:h-full [&>:first-child]:w-full",
+              )}
               borderRadius={isPanel ? 8 : 6}
             >
               <textarea
                 ref={commitMessageTextareaRef}
+                rows={3}
                 placeholder={
                   isGeneratingCommitMessage
                     ? ""
                     : t("commitActions.messagePlaceholder")
                 }
                 value={
-                  isGeneratingCommitMessage && !commitMessage
+                  isGeneratingCommitMessage && !commitMessage.trim()
                     ? t("commitActions.generatingCommitMessage")
                     : commitMessage
                 }
@@ -647,11 +655,14 @@ export const CommitActions: React.FC<CommitActionsProps> = ({
                 }}
                 readOnly={isGeneratingCommitMessage}
                 disabled={isGeneratingCommitMessage}
+                aria-busy={isGeneratingCommitMessage}
                 className={cn(
-                  "w-full resize-none focus:outline-none focus:ring-0 transition-all ease-out duration-200",
+                  // Fixed height + internal scroll: streaming/long messages never
+                  // grow the beam frame (field-sizing-fixed disables content sizing).
+                  "box-border field-sizing-fixed w-full resize-none overflow-y-auto focus:outline-none focus:ring-0 transition-colors ease-out duration-200",
                   isPanel
                     ? "h-full min-h-[220px] rounded-lg border border-border/70 bg-muted/30 p-3 pr-10 text-sm leading-6 text-foreground placeholder:text-muted-foreground/60 focus:border-border focus:bg-background"
-                    : "min-h-[60px] rounded-md border border-transparent bg-sidebar-accent/50 p-2.5 pr-8 text-xs text-sidebar-foreground placeholder:text-muted-foreground/50 focus:border-sidebar-border/50 focus:bg-sidebar-accent",
+                    : "h-full rounded-md border border-transparent bg-sidebar-accent/50 p-2.5 pr-8 text-xs leading-snug text-sidebar-foreground placeholder:text-muted-foreground/50 focus:border-sidebar-border/50 focus:bg-sidebar-accent",
                   isGeneratingCommitMessage && "cursor-wait text-muted-foreground",
                 )}
               />
