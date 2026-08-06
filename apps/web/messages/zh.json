@@ -5748,20 +5748,18 @@
         "title": "权限",
         "unifiedHint": "请为 Desktop Use host 应用授予辅助功能与屏幕录制权限，以便稳定完成捕获与控制。",
         "installFirst": "请先安装控制引擎再管理权限。",
-        "hostLine": "Host：{host}",
         "done": "完成",
         "grant": "授予",
         "items": {
           "accessibility": {
             "title": "辅助功能",
-            "description": "用于检查并控制其他应用。会打开系统设置以便开启 Atmos Desktop Use（仅在列表中没有时才需拖入悬浮芯片）。"
+            "description": "供 Desktop Use 读取界面并控制其他应用（点击、输入、窗口操作等）。"
           },
           "screenRecording": {
             "title": "屏幕录制",
-            "description": "用于 AppShot 与 Desktop Use 的屏幕捕获。"
+            "description": "供 Desktop Use 与 AppShot 捕获屏幕，让 agent 能看到当前画面。"
           }
-        },
-        "dragHint": "在列表中打开 Atmos Desktop Use 开关；若没有该项，再将悬浮芯片拖入列表。"
+        }
       },
       "errors": {
         "statusFailed": "加载 Desktop Use 状态失败。",

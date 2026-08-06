@@ -5748,20 +5748,18 @@
         "title": "Permissions",
         "unifiedHint": "Grant Accessibility and Screen Recording to the Desktop Use host app so capture and control work reliably.",
         "installFirst": "Install the control engine first to manage permissions.",
-        "hostLine": "Host: {host}",
         "done": "Done",
         "grant": "Grant",
         "items": {
           "accessibility": {
             "title": "Accessibility",
-            "description": "Required to inspect and control other apps. Opens System Settings so you can enable Atmos Desktop Use (drag the chip only if it is not already listed)."
+            "description": "Lets Desktop Use inspect UI and control other apps (click, type, and window actions)."
           },
           "screenRecording": {
             "title": "Screen Recording",
-            "description": "Required to capture the screen for AppShot and Desktop Use."
+            "description": "Lets Desktop Use and AppShot capture the screen so agents can see what is on your display."
           }
-        },
-        "dragHint": "Turn on Atmos Desktop Use in the list. If it is missing, drag the floating chip into the list."
+        }
       },
       "errors": {
         "statusFailed": "Failed to load Desktop Use status.",

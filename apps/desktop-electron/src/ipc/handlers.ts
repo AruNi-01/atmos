@@ -625,11 +625,13 @@ export function createAllHandlers(
         [key: string]: unknown;
       };
 
-      // Desktop shell: Accessibility gets a drag-to-list panel (host .app path).
+      // Same drag-to-list fly overlay for Accessibility and Screen Recording
+      // (only the System Settings privacy pane differs).
       const wantsDrag =
-        result?.accessibility_pane === true ||
         target === "accessibility" ||
-        target === "all";
+        target === "screen_recording" ||
+        target === "all" ||
+        result?.accessibility_pane === true;
       const hostPath =
         typeof result?.host_app_path === "string" ? result.host_app_path : "";
       if (wantsDrag && hostPath && process.platform === "darwin") {
@@ -642,6 +644,57 @@ export function createAllHandlers(
             : typeof args?.lang === "string"
               ? args.lang
               : undefined;
+        const rawAnchor = args?.anchor;
+        let anchor:
+          | { x: number; y: number; width: number; height: number }
+          | undefined;
+        if (rawAnchor && typeof rawAnchor === "object") {
+          const a = rawAnchor as Record<string, unknown>;
+          const x = typeof a.x === "number" ? a.x : Number(a.x);
+          const y = typeof a.y === "number" ? a.y : Number(a.y);
+          const width =
+            typeof a.width === "number" ? a.width : Number(a.width);
+          const height =
+            typeof a.height === "number" ? a.height : Number(a.height);
+          if (
+            Number.isFinite(x) &&
+            Number.isFinite(y) &&
+            Number.isFinite(width) &&
+            Number.isFinite(height) &&
+            width > 0 &&
+            height > 0
+          ) {
+            anchor = { x, y, width, height };
+          }
+        }
+        // Convert viewport-relative button rect → screen points via host window.
+        // Panel is 460×128 (grant-overlay PANEL_WIDTH / PANEL_HEIGHT).
+        const PANEL_W = 460;
+        const PANEL_H = 128;
+        let sourceOrigin: { x: number; y: number } | undefined;
+        if (anchor) {
+          const host = await hostWindowFromArgs(args, state);
+          if (host && !host.isDestroyed()) {
+            try {
+              const cb = host.getContentBounds();
+              sourceOrigin = {
+                x: Math.round(
+                  cb.x + anchor.x + anchor.width / 2 - PANEL_W / 2,
+                ),
+                y: Math.round(
+                  cb.y + anchor.y + anchor.height / 2 - PANEL_H / 2,
+                ),
+              };
+            } catch {
+              /* fall through — overlay picks Atmos window center */
+            }
+          }
+        }
+        // "all" ends on Accessibility (screen recording pane is opened first).
+        const purpose =
+          target === "screen_recording"
+            ? "screen_recording"
+            : "accessibility";
         const overlay = showAccessibilityGrantOverlay({
           hostAppPath: hostPath,
           hostAppName:
@@ -649,6 +702,8 @@ export function createAllHandlers(
               ? result.host_app_name
               : undefined,
           locale,
+          purpose,
+          sourceOrigin,
         });
         return {
           ...result,

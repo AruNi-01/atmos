@@ -78,6 +78,9 @@ export function DesktopUseSettingsSection() {
   const [permissionsOpen, setPermissionsOpen] = useState(true);
   const [visibilityOpen, setVisibilityOpen] = useState(true);
   const defaultsAppliedRef = useRef(false);
+  /** Refresh control published by DesktopUsePermissionsPanel → group header. */
+  const [permissionsHeaderEnd, setPermissionsHeaderEnd] =
+    useState<React.ReactNode>(null);
 
   const load = useCallback(async (opts?: { silent?: boolean }) => {
     const silent = Boolean(opts?.silent);
@@ -443,8 +446,11 @@ export function DesktopUseSettingsSection() {
         icon={Shield}
         title={t("groups.permissions.title")}
         description={t("groups.permissions.description")}
+        headerEnd={permissionsHeaderEnd}
       >
-        <DesktopUsePermissionsPanel />
+        <DesktopUsePermissionsPanel
+          onHeaderEndChange={setPermissionsHeaderEnd}
+        />
       </SettingsGroupCard>
 
       {/* 3. Visual feedback — operation border (+ future under-cursor cues) */}
