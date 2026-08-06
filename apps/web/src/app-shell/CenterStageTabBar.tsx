@@ -1,15 +1,7 @@
 "use client";
 
 import React from "react";
-import { createPortal } from "react-dom";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
-  DropdownMenuTrigger,
-  Input,
   Popover,
   PopoverContent,
   PopoverTrigger,
@@ -25,7 +17,7 @@ import {
   Bot,
   Globe,
   LoaderCircle,
-  Pencil,
+  Pin,
   Plus,
   RotateCw,
   SquareTerminal as TerminalIcon,
@@ -48,13 +40,18 @@ import {
   CenterStageStickyTabActions,
   CenterStageTabGroupItemContent,
   CenterStageTabList,
+  getCenterStageSurfaceTabVariant,
 } from "@/app-shell/center-stage-shared-tabs";
 import { AgentIcon } from "@/features/agent/components/AgentIcon";
 import { useAgentAttentionStore } from "@/features/agent/store/agent-attention-store";
 import { useTerminalCenterTabPresentation } from "@/features/terminal/hooks/use-terminal-center-tab-presentation";
 import { useTerminalStore } from "@/features/terminal/store/use-terminal-store";
 import { useShallow } from "zustand/react/shallow";
-import type { FileTabContextMenuState } from "@/app-shell/center-stage-file-menu";
+import type { CenterTabContextMenuState, CenterTabDescriptor } from "@/app-shell/center-stage-tab-model";
+import {
+  orderCenterTabsByPin,
+  preventNonPrimaryTabActivate,
+} from "@/app-shell/center-stage-tab-model";
 import type { GithubCenterTab } from "@/features/github/store/use-github-center-tabs";
 import type { BrowserCenterTab } from "@/features/browser/store/use-browser-center-tabs";
 import {
@@ -78,6 +75,8 @@ interface CenterStageTabBarProps {
   isTabGroupItemActive: (tab: TabGroupItem) => boolean;
   openFiles: OpenFile[];
   orderedGroupedTabItems: Array<{ key: string; label: string; tabs: TabGroupItem[] }>;
+  /** tab value → pinnedAt ms */
+  pinnedTabs: Record<string, number>;
   previewBrowserPrefs: PreviewBrowserPrefs;
   projectWikiTabVisible: boolean;
   scrollableTabsRef: React.RefObject<HTMLDivElement | null>;
@@ -100,10 +99,9 @@ interface CenterStageTabBarProps {
   handleSelectTabGroupItem: (tab: TabGroupItem) => void;
   handleTabGroupDragEnd: (event: DragEndEvent) => void;
   pinFile: (path: string, workspaceId?: string) => void;
-  setActiveFile: (path: string | null, workspaceId?: string) => void;
   setCodeReviewCloseConfirmOpen: React.Dispatch<React.SetStateAction<boolean>>;
   setProjectWikiCloseConfirmOpen: React.Dispatch<React.SetStateAction<boolean>>;
-  setTabContextMenu: (value: FileTabContextMenuState) => void;
+  setTabContextMenu: (value: CenterTabContextMenuState) => void;
   setTabGroupPopoverOpen: React.Dispatch<React.SetStateAction<boolean>>;
   setTermTabPlusHoveredTabId: React.Dispatch<React.SetStateAction<string | null>>;
   setWikiRefreshing: React.Dispatch<React.SetStateAction<boolean>>;
@@ -120,6 +118,7 @@ export function CenterStageTabBar({
   isTabGroupItemActive,
   openFiles,
   orderedGroupedTabItems,
+  pinnedTabs,
   previewBrowserPrefs,
   projectWikiTabVisible,
   scrollableTabsRef,
@@ -142,7 +141,6 @@ export function CenterStageTabBar({
   handleSelectTabGroupItem,
   handleTabGroupDragEnd,
   pinFile,
-  setActiveFile,
   setCodeReviewCloseConfirmOpen,
   setProjectWikiCloseConfirmOpen,
   setTabContextMenu,
@@ -160,8 +158,7 @@ export function CenterStageTabBar({
     return <CenterStageTabGroupItemContent effectiveContextId={effectiveContextId} tab={tab} />;
   }, [effectiveContextId]);
 
-  // Open files, GitHub, and Browser instances share one lane, ordered by when
-  // each was opened (no per-type grouping) so tabs appear in natural open order.
+  // Natural open-order among file / github / browser surface tabs (before pin reordering).
   const orderedSurfaceTabs = React.useMemo<
     Array<
       | { type: "file"; openedAt: number; file: OpenFile }
@@ -183,6 +180,301 @@ export function CenterStageTabBar({
     return items.sort((left, right) => left.openedAt - right.openedAt);
   }, [browserTabs, githubTabs, openFiles]);
 
+  // Base visual order (type layout): terminals → special terminals → surface tabs.
+  // Pin reordering is applied on top so pinned tabs always lead.
+  const baseOrderedDescriptors = React.useMemo<CenterTabDescriptor[]>(() => {
+    const descriptors: CenterTabDescriptor[] = [];
+
+    for (const tab of visibleTerminalTabs) {
+      descriptors.push({
+        id: tab.id,
+        value: tab.id,
+        kind: "terminal",
+        label: tab.customTitle || tab.title,
+        customTitle: tab.customTitle,
+        pinnedAt: pinnedTabs[tab.id],
+      });
+    }
+
+    if (projectWikiTabVisible) {
+      descriptors.push({
+        id: "project-wiki",
+        value: "project-wiki",
+        kind: "project-wiki",
+        label: t("centerStageTabBar.projectWiki"),
+        pinnedAt: pinnedTabs["project-wiki"],
+      });
+    }
+
+    if (codeReviewTabVisible) {
+      descriptors.push({
+        id: "code-review",
+        value: "code-review",
+        kind: "code-review",
+        label: t("centerStageTabBar.codeReview"),
+        pinnedAt: pinnedTabs["code-review"],
+      });
+    }
+
+    for (const item of orderedSurfaceTabs) {
+      if (item.type === "file") {
+        const variant = getCenterStageSurfaceTabVariant(item.file.path);
+        descriptors.push({
+          id: item.file.path,
+          value: item.file.path,
+          kind: variant === "file" ? "file" : variant,
+          label: item.file.name,
+          file: item.file,
+          pinnedAt: pinnedTabs[item.file.path],
+        });
+        continue;
+      }
+
+      if (item.type === "browser") {
+        const browserContext =
+          previewBrowserPrefs.byContext[item.tab.browserContextId];
+        const label = getActivePreviewBrowserLabel(
+          browserContext,
+          browserFallbackLabel,
+        );
+        descriptors.push({
+          id: item.tab.value,
+          value: item.tab.value,
+          kind: "browser",
+          label,
+          pinnedAt: pinnedTabs[item.tab.value],
+        });
+        continue;
+      }
+
+      descriptors.push({
+        id: item.tab.value,
+        value: item.tab.value,
+        kind: item.tab.kind,
+        label: item.tab.label,
+        pinnedAt: pinnedTabs[item.tab.value],
+      });
+    }
+
+    return descriptors;
+  }, [
+    browserFallbackLabel,
+    codeReviewTabVisible,
+    orderedSurfaceTabs,
+    pinnedTabs,
+    previewBrowserPrefs,
+    projectWikiTabVisible,
+    t,
+    visibleTerminalTabs,
+  ]);
+
+  const orderedDescriptors = React.useMemo(
+    () => orderCenterTabsByPin(baseOrderedDescriptors),
+    [baseOrderedDescriptors],
+  );
+
+  const openContextMenu = React.useCallback(
+    (event: React.MouseEvent, tab: CenterTabDescriptor) => {
+      event.preventDefault();
+      event.stopPropagation();
+      setTabContextMenu({
+        x: event.clientX,
+        y: event.clientY,
+        tab,
+        orderedTabs: orderedDescriptors,
+      });
+    },
+    [orderedDescriptors, setTabContextMenu],
+  );
+
+  // Dual layout: pinned strip outside the scroll area when it fits; unified
+  // scroll (pinned → unpinned) when pins would crowd out the rest of the bar.
+  const stripRef = React.useRef<HTMLDivElement | null>(null);
+  const pinnedStripRef = React.useRef<HTMLDivElement | null>(null);
+  const [unifiedScroll, setUnifiedScroll] = React.useState(true);
+
+  const pinnedDescriptors = React.useMemo(
+    () => orderedDescriptors.filter((tab) => typeof tab.pinnedAt === "number"),
+    [orderedDescriptors],
+  );
+  const unpinnedDescriptors = React.useMemo(
+    () => orderedDescriptors.filter((tab) => typeof tab.pinnedAt !== "number"),
+    [orderedDescriptors],
+  );
+
+  // When there are no pins, always use the single scroll lane.
+  const useUnified = unifiedScroll || pinnedDescriptors.length === 0;
+
+  React.useLayoutEffect(() => {
+    const strip = stripRef.current;
+    if (!strip || pinnedDescriptors.length === 0) {
+      setUnifiedScroll(true);
+      return;
+    }
+
+    const measure = () => {
+      const available = strip.clientWidth;
+      if (available <= 0) return;
+      // Prefer a sticky pinned strip only when pins leave room for unpinned tabs.
+      // Measure via a temporary layout: when currently unified, estimate from
+      // first N children; when split, measure the pinned strip directly.
+      const pinnedEl = pinnedStripRef.current;
+      let pinnedWidth = pinnedEl?.scrollWidth ?? 0;
+      if (!pinnedEl) {
+        // Unified mode: sum widths of leading pinned tabs in the scroll lane.
+        const scrollLane = strip.querySelector("[data-center-tabs-scroll]");
+        if (scrollLane) {
+          let width = 0;
+          const children = Array.from(scrollLane.children);
+          for (let i = 0; i < pinnedDescriptors.length && i < children.length; i++) {
+            width += (children[i] as HTMLElement).offsetWidth;
+          }
+          pinnedWidth = width;
+        }
+      }
+      // Hysteresis avoids split ↔ unified flicker around the threshold.
+      setUnifiedScroll((currentlyUnified) => {
+        if (currentlyUnified) {
+          // Only leave unified when pins clearly leave comfortable room.
+          const canSplit =
+            pinnedWidth > 0 &&
+            pinnedWidth < available * 0.5 &&
+            available - pinnedWidth > 128;
+          return !canSplit;
+        }
+        // Only enter unified when pins crowd the bar.
+        const tooManyPins =
+          pinnedWidth > available * 0.65 || available - pinnedWidth < 96;
+        return tooManyPins;
+      });
+    };
+
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(strip);
+    if (pinnedStripRef.current) observer.observe(pinnedStripRef.current);
+    return () => observer.disconnect();
+  }, [pinnedDescriptors.length, orderedDescriptors, useUnified]);
+
+  const renderDescriptorTab = (tab: CenterTabDescriptor) => {
+    const isPinned = typeof tab.pinnedAt === "number";
+
+    if (tab.kind === "terminal") {
+      const source = visibleTerminalTabs.find((item) => item.id === tab.value);
+      if (!source) return null;
+      const index = visibleTerminalTabs.findIndex((item) => item.id === tab.value);
+      return (
+        <TerminalExtraTab
+          key={tab.id}
+          activeValue={activeValue}
+          effectiveContextId={effectiveContextId}
+          hasShortcut={index >= 0 && index < CENTER_TERMINAL_SHORTCUT_LIMIT}
+          hoveredTabId={termTabPlusHoveredTabId}
+          isPinned={isPinned}
+          shortcutDigit={index + 1}
+          newTerminalTabLabel={newTerminalTabLabel}
+          tab={source}
+          onClose={handleCloseTerminalCenterTab}
+          onCreateTab={handleCreateTerminalCenterTab}
+          onContextMenu={(event) => openContextMenu(event, tab)}
+          setHoveredTabId={setTermTabPlusHoveredTabId}
+        />
+      );
+    }
+
+    if (tab.kind === "project-wiki") {
+      return (
+        <SpecialTerminalTab
+          key={tab.id}
+          closeLabel={t("centerStageTabBar.closeProjectWikiTab")}
+          icon={<TerminalIcon className="size-3.5 shrink-0" />}
+          isPinned={isPinned}
+          label={t("centerStageTabBar.projectWiki")}
+          tooltip={t("centerStageTabBar.projectWikiTerminal")}
+          variant="project-wiki"
+          value="project-wiki"
+          onClose={() => setProjectWikiCloseConfirmOpen(true)}
+          onContextMenu={(event) => openContextMenu(event, tab)}
+        />
+      );
+    }
+
+    if (tab.kind === "code-review") {
+      return (
+        <SpecialTerminalTab
+          key={tab.id}
+          closeLabel={t("centerStageTabBar.closeCodeReviewTab")}
+          icon={<TerminalIcon className="size-3.5 shrink-0 text-blue-500" />}
+          isPinned={isPinned}
+          label={t("centerStageTabBar.codeReview")}
+          tooltip={t("centerStageTabBar.codeReviewTerminal")}
+          variant="code-review"
+          value="code-review"
+          onClose={() => setCodeReviewCloseConfirmOpen(true)}
+          onContextMenu={(event) => openContextMenu(event, tab)}
+        />
+      );
+    }
+
+    if (tab.file) {
+      return (
+        <CenterStageOpenFileTab
+          key={tab.id}
+          file={tab.file}
+          isPinned={isPinned}
+          sessionDisplay={sessionDisplay}
+          onClose={handleCloseFile}
+          onContextMenuRequest={(event) => openContextMenu(event, tab)}
+          onPreviewPin={(nextFile) => pinFile(nextFile.path, effectiveContextId)}
+        />
+      );
+    }
+
+    if (tab.kind === "browser") {
+      const browserTab = browserTabs.find((item) => item.value === tab.value);
+      if (!browserTab) return null;
+      const browserContext =
+        previewBrowserPrefs.byContext[browserTab.browserContextId];
+      const label = getActivePreviewBrowserLabel(
+        browserContext,
+        browserFallbackLabel,
+      );
+      const faviconUrl = getActivePreviewBrowserFaviconUrl(browserContext);
+      return (
+        <CenterStageSurfaceContentTab
+          key={tab.id}
+          closeLabel={t("centerStageTabBar.closeTab", { tab: label })}
+          faviconUrl={faviconUrl}
+          isPinned={isPinned}
+          name={label}
+          onClose={() => handleCloseBrowserTab(browserTab.value)}
+          onContextMenu={(event) => openContextMenu(event, tab)}
+          path={label}
+          tooltip={label}
+          value={browserTab.value}
+          variant="browser"
+        />
+      );
+    }
+
+    const githubTab = githubTabs.find((item) => item.value === tab.value);
+    if (!githubTab) return null;
+    return (
+      <CenterStageSurfaceContentTab
+        key={tab.id}
+        closeLabel={t("centerStageTabBar.closeTab", { tab: githubTab.label })}
+        isPinned={isPinned}
+        name={githubTab.label}
+        onClose={() => handleCloseGithubTab(githubTab.value)}
+        onContextMenu={(event) => openContextMenu(event, tab)}
+        path={`${githubTab.owner}/${githubTab.repo}`}
+        tooltip={githubTab.description || `${githubTab.owner}/${githubTab.repo}`}
+        value={githubTab.value}
+        variant={githubTab.kind}
+      />
+    );
+  };
+
   return (
     <CenterStageTabList>
       <CenterStageOverviewTab
@@ -199,6 +491,7 @@ export function CenterStageTabBar({
           <TooltipTrigger asChild>
             <TabsTab
               value="wiki"
+              onPointerDown={preventNonPrimaryTabActivate}
               className="group/wiki relative h-full! pl-4 pr-4 data-active:bg-muted/40 data-active:text-foreground text-muted-foreground hover:bg-muted/50 transition-colors gap-2 grow-0 shrink-0 justify-start rounded-none border-0!"
             >
               <span className="relative size-3.5">
@@ -246,103 +539,29 @@ export function CenterStageTabBar({
         </Tooltip>
       ) : null}
 
-      <CenterStageScrollableTabs scrollableTabsRef={scrollableTabsRef}>
-        {visibleTerminalTabs
-          .map((tab, index) => (
-            <TerminalExtraTab
-              key={tab.id}
-              activeValue={activeValue}
-              effectiveContextId={effectiveContextId}
-              hasShortcut={index < CENTER_TERMINAL_SHORTCUT_LIMIT}
-              hoveredTabId={termTabPlusHoveredTabId}
-              shortcutDigit={index + 1}
-              newTerminalTabLabel={newTerminalTabLabel}
-              tab={tab}
-              onClose={handleCloseTerminalCenterTab}
-              onCreateTab={handleCreateTerminalCenterTab}
-              onRenameTab={handleRenameTerminalCenterTab}
-              setHoveredTabId={setTermTabPlusHoveredTabId}
-            />
-          ))}
-
-        {projectWikiTabVisible ? (
-          <SpecialTerminalTab
-            closeLabel={t("centerStageTabBar.closeProjectWikiTab")}
-            icon={<TerminalIcon className="size-3.5 shrink-0" />}
-            label={t("centerStageTabBar.projectWiki")}
-            tooltip={t("centerStageTabBar.projectWikiTerminal")}
-            variant="project-wiki"
-            value="project-wiki"
-            onClose={() => setProjectWikiCloseConfirmOpen(true)}
-          />
-        ) : null}
-
-        {codeReviewTabVisible ? (
-          <SpecialTerminalTab
-            closeLabel={t("centerStageTabBar.closeCodeReviewTab")}
-            icon={<TerminalIcon className="size-3.5 shrink-0 text-blue-500" />}
-            label={t("centerStageTabBar.codeReview")}
-            tooltip={t("centerStageTabBar.codeReviewTerminal")}
-            variant="code-review"
-            value="code-review"
-            onClose={() => setCodeReviewCloseConfirmOpen(true)}
-          />
-        ) : null}
-
-        {orderedSurfaceTabs.map((item) => {
-          if (item.type === "file") {
-            return (
-              <CenterStageOpenFileTab
-                key={item.file.path}
-                file={item.file}
-                sessionDisplay={sessionDisplay}
-                onClose={handleCloseFile}
-                onContextMenuRequest={(event, nextFile) => {
-                  setActiveFile(nextFile.path, effectiveContextId);
-                  setTabContextMenu({ x: event.clientX, y: event.clientY, filePath: nextFile.path });
-                }}
-                onPreviewPin={(nextFile) => pinFile(nextFile.path, effectiveContextId)}
-              />
-            );
-          }
-
-          if (item.type === "browser") {
-            const browserContext =
-              previewBrowserPrefs.byContext[item.tab.browserContextId];
-            const label = getActivePreviewBrowserLabel(
-              browserContext,
-              browserFallbackLabel,
-            );
-            const faviconUrl = getActivePreviewBrowserFaviconUrl(browserContext);
-            return (
-              <CenterStageSurfaceContentTab
-                key={item.tab.value}
-                closeLabel={t("centerStageTabBar.closeTab", { tab: label })}
-                faviconUrl={faviconUrl}
-                name={label}
-                onClose={() => handleCloseBrowserTab(item.tab.value)}
-                path={label}
-                tooltip={label}
-                value={item.tab.value}
-                variant="browser"
-              />
-            );
-          }
-
-          return (
-            <CenterStageSurfaceContentTab
-              key={item.tab.value}
-              closeLabel={t("centerStageTabBar.closeTab", { tab: item.tab.label })}
-              name={item.tab.label}
-              onClose={() => handleCloseGithubTab(item.tab.value)}
-              path={`${item.tab.owner}/${item.tab.repo}`}
-              tooltip={item.tab.description || `${item.tab.owner}/${item.tab.repo}`}
-              value={item.tab.value}
-              variant={item.tab.kind}
-            />
-          );
-        })}
-      </CenterStageScrollableTabs>
+      <div ref={stripRef} className="flex min-w-0 flex-1 items-stretch overflow-hidden">
+        {useUnified ? (
+          <CenterStageScrollableTabs
+            scrollableTabsRef={scrollableTabsRef}
+            data-center-tabs-scroll
+          >
+            {orderedDescriptors.map(renderDescriptorTab)}
+          </CenterStageScrollableTabs>
+        ) : (
+          <>
+            <div
+              ref={pinnedStripRef}
+              className="flex h-full shrink-0 items-stretch"
+              data-pinned-tabs
+            >
+              {pinnedDescriptors.map(renderDescriptorTab)}
+            </div>
+            <CenterStageScrollableTabs scrollableTabsRef={scrollableTabsRef}>
+              {unpinnedDescriptors.map(renderDescriptorTab)}
+            </CenterStageScrollableTabs>
+          </>
+        )}
+      </div>
 
       <CenterStageStickyTabActions>
         <CenterStageNewTabMenu
@@ -392,24 +611,26 @@ function TerminalExtraTab({
   effectiveContextId,
   hasShortcut,
   hoveredTabId,
+  isPinned = false,
   shortcutDigit,
   newTerminalTabLabel,
   tab,
   onClose,
   onCreateTab,
-  onRenameTab,
+  onContextMenu,
   setHoveredTabId,
 }: {
   activeValue: string;
   effectiveContextId: string;
   hasShortcut: boolean;
   hoveredTabId: string | null;
+  isPinned?: boolean;
   shortcutDigit: number;
   newTerminalTabLabel: string;
   tab: { id: string; title: string; customTitle?: string };
   onClose: (tabId: string) => void;
   onCreateTab: () => void;
-  onRenameTab: (tabId: string, title: string) => void;
+  onContextMenu: (event: React.MouseEvent) => void;
   setHoveredTabId: React.Dispatch<React.SetStateAction<string | null>>;
 }) {
   const t = useTranslations("appShell");
@@ -420,54 +641,6 @@ function TerminalExtraTab({
     customTitle: tab.customTitle,
   });
   const closeAriaLabel = t("centerStageTabBar.closeTab", { tab: displayTitle });
-  const [menuPos, setMenuPos] = React.useState<{ x: number; y: number } | null>(null);
-  const [renameDraft, setRenameDraft] = React.useState(tab.customTitle ?? "");
-  const skipBlurCommitRef = React.useRef(false);
-  const [menuMounted, setMenuMounted] = React.useState(false);
-  React.useEffect(() => {
-    setMenuMounted(true);
-  }, []);
-
-  React.useEffect(() => {
-    if (menuPos) {
-      setRenameDraft(tab.customTitle ?? "");
-      skipBlurCommitRef.current = false;
-    }
-  }, [menuPos, tab.customTitle]);
-
-  const commitRename = () => {
-    // Prevent the unmount-blur (fired when the menu closes) from committing twice.
-    skipBlurCommitRef.current = true;
-    onRenameTab(tab.id, renameDraft);
-    setMenuPos(null);
-  };
-
-  const cancelRename = () => {
-    // Escape / dismiss: discard the draft and close without committing.
-    skipBlurCommitRef.current = true;
-    setRenameDraft(tab.customTitle ?? "");
-    setMenuPos(null);
-  };
-
-  const handleRenameBlur = () => {
-    if (skipBlurCommitRef.current) {
-      skipBlurCommitRef.current = false;
-      return;
-    }
-    // Persist the draft on blur but keep the menu open. Radix menu items steal
-    // focus on pointer-move (item.focus()), so any mouse movement blurs this
-    // input; closing here would collapse the whole menu on the first move.
-    onRenameTab(tab.id, renameDraft);
-  };
-
-  // Focus the rename input only AFTER the submenu has mounted its focus scope
-  // (which pauses the parent menu's focus trap) and registered as a dismissable
-  // branch. Focusing synchronously via `autoFocus` during mount makes the root
-  // menu treat the focus as an outside interaction and collapse the whole menu.
-  const focusRenameInput = React.useCallback((el: HTMLInputElement | null) => {
-    if (!el) return;
-    requestAnimationFrame(() => el.focus());
-  }, []);
 
   const stablePaneIds = useTerminalStore(
     useShallow((s) => {
@@ -517,15 +690,12 @@ function TerminalExtraTab({
   );
 
   return (
-    <>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <TabsTab
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <TabsTab
           value={tab.id}
-          onContextMenu={(event) => {
-            event.preventDefault();
-            setMenuPos({ x: event.clientX, y: event.clientY });
-          }}
+          onPointerDown={preventNonPrimaryTabActivate}
+          onContextMenu={onContextMenu}
           className={cn(
             "group/term-tab relative !h-full pl-4 pr-4 data-active:bg-muted/40 data-active:text-foreground text-muted-foreground hover:bg-muted/50 transition-colors gap-2 grow-0 shrink-0 justify-start rounded-none !border-0",
             attentionReason && "agent-attention-ring-tab",
@@ -533,16 +703,19 @@ function TerminalExtraTab({
             attentionReason === "task_complete" && "agent-attention-ring-complete",
           )}
         >
+          {isPinned ? (
+            <Pin className="size-3 shrink-0 fill-current text-muted-foreground/80" />
+          ) : null}
           <span className="relative flex size-4 shrink-0 items-center justify-center">
             {tabLeadingIcon}
             {activeValue === tab.id ? (
-            <CreateTerminalTabButton
-              groupName="term-tab"
-              onCreateTab={onCreateTab}
-              onHoverChange={(hovered) => setHoveredTabId(hovered ? tab.id : null)}
-              newTerminalTabLabel={newTerminalTabLabel}
-            />
-          ) : null}
+              <CreateTerminalTabButton
+                groupName="term-tab"
+                onCreateTab={onCreateTab}
+                onHoverChange={(hovered) => setHoveredTabId(hovered ? tab.id : null)}
+                newTerminalTabLabel={newTerminalTabLabel}
+              />
+            ) : null}
           </span>
           <span className="max-w-[180px] truncate text-[13px] font-medium whitespace-nowrap">
             {displayTitle}
@@ -584,58 +757,6 @@ function TerminalExtraTab({
         </div>
       </TooltipContent>
     </Tooltip>
-
-    {menuMounted
-      ? createPortal(
-          <DropdownMenu
-            open={!!menuPos}
-            onOpenChange={(open) => {
-              if (!open) setMenuPos(null);
-            }}
-          >
-            <DropdownMenuTrigger asChild>
-              <button
-                type="button"
-                aria-hidden
-                tabIndex={-1}
-                className="fixed size-0 pointer-events-none"
-                style={{ left: menuPos?.x ?? -9999, top: menuPos?.y ?? -9999 }}
-              />
-            </DropdownMenuTrigger>
-            {/* Portal whole menu to body so app-shell transforms don't offset fixed anchors. */}
-            <DropdownMenuContent align="start" sideOffset={4} className="z-[90] w-56">
-              <DropdownMenuSub>
-                <DropdownMenuSubTrigger className="cursor-pointer">
-                  <Pencil className="size-4 mr-2 text-muted-foreground" />
-                  <span>{t("centerStageTabBar.renameTab")}</span>
-                </DropdownMenuSubTrigger>
-                <DropdownMenuSubContent className="w-64 p-2">
-                  <Input
-                    ref={focusRenameInput}
-                    value={renameDraft}
-                    placeholder={t("centerStageTabBar.renameTabPlaceholder")}
-                    onChange={(event) => setRenameDraft(event.target.value)}
-                    onKeyDown={(event) => {
-                      event.stopPropagation();
-                      if (event.key === "Enter") {
-                        event.preventDefault();
-                        commitRename();
-                      } else if (event.key === "Escape") {
-                        event.preventDefault();
-                        cancelRename();
-                      }
-                    }}
-                    onBlur={handleRenameBlur}
-                    className="h-8 text-sm"
-                  />
-                </DropdownMenuSubContent>
-              </DropdownMenuSub>
-            </DropdownMenuContent>
-          </DropdownMenu>,
-          document.body,
-        )
-      : null}
-    </>
   );
 }
 
@@ -778,30 +899,39 @@ function CreateTerminalTabButton({
 function SpecialTerminalTab({
   closeLabel,
   icon,
+  isPinned = false,
   label,
   tooltip,
   variant,
   value,
   onClose,
+  onContextMenu,
 }: {
   closeLabel: string;
   icon: React.ReactNode;
+  isPinned?: boolean;
   label: string;
   tooltip: string;
   variant: "project-wiki" | "code-review";
   value: string;
   onClose: () => void;
+  onContextMenu?: (event: React.MouseEvent) => void;
 }) {
   return (
     <Tooltip>
       <TooltipTrigger asChild>
         <TabsTab
           value={value}
+          onPointerDown={preventNonPrimaryTabActivate}
+          onContextMenu={onContextMenu}
           className={cn(
             "relative !h-full pl-4 pr-4 data-active:bg-muted/40 data-active:text-foreground text-muted-foreground hover:bg-muted/50 transition-colors gap-2 grow-0 shrink-0 justify-start rounded-none !border-0",
             variant === "project-wiki" ? "group/pw" : "group/cr",
           )}
         >
+          {isPinned ? (
+            <Pin className="size-3 shrink-0 fill-current text-muted-foreground/80" />
+          ) : null}
           {icon}
           <span className="text-[13px] font-medium text-pretty">{label}</span>
           <div

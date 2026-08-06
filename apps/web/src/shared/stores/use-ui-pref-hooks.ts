@@ -216,11 +216,14 @@ export function useQuotaProviderOrder(): [
 export interface CenterStageUiPrefs {
   lastTabByContext: Record<string, string>;
   tabGroupOrderByContext: Record<string, Record<string, string[]>>;
+  /** Per-workspace pin map: tab value → pinnedAt epoch ms. */
+  pinnedTabsByContext: Record<string, Record<string, number>>;
 }
 
 const DEFAULT_CENTER_STAGE: CenterStageUiPrefs = {
   lastTabByContext: {},
   tabGroupOrderByContext: {},
+  pinnedTabsByContext: {},
 };
 
 export function useCenterStageUiPrefs(): CenterStageUiPrefs {
@@ -267,6 +270,65 @@ export function writeCenterStageTabGroupOrder(
     prev => ({ ...prev, tabGroupOrderByContext: order }),
     DEFAULT_CENTER_STAGE,
   );
+}
+
+export function readCenterStagePinnedTabs(
+  contextId: string,
+): Record<string, number> {
+  const instanceId = useConnectionStore.getState().activeInstanceId;
+  const map = useUiPrefStore.getState().readSlice(
+    instanceId,
+    'centerStage',
+    DEFAULT_CENTER_STAGE,
+  ).pinnedTabsByContext?.[contextId];
+  return map && typeof map === 'object' ? map : {};
+}
+
+export function writeCenterStagePinnedTabs(
+  contextId: string,
+  pins: Record<string, number>,
+): void {
+  const instanceId = useConnectionStore.getState().activeInstanceId;
+  useUiPrefStore.getState().patchSlice(
+    instanceId,
+    'centerStage',
+    prev => ({
+      ...prev,
+      pinnedTabsByContext: {
+        ...(prev.pinnedTabsByContext ?? {}),
+        [contextId]: pins,
+      },
+    }),
+    DEFAULT_CENTER_STAGE,
+  );
+}
+
+/** Pin a center tab (or refresh its pin time). Returns the new pin map for the context. */
+export function pinCenterStageTab(contextId: string, tabValue: string): Record<string, number> {
+  const current = readCenterStagePinnedTabs(contextId);
+  const next = { ...current, [tabValue]: Date.now() };
+  writeCenterStagePinnedTabs(contextId, next);
+  return next;
+}
+
+export function unpinCenterStageTab(contextId: string, tabValue: string): Record<string, number> {
+  const current = readCenterStagePinnedTabs(contextId);
+  if (!(tabValue in current)) return current;
+  const next = { ...current };
+  delete next[tabValue];
+  writeCenterStagePinnedTabs(contextId, next);
+  return next;
+}
+
+export function toggleCenterStageTabPin(
+  contextId: string,
+  tabValue: string,
+): { pins: Record<string, number>; pinned: boolean } {
+  const current = readCenterStagePinnedTabs(contextId);
+  if (tabValue in current) {
+    return { pins: unpinCenterStageTab(contextId, tabValue), pinned: false };
+  }
+  return { pins: pinCenterStageTab(contextId, tabValue), pinned: true };
 }
 
 // --- Run tabs ---

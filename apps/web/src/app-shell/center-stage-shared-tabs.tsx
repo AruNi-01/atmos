@@ -22,6 +22,7 @@ import {
   GitMergeIcon,
   GitCommitHorizontal,
   Globe,
+  Pin,
   SquareTerminal as TerminalIcon,
   Workflow,
 } from "lucide-react";
@@ -41,6 +42,7 @@ import {
   TerminalTabAgentIndicatorWithPanes,
   type TabGroupItem,
 } from "@/app-shell/center-stage-tabs";
+import { preventNonPrimaryTabActivate } from "@/app-shell/center-stage-tab-model";
 
 type SessionDisplay = {
   sessionTitle?: string | null;
@@ -83,15 +85,17 @@ export function CenterStageScrollableTabs({
   children,
   className,
   scrollableTabsRef,
+  ...rest
 }: {
   children: React.ReactNode;
   className?: string;
-  scrollableTabsRef?: React.RefObject<HTMLDivElement | null>;
-}) {
+  scrollableTabsRef?: React.Ref<HTMLDivElement | null>;
+} & React.HTMLAttributes<HTMLDivElement>) {
   return (
     <div
       ref={scrollableTabsRef}
       className={cn("flex min-w-0 flex-1 overflow-x-auto no-scrollbar", className)}
+      {...rest}
     >
       {children}
     </div>
@@ -133,6 +137,7 @@ export function CenterStageOverviewTab({
       <TooltipTrigger asChild>
         <TabsTab
           value={value}
+          onPointerDown={preventNonPrimaryTabActivate}
           className={cn(
             "h-full! pl-4 pr-4 data-active:bg-muted/40 data-active:text-foreground text-muted-foreground hover:bg-muted/50 transition-colors gap-2 grow-0 shrink-0 justify-start rounded-none border-0!",
             className,
@@ -209,6 +214,7 @@ export function CenterStageSurfaceContentTab({
   closeLabel,
   faviconUrl,
   isDirty = false,
+  isPinned = false,
   isPreview = false,
   name,
   onClose,
@@ -222,6 +228,7 @@ export function CenterStageSurfaceContentTab({
   closeLabel?: string;
   faviconUrl?: string;
   isDirty?: boolean;
+  isPinned?: boolean;
   isPreview?: boolean;
   name: string;
   onClose?: () => void;
@@ -241,9 +248,13 @@ export function CenterStageSurfaceContentTab({
         <TabsTab
           value={value}
           className="!h-full pl-2 pr-1 data-active:bg-muted/40 data-active:text-foreground text-muted-foreground hover:bg-muted/50 transition-colors gap-1.5 group grow-0 shrink-0 justify-start rounded-none !border-0"
+          onPointerDown={preventNonPrimaryTabActivate}
           onContextMenu={onContextMenu}
           onDoubleClick={onDoubleClick}
         >
+          {isPinned ? (
+            <Pin className="size-3 shrink-0 fill-current text-muted-foreground/80" />
+          ) : null}
           {variant === "review-diff" ? (
             <FileCheckCorner className="size-3.5 shrink-0 text-blue-400" />
           ) : variant === "diff" || variant === "diff-group" ? (
@@ -352,6 +363,11 @@ export function CenterStageTabGroupItemContent({
   effectiveContextId?: string;
   tab: TabGroupItem;
 }) {
+  const isPinned = typeof tab.pinnedAt === "number";
+  const pinIcon = isPinned ? (
+    <Pin className="size-3 shrink-0 fill-current text-muted-foreground/80" />
+  ) : null;
+
   const textClassName = cn(
     "min-w-0 flex-1 truncate text-[13px] font-medium whitespace-nowrap",
     (tab.kind === "diff" || tab.kind === "diff-group") && "text-emerald-500",
@@ -388,6 +404,7 @@ export function CenterStageTabGroupItemContent({
   if (tab.kind === "project-wiki") {
     return (
       <>
+        {pinIcon}
         <TerminalIcon className="size-3.5 shrink-0" />
         {label(tab.label)}
       </>
@@ -397,6 +414,7 @@ export function CenterStageTabGroupItemContent({
   if (tab.kind === "code-review") {
     return (
       <>
+        {pinIcon}
         <TerminalIcon className="size-3.5 shrink-0 text-primary" />
         {label(tab.label)}
       </>
@@ -405,17 +423,21 @@ export function CenterStageTabGroupItemContent({
 
   if (tab.kind === "terminal") {
     return (
-      <CenterStageTerminalTabGroupItemContent
-        effectiveContextId={effectiveContextId}
-        tab={tab}
-        label={label}
-      />
+      <>
+        {pinIcon}
+        <CenterStageTerminalTabGroupItemContent
+          effectiveContextId={effectiveContextId}
+          tab={tab}
+          label={label}
+        />
+      </>
     );
   }
 
   if (tab.kind === "github-pr" || tab.kind === "github-issue" || tab.kind === "github-action" || tab.kind === "github-commit") {
     return (
       <>
+        {pinIcon}
         {tab.kind === "github-pr" ? (
           <GitPullRequest className="size-3.5 shrink-0" />
         ) : tab.kind === "github-issue" ? (
@@ -433,6 +455,7 @@ export function CenterStageTabGroupItemContent({
   if (tab.kind === "browser") {
     return (
       <>
+        {pinIcon}
         <BrowserTabFavicon faviconUrl={tab.faviconUrl} />
         {label(tab.label)}
       </>
@@ -442,6 +465,7 @@ export function CenterStageTabGroupItemContent({
   if (!tab.file) {
     return (
       <>
+        {pinIcon}
         {tab.kind === "review-diff" ? (
           <FileCheckCorner className="size-3.5 shrink-0 text-blue-400" />
         ) : tab.kind === "diff" || tab.kind === "diff-group" ? (
@@ -458,6 +482,7 @@ export function CenterStageTabGroupItemContent({
 
   return (
     <>
+      {pinIcon}
       {tab.kind === "review-diff" ? (
         <FileCheckCorner className="size-3.5 shrink-0 text-blue-400" />
       ) : tab.kind === "diff" || tab.kind === "diff-group" ? (
@@ -479,6 +504,7 @@ export function CenterStageOpenFileTab({
   closeLabel,
   displayPath: displayPathProp,
   file,
+  isPinned = false,
   onClose,
   onContextMenuRequest,
   onPreviewPin,
@@ -489,6 +515,7 @@ export function CenterStageOpenFileTab({
   closeLabel?: string;
   displayPath?: string;
   file: OpenFile;
+  isPinned?: boolean;
   onClose: (file: OpenFile) => void;
   onContextMenuRequest: (event: React.MouseEvent<HTMLButtonElement>, file: OpenFile) => void;
   onPreviewPin: (file: OpenFile) => void;
@@ -507,11 +534,13 @@ export function CenterStageOpenFileTab({
       path={displayPath}
       variant={variant}
       isDirty={file.isDirty}
+      isPinned={isPinned}
       isPreview={file.isPreview}
       closeLabel={closeLabel}
       onClose={() => onClose(file)}
       onContextMenu={(event) => {
         event.preventDefault();
+        event.stopPropagation();
         onContextMenuRequest(event, file);
       }}
       onDoubleClick={() => {

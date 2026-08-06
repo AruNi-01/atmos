@@ -1055,6 +1055,8 @@
     "fileTabContextMenu": {
       "copyFailedTitle": "Copy failed",
       "clipboardUnavailable": "Clipboard is not available.",
+      "pin": "Pin Tab",
+      "unpin": "Unpin Tab",
       "close": "Close",
       "closeOthers": "Close Others",
       "closeAllLeft": "Close All Left",

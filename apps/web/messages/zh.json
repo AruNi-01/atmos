@@ -1055,6 +1055,8 @@
     "fileTabContextMenu": {
       "copyFailedTitle": "复制失败",
       "clipboardUnavailable": "剪贴板不可用。",
+      "pin": "固定标签页",
+      "unpin": "取消固定",
       "close": "关闭",
       "closeOthers": "关闭其他",
       "closeAllLeft": "关闭左侧全部",

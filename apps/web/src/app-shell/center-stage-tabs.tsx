@@ -82,6 +82,8 @@ export type TabGroupItem = {
   terminalSection?: string;
   /** Draw a horizontal rule above this item (e.g. between different browsers). */
   separatorBefore?: boolean;
+  /** Epoch ms when the tab is pinned on the center stage strip. */
+  pinnedAt?: number;
 };
 
 export type TabGroupOrderByContext = CenterStageUiPrefs["tabGroupOrderByContext"];
@@ -93,20 +95,42 @@ export function applySavedTabGroupOrder(
   const normalizedSavedOrder = Array.isArray(savedOrder)
     ? savedOrder.filter((item): item is string => typeof item === "string")
     : [];
-  if (!normalizedSavedOrder.length) return group;
+  if (!normalizedSavedOrder.length) {
+    return {
+      ...group,
+      tabs: orderTabGroupItemsByPin(group.tabs),
+    };
+  }
 
   const orderIndex = new Map(normalizedSavedOrder.map((id, index) => [id, index]));
+  const sortedBySaved = [...group.tabs].sort((left, right) => {
+    const leftIndex = orderIndex.get(left.id);
+    const rightIndex = orderIndex.get(right.id);
+    if (leftIndex === undefined && rightIndex === undefined) return 0;
+    if (leftIndex === undefined) return 1;
+    if (rightIndex === undefined) return -1;
+    return leftIndex - rightIndex;
+  });
   return {
     ...group,
-    tabs: [...group.tabs].sort((left, right) => {
-      const leftIndex = orderIndex.get(left.id);
-      const rightIndex = orderIndex.get(right.id);
-      if (leftIndex === undefined && rightIndex === undefined) return 0;
-      if (leftIndex === undefined) return 1;
-      if (rightIndex === undefined) return -1;
-      return leftIndex - rightIndex;
-    }),
+    // Pinned tabs always lead within a group (by pin time), then unpinned keep saved order.
+    tabs: orderTabGroupItemsByPin(sortedBySaved),
   };
+}
+
+/** Within a group column: pinned first (oldest pin first), then unpinned in relative order. */
+export function orderTabGroupItemsByPin(tabs: TabGroupItem[]): TabGroupItem[] {
+  const pinned: TabGroupItem[] = [];
+  const unpinned: TabGroupItem[] = [];
+  for (const tab of tabs) {
+    if (typeof tab.pinnedAt === "number") {
+      pinned.push(tab);
+    } else {
+      unpinned.push(tab);
+    }
+  }
+  pinned.sort((left, right) => (left.pinnedAt ?? 0) - (right.pinnedAt ?? 0));
+  return [...pinned, ...unpinned];
 }
 
 export function shellQuote(value: string): string {
