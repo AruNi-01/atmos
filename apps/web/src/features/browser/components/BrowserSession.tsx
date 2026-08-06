@@ -1,16 +1,13 @@
 "use client";
 
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { createTranslator, useTranslations } from 'next-intl';
+import { useTranslations } from 'next-intl';
 import { useQueryStates } from "nuqs";
 import { toastManager } from "@workspace/ui";
 import { useDialogStore } from "@/app-shell/state/use-dialog-store";
 
-import { currentAppLocale } from "@/shared/lib/current-app-locale";
 import { isDesktopRuntime } from "@/shared/lib/desktop-runtime";
 import { previewToolbarParams, type PreviewViewMode } from "@/shared/lib/nuqs/searchParams";
-import enMessages from "../../../../messages/en.json";
-import zhMessages from "../../../../messages/zh.json";
 import type {
   PreviewHelperCapability,
   PreviewHelperPayload,
@@ -52,6 +49,7 @@ import {
   splitDisplayUrl,
   type PreviewLoadError,
 } from "../lib/browser-utils";
+import { browserT as previewT } from "../lib/browser-session-i18n";
 
 type ViewMode = PreviewViewMode;
 
@@ -94,40 +92,6 @@ interface PreviewTransportState {
   message: string;
   capabilities: string[];
 }
-
-type PreviewTranslationValues = Record<string, string | number | boolean | null | undefined>;
-
-let cachedPreviewLocale: 'en' | 'zh' | null = null;
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let cachedPreviewTranslator: any = null;
-
-function formatPreviewFallbackMessage(template: string, values?: PreviewTranslationValues): string {
-  if (!values) return template;
-
-  return template.replace(/\{(\w+)\}/g, (_match, key: string) => {
-    const value = values[key];
-    return value == null ? '' : String(value);
-  });
-}
-
-function previewT(key: string, fallback: string, values?: PreviewTranslationValues): string {
-  const locale = currentAppLocale('en') === 'zh' ? 'zh' : 'en';
-  if (!cachedPreviewTranslator || cachedPreviewLocale !== locale) {
-    cachedPreviewLocale = locale;
-    cachedPreviewTranslator = createTranslator({
-      locale,
-      messages: locale === 'zh' ? zhMessages : enMessages,
-      namespace: 'browser',
-    });
-  }
-
-  try {
-    return cachedPreviewTranslator(key as never, values as never);
-  } catch {
-    return formatPreviewFallbackMessage(fallback, values);
-  }
-}
-
 
 export const BrowserSession: React.FC<BrowserSessionProps> = ({
   url,

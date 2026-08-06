@@ -541,6 +541,7 @@ jobs:
         id: notes
         env:
           RELEASE_TAG: ${{ needs.resolve-release-config.outputs.release_tag }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
         run: |
           set -euo pipefail
           VERSION="${RELEASE_TAG#desktop-electron-}"
@@ -551,14 +552,24 @@ jobs:
           fi
           if [ ! -f "$NOTES_PATH" ]; then
             echo "⚠️ Missing release notes — using minimal body"
-            NOTES_PATH="${RUNNER_TEMP}/desktop-notes.md"
+            NOTES_PATH="${RUNNER_TEMP}/desktop-notes-source.md"
             cat > "$NOTES_PATH" <<EOF
-          # Atmos Desktop ${VERSION}
-
           Atmos desktop release \`${VERSION}\` (tag \`${RELEASE_TAG}\`).
           EOF
           fi
-          echo "notes_path=${NOTES_PATH}" >> "$GITHUB_OUTPUT"
+
+          # Finalize body for GitHub Release UI:
+          # - @mentions for native Contributors avatar strip (not an API flag)
+          # - collapsed Download section (macOS first, English)
+          FINAL_NOTES="${RUNNER_TEMP}/desktop-notes-final.md"
+          node ./scripts/release/append-desktop-download-section.mjs \
+            --version "${VERSION}" \
+            --tag "${RELEASE_TAG}" \
+            --repo "${GITHUB_REPOSITORY}" \
+            --notes "${NOTES_PATH}" \
+            --out "${FINAL_NOTES}" \
+            --auto-contributors
+          echo "notes_path=${FINAL_NOTES}" >> "$GITHUB_OUTPUT"
 
       - name: Publish draft release
         env:

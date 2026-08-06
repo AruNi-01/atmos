@@ -61,6 +61,23 @@ just release-desktop-dry-run <version>
 
 Generate `releasenotes/Atmos Desktop <version>.md` from the collected commit/PR context and the template in `references/release-notes-template.md`.
 
+After the product narrative, **always end the file with the collapsed Download section** (macOS first, English only). Prefer generating it with:
+
+```bash
+node ./scripts/release/append-desktop-download-section.mjs \
+  --version <version> \
+  --notes "releasenotes/Atmos Desktop <version>.md" \
+  --out "releasenotes/Atmos Desktop <version>.md" \
+  --auto-contributors
+```
+
+The publish job in `.github/workflows/release-desktop-electron.yml` re-injects:
+
+1. **Contributors** — `@username` mentions from commits since the previous `desktop-electron-*` tag (humans and bots, ordered by commit count desc). This is **not** a GitHub Release API parameter; GitHub builds the native Contributors avatar strip (above Assets) from `@mentions` in the body.
+2. **Download** — collapsed section with the correct versioned installer links.
+
+Still write these into the notes file when drafting so local previews match GitHub.
+
 ### Product voice (stable and prerelease bodies)
 
 Release bodies are product-facing. Users care about capabilities, not version genealogy.
@@ -87,6 +104,7 @@ When the current release shares its base version (`YYYY.M.D`) with earlier pre-r
 3. Use the commit range only for the delta since that previous tag.
 4. For a later pre-release, prepend a short `Changes Since` block and keep the inherited body.
 5. For the final stable, strip pre-release framing, merge late fixes into the normal sections, and rewrite the opening summary as pure product copy.
+6. Always refresh the trailing Download section for the **current** version (never inherit prior asset URLs).
 
 Details and templates live in `references/release-notes-template.md`.
 

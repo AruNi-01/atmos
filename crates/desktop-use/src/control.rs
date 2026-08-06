@@ -168,6 +168,59 @@ pub struct DriveResult {
     pub error_code: Option<String>,
 }
 
+impl DriveResult {
+    /// Structured failure from a typed [`DriveError`].
+    fn err(action: &str, error: DriveError) -> Self {
+        Self {
+            ok: false,
+            action: action.into(),
+            detail: None,
+            capture: None,
+            result: None,
+            error: Some(error.message()),
+            error_code: Some(error.code().into()),
+        }
+    }
+
+    /// Structured failure with an explicit code (e.g. screenshot write paths).
+    fn err_code(action: &str, code: &str, message: impl Into<String>) -> Self {
+        Self {
+            ok: false,
+            action: action.into(),
+            detail: None,
+            capture: None,
+            result: None,
+            error: Some(message.into()),
+            error_code: Some(code.into()),
+        }
+    }
+
+    /// Successful engine/tool payload (detail mirrors JSON string for agents).
+    fn ok_result(action: &str, result: serde_json::Value) -> Self {
+        Self {
+            ok: true,
+            action: action.into(),
+            detail: Some(result.to_string()),
+            capture: None,
+            result: Some(result),
+            error: None,
+            error_code: None,
+        }
+    }
+
+    fn ok_detail(action: &str, detail: Option<String>, result: Option<serde_json::Value>) -> Self {
+        Self {
+            ok: true,
+            action: action.into(),
+            detail,
+            capture: None,
+            result,
+            error: None,
+            error_code: None,
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum DriveError {
     EngineNotInstalled,
@@ -275,15 +328,7 @@ pub fn drive(manager: &DesktopUseManager, req: DriveRequest) -> DriveResult {
         DriveAction::Highlight => run_highlight(&req, action_name),
         DriveAction::SessionEnd => run_session_end(manager, &req, action_name),
         _ => match manager.require_engine() {
-            Err(msg) => DriveResult {
-                ok: false,
-                action: action_name.into(),
-                detail: None,
-                capture: None,
-                result: None,
-                error: Some(msg),
-                error_code: Some(DriveError::EngineNotInstalled.code().into()),
-            },
+            Err(_msg) => DriveResult::err(action_name, DriveError::EngineNotInstalled),
             Ok(engine) => {
                 if action_needs_screen_recording(&req.action) && req.element_token.is_none() {
                     if let Some(denied) = permissions_block_for_capture(manager, action_name) {
@@ -375,15 +420,7 @@ fn run_session_end(
         "session_ended": engine_ended,
         "session_error": engine_error,
     });
-    DriveResult {
-        ok: true,
-        action: action_name.into(),
-        detail: None,
-        capture: None,
-        result: Some(result),
-        error: None,
-        error_code: None,
-    }
+    DriveResult::ok_detail(action_name, None, Some(result))
 }
 
 fn status_for_request(req: &DriveRequest, target_app: Option<&str>, action_name: &str) -> String {
@@ -604,28 +641,12 @@ fn screenshot_via_engine(
     action_name: &str,
 ) -> DriveResult {
     let Ok(engine) = manager.require_engine() else {
-        return DriveResult {
-            ok: false,
-            action: action_name.into(),
-            detail: None,
-            capture: None,
-            result: None,
-            error: Some(ERR_ENGINE_NOT_INSTALLED.into()),
-            error_code: Some("control_engine_not_installed".into()),
-        };
+        return DriveResult::err(action_name, DriveError::EngineNotInstalled);
     };
     let socket = manager.socket_path();
     let host_app = manager.host_app_path();
     if let Err(e) = host::ensure_daemon(&engine, &socket, host_app.as_deref()) {
-        return DriveResult {
-            ok: false,
-            action: action_name.into(),
-            detail: None,
-            capture: None,
-            result: None,
-            error: Some(e),
-            error_code: Some("control_engine_failed".into()),
-        };
+        return DriveResult::err(action_name, DriveError::EngineFailed(e));
     }
 
     // Materialize PNG via real 0.17.0 contract: --screenshot-out-file + tool arg.
@@ -637,15 +658,10 @@ fn screenshot_via_engine(
         {
             Ok(f) => Some(f),
             Err(e) => {
-                return DriveResult {
-                    ok: false,
-                    action: action_name.into(),
-                    detail: None,
-                    capture: None,
-                    result: None,
-                    error: Some(scrub_vendor(&format!("temp screenshot path failed: {e}"))),
-                    error_code: Some("control_engine_failed".into()),
-                };
+                return DriveResult::err(
+                    action_name,
+                    DriveError::EngineFailed(format!("temp screenshot path failed: {e}")),
+                );
             }
         }
     } else {
@@ -672,35 +688,31 @@ fn screenshot_via_engine(
                     if user_out != &out_path {
                         if let Err(e) = std::fs::write(user_out, &bytes) {
                             drop(tmp_guard);
-                            return DriveResult {
-                                ok: false,
-                                action: action_name.into(),
-                                detail: None,
-                                result: Some(v),
-                                capture: None,
-                                error: Some(scrub_vendor(&format!(
+                            let mut r = DriveResult::err_code(
+                                action_name,
+                                "screenshot_write_failed",
+                                scrub_vendor(&format!(
                                     "failed to write screenshot to {}: {e}",
                                     user_out.display()
-                                ))),
-                                error_code: Some("screenshot_write_failed".into()),
-                            };
+                                )),
+                            );
+                            r.result = Some(v);
+                            return r;
                         }
                     }
                 } else if !out_path.exists() {
                     if let Err(e) = std::fs::write(&out_path, &bytes) {
                         drop(tmp_guard);
-                        return DriveResult {
-                            ok: false,
-                            action: action_name.into(),
-                            detail: None,
-                            result: Some(v),
-                            capture: None,
-                            error: Some(scrub_vendor(&format!(
+                        let mut r = DriveResult::err_code(
+                            action_name,
+                            "screenshot_write_failed",
+                            scrub_vendor(&format!(
                                 "failed to write screenshot to {}: {e}",
                                 out_path.display()
-                            ))),
-                            error_code: Some("screenshot_write_failed".into()),
-                        };
+                            )),
+                        );
+                        r.result = Some(v);
+                        return r;
                     }
                 }
                 let b64 = crate::engine_protocol::encode_png_base64(&bytes);
@@ -753,34 +765,21 @@ fn screenshot_via_engine(
             }
             Err(e) => {
                 drop(tmp_guard);
-                DriveResult {
-                    ok: false,
-                    action: action_name.into(),
-                    detail: None,
-                    result: Some(v),
-                    capture: None,
-                    error: Some(scrub_vendor(&format!(
-                        "{}: {e}",
-                        strings::ERR_ENGINE_FAILED
-                    ))),
-                    error_code: Some("screenshot_missing".into()),
-                }
+                let mut r = DriveResult::err_code(
+                    action_name,
+                    "screenshot_missing",
+                    scrub_vendor(&format!("{}: {e}", strings::ERR_ENGINE_FAILED)),
+                );
+                r.result = Some(v);
+                r
             }
         },
         Err(e) => {
             drop(tmp_guard);
-            DriveResult {
-                ok: false,
-                action: action_name.into(),
-                detail: None,
-                result: None,
-                capture: None,
-                error: Some(scrub_vendor(&format!(
-                    "{}: {e}",
-                    strings::ERR_ENGINE_FAILED
-                ))),
-                error_code: Some("control_engine_failed".into()),
-            }
+            DriveResult::err(
+                action_name,
+                DriveError::EngineFailed(format!("{}: {e}", strings::ERR_ENGINE_FAILED)),
+            )
         }
     }
 }
@@ -1049,6 +1048,87 @@ fn resolve_app_name_for_window(engine: &Path, socket: &Path, req: &DriveRequest)
     })
 }
 
+/// Attach agent-facing metadata (coord conversion, highlight, delivery notes, AX surface).
+fn enrich_drive_success(
+    engine: &Path,
+    socket: &Path,
+    req: &DriveRequest,
+    mut result: serde_json::Value,
+    delivery: &str,
+    scale_meta: Option<serde_json::Value>,
+    highlight_meta: Option<serde_json::Value>,
+) -> serde_json::Value {
+    if let Some(meta) = scale_meta {
+        result = match result {
+            serde_json::Value::Object(mut obj) => {
+                obj.insert("coord_conversion".into(), meta);
+                serde_json::Value::Object(obj)
+            }
+            other => json!({ "engine": other, "coord_conversion": meta }),
+        };
+    }
+    if let Some(hl) = highlight_meta {
+        if let Some(obj) = result.as_object_mut() {
+            obj.insert("highlight".into(), hl);
+        } else {
+            result = json!({ "engine": result, "highlight": hl });
+        }
+    }
+    // Annotate delivery so agents can see background was used.
+    if let Some(obj) = result.as_object_mut() {
+        obj.entry("delivery_mode_requested")
+            .or_insert_with(|| json!(delivery));
+        obj.entry("background_note").or_insert_with(|| {
+            json!(
+                "Default is background (no persistent fronting). AX element_token works off-focus; pixel path needs on-screen window. Use --delivery-mode foreground only if background fails (brief front→act→restore)."
+            )
+        });
+    }
+
+    // Window AX surface classification (Electron empty trees, heavy trees, …).
+    if matches!(req.action, DriveAction::WindowState) {
+        let app_name = resolve_app_name_for_window(engine, socket, req);
+        crate::window_surface::enrich_window_state(&mut result, app_name.as_deref());
+    }
+
+    // Pixel-path clicks: remind agents of the AX→pixel→foreground ladder.
+    if matches!(
+        req.action,
+        DriveAction::Click | DriveAction::DoubleClick | DriveAction::RightClick
+    ) && req.element_token.is_none()
+        && req.element_index.is_none()
+        && req.x.is_some()
+    {
+        if let Some(obj) = result.as_object_mut() {
+            obj.entry("atmos_addressing")
+                .or_insert_with(crate::window_surface::pixel_path_note);
+        }
+    }
+
+    // Type without element/pixel focus often lands in the wrong app on
+    // empty-AX surfaces — surface a short recovery ladder.
+    if matches!(req.action, DriveAction::Type)
+        && req.element_token.is_none()
+        && req.element_index.is_none()
+        && req.x.is_none()
+    {
+        if let Some(obj) = result.as_object_mut() {
+            obj.entry("atmos_type_hint").or_insert_with(|| {
+                json!({
+                    "note": "type without --element-token or --x/--y uses AX focus in the target pid (or frontmost). Empty-AX / custom UI apps often drop text.",
+                    "next_steps": [
+                        "Prefer: window-state → type --element-token … (true background when AX exists)",
+                        "Empty AX: click the field (PNG or points), then type --text … --x --y (same coords) --pid --window-id",
+                        "If still no input: --delivery-mode foreground once (brief front→type→restore)",
+                        "Do not drive front every turn"
+                    ]
+                })
+            });
+        }
+    }
+    result
+}
+
 fn run_engine(
     manager: &DesktopUseManager,
     engine: &Path,
@@ -1058,15 +1138,7 @@ fn run_engine(
     let socket = manager.socket_path();
     let host_app = manager.host_app_path();
     if let Err(e) = host::ensure_daemon(engine, &socket, host_app.as_deref()) {
-        return DriveResult {
-            ok: false,
-            action: action_name.into(),
-            detail: None,
-            capture: None,
-            result: None,
-            error: Some(e),
-            error_code: Some("control_engine_failed".into()),
-        };
+        return DriveResult::err(action_name, DriveError::EngineFailed(e));
     }
 
     let delivery = req.delivery_mode.as_deref().unwrap_or("background");
@@ -1125,18 +1197,13 @@ fn run_engine(
                         scale_meta = meta;
                     }
                     Err(e) => {
-                        return DriveResult {
-                            ok: false,
-                            action: action_name.into(),
-                            detail: None,
-                            capture: None,
-                            result: None,
-                            error: Some(scrub_vendor(&format!(
+                        return DriveResult::err(
+                            action_name,
+                            DriveError::EngineFailed(format!(
                                 "{}: {e}",
                                 strings::ERR_ENGINE_FAILED
-                            ))),
-                            error_code: Some("control_engine_failed".into()),
-                        };
+                            )),
+                        );
                     }
                 }
             } else if req_for_call.pid.is_none() {
@@ -1148,18 +1215,13 @@ fn run_engine(
                         scale_meta = meta;
                     }
                     Err(e) => {
-                        return DriveResult {
-                            ok: false,
-                            action: action_name.into(),
-                            detail: None,
-                            capture: None,
-                            result: None,
-                            error: Some(scrub_vendor(&format!(
+                        return DriveResult::err(
+                            action_name,
+                            DriveError::EngineFailed(format!(
                                 "{}: {e}",
                                 strings::ERR_ENGINE_FAILED
-                            ))),
-                            error_code: Some("control_engine_failed".into()),
-                        };
+                            )),
+                        );
                     }
                 }
             }
@@ -1169,15 +1231,7 @@ fn run_engine(
     let (tool, mut args) = match crate::drive_tools::build_engine_call(&req_for_call) {
         Ok(v) => v,
         Err(msg) => {
-            return DriveResult {
-                ok: false,
-                action: action_name.into(),
-                detail: None,
-                capture: None,
-                result: None,
-                error: Some(DriveError::InvalidArgs(msg).message()),
-                error_code: Some("invalid_args".into()),
-            };
+            return DriveResult::err(action_name, DriveError::InvalidArgs(msg));
         }
     };
 
@@ -1272,124 +1326,41 @@ fn run_engine(
                     || fail_l.contains("px_capture")
                     || fail_l.contains("could not create image")
                     || fail_l.contains("capture_unavailable");
-                let (error, error_code) = if capture_related {
-                    (
+                let mut r = if capture_related {
+                    DriveResult::err_code(
+                        action_name,
+                        "permissions_required",
                         scrub_vendor(&format!(
                             "{fail}. Grant Screen Recording to Atmos Desktop Use \
 (System Settings → Privacy & Security → Screen Recording), then: \
 atmos desktop-use driver grant-permissions --target screen_recording"
                         )),
-                        "permissions_required",
                     )
                 } else {
-                    (
-                        scrub_vendor(&format!("{}: {fail}", strings::ERR_ENGINE_FAILED)),
-                        "control_engine_failed",
+                    DriveResult::err(
+                        action_name,
+                        DriveError::EngineFailed(format!("{}: {fail}", strings::ERR_ENGINE_FAILED)),
                     )
                 };
-                return DriveResult {
-                    ok: false,
-                    action: action_name.into(),
-                    detail: Some(v.to_string()),
-                    result: Some(v),
-                    capture: None,
-                    error: Some(error),
-                    error_code: Some(error_code.into()),
-                };
+                r.detail = Some(v.to_string());
+                r.result = Some(v);
+                return r;
             }
-            let mut result = if let Some(meta) = scale_meta {
-                match v {
-                    serde_json::Value::Object(mut obj) => {
-                        obj.insert("coord_conversion".into(), meta);
-                        serde_json::Value::Object(obj)
-                    }
-                    other => json!({ "engine": other, "coord_conversion": meta }),
-                }
-            } else {
-                v
-            };
-            if let Some(hl) = highlight_meta {
-                if let Some(obj) = result.as_object_mut() {
-                    obj.insert("highlight".into(), hl);
-                } else {
-                    result = json!({ "engine": result, "highlight": hl });
-                }
-            }
-            // Annotate delivery so agents can see background was used.
-            if let Some(obj) = result.as_object_mut() {
-                obj.entry("delivery_mode_requested")
-                    .or_insert_with(|| json!(delivery));
-                obj.entry("background_note").or_insert_with(|| {
-                    json!(
-                        "Default is background (no persistent fronting). AX element_token works off-focus; pixel path needs on-screen window. Use --delivery-mode foreground only if background fails (brief front→act→restore)."
-                    )
-                });
-            }
-
-            // Window AX surface classification (Electron empty trees, heavy trees, …).
-            if matches!(req.action, DriveAction::WindowState) {
-                let app_name = resolve_app_name_for_window(engine, &socket, req);
-                crate::window_surface::enrich_window_state(&mut result, app_name.as_deref());
-            }
-
-            // Pixel-path clicks: remind agents of the AX→pixel→foreground ladder.
-            if matches!(
-                req.action,
-                DriveAction::Click | DriveAction::DoubleClick | DriveAction::RightClick
-            ) && req.element_token.is_none()
-                && req.element_index.is_none()
-                && req.x.is_some()
-            {
-                if let Some(obj) = result.as_object_mut() {
-                    obj.entry("atmos_addressing")
-                        .or_insert_with(crate::window_surface::pixel_path_note);
-                }
-            }
-
-            // Type without element/pixel focus often lands in the wrong app on
-            // empty-AX surfaces — surface a short recovery ladder.
-            if matches!(req.action, DriveAction::Type)
-                && req.element_token.is_none()
-                && req.element_index.is_none()
-                && req.x.is_none()
-            {
-                if let Some(obj) = result.as_object_mut() {
-                    obj.entry("atmos_type_hint").or_insert_with(|| {
-                        json!({
-                            "note": "type without --element-token or --x/--y uses AX focus in the target pid (or frontmost). Empty-AX / custom UI apps often drop text.",
-                            "next_steps": [
-                                "Prefer: window-state → type --element-token … (true background when AX exists)",
-                                "Empty AX: click the field (PNG or points), then type --text … --x --y (same coords) --pid --window-id",
-                                "If still no input: --delivery-mode foreground once (brief front→type→restore)",
-                                "Do not drive front every turn"
-                            ]
-                        })
-                    });
-                }
-            }
-
-            DriveResult {
-                ok: true,
-                action: action_name.into(),
-                detail: Some(result.to_string()),
-                result: Some(result),
-                capture: None,
-                error: None,
-                error_code: None,
-            }
+            let result = enrich_drive_success(
+                engine,
+                &socket,
+                req,
+                v,
+                delivery,
+                scale_meta,
+                highlight_meta,
+            );
+            DriveResult::ok_result(action_name, result)
         }
-        Err(e) => DriveResult {
-            ok: false,
-            action: action_name.into(),
-            detail: None,
-            result: None,
-            capture: None,
-            error: Some(scrub_vendor(&format!(
-                "{}: {e}",
-                strings::ERR_ENGINE_FAILED
-            ))),
-            error_code: Some("control_engine_failed".into()),
-        },
+        Err(e) => DriveResult::err(
+            action_name,
+            DriveError::EngineFailed(format!("{}: {e}", strings::ERR_ENGINE_FAILED)),
+        ),
     }
 }
 

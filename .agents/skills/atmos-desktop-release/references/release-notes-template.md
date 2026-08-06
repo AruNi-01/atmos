@@ -71,9 +71,70 @@ Short one-paragraph summary of the release.
 
 ## Other Changes
 - ...
+
+<!-- atmos-desktop-download -->
+<details>
+<summary><strong>Download</strong></summary>
+
+### macOS
+
+- [Apple Silicon](https://github.com/AruNi-01/atmos/releases/download/desktop-electron-<version>/Atmos_<version>_aarch64.dmg) (recommended)
+- [Intel](https://github.com/AruNi-01/atmos/releases/download/desktop-electron-<version>/Atmos_<version>_x64.dmg)
+
+### Windows
+
+- [64-bit installer](https://github.com/AruNi-01/atmos/releases/download/desktop-electron-<version>/Atmos_<version>_x64-setup.exe)
+
+### Linux
+
+- [64-bit AppImage](https://github.com/AruNi-01/atmos/releases/download/desktop-electron-<version>/Atmos_<version>_x64.AppImage)
+
+</details>
 ```
 
 > **Note:** Do not include a top-level `#` heading. GitHub Releases already render the release title as an H1 — adding one inside the body creates a duplicate heading.
+
+### Contributors (GitHub native UI, not an API flag)
+
+GitHub’s **Contributors** avatar strip above Assets is **not** a `gh release` / REST create-release parameter.
+
+It appears when the release **body contains `@username` mentions**. Publish injects a short thank-you line automatically via `--auto-contributors` (commit authors on `previous desktop-electron-* tag...current tag`, including bots, **ordered by commit volume** then name).
+
+When hand-writing notes, either:
+
+- rely on publish injection, or
+- `@mention` PR authors in bullets / a short thank-you line
+
+```md
+Thanks to @alice, @bob, and @carol.
+```
+
+### Download section (required)
+
+Every release body must end with a **collapsed** English Download section so users can grab installers without scrolling the Assets list.
+
+Rules:
+
+- Always collapsed: wrap in `<details>` / `<summary><strong>Download</strong></summary>`.
+- Platform order: **macOS → Windows → Linux** (macOS first).
+- English only.
+- Link the real Electron ship artifacts for this version only:
+  - macOS Apple Silicon: `Atmos_<version>_aarch64.dmg`
+  - macOS Intel: `Atmos_<version>_x64.dmg`
+  - Windows: `Atmos_<version>_x64-setup.exe`
+  - Linux: `Atmos_<version>_x64.AppImage`
+- Use tag `desktop-electron-<version>` in the download URL path.
+- Prefix the block with the HTML comment `<!-- atmos-desktop-download -->` so publish tooling can replace it safely.
+- When inheriting a prior pre-release body (continuity), **do not** keep that file’s Download links — rewrite them for the current version (or omit the block and let publish inject it).
+
+Canonical generator (prefer this over hand-rolling URLs):
+
+```bash
+node ./scripts/release/append-desktop-download-section.mjs \
+  --version <version> \
+  --notes "releasenotes/Atmos Desktop <version>.md" \
+  --out "releasenotes/Atmos Desktop <version>.md"
+```
 
 ## Continuity templates
 
@@ -93,6 +154,8 @@ Inherit the prior RC body verbatim and prepend a short `Changes Since` block. On
 ---
 
 ...inherited RC<N-1> body continues here, unchanged except for typo fixes...
+
+<!-- then rewrite the Download section for the current RC version -->
 ```
 
 ### Stable following one or more pre-releases (e.g. `2026.7.2` after `2026.7.2-rc.1` and `2026.7.2-rc.2`)
@@ -120,6 +183,8 @@ Short one-paragraph product summary of what this release ships for users. No bet
 
 ## Other Changes
 - ...
+
+<!-- Download section for the stable version — see above -->
 ```
 
 ### Stable following a stable (no pre-releases in between)
@@ -164,4 +229,4 @@ Write the final markdown to:
 
 - `releasenotes/Atmos Desktop <version>.md`
 
-The publish workflow will read that file directly and use it as the GitHub Release body.
+End the file with the collapsed Download section for this version (or run `append-desktop-download-section.mjs` after drafting). The publish workflow re-injects the same section when it sets the GitHub Release body, so asset links always match the tag.

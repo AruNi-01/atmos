@@ -8,19 +8,9 @@ use crate::control::{DriveAction, DriveRequest};
 ///
 /// Screenshot / highlight / session-end are handled outside this builder
 /// (capture path, overlay helper, end_session).
-pub fn build_engine_call(req: &DriveRequest) -> Result<(&'static str, Value), String> {
-    let delivery = req.delivery_mode.as_deref().unwrap_or("background");
 
+fn build_clipboard_call(req: &DriveRequest) -> Result<(&'static str, Value), String> {
     match req.action {
-        DriveAction::Screenshot | DriveAction::Highlight | DriveAction::SessionEnd => Err(format!(
-            "action {:?} is not an engine tool call",
-            req.action
-        )),
-        DriveAction::Verify => Ok(("list_windows", json!({}))),
-        DriveAction::ListApps => Ok(("list_apps", json!({}))),
-        DriveAction::GetScreenSize => Ok(("get_screen_size", json!({}))),
-        DriveAction::GetCursorPosition => Ok(("get_cursor_position", json!({}))),
-        DriveAction::GetAccessibilityTree => Ok(("get_accessibility_tree", json!({}))),
         DriveAction::ClipboardRead => {
             let mut a = json!({ "include_text": true });
             if let Some(t) = req.clipboard_type.as_ref() {
@@ -37,6 +27,13 @@ pub fn build_engine_call(req: &DriveRequest) -> Result<(&'static str, Value), St
                 .ok_or_else(|| "clipboard write requires --text".to_string())?;
             Ok(("clipboard_write", json!({ "text": text })))
         }
+        _ => Err("not a clipboard action".into()),
+    }
+}
+
+fn build_app_lifecycle_call(req: &DriveRequest) -> Result<(&'static str, Value), String> {
+    match req.action {
+        DriveAction::ListApps => Ok(("list_apps", json!({}))),
         DriveAction::LaunchApp => {
             let mut a = json!({});
             if let Some(b) = req.bundle_id.as_ref() {
@@ -62,6 +59,27 @@ pub fn build_engine_call(req: &DriveRequest) -> Result<(&'static str, Value), St
             }
             Ok(("bring_to_front", a))
         }
+        _ => Err("not an app lifecycle action".into()),
+    }
+}
+
+pub fn build_engine_call(req: &DriveRequest) -> Result<(&'static str, Value), String> {
+    let delivery = req.delivery_mode.as_deref().unwrap_or("background");
+
+    match req.action {
+        DriveAction::Screenshot | DriveAction::Highlight | DriveAction::SessionEnd => Err(format!(
+            "action {:?} is not an engine tool call",
+            req.action
+        )),
+        DriveAction::Verify => Ok(("list_windows", json!({}))),
+        DriveAction::GetScreenSize => Ok(("get_screen_size", json!({}))),
+        DriveAction::GetCursorPosition => Ok(("get_cursor_position", json!({}))),
+        DriveAction::GetAccessibilityTree => Ok(("get_accessibility_tree", json!({}))),
+        DriveAction::ClipboardRead | DriveAction::ClipboardWrite => build_clipboard_call(req),
+        DriveAction::ListApps
+        | DriveAction::LaunchApp
+        | DriveAction::KillApp
+        | DriveAction::BringToFront => build_app_lifecycle_call(req),
         DriveAction::WindowState => {
             let pid = req
                 .pid

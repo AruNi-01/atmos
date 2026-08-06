@@ -99,7 +99,7 @@ const nextConfig: NextConfig = {
   trailingSlash: isStaticExportTarget,
   images: { unoptimized: isStaticExportTarget },
   allowedDevOrigins: ["*"],
-  experimental: { viewTransition: true },
+  // View transitions are stable in Next.js 16.3+ (no experimental flag).
   turbopack: {
     root: repoRoot,
     resolveAlias: codemirrorTurbopackAliases,
