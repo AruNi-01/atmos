@@ -139,7 +139,7 @@
 - `BrowserSession` 主体与 `Preview*` 全量重命名未做。
 - `surface-manager` detach/window 进一步拆分未做。
 
-PR URL：（创建后回填）
+PR URL：https://github.com/AruNi-01/atmos/pull/206
 
 ## 10. 结果文件
 
@@ -148,4 +148,5 @@ PR URL：（创建后回填）
 ## 11. 结果提交与推送
 
 - 结果与修复同在分支 `grokbuild/quality-fix/2026-08-05` 推送至 `origin`，经 PR 合入 `main`。
-- 提交 hash 与 PR URL 见创建后更新。
+- 提交：`b2e8670c8`（修复+结果）
+- 分支：`grokbuild/quality-fix/2026-08-05` → PR https://github.com/AruNi-01/atmos/pull/206
