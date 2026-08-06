@@ -283,12 +283,38 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
     const isInitialProjectsLoading = useInitialProjectsLoading();
 
     const managementCenterItems = useExperimentSettingsStore((s) => s.managementCenterItems);
-    const managementCenterLoaded = useExperimentSettingsStore((s) => s.loaded);
     const loadExperimentSettings = useExperimentSettingsStore((s) => s.loadSettings);
+    // True after the first load attempt finishes (success or failure). Prevents default-config
+    // flash on success, but still unblocks nav if the request fails so we can retry.
+    const [managementCenterSettled, setManagementCenterSettled] = useState(false);
 
     useEffect(() => {
-        void loadExperimentSettings();
-    }, [loadExperimentSettings]);
+        let cancelled = false;
+        let retryTimer: number | null = null;
+        let retryAttempt = 0;
+
+        const tryLoad = async () => {
+            await loadExperimentSettings();
+            if (cancelled) return;
+            setManagementCenterSettled(true);
+            if (useExperimentSettingsStore.getState().loaded) return;
+            // loadSettings leaves loaded=false on failure so callers can retry.
+            const delay = Math.min(1_000 * 2 ** retryAttempt, 15_000);
+            retryAttempt += 1;
+            retryTimer = window.setTimeout(() => {
+                void tryLoad();
+            }, delay);
+        };
+
+        void tryLoad();
+
+        return () => {
+            cancelled = true;
+            if (retryTimer !== null) {
+                window.clearTimeout(retryTimer);
+            }
+        };
+    }, [loadExperimentSettings, connectionEpoch]);
 
     const {
         isCreateProjectOpen,
@@ -1397,8 +1423,8 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
     return (
         <>
             <aside className="@container w-full flex flex-col h-full select-none">
-                {/* Management Center — wait for settings to avoid default-config flash */}
-                {managementCenterLoaded ? (
+                {/* Management Center — wait for first load attempt to avoid default-config flash */}
+                {managementCenterSettled ? (
                     <>
                         <LeftSidebarManagementCenterOutside {...managementCenterSharedProps} />
                         <div className="flex flex-col shrink-0">
