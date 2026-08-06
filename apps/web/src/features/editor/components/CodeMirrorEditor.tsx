@@ -130,17 +130,21 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
   const [gitDiffRefreshNonce, setGitDiffRefreshNonce] = useState(0);
   const [settingsModalOpen] = useQueryState('settingsModal', settingsModalParams.settingsModal);
 
+  const refreshEditorGitGutter = useCallback(async () => {
+    if (currentProjectPath) {
+      await invalidateGitQueries(currentProjectPath);
+    }
+    setGitDiffRefreshNonce((n) => n + 1);
+  }, [currentProjectPath]);
+
   const handleGitGutterStateChanged = useCallback(
     async (kind: 'stage' | 'restore') => {
-      if (currentProjectPath) {
-        await invalidateGitQueries(currentProjectPath);
-      }
-      setGitDiffRefreshNonce((n) => n + 1);
+      await refreshEditorGitGutter();
       if (kind === 'restore') {
         await reloadFileContent(file.path, editorContextId || undefined);
       }
     },
-    [currentProjectPath, reloadFileContent, file.path, editorContextId],
+    [refreshEditorGitGutter, reloadFileContent, file.path, editorContextId],
   );
 
   const handleEditorSettingsPopoverOpenChange = useCallback((open: boolean) => {
@@ -459,13 +463,15 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
     if (!autoSave || file.isLoading || !file.isDirty) return;
 
     const timer = setTimeout(() => {
-      void saveFile(file.path, editorContextId || undefined).catch(() => {
-        toastManager.add({
-          title: t('codeMirror.autoSaveFailedTitle'),
-          description: t('codeMirror.autoSaveFailedDescription', { fileName: file.name }),
-          type: 'error',
+      void saveFile(file.path, editorContextId || undefined)
+        .then(() => refreshEditorGitGutter())
+        .catch(() => {
+          toastManager.add({
+            title: t('codeMirror.autoSaveFailedTitle'),
+            description: t('codeMirror.autoSaveFailedDescription', { fileName: file.name }),
+            type: 'error',
+          });
         });
-      });
     }, 2000);
 
     return () => clearTimeout(timer);
@@ -476,6 +482,7 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
     file.isLoading,
     file.name,
     file.path,
+    refreshEditorGitGutter,
     saveFile,
     editorContextId,
     t,
@@ -492,6 +499,7 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
   const handleSave = useCallback(async () => {
     try {
       await saveFile(file.path, editorContextId || undefined);
+      await refreshEditorGitGutter();
       toastManager.add({
         title: t('codeMirror.savedTitle'),
         description: t('codeMirror.savedDescription', { fileName: file.name }),
@@ -504,7 +512,7 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
         type: 'error',
       });
     }
-  }, [editorContextId, file.path, file.name, saveFile, t]);
+  }, [editorContextId, file.path, file.name, refreshEditorGitGutter, saveFile, t]);
 
   const handleEditorCreate = useCallback((editor: EditorView) => {
     editorRef.current = editor;

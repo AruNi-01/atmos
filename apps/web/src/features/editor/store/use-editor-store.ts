@@ -9,6 +9,7 @@ import {
   scheduleEditorUiSave,
 } from '@/features/editor/lib/editor-ui-persistence';
 import { fsApi } from '@/api/ws-api';
+import { invalidateGitQueries } from '@/features/git/hooks/use-git-changed-files-query';
 import { toastManager } from '@workspace/ui';
 import { createTranslator } from 'next-intl';
 import enMessages from '../../../../messages/en.json';
@@ -695,6 +696,12 @@ export const useEditorStore = create<EditorStore>()((set, get) => ({
               }
             };
           });
+          // Worktree changed on disk — refresh git status / file diffs so the
+          // editor gutter baseline (`old_text`) and Changes sidebar stay live.
+          const repoPath = get().currentProjectPath;
+          if (repoPath) {
+            await invalidateGitQueries(repoPath);
+          }
         })();
 
         pendingFileSaves.set(saveKey, savePromise);

@@ -590,8 +590,13 @@ const gitGutterStateField = StateField.define<GitGutterState>({
       original = nextOriginal;
       chunks = Chunk.build(original, tr.state.doc, DIFF_CFG);
       selectedIndices = EMPTY_SELECTION;
-    } else if (tr.docChanged && chunks.length) {
-      chunks = Chunk.updateB(chunks, original, tr.state.doc, tr.changes, DIFF_CFG);
+    } else if (tr.docChanged) {
+      // Incremental update when we already have hunks. Full rebuild when the
+      // file started clean (`chunks` empty) so bars appear as soon as the user
+      // types — `Chunk.updateB` is a no-op on an empty chunk list.
+      chunks = chunks.length
+        ? Chunk.updateB(chunks, original, tr.state.doc, tr.changes, DIFF_CFG)
+        : Chunk.build(original, tr.state.doc, DIFF_CFG);
     }
 
     // Drop any out-of-range indices (chunks count may have shrunk).
