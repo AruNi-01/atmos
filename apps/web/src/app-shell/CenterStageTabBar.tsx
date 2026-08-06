@@ -17,7 +17,6 @@ import {
   Bot,
   Globe,
   LoaderCircle,
-  Pin,
   Plus,
   RotateCw,
   SquareTerminal as TerminalIcon,
@@ -287,11 +286,12 @@ export function CenterStageTabBar({
     [orderedDescriptors, setTabContextMenu],
   );
 
-  // Dual layout: pinned strip outside the scroll area when it fits; unified
-  // scroll (pinned → unpinned) when pins would crowd out the rest of the bar.
+  // Pinned tabs stay fixed outside the scroll lane when they fit the bar.
+  // Only when the full pinned set overflows the available width do pins scroll
+  // (unified with unpinned so later tabs remain reachable).
   const stripRef = React.useRef<HTMLDivElement | null>(null);
   const pinnedStripRef = React.useRef<HTMLDivElement | null>(null);
-  const [unifiedScroll, setUnifiedScroll] = React.useState(true);
+  const [pinsOverflow, setPinsOverflow] = React.useState(false);
 
   const pinnedDescriptors = React.useMemo(
     () => orderedDescriptors.filter((tab) => typeof tab.pinnedAt === "number"),
@@ -302,50 +302,45 @@ export function CenterStageTabBar({
     [orderedDescriptors],
   );
 
-  // When there are no pins, always use the single scroll lane.
-  const useUnified = unifiedScroll || pinnedDescriptors.length === 0;
+  // No pins → single scroll lane. Pins overflow full width → unified scroll.
+  // Otherwise pinned strip is fixed and only unpinned tabs scroll.
+  const useUnified = pinsOverflow || pinnedDescriptors.length === 0;
 
   React.useLayoutEffect(() => {
     const strip = stripRef.current;
     if (!strip || pinnedDescriptors.length === 0) {
-      setUnifiedScroll(true);
+      setPinsOverflow(false);
       return;
     }
+
+    const measurePinnedWidth = (): number => {
+      const pinnedEl = pinnedStripRef.current;
+      if (pinnedEl) return pinnedEl.scrollWidth;
+
+      // Unified mode: sum widths of leading pinned tabs in the scroll lane.
+      const scrollLane = strip.querySelector("[data-center-tabs-scroll]");
+      if (!scrollLane) return 0;
+      let width = 0;
+      const children = Array.from(scrollLane.children);
+      for (let i = 0; i < pinnedDescriptors.length && i < children.length; i++) {
+        width += (children[i] as HTMLElement).offsetWidth;
+      }
+      return width;
+    };
 
     const measure = () => {
       const available = strip.clientWidth;
       if (available <= 0) return;
-      // Prefer a sticky pinned strip only when pins leave room for unpinned tabs.
-      // Measure via a temporary layout: when currently unified, estimate from
-      // first N children; when split, measure the pinned strip directly.
-      const pinnedEl = pinnedStripRef.current;
-      let pinnedWidth = pinnedEl?.scrollWidth ?? 0;
-      if (!pinnedEl) {
-        // Unified mode: sum widths of leading pinned tabs in the scroll lane.
-        const scrollLane = strip.querySelector("[data-center-tabs-scroll]");
-        if (scrollLane) {
-          let width = 0;
-          const children = Array.from(scrollLane.children);
-          for (let i = 0; i < pinnedDescriptors.length && i < children.length; i++) {
-            width += (children[i] as HTMLElement).offsetWidth;
-          }
-          pinnedWidth = width;
+      const pinnedWidth = measurePinnedWidth();
+      if (pinnedWidth <= 0) return;
+
+      // Small hysteresis avoids split ↔ unified flicker at the edge.
+      setPinsOverflow((currentlyOverflow) => {
+        if (currentlyOverflow) {
+          // Leave overflow only when pins clearly fit again.
+          return pinnedWidth > available - 12;
         }
-      }
-      // Hysteresis avoids split ↔ unified flicker around the threshold.
-      setUnifiedScroll((currentlyUnified) => {
-        if (currentlyUnified) {
-          // Only leave unified when pins clearly leave comfortable room.
-          const canSplit =
-            pinnedWidth > 0 &&
-            pinnedWidth < available * 0.5 &&
-            available - pinnedWidth > 128;
-          return !canSplit;
-        }
-        // Only enter unified when pins crowd the bar.
-        const tooManyPins =
-          pinnedWidth > available * 0.65 || available - pinnedWidth < 96;
-        return tooManyPins;
+        return pinnedWidth > available;
       });
     };
 
@@ -698,14 +693,13 @@ function TerminalExtraTab({
           onContextMenu={onContextMenu}
           className={cn(
             "group/term-tab relative !h-full pl-4 pr-4 data-active:bg-muted/40 data-active:text-foreground text-muted-foreground hover:bg-muted/50 transition-colors gap-2 grow-0 shrink-0 justify-start rounded-none !border-0",
+            // Attention pulse owns box-shadow; pin bar only when idle.
+            isPinned && !attentionReason && "center-stage-tab-pinned",
             attentionReason && "agent-attention-ring-tab",
             attentionReason === "permission_request" && "agent-attention-ring-permission",
             attentionReason === "task_complete" && "agent-attention-ring-complete",
           )}
         >
-          {isPinned ? (
-            <Pin className="size-3 shrink-0 fill-current text-muted-foreground/80" />
-          ) : null}
           <span className="relative flex size-4 shrink-0 items-center justify-center">
             {tabLeadingIcon}
             {activeValue === tab.id ? (
@@ -927,11 +921,9 @@ function SpecialTerminalTab({
           className={cn(
             "relative !h-full pl-4 pr-4 data-active:bg-muted/40 data-active:text-foreground text-muted-foreground hover:bg-muted/50 transition-colors gap-2 grow-0 shrink-0 justify-start rounded-none !border-0",
             variant === "project-wiki" ? "group/pw" : "group/cr",
+            isPinned && "center-stage-tab-pinned",
           )}
         >
-          {isPinned ? (
-            <Pin className="size-3 shrink-0 fill-current text-muted-foreground/80" />
-          ) : null}
           {icon}
           <span className="text-[13px] font-medium text-pretty">{label}</span>
           <div

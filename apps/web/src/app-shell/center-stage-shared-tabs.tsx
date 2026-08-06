@@ -22,7 +22,6 @@ import {
   GitMergeIcon,
   GitCommitHorizontal,
   Globe,
-  Pin,
   SquareTerminal as TerminalIcon,
   Workflow,
 } from "lucide-react";
@@ -247,14 +246,14 @@ export function CenterStageSurfaceContentTab({
       <TooltipTrigger asChild>
         <TabsTab
           value={value}
-          className="!h-full pl-2 pr-1 data-active:bg-muted/40 data-active:text-foreground text-muted-foreground hover:bg-muted/50 transition-colors gap-1.5 group grow-0 shrink-0 justify-start rounded-none !border-0"
+          className={cn(
+            "!h-full pl-2 pr-1 data-active:bg-muted/40 data-active:text-foreground text-muted-foreground hover:bg-muted/50 transition-colors gap-1.5 group grow-0 shrink-0 justify-start rounded-none !border-0",
+            isPinned && "center-stage-tab-pinned",
+          )}
           onPointerDown={preventNonPrimaryTabActivate}
           onContextMenu={onContextMenu}
           onDoubleClick={onDoubleClick}
         >
-          {isPinned ? (
-            <Pin className="size-3 shrink-0 fill-current text-muted-foreground/80" />
-          ) : null}
           {variant === "review-diff" ? (
             <FileCheckCorner className="size-3.5 shrink-0 text-blue-400" />
           ) : variant === "diff" || variant === "diff-group" ? (
@@ -363,11 +362,6 @@ export function CenterStageTabGroupItemContent({
   effectiveContextId?: string;
   tab: TabGroupItem;
 }) {
-  const isPinned = typeof tab.pinnedAt === "number";
-  const pinIcon = isPinned ? (
-    <Pin className="size-3 shrink-0 fill-current text-muted-foreground/80" />
-  ) : null;
-
   const textClassName = cn(
     "min-w-0 flex-1 truncate text-[13px] font-medium whitespace-nowrap",
     (tab.kind === "diff" || tab.kind === "diff-group") && "text-emerald-500",
@@ -404,7 +398,6 @@ export function CenterStageTabGroupItemContent({
   if (tab.kind === "project-wiki") {
     return (
       <>
-        {pinIcon}
         <TerminalIcon className="size-3.5 shrink-0" />
         {label(tab.label)}
       </>
@@ -414,7 +407,6 @@ export function CenterStageTabGroupItemContent({
   if (tab.kind === "code-review") {
     return (
       <>
-        {pinIcon}
         <TerminalIcon className="size-3.5 shrink-0 text-primary" />
         {label(tab.label)}
       </>
@@ -423,21 +415,17 @@ export function CenterStageTabGroupItemContent({
 
   if (tab.kind === "terminal") {
     return (
-      <>
-        {pinIcon}
-        <CenterStageTerminalTabGroupItemContent
-          effectiveContextId={effectiveContextId}
-          tab={tab}
-          label={label}
-        />
-      </>
+      <CenterStageTerminalTabGroupItemContent
+        effectiveContextId={effectiveContextId}
+        tab={tab}
+        label={label}
+      />
     );
   }
 
   if (tab.kind === "github-pr" || tab.kind === "github-issue" || tab.kind === "github-action" || tab.kind === "github-commit") {
     return (
       <>
-        {pinIcon}
         {tab.kind === "github-pr" ? (
           <GitPullRequest className="size-3.5 shrink-0" />
         ) : tab.kind === "github-issue" ? (
@@ -455,7 +443,6 @@ export function CenterStageTabGroupItemContent({
   if (tab.kind === "browser") {
     return (
       <>
-        {pinIcon}
         <BrowserTabFavicon faviconUrl={tab.faviconUrl} />
         {label(tab.label)}
       </>
@@ -465,7 +452,6 @@ export function CenterStageTabGroupItemContent({
   if (!tab.file) {
     return (
       <>
-        {pinIcon}
         {tab.kind === "review-diff" ? (
           <FileCheckCorner className="size-3.5 shrink-0 text-blue-400" />
         ) : tab.kind === "diff" || tab.kind === "diff-group" ? (
@@ -482,7 +468,6 @@ export function CenterStageTabGroupItemContent({
 
   return (
     <>
-      {pinIcon}
       {tab.kind === "review-diff" ? (
         <FileCheckCorner className="size-3.5 shrink-0 text-blue-400" />
       ) : tab.kind === "diff" || tab.kind === "diff-group" ? (

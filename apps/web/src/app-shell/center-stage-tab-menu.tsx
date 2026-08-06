@@ -15,7 +15,18 @@ import {
   Input,
   toastManager,
 } from "@workspace/ui";
-import { Pencil, Pin, PinOff } from "lucide-react";
+import {
+  ArrowLeftToLine,
+  ArrowRightToLine,
+  Copy,
+  Files,
+  FolderTree,
+  Pencil,
+  Pin,
+  PinOff,
+  X,
+  XCircle,
+} from "lucide-react";
 import type { OpenFile } from "@/features/editor/store/use-editor-store";
 import { getRelativePath } from "@/app-shell/center-stage-tabs";
 import {
@@ -23,6 +34,9 @@ import {
   type CenterTabContextMenuState,
   type CenterTabDescriptor,
 } from "@/app-shell/center-stage-tab-model";
+
+const menuItemClassName = "gap-1.5 cursor-pointer";
+const menuIconClassName = "size-3.5 text-muted-foreground";
 
 /** @deprecated Prefer CenterTabContextMenuState — kept for canvas file-only menus. */
 export type FileTabContextMenuState = {
@@ -171,8 +185,8 @@ export function CenterStageTabContextMenu({
             {isTerminal && onRenameTerminalTab ? (
               <>
                 <DropdownMenuSub>
-                  <DropdownMenuSubTrigger className="cursor-pointer">
-                    <Pencil className="size-4 mr-2 text-muted-foreground" />
+                  <DropdownMenuSubTrigger className={menuItemClassName}>
+                    <Pencil className={menuIconClassName} />
                     <span>{tabBarT("renameTab")}</span>
                   </DropdownMenuSubTrigger>
                   <DropdownMenuSubContent className="w-64 p-2">
@@ -203,15 +217,16 @@ export function CenterStageTabContextMenu({
             {pinEnabled && onTogglePin ? (
               <>
                 <DropdownMenuItem
+                  className={menuItemClassName}
                   onClick={() => {
                     onTogglePin(target);
                     closeMenu();
                   }}
                 >
                   {isPinned ? (
-                    <PinOff className="size-4 mr-2 text-muted-foreground" />
+                    <PinOff className={menuIconClassName} />
                   ) : (
-                    <Pin className="size-4 mr-2 text-muted-foreground" />
+                    <Pin className={menuIconClassName} />
                   )}
                   {isPinned ? t("unpin") : t("pin")}
                 </DropdownMenuItem>
@@ -220,49 +235,59 @@ export function CenterStageTabContextMenu({
             ) : null}
 
             <DropdownMenuItem
+              className={menuItemClassName}
               onClick={() => {
                 onCloseTab(target);
                 closeMenu();
               }}
             >
+              <X className={menuIconClassName} />
               {t("close")}
             </DropdownMenuItem>
             <DropdownMenuItem
+              className={menuItemClassName}
               onClick={() => {
                 onCloseTabs(otherTabs);
                 closeMenu();
               }}
               disabled={otherTabs.length === 0}
             >
+              <Files className={menuIconClassName} />
               {t("closeOthers")}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem
+              className={menuItemClassName}
               onClick={() => {
                 onCloseTabs(leftTabs);
                 closeMenu();
               }}
               disabled={leftTabs.length === 0}
             >
+              <ArrowLeftToLine className={menuIconClassName} />
               {t("closeAllLeft")}
             </DropdownMenuItem>
             <DropdownMenuItem
+              className={menuItemClassName}
               onClick={() => {
                 onCloseTabs(rightTabs);
                 closeMenu();
               }}
               disabled={rightTabs.length === 0}
             >
+              <ArrowRightToLine className={menuIconClassName} />
               {t("closeAllRight")}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem
+              className={menuItemClassName}
               onClick={() => {
                 onCloseTabs(orderedTabs);
                 closeMenu();
               }}
               disabled={orderedTabs.length === 0}
             >
+              <XCircle className={menuIconClassName} />
               {t("closeAll")}
             </DropdownMenuItem>
 
@@ -270,19 +295,23 @@ export function CenterStageTabContextMenu({
               <>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
+                  className={menuItemClassName}
                   onClick={async () => {
                     await copyToClipboard(fileTarget.path);
                     closeMenu();
                   }}
                 >
+                  <Copy className={menuIconClassName} />
                   {t("copyPath")}
                 </DropdownMenuItem>
                 <DropdownMenuItem
+                  className={menuItemClassName}
                   onClick={async () => {
                     await copyToClipboard(relativePath);
                     closeMenu();
                   }}
                 >
+                  <FolderTree className={menuIconClassName} />
                   {t("copyRelativePath")}
                 </DropdownMenuItem>
               </>

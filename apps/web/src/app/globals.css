@@ -456,6 +456,12 @@ html:not([data-theme-ready="true"]) body {
   --agent-attention-ring-color: rgb(16 185 129 / 0.4);
 }
 
+/* Pinned center-stage tabs — same bottom-bar shape as attention ring, no pulse.
+   Black in light / white in dark via --foreground. */
+.center-stage-tab-pinned {
+  box-shadow: inset 0 -2px 0 0 color-mix(in oklab, var(--foreground) 48%, transparent);
+}
+
 @keyframes welcome-placeholder-enter {
   from {
     opacity: 0;
