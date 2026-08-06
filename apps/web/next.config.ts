@@ -1,5 +1,6 @@
 import type { NextConfig } from "next";
 import createNextIntlPlugin from "next-intl/plugin";
+import { existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -40,11 +41,25 @@ const codemirrorTurbopackAliases = Object.fromEntries(
     `./node_modules/${packageName}`,
   ]),
 );
+// Prefer apps/web/node_modules (bun workspace install layout). Fall back to
+// monorepo root only when the package is hoisted there.
 const codemirrorWebpackAliases = Object.fromEntries(
-  codemirrorPackages.map((packageName) => [
-    packageName,
-    path.join(repoRoot, "node_modules", ...packageName.split("/")),
-  ]),
+  codemirrorPackages.map((packageName) => {
+    const webLocal = path.join(
+      webAppDir,
+      "node_modules",
+      ...packageName.split("/"),
+    );
+    const rootHoisted = path.join(
+      repoRoot,
+      "node_modules",
+      ...packageName.split("/"),
+    );
+    return [
+      packageName,
+      existsSync(webLocal) ? webLocal : rootHoisted,
+    ];
+  }),
 );
 
 const isDev = process.env.NODE_ENV === "development";

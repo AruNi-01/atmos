@@ -29,10 +29,10 @@ function loadWebEnvVar(rootDir, name) {
   return quotedWithDouble || quotedWithSingle ? rawValue.slice(1, -1) : rawValue;
 }
 
-function run(rootDir, command, args, extraEnv = {}) {
+function run(rootDir, command, args, extraEnv = {}, opts = {}) {
   const result = spawnSync(command, args, {
     stdio: "inherit",
-    cwd: rootDir,
+    cwd: opts.cwd ?? rootDir,
     env: { ...process.env, ...extraEnv },
     shell: process.platform === "win32",
   });
@@ -66,20 +66,33 @@ export function buildWebStaticForDesktop(rootDir = defaultRootDir) {
   }
 
   try {
-    console.log("🔨 Building web static export (BUILD_TARGET=desktop)...");
-    run(rootDir, "bun", ["--filter", "web", "build"], {
-      BUILD_TARGET: "desktop",
-      NEXT_PUBLIC_BUILD_TARGET: "desktop",
-      // Desktop must always boot through the local runtime, even if a
-      // developer's web .env.local forces hosted onboarding for browser work.
-      NEXT_PUBLIC_FORCE_HOSTED_ONBOARDING: "0",
-      NEXT_PUBLIC_TLDRAW_LICENSE_KEY:
-        process.env.NEXT_PUBLIC_TLDRAW_LICENSE_KEY ??
-        loadWebEnvVar(rootDir, "NEXT_PUBLIC_TLDRAW_LICENSE_KEY") ??
-        "",
-      ATMOS_LOG_LEVEL: process.env.ATMOS_LOG_LEVEL ?? "info",
-      NODE_NO_WARNINGS: process.env.NODE_NO_WARNINGS ?? "1",
-    });
+    // Desktop static export: prefer webpack over Turbopack. Next 16.3 Turbopack
+    // production prerender fails on Windows with
+    // "Element type is invalid ... got: null" (digest 2587466649) on / and
+    // /_not-found while macOS/Linux succeed. Webpack is the stable path for
+    // multi-platform packaging.
+    console.log(
+      "🔨 Building web static export (BUILD_TARGET=desktop, next build --webpack)...",
+    );
+    run(
+      rootDir,
+      "bun",
+      ["x", "--bun", "next", "build", "--webpack"],
+      {
+        BUILD_TARGET: "desktop",
+        NEXT_PUBLIC_BUILD_TARGET: "desktop",
+        // Desktop must always boot through the local runtime, even if a
+        // developer's web .env.local forces hosted onboarding for browser work.
+        NEXT_PUBLIC_FORCE_HOSTED_ONBOARDING: "0",
+        NEXT_PUBLIC_TLDRAW_LICENSE_KEY:
+          process.env.NEXT_PUBLIC_TLDRAW_LICENSE_KEY ??
+          loadWebEnvVar(rootDir, "NEXT_PUBLIC_TLDRAW_LICENSE_KEY") ??
+          "",
+        ATMOS_LOG_LEVEL: process.env.ATMOS_LOG_LEVEL ?? "info",
+        NODE_NO_WARNINGS: process.env.NODE_NO_WARNINGS ?? "1",
+      },
+      { cwd: join(rootDir, "apps/web") },
+    );
   } finally {
     if (hasProxyFile) {
       renameSync(webProxyBackup, webProxyFile);
