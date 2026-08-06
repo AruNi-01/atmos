@@ -1,0 +1,46 @@
+apps/web/src/app-shell/global-search-app-items.tsx
+  h_5be255725524c8 29,86,191,199-207,212-214,220,226-228
+apps/web/src/app-shell/global-search-content.tsx
+  h_5be255725524c8 299-301
+apps/web/src/app-shell/global-search-parts.tsx
+  h_5be255725524c8 19-21,35-45,87-90,147-149,151-152,162-163,168-179,182-189
+apps/web/src/app-shell/sidebar/ProjectItem.tsx
+  h_5be255725524c8 52,237,476-481
+apps/web/src/app-shell/sidebar/WorkspaceContent.tsx
+  h_5be255725524c8 35-39,41-43,54,175,189,198-203,460-511,547-554,593-607,646,727-735
+apps/web/src/app-shell/sidebar/WorkspaceKanbanCard.tsx
+  h_5be255725524c8 27-35,119-120,127-177,198-212,214,225,265-268,341-355,390-404
+apps/web/src/features/agent/components/WorkspaceAgentStatusMark.tsx
+  h_5be255725524c8 1-93
+apps/web/src/features/agent/hooks/use-workspace-agent-status.ts
+  h_5be255725524c8 1-93
+apps/web/src/features/agent/lib/__tests__/workspace-agent-status.test.ts
+  h_5be255725524c8 1-71
+apps/web/src/features/agent/lib/workspace-agent-status.ts
+  h_5be255725524c8 1-66
+apps/web/src/features/github/components/WorkspacePrStatusIcon.tsx
+  h_5be255725524c8 1-114
+apps/web/src/features/github/components/WorkspacePrSummary.tsx
+  h_5be255725524c8 1-156
+apps/web/src/features/github/hooks/use-open-github-center-tab.ts
+  h_5be255725524c8 10,15,30-33,35-42,45-50,61,69-70,72-74,82-83,85,95,102,104-106,117-118,120,130,137,139-140,142,151-152,154,158-164,169,171-173,175-178,180-181,183
+apps/web/src/features/github/hooks/use-workspace-pr-status.ts
+  h_5be255725524c8 1-115
+apps/web/src/features/github/lib/__tests__/workspace-pr-status.test.ts
+  h_5be255725524c8 1-163
+apps/web/src/features/github/lib/pr-detail-parts.tsx
+  h_5be255725524c8 78-82,85,87-113,116-120,123,126-130,133,136
+apps/web/src/features/github/lib/workspace-pr-status.ts
+  h_5be255725524c8 1-227
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "b3490bd703e26138de19faf56ca7027933148ffe",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
