@@ -1,0 +1,38 @@
+apps/web/messages/en.json
+  h_5be255725524c8 1058-1059
+apps/web/messages/zh.json
+  h_5be255725524c8 1058-1059
+apps/web/src/app-shell/CenterStage.tsx
+  h_5be255725524c8 37,39-40,85-91,96-101,168-172,452-456,462-501,503-507,511,513,515-518,520,542-550,633,643,659,670,1296,1305,1371,1374-1498,1672,1768,1778,1780-1783,1792,1802,1804-1807,1861,1932,1936-1941,1946-1948,1956-1958,1967,2023
+apps/web/src/app-shell/CenterStageTabBar.tsx
+  h_5be255725524c8 20,43,50-54,78-79,104,121,161,183-477,494,542-564,614,620,627,633,693-695,697-698,706-708,712-718,902,908,912,918,925-926,932-934
+apps/web/src/app-shell/__tests__/center-stage-tab-model.test.ts
+  h_5be255725524c8 1-47
+apps/web/src/app-shell/center-stage-file-menu.tsx
+  h_5be255725524c8 3-13
+apps/web/src/app-shell/center-stage-shared-tabs.tsx
+  h_5be255725524c8 25,45,88,92-93,98,140,217,231,251,255-257,366-370,407,417,426-433,440,458,468,485,507,518,537,543
+apps/web/src/app-shell/center-stage-tab-menu.tsx
+  h_5be255725524c8 1-378
+apps/web/src/app-shell/center-stage-tab-model.ts
+  h_5be255725524c8 1-94
+apps/web/src/app-shell/center-stage-tabs.tsx
+  h_5be255725524c8 85-86,98-103,106-113,116-117,121-135
+apps/web/src/app-shell/use-center-stage-tab-groups.ts
+  h_5be255725524c8 132,142-143,173,184,195,213,235,257,279,297,325-326,341
+apps/web/src/features/canvas/components/widgets/CanvasCenterWidget.tsx
+  h_5be255725524c8 361,364
+apps/web/src/shared/stores/use-ui-pref-hooks.ts
+  h_5be255725524c8 219-220,226,275-333
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "c531b543f77aa6942e237b1c117dd5a4814285e2",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
