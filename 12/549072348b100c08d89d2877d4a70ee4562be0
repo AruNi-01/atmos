@@ -1,0 +1,18 @@
+apps/web/src/features/editor/components/CodeMirrorEditor.tsx
+  h_5be255725524c8 133-139,142,147,466-473,485,502,515
+apps/web/src/features/editor/store/use-editor-store.ts
+  h_5be255725524c8 12,699-704
+apps/web/src/shared/lib/codemirror-git-gutter.ts
+  h_5be255725524c8 593-599
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "12549072348b100c08d89d2877d4a70ee4562be0",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
