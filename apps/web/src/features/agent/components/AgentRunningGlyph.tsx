@@ -26,7 +26,7 @@ function pickUnicodeName(id: AgentActivityIndicatorId): UnicodeSpinnerId {
   return "braille";
 }
 
-function useUnicodeSpinner(id: AgentActivityIndicatorId): string {
+function useUnicodeSpinner(id: AgentActivityIndicatorId, animated: boolean): string {
   const [frame, setFrame] = useState(0);
   const [spinner, setSpinner] = useState<SpinnerData | null>(null);
 
@@ -54,14 +54,16 @@ function useUnicodeSpinner(id: AgentActivityIndicatorId): string {
   }, [resolvedName]);
 
   useEffect(() => {
-    if (!spinner) return;
+    if (!spinner || !animated) return;
     const timer = setInterval(() => {
       setFrame((f) => f + 1);
     }, spinner.interval);
     return () => clearInterval(timer);
-  }, [spinner]);
+  }, [spinner, animated]);
 
   if (!spinner) return BRAILLE_FRAMES[0];
+  // Paused picker tiles stay on the first frame — avoids dozens of intervals.
+  if (!animated) return spinner.frames[0] ?? BRAILLE_FRAMES[0];
   return spinner.frames[frame % spinner.frames.length] ?? BRAILLE_FRAMES[0];
 }
 
@@ -72,6 +74,17 @@ export interface AgentRunningGlyphProps {
    * `full` — terminal pane status next to shimmer text (~14px glyph).
    */
   density?: "compact" | "full";
+  /**
+   * When false, show a still first frame (unicode) or CSS-paused Orb.
+   * Use in dense pickers so only the active option pays for continuous animation.
+   */
+  animated?: boolean;
+  /**
+   * Optional pixel edge for Orbs (and matching host box). Overrides density defaults.
+   * Useful in settings pickers where Orb geometry needs a slight optical bump
+   * to sit next to mono unicode spinners.
+   */
+  size?: number;
   className?: string;
   title?: string;
 }
@@ -83,21 +96,34 @@ export interface AgentRunningGlyphProps {
 export function AgentRunningGlyph({
   styleId,
   density = "compact",
+  animated = true,
+  size: sizeOverride,
   className,
   title,
 }: AgentRunningGlyphProps) {
   if (isOrbIndicatorId(styleId)) {
-    const size = density === "full" ? 14 : 18;
+    // Compact host is size-5 (20px); fill it so Orbs read closer to unicode mono glyphs.
+    const size = sizeOverride ?? (density === "full" ? 14 : 20);
     return (
       <span
         className={cn(
           "inline-flex items-center justify-center text-muted-foreground/80",
-          density === "compact" ? "size-5" : "size-[14px]",
+          sizeOverride
+            ? undefined
+            : density === "compact"
+              ? "size-5"
+              : "size-[14px]",
           className,
         )}
+        style={sizeOverride ? { width: size, height: size } : undefined}
         title={title}
       >
-        <Orb variant={styleId as OrbVariant} size={size} />
+        <Orb
+          variant={styleId as OrbVariant}
+          size={size}
+          // animation-play-state is inherited; freezes all descendant keyframes.
+          style={animated ? undefined : { animationPlayState: "paused" }}
+        />
       </span>
     );
   }
@@ -106,6 +132,7 @@ export function AgentRunningGlyph({
     <UnicodeRunningGlyph
       styleId={styleId}
       density={density}
+      animated={animated}
       className={className}
       title={title}
     />
@@ -115,15 +142,17 @@ export function AgentRunningGlyph({
 function UnicodeRunningGlyph({
   styleId,
   density,
+  animated,
   className,
   title,
 }: {
   styleId: AgentActivityIndicatorId;
   density: "compact" | "full";
+  animated: boolean;
   className?: string;
   title?: string;
 }) {
-  const spinnerChar = useUnicodeSpinner(styleId);
+  const spinnerChar = useUnicodeSpinner(styleId, animated);
   return (
     <span
       className={cn(

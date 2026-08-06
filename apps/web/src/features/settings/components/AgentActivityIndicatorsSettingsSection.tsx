@@ -8,18 +8,39 @@ import {
   CollapsibleTrigger,
   cn,
 } from "@workspace/ui";
-import { Activity, Bot, ChevronDown, Terminal as TerminalIcon } from "lucide-react";
+import {
+  Activity,
+  AppWindow,
+  Bot,
+  ChevronDown,
+  PanelBottom,
+  PanelLeft,
+  Terminal as TerminalIcon,
+  type LucideIcon,
+} from "lucide-react";
 import { AgentHookStatusIndicator } from "@/features/agent/components/AgentHookStatusIndicator";
 import { AgentRunningGlyph } from "@/features/agent/components/AgentRunningGlyph";
 import { AGENT_STATE } from "@/features/agent/store/agent-hooks-store";
 import {
   INDICATOR_PLACEMENTS,
   INDICATOR_STYLE_GROUPS,
+  isOrbIndicatorId,
   type AgentActivityIndicatorId,
   type AgentIndicatorPlacement,
   type IndicatorFamily,
 } from "@/features/agent/lib/agent-activity-indicator-styles";
 import { useAgentActivityIndicatorSettingsStore } from "@/features/settings/store/agent-activity-indicator-settings-store";
+
+/** Picker Orbs need a slight bump so their sparse geometry matches unicode mono glyphs. */
+const PICKER_ORB_SIZE = 22;
+
+/** Row icons match each surface (not the section Activity glyph). */
+const PLACEMENT_ICONS: Record<AgentIndicatorPlacement, LucideIcon> = {
+  left_sidebar: PanelLeft,
+  center_terminal: AppWindow,
+  terminal_panel: TerminalIcon,
+  footer: PanelBottom,
+};
 
 function familyLabelKey(family: IndicatorFamily): string {
   return `families.${family}`;
@@ -102,7 +123,7 @@ function FooterMockPreview({ styleId }: { styleId: AgentActivityIndicatorId }) {
   );
 }
 
-function PlacementMockPreview({
+const PlacementMockPreview = React.memo(function PlacementMockPreview({
   placement,
   styleId,
 }: {
@@ -119,16 +140,26 @@ function PlacementMockPreview({
     case "footer":
       return <FooterMockPreview styleId={styleId} />;
   }
-}
+});
+
+/** Matches `collapsible-down` / `collapsible-up` in packages/ui globals.css. */
+const COLLAPSIBLE_ANIM_MS = 200;
 
 function IndicatorStylePicker({
   value,
   onChange,
-  disabled,
+  busy,
+  glyphsAnimated,
 }: {
   value: AgentActivityIndicatorId;
   onChange: (id: AgentActivityIndicatorId) => void;
-  disabled?: boolean;
+  /** True while a save is in flight — blocks double submits without dimming the grid. */
+  busy?: boolean;
+  /**
+   * When false, freeze every tile (expand/collapse height tween in progress).
+   * When true, run all previews so the user can compare motion at a glance.
+   */
+  glyphsAnimated: boolean;
 }) {
   const t = useTranslations("settings.codeAgentSection.activityIndicators");
 
@@ -136,7 +167,7 @@ function IndicatorStylePicker({
     <div className="space-y-4 pt-3">
       {INDICATOR_STYLE_GROUPS.map((group) => (
         <div key={group.family}>
-          <p className="mb-2 text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
+          <p className="mb-2 text-xs font-medium text-muted-foreground">
             {t(familyLabelKey(group.family) as never)}
           </p>
           <div className="grid grid-cols-5 gap-2 sm:grid-cols-6 md:grid-cols-8">
@@ -146,17 +177,20 @@ function IndicatorStylePicker({
                 <button
                   key={option.id}
                   type="button"
-                  disabled={disabled}
                   aria-pressed={selected}
+                  aria-busy={busy && selected ? true : undefined}
                   title={option.label}
-                  onClick={() => onChange(option.id)}
+                  onClick={() => {
+                    if (busy || option.id === value) return;
+                    onChange(option.id);
+                  }}
                   className={cn(
-                    "flex flex-col items-center gap-1.5 rounded-xl border px-1.5 py-2 transition-colors",
+                    "flex flex-col items-center gap-1.5 rounded-xl border px-1.5 py-2 transition-[border-color,background-color,box-shadow] duration-150",
                     "cursor-pointer hover:bg-accent/50",
                     selected
                       ? "border-primary bg-primary/5 ring-1 ring-primary/30"
                       : "border-border/70 bg-background",
-                    disabled && "cursor-not-allowed opacity-60",
+                    busy && "cursor-wait",
                   )}
                 >
                   <span className="flex h-7 w-full items-center justify-center">
@@ -165,6 +199,10 @@ function IndicatorStylePicker({
                       key={option.id}
                       styleId={option.id}
                       density="compact"
+                      animated={glyphsAnimated}
+                      size={
+                        isOrbIndicatorId(option.id) ? PICKER_ORB_SIZE : undefined
+                      }
                     />
                   </span>
                   <span className="max-w-full truncate text-[10px] text-muted-foreground">
@@ -193,7 +231,24 @@ function PlacementRow({
   const styleId = useAgentActivityIndicatorSettingsStore((s) => s[placement]);
   const syncingPlacement = useAgentActivityIndicatorSettingsStore((s) => s.syncingPlacement);
   const setIndicator = useAgentActivityIndicatorSettingsStore((s) => s.setIndicator);
-  const disabled = syncingPlacement === placement;
+  const busy = syncingPlacement === placement;
+  const PlacementIcon = PLACEMENT_ICONS[placement];
+  // Keep height animation (same as other settings rows), but don't run ~36 live
+  // glyphs until the collapsible tween finishes — that was the main expand jank.
+  const [glyphsAnimated, setGlyphsAnimated] = useState(false);
+
+  useEffect(() => {
+    if (!open) {
+      setGlyphsAnimated(false);
+      return;
+    }
+    setGlyphsAnimated(false);
+    // Fallback if animationend is skipped (reduced motion / interrupted toggle).
+    const fallback = window.setTimeout(() => {
+      setGlyphsAnimated(true);
+    }, COLLAPSIBLE_ANIM_MS + 20);
+    return () => window.clearTimeout(fallback);
+  }, [open]);
 
   return (
     <Collapsible
@@ -204,7 +259,7 @@ function PlacementRow({
       <div className="flex items-center gap-3">
         <CollapsibleTrigger className="group flex min-w-0 flex-1 cursor-pointer items-center gap-3 text-left">
           <span className="relative size-5 shrink-0">
-            <Activity className="absolute inset-0 size-5 transition-opacity duration-150 group-hover:opacity-0" />
+            <PlacementIcon className="absolute inset-0 size-5 transition-opacity duration-150 group-hover:opacity-0" />
             <ChevronDown className="absolute inset-0 size-5 opacity-0 transition-all duration-150 group-hover:opacity-100 group-data-[state=closed]:-rotate-90" />
           </span>
           <div className="min-w-0 flex-1">
@@ -222,10 +277,22 @@ function PlacementRow({
         </div>
       </div>
 
-      <CollapsibleContent>
+      <CollapsibleContent
+        onAnimationEnd={(event) => {
+          if (event.target !== event.currentTarget) return;
+          if (!open) {
+            setGlyphsAnimated(false);
+            return;
+          }
+          if (String(event.animationName).includes("collapsible-down")) {
+            setGlyphsAnimated(true);
+          }
+        }}
+      >
         <IndicatorStylePicker
           value={styleId}
-          disabled={disabled}
+          busy={busy}
+          glyphsAnimated={glyphsAnimated}
           onChange={(id) => {
             void setIndicator(placement, id).catch(() => {
               // store rolls back; no toast per product preference for local settings

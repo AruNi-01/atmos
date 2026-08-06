@@ -75,6 +75,7 @@ export const useAgentActivityIndicatorSettingsStore = create<AgentActivityIndica
     setIndicator: async (placement, id) => {
       const previous = get()[placement];
       if (previous === id) return;
+      // Optimistic update — keep the preview stable; only clear busy when done.
       set({ [placement]: id, syncingPlacement: placement });
       try {
         await functionSettingsApi.update(
@@ -84,11 +85,20 @@ export const useAgentActivityIndicatorSettingsStore = create<AgentActivityIndica
         );
         useFunctionSettingsStore.getState().invalidate();
         await useFunctionSettingsStore.getState().load();
-        set({
-          ...readAll(useFunctionSettingsStore.getState().settings),
+        const next = readAll(useFunctionSettingsStore.getState().settings);
+        // Prefer a minimal set so busy→idle doesn't rewrite unchanged placement ids
+        // (avoids remount/flicker of live previews that already match).
+        const current = get();
+        const patch: Partial<AgentActivityIndicatorSettingsState> = {
           loaded: true,
           syncingPlacement: null,
-        });
+        };
+        for (const key of Object.keys(next) as AgentIndicatorPlacement[]) {
+          if (current[key] !== next[key]) {
+            patch[key] = next[key];
+          }
+        }
+        set(patch);
       } catch {
         set({ [placement]: previous, syncingPlacement: null });
         throw new Error("Failed to update agent activity indicator setting");
