@@ -12,7 +12,7 @@ import { parseDiffFromFile } from '@pierre/diffs';
 import { Editor } from '@pierre/diffs/edit';
 import { useTranslations } from 'next-intl';
 import { useTheme } from 'next-themes';
-import { Loader2, Pencil, RotateCcw, Save } from 'lucide-react';
+import { Loader2, RotateCcw, Save, SquarePen } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { toastManager } from '@workspace/ui';
 import { fsApi, gitApi } from '@/api/ws-api';
@@ -990,14 +990,12 @@ export function ChangesCodeView({
         </div>
       )}
       {showEditControls ? (
-        <motion.div
-          layout
-          className="flex shrink-0 items-center gap-0.5 overflow-hidden"
-          transition={{ type: 'spring', stiffness: 420, damping: 32, mass: 0.8 }}
-        >
-          <motion.button
+        // Width-only expand/collapse for the reset control. Do not put `layout` on
+        // this group or the primary button — layout projection fights the exit
+        // width animation and causes a settle-then-snap when 2 buttons → 1.
+        <div className="flex shrink-0 items-center overflow-hidden">
+          <button
             type="button"
-            layout
             className={cn(
               'relative flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-md transition-colors disabled:pointer-events-none disabled:opacity-50',
               showResetButton
@@ -1012,7 +1010,7 @@ export function ChangesCodeView({
             aria-label={primaryEditLabel}
             aria-pressed={editingPath != null && !isEditDirty ? true : undefined}
           >
-            <AnimatePresence initial={false} mode="popLayout">
+            <AnimatePresence initial={false}>
               {isSavingEdit ? (
                 <motion.span
                   key="saving"
@@ -1044,24 +1042,24 @@ export function ChangesCodeView({
                   transition={{ duration: 0.16, ease: 'easeOut' }}
                   className="absolute inset-0 flex items-center justify-center"
                 >
-                  <Pencil className="size-3.5" />
+                  <SquarePen className="size-3.5" />
                 </motion.span>
               )}
             </AnimatePresence>
-          </motion.button>
+          </button>
           <AnimatePresence initial={false}>
             {showResetButton ? (
               <motion.div
                 key="reset"
-                initial={{ width: 0, opacity: 0, scale: 0.85, x: -6 }}
-                animate={{ width: 28, opacity: 1, scale: 1, x: 0 }}
-                exit={{ width: 0, opacity: 0, scale: 0.85, x: -6 }}
-                transition={{ type: 'spring', stiffness: 420, damping: 30, mass: 0.75 }}
+                initial={{ width: 0, opacity: 0 }}
+                animate={{ width: 30, opacity: 1 }}
+                exit={{ width: 0, opacity: 0 }}
+                transition={{ type: 'spring', stiffness: 500, damping: 38, mass: 0.7 }}
                 className="overflow-hidden"
               >
                 <button
                   type="button"
-                  className="flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
+                  className="ml-0.5 flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
                   disabled={isSavingEdit}
                   onClick={handleResetEdit}
                   title={t('edit.reset')}
@@ -1072,7 +1070,7 @@ export function ChangesCodeView({
               </motion.div>
             ) : null}
           </AnimatePresence>
-        </motion.div>
+        </div>
       ) : null}
       <DiffCodeViewSettingsMenu
         diffStyle={diffStyle}
