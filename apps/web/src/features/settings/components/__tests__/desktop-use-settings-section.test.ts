@@ -139,9 +139,9 @@ describe("Desktop Use settings wiring", () => {
     expect(panel).toContain("desktop_use_doctor");
     expect(panel).toContain("desktop_use_grant_permissions");
     // Per-permission grant buttons (not one bulk button)
-    expect(panel).toContain("grantAccessibility");
-    expect(panel).toContain("grantScreenRecording");
-    expect(panel).toContain('desktopInvoke("desktop_use_grant_permissions", { target })');
+    expect(panel).toContain('t("permissions.grant")');
+    expect(panel).toContain("PERMISSION_ICONS");
+    expect(panel).toContain('desktopInvoke("desktop_use_grant_permissions", { target');
     expect(panel).toContain("openGrant(name)");
     expect(panel).not.toContain("getAppshotStatus");
     expect(panel).not.toContain("openAppshotPermissionTarget");

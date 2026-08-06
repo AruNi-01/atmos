@@ -12,7 +12,13 @@ import {
   DialogTitle,
   cn,
 } from "@workspace/ui";
-import { AlertCircle, Settings2 } from "lucide-react";
+import {
+  Accessibility,
+  AlertCircle,
+  MonitorPlay,
+  Package,
+  type LucideIcon,
+} from "lucide-react";
 import { useOpenDesktopUseSettings } from "@/features/appshot/lib/open-desktop-use-settings";
 import {
   closeDesktopUseReadinessModal,
@@ -46,6 +52,34 @@ function reasonMessageKey(
   }
 }
 
+function isPermissionReason(
+  reason: DesktopUseReadinessReason | null | undefined,
+): boolean {
+  return (
+    reason === "permission_accessibility" ||
+    reason === "permission_screen_recording" ||
+    reason === "permission_both"
+  );
+}
+
+/** Primary CTA icon — permission figure/screen, not a generic settings gear. */
+function primaryCtaIcon(
+  reason: DesktopUseReadinessReason | null | undefined,
+): LucideIcon {
+  switch (reason) {
+    case "permission_accessibility":
+    case "permission_both":
+      return Accessibility;
+    case "permission_screen_recording":
+      return MonitorPlay;
+    case "engine_not_installed":
+    case "engine_not_running":
+      return Package;
+    default:
+      return Accessibility;
+  }
+}
+
 export function DesktopUseReadinessDialog() {
   const t = useTranslations("desktopUse.readinessModal");
   const openDesktopUseSettings = useOpenDesktopUseSettings();
@@ -72,6 +106,8 @@ export function DesktopUseReadinessDialog() {
 
   const reason = state.readiness?.reason ?? null;
   const source = state.source ?? "generic";
+  const PrimaryIcon = primaryCtaIcon(reason);
+  const primaryLabel = isPermissionReason(reason) ? t("grant") : t("openSettings");
 
   const isWithinSettleWindow = () =>
     Date.now() - openedAtRef.current < OPEN_SETTLE_MS;
@@ -175,8 +211,8 @@ export function DesktopUseReadinessDialog() {
             onClick={onOpenSettings}
             className="cursor-pointer"
           >
-            <Settings2 className="size-4" />
-            {t("openSettings")}
+            <PrimaryIcon className="size-4" />
+            {primaryLabel}
           </Button>
         </DialogFooter>
       </DialogContent>

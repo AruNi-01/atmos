@@ -7,7 +7,14 @@
 import React from "react";
 import { useTranslations } from "next-intl";
 import { Button, cn } from "@workspace/ui";
-import { Check, Loader2, RefreshCw, Settings2 } from "lucide-react";
+import {
+  Accessibility,
+  Check,
+  Loader2,
+  MonitorPlay,
+  RefreshCw,
+  type LucideIcon,
+} from "lucide-react";
 import { invalidateDesktopUseReadinessCache } from "@/features/desktop-use/lib/readiness";
 import { desktopInvoke, isDesktopRuntime } from "@/shared/lib/desktop-bridge";
 
@@ -23,6 +30,12 @@ type DoctorStatus = {
 };
 
 const ORDER: PermissionName[] = ["accessibility", "screen_recording"];
+
+/** Match System Settings privacy icons (Accessibility figure / Screen Recording). */
+const PERMISSION_ICONS: Record<PermissionName, LucideIcon> = {
+  accessibility: Accessibility,
+  screen_recording: MonitorPlay,
+};
 
 export type DesktopUsePermissionsPanelProps = {
   className?: string;
@@ -165,11 +178,8 @@ export function DesktopUsePermissionsPanel({
           name === "accessibility"
             ? t("permissions.items.accessibility.description")
             : t("permissions.items.screenRecording.description");
-        const grantLabel =
-          name === "accessibility"
-            ? t("permissions.grantAccessibility")
-            : t("permissions.grantScreenRecording");
         const isGranting = grantingTarget === name;
+        const PermissionIcon = PERMISSION_ICONS[name];
 
         return (
           <div
@@ -201,9 +211,9 @@ export function DesktopUsePermissionsPanel({
                     {isGranting ? (
                       <Loader2 className="size-4 animate-spin" />
                     ) : (
-                      <Settings2 className="size-4" />
+                      <PermissionIcon className="size-4" />
                     )}
-                    {grantLabel}
+                    {t("permissions.grant")}
                   </Button>
                 )}
               </div>
