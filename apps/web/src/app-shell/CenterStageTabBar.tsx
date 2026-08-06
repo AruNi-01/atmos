@@ -2,13 +2,26 @@
 
 import React from "react";
 import {
+  arrayMove,
+  closestCenter,
+  CSS,
+  DndContext,
+  horizontalListSortingStrategy,
+  KeyboardSensor,
+  PointerSensor,
   Popover,
   PopoverContent,
   PopoverTrigger,
+  restrictToHorizontalAxis,
+  SortableContext,
+  sortableKeyboardCoordinates,
   TabsTab,
   Tooltip,
   TooltipContent,
   TooltipTrigger,
+  useSensor,
+  useSensors,
+  useSortable,
   X,
   type DragEndEvent,
 } from "@workspace/ui";
@@ -34,7 +47,6 @@ import {
 import {
   CenterStageOpenFileTab,
   CenterStageOverviewTab,
-  CenterStageScrollableTabs,
   CenterStageSurfaceContentTab,
   CenterStageStickyTabActions,
   CenterStageTabGroupItemContent,
@@ -48,7 +60,7 @@ import { useTerminalStore } from "@/features/terminal/store/use-terminal-store";
 import { useShallow } from "zustand/react/shallow";
 import type { CenterTabContextMenuState, CenterTabDescriptor } from "@/app-shell/center-stage-tab-model";
 import {
-  orderCenterTabsByPin,
+  orderCenterTabsBySavedOrder,
   preventNonPrimaryTabActivate,
 } from "@/app-shell/center-stage-tab-model";
 import type { GithubCenterTab } from "@/features/github/store/use-github-center-tabs";
@@ -74,14 +86,14 @@ interface CenterStageTabBarProps {
   isTabGroupItemActive: (tab: TabGroupItem) => boolean;
   openFiles: OpenFile[];
   orderedGroupedTabItems: Array<{ key: string; label: string; tabs: TabGroupItem[] }>;
-  /** tab value → pinnedAt ms */
-  pinnedTabs: Record<string, number>;
   previewBrowserPrefs: PreviewBrowserPrefs;
   projectWikiTabVisible: boolean;
   scrollableTabsRef: React.RefObject<HTMLDivElement | null>;
   sessionDisplay: SessionDisplay;
   tabGroupDndSensors: React.ComponentProps<typeof CenterStageTabGroupPopover>["sensors"];
   tabGroupPopoverOpen: boolean;
+  /** Saved strip order (tab ids). Missing/new tabs append after. */
+  tabStripOrder: string[];
   termTabPlusHoveredTabId: string | null;
   visibleTerminalTabs: Array<{ id: string; title: string; closable: boolean; customTitle?: string }>;
   wikiCenterEligible: boolean;
@@ -97,6 +109,7 @@ interface CenterStageTabBarProps {
   handleRenameTerminalCenterTab: (tabId: string, title: string) => void;
   handleSelectTabGroupItem: (tab: TabGroupItem) => void;
   handleTabGroupDragEnd: (event: DragEndEvent) => void;
+  onTabStripOrderChange: (order: string[]) => void;
   pinFile: (path: string, workspaceId?: string) => void;
   setCodeReviewCloseConfirmOpen: React.Dispatch<React.SetStateAction<boolean>>;
   setProjectWikiCloseConfirmOpen: React.Dispatch<React.SetStateAction<boolean>>;
@@ -117,13 +130,13 @@ export function CenterStageTabBar({
   isTabGroupItemActive,
   openFiles,
   orderedGroupedTabItems,
-  pinnedTabs,
   previewBrowserPrefs,
   projectWikiTabVisible,
   scrollableTabsRef,
   sessionDisplay,
   tabGroupDndSensors,
   tabGroupPopoverOpen,
+  tabStripOrder,
   termTabPlusHoveredTabId,
   visibleTerminalTabs,
   wikiCenterEligible,
@@ -139,6 +152,7 @@ export function CenterStageTabBar({
   handleRenameTerminalCenterTab,
   handleSelectTabGroupItem,
   handleTabGroupDragEnd,
+  onTabStripOrderChange,
   pinFile,
   setCodeReviewCloseConfirmOpen,
   setProjectWikiCloseConfirmOpen,
@@ -179,8 +193,8 @@ export function CenterStageTabBar({
     return items.sort((left, right) => left.openedAt - right.openedAt);
   }, [browserTabs, githubTabs, openFiles]);
 
-  // Base visual order (type layout): terminals → special terminals → surface tabs.
-  // Pin reordering is applied on top so pinned tabs always lead.
+  // Base visual order: terminals → special terminals → surface tabs by open time.
+  // User drag order is applied on top via tabStripOrder.
   const baseOrderedDescriptors = React.useMemo<CenterTabDescriptor[]>(() => {
     const descriptors: CenterTabDescriptor[] = [];
 
@@ -191,7 +205,6 @@ export function CenterStageTabBar({
         kind: "terminal",
         label: tab.customTitle || tab.title,
         customTitle: tab.customTitle,
-        pinnedAt: pinnedTabs[tab.id],
       });
     }
 
@@ -201,7 +214,6 @@ export function CenterStageTabBar({
         value: "project-wiki",
         kind: "project-wiki",
         label: t("centerStageTabBar.projectWiki"),
-        pinnedAt: pinnedTabs["project-wiki"],
       });
     }
 
@@ -211,7 +223,6 @@ export function CenterStageTabBar({
         value: "code-review",
         kind: "code-review",
         label: t("centerStageTabBar.codeReview"),
-        pinnedAt: pinnedTabs["code-review"],
       });
     }
 
@@ -224,7 +235,6 @@ export function CenterStageTabBar({
           kind: variant === "file" ? "file" : variant,
           label: item.file.name,
           file: item.file,
-          pinnedAt: pinnedTabs[item.file.path],
         });
         continue;
       }
@@ -241,7 +251,6 @@ export function CenterStageTabBar({
           value: item.tab.value,
           kind: "browser",
           label,
-          pinnedAt: pinnedTabs[item.tab.value],
         });
         continue;
       }
@@ -251,7 +260,6 @@ export function CenterStageTabBar({
         value: item.tab.value,
         kind: item.tab.kind,
         label: item.tab.label,
-        pinnedAt: pinnedTabs[item.tab.value],
       });
     }
 
@@ -260,7 +268,6 @@ export function CenterStageTabBar({
     browserFallbackLabel,
     codeReviewTabVisible,
     orderedSurfaceTabs,
-    pinnedTabs,
     previewBrowserPrefs,
     projectWikiTabVisible,
     t,
@@ -268,8 +275,26 @@ export function CenterStageTabBar({
   ]);
 
   const orderedDescriptors = React.useMemo(
-    () => orderCenterTabsByPin(baseOrderedDescriptors),
-    [baseOrderedDescriptors],
+    () => orderCenterTabsBySavedOrder(baseOrderedDescriptors, tabStripOrder),
+    [baseOrderedDescriptors, tabStripOrder],
+  );
+
+  const stripDndSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
+  const handleStripDragEnd = React.useCallback(
+    (event: DragEndEvent) => {
+      const { active, over } = event;
+      if (!over || active.id === over.id) return;
+      const ids = orderedDescriptors.map((tab) => tab.id);
+      const oldIndex = ids.indexOf(String(active.id));
+      const newIndex = ids.indexOf(String(over.id));
+      if (oldIndex < 0 || newIndex < 0) return;
+      onTabStripOrderChange(arrayMove(ids, oldIndex, newIndex));
+    },
+    [onTabStripOrderChange, orderedDescriptors],
   );
 
   const openContextMenu = React.useCallback(
@@ -286,74 +311,34 @@ export function CenterStageTabBar({
     [orderedDescriptors, setTabContextMenu],
   );
 
-  // Pinned tabs stay fixed outside the scroll lane when they fit the bar.
-  // Only when the full pinned set overflows the available width do pins scroll
-  // (unified with unpinned so later tabs remain reachable).
-  const stripRef = React.useRef<HTMLDivElement | null>(null);
-  const pinnedStripRef = React.useRef<HTMLDivElement | null>(null);
-  const [pinsOverflow, setPinsOverflow] = React.useState(false);
+  React.useEffect(() => {
+    const root = scrollableTabsRef.current;
+    if (!root) return;
 
-  const pinnedDescriptors = React.useMemo(
-    () => orderedDescriptors.filter((tab) => typeof tab.pinnedAt === "number"),
-    [orderedDescriptors],
-  );
-  const unpinnedDescriptors = React.useMemo(
-    () => orderedDescriptors.filter((tab) => typeof tab.pinnedAt !== "number"),
-    [orderedDescriptors],
-  );
+    const handleWheel = (event: WheelEvent) => {
+      if (event.ctrlKey) return;
+      if (!(event.target instanceof Element) || !root.contains(event.target)) return;
 
-  // No pins → single scroll lane. Pins overflow full width → unified scroll.
-  // Otherwise pinned strip is fixed and only unpinned tabs scroll.
-  const useUnified = pinsOverflow || pinnedDescriptors.length === 0;
+      const primaryDelta =
+        Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
+      if (primaryDelta === 0) return;
 
-  React.useLayoutEffect(() => {
-    const strip = stripRef.current;
-    if (!strip || pinnedDescriptors.length === 0) {
-      setPinsOverflow(false);
-      return;
-    }
+      const maxScrollLeft = root.scrollWidth - root.clientWidth;
+      if (maxScrollLeft <= 0) return;
 
-    const measurePinnedWidth = (): number => {
-      const pinnedEl = pinnedStripRef.current;
-      if (pinnedEl) return pinnedEl.scrollWidth;
-
-      // Unified mode: sum widths of leading pinned tabs in the scroll lane.
-      const scrollLane = strip.querySelector("[data-center-tabs-scroll]");
-      if (!scrollLane) return 0;
-      let width = 0;
-      const children = Array.from(scrollLane.children);
-      for (let i = 0; i < pinnedDescriptors.length && i < children.length; i++) {
-        width += (children[i] as HTMLElement).offsetWidth;
-      }
-      return width;
+      const next = Math.max(0, Math.min(maxScrollLeft, root.scrollLeft + primaryDelta));
+      if (next === root.scrollLeft) return;
+      event.preventDefault();
+      root.scrollLeft = next;
     };
 
-    const measure = () => {
-      const available = strip.clientWidth;
-      if (available <= 0) return;
-      const pinnedWidth = measurePinnedWidth();
-      if (pinnedWidth <= 0) return;
-
-      // Small hysteresis avoids split ↔ unified flicker at the edge.
-      setPinsOverflow((currentlyOverflow) => {
-        if (currentlyOverflow) {
-          // Leave overflow only when pins clearly fit again.
-          return pinnedWidth > available - 12;
-        }
-        return pinnedWidth > available;
-      });
+    root.addEventListener("wheel", handleWheel, { passive: false });
+    return () => {
+      root.removeEventListener("wheel", handleWheel);
     };
-
-    measure();
-    const observer = new ResizeObserver(measure);
-    observer.observe(strip);
-    if (pinnedStripRef.current) observer.observe(pinnedStripRef.current);
-    return () => observer.disconnect();
-  }, [pinnedDescriptors.length, orderedDescriptors, useUnified]);
+  }, [scrollableTabsRef, orderedDescriptors.length]);
 
   const renderDescriptorTab = (tab: CenterTabDescriptor) => {
-    const isPinned = typeof tab.pinnedAt === "number";
-
     if (tab.kind === "terminal") {
       const source = visibleTerminalTabs.find((item) => item.id === tab.value);
       if (!source) return null;
@@ -365,7 +350,6 @@ export function CenterStageTabBar({
           effectiveContextId={effectiveContextId}
           hasShortcut={index >= 0 && index < CENTER_TERMINAL_SHORTCUT_LIMIT}
           hoveredTabId={termTabPlusHoveredTabId}
-          isPinned={isPinned}
           shortcutDigit={index + 1}
           newTerminalTabLabel={newTerminalTabLabel}
           tab={source}
@@ -383,7 +367,6 @@ export function CenterStageTabBar({
           key={tab.id}
           closeLabel={t("centerStageTabBar.closeProjectWikiTab")}
           icon={<TerminalIcon className="size-3.5 shrink-0" />}
-          isPinned={isPinned}
           label={t("centerStageTabBar.projectWiki")}
           tooltip={t("centerStageTabBar.projectWikiTerminal")}
           variant="project-wiki"
@@ -400,7 +383,6 @@ export function CenterStageTabBar({
           key={tab.id}
           closeLabel={t("centerStageTabBar.closeCodeReviewTab")}
           icon={<TerminalIcon className="size-3.5 shrink-0 text-blue-500" />}
-          isPinned={isPinned}
           label={t("centerStageTabBar.codeReview")}
           tooltip={t("centerStageTabBar.codeReviewTerminal")}
           variant="code-review"
@@ -416,7 +398,6 @@ export function CenterStageTabBar({
         <CenterStageOpenFileTab
           key={tab.id}
           file={tab.file}
-          isPinned={isPinned}
           sessionDisplay={sessionDisplay}
           onClose={handleCloseFile}
           onContextMenuRequest={(event) => openContextMenu(event, tab)}
@@ -440,7 +421,6 @@ export function CenterStageTabBar({
           key={tab.id}
           closeLabel={t("centerStageTabBar.closeTab", { tab: label })}
           faviconUrl={faviconUrl}
-          isPinned={isPinned}
           name={label}
           onClose={() => handleCloseBrowserTab(browserTab.value)}
           onContextMenu={(event) => openContextMenu(event, tab)}
@@ -458,7 +438,6 @@ export function CenterStageTabBar({
       <CenterStageSurfaceContentTab
         key={tab.id}
         closeLabel={t("centerStageTabBar.closeTab", { tab: githubTab.label })}
-        isPinned={isPinned}
         name={githubTab.label}
         onClose={() => handleCloseGithubTab(githubTab.value)}
         onContextMenu={(event) => openContextMenu(event, tab)}
@@ -534,28 +513,28 @@ export function CenterStageTabBar({
         </Tooltip>
       ) : null}
 
-      <div ref={stripRef} className="flex min-w-0 flex-1 items-stretch overflow-hidden">
-        {useUnified ? (
-          <CenterStageScrollableTabs
-            scrollableTabsRef={scrollableTabsRef}
-            data-center-tabs-scroll
+      <div
+        ref={scrollableTabsRef}
+        data-center-tabs-scroll
+        className="flex min-w-0 flex-1 items-stretch overflow-x-auto no-scrollbar"
+      >
+        <DndContext
+          sensors={stripDndSensors}
+          collisionDetection={closestCenter}
+          modifiers={[restrictToHorizontalAxis]}
+          onDragEnd={handleStripDragEnd}
+        >
+          <SortableContext
+            items={orderedDescriptors.map((tab) => tab.id)}
+            strategy={horizontalListSortingStrategy}
           >
-            {orderedDescriptors.map(renderDescriptorTab)}
-          </CenterStageScrollableTabs>
-        ) : (
-          <>
-            <div
-              ref={pinnedStripRef}
-              className="flex h-full shrink-0 items-stretch"
-              data-pinned-tabs
-            >
-              {pinnedDescriptors.map(renderDescriptorTab)}
-            </div>
-            <CenterStageScrollableTabs scrollableTabsRef={scrollableTabsRef}>
-              {unpinnedDescriptors.map(renderDescriptorTab)}
-            </CenterStageScrollableTabs>
-          </>
-        )}
+            {orderedDescriptors.map((tab) => (
+              <SortableCenterStripTab key={tab.id} id={tab.id}>
+                {renderDescriptorTab(tab)}
+              </SortableCenterStripTab>
+            ))}
+          </SortableContext>
+        </DndContext>
       </div>
 
       <CenterStageStickyTabActions>
@@ -601,12 +580,46 @@ function isTabGroupItemClosable(tab: TabGroupItem) {
   );
 }
 
+function SortableCenterStripTab({
+  id,
+  children,
+}: {
+  id: string;
+  children: React.ReactNode;
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id });
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={{
+        transform: CSS.Transform.toString(transform),
+        transition,
+      }}
+      className={cn(
+        "flex h-full shrink-0 items-stretch touch-none",
+        isDragging && "z-20 opacity-60",
+      )}
+      {...attributes}
+      {...listeners}
+    >
+      {children}
+    </div>
+  );
+}
+
 function TerminalExtraTab({
   activeValue,
   effectiveContextId,
   hasShortcut,
   hoveredTabId,
-  isPinned = false,
   shortcutDigit,
   newTerminalTabLabel,
   tab,
@@ -619,7 +632,6 @@ function TerminalExtraTab({
   effectiveContextId: string;
   hasShortcut: boolean;
   hoveredTabId: string | null;
-  isPinned?: boolean;
   shortcutDigit: number;
   newTerminalTabLabel: string;
   tab: { id: string; title: string; customTitle?: string };
@@ -693,8 +705,6 @@ function TerminalExtraTab({
           onContextMenu={onContextMenu}
           className={cn(
             "group/term-tab relative !h-full pl-4 pr-4 data-active:bg-muted/40 data-active:text-foreground text-muted-foreground hover:bg-muted/50 transition-colors gap-2 grow-0 shrink-0 justify-start rounded-none !border-0",
-            // Attention pulse owns box-shadow; pin bar only when idle.
-            isPinned && !attentionReason && "center-stage-tab-pinned",
             attentionReason && "agent-attention-ring-tab",
             attentionReason === "permission_request" && "agent-attention-ring-permission",
             attentionReason === "task_complete" && "agent-attention-ring-complete",
@@ -724,6 +734,7 @@ function TerminalExtraTab({
             <span
               role="button"
               aria-label={closeAriaLabel}
+              onPointerDown={(event) => event.stopPropagation()}
               onClick={(event) => {
                 event.stopPropagation();
                 onClose(tab.id);
@@ -874,6 +885,7 @@ function CreateTerminalTabButton({
       onPointerLeave={() => onHoverChange(false)}
       onFocus={() => onHoverChange(true)}
       onBlur={() => onHoverChange(false)}
+      onPointerDown={(event) => event.stopPropagation()}
       onClick={(event) => {
         event.stopPropagation();
         onCreateTab();
@@ -893,7 +905,6 @@ function CreateTerminalTabButton({
 function SpecialTerminalTab({
   closeLabel,
   icon,
-  isPinned = false,
   label,
   tooltip,
   variant,
@@ -903,7 +914,6 @@ function SpecialTerminalTab({
 }: {
   closeLabel: string;
   icon: React.ReactNode;
-  isPinned?: boolean;
   label: string;
   tooltip: string;
   variant: "project-wiki" | "code-review";
@@ -921,7 +931,6 @@ function SpecialTerminalTab({
           className={cn(
             "relative !h-full pl-4 pr-4 data-active:bg-muted/40 data-active:text-foreground text-muted-foreground hover:bg-muted/50 transition-colors gap-2 grow-0 shrink-0 justify-start rounded-none !border-0",
             variant === "project-wiki" ? "group/pw" : "group/cr",
-            isPinned && "center-stage-tab-pinned",
           )}
         >
           {icon}
@@ -937,6 +946,7 @@ function SpecialTerminalTab({
             <span
               role="button"
               aria-label={closeLabel}
+              onPointerDown={(event) => event.stopPropagation()}
               onClick={(event) => {
                 event.stopPropagation();
                 onClose();

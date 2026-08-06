@@ -129,7 +129,6 @@ export function useCenterStageTabGroups({
   effectiveContextId,
   githubTabs,
   openFiles,
-  pinnedTabs = {},
   previewBrowserPrefs = DEFAULT_PREVIEW_BROWSER_PREFS,
   projectWikiTabVisible = false,
   terminalTabs = [],
@@ -139,8 +138,6 @@ export function useCenterStageTabGroups({
   effectiveContextId: string | null;
   githubTabs: GithubCenterTab[];
   openFiles: OpenFile[];
-  /** Center-stage pin map (tab value → pinnedAt). */
-  pinnedTabs?: Record<string, number>;
   previewBrowserPrefs?: PreviewBrowserPrefs;
   projectWikiTabVisible?: boolean;
   terminalTabs?: TerminalGroupTab[];
@@ -170,7 +167,6 @@ export function useCenterStageTabGroups({
         value: tab.id,
         kind: "terminal",
         terminalSection: "regular",
-        pinnedAt: pinnedTabs[tab.id],
       });
     });
     if (projectWikiTabVisible) {
@@ -181,7 +177,6 @@ export function useCenterStageTabGroups({
         kind: "project-wiki",
         terminalSection: "project-wiki",
         separatorBefore: terminalGroupTabs.length > 0,
-        pinnedAt: pinnedTabs["project-wiki"],
       });
     }
     if (codeReviewTabVisible) {
@@ -192,7 +187,6 @@ export function useCenterStageTabGroups({
         kind: "code-review",
         terminalSection: "code-review",
         separatorBefore: terminalGroupTabs.length > 0,
-        pinnedAt: pinnedTabs["code-review"],
       });
     }
     if (terminalGroupTabs.length > 0) {
@@ -210,7 +204,6 @@ export function useCenterStageTabGroups({
           value: file.path,
           kind: "file" as const,
           file,
-          pinnedAt: pinnedTabs[file.path],
         });
       });
     if (fileTabs.length > 0) {
@@ -232,7 +225,6 @@ export function useCenterStageTabGroups({
           value: file.path,
           kind: "diff-group" as const,
           file,
-          pinnedAt: pinnedTabs[file.path],
         });
       });
     if (diffTabs.length > 0) {
@@ -254,7 +246,6 @@ export function useCenterStageTabGroups({
           value: file.path,
           kind: "review-diff" as const,
           file,
-          pinnedAt: pinnedTabs[file.path],
         });
       });
     if (reviewTabs.length > 0) {
@@ -276,7 +267,6 @@ export function useCenterStageTabGroups({
           value: file.path,
           kind: "conflict" as const,
           file,
-          pinnedAt: pinnedTabs[file.path],
         });
       });
     if (conflictTabs.length > 0) {
@@ -294,7 +284,6 @@ export function useCenterStageTabGroups({
       value: tab.value,
       kind: tab.kind,
       openedAt: tab.openedAt,
-      pinnedAt: pinnedTabs[tab.value],
     }));
     if (githubGroupTabs.length > 0) {
       githubGroupTabs.sort(byOpenedAt);
@@ -322,8 +311,6 @@ export function useCenterStageTabGroups({
           browserContextId: browser.browserContextId,
           faviconUrl: getPreviewBrowserTabFaviconUrl(tab),
           separatorBefore: browserIndex > 0 && tabIndex === 0,
-          // Pin is per browser instance (center tab), not each internal page tab.
-          pinnedAt: pinnedTabs[browser.value],
         });
       });
     });
@@ -338,7 +325,6 @@ export function useCenterStageTabGroups({
     codeReviewTabVisible,
     githubTabs,
     openFiles,
-    pinnedTabs,
     previewBrowserPrefs,
     projectWikiTabVisible,
     t,

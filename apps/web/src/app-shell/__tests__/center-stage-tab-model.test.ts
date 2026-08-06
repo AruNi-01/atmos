@@ -1,47 +1,28 @@
 import { describe, expect, test } from "bun:test";
 import {
-  orderCenterTabsByPin,
+  orderCenterTabsBySavedOrder,
   type CenterTabDescriptor,
 } from "@/app-shell/center-stage-tab-model";
-import { orderTabGroupItemsByPin, type TabGroupItem } from "@/app-shell/center-stage-tabs";
 
-describe("orderCenterTabsByPin", () => {
-  test("keeps unpinned relative order and sorts pinned by pin time", () => {
+describe("orderCenterTabsBySavedOrder", () => {
+  test("applies saved order and appends new tabs", () => {
     const tabs: CenterTabDescriptor[] = [
-      { id: "a", value: "a", kind: "terminal", label: "A" },
-      { id: "b", value: "b", kind: "file", label: "B", pinnedAt: 200 },
-      { id: "c", value: "c", kind: "browser", label: "C" },
-      { id: "d", value: "d", kind: "github-pr", label: "D", pinnedAt: 100 },
+      { id: "a", value: "a", kind: "file", label: "A" },
+      { id: "b", value: "b", kind: "file", label: "B" },
+      { id: "c", value: "c", kind: "terminal", label: "C" },
     ];
-
-    expect(orderCenterTabsByPin(tabs).map((tab) => tab.id)).toEqual([
-      "d",
-      "b",
-      "a",
+    expect(orderCenterTabsBySavedOrder(tabs, ["c", "a"]).map((tab) => tab.id)).toEqual([
       "c",
+      "a",
+      "b",
     ]);
   });
 
-  test("returns original order when nothing is pinned", () => {
+  test("returns original order when no saved order", () => {
     const tabs: CenterTabDescriptor[] = [
-      { id: "a", value: "a", kind: "terminal", label: "A" },
+      { id: "a", value: "a", kind: "file", label: "A" },
       { id: "b", value: "b", kind: "file", label: "B" },
     ];
-    expect(orderCenterTabsByPin(tabs).map((tab) => tab.id)).toEqual(["a", "b"]);
-  });
-});
-
-describe("orderTabGroupItemsByPin", () => {
-  test("puts pinned group items first by pin time", () => {
-    const tabs: TabGroupItem[] = [
-      { id: "1", label: "One", value: "1", kind: "file" },
-      { id: "2", label: "Two", value: "2", kind: "file", pinnedAt: 50 },
-      { id: "3", label: "Three", value: "3", kind: "file", pinnedAt: 10 },
-    ];
-    expect(orderTabGroupItemsByPin(tabs).map((tab) => tab.id)).toEqual([
-      "3",
-      "2",
-      "1",
-    ]);
+    expect(orderCenterTabsBySavedOrder(tabs).map((tab) => tab.id)).toEqual(["a", "b"]);
   });
 });

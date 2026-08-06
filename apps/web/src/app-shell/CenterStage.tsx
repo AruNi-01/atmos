@@ -34,10 +34,9 @@ import { useProjects } from "@/features/project/hooks/use-project-bootstrap-quer
 import {
   clearLastPinnedTerminal,
   readCenterStageLastTab,
-  readCenterStagePinnedTabs,
+  readCenterStageTabStripOrder,
   setCenterStageLastTab,
-  toggleCenterStageTabPin,
-  unpinCenterStageTab,
+  writeCenterStageTabStripOrder,
 } from "@/shared/stores/use-ui-pref-hooks";
 import { WorkspaceSetupProgressView } from "@/features/workspace/components/WorkspaceSetupProgress";
 import { isWorkspaceSetupBlocking } from "@/features/workspace/lib/workspace-setup";
@@ -166,7 +165,7 @@ const CenterStage: React.FC = () => {
   const [wikiRefreshTrigger, setWikiRefreshTrigger] = React.useState(0);
   const [wikiRefreshing, setWikiRefreshing] = React.useState(false);
   const [tabContextMenu, setTabContextMenu] = React.useState<CenterTabContextMenuState>(null);
-  const [pinnedTabs, setPinnedTabs] = React.useState<Record<string, number>>({});
+  const [tabStripOrder, setTabStripOrder] = React.useState<string[]>([]);
   const pendingCloseQueueRef = React.useRef<PendingCenterTabClose[]>([]);
   /** True while we intentionally close a confirm dialog to advance the bulk-close queue. */
   const advancingCloseQueueRef = React.useRef(false);
@@ -449,19 +448,13 @@ const CenterStage: React.FC = () => {
   const githubOwner = statusQuery.data?.github_owner ?? null;
   const githubRepo = statusQuery.data?.github_repo ?? null;
 
-  const clearPinForTabValue = React.useCallback((tabValue: string) => {
-    if (!effectiveContextId) return;
-    setPinnedTabs(unpinCenterStageTab(effectiveContextId, tabValue));
-  }, [effectiveContextId]);
-
   const handleCloseFile = React.useCallback((file: OpenFile) => {
     if (file.isDirty) {
       setFileToClose(file);
     } else {
       closeFile(file.path);
-      clearPinForTabValue(file.path);
     }
-  }, [clearPinForTabValue, closeFile]);
+  }, [closeFile]);
 
   const advancePendingCloseQueue = React.useCallback(() => {
     const next = pendingCloseQueueRef.current.shift();
@@ -510,14 +503,13 @@ const CenterStage: React.FC = () => {
     if (fileToClose) {
       advancingCloseQueueRef.current = true;
       closeFile(fileToClose.path);
-      clearPinForTabValue(fileToClose.path);
       setFileToClose(null);
       advancePendingCloseQueue();
       queueMicrotask(() => {
         advancingCloseQueueRef.current = false;
       });
     }
-  }, [advancePendingCloseQueue, clearPinForTabValue, closeFile, fileToClose]);
+  }, [advancePendingCloseQueue, closeFile, fileToClose]);
 
   const reviewTarget = React.useMemo((): ReviewTarget | null => {
     if (workspaceId) return { kind: "workspace", workspaceId };
@@ -539,14 +531,24 @@ const CenterStage: React.FC = () => {
     });
   }, [effectiveContextId, isCenterContextSettled, setWorkspaceId]);
 
-  // Load per-workspace pin map when the center context changes.
+  // Load per-workspace tab strip drag order when the center context changes.
   React.useEffect(() => {
     if (!effectiveContextId) {
-      setPinnedTabs({});
+      setTabStripOrder([]);
       return;
     }
-    setPinnedTabs(readCenterStagePinnedTabs(effectiveContextId));
+    setTabStripOrder(readCenterStageTabStripOrder(effectiveContextId));
   }, [effectiveContextId]);
+
+  const handleTabStripOrderChange = React.useCallback(
+    (order: string[]) => {
+      setTabStripOrder(order);
+      if (effectiveContextId) {
+        writeCenterStageTabStripOrder(effectiveContextId, order);
+      }
+    },
+    [effectiveContextId],
+  );
 
   const openFiles = getOpenFiles(effectiveContextId || undefined);
   const activeFilePath = getActiveFilePath(effectiveContextId || undefined);
@@ -630,7 +632,6 @@ const CenterStage: React.FC = () => {
       const nextTab =
         githubTabs[closingIndex + 1] ?? githubTabs[closingIndex - 1] ?? null;
       closeGithubTab(effectiveContextId, value);
-      clearPinForTabValue(value);
       if (activeValue === value) {
         setUrlParams({
           tab: nextTab?.value ?? fallbackCenterTab,
@@ -640,7 +641,6 @@ const CenterStage: React.FC = () => {
     },
     [
       activeValue,
-      clearPinForTabValue,
       closeGithubTab,
       effectiveContextId,
       fallbackCenterTab,
@@ -656,7 +656,6 @@ const CenterStage: React.FC = () => {
       const nextTab =
         browserTabs[closingIndex + 1] ?? browserTabs[closingIndex - 1] ?? null;
       closeBrowserCenterTab(effectiveContextId, value);
-      clearPinForTabValue(value);
       if (activeValue === value) {
         setUrlParams({
           tab: nextTab?.value ?? fallbackCenterTab,
@@ -667,7 +666,6 @@ const CenterStage: React.FC = () => {
     [
       activeValue,
       browserTabs,
-      clearPinForTabValue,
       closeBrowserCenterTab,
       effectiveContextId,
       fallbackCenterTab,
@@ -1293,7 +1291,6 @@ const CenterStage: React.FC = () => {
 
     closeTerminalTab(effectiveContextId, tabId);
     removeMountedTerminalTab(effectiveContextId, tabId);
-    clearPinForTabValue(tabId);
 
     if (activeValue === tabId) {
       const nextTabs = useTerminalStore.getState().getTerminalTabs(effectiveContextId);
@@ -1302,7 +1299,6 @@ const CenterStage: React.FC = () => {
   }, [
     activeValue,
     cleanupCanvasTerminalsForClosedTerminal,
-    clearPinForTabValue,
     closeTerminalTab,
     currentView,
     effectiveContextId,
@@ -1404,7 +1400,6 @@ const CenterStage: React.FC = () => {
           confirmQueue.push({ kind: "file", file: tab.file });
         } else {
           closeFile(tab.file.path, effectiveContextId || undefined);
-          clearPinForTabValue(tab.value);
         }
         continue;
       }
@@ -1476,7 +1471,6 @@ const CenterStage: React.FC = () => {
     advancePendingCloseQueue();
   }, [
     advancePendingCloseQueue,
-    clearPinForTabValue,
     closeFile,
     effectiveContextId,
     getTerminalTabPanes,
@@ -1487,11 +1481,6 @@ const CenterStage: React.FC = () => {
     terminalQuickOpenAgents,
   ]);
 
-  const handleToggleTabPin = React.useCallback((tab: CenterTabDescriptor) => {
-    if (!effectiveContextId) return;
-    const result = toggleCenterStageTabPin(effectiveContextId, tab.value);
-    setPinnedTabs(result.pins);
-  }, [effectiveContextId]);
 
   const handleCloseCenterTabFromMenu = React.useCallback((tab: CenterTabDescriptor) => {
     void closeTabsSafely([tab]);
@@ -1669,7 +1658,6 @@ const CenterStage: React.FC = () => {
     effectiveContextId,
     githubTabs,
     openFiles,
-    pinnedTabs,
     previewBrowserPrefs,
     projectWikiTabVisible,
     terminalTabs: visibleTerminalTabs,
@@ -1765,7 +1753,6 @@ const CenterStage: React.FC = () => {
         await systemApi.killProjectWikiWindow(effectiveContextId);
         projectWikiTerminalGridRef.current?.removeTerminalByTmuxWindowName(PROJECT_WIKI_WINDOW_NAME);
         setProjectWikiVisibleMap(prev => ({ ...prev, [effectiveContextId]: false }));
-        clearPinForTabValue("project-wiki");
         setFixedTab("terminal");
       } catch (err) {
         toastManager.add({
@@ -1789,7 +1776,6 @@ const CenterStage: React.FC = () => {
         await systemApi.killCodeReviewWindow(effectiveContextId);
         codeReviewTerminalGridRef.current?.removeTerminalByTmuxWindowName(CODE_REVIEW_WINDOW_NAME);
         setCodeReviewVisibleMap(prev => ({ ...prev, [effectiveContextId]: false }));
-        clearPinForTabValue("code-review");
         setFixedTab("terminal");
       } catch (err) {
         toastManager.add({
@@ -1858,7 +1844,8 @@ const CenterStage: React.FC = () => {
           isTabGroupItemActive={isTabGroupItemActive}
           openFiles={openFiles}
           orderedGroupedTabItems={orderedGroupedTabItems}
-          pinnedTabs={pinnedTabs}
+          tabStripOrder={tabStripOrder}
+          onTabStripOrderChange={handleTabStripOrderChange}
           previewBrowserPrefs={previewBrowserPrefs}
           projectWikiTabVisible={projectWikiTabVisible}
           scrollableTabsRef={scrollableTabsRef}
@@ -1937,7 +1924,6 @@ const CenterStage: React.FC = () => {
         onCloseTabs={(tabs) => {
           void closeTabsSafely(tabs);
         }}
-        onTogglePin={handleToggleTabPin}
         onRenameTerminalTab={handleRenameTerminalCenterTab}
       />
 

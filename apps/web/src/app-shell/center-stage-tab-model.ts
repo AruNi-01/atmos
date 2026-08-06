@@ -19,7 +19,7 @@ export type CenterTabKind =
 
 /**
  * Visual-order descriptor for a closable center tab.
- * Used by the tab bar, context menu (close left/right/others), and pin state.
+ * Used by the tab bar, context menu (close left/right/others), and strip drag order.
  */
 export type CenterTabDescriptor = {
   /** Stable id for React keys / menu targeting (usually same as value). */
@@ -32,8 +32,6 @@ export type CenterTabDescriptor = {
   file?: OpenFile;
   /** Terminal custom title (rename draft seed). */
   customTitle?: string;
-  /** Epoch ms when pinned; undefined when unpinned. */
-  pinnedAt?: number;
 };
 
 export type CenterTabContextMenuState = {
@@ -63,21 +61,27 @@ export function isGithubCenterTabKind(kind: CenterTabKind): boolean {
   );
 }
 
-/** Sort pinned first by pin time (oldest first), then keep original relative order. */
-export function orderCenterTabsByPin(
+/**
+ * Apply a saved strip order. Known ids keep relative saved positions; new tabs
+ * append in the order they appear in `tabs`.
+ */
+export function orderCenterTabsBySavedOrder(
   tabs: CenterTabDescriptor[],
+  savedOrder?: string[],
 ): CenterTabDescriptor[] {
-  const pinned: CenterTabDescriptor[] = [];
-  const unpinned: CenterTabDescriptor[] = [];
-  for (const tab of tabs) {
-    if (typeof tab.pinnedAt === "number") {
-      pinned.push(tab);
-    } else {
-      unpinned.push(tab);
-    }
+  if (!savedOrder?.length) return tabs;
+  const remaining = new Map(tabs.map((tab) => [tab.id, tab]));
+  const ordered: CenterTabDescriptor[] = [];
+  for (const id of savedOrder) {
+    const tab = remaining.get(id);
+    if (!tab) continue;
+    ordered.push(tab);
+    remaining.delete(id);
   }
-  pinned.sort((left, right) => (left.pinnedAt ?? 0) - (right.pinnedAt ?? 0));
-  return [...pinned, ...unpinned];
+  for (const tab of tabs) {
+    if (remaining.has(tab.id)) ordered.push(tab);
+  }
+  return ordered;
 }
 
 /**

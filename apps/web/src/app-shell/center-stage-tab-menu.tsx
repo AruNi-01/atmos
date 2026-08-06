@@ -22,8 +22,6 @@ import {
   Files,
   FolderTree,
   Pencil,
-  Pin,
-  PinOff,
   X,
   XCircle,
 } from "lucide-react";
@@ -56,11 +54,8 @@ type CenterStageTabContextMenuProps = {
    */
   orderedTabs?: CenterTabDescriptor[];
   basePath?: string;
-  /** When false, hide pin/unpin (e.g. canvas file-only menu). Default true. */
-  pinEnabled?: boolean;
   onCloseTab: (tab: CenterTabDescriptor) => void;
   onCloseTabs: (tabs: CenterTabDescriptor[]) => void;
-  onTogglePin?: (tab: CenterTabDescriptor) => void;
   onRenameTerminalTab?: (tabId: string, title: string) => void;
 };
 
@@ -69,10 +64,8 @@ export function CenterStageTabContextMenu({
   setTabContextMenu,
   orderedTabs: orderedTabsProp = [],
   basePath,
-  pinEnabled = true,
   onCloseTab,
   onCloseTabs,
-  onTogglePin,
   onRenameTerminalTab,
 }: CenterStageTabContextMenuProps) {
   const t = useTranslations("appShell.fileTabContextMenu");
@@ -86,7 +79,6 @@ export function CenterStageTabContextMenu({
   }, []);
 
   const target = tabContextMenu?.tab ?? null;
-  const isPinned = typeof target?.pinnedAt === "number";
   const isTerminal = target?.kind === "terminal";
   const isFileLike = target ? isFileLikeCenterTabKind(target.kind) : false;
   const fileTarget = target?.file;
@@ -210,26 +202,6 @@ export function CenterStageTabContextMenu({
                     />
                   </DropdownMenuSubContent>
                 </DropdownMenuSub>
-                <DropdownMenuSeparator />
-              </>
-            ) : null}
-
-            {pinEnabled && onTogglePin ? (
-              <>
-                <DropdownMenuItem
-                  className={menuItemClassName}
-                  onClick={() => {
-                    onTogglePin(target);
-                    closeMenu();
-                  }}
-                >
-                  {isPinned ? (
-                    <PinOff className={menuIconClassName} />
-                  ) : (
-                    <Pin className={menuIconClassName} />
-                  )}
-                  {isPinned ? t("unpin") : t("pin")}
-                </DropdownMenuItem>
                 <DropdownMenuSeparator />
               </>
             ) : null}
@@ -395,7 +367,6 @@ export function CenterStageFileTabContextMenu({
       }}
       orderedTabs={orderedTabs}
       basePath={basePath}
-      pinEnabled={false}
       onCloseTab={(tab) => {
         if (tab.file) onCloseFile(tab.file);
       }}

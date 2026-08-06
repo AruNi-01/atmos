@@ -213,7 +213,6 @@ export function CenterStageSurfaceContentTab({
   closeLabel,
   faviconUrl,
   isDirty = false,
-  isPinned = false,
   isPreview = false,
   name,
   onClose,
@@ -227,7 +226,6 @@ export function CenterStageSurfaceContentTab({
   closeLabel?: string;
   faviconUrl?: string;
   isDirty?: boolean;
-  isPinned?: boolean;
   isPreview?: boolean;
   name: string;
   onClose?: () => void;
@@ -246,10 +244,7 @@ export function CenterStageSurfaceContentTab({
       <TooltipTrigger asChild>
         <TabsTab
           value={value}
-          className={cn(
-            "!h-full pl-2 pr-1 data-active:bg-muted/40 data-active:text-foreground text-muted-foreground hover:bg-muted/50 transition-colors gap-1.5 group grow-0 shrink-0 justify-start rounded-none !border-0",
-            isPinned && "center-stage-tab-pinned",
-          )}
+          className="!h-full pl-2 pr-1 data-active:bg-muted/40 data-active:text-foreground text-muted-foreground hover:bg-muted/50 transition-colors gap-1.5 group grow-0 shrink-0 justify-start rounded-none !border-0"
           onPointerDown={preventNonPrimaryTabActivate}
           onContextMenu={onContextMenu}
           onDoubleClick={onDoubleClick}
@@ -292,6 +287,7 @@ export function CenterStageSurfaceContentTab({
               <span
                 role="button"
                 aria-label={closeLabel ?? t("closeTab")}
+                onPointerDown={(event) => event.stopPropagation()}
                 onClick={(event) => {
                   event.stopPropagation();
                   onClose();
@@ -489,7 +485,6 @@ export function CenterStageOpenFileTab({
   closeLabel,
   displayPath: displayPathProp,
   file,
-  isPinned = false,
   onClose,
   onContextMenuRequest,
   onPreviewPin,
@@ -500,7 +495,6 @@ export function CenterStageOpenFileTab({
   closeLabel?: string;
   displayPath?: string;
   file: OpenFile;
-  isPinned?: boolean;
   onClose: (file: OpenFile) => void;
   onContextMenuRequest: (event: React.MouseEvent<HTMLButtonElement>, file: OpenFile) => void;
   onPreviewPin: (file: OpenFile) => void;
@@ -519,7 +513,6 @@ export function CenterStageOpenFileTab({
       path={displayPath}
       variant={variant}
       isDirty={file.isDirty}
-      isPinned={isPinned}
       isPreview={file.isPreview}
       closeLabel={closeLabel}
       onClose={() => onClose(file)}

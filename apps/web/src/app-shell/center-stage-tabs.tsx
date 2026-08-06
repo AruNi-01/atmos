@@ -21,7 +21,7 @@ import {
   verticalListSortingStrategy,
   type DragEndEvent,
 } from "@workspace/ui";
-import { Command, GripVertical, Inbox, List } from "lucide-react";
+import { Command, Inbox, List } from "lucide-react";
 import { useShallow } from "zustand/react/shallow";
 import { AgentAttentionIndicator } from "@/features/agent/components/AgentAttentionIndicator";
 import { AgentHookStatusIndicator } from "@/features/agent/components/AgentHookStatusIndicator";
@@ -82,8 +82,6 @@ export type TabGroupItem = {
   terminalSection?: string;
   /** Draw a horizontal rule above this item (e.g. between different browsers). */
   separatorBefore?: boolean;
-  /** Epoch ms when the tab is pinned on the center stage strip. */
-  pinnedAt?: number;
 };
 
 export type TabGroupOrderByContext = CenterStageUiPrefs["tabGroupOrderByContext"];
@@ -96,10 +94,7 @@ export function applySavedTabGroupOrder(
     ? savedOrder.filter((item): item is string => typeof item === "string")
     : [];
   if (!normalizedSavedOrder.length) {
-    return {
-      ...group,
-      tabs: orderTabGroupItemsByPin(group.tabs),
-    };
+    return group;
   }
 
   const orderIndex = new Map(normalizedSavedOrder.map((id, index) => [id, index]));
@@ -113,24 +108,8 @@ export function applySavedTabGroupOrder(
   });
   return {
     ...group,
-    // Pinned tabs always lead within a group (by pin time), then unpinned keep saved order.
-    tabs: orderTabGroupItemsByPin(sortedBySaved),
+    tabs: sortedBySaved,
   };
-}
-
-/** Within a group column: pinned first (oldest pin first), then unpinned in relative order. */
-export function orderTabGroupItemsByPin(tabs: TabGroupItem[]): TabGroupItem[] {
-  const pinned: TabGroupItem[] = [];
-  const unpinned: TabGroupItem[] = [];
-  for (const tab of tabs) {
-    if (typeof tab.pinnedAt === "number") {
-      pinned.push(tab);
-    } else {
-      unpinned.push(tab);
-    }
-  }
-  pinned.sort((left, right) => (left.pinnedAt ?? 0) - (right.pinnedAt ?? 0));
-  return [...pinned, ...unpinned];
 }
 
 export function shellQuote(value: string): string {
@@ -221,7 +200,6 @@ export function SortableTabGroupItem({
     attributes,
     listeners,
     setNodeRef,
-    setActivatorNodeRef,
     transform,
     transition,
     isDragging,
@@ -288,22 +266,14 @@ export function SortableTabGroupItem({
             transition,
           }}
           className={cn(
-            "group/tab-item relative flex h-10 w-full min-w-0 cursor-pointer items-center gap-1 rounded-md pl-2 pr-2 text-left text-muted-foreground transition-colors",
+            "group/tab-item relative flex h-10 w-full min-w-0 cursor-grab items-center gap-1 rounded-md pl-2 pr-2 text-left text-muted-foreground transition-colors active:cursor-grabbing",
             "hover:bg-sidebar-accent/70 hover:text-sidebar-foreground dark:hover:bg-muted/45",
             isActive && "bg-muted/40 hover:bg-sidebar-accent/70",
-            isDragging && "z-10 opacity-70 shadow-md"
+            isDragging && "z-10 opacity-70 shadow-md",
           )}
+          {...attributes}
+          {...listeners}
         >
-          <span
-            ref={setActivatorNodeRef}
-            {...attributes}
-            {...listeners}
-            className="-ml-0.5 -mr-1.5 flex size-4 shrink-0 cursor-grab items-center justify-center text-muted-foreground opacity-0 transition-colors hover:text-foreground active:cursor-grabbing group-hover/tab-item:opacity-100"
-            aria-label={t("centerStageTabs.dragTab", { label: tab.label })}
-            onClick={(event) => event.stopPropagation()}
-          >
-            <GripVertical className="size-3" />
-          </span>
           <div
             ref={contentRef}
             className="flex min-w-0 flex-1 items-center gap-1 overflow-hidden"

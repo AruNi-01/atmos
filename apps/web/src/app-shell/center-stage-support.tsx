@@ -312,36 +312,10 @@ export function useCenterStageTabScrollEffects({
   effectiveContextId: string | null | undefined;
   openFilesCount: number;
   projectWikiTabVisible: boolean;
+  /** Horizontal scroller (or chain clip root) for the center tab strip. */
   scrollableTabsRef: React.RefObject<HTMLDivElement | null>;
   visibleTerminalTabsCount: number;
 }) {
-  React.useEffect(() => {
-    const container = scrollableTabsRef.current;
-    if (!container) return;
-
-    const handleWheel = (event: WheelEvent) => {
-      if (event.ctrlKey) return;
-
-      const maxScrollLeft = container.scrollWidth - container.clientWidth;
-      if (maxScrollLeft <= 0) return;
-
-      const primaryDelta =
-        Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
-      if (primaryDelta === 0) return;
-
-      const nextScrollLeft = Math.max(0, Math.min(maxScrollLeft, container.scrollLeft + primaryDelta));
-      if (nextScrollLeft === container.scrollLeft) return;
-
-      event.preventDefault();
-      container.scrollLeft = nextScrollLeft;
-    };
-
-    container.addEventListener("wheel", handleWheel, { passive: false });
-    return () => {
-      container.removeEventListener("wheel", handleWheel);
-    };
-  }, [effectiveContextId, openFilesCount, projectWikiTabVisible, codeReviewTabVisible, visibleTerminalTabsCount, scrollableTabsRef]);
-
   React.useEffect(() => {
     const container = scrollableTabsRef.current;
     if (!activeValue || !container) return;
@@ -351,13 +325,17 @@ export function useCenterStageTabScrollEffects({
       const current = scrollableTabsRef.current;
       if (!current) return;
       const activeTab = current.querySelector<HTMLElement>('[data-active], [aria-selected="true"]');
-      if (activeTab) {
-        const containerRect = current.getBoundingClientRect();
-        const tabRect = activeTab.getBoundingClientRect();
-        const isVisible = tabRect.left >= containerRect.left && tabRect.right <= containerRect.right;
-        if (!isVisible) {
-          activeTab.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
-        }
+      if (!activeTab) return;
+
+      // Prefer the nearest horizontal scroller (unpinned lane in chained layout).
+      const lane =
+        activeTab.closest<HTMLElement>("[data-center-tabs-scroll]") ?? current;
+      const laneRect = lane.getBoundingClientRect();
+      const tabRect = activeTab.getBoundingClientRect();
+      const isVisible =
+        tabRect.left >= laneRect.left && tabRect.right <= laneRect.right;
+      if (!isVisible) {
+        activeTab.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
       }
     }, 0);
 
