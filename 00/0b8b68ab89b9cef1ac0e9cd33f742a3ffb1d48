@@ -1,0 +1,24 @@
+.agents/skills/atmos-desktop-release/SKILL.md
+  h_5be255725524c8 64-80,107
+.agents/skills/atmos-desktop-release/references/release-notes-template.md
+  h_5be255725524c8 74-92,97-138,157-158,186-187,232
+.github/workflows/release-desktop-electron.yml
+  h_5be255725524c8 503,514,519-531
+scripts/release/append-desktop-download-section.mjs
+  h_5be255725524c8 1-273
+scripts/release/electron-release-notes.mjs
+  h_5be255725524c8 5-10,13-214,220,228-229
+scripts/release/electron-release-notes.test.mjs
+  h_5be255725524c8 2-3,11-12,14-19,31,34-35,41-154
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "000b8b68ab89b9cef1ac0e9cd33f742a3ffb1d48",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
