@@ -34,11 +34,92 @@ export interface ChangelogItem {
 
 export const changelogData: ChangelogItem[] = [
   {
+    id: "desktop-2026.8.7",
+    title: {
+      zh: "内嵌浏览器 · Desktop Use · 管理中心布局 · GitHub 工作台",
+      en: "Browser Use, Desktop Use, Management Center Layout & GitHub Workbench",
+    },
+    description: {
+      zh: "Atmos Desktop 2026.8.7 带来内嵌 Browser Use 与 Desktop Use、可配置的管理中心 Outside/Inside 布局、更完整的 GitHub Issues/Actions/Checks 工作台、Run 终端项目日志，以及更稳的终端与 Agent 关注体验——浏览、操控系统、跟进 PR 与运行输出都可留在桌面壳内完成。",
+      en: "Atmos Desktop 2026.8.7 ships embedded Browser Use and Desktop Use, a flexible Management Center layout, deeper GitHub Issues/Actions/Checks workbench, Run terminal project logs, and a steadier terminal and agent attention experience—so you can browse, drive the OS, and stay oriented without leaving the shell.",
+    },
+    date: "2026-08-07",
+    version: "2026.8.7",
+    releaseUrl: "https://github.com/AruNi-01/atmos/releases/tag/desktop-electron-2026.8.7",
+    tags: [
+      { zh: "Browser Use", en: "Browser Use" },
+      { zh: "Desktop Use", en: "Desktop Use" },
+      { zh: "管理中心", en: "Management Center" },
+      { zh: "GitHub", en: "GitHub" },
+    ],
+    content: {
+      zh: {
+        features: [
+          "**Browser Use** — 应用内浏览器打开站点，支持多标签、宿主选择、Composer 斜杠命令与 Agent 页面操作；标签支持拖拽排序与溢出滚动。",
+          "**Desktop Use** — 设置分组、CLI、AppShot 捕获路径、置顶控制引擎、CDP/AX 阶梯，以及屏幕录制与辅助功能权限就绪流程。",
+          "**管理中心布局** — 各入口可在设置 → 布局中选择 Outside / Inside：Outside 在左侧栏顶部全宽，Inside 留在中心网格；看板以普通中心页（`/kanban`）打开。",
+          "**GitHub 工作台** — Issues 侧栏与详情、Actions 工作流图与提交详情、PR Checks（合并与 Agent Fix）、可编辑 Assignees/Labels、本地 merge-tree 冲突文件、从 Reviewer 跳到 Files 行评论。",
+          "**Run 终端项目日志** — 在桌面壳内流式查看项目运行输出。",
+          "**终端标题与 TUI** — 原生 OSC 0/2 标题作为窗格后缀；鼠标模式观察/恢复、比例滚轮、重连与 detached-watch。",
+          "**Agent 关注** — 需要关注的通知、粘性 attention latch、空闲/关闭钩子与可配置活动指示；中心标签可显示会话中的 Agent 名称。",
+          "中心标签固定、拖拽排序与统一右键菜单；工作区侧栏显示 Agent 与 PR 状态；Changes 支持内联编辑 worktree diff 与实时 git gutter。",
+          "Canvas 空白框选打开紧凑添加组件；Onboarding Agent 检测；YOLO 模式与内置 Agent 升级；共享 ColorPicker；更可靠的本地事件队列。",
+        ],
+        fixes: [
+          "**浏览器** — 黑屏 / 多标签挂载 / 主题同步；正式版可再次打开页面 DevTools（应用壳 DevTools 仍禁用）；红绿灯与标签轨边距打磨。",
+          "**Desktop Use** — 更清晰的辅助功能授权层；缺少屏幕录制时快速失败；恢复窗口坐标与会话。",
+          "**终端** — 重启后恢复 TUI；重连不再堆叠滚动缓冲；减少 Grok 热切换闪烁；挂载失败时提供新建会话路径。",
+          "**管理中心** — 设置加载重试避免导航永久隐藏；切换电脑保留未落盘状态；折叠侧栏边缘悬停 peek。",
+          "**Run Script / 看板** — 启动滞后时正确解析项目；看板中心设置加载不再死循环。",
+          "**GitHub / Composer / 编辑器** — PR Open 徽章大小写、冲突列表与 Reviewer 跳转；`@` 文件搜索与面包屑兄弟加载。",
+          "macOS Dock 可见性；减少 Cookie 助手 Keychain 重复提示；配额刷新尊重提供商切换。",
+        ],
+        improvements: [
+          "Outside 管理中心项以干净的图标+名称列表呈现。",
+          "桌面设置显示正确的版本通道与应用版本。",
+          "Desktop Use 设置重组成可折叠卡片，并完善中英文案。",
+          "Appshots 历史与 Agent 活动指示选择器体验打磨。",
+          "Electron 桌面发布同步到 Homebrew 与 R2 最新安装包；落地页下载 CTA 指向桌面安装流程。",
+        ],
+      },
+      en: {
+        features: [
+          "**Browser Use** — Open sites in the in-app browser with multi-tab chrome, host selection, Composer slash command, and agent page-action controls. Morphing tabs support drag reorder and overflow scroll.",
+          "**Desktop Use** — Settings group, CLI, AppShot capture path, pinned control engine, CDP/AX ladder, and readiness/permissions for Screen Recording and Accessibility.",
+          "**Management Center layout** — Each center entry has Outside / Inside placement under Settings → Layout. Outside items sit full-width at the top of the left sidebar; Inside items stay in the center grid. Kanban opens as a normal center-stage page (`/kanban`).",
+          "**GitHub workbench** — Issues sidebar and detail; Actions workflow graph and commit detail; PR Checks with merge controls and Agent Fix; editable assignees/labels; conflict files via local merge-tree; jump from reviewers to Files line comments.",
+          "**Run terminal project logs** — Stream and inspect project run output from the desktop shell.",
+          "**Terminal titles & TUI** — Native OSC 0/2 titles as pane suffixes; mouse-mode observe/restore, proportional wheel, reattach, and detached-watch for interactive TUIs.",
+          "**Agent attention** — Need-attention notifications, sticky attention latches, idle/dismiss hooks, and configurable activity indicators; center-tab titles surface agent names from session metadata.",
+          "Center-stage tab pin, drag reorder, and unified context menus; workspace sidebar agent/PR status; inline edit of worktree diffs in Changes with live git gutters.",
+          "Canvas empty marquee opens compact add-widget UI; onboarding agent detection; YOLO mode and builtin upgrades; shared ColorPicker; durable local event queue.",
+        ],
+        fixes: [
+          "**Browser** — Black screen / multi-tab attach / theme sync; page DevTools open again in release builds (shell DevTools stay blocked); traffic-light and tab-rail inset polish.",
+          "**Desktop Use** — Clearer Accessibility grant overlay; fail fast when Screen Recording is missing; recover window coordinates and sessions.",
+          "**Terminal** — TUI sessions restore after restart; no stacked reattach frames in scrollback; reduced Grok warm-switch flash; reconnect loops offer a clear New path.",
+          "**Management Center** — Retry settings load so nav is not permanently hidden; keep unsettled state across computer switch; left-sidebar edge-hover peek when collapsed.",
+          "**Run Script / Kanban** — Resolve project when bootstrap lags; Kanban center-stage settings load no longer loops.",
+          "**GitHub / Composer / editor** — PR Open badge casing, conflict listing, and reviewer jump; `@` file search and breadcrumb siblings without requiring the file tree.",
+          "macOS Dock visibility; fewer Keychain re-prompts for cookie helpers; quota usage refresh honors provider switches.",
+        ],
+        improvements: [
+          "Outside Management Center items render as a clean icon+name list.",
+          "Desktop Settings shows the correct version channel and app version.",
+          "Desktop Use settings regrouped into collapsible cards with en/zh i18n.",
+          "Appshots history popover and agent activity indicator picker polish.",
+          "Electron desktop releases sync to Homebrew and R2 latest installers; landing download CTA points at the desktop install flow.",
+        ],
+      },
+    },
+  },
+  {
     id: "desktop-2026.7.29",
     title: {
       zh: "生产桌面切到 Electron · AppShot 双 Shift · 二进制安全 Diff",
       en: "Production Desktop Moves to Electron, AppShot Dual-Shift & Binary-Safe Diffs",
     },
+
     description: {
       zh: "Atmos Desktop 2026.7.29 将生产桌面切换到 Electron 壳（产品名仍为 Atmos / `com.atmos.desktop`），并带来内置 Server 运行时、原生 AppShot 双 Shift 截图、二进制安全的 Git Diff 与图片预览、安装包打磨，以及 Skills、终端与刷新链路的可靠性修复。",
       en: "Atmos Desktop 2026.7.29 moves production Desktop to the Electron shell (product identity remains Atmos / `com.atmos.desktop`) and ships bundled Server runtime, native AppShot dual-shift capture, binary-safe git diffs with image previews, packaging polish, and reliability fixes across skills, terminal, and refresh flows.",
