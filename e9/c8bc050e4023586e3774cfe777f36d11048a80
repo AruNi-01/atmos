@@ -1,0 +1,14 @@
+resources/local-runtime/version.json
+  h_5be255725524c8 2
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "e9c8bc050e4023586e3774cfe777f36d11048a80",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
