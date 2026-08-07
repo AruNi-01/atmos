@@ -136,6 +136,8 @@ interface ExperimentSettingsState extends ExperimentPrefs {
 }
 
 let loadInflight: Promise<void> | null = null;
+/** Bumped on computer switch so in-flight loads cannot commit after reset. */
+let loadEpoch = 0;
 
 function deriveFlags(items: ManagementCenterItems) {
   return {
@@ -173,6 +175,8 @@ export const useExperimentSettingsStore = create<ExperimentSettingsState>((set, 
     loaded: false,
 
     resetForConnectionChange: () => {
+      // Invalidate any in-flight load from the previous Computer.
+      loadEpoch += 1;
       loadInflight = null;
       const nextDefaults = createDefaultManagementCenterItems();
       set({
@@ -188,19 +192,26 @@ export const useExperimentSettingsStore = create<ExperimentSettingsState>((set, 
 
       if (loadInflight) return loadInflight;
 
-      loadInflight = (async () => {
+      const requestEpoch = loadEpoch;
+      const promise = (async () => {
         try {
           const settings = await useFunctionSettingsStore.getState().load();
+          // Computer switch (or a newer load generation) while we were awaiting.
+          if (requestEpoch !== loadEpoch) return;
           const prefs = readExperiments(settings);
           set({ ...prefs, loaded: true });
         } catch {
           // Keep loaded false so callers can retry (e.g. after WS reconnect).
         } finally {
-          loadInflight = null;
+          // Do not clear a newer generation's inflight promise.
+          if (loadInflight === promise) {
+            loadInflight = null;
+          }
         }
       })();
+      loadInflight = promise;
 
-      return loadInflight;
+      return promise;
     },
 
     setManagementCenterItemEnabled: async (id, placement, enabled) => {
