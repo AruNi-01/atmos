@@ -284,19 +284,22 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
 
     const managementCenterItems = useExperimentSettingsStore((s) => s.managementCenterItems);
     const loadExperimentSettings = useExperimentSettingsStore((s) => s.loadSettings);
-    // True after the first load attempt finishes (success or failure). Prevents default-config
-    // flash on success, but still unblocks nav if the request fails so we can retry.
-    const [managementCenterSettled, setManagementCenterSettled] = useState(false);
+    // Settled is keyed by connectionEpoch so a computer switch does not keep the previous
+    // connection's settled=true while the store is back on defaults (avoids default-item flash).
+    // Still unblocks nav after the first load attempt (success or failure) so we can retry.
+    const [settledForEpoch, setSettledForEpoch] = useState<number | null>(null);
+    const managementCenterSettled = settledForEpoch === connectionEpoch;
 
     useEffect(() => {
         let cancelled = false;
         let retryTimer: number | null = null;
         let retryAttempt = 0;
+        const epoch = connectionEpoch;
 
         const tryLoad = async () => {
             await loadExperimentSettings();
             if (cancelled) return;
-            setManagementCenterSettled(true);
+            setSettledForEpoch(epoch);
             if (useExperimentSettingsStore.getState().loaded) return;
             // loadSettings leaves loaded=false on failure so callers can retry.
             const delay = Math.min(1_000 * 2 ** retryAttempt, 15_000);
