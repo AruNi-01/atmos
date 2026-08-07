@@ -1,0 +1,14 @@
+apps/api/src/main.rs
+  h_5be255725524c8 393-410
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "42bce33de082c6383d5b201687708cfe8ef394ab",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
