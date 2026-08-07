@@ -1,0 +1,14 @@
+apps/web/src/features/settings/store/experiment-settings-store.ts
+  h_b3eac5fd0698eb 206-209
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "d2d60dfddf209c9834ddcddf71f4301c3a881e3a",
+  "prompts": {},
+  "humans": {
+    "h_b3eac5fd0698eb": {
+      "author": "lurunrun820 <lurunrun820@hellobike.com>"
+    }
+  }
+}
