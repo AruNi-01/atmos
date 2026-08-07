@@ -1,0 +1,50 @@
+.agents/skills/atmos-desktop-release/SKILL.md
+  h_b3eac5fd0698eb 150
+.agents/skills/atmos-desktop-release/references/failure-recovery.md
+  h_b3eac5fd0698eb 55-60,68-69,124,132,149,152-154,157,164
+apps/desktop-electron/scripts/macos-icon.test.ts
+  h_b3eac5fd0698eb 30-37,52-55
+apps/desktop-electron/src/desktop-use/grant-overlay.ts
+  h_b3eac5fd0698eb 66-67,123,809,814-817,819-820,849-850,853-854,858,868,886-888,902-904,911,915,917,925,929,938
+apps/web/messages/en.json
+  h_b3eac5fd0698eb 5217,5231
+apps/web/messages/zh.json
+  h_b3eac5fd0698eb 4276,4303,4306,5217,5231,5241,5243-5244,5251
+apps/web/src/app-shell/CenterStage.tsx
+  h_b3eac5fd0698eb 1311-1344,1362-1369,1376,1428-1433,1436,1473
+apps/web/src/app-shell/LeftSidebarManagementCenter.tsx
+  h_b3eac5fd0698eb 84
+apps/web/src/app-shell/bootstrap/connection-target-lifecycle.ts
+  h_b3eac5fd0698eb 27,33,38,43
+apps/web/src/features/browser/components/BrowserContent.tsx
+  h_b3eac5fd0698eb 47-48,51-63,82-85
+apps/web/src/features/browser/components/BrowserTabBar.tsx
+  h_b3eac5fd0698eb 113-119,124-131
+apps/web/src/features/browser/components/RunScript.tsx
+  h_b3eac5fd0698eb 238-241,337,408
+apps/web/src/features/browser/components/morphing-tabs.tsx
+  h_b3eac5fd0698eb 385,766,768-771,786-787,791,824-838
+apps/web/src/features/browser/hooks/use-browser-state.ts
+  h_b3eac5fd0698eb 462-463
+apps/web/src/features/desktop-use/components/DesktopUseReadinessDialog.tsx
+  h_b3eac5fd0698eb 109-111,215-217
+apps/web/src/features/settings/store/experiment-settings-store.ts
+  h_b3eac5fd0698eb 120-121,175-185
+apps/web/src/features/workspace/components/KanbanManagementView.tsx
+  h_b3eac5fd0698eb 20,61-63
+crates/desktop-use/src/control.rs
+  h_b3eac5fd0698eb 1310
+crates/desktop-use/src/highlight.rs
+  h_b3eac5fd0698eb 114
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "a05d65b21a23e22ab658d3ef806554c4ac2ee0b6",
+  "prompts": {},
+  "humans": {
+    "h_b3eac5fd0698eb": {
+      "author": "lurunrun820 <lurunrun820@hellobike.com>"
+    }
+  }
+}
