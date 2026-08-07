@@ -66,18 +66,33 @@ export function buildWebStaticForDesktop(rootDir = defaultRootDir) {
   }
 
   try {
-    // Desktop static export: prefer webpack over Turbopack. Next 16.3 Turbopack
-    // production prerender fails on Windows with
+    // Next 16.3 Turbopack production prerender fails on Windows with
     // "Element type is invalid ... got: null" (digest 2587466649) on / and
-    // /_not-found while macOS/Linux succeed. Webpack is the stable path for
-    // multi-platform packaging.
+    // /_not-found. Use webpack only on win32; macOS/Linux keep Turbopack
+    // (default `next build`) for faster desktop static exports.
+    //
+    // Override: ATMOS_DESKTOP_WEB_BUNDLER=webpack|turbopack
+    //
+    // Do not pass `bun x --bun`. Forcing Next onto the Bun runtime breaks
+    // webpack page-data collection for App Router metadata routes (e.g. /icon.svg)
+    // with: "Expected CommonJS module to have a function wrapper".
+    const bundlerOverride = (process.env.ATMOS_DESKTOP_WEB_BUNDLER ?? "")
+      .trim()
+      .toLowerCase();
+    const useWebpack =
+      bundlerOverride === "webpack" ||
+      (bundlerOverride !== "turbopack" && process.platform === "win32");
+    const nextBuildArgs = useWebpack
+      ? ["x", "next", "build", "--webpack"]
+      : ["x", "next", "build"];
+    const bundlerLabel = useWebpack ? "webpack" : "turbopack";
     console.log(
-      "🔨 Building web static export (BUILD_TARGET=desktop, next build --webpack)...",
+      `🔨 Building web static export (BUILD_TARGET=desktop, next build${useWebpack ? " --webpack" : ""}, bundler=${bundlerLabel})...`,
     );
     run(
       rootDir,
       "bun",
-      ["x", "--bun", "next", "build", "--webpack"],
+      nextBuildArgs,
       {
         BUILD_TARGET: "desktop",
         NEXT_PUBLIC_BUILD_TARGET: "desktop",
