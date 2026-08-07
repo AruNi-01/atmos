@@ -1,0 +1,26 @@
+apps/web/src/features/diff/components/ChangesCodeView.tsx
+  h_5be255725524c8 10,15-16,40-41,200-201,204-210,212-215,767-774
+apps/web/src/features/diff/components/DiffWorktreeEditToolbar.tsx
+  h_5be255725524c8 1-119
+apps/web/src/features/diff/components/useDiffWorktreeEdit.tsx
+  h_5be255725524c8 1-317
+apps/web/src/features/settings/components/TerminalCursorAppearanceSettings.tsx
+  h_5be255725524c8 1-158
+apps/web/src/features/settings/components/TerminalSettingsSection.tsx
+  h_5be255725524c8 41,124,198
+crates/core-service/src/service/agent_hooks.rs
+  h_5be255725524c8 3,30
+crates/core-service/src/service/agent_hooks/attention.rs
+  h_5be255725524c8 1-318
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "2df44a0af946abdc7a32c7cd67b0b8a517194ab9",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
