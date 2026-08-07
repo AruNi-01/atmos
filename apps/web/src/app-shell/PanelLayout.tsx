@@ -294,7 +294,10 @@ export function PanelLayout({
       className={cn(
         "h-full flex flex-col",
         // Isolate left list layout/paint from center thrash (IMP-013).
-        "[contain:layout_paint]",
+        // Only when expanded: contain makes this panel the fixed containing
+        // block and clips paint, which zeros out the collapsed edge-hover peek
+        // trigger (right sidebar has no contain and still peeks correctly).
+        !isLeftCollapsed && "[contain:layout_paint]",
         !isDragging && "transition-[flex-grow,flex-shrink,basis] duration-300 ease-in-out",
         isLeftCollapsed && "min-w-0!"
       )}
