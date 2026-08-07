@@ -390,12 +390,24 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             error
         );
     }
-    if let Err(error) = runtime_manager::ensure_standalone_cli_on_startup().await {
-        warn!(
-            "Non-critical startup task failed: standalone Atmos CLI install: {}",
-            error
-        );
-    }
+    // Download/install of standalone CLI must not block API readiness (network can be slow).
+    // Settings > About can still install/update CLI on demand; this is best-effort background ensure.
+    tokio::spawn(async move {
+        match runtime_manager::ensure_standalone_cli_on_startup().await {
+            Ok(Some(version)) => {
+                info!("Standalone Atmos CLI ready: {}", version);
+            }
+            Ok(None) => {
+                debug!("Standalone Atmos CLI ensure finished with no version reported");
+            }
+            Err(error) => {
+                warn!(
+                    "Non-critical background task failed: standalone Atmos CLI install: {}",
+                    error
+                );
+            }
+        }
+    });
 
     let db_connection = DbConnection::new().await?;
     info!("Database connected");
