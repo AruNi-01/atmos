@@ -456,6 +456,25 @@ export function useBrowserState({
     });
   }, []);
 
+  const handleReorderBrowserTabs = useCallback((tabIds: string[]) => {
+    setBrowserState((current) => {
+      if (tabIds.length !== current.tabs.length) return current;
+      const byId = new Map(current.tabs.map((tab) => [tab.id, tab]));
+      const nextTabs = tabIds.flatMap((id) => {
+        const tab = byId.get(id);
+        return tab ? [tab] : [];
+      });
+      if (nextTabs.length !== current.tabs.length) return current;
+      if (nextTabs.every((tab, index) => tab.id === current.tabs[index]?.id)) {
+        return current;
+      }
+      return {
+        ...current,
+        tabs: nextTabs,
+      };
+    });
+  }, []);
+
   const pendingCommand = useBrowserTabCommandsStore(
     (state) => state.commandsByContext[browserContextId] ?? null,
   );
@@ -495,6 +514,7 @@ export function useBrowserState({
     handleOpenBrowserTab,
     handlePreviewTitleChange,
     handlePreviewIconChange,
+    handleReorderBrowserTabs,
     persistBrowserState,
     reloadBrowserStateFromPrefs,
     resetBrowserState,

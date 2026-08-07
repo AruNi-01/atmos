@@ -253,8 +253,6 @@ export function SortableTabGroupItem({
       <TooltipTrigger asChild>
         <div
           ref={setNodeRef}
-          role="button"
-          tabIndex={0}
           onClick={onSelect}
           onKeyDown={(event) => {
             if (event.key !== "Enter" && event.key !== " ") return;
@@ -273,6 +271,8 @@ export function SortableTabGroupItem({
           )}
           {...attributes}
           {...listeners}
+          role="button"
+          tabIndex={0}
         >
           <div
             ref={contentRef}
