@@ -468,7 +468,7 @@ impl RunLogTee {
         }
 
         for files in by_window.values_mut() {
-            files.sort_by(|a, b| b.0.cmp(&a.0)); // newest first
+            files.sort_by_key(|a| std::cmp::Reverse(a.0)); // newest first
             for (_, path) in files.iter().skip(MAX_ARCHIVES_PER_WINDOW) {
                 let _ = fs::remove_file(path);
             }
@@ -503,7 +503,7 @@ impl RunLogTee {
         if total <= MAX_TOTAL_BYTES {
             return;
         }
-        all.sort_by(|a, b| a.0.cmp(&b.0)); // oldest first
+        all.sort_by_key(|a| a.0); // oldest first
         for (_, len, path) in all {
             if total <= MAX_TOTAL_BYTES {
                 break;
