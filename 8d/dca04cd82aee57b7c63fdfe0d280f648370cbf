@@ -1,0 +1,18 @@
+crates/quota-usage/src/paths.rs
+  h_5be255725524c8 2-3,11-16
+crates/quota-usage/src/service.rs
+  h_5be255725524c8 97-99,112,125,131,154-156,159,163-168,194,249-250,427-432,442,454-455,566
+crates/quota-usage/src/tests.rs
+  h_5be255725524c8 69-107,110,150-269,272,294,298-299,329-330,338-339,349
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "8ddca04cd82aee57b7c63fdfe0d280f648370cbf",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
