@@ -203,8 +203,10 @@ export const useExperimentSettingsStore = create<ExperimentSettingsState>((set, 
         } catch {
           // Keep loaded false so callers can retry (e.g. after WS reconnect).
         } finally {
-          // Do not clear a newer generation's inflight promise.
-          if (loadInflight === promise) {
+          // Clear inflight only if this request's epoch still owns the generation.
+          // Equiv. to reference equality: reset bumps loadEpoch and nulls loadInflight,
+          // so a stale finally must not clear a newer generation's promise.
+          if (requestEpoch === loadEpoch) {
             loadInflight = null;
           }
         }
