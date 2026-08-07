@@ -1,0 +1,16 @@
+apps/web/src/features/settings/store/experiment-settings-store.test.ts
+  h_b3eac5fd0698eb 1-19,24,94-159
+apps/web/src/features/settings/store/experiment-settings-store.ts
+  h_b3eac5fd0698eb 139-140,178-179,195-196,199-200,206-209,212,214
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "550731580fa94ea0042adfc6702280d20fcf0190",
+  "prompts": {},
+  "humans": {
+    "h_b3eac5fd0698eb": {
+      "author": "lurunrun820 <lurunrun820@hellobike.com>"
+    }
+  }
+}
