@@ -5214,7 +5214,7 @@
       },
       "footer": {
         "title": "Footer layout",
-        "description": "Choose which status strips appear in the app footer. When every item below is off and ACP Chat is disabled in Experiments, the footer is hidden.",
+        "description": "Choose which status strips appear in the app footer. When every item below is off and ACP Chat is disabled in Layout, the footer is hidden.",
         "enabledCount": "{count} enabled",
         "hidden": "Hidden",
         "wsConnectionTitle": "WebSocket connection status",
@@ -5228,7 +5228,7 @@
         "codeAgent": "Code Agent",
         "agentStatusDescriptionSuffix": "so Atmos can receive their state.",
         "acpChatTitle": "ACP Agent Chat entry",
-        "acpChatDescription": "Opens the floating ACP chat panel from the footer when enabled. Turn it on or off in Experiments, not here.",
+        "acpChatDescription": "Opens the floating ACP chat panel from the footer when enabled. Turn it on or off in Layout, not here.",
         "enabledInExperiments": "Enabled in Experiments",
         "disabledInExperiments": "Disabled in Experiments",
         "openExperiments": "Open Experiments",

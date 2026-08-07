@@ -117,6 +117,8 @@ export interface ExperimentPrefs {
 interface ExperimentSettingsState extends ExperimentPrefs {
   loaded: boolean;
   loadSettings: () => Promise<void>;
+  /** Drop cached prefs so the next Computer re-hydrates function_settings. */
+  resetForConnectionChange: () => void;
   /**
    * Toggle an item for a given placement tab.
    * - enabled=true: show the item at this placement (moves from the other tab if needed)
@@ -169,6 +171,17 @@ export const useExperimentSettingsStore = create<ExperimentSettingsState>((set, 
     ...deriveFlags(defaultItems),
     centerWikiTabEnabled: false,
     loaded: false,
+
+    resetForConnectionChange: () => {
+      loadInflight = null;
+      const nextDefaults = createDefaultManagementCenterItems();
+      set({
+        managementCenterItems: nextDefaults,
+        ...deriveFlags(nextDefaults),
+        centerWikiTabEnabled: false,
+        loaded: false,
+      });
+    },
 
     loadSettings: async () => {
       if (get().loaded) return;

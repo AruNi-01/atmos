@@ -382,6 +382,7 @@ export function MorphingTabs({
   );
   const dragRef = useRef<DragSession | null>(null);
   const dragAnimationRef = useRef<ReturnType<typeof animateValue> | null>(null);
+  const settleRafRef = useRef<number | null>(null);
   const surfaceAnimationRef = useRef<ReturnType<typeof animateValue> | null>(
     null,
   );
@@ -762,7 +763,12 @@ export function MorphingTabs({
         if (!reduce) {
           await new Promise<void>((resolve) => {
             const startedAt = performance.now();
+            let rafId = 0;
             const check = () => {
+              if (dragAnimationRef.current !== controls) {
+                resolve();
+                return;
+              }
               const settled = next.every((id, index) => {
                 if (id === drag.id) return true;
                 const position = tabPositionRefs.current[id];
@@ -777,10 +783,12 @@ export function MorphingTabs({
                 resolve();
                 return;
               }
-              requestAnimationFrame(check);
+              rafId = requestAnimationFrame(check);
+              settleRafRef.current = rafId;
             };
             check();
           });
+          settleRafRef.current = null;
         }
 
         if (dragAnimationRef.current !== controls) return;
@@ -812,6 +820,21 @@ export function MorphingTabs({
       window.removeEventListener("pointercancel", finishFromWindow, true);
     };
   }, [finishDrag]);
+
+  // Cancel drag animation / settle rAF if MorphingTabs unmounts mid-drag.
+  useEffect(() => {
+    return () => {
+      if (settleRafRef.current != null) {
+        cancelAnimationFrame(settleRafRef.current);
+        settleRafRef.current = null;
+      }
+      dragAnimationRef.current?.stop();
+      dragAnimationRef.current = null;
+      surfaceAnimationRef.current?.stop();
+      surfaceAnimationRef.current = null;
+      dragRef.current = null;
+    };
+  }, []);
 
   const moveBy = useCallback(
     (id: string, direction: -1 | 1) => {

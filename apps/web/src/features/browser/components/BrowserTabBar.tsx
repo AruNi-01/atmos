@@ -110,25 +110,25 @@ function getTabLabel(
 }
 
 function TabFavicon({ faviconUrl }: { faviconUrl?: string }) {
-  if (!faviconUrl) {
+  const [failed, setFailed] = React.useState(false);
+
+  React.useEffect(() => {
+    setFailed(false);
+  }, [faviconUrl]);
+
+  if (!faviconUrl || failed) {
     return <Globe className="size-3.5 text-muted-foreground/70" />;
   }
 
   return (
-    <>
-      <Globe className="size-3.5 text-muted-foreground/70 hidden" />
-      {/* eslint-disable-next-line @next/next/no-img-element -- Dynamic external favicons are tiny and may not be configured for next/image domains. */}
-      <img
-        key={faviconUrl}
-        src={faviconUrl}
-        alt=""
-        className="size-3.5 rounded-[2px]"
-        onError={(event) => {
-          event.currentTarget.style.display = "none";
-          event.currentTarget.previousElementSibling?.classList.remove("hidden");
-        }}
-      />
-    </>
+    // eslint-disable-next-line @next/next/no-img-element -- Dynamic external favicons are tiny and may not be configured for next/image domains.
+    <img
+      key={faviconUrl}
+      src={faviconUrl}
+      alt=""
+      className="size-3.5 rounded-[2px]"
+      onError={() => setFailed(true)}
+    />
   );
 }
 

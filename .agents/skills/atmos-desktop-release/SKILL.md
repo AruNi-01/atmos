@@ -147,7 +147,7 @@ For version `V` / tag `desktop-electron-V` after a code fix is on the release co
 1. Fix code; keep `apps/desktop-electron/package.json` at `V` (do not bump).
 2. Update `releasenotes/Atmos Desktop V.md` if the narrative should mention the packaging fix (optional for pure CI retries).
 3. Delete the bad GitHub Release: `gh release delete desktop-electron-V --yes`
-4. Delete remote + local tag, recreate annotated tag on the fixed commit, push tag (triggers workflow again).
+4. Delete remote + local tag, recreate annotated tag on the **verified fix commit SHA** (not an implicit `HEAD` after a stale checkout), push tag (triggers workflow again). See `references/failure-recovery.md` for the `FIX_SHA` recipe.
 5. Watch `release-desktop-electron.yml` to success; verify assets under the **same** tag.
 
 Do **not** run the default release helper with a new version string if the intent is same-version retag — that helper always bumps and creates `desktop-electron-<new>`.

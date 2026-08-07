@@ -4273,7 +4273,7 @@
               "label": "ACP Agent Chat 入口"
             },
             "workspacesManagementCenter": {
-              "label": "Workspaces（Management Center）"
+              "label": "工作区（Management Center）"
             },
             "skillsManagementCenter": {
               "label": "Skills（Management Center）"
@@ -4300,10 +4300,10 @@
               "label": "New Workspace（Management Center）"
             },
             "managementCenterOutside": {
-              "label": "Management Center Outside 展示"
+              "label": "Management Center 外侧展示"
             },
             "managementCenterInside": {
-              "label": "Management Center Inside 展示"
+              "label": "Management Center 内侧展示"
             }
           },
           "editor": {
@@ -5214,7 +5214,7 @@
       },
       "footer": {
         "title": "页脚布局",
-        "description": "选择应用页脚中显示哪些状态条。若下方所有项目都关闭，且 Experiments 中也关闭了 ACP Chat，则页脚会隐藏。",
+        "description": "选择应用页脚中显示哪些状态条。若下方所有项目都关闭，且布局设置中也关闭了 ACP Chat，则页脚会隐藏。",
         "enabledCount": "已启用 {count} 项",
         "hidden": "已隐藏",
         "wsConnectionTitle": "WebSocket 连接状态",
@@ -5228,7 +5228,7 @@
         "codeAgent": "Code Agent",
         "agentStatusDescriptionSuffix": "中为每个 Agent 安装 hooks，以便 Atmos 接收其状态。",
         "acpChatTitle": "ACP Agent Chat 入口",
-        "acpChatDescription": "启用后可从页脚打开浮动 ACP 聊天面板。开关在 Experiments 中控制，不在这里控制。",
+        "acpChatDescription": "启用后可从页脚打开浮动 ACP 聊天面板。开关在布局设置中控制，不在这里控制。",
         "enabledInExperiments": "已在 Experiments 中启用",
         "disabledInExperiments": "已在 Experiments 中关闭",
         "openExperiments": "打开 Experiments",
@@ -5238,17 +5238,17 @@
       },
       "managementCenter": {
         "title": "Management Center",
-        "description": "为每个入口设置开关。开启后可在开关左侧选择 Outside（Management Center 下方的图标+名称列表）或 Inside（管理中心网格）。关闭后不显示对应入口。",
+        "description": "为每个入口设置开关。开启后可在开关左侧选择外侧（Management Center 下方的图标+名称列表）或内侧（管理中心网格）。关闭后不显示对应入口。",
         "tabs": {
-          "outside": "Outside",
-          "inside": "Inside"
+          "outside": "外侧",
+          "inside": "内侧"
         },
         "experimentalBadge": "实验性",
         "enabledCount": "已启用 {count} 项",
         "allHidden": "全部隐藏",
         "items": {
           "workspaces": {
-            "title": "Workspaces",
+            "title": "工作区",
             "description": "在 Management Center 中管理所有工作区。"
           },
           "skills": {

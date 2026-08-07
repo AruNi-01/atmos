@@ -44,15 +44,23 @@ export function BrowserContent({
       <BrowserToolbar {...toolbarProps} />
     </div>
   );
+  // Keep viewport as a stable last sibling so toggling chrome hide does not
+  // re-parent BrowserViewport (which remounts the guest webview).
   const viewport = <BrowserViewport {...viewportProps} />;
 
-  // Morphing tabs own the rail + content surface (toolbar + viewport).
-  // When chrome is hover-hidden, only the rail+toolbar collapse; viewport stays.
-  const morphingChrome = browserTabBarProps ? (
-    <BrowserTabBar {...browserTabBarProps} className="h-full min-h-0 flex-1">
-      {toolbar}
-      <div className="flex min-h-0 flex-1 flex-col">{viewport}</div>
-    </BrowserTabBar>
+  const tabBarChrome = browserTabBarProps ? (
+    isChromeHidden ? (
+      <HiddenPreviewChrome
+        key={toolbarHoverSuppressed ? "suppressed" : "ready"}
+        onNativeSurfaceChromeLayoutChange={onNativeSurfaceChromeLayoutChange}
+        reserveNativeSurfaceSpace={shouldReserveNativeChromeSpace}
+        toolbarHoverSuppressed={toolbarHoverSuppressed}
+      >
+        <BrowserTabBar {...browserTabBarProps}>{toolbar}</BrowserTabBar>
+      </HiddenPreviewChrome>
+    ) : (
+      <BrowserTabBar {...browserTabBarProps}>{toolbar}</BrowserTabBar>
+    )
   ) : null;
 
   const content = (
@@ -71,23 +79,10 @@ export function BrowserContent({
       )}
     >
       {browserTabBarProps ? (
-        isChromeHidden ? (
-          <>
-            <HiddenPreviewChrome
-              key={toolbarHoverSuppressed ? "suppressed" : "ready"}
-              onNativeSurfaceChromeLayoutChange={onNativeSurfaceChromeLayoutChange}
-              reserveNativeSurfaceSpace={shouldReserveNativeChromeSpace}
-              toolbarHoverSuppressed={toolbarHoverSuppressed}
-            >
-              <BrowserTabBar {...browserTabBarProps}>
-                {toolbar}
-              </BrowserTabBar>
-            </HiddenPreviewChrome>
-            <div className="min-h-0 flex-1">{viewport}</div>
-          </>
-        ) : (
-          morphingChrome
-        )
+        <>
+          {tabBarChrome}
+          <div className="flex min-h-0 flex-1 flex-col">{viewport}</div>
+        </>
       ) : (
         <>
           {isChromeHidden ? (

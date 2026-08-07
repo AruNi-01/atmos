@@ -17,10 +17,7 @@ import { functionSettingsApi } from "@/api/ws-api";
 import { useComputerQueryScope } from "@/api/query/query-scope";
 import { isComputerQueryScopeCurrent } from "@/api/ws/request";
 import { WorkspaceKanbanView } from "@/app-shell/sidebar/WorkspaceKanbanView";
-import {
-  EMPTY_WORKSPACE_KANBAN_FILTERS,
-  parseWorkspaceKanbanFilters,
-} from "@/app-shell/left-sidebar-settings";
+import { EMPTY_WORKSPACE_KANBAN_FILTERS } from "@/app-shell/left-sidebar-settings";
 import type { WorkspaceKanbanFilters } from "@/app-shell/sidebar/WorkspaceKanbanFilterMenu";
 import type { SidebarGroupingMode } from "@/app-shell/sidebar/workspace-status";
 
@@ -61,13 +58,15 @@ export function KanbanManagementView() {
   const [filters, setFilters] = useState<WorkspaceKanbanFilters>(EMPTY_WORKSPACE_KANBAN_FILTERS);
   const [groupingMode, setGroupingMode] = useState<SidebarGroupingMode>("status");
 
+  // Only hydrate grouping_mode here. Filters are owned by WorkspaceKanbanView's
+  // workspace_kanban_view load — setting them from both places races and can
+  // clobber the child's hydrate (or user edits) when this request finishes last.
   useEffect(() => {
     let cancelled = false;
     void functionSettingsApi
       .get()
       .then((settings) => {
         if (cancelled) return;
-        setFilters(parseWorkspaceKanbanFilters(settings));
         const mode = settings.workspace_sidebar?.grouping_mode;
         if (
           mode === "project" ||

@@ -63,6 +63,8 @@ let cachedSettingsBounds: { rect: Rect; at: number } | null = null;
 /** In-flight fly animation frame handle. */
 let flyAnimTimer: ReturnType<typeof setTimeout> | null = null;
 let flyAnimActive = false;
+/** Monotonic token so a reopened overlay cancels the previous fly IIFE. */
+let flyGeneration = 0;
 /** Optional fly start (Grant button screen coords) for the next open. */
 let pendingSourceOrigin: { x: number; y: number } | null = null;
 
@@ -118,7 +120,7 @@ function buildInstruction(
   }
   const goal =
     purpose === "screen_recording"
-      ? "to allow Screenshots"
+      ? "to allow Screen Recording"
       : "to allow Accessibility";
   return `Drag ${hostAppName} to the list above ${goal}`;
 }
@@ -804,12 +806,18 @@ function easeOutCubic(t: number): number {
   return 1 - (1 - t) ** 3;
 }
 
-function stopFlyAnimation(): void {
+function clearFlyFrameTimer(): void {
   if (flyAnimTimer) {
     clearTimeout(flyAnimTimer);
     flyAnimTimer = null;
   }
+}
+
+function stopFlyAnimation(): void {
+  clearFlyFrameTimer();
   flyAnimActive = false;
+  // Invalidate any in-flight fly IIFE (wait / upgrade / resnap loops).
+  flyGeneration += 1;
 }
 
 /**
@@ -838,13 +846,16 @@ function flyFromAtmosToSettings(win: BrowserWindow): void {
   const size = win.getSize();
   const ww = size[0] ?? PANEL_WIDTH;
   const wh = size[1] ?? PANEL_HEIGHT;
+  // Capture generation after stopFlyAnimation bumped it so this run is current.
+  const generation = flyGeneration;
 
   void (async () => {
-    if (win.isDestroyed()) return;
+    const isStale = () => generation !== flyGeneration || win.isDestroyed();
+    if (isStale()) return;
 
     // 1) Hold at the button while Settings finishes opening; resolve target.
     const settings = await waitForSystemSettingsBounds(BOUNDS_WAIT_MS);
-    if (win.isDestroyed()) return;
+    if (isStale()) return;
 
     let end = computePanelPosition(settings, ww, wh, start);
     let endResolved = Boolean(settings);
@@ -854,7 +865,7 @@ function flyFromAtmosToSettings(win: BrowserWindow): void {
       if (endResolved) return;
       for (let i = 0; i < 6; i++) {
         await new Promise((r) => setTimeout(r, 200));
-        if (win.isDestroyed() || !flyAnimActive) return;
+        if (isStale() || !flyAnimActive) return;
         const again = await getSystemSettingsWindowBounds({
           bypassCache: true,
         });
@@ -872,8 +883,9 @@ function flyFromAtmosToSettings(win: BrowserWindow): void {
 
     await new Promise<void>((resolve) => {
       const tick = () => {
-        if (win.isDestroyed()) {
-          stopFlyAnimation();
+        if (isStale()) {
+          clearFlyFrameTimer();
+          flyAnimActive = false;
           resolve();
           return;
         }
@@ -887,19 +899,22 @@ function flyFromAtmosToSettings(win: BrowserWindow): void {
           flyAnimTimer = setTimeout(tick, FLY_FRAME_MS);
           return;
         }
-        stopFlyAnimation();
+        // Natural end of this generation — do not bump flyGeneration.
+        clearFlyFrameTimer();
+        flyAnimActive = false;
         resolve();
       };
       flyAnimTimer = setTimeout(tick, FLY_FRAME_MS);
     });
 
     void upgrade;
-    if (win.isDestroyed()) return;
+    if (isStale()) return;
 
     // 3) Burst re-snap: Settings often finishes layout after the fly ends.
     const landDeadline = Date.now() + LANDING_RESNAP_MS;
-    while (!win.isDestroyed() && Date.now() < landDeadline) {
+    while (!isStale() && Date.now() < landDeadline) {
       const rect = await getSystemSettingsWindowBounds({ bypassCache: true });
+      if (isStale()) return;
       if (rect) {
         const pos = computePanelPosition(rect, ww, wh, start);
         applyPanelPosition(win, pos.x, pos.y, true);
@@ -907,10 +922,11 @@ function flyFromAtmosToSettings(win: BrowserWindow): void {
         // One good snap is enough if Settings is stable; keep a couple more
         // in case the pane is still resizing.
         await new Promise((r) => setTimeout(r, LANDING_RESNAP_EVERY_MS));
+        if (isStale()) return;
         const rect2 = await getSystemSettingsWindowBounds({
           bypassCache: true,
         });
-        if (rect2 && !win.isDestroyed()) {
+        if (rect2 && !isStale()) {
           const pos2 = computePanelPosition(rect2, ww, wh, start);
           applyPanelPosition(win, pos2.x, pos2.y, true);
         }
@@ -919,7 +935,7 @@ function flyFromAtmosToSettings(win: BrowserWindow): void {
       await new Promise((r) => setTimeout(r, LANDING_RESNAP_EVERY_MS));
     }
 
-    if (!win.isDestroyed()) startPositionPoll(win);
+    if (!isStale()) startPositionPoll(win);
   })();
 }
 

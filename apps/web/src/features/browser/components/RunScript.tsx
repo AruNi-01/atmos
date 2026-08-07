@@ -235,6 +235,10 @@ export const RunScript: React.FC<RunScriptProps> = ({ workspaceId, projectId, is
   }, []);
 
   const handleRunScript = React.useCallback(async (force: boolean = false) => {
+    // RightSidebar sets isActive=false while deferred URL context is unsettled.
+    // Running during that window can load/send against the prior project.
+    if (!isActive) return;
+
     // Scripts are project-scoped. Terminal attaches via workspaceId || projectId
     // (project main path is a valid context), so do not require both IDs.
     if (!projectId) {
@@ -330,6 +334,7 @@ export const RunScript: React.FC<RunScriptProps> = ({ workspaceId, projectId, is
     activeTabId,
     currentProjectPath,
     errorTitle,
+    isActive,
     noProjectDescription,
     noProjectTitle,
     noRunScriptDescription,
@@ -400,6 +405,7 @@ export const RunScript: React.FC<RunScriptProps> = ({ workspaceId, projectId, is
 
   const isActiveRunBusy = Boolean(runningScripts[activeTabId]);
   const canStartRun =
+    isActive &&
     Boolean(projectId) &&
     Boolean(currentProjectPath) &&
     Boolean(readyTabs[activeTabId]) &&

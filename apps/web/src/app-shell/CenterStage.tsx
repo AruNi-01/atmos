@@ -1308,6 +1308,40 @@ const CenterStage: React.FC = () => {
     setUrlParams,
   ]);
 
+  const buildTerminalCloseConfirmPayload = React.useCallback(
+    (
+      contextId: string,
+      tabId: string,
+      tabPanes: ReturnType<typeof getTerminalTabPanes>,
+      tmuxWindows: Awaited<ReturnType<typeof systemApi.listTmuxWindows>>["windows"] | null,
+    ) => {
+      const store = useTerminalStore.getState();
+      const tab = store.getTerminalTabs(contextId).find((item) => item.id === tabId);
+      const configuredAgents = terminalQuickOpenAgents.map(({ agent }) => agent);
+      const scopeKey = getScopeKey(contextId, tabId);
+      const title =
+        resolveTerminalCenterTabPresentation({
+          fallbackTitle: tab?.title || t("fallbackTerminalTitle"),
+          customTitle: tab?.customTitle,
+          panes: store.getPanes(contextId, tabId),
+          layout: store.getLayout(contextId, tabId),
+          lastActivePaneId: store.workspaceActivePaneIds[scopeKey] ?? null,
+          maximizedPaneId: store.getMaximizedTerminalId(contextId, tabId),
+          configuredAgents,
+          showAgentName:
+            useAgentTitleSettingsStore.getState().showAgentNameInTerminalTitles,
+        }).displayTitle ||
+        tab?.customTitle ||
+        tab?.title ||
+        t("fallbackTerminalTitle");
+      const runningPaneNames = tabPanes
+        .filter((pane) => isTerminalPaneNonIdle(pane, tmuxWindows))
+        .map((pane) => getTerminalCloseConfirmName(pane, configuredAgents));
+      return { tabId, title, runningPaneNames };
+    },
+    [t, terminalQuickOpenAgents],
+  );
+
   const handleCloseTerminalCenterTab = React.useCallback(async (
     tabId: string,
     options?: { force?: boolean },
@@ -1325,41 +1359,24 @@ const CenterStage: React.FC = () => {
       }
 
       if (hasNonIdleTerminalPanes(tabPanes, tmuxWindows)) {
-        const store = useTerminalStore.getState();
-        const tab = store.getTerminalTabs(effectiveContextId)
-          .find((item) => item.id === tabId);
-        const configuredAgents = terminalQuickOpenAgents.map(({ agent }) => agent);
-        const scopeKey = getScopeKey(effectiveContextId, tabId);
-        const title =
-          resolveTerminalCenterTabPresentation({
-            fallbackTitle: tab?.title || t("fallbackTerminalTitle"),
-            customTitle: tab?.customTitle,
-            panes: store.getPanes(effectiveContextId, tabId),
-            layout: store.getLayout(effectiveContextId, tabId),
-            lastActivePaneId: store.workspaceActivePaneIds[scopeKey] ?? null,
-            maximizedPaneId: store.getMaximizedTerminalId(effectiveContextId, tabId),
-            configuredAgents,
-            showAgentName:
-              useAgentTitleSettingsStore.getState().showAgentNameInTerminalTitles,
-          }).displayTitle ||
-          tab?.customTitle ||
-          tab?.title ||
-          t("fallbackTerminalTitle");
-        const runningPaneNames = tabPanes
-          .filter((pane) => isTerminalPaneNonIdle(pane, tmuxWindows))
-          .map((pane) => getTerminalCloseConfirmName(pane, configuredAgents));
-        setTerminalTabCloseConfirm({ tabId, title, runningPaneNames });
+        setTerminalTabCloseConfirm(
+          buildTerminalCloseConfirmPayload(
+            effectiveContextId,
+            tabId,
+            tabPanes,
+            tmuxWindows,
+          ),
+        );
         return;
       }
     }
 
     performCloseTerminalCenterTab(tabId);
   }, [
+    buildTerminalCloseConfirmPayload,
     effectiveContextId,
     getTerminalTabPanes,
     performCloseTerminalCenterTab,
-    t,
-    terminalQuickOpenAgents,
   ]);
 
   const handleConfirmCloseTerminalCenterTab = React.useCallback(() => {
@@ -1408,33 +1425,15 @@ const CenterStage: React.FC = () => {
         if (!effectiveContextId) continue;
         const tabPanes = getTerminalTabPanes(effectiveContextId, tab.value);
         if (hasNonIdleTerminalPanes(tabPanes, tmuxWindows)) {
-          const store = useTerminalStore.getState();
-          const source = store.getTerminalTabs(effectiveContextId).find((item) => item.id === tab.value);
-          const configuredAgents = terminalQuickOpenAgents.map(({ agent }) => agent);
-          const scopeKey = getScopeKey(effectiveContextId, tab.value);
-          const title =
-            resolveTerminalCenterTabPresentation({
-              fallbackTitle: source?.title || t("fallbackTerminalTitle"),
-              customTitle: source?.customTitle,
-              panes: store.getPanes(effectiveContextId, tab.value),
-              layout: store.getLayout(effectiveContextId, tab.value),
-              lastActivePaneId: store.workspaceActivePaneIds[scopeKey] ?? null,
-              maximizedPaneId: store.getMaximizedTerminalId(effectiveContextId, tab.value),
-              configuredAgents,
-              showAgentName:
-                useAgentTitleSettingsStore.getState().showAgentNameInTerminalTitles,
-            }).displayTitle ||
-            source?.customTitle ||
-            source?.title ||
-            t("fallbackTerminalTitle");
-          const runningPaneNames = tabPanes
-            .filter((pane) => isTerminalPaneNonIdle(pane, tmuxWindows))
-            .map((pane) => getTerminalCloseConfirmName(pane, configuredAgents));
+          const payload = buildTerminalCloseConfirmPayload(
+            effectiveContextId,
+            tab.value,
+            tabPanes,
+            tmuxWindows,
+          );
           confirmQueue.push({
             kind: "terminal",
-            tabId: tab.value,
-            title,
-            runningPaneNames,
+            ...payload,
           });
         } else {
           performCloseTerminalCenterTab(tab.value);
@@ -1471,14 +1470,13 @@ const CenterStage: React.FC = () => {
     advancePendingCloseQueue();
   }, [
     advancePendingCloseQueue,
+    buildTerminalCloseConfirmPayload,
     closeFile,
     effectiveContextId,
     getTerminalTabPanes,
     handleCloseBrowserTab,
     handleCloseGithubTab,
     performCloseTerminalCenterTab,
-    t,
-    terminalQuickOpenAgents,
   ]);
 
 

@@ -52,6 +52,12 @@ node -p "require('./apps/desktop-electron/package.json').version"
 git status
 git log -1 --oneline
 
+# Resolve and verify the fixed commit SHA — never tag a vague HEAD after a
+# stale checkout or wrong branch.
+FIX_SHA=$(git rev-parse HEAD)
+git log -1 --oneline "$FIX_SHA"
+# Confirm FIX_SHA is the commit you intend to ship under V.
+
 # 2. Delete GitHub Release (draft or prerelease OK)
 gh release delete "$TAG" --yes
 
@@ -59,8 +65,8 @@ gh release delete "$TAG" --yes
 git push origin ":refs/tags/${TAG}"
 git tag -d "$TAG" 2>/dev/null || true
 
-# 4. Recreate annotated tag on the fixed commit (usually HEAD of main)
-git tag -a "$TAG" -m "Atmos Desktop Electron ${V}"
+# 4. Recreate annotated tag on the verified fix commit
+git tag -a "$TAG" "$FIX_SHA" -m "Atmos Desktop Electron ${V}"
 git push origin "$TAG"
 
 # 5. Confirm workflow
@@ -115,7 +121,7 @@ GitHub → Actions → **Desktop Electron CI & Release** → Run workflow:
 | `ref` | branch or SHA to test |
 | `platform` | `all` or a single runner |
 | `create_release` | **false** |
-| `prerelease` | n/a when not creating |
+| `prerelease` | omit (unused when not creating a release) |
 
 Or CLI (adjust inputs to match the workflow schema):
 
@@ -123,8 +129,7 @@ Or CLI (adjust inputs to match the workflow schema):
 gh workflow run release-desktop-electron.yml \
   -f ref=main \
   -f platform=all \
-  -f create_release=false \
-  -f prerelease=true
+  -f create_release=false
 ```
 
 ### Local packaging smoke (common failure surface)
@@ -141,21 +146,22 @@ bun test --cwd apps/desktop-electron
 
 ## 5. Clean up abandoned failed releases
 
-After a good cut (or after same-version retag), remove dead drafts so the Releases page stays clear:
+After a good cut (or after same-version retag), remove **failed siblings only** so the Releases page stays clear. Do **not** delete the successful retagged version (e.g. if you retagged `beta.1` onto a good SHA, keep `beta.1`).
 
 ```bash
-# Example: beta.1 and beta.2 failed; beta.3 (or retagged beta.1) is good
-gh release delete desktop-electron-2026.8.6-beta.1 --yes
+# Example: beta.1 failed and was abandoned; beta.2 failed; beta.3 is the good cut
+# (If beta.1 was successfully retagged onto the fix, keep beta.1 — delete only failed tags.)
+gh release delete desktop-electron-2026.8.6-beta.1 --yes   # only if beta.1 is still a failed cut
 gh release delete desktop-electron-2026.8.6-beta.2 --yes
 
-# Optional: delete unused tags too
+# Optional: delete unused tags for those failed siblings too
 git push origin :refs/tags/desktop-electron-2026.8.6-beta.1
 git push origin :refs/tags/desktop-electron-2026.8.6-beta.2
 git tag -d desktop-electron-2026.8.6-beta.1 2>/dev/null || true
 git tag -d desktop-electron-2026.8.6-beta.2 2>/dev/null || true
 ```
 
-Keep tags that still matter for `compare` links or audit history.
+Keep tags that still matter for the good release, `compare` links, or audit history.
 
 ---
 

@@ -459,6 +459,8 @@ export function useBrowserState({
   const handleReorderBrowserTabs = useCallback((tabIds: string[]) => {
     setBrowserState((current) => {
       if (tabIds.length !== current.tabs.length) return current;
+      // Reject duplicates — length checks alone would drop unlisted tabs.
+      if (new Set(tabIds).size !== tabIds.length) return current;
       const byId = new Map(current.tabs.map((tab) => [tab.id, tab]));
       const nextTabs = tabIds.flatMap((id) => {
         const tab = byId.get(id);

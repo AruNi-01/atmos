@@ -8,7 +8,6 @@ use crate::control::{DriveAction, DriveRequest};
 ///
 /// Screenshot / highlight / session-end are handled outside this builder
 /// (capture path, overlay helper, end_session).
-
 fn build_clipboard_call(req: &DriveRequest) -> Result<(&'static str, Value), String> {
     match req.action {
         DriveAction::ClipboardRead => {

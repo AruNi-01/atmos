@@ -81,7 +81,7 @@ export function LeftSidebarManagementCenterOutside({
 
   return (
     <nav
-      className="flex shrink-0 flex-col gap-0.5 border-b border-sidebar-border px-2 py-1.5"
+      className="flex shrink-0 flex-col gap-0.5 px-2 py-1.5"
       aria-label={t("managementCenter.title")}
     >
       {items.map((item) => (

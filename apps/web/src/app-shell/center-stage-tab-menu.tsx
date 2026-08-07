@@ -307,7 +307,6 @@ export function CenterStageFileTabContextMenu({
   setTabContextMenu,
   openFiles,
   basePath,
-  anchorPosition = "fixed",
   onCloseFile,
   closeFilesSafely,
 }: {
@@ -315,12 +314,9 @@ export function CenterStageFileTabContextMenu({
   setTabContextMenu: (value: FileTabContextMenuState) => void;
   openFiles: OpenFile[];
   basePath?: string;
-  anchorPosition?: "fixed" | "absolute";
   onCloseFile: (file: OpenFile) => void;
   closeFilesSafely: (files: OpenFile[]) => void;
 }) {
-  void anchorPosition;
-
   const orderedTabs = React.useMemo<CenterTabDescriptor[]>(
     () =>
       openFiles.map((file) => ({

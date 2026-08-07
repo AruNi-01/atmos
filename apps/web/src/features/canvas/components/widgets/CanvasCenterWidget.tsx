@@ -404,7 +404,6 @@ function CanvasCenterWidgetBody({
         tabContextMenu={tabContextMenu}
         setTabContextMenu={setTabContextMenu}
         openFiles={tabContextMenuFiles}
-        anchorPosition="absolute"
         basePath={source.context.repoPath ?? source.context.localPath}
         onCloseFile={closeFileTabFromMenu}
         closeFilesSafely={closeFileTabsSafely}
