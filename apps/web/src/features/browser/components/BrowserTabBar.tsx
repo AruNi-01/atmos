@@ -205,7 +205,9 @@ export function BrowserTabBar({
       onAdd={onAddTab}
       addAriaLabel={t("newTab")}
       ariaLabel={t("preview")}
-      railInsetLeft={needsTrafficLightsInset ? 92 : 0}
+      // Slightly tighter than main Header pl-[92px] — dense tab rail + traffic
+      // lights leave a shorter gap before the first tab in standalone windows.
+      railInsetLeft={needsTrafficLightsInset ? 80 : 0}
       trailing={trailing}
       className={className}
       railProps={{
