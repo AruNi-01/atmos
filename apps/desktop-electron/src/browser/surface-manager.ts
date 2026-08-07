@@ -15,7 +15,6 @@ import { createRequire } from "node:module";
 import { pathToFileURL } from "node:url";
 import type { AppState } from "../app-state.js";
 import { appWindowBranding } from "../branding.js";
-import { areDevToolsAllowed } from "../devtools-policy.js";
 import type { PreviewBounds } from "../types.js";
 import {
   buildOpenTabEventPayload,
@@ -837,9 +836,11 @@ export class BrowserSurfaceManager {
     );
   }
 
+  /**
+   * Open page DevTools for an Atmos Browser guest.
+   * Always allowed in release — only Atmos shell DevTools are gated.
+   */
   openDevtools(sessionId: string): void {
-    if (!areDevToolsAllowed()) return;
-
     const s = this.surfaces.get(sessionId);
     if (!s) throw new Error("browser surface not open");
     const wc = this.webContentsFor(s);
