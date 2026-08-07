@@ -7,20 +7,17 @@ import {
   type CodeViewHandle,
   type CreateEditor,
 } from '@pierre/diffs/react';
-import type { CodeViewItem, FileContents, SelectedLineRange } from '@pierre/diffs';
+import type { CodeViewItem, SelectedLineRange } from '@pierre/diffs';
 import { parseDiffFromFile } from '@pierre/diffs';
 import { Editor } from '@pierre/diffs/edit';
 import { useTranslations } from 'next-intl';
 import { useTheme } from 'next-themes';
-import { Loader2, RotateCcw, Save, SquarePen } from 'lucide-react';
-import { AnimatePresence, motion } from 'motion/react';
-import { toastManager } from '@workspace/ui';
-import { fsApi, gitApi } from '@/api/ws-api';
+import { Loader2 } from 'lucide-react';
+import { gitApi } from '@/api/ws-api';
 import { useGitStore } from '@/features/git/store/use-git-store';
 import {
   useGitChangedFilesQuery,
   GIT_WORKTREE_PARAMS,
-  invalidateGitQueries,
 } from '@/features/git/hooks/use-git-changed-files-query';
 import { useGitStatusQuery } from '@/features/git/hooks/use-git-status-query';
 import { computeCompareParams, selectCompareChangedFiles, isCompareQueryEnabled, EMPTY_CHANGED_FILES } from '@/features/git/lib/git-query-options';
@@ -40,13 +37,13 @@ import {
   useDiffPromptStash,
   type LoadedDiffContents,
 } from '@/features/diff/components/useDiffPromptStash';
+import { DiffWorktreeEditToolbar } from '@/features/diff/components/DiffWorktreeEditToolbar';
+import { useDiffWorktreeEdit } from '@/features/diff/components/useDiffWorktreeEdit';
 import type { AgentFixContextRef } from '@/features/agent-fix/types';
 import { sortByDiffTreePath } from '@/features/diff/lib/diff-file-order';
 import {
   applyCollapseModeToItems,
   diffSideCacheKey,
-  getNextItemVersion,
-  isBinaryAnnotation,
   type DiffListAnnotationMeta,
 } from '@/features/diff/lib/diff-code-view-shared';
 import {
@@ -66,17 +63,9 @@ import {
   renderDiffHeaderPrefix,
   scrollCodeViewToItem,
 } from '@/features/diff/lib/code-view-ui';
-import { cn } from '@/shared/lib/utils';
 
 const CODE_VIEW_BATCH_SIZE = 25;
 const FULL_COMMIT_HASH_RE = /^[0-9a-f]{40}$/i;
-
-/** Worktree change groups whose new side maps to a local file we can write. */
-function isEditableWorktreeGroup(
-  kind: DiffChangeGroupKind | null,
-): kind is 'staged' | 'unstaged' | 'untracked' {
-  return kind === 'staged' || kind === 'unstaged' || kind === 'untracked';
-}
 
 function yieldToBrowser(): Promise<void> {
   return new Promise((resolve) => window.setTimeout(resolve, 0));
@@ -84,42 +73,6 @@ function yieldToBrowser(): Promise<void> {
 
 function formatCommitRefLabel(ref: string): string {
   return FULL_COMMIT_HASH_RE.test(ref) ? ref.slice(0, 7) : ref;
-}
-
-function toAbsolutePath(repoPath: string, relativePath: string): string {
-  if (relativePath.startsWith('/')) {
-    return relativePath;
-  }
-  const normalizedRepo = repoPath.endsWith('/') ? repoPath.slice(0, -1) : repoPath;
-  return `${normalizedRepo}/${relativePath}`;
-}
-
-function rebuildDiffItem(
-  path: string,
-  contents: LoadedDiffContents,
-  base: CodeViewItem<DiffListAnnotationMeta>,
-  edit: boolean,
-): CodeViewItem<DiffListAnnotationMeta> {
-  if (base.type !== 'diff') return base;
-  const fileDiff = parseDiffFromFile(
-    {
-      name: path,
-      contents: contents.oldContent,
-      cacheKey: diffSideCacheKey(path, contents.oldContent),
-    },
-    {
-      name: path,
-      contents: contents.newContent,
-      cacheKey: diffSideCacheKey(path, contents.newContent),
-    },
-  );
-  return {
-    ...base,
-    fileDiff,
-    edit,
-    version: getNextItemVersion(base),
-    collapsed: false,
-  };
 }
 
 interface ChangesCodeViewProps {
@@ -211,10 +164,6 @@ export function ChangesCodeView({
   const [collapseMode, setCollapseMode] = useState<'expanded' | 'collapsed'>(
     'expanded',
   );
-  const [editingPath, setEditingPath] = useState<string | null>(null);
-  const [isEditDirty, setIsEditDirty] = useState(false);
-  const [isSavingEdit, setIsSavingEdit] = useState(false);
-
   const codeViewRef = useRef<CodeViewHandle<DiffListAnnotationMeta>>(null);
   const lastHandledNavRef = useRef<string | null>(null);
   const itemIdsRef = useRef<string[]>([]);
@@ -222,11 +171,6 @@ export function ChangesCodeView({
   const scrollActiveIdRef = useRef<string | null>(null);
   const loadedContentsRef = useRef<Map<string, LoadedDiffContents>>(new Map());
   const collapseModeRef = useRef(collapseMode);
-  const draftContentsRef = useRef<Map<string, string>>(new Map());
-  const editingPathRef = useRef<string | null>(null);
-  const isEditDirtyRef = useRef(false);
-  const isSavingEditRef = useRef(false);
-  const stageFiles = useGitStore((s) => s.stageFiles);
   const { openCopyAnnotation, renderAnnotation, stashedPromptChip } =
     useDiffPromptStash({
       agentFixContext,
@@ -248,190 +192,27 @@ export function ChangesCodeView({
     collapseModeRef.current = collapseMode;
   }, [collapseMode]);
 
-  useEffect(() => {
-    editingPathRef.current = editingPath;
-  }, [editingPath]);
-
-  useEffect(() => {
-    isEditDirtyRef.current = isEditDirty;
-  }, [isEditDirty]);
-
-  const canEditWorktree = isEditableWorktreeGroup(effectiveGroupKind);
-
   const createDiffEditor = useCallback<CreateEditor<DiffListAnnotationMeta>>(
     (options) => new Editor(options),
     [],
   );
 
-  const isBinaryItem = useCallback((item: CodeViewItem<DiffListAnnotationMeta> | undefined) => {
-    if (item == null || item.type !== 'diff') return true;
-    return item.annotations?.some((annotation) => isBinaryAnnotation(annotation)) ?? false;
-  }, []);
-
-  const setItemEditMode = useCallback((path: string, edit: boolean) => {
-    const viewer = codeViewRef.current;
-    const item = viewer?.getItem(path);
-    if (viewer == null || item == null || item.type !== 'diff') return false;
-    if (isBinaryItem(item)) return false;
-    item.edit = edit;
-    item.collapsed = false;
-    item.version = getNextItemVersion(item);
-    viewer.updateItem(item);
-    return true;
-  }, [isBinaryItem]);
-
-  const handleEnterEdit = useCallback((path: string) => {
-    if (!canEditWorktree) return;
-    const currentEditing = editingPathRef.current;
-    if (currentEditing && currentEditing !== path) {
-      if (isEditDirtyRef.current) {
-        toastManager.add({
-          title: t('edit.unsavedTitle'),
-          description: t('edit.unsavedDescription'),
-          type: 'error',
-        });
-        return;
-      }
-      setItemEditMode(currentEditing, false);
-      draftContentsRef.current.delete(currentEditing);
-    }
-    if (!setItemEditMode(path, true)) return;
-    const original = loadedContentsRef.current.get(path)?.newContent ?? '';
-    draftContentsRef.current.set(path, original);
-    setEditingPath(path);
-    setIsEditDirty(false);
-  }, [canEditWorktree, setItemEditMode, t]);
-
-  const handleExitEdit = useCallback((path: string) => {
-    setItemEditMode(path, false);
-    draftContentsRef.current.delete(path);
-    if (editingPathRef.current === path) {
-      setEditingPath(null);
-      setIsEditDirty(false);
-    }
-  }, [setItemEditMode]);
-
-  const handleResetEdit = useCallback(() => {
-    const path = editingPathRef.current;
-    if (path == null) return;
-    const viewer = codeViewRef.current;
-    const item = viewer?.getItem(path);
-    const original = loadedContentsRef.current.get(path);
-    if (viewer == null || item == null || item.type !== 'diff' || original == null) {
-      return;
-    }
-    // End the session then re-open so the editor document is rebuilt from the
-    // original new-side contents (pierre owns the live document while edit is on).
-    const closed = rebuildDiffItem(path, original, item, false);
-    viewer.updateItem(closed);
-    const reopenedBase = viewer.getItem(path) ?? closed;
-    const reopened = rebuildDiffItem(path, original, reopenedBase, true);
-    viewer.updateItem(reopened);
-    draftContentsRef.current.set(path, original.newContent);
-    setIsEditDirty(false);
-  }, []);
-
-  const handleSaveEdit = useCallback(async () => {
-    const path = editingPathRef.current;
-    if (path == null || isSavingEditRef.current) return;
-    const draft =
-      draftContentsRef.current.get(path) ??
-      loadedContentsRef.current.get(path)?.newContent;
-    if (draft == null) return;
-
-    isSavingEditRef.current = true;
-    setIsSavingEdit(true);
-    try {
-      const absolutePath = toAbsolutePath(repoPath, path);
-      await fsApi.writeFile(absolutePath, draft);
-      if (effectiveGroupKind === 'staged') {
-        await stageFiles([path]);
-      }
-      const previous = loadedContentsRef.current.get(path);
-      loadedContentsRef.current.set(path, {
-        oldContent: previous?.oldContent ?? '',
-        newContent: draft,
-      });
-      draftContentsRef.current.set(path, draft);
-
-      const viewer = codeViewRef.current;
-      const item = viewer?.getItem(path);
-      const contents = loadedContentsRef.current.get(path);
-      if (viewer != null && item != null && item.type === 'diff' && contents != null) {
-        viewer.updateItem(rebuildDiffItem(path, contents, item, false));
-      }
-
-      setEditingPath(null);
-      setIsEditDirty(false);
-      draftContentsRef.current.delete(path);
-      await invalidateGitQueries(repoPath);
-    } catch (error) {
-      toastManager.add({
-        title: t('edit.saveFailedTitle'),
-        description:
-          error instanceof Error ? error.message : t('edit.saveFailedFallback'),
-        type: 'error',
-      });
-    } finally {
-      isSavingEditRef.current = false;
-      setIsSavingEdit(false);
-    }
-  }, [effectiveGroupKind, repoPath, stageFiles, t]);
-
-  const handleEditButtonClick = useCallback(() => {
-    if (editingPath != null) {
-      if (isEditDirty) {
-        void handleSaveEdit();
-        return;
-      }
-      handleExitEdit(editingPath);
-      return;
-    }
-    if (selectedPath) {
-      handleEnterEdit(selectedPath);
-    }
-  }, [
+  const {
+    canEditWorktree,
     editingPath,
-    handleEnterEdit,
-    handleExitEdit,
-    handleSaveEdit,
     isEditDirty,
+    isSavingEdit,
+    handleResetEdit,
+    handleEditButtonClick,
+    handleItemEditChange,
+  } = useDiffWorktreeEdit({
+    repoPath,
+    effectiveGroupKind,
     selectedPath,
-  ]);
-
-  const handleItemEditChange = useCallback(
-    (item: CodeViewItem<DiffListAnnotationMeta>, file: FileContents) => {
-      const original = loadedContentsRef.current.get(item.id)?.newContent ?? '';
-      draftContentsRef.current.set(item.id, file.contents);
-      if (editingPathRef.current === item.id) {
-        setIsEditDirty(file.contents !== original);
-      }
-    },
-    [],
-  );
-
-  // Cmd/Ctrl+S saves while a worktree diff is being edited.
-  useEffect(() => {
-    if (!canEditWorktree || editingPath == null) return;
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== 's') {
-        return;
-      }
-      event.preventDefault();
-      event.stopPropagation();
-      if (!isEditDirtyRef.current) return;
-      void handleSaveEdit();
-    };
-    window.addEventListener('keydown', onKeyDown, true);
-    return () => window.removeEventListener('keydown', onKeyDown, true);
-  }, [canEditWorktree, editingPath, handleSaveEdit]);
-
-  // Drop edit session when the group reloads or leaves worktree mode.
-  useEffect(() => {
-    setEditingPath(null);
-    setIsEditDirty(false);
-    draftContentsRef.current.clear();
-  }, [groupPath, viewerKey, canEditWorktree]);
+    codeViewRef,
+    loadedContentsRef,
+    resetKey: `${groupPath}:${viewerKey}`,
+  });
 
   const groupFiles = useMemo(() => {
     if (!groupKind) return [];
@@ -962,13 +743,6 @@ export function ChangesCodeView({
   const canStartOrToggleEdit =
     canEditWorktree && editTargetPath != null && !editTargetIsBinary;
   const showEditControls = canEditWorktree && editTargetPath != null;
-  const showResetButton = Boolean(editingPath && isEditDirty);
-  // Clean → Edit icon. Dirty → Save icon + Reset icon peels out to the right.
-  const primaryEditLabel = showResetButton ? t('edit.save') : t('edit.edit');
-  const primaryEditTitle = showResetButton
-    ? t('edit.saveShortcut')
-    : primaryEditLabel;
-
   const toolbar = (
     <div className="flex items-center gap-2">
       <div className="flex min-w-0 flex-1 items-center gap-3">
@@ -990,87 +764,14 @@ export function ChangesCodeView({
         </div>
       )}
       {showEditControls ? (
-        // Width-only expand/collapse for the reset control. Do not put `layout` on
-        // this group or the primary button — layout projection fights the exit
-        // width animation and causes a settle-then-snap when 2 buttons → 1.
-        <div className="flex shrink-0 items-center overflow-hidden">
-          <button
-            type="button"
-            className={cn(
-              'relative flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-md transition-colors disabled:pointer-events-none disabled:opacity-50',
-              showResetButton
-                ? 'bg-primary text-primary-foreground hover:bg-primary/90'
-                : editingPath
-                  ? 'bg-muted text-foreground hover:bg-muted/80'
-                  : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground',
-            )}
-            disabled={isSavingEdit || (!editingPath && !canStartOrToggleEdit)}
-            onClick={handleEditButtonClick}
-            title={primaryEditTitle}
-            aria-label={primaryEditLabel}
-            aria-pressed={editingPath != null && !isEditDirty ? true : undefined}
-          >
-            <AnimatePresence initial={false}>
-              {isSavingEdit ? (
-                <motion.span
-                  key="saving"
-                  initial={{ opacity: 0, scale: 0.7, rotate: -20 }}
-                  animate={{ opacity: 1, scale: 1, rotate: 0 }}
-                  exit={{ opacity: 0, scale: 0.7, rotate: 20 }}
-                  transition={{ duration: 0.16, ease: 'easeOut' }}
-                  className="absolute inset-0 flex items-center justify-center"
-                >
-                  <Loader2 className="size-3.5 animate-spin" />
-                </motion.span>
-              ) : showResetButton ? (
-                <motion.span
-                  key="save"
-                  initial={{ opacity: 0, scale: 0.7, y: 4 }}
-                  animate={{ opacity: 1, scale: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.7, y: -4 }}
-                  transition={{ duration: 0.16, ease: 'easeOut' }}
-                  className="absolute inset-0 flex items-center justify-center"
-                >
-                  <Save className="size-3.5" />
-                </motion.span>
-              ) : (
-                <motion.span
-                  key="edit"
-                  initial={{ opacity: 0, scale: 0.7, y: -4 }}
-                  animate={{ opacity: 1, scale: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.7, y: 4 }}
-                  transition={{ duration: 0.16, ease: 'easeOut' }}
-                  className="absolute inset-0 flex items-center justify-center"
-                >
-                  <SquarePen className="size-3.5" />
-                </motion.span>
-              )}
-            </AnimatePresence>
-          </button>
-          <AnimatePresence initial={false}>
-            {showResetButton ? (
-              <motion.div
-                key="reset"
-                initial={{ width: 0, opacity: 0 }}
-                animate={{ width: 30, opacity: 1 }}
-                exit={{ width: 0, opacity: 0 }}
-                transition={{ type: 'spring', stiffness: 500, damping: 38, mass: 0.7 }}
-                className="overflow-hidden"
-              >
-                <button
-                  type="button"
-                  className="ml-0.5 flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
-                  disabled={isSavingEdit}
-                  onClick={handleResetEdit}
-                  title={t('edit.reset')}
-                  aria-label={t('edit.reset')}
-                >
-                  <RotateCcw className="size-3.5" />
-                </button>
-              </motion.div>
-            ) : null}
-          </AnimatePresence>
-        </div>
+        <DiffWorktreeEditToolbar
+          editingPath={editingPath}
+          isEditDirty={isEditDirty}
+          isSavingEdit={isSavingEdit}
+          canStartOrToggleEdit={canStartOrToggleEdit}
+          onPrimaryClick={handleEditButtonClick}
+          onResetClick={handleResetEdit}
+        />
       ) : null}
       <DiffCodeViewSettingsMenu
         diffStyle={diffStyle}
