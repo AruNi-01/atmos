@@ -358,9 +358,10 @@ function CanvasCenterWidgetBody({
                     if (tab.kind !== "file") {
                       return;
                     }
+                    event.preventDefault();
                     event.stopPropagation();
                     editor.markEventAsHandled(event);
-                    handleTabChange(tab.id);
+                    // Do not switch tabs on right-click — only open the menu.
                     // Viewport coords: menu is portaled to body with position:fixed.
                     setTabContextMenu({
                       x: event.clientX,
@@ -403,7 +404,6 @@ function CanvasCenterWidgetBody({
         tabContextMenu={tabContextMenu}
         setTabContextMenu={setTabContextMenu}
         openFiles={tabContextMenuFiles}
-        anchorPosition="absolute"
         basePath={source.context.repoPath ?? source.context.localPath}
         onCloseFile={closeFileTabFromMenu}
         closeFilesSafely={closeFileTabsSafely}

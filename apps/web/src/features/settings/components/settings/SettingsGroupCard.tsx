@@ -53,6 +53,8 @@ export function SettingsGroupCard({
   icon: Icon,
   title,
   description,
+  /** Optional control on the group header’s far right (e.g. Refresh). */
+  headerEnd,
   children,
 }: {
   open: boolean;
@@ -60,6 +62,7 @@ export function SettingsGroupCard({
   icon: React.ComponentType<{ className?: string }>;
   title: string;
   description: string;
+  headerEnd?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
@@ -83,6 +86,16 @@ export function SettingsGroupCard({
             </div>
           </div>
         </CollapsibleTrigger>
+        {headerEnd ? (
+          <div
+            className="flex shrink-0 items-center self-center"
+            // Keep header actions out of the collapsible trigger hit target.
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => e.stopPropagation()}
+          >
+            {headerEnd}
+          </div>
+        ) : null}
       </div>
 
       <CollapsibleContent>

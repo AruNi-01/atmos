@@ -40,6 +40,8 @@ export function DocumentTitle() {
           return t("automations");
         case "disk-analyzer":
           return t("diskAnalyzer");
+        case "kanban":
+          return t("kanban");
       }
     }
     return t("app");

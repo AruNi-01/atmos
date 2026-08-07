@@ -79,6 +79,7 @@ export const BrowserPanel: React.FC<BrowserPanelProps> = ({
     handleOpenBrowserTab,
     handlePreviewIconChange,
     handlePreviewTitleChange,
+    handleReorderBrowserTabs,
     handleSelectBrowserTab,
     persistBrowserState,
     previewTabsToRender,
@@ -261,6 +262,7 @@ export const BrowserPanel: React.FC<BrowserPanelProps> = ({
             onAddTab: handleAddBrowserTab,
             onCloseTab: handleCloseBrowserTab,
             onSelectTab: handleSelectBrowserTab,
+            onReorderTabs: handleReorderBrowserTabs,
           }}
         />
       </div>

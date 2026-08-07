@@ -452,6 +452,10 @@ impl WsMessageService {
             }
 
             // Terminal
+            WsAction::RunLogStart => self.handle_run_log_start(parse_request(request.data)?),
+            WsAction::RunLogResolveLatest => {
+                self.handle_run_log_resolve_latest(parse_request(request.data)?)
+            }
             WsAction::TerminalWorkspaceCandidates => {
                 self.handle_terminal_workspace_candidates(parse_request(request.data)?)
                     .await

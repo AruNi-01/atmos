@@ -1,4 +1,6 @@
 //! On-disk layout for quota-usage local state: `~/.atmos/quota-usage`.
+//!
+//! Override with `ATMOS_QUOTA_USAGE_DIR` (absolute path) for tests or custom installs.
 
 use std::path::PathBuf;
 
@@ -6,6 +8,12 @@ const DATA_DIR: &str = "quota-usage";
 
 /// Data directory (`~/.atmos/quota-usage`). Callers should create it if needed.
 pub(crate) fn data_dir() -> Option<PathBuf> {
+    if let Ok(dir) = std::env::var("ATMOS_QUOTA_USAGE_DIR") {
+        let trimmed = dir.trim();
+        if !trimmed.is_empty() {
+            return Some(PathBuf::from(trimmed));
+        }
+    }
     dirs::home_dir().map(|home| home.join(".atmos").join(DATA_DIR))
 }
 

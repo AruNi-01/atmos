@@ -1307,7 +1307,7 @@ fn run_engine(
     let mut engine_result = host::call_tool(engine, &socket, tool, &args);
     // One automatic recovery if escalate left us desktop-locked mid-run.
     if window_scoped {
-        if let (Some(ref s), Ok(ref v)) = (session.as_ref(), &engine_result) {
+        if let (Some(s), Ok(ref v)) = (session.as_ref(), &engine_result) {
             if let Some(fail) = crate::engine_protocol::engine_payload_is_failure(v) {
                 if is_window_scope_disabled(&fail) {
                     reset_drive_session(engine, &socket, s);

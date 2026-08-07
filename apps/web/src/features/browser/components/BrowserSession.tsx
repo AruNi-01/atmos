@@ -26,7 +26,7 @@ import { useWebviewPointerPolicy } from "../hooks/use-webview-pointer-policy";
 import { BrowserContent } from "./BrowserContent";
 import { BrowserToolbar } from "./BrowserToolbar";
 import { BrowserViewport } from "./BrowserViewport";
-import { BrowserTabBar, type BrowserTabBarProps } from "./BrowserTabBar";
+import type { BrowserTabBarProps } from "./BrowserTabBar";
 import { BrowserFavoritesListPopover } from "./BrowserFavoritesListPopover";
 import { BrowserCookieImportDialog } from "./BrowserCookieImportDialog";
 import { clearBrowserCache, clearBrowserSiteData } from "../lib/browser-cookie-commands";
@@ -1265,51 +1265,61 @@ export const BrowserSession: React.FC<BrowserSessionProps> = ({
   return (
     <>
       <BrowserContent
-      browserTabBar={
-        browserTabBarProps ? (
-          <BrowserTabBar
-            {...browserTabBarProps}
-            chromeControls={{
-              favoritesList: (
-                <BrowserFavoritesListPopover
-                  favoriteSearch={favoriteSearch}
-                  favorites={favorites}
-                  favoritesListOpen={favoritesListOpen}
-                  filteredFavorites={filteredFavorites}
-                  renameDraft={renameDraft}
-                  renamingUrl={renamingUrl}
-                  handleDeleteFavorite={handleDeleteFavorite}
-                  handleRenameFavorite={handleRenameFavorite}
-                  navigateToUrl={navigateToUrl}
-                  setFavoriteSearch={setFavoriteSearch}
-                  setFavoritesListOpen={setFavoritesListOpen}
-                  setRenameDraft={setRenameDraft}
-                  setRenamingUrl={setRenamingUrl}
-                />
-              ),
-              isMaximized,
-              isToolbarHidden: effectiveIsToolbarHidden,
-              needsDesktopPreviewSafeInset,
-              openInWindowTitle: previewToolbarT("actions.openBrowserWindow"),
-              returnToEmbeddedTitle: previewToolbarT("actions.returnToEmbeddedPreview"),
-              moveToCenterTitle: previewToolbarT("browserTabs.moveToCenter"),
-              toolbarToggleTitle,
-              onOpenInWindow: canOpenPreviewBrowserWindow ? handleOpenPreviewBrowserWindow : undefined,
-              onReturnToEmbedded: isStandaloneBrowserWindow ? handleCloseStandalonePreviewWindow : undefined,
-              onMoveToCenter:
-                onMoveToCenter && !isStandaloneBrowserWindow ? onMoveToCenter : undefined,
-              onToggleMaximized:
-                allowMaximize && !isStandaloneBrowserWindow
-                  ? handleToggleMaximized
+      browserTabBarProps={
+        browserTabBarProps
+          ? {
+              ...browserTabBarProps,
+              chromeControls: {
+                favoritesList: (
+                  <BrowserFavoritesListPopover
+                    favoriteSearch={favoriteSearch}
+                    favorites={favorites}
+                    favoritesListOpen={favoritesListOpen}
+                    filteredFavorites={filteredFavorites}
+                    renameDraft={renameDraft}
+                    renamingUrl={renamingUrl}
+                    handleDeleteFavorite={handleDeleteFavorite}
+                    handleRenameFavorite={handleRenameFavorite}
+                    navigateToUrl={navigateToUrl}
+                    setFavoriteSearch={setFavoriteSearch}
+                    setFavoritesListOpen={setFavoritesListOpen}
+                    setRenameDraft={setRenameDraft}
+                    setRenamingUrl={setRenamingUrl}
+                  />
+                ),
+                isMaximized,
+                isToolbarHidden: effectiveIsToolbarHidden,
+                needsDesktopPreviewSafeInset,
+                openInWindowTitle: previewToolbarT("actions.openBrowserWindow"),
+                returnToEmbeddedTitle: previewToolbarT("actions.returnToEmbeddedPreview"),
+                moveToCenterTitle: previewToolbarT("browserTabs.moveToCenter"),
+                toolbarToggleTitle,
+                onOpenInWindow: canOpenPreviewBrowserWindow
+                  ? handleOpenPreviewBrowserWindow
                   : undefined,
-              onToggleToolbarHidden: handleToggleToolbarHidden,
-              cookieToolsAvailable,
-              onImportCookies: cookieToolsAvailable ? handleImportCookies : undefined,
-              onClearCache: cookieToolsAvailable ? handleClearCache : undefined,
-              onClearSiteData: cookieToolsAvailable ? handleClearSiteData : undefined,
-            }}
-          />
-        ) : null
+                onReturnToEmbedded: isStandaloneBrowserWindow
+                  ? handleCloseStandalonePreviewWindow
+                  : undefined,
+                onMoveToCenter:
+                  onMoveToCenter && !isStandaloneBrowserWindow
+                    ? onMoveToCenter
+                    : undefined,
+                onToggleMaximized:
+                  allowMaximize && !isStandaloneBrowserWindow
+                    ? handleToggleMaximized
+                    : undefined,
+                onToggleToolbarHidden: handleToggleToolbarHidden,
+                cookieToolsAvailable,
+                onImportCookies: cookieToolsAvailable
+                  ? handleImportCookies
+                  : undefined,
+                onClearCache: cookieToolsAvailable ? handleClearCache : undefined,
+                onClearSiteData: cookieToolsAvailable
+                  ? handleClearSiteData
+                  : undefined,
+              },
+            }
+          : null
       }
       isChromeHidden={isChromeManagedByTabBar && effectiveIsToolbarHidden}
       isMaximized={isMaximized}

@@ -24,103 +24,92 @@ import {
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 
-import type { Group, Project, WorkspaceLabel } from "@/shared/types/domain";
-import { WorkspaceKanbanView } from "@/app-shell/sidebar/WorkspaceKanbanView";
-import type { WorkspaceKanbanFilters } from "@/app-shell/sidebar/WorkspaceKanbanFilterMenu";
-import type { SidebarGroupingMode } from "@/app-shell/sidebar/workspace-status";
+import type {
+  ManagementCenterItemId,
+  ManagementCenterItems,
+  ManagementCenterPlacement,
+} from "@/features/settings/store/experiment-settings-store";
+import { selectManagementCenterItemsByPlacement } from "@/features/settings/store/experiment-settings-store";
 
-type WorkspaceKanbanViewProps = React.ComponentProps<typeof WorkspaceKanbanView>;
-
-type ManagementCenterItem = {
-  id: string;
+type ManagementCenterItemDef = {
+  id: ManagementCenterItemId;
   labelKey: string;
   icon: typeof FolderKanban;
   path?: string;
-  kind?: "kanban" | "new-workspace" | "canvas";
+  kind?: "new-workspace" | "canvas";
 };
 
-interface LeftSidebarManagementCenterProps {
-  isExpanded: boolean;
-  onExpandedChange: (expanded: boolean) => void;
+const ITEM_DEF_BY_ID: Record<ManagementCenterItemId, ManagementCenterItemDef> = {
+  workspaces: { id: "workspaces", labelKey: "managementCenter.items.workspaces", icon: FolderKanban, path: "/workspaces" },
+  skills: { id: "skills", labelKey: "managementCenter.items.skills", icon: Puzzle, path: "/skills" },
+  terminals: { id: "terminals", labelKey: "managementCenter.items.terminals", icon: SquareTerminal, path: "/terminals" },
+  agents: { id: "agents", labelKey: "managementCenter.items.agents", icon: Bot, path: "/agents" },
+  automations: { id: "automations", labelKey: "managementCenter.items.automations", icon: Timer, path: "/automations" },
+  "disk-analyzer": { id: "disk-analyzer", labelKey: "managementCenter.items.diskAnalyzer", icon: HardDrive, path: "/disk-analyzer" },
+  canvas: { id: "canvas", labelKey: "managementCenter.items.canvas", icon: Presentation, kind: "canvas" },
+  kanban: { id: "kanban", labelKey: "managementCenter.items.kanban", icon: SquareKanban, path: "/kanban" },
+  "new-workspace": { id: "new-workspace", labelKey: "managementCenter.items.newWorkspace", icon: Plus, kind: "new-workspace" },
+};
+
+type ManagementCenterSharedProps = {
   currentView: string;
   canvasOpen: boolean;
-  managementTerminalsEnabled: boolean;
-  managementAgentsEnabled: boolean;
-  automationsEnabled: boolean;
-  projects: Project[];
-  availableLabels: WorkspaceLabel[];
-  groups?: Group[];
-  groupingMode?: SidebarGroupingMode;
-  kanbanFilters: WorkspaceKanbanFilters;
-  onFiltersChange: (filters: WorkspaceKanbanFilters) => void;
-  onGroupingModeChange?: (mode: SidebarGroupingMode) => void;
   onNavigate: (path: string) => void;
   onOpenCanvas: () => void;
   onOpenNewWorkspace: () => void;
-  onUpdateWorkflowStatus: WorkspaceKanbanViewProps["onUpdateWorkflowStatus"];
-  onUpdatePriority: WorkspaceKanbanViewProps["onUpdatePriority"];
-  onSetWorkspaceGroup?: WorkspaceKanbanViewProps["onSetWorkspaceGroup"];
-  onCreateGroup?: WorkspaceKanbanViewProps["onCreateGroup"];
-  onCreateLabel: WorkspaceKanbanViewProps["onCreateLabel"];
-  onUpdateLabel: WorkspaceKanbanViewProps["onUpdateLabel"];
-  onUpdateLabels: WorkspaceKanbanViewProps["onUpdateLabels"];
-  onPinWorkspace: WorkspaceKanbanViewProps["onPinWorkspace"];
-  onUnpinWorkspace: WorkspaceKanbanViewProps["onUnpinWorkspace"];
-  onArchiveWorkspace: WorkspaceKanbanViewProps["onArchiveWorkspace"];
-  onDeleteWorkspace: WorkspaceKanbanViewProps["onDeleteWorkspace"];
+};
+
+interface LeftSidebarManagementCenterProps extends ManagementCenterSharedProps {
+  isExpanded: boolean;
+  onExpandedChange: (expanded: boolean) => void;
+  managementCenterItems: ManagementCenterItems;
+}
+
+export function LeftSidebarManagementCenterOutside({
+  managementCenterItems,
+  ...shared
+}: ManagementCenterSharedProps & {
+  managementCenterItems: ManagementCenterItems;
+}) {
+  const t = useTranslations("AppShell.chrome");
+  const items = useMemo(
+    () => resolveItemsForPlacement(managementCenterItems, "outside"),
+    [managementCenterItems],
+  );
+
+  if (items.length === 0) return null;
+
+  return (
+    <nav
+      className="flex shrink-0 flex-col gap-0.5 px-2 py-1.5"
+      aria-label={t("managementCenter.title")}
+    >
+      {items.map((item) => (
+        <OutsideNavRow
+          key={item.id}
+          item={item}
+          isActive={shared.currentView === item.id || (item.kind === "canvas" && shared.canvasOpen)}
+          {...shared}
+        />
+      ))}
+    </nav>
+  );
 }
 
 export function LeftSidebarManagementCenter({
   isExpanded,
   onExpandedChange,
-  currentView,
-  canvasOpen,
-  managementTerminalsEnabled,
-  managementAgentsEnabled,
-  automationsEnabled,
-  projects,
-  availableLabels,
-  groups = [],
-  groupingMode = "status",
-  kanbanFilters,
-  onFiltersChange,
-  onGroupingModeChange,
-  onNavigate,
-  onOpenCanvas,
-  onOpenNewWorkspace,
-  onUpdateWorkflowStatus,
-  onUpdatePriority,
-  onSetWorkspaceGroup,
-  onCreateGroup,
-  onCreateLabel,
-  onUpdateLabel,
-  onUpdateLabels,
-  onPinWorkspace,
-  onUnpinWorkspace,
-  onArchiveWorkspace,
-  onDeleteWorkspace,
+  managementCenterItems,
+  ...shared
 }: LeftSidebarManagementCenterProps) {
   const t = useTranslations("AppShell.chrome");
-  const managementCenterItems = useMemo<ManagementCenterItem[]>(() => {
-    const all: ManagementCenterItem[] = [
-      { id: "workspaces", labelKey: "managementCenter.items.workspaces", icon: FolderKanban, path: "/workspaces" },
-      { id: "skills", labelKey: "managementCenter.items.skills", icon: Puzzle, path: "/skills" },
-      { id: "terminals", labelKey: "managementCenter.items.terminals", icon: SquareTerminal, path: "/terminals" },
-      { id: "agents", labelKey: "managementCenter.items.agents", icon: Bot, path: "/agents" },
-      { id: "automations", labelKey: "managementCenter.items.automations", icon: Timer, path: "/automations" },
-      { id: "disk-analyzer", labelKey: "managementCenter.items.diskAnalyzer", icon: HardDrive, path: "/disk-analyzer" },
-      { id: "canvas", labelKey: "managementCenter.items.canvas", icon: Presentation, kind: "canvas" },
-      { id: "kanban", labelKey: "managementCenter.items.kanban", icon: SquareKanban, kind: "kanban" },
-      { id: "new-workspace", labelKey: "managementCenter.items.newWorkspace", icon: Plus, kind: "new-workspace" },
-    ];
+  const items = useMemo(
+    () => resolveItemsForPlacement(managementCenterItems, "inside"),
+    [managementCenterItems],
+  );
 
-    return all.filter((item) => {
-      if (item.id === "terminals" && !managementTerminalsEnabled) return false;
-      if (item.id === "agents" && !managementAgentsEnabled) return false;
-      if (item.id === "automations" && !automationsEnabled) return false;
-      return true;
-    });
-  }, [automationsEnabled, managementAgentsEnabled, managementTerminalsEnabled]);
+  // Hide the entire Management Center block when no inside items are enabled.
+  if (items.length === 0) return null;
 
   return (
     <>
@@ -145,34 +134,14 @@ export function LeftSidebarManagementCenter({
       >
         <div className="overflow-hidden">
           <div className="grid grid-cols-1 @[200px]:grid-cols-2">
-            {managementCenterItems.map((item, index) => (
+            {items.map((item, index) => (
               <ManagementCenterCard
                 key={item.id}
                 item={item}
                 index={index}
-                totalItems={managementCenterItems.length}
-                isActive={currentView === item.id || (item.kind === "canvas" && canvasOpen)}
-                projects={projects}
-                availableLabels={availableLabels}
-                groups={groups}
-                groupingMode={groupingMode}
-                kanbanFilters={kanbanFilters}
-                onFiltersChange={onFiltersChange}
-                onGroupingModeChange={onGroupingModeChange}
-                onNavigate={onNavigate}
-                onOpenCanvas={onOpenCanvas}
-                onOpenNewWorkspace={onOpenNewWorkspace}
-                onUpdateWorkflowStatus={onUpdateWorkflowStatus}
-                onUpdatePriority={onUpdatePriority}
-                onSetWorkspaceGroup={onSetWorkspaceGroup}
-                onCreateGroup={onCreateGroup}
-                onCreateLabel={onCreateLabel}
-                onUpdateLabel={onUpdateLabel}
-                onUpdateLabels={onUpdateLabels}
-                onPinWorkspace={onPinWorkspace}
-                onUnpinWorkspace={onUnpinWorkspace}
-                onArchiveWorkspace={onArchiveWorkspace}
-                onDeleteWorkspace={onDeleteWorkspace}
+                totalItems={items.length}
+                isActive={shared.currentView === item.id || (item.kind === "canvas" && shared.canvasOpen)}
+                {...shared}
               />
             ))}
           </div>
@@ -182,58 +151,113 @@ export function LeftSidebarManagementCenter({
   );
 }
 
-function ManagementCenterCard({
+function resolveItemsForPlacement(
+  configs: ManagementCenterItems,
+  placement: ManagementCenterPlacement,
+): ManagementCenterItemDef[] {
+  return selectManagementCenterItemsByPlacement(configs, placement).map(
+    (id) => ITEM_DEF_BY_ID[id],
+  );
+}
+
+/** Simple icon + name row for items pinned outside the Management Center collapsible. */
+function OutsideNavRow({
   item,
-  index,
-  totalItems,
   isActive,
-  projects,
-  availableLabels,
-  groups = [],
-  groupingMode = "status",
-  kanbanFilters,
-  onFiltersChange,
-  onGroupingModeChange,
   onNavigate,
   onOpenCanvas,
   onOpenNewWorkspace,
-  onUpdateWorkflowStatus,
-  onUpdatePriority,
-  onSetWorkspaceGroup,
-  onCreateGroup,
-  onCreateLabel,
-  onUpdateLabel,
-  onUpdateLabels,
-  onPinWorkspace,
-  onUnpinWorkspace,
-  onArchiveWorkspace,
-  onDeleteWorkspace,
-}: {
-  item: ManagementCenterItem;
-  index: number;
-  totalItems: number;
+}: ManagementCenterSharedProps & {
+  item: ManagementCenterItemDef;
   isActive: boolean;
-  projects: Project[];
-  availableLabels: WorkspaceLabel[];
-  groups?: Group[];
-  groupingMode?: SidebarGroupingMode;
-  kanbanFilters: WorkspaceKanbanFilters;
-  onFiltersChange: (filters: WorkspaceKanbanFilters) => void;
-  onGroupingModeChange?: (mode: SidebarGroupingMode) => void;
-  onNavigate: (path: string) => void;
-  onOpenCanvas: () => void;
-  onOpenNewWorkspace: () => void;
-  onUpdateWorkflowStatus: WorkspaceKanbanViewProps["onUpdateWorkflowStatus"];
-  onUpdatePriority: WorkspaceKanbanViewProps["onUpdatePriority"];
-  onSetWorkspaceGroup?: WorkspaceKanbanViewProps["onSetWorkspaceGroup"];
-  onCreateGroup?: WorkspaceKanbanViewProps["onCreateGroup"];
-  onCreateLabel: WorkspaceKanbanViewProps["onCreateLabel"];
-  onUpdateLabel: WorkspaceKanbanViewProps["onUpdateLabel"];
-  onUpdateLabels: WorkspaceKanbanViewProps["onUpdateLabels"];
-  onPinWorkspace: WorkspaceKanbanViewProps["onPinWorkspace"];
-  onUnpinWorkspace: WorkspaceKanbanViewProps["onUnpinWorkspace"];
-  onArchiveWorkspace: WorkspaceKanbanViewProps["onArchiveWorkspace"];
-  onDeleteWorkspace: WorkspaceKanbanViewProps["onDeleteWorkspace"];
+}) {
+  const t = useTranslations("AppShell.chrome");
+  const Icon = item.icon;
+  const label = t(item.labelKey);
+
+  const className = cn(
+    "flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm transition-colors outline-none",
+    "focus-visible:ring-1 focus-visible:ring-ring",
+    isActive
+      ? "bg-sidebar-accent text-sidebar-foreground"
+      : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
+  );
+
+  const content = (
+    <>
+      <Icon className="size-4 shrink-0" aria-hidden />
+      <span className="min-w-0 truncate">{label}</span>
+    </>
+  );
+
+  if (item.kind === "canvas") {
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button type="button" onClick={onOpenCanvas} className={className} aria-current={isActive ? "page" : undefined}>
+            {content}
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="right">
+          <div className="flex items-center gap-2">
+            <span>{label}</span>
+            <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-foreground/90">
+              <Command className="size-3" />
+              <span className="text-xs">⇧</span>
+              <span className="text-xs">H</span>
+            </kbd>
+          </div>
+        </TooltipContent>
+      </Tooltip>
+    );
+  }
+
+  if (item.kind === "new-workspace") {
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button type="button" onClick={onOpenNewWorkspace} className={className}>
+            {content}
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="right">
+          <div className="flex items-center gap-2">
+            <span>{label}</span>
+            <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-foreground/90">
+              <Command className="size-3" />
+              <span className="text-xs">N</span>
+            </kbd>
+          </div>
+        </TooltipContent>
+      </Tooltip>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={() => item.path && onNavigate(item.path)}
+      className={className}
+      aria-current={isActive ? "page" : undefined}
+    >
+      {content}
+    </button>
+  );
+}
+
+function ManagementCenterCard({
+  item,
+  index = 0,
+  totalItems = 1,
+  isActive,
+  onNavigate,
+  onOpenCanvas,
+  onOpenNewWorkspace,
+}: ManagementCenterSharedProps & {
+  item: ManagementCenterItemDef;
+  index?: number;
+  totalItems?: number;
+  isActive: boolean;
 }) {
   const t = useTranslations("AppShell.chrome");
   const Icon = item.icon;
@@ -281,32 +305,6 @@ function ManagementCenterCard({
       </div>
     </>
   );
-
-  if (item.kind === "kanban") {
-    return (
-      <WorkspaceKanbanView
-        projects={projects}
-        availableLabels={availableLabels}
-        groups={groups}
-        groupingMode={groupingMode}
-        onGroupingModeChange={onGroupingModeChange}
-        onUpdateWorkflowStatus={onUpdateWorkflowStatus}
-        onUpdatePriority={onUpdatePriority}
-        onSetWorkspaceGroup={onSetWorkspaceGroup}
-        onCreateGroup={onCreateGroup}
-        onCreateLabel={onCreateLabel}
-        onUpdateLabel={onUpdateLabel}
-        onUpdateLabels={onUpdateLabels}
-        onPinWorkspace={onPinWorkspace}
-        onUnpinWorkspace={onUnpinWorkspace}
-        onArchiveWorkspace={onArchiveWorkspace}
-        onDeleteWorkspace={onDeleteWorkspace}
-        filters={kanbanFilters}
-        onFiltersChange={onFiltersChange}
-        trigger={<div className={cardClassName}>{cardInner}</div>}
-      />
-    );
-  }
 
   if (item.kind === "canvas") {
     return (

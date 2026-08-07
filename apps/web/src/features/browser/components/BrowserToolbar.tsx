@@ -282,7 +282,7 @@ export function BrowserToolbar({
           {isUrlInputFocused ? (
             <input
               ref={urlInputRef}
-              className="h-full min-w-0 flex-1 border-none bg-transparent text-xs text-foreground placeholder:text-muted-foreground/50 focus:outline-none"
+              className="h-full min-w-0 flex-1 border-none bg-transparent px-0.5 text-xs text-foreground placeholder:text-muted-foreground/50 focus:outline-none"
               value={url ?? ""}
               onBlur={handleUrlInputBlur}
               onChange={(event) => {
@@ -455,7 +455,11 @@ export function BrowserToolbar({
               setExtensionUpdatePopoverOpen={setExtensionUpdatePopoverOpen}
             />
 
-            <div className="h-5 w-px bg-border/60" />
+            {/* Divider only when install control follows — alone, element-select
+                must not show a residual multi-button separator on the right. */}
+            {shouldShowExtensionInstall ? (
+              <div className="h-5 w-px bg-border/60" aria-hidden />
+            ) : null}
 
             <PreviewExtensionInstallPopover
               extensionDownloadStarted={extensionDownloadStarted}

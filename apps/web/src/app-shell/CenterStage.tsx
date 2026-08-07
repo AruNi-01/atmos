@@ -34,7 +34,9 @@ import { useProjects } from "@/features/project/hooks/use-project-bootstrap-quer
 import {
   clearLastPinnedTerminal,
   readCenterStageLastTab,
+  readCenterStageTabStripOrder,
   setCenterStageLastTab,
+  writeCenterStageTabStripOrder,
 } from "@/shared/stores/use-ui-pref-hooks";
 import { WorkspaceSetupProgressView } from "@/features/workspace/components/WorkspaceSetupProgress";
 import { isWorkspaceSetupBlocking } from "@/features/workspace/lib/workspace-setup";
@@ -79,13 +81,23 @@ import {
 } from "@/app-shell/center-stage-tabs";
 import { CenterStageTabBar } from "@/app-shell/CenterStageTabBar";
 import {
-  CenterStageFileTabContextMenu,
-  type FileTabContextMenuState,
-} from "@/app-shell/center-stage-file-menu";
+  CenterStageTabContextMenu,
+} from "@/app-shell/center-stage-tab-menu";
+import type {
+  CenterTabContextMenuState,
+  CenterTabDescriptor,
+} from "@/app-shell/center-stage-tab-model";
+import { isFileLikeCenterTabKind } from "@/app-shell/center-stage-tab-model";
 import {
   TerminalCloseConfirmDialog,
   UnsavedChangesDialog,
 } from "@/app-shell/center-stage-dialogs";
+
+type PendingCenterTabClose =
+  | { kind: "file"; file: OpenFile }
+  | { kind: "terminal"; tabId: string; title: string; runningPaneNames: string[] }
+  | { kind: "project-wiki" }
+  | { kind: "code-review" };
 import { CenterStagePanels } from "@/app-shell/CenterStagePanels";
 import {
   CenterStageNoContextView,
@@ -152,7 +164,11 @@ const CenterStage: React.FC = () => {
   const [projectWikiCloseConfirmOpen, setProjectWikiCloseConfirmOpen] = React.useState(false);
   const [wikiRefreshTrigger, setWikiRefreshTrigger] = React.useState(0);
   const [wikiRefreshing, setWikiRefreshing] = React.useState(false);
-  const [tabContextMenu, setTabContextMenu] = React.useState<FileTabContextMenuState>(null);
+  const [tabContextMenu, setTabContextMenu] = React.useState<CenterTabContextMenuState>(null);
+  const [tabStripOrder, setTabStripOrder] = React.useState<string[]>([]);
+  const pendingCloseQueueRef = React.useRef<PendingCenterTabClose[]>([]);
+  /** True while we intentionally close a confirm dialog to advance the bulk-close queue. */
+  const advancingCloseQueueRef = React.useRef(false);
   const [tabGroupPopoverOpen, setTabGroupPopoverOpen] = React.useState(false);
   const tabGroupDndSensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -440,27 +456,66 @@ const CenterStage: React.FC = () => {
     }
   }, [closeFile]);
 
+  const advancePendingCloseQueue = React.useCallback(() => {
+    const next = pendingCloseQueueRef.current.shift();
+    if (!next) return;
+    if (next.kind === "file") {
+      setFileToClose(next.file);
+      return;
+    }
+    if (next.kind === "terminal") {
+      setTerminalTabCloseConfirm({
+        tabId: next.tabId,
+        title: next.title,
+        runningPaneNames: next.runningPaneNames,
+      });
+      return;
+    }
+    if (next.kind === "project-wiki") {
+      setProjectWikiCloseConfirmOpen(true);
+      return;
+    }
+    setCodeReviewCloseConfirmOpen(true);
+  }, []);
+
+  const cancelPendingCloseQueue = React.useCallback(() => {
+    pendingCloseQueueRef.current = [];
+    setFileToClose(null);
+    setTerminalTabCloseConfirm(null);
+    setProjectWikiCloseConfirmOpen(false);
+    setCodeReviewCloseConfirmOpen(false);
+  }, []);
+
+  const dismissCloseConfirmDialog = React.useCallback(() => {
+    // Ignore dialog-close events that fire when we confirm and advance the queue.
+    if (advancingCloseQueueRef.current) return;
+    if (pendingCloseQueueRef.current.length > 0) {
+      cancelPendingCloseQueue();
+      return;
+    }
+    setFileToClose(null);
+    setTerminalTabCloseConfirm(null);
+    setProjectWikiCloseConfirmOpen(false);
+    setCodeReviewCloseConfirmOpen(false);
+  }, [cancelPendingCloseQueue]);
+
   const confirmClose = React.useCallback(() => {
     if (fileToClose) {
+      advancingCloseQueueRef.current = true;
       closeFile(fileToClose.path);
       setFileToClose(null);
+      advancePendingCloseQueue();
+      queueMicrotask(() => {
+        advancingCloseQueueRef.current = false;
+      });
     }
-  }, [closeFile, fileToClose]);
+  }, [advancePendingCloseQueue, closeFile, fileToClose]);
 
   const reviewTarget = React.useMemo((): ReviewTarget | null => {
     if (workspaceId) return { kind: "workspace", workspaceId };
     if (projectIdFromUrl) return { kind: "project", projectId: projectIdFromUrl };
     return null;
   }, [workspaceId, projectIdFromUrl]);
-
-  const closeFilesSafely = (files: OpenFile[]) => {
-    if (files.length === 0) return;
-    const closable = files.filter((f) => !f.isDirty);
-
-    for (const file of closable) {
-      closeFile(file.path, effectiveContextId || undefined);
-    }
-  };
 
   const handleFinishSetup = () => {
     if (workspaceId) {
@@ -475,6 +530,25 @@ const CenterStage: React.FC = () => {
       setWorkspaceId(effectiveContextId);
     });
   }, [effectiveContextId, isCenterContextSettled, setWorkspaceId]);
+
+  // Load per-workspace tab strip drag order when the center context changes.
+  React.useEffect(() => {
+    if (!effectiveContextId) {
+      setTabStripOrder([]);
+      return;
+    }
+    setTabStripOrder(readCenterStageTabStripOrder(effectiveContextId));
+  }, [effectiveContextId]);
+
+  const handleTabStripOrderChange = React.useCallback(
+    (order: string[]) => {
+      setTabStripOrder(order);
+      if (effectiveContextId) {
+        writeCenterStageTabStripOrder(effectiveContextId, order);
+      }
+    },
+    [effectiveContextId],
+  );
 
   const openFiles = getOpenFiles(effectiveContextId || undefined);
   const activeFilePath = getActiveFilePath(effectiveContextId || undefined);
@@ -1234,6 +1308,40 @@ const CenterStage: React.FC = () => {
     setUrlParams,
   ]);
 
+  const buildTerminalCloseConfirmPayload = React.useCallback(
+    (
+      contextId: string,
+      tabId: string,
+      tabPanes: ReturnType<typeof getTerminalTabPanes>,
+      tmuxWindows: Awaited<ReturnType<typeof systemApi.listTmuxWindows>>["windows"] | null,
+    ) => {
+      const store = useTerminalStore.getState();
+      const tab = store.getTerminalTabs(contextId).find((item) => item.id === tabId);
+      const configuredAgents = terminalQuickOpenAgents.map(({ agent }) => agent);
+      const scopeKey = getScopeKey(contextId, tabId);
+      const title =
+        resolveTerminalCenterTabPresentation({
+          fallbackTitle: tab?.title || t("fallbackTerminalTitle"),
+          customTitle: tab?.customTitle,
+          panes: store.getPanes(contextId, tabId),
+          layout: store.getLayout(contextId, tabId),
+          lastActivePaneId: store.workspaceActivePaneIds[scopeKey] ?? null,
+          maximizedPaneId: store.getMaximizedTerminalId(contextId, tabId),
+          configuredAgents,
+          showAgentName:
+            useAgentTitleSettingsStore.getState().showAgentNameInTerminalTitles,
+        }).displayTitle ||
+        tab?.customTitle ||
+        tab?.title ||
+        t("fallbackTerminalTitle");
+      const runningPaneNames = tabPanes
+        .filter((pane) => isTerminalPaneNonIdle(pane, tmuxWindows))
+        .map((pane) => getTerminalCloseConfirmName(pane, configuredAgents));
+      return { tabId, title, runningPaneNames };
+    },
+    [t, terminalQuickOpenAgents],
+  );
+
   const handleCloseTerminalCenterTab = React.useCallback(async (
     tabId: string,
     options?: { force?: boolean },
@@ -1251,48 +1359,130 @@ const CenterStage: React.FC = () => {
       }
 
       if (hasNonIdleTerminalPanes(tabPanes, tmuxWindows)) {
-        const store = useTerminalStore.getState();
-        const tab = store.getTerminalTabs(effectiveContextId)
-          .find((item) => item.id === tabId);
-        const configuredAgents = terminalQuickOpenAgents.map(({ agent }) => agent);
-        const scopeKey = getScopeKey(effectiveContextId, tabId);
-        const title =
-          resolveTerminalCenterTabPresentation({
-            fallbackTitle: tab?.title || t("fallbackTerminalTitle"),
-            customTitle: tab?.customTitle,
-            panes: store.getPanes(effectiveContextId, tabId),
-            layout: store.getLayout(effectiveContextId, tabId),
-            lastActivePaneId: store.workspaceActivePaneIds[scopeKey] ?? null,
-            maximizedPaneId: store.getMaximizedTerminalId(effectiveContextId, tabId),
-            configuredAgents,
-            showAgentName:
-              useAgentTitleSettingsStore.getState().showAgentNameInTerminalTitles,
-          }).displayTitle ||
-          tab?.customTitle ||
-          tab?.title ||
-          t("fallbackTerminalTitle");
-        const runningPaneNames = tabPanes
-          .filter((pane) => isTerminalPaneNonIdle(pane, tmuxWindows))
-          .map((pane) => getTerminalCloseConfirmName(pane, configuredAgents));
-        setTerminalTabCloseConfirm({ tabId, title, runningPaneNames });
+        setTerminalTabCloseConfirm(
+          buildTerminalCloseConfirmPayload(
+            effectiveContextId,
+            tabId,
+            tabPanes,
+            tmuxWindows,
+          ),
+        );
         return;
       }
     }
 
     performCloseTerminalCenterTab(tabId);
   }, [
+    buildTerminalCloseConfirmPayload,
     effectiveContextId,
     getTerminalTabPanes,
     performCloseTerminalCenterTab,
-    t,
-    terminalQuickOpenAgents,
   ]);
 
   const handleConfirmCloseTerminalCenterTab = React.useCallback(() => {
     if (!terminalTabCloseConfirm) return;
+    advancingCloseQueueRef.current = true;
     performCloseTerminalCenterTab(terminalTabCloseConfirm.tabId);
     setTerminalTabCloseConfirm(null);
-  }, [performCloseTerminalCenterTab, terminalTabCloseConfirm]);
+    advancePendingCloseQueue();
+    queueMicrotask(() => {
+      advancingCloseQueueRef.current = false;
+    });
+  }, [advancePendingCloseQueue, performCloseTerminalCenterTab, terminalTabCloseConfirm]);
+
+  /**
+   * Close many center tabs: safe ones immediately; dirty files and busy terminals
+   * (plus project-wiki / code-review) go through the same confirm modals as single close.
+   */
+  const closeTabsSafely = React.useCallback(async (tabs: CenterTabDescriptor[]) => {
+    if (tabs.length === 0) return;
+
+    pendingCloseQueueRef.current = [];
+    const confirmQueue: PendingCenterTabClose[] = [];
+
+    let tmuxWindows: Awaited<ReturnType<typeof systemApi.listTmuxWindows>>["windows"] | null = null;
+    const needsTmux = tabs.some((tab) => tab.kind === "terminal");
+    if (needsTmux && effectiveContextId) {
+      try {
+        const response = await systemApi.listTmuxWindows(effectiveContextId);
+        tmuxWindows = response.windows;
+      } catch (error) {
+        console.warn("Failed to inspect terminal foreground commands before bulk close", error);
+      }
+    }
+
+    for (const tab of tabs) {
+      if (isFileLikeCenterTabKind(tab.kind) && tab.file) {
+        if (tab.file.isDirty) {
+          confirmQueue.push({ kind: "file", file: tab.file });
+        } else {
+          closeFile(tab.file.path, effectiveContextId || undefined);
+        }
+        continue;
+      }
+
+      if (tab.kind === "terminal") {
+        if (!effectiveContextId) continue;
+        const tabPanes = getTerminalTabPanes(effectiveContextId, tab.value);
+        if (hasNonIdleTerminalPanes(tabPanes, tmuxWindows)) {
+          const payload = buildTerminalCloseConfirmPayload(
+            effectiveContextId,
+            tab.value,
+            tabPanes,
+            tmuxWindows,
+          );
+          confirmQueue.push({
+            kind: "terminal",
+            ...payload,
+          });
+        } else {
+          performCloseTerminalCenterTab(tab.value);
+        }
+        continue;
+      }
+
+      if (tab.kind === "project-wiki") {
+        confirmQueue.push({ kind: "project-wiki" });
+        continue;
+      }
+
+      if (tab.kind === "code-review") {
+        confirmQueue.push({ kind: "code-review" });
+        continue;
+      }
+
+      if (
+        tab.kind === "github-pr" ||
+        tab.kind === "github-issue" ||
+        tab.kind === "github-action" ||
+        tab.kind === "github-commit"
+      ) {
+        handleCloseGithubTab(tab.value);
+        continue;
+      }
+
+      if (tab.kind === "browser") {
+        handleCloseBrowserTab(tab.value);
+      }
+    }
+
+    pendingCloseQueueRef.current = confirmQueue;
+    advancePendingCloseQueue();
+  }, [
+    advancePendingCloseQueue,
+    buildTerminalCloseConfirmPayload,
+    closeFile,
+    effectiveContextId,
+    getTerminalTabPanes,
+    handleCloseBrowserTab,
+    handleCloseGithubTab,
+    performCloseTerminalCenterTab,
+  ]);
+
+
+  const handleCloseCenterTabFromMenu = React.useCallback((tab: CenterTabDescriptor) => {
+    void closeTabsSafely([tab]);
+  }, [closeTabsSafely]);
 
   const handleTerminalPaneClosed = React.useCallback((event: {
     paneId: string;
@@ -1570,7 +1760,12 @@ const CenterStage: React.FC = () => {
         });
       }
     }
+    advancingCloseQueueRef.current = true;
     setProjectWikiCloseConfirmOpen(false);
+    advancePendingCloseQueue();
+    queueMicrotask(() => {
+      advancingCloseQueueRef.current = false;
+    });
   };
 
   const handleConfirmCloseCodeReviewTerminal = async () => {
@@ -1588,7 +1783,12 @@ const CenterStage: React.FC = () => {
         });
       }
     }
+    advancingCloseQueueRef.current = true;
     setCodeReviewCloseConfirmOpen(false);
+    advancePendingCloseQueue();
+    queueMicrotask(() => {
+      advancingCloseQueueRef.current = false;
+    });
   };
 
   // Gate on live URL so deferred lag never flashes the empty/welcome chrome mid-hop.
@@ -1642,6 +1842,8 @@ const CenterStage: React.FC = () => {
           isTabGroupItemActive={isTabGroupItemActive}
           openFiles={openFiles}
           orderedGroupedTabItems={orderedGroupedTabItems}
+          tabStripOrder={tabStripOrder}
+          onTabStripOrderChange={handleTabStripOrderChange}
           previewBrowserPrefs={previewBrowserPrefs}
           projectWikiTabVisible={projectWikiTabVisible}
           scrollableTabsRef={scrollableTabsRef}
@@ -1664,7 +1866,6 @@ const CenterStage: React.FC = () => {
           handleSelectTabGroupItem={handleSelectTabGroupItem}
           handleTabGroupDragEnd={handleTabGroupDragEnd}
           pinFile={pinFile}
-          setActiveFile={setActiveFile}
           setCodeReviewCloseConfirmOpen={setCodeReviewCloseConfirmOpen}
           setProjectWikiCloseConfirmOpen={setProjectWikiCloseConfirmOpen}
           setTabContextMenu={setTabContextMenu}
@@ -1713,18 +1914,22 @@ const CenterStage: React.FC = () => {
         />
       </Tabs>
 
-      <CenterStageFileTabContextMenu
+      <CenterStageTabContextMenu
         tabContextMenu={tabContextMenu}
         setTabContextMenu={setTabContextMenu}
-        openFiles={openFiles}
         basePath={currentWorkspace?.localPath || currentProject?.mainFilePath}
-        onCloseFile={handleCloseFile}
-        closeFilesSafely={closeFilesSafely}
+        onCloseTab={handleCloseCenterTabFromMenu}
+        onCloseTabs={(tabs) => {
+          void closeTabsSafely(tabs);
+        }}
+        onRenameTerminalTab={handleRenameTerminalCenterTab}
       />
 
       <TerminalCloseConfirmDialog
         open={projectWikiCloseConfirmOpen}
-        onOpenChange={setProjectWikiCloseConfirmOpen}
+        onOpenChange={(open) => {
+          if (!open) dismissCloseConfirmDialog();
+        }}
         title={t("dialogs.closeProjectWikiTerminal.title")}
         description={t("dialogs.closeProjectWikiTerminal.description")}
         onConfirm={handleConfirmCloseProjectWikiTerminal}
@@ -1732,7 +1937,9 @@ const CenterStage: React.FC = () => {
 
       <TerminalCloseConfirmDialog
         open={codeReviewCloseConfirmOpen}
-        onOpenChange={setCodeReviewCloseConfirmOpen}
+        onOpenChange={(open) => {
+          if (!open) dismissCloseConfirmDialog();
+        }}
         title={t("dialogs.closeCodeReviewTerminal.title")}
         description={t("dialogs.closeCodeReviewTerminal.description")}
         onConfirm={handleConfirmCloseCodeReviewTerminal}
@@ -1741,7 +1948,7 @@ const CenterStage: React.FC = () => {
       <TerminalCloseConfirmDialog
         open={!!terminalTabCloseConfirm}
         onOpenChange={(open) => {
-          if (!open) setTerminalTabCloseConfirm(null);
+          if (!open) dismissCloseConfirmDialog();
         }}
         title={t("dialogs.closeTerminalTab.title")}
         description={t("dialogs.closeTerminalTab.description", {
@@ -1797,7 +2004,7 @@ const CenterStage: React.FC = () => {
 
       <UnsavedChangesDialog
         fileToClose={fileToClose}
-        onCancel={() => setFileToClose(null)}
+        onCancel={dismissCloseConfirmDialog}
         onConfirm={confirmClose}
       />
 

@@ -4,11 +4,12 @@ import React from "react";
 import { createPortal } from "react-dom";
 
 import { cn } from "@workspace/ui";
+import { BrowserTabBar, type BrowserTabBarProps } from "./BrowserTabBar";
 import { BrowserToolbar } from "./BrowserToolbar";
 import { BrowserViewport } from "./BrowserViewport";
 
 type PreviewContentProps = {
-  browserTabBar?: React.ReactNode;
+  browserTabBarProps?: BrowserTabBarProps | null;
   isChromeHidden?: boolean;
   isMaximized: boolean;
   isMaximizedLayoutManaged?: boolean;
@@ -21,7 +22,7 @@ type PreviewContentProps = {
 };
 
 export function BrowserContent({
-  browserTabBar,
+  browserTabBarProps,
   isChromeHidden = false,
   isMaximized,
   isMaximizedLayoutManaged = false,
@@ -37,14 +38,30 @@ export function BrowserContent({
   // layout space instead of relying on z-index when previewing external pages.
   const shouldReserveNativeChromeSpace =
     isChromeHidden && reserveNativeSurfaceChromeSpace;
-  // Strip surface wraps tabs + toolbar so toolbar rounded-t corners reveal the
-  // tab-strip color (same as Chrome) instead of blending into page background.
-  const chrome = (
-    <div className="flex shrink-0 flex-col bg-zinc-300/80 dark:bg-zinc-900">
-      {browserTabBar}
+
+  const toolbar = (
+    <div className="shrink-0">
       <BrowserToolbar {...toolbarProps} />
     </div>
   );
+  // Keep viewport as a stable last sibling so toggling chrome hide does not
+  // re-parent BrowserViewport (which remounts the guest webview).
+  const viewport = <BrowserViewport {...viewportProps} />;
+
+  const tabBarChrome = browserTabBarProps ? (
+    isChromeHidden ? (
+      <HiddenPreviewChrome
+        key={toolbarHoverSuppressed ? "suppressed" : "ready"}
+        onNativeSurfaceChromeLayoutChange={onNativeSurfaceChromeLayoutChange}
+        reserveNativeSurfaceSpace={shouldReserveNativeChromeSpace}
+        toolbarHoverSuppressed={toolbarHoverSuppressed}
+      >
+        <BrowserTabBar {...browserTabBarProps}>{toolbar}</BrowserTabBar>
+      </HiddenPreviewChrome>
+    ) : (
+      <BrowserTabBar {...browserTabBarProps}>{toolbar}</BrowserTabBar>
+    )
+  ) : null;
 
   const content = (
     <div
@@ -61,19 +78,30 @@ export function BrowserContent({
           : "h-full w-full",
       )}
     >
-      {isChromeHidden ? (
-        <HiddenPreviewChrome
-          key={toolbarHoverSuppressed ? "suppressed" : "ready"}
-          onNativeSurfaceChromeLayoutChange={onNativeSurfaceChromeLayoutChange}
-          reserveNativeSurfaceSpace={shouldReserveNativeChromeSpace}
-          toolbarHoverSuppressed={toolbarHoverSuppressed}
-        >
-          {chrome}
-        </HiddenPreviewChrome>
+      {browserTabBarProps ? (
+        <>
+          {tabBarChrome}
+          <div className="flex min-h-0 flex-1 flex-col">{viewport}</div>
+        </>
       ) : (
-        chrome
+        <>
+          {isChromeHidden ? (
+            <HiddenPreviewChrome
+              key={toolbarHoverSuppressed ? "suppressed" : "ready"}
+              onNativeSurfaceChromeLayoutChange={onNativeSurfaceChromeLayoutChange}
+              reserveNativeSurfaceSpace={shouldReserveNativeChromeSpace}
+              toolbarHoverSuppressed={toolbarHoverSuppressed}
+            >
+              {toolbar}
+            </HiddenPreviewChrome>
+          ) : (
+            <div className="flex shrink-0 flex-col bg-zinc-300/80 dark:bg-zinc-900">
+              {toolbar}
+            </div>
+          )}
+          {viewport}
+        </>
       )}
-      <BrowserViewport {...viewportProps} />
     </div>
   );
 

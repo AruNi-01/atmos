@@ -55,6 +55,13 @@ import {
   resolveDesktopUseSkillRef,
 } from "@/features/welcome/lib/slash-desktop-use";
 import {
+  buildViewRunLogsSlashCommand,
+  matchesViewRunLogsSlashQuery,
+  resolveViewRunLogsPromptText,
+  VIEW_RUN_LOGS_SLASH_COMMAND_ID,
+} from "@/features/browser/lib/run-log-context";
+import { runLogApi } from "@/features/browser/lib/run-log-api";
+import {
   getAgentContextDragItems,
   hasAgentContextDragData,
   type AgentContextDragItem,
@@ -280,6 +287,14 @@ export const TerminalAgentInputOverlay = React.forwardRef<
         buildDesktopUseSlashCommand({
           label: t("desktopUseCommand.label"),
           description: t("desktopUseCommand.description"),
+        }),
+      );
+    }
+    if (matchesViewRunLogsSlashQuery(query)) {
+      commands.push(
+        buildViewRunLogsSlashCommand({
+          label: t("viewRunLogsCommand.label"),
+          description: t("viewRunLogsCommand.description"),
         }),
       );
     }
@@ -562,6 +577,23 @@ export const TerminalAgentInputOverlay = React.forwardRef<
         enterDisableSkillsView();
         return;
       }
+      if (command.id === VIEW_RUN_LOGS_SLASH_COMMAND_ID) {
+        const popover = slashPopover;
+        if (!popover) return;
+        setSlashPopover(null);
+        setSlashPopoverView("menu");
+        void resolveViewRunLogsPromptText(localPath, (root) =>
+          runLogApi.resolveLatest(root),
+        ).then((promptText) => {
+          composerRef.current?.applyAiContextAtRange(
+            popover.slashOffset,
+            popover.query.length,
+            "run-log",
+            promptText,
+          );
+        });
+        return;
+      }
       if (command.id === BROWSER_USE_SLASH_COMMAND_ID) {
         const popover = slashPopover;
         if (!popover) return;
@@ -646,7 +678,13 @@ export const TerminalAgentInputOverlay = React.forwardRef<
       setSlashPopoverView("menu");
       setSkillDisableFilter("");
     },
-    [allSkills, createCapturePromptContext, enterDisableSkillsView, slashPopover],
+    [
+      allSkills,
+      createCapturePromptContext,
+      enterDisableSkillsView,
+      localPath,
+      slashPopover,
+    ],
   );
 
   const {

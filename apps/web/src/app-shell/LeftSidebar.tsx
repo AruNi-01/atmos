@@ -75,7 +75,8 @@ import { useLayoutSettingsStore } from '@/features/settings/store/layout-setting
 import { useExperimentSettingsStore } from '@/features/settings/store/experiment-settings-store';
 import { useInitialProjectsLoading } from '@/features/project/store/use-initial-projects-loading';
 import { ProjectsSidebarLoading } from '@/app-shell/ProjectsSidebarLoading';
-import { LeftSidebarManagementCenter } from '@/app-shell/LeftSidebarManagementCenter';
+import { LeftSidebarManagementCenter, LeftSidebarManagementCenterOutside } from '@/app-shell/LeftSidebarManagementCenter';
+
 import { LeftSidebarPinnedSection } from '@/app-shell/LeftSidebarPinnedSection';
 import {
     GroupedWorkspaceOneColumnContent,
@@ -229,7 +230,6 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
     }, [attentionFilterMode, filesOnRight, activeTab, setActiveTab, fileTreeRevealTarget]);
     const [newWorkspace, setNewWorkspace] = useQueryState("newWorkspace", centerStageParams.newWorkspace);
     const [canvasOpen, setCanvasOpen] = useQueryState("canvas", centerStageParams.canvas);
-    const [isKanbanExpanded, setIsKanbanExpanded] = useQueryState("lsKanban", leftSidebarParams.lsKanban);
     const [expandedProjects, setExpandedProjects] = useState<string[]>([]);
     const [collapsedWorkspaceGroups, setCollapsedWorkspaceGroups] = useState<Record<string, boolean>>({});
     const [groupingMode, setGroupingMode] = useState<SidebarGroupingMode>('project');
@@ -242,7 +242,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
         : [];
     const [kanbanFilters, setKanbanFilters] = useState<WorkspaceKanbanFilters>(EMPTY_WORKSPACE_KANBAN_FILTERS);
     const [isWorkspacesExpanded, setIsWorkspacesExpanded] = useState(
-        currentView === 'workspaces' || currentView === 'skills' || currentView === 'terminals' || currentView === 'agents' || currentView === 'automations' || currentView === 'disk-analyzer'
+        currentView === 'workspaces' || currentView === 'skills' || currentView === 'terminals' || currentView === 'agents' || currentView === 'automations' || currentView === 'disk-analyzer' || currentView === 'kanban'
     );
     const [isPinnedSectionCollapsed, setIsPinnedSectionCollapsed] = useState(false);
     const [isPinnedDividerHovered, setIsPinnedDividerHovered] = useState(false);
@@ -282,13 +282,42 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
 
     const isInitialProjectsLoading = useInitialProjectsLoading();
 
-    const managementTerminalsEnabled = useExperimentSettingsStore((s) => s.managementTerminalsEnabled);
-    const managementAgentsEnabled = useExperimentSettingsStore((s) => s.managementAgentsEnabled);
-    const automationsEnabled = useExperimentSettingsStore((s) => s.automationsEnabled);
+    const managementCenterItems = useExperimentSettingsStore((s) => s.managementCenterItems);
     const loadExperimentSettings = useExperimentSettingsStore((s) => s.loadSettings);
+    // Settled is keyed by connectionEpoch so a computer switch does not keep the previous
+    // connection's settled=true while the store is back on defaults (avoids default-item flash).
+    // Still unblocks nav after the first load attempt (success or failure) so we can retry.
+    const [settledForEpoch, setSettledForEpoch] = useState<number | null>(null);
+    const managementCenterSettled = settledForEpoch === connectionEpoch;
+
     useEffect(() => {
-        void loadExperimentSettings();
-    }, [loadExperimentSettings]);
+        let cancelled = false;
+        let retryTimer: number | null = null;
+        let retryAttempt = 0;
+        const epoch = connectionEpoch;
+
+        const tryLoad = async () => {
+            await loadExperimentSettings();
+            if (cancelled) return;
+            setSettledForEpoch(epoch);
+            if (useExperimentSettingsStore.getState().loaded) return;
+            // loadSettings leaves loaded=false on failure so callers can retry.
+            const delay = Math.min(1_000 * 2 ** retryAttempt, 15_000);
+            retryAttempt += 1;
+            retryTimer = window.setTimeout(() => {
+                void tryLoad();
+            }, delay);
+        };
+
+        void tryLoad();
+
+        return () => {
+            cancelled = true;
+            if (retryTimer !== null) {
+                window.clearTimeout(retryTimer);
+            }
+        };
+    }, [loadExperimentSettings, connectionEpoch]);
 
     const {
         isCreateProjectOpen,
@@ -940,15 +969,14 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
         [handleToggleCanvas],
     );
 
-    // ⌘⇧K → expand the Kanban board overlay. The kanban dialog is bound to the
-    // `lsKanban` URL state, so flipping it to true opens the board from anywhere.
+    // ⌘⇧K → open the Kanban board in center stage.
     useHotkeys(
         "mod+shift+k",
         () => {
-            void setIsKanbanExpanded(true);
+            router.push("/kanban");
         },
         { enableOnContentEditable: true, enableOnFormTags: true, preventDefault: true },
-        [setIsKanbanExpanded],
+        [router],
     );
 
     const handleQuickAddWorkspace = async (projectId: string) => {
@@ -1386,45 +1414,32 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
                 ? userGroupOneColumnContent
                 : groupedOneColumnContent;
 
+    const managementCenterSharedProps = {
+        currentView,
+        canvasOpen: Boolean(canvasOpen),
+        managementCenterItems,
+        onNavigate: (path: string) => router.push(path),
+        onOpenCanvas: () => void setCanvasOpen(true),
+        onOpenNewWorkspace: handleOpenNewWorkspace,
+    };
+
     return (
         <>
             <aside className="@container w-full flex flex-col h-full select-none">
-                {/* Management Center */}
-                <div className="flex flex-col shrink-0">
-                    <LeftSidebarManagementCenter
-                        isExpanded={isWorkspacesExpanded}
-                        onExpandedChange={setIsWorkspacesExpanded}
-                        currentView={currentView}
-                        canvasOpen={Boolean(canvasOpen)}
-                        managementTerminalsEnabled={managementTerminalsEnabled}
-                        managementAgentsEnabled={managementAgentsEnabled}
-                        automationsEnabled={automationsEnabled}
-                        projects={listProjects}
-                        availableLabels={workspaceLabels}
-                        groups={groups}
-                        groupingMode={groupingMode}
-                        kanbanFilters={kanbanFilters}
-                        onFiltersChange={setKanbanFilters}
-                        onGroupingModeChange={setGroupingMode}
-                        onNavigate={(path) => router.push(path)}
-                        onOpenCanvas={() => void setCanvasOpen(true)}
-                        onOpenNewWorkspace={handleOpenNewWorkspace}
-                        onUpdateWorkflowStatus={updateWorkspaceWorkflowStatus}
-                        onUpdatePriority={updateWorkspacePriority}
-                        onSetWorkspaceGroup={handleSetWorkspaceGroup}
-                        onCreateGroup={handleCreateGroupNamed}
-                        onCreateLabel={createWorkspaceLabel}
-                        onUpdateLabel={updateWorkspaceLabel}
-                        onUpdateLabels={updateWorkspaceLabels}
-                        onPinWorkspace={pinWorkspace}
-                        onUnpinWorkspace={unpinWorkspace}
-                        onArchiveWorkspace={archiveWorkspace}
-                        onDeleteWorkspace={async (projectId, workspaceId) => {
-                            await deleteWorkspace(projectId, workspaceId);
-                        }}
-                    />
-
-                </div>
+                {/* Management Center — wait for first load attempt to avoid default-config flash */}
+                {managementCenterSettled ? (
+                    <>
+                        <div className="flex flex-col shrink-0">
+                            <LeftSidebarManagementCenter
+                                isExpanded={isWorkspacesExpanded}
+                                onExpandedChange={setIsWorkspacesExpanded}
+                                {...managementCenterSharedProps}
+                            />
+                        </div>
+                        {/* Outside items: simple icon + name list below Management Center */}
+                        <LeftSidebarManagementCenterOutside {...managementCenterSharedProps} />
+                    </>
+                ) : null}
 
 
 
@@ -1488,24 +1503,10 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
                     filters={kanbanFilters}
                     groupingMode={groupingMode}
                     groups={groups}
-                    isKanbanExpanded={isKanbanExpanded}
                     projects={projects}
                     onAddProject={handleAddProject}
-                    onArchiveWorkspace={archiveWorkspace}
-                    onCreateLabel={createWorkspaceLabel}
-                    onDeleteWorkspace={async (projectId, workspaceId) => {
-                        await deleteWorkspace(projectId, workspaceId);
-                    }}
                     onFiltersChange={setKanbanFilters}
                     onGroupingModeChange={setGroupingMode}
-                    onPinWorkspace={pinWorkspace}
-                    onCreateGroup={handleCreateGroupNamed}
-                    onSetWorkspaceGroup={handleSetWorkspaceGroup}
-                    onUnpinWorkspace={unpinWorkspace}
-                    onUpdateLabel={updateWorkspaceLabel}
-                    onUpdateLabels={updateWorkspaceLabels}
-                    onUpdatePriority={updateWorkspacePriority}
-                    onUpdateWorkflowStatus={updateWorkspaceWorkflowStatus}
                 />
             </aside >
             <CreateProjectDialog

@@ -404,6 +404,10 @@ pub enum WsAction {
     // ===== Terminal 操作 =====
     /// 列出指定 Workspace 的可附着 terminal/tmux window 候选
     TerminalWorkspaceCandidates,
+    /// APP-055: rotate/open latest Run log and write start header
+    RunLogStart,
+    /// APP-055: resolve preferred latest Run log path under a project root
+    RunLogResolveLatest,
     /// Capture bounded plain terminal context for /side side chats
     TerminalSideContextCapture,
     /// List/reconcile active side chat records for a workspace

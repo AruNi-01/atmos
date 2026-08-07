@@ -216,11 +216,16 @@ export function useQuotaProviderOrder(): [
 export interface CenterStageUiPrefs {
   lastTabByContext: Record<string, string>;
   tabGroupOrderByContext: Record<string, Record<string, string[]>>;
+  /** Per-workspace center strip tab id order (drag-and-drop). */
+  tabStripOrderByContext: Record<string, string[]>;
+  /** @deprecated Kept for reading old prefs only; pin feature removed. */
+  pinnedTabsByContext?: Record<string, Record<string, number>>;
 }
 
 const DEFAULT_CENTER_STAGE: CenterStageUiPrefs = {
   lastTabByContext: {},
   tabGroupOrderByContext: {},
+  tabStripOrderByContext: {},
 };
 
 export function useCenterStageUiPrefs(): CenterStageUiPrefs {
@@ -265,6 +270,35 @@ export function writeCenterStageTabGroupOrder(
     instanceId,
     'centerStage',
     prev => ({ ...prev, tabGroupOrderByContext: order }),
+    DEFAULT_CENTER_STAGE,
+  );
+}
+
+export function readCenterStageTabStripOrder(contextId: string): string[] {
+  const instanceId = useConnectionStore.getState().activeInstanceId;
+  const order = useUiPrefStore.getState().readSlice(
+    instanceId,
+    'centerStage',
+    DEFAULT_CENTER_STAGE,
+  ).tabStripOrderByContext?.[contextId];
+  return Array.isArray(order) ? order.filter((id): id is string => typeof id === 'string') : [];
+}
+
+export function writeCenterStageTabStripOrder(
+  contextId: string,
+  order: string[],
+): void {
+  const instanceId = useConnectionStore.getState().activeInstanceId;
+  useUiPrefStore.getState().patchSlice(
+    instanceId,
+    'centerStage',
+    prev => ({
+      ...prev,
+      tabStripOrderByContext: {
+        ...(prev.tabStripOrderByContext ?? {}),
+        [contextId]: order,
+      },
+    }),
     DEFAULT_CENTER_STAGE,
   );
 }

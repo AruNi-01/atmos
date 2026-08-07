@@ -21,7 +21,7 @@ import {
   verticalListSortingStrategy,
   type DragEndEvent,
 } from "@workspace/ui";
-import { Command, GripVertical, Inbox, List } from "lucide-react";
+import { Command, Inbox, List } from "lucide-react";
 import { useShallow } from "zustand/react/shallow";
 import { AgentAttentionIndicator } from "@/features/agent/components/AgentAttentionIndicator";
 import { AgentHookStatusIndicator } from "@/features/agent/components/AgentHookStatusIndicator";
@@ -93,19 +93,22 @@ export function applySavedTabGroupOrder(
   const normalizedSavedOrder = Array.isArray(savedOrder)
     ? savedOrder.filter((item): item is string => typeof item === "string")
     : [];
-  if (!normalizedSavedOrder.length) return group;
+  if (!normalizedSavedOrder.length) {
+    return group;
+  }
 
   const orderIndex = new Map(normalizedSavedOrder.map((id, index) => [id, index]));
+  const sortedBySaved = [...group.tabs].sort((left, right) => {
+    const leftIndex = orderIndex.get(left.id);
+    const rightIndex = orderIndex.get(right.id);
+    if (leftIndex === undefined && rightIndex === undefined) return 0;
+    if (leftIndex === undefined) return 1;
+    if (rightIndex === undefined) return -1;
+    return leftIndex - rightIndex;
+  });
   return {
     ...group,
-    tabs: [...group.tabs].sort((left, right) => {
-      const leftIndex = orderIndex.get(left.id);
-      const rightIndex = orderIndex.get(right.id);
-      if (leftIndex === undefined && rightIndex === undefined) return 0;
-      if (leftIndex === undefined) return 1;
-      if (rightIndex === undefined) return -1;
-      return leftIndex - rightIndex;
-    }),
+    tabs: sortedBySaved,
   };
 }
 
@@ -197,7 +200,6 @@ export function SortableTabGroupItem({
     attributes,
     listeners,
     setNodeRef,
-    setActivatorNodeRef,
     transform,
     transition,
     isDragging,
@@ -251,8 +253,6 @@ export function SortableTabGroupItem({
       <TooltipTrigger asChild>
         <div
           ref={setNodeRef}
-          role="button"
-          tabIndex={0}
           onClick={onSelect}
           onKeyDown={(event) => {
             if (event.key !== "Enter" && event.key !== " ") return;
@@ -264,22 +264,16 @@ export function SortableTabGroupItem({
             transition,
           }}
           className={cn(
-            "group/tab-item relative flex h-10 w-full min-w-0 cursor-pointer items-center gap-1 rounded-md pl-2 pr-2 text-left text-muted-foreground transition-colors",
+            "group/tab-item relative flex h-10 w-full min-w-0 cursor-grab items-center gap-1 rounded-md pl-2 pr-2 text-left text-muted-foreground transition-colors active:cursor-grabbing",
             "hover:bg-sidebar-accent/70 hover:text-sidebar-foreground dark:hover:bg-muted/45",
             isActive && "bg-muted/40 hover:bg-sidebar-accent/70",
-            isDragging && "z-10 opacity-70 shadow-md"
+            isDragging && "z-10 opacity-70 shadow-md",
           )}
+          {...attributes}
+          {...listeners}
+          role="button"
+          tabIndex={0}
         >
-          <span
-            ref={setActivatorNodeRef}
-            {...attributes}
-            {...listeners}
-            className="-ml-0.5 -mr-1.5 flex size-4 shrink-0 cursor-grab items-center justify-center text-muted-foreground opacity-0 transition-colors hover:text-foreground active:cursor-grabbing group-hover/tab-item:opacity-100"
-            aria-label={t("centerStageTabs.dragTab", { label: tab.label })}
-            onClick={(event) => event.stopPropagation()}
-          >
-            <GripVertical className="size-3" />
-          </span>
           <div
             ref={contentRef}
             className="flex min-w-0 flex-1 items-center gap-1 overflow-hidden"

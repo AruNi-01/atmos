@@ -112,7 +112,15 @@ export interface FunctionSettings {
   experiments?: {
     mgmt_terminals?: boolean;
     mgmt_agents?: boolean;
+    automations?: boolean;
     center_wiki_tab?: boolean;
+    mgmt_center_items?: Record<
+      string,
+      {
+        enabled?: boolean;
+        placement?: "inside" | "outside";
+      }
+    >;
     [key: string]: unknown;
   };
   [key: string]: unknown;

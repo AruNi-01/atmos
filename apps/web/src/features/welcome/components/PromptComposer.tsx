@@ -29,6 +29,7 @@ import {
   resolveAiContextPrompt,
   type AiContextChipIcon,
   type AiContextChipTone,
+  type AiContextKind,
 } from "@/shared/lib/ai-context-protocol";
 import { currentAppLocale } from "@/shared/lib/current-app-locale";
 import enMessages from "../../../../messages/en.json";
@@ -81,6 +82,16 @@ export interface ComposerHandle {
   insertSpawnCommand: (contextId: string) => void;
   applySpawnCommandAtRange: (slashOffset: number, queryLength: number, contextId: string) => void;
   applySkillDisableCommandAtRange: (slashOffset: number, queryLength: number) => void;
+  /**
+   * Replace `/<query>` with an AI context chip (`[#ctx:kind:id]`) and trailing space.
+   * Used by APP-055 View Run Logs and other path/instruction chips.
+   */
+  applyAiContextAtRange: (
+    slashOffset: number,
+    queryLength: number,
+    kind: AiContextKind,
+    promptText: string,
+  ) => void;
   /** Focus the in-chip filter field while the disable popover is open. */
   focusSkillDisableFilter: () => void;
   /** Replace in-chip session action pills (enable/disable results this session). */
@@ -1390,6 +1401,23 @@ export const PromptComposer = React.forwardRef<ComposerHandle, PromptComposerPro
           const nextCaretOffset = replaceFrom + insertText.length;
           setCaretAtOffsetAndRemember(nextCaretOffset);
         }
+      },
+      applyAiContextAtRange: (slashOffset, queryLength, kind, promptText) => {
+        if (!editorRef.current) return;
+        editorRef.current.focus();
+        const token = registerAiContextPrompt(kind, promptText);
+        const currentText = serialize(editorRef.current);
+        const replaceFrom = Math.max(slashOffset - 1, 0);
+        const replaceTo = Math.min(slashOffset + queryLength, currentText.length);
+        const insertText = `${token}${CHIP_TRAILING_SPACER}`;
+        const nextText =
+          currentText.slice(0, replaceFrom) +
+          insertText +
+          currentText.slice(replaceTo);
+        inflateInto(editorRef.current, nextText);
+        fireChange();
+        const nextCaretOffset = replaceFrom + insertText.length;
+        setCaretAtOffsetAndRemember(nextCaretOffset);
       },
       focusSkillDisableFilter: () => {
         const chip = findSkillDisableChip(editorRef.current);

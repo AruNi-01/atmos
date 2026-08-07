@@ -41,6 +41,13 @@ import {
   matchesDesktopUseSlashQuery,
   resolveDesktopUseSkillRef,
 } from "@/features/welcome/lib/slash-desktop-use";
+import {
+  buildViewRunLogsSlashCommand,
+  matchesViewRunLogsSlashQuery,
+  resolveViewRunLogsPromptText,
+  VIEW_RUN_LOGS_SLASH_COMMAND_ID,
+} from "@/features/browser/lib/run-log-context";
+import { runLogApi } from "@/features/browser/lib/run-log-api";
 import { useProjectStore } from "@/features/project/store/use-project-store";
 import {
   useProjects,
@@ -269,6 +276,14 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
         buildDesktopUseSlashCommand({
           label: t("slashPopover.desktopUse.label"),
           description: t("slashPopover.desktopUse.description"),
+        }),
+      );
+    }
+    if (matchesViewRunLogsSlashQuery(query)) {
+      commands.push(
+        buildViewRunLogsSlashCommand({
+          label: t("slashPopover.viewRunLogs.label"),
+          description: t("slashPopover.viewRunLogs.description"),
         }),
       );
     }
@@ -530,6 +545,22 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
         enterDisableSkillsView();
         return;
       }
+      if (command.id === VIEW_RUN_LOGS_SLASH_COMMAND_ID) {
+        const popover = slashPopover;
+        if (!popover) return;
+        setSlashPopover(null);
+        void resolveViewRunLogsPromptText(selectedProjectPath, (root) =>
+          runLogApi.resolveLatest(root),
+        ).then((promptText) => {
+          composerRef.current?.applyAiContextAtRange(
+            popover.slashOffset,
+            popover.query.length,
+            "run-log",
+            promptText,
+          );
+        });
+        return;
+      }
       if (command.id === BROWSER_USE_SLASH_COMMAND_ID) {
         const popover = slashPopover;
         if (!popover) return;
@@ -591,7 +622,7 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
         return;
       }
     },
-    [allSkills, enterDisableSkillsView, slashPopover],
+    [allSkills, enterDisableSkillsView, selectedProjectPath, slashPopover],
   );
 
   const {

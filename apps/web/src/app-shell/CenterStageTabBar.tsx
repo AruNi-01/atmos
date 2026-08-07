@@ -1,22 +1,27 @@
 "use client";
 
 import React from "react";
-import { createPortal } from "react-dom";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
-  DropdownMenuTrigger,
-  Input,
+  arrayMove,
+  closestCenter,
+  CSS,
+  DndContext,
+  horizontalListSortingStrategy,
+  KeyboardSensor,
+  PointerSensor,
   Popover,
   PopoverContent,
   PopoverTrigger,
+  restrictToHorizontalAxis,
+  SortableContext,
+  sortableKeyboardCoordinates,
   TabsTab,
   Tooltip,
   TooltipContent,
   TooltipTrigger,
+  useSensor,
+  useSensors,
+  useSortable,
   X,
   type DragEndEvent,
 } from "@workspace/ui";
@@ -25,7 +30,6 @@ import {
   Bot,
   Globe,
   LoaderCircle,
-  Pencil,
   Plus,
   RotateCw,
   SquareTerminal as TerminalIcon,
@@ -43,18 +47,22 @@ import {
 import {
   CenterStageOpenFileTab,
   CenterStageOverviewTab,
-  CenterStageScrollableTabs,
   CenterStageSurfaceContentTab,
   CenterStageStickyTabActions,
   CenterStageTabGroupItemContent,
   CenterStageTabList,
+  getCenterStageSurfaceTabVariant,
 } from "@/app-shell/center-stage-shared-tabs";
 import { AgentIcon } from "@/features/agent/components/AgentIcon";
 import { useAgentAttentionStore } from "@/features/agent/store/agent-attention-store";
 import { useTerminalCenterTabPresentation } from "@/features/terminal/hooks/use-terminal-center-tab-presentation";
 import { useTerminalStore } from "@/features/terminal/store/use-terminal-store";
 import { useShallow } from "zustand/react/shallow";
-import type { FileTabContextMenuState } from "@/app-shell/center-stage-file-menu";
+import type { CenterTabContextMenuState, CenterTabDescriptor } from "@/app-shell/center-stage-tab-model";
+import {
+  orderCenterTabsBySavedOrder,
+  preventNonPrimaryTabActivate,
+} from "@/app-shell/center-stage-tab-model";
 import type { GithubCenterTab } from "@/features/github/store/use-github-center-tabs";
 import type { BrowserCenterTab } from "@/features/browser/store/use-browser-center-tabs";
 import {
@@ -84,6 +92,8 @@ interface CenterStageTabBarProps {
   sessionDisplay: SessionDisplay;
   tabGroupDndSensors: React.ComponentProps<typeof CenterStageTabGroupPopover>["sensors"];
   tabGroupPopoverOpen: boolean;
+  /** Saved strip order (tab ids). Missing/new tabs append after. */
+  tabStripOrder: string[];
   termTabPlusHoveredTabId: string | null;
   visibleTerminalTabs: Array<{ id: string; title: string; closable: boolean; customTitle?: string }>;
   wikiCenterEligible: boolean;
@@ -99,11 +109,11 @@ interface CenterStageTabBarProps {
   handleRenameTerminalCenterTab: (tabId: string, title: string) => void;
   handleSelectTabGroupItem: (tab: TabGroupItem) => void;
   handleTabGroupDragEnd: (event: DragEndEvent) => void;
+  onTabStripOrderChange: (order: string[]) => void;
   pinFile: (path: string, workspaceId?: string) => void;
-  setActiveFile: (path: string | null, workspaceId?: string) => void;
   setCodeReviewCloseConfirmOpen: React.Dispatch<React.SetStateAction<boolean>>;
   setProjectWikiCloseConfirmOpen: React.Dispatch<React.SetStateAction<boolean>>;
-  setTabContextMenu: (value: FileTabContextMenuState) => void;
+  setTabContextMenu: (value: CenterTabContextMenuState) => void;
   setTabGroupPopoverOpen: React.Dispatch<React.SetStateAction<boolean>>;
   setTermTabPlusHoveredTabId: React.Dispatch<React.SetStateAction<string | null>>;
   setWikiRefreshing: React.Dispatch<React.SetStateAction<boolean>>;
@@ -126,6 +136,7 @@ export function CenterStageTabBar({
   sessionDisplay,
   tabGroupDndSensors,
   tabGroupPopoverOpen,
+  tabStripOrder,
   termTabPlusHoveredTabId,
   visibleTerminalTabs,
   wikiCenterEligible,
@@ -141,8 +152,8 @@ export function CenterStageTabBar({
   handleRenameTerminalCenterTab,
   handleSelectTabGroupItem,
   handleTabGroupDragEnd,
+  onTabStripOrderChange,
   pinFile,
-  setActiveFile,
   setCodeReviewCloseConfirmOpen,
   setProjectWikiCloseConfirmOpen,
   setTabContextMenu,
@@ -160,8 +171,7 @@ export function CenterStageTabBar({
     return <CenterStageTabGroupItemContent effectiveContextId={effectiveContextId} tab={tab} />;
   }, [effectiveContextId]);
 
-  // Open files, GitHub, and Browser instances share one lane, ordered by when
-  // each was opened (no per-type grouping) so tabs appear in natural open order.
+  // Natural open-order among file / github / browser surface tabs (before pin reordering).
   const orderedSurfaceTabs = React.useMemo<
     Array<
       | { type: "file"; openedAt: number; file: OpenFile }
@@ -183,6 +193,262 @@ export function CenterStageTabBar({
     return items.sort((left, right) => left.openedAt - right.openedAt);
   }, [browserTabs, githubTabs, openFiles]);
 
+  // Base visual order: terminals → special terminals → surface tabs by open time.
+  // User drag order is applied on top via tabStripOrder.
+  const baseOrderedDescriptors = React.useMemo<CenterTabDescriptor[]>(() => {
+    const descriptors: CenterTabDescriptor[] = [];
+
+    for (const tab of visibleTerminalTabs) {
+      descriptors.push({
+        id: tab.id,
+        value: tab.id,
+        kind: "terminal",
+        label: tab.customTitle || tab.title,
+        customTitle: tab.customTitle,
+      });
+    }
+
+    if (projectWikiTabVisible) {
+      descriptors.push({
+        id: "project-wiki",
+        value: "project-wiki",
+        kind: "project-wiki",
+        label: t("centerStageTabBar.projectWiki"),
+      });
+    }
+
+    if (codeReviewTabVisible) {
+      descriptors.push({
+        id: "code-review",
+        value: "code-review",
+        kind: "code-review",
+        label: t("centerStageTabBar.codeReview"),
+      });
+    }
+
+    for (const item of orderedSurfaceTabs) {
+      if (item.type === "file") {
+        const variant = getCenterStageSurfaceTabVariant(item.file.path);
+        descriptors.push({
+          id: item.file.path,
+          value: item.file.path,
+          kind: variant === "file" ? "file" : variant,
+          label: item.file.name,
+          file: item.file,
+        });
+        continue;
+      }
+
+      if (item.type === "browser") {
+        const browserContext =
+          previewBrowserPrefs.byContext[item.tab.browserContextId];
+        const label = getActivePreviewBrowserLabel(
+          browserContext,
+          browserFallbackLabel,
+        );
+        descriptors.push({
+          id: item.tab.value,
+          value: item.tab.value,
+          kind: "browser",
+          label,
+        });
+        continue;
+      }
+
+      descriptors.push({
+        id: item.tab.value,
+        value: item.tab.value,
+        kind: item.tab.kind,
+        label: item.tab.label,
+      });
+    }
+
+    return descriptors;
+  }, [
+    browserFallbackLabel,
+    codeReviewTabVisible,
+    orderedSurfaceTabs,
+    previewBrowserPrefs,
+    projectWikiTabVisible,
+    t,
+    visibleTerminalTabs,
+  ]);
+
+  const orderedDescriptors = React.useMemo(
+    () => orderCenterTabsBySavedOrder(baseOrderedDescriptors, tabStripOrder),
+    [baseOrderedDescriptors, tabStripOrder],
+  );
+
+  const stripDndSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
+  const handleStripDragEnd = React.useCallback(
+    (event: DragEndEvent) => {
+      const { active, over } = event;
+      if (!over || active.id === over.id) return;
+      const ids = orderedDescriptors.map((tab) => tab.id);
+      const oldIndex = ids.indexOf(String(active.id));
+      const newIndex = ids.indexOf(String(over.id));
+      if (oldIndex < 0 || newIndex < 0) return;
+      onTabStripOrderChange(arrayMove(ids, oldIndex, newIndex));
+    },
+    [onTabStripOrderChange, orderedDescriptors],
+  );
+
+  const openContextMenu = React.useCallback(
+    (event: React.MouseEvent, tab: CenterTabDescriptor) => {
+      event.preventDefault();
+      event.stopPropagation();
+      setTabContextMenu({
+        x: event.clientX,
+        y: event.clientY,
+        tab,
+        orderedTabs: orderedDescriptors,
+      });
+    },
+    [orderedDescriptors, setTabContextMenu],
+  );
+
+  React.useEffect(() => {
+    const root = scrollableTabsRef.current;
+    if (!root) return;
+
+    const handleWheel = (event: WheelEvent) => {
+      if (event.ctrlKey) return;
+      if (!(event.target instanceof Element) || !root.contains(event.target)) return;
+
+      const primaryDelta =
+        Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
+      if (primaryDelta === 0) return;
+
+      const maxScrollLeft = root.scrollWidth - root.clientWidth;
+      if (maxScrollLeft <= 0) return;
+
+      const next = Math.max(0, Math.min(maxScrollLeft, root.scrollLeft + primaryDelta));
+      if (next === root.scrollLeft) return;
+      event.preventDefault();
+      root.scrollLeft = next;
+    };
+
+    root.addEventListener("wheel", handleWheel, { passive: false });
+    return () => {
+      root.removeEventListener("wheel", handleWheel);
+    };
+  }, [scrollableTabsRef, orderedDescriptors.length]);
+
+  const renderDescriptorTab = (tab: CenterTabDescriptor) => {
+    if (tab.kind === "terminal") {
+      const source = visibleTerminalTabs.find((item) => item.id === tab.value);
+      if (!source) return null;
+      const index = visibleTerminalTabs.findIndex((item) => item.id === tab.value);
+      return (
+        <TerminalExtraTab
+          key={tab.id}
+          activeValue={activeValue}
+          effectiveContextId={effectiveContextId}
+          hasShortcut={index >= 0 && index < CENTER_TERMINAL_SHORTCUT_LIMIT}
+          hoveredTabId={termTabPlusHoveredTabId}
+          shortcutDigit={index + 1}
+          newTerminalTabLabel={newTerminalTabLabel}
+          tab={source}
+          onClose={handleCloseTerminalCenterTab}
+          onCreateTab={handleCreateTerminalCenterTab}
+          onContextMenu={(event) => openContextMenu(event, tab)}
+          setHoveredTabId={setTermTabPlusHoveredTabId}
+        />
+      );
+    }
+
+    if (tab.kind === "project-wiki") {
+      return (
+        <SpecialTerminalTab
+          key={tab.id}
+          closeLabel={t("centerStageTabBar.closeProjectWikiTab")}
+          icon={<TerminalIcon className="size-3.5 shrink-0" />}
+          label={t("centerStageTabBar.projectWiki")}
+          tooltip={t("centerStageTabBar.projectWikiTerminal")}
+          variant="project-wiki"
+          value="project-wiki"
+          onClose={() => setProjectWikiCloseConfirmOpen(true)}
+          onContextMenu={(event) => openContextMenu(event, tab)}
+        />
+      );
+    }
+
+    if (tab.kind === "code-review") {
+      return (
+        <SpecialTerminalTab
+          key={tab.id}
+          closeLabel={t("centerStageTabBar.closeCodeReviewTab")}
+          icon={<TerminalIcon className="size-3.5 shrink-0 text-blue-500" />}
+          label={t("centerStageTabBar.codeReview")}
+          tooltip={t("centerStageTabBar.codeReviewTerminal")}
+          variant="code-review"
+          value="code-review"
+          onClose={() => setCodeReviewCloseConfirmOpen(true)}
+          onContextMenu={(event) => openContextMenu(event, tab)}
+        />
+      );
+    }
+
+    if (tab.file) {
+      return (
+        <CenterStageOpenFileTab
+          key={tab.id}
+          file={tab.file}
+          sessionDisplay={sessionDisplay}
+          onClose={handleCloseFile}
+          onContextMenuRequest={(event) => openContextMenu(event, tab)}
+          onPreviewPin={(nextFile) => pinFile(nextFile.path, effectiveContextId)}
+        />
+      );
+    }
+
+    if (tab.kind === "browser") {
+      const browserTab = browserTabs.find((item) => item.value === tab.value);
+      if (!browserTab) return null;
+      const browserContext =
+        previewBrowserPrefs.byContext[browserTab.browserContextId];
+      const label = getActivePreviewBrowserLabel(
+        browserContext,
+        browserFallbackLabel,
+      );
+      const faviconUrl = getActivePreviewBrowserFaviconUrl(browserContext);
+      return (
+        <CenterStageSurfaceContentTab
+          key={tab.id}
+          closeLabel={t("centerStageTabBar.closeTab", { tab: label })}
+          faviconUrl={faviconUrl}
+          name={label}
+          onClose={() => handleCloseBrowserTab(browserTab.value)}
+          onContextMenu={(event) => openContextMenu(event, tab)}
+          path={label}
+          tooltip={label}
+          value={browserTab.value}
+          variant="browser"
+        />
+      );
+    }
+
+    const githubTab = githubTabs.find((item) => item.value === tab.value);
+    if (!githubTab) return null;
+    return (
+      <CenterStageSurfaceContentTab
+        key={tab.id}
+        closeLabel={t("centerStageTabBar.closeTab", { tab: githubTab.label })}
+        name={githubTab.label}
+        onClose={() => handleCloseGithubTab(githubTab.value)}
+        onContextMenu={(event) => openContextMenu(event, tab)}
+        path={`${githubTab.owner}/${githubTab.repo}`}
+        tooltip={githubTab.description || `${githubTab.owner}/${githubTab.repo}`}
+        value={githubTab.value}
+        variant={githubTab.kind}
+      />
+    );
+  };
+
   return (
     <CenterStageTabList>
       <CenterStageOverviewTab
@@ -199,6 +465,7 @@ export function CenterStageTabBar({
           <TooltipTrigger asChild>
             <TabsTab
               value="wiki"
+              onPointerDown={preventNonPrimaryTabActivate}
               className="group/wiki relative h-full! pl-4 pr-4 data-active:bg-muted/40 data-active:text-foreground text-muted-foreground hover:bg-muted/50 transition-colors gap-2 grow-0 shrink-0 justify-start rounded-none border-0!"
             >
               <span className="relative size-3.5">
@@ -246,103 +513,29 @@ export function CenterStageTabBar({
         </Tooltip>
       ) : null}
 
-      <CenterStageScrollableTabs scrollableTabsRef={scrollableTabsRef}>
-        {visibleTerminalTabs
-          .map((tab, index) => (
-            <TerminalExtraTab
-              key={tab.id}
-              activeValue={activeValue}
-              effectiveContextId={effectiveContextId}
-              hasShortcut={index < CENTER_TERMINAL_SHORTCUT_LIMIT}
-              hoveredTabId={termTabPlusHoveredTabId}
-              shortcutDigit={index + 1}
-              newTerminalTabLabel={newTerminalTabLabel}
-              tab={tab}
-              onClose={handleCloseTerminalCenterTab}
-              onCreateTab={handleCreateTerminalCenterTab}
-              onRenameTab={handleRenameTerminalCenterTab}
-              setHoveredTabId={setTermTabPlusHoveredTabId}
-            />
-          ))}
-
-        {projectWikiTabVisible ? (
-          <SpecialTerminalTab
-            closeLabel={t("centerStageTabBar.closeProjectWikiTab")}
-            icon={<TerminalIcon className="size-3.5 shrink-0" />}
-            label={t("centerStageTabBar.projectWiki")}
-            tooltip={t("centerStageTabBar.projectWikiTerminal")}
-            variant="project-wiki"
-            value="project-wiki"
-            onClose={() => setProjectWikiCloseConfirmOpen(true)}
-          />
-        ) : null}
-
-        {codeReviewTabVisible ? (
-          <SpecialTerminalTab
-            closeLabel={t("centerStageTabBar.closeCodeReviewTab")}
-            icon={<TerminalIcon className="size-3.5 shrink-0 text-blue-500" />}
-            label={t("centerStageTabBar.codeReview")}
-            tooltip={t("centerStageTabBar.codeReviewTerminal")}
-            variant="code-review"
-            value="code-review"
-            onClose={() => setCodeReviewCloseConfirmOpen(true)}
-          />
-        ) : null}
-
-        {orderedSurfaceTabs.map((item) => {
-          if (item.type === "file") {
-            return (
-              <CenterStageOpenFileTab
-                key={item.file.path}
-                file={item.file}
-                sessionDisplay={sessionDisplay}
-                onClose={handleCloseFile}
-                onContextMenuRequest={(event, nextFile) => {
-                  setActiveFile(nextFile.path, effectiveContextId);
-                  setTabContextMenu({ x: event.clientX, y: event.clientY, filePath: nextFile.path });
-                }}
-                onPreviewPin={(nextFile) => pinFile(nextFile.path, effectiveContextId)}
-              />
-            );
-          }
-
-          if (item.type === "browser") {
-            const browserContext =
-              previewBrowserPrefs.byContext[item.tab.browserContextId];
-            const label = getActivePreviewBrowserLabel(
-              browserContext,
-              browserFallbackLabel,
-            );
-            const faviconUrl = getActivePreviewBrowserFaviconUrl(browserContext);
-            return (
-              <CenterStageSurfaceContentTab
-                key={item.tab.value}
-                closeLabel={t("centerStageTabBar.closeTab", { tab: label })}
-                faviconUrl={faviconUrl}
-                name={label}
-                onClose={() => handleCloseBrowserTab(item.tab.value)}
-                path={label}
-                tooltip={label}
-                value={item.tab.value}
-                variant="browser"
-              />
-            );
-          }
-
-          return (
-            <CenterStageSurfaceContentTab
-              key={item.tab.value}
-              closeLabel={t("centerStageTabBar.closeTab", { tab: item.tab.label })}
-              name={item.tab.label}
-              onClose={() => handleCloseGithubTab(item.tab.value)}
-              path={`${item.tab.owner}/${item.tab.repo}`}
-              tooltip={item.tab.description || `${item.tab.owner}/${item.tab.repo}`}
-              value={item.tab.value}
-              variant={item.tab.kind}
-            />
-          );
-        })}
-      </CenterStageScrollableTabs>
+      <div
+        ref={scrollableTabsRef}
+        data-center-tabs-scroll
+        className="flex min-w-0 flex-1 items-stretch overflow-x-auto no-scrollbar"
+      >
+        <DndContext
+          sensors={stripDndSensors}
+          collisionDetection={closestCenter}
+          modifiers={[restrictToHorizontalAxis]}
+          onDragEnd={handleStripDragEnd}
+        >
+          <SortableContext
+            items={orderedDescriptors.map((tab) => tab.id)}
+            strategy={horizontalListSortingStrategy}
+          >
+            {orderedDescriptors.map((tab) => (
+              <SortableCenterStripTab key={tab.id} id={tab.id}>
+                {renderDescriptorTab(tab)}
+              </SortableCenterStripTab>
+            ))}
+          </SortableContext>
+        </DndContext>
+      </div>
 
       <CenterStageStickyTabActions>
         <CenterStageNewTabMenu
@@ -387,6 +580,54 @@ function isTabGroupItemClosable(tab: TabGroupItem) {
   );
 }
 
+function SortableCenterStripTab({
+  id,
+  children,
+}: {
+  id: string;
+  children: React.ReactNode;
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id });
+
+  // Only while actively dragging: force grabbing cursor globally so it stays
+  // visible even over TabsTab (cursor-pointer) and neighboring strip chrome.
+  React.useEffect(() => {
+    if (!isDragging) return;
+    const previous = document.body.style.cursor;
+    document.body.style.cursor = "grabbing";
+    return () => {
+      document.body.style.cursor = previous;
+    };
+  }, [isDragging]);
+
+  // Translate only — CSS.Transform also applies scaleX/scaleY when neighboring
+  // tabs have different widths, which makes the dragged (and over) tabs grow/shrink.
+  return (
+    <div
+      ref={setNodeRef}
+      style={{
+        transform: CSS.Translate.toString(transform),
+        transition,
+      }}
+      className={cn(
+        "flex h-full shrink-0 items-stretch touch-none",
+        isDragging && "z-20 cursor-grabbing opacity-60 [&_button]:cursor-grabbing",
+      )}
+      {...attributes}
+      {...listeners}
+    >
+      {children}
+    </div>
+  );
+}
+
 function TerminalExtraTab({
   activeValue,
   effectiveContextId,
@@ -397,7 +638,7 @@ function TerminalExtraTab({
   tab,
   onClose,
   onCreateTab,
-  onRenameTab,
+  onContextMenu,
   setHoveredTabId,
 }: {
   activeValue: string;
@@ -409,7 +650,7 @@ function TerminalExtraTab({
   tab: { id: string; title: string; customTitle?: string };
   onClose: (tabId: string) => void;
   onCreateTab: () => void;
-  onRenameTab: (tabId: string, title: string) => void;
+  onContextMenu: (event: React.MouseEvent) => void;
   setHoveredTabId: React.Dispatch<React.SetStateAction<string | null>>;
 }) {
   const t = useTranslations("appShell");
@@ -420,54 +661,6 @@ function TerminalExtraTab({
     customTitle: tab.customTitle,
   });
   const closeAriaLabel = t("centerStageTabBar.closeTab", { tab: displayTitle });
-  const [menuPos, setMenuPos] = React.useState<{ x: number; y: number } | null>(null);
-  const [renameDraft, setRenameDraft] = React.useState(tab.customTitle ?? "");
-  const skipBlurCommitRef = React.useRef(false);
-  const [menuMounted, setMenuMounted] = React.useState(false);
-  React.useEffect(() => {
-    setMenuMounted(true);
-  }, []);
-
-  React.useEffect(() => {
-    if (menuPos) {
-      setRenameDraft(tab.customTitle ?? "");
-      skipBlurCommitRef.current = false;
-    }
-  }, [menuPos, tab.customTitle]);
-
-  const commitRename = () => {
-    // Prevent the unmount-blur (fired when the menu closes) from committing twice.
-    skipBlurCommitRef.current = true;
-    onRenameTab(tab.id, renameDraft);
-    setMenuPos(null);
-  };
-
-  const cancelRename = () => {
-    // Escape / dismiss: discard the draft and close without committing.
-    skipBlurCommitRef.current = true;
-    setRenameDraft(tab.customTitle ?? "");
-    setMenuPos(null);
-  };
-
-  const handleRenameBlur = () => {
-    if (skipBlurCommitRef.current) {
-      skipBlurCommitRef.current = false;
-      return;
-    }
-    // Persist the draft on blur but keep the menu open. Radix menu items steal
-    // focus on pointer-move (item.focus()), so any mouse movement blurs this
-    // input; closing here would collapse the whole menu on the first move.
-    onRenameTab(tab.id, renameDraft);
-  };
-
-  // Focus the rename input only AFTER the submenu has mounted its focus scope
-  // (which pauses the parent menu's focus trap) and registered as a dismissable
-  // branch. Focusing synchronously via `autoFocus` during mount makes the root
-  // menu treat the focus as an outside interaction and collapse the whole menu.
-  const focusRenameInput = React.useCallback((el: HTMLInputElement | null) => {
-    if (!el) return;
-    requestAnimationFrame(() => el.focus());
-  }, []);
 
   const stablePaneIds = useTerminalStore(
     useShallow((s) => {
@@ -517,15 +710,12 @@ function TerminalExtraTab({
   );
 
   return (
-    <>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <TabsTab
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <TabsTab
           value={tab.id}
-          onContextMenu={(event) => {
-            event.preventDefault();
-            setMenuPos({ x: event.clientX, y: event.clientY });
-          }}
+          onPointerDown={preventNonPrimaryTabActivate}
+          onContextMenu={onContextMenu}
           className={cn(
             "group/term-tab relative !h-full pl-4 pr-4 data-active:bg-muted/40 data-active:text-foreground text-muted-foreground hover:bg-muted/50 transition-colors gap-2 grow-0 shrink-0 justify-start rounded-none !border-0",
             attentionReason && "agent-attention-ring-tab",
@@ -536,13 +726,13 @@ function TerminalExtraTab({
           <span className="relative flex size-4 shrink-0 items-center justify-center">
             {tabLeadingIcon}
             {activeValue === tab.id ? (
-            <CreateTerminalTabButton
-              groupName="term-tab"
-              onCreateTab={onCreateTab}
-              onHoverChange={(hovered) => setHoveredTabId(hovered ? tab.id : null)}
-              newTerminalTabLabel={newTerminalTabLabel}
-            />
-          ) : null}
+              <CreateTerminalTabButton
+                groupName="term-tab"
+                onCreateTab={onCreateTab}
+                onHoverChange={(hovered) => setHoveredTabId(hovered ? tab.id : null)}
+                newTerminalTabLabel={newTerminalTabLabel}
+              />
+            ) : null}
           </span>
           <span className="max-w-[180px] truncate text-[13px] font-medium whitespace-nowrap">
             {displayTitle}
@@ -557,6 +747,7 @@ function TerminalExtraTab({
             <span
               role="button"
               aria-label={closeAriaLabel}
+              onPointerDown={(event) => event.stopPropagation()}
               onClick={(event) => {
                 event.stopPropagation();
                 onClose(tab.id);
@@ -584,58 +775,6 @@ function TerminalExtraTab({
         </div>
       </TooltipContent>
     </Tooltip>
-
-    {menuMounted
-      ? createPortal(
-          <DropdownMenu
-            open={!!menuPos}
-            onOpenChange={(open) => {
-              if (!open) setMenuPos(null);
-            }}
-          >
-            <DropdownMenuTrigger asChild>
-              <button
-                type="button"
-                aria-hidden
-                tabIndex={-1}
-                className="fixed size-0 pointer-events-none"
-                style={{ left: menuPos?.x ?? -9999, top: menuPos?.y ?? -9999 }}
-              />
-            </DropdownMenuTrigger>
-            {/* Portal whole menu to body so app-shell transforms don't offset fixed anchors. */}
-            <DropdownMenuContent align="start" sideOffset={4} className="z-[90] w-56">
-              <DropdownMenuSub>
-                <DropdownMenuSubTrigger className="cursor-pointer">
-                  <Pencil className="size-4 mr-2 text-muted-foreground" />
-                  <span>{t("centerStageTabBar.renameTab")}</span>
-                </DropdownMenuSubTrigger>
-                <DropdownMenuSubContent className="w-64 p-2">
-                  <Input
-                    ref={focusRenameInput}
-                    value={renameDraft}
-                    placeholder={t("centerStageTabBar.renameTabPlaceholder")}
-                    onChange={(event) => setRenameDraft(event.target.value)}
-                    onKeyDown={(event) => {
-                      event.stopPropagation();
-                      if (event.key === "Enter") {
-                        event.preventDefault();
-                        commitRename();
-                      } else if (event.key === "Escape") {
-                        event.preventDefault();
-                        cancelRename();
-                      }
-                    }}
-                    onBlur={handleRenameBlur}
-                    className="h-8 text-sm"
-                  />
-                </DropdownMenuSubContent>
-              </DropdownMenuSub>
-            </DropdownMenuContent>
-          </DropdownMenu>,
-          document.body,
-        )
-      : null}
-    </>
   );
 }
 
@@ -759,6 +898,7 @@ function CreateTerminalTabButton({
       onPointerLeave={() => onHoverChange(false)}
       onFocus={() => onHoverChange(true)}
       onBlur={() => onHoverChange(false)}
+      onPointerDown={(event) => event.stopPropagation()}
       onClick={(event) => {
         event.stopPropagation();
         onCreateTab();
@@ -783,6 +923,7 @@ function SpecialTerminalTab({
   variant,
   value,
   onClose,
+  onContextMenu,
 }: {
   closeLabel: string;
   icon: React.ReactNode;
@@ -791,12 +932,15 @@ function SpecialTerminalTab({
   variant: "project-wiki" | "code-review";
   value: string;
   onClose: () => void;
+  onContextMenu?: (event: React.MouseEvent) => void;
 }) {
   return (
     <Tooltip>
       <TooltipTrigger asChild>
         <TabsTab
           value={value}
+          onPointerDown={preventNonPrimaryTabActivate}
+          onContextMenu={onContextMenu}
           className={cn(
             "relative !h-full pl-4 pr-4 data-active:bg-muted/40 data-active:text-foreground text-muted-foreground hover:bg-muted/50 transition-colors gap-2 grow-0 shrink-0 justify-start rounded-none !border-0",
             variant === "project-wiki" ? "group/pw" : "group/cr",
@@ -815,6 +959,7 @@ function SpecialTerminalTab({
             <span
               role="button"
               aria-label={closeLabel}
+              onPointerDown={(event) => event.stopPropagation()}
               onClick={(event) => {
                 event.stopPropagation();
                 onClose();

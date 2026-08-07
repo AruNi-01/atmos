@@ -141,8 +141,14 @@ describe("Desktop Use settings wiring", () => {
     // Per-permission grant buttons (not one bulk button)
     expect(panel).toContain('t("permissions.grant")');
     expect(panel).toContain("PERMISSION_ICONS");
-    expect(panel).toContain('desktopInvoke("desktop_use_grant_permissions", { target');
-    expect(panel).toContain("openGrant(name)");
+    expect(panel).toContain("desktop_use_grant_permissions");
+    expect(panel).toContain("anchor");
+    expect(panel).toContain("openGrant(name, e.currentTarget)");
+    // Refresh published to Permissions group header (not per-row).
+    expect(panel).toContain("actions.refresh");
+    expect(panel).toContain("onHeaderEndChange");
+    expect(panel).not.toContain("hostLine");
+    expect(panel).not.toContain("dragHint");
     expect(panel).not.toContain("getAppshotStatus");
     expect(panel).not.toContain("openAppshotPermissionTarget");
     expect(panel.toLowerCase()).not.toContain("cua");
@@ -158,6 +164,8 @@ describe("Desktop Use settings wiring", () => {
       "utf8",
     );
     expect(section).toContain("DesktopUsePermissionsPanel");
+    expect(section).toContain("headerEnd={permissionsHeaderEnd}");
+    expect(section).toContain("onHeaderEndChange={setPermissionsHeaderEnd}");
     // Must not wire permissions → parent load callback (infinite refresh)
     expect(section).not.toMatch(/onStatusChange\s*=/);
   });

@@ -10,12 +10,14 @@ import {
   MessageCirclePlus,
   MessagesSquare,
   Puzzle,
+  ScrollText,
 } from "lucide-react";
 import { BrowserUseIconStatic } from "@workspace/ui/components/icons/browser-use-icon-static";
 import { DesktopUseIconStatic } from "@workspace/ui/components/icons/desktop-use-icon-static";
 
 import type { SkillInfo } from "@/api/ws-api";
 import { AgentIcon } from "@/features/agent/components/AgentIcon";
+import { VIEW_RUN_LOGS_SLASH_COMMAND_ID } from "@/features/browser/lib/run-log-context";
 import type { SlashCommandOption } from "@/features/welcome/hooks/use-welcome-slash-navigation";
 import { BROWSER_USE_SLASH_COMMAND_ID } from "@/features/welcome/lib/slash-browser-use";
 import { DESKTOP_USE_SLASH_COMMAND_ID } from "@/features/welcome/lib/slash-desktop-use";
@@ -257,6 +259,8 @@ export function SlashCommandPopover({
                 <BrowserUseIconStatic className="size-4 text-amber-600 dark:text-amber-400" />
               ) : command.id === DESKTOP_USE_SLASH_COMMAND_ID ? (
                 <DesktopUseIconStatic className="size-4 text-violet-600 dark:text-violet-400" />
+              ) : command.id === VIEW_RUN_LOGS_SLASH_COMMAND_ID ? (
+                <ScrollText className="size-4 text-emerald-600 dark:text-emerald-400" />
               ) : (
                 <MessageCirclePlus className="size-4 text-cyan-600 dark:text-cyan-300" />
               )}

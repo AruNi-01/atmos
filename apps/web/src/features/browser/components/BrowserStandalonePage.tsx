@@ -31,6 +31,7 @@ export function BrowserStandalonePage() {
     handleOpenBrowserTab,
     handlePreviewIconChange,
     handlePreviewTitleChange,
+    handleReorderBrowserTabs,
     handleSelectBrowserTab,
     persistBrowserState,
     previewTabsToRender,
@@ -122,6 +123,7 @@ export function BrowserStandalonePage() {
                     onAddTab: handleAddBrowserTab,
                     onCloseTab: handleCloseBrowserTab,
                     onSelectTab: handleSelectBrowserTab,
+                    onReorderTabs: handleReorderBrowserTabs,
                   }}
                 />
               </div>

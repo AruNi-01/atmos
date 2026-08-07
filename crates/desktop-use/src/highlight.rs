@@ -111,6 +111,7 @@ fn data_paths() -> (PathBuf, PathBuf, PathBuf, PathBuf, PathBuf) {
     (bin, pid, meta, src, stamp)
 }
 
+#[cfg(target_os = "macos")]
 fn prefer_build_from_source() -> bool {
     matches!(
         env::var("ATMOS_DESKTOP_USE_BUILD_HELPERS")

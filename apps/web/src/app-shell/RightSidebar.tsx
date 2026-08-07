@@ -10,6 +10,7 @@ import React, {
 } from "react";
 import { useTranslations } from "next-intl";
 import { useGitStore } from "@/features/git/store/use-git-store";
+import { useGitInfoStore } from "@/features/git/store/use-git-info-store";
 import {
   useGitChangedFilesQuery,
   invalidateGitQueries,
@@ -250,7 +251,11 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
   );
   const currentEffectivePath =
     currentWorkspace?.localPath ?? currentProject?.mainFilePath ?? null;
-  const runProjectId = projectIdFromUrl ?? currentProject?.id ?? null;
+  // Prefer URL / bootstrap project; fall back to the header-synced git context so
+  // Run can still resolve scripts while project bootstrap is lagging.
+  const gitContextProjectId = useGitInfoStore((s) => s.currentProjectId);
+  const runProjectId =
+    projectIdFromUrl ?? currentProject?.id ?? gitContextProjectId ?? null;
   const setupProgress = useProjectStore((s) => s.setupProgress);
   const isSettingUp = isWorkspaceSetupBlocking(
     workspaceId ? setupProgress[workspaceId] : null,

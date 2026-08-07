@@ -282,6 +282,7 @@ async fn open_terminal(
                 rows,
                 project_name: project_name.clone(),
                 workspace_name: workspace_name.clone(),
+                cwd: cwd.clone(),
             })
             .await
             .map(|(rx, snapshot)| (rx, snapshot, true))

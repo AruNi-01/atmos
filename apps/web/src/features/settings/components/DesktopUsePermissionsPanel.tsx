@@ -39,10 +39,16 @@ const PERMISSION_ICONS: Record<PermissionName, LucideIcon> = {
 
 export type DesktopUsePermissionsPanelProps = {
   className?: string;
+  /**
+   * Publish the Refresh control to the Permissions group header (far right).
+   * Parent should render the node on SettingsGroupCard `headerEnd`.
+   */
+  onHeaderEndChange?: (node: React.ReactNode) => void;
 };
 
 export function DesktopUsePermissionsPanel({
   className,
+  onHeaderEndChange,
 }: DesktopUsePermissionsPanelProps) {
   const t = useTranslations("settings.desktopUse");
   const [doctor, setDoctor] = React.useState<DoctorStatus | null>(null);
@@ -54,6 +60,8 @@ export function DesktopUsePermissionsPanel({
   );
   const pollRef = React.useRef<ReturnType<typeof setInterval> | null>(null);
   const mountedRef = React.useRef(true);
+  /** Which grant overlay is currently open (so we close only when that one succeeds). */
+  const activeGrantRef = React.useRef<PermissionName | null>(null);
 
   const stopPoll = React.useCallback(() => {
     if (pollRef.current) {
@@ -74,8 +82,16 @@ export function DesktopUsePermissionsPanel({
         }
         const d = await desktopInvoke<DoctorStatus>("desktop_use_doctor");
         if (mountedRef.current) setDoctor(d);
-        // Accessibility granted → dismiss drag panel if still open.
-        if (d?.accessibility === true) {
+        // Dismiss drag panel only when the permission we just asked for is granted.
+        const pending = activeGrantRef.current;
+        const done =
+          pending === "accessibility"
+            ? d?.accessibility === true
+            : pending === "screen_recording"
+              ? d?.screen_recording === true
+              : false;
+        if (done) {
+          activeGrantRef.current = null;
           try {
             await desktopInvoke("desktop_use_close_grant_overlay");
           } catch {
@@ -112,26 +128,86 @@ export function DesktopUsePermissionsPanel({
   const engineInstalled = Boolean(doctor?.engine_installed);
   const busy = manualRefreshing || grantingTarget !== null;
 
-  const openGrant = async (target: PermissionName) => {
+  // Publish Refresh to the Permissions group header (not per-row).
+  React.useEffect(() => {
+    if (!onHeaderEndChange) return;
+    if (!isDesktopRuntime() || !engineInstalled) {
+      onHeaderEndChange(null);
+      return;
+    }
+    onHeaderEndChange(
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        disabled={busy}
+        onClick={() => void refresh("manual")}
+        className="cursor-pointer"
+      >
+        {manualRefreshing ? (
+          <Loader2 className="size-4 animate-spin" />
+        ) : (
+          <RefreshCw className="size-4" />
+        )}
+        {t("actions.refresh")}
+      </Button>,
+    );
+    return () => onHeaderEndChange(null);
+  }, [
+    onHeaderEndChange,
+    engineInstalled,
+    busy,
+    manualRefreshing,
+    refresh,
+    t,
+  ]);
+
+  const openGrant = async (
+    target: PermissionName,
+    anchorEl?: HTMLElement | null,
+  ) => {
     if (!isDesktopRuntime() || !engineInstalled) return;
     setGrantingTarget(target);
+    activeGrantRef.current = target;
     setError(null);
     try {
       const locale =
         typeof navigator !== "undefined" ? navigator.language : undefined;
-      await desktopInvoke("desktop_use_grant_permissions", { target, locale });
+      // Viewport-relative rect so the desktop shell can fly the grant card
+      // from this button into System Settings.
+      let anchor:
+        | { x: number; y: number; width: number; height: number }
+        | undefined;
+      if (anchorEl) {
+        const r = anchorEl.getBoundingClientRect();
+        if (r.width > 0 && r.height > 0) {
+          anchor = {
+            x: r.left,
+            y: r.top,
+            width: r.width,
+            height: r.height,
+          };
+        }
+      }
+      await desktopInvoke("desktop_use_grant_permissions", {
+        target,
+        locale,
+        ...(anchor ? { anchor } : {}),
+      });
       invalidateDesktopUseReadinessCache();
       stopPoll();
       const started = Date.now();
       pollRef.current = setInterval(() => {
         if (Date.now() - started > 120_000) {
           stopPoll();
+          activeGrantRef.current = null;
           return;
         }
         void refresh("silent");
       }, 2000);
       await refresh("silent");
     } catch (e) {
+      activeGrantRef.current = null;
       setError(e instanceof Error ? e.message : t("errors.grantFailed"));
     } finally {
       setGrantingTarget(null);
@@ -186,7 +262,7 @@ export function DesktopUsePermissionsPanel({
             key={name}
             className="border-b border-border px-2 py-4 last:border-b-0"
           >
-            <div className="grid grid-cols-[minmax(0,1fr)_320px] gap-8">
+            <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-8">
               <div>
                 <p className="text-base font-medium text-foreground">{title}</p>
                 <p className="mt-2 text-sm leading-6 text-muted-foreground">
@@ -205,7 +281,7 @@ export function DesktopUsePermissionsPanel({
                     size="sm"
                     variant="outline"
                     disabled={busy}
-                    onClick={() => void openGrant(name)}
+                    onClick={(e) => void openGrant(name, e.currentTarget)}
                     className="cursor-pointer"
                   >
                     {isGranting ? (
@@ -222,41 +298,9 @@ export function DesktopUsePermissionsPanel({
         );
       })}
 
-      <div className="flex items-center justify-between gap-3 border-t border-border px-2 py-3">
-        <div className="min-w-0">
-          {error ? (
-            <p className="text-sm text-destructive">{error}</p>
-          ) : (
-            <div className="min-w-0 space-y-1">
-              <p className="text-xs text-muted-foreground">
-                {t("permissions.hostLine", {
-                  host: doctor?.host_app_name ?? t("host.defaultName"),
-                })}
-              </p>
-              {doctor?.accessibility !== true ? (
-                <p className="text-xs text-muted-foreground">
-                  {t("permissions.dragHint")}
-                </p>
-              ) : null}
-            </div>
-          )}
-        </div>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          disabled={busy}
-          onClick={() => void refresh("manual")}
-          className="cursor-pointer"
-        >
-          {manualRefreshing ? (
-            <Loader2 className="size-4 animate-spin" />
-          ) : (
-            <RefreshCw className="size-4" />
-          )}
-          {t("actions.refresh")}
-        </Button>
-      </div>
+      {error ? (
+        <p className="px-2 py-2 text-sm text-destructive">{error}</p>
+      ) : null}
     </div>
   );
 }

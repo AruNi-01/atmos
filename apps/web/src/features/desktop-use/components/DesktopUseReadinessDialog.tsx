@@ -106,8 +106,9 @@ export function DesktopUseReadinessDialog() {
 
   const reason = state.readiness?.reason ?? null;
   const source = state.source ?? "generic";
-  const PrimaryIcon = primaryCtaIcon(reason);
-  const primaryLabel = isPermissionReason(reason) ? t("grant") : t("openSettings");
+  const primaryLabel = isPermissionReason(reason)
+    ? t("grant")
+    : t("openSettings");
 
   const isWithinSettleWindow = () =>
     Date.now() - openedAtRef.current < OPEN_SETTLE_MS;
@@ -211,7 +212,9 @@ export function DesktopUseReadinessDialog() {
             onClick={onOpenSettings}
             className="cursor-pointer"
           >
-            <PrimaryIcon className="size-4" />
+            {React.createElement(primaryCtaIcon(reason), {
+              className: "size-4",
+            })}
             {primaryLabel}
           </Button>
         </DialogFooter>

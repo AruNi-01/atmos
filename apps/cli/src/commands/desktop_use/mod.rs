@@ -107,7 +107,7 @@ fn driver_grant(args: GrantPermissionsArgs) -> Result<Value, String> {
 
     let hint = if outcome.accessibility_pane {
         format!(
-            "System Settings → Accessibility opened. Enable the toggle for {host_name}. If it is not listed, add the host app with + (path in host_app_path), then Refresh. Atmos Desktop shows a drag chip for the same path."
+            "System Settings → Accessibility opened. Enable the toggle for {host_name}. If it is not listed, add the host app with + (path in host_app_path), then Refresh. Atmos Desktop shows a drag panel for the same path."
         )
     } else {
         format!(

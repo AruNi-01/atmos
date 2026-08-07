@@ -41,6 +41,7 @@ import {
   TerminalTabAgentIndicatorWithPanes,
   type TabGroupItem,
 } from "@/app-shell/center-stage-tabs";
+import { preventNonPrimaryTabActivate } from "@/app-shell/center-stage-tab-model";
 
 type SessionDisplay = {
   sessionTitle?: string | null;
@@ -83,15 +84,17 @@ export function CenterStageScrollableTabs({
   children,
   className,
   scrollableTabsRef,
+  ...rest
 }: {
   children: React.ReactNode;
   className?: string;
-  scrollableTabsRef?: React.RefObject<HTMLDivElement | null>;
-}) {
+  scrollableTabsRef?: React.Ref<HTMLDivElement | null>;
+} & React.HTMLAttributes<HTMLDivElement>) {
   return (
     <div
       ref={scrollableTabsRef}
       className={cn("flex min-w-0 flex-1 overflow-x-auto no-scrollbar", className)}
+      {...rest}
     >
       {children}
     </div>
@@ -133,6 +136,7 @@ export function CenterStageOverviewTab({
       <TooltipTrigger asChild>
         <TabsTab
           value={value}
+          onPointerDown={preventNonPrimaryTabActivate}
           className={cn(
             "h-full! pl-4 pr-4 data-active:bg-muted/40 data-active:text-foreground text-muted-foreground hover:bg-muted/50 transition-colors gap-2 grow-0 shrink-0 justify-start rounded-none border-0!",
             className,
@@ -241,6 +245,7 @@ export function CenterStageSurfaceContentTab({
         <TabsTab
           value={value}
           className="!h-full pl-2 pr-1 data-active:bg-muted/40 data-active:text-foreground text-muted-foreground hover:bg-muted/50 transition-colors gap-1.5 group grow-0 shrink-0 justify-start rounded-none !border-0"
+          onPointerDown={preventNonPrimaryTabActivate}
           onContextMenu={onContextMenu}
           onDoubleClick={onDoubleClick}
         >
@@ -282,6 +287,7 @@ export function CenterStageSurfaceContentTab({
               <span
                 role="button"
                 aria-label={closeLabel ?? t("closeTab")}
+                onPointerDown={(event) => event.stopPropagation()}
                 onClick={(event) => {
                   event.stopPropagation();
                   onClose();
@@ -512,6 +518,7 @@ export function CenterStageOpenFileTab({
       onClose={() => onClose(file)}
       onContextMenu={(event) => {
         event.preventDefault();
+        event.stopPropagation();
         onContextMenuRequest(event, file);
       }}
       onDoubleClick={() => {

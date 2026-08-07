@@ -3,17 +3,15 @@
 import React from "react";
 import { useTranslations } from "next-intl";
 import { TabsList, TabsTab, cn } from "@workspace/ui";
-import { Folder, FolderKanban, FolderPlus, SquareKanban } from "lucide-react";
+import { Folder, FolderKanban, FolderPlus } from "lucide-react";
 import type { LeftSidebarTab } from "@/shared/lib/nuqs/searchParams";
 import type { Project, WorkspaceLabel } from "@/shared/types/domain";
-import { WorkspaceKanbanView } from "@/app-shell/sidebar/WorkspaceKanbanView";
 import {
   WorkspaceKanbanFilterMenu,
   type WorkspaceKanbanFilters,
 } from "@/app-shell/sidebar/WorkspaceKanbanFilterMenu";
 import type { SidebarGroupingMode } from "@/app-shell/sidebar/workspace-status";
-
-type WorkspaceKanbanViewProps = React.ComponentProps<typeof WorkspaceKanbanView>;
+import type { Group } from "@/shared/types/domain";
 
 export function LeftSidebarTabsHeader({
   filesOnRight,
@@ -58,45 +56,21 @@ export function LeftSidebarFooter({
   filters,
   groupingMode,
   groups = [],
-  isKanbanExpanded,
   projects,
   onAddProject,
-  onArchiveWorkspace,
-  onCreateLabel,
-  onDeleteWorkspace,
   onFiltersChange,
   onGroupingModeChange,
-  onPinWorkspace,
-  onCreateGroup,
-  onSetWorkspaceGroup,
-  onUnpinWorkspace,
-  onUpdateLabel,
-  onUpdateLabels,
-  onUpdatePriority,
-  onUpdateWorkflowStatus,
 }: {
   activeTab: LeftSidebarTab;
   availableLabels: WorkspaceLabel[];
   filesOnRight: boolean;
   filters: WorkspaceKanbanFilters;
   groupingMode: SidebarGroupingMode;
-  groups?: WorkspaceKanbanViewProps["groups"];
-  isKanbanExpanded: boolean;
+  groups?: Group[];
   projects: Project[];
   onAddProject: () => void;
-  onArchiveWorkspace: WorkspaceKanbanViewProps["onArchiveWorkspace"];
-  onCreateLabel: WorkspaceKanbanViewProps["onCreateLabel"];
-  onDeleteWorkspace: WorkspaceKanbanViewProps["onDeleteWorkspace"];
   onFiltersChange: (filters: WorkspaceKanbanFilters) => void;
   onGroupingModeChange: (mode: SidebarGroupingMode) => void;
-  onPinWorkspace: WorkspaceKanbanViewProps["onPinWorkspace"];
-  onCreateGroup?: WorkspaceKanbanViewProps["onCreateGroup"];
-  onSetWorkspaceGroup?: WorkspaceKanbanViewProps["onSetWorkspaceGroup"];
-  onUnpinWorkspace: WorkspaceKanbanViewProps["onUnpinWorkspace"];
-  onUpdateLabel: WorkspaceKanbanViewProps["onUpdateLabel"];
-  onUpdateLabels: WorkspaceKanbanViewProps["onUpdateLabels"];
-  onUpdatePriority: WorkspaceKanbanViewProps["onUpdatePriority"];
-  onUpdateWorkflowStatus: WorkspaceKanbanViewProps["onUpdateWorkflowStatus"];
 }) {
   const t = useTranslations("AppShell.chrome");
 
@@ -128,41 +102,9 @@ export function LeftSidebarFooter({
             triggerVariant="icon"
             align="end"
             side="top"
-            showGrouping={!isKanbanExpanded}
+            showGrouping
             groupingMode={groupingMode}
             onGroupingModeChange={onGroupingModeChange}
-          />
-          <WorkspaceKanbanView
-            projects={projects}
-            availableLabels={availableLabels}
-            groups={groups}
-            groupingMode={groupingMode}
-            onGroupingModeChange={onGroupingModeChange}
-            onUpdateWorkflowStatus={onUpdateWorkflowStatus}
-            onUpdatePriority={onUpdatePriority}
-            onSetWorkspaceGroup={onSetWorkspaceGroup}
-            onCreateGroup={onCreateGroup}
-            onCreateLabel={onCreateLabel}
-            onUpdateLabel={onUpdateLabel}
-            onUpdateLabels={onUpdateLabels}
-            onPinWorkspace={onPinWorkspace}
-            onUnpinWorkspace={onUnpinWorkspace}
-            onArchiveWorkspace={onArchiveWorkspace}
-            onDeleteWorkspace={onDeleteWorkspace}
-            filters={filters}
-            onFiltersChange={onFiltersChange}
-            trigger={(
-              <button
-                type="button"
-                title={t("leftSidebarFooter.openKanban")}
-                aria-label={t("leftSidebarFooter.openKanban")}
-                className="group inline-flex h-8 items-center gap-1 rounded-lg bg-transparent px-0.5 text-[11px] text-muted-foreground/90 transition-colors hover:text-sidebar-foreground"
-              >
-                <span className="inline-flex size-5 items-center justify-center rounded-md text-muted-foreground transition-colors group-hover:text-sidebar-foreground">
-                  <SquareKanban className="size-3.5" />
-                </span>
-              </button>
-            )}
           />
         </div>
       </div>

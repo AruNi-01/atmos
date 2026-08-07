@@ -16,10 +16,8 @@ import {
   PanelTopOpen,
   PictureInPicture,
   PictureInPicture2,
-  Plus,
   RotateCcwSquare,
   Trash2,
-  X,
 } from "lucide-react";
 import {
   Button,
@@ -28,85 +26,16 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-  Popover,
-  PopoverAnchor,
-  PopoverContent,
 } from "@workspace/ui";
 
 import { useDesktopWindowDrag } from "@/shared/hooks/use-desktop-window-drag";
 import { cn } from "@/shared/lib/utils";
 import { extractCookieErrorCode, type CookieCmdErrorCode } from "../lib/browser-cookie-commands";
 import { canonicalizeUrl } from "../lib/browser-utils";
-
-function scrollTabIntoView(
-  container: HTMLElement,
-  tab: HTMLElement,
-  behavior: ScrollBehavior = "smooth",
-) {
-  const containerRect = container.getBoundingClientRect();
-  const tabRect = tab.getBoundingClientRect();
-  const padding = 8;
-
-  if (tabRect.left < containerRect.left + padding) {
-    container.scrollBy({
-      left: tabRect.left - containerRect.left - padding,
-      behavior,
-    });
-    return;
-  }
-
-  if (tabRect.right > containerRect.right - padding) {
-    container.scrollBy({
-      left: tabRect.right - containerRect.right + padding,
-      behavior,
-    });
-  }
-}
-
-/** Radius for top corners + bottom concave ears (Chrome-style). */
-const ACTIVE_TAB_CURVE = 12;
-
-/**
- * Active tab paint: solid body + classic Chrome ears.
- *
- * Proven technique: a transparent square with only the inner bottom corner
- * rounded, plus a same-size box-shadow offset toward the tab. That paints the
- * concave “scoop” into the strip (radial quarter-disks invert this shape).
- */
-function ActiveTabSurface() {
-  const c = ACTIVE_TAB_CURVE;
-  const shadow = c / 2;
-  return (
-    <span
-      aria-hidden
-      className="pointer-events-none absolute inset-x-0 top-0 -z-[1]"
-      style={{ bottom: -1, height: "calc(100% + 1px)" }}
-    >
-      <span className="absolute inset-x-0 top-0 bottom-0 rounded-t-[10px] bg-background" />
-      {/* Left ear */}
-      <span
-        className="absolute bottom-0 left-0 -translate-x-full bg-transparent"
-        style={{
-          width: c,
-          height: c,
-          borderBottomRightRadius: c,
-          // Horizontal fill + slight downward fill so the curve meets the toolbar.
-          boxShadow: `${shadow}px 0 0 0 var(--background), ${shadow}px 1px 0 0 var(--background)`,
-        }}
-      />
-      {/* Right ear (mirror) */}
-      <span
-        className="absolute bottom-0 right-0 translate-x-full bg-transparent"
-        style={{
-          width: c,
-          height: c,
-          borderBottomLeftRadius: c,
-          boxShadow: `-${shadow}px 0 0 0 var(--background), -${shadow}px 1px 0 0 var(--background)`,
-        }}
-      />
-    </span>
-  );
-}
+import {
+  MorphingTabs,
+  type MorphingTabsItem,
+} from "./morphing-tabs";
 
 export interface PreviewBrowserTab {
   id: string;
@@ -133,8 +62,6 @@ export interface PreviewBrowserChromeControls {
   onToggleMaximized?: () => void;
   onToggleToolbarHidden: () => void;
   // --- APP-041 Browser Cookie Sync (desktop + macOS 14+ only) ---
-  // Additive optional props: web/mobile callers omit them, so the cookie/clear
-  // menu items stay hidden. When present, they appear inside the `···` overflow menu.
   cookieToolsAvailable?: boolean;
   onImportCookies?: () => void;
   onClearCache?: () => Promise<void>;
@@ -148,6 +75,11 @@ export interface BrowserTabBarProps {
   onAddTab: () => void;
   onCloseTab: (tabId: string) => void;
   onSelectTab: (tabId: string) => void;
+  /** Called after a pointer drag or keyboard reorder completes. */
+  onReorderTabs?: (tabIds: string[]) => void;
+  /** Toolbar + viewport (or other surface content) live inside the morphing panel. */
+  children?: React.ReactNode;
+  className?: string;
 }
 
 function getUrlLabel(value: string): string {
@@ -163,8 +95,9 @@ function getUrlLabel(value: string): string {
 
 function getTabLabel(
   tab: PreviewBrowserTab,
-  index: number,
+  _index: number,
   fallbackLabels: { preview: string; newTab: string },
+  tabCount = 1,
 ): string {
   const title = tab.title?.trim();
   const titleUrl = canonicalizeUrl(tab.titleUrl || "");
@@ -174,7 +107,33 @@ function getTabLabel(
   const urlLabel = getUrlLabel(tab.activeUrl || tab.url);
   if (urlLabel) return urlLabel;
 
-  return index === 0 ? fallbackLabels.preview : fallbackLabels.newTab;
+  // Do NOT key empty labels off array index — reordering would rename
+  // "Browser" ↔ "New tab" and look like the tab texts swapped.
+  // Solo empty surface keeps the product name; extras use New tab.
+  return tabCount <= 1 ? fallbackLabels.preview : fallbackLabels.newTab;
+}
+
+function TabFavicon({ faviconUrl }: { faviconUrl?: string }) {
+  const [failed, setFailed] = React.useState(false);
+
+  React.useEffect(() => {
+    setFailed(false);
+  }, [faviconUrl]);
+
+  if (!faviconUrl || failed) {
+    return <Globe className="size-3.5 text-muted-foreground/70" />;
+  }
+
+  return (
+    // eslint-disable-next-line @next/next/no-img-element -- Dynamic external favicons are tiny and may not be configured for next/image domains.
+    <img
+      key={faviconUrl}
+      src={faviconUrl}
+      alt=""
+      className="size-3.5 rounded-[2px]"
+      onError={() => setFailed(true)}
+    />
+  );
 }
 
 export function BrowserTabBar({
@@ -184,165 +143,79 @@ export function BrowserTabBar({
   onAddTab,
   onCloseTab,
   onSelectTab,
+  onReorderTabs,
+  children,
+  className,
 }: BrowserTabBarProps) {
   const t = useTranslations("browser.toolbar.browserTabs");
   const { handleDesktopWindowMouseDown, isDesktopDragEnabled } = useDesktopWindowDrag();
-  const tabsScrollRef = React.useRef<HTMLDivElement>(null);
-  const activeTabRef = React.useRef<HTMLDivElement>(null);
-
-  // Keep the active tab in view — especially after "+" when many tabs overflow.
-  React.useLayoutEffect(() => {
-    const container = tabsScrollRef.current;
-    const activeTab = activeTabRef.current;
-    if (!container || !activeTab) return;
-
-    // Instant on first layout after mount / tab-count jumps; smooth for normal switches.
-    const behavior: ScrollBehavior = tabs.length > 1 ? "smooth" : "auto";
-    scrollTabIntoView(container, activeTab, behavior);
-  }, [activeTabId, tabs.length]);
-
   const needsTrafficLightsInset = Boolean(chromeControls?.needsDesktopPreviewSafeInset);
 
-  return (
-    <div
-      onMouseDown={handleDesktopWindowMouseDown}
-      data-tauri-drag-region={isDesktopDragEnabled ? "true" : undefined}
-      className={cn(
-        // Strip color comes from BrowserContent chrome wrapper so toolbar
-        // rounded-t corners reveal the same strip (Chrome-style). Transparent here.
-        "flex h-8 shrink-0 items-end gap-1 overflow-visible bg-transparent pr-2 pt-0.5 select-none transition-[padding] duration-300 ease-out",
-        needsTrafficLightsInset ? "pl-[92px]" : "pl-1.5",
-        isDesktopDragEnabled && "desktop-drag-region",
-      )}
-    >
-      <div
-        ref={tabsScrollRef}
-        // Horizontal padding keeps first/last active-tab ears from being clipped.
-        className="flex h-full min-w-0 flex-1 items-end gap-0.5 overflow-x-auto overflow-y-hidden no-scrollbar pl-3 pr-1"
-      >
-        {tabs.map((tab, index) => {
-          const isActive = tab.id === activeTabId;
-          const prevIsActive = index > 0 && tabs[index - 1]?.id === activeTabId;
-          // Divider only between inactive tabs; never against the active tab.
-          const showLeadingDivider = !isActive && index > 0 && !prevIsActive;
-          const label = getTabLabel(tab, index, {
+  const items = React.useMemo<MorphingTabsItem[]>(
+    () =>
+      tabs.map((tab, index) => {
+        const label = getTabLabel(
+          tab,
+          index,
+          {
             preview: t("preview"),
             newTab: t("newTab"),
-          });
-          const canClose = tabs.length > 1;
+          },
+          tabs.length,
+        );
+        return {
+          id: tab.id,
+          label,
+          icon: <TabFavicon faviconUrl={tab.faviconUrl} />,
+        };
+      }),
+    [t, tabs],
+  );
 
-          return (
-            <div
-              key={tab.id}
-              ref={isActive ? activeTabRef : undefined}
-              className={cn(
-                // Identical layout box for active/inactive (no -mb / height / padding
-                // deltas). Underlap into toolbar is paint-only via ActiveTabSurface.
-                "desktop-no-drag group/tab relative flex h-7 w-[156px] max-w-[42vw] shrink-0 items-center text-xs",
-                isActive ? "z-[2] text-foreground" : "z-0 text-muted-foreground",
-              )}
-            >
-              {showLeadingDivider ? (
-                <span
-                  aria-hidden
-                  className="pointer-events-none absolute left-[-2px] top-1/2 z-[1] h-3 w-px -translate-y-1/2 bg-border/70"
-                />
-              ) : null}
-              {isActive ? (
-                <ActiveTabSurface />
-              ) : (
-                // Floating hover pill: slightly taller (less inset) while keeping a bottom gap.
-                <span
-                  aria-hidden
-                  className="pointer-events-none absolute inset-x-0.5 top-0.5 bottom-0.5 rounded-lg transition-colors group-hover/tab:bg-background/45"
-                />
-              )}
-              <button
-                type="button"
-                className={cn(
-                  "relative z-[1] flex h-full min-w-0 flex-1 items-center gap-1.5 px-2.5 text-left",
-                  !isActive && "group-hover/tab:text-foreground",
-                )}
-                title={label}
-                onClick={() => onSelectTab(tab.id)}
-              >
-                <Globe
-                  className={cn(
-                    "size-3.5 shrink-0",
-                    isActive ? "text-foreground/80" : "text-muted-foreground/70",
-                    tab.faviconUrl && "hidden",
-                  )}
-                />
-                {tab.faviconUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element -- Dynamic external favicons are tiny and may not be configured for next/image domains.
-                  <img
-                    key={tab.faviconUrl}
-                    src={tab.faviconUrl}
-                    alt=""
-                    className="size-3.5 shrink-0 rounded-[2px]"
-                    onError={(event) => {
-                      event.currentTarget.style.display = "none";
-                      event.currentTarget.previousElementSibling?.classList.remove("hidden");
-                    }}
-                  />
-                ) : null}
-                <span className="min-w-0 truncate text-[11px] font-medium">{label}</span>
-              </button>
-
-              {canClose ? (
-                <button
-                  type="button"
-                  aria-label={t("closeTabAria", { label })}
-                  title={t("closeTab")}
-                  className={cn(
-                    "relative z-[1] mr-1 flex size-5 shrink-0 items-center justify-center rounded-sm text-muted-foreground transition-colors",
-                    isActive
-                      ? "opacity-100 hover:bg-muted hover:text-foreground"
-                      : "opacity-0 hover:bg-background/60 hover:text-foreground group-hover/tab:opacity-100",
-                  )}
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    onCloseTab(tab.id);
-                  }}
-                >
-                  <X className="size-3" />
-                </button>
-              ) : null}
-            </div>
-          );
-        })}
-
-        <button
-          type="button"
-          aria-label={t("newTab")}
-          title={t("newTab")}
-          className="desktop-no-drag mb-0.5 flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-background/50 hover:text-foreground"
-          onClick={onAddTab}
-        >
-          <Plus className="size-3.5" />
-        </button>
-      </div>
-
-      {chromeControls ? (
-        <div className="desktop-no-drag mb-0.5 flex shrink-0 items-center gap-0.5 border-l border-border/50 pl-1.5">
-          {chromeControls.favoritesList}
-          <button
-            type="button"
-            aria-label={chromeControls.toolbarToggleTitle}
-            title={chromeControls.toolbarToggleTitle}
-            className="flex size-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-background/50 hover:text-foreground"
-            onClick={chromeControls.onToggleToolbarHidden}
-          >
-            {chromeControls.isToolbarHidden ? (
-              <PanelTopOpen className="size-3.5" />
-            ) : (
-              <PanelTopClose className="size-3.5" />
-            )}
-          </button>
-          <PreviewBrowserChromeOverflowMenu controls={chromeControls} />
-        </div>
-      ) : null}
+  const trailing = chromeControls ? (
+    <div className="flex shrink-0 items-center gap-0.5 border-l border-border/50 pl-1.5">
+      {chromeControls.favoritesList}
+      <button
+        type="button"
+        aria-label={chromeControls.toolbarToggleTitle}
+        title={chromeControls.toolbarToggleTitle}
+        className="flex size-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-background/50 hover:text-foreground"
+        onClick={chromeControls.onToggleToolbarHidden}
+      >
+        {chromeControls.isToolbarHidden ? (
+          <PanelTopOpen className="size-3.5" />
+        ) : (
+          <PanelTopClose className="size-3.5" />
+        )}
+      </button>
+      <PreviewBrowserChromeOverflowMenu controls={chromeControls} />
     </div>
+  ) : null;
+
+  return (
+    <MorphingTabs
+      items={items}
+      value={activeTabId}
+      onValueChange={(id) => {
+        if (id) onSelectTab(id);
+      }}
+      onClose={tabs.length > 1 ? onCloseTab : undefined}
+      closeAriaLabel={(label) => t("closeTabAria", { label })}
+      onOrderChange={onReorderTabs}
+      onAdd={onAddTab}
+      addAriaLabel={t("newTab")}
+      ariaLabel={t("preview")}
+      railInsetLeft={needsTrafficLightsInset ? 92 : 0}
+      trailing={trailing}
+      className={className}
+      railProps={{
+        "data-tauri-drag-region": isDesktopDragEnabled ? "true" : undefined,
+        className: cn(isDesktopDragEnabled && "desktop-drag-region"),
+        onMouseDown: handleDesktopWindowMouseDown,
+      }}
+    >
+      {children}
+    </MorphingTabs>
   );
 }
 
@@ -381,7 +254,6 @@ function PreviewBrowserChromeOverflowMenu({ controls }: PreviewBrowserChromeOver
       controls.onToggleMaximized,
   );
 
-  // Nothing to show → don't render the trigger at all.
   if (!hasSurfaceControls && !hasCookieTools) {
     return null;
   }
@@ -413,6 +285,8 @@ function PreviewBrowserChromeOverflowMenu({ controls }: PreviewBrowserChromeOver
     }
   };
 
+  const clearing = clearPhase === "clearing";
+
   const handleMenuOpenChange = (nextOpen: boolean) => {
     if (!nextOpen && clearing) return;
     setMenuOpen(nextOpen);
@@ -421,7 +295,6 @@ function PreviewBrowserChromeOverflowMenu({ controls }: PreviewBrowserChromeOver
     }
   };
 
-  const clearing = clearPhase === "clearing";
   const isSiteData = clearTarget === "site";
 
   return (

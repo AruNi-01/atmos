@@ -17,6 +17,7 @@ import { useLayoutSettingsStore } from '@/features/settings/store/layout-setting
 import { settingsModalParams } from '@/shared/lib/nuqs/searchParams';
 import { HeaderLayoutSettingsSection } from '@/features/settings/components/HeaderLayoutSettingsSection';
 import { RightSidebarLayoutSettingsSection } from '@/features/settings/components/RightSidebarLayoutSettingsSection';
+import { ManagementCenterLayoutSettings } from '@/features/settings/components/ManagementCenterLayoutSettings';
 
 export function LayoutSettingsSection() {
   const t = useTranslations('settings.layoutSection');
@@ -53,6 +54,7 @@ export function LayoutSettingsSection() {
   const loadExperimentSettings = useExperimentSettingsStore((state) => state.loadSettings);
   const [, setActiveSettingTab] = useQueryState('activeSettingTab', settingsModalParams.activeSettingTab);
   const [workspaceSidebarLayoutExpanded, setWorkspaceSidebarLayoutExpanded] = React.useState(false);
+  const [managementCenterExpanded, setManagementCenterExpanded] = React.useState(false);
   const [headerLayoutExpanded, setHeaderLayoutExpanded] = React.useState(false);
   const [rightSidebarLayoutExpanded, setRightSidebarLayoutExpanded] = React.useState(false);
   const [footerLayoutExpanded, setFooterLayoutExpanded] = React.useState(false);
@@ -111,6 +113,11 @@ export function LayoutSettingsSection() {
           </div>
         </div>
       </div>
+
+      <ManagementCenterLayoutSettings
+        expanded={managementCenterExpanded}
+        onExpandedChange={setManagementCenterExpanded}
+      />
 
       <Collapsible
         open={workspaceSidebarLayoutExpanded}
@@ -396,17 +403,17 @@ export function LayoutSettingsSection() {
                 <div className="flex flex-col items-end justify-center gap-2 text-right">
                   <span className="text-xs text-muted-foreground">
                     {managementAgentsEnabled
-                      ? t('footer.enabledInExperiments')
-                      : t('footer.disabledInExperiments')}
+                      ? t('footer.enabledInLayout')
+                      : t('footer.disabledInLayout')}
                   </span>
                   <Button
                     type="button"
                     variant="outline"
                     size="sm"
                     className="h-8"
-                    onClick={() => void setActiveSettingTab('experiments')}
+                    onClick={() => void setActiveSettingTab('layout')}
                   >
-                    {t('footer.openExperiments')}
+                    {t('footer.openLayout')}
                   </Button>
                 </div>
               </div>

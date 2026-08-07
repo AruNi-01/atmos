@@ -938,7 +938,8 @@
       "skillDetail": "{skillId} - Skills - ATMOS",
       "terminals": "Terminals - ATMOS",
       "automations": "Automations - ATMOS",
-      "diskAnalyzer": "Disk Analyzer - ATMOS"
+      "diskAnalyzer": "Disk Analyzer - ATMOS",
+      "kanban": "Kanban - ATMOS"
     },
     "localModelDownload": {
       "downloadingRuntime": "Downloading runtime",
@@ -1054,6 +1055,8 @@
     "fileTabContextMenu": {
       "copyFailedTitle": "Copy failed",
       "clipboardUnavailable": "Clipboard is not available.",
+      "pin": "Pin Tab",
+      "unpin": "Unpin Tab",
       "close": "Close",
       "closeOthers": "Close Others",
       "closeAllLeft": "Close All Left",
@@ -3318,6 +3321,10 @@
         "desktopUse": {
           "label": "Desktop Use",
           "description": "Capture and control the local desktop (screenshot, click, type)"
+        },
+        "viewRunLogs": {
+          "label": "View Run Logs",
+          "description": "Attach the latest Atmos Run log path for the agent"
         }
       }
     },
@@ -4268,6 +4275,39 @@
             },
             "acpAgentChatEntry": {
               "label": "ACP Agent Chat entry"
+            },
+            "workspacesManagementCenter": {
+              "label": "Workspaces (Management Center)"
+            },
+            "skillsManagementCenter": {
+              "label": "Skills (Management Center)"
+            },
+            "terminalsManagementCenter": {
+              "label": "Terminals (Management Center)"
+            },
+            "acpAgentsManagementCenter": {
+              "label": "ACP Agents (Management Center and footer ACP Chat)"
+            },
+            "automationsManagementCenter": {
+              "label": "Automations (Management Center)"
+            },
+            "diskAnalyzerManagementCenter": {
+              "label": "Disk Analyzer (Management Center)"
+            },
+            "canvasManagementCenter": {
+              "label": "Canvas (Management Center)"
+            },
+            "kanbanManagementCenter": {
+              "label": "Kanban (Management Center)"
+            },
+            "newWorkspaceManagementCenter": {
+              "label": "New Workspace (Management Center)"
+            },
+            "managementCenterOutside": {
+              "label": "Management Center Outside placement"
+            },
+            "managementCenterInside": {
+              "label": "Management Center Inside placement"
             }
           },
           "editor": {
@@ -4626,15 +4666,6 @@
             }
           },
           "experiments": {
-            "terminalsManagementCenter": {
-              "label": "Terminals (Management Center)"
-            },
-            "acpAgentsManagementCenter": {
-              "label": "ACP Agents (Management Center and footer ACP Chat)"
-            },
-            "automationsManagementCenter": {
-              "label": "Automations (Management Center)"
-            },
             "projectWikiCenterTabs": {
               "label": "Project Wiki (Center Tabs)"
             }
@@ -5187,7 +5218,7 @@
       },
       "footer": {
         "title": "Footer layout",
-        "description": "Choose which status strips appear in the app footer. When every item below is off and ACP Chat is disabled in Experiments, the footer is hidden.",
+        "description": "Choose which status strips appear in the app footer. When every item below is off and ACP Chat is disabled in Layout, the footer is hidden.",
         "enabledCount": "{count} enabled",
         "hidden": "Hidden",
         "wsConnectionTitle": "WebSocket connection status",
@@ -5201,10 +5232,62 @@
         "codeAgent": "Code Agent",
         "agentStatusDescriptionSuffix": "so Atmos can receive their state.",
         "acpChatTitle": "ACP Agent Chat entry",
-        "acpChatDescription": "Opens the floating ACP chat panel from the footer when enabled. Turn it on or off in Experiments, not here.",
+        "acpChatDescription": "Opens the floating ACP chat panel from the footer when enabled. Turn it on or off in Layout, not here.",
         "enabledInExperiments": "Enabled in Experiments",
         "disabledInExperiments": "Disabled in Experiments",
-        "openExperiments": "Open Experiments"
+        "openExperiments": "Open Experiments",
+        "enabledInLayout": "Enabled in Layout settings",
+        "disabledInLayout": "Disabled in Layout settings",
+        "openLayout": "Open Layout settings"
+      },
+      "managementCenter": {
+        "title": "Management Center",
+        "description": "Toggle each entry. When enabled, choose Outside (icon + name list below Management Center) or Inside (Management Center grid). Disabled entries are hidden.",
+        "tabs": {
+          "outside": "Outside",
+          "inside": "Inside"
+        },
+        "experimentalBadge": "Experimental",
+        "enabledCount": "{count} enabled",
+        "allHidden": "All hidden",
+        "items": {
+          "workspaces": {
+            "title": "Workspaces",
+            "description": "Manage all workspaces from Management Center."
+          },
+          "skills": {
+            "title": "Skills",
+            "description": "Browse and manage available Skills."
+          },
+          "terminals": {
+            "title": "Terminals",
+            "description": "Monitor and manage terminal usage across your system from the Management Center."
+          },
+          "agents": {
+            "title": "ACP Agents",
+            "description": "Enable ACP Chat panel for GUI-based agent conversations with quick access from Management Center and footer."
+          },
+          "automations": {
+            "title": "Automations",
+            "description": "Enable automation creation, scheduled runs, and GitHub-triggered automation management."
+          },
+          "diskAnalyzer": {
+            "title": "Disk Analyzer",
+            "description": "Analyze Atmos-related disk usage and clean up safely."
+          },
+          "canvas": {
+            "title": "Canvas",
+            "description": "Open the full-screen Canvas ops surface."
+          },
+          "kanban": {
+            "title": "Kanban",
+            "description": "Browse and manage workspaces in a kanban board."
+          },
+          "newWorkspace": {
+            "title": "New Workspace",
+            "description": "Quickly create a new workspace."
+          }
+        }
       }
     },
     "terminalSection": {
@@ -5598,18 +5681,6 @@
       }
     },
     "experimentSection": {
-      "managementTerminals": {
-        "title": "Terminals (Management Center)",
-        "description": "Monitor and manage terminal usage across your system from the Management Center."
-      },
-      "managementAgents": {
-        "title": "ACP Agents (Management Center and footer ACP Chat)",
-        "description": "Enable ACP Chat panel for GUI-based agent conversations with quick access from Management Center and footer."
-      },
-      "automations": {
-        "title": "Automations (Management Center)",
-        "description": "Enable automation creation, scheduled runs, and GitHub-triggered automation management."
-      },
       "centerWikiTab": {
         "title": "Project Wiki (Center Tabs)",
         "description": "Enable Project Wiki as a center stage tab for quick access to your project documentation and knowledge base."
@@ -5681,20 +5752,18 @@
         "title": "Permissions",
         "unifiedHint": "Grant Accessibility and Screen Recording to the Desktop Use host app so capture and control work reliably.",
         "installFirst": "Install the control engine first to manage permissions.",
-        "hostLine": "Host: {host}",
         "done": "Done",
         "grant": "Grant",
         "items": {
           "accessibility": {
             "title": "Accessibility",
-            "description": "Required to inspect and control other apps. Opens System Settings so you can enable Atmos Desktop Use (drag the chip only if it is not already listed)."
+            "description": "Lets Desktop Use inspect UI and control other apps (click, type, and window actions)."
           },
           "screenRecording": {
             "title": "Screen Recording",
-            "description": "Required to capture the screen for AppShot and Desktop Use."
+            "description": "Lets Desktop Use and AppShot capture the screen so agents can see what is on your display."
           }
-        },
-        "dragHint": "Turn on Atmos Desktop Use in the list. If it is missing, drag the floating chip into the list."
+        }
       },
       "errors": {
         "statusFailed": "Failed to load Desktop Use status.",
@@ -8266,6 +8335,10 @@
         "title": "No Run Script Configured",
         "description": "Please configure a run script in the settings."
       },
+      "noProject": {
+        "title": "No project selected",
+        "description": "Open a project or workspace before running a script."
+      },
       "terminalNotReady": {
         "title": "Terminal not ready",
         "description": "Please wait for the terminal to initialize."
@@ -8409,6 +8482,10 @@
       "desktopUseCommand": {
         "label": "Desktop Use",
         "description": "Capture and control the local desktop (screenshot, click, type)"
+      },
+      "viewRunLogsCommand": {
+        "label": "View Run Logs",
+        "description": "Attach the latest Atmos Run log path for the agent"
       }
     },
     "sideChat": {

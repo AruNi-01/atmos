@@ -938,7 +938,8 @@
       "skillDetail": "{skillId} - 技能 - ATMOS",
       "terminals": "终端 - ATMOS",
       "automations": "自动化 - ATMOS",
-      "diskAnalyzer": "磁盘分析器 - ATMOS"
+      "diskAnalyzer": "磁盘分析器 - ATMOS",
+      "kanban": "看板 - ATMOS"
     },
     "localModelDownload": {
       "downloadingRuntime": "正在下载运行时",
@@ -1054,6 +1055,8 @@
     "fileTabContextMenu": {
       "copyFailedTitle": "复制失败",
       "clipboardUnavailable": "剪贴板不可用。",
+      "pin": "固定标签页",
+      "unpin": "取消固定",
       "close": "关闭",
       "closeOthers": "关闭其他",
       "closeAllLeft": "关闭左侧全部",
@@ -3318,6 +3321,10 @@
         "desktopUse": {
           "label": "Desktop Use",
           "description": "本机桌面捕获与控制（截图、点击、输入）"
+        },
+        "viewRunLogs": {
+          "label": "View Run Logs",
+          "description": "将最新的 Atmos Run 日志路径附加给 Agent"
         }
       }
     },
@@ -4268,6 +4275,39 @@
             },
             "acpAgentChatEntry": {
               "label": "ACP Agent Chat 入口"
+            },
+            "workspacesManagementCenter": {
+              "label": "工作区（Management Center）"
+            },
+            "skillsManagementCenter": {
+              "label": "Skills（Management Center）"
+            },
+            "terminalsManagementCenter": {
+              "label": "Terminals（Management Center）"
+            },
+            "acpAgentsManagementCenter": {
+              "label": "ACP Agents（Management Center 和底部 ACP Chat）"
+            },
+            "automationsManagementCenter": {
+              "label": "Automations（Management Center）"
+            },
+            "diskAnalyzerManagementCenter": {
+              "label": "Disk Analyzer（Management Center）"
+            },
+            "canvasManagementCenter": {
+              "label": "Canvas（Management Center）"
+            },
+            "kanbanManagementCenter": {
+              "label": "Kanban（Management Center）"
+            },
+            "newWorkspaceManagementCenter": {
+              "label": "New Workspace（Management Center）"
+            },
+            "managementCenterOutside": {
+              "label": "Management Center 外侧展示"
+            },
+            "managementCenterInside": {
+              "label": "Management Center 内侧展示"
             }
           },
           "editor": {
@@ -4626,15 +4666,6 @@
             }
           },
           "experiments": {
-            "terminalsManagementCenter": {
-              "label": "Terminals（Management Center）"
-            },
-            "acpAgentsManagementCenter": {
-              "label": "ACP Agents（Management Center 和底部 ACP Chat）"
-            },
-            "automationsManagementCenter": {
-              "label": "Automations（Management Center）"
-            },
             "projectWikiCenterTabs": {
               "label": "Project Wiki（Center Tabs）"
             }
@@ -5187,7 +5218,7 @@
       },
       "footer": {
         "title": "页脚布局",
-        "description": "选择应用页脚中显示哪些状态条。若下方所有项目都关闭，且 Experiments 中也关闭了 ACP Chat，则页脚会隐藏。",
+        "description": "选择应用页脚中显示哪些状态条。若下方所有项目都关闭，且布局设置中也关闭了 ACP Chat，则页脚会隐藏。",
         "enabledCount": "已启用 {count} 项",
         "hidden": "已隐藏",
         "wsConnectionTitle": "WebSocket 连接状态",
@@ -5201,10 +5232,62 @@
         "codeAgent": "Code Agent",
         "agentStatusDescriptionSuffix": "中为每个 Agent 安装 hooks，以便 Atmos 接收其状态。",
         "acpChatTitle": "ACP Agent Chat 入口",
-        "acpChatDescription": "启用后可从页脚打开浮动 ACP 聊天面板。开关在 Experiments 中控制，不在这里控制。",
+        "acpChatDescription": "启用后可从页脚打开浮动 ACP 聊天面板。开关在布局设置中控制，不在这里控制。",
         "enabledInExperiments": "已在 Experiments 中启用",
         "disabledInExperiments": "已在 Experiments 中关闭",
-        "openExperiments": "打开 Experiments"
+        "openExperiments": "打开 Experiments",
+        "enabledInLayout": "已在布局设置中启用",
+        "disabledInLayout": "已在布局设置中关闭",
+        "openLayout": "打开布局设置"
+      },
+      "managementCenter": {
+        "title": "Management Center",
+        "description": "为每个入口设置开关。开启后可在开关左侧选择外侧（Management Center 下方的图标+名称列表）或内侧（管理中心网格）。关闭后不显示对应入口。",
+        "tabs": {
+          "outside": "外侧",
+          "inside": "内侧"
+        },
+        "experimentalBadge": "实验性",
+        "enabledCount": "已启用 {count} 项",
+        "allHidden": "全部隐藏",
+        "items": {
+          "workspaces": {
+            "title": "工作区",
+            "description": "在 Management Center 中管理所有工作区。"
+          },
+          "skills": {
+            "title": "Skills",
+            "description": "浏览与管理可用 Skills。"
+          },
+          "terminals": {
+            "title": "Terminals",
+            "description": "在 Management Center 中监控并管理系统范围内的终端使用情况。"
+          },
+          "agents": {
+            "title": "ACP Agents",
+            "description": "启用 ACP Chat 面板，用于图形界面的 Agent 对话，并可从 Management Center 和底部区域快速访问。"
+          },
+          "automations": {
+            "title": "Automations",
+            "description": "启用自动化创建、定时运行以及 GitHub 触发的自动化管理。"
+          },
+          "diskAnalyzer": {
+            "title": "Disk Analyzer",
+            "description": "分析 Atmos 相关磁盘占用并安全清理。"
+          },
+          "canvas": {
+            "title": "Canvas",
+            "description": "打开全屏 Canvas 运维画布。"
+          },
+          "kanban": {
+            "title": "Kanban",
+            "description": "以看板视图浏览与管理工作区。"
+          },
+          "newWorkspace": {
+            "title": "New Workspace",
+            "description": "快速创建新工作区。"
+          }
+        }
       }
     },
     "terminalSection": {
@@ -5598,18 +5681,6 @@
       }
     },
     "experimentSection": {
-      "managementTerminals": {
-        "title": "Terminals（Management Center）",
-        "description": "在 Management Center 中监控并管理系统范围内的终端使用情况。"
-      },
-      "managementAgents": {
-        "title": "ACP Agents（Management Center 和底部 ACP Chat）",
-        "description": "启用 ACP Chat 面板，用于图形界面的 Agent 对话，并可从 Management Center 和底部区域快速访问。"
-      },
-      "automations": {
-        "title": "Automations（Management Center）",
-        "description": "启用自动化创建、定时运行以及 GitHub 触发的自动化管理。"
-      },
       "centerWikiTab": {
         "title": "Project Wiki（Center Tabs）",
         "description": "启用 Project Wiki 作为中心区域标签页，便于快速访问项目文档和知识库。"
@@ -5681,20 +5752,18 @@
         "title": "权限",
         "unifiedHint": "请为 Desktop Use host 应用授予辅助功能与屏幕录制权限，以便稳定完成捕获与控制。",
         "installFirst": "请先安装控制引擎再管理权限。",
-        "hostLine": "Host：{host}",
         "done": "完成",
         "grant": "授予",
         "items": {
           "accessibility": {
             "title": "辅助功能",
-            "description": "用于检查并控制其他应用。会打开系统设置以便开启 Atmos Desktop Use（仅在列表中没有时才需拖入悬浮芯片）。"
+            "description": "供 Desktop Use 读取界面并控制其他应用（点击、输入、窗口操作等）。"
           },
           "screenRecording": {
             "title": "屏幕录制",
-            "description": "用于 AppShot 与 Desktop Use 的屏幕捕获。"
+            "description": "供 Desktop Use 与 AppShot 捕获屏幕，让 agent 能看到当前画面。"
           }
-        },
-        "dragHint": "在列表中打开 Atmos Desktop Use 开关；若没有该项，再将悬浮芯片拖入列表。"
+        }
       },
       "errors": {
         "statusFailed": "加载 Desktop Use 状态失败。",
@@ -8266,6 +8335,10 @@
         "title": "未配置运行脚本",
         "description": "请先在设置中配置运行脚本。"
       },
+      "noProject": {
+        "title": "未选择项目",
+        "description": "请先打开项目或工作区，再运行脚本。"
+      },
       "terminalNotReady": {
         "title": "终端尚未就绪",
         "description": "请等待终端初始化完成。"
@@ -8409,6 +8482,10 @@
       "desktopUseCommand": {
         "label": "Desktop Use",
         "description": "本机桌面捕获与控制（截图、点击、输入）"
+      },
+      "viewRunLogsCommand": {
+        "label": "View Run Logs",
+        "description": "将最新的 Atmos Run 日志路径附加给 Agent"
       }
     },
     "sideChat": {

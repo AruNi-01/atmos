@@ -242,6 +242,8 @@ pub struct AttachSessionParams {
     pub rows: Option<u16>,
     pub project_name: Option<String>,
     pub workspace_name: Option<String>,
+    /// Optional project root for APP-055 Run log tee on run-* windows.
+    pub cwd: Option<String>,
 }
 
 pub struct CaptureSideContextParams {
