@@ -167,4 +167,4 @@
 
 - 修复分支：`grokbuild/quality-fix/2026-08-06`
 - 修复提交：`2df44a0af`（结果文件随后续提交纳入同一 PR）
-- PR URL：见创建后回填
+- PR URL：https://github.com/AruNi-01/atmos/pull/208
