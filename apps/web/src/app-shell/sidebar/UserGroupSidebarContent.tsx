@@ -540,8 +540,11 @@ export function UserGroupTwoColumnRightContent({
     <div className="flex h-full min-h-0 flex-col">
       <div className="border-b border-sidebar-border">
         <div className="flex min-h-10 items-center gap-1 px-2">
-          <div className="min-w-0 flex-1">
-            <div className="truncate text-sm font-medium text-sidebar-foreground">
+          <div className="flex min-w-0 flex-1 items-center gap-2">
+            {selectedView ? (
+              <FolderOpen className="size-3.5 shrink-0 text-muted-foreground" />
+            ) : null}
+            <div className="min-w-0 truncate text-sm font-medium text-sidebar-foreground">
               {selectedView?.label ?? chromeT("leftSidebarControls.selectGroup")}
             </div>
           </div>

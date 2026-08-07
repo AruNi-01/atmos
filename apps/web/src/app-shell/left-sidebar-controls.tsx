@@ -651,6 +651,7 @@ export function GroupedWorkspaceTwoColumnLeftContent({
 }
 
 export function GroupedWorkspaceTwoColumnRightContent({
+  groupingMode,
   isPrimaryCollapsed,
   selectedGroup,
   secondColumnKanban,
@@ -658,6 +659,7 @@ export function GroupedWorkspaceTwoColumnRightContent({
   renderWorkspaceKanbanCard,
   onTogglePrimaryPanel,
 }: {
+  groupingMode: SidebarGroupingMode;
   isPrimaryCollapsed: boolean;
   selectedGroup: WorkspaceGroup | null;
   secondColumnKanban: boolean;
@@ -684,6 +686,9 @@ export function GroupedWorkspaceTwoColumnRightContent({
       <div className="border-b border-sidebar-border">
         <div className="flex min-h-10 items-center gap-1 px-2">
           <div className="flex min-w-0 flex-1 items-center gap-2">
+            {selectedGroup ? (
+              <WorkspaceGroupMarker group={selectedGroup} groupingMode={groupingMode} />
+            ) : null}
             <div className="min-w-0">
               <div className="truncate text-sm font-medium text-sidebar-foreground">
                 {selectedGroup?.label ?? t("leftSidebarControls.selectGroup")}
@@ -872,7 +877,7 @@ export function ProjectWorkspaceTwoColumnRightContent({
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="border-b border-sidebar-border">
+      <div className="pt-1.5">
         <div className="flex min-h-10 items-center gap-1 px-2">
           <div className="min-w-0 flex-1">
             {selectedProject ? (

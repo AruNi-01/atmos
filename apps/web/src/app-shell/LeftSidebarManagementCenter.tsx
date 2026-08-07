@@ -54,10 +54,21 @@ const ITEM_DEF_BY_ID: Record<ManagementCenterItemId, ManagementCenterItemDef> = 
 type ManagementCenterSharedProps = {
   currentView: string;
   canvasOpen: boolean;
+  /** New-workspace welcome overlay is open (query param / floating surface). */
+  newWorkspaceOpen: boolean;
   onNavigate: (path: string) => void;
   onOpenCanvas: () => void;
   onOpenNewWorkspace: () => void;
 };
+
+function isManagementItemActive(
+  item: ManagementCenterItemDef,
+  shared: Pick<ManagementCenterSharedProps, "currentView" | "canvasOpen" | "newWorkspaceOpen">,
+): boolean {
+  if (item.kind === "canvas") return shared.canvasOpen;
+  if (item.kind === "new-workspace") return shared.newWorkspaceOpen;
+  return shared.currentView === item.id;
+}
 
 interface LeftSidebarManagementCenterProps extends ManagementCenterSharedProps {
   isExpanded: boolean;
@@ -80,19 +91,23 @@ export function LeftSidebarManagementCenterOutside({
   if (items.length === 0) return null;
 
   return (
-    <nav
-      className="flex shrink-0 flex-col gap-0.5 px-2 py-1.5"
-      aria-label={t("managementCenter.title")}
-    >
-      {items.map((item) => (
-        <OutsideNavRow
-          key={item.id}
-          item={item}
-          isActive={shared.currentView === item.id || (item.kind === "canvas" && shared.canvasOpen)}
-          {...shared}
-        />
-      ))}
-    </nav>
+    <div className="flex shrink-0 flex-col">
+      <nav
+        className="flex flex-col gap-0.5 px-2 py-1.5"
+        aria-label={t("managementCenter.title")}
+      >
+        {items.map((item) => (
+          <OutsideNavRow
+            key={item.id}
+            item={item}
+            isActive={isManagementItemActive(item, shared)}
+            {...shared}
+          />
+        ))}
+      </nav>
+      {/* Full-width divider between outside items and the workspace list below */}
+      <div className="border-b border-sidebar-border" role="separator" />
+    </div>
   );
 }
 
@@ -140,7 +155,7 @@ export function LeftSidebarManagementCenter({
                 item={item}
                 index={index}
                 totalItems={items.length}
-                isActive={shared.currentView === item.id || (item.kind === "canvas" && shared.canvasOpen)}
+                isActive={isManagementItemActive(item, shared)}
                 {...shared}
               />
             ))}
@@ -176,7 +191,7 @@ function OutsideNavRow({
   const label = t(item.labelKey);
 
   const className = cn(
-    "flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm transition-colors outline-none",
+    "flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left text-sm transition-colors outline-none",
     "focus-visible:ring-1 focus-visible:ring-ring",
     isActive
       ? "bg-sidebar-accent text-sidebar-foreground"
@@ -216,7 +231,12 @@ function OutsideNavRow({
     return (
       <Tooltip>
         <TooltipTrigger asChild>
-          <button type="button" onClick={onOpenNewWorkspace} className={className}>
+          <button
+            type="button"
+            onClick={onOpenNewWorkspace}
+            className={className}
+            aria-current={isActive ? "page" : undefined}
+          >
             {content}
           </button>
         </TooltipTrigger>

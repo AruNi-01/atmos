@@ -1323,6 +1323,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
 
     const groupedTwoColumnRightContent = (
         <GroupedWorkspaceTwoColumnRightContent
+            groupingMode={groupingMode}
             isPrimaryCollapsed={isTwoColumnPrimaryCollapsed}
             selectedGroup={selectedGroupForSidebar}
             secondColumnKanban={workspaceSidebarSecondColumnKanban}
@@ -1417,6 +1418,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
     const managementCenterSharedProps = {
         currentView,
         canvasOpen: Boolean(canvasOpen),
+        newWorkspaceOpen: Boolean(newWorkspace),
         managementCenterItems,
         onNavigate: (path: string) => router.push(path),
         onOpenCanvas: () => void setCanvasOpen(true),
