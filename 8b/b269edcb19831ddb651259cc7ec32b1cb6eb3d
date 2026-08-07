@@ -1,0 +1,82 @@
+.atmos/.gitignore
+  h_5be255725524c8 10
+Cargo.lock
+  h_5be255725524c8 1222
+apps/api/src/api/agent/handlers.rs
+  h_5be255725524c8 210-216
+apps/api/src/api/ws/message.rs
+  h_5be255725524c8 407-410
+apps/api/src/api/ws/message/terminal.rs
+  h_5be255725524c8 12-37
+apps/api/src/api/ws/router/mod.rs
+  h_5be255725524c8 455-458
+apps/api/src/api/ws/router/project.rs
+  h_5be255725524c8 297-303
+apps/api/src/api/ws/router/terminal.rs
+  h_5be255725524c8 11-31
+apps/api/src/api/ws/terminal_handler.rs
+  h_5be255725524c8 273
+apps/api/src/relay/terminal.rs
+  h_5be255725524c8 285
+apps/web/messages/en.json
+  h_5be255725524c8 3324-3327,8485-8488
+apps/web/messages/zh.json
+  h_5be255725524c8 3324-3327,8485-8488
+apps/web/src/features/browser/components/RunScript.tsx
+  h_5be255725524c8 18,318-329,333
+apps/web/src/features/browser/lib/__tests__/run-log-context.test.ts
+  h_5be255725524c8 1-38
+apps/web/src/features/browser/lib/run-log-api.ts
+  h_5be255725524c8 1-24
+apps/web/src/features/browser/lib/run-log-context.ts
+  h_5be255725524c8 1-77
+apps/web/src/features/terminal/components/TerminalAgentInputOverlay.tsx
+  h_5be255725524c8 57-63,293-300,580-596,681-687
+apps/web/src/features/welcome/components/PromptComposer.tsx
+  h_5be255725524c8 32,85-94,1405-1421
+apps/web/src/features/welcome/components/SlashCommandPopover.tsx
+  h_5be255725524c8 13,20,262-263
+apps/web/src/features/welcome/components/WelcomePage.tsx
+  h_5be255725524c8 44-50,282-289,548-563,625
+apps/web/src/shared/lib/ai-context-protocol.ts
+  h_5be255725524c8 29,138-144,333-335,355-365
+crates/core-engine/Cargo.toml
+  h_5be255725524c8 31
+crates/core-engine/src/lib.rs
+  h_5be255725524c8 9,35-38
+crates/core-engine/src/project_atmos.rs
+  h_5be255725524c8 1-216
+crates/core-service/src/service/terminal.rs
+  h_5be255725524c8 25,30-31,82-83,117,125-179,235,480,587,769-771,851,876,898,970,1091-1094
+crates/core-service/src/service/terminal/run_log_tee.rs
+  h_5be255725524c8 1-673
+crates/core-service/src/service/terminal/types.rs
+  h_5be255725524c8 245-246
+crates/core-service/src/service/workspace.rs
+  h_5be255725524c8 739-742
+packages/api-types/fixtures/actions.server.json
+  h_5be255725524c8 98-99
+packages/api-types/src/ws/actions.ts
+  h_5be255725524c8 100-101
+specs/APP/APP-055_run-terminal-logs/BRAINSTORM.md
+  h_5be255725524c8 1-77
+specs/APP/APP-055_run-terminal-logs/PRD.md
+  h_5be255725524c8 1-108
+specs/APP/APP-055_run-terminal-logs/TECH.md
+  h_5be255725524c8 1-378
+specs/APP/APP-055_run-terminal-logs/TEST.md
+  h_5be255725524c8 1-192
+specs/README.md
+  h_5be255725524c8 134
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "8bb269edcb19831ddb651259cc7ec32b1cb6eb3d",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
