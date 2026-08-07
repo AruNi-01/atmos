@@ -83,12 +83,14 @@ export function RefreshableTabsTab({
 
       <div
         className={cn(
-          "absolute inset-0 flex items-center justify-center gap-0 overflow-hidden transition-all duration-200 ease-out",
+          "absolute inset-0 flex items-center gap-0 overflow-hidden transition-all duration-200 ease-out",
+          !trailingAction && "justify-center",
           showRefreshButton
             ? "translate-y-0 opacity-100"
             : "translate-y-7 opacity-0 pointer-events-none",
         )}
       >
+        {trailingAction?.({ isVisible: showRefreshButton })}
         <span
           role="button"
           aria-label={refreshLabel}
@@ -106,7 +108,14 @@ export function RefreshableTabsTab({
             if (event.key !== "Enter" && event.key !== " ") return;
             handleRefresh(event);
           }}
-          className="flex h-full flex-1 items-center justify-center cursor-pointer hover:bg-sidebar-accent"
+          className={cn(
+            "flex h-full cursor-pointer items-center justify-center text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground",
+            // Files tab (and any tab with extra hover actions): compact icon at the end.
+            // Commits / PR tabs: keep the original full-width centered refresh hit target.
+            trailingAction
+              ? "w-8 shrink-0 border-l border-sidebar-border/60"
+              : "flex-1",
+          )}
         >
           {isSpinning ? (
             <LoaderCircle className="size-3.5 animate-spin" />
@@ -114,7 +123,6 @@ export function RefreshableTabsTab({
             <RotateCcw className="size-3.5" />
           )}
         </span>
-        {trailingAction?.({ isVisible: showRefreshButton })}
       </div>
     </TabsTab>
   );

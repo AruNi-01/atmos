@@ -103,7 +103,7 @@ function ChangesScopeMenu({
           onKeyDown={(event) => {
             event.stopPropagation();
           }}
-          className="flex h-full min-w-0 max-w-24 cursor-pointer items-center justify-center gap-1 border-l border-sidebar-border/60 px-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground"
+          className="flex h-full min-w-0 flex-1 cursor-pointer items-center justify-center gap-1 px-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground"
         >
           <span className="truncate">{label}</span>
           <ChevronDown className="size-3 shrink-0" />
