@@ -94,7 +94,9 @@ impl QuotaUsageService {
                     self.refresh_provider_overview(provider_id, cached_previous.clone())
                         .await
                 }
-                None => self.refresh_overview(cached_previous.clone(), true).await,
+                // Always honor per-provider switches so disabled providers never
+                // collect (no browser cookie / Keychain access on cold start).
+                None => self.refresh_overview(cached_previous.clone()).await,
             }
         } else if provider_id.is_some() {
             cached_previous
@@ -107,7 +109,7 @@ impl QuotaUsageService {
                     auto_refresh: AutoRefreshConfig::default(),
                 })
         } else {
-            self.refresh_overview(cached_previous.clone(), false).await
+            self.refresh_overview(cached_previous.clone()).await
         };
         let fresh = self.with_auto_refresh_config(fresh).await;
 
@@ -120,12 +122,13 @@ impl QuotaUsageService {
     }
 
     pub async fn set_provider_switch(&self, provider_id: &str, enabled: bool) -> QuotaOverview {
+        // Persist first so a cold refresh honors the new switch value.
         persist_provider_switch(provider_id, enabled);
 
         let mut overview = if let Some(cached) = self.cache.read().await.clone() {
             cached.overview
         } else {
-            self.refresh_overview(None, false).await
+            self.refresh_overview(None).await
         };
 
         if let Some(provider) = overview
@@ -148,18 +151,20 @@ impl QuotaUsageService {
     }
 
     pub async fn set_all_provider_switch(&self, enabled: bool) -> QuotaOverview {
+        // Persist against known descriptors *before* any cold refresh so
+        // turning everything off never triggers cookie/Keychain collect.
+        let provider_ids = self
+            .providers
+            .iter()
+            .map(|provider| provider.descriptor().id)
+            .collect::<Vec<_>>();
+        persist_all_provider_switch(&provider_ids, enabled);
+
         let mut overview = if let Some(cached) = self.cache.read().await.clone() {
             cached.overview
         } else {
-            self.refresh_overview(None, false).await
+            self.refresh_overview(None).await
         };
-
-        let provider_ids = overview
-            .providers
-            .iter()
-            .map(|provider| provider.id.clone())
-            .collect::<Vec<_>>();
-        persist_all_provider_switch(&provider_ids, enabled);
 
         for provider in &mut overview.providers {
             provider.switch_enabled = enabled;
@@ -186,7 +191,7 @@ impl QuotaUsageService {
         let mut overview = if let Some(cached) = self.cache.read().await.clone() {
             cached.overview
         } else {
-            self.refresh_overview(None, false).await
+            self.refresh_overview(None).await
         };
 
         if let Some(provider) = overview
@@ -241,8 +246,8 @@ impl QuotaUsageService {
         let mut overview = if let Some(cached) = self.cache.read().await.clone() {
             cached.overview
         } else {
-            // honor_switches=true so disabled providers skip live refresh
-            self.refresh_overview(None, true).await
+            // Disabled providers skip live refresh (no cookie/Keychain).
+            self.refresh_overview(None).await
         };
 
         for provider in &mut overview.providers {
@@ -419,11 +424,12 @@ impl QuotaUsageService {
         let _ = self.update_tx.send(overview.clone());
     }
 
-    async fn refresh_overview(
-        &self,
-        cached_previous: Option<CachedOverview>,
-        honor_switches: bool,
-    ) -> QuotaOverview {
+    /// Refresh all known providers, **always** honoring per-provider switches.
+    ///
+    /// Disabled providers never call [`QuotaProvider::collect`], so browser
+    /// cookie extraction and macOS Keychain access only run for providers the
+    /// user has left enabled.
+    async fn refresh_overview(&self, cached_previous: Option<CachedOverview>) -> QuotaOverview {
         let mut providers = vec![None; self.providers.len()];
         let mut issues = Vec::new();
         let mut success_count = 0usize;
@@ -433,11 +439,7 @@ impl QuotaUsageService {
 
         for (index, provider) in self.providers.iter().enumerate() {
             let descriptor = provider.descriptor();
-            let switch_enabled = if honor_switches {
-                provider_switch_enabled(&descriptor.id)
-            } else {
-                true
-            };
+            let switch_enabled = provider_switch_enabled(&descriptor.id);
 
             if !switch_enabled {
                 if let Some(existing) = previous_overview
@@ -449,6 +451,8 @@ impl QuotaUsageService {
                     })
                     .cloned()
                 {
+                    let mut existing = existing;
+                    existing.switch_enabled = false;
                     providers[index] = Some(existing);
                 } else {
                     let mut status =
@@ -559,7 +563,7 @@ impl QuotaUsageService {
             });
 
         if overview.providers.is_empty() {
-            return self.refresh_overview(None, false).await;
+            return self.refresh_overview(None).await;
         }
 
         let descriptor = provider.descriptor();
