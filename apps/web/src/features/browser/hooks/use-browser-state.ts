@@ -456,26 +456,33 @@ export function useBrowserState({
     });
   }, []);
 
-  const handleReorderBrowserTabs = useCallback((tabIds: string[]) => {
-    setBrowserState((current) => {
-      if (tabIds.length !== current.tabs.length) return current;
+  const handleReorderBrowserTabs = useCallback(
+    (tabIds: string[]) => {
+      const current = browserStateRef.current;
+      if (tabIds.length !== current.tabs.length) return;
       // Reject duplicates — length checks alone would drop unlisted tabs.
-      if (new Set(tabIds).size !== tabIds.length) return current;
+      if (new Set(tabIds).size !== tabIds.length) return;
       const byId = new Map(current.tabs.map((tab) => [tab.id, tab]));
       const nextTabs = tabIds.flatMap((id) => {
         const tab = byId.get(id);
         return tab ? [tab] : [];
       });
-      if (nextTabs.length !== current.tabs.length) return current;
+      if (nextTabs.length !== current.tabs.length) return;
       if (nextTabs.every((tab, index) => tab.id === current.tabs[index]?.id)) {
-        return current;
+        return;
       }
-      return {
+      const next: PreviewBrowserContextPrefs = {
         ...current,
         tabs: nextTabs,
       };
-    });
-  }, []);
+      browserStateRef.current = next;
+      setBrowserState(next);
+      // tabs[] order is the strip order — write through so refresh keeps it
+      // even if the panel unmounts before the browserState persist effect runs.
+      persistBrowserState(next);
+    },
+    [persistBrowserState],
+  );
 
   const pendingCommand = useBrowserTabCommandsStore(
     (state) => state.commandsByContext[browserContextId] ?? null,

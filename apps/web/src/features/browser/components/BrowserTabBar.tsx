@@ -95,8 +95,9 @@ function getUrlLabel(value: string): string {
 
 function getTabLabel(
   tab: PreviewBrowserTab,
-  index: number,
+  _index: number,
   fallbackLabels: { preview: string; newTab: string },
+  tabCount = 1,
 ): string {
   const title = tab.title?.trim();
   const titleUrl = canonicalizeUrl(tab.titleUrl || "");
@@ -106,7 +107,10 @@ function getTabLabel(
   const urlLabel = getUrlLabel(tab.activeUrl || tab.url);
   if (urlLabel) return urlLabel;
 
-  return index === 0 ? fallbackLabels.preview : fallbackLabels.newTab;
+  // Do NOT key empty labels off array index — reordering would rename
+  // "Browser" ↔ "New tab" and look like the tab texts swapped.
+  // Solo empty surface keeps the product name; extras use New tab.
+  return tabCount <= 1 ? fallbackLabels.preview : fallbackLabels.newTab;
 }
 
 function TabFavicon({ faviconUrl }: { faviconUrl?: string }) {
@@ -150,10 +154,15 @@ export function BrowserTabBar({
   const items = React.useMemo<MorphingTabsItem[]>(
     () =>
       tabs.map((tab, index) => {
-        const label = getTabLabel(tab, index, {
-          preview: t("preview"),
-          newTab: t("newTab"),
-        });
+        const label = getTabLabel(
+          tab,
+          index,
+          {
+            preview: t("preview"),
+            newTab: t("newTab"),
+          },
+          tabs.length,
+        );
         return {
           id: tab.id,
           label,
@@ -190,8 +199,7 @@ export function BrowserTabBar({
       onValueChange={(id) => {
         if (id) onSelectTab(id);
       }}
-      onClose={onCloseTab}
-      canClose={tabs.length > 1}
+      onClose={tabs.length > 1 ? onCloseTab : undefined}
       closeAriaLabel={(label) => t("closeTabAria", { label })}
       onOrderChange={onReorderTabs}
       onAdd={onAddTab}

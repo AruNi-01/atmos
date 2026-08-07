@@ -1,9 +1,11 @@
 "use client";
-// Adapted from beui.dev Morphing Tabs (MIT) — compact chrome density for Atmos browser.
+// Adapted from beui.dev Morphing Tabs (MIT) — density + Atmos tokens only.
 // https://beui.dev/components/blocks/morphing-tabs
+// Drag / reorder / liquid path logic is intentionally unchanged from upstream.
 
 import { Plus, X } from "lucide-react";
 import {
+  AnimatePresence,
   animate as animateValue,
   motion,
   useMotionValue,
@@ -24,15 +26,16 @@ import {
   type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
-
 import { cn } from "@/shared/lib/utils";
 
-import { SPRING_GLIDE } from "../lib/morphing-ease";
+import { EASE_OUT, SPRING_GLIDE, SPRING_PRESS } from "../lib/morphing-ease";
 
 export type MorphingTabsItem = {
   id: string;
   label: string;
   icon?: ReactNode;
+  /** Per-tab panel body (beui). Prefer shared `children` for Atmos browser chrome. */
+  content?: ReactNode;
   disabled?: boolean;
 };
 
@@ -56,20 +59,21 @@ export interface MorphingTabsProps {
   onOrderChange?: (ids: string[]) => void;
   /** Enables the close affordance on every tab when provided. */
   onClose?: (id: string) => void;
-  /** When false, close is hidden even if onClose is set (e.g. last tab). */
-  canClose?: boolean | ((id: string) => boolean);
   closeAriaLabel?: (label: string) => string;
-  /** New-tab control — sits after the last tab until the strip overflows. */
-  onAdd?: () => void;
-  addAriaLabel?: string;
   ariaLabel?: string;
   className?: string;
   classNames?: MorphingTabsClassNames;
-  /** Shared content surface — stays mounted across tab switches (browser viewports). */
+  /**
+   * Shared panel body (Atmos browser toolbar). When set, replaces per-item
+   * `content` + AnimatePresence — panel stays mounted across tab switches.
+   */
   children?: ReactNode;
-  /** Fixed rail chrome (favorites / overflow) — never scrolls with tabs. */
+  /** Fixed rail chrome after tabs (favorites / overflow / +). */
   trailing?: ReactNode;
-  /** Extra left inset for macOS traffic lights / window chrome. */
+  /** New-tab control after the last tab. */
+  onAdd?: () => void;
+  addAriaLabel?: string;
+  /** Extra left inset for macOS traffic lights (added to SURFACE_INSET for slots). */
   railInsetLeft?: number;
   railProps?: React.HTMLAttributes<HTMLDivElement> & {
     "data-tauri-drag-region"?: string;
@@ -95,13 +99,13 @@ type SpringTabProps = {
   dragging: boolean;
   dragLeft: MotionValue<number>;
   surfaceLeft: MotionValue<number>;
+  /** Horizontal scroll of the tab strip — liquid is root-fixed so subtract this. */
+  scrollLeft: MotionValue<number>;
   reduce: boolean;
   active: boolean;
   anyDragging: boolean;
   surfaceHost: HTMLDivElement | null;
   surfaceWidth: number;
-  contentInset: number;
-  tabWidth: number;
   surfaceClassName?: string;
   zIndex: number;
   className: string;
@@ -114,20 +118,24 @@ type SpringTabProps = {
   onLostPointerCapture: (event: ReactPointerEvent<HTMLDivElement>) => void;
 };
 
-/** Dense browser chrome — aligned with previous h-8 strip / h-7 tabs. */
 const DRAG_THRESHOLD = 5;
+/** Dense browser chrome scale of beui defaults (logic unchanged). */
 const TAB_WIDTH = 156;
-const TAB_MIN_WIDTH = 96;
 const TAB_HEIGHT = 28;
-const TAB_TOP = 4;
+const TAB_TOP = 2;
 const TAB_RADIUS = 10;
-const RAIL_HEIGHT = 32;
+const RAIL_HEIGHT = 30;
+/** 0 = flush with panel edge so first active tab joins square TL (beui inset was 16). */
+const SURFACE_INSET = 0;
 const LIQUID_JOIN = 12;
-const PANEL_RADIUS = 12;
-const DEFAULT_TAB_GAP = 4;
+/** How far the liquid fill dips into the content panel for corner morphs.
+ *  Keep small — dense chrome toolbar sits right under the rail. */
+const PANEL_RADIUS = 8;
 const ADD_BUTTON_SIZE = 24;
 const ADD_BUTTON_GAP = 4;
-const TRAILING_GAP = 6;
+/** Extra scroll room so active-tab liquid ears (bottom L/R) are not clipped by
+ *  the scrollport edge — symmetric when the tab is not flush with the strip end. */
+const SCROLL_EDGE_PAD = LIQUID_JOIN + 4;
 
 function sameOrder(a: string[], b: string[]) {
   return a.length === b.length && a.every((id, index) => id === b[index]);
@@ -145,33 +153,61 @@ function moveItem(order: string[], from: number, to: number) {
   return next;
 }
 
-/**
- * Active tab silhouette only: rounded top + liquid ears into the content edge.
- * Deliberately does NOT span the full content width.
- */
-function liquidTabPath(
-  tabLeft: number,
-  surfaceWidth: number,
-  contentInset: number,
-  tabWidth: number,
-) {
-  const panelLeft = contentInset;
-  const panelRight = Math.max(panelLeft + tabWidth, surfaceWidth - contentInset);
-  const left = Math.max(panelLeft, Math.min(panelRight - tabWidth, tabLeft));
-  const right = left + tabWidth;
+/** Panel top edge only (full corner radii) — used when the active tab has
+ *  scrolled fully out of the visible strip so the fill is not pinned at an edge. */
+function liquidPanelOnlyPath(surfaceWidth: number) {
+  const panelLeft = SURFACE_INSET;
+  const panelRight = Math.max(panelLeft + TAB_WIDTH, surfaceWidth - SURFACE_INSET);
+  const bottom = RAIL_HEIGHT;
+  const r = PANEL_RADIUS;
+  return [
+    `M${panelLeft} ${bottom + r}`,
+    `V${bottom + r}`,
+    `Q${panelLeft} ${bottom} ${panelLeft + r} ${bottom}`,
+    `H${panelRight - r}`,
+    `Q${panelRight} ${bottom} ${panelRight} ${bottom + r}`,
+    `V${bottom + r}`,
+    "Z",
+  ].join(" ");
+}
+
+function liquidTabPath(tabLeft: number, surfaceWidth: number) {
+  const panelLeft = SURFACE_INSET;
+  const panelRight = Math.max(panelLeft + TAB_WIDTH, surfaceWidth - SURFACE_INSET);
+  // Viewport x of the active tab (track left − scroll). Do NOT clamp into the
+  // panel — clamping pinned the silhouette at the left/right when scrolling.
+  const left = tabLeft;
+  const right = left + TAB_WIDTH;
   const top = RAIL_HEIGHT - TAB_HEIGHT;
   const bottom = RAIL_HEIGHT;
+
+  // Fully off-screen → only the content top strip (no stuck edge tab fill).
+  if (right < panelLeft || left > panelRight) {
+    return liquidPanelOnlyPath(surfaceWidth);
+  }
+
   const leftJoin = Math.max(panelLeft, left - LIQUID_JOIN);
   const rightJoin = Math.min(panelRight, right + LIQUID_JOIN);
-  const leftDepth = Math.min(LIQUID_JOIN, left - leftJoin);
-  const rightDepth = Math.min(LIQUID_JOIN, rightJoin - right);
+  const leftDepth = Math.max(0, Math.min(LIQUID_JOIN, left - leftJoin));
+  const rightDepth = Math.max(0, Math.min(LIQUID_JOIN, rightJoin - right));
   const leftControl = leftDepth * 0.55;
   const rightControl = rightDepth * 0.55;
-  const dip = Math.min(PANEL_RADIUS, 8);
+  // Flush with content left only when the tab edge is at/near panelLeft.
+  // Scrolled past the left edge → full radius (not square residual).
+  const leftPanelRadius =
+    left <= panelLeft
+      ? Math.min(PANEL_RADIUS, Math.max(0, panelLeft - left))
+      : Math.min(PANEL_RADIUS, Math.max(0, leftJoin - panelLeft));
+  const rightPanelRadius =
+    right >= panelRight
+      ? Math.min(PANEL_RADIUS, Math.max(0, right - panelRight))
+      : Math.min(PANEL_RADIUS, Math.max(0, panelRight - rightJoin));
 
   return [
-    `M${leftJoin} ${bottom + dip}`,
-    `L${leftJoin} ${bottom}`,
+    `M${panelLeft} ${bottom + PANEL_RADIUS}`,
+    `V${bottom + leftPanelRadius}`,
+    `Q${panelLeft} ${bottom} ${panelLeft + leftPanelRadius} ${bottom}`,
+    `H${leftJoin}`,
     `C${leftJoin + leftControl} ${bottom} ${left} ${bottom - leftDepth + leftControl} ${left} ${bottom - leftDepth}`,
     `V${top + TAB_RADIUS}`,
     `Q${left} ${top} ${left + TAB_RADIUS} ${top}`,
@@ -179,7 +215,9 @@ function liquidTabPath(
     `Q${right} ${top} ${right} ${top + TAB_RADIUS}`,
     `V${bottom - rightDepth}`,
     `C${right} ${bottom - rightDepth + rightControl} ${rightJoin - rightControl} ${bottom} ${rightJoin} ${bottom}`,
-    `L${rightJoin} ${bottom + dip}`,
+    `H${panelRight - rightPanelRadius}`,
+    `Q${panelRight} ${bottom} ${panelRight} ${bottom + rightPanelRadius}`,
+    `V${bottom + PANEL_RADIUS}`,
     "Z",
   ].join(" ");
 }
@@ -190,13 +228,12 @@ function SpringTab({
   dragging,
   dragLeft,
   surfaceLeft,
+  scrollLeft,
   reduce,
   active,
   anyDragging,
   surfaceHost,
   surfaceWidth,
-  contentInset,
-  tabWidth,
   surfaceClassName,
   zIndex,
   className,
@@ -220,15 +257,9 @@ function SpringTab({
   );
 
   useLayoutEffect(() => {
-    // Layout reflows (compress / add / resize): jump so left tabs don't spring-slide.
-    // Mid-drag sibling displacement still springs via target.
-    if (reduce || !anyDragging) {
-      target.set(targetLeft);
-      position.jump(targetLeft);
-    } else {
-      target.set(targetLeft);
-    }
-  }, [anyDragging, position, reduce, target, targetLeft]);
+    target.set(targetLeft);
+    if (reduce) position.jump(targetLeft);
+  }, [position, reduce, target, targetLeft]);
 
   useLayoutEffect(() => {
     registerPosition(id, position);
@@ -243,7 +274,7 @@ function SpringTab({
 
   return (
     <>
-      {active && surfaceHost && surfaceWidth > contentInset * 2
+      {active && surfaceHost && surfaceWidth > SURFACE_INSET * 2
         ? createPortal(
             <svg
               aria-hidden="true"
@@ -251,9 +282,12 @@ function SpringTab({
               viewBox={`0 0 ${surfaceWidth} ${RAIL_HEIGHT + PANEL_RADIUS}`}
               preserveAspectRatio="none"
               className={cn(
-                "pointer-events-none absolute inset-x-0 top-0 z-[15] h-11 w-full text-background",
+                // Always below the content panel (z-20). Raising to z-20 on drag
+                // (beui default) paints the full-width panel strip over the toolbar.
+                "pointer-events-none absolute inset-x-0 top-0 z-[15] w-full text-background",
                 surfaceClassName,
               )}
+              style={{ height: RAIL_HEIGHT + PANEL_RADIUS }}
             >
               <LiquidSurfacePath
                 key={
@@ -264,9 +298,8 @@ function SpringTab({
                     : "idle"
                 }
                 left={liquidDriver}
+                scrollLeft={scrollLeft}
                 surfaceWidth={surfaceWidth}
-                contentInset={contentInset}
-                tabWidth={tabWidth}
               />
             </svg>,
             surfaceHost,
@@ -292,17 +325,17 @@ function SpringTab({
 
 function LiquidSurfacePath({
   left,
+  scrollLeft,
   surfaceWidth,
-  contentInset,
-  tabWidth,
 }: {
+  /** Active tab left in track coordinates. */
   left: MotionValue<number>;
+  /** Tab strip scroll — liquid SVG is root-fixed, so tab x = left − scroll. */
+  scrollLeft: MotionValue<number>;
   surfaceWidth: number;
-  contentInset: number;
-  tabWidth: number;
 }) {
-  const path = useTransform(left, (value) =>
-    liquidTabPath(value, surfaceWidth, contentInset, tabWidth),
+  const path = useTransform([left, scrollLeft], ([tabLeft, scroll]: number[]) =>
+    liquidTabPath(tabLeft - scroll, surfaceWidth),
   );
   return <motion.path d={path} fill="currentColor" />;
 }
@@ -310,13 +343,9 @@ function LiquidSurfacePath({
 function AddTabButton({
   ariaLabel,
   onClick,
-  className,
-  style,
 }: {
   ariaLabel: string;
   onClick: () => void;
-  className?: string;
-  style?: React.CSSProperties;
 }) {
   return (
     <button
@@ -324,11 +353,7 @@ function AddTabButton({
       aria-label={ariaLabel}
       title={ariaLabel}
       onClick={onClick}
-      style={style}
-      className={cn(
-        "desktop-no-drag flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-background/50 hover:text-foreground",
-        className,
-      )}
+      className="desktop-no-drag flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-background/50 hover:text-foreground"
     >
       <Plus className="size-3.5" />
     </button>
@@ -342,15 +367,14 @@ export function MorphingTabs({
   onValueChange,
   onOrderChange,
   onClose,
-  canClose = true,
   closeAriaLabel,
-  onAdd,
-  addAriaLabel = "New tab",
   ariaLabel = "Tabs",
   className,
   classNames,
   children,
   trailing,
+  onAdd,
+  addAriaLabel = "New tab",
   railInsetLeft = 0,
   railProps,
 }: MorphingTabsProps) {
@@ -372,9 +396,8 @@ export function MorphingTabs({
   const currentValue = controlled ? (value ?? null) : internalValue;
 
   const rootRef = useRef<HTMLDivElement | null>(null);
+  const railRef = useRef<HTMLDivElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
-  const trackRef = useRef<HTMLDivElement | null>(null);
-  const [trackEl, setTrackEl] = useState<HTMLDivElement | null>(null);
   const trailingRef = useRef<HTMLDivElement | null>(null);
   const tabButtonRefs = useRef<Record<string, HTMLButtonElement | null>>({});
   const tabPositionRefs = useRef<Record<string, MotionValue<number> | null>>(
@@ -382,27 +405,38 @@ export function MorphingTabs({
   );
   const dragRef = useRef<DragSession | null>(null);
   const dragAnimationRef = useRef<ReturnType<typeof animateValue> | null>(null);
-  const settleRafRef = useRef<number | null>(null);
   const surfaceAnimationRef = useRef<ReturnType<typeof animateValue> | null>(
     null,
   );
-
+  /** Shared with surfaceLeft when selection needs strip scroll (coordinated). */
+  const scrollAnimationRef = useRef<ReturnType<typeof animateValue> | null>(
+    null,
+  );
+  const [surfaceWidth, setSurfaceWidth] = useState(0);
   const [trackWidth, setTrackWidth] = useState(0);
-  const [tabGap] = useState(DEFAULT_TAB_GAP);
-  const [tabWidth, setTabWidth] = useState(TAB_WIDTH);
+  const [tabGap, setTabGap] = useState(4);
   const [pinAdd, setPinAdd] = useState(false);
-  const [scrollPortWidth, setScrollPortWidth] = useState(0);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dragTargetIndex, setDragTargetIndex] = useState(-1);
-  const dragLeft = useMotionValue(0);
-  const surfaceLeft = useMotionValue(0);
-
-  // Tabs always start at x=0 inside the scroll track (traffic lights pad the rail).
-  const contentInset = 0;
+  // Tab strip origin (beui SURFACE_INSET + optional traffic-light pad).
+  const tabOrigin = SURFACE_INSET + railInsetLeft;
+  const dragLeft = useMotionValue(tabOrigin);
+  const surfaceLeft = useMotionValue(tabOrigin);
+  const scrollLeftMv = useMotionValue(0);
 
   useEffect(() => {
     setOrder((current) => {
       const available = new Set(itemIds);
+      // Same tab set, possibly different order: parent/persisted order wins
+      // (reload, external prefs). Local drag updates parent in the same tick
+      // via onOrderChange, so this stays aligned after reorder.
+      if (
+        current.length === itemIds.length &&
+        current.length > 0 &&
+        current.every((id) => available.has(id))
+      ) {
+        return sameOrder(current, itemIds) ? current : itemIds.slice();
+      }
       const retained = current.filter((id) => available.has(id));
       const retainedSet = new Set(retained);
       const added = itemIds.filter((id) => !retainedSet.has(id));
@@ -428,15 +462,20 @@ export function MorphingTabs({
       : firstEnabledItem;
   const activeId = activeItem?.id ?? null;
 
+  const slotLefts = useMemo(
+    () =>
+      order.map(
+        (_, index) => tabOrigin + index * (TAB_WIDTH + tabGap),
+      ),
+    [order, tabGap, tabOrigin],
+  );
+
   const count = orderedItems.length;
   const tabsSpan =
-    count <= 0 ? 0 : count * tabWidth + Math.max(0, count - 1) * tabGap;
-  const addAfterLastLeft = tabsSpan + (count > 0 ? ADD_BUTTON_GAP : 0);
-
-  const slotLefts = useMemo(
-    () => order.map((_, index) => index * (tabWidth + tabGap)),
-    [order, tabGap, tabWidth],
-  );
+    count <= 0 ? 0 : count * TAB_WIDTH + Math.max(0, count - 1) * tabGap;
+  // Inline + sits just after the last tab until the strip overflows.
+  const addAfterLastLeft =
+    tabOrigin + tabsSpan + (count > 0 ? ADD_BUTTON_GAP : 0);
 
   const dragStartIndex = draggingId ? order.indexOf(draggingId) : -1;
 
@@ -464,104 +503,60 @@ export function MorphingTabs({
     [dragStartIndex, dragTargetIndex],
   );
 
-  /**
-   * Width policy:
-   * 1. Prefer preferred tab width; grow to the right.
-   * 2. If needed, compress every tab equally down to TAB_MIN_WIDTH.
-   * 3. Once all tabs are at min and still overflow → enable horizontal scroll
-   *    and pin the + button outside the scrollport (before trailing chrome).
-   */
   useLayoutEffect(() => {
     const root = rootRef.current;
+    const rail = railRef.current;
     const scroll = scrollRef.current;
-    if (!root || !scroll) return;
+    if (!root || !rail) return;
 
     const measure = () => {
-      const trailingWidth = trailingRef.current?.offsetWidth ?? 0;
-      const railInner = root.clientWidth - railInsetLeft;
-      // Scrollport shares the rail with optional pinned + and fixed trailing chrome.
-      // First assume + is inline; if we must pin, remeasure-equivalent by reserving it.
-      const reservePinnedAdd = ADD_BUTTON_SIZE + ADD_BUTTON_GAP;
-      const availableForScrollAndAdd = Math.max(
-        0,
-        railInner - trailingWidth - TRAILING_GAP,
-      );
-
-      const n = Math.max(1, orderRef.current.length);
-      const gaps = (n - 1) * tabGap;
-
-      // Try fitting tabs + inline + inside available width at preferred size.
-      const preferredTabs = n * TAB_WIDTH + gaps;
-      const preferredWithAdd = preferredTabs + ADD_BUTTON_GAP + ADD_BUTTON_SIZE;
-
-      let nextWidth = TAB_WIDTH;
-      let nextPinAdd = false;
-
-      if (preferredWithAdd <= availableForScrollAndAdd) {
-        nextWidth = TAB_WIDTH;
-        nextPinAdd = false;
-      } else {
-        // Compress tabs so tabs + inline + fit.
-        const usableForTabs =
-          availableForScrollAndAdd - ADD_BUTTON_GAP - ADD_BUTTON_SIZE;
-        const fitted = Math.floor((usableForTabs - gaps) / n);
-        if (fitted >= TAB_MIN_WIDTH) {
-          nextWidth = Math.min(TAB_WIDTH, Math.max(TAB_MIN_WIDTH, fitted));
-          nextPinAdd = false;
-        } else {
-          // Min width — scroll; pin + outside scrollport.
-          nextWidth = TAB_MIN_WIDTH;
-          nextPinAdd = true;
-        }
+      const nextGap = Number.parseFloat(getComputedStyle(rail).columnGap);
+      const gap = Number.isFinite(nextGap) && nextGap > 0 ? nextGap : tabGap;
+      if (Number.isFinite(nextGap) && nextGap > 0 && nextGap !== tabGap) {
+        setTabGap(nextGap);
       }
 
-      // When pinned, scrollport is narrower by the pinned + slot.
-      const scrollPort = nextPinAdd
-        ? Math.max(0, availableForScrollAndAdd - reservePinnedAdd)
-        : availableForScrollAndAdd;
+      const n = Math.max(1, orderRef.current.length);
+      const gaps = Math.max(0, n - 1) * gap;
+      const tabsContent =
+        tabOrigin + n * TAB_WIDTH + gaps;
+      const withInlineAdd = onAdd
+        ? tabsContent + ADD_BUTTON_GAP + ADD_BUTTON_SIZE
+        : tabsContent;
 
-      const nextTabsSpan = n * nextWidth + gaps;
-      const track =
-        nextTabsSpan +
-        (nextPinAdd || !onAdd ? 0 : ADD_BUTTON_GAP + ADD_BUTTON_SIZE);
+      const trailingWidth = trailingRef.current?.offsetWidth ?? 0;
+      // Scroll strip = root − trailing (− pinned + when overflowing).
+      const availableForStrip = Math.max(0, root.clientWidth - trailingWidth);
+      // Overflow → pin + outside the scrollport so it never scrolls away.
+      const nextPinAdd = Boolean(onAdd && withInlineAdd > availableForStrip);
+      const addReserve = nextPinAdd ? ADD_BUTTON_GAP + ADD_BUTTON_SIZE : 0;
+      const scrollPort = Math.max(0, availableForStrip - addReserve);
+      // End pad lets the last tab's right liquid ear sit clear of the scroll edge.
+      const trackBody = nextPinAdd
+        ? tabsContent + SCROLL_EDGE_PAD
+        : withInlineAdd + SCROLL_EDGE_PAD;
+      const track = Math.max(scrollPort, trackBody);
 
-      setTabWidth(nextWidth);
       setPinAdd(nextPinAdd);
-      setScrollPortWidth(scrollPort);
-      setTrackWidth(Math.max(scrollPort, track));
+      setTrackWidth(track);
+      setSurfaceWidth(root.clientWidth);
     };
 
     measure();
+    const onScroll = () => {
+      if (scroll) scrollLeftMv.set(scroll.scrollLeft);
+    };
+    onScroll();
+    scroll?.addEventListener("scroll", onScroll, { passive: true });
     const observer = new ResizeObserver(measure);
     observer.observe(root);
-    observer.observe(scroll);
+    if (scroll) observer.observe(scroll);
     if (trailingRef.current) observer.observe(trailingRef.current);
-    return () => observer.disconnect();
-  }, [items.length, onAdd, railInsetLeft, tabGap]);
-
-  // Keep the active tab (and trailing inline +) in view after layout / selection.
-  useLayoutEffect(() => {
-    const scroll = scrollRef.current;
-    if (!scroll || !activeId) return;
-
-    const index = orderRef.current.indexOf(activeId);
-    if (index < 0) return;
-
-    const tabLeft = index * (tabWidth + tabGap);
-    const tabRight = tabLeft + tabWidth;
-    const viewLeft = scroll.scrollLeft;
-    const viewRight = viewLeft + scroll.clientWidth;
-    const padding = 8;
-
-    if (tabLeft < viewLeft + padding) {
-      scroll.scrollTo({ left: Math.max(0, tabLeft - padding), behavior: "smooth" });
-    } else if (tabRight > viewRight - padding) {
-      scroll.scrollTo({
-        left: tabRight - scroll.clientWidth + padding,
-        behavior: "smooth",
-      });
-    }
-  }, [activeId, items.length, tabGap, tabWidth, trackWidth]);
+    return () => {
+      scroll?.removeEventListener("scroll", onScroll);
+      observer.disconnect();
+    };
+  }, [items.length, onAdd, scrollLeftMv, tabGap, tabOrigin]);
 
   const setActive = useCallback(
     (id: string | null) => {
@@ -583,6 +578,8 @@ export function MorphingTabs({
   const activeVisualIndex =
     activeOrderIndex < 0 ? -1 : visualIndexFor(activeOrderIndex);
 
+  // Active fill is trackX − scrollLeft. Drive surface + scroll with the same
+  // progress so far tabs / new tabs glide together (never reverse-slide).
   useLayoutEffect(() => {
     if (
       !activeId ||
@@ -594,14 +591,74 @@ export function MorphingTabs({
     }
 
     surfaceAnimationRef.current?.stop();
-
+    scrollAnimationRef.current?.stop();
     if (draggingId) return;
 
-    surfaceAnimationRef.current = animateValue(
-      surfaceLeft,
-      slotLefts[activeVisualIndex],
-      reduce ? { duration: 0 } : SPRING_GLIDE,
-    );
+    const toSurface = slotLefts[activeVisualIndex];
+    const fromSurface = surfaceLeft.get();
+    const scroll = scrollRef.current;
+    const fromScroll = scroll?.scrollLeft ?? 0;
+
+    let toScroll = fromScroll;
+    if (scroll && scroll.scrollWidth > scroll.clientWidth) {
+      const tabLeft = toSurface;
+      const tabRight = toSurface + TAB_WIDTH;
+      const padding = SCROLL_EDGE_PAD;
+      const maxScroll = Math.max(0, scroll.scrollWidth - scroll.clientWidth);
+      if (tabLeft < fromScroll + padding) {
+        toScroll = Math.max(0, Math.min(maxScroll, tabLeft - padding));
+      } else if (tabRight > fromScroll + scroll.clientWidth - padding) {
+        toScroll = Math.max(
+          0,
+          Math.min(maxScroll, tabRight - scroll.clientWidth + padding),
+        );
+      }
+    }
+
+    const surfaceDelta = Math.abs(toSurface - fromSurface);
+    const scrollDelta = Math.abs(toScroll - fromScroll);
+
+    if (reduce || (surfaceDelta < 0.5 && scrollDelta < 0.5)) {
+      surfaceLeft.set(toSurface);
+      if (scroll) {
+        scroll.scrollLeft = toScroll;
+        scrollLeftMv.set(toScroll);
+      }
+      return;
+    }
+
+    // In-view only: classic beui liquid glide (no strip scroll).
+    if (scrollDelta < 0.5) {
+      surfaceAnimationRef.current = animateValue(
+        surfaceLeft,
+        toSurface,
+        SPRING_GLIDE,
+      );
+      return;
+    }
+
+    // Shared progress: visual = surface − scroll stays a clean lerp of old→new.
+    const controls = animateValue(0, 1, {
+      ...SPRING_GLIDE,
+      onUpdate: (p: number) => {
+        surfaceLeft.set(fromSurface + (toSurface - fromSurface) * p);
+        if (scroll) {
+          const s = fromScroll + (toScroll - fromScroll) * p;
+          scroll.scrollLeft = s;
+          scrollLeftMv.set(s);
+        }
+      },
+    });
+    surfaceAnimationRef.current = controls;
+    scrollAnimationRef.current = controls;
+    void controls.then(() => {
+      if (surfaceAnimationRef.current !== controls) return;
+      surfaceLeft.set(toSurface);
+      if (scroll) {
+        scroll.scrollLeft = toScroll;
+        scrollLeftMv.set(toScroll);
+      }
+    });
   }, [
     activeId,
     activeVisualIndex,
@@ -609,6 +666,8 @@ export function MorphingTabs({
     reduce,
     slotLefts,
     surfaceLeft,
+    scrollLeftMv,
+    trackWidth,
   ]);
 
   const commitOrder = useCallback(
@@ -640,7 +699,7 @@ export function MorphingTabs({
       const startIndex = orderRef.current.indexOf(id);
       if (startIndex < 0) return;
       const capturedSlots = orderRef.current.map(
-        (_, index) => index * (tabWidth + tabGap),
+        (_, index) => tabOrigin + index * (TAB_WIDTH + tabGap),
       );
       const startLeft = capturedSlots[startIndex];
 
@@ -660,7 +719,7 @@ export function MorphingTabs({
         slotLefts: capturedSlots,
       };
     },
-    [dragLeft, itemMap, tabGap, tabWidth],
+    [dragLeft, itemMap, tabGap, tabOrigin],
   );
 
   const moveDrag = useCallback(
@@ -683,16 +742,13 @@ export function MorphingTabs({
         setDragTargetIndex(drag.startIndex);
       }
 
-      // Allow drag within the track (including overflow scroll content).
-      const minLeft = drag.slotLefts[0] ?? 0;
-      const maxLeft =
-        drag.slotLefts[drag.slotLefts.length - 1] ?? minLeft;
+      const minLeft = drag.slotLefts[0];
+      const maxLeft = drag.slotLefts[drag.slotLefts.length - 1];
       const visualLeft = Math.max(
         minLeft,
         Math.min(maxLeft, drag.startLeft + delta),
       );
       let targetIndex = drag.startIndex;
-      const width = tabWidth;
 
       if (visualLeft >= drag.startLeft) {
         for (
@@ -700,19 +756,19 @@ export function MorphingTabs({
           index < drag.slotLefts.length;
           index += 1
         ) {
-          if (visualLeft + width / 2 >= drag.slotLefts[index]) {
+          if (visualLeft + TAB_WIDTH / 2 >= drag.slotLefts[index]) {
             targetIndex = index;
           }
         }
       } else {
         for (let index = drag.startIndex - 1; index >= 0; index -= 1) {
-          if (visualLeft <= drag.slotLefts[index] + width / 2) {
+          if (visualLeft <= drag.slotLefts[index] + TAB_WIDTH / 2) {
             targetIndex = index;
           }
         }
       }
 
-      // Edge auto-scroll while dragging.
+      // Edge auto-scroll while the strip overflows.
       const scroll = scrollRef.current;
       if (scroll && scroll.scrollWidth > scroll.clientWidth) {
         const edge = 28;
@@ -730,7 +786,7 @@ export function MorphingTabs({
         setDragTargetIndex(targetIndex);
       }
     },
-    [activeId, dragLeft, surfaceLeft, tabWidth],
+    [activeId, dragLeft, surfaceLeft],
   );
 
   const finishDrag = useCallback(
@@ -752,7 +808,7 @@ export function MorphingTabs({
       );
       dragAnimationRef.current = controls;
 
-      void controls.then(async () => {
+      controls.then(async () => {
         if (dragAnimationRef.current !== controls) return;
         const next = moveItem(
           drag.startOrder,
@@ -763,12 +819,7 @@ export function MorphingTabs({
         if (!reduce) {
           await new Promise<void>((resolve) => {
             const startedAt = performance.now();
-            let rafId = 0;
             const check = () => {
-              if (dragAnimationRef.current !== controls) {
-                resolve();
-                return;
-              }
               const settled = next.every((id, index) => {
                 if (id === drag.id) return true;
                 const position = tabPositionRefs.current[id];
@@ -783,12 +834,10 @@ export function MorphingTabs({
                 resolve();
                 return;
               }
-              rafId = requestAnimationFrame(check);
-              settleRafRef.current = rafId;
+              requestAnimationFrame(check);
             };
             check();
           });
-          settleRafRef.current = null;
         }
 
         if (dragAnimationRef.current !== controls) return;
@@ -820,21 +869,6 @@ export function MorphingTabs({
       window.removeEventListener("pointercancel", finishFromWindow, true);
     };
   }, [finishDrag]);
-
-  // Cancel drag animation / settle rAF if MorphingTabs unmounts mid-drag.
-  useEffect(() => {
-    return () => {
-      if (settleRafRef.current != null) {
-        cancelAnimationFrame(settleRafRef.current);
-        settleRafRef.current = null;
-      }
-      dragAnimationRef.current?.stop();
-      dragAnimationRef.current = null;
-      surfaceAnimationRef.current?.stop();
-      surfaceAnimationRef.current = null;
-      dragRef.current = null;
-    };
-  }, []);
 
   const moveBy = useCallback(
     (id: string, direction: -1 | 1) => {
@@ -880,20 +914,15 @@ export function MorphingTabs({
     [moveBy, setActive],
   );
 
-  const shouldShowClose = useCallback(
-    (id: string) => {
-      if (!onClose) return false;
-      if (typeof canClose === "function") return canClose(id);
-      return canClose;
-    },
-    [canClose, onClose],
-  );
-
   if (!orderedItems.length) return null;
 
   const { className: railClassName, ...restRailProps } = railProps ?? {};
-  // Liquid SVG lives on the track so it scrolls with tabs.
-  const surfaceWidth = Math.max(trackWidth, scrollPortWidth, 1);
+  // Always-round content corners (beui). Liquid sits under the panel (z-15)
+  // and fills the TL cutout to square when the active tab is flush left.
+  const panelRadiusStyle = {
+    borderTopLeftRadius: PANEL_RADIUS,
+    borderTopRightRadius: PANEL_RADIUS,
+  } as const;
 
   return (
     <div
@@ -905,40 +934,68 @@ export function MorphingTabs({
       )}
     >
       <div
-        style={{ height: RAIL_HEIGHT, paddingLeft: railInsetLeft }}
-        className={cn(
-          "relative z-30 flex min-w-0 shrink-0 items-stretch",
-          railClassName,
-        )}
+        className="relative z-30 flex min-w-0 shrink-0 items-stretch overflow-hidden"
+        style={{ height: RAIL_HEIGHT }}
         {...restRailProps}
       >
+        {/*
+          isolate + overflow clip the tab strip so absolute tabs (z-20/30) cannot
+          paint over the trailing chrome. Without a stacking context, positioned
+          tab z-index participates in the parent and covers favorites / ⋯.
+        */}
         <div
           ref={scrollRef}
-          className="min-w-0 flex-1 overflow-x-auto overflow-y-hidden no-scrollbar"
+          className="relative z-0 min-w-0 flex-1 isolate overflow-x-auto overflow-y-hidden no-scrollbar"
           style={{ height: RAIL_HEIGHT }}
         >
           <div
-            ref={(node) => {
-              trackRef.current = node;
-              setTrackEl((prev) => (prev === node ? prev : node));
-            }}
+            ref={railRef}
             role="tablist"
             aria-label={ariaLabel}
             aria-orientation="horizontal"
-            className={cn("relative h-full", classNames?.rail)}
+            className={cn(
+              // gap is read via getComputedStyle for tabGap (beui); tabs are absolute.
+              "relative gap-1",
+              classNames?.rail,
+              railClassName,
+            )}
             style={{
+              height: RAIL_HEIGHT,
               width: trackWidth || undefined,
               minWidth: "100%",
-              height: RAIL_HEIGHT,
             }}
           >
+            {/* Dividers between tabs that are not next to the active slot. */}
+            {Array.from({ length: Math.max(0, count - 1) }, (_, gapIndex) => {
+              // Gap sits between visual slots gapIndex and gapIndex + 1.
+              if (
+                activeVisualIndex === gapIndex ||
+                activeVisualIndex === gapIndex + 1
+              ) {
+                return null;
+              }
+              const left =
+                tabOrigin +
+                (gapIndex + 1) * (TAB_WIDTH + tabGap) -
+                tabGap / 2;
+              // Align with tab mid-line (tabs sit at TAB_TOP, not rail center).
+              const top = TAB_TOP + TAB_HEIGHT / 2;
+              return (
+                <div
+                  key={`tab-divider-${gapIndex}`}
+                  aria-hidden
+                  className="pointer-events-none absolute z-[2] h-3 w-px -translate-x-1/2 -translate-y-1/2 bg-border/60"
+                  style={{ left, top }}
+                />
+              );
+            })}
+
             {orderedItems.map((item, index) => {
               const isActive = item.id === activeId;
               const isDragging = item.id === draggingId;
               const visualIndex = visualIndexFor(index);
-              const targetLeft = slotLefts[visualIndex] ?? 0;
+              const targetLeft = slotLefts[visualIndex] ?? tabOrigin;
               const tabId = `${uid}-tab-${safeId(item.id)}`;
-              const showClose = shouldShowClose(item.id);
 
               return (
                 <SpringTab
@@ -948,19 +1005,19 @@ export function MorphingTabs({
                   dragging={isDragging}
                   dragLeft={dragLeft}
                   surfaceLeft={surfaceLeft}
+                  scrollLeft={scrollLeftMv}
                   reduce={reduce}
                   active={isActive}
                   anyDragging={Boolean(draggingId)}
-                  surfaceHost={trackEl}
+                  surfaceHost={rootRef.current}
                   surfaceWidth={surfaceWidth}
-                  contentInset={contentInset}
-                  tabWidth={tabWidth}
                   surfaceClassName={classNames?.activeTab}
                   zIndex={isDragging ? 30 : isActive ? 20 : 1}
                   className={cn(
                     "group absolute left-0 top-0 flex select-none touch-pan-y items-stretch desktop-no-drag",
                     item.disabled && "cursor-not-allowed",
-                    isDragging ? "cursor-grabbing" : "cursor-grab",
+                    // Grabbing only while actually dragging — not on idle hover.
+                    isDragging && "cursor-grabbing",
                   )}
                   registerPosition={registerPosition}
                   onPointerDown={(event) => startDrag(item.id, event)}
@@ -971,18 +1028,13 @@ export function MorphingTabs({
                 >
                   <div
                     style={{
-                      width: tabWidth,
+                      width: TAB_WIDTH,
                       height: TAB_HEIGHT,
                       marginTop: TAB_TOP,
                     }}
                     className="relative flex items-stretch"
                   >
-                    {isActive ? (
-                      <span
-                        aria-hidden
-                        className="pointer-events-none absolute inset-x-0 top-0 bottom-0 rounded-t-[10px] bg-background"
-                      />
-                    ) : (
+                    {!isActive ? (
                       <span
                         aria-hidden
                         className={cn(
@@ -992,7 +1044,7 @@ export function MorphingTabs({
                             : "bg-transparent group-hover:bg-background/45",
                         )}
                       />
-                    )}
+                    ) : null}
 
                     <button
                       ref={(node) => {
@@ -1017,8 +1069,8 @@ export function MorphingTabs({
                         "group relative z-10 flex h-full w-full min-w-0 items-center gap-1.5 overflow-hidden rounded-t-[10px] px-2.5 text-left text-xs outline-none transition-colors",
                         isActive
                           ? "text-foreground"
-                          : "pb-0.5 text-muted-foreground hover:text-foreground",
-                        showClose && "pr-7",
+                          : "text-muted-foreground hover:text-foreground",
+                        onClose && "pr-7",
                         classNames?.tab,
                       )}
                     >
@@ -1052,7 +1104,7 @@ export function MorphingTabs({
                       </span>
                     </button>
 
-                    {showClose && onClose ? (
+                    {onClose ? (
                       <button
                         type="button"
                         aria-label={
@@ -1068,8 +1120,7 @@ export function MorphingTabs({
                         className={cn(
                           "absolute right-1 top-1/2 z-20 grid size-5 -translate-y-1/2 place-items-center rounded-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
                           !isActive &&
-                            "top-[calc(50%-1px)] opacity-0 group-hover:opacity-100 hover:bg-background/60",
-                          isActive && "opacity-100",
+                            "opacity-0 group-hover:opacity-100 hover:bg-background/60",
                           classNames?.close,
                         )}
                       >
@@ -1093,7 +1144,7 @@ export function MorphingTabs({
         </div>
 
         {onAdd && pinAdd ? (
-          <div className="desktop-no-drag flex h-full shrink-0 items-end pb-0.5 pl-1">
+          <div className="desktop-no-drag relative z-10 flex h-full shrink-0 items-end bg-zinc-300/80 pb-0.5 pl-1 dark:bg-zinc-900">
             <AddTabButton ariaLabel={addAriaLabel} onClick={onAdd} />
           </div>
         ) : null}
@@ -1101,7 +1152,7 @@ export function MorphingTabs({
         {trailing ? (
           <div
             ref={trailingRef}
-            className="desktop-no-drag flex h-full shrink-0 items-end pb-0.5 pr-1.5 pl-1"
+            className="desktop-no-drag relative z-10 flex h-full shrink-0 items-end bg-zinc-300/80 pb-0.5 pr-1.5 pl-1 dark:bg-zinc-900"
           >
             {trailing}
           </div>
@@ -1116,11 +1167,48 @@ export function MorphingTabs({
         aria-labelledby={`${uid}-tab-${safeId(activeId ?? "empty")}`}
         className={cn(
           "relative z-20 flex min-h-0 flex-1 flex-col overflow-hidden bg-background text-foreground",
-          "rounded-tr-[12px]",
           classNames?.content,
         )}
+        style={panelRadiusStyle}
       >
-        {children}
+        {children != null ? (
+          children
+        ) : (
+          <AnimatePresence mode="popLayout" initial={false}>
+            {activeItem ? (
+              <motion.div
+                key={activeItem.id}
+                initial={
+                  reduce
+                    ? { opacity: 0 }
+                    : { opacity: 0, y: 8, filter: "blur(6px)" }
+                }
+                animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+                exit={
+                  reduce
+                    ? {
+                        opacity: 0,
+                        transition: { duration: 0.08, ease: EASE_OUT },
+                      }
+                    : {
+                        opacity: 0,
+                        y: -5,
+                        filter: "blur(5px)",
+                        transition: { duration: 0.12, ease: EASE_OUT },
+                      }
+                }
+                transition={
+                  reduce
+                    ? { duration: 0.12, ease: EASE_OUT }
+                    : SPRING_PRESS
+                }
+                className="min-h-0 flex-1"
+              >
+                {activeItem.content}
+              </motion.div>
+            ) : null}
+          </AnimatePresence>
+        )}
       </div>
     </div>
   );

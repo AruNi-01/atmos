@@ -596,16 +596,29 @@ function SortableCenterStripTab({
     isDragging,
   } = useSortable({ id });
 
+  // Only while actively dragging: force grabbing cursor globally so it stays
+  // visible even over TabsTab (cursor-pointer) and neighboring strip chrome.
+  React.useEffect(() => {
+    if (!isDragging) return;
+    const previous = document.body.style.cursor;
+    document.body.style.cursor = "grabbing";
+    return () => {
+      document.body.style.cursor = previous;
+    };
+  }, [isDragging]);
+
+  // Translate only — CSS.Transform also applies scaleX/scaleY when neighboring
+  // tabs have different widths, which makes the dragged (and over) tabs grow/shrink.
   return (
     <div
       ref={setNodeRef}
       style={{
-        transform: CSS.Transform.toString(transform),
+        transform: CSS.Translate.toString(transform),
         transition,
       }}
       className={cn(
         "flex h-full shrink-0 items-stretch touch-none",
-        isDragging && "z-20 opacity-60",
+        isDragging && "z-20 cursor-grabbing opacity-60 [&_button]:cursor-grabbing",
       )}
       {...attributes}
       {...listeners}

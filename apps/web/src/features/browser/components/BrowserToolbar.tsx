@@ -455,7 +455,11 @@ export function BrowserToolbar({
               setExtensionUpdatePopoverOpen={setExtensionUpdatePopoverOpen}
             />
 
-            <div className="h-5 w-px bg-border/60" />
+            {/* Divider only when install control follows — alone, element-select
+                must not show a residual multi-button separator on the right. */}
+            {shouldShowExtensionInstall ? (
+              <div className="h-5 w-px bg-border/60" aria-hidden />
+            ) : null}
 
             <PreviewExtensionInstallPopover
               extensionDownloadStarted={extensionDownloadStarted}
