@@ -131,6 +131,7 @@ These files are not requirements sources. Requirements live in `PRD.md`, archite
 | **APP-051** | Infra Jobs & Queue (local-first ports; timers + events; no apalis/MQ in v1) | `specs/APP/APP-051_infra-jobs/` (`BRAINSTORM.md`, `PRD.md`, `TECH.md`, `TEST.md`) |
 | **APP-053** | Desktop Browser via Electron `<webview>` (host selection UI; preview→browser rename; remove APP-029) | `specs/APP/APP-053_desktop-browser-webview/` (`BRAINSTORM.md`, `PRD.md`, `TECH.md`, `TEST.md`) |
 | **APP-054** | Terminal TUI scroll stability (cross-chunk mouse observe, restore policy, gated CMD_END, proportional wheel) | `specs/APP/APP-054_terminal-tui-scroll-stability/` (`BRAINSTORM.md`, `PRD.md`, `TECH.md`, `TEST.md`) |
+| **APP-055** | Run Terminal Logs (project-local `.atmos/run-logs/`, slash View Run Logs chip for agents) | `specs/APP/APP-055_run-terminal-logs/` (`BRAINSTORM.md`, `PRD.md`, `TECH.md`, `TEST.md`) |
 | **QUALITY-001** | Large File Code Debt Cleanup | `specs/APP/QUALITY-001_large-file-code-debt-cleanup/` (`TECH.md`, `TEST.md`) |
 | **QUALITY-002** | Spec Test Execution Loop | `specs/APP/QUALITY-002_spec-test-execution-loop/` (`TECH.md`, `TEST.md`) |
 | **QUALITY-003** | Playwright E2E Harness | `specs/APP/QUALITY-003_playwright-e2e-harness/` (`TECH.md`, `TEST.md`) |

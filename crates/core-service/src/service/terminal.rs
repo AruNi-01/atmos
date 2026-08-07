@@ -22,10 +22,13 @@ use tracing::{debug, error, info, warn};
 
 mod management;
 mod mouse_mode_watch;
+mod run_log_tee;
 mod runtime;
 mod types;
 
 use mouse_mode_watch::{pane_watch_key, MouseModeWatchRegistry};
+use run_log_tee::is_run_window_name as run_window_name_matches;
+pub use run_log_tee::{is_run_window_name, latest_log_path, RunLogTee};
 use runtime::{run_control_mode_tmux_session, run_simple_pty_session};
 pub use types::{
     AttachSessionParams, CaptureSideContextParams, CapturedSideContext, CreateSessionParams,
@@ -76,6 +79,8 @@ pub struct TerminalService {
     agent_hooks: std::sync::RwLock<Option<Arc<super::agent_hooks::AgentHooksService>>>,
     /// Detached pane watchers that keep DEC mouse modes fresh while no browser is attached (APP-054).
     mouse_mode_watches: Arc<MouseModeWatchRegistry>,
+    /// APP-055: project-local Run terminal log tee (single writer).
+    run_log_tee: Arc<RunLogTee>,
 }
 
 impl Default for TerminalService {
@@ -109,11 +114,67 @@ impl TerminalService {
             db: None,
             agent_hooks: std::sync::RwLock::new(None),
             mouse_mode_watches: Arc::new(MouseModeWatchRegistry::new()),
+            run_log_tee: Arc::new(RunLogTee::new()),
         }
     }
 
     pub fn new_with_db(db: Arc<DatabaseConnection>) -> Self {
         Self::new_internal(None, Some(db))
+    }
+
+    /// APP-055: rotate/open latest Run log and write a start header.
+    pub fn run_log_start(
+        &self,
+        project_root: &str,
+        window_name: &str,
+        command: Option<&str>,
+    ) -> Result<String> {
+        let root = PathBuf::from(project_root.trim());
+        if root.as_os_str().is_empty() {
+            return Err(ServiceError::Validation(
+                "project_root is required".to_string(),
+            ));
+        }
+        let path = self
+            .run_log_tee
+            .start_run(&root, window_name, command, Some(project_root))
+            .map_err(|e| ServiceError::Processing(format!("Failed to start run log: {}", e)))?;
+        Ok(path.to_string_lossy().into_owned())
+    }
+
+    /// APP-055: resolve preferred latest Run log under project root (if any).
+    pub fn run_log_resolve_latest(&self, project_root: &str) -> Option<String> {
+        let root = PathBuf::from(project_root.trim());
+        if root.as_os_str().is_empty() {
+            return None;
+        }
+        RunLogTee::resolve_latest_path(&root).map(|p| p.to_string_lossy().into_owned())
+    }
+
+    fn maybe_bridge_run_log_output(
+        &self,
+        output_tx: mpsc::UnboundedSender<Vec<u8>>,
+        project_root: Option<String>,
+        window_name: Option<String>,
+    ) -> mpsc::UnboundedSender<Vec<u8>> {
+        let Some(root) = project_root.filter(|r| !r.trim().is_empty()) else {
+            return output_tx;
+        };
+        let Some(window) = window_name.filter(|w| run_window_name_matches(w)) else {
+            return output_tx;
+        };
+        let tee = Arc::clone(&self.run_log_tee);
+        let (bridged_tx, mut bridged_rx) = mpsc::unbounded_channel::<Vec<u8>>();
+        tokio::spawn(async move {
+            let root_path = PathBuf::from(&root);
+            while let Some(data) = bridged_rx.recv().await {
+                tee.append(&root_path, &window, &data);
+                if output_tx.send(data).is_err() {
+                    break;
+                }
+            }
+        });
+        bridged_tx
     }
 
     /// Wire agent-hooks cleanup when terminal panes / tmux windows are destroyed.
@@ -171,6 +232,7 @@ impl TerminalService {
             db,
             agent_hooks: std::sync::RwLock::new(None),
             mouse_mode_watches: Arc::new(MouseModeWatchRegistry::new()),
+            run_log_tee: Arc::new(RunLogTee::new()),
         }
     }
 
@@ -415,6 +477,7 @@ impl TerminalService {
                         Some(rows),
                         project_name.clone(),
                         workspace_name.clone(),
+                        cwd.clone(),
                     )
                     .await
                 {
@@ -521,6 +584,7 @@ impl TerminalService {
                         Some(rows),
                         project_name.clone(),
                         workspace_name.clone(),
+                        cwd.clone(),
                     )
                     .await;
 
@@ -702,7 +766,9 @@ impl TerminalService {
         let (command_tx, command_rx) = mpsc::unbounded_channel::<SessionCommand>();
 
         // Channel for receiving PTY output
-        let (output_tx, output_rx) = mpsc::unbounded_channel::<Vec<u8>>();
+        let (raw_output_tx, output_rx) = mpsc::unbounded_channel::<Vec<u8>>();
+        let output_tx =
+            self.maybe_bridge_run_log_output(raw_output_tx, cwd.clone(), terminal_name.clone());
 
         // Channel for receiving initialization result
         let (init_tx, init_rx) = oneshot::channel::<Result<()>>();
@@ -782,6 +848,7 @@ impl TerminalService {
             rows,
             project_name,
             workspace_name,
+            cwd,
         } = params;
         // Compute tmux session name so we can acquire lock
         let tmux_session_name = self
@@ -806,6 +873,7 @@ impl TerminalService {
                 rows,
                 project_name,
                 workspace_name,
+                cwd,
             )
             .await;
 
@@ -827,6 +895,7 @@ impl TerminalService {
         rows: Option<u16>,
         project_name: Option<String>,
         workspace_name: Option<String>,
+        cwd: Option<String>,
     ) -> Result<(mpsc::UnboundedReceiver<Vec<u8>>, Option<TmuxPaneSnapshot>)> {
         let cols = cols.unwrap_or(self.default_cols);
         let rows = rows.unwrap_or(self.default_rows);
@@ -898,7 +967,7 @@ impl TerminalService {
                 project_name,
                 workspace_name,
                 terminal_name,
-                None, // CWD not tracked for attach
+                cwd,
                 TerminalKind::Standard,
                 None,
                 None,
@@ -1019,7 +1088,10 @@ impl TerminalService {
         let (command_tx, command_rx) = mpsc::unbounded_channel::<SessionCommand>();
 
         // Channel for receiving PTY output
-        let (output_tx, output_rx) = mpsc::unbounded_channel::<Vec<u8>>();
+        let (raw_output_tx, output_rx) = mpsc::unbounded_channel::<Vec<u8>>();
+        // APP-055: bridge live output into project-local run logs for run-* windows.
+        let output_tx =
+            self.maybe_bridge_run_log_output(raw_output_tx, cwd.clone(), terminal_name.clone());
         // Keep a clone so we can inject a synthetic title OSC after init
         let title_tx = output_tx.clone();
 

@@ -294,8 +294,13 @@ impl WsMessageService {
     pub(super) async fn handle_script_save(&self, req: ScriptSaveRequest) -> Result<Value> {
         let project = self.project_service.get_project(req.project_guid).await?;
         if let Some(project) = project {
-            let scripts_path =
-                std::path::Path::new(&project.main_file_path).join(".atmos/scripts/atmos.json");
+            let project_root = std::path::Path::new(&project.main_file_path);
+            // scripts/ is intentionally trackable; still ensure managed .gitignore
+            // for ephemeral siblings (tmp/, run-logs/, attachments/).
+            core_engine::ensure_project_atmos_dir(project_root).map_err(|e| {
+                ServiceError::Validation(format!("Failed to ensure project .atmos layout: {}", e))
+            })?;
+            let scripts_path = project_root.join(".atmos/scripts/atmos.json");
 
             if let Some(parent) = scripts_path.parent() {
                 std::fs::create_dir_all(parent).map_err(|e| {

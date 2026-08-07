@@ -97,6 +97,8 @@ export const WS_ACTIONS = [
   "workspace_confirm_todos",
   "project_check_can_delete",
   "terminal_workspace_candidates",
+  "run_log_start",
+  "run_log_resolve_latest",
   "terminal_side_context_capture",
   "terminal_side_chat_list",
   "terminal_side_chat_upsert",

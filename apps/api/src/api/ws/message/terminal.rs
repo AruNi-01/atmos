@@ -9,6 +9,32 @@ pub struct TerminalWorkspaceCandidatesRequest {
     pub workspace_name: Option<String>,
 }
 
+/// APP-055: start/rotate a project-local Run log for a Run terminal window.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RunLogStartRequest {
+    pub project_root: String,
+    pub window_name: String,
+    #[serde(default)]
+    pub command: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RunLogStartResponse {
+    pub latest_path: String,
+}
+
+/// APP-055: resolve the preferred latest Run log path under a project root.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RunLogResolveLatestRequest {
+    pub project_root: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RunLogResolveLatestResponse {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub latest_path: Option<String>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TerminalWorkspaceCandidate {
     pub id: String,

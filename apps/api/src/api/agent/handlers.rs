@@ -207,7 +207,13 @@ pub async fn upload_attachments(mut multipart: Multipart) -> ApiResult<Json<ApiR
             })?;
 
             let attachment_dir = PathBuf::from(&base_path).join(".atmos").join("attachments");
-            ensure_atmos_attachments_gitignore(FsPath::new(&base_path), &attachment_dir)?;
+            // Create project `.atmos` + full managed `.gitignore` first; then subdir.
+            core_engine::ensure_project_atmos_dir(FsPath::new(&base_path)).map_err(|e| {
+                crate::error::ApiError::InternalError(format!(
+                    "Failed to ensure project .atmos layout: {}",
+                    e
+                ))
+            })?;
             std::fs::create_dir_all(&attachment_dir).map_err(|e| {
                 crate::error::ApiError::InternalError(format!(
                     "Failed to create attachments directory: {}",
@@ -242,59 +248,6 @@ pub async fn upload_attachments(mut multipart: Multipart) -> ApiResult<Json<ApiR
     Ok(Json(ApiResponse::success(json!({
         "paths": saved_paths
     }))))
-}
-
-fn ensure_atmos_attachments_gitignore(
-    base_path: &FsPath,
-    _attachment_dir: &FsPath,
-) -> Result<(), crate::error::ApiError> {
-    if !is_inside_git_repo(base_path) {
-        return Ok(());
-    }
-
-    let atmos_dir = base_path.join(".atmos");
-    std::fs::create_dir_all(&atmos_dir).map_err(|e| {
-        crate::error::ApiError::InternalError(format!("Failed to create .atmos directory: {}", e))
-    })?;
-
-    let gitignore_path = atmos_dir.join(".gitignore");
-    let rule = "attachments/";
-    let existing = if gitignore_path.exists() {
-        std::fs::read_to_string(&gitignore_path).map_err(|e| {
-            crate::error::ApiError::InternalError(format!(
-                "Failed to read .atmos/.gitignore: {}",
-                e
-            ))
-        })?
-    } else {
-        String::new()
-    };
-
-    let already_present = existing
-        .lines()
-        .map(str::trim)
-        .any(|line| line == rule || line == "/attachments/");
-    if already_present {
-        return Ok(());
-    }
-
-    let mut updated = existing;
-    if !updated.is_empty() && !updated.ends_with('\n') {
-        updated.push('\n');
-    }
-    updated.push_str(rule);
-    updated.push('\n');
-
-    std::fs::write(&gitignore_path, updated).map_err(|e| {
-        crate::error::ApiError::InternalError(format!("Failed to write .atmos/.gitignore: {}", e))
-    })?;
-
-    Ok(())
-}
-
-fn is_inside_git_repo(path: &FsPath) -> bool {
-    path.ancestors()
-        .any(|ancestor| ancestor.join(".git").exists())
 }
 
 #[derive(Debug, Deserialize)]

@@ -8,6 +8,27 @@ use core_service::{
 };
 
 impl WsMessageService {
+    /// APP-055: rotate/open latest Run log and write a start header.
+    pub(super) fn handle_run_log_start(&self, req: RunLogStartRequest) -> Result<Value> {
+        let latest_path = self.terminal_service.run_log_start(
+            &req.project_root,
+            &req.window_name,
+            req.command.as_deref(),
+        )?;
+        Ok(json!(RunLogStartResponse { latest_path }))
+    }
+
+    /// APP-055: resolve preferred latest Run log path (if any).
+    pub(super) fn handle_run_log_resolve_latest(
+        &self,
+        req: RunLogResolveLatestRequest,
+    ) -> Result<Value> {
+        let latest_path = self
+            .terminal_service
+            .run_log_resolve_latest(&req.project_root);
+        Ok(json!(RunLogResolveLatestResponse { latest_path }))
+    }
+
     pub(super) async fn handle_terminal_workspace_candidates(
         &self,
         req: TerminalWorkspaceCandidatesRequest,

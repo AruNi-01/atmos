@@ -6,6 +6,7 @@ pub mod fs;
 pub mod git;
 pub mod github;
 pub mod local_services;
+pub mod project_atmos;
 pub mod search;
 pub mod shims;
 pub mod test_engine;
@@ -30,6 +31,10 @@ pub use github::GithubEngine;
 pub use local_services::{
     orphan_hints, process_snapshot, LocalHttpProbeResult, LocalServiceProtocol,
     LocalServicesEngine, LocalTcpListener, ProcessSnapshot,
+};
+pub use project_atmos::{
+    ensure_project_atmos_dir, ensure_project_atmos_gitignore, ensure_project_atmos_ignore_rule,
+    PROJECT_ATMOS_DIR, PROJECT_ATMOS_IGNORED_ENTRIES,
 };
 pub use search::{search_content, SearchMatch, SearchResult};
 pub use test_engine::TestEngine;

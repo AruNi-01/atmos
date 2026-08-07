@@ -270,6 +270,7 @@ async fn handle_terminal_socket(socket: WebSocket, config: TerminalSessionConfig
                     rows: initial_rows,
                     project_name: project_name.clone(),
                     workspace_name: workspace_name.clone(),
+                    cwd: cwd.clone(),
                 })
                 .await
             {

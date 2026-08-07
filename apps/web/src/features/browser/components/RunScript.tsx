@@ -15,6 +15,7 @@ import type { TerminalRef } from "@/features/terminal/components/Terminal";
 import { getActiveInstanceId } from '@/features/connection/store/connection-store';
 import { useUiPrefStore } from '@/shared/stores/use-ui-pref-store';
 import { isRunTerminalBusyFromTitle } from "@/features/browser/lib/run-terminal-busy";
+import { runLogApi } from "@/features/browser/lib/run-log-api";
 
 type RunTerminalTab = {
   id: string;
@@ -314,11 +315,22 @@ export const RunScript: React.FC<RunScriptProps> = ({ workspaceId, projectId, is
         return;
       }
 
-      // 3. Execute script
+      // 3. APP-055: rotate/open project-local Run log before command output arrives
+      void runLogApi
+        .start({
+          projectRoot: currentProjectPath,
+          windowName: getRunTerminalWindowName(activeTabId),
+          command: runCommand,
+        })
+        .catch((error) => {
+          console.warn("Failed to start Run log capture", error);
+        });
+
+      // 4. Execute script
       // Use sendText to send to backend PTY, not write which is local only
       term.sendText(runCommand + "\r");
 
-      // 4. Optimistic running; CMD_START title will confirm (and CMD_END will clear)
+      // 5. Optimistic running; CMD_START title will confirm (and CMD_END will clear)
       setTabRunning(activeTabId, true);
     } catch (error) {
       console.error("Failed to run script:", error);

@@ -3321,6 +3321,10 @@
         "desktopUse": {
           "label": "Desktop Use",
           "description": "本机桌面捕获与控制（截图、点击、输入）"
+        },
+        "viewRunLogs": {
+          "label": "View Run Logs",
+          "description": "将最新的 Atmos Run 日志路径附加给 Agent"
         }
       }
     },
@@ -8478,6 +8482,10 @@
       "desktopUseCommand": {
         "label": "Desktop Use",
         "description": "本机桌面捕获与控制（截图、点击、输入）"
+      },
+      "viewRunLogsCommand": {
+        "label": "View Run Logs",
+        "description": "将最新的 Atmos Run 日志路径附加给 Agent"
       }
     },
     "sideChat": {

@@ -736,6 +736,10 @@ impl WorkspaceService {
             .await?
             .ok_or_else(|| ServiceError::NotFound(format!("Workspace {} not found", guid)))?;
         let workspace_path = self.git_engine.get_worktree_path(&workspace.name)?;
+        // Full managed `.atmos/.gitignore` (attachments/, tmp/, run-logs/) before writes.
+        core_engine::ensure_project_atmos_dir(&workspace_path).map_err(|e| {
+            ServiceError::Processing(format!("Failed to ensure project .atmos layout: {}", e))
+        })?;
         let attachments_dir = workspace_path.join(".atmos/attachments");
         for attachment in attachments {
             // Sanitize the filename — only allow simple names without separators.

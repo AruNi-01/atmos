@@ -26,6 +26,7 @@ export const AI_CONTEXT_KINDS = [
   "review-run",
   "git-conflict",
   "canvas-agent",
+  "run-log",
 ] as const;
 
 export type AiContextKind = (typeof AI_CONTEXT_KINDS)[number];
@@ -133,6 +134,13 @@ const KIND_DEFAULTS: Record<
     tooltip: "Canvas agent instructions",
     tone: "slate",
     icon: "layout",
+  },
+  "run-log": {
+    label: "Run log",
+    tooltip: "Atmos Run log",
+    // Align with slash menu (ScrollText / emerald) and Run product surface.
+    tone: "emerald",
+    icon: "terminal",
   },
 };
 
@@ -322,6 +330,9 @@ function deriveChipLabel(kind: AiContextKind, promptText: string): string | null
       const heading = promptText.match(/^#{1,3}\s+(.+)$/m)?.[1]?.trim();
       return heading ? truncateLabel(heading, 28) : null;
     }
+    case "run-log":
+      // Keep stable product label; do not derive from path/prompt first line.
+      return null;
   }
 }
 
@@ -340,6 +351,17 @@ function deriveChipTooltip(kind: AiContextKind, promptText: string): string | nu
     case "terminal-selection": {
       const first = firstNonEmptyLine(promptText);
       return first ? truncateLabel(first.replace(/\s+/g, " "), 120) : null;
+    }
+    case "run-log": {
+      // Prefer the log path line when present for hover detail.
+      const pathLine = promptText
+        .split("\n")
+        .map((l) => l.trim())
+        .find((l) => l.toLowerCase().startsWith("log path:"));
+      if (pathLine) {
+        return truncateLabel(pathLine.replace(/^log path:\s*/i, ""), 120);
+      }
+      return "Atmos Run log";
     }
     default: {
       const first = firstNonEmptyLine(promptText);

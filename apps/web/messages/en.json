@@ -3321,6 +3321,10 @@
         "desktopUse": {
           "label": "Desktop Use",
           "description": "Capture and control the local desktop (screenshot, click, type)"
+        },
+        "viewRunLogs": {
+          "label": "View Run Logs",
+          "description": "Attach the latest Atmos Run log path for the agent"
         }
       }
     },
@@ -8478,6 +8482,10 @@
       "desktopUseCommand": {
         "label": "Desktop Use",
         "description": "Capture and control the local desktop (screenshot, click, type)"
+      },
+      "viewRunLogsCommand": {
+        "label": "View Run Logs",
+        "description": "Attach the latest Atmos Run log path for the agent"
       }
     },
     "sideChat": {
