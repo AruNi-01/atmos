@@ -290,6 +290,28 @@ export function createAllHandlers(
       return { fullscreen: next };
     },
 
+    /**
+     * macOS only: move traffic lights at runtime (primary shell ↔ dense browser).
+     * Targets the invoking window so main maximize and standalone stay correct.
+     */
+    async window_set_mac_chrome_variant(args) {
+      if (process.platform !== "darwin") return null;
+      const variantRaw = str(args.variant);
+      const {
+        applyMacChromeVariant,
+        isMacChromeVariant,
+      } = await import("../windows/mac-chrome.js");
+      if (!isMacChromeVariant(variantRaw)) {
+        throw new Error(
+          `Invalid mac chrome variant: ${variantRaw || "(empty)"}`,
+        );
+      }
+      const host = await hostWindowFromArgs(args, state);
+      if (!host || host.isDestroyed()) return null;
+      applyMacChromeVariant(host, variantRaw);
+      return { variant: variantRaw };
+    },
+
     // --- windows / handoff ---
     async open_agent_chat_window(args) {
       const { openAgentChatWindow } = await import("../windows/secondary.js");

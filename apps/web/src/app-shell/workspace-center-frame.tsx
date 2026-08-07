@@ -242,8 +242,8 @@ function WorkspaceCenterFrameImpl({
       data-tier={isActiveContext ? "active" : "warm"}
       data-url-synced={isUrlSyncedActive ? "true" : "false"}
       // Outer shell is the only Active/Warm paint gate (IMP-010).
-      // Use data-tier visibility stacking (globals.css) — never display:none /
-      // content-visibility:hidden, which blanks warm xterm WebGL on hop.
+      // Use data-tier opacity stacking (globals.css) — never display:none /
+      // content-visibility:hidden / visibility:hidden, which blank warm xterm WebGL on hop.
       aria-hidden={!isActiveContext}
       inert={!isActiveContext ? true : undefined}
       className="absolute inset-0 flex flex-col min-h-0 min-w-0"

@@ -167,19 +167,21 @@ html:not([data-theme-ready="true"]) body {
 }
 
 /*
- * APP-043 warm workspace frames: never use display:none / content-visibility:hidden.
- * Those discard WebGL terminal textures and cause a full-frame flash (blank →
- * repaint) when hopping back to a warm Grok/CLI TUI. Visibility stacking keeps
- * the canvas composited while surfaceActive still pauses ResizeObserver/fit.
+ * APP-043 warm workspace frames: never use display:none / content-visibility:hidden
+ * / visibility:hidden. Those discard or freeze WebGL terminal textures and cause
+ * a full-frame flash (blank → repaint) when hopping back to a warm Grok/CLI TUI.
+ *
+ * Opacity stacking keeps the canvas composited while surfaceActive still pauses
+ * ResizeObserver/fit. Active frame sits above warm at z-index 1.
  */
 [data-workspace-frame][data-tier="warm"] {
-  visibility: hidden;
+  opacity: 0;
   pointer-events: none;
   z-index: 0;
 }
 
 [data-workspace-frame][data-tier="active"] {
-  visibility: visible;
+  opacity: 1;
   pointer-events: auto;
   z-index: 1;
 }
@@ -188,15 +190,18 @@ html:not([data-theme-ready="true"]) body {
  * Keep-alive terminal panels (tab switch within a frame). Same WebGL rule:
  * stay mounted and sized without display:none so xterm does not blank.
  *
- * Children must not escape with visibility:visible (e.g. maximized mosaic
- * panes used position:fixed + visibility:visible !important and painted over
- * Overview / PR). Override those while the panel is keepalive.
+ * Active and keepalive share absolute inset:0 so tab hops never change the
+ * terminal grid (relative flex ↔ absolute was a 1-col thrash → SIGWINCH →
+ * Grok full redraw flash). Only opacity / z-index / pointer-events flip.
+ *
+ * Parent opacity:0 already hides maximized mosaic children that force
+ * visibility:visible — no need for a visibility override that re-opens leaks.
  */
 .atmos-terminal-panel-keepalive {
   position: absolute;
   inset: 0;
   z-index: 0;
-  visibility: hidden;
+  opacity: 0;
   pointer-events: none;
   min-height: 0;
   min-width: 0;
@@ -214,19 +219,18 @@ html:not([data-theme-ready="true"]) body {
   width: 100% !important;
   height: 100% !important;
   z-index: 0 !important;
-  opacity: 1 !important;
-  visibility: inherit !important;
   pointer-events: none !important;
 }
 
 .atmos-terminal-panel-active {
-  position: relative;
+  position: absolute;
+  inset: 0;
   z-index: 1;
-  flex: 1 1 0%;
+  opacity: 1;
+  pointer-events: auto;
   min-height: 0;
   min-width: 0;
-  visibility: visible;
-  pointer-events: auto;
+  overflow: hidden;
 }
 
   html,

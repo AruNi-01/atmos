@@ -3,13 +3,14 @@ import type { AppState } from "../app-state.js";
 import { appWindowBranding } from "../branding.js";
 import { installBrowserWebviewHooks } from "../browser/webview-hooks.js";
 import { uiBaseUrl } from "./main-window.js";
-import { MAC_TRAFFIC_LIGHTS, macWindowChromeOptions } from "./mac-chrome.js";
+import {
+  macWindowChromeOptions,
+  type MacChromeVariant,
+} from "./mac-chrome.js";
 import { wireFullscreenEvents } from "./fullscreen.js";
 import { resolveAppPreloadPath } from "./preload-path.js";
 
 const secondaryWindows = new Map<string, BrowserWindow>();
-
-type MacChromeVariant = keyof typeof MAC_TRAFFIC_LIGHTS;
 
 function openOrFocus(
   label: string,

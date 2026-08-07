@@ -145,8 +145,10 @@ export function isFramePanelVisible(input: {
 /**
  * Class list for terminal-like keep-alive panels (xterm WebGL).
  *
- * Prefer visibility stacking over Tailwind `hidden` (`display:none`), which
- * blanks the terminal canvas on every tab hop.
+ * Prefer opacity stacking over Tailwind `hidden` (`display:none`) and over
+ * `visibility:hidden`, both of which blank or freeze the terminal canvas on
+ * every tab hop. Active/keepalive share absolute inset sizing so the xterm
+ * grid does not thrash on reveal.
  */
 export function terminalKeepAlivePanelClass(visible: boolean): string {
   return visible ? "atmos-terminal-panel-active" : "atmos-terminal-panel-keepalive";
@@ -154,7 +156,7 @@ export function terminalKeepAlivePanelClass(visible: boolean): string {
 
 /**
  * Full-bleed opaque stacker for non-terminal center panels (overview, PR,
- * files, browser, …). Terminal keep-alive sits at z-0 with visibility stacking;
+ * files, browser, …). Terminal keep-alive sits at z-0 with opacity stacking;
  * these panels must cover it with an opaque layer so transparent layout gaps
  * cannot show the xterm canvas underneath.
  *

@@ -49,6 +49,7 @@ import {
   normalizeSnapshotData,
   shiftEnterInput,
   shortenPath,
+  shouldAvoidTerminalWriteFastPath,
   type TerminalWriteChunk,
   wrapBracketedPaste,
   writeXtermPayload,
@@ -212,6 +213,9 @@ const Terminal = ({
   const resizeObserverRef = useRef<ResizeObserver | null>(null);
   const resizeRafIdRef = useRef(0);
   const resizeDebounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // After warm/tab reveal we re-observe; RO fires immediately with the current
+  // box — skip that one fit so we do not re-pin an already-correct grid.
+  const suppressNextRoFitRef = useRef(false);
   const readOnlyRef = useRef(readOnly);
   // Authoritative off-screen gate from host (warm frame / inactive tab). Prefer
   // this over reading layout so hop does not force reflow for hidden xterms.
@@ -371,20 +375,49 @@ const Terminal = ({
   // control mode can split multi-byte glyphs across arbitrary notifications.
   // APP-054: small interactive bursts (TUI redraw frames) bypass rAF when the
   // pipeline is empty so wheel-driven updates paint with less added delay.
+  // Never fast-path viewport clears: Grok focus/tab redraws send a small erase
+  // then a multi-chunk frame; painting the erase alone flashes blank.
+  // After a clear, hold the coalesce window for ~2 frames so late paint chunks
+  // (common on tab-switch focus-in) join the same flush.
   const pendingWriteRef = useRef<TerminalWriteChunk[]>([]);
   const rafScheduledRef = useRef(false);
+  const destructiveCoalesceUntilRef = useRef(0);
   const outputTextDecoderRef = useRef(new TextDecoder());
   const INTERACTIVE_OUTPUT_FAST_PATH_MAX = 512;
+  const DESTRUCTIVE_COALESCE_MS = 32;
+
+  const flushPendingWrites = useCallback(() => {
+    rafScheduledRef.current = false;
+    if (performance.now() < destructiveCoalesceUntilRef.current) {
+      rafScheduledRef.current = true;
+      requestAnimationFrame(flushPendingWrites);
+      return;
+    }
+    const pending = pendingWriteRef.current;
+    pendingWriteRef.current = [];
+    const active = terminalRef.current;
+    if (pending.length > 0 && active) {
+      for (const chunk of coalesceTerminalWriteChunks(pending)) {
+        active.write(chunk);
+      }
+    }
+  }, []);
 
   const handleOutput = useCallback((data: string | Uint8Array) => {
     if (data.length > 0) {
       const term = terminalRef.current;
+      const destructive = shouldAvoidTerminalWriteFastPath(data);
+      if (destructive) {
+        destructiveCoalesceUntilRef.current = performance.now() + DESTRUCTIVE_COALESCE_MS;
+      }
       const canFastPath =
         term &&
         !rafScheduledRef.current &&
         pendingWriteRef.current.length === 0 &&
         data.length > 0 &&
-        data.length <= INTERACTIVE_OUTPUT_FAST_PATH_MAX;
+        data.length <= INTERACTIVE_OUTPUT_FAST_PATH_MAX &&
+        !destructive &&
+        performance.now() >= destructiveCoalesceUntilRef.current;
 
       if (canFastPath) {
         term.write(cloneTerminalWriteChunk(data));
@@ -392,17 +425,7 @@ const Terminal = ({
         pendingWriteRef.current.push(cloneTerminalWriteChunk(data));
         if (!rafScheduledRef.current) {
           rafScheduledRef.current = true;
-          requestAnimationFrame(() => {
-            rafScheduledRef.current = false;
-            const pending = pendingWriteRef.current;
-            pendingWriteRef.current = [];
-            const active = terminalRef.current;
-            if (pending.length > 0 && active) {
-              for (const chunk of coalesceTerminalWriteChunks(pending)) {
-                active.write(chunk);
-              }
-            }
-          });
+          requestAnimationFrame(flushPendingWrites);
         }
       }
     }
@@ -419,7 +442,7 @@ const Terminal = ({
         listener(text);
       }
     }
-  }, [onData, scheduleInputReady, status]);
+  }, [flushPendingWrites, onData, scheduleInputReady, status]);
 
   const handleConnected = useCallback(() => {
     markTerminalSessionLive(sessionId);
@@ -937,9 +960,15 @@ const Terminal = ({
       onMouseTrackingActiveChange: syncTuiMouseChrome,
     });
     // xterm toggles `.enable-mouse-events` when DEC mouse modes change; observe
-    // class mutations so scrollbar chrome stays in sync after hydrate/restore.
+    // only that class so focus/blur (`.focus`) does not re-enter chrome sync.
     if (terminal.element && typeof MutationObserver !== "undefined") {
+      let lastHadMouseClass = terminal.element.classList.contains("enable-mouse-events");
       mouseClassObserver = new MutationObserver(() => {
+        const el = terminal.element;
+        if (!el) return;
+        const hasMouseClass = el.classList.contains("enable-mouse-events");
+        if (hasMouseClass === lastHadMouseClass) return;
+        lastHadMouseClass = hasMouseClass;
         syncTuiMouseChrome(isTerminalMouseTrackingActive(terminal));
       });
       mouseClassObserver.observe(terminal.element, {
@@ -1420,6 +1449,20 @@ const Terminal = ({
       // Skip when terminal container is hidden (e.g. tab not visible)
       if (!isTerminalContainerVisible(containerRef.current)) return;
 
+      // Post-reveal RO delivery: drop only when the grid is still correct so a
+      // real size change right after observe is never swallowed.
+      if (suppressNextRoFitRef.current) {
+        suppressNextRoFitRef.current = false;
+        const proposed = proposeTerminalGrid(term, fit);
+        if (
+          proposed &&
+          proposed.cols === term.cols &&
+          proposed.rows === term.rows
+        ) {
+          return;
+        }
+      }
+
       fitTerminalPreservingScroll(term, fit);
       connectWhenVisible();
     };
@@ -1516,6 +1559,7 @@ const Terminal = ({
 
     if (!surfaceActive) {
       ro.disconnect();
+      suppressNextRoFitRef.current = false;
       if (resizeRafIdRef.current) {
         cancelAnimationFrame(resizeRafIdRef.current);
         resizeRafIdRef.current = 0;
@@ -1532,8 +1576,8 @@ const Terminal = ({
     // unhide can measure an intermediate rect and pin a wrong grid (then the
     // real size), which double-SIGWINCHes Grok.
     //
-    // Warm shells use visibility stacking (not display:none), so the WebGL
-    // texture is already valid on reveal — do not force term.refresh() here
+    // Warm shells use opacity stacking (not display:none / visibility:hidden),
+    // so the WebGL texture stays composited — do not force term.refresh() here
     // (full-row redraw can itself flash). Only fit/pin when the grid changed.
     const outer = requestAnimationFrame(() => {
       requestAnimationFrame(() => {
@@ -1550,6 +1594,8 @@ const Terminal = ({
           proposed.rows === term.rows
         ) {
           // Grid already correct — never fit/resize/pin (avoids TUI redraw).
+          // Drop the mandatory first RO delivery after observe.
+          suppressNextRoFitRef.current = true;
           ro.observe(el);
           return;
         }
@@ -1560,6 +1606,8 @@ const Terminal = ({
           // belt-and-suspenders for cases where resize was a no-op event.
           pinTerminalSizeRef.current({ cols, rows });
         }
+        // We already fitted; ignore the observe-delivery RO pulse.
+        suppressNextRoFitRef.current = true;
         ro.observe(el);
       });
     });

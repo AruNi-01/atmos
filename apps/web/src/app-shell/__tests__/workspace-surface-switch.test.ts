@@ -120,7 +120,7 @@ describe("promoteWorkspaceSurfaceSwitch + prepareWorkspaceContextNavigation", ()
     applyWorkspaceFrameVisualDom("ws-b");
     const a = document.querySelector('[data-workspace-frame="ws-a"]') as HTMLElement;
     const b = document.querySelector('[data-workspace-frame="ws-b"]') as HTMLElement;
-    // Warm uses visibility stacking (data-tier), not HTML hidden / display:none.
+    // Warm uses opacity stacking (data-tier), not HTML hidden / display:none.
     expect(a.hidden).toBe(false);
     expect(a.hasAttribute("hidden")).toBe(false);
     expect(a.classList.contains("hidden")).toBe(false);

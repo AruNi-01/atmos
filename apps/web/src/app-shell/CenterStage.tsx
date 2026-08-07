@@ -1610,12 +1610,20 @@ const CenterStage: React.FC = () => {
       }
       setUrlParams({ tab: val, wikiPage: null });
       setActiveFile(null, effectiveContextId || undefined);
-      // Focus the active pane after switching to a terminal tab
-      if (val === FIXED_TERMINAL_TAB_VALUE) {
-        terminalGridRef.current?.focusActivePane();
-      } else {
-        runWhenTerminalGridReady(val, (grid) => grid.focusActivePane());
-      }
+      // Defer focus until after React paints the active panel and surfaceActive
+      // re-attaches. Immediate focus races keepalive→active layout and can
+      // SIGWINCH Grok mid-hop (full-frame flash). Double rAF matches Terminal's
+      // reveal settle window.
+      const focusTerminalPane = () => {
+        if (val === FIXED_TERMINAL_TAB_VALUE) {
+          terminalGridRef.current?.focusActivePane();
+        } else {
+          runWhenTerminalGridReady(val, (grid) => grid.focusActivePane());
+        }
+      };
+      requestAnimationFrame(() => {
+        requestAnimationFrame(focusTerminalPane);
+      });
     } else if (isGithubCenterTabValue(val)) {
       setUrlParams({ tab: val, wikiPage: null });
       setActiveFile(null, effectiveContextId || undefined);

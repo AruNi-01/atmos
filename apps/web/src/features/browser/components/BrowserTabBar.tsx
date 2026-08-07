@@ -30,6 +30,7 @@ import {
 
 import { useDesktopWindowDrag } from "@/shared/hooks/use-desktop-window-drag";
 import { cn } from "@/shared/lib/utils";
+import { BROWSER_MAC_TRAFFIC_RAIL_INSET } from "../lib/browser-mac-chrome";
 import { extractCookieErrorCode, type CookieCmdErrorCode } from "../lib/browser-cookie-commands";
 import { canonicalizeUrl } from "../lib/browser-utils";
 import {
@@ -205,9 +206,11 @@ export function BrowserTabBar({
       onAdd={onAddTab}
       addAriaLabel={t("newTab")}
       ariaLabel={t("preview")}
-      // Slightly tighter than main Header pl-[92px] — dense tab rail + traffic
-      // lights leave a shorter gap before the first tab in standalone windows.
-      railInsetLeft={needsTrafficLightsInset ? 80 : 0}
+      // Dense browser chrome (maximized + standalone) — same inset so first tab
+      // aligns with traffic lights in both surfaces.
+      railInsetLeft={
+        needsTrafficLightsInset ? BROWSER_MAC_TRAFFIC_RAIL_INSET : 0
+      }
       trailing={trailing}
       className={className}
       railProps={{

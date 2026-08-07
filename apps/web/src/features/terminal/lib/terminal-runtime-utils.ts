@@ -279,6 +279,72 @@ export function coalesceTerminalWriteChunks(chunks: TerminalWriteChunk[]): Termi
   return coalesced;
 }
 
+/**
+ * Writes that blank or swap the viewport must not take the interactive fast path.
+ *
+ * Inline TUIs such as Grok enable focus events (`CSI ? 1004 h`). On focus-in they
+ * often emit a small erase (`CSI 2 J`, …) then a multi-chunk full-frame repaint.
+ * Painting the erase alone blanks the screen for a frame — visible flash — while
+ * alt-screen apps and simple shells rarely clear-then-repaint on focus.
+ *
+ * Keep wheel/hover micro-updates on the fast path; only hold destructive chunks
+ * so the following paint can coalesce in the same rAF.
+ */
+export function shouldAvoidTerminalWriteFastPath(data: TerminalWriteChunk): boolean {
+  if (typeof data === "string") {
+    return terminalWriteLooksViewportDestructive(data);
+  }
+  return terminalWriteBytesLookViewportDestructive(data);
+}
+
+function terminalWriteLooksViewportDestructive(text: string): boolean {
+  if (!text.includes("\x1b")) return false;
+  // CSI J — erase in display (any parameter blanks enough of the viewport to flash).
+  if (/\x1b\[[0-9;]*J/.test(text)) return true;
+  // RIS — full terminal reset.
+  if (text.includes("\x1bc")) return true;
+  // Alternate-screen enter/leave (and legacy 47 / 1047).
+  if (/\x1b\[\?(?:1049|1047|47)[hl]/.test(text)) return true;
+  return false;
+}
+
+function terminalWriteBytesLookViewportDestructive(bytes: Uint8Array): boolean {
+  // ASCII CSI / RIS only — no need for UTF-8 decode.
+  for (let i = 0; i < bytes.length; i++) {
+    if (bytes[i] !== 0x1b) continue;
+    const next = bytes[i + 1];
+    if (next === 0x63 /* c */) return true; // RIS
+    if (next !== 0x5b /* [ */) continue;
+    let j = i + 2;
+    // Optional private marker `?` and parameter bytes.
+    if (bytes[j] === 0x3f /* ? */) j++;
+    while (j < bytes.length) {
+      const b = bytes[j];
+      if (b >= 0x30 && b <= 0x3f) {
+        // 0–9 : ; < = > ? — parameter / intermediate-ish for private modes
+        j++;
+        continue;
+      }
+      break;
+    }
+    const final = bytes[j];
+    if (final === 0x4a /* J */) return true;
+    // ESC [ ? 1049 h/l  |  ESC [ ? 1047 h/l  |  ESC [ ? 47 h/l
+    if (bytes[i + 2] === 0x3f /* ? */ && (final === 0x68 /* h */ || final === 0x6c /* l */)) {
+      const params = String.fromCharCode(...bytes.subarray(i + 3, j));
+      if (
+        params === "1049" ||
+        params === "1047" ||
+        params === "47" ||
+        params.split(";").some((p) => p === "1049" || p === "1047" || p === "47")
+      ) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
 export function isUsableTerminalGrid(cols: number, rows: number): boolean {
   return cols >= MIN_TERMINAL_COLS && rows >= MIN_TERMINAL_ROWS;
 }

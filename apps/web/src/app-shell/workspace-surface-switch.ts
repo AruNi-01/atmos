@@ -51,9 +51,10 @@ export function scheduleNonUrgent(fn: () => void): void {
  * React will reconcile `data-tier` on the next commit; this avoids waiting on
  * multi-frame React work for the retained surface to reappear.
  *
- * Hide strategy is **visibility + inert**, not `display:none` /
- * `content-visibility:hidden`. The latter discards WebGL terminal textures and
- * flashes blank→repaint when hopping back to a warm CLI TUI (IMP-010 / APP-043).
+ * Hide strategy is **opacity + inert**, not `display:none` /
+ * `content-visibility:hidden` / `visibility:hidden`. Those discard or freeze
+ * WebGL terminal textures and flash blank→repaint when hopping back to a warm
+ * CLI TUI (IMP-010 / APP-043). Opacity keeps the compositor layer alive.
  *
  * Requires last-tab panels inside Warm frames to stay layout-ready (see
  * {@link isFramePanelVisible}) so flipping the shell reveals real content.
@@ -75,6 +76,7 @@ export function applyWorkspaceFrameVisualDom(activeContextId: string | null): vo
     el.classList.remove("hidden");
     el.style.removeProperty("content-visibility");
     el.style.removeProperty("contain-intrinsic-size");
+    el.style.removeProperty("visibility");
     if (isActive) {
       el.removeAttribute("inert");
     } else {
