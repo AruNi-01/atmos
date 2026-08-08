@@ -1,0 +1,24 @@
+apps/desktop-electron/native/appshot-frontmost/appshot_frontmost.m
+  h_5be255725524c8 1-162
+apps/desktop-electron/scripts/build-appshot-shift-native.ts
+  h_5be255725524c8 2,6,17-20,24-35,44-45,50,92-120
+apps/desktop-electron/src/desktop-use/capture.ts
+  h_5be255725524c8 88-94,99-109,181-198,204-205
+apps/desktop-electron/src/desktop-use/frontmost-cg.test.ts
+  h_5be255725524c8 1-51
+apps/desktop-electron/src/desktop-use/frontmost-cg.ts
+  h_5be255725524c8 1-131
+apps/desktop-electron/src/desktop-use/host-capture.ts
+  h_5be255725524c8 417-418,420-434,522-559
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "d68ebf10cf412d306f1d22e6f9f3f77092d7040c",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
