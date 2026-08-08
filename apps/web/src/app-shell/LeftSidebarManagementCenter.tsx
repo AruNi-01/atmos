@@ -65,8 +65,18 @@ function isManagementItemActive(
   item: ManagementCenterItemDef,
   shared: Pick<ManagementCenterSharedProps, "currentView" | "canvasOpen" | "newWorkspaceOpen">,
 ): boolean {
-  if (item.kind === "canvas") return shared.canvasOpen;
-  if (item.kind === "new-workspace") return shared.newWorkspaceOpen;
+  // Overlay surfaces (new-workspace / canvas) sit on top of the current route.
+  // While one is open, only that item should highlight — route-backed items
+  // (kanban, skills, …) resume their active state after the overlay collapses.
+  if (shared.newWorkspaceOpen) {
+    return item.kind === "new-workspace";
+  }
+  if (shared.canvasOpen) {
+    return item.kind === "canvas";
+  }
+  if (item.kind === "canvas" || item.kind === "new-workspace") {
+    return false;
+  }
   return shared.currentView === item.id;
 }
 
