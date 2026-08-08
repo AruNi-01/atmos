@@ -553,21 +553,50 @@ export async function triggerCapture(state: AppState): Promise<void> {
     throw new Error("AppShot capture is only supported on macOS");
   }
 
-  // Dual-shift hot path — keep serial work minimal:
-  // 1) permissions (cached / light) ∥ System Events frontmost (once)
-  // 2) flash animation on that window
-  // 3) host screenshot only (no second SE, no drive verify)
+  // Dual-shift hot path:
+  // 1) permissions ∥ SE frontmost
+  // 2) resolve real window bounds (host list when SE has 0 AX windows — QQ Music)
+  // 3) border flash **in parallel with** host screenshot (crop drops overlay chrome)
+  // 4) crop to window
   // Do not activate Atmos until after capture completes.
-  const [permissions, systemFrontmost] = await Promise.all([
+  const [permissions, seFrontmost] = await Promise.all([
     macosPermissionsForCapture(),
     readFrontmostWindow().catch(() => null),
   ]);
-  await playCaptureAnimationForFrontmost(systemFrontmost);
 
-  const result = await captureFrontmostWindow({
-    systemFrontmost,
-    enrichFromWindowList: false,
-  });
+  // Enrich bounds before animation so the flash frames the real app window.
+  let systemFrontmost = seFrontmost;
+  try {
+    const { resolveFrontmostWithHostBounds } = await import(
+      "../desktop-use/host-capture.js"
+    );
+    const selfNames = new Set([
+      "Atmos",
+      "Atmos Electron",
+      "Atmos Desktop",
+      "Electron",
+    ]);
+    const warnings: string[] = [];
+    systemFrontmost = await resolveFrontmostWithHostBounds(
+      seFrontmost,
+      selfNames,
+      warnings,
+      false,
+    );
+  } catch {
+    /* keep SE-only */
+  }
+
+  // Parallel: flash + host screenshot. Overlay sits outside the window rect
+  // (padding); crop to window bounds removes the blue frame from the PNG.
+  const [result] = await Promise.all([
+    captureFrontmostWindow({
+      systemFrontmost,
+      // Bounds already resolved above — skip a second drive verify.
+      enrichFromWindowList: false,
+    }),
+    playCaptureAnimationForFrontmost(systemFrontmost),
+  ]);
 
   const capturedAt = new Date().toISOString();
   const previewId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;

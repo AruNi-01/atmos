@@ -76,8 +76,9 @@ export function shouldPlayCaptureAnimation(opts: {
 }): boolean {
   if (!opts.bounds) return false;
   if (overlayFrameFromBounds(opts.bounds) == null) return false;
-  const self = opts.selfAppNames ?? SELF_APP_NAMES;
-  if (self.has(opts.appName)) return false;
+  // Atmos self-capture is allowed — still show the border flash.
+  void opts.appName;
+  void opts.selfAppNames;
   return true;
 }
 

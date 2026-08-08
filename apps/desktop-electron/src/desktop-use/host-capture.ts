@@ -62,6 +62,8 @@ const SKIP_APP_NAMES = new Set(
 
 /** Minimum window area (logical points²) to count as a real content window. */
 const MIN_WINDOW_AREA = 120 * 120;
+/** Reject menu/title chrome strips even when width is full-screen. */
+const MIN_WINDOW_EDGE = 64;
 
 /** Pure: use host engine capture iff control engine is installed. */
 export function shouldUseHostEngineCapture(
@@ -88,6 +90,25 @@ function isSkippedApp(name: string | undefined | null): boolean {
   return false;
 }
 
+/** "QQMusic" vs "QQ音乐" / loose localization mismatches. */
+export function appNamesLooselyEqual(a: string, b: string): boolean {
+  const na = a.trim().toLowerCase().replace(/\s+/g, "");
+  const nb = b.trim().toLowerCase().replace(/\s+/g, "");
+  if (!na || !nb) return false;
+  if (na === nb) return true;
+  if (na.includes(nb) || nb.includes(na)) return true;
+  // Common music app aliases
+  const aliases = [
+    ["qqmusic", "qq音乐", "qq音樂"],
+    ["wechat", "微信", "weixin"],
+    ["dingtalk", "钉钉"],
+  ];
+  for (const group of aliases) {
+    if (group.includes(na) && group.includes(nb)) return true;
+  }
+  return false;
+}
+
 function scoreWindow(
   w: HostWindowRow,
   opts: {
@@ -100,11 +121,18 @@ function scoreWindow(
   const app = (w.app_name ?? "").trim();
   if (!app || isSkippedApp(app)) return -Infinity;
 
+  const b = w.bounds;
+  const wW = typeof b?.width === "number" ? b.width : 0;
+  const wH = typeof b?.height === "number" ? b.height : 0;
+  // Always drop title-bar / menu chrome (e.g. 1512×33) even for preferred pid.
+  if (wW > 0 && wH > 0 && (wW < MIN_WINDOW_EDGE || wH < MIN_WINDOW_EDGE)) {
+    return -Infinity;
+  }
+
   const preferredByPid =
     opts.preferPid != null && typeof w.pid === "number" && w.pid === opts.preferPid;
   const preferredByApp =
-    Boolean(opts.preferApp) &&
-    app.toLowerCase() === opts.preferApp!.trim().toLowerCase();
+    Boolean(opts.preferApp) && appNamesLooselyEqual(app, opts.preferApp!);
   const preferred = preferredByPid || preferredByApp;
 
   // Skip Atmos/self chrome unless this row is the explicitly focused app
@@ -116,11 +144,13 @@ function scoreWindow(
 
   let score = 0;
   const z = typeof w.z_index === "number" ? w.z_index : 0;
+  // Among same-pid windows, area dominates z (chrome strips often have higher z).
+  score += Math.min(area, 8_000_000) / 100;
   score += z;
 
   if (opts.anyOnScreen) {
     if (w.is_on_screen) score += 1_000_000;
-    else score -= 500_000;
+    else score -= 100_000; // don't fully discard; host often marks false
   }
 
   if (preferredByPid) score += 5_000_000;
@@ -128,8 +158,6 @@ function scoreWindow(
 
   const title = (w.title ?? "").trim();
   if (title) score += 50_000;
-  // Prefer larger real windows when z-order is noisy.
-  score += Math.min(area, 5_000_000) / 1000;
 
   return score;
 }
@@ -378,48 +406,39 @@ export async function captureFrontmostViaHostEngine(options: {
     );
   }
 
-  // 3) Host window list — always try when SE bounds are missing so we can crop.
-  // When SE already has a large content window, skip verify (latency).
-  let hostRow: HostWindowRow | null = null;
-  const seHasBounds = hasUsableWindowBounds(systemFrontmost);
-  const wantList =
-    options.enrichFromWindowList === true || !seHasBounds;
-  if (wantList) {
-    let windows: HostWindowRow[] = [];
-    try {
-      const listed = await desktopUseDriveVerify();
-      windows = extractWindows(listed);
-    } catch (e) {
-      warnings.push(
-        `host_list_windows_failed: ${e instanceof Error ? e.message : String(e)}`,
-      );
-    }
-    if (systemFrontmost) {
-      hostRow = matchWindowForFrontmost(windows, systemFrontmost, selfNames);
-    }
-    if (!hostRow) {
-      hostRow = pickFrontmostWindow(windows, { selfAppNames: selfNames });
-    }
-  }
+  // 3) Resolve window bounds for crop + animation.
+  // Many apps (QQ Music, some Electron) expose **zero** AX windows to System
+  // Events — host list_windows still has real CG bounds (match by pid).
+  let frontmost = await resolveFrontmostWithHostBounds(
+    systemFrontmost,
+    selfNames,
+    warnings,
+    options.enrichFromWindowList === true,
+  );
 
-  let frontmost = mergeFrontmostIdentity(systemFrontmost, hostRow);
-
-  // Host engine only gives full-desktop PNG — crop to the focused app window.
+  // 4) Crop full-desktop PNG to the focused window (product: window AppShot).
   if (png && png.length > 0) {
     const cropped = await cropHostPngToFrontmostWindow(png, frontmost, warnings);
     if (cropped) {
       png = cropped;
     } else if (hasUsableWindowBounds(frontmost)) {
-      // Crop math failed (e.g. multi-display mismatch) — try OS region capture.
       const region = await tryRegionScreencapture(frontmost, warnings);
       if (region) png = region;
     }
   }
 
   const hasPng = Boolean(png && png.length > 0);
-  // Prefer "window" when we successfully cropped (or had window-only pixels).
+  const keptFull =
+    hasPng &&
+    warnings.some(
+      (w) =>
+        w.includes("full-display") ||
+        w.includes("full_display") ||
+        w.includes("crop_skipped") ||
+        w.includes("Unable to determine focused window bounds"),
+    );
   const quality = hasPng
-    ? warnings.some((w) => w.includes("full_display") || w.includes("crop_skipped"))
+    ? keptFull
       ? "screenshot_only"
       : "window"
     : "metadata_only";
@@ -433,6 +452,48 @@ export async function captureFrontmostViaHostEngine(options: {
     quality,
     via: "host_engine",
   };
+}
+
+/**
+ * When System Events has no usable window rect (common for QQ Music: 0 AX
+ * windows), fill bounds from host `drive verify` by pid / loose app name.
+ */
+export async function resolveFrontmostWithHostBounds(
+  systemFrontmost: DesktopUseFrontmost | null,
+  selfNames: Set<string>,
+  warnings: string[],
+  forceList = false,
+): Promise<DesktopUseFrontmost> {
+  const needList =
+    forceList ||
+    !hasUsableWindowBounds(systemFrontmost) ||
+    // SE often returns app+pid only for custom-UI apps
+    (systemFrontmost?.processId != null &&
+      !hasUsableWindowBounds(systemFrontmost));
+
+  if (!needList) {
+    return systemFrontmost ?? hostWindowToFrontmost(null);
+  }
+
+  let windows: HostWindowRow[] = [];
+  try {
+    const listed = await desktopUseDriveVerify();
+    windows = extractWindows(listed);
+  } catch (e) {
+    warnings.push(
+      `host_list_windows_failed: ${e instanceof Error ? e.message : String(e)}`,
+    );
+    return systemFrontmost ?? hostWindowToFrontmost(null);
+  }
+
+  let hostRow: HostWindowRow | null = null;
+  if (systemFrontmost) {
+    hostRow = matchWindowForFrontmost(windows, systemFrontmost, selfNames);
+  }
+  if (!hostRow) {
+    hostRow = pickFrontmostWindow(windows, { selfAppNames: selfNames });
+  }
+  return mergeFrontmostIdentity(systemFrontmost, hostRow);
 }
 
 function hasUsableWindowBounds(

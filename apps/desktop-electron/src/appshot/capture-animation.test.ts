@@ -44,17 +44,17 @@ describe("capture animation frame math", () => {
     ).toBeNull();
   });
 
-  it("skips animation for Atmos / Electron self targets", () => {
+  it("plays animation whenever bounds are usable (including Atmos self)", () => {
     const bounds = { x: 10, y: 10, width: 800, height: 600 };
     expect(
       shouldPlayCaptureAnimation({ appName: "Safari", bounds }),
     ).toBe(true);
     expect(
       shouldPlayCaptureAnimation({ appName: "Atmos", bounds }),
-    ).toBe(false);
+    ).toBe(true);
     expect(
       shouldPlayCaptureAnimation({ appName: "Electron", bounds }),
-    ).toBe(false);
+    ).toBe(true);
     expect(
       shouldPlayCaptureAnimation({ appName: "Safari", bounds: null }),
     ).toBe(false);

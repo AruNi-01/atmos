@@ -76,6 +76,46 @@ describe("host engine capture routing", () => {
     expect(focused?.title).toBe("周杰伦");
   });
 
+  it("for QQMusic SE pid, picks content window not 33px title strips", () => {
+    // Real host list shape for QQ Music (SE reports 0 AX windows).
+    const windows: HostWindowRow[] = [
+      {
+        app_name: "QQ音乐",
+        pid: 91609,
+        window_id: 1,
+        z_index: 189,
+        is_on_screen: false,
+        title: "",
+        bounds: { x: 0, y: 0, width: 1512, height: 33 },
+      },
+      {
+        app_name: "QQ音乐",
+        pid: 91609,
+        window_id: 36971,
+        z_index: 134,
+        is_on_screen: false,
+        title: "",
+        bounds: { x: 68, y: 45, width: 1402, height: 832 },
+      },
+      {
+        app_name: "QQ音乐",
+        pid: 91609,
+        window_id: 3,
+        z_index: 135,
+        is_on_screen: false,
+        bounds: { x: 0, y: 482, width: 500, height: 500 },
+      },
+    ];
+    // SE process name is often "QQMusic" while host list is "QQ音乐"
+    const focused = matchWindowForFrontmost(windows, {
+      appName: "QQMusic",
+      processId: 91609,
+    });
+    expect(focused?.window_id).toBe(36971);
+    expect(focused?.bounds?.width).toBe(1402);
+    expect(focused?.bounds?.height).toBe(832);
+  });
+
   it("merges System Events app name over mismatched host z-order pick", () => {
     const se = {
       appName: "QQ音乐",
