@@ -619,6 +619,14 @@ export function createAllHandlers(
       const client = await import("../desktop-use/client.js");
       return client.desktopUseDriverStop();
     },
+    async desktop_use_driver_restart() {
+      const client = await import("../desktop-use/client.js");
+      return client.desktopUseDriverRestart();
+    },
+    async desktop_use_driver_check() {
+      const client = await import("../desktop-use/client.js");
+      return client.desktopUseDriverCheck();
+    },
     async desktop_use_driver_uninstall() {
       const client = await import("../desktop-use/client.js");
       return client.desktopUseDriverUninstall();
@@ -646,6 +654,16 @@ export function createAllHandlers(
         accessibility_pane?: boolean;
         [key: string]: unknown;
       };
+
+      // Re-arm AppShot dual-shift after host grant (inject listens on host AX).
+      if (process.platform === "darwin") {
+        try {
+          const appshot = await import("../appshot/service.js");
+          await appshot.appshotStatus(state);
+        } catch {
+          /* non-fatal */
+        }
+      }
 
       // Same drag-to-list fly overlay for Accessibility and Screen Recording
       // (only the System Settings privacy pane differs).

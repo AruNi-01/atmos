@@ -83,17 +83,38 @@ describe("Desktop Use settings wiring", () => {
     expect(engineIdx).toBeGreaterThan(-1);
     expect(permsIdx).toBeGreaterThan(engineIdx);
     expect(visIdx).toBeGreaterThan(permsIdx);
-    // Stop stays as its own engine-group row; Uninstall sits next to status label
+    // Runtime status row with Check + Stop/Restart; Uninstall sits next to engine label
+    expect(section).toContain('t("engine.runtimeTitle")');
+    expect(section).toContain('t("actions.check")');
     expect(section).toContain('t("actions.stop")');
+    expect(section).toContain('t("actions.restart")');
     expect(section).toContain('t("actions.uninstall")');
-    expect(section).toContain('t("engine.stopHint")');
+    expect(section).toContain("desktop_use_driver_restart");
+    expect(section).toContain("desktop_use_driver_check");
     expect(section).toContain("uninstallButton");
+    expect(section).toContain("EngineProgressBar");
+    expect(section).toContain("driver?.progress");
     expect(section).not.toContain('t("engine.removeHint")');
     // Default collapse: installed engine (no update) → collapse; all perms → collapse
     expect(section).toContain("defaultsAppliedRef");
     expect(section).toContain("setEngineOpen");
     expect(section).toContain("setPermissionsOpen");
     expect(section).toContain("desktop_use_doctor");
+  });
+
+  it("shows download progress left of install and Check toast for runtime", () => {
+    const section = readFileSync(
+      join(
+        root,
+        "apps/web/src/features/settings/components/DesktopUseSettingsSection.tsx",
+      ),
+      "utf8",
+    );
+    expect(section).toContain("downloadProgressAside");
+    expect(section).toContain("toastManager.add");
+    expect(section).toContain("restartSuggested");
+    expect(section).toContain("checkRuntime");
+    expect(section).toContain("engine.check.okTitle");
   });
 
   it("uninstall requires a confirm dialog that lists feature impact", () => {

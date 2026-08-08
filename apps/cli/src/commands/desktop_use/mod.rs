@@ -20,6 +20,8 @@ pub async fn execute(command: DesktopUseCommand) -> Result<Value, String> {
             DriverCommand::Ensure(args) => driver_ensure(args),
             DriverCommand::Status => driver_status(),
             DriverCommand::Stop => driver_stop(),
+            DriverCommand::Restart => driver_restart(),
+            DriverCommand::Check => driver_check(),
             DriverCommand::Uninstall => driver_uninstall(),
             DriverCommand::GrantPermissions(args) => driver_grant(args),
         },
@@ -80,6 +82,30 @@ fn driver_stop() -> Result<Value, String> {
     let mgr = DesktopUseManager::new();
     let driver = mgr.stop_driver();
     Ok(json!({ "ok": true, "action": "stopped", "status": driver }))
+}
+
+fn driver_restart() -> Result<Value, String> {
+    let mgr = DesktopUseManager::new();
+    match mgr.restart_driver() {
+        Ok(driver) => Ok(json!({ "ok": true, "action": "restarted", "status": driver })),
+        Err(error) => Ok(json!({
+            "ok": false,
+            "action": "restart_failed",
+            "error": error,
+            "status": mgr.status().driver,
+        })),
+    }
+}
+
+fn driver_check() -> Result<Value, String> {
+    let mgr = DesktopUseManager::new();
+    let check = mgr.runtime_check();
+    Ok(json!({
+        "ok": true,
+        "action": "check",
+        "healthy": check.healthy,
+        "check": check,
+    }))
 }
 
 fn driver_uninstall() -> Result<Value, String> {

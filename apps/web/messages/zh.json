@@ -5715,7 +5715,7 @@
         },
         "permissions": {
           "title": "权限",
-          "description": "为 Desktop Use host 应用授予辅助功能与屏幕录制权限，以便稳定完成捕获与控制。"
+          "description": "为 Atmos Desktop Use 授予辅助功能与屏幕录制权限——捕获、控制与 AppShot 的 Left⇧+Right⇧ 快捷键共用同一身份。"
         },
         "visibility": {
           "title": "视觉反馈",
@@ -5732,13 +5732,39 @@
         "notInstalled": "未安装",
         "installed": "已安装",
         "updateAvailable": "有可用更新",
+        "downloadingPct": "下载中 · {progress}%",
         "statusTitle": "引擎",
-        "statusDescription": "Desktop Use 控制引擎的下载状态与版本。"
+        "statusDescription": "Desktop Use 控制引擎的下载状态与版本。",
+        "runtimeTitle": "状态",
+        "runtimeDescription": "控制引擎守护进程的实时状态。点「检查」会立即探测进程。",
+        "runtime": {
+          "running": "运行中",
+          "notRunning": "未运行",
+          "notResponding": "无响应",
+          "stopped": "已停止",
+          "ready": "就绪",
+          "downloading": "下载中",
+          "unknown": "未知"
+        },
+        "check": {
+          "okTitle": "引擎状态正常",
+          "okDescription": "守护进程正在运行并可响应。",
+          "issueTitle": "引擎需要处理",
+          "failedTitle": "检查失败",
+          "issues": {
+            "notRunning": "守护进程未运行",
+            "notResponding": "socket 存在但守护进程无响应",
+            "accessibility": "未授予辅助功能权限",
+            "screenRecording": "未授予屏幕录制权限"
+          }
+        }
       },
       "actions": {
         "install": "安装",
         "update": "更新",
         "stop": "停止",
+        "restart": "重启",
+        "check": "检查",
         "uninstall": "卸载",
         "refresh": "刷新",
         "cancel": "取消"
@@ -5762,18 +5788,18 @@
       },
       "permissions": {
         "title": "权限",
-        "unifiedHint": "请为 Desktop Use host 应用授予辅助功能与屏幕录制权限，以便稳定完成捕获与控制。",
+        "unifiedHint": "请为 Atmos Desktop Use 授予辅助功能与屏幕录制权限——捕获、控制与 AppShot 的 Left⇧+Right⇧ 快捷键共用同一身份。",
         "installFirst": "请先安装控制引擎再管理权限。",
         "done": "完成",
         "grant": "授予",
         "items": {
           "accessibility": {
             "title": "辅助功能",
-            "description": "供 Desktop Use 读取界面并控制其他应用（点击、输入、窗口操作等）。"
+            "description": "供 Desktop Use 控制其他应用，并启用 AppShot 的 Left⇧+Right⇧ 快捷键（同一 Atmos Desktop Use 授权）。"
           },
           "screenRecording": {
             "title": "屏幕录制",
-            "description": "供 Desktop Use 与 AppShot 捕获屏幕，让 agent 能看到当前画面。"
+            "description": "供 Desktop Use 与 AppShot 以 Atmos Desktop Use 身份捕获屏幕。"
           }
         }
       },
@@ -5782,6 +5808,8 @@
         "installFailed": "安装控制引擎失败。",
         "updateFailed": "更新控制引擎失败。",
         "stopFailed": "停止控制引擎失败。",
+        "restartFailed": "重启控制引擎失败。",
+        "checkFailed": "检查控制引擎状态失败。",
         "uninstallFailed": "卸载控制引擎失败。",
         "prefsFailed": "更新偏好设置失败。",
         "grantFailed": "打开权限设置失败。"

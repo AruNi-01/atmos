@@ -129,6 +129,24 @@ describe("AppShot Electron DTO contract (web-compatible)", () => {
     expect(both.every((p) => p.recovery_action === null)).toBe(true);
   });
 
+  it("buildMacosPermissions names host product for dual-shift and capture", () => {
+    const perms = buildMacosPermissions({
+      accessibility: false,
+      screenRecording: false,
+      accessibilityProduct: "Atmos Desktop Use",
+      screenRecordingProduct: "Atmos Desktop Use",
+    });
+    expect(perms[0]!.recovery_action?.manual_steps.join(" ")).toContain(
+      "Atmos Desktop Use",
+    );
+    expect(perms[0]!.recovery_action?.manual_steps.join(" ")).toContain(
+      "Left⇧+Right⇧",
+    );
+    expect(perms[1]!.recovery_action?.manual_steps.join(" ")).toContain(
+      "Atmos Desktop Use",
+    );
+  });
+
   it("writeRecordFromCapture uses protocol + real app metadata", () => {
     const written = writeRecordFromCapture({
       previewId: "pv",

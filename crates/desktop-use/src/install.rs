@@ -3,7 +3,9 @@
 use std::fs::{self, File};
 use std::io::{self, Read};
 use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::process::{Command, Stdio};
+use std::thread;
+use std::time::Duration;
 
 use flate2::read::GzDecoder;
 use sha2::{Digest, Sha256};
@@ -95,10 +97,13 @@ pub fn install_from_archive(
 }
 
 /// Download package for current platform (or fixture via ATMOS_DESKTOP_USE_ENGINE_ARCHIVE).
+///
+/// `on_progress` receives a fraction in `0.0..=1.0` (download ≈ 0–0.9, extract/install ≈ 0.9–1.0).
 pub fn download_and_install(
     data_dir: &Path,
     engine_bin: &Path,
     force: bool,
+    mut on_progress: impl FnMut(f32),
 ) -> Result<InstallLayout, String> {
     let manifest = EngineManifest::embedded()?;
     let platform = current_platform();
@@ -121,6 +126,7 @@ pub fn download_and_install(
         if let Some(host) = host_app_path(data_dir, &manifest) {
             let _ = rebrand_existing_host_app(&host, &manifest);
         }
+        on_progress(1.0);
         return Ok(InstallLayout {
             engine_bin: engine_bin.to_path_buf(),
             host_app: host_app_path(data_dir, &manifest),
@@ -137,9 +143,15 @@ pub fn download_and_install(
     if let Ok(fixture) = std::env::var("ATMOS_DESKTOP_USE_ENGINE_ARCHIVE") {
         let fixture = PathBuf::from(fixture);
         if fixture.is_file() {
+            on_progress(0.2);
             fs::copy(&fixture, &archive_path).map_err(|e| scrub_vendor(&e.to_string()))?;
+            on_progress(0.5);
             verify_sha256(&archive_path, &entry.sha256)?;
-            return install_from_archive(&archive_path, &entry, data_dir, engine_bin, &manifest);
+            on_progress(0.7);
+            let layout =
+                install_from_archive(&archive_path, &entry, data_dir, engine_bin, &manifest)?;
+            on_progress(1.0);
+            return Ok(layout);
         }
         return Err(scrub_vendor(
             "ATMOS_DESKTOP_USE_ENGINE_ARCHIVE is set but the archive file was not found.",
@@ -155,9 +167,16 @@ pub fn download_and_install(
         ));
     }
 
-    download_file(&entry.url, &archive_path)?;
+    download_file(&entry.url, &archive_path, |p| {
+        // Reserve the last 10% for checksum + extract.
+        on_progress((p * 0.9).clamp(0.0, 0.9));
+    })?;
+    on_progress(0.91);
     verify_sha256(&archive_path, &entry.sha256)?;
-    install_from_archive(&archive_path, &entry, data_dir, engine_bin, &manifest)
+    on_progress(0.94);
+    let layout = install_from_archive(&archive_path, &entry, data_dir, engine_bin, &manifest)?;
+    on_progress(1.0);
+    Ok(layout)
 }
 
 pub fn host_app_path(data_dir: &Path, manifest: &EngineManifest) -> Option<PathBuf> {
@@ -229,20 +248,74 @@ fn verify_sha256(path: &Path, expected_hex: &str) -> Result<(), String> {
     Ok(())
 }
 
-fn download_file(url: &str, dest: &Path) -> Result<(), String> {
-    // Prefer reqwest blocking when available; fall back to curl for simpler link.
-    let status = Command::new("curl")
-        .args(["-fsSL", "--retry", "3", "-o"])
+fn content_length(url: &str) -> Option<u64> {
+    let output = Command::new("curl")
+        .args(["-sI", "-L", "--max-time", "20", "--retry", "2"])
+        .arg(url)
+        .output()
+        .ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    let headers = String::from_utf8_lossy(&output.stdout);
+    let mut last: Option<u64> = None;
+    for line in headers.lines() {
+        let lower = line.to_ascii_lowercase();
+        if let Some(rest) = lower.strip_prefix("content-length:") {
+            if let Ok(n) = rest.trim().parse::<u64>() {
+                last = Some(n);
+            }
+        }
+    }
+    last.filter(|n| *n > 0)
+}
+
+/// Download with optional byte-progress via destination file growth (curl).
+fn download_file(url: &str, dest: &Path, mut on_progress: impl FnMut(f32)) -> Result<(), String> {
+    if let Some(parent) = dest.parent() {
+        fs::create_dir_all(parent).map_err(|e| scrub_vendor(&e.to_string()))?;
+    }
+    let _ = fs::remove_file(dest);
+
+    let total = content_length(url);
+    on_progress(0.0);
+
+    let mut child = Command::new("curl")
+        .args(["-fL", "--retry", "3", "--connect-timeout", "30", "-o"])
         .arg(dest)
         .arg(url)
-        .status()
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()
         .map_err(|e| scrub_vendor(&format!("download failed: {e}")))?;
-    if !status.success() {
-        return Err(scrub_vendor(
-            "Failed to download control engine package. Check network and retry ensure.",
-        ));
+
+    loop {
+        match child.try_wait() {
+            Ok(Some(status)) => {
+                if !status.success() {
+                    let _ = fs::remove_file(dest);
+                    return Err(scrub_vendor(
+                        "Failed to download control engine package. Check network and retry ensure.",
+                    ));
+                }
+                on_progress(1.0);
+                return Ok(());
+            }
+            Ok(None) => {
+                if let (Some(total_bytes), Ok(meta)) = (total, fs::metadata(dest)) {
+                    let p = (meta.len() as f64 / total_bytes as f64).clamp(0.0, 0.99) as f32;
+                    on_progress(p);
+                }
+                thread::sleep(Duration::from_millis(250));
+            }
+            Err(e) => {
+                let _ = child.kill();
+                let _ = fs::remove_file(dest);
+                return Err(scrub_vendor(&format!("download failed: {e}")));
+            }
+        }
     }
-    Ok(())
 }
 
 fn find_named_file(root: &Path, name: &str) -> Option<PathBuf> {

@@ -130,6 +130,14 @@ export async function desktopUseDriverStop(): Promise<unknown> {
   return runDesktopUseJson(["driver", "stop"]);
 }
 
+export async function desktopUseDriverRestart(): Promise<unknown> {
+  return runDesktopUseJson(["driver", "restart"], 30_000);
+}
+
+export async function desktopUseDriverCheck(): Promise<unknown> {
+  return runDesktopUseJson(["driver", "check"], 15_000);
+}
+
 export async function desktopUseDriverUninstall(): Promise<unknown> {
   return runDesktopUseJson(["driver", "uninstall"]);
 }

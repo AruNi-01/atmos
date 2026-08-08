@@ -5715,7 +5715,7 @@
         },
         "permissions": {
           "title": "Permissions",
-          "description": "Grant Accessibility and Screen Recording to the Desktop Use host app so capture and control work reliably."
+          "description": "Grant Accessibility and Screen Recording to Atmos Desktop Use — one identity for capture, control, and AppShot’s Left⇧+Right⇧ shortcut."
         },
         "visibility": {
           "title": "Visual feedback",
@@ -5732,13 +5732,39 @@
         "notInstalled": "Not installed",
         "installed": "Installed",
         "updateAvailable": "Update available",
+        "downloadingPct": "Downloading · {progress}%",
         "statusTitle": "Engine",
-        "statusDescription": "Download state and version of the Desktop Use control engine."
+        "statusDescription": "Download state and version of the Desktop Use control engine.",
+        "runtimeTitle": "Status",
+        "runtimeDescription": "Live runtime of the control engine daemon. Check probes the process now.",
+        "runtime": {
+          "running": "Running",
+          "notRunning": "Not running",
+          "notResponding": "Not responding",
+          "stopped": "Stopped",
+          "ready": "Ready",
+          "downloading": "Downloading",
+          "unknown": "Unknown"
+        },
+        "check": {
+          "okTitle": "Engine is healthy",
+          "okDescription": "Daemon is running and responding.",
+          "issueTitle": "Engine needs attention",
+          "failedTitle": "Check failed",
+          "issues": {
+            "notRunning": "Daemon is not running",
+            "notResponding": "Daemon socket exists but is not responding",
+            "accessibility": "Accessibility not granted",
+            "screenRecording": "Screen Recording not granted"
+          }
+        }
       },
       "actions": {
         "install": "Install",
         "update": "Update",
         "stop": "Stop",
+        "restart": "Restart",
+        "check": "Check",
         "uninstall": "Uninstall",
         "refresh": "Refresh",
         "cancel": "Cancel"
@@ -5762,18 +5788,18 @@
       },
       "permissions": {
         "title": "Permissions",
-        "unifiedHint": "Grant Accessibility and Screen Recording to the Desktop Use host app so capture and control work reliably.",
+        "unifiedHint": "Grant Accessibility and Screen Recording to Atmos Desktop Use — one identity for capture, control, and AppShot’s Left⇧+Right⇧ shortcut.",
         "installFirst": "Install the control engine first to manage permissions.",
         "done": "Done",
         "grant": "Grant",
         "items": {
           "accessibility": {
             "title": "Accessibility",
-            "description": "Lets Desktop Use inspect UI and control other apps (click, type, and window actions)."
+            "description": "Lets Desktop Use control other apps and enables AppShot’s Left⇧+Right⇧ shortcut (same Atmos Desktop Use grant)."
           },
           "screenRecording": {
             "title": "Screen Recording",
-            "description": "Lets Desktop Use and AppShot capture the screen so agents can see what is on your display."
+            "description": "Lets Desktop Use and AppShot capture the screen under the Atmos Desktop Use host identity."
           }
         }
       },
@@ -5782,6 +5808,8 @@
         "installFailed": "Failed to install the control engine.",
         "updateFailed": "Failed to update the control engine.",
         "stopFailed": "Failed to stop the control engine.",
+        "restartFailed": "Failed to restart the control engine.",
+        "checkFailed": "Failed to check the control engine status.",
         "uninstallFailed": "Failed to uninstall the control engine.",
         "prefsFailed": "Failed to update preferences.",
         "grantFailed": "Failed to open permission settings."

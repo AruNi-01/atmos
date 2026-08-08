@@ -53,6 +53,10 @@ pub enum DriverCommand {
     Status,
     /// Stop the control engine daemon (does not delete the binary).
     Stop,
+    /// Restart the control engine daemon (stop then start).
+    Restart,
+    /// Probe live daemon health without starting it.
+    Check,
     /// Remove the installed control engine binary.
     Uninstall,
     /// Open OS permission grant flow for Atmos Desktop Use host.

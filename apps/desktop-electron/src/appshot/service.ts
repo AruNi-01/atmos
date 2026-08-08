@@ -143,13 +143,21 @@ export const MINIMAL_PNG_BYTES = Buffer.from(
 /**
  * Build permission DTOs from real (or injected) grant flags.
  * Shape matches Tauri: recovery_action is null once granted.
+ *
+ * When the control engine is installed, both rows name **Atmos Desktop Use**
+ * (dual-shift inject + host capture). Pre-ensure fallback names **Atmos**.
  */
 export function buildMacosPermissions(flags: {
   accessibility: boolean;
   screenRecording: boolean;
   productName?: string;
+  accessibilityProduct?: string;
+  screenRecordingProduct?: string;
 }): AppshotPermissionState[] {
-  const product = flags.productName ?? APP_PRODUCT_NAME;
+  const axProduct =
+    flags.accessibilityProduct ?? flags.productName ?? APP_PRODUCT_NAME;
+  const screenProduct =
+    flags.screenRecordingProduct ?? flags.productName ?? APP_PRODUCT_NAME;
   return [
     permissionState({
       name: "accessibility",
@@ -159,7 +167,8 @@ export function buildMacosPermissions(flags: {
       target: "accessibility",
       manual_steps: [
         "System Settings → Privacy & Security → Accessibility",
-        `Enable ${product}, then return here and Refresh (restart the app if it stays off)`,
+        `Enable ${axProduct} (Left⇧+Right⇧ Appshots and desktop control)`,
+        "Return here and Refresh (restart Atmos if Accessibility stays off)",
       ],
     }),
     permissionState({
@@ -170,7 +179,7 @@ export function buildMacosPermissions(flags: {
       target: "screen_recording",
       manual_steps: [
         "System Settings → Privacy & Security → Screen & System Audio Recording",
-        `Enable ${product}, then return here and Refresh (restart the app if it stays off)`,
+        `Enable ${screenProduct}, then return here and Refresh (restart the app if it stays off)`,
       ],
     }),
   ];
@@ -202,6 +211,9 @@ function permissionState(opts: {
 /**
  * Query live macOS TCC state via Electron systemPreferences.
  * Outside the Electron main process (e.g. bun unit tests) both return false.
+ *
+ * These flags are the **Atmos (Electron)** identity — dual-shift event tap
+ * and pre-ensure capture fallback.
  */
 export async function queryMacosPermissionFlags(): Promise<{
   accessibility: boolean;
@@ -223,9 +235,86 @@ export async function queryMacosPermissionFlags(): Promise<{
   }
 }
 
+export type AppShotResolvedPermissions = {
+  accessibility: boolean;
+  screenRecording: boolean;
+  accessibilityProduct: string;
+  screenRecordingProduct: string;
+  hostEngineInstalled: boolean;
+};
+
+/**
+ * Resolve AppShot-effective permissions:
+ *
+ * When the control engine is installed, dual-shift is injected into the host
+ * serve process — **both** Accessibility (shortcut) and Screen Recording
+ * (capture) use **Atmos Desktop Use**. One grant product.
+ *
+ * Pre-ensure fallback: both map to Atmos (Electron).
+ */
+export async function resolveAppShotPermissionFlags(): Promise<AppShotResolvedPermissions> {
+  const electron = await queryMacosPermissionFlags();
+  const base: AppShotResolvedPermissions = {
+    accessibility: electron.accessibility,
+    screenRecording: electron.screenRecording,
+    accessibilityProduct: APP_PRODUCT_NAME,
+    screenRecordingProduct: APP_PRODUCT_NAME,
+    hostEngineInstalled: false,
+  };
+
+  if (process.platform !== "darwin") return base;
+
+  try {
+    const client = await import("../desktop-use/client.js");
+    const st = await client.desktopUseStatus();
+    if (!st?.driver?.installed) return base;
+
+    const doctor = (await client.desktopUseDoctor()) as {
+      engine_installed?: boolean;
+      accessibility?: boolean | null;
+      screen_recording?: boolean | null;
+      host_app_name?: string | null;
+    };
+    if (!doctor?.engine_installed) return base;
+
+    const hostName =
+      (typeof doctor.host_app_name === "string" && doctor.host_app_name.trim()) ||
+      "Atmos Desktop Use";
+    return {
+      // Dual-shift runs inside host serve (inject) — host Accessibility only.
+      accessibility: doctor.accessibility === true,
+      screenRecording: doctor.screen_recording === true,
+      accessibilityProduct: hostName,
+      screenRecordingProduct: hostName,
+      hostEngineInstalled: true,
+    };
+  } catch {
+    return base;
+  }
+}
+
 async function macosPermissions(): Promise<AppshotPermissionState[]> {
-  const flags = await queryMacosPermissionFlags();
-  return buildMacosPermissions(flags);
+  const flags = await resolveAppShotPermissionFlags();
+  return buildMacosPermissions({
+    accessibility: flags.accessibility,
+    screenRecording: flags.screenRecording,
+    accessibilityProduct: flags.accessibilityProduct,
+    screenRecordingProduct: flags.screenRecordingProduct,
+  });
+}
+
+/**
+ * Prompt macOS to trust Atmos (Electron) for Accessibility.
+ * Only needed for the pre-ensure dual-shift fallback (no host engine).
+ */
+export async function requestElectronAccessibilityPrompt(): Promise<boolean> {
+  if (process.platform !== "darwin") return false;
+  try {
+    const { systemPreferences } = await import("electron");
+    return Boolean(systemPreferences.isTrustedAccessibilityClient(true));
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -248,8 +337,13 @@ export async function appshotStatus(state?: AppState): Promise<AppshotStatus> {
     };
   }
 
-  const flags = await queryMacosPermissionFlags();
-  const permissions = buildMacosPermissions(flags);
+  const flags = await resolveAppShotPermissionFlags();
+  const permissions = buildMacosPermissions({
+    accessibility: flags.accessibility,
+    screenRecording: flags.screenRecording,
+    accessibilityProduct: flags.accessibilityProduct,
+    screenRecordingProduct: flags.screenRecordingProduct,
+  });
 
   let triggerEnabled = false;
   let triggerLastError: string | null = null;
@@ -257,12 +351,18 @@ export async function appshotStatus(state?: AppState): Promise<AppshotStatus> {
     const { ensureTriggerListener, triggerListenerStatus } = await import(
       "./trigger.js"
     );
-    // In-process CGEventTap FlagsChanged (Tauri parity). Always (re)arm so a
-    // false TCC reading cannot leave the shortcut dead.
+    // Always (re)arm so granting Atmos Accessibility after boot restarts the
+    // helper (existing taps do not pick up new TCC without recreate).
     await ensureTriggerListener(state, triggerCapture, flags.accessibility);
     const listener = triggerListenerStatus();
-    triggerEnabled = listener.enabled || listener.starting;
-    triggerLastError = listener.lastError;
+    const tapUp = listener.enabled || listener.starting;
+    // Product-ready only when Atmos AX is on — otherwise keys never arrive.
+    triggerEnabled = tapUp && flags.accessibility;
+    triggerLastError =
+      listener.lastError ??
+      (flags.accessibility
+        ? null
+        : `Accessibility is off — dual-shift will not receive keys until ${flags.accessibilityProduct} is trusted (System Settings → Privacy → Accessibility)`);
   }
 
   const backend =
@@ -610,6 +710,16 @@ function sleep(ms: number) {
 
 export async function openPermissions(target: string): Promise<void> {
   if (process.platform !== "darwin") return;
+  const t = target.trim().toLowerCase();
+  // Pre-ensure only: dual-shift uses Atmos (Electron). With host engine,
+  // grant goes through Desktop Use host identity (no Electron prompt).
+  const flags = await resolveAppShotPermissionFlags();
+  if (
+    !flags.hostEngineInstalled &&
+    (t === "accessibility" || t === "all" || t === "privacy_security")
+  ) {
+    await requestElectronAccessibilityPrompt();
+  }
   const urls: Record<string, string> = {
     screen_recording:
       "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture",
@@ -621,7 +731,7 @@ export async function openPermissions(target: string): Promise<void> {
       "x-apple.systempreferences:com.apple.preference.security?Privacy",
     all: "x-apple.systempreferences:com.apple.preference.security?Privacy",
   };
-  const url = urls[target] ?? urls.all!;
+  const url = urls[t] ?? urls.all!;
   const { shell } = await import("electron");
   await shell.openExternal(url);
 }

@@ -76,41 +76,125 @@ fn spawn_daemon(
 
     #[cfg(target_os = "macos")]
     {
+        // Prefer direct spawn of the host app's main binary so we can
+        // DYLD_INSERT AppShot dual-shift into the same process as serve
+        // (unified com.atmos.desktop.use Accessibility TCC). `open -a` strips
+        // DYLD_* and cannot load the inject dylib.
         if let Some(app) = host_app {
             if app.is_dir() {
-                // LaunchServices path: process is Atmos Desktop Use.app (com.atmos.desktop.use).
-                let status = Command::new("open")
-                    .args(["-n", "-g", "-a"])
-                    .arg(app)
-                    .args([
-                        "--args",
-                        "serve",
-                        "--socket",
-                        &socket_str,
-                        "--no-permissions-gate",
-                    ])
-                    .status()
-                    .map_err(|e| scrub_vendor(&format!("failed to launch host app: {e}")))?;
-                if status.success() {
-                    return Ok(());
+                let driver_in_app = app.join("Contents").join("MacOS").join("cua-driver");
+                let bin = if driver_in_app.is_file() {
+                    driver_in_app.as_path()
+                } else {
+                    engine_bin
+                };
+                match spawn_host_serve(bin, &socket_str, Some(app)) {
+                    Ok(child) => {
+                        let _ = child.id();
+                        std::mem::forget(child);
+                        return Ok(());
+                    }
+                    Err(_) => {
+                        // Fall through to open -a if direct spawn failed.
+                        let status = Command::new("open")
+                            .args(["-n", "-g", "-a"])
+                            .arg(app)
+                            .args([
+                                "--args",
+                                "serve",
+                                "--socket",
+                                &socket_str,
+                                "--no-permissions-gate",
+                            ])
+                            .status()
+                            .map_err(|e| {
+                                scrub_vendor(&format!("failed to launch host app: {e}"))
+                            })?;
+                        if status.success() {
+                            return Ok(());
+                        }
+                    }
                 }
-                // Fall through to direct spawn only if open failed.
             }
         }
+
+        let child = spawn_host_serve(engine_bin, &socket_str, host_app)?;
+        let _ = child.id();
+        std::mem::forget(child);
+        return Ok(());
     }
 
-    // Direct spawn (Linux/Windows, or macOS fallback when host app missing).
-    let child = Command::new(engine_bin)
-        .args(["serve", "--socket", &socket_str, "--no-permissions-gate"])
+    #[cfg(not(target_os = "macos"))]
+    {
+        let child = Command::new(engine_bin)
+            .args(["serve", "--socket", &socket_str, "--no-permissions-gate"])
+            .env("CUA_DRIVER_RS_PERMISSIONS_GATE", "0")
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+            .map_err(|e| scrub_vendor(&format!("failed to start control engine: {e}")))?;
+        let _ = child.id();
+        std::mem::forget(child);
+        Ok(())
+    }
+}
+
+/// Resolve AppShot dual-shift inject dylib for DYLD_INSERT into host serve.
+///
+/// Layout (first hit wins):
+/// - `$ATMOS_HOME/desktop-use/lib/libatmos_appshot_shift_inject.dylib`
+/// - `~/.atmos/desktop-use/lib/libatmos_appshot_shift_inject.dylib`
+/// - next to engine bin: `…/lib/libatmos_appshot_shift_inject.dylib`
+/// - host app: `Atmos Desktop Use.app/Contents/MacOS/libatmos_appshot_shift_inject.dylib`
+#[cfg(target_os = "macos")]
+pub fn appshot_shift_inject_path(host_app: Option<&Path>) -> Option<PathBuf> {
+    const NAME: &str = "libatmos_appshot_shift_inject.dylib";
+    let mut candidates: Vec<PathBuf> = Vec::new();
+    if let Ok(home) = std::env::var("ATMOS_HOME") {
+        candidates.push(
+            PathBuf::from(home)
+                .join("desktop-use")
+                .join("lib")
+                .join(NAME),
+        );
+    }
+    if let Ok(home) = std::env::var("HOME") {
+        candidates.push(
+            PathBuf::from(home)
+                .join(".atmos")
+                .join("desktop-use")
+                .join("lib")
+                .join(NAME),
+        );
+    }
+    if let Some(app) = host_app {
+        candidates.push(app.join("Contents").join("MacOS").join(NAME));
+        candidates.push(app.join("Contents").join("Frameworks").join(NAME));
+    }
+    candidates.into_iter().find(|p| p.is_file())
+}
+
+#[cfg(target_os = "macos")]
+fn spawn_host_serve(
+    engine_bin: &Path,
+    socket_str: &str,
+    host_app: Option<&Path>,
+) -> Result<std::process::Child, String> {
+    let mut cmd = Command::new(engine_bin);
+    cmd.args(["serve", "--socket", socket_str, "--no-permissions-gate"])
         .env("CUA_DRIVER_RS_PERMISSIONS_GATE", "0")
+        // Force inject ctor even if argv probe is odd under some launchers.
+        .env("ATMOS_APPSHOT_SHIFT_INJECT", "1")
         .stdin(Stdio::null())
         .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .spawn()
-        .map_err(|e| scrub_vendor(&format!("failed to start control engine: {e}")))?;
-    let _ = child.id();
-    std::mem::forget(child);
-    Ok(())
+        .stderr(Stdio::null());
+    if let Some(inject) = appshot_shift_inject_path(host_app) {
+        // Load dual-shift into the serve process so AppShot shares host Accessibility.
+        cmd.env("DYLD_INSERT_LIBRARIES", &inject);
+    }
+    cmd.spawn()
+        .map_err(|e| scrub_vendor(&format!("failed to start control engine: {e}")))
 }
 
 pub fn stop_daemon(engine_bin: &Path, socket: &Path) -> Result<(), String> {

@@ -24,9 +24,7 @@ import {
 } from "../lib/appshot-client";
 import { useOpenDesktopUseSettings } from "../lib/open-desktop-use-settings";
 import { sanitizeRecordDetailPayloads } from "../lib/appshot-payload";
-import { desktopInvoke, isDesktopRuntime } from "@/shared/lib/desktop-bridge";
 import type {
-  AppshotPermissionState,
   AppshotRecordDetail,
   AppshotRecordListItem,
   AppshotStatus,
@@ -79,23 +77,11 @@ export function AppshotsHistoryPopover({
     setStatusLoading(true);
     setStatusError(null);
     try {
-      // Prefer Desktop Use host doctor when control engine is installed —
-      // AppShot no longer has a separate permission product.
-      if (isDesktopRuntime()) {
-        try {
-          const doctor = (await desktopInvoke("desktop_use_doctor")) as {
-            engine_installed?: boolean;
-            accessibility?: boolean | null;
-            screen_recording?: boolean | null;
-          };
-          if (doctor?.engine_installed) {
-            setStatus(statusFromDesktopUseDoctor(doctor));
-            return;
-          }
-        } catch {
-          /* fall through */
-        }
-      }
+      // Always use appshot_status (main process). It merges:
+      // - Atmos/Electron Accessibility (dual-shift trigger)
+      // - Host Screen Recording when Desktop Use engine is installed
+      // Doctor-only status falsely reported "ready" when only the host was
+      // trusted, leaving Left⇧+Right⇧ dead.
       const nextStatus = await getAppshotStatus();
       setStatus(nextStatus);
     } catch (err) {
@@ -509,47 +495,6 @@ function InlineError({ message }: { message: string }) {
       <span className="min-w-0 break-words">{message}</span>
     </div>
   );
-}
-
-/** Map Desktop Use doctor → AppshotStatus shape for denied-permission UI. */
-function statusFromDesktopUseDoctor(doctor: {
-  accessibility?: boolean | null;
-  screen_recording?: boolean | null;
-}): AppshotStatus {
-  const ax = doctor.accessibility === true;
-  const screen = doctor.screen_recording === true;
-  const mk = (
-    name: "accessibility" | "screen_recording",
-    granted: boolean,
-  ): AppshotPermissionState => ({
-    name,
-    display_name: name === "accessibility" ? "Accessibility" : "Screen Recording",
-    granted,
-    required_for:
-      name === "accessibility"
-        ? ["accessibility_tree", "control"]
-        : ["capture", "control"],
-    recovery_action: granted
-      ? null
-      : {
-          label: "Open Desktop Use settings",
-          target: name,
-          manual_steps: [],
-        },
-  });
-  return {
-    supported: true,
-    platform: "macos",
-    reason: null,
-    trigger: {
-      mode: "macos_modifier_gesture",
-      enabled: ax,
-      required_modifiers: [],
-      last_error: null,
-      permissions: [mk("accessibility", ax)],
-    },
-    permissions: [mk("accessibility", ax), mk("screen_recording", screen)],
-  };
 }
 
 function HistorySkeleton({ count = 3 }: { count?: number }) {

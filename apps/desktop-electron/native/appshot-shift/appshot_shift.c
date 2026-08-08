@@ -241,3 +241,193 @@ int atmos_appshot_shift_run_blocking(void) {
   }
   return 0;
 }
+
+/*
+ * Host-process inject mode (DYLD_INSERT_LIBRARIES into Atmos Desktop Use
+ * cua-driver). Dual-shift then runs under com.atmos.desktop.use — same TCC
+ * identity as capture/control — and publishes chords on a Unix socket.
+ *
+ * Socket path: $ATMOS_HOME/desktop-use/appshot-shift.sock
+ *          or: $HOME/.atmos/desktop-use/appshot-shift.sock
+ * Protocol: NDJSON lines {"t":"chord"} / {"t":"ready","ax":bool}
+ */
+#if defined(ATMOS_APPSHOT_SHIFT_HOST_INJECT)
+#include <crt_externs.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <stdlib.h>
+#include <sys/socket.h>
+#include <sys/stat.h>
+#include <sys/un.h>
+
+enum { kHostShiftMaxClients = 4 };
+
+static int g_host_listen_fd = -1;
+static int g_host_clients[kHostShiftMaxClients];
+static pthread_t g_host_broker_thread;
+static atomic_bool g_host_broker_started = false;
+
+static void host_shift_socket_path(char *out, size_t out_len) {
+  const char *atmos_home = getenv("ATMOS_HOME");
+  if (atmos_home && atmos_home[0]) {
+    snprintf(out, out_len, "%s/desktop-use/appshot-shift.sock", atmos_home);
+    return;
+  }
+  const char *home = getenv("HOME");
+  if (home && home[0]) {
+    snprintf(out, out_len, "%s/.atmos/desktop-use/appshot-shift.sock", home);
+    return;
+  }
+  snprintf(out, out_len, "/tmp/atmos-appshot-shift.sock");
+}
+
+static void host_shift_broadcast(const char *line) {
+  size_t n = strlen(line);
+  for (int i = 0; i < kHostShiftMaxClients; i++) {
+    int fd = g_host_clients[i];
+    if (fd < 0) continue;
+    ssize_t w = send(fd, line, n, 0);
+    if (w < 0) {
+      close(fd);
+      g_host_clients[i] = -1;
+    }
+  }
+}
+
+static void host_shift_mkdir_p_parent(const char *sock_path) {
+  char dir[512];
+  snprintf(dir, sizeof(dir), "%s", sock_path);
+  char *slash = strrchr(dir, '/');
+  if (!slash || slash == dir) return;
+  *slash = '\0';
+  if (mkdir(dir, 0700) != 0 && errno != EEXIST) {
+    char *slash2 = strrchr(dir, '/');
+    if (slash2 && slash2 != dir) {
+      *slash2 = '\0';
+      (void)mkdir(dir, 0700);
+      *slash2 = '/';
+      (void)mkdir(dir, 0700);
+    }
+  }
+}
+
+static int host_shift_listen(void) {
+  char path[512];
+  host_shift_socket_path(path, sizeof(path));
+  host_shift_mkdir_p_parent(path);
+  unlink(path);
+
+  int fd = socket(AF_UNIX, SOCK_STREAM, 0);
+  if (fd < 0) return -1;
+  int flags = fcntl(fd, F_GETFL, 0);
+  if (flags >= 0) (void)fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+
+  struct sockaddr_un addr;
+  memset(&addr, 0, sizeof(addr));
+  addr.sun_family = AF_UNIX;
+  strncpy(addr.sun_path, path, sizeof(addr.sun_path) - 1);
+  if (bind(fd, (struct sockaddr *)&addr, sizeof(addr)) != 0) {
+    close(fd);
+    return -1;
+  }
+  (void)chmod(path, 0600);
+  if (listen(fd, 2) != 0) {
+    close(fd);
+    unlink(path);
+    return -1;
+  }
+  return fd;
+}
+
+static void host_shift_accept_clients(void) {
+  if (g_host_listen_fd < 0) return;
+  for (;;) {
+    int cfd = accept(g_host_listen_fd, NULL, NULL);
+    if (cfd < 0) break;
+    int slot = -1;
+    for (int i = 0; i < kHostShiftMaxClients; i++) {
+      if (g_host_clients[i] < 0) {
+        slot = i;
+        break;
+      }
+    }
+    if (slot < 0) {
+      close(cfd);
+      continue;
+    }
+    g_host_clients[slot] = cfd;
+    int ax = atmos_appshot_shift_ax_trusted();
+    char ready[64];
+    snprintf(ready, sizeof(ready), "{\"t\":\"ready\",\"ax\":%s}\n",
+             ax ? "true" : "false");
+    (void)send(cfd, ready, strlen(ready), 0);
+  }
+}
+
+static void *host_shift_broker_main(void *arg) {
+  (void)arg;
+#if defined(__APPLE__)
+  pthread_set_qos_class_self_np(QOS_CLASS_USER_INTERACTIVE, 0);
+#endif
+  for (int i = 0; i < kHostShiftMaxClients; i++) g_host_clients[i] = -1;
+
+  (void)atmos_appshot_shift_start();
+  g_host_listen_fd = host_shift_listen();
+
+  while (atomic_load(&g_host_broker_started)) {
+    host_shift_accept_clients();
+    int chords = atmos_appshot_shift_take_chord();
+    for (int i = 0; i < chords; i++) {
+      host_shift_broadcast("{\"t\":\"chord\"}\n");
+    }
+    usleep(16 * 1000);
+  }
+
+  if (g_host_listen_fd >= 0) {
+    close(g_host_listen_fd);
+    g_host_listen_fd = -1;
+  }
+  char path[512];
+  host_shift_socket_path(path, sizeof(path));
+  unlink(path);
+  for (int i = 0; i < kHostShiftMaxClients; i++) {
+    if (g_host_clients[i] >= 0) {
+      close(g_host_clients[i]);
+      g_host_clients[i] = -1;
+    }
+  }
+  return NULL;
+}
+
+static bool host_shift_argv_is_serve(void) {
+  const char *force = getenv("ATMOS_APPSHOT_SHIFT_INJECT");
+  if (force && (strcmp(force, "1") == 0 || strcmp(force, "true") == 0)) {
+    return true;
+  }
+  if (force && (strcmp(force, "0") == 0 || strcmp(force, "false") == 0)) {
+    return false;
+  }
+  int argc = *_NSGetArgc();
+  char **argv = *_NSGetArgv();
+  if (!argv || argc <= 0) return false;
+  for (int i = 1; i < argc; i++) {
+    if (argv[i] && strcmp(argv[i], "serve") == 0) return true;
+  }
+  return false;
+}
+
+__attribute__((constructor)) static void atmos_appshot_shift_host_inject_ctor(void) {
+  if (atomic_exchange(&g_host_broker_started, true)) return;
+  /* One-shot `call`/`stop` must not install a global event tap. */
+  if (!host_shift_argv_is_serve()) {
+    atomic_store(&g_host_broker_started, false);
+    return;
+  }
+  if (pthread_create(&g_host_broker_thread, NULL, host_shift_broker_main, NULL) !=
+      0) {
+    atomic_store(&g_host_broker_started, false);
+    return;
+  }
+  pthread_detach(g_host_broker_thread);
+}
+#endif /* ATMOS_APPSHOT_SHIFT_HOST_INJECT */

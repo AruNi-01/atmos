@@ -73,11 +73,33 @@ pub enum EnsureOutcome {
     Failed { error: String },
 }
 
+/// Live daemon probe — **does not** start the engine (unlike `permission_doctor`).
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct RuntimeCheck {
+    pub installed: bool,
+    pub phase: DriverPhase,
+    /// Socket path present (best-effort alive signal).
+    pub daemon_running: bool,
+    /// Engine answered `get_config` over the socket.
+    pub daemon_responding: bool,
+    /// True when installed and daemon is responding.
+    pub healthy: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub accessibility: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub screen_recording: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub engine_version: Option<String>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct PersistedState {
     phase: DriverPhase,
     #[serde(default)]
     error: Option<String>,
+    /// Download/install fraction in `0.0..=1.0` while phase is `Downloading`.
+    #[serde(default)]
+    progress: Option<f32>,
 }
 
 pub struct DesktopUseManager {
@@ -147,6 +169,14 @@ impl DesktopUseManager {
             }
         };
 
+        let progress = if matches!(phase, DriverPhase::Downloading) {
+            persisted
+                .as_ref()
+                .and_then(|s| s.progress)
+                .map(|p| p.clamp(0.0, 1.0))
+        } else {
+            None
+        };
         let error = persisted.and_then(|s| s.error).filter(|_| !installed);
         let manifest = EngineManifest::embedded().ok();
         let pinned_version = manifest.as_ref().map(|m| m.engine_version.clone());
@@ -164,7 +194,7 @@ impl DesktopUseManager {
             capture: capture_capability(),
             driver: DriverStatus {
                 phase,
-                progress: None,
+                progress,
                 error: error.map(|e| scrub_vendor(&e)),
                 engine_path: installed.then(|| self.engine_bin.display().to_string()),
                 // Prefer recorded install version; fall back to pin when meta is missing.
@@ -204,13 +234,13 @@ impl DesktopUseManager {
             ) {
                 let _ = crate::install::rebrand_existing_host_app(&host, &manifest);
             }
-            self.save_state(DriverPhase::Ready, None);
+            self.save_state(DriverPhase::Ready, None, None);
             return EnsureOutcome::AlreadyInstalled {
                 path: self.engine_bin.display().to_string(),
             };
         }
 
-        self.save_state(DriverPhase::Downloading, None);
+        self.save_state(DriverPhase::Downloading, None, Some(0.0));
 
         let env_source = std::env::var("ATMOS_DESKTOP_USE_ENGINE_SOURCE").ok();
         let resolved = source_path
@@ -222,6 +252,7 @@ impl DesktopUseManager {
                 if let Some(parent) = self.engine_bin.parent() {
                     let _ = fs::create_dir_all(parent);
                 }
+                self.save_state(DriverPhase::Downloading, None, Some(0.4));
                 match fs::copy(&src_path, &self.engine_bin) {
                     Ok(_) => {
                         #[cfg(unix)]
@@ -245,14 +276,14 @@ impl DesktopUseManager {
                                 serde_json::to_vec_pretty(&meta).unwrap_or_default(),
                             );
                         }
-                        self.save_state(DriverPhase::Ready, None);
+                        self.save_state(DriverPhase::Ready, None, None);
                         return EnsureOutcome::Installed {
                             path: self.engine_bin.display().to_string(),
                         };
                     }
                     Err(e) => {
                         let msg = scrub_vendor(&format!("Failed to install control engine: {e}"));
-                        self.save_state(DriverPhase::Failed, Some(msg.clone()));
+                        self.save_state(DriverPhase::Failed, Some(msg.clone()), None);
                         return EnsureOutcome::Failed { error: msg };
                     }
                 }
@@ -260,9 +291,13 @@ impl DesktopUseManager {
         }
 
         // Pinned package download / fixture archive.
-        match install::download_and_install(&self.data_dir, &self.engine_bin, force) {
+        let state_path = self.state_path.clone();
+        let data_dir = self.data_dir.clone();
+        match install::download_and_install(&self.data_dir, &self.engine_bin, force, |p| {
+            write_progress_state(&data_dir, &state_path, p);
+        }) {
             Ok(layout) => {
-                self.save_state(DriverPhase::Ready, None);
+                self.save_state(DriverPhase::Ready, None, None);
                 // Best-effort: start daemon via Atmos Desktop Use.app (unified TCC).
                 let sock = self.socket_path();
                 let host_fallback = self.host_app_path();
@@ -277,7 +312,7 @@ impl DesktopUseManager {
                 if force && self.engine_bin.is_file() {
                     let _ = fs::remove_file(&self.engine_bin);
                 }
-                self.save_state(DriverPhase::NotInstalled, Some(msg.clone()));
+                self.save_state(DriverPhase::NotInstalled, Some(msg.clone()), None);
                 EnsureOutcome::Failed { error: msg }
             }
         }
@@ -287,9 +322,20 @@ impl DesktopUseManager {
         let _ = crate::highlight::clear_highlight();
         if self.engine_bin.is_file() {
             let _ = host::stop_daemon(&self.engine_bin, &self.socket_path());
-            self.save_state(DriverPhase::Stopped, None);
+            self.save_state(DriverPhase::Stopped, None, None);
         }
         self.status().driver
+    }
+
+    /// Stop then start the control engine daemon (binary must already be installed).
+    pub fn restart_driver(&self) -> Result<DriverStatus, String> {
+        let _ = crate::highlight::clear_highlight();
+        let engine = self.require_engine()?;
+        let sock = self.socket_path();
+        let _ = host::stop_daemon(&engine, &sock);
+        host::ensure_daemon(&engine, &sock, self.host_app_path().as_deref())?;
+        self.save_state(DriverPhase::Ready, None, None);
+        Ok(self.status().driver)
     }
 
     pub fn uninstall_driver(&self) -> DriverStatus {
@@ -299,7 +345,7 @@ impl DesktopUseManager {
             let _ = fs::remove_file(&self.engine_bin);
         }
         // Keep host app for re-grant; remove runtime cache optionally.
-        self.save_state(DriverPhase::NotInstalled, None);
+        self.save_state(DriverPhase::NotInstalled, None, None);
         self.status().driver
     }
 
@@ -308,6 +354,66 @@ impl DesktopUseManager {
             Ok(self.engine_bin.clone())
         } else {
             Err(ERR_ENGINE_NOT_INSTALLED.to_string())
+        }
+    }
+
+    /// Probe whether the control engine daemon is actually running.
+    ///
+    /// Unlike [`crate::doctor::permission_doctor`], this **never** starts the daemon.
+    pub fn runtime_check(&self) -> RuntimeCheck {
+        let status = self.status();
+        let installed = status.driver.installed;
+        let phase = status.driver.phase.clone();
+        if !installed {
+            return RuntimeCheck {
+                installed: false,
+                phase,
+                daemon_running: false,
+                daemon_responding: false,
+                healthy: false,
+                accessibility: None,
+                screen_recording: None,
+                engine_version: None,
+            };
+        }
+
+        let socket = self.socket_path();
+        let daemon_running = host::is_daemon_alive(&socket);
+        let mut daemon_responding = false;
+        let mut accessibility = None;
+        let mut screen_recording = None;
+
+        if daemon_running {
+            if let Ok(engine) = self.require_engine() {
+                daemon_responding =
+                    host::call_tool(&engine, &socket, "get_config", &serde_json::json!({})).is_ok();
+                if daemon_responding {
+                    // Best-effort live TCC read without ensure_daemon (socket already up).
+                    if let Ok(v) = host::call_tool(
+                        &engine,
+                        &socket,
+                        "check_permissions",
+                        &serde_json::json!({}),
+                    ) {
+                        accessibility = v.get("accessibility").and_then(|x| x.as_bool());
+                        screen_recording = v.get("screen_recording").and_then(|x| x.as_bool());
+                    }
+                }
+            }
+        }
+
+        let healthy =
+            daemon_responding && !matches!(phase, DriverPhase::Stopped | DriverPhase::Failed);
+
+        RuntimeCheck {
+            installed: true,
+            phase,
+            daemon_running,
+            daemon_responding,
+            healthy,
+            accessibility,
+            screen_recording,
+            engine_version: status.driver.engine_version,
         }
     }
 
@@ -341,12 +447,29 @@ impl DesktopUseManager {
         serde_json::from_slice(&bytes).ok()
     }
 
-    fn save_state(&self, phase: DriverPhase, error: Option<String>) {
+    fn save_state(&self, phase: DriverPhase, error: Option<String>, progress: Option<f32>) {
         let _ = fs::create_dir_all(&self.data_dir);
-        let state = PersistedState { phase, error };
+        let state = PersistedState {
+            phase,
+            error,
+            progress,
+        };
         if let Ok(json) = serde_json::to_vec_pretty(&state) {
             let _ = fs::write(&self.state_path, json);
         }
+    }
+}
+
+/// Write download progress without dropping a concurrent `Downloading` phase marker.
+fn write_progress_state(data_dir: &Path, state_path: &Path, progress: f32) {
+    let _ = fs::create_dir_all(data_dir);
+    let state = PersistedState {
+        phase: DriverPhase::Downloading,
+        error: None,
+        progress: Some(progress.clamp(0.0, 1.0)),
+    };
+    if let Ok(json) = serde_json::to_vec_pretty(&state) {
+        let _ = fs::write(state_path, json);
     }
 }
 

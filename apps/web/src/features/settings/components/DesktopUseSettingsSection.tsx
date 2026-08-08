@@ -12,15 +12,18 @@ import {
   DialogTitle,
   Skeleton,
   Switch,
+  toastManager,
 } from "@workspace/ui";
 import {
   ArrowUpCircle,
   Cpu,
   Download,
   Loader2,
+  RefreshCw,
   Scan,
   Shield,
   Square,
+  Stethoscope,
   Trash2,
 } from "lucide-react";
 import { DesktopUsePermissionsPanel } from "@/features/settings/components/DesktopUsePermissionsPanel";
@@ -60,9 +63,44 @@ type DesktopUseStatus = {
 
 type DoctorLite = {
   engine_installed?: boolean;
+  engine_ready?: boolean;
   accessibility?: boolean | null;
   screen_recording?: boolean | null;
+  notes?: string[];
 };
+
+type RuntimeCheckResult = {
+  ok?: boolean;
+  healthy?: boolean;
+  check?: {
+    installed?: boolean;
+    phase?: string;
+    daemon_running?: boolean;
+    daemon_responding?: boolean;
+    healthy?: boolean;
+    accessibility?: boolean | null;
+    screen_recording?: boolean | null;
+    engine_version?: string | null;
+  };
+};
+
+function EngineProgressBar({ value }: { value: number }) {
+  const pct = Math.min(100, Math.max(0, value));
+  return (
+    <div
+      className="h-1.5 w-20 overflow-hidden rounded-full bg-muted sm:w-28"
+      role="progressbar"
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-valuenow={Math.round(pct)}
+    >
+      <div
+        className="h-full rounded-full bg-primary transition-all duration-300"
+        style={{ width: `${pct}%` }}
+      />
+    </div>
+  );
+}
 
 export function DesktopUseSettingsSection() {
   const t = useTranslations("settings.desktopUse");
@@ -72,6 +110,13 @@ export function DesktopUseSettingsSection() {
   const [error, setError] = useState<string | null>(null);
   const [borderBusy, setBorderBusy] = useState(false);
   const [uninstallOpen, setUninstallOpen] = useState(false);
+  /** Live runtime label from last doctor probe / check. */
+  const [runtimeLabel, setRuntimeLabel] = useState<string | null>(null);
+  /**
+   * Stop → Restart only after an explicit Check finds the daemon unhealthy,
+   * or after the user stops the engine.
+   */
+  const [restartSuggested, setRestartSuggested] = useState(false);
 
   // Collapsible groups — defaults applied once after first status/doctor load.
   const [engineOpen, setEngineOpen] = useState(true);
@@ -87,65 +132,127 @@ export function DesktopUseSettingsSection() {
    */
   const [permissionsRefreshToken, setPermissionsRefreshToken] = useState(0);
 
-  const load = useCallback(async (opts?: { silent?: boolean }) => {
-    const silent = Boolean(opts?.silent);
-    if (!silent) setLoading(true);
-    setError(null);
-    try {
-      if (!isDesktopRuntime()) {
-        setStatus({
-          product: "Desktop Use",
-          data_dir: "",
-          capture: {
-            available: false,
-            platform: "web",
-            reason: t("desktopOnly"),
-          },
-          driver: { phase: "not_installed", installed: false },
-          update_available: false,
-          prefs: {
-            operation_border_enabled: true,
-            highlight_idle_ms: 8000,
-          },
-        });
+  const applyRuntimeCheck = useCallback(
+    (check: RuntimeCheckResult["check"] | null | undefined) => {
+      if (!check) {
+        setRuntimeLabel(null);
+        return false;
+      }
+      if (!check.installed) {
+        setRuntimeLabel(t("engine.notInstalled"));
+        return false;
+      }
+      if (check.phase === "stopped") {
+        setRuntimeLabel(t("engine.runtime.stopped"));
+        return false;
+      }
+      if (check.healthy || check.daemon_responding) {
+        setRuntimeLabel(t("engine.runtime.running"));
+        return true;
+      }
+      if (check.daemon_running) {
+        setRuntimeLabel(t("engine.runtime.notResponding"));
+        return false;
+      }
+      setRuntimeLabel(t("engine.runtime.notRunning"));
+      return false;
+    },
+    [t],
+  );
+
+  const applyDoctorRuntime = useCallback(
+    (doctor: DoctorLite | null | undefined) => {
+      if (!doctor) {
+        setRuntimeLabel(null);
+        return false;
+      }
+      const ready = Boolean(doctor.engine_ready);
+      if (ready) {
+        setRuntimeLabel(t("engine.runtime.running"));
+      } else if (doctor.engine_installed) {
+        setRuntimeLabel(t("engine.runtime.notRunning"));
+      } else {
+        setRuntimeLabel(t("engine.notInstalled"));
+      }
+      return ready;
+    },
+    [t],
+  );
+
+  const load = useCallback(
+    async (opts?: { silent?: boolean; probeRuntime?: boolean }) => {
+      const silent = Boolean(opts?.silent);
+      const probeRuntime = opts?.probeRuntime !== false;
+      if (!silent) setLoading(true);
+      setError(null);
+      try {
+        if (!isDesktopRuntime()) {
+          setStatus({
+            product: "Desktop Use",
+            data_dir: "",
+            capture: {
+              available: false,
+              platform: "web",
+              reason: t("desktopOnly"),
+            },
+            driver: { phase: "not_installed", installed: false },
+            update_available: false,
+            prefs: {
+              operation_border_enabled: true,
+              highlight_idle_ms: 8000,
+            },
+          });
+          setRuntimeLabel(null);
+          setRestartSuggested(false);
+          if (!defaultsAppliedRef.current) {
+            defaultsAppliedRef.current = true;
+            // Not installed / not desktop → keep engine + permissions expanded.
+            setEngineOpen(true);
+            setPermissionsOpen(true);
+          }
+          return;
+        }
+        const res = await desktopInvoke<DesktopUseStatus>("desktop_use_status");
+        setStatus(res);
+
+        // One-shot default collapse: installed engine ready → collapse;
+        // all permissions granted → collapse. User can always re-expand.
         if (!defaultsAppliedRef.current) {
           defaultsAppliedRef.current = true;
-          // Not installed / not desktop → keep engine + permissions expanded.
-          setEngineOpen(true);
-          setPermissionsOpen(true);
-        }
-        return;
-      }
-      const res = await desktopInvoke<DesktopUseStatus>("desktop_use_status");
-      setStatus(res);
+          const installed = Boolean(res?.driver?.installed);
+          const updateAvailable = Boolean(res?.update_available);
+          // Collapse when installed and no pending update (actions are secondary).
+          setEngineOpen(!(installed && !updateAvailable));
 
-      // One-shot default collapse: installed engine ready → collapse;
-      // all permissions granted → collapse. User can always re-expand.
-      if (!defaultsAppliedRef.current) {
-        defaultsAppliedRef.current = true;
-        const installed = Boolean(res?.driver?.installed);
-        const updateAvailable = Boolean(res?.update_available);
-        // Collapse when installed and no pending update (actions are secondary).
-        setEngineOpen(!(installed && !updateAvailable));
-
-        let allGranted = false;
-        try {
-          const doctor = await desktopInvoke<DoctorLite>("desktop_use_doctor");
-          allGranted =
-            Boolean(doctor?.engine_installed) &&
-            doctor?.accessibility === true &&
-            doctor?.screen_recording === true;
-        } catch {
-          allGranted = false;
+          let allGranted = false;
+          try {
+            const doctor = await desktopInvoke<DoctorLite>("desktop_use_doctor");
+            allGranted =
+              Boolean(doctor?.engine_installed) &&
+              doctor?.accessibility === true &&
+              doctor?.screen_recording === true;
+            applyDoctorRuntime(doctor);
+          } catch {
+            allGranted = false;
+          }
+          setPermissionsOpen(!allGranted);
+        } else if (probeRuntime && res?.driver?.installed) {
+          // Soft runtime label from phase when we skip doctor (e.g. progress poll).
+          const phase = res.driver.phase;
+          if (phase === "stopped") {
+            setRuntimeLabel(t("engine.runtime.stopped"));
+          } else if (phase === "downloading") {
+            setRuntimeLabel(t("engine.runtime.downloading"));
+          }
         }
-        setPermissionsOpen(!allGranted);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : t("errors.statusFailed"));
+      } finally {
+        setLoading(false);
       }
-    } catch (e) {
-      setError(e instanceof Error ? e.message : t("errors.statusFailed"));
-    } finally {
-      setLoading(false);
-    }
-  }, [t]);
+    },
+    [applyDoctorRuntime, t],
+  );
 
   const operationBorderEnabled =
     status?.prefs?.operation_border_enabled ?? true;
@@ -195,8 +302,17 @@ export function DesktopUseSettingsSection() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- mount once
   }, []);
 
+  // Poll status while ensure is running so download % updates in the UI.
+  useEffect(() => {
+    if (busyAction !== "install" && busyAction !== "update") return;
+    const id = setInterval(() => {
+      void load({ silent: true, probeRuntime: false });
+    }, 500);
+    return () => clearInterval(id);
+  }, [busyAction, load]);
+
   const run = async (
-    actionKey: "install" | "update" | "stop" | "uninstall",
+    actionKey: "install" | "update" | "stop" | "restart" | "uninstall",
     fn: () => Promise<void>,
   ) => {
     setBusyAction(actionKey);
@@ -219,6 +335,24 @@ export function DesktopUseSettingsSection() {
       }
       if (actionKey === "uninstall") {
         setEngineOpen(true);
+        setRuntimeLabel(null);
+        setRestartSuggested(false);
+      }
+      if (actionKey === "stop") {
+        setRuntimeLabel(t("engine.runtime.stopped"));
+        setRestartSuggested(true);
+      }
+      if (actionKey === "restart" || actionKey === "install" || actionKey === "update") {
+        // Probe live daemon after start/restart (no auto-start).
+        try {
+          const res = await desktopInvoke<RuntimeCheckResult>(
+            "desktop_use_driver_check",
+          );
+          const ready = applyRuntimeCheck(res?.check);
+          setRestartSuggested(!ready);
+        } catch {
+          if (actionKey === "restart") setRestartSuggested(true);
+        }
       }
     } catch (e) {
       const fallback =
@@ -228,8 +362,66 @@ export function DesktopUseSettingsSection() {
             ? t("errors.updateFailed")
             : actionKey === "stop"
               ? t("errors.stopFailed")
-              : t("errors.uninstallFailed");
+              : actionKey === "restart"
+                ? t("errors.restartFailed")
+                : t("errors.uninstallFailed");
       setError(e instanceof Error ? e.message : fallback);
+    } finally {
+      setBusyAction(null);
+    }
+  };
+
+  const checkRuntime = async () => {
+    if (!isDesktopRuntime() || busyAction) return;
+    setBusyAction("check");
+    setError(null);
+    try {
+      // Pure probe — never starts the daemon (unlike doctor).
+      const res = await desktopInvoke<RuntimeCheckResult>(
+        "desktop_use_driver_check",
+      );
+      const check = res?.check;
+      const ready = applyRuntimeCheck(check);
+      invalidateDesktopUseReadinessCache();
+
+      const ax = check?.accessibility;
+      const screen = check?.screen_recording;
+      const issues: string[] = [];
+      if (!ready) {
+        if (check?.daemon_running && !check?.daemon_responding) {
+          issues.push(t("engine.check.issues.notResponding"));
+        } else {
+          issues.push(t("engine.check.issues.notRunning"));
+        }
+      }
+      if (ax === false) issues.push(t("engine.check.issues.accessibility"));
+      if (screen === false) issues.push(t("engine.check.issues.screenRecording"));
+
+      // Only daemon-not-ready flips Stop → Restart (permission issues stay as Stop).
+      setRestartSuggested(!ready);
+
+      if (issues.length === 0) {
+        toastManager.add({
+          title: t("engine.check.okTitle"),
+          description: t("engine.check.okDescription"),
+          type: "success",
+        });
+      } else {
+        toastManager.add({
+          title: t("engine.check.issueTitle"),
+          description: issues.join(" · "),
+          type: "error",
+        });
+      }
+    } catch (e) {
+      setRuntimeLabel(t("engine.runtime.unknown"));
+      setRestartSuggested(true);
+      toastManager.add({
+        title: t("engine.check.failedTitle"),
+        description:
+          e instanceof Error ? e.message : t("errors.checkFailed"),
+        type: "error",
+      });
     } finally {
       setBusyAction(null);
     }
@@ -242,10 +434,28 @@ export function DesktopUseSettingsSection() {
   const pinnedVersion = status?.pinned_version ?? null;
   const busy = busyAction !== null;
   const desktop = isDesktopRuntime();
+  const phase = status?.driver?.phase ?? "";
+  const isDownloading =
+    busyAction === "install" ||
+    busyAction === "update" ||
+    phase === "downloading";
+  const rawProgress = status?.driver?.progress;
+  const progressPct =
+    typeof rawProgress === "number" && Number.isFinite(rawProgress)
+      ? Math.round(Math.min(1, Math.max(0, rawProgress)) * 100)
+      : isDownloading
+        ? 0
+        : null;
+  const needsRestart = restartSuggested;
 
   const engineStatusLabel = (() => {
     if (!desktop) return t("status.webOnly");
-    if (!installed) return t("engine.notInstalled");
+    if (!installed) {
+      if (isDownloading && progressPct !== null) {
+        return t("engine.downloadingPct", { progress: progressPct });
+      }
+      return t("engine.notInstalled");
+    }
     if (updateAvailable) {
       const ver = installedVersion ? `v${installedVersion}` : "";
       return ver
@@ -255,6 +465,14 @@ export function DesktopUseSettingsSection() {
     const ver = installedVersion ? `v${installedVersion}` : "";
     return ver ? `${t("engine.installed")} · ${ver}` : t("engine.installed");
   })();
+
+  const runtimeStatusDisplay =
+    runtimeLabel ??
+    (phase === "stopped"
+      ? t("engine.runtime.stopped")
+      : installed
+        ? t("engine.runtime.ready")
+        : t("engine.notInstalled"));
 
   const engineGroupDescription = (() => {
     if (!desktop) return t("desktopOnly");
@@ -286,6 +504,16 @@ export function DesktopUseSettingsSection() {
     </Button>
   );
 
+  const downloadProgressAside =
+    isDownloading && progressPct !== null ? (
+      <div className="flex items-center gap-2">
+        <EngineProgressBar value={progressPct} />
+        <span className="min-w-9 text-right text-xs tabular-nums text-muted-foreground">
+          {progressPct}%
+        </span>
+      </div>
+    ) : null;
+
   return (
     <div className="space-y-4">
       {/* 1. Control engine — install / status / stop / uninstall */}
@@ -307,27 +535,32 @@ export function DesktopUseSettingsSection() {
             <span className="text-sm text-muted-foreground">
               {engineStatusLabel}
             </span>
-          ) : !installed ? (
-            <Button
-              type="button"
-              size="sm"
-              disabled={busy}
-              onClick={() =>
-                void run("install", async () => {
-                  await desktopInvoke("desktop_use_driver_ensure", {
-                    force: false,
-                  });
-                })
-              }
-              className="cursor-pointer"
-            >
-              {busyAction === "install" ? (
-                <Loader2 className="size-4 animate-spin" />
-              ) : (
-                <Download className="size-4" />
-              )}
-              {t("actions.install")}
-            </Button>
+          ) : !installed || isDownloading ? (
+            <div className="flex items-center gap-3">
+              {downloadProgressAside}
+              <Button
+                type="button"
+                size="sm"
+                disabled={busy}
+                onClick={() =>
+                  void run(installed ? "update" : "install", async () => {
+                    await desktopInvoke("desktop_use_driver_ensure", {
+                      force: installed,
+                    });
+                  })
+                }
+                className="cursor-pointer"
+              >
+                {busyAction === "install" || busyAction === "update" ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : installed ? (
+                  <ArrowUpCircle className="size-4" />
+                ) : (
+                  <Download className="size-4" />
+                )}
+                {installed ? t("actions.update") : t("actions.install")}
+              </Button>
+            </div>
           ) : updateAvailable ? (
             <div className="flex flex-col items-end gap-2">
               <div className="flex items-center gap-2">
@@ -336,26 +569,29 @@ export function DesktopUseSettingsSection() {
                   {engineStatusLabel}
                 </span>
               </div>
-              <Button
-                type="button"
-                size="sm"
-                disabled={busy}
-                onClick={() =>
-                  void run("update", async () => {
-                    await desktopInvoke("desktop_use_driver_ensure", {
-                      force: true,
-                    });
-                  })
-                }
-                className="cursor-pointer"
-              >
-                {busyAction === "update" ? (
-                  <Loader2 className="size-4 animate-spin" />
-                ) : (
-                  <ArrowUpCircle className="size-4" />
-                )}
-                {t("actions.update")}
-              </Button>
+              <div className="flex items-center gap-3">
+                {downloadProgressAside}
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled={busy}
+                  onClick={() =>
+                    void run("update", async () => {
+                      await desktopInvoke("desktop_use_driver_ensure", {
+                        force: true,
+                      });
+                    })
+                  }
+                  className="cursor-pointer"
+                >
+                  {busyAction === "update" ? (
+                    <Loader2 className="size-4 animate-spin" />
+                  ) : (
+                    <ArrowUpCircle className="size-4" />
+                  )}
+                  {t("actions.update")}
+                </Button>
+              </div>
             </div>
           ) : (
             <div className="flex items-center gap-2">
@@ -367,31 +603,87 @@ export function DesktopUseSettingsSection() {
           )}
         </SettingsGroupRow>
 
-        {installed && desktop ? (
+        {installed && desktop && !isDownloading ? (
           <SettingsGroupRow
-            title={t("actions.stop")}
-            description={t("engine.stopHint")}
+            title={t("engine.runtimeTitle")}
+            description={t("engine.runtimeDescription")}
             wide
           >
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              disabled={busy || loading}
-              onClick={() =>
-                void run("stop", async () => {
-                  await desktopInvoke("desktop_use_driver_stop");
-                })
-              }
-              className="cursor-pointer"
-            >
-              {busyAction === "stop" ? (
-                <Loader2 className="size-4 animate-spin" />
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <span
+                className={
+                  restartSuggested
+                    ? "text-sm text-destructive"
+                    : "text-sm text-muted-foreground"
+                }
+              >
+                {runtimeStatusDisplay}
+              </span>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={busy || loading}
+                onClick={() => void checkRuntime()}
+                className="cursor-pointer"
+              >
+                {busyAction === "check" ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <Stethoscope className="size-4" />
+                )}
+                {t("actions.check")}
+              </Button>
+              {needsRestart ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={busy || loading}
+                  onClick={() =>
+                    void run("restart", async () => {
+                      const res = await desktopInvoke<{
+                        ok?: boolean;
+                        error?: string;
+                      }>("desktop_use_driver_restart");
+                      if (res && res.ok === false) {
+                        throw new Error(
+                          res.error || t("errors.restartFailed"),
+                        );
+                      }
+                    })
+                  }
+                  className="cursor-pointer"
+                >
+                  {busyAction === "restart" ? (
+                    <Loader2 className="size-4 animate-spin" />
+                  ) : (
+                    <RefreshCw className="size-4" />
+                  )}
+                  {t("actions.restart")}
+                </Button>
               ) : (
-                <Square className="size-4" />
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={busy || loading}
+                  onClick={() =>
+                    void run("stop", async () => {
+                      await desktopInvoke("desktop_use_driver_stop");
+                    })
+                  }
+                  className="cursor-pointer"
+                >
+                  {busyAction === "stop" ? (
+                    <Loader2 className="size-4 animate-spin" />
+                  ) : (
+                    <Square className="size-4" />
+                  )}
+                  {t("actions.stop")}
+                </Button>
               )}
-              {t("actions.stop")}
-            </Button>
+            </div>
           </SettingsGroupRow>
         ) : null}
       </SettingsGroupCard>
