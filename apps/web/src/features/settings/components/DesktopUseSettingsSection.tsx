@@ -81,6 +81,11 @@ export function DesktopUseSettingsSection() {
   /** Refresh control published by DesktopUsePermissionsPanel → group header. */
   const [permissionsHeaderEnd, setPermissionsHeaderEnd] =
     useState<React.ReactNode>(null);
+  /**
+   * Bumped after install/update/stop/uninstall so the permissions panel re-runs
+   * doctor without requiring collapse/expand (Collapsible keeps children mounted).
+   */
+  const [permissionsRefreshToken, setPermissionsRefreshToken] = useState(0);
 
   const load = useCallback(async (opts?: { silent?: boolean }) => {
     const silent = Boolean(opts?.silent);
@@ -201,6 +206,20 @@ export function DesktopUseSettingsSection() {
       // Install / stop / uninstall change doctor results — drop readiness cache.
       invalidateDesktopUseReadinessCache();
       await load({ silent: true });
+      // Permissions panel does not share status IPC — poke it to re-doctor.
+      setPermissionsRefreshToken((n) => n + 1);
+      // After install/update/uninstall, surface the permissions group so Grant
+      // rows are visible without the user re-expanding the card.
+      if (
+        actionKey === "install" ||
+        actionKey === "update" ||
+        actionKey === "uninstall"
+      ) {
+        setPermissionsOpen(true);
+      }
+      if (actionKey === "uninstall") {
+        setEngineOpen(true);
+      }
     } catch (e) {
       const fallback =
         actionKey === "install"
@@ -249,6 +268,24 @@ export function DesktopUseSettingsSection() {
     return t("groups.engine.description");
   })();
 
+  const uninstallButton = (
+    <Button
+      type="button"
+      size="sm"
+      variant="outline"
+      disabled={busy || loading}
+      onClick={() => setUninstallOpen(true)}
+      className="cursor-pointer text-destructive hover:text-destructive"
+    >
+      {busyAction === "uninstall" ? (
+        <Loader2 className="size-4 animate-spin" />
+      ) : (
+        <Trash2 className="size-4" />
+      )}
+      {t("actions.uninstall")}
+    </Button>
+  );
+
   return (
     <div className="space-y-4">
       {/* 1. Control engine — install / status / stop / uninstall */}
@@ -293,9 +330,12 @@ export function DesktopUseSettingsSection() {
             </Button>
           ) : updateAvailable ? (
             <div className="flex flex-col items-end gap-2">
-              <span className="text-sm text-muted-foreground">
-                {engineStatusLabel}
-              </span>
+              <div className="flex items-center gap-2">
+                {uninstallButton}
+                <span className="text-sm text-muted-foreground">
+                  {engineStatusLabel}
+                </span>
+              </div>
               <Button
                 type="button"
                 size="sm"
@@ -318,62 +358,41 @@ export function DesktopUseSettingsSection() {
               </Button>
             </div>
           ) : (
-            <span className="text-sm text-muted-foreground">
-              {engineStatusLabel}
-            </span>
+            <div className="flex items-center gap-2">
+              {uninstallButton}
+              <span className="text-sm text-muted-foreground">
+                {engineStatusLabel}
+              </span>
+            </div>
           )}
         </SettingsGroupRow>
 
         {installed && desktop ? (
-          <>
-            <SettingsGroupRow
-              title={t("actions.stop")}
-              description={t("engine.stopHint")}
-              wide
+          <SettingsGroupRow
+            title={t("actions.stop")}
+            description={t("engine.stopHint")}
+            wide
+          >
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={busy || loading}
+              onClick={() =>
+                void run("stop", async () => {
+                  await desktopInvoke("desktop_use_driver_stop");
+                })
+              }
+              className="cursor-pointer"
             >
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                disabled={busy || loading}
-                onClick={() =>
-                  void run("stop", async () => {
-                    await desktopInvoke("desktop_use_driver_stop");
-                  })
-                }
-                className="cursor-pointer"
-              >
-                {busyAction === "stop" ? (
-                  <Loader2 className="size-4 animate-spin" />
-                ) : (
-                  <Square className="size-4" />
-                )}
-                {t("actions.stop")}
-              </Button>
-            </SettingsGroupRow>
-
-            <SettingsGroupRow
-              title={t("actions.uninstall")}
-              description={t("engine.removeHint")}
-              wide
-            >
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                disabled={busy || loading}
-                onClick={() => setUninstallOpen(true)}
-                className="cursor-pointer text-destructive hover:text-destructive"
-              >
-                {busyAction === "uninstall" ? (
-                  <Loader2 className="size-4 animate-spin" />
-                ) : (
-                  <Trash2 className="size-4" />
-                )}
-                {t("actions.uninstall")}
-              </Button>
-            </SettingsGroupRow>
-          </>
+              {busyAction === "stop" ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <Square className="size-4" />
+              )}
+              {t("actions.stop")}
+            </Button>
+          </SettingsGroupRow>
         ) : null}
       </SettingsGroupCard>
 
@@ -450,6 +469,8 @@ export function DesktopUseSettingsSection() {
       >
         <DesktopUsePermissionsPanel
           onHeaderEndChange={setPermissionsHeaderEnd}
+          engineInstalledFromParent={desktop ? installed : null}
+          doctorRefreshToken={permissionsRefreshToken}
         />
       </SettingsGroupCard>
 

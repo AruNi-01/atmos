@@ -83,11 +83,12 @@ describe("Desktop Use settings wiring", () => {
     expect(engineIdx).toBeGreaterThan(-1);
     expect(permsIdx).toBeGreaterThan(engineIdx);
     expect(visIdx).toBeGreaterThan(permsIdx);
-    // Stop / Uninstall live under the engine group (not standalone cards)
+    // Stop stays as its own engine-group row; Uninstall sits next to status label
     expect(section).toContain('t("actions.stop")');
     expect(section).toContain('t("actions.uninstall")');
     expect(section).toContain('t("engine.stopHint")');
-    expect(section).toContain('t("engine.removeHint")');
+    expect(section).toContain("uninstallButton");
+    expect(section).not.toContain('t("engine.removeHint")');
     // Default collapse: installed engine (no update) → collapse; all perms → collapse
     expect(section).toContain("defaultsAppliedRef");
     expect(section).toContain("setEngineOpen");
@@ -168,6 +169,34 @@ describe("Desktop Use settings wiring", () => {
     expect(section).toContain("onHeaderEndChange={setPermissionsHeaderEnd}");
     // Must not wire permissions → parent load callback (infinite refresh)
     expect(section).not.toMatch(/onStatusChange\s*=/);
+  });
+
+  it("install/update pokes permissions panel so grant rows appear without re-expand", () => {
+    const section = readFileSync(
+      join(
+        root,
+        "apps/web/src/features/settings/components/DesktopUseSettingsSection.tsx",
+      ),
+      "utf8",
+    );
+    const panel = readFileSync(
+      join(
+        root,
+        "apps/web/src/features/settings/components/DesktopUsePermissionsPanel.tsx",
+      ),
+      "utf8",
+    );
+    // Parent → panel one-way signal after driver actions (not reverse onStatusChange).
+    expect(section).toContain("permissionsRefreshToken");
+    expect(section).toContain("setPermissionsRefreshToken");
+    expect(section).toContain("doctorRefreshToken={permissionsRefreshToken}");
+    expect(section).toContain("engineInstalledFromParent={desktop ? installed : null}");
+    expect(panel).toContain("engineInstalledFromParent");
+    expect(panel).toContain("doctorRefreshToken");
+    // After install, open permissions group so rows are visible.
+    expect(section).toMatch(
+      /actionKey === "install"[\s\S]*setPermissionsOpen\(true\)/,
+    );
   });
 
   it("permission primary path opens Settings Desktop Use", () => {
