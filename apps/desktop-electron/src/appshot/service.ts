@@ -639,7 +639,7 @@ export async function triggerCapture(state: AppState): Promise<void> {
 
   const { expiresInMs } = globalPendingStore.insert(capture);
 
-  // Bring Atmos to front for the preview sheet (steal focus from the captured app).
+  // Bring Atmos to front first so the fly destination (top-right chrome) is visible.
   try {
     if (process.platform === "darwin") {
       const { app } = await import("electron");
@@ -662,6 +662,37 @@ export async function triggerCapture(state: AppState): Promise<void> {
     state.mainWindow.focus();
   }
 
+  // Thumbnail arcs from the captured app into Atmos top-right (Appshots entry).
+  // Runs after Atmos is shown so the landing target is on-screen.
+  if (
+    process.platform === "darwin" &&
+    screenshotPreviewBase64 &&
+    capture.sourceBounds &&
+    state.mainWindow &&
+    !state.mainWindow.isDestroyed()
+  ) {
+    try {
+      const { playCaptureFlyToAtmos } = await import("./capture-fly.js");
+      const dest = state.mainWindow.getBounds();
+      await playCaptureFlyToAtmos({
+        sourceBounds: capture.sourceBounds,
+        destWindowBounds: {
+          x: dest.x,
+          y: dest.y,
+          width: dest.width,
+          height: dest.height,
+        },
+        imageDataUrl: screenshotPreviewBase64.startsWith("data:")
+          ? screenshotPreviewBase64
+          : `data:image/png;base64,${screenshotPreviewBase64}`,
+      });
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      mainLog(`[appshot-capture] fly-to-Atmos skipped: ${msg}`, "warn");
+    }
+  }
+
+  // Preview sheet appears as the card lands — closed visual loop.
   state.mainWindow?.webContents.send("atmos:desktop-event:appshot://preview", {
     preview_id: previewId,
     app_name: capture.appName,
