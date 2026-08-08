@@ -1,0 +1,54 @@
+apps/cli/src/commands/desktop_use/args.rs
+  h_5be255725524c8 56-59
+apps/cli/src/commands/desktop_use/mod.rs
+  h_5be255725524c8 23-24,87-110
+apps/desktop-electron/native/appshot-shift/appshot_shift.c
+  h_5be255725524c8 244-433
+apps/desktop-electron/scripts/build-appshot-shift-native.ts
+  h_5be255725524c8 2-8,18-19,21-22,25,39-84
+apps/desktop-electron/src/appshot/contract.test.ts
+  h_5be255725524c8 132-149
+apps/desktop-electron/src/appshot/host-shift.ts
+  h_5be255725524c8 1-287
+apps/desktop-electron/src/appshot/service.ts
+  h_5be255725524c8 146-148,154-155,157-160,170-171,182,214-216,238-295,297-317,340-346,354-355,358-365,713-722,734
+apps/desktop-electron/src/appshot/trigger-event-tap.ts
+  h_5be255725524c8 2,4-6,8-9,18-22,24,74,163,181-267
+apps/desktop-electron/src/desktop-use/client.ts
+  h_5be255725524c8 133-140
+apps/desktop-electron/src/ipc/handlers.ts
+  h_5be255725524c8 622-629,658-667
+apps/web/messages/en.json
+  h_5be255725524c8 5718,5735,5737-5760,5766-5767,5791,5798,5802,5811-5812
+apps/web/messages/zh.json
+  h_5be255725524c8 5718,5735,5737-5760,5766-5767,5791,5798,5802,5811-5812
+apps/web/src/features/appshot/components/AppshotPermissionsPanel.tsx
+  h_5be255725524c8 64-66,72,74,76-77,85,104-111
+apps/web/src/features/appshot/components/AppshotsHistoryPopover.tsx
+  h_5be255725524c8 80-84
+apps/web/src/features/desktop-use/lib/readiness-modal-bus.ts
+  h_5be255725524c8 97-99,113-126,153-202
+apps/web/src/features/settings/components/DesktopUseSettingsSection.tsx
+  h_5be255725524c8 15,22,26,66,69,72-104,113-119,135-219,222-246,248-251,253-255,305-313,315,338-355,365-367,374-429,437-449,453-458,469-476,507-516,538-540,546,548,554,556,558-559,561,564-595,606,608-609,612-664,666-684,686
+apps/web/src/features/settings/components/__tests__/desktop-use-settings-section.test.ts
+  h_5be255725524c8 86-88,90,92-93,95-96,105-119
+crates/desktop-use/src/host.rs
+  h_5be255725524c8 79-82,85-116,120-139,141,143-185,187-188,191-197
+crates/desktop-use/src/install.rs
+  h_5be255725524c8 6-8,100-101,106,129,146,148,150-154,170-174,176-179,251-284,287-290,292-317
+crates/desktop-use/src/lib.rs
+  h_5be255725524c8 37-39
+crates/desktop-use/src/manager.rs
+  h_5be255725524c8 76-94,100-102,172-179,197,237,243,255,279,286,294-298,300,315,325,330-340,348,360-419,450,452-456,463-475
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "64846e9bd40a604999b92bc8fd94b978ad937abe",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
