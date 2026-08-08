@@ -1,0 +1,20 @@
+apps/desktop-electron/src/appshot/service.ts
+  h_5be255725524c8 611-628,650
+apps/web/messages/en.json
+  h_5be255725524c8 7447,7465-7470
+apps/web/messages/zh.json
+  h_5be255725524c8 7447,7465-7470
+apps/web/src/features/appshot/components/AppshotCapturePreview.tsx
+  h_5be255725524c8 5,30,268-273,307,309,311,319,326,342,345,354,364
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "46894d0c5cfa6cf0f66494407dc3f6c10abb5a95",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
