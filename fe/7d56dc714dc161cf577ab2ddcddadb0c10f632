@@ -1,0 +1,24 @@
+apps/desktop-electron/src/appshot/frontmost.ts
+  h_5be255725524c8 41-43
+apps/desktop-electron/src/appshot/service.ts
+  h_5be255725524c8 629-631
+apps/desktop-electron/src/desktop-use/host-capture.test.ts
+  h_5be255725524c8 6-7,31-32,35-131,155,168,170-189
+apps/desktop-electron/src/desktop-use/host-capture.ts
+  h_5be255725524c8 10,30-59,67-125,127-129,133-137,140-144,146-155,159-174,179-180,182-185,196-240,297-299,309-325,361,372-377,380,383,388
+apps/web/src/features/appshot/components/AppshotCapturePreview.tsx
+  h_5be255725524c8 292-295
+apps/web/src/features/appshot/components/AppshotRecordRow.tsx
+  h_5be255725524c8 7-10,35-45
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "fe7d56dc714dc161cf577ab2ddcddadb0c10f632",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
