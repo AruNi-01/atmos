@@ -1,47 +1,47 @@
 {
   "schema_version": 1,
-  "engine_version": "0.17.0",
-  "upstream_tag": "cua-driver-rs-v0.17.0",
+  "engine_version": "0.19.2",
+  "upstream_tag": "cua-driver-rs-v0.19.2",
   "display_name": "Desktop control engine",
   "host_app_name": "Atmos Desktop Use",
   "host_bundle_id": "com.atmos.desktop.use",
   "binaries": [
     {
       "platform": "aarch64-apple-darwin",
-      "url": "https://github.com/trycua/cua/releases/download/cua-driver-rs-v0.17.0/cua-driver-rs-0.17.0-darwin-arm64.tar.gz",
-      "sha256": "55ed672850492080ff4e7dab4948b4f3bc70c3b84884a89b1eb8521a5d8177a8",
+      "url": "https://github.com/trycua/cua/releases/download/cua-driver-rs-v0.19.2/cua-driver-rs-0.19.2-darwin-arm64.tar.gz",
+      "sha256": "c30a81f6b5cfd44d40653f7549d7d714b445e9cbd0ed012c4c524f1c43d2872b",
       "archive_kind": "tar_gz",
-      "engine_inner_path": "cua-driver-rs-0.17.0-darwin-arm64/cua-driver",
-      "host_app_inner_path": "cua-driver-rs-0.17.0-darwin-arm64/CuaDriver.app"
+      "engine_inner_path": "cua-driver-rs-0.19.2-darwin-arm64/cua-driver",
+      "host_app_inner_path": "cua-driver-rs-0.19.2-darwin-arm64/CuaDriver.app"
     },
     {
       "platform": "x86_64-apple-darwin",
-      "url": "https://github.com/trycua/cua/releases/download/cua-driver-rs-v0.17.0/cua-driver-rs-0.17.0-darwin-x86_64.tar.gz",
-      "sha256": "cbabf2f71a25b6b158a42384b775d3a75fac15185280d2036d175ee8b49301ae",
+      "url": "https://github.com/trycua/cua/releases/download/cua-driver-rs-v0.19.2/cua-driver-rs-0.19.2-darwin-x86_64.tar.gz",
+      "sha256": "a9c0ae771f984077dfaddde50f340e52e8b9919f2b8f5917f44334bce92e92de",
       "archive_kind": "tar_gz",
-      "engine_inner_path": "cua-driver-rs-0.17.0-darwin-x86_64/cua-driver",
-      "host_app_inner_path": "cua-driver-rs-0.17.0-darwin-x86_64/CuaDriver.app"
+      "engine_inner_path": "cua-driver-rs-0.19.2-darwin-x86_64/cua-driver",
+      "host_app_inner_path": "cua-driver-rs-0.19.2-darwin-x86_64/CuaDriver.app"
     },
     {
       "platform": "x86_64-unknown-linux-gnu",
-      "url": "https://github.com/trycua/cua/releases/download/cua-driver-rs-v0.17.0/cua-driver-rs-0.17.0-linux-x86_64-binary.tar.gz",
-      "sha256": "d8fc3e69fc83f01e6c3a70acef1b16e59a2dfc3c91aa98276360a6d211a61017",
+      "url": "https://github.com/trycua/cua/releases/download/cua-driver-rs-v0.19.2/cua-driver-rs-0.19.2-linux-x86_64-binary.tar.gz",
+      "sha256": "13372e584fcfe4020fe0c5a70ac8d4f0e1c37125f104702d0156d0dddf98fc15",
       "archive_kind": "tar_gz",
-      "engine_inner_path": "cua-driver-rs-0.17.0-linux-x86_64/cua-driver",
+      "engine_inner_path": "cua-driver",
       "host_app_inner_path": null
     },
     {
       "platform": "aarch64-unknown-linux-gnu",
-      "url": "https://github.com/trycua/cua/releases/download/cua-driver-rs-v0.17.0/cua-driver-rs-0.17.0-linux-arm64-binary.tar.gz",
-      "sha256": "6c831973d51146d382943f17087962839080f4cd32f15237e43c72b2fc876611",
+      "url": "https://github.com/trycua/cua/releases/download/cua-driver-rs-v0.19.2/cua-driver-rs-0.19.2-linux-arm64-binary.tar.gz",
+      "sha256": "6b50aa2539cc4870b80ed19861550639613b5763cfc636427fd80dbb84b56096",
       "archive_kind": "tar_gz",
-      "engine_inner_path": "cua-driver-rs-0.17.0-linux-arm64/cua-driver",
+      "engine_inner_path": "cua-driver",
       "host_app_inner_path": null
     },
     {
       "platform": "x86_64-pc-windows-msvc",
-      "url": "https://github.com/trycua/cua/releases/download/cua-driver-rs-v0.17.0/cua-driver-rs-0.17.0-windows-x86_64-binary.zip",
-      "sha256": "f7e366edc4b7148b4f6f78957782b2a2d962620b0daaeb99df7cf9dce6176193",
+      "url": "https://github.com/trycua/cua/releases/download/cua-driver-rs-v0.19.2/cua-driver-rs-0.19.2-windows-x86_64-binary.zip",
+      "sha256": "9868b60999e64ed1028a0f65082624dab7523b06f33b68d582fa0a187d1bf618",
       "archive_kind": "zip",
       "engine_inner_path": "cua-driver.exe",
       "host_app_inner_path": null

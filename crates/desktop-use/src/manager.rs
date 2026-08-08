@@ -146,7 +146,7 @@ impl DesktopUseManager {
     }
 
     pub fn host_app_path(&self) -> Option<PathBuf> {
-        EngineManifest::embedded()
+        EngineManifest::load()
             .ok()
             .and_then(|m| host_app_path(&self.data_dir, &m))
     }
@@ -178,7 +178,7 @@ impl DesktopUseManager {
             None
         };
         let error = persisted.and_then(|s| s.error).filter(|_| !installed);
-        let manifest = EngineManifest::embedded().ok();
+        let manifest = EngineManifest::load().ok();
         let pinned_version = manifest.as_ref().map(|m| m.engine_version.clone());
         let installed_version = installed
             .then(|| read_installed_version(&self.data_dir))
@@ -229,7 +229,7 @@ impl DesktopUseManager {
         if self.engine_bin.is_file() && !force {
             // Keep host branding (Atmos icon/plist) current without re-download.
             if let (Ok(manifest), Some(host)) = (
-                crate::engine_manifest::EngineManifest::embedded(),
+                crate::engine_manifest::EngineManifest::load(),
                 self.host_app_path(),
             ) {
                 let _ = crate::install::rebrand_existing_host_app(&host, &manifest);
@@ -264,7 +264,7 @@ impl DesktopUseManager {
                             );
                         }
                         // Record pin so status can detect future updates.
-                        if let Ok(manifest) = EngineManifest::embedded() {
+                        if let Ok(manifest) = EngineManifest::load() {
                             let meta = serde_json::json!({
                                 "engine_version": manifest.engine_version,
                                 "host_app_name": manifest.host_app_name,
@@ -428,7 +428,7 @@ impl DesktopUseManager {
         let engine = self.require_engine()?;
         // Refresh host branding only if icon/plist still wrong (idempotent; no TCC churn).
         if let (Ok(manifest), Some(host)) = (
-            crate::engine_manifest::EngineManifest::embedded(),
+            crate::engine_manifest::EngineManifest::load(),
             self.host_app_path(),
         ) {
             let _ = crate::install::rebrand_existing_host_app(&host, &manifest);
@@ -564,7 +564,7 @@ mod tests {
         let st = mgr.status();
         assert!(st.driver.installed);
         assert_eq!(st.installed_version.as_deref(), Some("0.0.1"));
-        assert_eq!(st.pinned_version.as_deref(), Some("0.17.0"));
+        assert_eq!(st.pinned_version.as_deref(), Some("0.19.2"));
         assert!(st.update_available);
     }
 

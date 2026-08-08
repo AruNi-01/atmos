@@ -26,7 +26,7 @@ pub use control::{
 };
 pub use doctor::{permission_doctor, PermissionDoctor};
 pub use drive_tools::build_engine_call;
-pub use engine_manifest::{current_platform, EngineManifest};
+pub use engine_manifest::{current_platform, EngineManifest, MANIFEST_ENV};
 // engine_protocol is used by browser-use for soft-failure detection.
 pub use highlight::{
     bounds_for_window_id, build_status_label, clear_highlight, operation_border_enabled,

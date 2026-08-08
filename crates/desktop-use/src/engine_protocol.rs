@@ -1,4 +1,4 @@
-//! Pure parse/map units for the pinned control-engine wire protocol (cua-driver 0.17.0).
+//! Pure parse/map units for the pinned control-engine wire protocol (0.19.2).
 //!
 //! No process spawn here — unit tests lock real response shapes via fixtures.
 
@@ -50,7 +50,7 @@ pub fn engine_payload_is_failure(v: &Value) -> Option<String> {
 
 /// Parse `call` CLI stdout/stderr into JSON.
 ///
-/// Rules (locked against 0.17.0 live probe):
+/// Rules (locked against 0.19.x live probe; shapes stable since 0.17 fixtures):
 /// - non-zero exit → Err
 /// - empty stdout on success → `{"ok": true}` (tools with no payload)
 /// - non-JSON stdout → **Err** (never wrap as `Ok({ok:true, raw})` — TCC/screencapture
@@ -88,7 +88,7 @@ pub fn parse_call_tool_output(success: bool, stdout: &str, stderr: &str) -> Resu
     }
 }
 
-/// Extract PNG bytes from a real 0.17.0 engine payload and/or a file written by
+/// Extract PNG bytes from a real engine payload and/or a file written by
 /// `--screenshot-out-file` / tool arg `screenshot_out_file`.
 ///
 /// Accepted shapes only:
@@ -269,7 +269,7 @@ mod tests {
     }
 
     fn fixture_dir() -> PathBuf {
-        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/engine_0_17_0")
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/engine_0_19_2")
     }
 
     fn load_text(name: &str) -> String {

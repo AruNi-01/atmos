@@ -21,7 +21,7 @@ pub struct PermissionDoctor {
 }
 
 pub fn permission_doctor(manager: &DesktopUseManager) -> PermissionDoctor {
-    let manifest = EngineManifest::embedded().ok();
+    let manifest = EngineManifest::load().ok();
     let host_app_name = manifest
         .as_ref()
         .map(|m| m.host_app_name.clone())

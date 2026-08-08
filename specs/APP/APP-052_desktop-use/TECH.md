@@ -13,7 +13,9 @@
 | Choice | Decision |
 |--------|----------|
 | Source | **Pin official `cua-driver-rs-v*` release artifacts** (not monorepo compile-in-tree as default) |
-| Pin | `0.17.0` / tag `cua-driver-rs-v0.17.0` in `crates/desktop-use/manifest/default.json` |
+| Pin | `0.19.2` / tag `cua-driver-rs-v0.19.2` in `crates/desktop-use/manifest/default.json` |
+| Pin authority (Desktop) | **App Resources** `desktop-use/engine-manifest.json` via `ATMOS_DESKTOP_USE_MANIFEST` (same Desktop build as runner). Bare CLI falls back to embedded manifest. |
+| Runner (Desktop) | Packaged `resources/runtime/current/bin/atmos` (or `resources/bin/atmos`); never PATH `~/.atmos/bin` for pin truth in packaged apps. |
 | Install path | `atmos desktop-use driver ensure` downloads + sha256-verifies + extracts into `~/.atmos/desktop-use/` |
 | Managed binary name | `atmos-desktop-control` (white-label; never teach users `cua-driver`) |
 | macOS host identity | Rebrand extracted host app to **Atmos Desktop Use.app** (`com.atmos.desktop.use`) + ad-hoc/product codesign so TCC grants show **one** product name for AppShot + control |
@@ -30,7 +32,7 @@ Daemon: managed socket `~/.atmos/desktop-use/engine.sock`.
 4. `driver grant-permissions` is **Atmos-owned**: open System Settings Privacy panes (Screen Recording + Accessibility) + host-identity capture probe so **Atmos Desktop Use** appears in the list. Do **not** call upstream `permissions grant` (hardcodes `CuaDriver.app`).
 5. When engine is installed, AppShot permission panel uses Desktop Use doctor + host grant (one product identity).
 6. When engine is installed, **AppShot dual-shift capture** also uses the host engine (`drive screenshot` / window list under Atmos Desktop Use.app), not Electron `osascript`/`screencapture`. Electron in-process capture is **only** the pre-ensure fallback.
-7. **Screenshot wire (pinned 0.17.0):** `call --screenshot-out-file` + tool arg `screenshot_out_file`; parse MCP image `content[]` / `screenshot_file_path` only. Exit-0 plain-text engine errors are **Err** (not soft `ok:true`). Atmos injects `png_base64` / `png_path` into drive JSON for clients. Fixtures: `crates/desktop-use/tests/fixtures/engine_0_17_0/`.
+7. **Screenshot wire (pinned 0.19.2):** `call --screenshot-out-file` + tool arg `screenshot_out_file`; parse MCP image `content[]` / `screenshot_file_path` only. Exit-0 plain-text engine errors are **Err** (not soft `ok:true`). Atmos injects `png_base64` / `png_path` into drive JSON for clients. Fixtures: `crates/desktop-use/tests/fixtures/engine_0_19_2/`.
 8. **Host icon:** install rewrites `AppIcon.icns` with Atmos product icon (`crates/desktop-use/assets/host-app-icon.icns`); ensure re-applies branding without re-download.
 9. Rejected: primary UX that asks users to grant **CuaDriver.app** / `com.trycua.driver`; rejected: relying on vendor `permissions grant` after white-label.
 
@@ -152,29 +154,32 @@ Defaults: `delivery_mode=background`; optional session + operation border chrome
 | Surface | Object | CLI | Engine tools (external Chromium first) |
 |---------|--------|-----|----------------------------------------|
 | **Desktop Use** | OS windows, keys, AX, pixels | `atmos desktop-use` | `list_windows`, `click`, `type_text`, … |
-| **Browser Use** | Bound browser **tabs / DOM** | `atmos browser-use` | `browser_prepare`, `get_browser_state`, `browser_click`, `browser_type`, `browser_navigate`, … |
+| **Browser Use** | Bound browser **tabs / DOM** (engine **0.19.2+**) | `atmos browser-use` | `browser_prepare`, `get_browser_state` (`semantic_v2`), `browser_click`, `browser_type`, `browser_navigate`, `browser_pointer`, `browser_dialog`, `browser_download`, … |
 
 Rules:
 
 1. **No MCP** on either surface.
 2. Browser Use is **not** branded Desktop Use; no operation-border chrome coupling.
 3. **Backend trait (crate `browser-use`):**
-   - **`CuaExternalBrowserBackend`** — attach system Chromium via managed desktop-use engine socket/`call` (Phase 3 first ship).
-   - **`AtmosEmbeddedBrowserBackend`** — **reserved stub** until APP-053 desktop browser webview (PR #203: in-DOM `<webview>`, `browser_bridge_*`, partition `persist:atmos-browser`) is merged and verified. Stub returns structured `embedded_browser_not_implemented` (fail closed, never fake `ok: true`).
-4. Reuse model: same Agent/CLI page actions (prepare/state/click/type/navigate); **attach path** differs (external CDP vs Electron debugger / host-owned endpoint). Do not force embedded tabs through “user Chrome prepare”.
+   - **`ExternalBackend`** — system Chromium via managed desktop-use engine socket/`call` (pin **0.19.2** extension-free browser tools).
+   - **`EmbeddedBackend`** — Atmos in-app browser via host control plane (APP-053).
+4. Reuse model: page actions (prepare/state/click/type/navigate/pointer/dialog/download); **attach path** differs (external CDP vs Electron host). Do not force embedded tabs through “user Chrome prepare”.
 5. Skill decision: page/DOM → Browser Use; window chrome / any App → Desktop Use.
+6. **External prepare default** is `isolated_new` + `allow_launch` (driver-owned profile). `existing_profile` is opt-in and requires `--window-id`.
+7. **State snapshot default** is `snapshot_format=semantic_v2` (bind mode omits format).
 
 ```bash
-# prepare: pid required; existing_profile needs --window-id (do not default that strategy)
-atmos browser-use --json prepare --backend cua --pid <chrome_pid>
-atmos browser-use --json prepare --backend cua --pid <pid> --window-id <wid> --strategy existing_profile
-# state bind → mints target_id/tab_ids; snapshot uses those ids
-atmos browser-use --json state --backend cua --pid <pid> --window-id <wid>
-atmos browser-use --json state --backend cua --target-id … --tab-id …
-atmos browser-use --json click --backend cua --target-id … --tab-id … --ref …
-atmos browser-use --json type --backend cua --target-id … --tab-id … --ref … --text "…"
-atmos browser-use --json navigate --backend cua --target-id … --tab-id … --url https://…
-atmos browser-use --json prepare --backend embedded   # → not_implemented until APP-053
+# prepare: pid required; default isolated_new (safe). existing_profile needs --window-id
+atmos browser-use --json prepare --backend external --pid <chrome_pid>
+atmos browser-use --json prepare --backend external --pid <pid> --window-id <wid> --strategy existing_profile
+# state bind → mints target_id/tab_ids; snapshot defaults to semantic_v2
+atmos browser-use --json state --backend external --pid <pid> --window-id <wid>
+atmos browser-use --json state --backend external --target-id … --tab-id … --include-screenshot
+atmos browser-use --json click --backend external --target-id … --tab-id … --ref …
+atmos browser-use --json type --backend external --target-id … --tab-id … --ref … --text "…"
+atmos browser-use --json navigate --backend external --target-id … --tab-id … --url https://…
+atmos browser-use --json pointer --backend external --target-id … --tab-id … --action hover --ref …
+atmos browser-use --json prepare --backend embedded
 ```
 
 ## 6. Settings UI

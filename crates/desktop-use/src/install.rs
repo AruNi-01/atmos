@@ -105,7 +105,7 @@ pub fn download_and_install(
     force: bool,
     mut on_progress: impl FnMut(f32),
 ) -> Result<InstallLayout, String> {
-    let manifest = EngineManifest::embedded()?;
+    let manifest = EngineManifest::load()?;
     let platform = current_platform();
     if platform == "unknown" {
         return Err(scrub_vendor(
@@ -539,7 +539,7 @@ mod tests {
         let engine_bin = data.join("bin").join("atmos-desktop-control");
 
         // Build a tiny tar.gz with fake engine binary.
-        let staging = dir.path().join("stage/cua-driver-rs-0.17.0-darwin-arm64");
+        let staging = dir.path().join("stage/cua-driver-rs-0.19.2-darwin-arm64");
         fs::create_dir_all(&staging).unwrap();
         let mut f = File::create(staging.join("cua-driver")).unwrap();
         f.write_all(b"#!/bin/sh\necho fixture-engine\n").unwrap();
@@ -560,7 +560,7 @@ mod tests {
             .arg(&tar_path)
             .arg("-C")
             .arg(dir.path().join("stage"))
-            .arg("cua-driver-rs-0.17.0-darwin-arm64")
+            .arg("cua-driver-rs-0.19.2-darwin-arm64")
             .status()
             .unwrap();
         assert!(status.success());
@@ -576,7 +576,7 @@ mod tests {
             url: "file://fixture".into(),
             sha256: sha,
             archive_kind: "tar_gz".into(),
-            engine_inner_path: "cua-driver-rs-0.17.0-darwin-arm64/cua-driver".into(),
+            engine_inner_path: "cua-driver-rs-0.19.2-darwin-arm64/cua-driver".into(),
             host_app_inner_path: None,
         };
 

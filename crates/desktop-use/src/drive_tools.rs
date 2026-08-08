@@ -18,7 +18,7 @@ fn build_clipboard_call(req: &DriveRequest) -> Result<(&'static str, Value), Str
             Ok(("clipboard_read", a))
         }
         DriveAction::ClipboardWrite => {
-            // Engine 0.17 clipboard_write: exactly one of text | image_path | file_path.
+            // Engine clipboard_write: exactly one of text | image_path | file_path.
             // additionalProperties:false — do not send content_kind.
             let text = req
                 .text
@@ -196,7 +196,7 @@ pub fn build_engine_call(req: &DriveRequest) -> Result<(&'static str, Value), St
                 DriveAction::RightClick => "right_click",
                 _ => unreachable!(),
             };
-            // double_click / right_click require pid in engine 0.17 (no scope=desktop path).
+            // double_click / right_click require pid for window-scoped engine tools.
             let pid_required = matches!(
                 req.action,
                 DriveAction::DoubleClick | DriveAction::RightClick
@@ -204,7 +204,7 @@ pub fn build_engine_call(req: &DriveRequest) -> Result<(&'static str, Value), St
 
             if let Some(token) = req.element_token.as_ref() {
                 if pid_required && req.pid.is_none() {
-                    return Err(format!("{tool} requires --pid (engine 0.17)"));
+                    return Err(format!("{tool} requires --pid"));
                 }
                 // Prefer also passing pid/window_id when known (engine validates agreement).
                 let mut a = json!({
@@ -219,7 +219,7 @@ pub fn build_engine_call(req: &DriveRequest) -> Result<(&'static str, Value), St
                     format!("{tool} --element-index requires --snapshot-id from window-state")
                 })?;
                 if pid_required && req.pid.is_none() {
-                    return Err(format!("{tool} requires --pid (engine 0.17)"));
+                    return Err(format!("{tool} requires --pid"));
                 }
                 if req.window_id.is_none() {
                     return Err(format!(
@@ -238,7 +238,7 @@ pub fn build_engine_call(req: &DriveRequest) -> Result<(&'static str, Value), St
             if pid_required {
                 let pid = req
                     .pid
-                    .ok_or_else(|| format!("{tool} requires --pid with --x/--y (engine 0.17)"))?;
+                    .ok_or_else(|| format!("{tool} requires --pid with --x/--y"))?;
                 let mut a = json!({
                     "x": x,
                     "y": y,

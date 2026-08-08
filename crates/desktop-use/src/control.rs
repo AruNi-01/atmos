@@ -649,7 +649,7 @@ fn screenshot_via_engine(
         return DriveResult::err(action_name, DriveError::EngineFailed(e));
     }
 
-    // Materialize PNG via real 0.17.0 contract: --screenshot-out-file + tool arg.
+    // Materialize PNG via engine contract: --screenshot-out-file + tool arg.
     let tmp_guard = if req.out_path.is_none() {
         match tempfile::Builder::new()
             .prefix("atmos-du-shot-")
