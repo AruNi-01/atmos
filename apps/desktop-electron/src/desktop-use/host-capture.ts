@@ -7,6 +7,7 @@
 
 import {
   buildAppshotContextMarkdown,
+  desktopUseReadFrontmost,
   type DesktopUseFrontmost,
 } from "./capture.js";
 import {
@@ -26,6 +27,36 @@ export type HostWindowRow = {
   bounds?: { x?: number; y?: number; width?: number; height?: number };
 };
 
+/** Overlay / helper processes that are never the user's AppShot target. */
+const SKIP_APP_NAMES = new Set(
+  [
+    "CursorUIViewService",
+    "Window Server",
+    "WindowManager",
+    "WindowManager Server",
+    "NotificationCenter",
+    "Control Center",
+    "ControlCentre",
+    "Dock",
+    "SystemUIServer",
+    "TextInputMenuAgent",
+    "TextInputSwitcher",
+    "Spotlight",
+    "SpotlightUIServer",
+    "Universal Control",
+    "AirPlayUIAgent",
+    "UserNotificationCenter",
+    "coreautha",
+    "loginwindow",
+    "Wallpaper",
+    "WidgetKit Simulator",
+    "JavaApplicationStub", // rarely useful as "frontmost" alone
+  ].map((s) => s.toLowerCase()),
+);
+
+/** Minimum window area (logical points²) to count as a real content window. */
+const MIN_WINDOW_AREA = 120 * 120;
+
 /** Pure: use host engine capture iff control engine is installed. */
 export function shouldUseHostEngineCapture(
   status: Pick<DesktopUseStatusJson, "driver"> | null | undefined,
@@ -33,33 +64,125 @@ export function shouldUseHostEngineCapture(
   return Boolean(status?.driver?.installed);
 }
 
+function windowArea(w: HostWindowRow): number {
+  const b = w.bounds;
+  if (!b) return 0;
+  const width = typeof b.width === "number" ? b.width : 0;
+  const height = typeof b.height === "number" ? b.height : 0;
+  if (width <= 0 || height <= 0) return 0;
+  return width * height;
+}
+
+function isSkippedApp(name: string | undefined | null): boolean {
+  const n = (name ?? "").trim().toLowerCase();
+  if (!n) return true;
+  if (SKIP_APP_NAMES.has(n)) return true;
+  // Generic agent / UI helper suffixes
+  if (n.endsWith("uiviewservice") || n.endsWith("uiagent")) return true;
+  return false;
+}
+
+function scoreWindow(
+  w: HostWindowRow,
+  opts: {
+    preferPid?: number | null;
+    preferApp?: string | null;
+    selfNames: Set<string>;
+    anyOnScreen: boolean;
+  },
+): number {
+  const app = (w.app_name ?? "").trim();
+  if (!app || isSkippedApp(app)) return -Infinity;
+  if (opts.selfNames.has(app)) return -Infinity;
+
+  const area = windowArea(w);
+  if (area > 0 && area < MIN_WINDOW_AREA) return -Infinity;
+
+  let score = 0;
+  const z = typeof w.z_index === "number" ? w.z_index : 0;
+  score += z;
+
+  if (opts.anyOnScreen) {
+    if (w.is_on_screen) score += 1_000_000;
+    else score -= 500_000;
+  }
+
+  if (opts.preferPid != null && w.pid === opts.preferPid) score += 5_000_000;
+  if (
+    opts.preferApp &&
+    app.toLowerCase() === opts.preferApp.trim().toLowerCase()
+  ) {
+    score += 2_000_000;
+  }
+
+  const title = (w.title ?? "").trim();
+  if (title) score += 50_000;
+  // Prefer larger real windows when z-order is noisy.
+  score += Math.min(area, 5_000_000) / 1000;
+
+  return score;
+}
+
 /**
- * Pick a frontmost-like window for AppShot context.
- * Prefer on-screen windows with highest z_index; fall back to any with max z.
+ * Pick the best window for AppShot context.
+ * Prefer focused app (pid/name), real on-screen content windows, non-empty
+ * titles, and higher z — never bare utility overlays.
  */
 export function pickFrontmostWindow(
   windows: HostWindowRow[],
+  options: {
+    preferPid?: number | null;
+    preferApp?: string | null;
+    selfAppNames?: Set<string>;
+  } = {},
 ): HostWindowRow | null {
   if (!windows.length) return null;
-  const onScreen = windows.filter((w) => w.is_on_screen);
-  const pool = onScreen.length ? onScreen : windows;
+  const selfNames =
+    options.selfAppNames ??
+    new Set(["Atmos", "Atmos Electron", "Atmos Desktop", "Electron"]);
+  const anyOnScreen = windows.some((w) => w.is_on_screen);
+
   let best: HostWindowRow | null = null;
-  let bestZ = -Infinity;
-  for (const w of pool) {
-    const z = typeof w.z_index === "number" ? w.z_index : -1;
-    if (z >= bestZ) {
-      bestZ = z;
+  let bestScore = -Infinity;
+  for (const w of windows) {
+    const s = scoreWindow(w, {
+      preferPid: options.preferPid,
+      preferApp: options.preferApp,
+      selfNames,
+      anyOnScreen,
+    });
+    if (s > bestScore) {
+      bestScore = s;
       best = w;
     }
   }
-  return best;
+  return bestScore > -Infinity ? best : null;
+}
+
+/**
+ * Match host list_windows rows to a System Events frontmost identity.
+ */
+export function matchWindowForFrontmost(
+  windows: HostWindowRow[],
+  frontmost: Pick<DesktopUseFrontmost, "appName" | "processId">,
+  selfAppNames?: Set<string>,
+): HostWindowRow | null {
+  return pickFrontmostWindow(windows, {
+    preferPid: frontmost.processId,
+    preferApp: frontmost.appName,
+    selfAppNames,
+  });
 }
 
 export function hostWindowToFrontmost(w: HostWindowRow | null): DesktopUseFrontmost {
   const b = w?.bounds;
+  const appName = (w?.app_name ?? "Unknown App").trim() || "Unknown App";
+  const title = w?.title?.trim() || null;
   return {
-    appName: (w?.app_name ?? "Unknown App").trim() || "Unknown App",
-    windowTitle: w?.title?.trim() || null,
+    appName,
+    // Empty titles stay null — UI should not invent "Untitled window" when the
+    // app name already identifies the capture.
+    windowTitle: title && title !== appName ? title : title || null,
     bundleId: null,
     processId: typeof w?.pid === "number" ? w.pid : null,
     windowId: typeof w?.window_id === "number" ? String(w.window_id) : null,
@@ -67,6 +190,51 @@ export function hostWindowToFrontmost(w: HostWindowRow | null): DesktopUseFrontm
     y: typeof b?.y === "number" ? b.y : null,
     width: typeof b?.width === "number" && b.width > 0 ? b.width : null,
     height: typeof b?.height === "number" && b.height > 0 ? b.height : null,
+  };
+}
+
+/**
+ * Merge System Events frontmost (authoritative app focus) with optional host
+ * window row (bounds / window id / better title).
+ */
+export function mergeFrontmostIdentity(
+  systemEvents: DesktopUseFrontmost | null,
+  hostRow: HostWindowRow | null,
+): DesktopUseFrontmost {
+  const fromHost = hostWindowToFrontmost(hostRow);
+  if (!systemEvents) return fromHost;
+
+  const seApp = systemEvents.appName.trim() || "Unknown App";
+  const hostApp = fromHost.appName.trim();
+  const sameApp =
+    hostRow != null &&
+    hostApp.toLowerCase() === seApp.toLowerCase() &&
+    (systemEvents.processId == null ||
+      fromHost.processId == null ||
+      systemEvents.processId === fromHost.processId);
+
+  // App identity always from System Events when available (true focus).
+  // Window title/bounds prefer host row when it matches the same app.
+  const windowTitle =
+    (sameApp && fromHost.windowTitle) ||
+    systemEvents.windowTitle?.trim() ||
+    null;
+
+  return {
+    appName: seApp,
+    windowTitle:
+      windowTitle && windowTitle !== seApp ? windowTitle : windowTitle || null,
+    bundleId: systemEvents.bundleId ?? fromHost.bundleId,
+    processId: systemEvents.processId ?? fromHost.processId,
+    windowId: sameApp ? fromHost.windowId : systemEvents.windowId,
+    x: sameApp && fromHost.x != null ? fromHost.x : systemEvents.x,
+    y: sameApp && fromHost.y != null ? fromHost.y : systemEvents.y,
+    width:
+      sameApp && fromHost.width != null ? fromHost.width : systemEvents.width,
+    height:
+      sameApp && fromHost.height != null
+        ? fromHost.height
+        : systemEvents.height,
   };
 }
 
@@ -126,6 +294,9 @@ export type HostCaptureResult = {
 
 /**
  * Capture through Atmos Desktop Use host engine (same TCC identity as control).
+ *
+ * Screenshot: host engine (full display PNG).
+ * Identity: System Events frontmost (true focus), enriched by host window list.
  */
 export async function captureFrontmostViaHostEngine(options: {
   selfAppNames?: Set<string>;
@@ -135,6 +306,23 @@ export async function captureFrontmostViaHostEngine(options: {
     options.selfAppNames ??
     new Set(["Atmos", "Atmos Electron", "Atmos Desktop", "Electron"]);
 
+  // 1) True focused app — System Events via Electron (pre-screenshot).
+  // Host list_windows z-order is noisy (utility overlays, is_on_screen false).
+  let systemFrontmost: DesktopUseFrontmost | null = null;
+  try {
+    systemFrontmost = await desktopUseReadFrontmost();
+    if (selfNames.has(systemFrontmost.appName.trim())) {
+      warnings.push(
+        `${systemFrontmost.appName} is frontmost; focus another app and trigger Appshots again.`,
+      );
+    }
+  } catch (e) {
+    warnings.push(
+      `frontmost_identity_failed: ${e instanceof Error ? e.message : String(e)}`,
+    );
+  }
+
+  // 2) Host screenshot
   let shot: unknown;
   try {
     shot = await desktopUseDriveScreenshot();
@@ -148,7 +336,6 @@ export async function captureFrontmostViaHostEngine(options: {
       typeof (shot as { error?: string }).error === "string"
         ? (shot as { error: string }).error
         : "host engine screenshot failed";
-    // Structured engine/TCC failure — do not soft-empty the shot as success.
     throw new Error(err);
   }
 
@@ -164,8 +351,6 @@ export async function captureFrontmostViaHostEngine(options: {
     }
   }
   if (!png) {
-    // DriveResult.ok true without PNG should not happen after Rust adapter;
-    // surface as hard failure so AppShot does not store empty host captures.
     throw new Error(
       typeof (shot as { error?: string }).error === "string"
         ? (shot as { error: string }).error
@@ -173,6 +358,7 @@ export async function captureFrontmostViaHostEngine(options: {
     );
   }
 
+  // 3) Host window list — enrich bounds / title for the focused app.
   let windows: HostWindowRow[] = [];
   try {
     const listed = await desktopUseDriveVerify();
@@ -183,34 +369,23 @@ export async function captureFrontmostViaHostEngine(options: {
     );
   }
 
-  // Prefer non-self frontmost when possible
-  let pick = pickFrontmostWindow(windows);
-  if (pick && selfNames.has((pick.app_name ?? "").trim())) {
-    const others = windows.filter(
-      (w) => !selfNames.has((w.app_name ?? "").trim()),
-    );
-    pick = pickFrontmostWindow(others) ?? pick;
-    if (selfNames.has((pick.app_name ?? "").trim())) {
-      warnings.push(
-        `${pick.app_name} is frontmost; focus another app and trigger Appshots again.`,
-      );
-    }
+  let hostRow: HostWindowRow | null = null;
+  if (systemFrontmost) {
+    hostRow = matchWindowForFrontmost(windows, systemFrontmost, selfNames);
+  }
+  if (!hostRow) {
+    hostRow = pickFrontmostWindow(windows, { selfAppNames: selfNames });
   }
 
-  const frontmost = hostWindowToFrontmost(pick);
+  const frontmost = mergeFrontmostIdentity(systemFrontmost, hostRow);
   const hasPng = Boolean(png && png.length > 0);
   const quality = hasPng ? "screenshot_only" : "metadata_only";
-  // Tag context so records show host identity (Atmos Desktop Use).
-  const hostWarnings = [
-    ...warnings,
-    "capture_via: Atmos Desktop Use host engine",
-  ];
-  const contextMarkdown = buildAppshotContextMarkdown(frontmost, hostWarnings);
+  const contextMarkdown = buildAppshotContextMarkdown(frontmost, warnings);
 
   return {
     frontmost,
     png,
-    warnings: hostWarnings,
+    warnings,
     contextMarkdown,
     quality,
     via: "host_engine",

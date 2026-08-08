@@ -289,7 +289,10 @@ export function AppshotCapturePreview() {
           <div className="min-w-0">
             <p className="truncate text-sm font-medium">{preview.app_name}</p>
             <p className="truncate text-xs text-muted-foreground">
-              {preview.window_title || formatQualityLabel(preview.quality)}
+              {preview.window_title?.trim() &&
+              preview.window_title.trim() !== preview.app_name
+                ? preview.window_title.trim()
+                : formatQualityLabel(preview.quality)}
             </p>
           </div>
           {preview.expires_in_ms > 0 ? (

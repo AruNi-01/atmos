@@ -626,7 +626,9 @@ export async function triggerCapture(state: AppState): Promise<void> {
   state.mainWindow?.webContents.send("atmos:desktop-event:appshot://preview", {
     preview_id: previewId,
     app_name: capture.appName,
-    window_title: capture.windowTitle ?? "Untitled window",
+    // Keep empty titles null — preview/history should not invent "Untitled window"
+    // when the app name already identifies the capture.
+    window_title: capture.windowTitle?.trim() || null,
     captured_at: capturedAt,
     quality: capture.quality,
     screenshot_preview_base64: capture.screenshotPreviewBase64,

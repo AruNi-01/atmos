@@ -38,21 +38,11 @@ const SELF_APP_NAMES = new Set([
 ]);
 
 /**
- * Metadata-only frontmost read.
- * When host engine is installed, prefer list_windows (host TCC); else Electron.
+ * Metadata-only frontmost read (System Events).
+ * Do **not** run a full host screenshot just for animation preflight / bounds —
+ * that was slow and used noisy host z-order for identity.
  */
 export async function readFrontmostWindow(): Promise<FrontmostWindow> {
-  const route = await resolveAppShotCaptureRoute();
-  if (route === "host_engine") {
-    try {
-      const cap = await captureFrontmostViaHostEngine({
-        selfAppNames: SELF_APP_NAMES,
-      });
-      return cap.frontmost;
-    } catch {
-      /* fall through */
-    }
-  }
   return desktopUseReadFrontmost();
 }
 

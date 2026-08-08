@@ -4,7 +4,10 @@ import { useTranslations } from "next-intl";
 import { Button, cn } from "@workspace/ui";
 import { Check, Copy, ImageOff, Trash2 } from "lucide-react";
 
-import { summarizeAppshotRecord } from "../lib/appshot-protocol";
+import {
+  formatQualityLabel,
+  summarizeAppshotRecord,
+} from "../lib/appshot-protocol";
 import type { AppshotRecordDetail } from "../types";
 
 type AppshotRecordRowProps = {
@@ -29,14 +32,17 @@ export function AppshotRecordRow({
   const t = useTranslations("appshot.components");
   const summary = summarizeAppshotRecord(record);
   const disabled = deleting || copying;
-  const previewLabel =
-    summary.title && summary.title !== summary.appLabel
-      ? `${summary.appLabel} - ${summary.title}`
-      : summary.appLabel;
-  const windowLabel =
-    summary.title && summary.title !== summary.appLabel
-      ? summary.title
-      : t("history.recordRow.untitledWindow");
+  // Prefer real window title only — do not fall back to inventing "Untitled window"
+  // when metadata has no distinct title (common for host list_windows empty titles).
+  const distinctTitle = record.metadata.window_title?.trim() || "";
+  const hasDistinctTitle =
+    Boolean(distinctTitle) && distinctTitle !== summary.appLabel;
+  const previewLabel = hasDistinctTitle
+    ? `${summary.appLabel} - ${distinctTitle}`
+    : summary.appLabel;
+  const windowLabel = hasDistinctTitle
+    ? distinctTitle
+    : formatQualityLabel(record.metadata.quality);
 
   return (
     <div
