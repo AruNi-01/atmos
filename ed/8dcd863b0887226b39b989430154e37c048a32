@@ -1,0 +1,34 @@
+apps/desktop-electron/src/desktop-use/grant-overlay-panel.ts
+  h_5be255725524c8 1-428
+apps/desktop-electron/src/desktop-use/grant-overlay-position.ts
+  h_5be255725524c8 1-113
+apps/desktop-electron/src/desktop-use/grant-overlay.structural.test.ts
+  h_5be255725524c8 5-17,20-21,44,50,55-56,63,65-66,68,71-72
+apps/desktop-electron/src/desktop-use/grant-overlay.ts
+  h_5be255725524c8 12-13,17,22-42
+apps/web/src/features/browser/components/morphing-tabs-parts.tsx
+  h_5be255725524c8 1-198
+apps/web/src/features/browser/components/morphing-tabs.tsx
+  h_5be255725524c8 5,7,30-49
+apps/web/src/features/browser/lib/__tests__/morphing-tabs-geometry.test.ts
+  h_5be255725524c8 1-32
+apps/web/src/features/browser/lib/morphing-tabs-geometry.ts
+  h_5be255725524c8 1-106
+crates/core-service/src/service/terminal.rs
+  h_5be255725524c8 25
+crates/core-service/src/service/terminal/run_log_ansi.rs
+  h_5be255725524c8 1-93
+crates/core-service/src/service/terminal/run_log_tee.rs
+  h_5be255725524c8 14
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "ed8dcd863b0887226b39b989430154e37c048a32",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
