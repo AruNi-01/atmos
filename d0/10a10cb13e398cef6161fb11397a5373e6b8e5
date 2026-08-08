@@ -1,0 +1,34 @@
+crates/desktop-use/manifest/default.json
+  h_5be255725524c8 3-4,11-12,14-15,19-20,22-23,27-28,30,35-36,38,43-44
+crates/desktop-use/src/control.rs
+  h_5be255725524c8 652
+crates/desktop-use/src/doctor.rs
+  h_5be255725524c8 24
+crates/desktop-use/src/drive_tools.rs
+  h_5be255725524c8 21,199,207,222,241
+crates/desktop-use/src/engine_manifest.rs
+  h_5be255725524c8 2-8,12-13,16-18,50-76,102-103,109-110,127-154
+crates/desktop-use/src/engine_protocol.rs
+  h_5be255725524c8 1,53,91,272
+crates/desktop-use/src/install.rs
+  h_5be255725524c8 108,542,563,579
+crates/desktop-use/src/lib.rs
+  h_5be255725524c8 29
+crates/desktop-use/src/manager.rs
+  h_5be255725524c8 149,181,232,267,431,567
+crates/desktop-use/tests/fixtures/engine_0_19_2/README.md
+  h_5be255725524c8 1,3,8,12,21,23,25-33
+specs/APP/APP-052_desktop-use/TECH.md
+  h_5be255725524c8 16-18,35,157,164-166,168-169,172-182
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "d010a10cb13e398cef6161fb11397a5373e6b8e5",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
