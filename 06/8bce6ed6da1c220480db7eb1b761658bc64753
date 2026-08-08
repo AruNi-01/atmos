@@ -1,0 +1,18 @@
+apps/desktop-electron/src/appshot/capture-fly.ts
+  h_5be255725524c8 29-32,154-155
+apps/desktop-electron/src/desktop-use/capture.ts
+  h_5be255725524c8 181-182,193-194
+apps/desktop-electron/src/desktop-use/host-capture.ts
+  h_5be255725524c8 417-420,422-433,524,551-553
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "068bce6ed6da1c220480db7eb1b761658bc64753",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
