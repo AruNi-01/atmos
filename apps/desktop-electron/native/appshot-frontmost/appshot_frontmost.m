@@ -5,18 +5,24 @@
  * Works for native apps AND Electron/Chromium/custom-UI apps that expose
  * empty Accessibility trees to System Events.
  *
- * Prints one JSON object to stdout:
- *   {"ok":true,"app_name":"...","process_id":123,"window_id":"456",
- *    "window_title":"...","x":0,"y":0,"width":800,"height":600}
+ * Prints one JSON object to stdout.
  */
 
 #import <AppKit/AppKit.h>
 #import <CoreGraphics/CoreGraphics.h>
 #import <Foundation/Foundation.h>
 #include <stdio.h>
-#include <string.h>
 
 enum { kMinEdge = 64 };
+
+typedef struct {
+  CGFloat bestArea;
+  CGFloat bestX;
+  CGFloat bestY;
+  CGFloat bestW;
+  CGFloat bestH;
+  int bestWindowId;
+} FrontScan;
 
 static void json_escape(NSString *s, FILE *out) {
   if (!s) return;
@@ -42,6 +48,61 @@ static BOOL usable_size(CGFloat w, CGFloat h) {
   return w >= kMinEdge && h >= kMinEdge;
 }
 
+/**
+ * Scan CG window list for targetPid; update scan + bestTitleOut (retained NSString*).
+ */
+static void scan_window_list(
+    CFArrayRef info,
+    int targetPid,
+    FrontScan *scan,
+    NSString *__strong *bestTitleOut) {
+  if (!info || !scan) return;
+  CFIndex count = CFArrayGetCount(info);
+  for (CFIndex i = 0; i < count; i++) {
+    CFDictionaryRef win = CFArrayGetValueAtIndex(info, i);
+    if (!win) continue;
+
+    CFNumberRef layerRef = CFDictionaryGetValue(win, kCGWindowLayer);
+    int layer = 0;
+    if (layerRef) CFNumberGetValue(layerRef, kCFNumberIntType, &layer);
+    if (layer != 0) continue;
+
+    CFNumberRef pidRef = CFDictionaryGetValue(win, kCGWindowOwnerPID);
+    int ownerPid = 0;
+    if (pidRef) CFNumberGetValue(pidRef, kCFNumberIntType, &ownerPid);
+    if (ownerPid != targetPid) continue;
+
+    CFNumberRef alphaRef = CFDictionaryGetValue(win, kCGWindowAlpha);
+    double alpha = 1.0;
+    if (alphaRef) CFNumberGetValue(alphaRef, kCFNumberDoubleType, &alpha);
+    if (alpha <= 0.01) continue;
+
+    CFDictionaryRef bounds = CFDictionaryGetValue(win, kCGWindowBounds);
+    if (!bounds) continue;
+    CGRect r = CGRectZero;
+    if (!CGRectMakeWithDictionaryRepresentation(bounds, &r)) continue;
+    if (!usable_size(r.size.width, r.size.height)) continue;
+
+    CGFloat area = r.size.width * r.size.height;
+    if (area <= scan->bestArea) continue;
+
+    scan->bestArea = area;
+    scan->bestX = r.origin.x;
+    scan->bestY = r.origin.y;
+    scan->bestW = r.size.width;
+    scan->bestH = r.size.height;
+
+    scan->bestWindowId = 0;
+    CFNumberRef numRef = CFDictionaryGetValue(win, kCGWindowNumber);
+    if (numRef) CFNumberGetValue(numRef, kCFNumberIntType, &scan->bestWindowId);
+
+    if (bestTitleOut) {
+      CFStringRef nameRef = CFDictionaryGetValue(win, kCGWindowName);
+      *bestTitleOut = nameRef ? [(__bridge NSString *)nameRef copy] : nil;
+    }
+  }
+}
+
 int main(int argc, const char *argv[]) {
   (void)argc;
   (void)argv;
@@ -56,84 +117,28 @@ int main(int argc, const char *argv[]) {
     pid_t pid = front.processIdentifier;
     NSString *bundleId = front.bundleIdentifier;
 
-    CFArrayRef info = CGWindowListCopyWindowInfo(
+    FrontScan scan = {0};
+    NSString *bestTitle = nil;
+
+    CFArrayRef onScreen = CGWindowListCopyWindowInfo(
         kCGWindowListOptionOnScreenOnly | kCGWindowListExcludeDesktopElements,
         kCGNullWindowID);
-    if (!info) {
-      printf("{\"ok\":true,\"app_name\":\"");
-      json_escape(appName, stdout);
-      printf("\",\"process_id\":%d,\"window_id\":null,\"window_title\":null,"
-             "\"x\":null,\"y\":null,\"width\":null,\"height\":null,"
-             "\"bundle_id\":",
-             (int)pid);
-      if (bundleId) {
-        printf("\"");
-        json_escape(bundleId, stdout);
-        printf("\"");
-      } else {
-        fputs("null", stdout);
-      }
-      puts(",\"source\":\"nsworkspace_only\"}");
-      return 0;
+    scan_window_list(onScreen, (int)pid, &scan, &bestTitle);
+    if (onScreen) CFRelease(onScreen);
+
+    if (scan.bestArea <= 0) {
+      CFArrayRef all = CGWindowListCopyWindowInfo(
+          kCGWindowListOptionAll | kCGWindowListExcludeDesktopElements,
+          kCGNullWindowID);
+      scan_window_list(all, (int)pid, &scan, &bestTitle);
+      if (all) CFRelease(all);
     }
-
-    // Among layer-0 windows owned by frontmost pid, pick largest content rect.
-    // (Matches host-list scoring: ignore title-bar strips, prefer area.)
-    CGFloat bestArea = 0;
-    CGFloat bestX = 0, bestY = 0, bestW = 0, bestH = 0;
-    int bestWindowId = 0;
-    NSString *bestTitle = nil;
-    CFIndex count = CFArrayGetCount(info);
-
-    for (CFIndex i = 0; i < count; i++) {
-      CFDictionaryRef win = CFArrayGetValueAtIndex(info, i);
-      if (!win) continue;
-
-      CFNumberRef layerRef = CFDictionaryGetValue(win, kCGWindowLayer);
-      int layer = 0;
-      if (layerRef) CFNumberGetValue(layerRef, kCFNumberIntType, &layer);
-      if (layer != 0) continue;
-
-      CFNumberRef pidRef = CFDictionaryGetValue(win, kCGWindowOwnerPID);
-      int ownerPid = 0;
-      if (pidRef) CFNumberGetValue(pidRef, kCFNumberIntType, &ownerPid);
-      if (ownerPid != (int)pid) continue;
-
-      CFNumberRef alphaRef = CFDictionaryGetValue(win, kCGWindowAlpha);
-      double alpha = 1.0;
-      if (alphaRef) CFNumberGetValue(alphaRef, kCFNumberDoubleType, &alpha);
-      if (alpha <= 0.01) continue;
-
-      CFDictionaryRef bounds = CFDictionaryGetValue(win, kCGWindowBounds);
-      if (!bounds) continue;
-      CGRect r = CGRectZero;
-      if (!CGRectMakeWithDictionaryRepresentation(bounds, &r)) continue;
-      if (!usable_size(r.size.width, r.size.height)) continue;
-
-      CGFloat area = r.size.width * r.size.height;
-      if (area <= bestArea) continue;
-
-      bestArea = area;
-      bestX = r.origin.x;
-      bestY = r.origin.y;
-      bestW = r.size.width;
-      bestH = r.size.height;
-
-      CFNumberRef numRef = CFDictionaryGetValue(win, kCGWindowNumber);
-      bestWindowId = 0;
-      if (numRef) CFNumberGetValue(numRef, kCFNumberIntType, &bestWindowId);
-
-      CFStringRef nameRef = CFDictionaryGetValue(win, kCGWindowName);
-      bestTitle = nameRef ? (__bridge NSString *)nameRef : nil;
-    }
-
-    CFRelease(info);
 
     printf("{\"ok\":true,\"app_name\":\"");
     json_escape(appName, stdout);
     printf("\",\"process_id\":%d", (int)pid);
-    if (bestArea > 0) {
-      printf(",\"window_id\":\"%d\",\"window_title\":", bestWindowId);
+    if (scan.bestArea > 0) {
+      printf(",\"window_id\":\"%d\",\"window_title\":", scan.bestWindowId);
       if (bestTitle.length > 0) {
         printf("\"");
         json_escape(bestTitle, stdout);
@@ -142,7 +147,7 @@ int main(int argc, const char *argv[]) {
         fputs("null", stdout);
       }
       printf(",\"x\":%.0f,\"y\":%.0f,\"width\":%.0f,\"height\":%.0f",
-             bestX, bestY, bestW, bestH);
+             scan.bestX, scan.bestY, scan.bestW, scan.bestH);
     } else {
       fputs(",\"window_id\":null,\"window_title\":null,"
             "\"x\":null,\"y\":null,\"width\":null,\"height\":null",

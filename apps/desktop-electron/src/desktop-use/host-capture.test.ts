@@ -142,6 +142,36 @@ describe("host engine capture routing", () => {
     expect(merged.processId).toBe(3);
   });
 
+  it("keeps host bounds when SE name is QQMusic and host is QQ音乐 (same pid)", () => {
+    // Regression: strict name equality dropped geometry → full-display + no anim.
+    const se = {
+      appName: "QQMusic",
+      windowTitle: null,
+      bundleId: null,
+      processId: 91609,
+      windowId: null,
+      x: null,
+      y: null,
+      width: null,
+      height: null,
+    };
+    const hostRow: HostWindowRow = {
+      app_name: "QQ音乐",
+      title: "",
+      pid: 91609,
+      window_id: 36971,
+      bounds: { x: 68, y: 45, width: 1402, height: 832 },
+    };
+    const merged = mergeFrontmostIdentity(se, hostRow);
+    expect(merged.appName).toBe("QQMusic");
+    expect(merged.processId).toBe(91609);
+    expect(merged.windowId).toBe("36971");
+    expect(merged.x).toBe(68);
+    expect(merged.y).toBe(45);
+    expect(merged.width).toBe(1402);
+    expect(merged.height).toBe(832);
+  });
+
   it("merges host bounds when same app as System Events", () => {
     const se = {
       appName: "Notes",

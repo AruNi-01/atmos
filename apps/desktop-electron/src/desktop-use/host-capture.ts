@@ -231,8 +231,12 @@ export function hostWindowToFrontmost(w: HostWindowRow | null): DesktopUseFrontm
 }
 
 /**
- * Merge System Events frontmost (authoritative app focus) with optional host
- * window row (bounds / window id / better title).
+ * Merge focus identity (CG / System Events) with host window row geometry.
+ *
+ * **Critical:** match by **pid** (or loose app name). Do not require exact
+ * app_name equality — SE/NSWorkspace often say "QQMusic" while host list says
+ * "QQ音乐"; strict name match previously dropped host bounds and killed crop +
+ * border/fly animations.
  */
 export function mergeFrontmostIdentity(
   systemEvents: DesktopUseFrontmost | null,
@@ -243,35 +247,49 @@ export function mergeFrontmostIdentity(
 
   const seApp = systemEvents.appName.trim() || "Unknown App";
   const hostApp = fromHost.appName.trim();
-  const sameApp =
+  const samePid =
     hostRow != null &&
-    hostApp.toLowerCase() === seApp.toLowerCase() &&
-    (systemEvents.processId == null ||
-      fromHost.processId == null ||
-      systemEvents.processId === fromHost.processId);
+    systemEvents.processId != null &&
+    fromHost.processId != null &&
+    systemEvents.processId === fromHost.processId;
+  const sameName =
+    hostRow != null && appNamesLooselyEqual(hostApp, seApp);
+  // Geometry is trustworthy when pid matches OR names loosely match.
+  const useHostGeometry = samePid || sameName;
 
-  // App identity always from System Events when available (true focus).
-  // Window title/bounds prefer host row when it matches the same app.
   const windowTitle =
-    (sameApp && fromHost.windowTitle) ||
+    (useHostGeometry && fromHost.windowTitle) ||
     systemEvents.windowTitle?.trim() ||
     null;
 
+  // Prefer SE/CG app label for product identity; keep host geometry.
   return {
     appName: seApp,
     windowTitle:
       windowTitle && windowTitle !== seApp ? windowTitle : windowTitle || null,
     bundleId: systemEvents.bundleId ?? fromHost.bundleId,
     processId: systemEvents.processId ?? fromHost.processId,
-    windowId: sameApp ? fromHost.windowId : systemEvents.windowId,
-    x: sameApp && fromHost.x != null ? fromHost.x : systemEvents.x,
-    y: sameApp && fromHost.y != null ? fromHost.y : systemEvents.y,
+    windowId: useHostGeometry
+      ? fromHost.windowId ?? systemEvents.windowId
+      : systemEvents.windowId ?? fromHost.windowId,
+    x: useHostGeometry && fromHost.x != null ? fromHost.x : systemEvents.x,
+    y: useHostGeometry && fromHost.y != null ? fromHost.y : systemEvents.y,
     width:
-      sameApp && fromHost.width != null ? fromHost.width : systemEvents.width,
+      useHostGeometry && fromHost.width != null && fromHost.width >= 64
+        ? fromHost.width
+        : systemEvents.width != null && systemEvents.width >= 64
+          ? systemEvents.width
+          : fromHost.width != null && fromHost.width >= 64
+            ? fromHost.width
+            : null,
     height:
-      sameApp && fromHost.height != null
+      useHostGeometry && fromHost.height != null && fromHost.height >= 64
         ? fromHost.height
-        : systemEvents.height,
+        : systemEvents.height != null && systemEvents.height >= 64
+          ? systemEvents.height
+          : fromHost.height != null && fromHost.height >= 64
+            ? fromHost.height
+            : null,
   };
 }
 

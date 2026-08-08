@@ -577,11 +577,17 @@ export async function triggerCapture(state: AppState): Promise<void> {
       "Electron",
     ]);
     const warnings: string[] = [];
+    // Always force host-list merge when CG/SE bounds missing — same pid must
+    // keep host geometry even if app labels differ (QQMusic vs QQ音乐).
     systemFrontmost = await resolveFrontmostWithHostBounds(
       seFrontmost,
       selfNames,
       warnings,
-      false,
+      /* forceList */ !systemFrontmost ||
+        systemFrontmost.width == null ||
+        systemFrontmost.height == null ||
+        systemFrontmost.width < 64 ||
+        systemFrontmost.height < 64,
     );
   } catch {
     /* keep SE-only */
