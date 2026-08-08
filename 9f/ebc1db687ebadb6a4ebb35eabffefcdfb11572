@@ -1,0 +1,18 @@
+apps/desktop-electron/src/appshot/frontmost.test.ts
+  h_5be255725524c8 31-39
+apps/desktop-electron/src/desktop-use/capture.ts
+  h_5be255725524c8 40-46,57,59-82,245-250,257-260
+apps/desktop-electron/src/desktop-use/host-capture.ts
+  h_5be255725524c8 102-112,126-127,381-382,384-387,405,412-415,438-489,499
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "9febc1db687ebadb6a4ebb35eabffefcdfb11572",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
