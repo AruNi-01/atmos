@@ -1,0 +1,16 @@
+apps/web/src/features/settings/components/DesktopUseSettingsSection.tsx
+  h_5be255725524c8 84-88,209-222,271-288,333-338,361-366,371-386,388-395,472-473
+apps/web/src/features/settings/components/__tests__/desktop-use-settings-section.test.ts
+  h_5be255725524c8 86,90-91,174-201
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "0f8cb422beddc1e7da4a1148f811cc8999f418ea",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
