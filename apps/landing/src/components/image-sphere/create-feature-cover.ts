@@ -1,4 +1,5 @@
 import { createElement, type ComponentType, type SVGProps } from 'react'
+import { flushSync } from 'react-dom'
 import { createRoot } from 'react-dom/client'
 
 export type CoverIcon = ComponentType<
@@ -27,140 +28,92 @@ function roundRect(
   ctx.closePath()
 }
 
-async function renderLucideSvg(Icon: CoverIcon, size = 72): Promise<SVGSVGElement> {
-  const host = document.createElement('div')
-  host.style.cssText = 'position:fixed;left:-9999px;top:0;pointer-events:none;opacity:0'
-  document.body.appendChild(host)
+/** Serialize concurrent React icon mounts — parallel createRoot was dropping SVGs. */
+let iconRenderChain: Promise<unknown> = Promise.resolve()
 
-  const root = createRoot(host)
-  await new Promise<void>((resolve) => {
-    root.render(
-      createElement(Icon, {
-        size,
-        color: '#fafafa',
-        strokeWidth: 1.75,
-      })
-    )
-    requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
-  })
-
-  const svg = host.querySelector('svg')
-  if (!svg) {
-    root.unmount()
-    host.remove()
-    throw new Error('Failed to render lucide icon')
-  }
-
-  const clone = svg.cloneNode(true) as SVGSVGElement
-  root.unmount()
-  host.remove()
-  return clone
+function enqueueIconRender<T>(task: () => Promise<T>): Promise<T> {
+  const run = iconRenderChain.then(task, task)
+  iconRenderChain = run.then(
+    () => undefined,
+    () => undefined
+  )
+  return run
 }
 
-function drawLucideSvg(
-  ctx: CanvasRenderingContext2D,
-  svg: SVGSVGElement,
-  x: number,
-  y: number,
-  size: number,
+/**
+ * Render a Lucide icon to a raster image via SVG data-URL.
+ * More reliable than hand-walking path nodes (stroke lives on the <svg> root).
+ */
+async function renderLucideIconImage(
+  Icon: CoverIcon,
+  size = 72,
   color = '#fafafa'
-) {
-  const vb = (svg.getAttribute('viewBox') || '0 0 24 24').split(/[\s,]+/).map(Number)
-  const vbW = vb[2] || 24
-  const vbH = vb[3] || 24
-  const scale = size / Math.max(vbW, vbH)
+): Promise<HTMLImageElement> {
+  return enqueueIconRender(async () => {
+    const host = document.createElement('div')
+    host.style.cssText = 'position:fixed;left:-9999px;top:0;pointer-events:none;opacity:0'
+    document.body.appendChild(host)
 
-  ctx.save()
-  ctx.translate(x, y)
-  ctx.scale(scale, scale)
-  ctx.strokeStyle = color
-  ctx.fillStyle = color
-  ctx.lineWidth = 2.35
-  ctx.lineCap = 'round'
-  ctx.lineJoin = 'round'
+    const root = createRoot(host)
+    try {
+      flushSync(() => {
+        root.render(
+          createElement(Icon, {
+            size,
+            color,
+            strokeWidth: 1.75,
+          })
+        )
+      })
 
-  svg.querySelectorAll('path, line, circle, polyline, polygon, rect, ellipse').forEach((node) => {
-    const el = node as SVGElement
-    const tag = el.tagName.toLowerCase()
-    const fillAttr = el.getAttribute('fill')
-    const shouldFill = Boolean(fillAttr && fillAttr !== 'none' && fillAttr !== 'transparent')
+      const svg = host.querySelector('svg')
+      if (!svg) throw new Error('Failed to render lucide icon')
 
-    if (tag === 'path') {
-      const d = el.getAttribute('d')
-      if (!d) return
-      const p = new Path2D(d)
-      ctx.stroke(p)
-      if (shouldFill) ctx.fill(p)
-      return
-    }
-
-    if (tag === 'circle') {
-      const cx = Number(el.getAttribute('cx') || 0)
-      const cy = Number(el.getAttribute('cy') || 0)
-      const r = Number(el.getAttribute('r') || 0)
-      ctx.beginPath()
-      ctx.arc(cx, cy, r, 0, Math.PI * 2)
-      ctx.stroke()
-      if (shouldFill) ctx.fill()
-      return
-    }
-
-    if (tag === 'line') {
-      ctx.beginPath()
-      ctx.moveTo(Number(el.getAttribute('x1') || 0), Number(el.getAttribute('y1') || 0))
-      ctx.lineTo(Number(el.getAttribute('x2') || 0), Number(el.getAttribute('y2') || 0))
-      ctx.stroke()
-      return
-    }
-
-    if (tag === 'polyline' || tag === 'polygon') {
-      const points = (el.getAttribute('points') || '')
-        .trim()
-        .split(/[\s,]+/)
-        .map(Number)
-        .filter((n) => Number.isFinite(n))
-      if (points.length < 4) return
-      ctx.beginPath()
-      ctx.moveTo(points[0]!, points[1]!)
-      for (let i = 2; i < points.length; i += 2) {
-        ctx.lineTo(points[i]!, points[i + 1]!)
+      svg.setAttribute('xmlns', 'http://www.w3.org/2000/svg')
+      svg.setAttribute('width', String(size))
+      svg.setAttribute('height', String(size))
+      // currentColor / CSS class strokes do not serialize into canvas-friendly SVG
+      const stroke = svg.getAttribute('stroke')
+      if (!stroke || stroke === 'currentColor') {
+        svg.setAttribute('stroke', color)
       }
-      if (tag === 'polygon') ctx.closePath()
-      ctx.stroke()
-      if (shouldFill && tag === 'polygon') ctx.fill()
-      return
-    }
+      if (!svg.getAttribute('fill')) {
+        svg.setAttribute('fill', 'none')
+      }
 
-    if (tag === 'rect') {
-      const rx = Number(el.getAttribute('x') || 0)
-      const ry = Number(el.getAttribute('y') || 0)
-      const rw = Number(el.getAttribute('width') || 0)
-      const rh = Number(el.getAttribute('height') || 0)
-      ctx.strokeRect(rx, ry, rw, rh)
-      if (shouldFill) ctx.fillRect(rx, ry, rw, rh)
+      const xml = new XMLSerializer().serializeToString(svg)
+      const url = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(xml)}`
+      return await loadImage(url)
+    } finally {
+      root.unmount()
+      host.remove()
     }
   })
-
-  ctx.restore()
 }
 
 function loadImage(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image()
-    img.crossOrigin = 'anonymous'
+    // data: / blob: do not need CORS; setting crossOrigin can break data-URL loads
+    if (!src.startsWith('data:') && !src.startsWith('blob:')) {
+      img.crossOrigin = 'anonymous'
+    }
     img.onload = () => resolve(img)
     img.onerror = () => reject(new Error(`Failed to load image: ${src}`))
     img.src = src
   })
 }
 
-/** Capture a still frame from a demo video for use as sphere cover art. */
+/**
+ * Last-resort runtime frame grab when no prebuilt poster exists.
+ * Prefer static `*-poster.jpg` assets — pulling full MP4s just for covers is slow.
+ */
 async function captureVideoPoster(videoUrl: string): Promise<HTMLCanvasElement | HTMLImageElement> {
   const video = document.createElement('video')
   video.crossOrigin = 'anonymous'
   video.muted = true
   video.playsInline = true
-  video.preload = 'auto'
+  video.preload = 'metadata'
   video.src = videoUrl
 
   await new Promise<void>((resolve, reject) => {
@@ -222,6 +175,40 @@ async function captureVideoPoster(videoUrl: string): Promise<HTMLCanvasElement |
   return frame
 }
 
+type CoverBackground = HTMLImageElement | HTMLCanvasElement | HTMLVideoElement
+
+async function loadCoverBackground(
+  posterUrl: string | undefined,
+  videoUrl: string
+): Promise<CoverBackground> {
+  if (posterUrl) {
+    try {
+      return await loadImage(posterUrl)
+    } catch {
+      // fall through to video / editorial poster
+    }
+  }
+
+  try {
+    return await captureVideoPoster(videoUrl)
+  } catch {
+    return await loadImage(FALLBACK_POSTER)
+  }
+}
+
+function sourceSize(source: CoverBackground): { sw: number; sh: number } {
+  if (source instanceof HTMLVideoElement) {
+    return { sw: source.videoWidth || COVER_W, sh: source.videoHeight || COVER_H }
+  }
+  if (source instanceof HTMLImageElement) {
+    return { sw: source.naturalWidth || COVER_W, sh: source.naturalHeight || COVER_H }
+  }
+  return {
+    sw: source.width || COVER_W,
+    sh: source.height || COVER_H,
+  }
+}
+
 function drawCoverContain(
   ctx: CanvasRenderingContext2D,
   source: CanvasImageSource,
@@ -272,11 +259,14 @@ function wrapLines(ctx: CanvasRenderingContext2D, text: string, maxWidth: number
 }
 
 /**
- * Build a data-URL cover from a video frame, with feature icon + title overlay.
+ * Build a data-URL cover with feature icon + title overlay.
+ * Prefer a prebuilt `posterUrl` (static jpg) so the sphere never waits on MP4s.
  */
 export async function createFeatureCover(opts: {
   title: string
   videoUrl: string
+  /** Pre-extracted still (e.g. `/videos/foo-poster.jpg`). Strongly preferred. */
+  posterUrl?: string
   icon: CoverIcon
   accent?: string
 }): Promise<string> {
@@ -286,30 +276,14 @@ export async function createFeatureCover(opts: {
   const ctx = canvas.getContext('2d')
   if (!ctx) throw new Error('2D canvas context unavailable')
 
-  // 1) Video poster frame (fallback to editorial poster)
+  // 1) Background: static poster → runtime video frame → editorial fallback
   try {
-    const frame = await captureVideoPoster(opts.videoUrl)
-    const sw =
-      frame instanceof HTMLVideoElement
-        ? frame.videoWidth
-        : frame instanceof HTMLImageElement
-          ? frame.naturalWidth
-          : frame.width
-    const sh =
-      frame instanceof HTMLVideoElement
-        ? frame.videoHeight
-        : frame instanceof HTMLImageElement
-          ? frame.naturalHeight
-          : frame.height
-    drawCoverContain(ctx, frame, sw || COVER_W, sh || COVER_H)
+    const frame = await loadCoverBackground(opts.posterUrl, opts.videoUrl)
+    const { sw, sh } = sourceSize(frame)
+    drawCoverContain(ctx, frame, sw, sh)
   } catch {
-    try {
-      const img = await loadImage(FALLBACK_POSTER)
-      drawCoverContain(ctx, img, img.naturalWidth || COVER_W, img.naturalHeight || COVER_H)
-    } catch {
-      ctx.fillStyle = '#0c0c0e'
-      ctx.fillRect(0, 0, COVER_W, COVER_H)
-    }
+    ctx.fillStyle = '#0c0c0e'
+    ctx.fillRect(0, 0, COVER_W, COVER_H)
   }
 
   // 2) Center scrim so icon + title stay readable on busy video frames
@@ -358,17 +332,12 @@ export async function createFeatureCover(opts: {
   ctx.stroke()
 
   try {
-    const iconSvg = await renderLucideSvg(opts.icon, 72)
-    drawLucideSvg(
-      ctx,
-      iconSvg,
-      chipX + (chipSize - iconDraw) / 2,
-      chipY + (chipSize - iconDraw) / 2,
-      iconDraw,
-      '#fafafa'
-    )
-  } catch {
-    // decorative
+    const iconImg = await renderLucideIconImage(opts.icon, 72, '#fafafa')
+    const iconX = chipX + (chipSize - iconDraw) / 2
+    const iconY = chipY + (chipSize - iconDraw) / 2
+    ctx.drawImage(iconImg, iconX, iconY, iconDraw, iconDraw)
+  } catch (err) {
+    console.warn('[feature-cover] icon render failed', err)
   }
 
   // 5) Title centered under icon
@@ -383,25 +352,6 @@ export async function createFeatureCover(opts: {
   }
   ctx.textAlign = 'start'
   ctx.textBaseline = 'alphabetic'
-
-  // 6) Small play badge (corner)
-  const playR = 22
-  const playX = COVER_W - 56
-  const playY = 48
-  ctx.beginPath()
-  ctx.arc(playX, playY, playR, 0, Math.PI * 2)
-  ctx.fillStyle = 'rgba(0,0,0,0.45)'
-  ctx.fill()
-  ctx.strokeStyle = 'rgba(255,255,255,0.28)'
-  ctx.lineWidth = 1.5
-  ctx.stroke()
-  ctx.beginPath()
-  ctx.moveTo(playX - 5, playY - 10)
-  ctx.lineTo(playX - 5, playY + 10)
-  ctx.lineTo(playX + 12, playY)
-  ctx.closePath()
-  ctx.fillStyle = 'rgba(255,255,255,0.95)'
-  ctx.fill()
 
   return canvas.toDataURL('image/jpeg', 0.88)
 }

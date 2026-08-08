@@ -17,6 +17,8 @@ export type FeatureSphereItem = {
   description: string
   icon: LucideIcon
   videoUrl: string
+  /** Prebuilt still used for sphere covers (avoids loading every MP4 at boot). */
+  posterUrl?: string
   accent?: string
 }
 
@@ -78,11 +80,14 @@ export function FeatureImageSphere({ features, className, onFocusChange }: Featu
       setProgress(0)
 
       try {
+        // Covers are built from static posters (+ icon/title overlay), in parallel.
+        // MP4s load only when a card is focused (engine.attachVideo).
         const items: SphereItem[] = await Promise.all(
           features.map(async (feature, index) => {
             const coverUrl = await createFeatureCover({
               title: feature.title,
               videoUrl: feature.videoUrl,
+              posterUrl: feature.posterUrl,
               icon: feature.icon,
               accent: feature.accent ?? ACCENTS[index % ACCENTS.length],
             })

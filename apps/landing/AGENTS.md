@@ -69,6 +69,7 @@ apps/landing/
 ### Marketing Media
 - Source projects for generated videos, audio, and social assets live under `marketing/creative/`.
 - `public/videos/` contains deployable copies only. If a source project exists, update it under `marketing/creative`, generate artifacts there, then copy or sync the needed landing files into `public/videos/`.
+- Feature Showcase sphere covers use prebuilt `*-poster.jpg` stills next to each demo MP4 (not runtime video frame capture). After adding or replacing a feature demo video, regenerate posters with `bash apps/landing/scripts/generate-feature-posters.sh` and wire `posterUrl` in `feature-showcase.tsx`.
 - Do not create HyperFrames source projects inside `apps/landing`.
 
 ---

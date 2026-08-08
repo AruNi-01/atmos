@@ -48,25 +48,70 @@ type FeatureDefinition = {
   icon: LucideIcon
 }
 
-/** Only features with a dedicated demo video are shown — no intro fallback. */
-const FEATURE_VIDEOS = {
+/** Demo media: MP4 plays on focus; poster is a prebuilt still for sphere covers. */
+const FEATURE_MEDIA = {
   // Hero product overview (moved from the first section)
-  agent: '/videos/agent-terminal-use-flow.mp4',
-  run: '/videos/built-in-terminal-agents.mp4',
-  browser: '/videos/Browser-Element-Inspector.mp4',
-  search: '/videos/global-search-command-panel.mp4',
-  git: '/videos/integrated-git-workflow.mp4',
-  terminal: '/videos/terminal-side-chat.mp4',
-  usage: '/videos/Usage-Analytics-Dashboard.mp4',
-  auto: '/videos/automation.mp4',
-  appshots: '/videos/appshots.mp4',
-  hooks: '/videos/Agent-Status-Notifications.mp4',
-  kanban: '/videos/Kanban-View.mp4',
-  canvas: '/videos/canvas.mp4',
-  files: '/videos/built-in-lightweight-editor.mp4',
-  skills: '/videos/skill-manager.mp4',
-  work: '/videos/multi-workspace-dev.mp4',
-} as const satisfies Record<FeatureKey, string>
+  agent: {
+    videoUrl: '/videos/agent-terminal-use-flow.mp4',
+    posterUrl: '/videos/agent-terminal-use-flow-poster.jpg',
+  },
+  run: {
+    videoUrl: '/videos/built-in-terminal-agents.mp4',
+    posterUrl: '/videos/built-in-terminal-agents-poster.jpg',
+  },
+  browser: {
+    videoUrl: '/videos/Browser-Element-Inspector.mp4',
+    posterUrl: '/videos/Browser-Element-Inspector-poster.jpg',
+  },
+  search: {
+    videoUrl: '/videos/global-search-command-panel.mp4',
+    posterUrl: '/videos/global-search-command-panel-poster.jpg',
+  },
+  git: {
+    videoUrl: '/videos/integrated-git-workflow.mp4',
+    posterUrl: '/videos/integrated-git-workflow-poster.jpg',
+  },
+  terminal: {
+    videoUrl: '/videos/terminal-side-chat.mp4',
+    posterUrl: '/videos/terminal-side-chat-poster.jpg',
+  },
+  usage: {
+    videoUrl: '/videos/Usage-Analytics-Dashboard.mp4',
+    posterUrl: '/videos/Usage-Analytics-Dashboard-poster.jpg',
+  },
+  auto: {
+    videoUrl: '/videos/automation.mp4',
+    posterUrl: '/videos/automation-poster.jpg',
+  },
+  appshots: {
+    videoUrl: '/videos/appshots.mp4',
+    posterUrl: '/videos/appshots-poster.jpg',
+  },
+  hooks: {
+    videoUrl: '/videos/Agent-Status-Notifications.mp4',
+    posterUrl: '/videos/Agent-Status-Notifications-poster.jpg',
+  },
+  kanban: {
+    videoUrl: '/videos/Kanban-View.mp4',
+    posterUrl: '/videos/Kanban-View-poster.jpg',
+  },
+  canvas: {
+    videoUrl: '/videos/canvas.mp4',
+    posterUrl: '/videos/canvas-poster.jpg',
+  },
+  files: {
+    videoUrl: '/videos/built-in-lightweight-editor.mp4',
+    posterUrl: '/videos/built-in-lightweight-editor-poster.jpg',
+  },
+  skills: {
+    videoUrl: '/videos/skill-manager.mp4',
+    posterUrl: '/videos/skill-manager-poster.jpg',
+  },
+  work: {
+    videoUrl: '/videos/multi-workspace-dev.mp4',
+    posterUrl: '/videos/multi-workspace-dev-poster.jpg',
+  },
+} as const satisfies Record<FeatureKey, { videoUrl: string; posterUrl: string }>
 
 const featureDefinitions = [
   { key: 'agent', icon: MonitorPlayIcon },
@@ -93,14 +138,18 @@ export default function FeatureShowcase() {
   const features = useMemo(
     () =>
       featureDefinitions.map(
-        (feature): FeatureSphereItem => ({
-          id: feature.key,
-          icon: feature.icon,
-          title: t(`features.${feature.key}.title`),
-          label: t(`features.${feature.key}.label`),
-          description: t(`features.${feature.key}.description`),
-          videoUrl: FEATURE_VIDEOS[feature.key],
-        })
+        (feature): FeatureSphereItem => {
+          const media = FEATURE_MEDIA[feature.key]
+          return {
+            id: feature.key,
+            icon: feature.icon,
+            title: t(`features.${feature.key}.title`),
+            label: t(`features.${feature.key}.label`),
+            description: t(`features.${feature.key}.description`),
+            videoUrl: media.videoUrl,
+            posterUrl: media.posterUrl,
+          }
+        }
       ),
     [t]
   )
