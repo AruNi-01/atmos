@@ -1,0 +1,18 @@
+apps/desktop-electron/src/desktop-use/grant-overlay.structural.test.ts
+  h_5be255725524c8 71-82
+apps/desktop-electron/src/desktop-use/grant-overlay.ts
+  h_5be255725524c8 21-24,74-79,745-778,784-785,792,880-881,901-904,965,1003,1009-1011,1015,1018-1035,1098-1100,1125-1138,1224-1226,1233-1235,1245,1249,1252-1269
+apps/web/src/features/settings/components/DesktopUsePermissionsPanel.tsx
+  h_5be255725524c8 47-57,63-64,78-79,143-156
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "e68eca04d1e1ca21123815e76845926ee315a84b",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
