@@ -16,6 +16,12 @@ import {
   desktopUseStatus,
   type DesktopUseStatusJson,
 } from "./client.js";
+import {
+  computeWindowCropPixels,
+  cropPngBytesToRect,
+  displayMetricsFromElectronScreen,
+  type LogicalBounds,
+} from "./window-crop.js";
 
 export type HostWindowRow = {
   app_name?: string;
@@ -295,11 +301,12 @@ export type HostCaptureResult = {
 /**
  * Capture through Atmos Desktop Use host engine (same TCC identity as control).
  *
- * Screenshot: host engine (full display PNG).
+ * Screenshot: host engine returns a **full-display** PNG (`get_desktop_state`).
+ * AppShot then **crops to the focused window** when System Events bounds are
+ * known (product: window-only snapshot, not the whole desktop).
+ *
  * Identity: System Events frontmost (true focus). Optional host list_windows
- * enrich is **off by default** on the dual-shift hot path (saves a full CLI
- * round-trip); pass `enrichFromWindowList: true` when title/bounds must come
- * from the engine list.
+ * enrich is **off by default** on the dual-shift hot path.
  */
 export async function captureFrontmostViaHostEngine(options: {
   selfAppNames?: Set<string>;
@@ -391,8 +398,22 @@ export async function captureFrontmostViaHostEngine(options: {
   }
 
   const frontmost = mergeFrontmostIdentity(systemFrontmost, hostRow);
+
+  // Host engine only gives full-desktop PNG — crop to the focused app window.
+  if (png && png.length > 0) {
+    const cropped = await cropHostPngToFrontmostWindow(png, frontmost, warnings);
+    if (cropped) {
+      png = cropped;
+    }
+  }
+
   const hasPng = Boolean(png && png.length > 0);
-  const quality = hasPng ? "screenshot_only" : "metadata_only";
+  // Prefer "window" when we successfully cropped (or had window-only pixels).
+  const quality = hasPng
+    ? warnings.some((w) => w.includes("full_display") || w.includes("crop_skipped"))
+      ? "screenshot_only"
+      : "window"
+    : "metadata_only";
   const contextMarkdown = buildAppshotContextMarkdown(frontmost, warnings);
 
   return {
@@ -403,6 +424,117 @@ export async function captureFrontmostViaHostEngine(options: {
     quality,
     via: "host_engine",
   };
+}
+
+/**
+ * Crop full-desktop host PNG to the frontmost window when bounds are known.
+ * Returns cropped bytes, or null when crop is impossible (caller keeps full PNG).
+ */
+export async function cropHostPngToFrontmostWindow(
+  png: Buffer,
+  frontmost: DesktopUseFrontmost,
+  warnings: string[],
+): Promise<Buffer | null> {
+  const hasBounds =
+    frontmost.x != null &&
+    frontmost.y != null &&
+    frontmost.width != null &&
+    frontmost.height != null &&
+    frontmost.width >= 32 &&
+    frontmost.height >= 32;
+  if (!hasBounds) {
+    warnings.push(
+      "Unable to determine focused window bounds; kept full-display capture.",
+    );
+    return null;
+  }
+
+  const bounds: LogicalBounds = {
+    x: frontmost.x!,
+    y: frontmost.y!,
+    width: frontmost.width!,
+    height: frontmost.height!,
+  };
+
+  const { mkdtempSync, writeFileSync, rmSync } = await import("node:fs");
+  const { tmpdir } = await import("node:os");
+  const { join } = await import("node:path");
+  const { execFile } = await import("node:child_process");
+  const { promisify } = await import("node:util");
+  const execFileAsync = promisify(execFile);
+
+  let pngW = 0;
+  let pngH = 0;
+  let dir: string | null = null;
+  try {
+    dir = mkdtempSync(join(tmpdir(), "atmos-appshot-geom-"));
+    const probe = join(dir, "probe.png");
+    writeFileSync(probe, png);
+    const { stdout } = await execFileAsync(
+      "sips",
+      ["-g", "pixelWidth", "-g", "pixelHeight", probe],
+      { timeout: 3_000 },
+    );
+    const wMatch = /pixelWidth:\s*(\d+)/.exec(stdout);
+    const hMatch = /pixelHeight:\s*(\d+)/.exec(stdout);
+    pngW = wMatch ? Number(wMatch[1]) : 0;
+    pngH = hMatch ? Number(hMatch[1]) : 0;
+  } catch {
+    warnings.push("window_crop_probe_failed; kept full-display capture.");
+    return null;
+  } finally {
+    if (dir) {
+      try {
+        rmSync(dir, { recursive: true, force: true });
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+
+  if (pngW < 32 || pngH < 32) {
+    warnings.push("window_crop_invalid_png_size; kept full-display capture.");
+    return null;
+  }
+
+  let display = null as ReturnType<typeof displayMetricsFromElectronScreen>;
+  try {
+    const { screen } = await import("electron");
+    display = displayMetricsFromElectronScreen(
+      { x: bounds.x, y: bounds.y },
+      screen,
+    );
+  } catch {
+    // Non-electron (tests): infer 1× or 2× from PNG aspect vs common logical sizes.
+    const scale =
+      pngW >= 2000 && pngH >= 1200 ? 2 : 1;
+    display = {
+      x: 0,
+      y: 0,
+      width: Math.round(pngW / scale),
+      height: Math.round(pngH / scale),
+      scaleFactor: scale,
+    };
+  }
+  if (!display) {
+    warnings.push("window_crop_no_display; kept full-display capture.");
+    return null;
+  }
+
+  const rect = computeWindowCropPixels(bounds, pngW, pngH, display);
+  if (!rect) {
+    warnings.push(
+      "window_crop_skipped: window bounds not mappable to display screenshot.",
+    );
+    return null;
+  }
+
+  const cropped = await cropPngBytesToRect(png, rect);
+  if (!cropped || cropped.length === 0) {
+    warnings.push("window_crop_failed; kept full-display capture.");
+    return null;
+  }
+  return cropped;
 }
 
 /** Cache host-vs-electron route — dual-shift must not spawn `status` every chord. */
