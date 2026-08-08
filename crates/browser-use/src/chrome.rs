@@ -20,9 +20,13 @@ pub const DEFAULT_BROWSER_USE_SESSION: &str = "atmos-browser-use";
 /// prepare / state / navigate without a point do not request chrome.
 pub fn wants_action_chrome(action: BrowserAction, element_ref: Option<&str>) -> bool {
     match action {
-        BrowserAction::Click => true,
+        BrowserAction::Click | BrowserAction::Pointer => true,
         BrowserAction::Type => element_ref.map(|s| !s.trim().is_empty()).unwrap_or(false),
-        BrowserAction::Prepare | BrowserAction::State | BrowserAction::Navigate => false,
+        BrowserAction::Prepare
+        | BrowserAction::State
+        | BrowserAction::Navigate
+        | BrowserAction::Dialog
+        | BrowserAction::Download => false,
     }
 }
 
@@ -60,7 +64,12 @@ pub fn chrome_target_for_request(
     let status = match action {
         BrowserAction::Click => "Clicking page".to_string(),
         BrowserAction::Type => "Typing in page".to_string(),
-        BrowserAction::Navigate | BrowserAction::Prepare | BrowserAction::State => return None,
+        BrowserAction::Pointer => "Pointer on page".to_string(),
+        BrowserAction::Navigate
+        | BrowserAction::Prepare
+        | BrowserAction::State
+        | BrowserAction::Dialog
+        | BrowserAction::Download => return None,
     };
     let cursor = cursor
         .or_else(|| window_bounds.map(|(x, y, w, h)| (x + w.max(1.0) / 2.0, y + h.max(1.0) / 2.0)));
@@ -171,6 +180,9 @@ pub fn status_for_browser_action(action: BrowserAction) -> &'static str {
         BrowserAction::Navigate => "Navigating",
         BrowserAction::Prepare => "Preparing browser",
         BrowserAction::State => "Reading page state",
+        BrowserAction::Pointer => "Pointer on page",
+        BrowserAction::Dialog => "Page dialog",
+        BrowserAction::Download => "Downloading file",
     }
 }
 
@@ -189,6 +201,8 @@ mod tests {
         assert!(!wants_action_chrome(BrowserAction::Prepare, Some("e0")));
         assert!(!wants_action_chrome(BrowserAction::State, Some("e0")));
         assert!(!wants_action_chrome(BrowserAction::Navigate, None));
+        assert!(wants_action_chrome(BrowserAction::Pointer, Some("p1:0")));
+        assert!(!wants_action_chrome(BrowserAction::Dialog, None));
     }
 
     #[test]

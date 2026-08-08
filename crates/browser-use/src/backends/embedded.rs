@@ -153,6 +153,9 @@ fn action_name(a: BrowserAction) -> &'static str {
         BrowserAction::Click => "click",
         BrowserAction::Type => "type",
         BrowserAction::Navigate => "navigate",
+        BrowserAction::Pointer => "pointer",
+        BrowserAction::Dialog => "dialog",
+        BrowserAction::Download => "download",
     }
 }
 
@@ -163,6 +166,9 @@ fn request_path(a: BrowserAction) -> &'static str {
         BrowserAction::Click => "/v1/click",
         BrowserAction::Type => "/v1/type",
         BrowserAction::Navigate => "/v1/navigate",
+        BrowserAction::Pointer => "/v1/pointer",
+        BrowserAction::Dialog => "/v1/dialog",
+        BrowserAction::Download => "/v1/download",
     }
 }
 
@@ -191,16 +197,28 @@ pub fn build_embedded_body(req: &BrowserRequest) -> Result<Value, String> {
                 .target_id
                 .as_ref()
                 .ok_or_else(|| "click requires --target-id (embedded session id)".to_string())?;
-            let r = req
+            let has_ref = req
                 .element_ref
                 .as_ref()
-                .ok_or_else(|| "click requires --ref".to_string())?;
-            Ok(json!({
+                .map(|s| !s.trim().is_empty())
+                .unwrap_or(false);
+            let has_xy = req.x.is_some() && req.y.is_some();
+            if !has_ref && !has_xy {
+                return Err("click requires --ref or both --x and --y".into());
+            }
+            let mut a = json!({
                 "session": session,
                 "target_id": target,
                 "tab_id": req.tab_id.clone().unwrap_or_else(|| "main".into()),
-                "ref": r,
-            }))
+            });
+            if has_ref {
+                a["ref"] = json!(req.element_ref.as_ref().unwrap().trim());
+            }
+            if has_xy {
+                a["x"] = json!(req.x.unwrap());
+                a["y"] = json!(req.y.unwrap());
+            }
+            Ok(a)
         }
         BrowserAction::Type => {
             let target = req
@@ -211,13 +229,25 @@ pub fn build_embedded_body(req: &BrowserRequest) -> Result<Value, String> {
                 .text
                 .as_ref()
                 .ok_or_else(|| "type requires --text".to_string())?;
-            Ok(json!({
+            let mut a = json!({
                 "session": session,
                 "target_id": target,
                 "tab_id": req.tab_id.clone().unwrap_or_else(|| "main".into()),
                 "ref": req.element_ref,
                 "text": text,
-            }))
+            });
+            if let Some(mode) = req
+                .type_mode
+                .as_ref()
+                .map(|s| s.trim())
+                .filter(|s| !s.is_empty())
+            {
+                a["mode"] = json!(mode);
+            }
+            if req.replace {
+                a["replace"] = json!(true);
+            }
+            Ok(a)
         }
         BrowserAction::Navigate => {
             let target = req
@@ -233,6 +263,117 @@ pub fn build_embedded_body(req: &BrowserRequest) -> Result<Value, String> {
                 "target_id": target,
                 "tab_id": req.tab_id.clone().unwrap_or_else(|| "main".into()),
                 "url": url,
+            }))
+        }
+        BrowserAction::Pointer => {
+            let target = req
+                .target_id
+                .as_ref()
+                .ok_or_else(|| "pointer requires --target-id".to_string())?;
+            let action = req
+                .pointer_action
+                .as_ref()
+                .map(|s| s.trim())
+                .filter(|s| !s.is_empty())
+                .ok_or_else(|| {
+                    "pointer requires --action (hover|right_click|double_click|scroll|drag)"
+                        .to_string()
+                })?;
+            let mut a = json!({
+                "session": session,
+                "target_id": target,
+                "tab_id": req.tab_id.clone().unwrap_or_else(|| "main".into()),
+                "action": action,
+            });
+            if let Some(r) = req
+                .element_ref
+                .as_ref()
+                .map(|s| s.trim())
+                .filter(|s| !s.is_empty())
+            {
+                a["ref"] = json!(r);
+            }
+            if let Some(x) = req.x {
+                a["x"] = json!(x);
+            }
+            if let Some(y) = req.y {
+                a["y"] = json!(y);
+            }
+            if let Some(dx) = req.delta_x {
+                a["delta_x"] = json!(dx);
+            }
+            if let Some(dy) = req.delta_y {
+                a["delta_y"] = json!(dy);
+            }
+            if let Some(x) = req.to_x {
+                a["to_x"] = json!(x);
+            }
+            if let Some(y) = req.to_y {
+                a["to_y"] = json!(y);
+            }
+            if let Some(r) = req
+                .destination_ref
+                .as_ref()
+                .map(|s| s.trim())
+                .filter(|s| !s.is_empty())
+            {
+                a["destination_ref"] = json!(r);
+            }
+            Ok(a)
+        }
+        BrowserAction::Dialog => {
+            let target = req
+                .target_id
+                .as_ref()
+                .ok_or_else(|| "dialog requires --target-id".to_string())?;
+            let action = req
+                .dialog_action
+                .as_ref()
+                .map(|s| s.trim())
+                .filter(|s| !s.is_empty())
+                .ok_or_else(|| "dialog requires --action (inspect|accept|dismiss)".to_string())?;
+            let mut a = json!({
+                "session": session,
+                "target_id": target,
+                "tab_id": req.tab_id.clone().unwrap_or_else(|| "main".into()),
+                "action": action,
+            });
+            if let Some(id) = req
+                .dialog_id
+                .as_ref()
+                .map(|s| s.trim())
+                .filter(|s| !s.is_empty())
+            {
+                a["dialog_id"] = json!(id);
+            }
+            if let Some(t) = req.prompt_text.as_ref() {
+                a["prompt_text"] = json!(t);
+            }
+            Ok(a)
+        }
+        BrowserAction::Download => {
+            let target = req
+                .target_id
+                .as_ref()
+                .ok_or_else(|| "download requires --target-id".to_string())?;
+            let r = req
+                .element_ref
+                .as_ref()
+                .map(|s| s.trim())
+                .filter(|s| !s.is_empty())
+                .ok_or_else(|| "download requires --ref".to_string())?;
+            let dir = req
+                .download_dir
+                .as_ref()
+                .map(|s| s.trim())
+                .filter(|s| !s.is_empty())
+                .ok_or_else(|| "download requires --dir".to_string())?;
+            Ok(json!({
+                "session": session,
+                "target_id": target,
+                "tab_id": req.tab_id.clone().unwrap_or_else(|| "main".into()),
+                "ref": r,
+                "dir": dir,
             }))
         }
     }
@@ -272,7 +413,8 @@ impl BrowserBackend for EmbeddedBackend {
                 };
             }
         };
-        match http_post_json(&base, request_path(req.action), &body) {
+        let path = request_path(req.action);
+        match http_post_json(&base, path, &body) {
             Ok(v) => {
                 let ok = v.get("ok").and_then(|x| x.as_bool()).unwrap_or(true);
                 if !ok {
@@ -322,7 +464,7 @@ mod tests {
     use crate::types::BrowserBackendKind;
 
     #[test]
-    fn build_click_requires_ref() {
+    fn build_click_requires_ref_or_xy() {
         let req = BrowserRequest {
             backend: BrowserBackendKind::Embedded,
             action: BrowserAction::Click,
@@ -330,6 +472,46 @@ mod tests {
             ..Default::default()
         };
         assert!(build_embedded_body(&req).is_err());
+
+        let with_ref = BrowserRequest {
+            backend: BrowserBackendKind::Embedded,
+            action: BrowserAction::Click,
+            target_id: Some("s1".into()),
+            element_ref: Some("e0".into()),
+            ..Default::default()
+        };
+        let body = build_embedded_body(&with_ref).unwrap();
+        assert_eq!(body["ref"], "e0");
+        assert_eq!(request_path(BrowserAction::Pointer), "/v1/pointer");
+        assert_eq!(request_path(BrowserAction::Dialog), "/v1/dialog");
+        assert_eq!(request_path(BrowserAction::Download), "/v1/download");
+    }
+
+    #[test]
+    fn build_pointer_and_download_bodies() {
+        let ptr = BrowserRequest {
+            backend: BrowserBackendKind::Embedded,
+            action: BrowserAction::Pointer,
+            target_id: Some("s1".into()),
+            pointer_action: Some("hover".into()),
+            element_ref: Some("e2".into()),
+            ..Default::default()
+        };
+        let body = build_embedded_body(&ptr).unwrap();
+        assert_eq!(body["action"], "hover");
+        assert_eq!(body["ref"], "e2");
+
+        let dl = BrowserRequest {
+            backend: BrowserBackendKind::Embedded,
+            action: BrowserAction::Download,
+            target_id: Some("s1".into()),
+            element_ref: Some("e1".into()),
+            download_dir: Some("/tmp/out".into()),
+            ..Default::default()
+        };
+        let body = build_embedded_body(&dl).unwrap();
+        assert_eq!(body["dir"], "/tmp/out");
+        assert_eq!(body["ref"], "e1");
     }
 
     #[test]

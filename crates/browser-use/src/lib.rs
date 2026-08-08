@@ -17,7 +17,7 @@ pub use chrome::{
 };
 pub use types::{
     BrowserAction, BrowserBackendKind, BrowserError, BrowserRequest, BrowserResult,
-    ERR_EMBEDDED_HOST_UNAVAILABLE, ERR_NO_MCP,
+    DEFAULT_SNAPSHOT_FORMAT, ERR_EMBEDDED_HOST_UNAVAILABLE, ERR_NO_MCP, PINNED_ENGINE_VERSION,
 };
 
 use backends::BrowserBackend;
@@ -96,7 +96,7 @@ mod tests {
     }
 
     #[test]
-    fn external_click_requires_target_tab_ref() {
+    fn external_click_requires_ref_or_xy() {
         let missing = BrowserRequest {
             backend: BrowserBackendKind::External,
             action: BrowserAction::Click,
@@ -105,6 +105,15 @@ mod tests {
             ..Default::default()
         };
         assert!(build_external_tool_call(&missing).is_err());
+
+        let no_target = BrowserRequest {
+            backend: BrowserBackendKind::External,
+            action: BrowserAction::Click,
+            target_id: Some("tgt".into()),
+            tab_id: Some("t1".into()),
+            ..Default::default()
+        };
+        assert!(build_external_tool_call(&no_target).is_err());
 
         let req = BrowserRequest {
             backend: BrowserBackendKind::External,
@@ -119,6 +128,20 @@ mod tests {
         assert_eq!(args["ref"], "p1:2");
         assert_eq!(args["target_id"], "tgt");
         assert_eq!(args["tab_id"], "t1");
+
+        let xy = BrowserRequest {
+            backend: BrowserBackendKind::External,
+            action: BrowserAction::Click,
+            target_id: Some("tgt".into()),
+            tab_id: Some("t1".into()),
+            x: Some(12.0),
+            y: Some(34.0),
+            ..Default::default()
+        };
+        let (tool, args) = build_external_tool_call(&xy).unwrap();
+        assert_eq!(tool, "browser_click");
+        assert_eq!(args["x"], 12.0);
+        assert_eq!(args["y"], 34.0);
     }
 
     #[test]
@@ -150,7 +173,7 @@ mod tests {
     }
 
     #[test]
-    fn external_prepare_needs_pid_no_default_existing_profile() {
+    fn external_prepare_defaults_to_isolated_new() {
         let req = BrowserRequest {
             backend: BrowserBackendKind::External,
             action: BrowserAction::Prepare,
@@ -158,7 +181,7 @@ mod tests {
         };
         assert!(build_external_tool_call(&req).is_err());
 
-        // pid only: detect-only, must NOT inject existing_profile without window_id
+        // Optimal default: isolated_new + allow_launch (never mutates user profile).
         let req = BrowserRequest {
             backend: BrowserBackendKind::External,
             action: BrowserAction::Prepare,
@@ -168,8 +191,9 @@ mod tests {
         let (tool, args) = build_external_tool_call(&req).unwrap();
         assert_eq!(tool, "browser_prepare");
         assert_eq!(args["pid"], 123);
+        assert_eq!(args["profile"]["mode"], "isolated_new");
+        assert_eq!(args["allow_launch"], true);
         assert!(args.get("strategy").is_none());
-        assert!(args.get("window_id").is_none());
 
         // existing_profile without window_id is invalid
         let bad = BrowserRequest {
@@ -216,18 +240,52 @@ mod tests {
         assert_eq!(tool, "get_browser_state");
         assert_eq!(args["pid"], 1);
         assert_eq!(args["window_id"], 2);
+        // bind mode must not force snapshot_format
+        assert!(args.get("snapshot_format").is_none());
 
         let snap = BrowserRequest {
             backend: BrowserBackendKind::External,
             action: BrowserAction::State,
             target_id: Some("tgt".into()),
             tab_id: Some("tab".into()),
+            include_screenshot: true,
             ..Default::default()
         };
         let (tool, args) = build_external_tool_call(&snap).unwrap();
         assert_eq!(tool, "get_browser_state");
         assert_eq!(args["target_id"], "tgt");
         assert_eq!(args["tab_id"], "tab");
+        assert_eq!(args["snapshot_format"], "semantic_v2");
+        assert_eq!(args["include_screenshot"], true);
+    }
+
+    #[test]
+    fn external_pointer_and_dialog_tools() {
+        let ptr = BrowserRequest {
+            backend: BrowserBackendKind::External,
+            action: BrowserAction::Pointer,
+            target_id: Some("tgt".into()),
+            tab_id: Some("tab".into()),
+            pointer_action: Some("hover".into()),
+            element_ref: Some("p1:0".into()),
+            ..Default::default()
+        };
+        let (tool, args) = build_external_tool_call(&ptr).unwrap();
+        assert_eq!(tool, "browser_pointer");
+        assert_eq!(args["action"], "hover");
+        assert_eq!(args["ref"], "p1:0");
+
+        let dlg = BrowserRequest {
+            backend: BrowserBackendKind::External,
+            action: BrowserAction::Dialog,
+            target_id: Some("tgt".into()),
+            tab_id: Some("tab".into()),
+            dialog_action: Some("inspect".into()),
+            ..Default::default()
+        };
+        let (tool, args) = build_external_tool_call(&dlg).unwrap();
+        assert_eq!(tool, "browser_dialog");
+        assert_eq!(args["action"], "inspect");
     }
 
     #[test]

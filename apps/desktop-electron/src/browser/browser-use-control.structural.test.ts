@@ -24,6 +24,9 @@ describe("browser-use-control structural", () => {
     expect(src).toContain("control.json");
     expect(src).toContain("/v1/prepare");
     expect(src).toContain("/v1/state");
+    expect(src).toContain("/v1/pointer");
+    expect(src).toContain("/v1/dialog");
+    expect(src).toContain("/v1/download");
     expect(src).toContain("persist:atmos-browser");
   });
 
@@ -42,6 +45,18 @@ describe("browser-use-control structural", () => {
     // Click path remains CDP / DOM — not drive click
     expect(src).toContain("Input.dispatchMouseEvent");
     expect(src).toContain("el.click");
+  });
+
+  it("implements full browser action surface on embedded host", () => {
+    const src = readFileSync(join(root, "browser/browser-use-control.ts"), "utf8");
+    expect(src).toContain("pointerAction");
+    expect(src).toContain("dialogAction");
+    expect(src).toContain("downloadViaRef");
+    expect(src).toContain("Page.handleJavaScriptDialog");
+    expect(src).toContain("javascriptDialogOpening");
+    expect(src).toContain("will-download");
+    expect(src).toContain("mouseWheel");
+    expect(src).toContain("Input.insertText");
   });
 });
 
