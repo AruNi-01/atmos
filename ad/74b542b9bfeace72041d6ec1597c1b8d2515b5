@@ -1,0 +1,14 @@
+apps/web/src/features/welcome/components/OnboardingPage.tsx
+  h_5be255725524c8 859
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "ad74b542b9bfeace72041d6ec1597c1b8d2515b5",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
