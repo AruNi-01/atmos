@@ -414,24 +414,23 @@ export async function captureFrontmostViaHostEngine(options: {
     options.enrichFromWindowList === true,
   );
 
-  // 4) Prefer true window capture, then crop full-desktop host PNG.
-  // CG / host list often give window_id even when AX is empty (Electron-style UIs).
+  // 4) Window-only image: crop the host full-desktop PNG (Screen Recording is
+  // on Atmos Desktop Use, not Electron). Do **not** prefer `screencapture -l`
+  // here — that runs as Electron and often fails with
+  // "could not create image from window" while still leaving a scary warning.
   if (png && png.length > 0) {
-    const byId = await tryWindowIdScreencapture(frontmost, warnings);
-    if (byId) {
-      png = byId;
-    } else {
-      const cropped = await cropHostPngToFrontmostWindow(
-        png,
-        frontmost,
-        warnings,
-      );
-      if (cropped) {
-        png = cropped;
-      } else if (hasUsableWindowBounds(frontmost)) {
-        const region = await tryRegionScreencapture(frontmost, warnings);
-        if (region) png = region;
-      }
+    const cropped = await cropHostPngToFrontmostWindow(
+      png,
+      frontmost,
+      warnings,
+    );
+    if (cropped) {
+      png = cropped;
+    } else if (hasUsableWindowBounds(frontmost)) {
+      // Soft region attempt only if crop failed; ignore failures silently when
+      // we still have the full host PNG.
+      const region = await tryRegionScreencapture(frontmost, /* quiet */ true);
+      if (region) png = region;
     }
   }
 
@@ -519,48 +518,10 @@ function hasUsableWindowBounds(
   );
 }
 
-/** Capture a single CG window by id (`screencapture -l`). */
-async function tryWindowIdScreencapture(
-  frontmost: DesktopUseFrontmost,
-  warnings: string[],
-): Promise<Buffer | null> {
-  const wid = frontmost.windowId?.trim();
-  if (!wid || !/^\d+$/.test(wid)) return null;
-  try {
-    const { execFile } = await import("node:child_process");
-    const { promisify } = await import("node:util");
-    const { readFileSync, unlinkSync, existsSync } = await import("node:fs");
-    const { tmpdir } = await import("node:os");
-    const { join } = await import("node:path");
-    const { randomUUID } = await import("node:crypto");
-    const execFileAsync = promisify(execFile);
-    const out = join(tmpdir(), `atmos-appshot-wid-${randomUUID()}.png`);
-    try {
-      await execFileAsync("screencapture", ["-x", "-l", wid, out], {
-        timeout: 8_000,
-      });
-      if (!existsSync(out)) return null;
-      const buf = readFileSync(out);
-      return buf.length > 0 ? buf : null;
-    } finally {
-      try {
-        if (existsSync(out)) unlinkSync(out);
-      } catch {
-        /* ignore */
-      }
-    }
-  } catch (e) {
-    warnings.push(
-      `window_id_screencapture_failed: ${e instanceof Error ? e.message : String(e)}`,
-    );
-    return null;
-  }
-}
-
 /** Optional window-region capture when host crop cannot map bounds. */
 async function tryRegionScreencapture(
   frontmost: DesktopUseFrontmost,
-  warnings: string[],
+  quiet = false,
 ): Promise<Buffer | null> {
   if (!hasUsableWindowBounds(frontmost)) return null;
   try {
@@ -587,10 +548,9 @@ async function tryRegionScreencapture(
         /* ignore */
       }
     }
-  } catch (e) {
-    warnings.push(
-      `window_region_screencapture_failed: ${e instanceof Error ? e.message : String(e)}`,
-    );
+  } catch {
+    // Electron often lacks Screen Recording; host PNG + crop is the real path.
+    void quiet;
     return null;
   }
 }

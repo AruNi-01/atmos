@@ -178,7 +178,8 @@ async function captureScreenshotPng(
 ): Promise<Buffer | null> {
   const out = join(tmpdir(), `atmos-desktop-use-${randomUUID()}.png`);
   try {
-    // Prefer true window capture by CG window id (best for Electron-style UIs).
+    // Prefer CG window id when Screen Recording is granted to this process.
+    // Fail soft — "could not create image from window" is common without TCC.
     const wid = frontmost.windowId?.trim();
     if (wid && /^\d+$/.test(wid)) {
       try {
@@ -189,10 +190,8 @@ async function captureScreenshotPng(
           const buf = readFileSync(out);
           if (buf.length > 0) return buf;
         }
-      } catch (e) {
-        warnings.push(
-          `window_id_capture_failed: ${e instanceof Error ? e.message : String(e)}`,
-        );
+      } catch {
+        /* fall through to -R / full display */
       }
     }
 

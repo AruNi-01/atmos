@@ -26,9 +26,10 @@ export type CaptureFlyOpts = {
   durationMs?: number;
 };
 
-export const FLY_DURATION_MS = 620;
-export const FLY_CARD_WIDTH = 148;
-export const FLY_CARD_HEIGHT = 96;
+/** Keep snappy — long arcs feel laggy after dual-shift. */
+export const FLY_DURATION_MS = 380;
+export const FLY_CARD_WIDTH = 132;
+export const FLY_CARD_HEIGHT = 86;
 
 /** Pure: center of a rect. */
 export function rectCenter(r: {
@@ -150,8 +151,8 @@ window.__atmosFly = function(from, to, control, durationMs) {
     var x = bez(t, from.x, control.x, to.x);
     var y = bez(t, from.y, control.y, to.y);
     // Start larger (peek at capture), shrink into the chrome chip.
-    var scale = 1.12 - 0.62 * t;
-    var opacity = raw < 0.08 ? raw / 0.08 : raw > 0.88 ? (1 - raw) / 0.12 : 1;
+    var scale = 1.08 - 0.52 * t;
+    var opacity = raw < 0.06 ? raw / 0.06 : raw > 0.9 ? (1 - raw) / 0.1 : 1;
     card.style.opacity = String(Math.max(0, Math.min(1, opacity)));
     card.style.transform = 'translate3d(' + x + 'px,' + y + 'px,0) scale(' + scale + ')';
     if (raw < 1) {
