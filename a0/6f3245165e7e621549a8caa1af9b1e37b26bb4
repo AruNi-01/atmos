@@ -1,0 +1,34 @@
+apps/desktop-electron/electron-builder.yml
+  h_5be255725524c8 36-40
+apps/desktop-electron/resources/desktop-use/engine-manifest.json
+  h_5be255725524c8 1-50
+apps/desktop-electron/scripts/prepare-package.ts
+  h_5be255725524c8 4-5,75-112
+apps/desktop-electron/src/desktop-use/auto-update.structural.test.ts
+  h_5be255725524c8 1-34
+apps/desktop-electron/src/desktop-use/auto-update.ts
+  h_5be255725524c8 1-89
+apps/desktop-electron/src/desktop-use/client.test.ts
+  h_5be255725524c8 2-9,19-53
+apps/desktop-electron/src/desktop-use/client.ts
+  h_5be255725524c8 3-6,18-20,66-78,82-86,99-166,170-195,197-199,202-212,215-226,234-242
+apps/desktop-electron/src/main.ts
+  h_5be255725524c8 110-122
+bun.lock
+  h_5be255725524c8 27
+scripts/desktop/layout-runtime-bundle.mjs
+  h_5be255725524c8 117-138
+scripts/desktop/prepare-sidecar.sh
+  h_5be255725524c8 14-15
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "a06f3245165e7e621549a8caa1af9b1e37b26bb4",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
