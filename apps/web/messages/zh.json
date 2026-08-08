@@ -4,6 +4,7 @@
       "intro": "欢迎",
       "check": "环境检测",
       "agents": "智能体",
+      "quota": "用量追踪",
       "project": "首个项目"
     },
     "intro": {
@@ -109,6 +110,17 @@
       "skip": "暂且跳过",
       "checkFailed": "无法连接本地 Atmos Server 检测 Agent。请确认服务已启动后重新检测。",
       "saveFailed": "无法保存 Agent 偏好。请检查连接后重试。"
+    },
+    "quota": {
+      "title": "AI 用量追踪",
+      "subtitle": "选择要在页脚展示用量的服务商。默认勾选与上一步已启用 Agent 对应的服务商，其余保持关闭，你也可以自行调整。",
+      "summary": "已选 {selected} · 来自 Agent {suggested} · 共 {total} 个",
+      "fromAgentsBadge": "来自 Agent",
+      "selectAria": "追踪 {name} 的用量",
+      "keychainNote": "对于仅通过已登录网页会话暴露用量的服务商，Atmos 可能会使用钥匙串权限解密浏览器 Cookie。密钥仅保存在本机，且只用于读取用量数据。",
+      "next": "保存并继续",
+      "skip": "暂且跳过",
+      "saveFailed": "无法保存用量偏好。请检查连接后重试。"
     },
     "project": {
       "title": "导入首个项目",

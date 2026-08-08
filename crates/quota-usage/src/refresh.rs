@@ -15,8 +15,11 @@ struct LegacyRefreshStateFile {
     provider_updated_at_utc: BTreeMap<String, String>,
 }
 
+/// Fresh installs and unknown providers stay off until the user opts in
+/// (onboarding Quota Usage step or Settings). Avoids cold-start Keychain /
+/// browser-cookie probes on first launch.
 fn default_provider_switch() -> bool {
-    true
+    false
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -33,7 +36,7 @@ impl Default for ProviderStateEntry {
     fn default() -> Self {
         Self {
             updated_at_utc: None,
-            switch: true,
+            switch: false,
             footer_carousel_show: false,
         }
     }
@@ -116,7 +119,7 @@ pub(crate) fn provider_switch_enabled(provider_id: &str) -> bool {
         .providers
         .get(provider_id)
         .map(|entry| entry.switch)
-        .unwrap_or(true)
+        .unwrap_or(false)
 }
 
 pub(crate) fn load_auto_refresh_interval_minutes() -> Option<u64> {
@@ -221,7 +224,7 @@ pub(crate) fn apply_provider_state(mut overview: QuotaOverview) -> QuotaOverview
                 provider.last_updated_at = Some(updated_at);
             }
         } else {
-            provider.switch_enabled = true;
+            provider.switch_enabled = false;
             provider.footer_carousel_show = false;
         }
     }

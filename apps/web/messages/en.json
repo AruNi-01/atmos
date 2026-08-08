@@ -4,6 +4,7 @@
       "intro": "Welcome",
       "check": "Environment",
       "agents": "Agents",
+      "quota": "Quota usage",
       "project": "First Project"
     },
     "intro": {
@@ -109,6 +110,17 @@
       "skip": "Skip for now",
       "checkFailed": "Could not reach the local Atmos Server to detect agents. Make sure it is running, then re-check.",
       "saveFailed": "Could not save agent preferences. Check your connection and try again."
+    },
+    "quota": {
+      "title": "AI Quota Usage",
+      "subtitle": "Choose which providers Atmos should track for usage in the footer. Providers matched to the agents you enabled are selected by default; everything else stays off until you turn it on.",
+      "summary": "{selected} selected · {suggested} from your agents · {total} providers",
+      "fromAgentsBadge": "From agents",
+      "selectAria": "Track usage for {name}",
+      "keychainNote": "Atmos may use Keychain Access to decrypt browser cookies for providers that only expose usage through signed-in web sessions. Keys stay local and are used only to read usage data.",
+      "next": "Save and continue",
+      "skip": "Skip for now",
+      "saveFailed": "Could not save quota usage preferences. Check your connection and try again."
     },
     "project": {
       "title": "Your First Project",

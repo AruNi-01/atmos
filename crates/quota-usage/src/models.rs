@@ -2,7 +2,8 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 fn default_switch_enabled() -> bool {
-    true
+    // Match on-disk default: providers stay off until the user opts in.
+    false
 }
 
 fn default_footer_carousel_show() -> bool {

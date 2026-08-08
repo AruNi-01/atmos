@@ -11,7 +11,7 @@ import {
 } from '@workspace/ui';
 import { AlertCircle, ArrowRight, Loader2, RefreshCw } from 'lucide-react';
 
-export type OnboardingStepId = 'intro' | 'check' | 'agents' | 'project';
+export type OnboardingStepId = 'intro' | 'check' | 'agents' | 'quota' | 'project';
 
 export interface OnboardingStepActionsProps {
   step: OnboardingStepId;
@@ -27,6 +27,10 @@ export interface OnboardingStepActionsProps {
   agentsSaving: boolean;
   onAgentsContinue: () => void;
   onRecheckAgents: () => void;
+  // quota usage
+  quotaSaving: boolean;
+  onQuotaContinue: () => void;
+  onQuotaSkip: () => void;
   // project
   canSubmitProject: boolean;
   isSubmitting: boolean;
@@ -44,6 +48,9 @@ export function OnboardingStepActions({
   agentsSaving,
   onAgentsContinue,
   onRecheckAgents,
+  quotaSaving,
+  onQuotaContinue,
+  onQuotaSkip,
   canSubmitProject,
   isSubmitting,
   projectFormId,
@@ -162,11 +169,32 @@ export function OnboardingStepActions({
               </Button>
               <Button
                 variant="ghost"
-                onClick={() => onGoToStep('project')}
+                onClick={() => onGoToStep('quota')}
                 disabled={agentsSaving}
                 className="rounded-full px-4 text-xs text-muted-foreground hover:text-foreground cursor-pointer"
               >
                 {t('agents.skip')}
+              </Button>
+            </>
+          )}
+
+          {step === 'quota' && (
+            <>
+              <Button
+                onClick={onQuotaContinue}
+                disabled={quotaSaving}
+                className="rounded-full px-6 font-medium cursor-pointer"
+              >
+                {quotaSaving ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
+                {t('quota.next')}
+              </Button>
+              <Button
+                variant="ghost"
+                onClick={onQuotaSkip}
+                disabled={quotaSaving}
+                className="rounded-full px-4 text-xs text-muted-foreground hover:text-foreground cursor-pointer"
+              >
+                {t('quota.skip')}
               </Button>
             </>
           )}

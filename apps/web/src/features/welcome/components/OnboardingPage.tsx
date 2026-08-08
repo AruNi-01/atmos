@@ -27,6 +27,8 @@ import {
   Loader2,
   Bot,
   PlaneLanding,
+  Gauge,
+  KeyRound,
   type LucideIcon,
 } from 'lucide-react';
 import { AtmosWordmark } from '@/shared/components/ui/AtmosWordmark';
@@ -60,7 +62,12 @@ import {
   buildBuiltInEntries,
   isBuiltInAgentId,
 } from '@/features/settings/components/settings/settings-modal-utils';
-import { applyQuotaProvidersForAgents } from '@/features/quota-usage/lib/apply-quota-providers-for-agents';
+import { applyQuotaProviderVisibility } from '@/features/quota-usage/lib/apply-quota-providers-for-agents';
+import {
+  QUOTA_USAGE_ONBOARDING_PROVIDERS,
+  usageProviderIdsForAgents,
+} from '@/features/quota-usage/lib/agent-quota-provider-map';
+import { ProviderGlyph } from '@/app-shell/quota-popover-components';
 import {
   DEFAULT_AGENT_YOLO_MODE,
   setAgentYoloMode,
@@ -78,8 +85,17 @@ const STEP_ICONS: Record<Step, LucideIcon> = {
   intro: PlaneLanding,
   check: TerminalIcon,
   agents: Bot,
+  quota: Gauge,
   project: FolderGit2,
 };
+
+const ONBOARDING_STEPS: readonly Step[] = [
+  'intro',
+  'check',
+  'agents',
+  'quota',
+  'project',
+];
 
 const PREFERRED_DEFAULT_AGENT_IDS = [
   'claude',
@@ -109,10 +125,9 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
   const pathname = usePathname();
 
   const rawStep = searchParams.get('step');
-  const currentStep: Step =
-    rawStep === 'intro' || rawStep === 'check' || rawStep === 'agents' || rawStep === 'project'
-      ? rawStep
-      : 'intro';
+  const currentStep: Step = ONBOARDING_STEPS.includes(rawStep as Step)
+    ? (rawStep as Step)
+    : 'intro';
 
   const setCurrentStep = (step: Step) => {
     const params = new URLSearchParams(window.location.search);
@@ -138,6 +153,15 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
   /** Default-on: agents launch with skip-permissions / YOLO flags. */
   const [yoloMode, setYoloMode] = useState(DEFAULT_AGENT_YOLO_MODE);
   const agentsSelectionInitializedRef = useRef(false);
+
+  // Step 4: AI Quota Usage provider opt-in (after agents; before project)
+  const [selectedQuotaProviderIds, setSelectedQuotaProviderIds] = useState<Set<string>>(
+    () => new Set(),
+  );
+  const [quotaSaving, setQuotaSaving] = useState(false);
+  const [quotaSaveError, setQuotaSaveError] = useState<string | null>(null);
+  /** Re-seed from selected agents when entering this step until the user edits. */
+  const quotaSelectionTouchedRef = useRef(false);
 
   const runEnvChecks = async () => {
     setEnvChecking(true);
@@ -300,10 +324,7 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
     }
 
     await setAgentYoloMode(yoloMode);
-
-    // AI Quota Usage: only track providers for agents the user enabled;
-    // turn footer carousel on for those providers (and the footer master switch).
-    await applyQuotaProvidersForAgents(selectedAgentIds);
+    // Quota Usage is a separate onboarding step — do not probe providers here.
   }, [defaultAgentId, selectedAgentIds, yoloMode]);
 
   const handleAgentsContinue = useCallback(async () => {
@@ -314,7 +335,8 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
       if (agentStatuses.length > 0) {
         await persistAgentPreferences();
       }
-      setCurrentStep('project');
+      // Next: Quota Usage opt-in (Keychain / cookie probe only happens there).
+      setCurrentStep('quota');
     } catch (err) {
       console.error('Failed to save agent preferences:', err);
       setAgentsSaveError(t('agents.saveFailed'));
@@ -322,6 +344,62 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
       setAgentsSaving(false);
     }
   }, [agentStatuses.length, persistAgentPreferences, t]);
+
+  // Seed Quota Usage selection from agents the user enabled on the previous step.
+  useEffect(() => {
+    if (currentStep !== 'quota') return;
+    if (quotaSelectionTouchedRef.current) return;
+    setSelectedQuotaProviderIds(usageProviderIdsForAgents(selectedAgentIds));
+  }, [currentStep, selectedAgentIds]);
+
+  const toggleQuotaProvider = useCallback((providerId: string, nextChecked: boolean) => {
+    quotaSelectionTouchedRef.current = true;
+    setSelectedQuotaProviderIds((prev) => {
+      const next = new Set(prev);
+      if (nextChecked) {
+        next.add(providerId);
+      } else {
+        next.delete(providerId);
+      }
+      return next;
+    });
+  }, []);
+
+  const persistQuotaPreferences = useCallback(async () => {
+    await applyQuotaProviderVisibility(selectedQuotaProviderIds);
+  }, [selectedQuotaProviderIds]);
+
+  const handleQuotaContinue = useCallback(async () => {
+    setQuotaSaving(true);
+    setQuotaSaveError(null);
+    try {
+      // Enabling providers may trigger a live refresh (and macOS Keychain prompt
+      // for cookie-backed providers). That is intentional for this step only.
+      await persistQuotaPreferences();
+      setCurrentStep('project');
+    } catch (err) {
+      console.error('Failed to save quota usage preferences:', err);
+      setQuotaSaveError(t('quota.saveFailed'));
+    } finally {
+      setQuotaSaving(false);
+    }
+  }, [persistQuotaPreferences, t]);
+
+  const handleQuotaSkip = useCallback(async () => {
+    setQuotaSaving(true);
+    setQuotaSaveError(null);
+    try {
+      // Leave every provider off so the main app never cold-starts cookie/Keychain probes.
+      await applyQuotaProviderVisibility([]);
+      setCurrentStep('project');
+    } catch (err) {
+      console.error('Failed to clear quota usage preferences on skip:', err);
+      // Still advance — user can configure later in Settings.
+      setCurrentStep('project');
+    } finally {
+      setQuotaSaving(false);
+    }
+  }, []);
 
   // Step 4: Project import states
   const [path, setPath] = useState('');
@@ -462,6 +540,7 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
     { id: 'intro', label: t('steps.intro') },
     { id: 'check', label: t('steps.check') },
     { id: 'agents', label: t('steps.agents') },
+    { id: 'quota', label: t('steps.quota') },
     { id: 'project', label: t('steps.project') },
   ];
   const selectedStepIndex = Math.max(
@@ -470,6 +549,9 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
   );
   const installedAgentCount = agentStatuses.filter((agent) => agent.installed).length;
   const selectedAgentCount = selectedAgentIds.size;
+  const selectedQuotaCount = selectedQuotaProviderIds.size;
+  const suggestedQuotaProviderIds = usageProviderIdsForAgents(selectedAgentIds);
+  const suggestedFromAgentsCount = suggestedQuotaProviderIds.size;
 
   const imageSrc = '/figures/welcome.png';
 
@@ -822,7 +904,88 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
                 </div>
               )}
 
-              {/* STEP 4: FIRST PROJECT */}
+              {/* STEP 4: AI QUOTA USAGE */}
+              {currentStep === 'quota' && (
+                <div className="animate-in fade-in slide-in-from-bottom-4 duration-300 space-y-6">
+                  <div className="space-y-3">
+                    <h2 className="text-3xl font-semibold tracking-tight text-foreground">
+                      {t('quota.title')}
+                    </h2>
+                    <p className="text-muted-foreground text-xs leading-relaxed">
+                      {t('quota.subtitle')}
+                    </p>
+                    <p className="text-[11px] text-muted-foreground">
+                      {t('quota.summary', {
+                        selected: selectedQuotaCount,
+                        total: QUOTA_USAGE_ONBOARDING_PROVIDERS.length,
+                        suggested: suggestedFromAgentsCount,
+                      })}
+                    </p>
+                  </div>
+
+                  <div
+                    role="note"
+                    className="flex gap-2.5 rounded-xl border border-border/40 bg-muted/10 px-3.5 py-3 text-[11px] leading-relaxed text-muted-foreground"
+                  >
+                    <KeyRound className="mt-0.5 size-3.5 shrink-0 text-foreground/70" />
+                    <p>{t('quota.keychainNote')}</p>
+                  </div>
+
+                  <div className="space-y-2 pr-1">
+                    {QUOTA_USAGE_ONBOARDING_PROVIDERS.map((provider) => {
+                      const selected = selectedQuotaProviderIds.has(provider.id);
+                      const suggested = suggestedQuotaProviderIds.has(provider.id);
+                      return (
+                        <Card
+                          key={provider.id}
+                          className={cn(
+                            'overflow-hidden border bg-muted/10 transition-colors',
+                            selected
+                              ? 'border-foreground/20 bg-muted/20'
+                              : 'border-border/40',
+                          )}
+                        >
+                          <CardContent className="flex h-12 items-center gap-3 p-3">
+                            <Checkbox
+                              checked={selected}
+                              onCheckedChange={(checked) =>
+                                toggleQuotaProvider(provider.id, checked === true)
+                              }
+                              aria-label={t('quota.selectAria', { name: provider.label })}
+                              className="size-4 shrink-0"
+                            />
+                            <span className="flex size-5 shrink-0 items-center justify-center text-foreground">
+                              <ProviderGlyph providerId={provider.id} size={18} />
+                            </span>
+                            <div className="flex min-w-0 flex-1 items-center gap-2">
+                              <h4 className="truncate text-xs font-semibold text-foreground">
+                                {provider.label}
+                              </h4>
+                              {suggested ? (
+                                <Badge
+                                  variant="secondary"
+                                  className="h-5 shrink-0 px-1.5 text-[10px] font-semibold"
+                                >
+                                  {t('quota.fromAgentsBadge')}
+                                </Badge>
+                              ) : null}
+                            </div>
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
+                  </div>
+
+                  {quotaSaveError && (
+                    <p className="flex items-center gap-1.5 text-xs text-amber-500">
+                      <AlertCircle className="size-3.5" />
+                      {quotaSaveError}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* STEP 5: FIRST PROJECT */}
               {currentStep === 'project' && (
                 <div className="animate-in fade-in slide-in-from-bottom-4 duration-300 space-y-8">
                   <div className="space-y-3">
@@ -926,6 +1089,9 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
                       agentsSaving={agentsSaving}
                       onAgentsContinue={() => void handleAgentsContinue()}
                       onRecheckAgents={() => void runAgentChecks({ resetSelection: false })}
+                      quotaSaving={quotaSaving}
+                      onQuotaContinue={() => void handleQuotaContinue()}
+                      onQuotaSkip={() => void handleQuotaSkip()}
                       canSubmitProject={canSubmitProject}
                       isSubmitting={isSubmitting}
                       projectFormId={PROJECT_FORM_ID}

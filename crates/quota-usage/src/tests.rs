@@ -129,8 +129,11 @@ async fn get_overview_refreshes_all_providers_in_parallel_and_preserves_order() 
         }),
     ]);
 
+    // Default switch is off (opt-in); enable all before measuring concurrent collect.
+    let _ = service.set_all_provider_switch(true).await;
+
     let start = Instant::now();
-    let overview = service.get_overview(false, None).await;
+    let overview = service.get_overview(true, None).await;
     let elapsed = start.elapsed();
 
     assert_eq!(
@@ -165,8 +168,9 @@ async fn cold_overview_skips_collect_for_disabled_providers() {
         }),
     ]);
 
-    // Disable alpha before any overview load (simulates user prefs on disk).
+    // Opt-in default is off; enable beta and leave alpha off on disk.
     let _ = service.set_provider_switch("alpha", false).await;
+    let _ = service.set_provider_switch("beta", true).await;
     // Clear in-memory cache so the next get_overview is a true cold path.
     // set_provider_switch seeds cache; force a fresh process-like read by
     // constructing a new service over the same on-disk switches.
