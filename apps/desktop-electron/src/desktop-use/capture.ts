@@ -37,6 +37,13 @@ export type DesktopUseCaptureResult = {
   error?: string | null;
 };
 
+/**
+ * Frontmost app + **largest content window** bounds.
+ *
+ * Do not use `first window` — for many apps (terminals, Electron, browsers) the
+ * first AX window is a 0-height title strip or menu chrome (e.g. 1512×33), which
+ * makes AppShot fall back to full-display capture.
+ */
 const FRONTMOST_SCRIPT = `
 tell application "System Events"
   set p to first application process whose frontmost is true
@@ -47,15 +54,32 @@ tell application "System Events"
   set winW to -1
   set winH to -1
   set pid to unix id of p
+  set bestArea to 0
   try
-    set w to first window of p
-    set winTitle to name of w
-    set pos to position of w
-    set sz to size of w
-    set winX to item 1 of pos as integer
-    set winY to item 2 of pos as integer
-    set winW to item 1 of sz as integer
-    set winH to item 2 of sz as integer
+    repeat with w in windows of p
+      try
+        set pos to position of w
+        set sz to size of w
+        set wX to item 1 of pos as integer
+        set wY to item 2 of pos as integer
+        set wW to item 1 of sz as integer
+        set wH to item 2 of sz as integer
+        if wW ≥ 64 and wH ≥ 64 then
+          set area to wW * wH
+          if area > bestArea then
+            set bestArea to area
+            set winX to wX
+            set winY to wY
+            set winW to wW
+            set winH to wH
+            set winTitle to ""
+            try
+              set winTitle to name of w
+            end try
+          end if
+        end if
+      end try
+    end repeat
   end try
   return appName & linefeed & winTitle & linefeed & (winX as text) & "," & (winY as text) & "," & (winW as text) & "," & (winH as text) & linefeed & (pid as text)
 end tell
@@ -218,15 +242,21 @@ export function parseFrontmostScriptOutput(stdout: string): DesktopUseFrontmost 
   const bounds = (lines[2] ?? "").split(",").map((s) => parseInt(s.trim(), 10));
   const processId = parseInt((lines[3] ?? "").trim(), 10);
   const [x, y, width, height] = bounds;
+  // Treat AppleScript sentinels (-1) and thin chrome strips as "no bounds".
+  const validSize =
+    Number.isFinite(width) &&
+    Number.isFinite(height) &&
+    width >= 64 &&
+    height >= 64;
   return {
     appName,
     windowTitle,
     bundleId: null,
     processId: Number.isFinite(processId) ? processId : null,
     windowId: null,
-    x: Number.isFinite(x) ? x : null,
-    y: Number.isFinite(y) ? y : null,
-    width: Number.isFinite(width) && width > 0 ? width : null,
-    height: Number.isFinite(height) && height > 0 ? height : null,
+    x: validSize && Number.isFinite(x) ? x : null,
+    y: validSize && Number.isFinite(y) ? y : null,
+    width: validSize ? width : null,
+    height: validSize ? height : null,
   };
 }

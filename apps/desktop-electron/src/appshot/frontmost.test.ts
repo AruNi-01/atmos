@@ -28,6 +28,15 @@ describe("frontmost parsing + context", () => {
     expect(fm.height).toBe(800);
   });
 
+  it("rejects thin chrome strips (first-window title bars) as bounds", () => {
+    const fm = parseFrontmostScriptOutput("Ghostty\n\n0,0,1512,33\n27354\n");
+    expect(fm.appName).toBe("Ghostty");
+    expect(fm.width).toBeNull();
+    expect(fm.height).toBeNull();
+    expect(fm.x).toBeNull();
+    expect(fm.y).toBeNull();
+  });
+
   it("context markdown names the captured app/window (not Atmos placeholders)", () => {
     const md = buildContextMarkdown(
       {

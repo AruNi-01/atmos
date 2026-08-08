@@ -99,7 +99,17 @@ function scoreWindow(
 ): number {
   const app = (w.app_name ?? "").trim();
   if (!app || isSkippedApp(app)) return -Infinity;
-  if (opts.selfNames.has(app)) return -Infinity;
+
+  const preferredByPid =
+    opts.preferPid != null && typeof w.pid === "number" && w.pid === opts.preferPid;
+  const preferredByApp =
+    Boolean(opts.preferApp) &&
+    app.toLowerCase() === opts.preferApp!.trim().toLowerCase();
+  const preferred = preferredByPid || preferredByApp;
+
+  // Skip Atmos/self chrome unless this row is the explicitly focused app
+  // (AppShot of Atmos itself is allowed and needs real window bounds).
+  if (opts.selfNames.has(app) && !preferred) return -Infinity;
 
   const area = windowArea(w);
   if (area > 0 && area < MIN_WINDOW_AREA) return -Infinity;
@@ -113,13 +123,8 @@ function scoreWindow(
     else score -= 500_000;
   }
 
-  if (opts.preferPid != null && w.pid === opts.preferPid) score += 5_000_000;
-  if (
-    opts.preferApp &&
-    app.toLowerCase() === opts.preferApp.trim().toLowerCase()
-  ) {
-    score += 2_000_000;
-  }
+  if (preferredByPid) score += 5_000_000;
+  if (preferredByApp) score += 2_000_000;
 
   const title = (w.title ?? "").trim();
   if (title) score += 50_000;
@@ -373,9 +378,13 @@ export async function captureFrontmostViaHostEngine(options: {
     );
   }
 
-  // 3) Optional host window list — skip on hot path (dual-shift).
+  // 3) Host window list — always try when SE bounds are missing so we can crop.
+  // When SE already has a large content window, skip verify (latency).
   let hostRow: HostWindowRow | null = null;
-  if (options.enrichFromWindowList) {
+  const seHasBounds = hasUsableWindowBounds(systemFrontmost);
+  const wantList =
+    options.enrichFromWindowList === true || !seHasBounds;
+  if (wantList) {
     let windows: HostWindowRow[] = [];
     try {
       const listed = await desktopUseDriveVerify();
@@ -393,13 +402,17 @@ export async function captureFrontmostViaHostEngine(options: {
     }
   }
 
-  const frontmost = mergeFrontmostIdentity(systemFrontmost, hostRow);
+  let frontmost = mergeFrontmostIdentity(systemFrontmost, hostRow);
 
   // Host engine only gives full-desktop PNG — crop to the focused app window.
   if (png && png.length > 0) {
     const cropped = await cropHostPngToFrontmostWindow(png, frontmost, warnings);
     if (cropped) {
       png = cropped;
+    } else if (hasUsableWindowBounds(frontmost)) {
+      // Crop math failed (e.g. multi-display mismatch) — try OS region capture.
+      const region = await tryRegionScreencapture(frontmost, warnings);
+      if (region) png = region;
     }
   }
 
@@ -422,6 +435,58 @@ export async function captureFrontmostViaHostEngine(options: {
   };
 }
 
+function hasUsableWindowBounds(
+  fm: DesktopUseFrontmost | null | undefined,
+): boolean {
+  return (
+    fm != null &&
+    fm.x != null &&
+    fm.y != null &&
+    fm.width != null &&
+    fm.height != null &&
+    fm.width >= 64 &&
+    fm.height >= 64
+  );
+}
+
+/** Optional window-region capture when host crop cannot map bounds. */
+async function tryRegionScreencapture(
+  frontmost: DesktopUseFrontmost,
+  warnings: string[],
+): Promise<Buffer | null> {
+  if (!hasUsableWindowBounds(frontmost)) return null;
+  try {
+    const { execFile } = await import("node:child_process");
+    const { promisify } = await import("node:util");
+    const { readFileSync, unlinkSync, existsSync } = await import("node:fs");
+    const { tmpdir } = await import("node:os");
+    const { join } = await import("node:path");
+    const { randomUUID } = await import("node:crypto");
+    const execFileAsync = promisify(execFile);
+    const out = join(tmpdir(), `atmos-appshot-region-${randomUUID()}.png`);
+    const rect = `${frontmost.x},${frontmost.y},${frontmost.width},${frontmost.height}`;
+    try {
+      await execFileAsync("screencapture", ["-x", "-R", rect, out], {
+        timeout: 8_000,
+      });
+      if (!existsSync(out)) return null;
+      const buf = readFileSync(out);
+      return buf.length > 0 ? buf : null;
+    } finally {
+      try {
+        if (existsSync(out)) unlinkSync(out);
+      } catch {
+        /* ignore */
+      }
+    }
+  } catch (e) {
+    warnings.push(
+      `window_region_screencapture_failed: ${e instanceof Error ? e.message : String(e)}`,
+    );
+    return null;
+  }
+}
+
 /**
  * Crop full-desktop host PNG to the frontmost window when bounds are known.
  * Returns cropped bytes, or null when crop is impossible (caller keeps full PNG).
@@ -431,14 +496,7 @@ export async function cropHostPngToFrontmostWindow(
   frontmost: DesktopUseFrontmost,
   warnings: string[],
 ): Promise<Buffer | null> {
-  const hasBounds =
-    frontmost.x != null &&
-    frontmost.y != null &&
-    frontmost.width != null &&
-    frontmost.height != null &&
-    frontmost.width >= 32 &&
-    frontmost.height >= 32;
-  if (!hasBounds) {
+  if (!hasUsableWindowBounds(frontmost)) {
     warnings.push(
       "Unable to determine focused window bounds; kept full-display capture.",
     );
