@@ -577,20 +577,31 @@ export async function triggerCapture(state: AppState): Promise<void> {
       "Electron",
     ]);
     const warnings: string[] = [];
+    const needsBounds =
+      !systemFrontmost ||
+      systemFrontmost.x == null ||
+      systemFrontmost.y == null ||
+      systemFrontmost.width == null ||
+      systemFrontmost.height == null ||
+      systemFrontmost.width < 64 ||
+      systemFrontmost.height < 64;
     // Always force host-list merge when CG/SE bounds missing — same pid must
     // keep host geometry even if app labels differ (QQMusic vs QQ音乐).
     systemFrontmost = await resolveFrontmostWithHostBounds(
       seFrontmost,
       selfNames,
       warnings,
-      /* forceList */ !systemFrontmost ||
-        systemFrontmost.width == null ||
-        systemFrontmost.height == null ||
-        systemFrontmost.width < 64 ||
-        systemFrontmost.height < 64,
+      /* forceList */ needsBounds,
     );
-  } catch {
-    /* keep SE-only */
+    for (const w of warnings) {
+      mainLog(`[appshot-capture] bounds preflight: ${w}`, "warn");
+    }
+    mainLog(
+      `[appshot-capture] bounds preflight app=${systemFrontmost?.appName ?? "?"} pid=${systemFrontmost?.processId ?? "?"} rect=${systemFrontmost?.x ?? "null"},${systemFrontmost?.y ?? "null"} ${systemFrontmost?.width ?? "null"}x${systemFrontmost?.height ?? "null"} forceList=${needsBounds}`,
+    );
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    mainLog(`[appshot-capture] bounds preflight failed: ${msg}`, "error");
   }
 
   // Parallel: flash + host screenshot. Overlay sits outside the window rect

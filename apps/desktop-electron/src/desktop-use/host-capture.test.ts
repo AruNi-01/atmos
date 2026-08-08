@@ -172,6 +172,34 @@ describe("host engine capture routing", () => {
     expect(merged.height).toBe(832);
   });
 
+  it("never returns partial host geometry (width without x/y)", () => {
+    // Old merge could keep host w/h while leaving SE null x/y → crop rejects.
+    const se = {
+      appName: "Other",
+      windowTitle: null,
+      bundleId: null,
+      processId: 1,
+      windowId: null,
+      x: null,
+      y: null,
+      width: null,
+      height: null,
+    };
+    const hostRow: HostWindowRow = {
+      app_name: "Unrelated",
+      title: "",
+      pid: 99,
+      window_id: 1,
+      bounds: { x: 10, y: 20, width: 800, height: 600 },
+    };
+    const merged = mergeFrontmostIdentity(se, hostRow);
+    // Different pid + name → no trusted host geometry
+    expect(merged.width).toBeNull();
+    expect(merged.height).toBeNull();
+    expect(merged.x).toBeNull();
+    expect(merged.y).toBeNull();
+  });
+
   it("merges host bounds when same app as System Events", () => {
     const se = {
       appName: "Notes",

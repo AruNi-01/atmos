@@ -120,18 +120,62 @@ int main(int argc, const char *argv[]) {
     FrontScan scan = {0};
     NSString *bestTitle = nil;
 
+    // Prefer on-screen windows first (z-order is meaningful there).
     CFArrayRef onScreen = CGWindowListCopyWindowInfo(
         kCGWindowListOptionOnScreenOnly | kCGWindowListExcludeDesktopElements,
         kCGNullWindowID);
     scan_window_list(onScreen, (int)pid, &scan, &bestTitle);
     if (onScreen) CFRelease(onScreen);
 
+    // Many apps (e.g. QQ Music) report content windows only under OptionAll
+    // while OnScreenOnly is empty — always fall back so crop/animation work.
     if (scan.bestArea <= 0) {
       CFArrayRef all = CGWindowListCopyWindowInfo(
           kCGWindowListOptionAll | kCGWindowListExcludeDesktopElements,
           kCGNullWindowID);
       scan_window_list(all, (int)pid, &scan, &bestTitle);
       if (all) CFRelease(all);
+    }
+
+    // Last resort: scan all layers for target pid with usable size (some
+    // custom UI uses non-zero layer for the main surface).
+    if (scan.bestArea <= 0) {
+      CFArrayRef all = CGWindowListCopyWindowInfo(
+          kCGWindowListOptionAll | kCGWindowListExcludeDesktopElements,
+          kCGNullWindowID);
+      if (all) {
+        CFIndex count = CFArrayGetCount(all);
+        for (CFIndex i = 0; i < count; i++) {
+          CFDictionaryRef win = CFArrayGetValueAtIndex(all, i);
+          if (!win) continue;
+          CFNumberRef pidRef = CFDictionaryGetValue(win, kCGWindowOwnerPID);
+          int ownerPid = 0;
+          if (pidRef) CFNumberGetValue(pidRef, kCFNumberIntType, &ownerPid);
+          if (ownerPid != (int)pid) continue;
+          CFNumberRef alphaRef = CFDictionaryGetValue(win, kCGWindowAlpha);
+          double alpha = 1.0;
+          if (alphaRef) CFNumberGetValue(alphaRef, kCFNumberDoubleType, &alpha);
+          if (alpha <= 0.01) continue;
+          CFDictionaryRef bounds = CFDictionaryGetValue(win, kCGWindowBounds);
+          if (!bounds) continue;
+          CGRect r = CGRectZero;
+          if (!CGRectMakeWithDictionaryRepresentation(bounds, &r)) continue;
+          if (!usable_size(r.size.width, r.size.height)) continue;
+          CGFloat area = r.size.width * r.size.height;
+          if (area <= scan.bestArea) continue;
+          scan.bestArea = area;
+          scan.bestX = r.origin.x;
+          scan.bestY = r.origin.y;
+          scan.bestW = r.size.width;
+          scan.bestH = r.size.height;
+          scan.bestWindowId = 0;
+          CFNumberRef numRef = CFDictionaryGetValue(win, kCGWindowNumber);
+          if (numRef) CFNumberGetValue(numRef, kCFNumberIntType, &scan.bestWindowId);
+          CFStringRef nameRef = CFDictionaryGetValue(win, kCGWindowName);
+          bestTitle = nameRef ? [(__bridge NSString *)nameRef copy] : nil;
+        }
+        CFRelease(all);
+      }
     }
 
     printf("{\"ok\":true,\"app_name\":\"");

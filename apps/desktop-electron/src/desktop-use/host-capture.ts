@@ -230,6 +230,22 @@ export function hostWindowToFrontmost(w: HostWindowRow | null): DesktopUseFrontm
   };
 }
 
+function hasCompleteBounds(fm: {
+  x: number | null;
+  y: number | null;
+  width: number | null;
+  height: number | null;
+}): boolean {
+  return (
+    fm.x != null &&
+    fm.y != null &&
+    fm.width != null &&
+    fm.height != null &&
+    fm.width >= 64 &&
+    fm.height >= 64
+  );
+}
+
 /**
  * Merge focus identity (CG / System Events) with host window row geometry.
  *
@@ -237,6 +253,9 @@ export function hostWindowToFrontmost(w: HostWindowRow | null): DesktopUseFrontm
  * app_name equality — SE/NSWorkspace often say "QQMusic" while host list says
  * "QQ音乐"; strict name match previously dropped host bounds and killed crop +
  * border/fly animations.
+ *
+ * Geometry is atomic (x/y/w/h together). Never take host width/height while
+ * leaving SE null x/y — that fails hasUsableWindowBounds and both crop + anim.
  */
 export function mergeFrontmostIdentity(
   systemEvents: DesktopUseFrontmost | null,
@@ -254,15 +273,18 @@ export function mergeFrontmostIdentity(
     systemEvents.processId === fromHost.processId;
   const sameName =
     hostRow != null && appNamesLooselyEqual(hostApp, seApp);
-  // Geometry is trustworthy when pid matches OR names loosely match.
-  const useHostGeometry = samePid || sameName;
+  // Trust host rect when pid matches OR names loosely match.
+  const trustHostRow = samePid || sameName;
+  const hostHas = hasCompleteBounds(fromHost);
+  const seHas = hasCompleteBounds(systemEvents);
+  const useHostGeometry = trustHostRow && hostHas;
 
   const windowTitle =
-    (useHostGeometry && fromHost.windowTitle) ||
+    (trustHostRow && fromHost.windowTitle) ||
     systemEvents.windowTitle?.trim() ||
     null;
 
-  // Prefer SE/CG app label for product identity; keep host geometry.
+  // Prefer SE/CG app label for product identity; keep host geometry as a unit.
   return {
     appName: seApp,
     windowTitle:
@@ -272,24 +294,14 @@ export function mergeFrontmostIdentity(
     windowId: useHostGeometry
       ? fromHost.windowId ?? systemEvents.windowId
       : systemEvents.windowId ?? fromHost.windowId,
-    x: useHostGeometry && fromHost.x != null ? fromHost.x : systemEvents.x,
-    y: useHostGeometry && fromHost.y != null ? fromHost.y : systemEvents.y,
-    width:
-      useHostGeometry && fromHost.width != null && fromHost.width >= 64
-        ? fromHost.width
-        : systemEvents.width != null && systemEvents.width >= 64
-          ? systemEvents.width
-          : fromHost.width != null && fromHost.width >= 64
-            ? fromHost.width
-            : null,
-    height:
-      useHostGeometry && fromHost.height != null && fromHost.height >= 64
-        ? fromHost.height
-        : systemEvents.height != null && systemEvents.height >= 64
-          ? systemEvents.height
-          : fromHost.height != null && fromHost.height >= 64
-            ? fromHost.height
-            : null,
+    x: useHostGeometry ? fromHost.x : seHas ? systemEvents.x : null,
+    y: useHostGeometry ? fromHost.y : seHas ? systemEvents.y : null,
+    width: useHostGeometry ? fromHost.width : seHas ? systemEvents.width : null,
+    height: useHostGeometry
+      ? fromHost.height
+      : seHas
+        ? systemEvents.height
+        : null,
   };
 }
 
@@ -335,6 +347,16 @@ function extractWindows(payload: unknown): HostWindowRow[] {
     if (Array.isArray(windows)) return windows as HostWindowRow[];
   }
   if (Array.isArray(o.windows)) return o.windows as HostWindowRow[];
+  // DriveResult.detail is a JSON string mirror of result (agents / older CLI).
+  const detail = o.detail;
+  if (typeof detail === "string" && detail.includes("windows")) {
+    try {
+      const inner = JSON.parse(detail) as { windows?: HostWindowRow[] };
+      if (Array.isArray(inner.windows)) return inner.windows;
+    } catch {
+      /* ignore */
+    }
+  }
   return [];
 }
 
@@ -424,12 +446,14 @@ export async function captureFrontmostViaHostEngine(options: {
 
   // 3) Resolve window bounds for crop + animation (all apps).
   // System Events AX is empty for many custom-UI apps; host list_windows still
-  // has CG bounds — match by pid, then largest content window.
+  // has CG bounds — match by **pid**, then largest content window.
+  // Always list when geometry is incomplete (do not rely only on caller flag).
   let frontmost = await resolveFrontmostWithHostBounds(
     systemFrontmost,
     selfNames,
     warnings,
-    options.enrichFromWindowList === true,
+    options.enrichFromWindowList === true ||
+      !hasUsableWindowBounds(systemFrontmost),
   );
 
   // 4) Window-only image: crop the host full-desktop PNG (Screen Recording is
@@ -640,14 +664,19 @@ export async function cropHostPngToFrontmostWindow(
   let display = null as ReturnType<typeof displayMetricsFromElectronScreen>;
   try {
     const { screen } = await import("electron");
-    display = displayMetricsFromElectronScreen(
-      { x: bounds.x, y: bounds.y },
-      screen,
-    );
+    // import("electron") can succeed outside a real app (null screen APIs).
+    if (screen && typeof screen.getDisplayNearestPoint === "function") {
+      display = displayMetricsFromElectronScreen(
+        { x: bounds.x, y: bounds.y },
+        screen,
+      );
+    }
   } catch {
-    // Non-electron (tests): infer 1× or 2× from PNG aspect vs common logical sizes.
-    const scale =
-      pngW >= 2000 && pngH >= 1200 ? 2 : 1;
+    /* fall through to PNG-inferred display */
+  }
+  if (!display) {
+    // Infer logical display from PNG (Retina 2× when long edge ≥ 2000).
+    const scale = pngW >= 2000 && pngH >= 1200 ? 2 : 1;
     display = {
       x: 0,
       y: 0,
@@ -655,10 +684,6 @@ export async function cropHostPngToFrontmostWindow(
       height: Math.round(pngH / scale),
       scaleFactor: scale,
     };
-  }
-  if (!display) {
-    warnings.push("window_crop_no_display; kept full-display capture.");
-    return null;
   }
 
   const rect = computeWindowCropPixels(bounds, pngW, pngH, display);
