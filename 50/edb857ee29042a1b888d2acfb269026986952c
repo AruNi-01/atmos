@@ -1,0 +1,22 @@
+apps/desktop-electron/src/appshot/capture-animation.test.ts
+  h_5be255725524c8 47,54,57
+apps/desktop-electron/src/appshot/capture-animation.ts
+  h_5be255725524c8 79-81
+apps/desktop-electron/src/appshot/service.ts
+  h_5be255725524c8 556-560,562,567-599
+apps/desktop-electron/src/desktop-use/host-capture.test.ts
+  h_5be255725524c8 79-118
+apps/desktop-electron/src/desktop-use/host-capture.ts
+  h_5be255725524c8 65-66,93-111,124-131,135,147-148,153,409-417,419,431-439,441,457-498
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "50edb857ee29042a1b888d2acfb269026986952c",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
