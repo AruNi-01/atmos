@@ -2,16 +2,15 @@
 // Adapted from beui.dev Morphing Tabs (MIT) — density + Atmos tokens only.
 // https://beui.dev/components/blocks/morphing-tabs
 // Drag / reorder / liquid path logic is intentionally unchanged from upstream.
+// Geometry pure helpers: lib/morphing-tabs-geometry.ts; SpringTab/liquid UI: morphing-tabs-parts.tsx.
 
-import { Plus, X } from "lucide-react";
+import { X } from "lucide-react";
 import {
   AnimatePresence,
   animate as animateValue,
   motion,
   useMotionValue,
   useReducedMotion,
-  useSpring,
-  useTransform,
   type MotionValue,
 } from "motion/react";
 import {
@@ -25,10 +24,29 @@ import {
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from "react";
-import { createPortal } from "react-dom";
 import { cn } from "@/shared/lib/utils";
 
 import { EASE_OUT, SPRING_GLIDE, SPRING_PRESS } from "../lib/morphing-ease";
+import {
+  ADD_BUTTON_GAP,
+  ADD_BUTTON_SIZE,
+  DRAG_THRESHOLD,
+  PANEL_RADIUS,
+  RAIL_HEIGHT,
+  SCROLL_EDGE_PAD,
+  SURFACE_INSET,
+  TAB_HEIGHT,
+  TAB_TOP,
+  TAB_WIDTH,
+  moveItem,
+  safeId,
+  sameOrder,
+} from "../lib/morphing-tabs-geometry";
+import {
+  AddTabButton,
+  LiquidSurfacePath,
+  SpringTab,
+} from "./morphing-tabs-parts";
 
 export type MorphingTabsItem = {
   id: string;
@@ -92,273 +110,6 @@ type DragSession = {
   startOrder: string[];
   slotLefts: number[];
 };
-
-type SpringTabProps = {
-  id: string;
-  targetLeft: number;
-  dragging: boolean;
-  dragLeft: MotionValue<number>;
-  surfaceLeft: MotionValue<number>;
-  /** Horizontal scroll of the tab strip — liquid is root-fixed so subtract this. */
-  scrollLeft: MotionValue<number>;
-  reduce: boolean;
-  active: boolean;
-  anyDragging: boolean;
-  surfaceHost: HTMLDivElement | null;
-  surfaceWidth: number;
-  surfaceClassName?: string;
-  zIndex: number;
-  className: string;
-  children: ReactNode;
-  registerPosition: (id: string, position: MotionValue<number> | null) => void;
-  onPointerDown: (event: ReactPointerEvent<HTMLDivElement>) => void;
-  onPointerMove: (event: ReactPointerEvent<HTMLDivElement>) => void;
-  onPointerUp: (event: ReactPointerEvent<HTMLDivElement>) => void;
-  onPointerCancel: (event: ReactPointerEvent<HTMLDivElement>) => void;
-  onLostPointerCapture: (event: ReactPointerEvent<HTMLDivElement>) => void;
-};
-
-const DRAG_THRESHOLD = 5;
-/** Dense browser chrome scale of beui defaults (logic unchanged). */
-const TAB_WIDTH = 156;
-const TAB_HEIGHT = 28;
-const TAB_TOP = 2;
-const TAB_RADIUS = 10;
-const RAIL_HEIGHT = 30;
-/** 0 = flush with panel edge so first active tab joins square TL (beui inset was 16). */
-const SURFACE_INSET = 0;
-const LIQUID_JOIN = 12;
-/** How far the liquid fill dips into the content panel for corner morphs.
- *  Keep small — dense chrome toolbar sits right under the rail. */
-const PANEL_RADIUS = 8;
-const ADD_BUTTON_SIZE = 24;
-const ADD_BUTTON_GAP = 4;
-/** Extra scroll room so active-tab liquid ears (bottom L/R) are not clipped by
- *  the scrollport edge — symmetric when the tab is not flush with the strip end. */
-const SCROLL_EDGE_PAD = LIQUID_JOIN + 4;
-
-function sameOrder(a: string[], b: string[]) {
-  return a.length === b.length && a.every((id, index) => id === b[index]);
-}
-
-function safeId(value: string) {
-  return value.replace(/[^a-zA-Z0-9_-]/g, "-");
-}
-
-function moveItem(order: string[], from: number, to: number) {
-  if (from === to) return order.slice();
-  const next = order.slice();
-  const [item] = next.splice(from, 1);
-  next.splice(to, 0, item);
-  return next;
-}
-
-/** Panel top edge only (full corner radii) — used when the active tab has
- *  scrolled fully out of the visible strip so the fill is not pinned at an edge. */
-function liquidPanelOnlyPath(surfaceWidth: number) {
-  const panelLeft = SURFACE_INSET;
-  const panelRight = Math.max(panelLeft + TAB_WIDTH, surfaceWidth - SURFACE_INSET);
-  const bottom = RAIL_HEIGHT;
-  const r = PANEL_RADIUS;
-  return [
-    `M${panelLeft} ${bottom + r}`,
-    `V${bottom + r}`,
-    `Q${panelLeft} ${bottom} ${panelLeft + r} ${bottom}`,
-    `H${panelRight - r}`,
-    `Q${panelRight} ${bottom} ${panelRight} ${bottom + r}`,
-    `V${bottom + r}`,
-    "Z",
-  ].join(" ");
-}
-
-function liquidTabPath(tabLeft: number, surfaceWidth: number) {
-  const panelLeft = SURFACE_INSET;
-  const panelRight = Math.max(panelLeft + TAB_WIDTH, surfaceWidth - SURFACE_INSET);
-  // Viewport x of the active tab (track left − scroll). Do NOT clamp into the
-  // panel — clamping pinned the silhouette at the left/right when scrolling.
-  const left = tabLeft;
-  const right = left + TAB_WIDTH;
-  const top = RAIL_HEIGHT - TAB_HEIGHT;
-  const bottom = RAIL_HEIGHT;
-
-  // Fully off-screen → only the content top strip (no stuck edge tab fill).
-  if (right < panelLeft || left > panelRight) {
-    return liquidPanelOnlyPath(surfaceWidth);
-  }
-
-  const leftJoin = Math.max(panelLeft, left - LIQUID_JOIN);
-  const rightJoin = Math.min(panelRight, right + LIQUID_JOIN);
-  const leftDepth = Math.max(0, Math.min(LIQUID_JOIN, left - leftJoin));
-  const rightDepth = Math.max(0, Math.min(LIQUID_JOIN, rightJoin - right));
-  const leftControl = leftDepth * 0.55;
-  const rightControl = rightDepth * 0.55;
-  // Flush with content left only when the tab edge is at/near panelLeft.
-  // Scrolled past the left edge → full radius (not square residual).
-  const leftPanelRadius =
-    left <= panelLeft
-      ? Math.min(PANEL_RADIUS, Math.max(0, panelLeft - left))
-      : Math.min(PANEL_RADIUS, Math.max(0, leftJoin - panelLeft));
-  const rightPanelRadius =
-    right >= panelRight
-      ? Math.min(PANEL_RADIUS, Math.max(0, right - panelRight))
-      : Math.min(PANEL_RADIUS, Math.max(0, panelRight - rightJoin));
-
-  return [
-    `M${panelLeft} ${bottom + PANEL_RADIUS}`,
-    `V${bottom + leftPanelRadius}`,
-    `Q${panelLeft} ${bottom} ${panelLeft + leftPanelRadius} ${bottom}`,
-    `H${leftJoin}`,
-    `C${leftJoin + leftControl} ${bottom} ${left} ${bottom - leftDepth + leftControl} ${left} ${bottom - leftDepth}`,
-    `V${top + TAB_RADIUS}`,
-    `Q${left} ${top} ${left + TAB_RADIUS} ${top}`,
-    `H${right - TAB_RADIUS}`,
-    `Q${right} ${top} ${right} ${top + TAB_RADIUS}`,
-    `V${bottom - rightDepth}`,
-    `C${right} ${bottom - rightDepth + rightControl} ${rightJoin - rightControl} ${bottom} ${rightJoin} ${bottom}`,
-    `H${panelRight - rightPanelRadius}`,
-    `Q${panelRight} ${bottom} ${panelRight} ${bottom + rightPanelRadius}`,
-    `V${bottom + PANEL_RADIUS}`,
-    "Z",
-  ].join(" ");
-}
-
-function SpringTab({
-  id,
-  targetLeft,
-  dragging,
-  dragLeft,
-  surfaceLeft,
-  scrollLeft,
-  reduce,
-  active,
-  anyDragging,
-  surfaceHost,
-  surfaceWidth,
-  surfaceClassName,
-  zIndex,
-  className,
-  children,
-  registerPosition,
-  onPointerDown,
-  onPointerMove,
-  onPointerUp,
-  onPointerCancel,
-  onLostPointerCapture,
-}: SpringTabProps) {
-  const target = useMotionValue(targetLeft);
-  const position = useSpring(target, SPRING_GLIDE);
-  const settledTransform = useTransform(
-    reduce ? target : position,
-    (left) => `translate3d(${left}px, 0, 0)`,
-  );
-  const draggedTransform = useTransform(
-    dragLeft,
-    (left) => `translate3d(${left}px, 0, 0)`,
-  );
-
-  useLayoutEffect(() => {
-    target.set(targetLeft);
-    if (reduce) position.jump(targetLeft);
-  }, [position, reduce, target, targetLeft]);
-
-  useLayoutEffect(() => {
-    registerPosition(id, position);
-    return () => registerPosition(id, null);
-  }, [id, position, registerPosition]);
-
-  const liquidDriver = anyDragging
-    ? dragging
-      ? dragLeft
-      : position
-    : surfaceLeft;
-
-  return (
-    <>
-      {active && surfaceHost && surfaceWidth > SURFACE_INSET * 2
-        ? createPortal(
-            <svg
-              aria-hidden="true"
-              focusable="false"
-              viewBox={`0 0 ${surfaceWidth} ${RAIL_HEIGHT + PANEL_RADIUS}`}
-              preserveAspectRatio="none"
-              className={cn(
-                // Always below the content panel (z-20). Raising to z-20 on drag
-                // (beui default) paints the full-width panel strip over the toolbar.
-                "pointer-events-none absolute inset-x-0 top-0 z-[15] w-full text-background",
-                surfaceClassName,
-              )}
-              style={{ height: RAIL_HEIGHT + PANEL_RADIUS }}
-            >
-              <LiquidSurfacePath
-                key={
-                  anyDragging
-                    ? dragging
-                      ? "dragged"
-                      : "displaced"
-                    : "idle"
-                }
-                left={liquidDriver}
-                scrollLeft={scrollLeft}
-                surfaceWidth={surfaceWidth}
-              />
-            </svg>,
-            surfaceHost,
-          )
-        : null}
-      <motion.div
-        style={{
-          zIndex,
-          transform: dragging ? draggedTransform : settledTransform,
-        }}
-        className={className}
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={onPointerUp}
-        onPointerCancel={onPointerCancel}
-        onLostPointerCapture={onLostPointerCapture}
-      >
-        {children}
-      </motion.div>
-    </>
-  );
-}
-
-function LiquidSurfacePath({
-  left,
-  scrollLeft,
-  surfaceWidth,
-}: {
-  /** Active tab left in track coordinates. */
-  left: MotionValue<number>;
-  /** Tab strip scroll — liquid SVG is root-fixed, so tab x = left − scroll. */
-  scrollLeft: MotionValue<number>;
-  surfaceWidth: number;
-}) {
-  const path = useTransform([left, scrollLeft], ([tabLeft, scroll]: number[]) =>
-    liquidTabPath(tabLeft - scroll, surfaceWidth),
-  );
-  return <motion.path d={path} fill="currentColor" />;
-}
-
-function AddTabButton({
-  ariaLabel,
-  onClick,
-}: {
-  ariaLabel: string;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      aria-label={ariaLabel}
-      title={ariaLabel}
-      onClick={onClick}
-      className="desktop-no-drag flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-background/50 hover:text-foreground"
-    >
-      <Plus className="size-3.5" />
-    </button>
-  );
-}
 
 export function MorphingTabs({
   items,

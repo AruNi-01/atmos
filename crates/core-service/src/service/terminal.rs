@@ -22,6 +22,7 @@ use tracing::{debug, error, info, warn};
 
 mod management;
 mod mouse_mode_watch;
+mod run_log_ansi;
 mod run_log_tee;
 mod runtime;
 mod types;
