@@ -1,0 +1,19 @@
+apps/landing/src/components/image-sphere/create-feature-cover.ts
+  s_e441a4257f49f2::t_1ecf2b15d45ad2 2,31-32,34-40,43-49,51-55,57-67,69-70,72-81,84-89,97-100,107-110,116,178-211,262-263,268-269,279,281-283,285-286,335-340
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "ecf1f950b94725dac2319a091a17a88be5dd328a",
+  "prompts": {},
+  "sessions": {
+    "s_e441a4257f49f2": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "830aa5cb-3295-4d93-89b5-56f020e24fa1",
+        "model": "grok-4.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
