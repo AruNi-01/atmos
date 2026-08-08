@@ -1,0 +1,16 @@
+apps/web/src/features/settings/store/experiment-settings-store.test.ts
+  h_5be255725524c8 29,32,34-36,39,53,55-56
+apps/web/src/features/settings/store/experiment-settings-store.ts
+  h_5be255725524c8 39,43,50-58,64
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "17af27edc5dae541cb6deaaac2a094167e16fe7e",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
