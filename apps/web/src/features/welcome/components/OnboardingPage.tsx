@@ -856,7 +856,7 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
                           variant="outline"
                           onClick={() => void handleBrowse()}
                           disabled={isPickingDirectory}
-                          className="gap-1 border-border/40 hover:bg-muted/20 cursor-pointer shrink-0"
+                          className="h-9 sm:h-9 gap-1 border-border/40 hover:bg-muted/20 cursor-pointer shrink-0"
                         >
                           <FolderOpen className="size-4" />
                           <span className="hidden sm:inline">{t('project.fields.browse')}</span>
