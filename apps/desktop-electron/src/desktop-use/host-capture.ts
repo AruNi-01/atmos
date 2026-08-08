@@ -414,14 +414,24 @@ export async function captureFrontmostViaHostEngine(options: {
     options.enrichFromWindowList === true,
   );
 
-  // 4) Crop full-desktop PNG to the focused window (product: window AppShot).
+  // 4) Prefer true window capture, then crop full-desktop host PNG.
+  // CG / host list often give window_id even when AX is empty (Electron-style UIs).
   if (png && png.length > 0) {
-    const cropped = await cropHostPngToFrontmostWindow(png, frontmost, warnings);
-    if (cropped) {
-      png = cropped;
-    } else if (hasUsableWindowBounds(frontmost)) {
-      const region = await tryRegionScreencapture(frontmost, warnings);
-      if (region) png = region;
+    const byId = await tryWindowIdScreencapture(frontmost, warnings);
+    if (byId) {
+      png = byId;
+    } else {
+      const cropped = await cropHostPngToFrontmostWindow(
+        png,
+        frontmost,
+        warnings,
+      );
+      if (cropped) {
+        png = cropped;
+      } else if (hasUsableWindowBounds(frontmost)) {
+        const region = await tryRegionScreencapture(frontmost, warnings);
+        if (region) png = region;
+      }
     }
   }
 
@@ -507,6 +517,44 @@ function hasUsableWindowBounds(
     fm.width >= 64 &&
     fm.height >= 64
   );
+}
+
+/** Capture a single CG window by id (`screencapture -l`). */
+async function tryWindowIdScreencapture(
+  frontmost: DesktopUseFrontmost,
+  warnings: string[],
+): Promise<Buffer | null> {
+  const wid = frontmost.windowId?.trim();
+  if (!wid || !/^\d+$/.test(wid)) return null;
+  try {
+    const { execFile } = await import("node:child_process");
+    const { promisify } = await import("node:util");
+    const { readFileSync, unlinkSync, existsSync } = await import("node:fs");
+    const { tmpdir } = await import("node:os");
+    const { join } = await import("node:path");
+    const { randomUUID } = await import("node:crypto");
+    const execFileAsync = promisify(execFile);
+    const out = join(tmpdir(), `atmos-appshot-wid-${randomUUID()}.png`);
+    try {
+      await execFileAsync("screencapture", ["-x", "-l", wid, out], {
+        timeout: 8_000,
+      });
+      if (!existsSync(out)) return null;
+      const buf = readFileSync(out);
+      return buf.length > 0 ? buf : null;
+    } finally {
+      try {
+        if (existsSync(out)) unlinkSync(out);
+      } catch {
+        /* ignore */
+      }
+    }
+  } catch (e) {
+    warnings.push(
+      `window_id_screencapture_failed: ${e instanceof Error ? e.message : String(e)}`,
+    );
+    return null;
+  }
 }
 
 /** Optional window-region capture when host crop cannot map bounds. */

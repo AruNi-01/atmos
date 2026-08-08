@@ -85,10 +85,27 @@ tell application "System Events"
 end tell
 `.trim();
 
-/** Metadata-only frontmost read (no screenshot). */
+/**
+ * Metadata-only frontmost read (no screenshot).
+ *
+ * Order (generic for native + Electron/Chromium/custom UI):
+ * 1. CGWindowList helper (Tauri parity) — real window rects even when AX is empty
+ * 2. System Events largest content window (fallback)
+ */
 export async function desktopUseReadFrontmost(): Promise<DesktopUseFrontmost> {
   if (process.platform !== "darwin") {
     throw new Error("Desktop capture is only supported on macOS");
+  }
+  try {
+    const { readFrontmostViaCgWindowList } = await import("./frontmost-cg.js");
+    const cg = await readFrontmostViaCgWindowList();
+    if (cg && (cg.processId != null || cg.appName !== "Unknown App")) {
+      // Prefer CG when it has usable bounds; otherwise keep identity and let
+      // host-list enrich fill geometry.
+      return cg;
+    }
+  } catch {
+    /* fall through to System Events */
   }
   const { stdout } = await execFileAsync("osascript", ["-e", FRONTMOST_SCRIPT], {
     timeout: 5_000,
@@ -161,13 +178,31 @@ async function captureScreenshotPng(
 ): Promise<Buffer | null> {
   const out = join(tmpdir(), `atmos-desktop-use-${randomUUID()}.png`);
   try {
+    // Prefer true window capture by CG window id (best for Electron-style UIs).
+    const wid = frontmost.windowId?.trim();
+    if (wid && /^\d+$/.test(wid)) {
+      try {
+        await execFileAsync("screencapture", ["-x", "-l", wid, out], {
+          timeout: 8_000,
+        });
+        if (existsSync(out)) {
+          const buf = readFileSync(out);
+          if (buf.length > 0) return buf;
+        }
+      } catch (e) {
+        warnings.push(
+          `window_id_capture_failed: ${e instanceof Error ? e.message : String(e)}`,
+        );
+      }
+    }
+
     const hasBounds =
       frontmost.x != null &&
       frontmost.y != null &&
       frontmost.width != null &&
       frontmost.height != null &&
-      frontmost.width >= 32 &&
-      frontmost.height >= 32;
+      frontmost.width >= 64 &&
+      frontmost.height >= 64;
 
     if (hasBounds) {
       const rect = `${frontmost.x},${frontmost.y},${frontmost.width},${frontmost.height}`;
