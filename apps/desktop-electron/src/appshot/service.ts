@@ -553,11 +553,11 @@ export async function triggerCapture(state: AppState): Promise<void> {
     throw new Error("AppShot capture is only supported on macOS");
   }
 
-  // Dual-shift hot path:
-  // 1) permissions ∥ SE frontmost
-  // 2) resolve real window bounds (host list when SE has 0 AX windows — QQ Music)
-  // 3) border flash **in parallel with** host screenshot (crop drops overlay chrome)
-  // 4) crop to window
+  // Dual-shift hot path (generic for all apps):
+  // 1) permissions ∥ SE frontmost (app + pid)
+  // 2) resolve content-window bounds (SE if good; else host list by pid / size)
+  // 3) border flash **in parallel with** host screenshot (crop drops overlay)
+  // 4) crop full-desktop PNG to that window
   // Do not activate Atmos until after capture completes.
   const [permissions, seFrontmost] = await Promise.all([
     macosPermissionsForCapture(),

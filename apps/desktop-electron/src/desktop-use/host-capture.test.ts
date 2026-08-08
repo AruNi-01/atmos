@@ -76,11 +76,12 @@ describe("host engine capture routing", () => {
     expect(focused?.title).toBe("周杰伦");
   });
 
-  it("for QQMusic SE pid, picks content window not 33px title strips", () => {
-    // Real host list shape for QQ Music (SE reports 0 AX windows).
+  it("for any pid with chrome + content windows, picks largest content rect", () => {
+    // Pattern seen across custom-UI apps: SE has 0 AX windows; host list has
+    // thin title strips (high z) plus one real content window.
     const windows: HostWindowRow[] = [
       {
-        app_name: "QQ音乐",
+        app_name: "SomeApp",
         pid: 91609,
         window_id: 1,
         z_index: 189,
@@ -89,7 +90,7 @@ describe("host engine capture routing", () => {
         bounds: { x: 0, y: 0, width: 1512, height: 33 },
       },
       {
-        app_name: "QQ音乐",
+        app_name: "SomeApp",
         pid: 91609,
         window_id: 36971,
         z_index: 134,
@@ -98,7 +99,7 @@ describe("host engine capture routing", () => {
         bounds: { x: 68, y: 45, width: 1402, height: 832 },
       },
       {
-        app_name: "QQ音乐",
+        app_name: "SomeApp",
         pid: 91609,
         window_id: 3,
         z_index: 135,
@@ -106,9 +107,8 @@ describe("host engine capture routing", () => {
         bounds: { x: 0, y: 482, width: 500, height: 500 },
       },
     ];
-    // SE process name is often "QQMusic" while host list is "QQ音乐"
     const focused = matchWindowForFrontmost(windows, {
-      appName: "QQMusic",
+      appName: "SomeAppHelperName", // name need not match exactly — pid wins
       processId: 91609,
     });
     expect(focused?.window_id).toBe(36971);

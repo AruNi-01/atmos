@@ -90,21 +90,19 @@ function isSkippedApp(name: string | undefined | null): boolean {
   return false;
 }
 
-/** "QQMusic" vs "QQ音乐" / loose localization mismatches. */
+/**
+ * Loose app-name equality for host list vs System Events.
+ * Primary match is always **pid**; this only helps when names differ by
+ * localization/spacing (generic contains / strip-space), not app-specific lists.
+ */
 export function appNamesLooselyEqual(a: string, b: string): boolean {
   const na = a.trim().toLowerCase().replace(/\s+/g, "");
   const nb = b.trim().toLowerCase().replace(/\s+/g, "");
   if (!na || !nb) return false;
   if (na === nb) return true;
-  if (na.includes(nb) || nb.includes(na)) return true;
-  // Common music app aliases
-  const aliases = [
-    ["qqmusic", "qq音乐", "qq音樂"],
-    ["wechat", "微信", "weixin"],
-    ["dingtalk", "钉钉"],
-  ];
-  for (const group of aliases) {
-    if (group.includes(na) && group.includes(nb)) return true;
+  // Generic substring (handles many EN/localized process name pairs).
+  if (na.length >= 2 && nb.length >= 2 && (na.includes(nb) || nb.includes(na))) {
+    return true;
   }
   return false;
 }
@@ -406,9 +404,9 @@ export async function captureFrontmostViaHostEngine(options: {
     );
   }
 
-  // 3) Resolve window bounds for crop + animation.
-  // Many apps (QQ Music, some Electron) expose **zero** AX windows to System
-  // Events — host list_windows still has real CG bounds (match by pid).
+  // 3) Resolve window bounds for crop + animation (all apps).
+  // System Events AX is empty for many custom-UI apps; host list_windows still
+  // has CG bounds — match by pid, then largest content window.
   let frontmost = await resolveFrontmostWithHostBounds(
     systemFrontmost,
     selfNames,
@@ -455,8 +453,13 @@ export async function captureFrontmostViaHostEngine(options: {
 }
 
 /**
- * When System Events has no usable window rect (common for QQ Music: 0 AX
- * windows), fill bounds from host `drive verify` by pid / loose app name.
+ * Universal bounds resolve for AppShot crop/animation:
+ *
+ * 1. Prefer System Events when it already has a large content window.
+ * 2. Otherwise (empty AX tree, chrome-only windows, etc.) use host
+ *    `drive verify` and pick by **pid** → largest content window ≥64px.
+ *
+ * Applies to every app, not a single product special-case.
  */
 export async function resolveFrontmostWithHostBounds(
   systemFrontmost: DesktopUseFrontmost | null,
@@ -464,12 +467,8 @@ export async function resolveFrontmostWithHostBounds(
   warnings: string[],
   forceList = false,
 ): Promise<DesktopUseFrontmost> {
-  const needList =
-    forceList ||
-    !hasUsableWindowBounds(systemFrontmost) ||
-    // SE often returns app+pid only for custom-UI apps
-    (systemFrontmost?.processId != null &&
-      !hasUsableWindowBounds(systemFrontmost));
+  // Always consult host list when SE lacks a usable content rect.
+  const needList = forceList || !hasUsableWindowBounds(systemFrontmost);
 
   if (!needList) {
     return systemFrontmost ?? hostWindowToFrontmost(null);
