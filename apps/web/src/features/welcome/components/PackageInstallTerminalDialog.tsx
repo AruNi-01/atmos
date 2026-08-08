@@ -450,7 +450,7 @@ export function PackageInstallTerminalDialog({
             </>
           ) : (
             <>
-              <div className="rounded-xl border border-border bg-muted/20 px-4 py-3">
+              <div className="shrink-0 rounded-xl border border-border bg-muted/20 px-4 py-3">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <p className="text-sm font-medium text-foreground">{t('temporaryTerminalTitle')}</p>
@@ -477,41 +477,43 @@ export function PackageInstallTerminalDialog({
                 </div>
               </div>
 
-              <div className="min-h-0 flex-1 overflow-hidden rounded-xl border border-border bg-background">
-                <div className="flex h-10 items-center justify-between gap-3 border-b border-border px-4 text-xs text-muted-foreground">
+              <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-border bg-background">
+                <div className="flex h-10 shrink-0 items-center justify-between gap-3 border-b border-border px-4 text-xs text-muted-foreground">
                   <span className="truncate">{t('apiHostShell')}</span>
                   <span className="truncate text-right">{homeDir || '~'}</span>
                 </div>
-                <div className="min-h-0 h-full bg-background pb-2">
+                <div className="relative min-h-0 flex-1 overflow-hidden bg-background">
                   {sessionId && homeDir && (
-                    <Terminal
-                      ref={terminalRef}
-                      sessionId={sessionId}
-                      workspaceId="default"
-                      projectName={t('systemProjectName')}
-                      workspaceName={t('installWorkspaceName')}
-                      terminalName={
-                        shouldOfferHomebrewBootstrap ? 'homebrew-install' : `${toolId}-install`
-                      }
-                      noTmux={true}
-                      cwd={homeDir}
-                      onSessionReady={() => {
-                        queueInstallCommand(1400);
-                      }}
-                      onData={() => {
-                        if (!startedRef.current) {
-                          queueInstallCommand(500);
+                    <div className="absolute inset-0">
+                      <Terminal
+                        ref={terminalRef}
+                        sessionId={sessionId}
+                        workspaceId="default"
+                        projectName={t('systemProjectName')}
+                        workspaceName={t('installWorkspaceName')}
+                        terminalName={
+                          shouldOfferHomebrewBootstrap ? 'homebrew-install' : `${toolId}-install`
                         }
-                      }}
-                      onSessionError={(_, error) => {
-                        setSessionError(error);
-                      }}
-                    />
+                        noTmux={true}
+                        cwd={homeDir}
+                        onSessionReady={() => {
+                          queueInstallCommand(1400);
+                        }}
+                        onData={() => {
+                          if (!startedRef.current) {
+                            queueInstallCommand(500);
+                          }
+                        }}
+                        onSessionError={(_, error) => {
+                          setSessionError(error);
+                        }}
+                      />
+                    </div>
                   )}
                 </div>
               </div>
 
-              <div className="flex items-center justify-between gap-2">
+              <div className="flex shrink-0 items-center justify-between gap-2">
                 <p className="text-xs text-muted-foreground">{t('keepDialogOpen')}</p>
                 <Button
                   size="sm"
