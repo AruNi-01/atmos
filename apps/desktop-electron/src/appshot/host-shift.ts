@@ -40,6 +40,38 @@ export function appshotShiftInjectInstallPath(): string {
   );
 }
 
+/** True when something is accept()ing on the chord socket (not a stale file). */
+export function probeHostShiftSocket(
+  sockPath: string = appshotShiftSocketPath(),
+  timeoutMs = 500,
+): Promise<boolean> {
+  if (process.platform !== "darwin") return Promise.resolve(false);
+  if (!existsSync(sockPath)) return Promise.resolve(false);
+  return new Promise((resolve) => {
+    const s = createConnection(sockPath);
+    let done = false;
+    const finish = (ok: boolean) => {
+      if (done) return;
+      done = true;
+      try {
+        s.destroy();
+      } catch {
+        /* ignore */
+      }
+      resolve(ok);
+    };
+    const t = setTimeout(() => finish(false), timeoutMs);
+    s.once("connect", () => {
+      clearTimeout(t);
+      finish(true);
+    });
+    s.once("error", () => {
+      clearTimeout(t);
+      finish(false);
+    });
+  });
+}
+
 function resolveBundledInjectDylib(): string | null {
   const name = "libatmos_appshot_shift_inject.dylib";
   const candidates: string[] = [];
@@ -113,7 +145,12 @@ export function ensureHostShiftInjectInstalled(): boolean {
 }
 
 /**
- * Connect to host inject chord socket. Retries briefly while host serve starts.
+ * Connect to host inject chord socket.
+ *
+ * - Initial connect: retry until `timeoutMs`, then resolve null.
+ * - After a successful connect: reconnect forever on drop (host restart must
+ *   not kill the listener — previous bug applied the initial timeout to
+ *   reconnect and called cleanup(), leaving dual-shift permanently dead).
  */
 export function startHostShiftSocketListener(
   onChord: () => void,
@@ -130,6 +167,7 @@ export function startHostShiftSocketListener(
     let buf = "";
     let stopped = false;
     let retryTimer: ReturnType<typeof setTimeout> | null = null;
+    let connecting = false;
 
     const finishNull = () => {
       if (settled) return;
@@ -145,13 +183,27 @@ export function startHostShiftSocketListener(
 
     const cleanup = () => {
       stopped = true;
-      if (retryTimer) clearTimeout(retryTimer);
+      if (retryTimer) {
+        clearTimeout(retryTimer);
+        retryTimer = null;
+      }
       try {
+        socket?.removeAllListeners();
         socket?.destroy();
       } catch {
         /* ignore */
       }
       socket = null;
+      connecting = false;
+    };
+
+    const scheduleRetry = (ms: number) => {
+      if (stopped) return;
+      if (retryTimer) clearTimeout(retryTimer);
+      retryTimer = setTimeout(() => {
+        retryTimer = null;
+        tryConnect();
+      }, ms);
     };
 
     const handleLine = (line: string) => {
@@ -178,30 +230,43 @@ export function startHostShiftSocketListener(
     };
 
     const tryConnect = () => {
-      if (stopped) return;
-      if (Date.now() - started > timeoutMs) {
+      if (stopped || connecting) return;
+
+      // Initial-connect deadline only. Reconnect after success never times out.
+      if (!settled && Date.now() - started > timeoutMs) {
         mainLog(
           `[appshot-host-shift] socket not ready within ${timeoutMs}ms (${sockPath})`,
           "warn",
         );
-        cleanup();
         finishNull();
         return;
       }
+
       if (!existsSync(sockPath)) {
-        retryTimer = setTimeout(tryConnect, 200);
+        scheduleRetry(settled ? 500 : 200);
         return;
       }
+
+      connecting = true;
       const s = createConnection(sockPath);
       socket = s;
       s.setEncoding("utf8");
+      let dropped = false;
+
       s.on("connect", () => {
-        mainLog(`[appshot-host-shift] connected ${sockPath}`);
-        finishOk({
-          mode: "host-inject",
-          stop: () => cleanup(),
-        });
+        connecting = false;
+        buf = "";
+        if (settled) {
+          mainLog(`[appshot-host-shift] reconnected ${sockPath}`);
+        } else {
+          mainLog(`[appshot-host-shift] connected ${sockPath}`);
+          finishOk({
+            mode: "host-inject",
+            stop: () => cleanup(),
+          });
+        }
       });
+
       s.on("data", (chunk: string) => {
         buf += chunk;
         let idx: number;
@@ -211,24 +276,32 @@ export function startHostShiftSocketListener(
           handleLine(line);
         }
       });
-      s.on("error", () => {
+
+      const onDrop = (why: string) => {
+        if (dropped) return;
+        dropped = true;
+        connecting = false;
+        if (socket === s) socket = null;
         try {
+          s.removeAllListeners();
           s.destroy();
         } catch {
           /* ignore */
         }
-        socket = null;
+        if (stopped) return;
         if (!settled) {
-          retryTimer = setTimeout(tryConnect, 250);
+          scheduleRetry(250);
+          return;
         }
-      });
-      s.on("close", () => {
-        socket = null;
-        if (!stopped && settled) {
-          // Host restarted — try reconnect for the life of the handle.
-          retryTimer = setTimeout(tryConnect, 400);
-        }
-      });
+        mainLog(
+          `[appshot-host-shift] connection dropped (${why}) — reconnecting`,
+          "warn",
+        );
+        scheduleRetry(400);
+      };
+
+      s.on("error", () => onDrop("error"));
+      s.on("close", () => onDrop("close"));
     };
 
     tryConnect();
@@ -250,15 +323,19 @@ export async function ensureHostShiftReady(): Promise<boolean> {
 
     // Restart host when chord socket is missing so DYLD_INSERT loads inject.
     // Existing serve (launched via open -a or without inject) has no socket.
+    // Probe with a brief connect — a stale sock file after crash looks "present"
+    // to existsSync but is not accept()ing.
     const sock = appshotShiftSocketPath();
-    if (!existsSync(sock)) {
-      mainLog("[appshot-host-shift] chord socket missing — restarting host with inject");
+    const live = await probeHostShiftSocket(sock, 400);
+    if (!live) {
+      mainLog(
+        "[appshot-host-shift] chord socket missing/stale — restarting host with inject",
+      );
       try {
         await client.desktopUseDriverStop();
       } catch {
         /* ignore */
       }
-      // doctor/ensure_daemon restarts serve (with inject when CLI is new enough).
       try {
         await client.desktopUseDoctor();
       } catch {
@@ -269,7 +346,6 @@ export async function ensureHostShiftReady(): Promise<boolean> {
       } catch {
         /* ignore */
       }
-      // Warm engine so serve stays up for the chord socket.
       try {
         await client.desktopUseDriveVerify();
       } catch {
