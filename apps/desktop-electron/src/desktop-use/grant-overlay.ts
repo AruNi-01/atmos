@@ -18,6 +18,10 @@ import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
 import { BrowserWindow, ipcMain, nativeImage, screen } from "electron";
 import { getResolvedAppIcons } from "../branding.js";
+import {
+  forceMacDockTileRefresh,
+  setOverlayVisibleOnAllWorkspaces,
+} from "../windows/mac-dock.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -67,6 +71,12 @@ let flyAnimActive = false;
 let flyGeneration = 0;
 /** Optional fly start (Grant button screen coords) for the next open. */
 let pendingSourceOrigin: { x: number; y: number } | null = null;
+/**
+ * After the user starts dragging the app chip, freeze placement and drop
+ * always-on-top. Otherwise soft-follow keeps re-reading System Settings bounds
+ * while the macOS auth sheet is up, and the card slides over the dialog.
+ */
+let positionFollowSuspended = false;
 
 /** Panel outer size (matches reference card proportions). */
 const PANEL_WIDTH = 460;
@@ -733,17 +743,53 @@ function applyPanelPosition(
 }
 
 /**
+ * Freeze soft-follow after the user begins a drag (or we detect an auth
+ * interaction). Keeps the card still so it cannot cover the TCC password /
+ * Touch ID sheet that appears when dropping into the privacy list.
+ *
+ * Also clears all-workspaces + always-on-top: those flags are the main cause of
+ * a zero-width Dock tile when the auth sheet appears or Settings is dismissed.
+ */
+function suspendPositionFollow(reason: string): void {
+  if (positionFollowSuspended) return;
+  positionFollowSuspended = true;
+  stopFlyAnimation();
+  stopPositionPoll();
+  const win = grantWindow;
+  if (win && !win.isDestroyed()) {
+    try {
+      // System auth sheets must win stacking; floating always-on-top can cover them.
+      win.setAlwaysOnTop(false);
+    } catch {
+      /* best-effort */
+    }
+    // Clears full-screen workspaces + hard Dock recycle (see mac-dock.ts).
+    void setOverlayVisibleOnAllWorkspaces(win, false);
+  } else {
+    void forceMacDockTileRefresh();
+  }
+  void reason;
+}
+
+/** Pin Dock after grant-overlay lifecycle events (close / Settings gone / drag). */
+function pinDockAfterGrantOverlay(): void {
+  void forceMacDockTileRefresh();
+}
+
+/**
  * Place the grant card **inside** the System Settings window, lower content
  * area (same placement as the reference “drag into list above” UI).
  *
  * Async on purpose: never block the main process with osascript.
- * Skipped while the fly animation is driving setPosition.
+ * Skipped while the fly animation is driving setPosition, or after the user
+ * starts dragging (auth dialog must not be chased by the card).
  */
 async function positionInsideSettingsWindow(
   win: BrowserWindow,
   opts?: { force?: boolean },
 ): Promise<void> {
   if (win.isDestroyed()) return;
+  if (positionFollowSuspended && !opts?.force) return;
   if (flyAnimActive && !opts?.force) return;
   if (positionInFlight) return;
   positionInFlight = true;
@@ -831,6 +877,8 @@ function flyFromAtmosToSettings(win: BrowserWindow): void {
   stopFlyAnimation();
   stopPositionPoll();
   cachedSettingsBounds = null;
+  // Fresh open: allow follow until the user starts dragging.
+  positionFollowSuspended = false;
 
   const start = getFlySourceOrigin(win);
   applyPanelPosition(win, start.x, start.y, true);
@@ -850,7 +898,10 @@ function flyFromAtmosToSettings(win: BrowserWindow): void {
   const generation = flyGeneration;
 
   void (async () => {
-    const isStale = () => generation !== flyGeneration || win.isDestroyed();
+    const isStale = () =>
+      generation !== flyGeneration ||
+      win.isDestroyed() ||
+      positionFollowSuspended;
     if (isStale()) return;
 
     // 1) Hold at the button while Settings finishes opening; resolve target.
@@ -911,6 +962,7 @@ function flyFromAtmosToSettings(win: BrowserWindow): void {
     if (isStale()) return;
 
     // 3) Burst re-snap: Settings often finishes layout after the fly ends.
+    // Stop immediately if the user starts dragging mid-resnap (auth sheet).
     const landDeadline = Date.now() + LANDING_RESNAP_MS;
     while (!isStale() && Date.now() < landDeadline) {
       const rect = await getSystemSettingsWindowBounds({ bypassCache: true });
@@ -948,18 +1000,39 @@ function stopPositionPoll(): void {
 }
 
 function startPositionPoll(win: BrowserWindow): void {
+  if (positionFollowSuspended) return;
   if (positionPoll) {
     clearInterval(positionPoll);
     positionPoll = null;
   }
   // Slow soft-follow only after the fly has landed.
+  // Track consecutive misses so closing System Settings can pin the Dock
+  // (all-workspaces + Settings dismiss often zeros the Atmos tile).
+  let settingsMissStreak = 0;
   positionPoll = setInterval(() => {
     if (!win || win.isDestroyed()) {
       stopPositionPoll();
+      pinDockAfterGrantOverlay();
       return;
     }
-    if (flyAnimActive) return;
-    void positionInsideSettingsWindow(win);
+    if (flyAnimActive || positionFollowSuspended) return;
+    void (async () => {
+      if (win.isDestroyed() || positionFollowSuspended) return;
+      const settings = await getSystemSettingsWindowBounds({
+        bypassCache: true,
+      });
+      if (win.isDestroyed() || positionFollowSuspended) return;
+      if (!settings) {
+        settingsMissStreak += 1;
+        // One miss can be a transient osascript failure; two (~4s) ≈ Settings gone.
+        if (settingsMissStreak >= 2) {
+          pinDockAfterGrantOverlay();
+        }
+        return;
+      }
+      settingsMissStreak = 0;
+      await positionInsideSettingsWindow(win, { force: false });
+    })();
   }, 2000);
 }
 
@@ -1022,6 +1095,9 @@ function wireIpcOnce(): void {
         event.returnValue = { ok: false, error: "empty_drag_icon" };
         return;
       }
+      // Freeze follow *before* startDrag so a drop-triggered auth sheet is not
+      // chased by position poll / landing re-snap (card sliding over the dialog).
+      suspendPositionFollow("drag-start");
       event.sender.startDrag({
         file: path,
         icon,
@@ -1046,6 +1122,20 @@ function loadGrantPanel(
   state: GrantState,
   locale?: string,
 ): void {
+  // Re-open after a previous drag may have cleared always-on-top / workspaces.
+  positionFollowSuspended = false;
+  try {
+    win.setAlwaysOnTop(true, "floating");
+  } catch {
+    try {
+      win.setAlwaysOnTop(true);
+    } catch {
+      /* best-effort */
+    }
+  }
+  // Enable all-workspaces only while the panel is live; pair with disable on
+  // close/drag so the Dock tile is not left at Accessibility size 0×N.
+  void setOverlayVisibleOnAllWorkspaces(win, true);
   void win
     .loadURL(
       `data:text/html;charset=utf-8,${encodeURIComponent(panelHtml(state, locale))}`,
@@ -1131,13 +1221,18 @@ export function showAccessibilityGrantOverlay(
   });
 
   win.setAlwaysOnTop(true, "floating");
-  win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+  // Do NOT call setVisibleOnAllWorkspaces raw — it can leave a zero-width Dock
+  // tile. loadGrantPanel enables it via setOverlayVisibleOnAllWorkspaces so
+  // close/drag paths can clear it and recycle the tile (mac-dock.ts).
 
   grantWindow = win;
   win.on("closed", () => {
     stopFlyAnimation();
     stopPositionPoll();
     if (grantWindow === win) grantWindow = null;
+    // Closing the drag card (or OS destroying it with Settings) must not
+    // leave Atmos missing from the Dock.
+    pinDockAfterGrantOverlay();
   });
 
   loadGrantPanel(win, grantState, opts.locale);
@@ -1147,12 +1242,29 @@ export function showAccessibilityGrantOverlay(
 export function closeAccessibilityGrantOverlay(): void {
   stopFlyAnimation();
   stopPositionPoll();
+  positionFollowSuspended = false;
   lastPlaced = null;
   cachedSettingsBounds = null;
   pendingSourceOrigin = null;
-  if (grantWindow && !grantWindow.isDestroyed()) {
-    grantWindow.close();
-  }
+  const win = grantWindow;
   grantWindow = null;
   if (grantState) grantState.dragPreviewDataUrl = null;
+  if (win && !win.isDestroyed()) {
+    // Clear all-workspaces *before* destroy — otherwise the Dock tile can
+    // stick at 0×N after the grant window disappears.
+    void (async () => {
+      try {
+        await setOverlayVisibleOnAllWorkspaces(win, false);
+      } catch {
+        pinDockAfterGrantOverlay();
+      }
+      if (!win.isDestroyed()) {
+        win.close();
+      } else {
+        pinDockAfterGrantOverlay();
+      }
+    })();
+  } else {
+    pinDockAfterGrantOverlay();
+  }
 }

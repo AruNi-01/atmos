@@ -44,11 +44,24 @@ export type DesktopUsePermissionsPanelProps = {
    * Parent should render the node on SettingsGroupCard `headerEnd`.
    */
   onHeaderEndChange?: (node: React.ReactNode) => void;
+  /**
+   * Engine install state from the parent section (status IPC).
+   * When this flips after install/uninstall, re-run doctor so permission rows
+   * appear without requiring the user to collapse/expand the group.
+   */
+  engineInstalledFromParent?: boolean | null;
+  /**
+   * Bumps after parent driver actions (install / update / stop / uninstall).
+   * Forces a silent doctor refresh even when install flag is unchanged.
+   */
+  doctorRefreshToken?: number;
 };
 
 export function DesktopUsePermissionsPanel({
   className,
   onHeaderEndChange,
+  engineInstalledFromParent = null,
+  doctorRefreshToken = 0,
 }: DesktopUsePermissionsPanelProps) {
   const t = useTranslations("settings.desktopUse");
   const [doctor, setDoctor] = React.useState<DoctorStatus | null>(null);
@@ -62,6 +75,8 @@ export function DesktopUsePermissionsPanel({
   const mountedRef = React.useRef(true);
   /** Which grant overlay is currently open (so we close only when that one succeeds). */
   const activeGrantRef = React.useRef<PermissionName | null>(null);
+  /** Skip the first parent-driven refresh — mount effect already loads doctor. */
+  const parentSyncSkipRef = React.useRef(true);
 
   const stopPoll = React.useCallback(() => {
     if (pollRef.current) {
@@ -125,7 +140,20 @@ export function DesktopUsePermissionsPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- mount once
   }, []);
 
-  const engineInstalled = Boolean(doctor?.engine_installed);
+  // Parent engine install / driver actions must refresh doctor in place.
+  // Without this, Collapsible keeps the panel mounted and the user still sees
+  // "install first" until they collapse/expand the Permissions group.
+  React.useEffect(() => {
+    if (parentSyncSkipRef.current) {
+      parentSyncSkipRef.current = false;
+      return;
+    }
+    void refresh("silent");
+  }, [engineInstalledFromParent, doctorRefreshToken, refresh]);
+
+  const engineInstalled = Boolean(
+    doctor?.engine_installed || engineInstalledFromParent === true,
+  );
   const busy = manualRefreshing || grantingTarget !== null;
 
   // Publish Refresh to the Permissions group header (not per-row).

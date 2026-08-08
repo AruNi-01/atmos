@@ -68,6 +68,18 @@ describe("desktop-use grant overlay", () => {
     expect(src).toContain("BOUNDS_WAIT_MS");
     // Drag ghost must stay 1× CSS size (no devicePixelRatio inflate).
     expect(src).toMatch(/Do NOT multiply by devicePixelRatio/);
+    // Freeze soft-follow on drag so the auth sheet is not covered by re-snap.
+    expect(src).toContain("suspendPositionFollow");
+    expect(src).toContain("positionFollowSuspended");
+    expect(src).toContain('suspendPositionFollow("drag-start")');
+    // Dock tile must survive grant overlay + System Settings dismiss
+    // (raw setVisibleOnAllWorkspaces without recycle zeros the tile).
+    expect(src).toContain("setOverlayVisibleOnAllWorkspaces");
+    expect(src).toContain("forceMacDockTileRefresh");
+    expect(src).toContain("pinDockAfterGrantOverlay");
+    expect(src).not.toMatch(
+      /setVisibleOnAllWorkspaces\(\s*true\s*,\s*\{\s*visibleOnFullScreen/,
+    );
   });
 });
 
