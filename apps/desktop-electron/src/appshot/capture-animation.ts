@@ -32,8 +32,12 @@ export type CaptureAnimationBounds = {
 };
 
 export const OVERLAY_PADDING = 14;
-/** Match the CSS pulse length (+ small settle margin). */
-export const OVERLAY_DURATION_MS = 520;
+/**
+ * Match the CSS pulse length (+ small settle margin).
+ * Kept short so dual-shift feels snappy; still long enough to see the flash
+ * before the real screenshot (which must not include the border).
+ */
+export const OVERLAY_DURATION_MS = 360;
 export const MIN_OVERLAY_EDGE = 32;
 
 const SELF_APP_NAMES = new Set([
@@ -105,10 +109,10 @@ const FALLBACK_OVERLAY_HTML = `<!doctype html>
         will-change: opacity;
       }
       body.run .frame {
-        animation: appshot-border-pulse 480ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+        animation: appshot-border-pulse 320ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
       }
       body.run .flash {
-        animation: appshot-camera-flash 360ms cubic-bezier(0.2, 0.8, 0.2, 1) 80ms both;
+        animation: appshot-camera-flash 260ms cubic-bezier(0.2, 0.8, 0.2, 1) 40ms both;
       }
       @keyframes appshot-border-pulse {
         0% { opacity: 0; }

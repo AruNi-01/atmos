@@ -344,6 +344,8 @@ export async function appshotStatus(state?: AppState): Promise<AppshotStatus> {
     accessibilityProduct: flags.accessibilityProduct,
     screenRecordingProduct: flags.screenRecordingProduct,
   });
+  // Warm dual-shift hot path so chords do not re-run doctor/status.
+  cacheAppshotPermissionsForCapture(permissions);
 
   let triggerEnabled = false;
   let triggerLastError: string | null = null;
@@ -551,13 +553,21 @@ export async function triggerCapture(state: AppState): Promise<void> {
     throw new Error("AppShot capture is only supported on macOS");
   }
 
-  // Play border/flash on the *current* frontmost window before screenshot so
-  // snapshot.png does not include the affordance (Tauri APP-021 parity).
+  // Dual-shift hot path — keep serial work minimal:
+  // 1) permissions (cached / light) ∥ System Events frontmost (once)
+  // 2) flash animation on that window
+  // 3) host screenshot only (no second SE, no drive verify)
   // Do not activate Atmos until after capture completes.
-  const permissions = await macosPermissions();
-  await playCaptureAnimationIfPossible();
+  const [permissions, systemFrontmost] = await Promise.all([
+    macosPermissionsForCapture(),
+    readFrontmostWindow().catch(() => null),
+  ]);
+  await playCaptureAnimationForFrontmost(systemFrontmost);
 
-  const result = await captureFrontmostWindow();
+  const result = await captureFrontmostWindow({
+    systemFrontmost,
+    enrichFromWindowList: false,
+  });
 
   const capturedAt = new Date().toISOString();
   const previewId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -643,9 +653,49 @@ export async function triggerCapture(state: AppState): Promise<void> {
   }
 }
 
-async function playCaptureAnimationIfPossible(): Promise<void> {
+/**
+ * Capture-path permissions must not spawn `desktop-use status/doctor` every
+ * chord (that alone was hundreds of ms). Prefer a short cache filled by
+ * appshotStatus / Settings; otherwise Electron-only TCC probe.
+ */
+let capturePermsCache: {
+  at: number;
+  permissions: AppshotPermissionState[];
+} | null = null;
+const CAPTURE_PERMS_CACHE_MS = 45_000;
+
+export function cacheAppshotPermissionsForCapture(
+  permissions: AppshotPermissionState[],
+): void {
+  capturePermsCache = { at: Date.now(), permissions };
+}
+
+async function macosPermissionsForCapture(): Promise<AppshotPermissionState[]> {
+  const now = Date.now();
+  if (
+    capturePermsCache &&
+    now - capturePermsCache.at < CAPTURE_PERMS_CACHE_MS
+  ) {
+    return capturePermsCache.permissions;
+  }
+  // Light path: Electron TCC only (no CLI). Good enough for preview CTA.
+  const flags = await queryMacosPermissionFlags();
+  const permissions = buildMacosPermissions(flags);
+  capturePermsCache = { at: now, permissions };
+  return permissions;
+}
+
+async function playCaptureAnimationForFrontmost(
+  frontmost: {
+    appName: string;
+    x: number | null;
+    y: number | null;
+    width: number | null;
+    height: number | null;
+  } | null,
+): Promise<void> {
+  if (!frontmost) return;
   try {
-    const frontmost = await readFrontmostWindow();
     const bounds: CaptureAnimationBounds | null =
       frontmost.x != null &&
       frontmost.y != null &&

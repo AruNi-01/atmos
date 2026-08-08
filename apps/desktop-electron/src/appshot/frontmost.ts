@@ -48,16 +48,28 @@ export async function readFrontmostWindow(): Promise<FrontmostWindow> {
 
 /**
  * Full AppShot capture — host engine when installed (unified TCC), else Electron.
+ *
+ * Pass `systemFrontmost` from animation preflight so dual-shift does not run
+ * System Events twice. Window-list enrich is off by default for latency.
  */
 export async function captureFrontmostWindow(
-  options: { selfAppNames?: Set<string> } = {},
+  options: {
+    selfAppNames?: Set<string>;
+    systemFrontmost?: FrontmostWindow | null;
+    enrichFromWindowList?: boolean;
+  } = {},
 ): Promise<FrontmostCaptureResult> {
   const selfNames = options.selfAppNames ?? SELF_APP_NAMES;
   const route = await resolveAppShotCaptureRoute();
 
   if (route === "host_engine") {
     try {
-      const host = await captureFrontmostViaHostEngine({ selfAppNames: selfNames });
+      const host = await captureFrontmostViaHostEngine({
+        selfAppNames: selfNames,
+        systemFrontmost: options.systemFrontmost,
+        // Hot path: skip `drive verify` CLI (~100–200ms+) unless caller asks.
+        enrichFromWindowList: options.enrichFromWindowList === true,
+      });
       return {
         frontmost: host.frontmost,
         png: host.png,

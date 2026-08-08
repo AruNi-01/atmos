@@ -296,33 +296,45 @@ export type HostCaptureResult = {
  * Capture through Atmos Desktop Use host engine (same TCC identity as control).
  *
  * Screenshot: host engine (full display PNG).
- * Identity: System Events frontmost (true focus), enriched by host window list.
+ * Identity: System Events frontmost (true focus). Optional host list_windows
+ * enrich is **off by default** on the dual-shift hot path (saves a full CLI
+ * round-trip); pass `enrichFromWindowList: true` when title/bounds must come
+ * from the engine list.
  */
 export async function captureFrontmostViaHostEngine(options: {
   selfAppNames?: Set<string>;
+  /** Reuse a frontmost identity already read for animation preflight. */
+  systemFrontmost?: DesktopUseFrontmost | null;
+  /**
+   * When true, also call `drive verify` to enrich title/bounds.
+   * Default false for dual-shift latency (System Events is enough for identity).
+   */
+  enrichFromWindowList?: boolean;
 } = {}): Promise<HostCaptureResult> {
   const warnings: string[] = [];
   const selfNames =
     options.selfAppNames ??
     new Set(["Atmos", "Atmos Electron", "Atmos Desktop", "Electron"]);
 
-  // 1) True focused app — System Events via Electron (pre-screenshot).
-  // Host list_windows z-order is noisy (utility overlays, is_on_screen false).
-  let systemFrontmost: DesktopUseFrontmost | null = null;
-  try {
-    systemFrontmost = await desktopUseReadFrontmost();
-    if (selfNames.has(systemFrontmost.appName.trim())) {
+  // 1) True focused app — System Events (or caller-provided, avoid double SE).
+  let systemFrontmost: DesktopUseFrontmost | null =
+    options.systemFrontmost ?? null;
+  if (!systemFrontmost) {
+    try {
+      systemFrontmost = await desktopUseReadFrontmost();
+    } catch (e) {
       warnings.push(
-        `${systemFrontmost.appName} is frontmost; focus another app and trigger Appshots again.`,
+        `frontmost_identity_failed: ${e instanceof Error ? e.message : String(e)}`,
       );
     }
-  } catch (e) {
+  }
+  if (systemFrontmost && selfNames.has(systemFrontmost.appName.trim())) {
     warnings.push(
-      `frontmost_identity_failed: ${e instanceof Error ? e.message : String(e)}`,
+      `${systemFrontmost.appName} is frontmost; focus another app and trigger Appshots again.`,
     );
   }
 
-  // 2) Host screenshot
+  // 2) Host screenshot (single CLI — dominant cost after animation).
   let shot: unknown;
   try {
     shot = await desktopUseDriveScreenshot();
@@ -358,23 +370,24 @@ export async function captureFrontmostViaHostEngine(options: {
     );
   }
 
-  // 3) Host window list — enrich bounds / title for the focused app.
-  let windows: HostWindowRow[] = [];
-  try {
-    const listed = await desktopUseDriveVerify();
-    windows = extractWindows(listed);
-  } catch (e) {
-    warnings.push(
-      `host_list_windows_failed: ${e instanceof Error ? e.message : String(e)}`,
-    );
-  }
-
+  // 3) Optional host window list — skip on hot path (dual-shift).
   let hostRow: HostWindowRow | null = null;
-  if (systemFrontmost) {
-    hostRow = matchWindowForFrontmost(windows, systemFrontmost, selfNames);
-  }
-  if (!hostRow) {
-    hostRow = pickFrontmostWindow(windows, { selfAppNames: selfNames });
+  if (options.enrichFromWindowList) {
+    let windows: HostWindowRow[] = [];
+    try {
+      const listed = await desktopUseDriveVerify();
+      windows = extractWindows(listed);
+    } catch (e) {
+      warnings.push(
+        `host_list_windows_failed: ${e instanceof Error ? e.message : String(e)}`,
+      );
+    }
+    if (systemFrontmost) {
+      hostRow = matchWindowForFrontmost(windows, systemFrontmost, selfNames);
+    }
+    if (!hostRow) {
+      hostRow = pickFrontmostWindow(windows, { selfAppNames: selfNames });
+    }
   }
 
   const frontmost = mergeFrontmostIdentity(systemFrontmost, hostRow);
@@ -392,16 +405,35 @@ export async function captureFrontmostViaHostEngine(options: {
   };
 }
 
+/** Cache host-vs-electron route — dual-shift must not spawn `status` every chord. */
+let routeCache: { at: number; route: "host_engine" | "electron_fallback" } | null =
+  null;
+const ROUTE_CACHE_MS = 30_000;
+
+export function invalidateAppShotCaptureRouteCache(): void {
+  routeCache = null;
+}
+
 /**
  * Resolve whether AppShot should use host engine for this capture.
+ * Cached for {@link ROUTE_CACHE_MS}; fail-open to electron_fallback.
  */
 export async function resolveAppShotCaptureRoute(): Promise<
   "host_engine" | "electron_fallback"
 > {
+  const now = Date.now();
+  if (routeCache && now - routeCache.at < ROUTE_CACHE_MS) {
+    return routeCache.route;
+  }
   try {
     const st = await desktopUseStatus();
-    return shouldUseHostEngineCapture(st) ? "host_engine" : "electron_fallback";
+    const route = shouldUseHostEngineCapture(st)
+      ? "host_engine"
+      : "electron_fallback";
+    routeCache = { at: now, route };
+    return route;
   } catch {
+    routeCache = { at: now, route: "electron_fallback" };
     return "electron_fallback";
   }
 }
