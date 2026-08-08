@@ -1,0 +1,22 @@
+apps/desktop-electron/src/appshot/capture-animation.ts
+  h_5be255725524c8 35-40,112,115
+apps/desktop-electron/src/appshot/frontmost.ts
+  h_5be255725524c8 51-53,56-60,67-72
+apps/desktop-electron/src/appshot/service.ts
+  h_5be255725524c8 347-348,556-559,561-570,656-697
+apps/desktop-electron/src/desktop-use/host-capture.ts
+  h_5be255725524c8 299-302,306-312,319-325,327,330-331,333,337,373,375-390,408-416,419,424-427,430-434,436
+apps/web/public/appshot-capture-overlay.html
+  h_5be255725524c8 45,49
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "fb3582f9d6b2fea5a75c9e052cf92ef1f2a0249e",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
