@@ -1,0 +1,14 @@
+apps/web/src/app-shell/LeftSidebarManagementCenter.tsx
+  h_5be255725524c8 68-79
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "015521068e2015fd4884dd648faa0f5d445d0742",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
