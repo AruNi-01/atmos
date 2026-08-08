@@ -36,11 +36,21 @@ export const MANAGEMENT_CENTER_ITEM_IDS: ManagementCenterItemId[] = [
   'new-workspace',
 ];
 
-/** Items that shipped always-on before per-item switches; default enabled inside. */
+/** Items that default enabled in the Management Center. */
 const ALWAYS_ON_DEFAULT_IDS: ManagementCenterItemId[] = [
   'workspaces',
   'skills',
+  'automations',
   'disk-analyzer',
+  'canvas',
+  'kanban',
+  'new-workspace',
+];
+
+/** Default to Outside (full-width list under MC header) rather than Inside grid. */
+const DEFAULT_OUTSIDE_PLACEMENT_IDS: ManagementCenterItemId[] = [
+  'skills',
+  'automations',
   'canvas',
   'kanban',
   'new-workspace',
@@ -51,7 +61,7 @@ export function createDefaultManagementCenterItems(): ManagementCenterItems {
   for (const id of MANAGEMENT_CENTER_ITEM_IDS) {
     items[id] = {
       enabled: ALWAYS_ON_DEFAULT_IDS.includes(id),
-      placement: 'inside',
+      placement: DEFAULT_OUTSIDE_PLACEMENT_IDS.includes(id) ? 'outside' : 'inside',
     };
   }
   return items;

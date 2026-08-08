@@ -26,17 +26,17 @@ import {
 } from "./experiment-settings-store";
 
 describe("management center item placement helpers", () => {
-  it("defaults always-on items to enabled inside, experiments off", () => {
+  it("defaults always-on items enabled; skills/automations/canvas/kanban/new-workspace outside, rest inside; terminals/agents off", () => {
     const items = createDefaultManagementCenterItems();
     expect(items.workspaces).toEqual({ enabled: true, placement: "inside" });
-    expect(items.skills).toEqual({ enabled: true, placement: "inside" });
+    expect(items.skills).toEqual({ enabled: true, placement: "outside" });
     expect(items["disk-analyzer"]).toEqual({ enabled: true, placement: "inside" });
-    expect(items.canvas).toEqual({ enabled: true, placement: "inside" });
-    expect(items.kanban).toEqual({ enabled: true, placement: "inside" });
-    expect(items["new-workspace"]).toEqual({ enabled: true, placement: "inside" });
+    expect(items.canvas).toEqual({ enabled: true, placement: "outside" });
+    expect(items.kanban).toEqual({ enabled: true, placement: "outside" });
+    expect(items["new-workspace"]).toEqual({ enabled: true, placement: "outside" });
     expect(items.terminals).toEqual({ enabled: false, placement: "inside" });
     expect(items.agents).toEqual({ enabled: false, placement: "inside" });
-    expect(items.automations).toEqual({ enabled: false, placement: "inside" });
+    expect(items.automations).toEqual({ enabled: true, placement: "outside" });
   });
 
   it("selects only enabled items for a placement", () => {
@@ -50,13 +50,14 @@ describe("management center item placement helpers", () => {
 
     expect(selectManagementCenterItemsByPlacement(items, "outside")).toEqual([
       "workspaces",
+      "automations",
       "canvas",
+      "kanban",
+      "new-workspace",
     ]);
     expect(selectManagementCenterItemsByPlacement(items, "inside")).toEqual([
       "terminals",
       "disk-analyzer",
-      "kanban",
-      "new-workspace",
     ]);
   });
 
