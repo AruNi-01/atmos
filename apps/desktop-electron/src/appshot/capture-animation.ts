@@ -37,7 +37,7 @@ export const OVERLAY_PADDING = 14;
  * Kept short so dual-shift feels snappy; still long enough to see the flash
  * before the real screenshot (which must not include the border).
  */
-export const OVERLAY_DURATION_MS = 360;
+export const OVERLAY_DURATION_MS = 400;
 export const MIN_OVERLAY_EDGE = 32;
 
 const SELF_APP_NAMES = new Set([
@@ -94,35 +94,39 @@ const FALLBACK_OVERLAY_HTML = `<!doctype html>
         background: transparent; pointer-events: none;
       }
       .frame {
-        position: fixed; inset: 12px;
-        border: 3px solid rgba(66, 153, 255, 0.98);
+        position: fixed; inset: 10px;
+        /* Brighter electric blue + white outer ring — still opacity-only anim */
+        border: 4px solid rgba(56, 189, 255, 1);
         border-radius: 14px;
-        box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.4);
+        box-shadow:
+          0 0 0 2px rgba(255, 255, 255, 0.95),
+          0 0 0 5px rgba(14, 165, 233, 0.85);
         opacity: 0;
         transform: translateZ(0);
         will-change: opacity;
       }
       .flash {
         position: fixed; inset: 0;
-        background: rgba(255, 255, 255, 0.55);
+        background: rgba(255, 255, 255, 0.72);
         opacity: 0;
         transform: translateZ(0);
         will-change: opacity;
       }
       body.run .frame {
-        animation: appshot-border-pulse 320ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+        animation: appshot-border-pulse 380ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
       }
       body.run .flash {
-        animation: appshot-camera-flash 260ms cubic-bezier(0.2, 0.8, 0.2, 1) 40ms both;
+        animation: appshot-camera-flash 300ms cubic-bezier(0.2, 0.8, 0.2, 1) 30ms both;
       }
       @keyframes appshot-border-pulse {
         0% { opacity: 0; }
-        22% { opacity: 1; }
+        18% { opacity: 1; }
+        55% { opacity: 1; }
         100% { opacity: 0; }
       }
       @keyframes appshot-camera-flash {
         0% { opacity: 0; }
-        18% { opacity: 0.55; }
+        15% { opacity: 0.75; }
         100% { opacity: 0; }
       }
     </style>
