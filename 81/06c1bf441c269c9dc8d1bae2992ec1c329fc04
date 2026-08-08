@@ -1,0 +1,30 @@
+apps/cli/src/commands/browser_use.rs
+  h_5be255725524c8 2,17-18,29-33,41,43-45,56-57,69-108,121,123,125,127,129,131-136,151,154-159,180-194,206-214,229,232-237,256-327,334,337-342
+apps/desktop-electron/src/browser/browser-use-control.structural.test.ts
+  h_5be255725524c8 27-29,49-60
+apps/desktop-electron/src/browser/browser-use-control.ts
+  h_5be255725524c8 11,13-18,56-63,89,92-93,149-156,162-166,346-356,358-370,373-451,453,455-456,469,476,480-481,483-484,489-531,568-863,874-883,901-910,935-943,953,960-966,969,974-989,1008-1017,1041,1046-1092,1098-1109,1112
+crates/browser-use/src/backends/embedded.rs
+  h_5be255725524c8 156-158,169-171,200,203-209,213-221,232,238-250,268-378,416-417,467,475-514
+crates/browser-use/src/backends/external.rs
+  h_5be255725524c8 1,8,16-17,19-25,39-47,53,61-68,71,76,79-81,88,110-145,157,160-186,200-201,207-225,249-405,411,455-463,470
+crates/browser-use/src/chrome.rs
+  h_5be255725524c8 23,25-29,67-72,183-185,204-205
+crates/browser-use/src/lib.rs
+  h_5be255725524c8 20,99,109-117,131-144,176,184,194-195,243-244,251,258-288
+crates/browser-use/src/types.rs
+  h_5be255725524c8 10-15,52-57,76-112,169-170
+skills/atmos-browser-use/SKILL.md
+  h_5be255725524c8 3,7-8,13-14,23-63,66-67,70,73-74,77,81-85,88,90-92,98-100,106-108
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "8106c1bf441c269c9dc8d1bae2992ec1c329fc04",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
