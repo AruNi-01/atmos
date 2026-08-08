@@ -1,0 +1,16 @@
+apps/web/src/features/terminal/components/TmuxInstallDialog.tsx
+  h_5be255725524c8 406,426-427,431,433-455,460
+apps/web/src/features/welcome/components/PackageInstallTerminalDialog.tsx
+  h_5be255725524c8 453,480-481,485,487-495,497-511,516
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "d054cd13107cedb757d5f54bd070dd992aae8d85",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
