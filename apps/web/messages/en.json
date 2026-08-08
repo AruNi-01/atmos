@@ -4119,9 +4119,13 @@
           "label": "AI Agents",
           "description": "AI providers and code agent configurations"
         },
+        "remoteAccess": {
+          "label": "Remote Access",
+          "description": "Atmos Computer and Tunnel Connector"
+        },
         "systemIntegration": {
           "label": "System Integration",
-          "description": "Integrations, Tunnel Connector, and notifications"
+          "description": "Integrations, Desktop Use, and notifications"
         },
         "workspaceProjects": {
           "label": "Workspace & Projects",

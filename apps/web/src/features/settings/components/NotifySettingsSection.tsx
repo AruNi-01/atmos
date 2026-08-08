@@ -16,7 +16,7 @@ import {
   Switch,
   toastManager,
 } from '@workspace/ui';
-import { ChevronDown, Plus, Trash2, Webhook } from 'lucide-react';
+import { Bell, ChevronDown, Plus, Trash2, Webhook, Zap } from 'lucide-react';
 import { isDesktopRuntime } from '@/shared/lib/desktop-runtime';
 import {
   type NotificationSettingsFieldUpdater,
@@ -205,10 +205,15 @@ export function NotifySettingsSection({
     <div className="space-y-4">
       <div className="overflow-hidden rounded-2xl border border-border">
         <div className="px-6 py-5">
-          <p className="text-base font-medium text-foreground">{t('channels.title')}</p>
-          <p className="mt-2 text-sm leading-6 text-muted-foreground">
-            {t('channels.description')}
-          </p>
+          <div className="flex items-start gap-3">
+            <Bell className="mt-0.5 size-5 shrink-0" />
+            <div className="min-w-0">
+              <p className="text-base font-medium text-foreground">{t('channels.title')}</p>
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                {t('channels.description')}
+              </p>
+            </div>
+          </div>
         </div>
 
         <div className="border-t border-border px-4">
@@ -320,10 +325,15 @@ export function NotifySettingsSection({
 
       <div className="overflow-hidden rounded-2xl border border-border">
         <div className="px-6 py-5">
-          <p className="text-base font-medium text-foreground">{t('events.title')}</p>
-          <p className="mt-2 text-sm leading-6 text-muted-foreground">
-            {t('events.description')}
-          </p>
+          <div className="flex items-start gap-3">
+            <Zap className="mt-0.5 size-5 shrink-0" />
+            <div className="min-w-0">
+              <p className="text-base font-medium text-foreground">{t('events.title')}</p>
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                {t('events.description')}
+              </p>
+            </div>
+          </div>
         </div>
 
         <div className="border-t border-border px-4">

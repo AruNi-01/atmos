@@ -4119,9 +4119,13 @@
           "label": "AI Agent",
           "description": "AI 提供商与代码 Agent 配置"
         },
+        "remoteAccess": {
+          "label": "远程访问",
+          "description": "Atmos Computer 与 Tunnel Connector"
+        },
         "systemIntegration": {
           "label": "系统集成",
-          "description": "集成、Tunnel Connector 与通知"
+          "description": "集成、Desktop Use 与通知"
         },
         "workspaceProjects": {
           "label": "工作区与项目",

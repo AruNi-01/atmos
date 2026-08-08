@@ -41,10 +41,16 @@ export const SETTINGS_GROUPS = [
     items: ["ai", "code-agent"] as const,
   },
   {
+    id: "remote-access",
+    label: settingsModalT("groups.remoteAccess.label"),
+    description: settingsModalT("groups.remoteAccess.description"),
+    items: ["atmos-computer", "tunnel-connector"] as const,
+  },
+  {
     id: "system-integration",
     label: settingsModalT("groups.systemIntegration.label"),
     description: settingsModalT("groups.systemIntegration.description"),
-    items: ["integrations", "tunnel-connector", "atmos-computer", "desktop-use", "notify"] as const,
+    items: ["integrations", "desktop-use", "notify"] as const,
   },
   {
     id: "workspace-projects",
