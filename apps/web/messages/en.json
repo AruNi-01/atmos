@@ -7444,7 +7444,7 @@
         },
         "unsupportedInThisRuntime": "Appshots are not supported in this runtime.",
         "permissionsRequiredTitle": "Permissions required",
-        "permissionsRequiredDescription": "Grant the required macOS permissions to capture Appshots.",
+        "permissionsRequiredDescription": "Grant Accessibility and Screen Recording for Atmos Desktop Use in Settings to capture Appshots.",
         "enable": "Enable",
         "recentRecords": "Recent Appshot records",
         "recentRecordsAriaLabel": "Recent Appshot records",
@@ -7462,6 +7462,12 @@
           "deleteTitle": "Delete Appshot record",
           "deleteAriaLabel": "Delete Appshot record"
         }
+      },
+      "preview": {
+        "needsPermission": "Needs permission",
+        "noScreenshot": "No screenshot preview",
+        "screenshotAlt": "Appshot preview for {appName}",
+        "enablePermissions": "Enable"
       }
     },
     "lib": {

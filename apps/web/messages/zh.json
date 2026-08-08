@@ -7444,7 +7444,7 @@
         },
         "unsupportedInThisRuntime": "当前运行时不支持 Appshots。",
         "permissionsRequiredTitle": "需要权限",
-        "permissionsRequiredDescription": "授予所需的 macOS 权限后才能捕获 Appshot。",
+        "permissionsRequiredDescription": "请在设置中为 Atmos Desktop Use 授予辅助功能与屏幕录制权限后再捕获 Appshot。",
         "enable": "启用",
         "recentRecords": "最近的 Appshot 记录",
         "recentRecordsAriaLabel": "最近的 Appshot 记录",
@@ -7462,6 +7462,12 @@
           "deleteTitle": "删除 Appshot 记录",
           "deleteAriaLabel": "删除 Appshot 记录"
         }
+      },
+      "preview": {
+        "needsPermission": "需要权限",
+        "noScreenshot": "暂无截图预览",
+        "screenshotAlt": "{appName} 的 Appshot 预览",
+        "enablePermissions": "启用"
       }
     },
     "lib": {

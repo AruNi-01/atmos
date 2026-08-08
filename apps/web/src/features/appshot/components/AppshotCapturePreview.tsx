@@ -2,6 +2,7 @@
 
 import React from "react";
 import { createPortal } from "react-dom";
+import { useTranslations } from "next-intl";
 import { Button, cn } from "@workspace/ui";
 import { Check, Copy, ImageOff, Trash2, XCircle } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
@@ -26,6 +27,7 @@ type ResolveState = "idle" | "accepting" | "discarding";
 type EntranceOffset = { x: number; y: number };
 
 export function AppshotCapturePreview() {
+  const t = useTranslations("appshot.components");
   const [preview, setPreview] = React.useState<AppshotPendingPreview | null>(null);
   const [resolveState, setResolveState] = React.useState<ResolveState>("idle");
   const [error, setError] = React.useState<string | null>(null);
@@ -263,7 +265,12 @@ export function AppshotCapturePreview() {
 
   const screenshotSrc = toBoundedScreenshotDataUrl(preview.screenshot_preview_base64);
   const busy = resolveState !== "idle";
-  const deniedPermissions = (preview.permissions ?? []).filter((permission) => !permission.granted);
+  // Successful captures attach a screenshot — do not surface stale Electron TCC
+  // denials (Screen Recording lives on Atmos Desktop Use host, not Electron).
+  const captureLooksOk = Boolean(screenshotSrc);
+  const deniedPermissions = captureLooksOk
+    ? []
+    : (preview.permissions ?? []).filter((permission) => !permission.granted);
   const countdownSeconds = Math.ceil(remainingMs / 1_000);
   // Compute on render so the first paint of a new preview_id has correct CSS vars
   // (fly-in from the captured window into Atmos right-top).
@@ -297,11 +304,11 @@ export function AppshotCapturePreview() {
           </div>
           {preview.expires_in_ms > 0 ? (
             <CountdownStatusBadge paused={countdownPaused} seconds={countdownSeconds} />
-          ) : (
+          ) : deniedPermissions.length > 0 ? (
             <span className="rounded-md border border-warning/30 bg-warning/10 px-1.5 py-0.5 text-[10px] text-warning">
-              Needs permission
+              {t("preview.needsPermission")}
             </span>
-          )}
+          ) : null}
         </div>
 
         <div className="h-36 overflow-hidden rounded-md border border-border bg-background">
@@ -309,14 +316,14 @@ export function AppshotCapturePreview() {
             // eslint-disable-next-line @next/next/no-img-element -- Appshot previews are local Tauri data URLs, not remote optimized assets.
             <img
               src={screenshotSrc}
-              alt={`Appshot preview for ${preview.app_name}`}
+              alt={t("preview.screenshotAlt", { appName: preview.app_name })}
               className="h-full w-full object-cover"
               draggable={false}
             />
           ) : (
             <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-muted-foreground">
               <ImageOff className="size-5" />
-              <span className="text-xs">No screenshot preview</span>
+              <span className="text-xs">{t("preview.noScreenshot")}</span>
             </div>
           )}
         </div>
@@ -332,10 +339,10 @@ export function AppshotCapturePreview() {
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <p className="text-xs font-medium text-popover-foreground">
-                  Permissions required
+                  {t("history.permissionsRequiredTitle")}
                 </p>
                 <p className="mt-1 text-[11px] leading-5 text-muted-foreground">
-                  Open the Atmos Appshots window to grant local macOS access.
+                  {t("history.permissionsRequiredDescription")}
                 </p>
               </div>
               <Button
@@ -344,6 +351,7 @@ export function AppshotCapturePreview() {
                 size="xs"
                 className="shrink-0 cursor-pointer"
                 onClick={() => {
+                  // APP-052: Desktop Use settings (not standalone AppShot permissions).
                   void showAppshotPermissionsWindow()
                     .then(() => {
                       watchPreviewPermissionsAfterOpen();
@@ -353,7 +361,7 @@ export function AppshotCapturePreview() {
                     });
                 }}
               >
-                Enable
+                {t("preview.enablePermissions")}
               </Button>
             </div>
           </div>

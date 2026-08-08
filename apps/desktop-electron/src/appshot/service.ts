@@ -608,6 +608,24 @@ export async function triggerCapture(state: AppState): Promise<void> {
       "Screenshot preview was hidden because the inline image payload is too large.",
     );
   }
+  // Capture succeeded via host engine — do not attach Electron-only TCC denials.
+  // macosPermissionsForCapture() is a light probe that often reports false for
+  // Screen Recording on Atmos itself while Desktop Use host is granted (and
+  // already produced the PNG). False denials blocked auto-accept and showed
+  // "Permissions required" on a successful preview.
+  const captureSucceeded = Boolean(result.png && result.png.length > 0);
+  const permissionsForPreview = captureSucceeded
+    ? permissions.map((p) =>
+        p.granted
+          ? p
+          : {
+              ...p,
+              granted: true,
+              recovery_action: null,
+            },
+      )
+    : permissions;
+
   const capture: PendingCapture = {
     previewId,
     appName: result.frontmost.appName,
@@ -629,7 +647,7 @@ export async function triggerCapture(state: AppState): Promise<void> {
             height: result.frontmost.height,
           }
         : null,
-    permissions,
+    permissions: permissionsForPreview,
     warnings: result.warnings,
     bundleId: result.frontmost.bundleId,
     processId: result.frontmost.processId,
