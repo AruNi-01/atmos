@@ -1,7 +1,8 @@
 /**
  * Stage Atmos Server + web static + skills into resources/runtime/current
  * for electron-builder extraResources (process.resourcesPath/runtime/current).
- * Also stages atmos-browser-cookies for packaged cookie import (no cargo).
+ * Also stages atmos-browser-cookies for packaged cookie import (no cargo),
+ * and Desktop Use engine-manifest.json (pin authority for this Desktop build).
  */
 import {
   cpSync,
@@ -70,6 +71,44 @@ function main() {
   );
 
   console.log(`[prepare-package] staged runtime → ${destRuntime}`);
+
+  // Desktop Use pin authority for this Desktop build (APP-052 optimal design).
+  // Runtime injects ATMOS_DESKTOP_USE_MANIFEST → process.resourcesPath/desktop-use/...
+  const manifestSrc = join(
+    repoRoot,
+    "crates/desktop-use/manifest/default.json",
+  );
+  const manifestDestDir = join(appRoot, "resources/desktop-use");
+  if (!existsSync(manifestSrc)) {
+    throw new Error(
+      `[prepare-package] missing engine manifest at ${manifestSrc}`,
+    );
+  }
+  mkdirSync(manifestDestDir, { recursive: true });
+  cpSync(manifestSrc, join(manifestDestDir, "engine-manifest.json"));
+  console.log(
+    `[prepare-package] staged engine-manifest.json → ${manifestDestDir}`,
+  );
+
+  // Ensure packaged runtime/bin/atmos exists (runner matching this build).
+  const atmosName = process.platform === "win32" ? "atmos.exe" : "atmos";
+  const runtimeAtmos = join(destRuntime, "bin", atmosName);
+  if (!existsSync(runtimeAtmos)) {
+    const candidates = [
+      join(repoRoot, "target/release", atmosName),
+      join(repoRoot, "target/debug", atmosName),
+    ];
+    const found = candidates.find((p) => existsSync(p));
+    if (found) {
+      mkdirSync(join(destRuntime, "bin"), { recursive: true });
+      cpSync(found, runtimeAtmos);
+      console.log(`[prepare-package] staged atmos CLI → ${runtimeAtmos}`);
+    } else {
+      console.warn(
+        `[prepare-package] atmos CLI missing (run: cargo build --release -p atmos)`,
+      );
+    }
+  }
 
   // Native dual-shift dylib (macOS CGEventTap on dedicated thread).
   if (process.platform === "darwin") {

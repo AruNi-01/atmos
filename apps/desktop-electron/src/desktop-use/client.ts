@@ -1,5 +1,9 @@
 /**
  * Desktop Use client for Electron — spawns Atmos CLI capture/status.
+ *
+ * **Pin authority (optimal design):** App Resources
+ * `desktop-use/engine-manifest.json` via `ATMOS_DESKTOP_USE_MANIFEST`.
+ * **Runner:** prefer App-bundled `atmos` (same Desktop build), not PATH.
  * AppShot capture must go through this surface (not direct osascript/screencapture).
  */
 
@@ -10,6 +14,9 @@ import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 
 const execFileAsync = promisify(execFile);
+
+/** Must match Rust `desktop_use::MANIFEST_ENV`. */
+export const DESKTOP_USE_MANIFEST_ENV = "ATMOS_DESKTOP_USE_MANIFEST";
 
 export type DesktopUseCaptureJson = {
   ok: boolean;
@@ -56,11 +63,27 @@ export type DesktopUseStatusJson = {
   prefs?: DesktopUsePrefsJson;
 };
 
+function isPackagedElectron(): boolean {
+  // electron app.isPackaged is unavailable in pure Node unit tests; use resourcesPath heuristics.
+  const rp = typeof process.resourcesPath === "string" ? process.resourcesPath : "";
+  if (!rp) return false;
+  // Dev Electron still sets resourcesPath under the electron.app framework — require our stage.
+  return (
+    existsSync(join(rp, "runtime", "current")) ||
+    existsSync(join(rp, "desktop-use", "engine-manifest.json")) ||
+    existsSync(join(rp, "bin", "atmos")) ||
+    existsSync(join(rp, "bin", "atmos.exe"))
+  );
+}
+
 function repoRootFromHere(): string | null {
   try {
     let dir = dirname(fileURLToPath(import.meta.url));
-    for (let i = 0; i < 8; i++) {
-      if (existsSync(join(dir, "Cargo.toml")) && existsSync(join(dir, "apps", "cli"))) {
+    for (let i = 0; i < 10; i++) {
+      if (
+        existsSync(join(dir, "Cargo.toml")) &&
+        existsSync(join(dir, "apps", "cli"))
+      ) {
         return dir;
       }
       const parent = dirname(dir);
@@ -73,27 +96,134 @@ function repoRootFromHere(): string | null {
   return null;
 }
 
-/** Resolve `atmos` CLI binary for Desktop Use commands. */
-export function resolveAtmosCliPath(): string {
+function atmosBinName(): string {
+  return process.platform === "win32" ? "atmos.exe" : "atmos";
+}
+
+/**
+ * Authoritative engine pin for this Desktop process.
+ * Prefer App Resources; then monorepo crates/desktop-use/manifest; then env.
+ */
+export function resolveDesktopUseManifestPath(
+  opts?: { resourcesPath?: string; repoRoot?: string | null },
+): string | null {
+  if (
+    process.env[DESKTOP_USE_MANIFEST_ENV] &&
+    existsSync(process.env[DESKTOP_USE_MANIFEST_ENV]!)
+  ) {
+    return process.env[DESKTOP_USE_MANIFEST_ENV]!;
+  }
+
+  const resourcesPath =
+    opts?.resourcesPath ??
+    (typeof process.resourcesPath === "string" ? process.resourcesPath : "");
+  if (resourcesPath) {
+    const packaged = join(resourcesPath, "desktop-use", "engine-manifest.json");
+    if (existsSync(packaged)) return packaged;
+  }
+
+  const root = opts?.repoRoot !== undefined ? opts.repoRoot : repoRootFromHere();
+  if (root) {
+    const monorepo = join(
+      root,
+      "crates",
+      "desktop-use",
+      "manifest",
+      "default.json",
+    );
+    if (existsSync(monorepo)) return monorepo;
+  }
+
+  // Staged next to electron app resources during package prepare (dev package tree)
+  try {
+    const here = dirname(fileURLToPath(import.meta.url));
+    const staged = join(
+      here,
+      "..",
+      "..",
+      "resources",
+      "desktop-use",
+      "engine-manifest.json",
+    );
+    if (existsSync(staged)) return staged;
+  } catch {
+    /* ignore */
+  }
+
+  return null;
+}
+
+/**
+ * Resolve `atmos` CLI for Desktop Use.
+ *
+ * Production order: App Resources only (same Desktop build as pin).
+ * Dev order: ATMOS_CLI_PATH → monorepo target → package resources → last-resort PATH.
+ */
+export function resolveAtmosCliPath(opts?: {
+  resourcesPath?: string;
+  repoRoot?: string | null;
+  packaged?: boolean;
+}): string {
   if (process.env.ATMOS_CLI_PATH && existsSync(process.env.ATMOS_CLI_PATH)) {
     return process.env.ATMOS_CLI_PATH;
   }
-  const home = process.env.HOME ?? "";
-  const candidates = [
-    join(home, ".atmos", "bin", "atmos"),
-    join(home, ".cargo", "bin", "atmos"),
-  ];
-  const root = repoRootFromHere();
-  if (root) {
-    candidates.unshift(
-      join(root, "target", "debug", "atmos"),
-      join(root, "target", "release", "atmos"),
+
+  const bin = atmosBinName();
+  const resourcesPath =
+    opts?.resourcesPath ??
+    (typeof process.resourcesPath === "string" ? process.resourcesPath : "");
+  const packaged = opts?.packaged ?? isPackagedElectron();
+
+  const packagedCandidates: string[] = [];
+  if (resourcesPath) {
+    packagedCandidates.push(
+      join(resourcesPath, "bin", bin),
+      join(resourcesPath, "runtime", "current", "bin", bin),
     );
   }
-  for (const c of candidates) {
+
+  if (packaged) {
+    for (const c of packagedCandidates) {
+      if (existsSync(c)) return c;
+    }
+    // Packaged but missing staged CLI — fail loud rather than use stale PATH pin.
+    return packagedCandidates[0] ?? bin;
+  }
+
+  // Development: monorepo build products (must be rebuilt after pin changes).
+  const root = opts?.repoRoot !== undefined ? opts.repoRoot : repoRootFromHere();
+  const devCandidates: string[] = [];
+  if (root) {
+    devCandidates.push(
+      join(root, "target", "debug", bin),
+      join(root, "target", "release", bin),
+    );
+  }
+  // Local electron resources after prepare-package
+  try {
+    const here = dirname(fileURLToPath(import.meta.url));
+    devCandidates.push(
+      join(here, "..", "..", "resources", "runtime", "current", "bin", bin),
+      join(here, "..", "..", "resources", "bin", bin),
+    );
+  } catch {
+    /* ignore */
+  }
+  for (const c of [...devCandidates, ...packagedCandidates]) {
     if (existsSync(c)) return c;
   }
-  return "atmos";
+
+  // Last resort for bare dev shells only.
+  return bin;
+}
+
+function childEnv(): NodeJS.ProcessEnv {
+  const env = { ...process.env };
+  const manifest = resolveDesktopUseManifestPath();
+  if (manifest) {
+    env[DESKTOP_USE_MANIFEST_ENV] = manifest;
+  }
+  return env;
 }
 
 export async function runDesktopUseJson(
@@ -101,11 +231,15 @@ export async function runDesktopUseJson(
   timeoutMs = 20_000,
 ): Promise<unknown> {
   const cli = resolveAtmosCliPath();
-  const { stdout, stderr } = await execFileAsync(cli, ["desktop-use", ...args, "--json"], {
-    timeout: timeoutMs,
-    maxBuffer: 32 * 1024 * 1024,
-    env: { ...process.env },
-  });
+  const { stdout, stderr } = await execFileAsync(
+    cli,
+    ["desktop-use", ...args, "--json"],
+    {
+      timeout: timeoutMs,
+      maxBuffer: 32 * 1024 * 1024,
+      env: childEnv(),
+    },
+  );
   const text = (stdout || "").trim() || (stderr || "").trim();
   if (!text) {
     throw new Error("Desktop Use returned empty output");

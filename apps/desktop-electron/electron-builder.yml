@@ -33,6 +33,11 @@ extraResources:
     to: bin
     filter:
       - "**/*"
+  # Control-engine pin authority for this Desktop build (APP-052 optimal design).
+  - from: resources/desktop-use
+    to: desktop-use
+    filter:
+      - "**/*"
 
 asar: true
 # koffi ships platform native binaries that must load outside asar.

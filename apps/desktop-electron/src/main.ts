@@ -107,6 +107,19 @@ async function boot() {
 
   ensureMainWindow();
 
+  // Background: if control engine is installed but behind the Atmos pin, force
+  // ensure without blocking UI. First-time install stays user-initiated.
+  try {
+    const { scheduleDesktopUseEngineAutoUpdate } = await import(
+      "./desktop-use/auto-update.js"
+    );
+    scheduleDesktopUseEngineAutoUpdate();
+  } catch (e) {
+    mainLog(
+      `[boot] desktop-use auto-update schedule failed: ${e instanceof Error ? e.message : String(e)}`,
+    );
+  }
+
   // Arm Appshots Left+Right Shift global gesture (macOS). Always attempt on boot.
   if (process.platform === "darwin") {
     // Do NOT warm the capture overlay BrowserWindow at boot — creating that
