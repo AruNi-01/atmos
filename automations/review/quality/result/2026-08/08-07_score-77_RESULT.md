@@ -146,4 +146,4 @@ APP-055 与 #208 质量修复结构扎实，但同日引入 1200+ 行 `morphing-
 
 - 修复分支：`grokbuild/quality-fix/2026-08-07`
 - 修复提交：`ed8dcd863`
-- PR URL：见创建后回填
+- PR URL：https://github.com/AruNi-01/atmos/pull/209
