@@ -335,11 +335,7 @@ export async function captureFrontmostViaHostEngine(options: {
       );
     }
   }
-  if (systemFrontmost && selfNames.has(systemFrontmost.appName.trim())) {
-    warnings.push(
-      `${systemFrontmost.appName} is frontmost; focus another app and trigger Appshots again.`,
-    );
-  }
+  // Capturing Atmos itself is allowed (e.g. product UI for agents) — no warning.
 
   // 2) Host screenshot (single CLI — dominant cost after animation).
   let shot: unknown;

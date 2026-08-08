@@ -109,11 +109,7 @@ export async function desktopUseCaptureInProcess(
     );
   }
 
-  if (selfNames.has(frontmost.appName)) {
-    warnings.push(
-      `${frontmost.appName} is frontmost; focus another app and trigger Appshots again.`,
-    );
-  }
+  // Capturing Atmos itself is a valid AppShot target — no self-frontmost warning.
 
   const png = await captureScreenshotPng(frontmost, warnings);
   const contextMarkdown = buildAppshotContextMarkdown(frontmost, warnings);

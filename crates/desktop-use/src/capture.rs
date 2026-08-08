@@ -108,32 +108,7 @@ fn capture_macos(req: CaptureRequest) -> CaptureResult {
         }
     };
 
-    if is_self_app(&frontmost.app_name) {
-        return CaptureResult {
-            ok: false,
-            app_name: Some(frontmost.app_name.clone()),
-            window_title: frontmost.window_title.clone(),
-            bundle_id: None,
-            process_id: frontmost.process_id,
-            bounds: frontmost.bounds.clone(),
-            png_base64: None,
-            png_path: None,
-            context_markdown: build_context_markdown(&frontmost, &warnings),
-            quality: "none".into(),
-            warnings: {
-                let mut w = warnings;
-                w.push(format!(
-                    "{} is frontmost; focus another app and capture again.",
-                    frontmost.app_name
-                ));
-                w
-            },
-            error: Some(format!(
-                "{} is frontmost; focus another app and capture again.",
-                frontmost.app_name
-            )),
-        };
-    }
+    // Capturing Atmos itself is allowed (AppShot / agent UI). No self-frontmost block.
 
     let tmp = std::env::temp_dir().join(format!(
         "atmos-desktop-use-capture-{}.png",
