@@ -245,11 +245,13 @@ impl TokenUsageService {
 fn tokscale_options(query: &TokenUsageQuery) -> tokscale_core::ReportOptions {
     tokscale_core::ReportOptions {
         home_dir: None,
+        use_env_roots: true,
         clients: query.clients.clone(),
         since: query.since.clone(),
         until: query.until.clone(),
         year: query.year.clone(),
         group_by: query.group_by.to_tokscale(),
+        scanner_settings: tokscale_core::ScannerSettings::default(),
     }
 }
 

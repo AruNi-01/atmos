@@ -261,7 +261,16 @@ fn unix_timestamp_nanos() -> u128 {
 fn sample_reports() -> CollectedTokenUsageReports {
     use tokscale_core::{
         ClientContribution, DailyContribution, DailyTotals, DataSummary, GraphMeta, GraphResult,
-        ModelReport, ModelUsage, MonthlyReport, MonthlyUsage, TokenBreakdown, YearSummary,
+        ModelPerformance, ModelReport, ModelUsage, MonthlyReport, MonthlyUsage, TokenBreakdown,
+        YearSummary,
+    };
+
+    let empty_performance = ModelPerformance {
+        ms_per_1k_tokens: None,
+        total_duration_ms: 0,
+        timed_tokens: 0,
+        sample_count: 0,
+        token_coverage: 0.0,
     };
 
     let graph = GraphResult {
@@ -319,6 +328,7 @@ fn sample_reports() -> CollectedTokenUsageReports {
                     cost: 0.73,
                     messages: 2,
                 }],
+                active_time_ms: None,
             },
             DailyContribution {
                 date: "2026-03-11".into(),
@@ -349,8 +359,11 @@ fn sample_reports() -> CollectedTokenUsageReports {
                     cost: 0.50,
                     messages: 1,
                 }],
+                active_time_ms: None,
             },
         ],
+        time_metrics: None,
+        unpriced_submission_exclusions: Vec::new(),
     };
 
     let model_report = ModelReport {
@@ -358,6 +371,9 @@ fn sample_reports() -> CollectedTokenUsageReports {
             ModelUsage {
                 client: "codex".into(),
                 merged_clients: None,
+                workspace_key: None,
+                workspace_label: None,
+                session_id: None,
                 model: "gpt-5".into(),
                 provider: "openai".into(),
                 input: 200,
@@ -367,10 +383,14 @@ fn sample_reports() -> CollectedTokenUsageReports {
                 reasoning: 20,
                 message_count: 2,
                 cost: 0.73,
+                performance: empty_performance.clone(),
             },
             ModelUsage {
                 client: "claude".into(),
                 merged_clients: None,
+                workspace_key: None,
+                workspace_label: None,
+                session_id: None,
                 model: "claude-3-7-sonnet".into(),
                 provider: "anthropic".into(),
                 input: 100,
@@ -380,6 +400,7 @@ fn sample_reports() -> CollectedTokenUsageReports {
                 reasoning: 5,
                 message_count: 1,
                 cost: 0.50,
+                performance: empty_performance,
             },
         ],
         total_input: 300,
