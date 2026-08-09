@@ -6,6 +6,7 @@ import ReactMarkdown, { type Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeSlug from 'rehype-slug';
 import rehypeRaw from 'rehype-raw';
+import rehypeSanitize from 'rehype-sanitize';
 import remarkBreaks from 'remark-breaks';
 import { useTheme } from 'next-themes';
 import { cn } from '@workspace/ui';
@@ -526,7 +527,10 @@ export function MarkdownRenderer({ children, className, wikiBasePath, onWikiLink
     )}>
       <ReactMarkdown
         remarkPlugins={[remarkGfm, remarkBreaks]}
-        rehypePlugins={[rehypeRaw, rehypeSlug]}
+        // rehype-raw enables limited HTML in GFM (e.g. <details>); rehype-sanitize
+        // drops unknown agent/XML tags like <file>/<violation> so they are not
+        // emitted as React DOM nodes (React 19 console errors on unrecognized tags).
+        rehypePlugins={[rehypeRaw, rehypeSanitize, rehypeSlug]}
         components={components}
       >
         {children}
