@@ -123,8 +123,9 @@ const HeroSection = () => {
 
           {/*
             Hero cover breaks slightly past the vertical rails for impact.
-            Width: content + ~2.5–4rem each side. Keep the image’s native aspect ratio
-            (no object-cover height crop) so wide viewports still show both sides.
+            Width: content + ~2.5–4rem each side. Native shot is ~1.87:1 (flat);
+            force a mildly taller 16/9 frame and stretch the full image to fit so
+            both sides stay visible (no crop) while the hero reads a bit taller.
           */}
           <MotionPreset
             fade
@@ -139,7 +140,7 @@ const HeroSection = () => {
                   src={TerminalAgentGrid}
                   alt={t('previewAlt')}
                   priority
-                  className='h-auto w-full'
+                  className='aspect-video h-auto w-full object-fill'
                   sizes='(max-width: 768px) 100vw, (max-width: 1280px) 100vw, 1280px'
                 />
               </div>
