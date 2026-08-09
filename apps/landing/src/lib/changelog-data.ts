@@ -34,6 +34,78 @@ export interface ChangelogItem {
 
 export const changelogData: ChangelogItem[] = [
   {
+    id: "desktop-2026.8.9",
+    title: {
+      zh: "Token 用量总览 · AppShot 飞入 · Desktop Use 引擎 · Canvas Agent 状态",
+      en: "Token Usage Overview, AppShot Fly-In, Desktop Use Engine & Canvas Agent Status",
+    },
+    description: {
+      zh: "Atmos Desktop 2026.8.9 带来完整 Token 用量总览（Tokens/Cost、Agent/Model 拆分与可分享卡片）、更稳的 AppShot 双 Shift 捕获与飞入反馈、Desktop Use 控制引擎 0.19.2 应用内自动更新、更丰富的 Browser Use 操控，以及与马赛克窗格一致的 Canvas 终端 Agent 状态，并补充 GitHub 用户悬停卡片。",
+      en: "Atmos Desktop 2026.8.9 brings a full Token Usage overview (tokens/cost, agent and model breakdowns, shareable cards), harder AppShot dual-shift capture with fly-in feedback, pinned Desktop Use control engine 0.19.2 with in-app auto-update, richer Browser Use control, canvas terminal agent status that matches mosaic panes, and GitHub hover user cards with contribution context.",
+    },
+    date: "2026-08-09",
+    version: "2026.8.9",
+    releaseUrl: "https://github.com/AruNi-01/atmos/releases/tag/desktop-electron-2026.8.9",
+    tags: [
+      { zh: "Token 用量", en: "Token Usage" },
+      { zh: "AppShot", en: "AppShot" },
+      { zh: "Desktop Use", en: "Desktop Use" },
+      { zh: "Canvas", en: "Canvas" },
+    ],
+    content: {
+      zh: {
+        features: [
+          "**Token 用量总览** — 全页本地会话看板，支持 Tokens/Cost 与 Agent/Model 切换，含 dither 热力图/趋势/堆叠 Agent/Token 构成，以及将页面截图为圆角 Atmos 卡片的分享与保存。",
+          "**AppShot 飞入** — 双 Shift 捕获后，缩略图从源窗口弧线飞入右上角 Appshots 区域，形成完整视觉闭环。",
+          "**CG 前台窗口几何** — 当 Accessibility 树为空时，通过原生 CGWindowList 解析 Electron 类与自定义 UI 应用的内容窗口边界。",
+          "**Desktop Use 引擎固定版本** — 桌面包随附 `engine-manifest.json`，从应用资源/内置 `atmos` 解析固定版本；已安装引擎落后时在后台强制对齐（首次安装仍由用户触发）。",
+          "**Browser Use 操控面** — CLI、crate 后端与 Electron browser-use 控制路径上更完整的页面操作 / ref / xy 能力。",
+          "**Canvas 终端 Agent 状态** — Canvas 上的 Agent 终端复用与马赛克窗格相同的关注/状态条，运行中与 need-attention 表现一致。",
+          "**GitHub 用户悬停卡片** — 在 GitHub 相关界面查看协作者时展示资料与贡献上下文。",
+        ],
+        fixes: [
+          "**AppShot 窗口裁剪** — 双 Shift 先取宿主全屏 PNG 再裁到聚焦窗口；按进程 ID 匹配宿主列表几何，避免本地化应用名导致整屏截图或动画丢失。",
+          "**Desktop Use 宿主下的双 Shift** — 左⇧+右⇧ 注入 Atmos Desktop Use，辅助功能/屏幕录制保持同一产品身份；宿主重启后套接字可重连。",
+          "**AppShot 身份与噪音** — 允许捕获 Atmos 自身；成功出图后不再误报「需要权限」；减少嘈杂捕获日志。",
+          "**边框闪烁与飞入** — 边界解析成功后恢复动画；更亮的边框闪烁与更快的飞入时长。",
+          "**管理中心** — 打开 New Workspace 或 Canvas 时仅该覆盖项保持高亮，下方路由项不再残留选中态。",
+        ],
+        improvements: [
+          "Desktop Use 控制引擎固定至 **0.19.2**，并更新配套与打包。",
+          "AppShot 热路径延迟优化，双 Shift 预检日志更清晰。",
+          "远程访问设置分组与分区标题打磨。",
+          "Agent 岛屿胶囊视觉与 ocean BorderBeam 打磨。",
+          "基于 tokscale 的 Token 用量扫描覆盖更多客户端，定价数据更新。",
+        ],
+      },
+      en: {
+        features: [
+          "**Token Usage overview** — Full-page local session dashboard with Tokens/Cost and Agent/Model tabs, dither charts (heatmap, trend, stacked agents, token mix), agent brand icons, and a share flow that screenshots the page into a rounded Atmos card for social export or save.",
+          "**AppShot fly-in** — After dual-shift capture, a thumbnail arcs from the source window into the Appshots chrome for a closed visual loop.",
+          "**CG frontmost geometry** — Native CGWindowList helper resolves content-window bounds for Electron-style and custom-UI apps when Accessibility trees are empty.",
+          "**Desktop Use engine pin** — Ships `engine-manifest.json` with the Desktop build, resolves pin via app resources / bundled `atmos`, and background force-ensures when an installed engine lags the pin (first-time install stays user-initiated).",
+          "**Browser Use control surface** — Richer page-action / ref / xy control paths across CLI, crate backends, and Electron browser-use control.",
+          "**Canvas terminal agent status** — Canvas agent terminals reuse the same agent attention/status chrome as mosaic panes so running and need-attention state stay consistent.",
+          "**GitHub hover user card** — Profile hover card with server-side contribution context when reviewing people on GitHub surfaces.",
+        ],
+        fixes: [
+          "**AppShot window crop** — Dual-shift uses host-engine full-display PNG then crops to the focused window; match host list geometry by process id so localization no longer forces full-desktop shots or drops animations.",
+          "**AppShot dual-shift under Desktop Use host** — Left⇧+Right⇧ injects into Atmos Desktop Use so Accessibility/Screen Recording stay on one product identity; socket reconnects after host restart.",
+          "**AppShot identity & noise** — Allow capturing Atmos itself; stop false “Permissions required” after a successful host PNG; drop noisy capture spam.",
+          "**Border flash & fly** — Restore animation when bounds resolve; brighter border flash; faster fly-in duration.",
+          "**Management Center** — When New Workspace or Canvas is open, only that overlay item stays active so route-backed items do not remain highlighted underneath.",
+        ],
+        improvements: [
+          "Desktop Use control engine pin **0.19.2** with updated fixtures and packaging.",
+          "AppShot hot path latency cuts; clearer bounds preflight logging for dual-shift diagnostics.",
+          "Remote access settings grouping and section header polish.",
+          "Agent island capsule visual polish with ocean BorderBeam.",
+          "Tokscale-backed token usage scanning with broader client coverage and fresher pricing data.",
+        ],
+      },
+    },
+  },
+  {
     id: "desktop-2026.8.7",
     title: {
       zh: "内嵌浏览器 · Desktop Use · 管理中心布局 · GitHub 工作台",
