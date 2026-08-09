@@ -12,22 +12,22 @@ import {
   TabsSubtleItem,
   cn,
 } from '@workspace/ui';
-import { ChevronDown, Layers, LayoutGrid, List } from 'lucide-react';
+import { ChevronDown, LayoutGrid, List, Rocket } from 'lucide-react';
 import {
-  MANAGEMENT_CENTER_ITEM_IDS,
-  type ManagementCenterItemId,
-  type ManagementCenterPlacement,
+  LAUNCHPAD_ITEM_IDS,
+  type LaunchpadItemId,
+  type LaunchpadPlacement,
   useExperimentSettingsStore,
 } from '@/features/settings/store/experiment-settings-store';
 
 /** Items that remain experimental feature flags — shown with a badge in layout settings. */
-export const EXPERIMENTAL_MANAGEMENT_CENTER_ITEM_IDS = new Set<ManagementCenterItemId>([
+export const EXPERIMENTAL_LAUNCHPAD_ITEM_IDS = new Set<LaunchpadItemId>([
   'terminals',
   'agents',
   'automations',
 ]);
 
-const ITEM_I18N_KEYS: Record<ManagementCenterItemId, string> = {
+const ITEM_I18N_KEYS: Record<LaunchpadItemId, string> = {
   workspaces: 'items.workspaces',
   skills: 'items.skills',
   terminals: 'items.terminals',
@@ -40,33 +40,33 @@ const ITEM_I18N_KEYS: Record<ManagementCenterItemId, string> = {
   'new-workspace': 'items.newWorkspace',
 };
 
-/** Tab order: Outside (list below MC) → Inside (grid cards). */
-const PLACEMENT_ORDER: ManagementCenterPlacement[] = ['outside', 'inside'];
+/** Tab order: Outside (list below Launchpad) → Inside (grid cards). */
+const PLACEMENT_ORDER: LaunchpadPlacement[] = ['outside', 'inside'];
 
-function placementIndex(placement: ManagementCenterPlacement): number {
+function placementIndex(placement: LaunchpadPlacement): number {
   return PLACEMENT_ORDER.indexOf(placement);
 }
 
-export function ManagementCenterLayoutSettings({
+export function LaunchpadLayoutSettings({
   expanded,
   onExpandedChange,
 }: {
   expanded: boolean;
   onExpandedChange: (expanded: boolean) => void;
 }) {
-  const t = useTranslations('settings.layoutSection.managementCenter');
+  const t = useTranslations('settings.layoutSection.launchpad');
   const {
-    managementCenterItems,
+    launchpadItems,
     loadSettings,
-    setManagementCenterItemEnabled,
+    setLaunchpadItemEnabled,
   } = useExperimentSettingsStore();
 
   React.useEffect(() => {
     void loadSettings();
   }, [loadSettings]);
 
-  const enabledCount = MANAGEMENT_CENTER_ITEM_IDS.filter(
-    (id) => managementCenterItems[id].enabled,
+  const enabledCount = LAUNCHPAD_ITEM_IDS.filter(
+    (id) => launchpadItems[id].enabled,
   ).length;
 
   return (
@@ -79,7 +79,7 @@ export function ManagementCenterLayoutSettings({
         <CollapsibleTrigger className="group min-w-0 flex-1 cursor-pointer text-left">
           <div className="flex items-start gap-3">
             <span className="relative mt-0.5 size-5 shrink-0">
-              <Layers className="absolute inset-0 size-5 transition-opacity duration-150 group-hover:opacity-0" />
+              <Rocket className="absolute inset-0 size-5 transition-opacity duration-150 group-hover:opacity-0" />
               <ChevronDown className="absolute inset-0 size-5 opacity-0 transition-all duration-150 group-hover:opacity-100 group-data-[state=closed]:-rotate-90" />
             </span>
             <div className="min-w-0">
@@ -100,11 +100,11 @@ export function ManagementCenterLayoutSettings({
       <CollapsibleContent>
         <div className="border-t border-border px-6 py-5">
           <div className="overflow-hidden rounded-2xl border border-border">
-            {MANAGEMENT_CENTER_ITEM_IDS.map((id, index) => {
-              const config = managementCenterItems[id];
-              const isLast = index === MANAGEMENT_CENTER_ITEM_IDS.length - 1;
-              const experimental = EXPERIMENTAL_MANAGEMENT_CENTER_ITEM_IDS.has(id);
-              const labelId = `mgmt-item-${id}`;
+            {LAUNCHPAD_ITEM_IDS.map((id, index) => {
+              const config = launchpadItems[id];
+              const isLast = index === LAUNCHPAD_ITEM_IDS.length - 1;
+              const experimental = EXPERIMENTAL_LAUNCHPAD_ITEM_IDS.has(id);
+              const labelId = `launchpad-item-${id}`;
 
               return (
                 <div
@@ -140,13 +140,13 @@ export function ManagementCenterLayoutSettings({
                     {/* Placement chooser only when the entry is enabled */}
                     {config.enabled ? (
                       <TabsSubtle
-                        idPrefix={`mgmt-placement-${id}`}
+                        idPrefix={`launchpad-placement-${id}`}
                         activeLabel
                         selectedIndex={placementIndex(config.placement)}
                         onSelect={(nextIndex) => {
                           const nextPlacement = PLACEMENT_ORDER[nextIndex];
                           if (!nextPlacement || nextPlacement === config.placement) return;
-                          void setManagementCenterItemEnabled(id, nextPlacement, true);
+                          void setLaunchpadItemEnabled(id, nextPlacement, true);
                         }}
                         className="justify-end"
                       >
@@ -167,7 +167,7 @@ export function ManagementCenterLayoutSettings({
                       aria-labelledby={labelId}
                       checked={config.enabled}
                       onCheckedChange={(next) =>
-                        void setManagementCenterItemEnabled(
+                        void setLaunchpadItemEnabled(
                           id,
                           config.placement,
                           next,

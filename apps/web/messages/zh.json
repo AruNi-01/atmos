@@ -422,14 +422,14 @@
         "workspace": "工作区",
         "theme": "主题",
         "project": "项目",
-        "management": "管理",
         "modal": "弹窗",
         "todo": "待办",
         "commit": "提交",
         "usage": "用量",
         "newWorkspace": "新建工作区",
         "quickOpen": "快速打开",
-        "files": "文件"
+        "files": "文件",
+        "launchpad": "Launchpad"
       },
       "tasks": "任务",
       "hotkeys": {
@@ -603,7 +603,19 @@
       },
       "settings": {
         "order": "排序",
-        "properties": "卡片属性"
+        "properties": "卡片属性",
+        "propertyLabels": {
+          "project": "项目",
+          "priority": "优先级",
+          "status": "状态",
+          "workspace_name": "工作区名称",
+          "group": "分组",
+          "agent_status": "Agent 状态",
+          "pull_request": "Pull request",
+          "display_name": "显示名称",
+          "labels": "标签",
+          "last_visit": "最近访问"
+        }
       },
       "sort": {
         "lastVisit": "最近访问",
@@ -613,11 +625,6 @@
         "switchToDescending": "切换为降序",
         "ascending": "升序",
         "descending": "降序"
-      },
-      "toolbar": {
-        "importGithubIssues": "导入 GitHub Issues",
-        "hideIssueOnly": "隐藏仅 Issue",
-        "showIssueOnly": "显示仅 Issue"
       },
       "dialog": {
         "title": "工作区看板",
@@ -1020,36 +1027,6 @@
         "system": "系统主题"
       },
       "addProject": "添加项目",
-      "management": {
-        "workspaces": {
-          "title": "管理中心：工作区",
-          "description": "打开工作区管理"
-        },
-        "skills": {
-          "title": "管理中心：技能",
-          "description": "打开技能管理"
-        },
-        "terminals": {
-          "title": "管理中心：终端",
-          "description": "打开终端管理"
-        },
-        "agents": {
-          "title": "管理中心：Agent",
-          "description": "打开 Agent 管理"
-        },
-        "automations": {
-          "title": "管理中心：自动化",
-          "description": "打开自动化管理"
-        },
-        "diskAnalyzer": {
-          "title": "磁盘分析器",
-          "description": "扫描本机磁盘占用并清理空间"
-        },
-        "tokenUsage": {
-          "title": "Token 用量",
-          "description": "查看模型 Token 使用和活动"
-        }
-      },
       "modalChat": {
         "title": "打开 ACP Chat",
         "description": "切换 ACP Chat 面板"
@@ -1101,6 +1078,36 @@
           "pathDescription": "路径：{path}",
           "failedTitle": "打开失败",
           "unknownError": "未知错误"
+        }
+      },
+      "launchpad": {
+        "workspaces": {
+          "title": "Launchpad：工作区",
+          "description": "打开工作区"
+        },
+        "skills": {
+          "title": "Launchpad：技能",
+          "description": "打开技能"
+        },
+        "terminals": {
+          "title": "Launchpad：终端",
+          "description": "打开终端"
+        },
+        "agents": {
+          "title": "Launchpad：Agent",
+          "description": "打开 Agent"
+        },
+        "automations": {
+          "title": "Launchpad：自动化",
+          "description": "打开自动化"
+        },
+        "diskAnalyzer": {
+          "title": "磁盘分析器",
+          "description": "扫描本机磁盘占用并清理空间"
+        },
+        "tokenUsage": {
+          "title": "Token 用量",
+          "description": "查看模型 Token 使用和活动"
         }
       }
     },
@@ -1252,8 +1259,8 @@
         "addProject": "添加项目",
         "openKanban": "打开看板"
       },
-      "managementCenter": {
-        "title": "管理中心",
+      "launchpad": {
+        "title": "Launchpad",
         "items": {
           "workspaces": "工作区",
           "skills": "技能",
@@ -1410,11 +1417,6 @@
           "description": "要归档 {name} 吗？之后仍可恢复。"
         }
       },
-      "workspaceKanbanCard": {
-        "githubIssueOnlyWorkspace": "仅 GitHub Issue 工作区",
-        "buildWorkspaceFromIssue": "根据 Issue 创建工作区",
-        "enterWorkspace": "进入工作区"
-      },
       "changeSection": {
         "unstageChanges": "取消暂存更改",
         "deleteFileTitle": "要删除 {fileName} 吗？",
@@ -1510,9 +1512,7 @@
         "noChangedFiles": "没有变更文件"
       }
     },
-    "globalSearchItems": {
-      "management": {}
-    }
+    "globalSearchItems": {}
   },
   "automation": {
     "listPanel": {
@@ -4342,38 +4342,38 @@
             "acpAgentChatEntry": {
               "label": "ACP Agent Chat 入口"
             },
-            "workspacesManagementCenter": {
-              "label": "工作区（Management Center）"
+            "workspacesLaunchpad": {
+              "label": "工作区（Launchpad）"
             },
-            "skillsManagementCenter": {
-              "label": "Skills（Management Center）"
+            "skillsLaunchpad": {
+              "label": "Skills（Launchpad）"
             },
-            "terminalsManagementCenter": {
-              "label": "Terminals（Management Center）"
+            "terminalsLaunchpad": {
+              "label": "Terminals（Launchpad）"
             },
-            "acpAgentsManagementCenter": {
-              "label": "ACP Agents（Management Center 和底部 ACP Chat）"
+            "acpAgentsLaunchpad": {
+              "label": "ACP Agents（Launchpad 和底部 ACP Chat）"
             },
-            "automationsManagementCenter": {
-              "label": "Automations（Management Center）"
+            "automationsLaunchpad": {
+              "label": "Automations（Launchpad）"
             },
-            "diskAnalyzerManagementCenter": {
-              "label": "Disk Analyzer（Management Center）"
+            "diskAnalyzerLaunchpad": {
+              "label": "Disk Analyzer（Launchpad）"
             },
-            "canvasManagementCenter": {
-              "label": "Canvas（Management Center）"
+            "canvasLaunchpad": {
+              "label": "Canvas（Launchpad）"
             },
-            "kanbanManagementCenter": {
-              "label": "Kanban（Management Center）"
+            "kanbanLaunchpad": {
+              "label": "Kanban（Launchpad）"
             },
-            "newWorkspaceManagementCenter": {
-              "label": "New Workspace（Management Center）"
+            "newWorkspaceLaunchpad": {
+              "label": "New Workspace（Launchpad）"
             },
-            "managementCenterOutside": {
-              "label": "Management Center 外侧展示"
+            "launchpadOutside": {
+              "label": "Launchpad 外侧展示"
             },
-            "managementCenterInside": {
-              "label": "Management Center 内侧展示"
+            "launchpadInside": {
+              "label": "Launchpad 内侧展示"
             }
           },
           "editor": {
@@ -5306,9 +5306,9 @@
         "disabledInLayout": "已在布局设置中关闭",
         "openLayout": "打开布局设置"
       },
-      "managementCenter": {
-        "title": "Management Center",
-        "description": "为每个入口设置开关。开启后可在开关左侧选择外侧（Management Center 下方的图标+名称列表）或内侧（管理中心网格）。关闭后不显示对应入口。",
+      "launchpad": {
+        "title": "Launchpad",
+        "description": "为每个入口设置开关。开启后可在开关左侧选择外侧（Launchpad 下方的图标+名称列表）或内侧（Launchpad 网格）。关闭后不显示对应入口。",
         "tabs": {
           "outside": "外侧",
           "inside": "内侧"
@@ -5319,7 +5319,7 @@
         "items": {
           "workspaces": {
             "title": "工作区",
-            "description": "在 Management Center 中管理所有工作区。"
+            "description": "在 Launchpad 中管理所有工作区。"
           },
           "skills": {
             "title": "Skills",
@@ -5327,11 +5327,11 @@
           },
           "terminals": {
             "title": "Terminals",
-            "description": "在 Management Center 中监控并管理系统范围内的终端使用情况。"
+            "description": "在 Launchpad 中监控并管理系统范围内的终端使用情况。"
           },
           "agents": {
             "title": "ACP Agents",
-            "description": "启用 ACP Chat 面板，用于图形界面的 Agent 对话，并可从 Management Center 和底部区域快速访问。"
+            "description": "启用 ACP Chat 面板，用于图形界面的 Agent 对话，并可从 Launchpad 和底部区域快速访问。"
           },
           "automations": {
             "title": "Automations",
@@ -6405,6 +6405,16 @@
       "stepFallback": "步骤 {index}",
       "stepAriaFallback": "未命名步骤",
       "openStepAriaLabel": "打开 {stepName} 的日志",
+      "logs": {
+        "stepTitle": "步骤日志",
+        "stepTitleTruncated": "步骤日志（共 {total} 行，已截断）",
+        "loading": "正在加载步骤日志…",
+        "empty": "此步骤没有日志输出。",
+        "unavailable": "无法获取此任务的日志。",
+        "error": "加载日志失败：{message}",
+        "errorFallback": "未知错误",
+        "retry": "重试"
+      },
       "meta": {
         "status": "状态",
         "duration": "耗时",
@@ -6573,44 +6583,6 @@
         "cancel": "取消",
         "creating": "创建中...",
         "createPullRequest": "创建 Pull Request"
-      }
-    },
-    "importIssuesDialog": {
-      "title": "导入 GitHub Issues",
-      "description": "选择要导入的 issue，并作为仅 Issue 的工作区用于看板跟踪。",
-      "loading": "加载中...",
-      "errors": {
-        "noRepositoryForProject": "该项目未关联 GitHub 仓库。请先添加 GitHub remote 后再导入 issues。",
-        "detectRepositoryFailed": "检测 GitHub 仓库失败",
-        "noRepositoryDetected": "未检测到 GitHub 仓库",
-        "loadIssuesFailed": "加载 issues 失败",
-        "alreadyImported": "所选 issues 已经导入过。",
-        "skippedImported": "{count} 个 issue 已导入过，已跳过。",
-        "importFailed": "导入 issues 失败"
-      },
-      "fields": {
-        "project": "项目",
-        "selectProject": "选择项目",
-        "repository": "GitHub 仓库",
-        "detectingRepository": "正在检测仓库...",
-        "noRepository": "未检测到该项目对应的 GitHub 仓库",
-        "searchIssues": "搜索 issues（按 Enter）...",
-        "sortBy": "排序方式",
-        "created": "创建时间",
-        "updated": "更新时间",
-        "switchToAscending": "切换为升序",
-        "switchToDescending": "切换为降序",
-        "selectAll": "全选（已选 {count} 项）"
-      },
-      "empty": {
-        "noSearchMatches": "没有 issue 匹配你的搜索",
-        "noOpenIssues": "未找到打开的 issues"
-      },
-      "actions": {
-        "loadIssues": "加载 Issues",
-        "cancel": "取消",
-        "importIssues": "导入 Issues",
-        "importCount": "导入 {count} 个 Issue{suffix}"
       }
     },
     "commitsPanel": {
@@ -6836,6 +6808,9 @@
         "viewDeployment": "查看部署",
         "deletedBranch": "删除了该分支",
         "checksPassed": "{passed}/{total} 项检查已通过",
+        "showDetails": "显示详情",
+        "hideDetails": "隐藏详情",
+        "checkDetails": "详情",
         "loadMore": "加载更多时间线事件"
       },
       "notFound": "未找到详细信息..."

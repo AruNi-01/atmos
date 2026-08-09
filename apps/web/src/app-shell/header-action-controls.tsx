@@ -100,7 +100,7 @@ type HeaderActionControlsProps = {
   isRightCollapsed: boolean;
   isQuotaPopoverOpen: boolean;
   layout: { opacity: number };
-  managementAgentsEnabled: boolean;
+  launchpadAgentsEnabled: boolean;
   currentProjectName?: string | null;
   currentWorkspaceDisplayName?: string | null;
   currentWorkspaceName?: string | null;
@@ -630,7 +630,7 @@ export function HeaderActionControls({
   isRightCollapsed,
   isQuotaPopoverOpen,
   layout,
-  managementAgentsEnabled,
+  launchpadAgentsEnabled,
   currentProjectName,
   currentWorkspaceDisplayName,
   currentWorkspaceName,
@@ -907,7 +907,7 @@ export function HeaderActionControls({
 
             <MenuSeparator />
 
-            {managementAgentsEnabled ? (
+            {launchpadAgentsEnabled ? (
               <MenuSubmenu>
                 <MenuSubmenuTrigger>
                   <span className="flex items-center gap-2">

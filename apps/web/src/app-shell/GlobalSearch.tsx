@@ -145,8 +145,8 @@ export function GlobalSearch() {
 
   const { isLeftCollapsed, setIsLeftCollapsed } = useSidebarLayout();
 
-  const managementTerminalsEnabled = useExperimentSettingsStore((s) => s.managementTerminalsEnabled);
-  const managementAgentsEnabled = useExperimentSettingsStore((s) => s.managementAgentsEnabled);
+  const launchpadTerminalsEnabled = useExperimentSettingsStore((s) => s.launchpadTerminalsEnabled);
+  const launchpadAgentsEnabled = useExperimentSettingsStore((s) => s.launchpadAgentsEnabled);
   const automationsEnabled = useExperimentSettingsStore((s) => s.automationsEnabled);
   const loadExperimentSettings = useExperimentSettingsStore((s) => s.loadSettings);
 
@@ -346,8 +346,8 @@ export function GlobalSearch() {
       currentWorkspace,
       currentWorkspaceId,
       currentEffectivePath,
-      managementTerminalsEnabled,
-      managementAgentsEnabled,
+      launchpadTerminalsEnabled,
+      launchpadAgentsEnabled,
       automationsEnabled,
       isLeftCollapsed,
       setLlmProvidersOpen,
@@ -362,7 +362,7 @@ export function GlobalSearch() {
       showOpening,
       clearWorkspaceCreationOverlay,
     });
-  }, [projects, router, setTheme, setGlobalSearchOpen, setCreateProjectOpen, setSelectedProjectId, setCreateWorkspaceOpen, quickAddWorkspace, isFullScreen, toggleFullScreen, currentProject, setLlmProvidersOpen, setAgentChatOpen, setLeftSidebarTab, setCanvasOpen, isLeftCollapsed, setIsLeftCollapsed, setActiveSettingTab, setSettingsOpen, currentWorkspaceId, currentWorkspace, managementTerminalsEnabled, managementAgentsEnabled, automationsEnabled, clearWorkspaceCreationOverlay, currentEffectivePath, showCreating, showOpening]);
+  }, [projects, router, setTheme, setGlobalSearchOpen, setCreateProjectOpen, setSelectedProjectId, setCreateWorkspaceOpen, quickAddWorkspace, isFullScreen, toggleFullScreen, currentProject, setLlmProvidersOpen, setAgentChatOpen, setLeftSidebarTab, setCanvasOpen, isLeftCollapsed, setIsLeftCollapsed, setActiveSettingTab, setSettingsOpen, currentWorkspaceId, currentWorkspace, launchpadTerminalsEnabled, launchpadAgentsEnabled, automationsEnabled, clearWorkspaceCreationOverlay, currentEffectivePath, showCreating, showOpening]);
 
   // Filter app items with deterministic matching. Single-word keyword hits must be exact
   // to keep broad keyword phrases from pulling unrelated results into the command palette.
@@ -409,7 +409,7 @@ export function GlobalSearch() {
       project: [],
       'new-workspace': [],
       'quick-open': [],
-      management: [],
+      launchpad: [],
       modal: [],
       todo: [],
       commit: [],

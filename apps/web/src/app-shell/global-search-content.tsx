@@ -268,7 +268,7 @@ function AppSearchResults({
     { key: "workspace", heading: t("globalSearch.groups.workspace"), showDescription: true },
     { key: "theme", heading: t("globalSearch.groups.theme") },
     { key: "project", heading: t("globalSearch.groups.project") },
-    { key: "management", heading: t("globalSearch.groups.management"), showDescription: true },
+    { key: "launchpad", heading: t("globalSearch.groups.launchpad"), showDescription: true },
     { key: "modal", heading: t("globalSearch.groups.modal"), showDescription: true },
     { key: "todo", heading: t("globalSearch.groups.todo") },
     { key: "commit", heading: t("globalSearch.groups.commit"), showDescription: true },

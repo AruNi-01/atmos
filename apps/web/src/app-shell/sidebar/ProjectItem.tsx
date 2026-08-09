@@ -569,7 +569,7 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
                 >
                   <DropdownMenuItem onClick={() => onAddWorkspace(project.id)} className="cursor-pointer">
                     <Plus className="size-4" />
-                    <span>{t("managementCenter.items.newWorkspace")}</span>
+                    <span>{t("launchpad.items.newWorkspace")}</span>
                   </DropdownMenuItem>
 
                   <DropdownMenuSub>

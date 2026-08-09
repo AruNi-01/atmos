@@ -18,16 +18,16 @@ mock.module("@/api/ws-api", () => ({
 }));
 
 import {
-  createDefaultManagementCenterItems,
-  readManagementCenterItems,
-  selectManagementCenterItemsByPlacement,
+  createDefaultLaunchpadItems,
+  readLaunchpadItems,
+  selectLaunchpadItemsByPlacement,
   useExperimentSettingsStore,
-  type ManagementCenterItems,
+  type LaunchpadItems,
 } from "./experiment-settings-store";
 
-describe("management center item placement helpers", () => {
+describe("launchpad item placement helpers", () => {
   it("defaults always-on items enabled; skills/automations/token-usage/canvas/kanban/new-workspace outside, rest inside; terminals/agents off", () => {
-    const items = createDefaultManagementCenterItems();
+    const items = createDefaultLaunchpadItems();
     expect(items.workspaces).toEqual({ enabled: true, placement: "inside" });
     expect(items.skills).toEqual({ enabled: true, placement: "outside" });
     expect(items["disk-analyzer"]).toEqual({ enabled: true, placement: "inside" });
@@ -41,8 +41,8 @@ describe("management center item placement helpers", () => {
   });
 
   it("selects only enabled items for a placement", () => {
-    const items: ManagementCenterItems = {
-      ...createDefaultManagementCenterItems(),
+    const items: LaunchpadItems = {
+      ...createDefaultLaunchpadItems(),
       workspaces: { enabled: true, placement: "outside" },
       skills: { enabled: false, placement: "inside" },
       canvas: { enabled: true, placement: "outside" },
@@ -50,38 +50,30 @@ describe("management center item placement helpers", () => {
       "token-usage": { enabled: false, placement: "outside" },
     };
 
-    expect(selectManagementCenterItemsByPlacement(items, "outside")).toEqual([
+    expect(selectLaunchpadItemsByPlacement(items, "outside")).toEqual([
       "workspaces",
       "automations",
       "canvas",
       "kanban",
       "new-workspace",
     ]);
-    expect(selectManagementCenterItemsByPlacement(items, "inside")).toEqual([
+    expect(selectLaunchpadItemsByPlacement(items, "inside")).toEqual([
       "terminals",
       "disk-analyzer",
     ]);
   });
 
-  it("migrates legacy experiment flags when mgmt_center_items is absent", () => {
-    const items = readManagementCenterItems({
-      mgmt_terminals: true,
-      mgmt_agents: true,
-      automations: true,
-    });
-    expect(items.terminals).toEqual({ enabled: true, placement: "inside" });
-    expect(items.agents).toEqual({ enabled: true, placement: "inside" });
-    expect(items.automations).toEqual({ enabled: true, placement: "inside" });
-    // Defaults still apply for always-on entries.
+  it("uses defaults when launchpad_items is absent", () => {
+    const items = readLaunchpadItems({});
+    expect(items.terminals).toEqual({ enabled: false, placement: "inside" });
+    expect(items.agents).toEqual({ enabled: false, placement: "inside" });
+    expect(items.automations).toEqual({ enabled: true, placement: "outside" });
     expect(items.workspaces).toEqual({ enabled: true, placement: "inside" });
   });
 
-  it("lets persisted mgmt_center_items win over conflicting legacy flags", () => {
-    const items = readManagementCenterItems({
-      mgmt_terminals: true,
-      mgmt_agents: true,
-      automations: true,
-      mgmt_center_items: {
+  it("merges persisted launchpad_items over defaults", () => {
+    const items = readLaunchpadItems({
+      launchpad_items: {
         terminals: { enabled: false, placement: "outside" },
         agents: { enabled: true, placement: "outside" },
         workspaces: { enabled: false, placement: "inside" },
@@ -89,8 +81,8 @@ describe("management center item placement helpers", () => {
     });
     expect(items.terminals).toEqual({ enabled: false, placement: "outside" });
     expect(items.agents).toEqual({ enabled: true, placement: "outside" });
-    // Not listed in the map — falls back to legacy-enabled defaults for automations.
-    expect(items.automations).toEqual({ enabled: true, placement: "inside" });
+    // Not listed — keep default outside placement for automations.
+    expect(items.automations).toEqual({ enabled: true, placement: "outside" });
     expect(items.workspaces).toEqual({ enabled: false, placement: "inside" });
   });
 });
@@ -115,7 +107,7 @@ describe("experiment settings load across computer switch", () => {
     // Switch computers while the outgoing Computer's settings are still loading.
     useExperimentSettingsStore.getState().resetForConnectionChange();
     expect(useExperimentSettingsStore.getState().loaded).toBe(false);
-    expect(useExperimentSettingsStore.getState().managementCenterItems.terminals).toEqual({
+    expect(useExperimentSettingsStore.getState().launchpadItems.terminals).toEqual({
       enabled: false,
       placement: "inside",
     });
@@ -123,7 +115,7 @@ describe("experiment settings load across computer switch", () => {
     // New Computer hydrates with a distinct config.
     loadMock.mockImplementationOnce(async () => ({
       experiments: {
-        mgmt_center_items: {
+        launchpad_items: {
           terminals: { enabled: true, placement: "outside" },
         },
       },
@@ -133,7 +125,7 @@ describe("experiment settings load across computer switch", () => {
     // Outgoing response arrives after the switch — must not win.
     resolveOutgoing?.({
       experiments: {
-        mgmt_center_items: {
+        launchpad_items: {
           terminals: { enabled: true, placement: "inside" },
           agents: { enabled: true, placement: "inside" },
         },
@@ -142,21 +134,21 @@ describe("experiment settings load across computer switch", () => {
     await outgoingPromise;
 
     // Still defaults (or not the stale agents=true) until the new load commits.
-    expect(useExperimentSettingsStore.getState().managementAgentsEnabled).toBe(false);
+    expect(useExperimentSettingsStore.getState().launchpadAgentsEnabled).toBe(false);
 
     await incomingPromise;
 
     const state = useExperimentSettingsStore.getState();
     expect(state.loaded).toBe(true);
-    expect(state.managementCenterItems.terminals).toEqual({
+    expect(state.launchpadItems.terminals).toEqual({
       enabled: true,
       placement: "outside",
     });
     // Stale agents:true from the outgoing Computer must not leak.
-    expect(state.managementCenterItems.agents).toEqual({
+    expect(state.launchpadItems.agents).toEqual({
       enabled: false,
       placement: "inside",
     });
-    expect(state.managementAgentsEnabled).toBe(false);
+    expect(state.launchpadAgentsEnabled).toBe(false);
   });
 });

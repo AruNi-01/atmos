@@ -17,7 +17,7 @@ import { useLayoutSettingsStore } from '@/features/settings/store/layout-setting
 import { settingsModalParams } from '@/shared/lib/nuqs/searchParams';
 import { HeaderLayoutSettingsSection } from '@/features/settings/components/HeaderLayoutSettingsSection';
 import { RightSidebarLayoutSettingsSection } from '@/features/settings/components/RightSidebarLayoutSettingsSection';
-import { ManagementCenterLayoutSettings } from '@/features/settings/components/ManagementCenterLayoutSettings';
+import { LaunchpadLayoutSettings } from '@/features/settings/components/LaunchpadLayoutSettings';
 
 export function LayoutSettingsSection() {
   const t = useTranslations('settings.layoutSection');
@@ -50,11 +50,11 @@ export function LayoutSettingsSection() {
     setFooterShowUsageCarousel,
     setFooterShowAgentStatus,
   } = useLayoutSettingsStore();
-  const managementAgentsEnabled = useExperimentSettingsStore((state) => state.managementAgentsEnabled);
+  const launchpadAgentsEnabled = useExperimentSettingsStore((state) => state.launchpadAgentsEnabled);
   const loadExperimentSettings = useExperimentSettingsStore((state) => state.loadSettings);
   const [, setActiveSettingTab] = useQueryState('activeSettingTab', settingsModalParams.activeSettingTab);
   const [workspaceSidebarLayoutExpanded, setWorkspaceSidebarLayoutExpanded] = React.useState(false);
-  const [managementCenterExpanded, setManagementCenterExpanded] = React.useState(false);
+  const [launchpadExpanded, setLaunchpadExpanded] = React.useState(false);
   const [headerLayoutExpanded, setHeaderLayoutExpanded] = React.useState(false);
   const [rightSidebarLayoutExpanded, setRightSidebarLayoutExpanded] = React.useState(false);
   const [footerLayoutExpanded, setFooterLayoutExpanded] = React.useState(false);
@@ -114,9 +114,9 @@ export function LayoutSettingsSection() {
         </div>
       </div>
 
-      <ManagementCenterLayoutSettings
-        expanded={managementCenterExpanded}
-        onExpandedChange={setManagementCenterExpanded}
+      <LaunchpadLayoutSettings
+        expanded={launchpadExpanded}
+        onExpandedChange={setLaunchpadExpanded}
       />
 
       <Collapsible
@@ -402,7 +402,7 @@ export function LayoutSettingsSection() {
                 </div>
                 <div className="flex flex-col items-end justify-center gap-2 text-right">
                   <span className="text-xs text-muted-foreground">
-                    {managementAgentsEnabled
+                    {launchpadAgentsEnabled
                       ? t('footer.enabledInLayout')
                       : t('footer.disabledInLayout')}
                   </span>

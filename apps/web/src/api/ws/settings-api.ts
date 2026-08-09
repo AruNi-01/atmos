@@ -59,6 +59,15 @@ export interface FunctionSettings {
   workspace_sidebar?: {
     grouping_mode?: "project" | "group" | "status" | "time" | "label" | "priority";
     label_group_order?: string[];
+    /** Sidebar list filters — independent of `workspace_kanban_view` board filters. */
+    filters?: {
+      statuses?: string[];
+      priorities?: string[];
+      label_ids?: string[];
+      project_ids?: string[];
+      group_ids?: string[];
+      show_automation_workspaces?: boolean;
+    };
     [key: string]: unknown;
   };
   inner_browser?: {
@@ -110,11 +119,9 @@ export interface FunctionSettings {
     close_acp_on_archive?: boolean;
   };
   experiments?: {
-    mgmt_terminals?: boolean;
-    mgmt_agents?: boolean;
     automations?: boolean;
     center_wiki_tab?: boolean;
-    mgmt_center_items?: Record<
+    launchpad_items?: Record<
       string,
       {
         enabled?: boolean;

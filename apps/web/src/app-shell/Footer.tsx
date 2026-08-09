@@ -436,7 +436,7 @@ const Footer: React.FC = () => {
   const t = useTranslations("appShell");
   const connectionState = useWebSocketStore(s => s.connectionState);
   const [, setAgentChatOpen] = useAgentChatUrl();
-  const managementAgentsEnabled = useExperimentSettingsStore((s) => s.managementAgentsEnabled);
+  const launchpadAgentsEnabled = useExperimentSettingsStore((s) => s.launchpadAgentsEnabled);
   const loadExperimentSettings = useExperimentSettingsStore((s) => s.loadSettings);
   const showWsConnection = useLayoutSettingsStore((s) => s.showWsConnection);
   const showLocalServices = useLayoutSettingsStore((s) => s.showLocalServices);
@@ -519,7 +519,7 @@ const Footer: React.FC = () => {
   const showLeftCarousel = showUsageCarousel && Boolean(usageCarouselItem);
   const showLeft = showWsConnection || showLocalServices || showLeftCarousel;
   const showRightAgent = showAgentStatus;
-  const showRightAcp = managementAgentsEnabled;
+  const showRightAcp = launchpadAgentsEnabled;
   const showRight = showRightAgent || showRightAcp;
 
   if (!showLeft && !showRight) {

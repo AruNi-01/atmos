@@ -111,7 +111,7 @@ export function DiskAnalyzerPage() {
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden bg-background/50">
-      {/* Header — management center style (compact so the chart can grow) */}
+      {/* Header — compact so the chart can grow */}
       <div className="shrink-0 border-b border-border/60">
         <div className="w-full px-4 pb-3 pt-5 sm:px-6 lg:px-8">
           <div className="flex flex-wrap items-start justify-between gap-3">

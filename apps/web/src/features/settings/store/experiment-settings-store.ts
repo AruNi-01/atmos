@@ -4,7 +4,7 @@ import { create } from 'zustand';
 import { functionSettingsApi } from '@/api/ws-api';
 import { useFunctionSettingsStore } from '@/features/settings/store/function-settings-store';
 
-export type ManagementCenterItemId =
+export type LaunchpadItemId =
   | 'workspaces'
   | 'skills'
   | 'terminals'
@@ -16,16 +16,16 @@ export type ManagementCenterItemId =
   | 'kanban'
   | 'new-workspace';
 
-export type ManagementCenterPlacement = 'inside' | 'outside';
+export type LaunchpadPlacement = 'inside' | 'outside';
 
-export type ManagementCenterItemConfig = {
+export type LaunchpadItemConfig = {
   enabled: boolean;
-  placement: ManagementCenterPlacement;
+  placement: LaunchpadPlacement;
 };
 
-export type ManagementCenterItems = Record<ManagementCenterItemId, ManagementCenterItemConfig>;
+export type LaunchpadItems = Record<LaunchpadItemId, LaunchpadItemConfig>;
 
-export const MANAGEMENT_CENTER_ITEM_IDS: ManagementCenterItemId[] = [
+export const LAUNCHPAD_ITEM_IDS: LaunchpadItemId[] = [
   'workspaces',
   'skills',
   'terminals',
@@ -38,8 +38,8 @@ export const MANAGEMENT_CENTER_ITEM_IDS: ManagementCenterItemId[] = [
   'new-workspace',
 ];
 
-/** Items that default enabled in the Management Center. */
-const ALWAYS_ON_DEFAULT_IDS: ManagementCenterItemId[] = [
+/** Items that default enabled in Launchpad. */
+const ALWAYS_ON_DEFAULT_IDS: LaunchpadItemId[] = [
   'workspaces',
   'skills',
   'automations',
@@ -50,8 +50,8 @@ const ALWAYS_ON_DEFAULT_IDS: ManagementCenterItemId[] = [
   'new-workspace',
 ];
 
-/** Default to Outside (full-width list under MC header) rather than Inside grid. */
-const DEFAULT_OUTSIDE_PLACEMENT_IDS: ManagementCenterItemId[] = [
+/** Default to Outside (full-width list under Launchpad header) rather than Inside grid. */
+const DEFAULT_OUTSIDE_PLACEMENT_IDS: LaunchpadItemId[] = [
   'skills',
   'automations',
   'token-usage',
@@ -60,9 +60,9 @@ const DEFAULT_OUTSIDE_PLACEMENT_IDS: ManagementCenterItemId[] = [
   'new-workspace',
 ];
 
-export function createDefaultManagementCenterItems(): ManagementCenterItems {
-  const items = {} as ManagementCenterItems;
-  for (const id of MANAGEMENT_CENTER_ITEM_IDS) {
+export function createDefaultLaunchpadItems(): LaunchpadItems {
+  const items = {} as LaunchpadItems;
+  for (const id of LAUNCHPAD_ITEM_IDS) {
     items[id] = {
       enabled: ALWAYS_ON_DEFAULT_IDS.includes(id),
       placement: DEFAULT_OUTSIDE_PLACEMENT_IDS.includes(id) ? 'outside' : 'inside',
@@ -71,14 +71,14 @@ export function createDefaultManagementCenterItems(): ManagementCenterItems {
   return items;
 }
 
-function isPlacement(value: unknown): value is ManagementCenterPlacement {
+function isPlacement(value: unknown): value is LaunchpadPlacement {
   return value === 'inside' || value === 'outside';
 }
 
 function readItemConfig(
   raw: unknown,
-  fallback: ManagementCenterItemConfig,
-): ManagementCenterItemConfig {
+  fallback: LaunchpadItemConfig,
+): LaunchpadItemConfig {
   if (!raw || typeof raw !== 'object') return fallback;
   const record = raw as Record<string, unknown>;
   return {
@@ -87,29 +87,17 @@ function readItemConfig(
   };
 }
 
-/** Parse Management Center item config from experiments settings (incl. legacy flags). */
-export function readManagementCenterItems(ex: Record<string, unknown> | undefined): ManagementCenterItems {
-  const defaults = createDefaultManagementCenterItems();
-
-  // Legacy experiment flags (pre per-item map).
-  if (ex?.mgmt_terminals === true) {
-    defaults.terminals = { enabled: true, placement: 'inside' };
-  }
-  if (ex?.mgmt_agents === true) {
-    defaults.agents = { enabled: true, placement: 'inside' };
-  }
-  if (ex?.automations === true) {
-    defaults.automations = { enabled: true, placement: 'inside' };
-  }
-
-  const rawItems = ex?.mgmt_center_items;
+/** Parse Launchpad item config from experiments settings. */
+export function readLaunchpadItems(ex: Record<string, unknown> | undefined): LaunchpadItems {
+  const defaults = createDefaultLaunchpadItems();
+  const rawItems = ex?.launchpad_items;
   if (!rawItems || typeof rawItems !== 'object') {
     return defaults;
   }
 
   const source = rawItems as Record<string, unknown>;
   const merged = { ...defaults };
-  for (const id of MANAGEMENT_CENTER_ITEM_IDS) {
+  for (const id of LAUNCHPAD_ITEM_IDS) {
     if (id in source) {
       merged[id] = readItemConfig(source[id], defaults[id]);
     }
@@ -118,11 +106,11 @@ export function readManagementCenterItems(ex: Record<string, unknown> | undefine
 }
 
 export interface ExperimentPrefs {
-  managementCenterItems: ManagementCenterItems;
+  launchpadItems: LaunchpadItems;
   /** Derived: terminals entry enabled (feature + nav). */
-  managementTerminalsEnabled: boolean;
+  launchpadTerminalsEnabled: boolean;
   /** Derived: agents entry enabled (feature + nav + footer ACP). */
-  managementAgentsEnabled: boolean;
+  launchpadAgentsEnabled: boolean;
   /** Derived: automations entry enabled. */
   automationsEnabled: boolean;
   centerWikiTabEnabled: boolean;
@@ -138,13 +126,13 @@ interface ExperimentSettingsState extends ExperimentPrefs {
    * - enabled=true: show the item at this placement (moves from the other tab if needed)
    * - enabled=false: hide only if the item is currently on this placement
    */
-  setManagementCenterItemEnabled: (
-    id: ManagementCenterItemId,
-    placement: ManagementCenterPlacement,
+  setLaunchpadItemEnabled: (
+    id: LaunchpadItemId,
+    placement: LaunchpadPlacement,
     enabled: boolean,
   ) => Promise<void>;
-  setManagementTerminalsEnabled: (value: boolean) => Promise<void>;
-  setManagementAgentsEnabled: (value: boolean) => Promise<void>;
+  setLaunchpadTerminalsEnabled: (value: boolean) => Promise<void>;
+  setLaunchpadAgentsEnabled: (value: boolean) => Promise<void>;
   setAutomationsEnabled: (value: boolean) => Promise<void>;
   setCenterWikiTabEnabled: (value: boolean) => Promise<void>;
 }
@@ -153,10 +141,10 @@ let loadInflight: Promise<void> | null = null;
 /** Bumped on computer switch so in-flight loads cannot commit after reset. */
 let loadEpoch = 0;
 
-function deriveFlags(items: ManagementCenterItems) {
+function deriveFlags(items: LaunchpadItems) {
   return {
-    managementTerminalsEnabled: items.terminals.enabled,
-    managementAgentsEnabled: items.agents.enabled,
+    launchpadTerminalsEnabled: items.terminals.enabled,
+    launchpadAgentsEnabled: items.agents.enabled,
     automationsEnabled: items.automations.enabled,
   };
 }
@@ -167,23 +155,23 @@ function readExperiments(raw: unknown): ExperimentPrefs {
       ? (raw as { experiments?: unknown }).experiments
       : undefined;
   const ex = section && typeof section === 'object' ? (section as Record<string, unknown>) : undefined;
-  const managementCenterItems = readManagementCenterItems(ex);
+  const launchpadItems = readLaunchpadItems(ex);
   return {
-    managementCenterItems,
-    ...deriveFlags(managementCenterItems),
+    launchpadItems,
+    ...deriveFlags(launchpadItems),
     centerWikiTabEnabled: ex?.center_wiki_tab === true,
   };
 }
 
-async function persistManagementCenterItems(items: ManagementCenterItems): Promise<void> {
-  await functionSettingsApi.update('experiments', 'mgmt_center_items', items);
+async function persistLaunchpadItems(items: LaunchpadItems): Promise<void> {
+  await functionSettingsApi.update('experiments', 'launchpad_items', items);
   useFunctionSettingsStore.getState().invalidate();
 }
 
 export const useExperimentSettingsStore = create<ExperimentSettingsState>((set, get) => {
-  const defaultItems = createDefaultManagementCenterItems();
+  const defaultItems = createDefaultLaunchpadItems();
   return {
-    managementCenterItems: defaultItems,
+    launchpadItems: defaultItems,
     ...deriveFlags(defaultItems),
     centerWikiTabEnabled: false,
     loaded: false,
@@ -192,9 +180,9 @@ export const useExperimentSettingsStore = create<ExperimentSettingsState>((set, 
       // Invalidate any in-flight load from the previous Computer.
       loadEpoch += 1;
       loadInflight = null;
-      const nextDefaults = createDefaultManagementCenterItems();
+      const nextDefaults = createDefaultLaunchpadItems();
       set({
-        managementCenterItems: nextDefaults,
+        launchpadItems: nextDefaults,
         ...deriveFlags(nextDefaults),
         centerWikiTabEnabled: false,
         loaded: false,
@@ -230,11 +218,11 @@ export const useExperimentSettingsStore = create<ExperimentSettingsState>((set, 
       return promise;
     },
 
-    setManagementCenterItemEnabled: async (id, placement, enabled) => {
-      const prevItems = get().managementCenterItems;
+    setLaunchpadItemEnabled: async (id, placement, enabled) => {
+      const prevItems = get().launchpadItems;
       const current = prevItems[id];
 
-      let nextConfig: ManagementCenterItemConfig;
+      let nextConfig: LaunchpadItemConfig;
       if (enabled) {
         nextConfig = { enabled: true, placement };
       } else if (current.enabled && current.placement === placement) {
@@ -244,41 +232,41 @@ export const useExperimentSettingsStore = create<ExperimentSettingsState>((set, 
         return;
       }
 
-      const nextItems: ManagementCenterItems = {
+      const nextItems: LaunchpadItems = {
         ...prevItems,
         [id]: nextConfig,
       };
 
       set({
-        managementCenterItems: nextItems,
+        launchpadItems: nextItems,
         ...deriveFlags(nextItems),
       });
 
       try {
-        await persistManagementCenterItems(nextItems);
+        await persistLaunchpadItems(nextItems);
       } catch {
         // Only roll back when no later toggle replaced this optimistic state.
-        if (get().managementCenterItems !== nextItems) return;
+        if (get().launchpadItems !== nextItems) return;
         set({
-          managementCenterItems: prevItems,
+          launchpadItems: prevItems,
           ...deriveFlags(prevItems),
         });
       }
     },
 
-    setManagementTerminalsEnabled: async (value) => {
-      const placement = get().managementCenterItems.terminals.placement;
-      await get().setManagementCenterItemEnabled('terminals', placement, value);
+    setLaunchpadTerminalsEnabled: async (value) => {
+      const placement = get().launchpadItems.terminals.placement;
+      await get().setLaunchpadItemEnabled('terminals', placement, value);
     },
 
-    setManagementAgentsEnabled: async (value) => {
-      const placement = get().managementCenterItems.agents.placement;
-      await get().setManagementCenterItemEnabled('agents', placement, value);
+    setLaunchpadAgentsEnabled: async (value) => {
+      const placement = get().launchpadItems.agents.placement;
+      await get().setLaunchpadItemEnabled('agents', placement, value);
     },
 
     setAutomationsEnabled: async (value) => {
-      const placement = get().managementCenterItems.automations.placement;
-      await get().setManagementCenterItemEnabled('automations', placement, value);
+      const placement = get().launchpadItems.automations.placement;
+      await get().setLaunchpadItemEnabled('automations', placement, value);
     },
 
     setCenterWikiTabEnabled: async (value) => {
@@ -294,11 +282,11 @@ export const useExperimentSettingsStore = create<ExperimentSettingsState>((set, 
   };
 });
 
-export function selectManagementCenterItemsByPlacement(
-  items: ManagementCenterItems,
-  placement: ManagementCenterPlacement,
-): ManagementCenterItemId[] {
-  return MANAGEMENT_CENTER_ITEM_IDS.filter(
+export function selectLaunchpadItemsByPlacement(
+  items: LaunchpadItems,
+  placement: LaunchpadPlacement,
+): LaunchpadItemId[] {
+  return LAUNCHPAD_ITEM_IDS.filter(
     (id) => items[id].enabled && items[id].placement === placement,
   );
 }

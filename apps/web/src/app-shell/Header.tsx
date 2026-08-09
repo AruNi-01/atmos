@@ -83,7 +83,7 @@ const Header: React.FC = () => {
   const { layout, updateLayout, loadLayout } = useAgentChatLayoutStore();
   useEffect(() => { loadLayout(); }, [loadLayout]);
   const t = useTranslations("header");
-  const managementAgentsEnabled = useExperimentSettingsStore((s) => s.managementAgentsEnabled);
+  const launchpadAgentsEnabled = useExperimentSettingsStore((s) => s.launchpadAgentsEnabled);
   const loadExperimentSettings = useExperimentSettingsStore((s) => s.loadSettings);
   useEffect(() => {
     void loadExperimentSettings();
@@ -635,7 +635,7 @@ const Header: React.FC = () => {
           isRightCollapsed={isRightCollapsed}
           isQuotaPopoverOpen={isQuotaPopoverOpen}
           layout={layout}
-          managementAgentsEnabled={managementAgentsEnabled}
+          launchpadAgentsEnabled={launchpadAgentsEnabled}
           currentProjectName={currentProject?.name}
           currentWorkspaceDisplayName={currentWorkspace?.displayName}
           currentWorkspaceName={currentWorkspace?.name}

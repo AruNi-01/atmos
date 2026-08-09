@@ -108,8 +108,8 @@ interface BuildGlobalSearchItemsParams {
   currentWorkspace?: SearchWorkspace;
   currentWorkspaceId?: string | null;
   currentEffectivePath?: string | null;
-  managementTerminalsEnabled: boolean;
-  managementAgentsEnabled: boolean;
+  launchpadTerminalsEnabled: boolean;
+  launchpadAgentsEnabled: boolean;
   automationsEnabled: boolean;
   isLeftCollapsed: boolean;
   setLlmProvidersOpen: (open: boolean) => void;
@@ -141,8 +141,8 @@ export function buildGlobalSearchItems({
   currentWorkspace,
   currentWorkspaceId,
   currentEffectivePath,
-  managementTerminalsEnabled,
-  managementAgentsEnabled,
+  launchpadTerminalsEnabled,
+  launchpadAgentsEnabled,
   automationsEnabled,
   isLeftCollapsed,
   setLlmProvidersOpen,
@@ -278,11 +278,11 @@ export function buildGlobalSearchItems({
       },
     },
     {
-      id: "management-workspaces",
-      type: "management",
-      title: globalSearchItemsT("management.workspaces.title"),
-      description: globalSearchItemsT("management.workspaces.description"),
-      keywords: ["management", "center", "workspaces", "workspace", "admin", "overview"],
+      id: "launchpad-workspaces",
+      type: "launchpad",
+      title: globalSearchItemsT("launchpad.workspaces.title"),
+      description: globalSearchItemsT("launchpad.workspaces.description"),
+      keywords: ["launchpad", "workspaces", "workspace", "admin", "overview"],
       icon: <Layers className="size-4 text-muted-foreground" />,
       action: () => {
         router.push("/workspaces");
@@ -290,11 +290,11 @@ export function buildGlobalSearchItems({
       },
     },
     {
-      id: "management-skills",
-      type: "management",
-      title: globalSearchItemsT("management.skills.title"),
-      description: globalSearchItemsT("management.skills.description"),
-      keywords: ["management", "center", "skills", "skill", "catalog", "library"],
+      id: "launchpad-skills",
+      type: "launchpad",
+      title: globalSearchItemsT("launchpad.skills.title"),
+      description: globalSearchItemsT("launchpad.skills.description"),
+      keywords: ["launchpad", "skills", "skill", "catalog", "library"],
       icon: <Blocks className="size-4 text-muted-foreground" />,
       action: () => {
         router.push("/skills");
@@ -303,13 +303,13 @@ export function buildGlobalSearchItems({
     },
   );
 
-  if (managementTerminalsEnabled) {
+  if (launchpadTerminalsEnabled) {
     items.push({
-      id: "management-terminals",
-      type: "management",
-      title: globalSearchItemsT("management.terminals.title"),
-      description: globalSearchItemsT("management.terminals.description"),
-      keywords: ["management", "center", "terminals", "terminal", "sessions"],
+      id: "launchpad-terminals",
+      type: "launchpad",
+      title: globalSearchItemsT("launchpad.terminals.title"),
+      description: globalSearchItemsT("launchpad.terminals.description"),
+      keywords: ["launchpad", "terminals", "terminal", "sessions"],
       icon: <Terminal className="size-4 text-muted-foreground" />,
       action: () => {
         router.push("/terminals");
@@ -318,13 +318,13 @@ export function buildGlobalSearchItems({
     });
   }
 
-  if (managementAgentsEnabled) {
+  if (launchpadAgentsEnabled) {
     items.push({
-      id: "management-agents",
-      type: "management",
-      title: globalSearchItemsT("management.agents.title"),
-      description: globalSearchItemsT("management.agents.description"),
-      keywords: ["management", "center", "agents", "agent", "bot", "ai", "chat"],
+      id: "launchpad-agents",
+      type: "launchpad",
+      title: globalSearchItemsT("launchpad.agents.title"),
+      description: globalSearchItemsT("launchpad.agents.description"),
+      keywords: ["launchpad", "agents", "agent", "bot", "ai", "chat"],
       icon: <Bot className="size-4 text-muted-foreground" />,
       action: () => {
         router.push("/agents");
@@ -348,11 +348,11 @@ export function buildGlobalSearchItems({
 
   if (automationsEnabled) {
     items.push({
-      id: "management-automations",
-      type: "management",
-      title: globalSearchItemsT("management.automations.title"),
-      description: globalSearchItemsT("management.automations.description"),
-      keywords: ["management", "center", "automations", "automation", "schedule", "scheduled", "runs"],
+      id: "launchpad-automations",
+      type: "launchpad",
+      title: globalSearchItemsT("launchpad.automations.title"),
+      description: globalSearchItemsT("launchpad.automations.description"),
+      keywords: ["launchpad", "automations", "automation", "schedule", "scheduled", "runs"],
       icon: <Timer className="size-4 text-muted-foreground" />,
       action: () => {
         router.push("/automations");
@@ -362,11 +362,11 @@ export function buildGlobalSearchItems({
   }
 
   items.push({
-    id: "management-disk-analyzer",
-    type: "management",
-    title: globalSearchItemsT("management.diskAnalyzer.title"),
-    description: globalSearchItemsT("management.diskAnalyzer.description"),
-    keywords: ["management", "center", "disk", "analyzer", "storage", "usage", "cleanup", "trash", "du"],
+    id: "launchpad-disk-analyzer",
+    type: "launchpad",
+    title: globalSearchItemsT("launchpad.diskAnalyzer.title"),
+    description: globalSearchItemsT("launchpad.diskAnalyzer.description"),
+    keywords: ["launchpad", "disk", "analyzer", "storage", "usage", "cleanup", "trash", "du"],
     icon: <HardDrive className="size-4 text-muted-foreground" />,
     action: () => {
       router.push("/disk-analyzer");
@@ -375,11 +375,11 @@ export function buildGlobalSearchItems({
   });
 
   items.push({
-    id: "management-token-usage",
-    type: "management",
-    title: globalSearchItemsT("management.tokenUsage.title"),
-    description: globalSearchItemsT("management.tokenUsage.description"),
-    keywords: ["management", "center", "token", "tokens", "usage", "cost", "analytics", "stats", "model", "activity", "open"],
+    id: "launchpad-token-usage",
+    type: "launchpad",
+    title: globalSearchItemsT("launchpad.tokenUsage.title"),
+    description: globalSearchItemsT("launchpad.tokenUsage.description"),
+    keywords: ["launchpad", "token", "tokens", "usage", "cost", "analytics", "stats", "model", "activity", "open"],
     icon: <ChartColumnBig className="size-4 text-muted-foreground" />,
     action: () => {
       router.push("/token-usage");
@@ -413,7 +413,7 @@ export function buildGlobalSearchItems({
     },
     {
       id: "open-kanban-view",
-      type: "management",
+      type: "launchpad",
       title: globalSearchItemsT("kanban.title"),
       description: globalSearchItemsT("kanban.description"),
       keywords: ["kanban", "board", "workspace", "workspaces", "status", "priority", "view", "open"],
@@ -425,7 +425,7 @@ export function buildGlobalSearchItems({
     },
     {
       id: "open-canvas",
-      type: "management",
+      type: "launchpad",
       title: globalSearchItemsT("canvas.title"),
       description: globalSearchItemsT("canvas.description"),
       keywords: ["canvas", "board", "whiteboard", "diagram", "tldraw", "open"],

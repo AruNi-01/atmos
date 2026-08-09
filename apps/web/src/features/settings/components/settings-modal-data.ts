@@ -193,7 +193,7 @@ const SETTINGS_SECTION_KEYWORDS: Record<SettingsSectionId, readonly string[]> = 
     "local services",
     "ai quota usage carousel",
     "agent status panel",
-    "management center",
+    "launchpad",
     "outside",
     "inside",
     "workspaces",
@@ -574,40 +574,40 @@ const SETTINGS_SETTING_ITEMS: Record<SettingsSectionId, readonly SettingsSearchI
       keywords: ["running agent sessions", "agent hooks"],
     }),
     settingsModalSearchItem("layout.acpAgentChatEntry", {
-      keywords: ["floating acp chat", "footer", "layout", "management center"],
+      keywords: ["floating acp chat", "footer", "layout", "launchpad"],
     }),
-    settingsModalSearchItem("layout.workspacesManagementCenter", {
-      keywords: ["workspaces management", "manage workspaces", "management center"],
+    settingsModalSearchItem("layout.workspacesLaunchpad", {
+      keywords: ["workspaces", "manage workspaces", "launchpad"],
     }),
-    settingsModalSearchItem("layout.skillsManagementCenter", {
-      keywords: ["skills management", "manage skills", "management center"],
+    settingsModalSearchItem("layout.skillsLaunchpad", {
+      keywords: ["skills", "manage skills", "launchpad"],
     }),
-    settingsModalSearchItem("layout.terminalsManagementCenter", {
-      keywords: ["monitor terminal usage", "manage terminal usage", "management center"],
+    settingsModalSearchItem("layout.terminalsLaunchpad", {
+      keywords: ["monitor terminal usage", "manage terminal usage", "launchpad"],
     }),
-    settingsModalSearchItem("layout.acpAgentsManagementCenter", {
-      keywords: ["acp chat panel", "gui agent conversations", "footer", "management center"],
+    settingsModalSearchItem("layout.acpAgentsLaunchpad", {
+      keywords: ["acp chat panel", "gui agent conversations", "footer", "launchpad"],
     }),
-    settingsModalSearchItem("layout.automationsManagementCenter", {
-      keywords: ["automation creation", "scheduled runs", "github-triggered automation", "management center"],
+    settingsModalSearchItem("layout.automationsLaunchpad", {
+      keywords: ["automation creation", "scheduled runs", "github-triggered automation", "launchpad"],
     }),
-    settingsModalSearchItem("layout.diskAnalyzerManagementCenter", {
-      keywords: ["disk analyzer", "disk usage", "cleanup", "management center"],
+    settingsModalSearchItem("layout.diskAnalyzerLaunchpad", {
+      keywords: ["disk analyzer", "disk usage", "cleanup", "launchpad"],
     }),
-    settingsModalSearchItem("layout.canvasManagementCenter", {
-      keywords: ["canvas", "ops desk", "infinite canvas", "management center"],
+    settingsModalSearchItem("layout.canvasLaunchpad", {
+      keywords: ["canvas", "ops desk", "infinite canvas", "launchpad"],
     }),
-    settingsModalSearchItem("layout.kanbanManagementCenter", {
-      keywords: ["kanban board", "workspace kanban", "management center"],
+    settingsModalSearchItem("layout.kanbanLaunchpad", {
+      keywords: ["kanban board", "workspace kanban", "launchpad"],
     }),
-    settingsModalSearchItem("layout.newWorkspaceManagementCenter", {
-      keywords: ["new workspace", "create workspace", "management center"],
+    settingsModalSearchItem("layout.newWorkspaceLaunchpad", {
+      keywords: ["new workspace", "create workspace", "launchpad"],
     }),
-    settingsModalSearchItem("layout.managementCenterOutside", {
-      keywords: ["outside", "icon name list", "below management center", "placement"],
+    settingsModalSearchItem("layout.launchpadOutside", {
+      keywords: ["outside", "icon name list", "below launchpad", "placement"],
     }),
-    settingsModalSearchItem("layout.managementCenterInside", {
-      keywords: ["inside", "management center grid", "placement"],
+    settingsModalSearchItem("layout.launchpadInside", {
+      keywords: ["inside", "launchpad grid", "placement"],
     }),
   ],
   editor: [

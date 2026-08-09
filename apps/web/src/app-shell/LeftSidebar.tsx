@@ -67,7 +67,8 @@ import {
 import {
   EMPTY_WORKSPACE_KANBAN_FILTERS,
   parseWorkspaceKanbanCardProperties,
-  parseWorkspaceKanbanFilters,
+  parseWorkspaceSidebarFilters,
+  serializeWorkspaceSidebarFilters,
 } from '@/app-shell/left-sidebar-settings';
 import { isWorkspaceSetupBlocking } from '@/features/workspace/lib/workspace-setup';
 import { useWorkspaceCreationStore } from '@/features/workspace/store/workspace-creation-store';
@@ -75,7 +76,7 @@ import { useLayoutSettingsStore } from '@/features/settings/store/layout-setting
 import { useExperimentSettingsStore } from '@/features/settings/store/experiment-settings-store';
 import { useInitialProjectsLoading } from '@/features/project/store/use-initial-projects-loading';
 import { ProjectsSidebarLoading } from '@/app-shell/ProjectsSidebarLoading';
-import { LeftSidebarManagementCenter, LeftSidebarManagementCenterOutside } from '@/app-shell/LeftSidebarManagementCenter';
+import { LeftSidebarLaunchpad, LeftSidebarLaunchpadOutside } from '@/app-shell/LeftSidebarLaunchpad';
 
 import { LeftSidebarPinnedSection } from '@/app-shell/LeftSidebarPinnedSection';
 import {
@@ -240,7 +241,13 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
     const effectiveLabelGroupOrder = isGroupingSettingsReady
         ? labelGroupOrder
         : [];
-    const [kanbanFilters, setKanbanFilters] = useState<WorkspaceKanbanFilters>(EMPTY_WORKSPACE_KANBAN_FILTERS);
+    /** Sidebar list filters only — not shared with full-page kanban board. */
+    const [sidebarWorkspaceFilters, setSidebarWorkspaceFilters] = useState<WorkspaceKanbanFilters>(
+        EMPTY_WORKSPACE_KANBAN_FILTERS,
+    );
+    const persistedSidebarFiltersRef = useRef<string>(
+        JSON.stringify(serializeWorkspaceSidebarFilters(EMPTY_WORKSPACE_KANBAN_FILTERS)),
+    );
     const [isWorkspacesExpanded, setIsWorkspacesExpanded] = useState(
         currentView === 'workspaces' || currentView === 'skills' || currentView === 'terminals' || currentView === 'agents' || currentView === 'automations' || currentView === 'disk-analyzer' || currentView === 'token-usage' || currentView === 'kanban'
     );
@@ -282,13 +289,13 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
 
     const isInitialProjectsLoading = useInitialProjectsLoading();
 
-    const managementCenterItems = useExperimentSettingsStore((s) => s.managementCenterItems);
+    const launchpadItems = useExperimentSettingsStore((s) => s.launchpadItems);
     const loadExperimentSettings = useExperimentSettingsStore((s) => s.loadSettings);
     // Settled is keyed by connectionEpoch so a computer switch does not keep the previous
     // connection's settled=true while the store is back on defaults (avoids default-item flash).
     // Still unblocks nav after the first load attempt (success or failure) so we can retry.
     const [settledForEpoch, setSettledForEpoch] = useState<number | null>(null);
-    const managementCenterSettled = settledForEpoch === connectionEpoch;
+    const launchpadSettled = settledForEpoch === connectionEpoch;
 
     useEffect(() => {
         let cancelled = false;
@@ -374,7 +381,11 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
                             : false;
                     persistedPinnedSectionCollapsedRef.current = nextPinnedSectionCollapsed;
                     setIsPinnedSectionCollapsed(nextPinnedSectionCollapsed);
-                    setKanbanFilters(parseWorkspaceKanbanFilters(settings));
+                    const nextSidebarFilters = parseWorkspaceSidebarFilters(settings);
+                    persistedSidebarFiltersRef.current = JSON.stringify(
+                        serializeWorkspaceSidebarFilters(nextSidebarFilters),
+                    );
+                    setSidebarWorkspaceFilters(nextSidebarFilters);
                     setSecondColumnKanbanCardProperties(
                         parseWorkspaceKanbanCardProperties(settings),
                     );
@@ -397,7 +408,10 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
             setGroupingMode('project');
             setLabelGroupOrder([]);
             setIsPinnedSectionCollapsed(false);
-            setKanbanFilters(EMPTY_WORKSPACE_KANBAN_FILTERS);
+            persistedSidebarFiltersRef.current = JSON.stringify(
+                serializeWorkspaceSidebarFilters(EMPTY_WORKSPACE_KANBAN_FILTERS),
+            );
+            setSidebarWorkspaceFilters(EMPTY_WORKSPACE_KANBAN_FILTERS);
             setSecondColumnKanbanCardProperties(DEFAULT_KANBAN_CARD_PROPERTIES);
             loadSettings();
         });
@@ -431,6 +445,23 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
         isPinnedSectionCollapsed,
         isGroupingSettingsReady,
         persistWorkspaceSidebarSetting,
+    ]);
+
+    useEffect(() => {
+        if (!isGroupingSettingsReady) return;
+        const serialized = JSON.stringify(
+            serializeWorkspaceSidebarFilters(sidebarWorkspaceFilters),
+        );
+        if (persistedSidebarFiltersRef.current === serialized) return;
+        persistedSidebarFiltersRef.current = serialized;
+        persistWorkspaceSidebarSetting(
+            'filters',
+            serializeWorkspaceSidebarFilters(sidebarWorkspaceFilters),
+        );
+    }, [
+        isGroupingSettingsReady,
+        persistWorkspaceSidebarSetting,
+        sidebarWorkspaceFilters,
     ]);
 
     useEffect(() => {
@@ -1025,7 +1056,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
         currentWorkspace,
         groupingMode,
         groups,
-        kanbanFilters,
+        kanbanFilters: sidebarWorkspaceFilters,
         labelGroupOrder: effectiveLabelGroupOrder,
         projectSidebarSelectionRouteKey,
         projects: listProjects,
@@ -1415,11 +1446,11 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
                 ? userGroupOneColumnContent
                 : groupedOneColumnContent;
 
-    const managementCenterSharedProps = {
+    const launchpadSharedProps = {
         currentView,
         canvasOpen: Boolean(canvasOpen),
         newWorkspaceOpen: Boolean(newWorkspace),
-        managementCenterItems,
+        launchpadItems,
         onNavigate: (path: string) => router.push(path),
         onOpenCanvas: () => void setCanvasOpen(true),
         onOpenNewWorkspace: handleOpenNewWorkspace,
@@ -1428,18 +1459,18 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
     return (
         <>
             <aside className="@container w-full flex flex-col h-full select-none">
-                {/* Management Center — wait for first load attempt to avoid default-config flash */}
-                {managementCenterSettled ? (
+                {/* Launchpad — wait for first load attempt to avoid default-config flash */}
+                {launchpadSettled ? (
                     <>
                         <div className="flex flex-col shrink-0">
-                            <LeftSidebarManagementCenter
+                            <LeftSidebarLaunchpad
                                 isExpanded={isWorkspacesExpanded}
                                 onExpandedChange={setIsWorkspacesExpanded}
-                                {...managementCenterSharedProps}
+                                {...launchpadSharedProps}
                             />
                         </div>
-                        {/* Outside items: simple icon + name list below Management Center */}
-                        <LeftSidebarManagementCenterOutside {...managementCenterSharedProps} />
+                        {/* Outside items: simple icon + name list below Launchpad */}
+                        <LeftSidebarLaunchpadOutside {...launchpadSharedProps} />
                     </>
                 ) : null}
 
@@ -1502,12 +1533,12 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
                     activeTab={activeTab}
                     availableLabels={workspaceLabels}
                     filesOnRight={filesOnRight}
-                    filters={kanbanFilters}
+                    filters={sidebarWorkspaceFilters}
                     groupingMode={groupingMode}
                     groups={groups}
                     projects={projects}
                     onAddProject={handleAddProject}
-                    onFiltersChange={setKanbanFilters}
+                    onFiltersChange={setSidebarWorkspaceFilters}
                     onGroupingModeChange={setGroupingMode}
                 />
             </aside >

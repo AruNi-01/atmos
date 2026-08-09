@@ -381,7 +381,8 @@ function WorkspaceGroupMarker({
     return (
       <GroupIcon
         className={cn(
-          "size-3.5 shrink-0",
+          // size-4 matches Launchpad / outside nav icons for a shared icon column.
+          "size-4 shrink-0",
           statusMeta?.className ?? priorityMeta?.className,
         )}
       />
@@ -681,10 +682,16 @@ export function GroupedWorkspaceTwoColumnRightContent({
   } = useWorkspaceListVisibleCount(groupItems.length, selectedGroup?.key);
   const visibleItems = groupItems.slice(0, visibleCount);
 
+  // Primary open: px-3 breathing room from the divider.
+  // Primary collapsed: pl-5 lines up group icon with Launchpad; pr-2 keeps the
+  // expand control near the right edge (not inset as far as the left).
+  // List always uses px-3 so workspace rows match the two-column spacing.
+  const headerPad = isPrimaryCollapsed ? "pl-5 pr-2" : "px-3";
+
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="border-b border-sidebar-border">
-        <div className="flex min-h-10 items-center gap-1 px-2">
+        <div className={cn("flex min-h-10 items-center gap-1", headerPad)}>
           <div className="flex min-w-0 flex-1 items-center gap-2">
             {selectedGroup ? (
               <WorkspaceGroupMarker group={selectedGroup} groupingMode={groupingMode} />
@@ -695,7 +702,7 @@ export function GroupedWorkspaceTwoColumnRightContent({
               </div>
             </div>
           </div>
-          <div className="shrink-0 pr-0.5">
+          <div className="shrink-0">
             <TwoColumnSidebarToggleButton
               collapsed={isPrimaryCollapsed}
               onClick={onTogglePrimaryPanel}
@@ -703,7 +710,7 @@ export function GroupedWorkspaceTwoColumnRightContent({
           </div>
         </div>
       </div>
-      <div className="scrollbar-on-hover flex-1 overflow-y-auto px-2 py-2">
+      <div className="scrollbar-on-hover flex-1 overflow-y-auto px-3 py-2">
         {!selectedGroup ? (
           <div className="px-3 py-6 text-sm text-muted-foreground">
             {t("leftSidebarControls.selectGroupDescription")}
@@ -875,13 +882,20 @@ export function ProjectWorkspaceTwoColumnRightContent({
     </DndContext>
   );
 
+  // Primary open: px-3 from the divider. Primary collapsed: pl-5 for Launchpad
+  // alignment, pr-2 so the expand control sits near the right edge.
+  // Only bleed the left so ProjectItem doesn't collide with the toggle.
+  // List always px-3 — same indent whether one or two columns are visible.
+  const headerPad = isPrimaryCollapsed ? "pl-5 pr-2" : "px-3";
+  const projectHeaderBleed = isPrimaryCollapsed ? "-ml-5" : "-mx-3";
+
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="pt-1.5">
-        <div className="flex min-h-10 items-center gap-1 px-2">
+        <div className={cn("flex min-h-10 items-center gap-1", headerPad)}>
           <div className="min-w-0 flex-1">
             {selectedProject ? (
-              <div className="-mx-2 -mb-1">
+              <div className={cn(projectHeaderBleed, "-mb-1")}>
                 <ProjectItem
                   project={selectedProject}
                   isExpanded={false}
@@ -915,7 +929,7 @@ export function ProjectWorkspaceTwoColumnRightContent({
               </div>
             )}
           </div>
-          <div className="shrink-0 pr-0.5">
+          <div className="shrink-0">
             <TwoColumnSidebarToggleButton
               collapsed={isPrimaryCollapsed}
               onClick={onTogglePrimaryPanel}
@@ -923,7 +937,7 @@ export function ProjectWorkspaceTwoColumnRightContent({
           </div>
         </div>
       </div>
-      <div className="scrollbar-on-hover flex-1 overflow-y-auto px-2 py-2">
+      <div className="scrollbar-on-hover flex-1 overflow-y-auto px-3 py-2">
         {!selectedProject ? (
           <div className="px-3 py-6 text-sm text-muted-foreground">
             {t("leftSidebarControls.selectProjectDescription")}

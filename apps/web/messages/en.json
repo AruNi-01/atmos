@@ -422,14 +422,14 @@
         "workspace": "Workspace",
         "theme": "Theme",
         "project": "Project",
-        "management": "Management",
         "modal": "Modal",
         "todo": "Todo",
         "commit": "Commit",
         "usage": "Usage",
         "newWorkspace": "New Workspace",
         "quickOpen": "Quick Open",
-        "files": "Files"
+        "files": "Files",
+        "launchpad": "Launchpad"
       },
       "tasks": "Tasks",
       "hotkeys": {
@@ -603,7 +603,19 @@
       },
       "settings": {
         "order": "Order",
-        "properties": "Properties"
+        "properties": "Properties",
+        "propertyLabels": {
+          "project": "Project",
+          "priority": "Priority",
+          "status": "Status",
+          "workspace_name": "Workspace name",
+          "group": "Group",
+          "agent_status": "Agent status",
+          "pull_request": "Pull request",
+          "display_name": "Display name",
+          "labels": "Labels",
+          "last_visit": "Last visit"
+        }
       },
       "sort": {
         "lastVisit": "Last Visit",
@@ -613,11 +625,6 @@
         "switchToDescending": "Switch to descending",
         "ascending": "Ascending",
         "descending": "Descending"
-      },
-      "toolbar": {
-        "importGithubIssues": "Import GitHub Issues",
-        "hideIssueOnly": "Hide Issue Only",
-        "showIssueOnly": "Show Issue Only"
       },
       "dialog": {
         "title": "Workspace Kanban",
@@ -1020,36 +1027,6 @@
         "system": "System Theme"
       },
       "addProject": "Add Project",
-      "management": {
-        "workspaces": {
-          "title": "Management Center: Workspaces",
-          "description": "Open workspace management"
-        },
-        "skills": {
-          "title": "Management Center: Skills",
-          "description": "Open skills management"
-        },
-        "terminals": {
-          "title": "Management Center: Terminals",
-          "description": "Open terminal management"
-        },
-        "agents": {
-          "title": "Management Center: Agents",
-          "description": "Open agent management"
-        },
-        "automations": {
-          "title": "Management Center: Automations",
-          "description": "Open automation management"
-        },
-        "diskAnalyzer": {
-          "title": "Disk Analyzer",
-          "description": "Scan local disk usage and reclaim space"
-        },
-        "tokenUsage": {
-          "title": "Token Usage",
-          "description": "Review model token usage and activity"
-        }
-      },
       "modalChat": {
         "title": "Open ACP Chat",
         "description": "Toggle the ACP Chat panel"
@@ -1101,6 +1078,36 @@
           "pathDescription": "Path: {path}",
           "failedTitle": "Failed to open",
           "unknownError": "Unknown error"
+        }
+      },
+      "launchpad": {
+        "workspaces": {
+          "title": "Launchpad: Workspaces",
+          "description": "Open workspaces"
+        },
+        "skills": {
+          "title": "Launchpad: Skills",
+          "description": "Open skills"
+        },
+        "terminals": {
+          "title": "Launchpad: Terminals",
+          "description": "Open terminals"
+        },
+        "agents": {
+          "title": "Launchpad: Agents",
+          "description": "Open agents"
+        },
+        "automations": {
+          "title": "Launchpad: Automations",
+          "description": "Open automations"
+        },
+        "diskAnalyzer": {
+          "title": "Disk Analyzer",
+          "description": "Scan local disk usage and reclaim space"
+        },
+        "tokenUsage": {
+          "title": "Token Usage",
+          "description": "Review model token usage and activity"
         }
       }
     },
@@ -1252,8 +1259,8 @@
         "addProject": "Add Project",
         "openKanban": "Open Kanban"
       },
-      "managementCenter": {
-        "title": "Management Center",
+      "launchpad": {
+        "title": "Launchpad",
         "items": {
           "workspaces": "Workspaces",
           "skills": "Skills",
@@ -1410,11 +1417,6 @@
           "description": "Archive {name}? You can restore it later."
         }
       },
-      "workspaceKanbanCard": {
-        "githubIssueOnlyWorkspace": "GitHub Issue Only Workspace",
-        "buildWorkspaceFromIssue": "Build workspace from issue",
-        "enterWorkspace": "Enter workspace"
-      },
       "changeSection": {
         "unstageChanges": "Unstage Changes",
         "deleteFileTitle": "Delete {fileName}?",
@@ -1510,9 +1512,7 @@
         "noChangedFiles": "No changed files"
       }
     },
-    "globalSearchItems": {
-      "management": {}
-    }
+    "globalSearchItems": {}
   },
   "automation": {
     "listPanel": {
@@ -4342,38 +4342,38 @@
             "acpAgentChatEntry": {
               "label": "ACP Agent Chat entry"
             },
-            "workspacesManagementCenter": {
-              "label": "Workspaces (Management Center)"
+            "workspacesLaunchpad": {
+              "label": "Workspaces (Launchpad)"
             },
-            "skillsManagementCenter": {
-              "label": "Skills (Management Center)"
+            "skillsLaunchpad": {
+              "label": "Skills (Launchpad)"
             },
-            "terminalsManagementCenter": {
-              "label": "Terminals (Management Center)"
+            "terminalsLaunchpad": {
+              "label": "Terminals (Launchpad)"
             },
-            "acpAgentsManagementCenter": {
-              "label": "ACP Agents (Management Center and footer ACP Chat)"
+            "acpAgentsLaunchpad": {
+              "label": "ACP Agents (Launchpad and footer ACP Chat)"
             },
-            "automationsManagementCenter": {
-              "label": "Automations (Management Center)"
+            "automationsLaunchpad": {
+              "label": "Automations (Launchpad)"
             },
-            "diskAnalyzerManagementCenter": {
-              "label": "Disk Analyzer (Management Center)"
+            "diskAnalyzerLaunchpad": {
+              "label": "Disk Analyzer (Launchpad)"
             },
-            "canvasManagementCenter": {
-              "label": "Canvas (Management Center)"
+            "canvasLaunchpad": {
+              "label": "Canvas (Launchpad)"
             },
-            "kanbanManagementCenter": {
-              "label": "Kanban (Management Center)"
+            "kanbanLaunchpad": {
+              "label": "Kanban (Launchpad)"
             },
-            "newWorkspaceManagementCenter": {
-              "label": "New Workspace (Management Center)"
+            "newWorkspaceLaunchpad": {
+              "label": "New Workspace (Launchpad)"
             },
-            "managementCenterOutside": {
-              "label": "Management Center Outside placement"
+            "launchpadOutside": {
+              "label": "Launchpad Outside placement"
             },
-            "managementCenterInside": {
-              "label": "Management Center Inside placement"
+            "launchpadInside": {
+              "label": "Launchpad Inside placement"
             }
           },
           "editor": {
@@ -5306,9 +5306,9 @@
         "disabledInLayout": "Disabled in Layout settings",
         "openLayout": "Open Layout settings"
       },
-      "managementCenter": {
-        "title": "Management Center",
-        "description": "Toggle each entry. When enabled, choose Outside (icon + name list below Management Center) or Inside (Management Center grid). Disabled entries are hidden.",
+      "launchpad": {
+        "title": "Launchpad",
+        "description": "Toggle each entry. When enabled, choose Outside (icon + name list below Launchpad) or Inside (Launchpad grid). Disabled entries are hidden.",
         "tabs": {
           "outside": "Outside",
           "inside": "Inside"
@@ -5319,7 +5319,7 @@
         "items": {
           "workspaces": {
             "title": "Workspaces",
-            "description": "Manage all workspaces from Management Center."
+            "description": "Manage all workspaces from Launchpad."
           },
           "skills": {
             "title": "Skills",
@@ -5327,11 +5327,11 @@
           },
           "terminals": {
             "title": "Terminals",
-            "description": "Monitor and manage terminal usage across your system from the Management Center."
+            "description": "Monitor and manage terminal usage across your system from Launchpad."
           },
           "agents": {
             "title": "ACP Agents",
-            "description": "Enable ACP Chat panel for GUI-based agent conversations with quick access from Management Center and footer."
+            "description": "Enable ACP Chat panel for GUI-based agent conversations with quick access from Launchpad and footer."
           },
           "automations": {
             "title": "Automations",
@@ -6405,6 +6405,16 @@
       "stepFallback": "Step {index}",
       "stepAriaFallback": "Unnamed step",
       "openStepAriaLabel": "Open logs for {stepName}",
+      "logs": {
+        "stepTitle": "Step log",
+        "stepTitleTruncated": "Step log ({total} lines, truncated)",
+        "loading": "Loading step log…",
+        "empty": "No log output for this step.",
+        "unavailable": "Job log is unavailable for this job.",
+        "error": "Failed to load log: {message}",
+        "errorFallback": "Unknown error",
+        "retry": "Retry"
+      },
       "meta": {
         "status": "Status",
         "duration": "Duration",
@@ -6573,44 +6583,6 @@
         "cancel": "Cancel",
         "creating": "Creating...",
         "createPullRequest": "Create Pull Request"
-      }
-    },
-    "importIssuesDialog": {
-      "title": "Import GitHub Issues",
-      "description": "Select issues to import as Issue Only workspaces for Kanban tracking.",
-      "loading": "Loading...",
-      "errors": {
-        "noRepositoryForProject": "This project is not associated with a GitHub repository. Please add a GitHub remote to import issues.",
-        "detectRepositoryFailed": "Failed to detect GitHub repository",
-        "noRepositoryDetected": "No GitHub repository detected",
-        "loadIssuesFailed": "Failed to load issues",
-        "alreadyImported": "Selected issues were already imported.",
-        "skippedImported": "{count} issue(s) were already imported and skipped.",
-        "importFailed": "Failed to import issues"
-      },
-      "fields": {
-        "project": "Project",
-        "selectProject": "Select a project",
-        "repository": "GitHub Repository",
-        "detectingRepository": "Detecting repository...",
-        "noRepository": "No GitHub repository detected for this project",
-        "searchIssues": "Search issues (press Enter)...",
-        "sortBy": "Sort by",
-        "created": "Created",
-        "updated": "Updated",
-        "switchToAscending": "Switch to ascending",
-        "switchToDescending": "Switch to descending",
-        "selectAll": "Select All ({count} selected)"
-      },
-      "empty": {
-        "noSearchMatches": "No issues match your search",
-        "noOpenIssues": "No open issues found"
-      },
-      "actions": {
-        "loadIssues": "Load Issues",
-        "cancel": "Cancel",
-        "importIssues": "Import Issues",
-        "importCount": "Import {count} Issue{suffix}"
       }
     },
     "commitsPanel": {
@@ -6836,6 +6808,9 @@
         "viewDeployment": "View deployment",
         "deletedBranch": "deleted the branch",
         "checksPassed": "{passed} of {total} checks passed",
+        "showDetails": "Show details",
+        "hideDetails": "Hide details",
+        "checkDetails": "Details",
         "loadMore": "Load more timeline events"
       },
       "notFound": "Detailed info not found..."

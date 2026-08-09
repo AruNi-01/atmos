@@ -7,7 +7,7 @@ import { useExperimentSettingsStore } from "@/features/settings/store/experiment
 
 /** Floating ACP Agent Chat — only when the experiments setting is enabled. */
 export function ModalAgentChatPanel() {
-  const managementAgentsEnabled = useExperimentSettingsStore((s) => s.managementAgentsEnabled);
+  const launchpadAgentsEnabled = useExperimentSettingsStore((s) => s.launchpadAgentsEnabled);
   const loadExperimentSettings = useExperimentSettingsStore((s) => s.loadSettings);
   const [, setAgentChatOpen] = useAgentChatUrl();
 
@@ -16,12 +16,12 @@ export function ModalAgentChatPanel() {
   }, [loadExperimentSettings]);
 
   useEffect(() => {
-    if (!managementAgentsEnabled) {
+    if (!launchpadAgentsEnabled) {
       void setAgentChatOpen(false);
     }
-  }, [managementAgentsEnabled, setAgentChatOpen]);
+  }, [launchpadAgentsEnabled, setAgentChatOpen]);
 
-  if (!managementAgentsEnabled) {
+  if (!launchpadAgentsEnabled) {
     return null;
   }
 
