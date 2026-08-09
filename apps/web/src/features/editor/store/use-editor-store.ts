@@ -578,18 +578,15 @@ export const useEditorStore = create<EditorStore>()((set, get) => ({
         if (!ws) return;
         const timestamp = nowTimestamp();
 
-        const fileIndex = ws.openFiles.findIndex(f => f.path === path);
-        if (fileIndex === -1) return;
+        if (!ws.openFiles.some((f) => f.path === path)) return;
 
         const newOpenFiles = ws.openFiles.filter(f => f.path !== path);
+        // When closing the active file, clear selection and let Center Stage's
+        // activation stack pick the next surface (MRU). Do not jump to a
+        // visual neighbor in the open-files strip.
         let newActiveFilePath = ws.activeFilePath;
         if (ws.activeFilePath === path) {
-          if (newOpenFiles.length > 0) {
-            const newIndex = Math.min(fileIndex, newOpenFiles.length - 1);
-            newActiveFilePath = newOpenFiles[newIndex].path;
-          } else {
-            newActiveFilePath = null;
-          }
+          newActiveFilePath = null;
         }
 
         set((state) => ({

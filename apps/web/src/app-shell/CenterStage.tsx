@@ -89,6 +89,12 @@ import type {
 } from "@/app-shell/center-stage-tab-model";
 import { isFileLikeCenterTabKind } from "@/app-shell/center-stage-tab-model";
 import {
+  buildOpenCenterTabValues,
+  pickNextCenterTabFromActivationStack,
+  recordCenterTabActivation,
+  removeCenterTabFromActivationStack,
+} from "@/app-shell/center-stage-tab-activation-stack";
+import {
   TerminalCloseConfirmDialog,
   UnsavedChangesDialog,
 } from "@/app-shell/center-stage-dialogs";
@@ -448,11 +454,21 @@ const CenterStage: React.FC = () => {
   const githubOwner = statusQuery.data?.github_owner ?? null;
   const githubRepo = statusQuery.data?.github_repo ?? null;
 
+  /**
+   * Assigned after `activateNextAfterClosing` is defined. Close handlers above
+   * that point call through this ref so we can keep MRU navigation without
+   * reordering half of CenterStage.
+   */
+  const activateNextAfterClosingRef = React.useRef<(closed: string | string[]) => void>(
+    () => {},
+  );
+
   const handleCloseFile = React.useCallback((file: OpenFile) => {
     if (file.isDirty) {
       setFileToClose(file);
     } else {
       closeFile(file.path);
+      activateNextAfterClosingRef.current(file.path);
     }
   }, [closeFile]);
 
@@ -502,8 +518,10 @@ const CenterStage: React.FC = () => {
   const confirmClose = React.useCallback(() => {
     if (fileToClose) {
       advancingCloseQueueRef.current = true;
-      closeFile(fileToClose.path);
+      const closedPath = fileToClose.path;
+      closeFile(closedPath);
       setFileToClose(null);
+      activateNextAfterClosingRef.current(closedPath);
       advancePendingCloseQueue();
       queueMicrotask(() => {
         advancingCloseQueueRef.current = false;
@@ -555,6 +573,74 @@ const CenterStage: React.FC = () => {
 
   // activeValue 优先使用打开的文件路径，否则使用当前 center tab
   const activeValue = activeFilePath || resolvedTab;
+  const activeValueRef = React.useRef(activeValue);
+  activeValueRef.current = activeValue;
+  /** Set after handleCenterStageTabChange is defined; used by close handlers above it. */
+  const navigateCenterTabRef = React.useRef<(val: string) => void>(() => {});
+
+  const collectOpenCenterTabValues = React.useCallback(
+    (exclude?: Iterable<string>) =>
+      buildOpenCenterTabValues({
+        openFilePaths: openFiles.map((file) => file.path),
+        terminalTabIds: visibleTerminalTabs.map((tab) => tab.id),
+        githubTabValues: githubTabs.map((tab) => tab.value),
+        browserTabValues: browserTabs.map((tab) => tab.value),
+        projectWikiVisible: projectWikiTabVisible,
+        codeReviewVisible: codeReviewTabVisible,
+        wikiEnabled: centerWikiTabEnabled,
+        exclude,
+      }),
+    [
+      browserTabs,
+      centerWikiTabEnabled,
+      codeReviewTabVisible,
+      githubTabs,
+      openFiles,
+      projectWikiTabVisible,
+      visibleTerminalTabs,
+    ],
+  );
+
+  /**
+   * After closing one or more tabs: prune the MRU stack, and if the active tab
+   * was among them, navigate to the most recently activated still-open tab.
+   */
+  const activateNextAfterClosing = React.useCallback(
+    (closedValues: string | string[]) => {
+      if (!effectiveContextId) return;
+      const closedList = Array.isArray(closedValues) ? closedValues : [closedValues];
+      if (closedList.length === 0) return;
+
+      for (const value of closedList) {
+        removeCenterTabFromActivationStack(effectiveContextId, value);
+      }
+
+      const active = activeValueRef.current;
+      if (!closedList.includes(active)) return;
+
+      const open = collectOpenCenterTabValues(closedList);
+      // Prefer store-fresh terminal ids after close (hook list may lag one frame).
+      const liveTerminalIds = useTerminalStore
+        .getState()
+        .getTerminalTabs(effectiveContextId)
+        .map((tab) => tab.id);
+      for (const id of liveTerminalIds) open.add(id);
+      for (const value of closedList) open.delete(value);
+
+      const next =
+        pickNextCenterTabFromActivationStack(effectiveContextId, open) ??
+        (open.has(fallbackCenterTab) ? fallbackCenterTab : null) ??
+        (liveTerminalIds[0] ?? "overview");
+
+      if (next && next !== active) {
+        navigateCenterTabRef.current(next);
+      } else if (!open.has(active)) {
+        navigateCenterTabRef.current(liveTerminalIds[0] ?? "overview");
+      }
+    },
+    [collectOpenCenterTabValues, effectiveContextId, fallbackCenterTab],
+  );
+  activateNextAfterClosingRef.current = activateNextAfterClosing;
 
   React.useEffect(() => {
     const target = parseGithubCenterTabValue(tabFromUrl);
@@ -628,49 +714,19 @@ const CenterStage: React.FC = () => {
   const handleCloseGithubTab = React.useCallback(
     (value: string) => {
       if (!effectiveContextId) return;
-      const closingIndex = githubTabs.findIndex((tab) => tab.value === value);
-      const nextTab =
-        githubTabs[closingIndex + 1] ?? githubTabs[closingIndex - 1] ?? null;
       closeGithubTab(effectiveContextId, value);
-      if (activeValue === value) {
-        setUrlParams({
-          tab: nextTab?.value ?? fallbackCenterTab,
-          wikiPage: null,
-        });
-      }
+      activateNextAfterClosing(value);
     },
-    [
-      activeValue,
-      closeGithubTab,
-      effectiveContextId,
-      fallbackCenterTab,
-      githubTabs,
-      setUrlParams,
-    ],
+    [activateNextAfterClosing, closeGithubTab, effectiveContextId],
   );
 
   const handleCloseBrowserTab = React.useCallback(
     (value: string) => {
       if (!effectiveContextId) return;
-      const closingIndex = browserTabs.findIndex((tab) => tab.value === value);
-      const nextTab =
-        browserTabs[closingIndex + 1] ?? browserTabs[closingIndex - 1] ?? null;
       closeBrowserCenterTab(effectiveContextId, value);
-      if (activeValue === value) {
-        setUrlParams({
-          tab: nextTab?.value ?? fallbackCenterTab,
-          wikiPage: null,
-        });
-      }
+      activateNextAfterClosing(value);
     },
-    [
-      activeValue,
-      browserTabs,
-      closeBrowserCenterTab,
-      effectiveContextId,
-      fallbackCenterTab,
-      setUrlParams,
-    ],
+    [activateNextAfterClosing, closeBrowserCenterTab, effectiveContextId],
   );
 
   const handleCreateBrowserCenterTab = React.useCallback(() => {
@@ -829,6 +885,7 @@ const CenterStage: React.FC = () => {
     }
 
     setCenterStageLastTab(effectiveContextId, activeValue);
+    recordCenterTabActivation(effectiveContextId, activeValue);
     if (isTerminalCenterTabValue(activeValue)) {
       setActiveTerminalTab(effectiveContextId, activeValue);
     }
@@ -1258,7 +1315,10 @@ const CenterStage: React.FC = () => {
     return Object.values(persistedTab?.panes ?? {}) as TerminalPaneProps[];
   }, [currentView]);
 
-  const performCloseTerminalCenterTab = React.useCallback((tabId: string) => {
+  const performCloseTerminalCenterTab = React.useCallback((
+    tabId: string,
+    options?: { skipActivation?: boolean },
+  ) => {
     if (!effectiveContextId) return;
     const terminalState = useTerminalStore.getState();
     const tabPanes = getTerminalTabPanes(effectiveContextId, tabId);
@@ -1291,13 +1351,11 @@ const CenterStage: React.FC = () => {
 
     closeTerminalTab(effectiveContextId, tabId);
     removeMountedTerminalTab(effectiveContextId, tabId);
-
-    if (activeValue === tabId) {
-      const nextTabs = useTerminalStore.getState().getTerminalTabs(effectiveContextId);
-      setUrlParams({ tab: nextTabs[0]?.id ?? "overview", wikiPage: null });
+    if (!options?.skipActivation) {
+      activateNextAfterClosing(tabId);
     }
   }, [
-    activeValue,
+    activateNextAfterClosing,
     cleanupCanvasTerminalsForClosedTerminal,
     closeTerminalTab,
     currentView,
@@ -1305,7 +1363,6 @@ const CenterStage: React.FC = () => {
     getTerminalGridForTab,
     getTerminalTabPanes,
     removeMountedTerminalTab,
-    setUrlParams,
   ]);
 
   const buildTerminalCloseConfirmPayload = React.useCallback(
@@ -1399,6 +1456,8 @@ const CenterStage: React.FC = () => {
 
     pendingCloseQueueRef.current = [];
     const confirmQueue: PendingCenterTabClose[] = [];
+    /** Closed immediately (no confirm) — used for a single MRU activation at the end. */
+    const closedImmediately: string[] = [];
 
     let tmuxWindows: Awaited<ReturnType<typeof systemApi.listTmuxWindows>>["windows"] | null = null;
     const needsTmux = tabs.some((tab) => tab.kind === "terminal");
@@ -1417,6 +1476,7 @@ const CenterStage: React.FC = () => {
           confirmQueue.push({ kind: "file", file: tab.file });
         } else {
           closeFile(tab.file.path, effectiveContextId || undefined);
+          closedImmediately.push(tab.file.path);
         }
         continue;
       }
@@ -1436,7 +1496,8 @@ const CenterStage: React.FC = () => {
             ...payload,
           });
         } else {
-          performCloseTerminalCenterTab(tab.value);
+          performCloseTerminalCenterTab(tab.value, { skipActivation: true });
+          closedImmediately.push(tab.value);
         }
         continue;
       }
@@ -1457,25 +1518,36 @@ const CenterStage: React.FC = () => {
         tab.kind === "github-action" ||
         tab.kind === "github-commit"
       ) {
-        handleCloseGithubTab(tab.value);
+        if (effectiveContextId) {
+          closeGithubTab(effectiveContextId, tab.value);
+          closedImmediately.push(tab.value);
+        }
         continue;
       }
 
       if (tab.kind === "browser") {
-        handleCloseBrowserTab(tab.value);
+        if (effectiveContextId) {
+          closeBrowserCenterTab(effectiveContextId, tab.value);
+          closedImmediately.push(tab.value);
+        }
       }
+    }
+
+    if (closedImmediately.length > 0) {
+      activateNextAfterClosing(closedImmediately);
     }
 
     pendingCloseQueueRef.current = confirmQueue;
     advancePendingCloseQueue();
   }, [
+    activateNextAfterClosing,
     advancePendingCloseQueue,
     buildTerminalCloseConfirmPayload,
+    closeBrowserCenterTab,
     closeFile,
+    closeGithubTab,
     effectiveContextId,
     getTerminalTabPanes,
-    handleCloseBrowserTab,
-    handleCloseGithubTab,
     performCloseTerminalCenterTab,
   ]);
 
@@ -1648,6 +1720,7 @@ const CenterStage: React.FC = () => {
     setUrlParams,
     runWhenTerminalGridReady,
   ]);
+  navigateCenterTabRef.current = handleCenterStageTabChange;
 
   useCenterStageKeyboardShortcuts({
     effectiveContextId,
@@ -1759,7 +1832,7 @@ const CenterStage: React.FC = () => {
         await systemApi.killProjectWikiWindow(effectiveContextId);
         projectWikiTerminalGridRef.current?.removeTerminalByTmuxWindowName(PROJECT_WIKI_WINDOW_NAME);
         setProjectWikiVisibleMap(prev => ({ ...prev, [effectiveContextId]: false }));
-        setFixedTab("terminal");
+        activateNextAfterClosing("project-wiki");
       } catch (err) {
         toastManager.add({
           title: t("errors.failedToCloseTerminal"),
@@ -1782,7 +1855,7 @@ const CenterStage: React.FC = () => {
         await systemApi.killCodeReviewWindow(effectiveContextId);
         codeReviewTerminalGridRef.current?.removeTerminalByTmuxWindowName(CODE_REVIEW_WINDOW_NAME);
         setCodeReviewVisibleMap(prev => ({ ...prev, [effectiveContextId]: false }));
-        setFixedTab("terminal");
+        activateNextAfterClosing("code-review");
       } catch (err) {
         toastManager.add({
           title: t("errors.failedToCloseTerminal"),
