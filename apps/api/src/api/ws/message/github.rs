@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 
 pub use core_service::{
     GithubIssueAssigneePayload, GithubIssueLabelPayload, GithubIssuePayload, GithubPrPayload,
+    GithubSearchItemPayload, GithubSearchPagePayload,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -85,6 +86,82 @@ pub struct GithubPrListRepoRequest {
     pub state: String,
     #[serde(default = "default_github_issue_limit")]
     pub limit: usize,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GithubSearchRepoRef {
+    pub owner: String,
+    pub repo: String,
+}
+
+/// Multi-repo Task list search (`github_search`).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GithubSearchRequest {
+    /// `"issue"` | `"pr"`
+    pub kind: String,
+    #[serde(default)]
+    pub repos: Vec<GithubSearchRepoRef>,
+    #[serde(default = "default_github_issue_state")]
+    pub state: String,
+    #[serde(default)]
+    pub assignees: Vec<String>,
+    #[serde(default)]
+    pub labels: Vec<String>,
+    /// Free-form GitHub search syntax (e.g. `sort:created-desc author:octocat`).
+    #[serde(default)]
+    pub query: Option<String>,
+    #[serde(default = "default_search_page")]
+    pub page: u32,
+    #[serde(default = "default_search_per_page")]
+    pub per_page: u32,
+}
+
+fn default_search_page() -> u32 {
+    1
+}
+
+fn default_search_per_page() -> u32 {
+    20
+}
+
+/// List issue templates under `.github/ISSUE_TEMPLATE` for create-issue UI.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GithubIssueTemplatesRequest {
+    pub owner: String,
+    pub repo: String,
+}
+
+/// One template / config file returned as raw content for the client to parse.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GithubIssueTemplateFilePayload {
+    pub name: String,
+    /// Decoded file text (YAML or Markdown).
+    pub content: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GithubIssueTemplatesPayload {
+    pub files: Vec<GithubIssueTemplateFilePayload>,
+}
+
+/// Create a GitHub issue via `gh issue create`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GithubIssueCreateRequest {
+    pub owner: String,
+    pub repo: String,
+    pub title: String,
+    #[serde(default)]
+    pub body: Option<String>,
+    #[serde(default)]
+    pub labels: Vec<String>,
+    #[serde(default)]
+    pub assignees: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GithubIssueCreatePayload {
+    pub number: Option<u64>,
+    pub url: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

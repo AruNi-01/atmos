@@ -10,9 +10,24 @@ import {
   Switch,
   TabsSubtle,
   TabsSubtleItem,
-  cn,
 } from '@workspace/ui';
-import { ChevronDown, LayoutGrid, List, Rocket } from 'lucide-react';
+import {
+  Bot,
+  ChartColumnBig,
+  ChevronDown,
+  FolderKanban,
+  HardDrive,
+  LayoutGrid,
+  List,
+  ListTodo,
+  Plus,
+  Presentation,
+  Puzzle,
+  Rocket,
+  SquareTerminal,
+  Timer,
+  type LucideIcon,
+} from 'lucide-react';
 import {
   LAUNCHPAD_ITEM_IDS,
   type LaunchpadItemId,
@@ -36,8 +51,22 @@ const ITEM_I18N_KEYS: Record<LaunchpadItemId, string> = {
   'disk-analyzer': 'items.diskAnalyzer',
   'token-usage': 'items.tokenUsage',
   canvas: 'items.canvas',
-  kanban: 'items.kanban',
+  tasks: 'items.tasks',
   'new-workspace': 'items.newWorkspace',
+};
+
+/** Icons match LeftSidebarLaunchpad item definitions. */
+const ITEM_ICONS: Record<LaunchpadItemId, LucideIcon> = {
+  workspaces: FolderKanban,
+  skills: Puzzle,
+  terminals: SquareTerminal,
+  agents: Bot,
+  automations: Timer,
+  'disk-analyzer': HardDrive,
+  'token-usage': ChartColumnBig,
+  canvas: Presentation,
+  tasks: ListTodo,
+  'new-workspace': Plus,
 };
 
 /** Tab order: Outside (list below Launchpad) → Inside (grid cards). */
@@ -98,42 +127,44 @@ export function LaunchpadLayoutSettings({
       </div>
 
       <CollapsibleContent>
-        <div className="border-t border-border px-6 py-5">
-          <div className="overflow-hidden rounded-2xl border border-border">
-            {LAUNCHPAD_ITEM_IDS.map((id, index) => {
-              const config = launchpadItems[id];
-              const isLast = index === LAUNCHPAD_ITEM_IDS.length - 1;
-              const experimental = EXPERIMENTAL_LAUNCHPAD_ITEM_IDS.has(id);
-              const labelId = `launchpad-item-${id}`;
+        <div className="border-t border-border px-4">
+          {LAUNCHPAD_ITEM_IDS.map((id) => {
+            const config = launchpadItems[id];
+            const experimental = EXPERIMENTAL_LAUNCHPAD_ITEM_IDS.has(id);
+            const labelId = `launchpad-item-${id}`;
+            const Icon = ITEM_ICONS[id];
 
-              return (
-                <div
-                  key={id}
-                  className={cn(
-                    'flex items-center gap-4 px-6 py-4',
-                    !isLast && 'border-b border-border',
-                  )}
-                >
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p
-                        id={labelId}
-                        className="text-sm font-medium text-foreground"
-                      >
-                        {t(`${ITEM_I18N_KEYS[id]}.title`)}
-                      </p>
-                      {experimental ? (
-                        <Badge
-                          variant="secondary"
-                          className="text-[10px] font-medium tracking-wide"
+            return (
+              <div
+                key={id}
+                className="border-b border-border px-2 py-4 last:border-b-0"
+              >
+                <div className="flex items-center gap-4">
+                  <div className="flex min-w-0 flex-1 gap-3">
+                    <span className="mt-0.5 size-4 shrink-0 text-muted-foreground">
+                      <Icon className="size-4" />
+                    </span>
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p
+                          id={labelId}
+                          className="text-sm font-medium text-foreground"
                         >
-                          {t('experimentalBadge')}
-                        </Badge>
-                      ) : null}
+                          {t(`${ITEM_I18N_KEYS[id]}.title`)}
+                        </p>
+                        {experimental ? (
+                          <Badge
+                            variant="secondary"
+                            className="text-[10px] font-medium tracking-wide"
+                          >
+                            {t('experimentalBadge')}
+                          </Badge>
+                        ) : null}
+                      </div>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {t(`${ITEM_I18N_KEYS[id]}.description`)}
+                      </p>
                     </div>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {t(`${ITEM_I18N_KEYS[id]}.description`)}
-                    </p>
                   </div>
 
                   <div className="flex shrink-0 items-center gap-3">
@@ -176,9 +207,9 @@ export function LaunchpadLayoutSettings({
                     />
                   </div>
                 </div>
-              );
-            })}
-          </div>
+              </div>
+            );
+          })}
         </div>
       </CollapsibleContent>
     </Collapsible>

@@ -160,7 +160,7 @@ export function WorkspacePrioritySelect({
   surface,
   onOpenChange,
 }: WorkspacePrioritySelectProps) {
-  const t = useTranslations("appShell.kanban");
+  const t = useTranslations("appShell.task");
   const meta = getWorkspacePriorityMeta(value);
   const Icon = meta.icon;
   const isDisabled = disabled || !onChange;
@@ -247,7 +247,7 @@ export function WorkspaceStatusSelect({
   surface,
   onOpenChange,
 }: WorkspaceStatusSelectProps) {
-  const t = useTranslations("appShell.kanban");
+  const t = useTranslations("appShell.task");
   const meta = getWorkspaceWorkflowStatusMeta(value);
   const Icon = meta.icon;
   const isDisabled = disabled || !onChange;
@@ -488,7 +488,7 @@ export function WorkspaceLabelPicker({
   surface,
   onOpenChange,
 }: WorkspaceLabelPickerProps) {
-  const t = useTranslations("appShell.kanban");
+  const t = useTranslations("appShell.task");
   const [isOpen, setIsOpen] = React.useState(false);
   const [labelEditorKey, setLabelEditorKey] = React.useState<string | null>(null);
   const [editingLabel, setEditingLabel] = React.useState<WorkspaceLabel | null>(null);
@@ -739,7 +739,7 @@ export function LabelEditorContent({
   onSubmit: () => void;
   popoverContentProps?: React.ComponentPropsWithoutRef<typeof PopoverContent>;
 }) {
-  const t = useTranslations("appShell.kanban");
+  const t = useTranslations("appShell.task");
   // Keep the editor popover open while the native EyeDropper is sampling.
   const isColorEyedroppingRef = React.useRef(false);
   const {

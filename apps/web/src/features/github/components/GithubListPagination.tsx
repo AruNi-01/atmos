@@ -13,10 +13,20 @@ type GithubListPaginationProps = {
   /** Accessible / tooltip label for next control */
   nextLabel?: string;
   className?: string;
+  /**
+   * `auto` — collapse to current page only when the control is very narrow
+   *   (sidebar). `full` — always show neighbor pages + ellipsis (Task list).
+   * `compact` — force single current page.
+   */
+  layout?: "auto" | "full" | "compact";
 };
 
-/** Min width (px) to show neighbor page numbers + optional ellipsis. */
-const FULL_LAYOUT_MIN_WIDTH = 168;
+/**
+ * Width needed for full chrome: prev + (page-1) + page + (page+1) + … + next.
+ * ~5×28px controls. Threshold is intentionally below that so `w-auto` content
+ * measure does not immediately flip full → compact (chicken-and-egg).
+ */
+const FULL_LAYOUT_MIN_WIDTH = 100;
 
 /**
  * GitHub sidebar list pagination.
@@ -31,16 +41,18 @@ export function GithubListPagination({
   previousLabel = "Previous",
   nextLabel = "Next",
   className,
+  layout = "auto",
 }: GithubListPaginationProps) {
   const rootRef = React.useRef<HTMLElement>(null);
-  const [compact, setCompact] = React.useState(false);
+  const [autoCompact, setAutoCompact] = React.useState(false);
 
   React.useEffect(() => {
+    if (layout !== "auto") return;
     const el = rootRef.current;
     if (!el || typeof ResizeObserver === "undefined") return;
 
     const update = (width: number) => {
-      setCompact(width > 0 && width < FULL_LAYOUT_MIN_WIDTH);
+      setAutoCompact(width > 0 && width < FULL_LAYOUT_MIN_WIDTH);
     };
 
     update(el.clientWidth);
@@ -50,12 +62,14 @@ export function GithubListPagination({
     });
     observer.observe(el);
     return () => observer.disconnect();
-  }, []);
+  }, [layout]);
 
   if (page === 1 && !hasMore) return null;
 
   const canPrev = page > 1;
   const canNext = hasMore;
+  const compact =
+    layout === "compact" ? true : layout === "full" ? false : autoCompact;
 
   // Full layout: previous page, current, next page when available.
   const pages = compact
@@ -71,6 +85,8 @@ export function GithubListPagination({
       aria-label="pagination"
       className={cn(
         "mt-3 flex w-full min-w-0 max-w-full items-center justify-center overflow-hidden pb-2",
+        // Avoid shrink-to-fit collapsing full layout under flex parents.
+        layout === "full" && "min-w-fit shrink-0",
         className,
       )}
     >

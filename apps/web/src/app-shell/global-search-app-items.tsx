@@ -17,7 +17,6 @@ import {
   Moon,
   Plus,
   Settings,
-  SquareKanban,
   Sun,
   Terminal,
   Timer,
@@ -412,14 +411,14 @@ export function buildGlobalSearchItems({
       },
     },
     {
-      id: "open-kanban-view",
+      id: "open-tasks-view",
       type: "launchpad",
-      title: globalSearchItemsT("kanban.title"),
-      description: globalSearchItemsT("kanban.description"),
-      keywords: ["kanban", "board", "workspace", "workspaces", "status", "priority", "view", "open"],
-      icon: <SquareKanban className="size-4 text-muted-foreground" />,
+      title: globalSearchItemsT("tasks.title"),
+      description: globalSearchItemsT("tasks.description"),
+      keywords: ["kanban", "task", "board", "workspace", "workspaces", "status", "priority", "view", "open", "github", "issue", "pr"],
+      icon: <ListTodo className="size-4 text-muted-foreground" />,
       action: () => {
-        router.push("/kanban");
+        router.push("/tasks");
         setGlobalSearchOpen(false);
       },
     },

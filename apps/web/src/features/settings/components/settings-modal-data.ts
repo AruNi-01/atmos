@@ -203,7 +203,7 @@ const SETTINGS_SECTION_KEYWORDS: Record<SettingsSectionId, readonly string[]> = 
     "automations",
     "disk analyzer",
     "canvas",
-    "kanban",
+    "tasks",
     "new workspace",
     "acp agent chat entry",
   ],
@@ -526,7 +526,7 @@ const SETTINGS_SETTING_ITEMS: Record<SettingsSectionId, readonly SettingsSearchI
       keywords: ["pinned section", "project two-column layout"],
     }),
     settingsModalSearchItem("layout.secondColumnUsesKanbanCards", {
-      keywords: ["kanban", "workspace cards", "properties visibility"],
+      keywords: ["tasks", "workspace cards", "properties visibility"],
     }),
     settingsModalSearchItem("layout.byTimeGroupUsesSecondColumn", {
       keywords: ["time grouping", "sidebar by time"],
@@ -597,8 +597,8 @@ const SETTINGS_SETTING_ITEMS: Record<SettingsSectionId, readonly SettingsSearchI
     settingsModalSearchItem("layout.canvasLaunchpad", {
       keywords: ["canvas", "ops desk", "infinite canvas", "launchpad"],
     }),
-    settingsModalSearchItem("layout.kanbanLaunchpad", {
-      keywords: ["kanban board", "workspace kanban", "launchpad"],
+    settingsModalSearchItem("layout.tasksLaunchpad", {
+      keywords: ["task board", "workspace tasks", "launchpad"],
     }),
     settingsModalSearchItem("layout.newWorkspaceLaunchpad", {
       keywords: ["new workspace", "create workspace", "launchpad"],
@@ -825,6 +825,16 @@ const SETTINGS_SETTING_ITEMS: Record<SettingsSectionId, readonly SettingsSearchI
     settingsModalSearchItem("integrations.githubCliAuthenticationStatus", {
       keywords: ["authenticated", "not authenticated", "gh auth login"],
     }),
+    settingsModalSearchItem("integrations.githubApiRateLimits", {
+      keywords: [
+        "rate limit",
+        "api quota",
+        "graphql",
+        "search api",
+        "rest core",
+        "github usage",
+      ],
+    }),
     settingsModalSearchItem("integrations.tmux", {
       keywords: ["terminal sessions", "tmux server"],
     }),
@@ -996,7 +1006,7 @@ const SETTINGS_SETTING_ITEMS: Record<SettingsSectionId, readonly SettingsSearchI
       ],
     }),
     settingsModalSearchItem("shortcuts.workspaceShortcuts", {
-      keywords: ["new workspace overlay", "canvas overlay", "kanban board", "open create workspace"],
+      keywords: ["new workspace overlay", "canvas overlay", "task board", "open create workspace"],
     }),
     settingsModalSearchItem("shortcuts.centerStageTabsShortcuts", {
       keywords: ["overview tab", "fixed terminal tab", "terminal tab"],

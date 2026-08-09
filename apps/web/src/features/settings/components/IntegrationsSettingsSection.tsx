@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { useTranslations } from 'next-intl';
-import { Button, Skeleton } from '@workspace/ui';
+import { Button, Skeleton, cn } from '@workspace/ui';
 import {
   CircleCheck,
   CircleMinus,
@@ -10,6 +10,7 @@ import {
   ExternalLink,
   Github,
   GitBranch,
+  RefreshCw,
 } from 'lucide-react';
 import { TmuxIcon } from '@workspace/ui/components/icons/tmux-icon';
 import {
@@ -17,7 +18,173 @@ import {
   useTmuxStatusQuery,
   useGitStatusQuery,
 } from '@/features/system/hooks/use-system-status-queries';
+import { useGithubRateLimitQuery } from '@/features/github/hooks/use-github-pr-query';
 import { InstallToolPopover } from '@/features/welcome/components/InstallToolPopover';
+import type { GithubRateLimitResourcePayload } from '@atmos/api-types/ws/dto/github';
+
+type RateLimitKey = 'core' | 'search' | 'graphql';
+
+function formatCount(n: number): string {
+  return new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 }).format(n);
+}
+
+function usagePercent(resource: GithubRateLimitResourcePayload): number {
+  if (resource.limit <= 0) return 0;
+  return Math.max(0, Math.min(100, (resource.used / resource.limit) * 100));
+}
+
+function formatResetRelative(
+  resetUnix: number,
+  labels: {
+    soon: string;
+    minutes: (minutes: number) => string;
+    hours: (hours: number) => string;
+    hoursMinutes: (hours: number, minutes: number) => string;
+  },
+): string {
+  const resetMs = resetUnix * 1000;
+  const diffMs = resetMs - Date.now();
+  if (diffMs <= 0) {
+    return labels.soon;
+  }
+  const totalMinutes = Math.ceil(diffMs / 60_000);
+  if (totalMinutes < 60) {
+    return labels.minutes(totalMinutes);
+  }
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  if (minutes === 0) {
+    return labels.hours(hours);
+  }
+  return labels.hoursMinutes(hours, minutes);
+}
+
+function RateLimitBar({
+  label,
+  resource,
+  footer,
+}: {
+  label: string;
+  resource: GithubRateLimitResourcePayload;
+  footer: string;
+}) {
+  const percent = usagePercent(resource);
+  const barTone =
+    percent >= 90
+      ? 'bg-destructive'
+      : percent >= 70
+        ? 'bg-amber-500'
+        : 'bg-foreground';
+
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-baseline justify-between gap-3">
+        <p className="text-sm font-medium text-foreground">{label}</p>
+        <p className="text-xs tabular-nums text-muted-foreground">
+          {formatCount(resource.used)} / {formatCount(resource.limit)}
+        </p>
+      </div>
+      <div
+        className="h-2 w-full overflow-hidden rounded-full bg-muted/80"
+        role="progressbar"
+        aria-valuemin={0}
+        aria-valuemax={resource.limit}
+        aria-valuenow={resource.used}
+        aria-label={label}
+      >
+        <div
+          className={cn('h-full rounded-full transition-all duration-300', barTone)}
+          style={{ width: `${percent}%` }}
+        />
+      </div>
+      <p className="text-[11px] text-muted-foreground">{footer}</p>
+    </div>
+  );
+}
+
+function GithubRateLimitPanel({ enabled }: { enabled: boolean }) {
+  const t = useTranslations('settings.integrationsSection');
+  const query = useGithubRateLimitQuery({ enabled });
+  const data = query.data;
+  const isInitialLoading = enabled && query.isLoading && !data;
+  const isRefreshing = query.isFetching && !!data;
+
+  const resourceLabel = React.useCallback(
+    (key: RateLimitKey) => {
+      switch (key) {
+        case 'core':
+          return t('githubCli.rateLimit.resources.core');
+        case 'search':
+          return t('githubCli.rateLimit.resources.search');
+        case 'graphql':
+          return t('githubCli.rateLimit.resources.graphql');
+      }
+    },
+    [t],
+  );
+
+  if (!enabled) return null;
+
+  return (
+    <div className="rounded-xl border border-border bg-muted/20 px-4 py-3">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-sm font-medium text-foreground">{t('githubCli.rateLimit.title')}</p>
+          <p className="mt-1 text-xs text-muted-foreground">{t('githubCli.rateLimit.description')}</p>
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="h-8 shrink-0 cursor-pointer gap-1.5"
+          onClick={() => {
+            void query.refetch();
+          }}
+          disabled={query.isFetching}
+        >
+          <RefreshCw className={cn('size-3.5', isRefreshing && 'animate-spin')} />
+          {t('githubCli.rateLimit.refresh')}
+        </Button>
+      </div>
+
+      {isInitialLoading ? (
+        <div className="mt-3 space-y-3">
+          <Skeleton className="h-12 w-full rounded-lg" />
+          <Skeleton className="h-12 w-full rounded-lg" />
+          <Skeleton className="h-12 w-full rounded-lg" />
+        </div>
+      ) : query.isError ? (
+        <p className="mt-3 text-xs text-destructive">
+          {t('githubCli.rateLimit.loadError')}
+        </p>
+      ) : data ? (
+        <div className="mt-3 space-y-3">
+          {(['core', 'search', 'graphql'] as const).map((key) => {
+            const resource = data[key];
+            const reset = formatResetRelative(resource.reset, {
+              soon: t('githubCli.rateLimit.resetSoon'),
+              minutes: (minutes) => t('githubCli.rateLimit.resetInMinutes', { minutes }),
+              hours: (hours) => t('githubCli.rateLimit.resetInHours', { hours }),
+              hoursMinutes: (hours, minutes) =>
+                t('githubCli.rateLimit.resetInHoursMinutes', { hours, minutes }),
+            });
+            return (
+              <RateLimitBar
+                key={key}
+                label={resourceLabel(key)}
+                resource={resource}
+                footer={t('githubCli.rateLimit.footer', {
+                  remaining: formatCount(resource.remaining),
+                  reset,
+                })}
+              />
+            );
+          })}
+        </div>
+      ) : null}
+    </div>
+  );
+}
 
 export function IntegrationsSettingsSection() {
   const t = useTranslations('settings.integrationsSection');
@@ -28,6 +195,7 @@ export function IntegrationsSettingsSection() {
   const tmuxStatus = tmuxQuery.data ?? null;
   const gitStatus = gitQuery.data ?? null;
   const isLoading = ghCliQuery.isLoading || tmuxQuery.isLoading || gitQuery.isLoading;
+  const ghAuthenticated = Boolean(ghCliStatus?.installed && ghCliStatus.authenticated);
 
   const refetchGh = React.useCallback(() => {
     void ghCliQuery.refetch();
@@ -136,6 +304,7 @@ export function IntegrationsSettingsSection() {
                   )}
                 </div>
               )}
+              <GithubRateLimitPanel enabled={ghAuthenticated} />
             </div>
           )}
         </div>

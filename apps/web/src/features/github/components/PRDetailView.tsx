@@ -81,6 +81,8 @@ interface PRDetailViewProps {
   onRequestClose: () => void;
   onMerged?: () => void;
   onClosed?: () => void;
+  /** Optional actions rendered in the header (before the sidebar toggle). */
+  headerTrailing?: React.ReactNode;
 }
 
 type PRMainTab = 'description' | 'checks' | 'discussion' | 'commits' | 'files';
@@ -89,7 +91,7 @@ const PR_MAIN_TABS: PRMainTab[] = ['description', 'checks', 'discussion', 'commi
 // Persist PR tab selection across center tab switches (survives unmount/remount).
 const prMainTabCache = new Map<number, PRMainTab>();
 
-export function PRDetailView({ owner, repo, branch, prNumber, active, onRequestClose, onMerged, onClosed }: PRDetailViewProps) {
+export function PRDetailView({ owner, repo, branch, prNumber, active, onRequestClose, onMerged, onClosed, headerTrailing }: PRDetailViewProps) {
   const locale = useLocale();
   const t = useTranslations('github.prDetail');
   const relativeTimeLocale = locale.startsWith('zh') ? zhCN : enUS;
@@ -417,7 +419,10 @@ export function PRDetailView({ owner, repo, branch, prNumber, active, onRequestC
   return (
     <div className="relative mx-auto flex h-full min-h-0 w-full max-w-6xl flex-col gap-0 overflow-hidden px-6">
         <div className="flex flex-col flex-1 min-h-0">
-          <header className="pr-12 flex flex-row items-center gap-3 pt-6 pb-4 shrink-0 relative">
+          <header className={cn(
+            "relative flex shrink-0 flex-row items-center gap-3 pb-4 pt-6",
+            headerTrailing ? "pr-14" : "pr-12",
+          )}>
             <Github className="size-4.5 text-muted-foreground/60" />
             <div className="flex items-center gap-2.5 min-w-0">
               <h2 className="text-base font-bold whitespace-nowrap">{t('header.title', { prNumber })}</h2>
@@ -427,7 +432,12 @@ export function PRDetailView({ owner, repo, branch, prNumber, active, onRequestC
               </p>
             </div>
 
-            <div className="absolute right-0 top-6 flex items-center gap-1">
+            <div className={cn(
+              "absolute top-6 flex items-center gap-1.5",
+              // Leave room for the Task drawer close control when present.
+              headerTrailing ? "right-10" : "right-0",
+            )}>
+              {headerTrailing}
               <button
                 className="flex h-7 w-7 items-center justify-center rounded-md hover:bg-muted/80 transition-colors duration-180 ease-[cubic-bezier(0.22,1,0.36,1)] opacity-70 hover:opacity-100"
                 onClick={() => setIsSidebarCollapsed(v => !v)}

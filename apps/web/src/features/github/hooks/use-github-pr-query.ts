@@ -19,6 +19,7 @@ import {
   githubRepoLabelsQueryOptions,
   githubRepoAssigneesQueryOptions,
   githubUserCardQueryOptions,
+  githubRateLimitQueryOptions,
   githubPrFilesQueryOptions,
   githubPrTimelineInfiniteQueryOptions,
   githubActionsListQueryOptions,
@@ -200,6 +201,17 @@ export function useGithubUserCardQuery(
       { login },
       { enabled },
     ),
+  );
+}
+
+export function useGithubRateLimitQuery(options?: { enabled?: boolean }) {
+  const scope = useComputerQueryScope();
+  const connectionState = useWebSocketStore((s) => s.connectionState);
+
+  return useQuery(
+    githubRateLimitQueryOptions(scope, connectionState, {
+      enabled: options?.enabled ?? true,
+    }),
   );
 }
 

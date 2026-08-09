@@ -552,124 +552,6 @@
         "usedSuffix": "used"
       }
     },
-    "kanban": {
-      "status": {
-        "backlog": "Backlog",
-        "todo": "To Do",
-        "inProgress": "In Progress",
-        "inReview": "In Review",
-        "blocked": "Blocked",
-        "completed": "Completed",
-        "canceled": "Canceled",
-        "trigger": "Status"
-      },
-      "priority": {
-        "noPriority": "No priority",
-        "urgent": "Urgent",
-        "high": "High",
-        "medium": "Medium",
-        "low": "Low",
-        "trigger": "Priority"
-      },
-      "grouping": {
-        "project": "By Project",
-        "group": "By Group",
-        "status": "By Status",
-        "time": "By Time",
-        "label": "By Label",
-        "priority": "By Priority",
-        "sectionLabel": "Group By"
-      },
-      "filter": {
-        "trigger": "Filter",
-        "sectionLabel": "Filter",
-        "project": "Project",
-        "group": "Group",
-        "status": "Status",
-        "priority": "Priority",
-        "labels": "Labels",
-        "searchProjects": "Search projects...",
-        "searchGroups": "Search groups...",
-        "searchLabels": "Search labels...",
-        "noMatchingProjects": "No matching projects",
-        "noMatchingGroups": "No matching groups",
-        "noMatchingLabels": "No matching labels",
-        "clearAll": "Clear All Filters",
-        "automationWorkspace": "Automation Workspace",
-        "removeChip": "Remove {label}"
-      },
-      "search": {
-        "placeholder": "Search project/workspace..."
-      },
-      "settings": {
-        "order": "Order",
-        "properties": "Properties",
-        "propertyLabels": {
-          "project": "Project",
-          "priority": "Priority",
-          "status": "Status",
-          "workspace_name": "Workspace name",
-          "group": "Group",
-          "agent_status": "Agent status",
-          "pull_request": "Pull request",
-          "display_name": "Display name",
-          "labels": "Labels",
-          "last_visit": "Last visit"
-        }
-      },
-      "sort": {
-        "lastVisit": "Last Visit",
-        "createTime": "Create Time",
-        "priority": "Priority",
-        "switchToAscending": "Switch to ascending",
-        "switchToDescending": "Switch to descending",
-        "ascending": "Ascending",
-        "descending": "Descending"
-      },
-      "dialog": {
-        "title": "Workspace Kanban",
-        "description": "Full-screen kanban view for workspaces."
-      },
-      "loadingSettings": "Loading kanban settings...",
-      "column": {
-        "hide": "Hide {label}",
-        "show": "Show {label}",
-        "hidden": "Hidden columns",
-        "createWorkspace": "Create workspace in {label}"
-      },
-      "labels": {
-        "trigger": "Labels",
-        "addButton": "+ Label",
-        "summary": {
-          "selected": "{count} labels",
-          "empty": "Add labels"
-        },
-        "createNew": "Create New",
-        "searchPlaceholder": "Search labels",
-        "empty": "No labels yet",
-        "noMatch": "No matching labels"
-      },
-      "labelEditor": {
-        "editPlaceholder": "Label name",
-        "createPlaceholder": "New label",
-        "save": "Save",
-        "add": "Add",
-        "colorPreset": {
-          "gray": "Gray",
-          "red": "Red",
-          "orange": "Orange",
-          "amber": "Amber",
-          "yellow": "Yellow",
-          "green": "Green",
-          "teal": "Teal",
-          "blue": "Blue",
-          "indigo": "Indigo",
-          "purple": "Purple",
-          "pink": "Pink",
-          "cyan": "Cyan"
-        }
-      }
-    },
     "tokenUsageDialog": {
       "trigger": {
         "label": "Token usage",
@@ -1007,7 +889,7 @@
       "automations": "Automations - ATMOS",
       "diskAnalyzer": "Disk Analyzer - ATMOS",
       "tokenUsage": "Token Usage - ATMOS",
-      "kanban": "Kanban - ATMOS"
+      "tasks": "Task - ATMOS"
     },
     "localModelDownload": {
       "downloadingRuntime": "Downloading runtime",
@@ -1038,10 +920,6 @@
       "aiQuota": {
         "title": "AI Quota Usage",
         "description": "Inspect provider quotas and refresh status"
-      },
-      "kanban": {
-        "title": "Open Kanban View",
-        "description": "Open the workspace kanban board"
       },
       "canvas": {
         "title": "Open Canvas",
@@ -1109,6 +987,10 @@
           "title": "Token Usage",
           "description": "Review model token usage and activity"
         }
+      },
+      "tasks": {
+        "title": "Open Task View",
+        "description": "Open the task board for workspaces and GitHub issues/PRs"
       }
     },
     "workspaceCreationOverlay": {
@@ -1199,6 +1081,242 @@
     "globalSearchParts": {
       "line": "Line {line}",
       "lineShort": "L{line}"
+    },
+    "task": {
+      "status": {
+        "backlog": "Backlog",
+        "todo": "To Do",
+        "inProgress": "In Progress",
+        "inReview": "In Review",
+        "blocked": "Blocked",
+        "completed": "Completed",
+        "canceled": "Canceled",
+        "trigger": "Status"
+      },
+      "priority": {
+        "noPriority": "No priority",
+        "urgent": "Urgent",
+        "high": "High",
+        "medium": "Medium",
+        "low": "Low",
+        "trigger": "Priority"
+      },
+      "grouping": {
+        "project": "By Project",
+        "group": "By Group",
+        "status": "By Status",
+        "time": "By Time",
+        "label": "By Label",
+        "priority": "By Priority",
+        "sectionLabel": "Group By"
+      },
+      "filter": {
+        "trigger": "Filter",
+        "sectionLabel": "Filter",
+        "project": "Project",
+        "group": "Group",
+        "status": "Status",
+        "priority": "Priority",
+        "labels": "Labels",
+        "searchProjects": "Search projects...",
+        "searchGroups": "Search groups...",
+        "searchLabels": "Search labels...",
+        "noMatchingProjects": "No matching projects",
+        "noMatchingGroups": "No matching groups",
+        "noMatchingLabels": "No matching labels",
+        "clearAll": "Clear All Filters",
+        "automationWorkspace": "Automation Workspace",
+        "removeChip": "Remove {label}"
+      },
+      "search": {
+        "placeholder": "Search project/workspace..."
+      },
+      "settings": {
+        "order": "Order",
+        "properties": "Properties",
+        "propertyLabels": {
+          "project": "Project",
+          "priority": "Priority",
+          "status": "Status",
+          "workspace_name": "Workspace name",
+          "group": "Group",
+          "agent_status": "Agent status",
+          "pull_request": "Pull request",
+          "display_name": "Display name",
+          "labels": "Labels",
+          "last_visit": "Last visit"
+        }
+      },
+      "sort": {
+        "lastVisit": "Last Visit",
+        "createTime": "Create Time",
+        "priority": "Priority",
+        "switchToAscending": "Switch to ascending",
+        "switchToDescending": "Switch to descending",
+        "ascending": "Ascending",
+        "descending": "Descending"
+      },
+      "dialog": {
+        "title": "Task",
+        "description": "Full-screen task view for Atmos workspaces and GitHub issues/PRs."
+      },
+      "loadingSettings": "Loading task settings...",
+      "source": {
+        "atmos": "Atmos",
+        "github": "GitHub"
+      },
+      "github": {
+        "tabs": {
+          "issues": "Issues",
+          "pullRequests": "Pull requests"
+        },
+        "filter": {
+          "trigger": "Filter",
+          "sectionLabel": "Filter",
+          "repos": "Repositories",
+          "allRepos": "All repositories",
+          "searchRepos": "Search repositories...",
+          "noMatchingRepos": "No matching repositories",
+          "assignees": "Assignees",
+          "searchAssignees": "Search assignees...",
+          "noMatchingAssignees": "No matching assignees",
+          "labels": "Labels",
+          "searchLabels": "Search labels...",
+          "noMatchingLabels": "No matching labels",
+          "state": "Status",
+          "status": "Status",
+          "all": "All",
+          "open": "Open",
+          "closed": "Closed",
+          "clearAll": "Clear all filters"
+        },
+        "empty": {
+          "noRepos": "No GitHub repositories linked to your Atmos projects yet.",
+          "noIssues": "No issues match the current filters.",
+          "noPrs": "No pull requests match the current filters."
+        },
+        "createWorkspace": "Create workspace",
+        "enterWorkspace": "Enter workspace",
+        "create": "Create",
+        "enter": "Enter",
+        "draft": "Draft",
+        "pagination": {
+          "previous": "Previous",
+          "next": "Next",
+          "aggregatedHint": "Showing {count} items across {repos} repositories (sorted by {sort})."
+        },
+        "sort": {
+          "label": "Sort",
+          "options": {
+            "created-desc": "Newest",
+            "created-asc": "Oldest",
+            "comments-desc": "Most commented",
+            "comments-asc": "Least commented",
+            "updated-desc": "Recently updated",
+            "updated-asc": "Least recently updated",
+            "best-match": "Best match"
+          }
+        },
+        "search": {
+          "placeholder": "is:open author:octocat …",
+          "clear": "Clear query",
+          "label": "Search query"
+        },
+        "table": {
+          "comments": "Comments",
+          "checks": "Checks",
+          "assignees": "Assignees",
+          "linked": "Linked",
+          "updatedAt": "Updated",
+          "action": "Action"
+        },
+        "actions": {
+          "createIssue": "Create issue",
+          "refreshIssues": "Refresh issues",
+          "refreshPrs": "Refresh pull requests"
+        },
+        "createIssue": {
+          "title": "Create new issue in {repo}",
+          "description": "Choose a template and fill in the form. Required fields are marked with *.",
+          "projectSelect": {
+            "title": "Select a project",
+            "description": "Choose which GitHub repository to create the issue in.",
+            "empty": "No GitHub repositories linked to your Atmos projects."
+          },
+          "template": {
+            "label": "Template",
+            "placeholder": "Select a template",
+            "loading": "Loading templates…"
+          },
+          "blank": {
+            "name": "Blank issue",
+            "description": "Create a new issue from scratch"
+          },
+          "fields": {
+            "title": "Add a title",
+            "titlePlaceholder": "Title",
+            "description": "Description",
+            "descriptionPlaceholder": "Leave a comment",
+            "assignees": "Assignees",
+            "labels": "Labels",
+            "noAssignees": "No assignees available",
+            "noLabels": "No labels available"
+          },
+          "markdown": {
+            "write": "Write",
+            "preview": "Preview",
+            "supported": "Markdown supported",
+            "nothingToPreview": "Nothing to preview"
+          },
+          "actions": {
+            "cancel": "Cancel",
+            "create": "Create",
+            "changeProject": "Change project"
+          },
+          "errors": {
+            "required": "{field} is required",
+            "createFailed": "Failed to create issue"
+          }
+        }
+      },
+      "column": {
+        "hide": "Hide {label}",
+        "show": "Show {label}",
+        "hidden": "Hidden columns",
+        "createWorkspace": "Create workspace in {label}"
+      },
+      "labels": {
+        "trigger": "Labels",
+        "addButton": "+ Label",
+        "summary": {
+          "selected": "{count} labels",
+          "empty": "Add labels"
+        },
+        "createNew": "Create New",
+        "searchPlaceholder": "Search labels",
+        "empty": "No labels yet",
+        "noMatch": "No matching labels"
+      },
+      "labelEditor": {
+        "editPlaceholder": "Label name",
+        "createPlaceholder": "New label",
+        "save": "Save",
+        "add": "Add",
+        "colorPreset": {
+          "gray": "Gray",
+          "red": "Red",
+          "orange": "Orange",
+          "amber": "Amber",
+          "yellow": "Yellow",
+          "green": "Green",
+          "teal": "Teal",
+          "blue": "Blue",
+          "indigo": "Indigo",
+          "purple": "Purple",
+          "pink": "Pink",
+          "cyan": "Cyan"
+        }
+      }
     }
   },
   "AppShell": {
@@ -1257,7 +1375,7 @@
       },
       "leftSidebarFooter": {
         "addProject": "Add Project",
-        "openKanban": "Open Kanban"
+        "openTasks": "Open Task"
       },
       "launchpad": {
         "title": "Launchpad",
@@ -1268,10 +1386,10 @@
           "agents": "Agents",
           "automations": "Automations",
           "canvas": "Canvas",
-          "kanban": "Kanban",
           "newWorkspace": "New Workspace",
           "diskAnalyzer": "Disk Analyzer",
-          "tokenUsage": "Token Usage"
+          "tokenUsage": "Token Usage",
+          "tasks": "Task"
         }
       },
       "rightSidebar": {
@@ -4363,9 +4481,6 @@
             "canvasLaunchpad": {
               "label": "Canvas (Launchpad)"
             },
-            "kanbanLaunchpad": {
-              "label": "Kanban (Launchpad)"
-            },
             "newWorkspaceLaunchpad": {
               "label": "New Workspace (Launchpad)"
             },
@@ -4374,6 +4489,9 @@
             },
             "launchpadInside": {
               "label": "Launchpad Inside placement"
+            },
+            "tasksLaunchpad": {
+              "label": "Task (Launchpad)"
             }
           },
           "editor": {
@@ -4569,6 +4687,9 @@
             },
             "githubCliAuthenticationStatus": {
               "label": "GitHub CLI Authentication Status"
+            },
+            "githubApiRateLimits": {
+              "label": "GitHub API rate limits"
             },
             "tmux": {
               "label": "Tmux"
@@ -5349,13 +5470,13 @@
             "title": "Canvas",
             "description": "Open the full-screen Canvas ops surface."
           },
-          "kanban": {
-            "title": "Kanban",
-            "description": "Browse and manage workspaces in a kanban board."
-          },
           "newWorkspace": {
             "title": "New Workspace",
             "description": "Quickly create a new workspace."
+          },
+          "tasks": {
+            "title": "Task",
+            "description": "Browse Atmos workspaces and GitHub issues/PRs in one task surface."
           }
         }
       }
@@ -5654,6 +5775,22 @@
         "authentication": {
           "authenticatedAsLabel": "Authenticated as",
           "notAuthenticated": "Not authenticated with GitHub"
+        },
+        "rateLimit": {
+          "title": "API rate limits",
+          "description": "Usage for the authenticated GitHub CLI token. Atmos uses REST (core), Search, and GraphQL.",
+          "refresh": "Refresh",
+          "loadError": "Could not load rate limits. Confirm gh is authenticated, then try again.",
+          "footer": "{remaining} remaining · {reset}",
+          "resetSoon": "resets soon",
+          "resetInMinutes": "resets in {minutes}m",
+          "resetInHours": "resets in {hours}h",
+          "resetInHoursMinutes": "resets in {hours}h {minutes}m",
+          "resources": {
+            "core": "REST (core)",
+            "search": "Search",
+            "graphql": "GraphQL"
+          }
         }
       },
       "git": {

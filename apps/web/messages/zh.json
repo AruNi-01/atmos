@@ -552,124 +552,6 @@
         "usedSuffix": "已使用"
       }
     },
-    "kanban": {
-      "status": {
-        "backlog": "积压",
-        "todo": "待做",
-        "inProgress": "进行中",
-        "inReview": "评审中",
-        "blocked": "阻塞",
-        "completed": "已完成",
-        "canceled": "已取消",
-        "trigger": "状态"
-      },
-      "priority": {
-        "noPriority": "无优先级",
-        "urgent": "紧急",
-        "high": "高",
-        "medium": "中",
-        "low": "低",
-        "trigger": "优先级"
-      },
-      "grouping": {
-        "project": "按项目",
-        "group": "按分组",
-        "status": "按状态",
-        "time": "按时间",
-        "label": "按标签",
-        "priority": "按优先级",
-        "sectionLabel": "分组方式"
-      },
-      "filter": {
-        "trigger": "筛选",
-        "sectionLabel": "筛选",
-        "project": "项目",
-        "group": "分组",
-        "status": "状态",
-        "priority": "优先级",
-        "labels": "标签",
-        "searchProjects": "搜索项目...",
-        "searchGroups": "搜索分组...",
-        "searchLabels": "搜索标签...",
-        "noMatchingProjects": "没有匹配的项目",
-        "noMatchingGroups": "没有匹配的分组",
-        "noMatchingLabels": "没有匹配的标签",
-        "clearAll": "清空所有筛选",
-        "automationWorkspace": "自动化工作区",
-        "removeChip": "移除 {label}"
-      },
-      "search": {
-        "placeholder": "搜索项目/工作区..."
-      },
-      "settings": {
-        "order": "排序",
-        "properties": "卡片属性",
-        "propertyLabels": {
-          "project": "项目",
-          "priority": "优先级",
-          "status": "状态",
-          "workspace_name": "工作区名称",
-          "group": "分组",
-          "agent_status": "Agent 状态",
-          "pull_request": "Pull request",
-          "display_name": "显示名称",
-          "labels": "标签",
-          "last_visit": "最近访问"
-        }
-      },
-      "sort": {
-        "lastVisit": "最近访问",
-        "createTime": "创建时间",
-        "priority": "优先级",
-        "switchToAscending": "切换为升序",
-        "switchToDescending": "切换为降序",
-        "ascending": "升序",
-        "descending": "降序"
-      },
-      "dialog": {
-        "title": "工作区看板",
-        "description": "工作区的全屏看板视图。"
-      },
-      "loadingSettings": "正在加载看板设置...",
-      "column": {
-        "hide": "隐藏 {label}",
-        "show": "显示 {label}",
-        "hidden": "已隐藏列",
-        "createWorkspace": "在 {label} 中创建工作区"
-      },
-      "labels": {
-        "trigger": "标签",
-        "addButton": "+ 标签",
-        "summary": {
-          "selected": "{count} 个标签",
-          "empty": "添加标签"
-        },
-        "createNew": "新建标签",
-        "searchPlaceholder": "搜索标签",
-        "empty": "还没有标签",
-        "noMatch": "没有匹配的标签"
-      },
-      "labelEditor": {
-        "editPlaceholder": "标签名",
-        "createPlaceholder": "新标签",
-        "save": "保存",
-        "add": "添加",
-        "colorPreset": {
-          "gray": "灰色",
-          "red": "红色",
-          "orange": "橙色",
-          "amber": "琥珀色",
-          "yellow": "黄色",
-          "green": "绿色",
-          "teal": "青绿色",
-          "blue": "蓝色",
-          "indigo": "靛蓝色",
-          "purple": "紫色",
-          "pink": "粉色",
-          "cyan": "青色"
-        }
-      }
-    },
     "tokenUsageDialog": {
       "trigger": {
         "label": "Token 用量",
@@ -1007,7 +889,7 @@
       "automations": "自动化 - ATMOS",
       "diskAnalyzer": "磁盘分析器 - ATMOS",
       "tokenUsage": "Token 用量 - ATMOS",
-      "kanban": "看板 - ATMOS"
+      "tasks": "任务 - ATMOS"
     },
     "localModelDownload": {
       "downloadingRuntime": "正在下载运行时",
@@ -1038,10 +920,6 @@
       "aiQuota": {
         "title": "AI 配额使用",
         "description": "查看 Provider 配额和刷新状态"
-      },
-      "kanban": {
-        "title": "打开看板视图",
-        "description": "打开工作区看板"
       },
       "canvas": {
         "title": "打开 Canvas",
@@ -1109,6 +987,10 @@
           "title": "Token 用量",
           "description": "查看模型 Token 使用和活动"
         }
+      },
+      "tasks": {
+        "title": "打开任务视图",
+        "description": "打开工作区与 GitHub Issue/PR 的任务视图"
       }
     },
     "workspaceCreationOverlay": {
@@ -1199,6 +1081,242 @@
     "globalSearchParts": {
       "line": "第 {line} 行",
       "lineShort": "L{line}"
+    },
+    "task": {
+      "status": {
+        "backlog": "积压",
+        "todo": "待做",
+        "inProgress": "进行中",
+        "inReview": "评审中",
+        "blocked": "阻塞",
+        "completed": "已完成",
+        "canceled": "已取消",
+        "trigger": "状态"
+      },
+      "priority": {
+        "noPriority": "无优先级",
+        "urgent": "紧急",
+        "high": "高",
+        "medium": "中",
+        "low": "低",
+        "trigger": "优先级"
+      },
+      "grouping": {
+        "project": "按项目",
+        "group": "按分组",
+        "status": "按状态",
+        "time": "按时间",
+        "label": "按标签",
+        "priority": "按优先级",
+        "sectionLabel": "分组方式"
+      },
+      "filter": {
+        "trigger": "筛选",
+        "sectionLabel": "筛选",
+        "project": "项目",
+        "group": "分组",
+        "status": "状态",
+        "priority": "优先级",
+        "labels": "标签",
+        "searchProjects": "搜索项目...",
+        "searchGroups": "搜索分组...",
+        "searchLabels": "搜索标签...",
+        "noMatchingProjects": "没有匹配的项目",
+        "noMatchingGroups": "没有匹配的分组",
+        "noMatchingLabels": "没有匹配的标签",
+        "clearAll": "清空所有筛选",
+        "automationWorkspace": "自动化工作区",
+        "removeChip": "移除 {label}"
+      },
+      "search": {
+        "placeholder": "搜索项目/工作区..."
+      },
+      "settings": {
+        "order": "排序",
+        "properties": "卡片属性",
+        "propertyLabels": {
+          "project": "项目",
+          "priority": "优先级",
+          "status": "状态",
+          "workspace_name": "工作区名称",
+          "group": "分组",
+          "agent_status": "Agent 状态",
+          "pull_request": "Pull request",
+          "display_name": "显示名称",
+          "labels": "标签",
+          "last_visit": "最近访问"
+        }
+      },
+      "sort": {
+        "lastVisit": "最近访问",
+        "createTime": "创建时间",
+        "priority": "优先级",
+        "switchToAscending": "切换为升序",
+        "switchToDescending": "切换为降序",
+        "ascending": "升序",
+        "descending": "降序"
+      },
+      "dialog": {
+        "title": "任务",
+        "description": "Atmos 工作区与 GitHub Issue/PR 的全屏任务视图。"
+      },
+      "loadingSettings": "正在加载任务设置...",
+      "source": {
+        "atmos": "Atmos",
+        "github": "GitHub"
+      },
+      "github": {
+        "tabs": {
+          "issues": "Issues",
+          "pullRequests": "Pull requests"
+        },
+        "filter": {
+          "trigger": "筛选",
+          "sectionLabel": "筛选",
+          "repos": "仓库",
+          "allRepos": "全部仓库",
+          "searchRepos": "搜索仓库...",
+          "noMatchingRepos": "没有匹配的仓库",
+          "assignees": "负责人",
+          "searchAssignees": "搜索负责人...",
+          "noMatchingAssignees": "没有匹配的负责人",
+          "labels": "标签",
+          "searchLabels": "搜索标签...",
+          "noMatchingLabels": "没有匹配的标签",
+          "state": "状态",
+          "status": "状态",
+          "all": "全部",
+          "open": "打开",
+          "closed": "已关闭",
+          "clearAll": "清空所有筛选"
+        },
+        "empty": {
+          "noRepos": "还没有关联到 Atmos 项目的 GitHub 仓库。",
+          "noIssues": "没有符合当前筛选的 Issue。",
+          "noPrs": "没有符合当前筛选的 Pull request。"
+        },
+        "createWorkspace": "创建工作区",
+        "enterWorkspace": "进入工作区",
+        "create": "创建",
+        "enter": "进入",
+        "draft": "草稿",
+        "pagination": {
+          "previous": "上一页",
+          "next": "下一页",
+          "aggregatedHint": "在 {repos} 个仓库中共 {count} 项（按{sort}排序）。"
+        },
+        "sort": {
+          "label": "排序",
+          "options": {
+            "created-desc": "最新创建",
+            "created-asc": "最早创建",
+            "comments-desc": "评论最多",
+            "comments-asc": "评论最少",
+            "updated-desc": "最近更新",
+            "updated-asc": "最早更新",
+            "best-match": "最佳匹配"
+          }
+        },
+        "search": {
+          "placeholder": "is:open author:octocat …",
+          "clear": "清除查询",
+          "label": "搜索语法"
+        },
+        "table": {
+          "comments": "评论",
+          "checks": "检查",
+          "updatedAt": "更新时间",
+          "action": "操作",
+          "assignees": "负责人",
+          "linked": "关联"
+        },
+        "actions": {
+          "createIssue": "创建 Issue",
+          "refreshIssues": "刷新 Issues",
+          "refreshPrs": "刷新 Pull requests"
+        },
+        "createIssue": {
+          "title": "在 {repo} 中创建 Issue",
+          "description": "选择模板并填写表单。标 * 的为必填项。",
+          "projectSelect": {
+            "title": "选择项目",
+            "description": "选择要创建 Issue 的 GitHub 仓库。",
+            "empty": "当前 Atmos 项目尚未关联 GitHub 仓库。"
+          },
+          "template": {
+            "label": "模板",
+            "placeholder": "选择模板",
+            "loading": "正在加载模板…"
+          },
+          "blank": {
+            "name": "空白 Issue",
+            "description": "从零开始创建 Issue"
+          },
+          "fields": {
+            "title": "标题",
+            "titlePlaceholder": "标题",
+            "description": "描述",
+            "descriptionPlaceholder": "留下评论",
+            "assignees": "负责人",
+            "labels": "标签",
+            "noAssignees": "暂无可用负责人",
+            "noLabels": "暂无可用标签"
+          },
+          "markdown": {
+            "write": "编辑",
+            "preview": "预览",
+            "supported": "支持 Markdown",
+            "nothingToPreview": "暂无可预览内容"
+          },
+          "actions": {
+            "cancel": "取消",
+            "create": "创建",
+            "changeProject": "更换项目"
+          },
+          "errors": {
+            "required": "{field} 为必填项",
+            "createFailed": "创建 Issue 失败"
+          }
+        }
+      },
+      "column": {
+        "hide": "隐藏 {label}",
+        "show": "显示 {label}",
+        "hidden": "已隐藏列",
+        "createWorkspace": "在 {label} 中创建工作区"
+      },
+      "labels": {
+        "trigger": "标签",
+        "addButton": "+ 标签",
+        "summary": {
+          "selected": "{count} 个标签",
+          "empty": "添加标签"
+        },
+        "createNew": "新建标签",
+        "searchPlaceholder": "搜索标签",
+        "empty": "还没有标签",
+        "noMatch": "没有匹配的标签"
+      },
+      "labelEditor": {
+        "editPlaceholder": "标签名",
+        "createPlaceholder": "新标签",
+        "save": "保存",
+        "add": "添加",
+        "colorPreset": {
+          "gray": "灰色",
+          "red": "红色",
+          "orange": "橙色",
+          "amber": "琥珀色",
+          "yellow": "黄色",
+          "green": "绿色",
+          "teal": "青绿色",
+          "blue": "蓝色",
+          "indigo": "靛蓝色",
+          "purple": "紫色",
+          "pink": "粉色",
+          "cyan": "青色"
+        }
+      }
     }
   },
   "AppShell": {
@@ -1257,7 +1375,7 @@
       },
       "leftSidebarFooter": {
         "addProject": "添加项目",
-        "openKanban": "打开看板"
+        "openTasks": "打开任务"
       },
       "launchpad": {
         "title": "Launchpad",
@@ -1268,10 +1386,10 @@
           "agents": "Agent",
           "automations": "自动化",
           "canvas": "画布",
-          "kanban": "看板",
           "newWorkspace": "新建工作区",
           "diskAnalyzer": "磁盘分析器",
-          "tokenUsage": "Token 用量"
+          "tokenUsage": "Token 用量",
+          "tasks": "任务"
         }
       },
       "rightSidebar": {
@@ -4363,9 +4481,6 @@
             "canvasLaunchpad": {
               "label": "Canvas（Launchpad）"
             },
-            "kanbanLaunchpad": {
-              "label": "Kanban（Launchpad）"
-            },
             "newWorkspaceLaunchpad": {
               "label": "New Workspace（Launchpad）"
             },
@@ -4374,6 +4489,9 @@
             },
             "launchpadInside": {
               "label": "Launchpad 内侧展示"
+            },
+            "tasksLaunchpad": {
+              "label": "任务（Launchpad）"
             }
           },
           "editor": {
@@ -4569,6 +4687,9 @@
             },
             "githubCliAuthenticationStatus": {
               "label": "GitHub CLI 认证状态"
+            },
+            "githubApiRateLimits": {
+              "label": "GitHub API 额度"
             },
             "tmux": {
               "label": "Tmux"
@@ -5349,13 +5470,13 @@
             "title": "Canvas",
             "description": "打开全屏 Canvas 运维画布。"
           },
-          "kanban": {
-            "title": "Kanban",
-            "description": "以看板视图浏览与管理工作区。"
-          },
           "newWorkspace": {
             "title": "New Workspace",
             "description": "快速创建新工作区。"
+          },
+          "tasks": {
+            "title": "任务",
+            "description": "在同一任务视图中浏览 Atmos 工作区与 GitHub Issue/PR。"
           }
         }
       }
@@ -5654,6 +5775,22 @@
         "authentication": {
           "authenticatedAsLabel": "认证用户",
           "notAuthenticated": "尚未认证 GitHub"
+        },
+        "rateLimit": {
+          "title": "API 额度",
+          "description": "当前 GitHub CLI 认证 token 的用量。Atmos 会使用 REST（core）、Search 与 GraphQL。",
+          "refresh": "刷新",
+          "loadError": "无法加载额度信息。请确认已完成 gh 认证后重试。",
+          "footer": "剩余 {remaining} · {reset}",
+          "resetSoon": "即将重置",
+          "resetInMinutes": "{minutes} 分钟后重置",
+          "resetInHours": "{hours} 小时后重置",
+          "resetInHoursMinutes": "{hours} 小时 {minutes} 分钟后重置",
+          "resources": {
+            "core": "REST（core）",
+            "search": "Search",
+            "graphql": "GraphQL"
+          }
         }
       },
       "git": {

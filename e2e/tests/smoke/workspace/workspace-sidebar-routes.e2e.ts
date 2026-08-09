@@ -102,7 +102,7 @@ test.describe("smoke workspace", () => {
 
     const projectsRoute = withSearchParams(workspaceUrl!, {
       lsTab: "projects",
-      lsKanban: "true",
+      lsTask: "true",
       settingsModal: null,
       activeSettingTab: null,
     });
@@ -121,7 +121,7 @@ test.describe("smoke workspace", () => {
       .poll(async () => new URL(page.url()).searchParams.get("lsTab"))
       .toBe("projects");
     await expect
-      .poll(async () => new URL(page.url()).searchParams.get("lsKanban"))
+      .poll(async () => new URL(page.url()).searchParams.get("lsTask"))
       .toBe("true");
     await expect
       .poll(async () => page.locator("html").getAttribute("lang"))
@@ -130,7 +130,7 @@ test.describe("smoke workspace", () => {
 
     const filesRoute = withSearchParams(workspaceUrl!, {
       lsTab: "files",
-      lsKanban: null,
+      lsTask: null,
       settingsModal: null,
       activeSettingTab: null,
     });
@@ -143,7 +143,7 @@ test.describe("smoke workspace", () => {
       .poll(async () => new URL(page.url()).searchParams.get("lsTab"))
       .toBe("files");
     await expect
-      .poll(async () => new URL(page.url()).searchParams.get("lsKanban") ?? "")
+      .poll(async () => new URL(page.url()).searchParams.get("lsTask") ?? "")
       .toBe("");
 
     const settingsRoute = withSearchParams(workspaceUrl!, {

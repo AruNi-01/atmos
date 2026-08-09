@@ -573,6 +573,8 @@ pub enum WsAction {
     GithubRepoAssignees,
     /// GitHub 用户卡片（profile + contribution calendar，供 hover 预览）
     GithubUserCard,
+    /// GitHub API rate limits（REST core / Search / GraphQL，本地 gh token）
+    GithubRateLimit,
     /// 更新 PR labels（add/remove）
     GithubPrUpdateLabels,
     /// 更新 PR assignees（add/remove）
@@ -583,6 +585,12 @@ pub enum WsAction {
     GithubPrTimelinePage,
     /// 列出仓库 issue
     GithubIssueList,
+    /// Multi-repo issue/PR search (Task surface)
+    GithubSearch,
+    /// List `.github/ISSUE_TEMPLATE` files for a repo (Task create-issue)
+    GithubIssueTemplates,
+    /// Create a GitHub issue
+    GithubIssueCreate,
     /// 分页获取仓库 issue
     GithubIssuePage,
     /// 更新 issue labels（add/remove）

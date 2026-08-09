@@ -203,7 +203,7 @@ export function WorkspaceStatusButton({
   showTooltip = true,
   onOpenChange,
 }: WorkspaceStatusButtonProps) {
-  const t = useTranslations("appShell.kanban");
+  const t = useTranslations("appShell.task");
   const meta = getWorkspaceWorkflowStatusMeta(status);
   const Icon = meta.icon;
   const translatedStatusLabel = t(meta.labelKey);

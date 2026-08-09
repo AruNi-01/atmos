@@ -66,6 +66,7 @@ export function KanbanWorkspaceCard({
   workspace,
   projectId,
   projectName,
+  projectPath,
   cardProperties,
   showUnpinnedBorder = false,
   groups = [],
@@ -88,6 +89,8 @@ export function KanbanWorkspaceCard({
   workspace: Workspace;
   projectId: string;
   projectName: string;
+  /** Project root — used to resolve github owner/repo when workspace has no stored githubPr. */
+  projectPath?: string;
   cardProperties: KanbanCardProperties;
   showUnpinnedBorder?: boolean;
   groups?: Group[];
@@ -125,9 +128,11 @@ export function KanbanWorkspaceCard({
   const isAutomation = workspace.createSource === "automation";
   const workspaceTitle = workspace.name;
   const workspaceGroupId = resolveWorkspaceGroupId(groups, projectId, workspace.id);
+  const prRepoPath = workspace.localPath?.trim() || projectPath?.trim() || null;
   const { presentation: managedPr } = useWorkspacePrStatus({
     githubPr: workspace.githubPr,
     branch: workspace.branch,
+    repoPath: prRepoPath,
     interested: cardProperties.pull_request,
   });
   const openManagedPullRequest = React.useCallback(() => {

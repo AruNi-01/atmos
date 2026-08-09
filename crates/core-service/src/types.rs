@@ -61,6 +61,95 @@ pub struct GithubPrPayload {
     pub is_draft: bool,
     #[serde(default)]
     pub labels: Vec<GithubIssueLabelPayload>,
+    #[serde(default)]
+    pub created_at: Option<String>,
+    #[serde(default)]
+    pub updated_at: Option<String>,
+    #[serde(default)]
+    pub author: Option<GithubIssueAssigneePayload>,
+    #[serde(default)]
+    pub assignees: Vec<GithubIssueAssigneePayload>,
+}
+
+/// CI / status check node for Task GitHub list rings.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct GithubStatusCheckPayload {
+    #[serde(default)]
+    pub state: Option<String>,
+    #[serde(default)]
+    pub conclusion: Option<String>,
+    #[serde(default)]
+    pub status: Option<String>,
+    #[serde(default)]
+    pub name: Option<String>,
+    #[serde(default)]
+    pub context: Option<String>,
+    #[serde(default)]
+    pub details_url: Option<String>,
+    #[serde(default)]
+    pub target_url: Option<String>,
+    #[serde(default)]
+    pub workflow_name: Option<String>,
+}
+
+/// Multi-repo GitHub Search hit (Task surface).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GithubSearchItemPayload {
+    pub owner: String,
+    pub repo: String,
+    pub number: u64,
+    pub title: String,
+    #[serde(default)]
+    pub body: Option<String>,
+    pub url: String,
+    pub state: String,
+    #[serde(default)]
+    pub created_at: Option<String>,
+    #[serde(default)]
+    pub updated_at: Option<String>,
+    #[serde(default)]
+    pub comments_count: u64,
+    #[serde(default)]
+    pub labels: Vec<GithubIssueLabelPayload>,
+    #[serde(default)]
+    pub author: Option<GithubIssueAssigneePayload>,
+    #[serde(default)]
+    pub assignees: Vec<GithubIssueAssigneePayload>,
+    #[serde(default)]
+    pub is_draft: bool,
+    #[serde(default)]
+    pub head_ref: Option<String>,
+    #[serde(default)]
+    pub base_ref: Option<String>,
+    /// `"issue"` or `"pr"`.
+    pub kind: String,
+    /// PR CI rollup (empty for issues).
+    #[serde(default)]
+    pub status_checks: Vec<GithubStatusCheckPayload>,
+    /// Linked issues (on PR rows) or linked PRs (on issue rows).
+    #[serde(default)]
+    pub linked_refs: Vec<GithubLinkedRefPayload>,
+}
+
+/// Cross-link chip for Task list (issue ↔ PR).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GithubLinkedRefPayload {
+    /// `"issue"` | `"pr"`
+    pub kind: String,
+    pub number: u64,
+    #[serde(default)]
+    pub state: Option<String>,
+    #[serde(default)]
+    pub title: Option<String>,
+    #[serde(default)]
+    pub url: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GithubSearchPagePayload {
+    pub items: Vec<GithubSearchItemPayload>,
+    pub has_more: bool,
+    pub total_count: u64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

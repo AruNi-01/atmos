@@ -140,7 +140,7 @@ export function WorkspaceKanbanFilterMenu({
   groupingMode = "project",
   onGroupingModeChange,
 }: WorkspaceKanbanFilterMenuProps) {
-  const t = useTranslations("appShell.kanban");
+  const t = useTranslations("appShell.task");
   const groupsT = useTranslations("appShell.groups");
   const [labelFilterQuery, setLabelFilterQuery] = React.useState("");
   const [projectFilterQuery, setProjectFilterQuery] = React.useState("");
@@ -238,13 +238,18 @@ export function WorkspaceKanbanFilterMenu({
             </span>
           </button>
         ) : (
-          <Button size="xs" variant="secondary" className="relative">
+          <Button
+            size="xs"
+            variant="secondary"
+            // Match toolbar search/settings (h-7). size=xs is h-7 sm:h-6 by default.
+            className="relative h-7 sm:h-7"
+          >
             {activeFilterCount > 0 ? (
               <span className="absolute -right-1 -top-1 inline-flex size-4 items-center justify-center rounded-full bg-primary text-[10px] font-semibold text-primary-foreground">
                 {activeFilterCount}
               </span>
             ) : null}
-            <ListFilter className={cn("size-4", showLabel && "mr-1")} />
+            <ListFilter className={cn("size-3.5", showLabel && "mr-1")} />
             {showLabel ? t("filter.trigger") : null}
           </Button>
         )}
@@ -279,7 +284,12 @@ export function WorkspaceKanbanFilterMenu({
         <DropdownMenuSub>
           <DropdownMenuSubTrigger>
             <ProjectIcon className="size-4" />
-            {t("filter.project")}
+            <span className="min-w-0 flex-1 truncate">{t("filter.project")}</span>
+            {filters.projectIds.length > 0 ? (
+              <span className="shrink-0 tabular-nums text-[11px] text-muted-foreground">
+                {filters.projectIds.length}
+              </span>
+            ) : null}
           </DropdownMenuSubTrigger>
           <DropdownMenuSubContent className="w-56">
             <div className="p-2">
@@ -317,7 +327,12 @@ export function WorkspaceKanbanFilterMenu({
         <DropdownMenuSub>
           <DropdownMenuSubTrigger>
             <GroupIcon className="size-4" />
-            {t("filter.group")}
+            <span className="min-w-0 flex-1 truncate">{t("filter.group")}</span>
+            {filters.groupIds.length > 0 ? (
+              <span className="shrink-0 tabular-nums text-[11px] text-muted-foreground">
+                {filters.groupIds.length}
+              </span>
+            ) : null}
           </DropdownMenuSubTrigger>
           <DropdownMenuSubContent className="w-56">
             <div className="p-2">
@@ -365,7 +380,12 @@ export function WorkspaceKanbanFilterMenu({
         <DropdownMenuSub>
           <DropdownMenuSubTrigger>
             <StatusIcon className="size-4" />
-            {t("filter.status")}
+            <span className="min-w-0 flex-1 truncate">{t("filter.status")}</span>
+            {filters.statuses.length > 0 ? (
+              <span className="shrink-0 tabular-nums text-[11px] text-muted-foreground">
+                {filters.statuses.length}
+              </span>
+            ) : null}
           </DropdownMenuSubTrigger>
           <DropdownMenuSubContent className="w-56">
             {WORKSPACE_WORKFLOW_STATUS_OPTIONS.map((option) => (
@@ -388,7 +408,12 @@ export function WorkspaceKanbanFilterMenu({
         <DropdownMenuSub>
           <DropdownMenuSubTrigger>
             <PriorityIcon className="size-4" />
-            {t("filter.priority")}
+            <span className="min-w-0 flex-1 truncate">{t("filter.priority")}</span>
+            {filters.priorities.length > 0 ? (
+              <span className="shrink-0 tabular-nums text-[11px] text-muted-foreground">
+                {filters.priorities.length}
+              </span>
+            ) : null}
           </DropdownMenuSubTrigger>
           <DropdownMenuSubContent className="w-56">
             {WORKSPACE_PRIORITY_OPTIONS.map((option) => (
@@ -411,7 +436,12 @@ export function WorkspaceKanbanFilterMenu({
         <DropdownMenuSub>
           <DropdownMenuSubTrigger>
             <LabelIcon className="size-4" />
-            {t("filter.labels")}
+            <span className="min-w-0 flex-1 truncate">{t("filter.labels")}</span>
+            {filters.labelIds.length > 0 ? (
+              <span className="shrink-0 tabular-nums text-[11px] text-muted-foreground">
+                {filters.labelIds.length}
+              </span>
+            ) : null}
           </DropdownMenuSubTrigger>
           <DropdownMenuSubContent className="w-56">
             <div className="p-2">

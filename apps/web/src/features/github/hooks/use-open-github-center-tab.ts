@@ -9,12 +9,14 @@ import { useEditorStore } from "@/features/editor/store/use-editor-store";
 import { useContextParams } from "@/shared/hooks/use-context-params";
 import { useAppRouter } from "@/shared/hooks/use-app-router";
 import { centerStageParams } from "@/shared/lib/nuqs/searchParams";
+import { useTaskGithubDrawerNav } from "@/features/task/components/task-github-drawer/task-github-drawer-nav-context";
 
 export function useOpenGithubCenterTab() {
   const t = useTranslations("github.centerTabs");
   const router = useAppRouter();
   const { effectiveContextId } = useContextParams();
   const [, setCenterStageParams] = useQueryStates(centerStageParams);
+  const drawerNav = useTaskGithubDrawerNav();
   const openPullRequest = useGithubCenterTabsStore(
     (state) => state.openPullRequest,
   );
@@ -69,6 +71,17 @@ export function useOpenGithubCenterTab() {
       /** Workspace (or project) context that owns the center tab. */
       contextId?: string | null;
     }) => {
+      // Task GitHub nested drawer stack takes priority over center tabs.
+      if (drawerNav?.active) {
+        return drawerNav.openPullRequest({
+          branch,
+          owner,
+          prNumber,
+          repo,
+          title,
+          contextId,
+        });
+      }
       const targetContextId = resolveContextId(contextId);
       if (!targetContextId) return false;
       const tab = openPullRequest(targetContextId, {
@@ -82,7 +95,7 @@ export function useOpenGithubCenterTab() {
       activateTab(tab.value, targetContextId);
       return true;
     },
-    [activateTab, openPullRequest, resolveContextId, t],
+    [activateTab, drawerNav, openPullRequest, resolveContextId, t],
   );
 
   const openActionRunTab = React.useCallback(
@@ -101,6 +114,15 @@ export function useOpenGithubCenterTab() {
       runId?: number;
       contextId?: string | null;
     }) => {
+      if (drawerNav?.active) {
+        return drawerNav.openActionRun({
+          owner,
+          repo,
+          run,
+          runId,
+          contextId,
+        });
+      }
       const targetContextId = resolveContextId(contextId);
       if (!targetContextId) return false;
       const tab = openActionRun(targetContextId, {
@@ -117,7 +139,7 @@ export function useOpenGithubCenterTab() {
       activateTab(tab.value, targetContextId);
       return true;
     },
-    [activateTab, openActionRun, resolveContextId, t],
+    [activateTab, drawerNav, openActionRun, resolveContextId, t],
   );
 
   const openCommitTab = React.useCallback(
@@ -136,6 +158,16 @@ export function useOpenGithubCenterTab() {
       authorName: string;
       contextId?: string | null;
     }) => {
+      if (drawerNav?.active) {
+        return drawerNav.openCommit({
+          owner,
+          repo,
+          sha,
+          subject,
+          authorName,
+          contextId,
+        });
+      }
       const targetContextId = resolveContextId(contextId);
       if (!targetContextId) return false;
       const shortSha = sha.substring(0, 7);
@@ -151,7 +183,7 @@ export function useOpenGithubCenterTab() {
       activateTab(tab.value, targetContextId);
       return true;
     },
-    [activateTab, openCommit, resolveContextId],
+    [activateTab, drawerNav, openCommit, resolveContextId],
   );
 
   const openIssueTab = React.useCallback(
@@ -168,6 +200,15 @@ export function useOpenGithubCenterTab() {
       title?: string | null;
       contextId?: string | null;
     }) => {
+      if (drawerNav?.active) {
+        return drawerNav.openIssue({
+          owner,
+          repo,
+          issueNumber,
+          title,
+          contextId,
+        });
+      }
       const targetContextId = resolveContextId(contextId);
       if (!targetContextId) return false;
       const tab = openIssue(targetContextId, {
@@ -180,7 +221,7 @@ export function useOpenGithubCenterTab() {
       activateTab(tab.value, targetContextId);
       return true;
     },
-    [activateTab, openIssue, resolveContextId, t],
+    [activateTab, drawerNav, openIssue, resolveContextId, t],
   );
 
   return { openActionRunTab, openPullRequestTab, openIssueTab, openCommitTab };
