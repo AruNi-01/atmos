@@ -150,4 +150,4 @@ AppShot 抽出多块 pure 模块与测试，但 `browser-use-control.ts`（~1117
 
 - 修复分支：`grokbuild/quality-fix/2026-08-08`
 - 修复提交：`4ca13198f`
-- PR URL：见创建后回填
+- PR URL：https://github.com/AruNi-01/atmos/pull/210
