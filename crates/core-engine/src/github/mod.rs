@@ -73,6 +73,27 @@ pub struct GithubPullRequest {
     pub labels: Vec<GithubIssueLabel>,
 }
 
+/// One day in a GitHub contribution calendar (0..=4 intensity).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GithubContributionDay {
+    pub date: String,
+    pub count: u32,
+    pub level: u8,
+}
+
+/// Public profile + contribution calendar for hover cards.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GithubUserCard {
+    pub login: String,
+    pub name: Option<String>,
+    pub avatar_url: Option<String>,
+    pub total_contributions: u32,
+    /// Last ~17 weeks (119 days) of contribution days, oldest → newest.
+    pub contributions: Vec<GithubContributionDay>,
+}
+
+const USER_CARD_CONTRIBUTION_DAYS: usize = 119;
+
 pub struct GithubEngine;
 
 impl Default for GithubEngine {
@@ -111,6 +132,120 @@ impl GithubEngine {
             Ok(json) => Ok(json),
             Err(_) => Ok(serde_json::Value::String(stdout)),
         }
+    }
+
+    /// Fetch a user's public profile + contribution calendar via authenticated `gh` GraphQL.
+    ///
+    /// Uses the local `gh` auth context (user token), not a third-party contributions host.
+    pub async fn get_user_card(&self, login: &str) -> Result<GithubUserCard, EngineError> {
+        let login = normalize_github_login(login)
+            .ok_or_else(|| EngineError::Git("GitHub username is required".to_string()))?;
+
+        // Compact single-line query so it can be passed safely via `-f query=...`.
+        let query = concat!(
+            "query($login:String!){",
+            "user(login:$login){",
+            "name login avatarUrl ",
+            "contributionsCollection{",
+            "contributionCalendar{",
+            "totalContributions ",
+            "weeks{contributionDays{date contributionCount contributionLevel}}",
+            "}}}}"
+        );
+        let login_var = format!("login={login}");
+        let query_arg = format!("query={query}");
+        let output = self
+            .run_gh(&["api", "graphql", "-f", &query_arg, "-F", &login_var])
+            .await?;
+
+        if let Some(errors) = output.get("errors").and_then(|v| v.as_array()) {
+            if !errors.is_empty() {
+                let message = errors
+                    .iter()
+                    .filter_map(|e| e.get("message").and_then(|m| m.as_str()))
+                    .collect::<Vec<_>>()
+                    .join("; ");
+                return Err(EngineError::Git(format!(
+                    "GitHub GraphQL error for user '{login}': {message}"
+                )));
+            }
+        }
+
+        let user = output
+            .pointer("/data/user")
+            .cloned()
+            .filter(|v| !v.is_null())
+            .ok_or_else(|| EngineError::Git(format!("GitHub user '{login}' not found")))?;
+
+        let resolved_login = user
+            .get("login")
+            .and_then(|v| v.as_str())
+            .unwrap_or(login.as_str())
+            .to_string();
+        let name = user
+            .get("name")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string())
+            .filter(|s| !s.is_empty());
+        let avatar_url = user
+            .get("avatarUrl")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string())
+            .filter(|s| !s.is_empty());
+
+        let calendar = user
+            .pointer("/contributionsCollection/contributionCalendar")
+            .cloned()
+            .unwrap_or(serde_json::Value::Null);
+        let total_contributions = calendar
+            .get("totalContributions")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(0) as u32;
+
+        let mut days: Vec<GithubContributionDay> = calendar
+            .get("weeks")
+            .and_then(|v| v.as_array())
+            .into_iter()
+            .flatten()
+            .filter_map(|week| week.get("contributionDays")?.as_array())
+            .flatten()
+            .filter_map(|day| {
+                let date = day.get("date")?.as_str()?.to_string();
+                if date.is_empty() {
+                    return None;
+                }
+                let count = day
+                    .get("contributionCount")
+                    .and_then(|v| v.as_u64())
+                    .unwrap_or(0) as u32;
+                let level = contribution_level_to_u8(
+                    day.get("contributionLevel")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("NONE"),
+                );
+                Some(GithubContributionDay { date, count, level })
+            })
+            .collect();
+
+        days.sort_by(|a, b| a.date.cmp(&b.date));
+        if days.len() > USER_CARD_CONTRIBUTION_DAYS {
+            days = days
+                .into_iter()
+                .rev()
+                .take(USER_CARD_CONTRIBUTION_DAYS)
+                .collect::<Vec<_>>()
+                .into_iter()
+                .rev()
+                .collect();
+        }
+
+        Ok(GithubUserCard {
+            login: resolved_login,
+            name,
+            avatar_url,
+            total_contributions,
+            contributions: days,
+        })
     }
 
     /// Extract (owner, repo) from a remote URL
@@ -802,9 +937,39 @@ fn parse_pr_value_api(
     })
 }
 
+fn normalize_github_login(login: &str) -> Option<String> {
+    let trimmed = login.trim().trim_start_matches('@');
+    if trimmed.is_empty() {
+        return None;
+    }
+    // GitHub usernames: alphanumerics and hyphens; bots often end with [bot].
+    let cleaned = trimmed.trim_end_matches("[bot]").trim_end_matches("[Bot]");
+    if cleaned.is_empty() {
+        return None;
+    }
+    let ok = cleaned
+        .chars()
+        .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_');
+    if !ok {
+        return None;
+    }
+    Some(cleaned.to_string())
+}
+
+fn contribution_level_to_u8(level: &str) -> u8 {
+    match level {
+        "NONE" => 0,
+        "FIRST_QUARTILE" => 1,
+        "SECOND_QUARTILE" => 2,
+        "THIRD_QUARTILE" => 3,
+        "FOURTH_QUARTILE" => 4,
+        _ => 0,
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use super::GithubEngine;
+    use super::{contribution_level_to_u8, normalize_github_login, GithubEngine};
 
     #[test]
     fn parse_issue_url_accepts_standard_urls() {
@@ -822,5 +987,27 @@ mod tests {
             GithubEngine::parse_issue_url("https://github.com/AruNi-01/atmos/pull/40").is_none()
         );
         assert!(GithubEngine::parse_issue_url("not-a-url").is_none());
+    }
+
+    #[test]
+    fn normalize_github_login_strips_at_and_bot_suffix() {
+        assert_eq!(
+            normalize_github_login(" @octocat ").as_deref(),
+            Some("octocat")
+        );
+        assert_eq!(
+            normalize_github_login("dependabot[bot]").as_deref(),
+            Some("dependabot")
+        );
+        assert_eq!(normalize_github_login(""), None);
+        assert_eq!(normalize_github_login("bad login!"), None);
+    }
+
+    #[test]
+    fn contribution_level_maps_quartiles() {
+        assert_eq!(contribution_level_to_u8("NONE"), 0);
+        assert_eq!(contribution_level_to_u8("FIRST_QUARTILE"), 1);
+        assert_eq!(contribution_level_to_u8("FOURTH_QUARTILE"), 4);
+        assert_eq!(contribution_level_to_u8("unknown"), 0);
     }
 }

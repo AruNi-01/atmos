@@ -573,6 +573,8 @@ pub enum WsAction {
     GithubRepoLabels,
     /// 列出仓库可指派用户（供 PR 侧栏选择）
     GithubRepoAssignees,
+    /// GitHub 用户卡片（profile + contribution calendar，供 hover 预览）
+    GithubUserCard,
     /// 更新 PR labels（add/remove）
     GithubPrUpdateLabels,
     /// 更新 PR assignees（add/remove）

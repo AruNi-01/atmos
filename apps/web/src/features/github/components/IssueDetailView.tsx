@@ -12,6 +12,7 @@ import {
   TabsSubtle,
   TabsSubtleItem,
 } from "@workspace/ui";
+import { GithubUserAvatar, GithubUserHoverCard } from "@/features/github/components/GithubUserHoverCard";
 import {
   CircleDot,
   CheckCircle2,
@@ -671,18 +672,23 @@ function IssueTimelineItem({
   if (item.isComment) {
     return (
       <div className="flex gap-4">
-        <Avatar className="z-10 size-8 shrink-0 border border-border/50 bg-background">
-          <AvatarImage
-            src={
-              item.author?.avatar_url ??
-              item.author?.avatarUrl ??
-              `https://github.com/${login}.png?size=64`
-            }
-          />
-          <AvatarFallback className="text-[10px]">
-            {login.slice(0, 2)}
-          </AvatarFallback>
-        </Avatar>
+        <GithubUserHoverCard
+          username={item.author?.login}
+          avatarUrl={item.author?.avatar_url ?? item.author?.avatarUrl}
+        >
+          <Avatar className="z-10 size-8 shrink-0 border border-border/50 bg-background">
+            <AvatarImage
+              src={
+                item.author?.avatar_url ??
+                item.author?.avatarUrl ??
+                `https://github.com/${login}.png?size=64`
+              }
+            />
+            <AvatarFallback className="text-[10px]">
+              {login.slice(0, 2)}
+            </AvatarFallback>
+          </Avatar>
+        </GithubUserHoverCard>
         <div className="min-w-0 flex-1 overflow-hidden rounded-xl border border-border/60 bg-background">
           <div className="flex items-center gap-2 border-b border-border/40 bg-muted/20 px-4 py-2 text-xs text-muted-foreground">
             <span className="font-bold text-foreground">{login}</span>
@@ -759,19 +765,14 @@ function IssueTimelineItem({
         <div className="z-10 flex size-4 shrink-0 items-center justify-center rounded-full border border-border/50 bg-muted ring-4 ring-background">
           {eventIcon}
         </div>
-        <Avatar className="size-4 shrink-0 border border-border/50">
-          <AvatarImage
-            src={
-              item.author?.avatar_url ??
-              item.author?.avatarUrl ??
-              `https://github.com/${login}.png?size=32`
-            }
-          />
-          <AvatarFallback className="text-[6px]">
-            {login.slice(0, 2)}
-          </AvatarFallback>
-        </Avatar>
-        <span className="font-semibold text-foreground/90">{login}</span>
+        <GithubUserAvatar
+          username={item.author?.login}
+          avatarUrl={item.author?.avatar_url ?? item.author?.avatarUrl}
+          className="size-4 shrink-0 border border-border/50"
+          fallbackClassName="text-[6px]"
+          label={login}
+          labelClassName="font-semibold text-foreground/90"
+        />
         <span className="min-w-0 truncate text-muted-foreground">
           {activityText}
         </span>

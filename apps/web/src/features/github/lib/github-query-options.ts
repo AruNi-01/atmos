@@ -17,6 +17,7 @@ import type { BranchPr } from "@/features/github/lib/github-pr-cache";
 import type {
   GithubActionsDetailPayload,
   GithubActionsRunPayload,
+  GithubUserCardPayload,
 } from "@atmos/api-types/ws/dto/github";
 
 type ConnectionState = "connecting" | "connected" | "disconnected" | "reconnecting";
@@ -387,6 +388,29 @@ export function githubRepoAssigneesQueryOptions(
     staleTime: 5 * 60_000,
     gcTime: 30 * 60_000,
     enabled: (options?.enabled ?? true) && Boolean(owner && repo),
+  });
+}
+
+export interface GithubUserCardParams {
+  login: string;
+}
+
+export function githubUserCardQueryOptions(
+  scope: ComputerQueryScope,
+  connectionState: ConnectionState,
+  params: GithubUserCardParams,
+  options?: { enabled?: boolean },
+) {
+  const login = params.login.trim().replace(/^@/, "");
+  return wsQueryOptions({
+    scope,
+    connectionState,
+    queryKey: queryKeys.computer.githubUserCard(scope, { login }),
+    queryFn: (): Promise<GithubUserCardPayload> =>
+      wsRequest<GithubUserCardPayload>("github_user_card", { login }),
+    staleTime: 60 * 60_000,
+    gcTime: 2 * 60 * 60_000,
+    enabled: (options?.enabled ?? true) && Boolean(login),
   });
 }
 

@@ -13,6 +13,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@workspace/ui';
+import { GithubUserAvatar, GithubUserHoverCard } from '@/features/github/components/GithubUserHoverCard';
 import { useGithubPRDetail, useGithubPRDetailSidebar, useGithubPRTimeline, useGithubPRFiles } from '@/features/github/hooks/use-github';
 import { useWebSocketStore } from '@/features/connection/hooks/use-websocket';
 import {
@@ -467,11 +468,15 @@ export function PRDetailView({ owner, repo, branch, prNumber, active, onRequestC
                         </div>
                         <div className="flex items-center gap-2 mt-2 text-xs text-muted-foreground flex-wrap">
                           <div className="flex items-center gap-1.5 bg-muted/50 px-1.5 py-0.5 rounded-md border border-border/50 shadow-sm shrink-0">
-                            <Avatar className="size-3.5 border border-border/50 shadow-inner">
-                              <AvatarImage src={pr.author?.avatar_url || pr.author?.avatarUrl || `https://github.com/${pr.author?.login?.replace('[bot]', '')}.png?size=28`} />
-                              <AvatarFallback className="text-[6px]">{pr.author?.login?.substring(0, 2).toUpperCase()}</AvatarFallback>
-                            </Avatar>
-                            <span className="font-semibold text-foreground/90">{pr.author?.login}</span>
+                            <GithubUserAvatar
+                              username={pr.author?.login}
+                              avatarUrl={pr.author?.avatar_url || pr.author?.avatarUrl}
+                              className="size-3.5 border border-border/50 shadow-inner"
+                              fallbackClassName="text-[6px]"
+                              label={pr.author?.login}
+                              labelClassName="font-semibold text-foreground/90"
+                              disabled={pr.author?.is_bot || pr.author?.login === 'cursor' || pr.author?.login === 'vercel' || pr.author?.login?.endsWith('[bot]')}
+                            />
                             {(pr.author?.is_bot || pr.author?.login === 'cursor' || pr.author?.login === 'vercel' || pr.author?.login?.endsWith('[bot]')) && (
                               <span className="text-[9px] px-1 rounded-sm border border-border bg-muted/50 text-muted-foreground font-medium py-0 leading-none h-3.5 flex items-center shrink-0">
                                 {t('states.bot')}
@@ -684,10 +689,16 @@ export function PRDetailView({ owner, repo, branch, prNumber, active, onRequestC
                                 <div key={i} className="flex flex-col">
                                   <div className="flex gap-4 items-start group/review">
                                     <div className="relative z-10">
-                                      <Avatar className="size-8 shrink-0 border border-border/50 shadow-sm transition-transform duration-180 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover/review:scale-105">
-                                        <AvatarImage src={item.author?.avatar_url || item.author?.avatarUrl || `https://github.com/${item.author?.login?.replace('[bot]', '')}.png?size=64`} />
-                                        <AvatarFallback className="text-[10px]">{item.author?.login?.substring(0, 2).toUpperCase()}</AvatarFallback>
-                                      </Avatar>
+                                      <GithubUserHoverCard
+                                        username={item.author?.login}
+                                        avatarUrl={item.author?.avatar_url || item.author?.avatarUrl}
+                                        disabled={isBot}
+                                      >
+                                        <Avatar className="size-8 shrink-0 border border-border/50 shadow-sm transition-transform duration-180 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover/review:scale-105">
+                                          <AvatarImage src={item.author?.avatar_url || item.author?.avatarUrl || `https://github.com/${item.author?.login?.replace('[bot]', '')}.png?size=64`} />
+                                          <AvatarFallback className="text-[10px]">{item.author?.login?.substring(0, 2).toUpperCase()}</AvatarFallback>
+                                        </Avatar>
+                                      </GithubUserHoverCard>
                                     </div>
                                     <div className="flex-1 min-w-0 flex flex-col border border-border/60 rounded-xl overflow-hidden bg-background shadow-[0_2px_10px_-4px_rgba(0,0,0,0.1)] transition-shadow duration-180 ease-[cubic-bezier(0.22,1,0.36,1)] hover:shadow-[0_4px_15px_-4px_rgba(0,0,0,0.12)]">
                                       <div className="flex items-center gap-2 px-4 py-2 bg-muted/20 border-b border-border/40 text-xs text-muted-foreground">
@@ -929,11 +940,15 @@ export function PRDetailView({ owner, repo, branch, prNumber, active, onRequestC
                                     {icon}
                                   </div>
                                   <div className="flex items-center gap-2 text-xs truncate flex-1">
-                                    <Avatar className="size-4 shrink-0 border border-border/50">
-                                      <AvatarImage src={item.author?.avatar_url || item.author?.avatarUrl || `https://github.com/${item.author?.login?.replace('[bot]', '')}.png?size=32`} />
-                                      <AvatarFallback className="text-[6px]">{item.author?.login?.substring(0, 2).toUpperCase()}</AvatarFallback>
-                                    </Avatar>
-                                    <span className="font-semibold text-foreground/90">{item.author?.login}</span>
+                                    <GithubUserAvatar
+                                      username={item.author?.login}
+                                      avatarUrl={item.author?.avatar_url || item.author?.avatarUrl}
+                                      disabled={isBot}
+                                      className="size-4 shrink-0 border border-border/50"
+                                      fallbackClassName="text-[6px]"
+                                      label={item.author?.login}
+                                      labelClassName="font-semibold text-foreground/90"
+                                    />
                                     {isBot && (
                                       <span className="text-[9px] px-1 rounded-sm border border-border bg-muted/50 text-muted-foreground font-medium py-0 leading-none h-3.5 flex items-center shrink-0">
                                         {t('states.bot')}

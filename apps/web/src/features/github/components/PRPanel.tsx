@@ -10,9 +10,6 @@ import {
   ArrowLeft,
 } from 'lucide-react';
 import {
-  Avatar,
-  AvatarImage,
-  AvatarFallback,
   Tooltip,
   TooltipTrigger,
   TooltipContent,
@@ -22,6 +19,7 @@ import { formatDistanceToNow, format } from 'date-fns';
 import { enUS, zhCN } from 'date-fns/locale';
 import { cn } from '@/shared/lib/utils';
 import { GithubListPagination } from '@/features/github/components/GithubListPagination';
+import { GithubUserAvatar } from '@/features/github/components/GithubUserHoverCard';
 
 interface PRPanelProps {
   owner: string;
@@ -148,12 +146,15 @@ export const PRPanel = React.forwardRef<PRPanelHandle, PRPanelProps>(function PR
 
                     {/* Middle Row: Author & Branch Context */}
                     <div className="flex items-center justify-between mb-3 min-w-0">
-                      <div className="flex items-center gap-2 shrink-0">
-                        <Avatar className="size-4.5 shrink-0 border border-border/40 shadow-sm">
-                          <AvatarImage src={pr.author?.avatar_url || pr.author?.avatarUrl || `https://github.com/${pr.author?.login?.replace('[bot]', '')}.png?size=32`} alt={pr.author?.login} />
-                          <AvatarFallback className="text-[6px]">{pr.author?.login?.substring(0, 2).toUpperCase()}</AvatarFallback>
-                        </Avatar>
-                        <span className="text-[11px] font-bold text-foreground/70 truncate max-w-[80px]">{pr.author?.login || t("rightSidebar.pr.unknownAuthor")}</span>
+                      <div className="flex items-center gap-2 shrink-0 min-w-0">
+                        <GithubUserAvatar
+                          username={pr.author?.login}
+                          avatarUrl={pr.author?.avatar_url || pr.author?.avatarUrl}
+                          className="size-4.5 shrink-0 border border-border/40 shadow-sm"
+                          fallbackClassName="text-[6px]"
+                          label={pr.author?.login || t("rightSidebar.pr.unknownAuthor")}
+                          labelClassName="text-[11px] font-bold text-foreground/70 truncate max-w-[80px]"
+                        />
                       </div>
 
                       <Tooltip>

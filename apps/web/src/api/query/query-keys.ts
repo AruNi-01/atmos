@@ -340,6 +340,18 @@ export const queryKeys = {
         params.repo,
       ] as const,
 
+    /** GitHub: user hover card (profile + contributions) */
+    githubUserCard: (
+      scope: ComputerQueryScope,
+      params: { login: string },
+    ) =>
+      [
+        ...queryKeys.computer.root(scope),
+        "github",
+        "userCard",
+        params.login,
+      ] as const,
+
     /** GitHub: PR changed-files list */
     githubPrFiles: (
       scope: ComputerQueryScope,

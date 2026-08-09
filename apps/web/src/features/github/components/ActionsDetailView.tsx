@@ -2,13 +2,11 @@ import React from "react";
 import { useTranslations } from "next-intl";
 import dynamic from "next/dynamic";
 import {
-  Avatar,
-  AvatarImage,
-  AvatarFallback,
   Skeleton,
   TabsSubtle,
   TabsSubtleItem,
 } from "@workspace/ui";
+import { GithubUserAvatar } from "@/features/github/components/GithubUserHoverCard";
 import { useWebSocketStore } from "@/features/connection/hooks/use-websocket";
 import {
   ChartNoAxesCombined,
@@ -316,17 +314,14 @@ export function ActionsDetailView({
 
                 {detail?.actor && (
                   <div className="flex items-center gap-1.5 mr-1 bg-muted/40 px-1.5 py-0.5 rounded-md border border-border/50 shadow-sm">
-                    <Avatar className="size-3.5 border border-border/50">
-                      <AvatarImage
-                        src={detail.actor.avatar_url || detail.actor.avatarUrl}
-                      />
-                      <AvatarFallback className="text-[7px]">
-                        {detail.actor.login?.substring(0, 2).toUpperCase()}
-                      </AvatarFallback>
-                    </Avatar>
-                    <span className="font-semibold text-foreground/90">
-                      {detail.actor.login}
-                    </span>
+                    <GithubUserAvatar
+                      username={detail.actor.login}
+                      avatarUrl={detail.actor.avatar_url || detail.actor.avatarUrl}
+                      className="size-3.5 border border-border/50"
+                      fallbackClassName="text-[7px]"
+                      label={detail.actor.login}
+                      labelClassName="font-semibold text-foreground/90"
+                    />
                   </div>
                 )}
 

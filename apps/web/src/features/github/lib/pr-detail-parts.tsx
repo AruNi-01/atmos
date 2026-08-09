@@ -3,15 +3,13 @@ import { AnimatePresence, motion } from 'motion/react';
 import { createTranslator, useTranslations } from 'next-intl';
 import { useTheme } from 'next-themes';
 import {
-  Avatar,
-  AvatarFallback,
-  AvatarImage,
   Button,
   Skeleton,
   TabsSubtle,
   TabsSubtleItem,
   Textarea,
 } from '@workspace/ui';
+import { GithubUserAvatar } from '@/features/github/components/GithubUserHoverCard';
 import type { FileContents } from '@pierre/diffs';
 import { MultiFileDiff } from '@pierre/diffs/react';
 import {
@@ -799,11 +797,15 @@ export const ReviewCommentThreadView = React.memo(function ReviewCommentThreadVi
               {thread.comments.map((comment, idx) => (
                 <div key={comment.id || idx} className="px-3 py-2">
                   <div className="flex items-center gap-2 mb-1.5">
-                    <Avatar className="size-4 border border-border/50">
-                      <AvatarImage src={comment.user?.avatar_url || `https://github.com/${comment.user?.login?.replace('[bot]', '')}.png?size=32`} />
-                      <AvatarFallback className="text-[6px]">{comment.user?.login?.substring(0, 2).toUpperCase()}</AvatarFallback>
-                    </Avatar>
-                    <span className="text-[11px] font-semibold text-foreground/90">{comment.user?.login}</span>
+                    <GithubUserAvatar
+                      username={comment.user?.login}
+                      avatarUrl={comment.user?.avatar_url}
+                      disabled={comment.user?.is_bot}
+                      className="size-4 border border-border/50"
+                      fallbackClassName="text-[6px]"
+                      label={comment.user?.login}
+                      labelClassName="text-[11px] font-semibold text-foreground/90"
+                    />
                     {comment.created_at && (
                       <span className="text-[10px] text-muted-foreground/60 ml-auto">
                         {formatDistanceToNow(new Date(comment.created_at), { addSuffix: true, locale: relativeTimeLocale })}

@@ -20,6 +20,7 @@ import {
   getTimelineCommitSubject,
   type TimelineCommitLike,
 } from "@/features/github/lib/timeline-commits";
+import { GithubUserHoverCard } from "@/features/github/components/GithubUserHoverCard";
 
 export type TimelineCommitClickPayload = {
   sha: string;
@@ -122,14 +123,19 @@ export function TimelineCommitsGroup<T extends TimelineCommitLike>({
             )}
           >
             <div className="z-10 size-4 shrink-0 rounded-full border border-border/50 bg-background ring-4 ring-background" />
-            <Avatar className="size-4 shrink-0 border border-border/50">
-              {author.avatarUrl ? (
-                <AvatarImage src={author.avatarUrl} alt={author.login} />
-              ) : null}
-              <AvatarFallback className="text-[6px]">
-                {author.login.slice(0, 2).toUpperCase()}
-              </AvatarFallback>
-            </Avatar>
+            <GithubUserHoverCard
+              username={author.login}
+              avatarUrl={author.avatarUrl}
+            >
+              <Avatar className="size-4 shrink-0 border border-border/50">
+                {author.avatarUrl ? (
+                  <AvatarImage src={author.avatarUrl} alt={author.login} />
+                ) : null}
+                <AvatarFallback className="text-[6px]">
+                  {author.login.slice(0, 2).toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+            </GithubUserHoverCard>
             {subject ? (
               <Tooltip>
                 <TooltipTrigger asChild>

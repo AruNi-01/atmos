@@ -11,6 +11,21 @@ export type GithubIssueAssigneePayload = {
   avatar_url?: string | null;
 };
 
+export type GithubContributionDayPayload = {
+  date: string;
+  count: number;
+  level: number;
+};
+
+/** Hover-card payload: public profile + contribution calendar (server via gh GraphQL). */
+export type GithubUserCardPayload = {
+  login: string;
+  name?: string | null;
+  avatar_url?: string | null;
+  total_contributions: number;
+  contributions: GithubContributionDayPayload[];
+};
+
 export type GithubIssuePayload = {
   owner: string;
   repo: string;

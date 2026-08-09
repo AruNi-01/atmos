@@ -21,6 +21,7 @@ import {
   TooltipTrigger,
   toastManager,
 } from '@workspace/ui';
+import { GithubUserAvatar, GithubUserHoverCard } from '@/features/github/components/GithubUserHoverCard';
 import {
   Check,
   CheckCircle2,
@@ -222,11 +223,15 @@ function ReviewersList({
     if (!onReviewerClick) {
       return (
         <div key={r.login} className="flex items-center gap-2 py-0.5 min-w-0">
-          <Avatar className="size-5 border border-border/50 shrink-0">
-            <AvatarImage src={r.avatar_url || `https://github.com/${r.login.replace('[bot]', '')}.png?size=32`} />
-            <AvatarFallback className="text-[7px]">{r.login.substring(0, 2).toUpperCase()}</AvatarFallback>
-          </Avatar>
-          <span className="font-medium text-foreground/90 truncate flex-1">{r.login}</span>
+          <GithubUserAvatar
+            username={r.login}
+            avatarUrl={r.avatar_url}
+            className="size-5 border border-border/50 shrink-0"
+            fallbackClassName="text-[7px]"
+            label={r.login}
+            labelClassName="font-medium text-foreground/90 truncate flex-1 min-w-0"
+            triggerClassName="min-w-0 flex-1"
+          />
           {r.state === 'APPROVED' && <CheckCircle2 className="size-3.5 text-emerald-500 shrink-0" />}
           {r.state === 'CHANGES_REQUESTED' && <XCircle className="size-3.5 text-red-500 shrink-0" />}
           {r.state === 'COMMENTED' && <MessageSquare className="size-3.5 text-muted-foreground shrink-0" />}
@@ -247,11 +252,15 @@ function ReviewersList({
             )}
             onClick={() => onReviewerClick()}
           >
-            <Avatar className="size-5 border border-border/50 shrink-0">
-              <AvatarImage src={r.avatar_url || `https://github.com/${r.login.replace('[bot]', '')}.png?size=32`} />
-              <AvatarFallback className="text-[7px]">{r.login.substring(0, 2).toUpperCase()}</AvatarFallback>
-            </Avatar>
-            <span className="font-medium text-foreground/90 truncate flex-1">{r.login}</span>
+            <GithubUserAvatar
+              username={r.login}
+              avatarUrl={r.avatar_url}
+              className="size-5 border border-border/50 shrink-0"
+              fallbackClassName="text-[7px]"
+              label={r.login}
+              labelClassName="font-medium text-foreground/90 truncate flex-1 min-w-0"
+              triggerClassName="min-w-0 flex-1"
+            />
             {r.state === 'APPROVED' && <CheckCircle2 className="size-3.5 text-emerald-500 shrink-0" />}
             {r.state === 'CHANGES_REQUESTED' && <XCircle className="size-3.5 text-red-500 shrink-0" />}
             {r.state === 'COMMENTED' && <MessageSquare className="size-3.5 text-muted-foreground shrink-0" />}
@@ -273,12 +282,16 @@ export function AssigneesList({ assignees }: { assignees?: Assignee[] }) {
   }
 
   return assignees.map((a) => (
-    <div key={a.login} className="flex items-center gap-2 py-0.5">
-      <Avatar className="size-5 border border-border/50">
-        <AvatarImage src={a.avatar_url || a.avatarUrl || `https://github.com/${a.login.replace('[bot]', '')}.png?size=32`} />
-        <AvatarFallback className="text-[7px]">{a.login.substring(0, 2).toUpperCase()}</AvatarFallback>
-      </Avatar>
-      <span className="font-medium text-foreground/90 truncate">{a.login}</span>
+    <div key={a.login} className="flex items-center gap-2 py-0.5 min-w-0">
+      <GithubUserAvatar
+        username={a.login}
+        avatarUrl={a.avatar_url || a.avatarUrl}
+        className="size-5 border border-border/50"
+        fallbackClassName="text-[7px]"
+        label={a.login}
+        labelClassName="font-medium text-foreground/90 truncate"
+        triggerClassName="min-w-0"
+      />
     </div>
   ));
 }
@@ -332,15 +345,17 @@ function ParticipantsList({
   return (
     <div className="flex flex-wrap gap-1">
       {sidebarData.participants.map((p) => (
-        <Tooltip key={p.login}>
-          <TooltipTrigger asChild>
-            <Avatar className="size-6 border border-border/50 cursor-default hover:ring-2 hover:ring-primary/30 transition-all">
-              <AvatarImage src={p.avatar_url || `https://github.com/${p.login}.png?size=32`} />
-              <AvatarFallback className="text-[7px]">{p.login.substring(0, 2).toUpperCase()}</AvatarFallback>
-            </Avatar>
-          </TooltipTrigger>
-          <TooltipContent side="bottom" className="text-xs">{p.login}</TooltipContent>
-        </Tooltip>
+        <GithubUserHoverCard
+          key={p.login}
+          username={p.login}
+          avatarUrl={p.avatar_url}
+          side="bottom"
+        >
+          <Avatar className="size-6 border border-border/50 cursor-default hover:ring-2 hover:ring-primary/30 transition-all">
+            <AvatarImage src={p.avatar_url || `https://github.com/${p.login}.png?size=32`} />
+            <AvatarFallback className="text-[7px]">{p.login.substring(0, 2).toUpperCase()}</AvatarFallback>
+          </Avatar>
+        </GithubUserHoverCard>
       ))}
     </div>
   );

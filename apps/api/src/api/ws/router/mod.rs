@@ -795,6 +795,10 @@ impl WsMessageService {
                 self.handle_github_repo_assignees(parse_request(request.data)?)
                     .await
             }
+            WsAction::GithubUserCard => {
+                self.handle_github_user_card(parse_request(request.data)?)
+                    .await
+            }
             WsAction::GithubPrUpdateLabels => {
                 self.handle_github_pr_update_labels(parse_request(request.data)?)
                     .await

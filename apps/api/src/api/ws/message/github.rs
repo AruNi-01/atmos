@@ -203,6 +203,11 @@ pub struct GithubRepoAssigneesRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GithubUserCardRequest {
+    pub login: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GithubPrUpdateLabelsRequest {
     pub owner: String,
     pub repo: String,

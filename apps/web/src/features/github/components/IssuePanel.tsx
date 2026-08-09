@@ -3,9 +3,6 @@
 import React from "react";
 import { useLocale, useTranslations } from "next-intl";
 import {
-  Avatar,
-  AvatarFallback,
-  AvatarImage,
   Select,
   SelectContent,
   SelectItem,
@@ -21,6 +18,7 @@ import {
   GithubLabelsFilter,
 } from "@/features/github/components/GithubMetadataFilters";
 import { GithubListPagination } from "@/features/github/components/GithubListPagination";
+import { GithubUserAvatar } from "@/features/github/components/GithubUserHoverCard";
 
 interface IssuePanelProps {
   owner: string;
@@ -149,11 +147,18 @@ export const IssuePanel = React.forwardRef<
           <div className="min-w-0 space-y-1">
             {filteredIssues.map((issue) => {
               return (
-                <button
+                <div
                   key={issue.number}
-                  type="button"
+                  role="button"
+                  tabIndex={0}
                   onClick={() => onIssueClick(issue.number, issue.title)}
-                  className="group flex w-full min-w-0 flex-col gap-2 rounded-md border border-sidebar-border px-3 py-2.5 text-left transition-colors hover:bg-sidebar-accent/50"
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      onIssueClick(issue.number, issue.title);
+                    }
+                  }}
+                  className="group flex w-full min-w-0 cursor-pointer flex-col gap-2 rounded-md border border-sidebar-border px-3 py-2.5 text-left transition-colors hover:bg-sidebar-accent/50"
                 >
                   <div className="flex min-w-0 items-baseline gap-1.5">
                     <span className="min-w-0 flex-1 line-clamp-2 text-[13px] font-medium leading-snug group-hover:text-primary">
@@ -183,20 +188,12 @@ export const IssuePanel = React.forwardRef<
                   </div>
                   <div className="flex min-w-0 items-center gap-1.5">
                     {issue.author?.login ? (
-                      <Avatar
+                      <GithubUserAvatar
+                        username={issue.author.login}
+                        avatarUrl={issue.author.avatar_url}
                         className="size-4 border border-border/50"
-                        title={issue.author.login}
-                      >
-                        <AvatarImage
-                          src={
-                            issue.author.avatar_url ??
-                            `https://github.com/${issue.author.login}.png?size=32`
-                          }
-                        />
-                        <AvatarFallback className="text-[6px]">
-                          {issue.author.login.slice(0, 2)}
-                        </AvatarFallback>
-                      </Avatar>
+                        fallbackClassName="text-[6px]"
+                      />
                     ) : null}
                     {issue.updated_at ? (
                       <span className="ml-auto shrink-0 text-[10px] text-muted-foreground">
@@ -207,7 +204,7 @@ export const IssuePanel = React.forwardRef<
                       </span>
                     ) : null}
                   </div>
-                </button>
+                </div>
               );
             })}
           </div>

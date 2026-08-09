@@ -186,6 +186,7 @@ export const WS_ACTIONS = [
   "github_pr_draft",
   "github_repo_labels",
   "github_repo_assignees",
+  "github_user_card",
   "github_pr_update_labels",
   "github_pr_update_assignees",
   "github_pr_update_linked_issues",

@@ -16,7 +16,7 @@ use super::{
     GithubPrOpenBrowserRequest, GithubPrPayload, GithubPrReadyRequest, GithubPrReopenRequest,
     GithubPrTimelinePageRequest, GithubPrUpdateAssigneesRequest, GithubPrUpdateLabelsRequest,
     GithubPrUpdateLinkedIssuesRequest, GithubRepoAssigneesRequest, GithubRepoLabelsRequest,
-    WsEvent, WsMessage, WsMessageService,
+    GithubUserCardRequest, WsEvent, WsMessage, WsMessageService,
 };
 
 impl WsMessageService {
@@ -884,6 +884,31 @@ impl WsMessageService {
             .collect::<Vec<_>>();
 
         Ok(json!(assignees))
+    }
+
+    pub(super) async fn handle_github_user_card(
+        &self,
+        req: GithubUserCardRequest,
+    ) -> Result<Value> {
+        let card = self
+            .github_engine
+            .get_user_card(&req.login)
+            .await
+            .map_err(|e| {
+                ServiceError::Validation(format!("Failed to load GitHub user card: {}", e))
+            })?;
+
+        Ok(json!({
+            "login": card.login,
+            "name": card.name,
+            "avatar_url": card.avatar_url,
+            "total_contributions": card.total_contributions,
+            "contributions": card.contributions.iter().map(|day| json!({
+                "date": day.date,
+                "count": day.count,
+                "level": day.level,
+            })).collect::<Vec<_>>(),
+        }))
     }
 
     pub(super) async fn handle_github_pr_update_labels(
