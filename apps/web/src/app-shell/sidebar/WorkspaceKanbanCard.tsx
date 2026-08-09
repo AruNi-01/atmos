@@ -1,8 +1,6 @@
 import React from "react";
 import { useLocale, useTranslations } from "next-intl";
 import {
-  Badge,
-  Button,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuTrigger,
@@ -16,16 +14,12 @@ import {
 import { formatRelativeTime } from "@atmos/shared";
 import {
   Archive,
-  Github,
-  LogIn,
   MoreHorizontal,
   Pin,
-  Plus,
   Timer,
   Trash2,
 } from "lucide-react";
 import { WorkspaceAgentStatusMark } from "@/features/agent/components/WorkspaceAgentStatusMark";
-import { WorkspacePrLifecycleIcon } from "@/features/github/components/WorkspacePrStatusIcon";
 import { WorkspacePrSummary } from "@/features/github/components/WorkspacePrSummary";
 import { useWorkspacePrStatus } from "@/features/github/hooks/use-workspace-pr-status";
 import { useOpenGithubCenterTab } from "@/features/github/hooks/use-open-github-center-tab";
@@ -41,10 +35,6 @@ import type {
   WorkspaceWorkflowStatus,
 } from "@/shared/types/domain";
 import {
-  getWorkspaceWorkflowStatusMeta,
-} from "@/app-shell/sidebar/workspace-status";
-import {
-  getWorkspacePriorityMeta,
   WorkspaceGroupSelect,
   WorkspaceLabelBadges,
   WorkspaceLabelPicker,
@@ -56,6 +46,21 @@ import type {
   KanbanCardProperties,
 } from "@/app-shell/sidebar/WorkspaceKanbanTypes";
 import { resolveWorkspaceGroupId } from "@/app-shell/sidebar/kanban-columns";
+
+/**
+ * Nested interactive controls should not trigger click-to-enter.
+ * Ignores the card root itself (which may be role=button for a11y).
+ */
+function isNestedInteractiveTarget(
+  target: EventTarget | null,
+  cardRoot: EventTarget | null,
+): boolean {
+  if (!(target instanceof Element) || !(cardRoot instanceof Element)) return false;
+  const interactive = target.closest(
+    "button, a, input, textarea, select, [role='menuitem'], [role='option'], [data-radix-collection-item]",
+  );
+  return Boolean(interactive && interactive !== cardRoot && cardRoot.contains(interactive));
+}
 
 export function KanbanWorkspaceCard({
   workspace,
@@ -117,17 +122,13 @@ export function KanbanWorkspaceCard({
   const t = useTranslations("AppShell.chrome");
   const locale = useLocale();
   const { openPullRequestTab, openActionRunTab } = useOpenGithubCenterTab();
-  const [isCardHovered, setIsCardHovered] = React.useState(false);
-  const isIssueOnly = workspace.createSource === "issue_only";
   const isAutomation = workspace.createSource === "automation";
-  const workspaceTitle = isIssueOnly && workspace.githubIssue
-    ? `#${workspace.githubIssue.number} ${workspace.githubIssue.title}`
-    : workspace.name;
+  const workspaceTitle = workspace.name;
   const workspaceGroupId = resolveWorkspaceGroupId(groups, projectId, workspace.id);
   const { presentation: managedPr } = useWorkspacePrStatus({
     githubPr: workspace.githubPr,
     branch: workspace.branch,
-    interested: isCardHovered,
+    interested: cardProperties.pull_request,
   });
   const openManagedPullRequest = React.useCallback(() => {
     if (!managedPr) return;
@@ -175,16 +176,7 @@ export function KanbanWorkspaceCard({
     workspace.branch,
     workspace.id,
   ]);
-  const labelsToRender = workspace.labels.length > 0
-    ? workspace.labels
-    : isIssueOnly
-      ? (workspace.githubIssue?.labels ?? []).map((label) => ({
-        id: `${workspace.id}:${label.name}`,
-        name: label.name,
-        color: label.color ? `#${label.color.replace(/^#/, "")}` : "#94a3b8",
-        source: "gitHub_issue" as const,
-      }))
-      : workspace.labels;
+  const labelsToRender = workspace.labels;
   const handlePinClick = (event: React.MouseEvent) => {
     event.stopPropagation();
     if (workspace.isPinned) {
@@ -194,20 +186,34 @@ export function KanbanWorkspaceCard({
     }
   };
 
+  const handleCardClick = (event: React.MouseEvent) => {
+    if (isNestedInteractiveTarget(event.target, event.currentTarget)) return;
+    onEnterWorkspace(projectId, workspace.id);
+  };
+
+  const showFooter =
+    (cardProperties.pull_request && Boolean(managedPr)) || cardProperties.last_visit;
+
   return (
     <div
+      role="button"
+      tabIndex={0}
       className={cn(
-        "w-full rounded-md bg-background p-3 text-left shadow-xs",
-        isIssueOnly
-          ? "border border-border/50"
-          : workspace.isPinned
-            ? "border border-border"
-            : showUnpinnedBorder
-              ? "border border-border/50"
-              : "",
+        "w-full cursor-pointer rounded-md bg-background p-3 text-left shadow-xs outline-none",
+        "focus-visible:ring-1 focus-visible:ring-ring",
+        workspace.isPinned
+          ? "border border-border"
+          : showUnpinnedBorder
+            ? "border border-border/50"
+            : "",
       )}
-      onMouseEnter={() => setIsCardHovered(true)}
-      onMouseLeave={() => setIsCardHovered(false)}
+      onClick={handleCardClick}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onEnterWorkspace(projectId, workspace.id);
+        }
+      }}
     >
       {cardProperties.project || cardProperties.priority || cardProperties.status || !cardProperties.workspace_name ? (
         <div className="mb-3 flex items-center justify-between gap-2">
@@ -224,27 +230,6 @@ export function KanbanWorkspaceCard({
             {cardProperties.project ? (
               <span className="flex min-w-0 items-center gap-1.5 text-sm font-medium text-foreground">
                 {projectName}
-                {workspace.createSource === "issue_only" && (
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <button
-                        type="button"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          if (workspace.githubIssue?.url) {
-                            window.open(workspace.githubIssue.url, "_blank");
-                          }
-                        }}
-                        className="cursor-pointer"
-                      >
-                        <Github className="size-3 text-muted-foreground" />
-                      </button>
-                    </TooltipTrigger>
-                    <TooltipContent side="top">
-                      <p>{t("workspaceKanbanCard.githubIssueOnlyWorkspace")}</p>
-                    </TooltipContent>
-                  </Tooltip>
-                )}
                 {isAutomation && (
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -262,8 +247,8 @@ export function KanbanWorkspaceCard({
                 )}
               </span>
             ) : null}
-            {/* When workspace title is hidden, keep status scannable on the header row. */}
-            {!cardProperties.workspace_name ? (
+            {/* When workspace title is hidden, keep agent status scannable on the header row. */}
+            {!cardProperties.workspace_name && cardProperties.agent_status ? (
               <WorkspaceAgentStatusMark contextId={workspace.id} />
             ) : null}
           </div>
@@ -339,67 +324,47 @@ export function KanbanWorkspaceCard({
       {cardProperties.workspace_name ? (
         <div className="mb-2 flex items-start gap-2">
           <div className="flex min-w-0 flex-1 items-start gap-1.5">
-            {managedPr ? (
-              <WorkspacePrLifecycleIcon
-                state={managedPr.state}
-                checksTone={managedPr.checksTone}
+            <h3 className="min-w-0 flex-1 line-clamp-2 text-sm font-semibold">{workspaceTitle}</h3>
+            {cardProperties.agent_status ? (
+              <WorkspaceAgentStatusMark
+                contextId={workspace.id}
                 className="mt-0.5"
-                fallbackClassName="text-muted-foreground"
               />
             ) : null}
-            <h3 className="min-w-0 flex-1 line-clamp-2 text-sm font-semibold">{workspaceTitle}</h3>
-            <WorkspaceAgentStatusMark
-              contextId={workspace.id}
-              className="mt-0.5"
-            />
           </div>
-          {/* Always show group control (incl. Ungrouped) so users can assign from the card. */}
-          <div
-            className="max-w-[45%] shrink-0"
-            onPointerDown={(event) => event.stopPropagation()}
-            onClick={(event) => event.stopPropagation()}
-          >
-            <WorkspaceGroupSelect
-              value={workspaceGroupId}
-              groups={groups}
-              onChange={
-                onSetWorkspaceGroup
-                  ? (groupId) => void onSetWorkspaceGroup(workspace.id, groupId)
-                  : undefined
-              }
-              onCreateGroup={
-                onCreateGroup
-                  ? async (name) => {
-                      const created = await onCreateGroup(name);
-                      if (created?.id && onSetWorkspaceGroup) {
-                        await onSetWorkspaceGroup(workspace.id, created.id);
+          {cardProperties.group ? (
+            <div
+              className="max-w-[45%] shrink-0"
+              onPointerDown={(event) => event.stopPropagation()}
+              onClick={(event) => event.stopPropagation()}
+            >
+              <WorkspaceGroupSelect
+                value={workspaceGroupId}
+                groups={groups}
+                onChange={
+                  onSetWorkspaceGroup
+                    ? (groupId) => void onSetWorkspaceGroup(workspace.id, groupId)
+                    : undefined
+                }
+                onCreateGroup={
+                  onCreateGroup
+                    ? async (name) => {
+                        const created = await onCreateGroup(name);
+                        if (created?.id && onSetWorkspaceGroup) {
+                          await onSetWorkspaceGroup(workspace.id, created.id);
+                        }
+                        return created;
                       }
-                      return created;
-                    }
-                  : undefined
-              }
-              contentSide="bottom"
-              contentAlign="end"
-              triggerClassName="h-6 max-w-full border-border/60 bg-muted/40 px-1.5 text-[10px]"
-              iconClassName="size-3"
-              labelClassName="text-[10px]"
-            />
-          </div>
-        </div>
-      ) : null}
-      {managedPr ? (
-        <div
-          className="mb-2"
-          onPointerDown={(event) => event.stopPropagation()}
-          onClick={(event) => event.stopPropagation()}
-        >
-          <WorkspacePrSummary
-            presentation={managedPr}
-            onOpenPr={openManagedPullRequest}
-            onOpenChecks={openManagedChecks}
-            ringSize={14}
-            className="-mx-1"
-          />
+                    : undefined
+                }
+                contentSide="bottom"
+                contentAlign="end"
+                triggerClassName="h-6 max-w-full border-border/60 bg-muted/40 px-1.5 text-[10px]"
+                iconClassName="size-3"
+                labelClassName="text-[10px]"
+              />
+            </div>
+          ) : null}
         </div>
       ) : null}
       {cardProperties.display_name && workspace.displayName?.trim() ? (
@@ -408,6 +373,7 @@ export function KanbanWorkspaceCard({
 
       {cardProperties.labels ? (
         <div className="mb-3 flex min-h-[1.5rem] flex-wrap items-center gap-1.5">
+          <WorkspaceLabelBadges labels={labelsToRender} className="contents" />
           <WorkspaceLabelPicker
             labels={workspace.labels}
             availableLabels={availableLabels}
@@ -416,44 +382,34 @@ export function KanbanWorkspaceCard({
             onUpdateLabel={onUpdateLabel}
             contentSide="right"
           />
-          <WorkspaceLabelBadges labels={labelsToRender} className="contents" />
         </div>
       ) : null}
 
-      <div className="mt-auto flex items-center justify-between pt-2">
-        {cardProperties.last_visit ? (
-          <span className="text-xs text-muted-foreground">{formatRelativeTime(workspace.lastVisitedAt ?? workspace.createdAt, locale)}</span>
-        ) : <span />}
-        {cardProperties.enter_button ? (
-          <div className="flex items-center gap-1">
-            {workspace.createSource === "issue_only" ? (
-              <Button
-                size="sm"
-                variant="default"
-                className="size-7 p-0"
-                onClick={() => {
-                  onEnterWorkspace(projectId, workspace.id);
-                }}
-                aria-label={t("workspaceKanbanCard.buildWorkspaceFromIssue")}
-              >
-                <Plus className="size-3.5" />
-              </Button>
-            ) : (
-              <Button
-                size="sm"
-                variant="outline"
-                className="size-7 p-0"
-                onClick={() => {
-                  onEnterWorkspace(projectId, workspace.id);
-                }}
-                aria-label={t("workspaceKanbanCard.enterWorkspace")}
-              >
-                <LogIn className="size-3.5" />
-              </Button>
-            )}
+      {showFooter ? (
+        <div className="mt-auto flex items-center justify-between gap-2 pt-2">
+          <div
+            className="min-w-0 flex-1"
+            onPointerDown={(event) => event.stopPropagation()}
+            onClick={(event) => event.stopPropagation()}
+          >
+            {cardProperties.pull_request && managedPr ? (
+              <WorkspacePrSummary
+                presentation={managedPr}
+                onOpenPr={openManagedPullRequest}
+                onOpenChecks={openManagedChecks}
+                ringSize={14}
+                compact
+                className="-mx-1"
+              />
+            ) : null}
           </div>
-        ) : null}
-      </div>
+          {cardProperties.last_visit ? (
+            <span className="shrink-0 text-xs text-muted-foreground">
+              {formatRelativeTime(workspace.lastVisitedAt ?? workspace.createdAt, locale)}
+            </span>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -471,13 +427,7 @@ export function DraggableWorkspaceCard(props: React.ComponentProps<typeof Kanban
     sourceColumnKey,
     preview: {
       projectName: cardProps.projectName,
-      workspaceName: cardProps.workspace.name,
-      displayName: cardProps.workspace.displayName,
-      priority: cardProps.workspace.priority,
-      workflowStatus: cardProps.workspace.workflowStatus,
-      labels: cardProps.workspace.labels,
-      lastVisitedAt: cardProps.workspace.lastVisitedAt,
-      createdAt: cardProps.workspace.createdAt,
+      workspace: cardProps.workspace,
     },
   }), [cardProps.projectId, cardProps.projectName, cardProps.workspace, sourceColumnKey]);
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
@@ -487,6 +437,14 @@ export function DraggableWorkspaceCard(props: React.ComponentProps<typeof Kanban
   });
 
   const nodeRef = React.useRef<HTMLDivElement>(null);
+  /** After a real drag, suppress the synthetic click so we don't enter the workspace. */
+  const suppressClickRef = React.useRef(false);
+
+  React.useEffect(() => {
+    if (isDragging) {
+      suppressClickRef.current = true;
+    }
+  }, [isDragging]);
 
   React.useEffect(() => {
     if (isRecentlyDropped && nodeRef.current) {
@@ -505,15 +463,20 @@ export function DraggableWorkspaceCard(props: React.ComponentProps<typeof Kanban
       {...attributes}
       {...(dragDisabled ? {} : listeners)}
       className={cn(
-        "relative z-0",
-        isDragging && "z-50",
+        "relative z-0 cursor-pointer",
+        isDragging && "z-50 cursor-grabbing",
       )}
-      style={{ opacity: isDragging ? 0.3 : 1, cursor: dragDisabled ? "default" : "grab" }}
+      style={{ opacity: isDragging ? 0.3 : 1 }}
+      onClickCapture={(event) => {
+        if (!suppressClickRef.current) return;
+        suppressClickRef.current = false;
+        event.preventDefault();
+        event.stopPropagation();
+      }}
     >
       <div className={cn(
-        "transition-all duration-500 ease-out rounded-md",
-        isDragging && "scale-[1.01] shadow-lg ring-1 ring-border/40",
-        isRecentlyDropped && "bg-primary/20 ring-2 ring-primary animate-pulse",
+        "rounded-md",
+        isRecentlyDropped && "bg-primary/20 ring-2 ring-primary animate-pulse transition-all duration-500 ease-out",
       )}>
         <KanbanWorkspaceCard
           {...cardProps}
@@ -525,45 +488,55 @@ export function DraggableWorkspaceCard(props: React.ComponentProps<typeof Kanban
   );
 }
 
-export function KanbanDragPreview({ item }: { item: DragItem }) {
-  const locale = useLocale();
-  const priorityOption = getWorkspacePriorityMeta(item.preview.priority);
-  const statusMeta = getWorkspaceWorkflowStatusMeta(item.preview.workflowStatus);
-  const PriorityIcon = priorityOption.icon;
-  const StatusIcon = statusMeta.icon;
+const noopAsync = async () => {};
+const noopEnter = () => {};
 
+/**
+ * Full-card drag overlay so chrome matches the source (pin, more, group, PR/CI, labels).
+ * Handlers are inert — this is visual only.
+ */
+export function KanbanDragPreview({
+  item,
+  cardProperties,
+  groups = [],
+  availableLabels = [],
+}: {
+  item: DragItem;
+  cardProperties: KanbanCardProperties;
+  groups?: Group[];
+  availableLabels?: WorkspaceLabel[];
+}) {
   return (
-    <div className="w-[348px] origin-[20%_20%] rotate-[2.6deg]">
-      <div className="rounded-md border border-border bg-background p-3 shadow-2xl ring-1 ring-border/40">
-        <div className="mb-3 flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <span className="inline-flex size-6 items-center justify-center rounded-md border border-border/60 bg-muted/35">
-              <PriorityIcon className={cn("shrink-0", priorityOption.className)} />
-            </span>
-            <span className="text-sm font-medium text-foreground">{item.preview.projectName}</span>
-          </div>
-          <span className="inline-flex size-6 items-center justify-center rounded-md bg-muted/35">
-            <StatusIcon className={cn("size-3.5 shrink-0", statusMeta.className)} />
-          </span>
-        </div>
-        <h3 className="mb-2 line-clamp-2 text-sm font-semibold">{item.preview.workspaceName}</h3>
-        {item.preview.displayName?.trim() ? (
-          <div className="mb-3 text-xs text-muted-foreground">{item.preview.displayName}</div>
-        ) : null}
-        <div className="mb-3 flex min-h-[1.5rem] flex-wrap items-center gap-1.5">
-          {item.preview.labels.slice(0, 4).map((label) => (
-            <Badge key={label.id} variant="outline" className="gap-1.5 rounded-full bg-background text-muted-foreground">
-              <span className="size-1.5 rounded-full" style={{ backgroundColor: label.color }} aria-hidden="true" />
-              {label.name}
-            </Badge>
-          ))}
-        </div>
-        <div className="mt-auto flex items-center justify-between pt-2">
-          <span className="text-xs text-muted-foreground">
-            {formatRelativeTime(item.preview.lastVisitedAt ?? item.preview.createdAt, locale)}
-          </span>
-        </div>
-      </div>
+    <div className="w-full origin-[20%_20%] rotate-[2.6deg] rounded-md shadow-2xl ring-1 ring-border/40">
+      <KanbanWorkspaceCard
+        workspace={item.preview.workspace}
+        projectId={item.projectId}
+        projectName={item.preview.projectName}
+        cardProperties={cardProperties}
+        groups={groups}
+        availableLabels={availableLabels}
+        dragDisabled
+        onEnterWorkspace={noopEnter}
+        onUpdateWorkflowStatus={noopAsync}
+        onUpdatePriority={noopAsync}
+        onCreateLabel={async (data) => ({
+          id: `preview:${data.name}`,
+          name: data.name,
+          color: data.color,
+          source: "manual",
+        })}
+        onUpdateLabel={async (labelId, data) => ({
+          id: labelId,
+          name: data.name,
+          color: data.color,
+          source: "manual",
+        })}
+        onUpdateLabels={noopAsync}
+        onPinWorkspace={noopAsync}
+        onUnpinWorkspace={noopAsync}
+        onArchiveWorkspace={noopAsync}
+        onDeleteWorkspace={noopAsync}
+      />
     </div>
   );
 }
@@ -572,11 +545,15 @@ export function DroppableColumn({
   columnKey,
   activeDragItem,
   dropDisabled = false,
+  className,
+  style,
   children,
 }: {
   columnKey: string;
   activeDragItem: DragItem | null;
   dropDisabled?: boolean;
+  className?: string;
+  style?: React.CSSProperties;
   children: React.ReactNode;
 }) {
   const { setNodeRef, isOver } = useDroppable({
@@ -590,12 +567,24 @@ export function DroppableColumn({
   return (
     <div
       ref={setNodeRef}
-      className={cn(
-        "scrollbar-on-hover relative min-h-0 flex-1 space-y-2 overflow-y-auto p-2 transition-colors",
-        isValidTarget && "bg-muted/30",
-      )}
+      style={style}
+      className={cn("relative", className)}
     >
-      {children}
+      {/*
+        Always mounted so opacity can fade. Column uses inline backgroundColor
+        for status tint, so a Tailwind bg-* on the root would lose to that.
+      */}
+      <div
+        aria-hidden
+        className={cn(
+          "pointer-events-none absolute inset-0 z-0 rounded-[inherit] bg-primary/10",
+          "transition-opacity duration-200 ease-out",
+          isValidTarget ? "opacity-100" : "opacity-0",
+        )}
+      />
+      <div className="relative z-[1] flex h-full min-h-0 flex-1 flex-col">
+        {children}
+      </div>
     </div>
   );
 }

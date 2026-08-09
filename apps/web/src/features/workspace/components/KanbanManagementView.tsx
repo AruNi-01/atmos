@@ -58,9 +58,9 @@ export function KanbanManagementView() {
   const [filters, setFilters] = useState<WorkspaceKanbanFilters>(EMPTY_WORKSPACE_KANBAN_FILTERS);
   const [groupingMode, setGroupingMode] = useState<SidebarGroupingMode>("status");
 
-  // Only hydrate grouping_mode here. Filters are owned by WorkspaceKanbanView's
-  // workspace_kanban_view load — setting them from both places races and can
-  // clobber the child's hydrate (or user edits) when this request finishes last.
+  // Only hydrate grouping_mode here. Board filters are owned by WorkspaceKanbanView
+  // (`workspace_kanban_view`) and are independent of left-sidebar filters
+  // (`workspace_sidebar.filters`).
   useEffect(() => {
     let cancelled = false;
     void functionSettingsApi

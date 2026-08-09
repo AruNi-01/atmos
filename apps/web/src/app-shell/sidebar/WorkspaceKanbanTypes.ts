@@ -4,7 +4,6 @@ import {
 } from "@/app-shell/sidebar/workspace-status";
 import type {
   Workspace,
-  WorkspaceLabel,
   WorkspacePriority,
   WorkspaceWorkflowStatus,
 } from "@/shared/types/domain";
@@ -75,10 +74,12 @@ export const KANBAN_CARD_PROPERTY_KEYS = [
   "priority",
   "status",
   "workspace_name",
+  "group",
+  "agent_status",
+  "pull_request",
   "display_name",
   "labels",
   "last_visit",
-  "enter_button",
 ] as const;
 
 export type KanbanSortBy = (typeof KANBAN_SORT_BY_VALUES)[number];
@@ -91,22 +92,17 @@ export const DEFAULT_KANBAN_CARD_PROPERTIES: KanbanCardProperties = {
   priority: true,
   status: true,
   workspace_name: true,
+  group: true,
+  agent_status: true,
+  pull_request: true,
   display_name: true,
   labels: true,
   last_visit: true,
-  enter_button: true,
 };
 
-export const KANBAN_CARD_PROPERTY_OPTIONS: Array<{ key: KanbanCardPropertyKey; label: string }> = [
-  { key: "project", label: "Project" },
-  { key: "priority", label: "Priority" },
-  { key: "status", label: "Status" },
-  { key: "workspace_name", label: "Workspace Name" },
-  { key: "display_name", label: "Display Name" },
-  { key: "labels", label: "Labels" },
-  { key: "last_visit", label: "Last Visit" },
-  { key: "enter_button", label: "Enter Button" },
-];
+/** Settings popover property toggles — labels come from i18n `settings.propertyLabels.<key>`. */
+export const KANBAN_CARD_PROPERTY_OPTIONS: Array<{ key: KanbanCardPropertyKey }> =
+  KANBAN_CARD_PROPERTY_KEYS.map((key) => ({ key }));
 
 export type WorkspaceKanbanViewSavedState = {
   sort_by: KanbanSortBy;
@@ -123,7 +119,6 @@ export type WorkspaceKanbanViewSavedState = {
     show_automation_workspaces?: boolean;
   };
   properties: KanbanCardProperties;
-  show_issue_only?: boolean;
 };
 
 export function resolveKanbanCardProperties(raw: unknown): KanbanCardProperties {
@@ -151,12 +146,7 @@ export interface DragItem {
   sourceColumnKey: string;
   preview: {
     projectName: string;
-    workspaceName: string;
-    displayName?: string | null;
-    priority: WorkspacePriority;
-    workflowStatus: WorkspaceWorkflowStatus;
-    labels: WorkspaceLabel[];
-    lastVisitedAt?: string | null;
-    createdAt: string;
+    /** Full workspace snapshot so the overlay can render the real card chrome. */
+    workspace: Workspace;
   };
 }

@@ -536,13 +536,18 @@ export function UserGroupTwoColumnRightContent({
   const { activeProjectId, activeWorkspaceId, ...sharedProjectItemProps } =
     projectItemProps;
 
+  // Primary open: px-3 from the divider. Primary collapsed: pl-5 for Launchpad
+  // alignment, pr-2 so the expand control sits near the right edge.
+  // List always px-3 — same indent whether one or two columns are visible.
+  const headerPad = isPrimaryCollapsed ? "pl-5 pr-2" : "px-3";
+
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="border-b border-sidebar-border">
-        <div className="flex min-h-10 items-center gap-1 px-2">
+        <div className={cn("flex min-h-10 items-center gap-1", headerPad)}>
           <div className="flex min-w-0 flex-1 items-center gap-2">
             {selectedView ? (
-              <FolderOpen className="size-3.5 shrink-0 text-muted-foreground" />
+              <FolderOpen className="size-4 shrink-0 text-muted-foreground" />
             ) : null}
             <div className="min-w-0 truncate text-sm font-medium text-sidebar-foreground">
               {selectedView?.label ?? chromeT("leftSidebarControls.selectGroup")}
@@ -554,7 +559,7 @@ export function UserGroupTwoColumnRightContent({
           />
         </div>
       </div>
-      <div className="scrollbar-on-hover flex-1 overflow-y-auto px-2 py-2">
+      <div className="scrollbar-on-hover flex-1 overflow-y-auto px-3 py-2">
         {!selectedView ? (
           <div className="px-3 py-6 text-sm text-muted-foreground">
             {chromeT("leftSidebarControls.selectGroupDescription")}

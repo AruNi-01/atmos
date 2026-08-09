@@ -711,6 +711,7 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
               </div>
 
               <div className="flex flex-wrap items-center gap-1.5">
+                <WorkspaceLabelBadges labels={workspace.labels} className="contents" />
                 {onUpdateLabels ? (
                   <WorkspaceLabelPicker
                     labels={workspace.labels}
@@ -722,7 +723,6 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
                     surface
                   />
                 ) : null}
-                <WorkspaceLabelBadges labels={workspace.labels} className="contents" />
               </div>
 
               {managedPr ? (

@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { createPortal } from "react-dom";
 import { useTranslations } from "next-intl";
 import {
   Button,
@@ -23,16 +24,14 @@ import {
   useSensors,
 } from "@workspace/ui";
 import type { DragEndEvent, DragStartEvent } from "@workspace/ui";
-import { functionSettingsApi, wsWorkspaceApi } from "@/api/ws-api";
+import { functionSettingsApi } from "@/api/ws-api";
 import { useFunctionSettingsStore } from "@/features/settings/store/function-settings-store";
-import type { GithubIssuePayload } from "@/api/ws-api";
 import { useAppRouter } from "@/shared/hooks/use-app-router";
 import { useQueryState } from "nuqs";
 import { leftSidebarParams } from "@/shared/lib/nuqs/searchParams";
 import type {
   Group,
   Project,
-  Workspace,
   WorkspaceLabel,
   WorkspacePriority,
   WorkspaceWorkflowStatus,
@@ -53,14 +52,12 @@ import {
   ArrowUpNarrowWide,
   Eye,
   EyeOff,
-  Import,
   Plus,
   Search,
   Settings2,
   X,
 } from "lucide-react";
 import { CreateWorkspaceDialog } from "@/features/workspace/components/CreateWorkspaceDialog";
-import { ImportGithubIssuesDialog } from "@/features/github/components/ImportGithubIssuesDialog";
 import {
   WorkspaceKanbanFilterMenu,
   type WorkspaceKanbanFilters,
@@ -76,7 +73,6 @@ import {
   KANBAN_CARD_PROPERTY_OPTIONS,
   KANBAN_SORT_BY_VALUES,
   KANBAN_SORT_ORDER_VALUES,
-  mapKanbanWorkspaceModel,
   resolveKanbanCardProperties,
   type DragItem,
   type KanbanCardProperties,
@@ -177,13 +173,6 @@ export function WorkspaceKanbanView({
   const [isCreateWorkspaceOpen, setIsCreateWorkspaceOpen] = React.useState(false);
   const [createWorkspaceStatus, setCreateWorkspaceStatus] =
     React.useState<WorkspaceWorkflowStatus>("in_progress");
-  const [isImportIssuesOpen, setIsImportIssuesOpen] = React.useState(false);
-  const [showIssueOnly, setShowIssueOnly] = React.useState(false);
-  const [buildFromIssueWorkspace, setBuildFromIssueWorkspace] = React.useState<{
-    projectId: string;
-    workspaceId: string;
-    issue: GithubIssuePayload;
-  } | null>(null);
   const skipPersistRef = React.useRef(false);
   const searchContainerRef = React.useRef<HTMLDivElement | null>(null);
   const boardScrollRef = React.useRef<HTMLDivElement | null>(null);
@@ -202,55 +191,6 @@ export function WorkspaceKanbanView({
       setIsSearchOpen(true);
     }
   }, [searchQuery]);
-
-  // Issue-only workspaces are not loaded by the sidebar store (fetchProjects).
-  // We only fetch them when the user toggles showIssueOnly on.
-  const [issueOnlyWorkspaces, setIssueOnlyWorkspaces] = React.useState<Map<string, Workspace[]>>(new Map());
-  const [issueOnlyLoaded, setIssueOnlyLoaded] = React.useState(false);
-
-  const fetchIssueOnlyWorkspaces = React.useCallback(async () => {
-    const results = await Promise.allSettled(
-      projects.map(async (project) => {
-        const workspaces = await wsWorkspaceApi.listByProject(project.id, true);
-        // Filter to only issue_only workspaces (the store already has manual ones)
-        const issueOnly = workspaces
-          .filter((w) => w.create_source === 'issue_only')
-          .map(mapKanbanWorkspaceModel);
-        return { projectId: project.id, workspaces: issueOnly };
-      }),
-    );
-    const map = new Map<string, Workspace[]>();
-    results.forEach((result) => {
-      if (result.status === 'fulfilled') {
-        map.set(result.value.projectId, result.value.workspaces);
-      }
-    });
-    setIssueOnlyWorkspaces(map);
-    setIssueOnlyLoaded(true);
-  }, [projects]);
-
-  // Fetch issue_only workspaces when showIssueOnly is toggled on
-  React.useEffect(() => {
-    if (!showIssueOnly || issueOnlyLoaded) return;
-    void fetchIssueOnlyWorkspaces();
-  }, [showIssueOnly, issueOnlyLoaded, fetchIssueOnlyWorkspaces]);
-
-  // Build kanbanProjects by merging store data with issue_only workspaces
-  const kanbanProjects = React.useMemo(() => {
-    return projects.map((project) => {
-      if (!showIssueOnly) return project;
-      const extra = issueOnlyWorkspaces.get(project.id) ?? [];
-      if (extra.length === 0) return project;
-      const existingIds = new Set(project.workspaces.map((w) => w.id));
-      const uniqueExtra = extra.filter((w) => !existingIds.has(w.id));
-      return { ...project, workspaces: [...project.workspaces, ...uniqueExtra] };
-    });
-  }, [projects, showIssueOnly, issueOnlyWorkspaces]);
-
-  const reloadKanbanProjects = React.useCallback(async () => {
-    // Re-fetch issue_only workspaces after import
-    await fetchIssueOnlyWorkspaces();
-  }, [fetchIssueOnlyWorkspaces]);
 
   const loadWorkspaceKanbanSettings = React.useCallback(async ({ blocking = false }: { blocking?: boolean } = {}) => {
     if (blocking) {
@@ -293,7 +233,6 @@ export function WorkspaceKanbanView({
         typeof filters.show_automation_workspaces === "boolean"
           ? filters.show_automation_workspaces
           : false;
-      const loadedShowIssueOnly = typeof state.show_issue_only === 'boolean' ? state.show_issue_only : false;
 
       const nextCardProperties = resolveKanbanCardProperties(state);
 
@@ -311,7 +250,6 @@ export function WorkspaceKanbanView({
       });
       setHiddenColumns(loadedHiddenColumns);
       setCardProperties(nextCardProperties);
-      setShowIssueOnly(loadedShowIssueOnly);
     } catch {
       if (blocking) {
         setSortBy("last_visit");
@@ -357,7 +295,6 @@ export function WorkspaceKanbanView({
         show_automation_workspaces: filters.showAutomationWorkspaces,
       },
       properties: cardProperties,
-      show_issue_only: showIssueOnly,
     };
 
     await functionSettingsApi.update("workspace_kanban_view", "state", payload);
@@ -368,7 +305,6 @@ export function WorkspaceKanbanView({
     searchQuery,
     sortBy,
     sortOrder,
-    showIssueOnly,
   ]);
 
   React.useEffect(() => {
@@ -383,23 +319,20 @@ export function WorkspaceKanbanView({
     () =>
       buildKanbanBoardColumns({
         groupingMode,
-        projects: kanbanProjects ?? projects,
+        projects,
         groups,
         availableLabels,
         ungroupedLabel: groupsT("ungrouped"),
         untaggedLabel: groupingT("untagged"),
       }),
-    [availableLabels, groupingMode, groupingT, groups, groupsT, kanbanProjects, projects],
+    [availableLabels, groupingMode, groupingT, groups, groupsT, projects],
   );
 
   const grouped = React.useMemo(() => {
-    const sourceProjects = kanbanProjects ?? projects;
     const buckets = new Map<string, KanbanEntry[]>();
-    sourceProjects.forEach((project) => {
+    projects.forEach((project) => {
       project.workspaces.forEach((workspace) => {
-        // Filter out issue_only workspaces unless showIssueOnly is true
-        if (!showIssueOnly && workspace.createSource === 'issue_only') return;
-        if (!filters.showAutomationWorkspaces && workspace.createSource === 'automation') return;
+        if (!filters.showAutomationWorkspaces && workspace.createSource === "automation") return;
         if (filters.projectIds.length > 0 && !filters.projectIds.includes(project.id)) return;
         if (filters.statuses.length > 0 && !filters.statuses.includes(workspace.workflowStatus)) return;
         if (filters.priorities.length > 0 && !filters.priorities.includes(workspace.priority)) return;
@@ -468,7 +401,7 @@ export function WorkspaceKanbanView({
     });
 
     return buckets;
-  }, [filters, groupingMode, groups, kanbanProjects, projects, searchQuery, showIssueOnly, sortBy, sortOrder]);
+  }, [filters, groupingMode, groups, projects, searchQuery, sortBy, sortOrder]);
 
   React.useEffect(() => {
     if (typeof document === "undefined") return;
@@ -524,25 +457,9 @@ export function WorkspaceKanbanView({
     setActiveDragItem(null);
   }, []);
 
-  const handleEnterWorkspace = React.useCallback((projectId: string, workspaceId: string) => {
-    // Check if this is an issue_only workspace
-    const sourceProjects = kanbanProjects ?? projects;
-    const workspace = sourceProjects
-      .find((p) => p.id === projectId)
-      ?.workspaces.find((w) => w.id === workspaceId);
-
-    if (workspace?.createSource === 'issue_only' && workspace.githubIssue) {
-      setBuildFromIssueWorkspace({
-        projectId,
-        workspaceId,
-        issue: workspace.githubIssue,
-      });
-      setIsCreateWorkspaceOpen(true);
-      return;
-    }
-
+  const handleEnterWorkspace = React.useCallback((_projectId: string, workspaceId: string) => {
     router.push(`/workspace?id=${workspaceId}`);
-  }, [kanbanProjects, projects, router]);
+  }, [router]);
 
   const selectedFilterChips = React.useMemo(() => {
     const chips: Array<{
@@ -774,7 +691,9 @@ export function WorkspaceKanbanView({
                     <div className="pb-1 text-xs font-medium text-foreground">{t("settings.properties")}</div>
                     {KANBAN_CARD_PROPERTY_OPTIONS.map((option) => (
                       <div key={option.key} className="flex items-center justify-between gap-3 rounded-md px-1.5 py-1 hover:bg-muted/45">
-                        <span className="text-xs text-foreground">{option.label}</span>
+                        <span className="text-xs text-foreground">
+                          {t(`settings.propertyLabels.${option.key}`)}
+                        </span>
                         <Switch
                           checked={cardProperties[option.key]}
                           onCheckedChange={(checked) =>
@@ -786,24 +705,6 @@ export function WorkspaceKanbanView({
                   </div>
                 </DropdownMenuContent>
               </DropdownMenu>
-              <Button
-                size="icon-xs"
-                variant="outline"
-                className="size-7"
-                onClick={() => setIsImportIssuesOpen(true)}
-                title={t("toolbar.importGithubIssues")}
-              >
-                <Import className="size-3.5" />
-              </Button>
-              <Button
-                size="icon-xs"
-                variant={showIssueOnly ? "default" : "outline"}
-                className="size-7"
-                onClick={() => setShowIssueOnly((prev) => !prev)}
-                title={showIssueOnly ? t("toolbar.hideIssueOnly") : t("toolbar.showIssueOnly")}
-              >
-                {showIssueOnly ? <Eye className="size-3.5" /> : <EyeOff className="size-3.5" />}
-              </Button>
             </div>
           </div>
           <div
@@ -848,8 +749,11 @@ export function WorkspaceKanbanView({
                       (!HeaderIcon && Boolean(column.color));
 
                     return (
-                      <section
+                      <DroppableColumn
                         key={column.key}
+                        columnKey={column.key}
+                        activeDragItem={activeDragItem}
+                        dropDisabled={!dragAssignable}
                         className="flex h-full flex-shrink-0 flex-col overflow-hidden rounded-md"
                         style={{ backgroundColor: columnBackgroundTint(column.color) }}
                       >
@@ -889,11 +793,7 @@ export function WorkspaceKanbanView({
                             </div>
                           </div>
                         </header>
-                        <DroppableColumn
-                          columnKey={column.key}
-                          activeDragItem={activeDragItem}
-                          dropDisabled={!dragAssignable}
-                        >
+                        <div className="scrollbar-on-hover relative min-h-0 flex-1 space-y-2 overflow-y-auto p-2">
                           {items.map(({ projectId, projectName, workspace }) => (
                             <DraggableWorkspaceCard
                               key={`${column.key}:${workspace.id}`}
@@ -920,8 +820,8 @@ export function WorkspaceKanbanView({
                               onDeleteWorkspace={onDeleteWorkspace}
                             />
                           ))}
-                        </DroppableColumn>
-                      </section>
+                        </div>
+                      </DroppableColumn>
                     );
                   })}
                   {hiddenColumnList.length > 0 ? (
@@ -958,9 +858,26 @@ export function WorkspaceKanbanView({
                     </section>
                   ) : null}
                 </div>
-                <DragOverlay dropAnimation={null}>
-                  {activeDragItem ? <KanbanDragPreview item={activeDragItem} /> : null}
-                </DragOverlay>
+                {/*
+                  Portal outside center Panel (`contain: layout`). Fixed overlay
+                  coords are viewport-based; contain creates a new fixed CB and
+                  shifts the preview right by the panel's left offset.
+                */}
+                {typeof document !== "undefined"
+                  ? createPortal(
+                      <DragOverlay dropAnimation={null} zIndex={1600}>
+                        {activeDragItem ? (
+                          <KanbanDragPreview
+                            item={activeDragItem}
+                            cardProperties={cardProperties}
+                            groups={groups}
+                            availableLabels={availableLabels}
+                          />
+                        ) : null}
+                      </DragOverlay>,
+                      document.body,
+                    )
+                  : null}
               </DndContext>
             ) : (
               <div className="grid h-full min-w-max grid-flow-col auto-cols-[348px] gap-2" />
@@ -968,21 +885,10 @@ export function WorkspaceKanbanView({
           </div>
       <CreateWorkspaceDialog
         isOpen={isCreateWorkspaceOpen}
-        onClose={() => {
-          setIsCreateWorkspaceOpen(false);
-          setBuildFromIssueWorkspace(null);
-        }}
+        onClose={() => setIsCreateWorkspaceOpen(false)}
         defaultWorkflowStatus={createWorkspaceStatus}
         projectSelectionInHeader
         requireProjectSelection
-        defaultProjectId={buildFromIssueWorkspace?.projectId}
-        preselectedIssue={buildFromIssueWorkspace?.issue}
-        sourceWorkspaceId={buildFromIssueWorkspace?.workspaceId}
-      />
-      <ImportGithubIssuesDialog
-        isOpen={isImportIssuesOpen}
-        onClose={() => setIsImportIssuesOpen(false)}
-        onImported={reloadKanbanProjects}
       />
     </div>
   );

@@ -562,7 +562,7 @@ export function WorkspaceLabelPicker({
           ? "relative inline-flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           : triggerVariant === "summary"
             ? "inline-flex items-center gap-1.5 rounded-md border border-border/60 bg-background px-2 py-1 text-xs transition-colors hover:bg-muted"
-            : "inline-flex h-6 items-center rounded-full border border-dashed border-foreground/25 bg-foreground/12 px-2 text-xs font-medium text-foreground transition-colors hover:bg-foreground/18",
+            : "inline-flex h-6 items-center rounded-full bg-foreground/12 px-2 text-xs font-medium text-foreground transition-colors hover:bg-foreground/18",
         triggerClassName,
       )}
     >
