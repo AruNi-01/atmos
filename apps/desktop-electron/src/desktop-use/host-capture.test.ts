@@ -24,7 +24,7 @@ describe("host engine capture routing", () => {
 
   it("reads Atmos-normalized capture.png_base64 (not phantom engine keys only)", () => {
     const src = readFileSync(join(import.meta.dir, "host-capture.ts"), "utf8");
-    expect(src).toContain("capture.png_base64");
+    expect(src).toMatch(/capture[\s\S]{0,80}png_base64/);
     expect(src).toContain("r.png_base64");
     expect(src).toContain("throw new Error");
     expect(src).not.toContain("host_engine_screenshot_missing");

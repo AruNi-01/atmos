@@ -31,11 +31,13 @@ describe("browser-use-control structural", () => {
   });
 
   it("wires Desktop Use agent chrome on embedded click/type", () => {
-    const src = readFileSync(join(root, "browser/browser-use-control.ts"), "utf8");
+    const control = readFileSync(join(root, "browser/browser-use-control.ts"), "utf8");
+    const chrome = readFileSync(join(root, "browser/browser-use-chrome.ts"), "utf8");
+    const src = `${control}\n${chrome}`;
     expect(src).toContain("showEmbeddedBrowserChrome");
     expect(src).toContain("mapGuestRectToScreen");
-    expect(src).toContain("showChromeForRef");
-    expect(src).toContain("spawnDetachedQuiet");
+    expect(control).toContain("showChromeForRef");
+    expect(chrome).toContain("spawnDetachedQuiet");
     expect(src).toContain('child.on("error"');
     expect(src).toContain("desktop-use");
     expect(src).toContain("drive");
