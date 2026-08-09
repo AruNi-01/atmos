@@ -147,7 +147,8 @@ Also distributed with the `geist` package and upstream repository.
 -------------------------------------------------------------------------------
 
 tokscale-core
-  Source:   https://github.com/junhoyeo/tokscale (core subset)
+  Source:   https://github.com/junhoyeo/tokscale (crates/tokscale-core)
+  Pin:      v4.12.0
   Location: vendor/tokscale-core/
   License:  MIT — see vendor/tokscale-core/LICENSE
   Copyright (c) 2025 Junho Yeo
@@ -278,7 +279,6 @@ Notes:    Free-tier copy-paste UI component (React + CSS Module), vendored
           and lightly adapted for Atmos theme (html.dark) and sizing.
           No external runtime dependency beyond the vendored source.
 
-
 -------------------------------------------------------------------------------
 9. Great UI Github Card (adapted)
 -------------------------------------------------------------------------------
@@ -319,5 +319,43 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 -------------------------------------------------------------------------------
+10. Amicro simple-comp dither charts (adapted)
+-------------------------------------------------------------------------------
+
+Source:   https://github.com/Subhan-code/Amicro--Micro-transitions-
+          (src/components/simple-comp — ordered-dither canvas charts)
+Location: packages/ui/src/lib/dither/
+          packages/ui/src/components/dither/
+License:  MIT
+Copyright (c) 2026 SYED SUBHAN UDDIN
+
+Notes:    Adapted into data-driven React primitives (DitherGrowth,
+          DitherHeatmap, DitherStackedBars, DitherDonut, DitherFunnel,
+          DitherShareBar, helpers). Not a verbatim vendor of the showcase grid.
+
+The MIT License (MIT)
+
+Copyright (c) 2026 SYED SUBHAN UDDIN
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+-------------------------------------------------------------------------------
 End of NOTICE
 -------------------------------------------------------------------------------
+

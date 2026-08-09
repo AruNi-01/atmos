@@ -2,11 +2,12 @@
 //!
 //! Parses JSON files from ~/.factory/sessions/
 
+use super::utils::{file_modified_timestamp_ms, read_file_or_none};
 use super::UnifiedMessage;
-use crate::TokenBreakdown;
+use crate::{provider_identity, TokenBreakdown};
 use serde::Deserialize;
 use std::io::{BufRead, BufReader};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 /// Droid settings.json structure
 #[derive(Debug, Deserialize)]
@@ -87,36 +88,15 @@ fn normalize_model_name(model: &str) -> String {
 }
 
 fn get_provider_from_model(model: &str) -> &'static str {
-    let lower = model.to_lowercase();
-
-    if lower.contains("claude")
-        || lower.contains("anthropic")
-        || lower.contains("opus")
-        || lower.contains("sonnet")
-        || lower.contains("haiku")
-    {
-        return "anthropic";
-    }
-    if lower.contains("gpt")
-        || lower.contains("openai")
-        || lower.contains("o1")
-        || lower.contains("o3")
-    {
-        return "openai";
-    }
-    if lower.contains("gemini") || lower.contains("google") {
-        return "google";
-    }
-    if lower.contains("grok") {
-        return "xai";
-    }
-
-    "unknown"
+    provider_identity::inferred_provider_from_model(model).unwrap_or("unknown")
 }
 
 /// Get default model name based on provider when model field is missing
 fn get_default_model_from_provider(provider: &str) -> String {
-    match provider.to_lowercase().as_str() {
+    match provider_identity::canonical_provider(provider)
+        .as_deref()
+        .unwrap_or(provider)
+    {
         "anthropic" => "claude-unknown".to_string(),
         "openai" => "gpt-unknown".to_string(),
         "google" => "gemini-unknown".to_string(),
@@ -153,11 +133,19 @@ fn extract_model_from_jsonl(jsonl_path: &Path) -> Option<String> {
     None
 }
 
+/// Return the fallback JSONL consulted when a settings snapshot omits its
+/// model. The cache watches this path even when it is currently absent so a
+/// later-created transcript invalidates the stored fallback model.
+pub(crate) fn droid_jsonl_path(path: &Path) -> Option<PathBuf> {
+    let file_name = path.file_name()?.to_str()?;
+    let stem = file_name.strip_suffix(".settings.json")?;
+    Some(path.with_file_name(format!("{stem}.jsonl")))
+}
+
 /// Parse a Droid settings.json file
 pub fn parse_droid_file(path: &Path) -> Vec<UnifiedMessage> {
-    let data = match std::fs::read(path) {
-        Ok(d) => d,
-        Err(_) => return Vec::new(),
+    let Some(data) = read_file_or_none(path) else {
+        return Vec::new();
     };
 
     let mut bytes = data;
@@ -200,10 +188,7 @@ pub fn parse_droid_file(path: &Path) -> Vec<UnifiedMessage> {
         normalize_model_name(&m)
     } else {
         // Try to extract from JSONL file
-        let jsonl_path = path
-            .to_str()
-            .map(|s| s.replace(".settings.json", ".jsonl"))
-            .map(std::path::PathBuf::from);
+        let jsonl_path = droid_jsonl_path(path);
 
         if let Some(ref jsonl) = jsonl_path {
             extract_model_from_jsonl(jsonl)
@@ -213,26 +198,15 @@ pub fn parse_droid_file(path: &Path) -> Vec<UnifiedMessage> {
         }
     };
 
-    // Get timestamp from providerLockTimestamp or file mtime
+    // Get timestamp from providerLockTimestamp, falling back to file mtime
+    // (which itself falls back to now()). Never drop a record with real token
+    // usage just because the timestamp could not be resolved.
     let timestamp = settings
         .provider_lock_timestamp
         .and_then(|ts| chrono::DateTime::parse_from_rfc3339(&ts).ok())
         .map(|dt| dt.timestamp_millis())
-        .or_else(|| {
-            std::fs::metadata(path)
-                .ok()
-                .and_then(|m| m.modified().ok())
-                .map(|t| {
-                    t.duration_since(std::time::UNIX_EPOCH)
-                        .map(|d| d.as_millis() as i64)
-                        .unwrap_or(0)
-                })
-        })
-        .unwrap_or(0);
-
-    if timestamp == 0 {
-        return Vec::new();
-    }
+        .filter(|&ts| ts != 0)
+        .unwrap_or_else(|| file_modified_timestamp_ms(path));
 
     vec![UnifiedMessage::new(
         "droid",
