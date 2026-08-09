@@ -15,7 +15,7 @@ import {
   Trash2,
   Type,
 } from "lucide-react";
-import { cn, DotmSquare12, TextShimmer } from "@workspace/ui";
+import { BorderBeam, cn, DotmSquare12, TextShimmer } from "@workspace/ui";
 
 import type { CanvasAgentFeedStore } from "../lib/canvas-agent-feed";
 import type {
@@ -169,34 +169,42 @@ export function CanvasAgentIsland({ bridge }: { bridge: CanvasAgentBridgeState }
         ) : null}
       </AnimatePresence>
 
-      <button
-        type="button"
-        aria-expanded={expanded}
-        aria-label={
-          isWorking
-            ? t("agentIsland.agentWorkingOnCanvas")
-            : t("agentIsland.canvasAgentActivity")
-        }
-        onClick={() => setExpanded(v => !v)}
-        className={cn(
-          "pointer-events-auto flex h-8 max-w-[min(100%,20rem)] items-center gap-2 rounded-full py-0 pl-2.5 pr-3",
-          "transition-[transform,box-shadow] duration-200 ease-out",
-          "hover:scale-[1.02] active:scale-[0.98]",
-          GLASS_SHELL,
-        )}
+      <BorderBeam
+        size="md"
+        colorVariant="ocean"
+        borderRadius={9999}
+        active={isWorking}
+        className="pointer-events-auto [&>[data-beam-bloom]]:pointer-events-none"
       >
-        <DotmSquare12
-          size={16}
-          dotSize={2.5}
-          animated={isWorking && !reducedMotion}
-          className="size-4 shrink-0"
-        />
-        <IslandStatusLabel
-          labelKey={`${current.requestId}:${isWorking ? "work" : "idle"}`}
-          label={current.label}
-          isWorking={isWorking && !reducedMotion}
-        />
-      </button>
+        <button
+          type="button"
+          aria-expanded={expanded}
+          aria-label={
+            isWorking
+              ? t("agentIsland.agentWorkingOnCanvas")
+              : t("agentIsland.canvasAgentActivity")
+          }
+          onClick={() => setExpanded(v => !v)}
+          className={cn(
+            "flex h-8 max-w-[min(100%,20rem)] items-center gap-2 rounded-full py-0 pl-2.5 pr-3",
+            "transition-[transform,box-shadow] duration-200 ease-out",
+            "hover:scale-[1.02] active:scale-[0.98]",
+            GLASS_SHELL,
+          )}
+        >
+          <DotmSquare12
+            size={16}
+            dotSize={2.5}
+            animated={isWorking && !reducedMotion}
+            className="size-4 shrink-0"
+          />
+          <IslandStatusLabel
+            labelKey={`${current.requestId}:${isWorking ? "work" : "idle"}`}
+            label={current.label}
+            isWorking={isWorking && !reducedMotion}
+          />
+        </button>
+      </BorderBeam>
     </div>
   );
 }
