@@ -1,0 +1,244 @@
+"use client";
+
+import { useCallback, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { cn } from "../../lib/utils";
+import {
+  bandColor,
+  hash,
+  smoothstep,
+  type DitherTheme,
+} from "../../lib/dither/math";
+import { useDitherCanvas } from "../../lib/dither/use-dither-canvas";
+import {
+  DitherTooltip,
+  smoothToward,
+  type DitherTooltipState,
+} from "./DitherTooltip";
+
+export type DitherShareSegment = {
+  id: string;
+  label: string;
+  value: number;
+  color?: string;
+};
+
+export type DitherShareBarProps = {
+  segments: DitherShareSegment[];
+  theme?: DitherTheme;
+  className?: string;
+  formatValue?: (value: number) => string;
+  formatShare?: (share: number) => string;
+};
+
+/**
+ * Full-width 100% stacked horizontal bar with dither fill.
+ * Good for token-mix / composition share (Input · Output · Cache · …).
+ */
+export function DitherShareBar({
+  segments,
+  theme = "dark",
+  className,
+  formatValue = (v) => Math.round(v).toLocaleString(),
+  formatShare = (s) => `${Math.round(s * 1000) / 10}%`,
+}: DitherShareBarProps) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const segmentsRef = useRef(segments);
+  segmentsRef.current = segments;
+  const formatValueRef = useRef(formatValue);
+  formatValueRef.current = formatValue;
+  const formatShareRef = useRef(formatShare);
+  formatShareRef.current = formatShare;
+  const weightsRef = useRef<number[]>([]);
+  const targetIdxRef = useRef<number | null>(null);
+  const clientRef = useRef({ x: 0, y: 0 });
+  const lastTipKey = useRef("");
+  const [tooltip, setTooltip] = useState<DitherTooltipState | null>(null);
+
+  const draw = useCallback(
+    ({
+      ctx,
+      width: w,
+      height: h,
+      time,
+      reducedMotion,
+    }: {
+      ctx: CanvasRenderingContext2D;
+      width: number;
+      height: number;
+      time: number;
+      reducedMotion: boolean;
+    }) => {
+      const segs = segmentsRef.current;
+      if (segs.length === 0 || w < 2 || h < 2) return;
+
+      const total = segs.reduce((s, seg) => s + Math.max(0, seg.value), 0);
+      if (total <= 0) return;
+
+      const cell = Math.max(2, Math.round(w / 220));
+      const tAnim = reducedMotion ? 0 : time;
+      const rate = reducedMotion ? 1 : 0.18;
+      const radius = Math.min(h / 2, 8);
+
+      if (weightsRef.current.length !== segs.length) {
+        weightsRef.current = segs.map(() => 0);
+      }
+      const target = targetIdxRef.current;
+      for (let i = 0; i < segs.length; i++) {
+        weightsRef.current[i] = smoothToward(
+          weightsRef.current[i]!,
+          target === i ? 1 : 0,
+          rate,
+        );
+      }
+
+      // Track for hit-test: cumulative widths
+      let x = 0;
+      const layout: Array<{ x0: number; x1: number; share: number }> = [];
+
+      for (let i = 0; i < segs.length; i++) {
+        const seg = segs[i]!;
+        const share = Math.max(0, seg.value) / total;
+        const segW = share * w;
+        const x0 = x;
+        const x1 = x + segW;
+        layout.push({ x0, x1, share });
+
+        if (segW < 0.5) {
+          x = x1;
+          continue;
+        }
+
+        const highlight = weightsRef.current[i] ?? 0;
+        const color = seg.color ?? bandColor(i, theme);
+        const pad = highlight * 1.5;
+
+        ctx.save();
+        ctx.beginPath();
+        // First/last caps round; middle segments stay square joins for a continuous bar.
+        const rL = i === 0 ? radius : 0;
+        const rR = i === segs.length - 1 ? radius : 0;
+        roundedSegment(ctx, x0, pad, segW, h - pad * 2, rL, rR);
+        ctx.clip();
+
+        ctx.globalAlpha = 0.82 + highlight * 0.15;
+        ctx.fillStyle = color;
+
+        for (let bx = Math.floor(x0); bx <= Math.ceil(x1); bx += cell) {
+          for (let by = 0; by <= Math.ceil(h); by += cell) {
+            const jx = bx + cell / 2;
+            const jy = by + cell / 2;
+            const jit = hash(jx, jy);
+            const waveRaw =
+              Math.sin(jx * 0.05 + tAnim) + Math.sin(jy * 0.05 + tAnim * 0.7);
+            const mod = smoothstep(-1.5, 1.5, waveRaw);
+            const sz = cell * (0.35 + 0.35 * mod) * (0.8 + 0.4 * jit);
+            ctx.fillRect(bx + (cell - sz) / 2, by + (cell - sz) / 2, sz, sz);
+          }
+        }
+        ctx.restore();
+
+        x = x1;
+      }
+
+      // Hover tooltip
+      if (target !== null && segs[target] && layout[target]) {
+        const seg = segs[target]!;
+        const share = layout[target]!.share;
+        const key = `${seg.id}:${seg.value}:${clientRef.current.x}:${clientRef.current.y}`;
+        if (lastTipKey.current !== key) {
+          lastTipKey.current = key;
+          setTooltip({
+            clientX: clientRef.current.x,
+            clientY: clientRef.current.y,
+            title: seg.label,
+            lines: [
+              {
+                label: formatShareRef.current(share),
+                value: formatValueRef.current(seg.value),
+                color: seg.color ?? bandColor(target, theme),
+              },
+            ],
+          });
+        }
+      } else if (lastTipKey.current !== "") {
+        lastTipKey.current = "";
+        setTooltip(null);
+      }
+
+      // Stash layout for pointer hit-test
+      (canvasRef.current as HTMLCanvasElement & {
+        __shareLayout?: typeof layout;
+      }).__shareLayout = layout;
+    },
+    [theme],
+  );
+
+  useDitherCanvas(canvasRef, draw, [segments, theme]);
+
+  const handlePointer = (e: ReactPointerEvent<HTMLCanvasElement>) => {
+    clientRef.current = { x: e.clientX, y: e.clientY };
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    const lx = e.clientX - rect.left;
+    const layout = (
+      canvas as HTMLCanvasElement & {
+        __shareLayout?: Array<{ x0: number; x1: number }>;
+      }
+    ).__shareLayout;
+    if (!layout?.length) {
+      targetIdxRef.current = null;
+      return;
+    }
+    let hit: number | null = null;
+    for (let i = 0; i < layout.length; i++) {
+      const row = layout[i]!;
+      if (lx >= row.x0 && lx <= row.x1) {
+        hit = i;
+        break;
+      }
+    }
+    targetIdxRef.current = hit;
+  };
+
+  return (
+    <div className={cn("relative h-full w-full min-h-0", className)}>
+      <canvas
+        ref={canvasRef}
+        className="block h-full max-h-full w-full touch-none"
+        onPointerMove={handlePointer}
+        onPointerLeave={() => {
+          targetIdxRef.current = null;
+          lastTipKey.current = "";
+          setTooltip(null);
+        }}
+        role="img"
+        aria-label="Share composition"
+      />
+      <DitherTooltip state={tooltip} theme={theme} />
+    </div>
+  );
+}
+
+function roundedSegment(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  rLeft: number,
+  rRight: number,
+) {
+  const rl = Math.min(rLeft, w / 2, h / 2);
+  const rr = Math.min(rRight, w / 2, h / 2);
+  ctx.moveTo(x + rl, y);
+  ctx.lineTo(x + w - rr, y);
+  ctx.arcTo(x + w, y, x + w, y + rr, rr);
+  ctx.lineTo(x + w, y + h - rr);
+  ctx.arcTo(x + w, y + h, x + w - rr, y + h, rr);
+  ctx.lineTo(x + rl, y + h);
+  ctx.arcTo(x, y + h, x, y + h - rr, rl);
+  ctx.lineTo(x, y + rl);
+  ctx.arcTo(x, y, x + rl, y, rl);
+  ctx.closePath();
+}

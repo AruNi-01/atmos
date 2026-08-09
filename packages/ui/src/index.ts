@@ -98,6 +98,42 @@ export { ShineBorder } from "./components/ui/shine-border";
 export { TextShimmer } from "./components/ui/text-shimmer";
 export { DotmSquare12 } from "./components/ui/dotm-square-12";
 export type { DotmSquare12Props } from "./components/ui/dotm-square-12";
+
+// Dither / ordered-dot charts (MIT-adapted Amicro simple-comp style)
+export {
+  DitherPanel,
+  DitherGrowth,
+  DitherHeatmap,
+  DitherStackedBars,
+  DitherDonut,
+  DitherFunnel,
+  DitherShareBar,
+  DitherRevenueLines,
+  DitherTooltip,
+  bandColor,
+  ditherInk,
+  heatmapLevelColor,
+} from "./components/dither";
+export type {
+  DitherPanelProps,
+  DitherGrowthProps,
+  DitherHeatmapCell,
+  DitherHeatmapProps,
+  DitherStackedBar,
+  DitherStackedBarsProps,
+  DitherDonutProps,
+  DitherDonutSlice,
+  DitherFunnelProps,
+  DitherFunnelStage,
+  DitherShareBarProps,
+  DitherShareSegment,
+  DitherRevenueLinesProps,
+  DitherRevenueSeries,
+  DitherTooltipLine,
+  DitherTooltipProps,
+  DitherTooltipState,
+  DitherTheme,
+} from "./components/dither";
 export { TextShimmerWave } from "./components/ui/text-shimmer-wave";
 export { TextScramble } from "./components/ui/text-scramble";
 export { TextMorph } from "./components/ui/text-morph";
