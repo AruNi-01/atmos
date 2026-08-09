@@ -27,6 +27,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { DesktopUsePermissionsPanel } from "@/features/settings/components/DesktopUsePermissionsPanel";
+import { DesktopUseEngineProgressBar } from "@/features/settings/components/DesktopUseEngineProgressBar";
 import {
   SettingsGroupCard,
   SettingsGroupRow,
@@ -83,24 +84,6 @@ type RuntimeCheckResult = {
     engine_version?: string | null;
   };
 };
-
-function EngineProgressBar({ value }: { value: number }) {
-  const pct = Math.min(100, Math.max(0, value));
-  return (
-    <div
-      className="h-1.5 w-20 overflow-hidden rounded-full bg-muted sm:w-28"
-      role="progressbar"
-      aria-valuemin={0}
-      aria-valuemax={100}
-      aria-valuenow={Math.round(pct)}
-    >
-      <div
-        className="h-full rounded-full bg-primary transition-all duration-300"
-        style={{ width: `${pct}%` }}
-      />
-    </div>
-  );
-}
 
 export function DesktopUseSettingsSection() {
   const t = useTranslations("settings.desktopUse");
@@ -507,7 +490,7 @@ export function DesktopUseSettingsSection() {
   const downloadProgressAside =
     isDownloading && progressPct !== null ? (
       <div className="flex items-center gap-2">
-        <EngineProgressBar value={progressPct} />
+        <DesktopUseEngineProgressBar value={progressPct} />
         <span className="min-w-9 text-right text-xs tabular-nums text-muted-foreground">
           {progressPct}%
         </span>
