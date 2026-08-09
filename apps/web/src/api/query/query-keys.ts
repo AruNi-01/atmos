@@ -408,6 +408,21 @@ export const queryKeys = {
         params.runId,
       ] as const,
 
+    /** GitHub: tail of a single Actions job log (failed jobs) */
+    githubActionsJobLogs: (
+      scope: ComputerQueryScope,
+      params: { owner: string; repo: string; jobId: number; tailLines?: number },
+    ) =>
+      [
+        ...queryKeys.computer.root(scope),
+        "github",
+        "actionsJobLogs",
+        params.owner,
+        params.repo,
+        params.jobId,
+        params.tailLines ?? 500,
+      ] as const,
+
     /** GitHub: PR merge-conflict file paths (local merge-tree) */
     githubPrConflictFiles: (
       scope: ComputerQueryScope,

@@ -12,6 +12,7 @@ import {
   type NodeProps,
   useNodesInitialized,
   useReactFlow,
+  useStore,
   useUpdateNodeInternals,
 } from "@xyflow/react";
 // Load via the JS module graph so Next always emits the stylesheet.
@@ -41,6 +42,8 @@ type WorkflowNodeData = {
   duration: string | null;
   label: string;
   matrixJobs: WorkflowMatrixJob[];
+  /** Job list keys for the matched Actions jobs under this workflow node. */
+  jobKeys: string[];
   sourceConnected: boolean;
   status: string;
   summary: string | null;
@@ -51,8 +54,14 @@ type WorkflowNodeData = {
 type WorkflowMatrixJob = {
   duration: string | null;
   id: string;
+  /** Job list key for this matrix instance (matches ActionsJobsList). */
+  jobKey: string;
   label: string;
   status: string;
+};
+
+export type ActionsWorkflowJobSelectPayload = {
+  jobKeys: string[];
 };
 
 function parseWorkflowJobs(content: string): WorkflowJobDefinition[] {
@@ -93,6 +102,14 @@ function isJobMatch(definition: WorkflowJobDefinition, job: GithubActionsJobPayl
   const expressionIndex = definition.name.indexOf("${{");
   if (expressionIndex < 0) return false;
   return jobName.startsWith(definition.name.slice(0, expressionIndex));
+}
+
+/** Stable key shared with ActionsJobsList rows. */
+export function getActionsJobListKey(
+  job: GithubActionsJobPayload,
+  index: number,
+): string {
+  return String(job.databaseId ?? job.id ?? `${job.name ?? "job"}-${index}`);
 }
 
 function getStatus(jobs: GithubActionsJobPayload[]) {
@@ -155,7 +172,13 @@ function layoutNodes(definitions: WorkflowJobDefinition[], jobs: GithubActionsJo
   const rowsByLevel = new Map<number, number>();
 
   const nodeDefinitions = definitions.map((definition) => {
-    const matchedJobs = jobs.filter((job) => isJobMatch(definition, job));
+    const matchedEntries = jobs
+      .map((job, index) => ({ job, index }))
+      .filter(({ job }) => isJobMatch(definition, job));
+    const matchedJobs = matchedEntries.map(({ job }) => job);
+    const jobKeys = matchedEntries.map(({ job, index }) =>
+      getActionsJobListKey(job, index),
+    );
     const level = levelById.get(definition.id) ?? 0;
     const row = rowsByLevel.get(level) ?? 0;
     rowsByLevel.set(level, row + 1);
@@ -167,10 +190,11 @@ function layoutNodes(definitions: WorkflowJobDefinition[], jobs: GithubActionsJo
     const label = isMatrix ? `Matrix: ${definition.name}` : definition.name;
     const duration = getDuration(matchedJobs);
     const matrixJobs = isMatrix
-      ? matchedJobs.map((job, index) => ({
+      ? matchedEntries.map(({ job, index }, matrixIndex) => ({
           duration: getDuration([job]),
-          id: String(job.databaseId ?? job.id ?? `${definition.id}-${index}`),
-          label: job.name ?? `Job ${index + 1}`,
+          id: String(job.databaseId ?? job.id ?? `${definition.id}-${matrixIndex}`),
+          jobKey: getActionsJobListKey(job, index),
+          label: job.name ?? `Job ${matrixIndex + 1}`,
           status: job.conclusion ?? job.status ?? "unknown",
         }))
       : [];
@@ -183,6 +207,7 @@ function layoutNodes(definitions: WorkflowJobDefinition[], jobs: GithubActionsJo
         duration,
         label,
         matrixJobs,
+        jobKeys,
         sourceConnected,
         status: getStatus(matchedJobs),
         summary: isMatrix
@@ -234,10 +259,17 @@ function layoutNodes(definitions: WorkflowJobDefinition[], jobs: GithubActionsJo
   return { nodes, edges };
 }
 
+const WorkflowJobSelectContext =
+  React.createContext<((payload: ActionsWorkflowJobSelectPayload) => void) | null>(
+    null,
+  );
+
 function WorkflowNode({ data, id }: NodeProps<Node<WorkflowNodeData>>) {
+  const onSelectJobs = React.useContext(WorkflowJobSelectContext);
   const [matrixExpanded, setMatrixExpanded] = React.useState(false);
   const updateNodeInternals = useUpdateNodeInternals();
   const isMatrix = data.matrixJobs.length > 0;
+  const canSelect = data.jobKeys.length > 0;
 
   React.useLayoutEffect(() => {
     if (!isMatrix) return;
@@ -250,7 +282,16 @@ function WorkflowNode({ data, id }: NodeProps<Node<WorkflowNodeData>>) {
   }, [id, isMatrix, matrixExpanded, updateNodeInternals]);
 
   return (
-    <div className="relative w-full rounded-md border border-border bg-background px-4 py-3 shadow-sm">
+    <div
+      className={cn(
+        "relative w-full rounded-md border border-border bg-background px-4 py-3 shadow-sm",
+        canSelect && "cursor-pointer transition-colors hover:border-border/80 hover:bg-muted/30",
+      )}
+      onClick={() => {
+        if (!canSelect || !onSelectJobs) return;
+        onSelectJobs({ jobKeys: data.jobKeys });
+      }}
+    >
       {data.targetConnected && (
         <Handle
           className="size-2 border-2 border-background bg-muted-foreground"
@@ -273,7 +314,10 @@ function WorkflowNode({ data, id }: NodeProps<Node<WorkflowNodeData>>) {
             type="button"
             aria-expanded={matrixExpanded}
             className="nodrag nopan mt-2 flex w-full items-center justify-between rounded-sm px-1 py-0.5 text-left text-xs text-muted-foreground transition-colors hover:bg-muted"
-            onClick={() => setMatrixExpanded((expanded) => !expanded)}
+            onClick={(event) => {
+              event.stopPropagation();
+              setMatrixExpanded((expanded) => !expanded);
+            }}
           >
             <span>{data.matrixJobs.length} jobs</span>
             <ChevronDown
@@ -289,9 +333,17 @@ function WorkflowNode({ data, id }: NodeProps<Node<WorkflowNodeData>>) {
             )}
           >
             <div className="min-h-0 overflow-hidden">
-              <div className="divide-y divide-border/40 border-t border-border/40">
+              <div className="mt-1 flex flex-col gap-0.5 border-t border-border/40 pt-1.5">
                 {data.matrixJobs.map((job) => (
-                  <div key={job.id} className="flex items-center gap-2 py-2">
+                  <button
+                    key={job.id}
+                    type="button"
+                    className="nodrag nopan flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-muted/60"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onSelectJobs?.({ jobKeys: [job.jobKey] });
+                    }}
+                  >
                     <WorkflowStatusIcon status={job.status} />
                     <span className="min-w-0 flex-1 truncate text-sm">{job.label}</span>
                     {job.duration && (
@@ -299,7 +351,7 @@ function WorkflowNode({ data, id }: NodeProps<Node<WorkflowNodeData>>) {
                         {job.duration}
                       </span>
                     )}
-                  </div>
+                  </button>
                 ))}
               </div>
             </div>
@@ -339,31 +391,58 @@ function WorkflowStatusIcon({ status }: { status: string }) {
 
 const nodeTypes = { workflow: WorkflowNode };
 
+const FIT_VIEW_OPTIONS = {
+  duration: 0,
+  maxZoom: 1.5,
+  minZoom: 0.4,
+  padding: 0.1,
+} as const;
+
 function WorkflowViewportFitter({ nodes }: { nodes: Node[] }) {
   const flow = useReactFlow();
   const nodesInitialized = useNodesInitialized();
+  // Wait for a real measured pane size — initial mount often reports 0×0.
+  const width = useStore((state) => state.width);
+  const height = useStore((state) => state.height);
+  const nodeKey = nodes.map((node) => node.id).join("|");
+  const fittedKeyRef = React.useRef<string | null>(null);
 
   React.useEffect(() => {
     if (!nodesInitialized || nodes.length === 0) return;
-    const raf = requestAnimationFrame(() => {
-      void flow.fitView({
-        duration: 200,
-        maxZoom: 1.5,
-        minZoom: 0.4,
-        padding: 0.1,
+    if (width < 1 || height < 1) return;
+    // Re-fit when the graph topology changes (new run / different jobs).
+    if (fittedKeyRef.current === nodeKey) return;
+
+    let cancelled = false;
+    let raf2 = 0;
+    // Double rAF: wait until React Flow has committed measured node bounds.
+    const raf1 = requestAnimationFrame(() => {
+      raf2 = requestAnimationFrame(() => {
+        if (cancelled) return;
+        void flow.fitView({ ...FIT_VIEW_OPTIONS }).then(() => {
+          if (!cancelled) fittedKeyRef.current = nodeKey;
+        });
       });
     });
-    return () => cancelAnimationFrame(raf);
-  }, [flow, nodes, nodesInitialized]);
+
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(raf1);
+      cancelAnimationFrame(raf2);
+    };
+  }, [flow, height, nodeKey, nodes.length, nodesInitialized, width]);
 
   return null;
 }
 
 export function ActionsWorkflowGraph({
   jobs,
+  onSelectJobs,
   workflowFile,
 }: {
   jobs: GithubActionsJobPayload[];
+  /** Focus matching job rows in the list below (expand + scroll). */
+  onSelectJobs?: (payload: ActionsWorkflowJobSelectPayload) => void;
   workflowFile?: { content: string; path: string };
 }) {
   const t = useTranslations("github.actionsDetail");
@@ -374,7 +453,8 @@ export function ActionsWorkflowGraph({
         : { edges: [], nodes: [] },
     [jobs, workflowFile],
   );
-  if (!workflowFile || nodes.length === 0) return null;
+
+if (!workflowFile || nodes.length === 0) return null;
 
   return (
     <section className="flex flex-col gap-3">
@@ -382,29 +462,33 @@ export function ActionsWorkflowGraph({
         {t("sections.workflow")}
       </h4>
       <div className="relative h-80 w-full overflow-hidden rounded-xl border bg-muted/10">
-        <ReactFlow
-          className="actions-workflow-flow h-full w-full"
-          edges={edges}
-          maxZoom={1.5}
-          minZoom={0.4}
-          nodes={nodes}
-          nodeTypes={nodeTypes}
-          nodesConnectable={false}
-          nodesDraggable={false}
-          nodesFocusable={false}
-          panOnDrag={[0, 1, 2]}
-          proOptions={{ hideAttribution: true }}
-          style={{ width: "100%", height: "100%" }}
-          zoomOnDoubleClick={false}
-        >
-          <WorkflowViewportFitter nodes={nodes} />
-          <Background color="var(--border)" gap={20} size={1} />
-          <Controls
-            className="actions-workflow-controls"
-            position="bottom-right"
-            showInteractive={false}
-          />
-        </ReactFlow>
+        <WorkflowJobSelectContext.Provider value={onSelectJobs ?? null}>
+          <ReactFlow
+            className="actions-workflow-flow h-full w-full"
+            edges={edges}
+            fitView
+            fitViewOptions={FIT_VIEW_OPTIONS}
+            maxZoom={1.5}
+            minZoom={0.4}
+            nodes={nodes}
+            nodeTypes={nodeTypes}
+            nodesConnectable={false}
+            nodesDraggable={false}
+            nodesFocusable={false}
+            panOnDrag={[0, 1, 2]}
+            proOptions={{ hideAttribution: true }}
+            style={{ width: "100%", height: "100%" }}
+            zoomOnDoubleClick={false}
+          >
+            <WorkflowViewportFitter nodes={nodes} />
+            <Background color="var(--border)" gap={20} size={1} />
+            <Controls
+              className="actions-workflow-controls"
+              position="bottom-right"
+              showInteractive={false}
+            />
+          </ReactFlow>
+        </WorkflowJobSelectContext.Provider>
       </div>
     </section>
   );

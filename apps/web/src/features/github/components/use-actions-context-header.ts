@@ -80,6 +80,15 @@ export function useActionsContextHeader() {
 
   const handleWheelCapture = React.useCallback(
     (event: React.WheelEvent<HTMLDivElement>) => {
+      // Nested scroll panes (e.g. failed-step logs) should not drive the
+      // sticky header show/hide — only page-level scroll should.
+      const target = event.target;
+      if (
+        target instanceof Element &&
+        target.closest("[data-actions-nested-scroll]")
+      ) {
+        return;
+      }
       if (event.deltaY > 8) {
         setContextVisible(false);
       } else if (event.deltaY < -8) {

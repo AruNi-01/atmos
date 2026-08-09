@@ -24,9 +24,10 @@
 }
 
 .actions-workflow-flow .actions-workflow-controls {
-  position: absolute;
-  right: 12px;
-  bottom: 12px;
+  position: absolute !important;
+  /* Nudge off the pane edge (RF bottom-right can sit flush without this). */
+  right: 8px !important;
+  bottom: 8px !important;
   display: flex;
   flex-direction: column;
   overflow: hidden;

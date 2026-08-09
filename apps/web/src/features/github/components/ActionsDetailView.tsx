@@ -30,7 +30,10 @@ import { cn } from "@/shared/lib/utils";
 import { type ActionRun } from "./ActionsPanel";
 import { useAgentFixContext } from "@/features/agent-fix/hooks/use-agent-fix-context";
 import { ActionsActionBar } from "./ActionsActionBar";
-import { ActionsJobsList } from "./ActionsJobsList";
+import {
+  ActionsJobsList,
+  type ActionsJobsFocusRequest,
+} from "./ActionsJobsList";
 import { useActionsContextHeader } from "./use-actions-context-header";
 import { AgentFixButton } from "@/features/agent-fix/components/AgentFixButton";
 import type { AgentFixPromptSource } from "@/features/agent-fix/types";
@@ -88,6 +91,19 @@ export function ActionsDetailView({
   const [actionLoading, setActionLoading] = React.useState<boolean>(false);
   const [activeTab, setActiveTab] = React.useState<"summary" | "workflow">(
     "summary",
+  );
+  const [jobsFocusRequest, setJobsFocusRequest] =
+    React.useState<ActionsJobsFocusRequest | null>(null);
+
+  const handleWorkflowSelectJobs = React.useCallback(
+    (payload: { jobKeys: string[] }) => {
+      if (!payload.jobKeys.length) return;
+      setJobsFocusRequest({
+        jobKeys: payload.jobKeys,
+        nonce: Date.now(),
+      });
+    },
+    [],
   );
   const {
     contextRef,
@@ -249,6 +265,93 @@ export function ActionsDetailView({
   const createdAtTimestamp = formatActionTimestamp(effectiveRun.createdAt);
   const createdAtTimeAgo = formatActionTimeAgo(effectiveRun.createdAt);
 
+  const runContextHeader = (
+    <>
+      <div className="flex items-center gap-2">
+        <h3 className="text-base font-semibold text-foreground">
+          {effectiveRun.displayTitle}
+        </h3>
+      </div>
+      <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+        <div className="flex shrink-0 items-center gap-1.5 rounded-md border border-border/50 bg-muted/50 px-1.5 py-0.5 shadow-sm">
+          <Rocket className="size-3.5" />
+          <span className="font-semibold text-foreground/90">
+            {effectiveRun.workflowName || (detailLoading ? "…" : "—")}
+          </span>
+        </div>
+        <span>{t("metadata.triggeredVia")}</span>
+        {detailLoading && !effectiveRun.event ? (
+          <Skeleton className="mr-1 h-5 w-20 rounded bg-muted-foreground/20" />
+        ) : effectiveRun.event ? (
+          <span className="mr-1 truncate rounded bg-primary/10 px-1.5 py-px font-mono capitalize text-primary shadow-sm">
+            {effectiveRun.event}
+          </span>
+        ) : (
+          <span className="mr-1 text-muted-foreground/50">—</span>
+        )}
+
+        {detailLoading && !detail?.actor && (
+          <div className="mr-1 flex items-center gap-1.5 rounded-md border border-border/30 bg-muted/20 px-1.5 py-1">
+            <Skeleton className="size-3.5 rounded-full bg-muted-foreground/20" />
+            <Skeleton className="h-3 w-16 bg-muted-foreground/20" />
+          </div>
+        )}
+
+        {detail?.actor && (
+          <div className="mr-1 flex items-center gap-1.5 rounded-md border border-border/50 bg-muted/40 px-1.5 py-0.5 shadow-sm">
+            <GithubUserAvatar
+              username={detail.actor.login}
+              avatarUrl={detail.actor.avatar_url || detail.actor.avatarUrl}
+              className="size-3.5 border border-border/50"
+              fallbackClassName="text-[7px]"
+              label={detail.actor.login}
+              labelClassName="font-semibold text-foreground/90"
+            />
+          </div>
+        )}
+
+        <span>{t("metadata.targetBranch")}</span>
+        {detailLoading && !effectiveRun.headBranch ? (
+          <Skeleton className="h-5 w-28 rounded bg-muted-foreground/20" />
+        ) : (
+          <span className="max-w-[200px] truncate rounded bg-secondary px-1.5 py-px font-mono text-secondary-foreground shadow-sm">
+            {effectiveRun.headBranch || t("metadata.unknownBranch")}
+          </span>
+        )}
+        {effectiveRun.headSha && (
+          <>
+            <span>{t("metadata.atCommit")}</span>
+            <span className="max-w-[100px] truncate rounded bg-sidebar-accent px-1.5 py-px font-mono text-sidebar-foreground shadow-sm">
+              {effectiveRun.headSha.substring(0, 7)}
+            </span>
+          </>
+        )}
+      </div>
+      <div className="mt-3 border-t border-border/40 pt-2">
+        <TabsSubtle
+          activeLabel
+          idPrefix={`actions-run-${effectiveRun.databaseId}`}
+          selectedIndex={activeTab === "summary" ? 0 : 1}
+          onSelect={(index) => {
+            setActiveTab(index === 1 ? "workflow" : "summary");
+            resetContext();
+          }}
+        >
+          <TabsSubtleItem
+            icon={ChartNoAxesCombined}
+            index={0}
+            label={t("tabs.summary")}
+          />
+          <TabsSubtleItem
+            icon={FileCode2}
+            index={1}
+            label={t("tabs.workflow")}
+          />
+        </TabsSubtle>
+      </div>
+    </>
+  );
+
   return (
     <div className="relative flex h-full min-h-0 w-full flex-col overflow-hidden">
       <div className="mx-auto w-full max-w-2xl shrink-0 px-6">
@@ -270,155 +373,83 @@ export function ActionsDetailView({
           </div>
         </header>
       </div>
-      <div
-        ref={scrollRef}
-        className="flex-1 min-h-0 w-full overflow-y-auto no-scrollbar"
-        onScroll={handleScroll}
-        onWheelCapture={handleWheelCapture}
-      >
-        <div className="relative mx-auto w-full max-w-2xl px-6 pb-16">
-          <div className="flex flex-col text-sm relative">
-            <div
-              ref={contextRef}
-              className="sticky top-0 z-30 transform-gpu bg-background/98 pb-2 pt-1 backdrop-blur-md transition-transform duration-200 ease-out will-change-transform"
-            >
-              <div className="flex items-center gap-2">
-                <h3 className="text-base font-semibold text-foreground">
-                  {effectiveRun.displayTitle}
-                </h3>
+
+      {activeTab === "summary" ? (
+        <div
+          ref={scrollRef}
+          className="no-scrollbar min-h-0 w-full flex-1 overflow-y-auto"
+          onScroll={handleScroll}
+          onWheelCapture={handleWheelCapture}
+        >
+          <div className="relative mx-auto w-full max-w-2xl px-6 pb-16">
+            <div className="relative flex flex-col text-sm">
+              <div
+                ref={contextRef}
+                className="sticky top-0 z-30 transform-gpu bg-background/98 pb-2 pt-1 backdrop-blur-md transition-transform duration-200 ease-out will-change-transform"
+              >
+                {runContextHeader}
               </div>
-              <div className="flex items-center gap-2 mt-2 text-xs text-muted-foreground flex-wrap">
-                <div className="flex items-center gap-1.5 bg-muted/50 px-1.5 py-0.5 rounded-md border border-border/50 shadow-sm shrink-0">
-                  <Rocket className="size-3.5" />
-                  <span className="font-semibold text-foreground/90">
-                    {effectiveRun.workflowName || (detailLoading ? "…" : "—")}
-                  </span>
-                </div>
-                <span>{t("metadata.triggeredVia")}</span>
-                {detailLoading && !effectiveRun.event ? (
-                  <Skeleton className="mr-1 h-5 w-20 rounded bg-muted-foreground/20" />
-                ) : effectiveRun.event ? (
-                  <span className="bg-primary/10 text-primary px-1.5 py-px rounded font-mono truncate shadow-sm capitalize mr-1">
-                    {effectiveRun.event}
-                  </span>
-                ) : (
-                  <span className="mr-1 text-muted-foreground/50">—</span>
-                )}
 
-                {detailLoading && !detail?.actor && (
-                  <div className="flex items-center gap-1.5 mr-1 bg-muted/20 px-1.5 py-1 rounded-md border border-border/30">
-                    <Skeleton className="size-3.5 rounded-full bg-muted-foreground/20" />
-                    <Skeleton className="h-3 w-16 bg-muted-foreground/20" />
-                  </div>
-                )}
-
-                {detail?.actor && (
-                  <div className="flex items-center gap-1.5 mr-1 bg-muted/40 px-1.5 py-0.5 rounded-md border border-border/50 shadow-sm">
-                    <GithubUserAvatar
-                      username={detail.actor.login}
-                      avatarUrl={detail.actor.avatar_url || detail.actor.avatarUrl}
-                      className="size-3.5 border border-border/50"
-                      fallbackClassName="text-[7px]"
-                      label={detail.actor.login}
-                      labelClassName="font-semibold text-foreground/90"
-                    />
-                  </div>
-                )}
-
-                <span>{t("metadata.targetBranch")}</span>
-                {detailLoading && !effectiveRun.headBranch ? (
-                  <Skeleton className="h-5 w-28 rounded bg-muted-foreground/20" />
-                ) : (
-                  <span className="bg-secondary px-1.5 py-px text-secondary-foreground rounded font-mono truncate max-w-[200px] shadow-sm">
-                    {effectiveRun.headBranch || t("metadata.unknownBranch")}
-                  </span>
-                )}
-                {effectiveRun.headSha && (
-                  <>
-                    <span>{t("metadata.atCommit")}</span>
-                    <span className="bg-sidebar-accent px-1.5 py-px text-sidebar-foreground rounded font-mono truncate max-w-[100px] shadow-sm">
-                      {effectiveRun.headSha.substring(0, 7)}
-                    </span>
-                  </>
-                )}
-              </div>
-              <div className="mt-3 border-t border-border/40 pt-2">
-                <TabsSubtle
-                  activeLabel
-                  idPrefix={`actions-run-${effectiveRun.databaseId}`}
-                  selectedIndex={activeTab === "summary" ? 0 : 1}
-                  onSelect={(index) => {
-                    setActiveTab(index === 1 ? "workflow" : "summary");
-                    resetContext();
-                  }}
-                >
-                  <TabsSubtleItem
-                    icon={ChartNoAxesCombined}
-                    index={0}
-                    label={t("tabs.summary")}
-                  />
-                  <TabsSubtleItem
-                    icon={FileCode2}
-                    index={1}
-                    label={t("tabs.workflow")}
-                  />
-                </TabsSubtle>
-              </div>
-            </div>
-
-            <div className="flex flex-col gap-4 pt-4">
-              {activeTab === "summary" ? (
-                <>
-                  <ActionRunStatusCard
-                    completed={isCompleted}
-                    createdAtTimeAgo={createdAtTimeAgo}
-                    createdAtTimestamp={createdAtTimestamp}
-                    success={isSuccess}
-                    t={t}
-                    value={
-                      isCompleted
-                        ? effectiveRun.conclusion
-                        : effectiveRun.status
-                    }
-                  />
-                  <ActionsWorkflowGraph
-                    jobs={jobs}
-                    workflowFile={workflowFile}
-                  />
-                  <ActionsJobsList
-                    agentFixContext={agentFixContext}
-                    detailLoading={detailLoading}
-                    isOpen={active}
-                    jobs={jobs}
-                    owner={owner}
-                    repo={repo}
-                    run={effectiveRun}
-                    runId={effectiveRunId}
-                  />
-                  <ActionsAnnotations
-                    agentFixContext={agentFixContext}
-                    annotations={annotations}
-                    owner={owner}
-                    repo={repo}
-                    run={effectiveRun}
-                  />
-                  <ActionsArtifacts
-                    artifacts={artifacts}
-                    owner={owner}
-                    repo={repo}
-                    runId={effectiveRunId}
-                  />
-                </>
-              ) : (
-                <ActionsWorkflowFile
-                  detailLoading={detailLoading}
+              <div className="flex flex-col gap-4 pt-4">
+                <ActionRunStatusCard
+                  completed={isCompleted}
+                  createdAtTimeAgo={createdAtTimeAgo}
+                  createdAtTimestamp={createdAtTimestamp}
+                  success={isSuccess}
+                  t={t}
+                  value={
+                    isCompleted
+                      ? effectiveRun.conclusion
+                      : effectiveRun.status
+                  }
+                />
+                <ActionsWorkflowGraph
+                  jobs={jobs}
+                  onSelectJobs={handleWorkflowSelectJobs}
                   workflowFile={workflowFile}
                 />
-              )}
+                <ActionsJobsList
+                  agentFixContext={agentFixContext}
+                  detailLoading={detailLoading}
+                  focusRequest={jobsFocusRequest}
+                  isOpen={active}
+                  jobs={jobs}
+                  owner={owner}
+                  repo={repo}
+                  run={effectiveRun}
+                  runId={effectiveRunId}
+                />
+                <ActionsAnnotations
+                  agentFixContext={agentFixContext}
+                  annotations={annotations}
+                  owner={owner}
+                  repo={repo}
+                  run={effectiveRun}
+                />
+                <ActionsArtifacts
+                  artifacts={artifacts}
+                  owner={owner}
+                  repo={repo}
+                  runId={effectiveRunId}
+                />
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      ) : (
+        // Workflow file: pin header/tabs; only the editor pane scrolls.
+        <div className="flex min-h-0 w-full flex-1 flex-col">
+          <div className="mx-auto w-full max-w-2xl shrink-0 px-6 pb-2 pt-1 text-sm">
+            {runContextHeader}
+          </div>
+          <div className="mx-auto flex min-h-0 w-full max-w-2xl flex-1 flex-col px-6 pb-4 pt-2">
+            <ActionsWorkflowFile
+              detailLoading={detailLoading}
+              workflowFile={workflowFile}
+            />
+          </div>
+        </div>
+      )}
 
       <ActionsActionBar
         actionLoading={actionLoading}
@@ -510,14 +541,17 @@ function ActionsWorkflowFile({
 
   return (
     <section className="flex min-h-0 flex-1 flex-col gap-3">
-      <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground">
+      <div className="flex shrink-0 items-center gap-2 text-xs font-semibold text-muted-foreground">
         <FileCode2 className="size-3.5" />
-        <span>{workflowFile?.path ?? t("sections.workflowFile")}</span>
+        <span className="truncate">
+          {workflowFile?.path ?? t("sections.workflowFile")}
+        </span>
       </div>
-      <div className="h-[min(60vh,720px)] min-h-[320px] overflow-hidden rounded-xl border">
+      {/* Fill remaining viewport; CodeMirror handles internal overflow scroll. */}
+      <div className="min-h-0 flex-1 overflow-hidden rounded-xl border">
         {workflowFile ? (
           <ReadOnlyCodeMirror
-            className="h-full"
+            className="h-full min-h-0"
             isReadOnly
             language="yaml"
             value={workflowFile.content}
@@ -671,9 +705,16 @@ function ActionsArtifacts({
               >
                 <Package className="size-4 shrink-0 text-muted-foreground" />
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium">
-                    {artifact.name ?? t("artifacts.unnamed")}
-                  </p>
+                  <div className="flex min-w-0 items-center gap-2">
+                    <p className="truncate text-sm font-medium">
+                      {artifact.name ?? t("artifacts.unnamed")}
+                    </p>
+                    {artifact.expired && (
+                      <span className="shrink-0 rounded-full border border-border/60 bg-muted/50 px-1.5 py-0.5 text-[10px] font-medium leading-none text-muted-foreground">
+                        {t("artifacts.expired")}
+                      </span>
+                    )}
+                  </div>
                   {artifact.digest && (
                     <p className="mt-0.5 truncate font-mono text-[10px] text-muted-foreground">
                       {artifact.digest}
@@ -682,12 +723,12 @@ function ActionsArtifacts({
                 </div>
                 <div className="shrink-0 text-right text-[11px] text-muted-foreground">
                   <p>{formatBytes(size)}</p>
-                  {artifact.expired ? (
-                    <p className="mt-0.5 text-red-500">{t("artifacts.expired")}</p>
-                  ) : (
-                    expiresAt && (
-                      <p className="mt-0.5">{t("artifacts.expires", { time: formatActionTimeAgo(expiresAt) ?? "-" })}</p>
-                    )
+                  {!artifact.expired && expiresAt && (
+                    <p className="mt-0.5">
+                      {t("artifacts.expires", {
+                        time: formatActionTimeAgo(expiresAt) ?? "-",
+                      })}
+                    </p>
                   )}
                 </div>
                 {downloadUrl && !artifact.expired && (

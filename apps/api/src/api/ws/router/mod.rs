@@ -9,6 +9,7 @@ mod disk_analyzer;
 mod fs;
 mod git;
 mod github;
+mod github_job_log_split;
 mod group;
 mod local_model;
 mod local_services;
@@ -351,10 +352,6 @@ impl WsMessageService {
             }
             WsAction::WorkspaceCreate => {
                 self.handle_workspace_create(conn_id, parse_request(request.data)?)
-                    .await
-            }
-            WsAction::WorkspaceImportGithubIssues => {
-                self.handle_workspace_import_github_issues(parse_request(request.data)?)
                     .await
             }
             WsAction::WorkspaceUpdateName => {
@@ -877,6 +874,10 @@ impl WsMessageService {
             }
             WsAction::GithubActionsDetail => {
                 self.handle_github_actions_detail(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::GithubActionsJobLogs => {
+                self.handle_github_actions_job_logs(parse_request(request.data)?)
                     .await
             }
             WsAction::GithubPrFiles => {

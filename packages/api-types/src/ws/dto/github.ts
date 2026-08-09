@@ -151,3 +151,28 @@ export type GithubActionsDetailPayload = Partial<GithubActionsRunPayload> & {
   annotations?: GithubActionsAnnotationPayload[];
   workflow_file?: GithubActionsWorkflowFilePayload;
 };
+
+/** Per-step log excerpt for a failed Actions job. */
+export type GithubActionsJobStepLogPayload = {
+  number: number;
+  name: string;
+  conclusion?: string | null;
+  text: string;
+  total_lines: number;
+  truncated: boolean;
+};
+
+/**
+ * Failed-job logs partitioned by step (timestamp windows).
+ * Successful steps are omitted; only failed/timed_out/… steps include `text`.
+ */
+export type GithubActionsJobLogsPayload = {
+  job_id: number;
+  job_total_lines?: number;
+  steps: GithubActionsJobStepLogPayload[];
+  /** @deprecated Prefer `steps`. Kept empty for older clients. */
+  text?: string;
+  total_lines?: number;
+  truncated?: boolean;
+  tail_lines?: number;
+};

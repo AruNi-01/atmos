@@ -351,6 +351,19 @@ pub struct GithubActionsDetailRequest {
     pub run_id: u64,
 }
 
+/// Download a job's plain-text log and return a tail (default 500 lines).
+/// Intended for failed jobs so the UI can show recent failure context without
+/// shipping multi-MB full logs for every successful job.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GithubActionsJobLogsRequest {
+    pub owner: String,
+    pub repo: String,
+    pub job_id: u64,
+    /// Max lines from the end of the log (clamped server-side to 1..=2000).
+    #[serde(default)]
+    pub tail_lines: Option<u32>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GithubCommitDetailRequest {
     pub owner: String,

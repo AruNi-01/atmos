@@ -16,6 +16,7 @@ import { wsRequest } from "@/api/ws/request";
 import type { BranchPr } from "@/features/github/lib/github-pr-cache";
 import type {
   GithubActionsDetailPayload,
+  GithubActionsJobLogsPayload,
   GithubActionsRunPayload,
   GithubUserCardPayload,
 } from "@atmos/api-types/ws/dto/github";
@@ -100,6 +101,14 @@ export interface GithubActionsDetailParams {
   owner: string;
   repo: string;
   runId: number;
+}
+
+export interface GithubActionsJobLogsParams {
+  owner: string;
+  repo: string;
+  jobId: number;
+  /** Lines from the end of the log (server clamps to 1..=2000). Default 500. */
+  tailLines?: number;
 }
 
 export const GITHUB_PR_TIMELINE_PER_PAGE = 100;
@@ -519,6 +528,36 @@ export function githubActionsDetailQueryOptions(
     staleTime: 5 * 60_000,
     gcTime: 30 * 60_000,
     enabled: (options?.enabled ?? true) && Boolean(owner && repo && runId),
+  });
+}
+
+export function githubActionsJobLogsQueryOptions(
+  scope: ComputerQueryScope,
+  connectionState: ConnectionState,
+  params: GithubActionsJobLogsParams,
+  options?: { enabled?: boolean },
+) {
+  const { owner, repo, jobId, tailLines = 500 } = params;
+  return wsQueryOptions({
+    scope,
+    connectionState,
+    queryKey: queryKeys.computer.githubActionsJobLogs(scope, {
+      owner,
+      repo,
+      jobId,
+      tailLines,
+    }),
+    queryFn: (): Promise<GithubActionsJobLogsPayload> =>
+      wsRequest("github_actions_job_logs", {
+        owner,
+        repo,
+        job_id: jobId,
+        tail_lines: tailLines,
+      }),
+    // Job logs for a completed job are immutable.
+    staleTime: 30 * 60_000,
+    gcTime: 60 * 60_000,
+    enabled: (options?.enabled ?? true) && Boolean(owner && repo && jobId),
   });
 }
 

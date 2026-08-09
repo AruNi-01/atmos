@@ -4,19 +4,20 @@ use core_service::{Result, ServiceError};
 use futures_util::future;
 
 use super::{
-    GithubActionsDetailRequest, GithubActionsListRequest, GithubActionsRerunRequest,
-    GithubCiOpenBrowserRequest, GithubCiStatusRequest, GithubCommitDetailRequest,
-    GithubIssueActionRequest, GithubIssueAssigneePayload, GithubIssueGetRequest,
-    GithubIssueLabelPayload, GithubIssueLinkedPrsRequest, GithubIssueListRequest,
-    GithubIssuePageRequest, GithubIssuePayload, GithubIssueTimelinePageRequest,
-    GithubIssueUpdateAssigneesRequest, GithubIssueUpdateLabelsRequest, GithubPrBranchPageRequest,
-    GithubPrCloseRequest, GithubPrCommentRequest, GithubPrConflictFilesRequest,
-    GithubPrCreateRequest, GithubPrDetailRequest, GithubPrDraftRequest, GithubPrFilesRequest,
-    GithubPrGetRequest, GithubPrListRepoRequest, GithubPrListRequest, GithubPrMergeRequest,
-    GithubPrOpenBrowserRequest, GithubPrPayload, GithubPrReadyRequest, GithubPrReopenRequest,
-    GithubPrTimelinePageRequest, GithubPrUpdateAssigneesRequest, GithubPrUpdateLabelsRequest,
-    GithubPrUpdateLinkedIssuesRequest, GithubRepoAssigneesRequest, GithubRepoLabelsRequest,
-    GithubUserCardRequest, WsEvent, WsMessage, WsMessageService,
+    GithubActionsDetailRequest, GithubActionsJobLogsRequest, GithubActionsListRequest,
+    GithubActionsRerunRequest, GithubCiOpenBrowserRequest, GithubCiStatusRequest,
+    GithubCommitDetailRequest, GithubIssueActionRequest, GithubIssueAssigneePayload,
+    GithubIssueGetRequest, GithubIssueLabelPayload, GithubIssueLinkedPrsRequest,
+    GithubIssueListRequest, GithubIssuePageRequest, GithubIssuePayload,
+    GithubIssueTimelinePageRequest, GithubIssueUpdateAssigneesRequest,
+    GithubIssueUpdateLabelsRequest, GithubPrBranchPageRequest, GithubPrCloseRequest,
+    GithubPrCommentRequest, GithubPrConflictFilesRequest, GithubPrCreateRequest,
+    GithubPrDetailRequest, GithubPrDraftRequest, GithubPrFilesRequest, GithubPrGetRequest,
+    GithubPrListRepoRequest, GithubPrListRequest, GithubPrMergeRequest, GithubPrOpenBrowserRequest,
+    GithubPrPayload, GithubPrReadyRequest, GithubPrReopenRequest, GithubPrTimelinePageRequest,
+    GithubPrUpdateAssigneesRequest, GithubPrUpdateLabelsRequest, GithubPrUpdateLinkedIssuesRequest,
+    GithubRepoAssigneesRequest, GithubRepoLabelsRequest, GithubUserCardRequest, WsEvent, WsMessage,
+    WsMessageService,
 };
 
 impl WsMessageService {
@@ -2001,5 +2002,91 @@ impl WsMessageService {
         }
 
         Ok(result)
+    }
+
+    /// Download a failed job's plain-text log, partition by step timestamps, and
+    /// return excerpts only for failed steps (so post-failure cleanup does not
+    /// hide the real error under a job-level tail).
+    pub(super) async fn handle_github_actions_job_logs(
+        &self,
+        req: GithubActionsJobLogsRequest,
+    ) -> Result<Value> {
+        use super::github_job_log_split::{
+            build_failed_step_excerpts, build_job_level_fallback_excerpt, excerpts_to_json,
+            parse_github_time, JobStepMeta,
+        };
+
+        let logs_endpoint = format!(
+            "/repos/{}/{}/actions/jobs/{}/logs",
+            req.owner, req.repo, req.job_id
+        );
+        let job_endpoint = format!(
+            "/repos/{}/{}/actions/jobs/{}",
+            req.owner, req.repo, req.job_id
+        );
+        let logs_args = ["api", logs_endpoint.as_str()];
+        let job_args = ["api", job_endpoint.as_str()];
+
+        let (logs_raw, job_raw) = tokio::join!(
+            self.github_engine.run_gh(&logs_args),
+            self.github_engine.run_gh(&job_args),
+        );
+
+        let full = match logs_raw
+            .map_err(|e| ServiceError::Validation(format!("Failed to download job logs: {e}")))?
+        {
+            Value::String(s) => s,
+            other => other
+                .as_str()
+                .map(str::to_owned)
+                .unwrap_or_else(|| other.to_string()),
+        };
+        let job_total_lines = full.lines().count();
+
+        let steps: Vec<JobStepMeta> = job_raw
+            .ok()
+            .and_then(|job| {
+                job.get("steps").and_then(Value::as_array).map(|arr| {
+                    arr.iter()
+                        .filter_map(|step| {
+                            let number = step.get("number").and_then(Value::as_u64).unwrap_or(0);
+                            let name = step
+                                .get("name")
+                                .and_then(Value::as_str)
+                                .unwrap_or("Step")
+                                .to_string();
+                            let conclusion = step
+                                .get("conclusion")
+                                .and_then(Value::as_str)
+                                .map(str::to_owned);
+                            let started_at =
+                                parse_github_time(step.get("started_at").and_then(Value::as_str));
+                            let completed_at =
+                                parse_github_time(step.get("completed_at").and_then(Value::as_str));
+                            Some(JobStepMeta {
+                                number,
+                                name,
+                                conclusion,
+                                started_at,
+                                completed_at,
+                            })
+                        })
+                        .collect::<Vec<_>>()
+                })
+            })
+            .unwrap_or_default();
+
+        let mut excerpts = if steps.is_empty() {
+            vec![build_job_level_fallback_excerpt(&full)]
+        } else {
+            build_failed_step_excerpts(&full, &steps)
+        };
+
+        // If the job is failed but no step was marked failed (rare), fall back.
+        if excerpts.is_empty() && !full.trim().is_empty() {
+            excerpts.push(build_job_level_fallback_excerpt(&full));
+        }
+
+        Ok(excerpts_to_json(req.job_id, &excerpts, job_total_lines))
     }
 }
