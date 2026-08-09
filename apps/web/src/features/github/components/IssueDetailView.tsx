@@ -89,6 +89,8 @@ interface IssueDetailViewProps {
   repo: string;
   issueNumber: number;
   active: boolean;
+  /** Optional actions rendered in the header (before the sidebar toggle). */
+  headerTrailing?: React.ReactNode;
 }
 
 export function IssueDetailView({
@@ -96,6 +98,7 @@ export function IssueDetailView({
   repo,
   issueNumber,
   active,
+  headerTrailing,
 }: IssueDetailViewProps) {
   const locale = useLocale();
   const t = useTranslations("github.issueDetail");
@@ -175,7 +178,12 @@ export function IssueDetailView({
 
   return (
     <div className="relative mx-auto flex h-full min-h-0 w-full max-w-6xl flex-col overflow-hidden px-6">
-      <header className="relative flex shrink-0 items-center gap-3 pb-4 pt-6 pr-12">
+      <header
+        className={cn(
+          "relative flex shrink-0 items-center gap-3 pb-4 pt-6",
+          headerTrailing ? "pr-14" : "pr-12",
+        )}
+      >
         <Github className="size-4.5 text-muted-foreground/60" />
         <div className="flex min-w-0 items-center gap-2.5">
           <h2 className="whitespace-nowrap text-base font-bold">
@@ -188,18 +196,26 @@ export function IssueDetailView({
             {owner}/{repo}
           </p>
         </div>
-        <button
-          type="button"
-          className="absolute right-0 top-6 flex size-7 items-center justify-center rounded-md opacity-70 transition-colors hover:bg-muted hover:opacity-100"
-          onClick={() => setSidebarCollapsed((value) => !value)}
-          title={sidebarCollapsed ? t("showSidebar") : t("hideSidebar")}
-        >
-          {sidebarCollapsed ? (
-            <PanelRightOpen className="size-3.5" />
-          ) : (
-            <PanelRightClose className="size-3.5" />
+        <div
+          className={cn(
+            "absolute top-6 flex items-center gap-1.5",
+            headerTrailing ? "right-10" : "right-0",
           )}
-        </button>
+        >
+          {headerTrailing}
+          <button
+            type="button"
+            className="flex size-7 items-center justify-center rounded-md opacity-70 transition-colors hover:bg-muted hover:opacity-100"
+            onClick={() => setSidebarCollapsed((value) => !value)}
+            title={sidebarCollapsed ? t("showSidebar") : t("hideSidebar")}
+          >
+            {sidebarCollapsed ? (
+              <PanelRightOpen className="size-3.5" />
+            ) : (
+              <PanelRightClose className="size-3.5" />
+            )}
+          </button>
+        </div>
       </header>
 
       {loading ? (

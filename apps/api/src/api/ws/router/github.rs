@@ -7,17 +7,19 @@ use super::{
     GithubActionsDetailRequest, GithubActionsJobLogsRequest, GithubActionsListRequest,
     GithubActionsRerunRequest, GithubCiOpenBrowserRequest, GithubCiStatusRequest,
     GithubCommitDetailRequest, GithubIssueActionRequest, GithubIssueAssigneePayload,
-    GithubIssueGetRequest, GithubIssueLabelPayload, GithubIssueLinkedPrsRequest,
-    GithubIssueListRequest, GithubIssuePageRequest, GithubIssuePayload,
-    GithubIssueTimelinePageRequest, GithubIssueUpdateAssigneesRequest,
-    GithubIssueUpdateLabelsRequest, GithubPrBranchPageRequest, GithubPrCloseRequest,
-    GithubPrCommentRequest, GithubPrConflictFilesRequest, GithubPrCreateRequest,
-    GithubPrDetailRequest, GithubPrDraftRequest, GithubPrFilesRequest, GithubPrGetRequest,
-    GithubPrListRepoRequest, GithubPrListRequest, GithubPrMergeRequest, GithubPrOpenBrowserRequest,
-    GithubPrPayload, GithubPrReadyRequest, GithubPrReopenRequest, GithubPrTimelinePageRequest,
-    GithubPrUpdateAssigneesRequest, GithubPrUpdateLabelsRequest, GithubPrUpdateLinkedIssuesRequest,
-    GithubRepoAssigneesRequest, GithubRepoLabelsRequest, GithubUserCardRequest, WsEvent, WsMessage,
-    WsMessageService,
+    GithubIssueCreatePayload, GithubIssueCreateRequest, GithubIssueGetRequest,
+    GithubIssueLabelPayload, GithubIssueLinkedPrsRequest, GithubIssueListRequest,
+    GithubIssuePageRequest, GithubIssuePayload, GithubIssueTemplateFilePayload,
+    GithubIssueTemplatesPayload, GithubIssueTemplatesRequest, GithubIssueTimelinePageRequest,
+    GithubIssueUpdateAssigneesRequest, GithubIssueUpdateLabelsRequest, GithubPrBranchPageRequest,
+    GithubPrCloseRequest, GithubPrCommentRequest, GithubPrConflictFilesRequest,
+    GithubPrCreateRequest, GithubPrDetailRequest, GithubPrDraftRequest, GithubPrFilesRequest,
+    GithubPrGetRequest, GithubPrListRepoRequest, GithubPrListRequest, GithubPrMergeRequest,
+    GithubPrOpenBrowserRequest, GithubPrPayload, GithubPrReadyRequest, GithubPrReopenRequest,
+    GithubPrTimelinePageRequest, GithubPrUpdateAssigneesRequest, GithubPrUpdateLabelsRequest,
+    GithubPrUpdateLinkedIssuesRequest, GithubRepoAssigneesRequest, GithubRepoLabelsRequest,
+    GithubSearchItemPayload, GithubSearchPagePayload, GithubSearchRequest, GithubUserCardRequest,
+    WsEvent, WsMessage, WsMessageService,
 };
 
 impl WsMessageService {
@@ -55,6 +57,264 @@ impl WsMessageService {
                 })
                 .collect(),
         }
+    }
+
+    pub(super) async fn handle_github_search(&self, req: GithubSearchRequest) -> Result<Value> {
+        let kind = match req.kind.trim().to_ascii_lowercase().as_str() {
+            "pr" | "pull" | "pull_request" | "pulls" => {
+                core_engine::github::GithubSearchKind::PullRequest
+            }
+            _ => core_engine::github::GithubSearchKind::Issue,
+        };
+        let repos: Vec<core_engine::github::GithubSearchRepo> = req
+            .repos
+            .into_iter()
+            .filter(|r| !r.owner.trim().is_empty() && !r.repo.trim().is_empty())
+            .map(|r| core_engine::github::GithubSearchRepo {
+                owner: r.owner,
+                repo: r.repo,
+            })
+            .collect();
+        let freeform = req
+            .query
+            .as_deref()
+            .map(str::trim)
+            .filter(|s| !s.is_empty());
+        let page = self
+            .github_engine
+            .search_items(core_engine::github::GithubSearchOptions {
+                kind,
+                state: &req.state,
+                repos: &repos,
+                assignees: &req.assignees,
+                labels: &req.labels,
+                query: freeform,
+                page: req.page.max(1),
+                per_page: req.per_page.clamp(1, 100),
+            })
+            .await
+            .map_err(|error| {
+                ServiceError::Validation(format!("Failed to search GitHub items: {error}"))
+            })?;
+
+        let payload = GithubSearchPagePayload {
+            items: page
+                .items
+                .into_iter()
+                .map(|item| GithubSearchItemPayload {
+                    owner: item.owner,
+                    repo: item.repo,
+                    number: item.number,
+                    title: item.title,
+                    body: item.body,
+                    url: item.url,
+                    state: item.state,
+                    created_at: item.created_at,
+                    updated_at: item.updated_at,
+                    comments_count: item.comments_count,
+                    labels: item
+                        .labels
+                        .into_iter()
+                        .map(|label| GithubIssueLabelPayload {
+                            name: label.name,
+                            color: label.color,
+                            description: label.description,
+                        })
+                        .collect(),
+                    author: item.author.map(|user| GithubIssueAssigneePayload {
+                        login: user.login,
+                        avatar_url: user.avatar_url,
+                    }),
+                    assignees: item
+                        .assignees
+                        .into_iter()
+                        .map(|user| GithubIssueAssigneePayload {
+                            login: user.login,
+                            avatar_url: user.avatar_url,
+                        })
+                        .collect(),
+                    is_draft: item.is_draft,
+                    head_ref: item.head_ref,
+                    base_ref: item.base_ref,
+                    kind: item.kind,
+                    status_checks: item
+                        .status_checks
+                        .into_iter()
+                        .map(|check| core_service::types::GithubStatusCheckPayload {
+                            state: check.state,
+                            conclusion: check.conclusion,
+                            status: check.status,
+                            name: check.name,
+                            context: check.context,
+                            details_url: check.details_url,
+                            target_url: check.target_url,
+                            workflow_name: check.workflow_name,
+                        })
+                        .collect(),
+                    linked_refs: item
+                        .linked_refs
+                        .into_iter()
+                        .map(|r| core_service::types::GithubLinkedRefPayload {
+                            kind: r.kind,
+                            number: r.number,
+                            state: r.state,
+                            title: r.title,
+                            url: r.url,
+                        })
+                        .collect(),
+                })
+                .collect(),
+            has_more: page.has_more,
+            total_count: page.total_count,
+        };
+        Ok(json!(payload))
+    }
+
+    /// List `.github/ISSUE_TEMPLATE/*` files (raw contents) for the create-issue UI.
+    pub(super) async fn handle_github_issue_templates(
+        &self,
+        req: GithubIssueTemplatesRequest,
+    ) -> Result<Value> {
+        let owner = req.owner.trim();
+        let repo = req.repo.trim();
+        if owner.is_empty() || repo.is_empty() {
+            return Err(ServiceError::Validation(
+                "owner and repo are required".to_string(),
+            ));
+        }
+        let path = format!("repos/{owner}/{repo}/contents/.github/ISSUE_TEMPLATE");
+        let listing = match self.github_engine.run_gh(&["api", &path]).await {
+            Ok(value) => value,
+            Err(error) => {
+                let message = error.to_string();
+                // Missing template folder → empty chooser (still allow blank issue).
+                if message.contains("404") || message.contains("Not Found") {
+                    return Ok(json!(GithubIssueTemplatesPayload { files: vec![] }));
+                }
+                return Err(ServiceError::Validation(format!(
+                    "Failed to list issue templates: {error}"
+                )));
+            }
+        };
+
+        let entries = listing.as_array().cloned().unwrap_or_default();
+        let mut files = Vec::new();
+        for entry in entries {
+            let name = entry
+                .get("name")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string();
+            if name.is_empty() {
+                continue;
+            }
+            let lower = name.to_ascii_lowercase();
+            // Keep YAML forms, Markdown templates, and config.yml.
+            let is_template =
+                lower.ends_with(".yml") || lower.ends_with(".yaml") || lower.ends_with(".md");
+            if !is_template {
+                continue;
+            }
+            let entry_type = entry.get("type").and_then(|v| v.as_str()).unwrap_or("file");
+            if entry_type != "file" {
+                continue;
+            }
+
+            // Prefer inline base64 content; fall back to fetching by path.
+            let content = if let Some(encoded) = entry.get("content").and_then(|v| v.as_str()) {
+                decode_github_content_base64(encoded)
+            } else {
+                let file_path =
+                    format!("repos/{owner}/{repo}/contents/.github/ISSUE_TEMPLATE/{name}");
+                match self.github_engine.run_gh(&["api", &file_path]).await {
+                    Ok(file_json) => file_json
+                        .get("content")
+                        .and_then(|v| v.as_str())
+                        .map(decode_github_content_base64)
+                        .unwrap_or_default(),
+                    Err(_) => String::new(),
+                }
+            };
+            if content.is_empty() {
+                continue;
+            }
+            files.push(GithubIssueTemplateFilePayload { name, content });
+        }
+
+        files.sort_by(|a, b| a.name.cmp(&b.name));
+        Ok(json!(GithubIssueTemplatesPayload { files }))
+    }
+
+    pub(super) async fn handle_github_issue_create(
+        &self,
+        req: GithubIssueCreateRequest,
+    ) -> Result<Value> {
+        let owner = req.owner.trim();
+        let repo = req.repo.trim();
+        let title = req.title.trim();
+        if owner.is_empty() || repo.is_empty() {
+            return Err(ServiceError::Validation(
+                "owner and repo are required".to_string(),
+            ));
+        }
+        if title.is_empty() {
+            return Err(ServiceError::Validation("title is required".to_string()));
+        }
+
+        let repo_arg = format!("{owner}/{repo}");
+        let body = req.body.as_deref().unwrap_or("").to_string();
+        // Keep owned strings alive for run_gh (&[&str]).
+        let mut args: Vec<String> = vec![
+            "issue".into(),
+            "create".into(),
+            "--repo".into(),
+            repo_arg,
+            "--title".into(),
+            title.to_string(),
+            "--body".into(),
+            body,
+        ];
+        for label in &req.labels {
+            let trimmed = label.trim();
+            if !trimmed.is_empty() {
+                args.push("--label".into());
+                args.push(trimmed.to_string());
+            }
+        }
+        for assignee in &req.assignees {
+            let trimmed = assignee.trim();
+            if !trimmed.is_empty() {
+                args.push("--assignee".into());
+                args.push(trimmed.to_string());
+            }
+        }
+
+        let arg_refs: Vec<&str> = args.iter().map(String::as_str).collect();
+        let output = self
+            .github_engine
+            .run_gh(&arg_refs)
+            .await
+            .map_err(|e| ServiceError::Validation(format!("Failed to create issue: {e}")))?;
+
+        // `gh issue create` prints the issue URL as plain text (or JSON string via run_gh).
+        let url = match &output {
+            Value::String(s) => s.trim().to_string(),
+            other => other
+                .get("url")
+                .and_then(|v| v.as_str())
+                .or_else(|| other.as_str())
+                .unwrap_or("")
+                .trim()
+                .to_string(),
+        };
+        if url.is_empty() {
+            return Err(ServiceError::Validation(
+                "Create issue succeeded but returned no URL".to_string(),
+            ));
+        }
+        let number = url.rsplit('/').next().and_then(|s| s.parse::<u64>().ok());
+
+        Ok(json!(GithubIssueCreatePayload { number, url }))
     }
 
     pub(super) async fn handle_github_issue_list(
@@ -259,6 +519,20 @@ impl WsMessageService {
                     name: label.name,
                     color: label.color,
                     description: label.description,
+                })
+                .collect(),
+            created_at: pr.created_at,
+            updated_at: pr.updated_at,
+            author: pr.author.map(|user| GithubIssueAssigneePayload {
+                login: user.login,
+                avatar_url: user.avatar_url,
+            }),
+            assignees: pr
+                .assignees
+                .into_iter()
+                .map(|user| GithubIssueAssigneePayload {
+                    login: user.login,
+                    avatar_url: user.avatar_url,
                 })
                 .collect(),
         }
@@ -909,6 +1183,27 @@ impl WsMessageService {
                 "count": day.count,
                 "level": day.level,
             })).collect::<Vec<_>>(),
+        }))
+    }
+
+    pub(super) async fn handle_github_rate_limit(&self) -> Result<Value> {
+        let limits = self.github_engine.get_rate_limit().await.map_err(|e| {
+            ServiceError::Validation(format!("Failed to load GitHub API rate limits: {}", e))
+        })?;
+
+        let resource = |r: &core_engine::github::GithubRateLimitResource| {
+            json!({
+                "limit": r.limit,
+                "used": r.used,
+                "remaining": r.remaining,
+                "reset": r.reset,
+            })
+        };
+
+        Ok(json!({
+            "core": resource(&limits.core),
+            "search": resource(&limits.search),
+            "graphql": resource(&limits.graphql),
         }))
     }
 
@@ -2089,4 +2384,15 @@ impl WsMessageService {
 
         Ok(excerpts_to_json(req.job_id, &excerpts, job_total_lines))
     }
+}
+
+/// GitHub Contents API returns base64 with optional newlines.
+fn decode_github_content_base64(encoded: &str) -> String {
+    use base64::{engine::general_purpose::STANDARD, Engine as _};
+    let cleaned: String = encoded.chars().filter(|c| !c.is_whitespace()).collect();
+    STANDARD
+        .decode(cleaned.as_bytes())
+        .ok()
+        .and_then(|bytes| String::from_utf8(bytes).ok())
+        .unwrap_or_default()
 }

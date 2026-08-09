@@ -249,7 +249,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
         JSON.stringify(serializeWorkspaceSidebarFilters(EMPTY_WORKSPACE_KANBAN_FILTERS)),
     );
     const [isWorkspacesExpanded, setIsWorkspacesExpanded] = useState(
-        currentView === 'workspaces' || currentView === 'skills' || currentView === 'terminals' || currentView === 'agents' || currentView === 'automations' || currentView === 'disk-analyzer' || currentView === 'token-usage' || currentView === 'kanban'
+        currentView === 'workspaces' || currentView === 'skills' || currentView === 'terminals' || currentView === 'agents' || currentView === 'automations' || currentView === 'disk-analyzer' || currentView === 'token-usage' || currentView === 'tasks'
     );
     const [isPinnedSectionCollapsed, setIsPinnedSectionCollapsed] = useState(false);
     const [isPinnedDividerHovered, setIsPinnedDividerHovered] = useState(false);
@@ -1004,7 +1004,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
     useHotkeys(
         "mod+shift+k",
         () => {
-            router.push("/kanban");
+            router.push("/tasks");
         },
         { enableOnContentEditable: true, enableOnFormTags: true, preventDefault: true },
         [router],

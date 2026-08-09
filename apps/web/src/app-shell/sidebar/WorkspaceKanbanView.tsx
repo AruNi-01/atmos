@@ -55,7 +55,6 @@ import {
   Plus,
   Search,
   Settings2,
-  X,
 } from "lucide-react";
 import { CreateWorkspaceDialog } from "@/features/workspace/components/CreateWorkspaceDialog";
 import {
@@ -127,6 +126,29 @@ interface WorkspaceKanbanViewProps {
   onDeleteWorkspace?: (projectId: string, workspaceId: string) => Promise<void>;
   filters: WorkspaceKanbanFilters;
   onFiltersChange: (filters: WorkspaceKanbanFilters) => void;
+  /**
+   * When false, skip loading filter fields from `workspace_kanban_view` settings
+   * (parent owns them — e.g. Tasks page via nuqs). Sort / card properties still load.
+   * Defaults to true.
+   */
+  hydrateFiltersFromSettings?: boolean;
+  /** Optional leading content in the toolbar (e.g. Atmos / GitHub source tabs). */
+  headerLeading?: React.ReactNode;
+  /**
+   * When false, skip the local top chrome bar so a parent can own the source Tabs
+   * (keeps the coss Indicator mounted for Atmos ↔ GitHub animation).
+   */
+  showTopChrome?: boolean;
+  /**
+   * When `showTopChrome` is false, portal search/settings/filter into this host
+   * (same header row as the parent source tabs).
+   */
+  headerTrailingHost?: HTMLElement | null;
+  /**
+   * When false, hide search / settings / filter toolbar actions.
+   * Used by the parent Task shell when the GitHub tab is active.
+   */
+  showToolbarActions?: boolean;
 }
 
 export function WorkspaceKanbanView({
@@ -148,12 +170,17 @@ export function WorkspaceKanbanView({
   onDeleteWorkspace,
   filters,
   onFiltersChange,
+  hydrateFiltersFromSettings = true,
+  headerLeading,
+  showTopChrome = true,
+  headerTrailingHost = null,
+  showToolbarActions = true,
 }: WorkspaceKanbanViewProps) {
-  const t = useTranslations("appShell.kanban");
+  const t = useTranslations("appShell.task");
   const groupsT = useTranslations("appShell.groups");
   const groupingT = useTranslations("appShell.workspaceGrouping");
   const router = useAppRouter();
-  const [searchQuery, setSearchQuery] = useQueryState("lsKanbanQ", leftSidebarParams.lsKanbanQ);
+  const [searchQuery, setSearchQuery] = useQueryState("lsTaskQ", leftSidebarParams.lsTaskQ);
   const availableStatusSet = React.useMemo(
     () => new Set(WORKSPACE_WORKFLOW_STATUS_OPTIONS.map((option) => option.value)),
     [],
@@ -240,28 +267,32 @@ export function WorkspaceKanbanView({
       setSortOrder(loadedSortOrder);
       const loadedSearchQuery = typeof filters.search_query === "string" ? filters.search_query : "";
       setSearchQuery((prev) => (prev.trim() ? prev : loadedSearchQuery));
-      onFiltersChange({
-        statuses: loadedStatuses,
-        priorities: loadedPriorities,
-        labelIds: loadedLabelIds,
-        projectIds: loadedProjectIds,
-        groupIds: loadedGroupIds,
-        showAutomationWorkspaces: loadedShowAutomationWorkspaces,
-      });
+      if (hydrateFiltersFromSettings) {
+        onFiltersChange({
+          statuses: loadedStatuses,
+          priorities: loadedPriorities,
+          labelIds: loadedLabelIds,
+          projectIds: loadedProjectIds,
+          groupIds: loadedGroupIds,
+          showAutomationWorkspaces: loadedShowAutomationWorkspaces,
+        });
+      }
       setHiddenColumns(loadedHiddenColumns);
       setCardProperties(nextCardProperties);
     } catch {
       if (blocking) {
         setSortBy("last_visit");
         setSortOrder("desc");
-        onFiltersChange({
-          statuses: [],
-          priorities: [],
-          labelIds: [],
-          projectIds: [],
-          groupIds: [],
-          showAutomationWorkspaces: false,
-        });
+        if (hydrateFiltersFromSettings) {
+          onFiltersChange({
+            statuses: [],
+            priorities: [],
+            labelIds: [],
+            projectIds: [],
+            groupIds: [],
+            showAutomationWorkspaces: false,
+          });
+        }
         setHiddenColumns([]);
         setCardProperties(DEFAULT_KANBAN_CARD_PROPERTIES);
       }
@@ -273,7 +304,13 @@ export function WorkspaceKanbanView({
         skipPersistRef.current = false;
       }, 0);
     }
-  }, [availablePrioritySet, availableStatusSet, onFiltersChange, setSearchQuery]);
+  }, [
+    availablePrioritySet,
+    availableStatusSet,
+    hydrateFiltersFromSettings,
+    onFiltersChange,
+    setSearchQuery,
+  ]);
 
   React.useEffect(() => {
     if (isSettingsReady) return;
@@ -461,86 +498,6 @@ export function WorkspaceKanbanView({
     router.push(`/workspace?id=${workspaceId}`);
   }, [router]);
 
-  const selectedFilterChips = React.useMemo(() => {
-    const chips: Array<{
-      key: string;
-      label: string;
-      type: "status" | "priority" | "label" | "project" | "group";
-      value: string;
-    }> = [];
-    filters.statuses.forEach((status) => {
-      chips.push({
-        key: `status-${status}`,
-        label: t(getWorkspaceWorkflowStatusMeta(status).labelKey),
-        type: "status",
-        value: status,
-      });
-    });
-    filters.priorities.forEach((priority) => {
-      chips.push({
-        key: `priority-${priority}`,
-        label: t(WORKSPACE_PRIORITY_OPTIONS.find((item) => item.value === priority)?.labelKey ?? "priority.noPriority"),
-        type: "priority",
-        value: priority,
-      });
-    });
-    filters.labelIds.forEach((labelId) => {
-      const label = availableLabels.find((item) => item.id === labelId);
-      if (label) chips.push({ key: `label-${labelId}`, label: label.name, type: "label", value: labelId });
-    });
-    filters.projectIds.forEach((projectId) => {
-      const project = projects.find((item) => item.id === projectId);
-      if (project) chips.push({ key: `project-${projectId}`, label: project.name, type: "project", value: projectId });
-    });
-    filters.groupIds.forEach((groupId) => {
-      if (groupId === "__ungrouped__") {
-        chips.push({ key: `group-${groupId}`, label: groupsT("ungrouped"), type: "group", value: groupId });
-        return;
-      }
-      const group = groups.find((item) => item.id === groupId);
-      if (group) chips.push({ key: `group-${groupId}`, label: group.name, type: "group", value: groupId });
-    });
-    return chips;
-  }, [availableLabels, filters, groups, groupsT, projects, t]);
-
-  const removeFilterChip = React.useCallback((chip: {
-    type: "status" | "priority" | "label" | "project" | "group";
-    value: string;
-  }) => {
-    if (chip.type === "status") {
-      onFiltersChange({
-        ...filters,
-        statuses: filters.statuses.filter((item) => item !== chip.value),
-      });
-      return;
-    }
-    if (chip.type === "priority") {
-      onFiltersChange({
-        ...filters,
-        priorities: filters.priorities.filter((item) => item !== chip.value),
-      });
-      return;
-    }
-    if (chip.type === "label") {
-      onFiltersChange({
-        ...filters,
-        labelIds: filters.labelIds.filter((item) => item !== chip.value),
-      });
-      return;
-    }
-    if (chip.type === "group") {
-      onFiltersChange({
-        ...filters,
-        groupIds: filters.groupIds.filter((item) => item !== chip.value),
-      });
-      return;
-    }
-    onFiltersChange({
-      ...filters,
-      projectIds: filters.projectIds.filter((item) => item !== chip.value),
-    });
-  }, [filters, onFiltersChange]);
-
   React.useEffect(() => {
     if (!isSearchOpen) return;
     const handlePointerDown = (event: PointerEvent) => {
@@ -579,134 +536,130 @@ export function WorkspaceKanbanView({
     [t],
   );
 
-  return (
-    <div className="flex h-full min-h-0 min-w-0 flex-col bg-background">
-          <div className="flex h-10 items-center justify-between border-b px-6 py-1.5">
-            <div className="flex min-w-0 items-center gap-1.5">
-              <WorkspaceKanbanFilterMenu
-                projects={projects}
-                availableLabels={availableLabels}
-                groups={groups}
-                filters={filters}
-                onFiltersChange={onFiltersChange}
-                showGrouping={Boolean(onGroupingModeChange)}
-                groupingMode={groupingMode}
-                onGroupingModeChange={onGroupingModeChange}
-              />
-
-              {selectedFilterChips.length > 0 ? (
-                <div className="scrollbar-on-hover flex max-w-[520px] items-center gap-1 overflow-x-auto whitespace-nowrap pr-1">
-                  {selectedFilterChips.map((chip) => (
-                    <div
-                      key={chip.key}
-                      className="group relative inline-flex h-6 items-center rounded-full border border-border bg-background px-2 text-xs text-foreground"
-                    >
-                      <span>{chip.label}</span>
-                      <button
-                        type="button"
-                        onClick={() => removeFilterChip(chip)}
-                        className="absolute right-1 inline-flex size-4 items-center justify-center rounded-full text-muted-foreground opacity-0 transition-all group-hover:opacity-100 group-hover:bg-accent hover:text-foreground"
-                        title={t("filter.removeChip", { label: chip.label })}
-                      >
-                        <X className="size-3.5" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              ) : null}
-            </div>
-            <div className="flex items-center justify-end gap-1.5">
-              <div ref={searchContainerRef} className="relative h-7 w-56">
-                <div
-                  className={cn(
-                    "absolute right-0 top-0 h-7 overflow-hidden rounded-md border border-border bg-background transition-[width] duration-200 ease-out",
-                    isSearchOpen ? "w-56" : "w-7",
-                  )}
+  const toolbarActions = showToolbarActions ? (
+    <div className="flex items-center justify-end gap-1.5">
+      <div ref={searchContainerRef} className="relative h-7 w-56">
+        <div
+          className={cn(
+            "absolute right-0 top-0 h-7 overflow-hidden rounded-md border border-border bg-background transition-[width] duration-200 ease-out",
+            isSearchOpen ? "w-56" : "w-7",
+          )}
+        >
+          <Input
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder={t("search.placeholder")}
+            className={cn(
+              "h-7 border-0 bg-transparent pr-8 text-xs shadow-none focus-visible:ring-0",
+              isSearchOpen ? "opacity-100" : "pointer-events-none opacity-0 absolute",
+            )}
+            autoFocus={isSearchOpen}
+          />
+          <button
+            type="button"
+            className="absolute inset-y-0 right-0 inline-flex size-7 items-center justify-center text-muted-foreground hover:text-foreground"
+            onClick={() => {
+              if (isSearchOpen && !searchQuery.trim()) {
+                setIsSearchOpen(false);
+                return;
+              }
+              setIsSearchOpen(true);
+            }}
+          >
+            <Search className="size-3.5" />
+          </button>
+        </div>
+      </div>
+      <DropdownMenu modal={false}>
+        <DropdownMenuTrigger asChild>
+          {/* Lock size-7 at all breakpoints — icon-xs defaults to sm:size-6. */}
+          <Button size="icon-xs" variant="outline" className="size-7 sm:size-7">
+            <Settings2 className="size-3.5" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-72 p-1.5">
+          <div className="px-2 pt-1">
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <span className="text-xs font-medium text-foreground">{t("settings.order")}</span>
+              <div className="flex items-center gap-1.5">
+                <Select value={sortBy} onValueChange={(value) => setSortBy(value as KanbanSortBy)}>
+                  <SelectTrigger className="!h-5 w-[84px] gap-1 rounded-sm px-1.5 py-0 text-[10px] [&_svg]:size-3">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="last_visit">{t("sort.lastVisit")}</SelectItem>
+                    <SelectItem value="create_time">{t("sort.createTime")}</SelectItem>
+                    <SelectItem value="priority">{t("sort.priority")}</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Button
+                  size="icon-xs"
+                  variant="outline"
+                  className="size-5 rounded-sm"
+                  onClick={() => setSortOrder((prev) => (prev === "desc" ? "asc" : "desc"))}
+                  aria-label={sortOrder === "desc" ? t("sort.switchToAscending") : t("sort.switchToDescending")}
+                  title={sortOrder === "desc" ? t("sort.descending") : t("sort.ascending")}
                 >
-                  <Input
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder={t("search.placeholder")}
-                    className={cn(
-                      "h-7 border-0 bg-transparent pr-8 text-xs shadow-none focus-visible:ring-0",
-                      isSearchOpen ? "opacity-100" : "pointer-events-none opacity-0 absolute",
-                    )}
-                    autoFocus={isSearchOpen}
-                  />
-                  <button
-                    type="button"
-                    className="absolute inset-y-0 right-0 inline-flex size-7 items-center justify-center text-muted-foreground hover:text-foreground"
-                    onClick={() => {
-                      if (isSearchOpen && !searchQuery.trim()) {
-                        setIsSearchOpen(false);
-                        return;
-                      }
-                      setIsSearchOpen(true);
-                    }}
-                  >
-                    <Search className="size-4" />
-                  </button>
-                </div>
+                  {sortOrder === "desc" ? (
+                    <ArrowDownWideNarrow className="size-3.5" />
+                  ) : (
+                    <ArrowUpNarrowWide className="size-3.5" />
+                  )}
+                </Button>
               </div>
-              <DropdownMenu modal={false}>
-                <DropdownMenuTrigger asChild>
-                  <Button size="icon-xs" variant="outline" className="size-7">
-                    <Settings2 className="size-3.5" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-72 p-1.5">
-                  <div className="px-2 pt-1">
-                    <div className="mb-2 flex items-center justify-between gap-2">
-                      <span className="text-xs font-medium text-foreground">{t("settings.order")}</span>
-                      <div className="flex items-center gap-1.5">
-                        <Select value={sortBy} onValueChange={(value) => setSortBy(value as KanbanSortBy)}>
-                          <SelectTrigger className="!h-5 w-[84px] gap-1 rounded-sm px-1.5 py-0 text-[10px] [&_svg]:size-3">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="last_visit">{t("sort.lastVisit")}</SelectItem>
-                            <SelectItem value="create_time">{t("sort.createTime")}</SelectItem>
-                            <SelectItem value="priority">{t("sort.priority")}</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <Button
-                          size="icon-xs"
-                          variant="outline"
-                          className="size-5 rounded-sm"
-                          onClick={() => setSortOrder((prev) => (prev === "desc" ? "asc" : "desc"))}
-                          aria-label={sortOrder === "desc" ? t("sort.switchToAscending") : t("sort.switchToDescending")}
-                          title={sortOrder === "desc" ? t("sort.descending") : t("sort.ascending")}
-                        >
-                          {sortOrder === "desc" ? (
-                            <ArrowDownWideNarrow className="size-3.5" />
-                          ) : (
-                            <ArrowUpNarrowWide className="size-3.5" />
-                          )}
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                  <DropdownMenuSeparator className="mx-2 my-2" />
-                  <div className="space-y-1 px-2 pb-1">
-                    <div className="pb-1 text-xs font-medium text-foreground">{t("settings.properties")}</div>
-                    {KANBAN_CARD_PROPERTY_OPTIONS.map((option) => (
-                      <div key={option.key} className="flex items-center justify-between gap-3 rounded-md px-1.5 py-1 hover:bg-muted/45">
-                        <span className="text-xs text-foreground">
-                          {t(`settings.propertyLabels.${option.key}`)}
-                        </span>
-                        <Switch
-                          checked={cardProperties[option.key]}
-                          onCheckedChange={(checked) =>
-                            setCardProperties((prev) => ({ ...prev, [option.key]: checked }))
-                          }
-                        />
-                      </div>
-                    ))}
-                  </div>
-                </DropdownMenuContent>
-              </DropdownMenu>
             </div>
           </div>
+          <DropdownMenuSeparator className="mx-2 my-2" />
+          <div className="space-y-1 px-2 pb-1">
+            <div className="pb-1 text-xs font-medium text-foreground">{t("settings.properties")}</div>
+            {KANBAN_CARD_PROPERTY_OPTIONS.map((option) => (
+              <div key={option.key} className="flex items-center justify-between gap-3 rounded-md px-1.5 py-1 hover:bg-muted/45">
+                <span className="text-xs text-foreground">
+                  {t(`settings.propertyLabels.${option.key}`)}
+                </span>
+                <Switch
+                  checked={cardProperties[option.key]}
+                  onCheckedChange={(checked) =>
+                    setCardProperties((prev) => ({ ...prev, [option.key]: checked }))
+                  }
+                />
+              </div>
+            ))}
+          </div>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <WorkspaceKanbanFilterMenu
+        projects={projects}
+        availableLabels={availableLabels}
+        groups={groups}
+        filters={filters}
+        onFiltersChange={onFiltersChange}
+        showGrouping={Boolean(onGroupingModeChange)}
+        groupingMode={groupingMode}
+        onGroupingModeChange={onGroupingModeChange}
+        align="end"
+      />
+    </div>
+  ) : null;
+
+  // Parent Task shell owns source Tabs; portal tools into that stable header row.
+  const portaledToolbar =
+    !showTopChrome && headerTrailingHost && toolbarActions
+      ? createPortal(toolbarActions, headerTrailingHost)
+      : null;
+
+  return (
+    <div className="flex h-full min-h-0 min-w-0 flex-col bg-background">
+          {showTopChrome ? (
+            <div className="flex h-10 shrink-0 items-center justify-between border-b px-6 py-1.5">
+              <div className="flex min-w-0 items-center gap-1.5">
+                {headerLeading}
+              </div>
+              {toolbarActions}
+            </div>
+          ) : (
+            portaledToolbar
+          )}
           <div
             ref={boardScrollRef}
             className="scrollbar-on-hover min-h-0 min-w-0 flex-1 overflow-x-scroll overflow-y-hidden p-2"

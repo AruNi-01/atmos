@@ -190,6 +190,7 @@ export function useLeftSidebarWorkspaceRenderers({
             workspace={entry.workspace}
             projectId={entry.projectId}
             projectName={entry.projectName}
+            projectPath={entry.projectPath}
             cardProperties={options?.cardProperties ?? secondColumnKanbanCardProperties}
             showUnpinnedBorder={options?.showUnpinnedBorder ?? true}
             groups={groups}

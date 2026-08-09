@@ -10,7 +10,7 @@ import type { TerminalGridHandle } from "@/features/terminal/components/Terminal
 import { TerminalsView } from "@/features/terminal/components/TerminalsView";
 import { HostedWelcomeGate } from "@/features/welcome/components/HostedWelcomeGate";
 import { WorkspacesManagementView } from "@/features/workspace/components/WorkspacesManagementView";
-import { KanbanManagementView } from "@/features/workspace/components/KanbanManagementView";
+import { TaskManagementView } from "@/features/task/components/TaskManagementView";
 import { TokenUsagePage } from "@/app-shell/TokenUsagePage";
 import type { OpenFile } from "@/features/editor/store/use-editor-store";
 import type { TerminalCenterTab } from "@/features/terminal/store/use-terminal-store";
@@ -112,10 +112,10 @@ export function CenterStageNoContextView({
     );
   }
 
-  if (currentView === "kanban") {
+  if (currentView === "tasks") {
     return (
       <main className="h-full overflow-hidden">
-        <KanbanManagementView />
+        <TaskManagementView />
       </main>
     );
   }

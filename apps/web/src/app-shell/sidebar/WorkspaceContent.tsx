@@ -145,6 +145,7 @@ function WorkspaceMetadataValue({
 
 export const WorkspaceContent = React.memo<WorkspaceContentProps>(function WorkspaceContent({
   workspace,
+  projectPath,
   projectName,
   showProjectName,
   rightContext,
@@ -196,9 +197,12 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
   const infoPopoverTriggerRef = React.useRef<HTMLDivElement | null>(null);
   const ignoreNextClickRef = React.useRef(false);
   const prStatusInterested = isRowHovered || isInfoPopoverOpen;
+  // Prefer worktree path so branch-linked PRs resolve like Header (git status + PR list).
+  const prRepoPath = workspace.localPath?.trim() || projectPath?.trim() || null;
   const { presentation: managedPr } = useWorkspacePrStatus({
     githubPr: workspace.githubPr,
     branch: workspace.branch,
+    repoPath: prRepoPath,
     interested: prStatusInterested,
   });
   const gitWarningListFormatter = React.useMemo(

@@ -23,6 +23,7 @@ import {
   useRepoPrListQuery,
   useInvalidateGithubPrs,
 } from "@/features/github/hooks/use-github-pr-query";
+import { useTaskWorkspaceDraftStore } from "@/features/task/store/task-workspace-draft-store";
 
 type LinkType = "none" | "issue" | "pr";
 
@@ -316,6 +317,91 @@ export function useWelcomeProjectContext({
     if (linkType !== "issue" || !repoContext) return;
     void loadIssues();
   }, [linkType, loadIssues, repoContext]);
+
+  // Task surface → New Workspace: apply prefilled Issue/PR once repo context is ready.
+  React.useEffect(() => {
+    if (!selectedProjectId || !repoContext) return;
+    const draft = useTaskWorkspaceDraftStore.getState().peekDraft();
+    if (!draft) return;
+    // Only apply when draft targets this project (or project was unset and we just selected one).
+    if (draft.projectId && draft.projectId !== selectedProjectId) return;
+    const consumed = useTaskWorkspaceDraftStore.getState().consumeDraft();
+    if (!consumed) return;
+
+    const link = consumed.link;
+    const draftRepo = `${link.owner}/${link.repo}`;
+    const currentRepo = `${repoContext.owner}/${repoContext.repo}`;
+    if (draftRepo !== currentRepo) {
+      // Different remote than the selected project — still open advanced link via URL when possible.
+      if (link.kind === "issue" && link.url) {
+        setLinkType("issue");
+        setIssueUrl(link.url);
+        void (async () => {
+          try {
+            const preview = await wsGithubApi.getIssue({ issueUrl: link.url! });
+            setIssuePreview(preview);
+            setSelectedIssueNumber(String(preview.number));
+            clearPrSelection();
+          } catch {
+            // leave URL for manual load
+          }
+        })();
+      } else if (link.kind === "pr" && link.url) {
+        setLinkType("pr");
+        setPrUrl(link.url);
+        void (async () => {
+          try {
+            const preview = await wsGithubApi.getPr({ prUrl: link.url! });
+            setPrPreview(preview);
+            setSelectedPrNumber(String(preview.number));
+            clearIssueSelection();
+          } catch {
+            // leave URL for manual load
+          }
+        })();
+      }
+      return;
+    }
+
+    if (link.kind === "issue") {
+      setLinkType("issue");
+      setIssueUrl(
+        link.url ?? `https://github.com/${link.owner}/${link.repo}/issues/${link.number}`,
+      );
+      void (async () => {
+        try {
+          const preview = await wsGithubApi.getIssue({
+            owner: link.owner,
+            repo: link.repo,
+            issueNumber: link.number,
+          });
+          setIssuePreview(preview);
+          setSelectedIssueNumber(String(preview.number));
+          clearPrSelection();
+        } catch {
+          // keep URL for manual fetch
+        }
+      })();
+      return;
+    }
+
+    setLinkType("pr");
+    setPrUrl(link.url ?? `https://github.com/${link.owner}/${link.repo}/pull/${link.number}`);
+    void (async () => {
+      try {
+        const preview = await wsGithubApi.getPr({
+          owner: link.owner,
+          repo: link.repo,
+          prNumber: link.number,
+        });
+        setPrPreview(preview);
+        setSelectedPrNumber(String(preview.number));
+        clearIssueSelection();
+      } catch {
+        // keep URL for manual fetch
+      }
+    })();
+  }, [clearIssueSelection, clearPrSelection, repoContext, selectedProjectId]);
 
   const handleSelectIssue = React.useCallback(
     (value: string) => {

@@ -42,8 +42,8 @@ export function DocumentTitle() {
           return t("diskAnalyzer");
         case "token-usage":
           return t("tokenUsage");
-        case "kanban":
-          return t("kanban");
+        case "tasks":
+          return t("tasks");
       }
     }
     return t("app");

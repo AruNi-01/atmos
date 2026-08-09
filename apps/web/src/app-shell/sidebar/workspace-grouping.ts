@@ -34,7 +34,7 @@ type WorkspaceTimeGroupKey = "today" | "yesterday" | "last_7_days" | "last_30_da
 export const UNTAGGED_WORKSPACE_GROUP_KEY = "__untagged__";
 
 function createCachedWorkspaceTranslator(
-  namespace: "appShell.workspaceGrouping" | "appShell.kanban",
+  namespace: "appShell.workspaceGrouping" | "appShell.task",
 ) {
   let cachedLocale: "en" | "zh" | null = null;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -57,7 +57,7 @@ function createCachedWorkspaceTranslator(
 const workspaceGroupingT = createCachedWorkspaceTranslator(
   "appShell.workspaceGrouping",
 );
-const workspaceKanbanT = createCachedWorkspaceTranslator("appShell.kanban");
+const workspaceKanbanT = createCachedWorkspaceTranslator("appShell.task");
 
 export function flattenProjectWorkspaces(projects: Project[]): FlattenedWorkspaceEntry[] {
   return projects.flatMap((project) =>

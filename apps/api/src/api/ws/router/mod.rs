@@ -796,6 +796,7 @@ impl WsMessageService {
                 self.handle_github_user_card(parse_request(request.data)?)
                     .await
             }
+            WsAction::GithubRateLimit => self.handle_github_rate_limit().await,
             WsAction::GithubPrUpdateLabels => {
                 self.handle_github_pr_update_labels(parse_request(request.data)?)
                     .await
@@ -810,6 +811,18 @@ impl WsMessageService {
             }
             WsAction::GithubIssueList => {
                 self.handle_github_issue_list(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::GithubSearch => {
+                self.handle_github_search(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::GithubIssueTemplates => {
+                self.handle_github_issue_templates(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::GithubIssueCreate => {
+                self.handle_github_issue_create(parse_request(request.data)?)
                     .await
             }
             WsAction::GithubIssuePage => {

@@ -18,6 +18,7 @@ import type {
   GithubActionsDetailPayload,
   GithubActionsJobLogsPayload,
   GithubActionsRunPayload,
+  GithubRateLimitPayload,
   GithubUserCardPayload,
 } from "@atmos/api-types/ws/dto/github";
 
@@ -420,6 +421,23 @@ export function githubUserCardQueryOptions(
     staleTime: 60 * 60_000,
     gcTime: 2 * 60 * 60_000,
     enabled: (options?.enabled ?? true) && Boolean(login),
+  });
+}
+
+export function githubRateLimitQueryOptions(
+  scope: ComputerQueryScope,
+  connectionState: ConnectionState,
+  options?: { enabled?: boolean },
+) {
+  return wsQueryOptions({
+    scope,
+    connectionState,
+    queryKey: queryKeys.computer.githubRateLimit(scope),
+    queryFn: (): Promise<GithubRateLimitPayload> => wsGithubApi.getRateLimit(),
+    // Manual refresh is primary; avoid aggressive background refetch.
+    staleTime: 60_000,
+    gcTime: 5 * 60_000,
+    enabled: options?.enabled ?? true,
   });
 }
 

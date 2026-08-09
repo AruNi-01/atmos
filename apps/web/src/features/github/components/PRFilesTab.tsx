@@ -346,7 +346,7 @@ export function PRFilesTab({
         fileThreads.set(file.filename, nonLineThreads);
       }
 
-      if (!file.patch || file.kind === 'binary' || file.kind === 'too_large') {
+      const pushPlaceholderDiff = (reason: 'binary' | 'too_large' | 'empty') => {
         const gitStatus = prStatusToGitStatus(file.status);
         const { oldText, newText, annotations: binaryAnns } =
           binaryDiffPlaceholders(gitStatus);
@@ -366,7 +366,12 @@ export function PRFilesTab({
           file_path: file.filename,
           status: gitStatus,
           compare_ref: null,
-          kind: file.kind === 'too_large' ? 'too_large' : 'binary',
+          kind:
+            reason === 'too_large' || file.kind === 'too_large'
+              ? 'too_large'
+              : reason === 'empty'
+                ? 'text'
+                : 'binary',
           preview_kind: file.preview_kind ?? 'none',
           old_text: null,
           new_text: null,
@@ -394,12 +399,37 @@ export function PRFilesTab({
           })),
           cacheKey: file.filename,
         } as CodeViewItem<PrAnnotationMeta> & { cacheKey: string });
+      };
+
+      // Empty / missing patch, binary, or too-large → placeholder (never feed pierre null lines).
+      if (!file.patch?.trim() || file.kind === 'binary' || file.kind === 'too_large') {
+        pushPlaceholderDiff(
+          file.kind === 'too_large'
+            ? 'too_large'
+            : !file.patch?.trim()
+              ? 'empty'
+              : 'binary',
+        );
         continue;
       }
 
       const patch = `--- a/${file.filename}\n+++ b/${file.filename}\n${file.patch}`;
-      const fileDiff = processFile(patch, { cacheKey: file.filename });
-      if (!fileDiff) continue;
+      let fileDiff: ReturnType<typeof processFile> | null | undefined;
+      try {
+        fileDiff = processFile(patch, { cacheKey: file.filename });
+      } catch {
+        fileDiff = null;
+      }
+
+      // @pierre/diffs throws when both addition/deletion hast lines resolve to null
+      // (empty hunks, pure renames with empty patch body, corrupt patch text).
+      const additionLen = fileDiff?.additionLines?.length ?? 0;
+      const deletionLen = fileDiff?.deletionLines?.length ?? 0;
+      const hunkLen = fileDiff?.hunks?.length ?? 0;
+      if (!fileDiff || (additionLen === 0 && deletionLen === 0) || hunkLen === 0) {
+        pushPlaceholderDiff('empty');
+        continue;
+      }
 
       const annotations: DiffLineAnnotation<PrAnnotationMeta>[] = lineThreads.map(
         (thread, threadIndex) => {

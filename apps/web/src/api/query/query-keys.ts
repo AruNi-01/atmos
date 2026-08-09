@@ -232,6 +232,38 @@ export const queryKeys = {
         params.limit ?? 50,
       ] as const,
 
+    /** Multi-repo GitHub Search (Task surface). */
+    githubSearch: (
+      scope: ComputerQueryScope,
+      params: {
+        kind: "issue" | "pr";
+        repos: string;
+        state: string;
+        assignees: string;
+        labels: string;
+        query: string;
+        page: number;
+        perPage: number;
+      },
+    ) =>
+      [
+        ...queryKeys.computer.root(scope),
+        "github",
+        "search",
+        params.kind,
+        params.repos,
+        params.state,
+        params.assignees,
+        params.labels,
+        params.query,
+        params.page,
+        params.perPage,
+      ] as const,
+
+    /** `.github/ISSUE_TEMPLATE` listing for create-issue. */
+    githubIssueTemplates: (scope: ComputerQueryScope, repoFullName: string) =>
+      [...queryKeys.computer.root(scope), "github", "issueTemplates", repoFullName] as const,
+
     githubIssueList: (
       scope: ComputerQueryScope,
       params: { owner: string; repo: string; state: "open" | "closed"; limit: number },
@@ -351,6 +383,10 @@ export const queryKeys = {
         "userCard",
         params.login,
       ] as const,
+
+    /** GitHub: API rate limits (core / search / graphql) for local gh token */
+    githubRateLimit: (scope: ComputerQueryScope) =>
+      [...queryKeys.computer.root(scope), "github", "rateLimit"] as const,
 
     /** GitHub: PR changed-files list */
     githubPrFiles: (

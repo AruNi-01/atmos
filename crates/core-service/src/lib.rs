@@ -58,5 +58,6 @@ pub use service::test::TestService;
 pub use service::workspace::{WorkspaceDto, WorkspaceService};
 pub use types::{
     GithubIssueAssigneePayload, GithubIssueLabelPayload, GithubIssuePayload, GithubPrPayload,
-    SharedString, SkillFile, SkillInfo, SkillPlacement, WorkspaceAttachmentPayload,
+    GithubSearchItemPayload, GithubSearchPagePayload, SharedString, SkillFile, SkillInfo,
+    SkillPlacement, WorkspaceAttachmentPayload,
 };

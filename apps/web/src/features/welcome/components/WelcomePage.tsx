@@ -364,6 +364,13 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
     setSubmitError,
   });
 
+  // Task Create Workspace → New Workspace overlay: show Advanced with the linked Issue/PR.
+  React.useEffect(() => {
+    if (linkType !== "none") {
+      setIsAdvancedOpen(true);
+    }
+  }, [linkType]);
+
   const {
     filteredAgents,
     filteredProjects,

@@ -8,9 +8,11 @@
 
 import {
   createParser,
+  parseAsArrayOf,
+  parseAsBoolean,
+  parseAsInteger,
   parseAsString,
   parseAsStringEnum,
-  parseAsBoolean,
 } from "nuqs";
 
 // ---------------------------------------------------------------------------
@@ -167,8 +169,8 @@ export type LeftSidebarTab = "projects" | "files";
 
 export const leftSidebarParams = {
   lsTab: parseAsStringEnum<LeftSidebarTab>(["projects", "files"]).withDefault("projects"),
-  lsKanban: parseAsBoolean.withDefault(false),
-  lsKanbanQ: parseAsString.withDefault(""),
+  lsTask: parseAsBoolean.withDefault(false),
+  lsTaskQ: parseAsString.withDefault(""),
 };
 
 // ---------------------------------------------------------------------------
@@ -233,4 +235,69 @@ export const previewUrlParams = {
 export const chatSessionsParams = {
   q: parseAsString.withDefault(""),
   registry_id: parseAsString.withDefault(""),
+};
+
+// ---------------------------------------------------------------------------
+// Tasks page – source tab, Atmos filters, GitHub list state
+// ---------------------------------------------------------------------------
+export type TaskSourceTab = "atmos" | "github";
+export type TaskGithubKindParam = "issues" | "prs";
+export type TaskGithubStateParam = "all" | "open" | "closed";
+/** GitHub list sort — matches github.com PR/Issue list sort menu. */
+export type TaskGithubSortParam =
+  | "created-desc"
+  | "created-asc"
+  | "comments-desc"
+  | "comments-asc"
+  | "updated-desc"
+  | "updated-asc"
+  | "best-match";
+export type TaskGroupingModeParam =
+  | "project"
+  | "group"
+  | "status"
+  | "time"
+  | "label"
+  | "priority";
+
+const parseAsStringList = parseAsArrayOf(parseAsString).withDefault([]);
+
+export const taskParams = {
+  /** Atmos board vs GitHub issues/PRs. */
+  taskSource: parseAsStringEnum<TaskSourceTab>(["atmos", "github"]).withDefault("atmos"),
+  /** Atmos kanban column grouping (also mirrored to function settings). */
+  taskGroupBy: parseAsStringEnum<TaskGroupingModeParam>([
+    "project",
+    "group",
+    "status",
+    "time",
+    "label",
+    "priority",
+  ]).withDefault("status"),
+  /** Atmos board filters (comma-separated ids / enum values). */
+  taskStatuses: parseAsStringList,
+  taskPriorities: parseAsStringList,
+  taskLabels: parseAsStringList,
+  taskProjects: parseAsStringList,
+  taskGroups: parseAsStringList,
+  taskAutoWs: parseAsBoolean.withDefault(false),
+  /** GitHub list. */
+  taskGhKind: parseAsStringEnum<TaskGithubKindParam>(["issues", "prs"]).withDefault("issues"),
+  taskGhState: parseAsStringEnum<TaskGithubStateParam>(["all", "open", "closed"]).withDefault(
+    "open",
+  ),
+  taskGhRepos: parseAsStringList,
+  taskGhAssignees: parseAsStringList,
+  taskGhLabels: parseAsStringList,
+  taskGhQ: parseAsString.withDefault(""),
+  taskGhPage: parseAsInteger.withDefault(1),
+  taskGhSort: parseAsStringEnum<TaskGithubSortParam>([
+    "created-desc",
+    "created-asc",
+    "comments-desc",
+    "comments-asc",
+    "updated-desc",
+    "updated-asc",
+    "best-match",
+  ]).withDefault("updated-desc"),
 };

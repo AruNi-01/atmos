@@ -20,6 +20,10 @@ import {
 export type WorkspacePrStatusIconProps = {
   githubPr?: GithubPrPayload | null;
   branch?: string | null;
+  /** Project/worktree path — resolve owner/repo for branch-linked PRs. */
+  repoPath?: string | null;
+  owner?: string | null;
+  repo?: string | null;
   /** Hover / popover / selection — enables lazy checks fetch. */
   interested?: boolean;
   /** When false and no managed PR, render nothing (kanban title prefix). */
@@ -56,6 +60,9 @@ function PrLifecycleIcon({
 export function WorkspacePrStatusIcon({
   githubPr,
   branch,
+  repoPath,
+  owner,
+  repo,
   interested = false,
   showBranchFallback = true,
   className,
@@ -64,6 +71,9 @@ export function WorkspacePrStatusIcon({
   const { presentation } = useWorkspacePrStatus({
     githubPr,
     branch,
+    repoPath,
+    owner,
+    repo,
     interested,
   });
 

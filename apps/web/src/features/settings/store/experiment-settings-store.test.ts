@@ -26,14 +26,14 @@ import {
 } from "./experiment-settings-store";
 
 describe("launchpad item placement helpers", () => {
-  it("defaults always-on items enabled; skills/automations/token-usage/canvas/kanban/new-workspace outside, rest inside; terminals/agents off", () => {
+  it("defaults always-on items enabled; skills/automations/token-usage/canvas/tasks/new-workspace outside, rest inside; terminals/agents off", () => {
     const items = createDefaultLaunchpadItems();
     expect(items.workspaces).toEqual({ enabled: true, placement: "inside" });
     expect(items.skills).toEqual({ enabled: true, placement: "outside" });
     expect(items["disk-analyzer"]).toEqual({ enabled: true, placement: "inside" });
     expect(items["token-usage"]).toEqual({ enabled: true, placement: "outside" });
     expect(items.canvas).toEqual({ enabled: true, placement: "outside" });
-    expect(items.kanban).toEqual({ enabled: true, placement: "outside" });
+    expect(items.tasks).toEqual({ enabled: true, placement: "outside" });
     expect(items["new-workspace"]).toEqual({ enabled: true, placement: "outside" });
     expect(items.terminals).toEqual({ enabled: false, placement: "inside" });
     expect(items.agents).toEqual({ enabled: false, placement: "inside" });
@@ -54,7 +54,7 @@ describe("launchpad item placement helpers", () => {
       "workspaces",
       "automations",
       "canvas",
-      "kanban",
+      "tasks",
       "new-workspace",
     ]);
     expect(selectLaunchpadItemsByPlacement(items, "inside")).toEqual([
