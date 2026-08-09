@@ -34,6 +34,78 @@ export interface ChangelogItem {
 
 export const changelogData: ChangelogItem[] = [
   {
+    id: "desktop-2026.8.10",
+    title: {
+      zh: "Tasks 任务台 · 嵌套抽屉 · Launchpad · 中心标签恢复",
+      en: "Tasks Surface, Nested Drawers, Launchpad & Center-Tab Restore",
+    },
+    description: {
+      zh: "Atmos Desktop 2026.8.10 带来 Tasks 任务台（Atmos + GitHub）、可嵌套的右侧 Issue/PR 抽屉、Launchpad 命名、中心标签 MRU 恢复，以及更完整的 GitHub PR/Actions 审阅与更简洁的分支/PR 工作区模型。",
+      en: "Atmos Desktop 2026.8.10 ships the Tasks surface for Atmos and GitHub work, nested right-drawer issue/PR review, Launchpad naming, center-tab MRU restore, deeper GitHub PR/Actions review, and a simpler branch/PR-oriented workspace model.",
+    },
+    date: "2026-08-10",
+    version: "2026.8.10",
+    releaseUrl: "https://github.com/AruNi-01/atmos/releases/tag/desktop-electron-2026.8.10",
+    tags: [
+      { zh: "Tasks", en: "Tasks" },
+      { zh: "GitHub", en: "GitHub" },
+      { zh: "Launchpad", en: "Launchpad" },
+      { zh: "抽屉", en: "Drawer" },
+    ],
+    content: {
+      zh: {
+        features: [
+          "**Tasks 任务台** — `/tasks` 统一 Atmos 与 GitHub Issues/PRs，支持筛选、排序、分页、Assignees、关联 Issue↔PR，以及带模板与 Markdown 预览的创建 Issue。",
+          "**嵌套 GitHub 抽屉** — 在右侧抽屉栈中打开 Issue、PR、Commit 与 Action Run，支持左侧 peek、并行退出恢复，以及可用的设置/选择/弹出菜单。",
+          "**从 Tasks 创建 Issue** — 仓库模板、项目/仓库上下文与表单流，发布后刷新列表。",
+          "**关联工作区操作** — 在 Issue/PR 抽屉中按匹配情况进入或创建工作区。",
+          "**Launchpad** — 管理中心更名为 Launchpad，贯穿侧栏、设置与导航。",
+          "**中心标签 MRU 恢复** — 离开某中心表面后，可从最近使用栈恢复上一标签。",
+          "**GitHub Actions 步骤日志** — 在 Atmos 内查看 Action Run 的 step 级日志尾部。",
+          "**PR 合并态检测** — 扩展 merged 状态识别，列表与详情更准确。",
+        ],
+        fixes: [
+          "**Markdown Agent 标签** — 清理渲染 HTML，避免未知 agent 标签泄漏到页面。",
+          "**落地页 Hero 预览** — 宽屏两侧可见，16:9 略增高。",
+          "**Token 用量图表** — 收紧趋势轴与画布，读图更清晰。",
+          "**嵌套抽屉菜单** — 抽屉与 Dropdown/Popover/Select 同级 z-index，设置等浮层可点。",
+          "**工作区 PR 发现** — 缺少 `githubPr` 元数据时仍可按分支发现 PR，侧栏与头部状态一致。",
+        ],
+        improvements: [
+          "**看板卡片与筛选** — 更清晰的工作区看板卡片，侧栏筛选隔离。",
+          "**GitHub 时间线** — PR 活动展示更紧凑一致。",
+          "**工作区模型** — 移除仅 Issue 工作区与 GitHub Issue 导入，创建/进入以分支与 PR 为主。",
+          "**GitHub 搜索可靠性** — 多参数 `gh` 查询、带点仓库名 `--repo`、draft 字段处理与空多仓 REST 回退。",
+        ],
+      },
+      en: {
+        features: [
+          "**Tasks surface** — `/tasks` unifies Atmos and GitHub issues/PRs with filters, sort, pagination, assignees, linked issue↔PR chips, and create-issue (templates + markdown write/preview).",
+          "**Nested GitHub drawers** — Open issues, PRs, commits, and Action runs in a right-drawer stack with left peeks, parallel exit restore, and working portaled menus (settings, selects, popovers).",
+          "**Create Issue from Tasks** — Repository templates, project/repo context, and form-backed create flow with list refresh after publish.",
+          "**Linked workspace actions** — Enter or Create workspace from issue/PR drawers when a matching workspace exists or should be started.",
+          "**Launchpad** — Management Center is renamed Launchpad across the shell, settings, and navigation.",
+          "**Center-tab MRU restore** — Return to the previous center surface from a most-recently-used activation stack.",
+          "**GitHub Actions job log tails** — Read step-level job log tails from Action runs without leaving Atmos.",
+          "**PR merged-state checks** — Expanded merged-state detection so open vs merged stays accurate in list and detail chrome.",
+        ],
+        fixes: [
+          "**Markdown agent tags** — Sanitize rendered markdown HTML so unknown agent tags do not leak into the page.",
+          "**Landing hero preview** — Keep hero preview sides visible on wide screens and stretch the preview slightly taller at 16:9.",
+          "**Token Usage charts** — Tighten trend chart axes and page canvas so usage graphs read more cleanly.",
+          "**Nested drawer menus** — Keep drawer z-index aligned with DropdownMenu / Popover / Select so settings and other portaled controls work inside nested sheets.",
+          "**Workspace PR detection** — Discover branch PRs even when stored `githubPr` metadata is missing so sidebar and header status stay in sync.",
+        ],
+        improvements: [
+          "**Kanban cards & filters** — Clearer workspace kanban cards with isolated sidebar filters.",
+          "**GitHub timeline chrome** — Denser, more consistent PR timeline presentation.",
+          "**Workspace model** — Issue-only workspaces and the GitHub issue import path are removed so create/enter flows stay branch- and PR-oriented.",
+          "**GitHub search reliability** — Multi-arg `gh` queries, dotted repo names via `--repo`, draft-field handling, and empty multi-repo REST fallback.",
+        ],
+      },
+    },
+  },
+  {
     id: "desktop-2026.8.9",
     title: {
       zh: "Token 用量总览 · AppShot 飞入 · Desktop Use 引擎 · Canvas Agent 状态",
