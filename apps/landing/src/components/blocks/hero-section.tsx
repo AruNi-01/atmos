@@ -123,7 +123,8 @@ const HeroSection = () => {
 
           {/*
             Hero cover breaks slightly past the vertical rails for impact.
-            Width: content + ~2.5–4rem each side; height forced taller via min-h + object-cover.
+            Width: content + ~2.5–4rem each side. Keep the image’s native aspect ratio
+            (no object-cover height crop) so wide viewports still show both sides.
           */}
           <MotionPreset
             fade
@@ -138,7 +139,7 @@ const HeroSection = () => {
                   src={TerminalAgentGrid}
                   alt={t('previewAlt')}
                   priority
-                  className='h-[min(62vw,28rem)] w-full object-cover object-top sm:h-[min(56vw,36rem)] md:h-[min(50vw,42rem)] lg:h-[min(46vw,48rem)]'
+                  className='h-auto w-full'
                   sizes='(max-width: 768px) 100vw, (max-width: 1280px) 100vw, 1280px'
                 />
               </div>
