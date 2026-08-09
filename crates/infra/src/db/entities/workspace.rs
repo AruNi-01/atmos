@@ -41,7 +41,7 @@ pub struct Model {
     pub github_pr_url: Option<String>,
     /// Serialized GitHub PR metadata for workspace overview/import
     pub github_pr_data: Option<String>,
-    /// Workspace creation source: manual | issue_only | automation
+    /// Workspace creation source: manual | automation
     pub create_source: String,
 }
 

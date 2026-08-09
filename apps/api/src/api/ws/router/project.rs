@@ -150,7 +150,7 @@ impl WsMessageService {
             let workspace_service = Arc::clone(&workspace_service);
             async move {
                 let result = workspace_service
-                    .list_by_project(project_guid.clone(), false)
+                    .list_by_project(project_guid.clone())
                     .await;
                 (project_guid, result)
             }

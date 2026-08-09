@@ -1,6 +1,6 @@
 import type { GithubIssuePayload, GithubPrPayload } from "./github";
 
-export type WorkspaceCreateSourceModel = "manual" | "issue_only" | "automation";
+export type WorkspaceCreateSourceModel = "manual" | "automation";
 
 export type WorkspaceLabelModel = {
   guid: string;
@@ -45,8 +45,3 @@ export type WorkspaceAttachmentPayload = {
   size?: number;
 };
 
-export type WorkspaceImportGithubIssuesResult = {
-  created: number;
-  skipped: number;
-  errors: string[];
-};

@@ -775,7 +775,7 @@ impl LocalServicesService {
     ) -> Result<Vec<ServiceRoot>> {
         let workspaces = self
             .workspace_service
-            .list_by_project(project_id.to_string(), false)
+            .list_by_project(project_id.to_string())
             .await?;
         Ok(workspaces
             .into_iter()

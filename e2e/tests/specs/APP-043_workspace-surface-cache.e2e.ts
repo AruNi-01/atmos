@@ -109,7 +109,6 @@ test.describe("APP-043 workspace surface cache", () => {
         Array<{ guid: string; is_archived?: boolean | null; display_name?: string | null }>
       >("workspace_list", {
         project_guid: project.guid,
-        include_issue_only: false,
       });
 
       let first = workspaces.find((w) => !w.is_archived) ?? workspaces[0] ?? null;
@@ -138,7 +137,6 @@ test.describe("APP-043 workspace surface cache", () => {
         });
         workspaces = await wsRequest("workspace_list", {
           project_guid: project.guid,
-          include_issue_only: false,
         });
         second =
           workspaces.find((w) => w.guid !== first!.guid && !w.is_archived) ?? null;

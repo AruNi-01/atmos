@@ -12,9 +12,7 @@ use crate::utils::workspace_name_generator;
 use crate::{GithubIssuePayload, GithubPrPayload, WorkspaceAttachmentPayload};
 use core_engine::{FsEngine, GitEngine};
 use infra::db::entities::{workspace, workspace_label};
-use infra::db::repo::{
-    CreateIssueOnlyWorkspaceRecord, ProjectRepo, WorkspaceCreateSource, WorkspaceRepo,
-};
+use infra::db::repo::{ProjectRepo, WorkspaceCreateSource, WorkspaceRepo};
 use llm::{FileLlmConfigStore, LlmFeature};
 use sea_orm::DatabaseConnection;
 use std::collections::HashSet;
@@ -27,16 +25,6 @@ mod management;
 pub use crate::service::workspace_support::{
     WorkspaceDto, WorkspaceLabelDto, WORKSPACE_PRIORITIES, WORKSPACE_WORKFLOW_STATUSES,
 };
-
-pub struct CreateIssueOnlyWorkspaceInput {
-    pub project_guid: String,
-    pub display_name: Option<String>,
-    pub github_issue_url: String,
-    pub github_issue_data: String,
-    pub workflow_status: Option<String>,
-    pub priority: Option<String>,
-    pub labels: Option<Vec<String>>,
-}
 
 pub struct WorkspaceService {
     db: Arc<DatabaseConnection>,
@@ -113,15 +101,9 @@ impl WorkspaceService {
         }
     }
 
-    pub async fn list_by_project(
-        &self,
-        project_guid: String,
-        include_issue_only: bool,
-    ) -> Result<Vec<WorkspaceDto>> {
+    pub async fn list_by_project(&self, project_guid: String) -> Result<Vec<WorkspaceDto>> {
         let repo = WorkspaceRepo::new(&self.db);
-        let models = repo
-            .list_by_project(&project_guid, include_issue_only)
-            .await?;
+        let models = repo.list_by_project(&project_guid).await?;
         let workspace_guids: Vec<String> = models.iter().map(|model| model.guid.clone()).collect();
         let mut labels_by_workspace = repo
             .list_labels_by_workspace_guids(&workspace_guids)
@@ -524,38 +506,6 @@ impl WorkspaceService {
             .unwrap_or_default();
 
         self.to_dto(model, labels)
-    }
-
-    /// 创建 Issue Only 工作区（从 GitHub Issue 导入）
-    /// 不创建分支、不初始化 worktree、不运行 setup flow
-    pub async fn create_issue_only_workspace(
-        &self,
-        input: CreateIssueOnlyWorkspaceInput,
-    ) -> Result<WorkspaceDto> {
-        let workflow_status = validate_workspace_workflow_status(input.workflow_status)?;
-        let priority = validate_workspace_priority(input.priority)?;
-
-        let workspace_repo = WorkspaceRepo::new(&self.db);
-
-        let model = workspace_repo
-            .create_issue_only(CreateIssueOnlyWorkspaceRecord {
-                project_guid: input.project_guid,
-                display_name: input.display_name,
-                github_issue_url: input.github_issue_url,
-                github_issue_data: input.github_issue_data,
-                workflow_status,
-                priority,
-                label_guids: input.labels,
-            })
-            .await?;
-
-        let workspace_labels = workspace_repo
-            .list_labels_by_workspace_guids(std::slice::from_ref(&model.guid))
-            .await?
-            .remove(&model.guid)
-            .unwrap_or_default();
-
-        self.to_dto(model, workspace_labels)
     }
 
     /// 确保 Worktree 已就绪（不存在则创建）

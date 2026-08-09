@@ -38,6 +38,7 @@ mod m20260702_000031_create_terminal_side_chat;
 mod m20260718_000032_drop_canvas_board;
 mod m20260725_000033_create_item_group_tables;
 mod m20260801_000034_create_queue_event_table;
+mod m20260809_000035_soft_delete_issue_only_workspaces;
 
 pub struct Migrator;
 
@@ -78,6 +79,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260718_000032_drop_canvas_board::Migration),
             Box::new(m20260725_000033_create_item_group_tables::Migration),
             Box::new(m20260801_000034_create_queue_event_table::Migration),
+            Box::new(m20260809_000035_soft_delete_issue_only_workspaces::Migration),
         ]
     }
 }

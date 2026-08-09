@@ -16,7 +16,7 @@ export type WorkspacePriority =
   | 'medium'
   | 'low';
 
-export type WorkspaceCreateSource = 'manual' | 'issue_only' | 'automation';
+export type WorkspaceCreateSource = 'manual' | 'automation';
 
 export interface WorkspaceLabel {
   id: string;

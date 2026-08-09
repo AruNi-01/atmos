@@ -384,8 +384,6 @@ pub enum WsAction {
     WorkspaceUpdatePinOrder,
     /// 归档 Workspace
     WorkspaceArchive,
-    /// 从 GitHub Issues 导入创建 Issue Only Workspaces
-    WorkspaceImportGithubIssues,
     /// 取消归档 Workspace
     WorkspaceUnarchive,
     /// 获取已归档的 Workspace 列表
@@ -615,6 +613,8 @@ pub enum WsAction {
     GithubActionsList,
     /// 获取 workflow run 详情
     GithubActionsDetail,
+    /// 获取单个 job 的日志尾部（用于失败 job 快速预览）
+    GithubActionsJobLogs,
     /// Rerun workflow
     GithubActionsRerun,
     GithubPrFiles,

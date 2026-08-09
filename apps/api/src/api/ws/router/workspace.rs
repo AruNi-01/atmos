@@ -5,7 +5,7 @@ impl WsMessageService {
     pub(super) async fn handle_workspace_list(&self, req: WorkspaceListRequest) -> Result<Value> {
         let workspaces = self
             .workspace_service
-            .list_by_project(req.project_guid, req.include_issue_only)
+            .list_by_project(req.project_guid)
             .await?;
         Ok(json!(workspaces))
     }
@@ -177,90 +177,6 @@ impl WsMessageService {
         }
 
         Ok(json!(workspace))
-    }
-
-    pub(super) async fn handle_workspace_import_github_issues(
-        &self,
-        req: WorkspaceImportGithubIssuesRequest,
-    ) -> Result<Value> {
-        let mut created_workspaces = Vec::new();
-        let mut skipped_issues = Vec::new();
-
-        let existing_workspaces = self
-            .workspace_service
-            .list_by_project(req.project_guid.clone(), true)
-            .await?;
-
-        use std::collections::HashSet;
-        let mut seen_urls: HashSet<String> = existing_workspaces
-            .iter()
-            .filter(|w| w.model.create_source == "issue_only")
-            .filter_map(|w| w.model.github_issue_url.clone())
-            .collect();
-
-        for issue in req.issues {
-            let is_duplicate = existing_workspaces.iter().any(|w| {
-                w.model.github_issue_url.as_ref() == Some(&issue.url)
-                    && w.model.create_source == "issue_only"
-            }) || seen_urls.contains(&issue.url);
-
-            if is_duplicate {
-                skipped_issues.push(json!({
-                    "issue_url": issue.url,
-                    "reason": "duplicate",
-                }));
-                tracing::warn!(
-                    "Skipping duplicate issue import: project={}, issue_url={}",
-                    req.project_guid,
-                    issue.url
-                );
-                continue;
-            }
-
-            let mut label_guids = Vec::new();
-            for issue_label in &issue.labels {
-                let label_color = issue_label
-                    .color
-                    .clone()
-                    .unwrap_or_else(|| "94a3b8".to_string());
-                let label = self
-                    .workspace_service
-                    .create_label(
-                        issue_label.name.clone(),
-                        label_color,
-                        "gitHub_issue".to_string(),
-                    )
-                    .await?;
-                label_guids.push(label.guid);
-            }
-
-            let issue_data = serde_json::to_string(&issue).map_err(|e| {
-                ServiceError::Validation(format!("Failed to serialize issue data: {e}"))
-            })?;
-
-            let workspace = self
-                .workspace_service
-                .create_issue_only_workspace(
-                    core_service::service::workspace::CreateIssueOnlyWorkspaceInput {
-                        project_guid: req.project_guid.clone(),
-                        display_name: Some(issue.title.clone()),
-                        github_issue_url: issue.url.clone(),
-                        github_issue_data: issue_data,
-                        workflow_status: req.workflow_status.clone(),
-                        priority: req.priority.clone(),
-                        labels: Some(label_guids),
-                    },
-                )
-                .await?;
-
-            seen_urls.insert(issue.url.clone());
-            created_workspaces.push(workspace);
-        }
-
-        Ok(json!({
-            "created": created_workspaces,
-            "skipped": skipped_issues,
-        }))
     }
 
     pub(super) async fn handle_workspace_update_name(

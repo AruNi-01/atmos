@@ -1380,7 +1380,7 @@ impl DiskAnalyzerService {
                 project_labels.push((project.name.clone(), root));
             }
             if let Ok(workspaces) = workspace_service
-                .list_by_project(project.guid.clone(), true)
+                .list_by_project(project.guid.clone())
                 .await
             {
                 for workspace in workspaces {

@@ -119,8 +119,6 @@ pub struct WorkspaceDeleteProgressNotification {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkspaceListRequest {
     pub project_guid: String,
-    #[serde(default)]
-    pub include_issue_only: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -303,16 +301,4 @@ pub struct WorkspaceUnarchiveRequest {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProjectCheckCanDeleteRequest {
     pub guid: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct WorkspaceImportGithubIssuesRequest {
-    pub project_guid: String,
-    pub issues: Vec<GithubIssuePayload>,
-    #[serde(default)]
-    pub workflow_status: Option<String>,
-    #[serde(default)]
-    pub priority: Option<String>,
-    #[serde(default)]
-    pub label_guids: Option<Vec<String>>,
 }

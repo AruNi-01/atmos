@@ -74,14 +74,6 @@ export interface WorkspaceAttachmentPayload {
   dataBase64: string;
 }
 
-export interface WorkspaceImportGithubIssuesResult {
-  created: WorkspaceModel[];
-  skipped: Array<{
-    issue_url: string;
-    reason: string;
-  }>;
-}
-
 export interface AppOpenResponse {
   success: boolean;
   app_name: string;

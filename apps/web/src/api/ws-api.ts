@@ -31,7 +31,6 @@ import type {
   ProjectWorkspaceBootstrapResponse,
   ProjectModel,
   WorkspaceAttachmentPayload,
-  WorkspaceImportGithubIssuesResult,
   WorkspaceLabelModel,
   WorkspaceModel,
 } from "@/api/ws-api-types";
@@ -70,7 +69,6 @@ export type {
   ProjectModel,
   SearchMatch,
   WorkspaceAttachmentPayload,
-  WorkspaceImportGithubIssuesResult,
   WorkspaceLabelModel,
   WorkspaceModel,
 } from "@/api/ws-api-types";
@@ -775,15 +773,14 @@ export const wsWorkspaceApi = {
   /**
    * 获取项目下的所有 Workspace
    */
-  listByProject: async (projectGuid: string, includeIssueOnly = false): Promise<WorkspaceModel[]> => {
+  listByProject: async (projectGuid: string): Promise<WorkspaceModel[]> => {
     return wsRequest<WorkspaceModel[]>("workspace_list", {
       project_guid: projectGuid,
-      include_issue_only: includeIssueOnly,
     });
   },
 
   listProjectWorkspacesFiltered: async (projectId: string, guids: string[]): Promise<Workspace[]> => {
-    const allWorkspaces = await wsWorkspaceApi.listByProject(projectId, true);
+    const allWorkspaces = await wsWorkspaceApi.listByProject(projectId);
     const filtered = allWorkspaces.filter(w => guids.includes(w.guid));
     return filtered.map((model): Workspace => ({
       id: model.guid,
@@ -854,25 +851,6 @@ export const wsWorkspaceApi = {
         mime: a.mime,
         data_base64: a.dataBase64,
       })),
-    });
-  },
-
-  /**
-   * 从 GitHub Issues 导入创建 Issue Only Workspaces
-   */
-  importGithubIssues: async (data: {
-    projectGuid: string;
-    issues: GithubIssuePayload[];
-    workflowStatus?: string | null;
-    priority?: string | null;
-    labelGuids?: string[] | null;
-  }): Promise<WorkspaceImportGithubIssuesResult> => {
-    return wsRequest<WorkspaceImportGithubIssuesResult>("workspace_import_github_issues", {
-      project_guid: data.projectGuid,
-      issues: data.issues,
-      workflow_status: data.workflowStatus ?? null,
-      priority: data.priority ?? null,
-      label_guids: data.labelGuids ?? null,
     });
   },
 

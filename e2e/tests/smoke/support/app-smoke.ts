@@ -356,7 +356,6 @@ function createProjectWorkspaceSeedData(page: Page): Promise<SmokeProjectSeed> {
         try {
           return await wsRequest<WorkspaceRecord[]>("workspace_list", {
             project_guid: projectGuid,
-            include_issue_only: false,
           });
         } catch {
           return [];
