@@ -13,17 +13,16 @@ import {
   cn,
 } from "@workspace/ui";
 import { AgentIcon } from "@/features/agent/components/AgentIcon";
-import { AgentAttentionIndicator, attentionBorderClass } from "@/features/agent/components/AgentAttentionIndicator";
-import { AgentHookStatusIndicator } from "@/features/agent/components/AgentHookStatusIndicator";
+import { attentionBorderClass } from "@/features/agent/components/AgentAttentionIndicator";
 import { buildCanvasTerminalPinKey } from "@/features/canvas/lib/canvas-terminal-shape";
 import { useAgentAttentionStore } from "@/features/agent/store/agent-attention-store";
-import { AGENT_STATE, useAgentHooksStore } from "@/features/agent/store/agent-hooks-store";
 import type { Project } from "@/shared/types/domain";
 import { Terminal, type TerminalRef } from "./Terminal";
 import {
   TerminalAgentInputOverlay,
   type TerminalAgentInputOverlayHandle,
 } from "./TerminalAgentInputOverlay";
+import { TerminalPaneAgentStatus } from "./TerminalPaneAgentStatus";
 import { TerminalTitleWithAgent } from "./terminal-title";
 import type { TerminalPaneAgent, TerminalPaneProps } from "../types/index";
 import { useTerminalToolbarTitle } from "../hooks/use-terminal-toolbar-title";
@@ -37,6 +36,9 @@ import {
 } from "@/shared/lib/agent-context-drag";
 import { useTerminalRichInputSettingsStore } from "@/features/settings/store/terminal-rich-input-settings-store";
 
+// Re-export for existing importers (scoped mosaic, canvas).
+export { TerminalPaneAgentStatus } from "./TerminalPaneAgentStatus";
+
 type MosaicToolbarActions = {
   split: boolean;
   maximize: boolean;
@@ -47,31 +49,6 @@ type QuickOpenAgent = {
   agent: TerminalPaneAgent;
   command: string;
 };
-
-export function TerminalPaneAgentStatus({ paneId }: { paneId: string; contextId: string }) {
-  // Only show status for this specific pane – do NOT fall back to context-level
-  // state, which would cause all windows in the same workspace to show RUNNING
-  // whenever any one of them has an agent active.
-  const paneState = useAgentHooksStore((s) => s.getAgentStateForPaneId(paneId));
-  const attentionReason = useAgentAttentionStore((s) => s.panes.get(paneId)?.reason ?? null);
-
-  if (paneState !== AGENT_STATE.IDLE) {
-    return (
-      <AgentHookStatusIndicator
-        state={paneState}
-        variant="full"
-        placement="terminal_panel"
-        className="shrink-0"
-      />
-    );
-  }
-
-  if (attentionReason) {
-    return <AgentAttentionIndicator reason={attentionReason} className="shrink-0" size={14} />;
-  }
-
-  return null;
-}
 
 type TerminalMosaicWorkspacePaneWindowProps = {
   id: string;

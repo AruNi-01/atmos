@@ -6,6 +6,8 @@ export type IdleDismissableSession = {
   source_pane_id?: string | null;
 };
 
+export type AgentPaneState = "idle" | "running" | "permission_request";
+
 /** Pure helper: idle session map keys that belong to a stable pane id. */
 export function collectIdleSessionIdsForPane(
   sessions:
@@ -29,4 +31,28 @@ export function collectIdleSessionIdsForPane(
     }
   }
   return toRemove;
+}
+
+/**
+ * Pure helper: aggregate live agent state for one stable pane id.
+ * Matches map key / session_id / pane_id, but not source_pane_id (side-chats).
+ */
+export function resolveAgentStateForPaneId(
+  sessions:
+    | ReadonlyMap<string, IdleDismissableSession>
+    | Iterable<[string, IdleDismissableSession]>,
+  paneId: string,
+): AgentPaneState {
+  const id = paneId?.trim();
+  if (!id) return "idle";
+  const entries = sessions instanceof Map ? sessions.entries() : sessions;
+  let hasRunning = false;
+  for (const [key, session] of entries) {
+    if (key !== id && session.session_id !== id && session.pane_id !== id) {
+      continue;
+    }
+    if (session.state === "permission_request") return "permission_request";
+    if (session.state === "running") hasRunning = true;
+  }
+  return hasRunning ? "running" : "idle";
 }

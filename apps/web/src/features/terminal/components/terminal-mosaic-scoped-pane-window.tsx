@@ -33,7 +33,7 @@ import { useTerminalSideChats } from "../hooks/use-terminal-side-chats";
 import { useToolbarHoverExpand } from "../hooks/use-toolbar-hover-expand";
 import type { PendingTerminalRun } from "../lib/terminal-agent-run-delivery";
 import { resolveTerminalAgentSubmitMode } from "../lib/terminal-runtime-utils";
-import { TerminalPaneAgentStatus } from "./terminal-mosaic-workspace-pane-window";
+import { TerminalPaneAgentStatus } from "./TerminalPaneAgentStatus";
 import {
   getAgentContextDragText,
   hasAgentContextDragData,

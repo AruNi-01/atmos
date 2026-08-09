@@ -12,11 +12,14 @@ import {
 import { ArrowUpRight, PinOff, Plus, SquareTerminal, X } from "lucide-react";
 import { cn, toastManager } from "@workspace/ui";
 import { useAppRouter } from "@/shared/hooks/use-app-router";
+import { attentionBorderClass } from "@/features/agent/components/AgentAttentionIndicator";
+import { useAgentAttentionStore } from "@/features/agent/store/agent-attention-store";
 import { Terminal, type TerminalRef } from "@/features/terminal/components/Terminal";
 import {
   TerminalAgentInputOverlay,
   type TerminalAgentInputOverlayHandle,
 } from "@/features/terminal/components/TerminalAgentInputOverlay";
+import { TerminalPaneAgentStatus } from "@/features/terminal/components/TerminalPaneAgentStatus";
 import { TerminalTitleWithAgent } from "@/features/terminal/components/terminal-title";
 import type { TerminalPaneAgent } from "@/features/terminal/types/index";
 import { useTerminalToolbarTitle } from "@/features/terminal/hooks/use-terminal-toolbar-title";
@@ -152,7 +155,13 @@ function CanvasTerminalCardInner({ shape }: { shape: CanvasTerminalShape }) {
   );
   const isActive = activeShapeId === shape.id;
   const isRendered = renderedShapeIds.includes(shape.id);
-  const sourcePaneId = `${shape.props.workspaceId}:${shape.props.tmuxWindowName}`;
+  // Same stable pane key as center-stage mosaic terminals (`contextId:tmuxWindowName`).
+  // Agent hooks + sticky attention are keyed by this id, so canvas terminals must reuse it.
+  const stablePaneId = `${shape.props.workspaceId}:${shape.props.tmuxWindowName}`;
+  const sourcePaneId = stablePaneId;
+  const attentionReason = useAgentAttentionStore(
+    (s) => s.panes.get(stablePaneId)?.reason ?? null,
+  );
   const agentForSubmit = shape.props.paneAgent ?? toolbarAgent;
   const agentSubmitMode = resolveTerminalAgentSubmitMode(agentForSubmit);
   const sideChatAgentOptions = React.useMemo(() => {
@@ -239,6 +248,8 @@ function CanvasTerminalCardInner({ shape }: { shape: CanvasTerminalShape }) {
   const activateTerminal = React.useCallback(() => {
     setActiveShapeId(shape.id);
     editor.select(shape.id as TLShapeId);
+    // Mirror mosaic pane focus: clear sticky need-attention + dismiss idle hook rows.
+    useAgentAttentionStore.getState().notifyPaneFocused(stablePaneId);
     const attachedAt = Date.now();
     const nextRenderedShapeIds = promoteRenderedShapeId(
       getCanvasTerminalShapes(editor),
@@ -268,6 +279,7 @@ function CanvasTerminalCardInner({ shape }: { shape: CanvasTerminalShape }) {
     setActiveShapeId,
     setRenderedShapeIds,
     shape.id,
+    stablePaneId,
   ]);
 
   const markTerminalInteractionHandled = React.useCallback(
@@ -322,13 +334,16 @@ function CanvasTerminalCardInner({ shape }: { shape: CanvasTerminalShape }) {
       return;
     }
 
+    // Cover non-click activation paths (e.g. agent-status widget → focusCanvasTerminalShape).
+    useAgentAttentionStore.getState().notifyPaneFocused(stablePaneId);
+
     const frame = requestAnimationFrame(() => {
       focusTerminal();
     });
     return () => {
       cancelAnimationFrame(frame);
     };
-  }, [focusTerminal, isActive, isRendered]);
+  }, [focusTerminal, isActive, isRendered, stablePaneId]);
 
   React.useEffect(() => {
     const resolveCanvasTerminalTarget = (event: KeyboardEvent) => {
@@ -625,6 +640,7 @@ function CanvasTerminalCardInner({ shape }: { shape: CanvasTerminalShape }) {
       className={cn(
         "flex h-full flex-col overflow-hidden border bg-background text-foreground shadow-sm",
         isSelected ? "border-transparent" : "border-border",
+        attentionBorderClass(attentionReason),
       )}
       style={{ borderRadius: CANVAS_CARD_CORNER_RADIUS }}
     >
@@ -646,7 +662,11 @@ function CanvasTerminalCardInner({ shape }: { shape: CanvasTerminalShape }) {
             </span>
           ) : null}
         </div>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1.5">
+          <TerminalPaneAgentStatus
+            paneId={stablePaneId}
+            contextId={shape.props.workspaceId}
+          />
           <button
             type="button"
             onPointerDown={(event) => event.stopPropagation()}

@@ -8,9 +8,15 @@ import {
   setAgentPaneAcknowledgedHandler,
   useAgentAttentionStore,
 } from "@/features/agent/store/agent-attention-store";
-import { collectIdleSessionIdsForPane } from "@/features/agent/store/agent-hooks-idle";
+import {
+  collectIdleSessionIdsForPane,
+  resolveAgentStateForPaneId,
+} from "@/features/agent/store/agent-hooks-idle";
 
-export { collectIdleSessionIdsForPane } from "@/features/agent/store/agent-hooks-idle";
+export {
+  collectIdleSessionIdsForPane,
+  resolveAgentStateForPaneId,
+} from "@/features/agent/store/agent-hooks-idle";
 
 export const AGENT_STATE = {
   IDLE: "idle",
@@ -330,8 +336,7 @@ export const useAgentHooksStore = create<AgentHooksStore>((set, get) => ({
   },
 
   getAgentStateForPaneId: (paneId: string) => {
-    const session = get().sessions.get(paneId);
-    return session?.state ?? AGENT_STATE.IDLE;
+    return resolveAgentStateForPaneId(get().sessions, paneId) as AgentHookState;
   },
 
   getLatestSession: () => {

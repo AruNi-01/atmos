@@ -1,5 +1,6 @@
 import type { Editor, TLShapeId } from "tldraw";
 
+import { useAgentAttentionStore } from "@/features/agent/store/agent-attention-store";
 import { writeLastPinnedTerminal, type CanvasLastPinnedTerminal } from "@/shared/stores/use-ui-pref-hooks";
 
 import {
@@ -72,6 +73,8 @@ export function focusCanvasTerminalShape(
 ): void {
   const shapeId = shape.id as TLShapeId;
   const attachedAt = Date.now();
+  // Same stable pane key as mosaic terminals / agent hooks.
+  const stablePaneId = `${shape.props.workspaceId}:${shape.props.tmuxWindowName}`;
 
   const nextRendered = promoteRenderedShapeId(
     getCanvasTerminalShapes(editor),
@@ -82,6 +85,8 @@ export function focusCanvasTerminalShape(
   );
   options.setRenderedShapeIds(nextRendered);
   options.setActiveShapeId(shapeId);
+  // Treat focusing a canvas terminal like focusing its source mosaic pane.
+  useAgentAttentionStore.getState().notifyPaneFocused(stablePaneId);
 
   try {
     editor.select(shapeId);

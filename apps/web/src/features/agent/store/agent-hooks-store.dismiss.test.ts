@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
   collectIdleSessionIdsForPane,
+  resolveAgentStateForPaneId,
   type IdleDismissableSession,
 } from "./agent-hooks-idle";
 
@@ -47,5 +48,48 @@ describe("collectIdleSessionIdsForPane", () => {
       ["ws-1:main", idleSession({ session_id: "ws-1:main" })],
     ]);
     expect(collectIdleSessionIdsForPane(sessions, "  ")).toEqual([]);
+  });
+});
+
+describe("resolveAgentStateForPaneId", () => {
+  test("resolves running state by map key / session_id", () => {
+    const sessions = new Map([
+      [
+        "ws-1:main",
+        { session_id: "ws-1:main", state: "running", pane_id: "ws-1:main" },
+      ],
+    ]);
+    expect(resolveAgentStateForPaneId(sessions, "ws-1:main")).toBe("running");
+  });
+
+  test("resolves permission by pane_id when map key is agent uuid", () => {
+    const sessions = new Map([
+      [
+        "agent-uuid",
+        {
+          session_id: "agent-uuid",
+          state: "permission_request",
+          pane_id: "ws-1:main",
+        },
+      ],
+    ]);
+    expect(resolveAgentStateForPaneId(sessions, "ws-1:main")).toBe(
+      "permission_request",
+    );
+  });
+
+  test("does not attribute side-chat running state to the source pane", () => {
+    const sessions = new Map([
+      [
+        "side-chat-1",
+        {
+          session_id: "side-chat-1",
+          state: "running",
+          pane_id: "side-chat-1",
+          source_pane_id: "ws-1:main",
+        },
+      ],
+    ]);
+    expect(resolveAgentStateForPaneId(sessions, "ws-1:main")).toBe("idle");
   });
 });
