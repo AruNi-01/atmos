@@ -981,9 +981,7 @@ function periodKeysForRange(days: DailyTokenUsageResponse[], resolution: Resolut
 function formatPeriodLabel(key: string, resolution: Resolution, locale: string) {
   return resolution === "day"
     ? new Intl.DateTimeFormat(locale, { month: "short", day: "numeric" }).format(parseISO(key))
-    : new Intl.DateTimeFormat(locale, { month: "short", year: "numeric" }).format(
-        parseISO(`${key}-01`),
-      );
+    : new Intl.DateTimeFormat(locale, { month: "short" }).format(parseISO(`${key}-01`));
 }
 
 export function formatCompactNumber(value: number, locale: string) {

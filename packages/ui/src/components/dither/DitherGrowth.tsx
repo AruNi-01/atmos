@@ -20,7 +20,32 @@ export type DitherGrowthProps = {
   formatValue?: (value: number) => string;
 };
 
-/** Ordered-dither growth chart with scrub tooltip (no background grid / hover glow). */
+/** Evenly spaced indices, always including first and last when count > 1. */
+function sparseIndices(count: number, maxLabels: number): number[] {
+  if (count <= 0) return [];
+  if (count === 1) return [0];
+  const n = Math.max(2, Math.min(maxLabels, count));
+  if (n >= count) {
+    return Array.from({ length: count }, (_, i) => i);
+  }
+  const out: number[] = [];
+  for (let i = 0; i < n; i++) {
+    out.push(Math.round((i / (n - 1)) * (count - 1)));
+  }
+  return [...new Set(out)];
+}
+
+/**
+ * Y-axis ceiling from the series peak — proportional headroom only.
+ * ~6% above max so the crest doesn't kiss the top, without rounding
+ * up to a "nice" number that can nearly double the scale.
+ */
+function growthAxisMax(peak: number): number {
+  if (peak <= 0) return 1;
+  return peak * 1.06;
+}
+
+/** Ordered-dither growth chart with sparse axes + scrub tooltip. */
 export function DitherGrowth({
   values,
   labels,
@@ -64,7 +89,6 @@ export function DitherGrowth({
     const label = labelsRef.current?.[idx];
     const value = data[idx] ?? 0;
     const key = `${idx}:${value}:${clientRef.current.x}:${clientRef.current.y}`;
-    // Update when index/value changes; always refresh position when key index same but pointer moved
     const contentKey = `${idx}:${value}`;
     if (lastTipKey.current.startsWith(contentKey) && lastTipKey.current === key) return;
     lastTipKey.current = key;
@@ -98,19 +122,40 @@ export function DitherGrowth({
       const data = valuesRef.current;
       if (data.length === 0 || w < 2 || h < 2) return;
 
-      const cell = Math.max(3, Math.round(w / 180));
-      const curMax = Math.max(1, ...data);
-      const headroom = 0.16 * h;
-      const plotH = h - headroom;
+      const curMax = Math.max(0, ...data);
+      const axisMax = growthAxisMax(curMax);
+      const yTickCount = 3;
+      const yTickValues = Array.from(
+        { length: yTickCount },
+        (_, i) => axisMax * (1 - i / (yTickCount - 1)),
+      );
+
+      ctx.font = "10px ui-monospace, SFMono-Regular, Menlo, monospace";
+      let yLabelW = 0;
+      for (const value of yTickValues) {
+        yLabelW = Math.max(yLabelW, ctx.measureText(formatRef.current(value)).width);
+      }
+
+      const padL = Math.min(64, Math.max(32, Math.ceil(yLabelW) + 10));
+      const padR = 10;
+      const padT = 10;
+      const padB = 22;
+      const plotW = Math.max(1, w - padL - padR);
+      const plotH = Math.max(1, h - padT - padB);
+      const plotBottom = padT + plotH;
+
+      const cell = Math.max(3, Math.round(plotW / 180));
+
       const ptr = pointerRef.current;
       const rate = reducedMotion ? 1 : 0.16;
       ptr.active = smoothToward(ptr.active, ptr.want ? 1 : 0, rate);
 
       if (ptr.want && data.length > 0) {
-        const t = Math.max(0, Math.min(1, ptr.x / Math.max(1, w - 1)));
+        const localX = Math.max(0, Math.min(plotW, ptr.x - padL));
+        const t = localX / Math.max(1, plotW);
         const idx = Math.round(t * (data.length - 1));
         ptr.scrubIdx = idx;
-        const targetX = (idx / Math.max(1, data.length - 1)) * w;
+        const targetX = padL + (idx / Math.max(1, data.length - 1)) * plotW;
         ptr.scrubX = reducedMotion
           ? targetX
           : smoothToward(ptr.scrubX, targetX, 0.24);
@@ -121,22 +166,49 @@ export function DitherGrowth({
 
       const glowStrength = ptr.active;
       const ink = theme === "dark" ? "#FFFFFF" : "#0F172A";
+      const axisMuted =
+        theme === "dark" ? "rgba(255,255,255,0.38)" : "rgba(15,23,42,0.42)";
+      const gridMuted =
+        theme === "dark" ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.07)";
+      const baselineMuted =
+        theme === "dark" ? "rgba(255,255,255,0.12)" : "rgba(15,23,42,0.14)";
 
-      for (let x = 0; x < w; x += cell) {
-        const t = x / Math.max(1, w - 1);
+      // --- Sparse Y-axis (3 ticks) + faint guides ---
+      ctx.font = "10px ui-monospace, SFMono-Regular, Menlo, monospace";
+      ctx.textAlign = "right";
+      ctx.textBaseline = "middle";
+      for (let i = 0; i < yTickCount; i++) {
+        const frac = i / (yTickCount - 1);
+        const value = yTickValues[i]!;
+        const y = padT + frac * plotH;
+
+        ctx.strokeStyle = i === yTickCount - 1 ? baselineMuted : gridMuted;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(padL, y);
+        ctx.lineTo(padL + plotW, y);
+        ctx.stroke();
+
+        ctx.fillStyle = axisMuted;
+        ctx.globalAlpha = 1;
+        ctx.fillText(formatRef.current(value), padL - 6, y);
+      }
+
+      // --- Curve fill within plot bounds ---
+      for (let x = 0; x < plotW; x += cell) {
+        const plotX = padL + x;
+        const t = x / Math.max(1, plotW - 1);
         const exactIdx = t * (data.length - 1);
         const i0 = Math.floor(exactIdx);
         const i1 = Math.min(i0 + 1, data.length - 1);
         const frac = exactIdx - i0;
         const val = data[i0]! + (data[i1]! - data[i0]!) * frac;
-        const curveY = h - plotH * (val / curMax);
+        const curveY = plotBottom - plotH * (val / axisMax);
 
-        // Only paint under the curve — no background grid dots.
-        for (let y = h; y >= curveY; y -= cell) {
-          // Vertical gradient: denser near the curve, fade lighter toward the baseline.
-          const fillSpan = Math.max(1, h - curveY);
-          const depth = Math.max(0, Math.min(1, (y - curveY) / fillSpan)); // 0 at crest → 1 at bottom
-          const gradient = 1 - depth * 0.78; // keep a soft wash at the base
+        for (let y = plotBottom; y >= curveY; y -= cell) {
+          const fillSpan = Math.max(1, plotBottom - curveY);
+          const depth = Math.max(0, Math.min(1, (y - curveY) / fillSpan));
+          const gradient = 1 - depth * 0.78;
 
           const shimmer = reducedMotion ? 0 : Math.sin(y * 0.1 - time * 2) * 0.07;
           ctx.fillStyle = ink;
@@ -144,8 +216,30 @@ export function DitherGrowth({
           const alpha = 0.18 + gradient * 0.62;
           ctx.globalAlpha = Math.min(1, alpha);
           const offset = (cell - sz) / 2;
-          ctx.fillRect(x + offset, y + offset, sz, sz);
+          ctx.fillRect(plotX + offset, y + offset, sz, sz);
           ctx.globalAlpha = 1;
+        }
+      }
+
+      // --- Sparse X-axis labels ---
+      const labelList = labelsRef.current;
+      if (labelList && labelList.length > 0) {
+        const maxXLabels = Math.max(2, Math.min(5, Math.floor(plotW / 64)));
+        const indices = sparseIndices(data.length, maxXLabels);
+        ctx.fillStyle = axisMuted;
+        ctx.font = "10px ui-monospace, SFMono-Regular, Menlo, monospace";
+        ctx.textBaseline = "top";
+        for (const idx of indices) {
+          const label = labelList[idx];
+          if (!label) continue;
+          const x =
+            padL +
+            (data.length === 1
+              ? plotW / 2
+              : (idx / Math.max(1, data.length - 1)) * plotW);
+          ctx.textAlign =
+            idx === 0 ? "left" : idx === data.length - 1 ? "right" : "center";
+          ctx.fillText(label, x, plotBottom + 6);
         }
       }
 
@@ -154,13 +248,13 @@ export function DitherGrowth({
         const sx = ptr.scrubX;
         const idx = ptr.scrubIdx;
         const val = data[idx] ?? 0;
-        const cy = h - plotH * (val / curMax);
+        const cy = plotBottom - plotH * (val / axisMax);
         ctx.globalAlpha = 0.28 * glowStrength;
         ctx.strokeStyle = ink;
         ctx.lineWidth = 1;
         ctx.beginPath();
         ctx.moveTo(sx, cy);
-        ctx.lineTo(sx, h);
+        ctx.lineTo(sx, plotBottom);
         ctx.stroke();
         ctx.globalAlpha = 0.7 * glowStrength;
         ctx.beginPath();
@@ -173,7 +267,7 @@ export function DitherGrowth({
     [interactive, publishTooltip, theme],
   );
 
-  useDitherCanvas(canvasRef, draw, [values, labels, theme, interactive]);
+  useDitherCanvas(canvasRef, draw, [values, labels, theme, interactive, formatValue]);
 
   return (
     <div className={cn("relative h-full w-full", className)}>

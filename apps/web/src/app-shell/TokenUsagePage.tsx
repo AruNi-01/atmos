@@ -352,7 +352,8 @@ export function TokenUsagePage() {
 
   const emptyYear =
     !loading && !error && !!overview && heatmapSummary.activeDays === 0;
-  const shell = isDark ? "bg-[#0c0c0c] text-white" : "bg-[#efefef] text-black";
+  // Match app shell canvas (`--background`), keep soft dot grid.
+  const shell = "bg-background text-foreground";
   const muted = isDark ? "text-white/45" : "text-black/45";
   const border = isDark ? "border-white/[0.07]" : "border-black/[0.08]";
   const panel = isDark
