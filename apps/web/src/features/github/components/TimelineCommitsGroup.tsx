@@ -2,7 +2,7 @@
 
 import React from "react";
 import { useTranslations } from "next-intl";
-import { Upload } from "lucide-react";
+import { GitCommit, Upload } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import type { Locale } from "date-fns";
 import {
@@ -35,6 +35,14 @@ interface TimelineCommitsGroupProps<T extends TimelineCommitLike> {
   className?: string;
 }
 
+// Shell matches other timeline events; glyph stays smaller so it isn't tight in the circle.
+// Rail width matches reviewer avatars (size-8) so the vertical line passes through center.
+const timelineIconRailClass =
+  "z-10 flex w-8 shrink-0 items-center justify-center";
+const timelineIconShellClass =
+  "flex size-5 items-center justify-center rounded-full border border-border/50 bg-muted ring-4 ring-background";
+const timelineIconClass = "size-3 text-muted-foreground";
+
 /**
  * GitHub-style commit batch on a PR/Issue timeline:
  * "User added N commits · time" summary + clickable commit rows.
@@ -55,13 +63,15 @@ export function TimelineCommitsGroup<T extends TimelineCommitLike>({
     summaryCommit.createdAt || summaryCommit.created_at || "";
 
   return (
-    <div className={cn("flex flex-col gap-1.5", className)}>
-      {/* Summary: "User added N commits" — GitHub-style group header */}
-      <div className="relative flex items-center gap-3 pl-2.5">
-        <div className="z-10 flex size-4 shrink-0 items-center justify-center rounded-full border border-border/50 bg-muted ring-4 ring-background">
-          <Upload className="size-3.5 text-muted-foreground" />
+    <div className={cn("flex flex-col gap-3", className)}>
+      {/* Summary: "User added N commits" — plain text, same shell as other timeline events */}
+      <div className="relative flex items-center gap-3">
+        <div className={timelineIconRailClass}>
+          <div className={timelineIconShellClass}>
+            <Upload className={timelineIconClass} />
+          </div>
         </div>
-        <div className="flex min-w-0 flex-1 items-center gap-2 rounded-full border border-border/60 bg-muted/20 px-2.5 py-1 text-xs">
+        <div className="flex min-w-0 flex-1 items-center gap-2 text-xs">
           <span className="shrink-0 font-semibold text-foreground/90">
             {pusher.login === "unknown" ? t("unknownUser") : pusher.login}
           </span>
@@ -117,21 +127,25 @@ export function TimelineCommitsGroup<T extends TimelineCommitLike>({
                 : undefined
             }
             className={cn(
-              "relative flex items-center gap-3 pl-2.5 text-xs",
+              "relative flex items-center gap-3 py-1.5 pr-2 text-xs",
               canClick &&
                 "cursor-pointer rounded-md outline-none transition-colors hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring/40",
             )}
           >
-            <div className="z-10 size-4 shrink-0 rounded-full border border-border/50 bg-background ring-4 ring-background" />
+            <div className={timelineIconRailClass}>
+              <div className={timelineIconShellClass}>
+                <GitCommit className={timelineIconClass} />
+              </div>
+            </div>
             <GithubUserHoverCard
               username={author.login}
               avatarUrl={author.avatarUrl}
             >
-              <Avatar className="size-4 shrink-0 border border-border/50">
+              <Avatar className="size-5 shrink-0 border border-border/50">
                 {author.avatarUrl ? (
                   <AvatarImage src={author.avatarUrl} alt={author.login} />
                 ) : null}
-                <AvatarFallback className="text-[6px]">
+                <AvatarFallback className="text-[7px]">
                   {author.login.slice(0, 2).toUpperCase()}
                 </AvatarFallback>
               </Avatar>

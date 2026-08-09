@@ -10,6 +10,7 @@ import {
   cn,
 } from "@workspace/ui";
 import { ChecksStatusRing } from "@/features/github/components/ChecksStatusRing";
+import { WorkspacePrLifecycleIcon } from "@/features/github/components/WorkspacePrStatusIcon";
 import {
   countChecksByTone,
   resolvePrStateChipClassName,
@@ -26,6 +27,11 @@ export type WorkspacePrSummaryProps = {
   className?: string;
   /** Compact ring for dense popovers / cards. */
   ringSize?: number;
+  /**
+   * Kanban / dense: lifecycle icon + `#number` + state chip only.
+   * Full title is available via hover tooltip.
+   */
+  compact?: boolean;
 };
 
 const STATE_LABEL_KEY: Record<
@@ -39,7 +45,7 @@ const STATE_LABEL_KEY: Record<
 };
 
 /**
- * Compact PR row: `#number title` + state chip + clickable checks ring.
+ * Compact PR row: lifecycle icon + `#number` (+ optional title) + state chip + checks ring.
  * Parent wires center-tab navigation for PR / Action pages.
  */
 export function WorkspacePrSummary({
@@ -48,6 +54,7 @@ export function WorkspacePrSummary({
   onOpenChecks,
   className,
   ringSize = 16,
+  compact = false,
 }: WorkspacePrSummaryProps) {
   const t = useTranslations("AppShell.chrome.workspaceContent");
   const prLabel = t("openPullRequest", {
@@ -94,15 +101,25 @@ export function WorkspacePrSummary({
                 event.preventDefault();
                 onOpenPr?.();
               }}
-              className="flex min-w-0 flex-1 items-center gap-1.5 rounded-md px-1.5 py-1 text-left text-xs transition-colors hover:bg-muted/70"
+              className={cn(
+                "flex min-w-0 items-center gap-1.5 rounded-md px-1.5 py-1 text-left text-xs transition-colors hover:bg-muted/70",
+                compact ? "shrink-0" : "flex-1",
+              )}
               aria-label={prLabel}
             >
+              <WorkspacePrLifecycleIcon
+                state={presentation.state}
+                checksTone={presentation.checksTone}
+                className="size-3.5"
+              />
               <span className="shrink-0 font-semibold text-foreground">
                 #{presentation.number}
               </span>
-              <span className="min-w-0 truncate text-muted-foreground">
-                {presentation.title}
-              </span>
+              {!compact ? (
+                <span className="min-w-0 truncate text-muted-foreground">
+                  {presentation.title}
+                </span>
+              ) : null}
               <span
                 className={cn(
                   "inline-flex shrink-0 items-center rounded-sm border px-1.5 py-0.5 text-[10px] font-medium capitalize",

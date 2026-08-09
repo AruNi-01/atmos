@@ -60,6 +60,7 @@ import {
   CommentBox,
   PRDetailSkeleton,
   ReviewCommentThreadView,
+  TimelineMergedChecks,
   prCommitsToListItems,
   type ConversationItem,
   type ReviewComment,
@@ -790,8 +791,9 @@ export function PRDetailView({ owner, repo, branch, prNumber, active, onRequestC
                             }
 
                             // Activity Row (Commit, Merge, Close, etc)
-                            // Unified neutral timeline icon treatment (same shell for every event)
-                            const timelineIconClass = "size-3.5 text-muted-foreground";
+                            // Unified neutral timeline icon treatment (same shell for every event).
+                            // Glyph is smaller than the shell so it isn't tight; rail matches reviewer avatar width.
+                            const timelineIconClass = "size-3 text-muted-foreground";
                             let icon = <GitCommit className={timelineIconClass} />;
                             let actionText: React.ReactNode = "";
 
@@ -934,18 +936,20 @@ export function PRDetailView({ owner, repo, branch, prNumber, active, onRequestC
                             }
 
                             return (
-                              <div key={i} className="flex flex-col gap-1.5 pl-2.5 relative">
+                              <div key={i} className="relative flex flex-col gap-1.5">
                                 <div className="flex items-center gap-3">
-                                  <div className="z-10 flex size-4 shrink-0 items-center justify-center rounded-full border border-border/50 bg-muted ring-4 ring-background">
-                                    {icon}
+                                  <div className="z-10 flex w-8 shrink-0 items-center justify-center">
+                                    <div className="flex size-5 items-center justify-center rounded-full border border-border/50 bg-muted ring-4 ring-background">
+                                      {icon}
+                                    </div>
                                   </div>
                                   <div className="flex items-center gap-2 text-xs truncate flex-1">
                                     <GithubUserAvatar
                                       username={item.author?.login}
                                       avatarUrl={item.author?.avatar_url || item.author?.avatarUrl}
                                       disabled={isBot}
-                                      className="size-4 shrink-0 border border-border/50"
-                                      fallbackClassName="text-[6px]"
+                                      className="size-5 shrink-0 border border-border/50"
+                                      fallbackClassName="text-[7px]"
                                       label={item.author?.login}
                                       labelClassName="font-semibold text-foreground/90"
                                     />
@@ -1021,24 +1025,16 @@ export function PRDetailView({ owner, repo, branch, prNumber, active, onRequestC
                                   </div>
                                 </div>
 
-                                {/* Subtext for specific events */}
-                                {item.event === 'merged' && pr.statusCheckRollup?.length > 0 && (
-                                  <div className="pl-7 pb-1">
-                                    <div className="text-[10px] text-muted-foreground/80 flex items-center gap-1.5 bg-muted/30 w-fit px-2 py-0.5 rounded-full border border-border/40">
-                                      {pr.statusCheckRollup.every((c: StatusCheck) => c.state === 'SUCCESS' || c.conclusion === 'SUCCESS') ? (
-                                        <CheckCircle2 className="size-3 text-emerald-500" />
-                                      ) : (
-                                        <XCircle className="size-3 text-red-500" />
-                                      )}
-                                      <span>
-                                        {t('activity.checksPassed', {
-                                          passed: pr.statusCheckRollup.filter((c: StatusCheck) => c.state === 'SUCCESS' || c.conclusion === 'SUCCESS').length,
-                                          total: pr.statusCheckRollup.length,
-                                        })}
-                                      </span>
-                                    </div>
-                                  </div>
-                                )}
+                                {/* GitHub-style CI list under merged events (jump to Actions). */}
+                                {item.event === 'merged' &&
+                                  Array.isArray(pr.statusCheckRollup) &&
+                                  pr.statusCheckRollup.length > 0 && (
+                                    <TimelineMergedChecks
+                                      checks={pr.statusCheckRollup}
+                                      owner={owner}
+                                      repo={repo}
+                                    />
+                                  )}
 
                                 {item.reviewCommentThreads && item.reviewCommentThreads.length > 0 && (
                                   <div className="flex flex-col gap-2 mt-1">
@@ -1061,8 +1057,10 @@ export function PRDetailView({ owner, repo, branch, prNumber, active, onRequestC
                       {timelineLoading && (
                         <div className="flex flex-col gap-4 mt-6 relative z-10">
                           {[0, 1, 2].map((i) => (
-                            <div key={i} className="flex items-center gap-3 pl-2.5">
-                              <Skeleton className="size-4 rounded-full shrink-0" />
+                            <div key={i} className="flex items-center gap-3">
+                              <div className="flex w-8 shrink-0 items-center justify-center">
+                                <Skeleton className="size-5 rounded-full" />
+                              </div>
                               <Skeleton className="h-3 rounded" style={{ width: `${48 + (i % 3) * 16}%` }} />
                             </div>
                           ))}

@@ -661,6 +661,213 @@ export function ChecksSection({
   );
 }
 
+function isCheckFailing(check: StatusCheck): boolean {
+  const tone = (check.state || check.conclusion || '').toUpperCase();
+  return (
+    tone === 'FAILURE' ||
+    tone === 'ERROR' ||
+    tone === 'ACTION_REQUIRED' ||
+    tone === 'TIMED_OUT' ||
+    tone === 'STARTUP_FAILURE'
+  );
+}
+
+function isCheckSuccessful(check: StatusCheck): boolean {
+  return (
+    (check.state || '').toUpperCase() === 'SUCCESS' ||
+    (check.conclusion || '').toUpperCase() === 'SUCCESS'
+  );
+}
+
+function isCheckSkipped(check: StatusCheck): boolean {
+  const tone = (check.conclusion || '').toUpperCase();
+  return (
+    tone === 'SKIPPED' ||
+    tone === 'NEUTRAL' ||
+    tone === 'CANCELLED' ||
+    tone === 'STALE'
+  );
+}
+
+function isCheckPending(check: StatusCheck): boolean {
+  if (isCheckFailing(check) || isCheckSuccessful(check) || isCheckSkipped(check)) {
+    return false;
+  }
+  const state = (check.state || '').toUpperCase();
+  const status = (check.status || '').toUpperCase();
+  return (
+    state === 'PENDING' ||
+    state === 'IN_PROGRESS' ||
+    state === 'EXPECTED' ||
+    state === 'QUEUED' ||
+    (status !== '' && status !== 'COMPLETED')
+  );
+}
+
+function timelineCheckLabel(check: StatusCheck): string {
+  return check.name || check.context || check.workflowName || 'check';
+}
+
+/**
+ * GitHub-style expandable CI list under a PR timeline "merged" event.
+ * Opens Atmos Actions tabs when a check has a GitHub Actions run URL.
+ */
+export function TimelineMergedChecks({
+  checks,
+  owner,
+  repo,
+}: {
+  checks: StatusCheck[];
+  owner: string;
+  repo: string;
+}) {
+  const t = useTranslations('github.prDetail');
+  const tParts = useTranslations('github.prDetailParts');
+  const { openActionRunTab } = useOpenGithubCenterTab();
+
+  const hasFailure = checks.some(isCheckFailing);
+  const hasPending = checks.some(isCheckPending);
+  const passedCount = checks.filter(isCheckSuccessful).length;
+  const [open, setOpen] = React.useState(hasFailure || hasPending);
+
+  const SummaryIcon = hasFailure
+    ? XCircle
+    : hasPending
+      ? Loader2
+      : CheckCircle2;
+  const summaryIconClass = hasFailure
+    ? 'text-red-500'
+    : hasPending
+      ? 'text-amber-500 animate-spin'
+      : 'text-emerald-500';
+
+  const openCheck = React.useCallback(
+    (check: StatusCheck) => {
+      const label = timelineCheckLabel(check);
+      const runId = parseGithubActionsRunId(check.detailsUrl);
+      if (runId != null) {
+        openActionRunTab({
+          owner,
+          repo,
+          run: buildActionRunFromChecks(
+            check.workflowName || label,
+            [check],
+            runId,
+            owner,
+            repo,
+          ),
+          runId,
+        });
+        return;
+      }
+      const externalUrl = check.detailsUrl || check.targetUrl;
+      if (externalUrl) {
+        window.open(externalUrl, '_blank', 'noopener,noreferrer');
+      }
+    },
+    [openActionRunTab, owner, repo],
+  );
+
+  if (checks.length === 0) return null;
+
+  return (
+    <div className="ml-11 flex w-[calc(100%-2.75rem)] min-w-0 flex-col overflow-hidden rounded-md border border-border/50 bg-muted/20">
+      <div className="flex items-center gap-2 border-b border-border/40 px-3 py-2">
+        <SummaryIcon className={cn('size-3.5 shrink-0', summaryIconClass)} />
+        <span className="min-w-0 flex-1 text-[12px] font-medium text-foreground/90">
+          {t('activity.checksPassed', {
+            passed: passedCount,
+            total: checks.length,
+          })}
+        </span>
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          className="shrink-0 rounded-md border border-border/50 bg-background/80 px-2 py-0.5 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+        >
+          {open ? t('activity.hideDetails') : t('activity.showDetails')}
+        </button>
+      </div>
+
+      <AnimatePresence initial={false}>
+        {open && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.18, ease: 'easeOut' }}
+            className="overflow-hidden"
+          >
+            <ul className="divide-y divide-border/40">
+              {checks.map((check, idx) => {
+                const label = timelineCheckLabel(check);
+                const failing = isCheckFailing(check);
+                const successful = isCheckSuccessful(check);
+                const skipped = isCheckSkipped(check);
+                const pending = isCheckPending(check);
+                const runId = parseGithubActionsRunId(check.detailsUrl);
+                const externalUrl =
+                  runId == null
+                    ? check.detailsUrl || check.targetUrl || null
+                    : null;
+                const canOpen = runId != null || !!externalUrl;
+
+                return (
+                  <li
+                    key={`${label}-${idx}`}
+                    className="flex items-center gap-2.5 px-3 py-2"
+                  >
+                    <span className="flex size-3.5 shrink-0 items-center justify-center">
+                      {failing ? (
+                        <XCircle className="size-3.5 text-red-500" />
+                      ) : successful ? (
+                        <CheckCircle2 className="size-3.5 text-emerald-500" />
+                      ) : skipped ? (
+                        <span className="size-3 rounded-full border-[1.5px] border-muted-foreground/40" />
+                      ) : pending ? (
+                        <Loader2 className="size-3.5 animate-spin text-amber-500" />
+                      ) : (
+                        <AlertCircle className="size-3.5 text-muted-foreground" />
+                      )}
+                    </span>
+                    <span
+                      className={cn(
+                        'min-w-0 flex-1 truncate text-[12px]',
+                        failing ? 'font-medium text-red-500' : 'text-foreground/85',
+                      )}
+                      title={
+                        check.workflowName && check.workflowName !== label
+                          ? `${check.workflowName} / ${label}`
+                          : label
+                      }
+                    >
+                      {label}
+                    </span>
+                    {canOpen && (
+                      <button
+                        type="button"
+                        onClick={() => openCheck(check)}
+                        className="shrink-0 rounded-md border border-border/50 bg-background/80 px-2 py-0.5 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                        aria-label={
+                          runId != null
+                            ? tParts('checks.openAction', { name: label })
+                            : tParts('checks.openExternal', { name: label })
+                        }
+                      >
+                        {t('activity.checkDetails')}
+                      </button>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
 export function SidebarSection({
   title,
   icon,

@@ -733,8 +733,9 @@ function IssueTimelineItem({
     event in activity
       ? activity[event as keyof typeof activity]
       : event.replace(/_/g, " ") || t("activity");
-  // Unified neutral timeline icon treatment (same shell for every event)
-  const timelineIconClass = "size-3.5 text-muted-foreground";
+  // Unified neutral timeline icon treatment (same shell for every event).
+  // Glyph is smaller than the shell so it isn't tight; rail matches reviewer avatar width.
+  const timelineIconClass = "size-3 text-muted-foreground";
   const eventIcon =
     event === "closed" ? (
       <XCircle className={timelineIconClass} />
@@ -760,16 +761,18 @@ function IssueTimelineItem({
     (event === "referenced" || event === "committed");
 
   return (
-    <div className="flex flex-col gap-1.5 pl-2.5">
+    <div className="relative flex flex-col gap-1.5">
       <div className="flex items-center gap-3">
-        <div className="z-10 flex size-4 shrink-0 items-center justify-center rounded-full border border-border/50 bg-muted ring-4 ring-background">
-          {eventIcon}
+        <div className="z-10 flex w-8 shrink-0 items-center justify-center">
+          <div className="flex size-5 items-center justify-center rounded-full border border-border/50 bg-muted ring-4 ring-background">
+            {eventIcon}
+          </div>
         </div>
         <GithubUserAvatar
           username={item.author?.login}
           avatarUrl={item.author?.avatar_url ?? item.author?.avatarUrl}
-          className="size-4 shrink-0 border border-border/50"
-          fallbackClassName="text-[6px]"
+          className="size-5 shrink-0 border border-border/50"
+          fallbackClassName="text-[7px]"
           label={login}
           labelClassName="font-semibold text-foreground/90"
         />

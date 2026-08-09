@@ -23,6 +23,7 @@ import {
   githubPrTimelineInfiniteQueryOptions,
   githubActionsListQueryOptions,
   githubActionsDetailQueryOptions,
+  githubActionsJobLogsQueryOptions,
   githubCiStatusQueryOptions,
   githubCommitDetailQueryOptions,
   type RepoPrListParams,
@@ -36,6 +37,7 @@ import {
   type GithubRepoAssigneesParams,
   type GithubActionsListParams,
   type GithubActionsDetailParams,
+  type GithubActionsJobLogsParams,
 } from "@/features/github/lib/github-query-options";
 import { useSessionListQuery } from "@/features/workspace/hooks/use-session-list-query";
 import { sessionListKeys } from "@/features/workspace/store/session-list-snapshot-store";
@@ -339,6 +341,20 @@ export function useGithubActionsDetailQuery(params: GithubActionsDetailParams & 
   return useQuery(
     githubActionsDetailQueryOptions(scope, connectionState, restParams, {
       enabled: enabled && Boolean(params.owner && params.repo && params.runId),
+    }),
+  );
+}
+
+export function useGithubActionsJobLogsQuery(
+  params: GithubActionsJobLogsParams & { enabled?: boolean },
+) {
+  const scope = useComputerQueryScope();
+  const connectionState = useWebSocketStore((s) => s.connectionState);
+  const { enabled = true, ...restParams } = params;
+
+  return useQuery(
+    githubActionsJobLogsQueryOptions(scope, connectionState, restParams, {
+      enabled: enabled && Boolean(params.owner && params.repo && params.jobId),
     }),
   );
 }
