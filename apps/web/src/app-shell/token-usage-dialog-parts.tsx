@@ -9,7 +9,6 @@ import {
   MessagesSquare,
   RotateCw,
   Wallet,
-  X,
   type LucideIcon,
 } from "lucide-react";
 
@@ -42,14 +41,12 @@ export function TokenUsageDialogHeader({
   loading,
   overview,
   refreshing,
-  onClose,
   onRefresh,
 }: {
   generatedAtLabel: string;
   loading: boolean;
   overview: TokenUsageOverviewResponse | null;
   refreshing: boolean;
-  onClose: () => void;
   onRefresh: () => void;
 }) {
   const t = useTranslations("appShell.tokenUsageDialog");
@@ -112,16 +109,6 @@ export function TokenUsageDialogHeader({
             ) : (
               <RotateCw className="size-4" />
             )}
-          </Button>
-          <Button
-            variant="outline"
-            size="icon"
-            className="size-10 rounded-lg border-border/70 bg-background/80 backdrop-blur"
-            onClick={onClose}
-            aria-label={t("header.actions.close")}
-            title={t("header.actions.close")}
-          >
-            <X className="size-4" />
           </Button>
         </div>
       </div>

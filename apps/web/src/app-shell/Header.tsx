@@ -8,7 +8,6 @@ import {
   llmProvidersModalParams,
   settingsModalParams,
   skillsModalParams,
-  tokenUsageParams,
 } from "@/shared/lib/nuqs/searchParams";
 import {
   cn,
@@ -56,7 +55,6 @@ import {
   PanelLeftOpen,
   RotateCw,
 } from "lucide-react";
-import { TokenUsageDialog } from './TokenUsageDialog';
 import { SettingsModal } from '@/features/settings/components/SettingsModal';
 import { WorkspaceStatusPopover } from './WorkspaceStatusPopover';
 import { isWorkspaceSetupBlocking } from '@/features/workspace/lib/workspace-setup';
@@ -99,7 +97,6 @@ const Header: React.FC = () => {
   }, [loadLayoutSettings]);
   const [isActionMenuOpen, setIsActionMenuOpen] = useState(false);
   const [desktopWebPopoverOpen, setDesktopWebPopoverOpen] = useState(false);
-  const [isTokenUsageOpen, setIsTokenUsageOpen] = useQueryState("tokenUsage", tokenUsageParams.tokenUsage);
   const [isQuotaPopoverOpen, setIsQuotaPopoverOpen] = useState(false);
   const { onCloseAutoFocusPrevent } = useFocusRestore(isQuotaPopoverOpen);
   const actionMenuFocusRef = useRef<HTMLElement | null>(null);
@@ -428,7 +425,7 @@ const Header: React.FC = () => {
 
   const isAnyHeaderOverlayOpen =
     isActionMenuOpen || desktopWebPopoverOpen || isQuotaPopoverOpen ||
-    isTokenUsageOpen || isSettingsOpen || isSkillsModalOpen || isTargetBranchOpen;
+    isSettingsOpen || isSkillsModalOpen || isTargetBranchOpen;
 
   useEffect(() => {
     setHeaderHasOpenOverlay(isAnyHeaderOverlayOpen);
@@ -658,7 +655,6 @@ const Header: React.FC = () => {
           setGlobalSearchOpen={setGlobalSearchOpen}
           setIsActionMenuOpen={setIsActionMenuOpen}
           setIsSettingsOpen={setIsSettingsOpen}
-          setIsTokenUsageOpen={setIsTokenUsageOpen}
           setIsQuotaPopoverOpen={setIsQuotaPopoverOpen}
           setRemoteAccessSettingsSection={setRemoteAccessSettingsSection}
           setTheme={setTheme}
@@ -667,12 +663,6 @@ const Header: React.FC = () => {
           toggleFullScreen={toggleFullScreen}
           toggleRightSidebar={toggleRightSidebar}
           updateLayout={updateLayout}
-        />
-
-        <TokenUsageDialog
-          open={isTokenUsageOpen}
-          onOpenChange={setIsTokenUsageOpen}
-          hideTrigger
         />
 
         {/* Delete Workspace Dialog */}

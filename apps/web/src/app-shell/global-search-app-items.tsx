@@ -114,7 +114,6 @@ interface BuildGlobalSearchItemsParams {
   isLeftCollapsed: boolean;
   setLlmProvidersOpen: (open: boolean) => void;
   setAgentChatOpen: (open: boolean) => void;
-  setTokenUsageOpen: (open: boolean) => void;
   setLeftSidebarTab: (tab: "projects") => void;
   setCanvasOpen: (open: boolean) => void;
 
@@ -148,7 +147,6 @@ export function buildGlobalSearchItems({
   isLeftCollapsed,
   setLlmProvidersOpen,
   setAgentChatOpen,
-  setTokenUsageOpen,
   setLeftSidebarTab,
   setCanvasOpen,
   setIsLeftCollapsed,
@@ -376,6 +374,19 @@ export function buildGlobalSearchItems({
     },
   });
 
+  items.push({
+    id: "management-token-usage",
+    type: "management",
+    title: globalSearchItemsT("management.tokenUsage.title"),
+    description: globalSearchItemsT("management.tokenUsage.description"),
+    keywords: ["management", "center", "token", "tokens", "usage", "cost", "analytics", "stats", "model", "activity", "open"],
+    icon: <ChartColumnBig className="size-4 text-muted-foreground" />,
+    action: () => {
+      router.push("/token-usage");
+      setGlobalSearchOpen(false);
+    },
+  });
+
   items.push(
     {
       id: "modal-llm-providers",
@@ -386,18 +397,6 @@ export function buildGlobalSearchItems({
       icon: <BrainCircuit className="size-4 text-muted-foreground" />,
       action: () => {
         setLlmProvidersOpen(true);
-        setGlobalSearchOpen(false);
-      },
-    },
-    {
-      id: "modal-token-usage",
-      type: "modal",
-      title: globalSearchItemsT("tokenUsage.title"),
-      description: globalSearchItemsT("tokenUsage.description"),
-      keywords: ["token", "tokens", "usage", "cost", "analytics", "stats", "model", "activity", "open"],
-      icon: <ChartColumnBig className="size-4 text-muted-foreground" />,
-      action: () => {
-        setTokenUsageOpen(true);
         setGlobalSearchOpen(false);
       },
     },

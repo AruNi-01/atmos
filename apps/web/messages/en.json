@@ -682,8 +682,8 @@
           "allTimeOverview": "All time overview",
           "partialData": "Partial data"
         },
-        "title": "Token usage cockpit",
-        "description": "The heatmap is filtered by year. Summary cards and the charts below stay on all-time local session history rather than provider quota APIs.",
+        "title": "Token usage",
+        "description": "Local session history",
         "lastRefresh": "Last refresh",
         "actions": {
           "refresh": "Refresh",
@@ -693,42 +693,84 @@
           "notLoaded": "Not loaded"
         }
       },
+      "tabs": {
+        "overview": "Overview",
+        "trends": "Trends"
+      },
+      "metric": {
+        "tokens": "Tokens",
+        "cost": "Cost"
+      },
+      "dimension": {
+        "agent": "Agent",
+        "model": "Model"
+      },
+      "share": {
+        "trigger": "Share",
+        "dialogTitle": "Share page",
+        "capturing": "Capturing…",
+        "previewAlt": "Token usage share card",
+        "openPreview": "Open full preview",
+        "closePreview": "Close preview",
+        "save": "Save image",
+        "saved": "Saved",
+        "sharePrimary": "My AI agent usage on Atmos: {tokens} tokens · {cost}",
+        "status": {
+          "saved": "Downloaded.",
+          "shared": "Shared.",
+          "sharedWithImage": "Shared with image.",
+          "copiedOpen": "Image copied — paste into the post (⌘V / Ctrl+V).",
+          "downloadedOpen": "Image downloaded — attach it in the post.",
+          "opened": "Opened share window."
+        },
+        "errors": {
+          "capture": "Could not capture this page."
+        }
+      },
+      "overview": {
+        "agentShare": "{percent}% · {tokens} tokens"
+      },
       "range": {
-        "withBounds": "{start} -> {end}",
+        "withBounds": "{start} → {end}",
         "empty": "No range"
       },
       "stats": {
         "totalTokens": {
           "label": "Total tokens"
         },
+        "totalCost": {
+          "label": "Total cost"
+        },
         "messages": {
           "label": "Messages",
-          "note": "{count} agents detected"
+          "note": "{count} agents",
+          "modelsNote": "{count} models"
         },
         "activeDays": {
           "label": "Active days",
-          "note": "All-time contribution footprint"
+          "note": "All time"
         },
         "estimatedCost": {
           "label": "Est. cost",
-          "note": "Estimated from local session history"
+          "note": "Local estimate"
         }
       },
       "heatmap": {
-        "kicker": "Contribution heatmap",
-        "loadingTitle": "Loading yearly contribution...",
+        "kicker": "Heatmap",
+        "loadingTitle": "Loading…",
         "title": "{tokens} tokens in {year}",
-        "selectedYearFallback": "the selected year",
-        "loadingDescription": "Building heatmap from local session history",
+        "selectedYearFallback": "selected year",
+        "loadingDescription": "Building heatmap…",
         "summary": "{activeDays} active days · {messages} messages",
-        "selectYearPlaceholder": "Select year",
-        "empty": "No local token activity found for this year.",
+        "selectYearPlaceholder": "Year",
+        "empty": "No activity for this year.",
         "ariaLabel": "{date}: {tokens} tokens, {messages} messages",
         "legend": {
           "less": "Less",
           "more": "More"
         },
-        "agentShareEmpty": "No agent activity found for this year.",
+        "agentShareEmpty": "No agent activity for this year.",
+        "modelShareEmpty": "No model activity for this year.",
         "days": {
           "mon": "Mon",
           "wed": "Wed",
@@ -736,6 +778,7 @@
         },
         "popover": {
           "tokens": "Tokens",
+          "cost": "Cost",
           "messages": "Messages",
           "input": "Input",
           "output": "Output",
@@ -748,20 +791,20 @@
         }
       },
       "resolution": {
-        "kicker": "Chart resolution",
-        "description": "Switch between daily and monthly aggregation for the all-time charts below.",
+        "kicker": "Resolution",
+        "description": "Daily or monthly charts",
         "options": {
-          "month": "month",
-          "day": "day"
+          "month": "Month",
+          "day": "Day"
         }
       },
       "trend": {
         "kicker": "Trend",
-        "title": "Token curve by {resolution}"
+        "title": "Tokens by {resolution}"
       },
       "sources": {
         "kicker": "Sources",
-        "title": "Agent distribution by {resolution}"
+        "title": "Agents by {resolution}"
       },
       "shape": {
         "kicker": "Shape",
@@ -773,12 +816,17 @@
       "charts": {
         "curve": {
           "tokens": "Tokens",
+          "cost": "Cost",
           "messages": "Messages"
         },
         "mix": {
+          "title": "Token mix",
+          "empty": "No token mix data yet.",
           "input": "Input",
           "output": "Output",
           "cache": "Cache",
+          "cacheRead": "Cache read",
+          "cacheWrite": "Cache write",
           "reasoning": "Reasoning"
         },
         "radar": {
@@ -951,6 +999,7 @@
       "terminals": "Terminals - ATMOS",
       "automations": "Automations - ATMOS",
       "diskAnalyzer": "Disk Analyzer - ATMOS",
+      "tokenUsage": "Token Usage - ATMOS",
       "kanban": "Kanban - ATMOS"
     },
     "localModelDownload": {
@@ -995,6 +1044,10 @@
         "diskAnalyzer": {
           "title": "Disk Analyzer",
           "description": "Scan local disk usage and reclaim space"
+        },
+        "tokenUsage": {
+          "title": "Token Usage",
+          "description": "Review model token usage and activity"
         }
       },
       "modalChat": {
@@ -1004,10 +1057,6 @@
       "llmProviders": {
         "title": "Open LLM Providers",
         "description": "Configure LLM provider API keys and models"
-      },
-      "tokenUsage": {
-        "title": "Open Token Usage",
-        "description": "Review model token usage and activity"
       },
       "aiQuota": {
         "title": "AI Quota Usage",
@@ -1214,7 +1263,8 @@
           "canvas": "Canvas",
           "kanban": "Kanban",
           "newWorkspace": "New Workspace",
-          "diskAnalyzer": "Disk Analyzer"
+          "diskAnalyzer": "Disk Analyzer",
+          "tokenUsage": "Token Usage"
         }
       },
       "rightSidebar": {
@@ -5290,6 +5340,10 @@
           "diskAnalyzer": {
             "title": "Disk Analyzer",
             "description": "Analyze Atmos-related disk usage and clean up safely."
+          },
+          "tokenUsage": {
+            "title": "Token Usage",
+            "description": "Review model token usage and local session activity."
           },
           "canvas": {
             "title": "Canvas",

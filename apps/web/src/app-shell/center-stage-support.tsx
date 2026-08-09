@@ -11,6 +11,7 @@ import { TerminalsView } from "@/features/terminal/components/TerminalsView";
 import { HostedWelcomeGate } from "@/features/welcome/components/HostedWelcomeGate";
 import { WorkspacesManagementView } from "@/features/workspace/components/WorkspacesManagementView";
 import { KanbanManagementView } from "@/features/workspace/components/KanbanManagementView";
+import { TokenUsagePage } from "@/app-shell/TokenUsagePage";
 import type { OpenFile } from "@/features/editor/store/use-editor-store";
 import type { TerminalCenterTab } from "@/features/terminal/store/use-terminal-store";
 import { FIXED_TABS, isTerminalCenterTabValue } from "@/app-shell/center-stage-tabs";
@@ -99,6 +100,14 @@ export function CenterStageNoContextView({
     return (
       <main className="h-full overflow-hidden">
         <DiskAnalyzerPage />
+      </main>
+    );
+  }
+
+  if (currentView === "token-usage") {
+    return (
+      <main className="h-full overflow-hidden">
+        <TokenUsagePage />
       </main>
     );
   }

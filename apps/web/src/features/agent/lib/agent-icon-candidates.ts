@@ -12,6 +12,17 @@ const AGENT_ICON_ALIASES: Record<string, string[]> = {
   "junie-acp": ["junie"],
   // NOTE: do NOT alias bare "agent" → cursor (APP-036 contested freehand identity).
   "commandcode": ["command-code"],
+  // tokscale client ids → local brand assets
+  "roocode": ["roo"],
+  "devin-cli": ["devin"],
+  "devin-desktop": ["devin"],
+  "antigravity-cli": ["antigravity"],
+  "augment": ["auggie"],
+  "codebuddy": ["codebuddy-code"],
+  "workbuddy": ["codebuddy-code"],
+  "copilot": ["github-copilot", "copilot"],
+  "grok": ["grok-build"],
+  "qwen": ["qwen-code"],
 };
 
 // Map registry IDs that don't have a matching SVG file to the actual filename.
@@ -23,8 +34,20 @@ const AGENT_ICON_REMAP: Record<string, string> = {
   "hermes": "hermes-agent.png",
   "openclaw": "openclaw.jpg",
   "kilocode": "kilo",
+  "kilo": "kilo",
   "kiro": "kiro-cli",
   "commandcode": "command-code",
+  "roocode": "roo",
+  "roo": "roo",
+  "qwen": "qwen-code",
+  "codebuddy": "codebuddy-code",
+  "workbuddy": "codebuddy-code",
+  "devin-cli": "devin",
+  "devin-desktop": "devin",
+  "antigravity-cli": "antigravity",
+  "augment": "auggie",
+  "grok": "grok-build",
+  "copilot": "copilot",
 };
 
 /** Theme-pair brand icons (pre-filled light/dark assets — do not invert). */
@@ -43,19 +66,27 @@ export const AGENT_THEME_NATIVE_ICONS = new Set([
   "openclaw",
   "openclaw.jpg",
   "pi",
+  "grok",
   "grok-build",
   "grok-build-light",
   "grok-build-dark",
+  "antigravity",
+  "antigravity-cli",
 ]);
 
 export function getAgentIconCandidates(registryId: string): string[] {
-  const themePair = AGENT_THEME_PAIR_ICONS[registryId];
+  const remapped = AGENT_ICON_REMAP[registryId] ?? registryId;
+  const themePair =
+    AGENT_THEME_PAIR_ICONS[registryId] ?? AGENT_THEME_PAIR_ICONS[remapped];
   if (themePair) {
     // Prefer light as default path list; component picks by theme at render time.
     return [themePair.light, themePair.dark];
   }
-  const primary = AGENT_ICON_REMAP[registryId] ?? registryId;
-  const aliases = AGENT_ICON_ALIASES[registryId] ?? [];
+  const primary = remapped;
+  const aliases = [
+    ...(AGENT_ICON_ALIASES[registryId] ?? []),
+    ...(AGENT_ICON_ALIASES[remapped] ?? []),
+  ];
   // Deduplicate: primary first, then any aliases that differ
   const seen = new Set<string>();
   const names: string[] = [];

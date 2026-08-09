@@ -102,10 +102,6 @@ export const llmProvidersModalParams = {
   llmProvidersModal: parseAsBoolean.withDefault(false),
 };
 
-export const tokenUsageParams = {
-  tokenUsage: parseAsBoolean.withDefault(false),
-};
-
 export type SettingsModalTab =
   | "about"
   | "layout"

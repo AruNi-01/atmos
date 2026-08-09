@@ -11,6 +11,7 @@ import {
 import {
   ArrowRight,
   Bot,
+  ChartColumnBig,
   Command,
   FolderKanban,
   HardDrive,
@@ -46,6 +47,7 @@ const ITEM_DEF_BY_ID: Record<ManagementCenterItemId, ManagementCenterItemDef> = 
   agents: { id: "agents", labelKey: "managementCenter.items.agents", icon: Bot, path: "/agents" },
   automations: { id: "automations", labelKey: "managementCenter.items.automations", icon: Timer, path: "/automations" },
   "disk-analyzer": { id: "disk-analyzer", labelKey: "managementCenter.items.diskAnalyzer", icon: HardDrive, path: "/disk-analyzer" },
+  "token-usage": { id: "token-usage", labelKey: "managementCenter.items.tokenUsage", icon: ChartColumnBig, path: "/token-usage" },
   canvas: { id: "canvas", labelKey: "managementCenter.items.canvas", icon: Presentation, kind: "canvas" },
   kanban: { id: "kanban", labelKey: "managementCenter.items.kanban", icon: SquareKanban, path: "/kanban" },
   "new-workspace": { id: "new-workspace", labelKey: "managementCenter.items.newWorkspace", icon: Plus, kind: "new-workspace" },

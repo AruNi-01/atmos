@@ -26,11 +26,12 @@ import {
 } from "./experiment-settings-store";
 
 describe("management center item placement helpers", () => {
-  it("defaults always-on items enabled; skills/automations/canvas/kanban/new-workspace outside, rest inside; terminals/agents off", () => {
+  it("defaults always-on items enabled; skills/automations/token-usage/canvas/kanban/new-workspace outside, rest inside; terminals/agents off", () => {
     const items = createDefaultManagementCenterItems();
     expect(items.workspaces).toEqual({ enabled: true, placement: "inside" });
     expect(items.skills).toEqual({ enabled: true, placement: "outside" });
     expect(items["disk-analyzer"]).toEqual({ enabled: true, placement: "inside" });
+    expect(items["token-usage"]).toEqual({ enabled: true, placement: "outside" });
     expect(items.canvas).toEqual({ enabled: true, placement: "outside" });
     expect(items.kanban).toEqual({ enabled: true, placement: "outside" });
     expect(items["new-workspace"]).toEqual({ enabled: true, placement: "outside" });
@@ -46,6 +47,7 @@ describe("management center item placement helpers", () => {
       skills: { enabled: false, placement: "inside" },
       canvas: { enabled: true, placement: "outside" },
       terminals: { enabled: true, placement: "inside" },
+      "token-usage": { enabled: false, placement: "outside" },
     };
 
     expect(selectManagementCenterItemsByPlacement(items, "outside")).toEqual([

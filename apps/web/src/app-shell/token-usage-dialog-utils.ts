@@ -15,6 +15,12 @@ import type { ChartConfig } from "@/shared/components/ui/chart";
 
 export type Resolution = "month" | "day";
 
+/** Primary chart metric — tokens stay default; cost uses tokscale USD fields. */
+export type UsageMetric = "tokens" | "cost";
+
+/** Breakdown dimension for share bars + stacked series. */
+export type UsageDimension = "agent" | "model";
+
 export type HeatmapCell = {
   date: string;
   count: number | null;
@@ -47,6 +53,7 @@ export type TimelinePoint = {
   key: string;
   label: string;
   tokens: number;
+  cost: number;
   messages: number;
   input: number;
   output: number;
@@ -61,6 +68,7 @@ export type AgentSeries = {
 
 export type YearBreakdownSummary = {
   totalTokens: number;
+  totalCost: number;
   totalMessages: number;
   activeDays: number;
   input: number;
@@ -69,13 +77,314 @@ export type YearBreakdownSummary = {
   reasoning: number;
 };
 
-export type YearAgentShare = {
-  clientId: string;
+export type BreakdownShare = {
+  /** Agent client_id or model_id (or "other"). */
+  id: string;
   label: string;
-  tokens: number;
+  /** Metric amount (tokens or cost USD depending on UsageMetric). */
+  value: number;
   share: number;
   sharePercent: number;
 };
+
+/** @deprecated Prefer BreakdownShare — kept for call sites still using the name. */
+export type YearAgentShare = BreakdownShare & {
+  /** Alias of `id` for agent rows. */
+  clientId: string;
+};
+
+/** Day-level metric amount from tokscale overview rows. */
+export function dayMetricValue(
+  day: DailyTokenUsageResponse,
+  metric: UsageMetric,
+): number {
+  if (metric === "cost") {
+    return day.total_cost_usd ?? 0;
+  }
+  return day.total_tokens;
+}
+
+/** Per-client day row metric (client.cost_usd vs total_tokens). */
+export function clientDayMetricValue(
+  client: { total_tokens: number; cost_usd: number | null },
+  metric: UsageMetric,
+): number {
+  if (metric === "cost") {
+    return client.cost_usd ?? 0;
+  }
+  return client.total_tokens;
+}
+
+/** Overview client row metric. */
+export function clientOverviewMetricValue(
+  client: { total_tokens: number; total_cost_usd: number | null },
+  metric: UsageMetric,
+): number {
+  if (metric === "cost") {
+    return client.total_cost_usd ?? 0;
+  }
+  return client.total_tokens;
+}
+
+/** Overview model row metric (`cost_usd` vs `total_tokens`). */
+export function modelOverviewMetricValue(
+  model: { total_tokens: number; cost_usd: number | null },
+  metric: UsageMetric,
+): number {
+  if (metric === "cost") {
+    return model.cost_usd ?? 0;
+  }
+  return model.total_tokens;
+}
+
+/** Stable series key for a daily client/model contribution row. */
+export function dimensionKeyOf(
+  row: { client_id: string; model_id: string },
+  dimension: UsageDimension,
+): string {
+  if (dimension === "model") {
+    const modelId = row.model_id.trim();
+    return modelId || "unknown";
+  }
+  return row.client_id;
+}
+
+/** Display label for model ids — keep recognizable model slugs. */
+export function formatModelLabel(modelId: string): string {
+  const raw = modelId.trim();
+  if (!raw || raw === "unknown" || raw === "other") {
+    return raw || "unknown";
+  }
+  const leaf = raw.includes("/") ? raw.slice(raw.lastIndexOf("/") + 1) : raw;
+  return leaf || raw;
+}
+
+export function formatDimensionLabel(
+  id: string,
+  dimension: UsageDimension,
+  otherLabel: string,
+): string {
+  if (id === "other") return otherLabel;
+  if (dimension === "model") return formatModelLabel(id);
+  return humanizeId(id);
+}
+
+/**
+ * High-separation hues for stacked agent charts (avoid near-neighbours like
+ * sky+blue or violet+purple sitting next to each other in assignment order).
+ */
+export const AGENT_CHART_COLORS_DARK = [
+  "#38BDF8", // sky
+  "#F97316", // orange (claude-ish)
+  "#A78BFA", // violet
+  "#4ADE80", // green
+  "#F472B6", // pink
+  "#FBBF24", // amber
+  "#2DD4BF", // teal
+  "#F87171", // red
+  "#C084FC", // purple
+  "#EAB308", // yellow
+  "#22D3EE", // cyan
+  "#FB7185", // rose
+] as const;
+
+export const AGENT_CHART_COLORS_LIGHT = [
+  "#0284C7",
+  "#EA580C",
+  "#7C3AED",
+  "#16A34A",
+  "#DB2777",
+  "#D97706",
+  "#0D9488",
+  "#DC2626",
+  "#9333EA",
+  "#CA8A04",
+  "#0891B2",
+  "#E11D48",
+] as const;
+
+const AGENT_OTHER_COLOR_DARK = "#64748B";
+const AGENT_OTHER_COLOR_LIGHT = "#94A3B8";
+
+/**
+ * Preferred brand-aligned slots for well-known tokscale client ids.
+ * Indices into AGENT_CHART_COLORS_*; remaining agents fill unused slots in order.
+ */
+const PREFERRED_AGENT_COLOR_INDEX: Record<string, number> = {
+  // Keep primary brands on unique slots so common top-5 sets never collide.
+  codex: 0,
+  claude: 1,
+  cursor: 2,
+  opencode: 3,
+  droid: 4,
+  "factory-droid": 4,
+  gemini: 5,
+  copilot: 6,
+  "github-copilot": 6,
+  pi: 7,
+  amp: 8,
+  hermes: 9,
+  openclaw: 10,
+  kimi: 11,
+  // Secondary aliases share a brand slot only when they are the same product line.
+  "qwen-code": 5,
+  qwen: 5,
+  kilocode: 8,
+  kilo: 8,
+  "kiro-cli": 9,
+  kiro: 9,
+  roocode: 3,
+  roo: 3,
+  cline: 7,
+  goose: 11,
+  antigravity: 2,
+  "antigravity-cli": 2,
+  junie: 10,
+  trae: 1,
+  "grok-build": 0,
+  grok: 0,
+  "command-code": 6,
+  commandcode: 6,
+  mux: 4,
+  crush: 8,
+  zed: 9,
+  warp: 10,
+  auggie: 11,
+  augment: 11,
+  "codebuddy-code": 1,
+  codebuddy: 1,
+  workbuddy: 3,
+  devin: 7,
+  "devin-cli": 7,
+  "devin-desktop": 7,
+};
+
+/**
+ * Assign unique colors across a set of agent ids for one page of charts.
+ * Preferred brands get fixed slots; others take the first free palette color
+ * so two agents never share a hue in the same ranking list.
+ */
+export function assignAgentChartColors(
+  clientIds: readonly string[],
+  theme: "dark" | "light" = "dark",
+): Map<string, string> {
+  const palette =
+    theme === "dark" ? AGENT_CHART_COLORS_DARK : AGENT_CHART_COLORS_LIGHT;
+  const other = theme === "dark" ? AGENT_OTHER_COLOR_DARK : AGENT_OTHER_COLOR_LIGHT;
+  const map = new Map<string, string>();
+  const usedIndexes = new Set<number>();
+
+  for (const raw of clientIds) {
+    const id = raw.trim().toLowerCase();
+    if (!id || id === "other") {
+      map.set(raw, other);
+      continue;
+    }
+    const preferred = PREFERRED_AGENT_COLOR_INDEX[id];
+    if (preferred !== undefined && !usedIndexes.has(preferred)) {
+      map.set(raw, palette[preferred % palette.length]!);
+      usedIndexes.add(preferred % palette.length);
+    }
+  }
+
+  let next = 0;
+  for (const raw of clientIds) {
+    if (map.has(raw)) continue;
+    while (usedIndexes.has(next % palette.length) && next < palette.length * 2) {
+      next += 1;
+    }
+    const idx = next % palette.length;
+    map.set(raw, palette[idx]!);
+    usedIndexes.add(idx);
+    next += 1;
+  }
+
+  return map;
+}
+
+/** Color for one agent given a pre-built assignment (or fallback alone). */
+export function agentChartColor(
+  clientId: string,
+  theme: "dark" | "light" = "dark",
+  assignment?: ReadonlyMap<string, string>,
+): string {
+  if (assignment?.has(clientId)) {
+    return assignment.get(clientId)!;
+  }
+  return assignAgentChartColors([clientId], theme).get(clientId)!;
+}
+
+/** Colors for a segment list in order (e.g. agentSeries.keys) — unique within list. */
+export function agentChartColors(
+  clientIds: readonly string[],
+  theme: "dark" | "light" = "dark",
+): string[] {
+  const assignment = assignAgentChartColors(clientIds, theme);
+  return clientIds.map((id) => assignment.get(id)!);
+}
+
+/** All-time (or filtered day set) token composition — cache read/write kept separate. */
+export type TokenMixSummary = {
+  input: number;
+  output: number;
+  cacheRead: number;
+  cacheWrite: number;
+  reasoning: number;
+  total: number;
+};
+
+export type TokenMixSlice = {
+  id: keyof Omit<TokenMixSummary, "total">;
+  value: number;
+  share: number;
+  sharePercent: number;
+};
+
+/** Aggregate input/output/cache/reasoning from daily breakdown rows (no extra fetch). */
+export function summarizeTokenMix(days: DailyTokenUsageResponse[]): TokenMixSummary {
+  const summary: TokenMixSummary = {
+    input: 0,
+    output: 0,
+    cacheRead: 0,
+    cacheWrite: 0,
+    reasoning: 0,
+    total: 0,
+  };
+
+  for (const day of days) {
+    summary.input += day.breakdown.input_tokens;
+    summary.output += day.breakdown.output_tokens;
+    summary.cacheRead += day.breakdown.cache_read_tokens;
+    summary.cacheWrite += day.breakdown.cache_write_tokens;
+    summary.reasoning += day.breakdown.reasoning_tokens;
+  }
+
+  summary.total =
+    summary.input +
+    summary.output +
+    summary.cacheRead +
+    summary.cacheWrite +
+    summary.reasoning;
+
+  return summary;
+}
+
+export function tokenMixSlices(mix: TokenMixSummary): TokenMixSlice[] {
+  const total = mix.total > 0 ? mix.total : 1;
+  const entries: Array<[TokenMixSlice["id"], number]> = [
+    ["input", mix.input],
+    ["output", mix.output],
+    ["cacheRead", mix.cacheRead],
+    ["cacheWrite", mix.cacheWrite],
+    ["reasoning", mix.reasoning],
+  ];
+  return entries.map(([id, value]) => ({
+    id,
+    value,
+    share: value / total,
+    sharePercent: (value / total) * 100,
+  }));
+}
 
 export type CurveChartLabelConfig = {
   tokens: string;
@@ -189,36 +498,28 @@ export function buildTimelineSeries(
   resolution: Resolution,
   locale: string,
 ): TimelinePoint[] {
+  const emptyPoint = (key: string): TimelinePoint => ({
+    key,
+    label: formatPeriodLabel(key, resolution, locale),
+    tokens: 0,
+    cost: 0,
+    messages: 0,
+    input: 0,
+    output: 0,
+    cache: 0,
+    reasoning: 0,
+  });
+
   const buckets = new Map<string, TimelinePoint>(
-    periodKeysForRange(days, resolution).map((key) => [
-      key,
-      {
-        key,
-        label: formatPeriodLabel(key, resolution, locale),
-        tokens: 0,
-        messages: 0,
-        input: 0,
-        output: 0,
-        cache: 0,
-        reasoning: 0,
-      },
-    ]),
+    periodKeysForRange(days, resolution).map((key) => [key, emptyPoint(key)]),
   );
 
   for (const day of days) {
     const key = resolution === "day" ? day.date : day.date.slice(0, 7);
-    const existing = buckets.get(key) ?? {
-      key,
-      label: formatPeriodLabel(key, resolution, locale),
-      tokens: 0,
-      messages: 0,
-      input: 0,
-      output: 0,
-      cache: 0,
-      reasoning: 0,
-    };
+    const existing = buckets.get(key) ?? emptyPoint(key);
 
     existing.tokens += day.total_tokens;
+    existing.cost += day.total_cost_usd ?? 0;
     existing.messages += day.message_count;
     existing.input += day.breakdown.input_tokens;
     existing.output += day.breakdown.output_tokens;
@@ -231,10 +532,16 @@ export function buildTimelineSeries(
   return Array.from(buckets.values()).sort((left, right) => left.key.localeCompare(right.key));
 }
 
-export function buildAgentSeries(
+/**
+ * Stacked series for agent or model dimension (top 5 + other).
+ * Daily rows already carry both `client_id` and `model_id`.
+ */
+export function buildBreakdownSeries(
   days: DailyTokenUsageResponse[],
   resolution: Resolution,
   locale: string,
+  metric: UsageMetric = "tokens",
+  dimension: UsageDimension = "agent",
 ): AgentSeries {
   const totals = new Map<string, number>();
   const periods = new Map<string, Record<string, number>>(
@@ -246,21 +553,23 @@ export function buildAgentSeries(
     const bucket = periods.get(periodKey) ?? {};
 
     for (const client of day.by_client) {
-      bucket[client.client_id] = (bucket[client.client_id] ?? 0) + client.total_tokens;
-      totals.set(client.client_id, (totals.get(client.client_id) ?? 0) + client.total_tokens);
+      const seriesKey = dimensionKeyOf(client, dimension);
+      const amount = clientDayMetricValue(client, metric);
+      bucket[seriesKey] = (bucket[seriesKey] ?? 0) + amount;
+      totals.set(seriesKey, (totals.get(seriesKey) ?? 0) + amount);
     }
 
     periods.set(periodKey, bucket);
   }
 
-  const rankedClients = Array.from(totals.entries())
+  const ranked = Array.from(totals.entries())
     .sort((left, right) => right[1] - left[1])
-    .map(([clientId]) => clientId);
+    .map(([id]) => id);
 
-  const topClients = rankedClients.slice(0, 5);
-  const topClientSet = new Set(topClients);
-  const hasOther = rankedClients.length > topClients.length;
-  const keys = hasOther ? [...topClients, "other"] : topClients;
+  const top = ranked.slice(0, 5);
+  const topSet = new Set(top);
+  const hasOther = ranked.length > top.length;
+  const keys = hasOther ? [...top, "other"] : top;
 
   const data = Array.from(periods.entries())
     .sort((left, right) => left[0].localeCompare(right[0]))
@@ -270,17 +579,17 @@ export function buildAgentSeries(
       };
 
       let other = 0;
-      for (const [clientId, value] of Object.entries(bucket)) {
-        if (topClientSet.has(clientId)) {
-          point[clientId] = value;
+      for (const [id, value] of Object.entries(bucket)) {
+        if (topSet.has(id)) {
+          point[id] = value;
         } else {
           other += value;
         }
       }
 
-      for (const clientId of topClients) {
-        if (!(clientId in point)) {
-          point[clientId] = 0;
+      for (const id of top) {
+        if (!(id in point)) {
+          point[id] = 0;
         }
       }
 
@@ -294,7 +603,21 @@ export function buildAgentSeries(
   return { data, keys };
 }
 
-export function buildHeatmapWeeks(days: DailyTokenUsageResponse[], year: string): HeatmapWeek[] {
+/** @deprecated Prefer buildBreakdownSeries(..., "agent"). */
+export function buildAgentSeries(
+  days: DailyTokenUsageResponse[],
+  resolution: Resolution,
+  locale: string,
+  metric: UsageMetric = "tokens",
+): AgentSeries {
+  return buildBreakdownSeries(days, resolution, locale, metric, "agent");
+}
+
+export function buildHeatmapWeeks(
+  days: DailyTokenUsageResponse[],
+  year: string,
+  metric: UsageMetric = "tokens",
+): HeatmapWeek[] {
   if (!year) {
     return [];
   }
@@ -302,8 +625,11 @@ export function buildHeatmapWeeks(days: DailyTokenUsageResponse[], year: string)
   const start = startOfWeek(startOfYear(new Date(Number(year), 0, 1)), { weekStartsOn: 0 });
   const end = endOfWeek(endOfYear(new Date(Number(year), 0, 1)), { weekStartsOn: 0 });
   const dayMap = new Map(days.map((day) => [day.date, day]));
-  const maxTokens = days.reduce(
-    (max, day) => (day.date.startsWith(`${year}-`) ? Math.max(max, day.total_tokens) : max),
+  const maxValue = days.reduce(
+    (max, day) =>
+      day.date.startsWith(`${year}-`)
+        ? Math.max(max, dayMetricValue(day, metric))
+        : max,
     0,
   );
   const calendarDays = eachDayOfInterval({ start, end });
@@ -317,12 +643,16 @@ export function buildHeatmapWeeks(days: DailyTokenUsageResponse[], year: string)
         const isoDate = format(day, "yyyy-MM-dd");
         const isTargetYear = format(day, "yyyy") === year;
         const detail = isTargetYear ? (dayMap.get(isoDate) ?? null) : null;
-        const count = isTargetYear ? (detail?.total_tokens ?? 0) : null;
+        const count = isTargetYear
+          ? detail
+            ? dayMetricValue(detail, metric)
+            : 0
+          : null;
 
         return {
           date: isoDate,
           count,
-          level: heatmapLevel(count, maxTokens),
+          level: heatmapLevel(count, maxValue),
           detail,
         };
       }),
@@ -390,6 +720,7 @@ export function summarizeYear(days: DailyTokenUsageResponse[], year: string): Ye
   if (!year) {
     return {
       totalTokens: 0,
+      totalCost: 0,
       totalMessages: 0,
       activeDays: 0,
       input: 0,
@@ -406,6 +737,7 @@ export function summarizeYear(days: DailyTokenUsageResponse[], year: string): Ye
       }
 
       summary.totalTokens += day.total_tokens;
+      summary.totalCost += day.total_cost_usd ?? 0;
       summary.totalMessages += day.message_count;
       summary.activeDays += 1;
       summary.input += day.breakdown.input_tokens;
@@ -416,6 +748,7 @@ export function summarizeYear(days: DailyTokenUsageResponse[], year: string): Ye
     },
     {
       totalTokens: 0,
+      totalCost: 0,
       totalMessages: 0,
       activeDays: 0,
       input: 0,
@@ -426,7 +759,13 @@ export function summarizeYear(days: DailyTokenUsageResponse[], year: string): Ye
   );
 }
 
-export function buildYearAgentShares(days: DailyTokenUsageResponse[], year: string): YearAgentShare[] {
+export function buildYearBreakdownShares(
+  days: DailyTokenUsageResponse[],
+  year: string,
+  metric: UsageMetric = "tokens",
+  dimension: UsageDimension = "agent",
+  otherLabel = "Other",
+): BreakdownShare[] {
   if (!year) {
     return [];
   }
@@ -439,28 +778,96 @@ export function buildYearAgentShares(days: DailyTokenUsageResponse[], year: stri
     }
 
     for (const client of day.by_client) {
-      totals.set(client.client_id, (totals.get(client.client_id) ?? 0) + client.total_tokens);
+      const id = dimensionKeyOf(client, dimension);
+      const amount = clientDayMetricValue(client, metric);
+      totals.set(id, (totals.get(id) ?? 0) + amount);
     }
   }
 
-  const totalTokens = Array.from(totals.values()).reduce((sum, value) => sum + value, 0);
-  if (totalTokens <= 0) {
+  const totalValue = Array.from(totals.values()).reduce((sum, value) => sum + value, 0);
+  if (totalValue <= 0) {
     return [];
   }
 
   return Array.from(totals.entries())
     .sort((left, right) => right[1] - left[1])
     .slice(0, 5)
-    .map(([clientId, tokens]) => ({
-      clientId,
-      label: humanizeId(clientId),
-      tokens,
-      share: tokens / totalTokens,
-      sharePercent: (tokens / totalTokens) * 100,
+    .map(([id, value]) => ({
+      id,
+      label: formatDimensionLabel(id, dimension, otherLabel),
+      value,
+      share: value / totalValue,
+      sharePercent: (value / totalValue) * 100,
     }));
 }
 
-export function calculateYearAgentRadarMax(data: YearAgentShare[]) {
+export function buildYearAgentShares(
+  days: DailyTokenUsageResponse[],
+  year: string,
+  metric: UsageMetric = "tokens",
+): YearAgentShare[] {
+  return buildYearBreakdownShares(days, year, metric, "agent").map((row) => ({
+    ...row,
+    clientId: row.id,
+  }));
+}
+
+/**
+ * All-time share bars from overview.by_client / by_model.
+ * Model rows are aggregated by model_id across clients.
+ */
+export function buildOverviewBreakdownShares(
+  overview: {
+    by_client: Array<{
+      client_id: string;
+      total_tokens: number;
+      total_cost_usd: number | null;
+    }>;
+    by_model: Array<{
+      model_id: string;
+      total_tokens: number;
+      cost_usd: number | null;
+    }>;
+  } | null | undefined,
+  metric: UsageMetric,
+  dimension: UsageDimension,
+  otherLabel = "Other",
+): BreakdownShare[] {
+  if (!overview) return [];
+
+  const totals = new Map<string, number>();
+
+  if (dimension === "model") {
+    for (const row of overview.by_model ?? []) {
+      const id = row.model_id.trim() || "unknown";
+      const amount = modelOverviewMetricValue(row, metric);
+      totals.set(id, (totals.get(id) ?? 0) + amount);
+    }
+  } else {
+    for (const row of overview.by_client ?? []) {
+      const amount = clientOverviewMetricValue(row, metric);
+      totals.set(row.client_id, (totals.get(row.client_id) ?? 0) + amount);
+    }
+  }
+
+  const totalValue = Array.from(totals.values()).reduce((sum, value) => sum + value, 0);
+  if (totalValue <= 0) {
+    return [];
+  }
+
+  return Array.from(totals.entries())
+    .sort((left, right) => right[1] - left[1])
+    .slice(0, 5)
+    .map(([id, value]) => ({
+      id,
+      label: formatDimensionLabel(id, dimension, otherLabel),
+      value,
+      share: value / totalValue,
+      sharePercent: (value / totalValue) * 100,
+    }));
+}
+
+export function calculateYearAgentRadarMax(data: BreakdownShare[]) {
   const maxShare = Math.max(...data.map((item) => item.sharePercent), 0);
   if (maxShare <= 0) {
     return 100;
@@ -606,6 +1013,38 @@ export function formatCurrencyCompact(value: number | null, locale: string) {
     style: "currency",
     currency: "USD",
   }).format(value);
+}
+
+/** More precise USD for tooltips / detail rows. */
+export function formatCurrencyDetailed(value: number | null, locale: string) {
+  if (value === null) {
+    return "--";
+  }
+
+  const abs = Math.abs(value);
+  return new Intl.NumberFormat(locale, {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: abs > 0 && abs < 0.01 ? 4 : 2,
+  }).format(value);
+}
+
+/** Format chart/stat values for the active metric. */
+export function formatMetricValue(
+  value: number,
+  metric: UsageMetric,
+  locale: string,
+  mode: "compact" | "detailed" = "compact",
+): string {
+  if (metric === "cost") {
+    return mode === "detailed"
+      ? formatCurrencyDetailed(value, locale)
+      : formatCurrencyCompact(value, locale);
+  }
+  return mode === "detailed"
+    ? formatDetailedNumber(value, locale)
+    : formatCompactNumber(value, locale);
 }
 
 export function formatAxisTokens(value: number, locale: string) {

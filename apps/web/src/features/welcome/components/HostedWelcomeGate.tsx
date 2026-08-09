@@ -57,7 +57,7 @@ import {
   type ComputerClientSettingsSaveLocation,
 } from '@/features/connection/lib/sync-computer-client-settings';
 import { applyIdentityBearingComputerSettings } from '@/features/connection/lib/query-identity-lifecycle';
-import { AppShellLoading } from '@/app-shell/AppShellLoading';
+import { HostedLandingLoading } from '@/app-shell/HostedLandingLoading';
 import { useInitialProjectsLoading } from '@/features/project/store/use-initial-projects-loading';
 import { useAppRouter } from '@/shared/hooks/use-app-router';
 
@@ -101,7 +101,7 @@ export function HostedWelcomeGate(props: HostedWelcomeGateProps) {
   const isInitialProjectsLoading = useInitialProjectsLoading();
 
   if (!mounted || isInitialProjectsLoading) {
-    return <AppShellLoading />;
+    return <HostedLandingLoading />;
   }
 
   const hosted = isHostedAtmosOrigin();
@@ -127,14 +127,14 @@ export function HostedConnectionSetupPage() {
   const router = useAppRouter();
 
   return (
-    <div className="h-dvh w-full overflow-hidden bg-background">
+    <div className="flex h-dvh w-full overflow-hidden bg-background">
       {mounted ? (
         <HostedConnectionOnboarding
           defaultTab="remote"
           onConnected={() => router.replace('/')}
         />
       ) : (
-        <AppShellLoading />
+        <HostedLandingLoading />
       )}
     </div>
   );

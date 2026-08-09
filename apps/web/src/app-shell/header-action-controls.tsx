@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "motion/react";
 import { useTranslations } from "next-intl";
 import {
@@ -123,7 +124,6 @@ type HeaderActionControlsProps = {
   setGlobalSearchOpen: (open: boolean) => void;
   setIsActionMenuOpen: React.Dispatch<React.SetStateAction<boolean>>;
   setIsSettingsOpen: (open: boolean) => Promise<URLSearchParams>;
-  setIsTokenUsageOpen: (open: boolean) => Promise<URLSearchParams>;
   setIsQuotaPopoverOpen: React.Dispatch<React.SetStateAction<boolean>>;
   setRemoteAccessSettingsSection: React.Dispatch<React.SetStateAction<"atmos-computer" | "tunnel-connector" | null>>;
   setTheme: (theme: string) => void;
@@ -650,7 +650,6 @@ export function HeaderActionControls({
   setGlobalSearchOpen,
   setIsActionMenuOpen,
   setIsSettingsOpen,
-  setIsTokenUsageOpen,
   setIsQuotaPopoverOpen,
   setRemoteAccessSettingsSection,
   setTheme,
@@ -661,6 +660,7 @@ export function HeaderActionControls({
   updateLayout,
 }: HeaderActionControlsProps) {
   const t = useTranslations("header");
+  const router = useRouter();
   const showHeaderSummary = useLayoutSettingsStore((state) => state.showHeaderSummary);
   const showGlobalSearch = useLayoutSettingsStore((state) => state.showHeaderGlobalSearch);
   const showRemoteAccess = useLayoutSettingsStore((state) => state.showHeaderRemoteAccess);
@@ -952,7 +952,7 @@ export function HeaderActionControls({
             <MenuItem
               closeOnClick
               onClick={() => {
-                void setIsTokenUsageOpen(true);
+                router.push("/token-usage");
                 setIsActionMenuOpen(false);
               }}
             >

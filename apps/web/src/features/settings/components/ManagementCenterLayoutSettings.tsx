@@ -34,6 +34,7 @@ const ITEM_I18N_KEYS: Record<ManagementCenterItemId, string> = {
   agents: 'items.agents',
   automations: 'items.automations',
   'disk-analyzer': 'items.diskAnalyzer',
+  'token-usage': 'items.tokenUsage',
   canvas: 'items.canvas',
   kanban: 'items.kanban',
   'new-workspace': 'items.newWorkspace',

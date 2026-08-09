@@ -11,6 +11,7 @@ export type ManagementCenterItemId =
   | 'agents'
   | 'automations'
   | 'disk-analyzer'
+  | 'token-usage'
   | 'canvas'
   | 'kanban'
   | 'new-workspace';
@@ -31,6 +32,7 @@ export const MANAGEMENT_CENTER_ITEM_IDS: ManagementCenterItemId[] = [
   'agents',
   'automations',
   'disk-analyzer',
+  'token-usage',
   'canvas',
   'kanban',
   'new-workspace',
@@ -42,6 +44,7 @@ const ALWAYS_ON_DEFAULT_IDS: ManagementCenterItemId[] = [
   'skills',
   'automations',
   'disk-analyzer',
+  'token-usage',
   'canvas',
   'kanban',
   'new-workspace',
@@ -51,6 +54,7 @@ const ALWAYS_ON_DEFAULT_IDS: ManagementCenterItemId[] = [
 const DEFAULT_OUTSIDE_PLACEMENT_IDS: ManagementCenterItemId[] = [
   'skills',
   'automations',
+  'token-usage',
   'canvas',
   'kanban',
   'new-workspace',

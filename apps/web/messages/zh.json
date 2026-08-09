@@ -682,8 +682,8 @@
           "allTimeOverview": "全时段概览",
           "partialData": "部分数据"
         },
-        "title": "Token 用量驾驶舱",
-        "description": "热力图按年份过滤。摘要卡片和下方图表基于全时段本地会话历史，而不是 provider 配额 API。",
+        "title": "Token 用量",
+        "description": "本地会话历史",
         "lastRefresh": "上次刷新",
         "actions": {
           "refresh": "刷新",
@@ -693,42 +693,84 @@
           "notLoaded": "未加载"
         }
       },
+      "tabs": {
+        "overview": "总览",
+        "trends": "趋势"
+      },
+      "metric": {
+        "tokens": "Tokens",
+        "cost": "费用"
+      },
+      "dimension": {
+        "agent": "Agent",
+        "model": "模型"
+      },
+      "share": {
+        "trigger": "分享",
+        "dialogTitle": "分享页面",
+        "capturing": "截取中…",
+        "previewAlt": "Token 用量分享卡片",
+        "openPreview": "打开大图预览",
+        "closePreview": "关闭预览",
+        "save": "保存图片",
+        "saved": "已保存",
+        "sharePrimary": "我在 Atmos 的 AI agent 用量：{tokens} tokens · {cost}",
+        "status": {
+          "saved": "已下载。",
+          "shared": "已分享。",
+          "sharedWithImage": "已附带图片分享。",
+          "copiedOpen": "图片已复制 — 在帖子里粘贴（⌘V / Ctrl+V）。",
+          "downloadedOpen": "图片已下载 — 请在帖子里手动添加。",
+          "opened": "已打开分享窗口。"
+        },
+        "errors": {
+          "capture": "无法截取当前页面。"
+        }
+      },
+      "overview": {
+        "agentShare": "{percent}% · {tokens} tokens"
+      },
       "range": {
-        "withBounds": "{start} -> {end}",
+        "withBounds": "{start} → {end}",
         "empty": "无范围"
       },
       "stats": {
         "totalTokens": {
           "label": "总 Tokens"
         },
+        "totalCost": {
+          "label": "总费用"
+        },
         "messages": {
           "label": "消息数",
-          "note": "检测到 {count} 个 agents"
+          "note": "{count} 个 agents",
+          "modelsNote": "{count} 个模型"
         },
         "activeDays": {
           "label": "活跃天数",
-          "note": "全时段贡献覆盖"
+          "note": "全时段"
         },
         "estimatedCost": {
           "label": "预估成本",
-          "note": "基于本地会话历史估算"
+          "note": "本地估算"
         }
       },
       "heatmap": {
-        "kicker": "贡献热力图",
-        "loadingTitle": "正在加载年度贡献...",
-        "title": "{year} 共使用 {tokens} tokens",
+        "kicker": "热力图",
+        "loadingTitle": "加载中…",
+        "title": "{year} 共 {tokens} tokens",
         "selectedYearFallback": "所选年份",
-        "loadingDescription": "正在根据本地会话历史构建热力图",
+        "loadingDescription": "正在构建热力图…",
         "summary": "{activeDays} 个活跃日 · {messages} 条消息",
-        "selectYearPlaceholder": "选择年份",
-        "empty": "该年份没有本地 Token 活动。",
+        "selectYearPlaceholder": "年份",
+        "empty": "该年份没有活动。",
         "ariaLabel": "{date}：{tokens} tokens，{messages} 条消息",
         "legend": {
           "less": "少",
           "more": "多"
         },
         "agentShareEmpty": "该年份没有 agent 活动。",
+        "modelShareEmpty": "该年份没有模型活动。",
         "days": {
           "mon": "周一",
           "wed": "周三",
@@ -736,6 +778,7 @@
         },
         "popover": {
           "tokens": "Tokens",
+          "cost": "费用",
           "messages": "消息",
           "input": "输入",
           "output": "输出",
@@ -748,8 +791,8 @@
         }
       },
       "resolution": {
-        "kicker": "图表粒度",
-        "description": "在下方全时段图表之间切换日聚合和月聚合。",
+        "kicker": "粒度",
+        "description": "按日或按月查看图表",
         "options": {
           "month": "月",
           "day": "日"
@@ -757,11 +800,11 @@
       },
       "trend": {
         "kicker": "趋势",
-        "title": "按{resolution}的 Token 曲线"
+        "title": "按{resolution}的 Tokens"
       },
       "sources": {
         "kicker": "来源",
-        "title": "按{resolution}的 Agent 分布"
+        "title": "按{resolution}的 Agents"
       },
       "shape": {
         "kicker": "构成",
@@ -773,12 +816,17 @@
       "charts": {
         "curve": {
           "tokens": "Tokens",
+          "cost": "费用",
           "messages": "消息"
         },
         "mix": {
+          "title": "Token 构成",
+          "empty": "暂无 Token 构成数据。",
           "input": "输入",
           "output": "输出",
           "cache": "缓存",
+          "cacheRead": "缓存读取",
+          "cacheWrite": "缓存写入",
           "reasoning": "推理"
         },
         "radar": {
@@ -951,6 +999,7 @@
       "terminals": "终端 - ATMOS",
       "automations": "自动化 - ATMOS",
       "diskAnalyzer": "磁盘分析器 - ATMOS",
+      "tokenUsage": "Token 用量 - ATMOS",
       "kanban": "看板 - ATMOS"
     },
     "localModelDownload": {
@@ -995,6 +1044,10 @@
         "diskAnalyzer": {
           "title": "磁盘分析器",
           "description": "扫描本机磁盘占用并清理空间"
+        },
+        "tokenUsage": {
+          "title": "Token 用量",
+          "description": "查看模型 Token 使用和活动"
         }
       },
       "modalChat": {
@@ -1004,10 +1057,6 @@
       "llmProviders": {
         "title": "打开 LLM Providers",
         "description": "配置 LLM Provider 的 API Key 和模型"
-      },
-      "tokenUsage": {
-        "title": "打开 Token Usage",
-        "description": "查看模型 Token 使用和活动"
       },
       "aiQuota": {
         "title": "AI 配额使用",
@@ -1214,7 +1263,8 @@
           "canvas": "画布",
           "kanban": "看板",
           "newWorkspace": "新建工作区",
-          "diskAnalyzer": "磁盘分析器"
+          "diskAnalyzer": "磁盘分析器",
+          "tokenUsage": "Token 用量"
         }
       },
       "rightSidebar": {
@@ -5290,6 +5340,10 @@
           "diskAnalyzer": {
             "title": "Disk Analyzer",
             "description": "分析 Atmos 相关磁盘占用并安全清理。"
+          },
+          "tokenUsage": {
+            "title": "Token 用量",
+            "description": "查看模型 Token 使用与本地会话活动。"
           },
           "canvas": {
             "title": "Canvas",
