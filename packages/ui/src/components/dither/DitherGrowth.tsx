@@ -12,6 +12,7 @@ import { useDitherCanvas } from "../../lib/dither/use-dither-canvas";
 import {
   DitherTooltip,
   smoothToward,
+  type DitherTooltipSliding,
   type DitherTooltipState,
 } from "./DitherTooltip";
 
@@ -23,6 +24,13 @@ export type DitherGrowthProps = {
   interactive?: boolean;
   valueLabel?: string;
   formatValue?: (value: number) => string;
+  /** Optional sliding-number parts for scrub tooltip values. */
+  formatSliding?: (value: number) => DitherTooltipSliding | null | undefined;
+  /**
+   * Semantic domain id (e.g. `"tokens"` / `"cost"`). When it changes, force a
+   * grow-in instead of cross-scale index morph.
+   */
+  domainKey?: string;
 };
 
 /** Evenly spaced indices, always including first and last when count > 1. */
@@ -59,6 +67,8 @@ export function DitherGrowth({
   interactive = true,
   valueLabel = "Value",
   formatValue = (v) => Math.round(v).toLocaleString(),
+  formatSliding,
+  domainKey,
 }: DitherGrowthProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const pointerRef = useRef({
@@ -75,6 +85,8 @@ export function DitherGrowth({
   labelsRef.current = labels;
   const formatRef = useRef(formatValue);
   formatRef.current = formatValue;
+  const formatSlidingRef = useRef(formatSliding);
+  formatSlidingRef.current = formatSliding;
   const valueLabelRef = useRef(valueLabel);
   valueLabelRef.current = valueLabel;
   const clientRef = useRef({ x: 0, y: 0 });
@@ -82,13 +94,17 @@ export function DitherGrowth({
   const morphRef = useRef<SeriesMorph | null>(null);
   if (!morphRef.current) morphRef.current = createSeriesMorph();
   const sigRef = useRef("");
+  const domainRef = useRef(domainKey);
 
   // Retarget during render so the first paint already has morph state (ref-only).
   const valuesKey = seriesSignature(values);
-  if (sigRef.current !== valuesKey) {
+  const domainChanged =
+    domainKey !== undefined && domainRef.current !== domainKey;
+  if (domainKey !== undefined) domainRef.current = domainKey;
+  if (sigRef.current !== valuesKey || domainChanged) {
     const prevLen = morphRef.current.current().length;
-    // Month/day (and similar) length jumps: grow-in instead of misaligned pad morph.
-    if (prevLen > 0 && prevLen !== values.length) {
+    // Domain flip (tokens↔cost) or length jump: grow-in from zero.
+    if (domainChanged || (prevLen > 0 && prevLen !== values.length)) {
       morphRef.current.retargetEnter(values);
     } else {
       morphRef.current.retarget(values);
@@ -98,7 +114,7 @@ export function DitherGrowth({
 
   const [tooltip, setTooltip] = useState<DitherTooltipState | null>(null);
 
-  const publishTooltip = useCallback((idx: number | null, data: number[]) => {
+  const publishTooltip = useCallback((idx: number | null, _data: number[]) => {
     if (idx === null) {
       if (lastTipKey.current !== "") {
         lastTipKey.current = "";
@@ -106,12 +122,24 @@ export function DitherGrowth({
       }
       return;
     }
+    // Prefer target series for tooltip amounts so digit springs aren't fed
+    // mid-morph floats while the curve is still animating.
     const label = labelsRef.current?.[idx];
-    const value = data[idx] ?? 0;
-    const key = `${idx}:${value}:${clientRef.current.x}:${clientRef.current.y}`;
+    const value = valuesRef.current[idx] ?? 0;
     const contentKey = `${idx}:${value}`;
-    if (lastTipKey.current.startsWith(contentKey) && lastTipKey.current === key) return;
-    lastTipKey.current = key;
+    if (lastTipKey.current === contentKey) {
+      setTooltip((prev) =>
+        prev
+          ? {
+              ...prev,
+              clientX: clientRef.current.x,
+              clientY: clientRef.current.y,
+            }
+          : prev,
+      );
+      return;
+    }
+    lastTipKey.current = contentKey;
     setTooltip({
       clientX: clientRef.current.x,
       clientY: clientRef.current.y,
@@ -120,6 +148,7 @@ export function DitherGrowth({
         {
           label: valueLabelRef.current,
           value: formatRef.current(value),
+          sliding: formatSlidingRef.current?.(value) ?? undefined,
         },
       ],
     });
@@ -142,8 +171,12 @@ export function DitherGrowth({
       const data = morphRef.current!.sample(reducedMotion);
       if (data.length === 0 || w < 2 || h < 2) return;
 
-      const curMax = Math.max(0, ...data);
-      const axisMax = growthAxisMax(curMax);
+      // Lock axis to the *target* series (props), not mid-morph samples.
+      // Otherwise every point scales by the same ease and the curve stays
+      // full-height every frame — looks like a hard jump, not a grow/morph.
+      const targetPeak = Math.max(0, ...valuesRef.current);
+      const samplePeak = Math.max(0, ...data);
+      const axisMax = growthAxisMax(targetPeak > 0 ? targetPeak : samplePeak);
       const yTickCount = 3;
       const yTickValues = Array.from(
         { length: yTickCount },

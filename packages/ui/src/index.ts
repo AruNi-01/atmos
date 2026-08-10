@@ -123,7 +123,10 @@ export type {
   DitherPanelProps,
   DitherGrowthProps,
   DitherHeatmapCell,
+  DitherHeatmapHoverInfo,
+  DitherHeatmapMonthLabel,
   DitherHeatmapProps,
+  DitherHeatmapWeekdayLabel,
   DitherStackedBar,
   DitherStackedBarsProps,
   DitherDonutProps,
@@ -136,6 +139,7 @@ export type {
   DitherRevenueSeries,
   DitherTooltipLine,
   DitherTooltipProps,
+  DitherTooltipSliding,
   DitherTooltipState,
   DitherTheme,
 } from "./components/dither";
@@ -148,6 +152,18 @@ export { AnimatedNumber } from "./components/ui/animated-number";
 export type { AnimatedNumberProps } from "./components/ui/animated-number";
 export { SlidingNumber } from "./components/ui/sliding-number";
 export type { SlidingNumberProps } from "./components/ui/sliding-number";
+export {
+  SlidingMetric,
+  compactSlidingParts,
+  currencySlidingParts,
+  percentSlidingParts,
+  detailedSlidingParts,
+  localeDecimalSeparator,
+} from "./components/ui/sliding-metric";
+export type {
+  SlidingMetricParts,
+  SlidingMetricProps,
+} from "./components/ui/sliding-metric";
 export {
   Sidebar as MotionSidebar,
   SidebarContent as MotionSidebarContent,
@@ -198,6 +214,8 @@ export { GitPullRequestCreateIcon } from "./components/icons/git-pull-request-cr
 export type { GitPullRequestCreateIconHandle } from "./components/icons/git-pull-request-create-icon";
 export { GitPullRequestClosedIcon } from "./components/icons/git-pull-request-closed-icon";
 export type { GitPullRequestClosedIconHandle } from "./components/icons/git-pull-request-closed-icon";
+export { UserIcon } from "./components/icons/user-icon";
+export type { UserIconHandle } from "./components/icons/user-icon";
 
 // Utilities
 export { cn } from "./lib/utils";

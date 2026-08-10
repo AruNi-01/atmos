@@ -24,6 +24,7 @@ import { useDitherCanvas } from "../../lib/dither/use-dither-canvas";
 import {
   DitherTooltip,
   smoothToward,
+  type DitherTooltipSliding,
   type DitherTooltipState,
 } from "./DitherTooltip";
 
@@ -42,6 +43,15 @@ export type DitherStackedBarsProps = {
   theme?: DitherTheme;
   className?: string;
   formatValue?: (value: number) => string;
+  /** Optional sliding-number parts for scrub tooltip values. */
+  formatSliding?: (value: number) => DitherTooltipSliding | null | undefined;
+  /**
+   * Semantic domain id (e.g. `"tokens"` / `"cost"`). When it changes, force a
+   * grow-in instead of cross-scale index morph.
+   */
+  domainKey?: string;
+  /** Tooltip row label for the bar total (default "Total"). */
+  totalLabel?: string;
 };
 
 /** Stacked bars — Amicro fat towers + smooth hover + tooltip. */
@@ -53,6 +63,9 @@ export function DitherStackedBars({
   theme = "dark",
   className,
   formatValue = (v) => Math.round(v).toLocaleString(),
+  formatSliding,
+  domainKey,
+  totalLabel = "Total",
 }: DitherStackedBarsProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const barsRef = useRef(bars);
@@ -65,6 +78,10 @@ export function DitherStackedBars({
   colorsRef.current = colors;
   const formatRef = useRef(formatValue);
   formatRef.current = formatValue;
+  const formatSlidingRef = useRef(formatSliding);
+  formatSlidingRef.current = formatSliding;
+  const totalLabelRef = useRef(totalLabel);
+  totalLabelRef.current = totalLabel;
 
   // Per-bar and per-band smooth weights
   const barWeightsRef = useRef<number[]>([]);
@@ -77,14 +94,25 @@ export function DitherStackedBars({
   const lastTipKey = useRef("");
   /** Last drawn segment grid (morphing heights) for pointer hit-test. */
   const lastDrawnSegsRef = useRef<number[][]>([]);
+  /** Frozen Y-axis max for hit-test (matches draw). */
+  const axisMaxRef = useRef(1);
   const morphRef = useRef<GridMorph | null>(null);
   if (!morphRef.current) morphRef.current = createGridMorph();
   const sigRef = useRef("");
+  const domainRef = useRef(domainKey);
 
   // Retarget during render so the first paint already has morph state (ref-only).
   const barsKey = gridSignature(bars.map((b) => b.segments));
-  if (sigRef.current !== barsKey) {
-    morphRef.current.retarget(bars.map((b) => b.segments));
+  const domainChanged =
+    domainKey !== undefined && domainRef.current !== domainKey;
+  if (domainKey !== undefined) domainRef.current = domainKey;
+  if (sigRef.current !== barsKey || domainChanged) {
+    const next = bars.map((b) => b.segments);
+    if (domainChanged) {
+      morphRef.current.retargetEnter(next);
+    } else {
+      morphRef.current.retarget(next);
+    }
     sigRef.current = barsKey;
   }
 
@@ -117,13 +145,16 @@ export function DitherStackedBars({
       const padB = 16;
       const plotH = h - padB;
 
-      const maxTotal = Math.max(
+      // Lock axis to target bar totals (props), not mid-morph samples —
+      // otherwise niceAxisMax snaps every frame and bars look like they jump.
+      const targetMaxTotal = Math.max(
         1,
-        ...segsGrid
-          .slice(0, n)
-          .map((segs) => segs.reduce((s, v) => s + Math.max(0, v), 0)),
+        ...meta.map((bar) =>
+          bar.segments.reduce((s, v) => s + Math.max(0, v), 0),
+        ),
       );
-      const axisMax = niceAxisMax(maxTotal);
+      const axisMax = niceAxisMax(targetMaxTotal);
+      axisMaxRef.current = axisMax;
       const HIGHLIGHT = theme === "dark" ? "#FFFFFF" : "#0F172A";
       const tAnim = reducedMotion ? 0 : time;
       const rate = reducedMotion ? 1 : 0.15;
@@ -165,15 +196,17 @@ export function DitherStackedBars({
         }
       }
 
-      // Tooltip — use morphing display values so heights match.
-      if (tb !== null && tband !== null && meta[tb] && segsGrid[tb]) {
+      // Tooltip — prefer target (props) amounts so digit springs aren't fed
+      // mid-morph floats every frame.
+      if (tb !== null && tband !== null && meta[tb]) {
         const bar = meta[tb]!;
-        const segs = segsGrid[tb]!;
-        const val = segs[tband] ?? 0;
+        const targetSegs = bar.segments;
+        const val = Math.max(0, targetSegs[tband] ?? 0);
+        const total = targetSegs.reduce((s, v) => s + Math.max(0, v), 0);
         const segLabel = labelsRef.current?.[tband] ?? `Segment ${tband + 1}`;
-        const key = `${tb}-${tband}:${val}:${clientRef.current.x}`;
-        if (lastTipKey.current !== key) {
-          lastTipKey.current = key;
+        const contentKey = `${tb}-${tband}:${val}:${total}`;
+        if (lastTipKey.current !== contentKey) {
+          lastTipKey.current = contentKey;
           const segIcon = iconsRef.current?.[tband];
           setTooltip({
             clientX: clientRef.current.x,
@@ -183,19 +216,29 @@ export function DitherStackedBars({
               {
                 label: segLabel,
                 value: formatRef.current(val),
+                sliding: formatSlidingRef.current?.(val) ?? undefined,
                 icon: segIcon,
                 color: segIcon
                   ? undefined
                   : (palette?.[tband] ?? bandColor(tband, theme)),
               },
               {
-                label: "Total",
-                value: formatRef.current(
-                  segs.reduce((s, v) => s + Math.max(0, v), 0),
-                ),
+                label: totalLabelRef.current,
+                value: formatRef.current(total),
+                sliding: formatSlidingRef.current?.(total) ?? undefined,
               },
             ],
           });
+        } else {
+          setTooltip((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  clientX: clientRef.current.x,
+                  clientY: clientRef.current.y,
+                }
+              : prev,
+          );
         }
       } else if (maxBarW < 0.05 && lastTipKey.current !== "") {
         lastTipKey.current = "";
@@ -310,15 +353,7 @@ export function DitherStackedBars({
       return;
     }
     const segs = drawn[bi] ?? data[bi]!.segments;
-    const maxTotal = Math.max(
-      1,
-      ...(drawn.length > 0
-        ? drawn.map((s) => s.reduce((sum, v) => sum + Math.max(0, v), 0))
-        : data.map((b) =>
-            b.segments.reduce((s, v) => s + Math.max(0, v), 0),
-          )),
-    );
-    const axisMax = niceAxisMax(maxTotal);
+    const axisMax = axisMaxRef.current || 1;
     let currentY = plotH;
     for (let j = 0; j < segs.length; j++) {
       const val = Math.max(0, segs[j]!);

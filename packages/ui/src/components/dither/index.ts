@@ -5,7 +5,13 @@ export { DitherGrowth } from "./DitherGrowth";
 export type { DitherGrowthProps } from "./DitherGrowth";
 
 export { DitherHeatmap } from "./DitherHeatmap";
-export type { DitherHeatmapCell, DitherHeatmapProps } from "./DitherHeatmap";
+export type {
+  DitherHeatmapCell,
+  DitherHeatmapHoverInfo,
+  DitherHeatmapMonthLabel,
+  DitherHeatmapProps,
+  DitherHeatmapWeekdayLabel,
+} from "./DitherHeatmap";
 
 export { DitherStackedBars } from "./DitherStackedBars";
 export type { DitherStackedBar, DitherStackedBarsProps } from "./DitherStackedBars";
@@ -29,6 +35,7 @@ export { DitherTooltip } from "./DitherTooltip";
 export type {
   DitherTooltipLine,
   DitherTooltipProps,
+  DitherTooltipSliding,
   DitherTooltipState,
 } from "./DitherTooltip";
 

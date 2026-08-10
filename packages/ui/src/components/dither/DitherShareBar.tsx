@@ -22,6 +22,7 @@ import { useDitherCanvas } from "../../lib/dither/use-dither-canvas";
 import {
   DitherTooltip,
   smoothToward,
+  type DitherTooltipSliding,
   type DitherTooltipState,
 } from "./DitherTooltip";
 
@@ -38,6 +39,14 @@ export type DitherShareBarProps = {
   className?: string;
   formatValue?: (value: number) => string;
   formatShare?: (share: number) => string;
+  /** Optional sliding-number parts for tooltip absolute values. */
+  formatSliding?: (value: number) => DitherTooltipSliding | null | undefined;
+  /** Optional sliding-number parts for tooltip share (0–1). */
+  formatShareSliding?: (share: number) => DitherTooltipSliding | null | undefined;
+  /** Tooltip row label for the absolute amount (default "Value"). */
+  valueLabel?: string;
+  /** Tooltip row label for the share percent (default "Share"). */
+  shareLabel?: string;
 };
 
 /**
@@ -50,6 +59,10 @@ export function DitherShareBar({
   className,
   formatValue = (v) => Math.round(v).toLocaleString(),
   formatShare = (s) => `${Math.round(s * 1000) / 10}%`,
+  formatSliding,
+  formatShareSliding,
+  valueLabel = "Value",
+  shareLabel = "Share",
 }: DitherShareBarProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const segmentsRef = useRef(segments);
@@ -58,6 +71,14 @@ export function DitherShareBar({
   formatValueRef.current = formatValue;
   const formatShareRef = useRef(formatShare);
   formatShareRef.current = formatShare;
+  const formatSlidingRef = useRef(formatSliding);
+  formatSlidingRef.current = formatSliding;
+  const formatShareSlidingRef = useRef(formatShareSliding);
+  formatShareSlidingRef.current = formatShareSliding;
+  const valueLabelRef = useRef(valueLabel);
+  valueLabelRef.current = valueLabel;
+  const shareLabelRef = useRef(shareLabel);
+  shareLabelRef.current = shareLabel;
   const weightsRef = useRef<number[]>([]);
   const targetIdxRef = useRef<number | null>(null);
   const clientRef = useRef({ x: 0, y: 0 });
@@ -174,26 +195,49 @@ export function DitherShareBar({
         x = x1;
       }
 
-      // Hover tooltip
-      if (target !== null && segs[target] && layout[target]) {
+      // Hover tooltip — use target segment values (not mid-morph) so scrubbing
+      // between slices springs digits instead of fighting intermediate floats.
+      if (target !== null && segs[target]) {
         const seg = segs[target]!;
-        const share = layout[target]!.share;
-        const displayVal = values[target] ?? seg.value;
-        const key = `${seg.id}:${displayVal}:${clientRef.current.x}:${clientRef.current.y}`;
-        if (lastTipKey.current !== key) {
-          lastTipKey.current = key;
+        const displayVal = Math.max(0, seg.value);
+        const targetTotal = segs.reduce(
+          (sum, s) => sum + Math.max(0, s.value),
+          0,
+        );
+        const share = targetTotal > 0 ? displayVal / targetTotal : 0;
+        // Content identity only — pointer moves always refresh position.
+        const contentKey = `${seg.id}:${displayVal}:${share}`;
+        if (lastTipKey.current !== contentKey) {
+          lastTipKey.current = contentKey;
           setTooltip({
             clientX: clientRef.current.x,
             clientY: clientRef.current.y,
             title: seg.label,
             lines: [
               {
-                label: formatShareRef.current(share),
+                label: valueLabelRef.current,
                 value: formatValueRef.current(displayVal),
+                sliding: formatSlidingRef.current?.(displayVal) ?? undefined,
                 color: seg.color ?? bandColor(target, theme),
+              },
+              {
+                label: shareLabelRef.current,
+                value: formatShareRef.current(share),
+                sliding: formatShareSlidingRef.current?.(share) ?? undefined,
               },
             ],
           });
+        } else {
+          // Same slice — only chase the pointer.
+          setTooltip((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  clientX: clientRef.current.x,
+                  clientY: clientRef.current.y,
+                }
+              : prev,
+          );
         }
       } else if (lastTipKey.current !== "") {
         lastTipKey.current = "";

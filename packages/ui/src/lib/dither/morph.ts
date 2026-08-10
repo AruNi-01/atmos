@@ -32,6 +32,35 @@ export function alignSeries(from: readonly number[], to: readonly number[]): num
 }
 
 /**
+ * Peak ratio above which index-aligned morph is treated as a unit/scale jump
+ * (e.g. token counts ↔ USD). Cross-scale morph keeps similar *shapes* (axis
+ * normalizes) while labels already use the new unit — so axes flash "$XM"
+ * and the chart appears not to change.
+ */
+export const SERIES_SCALE_ENTER_RATIO = 20;
+
+/** True when series peaks differ by ~an order of magnitude or more. */
+export function seriesScaleDiscontinuity(
+  from: readonly number[],
+  to: readonly number[],
+  ratioThreshold = SERIES_SCALE_ENTER_RATIO,
+): boolean {
+  if (from.length === 0 || to.length === 0) return false;
+  let fromMax = 0;
+  let toMax = 0;
+  for (const v of from) {
+    if (Number.isFinite(v)) fromMax = Math.max(fromMax, Math.abs(v));
+  }
+  for (const v of to) {
+    if (Number.isFinite(v)) toMax = Math.max(toMax, Math.abs(v));
+  }
+  if (fromMax === 0 && toMax === 0) return false;
+  if (fromMax === 0 || toMax === 0) return true;
+  const ratio = toMax / fromMax;
+  return ratio >= ratioThreshold || ratio <= 1 / ratioThreshold;
+}
+
+/**
  * Mutable morph state for a flat number series.
  * Call `retarget(next)` when data changes; `sample(reducedMotion)` each draw frame.
  */
@@ -39,6 +68,7 @@ export type SeriesMorph = {
   /**
    * Morph toward `next`. Same-length series interpolate mid-animation;
    * length changes grow new indices from 0 / drop extras.
+   * Large scale jumps (tokens ↔ cost) force grow-in instead.
    */
   retarget: (next: readonly number[]) => void;
   /**
@@ -74,8 +104,16 @@ export function createSeriesMorph(initial: readonly number[] = []): SeriesMorph 
         begin(to, to.map(() => 0));
         return;
       }
+      const fromAligned = alignSeries(current, to);
+      // Tokens ↔ cost (and similar unit flips): grow-in so axis labels stay
+      // in the new unit and the chart actually re-enters instead of a no-op
+      // shape morph at a wildly different absolute scale.
+      if (seriesScaleDiscontinuity(fromAligned, to)) {
+        begin(to, to.map(() => 0));
+        return;
+      }
       // Capture mid-animation position so rapid tab switches stay smooth.
-      begin(to, alignSeries(current, to));
+      begin(to, fromAligned);
     },
     retargetEnter(next) {
       const to = next.map((v) => Math.max(0, Number.isFinite(v) ? v : 0));
@@ -105,6 +143,8 @@ export function createSeriesMorph(initial: readonly number[] = []): SeriesMorph 
  */
 export type GridMorph = {
   retarget: (next: readonly (readonly number[])[]) => void;
+  /** Force grow-in from zero regardless of shape (e.g. tokens↔cost). */
+  retargetEnter: (next: readonly (readonly number[])[]) => void;
   sample: (reducedMotion: boolean) => number[][];
 };
 
@@ -116,18 +156,27 @@ export function createGridMorph(
   let rowCount = initial.length;
   let shapeKey = shapeSignature(initial);
 
+  const applyShape = (next: readonly (readonly number[])[]) => {
+    rowCount = next.length;
+    rowLens = next.map((row) => row.length);
+    shapeKey = shapeSignature(next);
+  };
+
   return {
     retarget(next) {
       const nextShape = shapeSignature(next);
-      rowCount = next.length;
-      rowLens = next.map((row) => row.length);
       const values = flattenGrid(next);
       if (nextShape !== shapeKey) {
-        shapeKey = nextShape;
+        applyShape(next);
         flat.retargetEnter(values);
       } else {
+        applyShape(next);
         flat.retarget(values);
       }
+    },
+    retargetEnter(next) {
+      applyShape(next);
+      flat.retargetEnter(flattenGrid(next));
     },
     sample(reducedMotion) {
       const values = flat.sample(reducedMotion);
