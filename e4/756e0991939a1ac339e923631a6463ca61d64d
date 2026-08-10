@@ -1,0 +1,30 @@
+packages/ui/src/components/dither/DitherDonut.tsx
+  h_5be255725524c8 19-23,65-76,95-97,125-127,131,141-142,145-147,169,250,267-268,274-276
+packages/ui/src/components/dither/DitherFunnel.tsx
+  h_5be255725524c8 3,11-15,57-60,63,65,67-74,90-93,101,111,123,144,147
+packages/ui/src/components/dither/DitherGrowth.tsx
+  h_5be255725524c8 6-10,82-97,101,142,182,184,287,290
+packages/ui/src/components/dither/DitherHeatmap.tsx
+  h_5be255725524c8 3-7,10-14,48-61,76-98,120,131-132,135-136,139,141,148-157,162-163,173-175,186,200,207
+packages/ui/src/components/dither/DitherRevenueLines.tsx
+  h_5be255725524c8 12-16,64-66,69-75,90-101,256
+packages/ui/src/components/dither/DitherShareBar.tsx
+  h_5be255725524c8 3-8,16-20,65-67,70-85,101,104-107,115-116,119,131,133-134,153,181-182,192,211
+packages/ui/src/components/dither/DitherStackedBars.tsx
+  h_5be255725524c8 18-22,64-65,78-89,107-110,112-113,122-124,130,137-139,152-156,168-173,189,194,217,222,241,271,274,277,282,292-296,312,315-319,325
+packages/ui/src/lib/dither/morph.ts
+  h_5be255725524c8 1-179
+packages/ui/src/lib/dither/use-dither-canvas.ts
+  h_5be255725524c8 16-20,25-29,116
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "e4756e0991939a1ac339e923631a6463ca61d64d",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
