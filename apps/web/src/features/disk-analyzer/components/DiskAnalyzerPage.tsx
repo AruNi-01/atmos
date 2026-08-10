@@ -611,29 +611,32 @@ export function DiskAnalyzerPage() {
                                       align="end"
                                       side="left"
                                       sideOffset={8}
-                                      className="w-72 p-3"
+                                      className="w-72 max-w-[min(18rem,calc(100vw-2rem))] overflow-hidden p-3"
                                       onClick={(e) => e.stopPropagation()}
                                     >
-                                      <div className="space-y-3">
-                                        <div className="space-y-1">
+                                      <div className="min-w-0 space-y-3">
+                                        <div className="min-w-0 space-y-1">
                                           <p className="text-sm font-medium">
                                             {t("deleteTitle")}
                                           </p>
-                                          <p className="whitespace-pre-wrap text-xs leading-relaxed text-muted-foreground">
+                                          <p className="min-w-0 whitespace-pre-wrap break-all text-xs leading-relaxed text-muted-foreground">
                                             {t("deleteDescription", {
                                               path: child.path,
                                               size: formatBytes(child.size),
                                             })}
                                           </p>
                                         </div>
-                                        <label className="flex items-center gap-2 text-xs">
+                                        <label className="flex min-w-0 items-start gap-2 text-xs leading-snug">
                                           <Checkbox
+                                            className="mt-0.5 shrink-0"
                                             checked={permanent}
                                             onCheckedChange={(checked) =>
                                               setPermanent(checked === true)
                                             }
                                           />
-                                          {t("permanentDelete")}
+                                          <span className="min-w-0 break-words">
+                                            {t("permanentDelete")}
+                                          </span>
                                         </label>
                                         {deleteError && listDeletePath === child.path ? (
                                           <div className="text-xs text-destructive">
@@ -686,19 +689,20 @@ export function DiskAnalyzerPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{t("deleteTitle")}</DialogTitle>
-            <DialogDescription>
+            <DialogDescription className="min-w-0 whitespace-pre-wrap break-all">
               {t("deleteDescription", {
                 path: analyzer.selectedNode?.path ?? "",
                 size: formatBytes(analyzer.selectedNode?.size ?? 0),
               })}
             </DialogDescription>
           </DialogHeader>
-          <label className="flex items-center gap-2 text-sm">
+          <label className="flex min-w-0 items-start gap-2 text-sm leading-snug">
             <Checkbox
+              className="mt-0.5 shrink-0"
               checked={permanent}
               onCheckedChange={(checked) => setPermanent(checked === true)}
             />
-            {t("permanentDelete")}
+            <span className="min-w-0 break-words">{t("permanentDelete")}</span>
           </label>
           {deleteError ? (
             <div className="text-sm text-destructive">{deleteError}</div>
