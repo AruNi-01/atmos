@@ -1,0 +1,24 @@
+apps/api/src/api/ws/message/github.rs
+  h_5be255725524c8 142-153,157-159
+apps/api/src/api/ws/router/github.rs
+  h_5be255725524c8 21-22,174,191,193-197,250-309
+apps/web/src/api/ws/github-api.ts
+  h_5be255725524c8 121-126,129
+apps/web/src/features/task/components/TaskGithubCreateIssueDialog.tsx
+  h_5be255725524c8 45,128-133,152-187,219-220,364-370,378-401,412-419,422-508,511-553,580-581,583,585,588-590,592-609
+apps/web/src/features/task/lib/github-issue-templates.ts
+  h_5be255725524c8 7-10,33,41-42,46-49,285-290,294,326-355,358-364,417-419
+packages/api-types/src/ws/dto/github.ts
+  h_5be255725524c8 144-150,153-154
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "ffff9041883ff07175a993fab8b955e1c74a647d",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
