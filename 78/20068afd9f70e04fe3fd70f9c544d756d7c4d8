@@ -1,0 +1,14 @@
+crates/runtime-manager/src/supervisor.rs
+  h_5be255725524c8 11,13
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "7820068afd9f70e04fe3fd70f9c544d756d7c4d8",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
