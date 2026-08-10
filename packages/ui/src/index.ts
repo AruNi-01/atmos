@@ -99,6 +99,10 @@ export { ShineBorder } from "./components/ui/shine-border";
 export { TextShimmer } from "./components/ui/text-shimmer";
 export { DotmSquare12 } from "./components/ui/dotm-square-12";
 export type { DotmSquare12Props } from "./components/ui/dotm-square-12";
+export { TerminalLoader } from "./components/ui/terminal-loader";
+export type { TerminalLoaderProps } from "./components/ui/terminal-loader";
+export { ImageGenerationCanvas } from "./components/ui/image-generation";
+export type { ImageGenerationCanvasProps } from "./components/ui/image-generation";
 
 // Dither / ordered-dot charts (MIT-adapted Amicro simple-comp style)
 export {
@@ -182,6 +186,11 @@ export { BotMessageSquareIcon } from "./components/icons/bot-message-square";
 export type { BotMessageSquareHandle } from "./components/icons/bot-message-square";
 export { GithubIcon } from "./components/icons/github-icon";
 export type { GithubIconHandle } from "./components/icons/github-icon";
+export { LinearIcon } from "./components/icons/linear-icon";
+export { XIcon } from "./components/icons/x-icon";
+export { RedditIcon } from "./components/icons/reddit-icon";
+export { FacebookIcon } from "./components/icons/facebook-icon";
+export { ThreadsIcon } from "./components/icons/threads-icon";
 export { default as ArrowNarrowUpDashedIcon } from "./components/icons/arrow-narrow-up-dashed-icon";
 export { default as ArrowNarrowDownDashedIcon } from "./components/icons/arrow-narrow-down-dashed-icon";
 export { default as SimpleCheckedIcon } from "./components/icons/simple-checked-icon";

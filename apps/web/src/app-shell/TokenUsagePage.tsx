@@ -16,6 +16,7 @@ import {
   SelectValue,
   TabsSubtle,
   TabsSubtleItem,
+  TerminalLoader,
   cn,
   type DitherHeatmapCell,
   type DitherTheme,
@@ -373,129 +374,148 @@ export function TokenUsagePage() {
         }}
       />
 
-      <div className="relative z-[1] min-h-0 flex-1 overflow-y-auto overscroll-contain">
-        <div className="mx-auto flex w-full max-w-[1100px] flex-col gap-4 px-4 py-4 sm:px-5 sm:py-5">
-          {/* Toolbar — excluded from share screenshots */}
-          <div
-            className="flex flex-wrap items-center gap-x-3 gap-y-2"
-            {...{ ["data-token-usage-share-exclude"]: "" }}
-          >
-            <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2">
-              <TabsSubtle
-                activeLabel
-                idPrefix="token-usage-metric"
-                selectedIndex={metric === "tokens" ? 0 : 1}
-                onSelect={(index) => {
-                  setMetric(index === 0 ? "tokens" : "cost");
-                }}
-                className="min-w-0"
-              >
-                <TabsSubtleItem
-                  index={0}
-                  icon={Hash}
-                  label={t("metric.tokens")}
+      {loading ? (
+        <div
+          className="relative z-[1] flex min-h-0 flex-1 items-center justify-center p-12 select-none"
+          role="status"
+          aria-live="polite"
+          aria-busy="true"
+          aria-label={t("heatmap.loadingDescription")}
+        >
+          <TerminalLoader
+            rows={5}
+            cols={40}
+            blockWidth={3}
+            speed={50}
+            color={isDark ? "text-white" : "text-black"}
+            bgColor={isDark ? "bg-white" : "bg-black"}
+          />
+        </div>
+      ) : (
+        <div className="relative z-[1] min-h-0 flex-1 overflow-y-auto overscroll-contain">
+          <div className="mx-auto flex w-full max-w-[1100px] flex-col gap-4 px-4 py-4 sm:px-5 sm:py-5">
+            {/* Toolbar — excluded from share screenshots */}
+            <div
+              className="flex flex-wrap items-center gap-x-3 gap-y-2"
+              {...{ ["data-token-usage-share-exclude"]: "" }}
+            >
+              <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2">
+                <TabsSubtle
+                  activeLabel
+                  idPrefix="token-usage-metric"
+                  selectedIndex={metric === "tokens" ? 0 : 1}
+                  onSelect={(index) => {
+                    setMetric(index === 0 ? "tokens" : "cost");
+                  }}
+                  className="min-w-0"
+                >
+                  <TabsSubtleItem
+                    index={0}
+                    icon={Hash}
+                    label={t("metric.tokens")}
+                  />
+                  <TabsSubtleItem
+                    index={1}
+                    icon={DollarSign}
+                    label={t("metric.cost")}
+                  />
+                </TabsSubtle>
+                <div
+                  className={cn(
+                    "h-4 w-px shrink-0 self-center",
+                    isDark ? "bg-white/15" : "bg-black/15",
+                  )}
+                  role="separator"
+                  aria-hidden
                 />
-                <TabsSubtleItem
-                  index={1}
-                  icon={DollarSign}
-                  label={t("metric.cost")}
-                />
-              </TabsSubtle>
-              <div
-                className={cn(
-                  "h-4 w-px shrink-0 self-center",
-                  isDark ? "bg-white/15" : "bg-black/15",
-                )}
-                role="separator"
-                aria-hidden
-              />
-              <TabsSubtle
-                activeLabel
-                idPrefix="token-usage-dimension"
-                selectedIndex={dimension === "agent" ? 0 : 1}
-                onSelect={(index) => {
-                  setDimension(index === 0 ? "agent" : "model");
-                }}
-                className="min-w-0"
-              >
-                <TabsSubtleItem
-                  index={0}
-                  icon={Bot}
-                  label={t("dimension.agent")}
-                />
-                <TabsSubtleItem
-                  index={1}
-                  icon={Cpu}
-                  label={t("dimension.model")}
-                />
-              </TabsSubtle>
-            </div>
-            <div className="ml-auto shrink-0">
-              <TokenUsageSharePopover
-                captureTargetRef={captureTargetRef}
-                locale={locale}
-                isDark={isDark}
-                totalTokens={overview?.summary.total_tokens ?? 0}
-                totalCost={overview?.summary.total_cost_usd ?? null}
-                disabled={loading || !overview}
-              />
-            </div>
-          </div>
-
-          {/* Capture target: overview body only (no tabs / share chrome). */}
-          <div
-            ref={captureTargetRef}
-            className={cn("box-border flex w-full flex-col gap-4 p-4 sm:p-5", shell)}
-          >
-            {error ? (
-              <div className="flex items-center gap-3 rounded-2xl border border-destructive/30 bg-destructive/10 px-4 py-4">
-                <Activity className="size-4 shrink-0 text-destructive" />
-                <div className="space-y-0.5">
-                  <div className="text-sm font-medium">{t("errors.loadOverviewTitle")}</div>
-                  <div className={cn("text-xs", muted)}>{error}</div>
-                </div>
+                <TabsSubtle
+                  activeLabel
+                  idPrefix="token-usage-dimension"
+                  selectedIndex={dimension === "agent" ? 0 : 1}
+                  onSelect={(index) => {
+                    setDimension(index === 0 ? "agent" : "model");
+                  }}
+                  className="min-w-0"
+                >
+                  <TabsSubtleItem
+                    index={0}
+                    icon={Bot}
+                    label={t("dimension.agent")}
+                  />
+                  <TabsSubtleItem
+                    index={1}
+                    icon={Cpu}
+                    label={t("dimension.model")}
+                  />
+                </TabsSubtle>
               </div>
-            ) : null}
+              <div className="ml-auto shrink-0">
+                <TokenUsageSharePopover
+                  captureTargetRef={captureTargetRef}
+                  locale={locale}
+                  isDark={isDark}
+                  totalTokens={overview?.summary.total_tokens ?? 0}
+                  totalCost={overview?.summary.total_cost_usd ?? null}
+                  disabled={loading || !overview}
+                />
+              </div>
+            </div>
 
-            <OverviewTab
-              loading={loading}
-              muted={muted}
-              border={border}
-              panel={panel}
-              isDark={isDark}
-              ditherTheme={ditherTheme}
-              metric={metric}
-              dimension={dimension}
-              overview={overview}
-              rangeLabel={rangeLabel}
-              breakdownBars={breakdownBars}
-              mixSlices={mixSlices}
-              emptyYear={emptyYear}
-              heatmapYear={heatmapYear}
-              availableYears={availableYears}
-              onHeatmapYearChange={setSelectedYear}
-              ditherWeeks={ditherWeeks}
-              heatmapWeeks={heatmapWeeks}
-              heatmapTooltip={heatmapTooltip}
-              setHeatmapTooltip={setHeatmapTooltip}
-              growthValues={growthValues}
-              timelineLabels={timelineLabels}
-              stackedBars={stackedBars}
-              segmentKeys={segmentKeys}
-              segmentLabels={segmentLabels}
-              segmentIcons={segmentIcons}
-              segmentColors={segmentColors}
-              segmentColorAssignment={segmentColorAssignment}
-              uniqueModelCount={uniqueModelCount}
-              resolution={resolution}
-              onResolutionChange={setResolution}
-              formatMetric={formatMetric}
-              locale={locale}
-              t={t}
-            />
+            {/* Capture target: overview body only (no tabs / share chrome). */}
+            <div
+              ref={captureTargetRef}
+              className={cn("box-border flex w-full flex-col gap-4 p-4 sm:p-5", shell)}
+            >
+              {error ? (
+                <div className="flex items-center gap-3 rounded-2xl border border-destructive/30 bg-destructive/10 px-4 py-4">
+                  <Activity className="size-4 shrink-0 text-destructive" />
+                  <div className="space-y-0.5">
+                    <div className="text-sm font-medium">{t("errors.loadOverviewTitle")}</div>
+                    <div className={cn("text-xs", muted)}>{error}</div>
+                  </div>
+                </div>
+              ) : null}
+
+              <OverviewTab
+                loading={loading}
+                muted={muted}
+                border={border}
+                panel={panel}
+                isDark={isDark}
+                ditherTheme={ditherTheme}
+                metric={metric}
+                dimension={dimension}
+                overview={overview}
+                rangeLabel={rangeLabel}
+                breakdownBars={breakdownBars}
+                mixSlices={mixSlices}
+                emptyYear={emptyYear}
+                heatmapYear={heatmapYear}
+                availableYears={availableYears}
+                onHeatmapYearChange={setSelectedYear}
+                ditherWeeks={ditherWeeks}
+                heatmapWeeks={heatmapWeeks}
+                heatmapTooltip={heatmapTooltip}
+                setHeatmapTooltip={setHeatmapTooltip}
+                growthValues={growthValues}
+                timelineLabels={timelineLabels}
+                stackedBars={stackedBars}
+                segmentKeys={segmentKeys}
+                segmentLabels={segmentLabels}
+                segmentIcons={segmentIcons}
+                segmentColors={segmentColors}
+                segmentColorAssignment={segmentColorAssignment}
+                uniqueModelCount={uniqueModelCount}
+                resolution={resolution}
+                onResolutionChange={setResolution}
+                formatMetric={formatMetric}
+                locale={locale}
+                t={t}
+              />
+            </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
