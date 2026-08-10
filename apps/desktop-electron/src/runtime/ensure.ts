@@ -609,6 +609,11 @@ function spawnViaShell(
           ATMOS_LOCAL_API_BIN: apiBin,
           ATMOS_LOCAL_PORT: String(port),
           ATMOS_LOCAL_LOG_PATH: logPath,
+          // Linear OAuth credentials are stored on Hub; default prod origin when unset.
+          ATMOS_HUB_URL:
+            process.env.ATMOS_HUB_URL?.trim() ||
+            process.env.NEXT_PUBLIC_ATMOS_HUB_URL?.trim() ||
+            "https://hub.atmos.land",
           ...(existsSync(skills) ? { ATMOS_SYSTEM_SKILLS_DIR: skills } : {}),
         },
         stdio: ["ignore", "pipe", "pipe"],
