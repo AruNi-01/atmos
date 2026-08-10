@@ -2,6 +2,7 @@
 //! Credentials:
 //! - **OAuth** → Hub under `user_id` (cross-device sync, recommended)
 //! - **Local API key** → client may pass `linear_api_key` per request (not stored on Hub)
+//!
 //! Associations: local SQLite (worktree-bound display snapshots).
 
 use chrono::Utc;
@@ -441,6 +442,8 @@ fn link_dto(m: &workspace_external_issue::Model) -> LinearLinkDto {
     }
 }
 
+// Maps 1:1 from WS request fields to LinearIssueListOptions.
+#[allow(clippy::too_many_arguments)]
 pub fn parse_list_options(
     preset: Option<String>,
     team_id: Option<String>,

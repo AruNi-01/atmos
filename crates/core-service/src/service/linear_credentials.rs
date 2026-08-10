@@ -2,6 +2,7 @@
 //! - OAuth (and optional Hub-stored secrets): Hub under `user_id`
 //! - Personal API keys for the product path: client-local; request may pass
 //!   `linear_api_key` without writing Hub
+//!
 //! OAuth pending state is ephemeral in-memory (PKCE).
 
 use serde::{Deserialize, Serialize};
