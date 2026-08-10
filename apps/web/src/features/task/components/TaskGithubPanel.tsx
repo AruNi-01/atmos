@@ -62,6 +62,12 @@ import {
   prDrawerKey,
 } from "@/features/task/components/task-github-drawer/types";
 import { openTaskWorkspaceCreate } from "@/features/task/lib/open-task-workspace-create";
+import {
+  TASK_GITHUB_PAGE_SIZE,
+  TASK_GITHUB_SORT_OPTIONS,
+  filtersFromUrl,
+  type TaskGithubKind,
+} from "@/features/task/lib/task-github-panel-model";
 import { findLinkedWorkspaceForGithubItem } from "@/features/task/lib/find-linked-workspace";
 import {
   applyManagedToQuery,
@@ -77,21 +83,6 @@ import {
   type TaskGithubSortParam,
 } from "@/shared/lib/nuqs/searchParams";
 
-const PAGE_SIZE = 20;
-
-type Kind = "issues" | "prs";
-
-/** GitHub.com PR/Issue list sort menu (same labels/order). */
-const SORT_OPTIONS: TaskGithubSortParam[] = [
-  "created-desc",
-  "created-asc",
-  "comments-desc",
-  "comments-asc",
-  "updated-desc",
-  "updated-asc",
-  "best-match",
-];
-
 type TaskGithubPanelProps = {
   projects: Project[];
   /**
@@ -100,20 +91,6 @@ type TaskGithubPanelProps = {
    */
   headerTrailingHost?: HTMLElement | null;
 };
-
-function filtersFromUrl(params: {
-  taskGhState: TaskGithubStateFilter;
-  taskGhRepos: string[];
-  taskGhAssignees: string[];
-  taskGhLabels: string[];
-}): TaskGithubFilters {
-  return {
-    state: params.taskGhState,
-    repoFullNames: params.taskGhRepos,
-    assignees: params.taskGhAssignees,
-    labels: params.taskGhLabels,
-  };
-}
 
 export function TaskGithubPanel({ projects, headerTrailingHost = null }: TaskGithubPanelProps) {
   const t = useTranslations("appShell.task.github");
@@ -135,7 +112,7 @@ export function TaskGithubPanel({ projects, headerTrailingHost = null }: TaskGit
     taskGhSort: taskParams.taskGhSort,
   });
 
-  const kind = urlState.taskGhKind as Kind;
+  const kind = urlState.taskGhKind as TaskGithubKind;
   const page = Math.max(1, urlState.taskGhPage || 1);
   const sort = urlState.taskGhSort;
   const filters = useMemo(
@@ -166,7 +143,7 @@ export function TaskGithubPanel({ projects, headerTrailingHost = null }: TaskGit
   }, [queryApplied]);
 
   const setKind = useCallback(
-    (next: Kind) => {
+    (next: TaskGithubKind) => {
       void setUrlState({ taskGhKind: next, taskGhPage: 1 });
     },
     [setUrlState],
@@ -276,7 +253,7 @@ export function TaskGithubPanel({ projects, headerTrailingHost = null }: TaskGit
         labels: [...filters.labels].sort().join(","),
         query: apiQuery,
         page,
-        perPage: PAGE_SIZE,
+        perPage: TASK_GITHUB_PAGE_SIZE,
       }),
       queryFn: () =>
         wsGithubApi.search({
@@ -287,7 +264,7 @@ export function TaskGithubPanel({ projects, headerTrailingHost = null }: TaskGit
           labels: filters.labels,
           query: apiQuery || null,
           page,
-          perPage: PAGE_SIZE,
+          perPage: TASK_GITHUB_PAGE_SIZE,
         }),
       staleTime: 60_000,
       enabled: searchEnabled,
@@ -747,7 +724,7 @@ export function TaskGithubPanel({ projects, headerTrailingHost = null }: TaskGit
                 <SelectValue />
               </SelectTrigger>
               <SelectContent align="end" className="min-w-[12rem]">
-                {SORT_OPTIONS.map((value) => (
+                {TASK_GITHUB_SORT_OPTIONS.map((value) => (
                   <SelectItem key={value} value={value} className="text-xs">
                     {t(`sort.options.${value}`)}
                   </SelectItem>
