@@ -26,18 +26,15 @@ pub struct LinearLocalApiKeyRecord {
     pub created_at: i64,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(tag = "mode", rename_all = "snake_case")]
 pub enum LinearLocalAuthSelection {
+    #[default]
     None,
     Oauth,
-    Local { key_id: String },
-}
-
-impl Default for LinearLocalAuthSelection {
-    fn default() -> Self {
-        Self::None
-    }
+    Local {
+        key_id: String,
+    },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

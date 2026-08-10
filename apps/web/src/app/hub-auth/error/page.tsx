@@ -7,6 +7,7 @@
  * /api/auth/error page (which "Go Home" to hub.atmos.land — wrong for users).
  */
 import { Suspense, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 
@@ -101,12 +102,12 @@ function HubAuthErrorInner() {
       ) : (
         <p className="max-w-md text-xs text-muted-foreground">{t("closeHint")}</p>
       )}
-      <a
+      <Link
         href="/"
         className="text-sm text-foreground underline underline-offset-4"
       >
         {t("goHome")}
-      </a>
+      </Link>
     </div>
   );
 }

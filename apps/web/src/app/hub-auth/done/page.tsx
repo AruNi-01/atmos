@@ -7,6 +7,7 @@
  * Notifies other tabs via BroadcastChannel, then closes after a 5s countdown.
  */
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { hubGetSession } from "@/api/hub-auth-client";
 import { ensureLocalHubDevice } from "@/features/connection/lib/ensure-local-hub-device";
@@ -114,12 +115,12 @@ export default function HubAuthDonePage() {
         <p className="max-w-md text-xs text-muted-foreground">{t("closeHint")}</p>
       ) : null}
       {status === "error" ? (
-        <a
+        <Link
           href="/"
           className="text-sm text-foreground underline underline-offset-4"
         >
           {t("goHome")}
-        </a>
+        </Link>
       ) : null}
     </div>
   );
