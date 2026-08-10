@@ -225,20 +225,44 @@ export function TaskGithubPanel({ projects, headerTrailingHost = null }: TaskGit
 
   const searchEnabled = searchRepos.length > 0;
 
-  // Ensure committed query always carries an explicit sort: token (box + API).
+  // Ensure committed query always carries managed filters + sort: (box + API).
+  // Matches commitQuery / clearQuery so first paint does not omit default `is:open`.
   const apiQuery = useMemo(
-    () => applySortToQuery(queryApplied, sort),
-    [queryApplied, sort],
+    () =>
+      applySortToQuery(
+        applyManagedToQuery(queryApplied, {
+          state: filters.state,
+          assignees: filters.assignees,
+          labels: filters.labels,
+        }),
+        sort,
+      ),
+    [filters.assignees, filters.labels, filters.state, queryApplied, sort],
   );
 
-  // Hydrate empty / sort-less box once (e.g. first open) so sort: is visible.
+  // Hydrate incomplete box on first open / URL filter changes so the search
+  // string mirrors structured filters (is:open by default) + sort:.
+  // Previously only sort: was written; is:open appeared only after focus+blur.
   useEffect(() => {
-    if (parseSortFromQuery(queryApplied)) return;
-    const withSort = applySortToQuery(queryApplied, sort);
-    if (withSort === queryApplied) return;
-    setQueryDraft(withSort);
-    void setUrlState({ taskGhQ: withSort });
-  }, [queryApplied, setUrlState, sort]);
+    const normalized = applySortToQuery(
+      applyManagedToQuery(queryApplied, {
+        state: filters.state,
+        assignees: filters.assignees,
+        labels: filters.labels,
+      }),
+      sort,
+    );
+    if (normalized === queryApplied) return;
+    setQueryDraft(normalized);
+    void setUrlState({ taskGhQ: normalized });
+  }, [
+    filters.assignees,
+    filters.labels,
+    filters.state,
+    queryApplied,
+    setUrlState,
+    sort,
+  ]);
 
   const searchQuery = useQuery(
     wsQueryOptions({
