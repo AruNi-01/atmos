@@ -24,8 +24,8 @@ import {
   Shield,
   Square,
   Stethoscope,
-  Terminal,
   Trash2,
+  TriangleAlert,
 } from "lucide-react";
 import { systemApi } from "@/api/rest-api";
 import { DesktopUsePermissionsPanel } from "@/features/settings/components/DesktopUsePermissionsPanel";
@@ -129,7 +129,6 @@ export function DesktopUseSettingsSection() {
   const [restartSuggested, setRestartSuggested] = useState(false);
 
   // Collapsible groups — defaults applied once after first status/doctor load.
-  const [cliOpen, setCliOpen] = useState(true);
   const [engineOpen, setEngineOpen] = useState(true);
   const [permissionsOpen, setPermissionsOpen] = useState(true);
   const [visibilityOpen, setVisibilityOpen] = useState(true);
@@ -219,7 +218,6 @@ export function DesktopUseSettingsSection() {
           if (!defaultsAppliedRef.current) {
             defaultsAppliedRef.current = true;
             // Not installed / not desktop → keep engine + permissions expanded.
-            setCliOpen(true);
             setEngineOpen(true);
             setPermissionsOpen(true);
           }
@@ -272,14 +270,8 @@ export function DesktopUseSettingsSection() {
             (res?.cli?.meets_requirement ?? nextCli.meetsRequirement) ||
               (nextCli.installed && !nextCli.updateRequired && nextCli.meetsRequirement),
           );
-          const cliNeedsAttention =
-            !nextCli.installed ||
-            nextCli.updateRequired ||
-            Boolean(res?.cli && !res.cli.meets_requirement);
           const installed = Boolean(res?.driver?.installed);
           const engineUpdateAvailable = Boolean(res?.update_available);
-          // Expand CLI when missing or below package min.
-          setCliOpen(cliNeedsAttention);
           // Collapse engine when ready and no engine update.
           setEngineOpen(cliReady ? !(installed && !engineUpdateAvailable) : false);
 
@@ -323,7 +315,6 @@ export function DesktopUseSettingsSection() {
       invalidateDesktopUseReadinessCache();
       await load({ silent: true });
       setPermissionsRefreshToken((n) => n + 1);
-      setCliOpen(false);
       setEngineOpen(true);
     } catch (e) {
       setError(
@@ -537,30 +528,8 @@ export function DesktopUseSettingsSection() {
   /** Engine actions require a CLI that meets this package's min version. */
   const engineActionsEnabled = desktop && cliReady;
 
-  const cliStatusLabel = (() => {
-    if (!desktop) return t("status.webOnly");
-    if (!cliInstalled) return t("cli.notInstalled");
-    if (cliUpdateRequired) {
-      const ver = cliGate?.version ? `v${cliGate.version}` : "";
-      return ver
-        ? `${t("cli.updateRequired")} · ${ver}`
-        : t("cli.updateRequired");
-    }
-    const ver = cliGate?.version ? `v${cliGate.version}` : "";
-    return ver ? `${t("cli.installed")} · ${ver}` : t("cli.installed");
-  })();
-
-  const cliGroupDescription = (() => {
-    if (!desktop) return t("desktopOnly");
-    if (!cliInstalled) return t("cli.installHint");
-    if (cliUpdateRequired) {
-      return t("cli.updateHint", {
-        current: cliGate?.version ?? "—",
-        min: cliGate?.minVersion ?? "—",
-      });
-    }
-    return t("cli.readyHint");
-  })();
+  /** Install/update UI only when CLI is missing or below package min. */
+  const showCliGateBanner = desktop && !loading && !cliReady;
 
   const engineStatusLabel = (() => {
     if (!desktop) return t("status.webOnly");
@@ -639,72 +608,58 @@ export function DesktopUseSettingsSection() {
 
   return (
     <div className="space-y-4">
-      {/* 0. Atmos CLI — sole runner at ~/.atmos/bin/atmos (ADR-005) */}
-      <SettingsGroupCard
-        open={cliOpen}
-        onOpenChange={setCliOpen}
-        icon={Terminal}
-        title={t("groups.cli.title")}
-        description={cliGroupDescription}
-      >
-        <SettingsGroupRow
-          title={t("cli.statusTitle")}
-          description={t("cli.statusDescription")}
-          wide
-        >
-          {loading ? (
-            <Skeleton className="h-9 w-36" />
-          ) : !desktop ? (
-            <span className="text-sm text-muted-foreground">
-              {cliStatusLabel}
-            </span>
-          ) : !cliInstalled ? (
-            <div className="flex items-center gap-3">
-              <span className="text-sm text-muted-foreground">
-                {cliStatusLabel}
-              </span>
-              <Button
-                type="button"
-                size="sm"
-                disabled={busy}
-                onClick={() => void installOrUpdateCli(false)}
-                className="cursor-pointer"
-              >
-                {busyAction === "cli_install" ? (
-                  <Loader2 className="size-4 animate-spin" />
-                ) : (
-                  <Download className="size-4" />
-                )}
-                {t("cli.install")}
-              </Button>
+      {/* CLI gate — only when missing or below package min (hidden when OK). */}
+      {showCliGateBanner ? (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3">
+          <div className="flex min-w-0 flex-1 items-start gap-2.5">
+            <TriangleAlert className="mt-0.5 size-4 shrink-0 text-amber-600 dark:text-amber-400" />
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-foreground">
+                {!cliInstalled ? t("cli.notInstalled") : t("cli.updateRequired")}
+              </p>
+              <p className="mt-0.5 text-xs leading-5 text-muted-foreground">
+                {!cliInstalled
+                  ? t("cli.installHint")
+                  : t("cli.updateHint", {
+                      current: cliGate?.version ?? "—",
+                      min: cliGate?.minVersion ?? "—",
+                    })}
+              </p>
             </div>
-          ) : cliUpdateRequired ? (
-            <div className="flex items-center gap-3">
-              <span className="text-sm text-muted-foreground">
-                {cliStatusLabel}
-              </span>
-              <Button
-                type="button"
-                size="sm"
-                disabled={busy}
-                onClick={() => void installOrUpdateCli(true)}
-                className="cursor-pointer"
-              >
-                {busyAction === "cli_update" ? (
-                  <Loader2 className="size-4 animate-spin" />
-                ) : (
-                  <ArrowUpCircle className="size-4" />
-                )}
-                {t("cli.update")}
-              </Button>
-            </div>
+          </div>
+          {!cliInstalled ? (
+            <Button
+              type="button"
+              size="sm"
+              disabled={busy}
+              onClick={() => void installOrUpdateCli(false)}
+              className="cursor-pointer shrink-0"
+            >
+              {busyAction === "cli_install" ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <Download className="size-4" />
+              )}
+              {t("cli.install")}
+            </Button>
           ) : (
-            <span className="text-sm text-muted-foreground">
-              {cliStatusLabel}
-            </span>
+            <Button
+              type="button"
+              size="sm"
+              disabled={busy}
+              onClick={() => void installOrUpdateCli(true)}
+              className="cursor-pointer shrink-0"
+            >
+              {busyAction === "cli_update" ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <ArrowUpCircle className="size-4" />
+              )}
+              {t("cli.update")}
+            </Button>
           )}
-        </SettingsGroupRow>
-      </SettingsGroupCard>
+        </div>
+      ) : null}
 
       {/* 1. Control engine — install / status / stop / uninstall */}
       <SettingsGroupCard

@@ -656,9 +656,7 @@ function LinearIntegrationCard() {
             {hydrating
               ? t('linear.local.storageLoading')
               : storeMeta.onDisk
-                ? t('linear.local.storageDisk', {
-                    path: storeMeta.path || '~/.atmos/credentials/linear_local_keys.json',
-                  })
+                ? t('linear.local.storageDisk')
                 : t('linear.local.storageBrowserFallback')}
           </p>
           <a

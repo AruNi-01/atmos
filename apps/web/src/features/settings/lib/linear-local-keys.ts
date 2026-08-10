@@ -346,13 +346,26 @@ export function getLinearAuthSelection(): LinearAuthSelection {
   return cache.selection;
 }
 
+/**
+ * Active local API key for requests/UI when not on the OAuth path.
+ * - mode "local": key matching keyId (falls back to first key if id missing)
+ * - mode "none": first stored key (implicit local — no Hub login required)
+ * - mode "oauth": null (explicit OAuth path)
+ */
 export function getActiveLinearLocalKey(): LinearLocalApiKey | null {
   const sel = cache.selection;
-  if (sel.mode !== "local") return null;
-  return cache.keys.find((k) => k.id === sel.keyId) ?? null;
+  if (sel.mode === "oauth") return null;
+  if (sel.mode === "local") {
+    return (
+      cache.keys.find((k) => k.id === sel.keyId) ?? cache.keys[0] ?? null
+    );
+  }
+  // mode "none": treat first key as active so local keys work without
+  // an explicit selection / Hub session.
+  return cache.keys[0] ?? null;
 }
 
-/** API key string for WS when local mode is active. */
+/** API key string for WS when a local key is active (not OAuth). */
 export function getActiveLinearApiKeyForRequest(): string | undefined {
   const key = getActiveLinearLocalKey()?.api_key?.trim();
   return key || undefined;
@@ -428,9 +441,13 @@ export function resolveLinearCredentialSource(opts: {
   oauthConnected: boolean;
   hasLocalKey: boolean;
 }): LinearCredentialSource {
-  if (opts.selection.mode === "local" && opts.hasLocalKey) return "local";
-  if (opts.selection.mode === "oauth" && opts.oauthConnected) return "oauth";
-  if (opts.oauthConnected && opts.selection.mode !== "local") return "oauth";
+  // Explicit OAuth selection always uses the OAuth path (Hub).
+  if (opts.selection.mode === "oauth") {
+    return opts.oauthConnected ? "oauth" : "none";
+  }
+  // Not OAuth: prefer machine-local API keys when present.
+  if (opts.hasLocalKey) return "local";
+  if (opts.oauthConnected) return "oauth";
   if (opts.selection.mode === "local") return "local";
   return "none";
 }

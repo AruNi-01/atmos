@@ -196,15 +196,22 @@ export function TaskLinearPanel({ projects, headerTrailingHost: _host }: TaskLin
     ] as const,
     queryFn: async () => {
       await ensureLinearLocalKeysHydrated();
-      if (selection.mode === "local" && activeLocal?.api_key) {
-        return wsLinearApi.status({ linearApiKey: activeLocal.api_key });
+      const sel = getLinearAuthSelection();
+      const local = getActiveLinearLocalKey();
+      // Local API key path: no Hub / Atmos login required.
+      if (sel.mode !== "oauth" && local?.api_key?.trim()) {
+        return wsLinearApi.status({ linearApiKey: local.api_key });
       }
-      // OAuth / default: Hub status when possible.
-      if (hubReady && selection.mode !== "local") {
+      // OAuth path (explicit) or optional Hub probe when no local key.
+      if (hubReady) {
         try {
           const me = await hubMe();
           if (!me) {
-            return { connected: false, needs_hub_login: true };
+            // Only force sign-in for explicit OAuth selection.
+            return {
+              connected: false,
+              needs_hub_login: sel.mode === "oauth",
+            };
           }
           const hub = await hubLinearStatus();
           return {
@@ -223,15 +230,12 @@ export function TaskLinearPanel({ projects, headerTrailingHost: _host }: TaskLin
     staleTime: 30_000,
   });
 
-  const oauthConnected =
-    selection.mode !== "local" && Boolean(statusQuery.data?.connected);
+  const usedLocalCredential =
+    selection.mode !== "oauth" && Boolean(activeLocal?.api_key);
   const source = resolveLinearCredentialSource({
     selection,
-    oauthConnected: Boolean(
-      selection.mode === "oauth"
-        ? statusQuery.data?.connected
-        : selection.mode !== "local" && statusQuery.data?.connected,
-    ),
+    oauthConnected:
+      !usedLocalCredential && Boolean(statusQuery.data?.connected),
     hasLocalKey: Boolean(activeLocal),
   });
   const connected = source === "oauth" || source === "local";
@@ -373,8 +377,9 @@ export function TaskLinearPanel({ projects, headerTrailingHost: _host }: TaskLin
     );
   }
 
+  // Sign-in wall only for explicit OAuth; local keys never require Hub login.
   const needsHubLogin =
-    Boolean(statusQuery.data?.needs_hub_login) && selection.mode !== "local";
+    Boolean(statusQuery.data?.needs_hub_login) && selection.mode === "oauth";
 
   if (needsHubLogin || !connected) {
     return (

@@ -1,8 +1,9 @@
 /**
  * Better Auth client for Atmos Hub (browser / desktop webview).
+ * Uses `better-auth/react` so UI libraries (e.g. better-auth-ui) can call `useSession`.
  * @see https://better-auth.com/docs/installation (Client section)
  */
-import { createAuthClient } from "better-auth/client";
+import { createAuthClient } from "better-auth/react";
 import { hubBaseUrl, hubConfigured, requireHubBaseUrl } from "../config";
 
 let client: ReturnType<typeof createAuthClient> | null = null;

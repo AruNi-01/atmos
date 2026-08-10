@@ -11,7 +11,7 @@ import {
   type UpdateInfo,
   type UpdateStatus,
 } from "@/features/settings/hooks/use-updater";
-import { isDesktopRuntime, isTauriRuntime } from "@/shared/lib/desktop-runtime";
+import { isDesktopRuntime } from "@/shared/lib/desktop-runtime";
 
 interface SettingsAboutSectionProps {
   appVersion: string;
@@ -30,6 +30,14 @@ interface SettingsAboutSectionProps {
   onCheckForUpdate: () => void;
 }
 
+function formatAppVersion(version: string): string {
+  const trimmed = version.trim();
+  if (!trimmed) return "";
+  return trimmed.startsWith("v") || trimmed.startsWith("V")
+    ? trimmed
+    : `v${trimmed}`;
+}
+
 export function SettingsAboutSection({
   appVersion,
   cliVersionInfo,
@@ -45,6 +53,12 @@ export function SettingsAboutSection({
   const isChecking = status.stage === "checking";
   const isDownloading = status.stage === "downloading";
   const isInstalling = status.stage === "installing";
+  const desktop = isDesktopRuntime();
+  const runtimeLabel = desktop ? t("runtime.desktop") : t("runtime.web");
+  const formattedAppVersion = formatAppVersion(appVersion);
+  const runtimeValue = formattedAppVersion
+    ? `${runtimeLabel} · ${formattedAppVersion}`
+    : runtimeLabel;
 
   return (
     <>
@@ -59,86 +73,100 @@ export function SettingsAboutSection({
               {t("runtime.description")}
             </p>
           </div>
-          <div className="flex items-center text-sm font-medium text-foreground">
-            {isDesktopRuntime() ? t("runtime.desktop") : t("runtime.web")}
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <span className="text-sm font-medium text-foreground">
+              {runtimeValue}
+            </span>
+            {desktop ? (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onCheckForUpdate}
+                disabled={
+                  isCheckingDesktopUpdate ||
+                  isChecking ||
+                  isDownloading ||
+                  isInstalling
+                }
+                className="cursor-pointer shrink-0"
+              >
+                {isCheckingDesktopUpdate ? (
+                  <LoaderCircle className="size-4 animate-spin-reverse" />
+                ) : (
+                  <RotateCcw className="size-4" />
+                )}
+                {t("desktop.checkForUpdates")}
+              </Button>
+            ) : null}
           </div>
         </div>
 
-        <div className="grid grid-cols-[minmax(0,1fr)_320px] gap-8 border-b border-border px-6 py-5">
-          <div>
-            <p className="text-base font-medium text-foreground">{t("version.title")}</p>
-            <p className="mt-2 text-sm leading-6 text-muted-foreground">
-              {t("version.description")}
-            </p>
-          </div>
-          <div className="flex items-center text-sm font-medium text-foreground">
-            {appVersion || t("version.unavailable")}
-          </div>
-        </div>
-
-        <div className="grid grid-cols-[minmax(0,1fr)_320px] gap-8 border-b border-border px-6 py-5">
+        <div className="grid grid-cols-[minmax(0,1fr)_320px] gap-8 px-6 py-5">
           <div>
             <p className="text-base font-medium text-foreground">{t("cli.title")}</p>
             <p className="mt-2 text-sm leading-6 text-muted-foreground">
               {t("cli.description")}
             </p>
           </div>
-          <div className="flex flex-col items-start justify-center gap-2">
+          <div className="flex flex-wrap items-center justify-end gap-2">
             {cliVersionInfo?.installed === false ? (
               <>
-                <p className="text-sm text-muted-foreground">
+                <span className="text-sm text-muted-foreground">
                   {t("cli.notInstalled")}
-                </p>
+                </span>
                 <Button
+                  size="sm"
                   onClick={onInstallCli}
                   disabled={isInstallingCli}
-                  className="cursor-pointer"
+                  className="cursor-pointer shrink-0"
                 >
                   {isInstallingCli ? (
-                    <LoaderCircle className="mr-2 size-4 animate-spin-reverse" />
+                    <LoaderCircle className="size-4 animate-spin-reverse" />
                   ) : (
-                    <Download className="mr-2 size-4" />
+                    <Download className="size-4" />
                   )}
                   {t("cli.install")}
                 </Button>
               </>
             ) : cliVersionInfo?.updateAvailable ? (
               <>
-                {cliVersionInfo.current ? (
-                  <p className="text-sm text-muted-foreground">
-                    {t("cli.versionLabel", { version: cliVersionInfo.current })}
-                  </p>
-                ) : null}
+                <span className="text-sm text-muted-foreground">
+                  {cliVersionInfo.current
+                    ? t("cli.versionLabel", { version: cliVersionInfo.current })
+                    : t("version.unavailable")}
+                </span>
                 <Button
+                  size="sm"
                   onClick={onInstallCli}
                   disabled={isInstallingCli}
-                  className="cursor-pointer"
+                  className="cursor-pointer shrink-0"
                 >
                   {isInstallingCli ? (
-                    <LoaderCircle className="mr-2 size-4 animate-spin-reverse" />
+                    <LoaderCircle className="size-4 animate-spin-reverse" />
                   ) : (
-                    <Download className="mr-2 size-4" />
+                    <Download className="size-4" />
                   )}
                   {t("cli.installUpdate")}
                 </Button>
               </>
             ) : (
               <>
-                {cliVersionInfo?.current ? (
-                  <p className="text-sm text-muted-foreground">
-                    {t("cli.versionLabel", { version: cliVersionInfo.current })}
-                  </p>
-                ) : null}
+                <span className="text-sm text-muted-foreground">
+                  {cliVersionInfo?.current
+                    ? t("cli.versionLabel", { version: cliVersionInfo.current })
+                    : t("version.unavailable")}
+                </span>
                 <Button
                   variant="outline"
+                  size="sm"
                   onClick={onCheckCliVersion}
                   disabled={isCheckingCliVersion}
-                  className="cursor-pointer"
+                  className="cursor-pointer shrink-0"
                 >
                   {isCheckingCliVersion ? (
-                    <LoaderCircle className="mr-2 size-4 animate-spin-reverse" />
+                    <LoaderCircle className="size-4 animate-spin-reverse" />
                   ) : (
-                    <RotateCcw className="mr-2 size-4" />
+                    <RotateCcw className="size-4" />
                   )}
                   {t("cli.checkForUpdates")}
                 </Button>
@@ -146,32 +174,6 @@ export function SettingsAboutSection({
             )}
           </div>
         </div>
-
-        {isTauriRuntime() && (
-          <div className="grid grid-cols-[minmax(0,1fr)_320px] gap-8 px-6 py-5">
-            <div>
-              <p className="text-base font-medium text-foreground">{t("desktop.title")}</p>
-              <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                {t("desktop.description")}
-              </p>
-            </div>
-            <div className="flex items-center">
-              <Button
-                variant="outline"
-                onClick={onCheckForUpdate}
-                disabled={isCheckingDesktopUpdate || isChecking || isDownloading || isInstalling}
-                className="cursor-pointer"
-              >
-                {isCheckingDesktopUpdate ? (
-                  <LoaderCircle className="mr-2 size-4 animate-spin-reverse" />
-                ) : (
-                  <RotateCcw className="mr-2 size-4" />
-                )}
-                {t("desktop.checkForUpdates")}
-              </Button>
-            </div>
-          </div>
-        )}
       </div>
     </>
   );

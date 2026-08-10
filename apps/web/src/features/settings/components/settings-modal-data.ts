@@ -35,6 +35,12 @@ export const SETTINGS_GROUPS = [
     items: ["layout", "editor", "canvas", "terminal"] as const,
   },
   {
+    id: "personal",
+    label: settingsModalT("groups.personal.label"),
+    description: settingsModalT("groups.personal.description"),
+    items: ["account"] as const,
+  },
+  {
     id: "ai-agents",
     label: settingsModalT("groups.aiAgents.label"),
     description: settingsModalT("groups.aiAgents.description"),
@@ -50,7 +56,7 @@ export const SETTINGS_GROUPS = [
     id: "system-integration",
     label: settingsModalT("groups.systemIntegration.label"),
     description: settingsModalT("groups.systemIntegration.description"),
-    items: ["account", "integrations", "desktop-use", "notify"] as const,
+    items: ["integrations", "desktop-use", "notify"] as const,
   },
   {
     id: "workspace-projects",

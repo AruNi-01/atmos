@@ -4326,6 +4326,10 @@
           "label": "Interface",
           "description": "Layout, editor, canvas, and keyboard preferences"
         },
+        "personal": {
+          "label": "Personal",
+          "description": "Your account and sign-in"
+        },
         "aiAgents": {
           "label": "AI Agents",
           "description": "AI providers and code agent configurations"
@@ -4414,7 +4418,7 @@
         },
         "account": {
           "label": "Account",
-          "description": "Atmos Hub sign-in, devices, and cloud identity"
+          "description": "Sign in, trust this device, and manage your Atmos account"
         }
       },
       "dialog": {
@@ -5186,16 +5190,16 @@
       "cli": {
         "title": "Atmos CLI",
         "description": "Required for Desktop Use and other local desktop features. Install once, then keep it up to date.",
-        "installUpdate": "Install Update",
-        "install": "Install CLI",
+        "installUpdate": "Update",
+        "install": "Install",
         "notInstalled": "Not installed",
         "versionLabel": "v{version}",
-        "checkForUpdates": "Check for Updates"
+        "checkForUpdates": "Check updates"
       },
       "desktop": {
         "title": "Check for updates",
         "description": "Query the desktop updater for the latest available release.",
-        "checkForUpdates": "Check for Updates"
+        "checkForUpdates": "Check updates"
       }
     },
     "workspaceSection": {
@@ -5894,7 +5898,7 @@
       },
       "linear": {
         "title": "Linear",
-        "description": "Connect Linear via OAuth (recommended) for higher limits and cross-device sync, or use a personal API key stored only on this device.",
+        "description": "Connect Linear with OAuth (recommended) for higher limits and cross-device sync, or save a personal API key only on this computer.",
         "connectOauth": "Continue with Linear",
         "connectApiKey": "Save API key",
         "apiKeyPlaceholder": "lin_api_…",
@@ -5902,9 +5906,9 @@
         "connectedAs": "Connected as {name}",
         "notConnected": "Not connected",
         "needsHubLogin": "Sign in required",
-        "needsHubLoginHint": "OAuth is linked to your Atmos account. Open Account and sign in with GitHub or Google first.",
+        "needsHubLoginHint": "OAuth uses your Atmos account. Open Account and sign in with GitHub or Google first.",
         "needsDevice": "Trust this device",
-        "needsDeviceHint": "After signing in, trust this device under Account, then connect Linear OAuth.",
+        "needsDeviceHint": "After signing in, trust this device under Account, then connect Linear.",
         "openAccount": "Open Account",
         "connectFailed": "Could not connect Linear",
         "disconnectFailed": "Could not disconnect Linear",
@@ -5919,14 +5923,14 @@
         "oauth": {
           "title": "OAuth account",
           "recommended": "Recommended",
-          "hint": "Higher rate limits and credentials sync across devices via your Atmos Hub account."
+          "hint": "Higher rate limits, and your Linear connection syncs across devices with your Atmos account."
         },
         "local": {
           "title": "Local API keys",
-          "hint": "Stored on this computer under ~/.atmos/credentials (not Hub). You can save several keys, but only one can be active at a time (or use OAuth instead).",
-          "storageLoading": "Resolving local storage…",
-          "storageDisk": "On disk: {path}",
-          "storageBrowserFallback": "Computer API unavailable — using browser storage until a local Atmos Server is reachable.",
+          "hint": "Saved only on this computer, not linked to your Atmos account. You can save several keys, but only one can be active at a time (or use OAuth instead).",
+          "storageLoading": "Checking where keys are saved…",
+          "storageDisk": "Saved on this computer",
+          "storageBrowserFallback": "Saved in this browser for now. When Atmos is fully available on this computer, keys can be stored locally.",
           "createKeyLink": "Create an API key in Linear",
           "namePlaceholder": "Key name",
           "apiKeyPlaceholder": "Personal API key",
@@ -5938,10 +5942,10 @@
         },
         "rateLimit": {
           "title": "API rate limits",
-          "description": "Linear request and complexity budgets for the active OAuth account or local API key (same style as GitHub).",
+          "description": "Linear request and complexity budgets for the active OAuth account or local API key.",
           "refresh": "Refresh",
           "loadError": "Could not load Linear rate limits.",
-          "empty": "No rate-limit headers returned for this credential yet. Try Refresh after a Linear request.",
+          "empty": "No rate-limit data yet for this connection. Try Refresh after using Linear.",
           "footer": "{remaining} remaining · {reset}",
           "resetSoon": "resets soon",
           "resetInMinutes": "resets in {minutes}m",
@@ -5958,8 +5962,8 @@
           "loading": "Loading…",
           "working": "Finishing Linear connection…",
           "success": "Linear connected. You can close this window and return to Atmos.",
-          "missingParams": "Missing OAuth code or state.",
-          "finishFailed": "OAuth finish failed"
+          "missingParams": "Missing connection details. Try connecting Linear again.",
+          "finishFailed": "Could not finish connecting Linear"
         }
       }
     },
@@ -6159,24 +6163,32 @@
     },
     "accountSection": {
       "title": "Atmos Account",
-      "description": "Sign in with GitHub or Google. Computers, Linear, and usage share use this account (Hub) — no separate local access token.",
-      "hubNotConfigured": "Atmos Hub URL is not configured. Set NEXT_PUBLIC_ATMOS_HUB_URL to enable sign-in.",
+      "description": "Sign in with GitHub or Google to sync computers, Linear, and shared usage across your devices.",
+      "hubNotConfigured": "Atmos account sign-in is not available in this build. Reinstall Atmos or check for updates.",
       "signedIn": "Signed in",
       "signedOut": "Not signed in",
+      "signIn": "Sign in",
+      "signInHint": "GitHub or Google",
+      "signInDialogTitle": "Sign in to Atmos",
+      "signInDialogDescription": "Continue with GitHub or Google. No password required.",
       "signInGithub": "Sign in with GitHub",
       "signInGoogle": "Sign in with Google",
       "signOut": "Sign out",
+      "profileTitle": "Profile",
+      "profileDescription": "Your Atmos identity used across computers, Linear, and usage.",
+      "securityTitle": "Security",
+      "securityDescription": "Trusted devices for this account. Trust this browser so computers can connect securely.",
       "trustDevice": "Trust this device",
-      "devicesTitle": "Devices",
-      "devicesEmpty": "No devices enrolled yet. Trust this device to use Computers via Relay.",
+      "devicesTitle": "Trusted devices",
+      "devicesEmpty": "No trusted devices yet. Trust this device to use your computers from here.",
       "deviceActive": "Active",
       "deviceRevoked": "Revoked",
-      "credentialOnceTitle": "Device credential (shown once)",
-      "credentialOnceHint": "Stored in this browser for Relay. Rotate from Hub if leaked.",
+      "credentialOnceTitle": "This device is trusted (shown once)",
+      "credentialOnceHint": "Saved on this device. If it leaks, trust this device again to replace it.",
       "errors": {
         "signInFailed": "Sign-in failed",
         "signOutFailed": "Sign-out failed",
-        "enrollFailed": "Could not enroll device"
+        "enrollFailed": "Could not trust this device"
       }
     }
   },

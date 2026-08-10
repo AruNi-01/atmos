@@ -15,7 +15,7 @@ import {
   MotionSidebarProvider,
   cn,
 } from "@workspace/ui";
-import { Search, X } from "lucide-react";
+import { Search, User, X } from "lucide-react";
 import InfoCircleIcon from "@workspace/ui/components/icons/info-circle-icon";
 import LayoutDashboardIcon from "@workspace/ui/components/icons/layout-dashboard-icon";
 import TerminalIcon from "@workspace/ui/components/icons/terminal-icon";
@@ -103,8 +103,7 @@ function SettingsSectionIcon({
   if (sectionId === "code-agent") return <BotIcon ref={iconRef} className="shrink-0" size={16} />;
   if (sectionId === "workspace") return <FolderKanbanIcon ref={iconRef} className="shrink-0" size={16} />;
   if (sectionId === "labels") return <TagIcon ref={iconRef} className="shrink-0" size={16} />;
-  // Account reuses world/globe icon until a dedicated user animated icon exists.
-  if (sectionId === "account") return <WorldIcon ref={iconRef} className="shrink-0" size={16} />;
+  if (sectionId === "account") return <User className="shrink-0" size={16} />;
   if (sectionId === "integrations") return <BlocksIcon ref={iconRef} className="shrink-0" size={16} />;
   if (sectionId === "ai") return <BrainCircuitIcon ref={iconRef} className="shrink-0" size={16} />;
   if (sectionId === "notify") return <BellIcon ref={iconRef} className="shrink-0" size={16} />;
