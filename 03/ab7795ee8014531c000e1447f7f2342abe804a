@@ -1,0 +1,20 @@
+apps/web/src/features/task/components/TaskGithubCreateIssueDialog.tsx
+  h_5be255725524c8 36-40
+apps/web/src/features/task/components/TaskGithubPanel.tsx
+  h_5be255725524c8 65-70,115,146,256,267,727
+apps/web/src/features/task/components/TaskGithubTemplateFormFields.tsx
+  h_5be255725524c8 1-299
+apps/web/src/features/task/lib/task-github-panel-model.ts
+  h_5be255725524c8 1-33
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "03ab7795ee8014531c000e1447f7f2342abe804a",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
