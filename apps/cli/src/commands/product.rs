@@ -12,7 +12,7 @@ use crate::envelope::{
     extract_id, next, next_with_params, param_required, param_value, truncate_list, CliEnvelope,
     NextAction,
 };
-use crate::rpc::{call_rpc, wrap_ok, RpcError};
+use crate::server_invoke::{invoke, wrap_ok, InvokeError};
 
 fn cmd_str(parts: &[&str]) -> String {
     parts.join(" ")
@@ -31,14 +31,14 @@ fn require_yes(yes: bool, command: &str, what: &str) -> Result<(), CliEnvelope> 
     ))
 }
 
-async fn rpc_env(
+async fn invoke_env(
     api: &ApiClientArgs,
     command: &str,
     action: &str,
     data: Value,
     next_actions: Vec<NextAction>,
 ) -> CliEnvelope {
-    match call_rpc(api, action, data).await {
+    match invoke(api, action, data).await {
         Ok(result) => wrap_ok(command, result, next_actions),
         Err(e) => e.to_envelope(command),
     }
@@ -170,7 +170,7 @@ pub struct ProjectIdArgs {
 pub async fn execute_project(api: ApiClientArgs, command: ProjectCommand) -> CliEnvelope {
     match command {
         ProjectCommand::List => {
-            let env = rpc_env(
+            let env = invoke_env(
                 &api,
                 "atmos project list",
                 "project_list",
@@ -202,7 +202,7 @@ pub async fn execute_project(api: ApiClientArgs, command: ProjectCommand) -> Cli
         ProjectCommand::Create(args) => {
             let path = args.path.expand_and_string();
             let command = format!("atmos project create --name {} --path {}", args.name, path);
-            match call_rpc(
+            match invoke(
                 &api,
                 "project_create",
                 json!({
@@ -248,7 +248,7 @@ pub async fn execute_project(api: ApiClientArgs, command: ProjectCommand) -> Cli
                 );
             }
             // project_update applies name, sidebar_order, color, logo (server-side).
-            rpc_env(
+            invoke_env(
                 &api,
                 &command,
                 "project_update",
@@ -266,7 +266,7 @@ pub async fn execute_project(api: ApiClientArgs, command: ProjectCommand) -> Cli
             if let Err(env) = require_yes(args.yes, &command, "delete project") {
                 return env;
             }
-            rpc_env(
+            invoke_env(
                 &api,
                 &format!("{command} --yes"),
                 "project_delete",
@@ -278,7 +278,7 @@ pub async fn execute_project(api: ApiClientArgs, command: ProjectCommand) -> Cli
         ProjectCommand::ValidatePath(args) => {
             let path = args.path.expand_and_string();
             let command = format!("atmos project validate-path --path {path}");
-            rpc_env(
+            invoke_env(
                 &api,
                 &command,
                 "project_validate_path",
@@ -292,7 +292,7 @@ pub async fn execute_project(api: ApiClientArgs, command: ProjectCommand) -> Cli
         }
         ProjectCommand::CheckCanDelete(args) => {
             let command = format!("atmos project check-can-delete --id {}", args.id);
-            rpc_env(
+            invoke_env(
                 &api,
                 &command,
                 "project_check_can_delete",
@@ -375,7 +375,7 @@ pub async fn execute_workspace(api: ApiClientArgs, command: WorkspaceCommand) ->
                 );
             };
             let command = format!("atmos workspace list --project {project}");
-            match call_rpc(&api, "workspace_list", json!({ "project_guid": project })).await {
+            match invoke(&api, "workspace_list", json!({ "project_guid": project })).await {
                 Ok(result) => {
                     let items = result
                         .as_array()
@@ -407,7 +407,7 @@ pub async fn execute_workspace(api: ApiClientArgs, command: WorkspaceCommand) ->
                 "atmos workspace create --project {project} --name {} --branch {}",
                 args.name, args.branch
             );
-            match call_rpc(
+            match invoke(
                 &api,
                 "workspace_create",
                 json!({
@@ -453,7 +453,7 @@ pub async fn execute_workspace(api: ApiClientArgs, command: WorkspaceCommand) ->
                 "atmos workspace update-name --id {} --name {}",
                 args.id, args.name
             );
-            rpc_env(
+            invoke_env(
                 &api,
                 &command,
                 "workspace_update_name",
@@ -467,7 +467,7 @@ pub async fn execute_workspace(api: ApiClientArgs, command: WorkspaceCommand) ->
             if let Err(env) = require_yes(args.yes, &command, "delete workspace") {
                 return env;
             }
-            rpc_env(
+            invoke_env(
                 &api,
                 &format!("{command} --yes"),
                 "workspace_delete",
@@ -477,7 +477,7 @@ pub async fn execute_workspace(api: ApiClientArgs, command: WorkspaceCommand) ->
             .await
         }
         WorkspaceCommand::Archive(args) => {
-            rpc_env(
+            invoke_env(
                 &api,
                 &format!("atmos workspace archive --id {}", args.id),
                 "workspace_archive",
@@ -487,7 +487,7 @@ pub async fn execute_workspace(api: ApiClientArgs, command: WorkspaceCommand) ->
             .await
         }
         WorkspaceCommand::Unarchive(args) => {
-            rpc_env(
+            invoke_env(
                 &api,
                 &format!("atmos workspace unarchive --id {}", args.id),
                 "workspace_unarchive",
@@ -497,7 +497,7 @@ pub async fn execute_workspace(api: ApiClientArgs, command: WorkspaceCommand) ->
             .await
         }
         WorkspaceCommand::Pin(args) => {
-            rpc_env(
+            invoke_env(
                 &api,
                 &format!("atmos workspace pin --id {}", args.id),
                 "workspace_pin",
@@ -507,7 +507,7 @@ pub async fn execute_workspace(api: ApiClientArgs, command: WorkspaceCommand) ->
             .await
         }
         WorkspaceCommand::Unpin(args) => {
-            rpc_env(
+            invoke_env(
                 &api,
                 &format!("atmos workspace unpin --id {}", args.id),
                 "workspace_unpin",
@@ -554,7 +554,7 @@ pub struct GroupDeleteArgs {
 pub async fn execute_group(api: ApiClientArgs, command: GroupCommand) -> CliEnvelope {
     match command {
         GroupCommand::List => {
-            rpc_env(
+            invoke_env(
                 &api,
                 "atmos group list",
                 "group_list",
@@ -564,7 +564,7 @@ pub async fn execute_group(api: ApiClientArgs, command: GroupCommand) -> CliEnve
             .await
         }
         GroupCommand::Create(args) => {
-            rpc_env(
+            invoke_env(
                 &api,
                 &format!("atmos group create --name {}", args.name),
                 "group_create",
@@ -574,7 +574,7 @@ pub async fn execute_group(api: ApiClientArgs, command: GroupCommand) -> CliEnve
             .await
         }
         GroupCommand::Update(args) => {
-            rpc_env(
+            invoke_env(
                 &api,
                 &format!("atmos group update --id {} --name {}", args.id, args.name),
                 "group_update",
@@ -588,7 +588,7 @@ pub async fn execute_group(api: ApiClientArgs, command: GroupCommand) -> CliEnve
             if let Err(env) = require_yes(args.yes, &command, "delete group") {
                 return env;
             }
-            rpc_env(
+            invoke_env(
                 &api,
                 &format!("{command} --yes"),
                 "group_delete",
@@ -630,7 +630,7 @@ pub struct SettingsSetArgs {
 pub async fn execute_settings(api: ApiClientArgs, command: SettingsCommand) -> CliEnvelope {
     match command {
         SettingsCommand::Bootstrap => {
-            rpc_env(
+            invoke_env(
                 &api,
                 "atmos settings bootstrap",
                 "settings_bootstrap_get",
@@ -640,7 +640,7 @@ pub async fn execute_settings(api: ApiClientArgs, command: SettingsCommand) -> C
             .await
         }
         SettingsCommand::Get(_args) => {
-            rpc_env(
+            invoke_env(
                 &api,
                 "atmos settings get",
                 "function_settings_get",
@@ -656,7 +656,7 @@ pub async fn execute_settings(api: ApiClientArgs, command: SettingsCommand) -> C
                 "atmos settings set --function {} --key {} --value {}",
                 args.function, args.key, args.value
             );
-            rpc_env(
+            invoke_env(
                 &api,
                 &command,
                 "function_settings_update",
@@ -728,7 +728,7 @@ pub async fn execute_terminal(api: ApiClientArgs, command: TerminalCommand) -> C
             if let Some(ws) = context::resolve_workspace(args.workspace.as_deref()) {
                 data = json!({ "workspace_id": ws });
             }
-            rpc_env(
+            invoke_env(
                 &api,
                 "atmos terminal list",
                 "terminal_session_list",
@@ -751,7 +751,7 @@ pub async fn execute_terminal(api: ApiClientArgs, command: TerminalCommand) -> C
                 );
             };
             let command = format!("atmos terminal create --workspace {ws}");
-            match call_rpc(
+            match invoke(
                 &api,
                 "terminal_session_create",
                 json!({
@@ -792,7 +792,7 @@ pub async fn execute_terminal(api: ApiClientArgs, command: TerminalCommand) -> C
             }
         }
         TerminalCommand::Close(args) => {
-            rpc_env(
+            invoke_env(
                 &api,
                 &format!("atmos terminal close --session {}", args.session),
                 "terminal_session_close",
@@ -806,7 +806,7 @@ pub async fn execute_terminal(api: ApiClientArgs, command: TerminalCommand) -> C
             if let Err(env) = require_yes(args.yes, &command, "destroy terminal") {
                 return env;
             }
-            rpc_env(
+            invoke_env(
                 &api,
                 &format!("{command} --yes"),
                 "terminal_session_destroy",
@@ -825,7 +825,7 @@ pub async fn execute_terminal(api: ApiClientArgs, command: TerminalCommand) -> C
                     vec![],
                 );
             };
-            rpc_env(
+            invoke_env(
                 &api,
                 &format!("atmos terminal candidates --workspace {ws}"),
                 "terminal_workspace_candidates",
@@ -871,7 +871,7 @@ pub async fn execute_run(api: ApiClientArgs, command: RunCommand) -> CliEnvelope
         RunCommand::ResolveLatest(args) | RunCommand::Status(args) | RunCommand::Logs(args) => {
             let root = args.project_root.expand_and_string();
             let command = format!("atmos run resolve-latest --project-root {root}");
-            match call_rpc(
+            match invoke(
                 &api,
                 "run_log_resolve_latest",
                 json!({ "project_root": root }),
@@ -907,7 +907,7 @@ pub async fn execute_run(api: ApiClientArgs, command: RunCommand) -> CliEnvelope
                 "atmos run start --project-root {root} --window-name {}",
                 args.window_name
             );
-            rpc_env(
+            invoke_env(
                 &api,
                 &command,
                 "run_log_start",
@@ -975,7 +975,7 @@ pub async fn execute_git(api: ApiClientArgs, command: GitCommand) -> CliEnvelope
     match command {
         GitCommand::Status(args) => {
             let path = args.path.expand_and_string();
-            rpc_env(
+            invoke_env(
                 &api,
                 &format!("atmos git status --path {path}"),
                 "git_get_status",
@@ -986,7 +986,7 @@ pub async fn execute_git(api: ApiClientArgs, command: GitCommand) -> CliEnvelope
         }
         GitCommand::Branches(args) => {
             let path = args.path.expand_and_string();
-            rpc_env(
+            invoke_env(
                 &api,
                 &format!("atmos git branches --path {path}"),
                 "git_list_branches",
@@ -997,7 +997,7 @@ pub async fn execute_git(api: ApiClientArgs, command: GitCommand) -> CliEnvelope
         }
         GitCommand::Log(args) => {
             let path = args.path.expand_and_string();
-            rpc_env(
+            invoke_env(
                 &api,
                 &format!("atmos git log --path {path}"),
                 "git_log",
@@ -1008,7 +1008,7 @@ pub async fn execute_git(api: ApiClientArgs, command: GitCommand) -> CliEnvelope
         }
         GitCommand::Stage(args) => {
             let path = args.path.expand_and_string();
-            rpc_env(
+            invoke_env(
                 &api,
                 "atmos git stage",
                 "git_stage",
@@ -1019,7 +1019,7 @@ pub async fn execute_git(api: ApiClientArgs, command: GitCommand) -> CliEnvelope
         }
         GitCommand::Unstage(args) => {
             let path = args.path.expand_and_string();
-            rpc_env(
+            invoke_env(
                 &api,
                 "atmos git unstage",
                 "git_unstage",
@@ -1030,7 +1030,7 @@ pub async fn execute_git(api: ApiClientArgs, command: GitCommand) -> CliEnvelope
         }
         GitCommand::Commit(args) => {
             let path = args.path.expand_and_string();
-            rpc_env(
+            invoke_env(
                 &api,
                 "atmos git commit",
                 "git_commit",
@@ -1041,7 +1041,7 @@ pub async fn execute_git(api: ApiClientArgs, command: GitCommand) -> CliEnvelope
         }
         GitCommand::Push(args) => {
             let path = args.path.expand_and_string();
-            rpc_env(
+            invoke_env(
                 &api,
                 "atmos git push",
                 "git_push",
@@ -1052,7 +1052,7 @@ pub async fn execute_git(api: ApiClientArgs, command: GitCommand) -> CliEnvelope
         }
         GitCommand::Pull(args) => {
             let path = args.path.expand_and_string();
-            rpc_env(
+            invoke_env(
                 &api,
                 "atmos git pull",
                 "git_pull",
@@ -1063,7 +1063,7 @@ pub async fn execute_git(api: ApiClientArgs, command: GitCommand) -> CliEnvelope
         }
         GitCommand::Fetch(args) => {
             let path = args.path.expand_and_string();
-            rpc_env(
+            invoke_env(
                 &api,
                 "atmos git fetch",
                 "git_fetch",
@@ -1100,7 +1100,7 @@ pub async fn execute_call(api: ApiClientArgs, args: CallArgs) -> CliEnvelope {
             );
         }
     };
-    match call_rpc(&api, &args.action, data).await {
+    match invoke(&api, &args.action, data).await {
         Ok(result) => wrap_ok(
             &command,
             result,
@@ -1124,7 +1124,7 @@ pub async fn execute_actions_list(api: ApiClientArgs, args: ActionsListArgs) -> 
     if let Some(f) = &args.filter {
         path = format!("/api/cli/actions?filter={}", urlencoding::encode(f));
     }
-    match crate::rpc::get_json(&api, &path).await {
+    match crate::server_invoke::get_json(&api, &path).await {
         Ok(result) => wrap_ok(
             "atmos actions list",
             result,
@@ -1138,7 +1138,7 @@ pub async fn execute_actions_list(api: ApiClientArgs, args: ActionsListArgs) -> 
 }
 
 pub async fn execute_status(api: ApiClientArgs) -> CliEnvelope {
-    match crate::rpc::get_json(&api, "/api/cli/health").await {
+    match crate::server_invoke::get_json(&api, "/api/cli/health").await {
         Ok(result) => wrap_ok(
             "atmos status",
             result,
@@ -1217,9 +1217,9 @@ impl ExpandPath for PathBuf {
     }
 }
 
-// silence unused import warning for RpcError if only used via methods
+// silence unused import warning for InvokeError if only used via methods
 #[allow(dead_code)]
-fn _rpc_error_typecheck(_: RpcError) {}
+fn _invoke_error_typecheck(_: InvokeError) {}
 
 #[allow(dead_code)]
 fn _cmd_str_use() {

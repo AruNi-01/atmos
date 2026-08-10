@@ -5,7 +5,7 @@
 ## Test strategy
 
 - **Unit**: envelope serialization; clap arg → RPC `data` mapping; next_actions builders; context file resolution.
-- **Service / API**: `POST /api/cli/rpc` dispatches same handlers as WS for representative actions; unknown action; auth failure; headless (no WS subscriber).
+- **Service / API**: `POST /api/cli/invoke` dispatches same handlers as WS for representative actions; unknown action; auth failure; headless (no WS subscriber).
 - **CLI integration**: `cargo test -p atmos` + process tests invoking `atmos` binary with mocked or local server where feasible.
 - **Skill packaging**: filesystem / bundle checks that `atmos-cli` skill exists with required structure; content smoke (description, decision tree, no full action dump).
 - **E2E / Playwright**: not primary — feature is CLI/API. Optional smoke that Desktop still works after shared dispatch extract.
@@ -96,7 +96,7 @@
 
 - **Level**: API
 - **Given**: server requiring token; request without valid bearer.
-- **When**: `POST /api/cli/rpc` with `project_list`.
+- **When**: `POST /api/cli/invoke` with `project_list`.
 - **Then**: rejected; CLI maps to `UNAUTHORIZED` + fix mentioning token flags.
 - **Signals**: status code / envelope code.
 
@@ -136,14 +136,14 @@
 
 - **Level**: API integration
 - **Given**: AppState with services; **zero** connected WS UI clients.
-- **When**: `POST /api/cli/rpc` `{ "action": "project_list", "data": {} }`.
+- **When**: `POST /api/cli/invoke` `{ "action": "project_list", "data": {} }`.
 - **Then**: `success: true` and data matches what WS would return for same action.
 - **Signals**: HTTP 200; body shape.
 
 ### S9 — Unknown action
 
 - **Level**: API
-- **Given**: running CLI RPC.
+- **Given**: running server invoke.
 - **When**: action `definitely_not_an_action`.
 - **Then**: structured failure, not 500 panic.
 - **Signals**: error code UNKNOWN_ACTION.

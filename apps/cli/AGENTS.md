@@ -2,7 +2,7 @@
 
 > **🛠️ atmos CLI**: Host operations and **HTTP client** to the current Atmos Server — not a second data plane for product state.
 >
-> APP-058 adds an **agent-first product control plane**: typed L1 resources + `/api/cli/rpc` reusing `WsAction` handlers + JSON envelope.
+> APP-058 adds an **agent-first product control plane**: typed L1 resources + `POST /api/cli/invoke` (server action dispatch) reusing `WsAction` handlers + JSON envelope.
 
 ---
 
@@ -23,7 +23,7 @@ apps/cli/
 ├── src/
 │   ├── main.rs
 │   ├── envelope.rs        # APP-058 JSON envelope
-│   ├── rpc.rs             # POST /api/cli/rpc client
+│   ├── server_invoke.rs   # POST /api/cli/invoke client
 │   ├── context.rs         # ~/.atmos/cli-context.json
 │   ├── api_client.rs
 │   └── commands/
@@ -46,7 +46,7 @@ Agent skill (usage): `skills/atmos-cli/` → system skill `atmos-cli`.
 | Surface | Purpose |
 |---------|---------|
 | `atmos` / `status` / `call` / `actions` | Discovery + RPC escape hatch |
-| `project` `workspace` `group` `settings` `terminal` `run` `git` `context` | L1 product control via `/api/cli/rpc` |
+| `project` `workspace` `group` `settings` `terminal` `run` `git` `context` | L1 product control via `/api/cli/invoke` |
 | `atmos runtime` | Ensure/stop/status local Atmos Server |
 | `atmos computer` | Relay registration + ensure API |
 | `atmos canvas` / `review` / `desktop-use` / `browser-use` | Specialized tools (envelope-wrapped) |
@@ -64,7 +64,7 @@ Token: `--api-token` → `ATMOS_API_TOKEN` → `ATMOS_LOCAL_TOKEN` → `client-s
 ## Coding Conventions
 
 - **JSON envelope always** for point-in-time commands (`ok`, `command`, `result`/`error`+`fix`, `next_actions`). Exit `0` iff `ok`.
-- Product mutations go through `rpc::call_rpc` → `POST /api/cli/rpc` — never embed `core-service`.
+- Product mutations go through `server_invoke::invoke` → `POST /api/cli/invoke` — never embed `core-service`.
 - Destructive L1 deletes require `--yes`.
 - Prefer extending L1 clap verbs over teaching agents raw wire actions.
 

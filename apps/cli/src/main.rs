@@ -2,7 +2,7 @@ mod api_client;
 mod commands;
 mod context;
 mod envelope;
-mod rpc;
+mod server_invoke;
 
 use api_client::ApiClientArgs;
 use clap::{Parser, Subcommand};
@@ -152,7 +152,9 @@ async fn run() -> i32 {
 
     let envelope = match cli.command {
         None => {
-            let health = crate::rpc::get_json(&cli.api, "/api/cli/health").await.ok();
+            let health = crate::server_invoke::get_json(&cli.api, "/api/cli/health")
+                .await
+                .ok();
             discovery_tree(health)
         }
         Some(Commands::Status) => execute_status(cli.api).await,
@@ -248,7 +250,7 @@ fn wrap_legacy(command: &str, result: Result<serde_json::Value, String>) -> CliE
         Err(err) => {
             let lower = err.to_lowercase();
             if lower.contains("401") || lower.contains("unauthorized") {
-                return crate::rpc::RpcError::Unauthorized(err).to_envelope(command);
+                return crate::server_invoke::InvokeError::Unauthorized(err).to_envelope(command);
             }
             if lower.contains("connect")
                 || lower.contains("refused")
@@ -256,7 +258,7 @@ fn wrap_legacy(command: &str, result: Result<serde_json::Value, String>) -> CliE
                 || (lower.contains("failed to")
                     && (lower.contains("url") || lower.contains("manifest")))
             {
-                return crate::rpc::RpcError::Unreachable(err).to_envelope(command);
+                return crate::server_invoke::InvokeError::Unreachable(err).to_envelope(command);
             }
             CliEnvelope::failure(
                 command,

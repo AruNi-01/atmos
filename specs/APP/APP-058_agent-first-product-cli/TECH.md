@@ -6,7 +6,7 @@
 
 Build an **agent-first product control plane** for the `atmos` CLI:
 
-1. **Server**: authenticated HTTP CLI RPC that dispatches to the **same** `WsAction` handlers as `/ws`.
+1. **Server**: authenticated HTTP server invoke that dispatches to the **same** `WsAction` handlers as `/ws`.
 2. **CLI**: unified JSON envelope (cli-design principles), root discovery, typed L1 resource commands, L0 `call` escape hatch.
 3. **Agent skill**: system skill **`atmos-cli`** (short `SKILL.md` + `references/`) so agents operate product state without UI.
 4. **Constraint**: CLI remains a thin client (`apps/cli/AGENTS.md`); no `core-service` embed.
@@ -29,7 +29,7 @@ Does **not** redesign WebSocket protocol for browsers, mobile clients, or termin
 └────────────┬───────────────────────────────┬─────────────────┘
              │ Host plane                    │ Product plane
              ▼                               ▼
-   runtime-manager / OS              POST /api/cli/rpc
+   runtime-manager / OS              POST /api/cli/invoke
    desktop-use / browser-use                  │
                                               ▼
                                     apps/api  CliRpcHandler
@@ -78,19 +78,19 @@ Browser/mobile continue on `/ws` unchanged.
 
 ## Module-by-module design
 
-### apps/api — CLI RPC surface
+### apps/api — server invoke surface
 
 **Paths** (nest under existing router in `apps/api/src/api/mod.rs`):
 
 ```text
-POST /api/cli/rpc              # primary
+POST /api/cli/invoke              # primary
 GET  /api/cli/actions          # list wire actions (from same catalog as WsAction)
 GET  /api/cli/health           # optional thin health for atmos status
 ```
 
 **Auth**: same middleware/token rules as other `/api/*` that require bearer when not loopback — reuse patterns from review/canvas/system. Local Desktop typically uses `ATMOS_LOCAL_TOKEN` / client-session / manifest resolution already used by CLI.
 
-#### `POST /api/cli/rpc`
+#### `POST /api/cli/invoke`
 
 Request body:
 
@@ -143,12 +143,12 @@ Returns sorted list of wire action names (from `WsAction` enum / fixture). Optio
 ```text
 apps/api/src/api/cli/
   mod.rs          # routes()
-  rpc.rs          # POST rpc
+  server_invoke.rs / invoke.rs          # POST invoke
   actions.rs      # GET actions
   health.rs       # optional
 ```
 
-Refactor if needed: extract `dispatch_ws_action(service, action, data) -> Result<Value>` from `apps/api/src/api/ws/router/mod.rs` so WS handler and CLI RPC share one function. Avoid copy-paste of the giant match.
+Refactor if needed: extract `dispatch_ws_action(service, action, data) -> Result<Value>` from `apps/api/src/api/ws/router/mod.rs` so WS handler and server invoke share one function. Avoid copy-paste of the giant match.
 
 ### apps/cli — structure
 
@@ -316,7 +316,7 @@ Interactive attach (N3) is a later NDJSON/binary stream design; out of P0–P2 m
 #### Streaming (N1)
 
 ```text
-POST /api/cli/rpc/stream   # or GET with SSE
+POST /api/cli/invoke/stream   # or GET with SSE
 ```
 
 Or CLI opens WS only for stream verbs. Prefer **NDJSON over HTTP** with last line = envelope. Not required for P0–P2.
@@ -357,7 +357,7 @@ CLI clap args map into these JSON shapes for `data`.
 
 | Verb | Endpoint |
 |------|----------|
-| RPC | `POST /api/cli/rpc` |
+| RPC | `POST /api/cli/invoke` |
 | List actions | `GET /api/cli/actions` |
 | Health | `GET /api/cli/health` (optional) |
 
@@ -378,7 +378,7 @@ Token: `--api-token` → `ATMOS_API_TOKEN` → `ATMOS_LOCAL_TOKEN` → client-se
 - **Auth**: bearer required for non-loopback; loopback may allow local token rules as today.
 - **Authorization**: same as WS (local single-tenant server model).
 - **Destructive L1**: `--yes` required in CLI before sending delete RPCs.
-- **High-risk actions** (`fs_delete_path`, `disk_analyzer_delete`, mass deletes): L1 either omits them or requires `--yes`; document in help. Optional server-side deny list for CLI RPC in a later hardening PR — not blocking P0 if auth is already local-trust.
+- **High-risk actions** (`fs_delete_path`, `disk_analyzer_delete`, mass deletes): L1 either omits them or requires `--yes`; document in help. Optional server-side deny list for server invoke in a later hardening PR — not blocking P0 if auth is already local-trust.
 - **Logging**: never log full bearer tokens; redact in debug logs.
 - **Secrets in settings/quota**: treat like UI paths; avoid printing secrets in `next_actions`.
 
@@ -470,7 +470,7 @@ Centralize builders so mapping stays consistent.
 
 ## Rollout plan
 
-1. **P0a — Server RPC**: extract shared dispatch; add `/api/cli/rpc` + `/api/cli/actions`; unit tests with in-process router.
+1. **P0a — Server RPC**: extract shared dispatch; add `/api/cli/invoke` + `/api/cli/actions`; unit tests with in-process router.
 2. **P0b — CLI envelope + root + status + call + actions list**; remove product `--json` dual path; convert host commands to envelope.
 3. **P1 — context + project + workspace + group + settings** L1 commands + next_actions builders + destructive `--yes`.
 4. **P2 — terminal create path** (add `WsAction` if missing) + `terminal` / `run` L1.

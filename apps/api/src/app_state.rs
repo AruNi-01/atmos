@@ -44,7 +44,7 @@ pub struct AppState {
     pub notification_service: Arc<NotificationService>,
     pub canvas_agent_relay: Arc<CanvasAgentRelay>,
     pub review_service: Arc<ReviewService>,
-    /// Shared with `/ws` — product action dispatch for CLI RPC (APP-058).
+    /// Shared with `/ws` — product action dispatch for CLI server_invoke (APP-058).
     pub ws_message_service: Arc<WsMessageService>,
     pub ws_service: Arc<WsService>,
     pub api_port: std::sync::atomic::AtomicU16,

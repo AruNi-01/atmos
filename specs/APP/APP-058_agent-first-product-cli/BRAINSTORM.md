@@ -51,9 +51,9 @@ CLI opens `/ws`, sends `WsAction` frames.
 **Cons**: Short-lived agent processes pay connect/handshake cost; reconnect state machine for every tool call; awkward for one-shot scripts; hard for “just run one command”.
 **Decision**: **Reject as primary transport** (keep WS only for true long-lived streams: PTY attach, live agent).
 
-### Option D — Server CLI RPC reusing WsAction handlers + typed resource CLI (chosen)
+### Option D — Server server invoke reusing WsAction handlers + typed resource CLI (chosen)
 
-1. **Internal**: `POST /api/cli/rpc` maps `action` + `data` onto the **same** handler dispatch as `/ws` (no business duplication).
+1. **Internal**: `POST /api/cli/invoke` maps `action` + `data` onto the **same** handler dispatch as `/ws` (no business duplication).
 2. **External (agent-facing)**: standard resource CLI — `atmos project create`, `atmos workspace list`, … — clap-typed, JSON envelope, HATEOAS `next_actions`.
 3. **Escape hatch**: `atmos call <action> --data …` for long-tail / not-yet-typed actions (not the primary agent path).
 4. **Temporal ops**: NDJSON stream (`--follow`, `watch`) ending in the same envelope.
@@ -74,7 +74,7 @@ No typed subcommands; agent lists wire actions and calls them.
 
 | Fork | Choices | Resolution |
 |------|---------|------------|
-| **F1 Transport for CRUD** | REST-per-resource vs CLI RPC vs WS | **CLI RPC over HTTP** reusing handlers; typed CLI on top |
+| **F1 Transport for CRUD** | REST-per-resource vs server invoke vs WS | **server invoke over HTTP** reusing handlers; typed CLI on top |
 | **F2 Agent primary UX** | `call` only vs resource verbs | **Resource verbs (L1)**; `call` is escape hatch |
 | **F3 Output format** | Dual human/`--json` vs JSON-always | **JSON-always agent-first envelope** for product plane; **no backward compat** with prior ad-hoc CLI JSON shapes |
 | **F4 Framework** | Effect/Bun (cli-design skill) vs Rust/clap | **Rust + clap** (existing release, native tools) |
@@ -116,4 +116,4 @@ Agents need more than a binary: a **system skill** that teaches product CLI usag
 ## Ready to promote
 
 - Promote to PRD: Option D; L1 resource tree; phases; personas; out-of-scope; no backward compat; **`atmos-cli` skill (M22)**.
-- Promote to TECH: CLI RPC design, envelope module, command map to WsAction, streaming, auth, rollout phases, risk for headless handlers; **skill layout, decision tree, phase sync**.
+- Promote to TECH: server invoke design, envelope module, command map to WsAction, streaming, auth, rollout phases, risk for headless handlers; **skill layout, decision tree, phase sync**.

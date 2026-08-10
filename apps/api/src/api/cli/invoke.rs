@@ -1,4 +1,4 @@
-//! `POST /api/cli/rpc` — invoke a product `WsAction` by wire name.
+//! `POST /api/cli/invoke` — run a product `WsAction` by wire name on Atmos Server.
 
 use axum::{extract::State, Json};
 use serde::Deserialize;
@@ -11,7 +11,7 @@ use crate::{
 };
 
 #[derive(Debug, Deserialize)]
-pub struct CliRpcRequest {
+pub struct CliInvokeRequest {
     /// Wire action name (snake_case), e.g. `project_list`.
     pub action: String,
     #[serde(default)]
@@ -20,9 +20,9 @@ pub struct CliRpcRequest {
     pub request_id: Option<String>,
 }
 
-pub async fn rpc(
+pub async fn invoke(
     State(state): State<AppState>,
-    Json(body): Json<CliRpcRequest>,
+    Json(body): Json<CliInvokeRequest>,
 ) -> ApiResult<Json<Value>> {
     let action_name = body.action.trim();
     if action_name.is_empty() {
@@ -87,7 +87,6 @@ fn service_error_parts(err: &core_service::ServiceError) -> (&'static str, Strin
     }
 }
 
-/// Unit-test helpers for action parsing without a full server.
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -154,7 +154,7 @@ Qualitative: agents stop using desktop-use/screenshots for basic Atmos CRUD; age
 - **Risk**: Some WS handlers may assume a connected browser (notifications, canvas). Mitigate: headless path must not depend on UI; document special cases (canvas bridge).
 - **Risk**: Dangerous RPC if fully open. Mitigate: same auth as API; destructive L1 flags; optional server allowlist for highest-risk actions in TECH.
 - **Risk**: Command surface sprawl. Mitigate: phase L1; M17 covers remainder.
-- **Open (TECH)**: Exact path `/api/cli/rpc` vs `/api/agent/rpc`; whether envelope is assembled in CLI only or also on server.
+- **Open (TECH)**: Exact path `/api/cli/invoke` vs `/api/agent/rpc`; whether envelope is assembled in CLI only or also on server.
 - **Open (TECH)**: Where context file lives (`~/.atmos/cli-context.json` vs session).
 
 ## Milestones

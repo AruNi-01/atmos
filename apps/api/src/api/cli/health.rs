@@ -12,7 +12,7 @@ pub async fn health(State(state): State<AppState>) -> ApiResult<Json<Value>> {
         "data": {
             "server": "up",
             "service": "atmos-api",
-            "cli_rpc": true,
+            "server_invoke": true,
         }
     })))
 }

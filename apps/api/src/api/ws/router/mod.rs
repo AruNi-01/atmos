@@ -161,7 +161,7 @@ impl WsMessageService {
         }
     }
 
-    /// Dispatch a product action for HTTP CLI RPC (APP-058) without a live WS client.
+    /// Dispatch a product action for HTTP CLI server_invoke (APP-058) without a live WS client.
     ///
     /// Uses connection id `"cli"` so canvas-bridge registration paths stay isolated
     /// from real browser connections. Headless product CRUD must not require UI.

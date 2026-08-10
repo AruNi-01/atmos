@@ -1,4 +1,6 @@
-//! HTTP client for `POST /api/cli/rpc` and related endpoints.
+//! Invoke Atmos Server product actions over HTTP (`POST /api/cli/invoke`).
+//!
+//! This is a thin request client — not an RPC framework. Naming: **server_invoke**.
 
 use reqwest::header::AUTHORIZATION;
 use reqwest::Method;
@@ -10,7 +12,7 @@ use crate::api_client::{
 use crate::envelope::{next, unauthorized_actions, CliEnvelope, NextAction};
 
 #[derive(Debug)]
-pub enum RpcError {
+pub enum InvokeError {
     Unreachable(String),
     Unauthorized(String),
     Http { status: u16, body: String },
@@ -18,38 +20,38 @@ pub enum RpcError {
     Other(String),
 }
 
-impl RpcError {
+impl InvokeError {
     pub fn to_envelope(&self, command: &str) -> CliEnvelope {
         match self {
-            RpcError::Unreachable(msg) => CliEnvelope::failure(
+            InvokeError::Unreachable(msg) => CliEnvelope::failure(
                 command,
                 "SERVER_UNREACHABLE",
                 msg.clone(),
                 "Start the server: atmos runtime ensure (or set --api-url)",
                 crate::envelope::server_unreachable_actions(),
             ),
-            RpcError::Unauthorized(msg) => CliEnvelope::failure(
+            InvokeError::Unauthorized(msg) => CliEnvelope::failure(
                 command,
                 "UNAUTHORIZED",
                 msg.clone(),
                 "Set --api-token, ATMOS_API_TOKEN, or ATMOS_LOCAL_TOKEN",
                 unauthorized_actions(),
             ),
-            RpcError::Action { code, message } => CliEnvelope::failure(
+            InvokeError::Action { code, message } => CliEnvelope::failure(
                 command,
                 code.clone(),
                 message.clone(),
                 "Inspect the error code and fix the request payload or resource state",
                 vec![next("atmos status", "Check server health")],
             ),
-            RpcError::Http { status, body } => CliEnvelope::failure(
+            InvokeError::Http { status, body } => CliEnvelope::failure(
                 command,
                 "HTTP_ERROR",
                 format!("HTTP {status}: {body}"),
                 "Retry after checking server logs and auth",
                 vec![next("atmos status", "Check server health")],
             ),
-            RpcError::Other(msg) => CliEnvelope::failure(
+            InvokeError::Other(msg) => CliEnvelope::failure(
                 command,
                 "CLI_ERROR",
                 msg.clone(),
@@ -60,9 +62,10 @@ impl RpcError {
     }
 }
 
-pub async fn call_rpc(api: &ApiClientArgs, action: &str, data: Value) -> Result<Value, RpcError> {
-    let endpoint = build_url(api, "/api/cli/rpc").map_err(RpcError::Other)?;
-    let client = http_client(api).map_err(RpcError::Other)?;
+/// Invoke a server-side `WsAction` by wire name with JSON `data`.
+pub async fn invoke(api: &ApiClientArgs, action: &str, data: Value) -> Result<Value, InvokeError> {
+    let endpoint = build_url(api, "/api/cli/invoke").map_err(InvokeError::Other)?;
+    let client = http_client(api).map_err(InvokeError::Other)?;
     let mut req = client.request(Method::POST, &endpoint).json(&json!({
         "action": action,
         "data": data,
@@ -73,18 +76,18 @@ pub async fn call_rpc(api: &ApiClientArgs, action: &str, data: Value) -> Result<
     let resp = req
         .send()
         .await
-        .map_err(|e| RpcError::Unreachable(format!("request failed ({endpoint}): {e}")))?;
+        .map_err(|e| InvokeError::Unreachable(format!("request failed ({endpoint}): {e}")))?;
     let status = resp.status();
     let body_text = resp
         .text()
         .await
-        .map_err(|e| RpcError::Other(format!("read body: {e}")))?;
+        .map_err(|e| InvokeError::Other(format!("read body: {e}")))?;
     let value: Value =
         serde_json::from_str(&body_text).unwrap_or_else(|_| json!({ "raw": body_text }));
 
     if status.as_u16() == 401 {
         let hint = auth_hint_for_status(status).unwrap_or("unauthorized");
-        return Err(RpcError::Unauthorized(hint.to_string()));
+        return Err(InvokeError::Unauthorized(hint.to_string()));
     }
 
     // Prefer structured error envelope when present (including HTTP 200).
@@ -100,21 +103,20 @@ pub async fn call_rpc(api: &ApiClientArgs, action: &str, data: Value) -> Result<
             .or_else(|| value.get("error").and_then(|v| v.as_str()))
             .unwrap_or("action failed")
             .to_string();
-        return Err(RpcError::Action { code, message });
+        return Err(InvokeError::Action { code, message });
     }
 
     if !status.is_success() {
-        // Map legacy 400 "unknown action …" text to UNKNOWN_ACTION for agents.
         let lower = body_text.to_ascii_lowercase();
         if status.as_u16() == 400
             && (lower.contains("unknown action") || lower.contains("unknown_action"))
         {
-            return Err(RpcError::Action {
+            return Err(InvokeError::Action {
                 code: "UNKNOWN_ACTION".into(),
                 message: body_text,
             });
         }
-        return Err(RpcError::Http {
+        return Err(InvokeError::Http {
             status: status.as_u16(),
             body: body_text,
         });
@@ -124,13 +126,12 @@ pub async fn call_rpc(api: &ApiClientArgs, action: &str, data: Value) -> Result<
         return Ok(value.get("data").cloned().unwrap_or(Value::Null));
     }
 
-    // actions list / health may already be unwrapped shapes
     Ok(value.get("data").cloned().unwrap_or(value))
 }
 
-pub async fn get_json(api: &ApiClientArgs, path: &str) -> Result<Value, RpcError> {
-    let endpoint = build_url(api, path).map_err(RpcError::Other)?;
-    let client = http_client(api).map_err(RpcError::Other)?;
+pub async fn get_json(api: &ApiClientArgs, path: &str) -> Result<Value, InvokeError> {
+    let endpoint = build_url(api, path).map_err(InvokeError::Other)?;
+    let client = http_client(api).map_err(InvokeError::Other)?;
     let mut req = client.request(Method::GET, &endpoint);
     if let Some(token) = resolve_token(api) {
         req = req.header(AUTHORIZATION, format!("Bearer {token}"));
@@ -138,27 +139,27 @@ pub async fn get_json(api: &ApiClientArgs, path: &str) -> Result<Value, RpcError
     let resp = req
         .send()
         .await
-        .map_err(|e| RpcError::Unreachable(format!("request failed ({endpoint}): {e}")))?;
+        .map_err(|e| InvokeError::Unreachable(format!("request failed ({endpoint}): {e}")))?;
     let status = resp.status();
     let body_text = resp
         .text()
         .await
-        .map_err(|e| RpcError::Other(format!("read body: {e}")))?;
+        .map_err(|e| InvokeError::Other(format!("read body: {e}")))?;
     if status.as_u16() == 401 {
-        return Err(RpcError::Unauthorized(
+        return Err(InvokeError::Unauthorized(
             auth_hint_for_status(status)
                 .unwrap_or("unauthorized")
                 .to_string(),
         ));
     }
     if !status.is_success() {
-        return Err(RpcError::Http {
+        return Err(InvokeError::Http {
             status: status.as_u16(),
             body: body_text,
         });
     }
     let value: Value = serde_json::from_str(&body_text)
-        .map_err(|e| RpcError::Other(format!("parse json: {e}")))?;
+        .map_err(|e| InvokeError::Other(format!("parse json: {e}")))?;
     if value.get("success").and_then(|v| v.as_bool()) == Some(true) {
         return Ok(value.get("data").cloned().unwrap_or(Value::Null));
     }
