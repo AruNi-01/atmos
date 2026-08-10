@@ -15,6 +15,11 @@ import {
   niceAxisMax,
   type DitherTheme,
 } from "../../lib/dither/math";
+import {
+  createGridMorph,
+  gridSignature,
+  type GridMorph,
+} from "../../lib/dither/morph";
 import { useDitherCanvas } from "../../lib/dither/use-dither-canvas";
 import {
   DitherTooltip,
@@ -56,6 +61,8 @@ export function DitherStackedBars({
   labelsRef.current = segmentLabels;
   const iconsRef = useRef(segmentIcons);
   iconsRef.current = segmentIcons;
+  const colorsRef = useRef(colors);
+  colorsRef.current = colors;
   const formatRef = useRef(formatValue);
   formatRef.current = formatValue;
 
@@ -68,6 +75,18 @@ export function DitherStackedBars({
   });
   const clientRef = useRef({ x: 0, y: 0 });
   const lastTipKey = useRef("");
+  /** Last drawn segment grid (morphing heights) for pointer hit-test. */
+  const lastDrawnSegsRef = useRef<number[][]>([]);
+  const morphRef = useRef<GridMorph | null>(null);
+  if (!morphRef.current) morphRef.current = createGridMorph();
+  const sigRef = useRef("");
+
+  // Retarget during render so the first paint already has morph state (ref-only).
+  const barsKey = gridSignature(bars.map((b) => b.segments));
+  if (sigRef.current !== barsKey) {
+    morphRef.current.retarget(bars.map((b) => b.segments));
+    sigRef.current = barsKey;
+  }
 
   const [tooltip, setTooltip] = useState<DitherTooltipState | null>(null);
 
@@ -85,10 +104,13 @@ export function DitherStackedBars({
       time: number;
       reducedMotion: boolean;
     }) => {
-      const data = barsRef.current;
-      if (data.length === 0 || w < 2 || h < 2) return;
+      const meta = barsRef.current;
+      const segsGrid = morphRef.current!.sample(reducedMotion);
+      lastDrawnSegsRef.current = segsGrid;
+      if (meta.length === 0 || segsGrid.length === 0 || w < 2 || h < 2) return;
 
-      const n = data.length;
+      // Prefer live bar count / labels from props; heights from morph grid.
+      const n = Math.min(meta.length, segsGrid.length);
       const colW = w / n;
       const barW = Math.min(colW * 0.62, 54);
       const cell = Math.max(3, Math.round(w / 200));
@@ -97,19 +119,24 @@ export function DitherStackedBars({
 
       const maxTotal = Math.max(
         1,
-        ...data.map((b) => b.segments.reduce((s, v) => s + Math.max(0, v), 0)),
+        ...segsGrid
+          .slice(0, n)
+          .map((segs) => segs.reduce((s, v) => s + Math.max(0, v), 0)),
       );
       const axisMax = niceAxisMax(maxTotal);
       const HIGHLIGHT = theme === "dark" ? "#FFFFFF" : "#0F172A";
       const tAnim = reducedMotion ? 0 : time;
       const rate = reducedMotion ? 1 : 0.15;
+      const palette = colorsRef.current;
 
       // Ensure weight arrays
       if (barWeightsRef.current.length !== n) {
         barWeightsRef.current = Array.from({ length: n }, () => 0);
       }
       if (bandWeightsRef.current.length !== n) {
-        bandWeightsRef.current = data.map((b) => b.segments.map(() => 0));
+        bandWeightsRef.current = segsGrid
+          .slice(0, n)
+          .map((segs) => segs.map(() => 0));
       }
 
       const tb = targetRef.current.b;
@@ -122,8 +149,11 @@ export function DitherStackedBars({
           rate,
         );
         maxBarW = Math.max(maxBarW, barWeightsRef.current[i]!);
-        const segs = data[i]!.segments;
-        if (!bandWeightsRef.current[i] || bandWeightsRef.current[i]!.length !== segs.length) {
+        const segs = segsGrid[i]!;
+        if (
+          !bandWeightsRef.current[i] ||
+          bandWeightsRef.current[i]!.length !== segs.length
+        ) {
           bandWeightsRef.current[i] = segs.map(() => 0);
         }
         for (let j = 0; j < segs.length; j++) {
@@ -135,12 +165,12 @@ export function DitherStackedBars({
         }
       }
 
-      // Tooltip
-      if (tb !== null && tband !== null && data[tb]) {
-        const bar = data[tb]!;
-        const val = bar.segments[tband] ?? 0;
-        const segLabel =
-          labelsRef.current?.[tband] ?? `Segment ${tband + 1}`;
+      // Tooltip — use morphing display values so heights match.
+      if (tb !== null && tband !== null && meta[tb] && segsGrid[tb]) {
+        const bar = meta[tb]!;
+        const segs = segsGrid[tb]!;
+        const val = segs[tband] ?? 0;
+        const segLabel = labelsRef.current?.[tband] ?? `Segment ${tband + 1}`;
         const key = `${tb}-${tband}:${val}:${clientRef.current.x}`;
         if (lastTipKey.current !== key) {
           lastTipKey.current = key;
@@ -156,12 +186,12 @@ export function DitherStackedBars({
                 icon: segIcon,
                 color: segIcon
                   ? undefined
-                  : (colors?.[tband] ?? bandColor(tband, theme)),
+                  : (palette?.[tband] ?? bandColor(tband, theme)),
               },
               {
                 label: "Total",
                 value: formatRef.current(
-                  bar.segments.reduce((s, v) => s + Math.max(0, v), 0),
+                  segs.reduce((s, v) => s + Math.max(0, v), 0),
                 ),
               },
             ],
@@ -184,12 +214,12 @@ export function DitherStackedBars({
         const cx = colX + colW / 2;
         const x0 = cx - barW / 2;
         let currentY = plotH;
-        const segs = data[i]!.segments;
+        const segs = segsGrid[i]!;
         const barWgt = barWeightsRef.current[i] ?? 0;
 
         for (let j = 0; j < segs.length; j++) {
           const val = Math.max(0, segs[j]!);
-          if (val <= 0) continue;
+          if (val <= 0.0001) continue;
           const segH = Math.max(0.1, (val / axisMax) * plotH);
           const yBottom = currentY;
           const yTop = currentY - segH;
@@ -208,7 +238,7 @@ export function DitherStackedBars({
           const color =
             bandWgt > 0.55
               ? HIGHLIGHT
-              : (colors?.[j] ?? bandColor(j, theme));
+              : (palette?.[j] ?? bandColor(j, theme));
 
           ctx.save();
           drawRoundedRect(ctx, x0, yTop, barW, segH, rTop, rBottom);
@@ -238,17 +268,18 @@ export function DitherStackedBars({
           theme === "dark" ? "rgba(255,255,255,0.4)" : "rgba(0,0,0,0.4)";
         ctx.font = "10px ui-monospace, SFMono-Regular, Menlo, monospace";
         ctx.textAlign = "center";
-        ctx.fillText(data[i]!.label, cx, h - 3);
+        ctx.fillText(meta[i]!.label, cx, h - 3);
       }
     },
-    [colors, theme],
+    [theme],
   );
 
-  useDitherCanvas(canvasRef, draw, [bars, colors, segmentLabels, segmentIcons, theme]);
+  useDitherCanvas(canvasRef, draw);
 
   const onPointer = (e: ReactPointerEvent<HTMLCanvasElement>) => {
     clientRef.current = { x: e.clientX, y: e.clientY };
     const data = barsRef.current;
+    const drawn = lastDrawnSegsRef.current;
     if (data.length === 0) {
       targetRef.current = { b: null, band: null };
       return;
@@ -258,7 +289,11 @@ export function DitherStackedBars({
     const ly = e.clientY - rect.top;
     const w = rect.width;
     const h = rect.height;
-    const n = data.length;
+    const n = Math.min(data.length, drawn.length || data.length);
+    if (n === 0) {
+      targetRef.current = { b: null, band: null };
+      return;
+    }
     const colW = w / n;
     const barW = Math.min(colW * 0.62, 54);
     const padB = 16;
@@ -274,16 +309,20 @@ export function DitherStackedBars({
       targetRef.current = { b: null, band: null };
       return;
     }
+    const segs = drawn[bi] ?? data[bi]!.segments;
     const maxTotal = Math.max(
       1,
-      ...data.map((b) => b.segments.reduce((s, v) => s + Math.max(0, v), 0)),
+      ...(drawn.length > 0
+        ? drawn.map((s) => s.reduce((sum, v) => sum + Math.max(0, v), 0))
+        : data.map((b) =>
+            b.segments.reduce((s, v) => s + Math.max(0, v), 0),
+          )),
     );
     const axisMax = niceAxisMax(maxTotal);
     let currentY = plotH;
-    const segs = data[bi]!.segments;
     for (let j = 0; j < segs.length; j++) {
       const val = Math.max(0, segs[j]!);
-      if (val <= 0) continue;
+      if (val <= 0.0001) continue;
       const segH = (val / axisMax) * plotH;
       const yTop = currentY - segH;
       if (ly >= yTop && ly <= currentY) {

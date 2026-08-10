@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useRef } from "react";
 import { cn } from "../../lib/utils";
 import {
   bandColor,
@@ -8,6 +8,11 @@ import {
   smoothstep,
   type DitherTheme,
 } from "../../lib/dither/math";
+import {
+  createSeriesMorph,
+  seriesSignature,
+  type SeriesMorph,
+} from "../../lib/dither/morph";
 import { useDitherCanvas } from "../../lib/dither/use-dither-canvas";
 
 export type DitherFunnelStage = {
@@ -30,11 +35,6 @@ export type DitherFunnelProps = {
   gap?: number;
 };
 
-type MorphStage = {
-  value: number;
-  color: string;
-};
-
 /**
  * Conversion-funnel dither bars (Amicro DitherFunnelChart).
  * Horizontal stages, each width proportional to value — use one stage for a
@@ -54,35 +54,24 @@ export function DitherFunnel({
   maxRef.current = maxValue;
   const gapRef = useRef(gap);
   gapRef.current = gap;
-
-  const targetRef = useRef<MorphStage[]>([]);
-  const fromRef = useRef<MorphStage[]>([]);
-  const morphStartRef = useRef(0);
-
-  const resolveStages = useCallback(
-    (input: DitherFunnelStage[]): MorphStage[] =>
-      input.map((stage, index) => ({
-        value: Math.max(0, stage.value),
-        color: stage.color ?? bandColor(index, theme),
-      })),
-    [theme],
-  );
+  const colorsRef = useRef<string[]>([]);
+  const morphRef = useRef<SeriesMorph | null>(null);
+  if (!morphRef.current) morphRef.current = createSeriesMorph();
+  const sigRef = useRef("");
 
   // Stable signature so identity-only re-renders don't restart the morph.
+  // Retarget during render so the first paint already has morph state (ref-only).
   const stagesKey = stages
-    .map((s) => `${s.label}\0${s.value}\0${s.color ?? ""}`)
+    .map((s) => `${s.label}\0${seriesSignature([s.value])}\0${s.color ?? ""}`)
     .join("|");
-
-  // Morph when stage values/colors change (not on every parent re-render).
-  useEffect(() => {
-    const next = resolveStages(stagesRef.current);
-    fromRef.current =
-      targetRef.current.length === next.length
-        ? targetRef.current.map((s) => ({ ...s }))
-        : next.map((s) => ({ value: 0, color: s.color }));
-    targetRef.current = next;
-    morphStartRef.current = performance.now();
-  }, [stagesKey, resolveStages]);
+  const themeKey = `${stagesKey}|${theme}`;
+  if (sigRef.current !== themeKey) {
+    colorsRef.current = stages.map(
+      (stage, index) => stage.color ?? bandColor(index, theme),
+    );
+    morphRef.current.retarget(stages.map((s) => s.value));
+    sigRef.current = themeKey;
+  }
 
   const draw = useCallback(
     ({
@@ -98,37 +87,28 @@ export function DitherFunnel({
       time: number;
       reducedMotion: boolean;
     }) => {
-      const target = targetRef.current;
-      const from = fromRef.current;
-      if (target.length === 0 || w < 2 || h < 2) return;
+      const values = morphRef.current!.sample(reducedMotion);
+      const colors = colorsRef.current;
+      const count = values.length;
+      if (count === 0 || w < 2 || h < 2) return;
 
-      const count = target.length;
       const stageGap = Math.max(0, gapRef.current);
       const rowH = Math.max(2, (h - stageGap * Math.max(0, count - 1)) / count);
       const cell = Math.max(2, Math.round(w / 200));
       // Do not floor at 1 — cost USD (and other fractional metrics) is often < $1.
       // Prefer explicit maxValue; otherwise use the largest stage value.
       const explicitMax = maxRef.current;
-      const stageMax = Math.max(0, ...target.map((s) => s.value));
+      const stageMax = Math.max(0, ...values);
       const scaleMax =
         explicitMax != null && Number.isFinite(explicitMax) && explicitMax > 0
           ? explicitMax
           : stageMax > 0
             ? stageMax
             : 1;
-
-      let prog = 1;
-      if (!reducedMotion) {
-        prog = Math.min(1, (performance.now() - morphStartRef.current) / 500);
-      }
-      // Exponential ease-out (matches Amicro funnel morph).
-      const ease = reducedMotion ? 1 : 1 - Math.pow(2, -10 * prog);
       const tAnim = reducedMotion ? 0 : time;
 
       for (let i = 0; i < count; i++) {
-        const to = target[i]!;
-        const fr = from[i] ?? { value: 0, color: to.color };
-        const val = fr.value + (to.value - fr.value) * ease;
+        const val = values[i] ?? 0;
         const stageW = Math.max(0, Math.min(w, (val / scaleMax) * w));
         const yTop = i * (rowH + stageGap);
 
@@ -140,7 +120,7 @@ export function DitherFunnel({
         ctx.clip();
 
         ctx.globalAlpha = 0.85;
-        ctx.fillStyle = to.color;
+        ctx.fillStyle = colors[i] ?? bandColor(i, theme);
 
         for (let bx = 0; bx <= Math.ceil(stageW); bx += cell) {
           for (
@@ -161,10 +141,10 @@ export function DitherFunnel({
         ctx.restore();
       }
     },
-    [],
+    [theme],
   );
 
-  useDitherCanvas(canvasRef, draw, [stagesKey, theme, maxValue, gap]);
+  useDitherCanvas(canvasRef, draw);
 
   return (
     <canvas

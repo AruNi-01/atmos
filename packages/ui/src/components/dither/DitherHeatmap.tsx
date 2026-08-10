@@ -1,8 +1,17 @@
 "use client";
 
-import { useCallback, useRef, type PointerEvent as ReactPointerEvent } from "react";
+import {
+  useCallback,
+  useRef,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
 import { cn } from "../../lib/utils";
 import { hash, smoothstep, type DitherTheme } from "../../lib/dither/math";
+import {
+  createSeriesMorph,
+  seriesSignature,
+  type SeriesMorph,
+} from "../../lib/dither/morph";
 import { useDitherCanvas } from "../../lib/dither/use-dither-canvas";
 
 export type DitherHeatmapCell = {
@@ -36,6 +45,20 @@ const LIGHT_COLORS = [
   "#15803D",
 ] as const;
 
+const ROWS = 7;
+
+/** Flatten week×day levels; null → -1 so morph can fade empty cells. */
+function flattenLevels(weeks: DitherHeatmapCell[][]): number[] {
+  const out: number[] = [];
+  for (const col of weeks) {
+    for (let d = 0; d < ROWS; d++) {
+      const level = col[d]?.level;
+      out.push(level === null || level === undefined ? -1 : level);
+    }
+  }
+  return out;
+}
+
 /**
  * Activity heatmap — Amicro ActivityHeatmap (dense dither).
  * Cells grow to fill the canvas so a full-year grid can span the container width.
@@ -50,6 +73,29 @@ export function DitherHeatmap({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const weeksRef = useRef(weeks);
   weeksRef.current = weeks;
+  const morphRef = useRef<SeriesMorph | null>(null);
+  if (!morphRef.current) morphRef.current = createSeriesMorph();
+  const sigRef = useRef("");
+
+  // Mask of empty padding cells (true = null / out of year).
+  const nullMaskRef = useRef<boolean[]>([]);
+
+  // Retarget during render so the first paint already has morph state (ref-only).
+  const weeksKey = `${weeks.length}:${seriesSignature(flattenLevels(weeks))}`;
+  if (sigRef.current !== weeksKey) {
+    // Map -1 → 0 for morph domain; keep a mask for true-null cells separately.
+    const levels = flattenLevels(weeks);
+    const flat = levels.map((v) => (v < 0 ? 0 : v));
+    const prevLen = morphRef.current.current().length;
+    // Year switch can change week count — grow-in rather than pad-misalign.
+    if (prevLen > 0 && prevLen !== flat.length) {
+      morphRef.current.retargetEnter(flat);
+    } else {
+      morphRef.current.retarget(flat);
+    }
+    nullMaskRef.current = levels.map((v) => v < 0);
+    sigRef.current = weeksKey;
+  }
 
   const draw = useCallback(
     ({
@@ -69,42 +115,52 @@ export function DitherHeatmap({
       if (cols.length === 0 || width < 2 || height < 2) return;
 
       const weeksCount = cols.length;
-      const rows = 7;
       const gap = 2.5;
       const maxCellW = (width - gap * Math.max(0, weeksCount - 1)) / weeksCount;
-      const maxCellH = (height - gap * (rows - 1)) / rows;
+      const maxCellH = (height - gap * (ROWS - 1)) / ROWS;
       // Prefer filling width; height constrains only when the box is too short.
       const cellSize = Math.max(4, Math.min(maxCellW, maxCellH));
 
       const totalW = weeksCount * cellSize + (weeksCount - 1) * gap;
-      const totalH = rows * cellSize + (rows - 1) * gap;
       const startX = (width - totalW) / 2;
       // Top-align so chrome above the chart (year select) sits close to the grid.
       const startY = 0;
       const colors = theme === "dark" ? DARK_COLORS : LIGHT_COLORS;
       const cell = Math.max(2, Math.round(width / 250));
       const tAnim = reducedMotion ? 0 : time;
+      const levels = morphRef.current!.sample(reducedMotion);
+      const nullMask = nullMaskRef.current;
 
       for (let w = 0; w < weeksCount; w++) {
-        for (let d = 0; d < rows; d++) {
-          const level = cols[w]?.[d]?.level;
+        for (let d = 0; d < ROWS; d++) {
+          const idx = w * ROWS + d;
           const x = startX + w * (cellSize + gap);
           const y = startY + d * (cellSize + gap);
+          const isNull = nullMask[idx] ?? cols[w]?.[d]?.level == null;
 
-          if (level === null || level === undefined) {
+          if (isNull) {
             ctx.fillStyle =
               theme === "dark" ? "rgba(34,197,94,0.06)" : "rgba(22,163,74,0.06)";
             ctx.fillRect(x, y, cellSize, cellSize);
             continue;
           }
 
-          const colorIdx = Math.max(0, Math.min(4, level));
+          const rawLevel = levels[idx] ?? 0;
+          const level = Math.max(0, Math.min(4, rawLevel));
+          // Blend between discrete palette steps for smooth intensity morph.
+          const lo = Math.floor(level);
+          const hi = Math.min(4, lo + 1);
+          const frac = level - lo;
+          const colorIdx = frac < 0.5 ? lo : hi;
+          // Soften alpha during fractional morph for a fade between bands.
+          const alphaBoost = 0.75 + (1 - Math.abs(frac - 0.5) * 2) * 0.1;
+
           ctx.save();
           ctx.beginPath();
           ctx.rect(x, y, cellSize, cellSize);
           ctx.clip();
-          ctx.globalAlpha = 0.85;
-          ctx.fillStyle = colors[colorIdx]!;
+          ctx.globalAlpha = 0.85 * Math.min(1, alphaBoost);
+          ctx.fillStyle = colors[colorIdx as 0 | 1 | 2 | 3 | 4]!;
 
           for (let tx = Math.floor(x); tx <= Math.ceil(x + cellSize); tx += cell) {
             for (let ty = Math.floor(y); ty <= Math.ceil(y + cellSize); ty += cell) {
@@ -114,7 +170,9 @@ export function DitherHeatmap({
               const waveRaw =
                 Math.sin(jx * 0.05 + tAnim) + Math.sin(jy * 0.05 + tAnim * 0.7);
               const mod = smoothstep(-1.5, 1.5, waveRaw);
-              const sz = cell * (0.4 + 0.4 * mod) * (0.8 + 0.4 * jit);
+              // Density scales with continuous level so low→high fills grow.
+              const density = 0.35 + 0.15 * (level / 4);
+              const sz = cell * (density + 0.4 * mod) * (0.8 + 0.4 * jit);
               ctx.fillRect(tx + (cell - sz) / 2, ty + (cell - sz) / 2, sz, sz);
             }
           }
@@ -125,7 +183,7 @@ export function DitherHeatmap({
     [theme],
   );
 
-  useDitherCanvas(canvasRef, draw, [weeks, theme]);
+  useDitherCanvas(canvasRef, draw);
 
   const handlePointer = (e: ReactPointerEvent<HTMLCanvasElement>) => {
     if (!onCellHover) return;
@@ -137,18 +195,16 @@ export function DitherHeatmap({
     const width = rect.width;
     const height = rect.height;
     const weeksCount = cols.length;
-    const rows = 7;
     const gap = 2.5;
     const maxCellW = (width - gap * Math.max(0, weeksCount - 1)) / weeksCount;
-    const maxCellH = (height - gap * (rows - 1)) / rows;
+    const maxCellH = (height - gap * (ROWS - 1)) / ROWS;
     const cellSize = Math.max(4, Math.min(maxCellW, maxCellH));
     const totalW = weeksCount * cellSize + (weeksCount - 1) * gap;
-    const totalH = rows * cellSize + (rows - 1) * gap;
     const startX = (width - totalW) / 2;
     const startY = 0;
     const wi = Math.floor((lx - startX) / (cellSize + gap));
     const di = Math.floor((ly - startY) / (cellSize + gap));
-    if (wi < 0 || di < 0 || wi >= weeksCount || di >= rows) {
+    if (wi < 0 || di < 0 || wi >= weeksCount || di >= ROWS) {
       onCellLeave?.();
       return;
     }

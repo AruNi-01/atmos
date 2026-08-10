@@ -3,6 +3,11 @@
 import { useCallback, useRef, useState } from "react";
 import { cn } from "../../lib/utils";
 import { type DitherTheme } from "../../lib/dither/math";
+import {
+  createSeriesMorph,
+  seriesSignature,
+  type SeriesMorph,
+} from "../../lib/dither/morph";
 import { useDitherCanvas } from "../../lib/dither/use-dither-canvas";
 import {
   DitherTooltip,
@@ -74,10 +79,26 @@ export function DitherGrowth({
   valueLabelRef.current = valueLabel;
   const clientRef = useRef({ x: 0, y: 0 });
   const lastTipKey = useRef("");
+  const morphRef = useRef<SeriesMorph | null>(null);
+  if (!morphRef.current) morphRef.current = createSeriesMorph();
+  const sigRef = useRef("");
+
+  // Retarget during render so the first paint already has morph state (ref-only).
+  const valuesKey = seriesSignature(values);
+  if (sigRef.current !== valuesKey) {
+    const prevLen = morphRef.current.current().length;
+    // Month/day (and similar) length jumps: grow-in instead of misaligned pad morph.
+    if (prevLen > 0 && prevLen !== values.length) {
+      morphRef.current.retargetEnter(values);
+    } else {
+      morphRef.current.retarget(values);
+    }
+    sigRef.current = valuesKey;
+  }
 
   const [tooltip, setTooltip] = useState<DitherTooltipState | null>(null);
 
-  const publishTooltip = useCallback((idx: number | null) => {
+  const publishTooltip = useCallback((idx: number | null, data: number[]) => {
     if (idx === null) {
       if (lastTipKey.current !== "") {
         lastTipKey.current = "";
@@ -85,7 +106,6 @@ export function DitherGrowth({
       }
       return;
     }
-    const data = valuesRef.current;
     const label = labelsRef.current?.[idx];
     const value = data[idx] ?? 0;
     const key = `${idx}:${value}:${clientRef.current.x}:${clientRef.current.y}`;
@@ -119,7 +139,7 @@ export function DitherGrowth({
       time: number;
       reducedMotion: boolean;
     }) => {
-      const data = valuesRef.current;
+      const data = morphRef.current!.sample(reducedMotion);
       if (data.length === 0 || w < 2 || h < 2) return;
 
       const curMax = Math.max(0, ...data);
@@ -159,9 +179,9 @@ export function DitherGrowth({
         ptr.scrubX = reducedMotion
           ? targetX
           : smoothToward(ptr.scrubX, targetX, 0.24);
-        publishTooltip(idx);
+        publishTooltip(idx, data);
       } else if (ptr.active < 0.05) {
-        publishTooltip(null);
+        publishTooltip(null, data);
       }
 
       const glowStrength = ptr.active;
@@ -264,10 +284,10 @@ export function DitherGrowth({
         ctx.globalAlpha = 1;
       }
     },
-    [interactive, publishTooltip, theme],
+    [publishTooltip, theme],
   );
 
-  useDitherCanvas(canvasRef, draw, [values, labels, theme, interactive, formatValue]);
+  useDitherCanvas(canvasRef, draw);
 
   return (
     <div className={cn("relative h-full w-full", className)}>

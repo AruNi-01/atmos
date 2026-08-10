@@ -1,6 +1,11 @@
 "use client";
 
-import { useCallback, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import {
+  useCallback,
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
 import { cn } from "../../lib/utils";
 import {
   bandColor,
@@ -8,6 +13,11 @@ import {
   smoothstep,
   type DitherTheme,
 } from "../../lib/dither/math";
+import {
+  createSeriesMorph,
+  seriesSignature,
+  type SeriesMorph,
+} from "../../lib/dither/morph";
 import { useDitherCanvas } from "../../lib/dither/use-dither-canvas";
 import {
   DitherTooltip,
@@ -52,7 +62,26 @@ export function DitherShareBar({
   const targetIdxRef = useRef<number | null>(null);
   const clientRef = useRef({ x: 0, y: 0 });
   const lastTipKey = useRef("");
+  const morphRef = useRef<SeriesMorph | null>(null);
+  if (!morphRef.current) morphRef.current = createSeriesMorph();
+  const sigRef = useRef("");
   const [tooltip, setTooltip] = useState<DitherTooltipState | null>(null);
+
+  // Signature includes ids so reordering / membership changes retarget cleanly.
+  // Retarget during render so the first paint already has morph state (ref-only).
+  const segsKey = segments
+    .map((s) => `${s.id}:${seriesSignature([s.value])}`)
+    .join("|");
+  if (sigRef.current !== segsKey) {
+    const next = segments.map((s) => s.value);
+    const prevLen = morphRef.current.current().length;
+    if (prevLen > 0 && prevLen !== next.length) {
+      morphRef.current.retargetEnter(next);
+    } else {
+      morphRef.current.retarget(next);
+    }
+    sigRef.current = segsKey;
+  }
 
   const draw = useCallback(
     ({
@@ -69,9 +98,13 @@ export function DitherShareBar({
       reducedMotion: boolean;
     }) => {
       const segs = segmentsRef.current;
+      const values = morphRef.current!.sample(reducedMotion);
       if (segs.length === 0 || w < 2 || h < 2) return;
 
-      const total = segs.reduce((s, seg) => s + Math.max(0, seg.value), 0);
+      const n = Math.min(segs.length, values.length || segs.length);
+      const total = values
+        .slice(0, n)
+        .reduce((s, v) => s + Math.max(0, v), 0);
       if (total <= 0) return;
 
       const cell = Math.max(2, Math.round(w / 220));
@@ -79,11 +112,11 @@ export function DitherShareBar({
       const rate = reducedMotion ? 1 : 0.18;
       const radius = Math.min(h / 2, 8);
 
-      if (weightsRef.current.length !== segs.length) {
-        weightsRef.current = segs.map(() => 0);
+      if (weightsRef.current.length !== n) {
+        weightsRef.current = Array.from({ length: n }, () => 0);
       }
       const target = targetIdxRef.current;
-      for (let i = 0; i < segs.length; i++) {
+      for (let i = 0; i < n; i++) {
         weightsRef.current[i] = smoothToward(
           weightsRef.current[i]!,
           target === i ? 1 : 0,
@@ -95,9 +128,10 @@ export function DitherShareBar({
       let x = 0;
       const layout: Array<{ x0: number; x1: number; share: number }> = [];
 
-      for (let i = 0; i < segs.length; i++) {
+      for (let i = 0; i < n; i++) {
         const seg = segs[i]!;
-        const share = Math.max(0, seg.value) / total;
+        const value = Math.max(0, values[i] ?? 0);
+        const share = value / total;
         const segW = share * w;
         const x0 = x;
         const x1 = x + segW;
@@ -116,7 +150,7 @@ export function DitherShareBar({
         ctx.beginPath();
         // First/last caps round; middle segments stay square joins for a continuous bar.
         const rL = i === 0 ? radius : 0;
-        const rR = i === segs.length - 1 ? radius : 0;
+        const rR = i === n - 1 ? radius : 0;
         roundedSegment(ctx, x0, pad, segW, h - pad * 2, rL, rR);
         ctx.clip();
 
@@ -144,7 +178,8 @@ export function DitherShareBar({
       if (target !== null && segs[target] && layout[target]) {
         const seg = segs[target]!;
         const share = layout[target]!.share;
-        const key = `${seg.id}:${seg.value}:${clientRef.current.x}:${clientRef.current.y}`;
+        const displayVal = values[target] ?? seg.value;
+        const key = `${seg.id}:${displayVal}:${clientRef.current.x}:${clientRef.current.y}`;
         if (lastTipKey.current !== key) {
           lastTipKey.current = key;
           setTooltip({
@@ -154,7 +189,7 @@ export function DitherShareBar({
             lines: [
               {
                 label: formatShareRef.current(share),
-                value: formatValueRef.current(seg.value),
+                value: formatValueRef.current(displayVal),
                 color: seg.color ?? bandColor(target, theme),
               },
             ],
@@ -173,7 +208,7 @@ export function DitherShareBar({
     [theme],
   );
 
-  useDitherCanvas(canvasRef, draw, [segments, theme]);
+  useDitherCanvas(canvasRef, draw);
 
   const handlePointer = (e: ReactPointerEvent<HTMLCanvasElement>) => {
     clientRef.current = { x: e.clientX, y: e.clientY };
