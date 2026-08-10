@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { Activity, Bot, Cpu, DollarSign, Hash } from "lucide-react";
+import { AnimatePresence, motion } from "motion/react";
 import {
   DitherFunnel,
   DitherGrowth,
@@ -14,13 +15,19 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  SlidingMetric,
   TabsSubtle,
   TabsSubtleItem,
   TerminalLoader,
   cn,
+  compactSlidingParts,
+  currencySlidingParts,
+  percentSlidingParts,
   type DitherHeatmapCell,
   type DitherTheme,
+  type DitherTooltipSliding,
   type DitherTooltipState,
+  type SlidingMetricParts,
 } from "@workspace/ui";
 import { useQueryClient } from "@tanstack/react-query";
 import { useLocale, useTranslations } from "next-intl";
@@ -36,18 +43,21 @@ import {
   agentChartColor,
   assignAgentChartColors,
   buildBreakdownSeries,
+  buildHeatmapMonthLabels,
+  buildHeatmapWeekdayAxisLabels,
   buildHeatmapWeeks,
+  buildModelProviderMap,
   buildOverviewBreakdownShares,
   buildTimelineSeries,
   buildYearBreakdownShares,
   formatCompactNumber,
   formatCurrencyCompact,
-  formatCurrencyDetailed,
   formatDetailedNumber,
   formatDimensionLabel,
   formatHeatmapDate,
   formatMetricValue,
   mergeYearLists,
+  resolveTokenUsageModelIconSrc,
   sortDailyUsage,
   summarizeTokenMix,
   summarizeYear,
@@ -59,6 +69,85 @@ import {
   type UsageMetric,
 } from "@/app-shell/token-usage-dialog-utils";
 import { TokenUsageSharePopover } from "@/app-shell/TokenUsageShareDialog";
+
+/** i18n keys under `tokenUsageDialog.loading.tips` — fun status lines while overview loads. */
+const TOKEN_USAGE_LOADING_TIP_KEYS = [
+  "tallyingAgents",
+  "countingLateNight",
+  "reconcilingInvoices",
+  "tracingCacheHits",
+  "weighingInOut",
+  "askingAgents",
+  "buildingHeatmap",
+  "sortingAppetite",
+  "estimatingCost",
+  "unwindingWindows",
+  "negotiatingLedger",
+  "polishingBreakdown",
+] as const;
+
+const TOKEN_USAGE_LOADING_TIP_INTERVAL_MS = 2800;
+
+function shuffleCopy<T>(items: readonly T[]): T[] {
+  const next = [...items];
+  for (let i = next.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    const tmp = next[i]!;
+    next[i] = next[j]!;
+    next[j] = tmp;
+  }
+  return next;
+}
+
+/** Rotating, playful loading copy for the full-page token usage skeleton. */
+function TokenUsageLoadingTips({ className }: { className?: string }) {
+  const t = useTranslations("appShell.tokenUsageDialog");
+  const tips = React.useMemo(
+    () => TOKEN_USAGE_LOADING_TIP_KEYS.map((key) => t(`loading.tips.${key}`)),
+    [t],
+  );
+  // Start ordered for SSR/hydration safety; shuffle once on the client.
+  const [orderedTips, setOrderedTips] = React.useState(tips);
+  const [index, setIndex] = React.useState(0);
+
+  React.useEffect(() => {
+    setOrderedTips(shuffleCopy(tips));
+    setIndex(0);
+  }, [tips]);
+
+  React.useEffect(() => {
+    if (orderedTips.length <= 1) return;
+    const id = window.setInterval(() => {
+      setIndex((prev) => (prev + 1) % orderedTips.length);
+    }, TOKEN_USAGE_LOADING_TIP_INTERVAL_MS);
+    return () => window.clearInterval(id);
+  }, [orderedTips.length]);
+
+  const tip = orderedTips[index] ?? orderedTips[0] ?? "";
+
+  return (
+    <div
+      className={cn(
+        "relative mt-1 flex min-h-[2.75rem] w-full max-w-sm items-start justify-center px-2",
+        className,
+      )}
+      aria-live="polite"
+    >
+      <AnimatePresence mode="wait" initial={false}>
+        <motion.p
+          key={`${index}-${tip}`}
+          initial={{ opacity: 0, y: 10, filter: "blur(4px)" }}
+          animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+          exit={{ opacity: 0, y: -10, filter: "blur(4px)" }}
+          transition={{ duration: 0.38, ease: [0.22, 1, 0.36, 1] }}
+          className="absolute inset-x-0 text-center text-xs leading-relaxed tracking-wide"
+        >
+          {tip}
+        </motion.p>
+      </AnimatePresence>
+    </div>
+  );
+}
 
 /**
  * Map tokscale client ids onto AgentIcon registry / asset names.
@@ -117,6 +206,91 @@ function TokenUsageAgentIcon({
       name={name}
       size={size}
       color={color}
+    />
+  );
+}
+
+/**
+ * Model / provider brand icon for model-dimension rows.
+ * Uses tokscale `provider_id` (with model-name inference fallback) mapped onto
+ * `/ai-provider/*` or `/agents/*` assets. Falls back to Cpu when unknown.
+ */
+function TokenUsageModelIcon({
+  modelId,
+  providerId,
+  name,
+  size = 12,
+  color,
+}: {
+  modelId: string;
+  providerId?: string | null;
+  name: string;
+  size?: number;
+  /** Optional monochrome tint (chart legend / segment key). */
+  color?: string;
+}) {
+  if (modelId === "other") {
+    return (
+      <Cpu
+        className={cn("shrink-0", color ? undefined : "text-muted-foreground")}
+        style={{ width: size, height: size, color: color || undefined }}
+        aria-hidden
+      />
+    );
+  }
+
+  const iconSrc = resolveTokenUsageModelIconSrc(providerId, modelId);
+  if (!iconSrc) {
+    return (
+      <Cpu
+        className={cn("shrink-0", color ? undefined : "text-muted-foreground")}
+        style={{ width: size, height: size, color: color || undefined }}
+        aria-hidden
+      />
+    );
+  }
+
+  // Tint monochrome glyphs so legends match segment colors (same approach as AgentIcon).
+  if (color) {
+    return (
+      <span
+        role="img"
+        aria-label={`${name} icon`}
+        className="inline-block shrink-0"
+        style={{
+          width: size,
+          height: size,
+          backgroundColor: color,
+          WebkitMaskImage: `url(${iconSrc})`,
+          WebkitMaskSize: "contain",
+          WebkitMaskRepeat: "no-repeat",
+          WebkitMaskPosition: "center",
+          maskImage: `url(${iconSrc})`,
+          maskSize: "contain",
+          maskRepeat: "no-repeat",
+          maskPosition: "center",
+        }}
+      />
+    );
+  }
+
+  return (
+    <span
+      role="img"
+      aria-label={`${name} icon`}
+      className="inline-block shrink-0 bg-current text-foreground"
+      style={{
+        width: size,
+        height: size,
+        WebkitMaskImage: `url(${iconSrc})`,
+        WebkitMaskSize: "contain",
+        WebkitMaskRepeat: "no-repeat",
+        WebkitMaskPosition: "center",
+        maskImage: `url(${iconSrc})`,
+        maskSize: "contain",
+        maskRepeat: "no-repeat",
+        maskPosition: "center",
+      }}
     />
   );
 }
@@ -212,6 +386,23 @@ export function TokenUsagePage() {
       ),
     [heatmapWeeks],
   );
+  const heatmapMonthLabels = React.useMemo(
+    () =>
+      buildHeatmapMonthLabels(heatmapWeeks, heatmapYear, locale).map((m) => ({
+        label: m.label,
+        weekIndex: m.weekIndex,
+      })),
+    [heatmapWeeks, heatmapYear, locale],
+  );
+  const heatmapWeekdayLabels = React.useMemo(
+    () =>
+      buildHeatmapWeekdayAxisLabels({
+        mon: t("heatmap.days.mon"),
+        wed: t("heatmap.days.wed"),
+        fri: t("heatmap.days.fri"),
+      }),
+    [t],
+  );
 
   const timelineSeries = React.useMemo(
     () => buildTimelineSeries(sortedDays, resolution, locale),
@@ -227,6 +418,13 @@ export function TokenUsagePage() {
   );
   const formatMetric = React.useCallback(
     (value: number) => formatMetricValue(value, metric, locale, "compact"),
+    [locale, metric],
+  );
+  const formatMetricSliding = React.useCallback(
+    (value: number): DitherTooltipSliding =>
+      metric === "cost"
+        ? currencySlidingParts(value, locale, "compact")
+        : compactSlidingParts(value, locale),
     [locale, metric],
   );
 
@@ -323,18 +521,44 @@ export function TokenUsagePage() {
 
   const segmentKeys = breakdownSeries.keys;
 
+  const modelProviderById = React.useMemo(
+    () => buildModelProviderMap(overview, sortedDays),
+    [overview, sortedDays],
+  );
+
   const segmentIcons = React.useMemo(() => {
-    if (dimension !== "agent") return undefined;
-    return segmentKeys.map((k, index) => (
-      <TokenUsageAgentIcon
-        key={k}
-        clientId={k}
-        name={segmentLabels[index] ?? k}
-        size={12}
-        color={segmentColors[index]}
-      />
-    ));
-  }, [dimension, segmentColors, segmentKeys, segmentLabels]);
+    return segmentKeys.map((k, index) => {
+      const name = segmentLabels[index] ?? k;
+      const color = segmentColors[index];
+      if (dimension === "agent") {
+        return (
+          <TokenUsageAgentIcon
+            key={k}
+            clientId={k}
+            name={name}
+            size={12}
+            color={color}
+          />
+        );
+      }
+      return (
+        <TokenUsageModelIcon
+          key={k}
+          modelId={k}
+          providerId={modelProviderById.get(k)}
+          name={name}
+          size={12}
+          color={color}
+        />
+      );
+    });
+  }, [
+    dimension,
+    modelProviderById,
+    segmentColors,
+    segmentKeys,
+    segmentLabels,
+  ]);
 
   const uniqueModelCount = React.useMemo(() => {
     if (!overview?.by_model?.length) return 0;
@@ -382,14 +606,17 @@ export function TokenUsagePage() {
           aria-busy="true"
           aria-label={t("heatmap.loadingDescription")}
         >
-          <TerminalLoader
-            rows={5}
-            cols={40}
-            blockWidth={3}
-            speed={50}
-            color={isDark ? "text-white" : "text-black"}
-            bgColor={isDark ? "bg-white" : "bg-black"}
-          />
+          <div className="flex flex-col items-center gap-6">
+            <TerminalLoader
+              rows={5}
+              cols={40}
+              blockWidth={3}
+              speed={50}
+              color={isDark ? "text-white" : "text-black"}
+              bgColor={isDark ? "bg-white" : "bg-black"}
+            />
+            <TokenUsageLoadingTips className={muted} />
+          </div>
         </div>
       ) : (
         <div className="relative z-[1] min-h-0 flex-1 overflow-y-auto overscroll-contain">
@@ -495,6 +722,8 @@ export function TokenUsagePage() {
                 onHeatmapYearChange={setSelectedYear}
                 ditherWeeks={ditherWeeks}
                 heatmapWeeks={heatmapWeeks}
+                heatmapMonthLabels={heatmapMonthLabels}
+                heatmapWeekdayLabels={heatmapWeekdayLabels}
                 heatmapTooltip={heatmapTooltip}
                 setHeatmapTooltip={setHeatmapTooltip}
                 growthValues={growthValues}
@@ -509,6 +738,7 @@ export function TokenUsagePage() {
                 resolution={resolution}
                 onResolutionChange={setResolution}
                 formatMetric={formatMetric}
+                formatMetricSliding={formatMetricSliding}
                 locale={locale}
                 t={t}
               />
@@ -572,6 +802,8 @@ function OverviewTab({
   onHeatmapYearChange,
   ditherWeeks,
   heatmapWeeks,
+  heatmapMonthLabels,
+  heatmapWeekdayLabels,
   heatmapTooltip,
   setHeatmapTooltip,
   growthValues,
@@ -586,6 +818,7 @@ function OverviewTab({
   resolution,
   onResolutionChange,
   formatMetric,
+  formatMetricSliding,
   locale,
   t,
 }: {
@@ -607,6 +840,8 @@ function OverviewTab({
   onHeatmapYearChange: (year: string) => void;
   ditherWeeks: DitherHeatmapCell[][];
   heatmapWeeks: ReturnType<typeof buildHeatmapWeeks>;
+  heatmapMonthLabels: Array<{ label: string; weekIndex: number }>;
+  heatmapWeekdayLabels: Array<{ label: string; row: number }>;
   heatmapTooltip: DitherTooltipState | null;
   setHeatmapTooltip: (v: DitherTooltipState | null) => void;
   growthValues: number[];
@@ -621,6 +856,7 @@ function OverviewTab({
   resolution: Resolution;
   onResolutionChange: (value: Resolution) => void;
   formatMetric: (n: number) => string;
+  formatMetricSliding: (n: number) => DitherTooltipSliding;
   locale: string;
   t: Translate;
 }) {
@@ -662,7 +898,7 @@ function OverviewTab({
   return (
     <div className={cn("flex flex-col", sectionGap)}>
       {/* All-time totals + agent share | stat cards (where trend used to sit) */}
-      <div className="grid gap-4 xl:grid-cols-[minmax(240px,320px)_minmax(0,1fr)]">
+      <div className="grid gap-6 xl:grid-cols-[minmax(220px,280px)_minmax(0,1fr)] xl:gap-8">
         <div className="space-y-4">
           <div>
             <div className="flex items-baseline justify-between gap-3">
@@ -672,7 +908,15 @@ function OverviewTab({
               </div>
             </div>
             <div className="mt-1 text-4xl font-semibold tracking-tight tabular-nums sm:text-5xl">
-              {loading ? "—" : formatMetric(heroValue)}
+              {loading ? (
+                "—"
+              ) : (
+                <SlidingMetric
+                  {...(metric === "cost"
+                    ? currencySlidingParts(heroValue, locale, "compact")
+                    : compactSlidingParts(heroValue, locale))}
+                />
+              )}
             </div>
           </div>
 
@@ -680,14 +924,16 @@ function OverviewTab({
             {loading && breakdownBars.length === 0 ? (
               <div className={cn("text-xs", muted)}>{t("heatmap.loadingDescription")}</div>
             ) : null}
-            {breakdownBars.map((row) => {
+            {breakdownBars.map((row, rankIndex) => {
               const color = agentChartColor(
                 row.id,
                 ditherTheme,
                 segmentColorAssignment,
               );
+              // Rank-stable key so agent↔model (and metric) retargets morph
+              // the same funnel instance instead of remounting from 0.
               return (
-                <div key={row.id} className="space-y-1.5">
+                <div key={`share-rank-${rankIndex}`} className="space-y-1.5">
                   <div className="flex items-center justify-between gap-2 text-sm">
                     <span className="inline-flex min-w-0 items-center gap-2">
                       {dimension === "agent" ? (
@@ -697,10 +943,11 @@ function OverviewTab({
                           size={16}
                         />
                       ) : (
-                        <span
-                          className="size-2.5 shrink-0 rounded-full"
-                          style={{ backgroundColor: color }}
-                          aria-hidden
+                        <TokenUsageModelIcon
+                          modelId={row.id}
+                          providerId={row.providerId}
+                          name={row.label}
+                          size={16}
                         />
                       )}
                       <span className="truncate font-medium" title={row.label}>
@@ -709,9 +956,15 @@ function OverviewTab({
                     </span>
                     <span className="flex shrink-0 items-center gap-2 tabular-nums">
                       <span className={cn("text-xs", muted)}>
-                        {Math.round(row.sharePercent)}%
+                        <SlidingMetric
+                          {...percentSlidingParts(row.sharePercent, locale, 0)}
+                        />
                       </span>
-                      <span>{formatMetric(row.value)}</span>
+                      <SlidingMetric
+                        {...(metric === "cost"
+                          ? currencySlidingParts(row.value, locale, "compact")
+                          : compactSlidingParts(row.value, locale))}
+                      />
                     </span>
                   </div>
                   {/* Width = share of grand total so it matches the % label. */}
@@ -745,9 +998,16 @@ function OverviewTab({
               muted={muted}
               label={t("stats.messages.label")}
               value={
-                loading
-                  ? "—"
-                  : formatCompactNumber(overview?.summary.total_messages ?? 0, locale)
+                loading ? (
+                  "—"
+                ) : (
+                  <SlidingMetric
+                    {...compactSlidingParts(
+                      overview?.summary.total_messages ?? 0,
+                      locale,
+                    )}
+                  />
+                )
               }
               note={messagesNote}
             />
@@ -756,9 +1016,16 @@ function OverviewTab({
               muted={muted}
               label={t("stats.activeDays.label")}
               value={
-                loading
-                  ? "—"
-                  : formatCompactNumber(overview?.summary.active_days ?? 0, locale)
+                loading ? (
+                  "—"
+                ) : (
+                  <SlidingMetric
+                    {...compactSlidingParts(
+                      overview?.summary.active_days ?? 0,
+                      locale,
+                    )}
+                  />
+                )
               }
               note={t("stats.activeDays.note")}
             />
@@ -767,9 +1034,17 @@ function OverviewTab({
               muted={muted}
               label={t("stats.estimatedCost.label")}
               value={
-                loading
-                  ? "—"
-                  : formatCurrencyCompact(overview?.summary.total_cost_usd ?? 0, locale)
+                loading ? (
+                  "—"
+                ) : (
+                  <SlidingMetric
+                    {...currencySlidingParts(
+                      overview?.summary.total_cost_usd ?? 0,
+                      locale,
+                      "compact",
+                    )}
+                  />
+                )
               }
               note={t("stats.estimatedCost.note")}
             />
@@ -778,9 +1053,16 @@ function OverviewTab({
               muted={muted}
               label={t("stats.totalTokens.label")}
               value={
-                loading
-                  ? "—"
-                  : formatCompactNumber(overview?.summary.total_tokens ?? 0, locale)
+                loading ? (
+                  "—"
+                ) : (
+                  <SlidingMetric
+                    {...compactSlidingParts(
+                      overview?.summary.total_tokens ?? 0,
+                      locale,
+                    )}
+                  />
+                )
               }
               note={rangeLabel}
             />
@@ -801,6 +1083,12 @@ function OverviewTab({
                         maximumFractionDigits: 1,
                       })}%`
                     }
+                    formatSliding={(v) => compactSlidingParts(v, locale)}
+                    formatShareSliding={(s) =>
+                      percentSlidingParts(s * 100, locale, 1)
+                    }
+                    valueLabel={t("charts.mix.amount")}
+                    shareLabel={t("charts.mix.share")}
                   />
                 </div>
                 <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2 sm:grid-cols-3 xl:grid-cols-5">
@@ -819,12 +1107,18 @@ function OverviewTab({
                         </div>
                         <div className="mt-0.5 flex items-baseline gap-1.5 pl-3">
                           <span className="text-sm font-semibold tabular-nums tracking-tight">
-                            {formatCompactNumber(seg.value, locale)}
+                            <SlidingMetric
+                              {...compactSlidingParts(seg.value, locale)}
+                            />
                           </span>
                           <span className={cn("text-[11px] tabular-nums", muted)}>
-                            {sharePercent < 0.1 && seg.value > 0
-                              ? "<0.1%"
-                              : `${Math.round(sharePercent * 10) / 10}%`}
+                            {sharePercent < 0.1 && seg.value > 0 ? (
+                              "<0.1%"
+                            ) : (
+                              <SlidingMetric
+                                {...percentSlidingParts(sharePercent, locale, 1)}
+                              />
+                            )}
                           </span>
                         </div>
                       </div>
@@ -871,88 +1165,103 @@ function OverviewTab({
         {emptyYear ? (
           <div
             className={cn(
-              "flex h-[132px] w-full items-center justify-center text-xs sm:h-[148px]",
+              "flex h-[148px] w-full items-center justify-center text-xs sm:h-[164px]",
               muted,
             )}
           >
             {loading ? t("heatmap.loadingDescription") : t("heatmap.empty")}
           </div>
         ) : (
-          // Height tracks the 7-row grid (top-aligned) so we don't leave a tall empty band
-          // under the cells before the next section.
-          <div className="relative h-[132px] w-full sm:h-[148px]">
+          // Extra height for month (top) + weekday (left) axis labels.
+          <div className="relative h-[148px] w-full sm:h-[164px]">
             <DitherHeatmap
               weeks={ditherWeeks}
               theme={ditherTheme}
-              onCellHover={(weekIndex, dayIndex, rect) => {
+              monthLabels={heatmapMonthLabels}
+              weekdayLabels={heatmapWeekdayLabels}
+              onCellHover={({ weekIndex, dayIndex, clientX, clientY }) => {
                 const cell = heatmapWeeks[weekIndex]?.cells[dayIndex];
+                // Empty / out-of-year cells: keep last tip open and only chase the
+                // pointer so gaps don't unmount SlidingMetric mid-scrub.
                 if (!cell || cell.count === null || !cell.detail) {
-                  setHeatmapTooltip(null);
+                  setHeatmapTooltip((prev) =>
+                    prev ? { ...prev, clientX, clientY } : null,
+                  );
                   return;
                 }
                 const detail = cell.detail;
+                const costUsd = detail.total_cost_usd ?? 0;
+                // Match other token-usage tooltips: compact token counts (337M not 337483973).
+                const costLine = {
+                  label: t("heatmap.popover.cost"),
+                  value: formatCurrencyCompact(detail.total_cost_usd, locale),
+                  sliding: currencySlidingParts(costUsd, locale, "compact"),
+                };
+                const tokensLine = {
+                  label: t("heatmap.popover.tokens"),
+                  value: formatCompactNumber(detail.total_tokens, locale),
+                  sliding: compactSlidingParts(detail.total_tokens, locale),
+                };
                 const primaryLines =
-                  metric === "cost"
-                    ? [
-                        {
-                          label: t("heatmap.popover.cost"),
-                          value: formatCurrencyDetailed(
-                            detail.total_cost_usd,
-                            locale,
-                          ),
-                        },
-                        {
-                          label: t("heatmap.popover.tokens"),
-                          value: formatDetailedNumber(detail.total_tokens, locale),
-                        },
-                      ]
-                    : [
-                        {
-                          label: t("heatmap.popover.tokens"),
-                          value: formatDetailedNumber(detail.total_tokens, locale),
-                        },
-                        {
-                          label: t("heatmap.popover.cost"),
-                          value: formatCurrencyDetailed(
-                            detail.total_cost_usd,
-                            locale,
-                          ),
-                        },
-                      ];
-                setHeatmapTooltip({
-                  clientX: rect.left + rect.width / 2,
-                  clientY: rect.top,
-                  title: formatHeatmapDate(cell.date, locale),
-                  lines: [
-                    ...primaryLines,
-                    {
-                      label: t("heatmap.popover.messages"),
-                      value: formatDetailedNumber(detail.message_count, locale),
-                    },
-                    {
-                      label: t("heatmap.popover.input"),
-                      value: formatDetailedNumber(detail.breakdown.input_tokens, locale),
-                    },
-                    {
-                      label: t("heatmap.popover.output"),
-                      value: formatDetailedNumber(detail.breakdown.output_tokens, locale),
-                    },
-                    {
-                      label: t("heatmap.popover.cache"),
-                      value: formatDetailedNumber(
-                        detail.breakdown.cache_read_tokens +
-                          detail.breakdown.cache_write_tokens,
-                        locale,
-                      ),
-                    },
-                    {
-                      label: t("heatmap.popover.reasoning"),
-                      value: formatDetailedNumber(
-                        detail.breakdown.reasoning_tokens,
-                        locale,
-                      ),
-                    },
-                  ],
+                  metric === "cost" ? [costLine, tokensLine] : [tokensLine, costLine];
+                const countLine = (
+                  label: string,
+                  amount: number,
+                ): {
+                  label: string;
+                  value: string;
+                  sliding: SlidingMetricParts;
+                } => ({
+                  label,
+                  value: formatCompactNumber(amount, locale),
+                  sliding: compactSlidingParts(amount, locale),
+                });
+                const nextLines = [
+                  ...primaryLines,
+                  countLine(t("heatmap.popover.messages"), detail.message_count),
+                  countLine(
+                    t("heatmap.popover.input"),
+                    detail.breakdown.input_tokens,
+                  ),
+                  countLine(
+                    t("heatmap.popover.output"),
+                    detail.breakdown.output_tokens,
+                  ),
+                  countLine(
+                    t("heatmap.popover.cache"),
+                    detail.breakdown.cache_read_tokens +
+                      detail.breakdown.cache_write_tokens,
+                  ),
+                  countLine(
+                    t("heatmap.popover.reasoning"),
+                    detail.breakdown.reasoning_tokens,
+                  ),
+                ];
+                const title = formatHeatmapDate(cell.date, locale);
+                setHeatmapTooltip((prev) => {
+                  // Same day: only move the shell — keep line object identity so
+                  // DitherTooltip does not thrash content / remount digits.
+                  if (
+                    prev &&
+                    prev.title === title &&
+                    prev.lines.length === nextLines.length &&
+                    prev.lines.every(
+                      (line, i) =>
+                        line.value === nextLines[i]?.value &&
+                        line.label === nextLines[i]?.label,
+                    )
+                  ) {
+                    if (prev.clientX === clientX && prev.clientY === clientY) {
+                      return prev;
+                    }
+                    return { ...prev, clientX, clientY };
+                  }
+                  return {
+                    clientX,
+                    clientY,
+                    title,
+                    lines: nextLines,
+                  };
                 });
               }}
               onCellLeave={() => setHeatmapTooltip(null)}
@@ -1002,6 +1311,8 @@ function OverviewTab({
                 theme={ditherTheme}
                 valueLabel={metricValueLabel}
                 formatValue={formatMetric}
+                formatSliding={formatMetricSliding}
+                domainKey={metric}
               />
             </div>
           )}
@@ -1026,6 +1337,9 @@ function OverviewTab({
                   segmentLabels={segmentLabels}
                   segmentIcons={segmentIcons}
                   formatValue={formatMetric}
+                  formatSliding={formatMetricSliding}
+                  domainKey={metric}
+                  totalLabel={t("charts.stacked.total")}
                 />
               </div>
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 px-0.5">
@@ -1041,14 +1355,7 @@ function OverviewTab({
                       style={{ color }}
                       title={label}
                     >
-                      {dimension === "agent" ? (
-                        <TokenUsageAgentIcon
-                          clientId={segmentId}
-                          name={label}
-                          size={12}
-                          color={color}
-                        />
-                      ) : (
+                      {segmentIcons?.[index] ?? (
                         <span
                           className="size-1.5 shrink-0 rounded-full"
                           style={{ backgroundColor: color }}
@@ -1078,7 +1385,7 @@ function StatChip({
   panel: string;
   muted: string;
   label: string;
-  value: string;
+  value: React.ReactNode;
   note: string;
 }) {
   return (
