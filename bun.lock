@@ -359,6 +359,9 @@
         "react": "^19.2.3",
         "typescript": "6.0.3",
       },
+      "peerDependencies": {
+        "react": ">=18",
+      },
     },
     "packages/i18n": {
       "name": "@atmos/i18n",

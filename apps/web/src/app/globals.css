@@ -7,8 +7,11 @@
 /* React Flow base styles: source(none) so Tailwind v4 does not scan/strip them.
    Component also imports the same file via JS as a reliable fallback. */
 @import "@xyflow/react/dist/style.css" source(none);
-/* better-auth-ui (AuthView / UserAvatar etc.) */
-@import "@daveyplate/better-auth-ui/css";
+/* better-auth-ui (AuthView / UserAvatar etc.).
+   Relative path + source(none): Tailwind v4 CSS resolver requires package
+   "exports" condition "style", which better-auth-ui only exposes as `./css`
+   without that condition — package-name imports fail at postcss time. */
+@import "../../node_modules/@daveyplate/better-auth-ui/dist/style.css" source(none);
 
 /* Tell Tailwind to scan our UI package components */
 @source "../../../../packages/ui/src";
