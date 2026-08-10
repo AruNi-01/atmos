@@ -1352,6 +1352,45 @@
           "searchPlaceholder": "搜索标题或编号…",
           "atmosProject": "Atmos 项目"
         },
+        "filter": {
+          "trigger": "筛选",
+          "sectionLabel": "筛选",
+          "status": "状态",
+          "team": "团队",
+          "project": "项目",
+          "atmosProject": "Atmos 项目",
+          "allTeams": "全部团队",
+          "allProjects": "全部项目",
+          "searchTeams": "搜索团队…",
+          "searchProjects": "搜索项目…",
+          "searchAtmosProjects": "搜索 Atmos 项目…",
+          "noMatchingTeams": "没有匹配的团队",
+          "noMatchingProjects": "没有匹配的项目",
+          "noMatchingAtmosProjects": "没有匹配的 Atmos 项目",
+          "clearAll": "清除全部筛选"
+        },
+        "search": {
+          "clear": "清除搜索"
+        },
+        "table": {
+          "priority": "优先级",
+          "priorityShort": "P",
+          "noPriority": "无优先级",
+          "issue": "Issue",
+          "assignee": "负责人",
+          "updatedAt": "更新",
+          "action": "操作"
+        },
+        "priority": {
+          "urgent": "紧急",
+          "high": "高",
+          "medium": "中",
+          "low": "低"
+        },
+        "pagination": {
+          "previous": "上一页",
+          "next": "下一页"
+        },
         "createWorkspace": "从 Issue 创建 Workspace",
         "create": "创建",
         "linkOrCreate": "打开创建并关联",

@@ -1352,6 +1352,45 @@
           "searchPlaceholder": "Search title or id…",
           "atmosProject": "Atmos project"
         },
+        "filter": {
+          "trigger": "Filter",
+          "sectionLabel": "Filter",
+          "status": "Status",
+          "team": "Team",
+          "project": "Project",
+          "atmosProject": "Atmos project",
+          "allTeams": "All teams",
+          "allProjects": "All projects",
+          "searchTeams": "Search teams…",
+          "searchProjects": "Search projects…",
+          "searchAtmosProjects": "Search Atmos projects…",
+          "noMatchingTeams": "No matching teams",
+          "noMatchingProjects": "No matching projects",
+          "noMatchingAtmosProjects": "No matching Atmos projects",
+          "clearAll": "Clear all filters"
+        },
+        "search": {
+          "clear": "Clear search"
+        },
+        "table": {
+          "priority": "Priority",
+          "priorityShort": "P",
+          "noPriority": "No priority",
+          "issue": "Issue",
+          "assignee": "Assignee",
+          "updatedAt": "Updated",
+          "action": "Action"
+        },
+        "priority": {
+          "urgent": "Urgent",
+          "high": "High",
+          "medium": "Medium",
+          "low": "Low"
+        },
+        "pagination": {
+          "previous": "Previous",
+          "next": "Next"
+        },
         "createWorkspace": "Create workspace from issue",
         "create": "Create",
         "linkOrCreate": "Open create with link",
