@@ -3,8 +3,24 @@ import {
   DEFAULT_RELAY_URL,
   normalizeRelayUrl,
   redactRelayUrl,
+  stripTrailingSlashes,
 } from "./url";
 import { isPlausibleDeviceCredential } from "./credential";
+
+describe("stripTrailingSlashes", () => {
+  test("removes one or many trailing slashes without regex", () => {
+    expect(stripTrailingSlashes("https://relay.example")).toBe(
+      "https://relay.example",
+    );
+    expect(stripTrailingSlashes("https://relay.example/")).toBe(
+      "https://relay.example",
+    );
+    expect(stripTrailingSlashes("https://relay.example///")).toBe(
+      "https://relay.example",
+    );
+    expect(stripTrailingSlashes("///")).toBe("");
+  });
+});
 
 describe("normalizeRelayUrl", () => {
   test("defaults empty to production origin", () => {
@@ -16,6 +32,9 @@ describe("normalizeRelayUrl", () => {
     expect(normalizeRelayUrl("relay.example/")).toBe("https://relay.example");
     expect(normalizeRelayUrl("http://localhost:8788/")).toBe(
       "http://localhost:8788",
+    );
+    expect(normalizeRelayUrl("https://relay.example////")).toBe(
+      "https://relay.example",
     );
   });
 });

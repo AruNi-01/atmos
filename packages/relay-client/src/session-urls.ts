@@ -1,4 +1,5 @@
 import type { RelayClientKind } from "./types";
+import { stripTrailingSlashes } from "./url";
 
 function toWsOrigin(httpOrigin: string): string {
   return httpOrigin.replace(/^http/i, "ws");
@@ -18,7 +19,7 @@ export function buildClientSessionUrls(opts: {
   terminalWsUrl: string;
   gatewayUrl: string;
 } {
-  const origin = opts.relayOrigin.replace(/\/+$/, "");
+  const origin = stripTrailingSlashes(opts.relayOrigin);
   const wsBase = toWsOrigin(origin);
   const query = new URLSearchParams({
     server_id: opts.serverId,
