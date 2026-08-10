@@ -49,10 +49,21 @@ const workspaces: Workspace[] = [
     script: "typecheck",
   },
   { name: "mobile", cwd: "apps/mobile", args: ["--noEmit"] },
+  {
+    name: "desktop-electron",
+    cwd: "apps/desktop-electron",
+    args: ["-p", "tsconfig.json", "--noEmit"],
+    script: "typecheck",
+  },
   { name: "e2e", cwd: "e2e", args: ["--noEmit"] },
   { name: "ui", cwd: "packages/ui", args: ["--noEmit"] },
   { name: "shared", cwd: "packages/shared", args: ["--noEmit"] },
   { name: "i18n", cwd: "packages/i18n", args: ["--noEmit"] },
+  { name: "api-types", cwd: "packages/api-types", args: ["--noEmit"], script: "typecheck" },
+  { name: "api-client", cwd: "packages/api-client", args: ["--noEmit"], script: "typecheck" },
+  { name: "hub-client", cwd: "packages/hub-client", args: ["--noEmit"], script: "typecheck" },
+  { name: "relay-client", cwd: "packages/relay-client", args: ["--noEmit"], script: "typecheck" },
+  { name: "hub", cwd: "packages/hub", args: ["-p", "tsconfig.json"], script: "typecheck" },
   { name: "relay", cwd: "packages/relay", args: ["-p", "tsconfig.json"] },
 ];
 

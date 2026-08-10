@@ -3,10 +3,8 @@
  * IO (drive calls, PNG crop) stays in host-capture.ts.
  */
 
-import type {
-  DesktopUseFrontmost,
-  DesktopUseStatusJson,
-} from "./client.js";
+import type { DesktopUseFrontmost } from "./capture.js";
+import type { DesktopUseStatusJson } from "./client.js";
 
 export type HostWindowRow = {
   app_name?: string;
