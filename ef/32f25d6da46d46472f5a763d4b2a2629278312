@@ -1,0 +1,70 @@
+AGENTS.md
+  h_5be255725524c8 36,180-187
+agents/AGENTS.md
+  h_5be255725524c8 18,33
+agents/references/cli-feature-versions.md
+  h_5be255725524c8 1-140
+apps/cli/AGENTS.md
+  h_5be255725524c8 80
+apps/desktop-electron/AGENTS.md
+  h_5be255725524c8 69,77
+apps/desktop-electron/scripts/prepare-package.ts
+  h_5be255725524c8 11,94-141,144-148
+apps/desktop-electron/src/browser/browser-use-chrome.ts
+  h_5be255725524c8 9,41,70,78-84
+apps/desktop-electron/src/desktop-use/auto-update.structural.test.ts
+  h_5be255725524c8 24,30-38
+apps/desktop-electron/src/desktop-use/auto-update.ts
+  h_5be255725524c8 48-60
+apps/desktop-electron/src/desktop-use/client.test.ts
+  h_5be255725524c8 6-11,13,15-16,20-23,26-27,30,35-49,71-126
+apps/desktop-electron/src/desktop-use/client.ts
+  h_5be255725524c8 4-14,18-19,29-33,59-87,106-107,110-320,405-451,457-459,480-488,518-557
+apps/desktop-electron/src/ipc/handlers.ts
+  h_5be255725524c8 609-613
+apps/web/messages/en.json
+  h_5be255725524c8 1253-1265,4887-4890,4967,4969,4971,4974-4975,4977,4980,4982,4984,5153,5155-5157,5926-5929,5980-5991,6009,6045-6047,9413-9414,9423
+apps/web/messages/zh.json
+  h_5be255725524c8 1253-1265,4887-4890,4967,4969,4971,4974-4975,4977,4980,4982,4984,5153,5155-5157,5926-5929,5980-5991,6009,6045-6047,9414-9415,9424
+apps/web/src/features/desktop-use/components/DesktopUseReadinessDialog.tsx
+  h_5be255725524c8 40-43,79-80,194
+apps/web/src/features/desktop-use/lib/__tests__/readiness.test.ts
+  h_5be255725524c8 26-45,56-75,93-94,102-147,151-169,179-197
+apps/web/src/features/desktop-use/lib/readiness-modal-bus.ts
+  h_5be255725524c8 142
+apps/web/src/features/desktop-use/lib/readiness.ts
+  h_5be255725524c8 12-13,24,38-40,43-44,98-104,115-119,138,183,206-250,260-261
+apps/web/src/features/settings/components/DesktopUseSettingsSection.tsx
+  h_5be255725524c8 27,30,32,55-65,77-88,117,132,216,222,228-253,256-265,271-278,280-284,287-297,318-340,514-516,537-563,567-568,595-601,642-708,724,734,796,954-956,982
+apps/web/src/features/settings/components/SettingsAboutSection.tsx
+  h_5be255725524c8 22,86-124,126-145
+apps/web/src/features/settings/components/SettingsModalSections.tsx
+  h_5be255725524c8 39
+apps/web/src/features/settings/components/__tests__/desktop-use-settings-section.test.ts
+  h_5be255725524c8 214-217,226-244
+apps/web/src/features/settings/components/settings-modal-data.ts
+  h_5be255725524c8 442-443,485,941-948,1054-1060
+apps/web/src/features/settings/components/use-settings-update-actions.tsx
+  h_5be255725524c8 27,61-75,77,247-252,260,305,311
+crates/desktop-use/manifest/cli-requirement.json
+  h_5be255725524c8 1-5
+docs/adr/005-release-download-installation-architecture.md
+  h_5be255725524c8 252-254
+scripts/desktop/layout-runtime-bundle.mjs
+  h_5be255725524c8 117-119
+scripts/desktop/prepare-sidecar.sh
+  h_5be255725524c8 14-15
+specs/APP/APP-052_desktop-use/TECH.md
+  h_5be255725524c8 17-18
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "ef32f25d6da46d46472f5a763d4b2a2629278312",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
