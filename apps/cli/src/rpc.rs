@@ -86,14 +86,8 @@ pub async fn call_rpc(api: &ApiClientArgs, action: &str, data: Value) -> Result<
         let hint = auth_hint_for_status(status).unwrap_or("unauthorized");
         return Err(RpcError::Unauthorized(hint.to_string()));
     }
-    if !status.is_success() {
-        return Err(RpcError::Http {
-            status: status.as_u16(),
-            body: body_text,
-        });
-    }
 
-    // Domain errors may be returned as HTTP 200 with success:false
+    // Prefer structured error envelope when present (including HTTP 200).
     if value.get("success").and_then(|v| v.as_bool()) == Some(false) {
         let code = value
             .pointer("/error/code")
@@ -107,6 +101,23 @@ pub async fn call_rpc(api: &ApiClientArgs, action: &str, data: Value) -> Result<
             .unwrap_or("action failed")
             .to_string();
         return Err(RpcError::Action { code, message });
+    }
+
+    if !status.is_success() {
+        // Map legacy 400 "unknown action …" text to UNKNOWN_ACTION for agents.
+        let lower = body_text.to_ascii_lowercase();
+        if status.as_u16() == 400
+            && (lower.contains("unknown action") || lower.contains("unknown_action"))
+        {
+            return Err(RpcError::Action {
+                code: "UNKNOWN_ACTION".into(),
+                message: body_text,
+            });
+        }
+        return Err(RpcError::Http {
+            status: status.as_u16(),
+            body: body_text,
+        });
     }
 
     if value.get("success").and_then(|v| v.as_bool()) == Some(true) {

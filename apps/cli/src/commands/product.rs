@@ -238,6 +238,16 @@ pub async fn execute_project(api: ApiClientArgs, command: ProjectCommand) -> Cli
         }
         ProjectCommand::Update(args) => {
             let command = format!("atmos project update --id {}", args.id);
+            if args.name.is_none() && args.order.is_none() {
+                return CliEnvelope::failure(
+                    &command,
+                    "INVALID_ARGUMENT",
+                    "provide --name and/or --order",
+                    "Example: atmos project update --id <guid> --name new-name",
+                    vec![next("atmos project list", "List projects")],
+                );
+            }
+            // project_update applies name, sidebar_order, color, logo (server-side).
             rpc_env(
                 &api,
                 &command,

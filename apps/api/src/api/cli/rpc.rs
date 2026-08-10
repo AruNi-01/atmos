@@ -29,11 +29,19 @@ pub async fn rpc(
         return Err(ApiError::BadRequest("action is required".into()));
     }
 
-    let action = parse_ws_action(action_name).ok_or_else(|| {
-        ApiError::BadRequest(format!(
-            "unknown action '{action_name}' (code: UNKNOWN_ACTION)"
-        ))
-    })?;
+    // Unknown wire actions use the same success:false envelope as domain errors
+    // so agents can branch on `error.code = UNKNOWN_ACTION` (HTTP 200).
+    let Some(action) = parse_ws_action(action_name) else {
+        return Ok(Json(json!({
+            "success": false,
+            "error": {
+                "message": format!("unknown action '{action_name}'"),
+                "code": "UNKNOWN_ACTION"
+            },
+            "action": action_name,
+            "request_id": body.request_id,
+        })));
+    };
 
     let data = if body.data.is_null() {
         json!({})

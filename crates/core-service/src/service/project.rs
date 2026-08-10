@@ -190,6 +190,17 @@ impl ProjectService {
         Ok(repo.update_order(&guid, order).await?)
     }
 
+    pub async fn update_name(&self, guid: String, name: String) -> Result<()> {
+        let name = name.trim().to_string();
+        if name.is_empty() {
+            return Err(ServiceError::Validation(
+                "project name must not be empty".into(),
+            ));
+        }
+        let repo = ProjectRepo::new(&self.db);
+        Ok(repo.update_name(&guid, &name).await?)
+    }
+
     /// Get project terminal layout
     pub async fn get_terminal_layout(&self, guid: String) -> Result<Option<String>> {
         let repo = ProjectRepo::new(&self.db);

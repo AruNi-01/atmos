@@ -98,6 +98,23 @@ impl<'a> ProjectRepo<'a> {
         Ok(())
     }
 
+    /// Update project display name.
+    pub async fn update_name(&self, guid: &str, name: &str) -> Result<()> {
+        let result = project::Entity::update_many()
+            .col_expr(project::Column::Name, Expr::value(name))
+            .col_expr(
+                project::Column::UpdatedAt,
+                Expr::value(chrono::Utc::now().naive_utc()),
+            )
+            .filter(project::Column::Guid.eq(guid))
+            .exec(self.db)
+            .await?;
+        if result.rows_affected == 0 {
+            return Err(crate::error::InfraError::Custom("Project not found".into()));
+        }
+        Ok(())
+    }
+
     /// 更新项目边框颜色
     pub async fn update_color(&self, guid: &str, color: Option<String>) -> Result<()> {
         let result = project::Entity::update_many()

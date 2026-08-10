@@ -204,11 +204,47 @@ async fn run() -> i32 {
 
 fn wrap_legacy(command: &str, result: Result<serde_json::Value, String>) -> CliEnvelope {
     match result {
-        Ok(value) => CliEnvelope::success(
-            command,
-            value,
-            vec![next("atmos status", "Check server health")],
-        ),
+        Ok(value) => {
+            // Host/specialized tools often return `{ ok: false, error, error_code }`
+            // inside Ok(Value). Promote that to the outer agent envelope + non-zero exit.
+            if value.get("ok").and_then(|v| v.as_bool()) == Some(false) {
+                let code = value
+                    .get("error_code")
+                    .and_then(|v| v.as_str())
+                    .or_else(|| value.pointer("/error/code").and_then(|v| v.as_str()))
+                    .unwrap_or("ACTION_FAILED");
+                let message = value
+                    .get("error")
+                    .and_then(|v| v.as_str())
+                    .or_else(|| value.pointer("/error/message").and_then(|v| v.as_str()))
+                    .unwrap_or("command failed");
+                return CliEnvelope::failure(
+                    command,
+                    code,
+                    message,
+                    "Inspect the error and fix the invocation (see result fields in docs)",
+                    vec![next("atmos status", "Check server health")],
+                );
+            }
+            if value.get("success").and_then(|v| v.as_bool()) == Some(false) {
+                let message = value
+                    .get("error")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("command failed");
+                return CliEnvelope::failure(
+                    command,
+                    "ACTION_FAILED",
+                    message,
+                    "Inspect the error and retry",
+                    vec![next("atmos status", "Check server health")],
+                );
+            }
+            CliEnvelope::success(
+                command,
+                value,
+                vec![next("atmos status", "Check server health")],
+            )
+        }
         Err(err) => {
             let lower = err.to_lowercase();
             if lower.contains("401") || lower.contains("unauthorized") {
@@ -217,8 +253,8 @@ fn wrap_legacy(command: &str, result: Result<serde_json::Value, String>) -> CliE
             if lower.contains("connect")
                 || lower.contains("refused")
                 || lower.contains("resolve")
-                || lower.contains("failed to")
-                    && (lower.contains("url") || lower.contains("manifest"))
+                || (lower.contains("failed to")
+                    && (lower.contains("url") || lower.contains("manifest")))
             {
                 return crate::rpc::RpcError::Unreachable(err).to_envelope(command);
             }
