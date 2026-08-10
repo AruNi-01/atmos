@@ -106,6 +106,102 @@ export async function isHealthy(
   }
 }
 
+/** True when body looks like a real HTML document (not empty 404). */
+export function looksLikeAtmosUiHtml(body: string): boolean {
+  return /<!doctype html|<html[\s>]/i.test(body);
+}
+
+export type UiProbeResult =
+  | { ok: true; status: number; contentType: string; sample: string }
+  | {
+      ok: false;
+      status: number | null;
+      contentType: string;
+      sample: string;
+      reason: string;
+    };
+
+/**
+ * Desktop UI is served by Atmos Server static files at `/`.
+ * A bare dev `api` may pass /healthz but return 404 on `/` — do not reuse that.
+ */
+export async function probeDesktopUi(
+  host = DEFAULT_HOST,
+  port = DEFAULT_PORT,
+): Promise<UiProbeResult> {
+  const url = `http://${host}:${port}/`;
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 1500);
+    const res = await fetch(url, {
+      signal: controller.signal,
+      redirect: "follow",
+      headers: { Accept: "text/html,*/*" },
+    });
+    clearTimeout(timer);
+    const contentType = res.headers.get("content-type") ?? "";
+    const raw = await res.text();
+    const sample = raw.slice(0, 240).replace(/\s+/g, " ").trim();
+    if (!res.ok) {
+      return {
+        ok: false,
+        status: res.status,
+        contentType,
+        sample,
+        reason: `GET ${url} returned HTTP ${res.status}`,
+      };
+    }
+    if (!looksLikeAtmosUiHtml(raw)) {
+      return {
+        ok: false,
+        status: res.status,
+        contentType,
+        sample,
+        reason: `GET ${url} is not HTML (content-type=${contentType || "none"})`,
+      };
+    }
+    return { ok: true, status: res.status, contentType, sample };
+  } catch (e) {
+    return {
+      ok: false,
+      status: null,
+      contentType: "",
+      sample: "",
+      reason: `GET ${url} failed: ${e instanceof Error ? e.message : String(e)}`,
+    };
+  }
+}
+
+export async function isUiServed(
+  host = DEFAULT_HOST,
+  port = DEFAULT_PORT,
+): Promise<boolean> {
+  return (await probeDesktopUi(host, port)).ok;
+}
+
+function formatPortOccupiedWithoutUi(
+  host: string,
+  port: number,
+  probe: Extract<UiProbeResult, { ok: false }>,
+): string {
+  return [
+    `Port ${port} has a healthy API (/healthz OK) but is not serving the Atmos desktop UI.`,
+    `Desktop needs static files at http://${host}:${port}/ — usually from the bundled Atmos Server.`,
+    ``,
+    `Typical cause: a local dev process (e.g. target/debug/api or just dev-api) is bound to ${port}.`,
+    `Stop that process, free the port, then reopen Atmos.`,
+    ``,
+    `Diagnostics:`,
+    `  healthz: http://${host}:${port}/healthz → OK`,
+    `  ui:      ${probe.reason}`,
+    probe.status != null ? `  status:  ${probe.status}` : null,
+    probe.contentType ? `  type:    ${probe.contentType}` : null,
+    probe.sample ? `  body:    ${probe.sample}` : `  body:    (empty)`,
+  ]
+    .filter((line): line is string => line != null)
+    .join("\n");
+}
+
 function writeManifest(host: string, port: number, pid: number | null) {
   const path = manifestPath();
   mkdirSync(dirname(path), { recursive: true });
@@ -223,9 +319,24 @@ export async function ensureAtmosServer(
     );
   }
 
+  if (!existsSync(join(web, "index.html"))) {
+    throw new Error(
+      [
+        `Desktop UI missing at ${join(web, "index.html")}.`,
+        `Run: bash ./scripts/desktop/prepare-sidecar.sh`,
+        `runtimeDir=${runtimeDir}`,
+      ].join("\n"),
+    );
+  }
+
   if (await isHealthy(host, port)) {
-    ownedServerPid = null;
-    return { host, port, runtimeDir, webDir: web, started: false, pid: null };
+    const ui = await probeDesktopUi(host, port);
+    if (ui.ok) {
+      ownedServerPid = null;
+      return { host, port, runtimeDir, webDir: web, started: false, pid: null };
+    }
+    // Do not spawn on an occupied port — health would keep hitting the wrong process.
+    throw new Error(formatPortOccupiedWithoutUi(host, port, ui));
   }
 
   const logPath = runtimeLogPath();
@@ -253,6 +364,19 @@ export async function ensureAtmosServer(
   const attempts = options.healthAttempts ?? 80;
   for (let i = 0; i < attempts; i++) {
     if (await isHealthy(host, port)) {
+      const ui = await probeDesktopUi(host, port);
+      if (!ui.ok) {
+        throw new Error(
+          [
+            `Atmos Server became healthy but still does not serve the desktop UI.`,
+            `binary=${apiBin}`,
+            `ATMOS_STATIC_DIR=${web}`,
+            `log=${logPath}`,
+            ``,
+            formatPortOccupiedWithoutUi(host, port, ui),
+          ].join("\n"),
+        );
+      }
       ownedServerPid = pid;
       writeManifest(host, port, pid);
       return { host, port, runtimeDir, webDir: web, started: true, pid };
@@ -261,7 +385,12 @@ export async function ensureAtmosServer(
   }
 
   throw new Error(
-    `Timed out waiting for Atmos Server at http://${host}:${port} (see ${logPath})`,
+    [
+      `Timed out waiting for Atmos Server at http://${host}:${port}.`,
+      `binary=${apiBin}`,
+      `webDir=${web}`,
+      `log=${logPath}`,
+    ].join("\n"),
   );
 }
 

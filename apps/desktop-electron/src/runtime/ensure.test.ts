@@ -3,6 +3,7 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import {
   electronServerPath,
+  looksLikeAtmosUiHtml,
   resolveAtmosDataDir,
   setOwnedServerPidForTest,
   stopOwnedAtmosServer,
@@ -55,5 +56,14 @@ describe("Server data dir + quit ownership", () => {
     expect(path).toContain("/usr/local/bin");
     expect(path).toContain("/usr/bin");
     expect(path).toContain("/bin");
+  });
+
+  it("looksLikeAtmosUiHtml accepts real documents and rejects empty/404", () => {
+    expect(looksLikeAtmosUiHtml("<!DOCTYPE html><html><body>ok</body></html>")).toBe(
+      true,
+    );
+    expect(looksLikeAtmosUiHtml("<html lang=\"en\">x</html>")).toBe(true);
+    expect(looksLikeAtmosUiHtml("")).toBe(false);
+    expect(looksLikeAtmosUiHtml("Not Found")).toBe(false);
   });
 });
