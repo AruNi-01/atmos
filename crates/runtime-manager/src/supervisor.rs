@@ -8,9 +8,9 @@ use std::time::Duration;
 use serde::Serialize;
 use sysinfo::{Pid, Process, Signal, System};
 
+use crate::atmos_home_dir;
 use crate::manifest::{
-    atmos_home_dir, read_runtime_manifest, remove_runtime_manifest, write_runtime_manifest,
-    RuntimeManifest,
+    read_runtime_manifest, remove_runtime_manifest, write_runtime_manifest, RuntimeManifest,
 };
 
 pub const DEFAULT_HOST: &str = "127.0.0.1";
