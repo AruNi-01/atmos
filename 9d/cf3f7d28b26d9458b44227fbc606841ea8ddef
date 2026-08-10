@@ -1,0 +1,24 @@
+apps/desktop-electron/src/main.ts
+  h_5be255725524c8 16-20,30,66,72,75,83,91-93,110,149-168,173,206,226,228-229,232
+apps/desktop-electron/src/runtime/ensure.test.ts
+  h_5be255725524c8 6,60-68
+apps/desktop-electron/src/runtime/ensure.ts
+  h_5be255725524c8 109-204,322-331,333-339,367-379,388-393
+apps/desktop-electron/src/windows/error-page.test.ts
+  h_5be255725524c8 1-42
+apps/desktop-electron/src/windows/error-page.ts
+  h_5be255725524c8 1-147
+apps/desktop-electron/src/windows/main-window.ts
+  h_5be255725524c8 6-12,19-20,25,30-36,41-42,44,49-112,117-137,140-141,159-160,162-169,171-189,191-199
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "9dcf3f7d28b26d9458b44227fbc606841ea8ddef",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
