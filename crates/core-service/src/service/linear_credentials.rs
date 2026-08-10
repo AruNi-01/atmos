@@ -99,13 +99,28 @@ impl HubAuth {
     }
 }
 
-/// Hub base URL from env (no dual local store).
+/// Production Hub origin. Local runtime defaults here so Linear OAuth can persist
+/// credentials without every launcher having to wire env (desktop / `just dev-api`).
+pub const DEFAULT_ATMOS_HUB_URL: &str = "https://hub.atmos.land";
+
+/// Hub base URL for local → Hub HTTP.
+///
+/// Resolution order:
+/// 1. `ATMOS_HUB_URL` or `NEXT_PUBLIC_ATMOS_HUB_URL` when set and non-empty
+/// 2. Explicit disable: `0` / `off` / `false` / `disabled` → `None`
+/// 3. Otherwise [`DEFAULT_ATMOS_HUB_URL`]
 pub fn hub_base_url() -> Option<String> {
-    std::env::var("ATMOS_HUB_URL")
+    let raw = std::env::var("ATMOS_HUB_URL")
         .or_else(|_| std::env::var("NEXT_PUBLIC_ATMOS_HUB_URL"))
         .ok()
-        .map(|s| s.trim().trim_end_matches('/').to_string())
-        .filter(|s| !s.is_empty())
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty());
+
+    match raw.as_deref() {
+        Some("0") | Some("off") | Some("false") | Some("disabled") => None,
+        Some(url) => Some(url.trim_end_matches('/').to_string()),
+        None => Some(DEFAULT_ATMOS_HUB_URL.to_string()),
+    }
 }
 
 // Ephemeral OAuth pending only (process-local). Final credentials always on Hub.
@@ -123,6 +138,29 @@ pub fn take_oauth_pending() -> Option<LinearCredentials> {
 
 pub fn peek_oauth_pending() -> Option<LinearCredentials> {
     OAUTH_PENDING.lock().ok().and_then(|g| g.clone())
+}
+
+/// Atomically take pending PKCE state only when `state` matches.
+/// Prevents concurrent `oauth_finish` from double-exchanging the same authorization code
+/// (React Strict Mode / double effect → Linear `invalid_grant`).
+pub fn take_oauth_pending_if_state(state: &str) -> Result<LinearCredentials> {
+    let mut g = OAUTH_PENDING
+        .lock()
+        .map_err(|_| ServiceError::Processing("OAuth pending lock poisoned".into()))?;
+    match g.as_ref() {
+        None => Err(ServiceError::Validation(
+            "OAuth state missing — restart Connect Linear".into(),
+        )),
+        Some(p) => {
+            let expected = p.oauth_pending_state.as_deref().unwrap_or("");
+            if expected.is_empty() || expected != state {
+                return Err(ServiceError::Validation(
+                    "OAuth state mismatch — restart Connect Linear".into(),
+                ));
+            }
+            Ok(g.take().expect("pending present"))
+        }
+    }
 }
 
 fn hub_auth_required_err() -> ServiceError {
@@ -255,6 +293,51 @@ mod tests {
         let taken = take_oauth_pending().expect("take");
         assert_eq!(taken.oauth_pending_verifier.as_deref(), Some("v"));
         assert!(peek_oauth_pending().is_none());
+    }
+
+    #[test]
+    fn take_oauth_pending_if_state_is_atomic_and_single_use() {
+        set_oauth_pending(LinearCredentials {
+            auth_method: AUTH_METHOD_OAUTH.into(),
+            oauth_pending_state: Some("state-1".into()),
+            oauth_pending_verifier: Some("v".into()),
+            oauth_pending_redirect: Some("http://localhost/cb".into()),
+            ..Default::default()
+        });
+        // Wrong state leaves pending intact.
+        assert!(take_oauth_pending_if_state("other").is_err());
+        assert!(peek_oauth_pending().is_some());
+        let first = take_oauth_pending_if_state("state-1").expect("first take");
+        assert_eq!(first.oauth_pending_verifier.as_deref(), Some("v"));
+        // Second take (double finish) fails without re-using PKCE material.
+        assert!(take_oauth_pending_if_state("state-1").is_err());
+        assert!(peek_oauth_pending().is_none());
+    }
+
+    #[test]
+    fn hub_base_url_defaults_to_prod_and_can_disable() {
+        // Note: env mutation is process-global; keep assertions order-independent where possible.
+        let prev_a = std::env::var("ATMOS_HUB_URL").ok();
+        let prev_n = std::env::var("NEXT_PUBLIC_ATMOS_HUB_URL").ok();
+        std::env::remove_var("ATMOS_HUB_URL");
+        std::env::remove_var("NEXT_PUBLIC_ATMOS_HUB_URL");
+        assert_eq!(hub_base_url().as_deref(), Some(DEFAULT_ATMOS_HUB_URL));
+
+        std::env::set_var("ATMOS_HUB_URL", "off");
+        assert_eq!(hub_base_url(), None);
+
+        std::env::set_var("ATMOS_HUB_URL", "http://localhost:8787/");
+        assert_eq!(hub_base_url().as_deref(), Some("http://localhost:8787"));
+
+        // Restore.
+        match prev_a {
+            Some(v) => std::env::set_var("ATMOS_HUB_URL", v),
+            None => std::env::remove_var("ATMOS_HUB_URL"),
+        }
+        match prev_n {
+            Some(v) => std::env::set_var("NEXT_PUBLIC_ATMOS_HUB_URL", v),
+            None => std::env::remove_var("NEXT_PUBLIC_ATMOS_HUB_URL"),
+        }
     }
 
     #[test]

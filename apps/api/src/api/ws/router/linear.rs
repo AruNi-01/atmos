@@ -58,11 +58,13 @@ fn wire_to_issue(w: LinearIssueWire) -> LinearIssue {
             .labels
             .into_iter()
             .map(|l| LinearLabel {
+                id: None,
                 name: l.name,
                 color: l.color,
             })
             .collect(),
         assignee: w.assignee.map(|a| LinearAssignee {
+            id: None,
             name: a.name,
             avatar_url: a.avatar_url,
         }),
@@ -175,6 +177,9 @@ impl WsMessageService {
             req.preset,
             req.team_id,
             req.project_id,
+            req.state_types,
+            req.assignee_ids,
+            req.label_ids,
             req.query,
             req.first,
             req.after,
@@ -192,11 +197,16 @@ impl WsMessageService {
         &self,
         req: LinearFilterOptionsRequest,
     ) -> Result<Value> {
-        let (teams, projects) = self
+        let (teams, projects, users, labels) = self
             .linear_service
             .filter_options(&hub_auth(&req.hub), linear_api_key(&req.hub))
             .await?;
-        Ok(json!({ "teams": teams, "projects": projects }))
+        Ok(json!({
+            "teams": teams,
+            "projects": projects,
+            "users": users,
+            "labels": labels,
+        }))
     }
 
     pub(super) async fn handle_linear_link_issue(

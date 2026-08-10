@@ -12,6 +12,10 @@ export type LinearIssueListParams = {
   preset?: string;
   team_id?: string;
   project_id?: string;
+  /** Linear workflow state types: backlog | unstarted | started | completed | canceled. */
+  state_types?: string[];
+  assignee_ids?: string[];
+  label_ids?: string[];
   query?: string;
   first?: number;
   after?: string;
@@ -103,6 +107,8 @@ export const wsLinearApi = {
   filterOptions: (): Promise<{
     teams: Array<{ id: string; name: string; key: string }>;
     projects: Array<{ id: string; name: string }>;
+    users: Array<{ id: string; name: string; avatar_url?: string | null }>;
+    labels: Array<{ id: string; name: string; color?: string | null }>;
   }> => wsRequest("linear_filter_options", withLinearAuth({})),
 
   linkIssue: (workspace_guid: string, issue: unknown): Promise<LinearLinkPayload> =>

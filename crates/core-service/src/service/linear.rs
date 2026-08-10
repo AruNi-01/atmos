@@ -19,8 +19,8 @@ use std::sync::Arc;
 use uuid::Uuid;
 
 use super::linear_credentials::{
-    delete_credentials_on_hub, fetch_credentials_from_hub, peek_oauth_pending,
-    put_credentials_to_hub, set_oauth_pending, take_oauth_pending, HubAuth, LinearCredentials,
+    delete_credentials_on_hub, fetch_credentials_from_hub, put_credentials_to_hub,
+    set_oauth_pending, take_oauth_pending_if_state, HubAuth, LinearCredentials,
     AUTH_METHOD_API_KEY, AUTH_METHOD_OAUTH,
 };
 use crate::error::{Result, ServiceError};
@@ -220,15 +220,9 @@ impl LinearService {
         state: String,
         client_id: &str,
     ) -> Result<LinearStatusDto> {
-        let pending = peek_oauth_pending().ok_or_else(|| {
-            ServiceError::Validation("OAuth state missing — restart Connect Linear".into())
-        })?;
-        let expected = pending.oauth_pending_state.clone().unwrap_or_default();
-        if expected.is_empty() || expected != state {
-            return Err(ServiceError::Validation(
-                "OAuth state mismatch — restart Connect Linear".into(),
-            ));
-        }
+        // Take pending under lock so concurrent finish (e.g. React Strict Mode double
+        // effect) cannot exchange the same authorization code twice.
+        let pending = take_oauth_pending_if_state(&state)?;
         let verifier = pending
             .oauth_pending_verifier
             .clone()
@@ -260,7 +254,22 @@ impl LinearService {
             .get("access_token")
             .and_then(|v| v.as_str())
             .ok_or_else(|| {
-                ServiceError::Validation(format!("OAuth response missing access_token: {body}"))
+                let err = body
+                    .get("error")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("unknown");
+                let desc = body
+                    .get("error_description")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("");
+                // invalid_grant often means the code was already used (double finish) or
+                // redirect_uri/client_id/PKCE do not match the authorize step.
+                ServiceError::Validation(format!(
+                    "Linear OAuth token exchange failed ({err}): {desc}. \
+                     Restart Connect Linear. If this keeps happening, check that the \
+                     callback URL registered in the Linear OAuth app exactly matches \
+                     the authorize redirect_uri (got {redirect})."
+                ))
             })?
             .to_string();
         let refresh = body
@@ -291,7 +300,6 @@ impl LinearService {
             ..Default::default()
         };
         put_credentials_to_hub(auth, &creds).await?;
-        let _ = take_oauth_pending();
         self.status(auth, None).await
     }
 
@@ -335,6 +343,8 @@ impl LinearService {
     ) -> Result<(
         Vec<core_engine::linear::LinearTeam>,
         Vec<core_engine::linear::LinearProject>,
+        Vec<core_engine::linear::LinearUser>,
+        Vec<core_engine::linear::LinearLabelOption>,
     )> {
         let c = self.load_creds(auth, linear_api_key).await?;
         let client = self.client_from_creds(&c)?;
@@ -346,7 +356,15 @@ impl LinearService {
             .list_projects()
             .await
             .map_err(|e| ServiceError::Processing(format!("Linear projects failed: {e}")))?;
-        Ok((teams, projects))
+        let users = client
+            .list_users()
+            .await
+            .map_err(|e| ServiceError::Processing(format!("Linear users failed: {e}")))?;
+        let labels = client
+            .list_labels()
+            .await
+            .map_err(|e| ServiceError::Processing(format!("Linear labels failed: {e}")))?;
+        Ok((teams, projects, users, labels))
     }
 
     pub async fn link_issue(
@@ -427,6 +445,9 @@ pub fn parse_list_options(
     preset: Option<String>,
     team_id: Option<String>,
     project_id: Option<String>,
+    state_types: Option<Vec<String>>,
+    assignee_ids: Option<Vec<String>>,
+    label_ids: Option<Vec<String>>,
     query: Option<String>,
     first: Option<u32>,
     after: Option<String>,
@@ -438,6 +459,9 @@ pub fn parse_list_options(
             .unwrap_or_default(),
         team_id,
         project_id,
+        state_types: state_types.unwrap_or_default(),
+        assignee_ids: assignee_ids.unwrap_or_default(),
+        label_ids: label_ids.unwrap_or_default(),
         query,
         first: first.unwrap_or(25),
         after,
@@ -583,6 +607,8 @@ mod tests {
 
     #[test]
     fn oauth_start_stores_ephemeral_pending() {
+        use super::super::linear_credentials::peek_oauth_pending;
+
         let rt = tokio::runtime::Runtime::new().unwrap();
         let db = rt.block_on(async { Database::connect("sqlite::memory:").await.unwrap() });
         let svc = LinearService::new(Arc::new(db));

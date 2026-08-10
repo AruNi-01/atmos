@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useQueryState, useQueryStates } from "nuqs";
 import { useShallow } from "zustand/react/shallow";
@@ -31,10 +31,27 @@ import {
   taskParams,
   type TaskSourceTab,
 } from "@/shared/lib/nuqs/searchParams";
+import { globalKey, readJson, writeJson } from "@/shared/lib/browser-store";
 import type {
   WorkspacePriority,
   WorkspaceWorkflowStatus,
 } from "@/shared/types/domain";
+
+/** Last-selected Task source tab (Atmos / GitHub / Linear). */
+const TASK_SOURCE_STORAGE_KEY = globalKey("taskSource");
+
+function isTaskSourceTab(value: unknown): value is TaskSourceTab {
+  return value === "atmos" || value === "github" || value === "linear";
+}
+
+function readStoredTaskSource(): TaskSourceTab | null {
+  const stored = readJson<unknown>(TASK_SOURCE_STORAGE_KEY, null);
+  return isTaskSourceTab(stored) ? stored : null;
+}
+
+function writeStoredTaskSource(value: TaskSourceTab): void {
+  writeJson(TASK_SOURCE_STORAGE_KEY, value);
+}
 
 const WORKFLOW_STATUSES = new Set<WorkspaceWorkflowStatus>([
   "backlog",
@@ -101,6 +118,26 @@ export function TaskManagementView() {
     taskGroups: taskParams.taskGroups,
     taskAutoWs: taskParams.taskAutoWs,
   });
+
+  // Restore last Task source tab from localStorage when URL has no explicit taskSource.
+  // URL still wins for deep links (`?taskSource=linear`); selection is always written back.
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      if (params.has("taskSource")) {
+        if (isTaskSourceTab(sourceTab)) writeStoredTaskSource(sourceTab);
+        return;
+      }
+      const stored = readStoredTaskSource();
+      if (stored && stored !== sourceTab) {
+        void setSourceTab(stored);
+      }
+    } catch {
+      /* ignore storage / URL errors */
+    }
+    // Only on mount — avoid fighting user tab changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional one-shot restore
+  }, []);
 
   const filters = useMemo<WorkspaceKanbanFilters>(
     () => ({
@@ -171,6 +208,7 @@ export function TaskManagementView() {
   const handleSourceChange = useCallback(
     (value: string) => {
       if (value === "atmos" || value === "github" || value === "linear") {
+        writeStoredTaskSource(value);
         void setSourceTab(value);
       }
     },

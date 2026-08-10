@@ -1,12 +1,13 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslations } from "next-intl";
 import { useQuery } from "@tanstack/react-query";
 import { useQueryState } from "nuqs";
 import { Button, Input, Skeleton, cn } from "@workspace/ui";
-import { Loader2, RefreshCw, Search, X } from "lucide-react";
+import { LinearIcon } from "@workspace/ui/components/icons/linear-icon";
+import { RefreshCw, Search, Settings2, X } from "lucide-react";
 import type { LinearIssuePayload } from "@atmos/api-types/ws/dto/linear";
 import { wsLinearApi } from "@/api/ws/linear-api";
 import { useComputerQueryScope } from "@/api/query/query-scope";
@@ -23,10 +24,7 @@ import {
   hubMe,
 } from "@/api/hub-client";
 import type { Project } from "@/shared/types/domain";
-import { useDialogStore } from "@/app-shell/state/use-dialog-store";
-import { openTaskWorkspaceCreate } from "@/features/task/lib/open-task-workspace-create";
-import { useProjectStore } from "@/features/project/store/use-project-store";
-import { centerStageParams } from "@/shared/lib/nuqs/searchParams";
+import { settingsModalParams, centerStageParams } from "@/shared/lib/nuqs/searchParams";
 import { GithubListPagination } from "@/features/github/components/GithubListPagination";
 import {
   DEFAULT_TASK_LINEAR_FILTERS,
@@ -34,6 +32,7 @@ import {
   type TaskLinearFilters,
 } from "@/features/task/components/TaskLinearFilterMenu";
 import { TaskLinearTable } from "@/features/task/components/TaskLinearTable";
+import { openTaskWorkspaceCreate } from "@/features/task/lib/open-task-workspace-create";
 
 const PAGE_SIZE = 20;
 
@@ -59,29 +58,6 @@ function issueToWire(issue: LinearIssuePayload) {
   };
 }
 
-function firstGithubIssuePayload(issue: LinearIssuePayload) {
-  const ref = (issue.github_refs ?? []).find(
-    (r) => r.kind === "issue" || r.kind === "pull",
-  );
-  if (!ref) return null;
-  return {
-    owner: ref.owner,
-    repo: ref.repo,
-    number: ref.number,
-    title: issue.title,
-    body: issue.description ?? null,
-    url: ref.url,
-    state: "open",
-    comments_count: 0,
-    labels: (issue.labels ?? []).map((l) => ({
-      name: l.name,
-      color: l.color ?? null,
-      description: null,
-    })),
-    assignees: [],
-  };
-}
-
 type TaskLinearPanelProps = {
   projects: Project[];
   /**
@@ -97,31 +73,33 @@ export function TaskLinearPanel({
 }: TaskLinearPanelProps) {
   const t = useTranslations("appShell.task");
   const scope = useComputerQueryScope();
-  const selectedProjectId = useDialogStore((s) => s.selectedProjectId);
   const [, setNewWorkspace] = useQueryState(
     "newWorkspace",
     centerStageParams.newWorkspace,
   );
-  const addWorkspace = useProjectStore((s) => s.addWorkspace);
-  const fetchProjects = useProjectStore((s) => s.fetchProjects);
+  const [isSettingsOpen, setIsSettingsOpen] = useQueryState(
+    "settingsModal",
+    settingsModalParams.settingsModal,
+  );
+  const [, setActiveSettingTab] = useQueryState(
+    "activeSettingTab",
+    settingsModalParams.activeSettingTab,
+  );
 
-  const defaultAtmosProjectId = useMemo(() => {
-    if (selectedProjectId && projects.some((p) => p.id === selectedProjectId)) {
-      return selectedProjectId;
-    }
-    return projects[0]?.id ?? "";
-  }, [projects, selectedProjectId]);
+  const openLinearIntegrations = useCallback(() => {
+    void setActiveSettingTab("integrations");
+    void setIsSettingsOpen(true);
+  }, [setActiveSettingTab, setIsSettingsOpen]);
 
+  const openAccountSettings = useCallback(() => {
+    void setActiveSettingTab("account");
+    void setIsSettingsOpen(true);
+  }, [setActiveSettingTab, setIsSettingsOpen]);
+
+  // Linear issues are not bound to an Atmos project — do not preselect one for Create.
   const [filters, setFilters] = useState<TaskLinearFilters>(() => ({
     ...DEFAULT_TASK_LINEAR_FILTERS,
-    atmosProjectId: defaultAtmosProjectId,
   }));
-
-  useEffect(() => {
-    if (!filters.atmosProjectId && defaultAtmosProjectId) {
-      setFilters((prev) => ({ ...prev, atmosProjectId: defaultAtmosProjectId }));
-    }
-  }, [defaultAtmosProjectId, filters.atmosProjectId]);
 
   /** Committed search query applied to the API. */
   const [queryApplied, setQueryApplied] = useState("");
@@ -136,8 +114,13 @@ export function TaskLinearPanel({
   const [actionError, setActionError] = useState<string | null>(null);
 
   const [keysEpoch, setKeysEpoch] = useState(0);
+  /** Until local keys hydrate, selection is still the empty default — do not flash empty/connect UI. */
+  const [keysReady, setKeysReady] = useState(false);
   useEffect(() => {
-    void ensureLinearLocalKeysHydrated().then(() => setKeysEpoch((n) => n + 1));
+    void ensureLinearLocalKeysHydrated().then(() => {
+      setKeysEpoch((n) => n + 1);
+      setKeysReady(true);
+    });
   }, []);
   const selection = getLinearAuthSelection();
   const activeLocal = getActiveLinearLocalKey();
@@ -185,8 +168,22 @@ export function TaskLinearPanel({
       }
       return wsLinearApi.status({ linearApiKey: null });
     },
+    // Wait for credential cache so the first status request uses real selection.
+    enabled: keysReady,
     staleTime: 30_000,
   });
+
+  // After Settings → Integrations / Account, re-check credentials once the modal closes.
+  const settingsOpenRef = React.useRef(isSettingsOpen);
+  useEffect(() => {
+    const wasOpen = settingsOpenRef.current;
+    settingsOpenRef.current = isSettingsOpen;
+    if (wasOpen && !isSettingsOpen) {
+      void ensureLinearLocalKeysHydrated().then(() => {
+        setKeysEpoch((n) => n + 1);
+      });
+    }
+  }, [isSettingsOpen]);
 
   const usedLocalCredential =
     selection.mode !== "oauth" && Boolean(activeLocal?.api_key);
@@ -198,10 +195,17 @@ export function TaskLinearPanel({
   });
   const connected = source === "oauth" || source === "local";
 
+  /** Auth path still resolving — never show "not connected" / empty list yet. */
+  const authLoading =
+    !keysReady ||
+    statusQuery.isPending ||
+    statusQuery.isLoading ||
+    (statusQuery.isFetching && statusQuery.data === undefined);
+
   const filterOptionsQuery = useQuery({
     queryKey: [...queryKeys.computer.root(scope), "linear", "filters"] as const,
     queryFn: () => wsLinearApi.filterOptions(),
-    enabled: connected,
+    enabled: connected && !authLoading,
     staleTime: 60_000,
   });
 
@@ -213,6 +217,9 @@ export function TaskLinearPanel({
       "linear",
       "issues",
       filters.preset,
+      filters.stateTypes.join(","),
+      filters.assigneeIds.join(","),
+      filters.labelIds.join(","),
       filters.teamId,
       filters.projectId,
       queryApplied,
@@ -225,12 +232,18 @@ export function TaskLinearPanel({
         preset: filters.preset,
         team_id: filters.teamId || undefined,
         project_id: filters.projectId || undefined,
+        state_types:
+          filters.stateTypes.length > 0 ? [...filters.stateTypes] : undefined,
+        assignee_ids:
+          filters.assigneeIds.length > 0 ? [...filters.assigneeIds] : undefined,
+        label_ids:
+          filters.labelIds.length > 0 ? [...filters.labelIds] : undefined,
         query: queryApplied.trim() || undefined,
         first: PAGE_SIZE,
         after,
       }),
     // Cursor pages need an `after` token; never fetch page N>1 without one.
-    enabled: connected && (page <= 1 || Boolean(after)),
+    enabled: connected && !authLoading && (page <= 1 || Boolean(after)),
     staleTime: 15_000,
   });
 
@@ -247,6 +260,13 @@ export function TaskLinearPanel({
   const issues: LinearIssuePayload[] = listQuery.data?.issues ?? [];
   const hasMore = Boolean(listQuery.data?.has_next_page);
   const refreshing = listQuery.isFetching || listQuery.isRefetching;
+  /** Issue list not ready yet — prefer loading over empty. */
+  const listLoading =
+    connected &&
+    !authLoading &&
+    (listQuery.isPending ||
+      listQuery.isLoading ||
+      (listQuery.isFetching && issues.length === 0));
 
   const resetPaging = useCallback(() => {
     setPage(1);
@@ -313,89 +333,39 @@ export function TaskLinearPanel({
     void filterOptionsQuery.refetch();
   }, [statusQuery, listQuery, filterOptionsQuery]);
 
-  /** Create Atmos workspace from Linear issue, then store association (M9/M10). */
-  const createWorkspaceFromIssue = useCallback(
-    async (issue: LinearIssuePayload) => {
-      const projectGuid = filters.atmosProjectId || defaultAtmosProjectId;
-      if (!projectGuid) {
-        setActionError(t("linear.needProject"));
-        return;
-      }
-      setBusyId(issue.id);
-      setActionError(null);
-      try {
-        const displayName = `${issue.identifier} ${issue.title}`.trim().slice(0, 120);
-        const githubIssue = firstGithubIssuePayload(issue);
-        const workspaceId = await addWorkspace({
-          projectId: projectGuid,
-          name: "",
-          displayName,
-          branch: "",
-          initialRequirement: issue.description ?? null,
-          githubIssue,
-          autoExtractTodos: Boolean(issue.description || githubIssue),
-        });
-        await wsLinearApi.linkIssue(workspaceId, issueToWire(issue));
-        await fetchProjects();
-        refresh();
-      } catch (err) {
-        setActionError(
-          err instanceof Error ? err.message : t("linear.createFailed"),
-        );
-      } finally {
-        setBusyId(null);
-      }
-    },
-    [
-      addWorkspace,
-      defaultAtmosProjectId,
-      fetchProjects,
-      filters.atmosProjectId,
-      refresh,
-      t,
-    ],
-  );
-
-  /** Link issue to an existing workspace via create dialog prefill (GitHub-style open). */
-  const openCreateDialog = useCallback(
+  /**
+   * Open New Workspace overlay with Linear (and optional linked GitHub) prefills.
+   * Do not preselect Atmos project — Linear issues are not bound to a local project.
+   * Association is written after submit via `atmos.pendingLinearLink`.
+   * autoExtractTodos stays off by default in the overlay.
+   */
+  const openCreateFromIssue = useCallback(
     (issue: LinearIssuePayload) => {
-      const projectGuid = filters.atmosProjectId || defaultAtmosProjectId;
-      const gh = (issue.github_refs ?? [])[0];
-      if (gh) {
-        openTaskWorkspaceCreate({
-          projectId: projectGuid,
-          link: {
-            kind: gh.kind === "pull" ? "pr" : "issue",
-            owner: gh.owner,
-            repo: gh.repo,
-            number: gh.number,
-            title: issue.title,
-            url: gh.url,
-          },
-          setNewWorkspace: (v) => {
-            if (v) {
-              try {
-                sessionStorage.setItem(
-                  "atmos.pendingLinearLink",
-                  JSON.stringify(issueToWire(issue)),
-                );
-              } catch {
-                /* ignore */
-              }
+      setActionError(null);
+      const gh = (issue.github_refs ?? []).find(
+        (r) => r.kind === "issue" || r.kind === "pull",
+      );
+      openTaskWorkspaceCreate({
+        requireProjectPick: true,
+        displayName: `${issue.identifier} ${issue.title}`.trim().slice(0, 120),
+        initialRequirement: issue.description?.trim() || null,
+        linearIssue: issueToWire(issue),
+        link: gh
+          ? {
+              kind: gh.kind === "pull" ? "pr" : "issue",
+              owner: gh.owner,
+              repo: gh.repo,
+              number: gh.number,
+              title: issue.title,
+              url: gh.url,
             }
-            void setNewWorkspace(v);
-          },
-        });
-        return;
-      }
-      void createWorkspaceFromIssue(issue);
+          : null,
+        setNewWorkspace: (v) => {
+          void setNewWorkspace(v);
+        },
+      });
     },
-    [
-      createWorkspaceFromIssue,
-      defaultAtmosProjectId,
-      filters.atmosProjectId,
-      setNewWorkspace,
-    ],
+    [setNewWorkspace],
   );
 
   const headerActions = (
@@ -425,12 +395,13 @@ export function TaskLinearPanel({
       ? createPortal(headerActions, headerTrailingHost)
       : null;
 
-  if (statusQuery.isLoading) {
+  if (authLoading) {
     return (
       <div className="flex h-full min-h-0 flex-col overflow-hidden">
         {portaledHeaderActions}
         <div className="mx-auto w-full max-w-6xl space-y-3 px-6 py-6">
           <Skeleton className="h-8 w-full" />
+          <Skeleton className="h-10 w-full" />
           <Skeleton className="h-10 w-full" />
           <Skeleton className="h-10 w-full" />
         </div>
@@ -444,14 +415,46 @@ export function TaskLinearPanel({
 
   if (needsHubLogin || !connected) {
     return (
-      <div className="flex h-full flex-col items-center justify-center gap-3 p-8 text-center">
-        {portaledHeaderActions}
-        <p className="text-sm text-muted-foreground">
+      <div className="flex h-full min-h-0 flex-col items-center justify-center px-6 py-12 text-center">
+        <div className="mb-5 flex size-16 items-center justify-center rounded-3xl bg-muted/20 text-muted-foreground">
+          <LinearIcon className="size-8" size={32} />
+        </div>
+        <h3 className="text-base font-semibold text-foreground">
           {needsHubLogin ? t("linear.signInRequired") : t("linear.notConnected")}
-        </p>
-        <p className="text-xs text-muted-foreground">
+        </h3>
+        <p className="mt-2 max-w-sm text-sm text-pretty text-muted-foreground">
           {needsHubLogin ? t("linear.signInHint") : t("linear.connectHint")}
         </p>
+        <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
+          {needsHubLogin ? (
+            <>
+              <Button
+                type="button"
+                className="gap-1.5"
+                onClick={openAccountSettings}
+              >
+                <Settings2 className="size-4" />
+                {t("linear.openAccountSettings")}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={openLinearIntegrations}
+              >
+                {t("linear.openIntegrations")}
+              </Button>
+            </>
+          ) : (
+            <Button
+              type="button"
+              className="gap-1.5"
+              onClick={openLinearIntegrations}
+            >
+              <Settings2 className="size-4" />
+              {t("linear.openIntegrations")}
+            </Button>
+          )}
+        </div>
       </div>
     );
   }
@@ -505,6 +508,8 @@ export function TaskLinearPanel({
               onFiltersChange={handleFiltersChange}
               teams={filterOptionsQuery.data?.teams ?? []}
               linearProjects={filterOptionsQuery.data?.projects ?? []}
+              users={filterOptionsQuery.data?.users ?? []}
+              labels={filterOptionsQuery.data?.labels ?? []}
               atmosProjects={projects}
             />
           </div>
@@ -514,46 +519,39 @@ export function TaskLinearPanel({
           <p className="mb-2 shrink-0 text-xs text-destructive">{actionError}</p>
         ) : null}
 
-        {/* List region fills remaining height; table scrolls inside */}
+        {/* Table shell always mounts; loading / empty / error live inside the body. */}
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-          {listQuery.isLoading && issues.length === 0 ? (
-            <div className="flex min-h-0 flex-1 items-center justify-center text-muted-foreground">
-              <Loader2 className="size-4 animate-spin" />
-            </div>
-          ) : listQuery.isError ? (
-            <div className="flex min-h-0 flex-1 items-center justify-center text-center text-sm text-destructive">
-              {t("linear.loadError")}
-            </div>
-          ) : issues.length === 0 ? (
-            <div className="flex min-h-0 flex-1 items-center justify-center text-center text-sm text-muted-foreground">
-              {t("linear.empty")}
-            </div>
-          ) : (
-            <>
-              <div className="min-h-0 flex-1 overflow-hidden">
-                <TaskLinearTable
-                  issues={issues}
-                  busyId={busyId}
-                  onCreateWorkspace={(issue) => {
-                    void createWorkspaceFromIssue(issue);
-                  }}
-                  onLinkOrCreate={openCreateDialog}
-                />
-              </div>
+          <div className="min-h-0 flex-1 overflow-hidden">
+            <TaskLinearTable
+              issues={issues}
+              busyId={busyId}
+              bodyState={
+                listLoading
+                  ? "loading"
+                  : listQuery.isError
+                    ? "error"
+                    : issues.length === 0
+                      ? "empty"
+                      : "ready"
+              }
+              bodyMessage={
+                listQuery.isError ? t("linear.loadError") : t("linear.empty")
+              }
+              onCreateWorkspace={openCreateFromIssue}
+            />
+          </div>
 
-              <div className="flex min-w-0 shrink-0 items-center justify-end gap-3 pt-2">
-                <GithubListPagination
-                  page={page}
-                  hasMore={hasMore}
-                  onPageChange={handlePageChange}
-                  previousLabel={t("linear.pagination.previous")}
-                  nextLabel={t("linear.pagination.next")}
-                  layout="full"
-                  className="mt-0 w-auto justify-end pb-0"
-                />
-              </div>
-            </>
-          )}
+          <div className="flex min-w-0 shrink-0 items-center justify-end gap-3 pt-2">
+            <GithubListPagination
+              page={page}
+              hasMore={hasMore}
+              onPageChange={handlePageChange}
+              previousLabel={t("linear.pagination.previous")}
+              nextLabel={t("linear.pagination.next")}
+              layout="full"
+              className="mt-0 w-auto justify-end pb-0"
+            />
+          </div>
         </div>
       </div>
     </div>

@@ -418,6 +418,17 @@ export function issueToBranchName(issue: GithubIssuePayload): string {
   return `issue-${issue.number}-${getRandomPokemonName()}`;
 }
 
+/** Display name for Linear-linked workspace (matches Task → Create prefill). */
+export function linearIssueToWorkspaceName(issue: {
+  identifier: string;
+  title: string;
+}): string {
+  const title = issue.title.trim();
+  const id = issue.identifier.trim();
+  if (title && id) return `${id} ${title}`.slice(0, 120);
+  return (title || id || "Linear issue").slice(0, 120);
+}
+
 export function prToWorkspaceName(pr: GithubPrPayload): string {
   const title = pr.title.trim();
   return title ? `[PR#${pr.number}] ${title}` : `[PR#${pr.number}]`;

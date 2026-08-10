@@ -76,6 +76,15 @@ pub struct LinearIssueListRequest {
     pub team_id: Option<String>,
     #[serde(default)]
     pub project_id: Option<String>,
+    /// Linear workflow state types: backlog | unstarted | started | completed | canceled.
+    #[serde(default)]
+    pub state_types: Option<Vec<String>>,
+    /// Multi-select assignee user ids.
+    #[serde(default)]
+    pub assignee_ids: Option<Vec<String>>,
+    /// Multi-select label ids (OR — any of).
+    #[serde(default)]
+    pub label_ids: Option<Vec<String>>,
     #[serde(default)]
     pub query: Option<String>,
     #[serde(default)]

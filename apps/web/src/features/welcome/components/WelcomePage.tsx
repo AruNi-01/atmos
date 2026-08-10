@@ -55,6 +55,7 @@ import {
   useProjectBootstrapQuery,
 } from "@/features/project/hooks/use-project-bootstrap-query";
 import { useWorkspaceCreationStore } from "@/features/workspace/store/workspace-creation-store";
+import { useTaskWorkspaceDraftStore } from "@/features/task/store/task-workspace-draft-store";
 import { useAppRouter } from "@/shared/hooks/use-app-router";
 import { useDialogStore } from "@/app-shell/state/use-dialog-store";
 import type {
@@ -106,6 +107,12 @@ import {
   type MentionFileCandidate,
   type WelcomeHeadline,
 } from "@/features/welcome/lib/welcome-page-helpers";
+import {
+  ensureWorkspaceLabelsForExternal,
+  githubIssueMeta,
+  githubPrMeta,
+  linearIssueMeta,
+} from "@/features/welcome/lib/workspace-external-meta";
 
 interface WelcomePageProps {
   onAddProject?: () => void;
@@ -134,6 +141,7 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
   const bootstrapQuery = useProjectBootstrapQuery();
   const isInitialProjectsLoading = bootstrapQuery.isPending && !bootstrapQuery.data;
   const addWorkspace = useProjectStore((s) => s.addWorkspace);
+  const fetchProjects = useProjectStore((s) => s.fetchProjects);
   const createWorkspaceLabel = useProjectStore((s) => s.createWorkspaceLabel);
   const showCreating = useWorkspaceCreationStore((s) => s.showCreating);
   const showOpening = useWorkspaceCreationStore((s) => s.showOpening);
@@ -195,6 +203,8 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
   const appliedLauncherProjectIdRef = React.useRef<string | null>(null);
   const prevProjectIdsRef = React.useRef<string[]>([]);
   const waitingForNewProjectRef = React.useRef(false);
+  /** Avoid re-applying priority/status/labels for the same external issue/PR. */
+  const externalMetaSyncKeyRef = React.useRef<string | null>(null);
   React.useEffect(() => {
     setIsMounted(true);
   }, []);
@@ -217,6 +227,11 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
       appliedLauncherProjectIdRef.current = null;
     }
     if (!projectId && projects.length > 0) {
+      // Linear Task create: issue is not bound to an Atmos project — wait for user pick.
+      const draft = useTaskWorkspaceDraftStore.getState().peekDraft();
+      if (draft?.requireProjectPick) {
+        return;
+      }
       setProjectId(projects[0].id);
     }
   }, [projects, selectedProjectIdFromLauncher, projectId]);
@@ -313,10 +328,15 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
     displayedLinkType,
     filteredRemoteBranches,
     handleLoadIssueFromUrl,
+    handleLoadMoreIssues,
+    handleLoadMoreLinear,
+    handleLoadMorePrs,
     handleLoadPrFromUrl,
     handleRefreshIssues,
+    handleRefreshLinear,
     handleRefreshPrs,
     handleSelectIssue,
+    handleSelectLinear,
     handleSelectLinkType,
     handleSelectPr,
     hasSetupScript,
@@ -324,20 +344,32 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
     isBaseBranchOpen,
     isIssuePreviewLoading,
     isIssuesLoading,
+    isIssuesLoadingMore,
+    isLinearLoading,
+    isLinearLoadingMore,
     isPrPreviewLoading,
     isPrsLoading,
+    isPrsLoadingMore,
     issueError,
     issuePreview,
     issues,
+    issuesHasMore,
     issueUrl,
+    linearConnected,
+    linearError,
+    linearHasMore,
+    linearIssues,
+    linearPreview,
     linkType,
     prError,
     prPreview,
     prs,
+    prsHasMore,
     prUrl,
     remoteBranches,
     repoContext,
     selectedIssueNumber,
+    selectedLinearId,
     selectedPrNumber,
     setAutoExtractTodos,
     setAutoExtractTodosPr,
@@ -370,6 +402,85 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
       setIsAdvancedOpen(true);
     }
   }, [linkType]);
+
+  // Align priority / status / labels when a GitHub or Linear issue is selected.
+  React.useEffect(() => {
+    const key = linearPreview
+      ? `linear:${linearPreview.id}`
+      : prPreview
+        ? `pr:${prPreview.owner}/${prPreview.repo}#${prPreview.number}`
+        : issuePreview
+          ? `issue:${issuePreview.owner}/${issuePreview.repo}#${issuePreview.number}`
+          : null;
+
+    if (!key) {
+      if (externalMetaSyncKeyRef.current !== null) {
+        externalMetaSyncKeyRef.current = null;
+        setPriority("no_priority");
+        setWorkflowStatus("in_progress");
+        setSelectedLabels([]);
+      }
+      return;
+    }
+    if (externalMetaSyncKeyRef.current === key) return;
+    externalMetaSyncKeyRef.current = key;
+
+    let cancelled = false;
+
+    const run = async () => {
+      if (linearPreview) {
+        const meta = linearIssueMeta(linearPreview);
+        setPriority(meta.priority);
+        setWorkflowStatus(meta.workflowStatus);
+        const labels = await ensureWorkspaceLabelsForExternal(
+          meta.labels,
+          workspaceLabels,
+          createWorkspaceLabel,
+          "manual",
+        );
+        if (!cancelled) setSelectedLabels(labels);
+        return;
+      }
+
+      if (prPreview) {
+        const meta = githubPrMeta(prPreview);
+        setPriority(meta.priority);
+        setWorkflowStatus(meta.workflowStatus);
+        const labels = await ensureWorkspaceLabelsForExternal(
+          meta.labels,
+          workspaceLabels,
+          createWorkspaceLabel,
+          "gitHub_pr",
+        );
+        if (!cancelled) setSelectedLabels(labels);
+        return;
+      }
+
+      if (issuePreview) {
+        const meta = githubIssueMeta(issuePreview);
+        setPriority(meta.priority);
+        setWorkflowStatus(meta.workflowStatus);
+        const labels = await ensureWorkspaceLabelsForExternal(
+          meta.labels,
+          workspaceLabels,
+          createWorkspaceLabel,
+          "gitHub_issue",
+        );
+        if (!cancelled) setSelectedLabels(labels);
+      }
+    };
+
+    void run();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    createWorkspaceLabel,
+    issuePreview,
+    linearPreview,
+    prPreview,
+    workspaceLabels,
+  ]);
 
   const {
     filteredAgents,
@@ -787,44 +898,30 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
           (issuePreview ? issueToBranchName(issuePreview) : "");
       const finalBaseBranch = prPreview ? prPreview.base_ref || baseBranch : baseBranch;
 
-      // Create labels from GitHub issue/PR if present
+      // Labels/priority/status are prefilled when an external issue is selected.
+      // Re-resolve external labels at submit; keep any extra labels the user added.
       let labelsToUse = selectedLabels;
-      if (prPreview && prPreview.labels && prPreview.labels.length > 0) {
-        const source = 'gitHub_pr' as const;
-        for (const prLabel of prPreview.labels) {
-          // Check if label already exists with same name (case-insensitive) and source
-          const existingLabel = workspaceLabels.find(
-            (l) => l.name.toLowerCase() === prLabel.name.toLowerCase() && l.source === source
-          );
-          if (!existingLabel) {
-            const newLabel = await createWorkspaceLabel({
-              name: prLabel.name,
-              color: prLabel.color ? `#${prLabel.color.replace(/^#/, '')}` : '#94a3b8',
-              source,
-            });
-            labelsToUse = [...labelsToUse, newLabel];
-          } else if (!labelsToUse.find((l) => l.id === existingLabel.id)) {
-            labelsToUse = [...labelsToUse, existingLabel];
-          }
-        }
-      } else if (issuePreview && issuePreview.labels && issuePreview.labels.length > 0) {
-        const source = 'gitHub_issue' as const;
-        for (const issueLabel of issuePreview.labels) {
-          // Check if label already exists with same name (case-insensitive) and source
-          const existingLabel = workspaceLabels.find(
-            (l) => l.name.toLowerCase() === issueLabel.name.toLowerCase() && l.source === source
-          );
-          if (!existingLabel) {
-            const newLabel = await createWorkspaceLabel({
-              name: issueLabel.name,
-              color: issueLabel.color ? `#${issueLabel.color.replace(/^#/, '')}` : '#94a3b8',
-              source,
-            });
-            labelsToUse = [...labelsToUse, newLabel];
-          } else if (!labelsToUse.find((l) => l.id === existingLabel.id)) {
-            labelsToUse = [...labelsToUse, existingLabel];
-          }
-        }
+      const externalLabels = linearPreview
+        ? linearIssueMeta(linearPreview).labels
+        : prPreview
+          ? githubPrMeta(prPreview).labels
+          : issuePreview
+            ? githubIssueMeta(issuePreview).labels
+            : null;
+      if (externalLabels && externalLabels.length > 0) {
+        const ensured = await ensureWorkspaceLabelsForExternal(
+          externalLabels,
+          workspaceLabels,
+          createWorkspaceLabel,
+          linearPreview
+            ? "manual"
+            : prPreview
+              ? "gitHub_pr"
+              : "gitHub_issue",
+        );
+        const byId = new Map(selectedLabels.map((l) => [l.id, l] as const));
+        for (const label of ensured) byId.set(label.id, label);
+        labelsToUse = Array.from(byId.values());
       }
 
       const rawPrompt = stripSkillDisableSession(
@@ -857,13 +954,36 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
         labels: labelsToUse,
         attachments: attachmentPayload,
       });
-      // APP-056: if Task Linear opened create with a pending issue snapshot, link it.
+      // APP-056: link Linear issue selected in Advanced (or prefilled from Task Create).
       try {
-        const raw = sessionStorage.getItem("atmos.pendingLinearLink");
+        let raw = sessionStorage.getItem("atmos.pendingLinearLink");
+        if (!raw && linearPreview) {
+          raw = JSON.stringify({
+            id: linearPreview.id,
+            identifier: linearPreview.identifier,
+            title: linearPreview.title,
+            url: linearPreview.url,
+            description: linearPreview.description ?? null,
+            priority: linearPreview.priority ?? 0,
+            state_name: linearPreview.state_name ?? null,
+            state_type: linearPreview.state_type ?? null,
+            project_name: linearPreview.project_name ?? null,
+            project_id: linearPreview.project_id ?? null,
+            team_id: linearPreview.team_id ?? null,
+            team_key: linearPreview.team_key ?? null,
+            labels: linearPreview.labels ?? [],
+            assignee: linearPreview.assignee ?? null,
+            github_refs: linearPreview.github_refs ?? [],
+            created_at: linearPreview.created_at ?? null,
+            updated_at: linearPreview.updated_at ?? null,
+          });
+        }
         if (raw) {
           sessionStorage.removeItem("atmos.pendingLinearLink");
           const { wsLinearApi } = await import("@/api/ws/linear-api");
           await wsLinearApi.linkIssue(workspaceId, JSON.parse(raw));
+          // Refresh project tree so card/popover show Linear icon + title.
+          await fetchProjects();
         }
       } catch {
         // non-fatal: workspace was created; association can be re-linked from Task
@@ -948,11 +1068,16 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
         displayedLinkType,
         filteredRemoteBranches,
         handleLoadIssueFromUrl,
+        handleLoadMoreIssues,
+        handleLoadMoreLinear,
+        handleLoadMorePrs,
         handleLoadPrFromUrl,
         handleRefreshIssues,
+        handleRefreshLinear,
         handleRefreshPrs,
         handleRegenerateBranch,
         handleSelectIssue,
+        handleSelectLinear,
         handleSelectLinkType,
         handleSelectPr,
         isAdvancedOpen,
@@ -960,12 +1085,22 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
         isBaseBranchOpen,
         isIssuePreviewLoading,
         isIssuesLoading,
+        isIssuesLoadingMore,
+        isLinearLoading,
+        isLinearLoadingMore,
         isPrPreviewLoading,
         isPrsLoading,
+        isPrsLoadingMore,
         issueError,
         issuePreview,
         issues,
+        issuesHasMore,
         issueUrl,
+        linearConnected,
+        linearError,
+        linearHasMore,
+        linearIssues,
+        linearPreview,
         linkType,
         name,
         onBranchChange: (value) => {
@@ -993,10 +1128,12 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
         prError,
         prPreview,
         prs,
+        prsHasMore,
         prUrl,
         remoteBranches,
         repoContext,
         selectedIssueNumber,
+        selectedLinearId,
         selectedPrNumber,
         selectedProjectId,
         setAutoExtractTodos,

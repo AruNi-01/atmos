@@ -23,11 +23,13 @@ export type LinearStatusPayload = {
 };
 
 export type LinearLabelPayload = {
+  id?: string | null;
   name: string;
   color?: string | null;
 };
 
 export type LinearAssigneePayload = {
+  id?: string | null;
   name: string;
   avatar_url?: string | null;
 };
