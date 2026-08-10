@@ -1,0 +1,24 @@
+apps/web/public/icons/linear-black.svg
+  h_5be255725524c8 1
+apps/web/public/icons/linear-white.svg
+  h_5be255725524c8 1
+apps/web/public/icons/linear.svg
+  h_5be255725524c8 1
+apps/web/src/features/settings/components/IntegrationsSettingsSection.tsx
+  h_5be255725524c8 15,509
+apps/web/src/features/task/components/TaskManagementView.tsx
+  h_5be255725524c8 9-10,207
+packages/ui/src/components/icons/linear-icon.tsx
+  h_5be255725524c8 1-42
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "5adc063f50e8acd414a49f21eb5b6af862c1accf",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
