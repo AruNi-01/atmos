@@ -1,7 +1,8 @@
+import { onlineComputers } from "@atmos/relay-client";
 import type { ComputerRow } from "@/api/types";
 
 export function selectableOnlineComputers(computers: ComputerRow[]) {
-  return computers.filter((computer) => !computer.revoked && computer.online);
+  return onlineComputers(computers);
 }
 
 export function getAutoConnectComputerId({

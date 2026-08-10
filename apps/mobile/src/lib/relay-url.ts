@@ -1,19 +1,19 @@
-const DEFAULT_RELAY_URL = "https://relay.atmos.land";
+import {
+  DEFAULT_RELAY_URL,
+  normalizeRelayUrl as normalizeRelayUrlCore,
+  redactRelayUrl,
+} from "@atmos/relay-client";
+
+export { DEFAULT_RELAY_URL, redactRelayUrl };
 
 export function getDefaultRelayUrl() {
-  return normalizeRelayUrl(
-    process.env.EXPO_PUBLIC_RELAY_URL ?? process.env.EXPO_PUBLIC_RELAY_RELAY_URL ?? DEFAULT_RELAY_URL,
+  return normalizeRelayUrlCore(
+    process.env.EXPO_PUBLIC_RELAY_URL ??
+      process.env.EXPO_PUBLIC_RELAY_RELAY_URL ??
+      DEFAULT_RELAY_URL,
   );
 }
 
 export function normalizeRelayUrl(value: string) {
-  const trimmed = value.trim();
-  if (!trimmed) return DEFAULT_RELAY_URL;
-
-  const withProtocol = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
-  return withProtocol.replace(/\/+$/, "");
-}
-
-export function redactUrl(value: string) {
-  return value.replace(/([?&]token=)[^&]+/i, "$1<redacted>");
+  return normalizeRelayUrlCore(value);
 }

@@ -43,7 +43,8 @@
     "zod": "^4.4.3",
     "zustand": "^5.0.14",
     "@atmos/api-types": "workspace:*",
-    "@atmos/api-client": "workspace:*"
+    "@atmos/api-client": "workspace:*",
+    "@atmos/relay-client": "workspace:*"
   },
   "devDependencies": {
     "@types/react": "~19.2.14",

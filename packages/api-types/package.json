@@ -12,7 +12,8 @@
     "./ws/dto/project": "./src/ws/dto/project.ts",
     "./ws/dto/workspace": "./src/ws/dto/workspace.ts",
     "./ws/dto/group": "./src/ws/dto/group.ts",
-    "./ws/dto/github": "./src/ws/dto/github.ts"
+    "./ws/dto/github": "./src/ws/dto/github.ts",
+    "./ws/dto/linear": "./src/ws/dto/linear.ts"
   },
   "scripts": {
     "typecheck": "bun ../../scripts/run-tsc7.ts --noEmit",

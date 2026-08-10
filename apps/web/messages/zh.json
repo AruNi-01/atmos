@@ -1333,10 +1333,14 @@
       "linear": {
         "refresh": "刷新",
         "notConnected": "尚未连接 Linear。",
-        "connectHint": "请打开 设置 → 集成 → Linear，使用 OAuth 或 API Key 连接。",
+        "connectHint": "请打开 设置 → 集成 → Linear，使用 OAuth（推荐）或本地 API Key 连接。",
         "loadError": "加载 Linear Issue 失败。",
         "empty": "没有匹配筛选条件的 Issue。",
         "openInLinear": "在 Linear 中打开",
+        "chip": {
+          "localApiKey": "本地 API Key",
+          "oauthAccount": "OAuth 账号"
+        },
         "presets": {
           "active": "进行中",
           "backlog": "Backlog",
@@ -1353,8 +1357,8 @@
         "linkOrCreate": "打开创建并关联",
         "needProject": "请先选择 Atmos 项目。",
         "createFailed": "从 Linear Issue 创建 Workspace 失败。",
-        "signInRequired": "请先登录 Atmos 再使用 Linear。",
-        "signInHint": "打开 设置 → 账号，使用 GitHub 或 Google 登录。Linear 凭证保存在你的 Atmos 账号（Hub）下，不再单独存本机第二份。"
+        "signInRequired": "使用 Linear OAuth 前请先登录 Atmos。",
+        "signInHint": "打开 设置 → 账号 登录，或在 设置 → 集成 → Linear 添加本地 API Key。"
       }
     }
   },
@@ -5890,27 +5894,54 @@
       },
       "linear": {
         "title": "Linear",
-        "description": "用 OAuth 连接 Linear。须先登录 Atmos 账号；凭证只保存在你的 Hub 账号下，不再粘贴 API Key。",
+        "description": "推荐用 OAuth 连接（额度更高、可跨端同步），也可在本机保存个人 API Key。",
         "connectOauth": "使用 Linear 登录",
-        "connectApiKey": "已停用",
-        "apiKeyPlaceholder": "",
-        "disconnect": "断开连接",
+        "connectApiKey": "保存 API Key",
+        "apiKeyPlaceholder": "lin_api_…",
+        "disconnect": "断开 OAuth",
         "connectedAs": "已连接为 {name}",
         "notConnected": "未连接",
         "needsHubLogin": "需要登录 Atmos",
-        "needsHubLoginHint": "Linear 绑定 Atmos 账号。请先打开「账号」用 GitHub 或 Google 登录。",
+        "needsHubLoginHint": "OAuth 绑定 Atmos 账号。请先打开「账号」用 GitHub 或 Google 登录。",
         "needsDevice": "需要信任此设备",
-        "needsDeviceHint": "登录后请在「账号」中信任此设备，再连接 Linear。",
+        "needsDeviceHint": "登录后请在「账号」中信任此设备，再连接 Linear OAuth。",
         "openAccount": "打开账号",
         "connectFailed": "连接 Linear 失败",
         "disconnectFailed": "断开 Linear 失败",
         "authMethodApiKey": "API Key",
         "authMethodOauth": "OAuth",
+        "useThis": "使用",
+        "usingThis": "使用中",
+        "chip": {
+          "localApiKey": "本地 API Key",
+          "oauthAccount": "OAuth 账号"
+        },
+        "oauth": {
+          "title": "OAuth 账号",
+          "recommended": "推荐",
+          "hint": "额度更高，凭证通过 Atmos Hub 跨设备同步。"
+        },
+        "local": {
+          "title": "本地 API Key",
+          "hint": "保存在本机 ~/.atmos（不进 Hub）。可保存多把 Key，但同一时间只能选用一把（或改用 OAuth）。",
+          "storageLoading": "正在解析本地存储…",
+          "storageDisk": "磁盘路径：{path}",
+          "storageBrowserFallback": "无法连接本机 Computer API，暂时使用浏览器存储；有本地 Atmos Server 后会写入磁盘。",
+          "createKeyLink": "在 Linear 创建 API Key",
+          "namePlaceholder": "Key 名称",
+          "apiKeyPlaceholder": "个人 API Key",
+          "apiKeyRequired": "请填写 API Key",
+          "save": "保存 Key",
+          "saveFailed": "保存 API Key 失败",
+          "remove": "删除",
+          "unnamedViewer": "个人 Key"
+        },
         "rateLimit": {
           "title": "API 额度",
-          "description": "当前凭证的 Linear 请求与复杂度额度。",
+          "description": "当前使用的 OAuth 或本地 API Key 的 Linear 请求次数与复杂度额度（展示方式与 GitHub 一致）。",
           "refresh": "刷新",
           "loadError": "无法加载 Linear 额度。",
+          "empty": "当前凭证尚未返回额度头。发起一次 Linear 请求后再点刷新。",
           "footer": "剩余 {remaining} · {reset}",
           "resetSoon": "即将重置",
           "resetInMinutes": "{minutes} 分钟后重置",
@@ -5922,7 +5953,14 @@
           }
         },
         "reconnectOauth": "重新授权",
-        "connecting": "正在跳转…"
+        "connecting": "正在跳转…",
+        "oauthCallback": {
+          "loading": "加载中…",
+          "working": "正在完成 Linear 连接…",
+          "success": "Linear 已连接。你可以关闭此窗口并返回 Atmos。",
+          "missingParams": "缺少 OAuth code 或 state。",
+          "finishFailed": "OAuth 完成失败"
+        }
       }
     },
     "aiSection": {

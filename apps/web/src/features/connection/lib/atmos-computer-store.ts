@@ -8,6 +8,10 @@
  */
 
 import { create } from 'zustand';
+import {
+  DEFAULT_RELAY_URL,
+  normalizeRelayUrl,
+} from '@atmos/relay-client';
 import { LOCAL_INSTANCE_ID } from '@/features/connection/lib/connection-instance';
 import {
   readConnectionUiPrefs,
@@ -69,15 +73,15 @@ interface AtmosComputerStore extends AtmosComputerData {
 const envRelayUrl =
   typeof process !== 'undefined' ? process.env.NEXT_PUBLIC_ATMOS_RELAY_URL ?? '' : '';
 
-export const DEFAULT_RELAY_URL = 'https://relay.atmos.land';
+export { DEFAULT_RELAY_URL };
 
 export function resolveRelayUrl(raw?: string | null): string {
   const trimmed = (raw ?? '').trim();
   if (trimmed) {
-    return normalizedRelayOrigin(trimmed);
+    return normalizeRelayUrl(trimmed);
   }
   if (envRelayUrl.trim()) {
-    return normalizedRelayOrigin(envRelayUrl);
+    return normalizeRelayUrl(envRelayUrl);
   }
   return DEFAULT_RELAY_URL;
 }
@@ -241,10 +245,9 @@ export const useAtmosComputerStore = create<AtmosComputerStore>((set, get) => ({
   },
 }));
 
+/** @deprecated Prefer `normalizeRelayUrl` from `@atmos/relay-client` / `resolveRelayUrl`. */
 export function normalizedRelayOrigin(raw: string): string {
-  const t = raw.trim().replace(/\/+$/, '');
-  if (!t) {
-    return '';
-  }
-  return t.startsWith('http') ? t : `https://${t}`;
+  const t = raw.trim();
+  if (!t) return '';
+  return normalizeRelayUrl(t);
 }

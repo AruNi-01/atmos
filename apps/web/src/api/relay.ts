@@ -1,10 +1,17 @@
+/**
+ * Computer system REST via an **active Relay gateway session**.
+ *
+ * Not Relay control-plane (`@atmos/relay-client` / `/v1/computers|register_tokens|…`).
+ * After `createClientSession`, the gateway base (`gateway_url`) proxies to the
+ * Computer's local API — paths like `/api/system/*` stay app-owned.
+ */
 import type {
   GhCliStatusResponse,
   RuntimeInfoResponse,
   TerminalOverviewResponse,
 } from '@/api/rest-api';
 
-async function fetchRelaySystemJson<T>(
+async function fetchComputerGatewayJson<T>(
   relayGatewayHttpBase: string,
   relayClientToken: string,
   path: string,
@@ -35,7 +42,7 @@ export async function fetchRelayTerminalOverview(
   relayGatewayHttpBase: string,
   relayClientToken: string,
 ): Promise<TerminalOverviewResponse> {
-  return fetchRelaySystemJson<TerminalOverviewResponse>(
+  return fetchComputerGatewayJson<TerminalOverviewResponse>(
     relayGatewayHttpBase,
     relayClientToken,
     '/api/system/terminal-overview',
@@ -47,7 +54,7 @@ export async function fetchRelayRuntimeInfo(
   relayGatewayHttpBase: string,
   relayClientToken: string,
 ): Promise<RuntimeInfoResponse> {
-  return fetchRelaySystemJson<RuntimeInfoResponse>(
+  return fetchComputerGatewayJson<RuntimeInfoResponse>(
     relayGatewayHttpBase,
     relayClientToken,
     '/api/system/runtime-info',
@@ -59,7 +66,7 @@ export async function fetchRelayGhCliStatus(
   relayGatewayHttpBase: string,
   relayClientToken: string,
 ): Promise<GhCliStatusResponse> {
-  return fetchRelaySystemJson<GhCliStatusResponse>(
+  return fetchComputerGatewayJson<GhCliStatusResponse>(
     relayGatewayHttpBase,
     relayClientToken,
     '/api/system/gh-cli-status',

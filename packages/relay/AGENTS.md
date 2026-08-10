@@ -54,8 +54,10 @@ There is **no** end-user `POST /v1/tenants` / Access Token model.
 |-----------|------|
 | `apps/api/src/relay/` | Outbound WSS + inject frames into local `WsManager` |
 | `crates/runtime-manager` | `register_computer()` HTTP client |
-| `apps/web` | Settings → Account (Hub enroll) + Atmos Computer; device credential Bearer |
+| `apps/web` / `apps/mobile` | **Client SDK:** `@atmos/relay-client` (not this package) |
 | `apps/cli` | `atmos computer start\|status` |
+
+Apps **must not** import `packages/relay/src`. Shared REST shapes live in `@atmos/relay-client`.
 
 Default relay URL: `https://relay.atmos.land` (`ATMOS_RELAY_URL` override). Self-hosted relays may set `RELAY_SECRET_KEY`; clients must then send `X-Atmos-Relay-Secret` on protected relay REST calls. Do not put that secret into WebSocket URLs; CLI/API registration should receive it through `ATMOS_RELAY_SECRET_KEY` or `--relay-secret-key`.
 

@@ -12,6 +12,9 @@ function row(serverId: string, revoked = 0): ComputerRow {
     display_name: serverId,
     revoked,
     created_at: 1,
+    last_seen_at: null,
+    registration_meta: null,
+    online: false,
   };
 }
 

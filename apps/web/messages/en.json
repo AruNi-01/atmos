@@ -1333,10 +1333,14 @@
       "linear": {
         "refresh": "Refresh",
         "notConnected": "Linear is not connected.",
-        "connectHint": "Open Settings → Integrations → Linear to connect with OAuth or an API key.",
+        "connectHint": "Open Settings → Integrations → Linear to connect with OAuth (recommended) or a local API key.",
         "loadError": "Failed to load Linear issues.",
         "empty": "No issues match these filters.",
         "openInLinear": "Open in Linear",
+        "chip": {
+          "localApiKey": "Local API key",
+          "oauthAccount": "OAuth account"
+        },
         "presets": {
           "active": "Active",
           "backlog": "Backlog",
@@ -1353,8 +1357,8 @@
         "linkOrCreate": "Open create with link",
         "needProject": "Select an Atmos project first.",
         "createFailed": "Failed to create workspace from Linear issue.",
-        "signInRequired": "Sign in to Atmos to use Linear.",
-        "signInHint": "Open Settings → Account and sign in with GitHub or Google. Linear credentials are stored on your Atmos account (Hub), not on this machine alone."
+        "signInRequired": "Sign in to Atmos to use Linear OAuth.",
+        "signInHint": "Open Settings → Account and sign in, or add a local API key under Settings → Integrations → Linear."
       }
     }
   },
@@ -5890,27 +5894,54 @@
       },
       "linear": {
         "title": "Linear",
-        "description": "Connect Linear with OAuth. Sign in to Atmos first; credentials are stored only on your Hub account — no API key paste.",
+        "description": "Connect Linear via OAuth (recommended) for higher limits and cross-device sync, or use a personal API key stored only on this device.",
         "connectOauth": "Continue with Linear",
-        "connectApiKey": "Disabled",
-        "apiKeyPlaceholder": "",
-        "disconnect": "Disconnect",
+        "connectApiKey": "Save API key",
+        "apiKeyPlaceholder": "lin_api_…",
+        "disconnect": "Disconnect OAuth",
         "connectedAs": "Connected as {name}",
         "notConnected": "Not connected",
         "needsHubLogin": "Sign in required",
-        "needsHubLoginHint": "Linear is linked to your Atmos account. Open Account and sign in with GitHub or Google first.",
+        "needsHubLoginHint": "OAuth is linked to your Atmos account. Open Account and sign in with GitHub or Google first.",
         "needsDevice": "Trust this device",
-        "needsDeviceHint": "After signing in, trust this device under Account, then connect Linear.",
+        "needsDeviceHint": "After signing in, trust this device under Account, then connect Linear OAuth.",
         "openAccount": "Open Account",
         "connectFailed": "Could not connect Linear",
         "disconnectFailed": "Could not disconnect Linear",
         "authMethodApiKey": "API key",
         "authMethodOauth": "OAuth",
+        "useThis": "Use",
+        "usingThis": "In use",
+        "chip": {
+          "localApiKey": "Local API key",
+          "oauthAccount": "OAuth account"
+        },
+        "oauth": {
+          "title": "OAuth account",
+          "recommended": "Recommended",
+          "hint": "Higher rate limits and credentials sync across devices via your Atmos Hub account."
+        },
+        "local": {
+          "title": "Local API keys",
+          "hint": "Stored on this computer under ~/.atmos (not Hub). You can save several keys, but only one can be active at a time (or use OAuth instead).",
+          "storageLoading": "Resolving local storage…",
+          "storageDisk": "On disk: {path}",
+          "storageBrowserFallback": "Computer API unavailable — using browser storage until a local Atmos Server is reachable.",
+          "createKeyLink": "Create an API key in Linear",
+          "namePlaceholder": "Key name",
+          "apiKeyPlaceholder": "Personal API key",
+          "apiKeyRequired": "API key is required",
+          "save": "Save key",
+          "saveFailed": "Could not save API key",
+          "remove": "Remove",
+          "unnamedViewer": "Personal key"
+        },
         "rateLimit": {
           "title": "API rate limits",
-          "description": "Linear request and complexity budgets for the connected credentials.",
+          "description": "Linear request and complexity budgets for the active OAuth account or local API key (same style as GitHub).",
           "refresh": "Refresh",
           "loadError": "Could not load Linear rate limits.",
+          "empty": "No rate-limit headers returned for this credential yet. Try Refresh after a Linear request.",
           "footer": "{remaining} remaining · {reset}",
           "resetSoon": "resets soon",
           "resetInMinutes": "resets in {minutes}m",
@@ -5922,7 +5953,14 @@
           }
         },
         "reconnectOauth": "Re-authorize",
-        "connecting": "Redirecting…"
+        "connecting": "Redirecting…",
+        "oauthCallback": {
+          "loading": "Loading…",
+          "working": "Finishing Linear connection…",
+          "success": "Linear connected. You can close this window and return to Atmos.",
+          "missingParams": "Missing OAuth code or state.",
+          "finishFailed": "OAuth finish failed"
+        }
       }
     },
     "aiSection": {

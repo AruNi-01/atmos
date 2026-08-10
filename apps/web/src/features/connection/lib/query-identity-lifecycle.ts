@@ -64,6 +64,10 @@ export async function applyIdentityBearingComputerSettings(
     store.bumpRelayAuthRevision();
     removeRelayQueries();
     removeComputerQueries();
+    const { clearWebRelayClientCache } = await import(
+      "@/features/connection/lib/create-web-relay-client"
+    );
+    clearWebRelayClientCache();
   }
 }
 
@@ -91,6 +95,10 @@ export async function clearQueryStateForLogout(): Promise<void> {
   store.bumpRelayAuthRevision();
   removeRelayQueries();
   removeComputerQueries();
+  const { clearWebRelayClientCache } = await import(
+    "@/features/connection/lib/create-web-relay-client"
+  );
+  clearWebRelayClientCache();
 }
 
 /** Clear Relay session fields and Computer Query roots together. */

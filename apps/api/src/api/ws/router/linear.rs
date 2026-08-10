@@ -33,6 +33,13 @@ fn hub_auth(hub: &HubSessionFields) -> HubAuth {
     HubAuth::from_parts(hub.hub_cookie.as_deref(), hub.device_credential.as_deref())
 }
 
+fn linear_api_key(hub: &HubSessionFields) -> Option<&str> {
+    hub.linear_api_key
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+}
+
 fn wire_to_issue(w: LinearIssueWire) -> LinearIssue {
     LinearIssue {
         id: w.id,
@@ -77,7 +84,10 @@ fn wire_to_issue(w: LinearIssueWire) -> LinearIssue {
 
 impl WsMessageService {
     pub(super) async fn handle_linear_status(&self, req: LinearStatusRequest) -> Result<Value> {
-        let status = self.linear_service.status(&hub_auth(&req.hub)).await?;
+        let status = self
+            .linear_service
+            .status(&hub_auth(&req.hub), linear_api_key(&req.hub))
+            .await?;
         serde_json::to_value(status).map_err(|e| {
             ServiceError::Processing(format!("Failed to serialize linear status: {e}"))
         })
@@ -87,6 +97,7 @@ impl WsMessageService {
         &self,
         req: LinearConnectApiKeyRequest,
     ) -> Result<Value> {
+        // Local-only validate; client persists the key. Does not write Hub.
         let status = self
             .linear_service
             .connect_api_key(&hub_auth(&req.hub), req.api_key)
@@ -133,7 +144,11 @@ impl WsMessageService {
         &self,
         req: LinearRateLimitRequest,
     ) -> Result<Value> {
-        match self.linear_service.rate_limit(&hub_auth(&req.hub)).await? {
+        match self
+            .linear_service
+            .rate_limit(&hub_auth(&req.hub), linear_api_key(&req.hub))
+            .await?
+        {
             Some(rl) => Ok(json!({
                 "requests": {
                     "limit": rl.requests.limit,
@@ -166,7 +181,7 @@ impl WsMessageService {
         );
         let page = self
             .linear_service
-            .list_issues(&hub_auth(&req.hub), options)
+            .list_issues(&hub_auth(&req.hub), options, linear_api_key(&req.hub))
             .await?;
         serde_json::to_value(page).map_err(|e| {
             ServiceError::Processing(format!("Failed to serialize linear issues: {e}"))
@@ -179,7 +194,7 @@ impl WsMessageService {
     ) -> Result<Value> {
         let (teams, projects) = self
             .linear_service
-            .filter_options(&hub_auth(&req.hub))
+            .filter_options(&hub_auth(&req.hub), linear_api_key(&req.hub))
             .await?;
         Ok(json!({ "teams": teams, "projects": projects }))
     }

@@ -28,11 +28,9 @@ import {
   Trash2,
 } from 'lucide-react';
 import { automationApi } from '@/api/ws/automation-api';
-import {
-  isPlausibleDeviceCredential,
-  relayFetchWithDeviceCredential,
-} from '@/features/connection/lib/atmos-access-token';
+import { isPlausibleDeviceCredential } from '@/features/connection/lib/atmos-access-token';
 import { getStoredDeviceCredential, storeDeviceCredential } from '@/api/hub-client';
+import { getWebRelayClient } from '@/features/connection/lib/create-web-relay-client';
 import { createHostedRemoteSession } from '@/features/connection/lib/hosted-connection';
 import {
   activateCurrentLocalConnection,
@@ -213,11 +211,15 @@ export function AtmosComputerSection() {
     }
     setListRefreshing(true);
     try {
-      const res = await relayFetchWithDeviceCredential(url, token, '/v1/computers', undefined, secret);
-      const data = (await res.json().catch(() => null)) as { computers?: ComputerRow[] } | null;
-      if (res.ok && data?.computers) {
-        setComputers(data.computers);
-      }
+      const computers = await getWebRelayClient({
+        relayUrl: url,
+        relaySecretKey: secret,
+      })
+        .withDeviceCredential(token)
+        .listComputers();
+      setComputers(computers);
+    } catch {
+      /* keep previous list on transient relay errors */
     } finally {
       setListRefreshing(false);
     }
@@ -571,27 +573,23 @@ export function AtmosComputerSection() {
           localStatus?.hostname ??
           t("fallbacks.myComputer");
 
-        const tokenRes = await relayFetchWithDeviceCredential(
-          relayUrl,
-          accessToken,
-          '/v1/register_tokens',
-          { method: 'POST', body: JSON.stringify({}) },
-        );
-        const tokenData = (await tokenRes.json().catch(() => null)) as {
-          register_token?: string;
-          error?: string;
-        } | null;
-        if (!tokenRes.ok || !tokenData?.register_token) {
+        let registerToken: string;
+        try {
+          const tokenData = await getWebRelayClient({ relayUrl, relaySecretKey })
+            .withDeviceCredential(accessToken)
+            .createRegisterToken();
+          registerToken = tokenData.register_token;
+        } catch (err) {
           toastManager.add({
             title: t("toasts.couldNotStartRegistration"),
-            description: tokenData?.error ?? t("toasts.tryAgain"),
+            description: err instanceof Error ? err.message : t("toasts.tryAgain"),
             type: 'error',
           });
           return;
         }
 
         const reg = await registerLocalComputer(
-          tokenData.register_token,
+          registerToken,
           displayName,
           relayUrl,
           relaySecretKey,
@@ -632,12 +630,10 @@ export function AtmosComputerSection() {
 
       const serverId = localStatus?.server_id ?? localServerId;
       if (serverId) {
-        await relayFetchWithDeviceCredential(
-          relayUrl,
-          accessToken,
-          `/v1/computers/${encodeURIComponent(serverId)}/revoke`,
-          { method: 'POST', body: '{}' },
-        );
+        await getWebRelayClient({ relayUrl, relaySecretKey })
+          .withDeviceCredential(accessToken)
+          .revokeComputer(serverId)
+          .catch(() => undefined);
       }
       await unregisterLocalComputer();
       setLocalServerId(null);
@@ -720,13 +716,11 @@ export function AtmosComputerSection() {
     }
     setBusy(`remove-${serverId}`);
     try {
-      const res = await relayFetchWithDeviceCredential(
-        relayUrl,
-        accessToken,
-        `/v1/computers/${encodeURIComponent(serverId)}/revoke`,
-        { method: 'POST', body: '{}' },
-      );
-      if (!res.ok) {
+      try {
+        await getWebRelayClient({ relayUrl, relaySecretKey })
+          .withDeviceCredential(accessToken)
+          .revokeComputer(serverId);
+      } catch {
         toastManager.add({ title: t("toasts.couldNotRemove"), type: 'error' });
         return;
       }

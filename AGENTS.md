@@ -30,6 +30,8 @@
 | **Frontend: UI Library** (@workspace/ui) | [packages/ui/AGENTS.md](packages/ui/AGENTS.md) |
 | **Main `/ws` wire types** (`@atmos/api-types`) | [packages/api-types/AGENTS.md](packages/api-types/AGENTS.md) |
 | **Main `/ws` session kernel** (`@atmos/api-client`) | [packages/api-client/AGENTS.md](packages/api-client/AGENTS.md) |
+| **Hub control-plane client** (`@atmos/hub-client`) | [packages/hub-client/AGENTS.md](packages/hub-client/AGENTS.md) |
+| **Relay control-plane client** (`@atmos/relay-client`) | [packages/relay-client/AGENTS.md](packages/relay-client/AGENTS.md) |
 | **Package boundary map** (shared / types / client) | [packages/AGENTS.md](packages/AGENTS.md) |
 | **Terminal agent built-ins** (shared Rust/TS manifest) | [resources/terminal-agents/AGENTS.md](resources/terminal-agents/AGENTS.md) |
 | **CLI Tool** (atmos command) | [apps/cli/AGENTS.md](apps/cli/AGENTS.md) |
@@ -77,9 +79,13 @@ atmos/
 ├── packages/                  # 📦 Shared JS/TS Packages
 │   ├── ui/                    # @workspace/ui (shadcn/ui)
 │   ├── shared/                # @atmos/shared (Hooks/Utils)
+│   ├── api-types/             # @atmos/api-types (main /ws wire types)
+│   ├── api-client/            # @atmos/api-client (main /ws session kernel)
+│   ├── hub-client/            # @atmos/hub-client (Hub HTTPS auth/devices/integrations)
+│   ├── relay-client/          # @atmos/relay-client (Relay REST computers/sessions)
 │   ├── config/                # @atmos/config (TS Config)
 │   ├── i18n/                  # @workspace/i18n (Translations)
-│   └── relay/                 # Atmos Computer relay + Relay (Workers / D1)
+│   └── relay/                 # Atmos Computer relay Worker only (not a client SDK)
 │
 ├── resources/                 # 📄 Cross-runtime product manifests
 │   └── terminal-agents/       # Built-in terminal agent defaults shared by Rust + TS

@@ -3,7 +3,7 @@ use serde::Serialize;
 use serde_json::{Map, Value};
 
 use core_service::{Result, ServiceError};
-use runtime_manager::{read_computer_client_settings, resolved_relay_url};
+use runtime_manager::{read_computer_client_settings, resolve_relay_proxy_auth};
 
 pub struct RelayRequest {
     pub client: RelayClient,
@@ -29,45 +29,31 @@ impl RelayRequest {
         let device_credential = take_optional_string(&mut payload, "device_credential")
             .or_else(|| take_optional_string(&mut payload, "access_token"));
         let relay_secret_key = take_optional_string(&mut payload, "relay_secret_key");
-        let use_settings_credentials = device_credential.is_none();
 
-        let settings = if relay_url.is_none() || use_settings_credentials {
-            read_computer_client_settings().map_err(|error| {
-                ServiceError::Processing(format!("Computer relay settings read failed: {error}"))
-            })?
-        } else {
-            None
-        };
+        let settings = read_computer_client_settings().map_err(|error| {
+            ServiceError::Processing(format!("Computer relay settings read failed: {error}"))
+        })?;
 
-        let settings_relay_url = settings.as_ref().map(resolved_relay_url);
-        let relay_url = if use_settings_credentials {
-            settings_relay_url.or(relay_url)
-        } else {
-            relay_url.or(settings_relay_url)
-        }
-        .ok_or_else(|| ServiceError::Validation("relay_url is required.".to_string()))?;
-        let device_credential = device_credential
-            .or_else(|| {
-                settings
-                    .as_ref()
-                    .map(|settings| settings.device_credential.trim().to_string())
-                    .filter(|value| !value.is_empty())
-            })
-            .ok_or_else(|| {
-                ServiceError::Validation(
-                    "Device credential is not configured. Sign in to Atmos Hub and trust this device (Settings → Account), then try again.".to_string(),
-                )
-            })?;
-        let relay_secret_key = relay_secret_key.or_else(|| {
-            settings
-                .as_ref()
-                .and_then(|settings| settings.relay_secret_key.as_ref())
-                .map(|value| value.trim().to_string())
-                .filter(|value| !value.is_empty())
-        });
+        let resolved = resolve_relay_proxy_auth(
+            relay_url.as_deref(),
+            device_credential.as_deref(),
+            relay_secret_key.as_deref(),
+            settings.as_ref(),
+        )
+        .map_err(ServiceError::Validation)?;
+
+        let device_credential = resolved.device_credential.ok_or_else(|| {
+            ServiceError::Validation(
+                "Device credential is not configured. Sign in to Atmos Hub and trust this device (Settings → Account), then try again.".to_string(),
+            )
+        })?;
 
         Ok(Self {
-            client: RelayClient::new(&relay_url, &device_credential, relay_secret_key.as_deref())?,
+            client: RelayClient::new(
+                &resolved.relay_url,
+                &device_credential,
+                resolved.relay_secret_key.as_deref(),
+            )?,
             payload,
         })
     }

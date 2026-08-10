@@ -1,0 +1,25 @@
+{
+  "name": "@atmos/hub-client",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "Atmos Hub control-plane HTTP client (auth, devices, integrations). Pair with @atmos/api-client for main /ws.",
+  "exports": {
+    ".": "./src/index.ts",
+    "./auth/browser": "./src/auth/browser.ts",
+    "./auth/native": "./src/auth/native.ts",
+    "./device-storage/browser": "./src/device-storage/browser.ts",
+    "./types": "./src/types.ts"
+  },
+  "scripts": {
+    "typecheck": "bun ../../scripts/run-tsc7.ts --noEmit",
+    "test": "bun test src"
+  },
+  "dependencies": {
+    "better-auth": "^1.6.26"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "typescript": "6.0.3"
+  }
+}

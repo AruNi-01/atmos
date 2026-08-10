@@ -9,8 +9,8 @@ use runtime_manager::{
     clear_computer_client_settings, clear_server_identity, computer_client_settings_path,
     default_relay_url, local_computer_display_name, local_computer_display_name_opt,
     normalize_relay_url, read_computer_client_settings, read_runtime_manifest,
-    read_server_identity, register_computer, resolved_relay_url, write_computer_client_settings,
-    ComputerClientSettings, COMPUTER_CLIENT_SETTINGS_VERSION,
+    read_server_identity, register_computer, resolve_relay_proxy_auth, resolved_relay_url,
+    write_computer_client_settings, ComputerClientSettings, COMPUTER_CLIENT_SETTINGS_VERSION,
 };
 use serde::Deserialize;
 use serde_json::{json, Value};
@@ -363,6 +363,9 @@ pub struct RelayProxyPayload {
 }
 
 /// POST /api/system/computer/relay — proxy HTTPS to the relay (loopback only).
+///
+/// Disk credentials from `computer-client.json` are bound to the configured
+/// relay origin only (see `resolve_relay_proxy_auth`).
 pub async fn proxy_relay(
     Json(payload): Json<RelayProxyPayload>,
 ) -> ApiResult<Json<ApiResponse<Value>>> {
@@ -371,58 +374,22 @@ pub async fn proxy_relay(
     } else {
         format!("/{}", payload.path)
     };
-    let payload_relay_url = payload
-        .relay_url
-        .as_deref()
-        .map(str::trim)
-        .filter(|s| !s.is_empty())
-        .map(normalize_relay_url);
     let payload_device_credential = payload
         .device_credential
         .as_ref()
         .or(payload.access_token.as_ref())
-        .map(|s| s.trim())
-        .filter(|s| !s.is_empty())
-        .map(str::to_string);
-    let payload_relay_secret_key = payload
-        .relay_secret_key
-        .as_ref()
-        .map(|s| s.trim())
-        .filter(|s| !s.is_empty())
-        .map(str::to_string);
-    let use_settings_token = payload_device_credential.is_none();
-    let settings = if payload_relay_url.is_none()
-        || payload_relay_secret_key.is_none()
-        || use_settings_token
-    {
-        read_computer_client_settings().map_err(ApiError::BadRequest)?
-    } else {
-        None
-    };
-    let settings_relay_url = settings.as_ref().map(resolved_relay_url);
-    let base = if use_settings_token {
-        settings_relay_url.or(payload_relay_url)
-    } else {
-        payload_relay_url.or(settings_relay_url)
-    }
-    .unwrap_or_else(|| default_relay_url().to_string());
-    let device_credential = payload_device_credential.or_else(|| {
-        if use_settings_token {
-            settings
-                .as_ref()
-                .map(|settings| settings.device_credential.trim().to_string())
-                .filter(|value| !value.is_empty())
-        } else {
-            None
-        }
-    });
-    let relay_secret_key = payload_relay_secret_key.or_else(|| {
-        settings
-            .as_ref()
-            .and_then(|settings| settings.relay_secret_key.as_ref())
-            .map(|value| value.trim().to_string())
-            .filter(|value| !value.is_empty())
-    });
+        .map(|s| s.as_str());
+    let settings = read_computer_client_settings().map_err(ApiError::BadRequest)?;
+    let resolved = resolve_relay_proxy_auth(
+        payload.relay_url.as_deref(),
+        payload_device_credential,
+        payload.relay_secret_key.as_deref(),
+        settings.as_ref(),
+    )
+    .map_err(ApiError::BadRequest)?;
+    let base = resolved.relay_url;
+    let device_credential = resolved.device_credential;
+    let relay_secret_key = resolved.relay_secret_key;
     let url = format!("{base}{path}");
 
     let method = payload

@@ -1,7 +1,8 @@
-//! Linear credentials — **Hub-only** (APP-056 / APP-057).
-//! No `~/.atmos/linear_credentials.json` dual store.
-//! Local runtime pulls secrets via Hub session cookie **or** device Bearer;
-//! OAuth pending state is ephemeral in-memory.
+//! Linear credentials (APP-056 / APP-057).
+//! - OAuth (and optional Hub-stored secrets): Hub under `user_id`
+//! - Personal API keys for the product path: client-local; request may pass
+//!   `linear_api_key` without writing Hub
+//! OAuth pending state is ephemeral in-memory (PKCE).
 
 use serde::{Deserialize, Serialize};
 use std::sync::Mutex;

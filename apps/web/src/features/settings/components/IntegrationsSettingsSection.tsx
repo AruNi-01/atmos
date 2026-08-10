@@ -30,6 +30,21 @@ import {
   hubLinearStatus,
   hubMe,
 } from '@/api/hub-client';
+import {
+  LINEAR_API_KEYS_CREATE_URL,
+  clearLinearAuthSelection,
+  defaultLinearKeyName,
+  ensureLinearLocalKeysHydrated,
+  getActiveLinearLocalKey,
+  getLinearAuthSelection,
+  getLinearLocalStoreSnapshot,
+  listLinearLocalKeys,
+  removeLinearLocalKey,
+  resolveLinearCredentialSource,
+  selectLinearLocalKey,
+  selectLinearOauth,
+  upsertLinearLocalKey,
+} from '@/features/settings/lib/linear-local-keys';
 import { useQuery } from '@tanstack/react-query';
 import { useQueryState } from 'nuqs';
 import { useComputerQueryScope } from '@/api/query/query-scope';
@@ -200,12 +215,30 @@ function GithubRateLimitPanel({ enabled }: { enabled: boolean }) {
   );
 }
 
-function LinearRateLimitPanel({ enabled }: { enabled: boolean }) {
+/** Same visual language as GitHub rate limits (used / limit bars + reset footer). */
+function LinearRateLimitPanel({
+  enabled,
+  authKey,
+  linearApiKey,
+}: {
+  enabled: boolean;
+  /** Bump/refetch when OAuth vs local key identity changes. */
+  authKey: string;
+  linearApiKey?: string | null;
+}) {
   const t = useTranslations('settings.integrationsSection');
   const scope = useComputerQueryScope();
   const query = useQuery({
-    queryKey: [...queryKeys.computer.root(scope), 'linear', 'rateLimit'] as const,
-    queryFn: () => wsLinearApi.rateLimit(),
+    queryKey: [
+      ...queryKeys.computer.root(scope),
+      'linear',
+      'rateLimit',
+      authKey,
+    ] as const,
+    queryFn: () =>
+      wsLinearApi.rateLimit({
+        linearApiKey: linearApiKey ?? undefined,
+      }),
     enabled,
     staleTime: 30_000,
   });
@@ -218,15 +251,45 @@ function LinearRateLimitPanel({ enabled }: { enabled: boolean }) {
   const toGithubShape = (
     resource: LinearRateLimitResourcePayload | null | undefined,
   ): GithubRateLimitResourcePayload | null => {
-    if (!resource) return null;
+    if (!resource || resource.limit <= 0) return null;
     return {
       limit: resource.limit,
       used: resource.used,
       remaining: resource.remaining,
-      // Linear reset is ms epoch; GitHub panel expects seconds.
+      // Linear reset is ms epoch; RateLimitBar helper expects unix seconds.
       reset: Math.floor(resource.reset / 1000),
     };
   };
+
+  const rows = (
+    [
+      ['requests', data?.requests],
+      ['complexity', data?.complexity],
+    ] as const
+  )
+    .map(([key, resource]) => {
+      const shaped = toGithubShape(resource);
+      if (!shaped) return null;
+      const reset = formatResetRelative(shaped.reset, {
+        soon: t('linear.rateLimit.resetSoon'),
+        minutes: (minutes) => t('linear.rateLimit.resetInMinutes', { minutes }),
+        hours: (hours) => t('linear.rateLimit.resetInHours', { hours }),
+        hoursMinutes: (hours, minutes) =>
+          t('linear.rateLimit.resetInHoursMinutes', { hours, minutes }),
+      });
+      return (
+        <RateLimitBar
+          key={key}
+          label={t(`linear.rateLimit.resources.${key}`)}
+          resource={shaped}
+          footer={t('linear.rateLimit.footer', {
+            remaining: formatCount(shaped.remaining),
+            reset,
+          })}
+        />
+      );
+    })
+    .filter(Boolean);
 
   return (
     <div className="rounded-xl border border-border bg-muted/20 px-4 py-3">
@@ -256,36 +319,10 @@ function LinearRateLimitPanel({ enabled }: { enabled: boolean }) {
         </div>
       ) : query.isError ? (
         <p className="mt-3 text-xs text-destructive">{t('linear.rateLimit.loadError')}</p>
+      ) : rows.length > 0 ? (
+        <div className="mt-3 space-y-3">{rows}</div>
       ) : data ? (
-        <div className="mt-3 space-y-3">
-          {(
-            [
-              ['requests', data.requests],
-              ['complexity', data.complexity],
-            ] as const
-          ).map(([key, resource]) => {
-            const shaped = toGithubShape(resource);
-            if (!shaped) return null;
-            const reset = formatResetRelative(shaped.reset, {
-              soon: t('linear.rateLimit.resetSoon'),
-              minutes: (minutes) => t('linear.rateLimit.resetInMinutes', { minutes }),
-              hours: (hours) => t('linear.rateLimit.resetInHours', { hours }),
-              hoursMinutes: (hours, minutes) =>
-                t('linear.rateLimit.resetInHoursMinutes', { hours, minutes }),
-            });
-            return (
-              <RateLimitBar
-                key={key}
-                label={t(`linear.rateLimit.resources.${key}`)}
-                resource={shaped}
-                footer={t('linear.rateLimit.footer', {
-                  remaining: formatCount(shaped.remaining),
-                  reset,
-                })}
-              />
-            );
-          })}
-        </div>
+        <p className="mt-3 text-xs text-muted-foreground">{t('linear.rateLimit.empty')}</p>
       ) : null}
     </div>
   );
@@ -300,13 +337,33 @@ function LinearIntegrationCard() {
   );
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const [keysVersion, setKeysVersion] = React.useState(0);
+  const [draftName, setDraftName] = React.useState(() => defaultLinearKeyName());
+  const [draftKey, setDraftKey] = React.useState('');
+  const [hydrating, setHydrating] = React.useState(true);
   const hubReady = hubConfigured();
   const hasDevice = Boolean(getStoredDeviceCredential());
 
-  // Status from Hub when signed in. OAuth exchange still uses local API (PKCE),
-  // then credentials are stored only on Hub (no API-key paste product path).
-  const statusQuery = useQuery({
-    queryKey: [...queryKeys.computer.root(scope), 'linear', 'status', hubReady] as const,
+  React.useEffect(() => {
+    let cancelled = false;
+    void ensureLinearLocalKeysHydrated().then(() => {
+      if (!cancelled) {
+        setHydrating(false);
+        setKeysVersion((v) => v + 1);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const selection = React.useMemo(() => getLinearAuthSelection(), [keysVersion]);
+  const localKeys = React.useMemo(() => listLinearLocalKeys(), [keysVersion]);
+  const activeLocal = React.useMemo(() => getActiveLinearLocalKey(), [keysVersion]);
+  const storeMeta = React.useMemo(() => getLinearLocalStoreSnapshot(), [keysVersion]);
+
+  const oauthStatusQuery = useQuery({
+    queryKey: [...queryKeys.computer.root(scope), 'linear', 'oauthStatus', hubReady] as const,
     queryFn: async () => {
       if (hubReady) {
         try {
@@ -320,23 +377,52 @@ function LinearIntegrationCard() {
           const hub = await hubLinearStatus();
           return {
             connected: hub.connected,
-            auth_method: hub.auth_method ?? null,
+            auth_method: hub.auth_method ?? 'oauth',
             viewer_name: hub.viewer_name ?? null,
             viewer_email: hub.viewer_email ?? null,
             needs_hub_login: false,
           };
         } catch {
-          // Fall through to local WS when Hub is unreachable.
+          /* fall through */
         }
       }
-      return wsLinearApi.status();
+      return wsLinearApi.status({ linearApiKey: null });
     },
     staleTime: 15_000,
   });
-  const connected = Boolean(statusQuery.data?.connected);
-  const needsHubLogin = Boolean(statusQuery.data?.needs_hub_login);
-  const viewer = statusQuery.data?.viewer_name || statusQuery.data?.viewer_email;
+
+  const localStatusQuery = useQuery({
+    queryKey: [
+      ...queryKeys.computer.root(scope),
+      'linear',
+      'localStatus',
+      activeLocal?.id ?? null,
+      keysVersion,
+    ] as const,
+    queryFn: () =>
+      wsLinearApi.status({ linearApiKey: activeLocal?.api_key ?? null }),
+    enabled: selection.mode === 'local' && Boolean(activeLocal?.api_key),
+    staleTime: 15_000,
+  });
+
+  const oauthConnected = Boolean(oauthStatusQuery.data?.connected);
+  const needsHubLogin = Boolean(oauthStatusQuery.data?.needs_hub_login);
+  const source = resolveLinearCredentialSource({
+    selection,
+    oauthConnected,
+    hasLocalKey: Boolean(activeLocal),
+  });
+  const connected = source === 'oauth' || source === 'local';
+  const viewer =
+    source === 'local'
+      ? activeLocal?.viewer_name ||
+        activeLocal?.viewer_email ||
+        localStatusQuery.data?.viewer_name ||
+        localStatusQuery.data?.viewer_email
+      : oauthStatusQuery.data?.viewer_name || oauthStatusQuery.data?.viewer_email;
   const canConnectOauth = !needsHubLogin && hasDevice && !busy;
+
+  const bumpKeys = () => setKeysVersion((v) => v + 1);
 
   const connectOauth = async () => {
     setBusy(true);
@@ -350,11 +436,12 @@ function LinearIntegrationCard() {
         setError(t('linear.needsDevice'));
         return;
       }
-      // Web shell: callback on current origin /integrations/linear/callback.
       const origin = typeof window !== 'undefined' ? window.location.origin : undefined;
       const shell =
         origin && !origin.includes('127.0.0.1:39217') ? 'web' : 'desktop';
       const { authorize_url } = await wsLinearApi.oauthStart(shell, origin);
+      await selectLinearOauth();
+      bumpKeys();
       window.open(authorize_url, '_blank', 'noopener,noreferrer');
     } catch (e) {
       setError(e instanceof Error ? e.message : t('linear.connectFailed'));
@@ -363,23 +450,52 @@ function LinearIntegrationCard() {
     }
   };
 
-  const disconnect = async () => {
+  const disconnectOauth = async () => {
     setBusy(true);
     setError(null);
     try {
       if (hubReady && !needsHubLogin) {
         try {
           await hubLinearDisconnect();
-          await statusQuery.refetch();
-          return;
         } catch {
-          /* fall through to local WS */
+          await wsLinearApi.disconnect();
         }
+      } else {
+        await wsLinearApi.disconnect();
       }
-      await wsLinearApi.disconnect();
-      await statusQuery.refetch();
+      if (selection.mode === 'oauth') {
+        await clearLinearAuthSelection();
+      }
+      bumpKeys();
+      await oauthStatusQuery.refetch();
     } catch (e) {
       setError(e instanceof Error ? e.message : t('linear.disconnectFailed'));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const saveLocalKey = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      const apiKey = draftKey.trim();
+      if (!apiKey) {
+        setError(t('linear.local.apiKeyRequired'));
+        return;
+      }
+      const status = await wsLinearApi.connectApiKey(apiKey);
+      await upsertLinearLocalKey({
+        name: draftName.trim() || defaultLinearKeyName(),
+        api_key: apiKey,
+        viewer_name: status.viewer_name,
+        viewer_email: status.viewer_email,
+      });
+      setDraftKey('');
+      setDraftName(defaultLinearKeyName());
+      bumpKeys();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t('linear.local.saveFailed'));
     } finally {
       setBusy(false);
     }
@@ -395,11 +511,11 @@ function LinearIntegrationCard() {
             <p className="mt-2 text-sm leading-6 text-muted-foreground">{t('linear.description')}</p>
           </div>
         </div>
-        <div className="flex items-center justify-end gap-3">
-          {statusQuery.isLoading ? (
+        <div className="flex flex-col items-end justify-center gap-2">
+          {oauthStatusQuery.isLoading && selection.mode !== 'local' ? (
             <Skeleton className="h-10 w-28 rounded-xl" />
           ) : connected ? (
-            <div className="flex items-center gap-2 text-sm text-emerald-500">
+            <div className="flex flex-wrap items-center justify-end gap-2 text-sm text-emerald-500">
               <CircleCheck className="size-4" />
               <span>
                 {viewer
@@ -408,76 +524,230 @@ function LinearIntegrationCard() {
                       username: t('shared.userFallback'),
                     })}
               </span>
+              <span className="rounded-full border border-border bg-muted/40 px-2 py-0.5 text-[11px] font-medium text-foreground">
+                {source === 'local'
+                  ? t('linear.chip.localApiKey')
+                  : t('linear.chip.oauthAccount')}
+              </span>
             </div>
           ) : (
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <CircleMinus className="size-4" />
               <span>
-                {needsHubLogin ? t('linear.needsHubLogin') : t('linear.notConnected')}
+                {needsHubLogin && selection.mode === 'oauth'
+                  ? t('linear.needsHubLogin')
+                  : t('linear.notConnected')}
               </span>
             </div>
           )}
         </div>
       </div>
-      <div className="space-y-3 border-t border-border px-6 py-4">
-        {needsHubLogin || !hasDevice ? (
-          <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-            <span>
-              {needsHubLogin
-                ? t('linear.needsHubLoginHint')
-                : t('linear.needsDeviceHint')}
-            </span>
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              className="h-7"
-              onClick={() => {
-                void setActiveSettingTab('account');
-              }}
-            >
-              {t('linear.openAccount')}
-            </Button>
+
+      <div className="space-y-4 border-t border-border px-6 py-4">
+        {/* Rate limits first (match GitHub card layout: status then quota bars). */}
+        <LinearRateLimitPanel
+          enabled={connected}
+          authKey={
+            source === 'local'
+              ? `local:${activeLocal?.id ?? 'none'}`
+              : `oauth:${oauthConnected ? '1' : '0'}`
+          }
+          linearApiKey={
+            source === 'local' ? activeLocal?.api_key ?? null : null
+          }
+        />
+
+        {/* Recommended: OAuth */}
+        <div className="rounded-xl border border-border bg-muted/10 p-4">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="text-sm font-medium text-foreground">{t('linear.oauth.title')}</p>
+                <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
+                  {t('linear.oauth.recommended')}
+                </span>
+              </div>
+              <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                {t('linear.oauth.hint')}
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              {selection.mode === 'oauth' && oauthConnected ? (
+                <>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="h-8"
+                    disabled={!canConnectOauth}
+                    onClick={() => void connectOauth()}
+                  >
+                    {t('linear.reconnectOauth')}
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    className="h-8"
+                    disabled={busy}
+                    onClick={() => void disconnectOauth()}
+                  >
+                    {t('linear.disconnect')}
+                  </Button>
+                </>
+              ) : (
+                <Button
+                  type="button"
+                  size="sm"
+                  className="h-8"
+                  disabled={!canConnectOauth}
+                  onClick={() => void connectOauth()}
+                >
+                  {busy ? t('linear.connecting') : t('linear.connectOauth')}
+                </Button>
+              )}
+              {oauthConnected ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={selection.mode === 'oauth' ? 'secondary' : 'outline'}
+                  className="h-8"
+                  onClick={() => {
+                    void selectLinearOauth().then(bumpKeys);
+                  }}
+                >
+                  {selection.mode === 'oauth'
+                    ? t('linear.usingThis')
+                    : t('linear.useThis')}
+                </Button>
+              ) : null}
+            </div>
           </div>
-        ) : null}
-        {error ? <p className="text-xs text-destructive">{error}</p> : null}
-        <div className="flex flex-wrap items-center gap-2">
-          {!connected ? (
-            <Button
-              type="button"
-              size="sm"
-              className="h-8"
-              disabled={!canConnectOauth}
-              onClick={() => void connectOauth()}
-            >
-              {busy ? t('linear.connecting') : t('linear.connectOauth')}
-            </Button>
-          ) : (
-            <>
+          {needsHubLogin || !hasDevice ? (
+            <div className="mt-3 flex flex-wrap items-center gap-2 rounded-lg border border-border bg-background/60 px-3 py-2 text-xs text-muted-foreground">
+              <span>
+                {needsHubLogin
+                  ? t('linear.needsHubLoginHint')
+                  : t('linear.needsDeviceHint')}
+              </span>
               <Button
                 type="button"
                 size="sm"
                 variant="outline"
-                className="h-8"
-                disabled={!canConnectOauth}
-                onClick={() => void connectOauth()}
+                className="h-7"
+                onClick={() => {
+                  void setActiveSettingTab('account');
+                }}
               >
-                {t('linear.reconnectOauth')}
+                {t('linear.openAccount')}
               </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant="ghost"
-                className="h-8"
-                disabled={busy}
-                onClick={() => void disconnect()}
-              >
-                {t('linear.disconnect')}
-              </Button>
-            </>
-          )}
+            </div>
+          ) : null}
         </div>
-        <LinearRateLimitPanel enabled={connected && !needsHubLogin} />
+
+        {/* Local API keys */}
+        <div className="rounded-xl border border-border p-4">
+          <p className="text-sm font-medium text-foreground">{t('linear.local.title')}</p>
+          <p className="mt-1 text-xs leading-5 text-muted-foreground">
+            {t('linear.local.hint')}
+          </p>
+          <p className="mt-1 text-[11px] text-muted-foreground">
+            {hydrating
+              ? t('linear.local.storageLoading')
+              : storeMeta.onDisk
+                ? t('linear.local.storageDisk', {
+                    path: storeMeta.path || '~/.atmos/linear_local_keys.json',
+                  })
+                : t('linear.local.storageBrowserFallback')}
+          </p>
+          <a
+            href={LINEAR_API_KEYS_CREATE_URL}
+            target="_blank"
+            rel="noreferrer"
+            className="mt-2 inline-flex items-center gap-1 text-xs text-primary hover:underline"
+          >
+            {t('linear.local.createKeyLink')}
+            <ExternalLink className="size-3" />
+          </a>
+
+          {localKeys.length > 0 ? (
+            <ul className="mt-3 space-y-2">
+              {localKeys.map((key) => {
+                const selected =
+                  selection.mode === 'local' && selection.keyId === key.id;
+                return (
+                  <li
+                    key={key.id}
+                    className={cn(
+                      'flex flex-wrap items-center justify-between gap-2 rounded-lg border px-3 py-2',
+                      selected ? 'border-primary/40 bg-primary/5' : 'border-border',
+                    )}
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-foreground">{key.name}</p>
+                      <p className="truncate text-xs text-muted-foreground">
+                        {key.viewer_name || key.viewer_email || t('linear.local.unnamedViewer')}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant={selected ? 'secondary' : 'outline'}
+                        className="h-7"
+                        onClick={() => {
+                          void selectLinearLocalKey(key.id).then(bumpKeys);
+                        }}
+                      >
+                        {selected ? t('linear.usingThis') : t('linear.useThis')}
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 text-destructive"
+                        onClick={() => {
+                          void removeLinearLocalKey(key.id).then(bumpKeys);
+                        }}
+                      >
+                        {t('linear.local.remove')}
+                      </Button>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          ) : null}
+
+          <div className="mt-3 grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)_auto]">
+            <input
+              type="text"
+              value={draftName}
+              onChange={(e) => setDraftName(e.target.value)}
+              placeholder={t('linear.local.namePlaceholder')}
+              className="h-9 rounded-lg border border-border bg-background px-3 text-sm"
+            />
+            <input
+              type="password"
+              value={draftKey}
+              onChange={(e) => setDraftKey(e.target.value)}
+              placeholder={t('linear.local.apiKeyPlaceholder')}
+              autoComplete="off"
+              className="h-9 rounded-lg border border-border bg-background px-3 text-sm"
+            />
+            <Button
+              type="button"
+              size="sm"
+              className="h-9"
+              disabled={busy || !draftKey.trim()}
+              onClick={() => void saveLocalKey()}
+            >
+              {t('linear.local.save')}
+            </Button>
+          </div>
+        </div>
+
+        {error ? <p className="text-xs text-destructive">{error}</p> : null}
       </div>
     </div>
   );

@@ -10,6 +10,9 @@ pub struct HubSessionFields {
     /// Hub-minted device credential (plaintext). Sent as `Authorization: Bearer`.
     #[serde(default)]
     pub device_credential: Option<String>,
+    /// Client-local Linear personal API key (never stored on Hub when used this way).
+    #[serde(default)]
+    pub linear_api_key: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

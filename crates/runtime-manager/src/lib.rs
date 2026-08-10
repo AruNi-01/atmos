@@ -9,6 +9,7 @@ mod computer_client_settings;
 mod computer_name;
 mod device_identity;
 mod identity;
+mod linear_local_keys;
 mod manifest;
 mod register;
 mod registration_meta;
@@ -27,14 +28,20 @@ pub use client_session::{
 };
 pub use computer_client_settings::{
     clear_computer_client_settings, computer_client_settings_path, read_computer_client_settings,
-    resolved_relay_url, write_computer_client_settings, ComputerClientSettings,
-    COMPUTER_CLIENT_SETTINGS_FILE_NAME, COMPUTER_CLIENT_SETTINGS_VERSION,
+    resolve_relay_proxy_auth, resolved_relay_url, write_computer_client_settings,
+    ComputerClientSettings, ResolvedRelayProxyAuth, COMPUTER_CLIENT_SETTINGS_FILE_NAME,
+    COMPUTER_CLIENT_SETTINGS_VERSION,
 };
 pub use computer_name::{local_computer_display_name, local_computer_display_name_opt};
 pub use identity::{
     clear_server_identity, read_server_identity, relay_identity_path, resolve_server_identity_path,
     server_identity_env_path_override, write_server_identity, ServerIdentity,
     RELAY_IDENTITY_FILE_NAME,
+};
+pub use linear_local_keys::{
+    clear_linear_local_keys, linear_local_keys_path, read_linear_local_keys,
+    write_linear_local_keys, LinearLocalApiKeyRecord, LinearLocalAuthSelection,
+    LinearLocalKeysFile, LINEAR_LOCAL_KEYS_FILE_NAME, LINEAR_LOCAL_KEYS_VERSION,
 };
 pub use manifest::{
     atmos_home_dir, read_runtime_manifest, remove_runtime_manifest, resolve_api_base_url,

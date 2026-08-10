@@ -22,6 +22,7 @@ import { useAtmosComputerStore } from "@/features/connection/lib/atmos-computer-
 import { syncClientSessionFromStore } from "@/features/connection/lib/sync-client-session";
 import { ensureComputerClientSettingsHydrated } from "@/features/connection/lib/sync-computer-client-settings";
 import { ensureLocalAppConnectionBootstrap } from "@/features/connection/lib/app-connection-bootstrap";
+import { workbenchRelayClientKind } from "@/features/connection/lib/workbench-relay-client-kind";
 import {
   isDesktopRuntime,
   isHostedAtmosOrigin,
@@ -279,7 +280,7 @@ export const useWebSocketStore = create<WebSocketStore>((set, get) => ({
           return;
         }
         useConnectionStore.getState().syncActiveInstanceFromComputer();
-        const clientType = isDesktopRuntime() ? "desktop" : "web";
+        const clientType = workbenchRelayClientKind();
         const computer = useAtmosComputerStore.getState();
         let runtimeUrl: string;
         const relayUrl = computer.relayWebSocketUrl?.trim();

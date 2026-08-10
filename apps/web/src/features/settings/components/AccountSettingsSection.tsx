@@ -9,22 +9,15 @@ import {
   clearStoredDeviceCredential,
   hubBaseUrl,
   hubConfigured,
-  hubFetch,
-  storeDeviceCredential,
+  hubEnrollAndStoreDevice,
+  hubListDevices,
+  type HubDeviceRow,
 } from "@/api/hub-client";
 import {
   hubGetSession,
   hubSignInSocial,
   hubSignOut,
 } from "@/api/hub-auth-client";
-
-type DeviceRow = {
-  device_id: string;
-  label: string | null;
-  created_at?: unknown;
-  last_seen_at?: unknown;
-  revoked_at?: unknown;
-};
 
 export function AccountSettingsSection() {
   const t = useTranslations("settings.accountSection");
@@ -44,13 +37,7 @@ export function AccountSettingsSection() {
 
   const devicesQuery = useQuery({
     queryKey: ["hub", "devices"],
-    queryFn: async (): Promise<DeviceRow[]> => {
-      const res = await hubFetch("/v1/devices");
-      if (res.status === 401) return [];
-      if (!res.ok) throw new Error(`devices ${res.status}`);
-      const body = (await res.json()) as { devices?: DeviceRow[] };
-      return body.devices ?? [];
-    },
+    queryFn: async (): Promise<HubDeviceRow[]> => hubListDevices(),
     enabled: configured && signedIn,
     staleTime: 15_000,
   });
@@ -97,28 +84,14 @@ export function AccountSettingsSection() {
     setBusy(true);
     setError(null);
     try {
-      const res = await hubFetch("/v1/devices", {
-        method: "POST",
-        body: JSON.stringify({
-          label:
-            typeof navigator !== "undefined"
-              ? navigator.userAgent.slice(0, 64)
-              : "web",
-        }),
+      const body = await hubEnrollAndStoreDevice({
+        label:
+          typeof navigator !== "undefined"
+            ? navigator.userAgent.slice(0, 64)
+            : "web",
       });
-      if (!res.ok) {
-        throw new Error(await res.text());
-      }
-      const body = (await res.json()) as {
-        device_id: string;
-        device_credential: string;
-      };
-      // Show once — also persist for local API / Relay Bearer.
+      // Show once — store already persisted via hubEnrollAndStoreDevice.
       setDeviceCredentialOnce(body.device_credential);
-      storeDeviceCredential({
-        device_id: body.device_id,
-        device_credential: body.device_credential,
-      });
       // Also project into Computer client settings when local API is available.
       try {
         const { saveComputerClientSettingsToDisk } = await import(
@@ -129,6 +102,9 @@ export function AccountSettingsSection() {
         );
         const { useAtmosComputerStore } = await import(
           "@/features/connection/lib/atmos-computer-store"
+        );
+        const { clearWebRelayClientCache } = await import(
+          "@/features/connection/lib/create-web-relay-client"
         );
         const st = useAtmosComputerStore.getState();
         await applyIdentityBearingComputerSettings({
@@ -141,6 +117,7 @@ export function AccountSettingsSection() {
           st.relaySecretKey,
           body.device_id,
         );
+        clearWebRelayClientCache();
       } catch {
         /* local API optional */
       }

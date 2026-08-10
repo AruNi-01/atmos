@@ -53,7 +53,9 @@ export function OnboardingScreen() {
       // Hub-minted device credential — already projected to Relay; no /v1/tenants.
       await storeAccessToken(values.token.trim());
       setAccessTokenLoaded(true);
-      const registerToken = await client.createRegisterToken(values.token.trim());
+      const registerToken = await client
+        .withDeviceCredential(values.token.trim())
+        .createRegisterToken();
       return registerToken.register_command;
     },
     onSuccess: (command) => {
@@ -72,7 +74,7 @@ export function OnboardingScreen() {
     queryFn: async () => {
       const token = await getStoredAccessToken();
       if (!token) return [];
-      const computers = await client.listComputers(token);
+      const computers = await client.withDeviceCredential(token).listComputers();
       setComputers(computers);
       return computers;
     },
@@ -82,7 +84,9 @@ export function OnboardingScreen() {
     mutationFn: async (serverId: string) => {
       const token = await getStoredAccessToken();
       if (!token) throw new Error("Device credential is not available.");
-      return client.createClientSession(token, serverId);
+      return client
+        .withDeviceCredential(token)
+        .createClientSession(serverId, { clientKind: "mobile" });
     },
     onSuccess: (session, serverId) => {
       selectServer(serverId);

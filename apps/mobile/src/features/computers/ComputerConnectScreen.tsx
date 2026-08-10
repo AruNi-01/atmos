@@ -33,7 +33,7 @@ export function ComputerConnectScreen() {
     queryFn: async () => {
       const token = await getStoredAccessToken();
       if (!token) return [];
-      const computers = await relayClient.listComputers(token);
+      const computers = await relayClient.withDeviceCredential(token).listComputers();
       setComputers(computers);
       return computers;
     },
@@ -43,7 +43,9 @@ export function ComputerConnectScreen() {
     mutationFn: async (serverId: string) => {
       const token = await getStoredAccessToken();
       if (!token) throw new Error("Device credential is not available.");
-      return relayClient.createClientSession(token, serverId);
+      return relayClient
+        .withDeviceCredential(token)
+        .createClientSession(serverId, { clientKind: "mobile" });
     },
     onSuccess: (session, serverId) => {
       selectServer(serverId);

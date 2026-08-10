@@ -2,7 +2,9 @@
 
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { wsLinearApi } from "@/api/ws/linear-api";
+import { selectLinearOauth } from "@/features/settings/lib/linear-local-keys";
 
 /**
  * OAuth redirect target for Linear (APP-056).
@@ -10,8 +12,9 @@ import { wsLinearApi } from "@/api/ws/linear-api";
  */
 function LinearOAuthCallbackInner() {
   const params = useSearchParams();
+  const t = useTranslations("settings.integrationsSection.linear.oauthCallback");
   const [status, setStatus] = useState<"working" | "ok" | "error">("working");
-  const [message, setMessage] = useState("Finishing Linear connection…");
+  const [message, setMessage] = useState(() => t("working"));
 
   useEffect(() => {
     const code = params.get("code");
@@ -24,7 +27,7 @@ function LinearOAuthCallbackInner() {
     }
     if (!code || !state) {
       setStatus("error");
-      setMessage("Missing OAuth code or state.");
+      setMessage(t("missingParams"));
       return;
     }
     let cancelled = false;
@@ -32,8 +35,9 @@ function LinearOAuthCallbackInner() {
       try {
         await wsLinearApi.oauthFinish(code, state);
         if (cancelled) return;
+        await selectLinearOauth();
         setStatus("ok");
-        setMessage("Linear connected. You can close this window and return to Atmos.");
+        setMessage(t("success"));
         // Desktop loopback may not have SPA navigation; try soft redirect.
         window.setTimeout(() => {
           try {
@@ -45,13 +49,13 @@ function LinearOAuthCallbackInner() {
       } catch (e) {
         if (cancelled) return;
         setStatus("error");
-        setMessage(e instanceof Error ? e.message : "OAuth finish failed");
+        setMessage(e instanceof Error ? e.message : t("finishFailed"));
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [params]);
+  }, [params, t]);
 
   return (
     <div className="flex min-h-dvh flex-col items-center justify-center gap-3 bg-background px-6 text-center">
@@ -70,15 +74,18 @@ function LinearOAuthCallbackInner() {
   );
 }
 
+function LinearOAuthCallbackFallback() {
+  const t = useTranslations("settings.integrationsSection.linear.oauthCallback");
+  return (
+    <div className="flex min-h-dvh items-center justify-center bg-background text-sm text-muted-foreground">
+      {t("loading")}
+    </div>
+  );
+}
+
 export default function LinearOAuthCallbackPage() {
   return (
-    <Suspense
-      fallback={
-        <div className="flex min-h-dvh items-center justify-center bg-background text-sm text-muted-foreground">
-          Loading…
-        </div>
-      }
-    >
+    <Suspense fallback={<LinearOAuthCallbackFallback />}>
       <LinearOAuthCallbackInner />
     </Suspense>
   );

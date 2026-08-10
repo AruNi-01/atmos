@@ -1,17 +1,10 @@
 'use client';
 
+import type { ComputerRow } from '@atmos/relay-client';
 import { LOCAL_INSTANCE_ID, type ConnectionInstanceId } from '@/features/connection/lib/connection-instance';
 import { useUiPrefStore } from '@/shared/stores/use-ui-pref-store';
 
-export interface ComputerRow {
-  server_id: string;
-  display_name: string | null;
-  revoked: number;
-  created_at: number;
-  last_seen_at?: number | null;
-  online?: boolean;
-  registration_meta?: Record<string, unknown> | null;
-}
+export type { ComputerRow };
 
 export interface ConnectionUiPrefs {
   selectedServerId: string | null;

@@ -3,7 +3,8 @@
 import { ensureComputerClientSettingsHydrated } from '@/features/connection/lib/sync-computer-client-settings';
 import { prepareConnectionTargetChange } from '@/app-shell/bootstrap/connection-target-lifecycle';
 import { hydrateRelaySessionFromDisk } from '@/features/connection/lib/hydrate-relay-session';
-import { isHostedAtmosOrigin, isDesktopRuntime } from '@/shared/lib/desktop-runtime';
+import { workbenchRelayClientKind } from '@/features/connection/lib/workbench-relay-client-kind';
+import { isHostedAtmosOrigin } from '@/shared/lib/desktop-runtime';
 
 let localBootstrapPromise: Promise<void> | null = null;
 
@@ -20,7 +21,7 @@ export function ensureLocalAppConnectionBootstrap(): Promise<void> {
     localBootstrapPromise = (async () => {
       await ensureComputerClientSettingsHydrated();
       await hydrateRelaySessionFromDisk({
-        clientType: isDesktopRuntime() ? 'desktop' : 'web',
+        clientKind: workbenchRelayClientKind(),
       });
       await prepareConnectionTargetChange();
     })().catch((err) => {

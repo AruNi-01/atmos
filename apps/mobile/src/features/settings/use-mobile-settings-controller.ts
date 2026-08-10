@@ -41,7 +41,7 @@ export function useMobileSettingsController() {
     queryFn: async () => {
       const token = await getStoredAccessToken();
       if (!token) return [];
-      return client.listComputers(token);
+      return client.withDeviceCredential(token).listComputers();
     },
   });
   const activeComputers = activeSettingsComputers(computersQuery.data ?? []);
@@ -85,7 +85,9 @@ export function useMobileSettingsController() {
     mutationFn: async (serverId: string) => {
       const token = await getStoredAccessToken();
       if (!token) throw new Error("Device credential is not available.");
-      return client.createClientSession(token, serverId);
+      return client
+        .withDeviceCredential(token)
+        .createClientSession(serverId, { clientKind: "mobile" });
     },
     onSuccess: (session, serverId) => {
       selectServer(serverId);
@@ -99,7 +101,7 @@ export function useMobileSettingsController() {
     mutationFn: async () => {
       const token = await getStoredAccessToken();
       if (!token) throw new Error("Device credential is not available.");
-      return client.createRegisterToken(token);
+      return client.withDeviceCredential(token).createRegisterToken();
     },
     onSuccess: (registerToken) => {
       setRegisterCommand(registerToken.register_command);
@@ -113,7 +115,9 @@ export function useMobileSettingsController() {
     mutationFn: async () => {
       const token = await getStoredAccessToken();
       if (!token || !selectedServerId) throw new Error("Select a Computer first.");
-      return client.renameComputer(token, selectedServerId, renameValue.trim());
+      return client
+        .withDeviceCredential(token)
+        .renameComputer(selectedServerId, renameValue.trim());
     },
     onSuccess: () => {
       setRenameValue("");
@@ -126,7 +130,7 @@ export function useMobileSettingsController() {
     mutationFn: async (serverId: string) => {
       const token = await getStoredAccessToken();
       if (!token) throw new Error("Device credential is not available.");
-      return client.revokeComputer(token, serverId);
+      return client.withDeviceCredential(token).revokeComputer(serverId);
     },
     onSuccess: (_, serverId) => {
       if (selectedServerId === serverId) selectServer(null);

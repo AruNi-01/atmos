@@ -1,5 +1,7 @@
 //! Linear Task integration (APP-057).
-//! Credentials: **Hub only** under `user_id` (APP-056). No local dual store.
+//! Credentials:
+//! - **OAuth** → Hub under `user_id` (cross-device sync, recommended)
+//! - **Local API key** → client may pass `linear_api_key` per request (not stored on Hub)
 //! Associations: local SQLite (worktree-bound display snapshots).
 
 use chrono::Utc;
@@ -65,12 +67,47 @@ impl LinearService {
         Self { db }
     }
 
-    async fn load_creds(&self, auth: &HubAuth) -> Result<LinearCredentials> {
+    async fn load_creds(
+        &self,
+        auth: &HubAuth,
+        linear_api_key: Option<&str>,
+    ) -> Result<LinearCredentials> {
+        if let Some(key) = linear_api_key.map(str::trim).filter(|s| !s.is_empty()) {
+            return Ok(LinearCredentials {
+                auth_method: AUTH_METHOD_API_KEY.to_string(),
+                api_key: Some(key.to_string()),
+                ..Default::default()
+            });
+        }
         fetch_credentials_from_hub(auth).await
     }
 
-    pub async fn status(&self, auth: &HubAuth) -> Result<LinearStatusDto> {
-        match self.load_creds(auth).await {
+    pub async fn status(
+        &self,
+        auth: &HubAuth,
+        linear_api_key: Option<&str>,
+    ) -> Result<LinearStatusDto> {
+        // Local API key: optional viewer probe for name/email.
+        if let Some(key) = linear_api_key.map(str::trim).filter(|s| !s.is_empty()) {
+            let client = LinearClient::new(LinearAuth::ApiKey(key.to_string()));
+            match client.viewer().await {
+                Ok(viewer) => {
+                    return Ok(LinearStatusDto {
+                        connected: true,
+                        auth_method: Some(AUTH_METHOD_API_KEY.to_string()),
+                        viewer_name: Some(viewer.name),
+                        viewer_email: viewer.email,
+                        needs_hub_login: false,
+                    });
+                }
+                Err(e) => {
+                    return Err(ServiceError::Validation(format!(
+                        "Linear API key rejected: {e}"
+                    )));
+                }
+            }
+        }
+        match self.load_creds(auth, None).await {
             Ok(c) => Ok(LinearStatusDto {
                 connected: c.is_connected(),
                 auth_method: if c.is_connected() {
@@ -124,31 +161,28 @@ impl LinearService {
         Ok(LinearClient::new(auth))
     }
 
+    /// Validate a personal API key (local product path). Does **not** write to Hub.
     pub async fn connect_api_key(
         &self,
-        auth: &HubAuth,
+        _auth: &HubAuth,
         api_key: String,
     ) -> Result<LinearStatusDto> {
         let key = api_key.trim().to_string();
         if key.is_empty() {
             return Err(ServiceError::Validation("API key is required".into()));
         }
-        let client = LinearClient::new(LinearAuth::ApiKey(key.clone()));
+        let client = LinearClient::new(LinearAuth::ApiKey(key));
         let viewer = client
             .viewer()
             .await
             .map_err(|e| ServiceError::Validation(format!("Linear API key rejected: {e}")))?;
-        let creds = LinearCredentials {
-            auth_method: AUTH_METHOD_API_KEY.to_string(),
-            api_key: Some(key),
-            viewer_id: Some(viewer.id),
+        Ok(LinearStatusDto {
+            connected: true,
+            auth_method: Some(AUTH_METHOD_API_KEY.to_string()),
             viewer_name: Some(viewer.name),
             viewer_email: viewer.email,
-            connected_at: Some(Utc::now().to_rfc3339()),
-            ..Default::default()
-        };
-        put_credentials_to_hub(auth, &creds).await?;
-        self.status(auth).await
+            needs_hub_login: false,
+        })
     }
 
     pub fn oauth_start(
@@ -258,17 +292,21 @@ impl LinearService {
         };
         put_credentials_to_hub(auth, &creds).await?;
         let _ = take_oauth_pending();
-        self.status(auth).await
+        self.status(auth, None).await
     }
 
     /// Disconnect Linear on Hub only — **never** deletes association rows.
     pub async fn disconnect(&self, auth: &HubAuth) -> Result<LinearStatusDto> {
         delete_credentials_on_hub(auth).await?;
-        self.status(auth).await
+        self.status(auth, None).await
     }
 
-    pub async fn rate_limit(&self, auth: &HubAuth) -> Result<Option<LinearRateLimit>> {
-        let c = self.load_creds(auth).await?;
+    pub async fn rate_limit(
+        &self,
+        auth: &HubAuth,
+        linear_api_key: Option<&str>,
+    ) -> Result<Option<LinearRateLimit>> {
+        let c = self.load_creds(auth, linear_api_key).await?;
         let client = self.client_from_creds(&c)?;
         client
             .probe_rate_limit()
@@ -280,8 +318,9 @@ impl LinearService {
         &self,
         auth: &HubAuth,
         options: LinearIssueListOptions,
+        linear_api_key: Option<&str>,
     ) -> Result<core_engine::linear::LinearIssueListPage> {
-        let c = self.load_creds(auth).await?;
+        let c = self.load_creds(auth, linear_api_key).await?;
         let client = self.client_from_creds(&c)?;
         client
             .list_issues(options)
@@ -292,11 +331,12 @@ impl LinearService {
     pub async fn filter_options(
         &self,
         auth: &HubAuth,
+        linear_api_key: Option<&str>,
     ) -> Result<(
         Vec<core_engine::linear::LinearTeam>,
         Vec<core_engine::linear::LinearProject>,
     )> {
-        let c = self.load_creds(auth).await?;
+        let c = self.load_creds(auth, linear_api_key).await?;
         let client = self.client_from_creds(&c)?;
         let teams = client
             .list_teams()

@@ -1,12 +1,14 @@
 'use client';
 
 import { createTranslator } from 'next-intl';
-import type { ComputerRow } from '@/features/connection/lib/connection-ui-prefs';
-import { fetchRelayRuntimeInfo } from '@/api/relay';
 import {
   isPlausibleDeviceCredential,
-  relayFetchWithDeviceCredential,
-} from '@/features/connection/lib/atmos-access-token';
+  type ComputerRow,
+  type RelayClientKind,
+} from '@atmos/relay-client';
+import { fetchRelayRuntimeInfo } from '@/api/relay';
+import { getWebRelayClient } from '@/features/connection/lib/create-web-relay-client';
+import { workbenchRelayClientKind } from '@/features/connection/lib/workbench-relay-client-kind';
 import {
   getHostedLoopbackCandidates,
   httpBase,
@@ -35,6 +37,7 @@ export interface HostedRemoteSession {
   ws_url: string;
   gateway_url: string;
   client_token: string;
+  terminal_ws_url: string;
 }
 
 export function runtimeT(
@@ -137,18 +140,9 @@ export async function listHostedRemoteComputers(
   if (accessToken.trim().length >= 32) {
     await ensureHostedAccessTokenReady(relayUrl, accessToken, relaySecretKey);
   }
-  const res = await relayFetchWithDeviceCredential(
-    relayUrl,
-    accessToken,
-    '/v1/computers',
-    undefined,
-    relaySecretKey,
-  );
-  const data = (await res.json().catch(() => null)) as { computers?: ComputerRow[]; error?: string } | null;
-  if (!res.ok) {
-    throw new Error(data?.error ?? `HTTP ${res.status}`);
-  }
-  return data?.computers ?? [];
+  return getWebRelayClient({ relayUrl, relaySecretKey })
+    .withDeviceCredential(accessToken)
+    .listComputers();
 }
 
 export async function createHostedRemoteSession(
@@ -156,28 +150,28 @@ export async function createHostedRemoteSession(
   accessToken: string,
   serverId: string,
   relaySecretKey?: string,
+  /**
+   * Defaults to desktop when running in Electron, web otherwise.
+   * Mobile does not use this path.
+   */
+  clientKind: Extract<RelayClientKind, 'web' | 'desktop'> = workbenchRelayClientKind(),
 ): Promise<HostedRemoteSession> {
   if (accessToken.trim().length >= 32) {
     await ensureHostedAccessTokenReady(relayUrl, accessToken, relaySecretKey);
   }
-  const res = await relayFetchWithDeviceCredential(
-    relayUrl,
-    accessToken,
-    `/v1/computers/${encodeURIComponent(serverId)}/client_sessions`,
-    { method: 'POST', body: JSON.stringify({ client_kind: 'web' }) },
-    relaySecretKey,
-  );
-  const data = (await res.json().catch(() => null)) as Partial<HostedRemoteSession> & {
-    error?: string;
-  } | null;
-  if (!res.ok || !data?.ws_url || !data?.gateway_url || !data?.client_token) {
-    throw new Error(data?.error ?? runtimeT('hostedConnection.errors.couldNotConnectComputer'));
+  let session: HostedRemoteSession;
+  try {
+    session = await getWebRelayClient({ relayUrl, relaySecretKey })
+      .withDeviceCredential(accessToken)
+      .createClientSession(serverId, { clientKind });
+  } catch (err) {
+    throw new Error(
+      err instanceof Error
+        ? err.message
+        : runtimeT('hostedConnection.errors.couldNotConnectComputer'),
+    );
   }
-  const session = {
-    ws_url: data.ws_url,
-    gateway_url: data.gateway_url,
-    client_token: data.client_token,
-  };
+  // After Relay session: probe Computer via gateway HTTP (app concern, not relay-client).
   try {
     await fetchRelayRuntimeInfo(session.gateway_url, session.client_token);
   } catch (err) {

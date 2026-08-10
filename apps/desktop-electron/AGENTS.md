@@ -56,6 +56,7 @@ Release notes: `releasenotes/Atmos Desktop <version>.md`.
 - Preload: `window.__ATMOS_DESKTOP__` (`shell: 'electron'`, `invoke`, `on`)
 - UI from Atmos Server loopback static
 - **Known debt (transport):** most session/terminal traffic still uses **HTTP + WebSocket** (web-first parity), not renderer→runtime IPC/UDS. Tracked for a future shared transport abstraction (web = WS/HTTP, desktop local = IPC). See [docs/architecture/known-debt-client-transport.md](../../docs/architecture/known-debt-client-transport.md).
+- **Relay client kind:** product UI is `apps/web`; Electron is detected at runtime. Relay sessions use `@atmos/relay-client` with `clientKind: "desktop"` via `workbenchRelayClientKind()` (not a separate desktop SDK). Computer gateway REST (`/api/system/*` on `gateway_url`) stays in `apps/web/src/api/relay.ts`.
 - Browser (APP-053): in-DOM `<webview>` + `persist:atmos-browser` (default-deny `will-attach-webview`); `apps/desktop-electron/src/browser`
 - Browser guest inject: `packages/shared/browser/browser-runtime.js` is **copied into `dist/browser-runtime.js` at build** (packaged apps must not rely on monorepo paths)
 - Commands: `get_api_config`, `browser_bridge_*`, `appshot_*`, `tunnel_connector_*`, …

@@ -17,6 +17,17 @@ import type { LinearIssuePayload } from "@atmos/api-types/ws/dto/linear";
 import { wsLinearApi } from "@/api/ws/linear-api";
 import { useComputerQueryScope } from "@/api/query/query-scope";
 import { queryKeys } from "@/api/query/query-keys";
+import {
+  ensureLinearLocalKeysHydrated,
+  getActiveLinearLocalKey,
+  getLinearAuthSelection,
+  resolveLinearCredentialSource,
+} from "@/features/settings/lib/linear-local-keys";
+import {
+  hubConfigured,
+  hubLinearStatus,
+  hubMe,
+} from "@/api/hub-client";
 import type { Project } from "@/shared/types/domain";
 import { useDialogStore } from "@/app-shell/state/use-dialog-store";
 import {
@@ -165,13 +176,65 @@ export function TaskLinearPanel({ projects, headerTrailingHost: _host }: TaskLin
     }
   }, [atmosProjectId, defaultAtmosProjectId]);
 
+  const [keysEpoch, setKeysEpoch] = useState(0);
+  React.useEffect(() => {
+    void ensureLinearLocalKeysHydrated().then(() => setKeysEpoch((n) => n + 1));
+  }, []);
+  const selection = getLinearAuthSelection();
+  const activeLocal = getActiveLinearLocalKey();
+  const hubReady = hubConfigured();
+
   const statusQuery = useQuery({
-    queryKey: [...queryKeys.computer.root(scope), "linear", "status"] as const,
-    queryFn: () => wsLinearApi.status(),
+    queryKey: [
+      ...queryKeys.computer.root(scope),
+      "linear",
+      "status",
+      selection.mode,
+      activeLocal?.id ?? null,
+      hubReady,
+      keysEpoch,
+    ] as const,
+    queryFn: async () => {
+      await ensureLinearLocalKeysHydrated();
+      if (selection.mode === "local" && activeLocal?.api_key) {
+        return wsLinearApi.status({ linearApiKey: activeLocal.api_key });
+      }
+      // OAuth / default: Hub status when possible.
+      if (hubReady && selection.mode !== "local") {
+        try {
+          const me = await hubMe();
+          if (!me) {
+            return { connected: false, needs_hub_login: true };
+          }
+          const hub = await hubLinearStatus();
+          return {
+            connected: hub.connected,
+            auth_method: hub.auth_method ?? "oauth",
+            viewer_name: hub.viewer_name ?? null,
+            viewer_email: hub.viewer_email ?? null,
+            needs_hub_login: false,
+          };
+        } catch {
+          /* fall through */
+        }
+      }
+      return wsLinearApi.status({ linearApiKey: null });
+    },
     staleTime: 30_000,
   });
 
-  const connected = Boolean(statusQuery.data?.connected);
+  const oauthConnected =
+    selection.mode !== "local" && Boolean(statusQuery.data?.connected);
+  const source = resolveLinearCredentialSource({
+    selection,
+    oauthConnected: Boolean(
+      selection.mode === "oauth"
+        ? statusQuery.data?.connected
+        : selection.mode !== "local" && statusQuery.data?.connected,
+    ),
+    hasLocalKey: Boolean(activeLocal),
+  });
+  const connected = source === "oauth" || source === "local";
 
   const filterOptionsQuery = useQuery({
     queryKey: [...queryKeys.computer.root(scope), "linear", "filters"] as const,
@@ -310,7 +373,8 @@ export function TaskLinearPanel({ projects, headerTrailingHost: _host }: TaskLin
     );
   }
 
-  const needsHubLogin = Boolean(statusQuery.data?.needs_hub_login);
+  const needsHubLogin =
+    Boolean(statusQuery.data?.needs_hub_login) && selection.mode !== "local";
 
   if (needsHubLogin || !connected) {
     return (
@@ -328,6 +392,11 @@ export function TaskLinearPanel({ projects, headerTrailingHost: _host }: TaskLin
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex shrink-0 flex-wrap items-center gap-2 border-b px-4 py-2">
+        <span className="rounded-full border border-border bg-muted/30 px-2 py-0.5 text-[11px] font-medium text-foreground">
+          {source === "local"
+            ? t("linear.chip.localApiKey")
+            : t("linear.chip.oauthAccount")}
+        </span>
         {(["active", "backlog", "all"] as const).map((p) => (
           <Button
             key={p}
