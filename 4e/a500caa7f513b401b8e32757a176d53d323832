@@ -1,0 +1,26 @@
+apps/api/src/api/cli/rpc.rs
+  h_5be255725524c8 32-44
+apps/api/src/api/ws/router/project.rs
+  h_5be255725524c8 199-209
+apps/cli/src/commands/product.rs
+  h_5be255725524c8 241-250
+apps/cli/src/main.rs
+  h_5be255725524c8 207-247,256-257
+apps/cli/src/rpc.rs
+  h_5be255725524c8 90,106-122
+crates/core-service/src/service/project.rs
+  h_5be255725524c8 193-203
+crates/infra/src/db/repo/project_repo.rs
+  h_5be255725524c8 101-117
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "4ea500caa7f513b401b8e32757a176d53d323832",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
