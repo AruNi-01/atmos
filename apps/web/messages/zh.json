@@ -644,6 +644,22 @@
           "note": "本地估算"
         }
       },
+      "loading": {
+        "tips": {
+          "tallyingAgents": "挨个问 Agent：刚才那波，到底烧了多少 token？",
+          "countingLateNight": "逮到 Claude 在通宵码字——深夜 token 正在报到…",
+          "reconcilingInvoices": "像侦探一样把聊天记录和模型对上号…",
+          "tracingCacheHits": "每挖到一次缓存命中，就给 Agent 击个掌…",
+          "weighingInOut": "左边码输入 token，右边码输出 token…",
+          "askingAgents": "把还在打盹的 Agent 戳醒，让它们报 token 数…",
+          "buildingHeatmap": "把你的 token 烟花画到日历热力图上…",
+          "sortingAppetite": "给 Agent 排成一排：从「抿一口」到「鲸吞」…",
+          "estimatingCost": "把那些 prompt 翻译成钱（深呼吸）…",
+          "unwindingWindows": "把超长上下文窗口摊平成好看的图表…",
+          "negotiatingLedger": "把散落一地的 token 归拢成整齐的小堆…",
+          "polishingBreakdown": "给 token 图表最后抛个光…"
+        }
+      },
       "heatmap": {
         "kicker": "热力图",
         "loadingTitle": "加载中…",
@@ -716,13 +732,18 @@
           "cache": "缓存",
           "cacheRead": "缓存读取",
           "cacheWrite": "缓存写入",
-          "reasoning": "推理"
+          "reasoning": "推理",
+          "amount": "Token",
+          "share": "占比"
         },
         "radar": {
           "share": "占比"
         },
         "agent": {
           "other": "其他"
+        },
+        "stacked": {
+          "total": "合计"
         }
       }
     },
@@ -1229,7 +1250,8 @@
           "updatedAt": "更新时间",
           "action": "操作",
           "assignees": "负责人",
-          "linked": "关联"
+          "linked": "关联",
+          "loading": "加载中…"
         },
         "actions": {
           "createIssue": "创建 Issue",
@@ -1332,8 +1354,10 @@
       },
       "linear": {
         "refresh": "刷新",
-        "notConnected": "尚未连接 Linear。",
-        "connectHint": "请打开 设置 → 集成 → Linear，使用 OAuth（推荐）或本地 API Key 连接。",
+        "notConnected": "尚未连接 Linear",
+        "connectHint": "使用 OAuth（推荐）或本地 API Key 连接后，即可浏览 Issue 并创建 Workspace。",
+        "openIntegrations": "连接 Linear",
+        "openAccountSettings": "打开账号设置",
         "loadError": "加载 Linear Issue 失败。",
         "empty": "没有匹配筛选条件的 Issue。",
         "openInLinear": "在 Linear 中打开",
@@ -1342,9 +1366,16 @@
           "oauthAccount": "OAuth 账号"
         },
         "presets": {
-          "active": "进行中",
+          "active": "Active",
           "backlog": "Backlog",
           "all": "全部"
+        },
+        "statusTypes": {
+          "backlog": "Backlog",
+          "unstarted": "Todo",
+          "started": "In Progress",
+          "completed": "Done",
+          "canceled": "Canceled"
         },
         "filters": {
           "allTeams": "全部团队",
@@ -1355,7 +1386,20 @@
         "filter": {
           "trigger": "筛选",
           "sectionLabel": "筛选",
+          "view": "视图",
           "status": "状态",
+          "allStatuses": "全部状态",
+          "statusCount": "已选 {count} 项",
+          "assignee": "负责人",
+          "allAssignees": "全部负责人",
+          "assigneeCount": "已选 {count} 人",
+          "searchAssignees": "搜索负责人…",
+          "noMatchingAssignees": "没有匹配的负责人",
+          "labels": "标签",
+          "allLabels": "全部标签",
+          "labelCount": "已选 {count} 个",
+          "searchLabels": "搜索标签…",
+          "noMatchingLabels": "没有匹配的标签",
           "team": "团队",
           "project": "项目",
           "atmosProject": "Atmos 项目",
@@ -1378,8 +1422,11 @@
           "noPriority": "无优先级",
           "issue": "Issue",
           "assignee": "负责人",
+          "createdAt": "创建",
           "updatedAt": "更新",
-          "action": "操作"
+          "action": "操作",
+          "loading": "正在加载 Issue…",
+          "issueHint": "编号、状态图标、标题、标签与关联 GitHub"
         },
         "priority": {
           "urgent": "紧急",
@@ -1396,8 +1443,8 @@
         "linkOrCreate": "打开创建并关联",
         "needProject": "请先选择 Atmos 项目。",
         "createFailed": "从 Linear Issue 创建 Workspace 失败。",
-        "signInRequired": "使用 Linear OAuth 前请先登录 Atmos。",
-        "signInHint": "打开 设置 → 账号 登录，或在 设置 → 集成 → Linear 添加本地 API Key。"
+        "signInRequired": "使用 Linear OAuth 前请先登录 Atmos",
+        "signInHint": "请先在账号设置中登录，或在集成 → Linear 添加本地 API Key。"
       }
     }
   },
@@ -1579,6 +1626,7 @@
         "path": "路径",
         "openPullRequest": "打开 Pull Request #{number}：{title}",
         "openChecks": "打开 Checks / Actions",
+        "openLinearIssue": "打开 Linear {identifier}：{title}",
         "pullRequest": "Pull Request",
         "prState": {
           "open": "开启",
@@ -3501,10 +3549,15 @@
         "randomGenerateAgain": "重新生成",
         "githubIssue": "GitHub Issue",
         "githubPr": "GitHub PR",
+        "linearIssue": "Linear Issue",
         "refreshIssues": "刷新 Issues",
         "refreshPrs": "刷新 PRs",
+        "refreshLinear": "刷新 Linear Issues",
+        "loadMore": "加载更多",
+        "loadingMore": "正在加载…",
         "preview": {
-          "openOnGithub": "在 GitHub 中打开"
+          "openOnGithub": "在 GitHub 中打开",
+          "openOnLinear": "在 Linear 中打开"
         },
         "autoExtractTodos": "自动提取 TODOs",
         "issue": {
@@ -3535,6 +3588,16 @@
           "loadingPrPreview": "正在加载 PR 预览...",
           "noPrDescription": "没有提供 PR 描述。",
           "reuseBranchNotice": "将复用 <mono>{branch}</mono>。"
+        },
+        "linear": {
+          "selectIssue": "选择 Linear Issue",
+          "selectIssuePlaceholder": "选择 Issue",
+          "loadingIssues": "正在加载 Linear Issues…",
+          "noIssuesAvailable": "没有未完成的 Issue",
+          "noOpenIssues": "没有找到未完成的 Linear Issue",
+          "notConnected": "请先在设置 → 集成 中连接 Linear。",
+          "openOnlyHint": "仅显示 Backlog、Todo、In Progress（不含 Done）。",
+          "noDescription": "暂无描述。"
         }
       },
       "mentionPopover": {
@@ -3595,6 +3658,7 @@
         "loadGithubPrs": "加载 GitHub PR 失败",
         "loadProjectContext": "加载项目上下文失败",
         "loadGithubIssues": "加载 GitHub Issue 失败",
+        "loadLinearIssues": "加载 Linear Issue 失败",
         "prRepoMismatch": "该 PR 属于 {previewRepo}，但当前项目是 {currentRepo}。",
         "loadPrPreview": "加载 PR 预览失败",
         "refreshGithubPrs": "刷新 GitHub PR 失败",
@@ -6000,7 +6064,10 @@
         "oauthCallback": {
           "loading": "加载中…",
           "working": "正在完成 Linear 连接…",
-          "success": "Linear 已连接。你可以关闭此窗口并返回 Atmos。",
+          "success": "Linear 连接成功。",
+          "closeCountdown": "将在 {seconds} 秒后关闭此标签页…",
+          "closeNow": "正在关闭此标签页…",
+          "closeHint": "也可以直接关闭此标签页，返回 Atmos 即可。",
           "missingParams": "缺少连接信息，请重新连接 Linear。",
           "finishFailed": "无法完成 Linear 连接"
         }
@@ -6208,26 +6275,71 @@
       "signedOut": "未登录",
       "signIn": "登录",
       "signInHint": "GitHub 或 Google",
+      "signInHintDesktop": "在系统默认浏览器中打开，可复用已有的 GitHub / Google 登录状态",
       "signInDialogTitle": "登录 Atmos",
       "signInDialogDescription": "使用 GitHub 或 Google 继续，无需密码。",
+      "signInDialogDescriptionDesktop": "将在系统默认浏览器中完成登录。Atmos 保持打开，完成后会自动同步会话。",
+      "signInDialogDescriptionWeb": "选择你的登录方式。",
       "signInGithub": "使用 GitHub 登录",
       "signInGoogle": "使用 Google 登录",
+      "waitingBrowser": "正在等待浏览器中的登录…请在浏览器完成，再回到 Atmos。",
+      "waitingBrowserWeb": "正在等待新标签页中的登录…请在那边完成，再回到此页。",
       "signOut": "退出登录",
+      "signOutConfirmTitle": "确认退出登录？",
+      "signOutConfirmDescription": "将退出当前浏览器中的 Atmos 登录，并清除会话 cookie 与本机设备凭证。",
+      "signOutCancel": "取消",
+      "nameTitle": "名称",
+      "nameDescription": "全名或显示名称。",
+      "namePlaceholder": "名称",
+      "nameSave": "保存",
+      "nameTooLong": "请使用不超过 {max} 个字符。",
       "profileTitle": "个人资料",
       "profileDescription": "你的 Atmos 身份，用于计算机、Linear 与用量等功能。",
       "securityTitle": "安全",
       "securityDescription": "此账号的受信任设备。信任当前浏览器后，计算机可安全连接。",
-      "trustDevice": "信任此设备",
+      "linkedAccounts": "关联账号",
+      "linkedAccountsDescription": "可将 GitHub 与 Google 关联到同一个 Atmos 账号。每种登录方式只能关联一个，不能挂多个 GitHub 或多个 Google。",
+      "activeSessions": "活跃会话",
+      "activeSessionsDescription": "管理当前登录会话，可撤销访问。",
+      "link": "关联",
+      "unlink": "取消关联",
+      "linked": "已关联",
+      "linkedAccountId": "账号 {id}",
+      "notLinked": "未关联",
+      "linkOpensNewTab": "将在新标签页打开",
+      "revoke": "撤销",
+      "currentSession": "当前会话",
+      "otherSession": "其他会话",
+      "sessionUnknown": "未知设备",
+      "sessionsEmpty": "暂无活跃会话。",
+      "trustDevice": "信任",
       "devicesTitle": "受信任设备",
       "devicesEmpty": "还没有受信任的设备。信任此设备后，即可在此使用你的计算机。",
       "deviceActive": "有效",
       "deviceRevoked": "已吊销",
       "credentialOnceTitle": "此设备已受信任（仅显示一次）",
       "credentialOnceHint": "已保存在此设备。若泄露，请再次信任此设备以替换。",
+      "deleteAccount": "删除账号",
+      "deleteAccountDescription": "永久删除你的 Atmos 账号、已关联登录、会话与受信任设备。此操作不可撤销。",
+      "deleteAccountDialogTitle": "确认删除账号？",
+      "deleteAccountDialogDescription": "将永久删除用户、已关联的 GitHub/Google、登录会话与设备。之后需要重新登录才会创建新账号。",
+      "deleteConfirmPhrase": "删除我的账号",
+      "deleteConfirmPrompt": "请输入 {phrase} 以确认",
+      "deleteConfirmAction": "删除账号",
+      "deleteCancel": "取消",
       "errors": {
         "signInFailed": "登录失败",
         "signOutFailed": "退出失败",
-        "enrollFailed": "无法信任此设备"
+        "enrollFailed": "无法信任此设备",
+        "linkFailed": "无法关联账号",
+        "unlinkFailed": "无法取消关联",
+        "alreadyLinked": "该登录方式已关联",
+        "cannotUnlinkLast": "不能取消关联最后一个账号",
+        "listAccountsFailed": "无法加载关联账号",
+        "listSessionsFailed": "无法加载会话",
+        "revokeFailed": "无法撤销会话",
+        "deleteFailed": "无法删除账号",
+        "nameSaveFailed": "无法保存名称"
       }
     }
   },
@@ -9607,6 +9719,42 @@
         "accessibility": "已为 Atmos Desktop Use 开启辅助功能",
         "screenRecording": "已为 Atmos Desktop Use 开启屏幕录制"
       }
+    }
+  },
+  "hubAuthBridge": {
+    "title": "即将完成",
+    "working": "正在完成登录并信任此设备…",
+    "success": "登录成功。你可以关闭此标签页并返回 Atmos。",
+    "closingIn": "{seconds} 秒后关闭此标签页…",
+    "closeHint": "Atmos 会自动同步你的登录状态。若标签页未自动关闭，请手动关闭。",
+    "noSession": "未找到 Atmos 会话。请从应用中重新登录。",
+    "failed": "无法完成登录",
+    "missingCode": "缺少登录码。请从 Atmos 设置 → 账号 重新开始登录。"
+  },
+  "hubAuthDone": {
+    "title": "登录完成",
+    "working": "正在确认 Atmos 会话…",
+    "success": "已登录。可以关闭此标签页，返回 Atmos。",
+    "closingIn": "{seconds} 秒后关闭此标签页…",
+    "closeHint": "若标签页未自动关闭，请手动关闭。",
+    "noSession": "未找到会话。请从 Atmos 重新登录。",
+    "failed": "无法确认登录",
+    "goHome": "返回 Atmos"
+  },
+  "hubAuthError": {
+    "title": "未能完成",
+    "closingIn": "{seconds} 秒后关闭此标签页…",
+    "closeHint": "若标签页未自动关闭，请手动关闭。",
+    "goHome": "返回 Atmos",
+    "codeLabel": "错误码：{code}",
+    "errors": {
+      "generic": "登录或关联账号时出错。请从 Atmos 设置 → 账号 重试。",
+      "accountAlreadyLinkedOtherUser": "这个 Google 或 GitHub 登录已经关联到另一个 Atmos 账号。",
+      "accountAlreadyLinkedOtherUserHint": "请改用那个 Google/GitHub 账号登录，或关联其他账号。同一登录方式不能挂在两个 Atmos 用户上。",
+      "emailDoesNotMatch": "第三方邮箱与当前 Atmos 账号不一致。",
+      "unableToLink": "无法关联该账号。请重试或换用其他登录方式。",
+      "stateMismatch": "登录已过期或重复发起。请关闭此标签页，从 Atmos 重新开始。",
+      "sessionRequired": "请先登录，再关联其他账号。"
     }
   }
 }

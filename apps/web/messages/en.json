@@ -644,6 +644,22 @@
           "note": "Local estimate"
         }
       },
+      "loading": {
+        "tips": {
+          "tallyingAgents": "Asking each agent: \"so… how many tokens was that?\"",
+          "countingLateNight": "Catching Claude mid-sprint — those late-night tokens add up…",
+          "reconcilingInvoices": "Matching chats to models like a very patient detective…",
+          "tracingCacheHits": "High-fiving agents for every cache hit we find…",
+          "weighingInOut": "Stacking input tokens on one side, output on the other…",
+          "askingAgents": "Poking agents awake to confess their token counts…",
+          "buildingHeatmap": "Coloring the calendar with your token fireworks…",
+          "sortingAppetite": "Lining up agents from \"sip\" to \"guzzle\"…",
+          "estimatingCost": "Translating prompts into dollars (brace yourself)…",
+          "unwindingWindows": "Unrolling giant context windows into tidy charts…",
+          "negotiatingLedger": "Herding loose tokens into neat little piles…",
+          "polishingBreakdown": "Giving your token charts one last polish…"
+        }
+      },
       "heatmap": {
         "kicker": "Heatmap",
         "loadingTitle": "Loading…",
@@ -716,13 +732,18 @@
           "cache": "Cache",
           "cacheRead": "Cache read",
           "cacheWrite": "Cache write",
-          "reasoning": "Reasoning"
+          "reasoning": "Reasoning",
+          "amount": "Tokens",
+          "share": "Share"
         },
         "radar": {
           "share": "Share"
         },
         "agent": {
           "other": "Other"
+        },
+        "stacked": {
+          "total": "Total"
         }
       }
     },
@@ -1229,7 +1250,8 @@
           "assignees": "Assignees",
           "linked": "Linked",
           "updatedAt": "Updated",
-          "action": "Action"
+          "action": "Action",
+          "loading": "Loading…"
         },
         "actions": {
           "createIssue": "Create issue",
@@ -1332,8 +1354,10 @@
       },
       "linear": {
         "refresh": "Refresh",
-        "notConnected": "Linear is not connected.",
-        "connectHint": "Open Settings → Integrations → Linear to connect with OAuth (recommended) or a local API key.",
+        "notConnected": "Linear is not connected",
+        "connectHint": "Connect with OAuth (recommended) or a local API key to browse issues and create workspaces.",
+        "openIntegrations": "Connect Linear",
+        "openAccountSettings": "Open Account settings",
         "loadError": "Failed to load Linear issues.",
         "empty": "No issues match these filters.",
         "openInLinear": "Open in Linear",
@@ -1346,6 +1370,13 @@
           "backlog": "Backlog",
           "all": "All issues"
         },
+        "statusTypes": {
+          "backlog": "Backlog",
+          "unstarted": "Todo",
+          "started": "In Progress",
+          "completed": "Done",
+          "canceled": "Canceled"
+        },
         "filters": {
           "allTeams": "All teams",
           "allProjects": "All projects",
@@ -1355,7 +1386,20 @@
         "filter": {
           "trigger": "Filter",
           "sectionLabel": "Filter",
+          "view": "View",
           "status": "Status",
+          "allStatuses": "All statuses",
+          "statusCount": "{count} selected",
+          "assignee": "Assignee",
+          "allAssignees": "All assignees",
+          "assigneeCount": "{count} selected",
+          "searchAssignees": "Search assignees…",
+          "noMatchingAssignees": "No matching assignees",
+          "labels": "Labels",
+          "allLabels": "All labels",
+          "labelCount": "{count} selected",
+          "searchLabels": "Search labels…",
+          "noMatchingLabels": "No matching labels",
           "team": "Team",
           "project": "Project",
           "atmosProject": "Atmos project",
@@ -1378,8 +1422,11 @@
           "noPriority": "No priority",
           "issue": "Issue",
           "assignee": "Assignee",
+          "createdAt": "Created",
           "updatedAt": "Updated",
-          "action": "Action"
+          "action": "Action",
+          "loading": "Loading issues…",
+          "issueHint": "ID, status icon, title, labels, and linked GitHub"
         },
         "priority": {
           "urgent": "Urgent",
@@ -1396,8 +1443,8 @@
         "linkOrCreate": "Open create with link",
         "needProject": "Select an Atmos project first.",
         "createFailed": "Failed to create workspace from Linear issue.",
-        "signInRequired": "Sign in to Atmos to use Linear OAuth.",
-        "signInHint": "Open Settings → Account and sign in, or add a local API key under Settings → Integrations → Linear."
+        "signInRequired": "Sign in to Atmos to use Linear OAuth",
+        "signInHint": "Sign in under Account, or add a local API key under Integrations → Linear."
       }
     }
   },
@@ -1579,6 +1626,7 @@
         "path": "Path",
         "openPullRequest": "Open pull request #{number}: {title}",
         "openChecks": "Open checks / Actions",
+        "openLinearIssue": "Open Linear {identifier}: {title}",
         "pullRequest": "Pull request",
         "prState": {
           "open": "Open",
@@ -3501,10 +3549,15 @@
         "randomGenerateAgain": "Generate again",
         "githubIssue": "GitHub issue",
         "githubPr": "GitHub PR",
+        "linearIssue": "Linear issue",
         "refreshIssues": "Refresh issues",
         "refreshPrs": "Refresh PRs",
+        "refreshLinear": "Refresh Linear issues",
+        "loadMore": "Load more",
+        "loadingMore": "Loading more…",
         "preview": {
-          "openOnGithub": "Open on GitHub"
+          "openOnGithub": "Open on GitHub",
+          "openOnLinear": "Open in Linear"
         },
         "autoExtractTodos": "Auto-extract TODOs",
         "issue": {
@@ -3535,6 +3588,16 @@
           "loadingPrPreview": "Loading PR preview...",
           "noPrDescription": "No PR description provided.",
           "reuseBranchNotice": "<mono>{branch}</mono> will be reused."
+        },
+        "linear": {
+          "selectIssue": "Select Linear issue",
+          "selectIssuePlaceholder": "Select issue",
+          "loadingIssues": "Loading Linear issues…",
+          "noIssuesAvailable": "No open issues",
+          "noOpenIssues": "No non-done Linear issues found",
+          "notConnected": "Connect Linear in Settings → Integrations to pick an issue.",
+          "openOnlyHint": "Shows Backlog, Todo, and In Progress issues (not Done).",
+          "noDescription": "No description."
         }
       },
       "mentionPopover": {
@@ -3595,6 +3658,7 @@
         "loadGithubPrs": "Failed to load GitHub PRs",
         "loadProjectContext": "Failed to load project context",
         "loadGithubIssues": "Failed to load GitHub issues",
+        "loadLinearIssues": "Failed to load Linear issues",
         "prRepoMismatch": "PR belongs to {previewRepo}, but current project is {currentRepo}.",
         "loadPrPreview": "Failed to load PR preview",
         "refreshGithubPrs": "Failed to refresh GitHub PRs",
@@ -6000,7 +6064,10 @@
         "oauthCallback": {
           "loading": "Loading…",
           "working": "Finishing Linear connection…",
-          "success": "Linear connected. You can close this window and return to Atmos.",
+          "success": "Linear connected successfully.",
+          "closeCountdown": "This tab will close in {seconds}s…",
+          "closeNow": "Closing this tab…",
+          "closeHint": "You can also close this tab yourself and return to Atmos.",
           "missingParams": "Missing connection details. Try connecting Linear again.",
           "finishFailed": "Could not finish connecting Linear"
         }
@@ -6208,26 +6275,71 @@
       "signedOut": "Not signed in",
       "signIn": "Sign in",
       "signInHint": "GitHub or Google",
+      "signInHintDesktop": "Opens your default browser so existing GitHub/Google sessions can be used",
       "signInDialogTitle": "Sign in to Atmos",
       "signInDialogDescription": "Continue with GitHub or Google. No password required.",
+      "signInDialogDescriptionDesktop": "Continue in your default browser. Atmos stays open and picks up your session when you finish.",
+      "signInDialogDescriptionWeb": "Choose your sign-in method.",
       "signInGithub": "Sign in with GitHub",
       "signInGoogle": "Sign in with Google",
+      "waitingBrowser": "Waiting for sign-in in your browser… finish there, then return here.",
+      "waitingBrowserWeb": "Waiting for sign-in in the new tab… finish there, then return here.",
       "signOut": "Sign out",
+      "signOutConfirmTitle": "Sign out?",
+      "signOutConfirmDescription": "You will be signed out of Atmos on this browser. Your session cookie and this device’s local credential will be cleared.",
+      "signOutCancel": "Cancel",
+      "nameTitle": "Name",
+      "nameDescription": "Your full name, or a display name.",
+      "namePlaceholder": "Name",
+      "nameSave": "Save",
+      "nameTooLong": "Use {max} characters or fewer.",
       "profileTitle": "Profile",
       "profileDescription": "Your Atmos identity used across computers, Linear, and usage.",
       "securityTitle": "Security",
       "securityDescription": "Trusted devices for this account. Trust this browser so computers can connect securely.",
-      "trustDevice": "Trust this device",
+      "linkedAccounts": "Linked accounts",
+      "linkedAccountsDescription": "Connect GitHub and Google to the same Atmos account. One login per provider — not multiple GitHub or Google accounts.",
+      "activeSessions": "Active sessions",
+      "activeSessionsDescription": "Manage your active sessions and revoke access.",
+      "link": "Link",
+      "unlink": "Unlink",
+      "linked": "Connected",
+      "linkedAccountId": "Account {id}",
+      "notLinked": "Not connected",
+      "linkOpensNewTab": "Opens in a new tab",
+      "revoke": "Revoke",
+      "currentSession": "Current session",
+      "otherSession": "Other session",
+      "sessionUnknown": "Unknown device",
+      "sessionsEmpty": "No active sessions.",
+      "trustDevice": "Trust",
       "devicesTitle": "Trusted devices",
       "devicesEmpty": "No trusted devices yet. Trust this device to use your computers from here.",
       "deviceActive": "Active",
       "deviceRevoked": "Revoked",
       "credentialOnceTitle": "This device is trusted (shown once)",
       "credentialOnceHint": "Saved on this device. If it leaks, trust this device again to replace it.",
+      "deleteAccount": "Delete account",
+      "deleteAccountDescription": "Permanently delete your Atmos account, linked logins, sessions, and trusted devices. This cannot be undone.",
+      "deleteAccountDialogTitle": "Delete account?",
+      "deleteAccountDialogDescription": "This permanently removes your user, linked GitHub/Google accounts, sessions, and devices from Atmos. You will need to sign in again to create a new account.",
+      "deleteConfirmPhrase": "delete my account",
+      "deleteConfirmPrompt": "Type {phrase} to confirm",
+      "deleteConfirmAction": "Delete account",
+      "deleteCancel": "Cancel",
       "errors": {
         "signInFailed": "Sign-in failed",
         "signOutFailed": "Sign-out failed",
-        "enrollFailed": "Could not trust this device"
+        "enrollFailed": "Could not trust this device",
+        "linkFailed": "Could not link account",
+        "unlinkFailed": "Could not unlink account",
+        "alreadyLinked": "This provider is already connected",
+        "cannotUnlinkLast": "You can't unlink your last account",
+        "listAccountsFailed": "Could not load linked accounts",
+        "listSessionsFailed": "Could not load sessions",
+        "revokeFailed": "Could not revoke session",
+        "deleteFailed": "Could not delete account",
+        "nameSaveFailed": "Could not save name"
       }
     }
   },
@@ -9606,6 +9718,42 @@
         "accessibility": "Accessibility allowed for Atmos Desktop Use",
         "screenRecording": "Screen Recording allowed for Atmos Desktop Use"
       }
+    }
+  },
+  "hubAuthBridge": {
+    "title": "Almost done",
+    "working": "Finishing sign-in and trusting this device…",
+    "success": "Signed in. You can close this tab and return to Atmos.",
+    "closingIn": "Closing this tab in {seconds}s…",
+    "closeHint": "Atmos will detect your session automatically. If this tab does not close, close it manually.",
+    "noSession": "No Atmos session found. Try signing in again from the app.",
+    "failed": "Could not finish sign-in",
+    "missingCode": "Missing sign-in code. Start again from Atmos Settings → Account."
+  },
+  "hubAuthDone": {
+    "title": "Sign-in complete",
+    "working": "Confirming your Atmos session…",
+    "success": "Signed in. You can close this tab and return to Atmos.",
+    "closingIn": "Closing this tab in {seconds}s…",
+    "closeHint": "If this tab does not close automatically, close it manually.",
+    "noSession": "No session found. Try signing in again from Atmos.",
+    "failed": "Could not confirm sign-in",
+    "goHome": "Back to Atmos"
+  },
+  "hubAuthError": {
+    "title": "Could not finish",
+    "closingIn": "Closing this tab in {seconds}s…",
+    "closeHint": "If this tab does not close automatically, close it manually.",
+    "goHome": "Back to Atmos",
+    "codeLabel": "Code: {code}",
+    "errors": {
+      "generic": "Something went wrong while signing in or linking an account. Try again from Atmos Settings → Account.",
+      "accountAlreadyLinkedOtherUser": "This Google or GitHub login is already connected to a different Atmos account.",
+      "accountAlreadyLinkedOtherUserHint": "Sign in with that Google/GitHub account instead, or link a different account. You cannot attach the same login to two Atmos users.",
+      "emailDoesNotMatch": "The provider email does not match this Atmos account.",
+      "unableToLink": "Could not link this account. Try again or use another provider.",
+      "stateMismatch": "Sign-in expired or was started twice. Close this tab and try again from Atmos.",
+      "sessionRequired": "Sign in first, then link another account."
     }
   }
 }
