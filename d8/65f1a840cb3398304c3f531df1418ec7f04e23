@@ -1,0 +1,26 @@
+docs/plans/2026-03-06-cli-design.md
+  h_5be255725524c8 4-7
+specs/APP/APP-058_agent-first-product-cli/BRAINSTORM.md
+  h_5be255725524c8 1-119
+specs/APP/APP-058_agent-first-product-cli/PRD.md
+  h_5be255725524c8 1-170
+specs/APP/APP-058_agent-first-product-cli/TECH.md
+  h_5be255725524c8 1-654
+specs/APP/APP-058_agent-first-product-cli/TEST.md
+  h_5be255725524c8 1-358
+specs/README.md
+  h_5be255725524c8 137
+specs/SPEC-INVENTORY.md
+  h_5be255725524c8 54,64
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "d865f1a840cb3398304c3f531df1418ec7f04e23",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
