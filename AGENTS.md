@@ -22,6 +22,7 @@
 | **Backend: Token Usage Tracking** | [crates/token-usage/AGENTS.md](crates/token-usage/AGENTS.md) |
 | **Backend: LLM Integration** | [crates/llm/AGENTS.md](crates/llm/AGENTS.md) |
 | **Local runtime** (manifest, supervisor, relay identity) | [agents/references/runtime/AGENTS.md](agents/references/runtime/AGENTS.md) |
+| **`~/.atmos` layout** (credentials/state/config/data) | [agents/references/runtime/atmos-home-layout.md](agents/references/runtime/atmos-home-layout.md) |
 | **API Entry**: HTTP/WS Handlers & DTOs | [apps/api/AGENTS.md](apps/api/AGENTS.md) |
 | **Frontend: Web App** (Next.js 16) | [apps/web/AGENTS.md](apps/web/AGENTS.md) |
 | **Desktop (production — all shell work)** | [apps/desktop-electron/AGENTS.md](apps/desktop-electron/AGENTS.md) |
