@@ -1,0 +1,22 @@
+apps/web/messages/en.json
+  h_5be255725524c8 1355-1393
+apps/web/messages/zh.json
+  h_5be255725524c8 1355-1393
+apps/web/src/features/task/components/TaskLinearFilterMenu.tsx
+  h_5be255725524c8 1-319
+apps/web/src/features/task/components/TaskLinearPanel.tsx
+  h_5be255725524c8 3-4,8-9,27,30-36,38,63-65,87-91,94-97,115-122,124-136,139,208-209,215-221,225-230,232-233,237-246,248-308,319,353,362,396,401-426,430-436,448,460-461,463-500,502-509,511-552,554-557
+apps/web/src/features/task/components/TaskLinearTable.tsx
+  h_5be255725524c8 1-273
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "2f151a367758e1d8cdace2e0628d40452e86f87d",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
