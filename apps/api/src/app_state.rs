@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use crate::api::ws::{WsMessageService, WsService};
+use crate::api::ws::{WsMessageHandler, WsMessageService, WsService};
 use core_service::{
     AgentHooksService, AgentService, AgentSessionService, AutomationService, CanvasAgentRelay,
     CanvasDocumentService, MessagePushService, NotificationService, ProjectService, ReviewService,
@@ -44,6 +44,8 @@ pub struct AppState {
     pub notification_service: Arc<NotificationService>,
     pub canvas_agent_relay: Arc<CanvasAgentRelay>,
     pub review_service: Arc<ReviewService>,
+    /// Shared with `/ws` — product action dispatch for CLI RPC (APP-058).
+    pub ws_message_service: Arc<WsMessageService>,
     pub ws_service: Arc<WsService>,
     pub api_port: std::sync::atomic::AtomicU16,
     pub relay_supervisor: RelaySupervisor,
@@ -68,6 +70,7 @@ impl Clone for AppState {
             notification_service: Arc::clone(&self.notification_service),
             canvas_agent_relay: Arc::clone(&self.canvas_agent_relay),
             review_service: Arc::clone(&self.review_service),
+            ws_message_service: Arc::clone(&self.ws_message_service),
             ws_service: Arc::clone(&self.ws_service),
             api_port: std::sync::atomic::AtomicU16::new(self.api_port()),
             relay_supervisor: self.relay_supervisor.clone(),
@@ -82,7 +85,9 @@ impl AppState {
         default_port: u16,
         event_queue: Arc<LocalPersistentQueue>,
     ) -> Self {
-        let ws_service = WsService::new().with_message_handler(services.ws_message_service);
+        let ws_message_service = services.ws_message_service;
+        let handler: Arc<dyn WsMessageHandler> = ws_message_service.clone();
+        let ws_service = WsService::new().with_message_handler(handler);
 
         Self {
             test_service: services.test_service,
@@ -99,6 +104,7 @@ impl AppState {
             notification_service: services.notification_service,
             canvas_agent_relay: services.canvas_agent_relay,
             review_service: services.review_service,
+            ws_message_service,
             ws_service: Arc::new(ws_service),
             api_port: std::sync::atomic::AtomicU16::new(default_port),
             relay_supervisor: RelaySupervisor::new(),

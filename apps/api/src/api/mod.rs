@@ -1,5 +1,6 @@
 pub mod agent;
 pub mod canvas;
+pub mod cli;
 pub mod dto;
 pub mod hooks;
 pub mod project;
@@ -22,6 +23,7 @@ pub fn routes() -> Router<AppState> {
         .nest("/api/workspace", workspace::routes())
         .nest("/api/system", system::routes())
         .nest("/api/agent", agent::routes())
+        .nest("/api/cli", cli::routes())
         .nest("/hooks", hooks::routes())
         .nest("/ws", ws::routes())
 }

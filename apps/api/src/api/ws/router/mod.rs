@@ -161,6 +161,22 @@ impl WsMessageService {
         }
     }
 
+    /// Dispatch a product action for HTTP CLI RPC (APP-058) without a live WS client.
+    ///
+    /// Uses connection id `"cli"` so canvas-bridge registration paths stay isolated
+    /// from real browser connections. Headless product CRUD must not require UI.
+    pub async fn dispatch_cli_action(&self, action: WsAction, data: Value) -> Result<Value> {
+        self.handle_action(
+            "cli",
+            WsRequest {
+                request_id: "cli".to_string(),
+                action,
+                data,
+            },
+        )
+        .await
+    }
+
     /// Route action to the appropriate handler.
     async fn handle_action(&self, conn_id: &str, request: WsRequest) -> Result<Value> {
         match request.action {
@@ -457,6 +473,22 @@ impl WsMessageService {
             WsAction::RunLogStart => self.handle_run_log_start(parse_request(request.data)?),
             WsAction::RunLogResolveLatest => {
                 self.handle_run_log_resolve_latest(parse_request(request.data)?)
+            }
+            WsAction::TerminalSessionCreate => {
+                self.handle_terminal_session_create(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::TerminalSessionList => {
+                self.handle_terminal_session_list(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::TerminalSessionClose => {
+                self.handle_terminal_session_close(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::TerminalSessionDestroy => {
+                self.handle_terminal_session_destroy(parse_request(request.data)?)
+                    .await
             }
             WsAction::TerminalWorkspaceCandidates => {
                 self.handle_terminal_workspace_candidates(parse_request(request.data)?)

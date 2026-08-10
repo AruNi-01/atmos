@@ -3,11 +3,94 @@ use std::collections::{HashMap, HashSet};
 use super::*;
 use core_engine::TmuxEngine;
 use core_service::{
-    CaptureSideContextParams, TerminalSideChatRecord, TerminalSideChatStatus,
-    UpsertTerminalSideChatParams,
+    CaptureSideContextParams, CreateSessionParams, TerminalKind, TerminalSideChatRecord,
+    TerminalSideChatStatus, UpsertTerminalSideChatParams,
 };
+use uuid::Uuid;
 
 impl WsMessageService {
+    /// APP-058: create a terminal session via service API (no browser required).
+    pub(super) async fn handle_terminal_session_create(
+        &self,
+        req: TerminalSessionCreateRequest,
+    ) -> Result<Value> {
+        let workspace_id = req.workspace_id.trim().to_string();
+        if workspace_id.is_empty() {
+            return Err(ServiceError::Validation(
+                "workspace_id is required".to_string(),
+            ));
+        }
+        let session_id = req
+            .session_id
+            .filter(|s| !s.trim().is_empty())
+            .unwrap_or_else(|| Uuid::new_v4().to_string());
+
+        let (_rx, _snapshot) = self
+            .terminal_service
+            .create_session(CreateSessionParams {
+                session_id: session_id.clone(),
+                workspace_id: workspace_id.clone(),
+                shell: req.shell,
+                cols: req.cols,
+                rows: req.rows,
+                project_name: req.project_name,
+                workspace_name: req.workspace_name,
+                window_name: req.name,
+                cwd: req.cwd,
+                terminal_kind: TerminalKind::default(),
+                side_chat_id: None,
+                source_pane_id: None,
+                source_tmux_window_name: None,
+            })
+            .await?;
+
+        let mut detached = false;
+        if req.detach_after_create {
+            // Keep the tmux window; drop the in-process PTY attach used only to create it.
+            self.terminal_service.close_session(&session_id).await?;
+            detached = true;
+        }
+
+        Ok(json!(TerminalSessionCreateResponse {
+            session_id,
+            workspace_id,
+            detached,
+        }))
+    }
+
+    pub(super) async fn handle_terminal_session_list(
+        &self,
+        req: TerminalSessionListRequest,
+    ) -> Result<Value> {
+        let sessions = self.terminal_service.list_session_details().await;
+        let filtered: Vec<_> = match req.workspace_id.as_ref() {
+            Some(ws) => sessions
+                .into_iter()
+                .filter(|s| s.workspace_id == *ws)
+                .collect(),
+            None => sessions,
+        };
+        Ok(json!({ "sessions": filtered }))
+    }
+
+    pub(super) async fn handle_terminal_session_close(
+        &self,
+        req: TerminalSessionCloseRequest,
+    ) -> Result<Value> {
+        self.terminal_service.close_session(&req.session_id).await?;
+        Ok(json!({ "success": true, "session_id": req.session_id }))
+    }
+
+    pub(super) async fn handle_terminal_session_destroy(
+        &self,
+        req: TerminalSessionDestroyRequest,
+    ) -> Result<Value> {
+        self.terminal_service
+            .destroy_session(&req.session_id)
+            .await?;
+        Ok(json!({ "success": true, "session_id": req.session_id }))
+    }
+
     /// APP-055: rotate/open latest Run log and write a start header.
     pub(super) fn handle_run_log_start(&self, req: RunLogStartRequest) -> Result<Value> {
         let latest_path = self.terminal_service.run_log_start(
