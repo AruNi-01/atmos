@@ -118,8 +118,15 @@ export interface GithubIssueTemplateFilePayload {
   content: string;
 }
 
+export interface GithubSecurityPolicyPayload {
+  path: string;
+  content: string;
+  html_url?: string | null;
+}
+
 export interface GithubIssueTemplatesPayload {
   files: GithubIssueTemplateFilePayload[];
+  security_policy?: GithubSecurityPolicyPayload | null;
 }
 
 export interface GithubIssueCreatePayload {

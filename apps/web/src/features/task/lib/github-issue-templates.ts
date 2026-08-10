@@ -4,7 +4,10 @@
  */
 
 import { parse as parseYaml } from "yaml";
-import type { GithubIssueTemplateFilePayload } from "@/api/ws/github-api";
+import type {
+  GithubIssueTemplateFilePayload,
+  GithubSecurityPolicyPayload,
+} from "@/api/ws/github-api";
 
 export type IssueFormFieldType =
   | "markdown"
@@ -27,7 +30,7 @@ export type IssueFormField = {
 };
 
 export type ParsedIssueTemplate = {
-  id: string; // filename or "blank"
+  id: string; // filename, "blank", "security", or "contact:<n>"
   filename: string;
   name: string;
   description: string;
@@ -35,11 +38,15 @@ export type ParsedIssueTemplate = {
   title: string;
   labels: string[];
   assignees: string[];
-  kind: "blank" | "form" | "markdown";
-  /** Markdown template body (kind=markdown). */
+  kind: "blank" | "form" | "markdown" | "security" | "contact";
+  /** Markdown template body (kind=markdown) or SECURITY.md (kind=security). */
   bodyMarkdown?: string;
   /** YAML issue form fields (kind=form). */
   formFields?: IssueFormField[];
+  /**
+   * External URL for kind=security (policy page) or kind=contact (contact_links.url).
+   */
+  htmlUrl?: string | null;
 };
 
 export type ParsedIssueTemplateConfig = {
@@ -275,9 +282,16 @@ function parseConfig(content: string): ParsedIssueTemplateConfig {
   }
 }
 
+const SECURITY_TEMPLATE_META = {
+  id: "security",
+  name: "Report a security vulnerability",
+  description: "Please review our security policy for more details",
+} as const;
+
 /** Parse template files from the API into chooser + form definitions. */
 export function parseGithubIssueTemplates(
   files: GithubIssueTemplateFilePayload[],
+  securityPolicy?: GithubSecurityPolicyPayload | null,
 ): ParsedIssueTemplatesResult {
   let config: ParsedIssueTemplateConfig = {
     blankIssuesEnabled: true,
@@ -309,9 +323,45 @@ export function parseGithubIssueTemplates(
       : "Create a new issue from scratch (maintainers)",
   };
 
+  // config.yml contact_links — external destinations (email, community, docs), not issues.
+  const contactTemplates: ParsedIssueTemplate[] = config.contactLinks.map((link, index) => ({
+    id: `contact:${index}:${link.url}`,
+    filename: "",
+    name: link.name,
+    description: link.about ?? "",
+    title: "",
+    labels: [],
+    assignees: [],
+    kind: "contact" as const,
+    htmlUrl: link.url,
+  }));
+
+  // GitHub shows SECURITY.md as a non-issue chooser entry (opens policy, not create form).
+  const security: ParsedIssueTemplate | null =
+    securityPolicy?.content?.trim()
+      ? {
+          id: SECURITY_TEMPLATE_META.id,
+          filename: securityPolicy.path || "SECURITY.md",
+          name: SECURITY_TEMPLATE_META.name,
+          description: SECURITY_TEMPLATE_META.description,
+          title: "",
+          labels: [],
+          assignees: [],
+          kind: "security",
+          bodyMarkdown: securityPolicy.content,
+          htmlUrl: securityPolicy.html_url ?? null,
+        }
+      : null;
+
   return {
     config,
-    templates: [blank, ...templates],
+    // Match GitHub chooser order: templates → blank → contact links → security policy.
+    templates: [
+      ...templates,
+      blank,
+      ...contactTemplates,
+      ...(security ? [security] : []),
+    ],
   };
 }
 
@@ -362,6 +412,9 @@ export function defaultFieldValuesForTemplate(
   const out: Record<string, string | string[] | boolean | undefined> = {};
   if (template.kind === "blank") {
     out.description = "";
+    return out;
+  }
+  if (template.kind === "security" || template.kind === "contact") {
     return out;
   }
   if (template.kind === "markdown") {

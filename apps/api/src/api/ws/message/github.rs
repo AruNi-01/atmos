@@ -139,9 +139,24 @@ pub struct GithubIssueTemplateFilePayload {
     pub content: String,
 }
 
+/// Repo security policy (`SECURITY.md`) when present — shown as a chooser entry, not an issue form.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GithubSecurityPolicyPayload {
+    /// Path relative to repo root (e.g. `SECURITY.md`, `.github/SECURITY.md`).
+    pub path: String,
+    /// Decoded markdown content.
+    pub content: String,
+    /// GitHub HTML URL for the security policy page or file blob.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub html_url: Option<String>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GithubIssueTemplatesPayload {
     pub files: Vec<GithubIssueTemplateFilePayload>,
+    /// Present when the repo publishes a security policy (SECURITY.md).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub security_policy: Option<GithubSecurityPolicyPayload>,
 }
 
 /// Create a GitHub issue via `gh issue create`.

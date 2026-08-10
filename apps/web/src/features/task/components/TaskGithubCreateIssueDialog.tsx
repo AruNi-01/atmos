@@ -42,6 +42,7 @@ import {
   type IssueFormField,
   type ParsedIssueTemplate,
 } from "@/features/task/lib/github-issue-templates";
+import { MarkdownRenderer } from "@/shared/components/markdown/MarkdownRenderer";
 
 export type TaskGithubCreateIssueDialogProps = {
   open: boolean;
@@ -124,8 +125,12 @@ export function TaskGithubCreateIssueDialog({
   );
 
   const parsed = useMemo(
-    () => parseGithubIssueTemplates(templatesQuery.data?.files ?? []),
-    [templatesQuery.data?.files],
+    () =>
+      parseGithubIssueTemplates(
+        templatesQuery.data?.files ?? [],
+        templatesQuery.data?.security_policy,
+      ),
+    [templatesQuery.data?.files, templatesQuery.data?.security_policy],
   );
 
   const activeTemplate: ParsedIssueTemplate = useMemo(() => {
@@ -143,6 +148,42 @@ export function TaskGithubCreateIssueDialog({
       }
     );
   }, [parsed.templates, t, templateId]);
+
+  const isSecurityTemplate = activeTemplate.kind === "security";
+  const isContactTemplate = activeTemplate.kind === "contact";
+  const isExternalTemplate = isSecurityTemplate || isContactTemplate;
+
+  // Keep selection valid when templates reload (e.g. repo switch / missing SECURITY.md).
+  useEffect(() => {
+    if (!open || !projectPicked) return;
+    if (templatesQuery.isLoading || templatesQuery.isFetching) return;
+    if (parsed.templates.length === 0) return;
+    if (!parsed.templates.some((tpl) => tpl.id === templateId)) {
+      setTemplateId(parsed.templates[0]?.id ?? BLANK_ID);
+    }
+  }, [
+    open,
+    parsed.templates,
+    projectPicked,
+    templateId,
+    templatesQuery.isFetching,
+    templatesQuery.isLoading,
+  ]);
+
+  const externalLinkUrl = useMemo(() => {
+    if (isContactTemplate) {
+      return activeTemplate.htmlUrl?.trim() || null;
+    }
+    if (!isSecurityTemplate) return null;
+    if (activeTemplate.htmlUrl) return activeTemplate.htmlUrl;
+    if (!selectedRepo) return null;
+    return `https://github.com/${selectedRepo.owner}/${selectedRepo.repo}/security/policy`;
+  }, [
+    activeTemplate.htmlUrl,
+    isContactTemplate,
+    isSecurityTemplate,
+    selectedRepo,
+  ]);
 
   const assigneesQuery = useQuery(
     githubRepoAssigneesQueryOptions(
@@ -175,6 +216,8 @@ export function TaskGithubCreateIssueDialog({
     } satisfies CreateIssueFormValues,
     onSubmit: async ({ value }) => {
       if (!selectedRepo) return;
+      // Security / contact links are not issue create paths.
+      if (activeTemplate.kind === "security" || activeTemplate.kind === "contact") return;
       setSubmitting(true);
       setSubmitError(null);
       try {
@@ -318,7 +361,13 @@ export function TaskGithubCreateIssueDialog({
               <Select
                 value={templateId}
                 onValueChange={(v) => {
-                  if (v) setTemplateId(v);
+                  if (!v) return;
+                  setTemplateId(v);
+                  // contact_links are pure outbound links — open immediately (GitHub chooser behavior).
+                  const selected = parsed.templates.find((tpl) => tpl.id === v);
+                  if (selected?.kind === "contact" && selected.htmlUrl?.trim()) {
+                    window.open(selected.htmlUrl, "_blank", "noopener,noreferrer");
+                  }
                 }}
                 disabled={templatesQuery.isLoading}
               >
@@ -326,14 +375,30 @@ export function TaskGithubCreateIssueDialog({
                   <SelectValue placeholder={t("template.placeholder")} />
                 </SelectTrigger>
                 <SelectContent>
-                  {parsed.templates.map((tpl) => (
-                    <SelectItem key={tpl.id} value={tpl.id} className="text-sm">
-                      <span className="font-medium">{tpl.name}</span>
-                      {tpl.description ? (
-                        <span className="ml-1.5 text-muted-foreground">— {tpl.description}</span>
-                      ) : null}
-                    </SelectItem>
-                  ))}
+                  {parsed.templates.map((tpl) => {
+                    const name =
+                      tpl.kind === "blank"
+                        ? t("blank.name")
+                        : tpl.kind === "security"
+                          ? t("security.name")
+                          : tpl.name;
+                    const description =
+                      tpl.kind === "blank"
+                        ? parsed.config.blankIssuesEnabled
+                          ? t("blank.description")
+                          : t("blank.descriptionMaintainers")
+                        : tpl.kind === "security"
+                          ? t("security.description")
+                          : tpl.description;
+                    return (
+                      <SelectItem key={tpl.id} value={tpl.id} className="text-sm">
+                        <span className="font-medium">{name}</span>
+                        {description ? (
+                          <span className="ml-1.5 text-muted-foreground">— {description}</span>
+                        ) : null}
+                      </SelectItem>
+                    );
+                  })}
                 </SelectContent>
               </Select>
               {templatesQuery.isLoading ? (
@@ -344,104 +409,148 @@ export function TaskGithubCreateIssueDialog({
               ) : null}
             </div>
 
-            {/* Title — always required */}
-            <form.Field
-              name="title"
-              validators={{
-                onChange: ({ value }) =>
-                  !String(value ?? "").trim()
-                    ? requiredMessage(t("fields.title"), (p) => t("errors.required", p))
-                    : undefined,
-                onSubmit: ({ value }) =>
-                  !String(value ?? "").trim()
-                    ? requiredMessage(t("fields.title"), (p) => t("errors.required", p))
-                    : undefined,
-              }}
-            >
-              {(field) => (
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-medium" htmlFor={field.name}>
-                    {t("fields.title")}
-                    <span className="text-destructive"> *</span>
-                  </Label>
-                  <Input
-                    id={field.name}
-                    value={field.state.value}
-                    onBlur={field.handleBlur}
-                    onChange={(e) => field.handleChange(e.target.value)}
-                    placeholder={t("fields.titlePlaceholder")}
-                    className={cn(
-                      "h-9 text-sm",
-                      field.state.meta.errors.length > 0 && "border-destructive/60",
-                    )}
-                    autoFocus
-                  />
-                  {field.state.meta.errors[0] ? (
-                    <p className="text-[11px] text-destructive">{String(field.state.meta.errors[0])}</p>
+            {isSecurityTemplate ? (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <Label className="text-xs font-medium">{t("security.previewLabel")}</Label>
+                  {activeTemplate.filename ? (
+                    <span className="truncate text-[11px] text-muted-foreground">
+                      {activeTemplate.filename}
+                    </span>
                   ) : null}
                 </div>
-              )}
-            </form.Field>
+                <div className="max-h-[min(52vh,560px)] overflow-y-auto rounded-md border border-border/60 bg-muted/15 px-3 py-3">
+                  <MarkdownRenderer className="prose prose-sm dark:prose-invert max-w-none text-[13px] leading-relaxed">
+                    {activeTemplate.bodyMarkdown?.trim() || t("security.empty")}
+                  </MarkdownRenderer>
+                </div>
+              </div>
+            ) : isContactTemplate ? (
+              <div className="space-y-3 rounded-md border border-border/60 bg-muted/15 px-4 py-4">
+                <div className="space-y-1">
+                  <p className="text-sm font-medium text-foreground">{activeTemplate.name}</p>
+                  {activeTemplate.description ? (
+                    <p className="text-xs leading-relaxed text-muted-foreground">
+                      {activeTemplate.description}
+                    </p>
+                  ) : null}
+                </div>
+                {externalLinkUrl ? (
+                  <a
+                    href={externalLinkUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex max-w-full break-all text-xs text-primary underline-offset-2 hover:underline"
+                  >
+                    {externalLinkUrl}
+                  </a>
+                ) : null}
+                <p className="text-[11px] text-muted-foreground">{t("contact.hint")}</p>
+              </div>
+            ) : (
+              <>
+                {/* Title — always required for real issue creates */}
+                <form.Field
+                  name="title"
+                  validators={{
+                    onChange: ({ value }) =>
+                      !String(value ?? "").trim()
+                        ? requiredMessage(t("fields.title"), (p) => t("errors.required", p))
+                        : undefined,
+                    onSubmit: ({ value }) =>
+                      !String(value ?? "").trim()
+                        ? requiredMessage(t("fields.title"), (p) => t("errors.required", p))
+                        : undefined,
+                  }}
+                >
+                  {(field) => (
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-medium" htmlFor={field.name}>
+                        {t("fields.title")}
+                        <span className="text-destructive"> *</span>
+                      </Label>
+                      <Input
+                        id={field.name}
+                        value={field.state.value}
+                        onBlur={field.handleBlur}
+                        onChange={(e) => field.handleChange(e.target.value)}
+                        placeholder={t("fields.titlePlaceholder")}
+                        className={cn(
+                          "h-9 text-sm",
+                          field.state.meta.errors.length > 0 && "border-destructive/60",
+                        )}
+                        autoFocus
+                      />
+                      {field.state.meta.errors[0] ? (
+                        <p className="text-[11px] text-destructive">
+                          {String(field.state.meta.errors[0])}
+                        </p>
+                      ) : null}
+                    </div>
+                  )}
+                </form.Field>
 
-            {/* Blank / Markdown: single description field */}
-            {(activeTemplate.kind === "blank" || activeTemplate.kind === "markdown") && (
-              <form.Field name="fields.description">
-                {(field) => (
-                  <div className="space-y-1.5">
-                    <Label className="text-xs font-medium">{t("fields.description")}</Label>
-                    <GithubMarkdownField
-                      value={String(field.state.value ?? "")}
-                      onChange={(v) => field.handleChange(v)}
-                      onBlur={field.handleBlur}
-                      placeholder={t("fields.descriptionPlaceholder")}
-                      aria-label={t("fields.description")}
-                    />
-                  </div>
+                {/* Blank / Markdown: single description field */}
+                {(activeTemplate.kind === "blank" || activeTemplate.kind === "markdown") && (
+                  <form.Field name="fields.description">
+                    {(field) => (
+                      <div className="space-y-1.5">
+                        <Label className="text-xs font-medium">{t("fields.description")}</Label>
+                        <GithubMarkdownField
+                          value={String(field.state.value ?? "")}
+                          onChange={(v) => field.handleChange(v)}
+                          onBlur={field.handleBlur}
+                          placeholder={t("fields.descriptionPlaceholder")}
+                          aria-label={t("fields.description")}
+                        />
+                      </div>
+                    )}
+                  </form.Field>
                 )}
-              </form.Field>
+
+                {/* YAML issue form fields */}
+                {activeTemplate.kind === "form"
+                  ? formFields.map((templateField) => (
+                      <TemplateFormField
+                        key={templateField.id}
+                        field={templateField}
+                        form={form}
+                        tRequired={(p) => t("errors.required", p)}
+                      />
+                    ))
+                  : null}
+
+                {/* Assignees */}
+                <form.Field name="assignees">
+                  {(field) => (
+                    <MultiToggleGroup
+                      label={t("fields.assignees")}
+                      options={assigneeOptions.map((login) => ({ value: login, label: login }))}
+                      value={(field.state.value as string[]) ?? []}
+                      onChange={(next) => field.handleChange(next)}
+                      emptyLabel={t("fields.noAssignees")}
+                    />
+                  )}
+                </form.Field>
+
+                {/* Labels */}
+                <form.Field name="labels">
+                  {(field) => (
+                    <MultiToggleGroup
+                      label={t("fields.labels")}
+                      options={labelOptions.map((l) => ({
+                        value: l.name,
+                        label: l.name,
+                        color: l.color,
+                      }))}
+                      value={(field.state.value as string[]) ?? []}
+                      onChange={(next) => field.handleChange(next)}
+                      emptyLabel={t("fields.noLabels")}
+                    />
+                  )}
+                </form.Field>
+              </>
             )}
-
-            {/* YAML issue form fields */}
-            {activeTemplate.kind === "form"
-              ? formFields.map((templateField) => (
-                  <TemplateFormField
-                    key={templateField.id}
-                    field={templateField}
-                    form={form}
-                    tRequired={(p) => t("errors.required", p)}
-                  />
-                ))
-              : null}
-
-            {/* Assignees */}
-            <form.Field name="assignees">
-              {(field) => (
-                <MultiToggleGroup
-                  label={t("fields.assignees")}
-                  options={assigneeOptions.map((login) => ({ value: login, label: login }))}
-                  value={(field.state.value as string[]) ?? []}
-                  onChange={(next) => field.handleChange(next)}
-                  emptyLabel={t("fields.noAssignees")}
-                />
-              )}
-            </form.Field>
-
-            {/* Labels */}
-            <form.Field name="labels">
-              {(field) => (
-                <MultiToggleGroup
-                  label={t("fields.labels")}
-                  options={labelOptions.map((l) => ({
-                    value: l.name,
-                    label: l.name,
-                    color: l.color,
-                  }))}
-                  value={(field.state.value as string[]) ?? []}
-                  onChange={(next) => field.handleChange(next)}
-                  emptyLabel={t("fields.noLabels")}
-                />
-              )}
-            </form.Field>
 
             {submitError ? (
               <p className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
@@ -468,21 +577,36 @@ export function TaskGithubCreateIssueDialog({
             <Button type="button" variant="outline" size="sm" onClick={() => onOpenChange(false)}>
               {t("actions.cancel")}
             </Button>
-            <form.Subscribe selector={(s) => [s.canSubmit, s.isSubmitting] as const}>
-              {([canSubmit, isSubmitting]) => (
+            {isExternalTemplate ? (
+              externalLinkUrl ? (
                 <Button
-                  type="submit"
+                  type="button"
                   size="sm"
-                  disabled={!canSubmit || isSubmitting || submitting || !selectedRepo}
+                  asChild
                   className="bg-emerald-600 text-white hover:bg-emerald-700"
                 >
-                  {submitting || isSubmitting ? (
-                    <Loader2 className="mr-1.5 size-3.5 animate-spin" />
-                  ) : null}
-                  {t("actions.create")}
+                  <a href={externalLinkUrl} target="_blank" rel="noopener noreferrer">
+                    {isContactTemplate ? t("contact.openLink") : t("security.openOnGithub")}
+                  </a>
                 </Button>
-              )}
-            </form.Subscribe>
+              ) : null
+            ) : (
+              <form.Subscribe selector={(s) => [s.canSubmit, s.isSubmitting] as const}>
+                {([canSubmit, isSubmitting]) => (
+                  <Button
+                    type="submit"
+                    size="sm"
+                    disabled={!canSubmit || isSubmitting || submitting || !selectedRepo}
+                    className="bg-emerald-600 text-white hover:bg-emerald-700"
+                  >
+                    {submitting || isSubmitting ? (
+                      <Loader2 className="mr-1.5 size-3.5 animate-spin" />
+                    ) : null}
+                    {t("actions.create")}
+                  </Button>
+                )}
+              </form.Subscribe>
+            )}
           </DialogFooter>
         </form>
       </DialogContent>

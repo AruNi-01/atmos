@@ -141,8 +141,17 @@ export type GithubIssueTemplateFilePayload = {
   content: string;
 };
 
+/** Repo security policy (`SECURITY.md`) for the create-issue chooser. */
+export type GithubSecurityPolicyPayload = {
+  path: string;
+  content: string;
+  html_url?: string | null;
+};
+
 export type GithubIssueTemplatesPayload = {
   files: GithubIssueTemplateFilePayload[];
+  /** Present when the repo has a published security policy. */
+  security_policy?: GithubSecurityPolicyPayload | null;
 };
 
 export type GithubIssueCreatePayload = {

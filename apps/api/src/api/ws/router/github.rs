@@ -18,8 +18,8 @@ use super::{
     GithubPrOpenBrowserRequest, GithubPrPayload, GithubPrReadyRequest, GithubPrReopenRequest,
     GithubPrTimelinePageRequest, GithubPrUpdateAssigneesRequest, GithubPrUpdateLabelsRequest,
     GithubPrUpdateLinkedIssuesRequest, GithubRepoAssigneesRequest, GithubRepoLabelsRequest,
-    GithubSearchItemPayload, GithubSearchPagePayload, GithubSearchRequest, GithubUserCardRequest,
-    WsEvent, WsMessage, WsMessageService,
+    GithubSearchItemPayload, GithubSearchPagePayload, GithubSearchRequest,
+    GithubSecurityPolicyPayload, GithubUserCardRequest, WsEvent, WsMessage, WsMessageService,
 };
 
 impl WsMessageService {
@@ -171,6 +171,7 @@ impl WsMessageService {
     }
 
     /// List `.github/ISSUE_TEMPLATE/*` files (raw contents) for the create-issue UI.
+    /// Also resolves `SECURITY.md` (root / `.github` / `docs`) when present.
     pub(super) async fn handle_github_issue_templates(
         &self,
         req: GithubIssueTemplatesRequest,
@@ -187,9 +188,13 @@ impl WsMessageService {
             Ok(value) => value,
             Err(error) => {
                 let message = error.to_string();
-                // Missing template folder → empty chooser (still allow blank issue).
+                // Missing template folder → still return security policy if any.
                 if message.contains("404") || message.contains("Not Found") {
-                    return Ok(json!(GithubIssueTemplatesPayload { files: vec![] }));
+                    let security_policy = self.fetch_github_security_policy(owner, repo).await;
+                    return Ok(json!(GithubIssueTemplatesPayload {
+                        files: vec![],
+                        security_policy,
+                    }));
                 }
                 return Err(ServiceError::Validation(format!(
                     "Failed to list issue templates: {error}"
@@ -242,7 +247,66 @@ impl WsMessageService {
         }
 
         files.sort_by(|a, b| a.name.cmp(&b.name));
-        Ok(json!(GithubIssueTemplatesPayload { files }))
+        let security_policy = self.fetch_github_security_policy(owner, repo).await;
+        Ok(json!(GithubIssueTemplatesPayload {
+            files,
+            security_policy,
+        }))
+    }
+
+    /// GitHub looks for SECURITY.md at repo root, `.github/`, or `docs/` (case-insensitive match via API path).
+    async fn fetch_github_security_policy(
+        &self,
+        owner: &str,
+        repo: &str,
+    ) -> Option<GithubSecurityPolicyPayload> {
+        // Order matches GitHub's documented discovery paths for security policies.
+        const CANDIDATES: &[&str] = &[
+            "SECURITY.md",
+            ".github/SECURITY.md",
+            "docs/SECURITY.md",
+            "security.md",
+            ".github/security.md",
+            "docs/security.md",
+        ];
+        for rel in CANDIDATES {
+            let api_path = format!("repos/{owner}/{repo}/contents/{rel}");
+            let file_json = match self.github_engine.run_gh(&["api", &api_path]).await {
+                Ok(value) => value,
+                Err(_) => continue,
+            };
+            let entry_type = file_json
+                .get("type")
+                .and_then(|v| v.as_str())
+                .unwrap_or("file");
+            if entry_type != "file" {
+                continue;
+            }
+            let content = file_json
+                .get("content")
+                .and_then(|v| v.as_str())
+                .map(decode_github_content_base64)
+                .unwrap_or_default();
+            if content.trim().is_empty() {
+                continue;
+            }
+            let path = file_json
+                .get("path")
+                .and_then(|v| v.as_str())
+                .unwrap_or(rel)
+                .to_string();
+            let html_url = file_json
+                .get("html_url")
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string())
+                .or_else(|| Some(format!("https://github.com/{owner}/{repo}/security/policy")));
+            return Some(GithubSecurityPolicyPayload {
+                path,
+                content,
+                html_url,
+            });
+        }
+        None
     }
 
     pub(super) async fn handle_github_issue_create(
