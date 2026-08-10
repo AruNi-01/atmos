@@ -121,4 +121,4 @@ Tasks 功能切分出 lib/hook/drawer 子目录方向正确，但同日新增多
 
 - 修复分支：`grokbuild/quality-fix/2026-08-10`
 - 修复提交：`03ab7795e`
-- PR URL：见创建后回填
+- PR URL：https://github.com/AruNi-01/atmos/pull/213
