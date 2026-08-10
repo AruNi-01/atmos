@@ -1,0 +1,274 @@
+.github/workflows/deploy-web-app-pages.yml
+  h_5be255725524c8 44-46
+.github/workflows/release-desktop-electron.yml
+  h_5be255725524c8 361-362
+.github/workflows/release-desktop.yml
+  h_5be255725524c8 333-334,383-384
+.github/workflows/release-local-runtime.yml
+  h_5be255725524c8 269-270
+.gitignore
+  h_5be255725524c8 43-49
+AGENTS.md
+  h_5be255725524c8 195
+agents/references/mobile/dev-setup.md
+  h_5be255725524c8 340
+agents/references/runtime/AGENTS.md
+  h_5be255725524c8 29
+apps/api/.env.example
+  h_5be255725524c8 17-23
+apps/api/src/api/system/computer.rs
+  h_5be255725524c8 186,197-198,204,209-210,222-223,235-237,240-241,266-267,269,276,280-292,320-321,326,341,355-357,380-381,383,393,409,413,442
+apps/api/src/api/ws/message.rs
+  h_5be255725524c8 21,32,580-603
+apps/api/src/api/ws/message/linear.rs
+  h_5be255725524c8 1-158
+apps/api/src/api/ws/router/linear.rs
+  h_5be255725524c8 1-222
+apps/api/src/api/ws/router/mod.rs
+  h_5be255725524c8 14,45-46,49,72,92,122,805-849
+apps/api/src/main.rs
+  h_5be255725524c8 473
+apps/api/src/relay/relay_client.rs
+  h_5be255725524c8 15,29-30,32,49,53,58,70,77-83,85,109,122
+apps/mobile/AGENTS.md
+  h_5be255725524c8 55,91,104
+apps/mobile/src/api/relay-client.ts
+  h_5be255725524c8 19,25-28,35,38,43,45,50,55,61,64,69,74
+apps/mobile/src/features/computers/ComputerConnectScreen.tsx
+  h_5be255725524c8 45,71,74
+apps/mobile/src/features/onboarding/OnboardingScreen.tsx
+  h_5be255725524c8 15,24-26,53,64,84,102-103,138,148-150,154-155,165-169,201-202,236
+apps/mobile/src/features/settings/SettingsScreen.tsx
+  h_5be255725524c8 44,108,117,123,130,135
+apps/mobile/src/features/settings/access-token-settings.test.ts
+  h_5be255725524c8 5-6,9,14,18
+apps/mobile/src/features/settings/access-token-settings.ts
+  h_5be255725524c8 1,17,20-21
+apps/mobile/src/features/settings/use-mobile-settings-controller.ts
+  h_5be255725524c8 10,87,101,128,146,148,158-161,163-166,169,172-174,176-179,209,216
+apps/mobile/src/features/workspaces/WorkspaceListScreen.tsx
+  h_5be255725524c8 74,304
+apps/mobile/src/lib/access-token-format.ts
+  h_5be255725524c8 1-2,5-9
+apps/mobile/src/lib/access-token.ts
+  h_5be255725524c8 1-4,6,8-10,13-19,23-28,31-32,35-38,40-41
+apps/web/.env.example
+  h_5be255725524c8 10-13,21-27
+apps/web/AGENTS.md
+  h_5be255725524c8 73
+apps/web/messages/en.json
+  h_5be255725524c8 1166-1167,1332-1357,2293-2296,4410-4413,4839,4842,4845,4848,5890-5925,6121-6142,8455-8456,8460-8461,8463-8464,8467-8469,8473-8474,8478-8480,8484-8486
+apps/web/messages/zh.json
+  h_5be255725524c8 1166-1167,1332-1357,2293-2296,4410-4413,4839,4842,4845,4848,5890-5925,6121-6142,8455-8456,8460-8461,8463-8464,8467-8469,8473-8474,8478-8480,8484-8486
+apps/web/src/api/hub-auth-client.ts
+  h_5be255725524c8 1-57
+apps/web/src/api/hub-client.ts
+  h_5be255725524c8 1-168
+apps/web/src/api/ws-api.ts
+  h_5be255725524c8 812-822
+apps/web/src/api/ws/linear-api.ts
+  h_5be255725524c8 1-90
+apps/web/src/app-shell/sidebar/WorkspaceContent.tsx
+  h_5be255725524c8 732-748
+apps/web/src/app-shell/sidebar/WorkspaceKanbanCard.tsx
+  h_5be255725524c8 393-416
+apps/web/src/app-shell/sidebar/WorkspaceKanbanTypes.ts
+  h_5be255725524c8 52-62
+apps/web/src/app/integrations/linear/callback/page.tsx
+  h_5be255725524c8 1-85
+apps/web/src/features/atmos-computer/components/AtmosComputerSection.tsx
+  h_5be255725524c8 32-33,35,216,356-357,365,447,491-498,523-525,528,533-534,541,544,546-547,550,574,635,723,798-799,801,803-804,820
+apps/web/src/features/automations/lib/github-trigger-relay.ts
+  h_5be255725524c8 194
+apps/web/src/features/connection/lib/atmos-access-token.ts
+  h_5be255725524c8 2-4,19,40-46,57-61,63,69,81,114-116
+apps/web/src/features/connection/lib/atmos-computer-local.ts
+  h_5be255725524c8 288-294,298-299,306
+apps/web/src/features/connection/lib/atmos-computer-store.ts
+  h_5be255725524c8 2,4-5,37
+apps/web/src/features/connection/lib/fetch-register-token.ts
+  h_5be255725524c8 1,14
+apps/web/src/features/connection/lib/hosted-connection.ts
+  h_5be255725524c8 6-9,121,123,126,129,140,163
+apps/web/src/features/connection/lib/sync-computer-client-settings.ts
+  h_5be255725524c8 2-3,10,16-19,32-35,103,106,110,120,122-125,144,147,149-154,175-176,199-208,218-226,228
+apps/web/src/features/project/store/project-store-mappers.ts
+  h_5be255725524c8 74-84
+apps/web/src/features/settings/components/AccountSettingsSection.tsx
+  h_5be255725524c8 1-306
+apps/web/src/features/settings/components/IntegrationsSettingsSection.tsx
+  h_5be255725524c8 24-37,203-505,630-631
+apps/web/src/features/settings/components/SettingsModalSections.tsx
+  h_5be255725524c8 16,235-236
+apps/web/src/features/settings/components/settings-modal-data.ts
+  h_5be255725524c8 53,105-109,174,429-430,522
+apps/web/src/features/settings/components/settings-modal-sidebar.tsx
+  h_5be255725524c8 106-107
+apps/web/src/features/task/components/TaskLinearPanel.tsx
+  h_5be255725524c8 1-501
+apps/web/src/features/task/components/TaskManagementView.tsx
+  h_5be255725524c8 9,28,172,205-208,219-223
+apps/web/src/features/welcome/components/HostedWelcomeGate.tsx
+  h_5be255725524c8 47-48,377-387
+apps/web/src/features/welcome/components/WelcomePage.tsx
+  h_5be255725524c8 860-870
+apps/web/src/shared/lib/nuqs/searchParams.ts
+  h_5be255725524c8 116,137,245,269
+apps/web/src/shared/types/domain.ts
+  h_5be255725524c8 51-57
+bun.lock
+  h_5be255725524c8 27,321-338,503-504,665-682,691,693,695,697,699,701,773-774,803-806,1055,1151-1152,1165-1166,1629-1630,2019-2022,2057-2058,2305-2306,2357,2361-2364,2901-2902,2941-2942,3215,3241-3242,3665-3666,3707-3708,3915-3916,3941,4059,4061,4103-4104,4107-4108,4139-4140,4161-4166,4251-4252,4263-4264,4305-4306,4483-4484,4511-4554,4605-4606,4797-4848
+crates/core-engine/src/lib.rs
+  h_5be255725524c8 8,32-37
+crates/core-engine/src/linear/mod.rs
+  h_5be255725524c8 1-867
+crates/core-service/src/lib.rs
+  h_5be255725524c8 39-42
+crates/core-service/src/service/linear.rs
+  h_5be255725524c8 1-557
+crates/core-service/src/service/linear_credentials.rs
+  h_5be255725524c8 1-275
+crates/core-service/src/service/mod.rs
+  h_5be255725524c8 11-12
+crates/core-service/src/service/workspace.rs
+  h_5be255725524c8 15-17,28-29,63,78,86,107-135,137,147,152-153,167-171,549-552,554
+crates/core-service/src/service/workspace/management.rs
+  h_5be255725524c8 261,266-267,279,284-285
+crates/core-service/src/service/workspace_support.rs
+  h_5be255725524c8 4,38-46,55-57
+crates/infra/src/db/entities/mod.rs
+  h_5be255725524c8 20
+crates/infra/src/db/entities/workspace_external_issue.rs
+  h_5be255725524c8 1-45
+crates/infra/src/db/migration/m20260810_000036_create_workspace_external_issue.rs
+  h_5be255725524c8 1-151
+crates/infra/src/db/migration/mod.rs
+  h_5be255725524c8 42,84
+crates/infra/src/db/repo/mod.rs
+  h_5be255725524c8 9,19
+crates/infra/src/db/repo/workspace_external_issue_repo.rs
+  h_5be255725524c8 1-161
+crates/runtime-manager/src/computer_client_settings.rs
+  h_5be255725524c8 1-4,21-25,36-37,45,48-49,54-57,97-103,180-187
+e2e/tests/smoke/support/app-smoke.ts
+  h_5be255725524c8 117,159-161,163,165
+justfile
+  h_5be255725524c8 193-228,551
+packages/api-types/fixtures/actions.server.json
+  h_5be255725524c8 188-198
+packages/api-types/src/ws/actions.ts
+  h_5be255725524c8 190-200
+packages/api-types/src/ws/dto/linear.ts
+  h_5be255725524c8 1-79
+packages/api-types/src/ws/dto/workspace.ts
+  h_5be255725524c8 36-42
+packages/hub/.dev.vars.example
+  h_5be255725524c8 1-12
+packages/hub/AGENTS.md
+  h_5be255725524c8 1-25
+packages/hub/README.md
+  h_5be255725524c8 1-82
+packages/hub/docs/BETTER_AUTH_CHECKLIST.md
+  h_5be255725524c8 1-51
+packages/hub/drizzle.config.ts
+  h_5be255725524c8 1-26
+packages/hub/drizzle/0000_init.sql
+  h_5be255725524c8 1-111
+packages/hub/drizzle/meta/0000_snapshot.json
+  h_5be255725524c8 1-778
+packages/hub/drizzle/meta/_journal.json
+  h_5be255725524c8 1-13
+packages/hub/package.json
+  h_5be255725524c8 1-31
+packages/hub/src/auth.ts
+  h_5be255725524c8 1-146
+packages/hub/src/cors.ts
+  h_5be255725524c8 1-39
+packages/hub/src/db/client.ts
+  h_5be255725524c8 1-14
+packages/hub/src/db/schema.ts
+  h_5be255725524c8 1-187
+packages/hub/src/devices.ts
+  h_5be255725524c8 1-122
+packages/hub/src/env.ts
+  h_5be255725524c8 1-28
+packages/hub/src/index.ts
+  h_5be255725524c8 1-452
+packages/hub/src/integrations.ts
+  h_5be255725524c8 1-128
+packages/hub/src/public.ts
+  h_5be255725524c8 1-23
+packages/hub/src/redaction.ts
+  h_5be255725524c8 1-92
+packages/hub/src/relay-sync.ts
+  h_5be255725524c8 1-36
+packages/hub/src/usage-shares.ts
+  h_5be255725524c8 1-161
+packages/hub/test/redaction.test.ts
+  h_5be255725524c8 1-35
+packages/hub/tsconfig.json
+  h_5be255725524c8 1-7
+packages/hub/wrangler.toml
+  h_5be255725524c8 1-29
+packages/relay/AGENTS.md
+  h_5be255725524c8 29,36,41-42,45,47,57,70,78
+packages/relay/README.md
+  h_5be255725524c8 1,5,9-30,75,78,81,87,89,103-110,157,159,165-168,170,172,174,178-195,204,206,208-210,212
+packages/relay/migrations/0009_user_device_identity.sql
+  h_5be255725524c8 1-159
+packages/relay/src/delivery-state.ts
+  h_5be255725524c8 28,53,62,89,95-96
+packages/relay/src/event-dispatch.ts
+  h_5be255725524c8 6
+packages/relay/src/event-routes.ts
+  h_5be255725524c8 30-31,56,80,111,124,126,150,153,191,209,214,217,239,242,258,307,309,315,345,348,350,354,370,384,390,398,423,430,432,459,492,502-503,505,514,516-517,519,541,562,565,573,589,613,618,621-622,628,633,642,655,661,670,672,678,681
+packages/relay/src/github-webhook.ts
+  h_5be255725524c8 104
+packages/relay/src/http-gateway.ts
+  h_5be255725524c8 34,74-75,81,83
+packages/relay/src/index.ts
+  h_5be255725524c8 26-27,45,50-54,172-173,176,181,183-185,187-200,203,207-208,339-342,345-349,352-355,358-366,369-371,374-382,385-388,394,397-399,404,407,414,417,427,432,441,444,454,459,465,475-476,478,525,529,567,572,596,602,604,629,645,647,659,667,669,673,675,683,694,696,709,711,715,717,721-722,724-731,766-771,788-816,836
+packages/relay/test/computer-registration.test.ts
+  h_5be255725524c8 22-23
+packages/relay/test/event-routes.test.ts
+  h_5be255725524c8 27,312-313,317,330,333,338,359,376,458,467-468,477,485,490,494,534,542,551,562,582
+packages/relay/test/relay-secret.test.ts
+  h_5be255725524c8 40-44,58-59,61
+packages/relay/test/token-rotation.test.ts
+  h_5be255725524c8 7-8,12,17,25,40-42,46,49,52-83,89
+scripts/hub/put-cloud-secrets.sh
+  h_5be255725524c8 1-50
+scripts/relay/d1-maintenance.sql
+  h_5be255725524c8 20,30-34,57
+scripts/relay/put-cloud-secrets.sh
+  h_5be255725524c8 1-40
+specs/APP/APP-056_usage-share-and-accounts/BRAINSTORM.md
+  h_5be255725524c8 55-56
+specs/APP/APP-056_usage-share-and-accounts/PRD.md
+  h_5be255725524c8 40-51,61,111
+specs/APP/APP-056_usage-share-and-accounts/TECH.md
+  h_5be255725524c8 277-285,318,347-354,356-358,363-364,390-391,395-408,425-426,428,437,458-460,462-463,466-467,470-474,504,506,508-511,561-579,641-642,645-646,648-658,663-664
+specs/APP/APP-056_usage-share-and-accounts/TEST.md
+  h_5be255725524c8 7-10,14,28,31-33,35-37,43-72,86-90,214-215,217-218,269,271-275,283-315,319,321-326,345
+specs/APP/APP-057_linear-task-integration/BRAINSTORM.md
+  h_5be255725524c8 1-529
+specs/APP/APP-057_linear-task-integration/PRD.md
+  h_5be255725524c8 1-107
+specs/APP/APP-057_linear-task-integration/TECH.md
+  h_5be255725524c8 1-168
+specs/APP/APP-057_linear-task-integration/TEST.md
+  h_5be255725524c8 1-187
+specs/README.md
+  h_5be255725524c8 135-136
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "c845659869fbfadc25e026dbb6818399e4b8f466",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
