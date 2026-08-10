@@ -1,0 +1,14 @@
+AGENTS.md
+  h_5be255725524c8 25
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "1110818446fb8f08078fc698feb9ef771675ab58",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
