@@ -17,10 +17,12 @@ export type HubEnv = {
   RELAY_URL?: string;
 };
 
+/** Default browser origins when ALLOWED_ORIGINS is unset (local + product). */
+export const DEFAULT_ALLOWED_ORIGINS =
+  "http://localhost:3030,http://127.0.0.1:3030,http://localhost:30303,http://127.0.0.1:30303,http://localhost:3000,https://app.atmos.land,https://atmos.land,https://hub.atmos.land,http://localhost:8787";
+
 export function allowedOrigins(env: HubEnv): string[] {
-  const raw =
-    env.ALLOWED_ORIGINS ??
-    "http://localhost:3000,https://app.atmos.land,https://atmos.land";
+  const raw = env.ALLOWED_ORIGINS ?? DEFAULT_ALLOWED_ORIGINS;
   return raw
     .split(",")
     .map((s) => s.trim())

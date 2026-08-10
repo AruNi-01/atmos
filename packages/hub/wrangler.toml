@@ -22,7 +22,9 @@ database_id = "ad461a08-910b-4952-8ee7-055730a7afc7"
 migrations_dir = "drizzle"
 
 [vars]
-ALLOWED_ORIGINS = "http://localhost:3030,http://127.0.0.1:3030,http://localhost:3000,https://app.atmos.land,https://atmos.land"
+# Desktop local Server UI is served at http://127.0.0.1:30303 (not :3030 next dev).
+# Include hub origin so Better Auth can redirect to /v1/desktop-auth/complete after OAuth.
+ALLOWED_ORIGINS = "http://localhost:3030,http://127.0.0.1:3030,http://localhost:30303,http://127.0.0.1:30303,http://localhost:3000,https://app.atmos.land,https://atmos.land,https://hub.atmos.land,http://localhost:8787"
 
 [observability]
 enabled = true
