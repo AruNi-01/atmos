@@ -1250,7 +1250,19 @@
           },
           "blank": {
             "name": "Blank issue",
-            "description": "Create a new issue from scratch"
+            "description": "Create a new issue from scratch",
+            "descriptionMaintainers": "Create a new issue from scratch (maintainers)"
+          },
+          "security": {
+            "name": "Report a security vulnerability",
+            "description": "Please review our security policy for more details",
+            "previewLabel": "Security policy",
+            "empty": "No security policy content.",
+            "openOnGithub": "View on GitHub"
+          },
+          "contact": {
+            "hint": "This is an external contact link from the repository, not an issue form.",
+            "openLink": "Open link"
           },
           "fields": {
             "title": "Add a title",
@@ -4872,6 +4884,10 @@
             }
           },
           "desktopUse": {
+            "cli": {
+              "label": "Atmos CLI",
+              "description": "Install the CLI Desktop Use needs"
+            },
             "engine": {
               "label": "Control engine",
               "description": "Install, stop, or remove the Desktop Use control engine"
@@ -4948,24 +4964,24 @@
       },
       "cli": {
         "checkingTitle": "Checking Atmos CLI…",
-        "checkingDescription": "Querying the installed CLI and latest GitHub release.",
+        "checkingDescription": "Checking whether the Atmos CLI needs an update.",
         "notInstalledTitle": "Atmos CLI not installed",
-        "notInstalledDescription": "The local Atmos CLI was not found in ~/.atmos/bin.",
+        "notInstalledDescription": "Install the Atmos CLI to use Desktop Use and other local features.",
         "availableTitle": "Atmos CLI {version} is available",
-        "availableDescription": "Installed version: {current}. Click Install to update.",
+        "availableDescription": "Current version: {current}. Click Install to update.",
         "unknownVersion": "unknown",
         "upToDateTitle": "Atmos CLI is up to date",
-        "installedVersion": "Installed version: {current}.",
-        "noNewerRelease": "No newer CLI release was found.",
+        "installedVersion": "Current version: {current}.",
+        "noNewerRelease": "You’re on the latest version.",
         "checkFailedTitle": "CLI version check failed",
-        "checkFailedDescription": "Unable to check Atmos CLI version.",
+        "checkFailedDescription": "Unable to check for Atmos CLI updates.",
         "installingTitle": "Installing Atmos CLI…",
         "installingDescription": "Downloading and installing the latest version.",
-        "installSuccessTitle": "Atmos CLI installed successfully",
+        "installSuccessTitle": "Atmos CLI installed",
         "installSuccessVersion": "Updated to version {version}.",
-        "installSuccessDescription": "CLI has been updated to the latest version.",
+        "installSuccessDescription": "You’re on the latest version.",
         "installFailedTitle": "CLI installation failed",
-        "installFailedDescription": "Unable to install Atmos CLI."
+        "installFailedDescription": "Unable to install the Atmos CLI. Try again."
       }
     },
     "editorSection": {
@@ -5134,8 +5150,11 @@
       },
       "cli": {
         "title": "Atmos CLI",
-        "description": "Check for the latest CLI updates.",
+        "description": "Required for Desktop Use and other local desktop features. Install once, then keep it up to date.",
         "installUpdate": "Install Update",
+        "install": "Install CLI",
+        "notInstalled": "Not installed",
+        "versionLabel": "v{version}",
         "checkForUpdates": "Check for Updates"
       },
       "desktop": {
@@ -5904,6 +5923,10 @@
         "defaultName": "Atmos Desktop Use"
       },
       "groups": {
+        "cli": {
+          "title": "Atmos CLI",
+          "description": "Desktop Use needs the Atmos CLI before you can install the control engine."
+        },
         "engine": {
           "title": "Control engine",
           "description": "Install, update, stop, or remove the host engine used for capture and UI control."
@@ -5954,6 +5977,18 @@
           }
         }
       },
+      "cli": {
+        "statusTitle": "CLI",
+        "statusDescription": "Install once. Desktop Use, AppShot, and agent desktop control all depend on it.",
+        "notInstalled": "Not installed",
+        "installed": "Installed",
+        "updateRequired": "Update required",
+        "installHint": "Install the Atmos CLI to enable Desktop Use, AppShot capture, and agent desktop control.",
+        "updateHint": "This Desktop build needs Atmos CLI v{min} or newer (you have v{current}).",
+        "readyHint": "Atmos CLI meets this Desktop build’s requirement.",
+        "install": "Install CLI",
+        "update": "Update CLI"
+      },
       "actions": {
         "install": "Install",
         "update": "Update",
@@ -5971,7 +6006,7 @@
         "consequences": {
           "appshotHost": "AppShot dual-shift capture via the dedicated Desktop Use host identity",
           "agentControl": "Agent desktop control (screenshot, click, type) through the control engine",
-          "cli": "CLI: atmos desktop-use drive / capture commands that need the engine",
+          "cli": "CLI commands that need the engine (desktop capture and control)",
           "chrome": "Operation border and agent cursor overlays driven by the engine"
         },
         "note": "macOS Accessibility and Screen Recording grants for “Atmos Desktop Use” stay in System Settings until you remove them there. Reinstall will reuse the same host identity when possible.",
@@ -6007,7 +6042,9 @@
         "checkFailed": "Failed to check the control engine status.",
         "uninstallFailed": "Failed to uninstall the control engine.",
         "prefsFailed": "Failed to update preferences.",
-        "grantFailed": "Failed to open permission settings."
+        "grantFailed": "Failed to open permission settings.",
+        "cliInstallFailed": "Failed to install the Atmos CLI.",
+        "cliUpdateFailed": "Failed to update the Atmos CLI."
       },
       "title": "Desktop Use"
     },
@@ -9373,6 +9410,8 @@
       },
       "reason": {
         "webOnly": "Desktop Use is only available in Atmos Desktop.",
+        "cliNotInstalled": "The Atmos CLI is not installed yet.",
+        "cliUpdateRequired": "This Desktop build needs a newer Atmos CLI.",
         "engineNotInstalled": "The control engine is not installed yet.",
         "engineNotRunning": "The control engine is installed but not running.",
         "permissionAccessibility": "Accessibility permission is not granted for Atmos Desktop Use.",
@@ -9381,6 +9420,7 @@
         "unknown": "Could not verify Desktop Use status. Check Settings to install and grant permissions."
       },
       "needs": {
+        "cli": "Atmos CLI installed",
         "engine": "Control engine installed and running",
         "accessibility": "Accessibility allowed for Atmos Desktop Use",
         "screenRecording": "Screen Recording allowed for Atmos Desktop Use"

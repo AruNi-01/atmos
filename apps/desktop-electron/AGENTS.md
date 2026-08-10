@@ -66,6 +66,7 @@ Release notes: `releasenotes/Atmos Desktop <version>.md`.
 - Dev Dock branding: `scripts/prepare-dev-app.ts` → `.cache/dev-app/Atmos.app`
 - Packaging: `electron-builder.yml`; ad-hoc sign by default (`identity: "-"`)
 - macOS icons: `resources/icons/icon.icon` (Liquid Glass / macOS 26+ via Xcode `actool` ≥ 26) + legacy `icon.icns`; `bun run regen-legacy-icns` also refreshes Desktop Use host icns + web `notification-icon.png` so brand surfaces stay unified; CI uses `macos-26` / `macos-26-intel` runners
+- **CLI floor for CLI-backed features** (Desktop Use, etc.): package pin `desktop-use/cli-requirement.json` (`min_cli_version`); do not gate on channel latest. Details: [agents/references/cli-feature-versions.md](../../agents/references/cli-feature-versions.md)
 
 ## Never
 
@@ -73,3 +74,4 @@ Release notes: `releasenotes/Atmos Desktop <version>.md`.
 - Ship from `apps/desktop`
 - Enable `nodeIntegration` for product UI or browser guests
 - Fork AppShot/Server on-disk contracts
+- Bundle the Atmos CLI binary into the app; or use R2/GitHub “latest CLI” as a feature readiness gate (use package `min_cli_version` instead)

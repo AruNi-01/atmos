@@ -45,6 +45,19 @@ async function runAutoUpdate(): Promise<void> {
       return;
     }
 
+    if (status?.cli?.installed === false) {
+      mainLog(
+        "[desktop-use] auto-update: skip (Atmos CLI not installed)",
+      );
+      return;
+    }
+    if (status?.cli?.update_required === true) {
+      mainLog(
+        "[desktop-use] auto-update: skip (Atmos CLI below package min_cli_version)",
+      );
+      return;
+    }
+
     const installed = Boolean(status?.driver?.installed);
     const updateAvailable = Boolean(status?.update_available);
     const installedV =

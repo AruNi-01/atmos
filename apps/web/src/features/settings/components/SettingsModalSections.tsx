@@ -36,6 +36,7 @@ interface SettingsModalSectionsProps {
     current: string | null;
     latest: string | null;
     updateAvailable: boolean;
+    installed: boolean;
   } | null;
   isInstallingCli: boolean;
   isCheckingCliVersion: boolean;

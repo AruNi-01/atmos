@@ -114,27 +114,9 @@ export function layoutRuntimeBundle(rootDir, targetTriple, binExt = "") {
   rmSync(join(runtimeRoot, "bin", `Atmos Server${binExt}`), { force: true });
   copyFileSync(apiSrc, join(runtimeRoot, "bin", `Atmos Server${binExt}`));
 
-  // Bundle matching `atmos` CLI (Desktop Use runner; pin may still be overridden
-  // by App Resources desktop-use/engine-manifest.json via ATMOS_DESKTOP_USE_MANIFEST).
-  let atmosSrc = join(rootDir, `target/${targetTriple}/release/atmos${binExt}`);
-  if (!existsSync(atmosSrc)) {
-    atmosSrc = join(rootDir, `target/${targetTriple}/debug/atmos${binExt}`);
-  }
-  if (!existsSync(atmosSrc)) {
-    atmosSrc = join(rootDir, `target/release/atmos${binExt}`);
-  }
-  if (!existsSync(atmosSrc)) {
-    atmosSrc = join(rootDir, `target/debug/atmos${binExt}`);
-  }
-  if (existsSync(atmosSrc)) {
-    rmSync(join(runtimeRoot, "bin", `atmos${binExt}`), { force: true });
-    copyFileSync(atmosSrc, join(runtimeRoot, "bin", `atmos${binExt}`));
-    console.log(`✅ Bundled atmos CLI: ${atmosSrc}`);
-  } else {
-    console.warn(
-      `warning: atmos CLI not found (build: cargo build --release -p atmos). Desktop Use will fail in packaged builds.`,
-    );
-  }
+  // CLI is never bundled (ADR-005): sole install is ~/.atmos/bin/atmos via
+  // install scripts / API self-heal / Settings → About. Remove any stale copy.
+  rmSync(join(runtimeRoot, "bin", `atmos${binExt}`), { force: true });
 
   if (existsSync(webSrc)) {
     rmSync(join(runtimeRoot, "web"), { recursive: true, force: true });

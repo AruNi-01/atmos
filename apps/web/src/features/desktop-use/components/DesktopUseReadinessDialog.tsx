@@ -37,6 +37,10 @@ function reasonMessageKey(
   switch (reason) {
     case "web_only":
       return "reason.webOnly";
+    case "cli_not_installed":
+      return "reason.cliNotInstalled";
+    case "cli_update_required":
+      return "reason.cliUpdateRequired";
     case "engine_not_installed":
       return "reason.engineNotInstalled";
     case "engine_not_running":
@@ -72,6 +76,8 @@ function primaryCtaIcon(
       return Accessibility;
     case "permission_screen_recording":
       return MonitorPlay;
+    case "cli_not_installed":
+    case "cli_update_required":
     case "engine_not_installed":
     case "engine_not_running":
       return Package;
@@ -185,6 +191,7 @@ export function DesktopUseReadinessDialog() {
                 {t(reasonMessageKey(reason))}
               </p>
               <ul className="list-disc space-y-1.5 pl-5">
+                <li>{t("needs.cli")}</li>
                 <li>{t("needs.engine")}</li>
                 <li>{t("needs.accessibility")}</li>
                 <li>{t("needs.screenRecording")}</li>

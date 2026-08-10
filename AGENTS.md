@@ -33,6 +33,7 @@
 | **Package boundary map** (shared / types / client) | [packages/AGENTS.md](packages/AGENTS.md) |
 | **Terminal agent built-ins** (shared Rust/TS manifest) | [resources/terminal-agents/AGENTS.md](resources/terminal-agents/AGENTS.md) |
 | **CLI Tool** (atmos command) | [apps/cli/AGENTS.md](apps/cli/AGENTS.md) |
+| **CLI × feature versions** (min pin, install/upgrade gates) | [agents/references/cli-feature-versions.md](agents/references/cli-feature-versions.md) |
 | **Relay** (Cloudflare Worker) | [packages/relay/AGENTS.md](packages/relay/AGENTS.md) |
 | **Write/Edit Specs** (planning + optional logs) | [specs/AGENTS.md](specs/AGENTS.md) |
 | **E2E / Playwright** (cross-layer browser checks) | [e2e/AGENTS.md](e2e/AGENTS.md) |
@@ -173,6 +174,14 @@ Full conventions (zones, naming, the 4-file rule, optional spec logs, review che
 Guidelines for implementing keyboard shortcuts, global hotkeys, and overlay focus management.
 
 → **[Full reference](agents/references/keyboard-shortcuts.md)**
+
+---
+
+## 🧩 CLI × Feature Versions
+
+Features that depend on the **Atmos CLI** (e.g. Desktop Use) must **not** gate on “channel has a newer CLI”. Pin a **minimum CLI version in the host package**, probe install/version before use, and if missing or too old prompt **Install CLI / Update CLI** before the feature can run. Canonical install remains `~/.atmos/bin/atmos` (never bundle the CLI binary into Desktop).
+
+→ **[Full reference](agents/references/cli-feature-versions.md)**
 
 ---
 

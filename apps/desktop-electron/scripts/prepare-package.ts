@@ -8,6 +8,7 @@ import {
   cpSync,
   existsSync,
   mkdirSync,
+  readFileSync,
   rmSync,
   writeFileSync,
 } from "node:fs";
@@ -90,24 +91,61 @@ function main() {
     `[prepare-package] staged engine-manifest.json → ${manifestDestDir}`,
   );
 
-  // Ensure packaged runtime/bin/atmos exists (runner matching this build).
+  // CLI floor for this Desktop build: min Atmos CLI version Desktop Use expects.
+  // Binary is never bundled (ADR-005); only the version pin ships in the package.
+  const cliCargo = join(repoRoot, "apps/cli/Cargo.toml");
+  const cliCargoText = existsSync(cliCargo)
+    ? readFileSync(cliCargo, "utf8")
+    : "";
+  const cliVersionMatch = cliCargoText.match(
+    /^version\s*=\s*"([^"]+)"/m,
+  );
+  const minCliVersion =
+    cliVersionMatch?.[1]?.trim() ||
+    (() => {
+      const fallback = join(
+        repoRoot,
+        "crates/desktop-use/manifest/cli-requirement.json",
+      );
+      if (existsSync(fallback)) {
+        try {
+          const j = JSON.parse(readFileSync(fallback, "utf8")) as {
+            min_cli_version?: string;
+          };
+          return j.min_cli_version?.trim() || "";
+        } catch {
+          return "";
+        }
+      }
+      return "";
+    })();
+  if (!minCliVersion) {
+    throw new Error(
+      `[prepare-package] cannot determine min CLI version (apps/cli/Cargo.toml or cli-requirement.json)`,
+    );
+  }
+  const cliReq = {
+    schema_version: 1,
+    min_cli_version: minCliVersion,
+  };
+  writeFileSync(
+    join(manifestDestDir, "cli-requirement.json"),
+    `${JSON.stringify(cliReq, null, 2)}\n`,
+    "utf8",
+  );
+  console.log(
+    `[prepare-package] staged cli-requirement.json min_cli_version=${minCliVersion}`,
+  );
+
+  // CLI is never staged into the Desktop package (ADR-005). Sole install path
+  // is ~/.atmos/bin/atmos — managed by installers / API self-heal / Settings.
   const atmosName = process.platform === "win32" ? "atmos.exe" : "atmos";
   const runtimeAtmos = join(destRuntime, "bin", atmosName);
-  if (!existsSync(runtimeAtmos)) {
-    const candidates = [
-      join(repoRoot, "target/release", atmosName),
-      join(repoRoot, "target/debug", atmosName),
-    ];
-    const found = candidates.find((p) => existsSync(p));
-    if (found) {
-      mkdirSync(join(destRuntime, "bin"), { recursive: true });
-      cpSync(found, runtimeAtmos);
-      console.log(`[prepare-package] staged atmos CLI → ${runtimeAtmos}`);
-    } else {
-      console.warn(
-        `[prepare-package] atmos CLI missing (run: cargo build --release -p atmos)`,
-      );
-    }
+  if (existsSync(runtimeAtmos)) {
+    rmSync(runtimeAtmos, { force: true });
+    console.log(
+      `[prepare-package] removed staged atmos CLI (use ~/.atmos/bin only)`,
+    );
   }
 
   // Native dual-shift dylib (macOS CGEventTap on dedicated thread).

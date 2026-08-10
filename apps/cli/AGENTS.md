@@ -77,6 +77,7 @@ Token: `--api-token` → `ATMOS_API_TOKEN` → `ATMOS_LOCAL_TOKEN` → `client-s
 
 ## Related
 
+- [agents/references/cli-feature-versions.md](../../agents/references/cli-feature-versions.md) — CLI floor pins vs channel latest; feature install/upgrade gates
 - [crates/runtime-manager/AGENTS.md](../../crates/runtime-manager/AGENTS.md)
 - [apps/api/AGENTS.md](../api/AGENTS.md)
 - [apps/desktop/AGENTS.md](../desktop/AGENTS.md)

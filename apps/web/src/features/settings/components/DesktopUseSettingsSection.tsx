@@ -24,9 +24,12 @@ import {
   Shield,
   Square,
   Stethoscope,
+  Terminal,
   Trash2,
 } from "lucide-react";
+import { systemApi } from "@/api/rest-api";
 import { DesktopUsePermissionsPanel } from "@/features/settings/components/DesktopUsePermissionsPanel";
+// systemApi used only for install/update of the canonical CLI (not for version gate).
 import { DesktopUseEngineProgressBar } from "@/features/settings/components/DesktopUseEngineProgressBar";
 import {
   SettingsGroupCard,
@@ -49,6 +52,17 @@ type DesktopUsePrefs = {
   highlight_idle_ms: number;
 };
 
+type DesktopUseCliStatus = {
+  installed: boolean;
+  path?: string;
+  version?: string | null;
+  code?: string;
+  min_cli_version?: string | null;
+  meets_requirement?: boolean;
+  /** Below this Desktop package's min_cli_version — not "channel has newer CLI". */
+  update_required?: boolean;
+};
+
 type DesktopUseStatus = {
   product: string;
   data_dir: string;
@@ -60,6 +74,18 @@ type DesktopUseStatus = {
   installed_version?: string | null;
   update_available?: boolean;
   prefs?: DesktopUsePrefs;
+  cli?: DesktopUseCliStatus;
+};
+
+type CliGate = {
+  installed: boolean;
+  version: string | null;
+  /** Package min CLI version (this Desktop build). */
+  minVersion: string | null;
+  /** True only when installed but below package min — not R2 latest. */
+  updateRequired: boolean;
+  meetsRequirement: boolean;
+  path: string | null;
 };
 
 type DoctorLite = {
@@ -88,6 +114,7 @@ type RuntimeCheckResult = {
 export function DesktopUseSettingsSection() {
   const t = useTranslations("settings.desktopUse");
   const [status, setStatus] = useState<DesktopUseStatus | null>(null);
+  const [cliGate, setCliGate] = useState<CliGate | null>(null);
   const [loading, setLoading] = useState(true);
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -102,6 +129,7 @@ export function DesktopUseSettingsSection() {
   const [restartSuggested, setRestartSuggested] = useState(false);
 
   // Collapsible groups — defaults applied once after first status/doctor load.
+  const [cliOpen, setCliOpen] = useState(true);
   const [engineOpen, setEngineOpen] = useState(true);
   const [permissionsOpen, setPermissionsOpen] = useState(true);
   const [visibilityOpen, setVisibilityOpen] = useState(true);
@@ -185,38 +213,88 @@ export function DesktopUseSettingsSection() {
               highlight_idle_ms: 8000,
             },
           });
+          setCliGate(null);
           setRuntimeLabel(null);
           setRestartSuggested(false);
           if (!defaultsAppliedRef.current) {
             defaultsAppliedRef.current = true;
             // Not installed / not desktop → keep engine + permissions expanded.
+            setCliOpen(true);
             setEngineOpen(true);
             setPermissionsOpen(true);
           }
           return;
         }
+
+        // CLI gate: package min_cli_version only (not global release-channel latest).
+        // About still uses /api/system/cli-version-check for optional channel updates.
+        let nextCli: CliGate = {
+          installed: false,
+          version: null,
+          minVersion: null,
+          updateRequired: false,
+          meetsRequirement: false,
+          path: null,
+        };
+        try {
+          const probe = await desktopInvoke<DesktopUseCliStatus>("atmos_cli_probe");
+          nextCli = {
+            installed: Boolean(probe?.installed),
+            version: probe?.version ?? null,
+            minVersion: probe?.min_cli_version ?? null,
+            updateRequired: Boolean(probe?.update_required),
+            meetsRequirement: Boolean(probe?.meets_requirement),
+            path: probe?.path ?? null,
+          };
+        } catch {
+          /* leave default not-installed */
+        }
+        setCliGate(nextCli);
+
         const res = await desktopInvoke<DesktopUseStatus>("desktop_use_status");
         setStatus(res);
+        if (res?.cli) {
+          setCliGate({
+            installed: Boolean(res.cli.installed),
+            version: res.cli.version ?? null,
+            minVersion: res.cli.min_cli_version ?? nextCli.minVersion,
+            updateRequired: Boolean(res.cli.update_required),
+            meetsRequirement: Boolean(res.cli.meets_requirement),
+            path: res.cli.path ?? nextCli.path,
+          });
+        }
 
         // One-shot default collapse: installed engine ready → collapse;
         // all permissions granted → collapse. User can always re-expand.
         if (!defaultsAppliedRef.current) {
           defaultsAppliedRef.current = true;
+          const cliReady = Boolean(
+            (res?.cli?.meets_requirement ?? nextCli.meetsRequirement) ||
+              (nextCli.installed && !nextCli.updateRequired && nextCli.meetsRequirement),
+          );
+          const cliNeedsAttention =
+            !nextCli.installed ||
+            nextCli.updateRequired ||
+            Boolean(res?.cli && !res.cli.meets_requirement);
           const installed = Boolean(res?.driver?.installed);
-          const updateAvailable = Boolean(res?.update_available);
-          // Collapse when installed and no pending update (actions are secondary).
-          setEngineOpen(!(installed && !updateAvailable));
+          const engineUpdateAvailable = Boolean(res?.update_available);
+          // Expand CLI when missing or below package min.
+          setCliOpen(cliNeedsAttention);
+          // Collapse engine when ready and no engine update.
+          setEngineOpen(cliReady ? !(installed && !engineUpdateAvailable) : false);
 
           let allGranted = false;
-          try {
-            const doctor = await desktopInvoke<DoctorLite>("desktop_use_doctor");
-            allGranted =
-              Boolean(doctor?.engine_installed) &&
-              doctor?.accessibility === true &&
-              doctor?.screen_recording === true;
-            applyDoctorRuntime(doctor);
-          } catch {
-            allGranted = false;
+          if (cliReady) {
+            try {
+              const doctor = await desktopInvoke<DoctorLite>("desktop_use_doctor");
+              allGranted =
+                Boolean(doctor?.engine_installed) &&
+                doctor?.accessibility === true &&
+                doctor?.screen_recording === true;
+              applyDoctorRuntime(doctor);
+            } catch {
+              allGranted = false;
+            }
           }
           setPermissionsOpen(!allGranted);
         } else if (probeRuntime && res?.driver?.installed) {
@@ -236,6 +314,29 @@ export function DesktopUseSettingsSection() {
     },
     [applyDoctorRuntime, t],
   );
+
+  const installOrUpdateCli = async (isUpdate: boolean) => {
+    setBusyAction(isUpdate ? "cli_update" : "cli_install");
+    setError(null);
+    try {
+      await systemApi.installCli(true);
+      invalidateDesktopUseReadinessCache();
+      await load({ silent: true });
+      setPermissionsRefreshToken((n) => n + 1);
+      setCliOpen(false);
+      setEngineOpen(true);
+    } catch (e) {
+      setError(
+        e instanceof Error
+          ? e.message
+          : isUpdate
+            ? t("errors.cliUpdateFailed")
+            : t("errors.cliInstallFailed"),
+      );
+    } finally {
+      setBusyAction(null);
+    }
+  };
 
   const operationBorderEnabled =
     status?.prefs?.operation_border_enabled ?? true;
@@ -410,6 +511,9 @@ export function DesktopUseSettingsSection() {
     }
   };
 
+  const cliInstalled = Boolean(cliGate?.installed);
+  const cliUpdateRequired = Boolean(cliGate?.updateRequired);
+  const cliReady = Boolean(cliGate?.meetsRequirement);
   const installed = Boolean(status?.driver?.installed);
   const updateAvailable = Boolean(status?.update_available);
   const installedVersion =
@@ -430,9 +534,38 @@ export function DesktopUseSettingsSection() {
         ? 0
         : null;
   const needsRestart = restartSuggested;
+  /** Engine actions require a CLI that meets this package's min version. */
+  const engineActionsEnabled = desktop && cliReady;
+
+  const cliStatusLabel = (() => {
+    if (!desktop) return t("status.webOnly");
+    if (!cliInstalled) return t("cli.notInstalled");
+    if (cliUpdateRequired) {
+      const ver = cliGate?.version ? `v${cliGate.version}` : "";
+      return ver
+        ? `${t("cli.updateRequired")} · ${ver}`
+        : t("cli.updateRequired");
+    }
+    const ver = cliGate?.version ? `v${cliGate.version}` : "";
+    return ver ? `${t("cli.installed")} · ${ver}` : t("cli.installed");
+  })();
+
+  const cliGroupDescription = (() => {
+    if (!desktop) return t("desktopOnly");
+    if (!cliInstalled) return t("cli.installHint");
+    if (cliUpdateRequired) {
+      return t("cli.updateHint", {
+        current: cliGate?.version ?? "—",
+        min: cliGate?.minVersion ?? "—",
+      });
+    }
+    return t("cli.readyHint");
+  })();
 
   const engineStatusLabel = (() => {
     if (!desktop) return t("status.webOnly");
+    if (!cliInstalled) return t("cli.notInstalled");
+    if (cliUpdateRequired) return t("cli.updateRequired");
     if (!installed) {
       if (isDownloading && progressPct !== null) {
         return t("engine.downloadingPct", { progress: progressPct });
@@ -459,6 +592,13 @@ export function DesktopUseSettingsSection() {
 
   const engineGroupDescription = (() => {
     if (!desktop) return t("desktopOnly");
+    if (!cliInstalled) return t("cli.installHint");
+    if (cliUpdateRequired) {
+      return t("cli.updateHint", {
+        current: cliGate?.version ?? "—",
+        min: cliGate?.minVersion ?? "—",
+      });
+    }
     if (!installed) return t("engine.installHint");
     if (updateAvailable) {
       return t("engine.updateHint", {
@@ -499,6 +639,73 @@ export function DesktopUseSettingsSection() {
 
   return (
     <div className="space-y-4">
+      {/* 0. Atmos CLI — sole runner at ~/.atmos/bin/atmos (ADR-005) */}
+      <SettingsGroupCard
+        open={cliOpen}
+        onOpenChange={setCliOpen}
+        icon={Terminal}
+        title={t("groups.cli.title")}
+        description={cliGroupDescription}
+      >
+        <SettingsGroupRow
+          title={t("cli.statusTitle")}
+          description={t("cli.statusDescription")}
+          wide
+        >
+          {loading ? (
+            <Skeleton className="h-9 w-36" />
+          ) : !desktop ? (
+            <span className="text-sm text-muted-foreground">
+              {cliStatusLabel}
+            </span>
+          ) : !cliInstalled ? (
+            <div className="flex items-center gap-3">
+              <span className="text-sm text-muted-foreground">
+                {cliStatusLabel}
+              </span>
+              <Button
+                type="button"
+                size="sm"
+                disabled={busy}
+                onClick={() => void installOrUpdateCli(false)}
+                className="cursor-pointer"
+              >
+                {busyAction === "cli_install" ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <Download className="size-4" />
+                )}
+                {t("cli.install")}
+              </Button>
+            </div>
+          ) : cliUpdateRequired ? (
+            <div className="flex items-center gap-3">
+              <span className="text-sm text-muted-foreground">
+                {cliStatusLabel}
+              </span>
+              <Button
+                type="button"
+                size="sm"
+                disabled={busy}
+                onClick={() => void installOrUpdateCli(true)}
+                className="cursor-pointer"
+              >
+                {busyAction === "cli_update" ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <ArrowUpCircle className="size-4" />
+                )}
+                {t("cli.update")}
+              </Button>
+            </div>
+          ) : (
+            <span className="text-sm text-muted-foreground">
+              {cliStatusLabel}
+            </span>
+          )}
+        </SettingsGroupRow>
+      </SettingsGroupCard>
+
       {/* 1. Control engine — install / status / stop / uninstall */}
       <SettingsGroupCard
         open={engineOpen}
@@ -514,7 +721,7 @@ export function DesktopUseSettingsSection() {
         >
           {loading ? (
             <Skeleton className="h-9 w-36" />
-          ) : !desktop ? (
+          ) : !desktop || !cliReady ? (
             <span className="text-sm text-muted-foreground">
               {engineStatusLabel}
             </span>
@@ -524,7 +731,7 @@ export function DesktopUseSettingsSection() {
               <Button
                 type="button"
                 size="sm"
-                disabled={busy}
+                disabled={busy || !engineActionsEnabled}
                 onClick={() =>
                   void run(installed ? "update" : "install", async () => {
                     await desktopInvoke("desktop_use_driver_ensure", {
@@ -586,7 +793,7 @@ export function DesktopUseSettingsSection() {
           )}
         </SettingsGroupRow>
 
-        {installed && desktop && !isDownloading ? (
+        {installed && desktop && cliReady && !isDownloading ? (
           <SettingsGroupRow
             title={t("engine.runtimeTitle")}
             description={t("engine.runtimeDescription")}
@@ -744,7 +951,9 @@ export function DesktopUseSettingsSection() {
       >
         <DesktopUsePermissionsPanel
           onHeaderEndChange={setPermissionsHeaderEnd}
-          engineInstalledFromParent={desktop ? installed : null}
+          engineInstalledFromParent={
+            desktop && cliReady ? installed : desktop ? false : null
+          }
           doctorRefreshToken={permissionsRefreshToken}
         />
       </SettingsGroupCard>
@@ -770,7 +979,7 @@ export function DesktopUseSettingsSection() {
           ) : (
             <Switch
               checked={operationBorderEnabled}
-              disabled={borderBusy}
+              disabled={borderBusy || !cliReady}
               onCheckedChange={(checked) => void setOperationBorder(!!checked)}
               aria-label={t("border.title")}
             />

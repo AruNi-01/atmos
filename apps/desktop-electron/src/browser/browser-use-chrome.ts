@@ -6,6 +6,7 @@
 import { spawn } from "node:child_process";
 import {
   DESKTOP_USE_MANIFEST_ENV,
+  isAtmosCliInstalled,
   resolveAtmosCliPath,
   resolveDesktopUseManifestPath,
 } from "../desktop-use/client.js";
@@ -37,7 +38,7 @@ export function mapGuestRectToScreen(
 
 /**
  * Spawn detached without risking Electron main uncaughtException on ENOENT
- * (missing ATMOS_CLI / ~/.atmos/bin/atmos). Mirrors control-plane listen hardening.
+ * (missing ~/.atmos/bin/atmos). Mirrors control-plane listen hardening.
  */
 function spawnDetachedQuiet(command: string, args: string[]): void {
   try {
@@ -66,7 +67,7 @@ function spawnDetachedQuiet(command: string, args: string[]): void {
 /**
  * Fire-and-forget Desktop Use chrome (operation border + agent cursor).
  * Reuses `atmos desktop-use drive highlight|move` — same overlay stack as Desktop Use.
- * Never throws; missing CLI only logs a warning (does not crash main).
+ * Never throws; missing canonical CLI only logs a warning (does not crash main).
  */
 export function showEmbeddedBrowserChrome(opts: {
   status: string;
@@ -74,11 +75,13 @@ export function showEmbeddedBrowserChrome(opts: {
   bounds: { x: number; y: number; width: number; height: number };
   session?: string;
 }): void {
-  // Prefer App-bundled runner (same pin authority as Desktop Use client).
-  const atmos =
-    process.env.ATMOS_CLI?.trim() ||
-    process.env.ATMOS_CLI_PATH?.trim() ||
-    resolveAtmosCliPath();
+  // Sole runner: ~/.atmos/bin/atmos (ADR-005). Never App-bundled or PATH.
+  if (!isAtmosCliInstalled()) {
+    // Log only — never surface install paths in product UI.
+    console.warn("[browser-use] chrome skipped: Atmos CLI not installed");
+    return;
+  }
+  const atmos = resolveAtmosCliPath();
   const session = opts.session?.trim() || BROWSER_USE_CHROME_SESSION;
   const b = opts.bounds;
   const c = opts.cursor;

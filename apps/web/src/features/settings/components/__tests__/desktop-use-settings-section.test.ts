@@ -211,13 +211,35 @@ describe("Desktop Use settings wiring", () => {
     expect(section).toContain("permissionsRefreshToken");
     expect(section).toContain("setPermissionsRefreshToken");
     expect(section).toContain("doctorRefreshToken={permissionsRefreshToken}");
-    expect(section).toContain("engineInstalledFromParent={desktop ? installed : null}");
+    expect(section).toContain("engineInstalledFromParent");
+    expect(section).toContain("cliInstalled");
+    expect(section).toContain("systemApi.installCli");
+    expect(section).toContain("atmos_cli_probe");
     expect(panel).toContain("engineInstalledFromParent");
     expect(panel).toContain("doctorRefreshToken");
     // After install, open permissions group so rows are visible.
     expect(section).toMatch(
       /actionKey === "install"[\s\S]*setPermissionsOpen\(true\)/,
     );
+  });
+
+  it("gates Desktop Use on package min CLI version before engine install", () => {
+    const section = readFileSync(
+      join(
+        root,
+        "apps/web/src/features/settings/components/DesktopUseSettingsSection.tsx",
+      ),
+      "utf8",
+    );
+    expect(section).toContain('t("groups.cli.title")');
+    expect(section).toContain("installOrUpdateCli");
+    expect(section).toContain("atmos_cli_probe");
+    expect(section).toContain("update_required");
+    expect(section).toContain("min_cli_version");
+    // Gate is package floor, not R2 latest channel.
+    expect(section).not.toContain("checkCliVersion");
+    expect(section).not.toContain("Resources/bin/atmos");
+    expect(section).not.toContain("ATMOS_CLI_PATH");
   });
 
   it("permission primary path opens Settings Desktop Use", () => {

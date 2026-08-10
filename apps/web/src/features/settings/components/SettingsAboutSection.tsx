@@ -19,6 +19,7 @@ interface SettingsAboutSectionProps {
     current: string | null;
     latest: string | null;
     updateAvailable: boolean;
+    installed: boolean;
   } | null;
   isInstallingCli: boolean;
   isCheckingCliVersion: boolean;
@@ -82,34 +83,66 @@ export function SettingsAboutSection({
               {t("cli.description")}
             </p>
           </div>
-          <div className="flex items-center">
-            {cliVersionInfo?.updateAvailable ? (
-              <Button
-                onClick={onInstallCli}
-                disabled={isInstallingCli}
-                className="cursor-pointer"
-              >
-                {isInstallingCli ? (
-                  <LoaderCircle className="mr-2 size-4 animate-spin-reverse" />
-                ) : (
-                  <Download className="mr-2 size-4" />
-                )}
-                {t("cli.installUpdate")}
-              </Button>
+          <div className="flex flex-col items-start justify-center gap-2">
+            {cliVersionInfo?.installed === false ? (
+              <>
+                <p className="text-sm text-muted-foreground">
+                  {t("cli.notInstalled")}
+                </p>
+                <Button
+                  onClick={onInstallCli}
+                  disabled={isInstallingCli}
+                  className="cursor-pointer"
+                >
+                  {isInstallingCli ? (
+                    <LoaderCircle className="mr-2 size-4 animate-spin-reverse" />
+                  ) : (
+                    <Download className="mr-2 size-4" />
+                  )}
+                  {t("cli.install")}
+                </Button>
+              </>
+            ) : cliVersionInfo?.updateAvailable ? (
+              <>
+                {cliVersionInfo.current ? (
+                  <p className="text-sm text-muted-foreground">
+                    {t("cli.versionLabel", { version: cliVersionInfo.current })}
+                  </p>
+                ) : null}
+                <Button
+                  onClick={onInstallCli}
+                  disabled={isInstallingCli}
+                  className="cursor-pointer"
+                >
+                  {isInstallingCli ? (
+                    <LoaderCircle className="mr-2 size-4 animate-spin-reverse" />
+                  ) : (
+                    <Download className="mr-2 size-4" />
+                  )}
+                  {t("cli.installUpdate")}
+                </Button>
+              </>
             ) : (
-              <Button
-                variant="outline"
-                onClick={onCheckCliVersion}
-                disabled={isCheckingCliVersion}
-                className="cursor-pointer"
-              >
-                {isCheckingCliVersion ? (
-                  <LoaderCircle className="mr-2 size-4 animate-spin-reverse" />
-                ) : (
-                  <RotateCcw className="mr-2 size-4" />
-                )}
-                {t("cli.checkForUpdates")}
-              </Button>
+              <>
+                {cliVersionInfo?.current ? (
+                  <p className="text-sm text-muted-foreground">
+                    {t("cli.versionLabel", { version: cliVersionInfo.current })}
+                  </p>
+                ) : null}
+                <Button
+                  variant="outline"
+                  onClick={onCheckCliVersion}
+                  disabled={isCheckingCliVersion}
+                  className="cursor-pointer"
+                >
+                  {isCheckingCliVersion ? (
+                    <LoaderCircle className="mr-2 size-4 animate-spin-reverse" />
+                  ) : (
+                    <RotateCcw className="mr-2 size-4" />
+                  )}
+                  {t("cli.checkForUpdates")}
+                </Button>
+              </>
             )}
           </div>
         </div>

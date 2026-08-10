@@ -249,8 +249,9 @@ R2 流量主要来自:
 已按本 ADR 调整的实现边界:
 
 - `scripts/local-runtime/build-runtime.mjs`: runtime archive 不再包含 CLI。
-- `scripts/desktop/layout-runtime-bundle.mjs`: Desktop runtime bundle 不再包含 CLI。
-- `scripts/desktop/prepare-sidecar.sh`: 只构建 API sidecar。
+- `scripts/desktop/layout-runtime-bundle.mjs`: Desktop runtime bundle 不再包含 CLI（主动删除残留 `bin/atmos`）。
+- `scripts/desktop/prepare-sidecar.sh`: 只构建 API sidecar（不构建 CLI）。
+- `apps/desktop-electron`: Desktop Use / Browser Use 唯一 runner 为 `~/.atmos/bin/atmos`；缺 CLI 时 soft status + Settings 提示安装/更新。
 - `crates/runtime-manager/src/supervisor.rs`: runtime layout 不再需要 CLI path,启动 API 时不传 `ATMOS_CLI_BIN`。
 - `crates/infra/src/utils/atmos_cli.rs`: canonical CLI path 固定为 `~/.atmos/bin/atmos`。
 - `apps/api/src/api/system/cli.rs`: API 启动和 Settings CLI install 共用 R2-first CLI release 解析。

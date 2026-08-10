@@ -1250,7 +1250,19 @@
           },
           "blank": {
             "name": "空白 Issue",
-            "description": "从零开始创建 Issue"
+            "description": "从零开始创建 Issue",
+            "descriptionMaintainers": "从零开始创建 Issue（仅维护者）"
+          },
+          "security": {
+            "name": "报告安全漏洞",
+            "description": "请先查看本仓库的安全政策了解详情",
+            "previewLabel": "安全政策",
+            "empty": "暂无安全政策内容。",
+            "openOnGithub": "在 GitHub 上查看"
+          },
+          "contact": {
+            "hint": "这是仓库配置的外部联系方式，不是 Issue 表单。",
+            "openLink": "打开链接"
           },
           "fields": {
             "title": "标题",
@@ -4872,6 +4884,10 @@
             }
           },
           "desktopUse": {
+            "cli": {
+              "label": "Atmos CLI",
+              "description": "安装 Desktop Use 所需的 Atmos CLI"
+            },
             "engine": {
               "label": "控制引擎",
               "description": "安装、停止或移除 Desktop Use 控制引擎"
@@ -4948,24 +4964,24 @@
       },
       "cli": {
         "checkingTitle": "正在检查 Atmos CLI…",
-        "checkingDescription": "正在查询已安装的 CLI 和最新 GitHub Release。",
+        "checkingDescription": "正在检查 Atmos CLI 是否需要更新。",
         "notInstalledTitle": "Atmos CLI 未安装",
-        "notInstalledDescription": "在 ~/.atmos/bin 中未找到本地 Atmos CLI。",
+        "notInstalledDescription": "安装 Atmos CLI 后，即可使用 Desktop Use 等本机功能。",
         "availableTitle": "Atmos CLI {version} 可用",
-        "availableDescription": "当前安装版本：{current}。点击 Install 进行更新。",
+        "availableDescription": "当前版本：{current}。点击安装以更新。",
         "unknownVersion": "未知",
         "upToDateTitle": "Atmos CLI 已是最新",
-        "installedVersion": "当前安装版本：{current}。",
-        "noNewerRelease": "未发现更新的 CLI 版本。",
+        "installedVersion": "当前版本：{current}。",
+        "noNewerRelease": "已是最新版本。",
         "checkFailedTitle": "CLI 版本检查失败",
-        "checkFailedDescription": "无法检查 Atmos CLI 版本。",
+        "checkFailedDescription": "暂时无法检查 Atmos CLI 更新。",
         "installingTitle": "正在安装 Atmos CLI…",
         "installingDescription": "正在下载并安装最新版本。",
-        "installSuccessTitle": "Atmos CLI 安装成功",
+        "installSuccessTitle": "Atmos CLI 已安装",
         "installSuccessVersion": "已更新到版本 {version}。",
-        "installSuccessDescription": "CLI 已更新到最新版本。",
+        "installSuccessDescription": "已是最新版本。",
         "installFailedTitle": "CLI 安装失败",
-        "installFailedDescription": "无法安装 Atmos CLI。"
+        "installFailedDescription": "无法安装 Atmos CLI，请重试。"
       }
     },
     "editorSection": {
@@ -5134,8 +5150,11 @@
       },
       "cli": {
         "title": "Atmos CLI",
-        "description": "检查最新的 CLI 更新。",
+        "description": "Desktop Use 等本机功能需要 Atmos CLI。安装一次，之后保持更新即可。",
         "installUpdate": "安装更新",
+        "install": "安装 CLI",
+        "notInstalled": "未安装",
+        "versionLabel": "v{version}",
         "checkForUpdates": "检查更新"
       },
       "desktop": {
@@ -5904,6 +5923,10 @@
         "defaultName": "Atmos Desktop Use"
       },
       "groups": {
+        "cli": {
+          "title": "Atmos CLI",
+          "description": "使用 Desktop Use 前，需要先安装 Atmos CLI。"
+        },
         "engine": {
           "title": "控制引擎",
           "description": "安装、更新、停止或移除用于捕获与 UI 操控的 host 引擎。"
@@ -5954,6 +5977,18 @@
           }
         }
       },
+      "cli": {
+        "statusTitle": "CLI",
+        "statusDescription": "安装一次即可。Desktop Use、AppShot 与 Agent 桌面控制都依赖它。",
+        "notInstalled": "未安装",
+        "installed": "已安装",
+        "updateRequired": "需要更新",
+        "installHint": "请先安装 Atmos CLI，才能使用 Desktop Use、AppShot 捕获与 Agent 桌面控制。",
+        "updateHint": "此 Desktop 版本需要 Atmos CLI v{min} 或更高（当前为 v{current}）。",
+        "readyHint": "Atmos CLI 已满足此 Desktop 版本的要求。",
+        "install": "安装 CLI",
+        "update": "更新 CLI"
+      },
       "actions": {
         "install": "安装",
         "update": "更新",
@@ -5971,7 +6006,7 @@
         "consequences": {
           "appshotHost": "经 Desktop Use host 身份的 AppShot 双 Shift 捕获",
           "agentControl": "经控制引擎的 Agent 桌面操控（截图、点击、输入）",
-          "cli": "依赖引擎的 CLI：atmos desktop-use drive / capture 等命令",
+          "cli": "依赖引擎的 CLI 命令（桌面捕获与控制）",
           "chrome": "由引擎驱动的操作描边与 Agent 光标叠层"
         },
         "note": "系统设置里对「Atmos Desktop Use」的辅助功能 / 屏幕录制授权不会自动撤销；若需清除请到系统设置中手动移除。重新安装时会尽量复用同一 host 身份。",
@@ -6007,7 +6042,9 @@
         "checkFailed": "检查控制引擎状态失败。",
         "uninstallFailed": "卸载控制引擎失败。",
         "prefsFailed": "更新偏好设置失败。",
-        "grantFailed": "打开权限设置失败。"
+        "grantFailed": "打开权限设置失败。",
+        "cliInstallFailed": "安装 Atmos CLI 失败。",
+        "cliUpdateFailed": "更新 Atmos CLI 失败。"
       },
       "title": "Desktop Use"
     },
@@ -9374,6 +9411,8 @@
       },
       "reason": {
         "webOnly": "Desktop Use 仅在 Atmos 桌面端可用。",
+        "cliNotInstalled": "尚未安装 Atmos CLI。",
+        "cliUpdateRequired": "此 Desktop 版本需要更新的 Atmos CLI。",
         "engineNotInstalled": "控制引擎尚未安装。",
         "engineNotRunning": "控制引擎已安装但未运行。",
         "permissionAccessibility": "尚未为 Atmos Desktop Use 授予辅助功能权限。",
@@ -9382,6 +9421,7 @@
         "unknown": "无法确认 Desktop Use 状态。请到设置中安装引擎并检查权限。"
       },
       "needs": {
+        "cli": "已安装 Atmos CLI",
         "engine": "控制引擎已安装并运行",
         "accessibility": "已为 Atmos Desktop Use 开启辅助功能",
         "screenRecording": "已为 Atmos Desktop Use 开启屏幕录制"

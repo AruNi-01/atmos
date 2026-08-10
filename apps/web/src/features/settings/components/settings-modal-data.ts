@@ -439,6 +439,8 @@ const SETTINGS_SECTION_KEYWORDS: Record<SettingsSectionId, readonly string[]> = 
     "accessibility",
     "permissions",
     "control engine",
+    "cli",
+    "atmos cli",
     "appshot permissions",
     "screenshot",
     "click",
@@ -479,8 +481,8 @@ const SETTINGS_SECTION_KEYWORDS: Record<SettingsSectionId, readonly string[]> = 
     "updates",
     "desktop",
     "cli",
-    "runtime",
     "atmos cli",
+    "runtime",
     "check for updates",
     "install cli",
     "app version",
@@ -936,6 +938,14 @@ const SETTINGS_SETTING_ITEMS: Record<SettingsSectionId, readonly SettingsSearchI
     }),
   ],
   "desktop-use": [
+    settingsModalSearchItem("desktopUse.cli", {
+      keywords: [
+        "atmos cli",
+        "cli",
+        "install cli",
+        "update cli",
+      ],
+    }),
     settingsModalSearchItem("desktopUse.engine", {
       keywords: [
         "control engine",
@@ -1041,7 +1051,13 @@ const SETTINGS_SETTING_ITEMS: Record<SettingsSectionId, readonly SettingsSearchI
       keywords: ["app version", "desktop version"],
     }),
     settingsModalSearchItem("about.atmosCli", {
-      keywords: ["cli version", "install cli", "check cli version"],
+      keywords: [
+        "atmos cli",
+        "cli version",
+        "install cli",
+        "check cli version",
+        "cli",
+      ],
     }),
     settingsModalSearchItem("about.checkForUpdates", {
       keywords: ["desktop updates", "check update"],

@@ -139,6 +139,7 @@ export function gateDesktopUseFeature(
         {
           ready: false,
           reason: "unknown",
+          cliInstalled: false,
           engineInstalled: false,
           engineReady: false,
           accessibility: null,

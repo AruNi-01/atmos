@@ -9,6 +9,8 @@ import { desktopInvoke, isDesktopRuntime } from "@/shared/lib/desktop-bridge";
 
 export type DesktopUseReadinessReason =
   | "web_only"
+  | "cli_not_installed"
+  | "cli_update_required"
   | "engine_not_installed"
   | "engine_not_running"
   | "permission_accessibility"
@@ -19,6 +21,7 @@ export type DesktopUseReadinessReason =
 export type DesktopUseReadiness = {
   ready: boolean;
   reason: DesktopUseReadinessReason | null;
+  cliInstalled: boolean;
   engineInstalled: boolean;
   engineReady: boolean;
   accessibility: boolean | null;
@@ -32,9 +35,13 @@ type DoctorPayload = {
   engine_ready?: boolean;
   accessibility?: boolean | null;
   screen_recording?: boolean | null;
+  cli_installed?: boolean;
+  cli_meets_requirement?: boolean;
+  notes?: string[];
 };
 
-const CACHE_KEY = "atmos:v1:desktop-use:readiness";
+/** Bumped when readiness shape changes (e.g. cliInstalled). */
+const CACHE_KEY = "atmos:v2:desktop-use:readiness";
 /** Positive (ready) cache TTL. */
 const READY_TTL_MS = 5 * 60 * 1000;
 /** Negative cache TTL — short so fixing permissions is picked up quickly. */
@@ -88,6 +95,13 @@ function derive(
   checkedAt: number,
   fromCache: boolean,
 ): DesktopUseReadiness {
+  const notes = Array.isArray(doctor.notes) ? doctor.notes : [];
+  const cliInstalled =
+    doctor.cli_installed !== false && !notes.includes("cli_not_installed");
+  const cliMeetsRequirement =
+    cliInstalled &&
+    doctor.cli_meets_requirement !== false &&
+    !notes.includes("cli_update_required");
   const engineInstalled = Boolean(doctor.engine_installed);
   const engineReady = Boolean(doctor.engine_ready);
   const accessibility =
@@ -98,7 +112,11 @@ function derive(
       : null;
 
   let reason: DesktopUseReadinessReason | null = null;
-  if (!engineInstalled) {
+  if (!cliInstalled) {
+    reason = "cli_not_installed";
+  } else if (!cliMeetsRequirement) {
+    reason = "cli_update_required";
+  } else if (!engineInstalled) {
     reason = "engine_not_installed";
   } else if (!engineReady) {
     reason = "engine_not_running";
@@ -117,6 +135,7 @@ function derive(
   return {
     ready,
     reason,
+    cliInstalled,
     engineInstalled,
     engineReady,
     accessibility,
@@ -161,6 +180,7 @@ export async function fetchDesktopUseReadiness(opts?: {
     return {
       ready: false,
       reason: "web_only",
+      cliInstalled: false,
       engineInstalled: false,
       engineReady: false,
       accessibility: null,
@@ -183,6 +203,51 @@ export async function fetchDesktopUseReadiness(opts?: {
 
   inflight = (async () => {
     try {
+      // Canonical CLI first (ADR-005) — doctor needs ~/.atmos/bin/atmos.
+      try {
+        const probe = await desktopInvoke<{
+          installed?: boolean;
+          meets_requirement?: boolean;
+          update_required?: boolean;
+        }>("atmos_cli_probe");
+        if (probe && probe.installed === false) {
+          const blocked: DesktopUseReadiness = {
+            ready: false,
+            reason: "cli_not_installed",
+            cliInstalled: false,
+            engineInstalled: false,
+            engineReady: false,
+            accessibility: null,
+            screenRecording: null,
+            checkedAt: now(),
+            fromCache: false,
+          };
+          writeStorage(toCacheRecord(blocked));
+          return blocked;
+        }
+        if (
+          probe &&
+          probe.installed === true &&
+          (probe.update_required === true || probe.meets_requirement === false)
+        ) {
+          const blocked: DesktopUseReadiness = {
+            ready: false,
+            reason: "cli_update_required",
+            cliInstalled: true,
+            engineInstalled: false,
+            engineReady: false,
+            accessibility: null,
+            screenRecording: null,
+            checkedAt: now(),
+            fromCache: false,
+          };
+          writeStorage(toCacheRecord(blocked));
+          return blocked;
+        }
+      } catch {
+        /* probe optional; doctor soft-status may still report cli_* codes */
+      }
+
       const doctor = await desktopInvoke<DoctorPayload>("desktop_use_doctor");
       const result = derive(doctor ?? {}, now(), false);
       writeStorage(toCacheRecord(result));
@@ -192,6 +257,8 @@ export async function fetchDesktopUseReadiness(opts?: {
         {
           engine_installed: false,
           engine_ready: false,
+          cli_installed: false,
+          notes: ["cli_not_installed"],
         },
         now(),
         false,

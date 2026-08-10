@@ -14,8 +14,8 @@
 |--------|----------|
 | Source | **Pin official `cua-driver-rs-v*` release artifacts** (not monorepo compile-in-tree as default) |
 | Pin | `0.19.2` / tag `cua-driver-rs-v0.19.2` in `crates/desktop-use/manifest/default.json` |
-| Pin authority (Desktop) | **App Resources** `desktop-use/engine-manifest.json` via `ATMOS_DESKTOP_USE_MANIFEST` (same Desktop build as runner). Bare CLI falls back to embedded manifest. |
-| Runner (Desktop) | Packaged `resources/runtime/current/bin/atmos` (or `resources/bin/atmos`); never PATH `~/.atmos/bin` for pin truth in packaged apps. |
+| Pin authority (Desktop) | **App Resources** `desktop-use/engine-manifest.json` via `ATMOS_DESKTOP_USE_MANIFEST` (Desktop injects pin; CLI binary is independent). Bare CLI falls back to embedded manifest. |
+| Runner (Desktop) | **Sole** canonical CLI `~/.atmos/bin/atmos` (ADR-005). Engine pin: App Resources `desktop-use/engine-manifest.json`. **CLI floor:** App Resources `desktop-use/cli-requirement.json` (`min_cli_version`, staged from `apps/cli/Cargo.toml` at package time). Desktop Use prompts install/update only when CLI missing or **below that floor** — not when a newer unrelated CLI exists on the release channel (About still uses channel latest). Never bundle CLI binary into Desktop. |
 | Install path | `atmos desktop-use driver ensure` downloads + sha256-verifies + extracts into `~/.atmos/desktop-use/` |
 | Managed binary name | `atmos-desktop-control` (white-label; never teach users `cua-driver`) |
 | macOS host identity | Rebrand extracted host app to **Atmos Desktop Use.app** (`com.atmos.desktop.use`) + ad-hoc/product codesign so TCC grants show **one** product name for AppShot + control |

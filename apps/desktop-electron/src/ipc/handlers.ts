@@ -606,6 +606,11 @@ export function createAllHandlers(
     },
 
     // --- desktop use (APP-052) ---
+    async atmos_cli_probe() {
+      const client = await import("../desktop-use/client.js");
+      // Includes package min_cli_version floor (not global release-channel latest).
+      return client.probeAtmosCliWithRequirement();
+    },
     async desktop_use_status() {
       const client = await import("../desktop-use/client.js");
       return client.desktopUseStatus();

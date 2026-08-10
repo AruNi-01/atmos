@@ -23,12 +23,26 @@ globalThis.localStorage = storage;
 // @ts-expect-error test polyfill
 globalThis.window = globalThis;
 
-const invokeMock = mock(async (_cmd: string) => ({
-  engine_installed: true,
-  engine_ready: true,
-  accessibility: true,
-  screen_recording: true,
-}));
+const invokeMock = mock(async (cmd: string) => {
+  if (cmd === "atmos_cli_probe") {
+    return {
+      installed: true,
+      path: "/Users/test/.atmos/bin/atmos",
+      version: "2026.8.10",
+      meets_requirement: true,
+      update_required: false,
+      min_cli_version: "2026.8.7",
+    };
+  }
+  return {
+    engine_installed: true,
+    engine_ready: true,
+    accessibility: true,
+    screen_recording: true,
+    cli_installed: true,
+    cli_meets_requirement: true,
+  };
+});
 
 mock.module("@/shared/lib/desktop-bridge", () => ({
   isDesktopRuntime: () => true,
@@ -39,12 +53,26 @@ describe("desktop-use readiness cache", () => {
   beforeEach(() => {
     storage.clear();
     invokeMock.mockClear();
-    invokeMock.mockImplementation(async () => ({
-      engine_installed: true,
-      engine_ready: true,
-      accessibility: true,
-      screen_recording: true,
-    }));
+    invokeMock.mockImplementation(async (cmd: string) => {
+      if (cmd === "atmos_cli_probe") {
+        return {
+          installed: true,
+          path: "/Users/test/.atmos/bin/atmos",
+          version: "2026.8.10",
+          meets_requirement: true,
+          update_required: false,
+          min_cli_version: "2026.8.7",
+        };
+      }
+      return {
+        engine_installed: true,
+        engine_ready: true,
+        accessibility: true,
+        screen_recording: true,
+        cli_installed: true,
+        cli_meets_requirement: true,
+      };
+    });
   });
 
   afterEach(() => {
@@ -62,7 +90,8 @@ describe("desktop-use readiness cache", () => {
     const first = await fetchDesktopUseReadiness({ force: true });
     expect(first.ready).toBe(true);
     expect(first.fromCache).toBe(false);
-    expect(invokeMock).toHaveBeenCalledTimes(1);
+    // atmos_cli_probe + desktop_use_doctor
+    expect(invokeMock).toHaveBeenCalledTimes(2);
 
     const peek = peekDesktopUseReadinessCache();
     expect(peek?.ready).toBe(true);
@@ -70,17 +99,74 @@ describe("desktop-use readiness cache", () => {
 
     const second = await fetchDesktopUseReadiness();
     expect(second.ready).toBe(true);
-    // Still one doctor call — served from cache
-    expect(invokeMock).toHaveBeenCalledTimes(1);
+    // Still two invokes — second fetch served from cache
+    expect(invokeMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("blocks when Atmos CLI is not installed", async () => {
+    invokeMock.mockImplementation(async (cmd: string) => {
+      if (cmd === "atmos_cli_probe") {
+        return {
+          installed: false,
+          path: "/Users/test/.atmos/bin/atmos",
+          meets_requirement: false,
+          update_required: false,
+        };
+      }
+      throw new Error("doctor should not run without CLI");
+    });
+    const { fetchDesktopUseReadiness, invalidateDesktopUseReadinessCache } =
+      await import("../readiness");
+    invalidateDesktopUseReadinessCache();
+    const r = await fetchDesktopUseReadiness({ force: true });
+    expect(r.ready).toBe(false);
+    expect(r.reason).toBe("cli_not_installed");
+    expect(r.cliInstalled).toBe(false);
+  });
+
+  it("blocks when Atmos CLI is below package min version", async () => {
+    invokeMock.mockImplementation(async (cmd: string) => {
+      if (cmd === "atmos_cli_probe") {
+        return {
+          installed: true,
+          path: "/Users/test/.atmos/bin/atmos",
+          version: "2026.8.1",
+          meets_requirement: false,
+          update_required: true,
+          min_cli_version: "2026.8.10",
+        };
+      }
+      throw new Error("doctor should not run when CLI below min");
+    });
+    const { fetchDesktopUseReadiness, invalidateDesktopUseReadinessCache } =
+      await import("../readiness");
+    invalidateDesktopUseReadinessCache();
+    const r = await fetchDesktopUseReadiness({ force: true });
+    expect(r.ready).toBe(false);
+    expect(r.reason).toBe("cli_update_required");
+    expect(r.cliInstalled).toBe(true);
   });
 
   it("blocks when engine is not installed", async () => {
-    invokeMock.mockImplementation(async () => ({
-      engine_installed: false,
-      engine_ready: false,
-      accessibility: null,
-      screen_recording: null,
-    }));
+    invokeMock.mockImplementation(async (cmd: string) => {
+      if (cmd === "atmos_cli_probe") {
+        return {
+          installed: true,
+          path: "/Users/test/.atmos/bin/atmos",
+          version: "2026.8.10",
+          meets_requirement: true,
+          update_required: false,
+        };
+      }
+      return {
+        engine_installed: false,
+        engine_ready: false,
+        accessibility: null,
+        screen_recording: null,
+        cli_installed: true,
+        cli_meets_requirement: true,
+      };
+    });
     const { fetchDesktopUseReadiness, invalidateDesktopUseReadinessCache } =
       await import("../readiness");
     invalidateDesktopUseReadinessCache();
@@ -90,12 +176,25 @@ describe("desktop-use readiness cache", () => {
   });
 
   it("blocks when screen recording is explicitly denied", async () => {
-    invokeMock.mockImplementation(async () => ({
-      engine_installed: true,
-      engine_ready: true,
-      accessibility: true,
-      screen_recording: false,
-    }));
+    invokeMock.mockImplementation(async (cmd: string) => {
+      if (cmd === "atmos_cli_probe") {
+        return {
+          installed: true,
+          path: "/Users/test/.atmos/bin/atmos",
+          version: "2026.8.10",
+          meets_requirement: true,
+          update_required: false,
+        };
+      }
+      return {
+        engine_installed: true,
+        engine_ready: true,
+        accessibility: true,
+        screen_recording: false,
+        cli_installed: true,
+        cli_meets_requirement: true,
+      };
+    });
     const { fetchDesktopUseReadiness, invalidateDesktopUseReadinessCache } =
       await import("../readiness");
     invalidateDesktopUseReadinessCache();

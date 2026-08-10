@@ -24,6 +24,7 @@ export function useSettingsUpdateActions() {
     current: string | null;
     latest: string | null;
     updateAvailable: boolean;
+    installed: boolean;
   } | null>(null);
   const [appVersion, setAppVersion] = useState("");
 
@@ -57,7 +58,23 @@ export function useSettingsUpdateActions() {
       }
     };
 
+    const loadCliStatus = async () => {
+      try {
+        const result = await systemApi.checkCliVersion();
+        if (cancelled) return;
+        setCliVersionInfo({
+          current: result.current_version,
+          latest: result.latest_version,
+          updateAvailable: result.update_available,
+          installed: result.installed,
+        });
+      } catch {
+        // Leave null → About / Desktop Use can still probe on demand.
+      }
+    };
+
     void loadAppVersion();
+    void loadCliStatus();
     return () => {
       cancelled = true;
     };
@@ -227,7 +244,12 @@ export function useSettingsUpdateActions() {
           type: "error",
           timeout: 6000,
         });
-        setCliVersionInfo(null);
+        setCliVersionInfo({
+          current: null,
+          latest: result.latest_version,
+          updateAvailable: Boolean(result.latest_version),
+          installed: false,
+        });
         return;
       }
 
@@ -235,6 +257,7 @@ export function useSettingsUpdateActions() {
         current: result.current_version,
         latest: result.latest_version,
         updateAvailable: result.update_available,
+        installed: true,
       });
 
       if (result.update_available) {
@@ -279,12 +302,13 @@ export function useSettingsUpdateActions() {
     });
 
     try {
-      const installResult = await systemApi.installCli(false);
+      const installResult = await systemApi.installCli(true);
       const versionResult = await systemApi.checkCliVersion();
       setCliVersionInfo({
         current: versionResult.current_version,
         latest: versionResult.latest_version,
         updateAvailable: versionResult.update_available,
+        installed: versionResult.installed,
       });
 
       toastManager.update(toastId, {

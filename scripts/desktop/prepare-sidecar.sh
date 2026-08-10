@@ -11,8 +11,8 @@ if [[ "$TARGET_TRIPLE" == *"windows"* ]]; then
 fi
 
 cargo build --release --bin api --target "$TARGET_TRIPLE"
-# Desktop Use / browser-use runner + engine pin authority ship with the same build.
-cargo build --release -p atmos --bin atmos --target "$TARGET_TRIPLE"
+# CLI is standalone (ADR-005): not bundled into Desktop. Users get ~/.atmos/bin/atmos
+# via install-desktop.sh, API startup self-heal, or Settings → About.
 
 mkdir -p apps/desktop/src-tauri/binaries
 cp "target/$TARGET_TRIPLE/release/api$BIN_EXT" \

@@ -21,14 +21,20 @@ describe("desktop-use engine auto-update", () => {
     expect(src).not.toMatch(/desktopUseDriverEnsure\(true\).*not installed/s);
   });
 
-  it("client prefers App Resources pin + packaged runner", () => {
+  it("client uses canonical ~/.atmos/bin CLI + App Resources engine pin", () => {
     const client = readFileSync(join(root, "desktop-use/client.ts"), "utf8");
     expect(client).toContain("DESKTOP_USE_MANIFEST_ENV");
     expect(client).toContain("ATMOS_DESKTOP_USE_MANIFEST");
     expect(client).toContain("engine-manifest.json");
     expect(client).toContain("resolveDesktopUseManifestPath");
-    expect(client).toContain("isPackagedElectron");
-    // Production must not prefer user PATH pin over App Resources.
-    expect(client).toContain("packagedCandidates");
+    expect(client).toContain("canonicalAtmosCliPath");
+    expect(client).toContain("cli_not_installed");
+    expect(client).toContain("cli-requirement.json");
+    expect(client).toContain("min_cli_version");
+    expect(client).toContain("update_required");
+    // Sole runner: no packaged / monorepo / PATH fallbacks.
+    expect(client).not.toContain("packagedCandidates");
+    expect(client).not.toContain("isPackagedElectron");
+    expect(client).not.toContain("ATMOS_CLI_PATH");
   });
 });
