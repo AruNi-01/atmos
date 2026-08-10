@@ -1,0 +1,32 @@
+apps/web/src/app-shell/TokenUsagePage.tsx
+  h_5be255725524c8 19,377-429,431-459,461,463-483,485-513,518
+apps/web/src/app-shell/TokenUsageShareDialog.tsx
+  h_5be255725524c8 10-11,15-17,53,391-392,394,397-404,427
+packages/ui/src/components/icons/facebook-icon.tsx
+  h_5be255725524c8 1-42
+packages/ui/src/components/icons/reddit-icon.tsx
+  h_5be255725524c8 1-42
+packages/ui/src/components/icons/threads-icon.tsx
+  h_5be255725524c8 1-42
+packages/ui/src/components/icons/x-icon.tsx
+  h_5be255725524c8 1-42
+packages/ui/src/components/ui/image-generation.css
+  h_5be255725524c8 1-142
+packages/ui/src/components/ui/image-generation.tsx
+  h_5be255725524c8 1-42
+packages/ui/src/components/ui/terminal-loader.tsx
+  h_5be255725524c8 1-107
+packages/ui/src/index.ts
+  h_5be255725524c8 102-105,189-193
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "e00cfb5510b779f8a0d1c3ba193eab28cd2b26e0",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
