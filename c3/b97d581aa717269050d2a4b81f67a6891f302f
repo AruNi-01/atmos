@@ -1,0 +1,46 @@
+apps/web/messages/en.json
+  h_5be255725524c8 4329-4332,4421,5193-5194,5197,5202,5901,5909,5911,5926,5930-5933,5945,5948,5965-5966,6166-6167,6170-6173,6177-6180,6182-6183,6186-6187,6191
+apps/web/messages/zh.json
+  h_5be255725524c8 4329-4332,4421,5193-5194,5901,5908-5909,5911,5926,5930-5933,5945,5948,5965-5966,6166-6167,6170-6173,6177-6180,6182-6183,6186-6187,6191
+apps/web/package.json
+  h_5be255725524c8 48,79-80,88,103,113,116,122
+apps/web/src/app/globals.css
+  h_5be255725524c8 10-11,18-19
+apps/web/src/features/settings/components/AccountSettingsSection.tsx
+  h_5be255725524c8 6-33,41-42,48-67,81,85,88-90,97-100,102,170-171,188,205-208,219-220,225,228,230-235,239-240,242,244-245,248-250,252-272,274-292,294-332,334-364,366-398
+apps/web/src/features/settings/components/DesktopUseSettingsSection.tsx
+  h_5be255725524c8 28,531-532,611-627,629-644,646-659,661-662
+apps/web/src/features/settings/components/HubAuthUIProvider.tsx
+  h_5be255725524c8 1-78
+apps/web/src/features/settings/components/IntegrationsSettingsSection.tsx
+  h_5be255725524c8 659
+apps/web/src/features/settings/components/SettingsAboutSection.tsx
+  h_5be255725524c8 14,33-40,56-61,76-100,104,111,114,116,118,121,124,126,133-137,139,142,145,147,154-158,161,164,167,169
+apps/web/src/features/settings/components/settings-modal-data.ts
+  h_5be255725524c8 37-42,59
+apps/web/src/features/settings/components/settings-modal-sidebar.tsx
+  h_5be255725524c8 18,106
+apps/web/src/features/settings/lib/linear-local-keys.test.ts
+  h_5be255725524c8 73-97,109,131-146
+apps/web/src/features/settings/lib/linear-local-keys.ts
+  h_5be255725524c8 349-354,357-365,368,444-450
+apps/web/src/features/task/components/TaskLinearPanel.tsx
+  h_5be255725524c8 199-203,205-206,210-214,233-234,237-238,380,382
+bun.lock
+  h_5be255725524c8 201,232-233,241,256,266,269,275,358-359,701-702,713-714,725-728,805-808,1011-1012,1017-1018,1089-1096,1147-1148,1187-1188,1259-1274,1277-1280,1287-1288,1433-1474,1519-1520,1539-1542,1757-1764,2025-2026,2179-2180,2287-2288,2311-2312,2315-2316,2541-2542,2653-2654,2905-2906,2911-2912,2957-2958,3039-3040,3119-3120,3403-3404,3513-3514,3535-3536,3577-3578,3581-3582,3635-3636,3657-3658,3679-3681,3715-3716,3757-3758,3881-3882,3945-3948,4033-4034,4111-4112,4225-4226,4233-4234,4319-4320,4361-4362,4385-4386,4571-4572,4691-4692,4713-4714
+packages/hub-client/package.json
+  h_5be255725524c8 23-24,26-28
+packages/hub-client/src/auth/browser.ts
+  h_5be255725524c8 3,6
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "c3b97d581aa717269050d2a4b81f67a6891f302f",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
