@@ -83,11 +83,149 @@ function atmosHome(): string {
 }
 
 function manifestPath(): string {
-  return join(atmosHome(), "runtime_manifest.json");
+  // Align with runtime-manager layout: ~/.atmos/state/runtime_manifest.json
+  return join(atmosHome(), "state", "runtime_manifest.json");
 }
 
 function runtimeLogPath(): string {
   return join(atmosHome(), "logs", "runtime-server.log");
+}
+
+function ensureLog(message: string): void {
+  const line = `${new Date().toISOString()} [desktop-ensure] ${message}\n`;
+  try {
+    const path = join(atmosHome(), "logs", "desktop-main.log");
+    mkdirSync(dirname(path), { recursive: true });
+    appendFileSync(path, line, "utf8");
+  } catch {
+    /* ignore */
+  }
+  console.log(`[desktop-ensure] ${message}`);
+}
+
+/**
+ * PIDs listening on TCP `port` (LISTEN). Best-effort; empty on failure.
+ * Exported for unit tests of parsing.
+ */
+export function parseLsofPids(stdout: string): number[] {
+  const pids = new Set<number>();
+  for (const line of stdout.split(/\r?\n/)) {
+    const t = line.trim();
+    if (!t || !/^\d+$/.test(t)) continue;
+    const n = parseInt(t, 10);
+    if (Number.isFinite(n) && n > 0) pids.add(n);
+  }
+  return [...pids];
+}
+
+export function listPidsListeningOnPort(port: number): number[] {
+  try {
+    if (process.platform === "win32") {
+      // netstat -ano | findstr :port — keep simple for mac/linux first
+      const out = execFileSync(
+        "cmd",
+        ["/c", `netstat -ano | findstr :${port}`],
+        { encoding: "utf8", timeout: 3000 },
+      );
+      const pids = new Set<number>();
+      for (const line of out.split(/\r?\n/)) {
+        if (!/LISTENING/i.test(line)) continue;
+        const parts = line.trim().split(/\s+/);
+        const last = parts[parts.length - 1];
+        const n = last ? parseInt(last, 10) : NaN;
+        if (Number.isFinite(n) && n > 0) pids.add(n);
+      }
+      return [...pids];
+    }
+    const out = execFileSync(
+      "lsof",
+      ["-nP", `-iTCP:${port}`, "-sTCP:LISTEN", "-t"],
+      { encoding: "utf8", timeout: 3000 },
+    );
+    return parseLsofPids(out);
+  } catch {
+    return [];
+  }
+}
+
+function processCommandLine(pid: number): string {
+  try {
+    if (process.platform === "win32") {
+      const out = execFileSync(
+        "cmd",
+        ["/c", `wmic process where processid=${pid} get CommandLine /value`],
+        { encoding: "utf8", timeout: 3000 },
+      );
+      const m = out.match(/CommandLine=(.+)/i);
+      return (m?.[1] ?? "").trim().slice(0, 240);
+    }
+    const out = execFileSync("ps", ["-p", String(pid), "-o", "command="], {
+      encoding: "utf8",
+      timeout: 3000,
+    });
+    return out.trim().slice(0, 240);
+  } catch {
+    return "";
+  }
+}
+
+function signalPid(pid: number, signal: NodeJS.Signals): void {
+  try {
+    process.kill(pid, signal);
+  } catch {
+    /* already dead or permission */
+  }
+}
+
+/**
+ * Free `port` so Desktop can start the bundled Atmos Server with static UI.
+ * Used when a leftover /healthz process does not serve the product HTML (e.g.
+ * `target/debug/api` from just dev-api without ATMOS_STATIC_DIR).
+ */
+export async function reclaimPortWithoutDesktopUi(
+  host: string,
+  port: number,
+  probe: Extract<UiProbeResult, { ok: false }>,
+): Promise<{ killed: number[]; waitedMs: number }> {
+  const pids = listPidsListeningOnPort(port);
+  const cmds = pids.map((pid) => `${pid}: ${processCommandLine(pid) || "?"}`);
+  ensureLog(
+    `port ${port} has API without desktop UI (${probe.reason}); reclaiming listeners=[${cmds.join("; ")}]`,
+  );
+
+  for (const pid of pids) {
+    if (pid === process.pid) continue;
+    signalPid(pid, "SIGTERM");
+  }
+
+  const started = Date.now();
+  const deadline = started + 8_000;
+  while (Date.now() < deadline) {
+    if (!(await isHealthy(host, port))) {
+      return { killed: pids, waitedMs: Date.now() - started };
+    }
+    await sleep(200);
+  }
+
+  // Still healthy — force kill.
+  for (const pid of pids) {
+    if (pid === process.pid) continue;
+    signalPid(pid, "SIGKILL");
+  }
+  await sleep(300);
+  if (await isHealthy(host, port)) {
+    throw new Error(
+      [
+        `Could not free port ${port} for Atmos Desktop UI.`,
+        `A process still answers /healthz but not the product page.`,
+        formatPortOccupiedWithoutUi(host, port, probe),
+        pids.length
+          ? `Tried to stop PIDs: ${pids.join(", ")}`
+          : "Could not resolve listener PIDs (try quitting other Atmos/dev-api processes).",
+      ].join("\n"),
+    );
+  }
+  return { killed: pids, waitedMs: Date.now() - started };
 }
 
 export async function isHealthy(
@@ -332,11 +470,16 @@ export async function ensureAtmosServer(
   if (await isHealthy(host, port)) {
     const ui = await probeDesktopUi(host, port);
     if (ui.ok) {
+      // Reuse only when product HTML is actually served (bundled static / Next export).
       ownedServerPid = null;
+      ensureLog(
+        `reusing existing Atmos Server at http://${host}:${port} (UI OK)`,
+      );
       return { host, port, runtimeDir, webDir: web, started: false, pid: null };
     }
-    // Do not spawn on an occupied port — health would keep hitting the wrong process.
-    throw new Error(formatPortOccupiedWithoutUi(host, port, ui));
+    // e.g. leftover `just dev-api` / target/debug/api — healthz without static.
+    // Desktop product must own the port with ATMOS_STATIC_DIR; reclaim then spawn.
+    await reclaimPortWithoutDesktopUi(host, port, ui);
   }
 
   const logPath = runtimeLogPath();

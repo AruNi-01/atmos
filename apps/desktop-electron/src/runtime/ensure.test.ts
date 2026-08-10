@@ -4,6 +4,7 @@ import { join } from "node:path";
 import {
   electronServerPath,
   looksLikeAtmosUiHtml,
+  parseLsofPids,
   resolveAtmosDataDir,
   setOwnedServerPidForTest,
   stopOwnedAtmosServer,
@@ -65,5 +66,11 @@ describe("Server data dir + quit ownership", () => {
     expect(looksLikeAtmosUiHtml("<html lang=\"en\">x</html>")).toBe(true);
     expect(looksLikeAtmosUiHtml("")).toBe(false);
     expect(looksLikeAtmosUiHtml("Not Found")).toBe(false);
+  });
+
+  it("parseLsofPids extracts unique numeric PIDs", () => {
+    expect(parseLsofPids("12345\n12345\n67890\n")).toEqual([12345, 67890]);
+    expect(parseLsofPids("")).toEqual([]);
+    expect(parseLsofPids("not-a-pid\n")).toEqual([]);
   });
 });
