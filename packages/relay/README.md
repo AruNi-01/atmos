@@ -207,12 +207,12 @@ GitHub trigger dispatch uses a server-directed system envelope; see APP-019 / `e
 
 1. Sign in to **Hub** (`NEXT_PUBLIC_ATMOS_HUB_URL` → `hub.atmos.land`).
 2. **Trust this device** (Settings → Account) — Hub mints device credential and projects it to Relay.
-3. Credential is stored in `~/.atmos/computer-client.json` as `device_credential` and used as Relay Bearer.
+3. Credential is stored in `~/.atmos/credentials/computer-client.json` as `device_credential` and used as Relay Bearer.
 
 Optional: `NEXT_PUBLIC_ATMOS_RELAY_URL` for private relay origin.
 
 ## `apps/api` (relay outbound)
 
-Place `~/.atmos/relay_identity.json` (written by registering with the relay) or set **`ATMOS_SERVER_IDENTITY_PATH`**. One-shot register on startup: **`ATMOS_REGISTER_TOKEN`** + optional **`ATMOS_RELAY_URL`** + optional **`ATMOS_RELAY_SECRET_KEY`** for private relays. Disabled with **`ATMOS_RELAY_DISABLE=1`**.
+Place `~/.atmos/credentials/relay_identity.json` (written by registering with the relay) or set **`ATMOS_SERVER_IDENTITY_PATH`**. One-shot register on startup: **`ATMOS_REGISTER_TOKEN`** + optional **`ATMOS_RELAY_URL`** + optional **`ATMOS_RELAY_SECRET_KEY`** for private relays. Disabled with **`ATMOS_RELAY_DISABLE=1`**.
 
 When present, API opens an outbound WebSocket and multiplexes relay client sessions through the existing `WsService` / `WsMessageService`.

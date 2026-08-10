@@ -2,11 +2,12 @@ use std::path::PathBuf;
 
 use crate::strings::USER_DATA_DIR_NAME;
 
-/// Root directory for managed Desktop Use data (`~/.atmos/desktop-use`).
+/// Root directory for managed Desktop Use data (`~/.atmos/data/desktop-use`).
 pub fn desktop_use_dir() -> PathBuf {
     dirs::home_dir()
         .unwrap_or_else(|| PathBuf::from("."))
         .join(".atmos")
+        .join("data")
         .join(USER_DATA_DIR_NAME)
 }
 

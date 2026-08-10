@@ -55,6 +55,7 @@ pub(super) fn function_settings_path() -> std::path::PathBuf {
     dirs::home_dir()
         .unwrap_or_else(|| std::path::PathBuf::from("."))
         .join(".atmos")
+        .join("config")
         .join("function_settings.json")
 }
 
@@ -135,6 +136,7 @@ pub(super) fn terminal_code_agent_path() -> std::path::PathBuf {
     dirs::home_dir()
         .unwrap_or_else(|| std::path::PathBuf::from("."))
         .join(".atmos")
+        .join("config")
         .join("agent")
         .join("terminal_code_agent.json")
 }

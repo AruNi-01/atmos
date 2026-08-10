@@ -281,7 +281,7 @@ pub enum ReviewCommand {
 #[derive(Debug, Args)]
 #[group(id = "target", required = true)]
 #[command(
-    after_help = "Pass exactly one of --workspace <workspace_guid> or --project <project_guid>.\n\nTargets Atmos Server (see --api-url, ATMOS_API_URL, ~/.atmos/runtime_manifest.json)."
+    after_help = "Pass exactly one of --workspace <workspace_guid> or --project <project_guid>.\n\nTargets Atmos Server (see --api-url, ATMOS_API_URL, ~/.atmos/state/runtime_manifest.json)."
 )]
 pub struct SessionListArgs {
     #[arg(long, group = "target")]

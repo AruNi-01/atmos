@@ -1,4 +1,4 @@
-//! `~/.atmos/linear_local_keys.json` HTTP surface (machine-local Linear API keys).
+//! `~/.atmos/credentials/linear_local_keys.json` HTTP surface (machine-local Linear API keys).
 
 use axum::http::HeaderMap;
 use axum::Json;

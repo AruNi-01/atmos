@@ -41,8 +41,8 @@ packages/relay/
 | **Hub sync secret** (Bearer on `/v1/internal/*`) | Hub Worker | Device upsert/revoke projection |
 | **Device credential** (Bearer) | Hub-minted; Desktop/Web/Mobile store | `user_id` identity: register tokens, list computers, client sessions, GitHub control |
 | `register_token` | One-time to VPS/CLI | `POST /v1/computers/register` only |
-| `server_secret` | `~/.atmos/relay_identity.json` on Server | Outbound `GET /ws/server` |
-| `client_token` | Browser/Desktop memory + `client-session.json` | Inbound `GET /ws/client` + HTTP gateway |
+| `server_secret` | `~/.atmos/credentials/relay_identity.json` on Server | Outbound `GET /ws/server` |
+| `client_token` | Browser/Desktop memory + `~/.atmos/state/client-session.json` | Inbound `GET /ws/client` + HTTP gateway |
 
 There is **no** end-user `POST /v1/tenants` / Access Token model.
 

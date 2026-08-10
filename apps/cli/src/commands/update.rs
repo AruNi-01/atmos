@@ -101,7 +101,12 @@ pub async fn update_hint_if_needed() -> Option<String> {
 }
 
 fn cache_path() -> Option<PathBuf> {
-    dirs::home_dir().map(|home| home.join(".atmos").join("cli").join("update-check.json"))
+    dirs::home_dir().map(|home| {
+        home.join(".atmos")
+            .join("state")
+            .join("cli")
+            .join("update-check.json")
+    })
 }
 
 fn read_fresh_update_cache() -> Option<UpdateCheckCache> {

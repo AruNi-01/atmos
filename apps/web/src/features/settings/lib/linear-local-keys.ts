@@ -1,7 +1,7 @@
 /**
  * Machine-local Linear personal API keys.
  *
- * Primary store: `~/.atmos/linear_local_keys.json` via local Atmos API
+ * Primary store: `~/.atmos/credentials/linear_local_keys.json` via local Atmos API
  * (`GET/PUT /api/system/linear-local-keys`).
  *
  * Fallback: browser localStorage only when no Computer API is reachable

@@ -5923,7 +5923,7 @@
         },
         "local": {
           "title": "本地 API Key",
-          "hint": "保存在本机 ~/.atmos（不进 Hub）。可保存多把 Key，但同一时间只能选用一把（或改用 OAuth）。",
+          "hint": "保存在本机 ~/.atmos/credentials（不进 Hub）。可保存多把 Key，但同一时间只能选用一把（或改用 OAuth）。",
           "storageLoading": "正在解析本地存储…",
           "storageDisk": "磁盘路径：{path}",
           "storageBrowserFallback": "无法连接本机 Computer API，暂时使用浏览器存储；有本地 Atmos Server 后会写入磁盘。",

@@ -46,7 +46,7 @@ Global on every command: `atmos --api-url … canvas status` (also per-subcomman
 
 1. `--api-url` / `ATMOS_API_URL` (explicit override)
 2. `~/.atmos/client-session.json` (only when UI is on **relay** — gateway + token)
-3. `~/.atmos/runtime_manifest.json` (normal **local** path — Atmos Server writes this on start)
+3. `~/.atmos/state/runtime_manifest.json` (normal **local** path — Atmos Server writes this on start)
 
 Token: `--api-token` → `ATMOS_API_TOKEN` → `ATMOS_LOCAL_TOKEN` → `client-session.json` (`gateway_token`).
 

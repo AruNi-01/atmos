@@ -467,6 +467,7 @@ fn session_config_snapshot_path() -> Result<PathBuf> {
         .ok_or_else(|| ServiceError::Processing("Unable to resolve home directory".to_string()))?;
     Ok(home
         .join(".atmos")
+        .join("data")
         .join("agent")
         .join("session_config_snapshots.json"))
 }

@@ -1,4 +1,4 @@
-//! `~/.atmos/linear_local_keys.json` — machine-local Linear personal API keys.
+//! `~/.atmos/credentials/linear_local_keys.json` — machine-local Linear personal API keys.
 //!
 //! Not Hub-synced. Used when the product path is “Local API Key” (vs OAuth on Hub).
 
@@ -8,7 +8,7 @@ use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
-use crate::manifest::atmos_home_dir;
+use crate::layout;
 
 pub const LINEAR_LOCAL_KEYS_VERSION: u32 = 1;
 pub const LINEAR_LOCAL_KEYS_FILE_NAME: &str = "linear_local_keys.json";
@@ -60,9 +60,11 @@ impl Default for LinearLocalKeysFile {
 }
 
 pub fn linear_local_keys_path() -> PathBuf {
-    atmos_home_dir()
-        .unwrap_or_else(|_| PathBuf::from(".atmos"))
-        .join(LINEAR_LOCAL_KEYS_FILE_NAME)
+    layout::linear_local_keys_path().unwrap_or_else(|_| {
+        PathBuf::from(".atmos")
+            .join("credentials")
+            .join(LINEAR_LOCAL_KEYS_FILE_NAME)
+    })
 }
 
 pub fn read_linear_local_keys() -> Result<Option<LinearLocalKeysFile>, String> {

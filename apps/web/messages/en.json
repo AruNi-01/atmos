@@ -5923,7 +5923,7 @@
         },
         "local": {
           "title": "Local API keys",
-          "hint": "Stored on this computer under ~/.atmos (not Hub). You can save several keys, but only one can be active at a time (or use OAuth instead).",
+          "hint": "Stored on this computer under ~/.atmos/credentials (not Hub). You can save several keys, but only one can be active at a time (or use OAuth instead).",
           "storageLoading": "Resolving local storage…",
           "storageDisk": "On disk: {path}",
           "storageBrowserFallback": "Computer API unavailable — using browser storage until a local Atmos Server is reachable.",

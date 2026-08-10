@@ -10,7 +10,9 @@ use super::agent_hooks::{AgentHookState, AgentHookStateUpdate, AgentToolType};
 
 fn notification_settings_path() -> PathBuf {
     let home = dirs::home_dir().unwrap_or_else(|| PathBuf::from("."));
-    home.join(".atmos").join("notification_settings.json")
+    home.join(".atmos")
+        .join("config")
+        .join("notification_settings.json")
 }
 
 fn default_true() -> bool {

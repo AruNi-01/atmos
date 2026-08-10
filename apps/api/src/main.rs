@@ -298,6 +298,7 @@ fn read_agent_hook_session_timeouts() -> AgentHookSessionTimeouts {
     let path = dirs::home_dir()
         .unwrap_or_else(|| std::path::PathBuf::from("."))
         .join(".atmos")
+        .join("config")
         .join("agent")
         .join("terminal_code_agent.json");
     let Ok(content) = std::fs::read_to_string(&path) else {

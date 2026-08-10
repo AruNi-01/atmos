@@ -459,6 +459,7 @@ fn default_cache_path() -> Option<PathBuf> {
 
     dirs::home_dir().map(|home| {
         home.join(".atmos")
+            .join("data")
             .join("token-usage")
             .join(CACHE_FILE_NAME)
     })

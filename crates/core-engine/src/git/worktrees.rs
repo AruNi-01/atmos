@@ -12,7 +12,7 @@ impl GitEngine {
     pub fn get_workspaces_base_dir(&self) -> Result<PathBuf> {
         let home = dirs::home_dir()
             .ok_or_else(|| EngineError::Git("Unable to determine home directory".to_string()))?;
-        Ok(home.join(".atmos").join("workspaces"))
+        Ok(home.join(".atmos").join("data").join("workspaces"))
     }
 
     /// Get the worktree path for a workspace: ~/.atmos/workspaces/{project_scope}/{workspace_name}

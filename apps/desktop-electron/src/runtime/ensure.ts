@@ -267,11 +267,11 @@ export async function ensureAtmosServer(
 
 /**
  * Production Server user-data directory.
- * Prefer ATMOS_DATA_DIR; otherwise shared `~/.atmos/desktop` (not desktop-electron).
+ * Prefer ATMOS_DATA_DIR; otherwise shared `~/.atmos/data/desktop` (not desktop-electron).
  */
 export function resolveAtmosDataDir(home: string = homedir()): string {
   if (process.env.ATMOS_DATA_DIR) return process.env.ATMOS_DATA_DIR;
-  return join(home, ".atmos", "desktop");
+  return join(home, ".atmos", "data", "desktop");
 }
 
 function sleep(ms: number) {

@@ -2,7 +2,7 @@
  * AppShot on-disk layout — must match
  * apps/desktop/src-tauri/src/appshot/records.rs
  *
- *   ~/.atmos/appshots/records/<13-digit-ts>/
+ *   ~/.atmos/data/appshots/records/<13-digit-ts>/
  *     snapshot.png
  *     context.md
  *     metadata.json
@@ -11,7 +11,7 @@
 import { homedir } from "node:os";
 import { join } from "node:path";
 
-export const APPSHOTS_DIR = ".atmos/appshots";
+export const APPSHOTS_DIR = ".atmos/data/appshots";
 export const RECORDS_DIR_NAME = "records";
 export const TMP_DIR_NAME = "tmp";
 export const SNAPSHOT_FILE = "snapshot.png";
@@ -27,7 +27,7 @@ export function setTestAppshotsRoot(root: string | null): void {
 
 export function appshotsRoot(home: string = homedir()): string {
   if (testAppshotsRoot) return testAppshotsRoot;
-  return join(home, ".atmos", "appshots");
+  return join(home, ".atmos", "data", "appshots");
 }
 
 export function recordsRoot(home?: string): string {

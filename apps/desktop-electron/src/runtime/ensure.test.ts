@@ -9,12 +9,12 @@ import {
 } from "./ensure.ts";
 
 describe("Server data dir + quit ownership", () => {
-  it("defaults to shared ~/.atmos/desktop (not desktop-electron sandbox)", () => {
+  it("defaults to shared ~/.atmos/data/desktop (not desktop-electron sandbox)", () => {
     const prev = process.env.ATMOS_DATA_DIR;
     delete process.env.ATMOS_DATA_DIR;
     try {
       const dir = resolveAtmosDataDir("/Users/test");
-      expect(dir).toBe(join("/Users/test", ".atmos", "desktop"));
+      expect(dir).toBe(join("/Users/test", ".atmos", "data", "desktop"));
       expect(dir).not.toContain("desktop-electron");
       // real home path also avoids sandbox name
       expect(resolveAtmosDataDir(homedir())).not.toContain("desktop-electron");

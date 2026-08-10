@@ -12,7 +12,7 @@ use super::{AgentError, Result};
 
 pub(crate) const ACP_REGISTRY_URL: &str =
     "https://cdn.agentclientprotocol.com/registry/v1/latest/registry.json";
-pub(crate) const ACP_REGISTRY_CACHE_REL_PATH: &str = ".atmos/agent/acp_registry.json";
+pub(crate) const ACP_REGISTRY_CACHE_REL_PATH: &str = ".atmos/config/agent/acp_registry.json";
 
 const REGISTRY_CACHE_TTL_SECS: i64 = 12 * 60 * 60; // 12 hours
 

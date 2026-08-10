@@ -1,5 +1,5 @@
 /**
- * Hub device credential + relay settings live in `~/.atmos/computer-client.json`.
+ * Hub device credential + relay settings live in `~/.atmos/credentials/computer-client.json`.
  * APP-056: no user-generated Access Token.
  */
 

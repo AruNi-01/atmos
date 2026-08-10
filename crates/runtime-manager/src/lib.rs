@@ -1,7 +1,6 @@
 //! Local Atmos runtime: manifest discovery, relay identity, optional process supervisor.
 //!
-//! - **`client`**: `runtime_manifest.json`, `relay_identity.json`, relay registration.
-//! - **`supervisor`**: install layout, ensure/stop/status for `~/.atmos/runtime/current/bin/Atmos Server`.
+//! On-disk layout: see [`layout`] (`credentials/`, `state/`, `config/`, `data/`).
 
 mod cli_update;
 mod client_session;
@@ -9,6 +8,7 @@ mod computer_client_settings;
 mod computer_name;
 mod device_identity;
 mod identity;
+mod layout;
 mod linear_local_keys;
 mod manifest;
 mod register;
@@ -38,15 +38,22 @@ pub use identity::{
     server_identity_env_path_override, write_server_identity, ServerIdentity,
     RELAY_IDENTITY_FILE_NAME,
 };
+pub use layout::{
+    agent_config_dir, atmos_home_dir, automations_data_dir, browser_use_data_dir, config_dir,
+    credentials_dir, data_dir, db_data_dir, desktop_data_dir, desktop_use_data_dir,
+    ensure_layout_dirs, function_settings_path, llm_config_dir, llm_providers_path,
+    local_model_runtime_data_dir, quota_usage_data_dir, review_data_dir, state_dir,
+    terminal_code_agent_path, token_usage_data_dir, workspaces_data_dir,
+};
 pub use linear_local_keys::{
     clear_linear_local_keys, linear_local_keys_path, read_linear_local_keys,
     write_linear_local_keys, LinearLocalApiKeyRecord, LinearLocalAuthSelection,
     LinearLocalKeysFile, LINEAR_LOCAL_KEYS_FILE_NAME, LINEAR_LOCAL_KEYS_VERSION,
 };
 pub use manifest::{
-    atmos_home_dir, read_runtime_manifest, remove_runtime_manifest, resolve_api_base_url,
-    resolve_api_bearer_token, runtime_manifest_path, write_runtime_manifest, ApiEndpoint,
-    RuntimeManifest, RUNTIME_MANIFEST_FILE_NAME, RUNTIME_MANIFEST_VERSION,
+    read_runtime_manifest, remove_runtime_manifest, resolve_api_base_url, resolve_api_bearer_token,
+    runtime_manifest_path, write_runtime_manifest, ApiEndpoint, RuntimeManifest,
+    RUNTIME_MANIFEST_FILE_NAME, RUNTIME_MANIFEST_VERSION,
 };
 pub use register::{default_relay_url, normalize_relay_url, register_computer};
 pub use registration_meta::RegistrationMeta;

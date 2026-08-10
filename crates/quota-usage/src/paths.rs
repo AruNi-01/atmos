@@ -1,4 +1,4 @@
-//! On-disk layout for quota-usage local state: `~/.atmos/quota-usage`.
+//! On-disk layout for quota-usage local state: `~/.atmos/data/quota-usage`.
 //!
 //! Override with `ATMOS_QUOTA_USAGE_DIR` (absolute path) for tests or custom installs.
 
@@ -14,7 +14,7 @@ pub(crate) fn data_dir() -> Option<PathBuf> {
             return Some(PathBuf::from(trimmed));
         }
     }
-    dirs::home_dir().map(|home| home.join(".atmos").join(DATA_DIR))
+    dirs::home_dir().map(|home| home.join(".atmos").join("data").join(DATA_DIR))
 }
 
 /// Path to a file under the data dir (may not exist yet).

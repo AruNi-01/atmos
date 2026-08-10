@@ -1,4 +1,4 @@
-//! `~/.atmos/computer-client.json` — Hub device credential + relay settings (shared by Web/Desktop).
+//! `~/.atmos/credentials/computer-client.json` — Hub device credential + relay settings.
 //!
 //! APP-056: identity is Hub `user_id` + Hub-minted **device credential**.
 //! There is no user-generated Relay Access Token / `POST /v1/tenants`.
@@ -9,7 +9,7 @@ use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
-use crate::manifest::atmos_home_dir;
+use crate::layout;
 use crate::register::default_relay_url;
 
 pub const COMPUTER_CLIENT_SETTINGS_VERSION: u32 = 1;
@@ -58,9 +58,11 @@ impl ComputerClientSettings {
 }
 
 pub fn computer_client_settings_path() -> PathBuf {
-    atmos_home_dir()
-        .unwrap_or_else(|_| PathBuf::from(".atmos"))
-        .join(COMPUTER_CLIENT_SETTINGS_FILE_NAME)
+    layout::computer_client_settings_path().unwrap_or_else(|_| {
+        PathBuf::from(".atmos")
+            .join("credentials")
+            .join(COMPUTER_CLIENT_SETTINGS_FILE_NAME)
+    })
 }
 
 pub fn read_computer_client_settings() -> Result<Option<ComputerClientSettings>, String> {

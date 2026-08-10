@@ -50,7 +50,7 @@ pub(crate) async fn maybe_sync_cursor_csv(
         Ok(None) => {
             return CursorSyncOutcome {
                 warnings: vec![
-                    "Cursor session token not found. Set ATMOS_CURSOR_SESSION_TOKEN or CURSOR_SESSION_TOKEN, or place your WorkosCursorSessionToken in ~/.atmos/quota-usage/cursor.cookie".to_string(),
+                    "Cursor session token not found. Set ATMOS_CURSOR_SESSION_TOKEN or CURSOR_SESSION_TOKEN, or place your WorkosCursorSessionToken in ~/.atmos/data/quota-usage/cursor.cookie".to_string(),
                 ],
             };
         }
@@ -121,7 +121,9 @@ fn provider_metadata_path() -> PathBuf {
 
     dirs::home_dir()
         .unwrap_or_else(|| PathBuf::from("."))
-        .join(".atmos/token-usage")
+        .join(".atmos")
+        .join("data")
+        .join("token-usage")
         .join(PROVIDER_METADATA_FILE_NAME)
 }
 
