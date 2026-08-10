@@ -843,7 +843,9 @@ function OverviewTab({
   heatmapMonthLabels: Array<{ label: string; weekIndex: number }>;
   heatmapWeekdayLabels: Array<{ label: string; row: number }>;
   heatmapTooltip: DitherTooltipState | null;
-  setHeatmapTooltip: (v: DitherTooltipState | null) => void;
+  setHeatmapTooltip: React.Dispatch<
+    React.SetStateAction<DitherTooltipState | null>
+  >;
   growthValues: number[];
   timelineLabels: string[];
   stackedBars: Array<{ label: string; segments: number[] }>;

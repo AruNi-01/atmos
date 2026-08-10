@@ -82,22 +82,20 @@ export function HubAuthUIProvider({ children }: HubAuthUIProviderProps) {
   const redirectTo =
     typeof window !== "undefined" ? window.location.origin : "/";
 
-  const socialSignIn = React.useCallback(
-    async (params: { provider: string; callbackURL?: string }) => {
-      if (!isHubSocialProvider(params.provider)) {
-        throw new Error(`Unsupported provider: ${params.provider}`);
-      }
-      const result = await openHubOAuth({
-        provider: params.provider,
-        mode: "sign-in",
-      });
-      if (!result.ok) {
-        toast({ variant: "error", message: result.error });
-        throw new Error(result.error);
-      }
-    },
-    [toast],
-  );
+  const socialSignIn = React.useCallback(async (params: unknown) => {
+    const p = params as { provider?: string; callbackURL?: string };
+    if (!p?.provider || !isHubSocialProvider(p.provider)) {
+      throw new Error(`Unsupported provider: ${String(p?.provider)}`);
+    }
+    const result = await openHubOAuth({
+      provider: p.provider,
+      mode: "sign-in",
+    });
+    if (!result.ok) {
+      toast({ variant: "error", message: result.error });
+      throw new Error(result.error);
+    }
+  }, [toast]);
 
   return (
     <AuthUIProvider
