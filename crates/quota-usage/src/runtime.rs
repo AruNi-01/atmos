@@ -637,6 +637,13 @@ fn snapshot_candidates(provider_id: &str) -> Vec<PathBuf> {
     }
     if let Some(home) = dirs::home_dir() {
         let file_name = format!("{provider_id}.json");
+        // Canonical layout + short legacy root-level path (pre-layout move).
+        candidates.push(
+            home.join(".atmos")
+                .join("data")
+                .join("quota-usage")
+                .join(&file_name),
+        );
         candidates.push(home.join(".atmos").join("quota-usage").join(&file_name));
         candidates.push(
             home.join(".config")

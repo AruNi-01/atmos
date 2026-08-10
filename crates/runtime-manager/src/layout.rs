@@ -97,10 +97,12 @@ pub fn llm_providers_path() -> Result<PathBuf, String> {
 
 // --- data (helpers for cross-crate consistency) ---
 
+/// Product quota-usage store — always under `data/`, never `data/desktop/`.
 pub fn quota_usage_data_dir() -> Result<PathBuf, String> {
     Ok(data_dir()?.join("quota-usage"))
 }
 
+/// Product token-usage store — always under `data/`, never `data/desktop/`.
 pub fn token_usage_data_dir() -> Result<PathBuf, String> {
     Ok(data_dir()?.join("token-usage"))
 }

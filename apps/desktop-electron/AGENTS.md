@@ -44,7 +44,7 @@ Shared data contracts:
 
 | Contract | Path |
 |----------|------|
-| Server data | `ATMOS_DATA_DIR` or `~/.atmos/desktop` |
+| Server shell data | `ATMOS_DATA_DIR` or `~/.atmos/data/desktop` (shell-only; product data stays under `~/.atmos/data/{token-usage,quota-usage,db,…}`) |
 | AppShot | `~/.atmos/appshots/records/<13-digit-ms>/` |
 | Protocol | `atmos://appshots/{timestamp}` |
 | Tunnel gateway | `http://127.0.0.1:30313` + `entry_token` |

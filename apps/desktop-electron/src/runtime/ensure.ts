@@ -395,8 +395,11 @@ export async function ensureAtmosServer(
 }
 
 /**
- * Production Server user-data directory.
- * Prefer ATMOS_DATA_DIR; otherwise shared `~/.atmos/data/desktop` (not desktop-electron).
+ * Desktop shell-scoped Server data directory (`ATMOS_DATA_DIR`).
+ *
+ * Prefer env override; default `~/.atmos/data/desktop` (not desktop-electron).
+ * Product feature stores (token-usage, quota-usage, SQLite, workspaces) must
+ * **not** nest under this path — they use fixed `~/.atmos/data/<feature>` layouts.
  */
 export function resolveAtmosDataDir(home: string = homedir()): string {
   if (process.env.ATMOS_DATA_DIR) return process.env.ATMOS_DATA_DIR;

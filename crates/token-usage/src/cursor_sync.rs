@@ -110,21 +110,13 @@ fn cursor_cache_path() -> PathBuf {
 }
 
 fn provider_metadata_path() -> PathBuf {
-    if let Ok(data_dir) = std::env::var("ATMOS_DATA_DIR") {
-        let trimmed = data_dir.trim();
-        if !trimmed.is_empty() {
-            return PathBuf::from(trimmed)
-                .join("token-usage")
-                .join(PROVIDER_METADATA_FILE_NAME);
-        }
-    }
-
-    dirs::home_dir()
-        .unwrap_or_else(|| PathBuf::from("."))
-        .join(".atmos")
-        .join("data")
-        .join("token-usage")
-        .join(PROVIDER_METADATA_FILE_NAME)
+    crate::paths::data_path(PROVIDER_METADATA_FILE_NAME).unwrap_or_else(|| {
+        PathBuf::from(".")
+            .join(".atmos")
+            .join("data")
+            .join("token-usage")
+            .join(PROVIDER_METADATA_FILE_NAME)
+    })
 }
 
 fn is_within_cooldown(path: &PathBuf) -> bool {

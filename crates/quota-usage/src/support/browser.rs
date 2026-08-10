@@ -61,6 +61,7 @@ pub(crate) fn cookie_override_path(file_stem: &str) -> PathBuf {
         dirs::home_dir()
             .unwrap_or_else(|| PathBuf::from("."))
             .join(".atmos")
+            .join("data")
             .join("quota-usage")
             .join(file_name)
     })
