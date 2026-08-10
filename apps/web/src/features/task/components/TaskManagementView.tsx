@@ -6,7 +6,8 @@ import { useQueryState, useQueryStates } from "nuqs";
 import { useShallow } from "zustand/react/shallow";
 import { Tabs, TabsList, TabsTab } from "@workspace/ui";
 import LogoSvg from "@workspace/ui/components/logo-svg";
-import { Github, SquareKanban } from "lucide-react";
+import { Github } from "lucide-react";
+import { LinearIcon } from "@workspace/ui/components/icons/linear-icon";
 import {
   useGroups,
   useProjects,
@@ -203,7 +204,7 @@ export function TaskManagementView() {
               {t("source.github")}
             </TabsTab>
             <TabsTab value="linear" className="gap-1.5 px-2.5 sm:h-7 sm:text-xs">
-              <SquareKanban className="size-3.5 shrink-0" />
+              <LinearIcon className="size-3.5 shrink-0" size={14} />
               {t("source.linear")}
             </TabsTab>
           </TabsList>

@@ -12,6 +12,7 @@ import {
   GitBranch,
   RefreshCw,
 } from 'lucide-react';
+import { LinearIcon } from '@workspace/ui/components/icons/linear-icon';
 import { TmuxIcon } from '@workspace/ui/components/icons/tmux-icon';
 import {
   useGhCliStatusQuery,
@@ -505,7 +506,7 @@ function LinearIntegrationCard() {
     <div className="overflow-hidden rounded-2xl border border-border">
       <div className="grid grid-cols-[minmax(0,1fr)_320px] gap-8 px-6 py-5">
         <div className="flex items-start gap-3">
-          <SquareKanbanIcon className="mt-0.5 size-5 shrink-0" />
+          <LinearIcon className="mt-0.5 size-5 shrink-0 text-foreground" size={20} />
           <div>
             <p className="text-base font-medium text-foreground">{t('linear.title')}</p>
             <p className="mt-2 text-sm leading-6 text-muted-foreground">{t('linear.description')}</p>
@@ -750,26 +751,6 @@ function LinearIntegrationCard() {
         {error ? <p className="text-xs text-destructive">{error}</p> : null}
       </div>
     </div>
-  );
-}
-
-function SquareKanbanIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      className={className}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-    >
-      <rect width="18" height="18" x="3" y="3" rx="2" />
-      <path d="M8 7v10" />
-      <path d="M12 7v6" />
-      <path d="M16 7v10" />
-    </svg>
   );
 }
 
