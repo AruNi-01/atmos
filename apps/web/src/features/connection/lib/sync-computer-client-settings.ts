@@ -232,5 +232,15 @@ export async function hydrateComputerClientSettingsFromDisk(): Promise<void> {
     if (persisted) {
       await applyIdentityBearingComputerSettings({ accessTokenConfigured: true });
     }
+  } else {
+    // Cookie session without local device (e.g. re-login after sign-out): auto-mint.
+    try {
+      const { ensureLocalHubDevice } = await import(
+        '@/features/connection/lib/ensure-local-hub-device'
+      );
+      await ensureLocalHubDevice();
+    } catch {
+      /* optional */
+    }
   }
 }

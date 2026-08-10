@@ -15,7 +15,7 @@ import {
   MotionSidebarProvider,
   cn,
 } from "@workspace/ui";
-import { Search, User, X } from "lucide-react";
+import { Search, X } from "lucide-react";
 import InfoCircleIcon from "@workspace/ui/components/icons/info-circle-icon";
 import LayoutDashboardIcon from "@workspace/ui/components/icons/layout-dashboard-icon";
 import TerminalIcon from "@workspace/ui/components/icons/terminal-icon";
@@ -29,6 +29,7 @@ import { FolderKanbanIcon } from "@workspace/ui/components/icons/folder-kanban-i
 import { TagIcon } from "@workspace/ui/components/icons/tag-icon";
 import KeyboardIcon from "@workspace/ui/components/icons/keyboard-icon";
 import { BlocksIcon } from "@workspace/ui/components/icons/blocks-icon";
+import { UserIcon } from "@workspace/ui/components/icons/user-icon";
 import CodeXmlIcon from "@workspace/ui/components/ui/code-xml-icon";
 import CanvasIcon from "@workspace/ui/components/icons/canvas-icon";
 import type { AnimatedIconHandle } from "@workspace/ui/components/icons/types";
@@ -103,7 +104,7 @@ function SettingsSectionIcon({
   if (sectionId === "code-agent") return <BotIcon ref={iconRef} className="shrink-0" size={16} />;
   if (sectionId === "workspace") return <FolderKanbanIcon ref={iconRef} className="shrink-0" size={16} />;
   if (sectionId === "labels") return <TagIcon ref={iconRef} className="shrink-0" size={16} />;
-  if (sectionId === "account") return <User className="shrink-0" size={16} />;
+  if (sectionId === "account") return <UserIcon ref={iconRef} className="shrink-0" size={16} />;
   if (sectionId === "integrations") return <BlocksIcon ref={iconRef} className="shrink-0" size={16} />;
   if (sectionId === "ai") return <BrainCircuitIcon ref={iconRef} className="shrink-0" size={16} />;
   if (sectionId === "notify") return <BellIcon ref={iconRef} className="shrink-0" size={16} />;
