@@ -1,0 +1,110 @@
+agents/AGENTS.md
+  h_5be255725524c8 23
+agents/references/runtime/atmos-home-layout.md
+  h_5be255725524c8 1-51
+apps/api/src/api/agent/handlers.rs
+  h_5be255725524c8 76-80
+apps/api/src/api/system/linear_local.rs
+  h_5be255725524c8 1
+apps/api/src/api/ws/router/support.rs
+  h_5be255725524c8 58,139
+apps/api/src/main.rs
+  h_5be255725524c8 301
+apps/cli/AGENTS.md
+  h_5be255725524c8 49
+apps/cli/src/commands/review.rs
+  h_5be255725524c8 284
+apps/cli/src/commands/update.rs
+  h_5be255725524c8 104-109
+apps/desktop-electron/resources/desktop-use/cli-requirement.json
+  h_5be255725524c8 1-4
+apps/desktop-electron/src/appshot/paths.ts
+  h_5be255725524c8 5,14,30
+apps/desktop-electron/src/browser/browser-use-control.ts
+  h_5be255725524c8 24
+apps/desktop-electron/src/runtime/ensure.test.ts
+  h_5be255725524c8 12,17
+apps/desktop-electron/src/runtime/ensure.ts
+  h_5be255725524c8 270,274
+apps/desktop-electron/src/tunnel/service.ts
+  h_5be255725524c8 95,101
+apps/web/messages/en.json
+  h_5be255725524c8 5926
+apps/web/messages/zh.json
+  h_5be255725524c8 5926
+apps/web/src/features/connection/lib/sync-computer-client-settings.ts
+  h_5be255725524c8 2
+apps/web/src/features/settings/components/IntegrationsSettingsSection.tsx
+  h_5be255725524c8 659
+apps/web/src/features/settings/lib/linear-local-keys.ts
+  h_5be255725524c8 4
+crates/agent/src/manager/manifest.rs
+  h_5be255725524c8 11
+crates/agent/src/manager/registry.rs
+  h_5be255725524c8 15
+crates/browser-use/src/backends/embedded.rs
+  h_5be255725524c8 3,36
+crates/core-engine/src/git/worktrees.rs
+  h_5be255725524c8 15
+crates/core-service/src/service/agent_session.rs
+  h_5be255725524c8 470
+crates/core-service/src/service/automation/agents.rs
+  h_5be255725524c8 467-471,813
+crates/core-service/src/service/automation/artifacts.rs
+  h_5be255725524c8 24
+crates/core-service/src/service/automation/builtin_agent_upgrade.rs
+  h_5be255725524c8 27,35
+crates/core-service/src/service/notification.rs
+  h_5be255725524c8 13-15
+crates/core-service/src/service/workspace_gitignore_dirs.rs
+  h_5be255725524c8 11
+crates/core-service/src/utils/function_settings.rs
+  h_5be255725524c8 15-17
+crates/desktop-use/src/config.rs
+  h_5be255725524c8 5,10
+crates/infra/src/db/connection.rs
+  h_5be255725524c8 33
+crates/infra/src/utils/review_artifacts.rs
+  h_5be255725524c8 21
+crates/llm/src/config.rs
+  h_5be255725524c8 30-34,44
+crates/local-model-runtime/src/config/mod.rs
+  h_5be255725524c8 9
+crates/quota-usage/src/paths.rs
+  h_5be255725524c8 1,17
+crates/quota-usage/src/runtime.rs
+  h_5be255725524c8 804,814
+crates/runtime-manager/src/client_session.rs
+  h_5be255725524c8 1,3,11,41-45
+crates/runtime-manager/src/computer_client_settings.rs
+  h_5be255725524c8 1,12,61-65
+crates/runtime-manager/src/identity.rs
+  h_5be255725524c8 1,9,26,35-39
+crates/runtime-manager/src/layout.rs
+  h_5be255725524c8 1-160
+crates/runtime-manager/src/lib.rs
+  h_5be255725524c8 3,11,41-47,54-56
+crates/runtime-manager/src/linear_local_keys.rs
+  h_5be255725524c8 1,11,63-67
+crates/runtime-manager/src/manifest.rs
+  h_5be255725524c8 1,9
+crates/token-usage/src/cursor_sync.rs
+  h_5be255725524c8 53,124-126
+crates/token-usage/src/service.rs
+  h_5be255725524c8 462
+packages/relay/AGENTS.md
+  h_5be255725524c8 44-45
+packages/relay/README.md
+  h_5be255725524c8 210,216
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "522521d0ac384910b79be7b46582903672b71e8d",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
