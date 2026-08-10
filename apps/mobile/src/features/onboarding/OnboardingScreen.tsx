@@ -11,9 +11,8 @@ import { TerminalIcon } from "@/ui/icons/lucide-native";
 import { ComputerPicker } from "@/features/computers/ComputerPicker";
 import { useRelayClient } from "@/hooks/use-relay-client";
 import {
-  generateAccessToken,
   getStoredAccessToken,
-  isPlausibleAccessToken,
+  isPlausibleDeviceCredential,
   storeAccessToken,
 } from "@/lib/access-token";
 import { useComputerStore } from "@/stores/computer-store";
@@ -22,7 +21,9 @@ import { colors } from "@/theme/colors";
 import { useMobileTheme } from "@/theme/theme-store";
 
 const schema = z.object({
-  token: z.string().refine(isPlausibleAccessToken, "Access Token must be at least 32 characters."),
+  token: z
+    .string()
+    .refine(isPlausibleDeviceCredential, "Device credential must be at least 32 characters."),
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -49,7 +50,7 @@ export function OnboardingScreen() {
 
   const saveToken = useMutation({
     mutationFn: async (values: FormValues) => {
-      await client.registerTenant(values.token.trim());
+      // Hub-minted device credential — already projected to Relay; no /v1/tenants.
       await storeAccessToken(values.token.trim());
       setAccessTokenLoaded(true);
       const registerToken = await client.createRegisterToken(values.token.trim());
@@ -60,7 +61,7 @@ export function OnboardingScreen() {
       setLocalError(null);
     },
     onError: (error) => {
-      setLocalError(error instanceof Error ? error.message : "Could not save Access Token.");
+      setLocalError(error instanceof Error ? error.message : "Could not save device credential.");
     },
   });
 
@@ -80,7 +81,7 @@ export function OnboardingScreen() {
   const createSession = useMutation({
     mutationFn: async (serverId: string) => {
       const token = await getStoredAccessToken();
-      if (!token) throw new Error("Access Token is not available.");
+      if (!token) throw new Error("Device credential is not available.");
       return client.createClientSession(token, serverId);
     },
     onSuccess: (session, serverId) => {
@@ -94,15 +95,12 @@ export function OnboardingScreen() {
     },
   });
 
-  const handleGenerate = async () => {
-    form.setValue("token", await generateAccessToken(), { shouldValidate: true });
-  };
   const tokenDraft = form.watch("token").trim();
   const tokenActionLabel = saveToken.isPending
     ? "Saving..."
     : hasAccessToken
-      ? "Replace Token"
-      : "Save Token";
+      ? "Replace credential"
+      : "Save credential";
 
   return (
     <AppScreen
@@ -137,7 +135,7 @@ export function OnboardingScreen() {
         </Text>
       </View>
 
-      <Section label="Access Token">
+      <Section label="Device credential">
         <View style={styles.formBlock}>
           <View style={styles.tokenSummary}>
             <View
@@ -147,11 +145,14 @@ export function OnboardingScreen() {
               ]}
             />
             <Text selectable style={[styles.statusText, { color: theme.colors.secondaryLabel }]}>
-              {hasAccessToken ? "Token saved on this device" : "Token required before selecting a Computer"}
+              {hasAccessToken
+                ? "Device credential saved on this phone"
+                : "Device credential required before selecting a Computer"}
             </Text>
           </View>
           <Text selectable style={[styles.bodyText, { color: theme.colors.secondaryLabel }]}>
-            Mobile connects through Relay. Atmos Server still runs on your Mac or remote machine.
+            Paste a Hub device credential from Desktop/Web (Settings → Account → Trust this device).
+            Mobile connects through Relay; Atmos Server still runs on your Mac or remote machine.
           </Text>
           <Controller
             control={form.control}
@@ -161,15 +162,16 @@ export function OnboardingScreen() {
                 autoCapitalize="none"
                 autoCorrect={false}
                 onChangeText={field.onChange}
-                placeholder={hasAccessToken ? "Paste a new Access Token to replace" : "Paste or generate an Access Token"}
+                placeholder={
+                  hasAccessToken
+                    ? "Paste a new device credential to replace"
+                    : "Paste Hub device credential"
+                }
                 secureTextEntry
                 value={field.value}
               />
             )}
           />
-          <View style={styles.inlineAction}>
-            <NativeButton label="Generate Token" onPress={handleGenerate} />
-          </View>
           <InlineError message={form.formState.errors.token?.message ?? localError} />
         </View>
       </Section>
@@ -196,8 +198,8 @@ export function OnboardingScreen() {
           </View>
         ) : (
           <View style={styles.steps}>
-            <Step index="1" title="Save or replace token" body="The phone only stores the Relay Access Token." />
-            <Step index="2" title="Register Atmos Server" body="After saving a token, Atmos creates a one-time command for the server machine." />
+            <Step index="1" title="Paste device credential" body="Enroll on Desktop/Web under Atmos Account, then paste the Hub device credential here." />
+            <Step index="2" title="Register Atmos Server" body="After saving, Atmos creates a one-time command for the server machine." />
             <Step index="3" title="Choose a Computer" body="Online Computers appear below automatically." />
           </View>
         )}
@@ -231,7 +233,7 @@ function TokenSavedStatus() {
       ]}
     >
       <View style={[styles.statusDot, { backgroundColor: theme.colors.label }]} />
-      <Text style={[styles.savedStatusText, { color: theme.colors.label }]}>Access Token saved</Text>
+      <Text style={[styles.savedStatusText, { color: theme.colors.label }]}>Device credential saved</Text>
     </View>
   );
 }

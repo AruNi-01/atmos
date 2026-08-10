@@ -42,7 +42,7 @@ export function ComputerConnectScreen() {
   const connect = useMutation({
     mutationFn: async (serverId: string) => {
       const token = await getStoredAccessToken();
-      if (!token) throw new Error("Access Token is not available.");
+      if (!token) throw new Error("Device credential is not available.");
       return relayClient.createClientSession(token, serverId);
     },
     onSuccess: (session, serverId) => {
@@ -68,10 +68,10 @@ export function ComputerConnectScreen() {
           <Section>
             <View style={styles.emptyBlock}>
               <EmptyState
-                title="Access Token required"
+                title="Device credential required"
                 message="Connect mobile to Relay before loading Computers."
               />
-              <NativeButton label="Set Access Token" onPress={() => router.replace("/onboarding")} />
+              <NativeButton label="Set device credential" onPress={() => router.replace("/onboarding")} />
             </View>
           </Section>
         ) : activeComputers.length === 0 ? (

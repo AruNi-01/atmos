@@ -26,7 +26,7 @@ One `apps/api` process per machine is the default Atmos Server. Desktop, CLI, an
 - `ATMOS_LOCAL_TOKEN` is optional loopback hardening only.
 - Do not write `ATMOS_LOCAL_TOKEN` or any bearer token into `runtime_manifest.json`.
 - Desktop and Web development must not require loopback auth by default.
-- Atmos Computer remote access uses the user Access Token against Relay. The server-side `server_secret` stays in relay identity storage and must not be exposed to browser or mobile clients.
+- Atmos Computer remote access uses a Hub-minted **device credential** as Relay Bearer (stored in `~/.atmos/computer-client.json`). The server-side `server_secret` stays in relay identity storage and must not be exposed to browser or mobile clients.
 
 ## Ownership
 

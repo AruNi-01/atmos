@@ -5,6 +5,7 @@ pub mod error;
 pub mod fs;
 pub mod git;
 pub mod github;
+pub mod linear;
 pub mod local_services;
 pub mod project_atmos;
 pub mod search;
@@ -28,6 +29,12 @@ pub use git::{
     DiffPreviewKind, FileDiffInfo, GitBlobLocator, GitEngine, GitStatus, WorktreeInfo,
 };
 pub use github::GithubEngine;
+pub use linear::{
+    build_issues_filter, extract_github_refs_from_urls, linear_issue_to_import_body,
+    oauth_pkce_challenge, parse_rate_limit_headers, select_oauth_redirect, LinearAuth,
+    LinearClient, LinearIssue, LinearIssueListOptions, LinearIssuePreset, LinearOAuthShell,
+    LinearRateLimit,
+};
 pub use local_services::{
     orphan_hints, process_snapshot, LocalHttpProbeResult, LocalServiceProtocol,
     LocalServicesEngine, LocalTcpListener, ProcessSnapshot,

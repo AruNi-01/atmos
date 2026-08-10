@@ -52,7 +52,7 @@ Generated native folders `ios/` and `android/` are managed by Expo prebuild and 
 ## Product Shape
 
 - Mobile is a lightweight client for a remote Atmos Computer. It never starts or requires a local Atmos Server on the phone.
-- Access Token and Relay bootstrap follow APP-016.
+- Hub **device credential** and Relay bootstrap follow APP-016 / APP-056 (no user-generated Access Token).
 - Primary post-auth screen is the workspace list.
 - Workspace development is terminal-first and shows exactly one terminal renderer at a time.
 - The only Web right-sidebar-derived M1 surface is Changes & Commit.
@@ -88,7 +88,7 @@ Spec: [specs/APP/APP-025_mobile-app](../../specs/APP/APP-025_mobile-app/)
 - App bootstrap/session issuance uses the existing Relay REST routes.
 - Business workflows use the main app WebSocket through `src/api/mobile-ws-client.ts` and `src/api/ws-actions.ts`.
 - Terminal transport uses the native-owned terminal WebSocket through `src/api/terminal-ws-client.ts`.
-- The terminal WebView must not receive Access Token, `client_token`, Relay URLs, or `terminal_ws_url`.
+- The terminal WebView must not receive device credentials, `client_token`, Relay URLs, or `terminal_ws_url`.
 - Do not add mobile-only REST shortcuts for project, workspace, terminal, or Git flows. Extend shared WS actions instead.
 
 ---
@@ -101,7 +101,7 @@ Spec: [specs/APP/APP-025_mobile-app](../../specs/APP/APP-025_mobile-app/)
 - Queue terminal input, Git commits, or pushes while disconnected.
 - Render multiple terminal panes side by side on phone.
 - Expose commit history, PR panels, notes/TODO/review panels, AI commit generation, discard, or chunk-level patch controls in the M1 mobile Git surface.
-- Log Access Tokens, `client_token`, register tokens, or Relay/server secrets.
+- Log device credentials, `client_token`, register tokens, or Relay/server secrets.
 
 ### ALWAYS
 

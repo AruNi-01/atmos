@@ -1,4 +1,4 @@
-import { isPlausibleAccessToken } from "@/lib/access-token-format";
+import { isPlausibleDeviceCredential } from "@/lib/access-token-format";
 
 export function getAccessTokenSwitchReadiness({
   isSaving,
@@ -14,11 +14,11 @@ export function getAccessTokenSwitchReadiness({
   }
 
   if (!trimmedToken) {
-    return { canSwitch: false, reason: "Paste an Access Token to switch this phone." };
+    return { canSwitch: false, reason: "Paste a device credential to switch this phone." };
   }
 
-  if (!isPlausibleAccessToken(trimmedToken)) {
-    return { canSwitch: false, reason: "Access Token must be at least 32 characters." };
+  if (!isPlausibleDeviceCredential(trimmedToken)) {
+    return { canSwitch: false, reason: "Device credential must be at least 32 characters." };
   }
 
   return { canSwitch: true, reason: null };

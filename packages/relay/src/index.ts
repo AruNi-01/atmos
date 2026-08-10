@@ -23,6 +23,8 @@ export interface Env {
   SERVER_HUB: DurableObjectNamespace<ServerHub>;
   DB: D1Database;
   RELAY_SECRET_KEY?: string;
+  /** Hub → Relay device projection (APP-056). */
+  RELAY_HUB_SYNC_SECRET?: string;
   GITHUB_APP_ID?: string;
   GITHUB_APP_SLUG?: string;
   GITHUB_APP_PRIVATE_KEY?: string;
@@ -35,20 +37,21 @@ export interface Env {
 const REGISTER_TOKEN_TTL_SEC = 15 * 60;
 const CLIENT_TOKEN_TTL_SEC = 24 * 3600;
 const REGISTER_RATE_LIMIT = 30;
-const TENANT_CREATE_RATE_LIMIT = 10;
 const GITHUB_WEBHOOK_RATE_LIMIT = 600;
 const GITHUB_CONTROL_RATE_LIMIT = 60;
 const RATE_WINDOW_SEC = 60;
 const COMPUTER_DEVICE_REGISTRATION_LIMIT = 10;
 const DEFAULT_RELAY_ORIGIN = "https://relay.atmos.land";
-/** Minimum access token length (characters). */
+/** Minimum device credential length (characters). */
 const MIN_ACCESS_TOKEN_LEN = 32;
 const RELAY_SECRET_HEADER = "X-Atmos-Relay-Secret";
 const APP_DEVICE_ID_PATTERN = /^[a-f0-9]{64}$/;
 
-type TenantAuth = {
-  tenantId: string;
-  accessTokenHash: string;
+/** Hub device credential auth (APP-056). owner = Better Auth user_id */
+type DeviceAuth = {
+  userId: string;
+  deviceId: string;
+  credentialHash: string;
 };
 
 type AppDeviceIdParseResult =
@@ -57,7 +60,6 @@ type AppDeviceIdParseResult =
 
 /** Per-isolate IP rate limits (M1). */
 const registerRateByIp = new Map<string, { count: number; windowStart: number }>();
-const tenantCreateRateByIp = new Map<string, { count: number; windowStart: number }>();
 const githubWebhookRateByIp = new Map<string, { count: number; windowStart: number }>();
 const githubControlRateByIp = new Map<string, { count: number; windowStart: number }>();
 
@@ -167,31 +169,43 @@ function parseBearerToken(request: Request): string | null {
   return token;
 }
 
-/** Returns the stable tenant id authenticated by a bearer access token. */
-async function tenantAuthFromRequest(
+/** Authenticate Bearer as Hub-minted device credential → user_id. */
+async function deviceAuthFromRequest(
   request: Request,
   env: Env,
-): Promise<TenantAuth | null> {
+): Promise<DeviceAuth | null> {
   const token = parseBearerToken(request);
   if (!token) {
     return null;
   }
-  const accessTokenHash = await secretHash(token);
+  const credentialHash = await secretHash(token);
   const row = await env.DB.prepare(
-    "SELECT tenant_id FROM tenants WHERE access_token_hash = ? LIMIT 1",
+    `SELECT device_id, user_id FROM devices
+     WHERE credential_hash = ? AND revoked_at IS NULL
+     LIMIT 1`,
   )
-    .bind(accessTokenHash)
-    .first<{ tenant_id: string }>();
-
-  return row ? { tenantId: row.tenant_id, accessTokenHash } : null;
+    .bind(credentialHash)
+    .first<{ device_id: string; user_id: string }>();
+  if (!row) return null;
+  const now = Math.floor(Date.now() / 1000);
+  await env.DB.prepare(
+    `UPDATE devices SET last_seen_at = ? WHERE device_id = ?`,
+  )
+    .bind(now, row.device_id)
+    .run();
+  return {
+    userId: row.user_id,
+    deviceId: row.device_id,
+    credentialHash,
+  };
 }
 
-async function tenantFromRequest(
+async function userIdFromRequest(
   request: Request,
   env: Env,
 ): Promise<string | null> {
-  const auth = await tenantAuthFromRequest(request, env);
-  return auth?.tenantId ?? null;
+  const auth = await deviceAuthFromRequest(request, env);
+  return auth?.userId ?? null;
 }
 
 function json(data: unknown, status = 200): Response {
@@ -218,10 +232,6 @@ function randomBase64Url(byteLength: number): string {
     binary += String.fromCharCode(b);
   }
   return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-}
-
-function randomTenantId(): string {
-  return `tn_${randomBase64Url(18)}`;
 }
 
 async function randomUuidLike(): Promise<string> {
@@ -326,163 +336,85 @@ async function handleApi(
       return relaySecretError;
     }
 
-    const tenantAuth = await tenantAuthFromRequest(request, env);
-    const tenant = tenantAuth?.tenantId ?? null;
-
-    if (path === "/v1/tenants" && request.method === "POST") {
-      const ip = clientIp(request);
-      if (!checkRateLimit(ip, tenantCreateRateByIp, TENANT_CREATE_RATE_LIMIT)) {
-        return json({ error: "rate_limited" }, 429);
-      }
+    // Hub → Relay device projection (service auth; no end-user tenant mint).
+    if (path === "/v1/internal/devices/upsert" && request.method === "POST") {
+      const internalAuth = await requireHubSyncAuth(request, env);
+      if (internalAuth) return internalAuth;
 
       const body = (await request.json().catch(() => null)) as {
-        token?: string;
+        user_id?: string;
+        device_id?: string;
+        credential_hash?: string;
+        label?: string | null;
+        revoked?: boolean;
       } | null;
-      const accessToken = body?.token?.trim() ?? "";
-      if (accessToken.length < MIN_ACCESS_TOKEN_LEN) {
-        return json({ error: "invalid_access_token" }, 400);
+
+      const userIdBody = body?.user_id?.trim() ?? "";
+      const deviceId = body?.device_id?.trim() ?? "";
+      if (!userIdBody || !deviceId) {
+        return json({ error: "invalid_device_payload" }, 400);
       }
 
       const now = Math.floor(Date.now() / 1000);
-      const accessTokenHash = await secretHash(accessToken);
+      if (body?.revoked) {
+        await env.DB.prepare(
+          `UPDATE devices SET revoked_at = ?, last_seen_at = ?
+           WHERE device_id = ? AND user_id = ?`,
+        )
+          .bind(now, now, deviceId, userIdBody)
+          .run();
+        return json({ ok: true, revoked: true });
+      }
 
-      const existing = await env.DB.prepare(
-        "SELECT tenant_id FROM tenants WHERE access_token_hash = ? LIMIT 1",
-      )
-        .bind(accessTokenHash)
-        .first();
-
-      if (existing) {
-        return json({ error: "tenant_exists" }, 409);
+      const credentialHash = body?.credential_hash?.trim() ?? "";
+      if (!credentialHash || credentialHash.length < 32) {
+        return json({ error: "invalid_credential_hash" }, 400);
       }
 
       await env.DB.prepare(
-        `INSERT INTO tenants(tenant_id, access_token_hash, created_at, updated_at, rotated_at)
-         VALUES (?, ?, ?, ?, NULL)`,
-      )
-        .bind(randomTenantId(), accessTokenHash, now, now)
-        .run();
-
-      return json({ ok: true }, 201);
-    }
-
-    if (path === "/v1/tenants/rotate_token" && request.method === "POST") {
-      if (!tenantAuth) {
-        return json({ error: "unauthorized" }, 401);
-      }
-
-      const body = (await request.json().catch(() => null)) as {
-        new_token?: string;
-      } | null;
-      const newToken = body?.new_token?.trim() ?? "";
-      if (newToken.length < MIN_ACCESS_TOKEN_LEN) {
-        return json({ error: "invalid_new_token" }, 400);
-      }
-
-      const newTokenHash = await secretHash(newToken);
-      if (newTokenHash === tenantAuth.accessTokenHash) {
-        return json({ error: "new_token_same_as_current" }, 400);
-      }
-
-      const existing = await env.DB.prepare(
-        "SELECT tenant_id FROM tenants WHERE access_token_hash = ? LIMIT 1",
-      )
-        .bind(newTokenHash)
-        .first();
-
-      if (existing) {
-        return json({ error: "new_token_exists" }, 409);
-      }
-
-      const now = Math.floor(Date.now() / 1000);
-      const previousTenant = await env.DB.prepare(
-        `SELECT updated_at, rotated_at
-         FROM tenants
-         WHERE tenant_id = ? AND access_token_hash = ?
-         LIMIT 1`,
-      )
-        .bind(tenantAuth.tenantId, tenantAuth.accessTokenHash)
-        .first<{ updated_at: number; rotated_at: number | null }>();
-      if (!previousTenant) {
-        return json({ error: "rotation_conflict" }, 409);
-      }
-
-      const updateResult = await env.DB.prepare(
-        `UPDATE tenants
-         SET access_token_hash = ?, updated_at = ?, rotated_at = ?
-         WHERE tenant_id = ? AND access_token_hash = ?`,
+        `INSERT INTO devices(device_id, user_id, credential_hash, label, created_at, last_seen_at, revoked_at)
+         VALUES (?, ?, ?, ?, ?, ?, NULL)
+         ON CONFLICT(device_id) DO UPDATE SET
+           user_id = excluded.user_id,
+           credential_hash = excluded.credential_hash,
+           label = excluded.label,
+           last_seen_at = excluded.last_seen_at,
+           revoked_at = NULL`,
       )
         .bind(
-          newTokenHash,
+          deviceId,
+          userIdBody,
+          credentialHash,
+          body?.label ?? null,
           now,
           now,
-          tenantAuth.tenantId,
-          tenantAuth.accessTokenHash,
         )
         .run();
-      if (!(updateResult.meta.changes ?? 0)) {
-        return json({ error: "rotation_conflict" }, 409);
-      }
 
-      const cleanupStatements: D1PreparedStatement[] = [
-        env.DB.prepare(
-          "DELETE FROM register_tokens WHERE tenant_id = ?",
-        ).bind(tenantAuth.tenantId),
-        env.DB.prepare(
-          "DELETE FROM client_sessions WHERE tenant_id = ?",
-        ).bind(tenantAuth.tenantId),
-      ];
-
-      if (await tableExists(env, "github_setup_sessions")) {
-        cleanupStatements.push(
-          env.DB.prepare(
-            "DELETE FROM github_setup_sessions WHERE tenant_id = ?",
-          ).bind(tenantAuth.tenantId),
-        );
-      }
-
-      try {
-        await env.DB.batch(cleanupStatements);
-      } catch (err) {
-        await env.DB.prepare(
-          `UPDATE tenants
-           SET access_token_hash = ?, updated_at = ?, rotated_at = ?
-           WHERE tenant_id = ? AND access_token_hash = ?`,
-        )
-          .bind(
-            tenantAuth.accessTokenHash,
-            previousTenant.updated_at,
-            previousTenant.rotated_at,
-            tenantAuth.tenantId,
-            newTokenHash,
-          )
-          .run()
-          .catch(() => undefined);
-        console.warn("token rotation cleanup failed", err);
-        return json({ error: "rotation_cleanup_failed" }, 500);
-      }
-
-      return json({ ok: true, rotated_at: now });
+      return json({ ok: true, device_id: deviceId });
     }
+
+    const deviceAuth = await deviceAuthFromRequest(request, env);
+    const userId = deviceAuth?.userId ?? null;
 
     if (path === "/v1/github/setup_sessions" && request.method === "POST") {
       if (!checkGithubControlRateLimit(request)) {
         return json({ error: "rate_limited" }, 429);
       }
-      if (!tenant) {
+      if (!userId) {
         return json({ error: "unauthorized" }, 401);
       }
-      return createGithubSetupSession(request, env, url, tenant);
+      return createGithubSetupSession(request, env, url, userId);
     }
 
     if (path === "/v1/github/installations" && request.method === "GET") {
       if (!checkGithubControlRateLimit(request)) {
         return json({ error: "rate_limited" }, 429);
       }
-      if (!tenant) {
+      if (!userId) {
         return json({ error: "unauthorized" }, 401);
       }
-      return listGithubInstallations(env, tenant);
+      return listGithubInstallations(env, userId);
     }
 
     const githubReposMatch = path.match(
@@ -492,12 +424,12 @@ async function handleApi(
       if (!checkGithubControlRateLimit(request)) {
         return json({ error: "rate_limited" }, 429);
       }
-      if (!tenant) {
+      if (!userId) {
         return json({ error: "unauthorized" }, 401);
       }
       return listGithubInstallationRepositories(
         env,
-        tenant,
+        userId,
         githubReposMatch[1]!,
       );
     }
@@ -506,10 +438,10 @@ async function handleApi(
       if (!checkGithubControlRateLimit(request)) {
         return json({ error: "rate_limited" }, 429);
       }
-      if (!tenant) {
+      if (!userId) {
         return json({ error: "unauthorized" }, 401);
       }
-      return upsertGithubEventRoute(request, env, tenant);
+      return upsertGithubEventRoute(request, env, userId);
     }
 
     const githubRouteDeleteMatch = path.match(
@@ -519,18 +451,18 @@ async function handleApi(
       if (!checkGithubControlRateLimit(request)) {
         return json({ error: "rate_limited" }, 429);
       }
-      if (!tenant) {
+      if (!userId) {
         return json({ error: "unauthorized" }, 401);
       }
       return disableGithubEventRoute(
         env,
-        tenant,
+        userId,
         decodeURIComponent(githubRouteDeleteMatch[1]!),
       );
     }
 
     if (path === "/v1/register_tokens" && request.method === "POST") {
-      if (!tenant) {
+      if (!userId) {
         return json({ error: "unauthorized" }, 401);
       }
 
@@ -540,10 +472,10 @@ async function handleApi(
       const tokenHash = await secretHash(registerToken);
 
       await env.DB.prepare(
-        `INSERT INTO register_tokens(token_hash, tenant_id, expires_at, used_at, created_at)
-         VALUES (?, ?, ?, NULL, ?)`,
+        `INSERT INTO register_tokens(token_hash, user_id, device_id, expires_at, used_at, created_at)
+         VALUES (?, ?, ?, ?, NULL, ?)`,
       )
-        .bind(tokenHash, tenant, expiresAt, now)
+        .bind(tokenHash, userId, deviceAuth?.deviceId ?? null, expiresAt, now)
         .run();
 
       const relayOrigin = httpOrigin(url);
@@ -590,11 +522,11 @@ async function handleApi(
       const tokenHash = await secretHash(registerToken);
 
       const row = await env.DB.prepare(
-        `SELECT tenant_id FROM register_tokens
+        `SELECT user_id FROM register_tokens
          WHERE token_hash = ? AND used_at IS NULL AND expires_at > ?`,
       )
         .bind(tokenHash, now)
-        .first<{ tenant_id: string }>();
+        .first<{ user_id: string }>();
 
       if (!row) {
         return json({ error: "invalid_register_token" }, 400);
@@ -632,12 +564,12 @@ async function handleApi(
           : null;
 
       await env.DB.prepare(
-        `INSERT INTO computers(server_id, tenant_id, secret_hash, revoked, display_name, created_at, last_seen_at, updated_at, registration_meta, app_device_id)
+        `INSERT INTO computers(server_id, user_id, secret_hash, revoked, display_name, created_at, last_seen_at, updated_at, registration_meta, app_device_id)
          VALUES (?, ?, ?, 0, ?, ?, NULL, ?, ?, ?)`,
       )
         .bind(
           serverId,
-          row.tenant_id,
+          row.user_id,
           await secretHash(serverSecret),
           displayName,
           now,
@@ -661,15 +593,15 @@ async function handleApi(
     }
 
     if (path === "/v1/computers" && request.method === "GET") {
-      if (!tenant) {
+      if (!userId) {
         return json({ error: "unauthorized" }, 401);
       }
 
       const { results } = await env.DB.prepare(
         `SELECT server_id, display_name, revoked, created_at, last_seen_at, registration_meta
-         FROM computers WHERE tenant_id = ? ORDER BY created_at DESC`,
+         FROM computers WHERE user_id = ? ORDER BY created_at DESC`,
       )
-        .bind(tenant)
+        .bind(userId)
         .all<{
           server_id: string;
           display_name: string | null;
@@ -694,7 +626,7 @@ async function handleApi(
 
     const patchMatch = path.match(/^\/v1\/computers\/([^/]+)$/);
     if (patchMatch && request.method === "PATCH") {
-      if (!tenant) {
+      if (!userId) {
         return json({ error: "unauthorized" }, 401);
       }
 
@@ -710,9 +642,9 @@ async function handleApi(
       const now = Math.floor(Date.now() / 1000);
       const updated = await env.DB.prepare(
         `UPDATE computers SET display_name = ?, updated_at = ?
-         WHERE server_id = ? AND tenant_id = ? AND revoked = 0`,
+         WHERE server_id = ? AND user_id = ? AND revoked = 0`,
       )
-        .bind(displayName, now, serverId, tenant)
+        .bind(displayName, now, serverId, userId)
         .run();
 
       if (!updated.meta.changes) {
@@ -724,7 +656,7 @@ async function handleApi(
 
     const revokeMatch = path.match(/^\/v1\/computers\/([^/]+)\/revoke$/);
     if (revokeMatch && request.method === "POST") {
-      if (!tenant) {
+      if (!userId) {
         return json({ error: "unauthorized" }, 401);
       }
 
@@ -732,15 +664,15 @@ async function handleApi(
       const now = Math.floor(Date.now() / 1000);
 
       await env.DB.prepare(
-        "UPDATE computers SET revoked = 1, updated_at = ? WHERE server_id = ? AND tenant_id = ?",
+        "UPDATE computers SET revoked = 1, updated_at = ? WHERE server_id = ? AND user_id = ?",
       )
-        .bind(now, serverId, tenant)
+        .bind(now, serverId, userId)
         .run();
 
       await env.DB.prepare(
-        "DELETE FROM client_sessions WHERE server_id = ? AND tenant_id = ?",
+        "DELETE FROM client_sessions WHERE server_id = ? AND user_id = ?",
       )
-        .bind(serverId, tenant)
+        .bind(serverId, userId)
         .run();
 
       return json({ ok: true });
@@ -748,7 +680,7 @@ async function handleApi(
 
     const sessionMatch = path.match(/^\/v1\/computers\/([^/]+)\/client_sessions$/);
     if (sessionMatch && request.method === "POST") {
-      if (!tenant) {
+      if (!userId) {
         return json({ error: "unauthorized" }, 401);
       }
 
@@ -759,9 +691,9 @@ async function handleApi(
       const clientKind = body.client_kind?.trim() || "web";
 
       const c = await env.DB.prepare(
-        "SELECT revoked FROM computers WHERE server_id = ? AND tenant_id = ?",
+        "SELECT revoked FROM computers WHERE server_id = ? AND user_id = ?",
       )
-        .bind(serverId, tenant)
+        .bind(serverId, userId)
         .first<{ revoked: number }>();
 
       if (!c || c.revoked) {
@@ -774,22 +706,29 @@ async function handleApi(
       const tokenHash = await secretHash(clientToken);
 
       await env.DB.prepare(
-        "DELETE FROM client_sessions WHERE server_id = ? AND tenant_id = ?",
+        "DELETE FROM client_sessions WHERE server_id = ? AND user_id = ?",
       )
-        .bind(serverId, tenant)
+        .bind(serverId, userId)
         .run();
 
       await env.DB.prepare(
-        "UPDATE computers SET updated_at = ? WHERE server_id = ? AND tenant_id = ?",
+        "UPDATE computers SET updated_at = ? WHERE server_id = ? AND user_id = ?",
       )
-        .bind(now, serverId, tenant)
+        .bind(now, serverId, userId)
         .run();
 
       await env.DB.prepare(
-        `INSERT INTO client_sessions(token_hash, server_id, tenant_id, expires_at, created_at)
-         VALUES (?, ?, ?, ?, ?)`,
+        `INSERT INTO client_sessions(token_hash, user_id, server_id, device_id, expires_at, created_at)
+         VALUES (?, ?, ?, ?, ?, ?)`,
       )
-        .bind(tokenHash, serverId, tenant, expiresAt, now)
+        .bind(
+          tokenHash,
+          userId,
+          serverId,
+          deviceAuth?.deviceId ?? null,
+          expiresAt,
+          now,
+        )
         .run();
 
       const sessionUrls = buildClientSessionUrls({
@@ -824,6 +763,12 @@ async function requireRelaySecret(
     return null;
   }
 
+  // Hub internal projection uses its own shared secret (Bearer).
+  const path = normalizedPath(new URL(request.url).pathname);
+  if (path.startsWith("/v1/internal/")) {
+    return null;
+  }
+
   const providedSecret = request.headers.get(RELAY_SECRET_HEADER)?.trim() ?? "";
   if (!providedSecret) {
     return json({ error: "relay_secret_required" }, 401);
@@ -837,6 +782,35 @@ async function requireRelaySecret(
     return json({ error: "invalid_relay_secret" }, 403);
   }
 
+  return null;
+}
+
+/** Hub service → Relay device projection auth. */
+async function requireHubSyncAuth(
+  request: Request,
+  env: Env,
+): Promise<Response | null> {
+  const configured =
+    env.RELAY_HUB_SYNC_SECRET?.trim() || env.RELAY_SECRET_KEY?.trim() || "";
+  if (!configured) {
+    return json({ error: "hub_sync_not_configured" }, 503);
+  }
+
+  const auth = request.headers.get("Authorization") ?? "";
+  const bearer = auth.startsWith("Bearer ") ? auth.slice(7).trim() : "";
+  const headerSecret = request.headers.get(RELAY_SECRET_HEADER)?.trim() ?? "";
+  const provided = bearer || headerSecret;
+  if (!provided) {
+    return json({ error: "unauthorized" }, 401);
+  }
+
+  const [configuredHash, providedHash] = await Promise.all([
+    secretHash(configured),
+    secretHash(provided),
+  ]);
+  if (configuredHash !== providedHash) {
+    return json({ error: "unauthorized" }, 401);
+  }
   return null;
 }
 
@@ -859,7 +833,7 @@ async function handleHttpGatewayProxy(
     env,
     route.serverId,
     secretHash,
-    tenantFromRequest,
+    userIdFromRequest,
   );
   if (!allowed) {
     return json({ error: "unauthorized" }, 401);

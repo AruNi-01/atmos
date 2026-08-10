@@ -1163,7 +1163,8 @@
       "loadingSettings": "Loading task settings...",
       "source": {
         "atmos": "Atmos",
-        "github": "GitHub"
+        "github": "GitHub",
+        "linear": "Linear"
       },
       "github": {
         "tabs": {
@@ -1328,6 +1329,32 @@
           "pink": "Pink",
           "cyan": "Cyan"
         }
+      },
+      "linear": {
+        "refresh": "Refresh",
+        "notConnected": "Linear is not connected.",
+        "connectHint": "Open Settings → Integrations → Linear to connect with OAuth or an API key.",
+        "loadError": "Failed to load Linear issues.",
+        "empty": "No issues match these filters.",
+        "openInLinear": "Open in Linear",
+        "presets": {
+          "active": "Active",
+          "backlog": "Backlog",
+          "all": "All issues"
+        },
+        "filters": {
+          "allTeams": "All teams",
+          "allProjects": "All projects",
+          "searchPlaceholder": "Search title or id…",
+          "atmosProject": "Atmos project"
+        },
+        "createWorkspace": "Create workspace from issue",
+        "create": "Create",
+        "linkOrCreate": "Open create with link",
+        "needProject": "Select an Atmos project first.",
+        "createFailed": "Failed to create workspace from Linear issue.",
+        "signInRequired": "Sign in to Atmos to use Linear.",
+        "signInHint": "Open Settings → Account and sign in with GitHub or Google. Linear credentials are stored on your Atmos account (Hub), not on this machine alone."
       }
     }
   },
@@ -2263,10 +2290,10 @@
         "errors": {
           "cannotReachCloud": "Cannot reach Atmos cloud. Check your network connection.",
           "cannotConnectLocally": "Cannot connect locally. Restart Atmos and try again.",
-          "currentKeyTooShort": "Current access key is too short.",
-          "newKeyTooShort": "New access key is too short.",
-          "newKeyMustDiffer": "New access key must be different.",
-          "relayAccessKeyUnavailable": "Relay access key is unavailable."
+          "currentKeyTooShort": "Current device credential is too short.",
+          "newKeyTooShort": "New device credential is too short.",
+          "newKeyMustDiffer": "New device credential must be different.",
+          "relayAccessKeyUnavailable": "Device credential is unavailable. Trust this device under Account first."
         }
       },
       "registrationMeta": {
@@ -4380,6 +4407,10 @@
         "desktopUse": {
           "label": "Desktop Use",
           "description": "Local desktop capture, control engine, and macOS permissions"
+        },
+        "account": {
+          "label": "Account",
+          "description": "Atmos Hub sign-in, devices, and cloud identity"
         }
       },
       "dialog": {
@@ -4805,16 +4836,16 @@
           },
           "atmosComputer": {
             "accessKey": {
-              "label": "Access Key"
+              "label": "Device credential"
             },
             "generateAccessKey": {
-              "label": "Generate Access Key"
+              "label": "Import device credential"
             },
             "saveAccessKey": {
-              "label": "Save Access Key"
+              "label": "Save device credential"
             },
             "rotateAccessToken": {
-              "label": "Rotate Access Token"
+              "label": "Rotate device credential"
             },
             "privateRelay": {
               "label": "Private Relay"
@@ -5856,6 +5887,42 @@
         },
         "installationStatusTitle": "Installation Status",
         "authenticationStatusTitle": "Authentication Status"
+      },
+      "linear": {
+        "title": "Linear",
+        "description": "Connect Linear with OAuth. Sign in to Atmos first; credentials are stored only on your Hub account — no API key paste.",
+        "connectOauth": "Continue with Linear",
+        "connectApiKey": "Disabled",
+        "apiKeyPlaceholder": "",
+        "disconnect": "Disconnect",
+        "connectedAs": "Connected as {name}",
+        "notConnected": "Not connected",
+        "needsHubLogin": "Sign in required",
+        "needsHubLoginHint": "Linear is linked to your Atmos account. Open Account and sign in with GitHub or Google first.",
+        "needsDevice": "Trust this device",
+        "needsDeviceHint": "After signing in, trust this device under Account, then connect Linear.",
+        "openAccount": "Open Account",
+        "connectFailed": "Could not connect Linear",
+        "disconnectFailed": "Could not disconnect Linear",
+        "authMethodApiKey": "API key",
+        "authMethodOauth": "OAuth",
+        "rateLimit": {
+          "title": "API rate limits",
+          "description": "Linear request and complexity budgets for the connected credentials.",
+          "refresh": "Refresh",
+          "loadError": "Could not load Linear rate limits.",
+          "footer": "{remaining} remaining · {reset}",
+          "resetSoon": "resets soon",
+          "resetInMinutes": "resets in {minutes}m",
+          "resetInHours": "resets in {hours}h",
+          "resetInHoursMinutes": "resets in {hours}h {minutes}m",
+          "resources": {
+            "requests": "Requests",
+            "complexity": "Complexity"
+          }
+        },
+        "reconnectOauth": "Re-authorize",
+        "connecting": "Redirecting…"
       }
     },
     "aiSection": {
@@ -6051,6 +6118,28 @@
     "browserUse": {
       "label": "Browser Use",
       "description": "Control Atmos in-app browser pages (DOM click / type / navigate)"
+    },
+    "accountSection": {
+      "title": "Atmos Account",
+      "description": "Sign in with GitHub or Google. Computers, Linear, and usage share use this account (Hub) — no separate local access token.",
+      "hubNotConfigured": "Atmos Hub URL is not configured. Set NEXT_PUBLIC_ATMOS_HUB_URL to enable sign-in.",
+      "signedIn": "Signed in",
+      "signedOut": "Not signed in",
+      "signInGithub": "Sign in with GitHub",
+      "signInGoogle": "Sign in with Google",
+      "signOut": "Sign out",
+      "trustDevice": "Trust this device",
+      "devicesTitle": "Devices",
+      "devicesEmpty": "No devices enrolled yet. Trust this device to use Computers via Relay.",
+      "deviceActive": "Active",
+      "deviceRevoked": "Revoked",
+      "credentialOnceTitle": "Device credential (shown once)",
+      "credentialOnceHint": "Stored in this browser for Relay. Rotate from Hub if leaked.",
+      "errors": {
+        "signInFailed": "Sign-in failed",
+        "signOutFailed": "Sign-out failed",
+        "enrollFailed": "Could not enroll device"
+      }
     }
   },
   "agent": {
@@ -8363,35 +8452,38 @@
         "accessKeyRotatedDescription": "Computers and GitHub routes stay on the same identity. Copy the new key now.",
         "accessKeyRotatedNotSaved": "Relay accepted the rotation, but Atmos could not save locally. Copy the new key now.",
         "couldNotRemove": "Could not remove",
-        "computerRemoved": "Computer removed"
+        "computerRemoved": "Computer removed",
+        "importFromAccountHint": "No device credential in this browser. Open Settings → Account, sign in, and trust this device."
       },
       "panels": {
         "accessKey": {
-          "title": "Access Key",
-          "description": "Your access key registers new Computers (via registration codes) and lists all Computers on your account.",
+          "title": "Device credential",
+          "description": "Relay uses a Hub-minted device credential (Settings → Account → Trust this device). Paste it here or import from this browser’s enroll. Computers list and register tokens use this Bearer — not a user-generated Access Token.",
           "actions": {
-            "generate": "Generate"
+            "generate": "Generate",
+            "importFromAccount": "Import from Account"
           },
           "placeholders": {
-            "savedOnComputer": "Access key is saved on this Computer",
-            "pasteOrGenerate": "Paste your access key or generate a new one"
+            "savedOnComputer": "Device credential is saved on this Computer",
+            "pasteOrGenerate": "Paste device credential from Account enroll",
+            "pasteDeviceCredential": "Paste Hub device credential"
           },
           "buttons": {
             "copied": "Copied",
-            "copy": "Copy access key",
-            "switchIdentity": "Switch Identity",
+            "copy": "Copy device credential",
+            "switchIdentity": "Switch device",
             "save": "Save"
           },
           "helper": {
-            "switchIdentity": "Switch Identity replaces the local key directly. Existing Computers and GitHub routes from the current key will not move.",
-            "hiddenOnHostedWeb": "An access key is saved on this Computer. Hosted web keeps it hidden; paste a new key only to replace it.",
-            "default": "Generate or paste an access key to create or use an Atmos Computer identity."
+            "switchIdentity": "Switching replaces the local device credential. Existing Computers stay under the same Hub user if the new credential belongs to that user.",
+            "hiddenOnHostedWeb": "A device credential is saved on this Computer. Hosted web keeps it hidden; paste a new credential only to replace it.",
+            "default": "Sign in and trust this device under Settings → Account, then import or paste the credential shown once."
           }
         },
         "rotateAccessToken": {
-          "title": "Rotate Access Token",
-          "description": "Use rotation when the Relay access token may be exposed or you want a security refresh. Existing Computers stay connected.",
-          "button": "Rotate"
+          "title": "Rotate device credential",
+          "description": "Rotate from Settings → Account (Hub). Relay receives the new hash via Hub projection.",
+          "button": "Open Account"
         },
         "tokenReveal": {
           "title": "Copy your access key now",

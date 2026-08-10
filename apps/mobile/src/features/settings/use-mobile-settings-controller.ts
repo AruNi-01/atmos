@@ -7,7 +7,7 @@ import { getAccessTokenSwitchReadiness } from "@/features/settings/access-token-
 import { activeSettingsComputers } from "@/features/settings/computer-settings";
 import { getRelayUrlSaveState } from "@/features/settings/relay-url-settings";
 import { useRelayClient } from "@/hooks/use-relay-client";
-import { clearAccessToken, generateAccessToken, getStoredAccessToken, storeAccessToken } from "@/lib/access-token";
+import { clearAccessToken, getStoredAccessToken, storeAccessToken } from "@/lib/access-token";
 import { clearRelaySecretKey, storeRelaySecretKey } from "@/lib/relay-secret-key";
 import { useComputerStore } from "@/stores/computer-store";
 import { useSessionStore } from "@/stores/session-store";
@@ -84,7 +84,7 @@ export function useMobileSettingsController() {
   const switchComputer = useMutation({
     mutationFn: async (serverId: string) => {
       const token = await getStoredAccessToken();
-      if (!token) throw new Error("Access Token is not available.");
+      if (!token) throw new Error("Device credential is not available.");
       return client.createClientSession(token, serverId);
     },
     onSuccess: (session, serverId) => {
@@ -98,7 +98,7 @@ export function useMobileSettingsController() {
   const createRegisterCommand = useMutation({
     mutationFn: async () => {
       const token = await getStoredAccessToken();
-      if (!token) throw new Error("Access Token is not available.");
+      if (!token) throw new Error("Device credential is not available.");
       return client.createRegisterToken(token);
     },
     onSuccess: (registerToken) => {
@@ -125,7 +125,7 @@ export function useMobileSettingsController() {
   const revoke = useMutation({
     mutationFn: async (serverId: string) => {
       const token = await getStoredAccessToken();
-      if (!token) throw new Error("Access Token is not available.");
+      if (!token) throw new Error("Device credential is not available.");
       return client.revokeComputer(token, serverId);
     },
     onSuccess: (_, serverId) => {
@@ -143,9 +143,9 @@ export function useMobileSettingsController() {
         token: nextToken,
       });
       if (!readiness.canSwitch) {
-        throw new Error(readiness.reason ?? "Paste a valid Access Token first.");
+        throw new Error(readiness.reason ?? "Paste a valid device credential first.");
       }
-      await client.registerTenant(nextToken);
+      // Hub-minted credential is already on Relay; only store locally.
       await storeAccessToken(nextToken);
     },
     onSuccess: async () => {
@@ -155,28 +155,28 @@ export function useMobileSettingsController() {
       setComputers([]);
       setError(null);
       await queryClient.invalidateQueries();
-      Alert.alert("Access Token switched", "Select a Computer to create a fresh mobile session.");
+      Alert.alert(
+        "Device credential switched",
+        "Select a Computer to create a fresh mobile session.",
+      );
     },
-    onError: (nextError) => setError(nextError instanceof Error ? nextError.message : "Could not switch Access Token."),
+    onError: (nextError) =>
+      setError(
+        nextError instanceof Error ? nextError.message : "Could not switch device credential.",
+      ),
   });
 
+  /** Rotation is done on Hub (Account); mobile only accepts a new pasted credential. */
   const rotateToken = useMutation({
     mutationFn: async () => {
-      const current = await getStoredAccessToken();
-      if (!current) throw new Error("No Access Token is stored.");
-      const next = await generateAccessToken();
-      await client.rotateTenantToken(current, next);
-      await storeAccessToken(next);
+      throw new Error(
+        "Rotate the device credential in Desktop/Web Settings → Account, then paste the new credential here.",
+      );
     },
-    onSuccess: async () => {
-      setAccessTokenLoaded(true);
-      clearClientSession();
-      setComputers([]);
-      setError(null);
-      await queryClient.invalidateQueries();
-      Alert.alert("Access Token rotated", "Select a Computer again to create a fresh mobile session.");
-    },
-    onError: (nextError) => setError(nextError instanceof Error ? nextError.message : "Could not rotate Access Token."),
+    onError: (nextError) =>
+      setError(
+        nextError instanceof Error ? nextError.message : "Could not rotate device credential.",
+      ),
   });
 
   const resetToken = useMutation({
@@ -206,14 +206,14 @@ export function useMobileSettingsController() {
 
   const confirmRevokeSelectedComputer = () => {
     if (!selectedServerId) return;
-    Alert.alert("Revoke Computer", "This Computer will be removed from this Access Token.", [
+    Alert.alert("Revoke Computer", "This Computer will be removed from your Hub account.", [
       { text: "Cancel", style: "cancel" },
       { text: "Revoke", style: "destructive", onPress: () => revoke.mutate(selectedServerId) },
     ]);
   };
 
   const confirmResetPhone = () => {
-    Alert.alert("Reset This Phone", "Remove the local Access Token and return to setup.", [
+    Alert.alert("Reset This Phone", "Remove the local device credential and return to setup.", [
       { text: "Cancel", style: "cancel" },
       { text: "Reset", style: "destructive", onPress: () => resetToken.mutate() },
     ]);

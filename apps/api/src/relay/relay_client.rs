@@ -12,7 +12,7 @@ pub struct RelayRequest {
 
 pub struct RelayClient {
     base_url: String,
-    access_token: String,
+    device_credential: String,
     relay_secret_key: Option<String>,
     client: reqwest::Client,
 }
@@ -26,9 +26,10 @@ impl RelayRequest {
         };
 
         let relay_url = take_optional_string(&mut payload, "relay_url");
-        let access_token = take_optional_string(&mut payload, "access_token");
+        let device_credential = take_optional_string(&mut payload, "device_credential")
+            .or_else(|| take_optional_string(&mut payload, "access_token"));
         let relay_secret_key = take_optional_string(&mut payload, "relay_secret_key");
-        let use_settings_credentials = access_token.is_none();
+        let use_settings_credentials = device_credential.is_none();
 
         let settings = if relay_url.is_none() || use_settings_credentials {
             read_computer_client_settings().map_err(|error| {
@@ -45,16 +46,16 @@ impl RelayRequest {
             relay_url.or(settings_relay_url)
         }
         .ok_or_else(|| ServiceError::Validation("relay_url is required.".to_string()))?;
-        let access_token = access_token
+        let device_credential = device_credential
             .or_else(|| {
                 settings
                     .as_ref()
-                    .map(|settings| settings.access_token.trim().to_string())
+                    .map(|settings| settings.device_credential.trim().to_string())
                     .filter(|value| !value.is_empty())
             })
             .ok_or_else(|| {
                 ServiceError::Validation(
-                    "Relay Access Token is not configured on this Computer. Save an Access Key in Atmos Computer settings from Desktop or localhost.".to_string(),
+                    "Device credential is not configured. Sign in to Atmos Hub and trust this device (Settings → Account), then try again.".to_string(),
                 )
             })?;
         let relay_secret_key = relay_secret_key.or_else(|| {
@@ -66,18 +67,22 @@ impl RelayRequest {
         });
 
         Ok(Self {
-            client: RelayClient::new(&relay_url, &access_token, relay_secret_key.as_deref())?,
+            client: RelayClient::new(&relay_url, &device_credential, relay_secret_key.as_deref())?,
             payload,
         })
     }
 }
 
 impl RelayClient {
-    fn new(relay_url: &str, access_token: &str, relay_secret_key: Option<&str>) -> Result<Self> {
-        let access_token = access_token.trim();
-        if access_token.len() < 32 {
+    fn new(
+        relay_url: &str,
+        device_credential: &str,
+        relay_secret_key: Option<&str>,
+    ) -> Result<Self> {
+        let device_credential = device_credential.trim();
+        if device_credential.len() < 32 {
             return Err(ServiceError::Validation(
-                "Relay Access Token is missing or too short.".to_string(),
+                "Device credential is missing or too short.".to_string(),
             ));
         }
         let relay_secret_key = relay_secret_key
@@ -101,7 +106,7 @@ impl RelayClient {
 
         Ok(Self {
             base_url,
-            access_token: access_token.to_string(),
+            device_credential: device_credential.to_string(),
             relay_secret_key,
             client,
         })
@@ -114,7 +119,7 @@ impl RelayClient {
         let mut request = self
             .client
             .request(method, format!("{}{}", self.base_url, path))
-            .bearer_auth(&self.access_token)
+            .bearer_auth(&self.device_credential)
             .header(reqwest::header::ACCEPT, "application/json");
 
         if let Some(secret) = &self.relay_secret_key {

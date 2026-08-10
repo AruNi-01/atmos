@@ -1,0 +1,7 @@
+{
+  "extends": "../config/typescript/workers.json",
+  "compilerOptions": {
+    "types": ["@cloudflare/workers-types", "bun"]
+  },
+  "include": ["src/**/*.ts", "test/**/*.ts"]
+}

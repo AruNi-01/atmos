@@ -1,0 +1,31 @@
+{
+  "name": "@atmos/hub",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Atmos Hub — hosted control plane (auth, devices, integrations, usage share)",
+  "scripts": {
+    "dev": "wrangler dev",
+    "test": "bun test",
+    "typecheck": "bun ../../scripts/run-tsc7.ts -p tsconfig.json",
+    "db:generate": "drizzle-kit generate",
+    "db:studio": "drizzle-kit studio",
+    "auth:generate": "better-auth generate --config ./src/auth.ts --output ./src/db/auth-schema.generated.ts",
+    "cf-typegen": "wrangler types",
+    "deploy:dry-run": "wrangler deploy --dry-run",
+    "deploy": "wrangler deploy"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20260810.1",
+    "@types/bun": "^1.3.14",
+    "dotenv": "^17.4.2",
+    "drizzle-kit": "^0.31.10",
+    "tsx": "^4.23.12",
+    "typescript": "6.0.3",
+    "wrangler": "^4.120.0"
+  },
+  "dependencies": {
+    "@better-auth/drizzle-adapter": "^1.6.26",
+    "better-auth": "^1.6.26",
+    "drizzle-orm": "^0.45.2"
+  }
+}

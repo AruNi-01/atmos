@@ -113,6 +113,7 @@ export type SettingsModalTab =
   | "code-agent"
   | "workspace"
   | "labels"
+  | "account"
   | "integrations"
   | "ai"
   | "notify"
@@ -133,6 +134,7 @@ export const settingsModalParams = {
     "code-agent",
     "workspace",
     "labels",
+    "account",
     "integrations",
     "ai",
     "notify",
@@ -240,7 +242,7 @@ export const chatSessionsParams = {
 // ---------------------------------------------------------------------------
 // Tasks page – source tab, Atmos filters, GitHub list state
 // ---------------------------------------------------------------------------
-export type TaskSourceTab = "atmos" | "github";
+export type TaskSourceTab = "atmos" | "github" | "linear";
 export type TaskGithubKindParam = "issues" | "prs";
 export type TaskGithubStateParam = "all" | "open" | "closed";
 /** GitHub list sort — matches github.com PR/Issue list sort menu. */
@@ -264,7 +266,7 @@ const parseAsStringList = parseAsArrayOf(parseAsString).withDefault([]);
 
 export const taskParams = {
   /** Atmos board vs GitHub issues/PRs. */
-  taskSource: parseAsStringEnum<TaskSourceTab>(["atmos", "github"]).withDefault("atmos"),
+  taskSource: parseAsStringEnum<TaskSourceTab>(["atmos", "github", "linear"]).withDefault("atmos"),
   /** Atmos kanban column grouping (also mirrored to function settings). */
   taskGroupBy: parseAsStringEnum<TaskGroupingModeParam>([
     "project",

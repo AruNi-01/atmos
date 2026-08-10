@@ -16,81 +16,62 @@ export class RelayError extends Error {
 }
 
 type RequestOptions = {
+  /** Hub-minted device credential (Relay Bearer). */
   token?: string | null;
   body?: unknown;
   method?: "GET" | "POST" | "PATCH";
 };
 
+/**
+ * Relay REST client (APP-056).
+ * Auth is Hub device credential Bearer — no `/v1/tenants` register/rotate.
+ */
 export class RelayClient {
   constructor(
     private readonly baseUrl: string,
     private readonly relaySecretKey: string = "",
   ) {}
 
-  async registerTenant(token: string) {
-    try {
-      await this.request<{ ok: true }>("/v1/tenants", {
-        method: "POST",
-        body: { token },
-      });
-    } catch (error) {
-      if (error instanceof RelayError && error.status === 409 && error.code === "tenant_exists") {
-        return { ok: true as const };
-      }
-      throw error;
-    }
-
-    return { ok: true as const };
-  }
-
-  rotateTenantToken(currentToken: string, newToken: string) {
-    return this.request<{ ok: true; rotated_at: number }>("/v1/tenants/rotate_token", {
-      method: "POST",
-      token: currentToken,
-      body: { new_token: newToken },
-    });
-  }
-
-  createRegisterToken(token: string) {
+  createRegisterToken(deviceCredential: string) {
     return this.request<RegisterTokenResponse>("/v1/register_tokens", {
       method: "POST",
-      token,
+      token: deviceCredential,
       body: {},
     });
   }
 
-  async listComputers(token: string) {
+  async listComputers(deviceCredential: string) {
     const response = await this.request<{ computers: ComputerRow[] }>("/v1/computers", {
-      token,
+      token: deviceCredential,
     });
     return response.computers;
   }
 
-  renameComputer(token: string, serverId: string, displayName: string) {
+  renameComputer(deviceCredential: string, serverId: string, displayName: string) {
     return this.request<{ ok: true; server_id: string; display_name: string }>(
       `/v1/computers/${encodeURIComponent(serverId)}`,
       {
         method: "PATCH",
-        token,
+        token: deviceCredential,
         body: { display_name: displayName },
       },
     );
   }
 
-  revokeComputer(token: string, serverId: string) {
+  revokeComputer(deviceCredential: string, serverId: string) {
     return this.request<{ ok: true }>(`/v1/computers/${encodeURIComponent(serverId)}/revoke`, {
       method: "POST",
-      token,
+      token: deviceCredential,
       body: {},
     });
   }
 
-  async createClientSession(token: string, serverId: string) {
+  async createClientSession(deviceCredential: string, serverId: string) {
     const response = await this.request<unknown>(
       `/v1/computers/${encodeURIComponent(serverId)}/client_sessions`,
       {
         method: "POST",
-        token,
+        token: deviceCredential,
         body: { client_kind: "mobile" },
       },
     );

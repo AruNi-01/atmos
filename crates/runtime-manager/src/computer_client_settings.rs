@@ -1,4 +1,7 @@
-//! `~/.atmos/computer-client.json` — user Access Token + relay settings (shared by Web/Desktop).
+//! `~/.atmos/computer-client.json` — Hub device credential + relay settings (shared by Web/Desktop).
+//!
+//! APP-056: identity is Hub `user_id` + Hub-minted **device credential**.
+//! There is no user-generated Relay Access Token / `POST /v1/tenants`.
 
 use std::fs;
 use std::io::Write;
@@ -15,8 +18,11 @@ pub const COMPUTER_CLIENT_SETTINGS_FILE_NAME: &str = "computer-client.json";
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ComputerClientSettings {
     pub version: u32,
-    #[serde(default)]
-    pub access_token: String,
+    /// Hub-minted device credential (Relay Bearer).
+    #[serde(default, alias = "access_token")]
+    pub device_credential: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub device_id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub relay_url: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -27,7 +33,8 @@ impl Default for ComputerClientSettings {
     fn default() -> Self {
         Self {
             version: COMPUTER_CLIENT_SETTINGS_VERSION,
-            access_token: String::new(),
+            device_credential: String::new(),
+            device_id: None,
             relay_url: None,
             relay_secret_key: None,
         }
@@ -35,13 +42,18 @@ impl Default for ComputerClientSettings {
 }
 
 impl ComputerClientSettings {
-    pub fn new(access_token: impl Into<String>, relay_url: Option<String>) -> Self {
+    pub fn new(device_credential: impl Into<String>, relay_url: Option<String>) -> Self {
         Self {
             version: COMPUTER_CLIENT_SETTINGS_VERSION,
-            access_token: access_token.into(),
+            device_credential: device_credential.into(),
+            device_id: None,
             relay_url,
             relay_secret_key: None,
         }
+    }
+
+    pub fn is_configured(&self) -> bool {
+        self.device_credential.trim().len() >= 32
     }
 }
 
@@ -81,6 +93,13 @@ pub fn read_computer_client_settings() -> Result<Option<ComputerClientSettings>,
         .is_some_and(|s| s.trim().is_empty())
     {
         parsed.relay_secret_key = None;
+    }
+    if parsed
+        .device_id
+        .as_ref()
+        .is_some_and(|s| s.trim().is_empty())
+    {
+        parsed.device_id = None;
     }
     Ok(Some(parsed))
 }
@@ -158,5 +177,13 @@ mod tests {
         let raw = serde_json::to_string(&s).unwrap();
         let back: ComputerClientSettings = serde_json::from_str(&raw).unwrap();
         assert_eq!(back.version, COMPUTER_CLIENT_SETTINGS_VERSION);
+        assert!(back.device_credential.is_empty());
+    }
+
+    #[test]
+    fn reads_legacy_access_token_alias() {
+        let raw = r#"{"version":1,"access_token":"legacy-token-at-least-32-chars-long!!"}"#;
+        let back: ComputerClientSettings = serde_json::from_str(raw).unwrap();
+        assert!(back.device_credential.starts_with("legacy-token"));
     }
 }

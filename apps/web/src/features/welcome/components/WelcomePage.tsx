@@ -857,6 +857,17 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
         labels: labelsToUse,
         attachments: attachmentPayload,
       });
+      // APP-056: if Task Linear opened create with a pending issue snapshot, link it.
+      try {
+        const raw = sessionStorage.getItem("atmos.pendingLinearLink");
+        if (raw) {
+          sessionStorage.removeItem("atmos.pendingLinearLink");
+          const { wsLinearApi } = await import("@/api/ws/linear-api");
+          await wsLinearApi.linkIssue(workspaceId, JSON.parse(raw));
+        }
+      } catch {
+        // non-fatal: workspace was created; association can be re-linked from Task
+      }
       queueAgentRun({
         workspaceId,
         prompt: resolvedPrompt.trim(),

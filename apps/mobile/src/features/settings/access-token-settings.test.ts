@@ -2,20 +2,20 @@
 import { describe, expect, test } from "bun:test";
 import { getAccessTokenSwitchReadiness } from "./access-token-settings";
 
-describe("access token settings", () => {
-  test("requires a plausible token before switching", () => {
+describe("device credential settings", () => {
+  test("requires a plausible credential before switching", () => {
     expect(getAccessTokenSwitchReadiness({ isSaving: false, token: "" })).toEqual({
       canSwitch: false,
-      reason: "Paste an Access Token to switch this phone.",
+      reason: "Paste a device credential to switch this phone.",
     });
 
     expect(getAccessTokenSwitchReadiness({ isSaving: false, token: "short" })).toEqual({
       canSwitch: false,
-      reason: "Access Token must be at least 32 characters.",
+      reason: "Device credential must be at least 32 characters.",
     });
   });
 
-  test("allows switching when a long token is pasted", () => {
+  test("allows switching when a long credential is pasted", () => {
     expect(
       getAccessTokenSwitchReadiness({
         isSaving: false,

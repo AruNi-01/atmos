@@ -50,7 +50,7 @@ export const SETTINGS_GROUPS = [
     id: "system-integration",
     label: settingsModalT("groups.systemIntegration.label"),
     description: settingsModalT("groups.systemIntegration.description"),
-    items: ["integrations", "desktop-use", "notify"] as const,
+    items: ["account", "integrations", "desktop-use", "notify"] as const,
   },
   {
     id: "workspace-projects",
@@ -101,6 +101,11 @@ export const SETTINGS_SECTIONS = [
     id: "labels",
     label: settingsModalT("sections.labels.label"),
     description: settingsModalT("sections.labels.description"),
+  },
+  {
+    id: "account",
+    label: settingsModalT("sections.account.label"),
+    description: settingsModalT("sections.account.description"),
   },
   {
     id: "integrations",
@@ -166,6 +171,7 @@ const SECTION_GROUP_TERMS = SETTINGS_GROUPS.reduce(
 );
 
 const SETTINGS_SECTION_KEYWORDS: Record<SettingsSectionId, readonly string[]> = {
+  account: ["account", "login", "sign in", "hub", "github", "google", "device", "identity"],
   layout: [
     "layout",
     "panel",
@@ -420,7 +426,8 @@ const SETTINGS_SECTION_KEYWORDS: Record<SettingsSectionId, readonly string[]> = 
     "private relay",
     "relay url",
     "token",
-    "rotate access token",
+    "rotate device credential",
+    "device credential",
     "switch identity",
     "register computer",
     "register this computer",
@@ -512,6 +519,7 @@ function settingsModalSearchItem(
 }
 
 const SETTINGS_SETTING_ITEMS: Record<SettingsSectionId, readonly SettingsSearchItemDefinition[]> = {
+  account: [],
   layout: [
     settingsModalSearchItem("layout.projectFilesShowSide", {
       hasDescription: true,

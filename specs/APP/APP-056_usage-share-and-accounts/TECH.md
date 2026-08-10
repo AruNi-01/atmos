@@ -274,7 +274,15 @@ CREATE TABLE computers (
 
 ### Snapshot JSON schema (v1)
 
-Server **rejects** unknown top-level keys and any field matching denylist (`prompt`, `path`, `cwd`, `messages`, `content`, raw arrays of chat, etc.).
+**Server is the trust boundary** (Hub on create/update and before public serve). Client redaction is UX only.
+
+Hub **must** normalize before storage (and re-check on public read):
+
+1. **Allowlist shape** — only the schema below after normalize; strip unknown top-level keys.
+2. **Recursive denylist** — walk nested objects/arrays (depth cap e.g. 12); drop keys matching denylist (`prompt`, `path`, `cwd`, `messages`, `content`, `transcript`, `token`, `secret`, `credential`, `repo`, `project_path`, …) and keys containing `password`/`secret` (case-insensitive).
+3. **`partial_warnings` / free-text** — strip or empty; never store embedded paths/prompts.
+4. **Cost** — if `include_cost=false` (default), recursively remove cost fields everywhere. If true, only numeric allowlisted cost fields remain.
+5. **Size / array caps** — reject over **256 KiB** UTF-8; cap arrays (e.g. 400 days, 50 models).
 
 ```ts
 type UsageShareSnapshotV1 = {
@@ -307,11 +315,9 @@ type UsageShareSnapshotV1 = {
     message_count: number;
     total_cost_usd?: number | null;
   }>;
-  partial_warnings?: string[];
+  // partial_warnings intentionally not stored after normalize
 };
 ```
-
-Size cap: **256 KiB** UTF-8.
 
 ## Auth & device credential flows
 
@@ -338,15 +344,24 @@ betterAuth({
 });
 ```
 
-Mount Better Auth handler under `/api/auth/*` (or `/v1/auth/*` — pick one in implementation and keep stable).
+Mount Better Auth handler under **`/api/auth/*` only** (Better Auth default). Do not use `/v1/auth/*`.
 
-**Secrets:** `BETTER_AUTH_SECRET`, `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`.  
+**Canonical OAuth callback URLs** (pin to Better Auth’s provider paths; verify against the installed `better-auth` version):
+
+| Provider | Production callback |
+|----------|---------------------|
+| GitHub | `https://hub.atmos.land/api/auth/callback/github` |
+| Google | `https://hub.atmos.land/api/auth/callback/google` |
+
+Local: `http://localhost:8787/api/auth/callback/{github|google}`.
+
+**Secrets:** `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL=https://hub.atmos.land`, `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`.  
 **Do not** reuse APP-019 GitHub App install secrets for product login if avoidable.
 
 ### Login
 
-1. App opens Hub Better Auth social sign-in (GitHub or Google).
-2. Callback on `hub.atmos.land` establishes session cookie.
+1. App opens Hub Better Auth social sign-in (GitHub or Google) via `/api/auth/...`.
+2. Provider redirects to the canonical **`/api/auth/callback/{provider}`** on `hub.atmos.land`; session cookie is set.
 3. `GET /v1/me` (session) returns `{ user_id, handle, display_name, avatar_url, providers[] }`.
 
 ### Device enroll (replaces Access Token generation)
@@ -372,10 +387,24 @@ Response **once**:
 Hub:
 
 1. Inserts `devices` row with `credential_hash`.
-2. **Projects** to Relay via authenticated service call (`relay-sync`): upsert Relay `devices(user_id, device_id, credential_hash)`.
-3. Client stores credential in existing local settings path (replace `computer-client` access token field with device credential + device_id + user_id).
+2. Enqueues **Hub→Relay projection** (see below); client may receive credential after Hub DB commit even if Relay is still catching up — product copy: “may take a moment to work on Relay”.
+3. Client stores credential in `computer-client.json` as `device_credential` (+ `device_id`, `user_id`).
 
 **Auto-enroll policy (recommended):** first Relay-related Settings open while logged in with no local device credential → prompt “Trust this device” → enroll.
+
+### Hub → Relay device sync protocol
+
+**Ordering:** Hub D1 is source of truth for mint/rotate/revoke. Relay `devices` is a projection.
+
+| Step | Behavior |
+|------|----------|
+| Write Hub | Insert/update/revoke `devices` in Hub D1 first |
+| Project | `POST {RELAY_URL}/v1/internal/devices/upsert` with `Authorization: Bearer {RELAY_HUB_SYNC_SECRET}` and body `{ user_id, device_id, credential_hash, label?, revoked? }` |
+| Idempotency | Key = `device_id` (+ `credential_hash` or `revoked_at` epoch). Relay upsert is idempotent on `device_id`. |
+| Failure | If Relay call fails: leave Hub row as-is; record `projection_status=pending` (or outbox row) with retry (Worker cron / queue, exponential backoff). **Do not claim “Relay invalidation complete” in API response** until projection succeeds **or** document soft success: HTTP 200 with `relay_synced: false`. |
+| Rotate success boundary | Old hash is invalid on Hub immediately (session/device list). Old hash may still work on Relay until projection succeeds — **must** retry until Relay has new hash or revoke. Prefer response field `relay_synced` so UI can warn. |
+| Revoke success boundary | Hub `revoked_at` set; Relay must receive `revoked: true` (or delete row). Same outbox/retry. |
+| Repair | Periodic reconcile: Hub lists non-revoked devices vs Relay; re-upsert missing / re-revoke stale. Duplicate `device_id` overwrites hash. Unusable new credential (client lost plaintext) → user rotates again while signed in. |
 
 ### Device rotate (session-first)
 
@@ -393,10 +422,10 @@ Authorization: Bearer <current device_credential>
 
 Rules:
 
-- New credential minted; old hash replaced; `rotated_at` set.
-- Relay projection updated in the same logical operation (Hub then Relay; retry Relay if needed).
+- New credential minted; Hub replaces `credential_hash`; `rotated_at` set.
+- Enqueue Relay projection of new hash (outbox/retry). **Immediate Relay rejection of old hash is not guaranteed until projection succeeds.**
 - Computers **unchanged** (`user_id` stable).
-- Short-lived register/client sessions for that device (or whole account — prefer **account-wide client session revoke on rotate of any device** only if simpler; default: revoke sessions created by that device_id when tracked).
+- Prefer revoke short-lived client sessions for that `device_id` when tracked.
 
 ### Device revoke
 
@@ -405,7 +434,7 @@ POST /v1/devices/:device_id/revoke
 Cookie: <hub session>
 ```
 
-Sets `revoked_at`; Relay rejects credential; Computers remain unless user deletes them.
+Sets Hub `revoked_at`; projects revoke to Relay (retry until synced). Computers remain unless user deletes them.
 
 ### Relay API auth (new contract)
 
@@ -426,18 +455,23 @@ Relay management endpoints (`register_tokens`, `GET /v1/computers`, client_sessi
 2. Server consumes register token → computer row with `user_id` from the device’s user.
 3. `server_secret` remains server-local for `/ws/server`.
 
-### Headless VPS
+### Headless VPS / Computer register token
 
-From logged-in app:
+**Single issuer: Relay** (not Hub).
+
+1. Client has Hub session + enrolled **device credential**.
+2. Client calls Relay:
 
 ```http
-POST /v1/computers/enroll_tokens
-Cookie: session
-{ "label": "prod-vps" }
-→ { "register_command": "atmos computer start --token …", "expires_at": … }
+POST /v1/register_tokens
+Authorization: Bearer <device_credential>
 ```
 
-Hub or Relay issues one-time `register_token` bound to `user_id` (not to a user-copied long-lived token).
+3. Relay stores `register_tokens.token_hash` with **`user_id`** from the device row (and optional `device_id`), `expires_at`, optional `used_at`.
+4. Response: `{ register_token, expires_at, register_command }` for `atmos computer start --token …`.
+5. Machine redeems `POST /v1/computers/register` with `register_token` + `app_device_id` → computer row owned by that **`user_id`**.
+
+**Hub does not mint `register_token`.** Optional Hub helper `POST /v1/computers/enroll_tokens` (session) may only **proxy** the same Relay call using the user’s active device credential or a Hub service assertion that embeds `user_id` — still one storage location: Relay D1 `register_tokens`.
 
 ### CSRF / CORS
 
@@ -467,14 +501,14 @@ All JSON. Public routes unauthenticated; owner routes require session.
 | POST | `/v1/devices` | session | enroll; returns `device_credential` **once** |
 | POST | `/v1/devices/:id/rotate` | session or current device Bearer | new credential once |
 | POST | `/v1/devices/:id/revoke` | session | |
-| POST | `/v1/computers/enroll_tokens` | session | one-time VPS/register helper |
+| POST | `/v1/computers/enroll_tokens` | session | optional proxy to Relay register_tokens (issuer remains Relay) |
 | GET | `/v1/usage/shares` | session | list owner shares |
-| POST | `/v1/usage/shares` | session | create share |
+| POST | `/v1/usage/shares` | session | create share (server-normalize snapshot) |
 | GET | `/v1/usage/shares/:share_id` | session | owner detail |
-| PATCH | `/v1/usage/shares/:share_id` | session | update |
-| DELETE | `/v1/usage/shares/:share_id` | session | soft revoke |
-| PUT | `/v1/usage/shares/:share_id/og` | session | PNG → R2 |
-| GET | `/v1/public/shares/:share_id` | — | public/unlisted read |
+| PATCH | `/v1/usage/shares/:share_id` | session | update snapshot (same `share_id`; not a new id) |
+| DELETE | `/v1/usage/shares/:share_id` | session | soft revoke → public GET 404 |
+| PUT | `/v1/usage/shares/:share_id/og` | session | PNG → R2 (see OG rules) |
+| GET | `/v1/public/shares/:share_id` | — | public/unlisted read; **not edge-cached** (see rate limits) |
 | GET | `/v1/public/u/:handle` | — | profile |
 
 ### Create share body
@@ -524,7 +558,25 @@ Rate limits (per IP / per user isolate maps, same pattern as relay):
 
 - OAuth start: 20/min/IP
 - Publish/update: 30/hour/account
-- Public GET: high, cacheable (`Cache-Control: public, max-age=60` for public; `private, max-age=0` for unlisted optional)
+- Public GET: high throughput, **but no shared edge cache of snapshot payloads**
+
+**Public read caching (unpublish-safe):**
+
+- Set `Cache-Control: private, no-store` (or `max-age=0, must-revalidate`) on `GET /v1/public/shares/:id` and HTML pages that embed the snapshot.
+- **Do not** use `public, max-age=60` (or CDN cache) for share JSON/HTML unless paired with **immediate purge on revoke** (Cloudflare Cache API / purge by tag `share:{share_id}`).
+- PRD: revoked shares must not remain readable; soft-revoke sets `revoked_at` and origin returns 404 — cache must not outlive that.
+
+### OG image upload (`PUT /v1/usage/shares/:share_id/og`)
+
+| Rule | Spec |
+|------|------|
+| Auth | Session; **share must be owned by `user_id`** (404/403 otherwise) |
+| Max size | **1 MiB** raw body (reject larger) |
+| Content | `Content-Type: image/png`; verify PNG magic bytes (`89 50 4E 47`); reject non-PNG |
+| Metadata | Strip ancillary chunks when practical; do not execute or reflect untrusted HTML |
+| Storage | R2 key under unguessable path; store only after validation |
+| Public serve | `Content-Type: image/png`, `X-Content-Type-Options: nosniff`, no HTML content-type sniffing |
+| Public share JSON | `og_image_url` points at Worker/R2 URL that enforces the same headers |
 
 ## Client design (`apps/web`)
 
@@ -586,20 +638,30 @@ Goal: Access Token is no longer the identity root.
 
 | Topic | Rule |
 |-------|------|
-| Tokens | Never log OAuth codes, session tokens, Access Tokens, GitHub client secrets |
-| Snapshot | Server schema allowlist; size cap; no HTML stored raw for XSS — JSON only, landing escapes |
+| Tokens | Never log OAuth codes, session tokens, device credentials, GitHub client secrets |
+| Snapshot | Server recursive allowlist/denylist + size cap; JSON only; landing escapes |
 | Cookie | Better Auth session Secure + HttpOnly; logout revokes session |
 | Origin | Strict allowlist for OAuth return and CORS |
-| Unlisted | Security through unguessable `share_id` entropy (≥ 128 bits random); not a secret ACL for highly sensitive data — product copy says aggregates only |
-| R2 OG | Private bucket + Worker signed public URL or public bucket with unguessable keys |
+| Unlisted | Security through unguessable `share_id` entropy (≥ 128 bits random); product copy says aggregates only |
+| R2 OG | Max 1 MiB PNG magic check; nosniff; ownership check; unguessable keys |
 | Separation | Hub ≠ Relay D1; public share read cannot yield `server_secret` or device credentials |
-| Device credential | Treat like a password hash at rest; show plaintext only once at mint/rotate |
+| Device credential | Hash at rest; plaintext once at mint/rotate; Relay projection may lag — see sync protocol |
+
+### Risks & mitigations
+
+| Risk | Mitigation | Verification |
+|------|------------|--------------|
+| Hub commits device change; Relay still accepts old hash | Outbox/retry projection; optional `relay_synced` on response; reconcile job | S22/S23 + projection failure tests |
+| Wrong OAuth callback path | Canonical `/api/auth/callback/{github\|google}` only | Manual staging OAuth; `/api/auth/ok` |
+| Stale public share cache after unpublish | No edge cache / `no-store` or purge on revoke | S11 + exploratory #3 |
+| Client-only redaction | Hub recursive normalize on write + public read | S15 |
+| Malicious OG upload | PNG magic, size cap, ownership, nosniff | Unit + integration on PUT og |
 
 ## Rollout
 
 1. Create D1 `atmos-hub`, R2 bucket, wrangler route `hub.atmos.land`.
-2. Configure GitHub OAuth App callback `https://hub.atmos.land/v1/auth/github/callback`.
-3. Deploy Worker; apply migrations.
+2. Configure GitHub/Google OAuth callbacks: `https://hub.atmos.land/api/auth/callback/github` and `…/google`.
+3. Deploy Worker; apply migrations; set `RELAY_HUB_SYNC_SECRET` on Hub + Relay.
 4. Ship landing routes behind feature flag or soft launch.
 5. Ship web publish UI with `NEXT_PUBLIC_ATMOS_HUB_URL`.
 6. Document in `packages/hub/README.md` + root AGENTS index entry.

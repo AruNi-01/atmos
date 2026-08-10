@@ -36,6 +36,10 @@ pub use service::canvas_agent_relay::{
 };
 pub use service::disk_analyzer::{DiskAnalyzerScanEvent, DiskAnalyzerService};
 pub use service::group::{GroupDto, GroupMemberDto, GroupService};
+pub use service::linear::{
+    parse_list_options, parse_oauth_shell, LinearImportPayload, LinearLinkDto, LinearService,
+    LinearStatusDto,
+};
 pub use service::local_services::{
     LocalServiceDto, LocalServiceKind, LocalServiceOwnerDto, LocalServiceProcessNodeDto,
     LocalServiceStatus, LocalServiceStopEscalationReason, LocalServiceStopMode,

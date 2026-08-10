@@ -71,7 +71,7 @@ export function WorkspaceListScreen() {
   const createSession = useMutation({
     mutationFn: async (serverId: string) => {
       const token = await getStoredAccessToken();
-      if (!token) throw new Error("Access Token is not available.");
+      if (!token) throw new Error("Device credential is not available.");
       return relayClient.createClientSession(token, serverId);
     },
     onSuccess: (session, serverId) => {
@@ -301,7 +301,7 @@ function formatRecentAccessedAt(value: string) {
 }
 
 function computerCardMeta(hasAccessToken: boolean, computerCount: number, wsState: string) {
-  if (!hasAccessToken) return "Access Token required";
+  if (!hasAccessToken) return "Device credential required";
   if (computerCount === 0) return "No Computers";
   if (wsState === "open") return "Relay session active";
   if (wsState === "reconnecting") return "Reconnecting";

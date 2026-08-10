@@ -41,7 +41,7 @@ export function SettingsIndexScreen() {
 
   const systemEntries: SettingsEntry[] = [
     {
-      description: "Access Token, registration, and Computers linked to this phone.",
+      description: "Device credential, registration, and Computers linked to this phone.",
       icon: LaptopIcon,
       id: "atmos-computer",
       route: "/settings/computers",
@@ -105,7 +105,7 @@ export function SettingsComputersScreen() {
 
   return (
     <AppScreen surface="sheet">
-      <Section label="Access Token">
+      <Section label="Device credential">
         <View style={styles.settingsBlock}>
           <NativeTextInput
             autoCapitalize="none"
@@ -114,25 +114,25 @@ export function SettingsComputersScreen() {
               settings.setTokenDraft(value);
               settings.setError(null);
             }}
-            placeholder="Paste another Access Token"
+            placeholder="Paste Hub device credential"
             secureTextEntry
             value={settings.tokenDraft}
           />
           <SettingsActionButton
             icon={KeyIcon}
-            label={settings.switchAccessToken.isPending ? "Switching..." : "Switch Access Token"}
+            label={settings.switchAccessToken.isPending ? "Switching..." : "Switch credential"}
             onPress={() => settings.switchAccessToken.mutate()}
             disabled={!tokenSwitchReadiness.canSwitch}
           />
           {settings.tokenDraft.trim() && tokenSwitchReadiness.reason ? (
             <SettingsHint message={tokenSwitchReadiness.reason} />
           ) : (
-            <SettingsHint message="This token owns the Computers listed below." />
+            <SettingsHint message="This credential is for your Hub user; Computers listed below belong to that account." />
           )}
           <View style={styles.actionRow}>
             <SettingsActionButton
               icon={RotateIcon}
-              label={settings.rotateToken.isPending ? "Rotating..." : "Rotate"}
+              label="Rotate on Hub"
               onPress={() => settings.rotateToken.mutate()}
               disabled={settings.rotateToken.isPending}
               tone="secondary"

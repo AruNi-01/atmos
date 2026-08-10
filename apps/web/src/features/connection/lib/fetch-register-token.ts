@@ -1,4 +1,4 @@
-import { relayFetchWithAccessToken } from '@/features/connection/lib/atmos-access-token';
+import { relayFetchWithDeviceCredential } from '@/features/connection/lib/atmos-access-token';
 
 export interface RegisterTokenResponse {
   register_token: string;
@@ -11,7 +11,7 @@ export async function fetchRegisterToken(
   accessToken: string,
   relaySecretKey?: string,
 ): Promise<RegisterTokenResponse> {
-  const res = await relayFetchWithAccessToken(
+  const res = await relayFetchWithDeviceCredential(
     relayUrl,
     accessToken,
     '/v1/register_tokens',

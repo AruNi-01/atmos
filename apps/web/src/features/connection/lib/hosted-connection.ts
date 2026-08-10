@@ -3,7 +3,10 @@
 import { createTranslator } from 'next-intl';
 import type { ComputerRow } from '@/features/connection/lib/connection-ui-prefs';
 import { fetchRelayRuntimeInfo } from '@/api/relay';
-import { relayFetchWithAccessToken, registerAccessTokenOnRelay } from '@/features/connection/lib/atmos-access-token';
+import {
+  isPlausibleDeviceCredential,
+  relayFetchWithDeviceCredential,
+} from '@/features/connection/lib/atmos-access-token';
 import {
   getHostedLoopbackCandidates,
   httpBase,
@@ -115,18 +118,15 @@ export async function detectHostedLocalServer(): Promise<{
 }
 
 export async function ensureHostedAccessTokenReady(
-  relayUrl: string,
+  _relayUrl: string,
   accessToken: string,
-  relaySecretKey?: string,
+  _relaySecretKey?: string,
 ): Promise<void> {
   const token = accessToken.trim();
-  if (token.length < 32) {
+  if (!isPlausibleDeviceCredential(token)) {
     throw new Error(runtimeT('hostedConnection.errors.accessKeyTooShort'));
   }
-  const result = await registerAccessTokenOnRelay(relayUrl, token, relaySecretKey);
-  if (!result.ok) {
-    throw new Error(result.error ?? runtimeT('hostedConnection.errors.couldNotSaveAccessKey'));
-  }
+  // Device credentials are Hub-minted and projected to Relay — no local tenant register.
 }
 
 export async function listHostedRemoteComputers(
@@ -137,7 +137,7 @@ export async function listHostedRemoteComputers(
   if (accessToken.trim().length >= 32) {
     await ensureHostedAccessTokenReady(relayUrl, accessToken, relaySecretKey);
   }
-  const res = await relayFetchWithAccessToken(
+  const res = await relayFetchWithDeviceCredential(
     relayUrl,
     accessToken,
     '/v1/computers',
@@ -160,7 +160,7 @@ export async function createHostedRemoteSession(
   if (accessToken.trim().length >= 32) {
     await ensureHostedAccessTokenReady(relayUrl, accessToken, relaySecretKey);
   }
-  const res = await relayFetchWithAccessToken(
+  const res = await relayFetchWithDeviceCredential(
     relayUrl,
     accessToken,
     `/v1/computers/${encodeURIComponent(serverId)}/client_sessions`,

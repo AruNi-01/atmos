@@ -1,5 +1,7 @@
 /**
- * User access token helpers (APP-016) — possession = tenant, no account login.
+ * Hub device credential helpers for Relay (APP-056).
+ * Bearer = Hub-minted device credential (not a user-generated Access Token).
+ * There is no `POST /v1/tenants` — devices are projected from Hub.
  */
 
 import { createTranslator } from 'next-intl';
@@ -14,6 +16,7 @@ import enMessages from '../../../../messages/en.json';
 import zhMessages from '../../../../messages/zh.json';
 
 const RELAY_SECRET_HEADER = 'X-Atmos-Relay-Secret';
+const MIN_DEVICE_CREDENTIAL_LEN = 32;
 let cachedRuntimeLocale: 'en' | 'zh' | null = null;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let cachedRuntimeTranslator: any = null;
@@ -34,13 +37,13 @@ function runtimeT(
   return cachedRuntimeTranslator(key as never, values as never);
 }
 
-export function generateAccessToken(): string {
-  const raw = crypto.getRandomValues(new Uint8Array(32));
-  let binary = '';
-  for (const b of raw) {
-    binary += String.fromCharCode(b);
-  }
-  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+export function isPlausibleDeviceCredential(token: string): boolean {
+  return token.trim().length >= MIN_DEVICE_CREDENTIAL_LEN;
+}
+
+/** @deprecated Use isPlausibleDeviceCredential — Access Token model removed. */
+export function isPlausibleAccessToken(token: string): boolean {
+  return isPlausibleDeviceCredential(token);
 }
 
 function formatFetchError(err: unknown): string {
@@ -51,113 +54,19 @@ function formatFetchError(err: unknown): string {
   return message;
 }
 
-/** Register token hash on the relay (idempotent on 409). */
-export async function registerAccessTokenOnRelay(
+/**
+ * Relay REST with device credential Bearer.
+ * Prefer loopback proxy (sends secret from computer-client.json when needed).
+ */
+export async function relayFetchWithDeviceCredential(
   relayUrl: string,
-  accessToken: string,
-  relaySecretKey?: string,
-): Promise<{ ok: boolean; error?: string }> {
-  const base = resolveRelayUrl(relayUrl);
-  const payload = JSON.stringify({ token: accessToken.trim() });
-  const relaySecret = resolveRelaySecretKey(relaySecretKey);
-
-  try {
-    const proxied = await proxyRelayRequest(base, 'POST', '/v1/tenants', {
-      body: payload,
-      relaySecretKey: relaySecret,
-    });
-    if (proxied) {
-      if (proxied.status === 201 || proxied.status === 409) {
-        return { ok: true };
-      }
-      try {
-        const data = JSON.parse(proxied.body) as { error?: string };
-        return { ok: false, error: data.error ?? `HTTP ${proxied.status}` };
-      } catch {
-        return { ok: false, error: `HTTP ${proxied.status}` };
-      }
-    }
-
-    if (isDesktopRuntime()) {
-      return {
-        ok: false,
-        error: runtimeT('accessToken.errors.cannotConnectLocally'),
-      };
-    }
-
-    const res = await fetch(`${base}/v1/tenants`, {
-      method: 'POST',
-      headers: relayHeaders(relaySecret),
-      body: payload,
-    });
-
-    if (res.status === 201 || res.status === 409) {
-      return { ok: true };
-    }
-
-    const data = (await res.json().catch(() => null)) as { error?: string } | null;
-    return { ok: false, error: data?.error ?? `HTTP ${res.status}` };
-  } catch (err) {
-    return { ok: false, error: formatFetchError(err) };
-  }
-}
-
-export async function rotateAccessTokenOnRelay(
-  relayUrl: string,
-  currentAccessToken: string,
-  newAccessToken: string,
-  relaySecretKey?: string,
-): Promise<{ ok: boolean; error?: string }> {
-  const currentToken = currentAccessToken.trim();
-  const nextToken = newAccessToken.trim();
-
-  if (currentToken.length < 32) {
-    return { ok: false, error: runtimeT('accessToken.errors.currentKeyTooShort') };
-  }
-  if (nextToken.length < 32) {
-    return { ok: false, error: runtimeT('accessToken.errors.newKeyTooShort') };
-  }
-  if (currentToken === nextToken) {
-    return { ok: false, error: runtimeT('accessToken.errors.newKeyMustDiffer') };
-  }
-
-  try {
-    const res = await relayFetchWithAccessToken(
-      relayUrl,
-      currentToken,
-      '/v1/tenants/rotate_token',
-      {
-        method: 'POST',
-        body: JSON.stringify({ new_token: nextToken }),
-      },
-      relaySecretKey,
-    );
-    if (res.ok) {
-      return { ok: true };
-    }
-
-    const data = (await res.json().catch(() => null)) as {
-      error?: string;
-      message?: string;
-    } | null;
-    return {
-      ok: false,
-      error: data?.error ?? data?.message ?? `HTTP ${res.status}`,
-    };
-  } catch (err) {
-    return { ok: false, error: formatFetchError(err) };
-  }
-}
-
-export async function relayFetchWithAccessToken(
-  relayUrl: string,
-  accessToken: string,
+  deviceCredential: string,
   path: string,
   init?: RequestInit,
   relaySecretKey?: string,
 ): Promise<Response> {
   const base = resolveRelayUrl(relayUrl);
-  const token = accessToken.trim();
+  const token = deviceCredential.trim();
   const normalizedPath = path.startsWith('/') ? path : `/${path}`;
   const relaySecret = resolveRelaySecretKey(relaySecretKey);
   const method = (init?.method ?? 'GET').toUpperCase();
@@ -169,7 +78,7 @@ export async function relayFetchWithAccessToken(
         : undefined;
 
   const proxied = await proxyRelayRequest(base, method, normalizedPath, {
-    accessToken: token || undefined,
+    deviceCredential: token || undefined,
     body,
     relaySecretKey: relaySecret,
   });
@@ -202,12 +111,9 @@ export async function relayFetchWithAccessToken(
   });
 }
 
+/** @deprecated Use relayFetchWithDeviceCredential */
+export const relayFetchWithAccessToken = relayFetchWithDeviceCredential;
+
 function resolveRelaySecretKey(relaySecretKey?: string): string {
   return (relaySecretKey ?? useAtmosComputerStore.getState().relaySecretKey).trim();
-}
-
-function relayHeaders(relaySecretKey: string): HeadersInit {
-  return relaySecretKey
-    ? { 'Content-Type': 'application/json', [RELAY_SECRET_HEADER]: relaySecretKey }
-    : { 'Content-Type': 'application/json' };
 }

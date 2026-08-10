@@ -70,7 +70,7 @@ Use `getRuntimeApiConfig()` / `httpBase()` / `wsBase()` — not raw `fetch` host
 - **Settings** → `AtmosComputerSection.tsx`, `atmos-access-token.ts`
 - Frontend location: `src/features/atmos-computer/`,
   `src/features/tunnel-connector/`, and `src/features/connection/`
-- User-created **Access Token** (Bearer) for relay — not a shared CP key.
+- Hub-minted **device credential** (Bearer) for relay — Settings → Account; not a user-generated Access Token.
 - Optional **Relay Secret Key** belongs to Atmos Computer relay settings and is sent as `X-Atmos-Relay-Secret` only for self-hosted/private relays.
 - Register token flow for remote computers: copy CLI / env `ATMOS_REGISTER_TOKEN`.
 

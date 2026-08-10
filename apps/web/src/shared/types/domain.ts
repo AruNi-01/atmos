@@ -48,6 +48,13 @@ export interface Workspace {
   localPath: string;
   githubIssue?: GithubIssuePayload | null;
   githubPr?: GithubPrPayload | null;
+  /** Active Linear issue links (APP-056 multi-link snapshots). */
+  linearLinks?: Array<{
+    externalId: string;
+    identifier: string;
+    title: string;
+    url: string;
+  }>;
   createSource: WorkspaceCreateSource;
 }
 

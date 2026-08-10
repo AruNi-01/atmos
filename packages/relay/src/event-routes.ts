@@ -27,8 +27,8 @@ const SUPPORTED_EVENTS = new Set([
 const ACTIVE_ROUTE_STATUS = "active";
 
 export const GITHUB_ROUTE_LIMITS = {
-  tenantActive: 50,
-  tenantTotal: 200,
+  userActive: 50,
+  userTotal: 200,
   installationActive: 200,
 } as const;
 
@@ -53,7 +53,7 @@ export interface NormalizedGithubEvent {
 
 export interface GithubEventRoute {
   route_id: string;
-  tenant_id: string;
+  user_id: string;
   server_id: string;
   automation_guid: string;
   installation_id: string;
@@ -77,7 +77,7 @@ interface RouteFilters {
 }
 
 export interface GithubSetupSessionClaim {
-  tenant_id: string;
+  user_id: string;
   server_id: string;
   return_url: string | null;
 }
@@ -108,7 +108,7 @@ export async function createGithubSetupSession(
   request: Request,
   env: Env,
   url: URL,
-  tenantId: string,
+  userId: string,
 ): Promise<Response> {
   const body = (await request.json().catch(() => null)) as {
     server_id?: string;
@@ -121,9 +121,9 @@ export async function createGithubSetupSession(
 
   const computer = await env.DB.prepare(
     `SELECT 1 AS ok FROM computers
-     WHERE tenant_id = ? AND server_id = ? AND revoked = 0 LIMIT 1`,
+     WHERE user_id = ? AND server_id = ? AND revoked = 0 LIMIT 1`,
   )
-    .bind(tenantId, serverId)
+    .bind(userId, serverId)
     .first<{ ok: number }>();
   if (!computer) {
     return json({ error: "computer_not_found" }, 404);
@@ -147,10 +147,10 @@ export async function createGithubSetupSession(
   }
 
   await env.DB.prepare(
-    `INSERT INTO github_setup_sessions(setup_token_hash, tenant_id, server_id, return_url, expires_at, used_at, created_at)
+    `INSERT INTO github_setup_sessions(setup_token_hash, user_id, server_id, return_url, expires_at, used_at, created_at)
      VALUES (?, ?, ?, ?, ?, NULL, ?)`,
   )
-    .bind(setupTokenHash, tenantId, serverId, returnUrl, expiresAt, now)
+    .bind(setupTokenHash, userId, serverId, returnUrl, expiresAt, now)
     .run();
 
   return json({
@@ -188,7 +188,7 @@ export async function handleGithubCallback(
   }
 
   try {
-    await persistGithubInstallation(env, session.tenant_id, installation, now);
+    await persistGithubInstallation(env, session.user_id, installation, now);
   } catch (error) {
     return json({ error: githubErrorCode(error) }, 409);
   }
@@ -206,15 +206,15 @@ export async function handleGithubCallback(
 
 export async function listGithubInstallations(
   env: Env,
-  tenantId: string,
+  userId: string,
 ): Promise<Response> {
   const { results } = await env.DB.prepare(
     `SELECT installation_id, account_login, account_type, repository_selection, suspended_at, created_at, updated_at
      FROM github_app_installations
-     WHERE tenant_id = ?
+     WHERE user_id = ?
      ORDER BY updated_at DESC`,
   )
-    .bind(tenantId)
+    .bind(userId)
     .all<{
       installation_id: string | number;
       account_login: string | null;
@@ -236,10 +236,10 @@ export async function listGithubInstallations(
 
 export async function listGithubInstallationRepositories(
   env: Env,
-  tenantId: string,
+  userId: string,
   installationId: string,
 ): Promise<Response> {
-  const installation = await findTenantInstallation(env, tenantId, installationId);
+  const installation = await findUserInstallation(env, userId, installationId);
   if (!installation) {
     return json({ error: "installation_not_found" }, 404);
   }
@@ -255,7 +255,7 @@ export async function listGithubInstallationRepositories(
 export async function upsertGithubEventRoute(
   request: Request,
   env: Env,
-  tenantId: string,
+  userId: string,
 ): Promise<Response> {
   const body = (await request.json().catch(() => null)) as {
     route_id?: string;
@@ -304,15 +304,15 @@ export async function upsertGithubEventRoute(
 
   const computer = await env.DB.prepare(
     `SELECT 1 AS ok FROM computers
-     WHERE tenant_id = ? AND server_id = ? AND revoked = 0 LIMIT 1`,
+     WHERE user_id = ? AND server_id = ? AND revoked = 0 LIMIT 1`,
   )
-    .bind(tenantId, serverId)
+    .bind(userId, serverId)
     .first<{ ok: number }>();
   if (!computer) {
     return json({ error: "computer_not_found" }, 404);
   }
 
-  const installation = await findTenantInstallation(env, tenantId, installationId);
+  const installation = await findUserInstallation(env, userId, installationId);
   if (!installation) {
     return json({ error: "installation_not_found" }, 404);
   }
@@ -342,16 +342,16 @@ export async function upsertGithubEventRoute(
   const filtersJson = JSON.stringify(filters);
 
   const existing = await env.DB.prepare(
-    "SELECT tenant_id, created_at FROM github_event_routes WHERE route_id = ? LIMIT 1",
+    "SELECT user_id, created_at FROM github_event_routes WHERE route_id = ? LIMIT 1",
   )
     .bind(routeId)
-    .first<{ tenant_id: string; created_at: number }>();
+    .first<{ user_id: string; created_at: number }>();
 
-  if (existing && existing.tenant_id !== tenantId) {
+  if (existing && existing.user_id !== userId) {
     return json({ error: "route_not_found" }, 404);
   }
   const limitError = await validateGithubEventRouteLimits(env, {
-    tenantId,
+    userId,
     routeId,
     installationId,
     enabled,
@@ -367,7 +367,7 @@ export async function upsertGithubEventRoute(
        SET server_id = ?, automation_guid = ?, installation_id = ?, repository_id = ?,
            repository_full_name = ?, event_name = ?, action = ?, filters_json = ?,
            enabled = ?, route_status = 'active', updated_at = ?
-       WHERE route_id = ? AND tenant_id = ?`,
+       WHERE route_id = ? AND user_id = ?`,
     )
       .bind(
         serverId,
@@ -381,13 +381,13 @@ export async function upsertGithubEventRoute(
         enabled,
         now,
         routeId,
-        tenantId,
+        userId,
       )
       .run();
   } else {
     await env.DB.prepare(
       `INSERT INTO github_event_routes(
-         route_id, tenant_id, server_id, automation_guid, installation_id,
+         route_id, user_id, server_id, automation_guid, installation_id,
          repository_id, repository_full_name, event_name, action, filters_json,
          enabled, route_status, created_at, updated_at
        )
@@ -395,7 +395,7 @@ export async function upsertGithubEventRoute(
     )
       .bind(
         routeId,
-        tenantId,
+        userId,
         serverId,
         automationGuid,
         installationId,
@@ -420,16 +420,16 @@ export async function upsertGithubEventRoute(
 
 export async function disableGithubEventRoute(
   env: Env,
-  tenantId: string,
+  userId: string,
   routeId: string,
 ): Promise<Response> {
   const now = Math.floor(Date.now() / 1000);
   const updated = await env.DB.prepare(
     `UPDATE github_event_routes
      SET enabled = 0, route_status = 'disabled', updated_at = ?
-     WHERE tenant_id = ? AND route_id = ?`,
+     WHERE user_id = ? AND route_id = ?`,
   )
-    .bind(now, tenantId, routeId)
+    .bind(now, userId, routeId)
     .run();
   if (!updated.meta.changes) {
     return json({ error: "route_not_found" }, 404);
@@ -456,7 +456,7 @@ export async function findMatchingGithubRoutes(
     : [event.repositoryFullName];
 
   const { results } = await env.DB.prepare(
-    `SELECT route_id, tenant_id, server_id, automation_guid, installation_id,
+    `SELECT route_id, user_id, server_id, automation_guid, installation_id,
             repository_id, repository_full_name, event_name, action, filters_json
      FROM github_event_routes
      WHERE installation_id = ?
@@ -489,7 +489,7 @@ export function validateGithubEventRoutePolicy(
 export async function validateGithubEventRouteLimits(
   env: Env,
   route: {
-    tenantId: string;
+    userId: string;
     routeId: string;
     installationId: string;
     enabled: number;
@@ -499,10 +499,10 @@ export async function validateGithubEventRouteLimits(
   if (!route.routeExists) {
     const total = await countGithubEventRoutes(
       env,
-      "tenant_id = ?",
-      [route.tenantId],
+      "user_id = ?",
+      [route.userId],
     );
-    if (total >= GITHUB_ROUTE_LIMITS.tenantTotal) {
+    if (total >= GITHUB_ROUTE_LIMITS.userTotal) {
       return "github_trigger_total_limit_exceeded";
     }
   }
@@ -511,12 +511,12 @@ export async function validateGithubEventRouteLimits(
     return null;
   }
 
-  const tenantActive = await countGithubEventRoutes(
+  const userActive = await countGithubEventRoutes(
     env,
-    `tenant_id = ? AND enabled = 1 AND route_status = ? AND route_id <> ?`,
-    [route.tenantId, ACTIVE_ROUTE_STATUS, route.routeId],
+    `user_id = ? AND enabled = 1 AND route_status = ? AND route_id <> ?`,
+    [route.userId, ACTIVE_ROUTE_STATUS, route.routeId],
   );
-  if (tenantActive >= GITHUB_ROUTE_LIMITS.tenantActive) {
+  if (userActive >= GITHUB_ROUTE_LIMITS.userActive) {
     return "github_trigger_active_limit_exceeded";
   }
 
@@ -538,7 +538,7 @@ export async function getGithubSetupSession(
   now: number,
 ): Promise<GithubSetupSessionClaim | null> {
   return env.DB.prepare(
-    `SELECT tenant_id, server_id, return_url
+    `SELECT user_id, server_id, return_url
      FROM github_setup_sessions
      WHERE setup_token_hash = ? AND used_at IS NULL AND expires_at > ?
      LIMIT 1`,
@@ -559,10 +559,10 @@ export async function claimGithubSetupSession(
      WHERE setup_token_hash = ?
        AND used_at IS NULL
        AND expires_at > ?
-       AND tenant_id = ?
+       AND user_id = ?
        AND server_id = ?`,
   )
-    .bind(now, setupTokenHash, now, session.tenant_id, session.server_id)
+    .bind(now, setupTokenHash, now, session.user_id, session.server_id)
     .run();
 
   if (!claimed.meta.changes) {
@@ -570,7 +570,7 @@ export async function claimGithubSetupSession(
   }
 
   return env.DB.prepare(
-    `SELECT tenant_id, server_id, return_url
+    `SELECT user_id, server_id, return_url
      FROM github_setup_sessions
      WHERE setup_token_hash = ?
      LIMIT 1`,
@@ -586,7 +586,7 @@ export function toGithubTriggerEnvelope(
   return {
     delivery_id: event.deliveryId,
     route_id: route.route_id,
-    tenant_id: route.tenant_id,
+    user_id: route.user_id,
     server_id: route.server_id,
     automation_guid: route.automation_guid,
     provider: "github",
@@ -610,27 +610,27 @@ export function toGithubTriggerEnvelope(
 
 async function persistGithubInstallation(
   env: Env,
-  tenantId: string,
+  userId: string,
   installation: GithubInstallationRecord,
   now: number,
 ): Promise<void> {
   const existing = await env.DB.prepare(
-    "SELECT tenant_id FROM github_app_installations WHERE installation_id = ? LIMIT 1",
+    "SELECT user_id FROM github_app_installations WHERE installation_id = ? LIMIT 1",
   )
     .bind(installation.installation_id)
-    .first<{ tenant_id: string }>();
-  if (existing && existing.tenant_id !== tenantId) {
+    .first<{ user_id: string }>();
+  if (existing && existing.user_id !== userId) {
     throw new Error("installation_already_connected");
   }
 
   await env.DB.prepare(
     `INSERT INTO github_app_installations(
-       installation_id, tenant_id, account_login, account_type,
+       installation_id, user_id, account_login, account_type,
        repository_selection, suspended_at, created_at, updated_at
      )
      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(installation_id) DO UPDATE SET
-       tenant_id = excluded.tenant_id,
+       user_id = excluded.user_id,
        account_login = excluded.account_login,
        account_type = excluded.account_type,
        repository_selection = excluded.repository_selection,
@@ -639,7 +639,7 @@ async function persistGithubInstallation(
   )
     .bind(
       installation.installation_id,
-      tenantId,
+      userId,
       installation.account_login,
       installation.account_type,
       installation.repository_selection,
@@ -652,13 +652,13 @@ async function persistGithubInstallation(
   if (installation.account_login) {
     await env.DB.prepare(
       `DELETE FROM github_app_installations
-       WHERE tenant_id = ?
+       WHERE user_id = ?
          AND account_login = ?
          AND account_type IS ?
          AND installation_id <> ?`,
     )
       .bind(
-        tenantId,
+        userId,
         installation.account_login,
         installation.account_type,
         installation.installation_id,
@@ -667,18 +667,18 @@ async function persistGithubInstallation(
   }
 }
 
-async function findTenantInstallation(
+async function findUserInstallation(
   env: Env,
-  tenantId: string,
+  userId: string,
   installationId: string,
 ): Promise<{ installation_id: string | number } | null> {
   return env.DB.prepare(
     `SELECT installation_id
      FROM github_app_installations
-     WHERE tenant_id = ? AND installation_id = ?
+     WHERE user_id = ? AND installation_id = ?
      LIMIT 1`,
   )
-    .bind(tenantId, installationId)
+    .bind(userId, installationId)
     .first<{ installation_id: string | number }>();
 }
 

@@ -1163,7 +1163,8 @@
       "loadingSettings": "正在加载任务设置...",
       "source": {
         "atmos": "Atmos",
-        "github": "GitHub"
+        "github": "GitHub",
+        "linear": "Linear"
       },
       "github": {
         "tabs": {
@@ -1328,6 +1329,32 @@
           "pink": "粉色",
           "cyan": "青色"
         }
+      },
+      "linear": {
+        "refresh": "刷新",
+        "notConnected": "尚未连接 Linear。",
+        "connectHint": "请打开 设置 → 集成 → Linear，使用 OAuth 或 API Key 连接。",
+        "loadError": "加载 Linear Issue 失败。",
+        "empty": "没有匹配筛选条件的 Issue。",
+        "openInLinear": "在 Linear 中打开",
+        "presets": {
+          "active": "进行中",
+          "backlog": "Backlog",
+          "all": "全部"
+        },
+        "filters": {
+          "allTeams": "全部团队",
+          "allProjects": "全部项目",
+          "searchPlaceholder": "搜索标题或编号…",
+          "atmosProject": "Atmos 项目"
+        },
+        "createWorkspace": "从 Issue 创建 Workspace",
+        "create": "创建",
+        "linkOrCreate": "打开创建并关联",
+        "needProject": "请先选择 Atmos 项目。",
+        "createFailed": "从 Linear Issue 创建 Workspace 失败。",
+        "signInRequired": "请先登录 Atmos 再使用 Linear。",
+        "signInHint": "打开 设置 → 账号，使用 GitHub 或 Google 登录。Linear 凭证保存在你的 Atmos 账号（Hub）下，不再单独存本机第二份。"
       }
     }
   },
@@ -2263,10 +2290,10 @@
         "errors": {
           "cannotReachCloud": "无法连接 Atmos 云端，请检查网络连接。",
           "cannotConnectLocally": "无法本地连接。请重启 Atmos 后重试。",
-          "currentKeyTooShort": "当前访问密钥过短。",
-          "newKeyTooShort": "新的访问密钥过短。",
-          "newKeyMustDiffer": "新的访问密钥必须不同。",
-          "relayAccessKeyUnavailable": "Relay 访问密钥不可用。"
+          "currentKeyTooShort": "当前设备凭证太短。",
+          "newKeyTooShort": "新设备凭证太短。",
+          "newKeyMustDiffer": "新设备凭证必须不同。",
+          "relayAccessKeyUnavailable": "设备凭证不可用。请先在账号中信任此设备。"
         }
       },
       "registrationMeta": {
@@ -4380,6 +4407,10 @@
         "desktopUse": {
           "label": "Desktop Use",
           "description": "本机桌面捕获、控制引擎与 macOS 权限"
+        },
+        "account": {
+          "label": "账号",
+          "description": "Atmos Hub 登录、设备与云端身份"
         }
       },
       "dialog": {
@@ -4805,16 +4836,16 @@
           },
           "atmosComputer": {
             "accessKey": {
-              "label": "Access Key"
+              "label": "设备凭证"
             },
             "generateAccessKey": {
-              "label": "生成 Access Key"
+              "label": "从账号导入设备凭证"
             },
             "saveAccessKey": {
-              "label": "保存 Access Key"
+              "label": "保存设备凭证"
             },
             "rotateAccessToken": {
-              "label": "轮换 Access Token"
+              "label": "轮换设备凭证"
             },
             "privateRelay": {
               "label": "Private Relay"
@@ -5856,6 +5887,42 @@
         },
         "installationStatusTitle": "安装状态",
         "authenticationStatusTitle": "认证状态"
+      },
+      "linear": {
+        "title": "Linear",
+        "description": "用 OAuth 连接 Linear。须先登录 Atmos 账号；凭证只保存在你的 Hub 账号下，不再粘贴 API Key。",
+        "connectOauth": "使用 Linear 登录",
+        "connectApiKey": "已停用",
+        "apiKeyPlaceholder": "",
+        "disconnect": "断开连接",
+        "connectedAs": "已连接为 {name}",
+        "notConnected": "未连接",
+        "needsHubLogin": "需要登录 Atmos",
+        "needsHubLoginHint": "Linear 绑定 Atmos 账号。请先打开「账号」用 GitHub 或 Google 登录。",
+        "needsDevice": "需要信任此设备",
+        "needsDeviceHint": "登录后请在「账号」中信任此设备，再连接 Linear。",
+        "openAccount": "打开账号",
+        "connectFailed": "连接 Linear 失败",
+        "disconnectFailed": "断开 Linear 失败",
+        "authMethodApiKey": "API Key",
+        "authMethodOauth": "OAuth",
+        "rateLimit": {
+          "title": "API 额度",
+          "description": "当前凭证的 Linear 请求与复杂度额度。",
+          "refresh": "刷新",
+          "loadError": "无法加载 Linear 额度。",
+          "footer": "剩余 {remaining} · {reset}",
+          "resetSoon": "即将重置",
+          "resetInMinutes": "{minutes} 分钟后重置",
+          "resetInHours": "{hours} 小时后重置",
+          "resetInHoursMinutes": "{hours} 小时 {minutes} 分钟后重置",
+          "resources": {
+            "requests": "请求次数",
+            "complexity": "复杂度"
+          }
+        },
+        "reconnectOauth": "重新授权",
+        "connecting": "正在跳转…"
       }
     },
     "aiSection": {
@@ -6051,6 +6118,28 @@
     "browserUse": {
       "label": "Browser Use",
       "description": "控制 Atmos 内置浏览器页面（DOM 点击 / 输入 / 导航）"
+    },
+    "accountSection": {
+      "title": "Atmos 账号",
+      "description": "使用 GitHub 或 Google 登录。Computer、Linear 与用量分享都挂在此账号（Hub）下，不再使用本机独立 Access Token。",
+      "hubNotConfigured": "未配置 Atmos Hub 地址。请设置 NEXT_PUBLIC_ATMOS_HUB_URL 以启用登录。",
+      "signedIn": "已登录",
+      "signedOut": "未登录",
+      "signInGithub": "使用 GitHub 登录",
+      "signInGoogle": "使用 Google 登录",
+      "signOut": "退出登录",
+      "trustDevice": "信任此设备",
+      "devicesTitle": "设备",
+      "devicesEmpty": "尚未登记设备。信任此设备后可通过 Relay 使用 Computer。",
+      "deviceActive": "有效",
+      "deviceRevoked": "已吊销",
+      "credentialOnceTitle": "设备凭证（仅显示一次）",
+      "credentialOnceHint": "已保存在本浏览器供 Relay 使用。若泄露请在 Hub 轮换。",
+      "errors": {
+        "signInFailed": "登录失败",
+        "signOutFailed": "退出失败",
+        "enrollFailed": "设备登记失败"
+      }
     }
   },
   "agent": {
@@ -8363,35 +8452,38 @@
         "accessKeyRotatedDescription": "设备和 GitHub 路由会继续使用同一身份。请现在复制新的密钥。",
         "accessKeyRotatedNotSaved": "Relay 已接受轮换，但 Atmos 无法保存到本地。请现在复制新的密钥。",
         "couldNotRemove": "无法移除",
-        "computerRemoved": "设备已移除"
+        "computerRemoved": "设备已移除",
+        "importFromAccountHint": "本浏览器还没有设备凭证。请打开 设置 → 账号，登录并信任此设备。"
       },
       "panels": {
         "accessKey": {
-          "title": "访问密钥",
-          "description": "你的访问密钥可用于注册新的 Computer（通过注册码），并列出你账户下的所有 Computer。",
+          "title": "设备凭证",
+          "description": "Relay 使用 Hub 签发的设备凭证（设置 → 账号 → 信任此设备）。可在此粘贴，或从本浏览器登记结果导入。列出 Computer 与注册令牌都用此 Bearer，不再使用用户自建 Access Token。",
           "actions": {
-            "generate": "生成"
+            "generate": "生成",
+            "importFromAccount": "从账号导入"
           },
           "placeholders": {
-            "savedOnComputer": "访问密钥已保存在这台 Computer 上",
-            "pasteOrGenerate": "粘贴访问密钥或生成一个新的"
+            "savedOnComputer": "设备凭证已保存在此 Computer",
+            "pasteOrGenerate": "粘贴账号登记时显示的设备凭证",
+            "pasteDeviceCredential": "粘贴 Hub 设备凭证"
           },
           "buttons": {
             "copied": "已复制",
-            "copy": "复制访问密钥",
-            "switchIdentity": "切换身份",
+            "copy": "复制设备凭证",
+            "switchIdentity": "切换设备",
             "save": "保存"
           },
           "helper": {
-            "switchIdentity": "切换身份会直接替换本地密钥。当前密钥下已有的 Computers 和 GitHub 路由不会一起迁移。",
-            "hiddenOnHostedWeb": "这台 Computer 上已保存访问密钥。Hosted web 会将其隐藏；只有在需要替换时才粘贴新密钥。",
-            "default": "生成或粘贴访问密钥，以创建或使用一个 Atmos Computer 身份。"
+            "switchIdentity": "切换会替换本机设备凭证。若新凭证属于同一 Hub 用户，现有 Computer 仍归该用户。",
+            "hiddenOnHostedWeb": "此 Computer 已保存设备凭证。托管 Web 会隐藏明文；仅在替换时粘贴新凭证。",
+            "default": "请先在 设置 → 账号 登录并信任此设备，再导入或粘贴仅显示一次的凭证。"
           }
         },
         "rotateAccessToken": {
-          "title": "轮换访问令牌",
-          "description": "当 Relay 访问令牌可能泄露，或你希望进行一次安全刷新时使用轮换。已有 Computers 会保持连接。",
-          "button": "轮换"
+          "title": "轮换设备凭证",
+          "description": "请在 设置 → 账号（Hub）轮换。Relay 通过 Hub 投影接收新 hash。",
+          "button": "打开账号"
         },
         "tokenReveal": {
           "title": "请立即复制你的访问密钥",

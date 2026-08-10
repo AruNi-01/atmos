@@ -17,7 +17,7 @@
 --     --file=../../scripts/relay/d1-maintenance.sql
 
 -- ---------------------------------------------------------------------------
--- 1) Expired one-time register tokens (safe; does not touch tenants/computers)
+-- 1) Expired one-time register tokens (safe; does not touch devices/computers)
 -- ---------------------------------------------------------------------------
 DELETE FROM register_tokens
 WHERE expires_at < unixepoch('now');
@@ -26,6 +26,11 @@ WHERE expires_at < unixepoch('now');
 -- DELETE FROM register_tokens
 -- WHERE used_at IS NOT NULL
 --   AND used_at < unixepoch('now', '-7 days');
+
+-- Optional: revoke stale unused devices (Hub is source of truth; prefer Hub revoke)
+-- DELETE FROM devices
+-- WHERE revoked_at IS NOT NULL
+--   AND revoked_at < unixepoch('now', '-90 days');
 
 -- ---------------------------------------------------------------------------
 -- 2) Expired client session rows (orphaned after TTL)
@@ -49,7 +54,7 @@ WHERE received_at < unixepoch('now', '-30 days');
 -- ---------------------------------------------------------------------------
 -- SELECT
 --   server_id,
---   tenant_id,
+--   user_id,
 --   display_name,
 --   revoked,
 --   created_at,

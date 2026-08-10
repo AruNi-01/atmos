@@ -12,7 +12,9 @@ use crate::utils::workspace_name_generator;
 use crate::{GithubIssuePayload, GithubPrPayload, WorkspaceAttachmentPayload};
 use core_engine::{FsEngine, GitEngine};
 use infra::db::entities::{workspace, workspace_label};
-use infra::db::repo::{ProjectRepo, WorkspaceCreateSource, WorkspaceRepo};
+use infra::db::repo::{
+    ProjectRepo, WorkspaceCreateSource, WorkspaceExternalIssueRepo, WorkspaceRepo, PROVIDER_LINEAR,
+};
 use llm::{FileLlmConfigStore, LlmFeature};
 use sea_orm::DatabaseConnection;
 use std::collections::HashSet;
@@ -23,7 +25,8 @@ use tokio::sync::mpsc;
 mod management;
 
 pub use crate::service::workspace_support::{
-    WorkspaceDto, WorkspaceLabelDto, WORKSPACE_PRIORITIES, WORKSPACE_WORKFLOW_STATUSES,
+    WorkspaceDto, WorkspaceLabelDto, WorkspaceLinearLinkDto, WORKSPACE_PRIORITIES,
+    WORKSPACE_WORKFLOW_STATUSES,
 };
 
 pub struct WorkspaceService {
@@ -57,6 +60,7 @@ impl WorkspaceService {
         &self,
         model: workspace::Model,
         labels: Vec<workspace_label::Model>,
+        linear_links: Vec<crate::service::workspace_support::WorkspaceLinearLinkDto>,
     ) -> Result<WorkspaceDto> {
         let local_path = self
             .git_engine
@@ -71,6 +75,7 @@ impl WorkspaceService {
             github_issue,
             github_pr,
             labels: labels.into_iter().map(Into::into).collect(),
+            linear_links,
         })
     }
 
@@ -78,6 +83,7 @@ impl WorkspaceService {
         &self,
         model: workspace::Model,
         labels: Vec<workspace_label::Model>,
+        linear_links: Vec<crate::service::workspace_support::WorkspaceLinearLinkDto>,
     ) -> WorkspaceDto {
         let local_path = self
             .git_engine
@@ -98,7 +104,37 @@ impl WorkspaceService {
             github_issue,
             github_pr,
             labels: labels.into_iter().map(Into::into).collect(),
+            linear_links,
         }
+    }
+
+    async fn load_linear_links_map(
+        &self,
+        workspace_guids: &[String],
+    ) -> Result<
+        std::collections::HashMap<
+            String,
+            Vec<crate::service::workspace_support::WorkspaceLinearLinkDto>,
+        >,
+    > {
+        use std::collections::HashMap;
+        let repo = WorkspaceExternalIssueRepo::new(&self.db);
+        let rows = repo
+            .list_by_workspaces(workspace_guids, PROVIDER_LINEAR)
+            .await
+            .map_err(|e| ServiceError::Processing(e.to_string()))?;
+        let mut map: HashMap<String, Vec<_>> = HashMap::new();
+        for row in rows {
+            map.entry(row.workspace_guid.clone()).or_default().push(
+                crate::service::workspace_support::WorkspaceLinearLinkDto {
+                    external_id: row.external_id,
+                    identifier: row.identifier,
+                    title: row.title,
+                    url: row.url,
+                },
+            );
+        }
+        Ok(map)
     }
 
     pub async fn list_by_project(&self, project_guid: String) -> Result<Vec<WorkspaceDto>> {
@@ -108,11 +144,13 @@ impl WorkspaceService {
         let mut labels_by_workspace = repo
             .list_labels_by_workspace_guids(&workspace_guids)
             .await?;
+        let mut linear_by_workspace = self.load_linear_links_map(&workspace_guids).await?;
         models
             .into_iter()
             .map(|model| {
                 let labels = labels_by_workspace.remove(&model.guid).unwrap_or_default();
-                self.to_dto(model, labels)
+                let linear_links = linear_by_workspace.remove(&model.guid).unwrap_or_default();
+                self.to_dto(model, labels, linear_links)
             })
             .collect()
     }
@@ -126,7 +164,11 @@ impl WorkspaceService {
                 .await?
                 .remove(&model.guid)
                 .unwrap_or_default();
-            Ok(Some(self.to_dto(model, labels)?))
+            let mut linear_map = self
+                .load_linear_links_map(std::slice::from_ref(&model.guid))
+                .await?;
+            let linear_links = linear_map.remove(&model.guid).unwrap_or_default();
+            Ok(Some(self.to_dto(model, labels, linear_links)?))
         } else {
             Ok(None)
         }
@@ -504,8 +546,12 @@ impl WorkspaceService {
             .await?
             .remove(&model.guid)
             .unwrap_or_default();
+        let mut linear_map = self
+            .load_linear_links_map(std::slice::from_ref(&model.guid))
+            .await?;
+        let linear_links = linear_map.remove(&model.guid).unwrap_or_default();
 
-        self.to_dto(model, labels)
+        self.to_dto(model, labels, linear_links)
     }
 
     /// 确保 Worktree 已就绪（不存在则创建）

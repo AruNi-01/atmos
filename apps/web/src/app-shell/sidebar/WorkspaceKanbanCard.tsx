@@ -390,6 +390,30 @@ export function KanbanWorkspaceCard({
         </div>
       ) : null}
 
+      {(workspace.linearLinks?.length ?? 0) > 0 ? (
+        <div className="mb-2 flex flex-wrap items-center gap-1">
+          {workspace.linearLinks!.slice(0, 3).map((link) => (
+            <a
+              key={link.externalId}
+              href={link.url}
+              target="_blank"
+              rel="noreferrer"
+              title={link.title}
+              onClick={(event) => event.stopPropagation()}
+              onPointerDown={(event) => event.stopPropagation()}
+              className="rounded-full border border-border/70 bg-muted/40 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground hover:text-foreground"
+            >
+              {link.identifier}
+            </a>
+          ))}
+          {(workspace.linearLinks?.length ?? 0) > 3 ? (
+            <span className="text-[10px] text-muted-foreground">
+              +{(workspace.linearLinks!.length - 3)}
+            </span>
+          ) : null}
+        </div>
+      ) : null}
+
       {showFooter ? (
         <div className="mt-auto flex items-center justify-between gap-2 pt-2">
           <div

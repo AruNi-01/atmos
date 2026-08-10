@@ -44,7 +44,8 @@ import {
   ensureHostedAccessTokenReady,
   listHostedRemoteComputers,
 } from '@/features/connection/lib/hosted-connection';
-import { generateAccessToken } from '@/features/connection/lib/atmos-access-token';
+import { getStoredDeviceCredential } from '@/api/hub-client';
+import { isPlausibleDeviceCredential } from '@/features/connection/lib/atmos-access-token';
 import { REMOTE_COMPUTER_INSTALL_SCRIPT_URL } from '@/features/connection/lib/remote-computer-setup-commands';
 import {
   activateHostedLocalConnection,
@@ -373,7 +374,17 @@ function HostedConnectionOnboarding({
   };
 
   const onGenerateToken = async () => {
-    const token = generateAccessToken();
+    // APP-056: device credentials come from Hub Account enroll, not local generation.
+    const token = (getStoredDeviceCredential() ?? '').trim();
+    if (!isPlausibleDeviceCredential(token)) {
+      toastManager.add({
+        title: t('hosted.remote.toast.couldNotSaveAccessKeyTitle'),
+        description:
+          'Sign in under Settings → Account, trust this device, then import the device credential.',
+        type: 'error',
+      });
+      return;
+    }
     const nextRelayUrl = resolveRelayUrl(relayUrlDraft);
     const nextRelaySecret = relaySecretDraft.trim();
     setBusyAction('generate-token');

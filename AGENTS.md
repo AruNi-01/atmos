@@ -192,6 +192,7 @@ just                    # List all available commands
 bun install             # Install frontend dependencies
 just dev-api            # Start API server (writes runtime_manifest.json)
 just dev-web            # Start web app
+just dev-hub            # Start Atmos Hub (wrangler; default :8787; alias: just dh)
 just dev-mobile         # Start Expo mobile dev server
 just dev-desktop        # Production desktop (Atmos) → apps/desktop-electron
 just release-desktop    # Production desktop release (/atmos-desktop-release)

@@ -23,18 +23,16 @@ import {
   Laptop,
   Link2,
   LoaderCircle,
-  Plus,
   RotateCw,
   Server,
   Trash2,
 } from 'lucide-react';
 import { automationApi } from '@/api/ws/automation-api';
 import {
-  relayFetchWithAccessToken,
-  generateAccessToken,
-  registerAccessTokenOnRelay,
-  rotateAccessTokenOnRelay,
+  isPlausibleDeviceCredential,
+  relayFetchWithDeviceCredential,
 } from '@/features/connection/lib/atmos-access-token';
+import { getStoredDeviceCredential, storeDeviceCredential } from '@/api/hub-client';
 import { createHostedRemoteSession } from '@/features/connection/lib/hosted-connection';
 import {
   activateCurrentLocalConnection,
@@ -215,7 +213,7 @@ export function AtmosComputerSection() {
     }
     setListRefreshing(true);
     try {
-      const res = await relayFetchWithAccessToken(url, token, '/v1/computers', undefined, secret);
+      const res = await relayFetchWithDeviceCredential(url, token, '/v1/computers', undefined, secret);
       const data = (await res.json().catch(() => null)) as { computers?: ComputerRow[] } | null;
       if (res.ok && data?.computers) {
         setComputers(data.computers);
@@ -355,12 +353,8 @@ export function AtmosComputerSection() {
     };
   }, [hasConfiguredKey, localStatus, localServerId, refreshComputerList]);
 
-  async function ensureAccessTokenReady(
-    token: string,
-    url: string = relayUrl,
-    secret: string = relaySecretKey,
-  ): Promise<boolean> {
-    if (token.trim().length < 32) {
+  async function ensureDeviceCredentialReady(token: string): Promise<boolean> {
+    if (!isPlausibleDeviceCredential(token)) {
       toastManager.add({
         title: t("toasts.accessKeyTooShort"),
         description: t("toasts.accessKeyTooShortDescription"),
@@ -368,15 +362,7 @@ export function AtmosComputerSection() {
       });
       return false;
     }
-    const reg = await registerAccessTokenOnRelay(url, token, secret);
-    if (!reg.ok) {
-      toastManager.add({
-        title: t("toasts.couldNotSaveAccessKey"),
-        description: reg.error ?? t("toasts.tryAgain"),
-        type: 'error',
-      });
-      return false;
-    }
+    // Device credentials are Hub-minted and projected to Relay — no local /v1/tenants register.
     return true;
   }
 
@@ -458,7 +444,7 @@ export function AtmosComputerSection() {
       const nextUrl = resolveRelayUrl(relayUrlDraft);
       const nextSecret = relaySecretDraft.trim();
       const switchingIdentity = hasConfiguredKey && token !== accessToken.trim();
-      if (!(await ensureAccessTokenReady(token, nextUrl, nextSecret))) {
+      if (!(await ensureDeviceCredentialReady(token))) {
         return;
       }
       let githubAutomationsMarked = 0;
@@ -502,6 +488,14 @@ export function AtmosComputerSection() {
         accessTokenConfigured: true,
       });
       setTokenReveal(null);
+      try {
+        storeDeviceCredential({
+          device_id: 'local',
+          device_credential: token,
+        });
+      } catch {
+        /* ignore */
+      }
       const persisted = await saveComputerClientSettingsToDisk(token, nextUrl, nextSecret);
       if (!persisted) {
         toastManager.add({
@@ -526,86 +520,34 @@ export function AtmosComputerSection() {
     }
   }
 
-  async function onRotateToken() {
-    const currentToken = accessToken.trim();
-    if (currentToken.length < 32) {
+  async function onImportFromHubEnroll() {
+    const fromHub = getStoredDeviceCredential()?.trim() ?? '';
+    if (!isPlausibleDeviceCredential(fromHub)) {
       toastManager.add({
         title: t("toasts.saveAccessKeyFirst"),
-        description: t("toasts.saveAccessKeyBeforeRotation"),
+        description: t("toasts.importFromAccountHint"),
         type: 'error',
       });
       return;
     }
-
-    setBusy('token-rotate');
+    setTokenDraft(fromHub);
+    setBusy('token-save');
     try {
-      const nextToken = generateAccessToken();
-      const rotated = await rotateAccessTokenOnRelay(
-        relayUrl,
-        currentToken,
-        nextToken,
-        relaySecretKey,
-      );
-      if (!rotated.ok) {
-        toastManager.add({
-          title: t("toasts.couldNotRotateAccessKey"),
-          description: rotated.error ?? t("toasts.tryAgain"),
-          type: 'error',
-        });
-        return;
-      }
-
-      const persisted = await saveComputerClientSettingsToDisk(
-        nextToken,
-        relayUrl,
-        relaySecretKey,
-      );
-      setTokenDraft(nextToken);
-      await applyIdentityBearingComputerSettings({
-        accessToken: nextToken,
-        accessTokenConfigured: true,
-      });
-      setTokenReveal(nextToken);
-      void activateCurrentLocalConnection().catch(() => undefined);
-      toastManager.add({
-        title: t("toasts.accessKeyRotated"),
-        description: persisted
-          ? t("toasts.accessKeyRotatedDescription")
-          : t("toasts.accessKeyRotatedNotSaved"),
-        type: persisted ? 'success' : 'warning',
-      });
-      await refreshComputerListFor(nextToken, relayUrl);
-    } finally {
-      setBusy(null);
-    }
-  }
-
-  async function onGenerateToken() {
-    setBusy('token-generate');
-    try {
-      const token = generateAccessToken();
       const nextUrl = resolveRelayUrl(relayUrlDraft);
       const nextSecret = relaySecretDraft.trim();
-      if (!(await ensureAccessTokenReady(token, nextUrl, nextSecret))) {
-        return;
-      }
       await applyIdentityBearingComputerSettings({
         relayUrl: nextUrl,
         relaySecretKey: nextSecret,
-        accessToken: token,
+        accessToken: fromHub,
         accessTokenConfigured: true,
       });
-      setTokenDraft(token);
-      setTokenReveal(token);
-      const persisted = await saveComputerClientSettingsToDisk(token, nextUrl, nextSecret);
+      const persisted = await saveComputerClientSettingsToDisk(fromHub, nextUrl, nextSecret);
       toastManager.add({
-        title: t("toasts.accessKeyCreated"),
-        description: persisted
-          ? t("toasts.accessKeyCreatedSaved")
-          : t("toasts.accessKeyCreatedNotSaved"),
+        title: t("toasts.accessKeySaved"),
+        description: persisted ? undefined : t("toasts.couldNotSaveLocally"),
         type: persisted ? 'success' : 'warning',
       });
-      await refreshComputerListFor(token, nextUrl, nextSecret);
+      await refreshComputerListFor(fromHub, nextUrl, nextSecret);
     } finally {
       setBusy(null);
     }
@@ -629,7 +571,7 @@ export function AtmosComputerSection() {
           localStatus?.hostname ??
           t("fallbacks.myComputer");
 
-        const tokenRes = await relayFetchWithAccessToken(
+        const tokenRes = await relayFetchWithDeviceCredential(
           relayUrl,
           accessToken,
           '/v1/register_tokens',
@@ -690,7 +632,7 @@ export function AtmosComputerSection() {
 
       const serverId = localStatus?.server_id ?? localServerId;
       if (serverId) {
-        await relayFetchWithAccessToken(
+        await relayFetchWithDeviceCredential(
           relayUrl,
           accessToken,
           `/v1/computers/${encodeURIComponent(serverId)}/revoke`,
@@ -778,7 +720,7 @@ export function AtmosComputerSection() {
     }
     setBusy(`remove-${serverId}`);
     try {
-      const res = await relayFetchWithAccessToken(
+      const res = await relayFetchWithDeviceCredential(
         relayUrl,
         accessToken,
         `/v1/computers/${encodeURIComponent(serverId)}/revoke`,
@@ -853,15 +795,13 @@ export function AtmosComputerSection() {
             <Button
               size="sm"
               variant="outline"
-              disabled={busy !== null || !!tokenDraft.trim()}
-              onClick={() => void onGenerateToken()}
+              disabled={busy !== null}
+              onClick={() => void onImportFromHubEnroll()}
             >
-              {busy === 'token-generate' ? (
+              {busy === 'token-save' ? (
                 <LoaderCircle className="mr-2 size-4 animate-spin" />
-              ) : (
-                <Plus className="mr-2 size-4" />
-              )}
-              {t("panels.accessKey.actions.generate")}
+              ) : null}
+              {t("panels.accessKey.actions.importFromAccount")}
             </Button>
           ) : null
         }
@@ -877,7 +817,7 @@ export function AtmosComputerSection() {
                 placeholder={
                   keyHiddenOnHostedWeb
                     ? t("panels.accessKey.placeholders.savedOnComputer")
-                    : t("panels.accessKey.placeholders.pasteOrGenerate")
+                    : t("panels.accessKey.placeholders.pasteDeviceCredential")
                 }
                 className={keyHiddenOnHostedWeb ? undefined : 'pr-10'}
               />
@@ -926,30 +866,6 @@ export function AtmosComputerSection() {
             </p>
           ) : null}
         </div>
-        {hasBrowserKey ? (
-          <div className="flex flex-col gap-3 rounded-xl border border-border/80 bg-muted/15 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="min-w-0">
-              <p className="text-sm font-medium text-foreground">{t("panels.rotateAccessToken.title")}</p>
-              <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                {t("panels.rotateAccessToken.description")}
-              </p>
-            </div>
-            <Button
-              type="button"
-              variant="outline"
-              className="shrink-0"
-              disabled={busy !== null}
-              onClick={() => void onRotateToken()}
-            >
-              {busy === 'token-rotate' ? (
-                <LoaderCircle className="mr-2 size-4 animate-spin" />
-              ) : (
-                <RotateCw className="mr-2 size-4" />
-              )}
-              {t("panels.rotateAccessToken.button")}
-            </Button>
-          </div>
-        ) : null}
         {tokenReveal ? (
           <div className="space-y-2 rounded-xl border border-amber-500/35 bg-amber-500/10 px-4 py-3">
             <p className="text-sm font-medium">{t("panels.tokenReveal.title")}</p>

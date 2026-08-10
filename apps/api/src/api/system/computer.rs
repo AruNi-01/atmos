@@ -183,7 +183,7 @@ pub async fn sync_relay_connection(
     }))))
 }
 
-/// GET /api/system/computer-client-settings — user Access Token from `~/.atmos/computer-client.json`.
+/// GET /api/system/computer-client-settings — Hub device credential from `~/.atmos/computer-client.json`.
 pub async fn get_computer_client_settings(
     headers: HeaderMap,
 ) -> ApiResult<Json<ApiResponse<Value>>> {
@@ -194,19 +194,20 @@ pub async fn get_computer_client_settings(
         return Ok(Json(ApiResponse::success(json!({
             "path": path.display().to_string(),
             "configured": false,
-            "access_token": "",
+            "device_credential": "",
+            "device_id": null,
             "relay_url": default_relay_url(),
             "relay_secret_key": "",
             "relay_secret_key_configured": false,
         }))));
     };
-    let configured = !settings.access_token.trim().is_empty();
+    let configured = settings.is_configured();
     let relay_secret_key_configured = settings
         .relay_secret_key
         .as_ref()
         .is_some_and(|value| !value.trim().is_empty());
-    let access_token = if expose_secrets {
-        settings.access_token.clone()
+    let device_credential = if expose_secrets {
+        settings.device_credential.clone()
     } else {
         String::new()
     };
@@ -218,7 +219,8 @@ pub async fn get_computer_client_settings(
     Ok(Json(ApiResponse::success(json!({
         "path": path.display().to_string(),
         "configured": configured,
-        "access_token": access_token,
+        "device_credential": device_credential,
+        "device_id": settings.device_id,
         "relay_url": resolved_relay_url(&settings),
         "relay_secret_key": relay_secret_key,
         "relay_secret_key_configured": relay_secret_key_configured,
@@ -230,7 +232,12 @@ pub struct PutComputerClientSettingsPayload {
     #[serde(default)]
     pub clear: bool,
     #[serde(default)]
+    pub device_credential: Option<String>,
+    /// Legacy alias — accepted then stored as device_credential.
+    #[serde(default)]
     pub access_token: Option<String>,
+    #[serde(default)]
+    pub device_id: Option<String>,
     #[serde(default)]
     pub relay_url: Option<String>,
     #[serde(default)]
@@ -256,18 +263,32 @@ pub async fn put_computer_client_settings(
     }
 
     let existing = read_computer_client_settings().map_err(ApiError::BadRequest)?;
-    let access_token = payload
-        .access_token
+    let device_credential = payload
+        .device_credential
         .as_ref()
+        .or(payload.access_token.as_ref())
         .map(|s| s.trim())
         .filter(|s| !s.is_empty())
         .map(str::to_string)
         .or_else(|| {
             existing
                 .as_ref()
-                .map(|settings| settings.access_token.clone())
+                .map(|settings| settings.device_credential.clone())
         })
         .unwrap_or_default();
+
+    let device_id = if payload.device_id.is_some() {
+        payload
+            .device_id
+            .as_deref()
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .map(str::to_string)
+    } else {
+        existing
+            .as_ref()
+            .and_then(|settings| settings.device_id.clone())
+    };
 
     let relay_url = if payload.relay_url.is_some() {
         payload
@@ -296,12 +317,13 @@ pub async fn put_computer_client_settings(
 
     let settings = ComputerClientSettings {
         version: COMPUTER_CLIENT_SETTINGS_VERSION,
-        access_token,
+        device_credential,
+        device_id,
         relay_url,
         relay_secret_key,
     };
     let written = write_computer_client_settings(&settings).map_err(ApiError::BadRequest)?;
-    let configured = !settings.access_token.trim().is_empty();
+    let configured = settings.is_configured();
     let relay_secret_key_configured = settings
         .relay_secret_key
         .as_ref()
@@ -316,6 +338,7 @@ pub async fn put_computer_client_settings(
         "action": "written",
         "path": written.display().to_string(),
         "configured": configured,
+        "device_id": settings.device_id,
         "relay_url": resolved_relay_url(&settings),
         "relay_secret_key": relay_secret_key,
         "relay_secret_key_configured": relay_secret_key_configured,
@@ -328,6 +351,9 @@ pub struct RelayProxyPayload {
     pub relay_url: Option<String>,
     pub method: String,
     pub path: String,
+    #[serde(default)]
+    pub device_credential: Option<String>,
+    /// Legacy alias for device_credential.
     #[serde(default)]
     pub access_token: Option<String>,
     #[serde(default)]
@@ -351,9 +377,10 @@ pub async fn proxy_relay(
         .map(str::trim)
         .filter(|s| !s.is_empty())
         .map(normalize_relay_url);
-    let payload_access_token = payload
-        .access_token
+    let payload_device_credential = payload
+        .device_credential
         .as_ref()
+        .or(payload.access_token.as_ref())
         .map(|s| s.trim())
         .filter(|s| !s.is_empty())
         .map(str::to_string);
@@ -363,7 +390,7 @@ pub async fn proxy_relay(
         .map(|s| s.trim())
         .filter(|s| !s.is_empty())
         .map(str::to_string);
-    let use_settings_token = payload_access_token.is_none() && path != "/v1/tenants";
+    let use_settings_token = payload_device_credential.is_none();
     let settings = if payload_relay_url.is_none()
         || payload_relay_secret_key.is_none()
         || use_settings_token
@@ -379,11 +406,11 @@ pub async fn proxy_relay(
         payload_relay_url.or(settings_relay_url)
     }
     .unwrap_or_else(|| default_relay_url().to_string());
-    let access_token = payload_access_token.or_else(|| {
+    let device_credential = payload_device_credential.or_else(|| {
         if use_settings_token {
             settings
                 .as_ref()
-                .map(|settings| settings.access_token.trim().to_string())
+                .map(|settings| settings.device_credential.trim().to_string())
                 .filter(|value| !value.is_empty())
         } else {
             None
@@ -412,7 +439,7 @@ pub async fn proxy_relay(
         .request(method, &url)
         .header("Content-Type", "application/json");
 
-    if let Some(token) = access_token.as_deref() {
+    if let Some(token) = device_credential.as_deref() {
         builder = builder.header("Authorization", format!("Bearer {token}"));
     }
     if let Some(secret) = relay_secret_key.as_deref() {

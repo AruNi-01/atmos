@@ -191,7 +191,7 @@ async function githubRelayRequest<T>(
     ...payload,
   };
   if (accessToken) {
-    relayPayload.access_token = accessToken;
+    relayPayload.device_credential = accessToken;
   }
   return wsRequest<T>(action, relayPayload);
 }

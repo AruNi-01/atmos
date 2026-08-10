@@ -337,6 +337,6 @@ bunx expo start --dev-client --port 8092
 - Keep this as a native mobile workflow. Do not replace it with PWA or hosted web setup.
 - Prefer `expo run:ios` / `expo run:android` for smoke checks because this app uses native modules and `expo-dev-client`.
 - `apps/mobile/ios` and `apps/mobile/android` are generated native folders and are ignored by `apps/mobile/.gitignore` in the managed Expo workflow.
-- Do not paste Access Tokens, `client_token`, register tokens, or Relay secrets into logs or docs.
+- Do not paste device credentials, `client_token`, register tokens, or Relay secrets into logs or docs.
 - If an Android build fails, fix the local SDK/JDK environment before changing app code.
 - Before reporting success, include the exact typecheck, doctor, iOS smoke, and Android smoke commands that passed.

@@ -266,6 +266,8 @@ jobs:
       - name: Build local runtime
         env:
           NEXT_PUBLIC_TLDRAW_LICENSE_KEY: ${{ secrets.TLDRAW_LICENSE_KEY }}
+          NEXT_PUBLIC_LINEAR_OAUTH_CLIENT_ID: ${{ secrets.LINEAR_OAUTH_CLIENT_ID }}
+          NEXT_PUBLIC_ATMOS_HUB_URL: ${{ vars.NEXT_PUBLIC_ATMOS_HUB_URL || 'https://hub.atmos.land' }}
         run: node ./scripts/local-runtime/build-runtime.mjs --target ${{ matrix.target }} --version ${{ needs.resolve-release-config.outputs.release_version }} --output-dir ${{ runner.temp }}/local-runtime
 
       - name: Upload CI artifact

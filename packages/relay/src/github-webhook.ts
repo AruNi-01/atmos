@@ -101,7 +101,7 @@ export async function handleGithubWebhook(
       provider: "github",
       deliveryId: event.deliveryId,
       routeId: route.route_id,
-      tenantId: route.tenant_id,
+      userId: route.user_id,
       installationId: route.installation_id,
       serverId: route.server_id,
       automationGuid: route.automation_guid,

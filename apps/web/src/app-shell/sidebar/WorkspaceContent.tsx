@@ -729,6 +729,23 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
                 ) : null}
               </div>
 
+              {(workspace.linearLinks?.length ?? 0) > 0 ? (
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {workspace.linearLinks!.map((link) => (
+                    <a
+                      key={link.externalId}
+                      href={link.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      title={link.title}
+                      className="rounded-full border border-border/70 bg-muted/40 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground hover:text-foreground"
+                    >
+                      {link.identifier}
+                    </a>
+                  ))}
+                </div>
+              ) : null}
+
               {managedPr ? (
                 <WorkspacePrSummary
                   presentation={managedPr}

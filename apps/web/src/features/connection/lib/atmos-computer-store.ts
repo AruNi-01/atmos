@@ -1,7 +1,8 @@
 /**
- * APP-016 — Atmos Computer UI state.
+ * APP-016 / APP-056 — Atmos Computer UI state.
  *
- * Access Token + relay settings: `~/.atmos/computer-client.json` (loopback API).
+ * Hub device credential + relay settings: `~/.atmos/computer-client.json` (loopback API).
+ * Store field `accessToken` holds the device credential (Relay Bearer).
  * Local connection prefs: browser `atmos:v1:inst:local:connection`.
  * Relay session fields: memory only.
  */
@@ -33,7 +34,7 @@ interface AtmosComputerData {
   registerTokenExpiresAt: number | null;
   localComputerDisplayName: string;
   localServerId: string | null;
-  /** Bumped when access token / relay URL / relay secret identity changes (APP-035). */
+  /** Bumped when device credential / relay URL / relay secret identity changes (APP-035). */
   relayAuthRevision: number;
   /** Bumped when gateway base / client token changes (APP-035). Never put tokens in keys. */
   relaySessionRevision: number;

@@ -6,7 +6,7 @@ import { useQueryState, useQueryStates } from "nuqs";
 import { useShallow } from "zustand/react/shallow";
 import { Tabs, TabsList, TabsTab } from "@workspace/ui";
 import LogoSvg from "@workspace/ui/components/logo-svg";
-import { Github } from "lucide-react";
+import { Github, SquareKanban } from "lucide-react";
 import {
   useGroups,
   useProjects,
@@ -25,6 +25,7 @@ import { WorkspaceKanbanView } from "@/app-shell/sidebar/WorkspaceKanbanView";
 import type { WorkspaceKanbanFilters } from "@/app-shell/sidebar/WorkspaceKanbanFilterMenu";
 import type { SidebarGroupingMode } from "@/app-shell/sidebar/workspace-status";
 import { TaskGithubPanel } from "@/features/task/components/TaskGithubPanel";
+import { TaskLinearPanel } from "@/features/task/components/TaskLinearPanel";
 import {
   taskParams,
   type TaskSourceTab,
@@ -168,7 +169,7 @@ export function TaskManagementView() {
 
   const handleSourceChange = useCallback(
     (value: string) => {
-      if (value === "atmos" || value === "github") {
+      if (value === "atmos" || value === "github" || value === "linear") {
         void setSourceTab(value);
       }
     },
@@ -201,6 +202,10 @@ export function TaskManagementView() {
               <Github className="size-3.5 shrink-0" />
               {t("source.github")}
             </TabsTab>
+            <TabsTab value="linear" className="gap-1.5 px-2.5 sm:h-7 sm:text-xs">
+              <SquareKanban className="size-3.5 shrink-0" />
+              {t("source.linear")}
+            </TabsTab>
           </TabsList>
           <div
             ref={setHeaderTrailingHost}
@@ -211,6 +216,11 @@ export function TaskManagementView() {
         <div className="min-h-0 flex-1 overflow-hidden">
           {sourceTab === "github" ? (
             <TaskGithubPanel projects={projects} headerTrailingHost={headerTrailingHost} />
+          ) : sourceTab === "linear" ? (
+            <TaskLinearPanel
+              projects={projects}
+              headerTrailingHost={headerTrailingHost}
+            />
           ) : (
             <WorkspaceKanbanView
               projects={projects}

@@ -1,18 +1,22 @@
 /**
- * User Access Token + relay settings live in `~/.atmos/computer-client.json`.
- * Hosted first-run setup keeps new keys in memory until a Computer API exists.
+ * Hub device credential + relay settings live in `~/.atmos/computer-client.json`.
+ * APP-056: no user-generated Access Token.
  */
 
 import {
   resolveRelayUrl,
   useAtmosComputerStore,
 } from '@/features/connection/lib/atmos-computer-store';
+import { getStoredDeviceCredential } from '@/api/hub-client';
 import { getLoopbackHttpBase, isHostedAtmosOrigin } from '@/shared/lib/desktop-runtime';
 
 export interface ComputerClientSettingsDisk {
   path: string;
   configured: boolean;
-  access_token: string;
+  device_credential: string;
+  /** Legacy field if older API still returns it. */
+  access_token?: string;
+  device_id?: string | null;
   relay_url: string;
   relay_secret_key?: string;
   relay_secret_key_configured?: boolean;
@@ -23,6 +27,10 @@ export type ComputerClientSettingsSaveLocation = 'api' | 'none';
 export interface ComputerClientSettingsSaveResult {
   persisted: boolean;
   location: ComputerClientSettingsSaveLocation;
+}
+
+function credentialFromDisk(disk: ComputerClientSettingsDisk): string {
+  return (disk.device_credential || disk.access_token || '').trim();
 }
 
 function apiTokenHeader(): Record<string, string> {
@@ -92,13 +100,14 @@ export async function loadComputerClientSettingsFromDisk(): Promise<ComputerClie
 }
 
 export async function saveComputerClientSettings(
-  accessToken: string,
+  deviceCredential: string,
   relayUrl: string,
   relaySecretKey = '',
+  deviceId?: string | null,
 ): Promise<ComputerClientSettingsSaveResult> {
   const target = await computerClientSettingsTarget();
   if (!target) {
-    console.warn('[computer-client-settings] no Computer API — token not written to disk');
+    console.warn('[computer-client-settings] no Computer API — credential not written to disk');
     return { persisted: false, location: 'none' };
   }
   const relaySecret = relaySecretKey.trim();
@@ -108,9 +117,12 @@ export async function saveComputerClientSettings(
   if (relaySecret || !(typeof window !== 'undefined' && isHostedAtmosOrigin())) {
     body.relay_secret_key = relaySecret;
   }
-  const token = accessToken.trim();
+  const token = deviceCredential.trim();
   if (token) {
-    body.access_token = token;
+    body.device_credential = token;
+  }
+  if (deviceId !== undefined) {
+    body.device_id = deviceId;
   }
   const res = await fetch(`${target.base}/api/system/computer-client-settings`, {
     method: 'PUT',
@@ -129,11 +141,17 @@ export async function saveComputerClientSettings(
 }
 
 export async function saveComputerClientSettingsToDisk(
-  accessToken: string,
+  deviceCredential: string,
   relayUrl: string,
   relaySecretKey = '',
+  deviceId?: string | null,
 ): Promise<boolean> {
-  const result = await saveComputerClientSettings(accessToken, relayUrl, relaySecretKey);
+  const result = await saveComputerClientSettings(
+    deviceCredential,
+    relayUrl,
+    relaySecretKey,
+    deviceId,
+  );
   return result.persisted;
 }
 
@@ -154,7 +172,8 @@ export async function clearComputerClientSettingsOnDisk(): Promise<void> {
 
 /**
  * Load disk settings into the zustand store. If disk is empty but this page
- * already has an in-memory token, push it to disk once a Computer API exists.
+ * already has an in-memory credential, push it to disk once a Computer API exists.
+ * Also prefers browser Hub enroll (`atmos.device_credential`) when disk is empty.
  */
 let hydrateOnce: Promise<void> | null = null;
 
@@ -176,17 +195,17 @@ export async function hydrateComputerClientSettingsFromDisk(): Promise<void> {
     '@/features/connection/lib/query-identity-lifecycle'
   );
 
-  if (disk?.configured && disk.access_token.trim().length >= 32) {
-    await applyIdentityBearingComputerSettings({
-      relayUrl: disk.relay_url,
-      relaySecretKey: disk.relay_secret_key ?? '',
-      accessToken: disk.access_token,
-      accessTokenConfigured: true,
-    });
-    return;
-  }
-
   if (disk) {
+    const cred = credentialFromDisk(disk);
+    if (disk.configured && cred.length >= 32) {
+      await applyIdentityBearingComputerSettings({
+        relayUrl: disk.relay_url,
+        relaySecretKey: disk.relay_secret_key ?? '',
+        accessToken: cred,
+        accessTokenConfigured: true,
+      });
+      return;
+    }
     await applyIdentityBearingComputerSettings({
       relayUrl: disk.relay_url,
       relaySecretKey: disk.relay_secret_key ?? '',
@@ -196,10 +215,17 @@ export async function hydrateComputerClientSettingsFromDisk(): Promise<void> {
     store.setAccessTokenConfigured(Boolean(store.accessToken.trim().length >= 32));
   }
 
-  const legacy = useAtmosComputerStore.getState().accessToken.trim();
-  if (legacy.length >= 32) {
+  // Prefer Hub browser enroll when disk has no credential yet.
+  const hubCred = getStoredDeviceCredential()?.trim() ?? '';
+  const memory = useAtmosComputerStore.getState().accessToken.trim();
+  const next = hubCred.length >= 32 ? hubCred : memory;
+  if (next.length >= 32) {
+    await applyIdentityBearingComputerSettings({
+      accessToken: next,
+      accessTokenConfigured: true,
+    });
     const persisted = await saveComputerClientSettingsToDisk(
-      legacy,
+      next,
       useAtmosComputerStore.getState().relayUrl,
       useAtmosComputerStore.getState().relaySecretKey,
     );

@@ -52,7 +52,8 @@ New monorepo package / Worker (`hub.atmos.land`) owns:
 `apps/landing` (or edge SSR) renders `atmos.land/s/:id` and `/u/:handle`. Relay stays connection-only. Hub session mints **device credentials**; Computers owned by `user_id` (Phase 1).
 
 **Pros**: Correct separation of concerns; natural GitHub identity for agentic builders; reuses CF/D1 ops; local-first preserved; path to lost-token recovery and multi-device rollup.  
-**Cons**: New package + auth surface; Phase 1 does not yet fully replace token-tenant ownership for Computers.  
+**Cons**: New package + auth surface; dual Worker ops (Hub + Relay) and Hub→Relay device projection must stay consistent.  
+~~**Historical (pre-decision):** Phase 1 might leave token-tenant ownership for Computers.~~ **Settled:** Computers are owned by Hub `user_id`; identity is session + device credentials only (no user Access Token).  
 **Unknown**: Whether one shared D1 or two D1 databases is cleaner for ops.
 
 ### Option D — Continuous cloud sync of usage (not just publish)

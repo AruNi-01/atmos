@@ -285,17 +285,25 @@ export async function proxyRelayRequest(
   relayUrl: string,
   method: string,
   path: string,
-  opts?: { accessToken?: string; body?: string; relaySecretKey?: string },
+  opts?: {
+    deviceCredential?: string;
+    /** @deprecated use deviceCredential */
+    accessToken?: string;
+    body?: string;
+    relaySecretKey?: string;
+  },
 ): Promise<RelayProxyResult | null> {
   try {
     const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+    const deviceCredential =
+      opts?.deviceCredential?.trim() || opts?.accessToken?.trim() || null;
     return await localFetch<RelayProxyResult>('/api/system/computer/relay', {
       method: 'POST',
       body: JSON.stringify({
         relay_url: relayUrl.replace(/\/+$/, ''),
         method: method.toUpperCase(),
         path: normalizedPath,
-        access_token: opts?.accessToken?.trim() || null,
+        device_credential: deviceCredential,
         relay_secret_key: opts?.relaySecretKey?.trim() || null,
         body: opts?.body ?? null,
       }),

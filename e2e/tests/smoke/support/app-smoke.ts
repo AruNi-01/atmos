@@ -114,7 +114,7 @@ export async function stubComputerClientSettingsApi(page: Page): Promise<void> {
           data: {
             path: "/tmp/atmos-e2e-computer-client.json",
             configured: false,
-            access_token: "",
+            device_credential: "",
             relay_url: "wss://atmos.sh/relay",
             relay_secret_key: "",
             relay_secret_key_configured: false,
@@ -156,12 +156,13 @@ export async function stubOnboardingRelayNetwork(page: Page): Promise<void> {
     });
   });
 
-  await page.route("**/v1/tenants**", async (route) => {
-    if (route.request().method() === "POST") {
+  // APP-056: Relay no longer exposes /v1/tenants; device credentials are Hub-minted.
+  await page.route("**/v1/computers**", async (route) => {
+    if (route.request().method() === "GET") {
       await route.fulfill({
-        status: 201,
+        status: 200,
         contentType: "application/json",
-        body: JSON.stringify({ ok: true }),
+        body: JSON.stringify({ computers: [] }),
       });
       return;
     }
