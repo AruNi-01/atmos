@@ -1,0 +1,196 @@
+AGENTS.md
+  h_5be255725524c8 33-34,82-85,88
+apps/api/src/api/system/computer.rs
+  h_5be255725524c8 12-13,366-368,381-392
+apps/api/src/api/system/linear_local.rs
+  h_5be255725524c8 1-236
+apps/api/src/api/system/mod.rs
+  h_5be255725524c8 8,73-76
+apps/api/src/api/ws/message/linear.rs
+  h_5be255725524c8 13-15
+apps/api/src/api/ws/router/linear.rs
+  h_5be255725524c8 36-42,87-90,100,147-151,184,197
+apps/api/src/relay/relay_client.rs
+  h_5be255725524c8 6,33-43,45-49,52-56
+apps/desktop-electron/AGENTS.md
+  h_5be255725524c8 59
+apps/mobile/package.json
+  h_5be255725524c8 46-47
+apps/mobile/src/api/relay-client.test.ts
+  h_5be255725524c8 2-9
+apps/mobile/src/api/relay-client.ts
+  h_5be255725524c8 2-3,5-20
+apps/mobile/src/api/types.ts
+  h_5be255725524c8 1,38-43
+apps/mobile/src/features/computers/ComputerConnectScreen.tsx
+  h_5be255725524c8 36,46-48
+apps/mobile/src/features/computers/computer-selection.ts
+  h_5be255725524c8 1,5
+apps/mobile/src/features/onboarding/OnboardingScreen.tsx
+  h_5be255725524c8 56-58,77,87-89
+apps/mobile/src/features/settings/use-mobile-settings-controller.ts
+  h_5be255725524c8 44,88-90,104,118-120,133
+apps/mobile/src/features/workspaces/WorkspaceListScreen.tsx
+  h_5be255725524c8 60,75-77
+apps/mobile/src/hooks/use-relay-client.ts
+  h_5be255725524c8 2,8-15
+apps/mobile/src/lib/access-token-format.ts
+  h_5be255725524c8 1-8
+apps/mobile/src/lib/relay-url.ts
+  h_5be255725524c8 1-7,10-13,18
+apps/web/messages/en.json
+  h_5be255725524c8 1336,1340-1343,1360-1361,5897,5899-5901,5905,5907,5913-5938,5941,5944,5956-5963
+apps/web/messages/zh.json
+  h_5be255725524c8 1336,1340-1343,1360-1361,5897,5899-5901,5905,5907,5913-5938,5941,5944,5956-5963
+apps/web/package.json
+  h_5be255725524c8 19,21
+apps/web/src/api/hub-auth-client.ts
+  h_5be255725524c8 2-3,5-14
+apps/web/src/api/hub-bootstrap.ts
+  h_5be255725524c8 1-17
+apps/web/src/api/hub-client.ts
+  h_5be255725524c8 2-5,7-47
+apps/web/src/api/relay.ts
+  h_5be255725524c8 1-7,14,45,57,69
+apps/web/src/api/ws/linear-api.ts
+  h_5be255725524c8 8,29-35,37-50,54-57,59,61,82-85,90-93,95-98,101,106
+apps/web/src/app/integrations/linear/callback/page.tsx
+  h_5be255725524c8 5,7,15,17,30,38,40,52,58,77-85,88
+apps/web/src/features/atmos-computer/components/AtmosComputerSection.tsx
+  h_5be255725524c8 31,33,214-222,576-582,585,592,633-636,719-723
+apps/web/src/features/connection/hooks/use-websocket.ts
+  h_5be255725524c8 25,283
+apps/web/src/features/connection/lib/app-connection-bootstrap.ts
+  h_5be255725524c8 6-7,24
+apps/web/src/features/connection/lib/atmos-access-token.ts
+  h_5be255725524c8 3,6-9,11,13
+apps/web/src/features/connection/lib/atmos-computer-store.ts
+  h_5be255725524c8 11-14,76,81,84,248,250-252
+apps/web/src/features/connection/lib/computer-list.test.ts
+  h_5be255725524c8 15-17
+apps/web/src/features/connection/lib/computer-list.ts
+  h_5be255725524c8 3,20
+apps/web/src/features/connection/lib/connection-ui-prefs.ts
+  h_5be255725524c8 3,7
+apps/web/src/features/connection/lib/create-web-relay-client.ts
+  h_5be255725524c8 1-150
+apps/web/src/features/connection/lib/fetch-register-token.ts
+  h_5be255725524c8 1-2,4,11-13
+apps/web/src/features/connection/lib/hosted-connection.ts
+  h_5be255725524c8 6-11,40,143-145,153-157,162-172,174
+apps/web/src/features/connection/lib/hydrate-relay-session.ts
+  h_5be255725524c8 16-19,22,79-81,123-130
+apps/web/src/features/connection/lib/query-identity-lifecycle.ts
+  h_5be255725524c8 67-70,98-101
+apps/web/src/features/connection/lib/workbench-relay-client-kind.test.ts
+  h_5be255725524c8 1-42
+apps/web/src/features/connection/lib/workbench-relay-client-kind.ts
+  h_5be255725524c8 1-16
+apps/web/src/features/settings/components/AccountSettingsSection.tsx
+  h_5be255725524c8 12-14,40,87-91,93,106-108,120
+apps/web/src/features/settings/components/IntegrationsSettingsSection.tsx
+  h_5be255725524c8 33-47,218-228,232-241,254,259,264-293,322-323,325,340-343,347-366,380,386,389,393-422,425-426,443-444,453,461,463-467,469-470,478-503,514-515,518,527-531,537-539,545-624,626-632,637-640,642,644-747,749-750
+apps/web/src/features/settings/lib/linear-local-keys.test.ts
+  h_5be255725524c8 1-106
+apps/web/src/features/settings/lib/linear-local-keys.ts
+  h_5be255725524c8 1-436
+apps/web/src/features/task/components/TaskLinearPanel.tsx
+  h_5be255725524c8 20-30,179-186,188-222,226-237,376-377,395-399
+bun.lock
+  h_5be255725524c8 119,172,174,342-352,378-385,527-528,535-536
+crates/core-service/src/service/linear.rs
+  h_5be255725524c8 2-4,70-81,85-110,164,167,174,179-181,184-185,295,301,304-309,321,323,334,339
+crates/core-service/src/service/linear_credentials.rs
+  h_5be255725524c8 1-5
+crates/runtime-manager/src/computer_client_settings.rs
+  h_5be255725524c8 146-217,246-259,275-325
+crates/runtime-manager/src/lib.rs
+  h_5be255725524c8 12,31-33,41-45
+crates/runtime-manager/src/linear_local_keys.rs
+  h_5be255725524c8 1-170
+packages/AGENTS.md
+  h_5be255725524c8 13-14,30-31,49-50,56,66-69,72-73,85-86,114-115
+packages/api-types/package.json
+  h_5be255725524c8 15-16
+packages/hub-client/AGENTS.md
+  h_5be255725524c8 1-41
+packages/hub-client/package.json
+  h_5be255725524c8 1-25
+packages/hub-client/src/auth/browser.ts
+  h_5be255725524c8 1-56
+packages/hub-client/src/auth/native.ts
+  h_5be255725524c8 1-30
+packages/hub-client/src/config.test.ts
+  h_5be255725524c8 1-39
+packages/hub-client/src/config.ts
+  h_5be255725524c8 1-61
+packages/hub-client/src/device-storage/browser.ts
+  h_5be255725524c8 1-55
+packages/hub-client/src/device-storage/registry.test.ts
+  h_5be255725524c8 1-55
+packages/hub-client/src/device-storage/registry.ts
+  h_5be255725524c8 1-44
+packages/hub-client/src/device-storage/types.ts
+  h_5be255725524c8 1-9
+packages/hub-client/src/devices.ts
+  h_5be255725524c8 1-27
+packages/hub-client/src/enroll.ts
+  h_5be255725524c8 1-19
+packages/hub-client/src/http.ts
+  h_5be255725524c8 1-21
+packages/hub-client/src/index.ts
+  h_5be255725524c8 1-38
+packages/hub-client/src/integrations/linear.ts
+  h_5be255725524c8 1-49
+packages/hub-client/src/me.ts
+  h_5be255725524c8 1-11
+packages/hub-client/src/types.ts
+  h_5be255725524c8 1-42
+packages/hub-client/tsconfig.json
+  h_5be255725524c8 1-11
+packages/relay-client/AGENTS.md
+  h_5be255725524c8 1-64
+packages/relay-client/package.json
+  h_5be255725524c8 1-19
+packages/relay-client/src/client.test.ts
+  h_5be255725524c8 1-185
+packages/relay-client/src/client.ts
+  h_5be255725524c8 1-178
+packages/relay-client/src/computers.ts
+  h_5be255725524c8 1-11
+packages/relay-client/src/credential.ts
+  h_5be255725524c8 1-21
+packages/relay-client/src/errors.ts
+  h_5be255725524c8 1-32
+packages/relay-client/src/index.ts
+  h_5be255725524c8 1-49
+packages/relay-client/src/session-urls.test.ts
+  h_5be255725524c8 1-78
+packages/relay-client/src/session-urls.ts
+  h_5be255725524c8 1-59
+packages/relay-client/src/session.ts
+  h_5be255725524c8 1-57
+packages/relay-client/src/transport.ts
+  h_5be255725524c8 1-60
+packages/relay-client/src/types.ts
+  h_5be255725524c8 1-39
+packages/relay-client/src/url.test.ts
+  h_5be255725524c8 1-36
+packages/relay-client/src/url.ts
+  h_5be255725524c8 1-15
+packages/relay-client/tsconfig.json
+  h_5be255725524c8 1-11
+packages/relay/AGENTS.md
+  h_5be255725524c8 57,60-61
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "9f825c4422b242b1be86225167aeda051c8663b2",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
