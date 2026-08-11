@@ -1,0 +1,19 @@
+packages/ui/components.json
+  s_3341d6b4c45472::t_0d87235c840a6d 28-29
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "1d0fb30b2b108dd075b589acb3a7a7a36e534a92",
+  "prompts": {},
+  "sessions": {
+    "s_3341d6b4c45472": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "9bd17719-bdf8-4093-b1af-7aadb5f79502",
+        "model": "grok-4.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
