@@ -175,10 +175,10 @@
 }
 
 .terminal-agent-input-trigger--pulse {
-  animation: terminalAgentInputTriggerPulse 1.1s ease-in-out infinite;
+  animation: terminal-agent-input-trigger-pulse 1.1s ease-in-out infinite;
 }
 
-@keyframes terminalAgentInputTriggerPulse {
+@keyframes terminal-agent-input-trigger-pulse {
   0%,
   100% {
     opacity: 0.55;
@@ -202,10 +202,10 @@
     color-mix(in srgb, #0ea5e9 8%, transparent) 100%
   );
   background-size: 200% 100%;
-  animation: attentionSummarySkeleton 1.2s ease-in-out infinite;
+  animation: attention-summary-skeleton 1.2s ease-in-out infinite;
 }
 
-@keyframes attentionSummarySkeleton {
+@keyframes attention-summary-skeleton {
   0% {
     background-position: 100% 0;
   }

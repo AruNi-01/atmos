@@ -106,10 +106,9 @@ fn spawn_agent_hook_forwarder(
                             WsEvent::AgentAttentionCleared,
                             json!({ "stable_pane_ids": stable_pane_ids }),
                         ),
-                        AgentHookEvent::AttentionSummaryUpdated(summary) => (
-                            WsEvent::AgentAttentionSummaryUpdated,
-                            json!(summary),
-                        ),
+                        AgentHookEvent::AttentionSummaryUpdated(summary) => {
+                            (WsEvent::AgentAttentionSummaryUpdated, json!(summary))
+                        }
                         AgentHookEvent::AttentionSummaryCleared { stable_pane_ids } => (
                             WsEvent::AgentAttentionSummaryCleared,
                             json!({ "stable_pane_ids": stable_pane_ids }),
@@ -334,8 +333,11 @@ async fn tick_attention_auto_summary(agent_hooks_service: Arc<core_service::Agen
     if !settings.enabled {
         return;
     }
+    // Bound concurrent headless summaries so one idle burst cannot spawn
+    // an agent-cli process per pane in a single tick.
+    const MAX_SUMMARIES_PER_TICK: usize = 3;
     let due = agent_hooks_service.attention_due_for_summary(settings.delay());
-    for latch in due {
+    for latch in due.into_iter().take(MAX_SUMMARIES_PER_TICK) {
         let Some((latch, _row, generation)) =
             agent_hooks_service.begin_attention_summary(&latch.stable_pane_id)
         else {
@@ -878,7 +880,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Arc::clone(&agent_hooks_for_startup),
         actual_addr.port(),
     );
-    register_idle_session_cleanup_job(Arc::clone(&jobs), Arc::clone(&agent_hooks_for_startup)).await;
+    register_idle_session_cleanup_job(Arc::clone(&jobs), Arc::clone(&agent_hooks_for_startup))
+        .await;
     register_attention_summary_job(Arc::clone(&jobs), agent_hooks_for_startup).await;
 
     // Serve with graceful shutdown — ensures PTY resources are cleaned up

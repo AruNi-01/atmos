@@ -15,13 +15,12 @@ use tracing::{info, warn};
 use super::attention_summary::{AttentionSummaryPayload, AttentionSummarySettings};
 use super::AgentAttentionLatch;
 use crate::error::{Result, ServiceError};
-use crate::service::automation::{
-    resolve_automation_agent_with_config, AutomationAgentRunConfig,
-};
+use crate::service::automation::{resolve_automation_agent_with_config, AutomationAgentRunConfig};
 use crate::service::llm_text_generation::generate_text;
 
 const DEFAULT_TIMEOUT: Duration = Duration::from_secs(180);
 const MAX_CONTEXT_CHARS: usize = 12_000;
+const GIT_TIMEOUT: Duration = Duration::from_secs(8);
 
 const SYSTEM_PROMPT: &str = r#"You are Atmos attention-summary helper.
 A coding agent finished a turn and the user has not acknowledged it yet.
@@ -44,7 +43,11 @@ pub async fn generate_attention_summary(
     latch: &AgentAttentionLatch,
     settings: &AttentionSummarySettings,
 ) -> Result<AttentionSummaryPayload> {
-    let context = build_context_block(latch);
+    // Git status/log/diff use std::process — keep them off the Tokio worker.
+    let latch_for_context = latch.clone();
+    let context = tokio::task::spawn_blocking(move || build_context_block(&latch_for_context))
+        .await
+        .unwrap_or_default();
     let prompt = format!(
         "Pane: {}\nSession: {}\nTool: {}\nRaised at: {}\nProject: {}\n\nRecent work context:\n{}",
         latch.stable_pane_id,
@@ -91,17 +94,21 @@ pub async fn generate_attention_summary(
 
 fn resolve_summary_provider(settings: &AttentionSummarySettings) -> Result<ResolvedLlmProvider> {
     if let Some(agent_id) = settings.agent_id.as_deref() {
-        // Validate the agent can run headless (automation path) before building provider.
-        let run_config = settings.model.as_ref().map(|model| AutomationAgentRunConfig {
-            model: Some(model.clone()),
-            ..Default::default()
-        });
+        // Only pass model when the user explicitly configured one.
+        let run_config = settings
+            .model
+            .as_ref()
+            .map(|model| AutomationAgentRunConfig {
+                model: Some(model.clone()),
+                ..Default::default()
+            });
         let _spec = resolve_automation_agent_with_config(agent_id, run_config.as_ref())?;
         return Ok(ResolvedLlmProvider {
             id: format!("agent-cli:{agent_id}"),
             kind: ProviderKind::AgentCli,
             base_url: String::new(),
             api_key: String::new(),
+            // Keep empty unless explicitly configured — agent-cli defaults apply.
             model: settings.model.clone().unwrap_or_default(),
             agent_id: Some(agent_id.to_string()),
             timeout: DEFAULT_TIMEOUT,
@@ -111,9 +118,8 @@ fn resolve_summary_provider(settings: &AttentionSummarySettings) -> Result<Resol
     }
 
     // Fall back to default LLM provider (may still be agent-cli via providers.json).
-    let store = FileLlmConfigStore::new().map_err(|error| {
-        ServiceError::Validation(format!("Failed to open LLM config: {error}"))
-    })?;
+    let store = FileLlmConfigStore::new()
+        .map_err(|error| ServiceError::Validation(format!("Failed to open LLM config: {error}")))?;
     let provider = store
         .resolve_default_provider()
         .map_err(|error| {
@@ -175,15 +181,25 @@ fn build_context_block(latch: &AgentAttentionLatch) -> String {
 }
 
 fn run_git_capture(cwd: &Path, args: &[&str]) -> Option<String> {
-    let output = Command::new("git")
-        .args(args)
-        .current_dir(cwd)
-        .output()
-        .ok()?;
-    if !output.status.success() {
-        return None;
-    }
-    String::from_utf8(output.stdout).ok()
+    // Called from spawn_blocking; add a soft timeout so a locked index cannot hang forever.
+    let cwd = cwd.to_path_buf();
+    let args: Vec<String> = args.iter().map(|s| (*s).to_string()).collect();
+    let (tx, rx) = std::sync::mpsc::channel();
+    std::thread::spawn(move || {
+        let result = Command::new("git")
+            .args(&args)
+            .current_dir(&cwd)
+            .output()
+            .ok()
+            .and_then(|output| {
+                if !output.status.success() {
+                    return None;
+                }
+                String::from_utf8(output.stdout).ok()
+            });
+        let _ = tx.send(result);
+    });
+    rx.recv_timeout(GIT_TIMEOUT).unwrap_or_default()
 }
 
 fn trim_chars(input: &str, max: usize) -> String {
@@ -266,10 +282,7 @@ pub fn parse_summary_payload(raw: &str) -> Result<AttentionSummaryPayload> {
 fn strip_json_fence(text: &str) -> &str {
     let trimmed = text.trim();
     if let Some(rest) = trimmed.strip_prefix("```json") {
-        return rest
-            .strip_suffix("```")
-            .unwrap_or(rest)
-            .trim();
+        return rest.strip_suffix("```").unwrap_or(rest).trim();
     }
     if let Some(rest) = trimmed.strip_prefix("```") {
         return rest.strip_suffix("```").unwrap_or(rest).trim();

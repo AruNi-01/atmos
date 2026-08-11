@@ -5374,7 +5374,7 @@
         "idleCleanupDescription": "超过该时长的空闲 Agent 会话会每 5 分钟自动清理一次。",
         "minutes": "分钟",
         "summaryTitle": "Need-attention 自动总结",
-        "summaryDescription": "当 Agent 任务完成且长时间未被确认时，无头 spawn 总结会话，并在 AI 输入框上方展示下一步建议。",
+        "summaryDescription": "当 Agent 任务完成且长时间未被确认时，启动后台总结会话，并在 AI 输入框上方展示下一步建议。",
         "summaryEnabled": "启用自动总结",
         "summaryDelayTitle": "总结前等待",
         "summaryDelayDescription": "task-complete 的 attention 在未被确认后，等待多久再触发总结。",

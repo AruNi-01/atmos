@@ -238,6 +238,26 @@ impl AgentHooksService {
         *self.notification_service.write() = Some(service);
     }
 
+    /// Test-only: drop a latch without clearing its summary (orphan simulation).
+    #[cfg(test)]
+    pub(crate) fn test_remove_attention_latch_only(&self, stable_pane_id: &str) {
+        self.attention.write().remove(stable_pane_id);
+    }
+
+    /// Test-only: rewrite summary timestamps so stale pruning can be exercised.
+    #[cfg(test)]
+    pub(crate) fn test_set_summary_timestamps(
+        &self,
+        stable_pane_id: &str,
+        started_at: String,
+        completed_at: Option<String>,
+    ) {
+        if let Some(entry) = self.summaries.write().get_mut(stable_pane_id) {
+            entry.started_at = started_at;
+            entry.completed_at = completed_at;
+        }
+    }
+
     pub fn subscribe_events(&self) -> broadcast::Receiver<AgentHookEvent> {
         self.event_tx.subscribe()
     }

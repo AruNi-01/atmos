@@ -100,6 +100,8 @@ import {
   selectPaneAttentionSummary,
   useAgentAttentionSummaryStore,
 } from "@/features/agent/store/agent-attention-summary-store";
+import { useAgentAttentionStore } from "@/features/agent/store/agent-attention-store";
+import { agentHooksApi } from "@/api/rest-api";
 import { AttentionSummaryPanel } from "./AttentionSummaryPanel";
 
 import "./TerminalAgentInputOverlay.css";
@@ -1195,7 +1197,18 @@ export const TerminalAgentInputOverlay = React.forwardRef<
               }}
               onDismiss={() => {
                 if (!stablePaneId) return;
+                // Optimistic local clear, then persist via attention-clear so
+                // refresh hydration cannot resurrect the dismissed summary.
                 useAgentAttentionSummaryStore.getState().clearPane(stablePaneId);
+                useAgentAttentionStore.getState().clearPane(stablePaneId);
+                void agentHooksApi
+                  .clearAttention({ stablePaneId })
+                  .catch((error) => {
+                    console.warn(
+                      "[TerminalAgentInputOverlay] Failed to clear attention on dismiss:",
+                      error,
+                    );
+                  });
               }}
             />
           </div>

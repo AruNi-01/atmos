@@ -187,19 +187,19 @@ function DrawerLayer({
     setOpen(true);
   }, [entryKey]);
 
-  if (!entry) return null;
-
-  const isRoot = index === 0;
-  const hasChildInStack = index < stack.length - 1;
-  // Front = still open and no non-exiting layer above us.
-  const isFront = open && index === visualLen - 1;
-
   const beginClose = React.useCallback(() => {
     if (dismissedRef.current) return;
     setOpen(false);
     // Parent peeks restore immediately; unmount waits for animation end.
     onExitStart(index);
   }, [index, onExitStart]);
+
+  if (!entry) return null;
+
+  const isRoot = index === 0;
+  const hasChildInStack = index < stack.length - 1;
+  // Front = still open and no non-exiting layer above us.
+  const isFront = open && index === visualLen - 1;
 
   const { top, right, bottom, left } = insets;
   const peekX = levelsBehind * NEST_PEEK_X;

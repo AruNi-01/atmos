@@ -135,8 +135,11 @@ export function selectPaneAttentionSummary(
 
 /** Recover summaries after refresh / reconnect (fire-and-forget). */
 export async function hydrateAttentionSummariesFromServer(): Promise<void> {
+  const revision = useAgentAttentionSummaryStore.getState().revision;
   try {
     const { summaries } = await agentHooksApi.listAttentionSummaries();
+    // Skip if a WebSocket update advanced the store while the REST call was in flight.
+    if (useAgentAttentionSummaryStore.getState().revision !== revision) return;
     useAgentAttentionSummaryStore.getState().hydrateFromServer(summaries ?? []);
   } catch (error) {
     console.warn(

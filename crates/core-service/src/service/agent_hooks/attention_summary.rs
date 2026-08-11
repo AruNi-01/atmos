@@ -11,9 +11,13 @@ use std::time::Duration;
 use chrono::{DateTime, Utc};
 use tracing::{debug, warn};
 
-use super::{
-    AgentAttentionLatch, AgentAttentionReason, AgentHookEvent, AgentHooksService,
-};
+use super::{AgentAttentionLatch, AgentAttentionReason, AgentHookEvent, AgentHooksService};
+
+/// Drop abandoned in-flight generations after this bound so a hung provider
+/// cannot permanently suppress retries for the pane.
+const STALE_SUMMARIZING: Duration = Duration::from_secs(10 * 60);
+/// Allow retry after a failed generation once this bound elapses.
+const STALE_ERROR: Duration = Duration::from_secs(2 * 60);
 
 /// Lifecycle of an attention auto-summary for one pane.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -121,6 +125,35 @@ impl AttentionSummarySettings {
     }
 }
 
+fn row_timestamp(row: &AgentAttentionSummary) -> Option<DateTime<Utc>> {
+    let raw = row
+        .completed_at
+        .as_deref()
+        .filter(|s| !s.is_empty())
+        .unwrap_or(row.started_at.as_str());
+    DateTime::parse_from_rfc3339(raw)
+        .ok()
+        .map(|t| t.with_timezone(&Utc))
+}
+
+fn is_stale_summary_row(row: &AgentAttentionSummary, now: DateTime<Utc>) -> bool {
+    let Some(ts) = row_timestamp(row) else {
+        return true;
+    };
+    let age = now.signed_duration_since(ts);
+    match row.status {
+        AttentionSummaryStatus::Summarizing => {
+            age >= chrono::Duration::from_std(STALE_SUMMARIZING)
+                .unwrap_or_else(|_| chrono::Duration::minutes(10))
+        }
+        AttentionSummaryStatus::Error => {
+            age >= chrono::Duration::from_std(STALE_ERROR)
+                .unwrap_or_else(|_| chrono::Duration::minutes(2))
+        }
+        AttentionSummaryStatus::Ready => false,
+    }
+}
+
 impl AgentHooksService {
     pub fn get_all_attention_summaries(&self) -> Vec<AgentAttentionSummary> {
         self.summaries.read().values().cloned().collect()
@@ -130,9 +163,30 @@ impl AgentHooksService {
         self.summaries.read().get(stable_pane_id).cloned()
     }
 
+    /// Drop abandoned / failed rows that would otherwise block forever, and
+    /// broadcast clear events for removed panes.
+    pub fn prune_stale_attention_summaries(&self) -> Vec<String> {
+        let now = Utc::now();
+        let stale_ids: Vec<String> = {
+            let summaries = self.summaries.read();
+            summaries
+                .iter()
+                .filter(|(_, row)| is_stale_summary_row(row, now))
+                .map(|(key, _)| key.clone())
+                .collect()
+        };
+        if stale_ids.is_empty() {
+            return Vec::new();
+        }
+        self.clear_attention_summaries_matching_ids(&stale_ids)
+    }
+
     /// Task-complete latches that have waited past `delay` and do not yet have
     /// an in-flight or finished summary. Permission latches are never summarized.
     pub fn attention_due_for_summary(&self, delay: Duration) -> Vec<AgentAttentionLatch> {
+        // Expire abandoned/failed rows first so they become eligible again.
+        self.prune_stale_attention_summaries();
+
         let cutoff = Utc::now()
             - chrono::Duration::from_std(delay).unwrap_or_else(|_| chrono::Duration::minutes(5));
         let summaries = self.summaries.read();
@@ -410,9 +464,7 @@ mod tests {
     fn begin_complete_and_clear_summary_flow() {
         let service = AgentHooksService::new();
         raise_task_complete(&service, "ws-1:main");
-        let (latch, row, gen) = service
-            .begin_attention_summary("ws-1:main")
-            .expect("begin");
+        let (latch, row, gen) = service.begin_attention_summary("ws-1:main").expect("begin");
         assert_eq!(latch.stable_pane_id, "ws-1:main");
         assert_eq!(row.status, AttentionSummaryStatus::Summarizing);
         assert!(service.begin_attention_summary("ws-1:main").is_none());
@@ -441,9 +493,7 @@ mod tests {
     fn stale_generation_is_ignored() {
         let service = AgentHooksService::new();
         raise_task_complete(&service, "ws-1:main");
-        let (_, _, gen) = service
-            .begin_attention_summary("ws-1:main")
-            .expect("begin");
+        let (_, _, gen) = service.begin_attention_summary("ws-1:main").expect("begin");
         assert!(service
             .complete_attention_summary(
                 "ws-1:main",
@@ -477,5 +527,29 @@ mod tests {
             .attention_due_for_summary(Duration::from_secs(0))
             .is_empty());
         assert!(service.begin_attention_summary("ws-1:main").is_none());
+    }
+
+    #[test]
+    fn failed_summary_expires_and_becomes_due_again() {
+        let service = AgentHooksService::new();
+        raise_task_complete(&service, "ws-1:main");
+        let (_, _, gen) = service.begin_attention_summary("ws-1:main").expect("begin");
+        service
+            .fail_attention_summary("ws-1:main", gen, "provider down")
+            .expect("fail");
+        // Fresh Error row still blocks due.
+        assert!(service
+            .attention_due_for_summary(Duration::from_secs(0))
+            .is_empty());
+
+        // Backdate completed_at past STALE_ERROR so prune can run.
+        service.test_set_summary_timestamps(
+            "ws-1:main",
+            (Utc::now() - chrono::Duration::minutes(5)).to_rfc3339(),
+            Some((Utc::now() - chrono::Duration::minutes(3)).to_rfc3339()),
+        );
+        let due = service.attention_due_for_summary(Duration::from_secs(0));
+        assert_eq!(due.len(), 1);
+        assert!(service.get_attention_summary("ws-1:main").is_none());
     }
 }

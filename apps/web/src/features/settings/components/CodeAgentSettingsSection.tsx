@@ -523,6 +523,7 @@ export function CodeAgentSettingsSection({
               <Switch
                 checked={attentionSummaryEnabled}
                 onCheckedChange={(checked) => setAttentionSummaryEnabled(!!checked)}
+                aria-label={t("behavior.summaryEnabled")}
               />
             </div>
 
@@ -547,8 +548,11 @@ export function CodeAgentSettingsSection({
                     min={1}
                     max={1440}
                     value={attentionSummaryDelayMins}
+                    disabled={!attentionSummaryEnabled}
                     onChange={(event) =>
-                      setAttentionSummaryDelayMins(Math.max(1, Number(event.target.value) || 1))
+                      setAttentionSummaryDelayMins(
+                        Math.min(1440, Math.max(1, Number(event.target.value) || 1)),
+                      )
                     }
                     className="h-8 w-20 text-center text-sm"
                   />
@@ -566,6 +570,7 @@ export function CodeAgentSettingsSection({
                   <Input
                     value={attentionSummaryAgentId}
                     placeholder={t("behavior.summaryAgentPlaceholder")}
+                    disabled={!attentionSummaryEnabled}
                     onChange={(event) => setAttentionSummaryAgentId(event.target.value)}
                     className="h-9 text-sm font-mono"
                   />
@@ -580,6 +585,7 @@ export function CodeAgentSettingsSection({
                   <Input
                     value={attentionSummaryModel}
                     placeholder={t("behavior.summaryModelPlaceholder")}
+                    disabled={!attentionSummaryEnabled}
                     onChange={(event) => setAttentionSummaryModel(event.target.value)}
                     className="h-9 text-sm font-mono"
                   />

@@ -146,6 +146,9 @@ impl AgentHooksService {
             attention.insert(latch.stable_pane_id.clone(), latch.clone());
             latch
         };
+        // A new/upgraded latch belongs to a new turn — drop any pane-keyed
+        // summary so an in-flight generation cannot complete for the previous turn.
+        self.clear_attention_summaries_matching_ids(std::slice::from_ref(&latch.stable_pane_id));
         self.broadcast_attention_raised(latch);
     }
 
@@ -185,11 +188,13 @@ impl AgentHooksService {
             to_clear
         };
 
+        // Always drop summary chrome for the requested ids, even when no latch
+        // matched (orphan summary after latch was already cleared).
+        let mut summary_ids = cleared.clone();
+        summary_ids.extend(ids.iter().cloned());
+        self.clear_attention_summaries_matching_ids(&summary_ids);
+
         if !cleared.is_empty() {
-            // User attention / pane dismiss also drops any auto-summary chrome.
-            let mut summary_ids = cleared.clone();
-            summary_ids.extend(ids.iter().cloned());
-            self.clear_attention_summaries_matching_ids(&summary_ids);
             self.broadcast_attention_cleared(cleared.clone());
         }
         cleared
@@ -218,6 +223,9 @@ impl AgentHooksService {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::service::agent_hooks::attention_summary::{
+        AttentionSummaryPayload, AttentionSummaryStatus,
+    };
     use crate::service::agent_hooks::{
         AgentHookState, AgentHooksService, AgentToolType, AtmosContext, StateUpdateKind,
     };
@@ -327,5 +335,107 @@ mod tests {
             StateUpdateKind::QuietIdle,
         );
         assert!(service.get_all_attention().is_empty());
+    }
+
+    #[test]
+    fn new_task_complete_turn_invalidates_in_flight_summary() {
+        let service = AgentHooksService::new();
+        let ctx = ctx_with_pane("ws-1:main");
+        service.update_state(
+            "ws-1:main",
+            AgentToolType::ClaudeCode,
+            AgentHookState::Running,
+            Some("/tmp/p".into()),
+            &ctx,
+            StateUpdateKind::NewTurn,
+        );
+        service.update_state(
+            "ws-1:main",
+            AgentToolType::ClaudeCode,
+            AgentHookState::Idle,
+            Some("/tmp/p".into()),
+            &ctx,
+            StateUpdateKind::TerminalIdle,
+        );
+        let (_, _, gen) = service
+            .begin_attention_summary("ws-1:main")
+            .expect("begin first summary");
+        assert_eq!(
+            service.get_attention_summary("ws-1:main").unwrap().status,
+            AttentionSummaryStatus::Summarizing
+        );
+
+        // Second turn on the same pane replaces the latch and drops the summary.
+        service.update_state(
+            "ws-1:main",
+            AgentToolType::ClaudeCode,
+            AgentHookState::Running,
+            Some("/tmp/p".into()),
+            &ctx,
+            StateUpdateKind::NewTurn,
+        );
+        service.update_state(
+            "ws-1:main",
+            AgentToolType::ClaudeCode,
+            AgentHookState::Idle,
+            Some("/tmp/p".into()),
+            &ctx,
+            StateUpdateKind::TerminalIdle,
+        );
+        assert!(service.get_attention_summary("ws-1:main").is_none());
+
+        // Stale completion from the previous generation must not reappear.
+        assert!(service
+            .complete_attention_summary(
+                "ws-1:main",
+                gen,
+                AttentionSummaryPayload {
+                    summary: "stale prior turn".into(),
+                    next_steps: vec![],
+                    can_close_session: true,
+                },
+            )
+            .is_none());
+        assert!(service.get_attention_summary("ws-1:main").is_none());
+    }
+
+    #[test]
+    fn clear_attention_drops_orphan_summary_without_latch() {
+        let service = AgentHooksService::new();
+        let ctx = ctx_with_pane("ws-1:main");
+        service.update_state(
+            "ws-1:main",
+            AgentToolType::ClaudeCode,
+            AgentHookState::Running,
+            Some("/tmp/p".into()),
+            &ctx,
+            StateUpdateKind::NewTurn,
+        );
+        service.update_state(
+            "ws-1:main",
+            AgentToolType::ClaudeCode,
+            AgentHookState::Idle,
+            Some("/tmp/p".into()),
+            &ctx,
+            StateUpdateKind::TerminalIdle,
+        );
+        let (_, _, gen) = service.begin_attention_summary("ws-1:main").expect("begin");
+        let _ = service.complete_attention_summary(
+            "ws-1:main",
+            gen,
+            AttentionSummaryPayload {
+                summary: "done".into(),
+                next_steps: vec![],
+                can_close_session: true,
+            },
+        );
+        // Remove latch without going through clear (simulate orphan).
+        service.test_remove_attention_latch_only("ws-1:main");
+        assert!(service.get_attention_summary("ws-1:main").is_some());
+
+        // Clear by pane id must still drop the orphan summary.
+        let cleared = service.clear_attention_for_pane("ws-1:main");
+        assert!(cleared.is_empty());
+        assert!(service.get_attention_summary("ws-1:main").is_none());
     }
 }

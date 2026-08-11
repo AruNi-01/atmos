@@ -68,6 +68,8 @@ pub fn routes() -> Router<AppState> {
         )
         .route("/sessions/{session_id}", delete(remove_hook_session))
         // Attention routes before `/{tool}/…` so "attention" is not parsed as a tool name.
+        // REST (not WS): same pre-connection bootstrap as GET /attention — used to hydrate
+        // sticky latch/summary state on browser refresh before the WS session is ready.
         .route("/attention", get(list_attention))
         .route("/attention/clear", post(clear_attention))
         .route("/attention/summaries", get(list_attention_summaries))
