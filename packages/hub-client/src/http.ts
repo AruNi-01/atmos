@@ -1,10 +1,13 @@
+import { applyHubAuthToHeaders } from "./auth-material";
 import { requireHubBaseUrl } from "./config";
-import { getStoredDeviceCredential } from "./device-storage/registry";
 
 /**
- * Hub fetch with cookie session (browser) and optional device Bearer.
- * After desktop OAuth in the system browser, Electron has no Hub cookies —
- * device credential is the durable auth for the local app (APP-056).
+ * Hub HTTPS fetch with unified identity attach.
+ *
+ * - Device credential → `Authorization: Bearer …` when present
+ * - Session cookies → `credentials: "include"` (browser jar)
+ *
+ * Call sites never pass cookie/device explicitly.
  */
 export async function hubFetch(
   path: string,
@@ -15,12 +18,7 @@ export async function hubFetch(
   if (!headers.has("Content-Type") && init.body) {
     headers.set("Content-Type", "application/json");
   }
-  if (!headers.has("Authorization")) {
-    const deviceCredential = getStoredDeviceCredential()?.trim();
-    if (deviceCredential && deviceCredential.length >= 32) {
-      headers.set("Authorization", `Bearer ${deviceCredential}`);
-    }
-  }
+  applyHubAuthToHeaders(headers);
   return fetch(`${base}${path.startsWith("/") ? path : `/${path}`}`, {
     ...init,
     headers,

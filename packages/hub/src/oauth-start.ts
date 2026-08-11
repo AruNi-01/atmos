@@ -10,7 +10,7 @@
  * first-party, then 302s to the provider.
  */
 import { allowedOrigins, type HubEnv } from "./env";
-import { isAllowedDesktopReturnTo } from "./desktop-auth";
+import { isAllowedDeviceAuthReturnTo } from "./desktop-auth";
 
 export function isAllowedOAuthCallbackURL(
   env: HubEnv,
@@ -19,12 +19,13 @@ export function isAllowedOAuthCallbackURL(
 ): boolean {
   try {
     const u = new URL(callbackURL);
-    // Desktop handoff: stay on Hub, then bounce to loopback bridge.
+    // Desktop / mobile handoff: stay on Hub, then bounce to loopback or deep link.
     if (
       u.origin === hubOrigin &&
-      u.pathname === "/v1/desktop-auth/complete"
+      (u.pathname === "/v1/desktop-auth/complete" ||
+        u.pathname === "/v1/mobile-auth/complete")
     ) {
-      return isAllowedDesktopReturnTo(u.searchParams.get("return_to") ?? "");
+      return isAllowedDeviceAuthReturnTo(u.searchParams.get("return_to") ?? "");
     }
     // Hosted / local web app origins (no open redirects).
     return allowedOrigins(env).includes(u.origin);
@@ -53,25 +54,40 @@ export function oauthStartAuthPath(mode: string): "/api/auth/sign-in/social" | "
  * Prefer the same app origin as callback_url — never leave users on hub.atmos.land
  * default error page (Go Home → Hub API is wrong).
  */
+function errorPageWithOptionalProvider(origin: string, source: URL): string {
+  const provider = source.searchParams.get("provider")?.trim();
+  if (provider === "github" || provider === "google" || provider === "linear") {
+    return `${origin}/hub-auth/error?provider=${encodeURIComponent(provider)}`;
+  }
+  return `${origin}/hub-auth/error`;
+}
+
 export function oauthErrorCallbackURL(
   callbackURL: string,
   hubOrigin: string,
 ): string {
   try {
     const u = new URL(callbackURL);
-    // Desktop handoff: error back to local Atmos UI, not Hub.
+    // Desktop / mobile handoff: error back to local UI or deep-link host, not Hub.
     if (
       u.origin === hubOrigin &&
-      u.pathname === "/v1/desktop-auth/complete"
+      (u.pathname === "/v1/desktop-auth/complete" ||
+        u.pathname === "/v1/mobile-auth/complete")
     ) {
       const returnTo = u.searchParams.get("return_to") ?? "";
       if (returnTo) {
-        const r = new URL(returnTo);
-        return `${r.origin}/hub-auth/error`;
+        try {
+          const r = new URL(returnTo);
+          if (r.protocol === "http:" || r.protocol === "https:") {
+            return errorPageWithOptionalProvider(r.origin, r);
+          }
+        } catch {
+          /* fall through */
+        }
       }
     }
     // Hosted / local web app callback → sibling error page on same origin.
-    return `${u.origin}/hub-auth/error`;
+    return errorPageWithOptionalProvider(u.origin, u);
   } catch {
     return `${hubOrigin}/api/auth/error`;
   }

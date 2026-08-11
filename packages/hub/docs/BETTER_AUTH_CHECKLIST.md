@@ -63,11 +63,11 @@ Data is **bound to `user_id`**. Hub exposes identity-agnostic routes that accept
 | Session cap | max **10** per user | On create (`databaseHooks.session.create`) + list: drop oldest; keep current cookie token when possible. Link `link_ticket` temp sessions are deleted after OAuth start. |
 | Delete account | `POST /v1/me/delete` | Hard-delete user (cascade accounts/sessions/devices/…). UI requires typed phrase. `user.deleteUser.enabled` also on Better Auth. |
 
-Phone and Desktop use the same APIs once they hold a device credential (or cookie).
+Phone and Desktop use the same product APIs via **`requireUser`** (session cookie **or** device Bearer → same `user_id`). Clients attach identity through `@atmos/hub-client` (`hubFetch` / `withHubAuth`) and never branch on cookie vs device in feature code.
 
 ## Device credential (automatic)
 
-After Hub cookie sign-in, the web/desktop client **auto-mints** a Hub device (`POST /v1/devices`) and syncs `device_credential` to local storage / Computer settings — no “Trust this device” UI. Sign-out clears cookie + local device. Re-login re-mints for the current user so Linear / local API work again. Desktop system-browser OAuth still mints device via `/v1/desktop-auth/complete`.
+After Hub cookie sign-in, the web/desktop client **auto-mints** a Hub device (`POST /v1/devices`) and syncs `device_credential` to local storage / Computer settings — no “Trust this device” UI. Sign-out clears cookie + local device. Re-login re-mints for the current user so Linear / local API work again. Desktop system-browser OAuth still mints device via `/v1/desktop-auth/complete` (**cookie session only** — that route is the exception that creates the first device).
 
 ## Verify
 

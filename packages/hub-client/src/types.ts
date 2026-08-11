@@ -35,8 +35,7 @@ export type StoredDeviceCredential = {
   enrolled_at: number;
 };
 
-/** Fields local API accepts for Hub-backed integrations (Linear, etc.). */
-export type HubAuthForLocalApi = {
-  hub_cookie: string;
-  device_credential: string;
-};
+export type {
+  HubAuthMaterial,
+  HubAuthWire,
+} from "./auth-material";

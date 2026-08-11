@@ -45,6 +45,34 @@ export function isAllowedDesktopReturnTo(returnTo: string): boolean {
   }
 }
 
+/**
+ * Mobile deep-link return after system-browser OAuth
+ * (`atmos://hub-auth/callback` or `atmos://hub-auth/callback?...`).
+ */
+export function isAllowedMobileReturnTo(returnTo: string): boolean {
+  try {
+    const u = new URL(returnTo);
+    if (u.protocol !== "atmos:") return false;
+    // URL parser: host may be "hub-auth" with path "/callback", or host empty with path "//hub-auth/callback"
+    const host = u.hostname.toLowerCase();
+    const path = u.pathname.replace(/^\/+/, "").toLowerCase();
+    if (host === "hub-auth" && (path === "callback" || path === "" || path.startsWith("callback"))) {
+      return true;
+    }
+    if (!host && (path === "hub-auth/callback" || path.startsWith("hub-auth/callback/"))) {
+      return true;
+    }
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+/** Desktop loopback bridge or mobile deep link. */
+export function isAllowedDeviceAuthReturnTo(returnTo: string): boolean {
+  return isAllowedDesktopReturnTo(returnTo) || isAllowedMobileReturnTo(returnTo);
+}
+
 export async function createDesktopAuthCode(
   db: HubDb,
   session: { userId: string; email?: string | null; name?: string | null },

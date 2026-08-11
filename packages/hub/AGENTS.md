@@ -15,6 +15,9 @@ See [APP-056 TECH](../../specs/APP/APP-056_usage-share-and-accounts/TECH.md).
 3. Computers on Relay are owned by `user_id`; device credentials are Hub-minted.
 4. Do not run Better Auth inside Relay.
 5. Do not put usage-share product routes on Relay.
+6. Mobile pairing: signed-in clients create a one-time QR code via `POST /v1/mobile-pair/create` (3 min TTL); phones claim with `POST /v1/mobile-pair/claim` (no login). Mobile OAuth handoff uses `/v1/mobile-auth/complete` + deep link `atmos://hub-auth/callback`.
+6. **Product HTTP routes use `requireUser` only** (session cookie **or** device Bearer → same `userId`). Do not reintroduce cookie-only gates for Desktop. Exception: `/v1/desktop-auth/complete` uses `requireSession` because it mints the first device after browser OAuth.
+7. Clients attach identity via `@atmos/hub-client` (`hubFetch` / `withHubAuth`) — feature code never branches on cookie vs device.
 
 ## Commands
 

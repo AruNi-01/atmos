@@ -54,6 +54,25 @@ describe("oauth-start allowlists", () => {
     ).toBe(false);
   });
 
+  test("mobile complete + atmos deep link", () => {
+    expect(
+      isAllowedOAuthCallbackURL(
+        env,
+        "https://hub.atmos.land/v1/mobile-auth/complete?return_to=" +
+          encodeURIComponent("atmos://hub-auth/callback"),
+        "https://hub.atmos.land",
+      ),
+    ).toBe(true);
+    expect(
+      isAllowedOAuthCallbackURL(
+        env,
+        "https://hub.atmos.land/v1/mobile-auth/complete?return_to=" +
+          encodeURIComponent("atmos://evil"),
+        "https://hub.atmos.land",
+      ),
+    ).toBe(false);
+  });
+
   test("desktop complete + loopback bridge", () => {
     const ok = isAllowedOAuthCallbackURL(
       env,
@@ -92,5 +111,23 @@ describe("oauth-start allowlists", () => {
         "https://hub.atmos.land",
       ),
     ).toBe("http://127.0.0.1:30303/hub-auth/error");
+  });
+
+  test("error callback forwards provider for chrome logos", () => {
+    expect(
+      oauthErrorCallbackURL(
+        "https://app.atmos.land/hub-auth/done?provider=google",
+        "https://hub.atmos.land",
+      ),
+    ).toBe("https://app.atmos.land/hub-auth/error?provider=google");
+    expect(
+      oauthErrorCallbackURL(
+        "https://hub.atmos.land/v1/desktop-auth/complete?return_to=" +
+          encodeURIComponent(
+            "http://127.0.0.1:30303/hub-auth/bridge?provider=github",
+          ),
+        "https://hub.atmos.land",
+      ),
+    ).toBe("http://127.0.0.1:30303/hub-auth/error?provider=github");
   });
 });

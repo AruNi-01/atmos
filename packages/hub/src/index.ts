@@ -37,8 +37,9 @@ import {
   appendCodeToReturnTo,
   consumeDesktopAuthCode,
   createDesktopAuthCode,
-  isAllowedDesktopReturnTo,
+  isAllowedDeviceAuthReturnTo,
 } from "./desktop-auth";
+import { claimMobilePairCode, createMobilePairCode } from "./mobile-pair";
 import {
   appendSetCookies,
   isAllowedOAuthCallbackURL,
@@ -59,7 +60,8 @@ import {
 } from "./user-security";
 import { makeSignature } from "better-auth/crypto";
 import { eq } from "drizzle-orm";
-import { user, userProfiles } from "./db/schema";
+import { userProfiles } from "./db/schema";
+import { requireSession, requireUser } from "./require-user";
 
 function json(data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data), {
@@ -77,77 +79,6 @@ function jsonPublicNoStore(data: unknown, status = 200): Response {
       "Cache-Control": "private, no-store",
     },
   });
-}
-
-function sessionCookie(request: Request): Headers {
-  // Forward cookies to better-auth
-  return new Headers({
-    cookie: request.headers.get("cookie") ?? "",
-    origin: request.headers.get("origin") ?? "",
-  });
-}
-
-async function requireSession(
-  env: HubEnv,
-  request: Request,
-): Promise<{ userId: string; email?: string | null; name?: string | null } | Response> {
-  const auth = authFromEnv(env);
-  const session = await auth.api.getSession({
-    headers: sessionCookie(request),
-  });
-  if (!session?.user?.id) {
-    return json({ error: "unauthorized", message: "Sign in required" }, 401);
-  }
-  return {
-    userId: session.user.id,
-    email: session.user.email,
-    name: session.user.name,
-  };
-}
-
-/**
- * Session cookie (browser) **or** Hub-minted device credential Bearer
- * (local runtime / CLI). Used for pulling secrets that stay Hub-owned.
- */
-async function requireSessionOrDevice(
-  env: HubEnv,
-  request: Request,
-): Promise<{ userId: string; email?: string | null; name?: string | null } | Response> {
-  const session = await requireSession(env, request);
-  if (!(session instanceof Response)) {
-    return session;
-  }
-
-  const authHeader = request.headers.get("Authorization") ?? "";
-  if (!authHeader.startsWith("Bearer ")) {
-    return session;
-  }
-  const credential = authHeader.slice("Bearer ".length).trim();
-  if (credential.length < 32) {
-    return session;
-  }
-
-  const db = createDb(env);
-  const { verifyDeviceCredential } = await import("./devices");
-  const device = await verifyDeviceCredential(db, credential);
-  if (!device) {
-    return json({ error: "unauthorized", message: "Sign in or enroll a device" }, 401);
-  }
-  // Fill profile fields for device Bearer (desktop after system-browser OAuth).
-  const rows = await db
-    .select({
-      email: user.email,
-      name: user.name,
-    })
-    .from(user)
-    .where(eq(user.id, device.userId))
-    .limit(1);
-  const row = rows[0];
-  return {
-    userId: device.userId,
-    email: row?.email ?? null,
-    name: row?.name ?? null,
-  };
 }
 
 async function ensureProfile(
@@ -215,7 +146,7 @@ export default {
       // ----- Session routes -----
       // Cookie session (web) or device Bearer (desktop after system-browser OAuth).
       if (path === "/v1/me" && request.method === "GET") {
-        const session = await requireSessionOrDevice(env, request);
+        const session = await requireUser(env, request);
         if (session instanceof Response) return withCors(env, request, session);
         const profile = await ensureProfile(
           env,
@@ -238,7 +169,7 @@ export default {
       // ----- User security (linked accounts + browser sessions) -----
       // Bound to user_id — same data whether you proved identity via cookie or device.
       if (path === "/v1/me/accounts" && request.method === "GET") {
-        const session = await requireSessionOrDevice(env, request);
+        const session = await requireUser(env, request);
         if (session instanceof Response) return withCors(env, request, session);
         const db = createDb(env);
         const accounts = await listLinkedAccounts(db, session.userId);
@@ -274,7 +205,7 @@ export default {
       }
 
       if (path === "/v1/me/accounts/unlink" && request.method === "POST") {
-        const session = await requireSessionOrDevice(env, request);
+        const session = await requireUser(env, request);
         if (session instanceof Response) return withCors(env, request, session);
         const body = (await request.json().catch(() => ({}))) as {
           provider_id?: string;
@@ -304,7 +235,7 @@ export default {
       }
 
       if (path === "/v1/me/sessions" && request.method === "GET") {
-        const session = await requireSessionOrDevice(env, request);
+        const session = await requireUser(env, request);
         if (session instanceof Response) return withCors(env, request, session);
         const db = createDb(env);
         // Prefer not pruning the browser's current session when over the cap.
@@ -312,7 +243,10 @@ export default {
         try {
           const auth = authFromEnv(env);
           const ba = await auth.api.getSession({
-            headers: sessionCookie(request),
+            headers: new Headers({
+              cookie: request.headers.get("cookie") ?? "",
+              origin: request.headers.get("origin") ?? "",
+            }),
           });
           keepToken = ba?.session?.token;
         } catch {
@@ -325,7 +259,7 @@ export default {
       }
 
       if (path === "/v1/me/sessions/revoke" && request.method === "POST") {
-        const session = await requireSessionOrDevice(env, request);
+        const session = await requireUser(env, request);
         if (session instanceof Response) return withCors(env, request, session);
         const body = (await request.json().catch(() => ({}))) as {
           token?: string;
@@ -353,7 +287,7 @@ export default {
       // Mint a one-time ticket so desktop/phone (device Bearer only) can open
       // /v1/oauth/start?mode=link&link_ticket=… without a Hub cookie in that browser.
       if (path === "/v1/me/link-ticket" && request.method === "POST") {
-        const session = await requireSessionOrDevice(env, request);
+        const session = await requireUser(env, request);
         if (session instanceof Response) return withCors(env, request, session);
         const db = createDb(env);
         const ticket = await createLinkTicket(
@@ -367,7 +301,7 @@ export default {
       // Hard-delete account (user + linked providers + sessions + hub business rows).
       // Cookie session or device Bearer. Confirmation phrase is enforced in the app UI.
       if (path === "/v1/me/delete" && request.method === "POST") {
-        const session = await requireSessionOrDevice(env, request);
+        const session = await requireUser(env, request);
         if (session instanceof Response) return withCors(env, request, session);
         const db = createDb(env);
         const result = await deleteUserAndRelated(db, session.userId);
@@ -411,7 +345,7 @@ export default {
 
       // ----- Devices (APP-056 M13–M15) -----
       if (path === "/v1/devices" && request.method === "GET") {
-        const session = await requireSessionOrDevice(env, request);
+        const session = await requireUser(env, request);
         if (session instanceof Response) return withCors(env, request, session);
         const db = createDb(env);
         const rows = await listDevices(db, session.userId);
@@ -432,7 +366,7 @@ export default {
       }
 
       if (path === "/v1/devices" && request.method === "POST") {
-        const session = await requireSession(env, request);
+        const session = await requireUser(env, request);
         if (session instanceof Response) return withCors(env, request, session);
         const body = (await request.json().catch(() => ({}))) as {
           label?: string;
@@ -471,7 +405,7 @@ export default {
 
       const rotateMatch = path.match(/^\/v1\/devices\/([^/]+)\/rotate$/);
       if (rotateMatch && request.method === "POST") {
-        const session = await requireSession(env, request);
+        const session = await requireUser(env, request);
         if (session instanceof Response) return withCors(env, request, session);
         const db = createDb(env);
         const rotated = await rotateDevice(db, session.userId, rotateMatch[1]!);
@@ -500,7 +434,7 @@ export default {
 
       const revokeMatch = path.match(/^\/v1\/devices\/([^/]+)\/revoke$/);
       if (revokeMatch && request.method === "POST") {
-        const session = await requireSession(env, request);
+        const session = await requireUser(env, request);
         if (session instanceof Response) return withCors(env, request, session);
         const db = createDb(env);
         await revokeDevice(db, session.userId, revokeMatch[1]!);
@@ -694,30 +628,37 @@ export default {
         );
       }
 
-      // ----- Desktop system-browser OAuth handoff -----
+      // ----- Desktop / mobile system-browser OAuth handoff -----
       // After OAuth, Better Auth redirects here (Hub origin → session cookie works).
-      // We mint a device + one-time code and bounce to the local Server bridge page.
-      if (path === "/v1/desktop-auth/complete" && request.method === "GET") {
+      // We mint a device + one-time code and bounce to loopback bridge or atmos:// deep link.
+      if (
+        (path === "/v1/desktop-auth/complete" ||
+          path === "/v1/mobile-auth/complete") &&
+        request.method === "GET"
+      ) {
         const session = await requireSession(env, request);
         if (session instanceof Response) {
           return withCors(env, request, session);
         }
         const returnTo = url.searchParams.get("return_to") ?? "";
-        if (!isAllowedDesktopReturnTo(returnTo)) {
+        if (!isAllowedDeviceAuthReturnTo(returnTo)) {
           return withCors(
             env,
             request,
             json(
               {
                 error: "invalid_return_to",
-                message: "return_to must be a local Atmos /hub-auth/bridge URL",
+                message:
+                  "return_to must be a local Atmos /hub-auth/bridge URL or atmos://hub-auth/callback",
               },
               400,
             ),
           );
         }
         const db = createDb(env);
-        const label = url.searchParams.get("label") ?? "Desktop";
+        const defaultLabel =
+          path === "/v1/mobile-auth/complete" ? "Mobile" : "Desktop";
+        const label = url.searchParams.get("label") ?? defaultLabel;
         const { code, payload } = await createDesktopAuthCode(db, session, label);
         // Project device to Relay (best-effort; same as enroll).
         const te = new TextEncoder();
@@ -745,7 +686,11 @@ export default {
         );
       }
 
-      if (path === "/v1/desktop-auth/exchange" && request.method === "POST") {
+      if (
+        (path === "/v1/desktop-auth/exchange" ||
+          path === "/v1/mobile-auth/exchange") &&
+        request.method === "POST"
+      ) {
         const body = (await request.json().catch(() => ({}))) as {
           code?: string;
         };
@@ -767,9 +712,73 @@ export default {
         return withCors(env, request, json(payload));
       }
 
+      // ----- Mobile QR pair (signed-in desktop/web → phone without OAuth) -----
+      if (path === "/v1/mobile-pair/create" && request.method === "POST") {
+        const session = await requireUser(env, request);
+        if (session instanceof Response) return withCors(env, request, session);
+        const body = (await request.json().catch(() => ({}))) as {
+          label?: string;
+        };
+        const db = createDb(env);
+        const pair = await createMobilePairCode(db, session.userId, {
+          hubOrigin: url.origin,
+          label: body.label ?? "Mobile",
+        });
+        return withCors(env, request, json(pair));
+      }
+
+      if (path === "/v1/mobile-pair/claim" && request.method === "POST") {
+        const body = (await request.json().catch(() => ({}))) as {
+          pair_code?: string;
+          code?: string;
+        };
+        const code = (body.pair_code ?? body.code ?? "").trim();
+        const db = createDb(env);
+        const claimed = await claimMobilePairCode(db, code);
+        if (!claimed) {
+          return withCors(
+            env,
+            request,
+            json(
+              {
+                error: "invalid_code",
+                message: "Pair code expired or already used",
+              },
+              400,
+            ),
+          );
+        }
+        const te = new TextEncoder();
+        const digest = await crypto.subtle.digest(
+          "SHA-256",
+          te.encode(claimed.device_credential),
+        );
+        const credential_hash = [...new Uint8Array(digest)]
+          .map((b) => b.toString(16).padStart(2, "0"))
+          .join("");
+        const projected = await projectDeviceToRelay(env, {
+          user_id: claimed.user_id,
+          device_id: claimed.device_id,
+          credential_hash,
+          label: claimed.label,
+        });
+        return withCors(
+          env,
+          request,
+          json({
+            device_id: claimed.device_id,
+            device_credential: claimed.device_credential,
+            user_id: claimed.user_id,
+            relay_synced: projected.ok,
+          }),
+        );
+      }
+
       // ----- Linear integration (APP-057) — Hub-only credentials -----
+      // Status must accept device Bearer too: desktop OAuth finish writes with
+      // device credential, and Electron often has no Hub session cookie.
       if (path === "/v1/me/integrations/linear" && request.method === "GET") {
-        const session = await requireSession(env, request);
+        const session = await requireUser(env, request);
         if (session instanceof Response) return withCors(env, request, session);
         const db = createDb(env);
         const status = await getLinearIntegrationStatus(db, session.userId);
@@ -781,7 +790,7 @@ export default {
         request.method === "GET"
       ) {
         // Local runtime pulls secrets with Hub session cookie or device Bearer.
-        const session = await requireSessionOrDevice(env, request);
+        const session = await requireUser(env, request);
         if (session instanceof Response) return withCors(env, request, session);
         const db = createDb(env);
         const full = await getLinearIntegration(db, session.userId);
@@ -797,7 +806,7 @@ export default {
 
       if (path === "/v1/me/integrations/linear" && request.method === "PUT") {
         // Browser (session) or local API after OAuth (device Bearer).
-        const session = await requireSessionOrDevice(env, request);
+        const session = await requireUser(env, request);
         if (session instanceof Response) return withCors(env, request, session);
         const body = (await request.json()) as LinearCredentialsPayload;
         if (!body?.auth_method) {
@@ -813,7 +822,7 @@ export default {
       }
 
       if (path === "/v1/me/integrations/linear" && request.method === "DELETE") {
-        const session = await requireSessionOrDevice(env, request);
+        const session = await requireUser(env, request);
         if (session instanceof Response) return withCors(env, request, session);
         const db = createDb(env);
         await deleteLinearIntegration(db, session.userId);
@@ -822,7 +831,7 @@ export default {
 
       // ----- Usage shares (APP-056) -----
       if (path === "/v1/usage/shares" && request.method === "GET") {
-        const session = await requireSession(env, request);
+        const session = await requireUser(env, request);
         if (session instanceof Response) return withCors(env, request, session);
         const db = createDb(env);
         const shares = await listUsageShares(db, session.userId);
@@ -830,7 +839,7 @@ export default {
       }
 
       if (path === "/v1/usage/shares" && request.method === "POST") {
-        const session = await requireSession(env, request);
+        const session = await requireUser(env, request);
         if (session instanceof Response) return withCors(env, request, session);
         const body = await request.json();
         const db = createDb(env);
@@ -840,7 +849,7 @@ export default {
 
       const shareMatch = path.match(/^\/v1\/usage\/shares\/([^/]+)$/);
       if (shareMatch && request.method === "PATCH") {
-        const session = await requireSession(env, request);
+        const session = await requireUser(env, request);
         if (session instanceof Response) return withCors(env, request, session);
         const body = await request.json();
         const db = createDb(env);
@@ -857,7 +866,7 @@ export default {
       }
 
       if (shareMatch && request.method === "DELETE") {
-        const session = await requireSession(env, request);
+        const session = await requireUser(env, request);
         if (session instanceof Response) return withCors(env, request, session);
         const db = createDb(env);
         const ok = await revokeUsageShare(db, session.userId, shareMatch[1]!);
