@@ -54,6 +54,13 @@ export type {
   ActionSwapButtonSize,
   ActionSwapButtonVariant,
 } from "./components/motion/action-swap-cascade";
+// beui.dev motion tabs — aliased (ui/tabs already exports Tabs/TabsList/…)
+export {
+  Tabs as MotionTabs,
+  TabsList as MotionTabsList,
+  TabsTrigger as MotionTabsTrigger,
+  TabsContent as MotionTabsContent,
+} from "./components/motion/tabs";
 export {
   Command,
   CommandDialog,

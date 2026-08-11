@@ -1263,8 +1263,10 @@
           "description": "选择模板并填写表单。标 * 的为必填项。",
           "projectSelect": {
             "title": "选择项目",
-            "description": "选择要创建 Issue 的 GitHub 仓库。",
-            "empty": "当前 Atmos 项目尚未关联 GitHub 仓库。"
+            "description": "选择要创建 Issue 的 Atmos 项目。",
+            "search": "搜索项目…",
+            "empty": "当前 Atmos 项目尚未关联 GitHub 仓库。",
+            "noMatch": "没有匹配的项目"
           },
           "template": {
             "label": "模板",

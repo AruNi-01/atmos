@@ -1263,8 +1263,10 @@
           "description": "Choose a template and fill in the form. Required fields are marked with *.",
           "projectSelect": {
             "title": "Select a project",
-            "description": "Choose which GitHub repository to create the issue in.",
-            "empty": "No GitHub repositories linked to your Atmos projects."
+            "description": "Choose which Atmos project to create the issue in.",
+            "search": "Search projects…",
+            "empty": "No GitHub repositories linked to your Atmos projects.",
+            "noMatch": "No matching projects"
           },
           "template": {
             "label": "Template",

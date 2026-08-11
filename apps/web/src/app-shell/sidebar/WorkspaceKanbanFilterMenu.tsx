@@ -241,8 +241,8 @@ export function WorkspaceKanbanFilterMenu({
           <Button
             size="xs"
             variant="secondary"
-            // Match toolbar search/settings (h-7). size=xs is h-7 sm:h-6 by default.
-            className="relative h-7 sm:h-7"
+            // Match Task source tabs + trailing tools (h-7). size=xs defaults to sm:h-6.
+            className="relative h-7 gap-1 px-2.5 text-xs sm:h-7"
           >
             {activeFilterCount > 0 ? (
               <span className="absolute -right-1 -top-1 inline-flex size-4 items-center justify-center rounded-full bg-primary text-[10px] font-semibold text-primary-foreground">

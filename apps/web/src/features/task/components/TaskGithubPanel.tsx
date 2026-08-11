@@ -7,7 +7,16 @@ import { useQueries, useQuery } from "@tanstack/react-query";
 import { useQueryState, useQueryStates } from "nuqs";
 import {
   Button,
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
   Input,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
   Select,
   SelectContent,
   SelectItem,
@@ -99,6 +108,8 @@ export function TaskGithubPanel({ projects, headerTrailingHost = null }: TaskGit
   const drawerControllerRef = React.useRef<TaskGithubDrawerController | null>(null);
   const [, setNewWorkspace] = useQueryState("newWorkspace", centerStageParams.newWorkspace);
   const [createIssueOpen, setCreateIssueOpen] = useState(false);
+  const [createIssueProjectId, setCreateIssueProjectId] = useState<string | null>(null);
+  const [createProjectPickerOpen, setCreateProjectPickerOpen] = useState(false);
 
   const [urlState, setUrlState] = useQueryStates({
     taskGhKind: taskParams.taskGhKind,
@@ -265,15 +276,23 @@ export function TaskGithubPanel({ projects, headerTrailingHost = null }: TaskGit
           page,
           perPage: TASK_GITHUB_PAGE_SIZE,
         }),
-      staleTime: 60_000,
+      // Keep last Issues/PRs page warm when switching kind or leaving the Task tab.
+      staleTime: 5 * 60_000,
+      gcTime: 30 * 60_000,
       enabled: searchEnabled,
     }),
   );
 
   const items = searchQuery.data?.items ?? [];
   const hasMore = Boolean(searchQuery.data?.has_more);
-  const loading = reposLoading || (searchEnabled && searchQuery.isLoading);
-  const refreshing = searchEnabled && (searchQuery.isFetching || searchQuery.isRefetching);
+  // Prefer cached data: only full-page loading when there is nothing to show yet.
+  const loading =
+    (reposLoading && repos.length === 0) ||
+    (searchEnabled && searchQuery.isLoading && !searchQuery.data);
+  const refreshing =
+    searchEnabled &&
+    searchQuery.isFetching &&
+    Boolean(searchQuery.data);
 
   const handleRefresh = useCallback(() => {
     void searchQuery.refetch();
@@ -634,13 +653,19 @@ export function TaskGithubPanel({ projects, headerTrailingHost = null }: TaskGit
     ],
   );
 
+  const openCreateIssueForProject = useCallback((projectId: string) => {
+    setCreateIssueProjectId(projectId);
+    setCreateProjectPickerOpen(false);
+    setCreateIssueOpen(true);
+  }, []);
+
   const headerActions = (
-    <div className="flex items-center gap-1">
+    <div className="flex h-7 items-center gap-1.5">
       <Button
         type="button"
         size="icon-xs"
         variant="outline"
-        className="size-7"
+        className="size-7 sm:size-7"
         onClick={handleRefresh}
         disabled={!searchEnabled || refreshing}
         title={kind === "issues" ? t("actions.refreshIssues") : t("actions.refreshPrs")}
@@ -648,18 +673,56 @@ export function TaskGithubPanel({ projects, headerTrailingHost = null }: TaskGit
       >
         <RefreshCw className={cn("size-3.5", refreshing && "animate-spin")} />
       </Button>
-      <Button
-        type="button"
-        size="icon-xs"
-        variant="outline"
-        className="size-7"
-        onClick={() => setCreateIssueOpen(true)}
-        disabled={repos.length === 0}
-        title={t("actions.createIssue")}
-        aria-label={t("actions.createIssue")}
-      >
-        <Plus className="size-3.5" />
-      </Button>
+      <Popover open={createProjectPickerOpen} onOpenChange={setCreateProjectPickerOpen}>
+        <PopoverTrigger asChild>
+          <Button
+            type="button"
+            size="icon-xs"
+            variant="outline"
+            className="size-7 sm:size-7"
+            disabled={repos.length === 0}
+            title={t("actions.createIssue")}
+            aria-label={t("actions.createIssue")}
+          >
+            <Plus className="size-3.5" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent align="end" className="w-72 p-0" sideOffset={6}>
+          <Command>
+            <CommandInput
+              placeholder={t("createIssue.projectSelect.search")}
+              className="h-8 text-xs"
+            />
+            <CommandList>
+              <CommandEmpty className="py-4 text-xs">
+                {repos.length === 0
+                  ? t("createIssue.projectSelect.empty")
+                  : t("createIssue.projectSelect.noMatch")}
+              </CommandEmpty>
+              <CommandGroup
+                heading={t("createIssue.projectSelect.title")}
+                className="max-h-64 overflow-y-auto p-1"
+              >
+                {repos.map((repo) => (
+                  <CommandItem
+                    key={repo.projectId}
+                    value={`${repo.projectName} ${repo.fullName} ${repo.path}`}
+                    onSelect={() => openCreateIssueForProject(repo.projectId)}
+                    className="flex flex-col items-start gap-0.5 px-2 py-2 text-xs"
+                  >
+                    <span className="w-full truncate font-medium text-foreground">
+                      {repo.projectName}
+                    </span>
+                    <span className="w-full truncate text-[11px] text-muted-foreground">
+                      {repo.fullName}
+                    </span>
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            </CommandList>
+          </Command>
+        </PopoverContent>
+      </Popover>
     </div>
   );
 
@@ -815,6 +878,7 @@ export function TaskGithubPanel({ projects, headerTrailingHost = null }: TaskGit
         open={createIssueOpen}
         onOpenChange={setCreateIssueOpen}
         repos={repos}
+        initialProjectId={createIssueProjectId}
         onCreated={handleIssueCreated}
       />
     </div>

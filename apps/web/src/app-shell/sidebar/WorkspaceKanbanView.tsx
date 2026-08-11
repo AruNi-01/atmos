@@ -537,7 +537,7 @@ export function WorkspaceKanbanView({
   );
 
   const toolbarActions = showToolbarActions ? (
-    <div className="flex items-center justify-end gap-1.5">
+    <div className="flex h-7 items-center justify-end gap-1.5">
       <div ref={searchContainerRef} className="relative h-7 w-56">
         <div
           className={cn(
@@ -572,7 +572,7 @@ export function WorkspaceKanbanView({
       </div>
       <DropdownMenu modal={false}>
         <DropdownMenuTrigger asChild>
-          {/* Lock size-7 at all breakpoints — icon-xs defaults to sm:size-6. */}
+          {/* Match Task source tabs + trailing actions (h-7). icon-xs defaults to sm:size-6. */}
           <Button size="icon-xs" variant="outline" className="size-7 sm:size-7">
             <Settings2 className="size-3.5" />
           </Button>

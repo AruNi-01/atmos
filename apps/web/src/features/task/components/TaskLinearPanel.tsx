@@ -460,8 +460,8 @@ export function TaskLinearPanel({
   }, []);
 
   const headerActions = (
-    <div className="flex items-center gap-1.5">
-      <span className="hidden rounded-full border border-border bg-muted/30 px-2 py-0.5 text-[11px] font-medium text-foreground sm:inline-flex">
+    <div className="flex h-7 items-center gap-1.5">
+      <span className="hidden h-7 items-center rounded-full border border-border bg-muted/30 px-2.5 text-[11px] font-medium text-foreground sm:inline-flex">
         {source === "local"
           ? t("linear.chip.localApiKey")
           : t("linear.chip.oauthAccount")}
@@ -470,7 +470,7 @@ export function TaskLinearPanel({
         type="button"
         size="icon-xs"
         variant="outline"
-        className="size-7"
+        className="size-7 sm:size-7"
         onClick={refresh}
         disabled={!connected || refreshing}
         title={t("linear.refresh")}

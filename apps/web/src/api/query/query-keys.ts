@@ -260,9 +260,12 @@ export const queryKeys = {
         params.perPage,
       ] as const,
 
-    /** `.github/ISSUE_TEMPLATE` listing for create-issue. */
-    githubIssueTemplates: (scope: ComputerQueryScope, repoFullName: string) =>
-      [...queryKeys.computer.root(scope), "github", "issueTemplates", repoFullName] as const,
+    /**
+     * Local `.github/ISSUE_TEMPLATE` for create-issue.
+     * Keyed by project working-tree path (not remote owner/repo).
+     */
+    githubIssueTemplates: (scope: ComputerQueryScope, projectPath: string) =>
+      [...queryKeys.computer.root(scope), "github", "issueTemplates", "local", projectPath] as const,
 
     githubIssueList: (
       scope: ComputerQueryScope,

@@ -1,7 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { gitApi } from "@/api/ws-api";
+import { queryKeys } from "@/api/query/query-keys";
+import { useComputerQueryScope } from "@/api/query/query-scope";
+import { wsQueryOptions } from "@/api/query/computer-query-options";
+import { useWebSocketStore } from "@/features/connection/hooks/use-websocket";
 import type { Project } from "@/shared/types/domain";
 
 export type ProjectGithubRepo = {
@@ -14,11 +19,20 @@ export type ProjectGithubRepo = {
   path: string;
 };
 
+const REPOS_STALE_MS = 5 * 60_000;
+const REPOS_GC_MS = 30 * 60_000;
+
 /**
  * Resolve GitHub owner/repo for each Atmos project via git status batch.
  * Dedupes by fullName (multiple projects can map to the same remote).
+ *
+ * Cached with TanStack Query so switching away from the Task GitHub tab and
+ * back does not re-cold-load repo resolution every time.
  */
 export function useProjectGithubRepos(projects: Project[], enabled = true) {
+  const scope = useComputerQueryScope();
+  const connectionState = useWebSocketStore((s) => s.connectionState);
+
   const pathKey = useMemo(
     () =>
       projects
@@ -29,29 +43,32 @@ export function useProjectGithubRepos(projects: Project[], enabled = true) {
     [projects],
   );
 
-  const [repos, setRepos] = useState<ProjectGithubRepo[]>([]);
-  const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    if (!enabled || !pathKey) {
-      setRepos([]);
-      setLoading(false);
-      return;
+  const projectByPath = useMemo(() => {
+    const map = new Map<string, Project>();
+    for (const project of projects) {
+      if (project.mainFilePath) map.set(project.mainFilePath, project);
     }
+    return map;
+  }, [projects]);
 
-    let cancelled = false;
-    const paths = pathKey.split("\0").filter(Boolean);
-    const projectByPath = new Map(
-      projects
-        .filter((p) => p.mainFilePath)
-        .map((p) => [p.mainFilePath, p] as const),
-    );
+  const paths = useMemo(
+    () => (pathKey ? pathKey.split("\0").filter(Boolean) : []),
+    [pathKey],
+  );
 
-    setLoading(true);
-    void gitApi
-      .getStatuses(paths)
-      .then((response) => {
-        if (cancelled) return;
+  const query = useQuery(
+    wsQueryOptions({
+      scope,
+      connectionState,
+      enabled: enabled && paths.length > 0,
+      queryKey: [
+        ...queryKeys.computer.root(scope),
+        "task",
+        "projectGithubRepos",
+        pathKey,
+      ] as const,
+      queryFn: async (): Promise<ProjectGithubRepo[]> => {
+        const response = await gitApi.getStatuses(paths);
         const byFullName = new Map<string, ProjectGithubRepo>();
         for (const result of response.results) {
           const owner = result.status?.github_owner ?? null;
@@ -70,19 +87,17 @@ export function useProjectGithubRepos(projects: Project[], enabled = true) {
             path: result.path,
           });
         }
-        setRepos(Array.from(byFullName.values()).sort((a, b) => a.fullName.localeCompare(b.fullName)));
-      })
-      .catch(() => {
-        if (!cancelled) setRepos([]);
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
+        return Array.from(byFullName.values()).sort((a, b) =>
+          a.fullName.localeCompare(b.fullName),
+        );
+      },
+      staleTime: REPOS_STALE_MS,
+      gcTime: REPOS_GC_MS,
+    }),
+  );
 
-    return () => {
-      cancelled = true;
-    };
-  }, [enabled, pathKey, projects]);
-
-  return { repos, loading };
+  return {
+    repos: query.data ?? [],
+    loading: query.isLoading && !query.data,
+  };
 }

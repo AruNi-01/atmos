@@ -4,10 +4,15 @@ import React, { useCallback, useLayoutEffect, useMemo, useRef, useState } from "
 import { useTranslations } from "next-intl";
 import { useQueryState, useQueryStates } from "nuqs";
 import { useShallow } from "zustand/react/shallow";
-import { Tabs, TabsList, TabsTab } from "@workspace/ui";
+import {
+  Tabs,
+  TabsList,
+  TabsTrigger,
+} from "@workspace/ui/components/motion/tabs";
 import LogoSvg from "@workspace/ui/components/logo-svg";
 import { Github } from "lucide-react";
 import { LinearIcon } from "@workspace/ui/components/icons/linear-icon";
+import { cn } from "@workspace/ui";
 import {
   useGroups,
   useProjects,
@@ -62,7 +67,7 @@ const PRIORITIES = new Set<WorkspacePriority>([
   "low",
 ]);
 
-/** Atmos mark sized for coss TabsTab icon slots. */
+/** Atmos mark sized for beui TabsTrigger icon slots. */
 function AtmosTabIcon({ className }: { className?: string }) {
   return <LogoSvg className={className} width={14} height={14} aria-hidden />;
 }
@@ -211,76 +216,128 @@ export function TaskManagementView() {
   );
 
   /**
-   * Host for Atmos toolbar (search / settings / filter) or GitHub actions (+ / refresh).
+   * Host for Atmos toolbar (search / settings / filter) or GitHub/Linear actions.
    * Kept in this stable header so TabsList never unmounts when switching source —
-   * otherwise the coss Indicator has nothing to animate between.
+   * otherwise the layoutId spring indicator has nothing to animate between.
    */
   const [headerTrailingHost, setHeaderTrailingHost] = useState<HTMLDivElement | null>(null);
 
-  // Same coss Tabs primitive as right-sidebar (`Tabs` + `TabsList` + Indicator).
-  // TabsList must stay mounted across Atmos ↔ GitHub for the sliding pill animation.
+  /**
+   * Keep source panels mounted after first visit so TanStack Query observers stay
+   * active and remount does not re-cold-load GitHub/Linear lists.
+   */
+  const [visitedSources, setVisitedSources] = useState<Record<TaskSourceTab, boolean>>(() => ({
+    atmos: sourceTab === "atmos",
+    github: sourceTab === "github",
+    linear: sourceTab === "linear",
+  }));
+  useLayoutEffect(() => {
+    setVisitedSources((prev) =>
+      prev[sourceTab] ? prev : { ...prev, [sourceTab]: true },
+    );
+  }, [sourceTab]);
+
+  // Native beui pill tabs (layoutId spring indicator).
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden bg-background">
       <Tabs
         value={sourceTab}
         onValueChange={handleSourceChange}
+        variant="pill"
         className="flex min-h-0 flex-1 flex-col"
       >
-        <div className="flex h-10 shrink-0 items-center gap-2 px-6">
-          <TabsList className="h-8 shrink-0">
-            <TabsTab value="atmos" className="gap-1.5 px-2.5 sm:h-7 sm:text-xs">
+        <div className="flex h-12 shrink-0 items-center gap-2 px-6 pt-3">
+          {/*
+            Tabs + trailing actions share h-7 so the header row stays level.
+            (icon-xs defaults to sm:size-6 — trailing buttons force size-7.)
+          */}
+          <TabsList className="h-8 gap-0.5 p-0.5">
+            <TabsTrigger value="atmos" className="h-7 gap-1.5 px-3 text-xs">
               <AtmosTabIcon className="size-3.5 shrink-0" />
               {t("source.atmos")}
-            </TabsTab>
-            <TabsTab value="github" className="gap-1.5 px-2.5 sm:h-7 sm:text-xs">
+            </TabsTrigger>
+            <TabsTrigger value="github" className="h-7 gap-1.5 px-3 text-xs">
               <Github className="size-3.5 shrink-0" />
               {t("source.github")}
-            </TabsTab>
-            <TabsTab value="linear" className="gap-1.5 px-2.5 sm:h-7 sm:text-xs">
+            </TabsTrigger>
+            <TabsTrigger value="linear" className="h-7 gap-1.5 px-3 text-xs">
               <LinearIcon className="size-3.5 shrink-0" size={14} />
               {t("source.linear")}
-            </TabsTab>
+            </TabsTrigger>
           </TabsList>
           <div
             ref={setHeaderTrailingHost}
-            className="ml-auto flex min-w-0 items-center justify-end gap-1.5"
+            className="ml-auto flex h-7 min-w-0 items-center justify-end gap-1.5"
           />
         </div>
 
-        <div className="min-h-0 flex-1 overflow-hidden">
-          {sourceTab === "github" ? (
-            <TaskGithubPanel projects={projects} headerTrailingHost={headerTrailingHost} />
-          ) : sourceTab === "linear" ? (
-            <TaskLinearPanel headerTrailingHost={headerTrailingHost} />
-          ) : (
-            <WorkspaceKanbanView
-              projects={projects}
-              availableLabels={availableLabels}
-              groups={groups}
-              groupingMode={groupingMode}
-              onGroupingModeChange={handleGroupingModeChange}
-              onUpdateWorkflowStatus={updateWorkspaceWorkflowStatus}
-              onUpdatePriority={updateWorkspacePriority}
-              onSetWorkspaceGroup={handleSetWorkspaceGroup}
-              onCreateGroup={handleCreateGroupNamed}
-              onCreateLabel={createWorkspaceLabel}
-              onUpdateLabel={updateWorkspaceLabel}
-              onUpdateLabels={updateWorkspaceLabels}
-              onPinWorkspace={pinWorkspace}
-              onUnpinWorkspace={unpinWorkspace}
-              onArchiveWorkspace={archiveWorkspace}
-              onDeleteWorkspace={async (projectId, workspaceId) => {
-                await deleteWorkspace(projectId, workspaceId);
-              }}
-              filters={filters}
-              onFiltersChange={handleFiltersChange}
-              /** Parent owns filters via nuqs — do not overwrite from function settings. */
-              hydrateFiltersFromSettings={false}
-              showTopChrome={false}
-              headerTrailingHost={headerTrailingHost}
-              showToolbarActions
-            />
-          )}
+        <div className="relative min-h-0 flex-1 overflow-hidden">
+          {visitedSources.atmos ? (
+            <div
+              className={cn(
+                "absolute inset-0 min-h-0 min-w-0",
+                sourceTab === "atmos" ? "flex flex-col" : "hidden",
+              )}
+              aria-hidden={sourceTab !== "atmos"}
+            >
+              <WorkspaceKanbanView
+                projects={projects}
+                availableLabels={availableLabels}
+                groups={groups}
+                groupingMode={groupingMode}
+                onGroupingModeChange={handleGroupingModeChange}
+                onUpdateWorkflowStatus={updateWorkspaceWorkflowStatus}
+                onUpdatePriority={updateWorkspacePriority}
+                onSetWorkspaceGroup={handleSetWorkspaceGroup}
+                onCreateGroup={handleCreateGroupNamed}
+                onCreateLabel={createWorkspaceLabel}
+                onUpdateLabel={updateWorkspaceLabel}
+                onUpdateLabels={updateWorkspaceLabels}
+                onPinWorkspace={pinWorkspace}
+                onUnpinWorkspace={unpinWorkspace}
+                onArchiveWorkspace={archiveWorkspace}
+                onDeleteWorkspace={async (projectId, workspaceId) => {
+                  await deleteWorkspace(projectId, workspaceId);
+                }}
+                filters={filters}
+                onFiltersChange={handleFiltersChange}
+                /** Parent owns filters via nuqs — do not overwrite from function settings. */
+                hydrateFiltersFromSettings={false}
+                showTopChrome={false}
+                headerTrailingHost={sourceTab === "atmos" ? headerTrailingHost : null}
+                showToolbarActions
+              />
+            </div>
+          ) : null}
+
+          {visitedSources.github ? (
+            <div
+              className={cn(
+                "absolute inset-0 min-h-0 min-w-0",
+                sourceTab === "github" ? "flex flex-col" : "hidden",
+              )}
+              aria-hidden={sourceTab !== "github"}
+            >
+              <TaskGithubPanel
+                projects={projects}
+                headerTrailingHost={sourceTab === "github" ? headerTrailingHost : null}
+              />
+            </div>
+          ) : null}
+
+          {visitedSources.linear ? (
+            <div
+              className={cn(
+                "absolute inset-0 min-h-0 min-w-0",
+                sourceTab === "linear" ? "flex flex-col" : "hidden",
+              )}
+              aria-hidden={sourceTab !== "linear"}
+            >
+              <TaskLinearPanel
+                headerTrailingHost={sourceTab === "linear" ? headerTrailingHost : null}
+              />
+            </div>
+          ) : null}
         </div>
       </Tabs>
     </div>

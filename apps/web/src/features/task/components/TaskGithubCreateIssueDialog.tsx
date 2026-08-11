@@ -6,7 +6,6 @@ import { useForm } from "@tanstack/react-form";
 import { useQuery } from "@tanstack/react-query";
 import {
   Button,
-  Checkbox,
   Dialog,
   DialogContent,
   DialogDescription,
@@ -42,19 +41,23 @@ import type { ProjectGithubRepo } from "@/features/task/hooks/use-project-github
 import {
   composeIssueBodyFromForm,
   defaultFieldValuesForTemplate,
-  isFieldValueEmpty,
   parseGithubIssueTemplates,
-  type IssueFormField,
   type ParsedIssueTemplate,
 } from "@/features/task/lib/github-issue-templates";
+import { loadLocalGithubIssueTemplates } from "@/features/task/lib/load-local-github-issue-templates";
 import { MarkdownRenderer } from "@/shared/components/markdown/MarkdownRenderer";
 
 export type TaskGithubCreateIssueDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  /** Candidate repos from Atmos projects. */
+  /** Candidate Atmos projects with a linked GitHub remote. */
   repos: ProjectGithubRepo[];
-  /** Prefill when opened from a single known repo. */
+  /**
+   * Project chosen before open (from the + button popover).
+   * Templates load from this project's local working tree.
+   */
+  initialProjectId?: string | null;
+  /** Fallback when only owner/repo is known. */
   initialRepoFullName?: string | null;
   onCreated?: (result: { owner: string; repo: string; number?: number | null; url: string }) => void;
 };
@@ -73,6 +76,7 @@ export function TaskGithubCreateIssueDialog({
   open,
   onOpenChange,
   repos,
+  initialProjectId,
   initialRepoFullName,
   onCreated,
 }: TaskGithubCreateIssueDialogProps) {
@@ -80,47 +84,49 @@ export function TaskGithubCreateIssueDialog({
   const scope = useComputerQueryScope();
   const connectionState = useWebSocketStore((s) => s.connectionState);
 
-  // Step: pick project when multiple / not preselected.
-  const [selectedFullName, setSelectedFullName] = useState<string | null>(null);
+  // Project is chosen at the + button popover; dialog only creates for that project.
   const [templateId, setTemplateId] = useState(BLANK_ID);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
   const selectedRepo = useMemo(() => {
-    const key = selectedFullName ?? initialRepoFullName ?? null;
-    if (key) {
-      return repos.find((r) => r.fullName === key) ?? null;
+    if (initialProjectId) {
+      const byId = repos.find((r) => r.projectId === initialProjectId);
+      if (byId) return byId;
     }
-    // Single linked repo → skip picker; multiple → force explicit choice.
+    if (initialRepoFullName) {
+      const byRemote = repos.find((r) => r.fullName === initialRepoFullName);
+      if (byRemote) return byRemote;
+    }
     if (repos.length === 1) return repos[0] ?? null;
     return null;
-  }, [initialRepoFullName, repos, selectedFullName]);
+  }, [initialProjectId, initialRepoFullName, repos]);
 
-  // Reset when dialog opens.
+  // Reset form state when dialog opens / project changes.
   useEffect(() => {
     if (!open) return;
-    setSelectedFullName(initialRepoFullName ?? (repos.length === 1 ? repos[0]?.fullName ?? null : null));
     setTemplateId(BLANK_ID);
     setSubmitError(null);
     setSubmitting(false);
-  }, [open, initialRepoFullName, repos]);
+  }, [open, selectedRepo?.projectId]);
 
   const projectPicked = Boolean(selectedRepo);
 
+  // Templates come from the selected Project's local tree — not remote gh api.
   const templatesQuery = useQuery(
     wsQueryOptions({
       scope,
       connectionState,
       queryKey: queryKeys.computer.githubIssueTemplates(
         scope,
-        selectedRepo ? `${selectedRepo.owner}/${selectedRepo.repo}` : "",
+        selectedRepo?.path ?? "",
       ),
       queryFn: () =>
-        wsGithubApi.listIssueTemplates({
+        loadLocalGithubIssueTemplates(selectedRepo!.path, {
           owner: selectedRepo!.owner,
           repo: selectedRepo!.repo,
         }),
-      enabled: open && projectPicked && Boolean(selectedRepo),
+      enabled: open && projectPicked && Boolean(selectedRepo?.path),
       staleTime: 5 * 60_000,
     }),
   );
@@ -272,7 +278,7 @@ export function TaskGithubCreateIssueDialog({
     });
     // form identity is stable from useForm; activeTemplate drives reseed.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- reseed on template/repo only
-  }, [activeTemplate.id, open, projectPicked, selectedRepo?.fullName]);
+  }, [activeTemplate.id, open, projectPicked, selectedRepo?.path, selectedRepo?.fullName]);
 
   const assigneeOptions = useMemo(() => {
     const set = new Set<string>();
@@ -294,55 +300,19 @@ export function TaskGithubCreateIssueDialog({
     return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
   }, [activeTemplate.labels, labelsQuery.data]);
 
-  // —— Project picker step ——
-  if (open && !projectPicked) {
-    return (
-      <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-md gap-0 p-0 sm:max-w-md">
-          <DialogHeader className="border-b border-border/70 px-4 py-3">
-            <DialogTitle className="text-base">{t("projectSelect.title")}</DialogTitle>
-            <DialogDescription className="text-xs">{t("projectSelect.description")}</DialogDescription>
-          </DialogHeader>
-          <div className="max-h-[50vh] overflow-y-auto p-2">
-            {repos.length === 0 ? (
-              <p className="px-2 py-6 text-center text-sm text-muted-foreground">
-                {t("projectSelect.empty")}
-              </p>
-            ) : (
-              <ul className="m-0 list-none space-y-0.5 p-0">
-                {repos.map((repo) => (
-                  <li key={repo.fullName}>
-                    <button
-                      type="button"
-                      className="flex w-full flex-col items-start rounded-md px-3 py-2.5 text-left transition-colors hover:bg-muted/60"
-                      onClick={() => setSelectedFullName(repo.fullName)}
-                    >
-                      <span className="text-sm font-medium text-foreground">{repo.fullName}</span>
-                      <span className="text-[11px] text-muted-foreground">{repo.projectName}</span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-          <DialogFooter className="border-t border-border/70 px-4 py-3">
-            <Button type="button" variant="outline" size="sm" onClick={() => onOpenChange(false)}>
-              {t("actions.cancel")}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    );
+  // Project is required (chosen from the + popover). Keep Dialog mounted for close animation.
+  if (!selectedRepo) {
+    return null;
   }
 
   const formFields = activeTemplate.formFields ?? [];
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open && projectPicked} onOpenChange={onOpenChange}>
       <DialogContent className="flex max-h-[min(90vh,840px)] max-w-2xl flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl">
         <DialogHeader className="shrink-0 border-b border-border/70 px-4 py-3">
           <DialogTitle className="text-base">
-            {t("title", { repo: selectedRepo?.fullName ?? "" })}
+            {t("title", { repo: selectedRepo.fullName })}
           </DialogTitle>
           <DialogDescription className="text-xs">{t("description")}</DialogDescription>
         </DialogHeader>
@@ -561,20 +531,6 @@ export function TaskGithubCreateIssueDialog({
           </div>
 
           <DialogFooter className="shrink-0 gap-2 border-t border-border/70 px-4 py-3 sm:justify-end">
-            {repos.length > 1 ? (
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="mr-auto"
-                onClick={() => {
-                  setSelectedFullName(null);
-                  setTemplateId(BLANK_ID);
-                }}
-              >
-                {t("actions.changeProject")}
-              </Button>
-            ) : null}
             <Button type="button" variant="outline" size="sm" onClick={() => onOpenChange(false)}>
               {t("actions.cancel")}
             </Button>
