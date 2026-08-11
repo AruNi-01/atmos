@@ -189,9 +189,13 @@ impl AgentHooksService {
 
         let cutoff = Utc::now()
             - chrono::Duration::from_std(delay).unwrap_or_else(|_| chrono::Duration::minutes(5));
+        // Lock order is always attention → summaries (same as raise_attention /
+        // begin / complete). Taking summaries first then attention deadlocks
+        // against raise_attention which holds attention.write then waits for
+        // summaries.write.
+        let attention = self.attention.read();
         let summaries = self.summaries.read();
-        self.attention
-            .read()
+        attention
             .values()
             .filter(|latch| latch.reason == AgentAttentionReason::TaskComplete)
             .filter(|latch| !summaries.contains_key(&latch.stable_pane_id))
