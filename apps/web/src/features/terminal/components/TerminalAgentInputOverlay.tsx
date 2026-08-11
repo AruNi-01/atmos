@@ -1212,6 +1212,13 @@ export const TerminalAgentInputOverlay = React.forwardRef<
                 // refresh hydration cannot resurrect the dismissed summary.
                 summaryStore.clearPane(stablePaneId);
                 attentionStore.clearPane(stablePaneId);
+                // Snapshot revisions *after* optimistic clear. If a WS clear /
+                // raise advances either store while the request is in flight,
+                // we must not roll back over that authoritative update.
+                const attentionRevAfterClear =
+                  useAgentAttentionStore.getState().revision;
+                const summaryRevAfterClear =
+                  useAgentAttentionSummaryStore.getState().revision;
                 void agentHooksApi
                   .clearAttention({ stablePaneId, notAfter })
                   .catch((error) => {
@@ -1219,18 +1226,14 @@ export const TerminalAgentInputOverlay = React.forwardRef<
                       "[TerminalAgentInputOverlay] Failed to clear attention on dismiss:",
                       error,
                     );
-                    // Restore the pre-dismiss snapshot only if nothing newer
-                    // landed locally (WS raise / another dismiss) while the
-                    // request was in flight — otherwise a failed clear would
-                    // leave server state that rehydrates on refresh.
                     const attentionNow = useAgentAttentionStore.getState();
                     const summaryNow = useAgentAttentionSummaryStore.getState();
-                    const current = attentionNow.panes.get(stablePaneId);
                     if (
-                      current &&
-                      prevAttention &&
-                      current.raisedAt > prevAttention.raisedAt
+                      attentionNow.revision !== attentionRevAfterClear ||
+                      summaryNow.revision !== summaryRevAfterClear
                     ) {
+                      // Focus ack, another clear, or a newer raise already
+                      // mutated local state — leave it alone.
                       return;
                     }
                     if (!attentionNow.panes.has(stablePaneId) && prevAttention) {
@@ -1244,7 +1247,11 @@ export const TerminalAgentInputOverlay = React.forwardRef<
                       });
                     }
                     if (!summaryNow.panes.has(stablePaneId) && prevSummary) {
-                      summaryNow.upsert(prevSummary);
+                      // raise() does not restore summary chrome; re-upsert only
+                      // when the store is still at the post-dismiss revision.
+                      useAgentAttentionSummaryStore
+                        .getState()
+                        .upsert(prevSummary);
                     }
                   });
               }}

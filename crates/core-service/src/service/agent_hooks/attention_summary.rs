@@ -215,50 +215,53 @@ impl AgentHooksService {
             return None;
         }
 
-        let latch = {
+        // Hold attention.read across the summaries insert so a concurrent clear
+        // cannot drop the latch between our latch check and the row insert
+        // (which would orphan a Summarizing row with no latch).
+        let (latch, summary, generation) = {
             let attention = self.attention.read();
-            attention.get(pane_id).cloned()
-        }?;
-        if latch.reason != AgentAttentionReason::TaskComplete {
-            return None;
-        }
-
-        {
-            let summaries = self.summaries.read();
-            if summaries.contains_key(pane_id) {
+            let latch = attention.get(pane_id).cloned()?;
+            if latch.reason != AgentAttentionReason::TaskComplete {
                 return None;
             }
-        }
+            if self.summaries.read().contains_key(pane_id) {
+                return None;
+            }
 
-        let generation = {
-            let mut gen = self.summary_generation.write();
-            let next = gen.saturating_add(1).max(1);
-            *gen = next;
-            next
-        };
+            let generation = {
+                let mut gen = self.summary_generation.write();
+                let next = gen.saturating_add(1).max(1);
+                *gen = next;
+                next
+            };
 
-        let summary = AgentAttentionSummary {
-            stable_pane_id: latch.stable_pane_id.clone(),
-            context_id: latch.context_id.clone(),
-            session_id: latch.session_id.clone(),
-            status: AttentionSummaryStatus::Summarizing,
-            summary: None,
-            next_steps: Vec::new(),
-            can_close_session: None,
-            error: None,
-            started_at: Utc::now().to_rfc3339(),
-            completed_at: None,
-            generation,
-        };
+            let summary = AgentAttentionSummary {
+                stable_pane_id: latch.stable_pane_id.clone(),
+                context_id: latch.context_id.clone(),
+                session_id: latch.session_id.clone(),
+                status: AttentionSummaryStatus::Summarizing,
+                summary: None,
+                next_steps: Vec::new(),
+                can_close_session: None,
+                error: None,
+                started_at: Utc::now().to_rfc3339(),
+                completed_at: None,
+                generation,
+            };
 
-        {
             let mut summaries = self.summaries.write();
             // Race: another begin won.
             if summaries.contains_key(pane_id) {
                 return None;
             }
+            // Latch may have been cleared if we only held a stale snapshot —
+            // re-check under the same attention read guard.
+            if !attention.contains_key(pane_id) {
+                return None;
+            }
             summaries.insert(pane_id.to_string(), summary.clone());
-        }
+            (latch, summary, generation)
+        };
 
         self.broadcast_summary_updated(summary.clone());
         Some((latch, summary, generation))
