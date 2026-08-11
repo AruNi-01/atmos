@@ -2,17 +2,21 @@
 import { describe, expect, test } from "bun:test";
 import type { MobileTerminalEntry } from "@/stores/terminal-store";
 import {
+  appendLocalTerminalEntry,
   createDefaultTerminalEntry,
+  createLocalTerminalEntry,
   mergeTerminalCandidateEntries,
   nextActiveTerminalEntryId,
   resolveActiveTerminalEntry,
+  terminalTabLabel,
 } from "./terminal-selection";
 
-function entry(id: string): MobileTerminalEntry {
+function entry(id: string, patch: Partial<MobileTerminalEntry> = {}): MobileTerminalEntry {
   return {
     id,
     workspaceId: "workspace",
     label: id,
+    ...patch,
   };
 }
 
@@ -101,5 +105,75 @@ describe("terminal selection", () => {
 
     expect(entries[0]?.sessionId).toBe("workspace:mobile:old");
     expect(entries[0]?.dynamicTitle).toBe("npm test");
+  });
+
+  test("flattens multiple server candidates into discrete tabs (no mosaic grouping)", () => {
+    const entries = mergeTerminalCandidateEntries(
+      "workspace",
+      [
+        {
+          active: true,
+          id: "tmux:workspace:0",
+          label: "pane-a",
+          tmux_window_index: 0,
+          tmux_window_name: "pane-a",
+          workspace_id: "workspace",
+        },
+        {
+          active: false,
+          id: "tmux:workspace:1",
+          label: "pane-b",
+          tmux_window_index: 1,
+          tmux_window_name: "pane-b",
+          workspace_id: "workspace",
+        },
+        {
+          active: false,
+          id: "session:extra",
+          label: "extra",
+          session_id: "extra",
+          workspace_id: "workspace",
+        },
+      ],
+      [],
+    );
+
+    expect(entries).toHaveLength(3);
+    expect(entries.map((item) => item.id)).toEqual([
+      "tmux:workspace:0",
+      "tmux:workspace:1",
+      "session:extra",
+    ]);
+    expect(nextActiveTerminalEntryId(entries, null)).toBe("tmux:workspace:0");
+  });
+
+  test("appendLocalTerminalEntry adds a tab and makes it active", () => {
+    const existing = [entry("tmux:workspace:0", { label: "main" })];
+    const result = appendLocalTerminalEntry("workspace", existing);
+
+    expect(result.entries).toHaveLength(2);
+    expect(result.entries[0]?.id).toBe("tmux:workspace:0");
+    expect(result.entry.id).toBe(result.activeEntryId);
+    expect(result.entries[1]?.id).toBe(result.activeEntryId);
+    expect(result.entry.isNew).toBe(true);
+    expect(result.entry.sessionId?.startsWith("workspace:mobile:")).toBe(true);
+    expect(resolveActiveTerminalEntry(result.entries, result.activeEntryId)?.id).toBe(result.activeEntryId);
+  });
+
+  test("createLocalTerminalEntry uses sequential terminal labels", () => {
+    const first = createLocalTerminalEntry("workspace", []);
+    const second = createLocalTerminalEntry("workspace", [first]);
+    expect(first.label).toBe("Terminal 1");
+    expect(second.label).toBe("Terminal 2");
+    expect(first.id).not.toBe(second.id);
+  });
+
+  test("terminalTabLabel prefers osc/dynamic titles and truncates long names", () => {
+    expect(terminalTabLabel({ label: "Fallback" })).toBe("Fallback");
+    expect(terminalTabLabel({ label: "Fallback", dynamicTitle: "npm test" })).toBe("npm test");
+    expect(terminalTabLabel({ label: "Fallback", dynamicTitle: "npm test", oscTitle: "zsh" })).toBe("zsh");
+    const long = "a-very-long-terminal-window-title-that-needs-trim";
+    expect(terminalTabLabel({ label: long }).endsWith("…")).toBe(true);
+    expect(terminalTabLabel({ label: long }).length).toBeLessThanOrEqual(22);
   });
 });

@@ -17,6 +17,44 @@ export function createDefaultTerminalEntry(workspaceId: string): MobileTerminalE
   };
 }
 
+/** Local mobile terminal tab (not from server candidates). Becomes active after append. */
+export function createLocalTerminalEntry(
+  workspaceId: string,
+  existingEntries: MobileTerminalEntry[],
+): MobileTerminalEntry {
+  return {
+    id: `${workspaceId}:mobile-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    workspaceId,
+    label: `Terminal ${existingEntries.length + 1}`,
+    sessionId: createMobileTerminalSessionId(workspaceId),
+    isNew: true,
+  };
+}
+
+/**
+ * Append a local terminal and select it. Pure helper for the flat multi-tab model:
+ * server candidates stay as discrete tabs; new tabs append and become active.
+ */
+export function appendLocalTerminalEntry(
+  workspaceId: string,
+  existingEntries: MobileTerminalEntry[],
+): { activeEntryId: string; entries: MobileTerminalEntry[]; entry: MobileTerminalEntry } {
+  const entry = createLocalTerminalEntry(workspaceId, existingEntries);
+  return {
+    activeEntryId: entry.id,
+    entries: [...existingEntries, entry],
+    entry,
+  };
+}
+
+/** Short label for the top tab strip (keeps chrome compact). */
+export function terminalTabLabel(entry: Pick<MobileTerminalEntry, "dynamicTitle" | "label" | "oscTitle">): string {
+  const raw = (entry.oscTitle ?? entry.dynamicTitle ?? entry.label).trim();
+  if (!raw) return "Terminal";
+  if (raw.length <= 22) return raw;
+  return `${raw.slice(0, 20)}…`;
+}
+
 export function mergeTerminalCandidateEntries(
   workspaceId: string,
   candidates: TerminalWorkspaceCandidate[],

@@ -11,7 +11,7 @@ import {
 } from "@/features/terminal/mobile-terminal-agents";
 import { useContestedCliOwners } from "@/features/terminal/use-contested-cli-owners";
 import {
-  createMobileTerminalSessionId,
+  createLocalTerminalEntry,
   resolveActiveTerminalEntry,
 } from "@/features/terminal/terminal-selection";
 import {
@@ -19,6 +19,7 @@ import {
   getTerminalShortcutInput,
   type TerminalShortcut,
 } from "@/features/terminal/terminal-shortcuts";
+import { TerminalTabStrip } from "@/features/terminal/TerminalTabStrip";
 import { useTerminalCandidates } from "@/features/terminal/use-terminal-candidates";
 import {
   useTerminalConnection,
@@ -112,15 +113,8 @@ export function TerminalScreen({
   });
 
   const createTerminalEntry = useCallback(() => {
-    const id = `${workspaceId}:mobile-${Date.now()}`;
-    addEntry({
-      id,
-      workspaceId,
-      label: `Mobile terminal ${ensuredEntries.length + 1}`,
-      sessionId: createMobileTerminalSessionId(workspaceId),
-      isNew: true,
-    });
-  }, [addEntry, ensuredEntries.length, workspaceId]);
+    addEntry(createLocalTerminalEntry(workspaceId, ensuredEntries));
+  }, [addEntry, ensuredEntries, workspaceId]);
 
   useEffect(() => {
     if (!onHeaderControlsChange) return undefined;
@@ -197,11 +191,13 @@ export function TerminalScreen({
           return;
         }
         if (shortcut.action === "workspace-list") router.push("/");
-        if (shortcut.action === "switch-terminal") setTerminalError("Use the terminal menu in the header.");
+        if (shortcut.action === "switch-terminal") {
+          setTerminalError("Use the terminal tabs at the top to switch.");
+        }
         if (shortcut.action === "new-terminal") createTerminalEntry();
       }
     },
-    [createTerminalEntry, router, sendTerminalInput],
+    [createTerminalEntry, router, sendTerminalInput, setTerminalError],
   );
 
   useEffect(() => {
@@ -214,6 +210,17 @@ export function TerminalScreen({
 
   return (
     <View style={[styles.root, { backgroundColor: theme.colors.terminalBg }]}>
+      <TerminalTabStrip
+        activeEntryId={activeEntry?.id ?? null}
+        entries={ensuredEntries.map((entry) => ({
+          id: entry.id,
+          label: entry.label,
+          dynamicTitle: entry.dynamicTitle,
+          oscTitle: entry.oscTitle,
+        }))}
+        onCreateEntry={createTerminalEntry}
+        onSelectEntry={(entryId) => setActiveEntry(workspaceId, entryId)}
+      />
       {candidates.error ? (
         <View
           style={[
@@ -262,10 +269,12 @@ export function TerminalScreen({
       ) : (
         <View style={[styles.choiceState, { backgroundColor: theme.colors.cardElevated }]}>
           <Text selectable style={[styles.choiceTitle, { color: theme.colors.label }]}>
-            Choose a terminal
+            {ensuredEntries.length === 0 ? "No terminals yet" : "Choose a terminal"}
           </Text>
           <Text selectable style={[styles.choiceText, { color: theme.colors.secondaryLabel }]}>
-            This workspace has multiple terminal candidates. Pick one above before attaching.
+            {ensuredEntries.length === 0
+              ? "Tap + in the tab strip to open a terminal."
+              : "Select a tab above, or tap + to open a new terminal."}
           </Text>
         </View>
       )}
