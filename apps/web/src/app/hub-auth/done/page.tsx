@@ -17,9 +17,10 @@ import {
   parseOAuthCallbackProvider,
   type OAuthCallbackStatus,
 } from "@/shared/components/oauth-callback-shell";
-
-export const HUB_AUTH_DONE_CHANNEL = "atmos-hub-auth";
-export const HUB_AUTH_DONE_MESSAGE = "hub-auth-done" as const;
+import {
+  HUB_AUTH_DONE_CHANNEL,
+  HUB_AUTH_DONE_MESSAGE,
+} from "@/app/hub-auth/hub-auth-channel";
 
 const CLOSE_COUNTDOWN_SECONDS = 5;
 

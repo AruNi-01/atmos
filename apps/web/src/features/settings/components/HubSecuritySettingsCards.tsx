@@ -13,6 +13,10 @@ import { GitHubIcon, GoogleIcon } from "@daveyplate/better-auth-ui";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 import {
+  HUB_AUTH_DONE_CHANNEL,
+  HUB_AUTH_DONE_MESSAGE,
+} from "@/app/hub-auth/hub-auth-channel";
+import {
   Button,
   Card,
   Popover,
@@ -190,9 +194,9 @@ function LinkedAccountsCard() {
     };
     let bc: BroadcastChannel | null = null;
     try {
-      bc = new BroadcastChannel("atmos-hub-auth");
+      bc = new BroadcastChannel(HUB_AUTH_DONE_CHANNEL);
       bc.onmessage = (ev) => {
-        if (ev.data?.type === "hub-auth-done") onDone();
+        if (ev.data?.type === HUB_AUTH_DONE_MESSAGE) onDone();
       };
     } catch {
       /* ignore */

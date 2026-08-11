@@ -22,6 +22,10 @@ import {
 } from "@workspace/ui";
 import { LogIn, LogOut, RefreshCw, User } from "lucide-react";
 import {
+  HUB_AUTH_DONE_CHANNEL,
+  HUB_AUTH_DONE_MESSAGE,
+} from "@/app/hub-auth/hub-auth-channel";
+import {
   clearStoredDeviceCredential,
   getStoredDeviceCredential,
   hubConfigured,
@@ -184,16 +188,16 @@ function AccountSettingsBody() {
     };
     let bc: BroadcastChannel | null = null;
     try {
-      bc = new BroadcastChannel("atmos-hub-auth");
+      bc = new BroadcastChannel(HUB_AUTH_DONE_CHANNEL);
       bc.onmessage = (ev) => {
-        if (ev.data?.type === "hub-auth-done" && !ev.data?.error) onDone();
+        if (ev.data?.type === HUB_AUTH_DONE_MESSAGE && !ev.data?.error) onDone();
       };
     } catch {
       /* ignore */
     }
     const onMessage = (ev: MessageEvent) => {
       if (ev.origin !== window.location.origin) return;
-      if (ev.data?.type === "hub-auth-done" && !ev.data?.error) onDone();
+      if (ev.data?.type === HUB_AUTH_DONE_MESSAGE && !ev.data?.error) onDone();
     };
     window.addEventListener("message", onMessage);
     return () => {
