@@ -1,0 +1,22 @@
+apps/web/messages/en.json
+  h_5be255725524c8 4557,5532
+apps/web/messages/zh.json
+  h_5be255725524c8 4557,5532
+apps/web/src/features/settings/components/CodeAgentSettingsSection.tsx
+  h_5be255725524c8 15-25,34-40,45-52,99,158,171-309,646-651,653-658,660-662,666-667,669-674,676,679,687-688,690,692-697,705,707-712,714-715,718-727,730-733,735-793,795-799
+apps/web/src/features/settings/components/SettingsModal.tsx
+  h_5be255725524c8 732-771,1117-1118
+apps/web/src/features/settings/components/SettingsModalSections.tsx
+  h_5be255725524c8 108-114,248
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "7d0744b6ef675d34ef757ab9cb7b98f80a26885b",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
