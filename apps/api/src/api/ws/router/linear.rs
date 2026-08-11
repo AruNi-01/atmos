@@ -30,7 +30,7 @@ fn resolve_linear_oauth_client_id(from_request: Option<&str>) -> Result<String> 
 }
 
 fn hub_auth(hub: &HubSessionFields) -> HubAuth {
-    HubAuth::from_parts(hub.hub_cookie.as_deref(), hub.device_credential.as_deref())
+    HubAuth::from_parts(hub.cookie(), hub.device_credential())
 }
 
 fn linear_api_key(hub: &HubSessionFields) -> Option<&str> {

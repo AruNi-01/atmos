@@ -1,18 +1,35 @@
 use serde::{Deserialize, Serialize};
 
-/// Hub auth for local → Hub integration calls (APP-056 / APP-057).
-/// Prefer device credential (cross-origin safe); cookie is optional same-site fallback.
+/// Unified Hub identity wire for Computer local API → Hub (cookie and/or device).
+/// Call sites attach via `@atmos/hub-client` `withHubAuth` / `hubAuthWire` only.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub struct HubSessionFields {
-    /// Full `Cookie` header value for Hub origin (dev / same-site only).
+pub struct HubAuthWire {
+    /// Full `Cookie` header value when the client has a session jar.
     #[serde(default)]
-    pub hub_cookie: Option<String>,
-    /// Hub-minted device credential (plaintext). Sent as `Authorization: Bearer`.
+    pub cookie: Option<String>,
+    /// Hub-minted device credential → `Authorization: Bearer`.
     #[serde(default)]
     pub device_credential: Option<String>,
+}
+
+/// Product request envelope: Hub identity + optional local Linear API key.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct HubSessionFields {
+    #[serde(default)]
+    pub hub_auth: HubAuthWire,
     /// Client-local Linear personal API key (never stored on Hub when used this way).
     #[serde(default)]
     pub linear_api_key: Option<String>,
+}
+
+impl HubSessionFields {
+    pub fn cookie(&self) -> Option<&str> {
+        self.hub_auth.cookie.as_deref()
+    }
+
+    pub fn device_credential(&self) -> Option<&str> {
+        self.hub_auth.device_credential.as_deref()
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

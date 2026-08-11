@@ -64,6 +64,10 @@ impl LinearCredentials {
 }
 
 /// Auth material for Hub HTTP calls from the local runtime.
+///
+/// Either field is enough for Hub `requireUser` (cookie **or** device Bearer).
+/// Prefer device for desktop / multi-origin; cookie is optional browser fallback.
+/// Callers should not branch — attach both when present.
 #[derive(Debug, Clone, Default)]
 pub struct HubAuth {
     pub cookie: Option<String>,
@@ -80,6 +84,7 @@ impl HubAuth {
             device_credential: device_credential
                 .map(str::trim)
                 .filter(|s| !s.is_empty())
+                .filter(|s| s.len() >= 32)
                 .map(str::to_string),
         }
     }
@@ -90,6 +95,7 @@ impl HubAuth {
 
     fn apply(&self, req: reqwest::RequestBuilder) -> reqwest::RequestBuilder {
         let mut req = req;
+        // Device Bearer is the durable product credential (desktop + web after enroll).
         if let Some(cred) = self.device_credential.as_deref() {
             req = req.header("Authorization", format!("Bearer {cred}"));
         }
@@ -354,7 +360,10 @@ mod tests {
     fn hub_auth_prefers_device_or_cookie() {
         assert!(HubAuth::from_parts(None, None).is_empty());
         assert!(!HubAuth::from_parts(Some("a=b"), None).is_empty());
-        let cred = "devcred".repeat(4);
+        // Device credentials must be ≥ 32 chars (Hub minting floor).
+        let cred = "devcred".repeat(5);
+        assert_eq!(cred.len(), 35);
         assert!(!HubAuth::from_parts(None, Some(&cred)).is_empty());
+        assert!(HubAuth::from_parts(None, Some("short")).is_empty());
     }
 }
