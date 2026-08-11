@@ -5,7 +5,11 @@ pub mod utils;
 
 pub use error::{Result, ServiceError};
 pub use service::agent::AgentService;
-pub use service::agent_hooks::{AgentHookEvent, AgentHooksService};
+pub use service::agent_hooks::{
+    generate_attention_summary, AgentAttentionLatch, AgentAttentionReason, AgentAttentionSummary,
+    AgentHookEvent, AgentHooksService, AttentionSummaryPayload, AttentionSummarySettings,
+    AttentionSummaryStatus,
+};
 pub use service::agent_session::{AgentSessionService, LazySessionSpec, ResumeNativeSessionSpec};
 pub use service::automation::{
     ensure_builtin_terminal_agents_upgraded, AutomationAgentCapability, TerminalAgentCliStatus,

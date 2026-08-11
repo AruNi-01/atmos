@@ -770,6 +770,10 @@ pub enum WsEvent {
     AgentAttentionRaised,
     /// Sticky need-attention latch(es) cleared after user acknowledge
     AgentAttentionCleared,
+    /// Unattended task-complete auto-summary lifecycle update
+    AgentAttentionSummaryUpdated,
+    /// Unattended auto-summary cleared with the attention latch
+    AgentAttentionSummaryCleared,
     /// Agent notification (permission request, task complete, etc.)
     AgentNotification,
     /// Current branch PR status should be refreshed
@@ -1119,6 +1123,14 @@ pub struct CodeAgentCustomUpdateRequest {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AgentBehaviourSettingsUpdateRequest {
     pub idle_session_timeout_mins: u64,
+    #[serde(default)]
+    pub attention_summary_enabled: Option<bool>,
+    #[serde(default)]
+    pub attention_summary_delay_mins: Option<u64>,
+    #[serde(default)]
+    pub attention_summary_agent_id: Option<String>,
+    #[serde(default)]
+    pub attention_summary_model: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -96,12 +96,21 @@ import {
   type TerminalPromptContext,
 } from "../lib/terminal-ai-context-protocol";
 import { useTerminalRichInputSettingsStore } from "@/features/settings/store/terminal-rich-input-settings-store";
+import {
+  selectPaneAttentionSummary,
+  useAgentAttentionSummaryStore,
+} from "@/features/agent/store/agent-attention-summary-store";
+import { useAgentAttentionStore } from "@/features/agent/store/agent-attention-store";
+import { agentHooksApi } from "@/api/rest-api";
+import { AttentionSummaryPanel } from "./AttentionSummaryPanel";
 
 import "./TerminalAgentInputOverlay.css";
 
 interface TerminalAgentInputOverlayProps {
   activeProjectId?: string | null;
   agent?: TerminalPaneAgent | null;
+  /** Stable pane id (`{context}:{tmux_window}`) for attention auto-summary chrome. */
+  stablePaneId?: string | null;
   getSideChatFlyTargetClientPoint?: () => { x: number; y: number } | null;
   getTerminalCursorClientPoint?: () => { x: number; y: number } | null;
   isTerminalReady?: boolean;
@@ -149,6 +158,7 @@ export const TerminalAgentInputOverlay = React.forwardRef<
 >(function TerminalAgentInputOverlay({
   activeProjectId,
   agent,
+  stablePaneId = null,
   getSideChatFlyTargetClientPoint,
   getTerminalCursorClientPoint,
   isTerminalReady = true,
@@ -176,6 +186,15 @@ export const TerminalAgentInputOverlay = React.forwardRef<
   // Until prefs hydrate, treat Rich Input as off so a previously disabled
   // preference does not flash the composer for a frame.
   const richInputActive = richInputSettingsLoaded && richInputEnabled;
+  const attentionSummary = useAgentAttentionSummaryStore(
+    selectPaneAttentionSummary(stablePaneId ?? ""),
+  );
+  const hasAttentionSummary = !!attentionSummary;
+  const isSummarySummarizing = attentionSummary?.status === "summarizing";
+  const isSummaryActive =
+    attentionSummary?.status === "summarizing" ||
+    attentionSummary?.status === "ready" ||
+    attentionSummary?.status === "error";
   const composerRef = React.useRef<ComposerHandle | null>(null);
   const inputShellRef = React.useRef<HTMLDivElement | null>(null);
   const delayedSubmitTimerRef = React.useRef<number | null>(null);
@@ -199,6 +218,13 @@ export const TerminalAgentInputOverlay = React.forwardRef<
     setIsOpen(false);
     setIsPinned(false);
   }, [richInputActive]);
+
+  // Auto-open rich input when unattended summary starts or is ready so the
+  // loading / result panel is visible above the composer.
+  React.useEffect(() => {
+    if (!richInputActive || !isSummaryActive) return;
+    setIsOpen(true);
+  }, [isSummaryActive, richInputActive]);
   const [text, setText] = React.useState("");
   const [isSending, setIsSending] = React.useState(false);
   const [isSendAnimating, setIsSendAnimating] = React.useState(false);
@@ -224,7 +250,8 @@ export const TerminalAgentInputOverlay = React.forwardRef<
   const [sideChatRunConfigs, setSideChatRunConfigs] = React.useState<
     Record<string, TerminalAgentRunConfigInput | null>
   >({});
-  const isOverlayVisible = isOpen || isSendAnimating || isSendExiting;
+  const isOverlayVisible =
+    isOpen || isSendAnimating || isSendExiting || isSummaryActive;
   const canSubmit = isTerminalReady && text.trim().length > 0 && !isSending && !isSendAnimating && !isSendExiting;
 
   const runnableSideChatAgents = React.useMemo(
@@ -1139,11 +1166,99 @@ export const TerminalAgentInputOverlay = React.forwardRef<
           appendAgentContextItems(items, { x: event.clientX, y: event.clientY });
         }}
         onMouseLeave={() => {
-          if (!isPinned && !isSendAnimating && !isSendExiting && !text.trim() && attachments.length === 0) {
+          if (
+            !isPinned &&
+            !isSendAnimating &&
+            !isSendExiting &&
+            !isSummaryActive &&
+            !text.trim() &&
+            attachments.length === 0
+          ) {
             setIsOpen(false);
           }
         }}
       >
+        {hasAttentionSummary && attentionSummary ? (
+          <div
+            className={cn(
+              "w-full transition-[opacity,transform] duration-200 ease-out",
+              isOverlayVisible
+                ? "opacity-100 translate-y-0"
+                : "pointer-events-none opacity-0 translate-y-2",
+            )}
+          >
+            <AttentionSummaryPanel
+              summary={attentionSummary}
+              onPickNextStep={(step) => {
+                setIsOpen(true);
+                setText(step);
+                composerRef.current?.setText(step);
+                focusComposerSoon();
+              }}
+              onDismiss={() => {
+                if (!stablePaneId) return;
+                // Capture observed latch time so a late clear cannot wipe a newer turn.
+                const attentionStore = useAgentAttentionStore.getState();
+                const summaryStore = useAgentAttentionSummaryStore.getState();
+                const latch = attentionStore.panes.get(stablePaneId);
+                const prevSummary = summaryStore.panes.get(stablePaneId) ?? null;
+                const prevAttention = latch ?? null;
+                const notAfter = latch?.raisedAt
+                  ? new Date(latch.raisedAt).toISOString()
+                  : attentionSummary?.startedAt
+                    ? new Date(attentionSummary.startedAt).toISOString()
+                    : undefined;
+                // Optimistic local clear, then persist via attention-clear so
+                // refresh hydration cannot resurrect the dismissed summary.
+                summaryStore.clearPane(stablePaneId);
+                attentionStore.clearPane(stablePaneId);
+                // Snapshot revisions *after* optimistic clear. If a WS clear /
+                // raise advances either store while the request is in flight,
+                // we must not roll back over that authoritative update.
+                const attentionRevAfterClear =
+                  useAgentAttentionStore.getState().revision;
+                const summaryRevAfterClear =
+                  useAgentAttentionSummaryStore.getState().revision;
+                void agentHooksApi
+                  .clearAttention({ stablePaneId, notAfter })
+                  .catch((error) => {
+                    console.warn(
+                      "[TerminalAgentInputOverlay] Failed to clear attention on dismiss:",
+                      error,
+                    );
+                    const attentionNow = useAgentAttentionStore.getState();
+                    const summaryNow = useAgentAttentionSummaryStore.getState();
+                    if (
+                      attentionNow.revision !== attentionRevAfterClear ||
+                      summaryNow.revision !== summaryRevAfterClear
+                    ) {
+                      // Focus ack, another clear, or a newer raise already
+                      // mutated local state — leave it alone.
+                      return;
+                    }
+                    if (!attentionNow.panes.has(stablePaneId) && prevAttention) {
+                      attentionNow.raise({
+                        stablePaneId: prevAttention.stablePaneId,
+                        contextId: prevAttention.contextId,
+                        reason: prevAttention.reason,
+                        sessionId: prevAttention.sessionId,
+                        tool: prevAttention.tool,
+                        raisedAt: prevAttention.raisedAt,
+                      });
+                    }
+                    if (!summaryNow.panes.has(stablePaneId) && prevSummary) {
+                      // raise() does not restore summary chrome; re-upsert only
+                      // when the store is still at the post-dismiss revision.
+                      useAgentAttentionSummaryStore
+                        .getState()
+                        .upsert(prevSummary);
+                    }
+                  });
+              }}
+            />
+          </div>
+        ) : null}
+
         <TerminalAgentInputShell
           attachments={attachments}
           canSubmit={canSubmit}
@@ -1198,9 +1313,24 @@ export const TerminalAgentInputOverlay = React.forwardRef<
             <button
               type="button"
               aria-label="Open agent input"
+              data-attention-summary={
+                isSummaryActive
+                  ? isSummarySummarizing
+                    ? "summarizing"
+                    : "ready"
+                  : undefined
+              }
               className={cn(
-                "h-1 w-28 rounded-full bg-foreground/25 shadow-[0_1px_4px_rgba(0,0,0,0.16)] transition-opacity duration-200",
-                isOverlayVisible ? "opacity-0" : "opacity-100 hover:bg-foreground/35",
+                "h-1 w-28 rounded-full shadow-[0_1px_4px_rgba(0,0,0,0.16)] transition-[opacity,background-color,box-shadow] duration-200",
+                isSummaryActive
+                  ? "terminal-agent-input-trigger--summary bg-sky-500"
+                  : "bg-foreground/25",
+                isSummarySummarizing && "terminal-agent-input-trigger--pulse",
+                isOverlayVisible && !isSummaryActive
+                  ? "opacity-0"
+                  : isSummaryActive
+                    ? "opacity-100"
+                    : "opacity-100 hover:bg-foreground/35",
               )}
               onFocus={() => setIsOpen(true)}
               onClick={focusInput}

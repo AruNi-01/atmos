@@ -665,14 +665,26 @@ export const agentHooksApi = {
   clearAttention: async (input: {
     stablePaneId?: string;
     stablePaneIds?: string[];
+    /** RFC3339: only clear latches raised at or before this (dismiss race guard). */
+    notAfter?: string;
   }): Promise<{ cleared: string[] }> => {
     return fetchHooksApi<{ cleared: string[] }>('/hooks/attention/clear', {
       method: 'POST',
       body: JSON.stringify({
         stable_pane_id: input.stablePaneId,
         stable_pane_ids: input.stablePaneIds,
+        not_after: input.notAfter,
       }),
     });
+  },
+
+  /** Unattended task-complete auto-summaries held in API memory. */
+  listAttentionSummaries: async (): Promise<{
+    summaries: AgentAttentionSummaryDto[];
+  }> => {
+    return fetchHooksApi<{ summaries: AgentAttentionSummaryDto[] }>(
+      '/hooks/attention/summaries',
+    );
   },
 
   /** Resolve contested short CLI names (e.g. bare `agent`) to a product owner. */
@@ -691,7 +703,23 @@ export type AgentAttentionLatchDto = {
   reason: AgentAttentionReasonDto;
   session_id: string;
   tool?: string | null;
+  project_path?: string | null;
   raised_at: string;
+};
+
+export type AttentionSummaryStatusDto = 'summarizing' | 'ready' | 'error';
+
+export type AgentAttentionSummaryDto = {
+  stable_pane_id: string;
+  context_id: string;
+  session_id: string;
+  status: AttentionSummaryStatusDto;
+  summary?: string | null;
+  next_steps?: string[] | null;
+  can_close_session?: boolean | null;
+  error?: string | null;
+  started_at: string;
+  completed_at?: string | null;
 };
 
 // ===== Workspace Terminal Layout API =====

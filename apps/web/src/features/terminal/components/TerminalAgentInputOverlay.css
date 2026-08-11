@@ -148,13 +148,70 @@
 }
 
 @keyframes terminalAgentSelectorShake {
-  0%, 100% { transform: translateX(0); }
-  15% { transform: translateX(-3px); }
-  30% { transform: translateX(3px); }
-  45% { transform: translateX(-2px); }
-  60% { transform: translateX(2px); }
-  75% { transform: translateX(-1px); }
-  90% { transform: translateX(1px); }
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  20% {
+    transform: translateX(-2px);
+  }
+  40% {
+    transform: translateX(2px);
+  }
+  60% {
+    transform: translateX(-1px);
+  }
+  80% {
+    transform: translateX(1px);
+  }
+}
+
+/* Unattended attention auto-summary trigger bar (blue solid / pulse). */
+.terminal-agent-input-trigger--summary {
+  background: #0ea5e9 !important;
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, #38bdf8 45%, transparent),
+    0 0 12px color-mix(in srgb, #0ea5e9 40%, transparent);
+}
+
+.terminal-agent-input-trigger--pulse {
+  animation: terminal-agent-input-trigger-pulse 1.1s ease-in-out infinite;
+}
+
+@keyframes terminal-agent-input-trigger-pulse {
+  0%,
+  100% {
+    opacity: 0.55;
+    box-shadow:
+      0 0 0 1px color-mix(in srgb, #38bdf8 35%, transparent),
+      0 0 8px color-mix(in srgb, #0ea5e9 30%, transparent);
+  }
+  50% {
+    opacity: 1;
+    box-shadow:
+      0 0 0 2px color-mix(in srgb, #38bdf8 55%, transparent),
+      0 0 16px color-mix(in srgb, #0ea5e9 55%, transparent);
+  }
+}
+
+.attention-summary-skeleton {
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, #0ea5e9 8%, transparent) 0%,
+    color-mix(in srgb, #0ea5e9 22%, transparent) 45%,
+    color-mix(in srgb, #0ea5e9 8%, transparent) 100%
+  );
+  background-size: 200% 100%;
+  animation: attention-summary-skeleton 1.2s ease-in-out infinite;
+}
+
+@keyframes attention-summary-skeleton {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: -100% 0;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -172,5 +229,10 @@
   .terminal-agent-send-sweep,
   .terminal-agent-flying-message {
     animation-duration: 1ms;
+  }
+
+  .terminal-agent-input-trigger--pulse,
+  .attention-summary-skeleton {
+    animation: none;
   }
 }

@@ -523,6 +523,7 @@ export function TerminalMosaicWorkspacePaneWindow(props: TerminalMosaicWorkspace
           }}
           activeProjectId={activeProject?.id ?? null}
           agent={agentForSubmit ?? null}
+          stablePaneId={stablePaneId}
           getTerminalCursorClientPoint={() =>
             terminalRefsMap.current.get(id)?.getCursorClientPoint() ?? null
           }

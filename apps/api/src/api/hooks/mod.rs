@@ -68,8 +68,11 @@ pub fn routes() -> Router<AppState> {
         )
         .route("/sessions/{session_id}", delete(remove_hook_session))
         // Attention routes before `/{tool}/…` so "attention" is not parsed as a tool name.
+        // REST (not WS): same pre-connection bootstrap as GET /attention — used to hydrate
+        // sticky latch/summary state on browser refresh before the WS session is ready.
         .route("/attention", get(list_attention))
         .route("/attention/clear", post(clear_attention))
+        .route("/attention/summaries", get(list_attention_summaries))
         .route("/install", post(install_hooks))
         .route("/uninstall", post(uninstall_hooks))
         .route("/status", get(hooks_status))
@@ -249,6 +252,11 @@ async fn list_attention(State(state): State<AppState>) -> Json<Value> {
     Json(serde_json::json!({ "attention": attention }))
 }
 
+async fn list_attention_summaries(State(state): State<AppState>) -> Json<Value> {
+    let summaries = state.agent_hooks_service.get_all_attention_summaries();
+    Json(serde_json::json!({ "summaries": summaries }))
+}
+
 #[derive(Debug, Deserialize)]
 struct ClearAttentionBody {
     /// Prefer the stable pane id (`{context}:{tmux_window}`) the client focuses.
@@ -256,6 +264,10 @@ struct ClearAttentionBody {
     stable_pane_id: Option<String>,
     #[serde(default)]
     stable_pane_ids: Option<Vec<String>>,
+    /// When set (RFC3339), only clear latches raised at or before this time so a
+    /// late dismiss cannot wipe a newer turn that landed after the client acted.
+    #[serde(default)]
+    not_after: Option<String>,
 }
 
 async fn clear_attention(
@@ -268,7 +280,29 @@ async fn clear_attention(
             ids.push(id);
         }
     }
-    let cleared = if ids.len() == 1 {
+    let not_after = body
+        .not_after
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty());
+    let cleared = if let Some(cutoff) = not_after {
+        if ids.len() == 1 {
+            state
+                .agent_hooks_service
+                .clear_attention_for_pane_not_after(ids[0].as_str(), cutoff)
+        } else {
+            // Multi-id guarded clear: reuse single-id path per id.
+            let mut all = Vec::new();
+            for id in &ids {
+                all.extend(
+                    state
+                        .agent_hooks_service
+                        .clear_attention_for_pane_not_after(id.as_str(), cutoff),
+                );
+            }
+            all
+        }
+    } else if ids.len() == 1 {
         state
             .agent_hooks_service
             .clear_attention_for_pane(ids[0].as_str())
