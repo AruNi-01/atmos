@@ -1,0 +1,22 @@
+apps/web/src/app/hub-auth/done/page.tsx
+  h_5be255725524c8 20-23
+apps/web/src/app/hub-auth/error/page.tsx
+  h_5be255725524c8 17-20
+apps/web/src/app/hub-auth/hub-auth-channel.ts
+  h_5be255725524c8 1-4
+apps/web/src/features/settings/components/AccountSettingsSection.tsx
+  h_5be255725524c8 24-27,191,193,200
+apps/web/src/features/settings/components/HubSecuritySettingsCards.tsx
+  h_5be255725524c8 15-18,197,199
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "d2d92525e65ea5b920e0e3c0972e5bdf7b1eacda",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
