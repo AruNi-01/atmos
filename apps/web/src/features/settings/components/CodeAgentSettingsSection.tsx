@@ -10,6 +10,7 @@ import {
   Input,
   Skeleton,
   Switch,
+  cn,
 } from "@workspace/ui";
 import { Bot, ChevronDown, LoaderCircle, Package, Plus, Trash2, UserCog, Zap } from "lucide-react";
 import { AGENT_OPTIONS, getInteractiveAgentParams } from "@/features/wiki/components/AgentSelect";
@@ -34,6 +35,10 @@ interface CodeAgentSettingsSectionProps {
   customAgents: CodeAgentCustomEntry[];
   customAgentsExpanded: boolean;
   idleSessionTimeoutMins: number;
+  attentionSummaryEnabled: boolean;
+  attentionSummaryDelayMins: number;
+  attentionSummaryAgentId: string;
+  attentionSummaryModel: string;
   runConfigAgentOptions: AgentOption[];
   runConfigsLoading: boolean;
   removingCustomAgentIds: Record<string, boolean>;
@@ -41,6 +46,10 @@ interface CodeAgentSettingsSectionProps {
   savedAgentCustomSettings: BuiltInAgentSettings;
   savedCustomAgents: CodeAgentCustomEntry[];
   savedIdleSessionTimeoutMins: number;
+  savedAttentionSummaryEnabled: boolean;
+  savedAttentionSummaryDelayMins: number;
+  savedAttentionSummaryAgentId: string;
+  savedAttentionSummaryModel: string;
   savingBuiltInAgentIds: Record<string, boolean>;
   savingCustomAgentIds: Record<string, boolean>;
   savingIdleTimeout: boolean;
@@ -70,6 +79,10 @@ interface CodeAgentSettingsSectionProps {
   setCustomAgentOpen: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
   setCustomAgentsExpanded: React.Dispatch<React.SetStateAction<boolean>>;
   setIdleSessionTimeoutMins: React.Dispatch<React.SetStateAction<number>>;
+  setAttentionSummaryEnabled: React.Dispatch<React.SetStateAction<boolean>>;
+  setAttentionSummaryDelayMins: React.Dispatch<React.SetStateAction<number>>;
+  setAttentionSummaryAgentId: React.Dispatch<React.SetStateAction<string>>;
+  setAttentionSummaryModel: React.Dispatch<React.SetStateAction<string>>;
 }
 
 export function CodeAgentSettingsSection({
@@ -81,6 +94,10 @@ export function CodeAgentSettingsSection({
   customAgents,
   customAgentsExpanded,
   idleSessionTimeoutMins,
+  attentionSummaryEnabled,
+  attentionSummaryDelayMins,
+  attentionSummaryAgentId,
+  attentionSummaryModel,
   runConfigAgentOptions,
   runConfigsLoading,
   removingCustomAgentIds,
@@ -88,6 +105,10 @@ export function CodeAgentSettingsSection({
   savedAgentCustomSettings,
   savedCustomAgents,
   savedIdleSessionTimeoutMins,
+  savedAttentionSummaryEnabled,
+  savedAttentionSummaryDelayMins,
+  savedAttentionSummaryAgentId,
+  savedAttentionSummaryModel,
   savingBuiltInAgentIds,
   savingCustomAgentIds,
   savingIdleTimeout,
@@ -117,6 +138,10 @@ export function CodeAgentSettingsSection({
   setCustomAgentOpen,
   setCustomAgentsExpanded,
   setIdleSessionTimeoutMins,
+  setAttentionSummaryEnabled,
+  setAttentionSummaryDelayMins,
+  setAttentionSummaryAgentId,
+  setAttentionSummaryModel,
 }: CodeAgentSettingsSectionProps) {
   const t = useTranslations("settings.codeAgentSection");
 
@@ -466,7 +491,7 @@ export function CodeAgentSettingsSection({
             </p>
           </div>
         </div>
-        <div className="border-t border-border px-6 py-5">
+        <div className="space-y-5 border-t border-border px-6 py-5">
           <div className="flex items-center justify-between gap-6">
             <div className="min-w-0">
               <p className="text-sm font-medium text-foreground">{t("behavior.idleCleanupTitle")}</p>
@@ -484,13 +509,105 @@ export function CodeAgentSettingsSection({
                 className="h-8 w-20 text-center text-sm"
               />
               <span className="text-sm text-muted-foreground whitespace-nowrap">{t("behavior.minutes")}</span>
-              {idleSessionTimeoutMins !== savedIdleSessionTimeoutMins ? (
-                <Button size="sm" disabled={savingIdleTimeout} onClick={onSaveIdleTimeout}>
-                  {savingIdleTimeout ? <LoaderCircle className="size-3.5 animate-spin-reverse" /> : t("common.save")}
-                </Button>
-              ) : null}
             </div>
           </div>
+
+          <div className="border-t border-border pt-5">
+            <div className="flex items-start justify-between gap-4">
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-foreground">{t("behavior.summaryTitle")}</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {t("behavior.summaryDescription")}
+                </p>
+              </div>
+              <Switch
+                checked={attentionSummaryEnabled}
+                onCheckedChange={(checked) => setAttentionSummaryEnabled(!!checked)}
+              />
+            </div>
+
+            <div
+              className={cn(
+                "mt-4 space-y-4",
+                !attentionSummaryEnabled && "pointer-events-none opacity-50",
+              )}
+            >
+              <div className="flex items-center justify-between gap-6">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-foreground">
+                    {t("behavior.summaryDelayTitle")}
+                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {t("behavior.summaryDelayDescription")}
+                  </p>
+                </div>
+                <div className="flex shrink-0 items-center gap-2">
+                  <Input
+                    type="number"
+                    min={1}
+                    max={1440}
+                    value={attentionSummaryDelayMins}
+                    onChange={(event) =>
+                      setAttentionSummaryDelayMins(Math.max(1, Number(event.target.value) || 1))
+                    }
+                    className="h-8 w-20 text-center text-sm"
+                  />
+                  <span className="text-sm text-muted-foreground whitespace-nowrap">
+                    {t("behavior.minutes")}
+                  </span>
+                </div>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <label className="mb-1 block text-xs text-muted-foreground">
+                    {t("behavior.summaryAgentTitle")}
+                  </label>
+                  <Input
+                    value={attentionSummaryAgentId}
+                    placeholder={t("behavior.summaryAgentPlaceholder")}
+                    onChange={(event) => setAttentionSummaryAgentId(event.target.value)}
+                    className="h-9 text-sm font-mono"
+                  />
+                  <p className="mt-1 text-[11px] leading-4 text-muted-foreground">
+                    {t("behavior.summaryAgentDescription")}
+                  </p>
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs text-muted-foreground">
+                    {t("behavior.summaryModelTitle")}
+                  </label>
+                  <Input
+                    value={attentionSummaryModel}
+                    placeholder={t("behavior.summaryModelPlaceholder")}
+                    onChange={(event) => setAttentionSummaryModel(event.target.value)}
+                    className="h-9 text-sm font-mono"
+                  />
+                  <p className="mt-1 text-[11px] leading-4 text-muted-foreground">
+                    {t("behavior.summaryModelDescription")}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {(
+            idleSessionTimeoutMins !== savedIdleSessionTimeoutMins ||
+            attentionSummaryEnabled !== savedAttentionSummaryEnabled ||
+            attentionSummaryDelayMins !== savedAttentionSummaryDelayMins ||
+            attentionSummaryAgentId !== savedAttentionSummaryAgentId ||
+            attentionSummaryModel !== savedAttentionSummaryModel
+          ) ? (
+            <div className="flex justify-end border-t border-border pt-4">
+              <Button size="sm" disabled={savingIdleTimeout} onClick={onSaveIdleTimeout}>
+                {savingIdleTimeout ? (
+                  <LoaderCircle className="size-3.5 animate-spin-reverse" />
+                ) : (
+                  t("common.save")
+                )}
+              </Button>
+            </div>
+          ) : null}
         </div>
       </div>
     </div>

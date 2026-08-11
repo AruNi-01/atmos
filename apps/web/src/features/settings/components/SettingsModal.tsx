@@ -258,6 +258,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [removingCustomAgentIds, setRemovingCustomAgentIds] = useState<Record<string, boolean>>({});
   const [idleSessionTimeoutMins, setIdleSessionTimeoutMins] = useState<number>(30);
   const [savedIdleSessionTimeoutMins, setSavedIdleSessionTimeoutMins] = useState<number>(30);
+  const [attentionSummaryEnabled, setAttentionSummaryEnabled] = useState(true);
+  const [savedAttentionSummaryEnabled, setSavedAttentionSummaryEnabled] = useState(true);
+  const [attentionSummaryDelayMins, setAttentionSummaryDelayMins] = useState(5);
+  const [savedAttentionSummaryDelayMins, setSavedAttentionSummaryDelayMins] = useState(5);
+  const [attentionSummaryAgentId, setAttentionSummaryAgentId] = useState("");
+  const [savedAttentionSummaryAgentId, setSavedAttentionSummaryAgentId] = useState("");
+  const [attentionSummaryModel, setAttentionSummaryModel] = useState("");
+  const [savedAttentionSummaryModel, setSavedAttentionSummaryModel] = useState("");
   const [savingIdleTimeout, setSavingIdleTimeout] = useState(false);
   const [savedRunConfigs, setSavedRunConfigs] = useState<TerminalAgentSavedRunConfig[]>([]);
   const [runConfigsLoading, setRunConfigsLoading] = useState(false);
@@ -343,6 +351,18 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       const timeout = behaviourData?.idle_session_timeout_mins ?? 30;
       setIdleSessionTimeoutMins(timeout);
       setSavedIdleSessionTimeoutMins(timeout);
+      const summaryEnabled = behaviourData?.attention_summary_enabled ?? true;
+      setAttentionSummaryEnabled(summaryEnabled);
+      setSavedAttentionSummaryEnabled(summaryEnabled);
+      const summaryDelay = behaviourData?.attention_summary_delay_mins ?? 5;
+      setAttentionSummaryDelayMins(summaryDelay);
+      setSavedAttentionSummaryDelayMins(summaryDelay);
+      const summaryAgent = behaviourData?.attention_summary_agent_id ?? "";
+      setAttentionSummaryAgentId(summaryAgent || "");
+      setSavedAttentionSummaryAgentId(summaryAgent || "");
+      const summaryModel = behaviourData?.attention_summary_model ?? "";
+      setAttentionSummaryModel(summaryModel || "");
+      setSavedAttentionSummaryModel(summaryModel || "");
 
       const agentCli = (functionSettings as Record<string, unknown>)?.agent_cli as
         | Record<string, unknown>
@@ -714,12 +734,26 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     try {
       await agentBehaviourSettingsApi.update({
         idle_session_timeout_mins: idleSessionTimeoutMins,
+        attention_summary_enabled: attentionSummaryEnabled,
+        attention_summary_delay_mins: attentionSummaryDelayMins,
+        attention_summary_agent_id: attentionSummaryAgentId,
+        attention_summary_model: attentionSummaryModel,
       });
       setSavedIdleSessionTimeoutMins(idleSessionTimeoutMins);
+      setSavedAttentionSummaryEnabled(attentionSummaryEnabled);
+      setSavedAttentionSummaryDelayMins(attentionSummaryDelayMins);
+      setSavedAttentionSummaryAgentId(attentionSummaryAgentId);
+      setSavedAttentionSummaryModel(attentionSummaryModel);
     } finally {
       setSavingIdleTimeout(false);
     }
-  }, [idleSessionTimeoutMins]);
+  }, [
+    idleSessionTimeoutMins,
+    attentionSummaryEnabled,
+    attentionSummaryDelayMins,
+    attentionSummaryAgentId,
+    attentionSummaryModel,
+  ]);
 
   const loadLlmConfig = React.useCallback(async () => {
     setIsLlmConfigLoading(true);
@@ -1014,6 +1048,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     customAgents={customAgents}
                     customAgentsExpanded={customAgentsExpanded}
                     idleSessionTimeoutMins={idleSessionTimeoutMins}
+                    attentionSummaryEnabled={attentionSummaryEnabled}
+                    attentionSummaryDelayMins={attentionSummaryDelayMins}
+                    attentionSummaryAgentId={attentionSummaryAgentId}
+                    attentionSummaryModel={attentionSummaryModel}
                     runConfigAgentOptions={runConfigAgentOptions}
                     runConfigsLoading={runConfigsLoading}
                     removingCustomAgentIds={removingCustomAgentIds}
@@ -1021,6 +1059,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     savedAgentCustomSettings={savedAgentCustomSettings}
                     savedCustomAgents={savedCustomAgents}
                     savedIdleSessionTimeoutMins={savedIdleSessionTimeoutMins}
+                    savedAttentionSummaryEnabled={savedAttentionSummaryEnabled}
+                    savedAttentionSummaryDelayMins={savedAttentionSummaryDelayMins}
+                    savedAttentionSummaryAgentId={savedAttentionSummaryAgentId}
+                    savedAttentionSummaryModel={savedAttentionSummaryModel}
                     savingBuiltInAgentIds={savingBuiltInAgentIds}
                     savingCustomAgentIds={savingCustomAgentIds}
                     savingIdleTimeout={savingIdleTimeout}
@@ -1066,6 +1108,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     setCustomAgentOpen={setCustomAgentOpen}
                     setCustomAgentsExpanded={setCustomAgentsExpanded}
                     setIdleSessionTimeoutMins={setIdleSessionTimeoutMins}
+                    setAttentionSummaryEnabled={setAttentionSummaryEnabled}
+                    setAttentionSummaryDelayMins={setAttentionSummaryDelayMins}
+                    setAttentionSummaryAgentId={setAttentionSummaryAgentId}
+                    setAttentionSummaryModel={setAttentionSummaryModel}
                     handleLlmConfigUpdate={handleLlmConfigUpdate}
                     handleProviderEnabledChange={handleProviderEnabledChange}
                     isLlmConfigLoading={isLlmConfigLoading}

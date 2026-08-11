@@ -5369,10 +5369,21 @@
       },
       "behavior": {
         "title": "Behaviour",
-        "description": "Configure how idle agent sessions are managed in memory.",
+        "description": "Configure idle session cleanup and unattended need-attention auto-summary.",
         "idleCleanupTitle": "Idle session cleanup",
         "idleCleanupDescription": "Idle agent sessions older than this duration are automatically removed every 5 minutes.",
-        "minutes": "min"
+        "minutes": "min",
+        "summaryTitle": "Need-attention auto-summary",
+        "summaryDescription": "When a finished agent turn stays unacknowledged, spawn a headless summarizer and show next steps above the AI input.",
+        "summaryEnabled": "Enable auto-summary",
+        "summaryDelayTitle": "Wait before summarizing",
+        "summaryDelayDescription": "How long a task-complete attention latch can sit unacknowledged before summarizing.",
+        "summaryAgentTitle": "Summary agent",
+        "summaryAgentDescription": "Terminal agent id used for the headless session (same as Automations). Leave empty to use the default LLM provider.",
+        "summaryAgentPlaceholder": "e.g. claude-code, codex",
+        "summaryModelTitle": "Summary model",
+        "summaryModelDescription": "Optional model override for the summary agent.",
+        "summaryModelPlaceholder": "optional model id"
       }
     },
     "canvasSection": {
@@ -8897,6 +8908,15 @@
       "close": {
         "title": "Close (⌘W)"
       }
+    },
+    "attentionSummary": {
+      "loadingTitle": "Summarizing recent work…",
+      "readyTitle": "While you were away",
+      "errorTitle": "Could not summarize",
+      "errorFallback": "The headless summary agent failed. You can still continue in this session.",
+      "canCloseBadge": "Safe to close",
+      "keepOpenBadge": "Keep open",
+      "dismiss": "Dismiss"
     }
   },
   "app": {

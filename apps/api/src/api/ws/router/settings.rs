@@ -100,7 +100,14 @@ impl WsMessageService {
             .get("idle_session_timeout_mins")
             .and_then(|v| v.as_u64())
             .unwrap_or(30);
-        Ok(json!({ "idle_session_timeout_mins": timeout }))
+        let summary_settings = core_service::AttentionSummarySettings::from_json(&val);
+        Ok(json!({
+            "idle_session_timeout_mins": timeout,
+            "attention_summary_enabled": summary_settings.enabled,
+            "attention_summary_delay_mins": summary_settings.delay_mins,
+            "attention_summary_agent_id": summary_settings.agent_id,
+            "attention_summary_model": summary_settings.model,
+        }))
     }
 
     fn read_llm_providers() -> Result<Value> {
@@ -238,6 +245,33 @@ impl WsMessageService {
             json!({ "agents": [] })
         };
         val["idle_session_timeout_mins"] = json!(req.idle_session_timeout_mins);
+        if let Some(enabled) = req.attention_summary_enabled {
+            val["attention_summary_enabled"] = json!(enabled);
+        }
+        if let Some(delay) = req.attention_summary_delay_mins {
+            let delay = delay.clamp(1, 24 * 60);
+            val["attention_summary_delay_mins"] = json!(delay);
+        }
+        if let Some(agent_id) = req.attention_summary_agent_id {
+            let trimmed = agent_id.trim();
+            if trimmed.is_empty() {
+                if let Some(obj) = val.as_object_mut() {
+                    obj.remove("attention_summary_agent_id");
+                }
+            } else {
+                val["attention_summary_agent_id"] = json!(trimmed);
+            }
+        }
+        if let Some(model) = req.attention_summary_model {
+            let trimmed = model.trim();
+            if trimmed.is_empty() {
+                if let Some(obj) = val.as_object_mut() {
+                    obj.remove("attention_summary_model");
+                }
+            } else {
+                val["attention_summary_model"] = json!(trimmed);
+            }
+        }
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent).map_err(|e| {
                 ServiceError::Validation(format!("Failed to create ~/.atmos/agent dir: {}", e))

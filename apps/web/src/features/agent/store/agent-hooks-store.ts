@@ -4,10 +4,15 @@ import { create } from "zustand";
 import { useWebSocketStore } from "@/features/connection/hooks/use-websocket";
 import { getRuntimeApiConfig, httpBase } from "@/shared/lib/desktop-runtime";
 import { agentHooksApi } from "@/api/rest-api";
+import type { AgentAttentionSummaryDto } from "@/api/rest-api";
 import {
   setAgentPaneAcknowledgedHandler,
   useAgentAttentionStore,
 } from "@/features/agent/store/agent-attention-store";
+import {
+  hydrateAttentionSummariesFromServer,
+  useAgentAttentionSummaryStore,
+} from "@/features/agent/store/agent-attention-summary-store";
 import {
   collectIdleSessionIdsForPane,
   resolveAgentStateForPaneId,
@@ -253,14 +258,56 @@ export const useAgentHooksStore = create<AgentHooksStore>((set, get) => ({
         const { stable_pane_ids } = data as { stable_pane_ids?: string[] };
         if (!stable_pane_ids?.length) return;
         useAgentAttentionStore.getState().clearMatchingSessionIds(stable_pane_ids);
+        // Backend also clears summaries, but keep client in sync if events reorder.
+        useAgentAttentionSummaryStore
+          .getState()
+          .clearMatchingIds(stable_pane_ids);
       },
     );
+
+    const unsubscribeAttentionSummaryUpdated = useWebSocketStore
+      .getState()
+      .onEvent("agent_attention_summary_updated", (data: unknown) => {
+        const dto = data as AgentAttentionSummaryDto;
+        if (!dto?.stable_pane_id || !dto.status) return;
+        useAgentAttentionSummaryStore.getState().upsert({
+          stablePaneId: dto.stable_pane_id,
+          contextId: dto.context_id,
+          sessionId: dto.session_id || dto.stable_pane_id,
+          status: dto.status,
+          summary: dto.summary ?? undefined,
+          nextSteps: Array.isArray(dto.next_steps)
+            ? dto.next_steps.map(String).filter(Boolean)
+            : [],
+          canCloseSession:
+            typeof dto.can_close_session === "boolean"
+              ? dto.can_close_session
+              : undefined,
+          error: dto.error ?? undefined,
+          startedAt: dto.started_at ? Date.parse(dto.started_at) : Date.now(),
+          completedAt: dto.completed_at
+            ? Date.parse(dto.completed_at)
+            : undefined,
+        });
+      });
+
+    const unsubscribeAttentionSummaryCleared = useWebSocketStore
+      .getState()
+      .onEvent("agent_attention_summary_cleared", (data: unknown) => {
+        const { stable_pane_ids } = data as { stable_pane_ids?: string[] };
+        if (!stable_pane_ids?.length) return;
+        useAgentAttentionSummaryStore
+          .getState()
+          .clearMatchingIds(stable_pane_ids);
+      });
 
     const _unsubscribe = () => {
       unsubscribeStateChanged();
       unsubscribeCleared();
       unsubscribeAttentionRaised();
       unsubscribeAttentionCleared();
+      unsubscribeAttentionSummaryUpdated();
+      unsubscribeAttentionSummaryCleared();
     };
     set({ _unsubscribe });
 
@@ -283,6 +330,8 @@ export const useAgentHooksStore = create<AgentHooksStore>((set, get) => ({
       if (latches.length === 0) return;
       useAgentAttentionStore.getState().hydrateFromServer(latches);
     });
+
+    void hydrateAttentionSummariesFromServer();
   },
 
   cleanup: () => {
@@ -291,6 +340,7 @@ export const useAgentHooksStore = create<AgentHooksStore>((set, get) => ({
       _unsubscribe();
       setAgentPaneAcknowledgedHandler(null);
       set({ _unsubscribe: null, sessions: new Map() });
+      useAgentAttentionSummaryStore.getState().hydrateFromServer([]);
     }
   },
 

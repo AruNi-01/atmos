@@ -38,8 +38,8 @@ use agents::automation_agent_capabilities;
 pub use agents::AutomationAgentCapability;
 pub mod builtin_agent_upgrade;
 pub(crate) use agents::{
-    resolve_automation_agent, AutomationAgentInvocation, AutomationCommandInput, PromptDelivery,
-    StdoutParser,
+    resolve_automation_agent_with_config, AutomationAgentInvocation, AutomationCommandInput,
+    PromptDelivery, StdoutParser,
 };
 pub use agents::{
     AutomationAgentModelInputMode, AutomationAgentReasoningMode, AutomationAgentReasoningSelection,

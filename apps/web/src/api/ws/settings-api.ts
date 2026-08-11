@@ -297,6 +297,10 @@ export const codeAgentCustomApi = {
 
 export interface AgentBehaviourSettings {
   idle_session_timeout_mins: number;
+  attention_summary_enabled?: boolean;
+  attention_summary_delay_mins?: number;
+  attention_summary_agent_id?: string | null;
+  attention_summary_model?: string | null;
 }
 
 export const agentBehaviourSettingsApi = {

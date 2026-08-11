@@ -106,6 +106,14 @@ fn spawn_agent_hook_forwarder(
                             WsEvent::AgentAttentionCleared,
                             json!({ "stable_pane_ids": stable_pane_ids }),
                         ),
+                        AgentHookEvent::AttentionSummaryUpdated(summary) => (
+                            WsEvent::AgentAttentionSummaryUpdated,
+                            json!(summary),
+                        ),
+                        AgentHookEvent::AttentionSummaryCleared { stable_pane_ids } => (
+                            WsEvent::AgentAttentionSummaryCleared,
+                            json!({ "stable_pane_ids": stable_pane_ids }),
+                        ),
                     };
                     if let Err(error) = ws_manager
                         .broadcast(&WsMessage::notification(ws_event, data))
@@ -251,6 +259,8 @@ fn spawn_non_critical_startup_tasks(
 
 /// Product job id for agent-hooks idle session cleanup (APP-051).
 const AGENT_HOOKS_IDLE_CLEANUP_JOB_ID: &str = "agent-hooks.idle_session_cleanup";
+/// Product job id for unattended need-attention auto-summary.
+const AGENT_HOOKS_ATTENTION_SUMMARY_JOB_ID: &str = "agent-hooks.attention_auto_summary";
 
 /// Register the agent-hook session cleanup interval job (every 5 minutes).
 async fn register_idle_session_cleanup_job(
@@ -287,19 +297,94 @@ async fn register_idle_session_cleanup_job(
     }
 }
 
+/// Poll sticky task-complete attention and spawn headless auto-summaries.
+async fn register_attention_summary_job(
+    jobs: Arc<LocalScheduler>,
+    agent_hooks_service: Arc<core_service::AgentHooksService>,
+) {
+    if let Err(error) = jobs
+        .set_interval_job(
+            JobId::new(AGENT_HOOKS_ATTENTION_SUMMARY_JOB_ID),
+            IntervalSpec {
+                // 30s keeps the configurable delay responsive without busy-looping.
+                every: std::time::Duration::from_secs(30),
+                skip_if_running: true,
+                fire_immediately: false,
+            },
+            RetryPolicy::none(),
+            move || {
+                let agent_hooks_service = Arc::clone(&agent_hooks_service);
+                async move {
+                    tick_attention_auto_summary(agent_hooks_service).await;
+                    Ok(())
+                }
+            },
+        )
+        .await
+    {
+        warn!(
+            "Failed to register agent-hooks attention auto-summary job: {}",
+            error
+        );
+    }
+}
+
+async fn tick_attention_auto_summary(agent_hooks_service: Arc<core_service::AgentHooksService>) {
+    let settings = read_attention_summary_settings();
+    if !settings.enabled {
+        return;
+    }
+    let due = agent_hooks_service.attention_due_for_summary(settings.delay());
+    for latch in due {
+        let Some((latch, _row, generation)) =
+            agent_hooks_service.begin_attention_summary(&latch.stable_pane_id)
+        else {
+            continue;
+        };
+        let service = Arc::clone(&agent_hooks_service);
+        let settings = settings.clone();
+        tokio::spawn(async move {
+            match core_service::generate_attention_summary(&latch, &settings).await {
+                Ok(payload) => {
+                    let _ = service.complete_attention_summary(
+                        &latch.stable_pane_id,
+                        generation,
+                        payload,
+                    );
+                }
+                Err(error) => {
+                    warn!(
+                        pane = %latch.stable_pane_id,
+                        "Attention auto-summary failed: {error}"
+                    );
+                    let _ = service.fail_attention_summary(
+                        &latch.stable_pane_id,
+                        generation,
+                        error.to_string(),
+                    );
+                }
+            }
+        });
+    }
+}
+
 struct AgentHookSessionTimeouts {
     idle_mins: u64,
     active_stale_mins: u64,
 }
 
-fn read_agent_hook_session_timeouts() -> AgentHookSessionTimeouts {
-    const DEFAULT_IDLE: u64 = 30;
-    const DEFAULT_ACTIVE_STALE: u64 = 30;
-    let path = dirs::home_dir()
+fn terminal_code_agent_settings_path() -> std::path::PathBuf {
+    dirs::home_dir()
         .unwrap_or_else(|| std::path::PathBuf::from("."))
         .join(".atmos")
         .join("agent")
-        .join("terminal_code_agent.json");
+        .join("terminal_code_agent.json")
+}
+
+fn read_agent_hook_session_timeouts() -> AgentHookSessionTimeouts {
+    const DEFAULT_IDLE: u64 = 30;
+    const DEFAULT_ACTIVE_STALE: u64 = 30;
+    let path = terminal_code_agent_settings_path();
     let Ok(content) = std::fs::read_to_string(&path) else {
         return AgentHookSessionTimeouts {
             idle_mins: DEFAULT_IDLE,
@@ -322,6 +407,17 @@ fn read_agent_hook_session_timeouts() -> AgentHookSessionTimeouts {
             .and_then(|v| v.as_u64())
             .unwrap_or(DEFAULT_ACTIVE_STALE),
     }
+}
+
+fn read_attention_summary_settings() -> core_service::AttentionSummarySettings {
+    let path = terminal_code_agent_settings_path();
+    let Ok(content) = std::fs::read_to_string(&path) else {
+        return core_service::AttentionSummarySettings::default();
+    };
+    let Ok(val) = serde_json::from_str::<serde_json::Value>(&content) else {
+        return core_service::AttentionSummarySettings::default();
+    };
+    core_service::AttentionSummarySettings::from_json(&val)
 }
 
 /// rustls 0.23+ requires an explicit process-wide provider before TLS (relay WSS, reqwest, etc.).
@@ -782,7 +878,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Arc::clone(&agent_hooks_for_startup),
         actual_addr.port(),
     );
-    register_idle_session_cleanup_job(Arc::clone(&jobs), agent_hooks_for_startup).await;
+    register_idle_session_cleanup_job(Arc::clone(&jobs), Arc::clone(&agent_hooks_for_startup)).await;
+    register_attention_summary_job(Arc::clone(&jobs), agent_hooks_for_startup).await;
 
     // Serve with graceful shutdown — ensures PTY resources are cleaned up
     // when the process receives SIGTERM/SIGINT (e.g., during hot-reload).

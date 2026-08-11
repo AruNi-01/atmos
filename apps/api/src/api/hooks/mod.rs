@@ -70,6 +70,7 @@ pub fn routes() -> Router<AppState> {
         // Attention routes before `/{tool}/…` so "attention" is not parsed as a tool name.
         .route("/attention", get(list_attention))
         .route("/attention/clear", post(clear_attention))
+        .route("/attention/summaries", get(list_attention_summaries))
         .route("/install", post(install_hooks))
         .route("/uninstall", post(uninstall_hooks))
         .route("/status", get(hooks_status))
@@ -247,6 +248,11 @@ async fn list_hook_sessions(State(state): State<AppState>) -> Json<Value> {
 async fn list_attention(State(state): State<AppState>) -> Json<Value> {
     let attention = state.agent_hooks_service.get_all_attention();
     Json(serde_json::json!({ "attention": attention }))
+}
+
+async fn list_attention_summaries(State(state): State<AppState>) -> Json<Value> {
+    let summaries = state.agent_hooks_service.get_all_attention_summaries();
+    Json(serde_json::json!({ "summaries": summaries }))
 }
 
 #[derive(Debug, Deserialize)]

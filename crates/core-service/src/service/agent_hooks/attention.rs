@@ -40,6 +40,9 @@ pub struct AgentAttentionLatch {
     pub session_id: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tool: Option<AgentToolType>,
+    /// Project / workspace path when known (used by unattended auto-summary).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub project_path: Option<String>,
     /// RFC3339 timestamp when the latch was raised (or last upgraded).
     pub raised_at: String,
 }
@@ -116,6 +119,7 @@ impl AgentHooksService {
             reason,
             session_id: update.session_id.clone(),
             tool: Some(update.tool),
+            project_path: update.project_path.clone(),
             raised_at: Utc::now().to_rfc3339(),
         });
     }
@@ -133,6 +137,10 @@ impl AgentHooksService {
                 // Keep the higher-urgency reason if both fire close together.
                 if existing.reason.priority() > latch.reason.priority() {
                     return;
+                }
+                // Preserve project_path if the upgrade omits it.
+                if latch.project_path.is_none() {
+                    latch.project_path = existing.project_path.clone();
                 }
             }
             attention.insert(latch.stable_pane_id.clone(), latch.clone());
@@ -178,6 +186,10 @@ impl AgentHooksService {
         };
 
         if !cleared.is_empty() {
+            // User attention / pane dismiss also drops any auto-summary chrome.
+            let mut summary_ids = cleared.clone();
+            summary_ids.extend(ids.iter().cloned());
+            self.clear_attention_summaries_matching_ids(&summary_ids);
             self.broadcast_attention_cleared(cleared.clone());
         }
         cleared
@@ -242,6 +254,7 @@ mod tests {
         assert_eq!(attention[0].stable_pane_id, "ws-1:main");
         assert_eq!(attention[0].context_id, "ws-1");
         assert_eq!(attention[0].reason, AgentAttentionReason::TaskComplete);
+        assert_eq!(attention[0].project_path.as_deref(), Some("/tmp/p"));
     }
 
     #[test]

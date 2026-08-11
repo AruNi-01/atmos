@@ -5369,10 +5369,21 @@
       },
       "behavior": {
         "title": "行为",
-        "description": "配置空闲 Agent 会话在内存中的管理方式。",
+        "description": "配置空闲会话清理，以及未处理 need-attention 时的自动总结。",
         "idleCleanupTitle": "空闲会话清理",
         "idleCleanupDescription": "超过该时长的空闲 Agent 会话会每 5 分钟自动清理一次。",
-        "minutes": "分钟"
+        "minutes": "分钟",
+        "summaryTitle": "Need-attention 自动总结",
+        "summaryDescription": "当 Agent 任务完成且长时间未被确认时，无头 spawn 总结会话，并在 AI 输入框上方展示下一步建议。",
+        "summaryEnabled": "启用自动总结",
+        "summaryDelayTitle": "总结前等待",
+        "summaryDelayDescription": "task-complete 的 attention 在未被确认后，等待多久再触发总结。",
+        "summaryAgentTitle": "总结 Agent",
+        "summaryAgentDescription": "无头总结使用的终端 Agent（与 Automations 相同）。留空则使用默认 LLM 提供方。",
+        "summaryAgentPlaceholder": "例如 claude-code、codex",
+        "summaryModelTitle": "总结模型",
+        "summaryModelDescription": "可选，覆盖总结 Agent 使用的模型。",
+        "summaryModelPlaceholder": "可选模型 id"
       }
     },
     "canvasSection": {
@@ -8897,6 +8908,15 @@
       "close": {
         "title": "关闭（⌘W）"
       }
+    },
+    "attentionSummary": {
+      "loadingTitle": "正在总结最近工作…",
+      "readyTitle": "你离开时发生了这些",
+      "errorTitle": "总结失败",
+      "errorFallback": "无头总结 Agent 运行失败，你仍可继续当前会话。",
+      "canCloseBadge": "可关闭会话",
+      "keepOpenBadge": "建议保持打开",
+      "dismiss": "关闭"
     }
   },
   "app": {

@@ -96,12 +96,19 @@ import {
   type TerminalPromptContext,
 } from "../lib/terminal-ai-context-protocol";
 import { useTerminalRichInputSettingsStore } from "@/features/settings/store/terminal-rich-input-settings-store";
+import {
+  selectPaneAttentionSummary,
+  useAgentAttentionSummaryStore,
+} from "@/features/agent/store/agent-attention-summary-store";
+import { AttentionSummaryPanel } from "./AttentionSummaryPanel";
 
 import "./TerminalAgentInputOverlay.css";
 
 interface TerminalAgentInputOverlayProps {
   activeProjectId?: string | null;
   agent?: TerminalPaneAgent | null;
+  /** Stable pane id (`{context}:{tmux_window}`) for attention auto-summary chrome. */
+  stablePaneId?: string | null;
   getSideChatFlyTargetClientPoint?: () => { x: number; y: number } | null;
   getTerminalCursorClientPoint?: () => { x: number; y: number } | null;
   isTerminalReady?: boolean;
@@ -149,6 +156,7 @@ export const TerminalAgentInputOverlay = React.forwardRef<
 >(function TerminalAgentInputOverlay({
   activeProjectId,
   agent,
+  stablePaneId = null,
   getSideChatFlyTargetClientPoint,
   getTerminalCursorClientPoint,
   isTerminalReady = true,
@@ -176,6 +184,15 @@ export const TerminalAgentInputOverlay = React.forwardRef<
   // Until prefs hydrate, treat Rich Input as off so a previously disabled
   // preference does not flash the composer for a frame.
   const richInputActive = richInputSettingsLoaded && richInputEnabled;
+  const attentionSummary = useAgentAttentionSummaryStore(
+    selectPaneAttentionSummary(stablePaneId ?? ""),
+  );
+  const hasAttentionSummary = !!attentionSummary;
+  const isSummarySummarizing = attentionSummary?.status === "summarizing";
+  const isSummaryActive =
+    attentionSummary?.status === "summarizing" ||
+    attentionSummary?.status === "ready" ||
+    attentionSummary?.status === "error";
   const composerRef = React.useRef<ComposerHandle | null>(null);
   const inputShellRef = React.useRef<HTMLDivElement | null>(null);
   const delayedSubmitTimerRef = React.useRef<number | null>(null);
@@ -199,6 +216,13 @@ export const TerminalAgentInputOverlay = React.forwardRef<
     setIsOpen(false);
     setIsPinned(false);
   }, [richInputActive]);
+
+  // Auto-open rich input when unattended summary starts or is ready so the
+  // loading / result panel is visible above the composer.
+  React.useEffect(() => {
+    if (!richInputActive || !isSummaryActive) return;
+    setIsOpen(true);
+  }, [isSummaryActive, richInputActive]);
   const [text, setText] = React.useState("");
   const [isSending, setIsSending] = React.useState(false);
   const [isSendAnimating, setIsSendAnimating] = React.useState(false);
@@ -224,7 +248,8 @@ export const TerminalAgentInputOverlay = React.forwardRef<
   const [sideChatRunConfigs, setSideChatRunConfigs] = React.useState<
     Record<string, TerminalAgentRunConfigInput | null>
   >({});
-  const isOverlayVisible = isOpen || isSendAnimating || isSendExiting;
+  const isOverlayVisible =
+    isOpen || isSendAnimating || isSendExiting || isSummaryActive;
   const canSubmit = isTerminalReady && text.trim().length > 0 && !isSending && !isSendAnimating && !isSendExiting;
 
   const runnableSideChatAgents = React.useMemo(
@@ -1139,11 +1164,43 @@ export const TerminalAgentInputOverlay = React.forwardRef<
           appendAgentContextItems(items, { x: event.clientX, y: event.clientY });
         }}
         onMouseLeave={() => {
-          if (!isPinned && !isSendAnimating && !isSendExiting && !text.trim() && attachments.length === 0) {
+          if (
+            !isPinned &&
+            !isSendAnimating &&
+            !isSendExiting &&
+            !isSummaryActive &&
+            !text.trim() &&
+            attachments.length === 0
+          ) {
             setIsOpen(false);
           }
         }}
       >
+        {hasAttentionSummary && attentionSummary ? (
+          <div
+            className={cn(
+              "w-full transition-[opacity,transform] duration-200 ease-out",
+              isOverlayVisible
+                ? "opacity-100 translate-y-0"
+                : "pointer-events-none opacity-0 translate-y-2",
+            )}
+          >
+            <AttentionSummaryPanel
+              summary={attentionSummary}
+              onPickNextStep={(step) => {
+                setIsOpen(true);
+                setText(step);
+                composerRef.current?.setText(step);
+                focusComposerSoon();
+              }}
+              onDismiss={() => {
+                if (!stablePaneId) return;
+                useAgentAttentionSummaryStore.getState().clearPane(stablePaneId);
+              }}
+            />
+          </div>
+        ) : null}
+
         <TerminalAgentInputShell
           attachments={attachments}
           canSubmit={canSubmit}
@@ -1198,9 +1255,24 @@ export const TerminalAgentInputOverlay = React.forwardRef<
             <button
               type="button"
               aria-label="Open agent input"
+              data-attention-summary={
+                isSummaryActive
+                  ? isSummarySummarizing
+                    ? "summarizing"
+                    : "ready"
+                  : undefined
+              }
               className={cn(
-                "h-1 w-28 rounded-full bg-foreground/25 shadow-[0_1px_4px_rgba(0,0,0,0.16)] transition-opacity duration-200",
-                isOverlayVisible ? "opacity-0" : "opacity-100 hover:bg-foreground/35",
+                "h-1 w-28 rounded-full shadow-[0_1px_4px_rgba(0,0,0,0.16)] transition-[opacity,background-color,box-shadow] duration-200",
+                isSummaryActive
+                  ? "terminal-agent-input-trigger--summary bg-sky-500"
+                  : "bg-foreground/25",
+                isSummarySummarizing && "terminal-agent-input-trigger--pulse",
+                isOverlayVisible && !isSummaryActive
+                  ? "opacity-0"
+                  : isSummaryActive
+                    ? "opacity-100"
+                    : "opacity-100 hover:bg-foreground/35",
               )}
               onFocus={() => setIsOpen(true)}
               onClick={focusInput}

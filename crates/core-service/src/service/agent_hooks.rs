@@ -1,6 +1,8 @@
 mod ampcode;
 mod antigravity;
 mod attention;
+mod attention_summary;
+mod attention_summary_generate;
 mod child_agent;
 mod child_lifecycle;
 mod claude_code;
@@ -28,6 +30,11 @@ use tracing::{debug, info, warn};
 use super::notification::NotificationService;
 
 pub use attention::{AgentAttentionLatch, AgentAttentionReason};
+pub use attention_summary::{
+    AgentAttentionSummary, AttentionSummaryPayload, AttentionSummarySettings,
+    AttentionSummaryStatus,
+};
+pub use attention_summary_generate::generate_attention_summary;
 pub(super) use child_agent::{extract_child_agent_id, is_child_start_event, is_child_stop_event};
 
 /// How long late mid-turn progress events are ignored after a terminal idle /
@@ -169,6 +176,8 @@ pub enum AgentHookEvent {
     SessionsCleared { session_ids: Vec<String> },
     AttentionRaised(AgentAttentionLatch),
     AttentionCleared { stable_pane_ids: Vec<String> },
+    AttentionSummaryUpdated(AgentAttentionSummary),
+    AttentionSummaryCleared { stable_pane_ids: Vec<String> },
 }
 
 /// Snapshot of a lead TerminalIdle that arrived while child agents were still
@@ -187,6 +196,10 @@ pub struct AgentHooksService {
     /// Sticky attention latches keyed by stable pane id (`{context}:{tmux_window}`).
     /// Independent of idle session rows so refresh still shows need-attention.
     attention: RwLock<HashMap<String, AgentAttentionLatch>>,
+    /// Unattended task-complete auto-summaries keyed by stable pane id.
+    summaries: RwLock<HashMap<String, AgentAttentionSummary>>,
+    /// Monotonic token for in-flight summary generations.
+    summary_generation: RwLock<u64>,
     /// After terminal/forced idle, ignore Progress→Running until this time.
     suppress_running_until: RwLock<HashMap<String, DateTime<Utc>>>,
     /// Lead session → active child agent ids (Task / SubagentStart roster).
@@ -209,6 +222,8 @@ impl AgentHooksService {
         Self {
             sessions: RwLock::new(HashMap::new()),
             attention: RwLock::new(HashMap::new()),
+            summaries: RwLock::new(HashMap::new()),
+            summary_generation: RwLock::new(0),
             suppress_running_until: RwLock::new(HashMap::new()),
             active_children: RwLock::new(HashMap::new()),
             pending_terminal_idle: RwLock::new(HashMap::new()),
