@@ -1,0 +1,20 @@
+apps/api/src/api/ws/message/linear.rs
+  h_5be255725524c8 3-4,6-7,9-10,13-19,25-34
+apps/api/src/api/ws/router/linear.rs
+  h_5be255725524c8 33
+apps/api/src/config/mod.rs
+  h_5be255725524c8 102-104,108
+crates/core-service/src/service/linear_credentials.rs
+  h_5be255725524c8 67-70,87,98,363-365,367
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "46e50ba84c476e0aaa4874446b647aed7205dc9d",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
