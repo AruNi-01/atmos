@@ -1,0 +1,20 @@
+apps/mobile/src/features/terminal/TerminalScreen.tsx
+  h_5be255725524c8 14,22,116-117,194-196,200,213-223,272,275-277
+apps/mobile/src/features/terminal/TerminalTabStrip.tsx
+  h_5be255725524c8 1-225
+apps/mobile/src/features/terminal/terminal-selection.test.ts
+  h_5be255725524c8 5,7,11,14,19,109-178
+apps/mobile/src/features/terminal/terminal-selection.ts
+  h_5be255725524c8 20-57
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "9f2e1f7456b028d49d20e816f0dabc3baa40ad85",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
