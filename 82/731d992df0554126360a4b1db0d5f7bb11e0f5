@@ -1,0 +1,29 @@
+apps/web/src/features/task/components/TaskGithubPanel.tsx
+  s_3341d6b4c45472::t_9e4c07356e94f3 600-603,608-612,620-622,630-634,644-647,700
+apps/web/src/features/task/lib/task-source-preference.ts
+  s_3341d6b4c45472::t_d271b7e34a24d0 1-31
+apps/web/src/features/welcome/components/WelcomeComposerFooter.tsx
+  s_3341d6b4c45472::t_22dfff7e9ac73e 13,27,45-46
+apps/web/src/features/welcome/components/WelcomePage.tsx
+  s_3341d6b4c45472::t_1b94e890355258 99-100,113,406,408-415,432-445,835,840-851,855-859,884-886,891,895-896,898-903,905,908
+apps/web/src/features/welcome/hooks/use-welcome-project-context.ts
+  s_3341d6b4c45472::t_70eabf1578ec87 26,140-154,208-213,229-283,346,351-352,362-371,376-377,384,391-395,397-406,490,499,585-586,591-667,669-770,772-784,787-803,805,808,811-812,814,817,819,822,825-826,828,832-873,876,880,885,897,900,911,914,925,935,939-943,947-948,951-952
+apps/web/src/features/welcome/lib/welcome-page-helpers.tsx
+  s_3341d6b4c45472::t_ee200cea909e47 45,182,193,224-233,425-428,433,437-441,453-466,472,480-483,487-494
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "82731d992df0554126360a4b1db0d5f7bb11e0f5",
+  "prompts": {},
+  "sessions": {
+    "s_3341d6b4c45472": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "9bd17719-bdf8-4093-b1af-7aadb5f79502",
+        "model": "grok-4.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
