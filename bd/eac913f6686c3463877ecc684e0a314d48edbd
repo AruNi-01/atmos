@@ -1,0 +1,38 @@
+apps/web/messages/en.json
+  h_5be255725524c8 1266-1269
+apps/web/messages/zh.json
+  h_5be255725524c8 1266-1269
+apps/web/src/api/query/query-keys.ts
+  h_5be255725524c8 263-268
+apps/web/src/app-shell/sidebar/WorkspaceKanbanFilterMenu.tsx
+  h_5be255725524c8 244-245
+apps/web/src/app-shell/sidebar/WorkspaceKanbanView.tsx
+  h_5be255725524c8 540,575
+apps/web/src/features/task/components/TaskGithubCreateIssueDialog.tsx
+  h_5be255725524c8 47,53,55-60,79,87,93-99,103,105,111,115,122,125,129,281,303-305,311,315
+apps/web/src/features/task/components/TaskGithubPanel.tsx
+  h_5be255725524c8 10-15,17-19,111-112,279-281,288-295,656-661,663,668,676-725,881
+apps/web/src/features/task/components/TaskLinearPanel.tsx
+  h_5be255725524c8 463-464,473
+apps/web/src/features/task/components/TaskManagementView.tsx
+  h_5be255725524c8 7-11,15,70,219,221,225-240,246,249-255,258-259,262-263,266,270,274-340
+apps/web/src/features/task/hooks/use-project-github-repos.ts
+  h_5be255725524c8 3-4,6-9,22-24,28-30,33-35,46-49,51-52,54-57,59-71,90-97,99-102
+apps/web/src/features/task/lib/load-local-github-issue-templates.ts
+  h_5be255725524c8 1-101
+packages/ui/src/components/motion/tabs.tsx
+  h_5be255725524c8 1-214
+packages/ui/src/index.ts
+  h_5be255725524c8 57-63
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "bdeac913f6686c3463877ecc684e0a314d48edbd",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
