@@ -96,6 +96,8 @@ import {
   isBranchConflictError,
   issueToBranchName,
   issueToWorkspaceName,
+  linearIssueToBranchName,
+  linearIssueToWorkspaceName,
   prToWorkspaceName,
   regeneratePokemonSuffixBranch,
   renderHeadline,
@@ -108,10 +110,8 @@ import {
   type WelcomeHeadline,
 } from "@/features/welcome/lib/welcome-page-helpers";
 import {
+  combinedExternalMeta,
   ensureWorkspaceLabelsForExternal,
-  githubIssueMeta,
-  githubPrMeta,
-  linearIssueMeta,
 } from "@/features/welcome/lib/workspace-external-meta";
 
 interface WelcomePageProps {
@@ -403,15 +403,16 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
     }
   }, [linkType]);
 
-  // Align priority / status / labels when a GitHub or Linear issue is selected.
+  // Align priority / status / labels when Linear and/or GitHub are selected (can be simultaneous).
   React.useEffect(() => {
-    const key = linearPreview
-      ? `linear:${linearPreview.id}`
-      : prPreview
-        ? `pr:${prPreview.owner}/${prPreview.repo}#${prPreview.number}`
-        : issuePreview
-          ? `issue:${issuePreview.owner}/${issuePreview.repo}#${issuePreview.number}`
-          : null;
+    const keyParts = [
+      linearPreview ? `linear:${linearPreview.id}` : null,
+      prPreview ? `pr:${prPreview.owner}/${prPreview.repo}#${prPreview.number}` : null,
+      issuePreview
+        ? `issue:${issuePreview.owner}/${issuePreview.repo}#${issuePreview.number}`
+        : null,
+    ].filter(Boolean);
+    const key = keyParts.length > 0 ? keyParts.join("+") : null;
 
     if (!key) {
       if (externalMetaSyncKeyRef.current !== null) {
@@ -428,46 +429,20 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
     let cancelled = false;
 
     const run = async () => {
-      if (linearPreview) {
-        const meta = linearIssueMeta(linearPreview);
-        setPriority(meta.priority);
-        setWorkflowStatus(meta.workflowStatus);
-        const labels = await ensureWorkspaceLabelsForExternal(
-          meta.labels,
-          workspaceLabels,
-          createWorkspaceLabel,
-          "manual",
-        );
-        if (!cancelled) setSelectedLabels(labels);
-        return;
-      }
-
-      if (prPreview) {
-        const meta = githubPrMeta(prPreview);
-        setPriority(meta.priority);
-        setWorkflowStatus(meta.workflowStatus);
-        const labels = await ensureWorkspaceLabelsForExternal(
-          meta.labels,
-          workspaceLabels,
-          createWorkspaceLabel,
-          "gitHub_pr",
-        );
-        if (!cancelled) setSelectedLabels(labels);
-        return;
-      }
-
-      if (issuePreview) {
-        const meta = githubIssueMeta(issuePreview);
-        setPriority(meta.priority);
-        setWorkflowStatus(meta.workflowStatus);
-        const labels = await ensureWorkspaceLabelsForExternal(
-          meta.labels,
-          workspaceLabels,
-          createWorkspaceLabel,
-          "gitHub_issue",
-        );
-        if (!cancelled) setSelectedLabels(labels);
-      }
+      const meta = combinedExternalMeta({
+        linear: linearPreview,
+        issue: issuePreview,
+        pr: prPreview,
+      });
+      setPriority(meta.priority);
+      setWorkflowStatus(meta.workflowStatus);
+      const labels = await ensureWorkspaceLabelsForExternal(
+        meta.labels,
+        workspaceLabels,
+        createWorkspaceLabel,
+        meta.labelSource,
+      );
+      if (!cancelled) setSelectedLabels(labels);
     };
 
     void run();
@@ -857,15 +832,31 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
         branch,
         canAutoExtractTodos,
         issuePreview,
+        linearPreview,
         name,
         prPreview,
         t: tr,
       }),
-    [autoExtractTodos, autoExtractTodosPr, baseBranch, branch, canAutoExtractTodos, issuePreview, prPreview, name, tr],
+    [
+      autoExtractTodos,
+      autoExtractTodosPr,
+      baseBranch,
+      branch,
+      canAutoExtractTodos,
+      issuePreview,
+      linearPreview,
+      prPreview,
+      name,
+      tr,
+    ],
   );
 
   const handleRegenerateBranch = () => {
-    const nextBranch = regeneratePokemonSuffixBranch(branch, issuePreview?.number);
+    const nextBranch = regeneratePokemonSuffixBranch(
+      branch,
+      issuePreview?.number,
+      linearPreview?.identifier,
+    );
     branchTouchedRef.current = true;
     setBranch(nextBranch);
     setBranchError(null);
@@ -890,34 +881,31 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
     try {
       const finalDisplayName = prPreview
         ? name.trim() || prToWorkspaceName(prPreview)
-        : name.trim() || (issuePreview ? issueToWorkspaceName(issuePreview) : "");
+        : name.trim() ||
+          (linearPreview ? linearIssueToWorkspaceName(linearPreview) : "") ||
+          (issuePreview ? issueToWorkspaceName(issuePreview) : "");
       const finalBranch = prPreview
         ? prPreview.head_ref
         : branch.trim() ||
           (!branchTouchedRef.current && generatedBranchRef.current) ||
+          (linearPreview ? linearIssueToBranchName(linearPreview) : "") ||
           (issuePreview ? issueToBranchName(issuePreview) : "");
       const finalBaseBranch = prPreview ? prPreview.base_ref || baseBranch : baseBranch;
 
-      // Labels/priority/status are prefilled when an external issue is selected.
-      // Re-resolve external labels at submit; keep any extra labels the user added.
+      // Labels/priority/status are prefilled when external issues are selected.
+      // Re-resolve external labels at submit (match Atmos / create missing); keep user extras.
       let labelsToUse = selectedLabels;
-      const externalLabels = linearPreview
-        ? linearIssueMeta(linearPreview).labels
-        : prPreview
-          ? githubPrMeta(prPreview).labels
-          : issuePreview
-            ? githubIssueMeta(issuePreview).labels
-            : null;
-      if (externalLabels && externalLabels.length > 0) {
+      const externalMeta = combinedExternalMeta({
+        linear: linearPreview,
+        issue: issuePreview,
+        pr: prPreview,
+      });
+      if (externalMeta.labels.length > 0) {
         const ensured = await ensureWorkspaceLabelsForExternal(
-          externalLabels,
+          externalMeta.labels,
           workspaceLabels,
           createWorkspaceLabel,
-          linearPreview
-            ? "manual"
-            : prPreview
-              ? "gitHub_pr"
-              : "gitHub_issue",
+          externalMeta.labelSource,
         );
         const byId = new Map(selectedLabels.map((l) => [l.id, l] as const));
         for (const label of ensured) byId.set(label.id, label);

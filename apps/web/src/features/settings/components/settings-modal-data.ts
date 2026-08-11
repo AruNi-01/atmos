@@ -427,14 +427,11 @@ const SETTINGS_SECTION_KEYWORDS: Record<SettingsSectionId, readonly string[]> = 
     "computer",
     "remote",
     "relay",
-    "access token",
-    "access key",
+    "account",
+    "sign in",
     "private relay",
     "relay url",
     "token",
-    "rotate device credential",
-    "device credential",
-    "switch identity",
     "register computer",
     "register this computer",
     "this computer",
@@ -983,17 +980,11 @@ const SETTINGS_SETTING_ITEMS: Record<SettingsSectionId, readonly SettingsSearchI
     }),
   ],
   "atmos-computer": [
-    settingsModalSearchItem("atmosComputer.accessKey", {
-      keywords: ["access token", "register new computers", "registration codes", "identity"],
+    settingsModalSearchItem("atmosComputer.accountRequired", {
+      keywords: ["sign in", "account", "hub device", "login required"],
     }),
-    settingsModalSearchItem("atmosComputer.generateAccessKey", {
-      keywords: ["create access key", "generate token"],
-    }),
-    settingsModalSearchItem("atmosComputer.saveAccessKey", {
-      keywords: ["paste access key", "switch identity", "hosted web"],
-    }),
-    settingsModalSearchItem("atmosComputer.rotateAccessToken", {
-      keywords: ["security refresh", "relay access token exposed"],
+    settingsModalSearchItem("atmosComputer.mobilePair", {
+      keywords: ["pair phone", "qr code", "mobile", "scan"],
     }),
     settingsModalSearchItem("atmosComputer.privateRelay", {
       keywords: ["self-hosted relay", "official atmos relay"],

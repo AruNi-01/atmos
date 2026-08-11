@@ -29,6 +29,7 @@ import type { GithubPrPayload } from "@/api/ws/github-api";
 import { currentAppLocale } from "@/shared/lib/current-app-locale";
 import type { SettingsModalTab } from "@/shared/lib/nuqs/searchParams";
 import { writeQuickOpenLastUsed } from "@/shared/stores/use-ui-pref-hooks";
+import { tasksPathWithStoredSource } from "@/features/task/lib/task-source-preference";
 import enMessages from "../../messages/en.json";
 import zhMessages from "../../messages/zh.json";
 import {
@@ -418,7 +419,7 @@ export function buildGlobalSearchItems({
       keywords: ["kanban", "task", "board", "workspace", "workspaces", "status", "priority", "view", "open", "github", "issue", "pr"],
       icon: <ListTodo className="size-4 text-muted-foreground" />,
       action: () => {
-        router.push("/tasks");
+        router.push(tasksPathWithStoredSource());
         setGlobalSearchOpen(false);
       },
     },

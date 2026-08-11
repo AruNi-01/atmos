@@ -10,6 +10,10 @@ export type TaskWorkspaceLinkDraft =
       number: number;
       title?: string | null;
       url?: string | null;
+      /** Issue body for New Workspace requirement prefill. */
+      body?: string | null;
+      state?: string | null;
+      labels?: Array<{ name: string; color?: string | null }>;
     }
   | {
       kind: "pr";
@@ -20,6 +24,10 @@ export type TaskWorkspaceLinkDraft =
       url?: string | null;
       head_ref?: string | null;
       base_ref?: string | null;
+      body?: string | null;
+      state?: string | null;
+      is_draft?: boolean;
+      labels?: Array<{ name: string; color?: string | null }>;
     };
 
 /** Snapshot for `linear_link_issue` after workspace create (APP-056). */

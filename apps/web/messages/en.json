@@ -229,11 +229,11 @@
       "connectErrorMessage": "Could not connect.",
       "connectErrorTitle": "Could not connect",
       "connectErrorHint": "Try again.",
-      "accessKeyRequired": "Access key required",
-      "accessKeyRequiredDescription": "Save an Atmos Computer access key before switching computers from the header.",
+      "accessKeyRequired": "Sign in required",
+      "accessKeyRequiredDescription": "Sign in under Settings → Account so this app can use your Hub device. Then switch computers from the header.",
       "openComputerSettings": "Open Computer Settings",
       "noComputers": "No computers yet",
-      "noComputersDescription": "Register this computer or add another machine with the same access key.",
+      "noComputersDescription": "Register this computer or add another machine under the same Atmos account.",
       "refresh": "Refresh",
       "addComputer": "Add Computer",
       "computerCountOne": "{count} computer",
@@ -1380,8 +1380,7 @@
         "filters": {
           "allTeams": "All teams",
           "allProjects": "All projects",
-          "searchPlaceholder": "Search title or id…",
-          "atmosProject": "Atmos project"
+          "searchPlaceholder": "Search title or id…"
         },
         "filter": {
           "trigger": "Filter",
@@ -1402,15 +1401,12 @@
           "noMatchingLabels": "No matching labels",
           "team": "Team",
           "project": "Project",
-          "atmosProject": "Atmos project",
           "allTeams": "All teams",
           "allProjects": "All projects",
           "searchTeams": "Search teams…",
           "searchProjects": "Search projects…",
-          "searchAtmosProjects": "Search Atmos projects…",
           "noMatchingTeams": "No matching teams",
           "noMatchingProjects": "No matching projects",
-          "noMatchingAtmosProjects": "No matching Atmos projects",
           "clearAll": "Clear all filters"
         },
         "search": {
@@ -1440,11 +1436,26 @@
         },
         "createWorkspace": "Create workspace from issue",
         "create": "Create",
+        "enter": "Enter",
+        "enterWorkspace": "Enter workspace",
         "linkOrCreate": "Open create with link",
         "needProject": "Select an Atmos project first.",
         "createFailed": "Failed to create workspace from Linear issue.",
         "signInRequired": "Sign in to Atmos to use Linear OAuth",
-        "signInHint": "Sign in under Account, or add a local API key under Integrations → Linear."
+        "signInHint": "Sign in under Account, or add a local API key under Integrations → Linear.",
+        "drawer": {
+          "titleFallback": "Linear issue",
+          "close": "Close",
+          "status": "Status",
+          "project": "Project",
+          "noProject": "No project",
+          "labels": "Labels",
+          "noLabels": "No labels",
+          "description": "Description",
+          "noDescription": "No description.",
+          "unassigned": "Unassigned",
+          "enterWorkspace": "Enter workspace"
+        }
       }
     }
   },
@@ -3419,6 +3430,7 @@
           "workspaceBranchTitle": "Current workspace branch: {branch}",
           "githubIssueTitle": "GitHub issue: #{number}",
           "githubPrTitle": "GitHub PR: #{number} ({branch})",
+          "linearIssueTitle": "Linear issue: {identifier} {title}",
           "autoTodosValue": "TODOs",
           "autoTodosTitle": "Auto-extract TODOs with LLM: on"
         },
@@ -4946,17 +4958,11 @@
             }
           },
           "atmosComputer": {
-            "accessKey": {
-              "label": "Device credential"
+            "accountRequired": {
+              "label": "Account required"
             },
-            "generateAccessKey": {
-              "label": "Import device credential"
-            },
-            "saveAccessKey": {
-              "label": "Save device credential"
-            },
-            "rotateAccessToken": {
-              "label": "Rotate device credential"
+            "mobilePair": {
+              "label": "Pair phone"
             },
             "privateRelay": {
               "label": "Private Relay"
@@ -6059,12 +6065,14 @@
             "complexity": "Complexity"
           }
         },
-        "reconnectOauth": "Re-authorize",
         "connecting": "Redirecting…",
         "oauthCallback": {
+          "title": "Connecting Linear",
+          "successTitle": "Linear connected",
+          "errorTitle": "Could not connect Linear",
           "loading": "Loading…",
           "working": "Finishing Linear connection…",
-          "success": "Linear connected successfully.",
+          "success": "Linear is linked to Atmos. You can close this tab.",
           "closeCountdown": "This tab will close in {seconds}s…",
           "closeNow": "Closing this tab…",
           "closeHint": "You can also close this tab yourself and return to Atmos.",
@@ -8607,21 +8615,15 @@
       "toasts": {
         "savedForSession": "Saved for this session",
         "couldNotSaveLocally": "Could not save on this computer. Ensure Atmos is running locally.",
-        "identitySwitchedForSession": "Identity switched for this session",
-        "accessKeyCreated": "Access key created",
-        "accessKeyCreatedSaved": "Saved on this computer. Copy it now - it will not be shown again.",
-        "accessKeyCreatedNotSaved": "Copy it now - could not save on this computer. Ensure Atmos is running locally.",
-        "saveAccessKeyFirst": "Save your access key first",
-        "saveAccessKeyBeforeRotation": "Rotation uses the current local access key as proof of ownership.",
-        "saveAccessKeyBeforeRegistering": "Add and save an access key before registering this computer.",
-        "saveAccessKeyBeforeConnecting": "Add and save an access key before connecting to another computer.",
-        "saveAccessKeyBeforeRemoving": "Add and save an access key before removing computers.",
+        "signInRequired": "Sign in required",
+        "signInBeforeRegistering": "Sign in under Settings → Account before registering this computer.",
+        "signInBeforeConnecting": "Sign in under Settings → Account before connecting to another computer.",
+        "signInBeforeRemoving": "Sign in under Settings → Account before removing computers.",
         "remoteConnectionRestored": "Remote connection restored",
         "computerAvailable": "This computer is available for Atmos Computer connections.",
         "couldNotConnectRelay": "Could not connect relay",
         "ensureAtmosRunningThenRetry": "Ensure Atmos is running on this computer, then try again.",
         "ensureAtmosRunning": "Ensure Atmos is running on this computer.",
-        "couldNotRotateAccessKey": "Could not rotate access key",
         "couldNotStartRegistration": "Could not start registration",
         "registeredNotYetOnline": "Registered, not yet online",
         "useReconnectAfterNetworkCheck": "Use Reconnect below after checking your network connection.",
@@ -8634,62 +8636,19 @@
         "connected": "Connected",
         "couldNotConnect": "Could not connect",
         "tryAgain": "Try again.",
-        "couldNotSaveAccessKey": "Could not save access key",
         "privateRelaySettingsSaved": "Private Relay settings saved",
-        "identitySwitchBlocked": "Identity switch blocked",
-        "couldNotStopOldRelayIdentityWithError": "Could not stop the old local Relay identity: {error}",
-        "couldNotStopOldRelayIdentity": "Could not stop the old local Relay identity. Try again.",
-        "githubAutomationsMarkSetupFailedWithError": "Old local Relay identity was stopped, but GitHub automations could not be marked for setup: {error}",
-        "githubAutomationsMarkSetupFailed": "Old local Relay identity was stopped, but GitHub automations could not be marked for setup. Try again.",
-        "identitySwitched": "Identity switched",
-        "accessKeySaved": "Access key saved",
-        "githubAutomationsNeedSetup": "{count} GitHub-triggered automation{count, plural, one {} other {s}} now need setup under this identity.",
-        "previousKeyResourcesRemain": "Existing Computers and GitHub routes from the previous key stay with that key.",
-        "accessKeyTooShort": "Access key is too short",
-        "accessKeyTooShortDescription": "Generate a new key or paste your saved one.",
-        "couldNotCopy": "Could not copy",
-        "checkClipboardPermissions": "Check clipboard permissions.",
-        "accessKeyRotated": "Access key rotated",
-        "accessKeyRotatedDescription": "Computers and GitHub routes stay on the same identity. Copy the new key now.",
-        "accessKeyRotatedNotSaved": "Relay accepted the rotation, but Atmos could not save locally. Copy the new key now.",
         "couldNotRemove": "Could not remove",
-        "computerRemoved": "Computer removed",
-        "importFromAccountHint": "No device credential in this browser. Open Settings → Account, sign in, and trust this device."
+        "computerRemoved": "Computer removed"
       },
       "panels": {
-        "accessKey": {
-          "title": "Device credential",
-          "description": "Relay uses a Hub-minted device credential (Settings → Account → Trust this device). Paste it here or import from this browser’s enroll. Computers list and register tokens use this Bearer — not a user-generated Access Token.",
-          "actions": {
-            "generate": "Generate",
-            "importFromAccount": "Import from Account"
-          },
-          "placeholders": {
-            "savedOnComputer": "Device credential is saved on this Computer",
-            "pasteOrGenerate": "Paste device credential from Account enroll",
-            "pasteDeviceCredential": "Paste Hub device credential"
-          },
-          "buttons": {
-            "copied": "Copied",
-            "copy": "Copy device credential",
-            "switchIdentity": "Switch device",
-            "save": "Save"
-          },
-          "helper": {
-            "switchIdentity": "Switching replaces the local device credential. Existing Computers stay under the same Hub user if the new credential belongs to that user.",
-            "hiddenOnHostedWeb": "A device credential is saved on this Computer. Hosted web keeps it hidden; paste a new credential only to replace it.",
-            "default": "Sign in and trust this device under Settings → Account, then import or paste the credential shown once."
-          }
+        "accountRequired": {
+          "title": "Account required",
+          "description": "Sign in under Settings → Account. Atmos mints a device credential for this install automatically — you never need to copy or paste it.",
+          "syncing": "Syncing your account device…"
         },
-        "rotateAccessToken": {
-          "title": "Rotate device credential",
-          "description": "Rotate from Settings → Account (Hub). Relay receives the new hash via Hub projection.",
-          "button": "Open Account"
-        },
-        "tokenReveal": {
-          "title": "Copy your access key now",
-          "copied": "Copied",
-          "button": "Copy and dismiss"
+        "mobilePair": {
+          "title": "Pair phone",
+          "description": "Show a temporary QR code so the Atmos mobile app can join this account without pasting a credential."
         },
         "privateRelay": {
           "title": "Private Relay",
@@ -8723,14 +8682,14 @@
           "useLocalTitle": "Use this computer locally",
           "useLocalDescription": "Switch back from the selected remote Computer to the local Desktop runtime.",
           "useLocalButton": "Use locally",
-          "saveKeyPrompt": "Save an access key above to register this computer."
+          "signInPrompt": "Sign in under Settings → Account to register this computer."
         },
         "myComputers": {
           "title": "My Computers",
           "description": "Computers linked to your account.",
           "refresh": "Refresh",
-          "saveKeyPrompt": "Save an access key to see your computers.",
-          "empty": "No computers yet. Register this computer, or add another remote computer with the same access key.",
+          "signInPrompt": "Sign in under Settings → Account to see your computers.",
+          "empty": "No computers yet. Register this computer, or add another remote computer under the same account.",
           "connected": "Connected",
           "fallbackName": "Computer",
           "current": "Current",
@@ -8836,12 +8795,22 @@
         "copyFailed": "Copy failed"
       },
       "description": {
-        "useAccessKeyFirst": "Use an access key above first.",
+        "useAccessKeyFirst": "Sign in under Settings → Account first so this install has a Hub device.",
         "preparing": "Preparing registration code…",
         "expired": "Registration code expired — generate and copy a fresh setup command.",
-        "generateAndCopy": "Generate and copy a setup command to link this remote computer to your access key above.",
+        "generateAndCopy": "Generate and copy a setup command to link this remote computer to your account.",
         "runOnRemote": "Run on the remote computer. The registration code is one-time use and expires in about 15 minutes."
       }
+    },
+    "mobilePair": {
+      "title": "Pair phone with QR",
+      "description": "Scan with the Atmos mobile app. Code expires in 3 minutes and can only be used once. No login required on the phone.",
+      "showQr": "Show QR",
+      "refresh": "New code",
+      "expiresIn": "Expires in {seconds}s",
+      "signInFirst": "Sign in under Settings → Account first.",
+      "hubNotConfigured": "Hub is not configured.",
+      "createFailed": "Could not create pair code"
     }
   },
   "tunnelConnector": {

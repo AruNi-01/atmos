@@ -10,6 +10,7 @@ import {
   Github,
   Sparkles,
 } from "lucide-react";
+import { LinearIcon } from "@workspace/ui/components/icons/linear-icon";
 import type { ComposerAttachment } from "@/features/welcome/components/AttachmentBar";
 import { ImagePreviewOverlay } from "@/shared/components/image-preview-overlay";
 import { SlashCommandPopover } from "@/features/welcome/components/SlashCommandPopover";
@@ -23,6 +24,7 @@ type SummaryItem = {
     | "workspace-branch"
     | "github-issue"
     | "github-pr"
+    | "linear-issue"
     | "auto-todos";
   value: string;
   title: string;
@@ -40,6 +42,8 @@ function SummaryIcon({ type }: { type: SummaryItem["key"] }) {
       return <Github className="size-3 shrink-0" />;
     case "github-pr":
       return <GitPullRequestArrow className="size-3 shrink-0" />;
+    case "linear-issue":
+      return <LinearIcon className="size-3 shrink-0" size={12} />;
     case "auto-todos":
       return <Sparkles className="size-3 shrink-0" />;
   }

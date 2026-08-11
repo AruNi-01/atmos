@@ -597,10 +597,19 @@ export function TaskGithubPanel({ projects, headerTrailingHost = null }: TaskGit
         return;
       }
       const projectId = projectIdForItem(item);
+      const labelDraft = (item.labels ?? []).map((l) => ({
+        name: l.name,
+        color: l.color,
+      }));
       if (kind === "issues" || item.kind === "issue") {
         openTaskWorkspaceCreate({
           projectId,
           setNewWorkspace,
+          displayName: item.title?.trim()
+            ? `[issue#${item.number}] ${item.title.trim()}`.slice(0, 120)
+            : `[issue#${item.number}]`,
+          // Keep composer empty — do not paste issue body into the prompt.
+          initialRequirement: null,
           link: {
             kind: "issue",
             owner: item.owner,
@@ -608,6 +617,9 @@ export function TaskGithubPanel({ projects, headerTrailingHost = null }: TaskGit
             number: item.number,
             title: item.title,
             url: item.url,
+            body: item.body,
+            state: item.state,
+            labels: labelDraft,
           },
         });
         return;
@@ -615,6 +627,11 @@ export function TaskGithubPanel({ projects, headerTrailingHost = null }: TaskGit
       openTaskWorkspaceCreate({
         projectId,
         setNewWorkspace,
+        displayName: item.title?.trim()
+          ? `[PR#${item.number}] ${item.title.trim()}`.slice(0, 120)
+          : `[PR#${item.number}]`,
+        // Keep composer empty — do not paste PR body into the prompt.
+        initialRequirement: null,
         link: {
           kind: "pr",
           owner: item.owner,
@@ -624,6 +641,10 @@ export function TaskGithubPanel({ projects, headerTrailingHost = null }: TaskGit
           url: item.url,
           head_ref: item.head_ref,
           base_ref: item.base_ref,
+          body: item.body,
+          state: item.state,
+          is_draft: item.is_draft,
+          labels: labelDraft,
         },
       });
     },
@@ -676,7 +697,7 @@ export function TaskGithubPanel({ projects, headerTrailingHost = null }: TaskGit
         Outer page must not scroll (overflow-hidden on this tree).
         Source Atmos/GitHub tabs live on TaskManagementView so the coss Indicator animates.
       */}
-      <div className="mx-auto flex min-h-0 w-full max-w-6xl flex-1 flex-col overflow-hidden px-6 py-3">
+      <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden px-6 py-3">
         {/* Issues/PRs · search · Filter · Sort — fixed toolbar */}
         <div className="flex min-w-0 shrink-0 items-center gap-2 pb-2">
           <div className="min-w-0 shrink-0">

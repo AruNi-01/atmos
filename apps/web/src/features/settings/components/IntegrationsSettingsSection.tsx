@@ -389,7 +389,9 @@ function LinearIntegrationCard() {
       }
       return wsLinearApi.status({ linearApiKey: null });
     },
-    staleTime: 15_000,
+    // OAuth finishes in a popup/new tab; refresh when the user returns to Settings.
+    staleTime: 5_000,
+    refetchOnWindowFocus: true,
   });
 
   const localStatusQuery = useQuery({
@@ -424,6 +426,16 @@ function LinearIntegrationCard() {
   const canConnectOauth = !needsHubLogin && hasDevice && !busy;
 
   const bumpKeys = () => setKeysVersion((v) => v + 1);
+
+  // Hub OAuth is per Atmos user_id (cross-device). New machines default selection to
+  // "none"; adopt OAuth when Hub already has it and this machine has no local key.
+  React.useEffect(() => {
+    if (!oauthConnected) return;
+    if (selection.mode === 'oauth') return;
+    if (selection.mode === 'local') return;
+    if (activeLocal) return;
+    void selectLinearOauth().then(bumpKeys);
+  }, [oauthConnected, selection.mode, activeLocal]);
 
   const connectOauth = async () => {
     setBusy(true);
@@ -573,23 +585,33 @@ function LinearIntegrationCard() {
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              {selection.mode === 'oauth' && oauthConnected ? (
+              {/* Hub OAuth is account-scoped: manage whenever Hub has a connection,
+                  even if this machine has not set selection=oauth yet.
+                  Active credential is a chip only; "Use" only when switching away from local. */}
+              {oauthConnected ? (
                 <>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    className="h-8"
-                    disabled={!canConnectOauth}
-                    onClick={() => void connectOauth()}
-                  >
-                    {t('linear.reconnectOauth')}
-                  </Button>
+                  {selection.mode === 'oauth' ? (
+                    <span className="rounded-full border border-border bg-muted/40 px-2 py-0.5 text-[11px] font-medium text-foreground">
+                      {t('linear.usingThis')}
+                    </span>
+                  ) : (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="h-8"
+                      onClick={() => {
+                        void selectLinearOauth().then(bumpKeys);
+                      }}
+                    >
+                      {t('linear.useThis')}
+                    </Button>
+                  )}
                   <Button
                     type="button"
                     size="sm"
                     variant="ghost"
-                    className="h-8"
+                    className="h-8 text-destructive hover:bg-destructive/10 hover:text-destructive"
                     disabled={busy}
                     onClick={() => void disconnectOauth()}
                   >
@@ -607,21 +629,6 @@ function LinearIntegrationCard() {
                   {busy ? t('linear.connecting') : t('linear.connectOauth')}
                 </Button>
               )}
-              {oauthConnected ? (
-                <Button
-                  type="button"
-                  size="sm"
-                  variant={selection.mode === 'oauth' ? 'secondary' : 'outline'}
-                  className="h-8"
-                  onClick={() => {
-                    void selectLinearOauth().then(bumpKeys);
-                  }}
-                >
-                  {selection.mode === 'oauth'
-                    ? t('linear.usingThis')
-                    : t('linear.useThis')}
-                </Button>
-              ) : null}
             </div>
           </div>
           {needsHubLogin || !hasDevice ? (
@@ -689,17 +696,23 @@ function LinearIntegrationCard() {
                       </p>
                     </div>
                     <div className="flex items-center gap-1.5">
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant={selected ? 'secondary' : 'outline'}
-                        className="h-7"
-                        onClick={() => {
-                          void selectLinearLocalKey(key.id).then(bumpKeys);
-                        }}
-                      >
-                        {selected ? t('linear.usingThis') : t('linear.useThis')}
-                      </Button>
+                      {selected ? (
+                        <span className="rounded-full border border-border bg-muted/40 px-2 py-0.5 text-[11px] font-medium text-foreground">
+                          {t('linear.usingThis')}
+                        </span>
+                      ) : (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          className="h-7"
+                          onClick={() => {
+                            void selectLinearLocalKey(key.id).then(bumpKeys);
+                          }}
+                        >
+                          {t('linear.useThis')}
+                        </Button>
+                      )}
                       <Button
                         type="button"
                         size="sm"

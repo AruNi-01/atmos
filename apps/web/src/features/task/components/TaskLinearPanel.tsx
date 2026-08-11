@@ -5,9 +5,9 @@ import { createPortal } from "react-dom";
 import { useTranslations } from "next-intl";
 import { useQuery } from "@tanstack/react-query";
 import { useQueryState } from "nuqs";
-import { Button, Input, Skeleton, cn } from "@workspace/ui";
+import { Button, Input, cn } from "@workspace/ui";
 import { LinearIcon } from "@workspace/ui/components/icons/linear-icon";
-import { RefreshCw, Search, Settings2, X } from "lucide-react";
+import { Loader2, RefreshCw, Search, Settings2, X } from "lucide-react";
 import type { LinearIssuePayload } from "@atmos/api-types/ws/dto/linear";
 import { wsLinearApi } from "@/api/ws/linear-api";
 import { useComputerQueryScope } from "@/api/query/query-scope";
@@ -17,13 +17,13 @@ import {
   getActiveLinearLocalKey,
   getLinearAuthSelection,
   resolveLinearCredentialSource,
+  selectLinearOauth,
 } from "@/features/settings/lib/linear-local-keys";
 import {
   hubConfigured,
   hubLinearStatus,
   hubMe,
 } from "@/api/hub-client";
-import type { Project } from "@/shared/types/domain";
 import { settingsModalParams, centerStageParams } from "@/shared/lib/nuqs/searchParams";
 import { GithubListPagination } from "@/features/github/components/GithubListPagination";
 import {
@@ -32,7 +32,23 @@ import {
   type TaskLinearFilters,
 } from "@/features/task/components/TaskLinearFilterMenu";
 import { TaskLinearTable } from "@/features/task/components/TaskLinearTable";
+import {
+  TaskLinearDrawer,
+  type TaskLinearDrawerController,
+} from "@/features/task/components/TaskLinearDrawer";
+import {
+  TaskGithubDrawerHost,
+  type TaskGithubDrawerController,
+} from "@/features/task/components/task-github-drawer/TaskGithubDrawerHost";
+import {
+  issueDrawerKey,
+  prDrawerKey,
+} from "@/features/task/components/task-github-drawer/types";
 import { openTaskWorkspaceCreate } from "@/features/task/lib/open-task-workspace-create";
+import { findLinkedWorkspaceForLinearIssue } from "@/features/task/lib/find-linked-workspace";
+import { useProjects } from "@/features/project/hooks/use-project-bootstrap-query";
+import { useAppRouter } from "@/shared/hooks/use-app-router";
+import type { LinearGithubRefPayload } from "@atmos/api-types/ws/dto/linear";
 
 const PAGE_SIZE = 20;
 
@@ -59,7 +75,6 @@ function issueToWire(issue: LinearIssuePayload) {
 }
 
 type TaskLinearPanelProps = {
-  projects: Project[];
   /**
    * Host for auth chip + refresh in the stable Task source header (parent Tabs row).
    * When set, actions are portaled there so they sit next to Atmos/GitHub/Linear tabs.
@@ -68,11 +83,17 @@ type TaskLinearPanelProps = {
 };
 
 export function TaskLinearPanel({
-  projects,
   headerTrailingHost = null,
 }: TaskLinearPanelProps) {
   const t = useTranslations("appShell.task");
+  const router = useAppRouter();
+  const projects = useProjects();
   const scope = useComputerQueryScope();
+  const drawerControllerRef = React.useRef<TaskLinearDrawerController | null>(
+    null,
+  );
+  const githubDrawerControllerRef =
+    React.useRef<TaskGithubDrawerController | null>(null);
   const [, setNewWorkspace] = useQueryState(
     "newWorkspace",
     centerStageParams.newWorkspace,
@@ -169,9 +190,25 @@ export function TaskLinearPanel({
       return wsLinearApi.status({ linearApiKey: null });
     },
     // Wait for credential cache so the first status request uses real selection.
+    // OAuth completes in another tab; refetch when the Task view is focused again.
     enabled: keysReady,
-    staleTime: 30_000,
+    staleTime: 10_000,
+    refetchOnWindowFocus: true,
   });
+
+  // Cross-device: Hub OAuth follows Atmos user_id. On a fresh machine selection is
+  // "none" — adopt OAuth when Hub already has it and no local API key is active.
+  useEffect(() => {
+    if (!keysReady) return;
+    if (!statusQuery.data?.connected) return;
+    if (statusQuery.data.auth_method && statusQuery.data.auth_method !== "oauth") {
+      return;
+    }
+    const sel = getLinearAuthSelection();
+    if (sel.mode === "oauth" || sel.mode === "local") return;
+    if (getActiveLinearLocalKey()) return;
+    void selectLinearOauth().then(() => setKeysEpoch((n) => n + 1));
+  }, [keysReady, statusQuery.data?.connected, statusQuery.data?.auth_method]);
 
   // After Settings → Integrations / Account, re-check credentials once the modal closes.
   const settingsOpenRef = React.useRef(isSettingsOpen);
@@ -342,13 +379,19 @@ export function TaskLinearPanel({
   const openCreateFromIssue = useCallback(
     (issue: LinearIssuePayload) => {
       setActionError(null);
+      const linked = findLinkedWorkspaceForLinearIssue(projects, issue.id);
+      if (linked) {
+        router.push(`/workspace?id=${linked.workspace.id}`);
+        return;
+      }
       const gh = (issue.github_refs ?? []).find(
         (r) => r.kind === "issue" || r.kind === "pull",
       );
       openTaskWorkspaceCreate({
         requireProjectPick: true,
         displayName: `${issue.identifier} ${issue.title}`.trim().slice(0, 120),
-        initialRequirement: issue.description?.trim() || null,
+        // Keep composer empty — do not paste Linear description into the prompt.
+        initialRequirement: null,
         linearIssue: issueToWire(issue),
         link: gh
           ? {
@@ -365,8 +408,56 @@ export function TaskLinearPanel({
         },
       });
     },
-    [setNewWorkspace],
+    [projects, router, setNewWorkspace],
   );
+
+  const handleOpenIssue = useCallback((issue: LinearIssuePayload) => {
+    drawerControllerRef.current?.openIssue(issue);
+  }, []);
+
+  const handleEnterWorkspace = useCallback(
+    (workspaceId: string) => {
+      router.push(`/workspace?id=${workspaceId}`);
+    },
+    [router],
+  );
+
+  const resolveLinkedWorkspaceId = useCallback(
+    (issue: LinearIssuePayload) =>
+      findLinkedWorkspaceForLinearIssue(projects, issue.id)?.workspace.id ??
+      null,
+    [projects],
+  );
+
+  /** Open linked GitHub issue/PR in Atmos Task drawer (same as GitHub tab). */
+  const handleOpenGithubRef = useCallback((ref: LinearGithubRefPayload) => {
+    const controller = githubDrawerControllerRef.current;
+    const isPr = ref.kind === "pull" || ref.kind === "pr";
+    if (!controller) {
+      if (ref.url) window.open(ref.url, "_blank", "noopener,noreferrer");
+      return;
+    }
+    if (isPr) {
+      controller.openPr({
+        kind: "pr",
+        key: prDrawerKey(ref.owner, ref.repo, ref.number),
+        owner: ref.owner,
+        repo: ref.repo,
+        prNumber: ref.number,
+        branch: "main",
+        title: null,
+      });
+      return;
+    }
+    controller.openIssue({
+      kind: "issue",
+      key: issueDrawerKey(ref.owner, ref.repo, ref.number),
+      owner: ref.owner,
+      repo: ref.repo,
+      issueNumber: ref.number,
+      title: null,
+    });
+  }, []);
 
   const headerActions = (
     <div className="flex items-center gap-1.5">
@@ -395,15 +486,13 @@ export function TaskLinearPanel({
       ? createPortal(headerActions, headerTrailingHost)
       : null;
 
+  // Auth probe only (local key hydrate + status) — not the issue list yet.
   if (authLoading) {
     return (
       <div className="flex h-full min-h-0 flex-col overflow-hidden">
         {portaledHeaderActions}
-        <div className="mx-auto w-full max-w-6xl space-y-3 px-6 py-6">
-          <Skeleton className="h-8 w-full" />
-          <Skeleton className="h-10 w-full" />
-          <Skeleton className="h-10 w-full" />
-          <Skeleton className="h-10 w-full" />
+        <div className="flex min-h-0 flex-1 items-center justify-center px-6 py-12 text-muted-foreground">
+          <Loader2 className="size-5 animate-spin" aria-label={t("linear.table.loading")} />
         </div>
       </div>
     );
@@ -467,7 +556,7 @@ export function TaskLinearPanel({
         Fixed shell: filters + pagination stay pinned; only the table body scrolls.
         Mirrors TaskGithubPanel layout.
       */}
-      <div className="mx-auto flex min-h-0 w-full max-w-6xl flex-1 flex-col overflow-hidden px-6 py-3">
+      <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden px-6 py-3">
         {/* Search · Filter — fixed toolbar */}
         <div className="flex min-w-0 shrink-0 items-center gap-2 pb-2">
           <div className="relative min-w-0 flex-1">
@@ -510,7 +599,6 @@ export function TaskLinearPanel({
               linearProjects={filterOptionsQuery.data?.projects ?? []}
               users={filterOptionsQuery.data?.users ?? []}
               labels={filterOptionsQuery.data?.labels ?? []}
-              atmosProjects={projects}
             />
           </div>
         </div>
@@ -537,7 +625,11 @@ export function TaskLinearPanel({
               bodyMessage={
                 listQuery.isError ? t("linear.loadError") : t("linear.empty")
               }
+              onOpenIssue={handleOpenIssue}
               onCreateWorkspace={openCreateFromIssue}
+              onEnterWorkspace={handleEnterWorkspace}
+              resolveLinkedWorkspaceId={resolveLinkedWorkspaceId}
+              onOpenGithubRef={handleOpenGithubRef}
             />
           </div>
 
@@ -554,6 +646,17 @@ export function TaskLinearPanel({
           </div>
         </div>
       </div>
+
+      <TaskLinearDrawer
+        controllerRef={drawerControllerRef}
+        onCreateWorkspace={openCreateFromIssue}
+        onEnterWorkspace={handleEnterWorkspace}
+        resolveLinkedWorkspaceId={resolveLinkedWorkspaceId}
+        onOpenGithubRef={handleOpenGithubRef}
+      />
+
+      {/* Same in-app GitHub detail drawer as the Task GitHub tab */}
+      <TaskGithubDrawerHost controllerRef={githubDrawerControllerRef} />
     </div>
   );
 }

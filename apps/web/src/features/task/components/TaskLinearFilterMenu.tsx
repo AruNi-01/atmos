@@ -27,7 +27,6 @@ import {
   CircleDashed,
   CircleDot,
   FolderKanban,
-  Layers,
   LayoutList,
   ListFilter,
   Tag,
@@ -35,7 +34,6 @@ import {
   Users,
   XCircle,
 } from "lucide-react";
-import type { Project } from "@/shared/types/domain";
 
 export type LinearIssuePreset = "active" | "backlog" | "all";
 
@@ -65,8 +63,6 @@ export type TaskLinearFilters = {
   labelIds: string[];
   teamId: string;
   projectId: string;
-  /** Atmos project used when creating a workspace from an issue. */
-  atmosProjectId: string;
 };
 
 export const DEFAULT_TASK_LINEAR_FILTERS: TaskLinearFilters = {
@@ -76,7 +72,6 @@ export const DEFAULT_TASK_LINEAR_FILTERS: TaskLinearFilters = {
   labelIds: [],
   teamId: "",
   projectId: "",
-  atmosProjectId: "",
 };
 
 export function getActiveTaskLinearFilterCount(filters: TaskLinearFilters) {
@@ -102,7 +97,6 @@ type TaskLinearFilterMenuProps = {
   linearProjects: ProjectOption[];
   users: UserOption[];
   labels: LabelOption[];
-  atmosProjects: Project[];
 };
 
 const PRESET_VALUES: LinearIssuePreset[] = ["active", "backlog", "all"];
@@ -140,7 +134,7 @@ function StatusTypeIcon({ type }: { type: LinearStateType }) {
 
 /**
  * Compact Filter control for the Linear task list.
- * View (Active / Backlog / All), Status (workflow state type), Team, Project, Atmos project.
+ * View (Active / Backlog / All), Status (workflow state type), Team, Linear Project.
  */
 export function TaskLinearFilterMenu({
   filters,
@@ -149,7 +143,6 @@ export function TaskLinearFilterMenu({
   linearProjects,
   users,
   labels,
-  atmosProjects,
 }: TaskLinearFilterMenuProps) {
   const t = useTranslations("appShell.task.linear");
   const [open, setOpen] = React.useState(false);
@@ -182,9 +175,6 @@ export function TaskLinearFilterMenu({
   const projectLabel = filters.projectId
     ? (linearProjects.find((p) => p.id === filters.projectId)?.name ?? filters.projectId)
     : t("filter.allProjects");
-  const atmosLabel =
-    atmosProjects.find((p) => p.id === filters.atmosProjectId)?.name ??
-    t("filter.atmosProject");
 
   const toggleStateType = (type: LinearStateType) => {
     const has = filters.stateTypes.includes(type);
@@ -526,51 +516,6 @@ export function TaskLinearFilterMenu({
             </Command>
           </DropdownMenuSubContent>
         </DropdownMenuSub>
-
-        {/* Atmos project (create-target) */}
-        {atmosProjects.length > 0 ? (
-          <DropdownMenuSub>
-            <DropdownMenuSubTrigger className="gap-2 text-xs">
-              <Layers className="size-3.5 shrink-0 text-muted-foreground" />
-              <span className="min-w-0 flex-1 truncate">{t("filter.atmosProject")}</span>
-              <span className="max-w-[5.5rem] truncate text-[10px] text-muted-foreground">
-                {atmosLabel}
-              </span>
-            </DropdownMenuSubTrigger>
-            <DropdownMenuSubContent className="w-64 p-0" sideOffset={4}>
-              <Command>
-                <CommandInput
-                  placeholder={t("filter.searchAtmosProjects")}
-                  className="h-8 text-xs"
-                />
-                <CommandEmpty className="py-4 text-xs">
-                  {t("filter.noMatchingAtmosProjects")}
-                </CommandEmpty>
-                <CommandGroup className="max-h-56 overflow-y-auto">
-                  {atmosProjects.map((project) => {
-                    const selected = filters.atmosProjectId === project.id;
-                    return (
-                      <CommandItem
-                        key={project.id}
-                        value={project.name}
-                        onSelect={() =>
-                          onFiltersChange({
-                            ...filters,
-                            atmosProjectId: project.id,
-                          })
-                        }
-                        className="gap-2 text-xs"
-                      >
-                        <span className="min-w-0 flex-1 truncate">{project.name}</span>
-                        {selected ? <Check className="size-3.5 shrink-0" /> : null}
-                      </CommandItem>
-                    );
-                  })}
-                </CommandGroup>
-              </Command>
-            </DropdownMenuSubContent>
-          </DropdownMenuSub>
-        ) : null}
 
         {activeCount > 0 ? (
           <>

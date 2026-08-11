@@ -103,6 +103,7 @@ export function normalizeLabelColor(color?: string | null): string {
  * Resolve external labels against Atmos workspace labels:
  * - match by name (case-insensitive), any source
  * - create missing labels then select
+ * - dedupe external inputs by lowercased name (first wins for color)
  */
 export async function ensureWorkspaceLabelsForExternal(
   external: ExternalLabelInput[],
@@ -116,12 +117,16 @@ export async function ensureWorkspaceLabelsForExternal(
 ): Promise<WorkspaceLabel[]> {
   const selected: WorkspaceLabel[] = [];
   const known = [...existing];
+  const seenExternal = new Set<string>();
 
   for (const ext of external) {
     const name = ext.name?.trim();
     if (!name) continue;
 
     const lower = name.toLowerCase();
+    if (seenExternal.has(lower)) continue;
+    seenExternal.add(lower);
+
     let found =
       known.find((l) => l.name.toLowerCase() === lower) ??
       selected.find((l) => l.name.toLowerCase() === lower);
@@ -146,6 +151,72 @@ export async function ensureWorkspaceLabelsForExternal(
   }
 
   return selected;
+}
+
+/** Merge label lists from Linear + GitHub (dedupe by name, first wins). */
+export function mergeExternalLabels(
+  ...groups: Array<ExternalLabelInput[] | null | undefined>
+): ExternalLabelInput[] {
+  const out: ExternalLabelInput[] = [];
+  const seen = new Set<string>();
+  for (const group of groups) {
+    for (const label of group ?? []) {
+      const name = label.name?.trim();
+      if (!name) continue;
+      const lower = name.toLowerCase();
+      if (seen.has(lower)) continue;
+      seen.add(lower);
+      out.push({ name, color: label.color });
+    }
+  }
+  return out;
+}
+
+/**
+ * Combined workspace meta when Linear and/or GitHub are bound together.
+ * Priority/status: Linear wins when present (real priority + workflow types).
+ * Labels: union of all sources (match/create later via ensureWorkspaceLabelsForExternal).
+ */
+export function combinedExternalMeta(input: {
+  linear?: LinearIssuePayload | null;
+  issue?: GithubIssuePayload | null;
+  pr?: GithubPrPayload | null;
+}): {
+  priority: WorkspacePriority;
+  workflowStatus: WorkspaceWorkflowStatus;
+  labels: ExternalLabelInput[];
+  labelSource: "manual" | "gitHub_issue" | "gitHub_pr";
+} {
+  const linear = input.linear ?? null;
+  const pr = input.pr ?? null;
+  const issue = input.issue ?? null;
+
+  const linearMeta = linear ? linearIssueMeta(linear) : null;
+  const prMeta = pr ? githubPrMeta(pr) : null;
+  const issueMeta = issue ? githubIssueMeta(issue) : null;
+
+  return {
+    priority:
+      linearMeta?.priority ??
+      prMeta?.priority ??
+      issueMeta?.priority ??
+      "no_priority",
+    workflowStatus:
+      linearMeta?.workflowStatus ??
+      prMeta?.workflowStatus ??
+      issueMeta?.workflowStatus ??
+      "in_progress",
+    labels: mergeExternalLabels(
+      linearMeta?.labels,
+      prMeta?.labels,
+      issueMeta?.labels,
+    ),
+    labelSource: linear
+      ? "manual"
+      : pr
+        ? "gitHub_pr"
+        : "gitHub_issue",
+  };
 }
 
 export function linearIssueMeta(issue: LinearIssuePayload): {

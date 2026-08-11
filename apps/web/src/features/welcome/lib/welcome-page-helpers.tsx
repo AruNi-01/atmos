@@ -42,6 +42,7 @@ export type WelcomeSummaryItem = {
     | "workspace-branch"
     | "github-issue"
     | "github-pr"
+    | "linear-issue"
     | "auto-todos";
   value: string;
   title: string;
@@ -178,6 +179,7 @@ export function buildWelcomeSummaryItems({
   branch,
   canAutoExtractTodos,
   issuePreview,
+  linearPreview,
   name,
   prPreview,
   t,
@@ -188,6 +190,7 @@ export function buildWelcomeSummaryItems({
   branch: string;
   canAutoExtractTodos: boolean;
   issuePreview: GithubIssuePayload | null;
+  linearPreview?: { identifier: string; title: string } | null;
   name: string;
   prPreview: GithubPrPayload | null;
   t: (key: string, values?: Record<string, string | number | boolean | null | undefined>) => string;
@@ -216,6 +219,16 @@ export function buildWelcomeSummaryItems({
       key: "workspace-branch",
       value: workspaceBranch,
       title: t("helpers.summary.workspaceBranchTitle", { branch: workspaceBranch }),
+    });
+  }
+  if (linearPreview?.identifier) {
+    items.push({
+      key: "linear-issue",
+      value: linearPreview.identifier,
+      title: t("helpers.summary.linearIssueTitle", {
+        identifier: linearPreview.identifier,
+        title: linearPreview.title,
+      }),
     });
   }
   if (issuePreview) {
@@ -409,13 +422,21 @@ export function flattenFileTreeToCandidates(
   return out;
 }
 
-export function issueToWorkspaceName(issue: GithubIssuePayload): string {
+export function issueToWorkspaceName(issue: {
+  number: number;
+  title: string;
+}): string {
   const title = issue.title.trim();
   return title ? `[issue#${issue.number}] ${title}` : `[issue#${issue.number}]`;
 }
 
-export function issueToBranchName(issue: GithubIssuePayload): string {
+export function issueToBranchName(issue: { number: number }): string {
   return `issue-${issue.number}-${getRandomPokemonName()}`;
+}
+
+export function prToWorkspaceName(pr: { number: number; title: string }): string {
+  const title = pr.title.trim();
+  return title ? `[PR#${pr.number}] ${title}` : `[PR#${pr.number}]`;
 }
 
 /** Display name for Linear-linked workspace (matches Task → Create prefill). */
@@ -429,14 +450,26 @@ export function linearIssueToWorkspaceName(issue: {
   return (title || id || "Linear issue").slice(0, 120);
 }
 
-export function prToWorkspaceName(pr: GithubPrPayload): string {
-  const title = pr.title.trim();
-  return title ? `[PR#${pr.number}] ${title}` : `[PR#${pr.number}]`;
+/**
+ * Branch name from a Linear issue identifier (e.g. `LAN-48` → `lan-48-pikachu`).
+ * Mirrors GitHub `issue-{n}-{pokemon}` so Create Workspace is ready without manual rename.
+ */
+export function linearIssueToBranchName(issue: {
+  identifier: string;
+}): string {
+  const slug = issue.identifier
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  const base = slug || "linear";
+  return `${base}-${getRandomPokemonName()}`;
 }
 
 export function regeneratePokemonSuffixBranch(
   branchName: string,
   issueNumber?: number,
+  linearIdentifier?: string | null,
 ): string {
   const randomPokemon = getRandomPokemonName();
 
@@ -444,9 +477,21 @@ export function regeneratePokemonSuffixBranch(
     return `issue-${issueNumber}-${randomPokemon}`;
   }
 
+  if (linearIdentifier?.trim()) {
+    return linearIssueToBranchName({ identifier: linearIdentifier });
+  }
+
   const matchedIssue = branchName.trim().match(/^issue-(\d+)(?:-.+)?$/i);
   if (matchedIssue?.[1]) {
     return `issue-${matchedIssue[1]}-${randomPokemon}`;
+  }
+
+  // Linear-style `lan-48-pikachu` → keep identifier prefix, new pokemon suffix.
+  const matchedLinear = branchName
+    .trim()
+    .match(/^([a-z][a-z0-9]*(?:-[0-9]+)+)-[a-z0-9]+$/i);
+  if (matchedLinear?.[1]) {
+    return `${matchedLinear[1].toLowerCase()}-${randomPokemon}`;
   }
 
   return branchName.trim()

@@ -14,22 +14,17 @@ import {
   cn,
 } from '@workspace/ui';
 import {
-  Check,
   ChevronDown,
   Computer,
-  Copy,
   FlaskConical,
-  KeyRound,
   Laptop,
   Link2,
   LoaderCircle,
   RotateCw,
   Server,
+  Smartphone,
   Trash2,
 } from 'lucide-react';
-import { automationApi } from '@/api/ws/automation-api';
-import { isPlausibleDeviceCredential } from '@/features/connection/lib/atmos-access-token';
-import { getStoredDeviceCredential, storeDeviceCredential } from '@/api/hub-client';
 import { getWebRelayClient } from '@/features/connection/lib/create-web-relay-client';
 import { createHostedRemoteSession } from '@/features/connection/lib/hosted-connection';
 import {
@@ -54,11 +49,13 @@ import {
   saveComputerClientSettingsToDisk,
 } from '@/features/connection/lib/sync-computer-client-settings';
 import { applyIdentityBearingComputerSettings } from '@/features/connection/lib/query-identity-lifecycle';
+import { ensureLocalHubDevice } from '@/features/connection/lib/ensure-local-hub-device';
 import {
   activeComputerRows,
   isCurrentLocalComputer,
 } from '@/features/connection/lib/computer-list';
 import { ComputerDetailsDialog } from '@/features/atmos-computer/components/ComputerDetailsDialog';
+import { MobilePairQrPanel } from '@/features/atmos-computer/components/MobilePairQrPanel';
 import { RemoteComputerSetupBlock } from '@/features/atmos-computer/components/RemoteComputerSetupBlock';
 import { clearRemoteComputerRegisterTokenCache } from '@/features/connection/lib/remote-computer-register-token-cache';
 
@@ -175,17 +172,15 @@ export function AtmosComputerSection() {
   const [listRefreshing, setListRefreshing] = useState(false);
   const [relayUrlDraft, setRelayUrlDraft] = useState(relayUrl);
   const [relaySecretDraft, setRelaySecretDraft] = useState(relaySecretKey);
-  const [tokenDraft, setTokenDraft] = useState(accessToken);
-  const [tokenCopied, setTokenCopied] = useState(false);
-  const [tokenReveal, setTokenReveal] = useState<string | null>(null);
   const [localStatus, setLocalStatus] = useState<LocalComputerStatus | null>(null);
   const [detailsComputer, setDetailsComputer] = useState<ComputerRow | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [remoteComputerExpanded, setRemoteComputerExpanded] = useState(false);
+  const [accountSyncBusy, setAccountSyncBusy] = useState(false);
   const relayAutoSyncAttemptedRef = useRef(false);
 
-  const hasBrowserKey = accessToken.trim().length >= 32;
-  const hasConfiguredKey = hasBrowserKey || accessTokenConfigured;
+  const hasConfiguredKey =
+    accessToken.trim().length >= 32 || accessTokenConfigured;
   const activeComputers = activeComputerRows(computers);
   const connectedServerId =
     connectionMode === 'relay' && relayWebSocketUrl ? selectedServerId : null;
@@ -275,10 +270,6 @@ export function AtmosComputerSection() {
   }, [refreshComputerList, t]);
 
   useEffect(() => {
-    setTokenDraft(accessToken);
-  }, [accessToken]);
-
-  useEffect(() => {
     setRelayUrlDraft(relayUrl);
   }, [relayUrl]);
 
@@ -287,16 +278,29 @@ export function AtmosComputerSection() {
   }, [relaySecretKey]);
 
   useEffect(() => {
-    setTokenCopied(false);
-  }, [tokenDraft]);
-
-  useEffect(() => {
     void hydrateComputerClientSettingsFromDisk().then(() => {
       const settings = useAtmosComputerStore.getState();
-      setTokenDraft(settings.accessToken);
       setRelayUrlDraft(settings.relayUrl);
       setRelaySecretDraft(settings.relaySecretKey);
     });
+  }, []);
+
+  /** Device credential is Hub-minted on sign-in — never shown; sync silently from Account. */
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      setAccountSyncBusy(true);
+      try {
+        await ensureLocalHubDevice();
+      } finally {
+        if (!cancelled) {
+          setAccountSyncBusy(false);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -355,37 +359,6 @@ export function AtmosComputerSection() {
     };
   }, [hasConfiguredKey, localStatus, localServerId, refreshComputerList]);
 
-  async function ensureDeviceCredentialReady(token: string): Promise<boolean> {
-    if (!isPlausibleDeviceCredential(token)) {
-      toastManager.add({
-        title: t("toasts.accessKeyTooShort"),
-        description: t("toasts.accessKeyTooShortDescription"),
-        type: 'error',
-      });
-      return false;
-    }
-    // Device credentials are Hub-minted and projected to Relay — no local /v1/tenants register.
-    return true;
-  }
-
-  async function onCopyToken() {
-    const token = tokenDraft.trim();
-    if (!token) {
-      return;
-    }
-    try {
-      await navigator.clipboard.writeText(token);
-      setTokenCopied(true);
-      window.setTimeout(() => setTokenCopied(false), 2000);
-    } catch {
-      toastManager.add({
-        title: t("toasts.couldNotCopy"),
-        description: t("toasts.checkClipboardPermissions"),
-        type: 'error',
-      });
-    }
-  }
-
   async function onSaveRelaySettings({
     successTitle = t("toasts.privateRelaySettingsSaved"),
     urlDraft = relayUrlDraft,
@@ -422,144 +395,11 @@ export function AtmosComputerSection() {
     }
   }
 
-  async function teardownLocalRelayIdentity() {
-    setLocalServerId(null);
-    setLocalStatus(prev =>
-      prev
-        ? {
-            ...prev,
-            registered: false,
-            relay_connected: false,
-            relay_last_error: null,
-            server_id: null,
-          }
-        : prev,
-    );
-    setComputers([]);
-    await activateCurrentLocalConnection().catch(() => undefined);
-  }
-
-  async function onSaveToken() {
-    setBusy('token-save');
-    try {
-      const token = tokenDraft.trim();
-      const nextUrl = resolveRelayUrl(relayUrlDraft);
-      const nextSecret = relaySecretDraft.trim();
-      const switchingIdentity = hasConfiguredKey && token !== accessToken.trim();
-      if (!(await ensureDeviceCredentialReady(token))) {
-        return;
-      }
-      let githubAutomationsMarked = 0;
-      if (switchingIdentity) {
-        try {
-          await unregisterLocalComputer();
-        } catch (err) {
-          toastManager.add({
-            title: t("toasts.identitySwitchBlocked"),
-            description:
-              err instanceof Error
-                ? t("toasts.couldNotStopOldRelayIdentityWithError", { error: err.message })
-                : t("toasts.couldNotStopOldRelayIdentity"),
-            type: 'error',
-          });
-          return;
-        }
-
-        try {
-          githubAutomationsMarked =
-            await automationApi.markActiveGithubAutomationsNeedsSetup();
-        } catch (err) {
-          await teardownLocalRelayIdentity();
-          toastManager.add({
-            title: t("toasts.identitySwitchBlocked"),
-            description:
-              err instanceof Error
-                ? t("toasts.githubAutomationsMarkSetupFailedWithError", { error: err.message })
-                : t("toasts.githubAutomationsMarkSetupFailed"),
-            type: 'error',
-          });
-          return;
-        }
-
-        await teardownLocalRelayIdentity();
-      }
-      await applyIdentityBearingComputerSettings({
-        relayUrl: nextUrl,
-        relaySecretKey: nextSecret,
-        accessToken: token,
-        accessTokenConfigured: true,
-      });
-      setTokenReveal(null);
-      try {
-        storeDeviceCredential({
-          device_id: 'local',
-          device_credential: token,
-        });
-      } catch {
-        /* ignore */
-      }
-      const persisted = await saveComputerClientSettingsToDisk(token, nextUrl, nextSecret);
-      if (!persisted) {
-        toastManager.add({
-          title: switchingIdentity ? t("toasts.identitySwitchedForSession") : t("toasts.savedForSession"),
-          description: t("toasts.couldNotSaveLocally"),
-          type: 'warning',
-        });
-      } else {
-        toastManager.add({
-          title: switchingIdentity ? t("toasts.identitySwitched") : t("toasts.accessKeySaved"),
-          description: switchingIdentity
-            ? githubAutomationsMarked > 0
-                ? t("toasts.githubAutomationsNeedSetup", { count: githubAutomationsMarked })
-                : t("toasts.previousKeyResourcesRemain")
-            : undefined,
-          type: 'success',
-        });
-      }
-      await refreshComputerListFor(token, nextUrl, nextSecret);
-    } finally {
-      setBusy(null);
-    }
-  }
-
-  async function onImportFromHubEnroll() {
-    const fromHub = getStoredDeviceCredential()?.trim() ?? '';
-    if (!isPlausibleDeviceCredential(fromHub)) {
-      toastManager.add({
-        title: t("toasts.saveAccessKeyFirst"),
-        description: t("toasts.importFromAccountHint"),
-        type: 'error',
-      });
-      return;
-    }
-    setTokenDraft(fromHub);
-    setBusy('token-save');
-    try {
-      const nextUrl = resolveRelayUrl(relayUrlDraft);
-      const nextSecret = relaySecretDraft.trim();
-      await applyIdentityBearingComputerSettings({
-        relayUrl: nextUrl,
-        relaySecretKey: nextSecret,
-        accessToken: fromHub,
-        accessTokenConfigured: true,
-      });
-      const persisted = await saveComputerClientSettingsToDisk(fromHub, nextUrl, nextSecret);
-      toastManager.add({
-        title: t("toasts.accessKeySaved"),
-        description: persisted ? undefined : t("toasts.couldNotSaveLocally"),
-        type: persisted ? 'success' : 'warning',
-      });
-      await refreshComputerListFor(fromHub, nextUrl, nextSecret);
-    } finally {
-      setBusy(null);
-    }
-  }
-
   async function onRemoteToggle(enabled: boolean) {
     if (!hasConfiguredKey) {
       toastManager.add({
-        title: t("toasts.saveAccessKeyFirst"),
-        description: t("toasts.saveAccessKeyBeforeRegistering"),
+        title: t("toasts.signInRequired"),
+        description: t("toasts.signInBeforeRegistering"),
         type: 'error',
       });
       return;
@@ -683,8 +523,8 @@ export function AtmosComputerSection() {
     }
     if (!hasConfiguredKey) {
       toastManager.add({
-        title: t("toasts.saveAccessKeyFirst"),
-        description: t("toasts.saveAccessKeyBeforeConnecting"),
+        title: t("toasts.signInRequired"),
+        description: t("toasts.signInBeforeConnecting"),
         type: 'error',
       });
       return;
@@ -708,8 +548,8 @@ export function AtmosComputerSection() {
   async function onRemove(serverId: string) {
     if (!hasConfiguredKey) {
       toastManager.add({
-        title: t("toasts.saveAccessKeyFirst"),
-        description: t("toasts.saveAccessKeyBeforeRemoving"),
+        title: t("toasts.signInRequired"),
+        description: t("toasts.signInBeforeRemoving"),
         type: 'error',
       });
       return;
@@ -756,17 +596,10 @@ export function AtmosComputerSection() {
     localStatus?.computer_name?.trim() ||
     localStatus?.hostname?.replace(/\.local$/i, '') ||
     t("fallbacks.thisComputer");
-  const tokenDraftTrimmed = tokenDraft.trim();
-  const tokenDraftChanged = tokenDraftTrimmed !== accessToken.trim();
   const relayUrlDraftResolved = resolveRelayUrl(relayUrlDraft);
   const relaySecretDraftTrimmed = relaySecretDraft.trim();
   const relayUrlChanged = relayUrlDraftResolved !== resolveRelayUrl(relayUrl);
   const relaySecretChanged = relaySecretDraftTrimmed !== relaySecretKey.trim();
-  const isSwitchingIdentity =
-    hasConfiguredKey && Boolean(tokenDraftTrimmed) && (!hasBrowserKey || tokenDraftChanged);
-  const canSaveTokenDraft =
-    Boolean(tokenDraftTrimmed) && (!hasConfiguredKey || !hasBrowserKey || tokenDraftChanged);
-  const keyHiddenOnHostedWeb = hasConfiguredKey && !hasBrowserKey;
 
   return (
     <div className="space-y-4">
@@ -780,187 +613,25 @@ export function AtmosComputerSection() {
         </div>
       </div>
 
-      <SettingsBlock
-        title={t("panels.accessKey.title")}
-        icon={<KeyRound className="size-5" />}
-        description={t("panels.accessKey.description")}
-        headerAction={
-          !hasConfiguredKey ? (
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={busy !== null}
-              onClick={() => void onImportFromHubEnroll()}
-            >
-              {busy === 'token-save' ? (
-                <LoaderCircle className="mr-2 size-4 animate-spin" />
-              ) : null}
-              {t("panels.accessKey.actions.importFromAccount")}
-            </Button>
-          ) : null
-        }
-      >
-        <div className="space-y-3">
-          <div className="flex items-center gap-3">
-            <div className="relative min-w-0 flex-1">
-              <Input
-                type="password"
-                autoComplete="off"
-                value={tokenDraft}
-                onChange={e => setTokenDraft(e.target.value)}
-                placeholder={
-                  keyHiddenOnHostedWeb
-                    ? t("panels.accessKey.placeholders.savedOnComputer")
-                    : t("panels.accessKey.placeholders.pasteDeviceCredential")
-                }
-                className={keyHiddenOnHostedWeb ? undefined : 'pr-10'}
-              />
-              {keyHiddenOnHostedWeb ? null : (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="absolute right-0.5 top-1/2 size-8 -translate-y-1/2"
-                  disabled={busy !== null || !tokenDraft.trim()}
-                  onClick={() => void onCopyToken()}
-                  title={tokenCopied ? t("panels.accessKey.buttons.copied") : t("panels.accessKey.buttons.copy")}
-                  aria-label={tokenCopied ? t("panels.accessKey.buttons.copied") : t("panels.accessKey.buttons.copy")}
-                >
-                  {tokenCopied ? (
-                    <Check className="size-4 text-emerald-500" />
-                  ) : (
-                    <Copy className="size-4" />
-                  )}
-                </Button>
-              )}
-            </div>
-            <Button
-              type="button"
-              variant={isSwitchingIdentity ? 'secondary' : 'ghost'}
-              className="shrink-0 px-3"
-              disabled={busy !== null || !canSaveTokenDraft}
-              onClick={() => void onSaveToken()}
-            >
-              {busy === 'token-save' ? (
-                <LoaderCircle className="size-4 animate-spin" />
-              ) : isSwitchingIdentity ? (
-                t("panels.accessKey.buttons.switchIdentity")
-              ) : (
-                t("panels.accessKey.buttons.save")
-              )}
-            </Button>
-          </div>
-          {isSwitchingIdentity || keyHiddenOnHostedWeb || !hasConfiguredKey ? (
-            <p className="text-xs leading-5 text-muted-foreground">
-              {isSwitchingIdentity
-                ? t("panels.accessKey.helper.switchIdentity")
-                : keyHiddenOnHostedWeb
-                  ? t("panels.accessKey.helper.hiddenOnHostedWeb")
-                  : t("panels.accessKey.helper.default")}
-            </p>
-          ) : null}
+      {!hasConfiguredKey ? (
+        <div className="overflow-hidden rounded-2xl border border-border bg-muted/15 px-6 py-5">
+          <p className="text-sm font-medium text-foreground">{t("panels.accountRequired.title")}</p>
+          <p className="mt-2 text-sm leading-6 text-muted-foreground">
+            {accountSyncBusy
+              ? t("panels.accountRequired.syncing")
+              : t("panels.accountRequired.description")}
+          </p>
         </div>
-        {tokenReveal ? (
-          <div className="space-y-2 rounded-xl border border-amber-500/35 bg-amber-500/10 px-4 py-3">
-            <p className="text-sm font-medium">{t("panels.tokenReveal.title")}</p>
-            <pre className="overflow-x-auto break-all rounded-lg bg-background/60 px-3 py-2 font-mono text-xs">
-              {tokenReveal}
-            </pre>
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={() => {
-                void navigator.clipboard.writeText(tokenReveal);
-                setTokenReveal(null);
-                toastManager.add({ title: t("panels.tokenReveal.copied"), type: 'success' });
-              }}
-            >
-              <Copy className="mr-2 size-4" />
-              {t("panels.tokenReveal.button")}
-            </Button>
-          </div>
-        ) : null}
-      </SettingsBlock>
+      ) : null}
 
       <SettingsBlock
-        title={t("panels.privateRelay.title")}
-        icon={<Link2 className="size-5" />}
-        description={t("panels.privateRelay.description")}
+        title={t("panels.mobilePair.title")}
+        icon={<Smartphone className="size-5" />}
+        description={t("panels.mobilePair.description")}
         collapsible
         defaultOpen={false}
       >
-        <div className="flex flex-col gap-4">
-          <div className="flex flex-col gap-2">
-            <label className="text-sm font-medium text-muted-foreground" htmlFor="private-relay-url">
-              {t("panels.privateRelay.urlLabel")}
-            </label>
-            <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
-              <Input
-                id="private-relay-url"
-                value={relayUrlDraft}
-                onChange={e => setRelayUrlDraft(e.target.value)}
-                placeholder={t("panels.privateRelay.urlPlaceholder")}
-                autoComplete="off"
-              />
-              <Button
-                type="button"
-                variant="outline"
-                className="shrink-0"
-                disabled={busy !== null || !relayUrlChanged}
-                onClick={() =>
-                  void onSaveRelaySettings({
-                    successTitle: t("panels.privateRelay.urlSaved"),
-                    urlDraft: relayUrlDraft,
-                    secretDraft: relaySecretKey,
-                  })
-                }
-              >
-                {busy === 'relay-settings' ? (
-                  <LoaderCircle className="mr-2 size-4 animate-spin" />
-                ) : null}
-                {t("panels.privateRelay.save")}
-              </Button>
-            </div>
-          </div>
-          <div className="flex flex-col gap-2">
-            <label className="text-sm font-medium text-muted-foreground" htmlFor="private-relay-token">
-              {t("panels.privateRelay.tokenLabel")}
-            </label>
-            <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
-              <Input
-                id="private-relay-token"
-                type="password"
-                value={relaySecretDraft}
-                onChange={e => setRelaySecretDraft(e.target.value)}
-                placeholder={t("panels.privateRelay.tokenPlaceholder")}
-                autoComplete="off"
-              />
-              <Button
-                type="button"
-                variant="outline"
-                className="shrink-0"
-                disabled={busy !== null || !relaySecretChanged}
-                onClick={() =>
-                  void onSaveRelaySettings({
-                    successTitle: t("panels.privateRelay.tokenSaved"),
-                    urlDraft: relayUrl,
-                    secretDraft: relaySecretDraft,
-                  })
-                }
-              >
-                {busy === 'relay-settings' ? (
-                  <LoaderCircle className="mr-2 size-4 animate-spin" />
-                ) : null}
-                {t("panels.privateRelay.save")}
-              </Button>
-            </div>
-          </div>
-        </div>
-        <p className="text-xs leading-5 text-muted-foreground">
-          {t("panels.privateRelay.footerPrefix")}{' '}
-          <code className="rounded bg-muted px-1.5 py-0.5">RELAY_SECRET_KEY</code>{' '}
-          {t("panels.privateRelay.footerSuffix")}
-        </p>
+        <MobilePairQrPanel enabled={hasConfiguredKey} />
       </SettingsBlock>
 
       <Collapsible
@@ -1082,7 +753,7 @@ export function AtmosComputerSection() {
               </div>
             ) : null}
             {!hasConfiguredKey ? (
-              <p className="text-xs text-muted-foreground">{t("panels.thisComputer.saveKeyPrompt")}</p>
+              <p className="text-xs text-muted-foreground">{t("panels.thisComputer.signInPrompt")}</p>
             ) : null}
         </div>
       </SettingsBlock>
@@ -1104,7 +775,7 @@ export function AtmosComputerSection() {
         }
       >
         {!hasConfiguredKey ? (
-          <p className="text-sm text-muted-foreground">{t("panels.myComputers.saveKeyPrompt")}</p>
+          <p className="text-sm text-muted-foreground">{t("panels.myComputers.signInPrompt")}</p>
         ) : activeComputers.length === 0 ? (
           <p className="text-sm text-muted-foreground">
             {t("panels.myComputers.empty")}
@@ -1214,6 +885,87 @@ export function AtmosComputerSection() {
             })}
           </ul>
         )}
+      </SettingsBlock>
+
+      <SettingsBlock
+        title={t("panels.privateRelay.title")}
+        icon={<Link2 className="size-5" />}
+        description={t("panels.privateRelay.description")}
+        collapsible
+        defaultOpen={false}
+      >
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-2">
+            <label className="text-sm font-medium text-muted-foreground" htmlFor="private-relay-url">
+              {t("panels.privateRelay.urlLabel")}
+            </label>
+            <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
+              <Input
+                id="private-relay-url"
+                value={relayUrlDraft}
+                onChange={e => setRelayUrlDraft(e.target.value)}
+                placeholder={t("panels.privateRelay.urlPlaceholder")}
+                autoComplete="off"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                className="shrink-0"
+                disabled={busy !== null || !relayUrlChanged}
+                onClick={() =>
+                  void onSaveRelaySettings({
+                    successTitle: t("panels.privateRelay.urlSaved"),
+                    urlDraft: relayUrlDraft,
+                    secretDraft: relaySecretKey,
+                  })
+                }
+              >
+                {busy === 'relay-settings' ? (
+                  <LoaderCircle className="mr-2 size-4 animate-spin" />
+                ) : null}
+                {t("panels.privateRelay.save")}
+              </Button>
+            </div>
+          </div>
+          <div className="flex flex-col gap-2">
+            <label className="text-sm font-medium text-muted-foreground" htmlFor="private-relay-token">
+              {t("panels.privateRelay.tokenLabel")}
+            </label>
+            <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
+              <Input
+                id="private-relay-token"
+                type="password"
+                value={relaySecretDraft}
+                onChange={e => setRelaySecretDraft(e.target.value)}
+                placeholder={t("panels.privateRelay.tokenPlaceholder")}
+                autoComplete="off"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                className="shrink-0"
+                disabled={busy !== null || !relaySecretChanged}
+                onClick={() =>
+                  void onSaveRelaySettings({
+                    successTitle: t("panels.privateRelay.tokenSaved"),
+                    urlDraft: relayUrl,
+                    secretDraft: relaySecretDraft,
+                  })
+                }
+              >
+                {busy === 'relay-settings' ? (
+                  <LoaderCircle className="mr-2 size-4 animate-spin" />
+                ) : null}
+                {t("panels.privateRelay.save")}
+              </Button>
+            </div>
+          </div>
+        </div>
+        <p className="text-xs leading-5 text-muted-foreground">
+          {t("panels.privateRelay.footerPrefix")}{' '}
+          <code className="rounded bg-muted px-1.5 py-0.5">RELAY_SECRET_KEY</code>{' '}
+          {t("panels.privateRelay.footerSuffix")}
+        </p>
       </SettingsBlock>
 
       <ComputerDetailsDialog

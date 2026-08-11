@@ -59,10 +59,12 @@ export async function openHubOAuth(opts: {
   // Sign-in on desktop: finish on Hub → mint device + bounce to local bridge.
   // Link (any surface) / web sign-in: done page so the OAuth tab can notify + close.
   // Do NOT send link through desktop-auth/complete (that would mint another device).
+  // `provider` query is cosmetic for the callback chrome (logos); Hub appends `code` on top.
+  const providerQuery = `provider=${encodeURIComponent(opts.provider)}`;
   const callbackURL =
     desktop && opts.mode === "sign-in"
-      ? `${hub}/v1/desktop-auth/complete?return_to=${encodeURIComponent(`${origin}${HUB_AUTH_BRIDGE_PATH}`)}`
-      : `${origin}${HUB_AUTH_DONE_PATH}`;
+      ? `${hub}/v1/desktop-auth/complete?return_to=${encodeURIComponent(`${origin}${HUB_AUTH_BRIDGE_PATH}?${providerQuery}`)}`
+      : `${origin}${HUB_AUTH_DONE_PATH}?${providerQuery}`;
 
   let linkTicket: string | undefined;
   if (opts.mode === "link") {

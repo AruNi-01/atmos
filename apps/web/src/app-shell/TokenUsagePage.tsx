@@ -88,6 +88,90 @@ const TOKEN_USAGE_LOADING_TIP_KEYS = [
 
 const TOKEN_USAGE_LOADING_TIP_INTERVAL_MS = 2800;
 
+const CYCLE_EASE = [0.22, 1, 0.36, 1] as const;
+const CYCLE_TRANSITION = { duration: 0.2, ease: CYCLE_EASE } as const;
+
+/**
+ * Click-to-cycle toolbar control (Tokens↔Cost, Agent↔Model).
+ * Plain button + short opacity/y crossfade — no layout thrash.
+ */
+function TokenUsageCycleButton({
+  value,
+  options,
+  onValueChange,
+  className,
+}: {
+  value: string;
+  options: ReadonlyArray<{
+    id: string;
+    label: string;
+    icon: React.ReactNode;
+  }>;
+  onValueChange: (next: string) => void;
+  className?: string;
+}) {
+  const index = Math.max(
+    0,
+    options.findIndex((item) => item.id === value),
+  );
+  const active = options[index] ?? options[0];
+  if (!active) return null;
+  const next = options[(index + 1) % options.length] ?? active;
+
+  return (
+    <button
+      type="button"
+      aria-label={active.label}
+      className={cn(
+        "inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full px-2.5 text-xs font-medium leading-none text-foreground",
+        "border-0 bg-transparent shadow-none hover:bg-primary/5 active:scale-[0.98]",
+        className,
+      )}
+      onClick={() => {
+        if (next.id !== active.id) onValueChange(next.id);
+      }}
+    >
+      <span className="relative size-4 shrink-0">
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.span
+            key={active.id}
+            initial={{ opacity: 0, y: 5 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -5 }}
+            transition={CYCLE_TRANSITION}
+            className="absolute inset-0 flex items-center justify-center"
+          >
+            {active.icon}
+          </motion.span>
+        </AnimatePresence>
+      </span>
+      <span className="relative inline-grid overflow-hidden leading-none">
+        {/* Invisible sizer keeps width stable for the longest option while
+            the visible label crossfades on top — no toolbar reflow. */}
+        <span className="invisible col-start-1 row-start-1 whitespace-nowrap" aria-hidden>
+          {options.reduce(
+            (longest, item) =>
+              item.label.length > longest.length ? item.label : longest,
+            "",
+          )}
+        </span>
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.span
+            key={active.id}
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -6 }}
+            transition={CYCLE_TRANSITION}
+            className="col-start-1 row-start-1 whitespace-nowrap"
+          >
+            {active.label}
+          </motion.span>
+        </AnimatePresence>
+      </span>
+    </button>
+  );
+}
+
 function shuffleCopy<T>(items: readonly T[]): T[] {
   const next = [...items];
   for (let i = next.length - 1; i > 0; i -= 1) {
@@ -311,6 +395,38 @@ export function TokenUsagePage() {
   const { resolvedTheme } = useTheme();
   const ditherTheme: DitherTheme = resolvedTheme === "light" ? "light" : "dark";
   const isDark = ditherTheme === "dark";
+
+  const metricCycleOptions = React.useMemo(
+    () => [
+      {
+        id: "tokens",
+        label: t("metric.tokens"),
+        icon: <Hash className="size-4" aria-hidden />,
+      },
+      {
+        id: "cost",
+        label: t("metric.cost"),
+        icon: <DollarSign className="size-4" aria-hidden />,
+      },
+    ],
+    [t],
+  );
+
+  const dimensionCycleOptions = React.useMemo(
+    () => [
+      {
+        id: "agent",
+        label: t("dimension.agent"),
+        icon: <Bot className="size-4" aria-hidden />,
+      },
+      {
+        id: "model",
+        label: t("dimension.model"),
+        icon: <Cpu className="size-4" aria-hidden />,
+      },
+    ],
+    [t],
+  );
 
   // Overview is all-time totals; year only filters the heatmap client-side.
   const tokenUsageQuery = useTokenUsageQuery({ year: null });
@@ -620,61 +736,29 @@ export function TokenUsagePage() {
         </div>
       ) : (
         <div className="relative z-[1] min-h-0 flex-1 overflow-y-auto overscroll-contain">
-          <div className="mx-auto flex w-full max-w-[1100px] flex-col gap-4 px-4 py-4 sm:px-5 sm:py-5">
+          {/* gap-2 keeps toolbar tight to content; capture uses pt-0 so we don't
+              stack gap + padding into a large empty band under the controls. */}
+          <div className="mx-auto flex w-full max-w-[1100px] flex-col gap-2 px-4 py-4 sm:px-5 sm:py-5">
             {/* Toolbar — excluded from share screenshots */}
             <div
-              className="flex flex-wrap items-center gap-x-3 gap-y-2"
+              className="flex h-8 flex-nowrap items-center gap-x-1"
               {...{ ["data-token-usage-share-exclude"]: "" }}
             >
-              <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2">
-                <TabsSubtle
-                  activeLabel
-                  idPrefix="token-usage-metric"
-                  selectedIndex={metric === "tokens" ? 0 : 1}
-                  onSelect={(index) => {
-                    setMetric(index === 0 ? "tokens" : "cost");
+              <div className="flex min-w-0 flex-nowrap items-center gap-x-0.5">
+                <TokenUsageCycleButton
+                  value={metric}
+                  options={metricCycleOptions}
+                  onValueChange={(next) => {
+                    if (next === "tokens" || next === "cost") setMetric(next);
                   }}
-                  className="min-w-0"
-                >
-                  <TabsSubtleItem
-                    index={0}
-                    icon={Hash}
-                    label={t("metric.tokens")}
-                  />
-                  <TabsSubtleItem
-                    index={1}
-                    icon={DollarSign}
-                    label={t("metric.cost")}
-                  />
-                </TabsSubtle>
-                <div
-                  className={cn(
-                    "h-4 w-px shrink-0 self-center",
-                    isDark ? "bg-white/15" : "bg-black/15",
-                  )}
-                  role="separator"
-                  aria-hidden
                 />
-                <TabsSubtle
-                  activeLabel
-                  idPrefix="token-usage-dimension"
-                  selectedIndex={dimension === "agent" ? 0 : 1}
-                  onSelect={(index) => {
-                    setDimension(index === 0 ? "agent" : "model");
+                <TokenUsageCycleButton
+                  value={dimension}
+                  options={dimensionCycleOptions}
+                  onValueChange={(next) => {
+                    if (next === "agent" || next === "model") setDimension(next);
                   }}
-                  className="min-w-0"
-                >
-                  <TabsSubtleItem
-                    index={0}
-                    icon={Bot}
-                    label={t("dimension.agent")}
-                  />
-                  <TabsSubtleItem
-                    index={1}
-                    icon={Cpu}
-                    label={t("dimension.model")}
-                  />
-                </TabsSubtle>
+                />
               </div>
               <div className="ml-auto shrink-0">
                 <TokenUsageSharePopover
@@ -688,10 +772,15 @@ export function TokenUsagePage() {
               </div>
             </div>
 
-            {/* Capture target: overview body only (no tabs / share chrome). */}
+            {/* Capture target: overview body only (no tabs / share chrome).
+                No top padding — toolbar gap is enough; share card still has
+                horizontal + bottom padding. */}
             <div
               ref={captureTargetRef}
-              className={cn("box-border flex w-full flex-col gap-4 p-4 sm:p-5", shell)}
+              className={cn(
+                "box-border flex w-full flex-col gap-4 px-1 pb-4 pt-0 sm:px-2 sm:pb-5",
+                shell,
+              )}
             >
               {error ? (
                 <div className="flex items-center gap-3 rounded-2xl border border-destructive/30 bg-destructive/10 px-4 py-4">
@@ -909,10 +998,12 @@ function OverviewTab({
                 {rangeLabel}
               </div>
             </div>
-            <div className="mt-1 text-4xl font-semibold tracking-tight tabular-nums sm:text-5xl">
+            <div className="mt-1 text-4xl font-semibold leading-none tracking-tight tabular-nums sm:text-5xl">
               {loading ? (
                 "—"
               ) : (
+                // Stable tree: never remount SlidingMetric on metric toggle so
+                // digit springs can morph tokens ↔ cost mantissas.
                 <SlidingMetric
                   {...(metric === "cost"
                     ? currencySlidingParts(heroValue, locale, "compact")

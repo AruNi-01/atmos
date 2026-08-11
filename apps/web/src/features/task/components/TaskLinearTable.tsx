@@ -3,212 +3,25 @@
 import React from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { Button, cn } from "@workspace/ui";
-import {
-  CheckCircle2,
-  Circle,
-  CircleDashed,
-  CircleDot,
-  Github,
-  Loader2,
-  Rocket,
-  XCircle,
-} from "lucide-react";
+import { ArrowRight, Github, Loader2, Rocket } from "lucide-react";
 import { format } from "date-fns";
 import { enUS, zhCN } from "date-fns/locale";
-import type { LinearIssuePayload } from "@atmos/api-types/ws/dto/linear";
+import type {
+  LinearGithubRefPayload,
+  LinearIssuePayload,
+} from "@atmos/api-types/ws/dto/linear";
+import {
+  LinearAssigneeAvatar,
+  LinearLabelChip,
+  LinearPriorityMark,
+  LinearStatusIcon,
+} from "@/features/task/components/task-linear-visuals";
 
 export type TaskLinearTableBodyState =
   | "ready"
   | "loading"
   | "empty"
   | "error";
-
-/**
- * Priority cell: Linear 0 = no priority.
- * Fixed min-width + nowrap so "---" never wraps to "--" / "-".
- */
-function PriorityMark({ priority }: { priority: number }) {
-  const t = useTranslations("appShell.task.linear");
-  if (!priority || priority <= 0) {
-    return (
-      <span
-        className="inline-block min-w-[1.75rem] shrink-0 whitespace-nowrap text-center text-[11px] leading-none tracking-tight text-muted-foreground"
-        title={t("table.noPriority")}
-      >
-        ---
-      </span>
-    );
-  }
-  // Linear: 1 urgent · 2 high · 3 medium · 4 low
-  const tone =
-    priority === 1
-      ? "text-orange-500"
-      : priority === 2
-        ? "text-amber-500"
-        : priority === 3
-          ? "text-yellow-600 dark:text-yellow-500"
-          : "text-muted-foreground";
-  const label =
-    priority === 1
-      ? t("priority.urgent")
-      : priority === 2
-        ? t("priority.high")
-        : priority === 3
-          ? t("priority.medium")
-          : t("priority.low");
-  return (
-    <span
-      className={cn(
-        "inline-block min-w-[1.75rem] shrink-0 whitespace-nowrap text-center text-xs font-semibold leading-none",
-        tone,
-      )}
-      title={label}
-    >
-      {priority === 1 ? "!!" : "!"}
-    </span>
-  );
-}
-
-/**
- * Linear workflow state type → icon (status lives as the icon before the title,
- * not as a text badge under the row — matches Linear list UI).
- *
- * Types: backlog | unstarted | started | completed | canceled
- */
-function LinearStatusIcon({
-  stateType,
-  stateName,
-}: {
-  stateType?: string | null;
-  stateName?: string | null;
-}) {
-  const type = (stateType ?? "").toLowerCase();
-  const name = (stateName ?? "").toLowerCase();
-  const title = stateName?.trim() || stateType?.trim() || "Status";
-  const base = "size-3.5 shrink-0";
-
-  const icon = (() => {
-    if (type === "completed" || name === "done") {
-      return <CheckCircle2 className={cn(base, "text-indigo-400")} aria-hidden />;
-    }
-    if (
-      type === "canceled" ||
-      name.includes("cancel") ||
-      name.includes("duplicate")
-    ) {
-      return (
-        <XCircle
-          className={cn(base, "text-muted-foreground/70")}
-          aria-hidden
-        />
-      );
-    }
-    if (type === "started") {
-      // In Review is still type=started in Linear; use green ring like Linear.
-      if (name.includes("review")) {
-        return (
-          <CircleDot className={cn(base, "text-emerald-500")} aria-hidden />
-        );
-      }
-      // In Progress — yellow partial circle (Linear-like).
-      return (
-        <span className="relative inline-flex size-3.5 shrink-0 items-center justify-center">
-          <span className="absolute inset-0 rounded-full border-[1.5px] border-yellow-500/90" />
-          <span
-            className="absolute inset-0 overflow-hidden rounded-full"
-            style={{ clipPath: "inset(0 50% 0 0)" }}
-          >
-            <span className="absolute inset-0 rounded-full bg-yellow-500/90" />
-          </span>
-        </span>
-      );
-    }
-    if (type === "backlog") {
-      return (
-        <CircleDashed className={cn(base, "text-muted-foreground")} aria-hidden />
-      );
-    }
-    // unstarted / Todo / default
-    return <Circle className={cn(base, "text-muted-foreground")} aria-hidden />;
-  })();
-
-  return (
-    <span className="inline-flex shrink-0" title={title} aria-label={title}>
-      {icon}
-    </span>
-  );
-}
-
-function LabelChip({
-  name,
-  color,
-}: {
-  name: string;
-  color?: string | null;
-}) {
-  const raw = color?.trim() ?? "";
-  const hex = raw
-    ? raw.startsWith("#")
-      ? raw
-      : `#${raw}`
-    : null;
-  return (
-    <span
-      className={cn(
-        "inline-flex max-w-[5.5rem] shrink-0 truncate rounded-full px-1.5 py-px text-[10px] font-medium",
-        !hex && "border border-border/60 bg-muted/40 text-muted-foreground",
-      )}
-      style={
-        hex
-          ? {
-              backgroundColor: `${hex}26`,
-              color: hex,
-              boxShadow: `inset 0 0 0 1px ${hex}40`,
-            }
-          : undefined
-      }
-      title={name}
-    >
-      {name}
-    </span>
-  );
-}
-
-function AssigneeAvatar({
-  name,
-  avatarUrl,
-}: {
-  name?: string | null;
-  avatarUrl?: string | null;
-}) {
-  if (!name && !avatarUrl) {
-    return (
-      <span
-        className="inline-flex size-5 shrink-0 items-center justify-center rounded-full border border-dashed border-border/60 text-[10px] text-muted-foreground/50"
-        aria-hidden
-      />
-    );
-  }
-  if (avatarUrl) {
-    return (
-      // eslint-disable-next-line @next/next/no-img-element
-      <img
-        src={avatarUrl}
-        alt={name ?? ""}
-        title={name ?? undefined}
-        className="size-5 shrink-0 rounded-full border border-border/50 object-cover"
-      />
-    );
-  }
-  return (
-    <span
-      title={name ?? undefined}
-      className="inline-flex size-5 shrink-0 items-center justify-center rounded-full bg-muted text-[10px] font-medium text-muted-foreground"
-    >
-      {(name ?? "?").slice(0, 1).toUpperCase()}
-    </span>
-  );
-}
 
 function formatShortDate(
   iso: string | null | undefined,
@@ -230,7 +43,11 @@ type TaskLinearTableProps = {
   /** Keep the table chrome mounted; only the body region changes. */
   bodyState?: TaskLinearTableBodyState;
   bodyMessage?: string;
+  onOpenIssue?: (issue: LinearIssuePayload) => void;
   onCreateWorkspace: (issue: LinearIssuePayload) => void;
+  onEnterWorkspace?: (workspaceId: string) => void;
+  resolveLinkedWorkspaceId?: (issue: LinearIssuePayload) => string | null;
+  onOpenGithubRef?: (ref: LinearGithubRefPayload) => void;
 };
 
 /**
@@ -242,7 +59,11 @@ export function TaskLinearTable({
   busyId,
   bodyState = "ready",
   bodyMessage,
+  onOpenIssue,
   onCreateWorkspace,
+  onEnterWorkspace,
+  resolveLinkedWorkspaceId,
+  onOpenGithubRef,
 }: TaskLinearTableProps) {
   const t = useTranslations("appShell.task.linear");
   const locale = useLocale();
@@ -304,12 +125,28 @@ export function TaskLinearTable({
           const updatedLabel = formatShortDate(issue.updated_at, locale);
           const labels = issue.labels ?? [];
           const githubRefs = issue.github_refs ?? [];
+          const linkedWorkspaceId = resolveLinkedWorkspaceId?.(issue) ?? null;
 
           return (
             <li key={issue.id}>
-              <div className="group flex min-w-0 items-center gap-2.5 px-3 py-2 transition-colors hover:bg-muted/40">
+              <div
+                role={onOpenIssue ? "button" : undefined}
+                tabIndex={onOpenIssue ? 0 : undefined}
+                className={cn(
+                  "group flex min-w-0 items-center gap-2.5 px-3 py-2 transition-colors hover:bg-muted/40",
+                  onOpenIssue && "cursor-pointer",
+                )}
+                onClick={() => onOpenIssue?.(issue)}
+                onKeyDown={(event) => {
+                  if (!onOpenIssue) return;
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    onOpenIssue(issue);
+                  }
+                }}
+              >
                 <div className={cn(priorityColClass, "flex justify-center")}>
-                  <PriorityMark priority={issue.priority} />
+                  <LinearPriorityMark priority={issue.priority} />
                 </div>
 
                 {/*
@@ -343,10 +180,11 @@ export function TaskLinearTable({
                   {(labels.length > 0 || githubRefs.length > 0) && (
                     <div className="flex shrink-0 items-center gap-1">
                       {labels.slice(0, 3).map((label) => (
-                        <LabelChip
+                        <LinearLabelChip
                           key={label.name}
                           name={label.name}
                           color={label.color}
+                          className="max-w-[5.5rem] px-1.5 py-px text-[10px]"
                         />
                       ))}
                       {labels.length > 3 ? (
@@ -355,18 +193,29 @@ export function TaskLinearTable({
                         </span>
                       ) : null}
                       {githubRefs.slice(0, 2).map((ref) => (
-                        <a
+                        <button
                           key={ref.url}
-                          href={ref.url}
-                          target="_blank"
-                          rel="noreferrer"
+                          type="button"
                           className="inline-flex shrink-0 items-center gap-0.5 rounded px-0.5 font-mono text-[10px] text-muted-foreground hover:text-foreground"
-                          onClick={(e) => e.stopPropagation()}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (onOpenGithubRef) {
+                              onOpenGithubRef(ref);
+                              return;
+                            }
+                            if (ref.url) {
+                              window.open(
+                                ref.url,
+                                "_blank",
+                                "noopener,noreferrer",
+                              );
+                            }
+                          }}
                           title={`${ref.owner}/${ref.repo}#${ref.number}`}
                         >
                           <Github className="size-3 opacity-70" aria-hidden />
                           <span>#{ref.number}</span>
-                        </a>
+                        </button>
                       ))}
                     </div>
                   )}
@@ -378,7 +227,7 @@ export function TaskLinearTable({
                     "flex items-center justify-center",
                   )}
                 >
-                  <AssigneeAvatar
+                  <LinearAssigneeAvatar
                     name={issue.assignee?.name}
                     avatarUrl={issue.assignee?.avatar_url}
                   />
@@ -417,20 +266,37 @@ export function TaskLinearTable({
                     actionColClass,
                     "flex items-center justify-end",
                   )}
+                  onClick={(e) => e.stopPropagation()}
+                  onKeyDown={(e) => e.stopPropagation()}
                 >
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="ghost"
-                    className="h-7 gap-1 px-2 text-[11px] font-medium text-muted-foreground shadow-none hover:bg-muted hover:text-foreground"
-                    disabled={busyId === issue.id}
-                    onClick={() => onCreateWorkspace(issue)}
-                    title={t("createWorkspace")}
-                    aria-label={t("createWorkspace")}
-                  >
-                    <Rocket className="size-3.5" />
-                    <span className="hidden sm:inline">{t("create")}</span>
-                  </Button>
+                  {linkedWorkspaceId && onEnterWorkspace ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 gap-1 px-2 text-[11px] font-medium text-muted-foreground shadow-none hover:bg-muted hover:text-foreground"
+                      onClick={() => onEnterWorkspace(linkedWorkspaceId)}
+                      title={t("enterWorkspace")}
+                      aria-label={t("enterWorkspace")}
+                    >
+                      <ArrowRight className="size-3.5" />
+                      <span className="hidden sm:inline">{t("enter")}</span>
+                    </Button>
+                  ) : (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 gap-1 px-2 text-[11px] font-medium text-muted-foreground shadow-none hover:bg-muted hover:text-foreground"
+                      disabled={busyId === issue.id}
+                      onClick={() => onCreateWorkspace(issue)}
+                      title={t("createWorkspace")}
+                      aria-label={t("createWorkspace")}
+                    >
+                      <Rocket className="size-3.5" />
+                      <span className="hidden sm:inline">{t("create")}</span>
+                    </Button>
+                  )}
                 </div>
               </div>
             </li>

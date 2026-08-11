@@ -602,9 +602,13 @@ export function TaskGithubDrawerHost({
       }
 
       if (entry.kind === "issue") {
+        const title = entry.title?.trim() || "";
         openTaskWorkspaceCreate({
           projectId: entry.projectId,
           setNewWorkspace,
+          displayName: title
+            ? `[issue#${entry.issueNumber}] ${title}`.slice(0, 120)
+            : `[issue#${entry.issueNumber}]`,
           link: {
             kind: "issue",
             owner: entry.owner,
@@ -617,9 +621,13 @@ export function TaskGithubDrawerHost({
         return;
       }
 
+      const prTitle = entry.title?.trim() || "";
       openTaskWorkspaceCreate({
         projectId: entry.projectId,
         setNewWorkspace,
+        displayName: prTitle
+          ? `[PR#${entry.prNumber}] ${prTitle}`.slice(0, 120)
+          : `[PR#${entry.prNumber}]`,
         link: {
           kind: "pr",
           owner: entry.owner,

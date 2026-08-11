@@ -6,22 +6,28 @@
  * The original Atmos tab stays open; this tab only finishes the redirect chain.
  * Notifies other tabs via BroadcastChannel, then closes after a 5s countdown.
  */
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { hubGetSession } from "@/api/hub-auth-client";
 import { ensureLocalHubDevice } from "@/features/connection/lib/ensure-local-hub-device";
+import {
+  OAuthCallbackShell,
+  parseOAuthCallbackProvider,
+  type OAuthCallbackStatus,
+} from "@/shared/components/oauth-callback-shell";
 
 export const HUB_AUTH_DONE_CHANNEL = "atmos-hub-auth";
 export const HUB_AUTH_DONE_MESSAGE = "hub-auth-done" as const;
 
 const CLOSE_COUNTDOWN_SECONDS = 5;
 
-type Status = "working" | "ok" | "error";
-
-export default function HubAuthDonePage() {
+function HubAuthDoneInner() {
   const t = useTranslations("hubAuthDone");
-  const [status, setStatus] = useState<Status>("working");
+  const params = useSearchParams();
+  const provider = parseOAuthCallbackProvider(params.get("provider"));
+  const [status, setStatus] = useState<OAuthCallbackStatus>("working");
   const [message, setMessage] = useState(() => t("working"));
   const [secondsLeft, setSecondsLeft] = useState<number | null>(null);
 
@@ -93,26 +99,19 @@ export default function HubAuthDonePage() {
   }, [status, secondsLeft]);
 
   return (
-    <div className="flex min-h-dvh flex-col items-center justify-center gap-3 bg-background px-6 text-center">
-      <p className="text-base font-medium text-foreground">{t("title")}</p>
-      <p
-        className={
-          status === "error"
-            ? "max-w-md text-sm text-destructive"
-            : status === "ok"
-              ? "max-w-md text-sm text-emerald-600 dark:text-emerald-500"
-              : "max-w-md text-sm text-muted-foreground"
-        }
-      >
-        {message}
-      </p>
+    <OAuthCallbackShell
+      provider={provider}
+      status={status}
+      title={t("title")}
+      message={message}
+    >
       {status === "ok" && secondsLeft !== null && secondsLeft > 0 ? (
-        <p className="max-w-md text-xs text-muted-foreground">
+        <p className="text-xs text-muted-foreground">
           {t("closingIn", { seconds: secondsLeft })}
         </p>
       ) : null}
       {status === "ok" && secondsLeft === 0 ? (
-        <p className="max-w-md text-xs text-muted-foreground">{t("closeHint")}</p>
+        <p className="text-xs text-muted-foreground">{t("closeHint")}</p>
       ) : null}
       {status === "error" ? (
         <Link
@@ -122,6 +121,25 @@ export default function HubAuthDonePage() {
           {t("goHome")}
         </Link>
       ) : null}
-    </div>
+    </OAuthCallbackShell>
+  );
+}
+
+function HubAuthDoneFallback() {
+  const t = useTranslations("hubAuthDone");
+  return (
+    <OAuthCallbackShell
+      status="working"
+      title={t("title")}
+      message={t("working")}
+    />
+  );
+}
+
+export default function HubAuthDonePage() {
+  return (
+    <Suspense fallback={<HubAuthDoneFallback />}>
+      <HubAuthDoneInner />
+    </Suspense>
   );
 }

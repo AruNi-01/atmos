@@ -5,6 +5,10 @@ import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { wsLinearApi } from "@/api/ws/linear-api";
 import { selectLinearOauth } from "@/features/settings/lib/linear-local-keys";
+import {
+  OAuthCallbackShell,
+  type OAuthCallbackStatus,
+} from "@/shared/components/oauth-callback-shell";
 
 /**
  * OAuth codes are single-use. React Strict Mode remounts effects in dev; a module-level
@@ -23,7 +27,7 @@ const SUCCESS_CLOSE_SECONDS = 5;
 function LinearOAuthCallbackInner() {
   const params = useSearchParams();
   const t = useTranslations("settings.integrationsSection.linear.oauthCallback");
-  const [status, setStatus] = useState<"working" | "ok" | "error">("working");
+  const [status, setStatus] = useState<OAuthCallbackStatus>("working");
   const [message, setMessage] = useState(() => t("working"));
   const [countdown, setCountdown] = useState<number | null>(null);
 
@@ -90,39 +94,43 @@ function LinearOAuthCallbackInner() {
     return () => window.clearTimeout(id);
   }, [status, countdown]);
 
+  const title =
+    status === "ok"
+      ? t("successTitle")
+      : status === "error"
+        ? t("errorTitle")
+        : t("title");
+
   return (
-    <div className="flex min-h-dvh flex-col items-center justify-center gap-3 bg-background px-6 text-center">
-      <p
-        className={
-          status === "error"
-            ? "text-sm text-destructive"
-            : status === "ok"
-              ? "text-sm font-medium text-emerald-600"
-              : "text-sm text-muted-foreground"
-        }
-      >
-        {message}
-      </p>
+    <OAuthCallbackShell
+      provider="linear"
+      status={status}
+      title={title}
+      message={message}
+    >
       {status === "ok" && countdown !== null ? (
-        <div className="flex flex-col items-center gap-1.5">
-          <p className="text-sm text-muted-foreground">
+        <>
+          <p className="text-xs text-muted-foreground">
             {countdown > 0
               ? t("closeCountdown", { seconds: countdown })
               : t("closeNow")}
           </p>
           <p className="text-xs text-muted-foreground/80">{t("closeHint")}</p>
-        </div>
+        </>
       ) : null}
-    </div>
+    </OAuthCallbackShell>
   );
 }
 
 function LinearOAuthCallbackFallback() {
   const t = useTranslations("settings.integrationsSection.linear.oauthCallback");
   return (
-    <div className="flex min-h-dvh items-center justify-center bg-background text-sm text-muted-foreground">
-      {t("loading")}
-    </div>
+    <OAuthCallbackShell
+      provider="linear"
+      status="working"
+      title={t("title")}
+      message={t("loading")}
+    />
   );
 }
 

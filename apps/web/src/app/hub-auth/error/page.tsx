@@ -10,6 +10,10 @@ import { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
+import {
+  OAuthCallbackShell,
+  parseOAuthCallbackProvider,
+} from "@/shared/components/oauth-callback-shell";
 
 export const HUB_AUTH_DONE_CHANNEL = "atmos-hub-auth";
 export const HUB_AUTH_DONE_MESSAGE = "hub-auth-done" as const;
@@ -21,6 +25,7 @@ function HubAuthErrorInner() {
   const params = useSearchParams();
   const code = (params.get("error") ?? params.get("code") ?? "").trim();
   const description = (params.get("error_description") ?? "").trim();
+  const provider = parseOAuthCallbackProvider(params.get("provider"));
 
   const [secondsLeft, setSecondsLeft] = useState(CLOSE_COUNTDOWN_SECONDS);
 
@@ -79,28 +84,31 @@ function HubAuthErrorInner() {
   }, [secondsLeft]);
 
   return (
-    <div className="flex min-h-dvh flex-col items-center justify-center gap-3 bg-background px-6 text-center">
-      <p className="text-base font-medium text-foreground">{title}</p>
-      <p className="max-w-md text-sm text-destructive">{message}</p>
+    <OAuthCallbackShell
+      provider={provider}
+      status="error"
+      title={title}
+      message={message}
+    >
       {code ? (
-        <p className="max-w-md font-mono text-xs text-muted-foreground">
+        <p className="font-mono text-xs text-muted-foreground">
           {t("codeLabel", { code })}
         </p>
       ) : null}
       {description ? (
-        <p className="max-w-md text-xs text-muted-foreground">{description}</p>
+        <p className="max-w-sm text-xs text-muted-foreground">{description}</p>
       ) : null}
       {code === "account_already_linked_to_different_user" ? (
-        <p className="max-w-md text-sm text-muted-foreground">
+        <p className="max-w-sm text-sm text-muted-foreground">
           {t("errors.accountAlreadyLinkedOtherUserHint")}
         </p>
       ) : null}
       {secondsLeft > 0 ? (
-        <p className="max-w-md text-xs text-muted-foreground">
+        <p className="text-xs text-muted-foreground">
           {t("closingIn", { seconds: secondsLeft })}
         </p>
       ) : (
-        <p className="max-w-md text-xs text-muted-foreground">{t("closeHint")}</p>
+        <p className="text-xs text-muted-foreground">{t("closeHint")}</p>
       )}
       <Link
         href="/"
@@ -108,16 +116,18 @@ function HubAuthErrorInner() {
       >
         {t("goHome")}
       </Link>
-    </div>
+    </OAuthCallbackShell>
   );
 }
 
 function HubAuthErrorFallback() {
   const t = useTranslations("hubAuthError");
   return (
-    <div className="flex min-h-dvh items-center justify-center bg-background text-sm text-muted-foreground">
-      {t("title")}
-    </div>
+    <OAuthCallbackShell
+      status="error"
+      title={t("title")}
+      message={t("errors.generic")}
+    />
   );
 }
 

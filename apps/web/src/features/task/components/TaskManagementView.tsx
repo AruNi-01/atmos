@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useQueryState, useQueryStates } from "nuqs";
 import { useShallow } from "zustand/react/shallow";
@@ -31,26 +31,17 @@ import {
   taskParams,
   type TaskSourceTab,
 } from "@/shared/lib/nuqs/searchParams";
-import { globalKey, readJson, writeJson } from "@/shared/lib/browser-store";
+import {
+  readStoredTaskSource,
+  writeStoredTaskSource,
+} from "@/features/task/lib/task-source-preference";
 import type {
   WorkspacePriority,
   WorkspaceWorkflowStatus,
 } from "@/shared/types/domain";
 
-/** Last-selected Task source tab (Atmos / GitHub / Linear). */
-const TASK_SOURCE_STORAGE_KEY = globalKey("taskSource");
-
 function isTaskSourceTab(value: unknown): value is TaskSourceTab {
   return value === "atmos" || value === "github" || value === "linear";
-}
-
-function readStoredTaskSource(): TaskSourceTab | null {
-  const stored = readJson<unknown>(TASK_SOURCE_STORAGE_KEY, null);
-  return isTaskSourceTab(stored) ? stored : null;
-}
-
-function writeStoredTaskSource(value: TaskSourceTab): void {
-  writeJson(TASK_SOURCE_STORAGE_KEY, value);
 }
 
 const WORKFLOW_STATUSES = new Set<WorkspaceWorkflowStatus>([
@@ -119,9 +110,12 @@ export function TaskManagementView() {
     taskAutoWs: taskParams.taskAutoWs,
   });
 
-  // Restore last Task source tab from localStorage when URL has no explicit taskSource.
-  // URL still wins for deep links (`?taskSource=linear`); selection is always written back.
-  useEffect(() => {
+  // Seed from localStorage synchronously so first paint matches last tab when URL omits taskSource.
+  // URL still wins for deep links (`?taskSource=linear`).
+  const restoredSourceRef = useRef(false);
+  useLayoutEffect(() => {
+    if (restoredSourceRef.current) return;
+    restoredSourceRef.current = true;
     try {
       const params = new URLSearchParams(window.location.search);
       if (params.has("taskSource")) {
@@ -135,7 +129,7 @@ export function TaskManagementView() {
     } catch {
       /* ignore storage / URL errors */
     }
-    // Only on mount — avoid fighting user tab changes.
+    // One-shot restore only — do not re-run on tab changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional one-shot restore
   }, []);
 
@@ -207,12 +201,13 @@ export function TaskManagementView() {
 
   const handleSourceChange = useCallback(
     (value: string) => {
-      if (value === "atmos" || value === "github" || value === "linear") {
-        writeStoredTaskSource(value);
-        void setSourceTab(value);
-      }
+      if (!isTaskSourceTab(value)) return;
+      // Ignore no-op / mount echoes so a default "atmos" cannot clobber stored "linear".
+      if (value === sourceTab) return;
+      writeStoredTaskSource(value);
+      void setSourceTab(value);
     },
-    [setSourceTab],
+    [setSourceTab, sourceTab],
   );
 
   /**
@@ -231,7 +226,7 @@ export function TaskManagementView() {
         onValueChange={handleSourceChange}
         className="flex min-h-0 flex-1 flex-col"
       >
-        <div className="flex h-10 shrink-0 items-center gap-2 border-b px-6">
+        <div className="flex h-10 shrink-0 items-center gap-2 px-6">
           <TabsList className="h-8 shrink-0">
             <TabsTab value="atmos" className="gap-1.5 px-2.5 sm:h-7 sm:text-xs">
               <AtmosTabIcon className="size-3.5 shrink-0" />
@@ -256,10 +251,7 @@ export function TaskManagementView() {
           {sourceTab === "github" ? (
             <TaskGithubPanel projects={projects} headerTrailingHost={headerTrailingHost} />
           ) : sourceTab === "linear" ? (
-            <TaskLinearPanel
-              projects={projects}
-              headerTrailingHost={headerTrailingHost}
-            />
+            <TaskLinearPanel headerTrailingHost={headerTrailingHost} />
           ) : (
             <WorkspaceKanbanView
               projects={projects}

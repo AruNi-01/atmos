@@ -77,6 +77,7 @@ import { useExperimentSettingsStore } from '@/features/settings/store/experiment
 import { useInitialProjectsLoading } from '@/features/project/store/use-initial-projects-loading';
 import { ProjectsSidebarLoading } from '@/app-shell/ProjectsSidebarLoading';
 import { LeftSidebarLaunchpad, LeftSidebarLaunchpadOutside } from '@/app-shell/LeftSidebarLaunchpad';
+import { tasksPathWithStoredSource } from '@/features/task/lib/task-source-preference';
 
 import { LeftSidebarPinnedSection } from '@/app-shell/LeftSidebarPinnedSection';
 import {
@@ -1000,11 +1001,11 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
         [handleToggleCanvas],
     );
 
-    // ⌘⇧K → open the Kanban board in center stage.
+    // ⌘⇧K → open the Kanban board in center stage (restore last Atmos/GitHub/Linear tab).
     useHotkeys(
         "mod+shift+k",
         () => {
-            router.push("/tasks");
+            router.push(tasksPathWithStoredSource());
         },
         { enableOnContentEditable: true, enableOnFormTags: true, preventDefault: true },
         [router],
@@ -1451,7 +1452,14 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
         canvasOpen: Boolean(canvasOpen),
         newWorkspaceOpen: Boolean(newWorkspace),
         launchpadItems,
-        onNavigate: (path: string) => router.push(path),
+        onNavigate: (path: string) => {
+            // Restore last Task source tab when opening plain /tasks from Launchpad.
+            if (path === "/tasks" || path.startsWith("/tasks?")) {
+                router.push(tasksPathWithStoredSource());
+                return;
+            }
+            router.push(path);
+        },
         onOpenCanvas: () => void setCanvasOpen(true),
         onOpenNewWorkspace: handleOpenNewWorkspace,
     };

@@ -340,6 +340,8 @@ export function WelcomeAdvancedOptions({
                     linkType === "issue"
                       ? "bg-muted text-foreground shadow-sm"
                       : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
+                    // Bound but not focused: GitHub + Linear can coexist.
+                    issuePreview && linkType !== "issue" && "ring-1 ring-primary/35",
                   )}
                 >
                   <CircleDot className="size-3.5 shrink-0 sm:size-4" />
@@ -353,6 +355,7 @@ export function WelcomeAdvancedOptions({
                     linkType === "pr"
                       ? "bg-muted text-foreground shadow-sm"
                       : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
+                    prPreview && linkType !== "pr" && "ring-1 ring-primary/35",
                   )}
                 >
                   <GitPullRequestArrow className="size-3.5 shrink-0 sm:size-4" />
@@ -366,6 +369,7 @@ export function WelcomeAdvancedOptions({
                     linkType === "linear"
                       ? "bg-muted text-foreground shadow-sm"
                       : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
+                    linearPreview && linkType !== "linear" && "ring-1 ring-primary/35",
                   )}
                 >
                   <LinearIcon className="size-3.5 shrink-0 sm:size-4" size={16} />

@@ -23,6 +23,7 @@ import {
   issueListCache,
   issueToBranchName,
   issueToWorkspaceName,
+  linearIssueToBranchName,
   linearIssueToWorkspaceName,
   prToWorkspaceName,
   type RepoContext,
@@ -136,6 +137,21 @@ export function useWelcomeProjectContext({
   const [linearError, setLinearError] = React.useState<string | null>(null);
   const [linearConnected, setLinearConnected] = React.useState(false);
   const linearLoadSeqRef = React.useRef(0);
+  /**
+   * Snapshot of Task → Create prefills so project context reloads do not wipe
+   * name / branch / Linear / GitHub selection after the draft store is consumed.
+   */
+  const taskPrefillRef = React.useRef<{
+    createdAt: number;
+    name: string | null;
+    branch: string | null;
+    requirement: string | null;
+    linear: LinearIssuePayload | null;
+    issue: GithubIssuePayload | null;
+    pr: GithubPrPayload | null;
+    coreApplied: boolean;
+    linkApplied: boolean;
+  } | null>(null);
 
   // PR list: progressive limit (50, 100, …) for Load more in the Advanced select.
   const [prLimit, setPrLimit] = React.useState(WELCOME_LINK_LIST_PAGE);
@@ -189,34 +205,82 @@ export function useWelcomeProjectContext({
     async function loadProjectContext() {
       if (!selectedProjectId || !selectedProjectPath) return;
 
+      const prefill = taskPrefillRef.current;
+      const preserveTaskPrefill = Boolean(
+        prefill?.coreApplied &&
+          (prefill.linear || prefill.issue || prefill.pr || prefill.name),
+      );
+
       setIsBaseBranchesLoading(true);
       setIssueError(null);
       setRepoContext(null);
       setRemoteBranches([]);
       setIssues([]);
-      setIssuePreview(null);
-      setSelectedIssueNumber("");
-      setIssueUrl("");
       issueLoadSeqRef.current += 1;
       setLoadedIssueRepoKey(null);
       setIsIssuesLoading(false);
-      setPrPreview(null);
-      setSelectedPrNumber("");
-      setPrUrl("");
       setLocalPrError(null);
       setHasSetupScript(false);
-      setName("");
-      setBranch("");
       setAutoExtractTodos(false);
       setAutoExtractTodosPr(false);
-      setLinkType("none");
       setBranchError(null);
       setSubmitError(null);
       clearAttachments();
-      composerRef.current?.clear();
-      nameTouchedRef.current = false;
-      branchTouchedRef.current = false;
-      generatedBranchRef.current = null;
+
+      if (preserveTaskPrefill && prefill) {
+        // Keep Task → Create prefills (Linear and/or GitHub) across project pick / reload.
+        if (prefill.name && !nameTouchedRef.current) {
+          setName(prefill.name);
+        }
+        if (prefill.branch && !branchTouchedRef.current) {
+          generatedBranchRef.current = prefill.branch;
+          setBranch(prefill.branch);
+        }
+        if (prefill.requirement) {
+          composerRef.current?.setText(prefill.requirement);
+        }
+        if (prefill.linear) {
+          setLinkType("linear");
+          setSelectedLinearId(prefill.linear.id);
+          setLinearPreview(prefill.linear);
+        } else if (prefill.pr) {
+          setLinkType("pr");
+        } else if (prefill.issue) {
+          setLinkType("issue");
+        }
+        if (prefill.issue) {
+          setIssuePreview(prefill.issue);
+          setSelectedIssueNumber(String(prefill.issue.number));
+          setIssueUrl(prefill.issue.url);
+        } else {
+          setIssuePreview(null);
+          setSelectedIssueNumber("");
+          setIssueUrl("");
+        }
+        if (prefill.pr) {
+          setPrPreview(prefill.pr);
+          setSelectedPrNumber(String(prefill.pr.number));
+          setPrUrl(prefill.pr.url);
+        } else {
+          setPrPreview(null);
+          setSelectedPrNumber("");
+          setPrUrl("");
+        }
+      } else {
+        setName("");
+        setBranch("");
+        setLinkType("none");
+        setIssuePreview(null);
+        setSelectedIssueNumber("");
+        setIssueUrl("");
+        setPrPreview(null);
+        setSelectedPrNumber("");
+        setPrUrl("");
+        composerRef.current?.clear();
+        nameTouchedRef.current = false;
+        branchTouchedRef.current = false;
+        generatedBranchRef.current = null;
+      }
 
       try {
         const [fetchedRemoteBranches, scripts, status] = await Promise.all([
@@ -279,11 +343,13 @@ export function useWelcomeProjectContext({
 
   React.useEffect(() => {
     if (!issuePreview) {
-      if (!prPreview) {
+      if (!prPreview && !linearPreview) {
         generatedBranchRef.current = null;
       }
       return;
     }
+    // When Linear or PR is also bound, they own name/branch; keep the GitHub issue link only.
+    if (linearPreview || prPreview) return;
 
     if (!nameTouchedRef.current) {
       setName(issueToWorkspaceName(issuePreview));
@@ -293,30 +359,51 @@ export function useWelcomeProjectContext({
       generatedBranchRef.current = generated;
       setBranch(generated);
     }
-  }, [branchTouchedRef, generatedBranchRef, issuePreview, nameTouchedRef, prPreview, setBranch, setName]);
+  }, [
+    branchTouchedRef,
+    generatedBranchRef,
+    issuePreview,
+    linearPreview,
+    nameTouchedRef,
+    prPreview,
+    setBranch,
+    setName,
+  ]);
 
   React.useEffect(() => {
     if (!prPreview) return;
 
-    if (!nameTouchedRef.current) {
+    // PR head branch wins even when Linear is co-bound (real git ref).
+    if (!nameTouchedRef.current && !linearPreview) {
       setName(prToWorkspaceName(prPreview));
     }
     setBranch(prPreview.head_ref);
     if (prPreview.base_ref) {
       setBaseBranch(prPreview.base_ref);
     }
-  }, [nameTouchedRef, prPreview, setBranch, setName]);
+  }, [linearPreview, nameTouchedRef, prPreview, setBranch, setName]);
 
   React.useEffect(() => {
     if (!linearPreview) return;
     if (!nameTouchedRef.current) {
       setName(linearIssueToWorkspaceName(linearPreview));
     }
-    const body = linearPreview.description?.trim();
-    if (body && !(composerRef.current?.getText()?.trim())) {
-      composerRef.current?.setText(body);
+    // PR owns branch when co-bound; otherwise generate from Linear identifier.
+    if (!branchTouchedRef.current && !prPreview) {
+      const generated = linearIssueToBranchName(linearPreview);
+      generatedBranchRef.current = generated;
+      setBranch(generated);
     }
-  }, [composerRef, linearPreview, nameTouchedRef, setName]);
+    // Do not prefill composer with Linear description (parity with GitHub issue create).
+  }, [
+    branchTouchedRef,
+    generatedBranchRef,
+    linearPreview,
+    nameTouchedRef,
+    prPreview,
+    setBranch,
+    setName,
+  ]);
 
   const filteredRemoteBranches = React.useMemo(
     () =>
@@ -400,6 +487,7 @@ export function useWelcomeProjectContext({
 
   const handleSelectLinkType = React.useCallback(
     (next: "issue" | "pr" | "linear") => {
+      // Click active tab → unlink that source only (GitHub ↔ Linear may coexist).
       if (linkType === next) {
         setLinkType("none");
         if (next === "issue") clearIssueSelection();
@@ -408,15 +496,11 @@ export function useWelcomeProjectContext({
         return;
       }
       setLinkType(next);
+      // Issue and PR stay exclusive; Linear is independent of both.
       if (next === "issue") {
         clearPrSelection();
-        clearLinearSelection();
       } else if (next === "pr") {
         clearIssueSelection();
-        clearLinearSelection();
-      } else {
-        clearIssueSelection();
-        clearPrSelection();
       }
     },
     [clearIssueSelection, clearLinearSelection, clearPrSelection, linkType],
@@ -498,151 +582,307 @@ export function useWelcomeProjectContext({
     void loadLinearIssues();
   }, [linkType, loadLinearIssues]);
 
-  // Task surface → New Workspace: apply prefills (Linear display name / prompt, optional GitHub link).
+  // Task surface → New Workspace: apply prefills (Linear name/branch/labels/prompt, optional GitHub link).
+  // Core Linear fields apply immediately (no Atmos project required). GitHub link waits for repo context.
   React.useEffect(() => {
-    if (!selectedProjectId) return;
     const draft = useTaskWorkspaceDraftStore.getState().peekDraft();
     if (!draft) return;
-    // Only apply when draft targets this project (or project was unset and we just selected one).
-    if (draft.projectId && draft.projectId !== selectedProjectId) return;
-    // GitHub link needs repo context; Linear-only prefills can apply as soon as project is set.
-    if (draft.link && !repoContext) return;
 
-    const consumed = useTaskWorkspaceDraftStore.getState().consumeDraft();
-    if (!consumed) return;
-
-    // Display name + requirement (Linear / Task prefills). Keep autoExtractTodos off by default.
-    if (consumed.displayName?.trim() && !nameTouchedRef.current) {
-      nameTouchedRef.current = true;
-      setName(consumed.displayName.trim());
+    // Draft bound to a specific project (GitHub create) — wait until that project is selected.
+    if (draft.projectId) {
+      if (!selectedProjectId || draft.projectId !== selectedProjectId) return;
     }
-    const requirement = consumed.initialRequirement?.trim();
-    if (requirement) {
-      composerRef.current?.setText(requirement);
-    }
-    setAutoExtractTodos(false);
-    setAutoExtractTodosPr(false);
 
-    const preferLinear = Boolean(consumed.linearIssue);
-    const link = consumed.link;
+    const existing = taskPrefillRef.current;
+    const coreAlreadyApplied =
+      existing?.createdAt === draft.createdAt && existing.coreApplied;
 
-    // Optional GitHub prefill first (Task Linear may attach both).
-    if (link && repoContext) {
-      const draftRepo = `${link.owner}/${link.repo}`;
-      const currentRepo = `${repoContext.owner}/${repoContext.repo}`;
-      if (draftRepo !== currentRepo) {
-        if (link.kind === "issue" && link.url) {
-          if (!preferLinear) setLinkType("issue");
-          setIssueUrl(link.url);
-          void (async () => {
-            try {
-              const preview = await wsGithubApi.getIssue({ issueUrl: link.url! });
-              setIssuePreview(preview);
-              setSelectedIssueNumber(String(preview.number));
-              if (!preferLinear) clearPrSelection();
-            } catch {
-              /* leave URL for manual load */
-            }
-          })();
-        } else if (link.kind === "pr" && link.url) {
-          if (!preferLinear) setLinkType("pr");
-          setPrUrl(link.url);
-          void (async () => {
-            try {
-              const preview = await wsGithubApi.getPr({ prUrl: link.url! });
-              setPrPreview(preview);
-              setSelectedPrNumber(String(preview.number));
-              if (!preferLinear) clearIssueSelection();
-            } catch {
-              /* leave URL for manual load */
-            }
-          })();
+    const preferLinear = Boolean(draft.linearIssue);
+    const link = draft.link ?? null;
+
+    // --- Core prefills (name, branch, requirement, Linear preview) — once per draft ---
+    if (!coreAlreadyApplied) {
+      const linkForName = draft.link ?? null;
+      const displayName =
+        draft.displayName?.trim() ||
+        (draft.linearIssue
+          ? linearIssueToWorkspaceName(draft.linearIssue)
+          : linkForName?.kind === "issue"
+            ? issueToWorkspaceName({
+                number: linkForName.number,
+                title: linkForName.title?.trim() || "",
+              })
+            : linkForName?.kind === "pr"
+              ? prToWorkspaceName({
+                  number: linkForName.number,
+                  title: linkForName.title?.trim() || "",
+                })
+              : null);
+
+      // Name/branch/links only — never seed the composer prompt from issue/PR body
+      // (matches GitHub Task → Create; description is not auto-pasted into the prompt).
+      const requirement = draft.initialRequirement?.trim() || null;
+
+      let linearPayload: LinearIssuePayload | null = null;
+      if (draft.linearIssue) {
+        const draftLinear = draft.linearIssue;
+        linearPayload = {
+          id: draftLinear.id,
+          identifier: draftLinear.identifier,
+          title: draftLinear.title,
+          url: draftLinear.url,
+          description: draftLinear.description ?? null,
+          priority: draftLinear.priority ?? 0,
+          state_name: draftLinear.state_name ?? null,
+          state_type: draftLinear.state_type ?? null,
+          project_name: draftLinear.project_name ?? null,
+          project_id: draftLinear.project_id ?? null,
+          team_id: draftLinear.team_id ?? null,
+          team_key: draftLinear.team_key ?? null,
+          labels: draftLinear.labels ?? [],
+          assignee: draftLinear.assignee ?? null,
+          github_refs: draftLinear.github_refs ?? [],
+          created_at: draftLinear.created_at ?? null,
+          updated_at: draftLinear.updated_at ?? null,
+        };
+        try {
+          sessionStorage.setItem(
+            "atmos.pendingLinearLink",
+            JSON.stringify(draftLinear),
+          );
+        } catch {
+          /* ignore */
         }
-      } else if (link.kind === "issue") {
+      }
+
+      let generatedBranch: string | null = null;
+      if (!branchTouchedRef.current) {
+        if (linearPayload) {
+          generatedBranch = linearIssueToBranchName(linearPayload);
+        } else if (linkForName?.kind === "pr" && linkForName.head_ref?.trim()) {
+          generatedBranch = linkForName.head_ref.trim();
+        } else if (linkForName?.kind === "issue") {
+          generatedBranch = issueToBranchName({ number: linkForName.number });
+        }
+      }
+
+      // Seed a lightweight GitHub preview from the draft so labels/status apply
+      // before the network getIssue/getPr round-trip finishes.
+      let seededIssue: GithubIssuePayload | null = null;
+      let seededPr: GithubPrPayload | null = null;
+      if (linkForName?.kind === "issue") {
+        seededIssue = {
+          owner: linkForName.owner,
+          repo: linkForName.repo,
+          number: linkForName.number,
+          title: linkForName.title?.trim() || `Issue #${linkForName.number}`,
+          body: linkForName.body ?? null,
+          url:
+            linkForName.url ??
+            `https://github.com/${linkForName.owner}/${linkForName.repo}/issues/${linkForName.number}`,
+          state: linkForName.state ?? "open",
+          comments_count: 0,
+          labels: (linkForName.labels ?? []).map((l) => ({
+            name: l.name,
+            color: l.color ?? null,
+            description: null,
+          })),
+          assignees: [],
+        };
+      } else if (linkForName?.kind === "pr") {
+        seededPr = {
+          owner: linkForName.owner,
+          repo: linkForName.repo,
+          number: linkForName.number,
+          title: linkForName.title?.trim() || `PR #${linkForName.number}`,
+          body: linkForName.body ?? null,
+          url:
+            linkForName.url ??
+            `https://github.com/${linkForName.owner}/${linkForName.repo}/pull/${linkForName.number}`,
+          state: linkForName.state ?? "open",
+          head_ref: linkForName.head_ref?.trim() || "",
+          base_ref: linkForName.base_ref?.trim() || "",
+          is_draft: Boolean(linkForName.is_draft),
+          labels: (linkForName.labels ?? []).map((l) => ({
+            name: l.name,
+            color: l.color ?? null,
+            description: null,
+          })),
+        };
+      }
+
+      taskPrefillRef.current = {
+        createdAt: draft.createdAt,
+        name: displayName,
+        branch: generatedBranch,
+        requirement,
+        linear: linearPayload,
+        issue: seededIssue,
+        pr: seededPr,
+        coreApplied: true,
+        linkApplied: false,
+      };
+
+      setAutoExtractTodos(false);
+      setAutoExtractTodosPr(false);
+
+      if (displayName && !nameTouchedRef.current) {
+        // Do not mark name touched — keep auto-sync if preview effects re-run.
+        setName(displayName);
+      }
+      if (generatedBranch && !branchTouchedRef.current) {
+        generatedBranchRef.current = generatedBranch;
+        setBranch(generatedBranch);
+        if (linkForName?.kind === "pr" && linkForName.base_ref?.trim()) {
+          setBaseBranch(linkForName.base_ref.trim());
+        }
+      }
+      if (requirement) {
+        composerRef.current?.setText(requirement);
+      }
+      if (linearPayload) {
+        setLinkType("linear");
+        setSelectedLinearId(linearPayload.id);
+        setLinearPreview(linearPayload);
+        void loadLinearIssues();
+      } else if (seededPr) {
+        setLinkType("pr");
+      } else if (seededIssue) {
+        setLinkType("issue");
+      }
+
+      if (seededIssue) {
+        setSelectedIssueNumber(String(seededIssue.number));
+        setIssueUrl(seededIssue.url);
+        setIssuePreview(seededIssue);
+        clearPrSelection();
+      } else if (seededPr) {
+        setSelectedPrNumber(String(seededPr.number));
+        setPrUrl(seededPr.url);
+        setPrPreview(seededPr);
+        clearIssueSelection();
+      }
+
+      // Linear-only (or name-only) draft: consume immediately so remounts don't re-apply.
+      if (!link) {
+        useTaskWorkspaceDraftStore.getState().consumeDraft();
+        return;
+      }
+    }
+
+    // --- Optional GitHub link refresh: needs project repo context for full payload ---
+    if (!link) return;
+    if (taskPrefillRef.current?.linkApplied) return;
+    if (!selectedProjectId || !repoContext) return;
+    if (draft.projectId && draft.projectId !== selectedProjectId) return;
+
+    useTaskWorkspaceDraftStore.getState().consumeDraft();
+    if (taskPrefillRef.current) {
+      taskPrefillRef.current = {
+        ...taskPrefillRef.current,
+        linkApplied: true,
+      };
+    }
+
+    // Always attach GitHub when present (coexists with Linear). Issue ↔ PR exclusive.
+    const rememberGithubPrefill = (
+      next: { issue?: GithubIssuePayload | null; pr?: GithubPrPayload | null },
+    ) => {
+      if (!taskPrefillRef.current) return;
+      taskPrefillRef.current = {
+        ...taskPrefillRef.current,
+        issue:
+          next.issue !== undefined ? next.issue : taskPrefillRef.current.issue,
+        pr: next.pr !== undefined ? next.pr : taskPrefillRef.current.pr,
+      };
+    };
+
+    const draftRepo = `${link.owner}/${link.repo}`;
+    const currentRepo = `${repoContext.owner}/${repoContext.repo}`;
+    if (draftRepo !== currentRepo) {
+      if (link.kind === "issue" && link.url) {
         if (!preferLinear) setLinkType("issue");
-        setIssueUrl(
-          link.url ??
-            `https://github.com/${link.owner}/${link.repo}/issues/${link.number}`,
-        );
+        setIssueUrl(link.url);
         void (async () => {
           try {
-            const preview = await wsGithubApi.getIssue({
-              owner: link.owner,
-              repo: link.repo,
-              issueNumber: link.number,
-            });
+            const preview = await wsGithubApi.getIssue({ issueUrl: link.url! });
             setIssuePreview(preview);
             setSelectedIssueNumber(String(preview.number));
-            if (!preferLinear) clearPrSelection();
+            clearPrSelection();
+            rememberGithubPrefill({ issue: preview, pr: null });
           } catch {
-            /* keep URL for manual fetch */
+            /* leave URL / seed preview for manual load */
           }
         })();
-      } else {
+      } else if (link.kind === "pr" && link.url) {
         if (!preferLinear) setLinkType("pr");
-        setPrUrl(
-          link.url ??
-            `https://github.com/${link.owner}/${link.repo}/pull/${link.number}`,
-        );
+        setPrUrl(link.url);
         void (async () => {
           try {
-            const preview = await wsGithubApi.getPr({
-              owner: link.owner,
-              repo: link.repo,
-              prNumber: link.number,
-            });
+            const preview = await wsGithubApi.getPr({ prUrl: link.url! });
             setPrPreview(preview);
             setSelectedPrNumber(String(preview.number));
-            if (!preferLinear) clearIssueSelection();
+            clearIssueSelection();
+            rememberGithubPrefill({ pr: preview, issue: null });
           } catch {
-            /* keep URL for manual fetch */
+            /* leave URL / seed preview for manual load */
           }
         })();
       }
-    }
-
-    // Linear tab wins when Task → Create carried a Linear issue.
-    if (consumed.linearIssue) {
-      try {
-        sessionStorage.setItem(
-          "atmos.pendingLinearLink",
-          JSON.stringify(consumed.linearIssue),
-        );
-      } catch {
-        /* ignore */
-      }
-      setLinkType("linear");
-      const draftLinear = consumed.linearIssue;
-      setSelectedLinearId(draftLinear.id);
-      setLinearPreview({
-        id: draftLinear.id,
-        identifier: draftLinear.identifier,
-        title: draftLinear.title,
-        url: draftLinear.url,
-        description: draftLinear.description ?? null,
-        priority: draftLinear.priority ?? 0,
-        state_name: draftLinear.state_name ?? null,
-        state_type: draftLinear.state_type ?? null,
-        project_name: draftLinear.project_name ?? null,
-        project_id: draftLinear.project_id ?? null,
-        team_id: draftLinear.team_id ?? null,
-        team_key: draftLinear.team_key ?? null,
-        labels: draftLinear.labels ?? [],
-        assignee: draftLinear.assignee ?? null,
-        github_refs: draftLinear.github_refs ?? [],
-        created_at: draftLinear.created_at ?? null,
-        updated_at: draftLinear.updated_at ?? null,
-      });
-      void loadLinearIssues();
+    } else if (link.kind === "issue") {
+      if (!preferLinear) setLinkType("issue");
+      setIssueUrl(
+        link.url ??
+          `https://github.com/${link.owner}/${link.repo}/issues/${link.number}`,
+      );
+      void (async () => {
+        try {
+          const preview = await wsGithubApi.getIssue({
+            owner: link.owner,
+            repo: link.repo,
+            issueNumber: link.number,
+          });
+          setIssuePreview(preview);
+          setSelectedIssueNumber(String(preview.number));
+          clearPrSelection();
+          rememberGithubPrefill({ issue: preview, pr: null });
+        } catch {
+          /* keep seed preview */
+        }
+      })();
+    } else {
+      if (!preferLinear) setLinkType("pr");
+      setPrUrl(
+        link.url ??
+          `https://github.com/${link.owner}/${link.repo}/pull/${link.number}`,
+      );
+      void (async () => {
+        try {
+          const preview = await wsGithubApi.getPr({
+            owner: link.owner,
+            repo: link.repo,
+            prNumber: link.number,
+          });
+          setPrPreview(preview);
+          setSelectedPrNumber(String(preview.number));
+          clearIssueSelection();
+          rememberGithubPrefill({ pr: preview, issue: null });
+        } catch {
+          /* keep seed preview */
+        }
+      })();
     }
   }, [
+    branchTouchedRef,
     clearIssueSelection,
     clearPrSelection,
     composerRef,
+    generatedBranchRef,
     loadLinearIssues,
     nameTouchedRef,
     repoContext,
     selectedProjectId,
+    setBranch,
     setName,
   ]);
 
@@ -654,10 +894,10 @@ export function useWelcomeProjectContext({
       setBranchError(null);
       setSubmitError(null);
       setIssuePreview(issues.find((issue) => String(issue.number) === value) ?? null);
+      // Issue/PR exclusive; keep Linear if also bound.
       clearPrSelection();
-      clearLinearSelection();
     },
-    [clearLinearSelection, clearPrSelection, issues, setBranchError, setSubmitError],
+    [clearPrSelection, issues, setBranchError, setSubmitError],
   );
 
   const handleSelectPr = React.useCallback(
@@ -668,10 +908,10 @@ export function useWelcomeProjectContext({
       setBranchError(null);
       setSubmitError(null);
       setPrPreview(prs.find((pr) => String(pr.number) === value) ?? null);
+      // Issue/PR exclusive; keep Linear if also bound.
       clearIssueSelection();
-      clearLinearSelection();
     },
-    [clearIssueSelection, clearLinearSelection, prs, setBranchError, setSubmitError],
+    [clearIssueSelection, prs, setBranchError, setSubmitError],
   );
 
   const handleSelectLinear = React.useCallback(
@@ -682,8 +922,7 @@ export function useWelcomeProjectContext({
       setSubmitError(null);
       const found = linearIssues.find((issue) => issue.id === value) ?? null;
       setLinearPreview(found);
-      clearIssueSelection();
-      clearPrSelection();
+      // Linear can coexist with GitHub issue/PR — do not clear them.
       if (found) {
         try {
           sessionStorage.setItem(
@@ -693,17 +932,24 @@ export function useWelcomeProjectContext({
         } catch {
           /* ignore */
         }
-        // Allow name effect to re-apply when picking from list after a manual name edit? No — only if not touched.
+        // Allow name/branch effects to re-apply when picking from list only if not touched.
         if (!nameTouchedRef.current) {
           setName(linearIssueToWorkspaceName(found));
+        }
+        if (!branchTouchedRef.current && !prPreview) {
+          const generated = linearIssueToBranchName(found);
+          generatedBranchRef.current = generated;
+          setBranch(generated);
         }
       }
     },
     [
-      clearIssueSelection,
-      clearPrSelection,
+      branchTouchedRef,
+      generatedBranchRef,
       linearIssues,
       nameTouchedRef,
+      prPreview,
+      setBranch,
       setBranchError,
       setName,
       setSubmitError,
