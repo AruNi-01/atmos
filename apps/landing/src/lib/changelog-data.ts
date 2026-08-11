@@ -34,6 +34,83 @@ export interface ChangelogItem {
 
 export const changelogData: ChangelogItem[] = [
   {
+    id: "desktop-2026.8.11",
+    title: {
+      zh: "Hub 账号 · Linear 任务 · 手机扫码配对 · Token 用量总览",
+      en: "Hub Account, Linear Tasks, Mobile Pair QR & Token Usage Overview",
+    },
+    description: {
+      zh: "Atmos Desktop 2026.8.11 带来 Atmos Hub 登录与账号安全、Relay 设备凭证、Tasks 中的 Linear 议题集成、手机扫码配对，以及可分享的 Token 用量总览。",
+      en: "Atmos Desktop 2026.8.11 ships Atmos Hub sign-in and account security, Relay device credentials for multi-device work, Linear issue integration in Tasks, mobile QR pairing, and a redesigned Token Usage overview with shareable charts.",
+    },
+    date: "2026-08-11",
+    version: "2026.8.11",
+    releaseUrl:
+      "https://github.com/AruNi-01/atmos/releases/tag/desktop-electron-2026.8.11",
+    tags: [
+      { zh: "Hub", en: "Hub" },
+      { zh: "Linear", en: "Linear" },
+      { zh: "移动端", en: "Mobile" },
+      { zh: "Token 用量", en: "Token Usage" },
+    ],
+    content: {
+      zh: {
+        features: [
+          "**Atmos Hub 账号** — 使用 Hub 登录，管理已关联账号与会话，并在设置中使用账号安全（名称、会话、删除账号）。",
+          "**Relay 设备身份** — 电脑以 Hub 设备凭证注册，Desktop、Web、Mobile 共用一套设备凭证模型，无需手写 access token。",
+          "**Linear 任务** — 通过 OAuth 连接 Linear，在 Tasks 中浏览与筛选议题、打开议题抽屉，并将工作区关联到外部 Linear 议题。",
+          "**手机扫码配对** — 在 Atmos Computer 展示配对码/二维码，手机可领取设备凭证并连接，无需粘贴令牌。",
+          "**Token 用量总览** — 全页 Token 用量，含 dither 图表、滚动数字、热力图与分享工具，以及紧凑的指标/维度切换。",
+          "**共享 Hub 与 Relay 客户端** — Desktop、Web、Mobile 共用认证、设备与 Relay 会话客户端。",
+        ],
+        fixes: [
+          "**Desktop 启动错误** — 拒绝无 UI 的本地服务，并在运行时无法提供应用壳时展示清晰的 HTML 错误页。",
+          "**端口回收** — 默认本地 API 端口被占用时自动回收，静态桌面构建包含 hub-auth 路由。",
+          "**AppShot 窗口匹配** — 对齐结构测试与宿主窗口匹配，截图更稳。",
+          "**Disk Analyzer 路径** — 删除确认中长路径换行，弹层可读。",
+          "**Tasks GitHub 搜索** — 首次加载即带默认 open 搜索，列表不再空白。",
+          "**Token / 配额数据路径** — token-usage 与 quota-usage 落在规范 data 布局下，而非桌面安装目录。",
+        ],
+        improvements: [
+          "**规范 `~/.atmos` 布局** — 凭证、状态、配置与数据统一在 home 布局下，CLI、Desktop 与运行时共享。",
+          "**Token 用量打磨** — 图表 morph、模型图标、加载提示与用量分享导出。",
+          "**集成设置** — 设置中 Linear 与 GitHub 集成管理更清晰。",
+          "**质量与打包** — TypeScript 7 typecheck 对齐、CI lint/typecheck 修复，以及 Electron 打包稳定性。",
+        ],
+        others: [
+          "完整对比：https://github.com/AruNi-01/atmos/compare/desktop-electron-2026.8.10...desktop-electron-2026.8.11",
+        ],
+      },
+      en: {
+        features: [
+          "**Atmos Hub account** — Sign in with Hub, manage linked accounts and sessions, and use account security settings (name, sessions, delete account) from Settings.",
+          "**Relay device identity** — Computers enroll as Hub-backed devices so Desktop, web, and mobile share a consistent device credential model instead of hand-managed access tokens.",
+          "**Linear tasks** — Connect Linear via OAuth, browse and filter issues in Tasks, open issue drawers, and link workspaces to external Linear issues.",
+          "**Mobile pair QR** — Show a pair code/QR from Atmos Computer so a phone can claim a device credential and connect without pasting tokens.",
+          "**Token Usage overview** — Full-page token usage with dither charts, sliding metrics, heatmap/share tooling, and a compact metric/dimension cycle control.",
+          "**Shared Hub & Relay clients** — Common client packages for auth, devices, and Relay sessions across Desktop, web, and mobile.",
+        ],
+        fixes: [
+          "**Desktop boot errors** — Reject non-UI servers and show clear HTML error pages when the local runtime cannot serve the app shell.",
+          "**Port reclaim** — Reclaim the default local API port when a stale process is holding it, including hub-auth routes in the static desktop build.",
+          "**AppShot host matching** — Align structural tests and host-window matching so capture stays reliable.",
+          "**Disk Analyzer paths** — Wrap long paths in the delete confirmation so the popover stays readable.",
+          "**Task GitHub search** — Hydrate the default open-issue search on first load so lists are not empty until a manual refresh.",
+          "**Token / quota data paths** — Keep token-usage and quota-usage under the canonical data layout (not the desktop install tree).",
+        ],
+        improvements: [
+          "**Canonical `~/.atmos` layout** — Credentials, state, config, and data live under a consistent home layout shared by CLI, Desktop, and runtime.",
+          "**Token Usage polish** — Morphing charts, model icons, loading tips, and share export for the usage surface.",
+          "**Integrations settings** — Clearer Linear and GitHub integration management in Settings.",
+          "**Quality & packaging** — TypeScript 7 typecheck alignment, CI lint/typecheck fixes, and packaging stability for the Electron shell.",
+        ],
+        others: [
+          "Full comparison: https://github.com/AruNi-01/atmos/compare/desktop-electron-2026.8.10...desktop-electron-2026.8.11",
+        ],
+      },
+    },
+  },
+  {
     id: "desktop-2026.8.10",
     title: {
       zh: "Tasks 任务台 · 嵌套抽屉 · Launchpad · 中心标签恢复",
