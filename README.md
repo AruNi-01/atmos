@@ -1,3 +1,5 @@
+
+
 <div align="center">
 
 # ATMOS
@@ -197,7 +199,9 @@ curl -fsSL https://install.atmos.land/install-local-web-runtime.sh | bash
 
 ### Run From Source
 
-> **Prerequisite**: [just](https://github.com/casey/just) — `brew install just` (macOS) / `cargo install just`
+> **Prerequisite**: [just](https://github.com/casey/just) — `brew install just` (macOS) / `cargo install just`<br />
+> **Prerequisite**: [Bun](https://bun.sh) — required for installing JavaScript dependencies (`bun install`) and running dev servers.<br />
+> **Prerequisite**: [Rust & Cargo](https://rustup.rs/) — required for compiling the Rust backend and fetching crate dependencies.
 
 ```bash
 ## Install
