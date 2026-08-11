@@ -1,0 +1,16 @@
+apps/desktop-electron/package.json
+  h_5be255725524c8 4
+"releasenotes/Atmos Desktop 2026.8.11.md"
+  h_5be255725524c8 1-50
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "42656f700606935d6bfe81aa04ae117b722e32c9",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
