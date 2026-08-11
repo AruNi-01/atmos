@@ -156,9 +156,7 @@ impl AgentHooksService {
                 let pane = latch.stable_pane_id.as_str();
                 let to_clear: Vec<String> = summaries
                     .iter()
-                    .filter(|(key, row)| {
-                        key.as_str() == pane || row.session_id.as_str() == pane
-                    })
+                    .filter(|(key, row)| key.as_str() == pane || row.session_id.as_str() == pane)
                     .map(|(key, _)| key.clone())
                     .collect();
                 for key in &to_clear {
