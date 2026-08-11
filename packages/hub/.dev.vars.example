@@ -1,0 +1,12 @@
+# Copy to .dev.vars for `wrangler dev` (never commit .dev.vars)
+# openssl rand -base64 32
+
+BETTER_AUTH_SECRET=
+BETTER_AUTH_URL=http://localhost:8787
+GITHUB_CLIENT_ID=
+GITHUB_CLIENT_SECRET=
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+ALLOWED_ORIGINS=http://localhost:3030,http://localhost:3000,https://app.atmos.land,https://atmos.land
+RELAY_URL=https://relay.atmos.land
+RELAY_HUB_SYNC_SECRET=

@@ -19,8 +19,8 @@ function computerRegisterEnv(options: { deviceRegistrationCount?: number } = {})
               return {
                 async first() {
                   call.op = "first";
-                  if (sql.includes("SELECT tenant_id FROM register_tokens")) {
-                    return { tenant_id: "tenant_1" };
+                  if (sql.includes("SELECT user_id FROM register_tokens")) {
+                    return { user_id: "user_1" };
                   }
                   if (sql.includes("COUNT(*) AS count FROM computers")) {
                     return { count: options.deviceRegistrationCount ?? 0 };

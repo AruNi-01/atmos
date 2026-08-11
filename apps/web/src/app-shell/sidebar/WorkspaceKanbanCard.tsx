@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { WorkspaceAgentStatusMark } from "@/features/agent/components/WorkspaceAgentStatusMark";
 import { WorkspacePrSummary } from "@/features/github/components/WorkspacePrSummary";
+import { WorkspaceLinearSummary } from "@/features/task/components/WorkspaceLinearSummary";
 import { useWorkspacePrStatus } from "@/features/github/hooks/use-workspace-pr-status";
 import { useOpenGithubCenterTab } from "@/features/github/hooks/use-open-github-center-tab";
 import {
@@ -391,28 +392,55 @@ export function KanbanWorkspaceCard({
       ) : null}
 
       {showFooter ? (
-        <div className="mt-auto flex items-center justify-between gap-2 pt-2">
-          <div
-            className="min-w-0 flex-1"
-            onPointerDown={(event) => event.stopPropagation()}
-            onClick={(event) => event.stopPropagation()}
-          >
-            {cardProperties.pull_request && managedPr ? (
-              <WorkspacePrSummary
-                presentation={managedPr}
-                onOpenPr={openManagedPullRequest}
-                onOpenChecks={openManagedChecks}
-                ringSize={14}
+        <div className="mt-auto flex flex-col gap-1 pt-2">
+          <div className="flex items-center justify-between gap-2">
+            <div
+              className="min-w-0 flex-1"
+              onPointerDown={(event) => event.stopPropagation()}
+              onClick={(event) => event.stopPropagation()}
+            >
+              {cardProperties.pull_request && managedPr ? (
+                <WorkspacePrSummary
+                  presentation={managedPr}
+                  onOpenPr={openManagedPullRequest}
+                  onOpenChecks={openManagedChecks}
+                  ringSize={14}
+                  compact
+                  className="-mx-1"
+                />
+              ) : null}
+            </div>
+            {cardProperties.last_visit ? (
+              <span className="shrink-0 text-xs text-muted-foreground">
+                {formatRelativeTime(workspace.lastVisitedAt ?? workspace.createdAt, locale)}
+              </span>
+            ) : null}
+          </div>
+          {(workspace.linearLinks?.length ?? 0) > 0 ? (
+            <div
+              className="min-w-0"
+              onPointerDown={(event) => event.stopPropagation()}
+              onClick={(event) => event.stopPropagation()}
+            >
+              <WorkspaceLinearSummary
+                links={workspace.linearLinks!}
                 compact
                 className="-mx-1"
               />
-            ) : null}
-          </div>
-          {cardProperties.last_visit ? (
-            <span className="shrink-0 text-xs text-muted-foreground">
-              {formatRelativeTime(workspace.lastVisitedAt ?? workspace.createdAt, locale)}
-            </span>
+            </div>
           ) : null}
+        </div>
+      ) : (workspace.linearLinks?.length ?? 0) > 0 ? (
+        <div
+          className="mt-auto min-w-0 pt-2"
+          onPointerDown={(event) => event.stopPropagation()}
+          onClick={(event) => event.stopPropagation()}
+        >
+          <WorkspaceLinearSummary
+            links={workspace.linearLinks!}
+            compact
+            className="-mx-1"
+          />
         </div>
       ) : null}
     </div>

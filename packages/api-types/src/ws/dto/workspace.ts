@@ -33,6 +33,13 @@ export type WorkspaceModel = {
   github_issue: GithubIssuePayload | null;
   github_pr: GithubPrPayload | null;
   labels: WorkspaceLabelModel[];
+  /** Active Linear issue links (APP-056). */
+  linear_links?: Array<{
+    external_id: string;
+    identifier: string;
+    title: string;
+    url: string;
+  }>;
   create_source: WorkspaceCreateSourceModel | string;
 };
 

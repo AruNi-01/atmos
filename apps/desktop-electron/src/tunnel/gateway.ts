@@ -177,8 +177,10 @@ export class LocalGateway {
           req.method && ["GET", "HEAD"].includes(req.method.toUpperCase())
             ? undefined
             : body,
-        // @ts-expect-error duplex for node fetch streaming body
-        duplex: "half",
+        // Node fetch may require duplex when body is a stream; Buffer is fine without.
+        ...(typeof body !== "undefined"
+          ? ({ duplex: "half" } as RequestInit)
+          : {}),
       });
 
       const outHeaders: Record<string, string> = {};

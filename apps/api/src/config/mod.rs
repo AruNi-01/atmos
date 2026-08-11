@@ -99,10 +99,13 @@ impl ServerConfig {
     }
 
     pub fn cors_layer(&self) -> CorsLayer {
+        // Default tower CorsLayer allows *no* origins until allow_origin is set.
+        // CORS_ORIGIN=* must still call allow_origin(Any), or browsers see no
+        // Access-Control-Allow-Origin and "Local Atmos Computer" probe fails.
         let layer = CorsLayer::new().allow_methods(Any).allow_headers(Any);
 
         match &self.cors_origins {
-            CorsOriginConfig::Any => layer,
+            CorsOriginConfig::Any => layer.allow_origin(Any),
             CorsOriginConfig::List(_) => {
                 if self.allow_dynamic_localhost_origins {
                     let parsed = parse_cors_origins(self.cors_origins_list());

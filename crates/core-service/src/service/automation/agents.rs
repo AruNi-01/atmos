@@ -464,7 +464,11 @@ pub fn terminal_agent_model_catalog(
 
 fn agent_yolo_mode_enabled() -> bool {
     let path = dirs::home_dir()
-        .map(|home| home.join(".atmos").join("function_settings.json"))
+        .map(|home| {
+            home.join(".atmos")
+                .join("config")
+                .join("function_settings.json")
+        })
         .unwrap_or_else(|| PathBuf::from("function_settings.json"));
     let Ok(raw) = std::fs::read_to_string(path) else {
         return true;
@@ -806,6 +810,7 @@ fn terminal_code_agent_path() -> PathBuf {
     dirs::home_dir()
         .unwrap_or_else(|| PathBuf::from("."))
         .join(".atmos")
+        .join("config")
         .join("agent")
         .join("terminal_code_agent.json")
 }

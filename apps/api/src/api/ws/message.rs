@@ -18,6 +18,7 @@ mod disk_analyzer;
 mod fs;
 mod git;
 mod github;
+mod linear;
 mod review;
 mod skills;
 mod terminal;
@@ -28,6 +29,7 @@ pub use disk_analyzer::*;
 pub use fs::*;
 pub use git::*;
 pub use github::*;
+pub use linear::*;
 pub use review::*;
 pub use skills::*;
 pub use terminal::*;
@@ -575,6 +577,30 @@ pub enum WsAction {
     GithubUserCard,
     /// GitHub API rate limits（REST core / Search / GraphQL，本地 gh token）
     GithubRateLimit,
+
+    // ===== Linear (APP-056) =====
+    /// Linear connection status (global)
+    LinearStatus,
+    /// Connect with personal API key
+    LinearConnectApiKey,
+    /// Start OAuth (PKCE) — returns authorize_url
+    LinearOauthStart,
+    /// Finish OAuth with authorization code
+    LinearOauthFinish,
+    /// Disconnect Linear (keeps association snapshots)
+    LinearDisconnect,
+    /// Request + complexity rate limit buckets
+    LinearRateLimit,
+    /// On-demand issue list with filters
+    LinearIssueList,
+    /// Teams/projects for filter pickers
+    LinearFilterOptions,
+    /// Link Linear issue snapshot to workspace
+    LinearLinkIssue,
+    /// Unlink Linear issue from workspace
+    LinearUnlinkIssue,
+    /// List Linear links for a workspace
+    LinearLinksForWorkspace,
     /// 更新 PR labels（add/remove）
     GithubPrUpdateLabels,
     /// 更新 PR assignees（add/remove）

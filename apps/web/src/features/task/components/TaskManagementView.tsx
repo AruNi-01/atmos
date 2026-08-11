@@ -1,12 +1,13 @@
 "use client";
 
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useQueryState, useQueryStates } from "nuqs";
 import { useShallow } from "zustand/react/shallow";
 import { Tabs, TabsList, TabsTab } from "@workspace/ui";
 import LogoSvg from "@workspace/ui/components/logo-svg";
 import { Github } from "lucide-react";
+import { LinearIcon } from "@workspace/ui/components/icons/linear-icon";
 import {
   useGroups,
   useProjects,
@@ -25,14 +26,23 @@ import { WorkspaceKanbanView } from "@/app-shell/sidebar/WorkspaceKanbanView";
 import type { WorkspaceKanbanFilters } from "@/app-shell/sidebar/WorkspaceKanbanFilterMenu";
 import type { SidebarGroupingMode } from "@/app-shell/sidebar/workspace-status";
 import { TaskGithubPanel } from "@/features/task/components/TaskGithubPanel";
+import { TaskLinearPanel } from "@/features/task/components/TaskLinearPanel";
 import {
   taskParams,
   type TaskSourceTab,
 } from "@/shared/lib/nuqs/searchParams";
+import {
+  readStoredTaskSource,
+  writeStoredTaskSource,
+} from "@/features/task/lib/task-source-preference";
 import type {
   WorkspacePriority,
   WorkspaceWorkflowStatus,
 } from "@/shared/types/domain";
+
+function isTaskSourceTab(value: unknown): value is TaskSourceTab {
+  return value === "atmos" || value === "github" || value === "linear";
+}
 
 const WORKFLOW_STATUSES = new Set<WorkspaceWorkflowStatus>([
   "backlog",
@@ -99,6 +109,29 @@ export function TaskManagementView() {
     taskGroups: taskParams.taskGroups,
     taskAutoWs: taskParams.taskAutoWs,
   });
+
+  // Seed from localStorage synchronously so first paint matches last tab when URL omits taskSource.
+  // URL still wins for deep links (`?taskSource=linear`).
+  const restoredSourceRef = useRef(false);
+  useLayoutEffect(() => {
+    if (restoredSourceRef.current) return;
+    restoredSourceRef.current = true;
+    try {
+      const params = new URLSearchParams(window.location.search);
+      if (params.has("taskSource")) {
+        if (isTaskSourceTab(sourceTab)) writeStoredTaskSource(sourceTab);
+        return;
+      }
+      const stored = readStoredTaskSource();
+      if (stored && stored !== sourceTab) {
+        void setSourceTab(stored);
+      }
+    } catch {
+      /* ignore storage / URL errors */
+    }
+    // One-shot restore only — do not re-run on tab changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional one-shot restore
+  }, []);
 
   const filters = useMemo<WorkspaceKanbanFilters>(
     () => ({
@@ -168,11 +201,13 @@ export function TaskManagementView() {
 
   const handleSourceChange = useCallback(
     (value: string) => {
-      if (value === "atmos" || value === "github") {
-        void setSourceTab(value);
-      }
+      if (!isTaskSourceTab(value)) return;
+      // Ignore no-op / mount echoes so a default "atmos" cannot clobber stored "linear".
+      if (value === sourceTab) return;
+      writeStoredTaskSource(value);
+      void setSourceTab(value);
     },
-    [setSourceTab],
+    [setSourceTab, sourceTab],
   );
 
   /**
@@ -191,7 +226,7 @@ export function TaskManagementView() {
         onValueChange={handleSourceChange}
         className="flex min-h-0 flex-1 flex-col"
       >
-        <div className="flex h-10 shrink-0 items-center gap-2 border-b px-6">
+        <div className="flex h-10 shrink-0 items-center gap-2 px-6">
           <TabsList className="h-8 shrink-0">
             <TabsTab value="atmos" className="gap-1.5 px-2.5 sm:h-7 sm:text-xs">
               <AtmosTabIcon className="size-3.5 shrink-0" />
@@ -200,6 +235,10 @@ export function TaskManagementView() {
             <TabsTab value="github" className="gap-1.5 px-2.5 sm:h-7 sm:text-xs">
               <Github className="size-3.5 shrink-0" />
               {t("source.github")}
+            </TabsTab>
+            <TabsTab value="linear" className="gap-1.5 px-2.5 sm:h-7 sm:text-xs">
+              <LinearIcon className="size-3.5 shrink-0" size={14} />
+              {t("source.linear")}
             </TabsTab>
           </TabsList>
           <div
@@ -211,6 +250,8 @@ export function TaskManagementView() {
         <div className="min-h-0 flex-1 overflow-hidden">
           {sourceTab === "github" ? (
             <TaskGithubPanel projects={projects} headerTrailingHost={headerTrailingHost} />
+          ) : sourceTab === "linear" ? (
+            <TaskLinearPanel headerTrailingHost={headerTrailingHost} />
           ) : (
             <WorkspaceKanbanView
               projects={projects}

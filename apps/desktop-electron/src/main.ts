@@ -13,7 +13,11 @@ import { installDevToolsPolicy } from "./devtools-policy.js";
 import { ensureAtmosServer } from "./runtime/ensure.js";
 import { createDesktopCommandRouter } from "./ipc/router.js";
 import { createAllHandlers } from "./ipc/handlers.js";
-import { createMainWindow, uiBaseUrl } from "./windows/main-window.js";
+import {
+  assertDesktopUiReady,
+  createMainWindow,
+  createMainWindowOrError,
+} from "./windows/main-window.js";
 import { markAllowWindowDestroy } from "./windows/close-behavior.js";
 import {
   ensureMacDockVisible,
@@ -23,8 +27,7 @@ import { BrowserSurfaceManager } from "./browser/surface-manager.js";
 import { BrowserUseControlPlane } from "./browser/browser-use-control.js";
 import { ALL_PROVIDERS, TunnelService } from "./tunnel/service.js";
 import { mainLog, mainLogPath } from "./main-log.js";
-import { existsSync } from "node:fs";
-import { join } from "node:path";
+import { formatUnknownError } from "./windows/error-page.js";
 
 // Before ready: menu / process name → "Atmos" instead of "Electron".
 applyEarlyAppBranding();
@@ -60,15 +63,16 @@ function servicesReady(): boolean {
   );
 }
 
-function ensureMainWindow(): void {
+async function ensureMainWindow(): Promise<void> {
   if (state.mainWindow && !state.mainWindow.isDestroyed()) {
     state.mainWindow.show();
     state.mainWindow.focus();
     return;
   }
-  const uiUrl = `${uiBaseUrl(state)}/`;
+  const { uiUrl } = await assertDesktopUiReady(state);
   createMainWindow(state, uiUrl);
   console.log(`[desktop-electron] main window ${uiUrl}`);
+  mainLog(`[boot] main window ${uiUrl}`);
 }
 
 async function boot() {
@@ -76,6 +80,7 @@ async function boot() {
   applyReadyAppBranding();
 
   console.log("[desktop-electron] ensuring Atmos Server…");
+  mainLog("[boot] ensuring Atmos Server…");
   const runtime = await ensureAtmosServer();
   state.apiHost = runtime.host;
   state.apiPort = runtime.port;
@@ -83,12 +88,9 @@ async function boot() {
   console.log(
     `[desktop-electron] API ${state.apiHost}:${state.apiPort} started=${runtime.started}`,
   );
-
-  if (!runtime.webDir || !existsSync(join(runtime.webDir, "index.html"))) {
-    throw new Error(
-      `Desktop UI missing under ${runtime.webDir}. Run prepare-sidecar.`,
-    );
-  }
+  mainLog(
+    `[boot] API ${state.apiHost}:${state.apiPort} started=${runtime.started} webDir=${runtime.webDir}`,
+  );
 
   // Only create services once — activate must not clobber live tunnels/previews.
   if (!state.browser) {
@@ -105,7 +107,7 @@ async function boot() {
   router = createDesktopCommandRouter(createAllHandlers(state));
   registerIpc();
 
-  ensureMainWindow();
+  await ensureMainWindow();
 
   // Background: if control engine is installed but behind the Atmos pin, force
   // ensure without blocking UI. First-time install stays user-initiated.
@@ -144,11 +146,31 @@ async function boot() {
   }
 }
 
+function presentBootFailure(err: unknown): void {
+  const details = formatUnknownError(err);
+  mainLog(`[boot] failed: ${details}`, "error");
+  console.error("[desktop-electron] boot failed:", err);
+  try {
+    applyReadyAppBranding();
+    createMainWindowOrError(state, err);
+  } catch (showErr) {
+    mainLog(
+      `[boot] could not show error window: ${formatUnknownError(showErr)}`,
+      "error",
+    );
+    // Last resort — no silent exit without a chance to read the log path.
+    console.error(
+      `[desktop-electron] fatal boot failure (see ${mainLogPath()}):`,
+      err,
+    );
+  }
+}
+
 function bootOnce(): Promise<void> {
   if (!bootPromise) {
     bootPromise = boot().catch((err) => {
       bootPromise = null;
-      throw err;
+      presentBootFailure(err);
     });
   }
   return bootPromise;
@@ -181,10 +203,7 @@ if (!gotLock) {
   });
 
   app.whenReady().then(() => {
-    bootOnce().catch((err) => {
-      console.error("[desktop-electron] boot failed:", err);
-      app.exit(1);
-    });
+    void bootOnce();
   });
 
   app.on("window-all-closed", () => {
@@ -204,14 +223,13 @@ if (!gotLock) {
     }
     // Window was fully destroyed (Quit path or crash): recreate shell only.
     if (servicesReady()) {
-      try {
-        ensureMainWindow();
-      } catch (err) {
+      void ensureMainWindow().catch((err) => {
         console.error("[desktop-electron] recreate main window failed:", err);
-      }
+        presentBootFailure(err);
+      });
       return;
     }
-    bootOnce().catch(console.error);
+    void bootOnce();
   });
 
   // Async quit: preventDefault, await tunnel teardown, then exit.

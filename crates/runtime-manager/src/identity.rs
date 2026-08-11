@@ -1,4 +1,4 @@
-//! `~/.atmos/relay_identity.json` — outbound relay credentials for this Computer.
+//! `~/.atmos/credentials/relay_identity.json` — outbound relay credentials for this Computer.
 
 use std::fs;
 use std::path::PathBuf;
@@ -6,7 +6,7 @@ use std::path::PathBuf;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::manifest::atmos_home_dir;
+use crate::layout;
 
 pub const RELAY_IDENTITY_FILE_NAME: &str = "relay_identity.json";
 
@@ -23,7 +23,7 @@ pub struct ServerIdentity {
 }
 
 pub fn relay_identity_path() -> Result<PathBuf, String> {
-    Ok(atmos_home_dir()?.join(RELAY_IDENTITY_FILE_NAME))
+    layout::relay_identity_path()
 }
 
 pub fn server_identity_env_path_override() -> Option<PathBuf> {
@@ -32,9 +32,11 @@ pub fn server_identity_env_path_override() -> Option<PathBuf> {
 
 pub fn resolve_server_identity_path() -> PathBuf {
     server_identity_env_path_override().unwrap_or_else(|| {
-        atmos_home_dir()
-            .map(|p| p.join(RELAY_IDENTITY_FILE_NAME))
-            .unwrap_or_else(|_| PathBuf::from(format!(".atmos/{RELAY_IDENTITY_FILE_NAME}")))
+        layout::relay_identity_path().unwrap_or_else(|_| {
+            PathBuf::from(".atmos")
+                .join("credentials")
+                .join(RELAY_IDENTITY_FILE_NAME)
+        })
     })
 }
 

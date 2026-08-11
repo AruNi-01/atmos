@@ -358,6 +358,8 @@ jobs:
       - name: Build web static (desktop)
         env:
           NEXT_PUBLIC_TLDRAW_LICENSE_KEY: ${{ secrets.TLDRAW_LICENSE_KEY }}
+          NEXT_PUBLIC_LINEAR_OAUTH_CLIENT_ID: ${{ secrets.LINEAR_OAUTH_CLIENT_ID }}
+          NEXT_PUBLIC_ATMOS_HUB_URL: ${{ vars.NEXT_PUBLIC_ATMOS_HUB_URL || 'https://hub.atmos.land' }}
         run: node ./scripts/desktop/build-web-static.mjs "$PWD"
 
       - name: Layout desktop runtime bundle

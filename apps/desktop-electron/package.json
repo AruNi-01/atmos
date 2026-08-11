@@ -15,7 +15,7 @@
     "build": "bun run scripts/build.ts",
     "prepare-package": "bun run scripts/prepare-package.ts",
     "package": "bun run scripts/package.ts",
-    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "typecheck": "bun ../../scripts/run-tsc7.ts -p tsconfig.json --noEmit",
     "dev": "bun run scripts/ensure-electron.ts && bun run build && bun run scripts/dev.ts",
     "start": "bun run scripts/ensure-electron.ts && bun run build && electron .",
     "test": "bun test src/**/*.test.ts",
@@ -27,7 +27,7 @@
     "electron": "^37.2.0",
     "electron-builder": "^26.0.12",
     "esbuild": "^0.25.0",
-    "typescript": "^5.8.2"
+    "typescript": "6.0.3"
   },
   "dependencies": {
     "koffi": "^3.1.2"

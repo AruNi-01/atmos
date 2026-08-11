@@ -17,6 +17,7 @@ pub mod review_session;
 pub mod terminal_side_chat;
 pub mod test_message;
 pub mod workspace;
+pub mod workspace_external_issue;
 pub mod workspace_label;
 
 pub use base::*;

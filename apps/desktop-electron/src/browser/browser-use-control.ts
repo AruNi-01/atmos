@@ -21,7 +21,7 @@ export { mapGuestRectToScreen, showEmbeddedBrowserChrome } from "./browser-use-c
 
 const CONTROL_DIR = () =>
   process.env.ATMOS_BROWSER_USE_HOME?.trim() ||
-  join(homedir(), ".atmos", "browser-use");
+  join(homedir(), ".atmos", "data", "browser-use");
 
 
 type SnapshotEl = {

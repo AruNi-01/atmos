@@ -1,0 +1,31 @@
+# Atmos Hub — APP-056 control plane
+# Docs: https://orm.drizzle.team/docs/connect-cloudflare-d1
+#       https://orm.drizzle.team/docs/get-started/d1-new
+#
+# Create D1:  npx wrangler d1 create atmos-hub
+# Local SQL:  npx wrangler d1 execute atmos-hub --local --file=./drizzle/0000_*.sql
+# Or apply generated migrations via migrations_dir on deploy.
+
+name = "atmos-hub"
+main = "src/index.ts"
+compatibility_date = "2024-09-26"
+compatibility_flags = ["nodejs_compat"]
+
+# Top-level Worker routes (must NOT sit under [[d1_databases]] — TOML nests keys into the last table).
+routes = [{ pattern = "hub.atmos.land", custom_domain = true }]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "atmos-hub"
+# Replace after `wrangler d1 create atmos-hub`
+database_id = "ad461a08-910b-4952-8ee7-055730a7afc7"
+migrations_dir = "drizzle"
+
+[vars]
+# Desktop local Server UI is served at http://127.0.0.1:30303 (not :3030 next dev).
+# Include hub origin so Better Auth can redirect to /v1/desktop-auth/complete after OAuth.
+ALLOWED_ORIGINS = "http://localhost:3030,http://127.0.0.1:3030,http://localhost:30303,http://127.0.0.1:30303,http://localhost:3000,https://app.atmos.land,https://atmos.land,https://hub.atmos.land,http://localhost:8787"
+
+[observability]
+enabled = true
+head_sampling_rate = 1

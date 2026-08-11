@@ -24,6 +24,7 @@ fn function_settings_path() -> PathBuf {
     dirs::home_dir()
         .unwrap_or_else(|| PathBuf::from("."))
         .join(".atmos")
+        .join("config")
         .join("function_settings.json")
 }
 
@@ -31,6 +32,7 @@ fn terminal_code_agent_path() -> PathBuf {
     dirs::home_dir()
         .unwrap_or_else(|| PathBuf::from("."))
         .join(".atmos")
+        .join("config")
         .join("agent")
         .join("terminal_code_agent.json")
 }

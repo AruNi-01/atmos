@@ -446,22 +446,9 @@ fn unix_now() -> u64 {
 }
 
 fn default_cache_path() -> Option<PathBuf> {
-    if let Ok(data_dir) = std::env::var("ATMOS_DATA_DIR") {
-        let trimmed = data_dir.trim();
-        if !trimmed.is_empty() {
-            return Some(
-                PathBuf::from(trimmed)
-                    .join("token-usage")
-                    .join(CACHE_FILE_NAME),
-            );
-        }
-    }
-
-    dirs::home_dir().map(|home| {
-        home.join(".atmos")
-            .join("token-usage")
-            .join(CACHE_FILE_NAME)
-    })
+    // Always `~/.atmos/data/token-usage` (or ATMOS_TOKEN_USAGE_DIR) — never nest
+    // under Desktop's ATMOS_DATA_DIR (`data/desktop`).
+    crate::paths::data_path(CACHE_FILE_NAME)
 }
 
 fn load_cache_entries(path: &PathBuf) -> HashMap<String, CachedOverview> {

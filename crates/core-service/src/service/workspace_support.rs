@@ -1,7 +1,7 @@
 use crate::error::{Result, ServiceError};
 use crate::{GithubIssueLabelPayload, GithubIssuePayload, GithubPrPayload};
 use infra::db::entities::{workspace, workspace_label};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 pub const WORKSPACE_WORKFLOW_STATUSES: &[&str] = &[
     "backlog",
@@ -35,6 +35,15 @@ impl From<workspace_label::Model> for WorkspaceLabelDto {
     }
 }
 
+/// Lightweight Linear association chip on workspace list/detail (APP-056).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkspaceLinearLinkDto {
+    pub external_id: String,
+    pub identifier: String,
+    pub title: String,
+    pub url: String,
+}
+
 #[derive(Serialize)]
 pub struct WorkspaceDto {
     #[serde(flatten)]
@@ -43,6 +52,9 @@ pub struct WorkspaceDto {
     pub github_issue: Option<GithubIssuePayload>,
     pub github_pr: Option<GithubPrPayload>,
     pub labels: Vec<WorkspaceLabelDto>,
+    /// Active Linear issue links (denormalized snapshots; multi-link).
+    #[serde(default)]
+    pub linear_links: Vec<WorkspaceLinearLinkDto>,
 }
 
 pub(super) fn validate_workspace_workflow_status(value: Option<String>) -> Result<Option<String>> {

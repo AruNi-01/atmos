@@ -92,13 +92,13 @@ function which(bin: string): string | null {
 }
 
 function statePath(): string {
-  const dir = join(homedir(), ".atmos", "tunnel-connector");
+  const dir = join(homedir(), ".atmos", "credentials", "tunnel-connector");
   mkdirSync(dir, { recursive: true });
   return join(dir, "electron-state.json");
 }
 
 function ensureCredentialDir(): string {
-  const dir = join(homedir(), ".atmos", "tunnel-connector");
+  const dir = join(homedir(), ".atmos", "credentials", "tunnel-connector");
   mkdirSync(dir, { recursive: true });
   // Unix: require 0700 on the secrets directory — do not continue if hardening fails.
   if (process.platform !== "win32") {

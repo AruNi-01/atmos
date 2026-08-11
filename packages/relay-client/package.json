@@ -1,0 +1,19 @@
+{
+  "name": "@atmos/relay-client",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "Atmos Relay control-plane REST client (computers, register tokens, client sessions). Pair with @atmos/hub-client for identity and @atmos/api-client for main /ws.",
+  "exports": {
+    ".": "./src/index.ts",
+    "./types": "./src/types.ts"
+  },
+  "scripts": {
+    "typecheck": "bun ../../scripts/run-tsc7.ts --noEmit",
+    "test": "bun test src"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "typescript": "6.0.3"
+  }
+}

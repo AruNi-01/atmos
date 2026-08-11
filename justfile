@@ -184,11 +184,53 @@ dev-api *args:
         export CORS_ORIGIN="http://localhost:${web_port},http://127.0.0.1:${web_port}"
     fi
 
+    # Linear OAuth finish persists tokens on Hub (core-service). Prefer explicit env;
+    # fall back to web's NEXT_PUBLIC_ / prod Hub so local API is not misconfigured.
+    if [[ -z "${ATMOS_HUB_URL:-}" && -z "${NEXT_PUBLIC_ATMOS_HUB_URL:-}" ]]; then
+        export ATMOS_HUB_URL="https://hub.atmos.land"
+    fi
+
     if [[ -n "$port" ]]; then
         cargo run --bin api -- --port "$port" --cleanup-stale-clients "$cleanup_stale_clients"
     else
         cargo run --bin api -- --cleanup-stale-clients "$cleanup_stale_clients"
     fi
+
+# 启动 Atmos Hub（Better Auth / devices / integrations；packages/hub wrangler dev）
+# 用法:
+#   just dev-hub
+#   just dev-hub --port 8787
+#   just dh
+# 需要 packages/hub/.dev.vars（secrets）；默认 http://localhost:8787
+dev-hub *args:
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    port=8787
+
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            -p|--port)
+                [[ $# -ge 2 ]] || { echo "Missing value for $1" >&2; exit 1; }
+                port="$2"
+                shift 2
+                ;;
+            *)
+                echo "Unknown option: $1" >&2
+                echo "Usage: just dev-hub [--port|-p <port>]" >&2
+                exit 1
+                ;;
+        esac
+    done
+
+    if [[ ! -f packages/hub/.dev.vars ]]; then
+        echo "Missing packages/hub/.dev.vars — copy from .dev.vars.example and fill secrets." >&2
+        exit 1
+    fi
+
+    cd packages/hub
+    echo "Atmos Hub → http://localhost:${port}  (BETTER_AUTH_URL in .dev.vars should match)"
+    bunx wrangler dev --port "$port"
 
 # 启动 API 服务器 (热重载，Ctrl+C 时 cargo watch 可能先退出导致输出乱序)
 dev-api-watch *args:
@@ -226,6 +268,10 @@ dev-api-watch *args:
 
     if [[ -n "$web_port" ]]; then
         export CORS_ORIGIN="http://localhost:${web_port},http://127.0.0.1:${web_port}"
+    fi
+
+    if [[ -z "${ATMOS_HUB_URL:-}" && -z "${NEXT_PUBLIC_ATMOS_HUB_URL:-}" ]]; then
+        export ATMOS_HUB_URL="https://hub.atmos.land"
     fi
 
     if [[ -n "$port" ]]; then
@@ -512,6 +558,7 @@ alias dlp := dev-landing-portless
 alias d-d := dev-docs
 alias dm := dev-mobile
 alias da := dev-api
+alias dh := dev-hub
 alias t := test
 alias te := test-e2e
 alias tes := test-e2e-smoke

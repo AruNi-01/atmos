@@ -24,7 +24,7 @@ import { githubWebhookFanoutLimit, normalizeGithubEvent } from "../src/github-we
 function baseRoute(overrides: Partial<GithubEventRoute> = {}): GithubEventRoute {
   return {
     route_id: "route_1",
-    tenant_id: "tenant_1",
+    user_id: "tenant_1",
     server_id: "server_1",
     automation_guid: "automation_1",
     installation_id: "1",
@@ -309,12 +309,12 @@ describe("GitHub event routes", () => {
     ]);
   });
 
-  test("blocks new routes once a tenant reaches the total route limit", async () => {
-    const counts = [{ count: GITHUB_ROUTE_LIMITS.tenantTotal }];
+  test("blocks new routes once a user reaches the total route limit", async () => {
+    const counts = [{ count: GITHUB_ROUTE_LIMITS.userTotal }];
     const { env, calls } = captureQueryEnv({ first: () => counts.shift() ?? { count: 0 } });
 
     const error = await validateGithubEventRouteLimits(env as never, {
-      tenantId: "tenant_1",
+      userId: "tenant_1",
       routeId: "route_1",
       installationId: "installation_1",
       enabled: 1,
@@ -327,15 +327,15 @@ describe("GitHub event routes", () => {
     expect(calls[0]?.args).toEqual(["tenant_1"]);
   });
 
-  test("blocks active routes once a tenant reaches the active route limit", async () => {
+  test("blocks active routes once a user reaches the active route limit", async () => {
     const counts = [
       { count: 0 },
-      { count: GITHUB_ROUTE_LIMITS.tenantActive },
+      { count: GITHUB_ROUTE_LIMITS.userActive },
     ];
     const { env, calls } = captureQueryEnv({ first: () => counts.shift() ?? { count: 0 } });
 
     const error = await validateGithubEventRouteLimits(env as never, {
-      tenantId: "tenant_1",
+      userId: "tenant_1",
       routeId: "route_1",
       installationId: "installation_1",
       enabled: 1,
@@ -356,7 +356,7 @@ describe("GitHub event routes", () => {
     const { env, calls } = captureQueryEnv({ first: () => counts.shift() ?? { count: 0 } });
 
     const error = await validateGithubEventRouteLimits(env as never, {
-      tenantId: "tenant_1",
+      userId: "tenant_1",
       routeId: "route_1",
       installationId: "installation_1",
       enabled: 1,
@@ -373,7 +373,7 @@ describe("GitHub event routes", () => {
     const { env, calls } = captureQueryEnv({ first: () => counts.shift() ?? { count: 0 } });
 
     const error = await validateGithubEventRouteLimits(env as never, {
-      tenantId: "tenant_1",
+      userId: "tenant_1",
       routeId: "route_1",
       installationId: "installation_1",
       enabled: 0,
@@ -455,7 +455,7 @@ describe("GitHub event routes", () => {
   test("setup session read is non-mutating before final claim", async () => {
     const { env, calls } = captureQueryEnv({
       first: {
-        tenant_id: "tenant_1",
+        user_id: "tenant_1",
         server_id: "server_1",
         return_url: "https://app.atmos.land/done",
       },
@@ -464,8 +464,8 @@ describe("GitHub event routes", () => {
 
     const session = await getGithubSetupSession(env as never, "state_hash", 123);
 
-    expect(session?.tenant_id).toBe("tenant_1");
-    expect(calls[0]?.sql).toContain("SELECT tenant_id, server_id, return_url");
+    expect(session?.user_id).toBe("tenant_1");
+    expect(calls[0]?.sql).toContain("SELECT user_id, server_id, return_url");
     expect(calls[0]?.sql).toContain("used_at IS NULL AND expires_at > ?");
     expect(calls[0]?.args).toEqual(["state_hash", 123]);
     expect(calls[0]?.op).toBe("first");
@@ -474,7 +474,7 @@ describe("GitHub event routes", () => {
   test("setup session final claim is atomic after setup succeeds", async () => {
     const { env, calls } = captureQueryEnv({
       first: {
-        tenant_id: "tenant_1",
+        user_id: "tenant_1",
         server_id: "server_1",
         return_url: "https://app.atmos.land/done",
       },
@@ -482,16 +482,16 @@ describe("GitHub event routes", () => {
     });
 
     const session = await claimGithubSetupSession(env as never, "state_hash", 123, {
-      tenant_id: "tenant_1",
+      user_id: "tenant_1",
       server_id: "server_1",
       return_url: "https://app.atmos.land/done",
     });
 
-    expect(session?.tenant_id).toBe("tenant_1");
+    expect(session?.user_id).toBe("tenant_1");
     expect(calls[0]?.sql).toContain("SET used_at = ?");
     expect(calls[0]?.sql).toContain("used_at IS NULL");
     expect(calls[0]?.sql).toContain("expires_at > ?");
-    expect(calls[0]?.sql).toContain("tenant_id = ?");
+    expect(calls[0]?.sql).toContain("user_id = ?");
     expect(calls[0]?.args).toEqual([123, "state_hash", 123, "tenant_1", "server_1"]);
     expect(calls[0]?.op).toBe("run");
     expect(calls[1]?.op).toBe("first");
@@ -531,7 +531,7 @@ describe("GitHub event routes", () => {
     ]);
   });
 
-  test("monthly dispatch limit blocks tenant dispatches first", async () => {
+  test("monthly dispatch limit blocks user dispatches first", async () => {
     const now = Math.floor(Date.UTC(2026, 5, 24, 12, 0, 0) / 1000);
     const monthStart = Math.floor(Date.UTC(2026, 5, 1, 0, 0, 0) / 1000);
     const counts = [{ count: GITHUB_DELIVERY_LIMITS.monthlyDispatches }];
@@ -539,7 +539,7 @@ describe("GitHub event routes", () => {
 
     const error = await githubMonthlyDispatchLimitExceeded(
       env as never,
-      { tenant_id: "tenant_1", installation_id: "installation_1" },
+      { user_id: "tenant_1", installation_id: "installation_1" },
       now,
     );
 
@@ -548,7 +548,7 @@ describe("GitHub event routes", () => {
     expect(calls[0]?.args).toEqual(["tenant_1", monthStart]);
   });
 
-  test("monthly dispatch limit blocks installation dispatches after tenant room remains", async () => {
+  test("monthly dispatch limit blocks installation dispatches after user room remains", async () => {
     const now = Math.floor(Date.UTC(2026, 5, 24, 12, 0, 0) / 1000);
     const monthStart = Math.floor(Date.UTC(2026, 5, 1, 0, 0, 0) / 1000);
     const counts = [
@@ -559,7 +559,7 @@ describe("GitHub event routes", () => {
 
     const error = await githubMonthlyDispatchLimitExceeded(
       env as never,
-      { tenant_id: "tenant_1", installation_id: "installation_1" },
+      { user_id: "tenant_1", installation_id: "installation_1" },
       now,
     );
 
@@ -579,7 +579,7 @@ describe("GitHub event routes", () => {
       provider: "github",
       deliveryId: "delivery_1",
       routeId: "route_1",
-      tenantId: "tenant_1",
+      userId: "tenant_1",
       installationId: "installation_1",
       serverId: "server_1",
       automationGuid: "automation_1",

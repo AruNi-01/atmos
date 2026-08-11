@@ -37,10 +37,11 @@ describe("relay-wide secret gate", () => {
     const { default: worker } = await import("../src/index");
 
     const response = await worker.fetch(
-      new Request("https://relay.atmos.land/v1/tenants", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token: "a".repeat(32) }),
+      new Request("https://relay.atmos.land/v1/computers", {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${"a".repeat(32)}`,
+        },
       }),
       envWithRelaySecret() as never,
       {} as never,
@@ -54,13 +55,12 @@ describe("relay-wide secret gate", () => {
     const { default: worker } = await import("../src/index");
 
     const response = await worker.fetch(
-      new Request("https://relay.atmos.land/v1/tenants", {
-        method: "POST",
+      new Request("https://relay.atmos.land/v1/computers", {
+        method: "GET",
         headers: {
-          "Content-Type": "application/json",
+          Authorization: `Bearer ${"a".repeat(32)}`,
           "X-Atmos-Relay-Secret": "wrong",
         },
-        body: JSON.stringify({ token: "a".repeat(32) }),
       }),
       envWithRelaySecret() as never,
       {} as never,

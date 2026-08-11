@@ -22,7 +22,7 @@ fn default_provider_switch() -> bool {
     false
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub(crate) struct ProviderStateEntry {
     #[serde(default)]
     pub(crate) updated_at_utc: Option<String>,
@@ -30,16 +30,6 @@ pub(crate) struct ProviderStateEntry {
     pub(crate) switch: bool,
     #[serde(default)]
     pub(crate) footer_carousel_show: bool,
-}
-
-impl Default for ProviderStateEntry {
-    fn default() -> Self {
-        Self {
-            updated_at_utc: None,
-            switch: false,
-            footer_carousel_show: false,
-        }
-    }
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]

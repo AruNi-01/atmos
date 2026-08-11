@@ -11,6 +11,7 @@ mod git;
 mod github;
 mod github_job_log_split;
 mod group;
+mod linear;
 mod local_model;
 mod local_services;
 mod project;
@@ -41,10 +42,11 @@ use tokio::sync::OnceCell;
 
 use core_service::{
     AgentService, AgentSessionService, AutomationService, DiskAnalyzerService, GroupService,
-    LocalServicesService, NotificationService, ProjectService, ReviewService, TerminalService,
-    WorkspaceService,
+    LinearService, LocalServicesService, NotificationService, ProjectService, ReviewService,
+    TerminalService, WorkspaceService,
 };
 use core_service::{Result, ServiceError};
+use sea_orm_migration::sea_orm::DatabaseConnection;
 use support::{parse_request, WorkspaceArchiveSettings, WorkspaceDeleteSettings};
 
 /// WebSocket message service for handling all business logic via WebSocket.
@@ -67,6 +69,7 @@ pub struct WsMessageService {
     disk_analyzer_service: Arc<DiskAnalyzerService>,
     notification_service: Arc<NotificationService>,
     token_usage_service: Arc<token_usage::TokenUsageService>,
+    linear_service: LinearService,
     ws_manager: OnceCell<Arc<WsManager>>,
     local_model_manager: Arc<LocalRuntimeManager>,
 }
@@ -86,6 +89,7 @@ impl WsMessageService {
         canvas_agent_relay: Arc<CanvasAgentRelay>,
         notification_service: Arc<NotificationService>,
         token_usage_service: Arc<token_usage::TokenUsageService>,
+        db: Arc<DatabaseConnection>,
     ) -> Self {
         let local_services_service = Arc::new(LocalServicesService::new(
             Arc::clone(&project_service),
@@ -115,6 +119,7 @@ impl WsMessageService {
             disk_analyzer_service,
             notification_service,
             token_usage_service,
+            linear_service: LinearService::new(db),
             ws_manager: OnceCell::new(),
             local_model_manager: Arc::new(LocalRuntimeManager::new()),
         }
@@ -797,6 +802,51 @@ impl WsMessageService {
                     .await
             }
             WsAction::GithubRateLimit => self.handle_github_rate_limit().await,
+
+            // Linear (APP-056)
+            WsAction::LinearStatus => {
+                self.handle_linear_status(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::LinearConnectApiKey => {
+                self.handle_linear_connect_api_key(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::LinearOauthStart => {
+                self.handle_linear_oauth_start(parse_request(request.data)?)
+            }
+            WsAction::LinearOauthFinish => {
+                self.handle_linear_oauth_finish(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::LinearDisconnect => {
+                self.handle_linear_disconnect(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::LinearRateLimit => {
+                self.handle_linear_rate_limit(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::LinearIssueList => {
+                self.handle_linear_issue_list(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::LinearFilterOptions => {
+                self.handle_linear_filter_options(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::LinearLinkIssue => {
+                self.handle_linear_link_issue(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::LinearUnlinkIssue => {
+                self.handle_linear_unlink_issue(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::LinearLinksForWorkspace => {
+                self.handle_linear_links_for_workspace(parse_request(request.data)?)
+                    .await
+            }
             WsAction::GithubPrUpdateLabels => {
                 self.handle_github_pr_update_labels(parse_request(request.data)?)
                     .await

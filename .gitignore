@@ -40,6 +40,13 @@ playwright-report/
 .env.test.local
 .env.production.local
 .env*.local
+# Cloudflare Workers local secrets (wrangler)
+.dev.vars
+**/.dev.vars
+# Local secret bundles used by put-secrets scripts (never commit)
+secrets.cloud.env
+**/secrets.cloud.env
+*.secrets.env
 
 # ===== log =====
 *.log

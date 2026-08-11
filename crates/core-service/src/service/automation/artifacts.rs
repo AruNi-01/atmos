@@ -21,7 +21,7 @@ pub struct WrittenAttachment {
 pub fn automation_root() -> Result<PathBuf> {
     let home = dirs::home_dir()
         .ok_or_else(|| ServiceError::Validation("Home directory not found".to_string()))?;
-    Ok(home.join(".atmos").join(AUTOMATIONS_DIR))
+    Ok(home.join(".atmos").join("data").join(AUTOMATIONS_DIR))
 }
 
 pub fn definitions_root() -> Result<PathBuf> {

@@ -27,7 +27,11 @@ impl FileLlmConfigStore {
     pub fn new() -> Result<Self> {
         let home = dirs::home_dir().ok_or(LlmError::HomeDirNotFound)?;
         Ok(Self {
-            path: home.join(".atmos").join("llm").join("providers.json"),
+            path: home
+                .join(".atmos")
+                .join("config")
+                .join("llm")
+                .join("providers.json"),
         })
     }
 
@@ -37,7 +41,7 @@ impl FileLlmConfigStore {
 
     pub fn llm_dir() -> Result<PathBuf> {
         let home = dirs::home_dir().ok_or(LlmError::HomeDirNotFound)?;
-        Ok(home.join(".atmos").join("llm"))
+        Ok(home.join(".atmos").join("config").join("llm"))
     }
 
     pub fn load(&self) -> Result<LlmProvidersFile> {

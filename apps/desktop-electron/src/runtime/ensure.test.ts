@@ -3,18 +3,20 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import {
   electronServerPath,
+  looksLikeAtmosUiHtml,
+  parseLsofPids,
   resolveAtmosDataDir,
   setOwnedServerPidForTest,
   stopOwnedAtmosServer,
 } from "./ensure.ts";
 
 describe("Server data dir + quit ownership", () => {
-  it("defaults to shared ~/.atmos/desktop (not desktop-electron sandbox)", () => {
+  it("defaults to shared ~/.atmos/data/desktop (not desktop-electron sandbox)", () => {
     const prev = process.env.ATMOS_DATA_DIR;
     delete process.env.ATMOS_DATA_DIR;
     try {
       const dir = resolveAtmosDataDir("/Users/test");
-      expect(dir).toBe(join("/Users/test", ".atmos", "desktop"));
+      expect(dir).toBe(join("/Users/test", ".atmos", "data", "desktop"));
       expect(dir).not.toContain("desktop-electron");
       // real home path also avoids sandbox name
       expect(resolveAtmosDataDir(homedir())).not.toContain("desktop-electron");
@@ -55,5 +57,20 @@ describe("Server data dir + quit ownership", () => {
     expect(path).toContain("/usr/local/bin");
     expect(path).toContain("/usr/bin");
     expect(path).toContain("/bin");
+  });
+
+  it("looksLikeAtmosUiHtml accepts real documents and rejects empty/404", () => {
+    expect(looksLikeAtmosUiHtml("<!DOCTYPE html><html><body>ok</body></html>")).toBe(
+      true,
+    );
+    expect(looksLikeAtmosUiHtml("<html lang=\"en\">x</html>")).toBe(true);
+    expect(looksLikeAtmosUiHtml("")).toBe(false);
+    expect(looksLikeAtmosUiHtml("Not Found")).toBe(false);
+  });
+
+  it("parseLsofPids extracts unique numeric PIDs", () => {
+    expect(parseLsofPids("12345\n12345\n67890\n")).toEqual([12345, 67890]);
+    expect(parseLsofPids("")).toEqual([]);
+    expect(parseLsofPids("not-a-pid\n")).toEqual([]);
   });
 });

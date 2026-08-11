@@ -35,6 +35,7 @@ import { gitApi } from "@/api/ws-api";
 import { WorkspaceAgentStatusMark } from "@/features/agent/components/WorkspaceAgentStatusMark";
 import { WorkspacePrLifecycleIcon } from "@/features/github/components/WorkspacePrStatusIcon";
 import { WorkspacePrSummary } from "@/features/github/components/WorkspacePrSummary";
+import { WorkspaceLinearSummary } from "@/features/task/components/WorkspaceLinearSummary";
 import { useWorkspacePrStatus } from "@/features/github/hooks/use-workspace-pr-status";
 import { useOpenGithubCenterTab } from "@/features/github/hooks/use-open-github-center-tab";
 import {
@@ -734,6 +735,13 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
                   presentation={managedPr}
                   onOpenPr={openManagedPullRequest}
                   onOpenChecks={openManagedChecks}
+                  className="-mx-1"
+                />
+              ) : null}
+
+              {(workspace.linearLinks?.length ?? 0) > 0 ? (
+                <WorkspaceLinearSummary
+                  links={workspace.linearLinks!}
                   className="-mx-1"
                 />
               ) : null}

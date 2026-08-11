@@ -1,12 +1,13 @@
-//! On-disk layout for quota-usage local state: `~/.atmos/quota-usage`.
+//! On-disk layout for quota-usage local state: `~/.atmos/data/quota-usage`.
 //!
+//! Does **not** nest under `ATMOS_DATA_DIR` (Desktop's `data/desktop` is shell-only).
 //! Override with `ATMOS_QUOTA_USAGE_DIR` (absolute path) for tests or custom installs.
 
 use std::path::PathBuf;
 
 const DATA_DIR: &str = "quota-usage";
 
-/// Data directory (`~/.atmos/quota-usage`). Callers should create it if needed.
+/// Data directory (`~/.atmos/data/quota-usage`). Callers should create it if needed.
 pub(crate) fn data_dir() -> Option<PathBuf> {
     if let Ok(dir) = std::env::var("ATMOS_QUOTA_USAGE_DIR") {
         let trimmed = dir.trim();
@@ -14,7 +15,7 @@ pub(crate) fn data_dir() -> Option<PathBuf> {
             return Some(PathBuf::from(trimmed));
         }
     }
-    dirs::home_dir().map(|home| home.join(".atmos").join(DATA_DIR))
+    dirs::home_dir().map(|home| home.join(".atmos").join("data").join(DATA_DIR))
 }
 
 /// Path to a file under the data dir (may not exist yet).

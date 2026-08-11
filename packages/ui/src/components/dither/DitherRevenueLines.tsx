@@ -9,6 +9,11 @@ import {
   smoothstep,
   type DitherTheme,
 } from "../../lib/dither/math";
+import {
+  createGridMorph,
+  gridSignature,
+  type GridMorph,
+} from "../../lib/dither/morph";
 import { useDitherCanvas } from "../../lib/dither/use-dither-canvas";
 import {
   DitherTooltip,
@@ -56,7 +61,17 @@ export function DitherRevenueLines({
   });
   const clientRef = useRef({ x: 0, y: 0 });
   const lastTipKey = useRef("");
+  const morphRef = useRef<GridMorph | null>(null);
+  if (!morphRef.current) morphRef.current = createGridMorph();
+  const sigRef = useRef("");
   const [tooltip, setTooltip] = useState<DitherTooltipState | null>(null);
+
+  // Retarget during render so the first paint already has morph state (ref-only).
+  const seriesKey = gridSignature(series.map((s) => s.values));
+  if (sigRef.current !== seriesKey) {
+    morphRef.current.retarget(series.map((s) => s.values));
+    sigRef.current = seriesKey;
+  }
 
   const draw = useCallback(
     ({
@@ -72,8 +87,18 @@ export function DitherRevenueLines({
       time: number;
       reducedMotion: boolean;
     }) => {
-      const all = seriesRef.current.filter((s) => s.values.length > 0);
-      if (all.length === 0 || w < 2 || h < 2) return;
+      const meta = seriesRef.current;
+      const morphGrid = morphRef.current!.sample(reducedMotion);
+      if (meta.length === 0 || w < 2 || h < 2) return;
+
+      // Keep morph indices aligned with full series list, then drop empty rows.
+      const all = meta
+        .map((s, si) => ({
+          ...s,
+          values: morphGrid[si] ?? s.values,
+        }))
+        .filter((s) => s.values.length > 0);
+      if (all.length === 0) return;
 
       let maxVal = 1;
       let maxLen = 2;
@@ -228,7 +253,7 @@ export function DitherRevenueLines({
     [theme],
   );
 
-  useDitherCanvas(canvasRef, draw, [series, labels, theme]);
+  useDitherCanvas(canvasRef, draw);
 
   return (
     <div className={cn("relative h-full w-full", className)}>

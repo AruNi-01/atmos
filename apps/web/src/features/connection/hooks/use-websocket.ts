@@ -22,6 +22,7 @@ import { useAtmosComputerStore } from "@/features/connection/lib/atmos-computer-
 import { syncClientSessionFromStore } from "@/features/connection/lib/sync-client-session";
 import { ensureComputerClientSettingsHydrated } from "@/features/connection/lib/sync-computer-client-settings";
 import { ensureLocalAppConnectionBootstrap } from "@/features/connection/lib/app-connection-bootstrap";
+import { workbenchRelayClientKind } from "@/features/connection/lib/workbench-relay-client-kind";
 import {
   isDesktopRuntime,
   isHostedAtmosOrigin,
@@ -279,7 +280,7 @@ export const useWebSocketStore = create<WebSocketStore>((set, get) => ({
           return;
         }
         useConnectionStore.getState().syncActiveInstanceFromComputer();
-        const clientType = isDesktopRuntime() ? "desktop" : "web";
+        const clientType = workbenchRelayClientKind();
         const computer = useAtmosComputerStore.getState();
         let runtimeUrl: string;
         const relayUrl = computer.relayWebSocketUrl?.trim();
@@ -322,11 +323,11 @@ export const useWebSocketStore = create<WebSocketStore>((set, get) => ({
         const msg = error instanceof Error ? error.message : String(error);
         debugLog(`ws:connect catch err=${msg}`);
         // Log message only — printing Error objects can fail bun tests as unhandled.
+        // Do not rethrow: fire-and-forget connect() would surface as Next.js Runtime Error.
         console.error("[WebSocket] Connection failed:", msg);
         set({ connectionState: "disconnected", socket: null });
         // Kernel schedules reconnect when policy allows; ensure session exists
         ensureSession();
-        throw error instanceof Error ? error : new Error(msg);
       }
     })();
 

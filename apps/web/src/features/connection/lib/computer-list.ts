@@ -1,5 +1,6 @@
 'use client';
 
+import { activeComputers } from '@atmos/relay-client';
 import type { ComputerRow } from '@/features/connection/lib/connection-ui-prefs';
 
 function normalizeServerId(serverId: string | null | undefined): string | null {
@@ -16,5 +17,5 @@ export function isCurrentLocalComputer(
 }
 
 export function activeComputerRows(computers: ComputerRow[]): ComputerRow[] {
-  return computers.filter(computer => !computer.revoked);
+  return activeComputers(computers);
 }

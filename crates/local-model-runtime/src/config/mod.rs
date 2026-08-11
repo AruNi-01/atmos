@@ -6,7 +6,7 @@ use crate::error::{LocalModelError, Result};
 /// Root directory for all managed local model runtime data.
 pub fn local_model_runtime_dir() -> Result<PathBuf> {
     let home = dirs::home_dir().ok_or(LocalModelError::HomeDirNotFound)?;
-    Ok(home.join(".atmos").join("local-model-runtime"))
+    Ok(home.join(".atmos").join("data").join("local-model-runtime"))
 }
 
 /// Directory where model GGUF files are stored.

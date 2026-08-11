@@ -1,4 +1,4 @@
-/** Mobile API types — shared wire DTOs from `@atmos/api-types`; mobile-only shapes stay here. */
+/** Mobile API types — shared wire DTOs; mobile-only shapes stay here. */
 
 export type {
   WsError,
@@ -35,6 +35,12 @@ export type {
   GithubPrPayload,
 } from "@atmos/api-types/ws/dto/github";
 
+export type {
+  ClientSessionResponse,
+  ComputerRow,
+  RegisterTokenResponse,
+} from "@atmos/relay-client";
+
 /** Mobile transitional git diff (accepts legacy + structured fields). */
 export type GitFileDiffResponse = {
   file_path: string;
@@ -57,30 +63,6 @@ export type ApiEnvelope<T> = {
   data?: T;
   message?: string | null;
   error?: string | null;
-};
-
-export type ComputerRow = {
-  server_id: string;
-  display_name: string | null;
-  revoked: number;
-  created_at: number;
-  last_seen_at: number | null;
-  registration_meta: Record<string, unknown> | null;
-  online: boolean;
-};
-
-export type ClientSessionResponse = {
-  client_token: string;
-  expires_at: number;
-  ws_url: string;
-  gateway_url: string;
-  terminal_ws_url: string;
-};
-
-export type RegisterTokenResponse = {
-  register_token: string;
-  expires_at: number;
-  register_command: string;
 };
 
 export type TerminalWorkspaceCandidate = {

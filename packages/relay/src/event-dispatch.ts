@@ -3,7 +3,7 @@ import type { Env } from "./index";
 export interface GithubTriggerEnvelope {
   delivery_id: string;
   route_id: string;
-  tenant_id: string;
+  user_id: string;
   server_id: string;
   automation_guid: string;
   provider: "github";

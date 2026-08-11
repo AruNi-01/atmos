@@ -7,9 +7,14 @@ import {
   Dialog,
   DialogContent,
   DialogTitle,
+  FacebookIcon,
+  ImageGenerationCanvas,
   Popover,
   PopoverContent,
   PopoverTrigger,
+  RedditIcon,
+  ThreadsIcon,
+  XIcon,
   cn,
   toastManager,
 } from "@workspace/ui";
@@ -45,7 +50,7 @@ type TokenUsageSharePopoverProps = {
 const SOCIALS: Array<{
   id: SocialPlatform;
   label: string;
-  Icon: React.ComponentType<{ className?: string }>;
+  Icon: React.ComponentType<{ className?: string; size?: number }>;
 }> = [
   { id: "x", label: "X", Icon: XIcon },
   { id: "reddit", label: "Reddit", Icon: RedditIcon },
@@ -383,19 +388,19 @@ export function TokenUsageSharePopover({
                     className="h-full w-full object-cover object-top"
                   />
                 </button>
-              ) : (
-                <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 px-3 text-center">
-                  <div
-                    className={cn(
-                      "h-8 w-8 rounded-full",
-                      busy ? "animate-pulse" : "",
-                      isDark ? "bg-white/10" : "bg-black/10",
-                    )}
-                    aria-hidden
-                  />
+              ) : captureFailed ? (
+                <div className="absolute inset-0 flex items-center justify-center px-3 text-center">
                   <span className="text-[11px] text-muted-foreground">
-                    {captureFailed ? t("errors.capture") : t("capturing")}
+                    {t("errors.capture")}
                   </span>
+                </div>
+              ) : (
+                <div className="absolute inset-0">
+                  <ImageGenerationCanvas
+                    theme={isDark ? "dark" : "light"}
+                    aria-label={t("capturing")}
+                    className="rounded-[16px]"
+                  />
                 </div>
               )}
             </div>
@@ -419,7 +424,7 @@ export function TokenUsageSharePopover({
                   title={label}
                   className="size-8 shrink-0"
                 >
-                  <Icon className="size-3.5 opacity-90" />
+                  <Icon className="opacity-90" size={14} />
                 </Button>
               ))}
             </div>
@@ -480,35 +485,3 @@ export function TokenUsageSharePopover({
 
 /** @deprecated Use TokenUsageSharePopover */
 export const TokenUsageShareDialog = TokenUsageSharePopover;
-
-function XIcon({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="currentColor" className={cn(className)} aria-hidden>
-      <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.744l7.727-8.835L1.254 2.25H8.08l4.253 5.622L18.244 2.25zm-1.161 17.52h1.833L7.084 4.126H5.117L17.083 19.77z" />
-    </svg>
-  );
-}
-
-function RedditIcon({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="currentColor" className={cn(className)} aria-hidden>
-      <path d="M12 2C6.48 2 2 6.18 2 11.33c0 3.35 2.13 6.25 5.24 7.72-.07.61-.42 2.2.27 3.07 0 0 1.3-.52 3.08-1.58.86.17 1.77.26 2.71.26 5.52 0 10-4.18 10-9.33S17.52 2 12 2zm5.55 10.99c.1.92.13 1.87.06 2.78-.01.18-.19.29-.36.23-1.3-.44-2.57-1.05-3.7-1.82-.13-.09-.14-.28-.02-.39.67-.63 1.22-1.37 1.62-2.18.07-.14.24-.19.38-.12.74.38 1.4.91 2.02 1.5zm-11.1 0c.62-.59 1.28-1.12 2.02-1.5.14-.07.31-.02.38.12.4.81.95 1.55 1.62 2.18.12.11.11.3-.02.39-1.13.77-2.4 1.38-3.7 1.82-.17.06-.35-.05-.36-.23-.07-.91-.04-1.86.06-2.78zM12 17.4c-1.93 0-3.64-.64-4.73-1.63-.13-.12-.14-.32-.02-.45.67-.72 1.62-1.23 2.7-1.47.13-.03.27.04.32.16.28.68.72 1.27 1.29 1.71.14.1.14.3 0 .41-.18.14-.37.27-.56.37.99.24 2.08.24 3.07 0-.19-.1-.38-.23-.56-.37-.14-.11-.14-.31 0-.41.57-.44 1.01-1.03 1.29-1.71.05-.12.19-.19.32-.16 1.08.24 2.03.75 2.7 1.47.12.13.11.33-.02.45-1.09.99-2.8 1.63-4.73 1.63z" />
-    </svg>
-  );
-}
-
-function FacebookIcon({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="currentColor" className={cn(className)} aria-hidden>
-      <path d="M22 12.07C22 6.48 17.52 2 11.93 2S1.86 6.48 1.86 12.07c0 4.99 3.63 9.13 8.38 9.93v-7.02H7.9v-2.91h2.34V9.84c0-2.32 1.38-3.6 3.49-3.6.99 0 2.03.18 2.03.18v2.23h-1.14c-1.12 0-1.47.7-1.47 1.42v1.7h2.5l-.4 2.91h-2.1V22c4.75-.8 8.38-4.94 8.38-9.93z" />
-    </svg>
-  );
-}
-
-function ThreadsIcon({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="currentColor" className={cn(className)} aria-hidden>
-      <path d="M16.3 11.15c-.1-2.48-1.49-4.13-4.22-4.17-1.74-.03-3.19.8-3.82 2.17l1.66.71c.41-.9 1.3-1.35 2.2-1.34 1.56.02 2.32.91 2.37 2.55-1.03-.18-2.14-.22-3.28-.12-1.92.17-3.53 1.1-3.44 3.13.05 1.18.67 2.2 1.79 2.75 1.14.57 2.61.64 3.75.21 1.26-.47 2.12-1.55 2.48-3.23.65.4 1.19.92 1.57 1.53.69 1.12.91 2.68.54 4.12-.42 1.66-1.56 2.8-3.24 3.24-1.38.36-2.98.24-4.35-.32-1.67-.68-2.87-1.95-3.37-3.58l-1.76.68c.65 2.2 2.3 3.94 4.53 4.84 1.74.7 3.8.86 5.66.37 2.44-.64 4.12-2.37 4.73-4.84.58-2.33.2-4.66-1.05-6.58-.77-1.18-1.9-2.1-3.24-2.67zm-2.43 4.03c-.66.45-1.65.61-2.46.45-.98-.19-1.42-.75-1.44-1.25-.03-.8.66-1.32 2.12-1.45.65-.06 1.63-.04 2.44.1-.2 1.03-.66 1.85-1.66 2.15z" />
-    </svg>
-  );
-}

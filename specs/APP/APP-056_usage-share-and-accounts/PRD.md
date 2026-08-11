@@ -37,6 +37,18 @@
 5. User keeps using PNG share without ever creating an account.
 6. User enrolls a second device while signed in and sees the same Computers without pasting any token.
 
+```text
+[Local, signed out]
+  Token Usage → charts OK
+  PNG share OK
+  Publish page → require Hub login (GitHub|Google)
+       ↓
+[Signed in] → create/update snapshot (same share_id) → public /s/:id
+       ↓ unpublish → public 404 (no stale edge cache)
+[Signed in] → Trust device → device credential → Relay Computers
+[Second device] → enroll again → same user_id Computers
+```
+
 ## User Stories
 
 - As a user, I want a public or unlisted usage URL, so that I can share stats without attaching a screenshot every time.
@@ -46,7 +58,7 @@
 - As a user, I want to rotate this device’s credential while logged in, so that a leaked machine secret dies without losing my Computers.
 - As a privacy-conscious user, I want only aggregate stats published, so that prompts, paths, and projects never leave my machine.
 - As a user, I want to hide estimated cost by default, so that money figures are not leaked accidentally.
-- As a user, I want to unpublish or rotate a share, so that I control exposure after posting.
+- As a user, I want to unpublish a share (and update its snapshot on the same URL while it is live), so that I control exposure after posting.
 - As a multi-device user, I want my user identity—not a free-floating token—to own Computers, shares, and installs, so that rotating a device credential never orphans resources.
 
 ## Functional Requirements
@@ -96,6 +108,7 @@
 - Billing Atmos itself based on token usage.
 - Forcing login for **pure local** Atmos Server use (no Relay).
 - User-generated Access Token as a supported identity mode.
+- Dual local+Hub stores for Computers or third-party integrations (Linear): **Hub `user_id` only**; features that need cloud identity must guide users to sign in.
 - Password/email-only accounts in v1.
 - Putting Better Auth on `packages/relay`.
 

@@ -18,14 +18,21 @@ describe("AppShot capture route structure", () => {
   });
 
   it("host-capture module encodes shouldUseHostEngineCapture on installed driver", () => {
-    const src = readFileSync(
+    const hostCapture = readFileSync(
       join(import.meta.dir, "../desktop-use/host-capture.ts"),
       "utf8",
     );
-    expect(src).toContain("shouldUseHostEngineCapture");
-    expect(src).toContain("driver?.installed");
-    expect(src).toContain("desktopUseDriveScreenshot");
-    expect(src).toContain("via: \"host_engine\"");
+    expect(hostCapture).toContain("shouldUseHostEngineCapture");
+    expect(hostCapture).toContain("desktopUseDriveScreenshot");
+    expect(hostCapture).toContain('via: "host_engine"');
+
+    // Installed-driver gate lives in host-window-match (pure helper).
+    const hostMatch = readFileSync(
+      join(import.meta.dir, "../desktop-use/host-window-match.ts"),
+      "utf8",
+    );
+    expect(hostMatch).toContain("shouldUseHostEngineCapture");
+    expect(hostMatch).toContain("status?.driver?.installed");
   });
 
   it("electron in-process capture is documented as pre-ensure fallback only", () => {

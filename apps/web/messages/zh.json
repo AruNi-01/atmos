@@ -229,11 +229,11 @@
       "connectErrorMessage": "连接失败。",
       "connectErrorTitle": "无法连接",
       "connectErrorHint": "请重试。",
-      "accessKeyRequired": "需要访问密钥",
-      "accessKeyRequiredDescription": "在页面头部切换计算机前，请先保存 Atmos 电脑访问密钥。",
+      "accessKeyRequired": "需要登录账号",
+      "accessKeyRequiredDescription": "请先在 设置 → 账号 登录，以便本机使用 Hub 设备身份，然后再从页头切换 Computer。",
       "openComputerSettings": "打开设备设置",
       "noComputers": "还没有设备",
-      "noComputersDescription": "请先注册本机或使用同一访问密钥添加其它机器。",
+      "noComputersDescription": "请先注册本机，或在同一 Atmos 账号下添加其它机器。",
       "refresh": "刷新",
       "addComputer": "添加设备",
       "computerCountOne": "{count} 台设备",
@@ -644,6 +644,22 @@
           "note": "本地估算"
         }
       },
+      "loading": {
+        "tips": {
+          "tallyingAgents": "挨个问 Agent：刚才那波，到底烧了多少 token？",
+          "countingLateNight": "逮到 Claude 在通宵码字——深夜 token 正在报到…",
+          "reconcilingInvoices": "像侦探一样把聊天记录和模型对上号…",
+          "tracingCacheHits": "每挖到一次缓存命中，就给 Agent 击个掌…",
+          "weighingInOut": "左边码输入 token，右边码输出 token…",
+          "askingAgents": "把还在打盹的 Agent 戳醒，让它们报 token 数…",
+          "buildingHeatmap": "把你的 token 烟花画到日历热力图上…",
+          "sortingAppetite": "给 Agent 排成一排：从「抿一口」到「鲸吞」…",
+          "estimatingCost": "把那些 prompt 翻译成钱（深呼吸）…",
+          "unwindingWindows": "把超长上下文窗口摊平成好看的图表…",
+          "negotiatingLedger": "把散落一地的 token 归拢成整齐的小堆…",
+          "polishingBreakdown": "给 token 图表最后抛个光…"
+        }
+      },
       "heatmap": {
         "kicker": "热力图",
         "loadingTitle": "加载中…",
@@ -716,13 +732,18 @@
           "cache": "缓存",
           "cacheRead": "缓存读取",
           "cacheWrite": "缓存写入",
-          "reasoning": "推理"
+          "reasoning": "推理",
+          "amount": "Token",
+          "share": "占比"
         },
         "radar": {
           "share": "占比"
         },
         "agent": {
           "other": "其他"
+        },
+        "stacked": {
+          "total": "合计"
         }
       }
     },
@@ -1163,7 +1184,8 @@
       "loadingSettings": "正在加载任务设置...",
       "source": {
         "atmos": "Atmos",
-        "github": "GitHub"
+        "github": "GitHub",
+        "linear": "Linear"
       },
       "github": {
         "tabs": {
@@ -1228,7 +1250,8 @@
           "updatedAt": "更新时间",
           "action": "操作",
           "assignees": "负责人",
-          "linked": "关联"
+          "linked": "关联",
+          "loading": "加载中…"
         },
         "actions": {
           "createIssue": "创建 Issue",
@@ -1327,6 +1350,111 @@
           "purple": "紫色",
           "pink": "粉色",
           "cyan": "青色"
+        }
+      },
+      "linear": {
+        "refresh": "刷新",
+        "notConnected": "尚未连接 Linear",
+        "connectHint": "使用 OAuth（推荐）或本地 API Key 连接后，即可浏览 Issue 并创建 Workspace。",
+        "openIntegrations": "连接 Linear",
+        "openAccountSettings": "打开账号设置",
+        "loadError": "加载 Linear Issue 失败。",
+        "empty": "没有匹配筛选条件的 Issue。",
+        "openInLinear": "在 Linear 中打开",
+        "chip": {
+          "localApiKey": "本地 API Key",
+          "oauthAccount": "OAuth 账号"
+        },
+        "presets": {
+          "active": "Active",
+          "backlog": "Backlog",
+          "all": "全部"
+        },
+        "statusTypes": {
+          "backlog": "Backlog",
+          "unstarted": "Todo",
+          "started": "In Progress",
+          "completed": "Done",
+          "canceled": "Canceled"
+        },
+        "filters": {
+          "allTeams": "全部团队",
+          "allProjects": "全部项目",
+          "searchPlaceholder": "搜索标题或编号…"
+        },
+        "filter": {
+          "trigger": "筛选",
+          "sectionLabel": "筛选",
+          "view": "视图",
+          "status": "状态",
+          "allStatuses": "全部状态",
+          "statusCount": "已选 {count} 项",
+          "assignee": "负责人",
+          "allAssignees": "全部负责人",
+          "assigneeCount": "已选 {count} 人",
+          "searchAssignees": "搜索负责人…",
+          "noMatchingAssignees": "没有匹配的负责人",
+          "labels": "标签",
+          "allLabels": "全部标签",
+          "labelCount": "已选 {count} 个",
+          "searchLabels": "搜索标签…",
+          "noMatchingLabels": "没有匹配的标签",
+          "team": "团队",
+          "project": "项目",
+          "allTeams": "全部团队",
+          "allProjects": "全部项目",
+          "searchTeams": "搜索团队…",
+          "searchProjects": "搜索项目…",
+          "noMatchingTeams": "没有匹配的团队",
+          "noMatchingProjects": "没有匹配的项目",
+          "clearAll": "清除全部筛选"
+        },
+        "search": {
+          "clear": "清除搜索"
+        },
+        "table": {
+          "priority": "优先级",
+          "priorityShort": "P",
+          "noPriority": "无优先级",
+          "issue": "Issue",
+          "assignee": "负责人",
+          "createdAt": "创建",
+          "updatedAt": "更新",
+          "action": "操作",
+          "loading": "正在加载 Issue…",
+          "issueHint": "编号、状态图标、标题、标签与关联 GitHub"
+        },
+        "priority": {
+          "urgent": "紧急",
+          "high": "高",
+          "medium": "中",
+          "low": "低"
+        },
+        "pagination": {
+          "previous": "上一页",
+          "next": "下一页"
+        },
+        "createWorkspace": "从 Issue 创建 Workspace",
+        "create": "创建",
+        "enter": "进入",
+        "enterWorkspace": "进入 Workspace",
+        "linkOrCreate": "打开创建并关联",
+        "needProject": "请先选择 Atmos 项目。",
+        "createFailed": "从 Linear Issue 创建 Workspace 失败。",
+        "signInRequired": "使用 Linear OAuth 前请先登录 Atmos",
+        "signInHint": "请先在账号设置中登录，或在集成 → Linear 添加本地 API Key。",
+        "drawer": {
+          "titleFallback": "Linear Issue",
+          "close": "关闭",
+          "status": "状态",
+          "project": "项目",
+          "noProject": "无项目",
+          "labels": "标签",
+          "noLabels": "无标签",
+          "description": "描述",
+          "noDescription": "暂无描述。",
+          "unassigned": "未指派",
+          "enterWorkspace": "进入 Workspace"
         }
       }
     }
@@ -1509,6 +1637,7 @@
         "path": "路径",
         "openPullRequest": "打开 Pull Request #{number}：{title}",
         "openChecks": "打开 Checks / Actions",
+        "openLinearIssue": "打开 Linear {identifier}：{title}",
         "pullRequest": "Pull Request",
         "prState": {
           "open": "开启",
@@ -2263,10 +2392,10 @@
         "errors": {
           "cannotReachCloud": "无法连接 Atmos 云端，请检查网络连接。",
           "cannotConnectLocally": "无法本地连接。请重启 Atmos 后重试。",
-          "currentKeyTooShort": "当前访问密钥过短。",
-          "newKeyTooShort": "新的访问密钥过短。",
-          "newKeyMustDiffer": "新的访问密钥必须不同。",
-          "relayAccessKeyUnavailable": "Relay 访问密钥不可用。"
+          "currentKeyTooShort": "当前设备凭证太短。",
+          "newKeyTooShort": "新设备凭证太短。",
+          "newKeyMustDiffer": "新设备凭证必须不同。",
+          "relayAccessKeyUnavailable": "设备凭证不可用。请先在账号中信任此设备。"
         }
       },
       "registrationMeta": {
@@ -3301,6 +3430,7 @@
           "workspaceBranchTitle": "当前工作区分支：{branch}",
           "githubIssueTitle": "GitHub Issue：#{number}",
           "githubPrTitle": "GitHub PR：#{number}（{branch}）",
+          "linearIssueTitle": "Linear issue：{identifier} {title}",
           "autoTodosValue": "TODOs",
           "autoTodosTitle": "启用 LLM 自动提取 TODO：开"
         },
@@ -3431,10 +3561,15 @@
         "randomGenerateAgain": "重新生成",
         "githubIssue": "GitHub Issue",
         "githubPr": "GitHub PR",
+        "linearIssue": "Linear Issue",
         "refreshIssues": "刷新 Issues",
         "refreshPrs": "刷新 PRs",
+        "refreshLinear": "刷新 Linear Issues",
+        "loadMore": "加载更多",
+        "loadingMore": "正在加载…",
         "preview": {
-          "openOnGithub": "在 GitHub 中打开"
+          "openOnGithub": "在 GitHub 中打开",
+          "openOnLinear": "在 Linear 中打开"
         },
         "autoExtractTodos": "自动提取 TODOs",
         "issue": {
@@ -3465,6 +3600,16 @@
           "loadingPrPreview": "正在加载 PR 预览...",
           "noPrDescription": "没有提供 PR 描述。",
           "reuseBranchNotice": "将复用 <mono>{branch}</mono>。"
+        },
+        "linear": {
+          "selectIssue": "选择 Linear Issue",
+          "selectIssuePlaceholder": "选择 Issue",
+          "loadingIssues": "正在加载 Linear Issues…",
+          "noIssuesAvailable": "没有未完成的 Issue",
+          "noOpenIssues": "没有找到未完成的 Linear Issue",
+          "notConnected": "请先在设置 → 集成 中连接 Linear。",
+          "openOnlyHint": "仅显示 Backlog、Todo、In Progress（不含 Done）。",
+          "noDescription": "暂无描述。"
         }
       },
       "mentionPopover": {
@@ -3525,6 +3670,7 @@
         "loadGithubPrs": "加载 GitHub PR 失败",
         "loadProjectContext": "加载项目上下文失败",
         "loadGithubIssues": "加载 GitHub Issue 失败",
+        "loadLinearIssues": "加载 Linear Issue 失败",
         "prRepoMismatch": "该 PR 属于 {previewRepo}，但当前项目是 {currentRepo}。",
         "loadPrPreview": "加载 PR 预览失败",
         "refreshGithubPrs": "刷新 GitHub PR 失败",
@@ -4295,6 +4441,10 @@
           "label": "界面",
           "description": "布局、编辑器、画布与键盘偏好设置"
         },
+        "personal": {
+          "label": "个人",
+          "description": "账号与登录"
+        },
         "aiAgents": {
           "label": "AI Agent",
           "description": "AI 提供商与代码 Agent 配置"
@@ -4380,6 +4530,10 @@
         "desktopUse": {
           "label": "Desktop Use",
           "description": "本机桌面捕获、控制引擎与 macOS 权限"
+        },
+        "account": {
+          "label": "账号",
+          "description": "登录、信任此设备，并管理你的 Atmos 账号"
         }
       },
       "dialog": {
@@ -4804,17 +4958,11 @@
             }
           },
           "atmosComputer": {
-            "accessKey": {
-              "label": "Access Key"
+            "accountRequired": {
+              "label": "需要登录账号"
             },
-            "generateAccessKey": {
-              "label": "生成 Access Key"
-            },
-            "saveAccessKey": {
-              "label": "保存 Access Key"
-            },
-            "rotateAccessToken": {
-              "label": "轮换 Access Token"
+            "mobilePair": {
+              "label": "配对手机"
             },
             "privateRelay": {
               "label": "Private Relay"
@@ -5151,8 +5299,8 @@
       "cli": {
         "title": "Atmos CLI",
         "description": "Desktop Use 等本机功能需要 Atmos CLI。安装一次，之后保持更新即可。",
-        "installUpdate": "安装更新",
-        "install": "安装 CLI",
+        "installUpdate": "更新",
+        "install": "安装",
         "notInstalled": "未安装",
         "versionLabel": "v{version}",
         "checkForUpdates": "检查更新"
@@ -5856,6 +6004,81 @@
         },
         "installationStatusTitle": "安装状态",
         "authenticationStatusTitle": "认证状态"
+      },
+      "linear": {
+        "title": "Linear",
+        "description": "推荐用 OAuth 连接 Linear（额度更高、可跨设备同步），也可仅在本机保存个人 API Key。",
+        "connectOauth": "使用 Linear 登录",
+        "connectApiKey": "保存 API Key",
+        "apiKeyPlaceholder": "lin_api_…",
+        "disconnect": "断开 OAuth",
+        "connectedAs": "已连接为 {name}",
+        "notConnected": "未连接",
+        "needsHubLogin": "需要登录",
+        "needsHubLoginHint": "OAuth 使用你的 Atmos 账号。请先打开「账号」，用 GitHub 或 Google 登录。",
+        "needsDevice": "需要信任此设备",
+        "needsDeviceHint": "登录后请在「账号」中信任此设备，再连接 Linear。",
+        "openAccount": "打开账号",
+        "connectFailed": "连接 Linear 失败",
+        "disconnectFailed": "断开 Linear 失败",
+        "authMethodApiKey": "API Key",
+        "authMethodOauth": "OAuth",
+        "useThis": "使用",
+        "usingThis": "使用中",
+        "chip": {
+          "localApiKey": "本地 API Key",
+          "oauthAccount": "OAuth 账号"
+        },
+        "oauth": {
+          "title": "OAuth 账号",
+          "recommended": "推荐",
+          "hint": "额度更高，Linear 连接会随你的 Atmos 账号在设备间同步。"
+        },
+        "local": {
+          "title": "本地 API Key",
+          "hint": "仅保存在本机，不关联 Atmos 账号。可保存多把 Key，但同一时间只能选用一把（或改用 OAuth）。",
+          "storageLoading": "正在确认保存位置…",
+          "storageDisk": "已保存在本机",
+          "storageBrowserFallback": "暂时保存在此浏览器。当本机 Atmos 可用后，可改为本地保存。",
+          "createKeyLink": "在 Linear 创建 API Key",
+          "namePlaceholder": "Key 名称",
+          "apiKeyPlaceholder": "个人 API Key",
+          "apiKeyRequired": "请填写 API Key",
+          "save": "保存 Key",
+          "saveFailed": "保存 API Key 失败",
+          "remove": "删除",
+          "unnamedViewer": "个人 Key"
+        },
+        "rateLimit": {
+          "title": "API 额度",
+          "description": "当前 OAuth 账号或本地 API Key 的 Linear 请求次数与复杂度额度。",
+          "refresh": "刷新",
+          "loadError": "无法加载 Linear 额度。",
+          "empty": "此连接尚无额度数据。使用 Linear 后再点刷新。",
+          "footer": "剩余 {remaining} · {reset}",
+          "resetSoon": "即将重置",
+          "resetInMinutes": "{minutes} 分钟后重置",
+          "resetInHours": "{hours} 小时后重置",
+          "resetInHoursMinutes": "{hours} 小时 {minutes} 分钟后重置",
+          "resources": {
+            "requests": "请求次数",
+            "complexity": "复杂度"
+          }
+        },
+        "connecting": "正在跳转…",
+        "oauthCallback": {
+          "title": "正在连接 Linear",
+          "successTitle": "Linear 已连接",
+          "errorTitle": "无法连接 Linear",
+          "loading": "加载中…",
+          "working": "正在完成 Linear 连接…",
+          "success": "Linear 已关联到 Atmos。你可以关闭此标签页。",
+          "closeCountdown": "将在 {seconds} 秒后关闭此标签页…",
+          "closeNow": "正在关闭此标签页…",
+          "closeHint": "也可以直接关闭此标签页，返回 Atmos 即可。",
+          "missingParams": "缺少连接信息，请重新连接 Linear。",
+          "finishFailed": "无法完成 Linear 连接"
+        }
       }
     },
     "aiSection": {
@@ -6051,6 +6274,81 @@
     "browserUse": {
       "label": "Browser Use",
       "description": "控制 Atmos 内置浏览器页面（DOM 点击 / 输入 / 导航）"
+    },
+    "accountSection": {
+      "title": "Atmos 账号",
+      "description": "使用 GitHub 或 Google 登录，以便在设备间同步计算机、Linear 与共享用量。",
+      "hubNotConfigured": "此版本暂不支持 Atmos 账号登录。请重新安装 Atmos 或检查更新。",
+      "signedIn": "已登录",
+      "signedOut": "未登录",
+      "signIn": "登录",
+      "signInHint": "GitHub 或 Google",
+      "signInHintDesktop": "在系统默认浏览器中打开，可复用已有的 GitHub / Google 登录状态",
+      "signInDialogTitle": "登录 Atmos",
+      "signInDialogDescription": "使用 GitHub 或 Google 继续，无需密码。",
+      "signInDialogDescriptionDesktop": "将在系统默认浏览器中完成登录。Atmos 保持打开，完成后会自动同步会话。",
+      "signInDialogDescriptionWeb": "选择你的登录方式。",
+      "signInGithub": "使用 GitHub 登录",
+      "signInGoogle": "使用 Google 登录",
+      "waitingBrowser": "正在等待浏览器中的登录…请在浏览器完成，再回到 Atmos。",
+      "waitingBrowserWeb": "正在等待新标签页中的登录…请在那边完成，再回到此页。",
+      "signOut": "退出登录",
+      "signOutConfirmTitle": "确认退出登录？",
+      "signOutConfirmDescription": "将退出当前浏览器中的 Atmos 登录，并清除会话 cookie 与本机设备凭证。",
+      "signOutCancel": "取消",
+      "nameTitle": "名称",
+      "nameDescription": "全名或显示名称。",
+      "namePlaceholder": "名称",
+      "nameSave": "保存",
+      "nameTooLong": "请使用不超过 {max} 个字符。",
+      "profileTitle": "个人资料",
+      "profileDescription": "你的 Atmos 身份，用于计算机、Linear 与用量等功能。",
+      "securityTitle": "安全",
+      "securityDescription": "此账号的受信任设备。信任当前浏览器后，计算机可安全连接。",
+      "linkedAccounts": "关联账号",
+      "linkedAccountsDescription": "可将 GitHub 与 Google 关联到同一个 Atmos 账号。每种登录方式只能关联一个，不能挂多个 GitHub 或多个 Google。",
+      "activeSessions": "活跃会话",
+      "activeSessionsDescription": "管理当前登录会话，可撤销访问。",
+      "link": "关联",
+      "unlink": "取消关联",
+      "linked": "已关联",
+      "linkedAccountId": "账号 {id}",
+      "notLinked": "未关联",
+      "linkOpensNewTab": "将在新标签页打开",
+      "revoke": "撤销",
+      "currentSession": "当前会话",
+      "otherSession": "其他会话",
+      "sessionUnknown": "未知设备",
+      "sessionsEmpty": "暂无活跃会话。",
+      "trustDevice": "信任",
+      "devicesTitle": "受信任设备",
+      "devicesEmpty": "还没有受信任的设备。信任此设备后，即可在此使用你的计算机。",
+      "deviceActive": "有效",
+      "deviceRevoked": "已吊销",
+      "credentialOnceTitle": "此设备已受信任（仅显示一次）",
+      "credentialOnceHint": "已保存在此设备。若泄露，请再次信任此设备以替换。",
+      "deleteAccount": "删除账号",
+      "deleteAccountDescription": "永久删除你的 Atmos 账号、已关联登录、会话与受信任设备。此操作不可撤销。",
+      "deleteAccountDialogTitle": "确认删除账号？",
+      "deleteAccountDialogDescription": "将永久删除用户、已关联的 GitHub/Google、登录会话与设备。之后需要重新登录才会创建新账号。",
+      "deleteConfirmPhrase": "删除我的账号",
+      "deleteConfirmPrompt": "请输入 {phrase} 以确认",
+      "deleteConfirmAction": "删除账号",
+      "deleteCancel": "取消",
+      "errors": {
+        "signInFailed": "登录失败",
+        "signOutFailed": "退出失败",
+        "enrollFailed": "无法信任此设备",
+        "linkFailed": "无法关联账号",
+        "unlinkFailed": "无法取消关联",
+        "alreadyLinked": "该登录方式已关联",
+        "cannotUnlinkLast": "不能取消关联最后一个账号",
+        "listAccountsFailed": "无法加载关联账号",
+        "listSessionsFailed": "无法加载会话",
+        "revokeFailed": "无法撤销会话",
+        "deleteFailed": "无法删除账号",
+        "nameSaveFailed": "无法保存名称"
+      }
     }
   },
   "agent": {
@@ -8317,21 +8615,15 @@
       "toasts": {
         "savedForSession": "已为当前会话保存",
         "couldNotSaveLocally": "无法保存到这台电脑。请确保 Atmos 正在本地运行。",
-        "identitySwitchedForSession": "已为当前会话切换身份",
-        "accessKeyCreated": "访问密钥已创建",
-        "accessKeyCreatedSaved": "已保存到这台电脑。请立即复制，它之后将不会再次显示。",
-        "accessKeyCreatedNotSaved": "请立即复制；无法保存到这台电脑。请确保 Atmos 正在本地运行。",
-        "saveAccessKeyFirst": "请先保存访问密钥",
-        "saveAccessKeyBeforeRotation": "轮换访问密钥时，需要使用当前本地访问密钥来证明所有权。",
-        "saveAccessKeyBeforeRegistering": "注册这台电脑前，请先添加并保存访问密钥。",
-        "saveAccessKeyBeforeConnecting": "连接另一台电脑前，请先添加并保存访问密钥。",
-        "saveAccessKeyBeforeRemoving": "移除电脑前，请先添加并保存访问密钥。",
+        "signInRequired": "需要登录账号",
+        "signInBeforeRegistering": "注册这台 Computer 前，请先在 设置 → 账号 登录。",
+        "signInBeforeConnecting": "连接另一台 Computer 前，请先在 设置 → 账号 登录。",
+        "signInBeforeRemoving": "移除 Computer 前，请先在 设置 → 账号 登录。",
         "remoteConnectionRestored": "远程连接已恢复",
         "computerAvailable": "这台 Computer 已可用于 Atmos Computer 连接。",
         "couldNotConnectRelay": "无法连接 Relay",
         "ensureAtmosRunningThenRetry": "请确保 Atmos 正在这台 Computer 上运行，然后重试。",
         "ensureAtmosRunning": "请确保 Atmos 正在这台 Computer 上运行。",
-        "couldNotRotateAccessKey": "无法轮换访问密钥",
         "couldNotStartRegistration": "无法开始注册",
         "registeredNotYetOnline": "已注册，但尚未上线",
         "useReconnectAfterNetworkCheck": "请检查网络连接后，使用下方的 Reconnect 重试。",
@@ -8344,59 +8636,19 @@
         "connected": "已连接",
         "couldNotConnect": "无法连接",
         "tryAgain": "请重试。",
-        "couldNotSaveAccessKey": "无法保存访问密钥",
         "privateRelaySettingsSaved": "私有 Relay 设置已保存",
-        "identitySwitchBlocked": "身份切换被阻止",
-        "couldNotStopOldRelayIdentityWithError": "无法停止旧的本地 Relay 身份：{error}",
-        "couldNotStopOldRelayIdentity": "无法停止旧的本地 Relay 身份。请重试。",
-        "githubAutomationsMarkSetupFailedWithError": "旧的本地 Relay 身份已停止，但无法将 GitHub 自动化标记为需要重新配置：{error}",
-        "githubAutomationsMarkSetupFailed": "旧的本地 Relay 身份已停止，但无法将 GitHub 自动化标记为需要重新配置。请重试。",
-        "identitySwitched": "身份已切换",
-        "accessKeySaved": "访问密钥已保存",
-        "githubAutomationsNeedSetup": "此身份下有 {count} 个 GitHub 触发的自动化现在需要重新配置。",
-        "previousKeyResourcesRemain": "旧密钥下已有的 Computers 和 GitHub 路由会继续保留在旧密钥下。",
-        "accessKeyTooShort": "访问密钥太短",
-        "accessKeyTooShortDescription": "请生成新的密钥或粘贴你已保存的密钥。",
-        "couldNotCopy": "无法复制",
-        "checkClipboardPermissions": "请检查剪贴板权限。",
-        "accessKeyRotated": "访问密钥已轮换",
-        "accessKeyRotatedDescription": "设备和 GitHub 路由会继续使用同一身份。请现在复制新的密钥。",
-        "accessKeyRotatedNotSaved": "Relay 已接受轮换，但 Atmos 无法保存到本地。请现在复制新的密钥。",
         "couldNotRemove": "无法移除",
         "computerRemoved": "设备已移除"
       },
       "panels": {
-        "accessKey": {
-          "title": "访问密钥",
-          "description": "你的访问密钥可用于注册新的 Computer（通过注册码），并列出你账户下的所有 Computer。",
-          "actions": {
-            "generate": "生成"
-          },
-          "placeholders": {
-            "savedOnComputer": "访问密钥已保存在这台 Computer 上",
-            "pasteOrGenerate": "粘贴访问密钥或生成一个新的"
-          },
-          "buttons": {
-            "copied": "已复制",
-            "copy": "复制访问密钥",
-            "switchIdentity": "切换身份",
-            "save": "保存"
-          },
-          "helper": {
-            "switchIdentity": "切换身份会直接替换本地密钥。当前密钥下已有的 Computers 和 GitHub 路由不会一起迁移。",
-            "hiddenOnHostedWeb": "这台 Computer 上已保存访问密钥。Hosted web 会将其隐藏；只有在需要替换时才粘贴新密钥。",
-            "default": "生成或粘贴访问密钥，以创建或使用一个 Atmos Computer 身份。"
-          }
+        "accountRequired": {
+          "title": "需要登录账号",
+          "description": "请先在 设置 → 账号 登录。Atmos 会为本机自动签发设备凭证，无需复制或粘贴。",
+          "syncing": "正在同步账号设备…"
         },
-        "rotateAccessToken": {
-          "title": "轮换访问令牌",
-          "description": "当 Relay 访问令牌可能泄露，或你希望进行一次安全刷新时使用轮换。已有 Computers 会保持连接。",
-          "button": "轮换"
-        },
-        "tokenReveal": {
-          "title": "请立即复制你的访问密钥",
-          "copied": "已复制",
-          "button": "复制并关闭"
+        "mobilePair": {
+          "title": "配对手机",
+          "description": "显示临时二维码，让 Atmos 手机端加入同一账号，无需粘贴设备凭证。"
         },
         "privateRelay": {
           "title": "私有 Relay",
@@ -8430,14 +8682,14 @@
           "useLocalTitle": "使用这台 Computer 本地运行",
           "useLocalDescription": "从当前远程 Computer 切回本机 Desktop runtime。",
           "useLocalButton": "本地使用",
-          "saveKeyPrompt": "请先在上方保存访问密钥，再注册这台 Computer。"
+          "signInPrompt": "请先在 设置 → 账号 登录，再注册这台 Computer。"
         },
         "myComputers": {
           "title": "我的 Computers",
           "description": "与你账户关联的 Computers。",
           "refresh": "刷新",
-          "saveKeyPrompt": "请先保存访问密钥，才能查看你的 Computers。",
-          "empty": "还没有任何 Computer。先注册这台 Computer，或使用相同访问密钥添加另一台远程 Computer。",
+          "signInPrompt": "请先在 设置 → 账号 登录，才能查看你的 Computers。",
+          "empty": "还没有任何 Computer。先注册这台 Computer，或在同一账号下添加另一台远程 Computer。",
           "connected": "已连接",
           "fallbackName": "Computer",
           "current": "当前",
@@ -8543,12 +8795,22 @@
         "copyFailed": "复制失败"
       },
       "description": {
-        "useAccessKeyFirst": "请先填写上面的访问密钥。",
+        "useAccessKeyFirst": "请先在 设置 → 账号 登录，以便本机拥有 Hub 设备身份。",
         "preparing": "正在准备注册码…",
         "expired": "注册码已过期，请重新生成并复制新的启动命令。",
-        "generateAndCopy": "生成并复制启动命令，将这台远程设备绑定到上面的访问密钥。",
-        "runOnRemote": "请在远程设备上运行。注册码为一次性使用，约 15 分钟后过期。"
+        "generateAndCopy": "生成并复制启动命令，将这台远程 Computer 关联到你的账号。",
+        "runOnRemote": "请在远程 Computer 上运行。注册码为一次性使用，约 15 分钟后过期。"
       }
+    },
+    "mobilePair": {
+      "title": "用二维码配对手机",
+      "description": "用 Atmos 手机端扫描。代码 3 分钟后过期，且只能使用一次。手机端无需登录。",
+      "showQr": "显示二维码",
+      "refresh": "刷新代码",
+      "expiresIn": "{seconds} 秒后过期",
+      "signInFirst": "请先在 设置 → 账号 登录。",
+      "hubNotConfigured": "Hub 未配置。",
+      "createFailed": "无法创建配对码"
     }
   },
   "tunnelConnector": {
@@ -9426,6 +9688,42 @@
         "accessibility": "已为 Atmos Desktop Use 开启辅助功能",
         "screenRecording": "已为 Atmos Desktop Use 开启屏幕录制"
       }
+    }
+  },
+  "hubAuthBridge": {
+    "title": "即将完成",
+    "working": "正在完成登录并信任此设备…",
+    "success": "登录成功。你可以关闭此标签页并返回 Atmos。",
+    "closingIn": "{seconds} 秒后关闭此标签页…",
+    "closeHint": "Atmos 会自动同步你的登录状态。若标签页未自动关闭，请手动关闭。",
+    "noSession": "未找到 Atmos 会话。请从应用中重新登录。",
+    "failed": "无法完成登录",
+    "missingCode": "缺少登录码。请从 Atmos 设置 → 账号 重新开始登录。"
+  },
+  "hubAuthDone": {
+    "title": "登录完成",
+    "working": "正在确认 Atmos 会话…",
+    "success": "已登录。可以关闭此标签页，返回 Atmos。",
+    "closingIn": "{seconds} 秒后关闭此标签页…",
+    "closeHint": "若标签页未自动关闭，请手动关闭。",
+    "noSession": "未找到会话。请从 Atmos 重新登录。",
+    "failed": "无法确认登录",
+    "goHome": "返回 Atmos"
+  },
+  "hubAuthError": {
+    "title": "未能完成",
+    "closingIn": "{seconds} 秒后关闭此标签页…",
+    "closeHint": "若标签页未自动关闭，请手动关闭。",
+    "goHome": "返回 Atmos",
+    "codeLabel": "错误码：{code}",
+    "errors": {
+      "generic": "登录或关联账号时出错。请从 Atmos 设置 → 账号 重试。",
+      "accountAlreadyLinkedOtherUser": "这个 Google 或 GitHub 登录已经关联到另一个 Atmos 账号。",
+      "accountAlreadyLinkedOtherUserHint": "请改用那个 Google/GitHub 账号登录，或关联其他账号。同一登录方式不能挂在两个 Atmos 用户上。",
+      "emailDoesNotMatch": "第三方邮箱与当前 Atmos 账号不一致。",
+      "unableToLink": "无法关联该账号。请重试或换用其他登录方式。",
+      "stateMismatch": "登录已过期或重复发起。请关闭此标签页，从 Atmos 重新开始。",
+      "sessionRequired": "请先登录，再关联其他账号。"
     }
   }
 }

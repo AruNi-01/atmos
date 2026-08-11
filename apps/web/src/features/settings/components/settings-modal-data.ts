@@ -35,6 +35,12 @@ export const SETTINGS_GROUPS = [
     items: ["layout", "editor", "canvas", "terminal"] as const,
   },
   {
+    id: "personal",
+    label: settingsModalT("groups.personal.label"),
+    description: settingsModalT("groups.personal.description"),
+    items: ["account"] as const,
+  },
+  {
     id: "ai-agents",
     label: settingsModalT("groups.aiAgents.label"),
     description: settingsModalT("groups.aiAgents.description"),
@@ -103,6 +109,11 @@ export const SETTINGS_SECTIONS = [
     description: settingsModalT("sections.labels.description"),
   },
   {
+    id: "account",
+    label: settingsModalT("sections.account.label"),
+    description: settingsModalT("sections.account.description"),
+  },
+  {
     id: "integrations",
     label: settingsModalT("sections.integrations.label"),
     description: settingsModalT("sections.integrations.description"),
@@ -166,6 +177,7 @@ const SECTION_GROUP_TERMS = SETTINGS_GROUPS.reduce(
 );
 
 const SETTINGS_SECTION_KEYWORDS: Record<SettingsSectionId, readonly string[]> = {
+  account: ["account", "login", "sign in", "hub", "github", "google", "device", "identity"],
   layout: [
     "layout",
     "panel",
@@ -415,13 +427,11 @@ const SETTINGS_SECTION_KEYWORDS: Record<SettingsSectionId, readonly string[]> = 
     "computer",
     "remote",
     "relay",
-    "access token",
-    "access key",
+    "account",
+    "sign in",
     "private relay",
     "relay url",
     "token",
-    "rotate access token",
-    "switch identity",
     "register computer",
     "register this computer",
     "this computer",
@@ -512,6 +522,7 @@ function settingsModalSearchItem(
 }
 
 const SETTINGS_SETTING_ITEMS: Record<SettingsSectionId, readonly SettingsSearchItemDefinition[]> = {
+  account: [],
   layout: [
     settingsModalSearchItem("layout.projectFilesShowSide", {
       hasDescription: true,
@@ -969,17 +980,11 @@ const SETTINGS_SETTING_ITEMS: Record<SettingsSectionId, readonly SettingsSearchI
     }),
   ],
   "atmos-computer": [
-    settingsModalSearchItem("atmosComputer.accessKey", {
-      keywords: ["access token", "register new computers", "registration codes", "identity"],
+    settingsModalSearchItem("atmosComputer.accountRequired", {
+      keywords: ["sign in", "account", "hub device", "login required"],
     }),
-    settingsModalSearchItem("atmosComputer.generateAccessKey", {
-      keywords: ["create access key", "generate token"],
-    }),
-    settingsModalSearchItem("atmosComputer.saveAccessKey", {
-      keywords: ["paste access key", "switch identity", "hosted web"],
-    }),
-    settingsModalSearchItem("atmosComputer.rotateAccessToken", {
-      keywords: ["security refresh", "relay access token exposed"],
+    settingsModalSearchItem("atmosComputer.mobilePair", {
+      keywords: ["pair phone", "qr code", "mobile", "scan"],
     }),
     settingsModalSearchItem("atmosComputer.privateRelay", {
       keywords: ["self-hosted relay", "official atmos relay"],

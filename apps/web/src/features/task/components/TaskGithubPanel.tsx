@@ -21,7 +21,6 @@ import {
   ArrowUpDown,
   CircleDot,
   GitPullRequest,
-  Loader2,
   Plus,
   RefreshCw,
   Search,
@@ -575,10 +574,19 @@ export function TaskGithubPanel({ projects, headerTrailingHost = null }: TaskGit
         return;
       }
       const projectId = projectIdForItem(item);
+      const labelDraft = (item.labels ?? []).map((l) => ({
+        name: l.name,
+        color: l.color,
+      }));
       if (kind === "issues" || item.kind === "issue") {
         openTaskWorkspaceCreate({
           projectId,
           setNewWorkspace,
+          displayName: item.title?.trim()
+            ? `[issue#${item.number}] ${item.title.trim()}`.slice(0, 120)
+            : `[issue#${item.number}]`,
+          // Keep composer empty — do not paste issue body into the prompt.
+          initialRequirement: null,
           link: {
             kind: "issue",
             owner: item.owner,
@@ -586,6 +594,9 @@ export function TaskGithubPanel({ projects, headerTrailingHost = null }: TaskGit
             number: item.number,
             title: item.title,
             url: item.url,
+            body: item.body,
+            state: item.state,
+            labels: labelDraft,
           },
         });
         return;
@@ -593,6 +604,11 @@ export function TaskGithubPanel({ projects, headerTrailingHost = null }: TaskGit
       openTaskWorkspaceCreate({
         projectId,
         setNewWorkspace,
+        displayName: item.title?.trim()
+          ? `[PR#${item.number}] ${item.title.trim()}`.slice(0, 120)
+          : `[PR#${item.number}]`,
+        // Keep composer empty — do not paste PR body into the prompt.
+        initialRequirement: null,
         link: {
           kind: "pr",
           owner: item.owner,
@@ -602,6 +618,10 @@ export function TaskGithubPanel({ projects, headerTrailingHost = null }: TaskGit
           url: item.url,
           head_ref: item.head_ref,
           base_ref: item.base_ref,
+          body: item.body,
+          state: item.state,
+          is_draft: item.is_draft,
+          labels: labelDraft,
         },
       });
     },
@@ -654,7 +674,7 @@ export function TaskGithubPanel({ projects, headerTrailingHost = null }: TaskGit
         Outer page must not scroll (overflow-hidden on this tree).
         Source Atmos/GitHub tabs live on TaskManagementView so the coss Indicator animates.
       */}
-      <div className="mx-auto flex min-h-0 w-full max-w-6xl flex-1 flex-col overflow-hidden px-6 py-3">
+      <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden px-6 py-3">
         {/* Issues/PRs · search · Filter · Sort — fixed toolbar */}
         <div className="flex min-w-0 shrink-0 items-center gap-2 pb-2">
           <div className="min-w-0 shrink-0">
@@ -734,61 +754,58 @@ export function TaskGithubPanel({ projects, headerTrailingHost = null }: TaskGit
           </div>
         </div>
 
-        {/* List region fills remaining height; table scrolls inside */}
+        {/* Table shell always mounts; loading / empty live inside the body. */}
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-          {reposLoading && repos.length === 0 ? (
-            <div className="flex min-h-0 flex-1 items-center justify-center text-muted-foreground">
-              <Loader2 className="size-4 animate-spin" />
-            </div>
-          ) : repos.length === 0 ? (
-            <div className="flex min-h-0 flex-1 items-center justify-center text-center text-sm text-muted-foreground">
-              {t("empty.noRepos")}
-            </div>
-          ) : loading && items.length === 0 ? (
-            <div className="flex min-h-0 flex-1 items-center justify-center text-muted-foreground">
-              <Loader2 className="size-4 animate-spin" />
-            </div>
-          ) : items.length === 0 ? (
-            <div className="flex min-h-0 flex-1 items-center justify-center text-center text-sm text-muted-foreground">
-              {kind === "issues" ? t("empty.noIssues") : t("empty.noPrs")}
-            </div>
-          ) : (
-            <>
-              <div className="min-h-0 flex-1 overflow-hidden">
-                <TaskGithubTable
-                  items={items}
-                  kind={kind}
-                  onOpenItem={handleOpenItem}
-                  onOpenLinkedRef={handleOpenLinkedRef}
-                  onCreateWorkspace={handleCreateWorkspace}
-                  onEnterWorkspace={handleEnterWorkspace}
-                  resolveLinkedWorkspace={resolveLinkedWorkspace}
-                />
-              </div>
+          <div className="min-h-0 flex-1 overflow-hidden">
+            <TaskGithubTable
+              items={items}
+              kind={kind}
+              bodyState={
+                (reposLoading && repos.length === 0) ||
+                (loading && items.length === 0)
+                  ? "loading"
+                  : repos.length === 0
+                    ? "empty"
+                    : items.length === 0
+                      ? "empty"
+                      : "ready"
+              }
+              bodyMessage={
+                repos.length === 0 && !reposLoading
+                  ? t("empty.noRepos")
+                  : kind === "issues"
+                    ? t("empty.noIssues")
+                    : t("empty.noPrs")
+              }
+              onOpenItem={handleOpenItem}
+              onOpenLinkedRef={handleOpenLinkedRef}
+              onCreateWorkspace={handleCreateWorkspace}
+              onEnterWorkspace={handleEnterWorkspace}
+              resolveLinkedWorkspace={resolveLinkedWorkspace}
+            />
+          </div>
 
-              {/* Pagination fixed at bottom of the shell (outside table scroll) */}
-              <div className="flex min-w-0 shrink-0 items-center justify-between gap-3 pt-2">
-                <p className="min-w-0 flex-1 text-[10px] leading-snug text-muted-foreground">
-                  {t("pagination.aggregatedHint", {
-                    repos: activeRepos.length,
-                    count: searchQuery.data?.total_count ?? items.length,
-                    sort: t(`sort.options.${sort}`),
-                  })}
-                </p>
-                {page > 1 || hasMore ? (
-                  <GithubListPagination
-                    page={page}
-                    hasMore={hasMore}
-                    onPageChange={setPage}
-                    previousLabel={t("pagination.previous")}
-                    nextLabel={t("pagination.next")}
-                    layout="full"
-                    className="mt-0 w-auto justify-end pb-0"
-                  />
-                ) : null}
-              </div>
-            </>
-          )}
+          {/* Pagination fixed at bottom of the shell (outside table scroll) */}
+          <div className="flex min-w-0 shrink-0 items-center justify-between gap-3 pt-2">
+            <p className="min-w-0 flex-1 text-[10px] leading-snug text-muted-foreground">
+              {t("pagination.aggregatedHint", {
+                repos: activeRepos.length,
+                count: searchQuery.data?.total_count ?? items.length,
+                sort: t(`sort.options.${sort}`),
+              })}
+            </p>
+            {page > 1 || hasMore ? (
+              <GithubListPagination
+                page={page}
+                hasMore={hasMore}
+                onPageChange={setPage}
+                previousLabel={t("pagination.previous")}
+                nextLabel={t("pagination.next")}
+                layout="full"
+                className="mt-0 w-auto justify-end pb-0"
+              />
+            ) : null}
+          </div>
         </div>
       </div>
 

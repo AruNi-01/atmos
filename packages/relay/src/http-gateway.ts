@@ -31,7 +31,7 @@ export async function validateGatewayAccess(
   env: Env,
   serverId: string,
   secretHash: (secret: string) => Promise<string>,
-  tenantFromBearer: (request: Request, env: Env) => Promise<string | null>,
+  userIdFromBearer: (request: Request, env: Env) => Promise<string | null>,
 ): Promise<boolean> {
   const auth = request.headers.get("Authorization");
   if (!auth?.startsWith("Bearer ")) {
@@ -71,16 +71,16 @@ export async function validateGatewayAccess(
     }
   }
 
-  const tenant = await tenantFromBearer(request, env);
-  if (!tenant) {
+  const userId = await userIdFromBearer(request, env);
+  if (!userId) {
     return false;
   }
 
   const comp = await env.DB.prepare(
     `SELECT 1 AS ok FROM computers
-     WHERE server_id = ? AND tenant_id = ? AND revoked = 0 LIMIT 1`,
+     WHERE server_id = ? AND user_id = ? AND revoked = 0 LIMIT 1`,
   )
-    .bind(serverId, tenant)
+    .bind(serverId, userId)
     .first<{ ok: number }>();
 
   return !!comp;

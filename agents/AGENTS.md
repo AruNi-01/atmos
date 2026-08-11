@@ -20,6 +20,7 @@ This directory contains cross-cutting references and guidelines that apply acros
 | `references/mobile/native-navigation.md` | When changing mobile page titles, headers, navigation bars, or header buttons |
 | `references/design/AGENTS.md` | When changing UI design, visual language, component styling, or platform-specific app chrome |
 | `references/runtime/AGENTS.md` | When changing local runtime discovery, startup, relay identity, or Atmos Computer routing |
+| `references/runtime/atmos-home-layout.md` | When adding or moving files under `~/.atmos` (credentials/state/config/data) |
 
 ## Directory Structure
 

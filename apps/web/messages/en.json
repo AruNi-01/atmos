@@ -229,11 +229,11 @@
       "connectErrorMessage": "Could not connect.",
       "connectErrorTitle": "Could not connect",
       "connectErrorHint": "Try again.",
-      "accessKeyRequired": "Access key required",
-      "accessKeyRequiredDescription": "Save an Atmos Computer access key before switching computers from the header.",
+      "accessKeyRequired": "Sign in required",
+      "accessKeyRequiredDescription": "Sign in under Settings → Account so this app can use your Hub device. Then switch computers from the header.",
       "openComputerSettings": "Open Computer Settings",
       "noComputers": "No computers yet",
-      "noComputersDescription": "Register this computer or add another machine with the same access key.",
+      "noComputersDescription": "Register this computer or add another machine under the same Atmos account.",
       "refresh": "Refresh",
       "addComputer": "Add Computer",
       "computerCountOne": "{count} computer",
@@ -644,6 +644,22 @@
           "note": "Local estimate"
         }
       },
+      "loading": {
+        "tips": {
+          "tallyingAgents": "Asking each agent: \"so… how many tokens was that?\"",
+          "countingLateNight": "Catching Claude mid-sprint — those late-night tokens add up…",
+          "reconcilingInvoices": "Matching chats to models like a very patient detective…",
+          "tracingCacheHits": "High-fiving agents for every cache hit we find…",
+          "weighingInOut": "Stacking input tokens on one side, output on the other…",
+          "askingAgents": "Poking agents awake to confess their token counts…",
+          "buildingHeatmap": "Coloring the calendar with your token fireworks…",
+          "sortingAppetite": "Lining up agents from \"sip\" to \"guzzle\"…",
+          "estimatingCost": "Translating prompts into dollars (brace yourself)…",
+          "unwindingWindows": "Unrolling giant context windows into tidy charts…",
+          "negotiatingLedger": "Herding loose tokens into neat little piles…",
+          "polishingBreakdown": "Giving your token charts one last polish…"
+        }
+      },
       "heatmap": {
         "kicker": "Heatmap",
         "loadingTitle": "Loading…",
@@ -716,13 +732,18 @@
           "cache": "Cache",
           "cacheRead": "Cache read",
           "cacheWrite": "Cache write",
-          "reasoning": "Reasoning"
+          "reasoning": "Reasoning",
+          "amount": "Tokens",
+          "share": "Share"
         },
         "radar": {
           "share": "Share"
         },
         "agent": {
           "other": "Other"
+        },
+        "stacked": {
+          "total": "Total"
         }
       }
     },
@@ -1163,7 +1184,8 @@
       "loadingSettings": "Loading task settings...",
       "source": {
         "atmos": "Atmos",
-        "github": "GitHub"
+        "github": "GitHub",
+        "linear": "Linear"
       },
       "github": {
         "tabs": {
@@ -1228,7 +1250,8 @@
           "assignees": "Assignees",
           "linked": "Linked",
           "updatedAt": "Updated",
-          "action": "Action"
+          "action": "Action",
+          "loading": "Loading…"
         },
         "actions": {
           "createIssue": "Create issue",
@@ -1327,6 +1350,111 @@
           "purple": "Purple",
           "pink": "Pink",
           "cyan": "Cyan"
+        }
+      },
+      "linear": {
+        "refresh": "Refresh",
+        "notConnected": "Linear is not connected",
+        "connectHint": "Connect with OAuth (recommended) or a local API key to browse issues and create workspaces.",
+        "openIntegrations": "Connect Linear",
+        "openAccountSettings": "Open Account settings",
+        "loadError": "Failed to load Linear issues.",
+        "empty": "No issues match these filters.",
+        "openInLinear": "Open in Linear",
+        "chip": {
+          "localApiKey": "Local API key",
+          "oauthAccount": "OAuth account"
+        },
+        "presets": {
+          "active": "Active",
+          "backlog": "Backlog",
+          "all": "All issues"
+        },
+        "statusTypes": {
+          "backlog": "Backlog",
+          "unstarted": "Todo",
+          "started": "In Progress",
+          "completed": "Done",
+          "canceled": "Canceled"
+        },
+        "filters": {
+          "allTeams": "All teams",
+          "allProjects": "All projects",
+          "searchPlaceholder": "Search title or id…"
+        },
+        "filter": {
+          "trigger": "Filter",
+          "sectionLabel": "Filter",
+          "view": "View",
+          "status": "Status",
+          "allStatuses": "All statuses",
+          "statusCount": "{count} selected",
+          "assignee": "Assignee",
+          "allAssignees": "All assignees",
+          "assigneeCount": "{count} selected",
+          "searchAssignees": "Search assignees…",
+          "noMatchingAssignees": "No matching assignees",
+          "labels": "Labels",
+          "allLabels": "All labels",
+          "labelCount": "{count} selected",
+          "searchLabels": "Search labels…",
+          "noMatchingLabels": "No matching labels",
+          "team": "Team",
+          "project": "Project",
+          "allTeams": "All teams",
+          "allProjects": "All projects",
+          "searchTeams": "Search teams…",
+          "searchProjects": "Search projects…",
+          "noMatchingTeams": "No matching teams",
+          "noMatchingProjects": "No matching projects",
+          "clearAll": "Clear all filters"
+        },
+        "search": {
+          "clear": "Clear search"
+        },
+        "table": {
+          "priority": "Priority",
+          "priorityShort": "P",
+          "noPriority": "No priority",
+          "issue": "Issue",
+          "assignee": "Assignee",
+          "createdAt": "Created",
+          "updatedAt": "Updated",
+          "action": "Action",
+          "loading": "Loading issues…",
+          "issueHint": "ID, status icon, title, labels, and linked GitHub"
+        },
+        "priority": {
+          "urgent": "Urgent",
+          "high": "High",
+          "medium": "Medium",
+          "low": "Low"
+        },
+        "pagination": {
+          "previous": "Previous",
+          "next": "Next"
+        },
+        "createWorkspace": "Create workspace from issue",
+        "create": "Create",
+        "enter": "Enter",
+        "enterWorkspace": "Enter workspace",
+        "linkOrCreate": "Open create with link",
+        "needProject": "Select an Atmos project first.",
+        "createFailed": "Failed to create workspace from Linear issue.",
+        "signInRequired": "Sign in to Atmos to use Linear OAuth",
+        "signInHint": "Sign in under Account, or add a local API key under Integrations → Linear.",
+        "drawer": {
+          "titleFallback": "Linear issue",
+          "close": "Close",
+          "status": "Status",
+          "project": "Project",
+          "noProject": "No project",
+          "labels": "Labels",
+          "noLabels": "No labels",
+          "description": "Description",
+          "noDescription": "No description.",
+          "unassigned": "Unassigned",
+          "enterWorkspace": "Enter workspace"
         }
       }
     }
@@ -1509,6 +1637,7 @@
         "path": "Path",
         "openPullRequest": "Open pull request #{number}: {title}",
         "openChecks": "Open checks / Actions",
+        "openLinearIssue": "Open Linear {identifier}: {title}",
         "pullRequest": "Pull request",
         "prState": {
           "open": "Open",
@@ -2263,10 +2392,10 @@
         "errors": {
           "cannotReachCloud": "Cannot reach Atmos cloud. Check your network connection.",
           "cannotConnectLocally": "Cannot connect locally. Restart Atmos and try again.",
-          "currentKeyTooShort": "Current access key is too short.",
-          "newKeyTooShort": "New access key is too short.",
-          "newKeyMustDiffer": "New access key must be different.",
-          "relayAccessKeyUnavailable": "Relay access key is unavailable."
+          "currentKeyTooShort": "Current device credential is too short.",
+          "newKeyTooShort": "New device credential is too short.",
+          "newKeyMustDiffer": "New device credential must be different.",
+          "relayAccessKeyUnavailable": "Device credential is unavailable. Trust this device under Account first."
         }
       },
       "registrationMeta": {
@@ -3301,6 +3430,7 @@
           "workspaceBranchTitle": "Current workspace branch: {branch}",
           "githubIssueTitle": "GitHub issue: #{number}",
           "githubPrTitle": "GitHub PR: #{number} ({branch})",
+          "linearIssueTitle": "Linear issue: {identifier} {title}",
           "autoTodosValue": "TODOs",
           "autoTodosTitle": "Auto-extract TODOs with LLM: on"
         },
@@ -3431,10 +3561,15 @@
         "randomGenerateAgain": "Generate again",
         "githubIssue": "GitHub issue",
         "githubPr": "GitHub PR",
+        "linearIssue": "Linear issue",
         "refreshIssues": "Refresh issues",
         "refreshPrs": "Refresh PRs",
+        "refreshLinear": "Refresh Linear issues",
+        "loadMore": "Load more",
+        "loadingMore": "Loading more…",
         "preview": {
-          "openOnGithub": "Open on GitHub"
+          "openOnGithub": "Open on GitHub",
+          "openOnLinear": "Open in Linear"
         },
         "autoExtractTodos": "Auto-extract TODOs",
         "issue": {
@@ -3465,6 +3600,16 @@
           "loadingPrPreview": "Loading PR preview...",
           "noPrDescription": "No PR description provided.",
           "reuseBranchNotice": "<mono>{branch}</mono> will be reused."
+        },
+        "linear": {
+          "selectIssue": "Select Linear issue",
+          "selectIssuePlaceholder": "Select issue",
+          "loadingIssues": "Loading Linear issues…",
+          "noIssuesAvailable": "No open issues",
+          "noOpenIssues": "No non-done Linear issues found",
+          "notConnected": "Connect Linear in Settings → Integrations to pick an issue.",
+          "openOnlyHint": "Shows Backlog, Todo, and In Progress issues (not Done).",
+          "noDescription": "No description."
         }
       },
       "mentionPopover": {
@@ -3525,6 +3670,7 @@
         "loadGithubPrs": "Failed to load GitHub PRs",
         "loadProjectContext": "Failed to load project context",
         "loadGithubIssues": "Failed to load GitHub issues",
+        "loadLinearIssues": "Failed to load Linear issues",
         "prRepoMismatch": "PR belongs to {previewRepo}, but current project is {currentRepo}.",
         "loadPrPreview": "Failed to load PR preview",
         "refreshGithubPrs": "Failed to refresh GitHub PRs",
@@ -4295,6 +4441,10 @@
           "label": "Interface",
           "description": "Layout, editor, canvas, and keyboard preferences"
         },
+        "personal": {
+          "label": "Personal",
+          "description": "Your account and sign-in"
+        },
         "aiAgents": {
           "label": "AI Agents",
           "description": "AI providers and code agent configurations"
@@ -4380,6 +4530,10 @@
         "desktopUse": {
           "label": "Desktop Use",
           "description": "Local desktop capture, control engine, and macOS permissions"
+        },
+        "account": {
+          "label": "Account",
+          "description": "Sign in, trust this device, and manage your Atmos account"
         }
       },
       "dialog": {
@@ -4804,17 +4958,11 @@
             }
           },
           "atmosComputer": {
-            "accessKey": {
-              "label": "Access Key"
+            "accountRequired": {
+              "label": "Account required"
             },
-            "generateAccessKey": {
-              "label": "Generate Access Key"
-            },
-            "saveAccessKey": {
-              "label": "Save Access Key"
-            },
-            "rotateAccessToken": {
-              "label": "Rotate Access Token"
+            "mobilePair": {
+              "label": "Pair phone"
             },
             "privateRelay": {
               "label": "Private Relay"
@@ -5151,16 +5299,16 @@
       "cli": {
         "title": "Atmos CLI",
         "description": "Required for Desktop Use and other local desktop features. Install once, then keep it up to date.",
-        "installUpdate": "Install Update",
-        "install": "Install CLI",
+        "installUpdate": "Update",
+        "install": "Install",
         "notInstalled": "Not installed",
         "versionLabel": "v{version}",
-        "checkForUpdates": "Check for Updates"
+        "checkForUpdates": "Check updates"
       },
       "desktop": {
         "title": "Check for updates",
         "description": "Query the desktop updater for the latest available release.",
-        "checkForUpdates": "Check for Updates"
+        "checkForUpdates": "Check updates"
       }
     },
     "workspaceSection": {
@@ -5856,6 +6004,81 @@
         },
         "installationStatusTitle": "Installation Status",
         "authenticationStatusTitle": "Authentication Status"
+      },
+      "linear": {
+        "title": "Linear",
+        "description": "Connect Linear with OAuth (recommended) for higher limits and cross-device sync, or save a personal API key only on this computer.",
+        "connectOauth": "Continue with Linear",
+        "connectApiKey": "Save API key",
+        "apiKeyPlaceholder": "lin_api_…",
+        "disconnect": "Disconnect OAuth",
+        "connectedAs": "Connected as {name}",
+        "notConnected": "Not connected",
+        "needsHubLogin": "Sign in required",
+        "needsHubLoginHint": "OAuth uses your Atmos account. Open Account and sign in with GitHub or Google first.",
+        "needsDevice": "Trust this device",
+        "needsDeviceHint": "After signing in, trust this device under Account, then connect Linear.",
+        "openAccount": "Open Account",
+        "connectFailed": "Could not connect Linear",
+        "disconnectFailed": "Could not disconnect Linear",
+        "authMethodApiKey": "API key",
+        "authMethodOauth": "OAuth",
+        "useThis": "Use",
+        "usingThis": "In use",
+        "chip": {
+          "localApiKey": "Local API key",
+          "oauthAccount": "OAuth account"
+        },
+        "oauth": {
+          "title": "OAuth account",
+          "recommended": "Recommended",
+          "hint": "Higher rate limits, and your Linear connection syncs across devices with your Atmos account."
+        },
+        "local": {
+          "title": "Local API keys",
+          "hint": "Saved only on this computer, not linked to your Atmos account. You can save several keys, but only one can be active at a time (or use OAuth instead).",
+          "storageLoading": "Checking where keys are saved…",
+          "storageDisk": "Saved on this computer",
+          "storageBrowserFallback": "Saved in this browser for now. When Atmos is fully available on this computer, keys can be stored locally.",
+          "createKeyLink": "Create an API key in Linear",
+          "namePlaceholder": "Key name",
+          "apiKeyPlaceholder": "Personal API key",
+          "apiKeyRequired": "API key is required",
+          "save": "Save key",
+          "saveFailed": "Could not save API key",
+          "remove": "Remove",
+          "unnamedViewer": "Personal key"
+        },
+        "rateLimit": {
+          "title": "API rate limits",
+          "description": "Linear request and complexity budgets for the active OAuth account or local API key.",
+          "refresh": "Refresh",
+          "loadError": "Could not load Linear rate limits.",
+          "empty": "No rate-limit data yet for this connection. Try Refresh after using Linear.",
+          "footer": "{remaining} remaining · {reset}",
+          "resetSoon": "resets soon",
+          "resetInMinutes": "resets in {minutes}m",
+          "resetInHours": "resets in {hours}h",
+          "resetInHoursMinutes": "resets in {hours}h {minutes}m",
+          "resources": {
+            "requests": "Requests",
+            "complexity": "Complexity"
+          }
+        },
+        "connecting": "Redirecting…",
+        "oauthCallback": {
+          "title": "Connecting Linear",
+          "successTitle": "Linear connected",
+          "errorTitle": "Could not connect Linear",
+          "loading": "Loading…",
+          "working": "Finishing Linear connection…",
+          "success": "Linear is linked to Atmos. You can close this tab.",
+          "closeCountdown": "This tab will close in {seconds}s…",
+          "closeNow": "Closing this tab…",
+          "closeHint": "You can also close this tab yourself and return to Atmos.",
+          "missingParams": "Missing connection details. Try connecting Linear again.",
+          "finishFailed": "Could not finish connecting Linear"
+        }
       }
     },
     "aiSection": {
@@ -6051,6 +6274,81 @@
     "browserUse": {
       "label": "Browser Use",
       "description": "Control Atmos in-app browser pages (DOM click / type / navigate)"
+    },
+    "accountSection": {
+      "title": "Atmos Account",
+      "description": "Sign in with GitHub or Google to sync computers, Linear, and shared usage across your devices.",
+      "hubNotConfigured": "Atmos account sign-in is not available in this build. Reinstall Atmos or check for updates.",
+      "signedIn": "Signed in",
+      "signedOut": "Not signed in",
+      "signIn": "Sign in",
+      "signInHint": "GitHub or Google",
+      "signInHintDesktop": "Opens your default browser so existing GitHub/Google sessions can be used",
+      "signInDialogTitle": "Sign in to Atmos",
+      "signInDialogDescription": "Continue with GitHub or Google. No password required.",
+      "signInDialogDescriptionDesktop": "Continue in your default browser. Atmos stays open and picks up your session when you finish.",
+      "signInDialogDescriptionWeb": "Choose your sign-in method.",
+      "signInGithub": "Sign in with GitHub",
+      "signInGoogle": "Sign in with Google",
+      "waitingBrowser": "Waiting for sign-in in your browser… finish there, then return here.",
+      "waitingBrowserWeb": "Waiting for sign-in in the new tab… finish there, then return here.",
+      "signOut": "Sign out",
+      "signOutConfirmTitle": "Sign out?",
+      "signOutConfirmDescription": "You will be signed out of Atmos on this browser. Your session cookie and this device’s local credential will be cleared.",
+      "signOutCancel": "Cancel",
+      "nameTitle": "Name",
+      "nameDescription": "Your full name, or a display name.",
+      "namePlaceholder": "Name",
+      "nameSave": "Save",
+      "nameTooLong": "Use {max} characters or fewer.",
+      "profileTitle": "Profile",
+      "profileDescription": "Your Atmos identity used across computers, Linear, and usage.",
+      "securityTitle": "Security",
+      "securityDescription": "Trusted devices for this account. Trust this browser so computers can connect securely.",
+      "linkedAccounts": "Linked accounts",
+      "linkedAccountsDescription": "Connect GitHub and Google to the same Atmos account. One login per provider — not multiple GitHub or Google accounts.",
+      "activeSessions": "Active sessions",
+      "activeSessionsDescription": "Manage your active sessions and revoke access.",
+      "link": "Link",
+      "unlink": "Unlink",
+      "linked": "Connected",
+      "linkedAccountId": "Account {id}",
+      "notLinked": "Not connected",
+      "linkOpensNewTab": "Opens in a new tab",
+      "revoke": "Revoke",
+      "currentSession": "Current session",
+      "otherSession": "Other session",
+      "sessionUnknown": "Unknown device",
+      "sessionsEmpty": "No active sessions.",
+      "trustDevice": "Trust",
+      "devicesTitle": "Trusted devices",
+      "devicesEmpty": "No trusted devices yet. Trust this device to use your computers from here.",
+      "deviceActive": "Active",
+      "deviceRevoked": "Revoked",
+      "credentialOnceTitle": "This device is trusted (shown once)",
+      "credentialOnceHint": "Saved on this device. If it leaks, trust this device again to replace it.",
+      "deleteAccount": "Delete account",
+      "deleteAccountDescription": "Permanently delete your Atmos account, linked logins, sessions, and trusted devices. This cannot be undone.",
+      "deleteAccountDialogTitle": "Delete account?",
+      "deleteAccountDialogDescription": "This permanently removes your user, linked GitHub/Google accounts, sessions, and devices from Atmos. You will need to sign in again to create a new account.",
+      "deleteConfirmPhrase": "delete my account",
+      "deleteConfirmPrompt": "Type {phrase} to confirm",
+      "deleteConfirmAction": "Delete account",
+      "deleteCancel": "Cancel",
+      "errors": {
+        "signInFailed": "Sign-in failed",
+        "signOutFailed": "Sign-out failed",
+        "enrollFailed": "Could not trust this device",
+        "linkFailed": "Could not link account",
+        "unlinkFailed": "Could not unlink account",
+        "alreadyLinked": "This provider is already connected",
+        "cannotUnlinkLast": "You can't unlink your last account",
+        "listAccountsFailed": "Could not load linked accounts",
+        "listSessionsFailed": "Could not load sessions",
+        "revokeFailed": "Could not revoke session",
+        "deleteFailed": "Could not delete account",
+        "nameSaveFailed": "Could not save name"
+      }
     }
   },
   "agent": {
@@ -8317,21 +8615,15 @@
       "toasts": {
         "savedForSession": "Saved for this session",
         "couldNotSaveLocally": "Could not save on this computer. Ensure Atmos is running locally.",
-        "identitySwitchedForSession": "Identity switched for this session",
-        "accessKeyCreated": "Access key created",
-        "accessKeyCreatedSaved": "Saved on this computer. Copy it now - it will not be shown again.",
-        "accessKeyCreatedNotSaved": "Copy it now - could not save on this computer. Ensure Atmos is running locally.",
-        "saveAccessKeyFirst": "Save your access key first",
-        "saveAccessKeyBeforeRotation": "Rotation uses the current local access key as proof of ownership.",
-        "saveAccessKeyBeforeRegistering": "Add and save an access key before registering this computer.",
-        "saveAccessKeyBeforeConnecting": "Add and save an access key before connecting to another computer.",
-        "saveAccessKeyBeforeRemoving": "Add and save an access key before removing computers.",
+        "signInRequired": "Sign in required",
+        "signInBeforeRegistering": "Sign in under Settings → Account before registering this computer.",
+        "signInBeforeConnecting": "Sign in under Settings → Account before connecting to another computer.",
+        "signInBeforeRemoving": "Sign in under Settings → Account before removing computers.",
         "remoteConnectionRestored": "Remote connection restored",
         "computerAvailable": "This computer is available for Atmos Computer connections.",
         "couldNotConnectRelay": "Could not connect relay",
         "ensureAtmosRunningThenRetry": "Ensure Atmos is running on this computer, then try again.",
         "ensureAtmosRunning": "Ensure Atmos is running on this computer.",
-        "couldNotRotateAccessKey": "Could not rotate access key",
         "couldNotStartRegistration": "Could not start registration",
         "registeredNotYetOnline": "Registered, not yet online",
         "useReconnectAfterNetworkCheck": "Use Reconnect below after checking your network connection.",
@@ -8344,59 +8636,19 @@
         "connected": "Connected",
         "couldNotConnect": "Could not connect",
         "tryAgain": "Try again.",
-        "couldNotSaveAccessKey": "Could not save access key",
         "privateRelaySettingsSaved": "Private Relay settings saved",
-        "identitySwitchBlocked": "Identity switch blocked",
-        "couldNotStopOldRelayIdentityWithError": "Could not stop the old local Relay identity: {error}",
-        "couldNotStopOldRelayIdentity": "Could not stop the old local Relay identity. Try again.",
-        "githubAutomationsMarkSetupFailedWithError": "Old local Relay identity was stopped, but GitHub automations could not be marked for setup: {error}",
-        "githubAutomationsMarkSetupFailed": "Old local Relay identity was stopped, but GitHub automations could not be marked for setup. Try again.",
-        "identitySwitched": "Identity switched",
-        "accessKeySaved": "Access key saved",
-        "githubAutomationsNeedSetup": "{count} GitHub-triggered automation{count, plural, one {} other {s}} now need setup under this identity.",
-        "previousKeyResourcesRemain": "Existing Computers and GitHub routes from the previous key stay with that key.",
-        "accessKeyTooShort": "Access key is too short",
-        "accessKeyTooShortDescription": "Generate a new key or paste your saved one.",
-        "couldNotCopy": "Could not copy",
-        "checkClipboardPermissions": "Check clipboard permissions.",
-        "accessKeyRotated": "Access key rotated",
-        "accessKeyRotatedDescription": "Computers and GitHub routes stay on the same identity. Copy the new key now.",
-        "accessKeyRotatedNotSaved": "Relay accepted the rotation, but Atmos could not save locally. Copy the new key now.",
         "couldNotRemove": "Could not remove",
         "computerRemoved": "Computer removed"
       },
       "panels": {
-        "accessKey": {
-          "title": "Access Key",
-          "description": "Your access key registers new Computers (via registration codes) and lists all Computers on your account.",
-          "actions": {
-            "generate": "Generate"
-          },
-          "placeholders": {
-            "savedOnComputer": "Access key is saved on this Computer",
-            "pasteOrGenerate": "Paste your access key or generate a new one"
-          },
-          "buttons": {
-            "copied": "Copied",
-            "copy": "Copy access key",
-            "switchIdentity": "Switch Identity",
-            "save": "Save"
-          },
-          "helper": {
-            "switchIdentity": "Switch Identity replaces the local key directly. Existing Computers and GitHub routes from the current key will not move.",
-            "hiddenOnHostedWeb": "An access key is saved on this Computer. Hosted web keeps it hidden; paste a new key only to replace it.",
-            "default": "Generate or paste an access key to create or use an Atmos Computer identity."
-          }
+        "accountRequired": {
+          "title": "Account required",
+          "description": "Sign in under Settings → Account. Atmos mints a device credential for this install automatically — you never need to copy or paste it.",
+          "syncing": "Syncing your account device…"
         },
-        "rotateAccessToken": {
-          "title": "Rotate Access Token",
-          "description": "Use rotation when the Relay access token may be exposed or you want a security refresh. Existing Computers stay connected.",
-          "button": "Rotate"
-        },
-        "tokenReveal": {
-          "title": "Copy your access key now",
-          "copied": "Copied",
-          "button": "Copy and dismiss"
+        "mobilePair": {
+          "title": "Pair phone",
+          "description": "Show a temporary QR code so the Atmos mobile app can join this account without pasting a credential."
         },
         "privateRelay": {
           "title": "Private Relay",
@@ -8430,14 +8682,14 @@
           "useLocalTitle": "Use this computer locally",
           "useLocalDescription": "Switch back from the selected remote Computer to the local Desktop runtime.",
           "useLocalButton": "Use locally",
-          "saveKeyPrompt": "Save an access key above to register this computer."
+          "signInPrompt": "Sign in under Settings → Account to register this computer."
         },
         "myComputers": {
           "title": "My Computers",
           "description": "Computers linked to your account.",
           "refresh": "Refresh",
-          "saveKeyPrompt": "Save an access key to see your computers.",
-          "empty": "No computers yet. Register this computer, or add another remote computer with the same access key.",
+          "signInPrompt": "Sign in under Settings → Account to see your computers.",
+          "empty": "No computers yet. Register this computer, or add another remote computer under the same account.",
           "connected": "Connected",
           "fallbackName": "Computer",
           "current": "Current",
@@ -8543,12 +8795,22 @@
         "copyFailed": "Copy failed"
       },
       "description": {
-        "useAccessKeyFirst": "Use an access key above first.",
+        "useAccessKeyFirst": "Sign in under Settings → Account first so this install has a Hub device.",
         "preparing": "Preparing registration code…",
         "expired": "Registration code expired — generate and copy a fresh setup command.",
-        "generateAndCopy": "Generate and copy a setup command to link this remote computer to your access key above.",
+        "generateAndCopy": "Generate and copy a setup command to link this remote computer to your account.",
         "runOnRemote": "Run on the remote computer. The registration code is one-time use and expires in about 15 minutes."
       }
+    },
+    "mobilePair": {
+      "title": "Pair phone with QR",
+      "description": "Scan with the Atmos mobile app. Code expires in 3 minutes and can only be used once. No login required on the phone.",
+      "showQr": "Show QR",
+      "refresh": "New code",
+      "expiresIn": "Expires in {seconds}s",
+      "signInFirst": "Sign in under Settings → Account first.",
+      "hubNotConfigured": "Hub is not configured.",
+      "createFailed": "Could not create pair code"
     }
   },
   "tunnelConnector": {
@@ -9425,6 +9687,42 @@
         "accessibility": "Accessibility allowed for Atmos Desktop Use",
         "screenRecording": "Screen Recording allowed for Atmos Desktop Use"
       }
+    }
+  },
+  "hubAuthBridge": {
+    "title": "Almost done",
+    "working": "Finishing sign-in and trusting this device…",
+    "success": "Signed in. You can close this tab and return to Atmos.",
+    "closingIn": "Closing this tab in {seconds}s…",
+    "closeHint": "Atmos will detect your session automatically. If this tab does not close, close it manually.",
+    "noSession": "No Atmos session found. Try signing in again from the app.",
+    "failed": "Could not finish sign-in",
+    "missingCode": "Missing sign-in code. Start again from Atmos Settings → Account."
+  },
+  "hubAuthDone": {
+    "title": "Sign-in complete",
+    "working": "Confirming your Atmos session…",
+    "success": "Signed in. You can close this tab and return to Atmos.",
+    "closingIn": "Closing this tab in {seconds}s…",
+    "closeHint": "If this tab does not close automatically, close it manually.",
+    "noSession": "No session found. Try signing in again from Atmos.",
+    "failed": "Could not confirm sign-in",
+    "goHome": "Back to Atmos"
+  },
+  "hubAuthError": {
+    "title": "Could not finish",
+    "closingIn": "Closing this tab in {seconds}s…",
+    "closeHint": "If this tab does not close automatically, close it manually.",
+    "goHome": "Back to Atmos",
+    "codeLabel": "Code: {code}",
+    "errors": {
+      "generic": "Something went wrong while signing in or linking an account. Try again from Atmos Settings → Account.",
+      "accountAlreadyLinkedOtherUser": "This Google or GitHub login is already connected to a different Atmos account.",
+      "accountAlreadyLinkedOtherUserHint": "Sign in with that Google/GitHub account instead, or link a different account. You cannot attach the same login to two Atmos users.",
+      "emailDoesNotMatch": "The provider email does not match this Atmos account.",
+      "unableToLink": "Could not link this account. Try again or use another provider.",
+      "stateMismatch": "Sign-in expired or was started twice. Close this tab and try again from Atmos.",
+      "sessionRequired": "Sign in first, then link another account."
     }
   }
 }

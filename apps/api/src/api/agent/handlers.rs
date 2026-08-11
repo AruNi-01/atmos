@@ -73,7 +73,11 @@ pub async fn create_agent_session(
         let home_dir = std::env::var("HOME")
             .map(PathBuf::from)
             .unwrap_or_else(|_| std::env::temp_dir());
-        let sessions_root = home_dir.join(".atmos").join("agent").join("sessions");
+        let sessions_root = home_dir
+            .join(".atmos")
+            .join("data")
+            .join("agent")
+            .join("sessions");
         let ts = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap_or_default()

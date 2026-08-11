@@ -8,6 +8,7 @@ import {
   CircleDot,
   GitMerge,
   GitPullRequest,
+  Loader2,
   MessageSquare,
   Rocket,
   XCircle,
@@ -216,9 +217,18 @@ function AssigneesCell({ assignees }: { assignees: AssigneeLike[] }) {
   );
 }
 
+export type TaskGithubTableBodyState =
+  | "ready"
+  | "loading"
+  | "empty"
+  | "error";
+
 type TaskGithubTableProps = {
   items: GithubSearchItemPayload[];
   kind: "issues" | "prs";
+  /** Keep the table chrome mounted; only the body region changes. */
+  bodyState?: TaskGithubTableBodyState;
+  bodyMessage?: string;
   onOpenItem: (item: GithubSearchItemPayload) => void;
   /** Open a linked issue/PR from the Linked column (same owner/repo as the row). */
   onOpenLinkedRef?: (
@@ -240,6 +250,8 @@ type TaskGithubTableProps = {
 export function TaskGithubTable({
   items,
   kind,
+  bodyState = "ready",
+  bodyMessage,
   onOpenItem,
   onOpenLinkedRef,
   onCreateWorkspace,
@@ -263,7 +275,7 @@ export function TaskGithubTable({
 
   return (
     <div className="flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden rounded-lg border border-border/70">
-      {/* Header — fixed within the table card */}
+      {/* Header — always visible */}
       <div className="flex shrink-0 items-center gap-3 border-b border-border/70 px-3 py-2 text-xs font-medium text-muted-foreground">
         <div className="w-5 shrink-0" aria-hidden />
         <div className="min-w-0 flex-1">
@@ -284,7 +296,22 @@ export function TaskGithubTable({
         <div className={cn(actionColClass, "text-right")}>{t("table.action")}</div>
       </div>
 
-      {/* Rows — scroll inside the card so outer filters/pagination stay fixed */}
+      {/* Body — loading / empty / rows stay inside the card */}
+      {bodyState === "loading" ? (
+        <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-2 px-4 py-10 text-muted-foreground">
+          <Loader2 className="size-4 animate-spin" />
+          <span className="text-xs">{t("table.loading")}</span>
+        </div>
+      ) : bodyState === "error" ? (
+        <div className="flex min-h-0 flex-1 items-center justify-center px-4 py-10 text-center text-sm text-destructive">
+          {bodyMessage ?? t("empty.noIssues")}
+        </div>
+      ) : bodyState === "empty" ? (
+        <div className="flex min-h-0 flex-1 items-center justify-center px-4 py-10 text-center text-sm text-muted-foreground">
+          {bodyMessage ??
+            (kind === "issues" ? t("empty.noIssues") : t("empty.noPrs"))}
+        </div>
+      ) : (
       <ul className="m-0 min-h-0 min-w-0 flex-1 list-none overflow-y-auto overscroll-contain p-0">
         {items.map((item) => {
           const fullName = `${item.owner}/${item.repo}`;
@@ -471,6 +498,7 @@ export function TaskGithubTable({
           );
         })}
       </ul>
+      )}
     </div>
   );
 }

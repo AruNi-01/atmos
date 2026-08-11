@@ -1,6 +1,6 @@
-//! `~/.atmos/client-session.json` — which Atmos Computer the UI (and CLI) target.
+//! `~/.atmos/state/client-session.json` — which Atmos Computer the UI (and CLI) target.
 //!
-//! **Absent:** CLI uses `runtime_manifest.json` (loopback API on this machine).
+//! **Absent:** CLI uses `state/runtime_manifest.json` (loopback API on this machine).
 //! **Present:** UI is on relay; CLI uses `api_base_url` + `gateway_token` (same Computer as UI).
 
 use std::fs;
@@ -8,7 +8,7 @@ use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 
-use crate::manifest::atmos_home_dir;
+use crate::layout;
 
 pub const CLIENT_SESSION_VERSION: u32 = 1;
 pub const CLIENT_SESSION_FILE_NAME: &str = "client-session.json";
@@ -38,9 +38,11 @@ impl ClientSession {
 }
 
 pub fn client_session_path() -> PathBuf {
-    atmos_home_dir()
-        .unwrap_or_else(|_| PathBuf::from(".atmos"))
-        .join(CLIENT_SESSION_FILE_NAME)
+    layout::client_session_path().unwrap_or_else(|_| {
+        PathBuf::from(".atmos")
+            .join("state")
+            .join(CLIENT_SESSION_FILE_NAME)
+    })
 }
 
 pub fn read_client_session() -> Result<Option<ClientSession>, String> {

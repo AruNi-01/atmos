@@ -13,6 +13,7 @@ import { CanvasSettingsSection } from '@/features/settings/components/CanvasSett
 import { CodeAgentSettingsSection } from '@/features/settings/components/CodeAgentSettingsSection';
 import { EditorSettingsSection } from '@/features/settings/components/EditorSettingsSection';
 import { ExperimentSettingsSection } from '@/features/settings/components/ExperimentSettingsSection';
+import { AccountSettingsSection } from '@/features/settings/components/AccountSettingsSection';
 import { IntegrationsSettingsSection } from '@/features/settings/components/IntegrationsSettingsSection';
 import { LabelSettingsSection } from '@/features/settings/components/LabelSettingsSection';
 import { LayoutSettingsSection } from '@/features/settings/components/LayoutSettingsSection';
@@ -231,6 +232,8 @@ export function SettingsModalSections(props: SettingsModalSectionsProps) {
       return <WorkspaceSettingsSection />;
     case 'labels':
       return <LabelSettingsSection />;
+    case 'account':
+      return <AccountSettingsSection />;
     case 'integrations':
       return <IntegrationsSettingsSection />;
     case 'ai':

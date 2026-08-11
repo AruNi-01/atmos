@@ -1,12 +1,17 @@
 /**
- * APP-016 — Atmos Computer UI state.
+ * APP-016 / APP-056 — Atmos Computer UI state.
  *
- * Access Token + relay settings: `~/.atmos/computer-client.json` (loopback API).
+ * Hub device credential + relay settings: `~/.atmos/computer-client.json` (loopback API).
+ * Store field `accessToken` holds the device credential (Relay Bearer).
  * Local connection prefs: browser `atmos:v1:inst:local:connection`.
  * Relay session fields: memory only.
  */
 
 import { create } from 'zustand';
+import {
+  DEFAULT_RELAY_URL,
+  normalizeRelayUrl,
+} from '@atmos/relay-client';
 import { LOCAL_INSTANCE_ID } from '@/features/connection/lib/connection-instance';
 import {
   readConnectionUiPrefs,
@@ -33,7 +38,7 @@ interface AtmosComputerData {
   registerTokenExpiresAt: number | null;
   localComputerDisplayName: string;
   localServerId: string | null;
-  /** Bumped when access token / relay URL / relay secret identity changes (APP-035). */
+  /** Bumped when device credential / relay URL / relay secret identity changes (APP-035). */
   relayAuthRevision: number;
   /** Bumped when gateway base / client token changes (APP-035). Never put tokens in keys. */
   relaySessionRevision: number;
@@ -68,15 +73,15 @@ interface AtmosComputerStore extends AtmosComputerData {
 const envRelayUrl =
   typeof process !== 'undefined' ? process.env.NEXT_PUBLIC_ATMOS_RELAY_URL ?? '' : '';
 
-export const DEFAULT_RELAY_URL = 'https://relay.atmos.land';
+export { DEFAULT_RELAY_URL };
 
 export function resolveRelayUrl(raw?: string | null): string {
   const trimmed = (raw ?? '').trim();
   if (trimmed) {
-    return normalizedRelayOrigin(trimmed);
+    return normalizeRelayUrl(trimmed);
   }
   if (envRelayUrl.trim()) {
-    return normalizedRelayOrigin(envRelayUrl);
+    return normalizeRelayUrl(envRelayUrl);
   }
   return DEFAULT_RELAY_URL;
 }
@@ -240,10 +245,9 @@ export const useAtmosComputerStore = create<AtmosComputerStore>((set, get) => ({
   },
 }));
 
+/** @deprecated Prefer `normalizeRelayUrl` from `@atmos/relay-client` / `resolveRelayUrl`. */
 export function normalizedRelayOrigin(raw: string): string {
-  const t = raw.trim().replace(/\/+$/, '');
-  if (!t) {
-    return '';
-  }
-  return t.startsWith('http') ? t : `https://${t}`;
+  const t = raw.trim();
+  if (!t) return '';
+  return normalizeRelayUrl(t);
 }

@@ -6,7 +6,7 @@ import type { ProjectWorkspaceBootstrapResponse } from "@/api/types";
 import { wsActions } from "@/api/ws-actions";
 import { getAutoConnectComputerId } from "@/features/computers/computer-selection";
 import { useRelayClient } from "@/hooks/use-relay-client";
-import { getStoredAccessToken } from "@/lib/access-token";
+import { requireDeviceCredential } from "@/lib/device-credential";
 import { useMobileWs } from "@/providers/MobileWsProvider";
 import { useComputerStore } from "@/stores/computer-store";
 import { hydrateRecentWorkspaces, useRecentWorkspacesStore } from "@/stores/recent-workspaces-store";
@@ -39,8 +39,12 @@ export function WorkspaceListScreen() {
   const theme = useMobileTheme();
   const relayClient = useRelayClient();
   const { client: wsClient, state: wsState } = useMobileWs();
-  const accessTokenLoaded = useSessionStore((state) => state.accessTokenLoaded);
-  const hasAccessToken = useSessionStore((state) => state.hasAccessToken);
+  const deviceCredentialLoaded = useSessionStore(
+    (state) => state.deviceCredentialLoaded,
+  );
+  const hasDeviceCredential = useSessionStore(
+    (state) => state.hasDeviceCredential,
+  );
   const relayUrl = useSessionStore((state) => state.relayUrl);
   const relayAuthRevision = useSessionStore((state) => state.relayAuthRevision);
   const selectedServerId = useSessionStore((state) => state.selectedServerId);
@@ -53,11 +57,10 @@ export function WorkspaceListScreen() {
 
   const computersQuery = useQuery({
     queryKey: ["computers", relayUrl, relayAuthRevision],
-    enabled: accessTokenLoaded && hasAccessToken,
+    enabled: deviceCredentialLoaded && hasDeviceCredential,
     queryFn: async () => {
-      const token = await getStoredAccessToken();
-      if (!token) return [];
-      const computers = await relayClient.listComputers(token);
+      const token = requireDeviceCredential();
+      const computers = await relayClient.withDeviceCredential(token).listComputers();
       setComputers(computers);
       return computers;
     },
@@ -70,9 +73,10 @@ export function WorkspaceListScreen() {
 
   const createSession = useMutation({
     mutationFn: async (serverId: string) => {
-      const token = await getStoredAccessToken();
-      if (!token) throw new Error("Access Token is not available.");
-      return relayClient.createClientSession(token, serverId);
+      const token = requireDeviceCredential();
+      return relayClient
+        .withDeviceCredential(token)
+        .createClientSession(serverId, { clientKind: "mobile" });
     },
     onSuccess: (session, serverId) => {
       selectServer(serverId);
@@ -81,7 +85,7 @@ export function WorkspaceListScreen() {
   });
 
   useEffect(() => {
-    if (!hasAccessToken || !computersQuery.isSuccess) return;
+    if (!hasDeviceCredential || !computersQuery.isSuccess) return;
     const shouldReconnect = Boolean(activeClientSession && clientSessionUnavailable);
     const nextAutoConnectServerId = getAutoConnectComputerId({
       activeClientSession: shouldReconnect ? null : activeClientSession,
@@ -93,7 +97,7 @@ export function WorkspaceListScreen() {
       lastAutoSessionAttemptRef.current = attemptKey;
       createSession.mutate(nextAutoConnectServerId);
     }
-  }, [activeClientSession, clientSessionUnavailable, computers, computersQuery.isSuccess, createSession, hasAccessToken, selectedServerId]);
+  }, [activeClientSession, clientSessionUnavailable, computers, computersQuery.isSuccess, createSession, hasDeviceCredential, selectedServerId]);
 
   const bootstrapQuery = useQuery({
     queryKey: ["workspace-bootstrap", selectedServerId, wsState],
@@ -107,7 +111,8 @@ export function WorkspaceListScreen() {
     [bootstrap.workspaces_by_project],
   );
   const projectCount = bootstrap.projects.length;
-  const canOpenWorkspaceData = hasAccessToken && wsState === "open" && !bootstrapQuery.error;
+  const canOpenWorkspaceData =
+    hasDeviceCredential && wsState === "open" && !bootstrapQuery.error;
   const workspaceError = bootstrapQuery.error instanceof Error ? bootstrapQuery.error.message : null;
   const sessionError = createSession.error instanceof Error ? createSession.error.message : null;
   const welcomeHeadline = useMemo(randomWelcomeHeadline, []);
@@ -137,13 +142,17 @@ export function WorkspaceListScreen() {
           <SuggestionCard
             Icon={LaptopIcon}
             title="Connect Computer"
-            subtitle={computerCardMeta(hasAccessToken, computers.length, wsState)}
+            subtitle={computerCardMeta(hasDeviceCredential, computers.length, wsState)}
             onPress={() => router.push("/computer-connect")}
           />
           <SuggestionCard
             Icon={TerminalIcon}
             title="Open Workspace"
-            subtitle={canOpenWorkspaceData ? `${workspaceCount} workspaces · ${projectCount} projects` : workspaceCardStatus(hasAccessToken, wsState, workspaceCount)}
+            subtitle={
+              canOpenWorkspaceData
+                ? `${workspaceCount} workspaces · ${projectCount} projects`
+                : workspaceCardStatus(hasDeviceCredential, wsState, workspaceCount)
+            }
             onPress={() => router.push("/workspaces")}
           />
         </View>
@@ -300,16 +309,24 @@ function formatRecentAccessedAt(value: string) {
   return "Recent";
 }
 
-function computerCardMeta(hasAccessToken: boolean, computerCount: number, wsState: string) {
-  if (!hasAccessToken) return "Access Token required";
+function computerCardMeta(
+  hasDeviceCredential: boolean,
+  computerCount: number,
+  wsState: string,
+) {
+  if (!hasDeviceCredential) return "Sign in required";
   if (computerCount === 0) return "No Computers";
   if (wsState === "open") return "Relay session active";
   if (wsState === "reconnecting") return "Reconnecting";
   return "Select a Computer";
 }
 
-function workspaceCardStatus(hasAccessToken: boolean, wsState: string, workspaceCount: number) {
-  if (!hasAccessToken) return "Setup";
+function workspaceCardStatus(
+  hasDeviceCredential: boolean,
+  wsState: string,
+  workspaceCount: number,
+) {
+  if (!hasDeviceCredential) return "Setup";
   if (wsState !== "open") return "Offline";
   if (workspaceCount === 0) return "Empty";
   return "Open";

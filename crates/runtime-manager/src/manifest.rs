@@ -1,4 +1,4 @@
-//! `~/.atmos/runtime_manifest.json` — loopback API discovery (no auth token).
+//! `~/.atmos/state/runtime_manifest.json` — loopback API discovery (no auth token).
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -6,13 +6,7 @@ use std::path::{Path, PathBuf};
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 
-pub fn atmos_home_dir() -> Result<PathBuf, String> {
-    let home = std::env::var_os("HOME")
-        .map(PathBuf::from)
-        .or_else(dirs::home_dir)
-        .ok_or_else(|| "Cannot determine home directory".to_string())?;
-    Ok(home.join(".atmos"))
-}
+pub use crate::layout::runtime_manifest_path;
 
 pub const RUNTIME_MANIFEST_VERSION: u32 = 1;
 pub const RUNTIME_MANIFEST_FILE_NAME: &str = "runtime_manifest.json";
@@ -68,10 +62,6 @@ fn client_loopback_host(bind_host: &str) -> String {
     } else {
         bind_host.to_string()
     }
-}
-
-pub fn runtime_manifest_path() -> Result<PathBuf, String> {
-    Ok(atmos_home_dir()?.join(RUNTIME_MANIFEST_FILE_NAME))
 }
 
 fn read_manifest_from_path(path: &Path) -> Result<RuntimeManifest, String> {

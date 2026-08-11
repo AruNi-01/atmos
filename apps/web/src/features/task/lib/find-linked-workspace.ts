@@ -1,6 +1,10 @@
 import type { Project, Workspace } from "@/shared/types/domain";
 
-export type LinkedWorkspaceReason = "github_issue" | "github_pr" | "branch";
+export type LinkedWorkspaceReason =
+  | "github_issue"
+  | "github_pr"
+  | "branch"
+  | "linear_issue";
 
 export type LinkedWorkspaceMatch = {
   workspace: Workspace;
@@ -239,6 +243,42 @@ export function findLinkedWorkspaceForGithubItem(
   if (candidates.length === 0) return null;
   candidates.sort((a, b) => b.score - a.score);
   const best = candidates[0]!;
+  return {
+    workspace: best.workspace,
+    projectId: best.projectId,
+    reason: best.reason,
+  };
+}
+
+/**
+ * Find an Atmos workspace linked to a Linear issue (via `workspace.linearLinks`).
+ */
+export function findLinkedWorkspaceForLinearIssue(
+  projects: Project[],
+  externalId: string,
+): LinkedWorkspaceMatch | null {
+  const id = externalId.trim();
+  if (!id) return null;
+
+  let best: ScoredMatch | null = null;
+  for (const project of projects) {
+    for (const workspace of project.workspaces) {
+      const hit = (workspace.linearLinks ?? []).some(
+        (link) => link.externalId === id,
+      );
+      if (!hit) continue;
+      const score = 100 + (workspace.isArchived ? 0 : 5);
+      if (!best || score > best.score) {
+        best = {
+          workspace,
+          projectId: project.id,
+          reason: "linear_issue",
+          score,
+        };
+      }
+    }
+  }
+  if (!best) return null;
   return {
     workspace: best.workspace,
     projectId: best.projectId,

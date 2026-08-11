@@ -12,7 +12,9 @@ pub fn function_settings_path() -> PathBuf {
         PathBuf::from(".")
     });
 
-    home.join(".atmos").join("function_settings.json")
+    home.join(".atmos")
+        .join("config")
+        .join("function_settings.json")
 }
 
 pub fn read_workspace_branch_prefix() -> String {

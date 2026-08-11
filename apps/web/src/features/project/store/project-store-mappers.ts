@@ -71,6 +71,17 @@ export function mapWorkspaceModel(model: WorkspaceModel): Workspace {
     localPath: model.local_path,
     githubIssue: model.github_issue,
     githubPr: model.github_pr,
+    linearLinks: (model.linear_links ?? []).map((link: {
+      external_id: string;
+      identifier: string;
+      title: string;
+      url: string;
+    }) => ({
+      externalId: link.external_id,
+      identifier: link.identifier,
+      title: link.title,
+      url: link.url,
+    })),
     createSource: normalizeWorkspaceCreateSource(model.create_source),
   };
 }

@@ -4,6 +4,7 @@
 export * from "./components/ui/button";
 export * from "./components/ui/card";
 export * from "./components/ui/checkbox";
+export * from "./components/ui/qr-code";
 export * from "./components/ui/input";
 export * from "./components/ui/input-group";
 export * from "./components/ui/label";
@@ -40,6 +41,19 @@ export {
   TabsSubtleItem,
   TabsSubtlePanel,
 } from "./components/ui/tabs-subtle";
+export {
+  ActionSwapCascadeButton,
+  ActionSwapCascadeText,
+  ActionSwapCascadeIcon,
+} from "./components/motion/action-swap-cascade";
+export type {
+  ActionSwapCascadeButtonProps,
+  ActionSwapCascadeTextProps,
+  ActionSwapCascadeIconProps,
+  ActionSwapItem,
+  ActionSwapButtonSize,
+  ActionSwapButtonVariant,
+} from "./components/motion/action-swap-cascade";
 export {
   Command,
   CommandDialog,
@@ -99,6 +113,10 @@ export { ShineBorder } from "./components/ui/shine-border";
 export { TextShimmer } from "./components/ui/text-shimmer";
 export { DotmSquare12 } from "./components/ui/dotm-square-12";
 export type { DotmSquare12Props } from "./components/ui/dotm-square-12";
+export { TerminalLoader } from "./components/ui/terminal-loader";
+export type { TerminalLoaderProps } from "./components/ui/terminal-loader";
+export { ImageGenerationCanvas } from "./components/ui/image-generation";
+export type { ImageGenerationCanvasProps } from "./components/ui/image-generation";
 
 // Dither / ordered-dot charts (MIT-adapted Amicro simple-comp style)
 export {
@@ -119,7 +137,10 @@ export type {
   DitherPanelProps,
   DitherGrowthProps,
   DitherHeatmapCell,
+  DitherHeatmapHoverInfo,
+  DitherHeatmapMonthLabel,
   DitherHeatmapProps,
+  DitherHeatmapWeekdayLabel,
   DitherStackedBar,
   DitherStackedBarsProps,
   DitherDonutProps,
@@ -132,6 +153,7 @@ export type {
   DitherRevenueSeries,
   DitherTooltipLine,
   DitherTooltipProps,
+  DitherTooltipSliding,
   DitherTooltipState,
   DitherTheme,
 } from "./components/dither";
@@ -144,6 +166,18 @@ export { AnimatedNumber } from "./components/ui/animated-number";
 export type { AnimatedNumberProps } from "./components/ui/animated-number";
 export { SlidingNumber } from "./components/ui/sliding-number";
 export type { SlidingNumberProps } from "./components/ui/sliding-number";
+export {
+  SlidingMetric,
+  compactSlidingParts,
+  currencySlidingParts,
+  percentSlidingParts,
+  detailedSlidingParts,
+  localeDecimalSeparator,
+} from "./components/ui/sliding-metric";
+export type {
+  SlidingMetricParts,
+  SlidingMetricProps,
+} from "./components/ui/sliding-metric";
 export {
   Sidebar as MotionSidebar,
   SidebarContent as MotionSidebarContent,
@@ -182,6 +216,11 @@ export { BotMessageSquareIcon } from "./components/icons/bot-message-square";
 export type { BotMessageSquareHandle } from "./components/icons/bot-message-square";
 export { GithubIcon } from "./components/icons/github-icon";
 export type { GithubIconHandle } from "./components/icons/github-icon";
+export { LinearIcon } from "./components/icons/linear-icon";
+export { XIcon } from "./components/icons/x-icon";
+export { RedditIcon } from "./components/icons/reddit-icon";
+export { FacebookIcon } from "./components/icons/facebook-icon";
+export { ThreadsIcon } from "./components/icons/threads-icon";
 export { default as ArrowNarrowUpDashedIcon } from "./components/icons/arrow-narrow-up-dashed-icon";
 export { default as ArrowNarrowDownDashedIcon } from "./components/icons/arrow-narrow-down-dashed-icon";
 export { default as SimpleCheckedIcon } from "./components/icons/simple-checked-icon";
@@ -189,6 +228,8 @@ export { GitPullRequestCreateIcon } from "./components/icons/git-pull-request-cr
 export type { GitPullRequestCreateIconHandle } from "./components/icons/git-pull-request-create-icon";
 export { GitPullRequestClosedIcon } from "./components/icons/git-pull-request-closed-icon";
 export type { GitPullRequestClosedIconHandle } from "./components/icons/git-pull-request-closed-icon";
+export { UserIcon } from "./components/icons/user-icon";
+export type { UserIconHandle } from "./components/icons/user-icon";
 
 // Utilities
 export { cn } from "./lib/utils";

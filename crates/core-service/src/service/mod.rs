@@ -8,6 +8,8 @@ pub mod cli_identity;
 pub mod disk_analyzer;
 pub mod git_commit_message;
 pub mod group;
+pub mod linear;
+pub mod linear_credentials;
 pub mod llm_text_generation;
 pub mod local_services;
 pub mod message_push;

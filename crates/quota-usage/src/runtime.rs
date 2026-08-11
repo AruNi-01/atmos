@@ -637,6 +637,13 @@ fn snapshot_candidates(provider_id: &str) -> Vec<PathBuf> {
     }
     if let Some(home) = dirs::home_dir() {
         let file_name = format!("{provider_id}.json");
+        // Canonical layout + short legacy root-level path (pre-layout move).
+        candidates.push(
+            home.join(".atmos")
+                .join("data")
+                .join("quota-usage")
+                .join(&file_name),
+        );
         candidates.push(home.join(".atmos").join("quota-usage").join(&file_name));
         candidates.push(
             home.join(".config")
@@ -801,7 +808,7 @@ fn provider_specs() -> Vec<ProviderSpec> {
             kind: ProviderKind::Desktop,
             live_kind: Some(LiveProviderKind::Amp),
             timeout_millis: PROVIDER_TIMEOUT_MILLIS,
-            setup_hint: "Sign in to Amp locally. Atmos reads ~/.local/share/amp/secrets.json automatically and falls back to browser session import; AMP_COOKIE_HEADER / ~/.atmos/quota-usage/amp.cookie is only a fallback.",
+            setup_hint: "Sign in to Amp locally. Atmos reads ~/.local/share/amp/secrets.json automatically and falls back to browser session import; AMP_COOKIE_HEADER / ~/.atmos/data/quota-usage/amp.cookie is only a fallback.",
             auth_env_keys: &["AMP_COOKIE_HEADER", "ATMOS_USAGE_AMP_COOKIE_HEADER"],
             auth_paths: &["~/.local/share/amp/secrets.json"],
         },
@@ -811,7 +818,7 @@ fn provider_specs() -> Vec<ProviderSpec> {
             kind: ProviderKind::Desktop,
             live_kind: Some(LiveProviderKind::Zed),
             timeout_millis: PROVIDER_TIMEOUT_MILLIS,
-            setup_hint: "Sign in to Zed on zed.dev first. Atmos auto-imports supported browser session cookies when available; otherwise configure ZED_COOKIE_HEADER (or ~/.atmos/quota-usage/zed.cookie) for cookie auth, or set ZED_ACCESS_TOKEN for bearer auth.",
+            setup_hint: "Sign in to Zed on zed.dev first. Atmos auto-imports supported browser session cookies when available; otherwise configure ZED_COOKIE_HEADER (or ~/.atmos/data/quota-usage/zed.cookie) for cookie auth, or set ZED_ACCESS_TOKEN for bearer auth.",
             auth_env_keys: &[
                 "ZED_COOKIE_HEADER",
                 "ATMOS_USAGE_ZED_COOKIE_HEADER",

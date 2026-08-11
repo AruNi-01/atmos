@@ -18,7 +18,7 @@ pub fn global_review_root() -> Result<PathBuf> {
             "Cannot determine home directory",
         ))
     })?;
-    Ok(home.join(".atmos").join("review"))
+    Ok(home.join(".atmos").join("data").join("review"))
 }
 
 fn safe_short_dir_id(id: &str) -> String {

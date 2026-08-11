@@ -13,8 +13,13 @@
  * time and the token is the same value (`gateway_token === client_token`).
  */
 
+import {
+  clientWsUrlFromGateway,
+  type RelayClientKind,
+} from '@atmos/relay-client';
 import { getRuntimeApiConfig, httpBase } from '@/shared/lib/desktop-runtime';
 import { useAtmosComputerStore } from '@/features/connection/lib/atmos-computer-store';
+import { workbenchRelayClientKind } from '@/features/connection/lib/workbench-relay-client-kind';
 import { useConnectionStore } from '@/features/connection/store/connection-store';
 import {
   applyRelaySessionTransport,
@@ -37,29 +42,6 @@ interface ApiEnvelope<T> {
   data?: T;
   message?: string;
   error?: string;
-}
-
-/** Rewrite `https://relay.atmos.land/v1/computers/<id>/proxy` to the WSS handshake URL. */
-function deriveRelayWebSocketUrl(
-  apiBaseUrl: string,
-  serverId: string,
-  token: string,
-  clientType: 'web' | 'desktop',
-): string | null {
-  let parsed: URL;
-  try {
-    parsed = new URL(apiBaseUrl);
-  } catch {
-    return null;
-  }
-  const wsProto = parsed.protocol === 'https:' ? 'wss:' : 'ws:';
-  const origin = `${wsProto}//${parsed.host}`;
-  const params = new URLSearchParams({
-    server_id: serverId,
-    token,
-    client_type: clientType,
-  });
-  return `${origin}/ws/client?${params.toString()}`;
 }
 
 async function fetchLocalServerId(
@@ -94,7 +76,9 @@ async function clearRelayClientSession(
 }
 
 export async function hydrateRelaySessionFromDisk(opts?: {
-  clientType?: 'web' | 'desktop';
+  /** Prefer `clientKind`; kept for call-site clarity with WS client_type. */
+  clientType?: Extract<RelayClientKind, 'web' | 'desktop'>;
+  clientKind?: Extract<RelayClientKind, 'web' | 'desktop'>;
 }): Promise<void> {
   const cfg = await getRuntimeApiConfig().catch(() => null);
   if (!cfg) {
@@ -136,12 +120,14 @@ export async function hydrateRelaySessionFromDisk(opts?: {
     return;
   }
 
-  const wsUrl = deriveRelayWebSocketUrl(
-    session.api_base_url,
-    session.server_id,
-    session.gateway_token,
-    opts?.clientType ?? 'web',
-  );
+  const clientKind =
+    opts?.clientKind ?? opts?.clientType ?? workbenchRelayClientKind();
+  const wsUrl = clientWsUrlFromGateway({
+    gatewayUrl: session.api_base_url,
+    serverId: session.server_id,
+    clientToken: session.gateway_token,
+    clientKind,
+  });
   if (!wsUrl) {
     return;
   }

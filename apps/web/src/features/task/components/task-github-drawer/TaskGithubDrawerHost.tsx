@@ -187,19 +187,19 @@ function DrawerLayer({
     setOpen(true);
   }, [entryKey]);
 
-  if (!entry) return null;
-
-  const isRoot = index === 0;
-  const hasChildInStack = index < stack.length - 1;
-  // Front = still open and no non-exiting layer above us.
-  const isFront = open && index === visualLen - 1;
-
   const beginClose = React.useCallback(() => {
     if (dismissedRef.current) return;
     setOpen(false);
     // Parent peeks restore immediately; unmount waits for animation end.
     onExitStart(index);
   }, [index, onExitStart]);
+
+  if (!entry) return null;
+
+  const isRoot = index === 0;
+  const hasChildInStack = index < stack.length - 1;
+  // Front = still open and no non-exiting layer above us.
+  const isFront = open && index === visualLen - 1;
 
   const { top, right, bottom, left } = insets;
   const peekX = levelsBehind * NEST_PEEK_X;
@@ -602,9 +602,13 @@ export function TaskGithubDrawerHost({
       }
 
       if (entry.kind === "issue") {
+        const title = entry.title?.trim() || "";
         openTaskWorkspaceCreate({
           projectId: entry.projectId,
           setNewWorkspace,
+          displayName: title
+            ? `[issue#${entry.issueNumber}] ${title}`.slice(0, 120)
+            : `[issue#${entry.issueNumber}]`,
           link: {
             kind: "issue",
             owner: entry.owner,
@@ -617,9 +621,13 @@ export function TaskGithubDrawerHost({
         return;
       }
 
+      const prTitle = entry.title?.trim() || "";
       openTaskWorkspaceCreate({
         projectId: entry.projectId,
         setNewWorkspace,
+        displayName: prTitle
+          ? `[PR#${entry.prNumber}] ${prTitle}`.slice(0, 120)
+          : `[PR#${entry.prNumber}]`,
         link: {
           kind: "pr",
           owner: entry.owner,

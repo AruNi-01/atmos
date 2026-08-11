@@ -77,7 +77,8 @@ function startElectronShiftHelper(onChord: () => void): TapHandle | null {
 
   const electronPath = process.execPath;
 
-  let child: ChildProcessWithoutNullStreams;
+  // stdin ignored → pipe stdout/stderr; narrow before use (spawn's generic type is loose).
+  let child: ReturnType<typeof spawn>;
   try {
     child = spawn(electronPath, [script], {
       env: {
@@ -92,6 +93,17 @@ function startElectronShiftHelper(onChord: () => void): TapHandle | null {
       `[appshot-tap] spawn failed: ${e instanceof Error ? e.message : String(e)}`,
       "error",
     );
+    return null;
+  }
+
+  const { stdout, stderr } = child;
+  if (!stdout || !stderr) {
+    try {
+      child.kill("SIGTERM");
+    } catch {
+      /* ignore */
+    }
+    mainLog("[appshot-tap] spawn missing stdio pipes", "error");
     return null;
   }
 
@@ -139,8 +151,8 @@ function startElectronShiftHelper(onChord: () => void): TapHandle | null {
     }
   };
 
-  child.stdout.setEncoding("utf8");
-  child.stdout.on("data", (chunk: string) => {
+  stdout.setEncoding("utf8");
+  stdout.on("data", (chunk: string) => {
     buf += chunk;
     let idx: number;
     while ((idx = buf.indexOf("\n")) >= 0) {
@@ -149,8 +161,8 @@ function startElectronShiftHelper(onChord: () => void): TapHandle | null {
       handleLine(line);
     }
   });
-  child.stderr.setEncoding("utf8");
-  child.stderr.on("data", (chunk: string) => {
+  stderr.setEncoding("utf8");
+  stderr.on("data", (chunk: string) => {
     const t = chunk.trim();
     if (t) mainLog(`[appshot-tap] helper stderr: ${t.slice(0, 400)}`, "error");
   });

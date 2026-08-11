@@ -258,11 +258,13 @@ impl WorkspaceService {
         let mut labels_by_workspace = repo
             .list_labels_by_workspace_guids(&workspace_guids)
             .await?;
+        let mut linear_by_workspace = self.load_linear_links_map(&workspace_guids).await?;
         Ok(models
             .into_iter()
             .map(|model| {
                 let labels = labels_by_workspace.remove(&model.guid).unwrap_or_default();
-                self.to_dto_lenient(model, labels)
+                let linear_links = linear_by_workspace.remove(&model.guid).unwrap_or_default();
+                self.to_dto_lenient(model, labels, linear_links)
             })
             .collect())
     }
@@ -274,11 +276,13 @@ impl WorkspaceService {
         let mut labels_by_workspace = repo
             .list_labels_by_workspace_guids(&workspace_guids)
             .await?;
+        let mut linear_by_workspace = self.load_linear_links_map(&workspace_guids).await?;
         Ok(models
             .into_iter()
             .map(|model| {
                 let labels = labels_by_workspace.remove(&model.guid).unwrap_or_default();
-                self.to_dto_lenient(model, labels)
+                let linear_links = linear_by_workspace.remove(&model.guid).unwrap_or_default();
+                self.to_dto_lenient(model, labels, linear_links)
             })
             .collect())
     }

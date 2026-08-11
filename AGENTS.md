@@ -22,6 +22,7 @@
 | **Backend: Token Usage Tracking** | [crates/token-usage/AGENTS.md](crates/token-usage/AGENTS.md) |
 | **Backend: LLM Integration** | [crates/llm/AGENTS.md](crates/llm/AGENTS.md) |
 | **Local runtime** (manifest, supervisor, relay identity) | [agents/references/runtime/AGENTS.md](agents/references/runtime/AGENTS.md) |
+| **`~/.atmos` layout** (credentials/state/config/data) | [agents/references/runtime/atmos-home-layout.md](agents/references/runtime/atmos-home-layout.md) |
 | **API Entry**: HTTP/WS Handlers & DTOs | [apps/api/AGENTS.md](apps/api/AGENTS.md) |
 | **Frontend: Web App** (Next.js 16) | [apps/web/AGENTS.md](apps/web/AGENTS.md) |
 | **Desktop (production — all shell work)** | [apps/desktop-electron/AGENTS.md](apps/desktop-electron/AGENTS.md) |
@@ -30,6 +31,8 @@
 | **Frontend: UI Library** (@workspace/ui) | [packages/ui/AGENTS.md](packages/ui/AGENTS.md) |
 | **Main `/ws` wire types** (`@atmos/api-types`) | [packages/api-types/AGENTS.md](packages/api-types/AGENTS.md) |
 | **Main `/ws` session kernel** (`@atmos/api-client`) | [packages/api-client/AGENTS.md](packages/api-client/AGENTS.md) |
+| **Hub control-plane client** (`@atmos/hub-client`) | [packages/hub-client/AGENTS.md](packages/hub-client/AGENTS.md) |
+| **Relay control-plane client** (`@atmos/relay-client`) | [packages/relay-client/AGENTS.md](packages/relay-client/AGENTS.md) |
 | **Package boundary map** (shared / types / client) | [packages/AGENTS.md](packages/AGENTS.md) |
 | **Terminal agent built-ins** (shared Rust/TS manifest) | [resources/terminal-agents/AGENTS.md](resources/terminal-agents/AGENTS.md) |
 | **CLI Tool** (atmos command) | [apps/cli/AGENTS.md](apps/cli/AGENTS.md) |
@@ -77,9 +80,13 @@ atmos/
 ├── packages/                  # 📦 Shared JS/TS Packages
 │   ├── ui/                    # @workspace/ui (shadcn/ui)
 │   ├── shared/                # @atmos/shared (Hooks/Utils)
+│   ├── api-types/             # @atmos/api-types (main /ws wire types)
+│   ├── api-client/            # @atmos/api-client (main /ws session kernel)
+│   ├── hub-client/            # @atmos/hub-client (Hub HTTPS auth/devices/integrations)
+│   ├── relay-client/          # @atmos/relay-client (Relay REST computers/sessions)
 │   ├── config/                # @atmos/config (TS Config)
 │   ├── i18n/                  # @workspace/i18n (Translations)
-│   └── relay/                 # Atmos Computer relay + Relay (Workers / D1)
+│   └── relay/                 # Atmos Computer relay Worker only (not a client SDK)
 │
 ├── resources/                 # 📄 Cross-runtime product manifests
 │   └── terminal-agents/       # Built-in terminal agent defaults shared by Rust + TS
@@ -192,6 +199,7 @@ just                    # List all available commands
 bun install             # Install frontend dependencies
 just dev-api            # Start API server (writes runtime_manifest.json)
 just dev-web            # Start web app
+just dev-hub            # Start Atmos Hub (wrangler; default :8787; alias: just dh)
 just dev-mobile         # Start Expo mobile dev server
 just dev-desktop        # Production desktop (Atmos) → apps/desktop-electron
 just release-desktop    # Production desktop release (/atmos-desktop-release)

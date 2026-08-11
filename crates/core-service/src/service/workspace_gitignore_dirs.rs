@@ -8,7 +8,7 @@
 //!
 //! This module:
 //!   1. Stores a user-editable list of "directories or files to compensate"
-//!      under `workspace_settings.gitignore_dirs` in `~/.atmos/function_settings.json`.
+//!      under `workspace_settings.gitignore_dirs` in `~/.atmos/config/function_settings.json`.
 //!   2. Ships a curated list of built-in defaults (common agent tool dirs).
 //!   3. Exposes `compensate(source_root, target_root)` which the workspace
 //!      service calls right after `git worktree add` succeeds.

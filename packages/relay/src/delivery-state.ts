@@ -25,7 +25,7 @@ export interface DeliveryInsert {
   provider: DeliveryProvider;
   deliveryId: string;
   routeId: string;
-  tenantId: string;
+  userId: string;
   installationId: string;
   serverId: string;
   automationGuid: string;
@@ -50,7 +50,7 @@ export async function insertDelivery(
 
   const inserted = await env.DB.prepare(
     `INSERT OR IGNORE INTO github_webhook_deliveries(
-       delivery_id, route_id, tenant_id, installation_id, server_id, automation_guid,
+       delivery_id, route_id, user_id, installation_id, server_id, automation_guid,
        event_name, action, repository_full_name, status, duplicate_count,
        received_at, dispatched_at, error_code
      )
@@ -59,7 +59,7 @@ export async function insertDelivery(
     .bind(
       delivery.deliveryId,
       delivery.routeId,
-      delivery.tenantId,
+      delivery.userId,
       delivery.installationId,
       delivery.serverId,
       delivery.automationGuid,
@@ -86,14 +86,14 @@ export async function insertDelivery(
 
 export async function githubMonthlyDispatchLimitExceeded(
   env: Env,
-  route: { tenant_id: string; installation_id: string },
+  route: { user_id: string; installation_id: string },
   now: number,
 ): Promise<string | null> {
   const monthStart = utcMonthStartSeconds(now);
   const tenantDispatches = await countGithubWebhookDeliveries(
     env,
-    "tenant_id = ? AND received_at >= ?",
-    [route.tenant_id, monthStart],
+    "user_id = ? AND received_at >= ?",
+    [route.user_id, monthStart],
   );
   if (tenantDispatches >= GITHUB_DELIVERY_LIMITS.monthlyDispatches) {
     return "github_trigger_monthly_limit_exceeded";

@@ -34,6 +34,9 @@ export type HeatmapWeek = {
 
 export type HeatmapMonthLabel = {
   label: string;
+  /** Week column where this month first appears in the heatmap. */
+  weekIndex: number;
+  /** Pixel offset for fixed-cell legacy layouts (dialog skeleton / old grid). */
   offset: number;
 };
 
@@ -85,6 +88,11 @@ export type BreakdownShare = {
   value: number;
   share: number;
   sharePercent: number;
+  /**
+   * Dominant tokscale provider_id for model rows (e.g. "anthropic", "openai").
+   * Used to pick provider / model brand icons in the UI.
+   */
+  providerId?: string;
 };
 
 /** @deprecated Prefer BreakdownShare — kept for call sites still using the name. */
@@ -157,6 +165,239 @@ export function formatModelLabel(modelId: string): string {
   }
   const leaf = raw.includes("/") ? raw.slice(raw.lastIndexOf("/") + 1) : raw;
   return leaf || raw;
+}
+
+/** Asset basenames present under `public/ai-provider/`. */
+const AI_PROVIDER_ICON_IDS = new Set([
+  "amp",
+  "antigravity",
+  "claude",
+  "codex",
+  "commandcode",
+  "cursor",
+  "factory",
+  "gemini",
+  "grok",
+  "kimi",
+  "mimo",
+  "minimax",
+  "opencode",
+  "zai",
+  "zed",
+]);
+
+/**
+ * Map tokscale / litellm-style `provider_id` onto `/ai-provider/*.svg` assets.
+ * Keys are normalized with `-` → `_` and lowercased.
+ */
+const PROVIDER_TO_AI_PROVIDER_ICON: Record<string, string> = {
+  anthropic: "claude",
+  claude: "claude",
+  openai: "codex",
+  openai_codex: "codex",
+  codex: "codex",
+  google: "gemini",
+  gemini: "gemini",
+  xai: "grok",
+  x_ai: "grok",
+  grok: "grok",
+  moonshotai: "kimi",
+  moonshot: "kimi",
+  kimi: "kimi",
+  minimax: "minimax",
+  minimaxai: "minimax",
+  minimax_ai: "minimax",
+  zai: "zai",
+  zhipu: "zai",
+  z_ai: "zai",
+  xiaomi: "mimo",
+  mimo: "mimo",
+  cursor: "cursor",
+  amp: "amp",
+  antigravity: "antigravity",
+  factory: "factory",
+  opencode: "opencode",
+  zed: "zed",
+  commandcode: "commandcode",
+  command_code: "commandcode",
+};
+
+/** Providers without an ai-provider glyph — fall back to `/agents/*`. */
+const PROVIDER_TO_AGENT_ICON: Record<string, string> = {
+  qwen: "qwen-code",
+  mistral: "mistral-vibe",
+  mistralai: "mistral-vibe",
+};
+
+function normalizeProviderKey(raw: string): string {
+  return raw.trim().toLowerCase().replace(/-/g, "_");
+}
+
+/**
+ * tokscale may merge providers as `"openai, anthropic"`. Pick the first segment
+ * that maps to a known icon, else the first non-empty segment.
+ */
+export function primaryProviderSegment(providerId: string): string | null {
+  const parts = providerId
+    .split(/[,/]/)
+    .map((part) => normalizeProviderKey(part))
+    .filter(Boolean);
+  for (const part of parts) {
+    if (
+      PROVIDER_TO_AI_PROVIDER_ICON[part] ||
+      PROVIDER_TO_AGENT_ICON[part] ||
+      AI_PROVIDER_ICON_IDS.has(part)
+    ) {
+      return part;
+    }
+  }
+  return parts[0] ?? null;
+}
+
+/**
+ * Infer provider when tokscale left `provider_id` empty — mirrors
+ * `tokscale_core::provider_identity::inferred_provider_from_model` lightly.
+ */
+export function inferProviderIdFromModel(modelId: string): string | null {
+  const lower = modelId.trim().toLowerCase();
+  if (!lower || lower === "unknown" || lower === "other") return null;
+
+  if (lower.startsWith("ollama/")) {
+    return inferProviderIdFromModel(lower.slice("ollama/".length));
+  }
+
+  if (
+    lower.includes("claude") ||
+    lower.includes("anthropic") ||
+    /(^|[^a-z])(opus|sonnet|haiku)([^a-z]|$)/.test(lower)
+  ) {
+    return "anthropic";
+  }
+  if (
+    lower.includes("gpt") ||
+    lower.includes("openai") ||
+    /(^|[^a-z])(o1|o3|o4)([^a-z]|$)/.test(lower)
+  ) {
+    return "openai";
+  }
+  if (lower.includes("gemini") || lower.includes("google")) return "google";
+  if (lower.includes("grok")) return "xai";
+  if (lower.includes("deepseek")) return "deepseek";
+  if (lower.includes("minimax")) return "minimax";
+  if (lower.includes("mistral") || lower.includes("mixtral")) return "mistral";
+  if (lower.includes("llama") || /(^|[^a-z])meta([^a-z]|$)/.test(lower)) {
+    return "meta";
+  }
+  if (lower.includes("qwen")) return "qwen";
+  if (/(^|[^a-z])kimi([^a-z]|$)/.test(lower)) return "moonshotai";
+  if (/(^|[^a-z])(k2|k3)([^a-z]|$)/.test(lower)) return "moonshotai";
+  if (/(^|[^a-z])mimo([^a-z]|$)/.test(lower)) return "xiaomi";
+  if (/(^|[^a-z])glm([^a-z]|$)/.test(lower)) return "zai";
+
+  // `provider/model` style ids
+  if (lower.includes("/")) {
+    return primaryProviderSegment(lower.slice(0, lower.indexOf("/")));
+  }
+
+  return null;
+}
+
+/**
+ * Resolve a public icon URL for a model row, or null if we have no asset.
+ * Prefers explicit tokscale `provider_id`, then model-name inference.
+ */
+export function resolveTokenUsageModelIconSrc(
+  providerId: string | null | undefined,
+  modelId: string,
+): string | null {
+  const candidates: string[] = [];
+  if (providerId?.trim()) {
+    const primary = primaryProviderSegment(providerId);
+    if (primary) candidates.push(primary);
+  }
+  const inferred = inferProviderIdFromModel(modelId);
+  if (inferred && !candidates.includes(inferred)) {
+    candidates.push(inferred);
+  }
+
+  for (const key of candidates) {
+    const mapped = PROVIDER_TO_AI_PROVIDER_ICON[key] ?? key;
+    if (AI_PROVIDER_ICON_IDS.has(mapped)) {
+      return `/ai-provider/${mapped}.svg`;
+    }
+    const agentIcon = PROVIDER_TO_AGENT_ICON[key];
+    if (agentIcon) {
+      return `/agents/${agentIcon}.svg`;
+    }
+  }
+  return null;
+}
+
+/** Accumulate provider weights and return the dominant provider id. */
+function pickDominantProvider(
+  votes: Map<string, number> | undefined,
+): string | undefined {
+  if (!votes || votes.size === 0) return undefined;
+  let bestId = "";
+  let bestWeight = -1;
+  for (const [id, weight] of votes) {
+    if (weight > bestWeight) {
+      bestWeight = weight;
+      bestId = id;
+    }
+  }
+  return bestId || undefined;
+}
+
+function addProviderVote(
+  votes: Map<string, Map<string, number>>,
+  seriesId: string,
+  providerId: string | null | undefined,
+  weight: number,
+) {
+  const provider = providerId?.trim();
+  if (!provider || weight <= 0) return;
+  let byProvider = votes.get(seriesId);
+  if (!byProvider) {
+    byProvider = new Map();
+    votes.set(seriesId, byProvider);
+  }
+  byProvider.set(provider, (byProvider.get(provider) ?? 0) + weight);
+}
+
+/**
+ * model_id → dominant provider_id from overview + daily rows.
+ * Used by chart legends when series keys are bare model ids.
+ */
+export function buildModelProviderMap(
+  overview: {
+    by_model?: Array<{
+      model_id: string;
+      provider_id: string;
+      total_tokens: number;
+    }> | null;
+  } | null | undefined,
+  days: DailyTokenUsageResponse[] = [],
+): Map<string, string> {
+  const votes = new Map<string, Map<string, number>>();
+
+  for (const row of overview?.by_model ?? []) {
+    const id = row.model_id.trim() || "unknown";
+    addProviderVote(votes, id, row.provider_id, row.total_tokens);
+  }
+  for (const day of days) {
+    for (const client of day.by_client) {
+      const id = client.model_id.trim() || "unknown";
+      addProviderVote(votes, id, client.provider_id, client.total_tokens);
+    }
+  }
+
+  const out = new Map<string, string>();
+  for (const [modelId, byProvider] of votes) {
+    const dominant = pickDominantProvider(byProvider);
+    if (dominant) out.set(modelId, dominant);
+  }
+  return out;
 }
 
 export function formatDimensionLabel(
@@ -685,9 +926,24 @@ export function buildHeatmapMonthLabels(
       label: new Intl.DateTimeFormat(locale, { month: "short" }).format(
         new Date(Number(year), monthIndex, 1),
       ),
+      weekIndex,
       offset: weekIndex * (HEATMAP_CELL_SIZE + HEATMAP_GAP),
     };
   }).filter((value): value is HeatmapMonthLabel => value !== null);
+}
+
+/**
+ * Weekday labels for heatmap y-axis.
+ * Matches `buildHeatmapWeeks` (`weekStartsOn: 0` → Sun…Sat rows).
+ * Sparse Mon/Wed/Fri by default (GitHub-style) when only those keys are provided.
+ */
+export function buildHeatmapWeekdayAxisLabels(
+  labels: HeatmapDayLabelConfig,
+): Array<{ label: string; row: number }> {
+  return buildHeatmapDayLabels(labels).map((row) => ({
+    label: row.label,
+    row: row.row,
+  }));
 }
 
 export function calculateHeatmapPopoverPosition(anchorRect: HeatmapHoverState["anchorRect"]) {
@@ -771,6 +1027,7 @@ export function buildYearBreakdownShares(
   }
 
   const totals = new Map<string, number>();
+  const providerVotes = new Map<string, Map<string, number>>();
 
   for (const day of days) {
     if (!day.date.startsWith(`${year}-`)) {
@@ -781,6 +1038,9 @@ export function buildYearBreakdownShares(
       const id = dimensionKeyOf(client, dimension);
       const amount = clientDayMetricValue(client, metric);
       totals.set(id, (totals.get(id) ?? 0) + amount);
+      if (dimension === "model") {
+        addProviderVote(providerVotes, id, client.provider_id, amount);
+      }
     }
   }
 
@@ -798,6 +1058,10 @@ export function buildYearBreakdownShares(
       value,
       share: value / totalValue,
       sharePercent: (value / totalValue) * 100,
+      providerId:
+        dimension === "model"
+          ? pickDominantProvider(providerVotes.get(id))
+          : undefined,
     }));
 }
 
@@ -825,6 +1089,7 @@ export function buildOverviewBreakdownShares(
     }>;
     by_model: Array<{
       model_id: string;
+      provider_id?: string;
       total_tokens: number;
       cost_usd: number | null;
     }>;
@@ -836,12 +1101,14 @@ export function buildOverviewBreakdownShares(
   if (!overview) return [];
 
   const totals = new Map<string, number>();
+  const providerVotes = new Map<string, Map<string, number>>();
 
   if (dimension === "model") {
     for (const row of overview.by_model ?? []) {
       const id = row.model_id.trim() || "unknown";
       const amount = modelOverviewMetricValue(row, metric);
       totals.set(id, (totals.get(id) ?? 0) + amount);
+      addProviderVote(providerVotes, id, row.provider_id, amount);
     }
   } else {
     for (const row of overview.by_client ?? []) {
@@ -864,6 +1131,10 @@ export function buildOverviewBreakdownShares(
       value,
       share: value / totalValue,
       sharePercent: (value / totalValue) * 100,
+      providerId:
+        dimension === "model"
+          ? pickDominantProvider(providerVotes.get(id))
+          : undefined,
     }));
 }
 
@@ -991,26 +1262,37 @@ export function formatCompactNumber(value: number, locale: string) {
   }).format(value);
 }
 
+/**
+ * Format a number and always prefix with `$`.
+ * Avoid `style: "currency"` + USD — zh-CN (and some other locales) emit `US$…`
+ * which is noisy on compact chart axes / stats.
+ */
+function formatUsdAmount(
+  value: number,
+  locale: string,
+  options: Intl.NumberFormatOptions,
+): string {
+  const abs = Math.abs(value);
+  const body = new Intl.NumberFormat(locale, options).format(abs);
+  return `${value < 0 ? "-" : ""}$${body}`;
+}
+
 export function formatCurrencyCompact(value: number | null, locale: string) {
   if (value === null) {
     return "--";
   }
 
-  if (value < 1) {
-    return new Intl.NumberFormat(locale, {
-      style: "currency",
-      currency: "USD",
+  if (Math.abs(value) < 1) {
+    return formatUsdAmount(value, locale, {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
-    }).format(value);
+    });
   }
 
-  return new Intl.NumberFormat(locale, {
+  return formatUsdAmount(value, locale, {
     notation: "compact",
     maximumFractionDigits: 1,
-    style: "currency",
-    currency: "USD",
-  }).format(value);
+  });
 }
 
 /** More precise USD for tooltips / detail rows. */
@@ -1020,12 +1302,10 @@ export function formatCurrencyDetailed(value: number | null, locale: string) {
   }
 
   const abs = Math.abs(value);
-  return new Intl.NumberFormat(locale, {
-    style: "currency",
-    currency: "USD",
+  return formatUsdAmount(value, locale, {
     minimumFractionDigits: 2,
     maximumFractionDigits: abs > 0 && abs < 0.01 ? 4 : 2,
-  }).format(value);
+  });
 }
 
 /** Format chart/stat values for the active metric. */

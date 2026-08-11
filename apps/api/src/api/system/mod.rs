@@ -5,6 +5,7 @@ mod debug_log;
 mod diagnostics;
 mod files;
 mod handlers;
+mod linear_local;
 pub(crate) mod skills;
 
 use axum::{
@@ -68,6 +69,10 @@ pub fn routes() -> Router<AppState> {
         .route(
             "/computer-client-settings",
             get(computer::get_computer_client_settings).put(computer::put_computer_client_settings),
+        )
+        .route(
+            "/linear-local-keys",
+            get(linear_local::get_linear_local_keys).put(linear_local::put_linear_local_keys),
         )
         .route("/computer", get(computer::get_computer_status))
         .route("/runtime-info", get(computer::get_runtime_info))

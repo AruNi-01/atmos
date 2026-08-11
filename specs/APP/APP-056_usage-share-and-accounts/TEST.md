@@ -4,13 +4,14 @@
 
 ## Test strategy
 
-- **Hub unit/integration**: Better Auth config (GitHub + Google providers enabled; password disabled), session `/v1/me`, device mint/rotate/revoke, Relay projection, snapshot CRUD, public 404, CORS.
-- **Relay unit/integration**: device credential auth; computers by `user_id`; reject user Access Token tenant APIs if removed; rotate does not drop computers.
-- **Client unit**: snapshot redaction; local storage of device credential (never log).
-- **Web integration**: PNG share without login; publish gated on session; device enroll/rotate Settings; no Generate Access Token primary UX.
+- **Hub unit/integration**: Better Auth (GitHub + Google; password disabled — S27), session `/v1/me`, device mint/rotate/revoke + `relay_synced`, snapshot CRUD + recursive redaction (S15), public 404 + `Cache-Control: no-store` (S11), CORS (S29).
+- **Relay unit/integration**: device credential auth; computers by `user_id`; no user Access Token tenant APIs; register_tokens issuer (S25); post-rotate/revoke 401 after projection (S23/S28).
+- **Client unit**: snapshot redaction; device credential storage; non-logging (S30).
+- **Web integration**: PNG share without login; publish gated on session; device enroll Settings; no Generate Access Token primary UX (S26). Playwright scenarios live under `e2e/` when added.
 - **Landing**: public share page + 404 after revoke.
 - **Regression**: local Token Usage signed-out; pure local Server without Hub still works.
 - **Manual-only**: real GitHub + Google OAuth on staging; cookie domain across hub/app.
+- **Exploratory**: agent-browser checks listed below (status `not_run` until setup).
 
 ## Coverage map
 
@@ -24,41 +25,51 @@
 | M6 | S7, S8, S9 |
 | M7 | S10, S11 |
 | M8 | S6, S15 |
-| M9 | S6 |
+| M9 | S6, S15 |
 | M10 | S16 |
 | M11 | S1 |
-| M12 | S3, S4 |
-| M13 | S20, S21 |
-| M14 | S22, S23 |
+| M12 | S3, S4, S27 |
+| M13 | S18, S20, S21 |
+| M14 | S22, S23, S28 |
 | M15 | S21, S24 |
-| M16 | S25 |
-| S1 | S13 |
-| S2 | S17 |
-| S3 | S18 |
-| S5 | S9 |
+| M16 | S25, S26 |
+
+Nice-to-have / cross-cutting (not PRD M-ids): public profile S13; OG S17; CORS S29; credential non-logging S30.
 
 ## Execution map
 
 | ID | Level | Expected tool | Target / command | Fixtures | Status |
 |----|-------|---------------|------------------|----------|--------|
-| S1 | Web unit / manual | bun test / agent-browser | Token Usage page signed-out | local api mock | pending |
-| S2 | Cloud integration | bun test / vitest | OAuth callback mock | fake GitHub token exchange | pending |
-| S3 | Cloud integration | bun test | session cookie + `/v1/me` | D1 test | pending |
-| S4 | Cloud integration | bun test | logout clears session | D1 test | pending |
-| S5 | Cloud integration | bun test | `POST /v1/usage/shares` | session + snapshot | pending |
-| S6 | Client unit | bun test | `buildUsageShareSnapshot` | overview fixture | pending |
-| S7 | Cloud integration | bun test | public GET unlisted by id | share row | pending |
-| S8 | Cloud integration | bun test | public profile lists only public | shares + profile | pending |
-| S9 | Landing | Playwright or agent-browser | `/s/:id` render | mock hub | pending |
-| S10 | Cloud integration | bun test | PATCH updates snapshot | share row | pending |
-| S11 | Cloud integration | bun test | DELETE/revoke → public 404 | share row | pending |
-| S12 | Web integration | bun test / agent-browser | copy share URL UI | mock hub | pending |
-| S13 | Cloud + landing | bun test | handle + `/u/:handle` | account | pending |
-| S14 | API/WS regression | existing token-usage tests | `cargo test -p token-usage` + web overview | none | pending |
-| S15 | Cloud unit | bun test | reject denylist keys / oversized body | malicious JSON | pending |
-| S16 | Static review | grep / review | no usage routes in `packages/relay` | tree | pending |
-| S17 | Cloud + landing | integration | OG url in public payload + meta | R2 mock | pending |
-| S18 | Cloud integration | bun test | `POST /v1/devices/link` | session | pending |
+| S1 | Web unit / manual | bun test | Token Usage overview signed-out (no hub session) | local api mock | pending |
+| S2 | Hub integration | bun test | Better Auth GitHub callback mock → `user` + `account` | D1 + fake provider | pending |
+| S3 | Hub integration | bun test | `GET /v1/me` with session cookie | D1 session | pending |
+| S4 | Hub integration | bun test | Better Auth / custom logout → `/v1/me` 401 | D1 session | pending |
+| S5 | Hub integration | bun test | `POST /v1/usage/shares` | session + snapshot | pending |
+| S6 | Hub/client unit | bun test | `packages/hub` `redactSnapshot` + client builder | overview fixture | pending |
+| S7 | Hub integration | bun test | `GET /v1/public/shares/:id` unlisted | share row | pending |
+| S8 | Hub integration | bun test | public profile lists only public | shares + profile | pending |
+| S9 | Landing | Playwright `e2e/` | `/s/:id` render | mock hub | pending |
+| S10 | Hub integration | bun test | `PATCH /v1/usage/shares/:id` | share row | pending |
+| S11 | Hub integration | bun test | `DELETE` revoke → public 404; no cache headers that stale | share row | pending |
+| S12 | Web integration | bun test | copy share URL UI | mock hub | pending |
+| S13 | Hub + landing | bun test / Playwright | handle + `/u/:handle` | account | pending |
+| S14 | API regression | cargo | `cargo test -p token-usage` | none | pending |
+| S15 | Hub unit | bun test | recursive denylist / cost strip / size reject | malicious JSON | pending |
+| S16 | Static | grep | no usage-share product routes in `packages/relay/src` | tree | pending |
+| S17 | Hub integration | bun test | OG PUT ownership + PNG magic + public `og_image_url` | R2 mock | pending |
+| S18 | Hub integration | bun test | `GET /v1/devices` after enroll | session | pending |
+| S19 | Hub integration | bun test | Google OAuth mock → linked `account` | D1 | pending |
+| S20 | Hub integration | bun test | `POST /v1/devices` credential once | session | pending |
+| S21 | Relay integration | bun test | `GET /v1/computers` Bearer device_credential | projected device | pending |
+| S22 | Hub+Relay | bun test | rotate preserves computers | devices+computers | pending |
+| S23 | Hub+Relay | bun test | old credential 401 after projected rotate | devices | pending |
+| S24 | Relay | bun test | two devices same `user_id` see computers | devices | pending |
+| S25 | Relay | bun test | `POST /v1/register_tokens` with device Bearer | device | pending |
+| S26 | Web UI | review / Playwright | no generate-Access-Token primary CTA | UI | pending |
+| S27 | Hub unit | bun test | password provider disabled / social only | better-auth config | pending |
+| S28 | Hub+Relay | bun test | device revoke projects; Relay 401 | devices | pending |
+| S29 | Hub | bun test | CORS credentials + origin allowlist | OPTIONS/GET | pending |
+| S30 | Static/unit | grep + unit | device credential never logged in hub/relay paths | code | pending |
 
 ## Scenarios
 
@@ -72,11 +83,11 @@
 
 ### S2 - GitHub OAuth creates account (Better Auth)
 
-- **Level**: Cloud integration
-- **Given**: mocked GitHub exchange returns user id `42`, login `aruni`.
-- **When**: callback completes with valid state.
-- **Then**: `accounts` row upserted; session created; redirect hits allowlisted `return_to`.
-- **Signals**: `github_user_id=42`; `handle` default `aruni`; `Set-Cookie` present; invalid `return_to` rejected.
+- **Level**: Hub integration
+- **Given**: mocked GitHub exchange returns provider subject `42`, login `aruni`.
+- **When**: Better Auth GitHub callback completes with valid state.
+- **Then**: Better Auth `user` row exists; provider **`account`** row upserted (`providerId=github`, `accountId=42`); session created; redirect hits allowlisted `return_to` / trusted origin.
+- **Signals**: `account.accountId=42`; profile `handle` default derived from login; `Set-Cookie` present; invalid `return_to` rejected.
 
 ### S3 - Session resolves `/v1/me`
 
@@ -200,11 +211,11 @@
 
 ### S18 - Device list returns enrolled devices
 
-- **Level**: Cloud integration
-- **Given**: signed-in user has enrolled a device.
+- **Level**: Hub integration
+- **Given**: signed-in user has enrolled via `POST /v1/devices`.
 - **When**: `GET /v1/devices`.
-- **Then**: device appears with label; raw credential is not returned.
-- **Signals**: no `device_credential` field on list; `revoked_at` null.
+- **Then**: device appears with `device_id` / label; raw credential is not returned.
+- **Signals**: response has no `device_credential` field; `revoked_at` null.
 
 
 ### S19 - Google OAuth creates/links account
@@ -255,13 +266,13 @@
 - **Then**: same computer visible.
 - **Signals**: both Bearers authorize same `user_id` rows.
 
-### S25 - One-time enroll token for VPS
+### S25 - One-time register token for VPS (Relay issuer)
 
-- **Level**: Hub
-- **Given**: session.
-- **When**: `POST /v1/computers/enroll_tokens`.
-- **Then**: returns short-lived register material bound to account; reuse after expiry fails.
-- **Signals**: second consume rejected; computer `user_id` set.
+- **Level**: Relay
+- **Given**: Hub-projected device credential for a `user_id`.
+- **When**: `POST /v1/register_tokens` with Bearer device credential; machine redeems register token.
+- **Then**: computer row owned by that `user_id`; token single-use / expiry enforced.
+- **Signals**: second consume rejected; computer `user_id` matches device owner.
 
 ### S26 - No user-generated Access Token primary UX
 
@@ -269,16 +280,50 @@
 - **Given**: Settings connection UI after this ships.
 - **When**: user manages remote Computer access.
 - **Then**: primary path is Sign in + Trust device / Add Computer; no “generate access token as identity” primary CTA.
-- **Signals**: copy review + optional e2e.
+- **Signals**: copy review + optional Playwright under `e2e/`.
+
+### S27 - Password auth disabled
+
+- **Level**: Hub unit
+- **Given**: Better Auth config for Hub.
+- **When**: inspect providers / attempt email-password sign-in path.
+- **Then**: only GitHub + Google social; no password product.
+- **Signals**: config assertion or 404/disabled on password routes.
+
+### S28 - Device revoke projects to Relay
+
+- **Level**: Hub + Relay
+- **Given**: enrolled device projected to Relay.
+- **When**: `POST /v1/devices/:id/revoke` then old Bearer hits Relay.
+- **Then**: after projection, Relay returns 401.
+- **Signals**: Hub `revoked_at` set; Relay upsert `revoked: true` or equivalent.
+
+### S29 - CORS allowlist for Hub session
+
+- **Level**: Hub
+- **Given**: `ALLOWED_ORIGINS` includes app origin.
+- **When**: browser-like `Origin` on credentialed request.
+- **Then**: allowed origin gets ACAO + credentials; disallowed origin rejected.
+- **Signals**: OPTIONS preflight headers.
+
+### S30 - Device credentials not logged
+
+- **Level**: Static / unit
+- **Given**: mint/rotate handlers and Relay auth.
+- **When**: review logs and redaction paths.
+- **Then**: plaintext device credential never written to structured logs.
+- **Signals**: grep for log fields; unit if logger mock exists.
 
 ## Exploratory agent-browser checks
 
-Before running, load Agent Browser skill or `agent-browser skills get core --full` if available; else mark `not_run`.
+**Setup:** Agent Browser skill / `agent-browser skills get core --full` not executed in this authoring pass → **overall status: `not_run`**.
 
-1. Token Usage → Share → Publish: copy and empty states clear in en/zh if applicable.
-2. Public `/s/...` at 390px width: no horizontal overflow; stats readable.
-3. After unpublish, hard refresh shows 404.
-4. Signed-out publish attempt never exposes other users’ data.
+| # | Check | Status |
+|---|--------|--------|
+| 1 | Token Usage → Share → Publish: copy and empty states clear (en/zh if applicable) | not_run |
+| 2 | Public `/s/...` at 390px width: no horizontal overflow; stats readable | not_run |
+| 3 | After unpublish, hard refresh shows 404 (no stale cache) | not_run |
+| 4 | Signed-out publish attempt never exposes other users’ data | not_run |
 
 ## Regression checklist
 
@@ -297,7 +342,7 @@ Before running, load Agent Browser skill or `agent-browser skills get core --ful
 4. Snapshots cannot retain denylisted sensitive keys under validation.
 5. Usage share product is not implemented inside `packages/relay`.
 6. Cost omitted unless opted in.
-7. PRD Must Haves M1–M12 have at least one scenario with a planned automated or explicit manual check.
+7. PRD Must Haves **M1–M16** each have at least one scenario in the coverage map with a planned automated or explicit manual check (device credentials / Relay ownership covered by S18–S26, S28).
 
 ## Manual verification steps
 

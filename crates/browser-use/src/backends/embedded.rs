@@ -1,6 +1,6 @@
 //! Atmos embedded browser (in-app webview) via host-owned control plane.
 //!
-//! Electron Desktop writes `~/.atmos/browser-use/control.json` with a loopback
+//! Electron Desktop writes `~/.atmos/data/browser-use/control.json` with a loopback
 //! HTTP base URL. This backend talks to that plane — **not** user-Chrome
 //! `browser_prepare`.
 
@@ -33,6 +33,7 @@ fn control_dir() -> PathBuf {
     dirs::home_dir()
         .unwrap_or_else(|| PathBuf::from("."))
         .join(".atmos")
+        .join("data")
         .join("browser-use")
 }
 
