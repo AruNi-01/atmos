@@ -3,12 +3,17 @@ import { Alert } from "react-native";
 import { useRouter } from "expo-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ComputerRow } from "@/api/types";
-import { getAccessTokenSwitchReadiness } from "@/features/settings/access-token-settings";
 import { activeSettingsComputers } from "@/features/settings/computer-settings";
 import { getRelayUrlSaveState } from "@/features/settings/relay-url-settings";
 import { useRelayClient } from "@/hooks/use-relay-client";
-import { clearAccessToken, getStoredAccessToken, storeAccessToken } from "@/lib/access-token";
-import { clearRelaySecretKey, storeRelaySecretKey } from "@/lib/relay-secret-key";
+import {
+  requireDeviceCredential,
+  signOutThisPhone,
+} from "@/lib/device-credential";
+import {
+  clearRelaySecretKey,
+  storeRelaySecretKey,
+} from "@/lib/relay-secret-key";
 import { useComputerStore } from "@/stores/computer-store";
 import { useSessionStore } from "@/stores/session-store";
 
@@ -18,14 +23,15 @@ export function useMobileSettingsController() {
   const client = useRelayClient();
   const relayUrl = useSessionStore((state) => state.relayUrl);
   const relayAuthRevision = useSessionStore((state) => state.relayAuthRevision);
-  const hasAccessToken = useSessionStore((state) => state.hasAccessToken);
+  const hasDeviceCredential = useSessionStore(
+    (state) => state.hasDeviceCredential,
+  );
   const relaySecretKey = useSessionStore((state) => state.relaySecretKey);
   const setRelayUrl = useSessionStore((state) => state.setRelayUrl);
   const setRelaySecretKey = useSessionStore((state) => state.setRelaySecretKey);
   const selectedServerId = useSessionStore((state) => state.selectedServerId);
   const selectServer = useSessionStore((state) => state.selectServer);
   const setClientSession = useSessionStore((state) => state.setClientSession);
-  const setAccessTokenLoaded = useSessionStore((state) => state.setAccessTokenLoaded);
   const clearClientSession = useSessionStore((state) => state.clearClientSession);
   const clearSession = useSessionStore((state) => state.clearSession);
   const setComputers = useComputerStore((state) => state.setComputers);
@@ -33,20 +39,21 @@ export function useMobileSettingsController() {
   const [renameValue, setRenameValue] = useState("");
   const [registerCommand, setRegisterCommand] = useState<string | null>(null);
   const [relaySecretDraft, setRelaySecretDraft] = useState(relaySecretKey);
-  const [tokenDraft, setTokenDraft] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   const computersQuery = useQuery({
     queryKey: ["computers", relayUrl, relayAuthRevision],
+    enabled: hasDeviceCredential,
     queryFn: async () => {
-      const token = await getStoredAccessToken();
-      if (!token) return [];
+      const token = requireDeviceCredential();
       return client.withDeviceCredential(token).listComputers();
     },
   });
   const activeComputers = activeSettingsComputers(computersQuery.data ?? []);
   const selectedComputer = useMemo(
-    () => activeComputers.find((computer) => computer.server_id === selectedServerId) ?? null,
+    () =>
+      activeComputers.find((computer) => computer.server_id === selectedServerId) ??
+      null,
     [activeComputers, selectedServerId],
   );
   const relayUrlSaveState = getRelayUrlSaveState({
@@ -54,7 +61,8 @@ export function useMobileSettingsController() {
     draftUrl: relayDraft,
   });
   const normalizedRelaySecretDraft = relaySecretDraft.trim();
-  const canSaveRelaySettings = relayUrlSaveState.canSave || normalizedRelaySecretDraft !== relaySecretKey;
+  const canSaveRelaySettings =
+    relayUrlSaveState.canSave || normalizedRelaySecretDraft !== relaySecretKey;
 
   const saveRelaySettings = useMutation({
     mutationFn: async () => {
@@ -76,15 +84,20 @@ export function useMobileSettingsController() {
       setComputers([]);
       queryClient.removeQueries({ queryKey: ["computers"] });
       setError(null);
-      Alert.alert("Relay saved", "Select a Computer to create a fresh mobile session.");
+      Alert.alert(
+        "Relay saved",
+        "Select a Computer to create a fresh mobile session.",
+      );
     },
-    onError: (nextError) => setError(nextError instanceof Error ? nextError.message : "Could not save Relay."),
+    onError: (nextError) =>
+      setError(
+        nextError instanceof Error ? nextError.message : "Could not save Relay.",
+      ),
   });
 
   const switchComputer = useMutation({
     mutationFn: async (serverId: string) => {
-      const token = await getStoredAccessToken();
-      if (!token) throw new Error("Device credential is not available.");
+      const token = requireDeviceCredential();
       return client
         .withDeviceCredential(token)
         .createClientSession(serverId, { clientKind: "mobile" });
@@ -94,13 +107,17 @@ export function useMobileSettingsController() {
       setClientSession(session);
       setError(null);
     },
-    onError: (nextError) => setError(nextError instanceof Error ? nextError.message : "Computer switch failed."),
+    onError: (nextError) =>
+      setError(
+        nextError instanceof Error
+          ? nextError.message
+          : "Computer switch failed.",
+      ),
   });
 
   const createRegisterCommand = useMutation({
     mutationFn: async () => {
-      const token = await getStoredAccessToken();
-      if (!token) throw new Error("Device credential is not available.");
+      const token = requireDeviceCredential();
       return client.withDeviceCredential(token).createRegisterToken();
     },
     onSuccess: (registerToken) => {
@@ -108,13 +125,17 @@ export function useMobileSettingsController() {
       setError(null);
     },
     onError: (nextError) =>
-      setError(nextError instanceof Error ? nextError.message : "Could not create register command."),
+      setError(
+        nextError instanceof Error
+          ? nextError.message
+          : "Could not create register command.",
+      ),
   });
 
   const rename = useMutation({
     mutationFn: async () => {
-      const token = await getStoredAccessToken();
-      if (!token || !selectedServerId) throw new Error("Select a Computer first.");
+      const token = requireDeviceCredential();
+      if (!selectedServerId) throw new Error("Select a Computer first.");
       return client
         .withDeviceCredential(token)
         .renameComputer(selectedServerId, renameValue.trim());
@@ -123,81 +144,42 @@ export function useMobileSettingsController() {
       setRenameValue("");
       void queryClient.invalidateQueries({ queryKey: ["computers"] });
     },
-    onError: (nextError) => setError(nextError instanceof Error ? nextError.message : "Rename failed."),
+    onError: (nextError) =>
+      setError(nextError instanceof Error ? nextError.message : "Rename failed."),
   });
 
   const revoke = useMutation({
     mutationFn: async (serverId: string) => {
-      const token = await getStoredAccessToken();
-      if (!token) throw new Error("Device credential is not available.");
+      const token = requireDeviceCredential();
       return client.withDeviceCredential(token).revokeComputer(serverId);
     },
     onSuccess: (_, serverId) => {
       if (selectedServerId === serverId) selectServer(null);
       void queryClient.invalidateQueries({ queryKey: ["computers"] });
     },
-    onError: (nextError) => setError(nextError instanceof Error ? nextError.message : "Revoke failed."),
-  });
-
-  const switchAccessToken = useMutation({
-    mutationFn: async () => {
-      const nextToken = tokenDraft.trim();
-      const readiness = getAccessTokenSwitchReadiness({
-        isSaving: false,
-        token: nextToken,
-      });
-      if (!readiness.canSwitch) {
-        throw new Error(readiness.reason ?? "Paste a valid device credential first.");
-      }
-      // Hub-minted credential is already on Relay; only store locally.
-      await storeAccessToken(nextToken);
-    },
-    onSuccess: async () => {
-      setTokenDraft("");
-      setAccessTokenLoaded(true);
-      clearClientSession();
-      setComputers([]);
-      setError(null);
-      await queryClient.invalidateQueries();
-      Alert.alert(
-        "Device credential switched",
-        "Select a Computer to create a fresh mobile session.",
-      );
-    },
     onError: (nextError) =>
-      setError(
-        nextError instanceof Error ? nextError.message : "Could not switch device credential.",
-      ),
+      setError(nextError instanceof Error ? nextError.message : "Revoke failed."),
   });
 
-  /** Rotation is done on Hub (Account); mobile only accepts a new pasted credential. */
-  const rotateToken = useMutation({
+  const signOutPhone = useMutation({
     mutationFn: async () => {
-      throw new Error(
-        "Rotate the device credential in Desktop/Web Settings → Account, then paste the new credential here.",
-      );
-    },
-    onError: (nextError) =>
-      setError(
-        nextError instanceof Error ? nextError.message : "Could not rotate device credential.",
-      ),
-  });
-
-  const resetToken = useMutation({
-    mutationFn: async () => {
-      await clearAccessToken();
+      await signOutThisPhone();
       await clearRelaySecretKey();
     },
     onSuccess: async () => {
       clearSession();
       setRelaySecretKey("");
-      setTokenDraft("");
       setComputers([]);
       setError(null);
       await queryClient.invalidateQueries();
       router.replace("/onboarding");
     },
-    onError: (nextError) => setError(nextError instanceof Error ? nextError.message : "Could not reset this phone."),
+    onError: (nextError) =>
+      setError(
+        nextError instanceof Error
+          ? nextError.message
+          : "Could not sign out this phone.",
+      ),
   });
 
   const selectComputer = (computer: ComputerRow) => {
@@ -210,28 +192,44 @@ export function useMobileSettingsController() {
 
   const confirmRevokeSelectedComputer = () => {
     if (!selectedServerId) return;
-    Alert.alert("Revoke Computer", "This Computer will be removed from your Hub account.", [
-      { text: "Cancel", style: "cancel" },
-      { text: "Revoke", style: "destructive", onPress: () => revoke.mutate(selectedServerId) },
-    ]);
+    Alert.alert(
+      "Revoke Computer",
+      "This Computer will be removed from your Hub account.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Revoke",
+          style: "destructive",
+          onPress: () => revoke.mutate(selectedServerId),
+        },
+      ],
+    );
   };
 
-  const confirmResetPhone = () => {
-    Alert.alert("Reset This Phone", "Remove the local device credential and return to setup.", [
-      { text: "Cancel", style: "cancel" },
-      { text: "Reset", style: "destructive", onPress: () => resetToken.mutate() },
-    ]);
+  const confirmSignOutPhone = () => {
+    Alert.alert(
+      "Sign out this phone",
+      "Revokes this phone’s Hub device and clears local credentials.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Sign out",
+          style: "destructive",
+          onPress: () => signOutPhone.mutate(),
+        },
+      ],
+    );
   };
 
   return {
     activeComputers,
     canSaveRelaySettings,
     computersQuery,
-    confirmResetPhone,
     confirmRevokeSelectedComputer,
+    confirmSignOutPhone,
     createRegisterCommand,
     error,
-    hasAccessToken,
+    hasDeviceCredential,
     registerCommand,
     relayDraft,
     relaySecretDraft,
@@ -239,9 +237,7 @@ export function useMobileSettingsController() {
     relayUrlSaveState,
     rename,
     renameValue,
-    resetToken,
     revoke,
-    rotateToken,
     saveRelaySettings,
     selectComputer,
     selectedComputer,
@@ -250,9 +246,7 @@ export function useMobileSettingsController() {
     setRelayDraft,
     setRelaySecretDraft,
     setRenameValue,
-    setTokenDraft,
-    switchAccessToken,
+    signOutPhone,
     switchComputer,
-    tokenDraft,
   };
 }

@@ -26,7 +26,9 @@ export function WorkspacePickerScreen() {
   const theme = useMobileTheme();
   const queryClient = useQueryClient();
   const { client, state } = useMobileWs();
-  const hasAccessToken = useSessionStore((store) => store.hasAccessToken);
+  const hasDeviceCredential = useSessionStore(
+    (store) => store.hasDeviceCredential,
+  );
   const selectedServerId = useSessionStore((store) => store.selectedServerId);
   const isConnected = Boolean(client && state === "open");
   const bootstrapQueryKey = ["workspace-bootstrap", selectedServerId, state] as const;
@@ -73,17 +75,17 @@ export function WorkspacePickerScreen() {
   const projectCount = projects.length;
   const error = bootstrap.error instanceof Error ? bootstrap.error.message : null;
   const statusUpdateError = updateWorkflowStatus.error instanceof Error ? updateWorkflowStatus.error.message : null;
-  const canShowWorkspaces = hasAccessToken && isConnected && !error;
+  const canShowWorkspaces = hasDeviceCredential && isConnected && !error;
 
   return (
     <>
       <AppScreen surface="sheet">
-        {!hasAccessToken || error ? (
+        {!hasDeviceCredential || error ? (
           <GuideSection
             actionLabel="Computer Connect"
             message={error ?? "Choose a Computer before opening Workspaces."}
             onAction={() => router.replace("/computer-connect")}
-            title={!hasAccessToken ? "Connect first" : "Connection failed"}
+            title={!hasDeviceCredential ? "Connect first" : "Connection failed"}
           />
         ) : !isConnected ? (
           <GuideSection

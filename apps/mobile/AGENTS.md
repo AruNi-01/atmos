@@ -53,6 +53,9 @@ Generated native folders `ios/` and `android/` are managed by Expo prebuild and 
 
 - Mobile is a lightweight client for a remote Atmos Computer. It never starts or requires a local Atmos Server on the phone.
 - Hub **device credential** and Relay bootstrap follow APP-016 / APP-056 (no user-generated Access Token).
+- Identity: **device Bearer only** (SecureStore → `@atmos/hub-client` store). No Better Auth cookie in the app.
+- Onboarding primary: **Hub OAuth** (system browser → `/v1/mobile-auth/*` → `acceptDeviceCredential` + `hubMe`). Secondary: **QR pair** (`/v1/mobile-pair/*`, 3 min). No paste path.
+- Sign-out: Hub `revoke` this device (best-effort) then clear store. After auth, auto-connect when a single Computer is online.
 - Primary post-auth screen is the workspace list.
 - Workspace development is terminal-first and shows exactly one terminal renderer at a time.
 - The only Web right-sidebar-derived M1 surface is Changes & Commit.

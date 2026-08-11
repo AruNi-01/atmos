@@ -4,7 +4,7 @@ import type { SFSymbol } from "sf-symbols-typescript";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ComputerRow } from "@/api/types";
 import { useRelayClient } from "@/hooks/use-relay-client";
-import { getStoredAccessToken } from "@/lib/access-token";
+import { requireDeviceCredential } from "@/lib/device-credential";
 import { useComputerStore } from "@/stores/computer-store";
 import { useSessionStore } from "@/stores/session-store";
 import { AppScreen, EmptyState, InlineError, Section } from "@/ui/layout/app-screen";
@@ -21,7 +21,9 @@ export function ComputerConnectScreen() {
   const relayClient = useRelayClient();
   const relayUrl = useSessionStore((state) => state.relayUrl);
   const relayAuthRevision = useSessionStore((state) => state.relayAuthRevision);
-  const hasAccessToken = useSessionStore((state) => state.hasAccessToken);
+  const hasDeviceCredential = useSessionStore(
+    (state) => state.hasDeviceCredential,
+  );
   const selectedServerId = useSessionStore((state) => state.selectedServerId);
   const selectServer = useSessionStore((state) => state.selectServer);
   const setClientSession = useSessionStore((state) => state.setClientSession);
@@ -29,10 +31,9 @@ export function ComputerConnectScreen() {
 
   const computersQuery = useQuery({
     queryKey: ["computers", relayUrl, relayAuthRevision],
-    enabled: hasAccessToken,
+    enabled: hasDeviceCredential,
     queryFn: async () => {
-      const token = await getStoredAccessToken();
-      if (!token) return [];
+      const token = requireDeviceCredential();
       const computers = await relayClient.withDeviceCredential(token).listComputers();
       setComputers(computers);
       return computers;
@@ -41,8 +42,7 @@ export function ComputerConnectScreen() {
 
   const connect = useMutation({
     mutationFn: async (serverId: string) => {
-      const token = await getStoredAccessToken();
-      if (!token) throw new Error("Device credential is not available.");
+      const token = requireDeviceCredential();
       return relayClient
         .withDeviceCredential(token)
         .createClientSession(serverId, { clientKind: "mobile" });
@@ -66,14 +66,14 @@ export function ComputerConnectScreen() {
   return (
     <>
       <AppScreen surface="sheet">
-        {!hasAccessToken ? (
+        {!hasDeviceCredential ? (
           <Section>
             <View style={styles.emptyBlock}>
               <EmptyState
-                title="Device credential required"
-                message="Connect mobile to Relay before loading Computers."
+                title="Sign in required"
+                message="Sign in or scan a Desktop/Web pair QR before loading Computers."
               />
-              <NativeButton label="Set device credential" onPress={() => router.replace("/onboarding")} />
+              <NativeButton label="Sign in / Scan QR" onPress={() => router.replace("/onboarding")} />
             </View>
           </Section>
         ) : activeComputers.length === 0 ? (
@@ -112,7 +112,7 @@ export function ComputerConnectScreen() {
               : () => (
                   <HeaderIconButton
                     accessibilityLabel="Refresh Computers"
-                    disabled={!hasAccessToken || computersQuery.isFetching}
+                    disabled={!hasDeviceCredential || computersQuery.isFetching}
                     onPress={() => void computersQuery.refetch()}
                   />
                 ),
@@ -120,7 +120,7 @@ export function ComputerConnectScreen() {
             Platform.OS === "ios"
               ? () =>
                   buildHeaderRightItems({
-                    disabled: !hasAccessToken || computersQuery.isFetching,
+                    disabled: !hasDeviceCredential || computersQuery.isFetching,
                     onRefresh: () => void computersQuery.refetch(),
                     tintColor: theme.colors.label,
                   })

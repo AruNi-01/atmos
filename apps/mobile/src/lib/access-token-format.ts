@@ -1,13 +1,6 @@
-/** Hub device credential length gate — shared with Relay client. */
+/** Re-export device credential length gates from relay-client. */
 export {
   isPlausibleDeviceCredential,
   MIN_DEVICE_CREDENTIAL_LEN,
-  requireDeviceCredential,
+  requireDeviceCredential as requirePlausibleDeviceCredential,
 } from "@atmos/relay-client";
-
-import { isPlausibleDeviceCredential } from "@atmos/relay-client";
-
-/** @deprecated use isPlausibleDeviceCredential */
-export function isPlausibleAccessToken(token: string) {
-  return isPlausibleDeviceCredential(token);
-}

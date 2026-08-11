@@ -1,79 +1,86 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Controller, useForm } from "react-hook-form";
-import { z } from "zod";
-import { zodResolver } from "@hookform/resolvers/zod";
 import { AppScreen, InlineError, Section } from "@/ui/layout/app-screen";
-import { NativeButton, NativeTextInput } from "@/ui/primitives/native-controls";
+import { NativeButton } from "@/ui/primitives/native-controls";
 import { TerminalIcon } from "@/ui/icons/lucide-native";
 import { ComputerPicker } from "@/features/computers/ComputerPicker";
+import { PairQrScanner } from "@/features/onboarding/PairQrScanner";
 import { useRelayClient } from "@/hooks/use-relay-client";
+import { autoConnectAfterAuth } from "@/lib/auto-connect";
+import { requireDeviceCredential } from "@/lib/device-credential";
 import {
-  getStoredAccessToken,
-  isPlausibleDeviceCredential,
-  storeAccessToken,
-} from "@/lib/access-token";
+  signInWithHubProvider,
+  type HubSocialProvider,
+} from "@/lib/hub-auth-native";
+import { claimPairFromScan } from "@/lib/mobile-pair-claim";
 import { useComputerStore } from "@/stores/computer-store";
 import { useSessionStore } from "@/stores/session-store";
-import { colors } from "@/theme/colors";
 import { useMobileTheme } from "@/theme/theme-store";
-
-const schema = z.object({
-  token: z
-    .string()
-    .refine(isPlausibleDeviceCredential, "Device credential must be at least 32 characters."),
-});
-
-type FormValues = z.infer<typeof schema>;
 
 export function OnboardingScreen() {
   const router = useRouter();
   const theme = useMobileTheme();
   const client = useRelayClient();
-  const setAccessTokenLoaded = useSessionStore((state) => state.setAccessTokenLoaded);
-  const hasAccessToken = useSessionStore((state) => state.hasAccessToken);
+  const setDeviceCredentialLoaded = useSessionStore(
+    (state) => state.setDeviceCredentialLoaded,
+  );
+  const hasDeviceCredential = useSessionStore(
+    (state) => state.hasDeviceCredential,
+  );
   const relayUrl = useSessionStore((state) => state.relayUrl);
   const relayAuthRevision = useSessionStore((state) => state.relayAuthRevision);
   const selectedServerId = useSessionStore((state) => state.selectedServerId);
   const selectServer = useSessionStore((state) => state.selectServer);
   const setClientSession = useSessionStore((state) => state.setClientSession);
   const setComputers = useComputerStore((state) => state.setComputers);
-  const [registerCommand, setRegisterCommand] = useState<string | null>(null);
   const [localError, setLocalError] = useState<string | null>(null);
+  const [scannerOpen, setScannerOpen] = useState(false);
 
-  const form = useForm<FormValues>({
-    defaultValues: { token: "" },
-    resolver: zodResolver(schema),
-  });
+  const finishAuth = useCallback(async () => {
+    setDeviceCredentialLoaded(true);
+    const result = await autoConnectAfterAuth(client);
+    setComputers(result.computers);
+    setLocalError(null);
+    if (result.connectedServerId) {
+      router.replace("/");
+    }
+  }, [client, router, setComputers, setDeviceCredentialLoaded]);
 
-  const saveToken = useMutation({
-    mutationFn: async (values: FormValues) => {
-      // Hub-minted device credential — already projected to Relay; no /v1/tenants.
-      await storeAccessToken(values.token.trim());
-      setAccessTokenLoaded(true);
-      const registerToken = await client
-        .withDeviceCredential(values.token.trim())
-        .createRegisterToken();
-      return registerToken.register_command;
-    },
-    onSuccess: (command) => {
-      setRegisterCommand(command);
-      setLocalError(null);
+  const signIn = useMutation({
+    mutationFn: async (provider: HubSocialProvider) => {
+      await signInWithHubProvider(provider);
+      await finishAuth();
     },
     onError: (error) => {
-      setLocalError(error instanceof Error ? error.message : "Could not save device credential.");
+      setLocalError(error instanceof Error ? error.message : "Sign-in failed.");
+    },
+  });
+
+  const claimPair = useMutation({
+    mutationFn: async (raw: string) => {
+      await claimPairFromScan(raw);
+      await finishAuth();
+    },
+    onError: (error) => {
+      setLocalError(
+        error instanceof Error ? error.message : "Could not claim pair code.",
+      );
     },
   });
 
   const computersQuery = useQuery({
-    queryKey: ["onboarding-computers", relayUrl, relayAuthRevision, hasAccessToken],
-    enabled: hasAccessToken,
+    queryKey: [
+      "onboarding-computers",
+      relayUrl,
+      relayAuthRevision,
+      hasDeviceCredential,
+    ],
+    enabled: hasDeviceCredential,
     refetchInterval: 5000,
     queryFn: async () => {
-      const token = await getStoredAccessToken();
-      if (!token) return [];
+      const token = requireDeviceCredential();
       const computers = await client.withDeviceCredential(token).listComputers();
       setComputers(computers);
       return computers;
@@ -82,8 +89,7 @@ export function OnboardingScreen() {
 
   const createSession = useMutation({
     mutationFn: async (serverId: string) => {
-      const token = await getStoredAccessToken();
-      if (!token) throw new Error("Device credential is not available.");
+      const token = requireDeviceCredential();
       return client
         .withDeviceCredential(token)
         .createClientSession(serverId, { clientKind: "mobile" });
@@ -95,92 +101,137 @@ export function OnboardingScreen() {
       router.replace("/");
     },
     onError: (error) => {
-      setLocalError(error instanceof Error ? error.message : "Could not connect to Computer.");
+      setLocalError(
+        error instanceof Error ? error.message : "Could not connect to Computer.",
+      );
     },
   });
 
-  const tokenDraft = form.watch("token").trim();
-  const tokenActionLabel = saveToken.isPending
-    ? "Saving..."
-    : hasAccessToken
-      ? "Replace credential"
-      : "Save credential";
+  const busy =
+    signIn.isPending || claimPair.isPending || createSession.isPending;
 
   return (
     <AppScreen
       footer={
-        <View style={styles.footerActions}>
-          {hasAccessToken && !tokenDraft ? <TokenSavedStatus /> : null}
-          {!hasAccessToken || tokenDraft ? (
-            <NativeButton
-              label={tokenActionLabel}
-              onPress={form.handleSubmit((values) => saveToken.mutate(values))}
-              disabled={saveToken.isPending}
-            />
-          ) : null}
-          {hasAccessToken ? (
-            <NativeButton
-              label={computersQuery.isFetching ? "Checking Computers..." : "Refresh Computers"}
-              onPress={() => {
-                if (!computersQuery.isFetching) void computersQuery.refetch();
-              }}
-            />
-          ) : null}
-        </View>
+        hasDeviceCredential ? (
+          <NativeButton
+            label={
+              computersQuery.isFetching
+                ? "Checking Computers..."
+                : "Refresh Computers"
+            }
+            onPress={() => {
+              if (!computersQuery.isFetching) void computersQuery.refetch();
+            }}
+            disabled={busy}
+          />
+        ) : null
       }
     >
       <View style={styles.hero}>
-        <View style={[styles.heroMark, { backgroundColor: theme.colors.label }]}>
-          <TerminalIcon color={theme.colors.labelInverse} size={28} strokeWidth={2.2} />
+        <View
+          style={[styles.heroMark, { backgroundColor: theme.colors.label }]}
+        >
+          <TerminalIcon
+            color={theme.colors.labelInverse}
+            size={28}
+            strokeWidth={2.2}
+          />
         </View>
-        <Text style={[styles.heroTitle, { color: theme.colors.label }]}>Connect Atmos</Text>
-        <Text style={[styles.heroSubtitle, { color: theme.colors.secondaryLabel }]}>
-          Use your phone as a quiet native client for a remote Atmos Computer.
+        <Text style={[styles.heroTitle, { color: theme.colors.label }]}>
+          Connect Atmos
+        </Text>
+        <Text
+          style={[styles.heroSubtitle, { color: theme.colors.secondaryLabel }]}
+        >
+          Sign in with GitHub or Google. Or scan a temporary QR from Desktop/Web
+          — no paste, no shared secrets.
         </Text>
       </View>
 
-      <Section label="Device credential">
-        <View style={styles.formBlock}>
+      {!hasDeviceCredential ? (
+        <>
+          <Section label="Sign in">
+            <View style={styles.formBlock}>
+              <NativeButton
+                label={
+                  signIn.isPending ? "Signing in..." : "Continue with GitHub"
+                }
+                onPress={() => signIn.mutate("github")}
+                disabled={busy}
+              />
+              <NativeButton
+                label={
+                  signIn.isPending ? "Signing in..." : "Continue with Google"
+                }
+                onPress={() => signIn.mutate("google")}
+                disabled={busy}
+              />
+              <Text
+                selectable
+                style={[
+                  styles.bodyText,
+                  { color: theme.colors.secondaryLabel },
+                ]}
+              >
+                Opens the system browser. After OAuth, this phone receives a Hub
+                device credential and connects when a Computer is online.
+              </Text>
+            </View>
+          </Section>
+
+          <Section label="Or scan QR">
+            <View style={styles.formBlock}>
+              <NativeButton
+                label={
+                  scannerOpen
+                    ? "Close scanner"
+                    : "Scan pair QR from Desktop/Web"
+                }
+                onPress={() => {
+                  setLocalError(null);
+                  setScannerOpen((open) => !open);
+                }}
+                disabled={busy}
+              />
+              <Text
+                selectable
+                style={[
+                  styles.bodyText,
+                  { color: theme.colors.secondaryLabel },
+                ]}
+              >
+                On Desktop/Web: Atmos Computer → Pair phone. Code expires in 3
+                minutes and is one-time use.
+              </Text>
+              {scannerOpen ? (
+                <PairQrScanner
+                  disabled={busy}
+                  onScanned={(value) => {
+                    setScannerOpen(false);
+                    claimPair.mutate(value);
+                  }}
+                />
+              ) : null}
+            </View>
+          </Section>
+        </>
+      ) : (
+        <Section label="Account">
           <View style={styles.tokenSummary}>
             <View
-              style={[
-                styles.statusDot,
-                { backgroundColor: hasAccessToken ? theme.colors.label : theme.colors.tertiaryLabel },
-              ]}
+              style={[styles.statusDot, { backgroundColor: theme.colors.label }]}
             />
-            <Text selectable style={[styles.statusText, { color: theme.colors.secondaryLabel }]}>
-              {hasAccessToken
-                ? "Device credential saved on this phone"
-                : "Device credential required before selecting a Computer"}
+            <Text
+              style={[styles.statusText, { color: theme.colors.secondaryLabel }]}
+            >
+              This phone is signed in
             </Text>
           </View>
-          <Text selectable style={[styles.bodyText, { color: theme.colors.secondaryLabel }]}>
-            Paste a Hub device credential from Desktop/Web (Settings → Account → Trust this device).
-            Mobile connects through Relay; Atmos Server still runs on your Mac or remote machine.
-          </Text>
-          <Controller
-            control={form.control}
-            name="token"
-            render={({ field }) => (
-              <NativeTextInput
-                autoCapitalize="none"
-                autoCorrect={false}
-                onChangeText={field.onChange}
-                placeholder={
-                  hasAccessToken
-                    ? "Paste a new device credential to replace"
-                    : "Paste Hub device credential"
-                }
-                secureTextEntry
-                value={field.value}
-              />
-            )}
-          />
-          <InlineError message={form.formState.errors.token?.message ?? localError} />
-        </View>
-      </Section>
+        </Section>
+      )}
 
-      {hasAccessToken ? (
+      {hasDeviceCredential ? (
         <ComputerPicker
           computers={computersQuery.data ?? []}
           selectedServerId={selectedServerId}
@@ -190,24 +241,27 @@ export function OnboardingScreen() {
         />
       ) : null}
 
-      <Section label="Start Atmos Server">
-        {registerCommand ? (
-          <View style={[styles.commandBlock, { backgroundColor: theme.colors.terminalBg }]}>
-            <Text selectable style={[styles.commandIntro, { color: theme.colors.terminalMuted }]}>
-              Run this once on the machine that hosts Atmos Server.
-            </Text>
-            <Text selectable style={[styles.commandText, { color: theme.colors.terminalFg }]}>
-              {registerCommand}
-            </Text>
-          </View>
-        ) : (
+      {!hasDeviceCredential ? (
+        <Section label="How it works">
           <View style={styles.steps}>
-            <Step index="1" title="Paste device credential" body="Enroll on Desktop/Web under Atmos Account, then paste the Hub device credential here." />
-            <Step index="2" title="Register Atmos Server" body="After saving, Atmos creates a one-time command for the server machine." />
-            <Step index="3" title="Choose a Computer" body="Online Computers appear below automatically." />
+            <Step
+              index="1"
+              title="Sign in (recommended)"
+              body="GitHub or Google in the system browser. Atmos mints a device for this phone only."
+            />
+            <Step
+              index="2"
+              title="Or scan QR"
+              body="If you are already signed in on Desktop/Web, pair without logging in again."
+            />
+            <Step
+              index="3"
+              title="Auto-connect"
+              body="When a single Computer is online, Atmos opens it automatically."
+            />
           </View>
-        )}
-      </Section>
+        </Section>
+      ) : null}
 
       <InlineError
         message={
@@ -223,25 +277,6 @@ export function OnboardingScreen() {
   );
 }
 
-function TokenSavedStatus() {
-  const theme = useMobileTheme();
-
-  return (
-    <View
-      style={[
-        styles.savedStatus,
-        {
-          backgroundColor: theme.colors.cardElevated,
-          borderColor: theme.colors.glassBorder,
-        },
-      ]}
-    >
-      <View style={[styles.statusDot, { backgroundColor: theme.colors.label }]} />
-      <Text style={[styles.savedStatusText, { color: theme.colors.label }]}>Device credential saved</Text>
-    </View>
-  );
-}
-
 function Step({
   body,
   index,
@@ -252,17 +287,20 @@ function Step({
   title: string;
 }) {
   const theme = useMobileTheme();
-
   return (
-    <View style={styles.step}>
+    <View style={styles.stepRow}>
       <View style={[styles.stepIndex, { backgroundColor: theme.colors.label }]}>
-        <Text style={[styles.stepIndexText, { color: theme.colors.labelInverse }]}>{index}</Text>
+        <Text
+          style={[styles.stepIndexText, { color: theme.colors.labelInverse }]}
+        >
+          {index}
+        </Text>
       </View>
       <View style={styles.stepCopy}>
-        <Text selectable style={[styles.stepTitle, { color: theme.colors.label }]}>
+        <Text style={[styles.stepTitle, { color: theme.colors.label }]}>
           {title}
         </Text>
-        <Text selectable style={[styles.stepBody, { color: theme.colors.secondaryLabel }]}>
+        <Text style={[styles.stepBody, { color: theme.colors.secondaryLabel }]}>
           {body}
         </Text>
       </View>
@@ -271,136 +309,76 @@ function Step({
 }
 
 const styles = StyleSheet.create({
-  bodyText: {
-    color: colors.secondaryLabel,
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  commandBlock: {
-    backgroundColor: colors.terminalBg,
-    gap: 10,
-    padding: 14,
-  },
-  commandIntro: {
-    color: colors.terminalMuted,
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  commandText: {
-    color: colors.terminalFg,
-    fontFamily: "Menlo",
-    fontSize: 12,
-    lineHeight: 18,
-  },
-  footerActions: {
-    gap: 10,
-  },
-  formBlock: {
-    gap: 12,
-    padding: 16,
-  },
   hero: {
-    alignItems: "center",
-    gap: 12,
-    paddingHorizontal: 18,
-    paddingTop: 28,
+    gap: 10,
+    paddingBottom: 8,
   },
   heroMark: {
     alignItems: "center",
-    backgroundColor: colors.label,
-    borderRadius: 999,
-    height: 58,
+    borderRadius: 18,
+    height: 56,
     justifyContent: "center",
-    width: 58,
-  },
-  heroSubtitle: {
-    color: colors.secondaryLabel,
-    fontSize: 16,
-    lineHeight: 22,
-    maxWidth: 320,
-    textAlign: "center",
+    width: 56,
   },
   heroTitle: {
-    color: colors.label,
     fontSize: 28,
     fontWeight: "700",
-    lineHeight: 34,
-    textAlign: "center",
+    letterSpacing: -0.4,
   },
-  inlineAction: {
-    alignItems: "flex-start",
-  },
-  savedStatus: {
-    alignItems: "center",
-    alignSelf: "flex-start",
-    borderColor: colors.glassBorder,
-    borderRadius: 999,
-    borderWidth: StyleSheet.hairlineWidth,
-    flexDirection: "row",
-    gap: 8,
-    minHeight: 42,
-    paddingHorizontal: 14,
-  },
-  savedStatusText: {
-    color: colors.label,
+  heroSubtitle: {
     fontSize: 15,
-    fontWeight: "700",
+    lineHeight: 22,
   },
-  statusDot: {
-    backgroundColor: colors.tertiaryLabel,
-    borderRadius: 999,
-    height: 8,
-    width: 8,
-  },
-  statusDotOk: {
-    backgroundColor: colors.label,
-  },
-  statusText: {
-    color: colors.secondaryLabel,
-    flex: 1,
-    fontSize: 13,
-    fontWeight: "700",
-    lineHeight: 18,
-  },
-  step: {
-    flexDirection: "row",
+  formBlock: {
     gap: 12,
-    padding: 16,
   },
-  stepBody: {
-    color: colors.secondaryLabel,
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  stepCopy: {
-    flex: 1,
-    gap: 3,
-  },
-  stepIndex: {
-    alignItems: "center",
-    backgroundColor: colors.label,
-    borderRadius: 999,
-    height: 24,
-    justifyContent: "center",
-    marginTop: 1,
-    width: 24,
-  },
-  stepIndexText: {
-    color: colors.labelInverse,
-    fontSize: 12,
-    fontWeight: "800",
-  },
-  stepTitle: {
-    color: colors.label,
-    fontSize: 15,
-    fontWeight: "800",
-  },
-  steps: {
-    paddingVertical: 2,
+  bodyText: {
+    fontSize: 13,
+    lineHeight: 19,
   },
   tokenSummary: {
     alignItems: "center",
     flexDirection: "row",
-    gap: 8,
+    gap: 10,
+  },
+  statusDot: {
+    borderRadius: 4,
+    height: 8,
+    width: 8,
+  },
+  statusText: {
+    flex: 1,
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  steps: {
+    gap: 14,
+  },
+  stepRow: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  stepIndex: {
+    alignItems: "center",
+    borderRadius: 12,
+    height: 28,
+    justifyContent: "center",
+    width: 28,
+  },
+  stepIndexText: {
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  stepCopy: {
+    flex: 1,
+    gap: 2,
+  },
+  stepTitle: {
+    fontSize: 15,
+    fontWeight: "600",
+  },
+  stepBody: {
+    fontSize: 13,
+    lineHeight: 19,
   },
 });

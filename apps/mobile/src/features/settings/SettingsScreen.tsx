@@ -12,11 +12,9 @@ import {
   PencilIcon,
   RadioIcon,
   RefreshIcon,
-  RotateIcon,
   SunMoonIcon,
   TrashIcon,
 } from "@/ui/icons/lucide-native";
-import { getAccessTokenSwitchReadiness } from "@/features/settings/access-token-settings";
 import { useMobileSettingsController } from "@/features/settings/use-mobile-settings-controller";
 import { colors } from "@/theme/colors";
 import { themePreferenceOptions, useMobileTheme, type MobileThemePreference } from "@/theme/theme-store";
@@ -41,7 +39,7 @@ export function SettingsIndexScreen() {
 
   const systemEntries: SettingsEntry[] = [
     {
-      description: "Device credential, registration, and Computers linked to this phone.",
+      description: "Account pairing, registration, and Computers linked to this phone.",
       icon: LaptopIcon,
       id: "atmos-computer",
       route: "/settings/computers",
@@ -96,53 +94,38 @@ export function SettingsIndexScreen() {
 
 export function SettingsComputersScreen() {
   const theme = useMobileTheme();
+  const router = useRouter();
   const settings = useMobileSettingsController();
-  const tokenSwitchReadiness = getAccessTokenSwitchReadiness({
-    isSaving: settings.switchAccessToken.isPending,
-    token: settings.tokenDraft,
-  });
   const relayChanged = settings.canSaveRelaySettings;
 
   return (
     <AppScreen surface="sheet">
-      <Section label="Device credential">
+      <Section label="Account">
         <View style={styles.settingsBlock}>
-          <NativeTextInput
-            autoCapitalize="none"
-            autoCorrect={false}
-            onChangeText={(value) => {
-              settings.setTokenDraft(value);
-              settings.setError(null);
-            }}
-            placeholder="Paste Hub device credential"
-            secureTextEntry
-            value={settings.tokenDraft}
+          <SettingsHint
+            message={
+              settings.hasDeviceCredential
+                ? "This phone is signed in with a Hub device. The credential is never shown."
+                : "Sign in or scan a Desktop/Web pair QR to link this phone."
+            }
           />
-          <SettingsActionButton
-            icon={KeyIcon}
-            label={settings.switchAccessToken.isPending ? "Switching..." : "Switch credential"}
-            onPress={() => settings.switchAccessToken.mutate()}
-            disabled={!tokenSwitchReadiness.canSwitch}
-          />
-          {settings.tokenDraft.trim() && tokenSwitchReadiness.reason ? (
-            <SettingsHint message={tokenSwitchReadiness.reason} />
-          ) : (
-            <SettingsHint message="This credential is for your Hub user; Computers listed below belong to that account." />
-          )}
           <View style={styles.actionRow}>
             <SettingsActionButton
-              icon={RotateIcon}
-              label="Rotate on Hub"
-              onPress={() => settings.rotateToken.mutate()}
-              disabled={settings.rotateToken.isPending}
+              icon={KeyIcon}
+              label={settings.hasDeviceCredential ? "Re-pair" : "Sign in / Scan"}
+              onPress={() => router.replace("/onboarding")}
               tone="secondary"
               grow
             />
             <SettingsActionButton
               icon={TrashIcon}
-              label={settings.resetToken.isPending ? "Resetting..." : "Reset Phone"}
-              onPress={settings.confirmResetPhone}
-              disabled={settings.resetToken.isPending}
+              label={
+                settings.signOutPhone.isPending ? "Signing out..." : "Sign out phone"
+              }
+              onPress={settings.confirmSignOutPhone}
+              disabled={
+                !settings.hasDeviceCredential || settings.signOutPhone.isPending
+              }
               tone="danger"
               grow
             />
@@ -196,7 +179,10 @@ export function SettingsComputersScreen() {
             icon={LaptopIcon}
             label={settings.createRegisterCommand.isPending ? "Creating..." : "Create Register Command"}
             onPress={() => settings.createRegisterCommand.mutate()}
-            disabled={!settings.hasAccessToken || settings.createRegisterCommand.isPending}
+            disabled={
+              !settings.hasDeviceCredential ||
+              settings.createRegisterCommand.isPending
+            }
           />
           {settings.registerCommand ? (
             <View style={[styles.commandBlock, { backgroundColor: theme.colors.terminalBg }]}>

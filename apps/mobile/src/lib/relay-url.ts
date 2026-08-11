@@ -6,6 +6,9 @@ import {
 
 export { DEFAULT_RELAY_URL, redactRelayUrl };
 
+/** Alias used by mobile WS logging. */
+export const redactUrl = redactRelayUrl;
+
 export function getDefaultRelayUrl() {
   return normalizeRelayUrlCore(
     process.env.EXPO_PUBLIC_RELAY_URL ??
