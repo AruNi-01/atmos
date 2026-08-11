@@ -4554,6 +4554,7 @@
         "saveCustomAgentTitle": "保存自定义 Agent 失败",
         "loadLlmSettingsTitle": "加载 LLM 设置失败",
         "saveRunConfigsTitle": "保存运行配置失败",
+        "saveBehaviourTitle": "保存行为设置失败",
         "updateProviderTitle": "更新 Provider 失败",
         "updateRoutingTitle": "更新路由失败",
         "browserNotificationPermissionDeniedTitle": "浏览器通知权限被拒绝",
@@ -5528,11 +5529,7 @@
         "summaryDelayTitle": "总结前等待",
         "summaryDelayDescription": "task-complete 的 attention 在未被确认后，等待多久再触发总结。",
         "summaryAgentTitle": "总结 Agent",
-        "summaryAgentDescription": "无头总结使用的终端 Agent（与 Automations 相同）。留空则使用默认 LLM 提供方。",
-        "summaryAgentPlaceholder": "例如 claude-code、codex",
-        "summaryModelTitle": "总结模型",
-        "summaryModelDescription": "可选，覆盖总结 Agent 使用的模型。",
-        "summaryModelPlaceholder": "可选模型 id"
+        "summaryAgentDescription": "无头总结使用的终端 Agent（与 Automations 相同）。可在 Agent 运行配置中设置模型。不选择则使用默认 LLM 提供方。"
       }
     },
     "canvasSection": {

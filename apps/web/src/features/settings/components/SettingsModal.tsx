@@ -729,31 +729,46 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     }
   }, [persistCodeAgents, savedAgentCustomSettings, savedCustomAgents]);
 
-  const handleSaveIdleTimeout = React.useCallback(async () => {
-    setSavingIdleTimeout(true);
-    try {
-      await agentBehaviourSettingsApi.update({
-        idle_session_timeout_mins: idleSessionTimeoutMins,
-        attention_summary_enabled: attentionSummaryEnabled,
-        attention_summary_delay_mins: attentionSummaryDelayMins,
-        attention_summary_agent_id: attentionSummaryAgentId,
-        attention_summary_model: attentionSummaryModel,
-      });
-      setSavedIdleSessionTimeoutMins(idleSessionTimeoutMins);
-      setSavedAttentionSummaryEnabled(attentionSummaryEnabled);
-      setSavedAttentionSummaryDelayMins(attentionSummaryDelayMins);
-      setSavedAttentionSummaryAgentId(attentionSummaryAgentId);
-      setSavedAttentionSummaryModel(attentionSummaryModel);
-    } finally {
-      setSavingIdleTimeout(false);
-    }
-  }, [
-    idleSessionTimeoutMins,
-    attentionSummaryEnabled,
-    attentionSummaryDelayMins,
-    attentionSummaryAgentId,
-    attentionSummaryModel,
-  ]);
+  const handleCommitBehaviourSettings = React.useCallback(
+    async (values: {
+      idleSessionTimeoutMins: number;
+      attentionSummaryEnabled: boolean;
+      attentionSummaryDelayMins: number;
+      attentionSummaryAgentId: string;
+      attentionSummaryModel: string;
+    }) => {
+      setSavingIdleTimeout(true);
+      // Keep controlled inputs in sync when the commit carries clamped/normalized values.
+      setIdleSessionTimeoutMins(values.idleSessionTimeoutMins);
+      setAttentionSummaryEnabled(values.attentionSummaryEnabled);
+      setAttentionSummaryDelayMins(values.attentionSummaryDelayMins);
+      setAttentionSummaryAgentId(values.attentionSummaryAgentId);
+      setAttentionSummaryModel(values.attentionSummaryModel);
+      try {
+        await agentBehaviourSettingsApi.update({
+          idle_session_timeout_mins: values.idleSessionTimeoutMins,
+          attention_summary_enabled: values.attentionSummaryEnabled,
+          attention_summary_delay_mins: values.attentionSummaryDelayMins,
+          attention_summary_agent_id: values.attentionSummaryAgentId,
+          attention_summary_model: values.attentionSummaryModel,
+        });
+        setSavedIdleSessionTimeoutMins(values.idleSessionTimeoutMins);
+        setSavedAttentionSummaryEnabled(values.attentionSummaryEnabled);
+        setSavedAttentionSummaryDelayMins(values.attentionSummaryDelayMins);
+        setSavedAttentionSummaryAgentId(values.attentionSummaryAgentId);
+        setSavedAttentionSummaryModel(values.attentionSummaryModel);
+      } catch (error) {
+        toastManager.add({
+          title: t('errors.saveBehaviourTitle'),
+          description: getErrorDescription(error),
+          type: 'error',
+        });
+      } finally {
+        setSavingIdleTimeout(false);
+      }
+    },
+    [getErrorDescription, t],
+  );
 
   const loadLlmConfig = React.useCallback(async () => {
     setIsLlmConfigLoading(true);
@@ -1099,8 +1114,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     onSaveCustomAgent={(id) => {
                       void handleSaveCustomAgent(id);
                     }}
-                    onSaveIdleTimeout={() => {
-                      void handleSaveIdleTimeout();
+                    onCommitBehaviourSettings={(values) => {
+                      void handleCommitBehaviourSettings(values);
                     }}
                     onSaveRunConfigs={handleSaveRunConfigs}
                     setBuiltInAgentOpen={setBuiltInAgentOpen}

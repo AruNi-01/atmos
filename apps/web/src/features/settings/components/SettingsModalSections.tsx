@@ -105,7 +105,13 @@ interface SettingsModalSectionsProps {
   onRemoveCustomAgent: (id: string) => void;
   onSaveBuiltInAgent: (agentId: string) => void;
   onSaveCustomAgent: (id: string) => void;
-  onSaveIdleTimeout: () => void;
+  onCommitBehaviourSettings: (values: {
+    idleSessionTimeoutMins: number;
+    attentionSummaryEnabled: boolean;
+    attentionSummaryDelayMins: number;
+    attentionSummaryAgentId: string;
+    attentionSummaryModel: string;
+  }) => void | Promise<void>;
   onSaveRunConfigs: (configs: TerminalAgentSavedRunConfig[]) => Promise<void>;
   setBuiltInAgentOpen: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
   setBuiltInAgentsExpanded: React.Dispatch<React.SetStateAction<boolean>>;
@@ -239,7 +245,7 @@ export function SettingsModalSections(props: SettingsModalSectionsProps) {
           onRemoveCustomAgent={props.onRemoveCustomAgent}
           onSaveBuiltInAgent={props.onSaveBuiltInAgent}
           onSaveCustomAgent={props.onSaveCustomAgent}
-          onSaveIdleTimeout={props.onSaveIdleTimeout}
+          onCommitBehaviourSettings={props.onCommitBehaviourSettings}
           onSaveRunConfigs={props.onSaveRunConfigs}
           setBuiltInAgentOpen={props.setBuiltInAgentOpen}
           setBuiltInAgentsExpanded={props.setBuiltInAgentsExpanded}

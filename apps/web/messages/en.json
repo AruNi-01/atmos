@@ -4554,6 +4554,7 @@
         "saveCustomAgentTitle": "Failed to save custom agent",
         "loadLlmSettingsTitle": "Failed to load LLM settings",
         "saveRunConfigsTitle": "Failed to save run configs",
+        "saveBehaviourTitle": "Failed to save behaviour settings",
         "updateProviderTitle": "Failed to update provider",
         "updateRoutingTitle": "Failed to update routing",
         "browserNotificationPermissionDeniedTitle": "Browser notification permission denied",
@@ -5528,11 +5529,7 @@
         "summaryDelayTitle": "Wait before summarizing",
         "summaryDelayDescription": "How long a task-complete attention latch can sit unacknowledged before summarizing.",
         "summaryAgentTitle": "Summary agent",
-        "summaryAgentDescription": "Terminal agent id used for the headless session (same as Automations). Leave empty to use the default LLM provider.",
-        "summaryAgentPlaceholder": "e.g. claude-code, codex",
-        "summaryModelTitle": "Summary model",
-        "summaryModelDescription": "Optional model override for the summary agent.",
-        "summaryModelPlaceholder": "optional model id"
+        "summaryAgentDescription": "Terminal agent used for the headless session (same as Automations). Configure model via the agent run config. Leave unselected to use the default LLM provider."
       }
     },
     "canvasSection": {
