@@ -131,7 +131,14 @@ impl AgentHooksService {
         latch.stable_pane_id = latch.stable_pane_id.trim().to_string();
         latch.context_id = latch.context_id.trim().to_string();
 
-        let latch = {
+        // Insert the latch and drop any pane-keyed summary under the *same*
+        // attention write lock. Holding attention.write across the summary
+        // clear closes the race where `complete_attention_summary` could:
+        //   1. pass its latch-exists check against the *new* turn, then
+        //   2. write the previous generation's payload before the clear ran.
+        // `complete` always acquires `attention` before `summaries`, so it
+        // cannot interleave between insert and clear while we hold this write.
+        let (latch, cleared_summaries) = {
             let mut attention = self.attention.write();
             if let Some(existing) = attention.get(&latch.stable_pane_id) {
                 // Keep the higher-urgency reason if both fire close together.
@@ -143,12 +150,29 @@ impl AgentHooksService {
                     latch.project_path = existing.project_path.clone();
                 }
             }
+
+            let cleared_summaries = {
+                let mut summaries = self.summaries.write();
+                let pane = latch.stable_pane_id.as_str();
+                let to_clear: Vec<String> = summaries
+                    .iter()
+                    .filter(|(key, row)| {
+                        key.as_str() == pane || row.session_id.as_str() == pane
+                    })
+                    .map(|(key, _)| key.clone())
+                    .collect();
+                for key in &to_clear {
+                    summaries.remove(key);
+                }
+                to_clear
+            };
+
             attention.insert(latch.stable_pane_id.clone(), latch.clone());
-            latch
+            (latch, cleared_summaries)
         };
-        // A new/upgraded latch belongs to a new turn — drop any pane-keyed
-        // summary so an in-flight generation cannot complete for the previous turn.
-        self.clear_attention_summaries_matching_ids(std::slice::from_ref(&latch.stable_pane_id));
+        if !cleared_summaries.is_empty() {
+            self.broadcast_summary_cleared(cleared_summaries);
+        }
         self.broadcast_attention_raised(latch);
     }
 

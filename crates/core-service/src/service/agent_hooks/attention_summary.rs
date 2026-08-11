@@ -275,13 +275,18 @@ impl AgentHooksService {
         if pane_id.is_empty() {
             return None;
         }
-        // Still need the latch — user may have acknowledged mid-flight.
-        if !self.attention.read().contains_key(pane_id) {
-            self.clear_attention_summaries_matching_ids(&[pane_id.to_string()]);
-            return None;
-        }
 
+        // Hold attention.read across the summaries write so a concurrent
+        // `raise_attention` cannot insert a replacement latch and leave us
+        // completing the previous generation against the new turn.
         let updated = {
+            let attention = self.attention.read();
+            if !attention.contains_key(pane_id) {
+                drop(attention);
+                self.clear_attention_summaries_matching_ids(&[pane_id.to_string()]);
+                return None;
+            }
+
             let mut summaries = self.summaries.write();
             let entry = summaries.get_mut(pane_id)?;
             if entry.generation != generation {
@@ -320,12 +325,15 @@ impl AgentHooksService {
         if pane_id.is_empty() {
             return None;
         }
-        if !self.attention.read().contains_key(pane_id) {
-            self.clear_attention_summaries_matching_ids(&[pane_id.to_string()]);
-            return None;
-        }
 
         let updated = {
+            let attention = self.attention.read();
+            if !attention.contains_key(pane_id) {
+                drop(attention);
+                self.clear_attention_summaries_matching_ids(&[pane_id.to_string()]);
+                return None;
+            }
+
             let mut summaries = self.summaries.write();
             let entry = summaries.get_mut(pane_id)?;
             if entry.generation != generation {
@@ -382,7 +390,7 @@ impl AgentHooksService {
         }
     }
 
-    fn broadcast_summary_cleared(&self, stable_pane_ids: Vec<String>) {
+    pub(crate) fn broadcast_summary_cleared(&self, stable_pane_ids: Vec<String>) {
         if let Err(error) = self
             .event_tx
             .send(AgentHookEvent::AttentionSummaryCleared { stable_pane_ids })

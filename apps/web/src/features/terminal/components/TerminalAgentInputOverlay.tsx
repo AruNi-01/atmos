@@ -1198,7 +1198,11 @@ export const TerminalAgentInputOverlay = React.forwardRef<
               onDismiss={() => {
                 if (!stablePaneId) return;
                 // Capture observed latch time so a late clear cannot wipe a newer turn.
-                const latch = useAgentAttentionStore.getState().panes.get(stablePaneId);
+                const attentionStore = useAgentAttentionStore.getState();
+                const summaryStore = useAgentAttentionSummaryStore.getState();
+                const latch = attentionStore.panes.get(stablePaneId);
+                const prevSummary = summaryStore.panes.get(stablePaneId) ?? null;
+                const prevAttention = latch ?? null;
                 const notAfter = latch?.raisedAt
                   ? new Date(latch.raisedAt).toISOString()
                   : attentionSummary?.startedAt
@@ -1206,8 +1210,8 @@ export const TerminalAgentInputOverlay = React.forwardRef<
                     : undefined;
                 // Optimistic local clear, then persist via attention-clear so
                 // refresh hydration cannot resurrect the dismissed summary.
-                useAgentAttentionSummaryStore.getState().clearPane(stablePaneId);
-                useAgentAttentionStore.getState().clearPane(stablePaneId);
+                summaryStore.clearPane(stablePaneId);
+                attentionStore.clearPane(stablePaneId);
                 void agentHooksApi
                   .clearAttention({ stablePaneId, notAfter })
                   .catch((error) => {
@@ -1215,6 +1219,33 @@ export const TerminalAgentInputOverlay = React.forwardRef<
                       "[TerminalAgentInputOverlay] Failed to clear attention on dismiss:",
                       error,
                     );
+                    // Restore the pre-dismiss snapshot only if nothing newer
+                    // landed locally (WS raise / another dismiss) while the
+                    // request was in flight — otherwise a failed clear would
+                    // leave server state that rehydrates on refresh.
+                    const attentionNow = useAgentAttentionStore.getState();
+                    const summaryNow = useAgentAttentionSummaryStore.getState();
+                    const current = attentionNow.panes.get(stablePaneId);
+                    if (
+                      current &&
+                      prevAttention &&
+                      current.raisedAt > prevAttention.raisedAt
+                    ) {
+                      return;
+                    }
+                    if (!attentionNow.panes.has(stablePaneId) && prevAttention) {
+                      attentionNow.raise({
+                        stablePaneId: prevAttention.stablePaneId,
+                        contextId: prevAttention.contextId,
+                        reason: prevAttention.reason,
+                        sessionId: prevAttention.sessionId,
+                        tool: prevAttention.tool,
+                        raisedAt: prevAttention.raisedAt,
+                      });
+                    }
+                    if (!summaryNow.panes.has(stablePaneId) && prevSummary) {
+                      summaryNow.upsert(prevSummary);
+                    }
                   });
               }}
             />
