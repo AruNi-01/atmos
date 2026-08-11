@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { cn } from "../../lib/utils";
 import { SlidingNumber } from "./sliding-number";
 
@@ -168,8 +169,35 @@ export function detailedSlidingParts(
 }
 
 /**
+ * Always-present affix slot so SlidingNumber stays the middle child when `$`
+ * / `K` / `B` appear or disappear (avoids remounting digit springs).
+ * Empty slots collapse to 0×0 — a content-less flex item at text-5xl still
+ * contributes a line-box strut and reads as blank space above tokens
+ * (no `$` prefix) while cost looks fine.
+ */
+function AffixSlot({ children }: { children?: ReactNode }) {
+  const empty = children == null || children === "";
+  return (
+    <span
+      className={cn(
+        "inline-flex shrink-0 items-baseline leading-none",
+        empty && "pointer-events-none overflow-hidden border-0 p-0",
+      )}
+      style={
+        empty
+          ? { width: 0, height: 0, minWidth: 0, minHeight: 0, margin: 0 }
+          : undefined
+      }
+      aria-hidden={empty || undefined}
+    >
+      {empty ? null : children}
+    </span>
+  );
+}
+
+/**
  * Sliding digits with optional static prefix/suffix.
- * Keep this instance mounted across value changes so springs morph digits.
+ * Keep SlidingNumber mounted across value changes so springs morph digits.
  */
 export function SlidingMetric({
   value,
@@ -182,19 +210,18 @@ export function SlidingMetric({
   return (
     <span
       className={cn(
-        // Fixed box so digit-count changes / roll strips don't shove layout
-        // (especially inside a pointer-following tooltip).
-        "inline-flex items-center justify-end tabular-nums leading-none",
+        // items-baseline: `$` / `B` sit on the digit baseline (no optical gap).
+        "inline-flex items-baseline justify-end tabular-nums leading-none",
         className,
       )}
     >
-      {prefix ? <span className="shrink-0">{prefix}</span> : null}
+      <AffixSlot>{prefix}</AffixSlot>
       <SlidingNumber
         value={value}
         decimals={decimals}
         decimalSeparator={decimalSeparator}
       />
-      {suffix ? <span className="shrink-0">{suffix}</span> : null}
+      <AffixSlot>{suffix}</AffixSlot>
     </span>
   );
 }

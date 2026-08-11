@@ -4,6 +4,7 @@
 export * from "./components/ui/button";
 export * from "./components/ui/card";
 export * from "./components/ui/checkbox";
+export * from "./components/ui/qr-code";
 export * from "./components/ui/input";
 export * from "./components/ui/input-group";
 export * from "./components/ui/label";
@@ -40,6 +41,19 @@ export {
   TabsSubtleItem,
   TabsSubtlePanel,
 } from "./components/ui/tabs-subtle";
+export {
+  ActionSwapCascadeButton,
+  ActionSwapCascadeText,
+  ActionSwapCascadeIcon,
+} from "./components/motion/action-swap-cascade";
+export type {
+  ActionSwapCascadeButtonProps,
+  ActionSwapCascadeTextProps,
+  ActionSwapCascadeIconProps,
+  ActionSwapItem,
+  ActionSwapButtonSize,
+  ActionSwapButtonVariant,
+} from "./components/motion/action-swap-cascade";
 export {
   Command,
   CommandDialog,
