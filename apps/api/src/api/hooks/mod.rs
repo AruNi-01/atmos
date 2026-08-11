@@ -264,6 +264,10 @@ struct ClearAttentionBody {
     stable_pane_id: Option<String>,
     #[serde(default)]
     stable_pane_ids: Option<Vec<String>>,
+    /// When set (RFC3339), only clear latches raised at or before this time so a
+    /// late dismiss cannot wipe a newer turn that landed after the client acted.
+    #[serde(default)]
+    not_after: Option<String>,
 }
 
 async fn clear_attention(
@@ -276,7 +280,29 @@ async fn clear_attention(
             ids.push(id);
         }
     }
-    let cleared = if ids.len() == 1 {
+    let not_after = body
+        .not_after
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty());
+    let cleared = if let Some(cutoff) = not_after {
+        if ids.len() == 1 {
+            state
+                .agent_hooks_service
+                .clear_attention_for_pane_not_after(ids[0].as_str(), cutoff)
+        } else {
+            // Multi-id guarded clear: reuse single-id path per id.
+            let mut all = Vec::new();
+            for id in &ids {
+                all.extend(
+                    state
+                        .agent_hooks_service
+                        .clear_attention_for_pane_not_after(id.as_str(), cutoff),
+                );
+            }
+            all
+        }
+    } else if ids.len() == 1 {
         state
             .agent_hooks_service
             .clear_attention_for_pane(ids[0].as_str())

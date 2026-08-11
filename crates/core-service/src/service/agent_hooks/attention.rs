@@ -5,7 +5,7 @@
 
 use std::collections::HashSet;
 
-use chrono::Utc;
+use chrono::{DateTime, Utc};
 use tracing::{debug, warn};
 
 use super::{
@@ -161,8 +161,30 @@ impl AgentHooksService {
         self.clear_attention_matching_ids(&[pane_id.to_string()])
     }
 
+    /// Like [`Self::clear_attention_for_pane`], but skip latches raised after
+    /// `not_after` (RFC3339). Prevents a late dismiss from wiping a newer turn.
+    pub fn clear_attention_for_pane_not_after(
+        &self,
+        stable_pane_id: &str,
+        not_after: &str,
+    ) -> Vec<String> {
+        let pane_id = stable_pane_id.trim();
+        if pane_id.is_empty() {
+            return Vec::new();
+        }
+        self.clear_attention_matching_ids_not_after(&[pane_id.to_string()], Some(not_after))
+    }
+
     /// Clear latches whose map key or stored `session_id` matches any of `ids`.
     pub fn clear_attention_matching_ids(&self, ids: &[String]) -> Vec<String> {
+        self.clear_attention_matching_ids_not_after(ids, None)
+    }
+
+    fn clear_attention_matching_ids_not_after(
+        &self,
+        ids: &[String],
+        not_after: Option<&str>,
+    ) -> Vec<String> {
         let id_set: HashSet<&str> = ids
             .iter()
             .map(String::as_str)
@@ -173,12 +195,32 @@ impl AgentHooksService {
             return Vec::new();
         }
 
+        let not_after_ts = not_after.and_then(|raw| {
+            DateTime::parse_from_rfc3339(raw.trim())
+                .ok()
+                .map(|t| t.with_timezone(&Utc))
+        });
+
         let cleared: Vec<String> = {
             let mut attention = self.attention.write();
             let to_clear: Vec<String> = attention
                 .iter()
                 .filter(|(key, latch)| {
-                    id_set.contains(key.as_str()) || id_set.contains(latch.session_id.as_str())
+                    if !(id_set.contains(key.as_str())
+                        || id_set.contains(latch.session_id.as_str()))
+                    {
+                        return false;
+                    }
+                    if let Some(cutoff) = not_after_ts {
+                        let Ok(raised) = DateTime::parse_from_rfc3339(&latch.raised_at) else {
+                            return true;
+                        };
+                        // Skip latches raised after the client observed state.
+                        if raised.with_timezone(&Utc) > cutoff {
+                            return false;
+                        }
+                    }
+                    true
                 })
                 .map(|(key, _)| key.clone())
                 .collect();
@@ -188,10 +230,28 @@ impl AgentHooksService {
             to_clear
         };
 
-        // Always drop summary chrome for the requested ids, even when no latch
-        // matched (orphan summary after latch was already cleared).
+        // Drop summary chrome for cleared panes. When not_after guards skipped a
+        // newer latch, leave its summary alone (to_clear won't include it).
+        // Also drop orphan summaries for the requested ids only when we are not
+        // guarded, or when no newer latch remains for that id.
         let mut summary_ids = cleared.clone();
-        summary_ids.extend(ids.iter().cloned());
+        if not_after_ts.is_none() {
+            summary_ids.extend(ids.iter().cloned());
+        } else {
+            // For guarded clears: also drop orphan summaries for requested ids
+            // that currently have no latch (dismiss of a finished summary whose
+            // latch was already gone).
+            let attention = self.attention.read();
+            for id in &id_set {
+                if !attention.contains_key(*id)
+                    && !attention
+                        .values()
+                        .any(|latch| latch.session_id.as_str() == *id)
+                {
+                    summary_ids.push((*id).to_string());
+                }
+            }
+        }
         self.clear_attention_summaries_matching_ids(&summary_ids);
 
         if !cleared.is_empty() {
@@ -437,5 +497,55 @@ mod tests {
         let cleared = service.clear_attention_for_pane("ws-1:main");
         assert!(cleared.is_empty());
         assert!(service.get_attention_summary("ws-1:main").is_none());
+    }
+
+    #[test]
+    fn clear_not_after_skips_newer_latch() {
+        let service = AgentHooksService::new();
+        let ctx = ctx_with_pane("ws-1:main");
+        service.update_state(
+            "ws-1:main",
+            AgentToolType::ClaudeCode,
+            AgentHookState::Running,
+            Some("/tmp/p".into()),
+            &ctx,
+            StateUpdateKind::NewTurn,
+        );
+        service.update_state(
+            "ws-1:main",
+            AgentToolType::ClaudeCode,
+            AgentHookState::Idle,
+            Some("/tmp/p".into()),
+            &ctx,
+            StateUpdateKind::TerminalIdle,
+        );
+        let old_raised = service.get_all_attention()[0].raised_at.clone();
+
+        // Newer turn.
+        service.update_state(
+            "ws-1:main",
+            AgentToolType::ClaudeCode,
+            AgentHookState::Running,
+            Some("/tmp/p".into()),
+            &ctx,
+            StateUpdateKind::NewTurn,
+        );
+        service.update_state(
+            "ws-1:main",
+            AgentToolType::ClaudeCode,
+            AgentHookState::Idle,
+            Some("/tmp/p".into()),
+            &ctx,
+            StateUpdateKind::TerminalIdle,
+        );
+        assert_eq!(service.get_all_attention().len(), 1);
+        let new_raised = service.get_all_attention()[0].raised_at.clone();
+        assert_ne!(old_raised, new_raised);
+
+        // Dismiss with the old raised_at must not wipe the newer latch.
+        let cleared = service.clear_attention_for_pane_not_after("ws-1:main", &old_raised);
+        assert!(cleared.is_empty());
+        assert_eq!(service.get_all_attention().len(), 1);
+        assert_eq!(service.get_all_attention()[0].raised_at, new_raised);
     }
 }

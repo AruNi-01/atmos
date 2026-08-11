@@ -665,12 +665,15 @@ export const agentHooksApi = {
   clearAttention: async (input: {
     stablePaneId?: string;
     stablePaneIds?: string[];
+    /** RFC3339: only clear latches raised at or before this (dismiss race guard). */
+    notAfter?: string;
   }): Promise<{ cleared: string[] }> => {
     return fetchHooksApi<{ cleared: string[] }>('/hooks/attention/clear', {
       method: 'POST',
       body: JSON.stringify({
         stable_pane_id: input.stablePaneId,
         stable_pane_ids: input.stablePaneIds,
+        not_after: input.notAfter,
       }),
     });
   },

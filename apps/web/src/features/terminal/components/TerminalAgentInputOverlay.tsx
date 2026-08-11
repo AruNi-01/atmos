@@ -1197,12 +1197,19 @@ export const TerminalAgentInputOverlay = React.forwardRef<
               }}
               onDismiss={() => {
                 if (!stablePaneId) return;
+                // Capture observed latch time so a late clear cannot wipe a newer turn.
+                const latch = useAgentAttentionStore.getState().panes.get(stablePaneId);
+                const notAfter = latch?.raisedAt
+                  ? new Date(latch.raisedAt).toISOString()
+                  : attentionSummary?.startedAt
+                    ? new Date(attentionSummary.startedAt).toISOString()
+                    : undefined;
                 // Optimistic local clear, then persist via attention-clear so
                 // refresh hydration cannot resurrect the dismissed summary.
                 useAgentAttentionSummaryStore.getState().clearPane(stablePaneId);
                 useAgentAttentionStore.getState().clearPane(stablePaneId);
                 void agentHooksApi
-                  .clearAttention({ stablePaneId })
+                  .clearAttention({ stablePaneId, notAfter })
                   .catch((error) => {
                     console.warn(
                       "[TerminalAgentInputOverlay] Failed to clear attention on dismiss:",
