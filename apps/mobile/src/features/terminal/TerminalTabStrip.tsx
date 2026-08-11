@@ -36,17 +36,26 @@ export function TerminalTabStrip({
   const scrollRef = useRef<ScrollView>(null);
   const tabOffsetsRef = useRef<Record<string, { x: number; width: number }>>({});
   const viewportWidthRef = useRef(0);
+  const activeEntryIdRef = useRef(activeEntryId);
+  activeEntryIdRef.current = activeEntryId;
 
-  useEffect(() => {
-    if (!activeEntryId) return;
-    const layout = tabOffsetsRef.current[activeEntryId];
+  const scrollActiveTabIntoView = (animated: boolean) => {
+    const entryId = activeEntryIdRef.current;
+    if (!entryId) return;
+    const layout = tabOffsetsRef.current[entryId];
     if (!layout || viewportWidthRef.current <= 0) return;
     const targetX = Math.max(0, layout.x - Math.max(12, (viewportWidthRef.current - layout.width) / 2));
-    scrollRef.current?.scrollTo({ x: targetX, animated: true });
+    scrollRef.current?.scrollTo({ x: targetX, animated });
+  };
+
+  useEffect(() => {
+    scrollActiveTabIntoView(true);
   }, [activeEntryId, entries.length]);
 
   const handleViewportLayout = (event: LayoutChangeEvent) => {
     viewportWidthRef.current = event.nativeEvent.layout.width;
+    // Layout may arrive after the active-tab effect ran without measurements.
+    scrollActiveTabIntoView(false);
   };
 
   const strip = (
@@ -72,6 +81,10 @@ export function TerminalTabStrip({
                   x: event.nativeEvent.layout.x,
                   width: event.nativeEvent.layout.width,
                 };
+                // Newly appended active tabs often measure after the effect — retry.
+                if (entry.id === activeEntryIdRef.current) {
+                  scrollActiveTabIntoView(true);
+                }
               }}
               onPress={() => onSelectEntry(entry.id)}
               style={[

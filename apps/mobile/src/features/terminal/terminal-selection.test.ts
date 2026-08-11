@@ -168,10 +168,27 @@ describe("terminal selection", () => {
     expect(first.id).not.toBe(second.id);
   });
 
-  test("terminalTabLabel prefers osc/dynamic titles and truncates long names", () => {
+  test("terminalTabLabel prefers dynamic over noisy OSC and truncates long names", () => {
     expect(terminalTabLabel({ label: "Fallback" })).toBe("Fallback");
     expect(terminalTabLabel({ label: "Fallback", dynamicTitle: "npm test" })).toBe("npm test");
-    expect(terminalTabLabel({ label: "Fallback", dynamicTitle: "npm test", oscTitle: "zsh" })).toBe("zsh");
+    // Shell host/cwd OSC (e.g. zsh path titles) is noise — keep dynamic command.
+    expect(terminalTabLabel({ label: "Fallback", dynamicTitle: "npm test", oscTitle: "zsh" })).toBe(
+      "npm test",
+    );
+    expect(
+      terminalTabLabel({
+        label: "Fallback",
+        dynamicTitle: "npm test",
+        oscTitle: "user@host:~/proj",
+      }),
+    ).toBe("npm test");
+    // Empty OSC must not block dynamic/label fallbacks (?? treats "" as present).
+    expect(terminalTabLabel({ label: "Fallback", dynamicTitle: "npm test", oscTitle: "" })).toBe(
+      "npm test",
+    );
+    expect(terminalTabLabel({ label: "Fallback", dynamicTitle: "", oscTitle: "" })).toBe("Fallback");
+    // Non-noisy OSC is used when there is no dynamic title.
+    expect(terminalTabLabel({ label: "Fallback", oscTitle: "my-session" })).toBe("my-session");
     const long = "a-very-long-terminal-window-title-that-needs-trim";
     expect(terminalTabLabel({ label: long }).endsWith("…")).toBe(true);
     expect(terminalTabLabel({ label: long }).length).toBeLessThanOrEqual(22);

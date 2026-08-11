@@ -1,8 +1,33 @@
 import type { TerminalWorkspaceCandidate } from "@/api/types";
 import type { MobileTerminalEntry } from "@/stores/terminal-store";
 
+/** Cryptographically strong short id fragment (avoids Math.random for session ids). */
+function randomIdFragment(length: number): string {
+  const bytes = new Uint8Array(length);
+  globalThis.crypto.getRandomValues(bytes);
+  let out = "";
+  for (const byte of bytes) {
+    out += (byte % 36).toString(36);
+  }
+  return out;
+}
+
+/**
+ * Shell host/cwd OSC titles that crowd the tab strip without identifying work.
+ * Keep this local so pure selection helpers stay free of shared title deps.
+ */
+function isLikelyNoisyOscTitle(title: string): boolean {
+  const t = title.trim();
+  if (!t) return true;
+  // user@host:path / user@host:~ forms from common shells
+  if (/^[^@\s]+@[^:\s]+:/.test(t)) return true;
+  // Bare shell process names
+  if (/^(?:zsh|bash|sh|fish|nu|csh|tcsh|ksh)$/i.test(t)) return true;
+  return false;
+}
+
 export function createMobileTerminalSessionId(workspaceId: string) {
-  const suffix = Math.random().toString(36).slice(2, 10);
+  const suffix = randomIdFragment(8);
   return `${workspaceId}:mobile:${Date.now().toString(36)}:${suffix}`;
 }
 
@@ -23,7 +48,7 @@ export function createLocalTerminalEntry(
   existingEntries: MobileTerminalEntry[],
 ): MobileTerminalEntry {
   return {
-    id: `${workspaceId}:mobile-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    id: `${workspaceId}:mobile-${Date.now()}-${randomIdFragment(5)}`,
     workspaceId,
     label: `Terminal ${existingEntries.length + 1}`,
     sessionId: createMobileTerminalSessionId(workspaceId),
@@ -47,10 +72,19 @@ export function appendLocalTerminalEntry(
   };
 }
 
-/** Short label for the top tab strip (keeps chrome compact). */
+/**
+ * Short label for the top tab strip (keeps chrome compact).
+ * Prefer the dynamic command title; only surface OSC when it is non-empty and
+ * not shell host/cwd noise. Empty strings must not block fallbacks (`??` alone
+ * treats `""` as present).
+ */
 export function terminalTabLabel(entry: Pick<MobileTerminalEntry, "dynamicTitle" | "label" | "oscTitle">): string {
-  const raw = (entry.oscTitle ?? entry.dynamicTitle ?? entry.label).trim();
-  if (!raw) return "Terminal";
+  const osc = entry.oscTitle?.trim() ?? "";
+  const usableOsc = osc && !isLikelyNoisyOscTitle(osc) ? osc : "";
+  const raw =
+    [entry.dynamicTitle, usableOsc, entry.label]
+      .map((value) => value?.trim())
+      .find((value) => value) ?? "Terminal";
   if (raw.length <= 22) return raw;
   return `${raw.slice(0, 20)}…`;
 }
