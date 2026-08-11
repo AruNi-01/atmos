@@ -1224,8 +1224,7 @@
         "draft": "Draft",
         "pagination": {
           "previous": "Previous",
-          "next": "Next",
-          "aggregatedHint": "Showing {count} items across {repos} repositories (sorted by {sort})."
+          "next": "Next"
         },
         "sort": {
           "label": "Sort",

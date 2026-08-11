@@ -68,7 +68,8 @@ export function useDitherCanvas(
 
       const reducedMotion = media?.matches ?? false;
       if (visible) {
-        time += reducedMotion ? 0 : 0.025;
+        // Wave/shimmer clock for all dither charts. Lower = slower drift.
+        time += reducedMotion ? 0 : 0.012;
         const dpr = Math.min(window.devicePixelRatio || 1, 2);
         const rect = el.getBoundingClientRect();
         const w = Math.max(1, Math.round(rect.width));

@@ -59,11 +59,10 @@ export function compactSlidingParts(
       };
     }
     if (abs >= 10_000) {
-      const decimals = abs >= 100_000 ? 0 : 1;
       return {
-        value: roundTo((sign * abs) / 10_000, decimals),
+        value: roundTo((sign * abs) / 10_000, 1),
         suffix: "万",
-        decimals,
+        decimals: 1,
         decimalSeparator,
       };
     }
@@ -85,11 +84,10 @@ export function compactSlidingParts(
       };
     }
     if (abs >= 1_000) {
-      const decimals = abs >= 10_000 ? 0 : 1;
       return {
-        value: roundTo((sign * abs) / 1_000, decimals),
+        value: roundTo((sign * abs) / 1_000, 1),
         suffix: "K",
-        decimals,
+        decimals: 1,
         decimalSeparator,
       };
     }

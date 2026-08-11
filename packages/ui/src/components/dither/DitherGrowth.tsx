@@ -263,7 +263,12 @@ export function DitherGrowth({
           const depth = Math.max(0, Math.min(1, (y - curveY) / fillSpan));
           const gradient = 1 - depth * 0.78;
 
-          const shimmer = reducedMotion ? 0 : Math.sin(y * 0.1 - time * 2) * 0.07;
+          // Right→left drift — same phase sign as heatmap / share / funnel.
+          const shimmer = reducedMotion
+            ? 0
+            : (Math.sin(plotX * 0.05 + time) +
+                Math.sin(y * 0.05 + time * 0.7)) *
+              0.035;
           ctx.fillStyle = ink;
           const sz = cell * (0.55 + gradient * 0.22 + shimmer);
           const alpha = 0.18 + gradient * 0.62;

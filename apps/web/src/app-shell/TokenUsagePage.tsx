@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Activity, Bot, Cpu, DollarSign, Hash } from "lucide-react";
+import { Activity, Bot, BrainCircuit, Coins, Cpu, DollarSign } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import {
   DitherFunnel,
@@ -90,6 +90,15 @@ const TOKEN_USAGE_LOADING_TIP_INTERVAL_MS = 2800;
 
 const CYCLE_EASE = [0.22, 1, 0.36, 1] as const;
 const CYCLE_TRANSITION = { duration: 0.2, ease: CYCLE_EASE } as const;
+
+/** Force one fractional digit for hero totals (11 → 11.0, 1.5K stays 1.5K). */
+function forceOneDecimal(parts: SlidingMetricParts): SlidingMetricParts {
+  return {
+    ...parts,
+    value: Math.round(parts.value * 10) / 10,
+    decimals: 1,
+  };
+}
 
 /**
  * Click-to-cycle toolbar control (Tokens↔Cost, Agent↔Model).
@@ -401,7 +410,7 @@ export function TokenUsagePage() {
       {
         id: "tokens",
         label: t("metric.tokens"),
-        icon: <Hash className="size-4" aria-hidden />,
+        icon: <Coins className="size-4" aria-hidden />,
       },
       {
         id: "cost",
@@ -422,7 +431,7 @@ export function TokenUsagePage() {
       {
         id: "model",
         label: t("dimension.model"),
-        icon: <Cpu className="size-4" aria-hidden />,
+        icon: <BrainCircuit className="size-4" aria-hidden />,
       },
     ],
     [t],
@@ -1004,10 +1013,13 @@ function OverviewTab({
               ) : (
                 // Stable tree: never remount SlidingMetric on metric toggle so
                 // digit springs can morph tokens ↔ cost mantissas.
+                // Always one decimal place (e.g. 11.0K, $1.2K), even for whole numbers.
                 <SlidingMetric
-                  {...(metric === "cost"
-                    ? currencySlidingParts(heroValue, locale, "compact")
-                    : compactSlidingParts(heroValue, locale))}
+                  {...forceOneDecimal(
+                    metric === "cost"
+                      ? currencySlidingParts(heroValue, locale, "compact")
+                      : compactSlidingParts(heroValue, locale),
+                  )}
                 />
               )}
             </div>

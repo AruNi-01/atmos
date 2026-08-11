@@ -849,15 +849,8 @@ export function TaskGithubPanel({ projects, headerTrailingHost = null }: TaskGit
           </div>
 
           {/* Pagination fixed at bottom of the shell (outside table scroll) */}
-          <div className="flex min-w-0 shrink-0 items-center justify-between gap-3 pt-2">
-            <p className="min-w-0 flex-1 text-[10px] leading-snug text-muted-foreground">
-              {t("pagination.aggregatedHint", {
-                repos: activeRepos.length,
-                count: searchQuery.data?.total_count ?? items.length,
-                sort: t(`sort.options.${sort}`),
-              })}
-            </p>
-            {page > 1 || hasMore ? (
+          {page > 1 || hasMore ? (
+            <div className="flex min-w-0 shrink-0 items-center justify-end gap-3 pt-2">
               <GithubListPagination
                 page={page}
                 hasMore={hasMore}
@@ -867,8 +860,8 @@ export function TaskGithubPanel({ projects, headerTrailingHost = null }: TaskGit
                 layout="full"
                 className="mt-0 w-auto justify-end pb-0"
               />
-            ) : null}
-          </div>
+            </div>
+          ) : null}
         </div>
       </div>
 
