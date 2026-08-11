@@ -1,0 +1,56 @@
+apps/mobile/AGENTS.md
+  h_5be255725524c8 56-58
+apps/mobile/app.json
+  h_5be255725524c8 17-20,30,36-41
+apps/mobile/package.json
+  h_5be255725524c8 6-9,22,28,34,50
+apps/mobile/src/features/computers/ComputerConnectScreen.tsx
+  h_5be255725524c8 7,24-26,34,36,45,69,73-74,76,115,123
+apps/mobile/src/features/onboarding/OnboardingScreen.tsx
+  h_5be255725524c8 1,6,9,11-12,14-17,26-31,39,41-49,51-54,56-64,67-69,74-80,83,92,104-106,110-111,116-128,132-139,141-148,152-220,223,225-228,231-232,234,244-245,247-261,263-264,291,293-297,300,303,313-314,318-319,321,326,328-330,332-339,342,345,354-359,363-364,366,369-374,378,380-382
+apps/mobile/src/features/onboarding/PairQrScanner.tsx
+  h_5be255725524c8 1-84
+apps/mobile/src/features/settings/SettingsScreen.tsx
+  h_5be255725524c8 42,97,103,105-110,114-116,122-128,182-185
+apps/mobile/src/features/settings/use-mobile-settings-controller.ts
+  h_5be255725524c8 9-16,26-28,46,48,54-56,64-65,87-90,92-95,100,110-115,120,128-132,137-138,147-148,153,161,164,166,177-182,195-206,209-221,229,232,249
+apps/mobile/src/features/workspaces/WorkspaceListScreen.tsx
+  h_5be255725524c8 9,42-47,60,62,76,88,100,114-115,145,151-155,312-317,324-329
+apps/mobile/src/features/workspaces/WorkspacePickerScreen.tsx
+  h_5be255725524c8 29-31,78,83,88
+apps/mobile/src/lib/access-token-format.ts
+  h_5be255725524c8 1,5
+apps/mobile/src/lib/auto-connect.ts
+  h_5be255725524c8 1-43
+apps/mobile/src/lib/dev-device-import.test.ts
+  h_5be255725524c8 3-6,9-10,14-15,19,22-23,26-27,30,32-34,36-38,43-44,53-54,60,62,64,68
+apps/mobile/src/lib/dev-device-import.ts
+  h_5be255725524c8 1,4-5,10,14,18-20,26-27,31-35,38-39,41-42,46-48,55-60,68,71-72
+apps/mobile/src/lib/device-credential.ts
+  h_5be255725524c8 1-78
+apps/mobile/src/lib/hub-auth-native.ts
+  h_5be255725524c8 1-64
+apps/mobile/src/lib/hub-config.ts
+  h_5be255725524c8 2-3,5-10,13,15-16,18-19,21-52,55-57,60-63,66-91
+apps/mobile/src/lib/mobile-pair-claim.ts
+  h_5be255725524c8 1-8,10-18,21-23,26-35
+apps/mobile/src/lib/relay-url.ts
+  h_5be255725524c8 9-11
+apps/mobile/src/providers/AppProviders.tsx
+  h_5be255725524c8 9-19,26-28,35-38,40,44-62,68,71-72,78,81-83
+apps/mobile/src/stores/session-store.ts
+  h_5be255725524c8 8-11,17,29-30,36,38-39,70-71
+apps/mobile/src/types/env.d.ts
+  h_5be255725524c8 4-6
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "e812ad5019dd2e8c16a738f3c322613f7cf5e8ec",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
