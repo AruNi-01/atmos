@@ -1,0 +1,28 @@
+apps/web/messages/en.json
+  h_5be255725524c8 1227
+apps/web/messages/zh.json
+  h_5be255725524c8 1227
+apps/web/src/app-shell/TokenUsagePage.tsx
+  h_5be255725524c8 4,94-102,413,434,1016,1018-1022
+apps/web/src/features/task/components/TaskGithubPanel.tsx
+  h_5be255725524c8 852-853,863-864
+packages/ui/src/components/dither/DitherGrowth.tsx
+  h_5be255725524c8 266-271
+packages/ui/src/components/ui/sliding-metric.test.ts
+  h_5be255725524c8 10,13-14,16,19,21,23
+packages/ui/src/components/ui/sliding-metric.tsx
+  h_5be255725524c8 63,65,88,90
+packages/ui/src/lib/dither/use-dither-canvas.ts
+  h_5be255725524c8 71-72
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "2a7679c416c558849c8af371c7c53efdc8d81951",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
