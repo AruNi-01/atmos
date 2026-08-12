@@ -4,16 +4,11 @@ import { useRouter } from "expo-router";
 import type { ComputerRow } from "@/api/types";
 import { AppScreen, EmptyState, InlineError, Section } from "@/ui/layout/app-screen";
 import { Row, Separator } from "@/ui/layout/row";
-import { NativeButton, NativeSegmentedControl, NativeTextInput } from "@/ui/primitives/native-controls";
+import { ExpoUiButton, NativeSegmentedControl, NativeTextInput } from "@/ui/primitives/native-controls";
 import {
   ChevronRightIcon,
-  KeyIcon,
   LaptopIcon,
-  PencilIcon,
-  RadioIcon,
-  RefreshIcon,
   SunMoonIcon,
-  TrashIcon,
 } from "@/ui/icons/lucide-native";
 import { useMobileSettingsController } from "@/features/settings/use-mobile-settings-controller";
 import { radii } from "@/theme/radii";
@@ -99,26 +94,23 @@ export function SettingsComputersScreen() {
             }
           />
           <View className="flex-row gap-action-row-gap">
-            <NativeButton
+            <ExpoUiButton
               grow
-              icon={KeyIcon}
               label={settings.hasDeviceCredential ? "Re-pair" : "Sign in / Scan"}
               onPress={() => router.push("/sign-in")}
-              surface="control"
-              tone="secondary"
+              variant="outlined"
             />
-            <NativeButton
+            <ExpoUiButton
               grow
               disabled={
                 !settings.hasDeviceCredential || settings.signOutPhone.isPending
               }
-              icon={TrashIcon}
               label={
                 settings.signOutPhone.isPending ? "Signing out..." : "Sign out phone"
               }
               onPress={settings.confirmSignOutPhone}
-              surface="control"
               tone="danger"
+              variant="outlined"
             />
           </View>
         </View>
@@ -147,13 +139,11 @@ export function SettingsComputersScreen() {
             secureTextEntry
             value={settings.relaySecretDraft}
           />
-          <NativeButton
+          <ExpoUiButton
             disabled={relayConfigured || settings.saveRelaySettings.isPending}
-            icon={RadioIcon}
             label={settings.saveRelaySettings.isPending ? "Saving..." : "Save Relay"}
             onPress={() => settings.saveRelaySettings.mutate()}
-            surface="control"
-            tone={relayConfigured ? "secondary" : "default"}
+            variant={relayConfigured ? "outlined" : "filled"}
           />
           <SettingsHint
             message={
@@ -167,15 +157,13 @@ export function SettingsComputersScreen() {
 
       <Section label="Register Computer">
         <View className="gap-3.5 p-card-padding">
-          <NativeButton
+          <ExpoUiButton
             disabled={
               !settings.hasDeviceCredential ||
               settings.createRegisterCommand.isPending
             }
-            icon={LaptopIcon}
             label={settings.createRegisterCommand.isPending ? "Creating..." : "Create Register Command"}
             onPress={() => settings.createRegisterCommand.mutate()}
-            surface="control"
           />
           {settings.registerCommand ? (
             <View
@@ -213,13 +201,11 @@ export function SettingsComputersScreen() {
               message="Register an Atmos Server or refresh after an existing Computer reconnects."
             />
             <View className="px-card-padding pb-card-padding">
-              <NativeButton
+              <ExpoUiButton
                 disabled={settings.computersQuery.isFetching}
-                icon={RefreshIcon}
                 label={settings.computersQuery.isFetching ? "Refreshing..." : "Refresh Computers"}
                 onPress={() => void settings.computersQuery.refetch()}
-                surface="control"
-                tone="secondary"
+                variant="outlined"
               />
             </View>
           </View>
@@ -236,13 +222,11 @@ export function SettingsComputersScreen() {
               </View>
             ))}
             <View className="px-card-padding py-1">
-              <NativeButton
+              <ExpoUiButton
                 disabled={settings.computersQuery.isFetching}
-                icon={RefreshIcon}
                 label={settings.computersQuery.isFetching ? "Refreshing..." : "Refresh"}
                 onPress={() => void settings.computersQuery.refetch()}
-                surface="control"
-                tone="text"
+                variant="outlined"
               />
             </View>
           </View>
@@ -258,22 +242,19 @@ export function SettingsComputersScreen() {
             value={settings.renameValue}
           />
           <View className="flex-row gap-action-row-gap">
-            <NativeButton
+            <ExpoUiButton
               grow
               disabled={!settings.selectedServerId || settings.rename.isPending || !settings.renameValue.trim()}
-              icon={PencilIcon}
               label={settings.rename.isPending ? "Renaming..." : "Rename"}
               onPress={() => settings.rename.mutate()}
-              surface="control"
             />
-            <NativeButton
+            <ExpoUiButton
               grow
               disabled={!settings.selectedServerId || settings.revoke.isPending}
-              icon={TrashIcon}
               label={settings.revoke.isPending ? "Revoking..." : "Revoke"}
               onPress={settings.confirmRevokeSelectedComputer}
-              surface="control"
               tone="danger"
+              variant="outlined"
             />
           </View>
         </View>

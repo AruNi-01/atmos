@@ -1,7 +1,7 @@
 import { Stack, useRouter } from "expo-router";
 import { AppScreen, EmptyState } from "@/ui/layout/app-screen";
 import { nativeLargeTitleOptions } from "@/ui/navigation/native-screen-options";
-import { NativeButton } from "@/ui/primitives/native-controls";
+import { ExpoUiButton } from "@/ui/primitives/native-controls";
 import { useMobileTheme } from "@/theme/theme-store";
 
 export default function NotFoundRoute() {
@@ -12,7 +12,7 @@ export default function NotFoundRoute() {
     <>
       <AppScreen>
         <EmptyState title="Route not found" message="This mobile screen does not exist." />
-        <NativeButton label="Back to Workspaces" onPress={() => router.replace("/")} />
+        <ExpoUiButton label="Back to Workspaces" onPress={() => router.replace("/")} />
       </AppScreen>
       <Stack.Screen options={nativeLargeTitleOptions("Not Found", theme.colors)} />
     </>

@@ -6,7 +6,7 @@ import { useAuthSignIn } from "@/features/onboarding/use-auth-sign-in";
 import { radii } from "@/theme/radii";
 import { useMobileTheme } from "@/theme/theme-store";
 import { AppScreen, InlineError, Section } from "@/ui/layout/app-screen";
-import { ExpoUiButton, NativeButton } from "@/ui/primitives/native-controls";
+import { ExpoUiButton } from "@/ui/primitives/native-controls";
 import { TerminalIcon } from "@/ui/icons/lucide-native";
 
 export type AuthSignInContentProps = {
@@ -31,8 +31,7 @@ export function AuthSignInContent({
   }, [initialScannerOpen]);
 
   const footer = auth.hasDeviceCredential ? (
-    <NativeButton
-      grow
+    <ExpoUiButton
       label={
         auth.computersQuery.isFetching ? "Checking Computers..." : "Refresh Computers"
       }
@@ -40,6 +39,7 @@ export function AuthSignInContent({
         if (!auth.computersQuery.isFetching) void auth.computersQuery.refetch();
       }}
       disabled={auth.busy}
+      variant="outlined"
     />
   ) : (
     <View className="w-full gap-action-row-gap">
@@ -82,7 +82,7 @@ export function AuthSignInContent({
       {!auth.hasDeviceCredential ? (
         <Section label="Or scan QR">
           <View className="gap-3 p-card-padding">
-            <NativeButton
+            <ExpoUiButton
               label={
                 scannerOpen ? "Close scanner" : "Scan pair QR from Desktop/Web"
               }
@@ -91,8 +91,7 @@ export function AuthSignInContent({
                 setScannerOpen((open) => !open);
               }}
               disabled={auth.busy}
-              surface="control"
-              tone="text"
+              variant="outlined"
             />
             <Text
               selectable

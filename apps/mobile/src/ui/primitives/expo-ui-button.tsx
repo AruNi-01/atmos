@@ -2,55 +2,54 @@ import { Button as ExpoButton, Host } from "@expo/ui";
 import { StyleSheet, Text, View } from "react-native";
 import { radii } from "@/theme/radii";
 import { useMobileTheme } from "@/theme/theme-store";
-import { getNativeButtonCtaColors } from "./native-button-cta-colors";
+import {
+  resolveExpoUiButtonColors,
+  type ExpoUiButtonTone,
+  type ExpoUiButtonVariant,
+} from "./expo-ui-button-colors";
 
 /** Fixed Host height — never use matchContents (clips CTA labels). */
 const CTA_MIN_HEIGHT = 52;
 
 export type ExpoUiButtonProps = {
   disabled?: boolean;
+  /** Share horizontal space in a flex-row of actions. */
+  grow?: boolean;
   label: string;
   onPress?: () => void;
-  variant?: "filled" | "outlined";
+  tone?: ExpoUiButtonTone;
+  variant?: ExpoUiButtonVariant;
 };
 
 /**
- * Primary CTA path for Home / Connect social actions.
- * Uses `@expo/ui` Button with an explicitly sized Host (no matchContents).
+ * Shared `@expo/ui` Button wrapper for app chrome CTAs.
+ * Explicit Host height — never matchContents (avoids clipped labels / blank hosts).
  */
 export function ExpoUiButton({
   disabled = false,
+  grow = false,
   label,
   onPress,
+  tone = "default",
   variant = "filled",
 }: ExpoUiButtonProps) {
   const theme = useMobileTheme();
-  const cta = getNativeButtonCtaColors("default", theme.colors);
-  const isFilled = variant === "filled";
-  const backgroundColor = disabled
-    ? theme.colors.controlDisabled
-    : isFilled
-      ? cta.background
-      : theme.colors.control;
-  const borderColor = disabled
-    ? theme.colors.separator
-    : isFilled
-      ? "transparent"
-      : theme.colors.controlBorder;
-  const labelColor = disabled
-    ? theme.colors.tertiaryLabel
-    : isFilled
-      ? cta.text
-      : theme.colors.label;
+  const colors = resolveExpoUiButtonColors({
+    colors: theme.colors,
+    disabled,
+    tone,
+    variant,
+  });
 
   return (
     <View
       style={[
         styles.frame,
+        grow ? styles.grow : styles.stretch,
         {
-          backgroundColor,
-          borderColor,
-          borderWidth: isFilled ? 0 : 1,
+          backgroundColor: colors.backgroundColor,
+          borderColor: colors.borderColor,
+          borderWidth: colors.borderWidth,
         },
       ]}
     >
@@ -61,7 +60,7 @@ export function ExpoUiButton({
           style={styles.button}
           variant="text"
         >
-          <Text numberOfLines={1} style={[styles.label, { color: labelColor }]}>
+          <Text numberOfLines={1} style={[styles.label, { color: colors.labelColor }]}>
             {label}
           </Text>
         </ExpoButton>
@@ -78,13 +77,15 @@ const styles = StyleSheet.create({
     width: "100%",
   },
   frame: {
-    alignSelf: "stretch",
     borderCurve: "continuous",
     borderRadius: radii.control,
     justifyContent: "center",
     minHeight: CTA_MIN_HEIGHT,
     overflow: "hidden",
-    width: "100%",
+  },
+  grow: {
+    flex: 1,
+    minWidth: 0,
   },
   host: {
     alignSelf: "stretch",
@@ -95,6 +96,10 @@ const styles = StyleSheet.create({
   label: {
     fontWeight: "700",
     textAlign: "center",
+    width: "100%",
+  },
+  stretch: {
+    alignSelf: "stretch",
     width: "100%",
   },
 });

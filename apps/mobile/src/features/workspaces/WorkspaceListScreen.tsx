@@ -13,7 +13,7 @@ import { hydrateRecentWorkspaces, useRecentWorkspacesStore } from "@/stores/rece
 import { useSessionStore } from "@/stores/session-store";
 import { AppScreen, EmptyState, InlineError, Section } from "@/ui/layout/app-screen";
 import { Row, Separator } from "@/ui/layout/row";
-import { ExpoUiButton, NativeButton } from "@/ui/primitives/native-controls";
+import { ExpoUiButton } from "@/ui/primitives/native-controls";
 
 const EMPTY_BOOTSTRAP: ProjectWorkspaceBootstrapResponse = {
   projects: [],
@@ -159,8 +159,7 @@ export function WorkspaceListScreen() {
   return (
     <AppScreen
       footer={
-        <NativeButton
-          grow
+        <ExpoUiButton
           label="Browse workspaces"
           onPress={() => router.push("/workspaces")}
         />

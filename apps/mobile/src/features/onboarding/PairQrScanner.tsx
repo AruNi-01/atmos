@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { CameraView, useCameraPermissions } from "expo-camera";
-import { NativeButton } from "@/ui/primitives/native-controls";
+import { ExpoUiButton } from "@/ui/primitives/native-controls";
 import { useMobileTheme } from "@/theme/theme-store";
 
 export function PairQrScanner({
@@ -35,7 +35,7 @@ export function PairQrScanner({
         <Text style={[styles.hint, { color: theme.colors.secondaryLabel }]}>
           Camera access is required to scan the pair QR code.
         </Text>
-        <NativeButton label="Allow camera" onPress={() => void requestPermission()} />
+        <ExpoUiButton label="Allow camera" onPress={() => void requestPermission()} />
       </View>
     );
   }

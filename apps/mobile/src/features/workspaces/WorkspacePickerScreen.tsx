@@ -9,7 +9,7 @@ import { useMobileWs } from "@/providers/MobileWsProvider";
 import { useSessionStore } from "@/stores/session-store";
 import { AppScreen, EmptyState, InlineError, Section } from "@/ui/layout/app-screen";
 import { Separator } from "@/ui/layout/row";
-import { NativeButton, NativeMenuButton } from "@/ui/primitives/native-controls";
+import { ExpoUiButton, NativeMenuButton } from "@/ui/primitives/native-controls";
 import { DownloadIcon, PlusIcon } from "@/ui/icons/lucide-native";
 import { useMobileTheme } from "@/theme/theme-store";
 import { buildWorkspaceProjectGroups } from "@/features/workspaces/workspace-picker-groups";
@@ -110,7 +110,7 @@ export function WorkspacePickerScreen() {
                 {group.workspaces.length === 0 ? (
                   <View style={styles.emptyProject}>
                     <EmptyState title="No Workspaces" message="Create a workspace in this project to start working." />
-                    <NativeButton
+                    <ExpoUiButton
                       label="New Workspace"
                       onPress={() =>
                         router.replace({
@@ -373,7 +373,7 @@ function GuideSection({
     <Section>
       <View style={styles.guide}>
         <EmptyState title={title} message={message} />
-        {actionLabel && onAction ? <NativeButton label={actionLabel} onPress={onAction} /> : null}
+        {actionLabel && onAction ? <ExpoUiButton label={actionLabel} onPress={onAction} /> : null}
       </View>
     </Section>
   );

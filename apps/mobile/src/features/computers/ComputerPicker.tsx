@@ -1,7 +1,7 @@
 import { View } from "react-native";
 import type { ComputerRow } from "@/api/types";
 import { EmptyState, Section } from "@/ui/layout/app-screen";
-import { NativeButton, NativeList, NativeListItem } from "@/ui/primitives/native-controls";
+import { ExpoUiButton, NativeList, NativeListItem } from "@/ui/primitives/native-controls";
 
 export function ComputerPicker({
   computers,
@@ -28,7 +28,11 @@ export function ComputerPicker({
             message="Start or register Atmos Server on a remote machine, then refresh this list."
           />
           <View style={{ padding: 16, paddingTop: 0 }}>
-            <NativeButton label={isRefreshing ? "Refreshing..." : "Refresh"} onPress={onRefresh} />
+            <ExpoUiButton
+              label={isRefreshing ? "Refreshing..." : "Refresh"}
+              onPress={onRefresh}
+              variant="outlined"
+            />
           </View>
         </View>
       ) : (
@@ -46,7 +50,11 @@ export function ComputerPicker({
           </NativeList>
           {onlineComputers.length === 0 ? (
             <View style={{ padding: 16 }}>
-              <NativeButton label={isRefreshing ? "Refreshing..." : "Refresh"} onPress={onRefresh} />
+              <ExpoUiButton
+                label={isRefreshing ? "Refreshing..." : "Refresh"}
+                onPress={onRefresh}
+                variant="outlined"
+              />
             </View>
           ) : null}
         </View>

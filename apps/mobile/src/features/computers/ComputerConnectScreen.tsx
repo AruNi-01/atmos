@@ -9,7 +9,7 @@ import { useComputerStore } from "@/stores/computer-store";
 import { useSessionStore } from "@/stores/session-store";
 import { AppScreen, EmptyState, InlineError, Section } from "@/ui/layout/app-screen";
 import { Separator } from "@/ui/layout/row";
-import { NativeButton } from "@/ui/primitives/native-controls";
+import { ExpoUiButton } from "@/ui/primitives/native-controls";
 import { RefreshIcon } from "@/ui/icons/lucide-native";
 import { colors } from "@/theme/colors";
 import { useMobileTheme } from "@/theme/theme-store";
@@ -73,7 +73,7 @@ export function ComputerConnectScreen() {
                 title="Sign in required"
                 message="Sign in or scan a Desktop/Web pair QR before loading Computers."
               />
-              <NativeButton grow label="Sign in / Scan QR" onPress={() => router.push("/sign-in")} />
+              <ExpoUiButton label="Sign in / Scan QR" onPress={() => router.push("/sign-in")} />
             </View>
           </Section>
         ) : activeComputers.length === 0 ? (
