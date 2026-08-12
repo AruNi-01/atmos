@@ -1,0 +1,28 @@
+apps/api/src/main.rs
+  h_5be255725524c8 303,317,319,333-336,352,355-361,822,900-905
+crates/core-service/src/lib.rs
+  h_5be255725524c8 59-63
+crates/core-service/src/service/agent_hooks/attention_summary_generate.rs
+  h_5be255725524c8 5-8,10,25-27,30-32,34-36,39-45,53-54,57,64,66,68,81,163-175,180-191,194-195,197-236,239-263,266-275,279-292,448-469
+crates/core-service/src/service/terminal.rs
+  h_5be255725524c8 27,34-36,38-41
+crates/core-service/src/service/terminal/management.rs
+  h_5be255725524c8 12-16,18-20,24-28,30-31,44-46,48-64,96-100,103,112,115,120-148
+crates/core-service/src/service/terminal/run_log_tee.rs
+  h_5be255725524c8 17-19
+crates/core-service/src/service/terminal/text_capture.rs
+  h_5be255725524c8 1-321
+crates/core-service/src/service/terminal/types.rs
+  h_5be255725524c8 249-286,312-331
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "a01b2c56b9f696e5de786290fc89bba33328d662",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
