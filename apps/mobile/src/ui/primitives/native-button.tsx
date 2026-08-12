@@ -63,6 +63,7 @@ export function NativeButton(props: NativeButtonProps) {
         <Text
           style={[
             buttonLabelStyleByVariant(tone, theme.colors)[variant],
+            { textAlign: "center", width: "100%" },
             disabled ? { color: theme.colors.tertiaryLabel } : null,
           ]}
         >

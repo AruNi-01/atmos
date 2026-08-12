@@ -1,13 +1,14 @@
 import { Button as ExpoButton, Host } from "@expo/ui";
 import type { UniversalStyle } from "@expo/ui";
 import type { ModifierConfig } from "@expo/ui/swift-ui/modifiers";
-import { border, buttonBorderShape, clipShape, tint } from "@expo/ui/swift-ui/modifiers";
-import { StyleSheet, View, type ViewStyle } from "react-native";
+import { border, buttonBorderShape, clipShape } from "@expo/ui/swift-ui/modifiers";
+import { StyleSheet, Text, View, type TextStyle, type ViewStyle } from "react-native";
 import { radii, type MobileThemeColors } from "@/theme/colors";
 import { useMobileTheme } from "@/theme/theme-store";
 import { GlassPanel } from "./glass-panel";
 import { NativeButtonControl } from "./native-button-control";
 import { getNativeButtonCtaColors } from "./native-button-cta-colors";
+import { resolveNativeButtonLabelColor } from "./native-button-label-color";
 import type { NativeButtonControlTone, NativeButtonProps } from "./native-button.types";
 
 function isControlSurface(props: NativeButtonProps) {
@@ -48,19 +49,37 @@ export function NativeButton(props: NativeButtonProps) {
   } = props;
   const theme = useMobileTheme();
   const frameColors = buttonFrameColorsByVariant(tone, theme.colors, Boolean(disabled))[variant];
-  const ctaColors = getNativeButtonCtaColors(tone, theme.colors);
-  const labelTint = disabled ? theme.colors.tertiaryLabel : ctaColors.text;
+  const labelColor = resolveNativeButtonLabelColor({
+    disabled: Boolean(disabled),
+    themeColors: theme.colors,
+    tone,
+    variant,
+  });
+  const labelStyle: TextStyle = {
+    color: labelColor,
+    fontWeight: "700",
+    textAlign: "center",
+    width: "100%",
+  };
+  const hostStyle = grow ? styles.hostGrow : undefined;
+  const buttonStyle: UniversalStyle = {
+    ...buttonStyleByVariant[variant],
+    ...(grow ? { width: "100%" } : null),
+  };
 
+  // Explicit Text children (android/universal path): ExpoButton `label=` + tint() can
+  // still paint the system dark label on filled CTAs in light mode (dark-on-dark).
   const button = (
-    <Host matchContents colorScheme={theme.colorScheme}>
+    <Host colorScheme={theme.colorScheme} matchContents style={hostStyle}>
       <ExpoButton
         disabled={disabled}
-        label={label}
-        modifiers={buttonModifiersByVariant(tone, theme.colors, labelTint)[variant]}
+        modifiers={buttonModifiersByVariant(tone, theme.colors)[variant]}
         onPress={disabled ? undefined : onPress}
-        style={buttonStyleByVariant[variant]}
+        style={buttonStyle}
         variant="text"
-      />
+      >
+        <Text style={labelStyle}>{label}</Text>
+      </ExpoButton>
     </Host>
   );
 
@@ -114,18 +133,18 @@ export function NativeButton(props: NativeButtonProps) {
 function buttonModifiersByVariant(
   tone: NonNullable<NativeButtonProps["tone"]>,
   themeColors: MobileThemeColors,
-  labelTint: string,
 ): Record<NonNullable<NativeButtonProps["variant"]>, ModifierConfig[]> {
-  const outlineTint = tone === "inverse" ? themeColors.ctaFill : themeColors.label;
   return {
-    filled: [buttonBorderShape("roundedRectangle", radii.control), tint(labelTint)],
+    filled: [buttonBorderShape("roundedRectangle", radii.control)],
     outlined: [
       buttonBorderShape("roundedRectangle", radii.control),
-      tint(outlineTint),
-      border({ color: tone === "inverse" ? themeColors.ctaLabel : themeColors.controlBorder, width: 1 }),
+      border({
+        color: tone === "inverse" ? themeColors.ctaLabel : themeColors.controlBorder,
+        width: 1,
+      }),
       clipShape("roundedRectangle", radii.control),
     ],
-    text: [tint(outlineTint)],
+    text: [],
   };
 }
 
@@ -205,13 +224,19 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   frame: {
+    alignItems: "stretch",
     alignSelf: "center",
     borderCurve: "continuous",
     borderRadius: radii.control,
     borderWidth: StyleSheet.hairlineWidth,
+    justifyContent: "center",
     minWidth: 1,
   },
   grow: {
+    alignSelf: "stretch",
+    width: "100%",
+  },
+  hostGrow: {
     alignSelf: "stretch",
     width: "100%",
   },

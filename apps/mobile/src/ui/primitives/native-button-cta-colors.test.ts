@@ -2,6 +2,7 @@
 import { describe, expect, test } from "bun:test";
 import { darkColors, lightColors } from "@/theme/colors";
 import { getNativeButtonCtaColors } from "@/ui/primitives/native-button-cta-colors";
+import { resolveNativeButtonLabelColor } from "@/ui/primitives/native-button-label-color";
 
 describe("mobile CTA button colors", () => {
   test("uses dark fill with light label in both color schemes", () => {
@@ -25,5 +26,22 @@ describe("mobile CTA button colors", () => {
     expect(cta.background).toBe(darkColors.ctaLabel);
     expect(cta.text).toBe(darkColors.ctaFill);
     expect(cta.tint).toBe("transparent");
+  });
+
+  test("iOS filled label uses ctaLabel, not theme label, in light mode", () => {
+    const filled = resolveNativeButtonLabelColor({
+      themeColors: lightColors,
+      tone: "default",
+      variant: "filled",
+    });
+    expect(filled).toBe(lightColors.ctaLabel);
+    expect(filled).not.toBe(lightColors.label);
+
+    const outlined = resolveNativeButtonLabelColor({
+      themeColors: lightColors,
+      tone: "default",
+      variant: "outlined",
+    });
+    expect(outlined).toBe(lightColors.label);
   });
 });

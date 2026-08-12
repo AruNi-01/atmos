@@ -19,23 +19,32 @@ export function AppScreen({ children, footer, surface = "screen" }: AppScreenPro
   const backgroundClassName = surface === "sheet" ? "bg-sheet-background" : "bg-background";
   const footerPaddingBottom = Math.max(insets.bottom, spacing.screenFooterBottom);
 
+  const scroll = (
+    <ScrollView
+      // Explicit RN flex (not only NativeWind) so form sheets keep a non-zero height.
+      style={{ flex: 1 }}
+      className={backgroundClassName}
+      contentContainerClassName={cn(
+        backgroundClassName,
+        "gap-section-gap px-screen-x pb-screen-bottom",
+        footer ? "pb-2" : null,
+      )}
+      contentInsetAdjustmentBehavior="automatic"
+      keyboardShouldPersistTaps="handled"
+    >
+      <View className="gap-section-gap">
+        {disconnectedReason ? <ConnectionBanner message={disconnectedReason} /> : null}
+        {children}
+      </View>
+    </ScrollView>
+  );
+
+  // Keep ScrollView (+ optional sticky footer) as siblings under a fragment — same as
+  // pre-P4. An outer flex column View collapses ScrollView height to 0 inside iOS
+  // form sheets (Settings blank / Connect scan section missing) while the footer still paints.
   return (
-    <View className={cn("flex-1", backgroundClassName)}>
-      <ScrollView
-        className={cn("flex-1", backgroundClassName)}
-        contentContainerClassName={cn(
-          backgroundClassName,
-          "gap-section-gap px-screen-x pb-screen-bottom",
-          footer ? "pb-2" : null,
-        )}
-        contentInsetAdjustmentBehavior="automatic"
-        keyboardShouldPersistTaps="handled"
-      >
-        <View className="gap-section-gap">
-          {disconnectedReason ? <ConnectionBanner message={disconnectedReason} /> : null}
-          {children}
-        </View>
-      </ScrollView>
+    <>
+      {scroll}
       {footer ? (
         <GlassPanel
           fallbackStyle={{ backgroundColor: theme.colors.glassFallbackStrong }}
@@ -63,7 +72,7 @@ export function AppScreen({ children, footer, surface = "screen" }: AppScreenPro
           </View>
         </GlassPanel>
       ) : null}
-    </View>
+    </>
   );
 }
 
