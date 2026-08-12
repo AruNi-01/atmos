@@ -1,4 +1,5 @@
 import { DocsRootProvider } from '@/components/docs-root-provider';
+import { PostHogProvider } from '@/components/posthog-provider';
 import { i18n } from '@/lib/i18n';
 import { Inter } from 'next/font/google';
 
@@ -18,17 +19,19 @@ export default async function LangLayout({
   return (
     <html lang={lang} className={inter.className} suppressHydrationWarning>
       <body className="flex min-h-screen flex-col">
-        <DocsRootProvider
-          i18n={{
-            locale: lang,
-            locales: i18n.languages.map((l) => ({
-              locale: l,
-              name: l === 'zh' ? '中文' : 'English',
-            })),
-          }}
-        >
-          {children}
-        </DocsRootProvider>
+        <PostHogProvider>
+          <DocsRootProvider
+            i18n={{
+              locale: lang,
+              locales: i18n.languages.map((l) => ({
+                locale: l,
+                name: l === 'zh' ? '中文' : 'English',
+              })),
+            }}
+          >
+            {children}
+          </DocsRootProvider>
+        </PostHogProvider>
       </body>
     </html>
   );
