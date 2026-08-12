@@ -1,3 +1,5 @@
+import { Button, Host } from "@expo/ui";
+import { expoUiButtonStretchModifiers } from "@/ui/primitives/expo-ui-button-modifiers";
 import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import { Stack, type NativeStackHeaderItem, useRouter } from "expo-router";
 import type { SFSymbol } from "sf-symbols-typescript";
@@ -9,10 +11,11 @@ import { useComputerStore } from "@/stores/computer-store";
 import { useSessionStore } from "@/stores/session-store";
 import { AppScreen, EmptyState, InlineError, Section } from "@/ui/layout/app-screen";
 import { Separator } from "@/ui/layout/row";
-import { NativeButton } from "@/ui/primitives/native-controls";
 import { RefreshIcon } from "@/ui/icons/lucide-native";
-import { colors } from "@/theme/colors";
+import { colors, radii } from "@/theme/colors";
 import { useMobileTheme } from "@/theme/theme-store";
+
+const buttonStretchModifiers = expoUiButtonStretchModifiers;
 
 export function ComputerConnectScreen() {
   const router = useRouter();
@@ -73,7 +76,22 @@ export function ComputerConnectScreen() {
                 title="Sign in required"
                 message="Sign in or scan a Desktop/Web pair QR before loading Computers."
               />
-              <NativeButton label="Sign in / Scan QR" onPress={() => router.replace("/onboarding")} />
+              <Host
+      matchContents={{ vertical: true }}
+      colorScheme={theme.colorScheme}
+      seedColor={theme.colors.ctaFill}
+      style={styles.stretchHost}
+    >
+      <Button
+        label={"Sign in / Scan QR"}
+        onPress={() => router.push("/sign-in")}
+        modifiers={buttonStretchModifiers}
+        style={{
+      height: 52,
+    }}
+        variant="filled"
+      />
+    </Host>
             </View>
           </Section>
         ) : activeComputers.length === 0 ? (
@@ -248,6 +266,16 @@ function closeRoute(router: ReturnType<typeof useRouter>) {
 }
 
 const styles = StyleSheet.create({
+  stretchHost: {
+    alignSelf: "stretch",
+    width: "100%",
+  },
+  growHost: {
+    alignSelf: "stretch",
+    flex: 1,
+    minWidth: 0,
+    width: "100%",
+  },
   computerMeta: {
     color: colors.secondaryLabel,
     fontSize: 12,

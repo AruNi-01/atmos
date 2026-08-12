@@ -1,17 +1,18 @@
 import { Pressable, StyleSheet } from "react-native";
+import { radii } from "@/theme/radii";
 import { useMobileTheme } from "@/theme/theme-store";
 import { KeyboardIcon } from "@/ui/icons/lucide-native";
 
 export function TerminalKeyboardDismissButton({ onPress }: { onPress: () => void }) {
   const theme = useMobileTheme();
   const buttonStyle = {
-    backgroundColor: theme.isDark ? "rgba(248, 250, 252, 0.10)" : "rgba(244, 244, 245, 0.93)",
-    borderColor: theme.isDark ? theme.colors.glassBorder : theme.colors.separator,
+    backgroundColor: theme.colors.terminalKeycap,
+    borderColor: theme.colors.glassBorder,
+    borderRadius: radii.terminalChrome,
   };
   const buttonPressedStyle = {
-    backgroundColor: theme.isDark ? "rgba(248, 250, 252, 0.16)" : "rgba(228, 228, 231, 0.96)",
+    backgroundColor: theme.colors.terminalKeycapPressed,
   };
-  const iconColor = theme.isDark ? theme.colors.label : "#111827";
 
   return (
     <Pressable
@@ -20,7 +21,7 @@ export function TerminalKeyboardDismissButton({ onPress }: { onPress: () => void
       onPress={onPress}
       style={({ pressed }) => [styles.button, buttonStyle, pressed && buttonPressedStyle]}
     >
-      <KeyboardIcon color={iconColor} size={20} strokeWidth={2.4} />
+      <KeyboardIcon color={theme.colors.terminalFg} size={20} strokeWidth={2.4} />
     </Pressable>
   );
 }
@@ -28,10 +29,7 @@ export function TerminalKeyboardDismissButton({ onPress }: { onPress: () => void
 const styles = StyleSheet.create({
   button: {
     alignItems: "center",
-    backgroundColor: "rgba(244, 244, 245, 0.93)",
-    borderColor: "rgba(10, 10, 11, 0.08)",
     borderCurve: "continuous",
-    borderRadius: 23,
     borderWidth: StyleSheet.hairlineWidth,
     height: 46,
     justifyContent: "center",

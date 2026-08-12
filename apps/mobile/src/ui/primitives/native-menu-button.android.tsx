@@ -86,7 +86,6 @@ const styles = StyleSheet.create({
   },
   trigger: {
     alignItems: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.82)",
     borderColor: colors.glassBorder,
     borderRadius: 999,
     borderWidth: StyleSheet.hairlineWidth,

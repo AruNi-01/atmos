@@ -4,6 +4,7 @@ import { StyleSheet, View } from "react-native";
 import { GlassView, isGlassEffectAPIAvailable, isLiquidGlassAvailable } from "expo-glass-effect";
 import type { GlassViewProps } from "expo-glass-effect";
 import { colors, radii } from "@/theme/colors";
+import { shadows } from "@/theme/shadows";
 import { useMobileTheme } from "@/theme/theme-store";
 
 type GlassPanelProps = PropsWithChildren<{
@@ -60,13 +61,13 @@ export function GlassPanel({
 
 const styles = StyleSheet.create({
   darkShadow: {
-    boxShadow: "0 14px 42px rgba(0, 0, 0, 0.24)",
+    boxShadow: shadows.glassPanelDark,
   },
   fallback: {
     backgroundColor: colors.glassFallback,
   },
   lightShadow: {
-    boxShadow: "0 14px 42px rgba(10, 10, 11, 0.07)",
+    boxShadow: shadows.glassPanelLight,
   },
   panel: {
     borderColor: colors.glassBorder,

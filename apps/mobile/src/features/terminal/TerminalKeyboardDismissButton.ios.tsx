@@ -16,10 +16,10 @@ export function TerminalKeyboardDismissButton({ onPress }: { onPress: () => void
   const buttonModifiers = [
     buttonStyle("plain"),
     frame({ height: 46, width: 46 }),
-    background(theme.isDark ? "#F8FAFC1A" : "#F4F4F5EE", shapes.circle()),
+    background(theme.colors.terminalKeycap, shapes.circle()),
     imageScale("medium"),
     labelStyle("iconOnly"),
-    tint(theme.isDark ? theme.colors.label : "#111827"),
+    tint(theme.colors.terminalFg),
   ];
 
   return (

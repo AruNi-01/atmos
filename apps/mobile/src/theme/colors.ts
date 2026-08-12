@@ -1,3 +1,24 @@
+/** Terminal surface is always Web-dark (#09090b) regardless of app color scheme. */
+export const terminalSurfaceColors = {
+  terminalBg: "#09090b",
+  terminalFg: "#f8f8f8",
+  terminalMuted: "#a1a1aa",
+  terminalScrollbar: "rgba(161, 161, 170, 0.34)",
+  terminalStatusError: "#fca5a5",
+  terminalKeycap: "rgba(248, 250, 252, 0.10)",
+  terminalKeycapPressed: "rgba(248, 250, 252, 0.16)",
+  terminalChromeFallback: "rgba(9, 9, 11, 0.92)",
+  terminalChromeTint: "rgba(9, 9, 11, 0.78)",
+};
+
+/** Workflow status icon colors — shared across light and dark app chrome. */
+export const workflowStatusColors = {
+  workflowStatusInProgress: "#3b82f6",
+  workflowStatusInReview: "#10b981",
+  workflowStatusBlocked: "#f59e0b",
+  workflowStatusCompleted: "#6366f1",
+} as const;
+
 export const lightColors = {
   background: "#f4f4f6",
   sheetBackground: "#f8f8f9",
@@ -8,6 +29,8 @@ export const lightColors = {
   controlBorder: "rgba(10, 10, 11, 0.10)",
   controlDisabled: "rgba(10, 10, 11, 0.045)",
   controlElevated: "#ffffff",
+  /** Solid secondary CTA fill (single layer — not glass + border). */
+  controlSecondary: "#e5e5ea",
   controlGlassTint: "rgba(255, 255, 255, 0.24)",
   glassBorder: "rgba(10, 10, 11, 0.08)",
   glassFallback: "rgba(255, 255, 255, 0.82)",
@@ -17,6 +40,8 @@ export const lightColors = {
   separatorStrong: "rgba(10, 10, 11, 0.16)",
   label: "#111112",
   labelInverse: "#fafafa",
+  ctaFill: "#111112",
+  ctaLabel: "#fafafa",
   secondaryLabel: "#52525b",
   tertiaryLabel: "#9a9aa1",
   primary: "#111112",
@@ -33,9 +58,10 @@ export const lightColors = {
   yellow: "#a16207",
   yellowSurface: "rgba(161, 98, 7, 0.10)",
   yellowBorder: "rgba(161, 98, 7, 0.22)",
-  terminalBg: "#f8fafc",
-  terminalFg: "#111827",
-  terminalMuted: "#64748b",
+  segmentedTrack: "rgba(10, 10, 11, 0.055)",
+  segmentedSelectedBorder: "rgba(10, 10, 11, 0.07)",
+  ...workflowStatusColors,
+  ...terminalSurfaceColors,
 };
 
 export const darkColors: MobileThemeColors = {
@@ -45,9 +71,11 @@ export const darkColors: MobileThemeColors = {
   cardElevated: "#2c2c2e",
   cardSubtle: "rgba(255, 255, 255, 0.08)",
   control: "#2c2c2e",
-  controlBorder: "rgba(255, 255, 255, 0.035)",
+  controlBorder: "rgba(255, 255, 255, 0.12)",
   controlDisabled: "#343436",
   controlElevated: "#3a3a3c",
+  /** Solid secondary CTA fill (single layer — not glass + border). */
+  controlSecondary: "#3a3a3c",
   controlGlassTint: "rgba(58, 58, 60, 0.38)",
   glassBorder: "rgba(255, 255, 255, 0.08)",
   glassFallback: "rgba(44, 44, 46, 0.94)",
@@ -57,6 +85,8 @@ export const darkColors: MobileThemeColors = {
   separatorStrong: "rgba(255, 255, 255, 0.16)",
   label: "#f5f5f7",
   labelInverse: "#111112",
+  ctaFill: "#111112",
+  ctaLabel: "#f5f5f7",
   secondaryLabel: "#8e8e93",
   tertiaryLabel: "#69696f",
   primary: "#f5f5f7",
@@ -73,9 +103,10 @@ export const darkColors: MobileThemeColors = {
   yellow: "#facc15",
   yellowSurface: "rgba(250, 204, 21, 0.14)",
   yellowBorder: "rgba(250, 204, 21, 0.28)",
-  terminalBg: "#09090b",
-  terminalFg: "#f8f8f8",
-  terminalMuted: "#a1a1aa",
+  segmentedTrack: "#1c1c1e",
+  segmentedSelectedBorder: "rgba(255, 255, 255, 0.075)",
+  ...workflowStatusColors,
+  ...terminalSurfaceColors,
 };
 
 export type MobileThemeColorScheme = "light" | "dark";
@@ -87,7 +118,4 @@ export function getMobileThemeColors(colorScheme: MobileThemeColorScheme) {
   return colorScheme === "dark" ? darkColors : lightColors;
 }
 
-export const radii = {
-  card: 24,
-  control: 28,
-};
+export { radii } from "./radii";

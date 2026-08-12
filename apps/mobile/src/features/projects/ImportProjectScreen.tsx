@@ -1,9 +1,11 @@
+import { Button, Host } from "@expo/ui";
+import { expoUiButtonStretchModifiers } from "@/ui/primitives/expo-ui-button-modifiers";
 import { useEffect, useMemo, useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { Platform, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AppScreen, EmptyState, InlineError, Section } from "@/ui/layout/app-screen";
-import { NativeButton, NativeTextInput } from "@/ui/primitives/native-controls";
+import { NativeTextInput } from "@/ui/primitives/native-controls";
 import { Row, Separator } from "@/ui/layout/row";
 import { addProjectToWorkspaceBootstrap } from "@/features/projects/project-bootstrap-cache";
 import { getProjectImportReadiness, validationMatchesPath } from "@/features/projects/import-project-validation";
@@ -11,8 +13,15 @@ import { useMobileWs } from "@/providers/MobileWsProvider";
 import { useSessionStore } from "@/stores/session-store";
 import { wsActions } from "@/api/ws-actions";
 import type { FsEntry, ProjectWorkspaceBootstrapResponse } from "@/api/types";
-import { colors } from "@/theme/colors";
+import { colors, radii } from "@/theme/colors";
 import { useMobileTheme } from "@/theme/theme-store";
+import {
+  expoUiDangerStyle,
+  expoUiPrimaryStyle,
+  expoUiSecondaryStyle,
+} from "@/ui/primitives/expo-ui-button-styles";
+
+const buttonStretchModifiers = expoUiButtonStretchModifiers;
 
 export function ImportProjectScreen() {
   const router = useRouter();
@@ -144,11 +153,23 @@ export function ImportProjectScreen() {
       surface="sheet"
       footer={
         <View style={styles.footer}>
-          <NativeButton
-            label={createProject.isPending ? "Importing..." : "Import Project"}
-            disabled={!readiness.canImport}
-            onPress={() => createProject.mutate()}
-          />
+          <Host
+      matchContents={{ vertical: true }}
+      colorScheme={theme.colorScheme}
+      seedColor={!readiness.canImport ? theme.colors.tertiaryLabel : theme.colors.ctaFill}
+      style={styles.stretchHost}
+    >
+      <Button
+        disabled={!readiness.canImport}
+        label={createProject.isPending ? "Importing..." : "Import Project"}
+        onPress={(!readiness.canImport) ? undefined : (() => createProject.mutate())}
+        modifiers={buttonStretchModifiers}
+        style={{
+      height: 52,
+    }}
+        variant="filled"
+      />
+    </Host>
           {readiness.reason ? (
             <Text selectable style={[styles.footerHint, { color: theme.colors.secondaryLabel }]}>
               {readiness.reason}
@@ -166,11 +187,23 @@ export function ImportProjectScreen() {
             placeholder="/home/aaryn/project"
             value={path}
           />
-          <NativeButton
-            label={validate.isPending ? "Validating..." : "Validate Path"}
-            onPress={() => validate.mutate()}
-            disabled={!isConnected || !path.trim() || validate.isPending}
-          />
+          <Host
+      matchContents={{ vertical: true }}
+      colorScheme={theme.colorScheme}
+      seedColor={theme.colors.label}
+      style={styles.stretchHost}
+    >
+      <Button
+        disabled={!isConnected || !path.trim() || validate.isPending}
+        label={validate.isPending ? "Validating..." : "Validate Path"}
+        onPress={(!isConnected || !path.trim() || validate.isPending) ? undefined : (() => validate.mutate())}
+        modifiers={buttonStretchModifiers}
+        style={{
+      height: 52,
+    }}
+        variant="outlined"
+      />
+    </Host>
           <Text selectable style={[styles.help, { color: theme.colors.secondaryLabel }]}>
             Mobile import selects a path on the remote Atmos Computer. It does not clone from this phone.
           </Text>
@@ -183,16 +216,30 @@ export function ImportProjectScreen() {
             <Text selectable style={[styles.currentDir, { color: theme.colors.secondaryLabel }]} numberOfLines={1}>
               {currentDir || "Loading home directory..."}
             </Text>
-            <NativeButton
-              label="Home"
-              disabled={!home.data?.path}
-              onPress={() => {
-                if (!home.data?.path) return;
-                setCurrentDir(home.data.path);
-                setSearch("");
-                updatePath(home.data.path);
-              }}
-            />
+            <View style={styles.inlineAction}>
+              <Host
+      matchContents={{ vertical: true }}
+      colorScheme={theme.colorScheme}
+      seedColor={theme.colors.label}
+      style={styles.stretchHost}
+    >
+      <Button
+        disabled={!home.data?.path}
+        label={"Home"}
+        onPress={(!home.data?.path) ? undefined : (() => {
+                  if (!home.data?.path) return;
+                  setCurrentDir(home.data.path);
+                  setSearch("");
+                  updatePath(home.data.path);
+                })}
+        modifiers={buttonStretchModifiers}
+        style={{
+      height: 52,
+    }}
+        variant="outlined"
+      />
+    </Host>
+            </View>
           </View>
           <NativeTextInput
             autoCapitalize="none"
@@ -209,13 +256,27 @@ export function ImportProjectScreen() {
               title="Parent directory"
               subtitle={directory.data.parent_path}
             >
-              <NativeButton
-                label="Open"
-                onPress={() => {
-                  setCurrentDir(directory.data!.parent_path!);
-                  setSearch("");
-                }}
-              />
+              <View style={styles.inlineAction}>
+                <Host
+      matchContents={{ vertical: true }}
+      colorScheme={theme.colorScheme}
+      seedColor={theme.colors.label}
+      style={styles.stretchHost}
+    >
+      <Button
+        label={"Open"}
+        onPress={() => {
+                    setCurrentDir(directory.data!.parent_path!);
+                    setSearch("");
+                  }}
+        modifiers={buttonStretchModifiers}
+        style={{
+      height: 52,
+    }}
+        variant="outlined"
+      />
+    </Host>
+              </View>
             </Row>
             <Separator />
           </>
@@ -240,8 +301,38 @@ export function ImportProjectScreen() {
                   meta={entry.is_git_repo ? "Git" : undefined}
                 >
                   <View style={styles.entryActions}>
-                    <NativeButton label="Open" onPress={() => openDirectory(entry)} variant="text" />
-                    <NativeButton label="Use" onPress={() => chooseEntry(entry)} variant="text" />
+                    <Host
+      matchContents={{ vertical: true }}
+      colorScheme={theme.colorScheme}
+      seedColor={theme.colors.label}
+      style={styles.growHost}
+    >
+      <Button
+        label={"Open"}
+        onPress={() => openDirectory(entry)}
+        modifiers={buttonStretchModifiers}
+        style={{
+      height: 52,
+    }}
+        variant="outlined"
+      />
+    </Host>
+                    <Host
+      matchContents={{ vertical: true }}
+      colorScheme={theme.colorScheme}
+      seedColor={theme.colors.label}
+      style={styles.growHost}
+    >
+      <Button
+        label={"Use"}
+        onPress={() => chooseEntry(entry)}
+        modifiers={buttonStretchModifiers}
+        style={{
+      height: 52,
+    }}
+        variant="outlined"
+      />
+    </Host>
                   </View>
                 </Row>
                 {index < visibleEntries.length - 1 ? <Separator /> : null}
@@ -274,6 +365,16 @@ export function ImportProjectScreen() {
 }
 
 const styles = StyleSheet.create({
+  stretchHost: {
+    alignSelf: "stretch",
+    width: "100%",
+  },
+  growHost: {
+    alignSelf: "stretch",
+    flex: 1,
+    minWidth: 0,
+    width: "100%",
+  },
   block: {
     gap: 12,
     padding: 16,
@@ -286,6 +387,7 @@ const styles = StyleSheet.create({
   entryActions: {
     flexDirection: "row",
     gap: 8,
+    minWidth: 168,
   },
   footer: {
     gap: 10,
@@ -300,6 +402,9 @@ const styles = StyleSheet.create({
     color: colors.secondaryLabel,
     fontSize: 13,
     lineHeight: 18,
+  },
+  inlineAction: {
+    minWidth: 96,
   },
   pathRow: {
     alignItems: "center",

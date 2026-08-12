@@ -1,11 +1,15 @@
-import { StyleSheet, Text, View } from "react-native";
+import { Button, Host } from "@expo/ui";
+import { expoUiButtonStretchModifiers } from "@/ui/primitives/expo-ui-button-modifiers";
+import { Platform, StyleSheet, Text, View } from "react-native";
 import type { GitChangedFile } from "@/api/types";
 import { buildChangedFileGroups, countChangedFiles, type ChangedFileAction } from "@/features/git/changed-files";
 import { EmptyState } from "@/ui/layout/app-screen";
-import { NativeButton } from "@/ui/primitives/native-controls";
 import { Row, Separator } from "@/ui/layout/row";
 import { colors } from "@/theme/colors";
 import { useMobileTheme } from "@/theme/theme-store";
+import { expoUiSecondaryStyle } from "@/ui/primitives/expo-ui-button-styles";
+
+const buttonStretchModifiers = expoUiButtonStretchModifiers;
 
 export function ChangedFilesList({
   stagedFiles,
@@ -83,12 +87,26 @@ function FileSection({
             onPress={() => onOpenFile(file)}
           >
             <View style={styles.action}>
-              <NativeButton
-                label={actionLabel}
-                onPress={() => onAction(file)}
-                disabled={actionsDisabled}
-                variant="text"
-              />
+              {(() => {
+                const actionStyle = expoUiSecondaryStyle(theme.colors, actionsDisabled);
+                return (
+                  <Host
+                    matchContents={{ vertical: true }}
+                    colorScheme={theme.colorScheme}
+                    seedColor={actionStyle.seedColor}
+                    style={styles.stretchHost}
+                  >
+                    <Button
+                      disabled={actionsDisabled}
+                      label={actionLabel}
+                      onPress={actionsDisabled ? undefined : () => onAction(file)}
+                      modifiers={buttonStretchModifiers}
+                      style={actionStyle.style}
+                      variant={actionStyle.variant}
+                    />
+                  </Host>
+                );
+              })()}
             </View>
           </Row>
           {index < files.length - 1 ? <Separator /> : null}
@@ -99,8 +117,18 @@ function FileSection({
 }
 
 const styles = StyleSheet.create({
+  stretchHost: {
+    alignSelf: "stretch",
+    width: "100%",
+  },
+  growHost: {
+    alignSelf: "stretch",
+    flex: 1,
+    minWidth: 0,
+    width: "100%",
+  },
   action: {
-    minWidth: 82,
+    minWidth: 96,
   },
   groupLabel: {
     backgroundColor: "transparent",

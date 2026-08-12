@@ -63,6 +63,9 @@ export function useMobileSettingsController() {
   const normalizedRelaySecretDraft = relaySecretDraft.trim();
   const canSaveRelaySettings =
     relayUrlSaveState.canSave || normalizedRelaySecretDraft !== relaySecretKey;
+  const relayConfigured =
+    !canSaveRelaySettings &&
+    relayUrlSaveState.reason === "Relay URL is already saved.";
 
   const saveRelaySettings = useMutation({
     mutationFn: async () => {
@@ -172,7 +175,7 @@ export function useMobileSettingsController() {
       setComputers([]);
       setError(null);
       await queryClient.invalidateQueries();
-      router.replace("/onboarding");
+      router.replace("/");
     },
     onError: (nextError) =>
       setError(
@@ -187,6 +190,11 @@ export function useMobileSettingsController() {
       switchComputer.mutate(computer.server_id);
       return;
     }
+    selectServer(computer.server_id);
+  };
+
+  /** Select for settings detail (rename/revoke) without opening a session. */
+  const focusComputer = (computer: ComputerRow) => {
     selectServer(computer.server_id);
   };
 
@@ -229,8 +237,10 @@ export function useMobileSettingsController() {
     confirmSignOutPhone,
     createRegisterCommand,
     error,
+    focusComputer,
     hasDeviceCredential,
     registerCommand,
+    relayConfigured,
     relayDraft,
     relaySecretDraft,
     relayUrl,

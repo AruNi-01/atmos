@@ -1,5 +1,6 @@
 import { StyleSheet, View } from "react-native";
 import { NativeSegmentedControl } from "@/ui/primitives/native-controls";
+import { spacing } from "@/theme/spacing";
 import type { WorkspaceTabsProps } from "./WorkspaceTabs.types";
 
 export function WorkspaceTabs({
@@ -13,7 +14,7 @@ export function WorkspaceTabs({
   return (
     <View style={styles.root}>
       <View style={styles.content}>{activeItem?.children}</View>
-      <View style={[styles.footer, { paddingBottom: Math.max(bottomInset, 12) }]}>
+      <View style={[styles.footer, { paddingBottom: Math.max(bottomInset, spacing.screenFooterBottom) }]}>
         <NativeSegmentedControl
           onValueChange={onSelectTab}
           options={items.map((item) => ({ label: item.label, value: item.value }))}
@@ -29,8 +30,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   footer: {
-    paddingHorizontal: 18,
-    paddingTop: 8,
+    paddingHorizontal: spacing.screenX,
+    paddingTop: spacing.screenFooterTop,
   },
   root: {
     flex: 1,

@@ -1,20 +1,30 @@
+import { Button, Host } from "@expo/ui";
+import { expoUiButtonStretchModifiers } from "@/ui/primitives/expo-ui-button-modifiers";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { Platform, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { AppScreen, EmptyState, InlineError, Section } from "@/ui/layout/app-screen";
-import { NativeButton, NativePicker, NativeSwitch, NativeTextInput } from "@/ui/primitives/native-controls";
+import { NativePicker, NativeSwitch, NativeTextInput } from "@/ui/primitives/native-controls";
 import { Row, Separator } from "@/ui/layout/row";
 import {
   getCreateWorkspaceReadiness,
   selectCreateWorkspaceProjectGuid,
 } from "@/features/workspaces/create-workspace-readiness";
 import { useMobileWs } from "@/providers/MobileWsProvider";
+
 import { useSessionStore } from "@/stores/session-store";
 import { isWorkspaceSetupProgressNotification, wsActions } from "@/api/ws-actions";
 import type { WorkspaceModel, WorkspaceSetupProgressNotification, WsNotification } from "@/api/types";
-import { colors } from "@/theme/colors";
+import { colors, radii } from "@/theme/colors";
 import { useMobileTheme } from "@/theme/theme-store";
+import {
+  expoUiDangerStyle,
+  expoUiPrimaryStyle,
+  expoUiSecondaryStyle,
+} from "@/ui/primitives/expo-ui-button-styles";
+
+const buttonStretchModifiers = expoUiButtonStretchModifiers;
 
 const PRIORITY_OPTIONS = [
   { label: "No priority", value: "no_priority" },
@@ -290,17 +300,29 @@ export function CreateWorkspaceScreen({ initialProjectGuid }: { initialProjectGu
       surface="sheet"
       footer={
         <View style={styles.footer}>
-          <NativeButton
-            label={footerLabel}
-            disabled={footerDisabled}
-            onPress={() => {
+          <Host
+      matchContents={{ vertical: true }}
+      colorScheme={theme.colorScheme}
+      seedColor={footerDisabled ? theme.colors.tertiaryLabel : theme.colors.ctaFill}
+      style={styles.stretchHost}
+    >
+      <Button
+        disabled={footerDisabled}
+        label={footerLabel}
+        onPress={(footerDisabled) ? undefined : (() => {
               if (createdWorkspace) {
                 router.replace(`/workspace/${createdWorkspace.guid}`);
                 return;
               }
               createWorkspace.mutate();
-            }}
-          />
+            })}
+        modifiers={buttonStretchModifiers}
+        style={{
+      height: 52,
+    }}
+        variant="filled"
+      />
+    </Host>
           {!createdWorkspace && createReadiness.reason ? (
             <Text selectable style={[styles.footerHint, { color: theme.colors.secondaryLabel }]}>
               {createReadiness.reason}
@@ -333,10 +355,22 @@ export function CreateWorkspaceScreen({ initialProjectGuid }: { initialProjectGu
             placeholder="Base branch"
             value={baseBranch}
           />
-          <NativeButton
-            label={showAdvanced ? "Hide Advanced" : "Show Advanced"}
-            onPress={() => setShowAdvanced((value) => !value)}
-          />
+          <Host
+      matchContents={{ vertical: true }}
+      colorScheme={theme.colorScheme}
+      seedColor={theme.colors.label}
+      style={styles.stretchHost}
+    >
+      <Button
+        label={showAdvanced ? "Hide Advanced" : "Show Advanced"}
+        onPress={() => setShowAdvanced((value) => !value)}
+        modifiers={buttonStretchModifiers}
+        style={{
+      height: 52,
+    }}
+        variant="outlined"
+      />
+    </Host>
           {showAdvanced ? (
             <View style={styles.advanced}>
               <Separator />
@@ -406,15 +440,29 @@ export function CreateWorkspaceScreen({ initialProjectGuid }: { initialProjectGu
                         options={labelOptions}
                       />
                     </View>
-                    <NativeButton
-                      label="Add"
-                      disabled={labelToAdd === EMPTY_LABEL_VALUE}
-                      onPress={() => {
-                        if (labelToAdd === EMPTY_LABEL_VALUE) return;
-                        setSelectedLabelGuids((current) => [...current, labelToAdd]);
-                        setLabelToAdd(EMPTY_LABEL_VALUE);
-                      }}
-                    />
+                    <View style={styles.inlineAction}>
+                      <Host
+      matchContents={{ vertical: true }}
+      colorScheme={theme.colorScheme}
+      seedColor={theme.colors.label}
+      style={styles.stretchHost}
+    >
+      <Button
+        disabled={labelToAdd === EMPTY_LABEL_VALUE}
+        label={"Add"}
+        onPress={(labelToAdd === EMPTY_LABEL_VALUE) ? undefined : (() => {
+                          if (labelToAdd === EMPTY_LABEL_VALUE) return;
+                          setSelectedLabelGuids((current) => [...current, labelToAdd]);
+                          setLabelToAdd(EMPTY_LABEL_VALUE);
+                        })}
+        modifiers={buttonStretchModifiers}
+        style={{
+      height: 52,
+    }}
+        variant="outlined"
+      />
+    </Host>
+                    </View>
                   </View>
                   {selectedLabels.map((label) => (
                     <Row
@@ -423,13 +471,26 @@ export function CreateWorkspaceScreen({ initialProjectGuid }: { initialProjectGu
                       subtitle={label.source}
                       meta={label.color}
                     >
-                      <NativeButton
-                        label="Remove"
-                        onPress={() => {
-                          setSelectedLabelGuids((current) => current.filter((guid) => guid !== label.guid));
-                        }}
-                        variant="text"
-                      />
+                      <View style={styles.inlineAction}>
+                        <Host
+      matchContents={{ vertical: true }}
+      colorScheme={theme.colorScheme}
+      seedColor={theme.colors.red}
+      style={styles.stretchHost}
+    >
+      <Button
+        label={"Remove"}
+        onPress={() => {
+                            setSelectedLabelGuids((current) => current.filter((guid) => guid !== label.guid));
+                          }}
+        modifiers={buttonStretchModifiers}
+        style={{
+      height: 52,
+    }}
+        variant="outlined"
+      />
+    </Host>
+                      </View>
                     </Row>
                   ))}
                 </View>
@@ -465,23 +526,59 @@ export function CreateWorkspaceScreen({ initialProjectGuid }: { initialProjectGu
               </View>
             ) : null}
             {setupProgress.requires_confirmation ? (
-              <NativeButton
-                label={confirmTodos.isPending ? "Confirming..." : "Confirm TODOs"}
-                disabled={confirmTodos.isPending || !setupOutputPreview}
-                onPress={() => confirmTodos.mutate()}
-              />
+              <Host
+      matchContents={{ vertical: true }}
+      colorScheme={theme.colorScheme}
+      seedColor={confirmTodos.isPending || !setupOutputPreview ? theme.colors.tertiaryLabel : theme.colors.ctaFill}
+      style={styles.stretchHost}
+    >
+      <Button
+        disabled={confirmTodos.isPending || !setupOutputPreview}
+        label={confirmTodos.isPending ? "Confirming..." : "Confirm TODOs"}
+        onPress={(confirmTodos.isPending || !setupOutputPreview) ? undefined : (() => confirmTodos.mutate())}
+        modifiers={buttonStretchModifiers}
+        style={{
+      height: 52,
+    }}
+        variant="filled"
+      />
+    </Host>
             ) : null}
             {setupProgress.status === "error" && createdWorkspace ? (
               <View style={styles.progressActions}>
-                <NativeButton
-                  label={retrySetup.isPending ? "Retrying..." : "Retry Setup"}
-                  disabled={retrySetup.isPending}
-                  onPress={() => retrySetup.mutate()}
-                />
-                <NativeButton
-                  label="Open Workspace"
-                  onPress={() => router.replace(`/workspace/${createdWorkspace.guid}`)}
-                />
+                <Host
+      matchContents={{ vertical: true }}
+      colorScheme={theme.colorScheme}
+      seedColor={retrySetup.isPending ? theme.colors.tertiaryLabel : theme.colors.ctaFill}
+      style={styles.stretchHost}
+    >
+      <Button
+        disabled={retrySetup.isPending}
+        label={retrySetup.isPending ? "Retrying..." : "Retry Setup"}
+        onPress={(retrySetup.isPending) ? undefined : (() => retrySetup.mutate())}
+        modifiers={buttonStretchModifiers}
+        style={{
+      height: 52,
+    }}
+        variant="filled"
+      />
+    </Host>
+                <Host
+      matchContents={{ vertical: true }}
+      colorScheme={theme.colorScheme}
+      seedColor={theme.colors.label}
+      style={styles.stretchHost}
+    >
+      <Button
+        label={"Open Workspace"}
+        onPress={() => router.replace(`/workspace/${createdWorkspace.guid}`)}
+        modifiers={buttonStretchModifiers}
+        style={{
+      height: 52,
+    }}
+        variant="outlined"
+      />
+    </Host>
               </View>
             ) : null}
           </View>
@@ -525,6 +622,16 @@ function slugify(value: string) {
 }
 
 const styles = StyleSheet.create({
+  stretchHost: {
+    alignSelf: "stretch",
+    width: "100%",
+  },
+  growHost: {
+    alignSelf: "stretch",
+    flex: 1,
+    minWidth: 0,
+    width: "100%",
+  },
   advanced: {
     gap: 12,
   },
@@ -546,8 +653,12 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 18,
   },
+  inlineAction: {
+    minWidth: 96,
+  },
   labelPicker: {
     flex: 1,
+    minWidth: 0,
   },
   labelPickerRow: {
     alignItems: "center",
@@ -559,7 +670,6 @@ const styles = StyleSheet.create({
   },
   outputBox: {
     backgroundColor: colors.cardElevated,
-    borderColor: colors.separator,
     borderRadius: 10,
     borderWidth: StyleSheet.hairlineWidth,
     maxHeight: 220,

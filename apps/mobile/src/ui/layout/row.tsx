@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { colors } from "@/theme/colors";
+import { spacing } from "@/theme/spacing";
+import { typography } from "@/theme/typography";
 import { useMobileTheme } from "@/theme/theme-store";
 
 export function Row({
@@ -18,29 +19,63 @@ export function Row({
 }) {
   const theme = useMobileTheme();
   const content = (
-    <View style={styles.row}>
-      <View style={styles.titleRow}>
-        <Text style={[styles.title, { color: theme.colors.label }]} numberOfLines={2}>
+    <View
+      style={{
+        gap: spacing.rowGap,
+        minHeight: spacing.rowMinHeight,
+        paddingHorizontal: spacing.rowX,
+        paddingVertical: spacing.rowY,
+      }}
+    >
+      <View
+        style={{
+          alignItems: "center",
+          flexDirection: "row",
+          gap: spacing.rowTitleGap,
+          justifyContent: "space-between",
+        }}
+      >
+        <Text
+          numberOfLines={2}
+          style={[
+            typography.rowTitle,
+            { color: theme.colors.label, flex: 1, fontWeight: "600" },
+          ]}
+        >
           {title}
         </Text>
         {children}
         {onPress && !children ? (
           <Text
-            style={[styles.chevron, { color: theme.colors.tertiaryLabel }]}
             accessibilityElementsHidden
             importantForAccessibility="no-hide-descendants"
+            style={{
+              color: theme.colors.tertiaryLabel,
+              fontSize: 22,
+              lineHeight: 24,
+              marginLeft: -4,
+            }}
           >
             ›
           </Text>
         ) : null}
       </View>
       {meta ? (
-        <Text style={[styles.meta, { color: theme.colors.secondaryLabel }]} numberOfLines={1}>
+        <Text
+          numberOfLines={1}
+          style={[
+            typography.rowMeta,
+            { color: theme.colors.secondaryLabel, fontVariant: ["tabular-nums"] },
+          ]}
+        >
           {meta}
         </Text>
       ) : null}
       {subtitle ? (
-        <Text style={[styles.subtitle, { color: theme.colors.secondaryLabel }]} numberOfLines={2}>
+        <Text
+          numberOfLines={2}
+          style={[typography.rowSubtitle, { color: theme.colors.secondaryLabel }]}
+        >
           {subtitle}
         </Text>
       ) : null}
@@ -50,7 +85,12 @@ export function Row({
   if (!onPress) return content;
 
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [pressed && styles.pressed]}>
+    <Pressable
+      onPress={onPress}
+      style={({ pressed: isPressed }) =>
+        isPressed ? { backgroundColor: theme.colors.mutedPressed } : undefined
+      }
+    >
       {content}
     </Pressable>
   );
@@ -58,52 +98,14 @@ export function Row({
 
 export function Separator() {
   const theme = useMobileTheme();
-  return <View style={[styles.separator, { backgroundColor: theme.colors.separator }]} />;
-}
 
-const styles = StyleSheet.create({
-  row: {
-    gap: 4,
-    minHeight: 64,
-    paddingHorizontal: 18,
-    paddingVertical: 12,
-  },
-  titleRow: {
-    alignItems: "center",
-    flexDirection: "row",
-    gap: 10,
-    justifyContent: "space-between",
-  },
-  title: {
-    color: colors.label,
-    flex: 1,
-    fontSize: 16,
-    fontWeight: "600",
-    lineHeight: 21,
-  },
-  subtitle: {
-    color: colors.secondaryLabel,
-    fontSize: 13,
-    lineHeight: 19,
-  },
-  meta: {
-    color: colors.secondaryLabel,
-    fontSize: 13,
-    fontVariant: ["tabular-nums"],
-    lineHeight: 18,
-  },
-  chevron: {
-    color: colors.tertiaryLabel,
-    fontSize: 22,
-    lineHeight: 24,
-    marginLeft: -4,
-  },
-  pressed: {
-    opacity: 0.62,
-  },
-  separator: {
-    backgroundColor: colors.separator,
-    height: StyleSheet.hairlineWidth,
-    marginLeft: 16,
-  },
-});
+  return (
+    <View
+      style={{
+        backgroundColor: theme.colors.separator,
+        height: StyleSheet.hairlineWidth,
+        marginLeft: spacing.separatorInset,
+      }}
+    />
+  );
+}

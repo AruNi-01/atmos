@@ -4,6 +4,7 @@ import { AppState, Appearance } from "react-native";
 import * as Network from "expo-network";
 import * as SystemUI from "expo-system-ui";
 import { QueryClientProvider, focusManager, onlineManager } from "@tanstack/react-query";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 import { createAtmosQueryClient } from "@/providers/query-client";
 import { MobileWsProvider } from "@/providers/MobileWsProvider";
 import { acceptDeviceCredential, hasDeviceCredential } from "@/lib/device-credential";
@@ -18,6 +19,7 @@ import {
   storeRelaySecretKey,
 } from "@/lib/relay-secret-key";
 import { useSessionStore } from "@/stores/session-store";
+import { MobileThemeVariablesProvider } from "@/providers/MobileThemeVariablesProvider";
 import { useMobileTheme } from "@/theme/theme-store";
 
 export function AppProviders({ children }: PropsWithChildren) {
@@ -100,8 +102,13 @@ export function AppProviders({ children }: PropsWithChildren) {
   }, []);
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <MobileWsProvider>{children}</MobileWsProvider>
-    </QueryClientProvider>
+    // Theme vars wrap SafeArea so inset VariableContext inherits color tokens.
+    <MobileThemeVariablesProvider>
+      <SafeAreaProvider>
+        <QueryClientProvider client={queryClient}>
+          <MobileWsProvider>{children}</MobileWsProvider>
+        </QueryClientProvider>
+      </SafeAreaProvider>
+    </MobileThemeVariablesProvider>
   );
 }

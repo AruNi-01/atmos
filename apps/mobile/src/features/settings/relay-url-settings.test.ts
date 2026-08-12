@@ -28,4 +28,49 @@ describe("getRelayUrlSaveState", () => {
       reason: "Relay URL is already saved.",
     });
   });
+
+  test("rejects malformed drafts", () => {
+    expect(
+      getRelayUrlSaveState({
+        currentUrl: "https://relay.atmos.land",
+        draftUrl: "not a valid URL",
+      }),
+    ).toEqual({
+      canSave: false,
+      normalizedUrl: "https://not a valid URL",
+      reason: "Enter a valid Relay URL.",
+    });
+  });
+
+  test("allows empty drafts to resolve to the default URL", () => {
+    expect(
+      getRelayUrlSaveState({
+        currentUrl: "https://custom.example",
+        draftUrl: "   ",
+      }),
+    ).toEqual({
+      canSave: true,
+      normalizedUrl: "https://relay.atmos.land",
+      reason: null,
+    });
+  });
+
+  test("rejects explicit non-http(s) schemes", () => {
+    for (const draftUrl of [
+      "ftp://relay.example",
+      "ws://relay.example",
+      "file:///tmp",
+    ]) {
+      expect(
+        getRelayUrlSaveState({
+          currentUrl: "https://relay.atmos.land",
+          draftUrl,
+        }),
+      ).toEqual({
+        canSave: false,
+        normalizedUrl: expect.any(String),
+        reason: "Enter a valid Relay URL.",
+      });
+    }
+  });
 });

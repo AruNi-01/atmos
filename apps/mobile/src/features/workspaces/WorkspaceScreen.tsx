@@ -29,6 +29,7 @@ import { useRecentWorkspacesStore } from "@/stores/recent-workspaces-store";
 import { useSessionStore } from "@/stores/session-store";
 import { wsActions } from "@/api/ws-actions";
 import { colors, type MobileThemeColors } from "@/theme/colors";
+import { spacing } from "@/theme/spacing";
 import { useMobileTheme } from "@/theme/theme-store";
 
 export function WorkspaceScreen({ workspaceId }: { workspaceId: string }) {
@@ -381,16 +382,16 @@ function WorkspaceStateScreen({
 
 const styles = StyleSheet.create({
   changesContent: {
-    paddingBottom: 32,
-    paddingHorizontal: 10,
-    paddingTop: 10,
+    paddingBottom: spacing.screenBottom,
+    paddingHorizontal: spacing.screenX,
+    paddingTop: spacing.contentPadding,
   },
   changesScroll: {
     flex: 1,
   },
   content: {
     flex: 1,
-    padding: 10,
+    padding: spacing.contentPadding,
   },
   defaultRoot: {
     backgroundColor: colors.background,

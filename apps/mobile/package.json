@@ -8,7 +8,7 @@
     "@atmos/hub-client": "workspace:*",
     "@atmos/relay-client": "workspace:*",
     "@atmos/shared": "workspace:*",
-    "@expo/ui": "~56.0.18",
+    "@expo/ui": "~56.0.25",
     "@hookform/resolvers": "^5.4.0",
     "@react-native-async-storage/async-storage": "2.2.0",
     "@tailwindcss/postcss": "^4.3.0",
@@ -51,6 +51,7 @@
   },
   "devDependencies": {
     "@types/react": "~19.2.14",
+    "babel-preset-expo": "~56.0.0",
     "sf-symbols-typescript": "^2.2.0",
     "typescript": "6.0.3"
   },
