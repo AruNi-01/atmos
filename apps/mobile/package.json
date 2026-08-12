@@ -51,6 +51,7 @@
   },
   "devDependencies": {
     "@types/react": "~19.2.14",
+    "babel-preset-expo": "~56.0.0",
     "sf-symbols-typescript": "^2.2.0",
     "typescript": "6.0.3"
   },
