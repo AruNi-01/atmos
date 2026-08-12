@@ -1,5 +1,5 @@
 import { Pressable, StyleSheet } from "react-native";
-import { radii } from "@/theme/colors";
+import { radii } from "@/theme/radii";
 import { useMobileTheme } from "@/theme/theme-store";
 import { KeyboardIcon } from "@/ui/icons/lucide-native";
 

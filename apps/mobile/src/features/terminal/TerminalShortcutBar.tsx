@@ -13,7 +13,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { GlassPanel } from "@/ui/primitives/glass-panel";
 import { TerminalKeyboardDismissButton } from "@/features/terminal/TerminalKeyboardDismissButton";
 import { terminalShortcuts, type TerminalShortcut } from "@/features/terminal/terminal-shortcuts";
-import { radii } from "@/theme/colors";
+import { radii } from "@/theme/radii";
 import { spacing } from "@/theme/spacing";
 import { typography } from "@/theme/typography";
 import { useMobileTheme } from "@/theme/theme-store";

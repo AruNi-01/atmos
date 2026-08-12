@@ -27,7 +27,8 @@ import {
 import { useMobileWs } from "@/providers/MobileWsProvider";
 import { useSessionStore } from "@/stores/session-store";
 import { useTerminalStore, type MobileTerminalEntry } from "@/stores/terminal-store";
-import { colors, radii, type MobileThemeColors } from "@/theme/colors";
+import { colors, type MobileThemeColors } from "@/theme/colors";
+import { radii } from "@/theme/radii";
 import { spacing } from "@/theme/spacing";
 import { typography } from "@/theme/typography";
 import { useMobileTheme } from "@/theme/theme-store";
@@ -383,7 +384,6 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   root: {
-    backgroundColor: colors.terminalBg,
     flex: 1,
     minHeight: 0,
     overflow: "hidden",
@@ -403,7 +403,6 @@ const styles = StyleSheet.create({
     right: spacing.terminalHeaderX,
   },
   terminalShell: {
-    backgroundColor: colors.terminalBg,
     flex: 1,
     minHeight: 0,
     overflow: "hidden",
@@ -415,11 +414,9 @@ const styles = StyleSheet.create({
   },
   terminalStatusText: {
     ...typography.terminalStatus,
-    color: colors.terminalMuted,
   },
   terminalTitle: {
     ...typography.terminalTitle,
-    color: colors.terminalFg,
     flex: 1,
   },
 });

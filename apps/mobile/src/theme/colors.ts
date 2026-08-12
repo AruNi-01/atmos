@@ -1,3 +1,14 @@
+/** Terminal surface is always Web-dark (#09090b) regardless of app color scheme. */
+export const terminalSurfaceColors = {
+  terminalBg: "#09090b",
+  terminalFg: "#f8f8f8",
+  terminalMuted: "#a1a1aa",
+  terminalKeycap: "rgba(248, 250, 252, 0.10)",
+  terminalKeycapPressed: "rgba(248, 250, 252, 0.16)",
+  terminalChromeFallback: "rgba(9, 9, 11, 0.92)",
+  terminalChromeTint: "rgba(9, 9, 11, 0.78)",
+};
+
 export const lightColors = {
   background: "#f4f4f6",
   sheetBackground: "#f8f8f9",
@@ -33,13 +44,7 @@ export const lightColors = {
   yellow: "#a16207",
   yellowSurface: "rgba(161, 98, 7, 0.10)",
   yellowBorder: "rgba(161, 98, 7, 0.22)",
-  terminalBg: "#f8fafc",
-  terminalFg: "#111827",
-  terminalMuted: "#64748b",
-  terminalKeycap: "rgba(244, 244, 245, 0.93)",
-  terminalKeycapPressed: "rgba(228, 228, 231, 0.96)",
-  terminalChromeFallback: "rgba(255, 255, 255, 0.72)",
-  terminalChromeTint: "rgba(255, 255, 255, 0.58)",
+  ...terminalSurfaceColors,
 };
 
 export const darkColors: MobileThemeColors = {
@@ -77,13 +82,7 @@ export const darkColors: MobileThemeColors = {
   yellow: "#facc15",
   yellowSurface: "rgba(250, 204, 21, 0.14)",
   yellowBorder: "rgba(250, 204, 21, 0.28)",
-  terminalBg: "#09090b",
-  terminalFg: "#f8f8f8",
-  terminalMuted: "#a1a1aa",
-  terminalKeycap: "rgba(248, 250, 252, 0.10)",
-  terminalKeycapPressed: "rgba(248, 250, 252, 0.16)",
-  terminalChromeFallback: "rgba(9, 9, 11, 0.92)",
-  terminalChromeTint: "rgba(9, 9, 11, 0.78)",
+  ...terminalSurfaceColors,
 };
 
 export type MobileThemeColorScheme = "light" | "dark";

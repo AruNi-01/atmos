@@ -68,7 +68,7 @@ const styles = StyleSheet.create({
     width: "100%",
   },
   navigationFrame: {
-    paddingHorizontal: spacing.screenFooterBottom,
+    paddingHorizontal: spacing.screenX,
     paddingTop: spacing.screenFooterTop,
   },
   root: {
