@@ -1,6 +1,5 @@
 import { Button, Host } from "@expo/ui";
-import { fillMaxWidth } from "@expo/ui/jetpack-compose/modifiers";
-import { controlSize, frame } from "@expo/ui/swift-ui/modifiers";
+import { expoUiButtonStretchModifiers } from "@/ui/primitives/expo-ui-button-modifiers";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Platform, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
@@ -19,12 +18,13 @@ import { isWorkspaceSetupProgressNotification, wsActions } from "@/api/ws-action
 import type { WorkspaceModel, WorkspaceSetupProgressNotification, WsNotification } from "@/api/types";
 import { colors, radii } from "@/theme/colors";
 import { useMobileTheme } from "@/theme/theme-store";
+import {
+  expoUiDangerStyle,
+  expoUiPrimaryStyle,
+  expoUiSecondaryStyle,
+} from "@/ui/primitives/expo-ui-button-styles";
 
-const buttonStretchModifiers = Platform.select({
-  ios: [frame({ maxWidth: Number.POSITIVE_INFINITY }), controlSize("large")],
-  android: [fillMaxWidth()],
-  default: undefined,
-});
+const buttonStretchModifiers = expoUiButtonStretchModifiers;
 
 const PRIORITY_OPTIONS = [
   { label: "No priority", value: "no_priority" },
@@ -318,10 +318,7 @@ export function CreateWorkspaceScreen({ initialProjectGuid }: { initialProjectGu
             })}
         modifiers={buttonStretchModifiers}
         style={{
-      backgroundColor: footerDisabled ? theme.colors.controlDisabled : theme.colors.ctaFill,
-      borderRadius: radii.control,
       height: 52,
-      paddingHorizontal: 22,
     }}
         variant="filled"
       />
@@ -369,12 +366,7 @@ export function CreateWorkspaceScreen({ initialProjectGuid }: { initialProjectGu
         onPress={() => setShowAdvanced((value) => !value)}
         modifiers={buttonStretchModifiers}
         style={{
-      backgroundColor: theme.colors.control,
-      borderColor: theme.colors.controlBorder,
-      borderRadius: radii.control,
-      borderWidth: 1,
       height: 52,
-      paddingHorizontal: 22,
     }}
         variant="outlined"
       />
@@ -452,7 +444,7 @@ export function CreateWorkspaceScreen({ initialProjectGuid }: { initialProjectGu
                       <Host
       matchContents={{ vertical: true }}
       colorScheme={theme.colorScheme}
-      seedColor={labelToAdd === EMPTY_LABEL_VALUE ? theme.colors.tertiaryLabel : theme.colors.label}
+      seedColor={theme.colors.label}
       style={styles.stretchHost}
     >
       <Button
@@ -465,12 +457,7 @@ export function CreateWorkspaceScreen({ initialProjectGuid }: { initialProjectGu
                         })}
         modifiers={buttonStretchModifiers}
         style={{
-      backgroundColor: theme.colors.control,
-      borderColor: labelToAdd === EMPTY_LABEL_VALUE ? theme.colors.separator : theme.colors.controlBorder,
-      borderRadius: radii.control,
-      borderWidth: 1,
       height: 52,
-      paddingHorizontal: 22,
     }}
         variant="outlined"
       />
@@ -498,12 +485,7 @@ export function CreateWorkspaceScreen({ initialProjectGuid }: { initialProjectGu
                           }}
         modifiers={buttonStretchModifiers}
         style={{
-      backgroundColor: theme.colors.redSurface,
-      borderColor: theme.colors.redBorder,
-      borderRadius: radii.control,
-      borderWidth: 1,
       height: 52,
-      paddingHorizontal: 22,
     }}
         variant="outlined"
       />
@@ -556,10 +538,7 @@ export function CreateWorkspaceScreen({ initialProjectGuid }: { initialProjectGu
         onPress={(confirmTodos.isPending || !setupOutputPreview) ? undefined : (() => confirmTodos.mutate())}
         modifiers={buttonStretchModifiers}
         style={{
-      backgroundColor: confirmTodos.isPending || !setupOutputPreview ? theme.colors.controlDisabled : theme.colors.ctaFill,
-      borderRadius: radii.control,
       height: 52,
-      paddingHorizontal: 22,
     }}
         variant="filled"
       />
@@ -579,10 +558,7 @@ export function CreateWorkspaceScreen({ initialProjectGuid }: { initialProjectGu
         onPress={(retrySetup.isPending) ? undefined : (() => retrySetup.mutate())}
         modifiers={buttonStretchModifiers}
         style={{
-      backgroundColor: retrySetup.isPending ? theme.colors.controlDisabled : theme.colors.ctaFill,
-      borderRadius: radii.control,
       height: 52,
-      paddingHorizontal: 22,
     }}
         variant="filled"
       />
@@ -598,12 +574,7 @@ export function CreateWorkspaceScreen({ initialProjectGuid }: { initialProjectGu
         onPress={() => router.replace(`/workspace/${createdWorkspace.guid}`)}
         modifiers={buttonStretchModifiers}
         style={{
-      backgroundColor: theme.colors.control,
-      borderColor: theme.colors.controlBorder,
-      borderRadius: radii.control,
-      borderWidth: 1,
       height: 52,
-      paddingHorizontal: 22,
     }}
         variant="outlined"
       />
@@ -699,7 +670,6 @@ const styles = StyleSheet.create({
   },
   outputBox: {
     backgroundColor: colors.cardElevated,
-    borderColor: colors.separator,
     borderRadius: 10,
     borderWidth: StyleSheet.hairlineWidth,
     maxHeight: 220,

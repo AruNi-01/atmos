@@ -193,6 +193,11 @@ export function useMobileSettingsController() {
     selectServer(computer.server_id);
   };
 
+  /** Select for settings detail (rename/revoke) without opening a session. */
+  const focusComputer = (computer: ComputerRow) => {
+    selectServer(computer.server_id);
+  };
+
   const confirmRevokeSelectedComputer = () => {
     if (!selectedServerId) return;
     Alert.alert(
@@ -232,6 +237,7 @@ export function useMobileSettingsController() {
     confirmSignOutPhone,
     createRegisterCommand,
     error,
+    focusComputer,
     hasDeviceCredential,
     registerCommand,
     relayConfigured,

@@ -102,12 +102,13 @@ export function AppProviders({ children }: PropsWithChildren) {
   }, []);
 
   return (
-    <SafeAreaProvider>
-      <MobileThemeVariablesProvider>
+    // Theme vars wrap SafeArea so inset VariableContext inherits color tokens.
+    <MobileThemeVariablesProvider>
+      <SafeAreaProvider>
         <QueryClientProvider client={queryClient}>
           <MobileWsProvider>{children}</MobileWsProvider>
         </QueryClientProvider>
-      </MobileThemeVariablesProvider>
-    </SafeAreaProvider>
+      </SafeAreaProvider>
+    </MobileThemeVariablesProvider>
   );
 }

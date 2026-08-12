@@ -1,18 +1,13 @@
 import { useMobileTheme } from "@/theme/theme-store";
-import { radii } from "@/theme/radii";
+import { expoUiButtonStretchModifiers } from "@/ui/primitives/expo-ui-button-modifiers";
 import { Button, Host } from "@expo/ui";
-import { fillMaxWidth } from "@expo/ui/jetpack-compose/modifiers";
-import { controlSize, frame } from "@expo/ui/swift-ui/modifiers";
 import { Platform, View } from "react-native";
 import type { ComputerRow } from "@/api/types";
 import { EmptyState, Section } from "@/ui/layout/app-screen";
 import { NativeList, NativeListItem } from "@/ui/primitives/native-controls";
+import { expoUiButtonHostStyle, expoUiSecondaryStyle } from "@/ui/primitives/expo-ui-button-styles";
 
-const buttonStretchModifiers = Platform.select({
-  ios: [frame({ maxWidth: Number.POSITIVE_INFINITY }), controlSize("large")],
-  android: [fillMaxWidth()],
-  default: undefined,
-});
+const buttonStretchModifiers = expoUiButtonStretchModifiers;
 
 export function ComputerPicker({
   computers,
@@ -30,38 +25,35 @@ export function ComputerPicker({
   const theme = useMobileTheme();
   const activeComputers = computers.filter((computer) => !computer.revoked);
   const onlineComputers = activeComputers.filter((computer) => computer.online);
+  const refreshStyle = expoUiSecondaryStyle(theme.colors, Boolean(isRefreshing));
+
+  const refreshButton = (
+    <Host
+      matchContents={{ vertical: true }}
+      colorScheme={theme.colorScheme}
+      seedColor={refreshStyle.seedColor}
+      style={expoUiButtonHostStyle}
+    >
+      <Button
+        label={isRefreshing ? "Refreshing..." : "Refresh"}
+        onPress={onRefresh}
+        modifiers={buttonStretchModifiers}
+        style={refreshStyle.style}
+        variant={refreshStyle.variant}
+      />
+    </Host>
+  );
 
   return (
     <Section label="Computer">
       {activeComputers.length === 0 ? (
         <View>
           <EmptyState
-            title="No Computer online"
-            message="Start or register Atmos Server on a remote machine, then refresh this list."
+            layout="section"
+            title="No Computers"
+            message="Register a server, then refresh."
           />
-          <View style={{ padding: 16, paddingTop: 0 }}>
-            <Host
-      matchContents={{ vertical: true }}
-      colorScheme={theme.colorScheme}
-      seedColor={theme.colors.label}
-      style={{ alignSelf: "stretch", width: "100%" }}
-    >
-      <Button
-        label={isRefreshing ? "Refreshing..." : "Refresh"}
-        onPress={onRefresh}
-        modifiers={buttonStretchModifiers}
-        style={{
-      backgroundColor: theme.colors.control,
-      borderColor: theme.colors.controlBorder,
-      borderRadius: radii.control,
-      borderWidth: 1,
-      height: 52,
-      paddingHorizontal: 22,
-    }}
-        variant="outlined"
-      />
-    </Host>
-          </View>
+          <View style={{ padding: 16, paddingTop: 0 }}>{refreshButton}</View>
         </View>
       ) : (
         <View>
@@ -71,35 +63,19 @@ export function ComputerPicker({
                 key={computer.server_id}
                 title={computer.display_name ?? computer.server_id}
                 supportingText={computer.online ? "Online" : "Offline"}
-                trailing={computer.server_id === selectedServerId ? "Selected" : computer.online ? "Online" : "Offline"}
+                trailing={
+                  computer.server_id === selectedServerId
+                    ? "Selected"
+                    : computer.online
+                      ? "Online"
+                      : "Offline"
+                }
                 onPress={computer.online ? () => onSelect(computer.server_id) : undefined}
               />
             ))}
           </NativeList>
           {onlineComputers.length === 0 ? (
-            <View style={{ padding: 16 }}>
-              <Host
-      matchContents={{ vertical: true }}
-      colorScheme={theme.colorScheme}
-      seedColor={theme.colors.label}
-      style={{ alignSelf: "stretch", width: "100%" }}
-    >
-      <Button
-        label={isRefreshing ? "Refreshing..." : "Refresh"}
-        onPress={onRefresh}
-        modifiers={buttonStretchModifiers}
-        style={{
-      backgroundColor: theme.colors.control,
-      borderColor: theme.colors.controlBorder,
-      borderRadius: radii.control,
-      borderWidth: 1,
-      height: 52,
-      paddingHorizontal: 22,
-    }}
-        variant="outlined"
-      />
-    </Host>
-            </View>
+            <View style={{ padding: 16 }}>{refreshButton}</View>
           ) : null}
         </View>
       )}

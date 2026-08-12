@@ -1,7 +1,13 @@
 import type { PropsWithChildren, ReactNode } from "react";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { useState } from "react";
+import {
+  type LayoutChangeEvent,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { cn } from "@/lib/cn";
 import { useUiStore } from "@/stores/ui-store";
 import { spacing } from "@/theme/spacing";
 import { useMobileTheme } from "@/theme/theme-store";
@@ -14,6 +20,9 @@ type AppScreenProps = PropsWithChildren<{
   surface?: "screen" | "sheet";
 }>;
 
+/** Fallback while the sticky footer has not laid out yet (two large CTAs + safe area). */
+const FOOTER_HEIGHT_FALLBACK = 180;
+
 export function AppScreen({
   children,
   contentFlex = false,
@@ -23,27 +32,49 @@ export function AppScreen({
   const theme = useMobileTheme();
   const insets = useSafeAreaInsets();
   const disconnectedReason = useUiStore((state) => state.disconnectedReason);
-  const backgroundClassName = surface === "sheet" ? "bg-sheet-background" : "bg-background";
+  // Prefer theme.colors for surfaces so dark mode stays correct even when
+  // NativeWind CSS variables lag behind Appearance / form-sheet chrome.
+  const surfaceColor =
+    surface === "sheet" ? theme.colors.sheetBackground : theme.colors.background;
   const footerPaddingBottom = Math.max(insets.bottom, spacing.screenFooterBottom);
+  const [footerHeight, setFooterHeight] = useState(0);
+
+  const handleFooterLayout = (event: LayoutChangeEvent) => {
+    const nextHeight = event.nativeEvent.layout.height;
+    setFooterHeight((current) => (current === nextHeight ? current : nextHeight));
+  };
+
+  // Sticky footer paints as a sibling (fragment) so form sheets keep a non-zero
+  // ScrollView height. Spacer (not contentContainerStyle alone) reserves room so
+  // NativeWind className merge cannot drop the bottom inset under the dock.
+  const footerClearance = Math.max(footerHeight, FOOTER_HEIGHT_FALLBACK) + spacing.sectionGap;
 
   const scroll = (
     <ScrollView
-      // Explicit RN flex (not only NativeWind) so form sheets keep a non-zero height.
-      style={{ flex: 1 }}
-      className={backgroundClassName}
-      contentContainerClassName={cn(
-        backgroundClassName,
-        "gap-section-gap px-screen-x pb-screen-bottom",
-        footer ? "pb-2" : null,
-        contentFlex ? "flex-grow" : null,
-      )}
+      // Explicit RN flex + background (not only NativeWind) so form sheets keep a
+      // non-zero height and track light/dark theme.colors.
+      style={{ backgroundColor: surfaceColor, flex: 1 }}
+      contentContainerStyle={{
+        backgroundColor: surfaceColor,
+        flexGrow: contentFlex ? 1 : undefined,
+        gap: spacing.sectionGap,
+        paddingBottom: footer ? undefined : spacing.screenBottom,
+        paddingHorizontal: spacing.screenX,
+      }}
       contentInsetAdjustmentBehavior="automatic"
       keyboardShouldPersistTaps="handled"
     >
-      <View className={cn("gap-section-gap", contentFlex ? "flex-1 justify-center" : null)}>
+      <View
+        style={{
+          flex: contentFlex ? 1 : undefined,
+          gap: spacing.sectionGap,
+          justifyContent: contentFlex ? "center" : undefined,
+        }}
+      >
         {disconnectedReason ? <ConnectionBanner message={disconnectedReason} /> : null}
         {children}
       </View>
+      {footer ? <View style={{ height: footerClearance }} /> : null}
     </ScrollView>
   );
 
@@ -66,10 +97,17 @@ export function AppScreen({
             borderRightWidth: 0,
             borderTopColor: theme.colors.glassBorder,
             borderTopWidth: StyleSheet.hairlineWidth,
+            // Absolute dock: form-sheet flex columns collapse ScrollView; overlay +
+            // measured content padding keeps CTAs reachable without blank sheets.
+            bottom: 0,
+            left: 0,
+            position: "absolute",
+            right: 0,
           }}
           tintColor={theme.colors.glassTint}
         >
           <View
+            onLayout={handleFooterLayout}
             style={{
               paddingBottom: footerPaddingBottom,
               paddingHorizontal: spacing.screenX,
@@ -85,12 +123,35 @@ export function AppScreen({
 }
 
 function ConnectionBanner({ message }: { message: string }) {
+  const theme = useMobileTheme();
+
   return (
-    <View className="gap-1 rounded-card border border-red-border bg-red-surface p-3">
-      <Text selectable className="font-bold text-label text-section-label leading-section-label">
+    <View
+      style={{
+        backgroundColor: theme.colors.redSurface,
+        borderColor: theme.colors.redBorder,
+        borderCurve: "continuous",
+        borderRadius: 24,
+        borderWidth: StyleSheet.hairlineWidth,
+        gap: 4,
+        padding: 12,
+      }}
+    >
+      <Text
+        selectable
+        style={{
+          color: theme.colors.label,
+          fontSize: 13,
+          fontWeight: "700",
+          lineHeight: 18,
+        }}
+      >
         Disconnected
       </Text>
-      <Text selectable className="text-secondary-label text-body leading-body">
+      <Text
+        selectable
+        style={{ color: theme.colors.secondaryLabel, fontSize: 14, lineHeight: 20 }}
+      >
         {message}
       </Text>
     </View>
@@ -103,14 +164,34 @@ export function Section({
 }: PropsWithChildren<{
   label?: string;
 }>) {
+  const theme = useMobileTheme();
+
   return (
-    <View className="gap-section-label-gap">
+    <View style={{ gap: spacing.sectionLabelGap }}>
       {label ? (
-        <Text className="px-section-label-x font-semibold text-secondary-label text-section-label leading-section-label">
+        <Text
+          style={{
+            color: theme.colors.secondaryLabel,
+            fontSize: 13,
+            fontWeight: "600",
+            lineHeight: 18,
+            paddingHorizontal: spacing.sectionLabelX,
+          }}
+        >
           {label}
         </Text>
       ) : null}
-      <View className="min-h-px overflow-hidden rounded-card border border-glass-border bg-card-elevated">
+      <View
+        style={{
+          backgroundColor: theme.colors.cardElevated,
+          borderColor: theme.colors.glassBorder,
+          borderCurve: "continuous",
+          borderRadius: 24,
+          borderWidth: StyleSheet.hairlineWidth,
+          minHeight: 1,
+          overflow: "hidden",
+        }}
+      >
         {children}
       </View>
     </View>
@@ -126,13 +207,32 @@ export function EmptyState({
   message: string;
   layout?: "centered" | "section";
 }) {
+  const theme = useMobileTheme();
+
   if (layout === "section") {
     return (
-      <View className="gap-1 px-row-x py-5">
-        <Text selectable className="text-left font-semibold text-label text-row-title leading-row-title">
+      <View style={{ gap: 4, paddingHorizontal: spacing.rowX, paddingVertical: 20 }}>
+        <Text
+          selectable
+          style={{
+            color: theme.colors.label,
+            fontSize: 16,
+            fontWeight: "600",
+            lineHeight: 21,
+            textAlign: "left",
+          }}
+        >
           {title}
         </Text>
-        <Text selectable className="text-left text-secondary-label text-body-small leading-body-small">
+        <Text
+          selectable
+          style={{
+            color: theme.colors.secondaryLabel,
+            fontSize: 13,
+            lineHeight: 19,
+            textAlign: "left",
+          }}
+        >
           {message}
         </Text>
       </View>
@@ -140,11 +240,28 @@ export function EmptyState({
   }
 
   return (
-    <View className="items-center gap-2 p-6">
-      <Text selectable className="text-center font-bold text-label text-empty-title leading-empty-title">
+    <View style={{ alignItems: "center", gap: 8, padding: 24 }}>
+      <Text
+        selectable
+        style={{
+          color: theme.colors.label,
+          fontSize: 17,
+          fontWeight: "700",
+          lineHeight: 22,
+          textAlign: "center",
+        }}
+      >
         {title}
       </Text>
-      <Text selectable className="text-center text-secondary-label text-empty-message leading-empty-message">
+      <Text
+        selectable
+        style={{
+          color: theme.colors.secondaryLabel,
+          fontSize: 14,
+          lineHeight: 20,
+          textAlign: "center",
+        }}
+      >
         {message}
       </Text>
     </View>
@@ -152,11 +269,32 @@ export function EmptyState({
 }
 
 export function InlineError({ message }: { message: string | null | undefined }) {
+  const theme = useMobileTheme();
   if (!message) return null;
 
   return (
-    <View className="rounded-card border border-red-border bg-red-surface p-3">
-      <Text selectable className="text-red text-body leading-body">
+    <View
+      style={{
+        alignSelf: "stretch",
+        backgroundColor: theme.colors.redSurface,
+        borderColor: theme.colors.redBorder,
+        borderCurve: "continuous",
+        borderRadius: 16,
+        borderWidth: StyleSheet.hairlineWidth,
+        paddingHorizontal: 14,
+        paddingVertical: 12,
+      }}
+    >
+      <Text
+        selectable
+        style={{
+          color: theme.colors.red,
+          fontSize: 14,
+          fontWeight: "500",
+          lineHeight: 20,
+          textAlign: "center",
+        }}
+      >
         {message}
       </Text>
     </View>

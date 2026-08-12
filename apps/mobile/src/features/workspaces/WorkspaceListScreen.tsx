@@ -1,15 +1,14 @@
 import { useMobileTheme } from "@/theme/theme-store";
-import { radii } from "@/theme/radii";
+import { expoUiButtonStretchModifiers } from "@/ui/primitives/expo-ui-button-modifiers";
 import { Button, Host } from "@expo/ui";
-import { fillMaxWidth } from "@expo/ui/jetpack-compose/modifiers";
-import { controlSize, frame } from "@expo/ui/swift-ui/modifiers";
 import { useEffect, useMemo, useRef } from "react";
-import { Platform, Text, View } from "react-native";
+import { Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import type { ProjectWorkspaceBootstrapResponse } from "@/api/types";
 import { wsActions } from "@/api/ws-actions";
 import { getAutoConnectComputerId } from "@/features/computers/computer-selection";
+import { AuthConnectContent } from "@/features/onboarding/AuthConnectContent";
 import { useRelayClient } from "@/hooks/use-relay-client";
 import { requireDeviceCredential } from "@/lib/device-credential";
 import { useMobileWs } from "@/providers/MobileWsProvider";
@@ -18,12 +17,12 @@ import { hydrateRecentWorkspaces, useRecentWorkspacesStore } from "@/stores/rece
 import { useSessionStore } from "@/stores/session-store";
 import { AppScreen, EmptyState, InlineError, Section } from "@/ui/layout/app-screen";
 import { Row, Separator } from "@/ui/layout/row";
+import {
+  expoUiButtonHostStyle,
+  expoUiPrimaryStyle,
+} from "@/ui/primitives/expo-ui-button-styles";
 
-const buttonStretchModifiers = Platform.select({
-  ios: [frame({ maxWidth: Number.POSITIVE_INFINITY }), controlSize("large")],
-  android: [fillMaxWidth()],
-  default: undefined,
-});
+const buttonStretchModifiers = expoUiButtonStretchModifiers;
 
 const EMPTY_BOOTSTRAP: ProjectWorkspaceBootstrapResponse = {
   projects: [],
@@ -134,92 +133,29 @@ export function WorkspaceListScreen() {
   }, [bootstrap, recentWorkspaceRecords, selectedServerId]);
 
   if (!isHomeConnected) {
-    return (
-      <AppScreen contentFlex>
-        <View className="w-full items-center gap-6 px-2">
-          <View className="items-center gap-3">
-            <Text className="max-w-[320px] text-center font-bold text-label text-hero-title leading-hero-title tracking-hero-title">
-              {welcomeHeadline}
-            </Text>
-            <Text
-              className="max-w-[300px] text-center text-secondary-label text-hero-subtitle leading-hero-subtitle"
-              numberOfLines={3}
-            >
-              {disconnectedHomeSubtitle(hasDeviceCredential)}
-            </Text>
-          </View>
-
-          <View className="w-full max-w-[360px] gap-action-row-gap">
-            <Host
-      matchContents={{ vertical: true }}
-      colorScheme={theme.colorScheme}
-      seedColor={theme.colors.ctaFill}
-      style={{ alignSelf: "stretch", width: "100%" }}
-    >
-      <Button
-        label={"Pair via QR"}
-        onPress={() => router.push("/sign-in?mode=scan")}
-        modifiers={buttonStretchModifiers}
-        style={{
-      backgroundColor: theme.colors.ctaFill,
-      borderRadius: radii.control,
-      height: 52,
-      paddingHorizontal: 22,
-    }}
-        variant="filled"
-      />
-    </Host>
-            <Host
-      matchContents={{ vertical: true }}
-      colorScheme={theme.colorScheme}
-      seedColor={theme.colors.label}
-      style={{ alignSelf: "stretch", width: "100%" }}
-    >
-      <Button
-        label={"Sign in"}
-        onPress={() => router.push("/sign-in")}
-        modifiers={buttonStretchModifiers}
-        style={{
-      backgroundColor: theme.colors.control,
-      borderColor: theme.colors.controlBorder,
-      borderRadius: radii.control,
-      borderWidth: 1,
-      height: 52,
-      paddingHorizontal: 22,
-    }}
-        variant="outlined"
-      />
-    </Host>
-          </View>
-
-          <InlineError message={sessionError ?? computersError} />
-        </View>
-      </AppScreen>
-    );
+    // Same pair / OAuth surface as the sign-in sheet, embedded full-page under
+    // the native Atmos header — no intermediate empty “Pair via QR” home.
+    return <AuthConnectContent presentation="screen" />;
   }
 
+  const browseStyle = expoUiPrimaryStyle(theme.colors);
   return (
     <AppScreen
       footer={
         <Host
-      matchContents={{ vertical: true }}
-      colorScheme={theme.colorScheme}
-      seedColor={theme.colors.ctaFill}
-      style={{ alignSelf: "stretch", width: "100%" }}
-    >
-      <Button
-        label={"Browse workspaces"}
-        onPress={() => router.push("/workspaces")}
-        modifiers={buttonStretchModifiers}
-        style={{
-      backgroundColor: theme.colors.ctaFill,
-      borderRadius: radii.control,
-      height: 52,
-      paddingHorizontal: 22,
-    }}
-        variant="filled"
-      />
-    </Host>
+          matchContents={{ vertical: true }}
+          colorScheme={theme.colorScheme}
+          seedColor={browseStyle.seedColor}
+          style={expoUiButtonHostStyle}
+        >
+          <Button
+            label="Browse workspaces"
+            onPress={() => router.push("/workspaces")}
+            modifiers={buttonStretchModifiers}
+            style={browseStyle.style}
+            variant={browseStyle.variant}
+          />
+        </Host>
       }
     >
       <View className="items-center gap-3 px-2 pb-4 pt-8">
@@ -284,13 +220,6 @@ export function WorkspaceListScreen() {
       <InlineError message={sessionError ?? computersError ?? workspaceError} />
     </AppScreen>
   );
-}
-
-function disconnectedHomeSubtitle(hasDeviceCredential: boolean) {
-  if (!hasDeviceCredential) {
-    return "Pair this phone with Atmos to open workspaces on your Computer.";
-  }
-  return "Connect to your Computer to browse workspaces.";
 }
 
 function formatRecentAccessedAt(value: string) {

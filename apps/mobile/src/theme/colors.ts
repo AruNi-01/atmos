@@ -29,6 +29,8 @@ export const lightColors = {
   controlBorder: "rgba(10, 10, 11, 0.10)",
   controlDisabled: "rgba(10, 10, 11, 0.045)",
   controlElevated: "#ffffff",
+  /** Solid secondary CTA fill (single layer — not glass + border). */
+  controlSecondary: "#e5e5ea",
   controlGlassTint: "rgba(255, 255, 255, 0.24)",
   glassBorder: "rgba(10, 10, 11, 0.08)",
   glassFallback: "rgba(255, 255, 255, 0.82)",
@@ -72,6 +74,8 @@ export const darkColors: MobileThemeColors = {
   controlBorder: "rgba(255, 255, 255, 0.12)",
   controlDisabled: "#343436",
   controlElevated: "#3a3a3c",
+  /** Solid secondary CTA fill (single layer — not glass + border). */
+  controlSecondary: "#3a3a3c",
   controlGlassTint: "rgba(58, 58, 60, 0.38)",
   glassBorder: "rgba(255, 255, 255, 0.08)",
   glassFallback: "rgba(44, 44, 46, 0.94)",

@@ -1,70 +1,124 @@
 import { Button, Host } from "@expo/ui";
-import { fillMaxWidth } from "@expo/ui/jetpack-compose/modifiers";
-import { controlSize, frame } from "@expo/ui/swift-ui/modifiers";
 import type { ReactNode } from "react";
-import { Platform, Pressable, Text, View } from "react-native";
-import { useRouter } from "expo-router";
+import { useEffect } from "react";
+import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import type { ComputerRow } from "@/api/types";
-import { AppScreen, EmptyState, InlineError, Section } from "@/ui/layout/app-screen";
-import { Row, Separator } from "@/ui/layout/row";
-import { NativeSegmentedControl, NativeTextInput } from "@/ui/primitives/native-controls";
-import {
-  ChevronRightIcon,
-  LaptopIcon,
-  SunMoonIcon,
-} from "@/ui/icons/lucide-native";
 import { useMobileSettingsController } from "@/features/settings/use-mobile-settings-controller";
 import { radii } from "@/theme/radii";
 import { typography } from "@/theme/typography";
-import { themePreferenceOptions, useMobileTheme, type MobileThemePreference } from "@/theme/theme-store";
+import {
+  themePreferenceOptions,
+  useMobileTheme,
+  type MobileThemePreference,
+} from "@/theme/theme-store";
+import { AppScreen, EmptyState, InlineError, Section } from "@/ui/layout/app-screen";
+import { Row, Separator } from "@/ui/layout/row";
+import {
+  ChevronRightIcon,
+  LaptopIcon,
+  LinkIcon,
+  LogOutIcon,
+  PlusCircleIcon,
+  SunMoonIcon,
+  UserIcon,
+} from "@/ui/icons/lucide-native";
+import { NativeSegmentedControl, NativeTextInput } from "@/ui/primitives/native-controls";
+import { expoUiButtonStretchModifiers } from "@/ui/primitives/expo-ui-button-modifiers";
+import {
+  expoUiButtonHostStyle,
+  expoUiPrimaryStyle,
+  expoUiSecondaryStyle,
+} from "@/ui/primitives/expo-ui-button-styles";
 
-const buttonStretchModifiers = Platform.select({
-  ios: [frame({ maxWidth: Number.POSITIVE_INFINITY }), controlSize("large")],
-  android: [fillMaxWidth()],
-  default: undefined,
-});
+const buttonStretchModifiers = expoUiButtonStretchModifiers;
 
-type SettingsRoute = "/settings/computers";
-
-type SettingsEntry = {
-  description: string;
-  icon: typeof LaptopIcon;
-  id: string;
-  route: SettingsRoute;
-  title: string;
-};
+type LucideIcon = typeof LaptopIcon;
 
 export function SettingsScreen() {
   return <SettingsIndexScreen />;
 }
 
+/** Grok-style root: profile row + short section lists. No card CTAs. */
 export function SettingsIndexScreen() {
   const router = useRouter();
   const theme = useMobileTheme();
-
-  const systemEntries: SettingsEntry[] = [
-    {
-      description: "Account pairing, registration, and Computers linked to this phone.",
-      icon: LaptopIcon,
-      id: "atmos-computer",
-      route: "/settings/computers",
-      title: "Atmos Computer",
-    },
-  ];
+  const settings = useMobileSettingsController();
+  const onlineCount = settings.activeComputers.filter((c) => c.online).length;
+  const computersMeta =
+    settings.activeComputers.length === 0
+      ? "None"
+      : `${settings.activeComputers.length}${onlineCount > 0 ? ` · ${onlineCount} online` : ""}`;
 
   return (
     <AppScreen surface="sheet">
+      <Section>
+        <SettingsProfileRow
+          signedIn={settings.hasDeviceCredential}
+          onPress={() => router.push("/sign-in")}
+        />
+      </Section>
+
+      <Section label="Account">
+        <SettingsListRow
+          Icon={UserIcon}
+          title={settings.hasDeviceCredential ? "Re-pair phone" : "Sign in / Pair"}
+          onPress={() => router.push("/sign-in")}
+        />
+        {settings.hasDeviceCredential ? (
+          <>
+            <Separator />
+            <SettingsListRow
+              Icon={LogOutIcon}
+              title={
+                settings.signOutPhone.isPending ? "Signing out..." : "Sign out phone"
+              }
+              destructive
+              onPress={
+                settings.signOutPhone.isPending
+                  ? undefined
+                  : settings.confirmSignOutPhone
+              }
+            />
+          </>
+        ) : null}
+      </Section>
+
+      <Section label="Computer">
+        <SettingsListRow
+          Icon={LinkIcon}
+          title="Relay"
+          value={shortRelayHost(settings.relayUrl)}
+          onPress={() => router.push("/settings/relay")}
+        />
+        <Separator />
+        <SettingsListRow
+          Icon={LaptopIcon}
+          title="My Computers"
+          value={computersMeta}
+          onPress={() => router.push("/settings/computers")}
+        />
+        <Separator />
+        <SettingsListRow
+          Icon={PlusCircleIcon}
+          title="Register Computer"
+          onPress={() => router.push("/settings/register")}
+        />
+      </Section>
+
       <Section label="Preferences">
-        <View className="gap-3 p-card-padding">
-          <SettingsIconTextRow
-            description={
-              theme.preference === "system"
-                ? "Follow system appearance"
-                : `${theme.preference === "dark" ? "Dark" : "Light"} mode`
-            }
-            Icon={SunMoonIcon}
-            title="Theme"
-          />
+        <View style={{ gap: 12, paddingHorizontal: 16, paddingVertical: 14 }}>
+          <View style={{ alignItems: "center", flexDirection: "row", gap: 12 }}>
+            <SettingsIconWell Icon={SunMoonIcon} />
+            <Text
+              style={[
+                typography.rowTitle,
+                { color: theme.colors.label, flex: 1 },
+              ]}
+            >
+              Theme
+            </Text>
+          </View>
           <NativeSegmentedControl<MobileThemePreference>
             onValueChange={theme.setPreference}
             options={themePreferenceOptions}
@@ -73,85 +127,22 @@ export function SettingsIndexScreen() {
         </View>
       </Section>
 
-      <Section label="System & Integration">
-        {systemEntries.map((entry, index) => (
-          <View key={entry.id}>
-            <SettingsNavRow entry={entry} onPress={() => router.push(entry.route)} />
-            {index < systemEntries.length - 1 ? <Separator /> : null}
-          </View>
-        ))}
-      </Section>
+      <InlineError message={settings.error} />
     </AppScreen>
   );
 }
 
-export function SettingsComputersScreen() {
+/** Sparse form: fields + one Save action (Grok form density). */
+export function SettingsRelayScreen() {
   const theme = useMobileTheme();
-  const router = useRouter();
   const settings = useMobileSettingsController();
-  const relayConfigured = settings.relayConfigured;
+  const canSave = settings.canSaveRelaySettings && !settings.saveRelaySettings.isPending;
+  const saveStyle = expoUiPrimaryStyle(theme.colors, !canSave);
 
   return (
     <AppScreen surface="sheet">
-      <Section label="Account">
-        <View className="gap-3.5 p-card-padding">
-          <SettingsHint
-            message={
-              settings.hasDeviceCredential
-                ? "This phone is signed in with a Hub device. The credential is never shown."
-                : "Sign in or scan a Desktop/Web pair QR to link this phone."
-            }
-          />
-          <View className="flex-row gap-action-row-gap">
-            <Host
-      matchContents={{ vertical: true }}
-      colorScheme={theme.colorScheme}
-      seedColor={theme.colors.label}
-      style={{ alignSelf: "stretch", flex: 1, minWidth: 0, width: "100%" }}
-    >
-      <Button
-        label={settings.hasDeviceCredential ? "Re-pair" : "Sign in / Scan"}
-        onPress={() => router.push("/sign-in")}
-        modifiers={buttonStretchModifiers}
-        style={{
-      backgroundColor: theme.colors.control,
-      borderColor: theme.colors.controlBorder,
-      borderRadius: radii.control,
-      borderWidth: 1,
-      height: 52,
-      paddingHorizontal: 22,
-    }}
-        variant="outlined"
-      />
-    </Host>
-            <Host
-      matchContents={{ vertical: true }}
-      colorScheme={theme.colorScheme}
-      seedColor={!settings.hasDeviceCredential || settings.signOutPhone.isPending ? theme.colors.tertiaryLabel : theme.colors.red}
-      style={{ alignSelf: "stretch", flex: 1, minWidth: 0, width: "100%" }}
-    >
-      <Button
-        disabled={!settings.hasDeviceCredential || settings.signOutPhone.isPending}
-        label={settings.signOutPhone.isPending ? "Signing out..." : "Sign out phone"}
-        onPress={(!settings.hasDeviceCredential || settings.signOutPhone.isPending) ? undefined : (settings.confirmSignOutPhone)}
-        modifiers={buttonStretchModifiers}
-        style={{
-      backgroundColor: !settings.hasDeviceCredential || settings.signOutPhone.isPending ? theme.colors.control : theme.colors.redSurface,
-      borderColor: !settings.hasDeviceCredential || settings.signOutPhone.isPending ? theme.colors.separator : theme.colors.redBorder,
-      borderRadius: radii.control,
-      borderWidth: 1,
-      height: 52,
-      paddingHorizontal: 22,
-    }}
-        variant="outlined"
-      />
-    </Host>
-          </View>
-        </View>
-      </Section>
-
-      <Section label="Relay">
-        <View className="gap-3.5 p-card-padding">
+      <View className="gap-5">
+        <FieldBlock label="Relay URL">
           <NativeTextInput
             autoCapitalize="none"
             autoCorrect={false}
@@ -159,9 +150,12 @@ export function SettingsComputersScreen() {
               settings.setRelayDraft(value);
               settings.setError(null);
             }}
-            placeholder="Relay URL"
+            placeholder="https://relay.atmos.land"
             value={settings.relayDraft}
           />
+        </FieldBlock>
+
+        <FieldBlock label="Secret key">
           <NativeTextInput
             autoCapitalize="none"
             autoCorrect={false}
@@ -169,256 +163,298 @@ export function SettingsComputersScreen() {
               settings.setRelaySecretDraft(value);
               settings.setError(null);
             }}
-            placeholder="Relay secret key (self-hosted only)"
+            placeholder="Self-hosted only"
             secureTextEntry
             value={settings.relaySecretDraft}
           />
-          <Host
-            matchContents={{ vertical: true }}
-            colorScheme={theme.colorScheme}
-            seedColor={
-              relayConfigured || settings.saveRelaySettings.isPending
-                ? theme.colors.tertiaryLabel
-                : theme.colors.ctaFill
+        </FieldBlock>
+
+        <Host
+          matchContents={{ vertical: true }}
+          colorScheme={theme.colorScheme}
+          seedColor={saveStyle.seedColor}
+          style={expoUiButtonHostStyle}
+        >
+          <Button
+            disabled={!canSave}
+            label={
+              settings.saveRelaySettings.isPending
+                ? "Saving..."
+                : settings.relayConfigured
+                  ? "Saved"
+                  : "Save"
             }
-            style={{ alignSelf: "stretch", width: "100%" }}
-          >
-            <Button
-              disabled={relayConfigured || settings.saveRelaySettings.isPending}
-              label={settings.saveRelaySettings.isPending ? "Saving..." : "Save Relay"}
-              modifiers={buttonStretchModifiers}
-              onPress={
-                relayConfigured || settings.saveRelaySettings.isPending
-                  ? undefined
-                  : () => settings.saveRelaySettings.mutate()
-              }
-              style={
-                relayConfigured
-                  ? {
-                      backgroundColor: theme.colors.control,
-                      borderColor: theme.colors.separator,
-                      borderRadius: radii.control,
-                      borderWidth: 1,
-                      height: 52,
-                      paddingHorizontal: 22,
-                    }
-                  : {
-                      backgroundColor: settings.saveRelaySettings.isPending
-                        ? theme.colors.controlDisabled
-                        : theme.colors.ctaFill,
-                      borderRadius: radii.control,
-                      height: 52,
-                      paddingHorizontal: 22,
-                    }
-              }
-              variant={relayConfigured ? "outlined" : "filled"}
-            />
-          </Host>
-          <SettingsHint
-            message={
-              relayConfigured
-                ? "Relay settings are already saved."
-                : "relay.atmos.land does not need a secret. Self-hosted relays use RELAY_SECRET_KEY."
-            }
+            modifiers={buttonStretchModifiers}
+            onPress={canSave ? () => settings.saveRelaySettings.mutate() : undefined}
+            style={saveStyle.style}
+            variant={saveStyle.variant}
           />
-        </View>
-      </Section>
+        </Host>
 
-      <Section label="Register Computer">
-        <View className="gap-3.5 p-card-padding">
-          <Host
-      matchContents={{ vertical: true }}
-      colorScheme={theme.colorScheme}
-      seedColor={!settings.hasDeviceCredential ||
-              settings.createRegisterCommand.isPending ? theme.colors.tertiaryLabel : theme.colors.ctaFill}
-      style={{ alignSelf: "stretch", width: "100%" }}
-    >
-      <Button
-        disabled={!settings.hasDeviceCredential ||
-              settings.createRegisterCommand.isPending}
-        label={settings.createRegisterCommand.isPending ? "Creating..." : "Create Register Command"}
-        onPress={(!settings.hasDeviceCredential ||
-              settings.createRegisterCommand.isPending) ? undefined : (() => settings.createRegisterCommand.mutate())}
-        modifiers={buttonStretchModifiers}
-        style={{
-      backgroundColor: !settings.hasDeviceCredential ||
-              settings.createRegisterCommand.isPending ? theme.colors.controlDisabled : theme.colors.ctaFill,
-      borderRadius: radii.control,
-      height: 52,
-      paddingHorizontal: 22,
-    }}
-        variant="filled"
+        <InlineError message={settings.error} />
+      </View>
+    </AppScreen>
+  );
+}
+
+/** List of Computers only — refresh via pull or single quiet action. */
+export function SettingsComputersScreen() {
+  const theme = useMobileTheme();
+  const router = useRouter();
+  const settings = useMobileSettingsController();
+  const refreshStyle = expoUiSecondaryStyle(
+    theme.colors,
+    settings.computersQuery.isFetching,
+  );
+
+  return (
+    <AppScreen surface="sheet">
+      <Stack.Screen
+        options={{
+          ...(process.env.EXPO_OS === "ios"
+            ? {
+                unstable_headerRightItems: () => [
+                  {
+                    type: "button" as const,
+                    label: "Refresh",
+                    icon: { type: "sfSymbol" as const, name: "arrow.clockwise" as const },
+                    disabled: settings.computersQuery.isFetching,
+                    onPress: () => void settings.computersQuery.refetch(),
+                    accessibilityLabel: "Refresh Computers",
+                    variant: "plain" as const,
+                  },
+                ],
+              }
+            : {
+                headerRight: () => null,
+              }),
+        }}
       />
-    </Host>
-          {settings.registerCommand ? (
-            <View
-              className="gap-2.5 overflow-hidden p-3.5"
-              style={{
-                backgroundColor: theme.colors.terminalBg,
-                borderCurve: "continuous",
-                borderRadius: radii.cardNested,
-              }}
-            >
-              <Text
-                selectable
-                className="text-terminal-muted text-body-small leading-body-small"
-              >
-                Run this once on the machine that hosts Atmos Server.
-              </Text>
-              <Text
-                selectable
-                className="font-mono text-terminal-fg text-mono-code leading-mono-code"
-              >
-                {settings.registerCommand}
-              </Text>
-            </View>
-          ) : (
-            <SettingsHint message="Create a one-time command to register another Mac or remote server." />
-          )}
-        </View>
-      </Section>
 
-      <Section label="My Computers">
-        {settings.activeComputers.length === 0 ? (
-          <View>
-            <EmptyState
-              title="No Computers"
-              message="Register an Atmos Server or refresh after an existing Computer reconnects."
-            />
+      {settings.activeComputers.length === 0 ? (
+        <Section>
+          <EmptyState
+            layout="section"
+            title="No Computers"
+            message="Register a server, then refresh."
+          />
+          {process.env.EXPO_OS !== "ios" ? (
             <View className="px-card-padding pb-card-padding">
               <Host
-      matchContents={{ vertical: true }}
-      colorScheme={theme.colorScheme}
-      seedColor={settings.computersQuery.isFetching ? theme.colors.tertiaryLabel : theme.colors.label}
-      style={{ alignSelf: "stretch", width: "100%" }}
-    >
-      <Button
-        disabled={settings.computersQuery.isFetching}
-        label={settings.computersQuery.isFetching ? "Refreshing..." : "Refresh Computers"}
-        onPress={(settings.computersQuery.isFetching) ? undefined : (() => void settings.computersQuery.refetch())}
-        modifiers={buttonStretchModifiers}
-        style={{
-      backgroundColor: theme.colors.control,
-      borderColor: settings.computersQuery.isFetching ? theme.colors.separator : theme.colors.controlBorder,
-      borderRadius: radii.control,
-      borderWidth: 1,
-      height: 52,
-      paddingHorizontal: 22,
-    }}
-        variant="outlined"
-      />
-    </Host>
-            </View>
-          </View>
-        ) : (
-          <View>
-            {settings.activeComputers.map((computer, index) => (
-              <View key={computer.server_id}>
-                <ComputerListRow
-                  computer={computer}
-                  selectedServerId={settings.selectedServerId}
-                  onPress={() => settings.selectComputer(computer)}
+                matchContents={{ vertical: true }}
+                colorScheme={theme.colorScheme}
+                seedColor={refreshStyle.seedColor}
+                style={expoUiButtonHostStyle}
+              >
+                <Button
+                  disabled={settings.computersQuery.isFetching}
+                  label={
+                    settings.computersQuery.isFetching ? "Refreshing..." : "Refresh"
+                  }
+                  modifiers={buttonStretchModifiers}
+                  onPress={
+                    settings.computersQuery.isFetching
+                      ? undefined
+                      : () => void settings.computersQuery.refetch()
+                  }
+                  style={refreshStyle.style}
+                  variant={refreshStyle.variant}
                 />
-                {index < settings.activeComputers.length - 1 ? <Separator /> : null}
-              </View>
-            ))}
-            <View className="px-card-padding py-1">
-              <Host
-      matchContents={{ vertical: true }}
-      colorScheme={theme.colorScheme}
-      seedColor={settings.computersQuery.isFetching ? theme.colors.tertiaryLabel : theme.colors.label}
-      style={{ alignSelf: "stretch", width: "100%" }}
-    >
-      <Button
-        disabled={settings.computersQuery.isFetching}
-        label={settings.computersQuery.isFetching ? "Refreshing..." : "Refresh"}
-        onPress={(settings.computersQuery.isFetching) ? undefined : (() => void settings.computersQuery.refetch())}
-        modifiers={buttonStretchModifiers}
-        style={{
-      backgroundColor: theme.colors.control,
-      borderColor: settings.computersQuery.isFetching ? theme.colors.separator : theme.colors.controlBorder,
-      borderRadius: radii.control,
-      borderWidth: 1,
-      height: 52,
-      paddingHorizontal: 22,
-    }}
-        variant="outlined"
-      />
-    </Host>
+              </Host>
             </View>
-          </View>
-        )}
-      </Section>
-
-      <Section label="Selected Computer">
-        <View className="gap-3.5 p-card-padding">
-          <SelectedComputerSummary computer={settings.selectedComputer} />
-          <NativeTextInput
-            onChangeText={settings.setRenameValue}
-            placeholder="New Computer name"
-            value={settings.renameValue}
-          />
-          <View className="flex-row gap-action-row-gap">
-            <Host
-      matchContents={{ vertical: true }}
-      colorScheme={theme.colorScheme}
-      seedColor={!settings.selectedServerId || settings.rename.isPending || !settings.renameValue.trim() ? theme.colors.tertiaryLabel : theme.colors.ctaFill}
-      style={{ alignSelf: "stretch", flex: 1, minWidth: 0, width: "100%" }}
-    >
-      <Button
-        disabled={!settings.selectedServerId || settings.rename.isPending || !settings.renameValue.trim()}
-        label={settings.rename.isPending ? "Renaming..." : "Rename"}
-        onPress={(!settings.selectedServerId || settings.rename.isPending || !settings.renameValue.trim()) ? undefined : (() => settings.rename.mutate())}
-        modifiers={buttonStretchModifiers}
-        style={{
-      backgroundColor: !settings.selectedServerId || settings.rename.isPending || !settings.renameValue.trim() ? theme.colors.controlDisabled : theme.colors.ctaFill,
-      borderRadius: radii.control,
-      height: 52,
-      paddingHorizontal: 22,
-    }}
-        variant="filled"
-      />
-    </Host>
-            <Host
-      matchContents={{ vertical: true }}
-      colorScheme={theme.colorScheme}
-      seedColor={!settings.selectedServerId || settings.revoke.isPending ? theme.colors.tertiaryLabel : theme.colors.red}
-      style={{ alignSelf: "stretch", flex: 1, minWidth: 0, width: "100%" }}
-    >
-      <Button
-        disabled={!settings.selectedServerId || settings.revoke.isPending}
-        label={settings.revoke.isPending ? "Revoking..." : "Revoke"}
-        onPress={(!settings.selectedServerId || settings.revoke.isPending) ? undefined : (settings.confirmRevokeSelectedComputer)}
-        modifiers={buttonStretchModifiers}
-        style={{
-      backgroundColor: !settings.selectedServerId || settings.revoke.isPending ? theme.colors.control : theme.colors.redSurface,
-      borderColor: !settings.selectedServerId || settings.revoke.isPending ? theme.colors.separator : theme.colors.redBorder,
-      borderRadius: radii.control,
-      borderWidth: 1,
-      height: 52,
-      paddingHorizontal: 22,
-    }}
-        variant="outlined"
-      />
-    </Host>
-          </View>
-        </View>
-      </Section>
+          ) : null}
+        </Section>
+      ) : (
+        <Section>
+          {settings.activeComputers.map((computer, index) => (
+            <View key={computer.server_id}>
+              <ComputerListRow
+                computer={computer}
+                selectedServerId={settings.selectedServerId}
+                onPress={() => {
+                  settings.focusComputer(computer);
+                  router.push({
+                    pathname: "/settings/computer",
+                    params: { serverId: computer.server_id },
+                  });
+                }}
+              />
+              {index < settings.activeComputers.length - 1 ? <Separator /> : null}
+            </View>
+          ))}
+        </Section>
+      )}
 
       <InlineError message={settings.error} />
     </AppScreen>
   );
 }
 
-function SettingsNavRow({
-  entry,
+/** Single Computer: name field + destructive revoke row. */
+export function SettingsComputerDetailScreen() {
+  const theme = useMobileTheme();
+  const params = useLocalSearchParams<{ serverId?: string }>();
+  const settings = useMobileSettingsController();
+  const serverId = typeof params.serverId === "string" ? params.serverId : null;
+  const computer =
+    settings.activeComputers.find((row) => row.server_id === serverId) ??
+    settings.selectedComputer;
+  const renameDisabled =
+    !serverId ||
+    settings.rename.isPending ||
+    !settings.renameValue.trim();
+  const renameStyle = expoUiPrimaryStyle(theme.colors, renameDisabled);
+
+  useEffect(() => {
+    if (!serverId) return;
+    const row = settings.activeComputers.find((c) => c.server_id === serverId);
+    if (row && settings.selectedServerId !== serverId) {
+      settings.focusComputer(row);
+    }
+  }, [serverId, settings.activeComputers, settings.focusComputer, settings.selectedServerId]);
+
+  useEffect(() => {
+    if (computer) {
+      settings.setRenameValue(computer.display_name ?? "");
+    }
+    // Prefill once per computer open.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [computer?.server_id]);
+
+  if (!computer) {
+    return (
+      <AppScreen surface="sheet">
+        <EmptyState title="Computer not found" message="Go back and pick a Computer." />
+      </AppScreen>
+    );
+  }
+
+  return (
+    <AppScreen surface="sheet">
+      <View className="gap-5">
+        <FieldBlock label="Name">
+          <NativeTextInput
+            onChangeText={settings.setRenameValue}
+            placeholder="Computer name"
+            value={settings.renameValue}
+          />
+        </FieldBlock>
+
+        <Text className="px-1 text-secondary-label" style={typography.rowSubtitle}>
+          {computer.server_id}
+        </Text>
+
+        <Host
+          matchContents={{ vertical: true }}
+          colorScheme={theme.colorScheme}
+          seedColor={renameStyle.seedColor}
+          style={expoUiButtonHostStyle}
+        >
+          <Button
+            disabled={renameDisabled}
+            label={settings.rename.isPending ? "Saving..." : "Save name"}
+            modifiers={buttonStretchModifiers}
+            onPress={renameDisabled ? undefined : () => settings.rename.mutate()}
+            style={renameStyle.style}
+            variant={renameStyle.variant}
+          />
+        </Host>
+
+        <Section>
+          <Pressable
+            accessibilityRole="button"
+            disabled={settings.revoke.isPending}
+            onPress={settings.confirmRevokeSelectedComputer}
+            style={({ pressed }) =>
+              pressed ? { backgroundColor: theme.colors.mutedPressed } : undefined
+            }
+          >
+            <View className="min-h-row-min-height items-center justify-center px-row-x py-row-y">
+              <Text style={[typography.rowTitle, { color: theme.colors.red }]}>
+                {settings.revoke.isPending ? "Revoking..." : "Revoke Computer"}
+              </Text>
+            </View>
+          </Pressable>
+        </Section>
+
+        <InlineError message={settings.error} />
+      </View>
+    </AppScreen>
+  );
+}
+
+/** Register: one action + optional command block. */
+export function SettingsRegisterScreen() {
+  const theme = useMobileTheme();
+  const settings = useMobileSettingsController();
+  const disabled =
+    !settings.hasDeviceCredential || settings.createRegisterCommand.isPending;
+  const createStyle = expoUiPrimaryStyle(theme.colors, disabled);
+
+  return (
+    <AppScreen surface="sheet">
+      <View className="gap-5">
+        {!settings.hasDeviceCredential ? (
+          <EmptyState
+            title="Sign in required"
+            message="Pair this phone before creating a register command."
+          />
+        ) : (
+          <Host
+            matchContents={{ vertical: true }}
+            colorScheme={theme.colorScheme}
+            seedColor={createStyle.seedColor}
+            style={expoUiButtonHostStyle}
+          >
+            <Button
+              disabled={disabled}
+              label={
+                settings.createRegisterCommand.isPending
+                  ? "Creating..."
+                  : "Create command"
+              }
+              modifiers={buttonStretchModifiers}
+              onPress={
+                disabled ? undefined : () => settings.createRegisterCommand.mutate()
+              }
+              style={createStyle.style}
+              variant={createStyle.variant}
+            />
+          </Host>
+        )}
+
+        {settings.registerCommand ? (
+          <View
+            className="gap-2.5 overflow-hidden p-3.5"
+            style={{
+              backgroundColor: theme.colors.terminalBg,
+              borderCurve: "continuous",
+              borderRadius: radii.cardNested,
+            }}
+          >
+            <Text
+              selectable
+              className="font-mono text-terminal-fg text-mono-code leading-mono-code"
+            >
+              {settings.registerCommand}
+            </Text>
+          </View>
+        ) : null}
+
+        <InlineError message={settings.error} />
+      </View>
+    </AppScreen>
+  );
+}
+
+function SettingsProfileRow({
+  signedIn,
   onPress,
 }: {
-  entry: SettingsEntry;
+  signedIn: boolean;
   onPress: () => void;
 }) {
   const theme = useMobileTheme();
-  const Icon = entry.icon;
 
   return (
     <Pressable
@@ -428,61 +464,155 @@ function SettingsNavRow({
         pressed ? { backgroundColor: theme.colors.mutedPressed } : undefined
       }
     >
-      <View className="min-h-row-min-height px-row-x py-row-y">
-        <SettingsIconTextRow
-          description={entry.description}
-          Icon={Icon}
-          title={entry.title}
-          trailing={<ChevronRightIcon color={theme.colors.tertiaryLabel} size={18} strokeWidth={2.6} />}
-        />
+      <View
+        style={{
+          alignItems: "center",
+          flexDirection: "row",
+          gap: 12,
+          minHeight: 64,
+          paddingHorizontal: 16,
+          paddingVertical: 14,
+        }}
+      >
+        <View
+          style={{
+            alignItems: "center",
+            backgroundColor: theme.colors.cardSubtle,
+            borderRadius: 999,
+            height: 48,
+            justifyContent: "center",
+            width: 48,
+          }}
+        >
+          <UserIcon color={theme.colors.label} size={22} strokeWidth={2.2} />
+        </View>
+        <View style={{ flex: 1, gap: 2, minWidth: 0 }}>
+          <Text
+            numberOfLines={1}
+            style={[typography.rowTitle, { color: theme.colors.label }]}
+          >
+            {signedIn ? "This phone" : "Not signed in"}
+          </Text>
+          <Text
+            numberOfLines={1}
+            style={[typography.rowSubtitle, { color: theme.colors.secondaryLabel }]}
+          >
+            {signedIn ? "Hub device linked" : "Sign in or pair with Desktop"}
+          </Text>
+        </View>
+        <ChevronRightIcon color={theme.colors.tertiaryLabel} size={18} strokeWidth={2.6} />
       </View>
     </Pressable>
   );
 }
 
-function SettingsIconTextRow({
-  description,
+function SettingsListRow({
   Icon,
   title,
-  trailing,
+  value,
+  onPress,
+  destructive = false,
 }: {
-  description: string;
-  Icon: typeof LaptopIcon;
+  Icon: LucideIcon;
   title: string;
-  trailing?: ReactNode;
+  value?: string;
+  onPress?: () => void;
+  destructive?: boolean;
 }) {
-  return (
-    <View className="flex-row items-center gap-3">
+  const theme = useMobileTheme();
+
+  const body = (
+    <View
+      style={{
+        alignItems: "center",
+        flexDirection: "row",
+        gap: 12,
+        minHeight: 64,
+        paddingHorizontal: 16,
+        paddingVertical: 14,
+      }}
+    >
       <SettingsIconWell Icon={Icon} />
-      <View className="min-w-0 flex-1 gap-0.5">
-        <Text className="text-label" numberOfLines={1} style={typography.rowTitle}>
-          {title}
+      <Text
+        numberOfLines={1}
+        style={[
+          typography.rowTitle,
+          {
+            color: destructive ? theme.colors.red : theme.colors.label,
+            flex: 1,
+            minWidth: 0,
+          },
+        ]}
+      >
+        {title}
+      </Text>
+      {value ? (
+        <Text
+          numberOfLines={1}
+          style={[
+            typography.rowMeta,
+            { color: theme.colors.secondaryLabel, maxWidth: "42%" },
+          ]}
+        >
+          {value}
         </Text>
-        <Text className="text-secondary-label" numberOfLines={2} style={typography.rowSubtitle}>
-          {description}
-        </Text>
-      </View>
-      {trailing}
+      ) : null}
+      {onPress && !destructive ? (
+        <ChevronRightIcon color={theme.colors.tertiaryLabel} size={18} strokeWidth={2.6} />
+      ) : null}
     </View>
+  );
+
+  if (!onPress) return body;
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      onPress={onPress}
+      style={({ pressed }) =>
+        pressed ? { backgroundColor: theme.colors.mutedPressed } : undefined
+      }
+    >
+      {body}
+    </Pressable>
   );
 }
 
-function SettingsIconWell({
-  Icon,
-}: {
-  Icon: typeof LaptopIcon;
-}) {
+function SettingsIconWell({ Icon }: { Icon: LucideIcon }) {
   const theme = useMobileTheme();
 
   return (
     <View
-      className="h-[38px] w-[38px] items-center justify-center border border-separator"
       style={{
+        alignItems: "center",
         backgroundColor: theme.colors.cardSubtle,
+        borderColor: theme.colors.separator,
         borderRadius: radii.iconWell,
+        borderWidth: StyleSheet.hairlineWidth,
+        height: 38,
+        justifyContent: "center",
+        width: 38,
       }}
     >
       <Icon color={theme.colors.label} size={18} strokeWidth={2.4} />
+    </View>
+  );
+}
+
+function FieldBlock({ label, children }: { label: string; children: ReactNode }) {
+  const theme = useMobileTheme();
+
+  return (
+    <View style={{ gap: 8 }}>
+      <Text
+        style={[
+          typography.sectionLabel,
+          { color: theme.colors.secondaryLabel, paddingHorizontal: 4 },
+        ]}
+      >
+        {label}
+      </Text>
+      {children}
     </View>
   );
 }
@@ -501,7 +631,7 @@ function ComputerListRow({
   return (
     <Row
       title={computer.display_name ?? computer.server_id}
-      subtitle={computer.server_id}
+      subtitle={computer.online ? "Online" : "Offline"}
       onPress={onPress}
     >
       <ComputerStatusIndicator online={computer.online} selected={selected} />
@@ -525,13 +655,26 @@ function ComputerStatusIndicator({
       : theme.colors.tertiaryLabel;
 
   return (
-    <View className="flex-row items-center gap-1.5">
-      <View className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: dotColor }} />
+    <View style={{ alignItems: "center", flexDirection: "row", gap: 6 }}>
+      <View
+        style={{
+          backgroundColor: dotColor,
+          borderRadius: 999,
+          height: 6,
+          width: 6,
+        }}
+      />
       <Text
-        className={
-          selected ? "text-label" : online ? "text-green" : "text-secondary-label"
-        }
-        style={typography.rowMeta}
+        style={[
+          typography.rowMeta,
+          {
+            color: selected
+              ? theme.colors.label
+              : online
+                ? theme.colors.green
+                : theme.colors.secondaryLabel,
+          },
+        ]}
       >
         {label}
       </Text>
@@ -539,27 +682,10 @@ function ComputerStatusIndicator({
   );
 }
 
-function SelectedComputerSummary({ computer }: { computer: ComputerRow | null }) {
-  if (!computer) {
-    return <SettingsHint message="Select a Computer before renaming or revoking it." />;
+function shortRelayHost(url: string) {
+  try {
+    return new URL(url).host || url;
+  } catch {
+    return url.replace(/^https?:\/\//, "").split("/")[0] || url;
   }
-
-  return (
-    <View className="gap-1">
-      <Text className="text-label" numberOfLines={1} style={typography.rowTitle}>
-        {computer.display_name ?? computer.server_id}
-      </Text>
-      <Text className="text-secondary-label" numberOfLines={1} style={typography.rowSubtitle}>
-        {computer.server_id}
-      </Text>
-    </View>
-  );
-}
-
-function SettingsHint({ message }: { message: string }) {
-  return (
-    <Text selectable className="text-secondary-label text-body-small leading-body-small">
-      {message}
-    </Text>
-  );
 }

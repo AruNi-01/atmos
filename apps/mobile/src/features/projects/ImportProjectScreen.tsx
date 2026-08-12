@@ -1,6 +1,5 @@
 import { Button, Host } from "@expo/ui";
-import { fillMaxWidth } from "@expo/ui/jetpack-compose/modifiers";
-import { controlSize, frame } from "@expo/ui/swift-ui/modifiers";
+import { expoUiButtonStretchModifiers } from "@/ui/primitives/expo-ui-button-modifiers";
 import { useEffect, useMemo, useState } from "react";
 import { Platform, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
@@ -16,12 +15,13 @@ import { wsActions } from "@/api/ws-actions";
 import type { FsEntry, ProjectWorkspaceBootstrapResponse } from "@/api/types";
 import { colors, radii } from "@/theme/colors";
 import { useMobileTheme } from "@/theme/theme-store";
+import {
+  expoUiDangerStyle,
+  expoUiPrimaryStyle,
+  expoUiSecondaryStyle,
+} from "@/ui/primitives/expo-ui-button-styles";
 
-const buttonStretchModifiers = Platform.select({
-  ios: [frame({ maxWidth: Number.POSITIVE_INFINITY }), controlSize("large")],
-  android: [fillMaxWidth()],
-  default: undefined,
-});
+const buttonStretchModifiers = expoUiButtonStretchModifiers;
 
 export function ImportProjectScreen() {
   const router = useRouter();
@@ -165,10 +165,7 @@ export function ImportProjectScreen() {
         onPress={(!readiness.canImport) ? undefined : (() => createProject.mutate())}
         modifiers={buttonStretchModifiers}
         style={{
-      backgroundColor: !readiness.canImport ? theme.colors.controlDisabled : theme.colors.ctaFill,
-      borderRadius: radii.control,
       height: 52,
-      paddingHorizontal: 22,
     }}
         variant="filled"
       />
@@ -193,7 +190,7 @@ export function ImportProjectScreen() {
           <Host
       matchContents={{ vertical: true }}
       colorScheme={theme.colorScheme}
-      seedColor={!isConnected || !path.trim() || validate.isPending ? theme.colors.tertiaryLabel : theme.colors.label}
+      seedColor={theme.colors.label}
       style={styles.stretchHost}
     >
       <Button
@@ -202,12 +199,7 @@ export function ImportProjectScreen() {
         onPress={(!isConnected || !path.trim() || validate.isPending) ? undefined : (() => validate.mutate())}
         modifiers={buttonStretchModifiers}
         style={{
-      backgroundColor: theme.colors.control,
-      borderColor: !isConnected || !path.trim() || validate.isPending ? theme.colors.separator : theme.colors.controlBorder,
-      borderRadius: radii.control,
-      borderWidth: 1,
       height: 52,
-      paddingHorizontal: 22,
     }}
         variant="outlined"
       />
@@ -228,7 +220,7 @@ export function ImportProjectScreen() {
               <Host
       matchContents={{ vertical: true }}
       colorScheme={theme.colorScheme}
-      seedColor={!home.data?.path ? theme.colors.tertiaryLabel : theme.colors.label}
+      seedColor={theme.colors.label}
       style={styles.stretchHost}
     >
       <Button
@@ -242,12 +234,7 @@ export function ImportProjectScreen() {
                 })}
         modifiers={buttonStretchModifiers}
         style={{
-      backgroundColor: theme.colors.control,
-      borderColor: !home.data?.path ? theme.colors.separator : theme.colors.controlBorder,
-      borderRadius: radii.control,
-      borderWidth: 1,
       height: 52,
-      paddingHorizontal: 22,
     }}
         variant="outlined"
       />
@@ -284,12 +271,7 @@ export function ImportProjectScreen() {
                   }}
         modifiers={buttonStretchModifiers}
         style={{
-      backgroundColor: theme.colors.control,
-      borderColor: theme.colors.controlBorder,
-      borderRadius: radii.control,
-      borderWidth: 1,
       height: 52,
-      paddingHorizontal: 22,
     }}
         variant="outlined"
       />
@@ -330,12 +312,7 @@ export function ImportProjectScreen() {
         onPress={() => openDirectory(entry)}
         modifiers={buttonStretchModifiers}
         style={{
-      backgroundColor: theme.colors.control,
-      borderColor: theme.colors.controlBorder,
-      borderRadius: radii.control,
-      borderWidth: 1,
       height: 52,
-      paddingHorizontal: 22,
     }}
         variant="outlined"
       />
@@ -351,12 +328,7 @@ export function ImportProjectScreen() {
         onPress={() => chooseEntry(entry)}
         modifiers={buttonStretchModifiers}
         style={{
-      backgroundColor: theme.colors.control,
-      borderColor: theme.colors.controlBorder,
-      borderRadius: radii.control,
-      borderWidth: 1,
       height: 52,
-      paddingHorizontal: 22,
     }}
         variant="outlined"
       />

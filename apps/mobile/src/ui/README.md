@@ -25,7 +25,7 @@ This app uses Expo UI as the base native-control layer.
 
 - Import official Universal API: `import { Host, Button } from "@expo/ui"`.
 - Layout via documented props/modifiers: `Host matchContents={{ vertical: true }}`, Button `style.height` / `paddingHorizontal`, iOS `controlSize` + `frame`, Android `fillMaxWidth`. Do not wrap with an RN paint shell or RN `<Text>` label.
-- Map theme tokens at the call site (or tiny file-local constants): filled → `ctaFill` + Host `seedColor`; outlined → `control` / `controlBorder` + `seedColor` ≈ `label`; danger → `redSurface` / `redBorder` + `seedColor` ≈ `red`.
+- Prefer pure Expo UI: `variant` + Host `seedColor` + size only. Semantic map in `expo-ui-button-styles` (primary `filled`+`ctaFill`, secondary/danger `outlined`+label/red). Large stretch via `expoUiButtonHostStyle` + `expoUiButtonStretchModifiers` (`controlSize("large")`, `frame` / `fillMaxWidth`). Do **not** paint `backgroundColor`/`borderWidth` on top of `outlined`/`filled`.
 - Do **not** introduce a shared Atmos Button wrapper component.
 
 ## Expo UI Rules

@@ -1,5 +1,6 @@
-import { AuthSignInContent } from "@/features/onboarding/AuthSignInContent";
+import { AuthConnectContent } from "@/features/onboarding/AuthConnectContent";
 
+/** Full-page connect surface (not a form sheet). */
 export function OnboardingScreen() {
-  return <AuthSignInContent surface="screen" />;
+  return <AuthConnectContent presentation="screen" />;
 }

@@ -1,19 +1,15 @@
 import { Button, Host } from "@expo/ui";
-import { fillMaxWidth } from "@expo/ui/jetpack-compose/modifiers";
-import { controlSize, frame } from "@expo/ui/swift-ui/modifiers";
+import { expoUiButtonStretchModifiers } from "@/ui/primitives/expo-ui-button-modifiers";
 import { Platform, StyleSheet, Text, View } from "react-native";
 import type { GitChangedFile } from "@/api/types";
 import { buildChangedFileGroups, countChangedFiles, type ChangedFileAction } from "@/features/git/changed-files";
 import { EmptyState } from "@/ui/layout/app-screen";
 import { Row, Separator } from "@/ui/layout/row";
-import { colors, radii } from "@/theme/colors";
+import { colors } from "@/theme/colors";
 import { useMobileTheme } from "@/theme/theme-store";
+import { expoUiSecondaryStyle } from "@/ui/primitives/expo-ui-button-styles";
 
-const buttonStretchModifiers = Platform.select({
-  ios: [frame({ maxWidth: Number.POSITIVE_INFINITY }), controlSize("large")],
-  android: [fillMaxWidth()],
-  default: undefined,
-});
+const buttonStretchModifiers = expoUiButtonStretchModifiers;
 
 export function ChangedFilesList({
   stagedFiles,
@@ -91,28 +87,26 @@ function FileSection({
             onPress={() => onOpenFile(file)}
           >
             <View style={styles.action}>
-              <Host
-      matchContents={{ vertical: true }}
-      colorScheme={theme.colorScheme}
-      seedColor={actionsDisabled ? theme.colors.tertiaryLabel : theme.colors.label}
-      style={styles.stretchHost}
-    >
-      <Button
-        disabled={actionsDisabled}
-        label={actionLabel}
-        onPress={(actionsDisabled) ? undefined : (() => onAction(file))}
-        modifiers={buttonStretchModifiers}
-        style={{
-      backgroundColor: theme.colors.control,
-      borderColor: actionsDisabled ? theme.colors.separator : theme.colors.controlBorder,
-      borderRadius: radii.control,
-      borderWidth: 1,
-      height: 52,
-      paddingHorizontal: 22,
-    }}
-        variant="outlined"
-      />
-    </Host>
+              {(() => {
+                const actionStyle = expoUiSecondaryStyle(theme.colors, actionsDisabled);
+                return (
+                  <Host
+                    matchContents={{ vertical: true }}
+                    colorScheme={theme.colorScheme}
+                    seedColor={actionStyle.seedColor}
+                    style={styles.stretchHost}
+                  >
+                    <Button
+                      disabled={actionsDisabled}
+                      label={actionLabel}
+                      onPress={actionsDisabled ? undefined : () => onAction(file)}
+                      modifiers={buttonStretchModifiers}
+                      style={actionStyle.style}
+                      variant={actionStyle.variant}
+                    />
+                  </Host>
+                );
+              })()}
             </View>
           </Row>
           {index < files.length - 1 ? <Separator /> : null}

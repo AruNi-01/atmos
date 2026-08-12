@@ -9,7 +9,7 @@ export default function SettingsComputersRoute() {
   return (
     <>
       <SettingsComputersScreen />
-      <Stack.Screen options={nativeLargeTitleOptions("Atmos Computer", theme.colors)} />
+      <Stack.Screen options={nativeLargeTitleOptions("My Computers", theme.colors)} />
     </>
   );
 }

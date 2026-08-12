@@ -1,6 +1,5 @@
 import { Button, Host } from "@expo/ui";
-import { fillMaxWidth } from "@expo/ui/jetpack-compose/modifiers";
-import { controlSize, frame } from "@expo/ui/swift-ui/modifiers";
+import { expoUiButtonStretchModifiers } from "@/ui/primitives/expo-ui-button-modifiers";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Platform, StyleSheet, Text, View } from "react-native";
 import { useMutation } from "@tanstack/react-query";
@@ -13,14 +12,11 @@ import { useGitStore } from "@/features/git/git-store";
 import { useMobileWs } from "@/providers/MobileWsProvider";
 import { wsActions } from "@/api/ws-actions";
 import type { GitChangedFile } from "@/api/types";
-import { colors, radii } from "@/theme/colors";
+import { colors } from "@/theme/colors";
 import { useMobileTheme } from "@/theme/theme-store";
+import { expoUiSecondaryStyle } from "@/ui/primitives/expo-ui-button-styles";
 
-const buttonStretchModifiers = Platform.select({
-  ios: [frame({ maxWidth: Number.POSITIVE_INFINITY }), controlSize("large")],
-  android: [fillMaxWidth()],
-  default: undefined,
-});
+const buttonStretchModifiers = expoUiButtonStretchModifiers;
 
 export function ChangesScreen({
   repoPath,
@@ -160,28 +156,27 @@ export function ChangesScreen({
               {unavailableMessage}
             </Text>
           ) : null}
-          <Host
-      matchContents={{ vertical: true }}
-      colorScheme={theme.colorScheme}
-      seedColor={!isConnected || refresh.isPending ? theme.colors.tertiaryLabel : theme.colors.label}
-      style={styles.stretchHost}
-    >
-      <Button
-        disabled={!isConnected || refresh.isPending}
-        label={refresh.isPending ? "Refreshing..." : "Refresh"}
-        onPress={(!isConnected || refresh.isPending) ? undefined : (() => refresh.mutate())}
-        modifiers={buttonStretchModifiers}
-        style={{
-      backgroundColor: theme.colors.control,
-      borderColor: !isConnected || refresh.isPending ? theme.colors.separator : theme.colors.controlBorder,
-      borderRadius: radii.control,
-      borderWidth: 1,
-      height: 52,
-      paddingHorizontal: 22,
-    }}
-        variant="outlined"
-      />
-    </Host>
+          {(() => {
+            const refreshDisabled = !isConnected || refresh.isPending;
+            const refreshStyle = expoUiSecondaryStyle(theme.colors, refreshDisabled);
+            return (
+              <Host
+                matchContents={{ vertical: true }}
+                colorScheme={theme.colorScheme}
+                seedColor={refreshStyle.seedColor}
+                style={styles.stretchHost}
+              >
+                <Button
+                  disabled={refreshDisabled}
+                  label={refresh.isPending ? "Refreshing..." : "Refresh"}
+                  onPress={refreshDisabled ? undefined : () => refresh.mutate()}
+                  modifiers={buttonStretchModifiers}
+                  style={refreshStyle.style}
+                  variant={refreshStyle.variant}
+                />
+              </Host>
+            );
+          })()}
         </View>
         <ChangedFilesList
           stagedFiles={stagedFiles}

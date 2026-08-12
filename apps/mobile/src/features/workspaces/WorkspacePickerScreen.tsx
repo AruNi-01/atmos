@@ -1,7 +1,6 @@
 import { radii } from "@/theme/radii";
+import { expoUiButtonStretchModifiers } from "@/ui/primitives/expo-ui-button-modifiers";
 import { Button, Host } from "@expo/ui";
-import { fillMaxWidth } from "@expo/ui/jetpack-compose/modifiers";
-import { controlSize, frame } from "@expo/ui/swift-ui/modifiers";
 import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import { Stack, type NativeStackHeaderItem, useRouter } from "expo-router";
 import type { SFSymbol } from "sf-symbols-typescript";
@@ -25,11 +24,7 @@ import {
   type WorkspaceWorkflowStatus,
 } from "@/features/workspaces/workspace-status";
 
-const buttonStretchModifiers = Platform.select({
-  ios: [frame({ maxWidth: Number.POSITIVE_INFINITY }), controlSize("large")],
-  android: [fillMaxWidth()],
-  default: undefined,
-});
+const buttonStretchModifiers = expoUiButtonStretchModifiers;
 
 export function WorkspacePickerScreen() {
   const router = useRouter();
@@ -135,10 +130,7 @@ export function WorkspacePickerScreen() {
                         })}
         modifiers={buttonStretchModifiers}
         style={{
-      backgroundColor: theme.colors.ctaFill,
-      borderRadius: radii.control,
       height: 52,
-      paddingHorizontal: 22,
     }}
         variant="filled"
       />
@@ -409,10 +401,7 @@ function GuideSection({
         onPress={onAction}
         modifiers={buttonStretchModifiers}
         style={{
-      backgroundColor: theme.colors.ctaFill,
-      borderRadius: radii.control,
       height: 52,
-      paddingHorizontal: 22,
     }}
         variant="filled"
       />
