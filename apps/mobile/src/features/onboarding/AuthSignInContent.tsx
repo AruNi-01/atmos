@@ -1,13 +1,21 @@
+import { Button, Host } from "@expo/ui";
+import { fillMaxWidth } from "@expo/ui/jetpack-compose/modifiers";
+import { controlSize, frame } from "@expo/ui/swift-ui/modifiers";
 import { useEffect, useState } from "react";
-import { Text, View } from "react-native";
+import { Platform, Text, View } from "react-native";
 import { ComputerPicker } from "@/features/computers/ComputerPicker";
 import { PairQrScanner } from "@/features/onboarding/PairQrScanner";
 import { useAuthSignIn } from "@/features/onboarding/use-auth-sign-in";
 import { radii } from "@/theme/radii";
 import { useMobileTheme } from "@/theme/theme-store";
 import { AppScreen, InlineError, Section } from "@/ui/layout/app-screen";
-import { ExpoUiButton } from "@/ui/primitives/native-controls";
 import { TerminalIcon } from "@/ui/icons/lucide-native";
+
+const buttonStretchModifiers = Platform.select({
+  ios: [frame({ maxWidth: Number.POSITIVE_INFINITY }), controlSize("large")],
+  android: [fillMaxWidth()],
+  default: undefined,
+});
 
 export type AuthSignInContentProps = {
   initialScannerOpen?: boolean;
@@ -31,29 +39,74 @@ export function AuthSignInContent({
   }, [initialScannerOpen]);
 
   const footer = auth.hasDeviceCredential ? (
-    <ExpoUiButton
-      label={
-        auth.computersQuery.isFetching ? "Checking Computers..." : "Refresh Computers"
-      }
-      onPress={() => {
+    <Host
+      matchContents={{ vertical: true }}
+      colorScheme={theme.colorScheme}
+      seedColor={auth.busy ? theme.colors.tertiaryLabel : theme.colors.label}
+      style={{ alignSelf: "stretch", width: "100%" }}
+    >
+      <Button
+        disabled={auth.busy}
+        label={auth.computersQuery.isFetching ? "Checking Computers..." : "Refresh Computers"}
+        onPress={(auth.busy) ? undefined : (() => {
         if (!auth.computersQuery.isFetching) void auth.computersQuery.refetch();
-      }}
-      disabled={auth.busy}
-      variant="outlined"
-    />
-  ) : (
-    <View className="w-full gap-action-row-gap">
-      <ExpoUiButton
-        label={auth.signIn.isPending ? "Signing in..." : "Continue with GitHub"}
-        onPress={() => auth.signIn.mutate("github")}
-        disabled={auth.busy}
-      />
-      <ExpoUiButton
-        label={auth.signIn.isPending ? "Signing in..." : "Continue with Google"}
-        onPress={() => auth.signIn.mutate("google")}
-        disabled={auth.busy}
+      })}
+        modifiers={buttonStretchModifiers}
+        style={{
+      backgroundColor: theme.colors.control,
+      borderColor: auth.busy ? theme.colors.separator : theme.colors.controlBorder,
+      borderRadius: radii.control,
+      borderWidth: 1,
+      height: 52,
+      paddingHorizontal: 22,
+    }}
         variant="outlined"
       />
+    </Host>
+  ) : (
+    <View className="w-full gap-action-row-gap">
+      <Host
+      matchContents={{ vertical: true }}
+      colorScheme={theme.colorScheme}
+      seedColor={auth.busy ? theme.colors.tertiaryLabel : theme.colors.ctaFill}
+      style={{ alignSelf: "stretch", width: "100%" }}
+    >
+      <Button
+        disabled={auth.busy}
+        label={auth.signIn.isPending ? "Signing in..." : "Continue with GitHub"}
+        onPress={(auth.busy) ? undefined : (() => auth.signIn.mutate("github"))}
+        modifiers={buttonStretchModifiers}
+        style={{
+      backgroundColor: auth.busy ? theme.colors.controlDisabled : theme.colors.ctaFill,
+      borderRadius: radii.control,
+      height: 52,
+      paddingHorizontal: 22,
+    }}
+        variant="filled"
+      />
+    </Host>
+      <Host
+      matchContents={{ vertical: true }}
+      colorScheme={theme.colorScheme}
+      seedColor={auth.busy ? theme.colors.tertiaryLabel : theme.colors.label}
+      style={{ alignSelf: "stretch", width: "100%" }}
+    >
+      <Button
+        disabled={auth.busy}
+        label={auth.signIn.isPending ? "Signing in..." : "Continue with Google"}
+        onPress={(auth.busy) ? undefined : (() => auth.signIn.mutate("google"))}
+        modifiers={buttonStretchModifiers}
+        style={{
+      backgroundColor: theme.colors.control,
+      borderColor: auth.busy ? theme.colors.separator : theme.colors.controlBorder,
+      borderRadius: radii.control,
+      borderWidth: 1,
+      height: 52,
+      paddingHorizontal: 22,
+    }}
+        variant="outlined"
+      />
+    </Host>
     </View>
   );
 
@@ -82,17 +135,31 @@ export function AuthSignInContent({
       {!auth.hasDeviceCredential ? (
         <Section label="Or scan QR">
           <View className="gap-3 p-card-padding">
-            <ExpoUiButton
-              label={
-                scannerOpen ? "Close scanner" : "Scan pair QR from Desktop/Web"
-              }
-              onPress={() => {
+            <Host
+      matchContents={{ vertical: true }}
+      colorScheme={theme.colorScheme}
+      seedColor={auth.busy ? theme.colors.tertiaryLabel : theme.colors.label}
+      style={{ alignSelf: "stretch", width: "100%" }}
+    >
+      <Button
+        disabled={auth.busy}
+        label={scannerOpen ? "Close scanner" : "Scan pair QR from Desktop/Web"}
+        onPress={(auth.busy) ? undefined : (() => {
                 auth.setLocalError(null);
                 setScannerOpen((open) => !open);
-              }}
-              disabled={auth.busy}
-              variant="outlined"
-            />
+              })}
+        modifiers={buttonStretchModifiers}
+        style={{
+      backgroundColor: theme.colors.control,
+      borderColor: auth.busy ? theme.colors.separator : theme.colors.controlBorder,
+      borderRadius: radii.control,
+      borderWidth: 1,
+      height: 52,
+      paddingHorizontal: 22,
+    }}
+        variant="outlined"
+      />
+    </Host>
             <Text
               selectable
               className="text-secondary-label text-body-small leading-body-small"

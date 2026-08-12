@@ -1,11 +1,19 @@
-import { StyleSheet, Text, View } from "react-native";
+import { Button, Host } from "@expo/ui";
+import { fillMaxWidth } from "@expo/ui/jetpack-compose/modifiers";
+import { controlSize, frame } from "@expo/ui/swift-ui/modifiers";
+import { Platform, StyleSheet, Text, View } from "react-native";
 import type { GitChangedFile } from "@/api/types";
 import { buildChangedFileGroups, countChangedFiles, type ChangedFileAction } from "@/features/git/changed-files";
 import { EmptyState } from "@/ui/layout/app-screen";
-import { ExpoUiButton } from "@/ui/primitives/native-controls";
 import { Row, Separator } from "@/ui/layout/row";
-import { colors } from "@/theme/colors";
+import { colors, radii } from "@/theme/colors";
 import { useMobileTheme } from "@/theme/theme-store";
+
+const buttonStretchModifiers = Platform.select({
+  ios: [frame({ maxWidth: Number.POSITIVE_INFINITY }), controlSize("large")],
+  android: [fillMaxWidth()],
+  default: undefined,
+});
 
 export function ChangedFilesList({
   stagedFiles,
@@ -83,12 +91,28 @@ function FileSection({
             onPress={() => onOpenFile(file)}
           >
             <View style={styles.action}>
-              <ExpoUiButton
-                label={actionLabel}
-                onPress={() => onAction(file)}
-                disabled={actionsDisabled}
-                variant="outlined"
-              />
+              <Host
+      matchContents={{ vertical: true }}
+      colorScheme={theme.colorScheme}
+      seedColor={actionsDisabled ? theme.colors.tertiaryLabel : theme.colors.label}
+      style={styles.stretchHost}
+    >
+      <Button
+        disabled={actionsDisabled}
+        label={actionLabel}
+        onPress={(actionsDisabled) ? undefined : (() => onAction(file))}
+        modifiers={buttonStretchModifiers}
+        style={{
+      backgroundColor: theme.colors.control,
+      borderColor: actionsDisabled ? theme.colors.separator : theme.colors.controlBorder,
+      borderRadius: radii.control,
+      borderWidth: 1,
+      height: 52,
+      paddingHorizontal: 22,
+    }}
+        variant="outlined"
+      />
+    </Host>
             </View>
           </Row>
           {index < files.length - 1 ? <Separator /> : null}
@@ -99,6 +123,16 @@ function FileSection({
 }
 
 const styles = StyleSheet.create({
+  stretchHost: {
+    alignSelf: "stretch",
+    width: "100%",
+  },
+  growHost: {
+    alignSelf: "stretch",
+    flex: 1,
+    minWidth: 0,
+    width: "100%",
+  },
   action: {
     minWidth: 96,
   },

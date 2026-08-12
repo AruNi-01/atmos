@@ -1,8 +1,17 @@
+import { radii } from "@/theme/radii";
+import { Button, Host } from "@expo/ui";
+import { fillMaxWidth } from "@expo/ui/jetpack-compose/modifiers";
+import { controlSize, frame } from "@expo/ui/swift-ui/modifiers";
 import { useEffect, useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { Platform, StyleSheet, Text, View } from "react-native";
 import { CameraView, useCameraPermissions } from "expo-camera";
-import { ExpoUiButton } from "@/ui/primitives/native-controls";
 import { useMobileTheme } from "@/theme/theme-store";
+
+const buttonStretchModifiers = Platform.select({
+  ios: [frame({ maxWidth: Number.POSITIVE_INFINITY }), controlSize("large")],
+  android: [fillMaxWidth()],
+  default: undefined,
+});
 
 export function PairQrScanner({
   disabled,
@@ -35,7 +44,25 @@ export function PairQrScanner({
         <Text style={[styles.hint, { color: theme.colors.secondaryLabel }]}>
           Camera access is required to scan the pair QR code.
         </Text>
-        <ExpoUiButton label="Allow camera" onPress={() => void requestPermission()} />
+        <Host
+      matchContents={{ vertical: true }}
+      colorScheme={theme.colorScheme}
+      seedColor={theme.colors.ctaFill}
+      style={styles.stretchHost}
+    >
+      <Button
+        label={"Allow camera"}
+        onPress={() => void requestPermission()}
+        modifiers={buttonStretchModifiers}
+        style={{
+      backgroundColor: theme.colors.ctaFill,
+      borderRadius: radii.control,
+      height: 52,
+      paddingHorizontal: 22,
+    }}
+        variant="filled"
+      />
+    </Host>
       </View>
     );
   }
@@ -64,6 +91,16 @@ export function PairQrScanner({
 }
 
 const styles = StyleSheet.create({
+  stretchHost: {
+    alignSelf: "stretch",
+    width: "100%",
+  },
+  growHost: {
+    alignSelf: "stretch",
+    flex: 1,
+    minWidth: 0,
+    width: "100%",
+  },
   frame: {
     gap: 10,
     overflow: "hidden",

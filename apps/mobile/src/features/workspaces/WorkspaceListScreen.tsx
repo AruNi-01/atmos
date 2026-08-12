@@ -1,5 +1,10 @@
+import { useMobileTheme } from "@/theme/theme-store";
+import { radii } from "@/theme/radii";
+import { Button, Host } from "@expo/ui";
+import { fillMaxWidth } from "@expo/ui/jetpack-compose/modifiers";
+import { controlSize, frame } from "@expo/ui/swift-ui/modifiers";
 import { useEffect, useMemo, useRef } from "react";
-import { Text, View } from "react-native";
+import { Platform, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import type { ProjectWorkspaceBootstrapResponse } from "@/api/types";
@@ -13,7 +18,12 @@ import { hydrateRecentWorkspaces, useRecentWorkspacesStore } from "@/stores/rece
 import { useSessionStore } from "@/stores/session-store";
 import { AppScreen, EmptyState, InlineError, Section } from "@/ui/layout/app-screen";
 import { Row, Separator } from "@/ui/layout/row";
-import { ExpoUiButton } from "@/ui/primitives/native-controls";
+
+const buttonStretchModifiers = Platform.select({
+  ios: [frame({ maxWidth: Number.POSITIVE_INFINITY }), controlSize("large")],
+  android: [fillMaxWidth()],
+  default: undefined,
+});
 
 const EMPTY_BOOTSTRAP: ProjectWorkspaceBootstrapResponse = {
   projects: [],
@@ -34,6 +44,7 @@ function randomWelcomeHeadline() {
 }
 
 export function WorkspaceListScreen() {
+  const theme = useMobileTheme();
   const router = useRouter();
   const relayClient = useRelayClient();
   const { client: wsClient, state: wsState } = useMobileWs();
@@ -139,15 +150,46 @@ export function WorkspaceListScreen() {
           </View>
 
           <View className="w-full max-w-[360px] gap-action-row-gap">
-            <ExpoUiButton
-              label="Pair via QR"
-              onPress={() => router.push("/sign-in?mode=scan")}
-            />
-            <ExpoUiButton
-              label="Sign in"
-              onPress={() => router.push("/sign-in")}
-              variant="outlined"
-            />
+            <Host
+      matchContents={{ vertical: true }}
+      colorScheme={theme.colorScheme}
+      seedColor={theme.colors.ctaFill}
+      style={{ alignSelf: "stretch", width: "100%" }}
+    >
+      <Button
+        label={"Pair via QR"}
+        onPress={() => router.push("/sign-in?mode=scan")}
+        modifiers={buttonStretchModifiers}
+        style={{
+      backgroundColor: theme.colors.ctaFill,
+      borderRadius: radii.control,
+      height: 52,
+      paddingHorizontal: 22,
+    }}
+        variant="filled"
+      />
+    </Host>
+            <Host
+      matchContents={{ vertical: true }}
+      colorScheme={theme.colorScheme}
+      seedColor={theme.colors.label}
+      style={{ alignSelf: "stretch", width: "100%" }}
+    >
+      <Button
+        label={"Sign in"}
+        onPress={() => router.push("/sign-in")}
+        modifiers={buttonStretchModifiers}
+        style={{
+      backgroundColor: theme.colors.control,
+      borderColor: theme.colors.controlBorder,
+      borderRadius: radii.control,
+      borderWidth: 1,
+      height: 52,
+      paddingHorizontal: 22,
+    }}
+        variant="outlined"
+      />
+    </Host>
           </View>
 
           <InlineError message={sessionError ?? computersError} />
@@ -159,10 +201,25 @@ export function WorkspaceListScreen() {
   return (
     <AppScreen
       footer={
-        <ExpoUiButton
-          label="Browse workspaces"
-          onPress={() => router.push("/workspaces")}
-        />
+        <Host
+      matchContents={{ vertical: true }}
+      colorScheme={theme.colorScheme}
+      seedColor={theme.colors.ctaFill}
+      style={{ alignSelf: "stretch", width: "100%" }}
+    >
+      <Button
+        label={"Browse workspaces"}
+        onPress={() => router.push("/workspaces")}
+        modifiers={buttonStretchModifiers}
+        style={{
+      backgroundColor: theme.colors.ctaFill,
+      borderRadius: radii.control,
+      height: 52,
+      paddingHorizontal: 22,
+    }}
+        variant="filled"
+      />
+    </Host>
       }
     >
       <View className="items-center gap-3 px-2 pb-4 pt-8">

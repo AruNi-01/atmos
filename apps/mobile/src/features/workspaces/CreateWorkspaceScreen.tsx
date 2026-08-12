@@ -1,20 +1,30 @@
+import { Button, Host } from "@expo/ui";
+import { fillMaxWidth } from "@expo/ui/jetpack-compose/modifiers";
+import { controlSize, frame } from "@expo/ui/swift-ui/modifiers";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { Platform, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { AppScreen, EmptyState, InlineError, Section } from "@/ui/layout/app-screen";
-import { ExpoUiButton, NativePicker, NativeSwitch, NativeTextInput } from "@/ui/primitives/native-controls";
+import { NativePicker, NativeSwitch, NativeTextInput } from "@/ui/primitives/native-controls";
 import { Row, Separator } from "@/ui/layout/row";
 import {
   getCreateWorkspaceReadiness,
   selectCreateWorkspaceProjectGuid,
 } from "@/features/workspaces/create-workspace-readiness";
 import { useMobileWs } from "@/providers/MobileWsProvider";
+
 import { useSessionStore } from "@/stores/session-store";
 import { isWorkspaceSetupProgressNotification, wsActions } from "@/api/ws-actions";
 import type { WorkspaceModel, WorkspaceSetupProgressNotification, WsNotification } from "@/api/types";
-import { colors } from "@/theme/colors";
+import { colors, radii } from "@/theme/colors";
 import { useMobileTheme } from "@/theme/theme-store";
+
+const buttonStretchModifiers = Platform.select({
+  ios: [frame({ maxWidth: Number.POSITIVE_INFINITY }), controlSize("large")],
+  android: [fillMaxWidth()],
+  default: undefined,
+});
 
 const PRIORITY_OPTIONS = [
   { label: "No priority", value: "no_priority" },
@@ -290,17 +300,32 @@ export function CreateWorkspaceScreen({ initialProjectGuid }: { initialProjectGu
       surface="sheet"
       footer={
         <View style={styles.footer}>
-          <ExpoUiButton
-            label={footerLabel}
-            disabled={footerDisabled}
-            onPress={() => {
+          <Host
+      matchContents={{ vertical: true }}
+      colorScheme={theme.colorScheme}
+      seedColor={footerDisabled ? theme.colors.tertiaryLabel : theme.colors.ctaFill}
+      style={styles.stretchHost}
+    >
+      <Button
+        disabled={footerDisabled}
+        label={footerLabel}
+        onPress={(footerDisabled) ? undefined : (() => {
               if (createdWorkspace) {
                 router.replace(`/workspace/${createdWorkspace.guid}`);
                 return;
               }
               createWorkspace.mutate();
-            }}
-          />
+            })}
+        modifiers={buttonStretchModifiers}
+        style={{
+      backgroundColor: footerDisabled ? theme.colors.controlDisabled : theme.colors.ctaFill,
+      borderRadius: radii.control,
+      height: 52,
+      paddingHorizontal: 22,
+    }}
+        variant="filled"
+      />
+    </Host>
           {!createdWorkspace && createReadiness.reason ? (
             <Text selectable style={[styles.footerHint, { color: theme.colors.secondaryLabel }]}>
               {createReadiness.reason}
@@ -333,11 +358,27 @@ export function CreateWorkspaceScreen({ initialProjectGuid }: { initialProjectGu
             placeholder="Base branch"
             value={baseBranch}
           />
-          <ExpoUiButton
-            label={showAdvanced ? "Hide Advanced" : "Show Advanced"}
-            onPress={() => setShowAdvanced((value) => !value)}
-            variant="outlined"
-          />
+          <Host
+      matchContents={{ vertical: true }}
+      colorScheme={theme.colorScheme}
+      seedColor={theme.colors.label}
+      style={styles.stretchHost}
+    >
+      <Button
+        label={showAdvanced ? "Hide Advanced" : "Show Advanced"}
+        onPress={() => setShowAdvanced((value) => !value)}
+        modifiers={buttonStretchModifiers}
+        style={{
+      backgroundColor: theme.colors.control,
+      borderColor: theme.colors.controlBorder,
+      borderRadius: radii.control,
+      borderWidth: 1,
+      height: 52,
+      paddingHorizontal: 22,
+    }}
+        variant="outlined"
+      />
+    </Host>
           {showAdvanced ? (
             <View style={styles.advanced}>
               <Separator />
@@ -408,16 +449,32 @@ export function CreateWorkspaceScreen({ initialProjectGuid }: { initialProjectGu
                       />
                     </View>
                     <View style={styles.inlineAction}>
-                      <ExpoUiButton
-                        label="Add"
-                        disabled={labelToAdd === EMPTY_LABEL_VALUE}
-                        onPress={() => {
+                      <Host
+      matchContents={{ vertical: true }}
+      colorScheme={theme.colorScheme}
+      seedColor={labelToAdd === EMPTY_LABEL_VALUE ? theme.colors.tertiaryLabel : theme.colors.label}
+      style={styles.stretchHost}
+    >
+      <Button
+        disabled={labelToAdd === EMPTY_LABEL_VALUE}
+        label={"Add"}
+        onPress={(labelToAdd === EMPTY_LABEL_VALUE) ? undefined : (() => {
                           if (labelToAdd === EMPTY_LABEL_VALUE) return;
                           setSelectedLabelGuids((current) => [...current, labelToAdd]);
                           setLabelToAdd(EMPTY_LABEL_VALUE);
-                        }}
-                        variant="outlined"
-                      />
+                        })}
+        modifiers={buttonStretchModifiers}
+        style={{
+      backgroundColor: theme.colors.control,
+      borderColor: labelToAdd === EMPTY_LABEL_VALUE ? theme.colors.separator : theme.colors.controlBorder,
+      borderRadius: radii.control,
+      borderWidth: 1,
+      height: 52,
+      paddingHorizontal: 22,
+    }}
+        variant="outlined"
+      />
+    </Host>
                     </View>
                   </View>
                   {selectedLabels.map((label) => (
@@ -428,14 +485,29 @@ export function CreateWorkspaceScreen({ initialProjectGuid }: { initialProjectGu
                       meta={label.color}
                     >
                       <View style={styles.inlineAction}>
-                        <ExpoUiButton
-                          label="Remove"
-                          onPress={() => {
+                        <Host
+      matchContents={{ vertical: true }}
+      colorScheme={theme.colorScheme}
+      seedColor={theme.colors.red}
+      style={styles.stretchHost}
+    >
+      <Button
+        label={"Remove"}
+        onPress={() => {
                             setSelectedLabelGuids((current) => current.filter((guid) => guid !== label.guid));
                           }}
-                          tone="danger"
-                          variant="outlined"
-                        />
+        modifiers={buttonStretchModifiers}
+        style={{
+      backgroundColor: theme.colors.redSurface,
+      borderColor: theme.colors.redBorder,
+      borderRadius: radii.control,
+      borderWidth: 1,
+      height: 52,
+      paddingHorizontal: 22,
+    }}
+        variant="outlined"
+      />
+    </Host>
                       </View>
                     </Row>
                   ))}
@@ -472,24 +544,70 @@ export function CreateWorkspaceScreen({ initialProjectGuid }: { initialProjectGu
               </View>
             ) : null}
             {setupProgress.requires_confirmation ? (
-              <ExpoUiButton
-                label={confirmTodos.isPending ? "Confirming..." : "Confirm TODOs"}
-                disabled={confirmTodos.isPending || !setupOutputPreview}
-                onPress={() => confirmTodos.mutate()}
-              />
+              <Host
+      matchContents={{ vertical: true }}
+      colorScheme={theme.colorScheme}
+      seedColor={confirmTodos.isPending || !setupOutputPreview ? theme.colors.tertiaryLabel : theme.colors.ctaFill}
+      style={styles.stretchHost}
+    >
+      <Button
+        disabled={confirmTodos.isPending || !setupOutputPreview}
+        label={confirmTodos.isPending ? "Confirming..." : "Confirm TODOs"}
+        onPress={(confirmTodos.isPending || !setupOutputPreview) ? undefined : (() => confirmTodos.mutate())}
+        modifiers={buttonStretchModifiers}
+        style={{
+      backgroundColor: confirmTodos.isPending || !setupOutputPreview ? theme.colors.controlDisabled : theme.colors.ctaFill,
+      borderRadius: radii.control,
+      height: 52,
+      paddingHorizontal: 22,
+    }}
+        variant="filled"
+      />
+    </Host>
             ) : null}
             {setupProgress.status === "error" && createdWorkspace ? (
               <View style={styles.progressActions}>
-                <ExpoUiButton
-                  label={retrySetup.isPending ? "Retrying..." : "Retry Setup"}
-                  disabled={retrySetup.isPending}
-                  onPress={() => retrySetup.mutate()}
-                />
-                <ExpoUiButton
-                  label="Open Workspace"
-                  onPress={() => router.replace(`/workspace/${createdWorkspace.guid}`)}
-                  variant="outlined"
-                />
+                <Host
+      matchContents={{ vertical: true }}
+      colorScheme={theme.colorScheme}
+      seedColor={retrySetup.isPending ? theme.colors.tertiaryLabel : theme.colors.ctaFill}
+      style={styles.stretchHost}
+    >
+      <Button
+        disabled={retrySetup.isPending}
+        label={retrySetup.isPending ? "Retrying..." : "Retry Setup"}
+        onPress={(retrySetup.isPending) ? undefined : (() => retrySetup.mutate())}
+        modifiers={buttonStretchModifiers}
+        style={{
+      backgroundColor: retrySetup.isPending ? theme.colors.controlDisabled : theme.colors.ctaFill,
+      borderRadius: radii.control,
+      height: 52,
+      paddingHorizontal: 22,
+    }}
+        variant="filled"
+      />
+    </Host>
+                <Host
+      matchContents={{ vertical: true }}
+      colorScheme={theme.colorScheme}
+      seedColor={theme.colors.label}
+      style={styles.stretchHost}
+    >
+      <Button
+        label={"Open Workspace"}
+        onPress={() => router.replace(`/workspace/${createdWorkspace.guid}`)}
+        modifiers={buttonStretchModifiers}
+        style={{
+      backgroundColor: theme.colors.control,
+      borderColor: theme.colors.controlBorder,
+      borderRadius: radii.control,
+      borderWidth: 1,
+      height: 52,
+      paddingHorizontal: 22,
+    }}
+        variant="outlined"
+      />
+    </Host>
               </View>
             ) : null}
           </View>
@@ -533,6 +651,16 @@ function slugify(value: string) {
 }
 
 const styles = StyleSheet.create({
+  stretchHost: {
+    alignSelf: "stretch",
+    width: "100%",
+  },
+  growHost: {
+    alignSelf: "stretch",
+    flex: 1,
+    minWidth: 0,
+    width: "100%",
+  },
   advanced: {
     gap: 12,
   },

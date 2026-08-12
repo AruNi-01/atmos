@@ -1,9 +1,12 @@
+import { Button, Host } from "@expo/ui";
+import { fillMaxWidth } from "@expo/ui/jetpack-compose/modifiers";
+import { controlSize, frame } from "@expo/ui/swift-ui/modifiers";
 import { useEffect, useMemo, useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { Platform, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AppScreen, EmptyState, InlineError, Section } from "@/ui/layout/app-screen";
-import { ExpoUiButton, NativeTextInput } from "@/ui/primitives/native-controls";
+import { NativeTextInput } from "@/ui/primitives/native-controls";
 import { Row, Separator } from "@/ui/layout/row";
 import { addProjectToWorkspaceBootstrap } from "@/features/projects/project-bootstrap-cache";
 import { getProjectImportReadiness, validationMatchesPath } from "@/features/projects/import-project-validation";
@@ -11,8 +14,14 @@ import { useMobileWs } from "@/providers/MobileWsProvider";
 import { useSessionStore } from "@/stores/session-store";
 import { wsActions } from "@/api/ws-actions";
 import type { FsEntry, ProjectWorkspaceBootstrapResponse } from "@/api/types";
-import { colors } from "@/theme/colors";
+import { colors, radii } from "@/theme/colors";
 import { useMobileTheme } from "@/theme/theme-store";
+
+const buttonStretchModifiers = Platform.select({
+  ios: [frame({ maxWidth: Number.POSITIVE_INFINITY }), controlSize("large")],
+  android: [fillMaxWidth()],
+  default: undefined,
+});
 
 export function ImportProjectScreen() {
   const router = useRouter();
@@ -144,11 +153,26 @@ export function ImportProjectScreen() {
       surface="sheet"
       footer={
         <View style={styles.footer}>
-          <ExpoUiButton
-            label={createProject.isPending ? "Importing..." : "Import Project"}
-            disabled={!readiness.canImport}
-            onPress={() => createProject.mutate()}
-          />
+          <Host
+      matchContents={{ vertical: true }}
+      colorScheme={theme.colorScheme}
+      seedColor={!readiness.canImport ? theme.colors.tertiaryLabel : theme.colors.ctaFill}
+      style={styles.stretchHost}
+    >
+      <Button
+        disabled={!readiness.canImport}
+        label={createProject.isPending ? "Importing..." : "Import Project"}
+        onPress={(!readiness.canImport) ? undefined : (() => createProject.mutate())}
+        modifiers={buttonStretchModifiers}
+        style={{
+      backgroundColor: !readiness.canImport ? theme.colors.controlDisabled : theme.colors.ctaFill,
+      borderRadius: radii.control,
+      height: 52,
+      paddingHorizontal: 22,
+    }}
+        variant="filled"
+      />
+    </Host>
           {readiness.reason ? (
             <Text selectable style={[styles.footerHint, { color: theme.colors.secondaryLabel }]}>
               {readiness.reason}
@@ -166,12 +190,28 @@ export function ImportProjectScreen() {
             placeholder="/home/aaryn/project"
             value={path}
           />
-          <ExpoUiButton
-            label={validate.isPending ? "Validating..." : "Validate Path"}
-            onPress={() => validate.mutate()}
-            disabled={!isConnected || !path.trim() || validate.isPending}
-            variant="outlined"
-          />
+          <Host
+      matchContents={{ vertical: true }}
+      colorScheme={theme.colorScheme}
+      seedColor={!isConnected || !path.trim() || validate.isPending ? theme.colors.tertiaryLabel : theme.colors.label}
+      style={styles.stretchHost}
+    >
+      <Button
+        disabled={!isConnected || !path.trim() || validate.isPending}
+        label={validate.isPending ? "Validating..." : "Validate Path"}
+        onPress={(!isConnected || !path.trim() || validate.isPending) ? undefined : (() => validate.mutate())}
+        modifiers={buttonStretchModifiers}
+        style={{
+      backgroundColor: theme.colors.control,
+      borderColor: !isConnected || !path.trim() || validate.isPending ? theme.colors.separator : theme.colors.controlBorder,
+      borderRadius: radii.control,
+      borderWidth: 1,
+      height: 52,
+      paddingHorizontal: 22,
+    }}
+        variant="outlined"
+      />
+    </Host>
           <Text selectable style={[styles.help, { color: theme.colors.secondaryLabel }]}>
             Mobile import selects a path on the remote Atmos Computer. It does not clone from this phone.
           </Text>
@@ -185,17 +225,33 @@ export function ImportProjectScreen() {
               {currentDir || "Loading home directory..."}
             </Text>
             <View style={styles.inlineAction}>
-              <ExpoUiButton
-                label="Home"
-                disabled={!home.data?.path}
-                onPress={() => {
+              <Host
+      matchContents={{ vertical: true }}
+      colorScheme={theme.colorScheme}
+      seedColor={!home.data?.path ? theme.colors.tertiaryLabel : theme.colors.label}
+      style={styles.stretchHost}
+    >
+      <Button
+        disabled={!home.data?.path}
+        label={"Home"}
+        onPress={(!home.data?.path) ? undefined : (() => {
                   if (!home.data?.path) return;
                   setCurrentDir(home.data.path);
                   setSearch("");
                   updatePath(home.data.path);
-                }}
-                variant="outlined"
-              />
+                })}
+        modifiers={buttonStretchModifiers}
+        style={{
+      backgroundColor: theme.colors.control,
+      borderColor: !home.data?.path ? theme.colors.separator : theme.colors.controlBorder,
+      borderRadius: radii.control,
+      borderWidth: 1,
+      height: 52,
+      paddingHorizontal: 22,
+    }}
+        variant="outlined"
+      />
+    </Host>
             </View>
           </View>
           <NativeTextInput
@@ -214,14 +270,30 @@ export function ImportProjectScreen() {
               subtitle={directory.data.parent_path}
             >
               <View style={styles.inlineAction}>
-                <ExpoUiButton
-                  label="Open"
-                  onPress={() => {
+                <Host
+      matchContents={{ vertical: true }}
+      colorScheme={theme.colorScheme}
+      seedColor={theme.colors.label}
+      style={styles.stretchHost}
+    >
+      <Button
+        label={"Open"}
+        onPress={() => {
                     setCurrentDir(directory.data!.parent_path!);
                     setSearch("");
                   }}
-                  variant="outlined"
-                />
+        modifiers={buttonStretchModifiers}
+        style={{
+      backgroundColor: theme.colors.control,
+      borderColor: theme.colors.controlBorder,
+      borderRadius: radii.control,
+      borderWidth: 1,
+      height: 52,
+      paddingHorizontal: 22,
+    }}
+        variant="outlined"
+      />
+    </Host>
               </View>
             </Row>
             <Separator />
@@ -247,8 +319,48 @@ export function ImportProjectScreen() {
                   meta={entry.is_git_repo ? "Git" : undefined}
                 >
                   <View style={styles.entryActions}>
-                    <ExpoUiButton grow label="Open" onPress={() => openDirectory(entry)} variant="outlined" />
-                    <ExpoUiButton grow label="Use" onPress={() => chooseEntry(entry)} variant="outlined" />
+                    <Host
+      matchContents={{ vertical: true }}
+      colorScheme={theme.colorScheme}
+      seedColor={theme.colors.label}
+      style={styles.growHost}
+    >
+      <Button
+        label={"Open"}
+        onPress={() => openDirectory(entry)}
+        modifiers={buttonStretchModifiers}
+        style={{
+      backgroundColor: theme.colors.control,
+      borderColor: theme.colors.controlBorder,
+      borderRadius: radii.control,
+      borderWidth: 1,
+      height: 52,
+      paddingHorizontal: 22,
+    }}
+        variant="outlined"
+      />
+    </Host>
+                    <Host
+      matchContents={{ vertical: true }}
+      colorScheme={theme.colorScheme}
+      seedColor={theme.colors.label}
+      style={styles.growHost}
+    >
+      <Button
+        label={"Use"}
+        onPress={() => chooseEntry(entry)}
+        modifiers={buttonStretchModifiers}
+        style={{
+      backgroundColor: theme.colors.control,
+      borderColor: theme.colors.controlBorder,
+      borderRadius: radii.control,
+      borderWidth: 1,
+      height: 52,
+      paddingHorizontal: 22,
+    }}
+        variant="outlined"
+      />
+    </Host>
                   </View>
                 </Row>
                 {index < visibleEntries.length - 1 ? <Separator /> : null}
@@ -281,6 +393,16 @@ export function ImportProjectScreen() {
 }
 
 const styles = StyleSheet.create({
+  stretchHost: {
+    alignSelf: "stretch",
+    width: "100%",
+  },
+  growHost: {
+    alignSelf: "stretch",
+    flex: 1,
+    minWidth: 0,
+    width: "100%",
+  },
   block: {
     gap: 12,
     padding: 16,

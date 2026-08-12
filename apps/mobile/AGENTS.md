@@ -72,7 +72,7 @@ Spec: [specs/APP/APP-025_mobile-app](../../specs/APP/APP-025_mobile-app/)
 - Use Expo UI native controls where practical for app chrome, buttons, lists, forms, menus, sheets, dialogs, and settings.
 - Use `lucide-react-native` for mobile business/content icons that should match web Lucide icons. Import icons through the narrow wrapper in `src/ui/icons/lucide-native.ts`; do not import from the `lucide-react-native` package root in feature files, because its full type surface can make mobile typecheck unstable.
 - Use `src/features/terminal/MobileAgentIcon.tsx` for built-in/custom terminal agent icons. Do not reuse web `AgentIcon`; it depends on Next/Image and DOM behavior.
-- Import shared mobile controls from `src/ui/primitives/native-controls`; add new Expo UI wrappers under `src/ui/primitives`.
+- Import shared mobile controls from `src/ui/primitives/native-controls`; add new Expo UI wrappers under `src/ui/primitives`. For buttons, import `Host` + `Button` from `@expo/ui` at the call site (no shared Atmos Button wrapper).
 - Keep route-level layout helpers under `src/ui/layout`.
 - Page titles, headers, navigation bars, and header buttons must follow [agents/references/mobile/native-navigation.md](../../agents/references/mobile/native-navigation.md). Do not hand-roll page titles or native-looking header chrome.
 - iOS grouped header menus must use native-stack header items (`unstable_headerRightItems` / `unstable_headerLeftItems`) as documented in [agents/references/mobile/native-navigation.md](../../agents/references/mobile/native-navigation.md); do not put Expo UI SwiftUI `ControlGroup` or custom glass capsules in `headerRight`.

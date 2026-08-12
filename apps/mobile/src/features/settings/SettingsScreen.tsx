@@ -1,10 +1,13 @@
+import { Button, Host } from "@expo/ui";
+import { fillMaxWidth } from "@expo/ui/jetpack-compose/modifiers";
+import { controlSize, frame } from "@expo/ui/swift-ui/modifiers";
 import type { ReactNode } from "react";
-import { Pressable, Text, View } from "react-native";
+import { Platform, Pressable, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import type { ComputerRow } from "@/api/types";
 import { AppScreen, EmptyState, InlineError, Section } from "@/ui/layout/app-screen";
 import { Row, Separator } from "@/ui/layout/row";
-import { ExpoUiButton, NativeSegmentedControl, NativeTextInput } from "@/ui/primitives/native-controls";
+import { NativeSegmentedControl, NativeTextInput } from "@/ui/primitives/native-controls";
 import {
   ChevronRightIcon,
   LaptopIcon,
@@ -14,6 +17,12 @@ import { useMobileSettingsController } from "@/features/settings/use-mobile-sett
 import { radii } from "@/theme/radii";
 import { typography } from "@/theme/typography";
 import { themePreferenceOptions, useMobileTheme, type MobileThemePreference } from "@/theme/theme-store";
+
+const buttonStretchModifiers = Platform.select({
+  ios: [frame({ maxWidth: Number.POSITIVE_INFINITY }), controlSize("large")],
+  android: [fillMaxWidth()],
+  default: undefined,
+});
 
 type SettingsRoute = "/settings/computers";
 
@@ -94,24 +103,49 @@ export function SettingsComputersScreen() {
             }
           />
           <View className="flex-row gap-action-row-gap">
-            <ExpoUiButton
-              grow
-              label={settings.hasDeviceCredential ? "Re-pair" : "Sign in / Scan"}
-              onPress={() => router.push("/sign-in")}
-              variant="outlined"
-            />
-            <ExpoUiButton
-              grow
-              disabled={
-                !settings.hasDeviceCredential || settings.signOutPhone.isPending
-              }
-              label={
-                settings.signOutPhone.isPending ? "Signing out..." : "Sign out phone"
-              }
-              onPress={settings.confirmSignOutPhone}
-              tone="danger"
-              variant="outlined"
-            />
+            <Host
+      matchContents={{ vertical: true }}
+      colorScheme={theme.colorScheme}
+      seedColor={theme.colors.label}
+      style={{ alignSelf: "stretch", flex: 1, minWidth: 0, width: "100%" }}
+    >
+      <Button
+        label={settings.hasDeviceCredential ? "Re-pair" : "Sign in / Scan"}
+        onPress={() => router.push("/sign-in")}
+        modifiers={buttonStretchModifiers}
+        style={{
+      backgroundColor: theme.colors.control,
+      borderColor: theme.colors.controlBorder,
+      borderRadius: radii.control,
+      borderWidth: 1,
+      height: 52,
+      paddingHorizontal: 22,
+    }}
+        variant="outlined"
+      />
+    </Host>
+            <Host
+      matchContents={{ vertical: true }}
+      colorScheme={theme.colorScheme}
+      seedColor={!settings.hasDeviceCredential || settings.signOutPhone.isPending ? theme.colors.tertiaryLabel : theme.colors.red}
+      style={{ alignSelf: "stretch", flex: 1, minWidth: 0, width: "100%" }}
+    >
+      <Button
+        disabled={!settings.hasDeviceCredential || settings.signOutPhone.isPending}
+        label={settings.signOutPhone.isPending ? "Signing out..." : "Sign out phone"}
+        onPress={(!settings.hasDeviceCredential || settings.signOutPhone.isPending) ? undefined : (settings.confirmSignOutPhone)}
+        modifiers={buttonStretchModifiers}
+        style={{
+      backgroundColor: !settings.hasDeviceCredential || settings.signOutPhone.isPending ? theme.colors.control : theme.colors.redSurface,
+      borderColor: !settings.hasDeviceCredential || settings.signOutPhone.isPending ? theme.colors.separator : theme.colors.redBorder,
+      borderRadius: radii.control,
+      borderWidth: 1,
+      height: 52,
+      paddingHorizontal: 22,
+    }}
+        variant="outlined"
+      />
+    </Host>
           </View>
         </View>
       </Section>
@@ -139,12 +173,47 @@ export function SettingsComputersScreen() {
             secureTextEntry
             value={settings.relaySecretDraft}
           />
-          <ExpoUiButton
-            disabled={relayConfigured || settings.saveRelaySettings.isPending}
-            label={settings.saveRelaySettings.isPending ? "Saving..." : "Save Relay"}
-            onPress={() => settings.saveRelaySettings.mutate()}
-            variant={relayConfigured ? "outlined" : "filled"}
-          />
+          <Host
+            matchContents={{ vertical: true }}
+            colorScheme={theme.colorScheme}
+            seedColor={
+              relayConfigured || settings.saveRelaySettings.isPending
+                ? theme.colors.tertiaryLabel
+                : theme.colors.ctaFill
+            }
+            style={{ alignSelf: "stretch", width: "100%" }}
+          >
+            <Button
+              disabled={relayConfigured || settings.saveRelaySettings.isPending}
+              label={settings.saveRelaySettings.isPending ? "Saving..." : "Save Relay"}
+              modifiers={buttonStretchModifiers}
+              onPress={
+                relayConfigured || settings.saveRelaySettings.isPending
+                  ? undefined
+                  : () => settings.saveRelaySettings.mutate()
+              }
+              style={
+                relayConfigured
+                  ? {
+                      backgroundColor: theme.colors.control,
+                      borderColor: theme.colors.separator,
+                      borderRadius: radii.control,
+                      borderWidth: 1,
+                      height: 52,
+                      paddingHorizontal: 22,
+                    }
+                  : {
+                      backgroundColor: settings.saveRelaySettings.isPending
+                        ? theme.colors.controlDisabled
+                        : theme.colors.ctaFill,
+                      borderRadius: radii.control,
+                      height: 52,
+                      paddingHorizontal: 22,
+                    }
+              }
+              variant={relayConfigured ? "outlined" : "filled"}
+            />
+          </Host>
           <SettingsHint
             message={
               relayConfigured
@@ -157,14 +226,30 @@ export function SettingsComputersScreen() {
 
       <Section label="Register Computer">
         <View className="gap-3.5 p-card-padding">
-          <ExpoUiButton
-            disabled={
-              !settings.hasDeviceCredential ||
-              settings.createRegisterCommand.isPending
-            }
-            label={settings.createRegisterCommand.isPending ? "Creating..." : "Create Register Command"}
-            onPress={() => settings.createRegisterCommand.mutate()}
-          />
+          <Host
+      matchContents={{ vertical: true }}
+      colorScheme={theme.colorScheme}
+      seedColor={!settings.hasDeviceCredential ||
+              settings.createRegisterCommand.isPending ? theme.colors.tertiaryLabel : theme.colors.ctaFill}
+      style={{ alignSelf: "stretch", width: "100%" }}
+    >
+      <Button
+        disabled={!settings.hasDeviceCredential ||
+              settings.createRegisterCommand.isPending}
+        label={settings.createRegisterCommand.isPending ? "Creating..." : "Create Register Command"}
+        onPress={(!settings.hasDeviceCredential ||
+              settings.createRegisterCommand.isPending) ? undefined : (() => settings.createRegisterCommand.mutate())}
+        modifiers={buttonStretchModifiers}
+        style={{
+      backgroundColor: !settings.hasDeviceCredential ||
+              settings.createRegisterCommand.isPending ? theme.colors.controlDisabled : theme.colors.ctaFill,
+      borderRadius: radii.control,
+      height: 52,
+      paddingHorizontal: 22,
+    }}
+        variant="filled"
+      />
+    </Host>
           {settings.registerCommand ? (
             <View
               className="gap-2.5 overflow-hidden p-3.5"
@@ -201,12 +286,28 @@ export function SettingsComputersScreen() {
               message="Register an Atmos Server or refresh after an existing Computer reconnects."
             />
             <View className="px-card-padding pb-card-padding">
-              <ExpoUiButton
-                disabled={settings.computersQuery.isFetching}
-                label={settings.computersQuery.isFetching ? "Refreshing..." : "Refresh Computers"}
-                onPress={() => void settings.computersQuery.refetch()}
-                variant="outlined"
-              />
+              <Host
+      matchContents={{ vertical: true }}
+      colorScheme={theme.colorScheme}
+      seedColor={settings.computersQuery.isFetching ? theme.colors.tertiaryLabel : theme.colors.label}
+      style={{ alignSelf: "stretch", width: "100%" }}
+    >
+      <Button
+        disabled={settings.computersQuery.isFetching}
+        label={settings.computersQuery.isFetching ? "Refreshing..." : "Refresh Computers"}
+        onPress={(settings.computersQuery.isFetching) ? undefined : (() => void settings.computersQuery.refetch())}
+        modifiers={buttonStretchModifiers}
+        style={{
+      backgroundColor: theme.colors.control,
+      borderColor: settings.computersQuery.isFetching ? theme.colors.separator : theme.colors.controlBorder,
+      borderRadius: radii.control,
+      borderWidth: 1,
+      height: 52,
+      paddingHorizontal: 22,
+    }}
+        variant="outlined"
+      />
+    </Host>
             </View>
           </View>
         ) : (
@@ -222,12 +323,28 @@ export function SettingsComputersScreen() {
               </View>
             ))}
             <View className="px-card-padding py-1">
-              <ExpoUiButton
-                disabled={settings.computersQuery.isFetching}
-                label={settings.computersQuery.isFetching ? "Refreshing..." : "Refresh"}
-                onPress={() => void settings.computersQuery.refetch()}
-                variant="outlined"
-              />
+              <Host
+      matchContents={{ vertical: true }}
+      colorScheme={theme.colorScheme}
+      seedColor={settings.computersQuery.isFetching ? theme.colors.tertiaryLabel : theme.colors.label}
+      style={{ alignSelf: "stretch", width: "100%" }}
+    >
+      <Button
+        disabled={settings.computersQuery.isFetching}
+        label={settings.computersQuery.isFetching ? "Refreshing..." : "Refresh"}
+        onPress={(settings.computersQuery.isFetching) ? undefined : (() => void settings.computersQuery.refetch())}
+        modifiers={buttonStretchModifiers}
+        style={{
+      backgroundColor: theme.colors.control,
+      borderColor: settings.computersQuery.isFetching ? theme.colors.separator : theme.colors.controlBorder,
+      borderRadius: radii.control,
+      borderWidth: 1,
+      height: 52,
+      paddingHorizontal: 22,
+    }}
+        variant="outlined"
+      />
+    </Host>
             </View>
           </View>
         )}
@@ -242,20 +359,48 @@ export function SettingsComputersScreen() {
             value={settings.renameValue}
           />
           <View className="flex-row gap-action-row-gap">
-            <ExpoUiButton
-              grow
-              disabled={!settings.selectedServerId || settings.rename.isPending || !settings.renameValue.trim()}
-              label={settings.rename.isPending ? "Renaming..." : "Rename"}
-              onPress={() => settings.rename.mutate()}
-            />
-            <ExpoUiButton
-              grow
-              disabled={!settings.selectedServerId || settings.revoke.isPending}
-              label={settings.revoke.isPending ? "Revoking..." : "Revoke"}
-              onPress={settings.confirmRevokeSelectedComputer}
-              tone="danger"
-              variant="outlined"
-            />
+            <Host
+      matchContents={{ vertical: true }}
+      colorScheme={theme.colorScheme}
+      seedColor={!settings.selectedServerId || settings.rename.isPending || !settings.renameValue.trim() ? theme.colors.tertiaryLabel : theme.colors.ctaFill}
+      style={{ alignSelf: "stretch", flex: 1, minWidth: 0, width: "100%" }}
+    >
+      <Button
+        disabled={!settings.selectedServerId || settings.rename.isPending || !settings.renameValue.trim()}
+        label={settings.rename.isPending ? "Renaming..." : "Rename"}
+        onPress={(!settings.selectedServerId || settings.rename.isPending || !settings.renameValue.trim()) ? undefined : (() => settings.rename.mutate())}
+        modifiers={buttonStretchModifiers}
+        style={{
+      backgroundColor: !settings.selectedServerId || settings.rename.isPending || !settings.renameValue.trim() ? theme.colors.controlDisabled : theme.colors.ctaFill,
+      borderRadius: radii.control,
+      height: 52,
+      paddingHorizontal: 22,
+    }}
+        variant="filled"
+      />
+    </Host>
+            <Host
+      matchContents={{ vertical: true }}
+      colorScheme={theme.colorScheme}
+      seedColor={!settings.selectedServerId || settings.revoke.isPending ? theme.colors.tertiaryLabel : theme.colors.red}
+      style={{ alignSelf: "stretch", flex: 1, minWidth: 0, width: "100%" }}
+    >
+      <Button
+        disabled={!settings.selectedServerId || settings.revoke.isPending}
+        label={settings.revoke.isPending ? "Revoking..." : "Revoke"}
+        onPress={(!settings.selectedServerId || settings.revoke.isPending) ? undefined : (settings.confirmRevokeSelectedComputer)}
+        modifiers={buttonStretchModifiers}
+        style={{
+      backgroundColor: !settings.selectedServerId || settings.revoke.isPending ? theme.colors.control : theme.colors.redSurface,
+      borderColor: !settings.selectedServerId || settings.revoke.isPending ? theme.colors.separator : theme.colors.redBorder,
+      borderRadius: radii.control,
+      borderWidth: 1,
+      height: 52,
+      paddingHorizontal: 22,
+    }}
+        variant="outlined"
+      />
+    </Host>
           </View>
         </View>
       </Section>

@@ -1,8 +1,10 @@
+import { Button, Host } from "@expo/ui";
+import { fillMaxWidth } from "@expo/ui/jetpack-compose/modifiers";
+import { controlSize, frame } from "@expo/ui/swift-ui/modifiers";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { Platform, StyleSheet, Text, View } from "react-native";
 import { useMutation } from "@tanstack/react-query";
 import { Section } from "@/ui/layout/app-screen";
-import { ExpoUiButton } from "@/ui/primitives/native-controls";
 import { ChangedFilesList } from "@/features/git/ChangedFilesList";
 import { CommitSheet } from "@/features/git/CommitSheet";
 import { FileDiffView } from "@/features/git/FileDiffView";
@@ -11,8 +13,14 @@ import { useGitStore } from "@/features/git/git-store";
 import { useMobileWs } from "@/providers/MobileWsProvider";
 import { wsActions } from "@/api/ws-actions";
 import type { GitChangedFile } from "@/api/types";
-import { colors } from "@/theme/colors";
+import { colors, radii } from "@/theme/colors";
 import { useMobileTheme } from "@/theme/theme-store";
+
+const buttonStretchModifiers = Platform.select({
+  ios: [frame({ maxWidth: Number.POSITIVE_INFINITY }), controlSize("large")],
+  android: [fillMaxWidth()],
+  default: undefined,
+});
 
 export function ChangesScreen({
   repoPath,
@@ -152,12 +160,28 @@ export function ChangesScreen({
               {unavailableMessage}
             </Text>
           ) : null}
-          <ExpoUiButton
-            label={refresh.isPending ? "Refreshing..." : "Refresh"}
-            onPress={() => refresh.mutate()}
-            disabled={!isConnected || refresh.isPending}
-            variant="outlined"
-          />
+          <Host
+      matchContents={{ vertical: true }}
+      colorScheme={theme.colorScheme}
+      seedColor={!isConnected || refresh.isPending ? theme.colors.tertiaryLabel : theme.colors.label}
+      style={styles.stretchHost}
+    >
+      <Button
+        disabled={!isConnected || refresh.isPending}
+        label={refresh.isPending ? "Refreshing..." : "Refresh"}
+        onPress={(!isConnected || refresh.isPending) ? undefined : (() => refresh.mutate())}
+        modifiers={buttonStretchModifiers}
+        style={{
+      backgroundColor: theme.colors.control,
+      borderColor: !isConnected || refresh.isPending ? theme.colors.separator : theme.colors.controlBorder,
+      borderRadius: radii.control,
+      borderWidth: 1,
+      height: 52,
+      paddingHorizontal: 22,
+    }}
+        variant="outlined"
+      />
+    </Host>
         </View>
         <ChangedFilesList
           stagedFiles={stagedFiles}
@@ -200,6 +224,16 @@ function gitUnavailableMessage(hasRepoPath: boolean, wsState: string) {
 }
 
 const styles = StyleSheet.create({
+  stretchHost: {
+    alignSelf: "stretch",
+    width: "100%",
+  },
+  growHost: {
+    alignSelf: "stretch",
+    flex: 1,
+    minWidth: 0,
+    width: "100%",
+  },
   disconnected: {
     color: colors.red,
     fontSize: 13,

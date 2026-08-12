@@ -1,7 +1,18 @@
-import { View } from "react-native";
+import { useMobileTheme } from "@/theme/theme-store";
+import { radii } from "@/theme/radii";
+import { Button, Host } from "@expo/ui";
+import { fillMaxWidth } from "@expo/ui/jetpack-compose/modifiers";
+import { controlSize, frame } from "@expo/ui/swift-ui/modifiers";
+import { Platform, View } from "react-native";
 import type { ComputerRow } from "@/api/types";
 import { EmptyState, Section } from "@/ui/layout/app-screen";
-import { ExpoUiButton, NativeList, NativeListItem } from "@/ui/primitives/native-controls";
+import { NativeList, NativeListItem } from "@/ui/primitives/native-controls";
+
+const buttonStretchModifiers = Platform.select({
+  ios: [frame({ maxWidth: Number.POSITIVE_INFINITY }), controlSize("large")],
+  android: [fillMaxWidth()],
+  default: undefined,
+});
 
 export function ComputerPicker({
   computers,
@@ -16,6 +27,7 @@ export function ComputerPicker({
   onRefresh: () => void;
   isRefreshing?: boolean;
 }) {
+  const theme = useMobileTheme();
   const activeComputers = computers.filter((computer) => !computer.revoked);
   const onlineComputers = activeComputers.filter((computer) => computer.online);
 
@@ -28,11 +40,27 @@ export function ComputerPicker({
             message="Start or register Atmos Server on a remote machine, then refresh this list."
           />
           <View style={{ padding: 16, paddingTop: 0 }}>
-            <ExpoUiButton
-              label={isRefreshing ? "Refreshing..." : "Refresh"}
-              onPress={onRefresh}
-              variant="outlined"
-            />
+            <Host
+      matchContents={{ vertical: true }}
+      colorScheme={theme.colorScheme}
+      seedColor={theme.colors.label}
+      style={{ alignSelf: "stretch", width: "100%" }}
+    >
+      <Button
+        label={isRefreshing ? "Refreshing..." : "Refresh"}
+        onPress={onRefresh}
+        modifiers={buttonStretchModifiers}
+        style={{
+      backgroundColor: theme.colors.control,
+      borderColor: theme.colors.controlBorder,
+      borderRadius: radii.control,
+      borderWidth: 1,
+      height: 52,
+      paddingHorizontal: 22,
+    }}
+        variant="outlined"
+      />
+    </Host>
           </View>
         </View>
       ) : (
@@ -50,11 +78,27 @@ export function ComputerPicker({
           </NativeList>
           {onlineComputers.length === 0 ? (
             <View style={{ padding: 16 }}>
-              <ExpoUiButton
-                label={isRefreshing ? "Refreshing..." : "Refresh"}
-                onPress={onRefresh}
-                variant="outlined"
-              />
+              <Host
+      matchContents={{ vertical: true }}
+      colorScheme={theme.colorScheme}
+      seedColor={theme.colors.label}
+      style={{ alignSelf: "stretch", width: "100%" }}
+    >
+      <Button
+        label={isRefreshing ? "Refreshing..." : "Refresh"}
+        onPress={onRefresh}
+        modifiers={buttonStretchModifiers}
+        style={{
+      backgroundColor: theme.colors.control,
+      borderColor: theme.colors.controlBorder,
+      borderRadius: radii.control,
+      borderWidth: 1,
+      height: 52,
+      paddingHorizontal: 22,
+    }}
+        variant="outlined"
+      />
+    </Host>
             </View>
           ) : null}
         </View>

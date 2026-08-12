@@ -1,8 +1,17 @@
-import { StyleSheet, Text, View } from "react-native";
+import { Button, Host } from "@expo/ui";
+import { fillMaxWidth } from "@expo/ui/jetpack-compose/modifiers";
+import { controlSize, frame } from "@expo/ui/swift-ui/modifiers";
+import { Platform, StyleSheet, Text, View } from "react-native";
 import { InlineError } from "@/ui/layout/app-screen";
-import { ExpoUiButton, NativeTextInput } from "@/ui/primitives/native-controls";
+import { NativeTextInput } from "@/ui/primitives/native-controls";
 import { colors, radii } from "@/theme/colors";
 import { useMobileTheme } from "@/theme/theme-store";
+
+const buttonStretchModifiers = Platform.select({
+  ios: [frame({ maxWidth: Number.POSITIVE_INFINITY }), controlSize("large")],
+  android: [fillMaxWidth()],
+  default: undefined,
+});
 
 export function CommitSheet({
   message,
@@ -39,17 +48,48 @@ export function CommitSheet({
         placeholder="Commit message"
       />
       <View style={styles.actions}>
-        <ExpoUiButton
-          label={isCommitting ? "Committing..." : "Commit"}
-          onPress={onCommit}
-          disabled={!canCommit || !message.trim() || isCommitting}
-        />
-        <ExpoUiButton
-          label={isPushing ? "Pushing..." : "Push"}
-          onPress={onPush}
-          disabled={!canPush || isPushing}
-          variant="outlined"
-        />
+        <Host
+      matchContents={{ vertical: true }}
+      colorScheme={theme.colorScheme}
+      seedColor={!canCommit || !message.trim() || isCommitting ? theme.colors.tertiaryLabel : theme.colors.ctaFill}
+      style={styles.stretchHost}
+    >
+      <Button
+        disabled={!canCommit || !message.trim() || isCommitting}
+        label={isCommitting ? "Committing..." : "Commit"}
+        onPress={(!canCommit || !message.trim() || isCommitting) ? undefined : (onCommit)}
+        modifiers={buttonStretchModifiers}
+        style={{
+      backgroundColor: !canCommit || !message.trim() || isCommitting ? theme.colors.controlDisabled : theme.colors.ctaFill,
+      borderRadius: radii.control,
+      height: 52,
+      paddingHorizontal: 22,
+    }}
+        variant="filled"
+      />
+    </Host>
+        <Host
+      matchContents={{ vertical: true }}
+      colorScheme={theme.colorScheme}
+      seedColor={!canPush || isPushing ? theme.colors.tertiaryLabel : theme.colors.label}
+      style={styles.stretchHost}
+    >
+      <Button
+        disabled={!canPush || isPushing}
+        label={isPushing ? "Pushing..." : "Push"}
+        onPress={(!canPush || isPushing) ? undefined : (onPush)}
+        modifiers={buttonStretchModifiers}
+        style={{
+      backgroundColor: theme.colors.control,
+      borderColor: !canPush || isPushing ? theme.colors.separator : theme.colors.controlBorder,
+      borderRadius: radii.control,
+      borderWidth: 1,
+      height: 52,
+      paddingHorizontal: 22,
+    }}
+        variant="outlined"
+      />
+    </Host>
       </View>
       {successMessage ? (
         <View
@@ -69,6 +109,16 @@ export function CommitSheet({
 }
 
 const styles = StyleSheet.create({
+  stretchHost: {
+    alignSelf: "stretch",
+    width: "100%",
+  },
+  growHost: {
+    alignSelf: "stretch",
+    flex: 1,
+    minWidth: 0,
+    width: "100%",
+  },
   actions: {
     gap: 10,
   },
