@@ -13,7 +13,8 @@ use std::process::Command;
 use std::time::Duration;
 
 use llm::{
-    FileLlmConfigStore, GenerateTextRequest, ProviderKind, ResolvedLlmProvider, ResponseFormat,
+    render_prompt_template, FileLlmConfigStore, GenerateTextRequest, ProviderKind,
+    ResolvedLlmProvider, ResponseFormat,
 };
 use tracing::{info, warn};
 
@@ -35,27 +36,13 @@ const GIT_TIMEOUT: Duration = Duration::from_secs(8);
 const ATTENTION_CAPTURE_APPROX_LINES: i32 = 4_000;
 const ATTENTION_MAX_RAW_BYTES: usize = 64_000;
 
-const SYSTEM_PROMPT: &str = r#"You are Atmos attention-summary helper.
-An agent finished a turn in a terminal and the user has not acknowledged it yet.
-Summarize what the agent recently did in that terminal session and suggest concise next steps.
+const SYSTEM_PROMPT_TEMPLATE: &str =
+    include_str!("../../../../../prompt/attention-summary/attention-summary-system.md");
+const USER_PROMPT_TEMPLATE: &str =
+    include_str!("../../../../../prompt/attention-summary/attention-summary-user.md");
 
-Primary evidence is the terminal transcript (conversation + command output).
-Changed file paths are optional signals only — do not invent work from them alone.
-The user may not be coding; summarize whatever the transcript shows (Q&A, debug, shell work, etc.).
-
-Respond with ONLY a single JSON object (no markdown fences) matching:
-{
-  "summary": "one sentence",
-  "next_steps": ["short action 1", "short action 2"],
-  "can_close_session": true
-}
-Rules:
-- summary: one clear sentence about what happened in the recent terminal turn (max ~160 chars).
-- next_steps: 2-4 short imperative actions the user might take next, grounded in the transcript.
-- can_close_session: true only if work looks complete with no obvious unfinished blockers.
-- Prefer the user's language if the context is clearly non-English; otherwise English.
-- Do not invent file edits, commits, or outcomes not supported by the transcript or file list.
-"#;
+const EMPTY_CONTEXT_FALLBACK: &str =
+    "(no terminal transcript or changed-file list available — infer cautiously)";
 
 /// Run headless summary generation for a sticky task-complete latch.
 pub async fn generate_attention_summary(
@@ -64,25 +51,31 @@ pub async fn generate_attention_summary(
     terminal: Option<&TerminalService>,
 ) -> Result<AttentionSummaryPayload> {
     let context = build_context_block(latch, terminal).await;
-    let prompt = format!(
-        "Pane: {}\nSession: {}\nTool: {}\nRaised at: {}\nProject: {}\n\n{}",
-        latch.stable_pane_id,
-        latch.session_id,
-        latch
-            .tool
-            .map(|t| t.to_string())
-            .unwrap_or_else(|| "unknown".into()),
-        latch.raised_at,
-        latch
-            .project_path
-            .as_deref()
-            .unwrap_or("(unknown project path)"),
-        if context.trim().is_empty() {
-            "(no terminal transcript or changed-file list available — infer cautiously)"
-        } else {
-            context.as_str()
-        }
+    let tool = latch
+        .tool
+        .map(|t| t.to_string())
+        .unwrap_or_else(|| "unknown".into());
+    let project_path = latch
+        .project_path
+        .as_deref()
+        .unwrap_or("(unknown project path)");
+    let context_body = if context.trim().is_empty() {
+        EMPTY_CONTEXT_FALLBACK
+    } else {
+        context.as_str()
+    };
+    let prompt = render_prompt_template(
+        USER_PROMPT_TEMPLATE,
+        &[
+            ("stable_pane_id", latch.stable_pane_id.as_str()),
+            ("session_id", latch.session_id.as_str()),
+            ("tool", tool.as_str()),
+            ("raised_at", latch.raised_at.as_str()),
+            ("project_path", project_path),
+            ("context", context_body),
+        ],
     );
+    let system = SYSTEM_PROMPT_TEMPLATE.trim().to_string();
 
     let provider = resolve_summary_provider(settings)?;
     info!(
@@ -94,7 +87,7 @@ pub async fn generate_attention_summary(
     );
 
     let request = GenerateTextRequest {
-        system: Some(SYSTEM_PROMPT.to_string()),
+        system: Some(system),
         prompt,
         temperature: Some(0.2),
         max_output_tokens: Some(provider.max_output_tokens.unwrap_or(1024).min(2048)),
@@ -466,5 +459,27 @@ mod tests {
         assert!(text.contains("- src/a.rs"));
         assert!(text.contains("- README.md"));
         assert!(!text.contains("diff"));
+    }
+
+    #[test]
+    fn prompt_templates_render_with_placeholders() {
+        assert!(SYSTEM_PROMPT_TEMPLATE.contains("attention-summary helper"));
+        assert!(SYSTEM_PROMPT_TEMPLATE.contains("can_close_session"));
+
+        let rendered = render_prompt_template(
+            USER_PROMPT_TEMPLATE,
+            &[
+                ("stable_pane_id", "ws:main"),
+                ("session_id", "sess-1"),
+                ("tool", "claude-code"),
+                ("raised_at", "t0"),
+                ("project_path", "/tmp/proj"),
+                ("context", "## Terminal transcript\nhello"),
+            ],
+        );
+        assert!(rendered.contains("Pane: ws:main"));
+        assert!(rendered.contains("Tool: claude-code"));
+        assert!(rendered.contains("## Terminal transcript\nhello"));
+        assert!(!rendered.contains("${"));
     }
 }
