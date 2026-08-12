@@ -158,9 +158,9 @@ Avoid these older mobile patterns:
 
 ## Component Rules
 
-- Buttons should use `ExpoUiButton` from `native-controls` for product CTAs and settings actions.
-- Filled `ExpoUiButton` is the primary black/white pill action. Use it sparingly.
-- `variant="outlined"` is preferred for secondary actions; `tone="danger"` for destructive actions.
+- Buttons should use official `@expo/ui` `Host` + `Button` directly at the call site for product CTAs and settings actions (no shared Atmos Button wrapper).
+- Filled Universal `Button` (`variant="filled"`) is the primary black/white pill action. Use it sparingly; map colors via Button `style` and Host `seedColor`.
+- `variant="outlined"` is preferred for secondary actions; map destructive actions with red theme tokens on `style` / `seedColor` at the call site.
 - Menus should use `NativeMenuButton` and native menu actions.
 - On iOS, inline menu buttons should be SwiftUI `Menu` triggers with string/SF Symbol labels through `NativeMenuButton`; do not use `MenuView` with an `RNHostView`/React Native child as the trigger for row controls.
 - Segmented controls should use mobile wrappers. On iOS, use the native Expo UI segmented control directly so the system owns the sliding selection animation, press-drag selection behavior, and Liquid Glass/native material. Do not add a second visible `GlassPanel` track around it, and do not replace it with custom `Pressable` segments for settings theme controls.
@@ -171,6 +171,6 @@ Avoid these older mobile patterns:
 - Workspace list rows show workflow status as the same Linear-style circular icon family used on Web, placed at the trailing edge of the branch/subtitle line. Tapping the icon opens a native menu to change status; menu actions must also show the corresponding status icon. Do not render workflow status as row text, and do not position the status trigger as an overlay on top of the row press target.
 - Home and creation flows should use prompt-like bottom action docks when a single next action dominates.
 - Sheets should use native route presentation where possible, especially iOS `formSheet`.
-- Header buttons must be icon-only. On iOS use native-stack `unstable_headerRightItems` / `unstable_headerLeftItems` with SF Symbols. Do not put `ExpoUiButton`, text buttons such as `Refresh`, `New`, or `Import`, custom `GlassPanel`, or hand-built capsules in `headerRight`.
+- Header buttons must be icon-only. On iOS use native-stack `unstable_headerRightItems` / `unstable_headerLeftItems` with SF Symbols. Do not put `@expo/ui` `Host`/`Button` product CTAs, text buttons such as `Refresh`, `New`, or `Import`, custom `GlassPanel`, or hand-built capsules in `headerRight`.
 - Android header fallbacks should also be icon buttons unless a native menu requires a text title inside the menu.
 - Business/content icons may use `lucide-react-native` through `src/ui/icons/lucide-native.ts`.
