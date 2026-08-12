@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import type { ProjectWorkspaceBootstrapResponse } from "@/api/types";
@@ -11,10 +11,10 @@ import { useMobileWs } from "@/providers/MobileWsProvider";
 import { useComputerStore } from "@/stores/computer-store";
 import { hydrateRecentWorkspaces, useRecentWorkspacesStore } from "@/stores/recent-workspaces-store";
 import { useSessionStore } from "@/stores/session-store";
-import { AppScreen, InlineError, Section } from "@/ui/layout/app-screen";
-import { ChevronRightIcon, LaptopIcon, TerminalIcon } from "@/ui/icons/lucide-native";
-import { colors, radii } from "@/theme/colors";
-import { useMobileTheme } from "@/theme/theme-store";
+import { AppScreen, EmptyState, InlineError, Section } from "@/ui/layout/app-screen";
+import { Row, Separator } from "@/ui/layout/row";
+import { NativeButton } from "@/ui/primitives/native-controls";
+import { typography } from "@/theme/typography";
 
 const EMPTY_BOOTSTRAP: ProjectWorkspaceBootstrapResponse = {
   projects: [],
@@ -36,7 +36,6 @@ function randomWelcomeHeadline() {
 
 export function WorkspaceListScreen() {
   const router = useRouter();
-  const theme = useMobileTheme();
   const relayClient = useRelayClient();
   const { client: wsClient, state: wsState } = useMobileWs();
   const deviceCredentialLoaded = useSessionStore(
@@ -123,172 +122,104 @@ export function WorkspaceListScreen() {
     return hydrateRecentWorkspaces(recordsForComputer, bootstrap);
   }, [bootstrap, recentWorkspaceRecords, selectedServerId]);
 
+  const primaryAction = resolveHomePrimaryAction({
+    canOpenWorkspaceData,
+    hasDeviceCredential,
+    wsState,
+  });
+
   return (
-    <AppScreen>
-      <View style={styles.dashboard}>
-        <View style={styles.hero}>
-          <Text style={[styles.heroTitle, { color: theme.colors.label }]}>{welcomeHeadline}</Text>
-          <Text style={[styles.heroSubtitle, { color: theme.colors.secondaryLabel }]} numberOfLines={2}>
-            {homeSubtitle({
-              canOpenWorkspaceData,
-              selectedComputerName: selectedComputer?.display_name ?? selectedServerId,
-              workspaceCount,
-            })}
-          </Text>
-          <StatusPill label={workspaceListConnectionLabel(wsState)} active={wsState === "open"} />
-        </View>
-
-        <View style={styles.suggestions}>
-          <SuggestionCard
-            Icon={LaptopIcon}
-            title="Connect Computer"
-            subtitle={computerCardMeta(hasDeviceCredential, computers.length, wsState)}
-            onPress={() => router.push("/computer-connect")}
-          />
-          <SuggestionCard
-            Icon={TerminalIcon}
-            title="Open Workspace"
-            subtitle={
-              canOpenWorkspaceData
-                ? `${workspaceCount} workspaces · ${projectCount} projects`
-                : workspaceCardStatus(hasDeviceCredential, wsState, workspaceCount)
-            }
-            onPress={() => router.push("/workspaces")}
-          />
-        </View>
-
-        <Section label="Recently">
-          {recentWorkspaces.length > 0 ? (
-            recentWorkspaces.map((workspace, index) => (
-              <View key={`${workspace.serverId ?? "unknown"}:${workspace.workspaceId}`}>
-                <DashboardRow
-                  title={workspace.workspaceName}
-                  subtitle={workspace.projectName ?? "Workspace"}
-                  meta={formatRecentAccessedAt(workspace.lastAccessedAt)}
-                  onPress={() => router.push(`/workspace/${workspace.workspaceId}`)}
-                />
-                {index < recentWorkspaces.length - 1 ? (
-                  <View style={[styles.separator, { backgroundColor: theme.colors.separator }]} />
-                ) : null}
-              </View>
-            ))
-          ) : (
-            <RecentlyEmptyState />
-          )}
-        </Section>
-
-        <InlineError message={sessionError ?? computersError ?? workspaceError} />
+    <AppScreen
+      footer={
+        <NativeButton
+          label={primaryAction.label}
+          onPress={() => router.push(primaryAction.route)}
+        />
+      }
+    >
+      <View className="items-center gap-3 px-2 pb-4 pt-8">
+        <Text className="max-w-[320px] text-center text-label" style={typography.heroTitle}>
+          {welcomeHeadline}
+        </Text>
+        <Text
+          className="max-w-[300px] text-center text-secondary-label"
+          numberOfLines={3}
+          style={typography.heroSubtitle}
+        >
+          {homeSubtitle({
+            canOpenWorkspaceData,
+            selectedComputerName: selectedComputer?.display_name ?? selectedServerId,
+            workspaceCount,
+          })}
+        </Text>
+        <Text className="text-secondary-label" style={typography.bodySmall}>
+          {workspaceListConnectionLabel(wsState)}
+        </Text>
       </View>
+
+      <Section label="Quick actions">
+        <Row
+          title="Connect Computer"
+          subtitle={computerRowSubtitle(hasDeviceCredential, computers.length, wsState)}
+          onPress={() => router.push("/computer-connect")}
+        />
+        <Separator />
+        <Row
+          title="Browse workspaces"
+          subtitle={
+            canOpenWorkspaceData
+              ? `${workspaceCount} workspaces · ${projectCount} projects`
+              : workspaceRowSubtitle(hasDeviceCredential, wsState, workspaceCount)
+          }
+          onPress={() => router.push("/workspaces")}
+        />
+      </Section>
+
+      <Section label="Recently">
+        {recentWorkspaces.length > 0 ? (
+          recentWorkspaces.map((workspace, index) => (
+            <View key={`${workspace.serverId ?? "unknown"}:${workspace.workspaceId}`}>
+              <Row
+                title={workspace.workspaceName}
+                subtitle={workspace.projectName ?? "Workspace"}
+                meta={formatRecentAccessedAt(workspace.lastAccessedAt)}
+                onPress={() => router.push(`/workspace/${workspace.workspaceId}`)}
+              />
+              {index < recentWorkspaces.length - 1 ? <Separator /> : null}
+            </View>
+          ))
+        ) : (
+          <EmptyState
+            title="No recent workspaces"
+            message="Open a workspace and it will appear here."
+          />
+        )}
+      </Section>
+
+      <InlineError message={sessionError ?? computersError ?? workspaceError} />
     </AppScreen>
   );
 }
 
-function SuggestionCard({
-  Icon,
-  onPress,
-  subtitle,
-  title,
+function resolveHomePrimaryAction({
+  canOpenWorkspaceData,
+  hasDeviceCredential,
+  wsState,
 }: {
-  Icon: typeof LaptopIcon;
-  onPress: () => void;
-  subtitle: string;
-  title: string;
+  canOpenWorkspaceData: boolean;
+  hasDeviceCredential: boolean;
+  wsState: string;
 }) {
-  const theme = useMobileTheme();
-
-  return (
-    <View
-      style={[
-        styles.suggestionCard,
-        {
-          backgroundColor: theme.colors.cardElevated,
-          borderColor: theme.colors.glassBorder,
-        },
-      ]}
-    >
-      <Pressable
-        accessibilityRole="button"
-        onPress={onPress}
-        style={({ pressed }) => [styles.suggestionCardContent, pressed ? styles.pressed : null]}
-      >
-        <Icon color={theme.colors.label} size={20} strokeWidth={2.3} />
-        <Text style={[styles.suggestionTitle, { color: theme.colors.label }]} numberOfLines={1}>
-          {title}
-        </Text>
-        <Text style={[styles.suggestionSubtitle, { color: theme.colors.secondaryLabel }]} numberOfLines={2}>
-          {subtitle}
-        </Text>
-      </Pressable>
-    </View>
-  );
-}
-
-function DashboardRow({
-  meta,
-  onPress,
-  subtitle,
-  title,
-}: {
-  meta: string;
-  onPress: () => void;
-  subtitle: string;
-  title: string;
-}) {
-  const theme = useMobileTheme();
-
-  return (
-    <Pressable
-      accessibilityRole="button"
-      onPress={onPress}
-      style={({ pressed }) => [styles.dashboardRow, pressed ? { backgroundColor: theme.colors.mutedPressed } : null]}
-    >
-      <View style={styles.dashboardRowText}>
-        <Text style={[styles.dashboardRowTitle, { color: theme.colors.label }]} numberOfLines={1}>
-          {title}
-        </Text>
-        <Text style={[styles.dashboardRowSubtitle, { color: theme.colors.secondaryLabel }]} numberOfLines={1}>
-          {subtitle}
-        </Text>
-      </View>
-      <Text style={[styles.dashboardRowMeta, { color: theme.colors.secondaryLabel }]} numberOfLines={1}>
-        {meta}
-      </Text>
-      <ChevronRightIcon color={theme.colors.tertiaryLabel} size={18} strokeWidth={2.5} />
-    </Pressable>
-  );
-}
-
-function RecentlyEmptyState() {
-  const theme = useMobileTheme();
-
-  return (
-    <View style={styles.recentEmpty}>
-      <Text selectable style={[styles.recentEmptyTitle, { color: theme.colors.label }]}>
-        No recent Workspaces
-      </Text>
-      <Text selectable style={[styles.recentEmptyMessage, { color: theme.colors.secondaryLabel }]}>
-        Open a Workspace and it will appear here.
-      </Text>
-    </View>
-  );
-}
-
-function StatusPill({ active, label }: { active: boolean; label: string }) {
-  const theme = useMobileTheme();
-
-  return (
-    <View style={[styles.statusPill, { backgroundColor: active ? theme.colors.label : theme.colors.cardElevated }]}>
-      <View
-        style={[
-          styles.statusDot,
-          { backgroundColor: active ? theme.colors.labelInverse : theme.colors.tertiaryLabel },
-        ]}
-      />
-      <Text style={[styles.statusPillText, { color: active ? theme.colors.labelInverse : theme.colors.secondaryLabel }]}>
-        {label}
-      </Text>
-    </View>
-  );
+  if (!hasDeviceCredential) {
+    return { label: "Sign in", route: "/onboarding" as const };
+  }
+  if (canOpenWorkspaceData) {
+    return { label: "Browse workspaces", route: "/workspaces" as const };
+  }
+  if (wsState === "open") {
+    return { label: "Browse workspaces", route: "/workspaces" as const };
+  }
+  return { label: "Connect Computer", route: "/computer-connect" as const };
 }
 
 function formatRecentAccessedAt(value: string) {
@@ -309,7 +240,7 @@ function formatRecentAccessedAt(value: string) {
   return "Recent";
 }
 
-function computerCardMeta(
+function computerRowSubtitle(
   hasDeviceCredential: boolean,
   computerCount: number,
   wsState: string,
@@ -321,15 +252,15 @@ function computerCardMeta(
   return "Select a Computer";
 }
 
-function workspaceCardStatus(
+function workspaceRowSubtitle(
   hasDeviceCredential: boolean,
   wsState: string,
   workspaceCount: number,
 ) {
-  if (!hasDeviceCredential) return "Setup";
-  if (wsState !== "open") return "Offline";
-  if (workspaceCount === 0) return "Empty";
-  return "Open";
+  if (!hasDeviceCredential) return "Sign in to continue";
+  if (wsState !== "open") return "Finish connecting to your Computer";
+  if (workspaceCount === 0) return "No workspaces yet";
+  return "Open a workspace";
 }
 
 function workspaceListConnectionLabel(wsState: string) {
@@ -351,139 +282,8 @@ function homeSubtitle({
   if (canOpenWorkspaceData) {
     return `${workspaceCount} workspaces are ready on ${selectedComputerName ?? "this Computer"}.`;
   }
-  if (selectedComputerName) return `${selectedComputerName} is selected. Finish connecting to load workspaces.`;
+  if (selectedComputerName) {
+    return `${selectedComputerName} is selected. Finish connecting to load workspaces.`;
+  }
   return "Connect a Computer, then open a workspace or start a new one.";
 }
-
-const styles = StyleSheet.create({
-  dashboard: {
-    gap: 24,
-  },
-  dashboardRow: {
-    alignItems: "center",
-    flexDirection: "row",
-    gap: 8,
-    minHeight: 66,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  dashboardRowMeta: {
-    color: colors.secondaryLabel,
-    flexShrink: 1,
-    fontSize: 13,
-    fontWeight: "600",
-    maxWidth: 92,
-    textAlign: "right",
-  },
-  dashboardRowSubtitle: {
-    color: colors.secondaryLabel,
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  dashboardRowText: {
-    flex: 1,
-    gap: 3,
-    minWidth: 0,
-  },
-  dashboardRowTitle: {
-    color: colors.label,
-    fontSize: 16,
-    fontWeight: "700",
-    lineHeight: 21,
-  },
-  hero: {
-    alignItems: "center",
-    gap: 12,
-    paddingBottom: 16,
-    paddingHorizontal: 18,
-    paddingTop: 56,
-  },
-  heroSubtitle: {
-    color: colors.secondaryLabel,
-    fontSize: 16,
-    lineHeight: 22,
-    maxWidth: 300,
-    textAlign: "center",
-  },
-  heroTitle: {
-    color: colors.label,
-    fontSize: 28,
-    fontWeight: "700",
-    lineHeight: 34,
-    textAlign: "center",
-  },
-  pressed: {
-    opacity: 0.72,
-  },
-  recentEmpty: {
-    gap: 5,
-    paddingHorizontal: 16,
-    paddingVertical: 18,
-  },
-  recentEmptyMessage: {
-    color: colors.secondaryLabel,
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  recentEmptyTitle: {
-    color: colors.label,
-    fontSize: 16,
-    fontWeight: "700",
-    lineHeight: 21,
-  },
-  separator: {
-    backgroundColor: colors.separator,
-    height: StyleSheet.hairlineWidth,
-    marginLeft: 16,
-  },
-  statusDot: {
-    backgroundColor: colors.tertiaryLabel,
-    borderRadius: 999,
-    height: 7,
-    width: 7,
-  },
-  statusPill: {
-    alignItems: "center",
-    backgroundColor: colors.label,
-    borderRadius: 999,
-    flexDirection: "row",
-    gap: 7,
-    minHeight: 30,
-    paddingHorizontal: 12,
-  },
-  statusPillText: {
-    color: colors.labelInverse,
-    fontSize: 12,
-    fontWeight: "700",
-  },
-  suggestionCard: {
-    backgroundColor: colors.cardElevated,
-    borderColor: colors.glassBorder,
-    borderCurve: "continuous",
-    borderRadius: radii.card,
-    borderWidth: StyleSheet.hairlineWidth,
-    flex: 1,
-    minHeight: 128,
-    overflow: "hidden",
-  },
-  suggestionCardContent: {
-    gap: 8,
-    minHeight: 128,
-    padding: 16,
-  },
-  suggestionSubtitle: {
-    color: colors.secondaryLabel,
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  suggestions: {
-    flexDirection: "row",
-    gap: 12,
-  },
-  suggestionTitle: {
-    color: colors.label,
-    fontSize: 16,
-    fontWeight: "700",
-    lineHeight: 21,
-  },
-});

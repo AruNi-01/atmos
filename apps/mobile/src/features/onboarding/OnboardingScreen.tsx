@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { AppScreen, InlineError, Section } from "@/ui/layout/app-screen";
@@ -17,6 +17,8 @@ import {
 import { claimPairFromScan } from "@/lib/mobile-pair-claim";
 import { useComputerStore } from "@/stores/computer-store";
 import { useSessionStore } from "@/stores/session-store";
+import { radii } from "@/theme/radii";
+import { typography } from "@/theme/typography";
 import { useMobileTheme } from "@/theme/theme-store";
 
 export function OnboardingScreen() {
@@ -110,27 +112,42 @@ export function OnboardingScreen() {
   const busy =
     signIn.isPending || claimPair.isPending || createSession.isPending;
 
-  return (
-    <AppScreen
-      footer={
-        hasDeviceCredential ? (
-          <NativeButton
-            label={
-              computersQuery.isFetching
-                ? "Checking Computers..."
-                : "Refresh Computers"
-            }
-            onPress={() => {
-              if (!computersQuery.isFetching) void computersQuery.refetch();
-            }}
-            disabled={busy}
-          />
-        ) : null
+  const footer = hasDeviceCredential ? (
+    <NativeButton
+      label={
+        computersQuery.isFetching ? "Checking Computers..." : "Refresh Computers"
       }
-    >
-      <View style={styles.hero}>
+      onPress={() => {
+        if (!computersQuery.isFetching) void computersQuery.refetch();
+      }}
+      disabled={busy}
+    />
+  ) : (
+    <View className="gap-action-row-gap">
+      <NativeButton
+        label={signIn.isPending ? "Signing in..." : "Continue with GitHub"}
+        onPress={() => signIn.mutate("github")}
+        disabled={busy}
+      />
+      <NativeButton
+        label={signIn.isPending ? "Signing in..." : "Continue with Google"}
+        onPress={() => signIn.mutate("google")}
+        disabled={busy}
+        surface="control"
+        tone="secondary"
+      />
+    </View>
+  );
+
+  return (
+    <AppScreen footer={footer}>
+      <View className="items-center gap-3 px-2 pb-2 pt-4">
         <View
-          style={[styles.heroMark, { backgroundColor: theme.colors.label }]}
+          className="h-14 w-14 items-center justify-center"
+          style={{
+            backgroundColor: theme.colors.label,
+            borderRadius: radii.iconWell + 2,
+          }}
         >
           <TerminalIcon
             color={theme.colors.labelInverse}
@@ -138,11 +155,15 @@ export function OnboardingScreen() {
             strokeWidth={2.2}
           />
         </View>
-        <Text style={[styles.heroTitle, { color: theme.colors.label }]}>
+        <Text
+          className="text-center text-label"
+          style={typography.heroTitle}
+        >
           Connect Atmos
         </Text>
         <Text
-          style={[styles.heroSubtitle, { color: theme.colors.secondaryLabel }]}
+          className="max-w-[320px] text-center text-secondary-label"
+          style={typography.heroSubtitle}
         >
           Sign in with GitHub or Google. Or scan a temporary QR from Desktop/Web
           — no paste, no shared secrets.
@@ -150,81 +171,47 @@ export function OnboardingScreen() {
       </View>
 
       {!hasDeviceCredential ? (
-        <>
-          <Section label="Sign in">
-            <View style={styles.formBlock}>
-              <NativeButton
-                label={
-                  signIn.isPending ? "Signing in..." : "Continue with GitHub"
-                }
-                onPress={() => signIn.mutate("github")}
-                disabled={busy}
-              />
-              <NativeButton
-                label={
-                  signIn.isPending ? "Signing in..." : "Continue with Google"
-                }
-                onPress={() => signIn.mutate("google")}
-                disabled={busy}
-              />
-              <Text
-                selectable
-                style={[
-                  styles.bodyText,
-                  { color: theme.colors.secondaryLabel },
-                ]}
-              >
-                Opens the system browser. After OAuth, this phone receives a Hub
-                device credential and connects when a Computer is online.
-              </Text>
-            </View>
-          </Section>
-
-          <Section label="Or scan QR">
-            <View style={styles.formBlock}>
-              <NativeButton
-                label={
-                  scannerOpen
-                    ? "Close scanner"
-                    : "Scan pair QR from Desktop/Web"
-                }
-                onPress={() => {
-                  setLocalError(null);
-                  setScannerOpen((open) => !open);
-                }}
-                disabled={busy}
-              />
-              <Text
-                selectable
-                style={[
-                  styles.bodyText,
-                  { color: theme.colors.secondaryLabel },
-                ]}
-              >
-                On Desktop/Web: Atmos Computer → Pair phone. Code expires in 3
-                minutes and is one-time use.
-              </Text>
-              {scannerOpen ? (
-                <PairQrScanner
-                  disabled={busy}
-                  onScanned={(value) => {
-                    setScannerOpen(false);
-                    claimPair.mutate(value);
-                  }}
-                />
-              ) : null}
-            </View>
-          </Section>
-        </>
-      ) : (
-        <Section label="Account">
-          <View style={styles.tokenSummary}>
-            <View
-              style={[styles.statusDot, { backgroundColor: theme.colors.label }]}
+        <Section label="Or scan QR">
+          <View className="gap-3 p-card-padding">
+            <NativeButton
+              label={
+                scannerOpen ? "Close scanner" : "Scan pair QR from Desktop/Web"
+              }
+              onPress={() => {
+                setLocalError(null);
+                setScannerOpen((open) => !open);
+              }}
+              disabled={busy}
+              surface="control"
+              tone="text"
             />
             <Text
-              style={[styles.statusText, { color: theme.colors.secondaryLabel }]}
+              selectable
+              className="text-secondary-label"
+              style={typography.bodySmall}
             >
+              On Desktop/Web: Atmos Computer → Pair phone. Code expires in 3
+              minutes and is one-time use.
+            </Text>
+            {scannerOpen ? (
+              <PairQrScanner
+                disabled={busy}
+                onScanned={(value) => {
+                  setScannerOpen(false);
+                  claimPair.mutate(value);
+                }}
+              />
+            ) : null}
+          </View>
+        </Section>
+      ) : (
+        <Section label="Account">
+          <View className="flex-row items-center gap-2.5 px-card-padding py-4">
+            <View
+              className="h-2 w-2 rounded-full"
+              style={{ backgroundColor: theme.colors.green }}
+            />
+            <Text className="flex-1 text-secondary-label" style={typography.body}>
               This phone is signed in
             </Text>
           </View>
@@ -243,24 +230,32 @@ export function OnboardingScreen() {
 
       {!hasDeviceCredential ? (
         <Section label="How it works">
-          <View style={styles.steps}>
-            <Step
-              index="1"
+          <View className="gap-4 p-card-padding">
+            <OnboardingStep
               title="Sign in (recommended)"
               body="GitHub or Google in the system browser. Atmos mints a device for this phone only."
             />
-            <Step
-              index="2"
+            <OnboardingStep
               title="Or scan QR"
               body="If you are already signed in on Desktop/Web, pair without logging in again."
             />
-            <Step
-              index="3"
+            <OnboardingStep
               title="Auto-connect"
               body="When a single Computer is online, Atmos opens it automatically."
             />
           </View>
         </Section>
+      ) : null}
+
+      {!hasDeviceCredential ? (
+        <Text
+          selectable
+          className="px-1 text-secondary-label"
+          style={typography.bodySmall}
+        >
+          Opens the system browser. After OAuth, this phone receives a Hub device
+          credential and connects when a Computer is online.
+        </Text>
       ) : null}
 
       <InlineError
@@ -277,108 +272,15 @@ export function OnboardingScreen() {
   );
 }
 
-function Step({
-  body,
-  index,
-  title,
-}: {
-  body: string;
-  index: string;
-  title: string;
-}) {
-  const theme = useMobileTheme();
+function OnboardingStep({ body, title }: { body: string; title: string }) {
   return (
-    <View style={styles.stepRow}>
-      <View style={[styles.stepIndex, { backgroundColor: theme.colors.label }]}>
-        <Text
-          style={[styles.stepIndexText, { color: theme.colors.labelInverse }]}
-        >
-          {index}
-        </Text>
-      </View>
-      <View style={styles.stepCopy}>
-        <Text style={[styles.stepTitle, { color: theme.colors.label }]}>
-          {title}
-        </Text>
-        <Text style={[styles.stepBody, { color: theme.colors.secondaryLabel }]}>
-          {body}
-        </Text>
-      </View>
+    <View className="gap-1">
+      <Text className="text-label" style={typography.rowTitle}>
+        {title}
+      </Text>
+      <Text className="text-secondary-label" style={typography.bodySmall}>
+        {body}
+      </Text>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  hero: {
-    gap: 10,
-    paddingBottom: 8,
-  },
-  heroMark: {
-    alignItems: "center",
-    borderRadius: 18,
-    height: 56,
-    justifyContent: "center",
-    width: 56,
-  },
-  heroTitle: {
-    fontSize: 28,
-    fontWeight: "700",
-    letterSpacing: -0.4,
-  },
-  heroSubtitle: {
-    fontSize: 15,
-    lineHeight: 22,
-  },
-  formBlock: {
-    gap: 12,
-  },
-  bodyText: {
-    fontSize: 13,
-    lineHeight: 19,
-  },
-  tokenSummary: {
-    alignItems: "center",
-    flexDirection: "row",
-    gap: 10,
-  },
-  statusDot: {
-    borderRadius: 4,
-    height: 8,
-    width: 8,
-  },
-  statusText: {
-    flex: 1,
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  steps: {
-    gap: 14,
-  },
-  stepRow: {
-    flexDirection: "row",
-    gap: 12,
-  },
-  stepIndex: {
-    alignItems: "center",
-    borderRadius: 12,
-    height: 28,
-    justifyContent: "center",
-    width: 28,
-  },
-  stepIndexText: {
-    fontSize: 13,
-    fontWeight: "700",
-  },
-  stepCopy: {
-    flex: 1,
-    gap: 2,
-  },
-  stepTitle: {
-    fontSize: 15,
-    fontWeight: "600",
-  },
-  stepBody: {
-    fontSize: 13,
-    lineHeight: 19,
-  },
-});

@@ -1,4 +1,20 @@
 export const typography = {
+  heroTitle: {
+    fontSize: 28,
+    fontWeight: "700" as const,
+    lineHeight: 34,
+    letterSpacing: -0.4,
+  },
+  heroSubtitle: {
+    fontSize: 16,
+    fontWeight: "400" as const,
+    lineHeight: 22,
+  },
+  bodySmall: {
+    fontSize: 13,
+    fontWeight: "400" as const,
+    lineHeight: 19,
+  },
   sectionLabel: {
     fontSize: 13,
     fontWeight: "600" as const,

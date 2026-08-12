@@ -1,8 +1,8 @@
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import type { ComputerRow } from "@/api/types";
 import { AppScreen, EmptyState, InlineError, Section } from "@/ui/layout/app-screen";
-import { Separator } from "@/ui/layout/row";
+import { Row, Separator } from "@/ui/layout/row";
 import { NativeButton, NativeSegmentedControl, NativeTextInput } from "@/ui/primitives/native-controls";
 import {
   ChevronRightIcon,
@@ -15,7 +15,8 @@ import {
   TrashIcon,
 } from "@/ui/icons/lucide-native";
 import { useMobileSettingsController } from "@/features/settings/use-mobile-settings-controller";
-import { colors } from "@/theme/colors";
+import { radii } from "@/theme/radii";
+import { typography } from "@/theme/typography";
 import { themePreferenceOptions, useMobileTheme, type MobileThemePreference } from "@/theme/theme-store";
 
 type SettingsRoute = "/settings/computers";
@@ -49,22 +50,17 @@ export function SettingsIndexScreen() {
   return (
     <AppScreen surface="sheet">
       <Section label="Preferences">
-        <View style={styles.block}>
-          <View style={styles.preferenceHeader}>
-            <View
-              style={[
-                styles.iconWell,
-                { backgroundColor: theme.colors.cardSubtle, borderColor: theme.colors.separator },
-              ]}
-            >
-              <SunMoonIcon color={theme.colors.label} size={18} strokeWidth={2.4} />
-            </View>
-            <View style={styles.settingsRowText}>
-              <Text numberOfLines={1} style={[styles.rowTitle, { color: theme.colors.label }]}>
+        <View className="gap-3 p-card-padding">
+          <View className="flex-row items-center gap-3">
+            <SettingsIconWell Icon={SunMoonIcon} />
+            <View className="min-w-0 flex-1 gap-0.5">
+              <Text className="text-label" numberOfLines={1} style={typography.rowTitle}>
                 Theme
               </Text>
-              <Text numberOfLines={2} style={[styles.rowDescription, { color: theme.colors.secondaryLabel }]}>
-                {theme.preference === "system" ? "Follow system appearance" : `${theme.preference === "dark" ? "Dark" : "Light"} mode`}
+              <Text className="text-secondary-label" numberOfLines={2} style={typography.rowSubtitle}>
+                {theme.preference === "system"
+                  ? "Follow system appearance"
+                  : `${theme.preference === "dark" ? "Dark" : "Light"} mode`}
               </Text>
             </View>
           </View>
@@ -77,15 +73,12 @@ export function SettingsIndexScreen() {
       </Section>
 
       <Section label="System & Integration">
-        <View style={styles.list}>
-          {systemEntries.map((entry) => (
-            <SettingsListItem
-              entry={entry}
-              key={entry.id}
-              onPress={() => router.push(entry.route)}
-            />
-          ))}
-        </View>
+        {systemEntries.map((entry, index) => (
+          <View key={entry.id}>
+            <SettingsNavRow entry={entry} onPress={() => router.push(entry.route)} />
+            {index < systemEntries.length - 1 ? <Separator /> : null}
+          </View>
+        ))}
       </Section>
     </AppScreen>
   );
@@ -100,7 +93,7 @@ export function SettingsComputersScreen() {
   return (
     <AppScreen surface="sheet">
       <Section label="Account">
-        <View style={styles.settingsBlock}>
+        <View className="gap-3.5 p-card-padding">
           <SettingsHint
             message={
               settings.hasDeviceCredential
@@ -108,7 +101,7 @@ export function SettingsComputersScreen() {
                 : "Sign in or scan a Desktop/Web pair QR to link this phone."
             }
           />
-          <View style={styles.actionRow}>
+          <View className="flex-row gap-action-row-gap">
             <NativeButton
               grow
               icon={KeyIcon}
@@ -135,7 +128,7 @@ export function SettingsComputersScreen() {
       </Section>
 
       <Section label="Relay">
-        <View style={styles.settingsBlock}>
+        <View className="gap-3.5 p-card-padding">
           <NativeTextInput
             autoCapitalize="none"
             autoCorrect={false}
@@ -176,7 +169,7 @@ export function SettingsComputersScreen() {
       </Section>
 
       <Section label="Register Computer">
-        <View style={styles.settingsBlock}>
+        <View className="gap-3.5 p-card-padding">
           <NativeButton
             disabled={
               !settings.hasDeviceCredential ||
@@ -188,11 +181,26 @@ export function SettingsComputersScreen() {
             surface="control"
           />
           {settings.registerCommand ? (
-            <View style={[styles.commandBlock, { backgroundColor: theme.colors.terminalBg }]}>
-              <Text selectable style={[styles.commandIntro, { color: theme.colors.terminalMuted }]}>
+            <View
+              className="gap-2.5 overflow-hidden p-3.5"
+              style={{
+                backgroundColor: theme.colors.terminalBg,
+                borderCurve: "continuous",
+                borderRadius: radii.card - 6,
+              }}
+            >
+              <Text
+                selectable
+                className="text-terminal-muted"
+                style={typography.bodySmall}
+              >
                 Run this once on the machine that hosts Atmos Server.
               </Text>
-              <Text selectable style={[styles.commandText, { color: theme.colors.terminalFg }]}>
+              <Text
+                selectable
+                className="font-mono text-terminal-fg"
+                style={{ fontSize: 12, lineHeight: 18 }}
+              >
                 {settings.registerCommand}
               </Text>
             </View>
@@ -209,7 +217,7 @@ export function SettingsComputersScreen() {
               title="No Computers"
               message="Register an Atmos Server or refresh after an existing Computer reconnects."
             />
-            <View style={styles.blockTopless}>
+            <View className="px-card-padding pb-card-padding">
               <NativeButton
                 disabled={settings.computersQuery.isFetching}
                 icon={RefreshIcon}
@@ -224,7 +232,7 @@ export function SettingsComputersScreen() {
           <View>
             {settings.activeComputers.map((computer, index) => (
               <View key={computer.server_id}>
-                <ComputerListItem
+                <ComputerListRow
                   computer={computer}
                   selectedServerId={settings.selectedServerId}
                   onPress={() => settings.selectComputer(computer)}
@@ -232,7 +240,7 @@ export function SettingsComputersScreen() {
                 {index < settings.activeComputers.length - 1 ? <Separator /> : null}
               </View>
             ))}
-            <View style={styles.listFooter}>
+            <View className="px-card-padding py-1">
               <NativeButton
                 disabled={settings.computersQuery.isFetching}
                 icon={RefreshIcon}
@@ -247,14 +255,14 @@ export function SettingsComputersScreen() {
       </Section>
 
       <Section label="Selected Computer">
-        <View style={styles.settingsBlock}>
+        <View className="gap-3.5 p-card-padding">
           <SelectedComputerSummary computer={settings.selectedComputer} />
           <NativeTextInput
             onChangeText={settings.setRenameValue}
             placeholder="New Computer name"
             value={settings.renameValue}
           />
-          <View style={styles.actionRow}>
+          <View className="flex-row gap-action-row-gap">
             <NativeButton
               grow
               disabled={!settings.selectedServerId || settings.rename.isPending || !settings.renameValue.trim()}
@@ -281,7 +289,7 @@ export function SettingsComputersScreen() {
   );
 }
 
-function SettingsListItem({
+function SettingsNavRow({
   entry,
   onPress,
 }: {
@@ -295,37 +303,47 @@ function SettingsListItem({
     <Pressable
       accessibilityRole="button"
       onPress={onPress}
-      style={({ pressed }) => [
-        styles.settingsRow,
-        pressed ? { backgroundColor: theme.colors.mutedPressed } : null,
-      ]}
+      style={({ pressed }) =>
+        pressed ? { backgroundColor: theme.colors.mutedPressed } : undefined
+      }
     >
-      <View style={styles.settingsRowLeading}>
-        <View
-          style={[
-            styles.iconWell,
-            { backgroundColor: theme.colors.cardSubtle, borderColor: theme.colors.separator },
-          ]}
-        >
-          <Icon color={theme.colors.label} size={18} strokeWidth={2.4} />
-        </View>
-        <View style={styles.settingsRowText}>
-          <Text numberOfLines={1} style={[styles.rowTitle, { color: theme.colors.label }]}>
+      <View className="min-h-row-min-height flex-row items-center gap-3 px-row-x py-row-y">
+        <SettingsIconWell Icon={Icon} />
+        <View className="min-w-0 flex-1 gap-0.5">
+          <Text className="text-label" numberOfLines={1} style={typography.rowTitle}>
             {entry.title}
           </Text>
-          <Text numberOfLines={2} style={[styles.rowDescription, { color: theme.colors.secondaryLabel }]}>
+          <Text className="text-secondary-label" numberOfLines={2} style={typography.rowSubtitle}>
             {entry.description}
           </Text>
         </View>
-      </View>
-      <View style={styles.trailing}>
         <ChevronRightIcon color={theme.colors.tertiaryLabel} size={18} strokeWidth={2.6} />
       </View>
     </Pressable>
   );
 }
 
-function ComputerListItem({
+function SettingsIconWell({
+  Icon,
+}: {
+  Icon: typeof LaptopIcon;
+}) {
+  const theme = useMobileTheme();
+
+  return (
+    <View
+      className="h-[38px] w-[38px] items-center justify-center border border-separator"
+      style={{
+        backgroundColor: theme.colors.cardSubtle,
+        borderRadius: radii.iconWell,
+      }}
+    >
+      <Icon color={theme.colors.label} size={18} strokeWidth={2.4} />
+    </View>
+  );
+}
+
+function ComputerListRow({
   computer,
   onPress,
   selectedServerId,
@@ -334,71 +352,34 @@ function ComputerListItem({
   onPress: () => void;
   selectedServerId: string | null;
 }) {
-  const theme = useMobileTheme();
+  const selected = computer.server_id === selectedServerId;
+  const statusLabel = selected
+    ? "Selected"
+    : computer.online
+      ? "Online"
+      : "Offline";
 
   return (
-    <Pressable
-      accessibilityRole="button"
+    <Row
+      title={computer.display_name ?? computer.server_id}
+      subtitle={computer.server_id}
+      meta={statusLabel}
       onPress={onPress}
-      style={({ pressed }) => [
-        styles.settingsRow,
-        pressed ? { backgroundColor: theme.colors.mutedPressed } : null,
-      ]}
-    >
-      <View style={styles.settingsRowText}>
-        <Text numberOfLines={1} style={[styles.rowTitle, { color: theme.colors.label }]}>
-          {computer.display_name ?? computer.server_id}
-        </Text>
-        <Text numberOfLines={1} style={[styles.rowDescription, { color: theme.colors.secondaryLabel }]}>
-          {computer.server_id}
-        </Text>
-      </View>
-      <ComputerStatus computer={computer} selectedServerId={selectedServerId} />
-    </Pressable>
-  );
-}
-
-function ComputerStatus({
-  computer,
-  selectedServerId,
-}: {
-  computer: ComputerRow;
-  selectedServerId: string | null;
-}) {
-  const theme = useMobileTheme();
-
-  return (
-    <View style={styles.computerStatus}>
-      {computer.server_id === selectedServerId ? (
-        <Text style={[styles.selectedText, { color: theme.colors.label }]}>Selected</Text>
-      ) : null}
-      <Text
-        style={[
-          styles.statusPill,
-          computer.online
-            ? { backgroundColor: theme.colors.greenSurface, color: theme.colors.green }
-            : { backgroundColor: theme.colors.mutedPressed, color: theme.colors.secondaryLabel },
-        ]}
-      >
-        {computer.online ? "Online" : "Offline"}
-      </Text>
-    </View>
+    />
   );
 }
 
 function SelectedComputerSummary({ computer }: { computer: ComputerRow | null }) {
-  const theme = useMobileTheme();
-
   if (!computer) {
     return <SettingsHint message="Select a Computer before renaming or revoking it." />;
   }
 
   return (
-    <View style={styles.summary}>
-      <Text numberOfLines={1} style={[styles.summaryTitle, { color: theme.colors.label }]}>
+    <View className="gap-1">
+      <Text className="text-label" numberOfLines={1} style={typography.rowTitle}>
         {computer.display_name ?? computer.server_id}
       </Text>
-      <Text numberOfLines={1} style={[styles.summaryText, { color: theme.colors.secondaryLabel }]}>
+      <Text className="text-secondary-label" numberOfLines={1} style={typography.rowSubtitle}>
         {computer.server_id}
       </Text>
     </View>
@@ -406,145 +387,9 @@ function SelectedComputerSummary({ computer }: { computer: ComputerRow | null })
 }
 
 function SettingsHint({ message }: { message: string }) {
-  const theme = useMobileTheme();
-
   return (
-    <Text selectable style={[styles.hint, { color: theme.colors.secondaryLabel }]}>
+    <Text selectable className="text-secondary-label" style={typography.bodySmall}>
       {message}
     </Text>
   );
 }
-
-const styles = StyleSheet.create({
-  actionRow: {
-    flexDirection: "row",
-    gap: 10,
-  },
-  block: {
-    gap: 12,
-    padding: 16,
-  },
-  blockTopless: {
-    gap: 12,
-    padding: 16,
-    paddingTop: 0,
-  },
-  commandBlock: {
-    backgroundColor: colors.terminalBg,
-    borderCurve: "continuous",
-    borderRadius: 18,
-    gap: 10,
-    overflow: "hidden",
-    padding: 14,
-  },
-  commandIntro: {
-    color: colors.terminalMuted,
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  commandText: {
-    color: colors.terminalFg,
-    fontFamily: "Menlo",
-    fontSize: 12,
-    lineHeight: 18,
-  },
-  computerStatus: {
-    alignItems: "flex-end",
-    gap: 6,
-  },
-  hint: {
-    color: colors.secondaryLabel,
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  iconWell: {
-    alignItems: "center",
-    backgroundColor: colors.cardSubtle,
-    borderColor: colors.separator,
-    borderRadius: 16,
-    borderWidth: StyleSheet.hairlineWidth,
-    height: 38,
-    justifyContent: "center",
-    width: 38,
-  },
-  list: {
-    paddingVertical: 4,
-  },
-  listFooter: {
-    alignItems: "flex-start",
-    paddingHorizontal: 16,
-    paddingVertical: 4,
-  },
-  preferenceHeader: {
-    alignItems: "center",
-    flexDirection: "row",
-    gap: 12,
-  },
-  rowDescription: {
-    color: colors.secondaryLabel,
-    fontSize: 12,
-    fontWeight: "400",
-    lineHeight: 17,
-  },
-  rowTitle: {
-    color: colors.label,
-    fontSize: 16,
-    fontWeight: "600",
-    lineHeight: 21,
-  },
-  selectedText: {
-    color: colors.label,
-    fontSize: 12,
-    fontWeight: "700",
-  },
-  settingsRow: {
-    alignItems: "center",
-    flexDirection: "row",
-    justifyContent: "space-between",
-    minHeight: 74,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  settingsRowLeading: {
-    alignItems: "center",
-    flex: 1,
-    flexDirection: "row",
-    gap: 12,
-    minWidth: 0,
-  },
-  settingsRowText: {
-    flex: 1,
-    gap: 2,
-    minWidth: 0,
-  },
-  settingsBlock: {
-    gap: 14,
-    padding: 16,
-  },
-  statusPill: {
-    borderRadius: 999,
-    fontSize: 11,
-    fontWeight: "800",
-    overflow: "hidden",
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-  },
-  summary: {
-    gap: 3,
-  },
-  summaryText: {
-    color: colors.secondaryLabel,
-    fontSize: 12,
-    lineHeight: 16,
-  },
-  summaryTitle: {
-    color: colors.label,
-    fontSize: 17,
-    fontWeight: "800",
-  },
-  trailing: {
-    alignItems: "center",
-    flexDirection: "row",
-    gap: 4,
-  },
-});
