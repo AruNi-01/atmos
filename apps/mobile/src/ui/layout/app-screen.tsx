@@ -1,5 +1,6 @@
 import type { PropsWithChildren, ReactNode } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { cn } from "@/lib/cn";
 import { useUiStore } from "@/stores/ui-store";
 import { spacing } from "@/theme/spacing";
@@ -13,6 +14,7 @@ type AppScreenProps = PropsWithChildren<{
 
 export function AppScreen({ children, footer, surface = "screen" }: AppScreenProps) {
   const theme = useMobileTheme();
+  const insets = useSafeAreaInsets();
   const disconnectedReason = useUiStore((state) => state.disconnectedReason);
   const backgroundClassName = surface === "sheet" ? "bg-sheet-background" : "bg-background";
 
@@ -46,7 +48,7 @@ export function AppScreen({ children, footer, surface = "screen" }: AppScreenPro
             borderRightWidth: 0,
             borderTopColor: theme.colors.glassBorder,
             borderTopWidth: StyleSheet.hairlineWidth,
-            paddingBottom: spacing.screenFooterBottom,
+            paddingBottom: Math.max(insets.bottom, spacing.screenFooterBottom),
             paddingHorizontal: spacing.screenX,
             paddingTop: spacing.screenFooterTop,
           }}
