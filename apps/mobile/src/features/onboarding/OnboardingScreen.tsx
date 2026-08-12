@@ -18,7 +18,6 @@ import { claimPairFromScan } from "@/lib/mobile-pair-claim";
 import { useComputerStore } from "@/stores/computer-store";
 import { useSessionStore } from "@/stores/session-store";
 import { radii } from "@/theme/radii";
-import { typography } from "@/theme/typography";
 import { useMobileTheme } from "@/theme/theme-store";
 
 export function OnboardingScreen() {
@@ -155,16 +154,10 @@ export function OnboardingScreen() {
             strokeWidth={2.2}
           />
         </View>
-        <Text
-          className="text-center text-label"
-          style={typography.heroTitle}
-        >
+        <Text className="text-center font-bold text-label text-hero-title leading-hero-title tracking-hero-title">
           Connect Atmos
         </Text>
-        <Text
-          className="max-w-[320px] text-center text-secondary-label"
-          style={typography.heroSubtitle}
-        >
+        <Text className="max-w-[320px] text-center text-secondary-label text-hero-subtitle leading-hero-subtitle">
           Sign in with GitHub or Google. Or scan a temporary QR from Desktop/Web
           — no paste, no shared secrets.
         </Text>
@@ -187,8 +180,7 @@ export function OnboardingScreen() {
             />
             <Text
               selectable
-              className="text-secondary-label"
-              style={typography.bodySmall}
+              className="text-secondary-label text-body-small leading-body-small"
             >
               On Desktop/Web: Atmos Computer → Pair phone. Code expires in 3
               minutes and is one-time use.
@@ -211,7 +203,7 @@ export function OnboardingScreen() {
               className="h-2 w-2 rounded-full"
               style={{ backgroundColor: theme.colors.green }}
             />
-            <Text className="flex-1 text-secondary-label" style={typography.body}>
+            <Text className="flex-1 text-secondary-label text-body leading-body">
               This phone is signed in
             </Text>
           </View>
@@ -250,8 +242,7 @@ export function OnboardingScreen() {
       {!hasDeviceCredential ? (
         <Text
           selectable
-          className="px-1 text-secondary-label"
-          style={typography.bodySmall}
+          className="px-1 text-secondary-label text-body-small leading-body-small"
         >
           Opens the system browser. After OAuth, this phone receives a Hub device
           credential and connects when a Computer is online.
@@ -275,10 +266,10 @@ export function OnboardingScreen() {
 function OnboardingStep({ body, title }: { body: string; title: string }) {
   return (
     <View className="gap-1">
-      <Text className="text-label" style={typography.rowTitle}>
+      <Text className="font-semibold text-label text-row-title leading-row-title">
         {title}
       </Text>
-      <Text className="text-secondary-label" style={typography.bodySmall}>
+      <Text className="text-secondary-label text-body-small leading-body-small">
         {body}
       </Text>
     </View>

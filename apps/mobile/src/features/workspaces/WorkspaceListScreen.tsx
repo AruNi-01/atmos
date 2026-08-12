@@ -14,7 +14,6 @@ import { useSessionStore } from "@/stores/session-store";
 import { AppScreen, EmptyState, InlineError, Section } from "@/ui/layout/app-screen";
 import { Row, Separator } from "@/ui/layout/row";
 import { NativeButton } from "@/ui/primitives/native-controls";
-import { typography } from "@/theme/typography";
 
 const EMPTY_BOOTSTRAP: ProjectWorkspaceBootstrapResponse = {
   projects: [],
@@ -138,13 +137,12 @@ export function WorkspaceListScreen() {
       }
     >
       <View className="items-center gap-3 px-2 pb-4 pt-8">
-        <Text className="max-w-[320px] text-center text-label" style={typography.heroTitle}>
+        <Text className="max-w-[320px] text-center font-bold text-label text-hero-title leading-hero-title tracking-hero-title">
           {welcomeHeadline}
         </Text>
         <Text
-          className="max-w-[300px] text-center text-secondary-label"
+          className="max-w-[300px] text-center text-secondary-label text-hero-subtitle leading-hero-subtitle"
           numberOfLines={3}
-          style={typography.heroSubtitle}
         >
           {homeSubtitle({
             canOpenWorkspaceData,
@@ -152,7 +150,7 @@ export function WorkspaceListScreen() {
             workspaceCount,
           })}
         </Text>
-        <Text className="text-secondary-label" style={typography.bodySmall}>
+        <Text className="text-secondary-label text-body-small leading-body-small">
           {workspaceListConnectionLabel(wsState)}
         </Text>
       </View>
@@ -190,6 +188,7 @@ export function WorkspaceListScreen() {
           ))
         ) : (
           <EmptyState
+            layout="section"
             title="No recent workspaces"
             message="Open a workspace and it will appear here."
           />

@@ -191,15 +191,13 @@ export function SettingsComputersScreen() {
             >
               <Text
                 selectable
-                className="text-terminal-muted"
-                style={typography.bodySmall}
+                className="text-terminal-muted text-body-small leading-body-small"
               >
                 Run this once on the machine that hosts Atmos Server.
               </Text>
               <Text
                 selectable
-                className="font-mono text-terminal-fg"
-                style={{ fontSize: 12, lineHeight: 18 }}
+                className="font-mono text-terminal-fg text-mono-code leading-mono-code"
               >
                 {settings.registerCommand}
               </Text>
@@ -353,19 +351,45 @@ function ComputerListRow({
   selectedServerId: string | null;
 }) {
   const selected = computer.server_id === selectedServerId;
-  const statusLabel = selected
-    ? "Selected"
-    : computer.online
-      ? "Online"
-      : "Offline";
 
   return (
     <Row
       title={computer.display_name ?? computer.server_id}
       subtitle={computer.server_id}
-      meta={statusLabel}
       onPress={onPress}
-    />
+    >
+      <ComputerStatusIndicator online={computer.online} selected={selected} />
+    </Row>
+  );
+}
+
+function ComputerStatusIndicator({
+  online,
+  selected,
+}: {
+  online: boolean;
+  selected: boolean;
+}) {
+  const theme = useMobileTheme();
+  const label = selected ? "Selected" : online ? "Online" : "Offline";
+  const dotColor = selected
+    ? theme.colors.label
+    : online
+      ? theme.colors.green
+      : theme.colors.tertiaryLabel;
+
+  return (
+    <View className="flex-row items-center gap-1.5">
+      <View className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: dotColor }} />
+      <Text
+        className={
+          selected ? "text-label" : online ? "text-green" : "text-secondary-label"
+        }
+        style={typography.rowMeta}
+      >
+        {label}
+      </Text>
+    </View>
   );
 }
 
@@ -388,7 +412,7 @@ function SelectedComputerSummary({ computer }: { computer: ComputerRow | null })
 
 function SettingsHint({ message }: { message: string }) {
   return (
-    <Text selectable className="text-secondary-label" style={typography.bodySmall}>
+    <Text selectable className="text-secondary-label text-body-small leading-body-small">
       {message}
     </Text>
   );

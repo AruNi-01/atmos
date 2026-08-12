@@ -36,6 +36,11 @@ describe("mobile css variables", () => {
     expect(layoutVars["--spacing-screen-x"]).toBe("18px");
     expect(layoutVars["--radius-card"]).toBe("24px");
     expect(layoutVars["--font-size-body"]).toBe("14px");
+    expect(layoutVars["--font-size-hero-title"]).toBe("28px");
+    expect(layoutVars["--font-size-hero-subtitle"]).toBe("16px");
+    expect(layoutVars["--font-size-body-small"]).toBe("13px");
+    expect(layoutVars["--font-size-mono-code"]).toBe("12px");
+    expect(layoutVars["--letter-spacing-hero-title"]).toBe("-0.4px");
     expect(layoutVars["--opacity-pressed-control"]).toBe("0.72");
   });
 

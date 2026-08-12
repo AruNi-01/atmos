@@ -50,6 +50,12 @@ export const typography = {
     fontWeight: "400" as const,
     lineHeight: 20,
   },
+  monoCode: {
+    fontSize: 12,
+    fontWeight: "400" as const,
+    lineHeight: 18,
+    fontFamily: "Menlo",
+  },
   controlLabel: {
     fontSize: 14,
     fontWeight: "700" as const,
