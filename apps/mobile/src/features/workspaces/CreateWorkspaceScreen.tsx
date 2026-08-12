@@ -3,7 +3,7 @@ import { StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { AppScreen, EmptyState, InlineError, Section } from "@/ui/layout/app-screen";
-import { NativeButton, NativePicker, NativeSwitch, NativeTextInput } from "@/ui/primitives/native-controls";
+import { ExpoUiButton, NativePicker, NativeSwitch, NativeTextInput } from "@/ui/primitives/native-controls";
 import { Row, Separator } from "@/ui/layout/row";
 import {
   getCreateWorkspaceReadiness,
@@ -290,7 +290,7 @@ export function CreateWorkspaceScreen({ initialProjectGuid }: { initialProjectGu
       surface="sheet"
       footer={
         <View style={styles.footer}>
-          <NativeButton
+          <ExpoUiButton
             label={footerLabel}
             disabled={footerDisabled}
             onPress={() => {
@@ -333,9 +333,10 @@ export function CreateWorkspaceScreen({ initialProjectGuid }: { initialProjectGu
             placeholder="Base branch"
             value={baseBranch}
           />
-          <NativeButton
+          <ExpoUiButton
             label={showAdvanced ? "Hide Advanced" : "Show Advanced"}
             onPress={() => setShowAdvanced((value) => !value)}
+            variant="outlined"
           />
           {showAdvanced ? (
             <View style={styles.advanced}>
@@ -406,15 +407,18 @@ export function CreateWorkspaceScreen({ initialProjectGuid }: { initialProjectGu
                         options={labelOptions}
                       />
                     </View>
-                    <NativeButton
-                      label="Add"
-                      disabled={labelToAdd === EMPTY_LABEL_VALUE}
-                      onPress={() => {
-                        if (labelToAdd === EMPTY_LABEL_VALUE) return;
-                        setSelectedLabelGuids((current) => [...current, labelToAdd]);
-                        setLabelToAdd(EMPTY_LABEL_VALUE);
-                      }}
-                    />
+                    <View style={styles.inlineAction}>
+                      <ExpoUiButton
+                        label="Add"
+                        disabled={labelToAdd === EMPTY_LABEL_VALUE}
+                        onPress={() => {
+                          if (labelToAdd === EMPTY_LABEL_VALUE) return;
+                          setSelectedLabelGuids((current) => [...current, labelToAdd]);
+                          setLabelToAdd(EMPTY_LABEL_VALUE);
+                        }}
+                        variant="outlined"
+                      />
+                    </View>
                   </View>
                   {selectedLabels.map((label) => (
                     <Row
@@ -423,13 +427,16 @@ export function CreateWorkspaceScreen({ initialProjectGuid }: { initialProjectGu
                       subtitle={label.source}
                       meta={label.color}
                     >
-                      <NativeButton
-                        label="Remove"
-                        onPress={() => {
-                          setSelectedLabelGuids((current) => current.filter((guid) => guid !== label.guid));
-                        }}
-                        variant="text"
-                      />
+                      <View style={styles.inlineAction}>
+                        <ExpoUiButton
+                          label="Remove"
+                          onPress={() => {
+                            setSelectedLabelGuids((current) => current.filter((guid) => guid !== label.guid));
+                          }}
+                          tone="danger"
+                          variant="outlined"
+                        />
+                      </View>
                     </Row>
                   ))}
                 </View>
@@ -465,7 +472,7 @@ export function CreateWorkspaceScreen({ initialProjectGuid }: { initialProjectGu
               </View>
             ) : null}
             {setupProgress.requires_confirmation ? (
-              <NativeButton
+              <ExpoUiButton
                 label={confirmTodos.isPending ? "Confirming..." : "Confirm TODOs"}
                 disabled={confirmTodos.isPending || !setupOutputPreview}
                 onPress={() => confirmTodos.mutate()}
@@ -473,14 +480,15 @@ export function CreateWorkspaceScreen({ initialProjectGuid }: { initialProjectGu
             ) : null}
             {setupProgress.status === "error" && createdWorkspace ? (
               <View style={styles.progressActions}>
-                <NativeButton
+                <ExpoUiButton
                   label={retrySetup.isPending ? "Retrying..." : "Retry Setup"}
                   disabled={retrySetup.isPending}
                   onPress={() => retrySetup.mutate()}
                 />
-                <NativeButton
+                <ExpoUiButton
                   label="Open Workspace"
                   onPress={() => router.replace(`/workspace/${createdWorkspace.guid}`)}
+                  variant="outlined"
                 />
               </View>
             ) : null}
@@ -546,8 +554,12 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 18,
   },
+  inlineAction: {
+    minWidth: 96,
+  },
   labelPicker: {
     flex: 1,
+    minWidth: 0,
   },
   labelPickerRow: {
     alignItems: "center",

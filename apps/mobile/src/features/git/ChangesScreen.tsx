@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { useMutation } from "@tanstack/react-query";
 import { Section } from "@/ui/layout/app-screen";
-import { NativeButton } from "@/ui/primitives/native-controls";
+import { ExpoUiButton } from "@/ui/primitives/native-controls";
 import { ChangedFilesList } from "@/features/git/ChangedFilesList";
 import { CommitSheet } from "@/features/git/CommitSheet";
 import { FileDiffView } from "@/features/git/FileDiffView";
@@ -152,10 +152,11 @@ export function ChangesScreen({
               {unavailableMessage}
             </Text>
           ) : null}
-          <NativeButton
+          <ExpoUiButton
             label={refresh.isPending ? "Refreshing..." : "Refresh"}
             onPress={() => refresh.mutate()}
             disabled={!isConnected || refresh.isPending}
+            variant="outlined"
           />
         </View>
         <ChangedFilesList

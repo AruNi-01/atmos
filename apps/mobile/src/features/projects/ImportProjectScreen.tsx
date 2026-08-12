@@ -3,7 +3,7 @@ import { StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AppScreen, EmptyState, InlineError, Section } from "@/ui/layout/app-screen";
-import { NativeButton, NativeTextInput } from "@/ui/primitives/native-controls";
+import { ExpoUiButton, NativeTextInput } from "@/ui/primitives/native-controls";
 import { Row, Separator } from "@/ui/layout/row";
 import { addProjectToWorkspaceBootstrap } from "@/features/projects/project-bootstrap-cache";
 import { getProjectImportReadiness, validationMatchesPath } from "@/features/projects/import-project-validation";
@@ -144,7 +144,7 @@ export function ImportProjectScreen() {
       surface="sheet"
       footer={
         <View style={styles.footer}>
-          <NativeButton
+          <ExpoUiButton
             label={createProject.isPending ? "Importing..." : "Import Project"}
             disabled={!readiness.canImport}
             onPress={() => createProject.mutate()}
@@ -166,10 +166,11 @@ export function ImportProjectScreen() {
             placeholder="/home/aaryn/project"
             value={path}
           />
-          <NativeButton
+          <ExpoUiButton
             label={validate.isPending ? "Validating..." : "Validate Path"}
             onPress={() => validate.mutate()}
             disabled={!isConnected || !path.trim() || validate.isPending}
+            variant="outlined"
           />
           <Text selectable style={[styles.help, { color: theme.colors.secondaryLabel }]}>
             Mobile import selects a path on the remote Atmos Computer. It does not clone from this phone.
@@ -183,16 +184,19 @@ export function ImportProjectScreen() {
             <Text selectable style={[styles.currentDir, { color: theme.colors.secondaryLabel }]} numberOfLines={1}>
               {currentDir || "Loading home directory..."}
             </Text>
-            <NativeButton
-              label="Home"
-              disabled={!home.data?.path}
-              onPress={() => {
-                if (!home.data?.path) return;
-                setCurrentDir(home.data.path);
-                setSearch("");
-                updatePath(home.data.path);
-              }}
-            />
+            <View style={styles.inlineAction}>
+              <ExpoUiButton
+                label="Home"
+                disabled={!home.data?.path}
+                onPress={() => {
+                  if (!home.data?.path) return;
+                  setCurrentDir(home.data.path);
+                  setSearch("");
+                  updatePath(home.data.path);
+                }}
+                variant="outlined"
+              />
+            </View>
           </View>
           <NativeTextInput
             autoCapitalize="none"
@@ -209,13 +213,16 @@ export function ImportProjectScreen() {
               title="Parent directory"
               subtitle={directory.data.parent_path}
             >
-              <NativeButton
-                label="Open"
-                onPress={() => {
-                  setCurrentDir(directory.data!.parent_path!);
-                  setSearch("");
-                }}
-              />
+              <View style={styles.inlineAction}>
+                <ExpoUiButton
+                  label="Open"
+                  onPress={() => {
+                    setCurrentDir(directory.data!.parent_path!);
+                    setSearch("");
+                  }}
+                  variant="outlined"
+                />
+              </View>
             </Row>
             <Separator />
           </>
@@ -240,8 +247,8 @@ export function ImportProjectScreen() {
                   meta={entry.is_git_repo ? "Git" : undefined}
                 >
                   <View style={styles.entryActions}>
-                    <NativeButton label="Open" onPress={() => openDirectory(entry)} variant="text" />
-                    <NativeButton label="Use" onPress={() => chooseEntry(entry)} variant="text" />
+                    <ExpoUiButton grow label="Open" onPress={() => openDirectory(entry)} variant="outlined" />
+                    <ExpoUiButton grow label="Use" onPress={() => chooseEntry(entry)} variant="outlined" />
                   </View>
                 </Row>
                 {index < visibleEntries.length - 1 ? <Separator /> : null}
@@ -286,6 +293,7 @@ const styles = StyleSheet.create({
   entryActions: {
     flexDirection: "row",
     gap: 8,
+    minWidth: 168,
   },
   footer: {
     gap: 10,
@@ -300,6 +308,9 @@ const styles = StyleSheet.create({
     color: colors.secondaryLabel,
     fontSize: 13,
     lineHeight: 18,
+  },
+  inlineAction: {
+    minWidth: 96,
   },
   pathRow: {
     alignItems: "center",

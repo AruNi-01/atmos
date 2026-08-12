@@ -1,6 +1,6 @@
 import { StyleSheet, Text, View } from "react-native";
 import { InlineError } from "@/ui/layout/app-screen";
-import { NativeButton, NativeTextInput } from "@/ui/primitives/native-controls";
+import { ExpoUiButton, NativeTextInput } from "@/ui/primitives/native-controls";
 import { colors, radii } from "@/theme/colors";
 import { useMobileTheme } from "@/theme/theme-store";
 
@@ -39,15 +39,16 @@ export function CommitSheet({
         placeholder="Commit message"
       />
       <View style={styles.actions}>
-        <NativeButton
+        <ExpoUiButton
           label={isCommitting ? "Committing..." : "Commit"}
           onPress={onCommit}
           disabled={!canCommit || !message.trim() || isCommitting}
         />
-        <NativeButton
+        <ExpoUiButton
           label={isPushing ? "Pushing..." : "Push"}
           onPress={onPush}
           disabled={!canPush || isPushing}
+          variant="outlined"
         />
       </View>
       {successMessage ? (

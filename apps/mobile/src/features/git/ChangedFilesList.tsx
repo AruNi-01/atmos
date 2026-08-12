@@ -2,7 +2,7 @@ import { StyleSheet, Text, View } from "react-native";
 import type { GitChangedFile } from "@/api/types";
 import { buildChangedFileGroups, countChangedFiles, type ChangedFileAction } from "@/features/git/changed-files";
 import { EmptyState } from "@/ui/layout/app-screen";
-import { NativeButton } from "@/ui/primitives/native-controls";
+import { ExpoUiButton } from "@/ui/primitives/native-controls";
 import { Row, Separator } from "@/ui/layout/row";
 import { colors } from "@/theme/colors";
 import { useMobileTheme } from "@/theme/theme-store";
@@ -83,11 +83,11 @@ function FileSection({
             onPress={() => onOpenFile(file)}
           >
             <View style={styles.action}>
-              <NativeButton
+              <ExpoUiButton
                 label={actionLabel}
                 onPress={() => onAction(file)}
                 disabled={actionsDisabled}
-                variant="text"
+                variant="outlined"
               />
             </View>
           </Row>
@@ -100,7 +100,7 @@ function FileSection({
 
 const styles = StyleSheet.create({
   action: {
-    minWidth: 82,
+    minWidth: 96,
   },
   groupLabel: {
     backgroundColor: "transparent",
