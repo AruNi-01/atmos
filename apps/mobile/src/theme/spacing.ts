@@ -14,6 +14,10 @@ export const spacing = {
   actionRowGap: 10,
   cardPadding: 16,
   separatorInset: 16,
+  terminalHeaderX: 14,
+  terminalHeaderMinHeight: 42,
+  terminalChromeX: 8,
+  terminalKeycapGap: 6,
 } as const;
 
 export type MobileSpacing = typeof spacing;

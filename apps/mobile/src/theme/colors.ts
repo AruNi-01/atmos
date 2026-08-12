@@ -36,6 +36,10 @@ export const lightColors = {
   terminalBg: "#f8fafc",
   terminalFg: "#111827",
   terminalMuted: "#64748b",
+  terminalKeycap: "rgba(244, 244, 245, 0.93)",
+  terminalKeycapPressed: "rgba(228, 228, 231, 0.96)",
+  terminalChromeFallback: "rgba(255, 255, 255, 0.72)",
+  terminalChromeTint: "rgba(255, 255, 255, 0.58)",
 };
 
 export const darkColors: MobileThemeColors = {
@@ -76,6 +80,10 @@ export const darkColors: MobileThemeColors = {
   terminalBg: "#09090b",
   terminalFg: "#f8f8f8",
   terminalMuted: "#a1a1aa",
+  terminalKeycap: "rgba(248, 250, 252, 0.10)",
+  terminalKeycapPressed: "rgba(248, 250, 252, 0.16)",
+  terminalChromeFallback: "rgba(9, 9, 11, 0.92)",
+  terminalChromeTint: "rgba(9, 9, 11, 0.78)",
 };
 
 export type MobileThemeColorScheme = "light" | "dark";

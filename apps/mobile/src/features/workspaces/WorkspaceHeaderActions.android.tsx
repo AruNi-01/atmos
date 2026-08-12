@@ -1,6 +1,7 @@
 import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { MenuView, type MenuAction } from "@expo/ui/community/menu";
-import { colors } from "@/theme/colors";
+import { radii } from "@/theme/colors";
+import { typography } from "@/theme/typography";
 import { useMobileTheme } from "@/theme/theme-store";
 import {
   handleTerminalAction,
@@ -48,7 +49,11 @@ export function WorkspaceHeaderActions({
     <View
       style={[
         styles.group,
-        { backgroundColor: theme.colors.glassFallbackStrong, borderColor: theme.colors.glassBorder },
+        {
+          backgroundColor: theme.colors.glassFallbackStrong,
+          borderColor: theme.colors.glassBorder,
+          borderRadius: radii.pill,
+        },
       ]}
     >
       <MenuView
@@ -59,7 +64,9 @@ export function WorkspaceHeaderActions({
         }}
       >
         <Pressable hitSlop={8} style={styles.action}>
-          {activeTab ? <Image source={activeTab.androidIcon} style={[styles.icon, { tintColor: theme.colors.label }]} /> : null}
+          {activeTab ? (
+            <Image source={activeTab.androidIcon} style={[styles.icon, { tintColor: theme.colors.label }]} />
+          ) : null}
         </Pressable>
       </MenuView>
       <View style={[styles.separator, { backgroundColor: theme.colors.separator }]} />
@@ -68,7 +75,7 @@ export function WorkspaceHeaderActions({
         onPressAction={(event) => handleTerminalAction(event.nativeEvent.event, terminalControls)}
       >
         <Pressable disabled={!terminalControls} hitSlop={8} style={[styles.action, !terminalControls && styles.disabled]}>
-          <Text style={[styles.ellipsis, { color: theme.colors.label }]}>...</Text>
+          <Text style={[styles.ellipsis, { color: theme.colors.label }]}>…</Text>
         </Pressable>
       </MenuView>
     </View>
@@ -86,28 +93,21 @@ const styles = StyleSheet.create({
     opacity: 0.45,
   },
   ellipsis: {
-    color: colors.label,
+    ...typography.controlLabel,
     fontSize: 19,
-    fontWeight: "800",
-    letterSpacing: 0,
     marginTop: -4,
   },
   group: {
     alignItems: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.86)",
-    borderColor: colors.glassBorder,
-    borderRadius: 999,
     borderWidth: StyleSheet.hairlineWidth,
     flexDirection: "row",
     overflow: "hidden",
   },
   icon: {
     height: 20,
-    tintColor: colors.label,
     width: 20,
   },
   separator: {
-    backgroundColor: colors.separator,
     height: 20,
     width: StyleSheet.hairlineWidth,
   },

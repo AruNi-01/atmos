@@ -1,6 +1,7 @@
 import { StyleSheet, View } from "react-native";
 import { Host, Icon, NavigationBar, NavigationBarItem, Text } from "@expo/ui/jetpack-compose";
 import { fillMaxWidth } from "@expo/ui/jetpack-compose/modifiers";
+import { spacing } from "@/theme/spacing";
 import { useMobileTheme } from "@/theme/theme-store";
 import type { WorkspaceTabsProps } from "./WorkspaceTabs.types";
 
@@ -23,7 +24,7 @@ export function WorkspaceTabs({
   return (
     <View style={styles.root}>
       <View style={styles.content}>{activeItem?.children}</View>
-      <View style={[styles.navigationFrame, { paddingBottom: Math.max(bottomInset, 8) }]}>
+      <View style={[styles.navigationFrame, { paddingBottom: Math.max(bottomInset, spacing.screenFooterBottom) }]}>
         <Host colorScheme={theme.colorScheme} matchContents={{ vertical: true }} seedColor={theme.colors.label} style={styles.host}>
           <NavigationBar
             containerColor={theme.colors.glassFallbackStrong}
@@ -67,8 +68,8 @@ const styles = StyleSheet.create({
     width: "100%",
   },
   navigationFrame: {
-    paddingHorizontal: 12,
-    paddingTop: 6,
+    paddingHorizontal: spacing.screenFooterBottom,
+    paddingTop: spacing.screenFooterTop,
   },
   root: {
     flex: 1,

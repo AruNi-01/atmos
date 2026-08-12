@@ -56,6 +56,23 @@ export const typography = {
     lineHeight: 18,
     fontFamily: "Menlo",
   },
+  terminalTitle: {
+    fontSize: 15,
+    fontWeight: "600" as const,
+    lineHeight: 20,
+    fontFamily: "Menlo",
+  },
+  terminalKeycapLabel: {
+    fontSize: 12,
+    fontWeight: "800" as const,
+    lineHeight: 16,
+    letterSpacing: 0,
+  },
+  terminalStatus: {
+    fontSize: 11,
+    fontWeight: "700" as const,
+    lineHeight: 14,
+  },
   controlLabel: {
     fontSize: 14,
     fontWeight: "700" as const,
