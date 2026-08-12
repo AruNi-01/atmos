@@ -1,0 +1,18 @@
+crates/core-service/src/service/agent_hooks/attention_summary_generate.rs
+  h_5be255725524c8 16-17,39-42,44-45,54-76,78,90,463-484
+prompt/attention-summary/attention-summary-system.md
+  h_5be255725524c8 1-20
+prompt/attention-summary/attention-summary-user.md
+  h_5be255725524c8 1-7
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "b2be241d837c440d5e5b1d1c46215f70c2c8ab5b",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
