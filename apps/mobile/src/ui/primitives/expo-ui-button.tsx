@@ -1,16 +1,15 @@
 import { Button as ExpoButton, Host } from "@expo/ui";
-import { StyleSheet, Text, View } from "react-native";
+import type { UniversalStyle } from "@expo/ui";
+import { fillMaxWidth } from "@expo/ui/jetpack-compose/modifiers";
+import { controlSize, frame } from "@expo/ui/swift-ui/modifiers";
+import { Platform, StyleSheet } from "react-native";
 import { radii } from "@/theme/radii";
 import { useMobileTheme } from "@/theme/theme-store";
-import { typography } from "@/theme/typography";
 import {
   resolveExpoUiButtonColors,
   type ExpoUiButtonTone,
   type ExpoUiButtonVariant,
 } from "./expo-ui-button-colors";
-
-/** Fixed Host height — never use matchContents (clips CTA labels). */
-const CTA_MIN_HEIGHT = 52;
 
 export type ExpoUiButtonProps = {
   disabled?: boolean;
@@ -22,9 +21,17 @@ export type ExpoUiButtonProps = {
   variant?: ExpoUiButtonVariant;
 };
 
+/** Official per-platform width/size modifiers (Universal `style.width` is numeric-only). */
+const stretchModifiers = Platform.select({
+  ios: [frame({ maxWidth: Number.POSITIVE_INFINITY }), controlSize("large")],
+  android: [fillMaxWidth()],
+  default: undefined,
+});
+
 /**
- * Shared `@expo/ui` Button wrapper for app chrome CTAs.
- * Explicit Host height — never matchContents (avoids clipped labels / blank hosts).
+ * Thin `@expo/ui` Button wrapper.
+ * `Host matchContents={{ vertical: true }}` + Button `label` / `variant` / `style`
+ * — no outer RN paint shell, no RN Text children, no fixed Host height stack.
  */
 export function ExpoUiButton({
   disabled = false,
@@ -42,73 +49,44 @@ export function ExpoUiButton({
     variant,
   });
 
+  const buttonStyle: UniversalStyle = {
+    backgroundColor: colors.backgroundColor,
+    borderColor: colors.borderColor,
+    borderRadius: radii.control,
+    borderWidth: colors.borderWidth,
+    // Documented Button `style.height` → native frame (not Host height hacks).
+    height: 52,
+    paddingHorizontal: 22,
+  };
+
   return (
-    <View
-      style={[
-        styles.frame,
-        grow ? styles.grow : styles.stretch,
-        {
-          backgroundColor: colors.backgroundColor,
-          borderColor: colors.borderColor,
-          borderWidth: colors.borderWidth,
-        },
-      ]}
+    <Host
+      matchContents={{ vertical: true }}
+      colorScheme={theme.colorScheme}
+      // Tint / Material seed drives native label contrast (no Universal labelColor API).
+      seedColor={colors.seedColor}
+      style={grow ? styles.growHost : styles.stretchHost}
     >
-      <Host colorScheme={theme.colorScheme} style={styles.host}>
-        <ExpoButton
-          disabled={disabled}
-          onPress={disabled ? undefined : onPress}
-          style={styles.button}
-          variant="text"
-        >
-          <Text numberOfLines={1} style={[styles.label, { color: colors.labelColor }]}>
-            {label}
-          </Text>
-        </ExpoButton>
-      </Host>
-    </View>
+      <ExpoButton
+        disabled={disabled}
+        label={label}
+        modifiers={stretchModifiers}
+        onPress={disabled ? undefined : onPress}
+        style={buttonStyle}
+        variant={variant}
+      />
+    </Host>
   );
 }
 
 const styles = StyleSheet.create({
-  button: {
-    alignItems: "center",
-    borderRadius: radii.control,
-    height: CTA_MIN_HEIGHT,
-    justifyContent: "center",
-    paddingHorizontal: 22,
-    width: "100%",
-  },
-  frame: {
-    borderCurve: "continuous",
-    borderRadius: radii.control,
-    justifyContent: "center",
-    minHeight: CTA_MIN_HEIGHT,
-    overflow: "hidden",
-  },
-  grow: {
+  growHost: {
+    alignSelf: "stretch",
     flex: 1,
     minWidth: 0,
-  },
-  host: {
-    alignItems: "center",
-    alignSelf: "stretch",
-    height: CTA_MIN_HEIGHT,
-    justifyContent: "center",
-    minHeight: CTA_MIN_HEIGHT,
     width: "100%",
   },
-  label: {
-    fontSize: typography.controlLabel.fontSize,
-    fontWeight: typography.controlLabel.fontWeight,
-    // Tight line box so glyph metrics sit in the vertical center of Host height 52.
-    includeFontPadding: false,
-    lineHeight: typography.controlLabel.lineHeight,
-    textAlign: "center",
-    textAlignVertical: "center",
-    width: "100%",
-  },
-  stretch: {
+  stretchHost: {
     alignSelf: "stretch",
     width: "100%",
   },

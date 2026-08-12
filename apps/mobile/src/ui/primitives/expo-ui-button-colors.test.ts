@@ -14,6 +14,7 @@ describe("resolveExpoUiButtonColors", () => {
       });
       expect(resolved.backgroundColor).toBe(colors.ctaFill);
       expect(resolved.labelColor).toBe(colors.ctaLabel);
+      expect(resolved.seedColor).toBe(colors.ctaFill);
       expect(resolved.borderWidth).toBe(0);
     }
   });
@@ -28,6 +29,7 @@ describe("resolveExpoUiButtonColors", () => {
     expect(resolved.backgroundColor).toBe(lightColors.control);
     expect(resolved.borderColor).toBe(lightColors.controlBorder);
     expect(resolved.labelColor).toBe(lightColors.label);
+    expect(resolved.seedColor).toBe(lightColors.label);
     expect(resolved.borderWidth).toBe(1);
   });
 
@@ -41,6 +43,7 @@ describe("resolveExpoUiButtonColors", () => {
     expect(resolved.backgroundColor).toBe(darkColors.redSurface);
     expect(resolved.borderColor).toBe(darkColors.redBorder);
     expect(resolved.labelColor).toBe(darkColors.red);
+    expect(resolved.seedColor).toBe(darkColors.red);
   });
 
   it("softens colors when disabled", () => {
@@ -52,6 +55,7 @@ describe("resolveExpoUiButtonColors", () => {
     });
     expect(filled.backgroundColor).toBe(lightColors.controlDisabled);
     expect(filled.labelColor).toBe(lightColors.tertiaryLabel);
+    expect(filled.seedColor).toBe(lightColors.tertiaryLabel);
 
     const outlined = resolveExpoUiButtonColors({
       colors: lightColors,

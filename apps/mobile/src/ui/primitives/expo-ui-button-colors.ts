@@ -28,13 +28,22 @@ export function resolveExpoUiButtonColors({
   disabled: boolean;
   tone: ExpoUiButtonTone;
   variant: ExpoUiButtonVariant;
-}): { backgroundColor: string; borderColor: string; labelColor: string; borderWidth: number } {
+}): {
+  backgroundColor: string;
+  borderColor: string;
+  borderWidth: number;
+  /** Host `seedColor` / tint — Universal Button has no labelColor prop. */
+  seedColor: string;
+  labelColor: string;
+} {
   if (disabled) {
+    const labelColor = colors.tertiaryLabel;
     return {
       backgroundColor: variant === "outlined" ? colors.control : colors.controlDisabled,
       borderColor: colors.separator,
       borderWidth: variant === "outlined" ? 1 : 0,
-      labelColor: colors.tertiaryLabel,
+      labelColor,
+      seedColor: labelColor,
     };
   }
 
@@ -44,6 +53,7 @@ export function resolveExpoUiButtonColors({
       borderColor: colors.redBorder,
       borderWidth: 1,
       labelColor: colors.red,
+      seedColor: colors.red,
     };
   }
 
@@ -53,6 +63,7 @@ export function resolveExpoUiButtonColors({
       borderColor: colors.controlBorder,
       borderWidth: 1,
       labelColor: colors.label,
+      seedColor: colors.label,
     };
   }
 
@@ -61,5 +72,7 @@ export function resolveExpoUiButtonColors({
     borderColor: "transparent",
     borderWidth: 0,
     labelColor: colors.ctaLabel,
+    // Filled uses seed ≈ fill so Material / SwiftUI tint get correct on-primary label.
+    seedColor: colors.ctaFill,
   };
 }

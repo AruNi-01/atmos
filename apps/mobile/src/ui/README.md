@@ -22,6 +22,8 @@ This app uses Expo UI as the base native-control layer.
 
 ### ExpoUiButton
 
+- Thin Universal wrapper: `<Host matchContents={{ vertical: true }} seedColor={…}><Button label variant style /></Host>`.
+- Colors/radius via Button `style` + Host `seedColor` (no outer RN paint shell, no RN `<Text>` label).
 - Default filled black/white primary pill for creation, onboarding, Connect, and bottom actions.
 - `variant="outlined"` for secondary actions; `tone="danger"` for destructive actions.
 
@@ -31,6 +33,6 @@ This app uses Expo UI as the base native-control layer.
 - Every Expo UI subtree must be wrapped in `Host`. Primitive wrappers own that `Host` so feature screens do not repeat it.
 - Use platform files only when Universal does not expose the behavior we need or when the current native implementation has a platform gap.
 - Do not pass React Native view nodes into Expo UI native slots such as `ListItem.trailing`; pass strings/simple native-compatible values through the primitive wrapper, or use a dedicated `RNHostView` bridge when RN content is genuinely required.
-- Button has platform files because the Universal button API does not expose enough cross-platform color control for Atmos' black/white brand treatment.
+- Universal Button has no `labelColor` prop — Atmos maps brand colors through Button `style` and Host `seedColor` (tint / Material seed).
 - Android text input intentionally uses `@expo/ui/jetpack-compose` `OutlinedTextField`, because the current Universal TextInput path can request `BasicTextFieldView` while the dev client exposes `TextFieldView`.
 - Keep Atmos branding semantic and minimal: black/white/neutral controls, no system blue defaults.
