@@ -76,9 +76,6 @@ export function AuthSignInContent({
             strokeWidth={2.2}
           />
         </View>
-        <Text className="text-center font-bold text-label text-hero-title leading-hero-title tracking-hero-title">
-          Connect Atmos
-        </Text>
         <Text className="max-w-[320px] text-center text-secondary-label text-hero-subtitle leading-hero-subtitle">
           Sign in with GitHub or Google. Or scan a temporary QR from Desktop/Web
           — no paste, no shared secrets.

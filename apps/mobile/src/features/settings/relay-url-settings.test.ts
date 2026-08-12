@@ -54,4 +54,23 @@ describe("getRelayUrlSaveState", () => {
       reason: null,
     });
   });
+
+  test("rejects explicit non-http(s) schemes", () => {
+    for (const draftUrl of [
+      "ftp://relay.example",
+      "ws://relay.example",
+      "file:///tmp",
+    ]) {
+      expect(
+        getRelayUrlSaveState({
+          currentUrl: "https://relay.atmos.land",
+          draftUrl,
+        }),
+      ).toEqual({
+        canSave: false,
+        normalizedUrl: expect.any(String),
+        reason: "Enter a valid Relay URL.",
+      });
+    }
+  });
 });

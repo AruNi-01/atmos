@@ -28,7 +28,6 @@ export default function RootLayout() {
             name="sign-in"
             options={{
               contentStyle: sheetContentStyle,
-              headerShown: false,
               presentation: sheetPresentation,
               sheetCornerRadius: 32,
               sheetGrabberVisible: isIos,

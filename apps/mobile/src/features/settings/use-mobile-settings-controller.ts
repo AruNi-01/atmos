@@ -63,7 +63,9 @@ export function useMobileSettingsController() {
   const normalizedRelaySecretDraft = relaySecretDraft.trim();
   const canSaveRelaySettings =
     relayUrlSaveState.canSave || normalizedRelaySecretDraft !== relaySecretKey;
-  const relayConfigured = !canSaveRelaySettings;
+  const relayConfigured =
+    !canSaveRelaySettings &&
+    relayUrlSaveState.reason === "Relay URL is already saved.";
 
   const saveRelaySettings = useMutation({
     mutationFn: async () => {

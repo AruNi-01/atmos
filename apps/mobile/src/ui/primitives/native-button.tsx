@@ -54,7 +54,9 @@ export function NativeButton(props: NativeButtonProps) {
         onPress={onPress}
         style={{
           ...buttonStyle,
-          backgroundColor: disabled ? theme.colors.controlDisabled : frameColors.background,
+          backgroundColor: disabled
+            ? theme.colors.controlDisabled
+            : buttonStyle.backgroundColor,
         }}
         variant={variant}
       >

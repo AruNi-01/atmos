@@ -11,6 +11,14 @@ function isValidRelayUrlDraft(trimmed: string): boolean {
     return true;
   }
 
+  const explicitScheme = trimmed.match(/^([a-z][a-z0-9+.-]*):\/\//i);
+  if (explicitScheme) {
+    const scheme = explicitScheme[1].toLowerCase();
+    if (scheme !== "http" && scheme !== "https") {
+      return false;
+    }
+  }
+
   const withProtocol = /^https?:\/\//i.test(trimmed)
     ? trimmed
     : `https://${trimmed}`;
