@@ -83,7 +83,9 @@ const styles = StyleSheet.create({
     minHeight: 46,
   },
   grow: {
-    flex: 1,
+    alignSelf: "stretch",
+    flexGrow: 1,
+    flexShrink: 1,
   },
   label: {
     fontWeight: "700",

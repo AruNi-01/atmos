@@ -9,7 +9,9 @@ export function getNativeButtonCtaColors(
   return {
     background: isInverse ? themeColors.ctaLabel : themeColors.ctaFill,
     border: isInverse ? themeColors.ctaLabel : themeColors.ctaFill,
+    // Filled CTAs must paint with ctaLabel (light), never theme label (can be dark).
     text: isInverse ? themeColors.ctaFill : themeColors.ctaLabel,
-    tint: themeColors.controlGlassTint,
+    // Solid fills do not use glass tint; keep transparent so wrappers cannot wash contrast.
+    tint: "transparent",
   };
 }

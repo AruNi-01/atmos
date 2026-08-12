@@ -17,9 +17,10 @@ export function AppScreen({ children, footer, surface = "screen" }: AppScreenPro
   const insets = useSafeAreaInsets();
   const disconnectedReason = useUiStore((state) => state.disconnectedReason);
   const backgroundClassName = surface === "sheet" ? "bg-sheet-background" : "bg-background";
+  const footerPaddingBottom = Math.max(insets.bottom, spacing.screenFooterBottom);
 
   return (
-    <>
+    <View className={cn("flex-1", backgroundClassName)}>
       <ScrollView
         className={cn("flex-1", backgroundClassName)}
         contentContainerClassName={cn(
@@ -48,16 +49,21 @@ export function AppScreen({ children, footer, surface = "screen" }: AppScreenPro
             borderRightWidth: 0,
             borderTopColor: theme.colors.glassBorder,
             borderTopWidth: StyleSheet.hairlineWidth,
-            paddingBottom: Math.max(insets.bottom, spacing.screenFooterBottom),
-            paddingHorizontal: spacing.screenX,
-            paddingTop: spacing.screenFooterTop,
           }}
           tintColor={theme.colors.glassTint}
         >
-          {footer}
+          <View
+            style={{
+              paddingBottom: footerPaddingBottom,
+              paddingHorizontal: spacing.screenX,
+              paddingTop: spacing.screenFooterTop,
+            }}
+          >
+            {footer}
+          </View>
         </GlassPanel>
       ) : null}
-    </>
+    </View>
   );
 }
 

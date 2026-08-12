@@ -11,7 +11,7 @@ export const spacing = {
   rowMinHeight: 64,
   rowGap: 4,
   rowTitleGap: 10,
-  actionRowGap: 10,
+  actionRowGap: 14,
   cardPadding: 16,
   contentPadding: 10,
   separatorInset: 16,

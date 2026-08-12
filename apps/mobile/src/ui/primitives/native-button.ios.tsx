@@ -2,7 +2,7 @@ import { Button as ExpoButton, Host } from "@expo/ui";
 import type { UniversalStyle } from "@expo/ui";
 import type { ModifierConfig } from "@expo/ui/swift-ui/modifiers";
 import { border, buttonBorderShape, clipShape, tint } from "@expo/ui/swift-ui/modifiers";
-import { StyleSheet, type ViewStyle } from "react-native";
+import { StyleSheet, View, type ViewStyle } from "react-native";
 import { radii, type MobileThemeColors } from "@/theme/colors";
 import { useMobileTheme } from "@/theme/theme-store";
 import { GlassPanel } from "./glass-panel";
@@ -48,6 +48,42 @@ export function NativeButton(props: NativeButtonProps) {
   } = props;
   const theme = useMobileTheme();
   const frameColors = buttonFrameColorsByVariant(tone, theme.colors, Boolean(disabled))[variant];
+  const ctaColors = getNativeButtonCtaColors(tone, theme.colors);
+  const labelTint = disabled ? theme.colors.tertiaryLabel : ctaColors.text;
+
+  const button = (
+    <Host matchContents colorScheme={theme.colorScheme}>
+      <ExpoButton
+        disabled={disabled}
+        label={label}
+        modifiers={buttonModifiersByVariant(tone, theme.colors, labelTint)[variant]}
+        onPress={disabled ? undefined : onPress}
+        style={buttonStyleByVariant[variant]}
+        variant="text"
+      />
+    </Host>
+  );
+
+  // Filled primary CTAs must stay solid dark + light label. Liquid Glass tint on
+  // GlassPanel can wash the fill and let system label color win (dark-on-dark).
+  if (variant === "filled") {
+    return (
+      <View
+        style={[
+          styles.frame,
+          styles.filledFrame,
+          grow ? styles.grow : null,
+          buttonFrameStyleByVariant.filled,
+          {
+            backgroundColor: frameColors.background,
+            borderColor: frameColors.border,
+          },
+        ]}
+      >
+        {button}
+      </View>
+    );
+  }
 
   return (
     <GlassPanel
@@ -56,7 +92,7 @@ export function NativeButton(props: NativeButtonProps) {
         grow ? styles.grow : null,
         { backgroundColor: frameColors.background },
       ]}
-      glassEffectStyle={variant === "filled" ? "regular" : "clear"}
+      glassEffectStyle="clear"
       interactive={!disabled}
       shadow={false}
       style={[
@@ -70,16 +106,7 @@ export function NativeButton(props: NativeButtonProps) {
       ]}
       tintColor={frameColors.tint}
     >
-      <Host matchContents colorScheme={theme.colorScheme}>
-        <ExpoButton
-          disabled={disabled}
-          label={label}
-          modifiers={buttonModifiersByVariant(tone, theme.colors)[variant]}
-          onPress={disabled ? undefined : onPress}
-          style={buttonStyleByVariant[variant]}
-          variant="text"
-        />
-      </Host>
+      {button}
     </GlassPanel>
   );
 }
@@ -87,18 +114,18 @@ export function NativeButton(props: NativeButtonProps) {
 function buttonModifiersByVariant(
   tone: NonNullable<NativeButtonProps["tone"]>,
   themeColors: MobileThemeColors,
+  labelTint: string,
 ): Record<NonNullable<NativeButtonProps["variant"]>, ModifierConfig[]> {
-  const ctaColors = getNativeButtonCtaColors(tone, themeColors);
-  const tintColor = tone === "inverse" ? themeColors.ctaFill : themeColors.ctaLabel;
+  const outlineTint = tone === "inverse" ? themeColors.ctaFill : themeColors.label;
   return {
-    filled: [buttonBorderShape("roundedRectangle", radii.control), tint(ctaColors.text)],
+    filled: [buttonBorderShape("roundedRectangle", radii.control), tint(labelTint)],
     outlined: [
       buttonBorderShape("roundedRectangle", radii.control),
-      tint(tintColor),
-      border({ color: tintColor, width: 1 }),
+      tint(outlineTint),
+      border({ color: tone === "inverse" ? themeColors.ctaLabel : themeColors.controlBorder, width: 1 }),
       clipShape("roundedRectangle", radii.control),
     ],
-    text: [tint(tintColor)],
+    text: [tint(outlineTint)],
   };
 }
 
@@ -106,7 +133,6 @@ function buttonBorderColorByVariant(
   tone: NonNullable<NativeButtonProps["tone"]>,
   themeColors: MobileThemeColors,
 ): Record<NonNullable<NativeButtonProps["variant"]>, string> {
-  const ctaColors = getNativeButtonCtaColors(tone, themeColors);
   return {
     filled: "transparent",
     outlined: tone === "inverse" ? themeColors.ctaLabel : themeColors.controlBorder,
@@ -125,7 +151,7 @@ function buttonFrameColorsByVariant(
     filled: {
       background: disabled ? themeColors.controlDisabled : ctaColors.background,
       border: disabled ? themeColors.separator : borderColor.filled,
-      tint: ctaColors.tint,
+      tint: "transparent",
     },
     outlined: {
       background: disabled ? themeColors.controlDisabled : themeColors.control,
@@ -173,6 +199,10 @@ const buttonFrameStyleByVariant: Record<NonNullable<NativeButtonProps["variant"]
 const styles = StyleSheet.create({
   fallback: {
     backgroundColor: "transparent",
+  },
+  filledFrame: {
+    borderWidth: 0,
+    overflow: "hidden",
   },
   frame: {
     alignSelf: "center",

@@ -4,6 +4,7 @@ import { AppState, Appearance } from "react-native";
 import * as Network from "expo-network";
 import * as SystemUI from "expo-system-ui";
 import { QueryClientProvider, focusManager, onlineManager } from "@tanstack/react-query";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 import { createAtmosQueryClient } from "@/providers/query-client";
 import { MobileWsProvider } from "@/providers/MobileWsProvider";
 import { acceptDeviceCredential, hasDeviceCredential } from "@/lib/device-credential";
@@ -101,10 +102,12 @@ export function AppProviders({ children }: PropsWithChildren) {
   }, []);
 
   return (
-    <MobileThemeVariablesProvider>
-      <QueryClientProvider client={queryClient}>
-        <MobileWsProvider>{children}</MobileWsProvider>
-      </QueryClientProvider>
-    </MobileThemeVariablesProvider>
+    <SafeAreaProvider>
+      <MobileThemeVariablesProvider>
+        <QueryClientProvider client={queryClient}>
+          <MobileWsProvider>{children}</MobileWsProvider>
+        </QueryClientProvider>
+      </MobileThemeVariablesProvider>
+    </SafeAreaProvider>
   );
 }

@@ -136,8 +136,7 @@ export function WorkspaceListScreen() {
               grow
               label="Sign in"
               onPress={() => router.push("/sign-in")}
-              surface="control"
-              tone="secondary"
+              variant="outlined"
             />
           </View>
         }

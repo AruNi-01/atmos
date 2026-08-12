@@ -54,8 +54,7 @@ export function AuthSignInContent({
         label={auth.signIn.isPending ? "Signing in..." : "Continue with Google"}
         onPress={() => auth.signIn.mutate("google")}
         disabled={auth.busy}
-        surface="control"
-        tone="secondary"
+        variant="outlined"
       />
     </View>
   );

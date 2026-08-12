@@ -91,7 +91,7 @@ export const mobileGeneratedThemeSnapshot = {
   "--shadow-glass-panel-light": "0 14px 42px rgba(10, 10, 11, 0.07)",
   "--shadow-segmented-selected-dark": "0 1px 0 rgba(255, 255, 255, 0.04)",
   "--shadow-segmented-selected-light": "0 5px 14px rgba(10, 10, 11, 0.08)",
-  "--spacing-action-row-gap": "10px",
+  "--spacing-action-row-gap": "14px",
   "--spacing-card-padding": "16px",
   "--spacing-content-padding": "10px",
   "--spacing-row-gap": "4px",
