@@ -63,7 +63,12 @@ export function WorkspaceHeaderActions({
           if (isWorkspaceTab(actionId)) onSelectTab(actionId);
         }}
       >
-        <Pressable hitSlop={8} style={styles.action}>
+        <Pressable
+          accessibilityLabel="Switch view"
+          accessibilityRole="button"
+          hitSlop={8}
+          style={styles.action}
+        >
           {activeTab ? (
             <Image source={activeTab.androidIcon} style={[styles.icon, { tintColor: theme.colors.label }]} />
           ) : null}
@@ -74,7 +79,13 @@ export function WorkspaceHeaderActions({
         actions={terminalActions}
         onPressAction={(event) => handleTerminalAction(event.nativeEvent.event, terminalControls)}
       >
-        <Pressable disabled={!terminalControls} hitSlop={8} style={[styles.action, !terminalControls && styles.disabled]}>
+        <Pressable
+          accessibilityLabel="Terminal actions"
+          accessibilityRole="button"
+          disabled={!terminalControls}
+          hitSlop={8}
+          style={[styles.action, !terminalControls && styles.disabled]}
+        >
           <Text style={[styles.ellipsis, { color: theme.colors.label }]}>…</Text>
         </Pressable>
       </MenuView>

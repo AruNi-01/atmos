@@ -63,6 +63,7 @@ export function useMobileSettingsController() {
   const normalizedRelaySecretDraft = relaySecretDraft.trim();
   const canSaveRelaySettings =
     relayUrlSaveState.canSave || normalizedRelaySecretDraft !== relaySecretKey;
+  const relayConfigured = !canSaveRelaySettings;
 
   const saveRelaySettings = useMutation({
     mutationFn: async () => {
@@ -231,6 +232,7 @@ export function useMobileSettingsController() {
     error,
     hasDeviceCredential,
     registerCommand,
+    relayConfigured,
     relayDraft,
     relaySecretDraft,
     relayUrl,

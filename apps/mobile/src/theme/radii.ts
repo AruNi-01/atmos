@@ -1,5 +1,6 @@
 export const radii = {
   card: 24,
+  cardNested: 18,
   control: 28,
   iconWell: 16,
   pill: 999,

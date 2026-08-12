@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { Pressable, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import type { ComputerRow } from "@/api/types";
@@ -51,19 +52,15 @@ export function SettingsIndexScreen() {
     <AppScreen surface="sheet">
       <Section label="Preferences">
         <View className="gap-3 p-card-padding">
-          <View className="flex-row items-center gap-3">
-            <SettingsIconWell Icon={SunMoonIcon} />
-            <View className="min-w-0 flex-1 gap-0.5">
-              <Text className="text-label" numberOfLines={1} style={typography.rowTitle}>
-                Theme
-              </Text>
-              <Text className="text-secondary-label" numberOfLines={2} style={typography.rowSubtitle}>
-                {theme.preference === "system"
-                  ? "Follow system appearance"
-                  : `${theme.preference === "dark" ? "Dark" : "Light"} mode`}
-              </Text>
-            </View>
-          </View>
+          <SettingsIconTextRow
+            description={
+              theme.preference === "system"
+                ? "Follow system appearance"
+                : `${theme.preference === "dark" ? "Dark" : "Light"} mode`
+            }
+            Icon={SunMoonIcon}
+            title="Theme"
+          />
           <NativeSegmentedControl<MobileThemePreference>
             onValueChange={theme.setPreference}
             options={themePreferenceOptions}
@@ -88,7 +85,7 @@ export function SettingsComputersScreen() {
   const theme = useMobileTheme();
   const router = useRouter();
   const settings = useMobileSettingsController();
-  const relayChanged = settings.canSaveRelaySettings;
+  const relayConfigured = settings.relayConfigured;
 
   return (
     <AppScreen surface="sheet">
@@ -151,18 +148,18 @@ export function SettingsComputersScreen() {
             value={settings.relaySecretDraft}
           />
           <NativeButton
-            disabled={!settings.canSaveRelaySettings || settings.saveRelaySettings.isPending}
+            disabled={relayConfigured || settings.saveRelaySettings.isPending}
             icon={RadioIcon}
             label={settings.saveRelaySettings.isPending ? "Saving..." : "Save Relay"}
             onPress={() => settings.saveRelaySettings.mutate()}
             surface="control"
-            tone={relayChanged ? "default" : "secondary"}
+            tone={relayConfigured ? "secondary" : "default"}
           />
           <SettingsHint
             message={
-              settings.canSaveRelaySettings
-                ? "relay.atmos.land does not need a secret. Self-hosted relays use RELAY_SECRET_KEY."
-                : "Relay settings are already saved."
+              relayConfigured
+                ? "Relay settings are already saved."
+                : "relay.atmos.land does not need a secret. Self-hosted relays use RELAY_SECRET_KEY."
             }
           />
         </View>
@@ -186,7 +183,7 @@ export function SettingsComputersScreen() {
               style={{
                 backgroundColor: theme.colors.terminalBg,
                 borderCurve: "continuous",
-                borderRadius: radii.card - 6,
+                borderRadius: radii.cardNested,
               }}
             >
               <Text
@@ -305,19 +302,42 @@ function SettingsNavRow({
         pressed ? { backgroundColor: theme.colors.mutedPressed } : undefined
       }
     >
-      <View className="min-h-row-min-height flex-row items-center gap-3 px-row-x py-row-y">
-        <SettingsIconWell Icon={Icon} />
-        <View className="min-w-0 flex-1 gap-0.5">
-          <Text className="text-label" numberOfLines={1} style={typography.rowTitle}>
-            {entry.title}
-          </Text>
-          <Text className="text-secondary-label" numberOfLines={2} style={typography.rowSubtitle}>
-            {entry.description}
-          </Text>
-        </View>
-        <ChevronRightIcon color={theme.colors.tertiaryLabel} size={18} strokeWidth={2.6} />
+      <View className="min-h-row-min-height px-row-x py-row-y">
+        <SettingsIconTextRow
+          description={entry.description}
+          Icon={Icon}
+          title={entry.title}
+          trailing={<ChevronRightIcon color={theme.colors.tertiaryLabel} size={18} strokeWidth={2.6} />}
+        />
       </View>
     </Pressable>
+  );
+}
+
+function SettingsIconTextRow({
+  description,
+  Icon,
+  title,
+  trailing,
+}: {
+  description: string;
+  Icon: typeof LaptopIcon;
+  title: string;
+  trailing?: ReactNode;
+}) {
+  return (
+    <View className="flex-row items-center gap-3">
+      <SettingsIconWell Icon={Icon} />
+      <View className="min-w-0 flex-1 gap-0.5">
+        <Text className="text-label" numberOfLines={1} style={typography.rowTitle}>
+          {title}
+        </Text>
+        <Text className="text-secondary-label" numberOfLines={2} style={typography.rowSubtitle}>
+          {description}
+        </Text>
+      </View>
+      {trailing}
+    </View>
   );
 }
 

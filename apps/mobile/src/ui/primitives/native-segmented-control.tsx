@@ -1,5 +1,6 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { colors, radii } from "@/theme/colors";
+import { pressed as pressedTokens } from "@/theme/pressed";
 import { shadows } from "@/theme/shadows";
 import { useMobileTheme } from "@/theme/theme-store";
 import type { NativeSegmentedControlProps } from "./native-segmented-control.types";
@@ -30,7 +31,7 @@ export function NativeSegmentedControl<T extends string>({
               {
                 backgroundColor: selected ? selectedBackground : "transparent",
                 borderColor: selected ? selectedBorder : "transparent",
-                opacity: pressed ? 0.72 : 1,
+                opacity: pressed ? pressedTokens.controlOpacity : 1,
               },
               selected ? (theme.isDark ? styles.selectedOptionDark : styles.selectedOptionLight) : null,
             ]}

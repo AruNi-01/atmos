@@ -78,6 +78,7 @@
   --line-height-terminal-title: 20px;
   --opacity-pressed-control: 0.72;
   --opacity-pressed-row: 0.62;
+  --radius-card-nested: 18px;
   --radius-card: 24px;
   --radius-control: 28px;
   --radius-icon-well: 16px;
@@ -90,6 +91,7 @@
   --shadow-segmented-selected-light: 0 5px 14px rgba(10, 10, 11, 0.08);
   --spacing-action-row-gap: 10px;
   --spacing-card-padding: 16px;
+  --spacing-content-padding: 10px;
   --spacing-row-gap: 4px;
   --spacing-row-min-height: 64px;
   --spacing-row-title-gap: 10px;

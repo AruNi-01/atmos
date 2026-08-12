@@ -13,6 +13,7 @@ export const spacing = {
   rowTitleGap: 10,
   actionRowGap: 10,
   cardPadding: 16,
+  contentPadding: 10,
   separatorInset: 16,
   terminalHeaderX: 14,
   terminalHeaderMinHeight: 42,

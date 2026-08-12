@@ -384,14 +384,14 @@ const styles = StyleSheet.create({
   changesContent: {
     paddingBottom: spacing.screenBottom,
     paddingHorizontal: spacing.screenX,
-    paddingTop: spacing.screenFooterTop,
+    paddingTop: spacing.contentPadding,
   },
   changesScroll: {
     flex: 1,
   },
   content: {
     flex: 1,
-    padding: spacing.screenFooterTop,
+    padding: spacing.contentPadding,
   },
   defaultRoot: {
     backgroundColor: colors.background,

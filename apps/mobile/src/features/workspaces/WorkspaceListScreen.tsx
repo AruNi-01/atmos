@@ -122,7 +122,6 @@ export function WorkspaceListScreen() {
   }, [bootstrap, recentWorkspaceRecords, selectedServerId]);
 
   const primaryAction = resolveHomePrimaryAction({
-    canOpenWorkspaceData,
     hasDeviceCredential,
     wsState,
   });
@@ -201,19 +200,14 @@ export function WorkspaceListScreen() {
 }
 
 function resolveHomePrimaryAction({
-  canOpenWorkspaceData,
   hasDeviceCredential,
   wsState,
 }: {
-  canOpenWorkspaceData: boolean;
   hasDeviceCredential: boolean;
   wsState: string;
 }) {
   if (!hasDeviceCredential) {
     return { label: "Sign in", route: "/onboarding" as const };
-  }
-  if (canOpenWorkspaceData) {
-    return { label: "Browse workspaces", route: "/workspaces" as const };
   }
   if (wsState === "open") {
     return { label: "Browse workspaces", route: "/workspaces" as const };
