@@ -154,5 +154,5 @@ Hub / agent-hooks 后端拆分与竞态测试质量高；Web 侧同日继续放�
 ## 11. 结果提交与推送
 
 - 修复分支：`grokbuild/quality-fix/2026-08-11`
-- 修复提交：（见 PR）
-- PR URL：（创建后回填）
+- 修复提交：
+- PR URL：https://github.com/AruNi-01/atmos/pull/217
