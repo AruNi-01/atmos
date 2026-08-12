@@ -32,7 +32,7 @@ Rules for `apps/mobile` page titles, headers, navigation bars, and navigation bu
 ## Header Buttons And Menus
 
 - Header buttons are navigation chrome. On iOS, route header actions should use native-stack header items (`unstable_headerRightItems` / `unstable_headerLeftItems`) so the system owns bar-button material, hit testing, and large-title behavior.
-- Do not place `NativeButton` inside iOS `headerRight`; its business-button styling can render as an opaque gray pill in the navigation bar. Keep `NativeButton` header fallbacks for Android or for explicitly verified non-iOS cases.
+- Do not place `ExpoUiButton` inside iOS `headerRight`; its business-button styling can render as an opaque gray pill in the navigation bar. Keep product CTAs in the screen body, not the navigation bar.
 - Header actions must be icon-only in the visible navigation bar. Do not show visible text labels such as `Refresh`, `New`, `Import`, `Save`, or `Done` as header buttons. Put text in accessibility labels, menus, or body actions instead.
 - For menus, use `NativeMenuButton` with native icons:
   - iOS icons should be SF Symbols (`systemImage`).

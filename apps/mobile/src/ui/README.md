@@ -15,15 +15,15 @@ This app uses Expo UI as the base native-control layer.
 - **Layout tokens**: `src/theme/spacing.ts`, `src/theme/radii.ts`, `src/theme/typography.ts`, `src/theme/pressed.ts`, barrel-exported from `src/theme/tokens.ts`.
 - **NativeWind path**: `@/global.css` imports generated `@theme` from `src/theme/generated-theme.css` (via `script/generate-mobile-global-theme.ts`). `MobileThemeVariablesProvider` injects runtime CSS variables from `getMobileCssVariables()` so class names track the active color scheme.
 - **When to use what**:
-  - **Expo UI primitives** (`NativeButton`, `NativeTextInput`, lists, menus, segmented controls): interactive controls and platform chrome.
+  - **Expo UI primitives** (`ExpoUiButton`, `NativeTextInput`, lists, menus, segmented controls): interactive controls and platform chrome.
   - **NativeWind `className`**: layout, spacing, surfaces, and typography on non-control containers (`AppScreen`, `Section`, `Row`, grouped cards).
   - **`useMobileTheme().colors`**: only when a primitive or native API still needs inline `style`/`backgroundColor` (glass fallbacks, navigation `contentStyle`, terminal surfaces).
 - **Page rule**: feature screens should not stack ad-hoc colors, radii, or spacing. Reach for layout helpers + tokens first; extend primitives before adding one-off styles.
 
-### NativeButton surfaces
+### ExpoUiButton
 
-- `surface="cta"` (default): black/white primary pill for creation, onboarding, and bottom actions.
-- `surface="control"`: settings-style pill actions with optional icon. Tones: `default`, `secondary`, `danger`, `text`.
+- Default filled black/white primary pill for creation, onboarding, Connect, and bottom actions.
+- `variant="outlined"` for secondary actions; `tone="danger"` for destructive actions.
 
 ## Expo UI Rules
 

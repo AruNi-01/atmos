@@ -11,7 +11,6 @@ import { useMobileTheme } from "@/theme/theme-store";
 
 export { ExpoUiButton } from "./expo-ui-button";
 export type { ExpoUiButtonProps } from "./expo-ui-button";
-export { NativeButton } from "./native-button";
 export { NativeIcon, selectNativeIcon } from "./native-icon";
 export type { NativeIconName } from "./native-icon";
 export { NativeMenuButton } from "./native-menu-button";
