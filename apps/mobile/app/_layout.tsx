@@ -25,6 +25,17 @@ export default function RootLayout() {
           <Stack.Screen name="index" />
           <Stack.Screen name="onboarding" />
           <Stack.Screen
+            name="sign-in"
+            options={{
+              contentStyle: sheetContentStyle,
+              headerShown: false,
+              presentation: sheetPresentation,
+              sheetCornerRadius: 32,
+              sheetGrabberVisible: isIos,
+              sheetLargestUndimmedDetentIndex: "none",
+            }}
+          />
+          <Stack.Screen
             name="settings"
             options={{
               contentStyle: sheetContentStyle,

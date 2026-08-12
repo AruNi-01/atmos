@@ -10,6 +10,8 @@ export const mobileGeneratedThemeSnapshot = {
   "--color-control-elevated": "#ffffff",
   "--color-control-glass-tint": "rgba(255, 255, 255, 0.24)",
   "--color-control": "#f8f8f9",
+  "--color-cta-fill": "#111112",
+  "--color-cta-label": "#fafafa",
   "--color-glass-border": "rgba(10, 10, 11, 0.08)",
   "--color-glass-fallback-strong": "rgba(255, 255, 255, 0.96)",
   "--color-glass-fallback": "rgba(255, 255, 255, 0.82)",

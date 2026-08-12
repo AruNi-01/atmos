@@ -73,7 +73,7 @@ export function ComputerConnectScreen() {
                 title="Sign in required"
                 message="Sign in or scan a Desktop/Web pair QR before loading Computers."
               />
-              <NativeButton label="Sign in / Scan QR" onPress={() => router.replace("/onboarding")} />
+              <NativeButton grow label="Sign in / Scan QR" onPress={() => router.push("/sign-in")} />
             </View>
           </Section>
         ) : activeComputers.length === 0 ? (

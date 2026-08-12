@@ -173,7 +173,7 @@ export function useMobileSettingsController() {
       setComputers([]);
       setError(null);
       await queryClient.invalidateQueries();
-      router.replace("/onboarding");
+      router.replace("/");
     },
     onError: (nextError) =>
       setError(

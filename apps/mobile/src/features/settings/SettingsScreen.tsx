@@ -103,7 +103,7 @@ export function SettingsComputersScreen() {
               grow
               icon={KeyIcon}
               label={settings.hasDeviceCredential ? "Re-pair" : "Sign in / Scan"}
-              onPress={() => router.replace("/onboarding")}
+              onPress={() => router.push("/sign-in")}
               surface="control"
               tone="secondary"
             />

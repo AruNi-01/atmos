@@ -7,6 +7,7 @@ import { radii, type MobileThemeColors } from "@/theme/colors";
 import { useMobileTheme } from "@/theme/theme-store";
 import { GlassPanel } from "./glass-panel";
 import { NativeButtonControl } from "./native-button-control";
+import { getNativeButtonCtaColors } from "./native-button-cta-colors";
 import type { NativeButtonControlTone, NativeButtonProps } from "./native-button.types";
 
 function isControlSurface(props: NativeButtonProps) {
@@ -39,6 +40,7 @@ export function NativeButton(props: NativeButtonProps) {
 
   const {
     disabled,
+    grow,
     label,
     onPress,
     tone = "default",
@@ -51,6 +53,7 @@ export function NativeButton(props: NativeButtonProps) {
     <GlassPanel
       fallbackStyle={[
         styles.fallback,
+        grow ? styles.grow : null,
         { backgroundColor: frameColors.background },
       ]}
       glassEffectStyle={variant === "filled" ? "regular" : "clear"}
@@ -58,6 +61,7 @@ export function NativeButton(props: NativeButtonProps) {
       shadow={false}
       style={[
         styles.frame,
+        grow ? styles.grow : null,
         buttonFrameStyleByVariant[variant],
         {
           backgroundColor: frameColors.background,
@@ -84,10 +88,10 @@ function buttonModifiersByVariant(
   tone: NonNullable<NativeButtonProps["tone"]>,
   themeColors: MobileThemeColors,
 ): Record<NonNullable<NativeButtonProps["variant"]>, ModifierConfig[]> {
-  const filledTintColor = tone === "inverse" ? themeColors.label : themeColors.labelInverse;
-  const tintColor = tone === "inverse" ? themeColors.labelInverse : themeColors.label;
+  const ctaColors = getNativeButtonCtaColors(tone, themeColors);
+  const tintColor = tone === "inverse" ? themeColors.ctaFill : themeColors.ctaLabel;
   return {
-    filled: [buttonBorderShape("roundedRectangle", radii.control), tint(filledTintColor)],
+    filled: [buttonBorderShape("roundedRectangle", radii.control), tint(ctaColors.text)],
     outlined: [
       buttonBorderShape("roundedRectangle", radii.control),
       tint(tintColor),
@@ -102,10 +106,10 @@ function buttonBorderColorByVariant(
   tone: NonNullable<NativeButtonProps["tone"]>,
   themeColors: MobileThemeColors,
 ): Record<NonNullable<NativeButtonProps["variant"]>, string> {
-  const tintColor = tone === "inverse" ? themeColors.labelInverse : themeColors.controlBorder;
+  const ctaColors = getNativeButtonCtaColors(tone, themeColors);
   return {
     filled: "transparent",
-    outlined: tintColor,
+    outlined: tone === "inverse" ? themeColors.ctaLabel : themeColors.controlBorder,
     text: "transparent",
   };
 }
@@ -116,12 +120,12 @@ function buttonFrameColorsByVariant(
   disabled: boolean,
 ): Record<NonNullable<NativeButtonProps["variant"]>, { background: string; border: string; tint: string }> {
   const borderColor = buttonBorderColorByVariant(tone, themeColors);
-  const filledBackground = tone === "inverse" ? themeColors.labelInverse : themeColors.label;
+  const ctaColors = getNativeButtonCtaColors(tone, themeColors);
   return {
     filled: {
-      background: disabled ? themeColors.controlDisabled : filledBackground,
+      background: disabled ? themeColors.controlDisabled : ctaColors.background,
       border: disabled ? themeColors.separator : borderColor.filled,
-      tint: themeColors.controlGlassTint,
+      tint: ctaColors.tint,
     },
     outlined: {
       background: disabled ? themeColors.controlDisabled : themeColors.control,
@@ -171,10 +175,14 @@ const styles = StyleSheet.create({
     backgroundColor: "transparent",
   },
   frame: {
-    alignSelf: "flex-start",
+    alignSelf: "center",
     borderCurve: "continuous",
     borderRadius: radii.control,
     borderWidth: StyleSheet.hairlineWidth,
     minWidth: 1,
+  },
+  grow: {
+    alignSelf: "stretch",
+    width: "100%",
   },
 });

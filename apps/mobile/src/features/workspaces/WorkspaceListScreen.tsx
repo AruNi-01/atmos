@@ -68,6 +68,7 @@ export function WorkspaceListScreen() {
   const selectedComputer = computers.find((computer) => computer.server_id === selectedServerId) ?? null;
   const clientSessionUnavailable = wsState === "closed";
   const computersError = computersQuery.error instanceof Error ? computersQuery.error.message : null;
+  const isHomeConnected = hasDeviceCredential && wsState === "open";
 
   const createSession = useMutation({
     mutationFn: async (serverId: string) => {
@@ -121,17 +122,50 @@ export function WorkspaceListScreen() {
     return hydrateRecentWorkspaces(recordsForComputer, bootstrap);
   }, [bootstrap, recentWorkspaceRecords, selectedServerId]);
 
-  const primaryAction = resolveHomePrimaryAction({
-    hasDeviceCredential,
-    wsState,
-  });
+  if (!isHomeConnected) {
+    return (
+      <AppScreen
+        footer={
+          <View className="w-full gap-action-row-gap">
+            <NativeButton
+              grow
+              label="Pair via QR"
+              onPress={() => router.push("/sign-in?mode=scan")}
+            />
+            <NativeButton
+              grow
+              label="Sign in"
+              onPress={() => router.push("/sign-in")}
+              surface="control"
+              tone="secondary"
+            />
+          </View>
+        }
+      >
+        <View className="flex-1 items-center justify-center gap-3 px-4 pb-8 pt-16">
+          <Text className="max-w-[320px] text-center font-bold text-label text-hero-title leading-hero-title tracking-hero-title">
+            {welcomeHeadline}
+          </Text>
+          <Text
+            className="max-w-[300px] text-center text-secondary-label text-hero-subtitle leading-hero-subtitle"
+            numberOfLines={3}
+          >
+            {disconnectedHomeSubtitle(hasDeviceCredential)}
+          </Text>
+        </View>
+
+        <InlineError message={sessionError ?? computersError} />
+      </AppScreen>
+    );
+  }
 
   return (
     <AppScreen
       footer={
         <NativeButton
-          label={primaryAction.label}
-          onPress={() => router.push(primaryAction.route)}
+          grow
+          label="Browse workspaces"
+          onPress={() => router.push("/workspaces")}
         />
       }
     >
@@ -199,20 +233,11 @@ export function WorkspaceListScreen() {
   );
 }
 
-function resolveHomePrimaryAction({
-  hasDeviceCredential,
-  wsState,
-}: {
-  hasDeviceCredential: boolean;
-  wsState: string;
-}) {
+function disconnectedHomeSubtitle(hasDeviceCredential: boolean) {
   if (!hasDeviceCredential) {
-    return { label: "Sign in", route: "/onboarding" as const };
+    return "Pair this phone with Atmos to open workspaces on your Computer.";
   }
-  if (wsState === "open") {
-    return { label: "Browse workspaces", route: "/workspaces" as const };
-  }
-  return { label: "Connect Computer", route: "/computer-connect" as const };
+  return "Connect to your Computer to browse workspaces.";
 }
 
 function formatRecentAccessedAt(value: string) {

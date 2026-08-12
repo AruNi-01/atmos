@@ -1,9 +1,10 @@
 import { Button as ExpoButton, Host } from "@expo/ui";
 import type { UniversalStyle } from "@expo/ui";
-import { Text } from "react-native";
+import { Text, View } from "react-native";
 import { radii, type MobileThemeColors } from "@/theme/colors";
 import { useMobileTheme } from "@/theme/theme-store";
 import { NativeButtonControl } from "./native-button-control";
+import { getNativeButtonCtaColors } from "./native-button-cta-colors";
 import type { NativeButtonControlTone, NativeButtonProps } from "./native-button.types";
 
 function isControlSurface(props: NativeButtonProps) {
@@ -36,36 +37,56 @@ export function NativeButton(props: NativeButtonProps) {
 
   const {
     disabled,
+    grow,
     label,
     onPress,
     tone = "default",
     variant = "filled",
   } = props;
   const theme = useMobileTheme();
+  const frameColors = getNativeButtonCtaColors(tone, theme.colors);
+  const buttonStyle = buttonStyleByVariant(tone, theme.colors)[variant];
 
-  return (
+  const button = (
     <Host matchContents colorScheme={theme.colorScheme}>
       <ExpoButton
         disabled={disabled}
         onPress={onPress}
-        style={buttonStyleByVariant(tone, theme.colors)[variant]}
+        style={{
+          ...buttonStyle,
+          backgroundColor: disabled ? theme.colors.controlDisabled : frameColors.background,
+        }}
         variant={variant}
       >
-        <Text style={buttonLabelStyleByVariant(tone, theme.colors)[variant]}>{label}</Text>
+        <Text
+          style={[
+            buttonLabelStyleByVariant(tone, theme.colors)[variant],
+            disabled ? { color: theme.colors.tertiaryLabel } : null,
+          ]}
+        >
+          {label}
+        </Text>
       </ExpoButton>
     </Host>
   );
+
+  if (grow) {
+    return <View style={{ alignSelf: "stretch", width: "100%" }}>{button}</View>;
+  }
+
+  return button;
 }
 
 function buttonStyleByVariant(
   tone: NonNullable<NativeButtonProps["tone"]>,
   themeColors: MobileThemeColors,
 ): Record<NonNullable<NativeButtonProps["variant"]>, UniversalStyle> {
+  const frameColors = getNativeButtonCtaColors(tone, themeColors);
   const isInverse = tone === "inverse";
   return {
   filled: {
-    backgroundColor: isInverse ? themeColors.labelInverse : themeColors.label,
-    borderColor: isInverse ? themeColors.labelInverse : themeColors.label,
+    backgroundColor: frameColors.background,
+    borderColor: frameColors.border,
     borderRadius: radii.control,
     borderWidth: 1,
     height: 52,
@@ -74,9 +95,9 @@ function buttonStyleByVariant(
   },
   outlined: {
     backgroundColor: "transparent",
-    borderColor: "transparent",
+    borderColor: isInverse ? themeColors.ctaLabel : themeColors.controlBorder,
     borderRadius: radii.control,
-    borderWidth: 0,
+    borderWidth: 1,
     height: 52,
     paddingHorizontal: 22,
     paddingVertical: 12,
@@ -97,18 +118,19 @@ function buttonLabelStyleByVariant(
   tone: NonNullable<NativeButtonProps["tone"]>,
   themeColors: MobileThemeColors,
 ): Record<NonNullable<NativeButtonProps["variant"]>, { color: string; fontWeight: "700" }> {
+  const frameColors = getNativeButtonCtaColors(tone, themeColors);
   const isInverse = tone === "inverse";
   return {
   filled: {
-    color: isInverse ? themeColors.label : themeColors.labelInverse,
+    color: frameColors.text,
     fontWeight: "700",
   },
   outlined: {
-    color: isInverse ? themeColors.labelInverse : themeColors.label,
+    color: isInverse ? themeColors.ctaLabel : themeColors.label,
     fontWeight: "700",
   },
   text: {
-    color: isInverse ? themeColors.labelInverse : themeColors.label,
+    color: isInverse ? themeColors.ctaLabel : themeColors.label,
     fontWeight: "700",
   },
   };

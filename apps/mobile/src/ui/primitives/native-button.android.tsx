@@ -8,9 +8,11 @@ import {
   TextButton,
 } from "@expo/ui/jetpack-compose";
 import { padding } from "@expo/ui/jetpack-compose/modifiers";
+import { View } from "react-native";
 import { radii, type MobileThemeColors } from "@/theme/colors";
 import { useMobileTheme } from "@/theme/theme-store";
 import { NativeButtonControl } from "./native-button-control";
+import { getNativeButtonCtaColors } from "./native-button-cta-colors";
 import type { NativeButtonControlTone, NativeButtonProps } from "./native-button.types";
 
 function isControlSurface(props: NativeButtonProps) {
@@ -43,6 +45,7 @@ export function NativeButton(props: NativeButtonProps) {
 
   const {
     disabled,
+    grow,
     label,
     onPress,
     tone = "default",
@@ -52,7 +55,7 @@ export function NativeButton(props: NativeButtonProps) {
   const color = buttonColorByVariant(tone, theme.colors)[variant];
 
   if (variant === "outlined") {
-    return (
+    const outlinedButton = (
       <Host matchContents colorScheme={theme.colorScheme} seedColor={theme.colors.label}>
         <Surface
           border={{ color: color.border, width: 1 }}
@@ -74,12 +77,18 @@ export function NativeButton(props: NativeButtonProps) {
         </Surface>
       </Host>
     );
+
+    if (grow) {
+      return <View style={{ alignSelf: "stretch", width: "100%" }}>{outlinedButton}</View>;
+    }
+
+    return outlinedButton;
   }
 
   const ButtonComponent = buttonComponentByVariant[variant];
 
-  return (
-    <Host matchContents colorScheme={theme.colorScheme} seedColor={theme.colors.label}>
+  const filledButton = (
+    <Host matchContents colorScheme={theme.colorScheme} seedColor={theme.colors.ctaFill}>
       <ButtonComponent
         colors={{
           containerColor: color.background,
@@ -98,6 +107,12 @@ export function NativeButton(props: NativeButtonProps) {
       </ButtonComponent>
     </Host>
   );
+
+  if (grow) {
+    return <View style={{ alignSelf: "stretch", width: "100%" }}>{filledButton}</View>;
+  }
+
+  return filledButton;
 }
 
 const controlCornerRadii = {
@@ -116,22 +131,23 @@ function buttonColorByVariant(
   tone: NonNullable<NativeButtonProps["tone"]>,
   themeColors: MobileThemeColors,
 ) {
+  const ctaColors = getNativeButtonCtaColors(tone, themeColors);
   const isInverse = tone === "inverse";
   return {
     filled: {
-      background: isInverse ? themeColors.labelInverse : themeColors.label,
+      background: ctaColors.background,
       border: "transparent",
-      text: isInverse ? themeColors.label : themeColors.labelInverse,
+      text: ctaColors.text,
     },
     outlined: {
       background: isInverse ? "transparent" : themeColors.control,
-      border: isInverse ? themeColors.labelInverse : themeColors.controlBorder,
-      text: isInverse ? themeColors.labelInverse : themeColors.label,
+      border: isInverse ? themeColors.ctaLabel : themeColors.controlBorder,
+      text: isInverse ? themeColors.ctaLabel : themeColors.label,
     },
     text: {
       background: "transparent",
       border: "transparent",
-      text: isInverse ? themeColors.labelInverse : themeColors.label,
+      text: isInverse ? themeColors.ctaLabel : themeColors.label,
     },
   };
 }
