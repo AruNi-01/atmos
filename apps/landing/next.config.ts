@@ -3,8 +3,13 @@ import createNextIntlPlugin from "next-intl/plugin";
 
 const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
 
+const isPages = process.env.BUILD_TARGET === "pages";
+
 const nextConfig: NextConfig = {
+  output: isPages ? "export" : undefined,
+  trailingSlash: isPages ? false : undefined,
   images: {
+    unoptimized: isPages,
     remotePatterns: [
       {
         protocol: "https",

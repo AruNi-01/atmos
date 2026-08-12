@@ -1,8 +1,14 @@
 # Cloudflare Pages Deploy
 
-This directory contains the helper scripts used to build and deploy `apps/web` to Cloudflare Pages.
+This directory contains helper scripts to build and deploy static Next.js apps to Cloudflare Pages.
 
-## Files
+| App | Project name | Build | Deploy |
+|-----|--------------|-------|--------|
+| `apps/web` | `app-atmos-land` | `bun run build:web:pages` | `bun run deploy:web:pages` |
+| `apps/docs` | `docs-atmos-land` | `bun run build:docs:pages` | `bun run deploy:docs:pages` |
+| `apps/landing` | `www-atmos-land` | `bun run build:landing:pages` | `bun run deploy:landing:pages` |
+
+## Web (`apps/web`)
 
 - `build-pages-web.mjs`
   - Builds `apps/web` as a static export for Pages.
@@ -16,6 +22,38 @@ This directory contains the helper scripts used to build and deploy `apps/web` t
   - Reads `apps/web/wrangler.jsonc`.
   - Supports optional `--branch`, `--commit-hash`, `--commit-message`, `--commit-dirty`, and `--skip-caching`.
 
+Workflow: `.github/workflows/deploy-web-app-pages.yml` (tag-triggered: `deploy-web-app-*`).
+
+## Docs (`apps/docs`)
+
+- `build-pages-docs.mjs`
+  - Builds `apps/docs` as a static export for Pages.
+  - Sets `BUILD_TARGET=pages`.
+  - Temporarily removes `apps/docs/src/proxy.ts` and the `llms.mdx` route during export.
+  - Copies default locale (`en`) pages to `out/` root and writes `_headers` + `_redirects`.
+
+- `deploy-pages-docs.mjs`
+  - Uploads `apps/docs/out` via Wrangler (`apps/docs/wrangler.jsonc`).
+
+Workflow: `.github/workflows/deploy-docs-pages.yml` (push to `main` when docs paths change).
+
+Site URL: `https://docs.atmos.land`
+
+## Landing (`apps/landing`)
+
+- `build-pages-landing.mjs`
+  - Builds `apps/landing` as a static export for Pages.
+  - Sets `BUILD_TARGET=pages`.
+  - Temporarily removes `apps/landing/src/proxy.ts` and the unused `api/download-links` route during export (download URLs are resolved at build time in the home page).
+  - Copies default locale (`en`) pages to `out/` root and writes `_headers` + `_redirects` (`/en` → `/`).
+
+- `deploy-pages-landing.mjs`
+  - Uploads `apps/landing/out` via Wrangler (`apps/landing/wrangler.jsonc`).
+
+Workflow: `.github/workflows/deploy-landing-pages.yml` (push to `main` when landing paths change).
+
+Site URL: `https://atmos.land`
+
 ## Local usage
 
 From the repo root:
@@ -23,12 +61,18 @@ From the repo root:
 ```bash
 bun run build:web:pages
 bun run deploy:web:pages
+
+bun run build:docs:pages
+bun run deploy:docs:pages
+
+bun run build:landing:pages
+bun run deploy:landing:pages
 ```
 
 Pass deploy metadata through CLI flags if needed:
 
 ```bash
-bun run deploy:web:pages -- --branch main --commit-dirty
+bun run deploy:landing:pages -- --branch main --commit-dirty
 ```
 
 ## Requirements
@@ -45,51 +89,35 @@ bun install
 bunx wrangler login
 ```
 
-3. Create or configure the Pages project so its name matches `apps/web/wrangler.jsonc`.
-
-Current project name:
-
-```text
-app-atmos-land
-```
+3. Create or configure each Pages project so its name matches the app's `wrangler.jsonc`.
 
 ## Dashboard Git integration
 
 If you prefer Cloudflare Pages Git integration instead of `wrangler pages deploy`, use:
 
 - Root directory: repository root
-- Build command: `bun run build:web:pages`
-- Build output directory: `apps/web/out`
+- Build command: `bun run build:<app>:pages` (e.g. `bun run build:landing:pages`)
+- Build output directory: `apps/<app>/out`
 
-The Pages project can still keep `apps/web/wrangler.jsonc` in source control so direct uploads and dashboard settings stay aligned.
+Each app can keep its `wrangler.jsonc` in source control so direct uploads and dashboard settings stay aligned.
 
 ## GitHub Actions
 
-This repo also includes:
-
-- `.github/workflows/deploy-web-app-pages.yml`
-
-It builds `apps/web` with `bun run build:web:pages` and deploys with `bun run deploy:web:pages`.
-
-Trigger policy:
-
-- `push` tags matching `deploy-web-app-*`
-
-The workflow always deploys to the Pages production branch (`main`), using:
+Workflows deploy using:
 
 - `CLOUDFLARE_API_TOKEN`
 - `CLOUDFLARE_ACCOUNT_ID`
 
-The workflow reads those values from GitHub `secrets` first, then falls back to repository/environment `vars`.
+Values are read from GitHub `secrets` first, then fall back to repository/environment `vars`.
 
 ## Notes
 
-- The deployed frontend is static-only; all runtime API access happens in the browser against the user's local Atmos Server or relay endpoints.
-- `apps/web/wrangler.jsonc` only stores Pages project metadata for static deployment:
+- Deployed frontends are static-only. Runtime API access happens in the browser or is resolved at build time.
+- Each `wrangler.jsonc` only stores Pages project metadata for static deployment:
 
 ```json
 {
-  "name": "app-atmos-land",
+  "name": "www-atmos-land",
   "pages_build_output_dir": "./out"
 }
 ```
