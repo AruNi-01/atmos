@@ -2,6 +2,7 @@ import { Button as ExpoButton, Host } from "@expo/ui";
 import { StyleSheet, Text, View } from "react-native";
 import { radii } from "@/theme/radii";
 import { useMobileTheme } from "@/theme/theme-store";
+import { typography } from "@/theme/typography";
 import {
   resolveExpoUiButtonColors,
   type ExpoUiButtonTone,
@@ -71,8 +72,10 @@ export function ExpoUiButton({
 
 const styles = StyleSheet.create({
   button: {
+    alignItems: "center",
     borderRadius: radii.control,
     height: CTA_MIN_HEIGHT,
+    justifyContent: "center",
     paddingHorizontal: 22,
     width: "100%",
   },
@@ -88,14 +91,21 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   host: {
+    alignItems: "center",
     alignSelf: "stretch",
     height: CTA_MIN_HEIGHT,
+    justifyContent: "center",
     minHeight: CTA_MIN_HEIGHT,
     width: "100%",
   },
   label: {
-    fontWeight: "700",
+    fontSize: typography.controlLabel.fontSize,
+    fontWeight: typography.controlLabel.fontWeight,
+    // Tight line box so glyph metrics sit in the vertical center of Host height 52.
+    includeFontPadding: false,
+    lineHeight: typography.controlLabel.lineHeight,
     textAlign: "center",
+    textAlignVertical: "center",
     width: "100%",
   },
   stretch: {
