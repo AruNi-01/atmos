@@ -3,11 +3,21 @@ export const terminalSurfaceColors = {
   terminalBg: "#09090b",
   terminalFg: "#f8f8f8",
   terminalMuted: "#a1a1aa",
+  terminalScrollbar: "rgba(161, 161, 170, 0.34)",
+  terminalStatusError: "#fca5a5",
   terminalKeycap: "rgba(248, 250, 252, 0.10)",
   terminalKeycapPressed: "rgba(248, 250, 252, 0.16)",
   terminalChromeFallback: "rgba(9, 9, 11, 0.92)",
   terminalChromeTint: "rgba(9, 9, 11, 0.78)",
 };
+
+/** Workflow status icon colors — shared across light and dark app chrome. */
+export const workflowStatusColors = {
+  workflowStatusInProgress: "#3b82f6",
+  workflowStatusInReview: "#10b981",
+  workflowStatusBlocked: "#f59e0b",
+  workflowStatusCompleted: "#6366f1",
+} as const;
 
 export const lightColors = {
   background: "#f4f4f6",
@@ -44,6 +54,9 @@ export const lightColors = {
   yellow: "#a16207",
   yellowSurface: "rgba(161, 98, 7, 0.10)",
   yellowBorder: "rgba(161, 98, 7, 0.22)",
+  segmentedTrack: "rgba(10, 10, 11, 0.055)",
+  segmentedSelectedBorder: "rgba(10, 10, 11, 0.07)",
+  ...workflowStatusColors,
   ...terminalSurfaceColors,
 };
 
@@ -82,6 +95,9 @@ export const darkColors: MobileThemeColors = {
   yellow: "#facc15",
   yellowSurface: "rgba(250, 204, 21, 0.14)",
   yellowBorder: "rgba(250, 204, 21, 0.28)",
+  segmentedTrack: "#1c1c1e",
+  segmentedSelectedBorder: "rgba(255, 255, 255, 0.075)",
+  ...workflowStatusColors,
   ...terminalSurfaceColors,
 };
 

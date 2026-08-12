@@ -1,6 +1,6 @@
 import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { MenuView, type MenuAction } from "@expo/ui/community/menu";
-import { radii } from "@/theme/colors";
+import { radii } from "@/theme/radii";
 import { typography } from "@/theme/typography";
 import { useMobileTheme } from "@/theme/theme-store";
 import {

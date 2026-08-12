@@ -88,13 +88,13 @@ export function getWorkspaceWorkflowStatusColor(
 ) {
   switch (status) {
     case "in_progress":
-      return "#3b82f6";
+      return themeColors.workflowStatusInProgress;
     case "in_review":
-      return "#10b981";
+      return themeColors.workflowStatusInReview;
     case "blocked":
-      return "#f59e0b";
+      return themeColors.workflowStatusBlocked;
     case "completed":
-      return "#6366f1";
+      return themeColors.workflowStatusCompleted;
     case "backlog":
     case "todo":
     case "canceled":

@@ -1,6 +1,7 @@
 import { getMobileThemeColors, lightColors, type MobileThemeColorScheme, type MobileThemeColors } from "./colors";
 import { pressed } from "./pressed";
 import { radii } from "./radii";
+import { shadows } from "./shadows";
 import { spacing } from "./spacing";
 import { typography } from "./typography";
 
@@ -78,6 +79,10 @@ export function getMobileLayoutCssVariables() {
     "--line-height-body": `${typography.body.lineHeight}px`,
     "--opacity-pressed-control": String(pressed.controlOpacity),
     "--opacity-pressed-row": String(pressed.rowOpacity),
+    "--shadow-glass-panel-dark": shadows.glassPanelDark,
+    "--shadow-glass-panel-light": shadows.glassPanelLight,
+    "--shadow-segmented-selected-dark": shadows.segmentedSelectedDark,
+    "--shadow-segmented-selected-light": shadows.segmentedSelectedLight,
   } as const;
 }
 
