@@ -10,6 +10,15 @@
 - **Build**: `bun build`
 - **Typecheck**: `bun run types:check` (Fumadocs MDX checks + TypeScript)
 
+### PostHog (optional)
+
+Set public env vars in Cloudflare Pages (or `.env.local` for local testing):
+
+- `NEXT_PUBLIC_POSTHOG_KEY` — project API key (required to enable analytics)
+- `NEXT_PUBLIC_POSTHOG_HOST` — ingestion host (defaults to `https://us.i.posthog.com`)
+
+When the key is unset, PostHog is not initialized and the app builds/runs normally.
+
 ---
 
 ## Tech Stack

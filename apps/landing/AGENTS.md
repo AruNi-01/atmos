@@ -12,6 +12,15 @@
 - **Pages deploy**: `bun run deploy:pages` (from app) or `bun run deploy:landing:pages` (from repo root; requires Wrangler auth)
 - **Start**: `bun start`
 
+### PostHog (optional)
+
+Set in the Cloudflare Pages project (or `.env.local` for local testing):
+
+- `NEXT_PUBLIC_POSTHOG_KEY` — project API key (required to enable analytics)
+- `NEXT_PUBLIC_POSTHOG_HOST` — ingestion host (defaults to `https://us.i.posthog.com`)
+
+When the key is unset, PostHog is not initialized and the app builds/runs normally.
+
 ---
 
 ## Cloudflare Pages

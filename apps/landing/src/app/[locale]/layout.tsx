@@ -5,6 +5,7 @@ import { NextIntlClientProvider } from "next-intl";
 import { getMessages, getTranslations, setRequestLocale } from "next-intl/server";
 import { notFound } from "next/navigation";
 import { routing } from "@atmos/i18n/routing";
+import { PostHogProvider } from "@/components/providers/posthog-provider";
 import { ThemeProvider } from "@/components/providers/theme-provider";
 import { TooltipProvider } from "@workspace/ui/components/ui/tooltip";
 import Header from "@/components/layout/header";
@@ -71,19 +72,21 @@ export default async function LocaleLayout({ children, params }: Props) {
       <body
         className={`${GeistSans.variable} ${geistMono.variable} ${GeistSans.className} antialiased`}
       >
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="system"
-          enableSystem
-          disableTransitionOnChange
-        >
-          <NextIntlClientProvider messages={messages}>
-            <TooltipProvider>
-              <Header />
-              {children}
-            </TooltipProvider>
-          </NextIntlClientProvider>
-        </ThemeProvider>
+        <PostHogProvider>
+          <ThemeProvider
+            attribute="class"
+            defaultTheme="system"
+            enableSystem
+            disableTransitionOnChange
+          >
+            <NextIntlClientProvider messages={messages}>
+              <TooltipProvider>
+                <Header />
+                {children}
+              </TooltipProvider>
+            </NextIntlClientProvider>
+          </ThemeProvider>
+        </PostHogProvider>
       </body>
     </html>
   );
