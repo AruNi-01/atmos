@@ -39,6 +39,32 @@ function restoreAside(source, destination) {
   }
 }
 
+let sourcesRestored = false;
+
+function restoreMovedSources() {
+  if (sourcesRestored) {
+    return;
+  }
+  sourcesRestored = true;
+  restoreAside(downloadLinksRouteBackupDir, downloadLinksRouteDir);
+  restoreAside(proxyBackupFile, proxyFile);
+}
+
+function registerTerminationHandlers() {
+  const exitCodes = { SIGINT: 130, SIGTERM: 143, SIGHUP: 129 };
+  const signals = ["SIGINT", "SIGTERM"];
+  if (process.platform !== "win32") {
+    signals.push("SIGHUP");
+  }
+
+  for (const signal of signals) {
+    process.once(signal, () => {
+      restoreMovedSources();
+      process.exit(exitCodes[signal] ?? 1);
+    });
+  }
+}
+
 function run(command, args, options = {}) {
   const result = spawnSync(command, args, {
     stdio: "inherit",
@@ -112,6 +138,7 @@ try {
   rmSync(landingOutDir, { recursive: true, force: true });
   moveAside(proxyFile, proxyBackupFile);
   moveAside(downloadLinksRouteDir, downloadLinksRouteBackupDir);
+  registerTerminationHandlers();
 
   run("bun", ["--filter", "landing", "build"], {
     env: {
@@ -132,8 +159,7 @@ try {
   console.error(error.message ?? error);
   exitCode = error?.exitCode ?? 1;
 } finally {
-  restoreAside(downloadLinksRouteBackupDir, downloadLinksRouteDir);
-  restoreAside(proxyBackupFile, proxyFile);
+  restoreMovedSources();
 }
 
 if (exitCode !== 0) {
