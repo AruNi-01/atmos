@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { colors } from "@/theme/colors";
+import { typography } from "@/theme/typography";
 import { useMobileTheme } from "@/theme/theme-store";
 
 export function Row({
@@ -18,15 +18,15 @@ export function Row({
 }) {
   const theme = useMobileTheme();
   const content = (
-    <View style={styles.row}>
-      <View style={styles.titleRow}>
-        <Text style={[styles.title, { color: theme.colors.label }]} numberOfLines={2}>
+    <View className="min-h-row-min-height gap-row-gap px-row-x py-row-y">
+      <View className="flex-row items-center justify-between gap-row-title-gap">
+        <Text className="flex-1 font-semibold text-label" numberOfLines={2} style={typography.rowTitle}>
           {title}
         </Text>
         {children}
         {onPress && !children ? (
           <Text
-            style={[styles.chevron, { color: theme.colors.tertiaryLabel }]}
+            className="-ml-1 text-[22px] leading-6 text-tertiary-label"
             accessibilityElementsHidden
             importantForAccessibility="no-hide-descendants"
           >
@@ -35,12 +35,12 @@ export function Row({
         ) : null}
       </View>
       {meta ? (
-        <Text style={[styles.meta, { color: theme.colors.secondaryLabel }]} numberOfLines={1}>
+        <Text className="text-secondary-label tabular-nums" numberOfLines={1} style={typography.rowMeta}>
           {meta}
         </Text>
       ) : null}
       {subtitle ? (
-        <Text style={[styles.subtitle, { color: theme.colors.secondaryLabel }]} numberOfLines={2}>
+        <Text className="text-secondary-label" numberOfLines={2} style={typography.rowSubtitle}>
           {subtitle}
         </Text>
       ) : null}
@@ -50,60 +50,17 @@ export function Row({
   if (!onPress) return content;
 
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [pressed && styles.pressed]}>
+    <Pressable
+      onPress={onPress}
+      style={({ pressed: isPressed }) =>
+        isPressed ? { backgroundColor: theme.colors.mutedPressed } : undefined
+      }
+    >
       {content}
     </Pressable>
   );
 }
 
 export function Separator() {
-  const theme = useMobileTheme();
-  return <View style={[styles.separator, { backgroundColor: theme.colors.separator }]} />;
+  return <View className="ml-separator-inset h-px bg-separator" />;
 }
-
-const styles = StyleSheet.create({
-  row: {
-    gap: 4,
-    minHeight: 64,
-    paddingHorizontal: 18,
-    paddingVertical: 12,
-  },
-  titleRow: {
-    alignItems: "center",
-    flexDirection: "row",
-    gap: 10,
-    justifyContent: "space-between",
-  },
-  title: {
-    color: colors.label,
-    flex: 1,
-    fontSize: 16,
-    fontWeight: "600",
-    lineHeight: 21,
-  },
-  subtitle: {
-    color: colors.secondaryLabel,
-    fontSize: 13,
-    lineHeight: 19,
-  },
-  meta: {
-    color: colors.secondaryLabel,
-    fontSize: 13,
-    fontVariant: ["tabular-nums"],
-    lineHeight: 18,
-  },
-  chevron: {
-    color: colors.tertiaryLabel,
-    fontSize: 22,
-    lineHeight: 24,
-    marginLeft: -4,
-  },
-  pressed: {
-    opacity: 0.62,
-  },
-  separator: {
-    backgroundColor: colors.separator,
-    height: StyleSheet.hairlineWidth,
-    marginLeft: 16,
-  },
-});

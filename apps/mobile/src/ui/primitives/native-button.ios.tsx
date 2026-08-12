@@ -6,15 +6,44 @@ import { StyleSheet, type ViewStyle } from "react-native";
 import { radii, type MobileThemeColors } from "@/theme/colors";
 import { useMobileTheme } from "@/theme/theme-store";
 import { GlassPanel } from "./glass-panel";
-import type { NativeButtonProps } from "./native-button.types";
+import { NativeButtonControl } from "./native-button-control";
+import type { NativeButtonControlTone, NativeButtonProps } from "./native-button.types";
 
-export function NativeButton({
-  disabled,
-  label,
-  onPress,
-  tone = "default",
-  variant = "filled",
-}: NativeButtonProps) {
+function isControlSurface(props: NativeButtonProps) {
+  return props.surface === "control" || Boolean(props.icon);
+}
+
+function resolveControlTone(props: NativeButtonProps): NativeButtonControlTone {
+  if (props.tone === "secondary" || props.tone === "danger" || props.tone === "text") {
+    return props.tone;
+  }
+  if (props.variant === "text") {
+    return "text";
+  }
+  return "default";
+}
+
+export function NativeButton(props: NativeButtonProps) {
+  if (isControlSurface(props)) {
+    return (
+      <NativeButtonControl
+        disabled={props.disabled}
+        grow={props.grow}
+        icon={props.icon}
+        label={props.label}
+        onPress={props.onPress}
+        tone={resolveControlTone(props)}
+      />
+    );
+  }
+
+  const {
+    disabled,
+    label,
+    onPress,
+    tone = "default",
+    variant = "filled",
+  } = props;
   const theme = useMobileTheme();
   const frameColors = buttonFrameColorsByVariant(tone, theme.colors, Boolean(disabled))[variant];
 

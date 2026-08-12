@@ -1,7 +1,9 @@
 import type { PropsWithChildren, ReactNode } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { cn } from "@/lib/cn";
 import { useUiStore } from "@/stores/ui-store";
-import { colors, radii } from "@/theme/colors";
+import { spacing } from "@/theme/spacing";
+import { typography } from "@/theme/typography";
 import { useMobileTheme } from "@/theme/theme-store";
 import { GlassPanel } from "@/ui/primitives/glass-panel";
 
@@ -13,37 +15,42 @@ type AppScreenProps = PropsWithChildren<{
 export function AppScreen({ children, footer, surface = "screen" }: AppScreenProps) {
   const theme = useMobileTheme();
   const disconnectedReason = useUiStore((state) => state.disconnectedReason);
-  const backgroundColor = surface === "sheet" ? theme.colors.sheetBackground : theme.colors.background;
+  const backgroundClassName = surface === "sheet" ? "bg-sheet-background" : "bg-background";
 
   return (
     <>
       <ScrollView
+        className={cn("flex-1", backgroundClassName)}
+        contentContainerClassName={cn(
+          backgroundClassName,
+          "gap-section-gap px-screen-x pb-screen-bottom",
+          footer ? "pb-2" : null,
+        )}
         contentInsetAdjustmentBehavior="automatic"
         keyboardShouldPersistTaps="handled"
-        style={[styles.scroll, { backgroundColor }]}
-        contentContainerStyle={[
-          styles.scrollContent,
-          { backgroundColor },
-          footer ? styles.scrollContentWithFooter : null,
-        ]}
       >
-        <View style={styles.content}>
+        <View className="gap-section-gap">
           {disconnectedReason ? <ConnectionBanner message={disconnectedReason} /> : null}
           {children}
         </View>
       </ScrollView>
       {footer ? (
         <GlassPanel
-          fallbackStyle={[styles.footerFallback, { backgroundColor: theme.colors.glassFallbackStrong }]}
+          fallbackStyle={{ backgroundColor: theme.colors.glassFallbackStrong }}
           glassEffectStyle={{ style: "regular", animate: true }}
           shadow={false}
-          style={[
-            styles.footer,
-            {
-              backgroundColor: theme.colors.glassFallbackStrong,
-              borderTopColor: theme.colors.glassBorder,
-            },
-          ]}
+          style={{
+            backgroundColor: theme.colors.glassFallbackStrong,
+            borderRadius: 0,
+            borderBottomWidth: 0,
+            borderLeftWidth: 0,
+            borderRightWidth: 0,
+            borderTopColor: theme.colors.glassBorder,
+            borderTopWidth: StyleSheet.hairlineWidth,
+            paddingBottom: spacing.screenFooterBottom,
+            paddingHorizontal: spacing.screenX,
+            paddingTop: spacing.screenFooterTop,
+          }}
           tintColor={theme.colors.glassTint}
         >
           {footer}
@@ -54,19 +61,12 @@ export function AppScreen({ children, footer, surface = "screen" }: AppScreenPro
 }
 
 function ConnectionBanner({ message }: { message: string }) {
-  const theme = useMobileTheme();
-
   return (
-    <View
-      style={[
-        styles.connectionBanner,
-        { backgroundColor: theme.colors.redSurface, borderColor: theme.colors.redBorder },
-      ]}
-    >
-      <Text selectable style={[styles.connectionTitle, { color: theme.colors.label }]}>
+    <View className="gap-1 rounded-card border border-red-border bg-red-surface p-3">
+      <Text selectable className="text-[13px] font-bold text-label">
         Disconnected
       </Text>
-      <Text selectable style={[styles.connectionMessage, { color: theme.colors.secondaryLabel }]}>
+      <Text selectable className="text-[13px] leading-[18px] text-secondary-label">
         {message}
       </Text>
     </View>
@@ -79,20 +79,17 @@ export function Section({
 }: PropsWithChildren<{
   label?: string;
 }>) {
-  const theme = useMobileTheme();
-
   return (
-    <View style={styles.section}>
-      {label ? <Text style={[styles.sectionLabel, { color: theme.colors.secondaryLabel }]}>{label}</Text> : null}
-      <View
-        style={[
-          styles.card,
-          {
-            backgroundColor: theme.colors.cardElevated,
-            borderColor: theme.colors.glassBorder,
-          },
-        ]}
-      >
+    <View className="gap-section-label-gap">
+      {label ? (
+        <Text
+          className="px-section-label-x font-semibold text-secondary-label"
+          style={typography.sectionLabel}
+        >
+          {label}
+        </Text>
+      ) : null}
+      <View className="min-h-px overflow-hidden rounded-card border border-glass-border bg-card-elevated">
         {children}
       </View>
     </View>
@@ -106,14 +103,12 @@ export function EmptyState({
   title: string;
   message: string;
 }) {
-  const theme = useMobileTheme();
-
   return (
-    <View style={styles.empty}>
-      <Text selectable style={[styles.emptyTitle, { color: theme.colors.label }]}>
+    <View className="items-center gap-2 p-6">
+      <Text selectable className="text-center font-bold text-label" style={typography.emptyTitle}>
         {title}
       </Text>
-      <Text selectable style={[styles.emptyMessage, { color: theme.colors.secondaryLabel }]}>
+      <Text selectable className="text-center text-secondary-label" style={typography.emptyMessage}>
         {message}
       </Text>
     </View>
@@ -121,111 +116,13 @@ export function EmptyState({
 }
 
 export function InlineError({ message }: { message: string | null | undefined }) {
-  const theme = useMobileTheme();
-
   if (!message) return null;
 
   return (
-    <View style={[styles.error, { backgroundColor: theme.colors.redSurface, borderColor: theme.colors.redBorder }]}>
-      <Text selectable style={[styles.errorText, { color: theme.colors.red }]}>
+    <View className="rounded-card border border-red-border bg-red-surface p-3">
+      <Text selectable className="text-red" style={typography.body}>
         {message}
       </Text>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  scroll: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  content: {
-    gap: 20,
-    padding: 18,
-    paddingBottom: 36,
-  },
-  scrollContent: {
-    backgroundColor: colors.background,
-  },
-  scrollContentWithFooter: {
-    paddingBottom: 8,
-  },
-  footer: {
-    borderBottomWidth: 0,
-    borderLeftWidth: 0,
-    borderRadius: 0,
-    borderRightWidth: 0,
-    borderTopColor: colors.glassBorder,
-    paddingHorizontal: 18,
-    paddingTop: 10,
-    paddingBottom: 16,
-  },
-  footerFallback: {
-    backgroundColor: colors.glassFallbackStrong,
-  },
-  section: {
-    gap: 8,
-  },
-  sectionLabel: {
-    color: colors.secondaryLabel,
-    fontSize: 13,
-    fontWeight: "600",
-    paddingHorizontal: 4,
-  },
-  card: {
-    backgroundColor: colors.cardElevated,
-    borderColor: colors.glassBorder,
-    borderCurve: "continuous",
-    borderRadius: radii.card,
-    borderWidth: StyleSheet.hairlineWidth,
-    minHeight: 1,
-    overflow: "hidden",
-  },
-  connectionBanner: {
-    backgroundColor: colors.redSurface,
-    borderColor: colors.redBorder,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: radii.card,
-    gap: 4,
-    padding: 12,
-  },
-  connectionMessage: {
-    color: colors.red,
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  connectionTitle: {
-    color: colors.red,
-    fontSize: 13,
-    fontWeight: "700",
-  },
-  empty: {
-    alignItems: "center",
-    gap: 8,
-    padding: 24,
-  },
-  emptyTitle: {
-    color: colors.label,
-    fontSize: 17,
-    fontWeight: "700",
-    textAlign: "center",
-  },
-  emptyMessage: {
-    color: colors.secondaryLabel,
-    fontSize: 14,
-    lineHeight: 20,
-    textAlign: "center",
-  },
-  error: {
-    backgroundColor: colors.redSurface,
-    borderColor: colors.redBorder,
-    borderRadius: radii.card,
-    borderWidth: StyleSheet.hairlineWidth,
-    padding: 12,
-  },
-  errorText: {
-    color: colors.red,
-    fontSize: 14,
-    lineHeight: 20,
-  },
-});

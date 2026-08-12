@@ -87,7 +87,4 @@ export function getMobileThemeColors(colorScheme: MobileThemeColorScheme) {
   return colorScheme === "dark" ? darkColors : lightColors;
 }
 
-export const radii = {
-  card: 24,
-  control: 28,
-};
+export { radii } from "./radii";

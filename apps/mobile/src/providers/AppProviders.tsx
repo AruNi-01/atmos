@@ -18,6 +18,7 @@ import {
   storeRelaySecretKey,
 } from "@/lib/relay-secret-key";
 import { useSessionStore } from "@/stores/session-store";
+import { MobileThemeVariablesProvider } from "@/providers/MobileThemeVariablesProvider";
 import { useMobileTheme } from "@/theme/theme-store";
 
 export function AppProviders({ children }: PropsWithChildren) {
@@ -100,8 +101,10 @@ export function AppProviders({ children }: PropsWithChildren) {
   }, []);
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <MobileWsProvider>{children}</MobileWsProvider>
-    </QueryClientProvider>
+    <MobileThemeVariablesProvider>
+      <QueryClientProvider client={queryClient}>
+        <MobileWsProvider>{children}</MobileWsProvider>
+      </QueryClientProvider>
+    </MobileThemeVariablesProvider>
   );
 }

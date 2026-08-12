@@ -9,6 +9,22 @@ This app uses Expo UI as the base native-control layer.
 - `src/features/*`: Product screens and workflows. Feature code should consume `src/ui/primitives` and `src/ui/layout` instead of importing Expo UI directly.
 - `app/*`: Expo Router route files only. Keep implementation in `src/features` or `src/ui`.
 
+## Design tokens and styling
+
+- **Color source of truth**: `src/theme/colors.ts`. Light/dark values flow through `useMobileTheme()` and `src/theme/css-variables.ts`.
+- **Layout tokens**: `src/theme/spacing.ts`, `src/theme/radii.ts`, `src/theme/typography.ts`, `src/theme/pressed.ts`, barrel-exported from `src/theme/tokens.ts`.
+- **NativeWind path**: `@/global.css` declares `@theme` utilities. `MobileThemeVariablesProvider` injects runtime CSS variables from `getMobileCssVariables()` so class names track the active color scheme.
+- **When to use what**:
+  - **Expo UI primitives** (`NativeButton`, `NativeTextInput`, lists, menus, segmented controls): interactive controls and platform chrome.
+  - **NativeWind `className`**: layout, spacing, surfaces, and typography on non-control containers (`AppScreen`, `Section`, `Row`, grouped cards).
+  - **`useMobileTheme().colors`**: only when a primitive or native API still needs inline `style`/`backgroundColor` (glass fallbacks, navigation `contentStyle`, terminal surfaces).
+- **Page rule**: feature screens should not stack ad-hoc colors, radii, or spacing. Reach for layout helpers + tokens first; extend primitives before adding one-off styles.
+
+### NativeButton surfaces
+
+- `surface="cta"` (default): black/white primary pill for creation, onboarding, and bottom actions.
+- `surface="control"`: settings-style pill actions with optional icon. Tones: `default`, `secondary`, `danger`, `text`.
+
 ## Expo UI Rules
 
 - Prefer Universal components from `@expo/ui`: `Host`, `Button`, `TextInput`, `List`, `ListItem`, `Picker`, and `Switch`.
