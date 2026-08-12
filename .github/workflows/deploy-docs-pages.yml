@@ -47,6 +47,8 @@ jobs:
       - name: Build docs for Pages
         env:
           NEXT_PUBLIC_SITE_URL: https://docs.atmos.land
+          NEXT_PUBLIC_POSTHOG_KEY: ${{ vars.NEXT_PUBLIC_POSTHOG_KEY }}
+          NEXT_PUBLIC_POSTHOG_HOST: ${{ vars.NEXT_PUBLIC_POSTHOG_HOST }}
         run: bun run build:docs:pages
 
       - name: Deploy Pages site
