@@ -8,11 +8,18 @@ import { useMobileTheme } from "@/theme/theme-store";
 import { GlassPanel } from "@/ui/primitives/glass-panel";
 
 type AppScreenProps = PropsWithChildren<{
+  /** Grow content to the viewport so children can vertically center (e.g. disconnected home). */
+  contentFlex?: boolean;
   footer?: ReactNode;
   surface?: "screen" | "sheet";
 }>;
 
-export function AppScreen({ children, footer, surface = "screen" }: AppScreenProps) {
+export function AppScreen({
+  children,
+  contentFlex = false,
+  footer,
+  surface = "screen",
+}: AppScreenProps) {
   const theme = useMobileTheme();
   const insets = useSafeAreaInsets();
   const disconnectedReason = useUiStore((state) => state.disconnectedReason);
@@ -28,11 +35,12 @@ export function AppScreen({ children, footer, surface = "screen" }: AppScreenPro
         backgroundClassName,
         "gap-section-gap px-screen-x pb-screen-bottom",
         footer ? "pb-2" : null,
+        contentFlex ? "flex-grow" : null,
       )}
       contentInsetAdjustmentBehavior="automatic"
       keyboardShouldPersistTaps="handled"
     >
-      <View className="gap-section-gap">
+      <View className={cn("gap-section-gap", contentFlex ? "flex-1 justify-center" : null)}>
         {disconnectedReason ? <ConnectionBanner message={disconnectedReason} /> : null}
         {children}
       </View>

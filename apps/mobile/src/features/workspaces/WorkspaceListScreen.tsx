@@ -13,7 +13,7 @@ import { hydrateRecentWorkspaces, useRecentWorkspacesStore } from "@/stores/rece
 import { useSessionStore } from "@/stores/session-store";
 import { AppScreen, EmptyState, InlineError, Section } from "@/ui/layout/app-screen";
 import { Row, Separator } from "@/ui/layout/row";
-import { NativeButton } from "@/ui/primitives/native-controls";
+import { ExpoUiButton, NativeButton } from "@/ui/primitives/native-controls";
 
 const EMPTY_BOOTSTRAP: ProjectWorkspaceBootstrapResponse = {
   projects: [],
@@ -124,36 +124,34 @@ export function WorkspaceListScreen() {
 
   if (!isHomeConnected) {
     return (
-      <AppScreen
-        footer={
-          <View className="w-full gap-action-row-gap">
-            <NativeButton
-              grow
+      <AppScreen contentFlex>
+        <View className="w-full items-center gap-6 px-2">
+          <View className="items-center gap-3">
+            <Text className="max-w-[320px] text-center font-bold text-label text-hero-title leading-hero-title tracking-hero-title">
+              {welcomeHeadline}
+            </Text>
+            <Text
+              className="max-w-[300px] text-center text-secondary-label text-hero-subtitle leading-hero-subtitle"
+              numberOfLines={3}
+            >
+              {disconnectedHomeSubtitle(hasDeviceCredential)}
+            </Text>
+          </View>
+
+          <View className="w-full max-w-[360px] gap-action-row-gap">
+            <ExpoUiButton
               label="Pair via QR"
               onPress={() => router.push("/sign-in?mode=scan")}
             />
-            <NativeButton
-              grow
+            <ExpoUiButton
               label="Sign in"
               onPress={() => router.push("/sign-in")}
               variant="outlined"
             />
           </View>
-        }
-      >
-        <View className="flex-1 items-center justify-center gap-3 px-4 pb-8 pt-16">
-          <Text className="max-w-[320px] text-center font-bold text-label text-hero-title leading-hero-title tracking-hero-title">
-            {welcomeHeadline}
-          </Text>
-          <Text
-            className="max-w-[300px] text-center text-secondary-label text-hero-subtitle leading-hero-subtitle"
-            numberOfLines={3}
-          >
-            {disconnectedHomeSubtitle(hasDeviceCredential)}
-          </Text>
-        </View>
 
-        <InlineError message={sessionError ?? computersError} />
+          <InlineError message={sessionError ?? computersError} />
+        </View>
       </AppScreen>
     );
   }

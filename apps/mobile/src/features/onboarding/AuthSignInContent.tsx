@@ -6,7 +6,7 @@ import { useAuthSignIn } from "@/features/onboarding/use-auth-sign-in";
 import { radii } from "@/theme/radii";
 import { useMobileTheme } from "@/theme/theme-store";
 import { AppScreen, InlineError, Section } from "@/ui/layout/app-screen";
-import { NativeButton } from "@/ui/primitives/native-controls";
+import { ExpoUiButton, NativeButton } from "@/ui/primitives/native-controls";
 import { TerminalIcon } from "@/ui/icons/lucide-native";
 
 export type AuthSignInContentProps = {
@@ -43,14 +43,12 @@ export function AuthSignInContent({
     />
   ) : (
     <View className="w-full gap-action-row-gap">
-      <NativeButton
-        grow
+      <ExpoUiButton
         label={auth.signIn.isPending ? "Signing in..." : "Continue with GitHub"}
         onPress={() => auth.signIn.mutate("github")}
         disabled={auth.busy}
       />
-      <NativeButton
-        grow
+      <ExpoUiButton
         label={auth.signIn.isPending ? "Signing in..." : "Continue with Google"}
         onPress={() => auth.signIn.mutate("google")}
         disabled={auth.busy}
