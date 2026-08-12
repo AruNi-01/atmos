@@ -1,0 +1,36 @@
+apps/web/src/app-shell/TokenUsageOverviewTab.tsx
+  h_5be255725524c8 1-854
+apps/web/src/app-shell/TokenUsagePage.tsx
+  h_5be255725524c8 4,14,49-53,655
+apps/web/src/features/settings/components/CodeAgentBehaviourSettingsSection.tsx
+  h_5be255725524c8 1-365
+apps/web/src/features/settings/components/CodeAgentSettingsSection.tsx
+  h_5be255725524c8 30-33,36-38,497-515
+apps/web/src/features/task/components/TaskLinearPanel.tsx
+  h_5be255725524c8 48,265,279,376
+apps/web/src/features/task/lib/open-task-workspace-create.ts
+  h_5be255725524c8 9,45
+apps/web/src/features/task/lib/pending-linear-link.ts
+  h_5be255725524c8 1-33
+apps/web/src/features/task/lib/task-linear-panel-model.ts
+  h_5be255725524c8 1-3
+apps/web/src/features/welcome/components/WelcomePage.tsx
+  h_5be255725524c8 112,948,971
+apps/web/src/features/welcome/hooks/use-welcome-project-context.ts
+  h_5be255725524c8 31-36,625,897
+apps/web/src/features/welcome/lib/welcome-linear-link.ts
+  h_5be255725524c8 1-32
+automations/review/quality/result/2026-08/08-11_score-75_RESULT.md
+  h_5be255725524c8 1-158
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "3bfd732d8d776a3039b415634da2a9e47e803d91",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
