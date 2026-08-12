@@ -15,8 +15,7 @@ const downloadLinksRouteBackupDir = join(
 const videosDir = join(landingDir, "public/videos");
 const videosBackupDir = join(landingDir, ".videos_pages_backup");
 
-const DEFAULT_ASSETS_BASE_URL =
-  "https://pub-0c45182ddbaf421e8e1f36b9db4cf2fa.r2.dev";
+const DEFAULT_ASSETS_BASE_URL = "https://assets.atmos.land";
 
 function moveAside(source, destination) {
   if (!existsSync(source)) {

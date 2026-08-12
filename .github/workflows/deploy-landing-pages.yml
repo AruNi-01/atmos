@@ -49,7 +49,7 @@ jobs:
       - name: Build landing for Pages
         env:
           NEXT_PUBLIC_SITE_URL: https://atmos.land
-          NEXT_PUBLIC_ASSETS_BASE_URL: https://pub-0c45182ddbaf421e8e1f36b9db4cf2fa.r2.dev
+          NEXT_PUBLIC_ASSETS_BASE_URL: https://assets.atmos.land
           NEXT_PUBLIC_POSTHOG_KEY: ${{ vars.NEXT_PUBLIC_POSTHOG_KEY }}
           NEXT_PUBLIC_POSTHOG_HOST: ${{ vars.NEXT_PUBLIC_POSTHOG_HOST }}
         run: bun run build:landing:pages

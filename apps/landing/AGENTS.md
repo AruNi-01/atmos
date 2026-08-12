@@ -29,7 +29,7 @@ Set in the Cloudflare Pages project (or pass at build time):
 | Variable | Required | Default / notes |
 |----------|----------|-----------------|
 | `NEXT_PUBLIC_SITE_URL` | Recommended | `https://atmos.land` |
-| `NEXT_PUBLIC_ASSETS_BASE_URL` | Recommended (Pages) | `https://pub-0c45182ddbaf421e8e1f36b9db4cf2fa.r2.dev` — demo videos/posters under `landing/videos/` on R2 (`atmos-assets` bucket). Omit locally to serve from `public/videos/`. Production may use `https://assets.atmos.land`. |
+| `NEXT_PUBLIC_ASSETS_BASE_URL` | Recommended (Pages) | `https://assets.atmos.land` — demo videos/posters under `landing/videos/` on R2 (`atmos-assets` bucket). Omit locally to serve from `public/videos/`. Override with the `*.r2.dev` public URL if needed. |
 | `NEXT_PUBLIC_POSTHOG_KEY` | Optional | PostHog project key |
 | `NEXT_PUBLIC_POSTHOG_HOST` | Optional | PostHog ingest host |
 | `GITHUB_TOKEN` | Optional | Avoid GitHub API rate limits when resolving desktop release tags at build time |

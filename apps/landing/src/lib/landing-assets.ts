@@ -1,5 +1,4 @@
-const DEFAULT_ASSETS_BASE_URL =
-  "https://pub-0c45182ddbaf421e8e1f36b9db4cf2fa.r2.dev";
+const DEFAULT_ASSETS_BASE_URL = "https://assets.atmos.land";
 
 const isPagesBuild =
   process.env.NEXT_PUBLIC_BUILD_TARGET === "pages" ||

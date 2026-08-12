@@ -55,7 +55,7 @@ Workflow: `.github/workflows/deploy-landing-pages.yml` (push to `main` when land
 
 Site URL: `https://atmos.land`
 
-Assets host (demo videos/posters): `NEXT_PUBLIC_ASSETS_BASE_URL` → `https://pub-0c45182ddbaf421e8e1f36b9db4cf2fa.r2.dev/landing/videos/…`
+Assets host (demo videos/posters): `NEXT_PUBLIC_ASSETS_BASE_URL` → `https://assets.atmos.land/landing/videos/…` (R2 `*.r2.dev` URL remains available as an override)
 
 ## Local usage
 
