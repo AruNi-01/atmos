@@ -12,6 +12,11 @@ const downloadLinksRouteBackupDir = join(
   landingDir,
   "src/app/api/_download_links_pages_backup",
 );
+const videosDir = join(landingDir, "public/videos");
+const videosBackupDir = join(landingDir, ".videos_pages_backup");
+
+const DEFAULT_ASSETS_BASE_URL =
+  "https://pub-0c45182ddbaf421e8e1f36b9db4cf2fa.r2.dev";
 
 function moveAside(source, destination) {
   if (!existsSync(source)) {
@@ -48,6 +53,7 @@ function restoreMovedSources() {
   sourcesRestored = true;
   restoreAside(downloadLinksRouteBackupDir, downloadLinksRouteDir);
   restoreAside(proxyBackupFile, proxyFile);
+  restoreAside(videosBackupDir, videosDir);
 }
 
 function registerTerminationHandlers() {
@@ -139,6 +145,7 @@ try {
   registerTerminationHandlers();
   moveAside(proxyFile, proxyBackupFile);
   moveAside(downloadLinksRouteDir, downloadLinksRouteBackupDir);
+  moveAside(videosDir, videosBackupDir);
 
   run("bun", ["--filter", "landing", "build"], {
     env: {
@@ -146,6 +153,8 @@ try {
       BUILD_TARGET: "pages",
       NEXT_PUBLIC_BUILD_TARGET: "pages",
       NEXT_PUBLIC_SITE_URL: process.env.NEXT_PUBLIC_SITE_URL ?? "https://atmos.land",
+      NEXT_PUBLIC_ASSETS_BASE_URL:
+        process.env.NEXT_PUBLIC_ASSETS_BASE_URL ?? DEFAULT_ASSETS_BASE_URL,
       NEXT_PUBLIC_POSTHOG_KEY: process.env.NEXT_PUBLIC_POSTHOG_KEY ?? "",
       NEXT_PUBLIC_POSTHOG_HOST: process.env.NEXT_PUBLIC_POSTHOG_HOST ?? "",
     },

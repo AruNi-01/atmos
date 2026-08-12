@@ -43,8 +43,9 @@ Site URL: `https://docs.atmos.land`
 
 - `build-pages-landing.mjs`
   - Builds `apps/landing` as a static export for Pages.
-  - Sets `BUILD_TARGET=pages`.
-  - Temporarily removes `apps/landing/src/proxy.ts` and the unused `api/download-links` route during export (download URLs are resolved at build time in the home page).
+  - Sets `BUILD_TARGET=pages` and `NEXT_PUBLIC_ASSETS_BASE_URL` (R2 public host for demo videos/posters).
+  - Temporarily removes `apps/landing/src/proxy.ts` and the unused `api/download-links` route during export.
+  - Temporarily moves aside `public/videos/` so large MP4s are not copied into `out/` (media loads from R2 at runtime).
   - Copies default locale (`en`) pages to `out/` root and writes `_headers` + `_redirects` (`/en` → `/`).
 
 - `deploy-pages-landing.mjs`
@@ -53,6 +54,8 @@ Site URL: `https://docs.atmos.land`
 Workflow: `.github/workflows/deploy-landing-pages.yml` (push to `main` when landing paths change).
 
 Site URL: `https://atmos.land`
+
+Assets host (demo videos/posters): `NEXT_PUBLIC_ASSETS_BASE_URL` → `https://pub-0c45182ddbaf421e8e1f36b9db4cf2fa.r2.dev/landing/videos/…`
 
 ## Local usage
 

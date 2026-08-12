@@ -25,6 +25,7 @@ import { MotionPreset } from '@workspace/ui/components/ui/motion-preset'
 import { Badge } from '@workspace/ui/components/ui/badge'
 import { FeatureImageSphere, type FeatureSphereItem } from '@/components/image-sphere/feature-image-sphere'
 import { LandingFrame } from '@/components/layout/landing-frame'
+import { landingPosterUrl, landingVideoUrl } from '@/lib/landing-assets'
 
 type FeatureKey =
   | 'agent'
@@ -48,70 +49,70 @@ type FeatureDefinition = {
   icon: LucideIcon
 }
 
-/** Demo media: MP4 plays on focus; poster is a prebuilt still for sphere covers. */
+/** Demo media filenames on the assets host (`landing/videos/` on R2 for Pages). */
 const FEATURE_MEDIA = {
   // Hero product overview (moved from the first section)
   agent: {
-    videoUrl: '/videos/agent-terminal-use-flow.mp4',
-    posterUrl: '/videos/agent-terminal-use-flow-poster.jpg',
+    video: 'agent-terminal-use-flow.mp4',
+    poster: 'agent-terminal-use-flow-poster.jpg',
   },
   run: {
-    videoUrl: '/videos/built-in-terminal-agents.mp4',
-    posterUrl: '/videos/built-in-terminal-agents-poster.jpg',
+    video: 'built-in-terminal-agents.mp4',
+    poster: 'built-in-terminal-agents-poster.jpg',
   },
   browser: {
-    videoUrl: '/videos/Browser-Element-Inspector.mp4',
-    posterUrl: '/videos/Browser-Element-Inspector-poster.jpg',
+    video: 'Browser-Element-Inspector.mp4',
+    poster: 'Browser-Element-Inspector-poster.jpg',
   },
   search: {
-    videoUrl: '/videos/global-search-command-panel.mp4',
-    posterUrl: '/videos/global-search-command-panel-poster.jpg',
+    video: 'global-search-command-panel.mp4',
+    poster: 'global-search-command-panel-poster.jpg',
   },
   git: {
-    videoUrl: '/videos/integrated-git-workflow.mp4',
-    posterUrl: '/videos/integrated-git-workflow-poster.jpg',
+    video: 'integrated-git-workflow.mp4',
+    poster: 'integrated-git-workflow-poster.jpg',
   },
   terminal: {
-    videoUrl: '/videos/terminal-side-chat.mp4',
-    posterUrl: '/videos/terminal-side-chat-poster.jpg',
+    video: 'terminal-side-chat.mp4',
+    poster: 'terminal-side-chat-poster.jpg',
   },
   usage: {
-    videoUrl: '/videos/Usage-Analytics-Dashboard.mp4',
-    posterUrl: '/videos/Usage-Analytics-Dashboard-poster.jpg',
+    video: 'Usage-Analytics-Dashboard.mp4',
+    poster: 'Usage-Analytics-Dashboard-poster.jpg',
   },
   auto: {
-    videoUrl: '/videos/automation.mp4',
-    posterUrl: '/videos/automation-poster.jpg',
+    video: 'automation.mp4',
+    poster: 'automation-poster.jpg',
   },
   appshots: {
-    videoUrl: '/videos/appshots.mp4',
-    posterUrl: '/videos/appshots-poster.jpg',
+    video: 'appshots.mp4',
+    poster: 'appshots-poster.jpg',
   },
   hooks: {
-    videoUrl: '/videos/Agent-Status-Notifications.mp4',
-    posterUrl: '/videos/Agent-Status-Notifications-poster.jpg',
+    video: 'Agent-Status-Notifications.mp4',
+    poster: 'Agent-Status-Notifications-poster.jpg',
   },
   kanban: {
-    videoUrl: '/videos/Kanban-View.mp4',
-    posterUrl: '/videos/Kanban-View-poster.jpg',
+    video: 'Kanban-View.mp4',
+    poster: 'Kanban-View-poster.jpg',
   },
   canvas: {
-    videoUrl: '/videos/canvas.mp4',
-    posterUrl: '/videos/canvas-poster.jpg',
+    video: 'canvas.mp4',
+    poster: 'canvas-poster.jpg',
   },
   files: {
-    videoUrl: '/videos/built-in-lightweight-editor.mp4',
-    posterUrl: '/videos/built-in-lightweight-editor-poster.jpg',
+    video: 'built-in-lightweight-editor.mp4',
+    poster: 'built-in-lightweight-editor-poster.jpg',
   },
   skills: {
-    videoUrl: '/videos/skill-manager.mp4',
-    posterUrl: '/videos/skill-manager-poster.jpg',
+    video: 'skill-manager.mp4',
+    poster: 'skill-manager-poster.jpg',
   },
   work: {
-    videoUrl: '/videos/multi-workspace-dev.mp4',
-    posterUrl: '/videos/multi-workspace-dev-poster.jpg',
+    video: 'multi-workspace-dev.mp4',
+    poster: 'multi-workspace-dev-poster.jpg',
   },
-} as const satisfies Record<FeatureKey, { videoUrl: string; posterUrl: string }>
+} as const satisfies Record<FeatureKey, { video: string; poster: string }>
 
 const featureDefinitions = [
   { key: 'agent', icon: MonitorPlayIcon },
@@ -146,8 +147,8 @@ export default function FeatureShowcase() {
             title: t(`features.${feature.key}.title`),
             label: t(`features.${feature.key}.label`),
             description: t(`features.${feature.key}.description`),
-            videoUrl: media.videoUrl,
-            posterUrl: media.posterUrl,
+            videoUrl: landingVideoUrl(media.video),
+            posterUrl: landingPosterUrl(media.poster),
           }
         }
       ),

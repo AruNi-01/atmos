@@ -29,11 +29,12 @@ Set in the Cloudflare Pages project (or pass at build time):
 | Variable | Required | Default / notes |
 |----------|----------|-----------------|
 | `NEXT_PUBLIC_SITE_URL` | Recommended | `https://atmos.land` |
+| `NEXT_PUBLIC_ASSETS_BASE_URL` | Recommended (Pages) | `https://pub-0c45182ddbaf421e8e1f36b9db4cf2fa.r2.dev` — demo videos/posters under `landing/videos/` on R2 (`atmos-assets` bucket). Omit locally to serve from `public/videos/`. Production may use `https://assets.atmos.land`. |
 | `NEXT_PUBLIC_POSTHOG_KEY` | Optional | PostHog project key |
 | `NEXT_PUBLIC_POSTHOG_HOST` | Optional | PostHog ingest host |
 | `GITHUB_TOKEN` | Optional | Avoid GitHub API rate limits when resolving desktop release tags at build time |
 
-Pages builds set `BUILD_TARGET=pages` / `NEXT_PUBLIC_BUILD_TARGET=pages`, use `output: 'export'`, and temporarily move aside `src/proxy.ts` (i18n middleware is incompatible with static export). Desktop download links are resolved at **build time** on the home page — the legacy `/api/download-links` route is excluded from Pages exports.
+Pages builds set `BUILD_TARGET=pages` / `NEXT_PUBLIC_BUILD_TARGET=pages`, use `output: 'export'`, and temporarily move aside `src/proxy.ts` (i18n middleware is incompatible with static export) and `public/videos/` (large MP4s are served from R2 instead). Desktop download links are resolved at **build time** on the home page — the legacy `/api/download-links` route is excluded from Pages exports.
 
 Custom domains (`atmos.land`, `www.atmos.land`) are attached in the Cloudflare dashboard after the first deploy.
 
@@ -95,8 +96,8 @@ apps/landing/
 
 ### Marketing Media
 - Source projects for generated videos, audio, and social assets live under `marketing/creative/`.
-- `public/videos/` contains deployable copies only. If a source project exists, update it under `marketing/creative`, generate artifacts there, then copy or sync the needed landing files into `public/videos/`.
-- Feature Showcase sphere covers use prebuilt `*-poster.jpg` stills next to each demo MP4 (not runtime video frame capture). After adding or replacing a feature demo video, regenerate posters with `bash apps/landing/scripts/generate-feature-posters.sh` and wire `posterUrl` in `feature-showcase.tsx`.
+- `public/videos/` holds local dev copies synced from `marketing/creative/`. **Pages/production** loads demo MP4s and posters from R2 via `NEXT_PUBLIC_ASSETS_BASE_URL` + `landing/videos/<filename>` (see `src/lib/landing-assets.ts`).
+- Feature Showcase sphere covers use prebuilt `*-poster.jpg` stills next to each demo MP4 (not runtime video frame capture). After adding or replacing a feature demo video, regenerate posters with `bash apps/landing/scripts/generate-feature-posters.sh`, upload to R2 under `landing/videos/`, and update filenames in `feature-showcase.tsx`.
 - Do not create HyperFrames source projects inside `apps/landing`.
 
 ---
