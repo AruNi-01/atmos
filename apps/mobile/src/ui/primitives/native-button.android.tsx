@@ -14,7 +14,7 @@ import { NativeButtonControl } from "./native-button-control";
 import type { NativeButtonControlTone, NativeButtonProps } from "./native-button.types";
 
 function isControlSurface(props: NativeButtonProps) {
-  return props.surface === "control" || Boolean(props.icon);
+  return props.surface === "control";
 }
 
 function resolveControlTone(props: NativeButtonProps): NativeButtonControlTone {

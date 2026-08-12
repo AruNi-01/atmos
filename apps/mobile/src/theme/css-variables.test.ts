@@ -4,9 +4,11 @@ import { lightColors } from "./colors";
 import {
   getMobileColorCssVariables,
   getMobileCssVariables,
+  getMobileLayoutCssVariables,
   mobileColorKeyToCssVar,
   mobileLightCssVariables,
 } from "./css-variables";
+import { mobileGeneratedThemeSnapshot } from "./generated-theme.snapshot";
 
 describe("mobile css variables", () => {
   test("maps every color token to a css variable", () => {
@@ -27,5 +29,17 @@ describe("mobile css variables", () => {
     const darkVars = getMobileCssVariables("dark");
     expect(darkVars["--color-background"]).toBe("#000000");
     expect(darkVars["--spacing-screen-x"]).toBe("18px");
+  });
+
+  test("layout css variables match spacing, radii, typography, and pressed tokens", () => {
+    const layoutVars = getMobileLayoutCssVariables();
+    expect(layoutVars["--spacing-screen-x"]).toBe("18px");
+    expect(layoutVars["--radius-card"]).toBe("24px");
+    expect(layoutVars["--font-size-body"]).toBe("14px");
+    expect(layoutVars["--opacity-pressed-control"]).toBe("0.72");
+  });
+
+  test("generated theme snapshot matches getMobileCssVariables(light)", () => {
+    expect(mobileGeneratedThemeSnapshot).toEqual(getMobileCssVariables("light"));
   });
 });

@@ -63,10 +63,10 @@ export function AppScreen({ children, footer, surface = "screen" }: AppScreenPro
 function ConnectionBanner({ message }: { message: string }) {
   return (
     <View className="gap-1 rounded-card border border-red-border bg-red-surface p-3">
-      <Text selectable className="text-[13px] font-bold text-label">
+      <Text selectable className="font-bold text-label" style={typography.sectionLabel}>
         Disconnected
       </Text>
-      <Text selectable className="text-[13px] leading-[18px] text-secondary-label">
+      <Text selectable className="text-secondary-label" style={typography.rowMeta}>
         {message}
       </Text>
     </View>

@@ -13,7 +13,7 @@ This app uses Expo UI as the base native-control layer.
 
 - **Color source of truth**: `src/theme/colors.ts`. Light/dark values flow through `useMobileTheme()` and `src/theme/css-variables.ts`.
 - **Layout tokens**: `src/theme/spacing.ts`, `src/theme/radii.ts`, `src/theme/typography.ts`, `src/theme/pressed.ts`, barrel-exported from `src/theme/tokens.ts`.
-- **NativeWind path**: `@/global.css` declares `@theme` utilities. `MobileThemeVariablesProvider` injects runtime CSS variables from `getMobileCssVariables()` so class names track the active color scheme.
+- **NativeWind path**: `@/global.css` imports generated `@theme` from `src/theme/generated-theme.css` (via `script/generate-mobile-global-theme.ts`). `MobileThemeVariablesProvider` injects runtime CSS variables from `getMobileCssVariables()` so class names track the active color scheme.
 - **When to use what**:
   - **Expo UI primitives** (`NativeButton`, `NativeTextInput`, lists, menus, segmented controls): interactive controls and platform chrome.
   - **NativeWind `className`**: layout, spacing, surfaces, and typography on non-control containers (`AppScreen`, `Section`, `Row`, grouped cards).

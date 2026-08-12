@@ -2,89 +2,13 @@
 @import "tailwindcss/preflight.css" layer(base);
 @import "tailwindcss/utilities.css";
 @import "nativewind/theme";
+@import "./theme/generated-theme.css";
 
 /*
-  Token defaults for NativeWind utilities.
-  Runtime light/dark overrides come from MobileThemeVariablesProvider, which reads
-  src/theme/colors.ts via src/theme/css-variables.ts.
+  @theme defaults are generated from src/theme/css-variables.ts
+  (script/generate-mobile-global-theme.ts). Runtime light/dark overrides come from
+  MobileThemeVariablesProvider.
 */
-@theme {
-  --color-background: #f4f4f6;
-  --color-sheet-background: #f8f8f9;
-  --color-card: #ffffff;
-  --color-card-elevated: #ffffff;
-  --color-card-subtle: rgba(10, 10, 11, 0.05);
-  --color-control: #f8f8f9;
-  --color-control-border: rgba(10, 10, 11, 0.10);
-  --color-control-disabled: rgba(10, 10, 11, 0.045);
-  --color-control-elevated: #ffffff;
-  --color-control-glass-tint: rgba(255, 255, 255, 0.24);
-  --color-glass-border: rgba(10, 10, 11, 0.08);
-  --color-glass-fallback: rgba(255, 255, 255, 0.82);
-  --color-glass-fallback-strong: rgba(255, 255, 255, 0.96);
-  --color-glass-tint: rgba(255, 255, 255, 0.24);
-  --color-separator: rgba(10, 10, 11, 0.08);
-  --color-separator-strong: rgba(10, 10, 11, 0.16);
-  --color-label: #111112;
-  --color-label-inverse: #fafafa;
-  --color-secondary-label: #52525b;
-  --color-tertiary-label: #9a9aa1;
-  --color-primary: #111112;
-  --color-primary-pressed: #242426;
-  --color-muted-pressed: rgba(10, 10, 11, 0.06);
-  --color-accent: #0a84ff;
-  --color-selection: rgba(10, 132, 255, 0.24);
-  --color-green: #16a34a;
-  --color-green-surface: rgba(22, 163, 74, 0.10);
-  --color-green-border: rgba(22, 163, 74, 0.22);
-  --color-red: #dc2626;
-  --color-red-surface: rgba(220, 38, 38, 0.10);
-  --color-red-border: rgba(220, 38, 38, 0.22);
-  --color-yellow: #a16207;
-  --color-yellow-surface: rgba(161, 98, 7, 0.10);
-  --color-yellow-border: rgba(161, 98, 7, 0.22);
-  --color-terminal-bg: #f8fafc;
-  --color-terminal-fg: #111827;
-  --color-terminal-muted: #64748b;
-
-  --spacing-screen-x: 18px;
-  --spacing-screen-bottom: 36px;
-  --spacing-screen-footer-bottom: 16px;
-  --spacing-screen-footer-top: 10px;
-  --spacing-section-gap: 20px;
-  --spacing-section-label-gap: 8px;
-  --spacing-section-label-x: 4px;
-  --spacing-row-x: 18px;
-  --spacing-row-y: 12px;
-  --spacing-row-min-height: 64px;
-  --spacing-row-gap: 4px;
-  --spacing-row-title-gap: 10px;
-  --spacing-action-row-gap: 10px;
-  --spacing-card-padding: 16px;
-  --spacing-separator-inset: 16px;
-
-  --radius-card: 24px;
-  --radius-control: 28px;
-  --radius-icon-well: 16px;
-  --radius-pill: 999px;
-
-  --font-size-section-label: 13px;
-  --line-height-section-label: 18px;
-  --font-size-row-title: 16px;
-  --line-height-row-title: 21px;
-  --font-size-row-subtitle: 13px;
-  --line-height-row-subtitle: 19px;
-  --font-size-empty-title: 17px;
-  --line-height-empty-title: 22px;
-  --font-size-empty-message: 14px;
-  --line-height-empty-message: 20px;
-  --font-size-body: 14px;
-  --line-height-body: 20px;
-
-  --opacity-pressed-control: 0.72;
-  --opacity-pressed-row: 0.62;
-}
-
 :root {
   color-scheme: light dark;
 }
