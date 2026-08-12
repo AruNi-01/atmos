@@ -9,24 +9,26 @@ use tracing::{debug, info, warn};
 use crate::error::{Result, ServiceError};
 
 use super::runtime::apply_utf8_env_to_tmux_command;
+use super::text_capture::{
+    count_lines, process_captured_pane_text, DEFAULT_CAPTURE_APPROX_LINES,
+    DEFAULT_HEAD_PREFIX_BYTES, DEFAULT_MAX_RAW_CAPTURE_BYTES, DEFAULT_PROMPT_BUDGET_BYTES,
+    MAX_PROMPT_BUDGET_BYTES, MIN_PROMPT_BUDGET_BYTES, TranscriptBudget,
+};
 use super::{
-    CaptureSideContextParams, CapturedSideContext, SessionCommand, SessionDetail, SessionHandle,
-    TerminalService, TerminalSideChatRecord, TerminalSideChatStatus, UpsertTerminalSideChatParams,
+    CapturePanePlainTextParams, CaptureSideContextParams, CapturedPanePlainText,
+    CapturedSideContext, SessionCommand, SessionDetail, SessionHandle, TerminalService,
+    TerminalSideChatRecord, TerminalSideChatStatus, UpsertTerminalSideChatParams,
 };
 
-const DEFAULT_SIDE_PROMPT_BYTES: usize = 98_304;
-const MIN_SIDE_PROMPT_BYTES: usize = 8_192;
-const MAX_SIDE_PROMPT_BYTES: usize = 131_072;
-const RAW_SIDE_CAPTURE_BYTES: usize = 524_288;
-const SIDE_CAPTURE_APPROX_LINES: i32 = 12_000;
-const SIDE_CONTEXT_PREFIX_BYTES: usize = 8_192;
-
 impl TerminalService {
-    /// Capture bounded plain tmux text for `/side` prompt construction.
-    pub async fn capture_side_context(
+    /// Capture bounded plain tmux text for any consumer (side chat, /spawn, attention, …).
+    ///
+    /// Uses `capture-pane` without `-e` (cells, not SGR), then strips residual ANSI and
+    /// windows the transcript to the requested byte budget.
+    pub async fn capture_pane_plain_text(
         &self,
-        params: CaptureSideContextParams,
-    ) -> Result<CapturedSideContext> {
+        params: CapturePanePlainTextParams,
+    ) -> Result<CapturedPanePlainText> {
         let workspace_id = params.workspace_id.trim().to_string();
         if workspace_id.is_empty() {
             return Err(ServiceError::Validation("workspace_id is required".into()));
@@ -39,11 +41,27 @@ impl TerminalService {
             ));
         }
 
-        let prompt_budget_bytes = params
-            .max_prompt_bytes
+        // Generic API: soft bounds only. Side-chat wrapper applies the stricter 8k–128k clamp.
+        let text_budget_bytes = params
+            .max_text_bytes
             .map(|value| value as usize)
-            .unwrap_or(DEFAULT_SIDE_PROMPT_BYTES)
-            .clamp(MIN_SIDE_PROMPT_BYTES, MAX_SIDE_PROMPT_BYTES);
+            .unwrap_or(DEFAULT_PROMPT_BUDGET_BYTES)
+            .clamp(1, MAX_PROMPT_BUDGET_BYTES);
+        let approx_lines = params
+            .approx_lines
+            .unwrap_or(DEFAULT_CAPTURE_APPROX_LINES)
+            .clamp(1, 50_000);
+        let max_raw_bytes = params
+            .max_raw_bytes
+            .unwrap_or(DEFAULT_MAX_RAW_CAPTURE_BYTES)
+            .max(text_budget_bytes);
+        let head_prefix_bytes = params
+            .head_prefix_bytes
+            .unwrap_or(DEFAULT_HEAD_PREFIX_BYTES);
+        let budget = TranscriptBudget {
+            max_text_bytes: text_budget_bytes,
+            head_prefix_bytes,
+        };
 
         let primary_tmux_session = self
             .resolve_tmux_session_name(
@@ -75,21 +93,14 @@ impl TerminalService {
                 )?
             };
 
-        let raw_full = self.tmux_engine.capture_pane_text(
-            &tmux_session,
-            tmux_window_index,
-            SIDE_CAPTURE_APPROX_LINES,
-        )?;
-        let omitted_older_bytes = raw_full.len().saturating_sub(RAW_SIDE_CAPTURE_BYTES);
-        let raw = byte_suffix(&raw_full, RAW_SIDE_CAPTURE_BYTES);
-        let captured_lines = count_lines(&raw);
-        let mut selected = select_side_context_text(&raw, prompt_budget_bytes);
-        selected.omitted_older_bytes = selected
-            .omitted_older_bytes
-            .saturating_add(omitted_older_bytes);
+        let raw_full =
+            self.tmux_engine
+                .capture_pane_text(&tmux_session, tmux_window_index, approx_lines)?;
+        let selected = process_captured_pane_text(&raw_full, max_raw_bytes, budget);
+        let captured_lines = count_lines(&selected.text);
         let captured_bytes = selected.text.len();
 
-        Ok(CapturedSideContext {
+        Ok(CapturedPanePlainText {
             workspace_id,
             project_name: params.project_name,
             workspace_name: params.workspace_name,
@@ -98,12 +109,41 @@ impl TerminalService {
             tmux_window_index,
             captured_lines,
             captured_bytes: captured_bytes as u32,
-            prompt_budget_bytes: prompt_budget_bytes as u32,
+            text_budget_bytes: text_budget_bytes as u32,
             omitted_older_bytes: selected.omitted_older_bytes as u32,
             omitted_middle_bytes: selected.omitted_middle_bytes as u32,
-            truncated_bytes: selected.truncated_bytes,
+            truncated_bytes: selected.truncated,
             text: selected.text,
         })
+    }
+
+    /// Capture bounded plain tmux text for `/side` and `/spawn` prompt construction.
+    ///
+    /// Thin wrapper over [`Self::capture_pane_plain_text`] with side-chat budgets.
+    pub async fn capture_side_context(
+        &self,
+        params: CaptureSideContextParams,
+    ) -> Result<CapturedSideContext> {
+        let max_prompt_bytes = params
+            .max_prompt_bytes
+            .map(|value| value as usize)
+            .unwrap_or(DEFAULT_PROMPT_BUDGET_BYTES)
+            .clamp(MIN_PROMPT_BUDGET_BYTES, MAX_PROMPT_BUDGET_BYTES)
+            as u32;
+        let captured = self
+            .capture_pane_plain_text(CapturePanePlainTextParams {
+                workspace_id: params.workspace_id,
+                project_name: params.project_name,
+                workspace_name: params.workspace_name,
+                source_session_id: params.source_session_id,
+                source_tmux_window_name: params.source_tmux_window_name,
+                max_text_bytes: Some(max_prompt_bytes),
+                approx_lines: None,
+                max_raw_bytes: None,
+                head_prefix_bytes: None,
+            })
+            .await?;
+        Ok(captured.into())
     }
 
     async fn resolve_active_session_capture_target(
@@ -1016,13 +1056,6 @@ struct LiveSideChatWindow {
     metadata: TmuxWindowAtmosMetadata,
 }
 
-struct SelectedSideContextText {
-    text: String,
-    omitted_older_bytes: usize,
-    omitted_middle_bytes: usize,
-    truncated_bytes: bool,
-}
-
 fn model_to_side_chat_record(model: terminal_side_chat::Model) -> Result<TerminalSideChatRecord> {
     let status = TerminalSideChatStatus::try_from(model.status.as_str())
         .map_err(ServiceError::Validation)?;
@@ -1069,74 +1102,6 @@ fn validate_bright_color(value: &str) -> Result<()> {
         ));
     }
     Ok(())
-}
-
-fn count_lines(text: &str) -> u32 {
-    if text.is_empty() {
-        0
-    } else {
-        text.matches('\n').count() as u32 + 1
-    }
-}
-
-fn select_side_context_text(text: &str, budget: usize) -> SelectedSideContextText {
-    if text.len() <= budget {
-        return SelectedSideContextText {
-            text: text.to_string(),
-            omitted_older_bytes: 0,
-            omitted_middle_bytes: 0,
-            truncated_bytes: false,
-        };
-    }
-
-    let marker_overhead = 128usize;
-    let prefix_budget = SIDE_CONTEXT_PREFIX_BYTES.min(budget / 4).max(1024);
-    let tail_budget = budget
-        .saturating_sub(prefix_budget + marker_overhead)
-        .max(1024);
-    let prefix = byte_prefix(text, prefix_budget);
-    let tail = byte_suffix(text, tail_budget);
-    let omitted_middle_bytes = text
-        .len()
-        .saturating_sub(prefix.len())
-        .saturating_sub(tail.len());
-    let marker = format!(
-        "\n\n[... omitted {} bytes from the middle of the terminal transcript ...]\n\n",
-        omitted_middle_bytes
-    );
-    let mut selected = format!("{prefix}{marker}{tail}");
-    if selected.len() > budget {
-        selected = byte_suffix(&selected, budget);
-    }
-
-    SelectedSideContextText {
-        text: selected,
-        omitted_older_bytes: 0,
-        omitted_middle_bytes,
-        truncated_bytes: true,
-    }
-}
-
-fn byte_prefix(text: &str, max_bytes: usize) -> String {
-    if text.len() <= max_bytes {
-        return text.to_string();
-    }
-    let mut end = max_bytes.min(text.len());
-    while end > 0 && !text.is_char_boundary(end) {
-        end -= 1;
-    }
-    text[..end].to_string()
-}
-
-fn byte_suffix(text: &str, max_bytes: usize) -> String {
-    if text.len() <= max_bytes {
-        return text.to_string();
-    }
-    let mut start = text.len().saturating_sub(max_bytes);
-    while start < text.len() && !text.is_char_boundary(start) {
-        start += 1;
-    }
-    text[start..].to_string()
 }
 
 fn fallback_side_chat_color(side_chat_id: &str) -> String {

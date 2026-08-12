@@ -2,7 +2,12 @@
 //!
 //! Spawns a one-shot agent-cli (preferred, same path as automations) or falls
 //! back to the default LLM provider. Never attaches to the original pane.
+//!
+//! Primary context is the pane's plain terminal transcript (same capture path
+//! as `/side` and `/spawn`). Optional supplement: relative paths of changed
+//! files in the project (no diffs).
 
+use std::collections::BTreeSet;
 use std::path::Path;
 use std::process::Command;
 use std::time::Duration;
@@ -17,14 +22,27 @@ use super::AgentAttentionLatch;
 use crate::error::{Result, ServiceError};
 use crate::service::automation::{resolve_automation_agent_with_config, AutomationAgentRunConfig};
 use crate::service::llm_text_generation::generate_text;
+use crate::service::terminal::{
+    CapturePanePlainTextParams, TerminalService, TranscriptBudget,
+};
 
 const DEFAULT_TIMEOUT: Duration = Duration::from_secs(180);
-const MAX_CONTEXT_CHARS: usize = 12_000;
+const MAX_TERMINAL_CONTEXT_BYTES: u32 = 12_000;
+const MAX_CHANGED_FILES: usize = 80;
+const MAX_CHANGED_FILES_SECTION_CHARS: usize = 2_000;
 const GIT_TIMEOUT: Duration = Duration::from_secs(8);
+/// Attention captures: fewer lines than side chat; recent turn is enough.
+const ATTENTION_CAPTURE_APPROX_LINES: i32 = 4_000;
+const ATTENTION_MAX_RAW_BYTES: usize = 64_000;
 
 const SYSTEM_PROMPT: &str = r#"You are Atmos attention-summary helper.
-A coding agent finished a turn and the user has not acknowledged it yet.
-Summarize what was recently done and suggest concise next steps.
+An agent finished a turn in a terminal and the user has not acknowledged it yet.
+Summarize what the agent recently did in that terminal session and suggest concise next steps.
+
+Primary evidence is the terminal transcript (conversation + command output).
+Changed file paths are optional signals only — do not invent work from them alone.
+The user may not be coding; summarize whatever the transcript shows (Q&A, debug, shell work, etc.).
+
 Respond with ONLY a single JSON object (no markdown fences) matching:
 {
   "summary": "one sentence",
@@ -32,24 +50,22 @@ Respond with ONLY a single JSON object (no markdown fences) matching:
   "can_close_session": true
 }
 Rules:
-- summary: one clear sentence about recent work (max ~160 chars).
-- next_steps: 2-4 short imperative actions the user might take next.
+- summary: one clear sentence about what happened in the recent terminal turn (max ~160 chars).
+- next_steps: 2-4 short imperative actions the user might take next, grounded in the transcript.
 - can_close_session: true only if work looks complete with no obvious unfinished blockers.
 - Prefer the user's language if the context is clearly non-English; otherwise English.
+- Do not invent file edits, commits, or outcomes not supported by the transcript or file list.
 "#;
 
 /// Run headless summary generation for a sticky task-complete latch.
 pub async fn generate_attention_summary(
     latch: &AgentAttentionLatch,
     settings: &AttentionSummarySettings,
+    terminal: Option<&TerminalService>,
 ) -> Result<AttentionSummaryPayload> {
-    // Git status/log/diff use std::process — keep them off the Tokio worker.
-    let latch_for_context = latch.clone();
-    let context = tokio::task::spawn_blocking(move || build_context_block(&latch_for_context))
-        .await
-        .unwrap_or_default();
+    let context = build_context_block(latch, terminal).await;
     let prompt = format!(
-        "Pane: {}\nSession: {}\nTool: {}\nRaised at: {}\nProject: {}\n\nRecent work context:\n{}",
+        "Pane: {}\nSession: {}\nTool: {}\nRaised at: {}\nProject: {}\n\n{}",
         latch.stable_pane_id,
         latch.session_id,
         latch
@@ -62,7 +78,7 @@ pub async fn generate_attention_summary(
             .as_deref()
             .unwrap_or("(unknown project path)"),
         if context.trim().is_empty() {
-            "(no git/terminal context available — infer cautiously)"
+            "(no terminal transcript or changed-file list available — infer cautiously)"
         } else {
             context.as_str()
         }
@@ -144,40 +160,136 @@ fn resolve_summary_provider(settings: &AttentionSummarySettings) -> Result<Resol
     Ok(provider)
 }
 
-fn build_context_block(latch: &AgentAttentionLatch) -> String {
-    let Some(project_path) = latch
+async fn build_context_block(
+    latch: &AgentAttentionLatch,
+    terminal: Option<&TerminalService>,
+) -> String {
+    let mut sections = Vec::new();
+
+    if let Some(text) = capture_terminal_transcript(latch, terminal).await {
+        if !text.trim().is_empty() {
+            sections.push(format!("## Terminal transcript\n{text}"));
+        }
+    }
+
+    let project_path = latch
         .project_path
         .as_deref()
         .map(str::trim)
         .filter(|s| !s.is_empty())
-    else {
-        return String::new();
-    };
-    let path = Path::new(project_path);
-    if !path.is_dir() {
-        return format!("Project path is not a directory: {project_path}");
-    }
+        .map(Path::new)
+        .filter(|p| p.is_dir());
 
-    let mut sections = Vec::new();
-
-    if let Some(status) = run_git_capture(path, &["status", "--short", "--branch"]) {
-        if !status.trim().is_empty() {
-            sections.push(format!("## git status\n{}", trim_chars(&status, 4_000)));
-        }
-    }
-    if let Some(log) = run_git_capture(path, &["log", "-8", "--oneline", "--decorate"]) {
-        if !log.trim().is_empty() {
-            sections.push(format!("## recent commits\n{}", trim_chars(&log, 2_000)));
-        }
-    }
-    if let Some(diff) = run_git_capture(path, &["diff", "--stat", "HEAD"]) {
-        if !diff.trim().is_empty() {
-            sections.push(format!("## diff stat\n{}", trim_chars(&diff, 3_000)));
+    if let Some(path) = project_path {
+        let path_buf = path.to_path_buf();
+        let files = tokio::task::spawn_blocking(move || list_changed_relative_paths(&path_buf))
+            .await
+            .unwrap_or_default();
+        if !files.is_empty() {
+            let list = format_changed_files(&files);
+            sections.push(format!("## Changed files (relative paths)\n{list}"));
         }
     }
 
-    let joined = sections.join("\n\n");
-    trim_chars(&joined, MAX_CONTEXT_CHARS)
+    sections.join("\n\n")
+}
+
+async fn capture_terminal_transcript(
+    latch: &AgentAttentionLatch,
+    terminal: Option<&TerminalService>,
+) -> Option<String> {
+    let terminal = terminal?;
+    let workspace_id = latch.context_id.trim();
+    if workspace_id.is_empty() {
+        return None;
+    }
+    let window_name = tmux_window_name_from_latch(latch)?;
+    let budget = TranscriptBudget::attention_summary(MAX_TERMINAL_CONTEXT_BYTES as usize);
+
+    match terminal
+        .capture_pane_plain_text(CapturePanePlainTextParams {
+            workspace_id: workspace_id.to_string(),
+            project_name: None,
+            workspace_name: None,
+            source_session_id: None,
+            source_tmux_window_name: window_name.to_string(),
+            max_text_bytes: Some(MAX_TERMINAL_CONTEXT_BYTES),
+            approx_lines: Some(ATTENTION_CAPTURE_APPROX_LINES),
+            max_raw_bytes: Some(ATTENTION_MAX_RAW_BYTES),
+            head_prefix_bytes: Some(budget.head_prefix_bytes),
+        })
+        .await
+    {
+        Ok(captured) => {
+            if captured.text.trim().is_empty() {
+                None
+            } else {
+                Some(captured.text)
+            }
+        }
+        Err(error) => {
+            warn!(
+                pane = %latch.stable_pane_id,
+                window = %window_name,
+                "Attention summary terminal capture failed: {error}"
+            );
+            None
+        }
+    }
+}
+
+/// `stable_pane_id` is `{context_id}:{tmux_window_name}`.
+fn tmux_window_name_from_latch(latch: &AgentAttentionLatch) -> Option<&str> {
+    let id = latch.stable_pane_id.trim();
+    let (_ctx, window) = id.split_once(':')?;
+    let window = window.trim();
+    if window.is_empty() {
+        None
+    } else {
+        Some(window)
+    }
+}
+
+/// Relative paths only — no diffs, no status codes, no commit log.
+fn list_changed_relative_paths(project_path: &Path) -> Vec<String> {
+    let mut paths = BTreeSet::new();
+
+    // Tracked + staged + unstaged vs HEAD.
+    if let Some(out) = run_git_capture(project_path, &["diff", "--name-only", "HEAD"]) {
+        for line in out.lines() {
+            let path = line.trim();
+            if !path.is_empty() {
+                paths.insert(path.to_string());
+            }
+        }
+    }
+    // Untracked files.
+    if let Some(out) = run_git_capture(
+        project_path,
+        &["ls-files", "--others", "--exclude-standard"],
+    ) {
+        for line in out.lines() {
+            let path = line.trim();
+            if !path.is_empty() {
+                paths.insert(path.to_string());
+            }
+        }
+    }
+
+    paths.into_iter().take(MAX_CHANGED_FILES).collect()
+}
+
+fn format_changed_files(files: &[String]) -> String {
+    let mut out = String::new();
+    for path in files {
+        let line = format!("- {path}\n");
+        if out.len() + line.len() > MAX_CHANGED_FILES_SECTION_CHARS {
+            out.push_str("- … (truncated)\n");
+            break;
+        }
+        out.push_str(&line);
+    }
+    out
 }
 
 fn run_git_capture(cwd: &Path, args: &[&str]) -> Option<String> {
@@ -332,5 +444,27 @@ mod tests {
     fn parse_rejects_missing_summary() {
         let err = parse_summary_payload(r#"{"next_steps":["x"]}"#).unwrap_err();
         assert!(err.to_string().contains("summary"));
+    }
+
+    #[test]
+    fn window_name_from_stable_pane() {
+        let latch = AgentAttentionLatch {
+            stable_pane_id: "ws-guid:main".into(),
+            context_id: "ws-guid".into(),
+            reason: super::super::AgentAttentionReason::TaskComplete,
+            session_id: "s1".into(),
+            tool: None,
+            project_path: None,
+            raised_at: "t".into(),
+        };
+        assert_eq!(tmux_window_name_from_latch(&latch), Some("main"));
+    }
+
+    #[test]
+    fn format_changed_files_lists_paths() {
+        let text = format_changed_files(&["src/a.rs".into(), "README.md".into()]);
+        assert!(text.contains("- src/a.rs"));
+        assert!(text.contains("- README.md"));
+        assert!(!text.contains("diff"));
     }
 }

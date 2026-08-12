@@ -24,16 +24,21 @@ mod management;
 mod mouse_mode_watch;
 mod run_log_tee;
 mod runtime;
+mod text_capture;
 mod types;
 
 use mouse_mode_watch::{pane_watch_key, MouseModeWatchRegistry};
 use run_log_tee::is_run_window_name as run_window_name_matches;
 pub use run_log_tee::{is_run_window_name, latest_log_path, RunLogTee};
 use runtime::{run_control_mode_tmux_session, run_simple_pty_session};
+pub use text_capture::{
+    process_captured_pane_text, select_transcript, strip_ansi_and_controls, TranscriptBudget,
+};
 pub use types::{
-    AttachSessionParams, CaptureSideContextParams, CapturedSideContext, CreateSessionParams,
-    CreateSimpleSessionParams, SessionDetail, SessionType, TerminalKind, TerminalMessage,
-    TerminalResponse, TerminalSideChatRecord, TerminalSideChatStatus, UpsertTerminalSideChatParams,
+    AttachSessionParams, CapturePanePlainTextParams, CaptureSideContextParams,
+    CapturedPanePlainText, CapturedSideContext, CreateSessionParams, CreateSimpleSessionParams,
+    SessionDetail, SessionType, TerminalKind, TerminalMessage, TerminalResponse,
+    TerminalSideChatRecord, TerminalSideChatStatus, UpsertTerminalSideChatParams,
 };
 use types::{SessionCommand, SessionHandle};
 

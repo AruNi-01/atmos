@@ -300,6 +300,7 @@ async fn register_idle_session_cleanup_job(
 async fn register_attention_summary_job(
     jobs: Arc<LocalScheduler>,
     agent_hooks_service: Arc<core_service::AgentHooksService>,
+    terminal_service: Arc<core_service::TerminalService>,
 ) {
     if let Err(error) = jobs
         .set_interval_job(
@@ -313,8 +314,9 @@ async fn register_attention_summary_job(
             RetryPolicy::none(),
             move || {
                 let agent_hooks_service = Arc::clone(&agent_hooks_service);
+                let terminal_service = Arc::clone(&terminal_service);
                 async move {
-                    tick_attention_auto_summary(agent_hooks_service).await;
+                    tick_attention_auto_summary(agent_hooks_service, terminal_service).await;
                     Ok(())
                 }
             },
@@ -328,7 +330,10 @@ async fn register_attention_summary_job(
     }
 }
 
-async fn tick_attention_auto_summary(agent_hooks_service: Arc<core_service::AgentHooksService>) {
+async fn tick_attention_auto_summary(
+    agent_hooks_service: Arc<core_service::AgentHooksService>,
+    terminal_service: Arc<core_service::TerminalService>,
+) {
     let settings = read_attention_summary_settings();
     if !settings.enabled {
         return;
@@ -344,9 +349,16 @@ async fn tick_attention_auto_summary(agent_hooks_service: Arc<core_service::Agen
             continue;
         };
         let service = Arc::clone(&agent_hooks_service);
+        let terminal = Arc::clone(&terminal_service);
         let settings = settings.clone();
         tokio::spawn(async move {
-            match core_service::generate_attention_summary(&latch, &settings).await {
+            match core_service::generate_attention_summary(
+                &latch,
+                &settings,
+                Some(terminal.as_ref()),
+            )
+            .await
+            {
                 Ok(payload) => {
                     let _ = service.complete_attention_summary(
                         &latch.stable_pane_id,
@@ -807,6 +819,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let project_service_for_startup = Arc::clone(&app_state.project_service);
     let agent_hooks_for_startup = Arc::clone(&app_state.agent_hooks_service);
+    let terminal_service_for_startup = Arc::clone(&app_state.terminal_service);
 
     let mut app = Router::new()
         .route("/healthz", get(|| async { StatusCode::OK }))
@@ -884,7 +897,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
     register_idle_session_cleanup_job(Arc::clone(&jobs), Arc::clone(&agent_hooks_for_startup))
         .await;
-    register_attention_summary_job(Arc::clone(&jobs), agent_hooks_for_startup).await;
+    register_attention_summary_job(
+        Arc::clone(&jobs),
+        agent_hooks_for_startup,
+        terminal_service_for_startup,
+    )
+    .await;
 
     // Serve with graceful shutdown — ensures PTY resources are cleaned up
     // when the process receives SIGTERM/SIGINT (e.g., during hot-reload).
