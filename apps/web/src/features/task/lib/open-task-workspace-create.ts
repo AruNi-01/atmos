@@ -6,6 +6,7 @@ import {
   type TaskWorkspaceLinearDraft,
   type TaskWorkspaceLinkDraft,
 } from "@/features/task/store/task-workspace-draft-store";
+import { writePendingLinearLink } from "@/features/task/lib/pending-linear-link";
 
 /**
  * Open the New Workspace overlay with project + optional Issue/PR / Linear prefills.
@@ -41,14 +42,7 @@ export function openTaskWorkspaceCreate(input: {
 
   // Persist Linear snapshot for post-create link even if draft is consumed early.
   if (input.linearIssue) {
-    try {
-      sessionStorage.setItem(
-        "atmos.pendingLinearLink",
-        JSON.stringify(input.linearIssue),
-      );
-    } catch {
-      /* ignore quota / private mode */
-    }
+    writePendingLinearLink(input.linearIssue);
   }
 
   void input.setNewWorkspace(true);

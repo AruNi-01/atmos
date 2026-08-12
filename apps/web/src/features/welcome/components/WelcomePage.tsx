@@ -109,6 +109,7 @@ import {
   type MentionFileCandidate,
   type WelcomeHeadline,
 } from "@/features/welcome/lib/welcome-page-helpers";
+import { clearPendingLinearLink, readPendingLinearLinkRaw } from "@/features/task/lib/pending-linear-link";
 import {
   combinedExternalMeta,
   ensureWorkspaceLabelsForExternal,
@@ -944,7 +945,7 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
       });
       // APP-056: link Linear issue selected in Advanced (or prefilled from Task Create).
       try {
-        let raw = sessionStorage.getItem("atmos.pendingLinearLink");
+        let raw = readPendingLinearLinkRaw();
         if (!raw && linearPreview) {
           raw = JSON.stringify({
             id: linearPreview.id,
@@ -967,7 +968,7 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
           });
         }
         if (raw) {
-          sessionStorage.removeItem("atmos.pendingLinearLink");
+          clearPendingLinearLink();
           const { wsLinearApi } = await import("@/api/ws/linear-api");
           await wsLinearApi.linkIssue(workspaceId, JSON.parse(raw));
           // Refresh project tree so card/popover show Linear icon + title.

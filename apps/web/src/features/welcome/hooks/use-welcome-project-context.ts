@@ -29,43 +29,20 @@ import {
   type RepoContext,
 } from "@/features/welcome/lib/welcome-page-helpers";
 import {
+  LINEAR_OPEN_STATE_TYPES,
+  WELCOME_LINK_LIST_PAGE,
+  linearIssueToDraft,
+} from "@/features/welcome/lib/welcome-linear-link";
+import { writePendingLinearLink } from "@/features/task/lib/pending-linear-link";
+import {
   useRepoPrListQuery,
   useInvalidateGithubPrs,
 } from "@/features/github/hooks/use-github-pr-query";
 import {
   useTaskWorkspaceDraftStore,
-  type TaskWorkspaceLinearDraft,
 } from "@/features/task/store/task-workspace-draft-store";
 
 type LinkType = "none" | "issue" | "pr" | "linear";
-
-/** Non-done Linear workflow types for the welcome picker. */
-const LINEAR_OPEN_STATE_TYPES = ["backlog", "unstarted", "started"] as const;
-
-/** Page size for welcome Advanced select lists (GitHub + Linear). */
-const WELCOME_LINK_LIST_PAGE = 50;
-
-function linearIssueToDraft(issue: LinearIssuePayload): TaskWorkspaceLinearDraft {
-  return {
-    id: issue.id,
-    identifier: issue.identifier,
-    title: issue.title,
-    url: issue.url,
-    description: issue.description ?? null,
-    priority: issue.priority ?? 0,
-    state_name: issue.state_name ?? null,
-    state_type: issue.state_type ?? null,
-    project_name: issue.project_name ?? null,
-    project_id: issue.project_id ?? null,
-    team_id: issue.team_id ?? null,
-    team_key: issue.team_key ?? null,
-    labels: issue.labels ?? [],
-    assignee: issue.assignee ?? null,
-    github_refs: issue.github_refs ?? [],
-    created_at: issue.created_at ?? null,
-    updated_at: issue.updated_at ?? null,
-  };
-}
 
 export function useWelcomeProjectContext({
   branchTouchedRef,
@@ -645,14 +622,7 @@ export function useWelcomeProjectContext({
           created_at: draftLinear.created_at ?? null,
           updated_at: draftLinear.updated_at ?? null,
         };
-        try {
-          sessionStorage.setItem(
-            "atmos.pendingLinearLink",
-            JSON.stringify(draftLinear),
-          );
-        } catch {
-          /* ignore */
-        }
+        writePendingLinearLink(draftLinear);
       }
 
       let generatedBranch: string | null = null;
@@ -924,14 +894,7 @@ export function useWelcomeProjectContext({
       setLinearPreview(found);
       // Linear can coexist with GitHub issue/PR — do not clear them.
       if (found) {
-        try {
-          sessionStorage.setItem(
-            "atmos.pendingLinearLink",
-            JSON.stringify(linearIssueToDraft(found)),
-          );
-        } catch {
-          /* ignore */
-        }
+        writePendingLinearLink(linearIssueToDraft(found));
         // Allow name/branch effects to re-apply when picking from list only if not touched.
         if (!nameTouchedRef.current) {
           setName(linearIssueToWorkspaceName(found));

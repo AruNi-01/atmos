@@ -45,12 +45,12 @@ import {
   prDrawerKey,
 } from "@/features/task/components/task-github-drawer/types";
 import { openTaskWorkspaceCreate } from "@/features/task/lib/open-task-workspace-create";
+import { TASK_LINEAR_PAGE_SIZE } from "@/features/task/lib/task-linear-panel-model";
 import { findLinkedWorkspaceForLinearIssue } from "@/features/task/lib/find-linked-workspace";
 import { useProjects } from "@/features/project/hooks/use-project-bootstrap-query";
 import { useAppRouter } from "@/shared/hooks/use-app-router";
 import type { LinearGithubRefPayload } from "@atmos/api-types/ws/dto/linear";
 
-const PAGE_SIZE = 20;
 
 function issueToWire(issue: LinearIssuePayload) {
   return {
@@ -262,7 +262,7 @@ export function TaskLinearPanel({
       queryApplied,
       page,
       after ?? null,
-      PAGE_SIZE,
+      TASK_LINEAR_PAGE_SIZE,
     ] as const,
     queryFn: () =>
       wsLinearApi.issueList({
@@ -276,7 +276,7 @@ export function TaskLinearPanel({
         label_ids:
           filters.labelIds.length > 0 ? [...filters.labelIds] : undefined,
         query: queryApplied.trim() || undefined,
-        first: PAGE_SIZE,
+        first: TASK_LINEAR_PAGE_SIZE,
         after,
       }),
     // Cursor pages need an `after` token; never fetch page N>1 without one.
@@ -373,7 +373,7 @@ export function TaskLinearPanel({
   /**
    * Open New Workspace overlay with Linear (and optional linked GitHub) prefills.
    * Do not preselect Atmos project — Linear issues are not bound to a local project.
-   * Association is written after submit via `atmos.pendingLinearLink`.
+   * Association is written after submit via pending Linear link storage.
    * autoExtractTodos stays off by default in the overlay.
    */
   const openCreateFromIssue = useCallback(
