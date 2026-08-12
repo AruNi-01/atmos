@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Generate static poster stills for Feature Showcase sphere covers.
-# Run from repo root or apps/landing after adding/updating public/videos/*.mp4.
+# Extract feature showcase poster JPGs from local public/videos/*.mp4.
+# Production posters live on R2 (landing/videos/); sync uploads after regenerating.
 #
 # Usage:
 #   bash apps/landing/scripts/generate-feature-posters.sh

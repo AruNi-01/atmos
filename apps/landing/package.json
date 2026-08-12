@@ -6,6 +6,8 @@
     "dev": "next dev --port 3001 --turbopack",
     "dev:portless": "portless landing next dev --turbopack",
     "build": "next build",
+    "build:pages": "node ../../scripts/pages/build-pages-landing.mjs",
+    "deploy:pages": "node ../../scripts/pages/deploy-pages-landing.mjs",
     "start": "next start",
     "lint": "eslint",
     "typecheck": "bun ../../scripts/run-tsc7.ts --noEmit"

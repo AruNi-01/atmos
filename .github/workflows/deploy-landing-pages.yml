@@ -1,0 +1,64 @@
+name: Deploy Landing Pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/landing/**"
+      - "packages/i18n/**"
+      - "packages/ui/**"
+      - "scripts/pages/build-pages-landing.mjs"
+      - "scripts/pages/deploy-pages-landing.mjs"
+      - ".github/workflows/deploy-landing-pages.yml"
+      - ".github/actions/setup-bun/**"
+      - "package.json"
+      - "bun.lock"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-landing-pages-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: 22
+          package-manager-cache: false
+
+      - uses: ./.github/actions/setup-bun
+
+      - name: Ensure Pages project exists
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN != '' && secrets.CLOUDFLARE_API_TOKEN || vars.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID != '' && secrets.CLOUDFLARE_ACCOUNT_ID || vars.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          OUTPUT=$(bunx wrangler pages project list 2>/dev/null)
+          if echo "$OUTPUT" | grep -q "www-atmos-land"; then
+            echo "Pages project www-atmos-land already exists."
+          else
+            bunx wrangler pages project create www-atmos-land --production-branch main
+          fi
+
+      - name: Build landing for Pages
+        env:
+          NEXT_PUBLIC_SITE_URL: https://atmos.land
+          NEXT_PUBLIC_ASSETS_BASE_URL: https://assets.atmos.land
+          NEXT_PUBLIC_POSTHOG_KEY: ${{ vars.NEXT_PUBLIC_POSTHOG_KEY }}
+          NEXT_PUBLIC_POSTHOG_HOST: ${{ vars.NEXT_PUBLIC_POSTHOG_HOST }}
+        run: bun run build:landing:pages
+
+      - name: Deploy Pages site
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN != '' && secrets.CLOUDFLARE_API_TOKEN || vars.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID != '' && secrets.CLOUDFLARE_ACCOUNT_ID || vars.CLOUDFLARE_ACCOUNT_ID }}
+          CF_PAGES_BRANCH: main
+          CF_PAGES_COMMIT_SHA: ${{ github.sha }}
+          CF_PAGES_COMMIT_MESSAGE: ${{ github.event.head_commit.message || github.ref_name || github.event.repository.updated_at }}
+        run: bun run deploy:landing:pages
