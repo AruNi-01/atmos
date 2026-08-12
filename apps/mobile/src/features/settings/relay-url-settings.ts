@@ -6,6 +6,26 @@ export type RelayUrlSaveState = {
   reason: string | null;
 };
 
+function isValidRelayUrlDraft(trimmed: string): boolean {
+  if (!trimmed) {
+    return true;
+  }
+
+  const withProtocol = /^https?:\/\//i.test(trimmed)
+    ? trimmed
+    : `https://${trimmed}`;
+
+  try {
+    const parsed = new URL(withProtocol);
+    return (
+      (parsed.protocol === "http:" || parsed.protocol === "https:") &&
+      parsed.hostname.length > 0
+    );
+  } catch {
+    return false;
+  }
+}
+
 export function getRelayUrlSaveState({
   currentUrl,
   draftUrl,
@@ -14,6 +34,16 @@ export function getRelayUrlSaveState({
   draftUrl: string;
 }): RelayUrlSaveState {
   const normalizedCurrent = normalizeRelayUrl(currentUrl);
+  const trimmedDraft = draftUrl.trim();
+
+  if (trimmedDraft && !isValidRelayUrlDraft(trimmedDraft)) {
+    return {
+      canSave: false,
+      normalizedUrl: normalizeRelayUrl(draftUrl),
+      reason: "Enter a valid Relay URL.",
+    };
+  }
+
   const normalizedDraft = normalizeRelayUrl(draftUrl);
 
   if (normalizedDraft === normalizedCurrent) {
