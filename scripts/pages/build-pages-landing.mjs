@@ -136,9 +136,9 @@ let exitCode = 0;
 
 try {
   rmSync(landingOutDir, { recursive: true, force: true });
+  registerTerminationHandlers();
   moveAside(proxyFile, proxyBackupFile);
   moveAside(downloadLinksRouteDir, downloadLinksRouteBackupDir);
-  registerTerminationHandlers();
 
   run("bun", ["--filter", "landing", "build"], {
     env: {
