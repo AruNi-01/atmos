@@ -75,7 +75,6 @@ export function TerminalShortcutBar({
           style={[
             styles.root,
             {
-              backgroundColor: theme.colors.terminalBg,
               borderColor: theme.colors.glassBorder,
               borderRadius: radii.terminalChrome,
             },
