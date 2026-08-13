@@ -118,6 +118,8 @@ Subscribe to the group-key map; pass into `resolveKanbanColumnKeys`. No create-w
 
 `useAgentHooksStore.init()` fetches `GET /hooks/workspace-agent-groups` first and applies `serverWorkspaceGroupKeys` while `hooksHydrated` is still `false`, so By Agent Status can paint from API memory. Sessions + attention load in parallel afterward; then `hooksHydrated` becomes `true` and the map follows live stores (WS). Panes acknowledged during that window are recorded and stripped from the attention snapshot (and from the grouping snapshot when live is idle) so a GET that started before the ack cannot resurrect Need permission / Need attention.
 
+Computer switch calls `resetForConnectionChange()` (via `resetLegacyServerStateForConnectionChange`): it clears sessions, grouping snapshot, and attention, then re-runs the same hydrate against the new Computer. In-flight GETs from the previous target are discarded with a generation counter. Same-target WS reconnect does not reset (listeners persist).
+
 ### Settings / URL
 
 - `apps/web/src/api/ws/settings-api.ts` — add `"agent"` to `grouping_mode` union.

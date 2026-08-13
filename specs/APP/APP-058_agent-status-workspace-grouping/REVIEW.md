@@ -22,6 +22,7 @@ Cross-review after the By Agent Status implementation. Mapping, empty buckets, d
 | REV-002 | P1 | frontend | In-flight attention hydrate can resurrect acked latches | verified |
 | REV-003 | P2 | test | Missing Rust cases for running + sticky permission / two panes | verified |
 | REV-004 | P3 | frontend | Hidden kanban columns used color swatches instead of bucket icons | verified |
+| REV-005 | P1 | frontend | Stale Agent sessions leak across Computer switch | verified |
 
 ---
 
@@ -149,3 +150,39 @@ Reuse status / priority / agent group icons in the hidden-column list; keep colo
 ### Fix log
 
 - 2026-08-13 - `WorkspaceKanbanView.tsx` hidden-column list uses `getWorkspaceAgentGroupMeta` / status / priority icons.
+
+---
+
+## REV-005 · Stale Agent sessions leak across Computer switch
+
+| Field | Value |
+|-------|--------|
+| **Status** | verified |
+| **Severity** | P1 |
+| **Area** | frontend |
+| **Reported by** | Greptile review |
+| **Owner** | unassigned |
+
+### Finding
+
+`init()` is idempotent and `cleanup()` is never called on reconnect. Switching Computers that share a workspace id kept the previous Computer's hook sessions and grouping snapshot, so By Agent Status could show Running / Need permission for the new target until a later event overwrote the row.
+
+### Evidence
+
+- `apps/web/src/providers/app/websocket-provider.tsx` — `init()` on connect, no cleanup.
+- `apps/web/src/app-shell/bootstrap/connection-target-lifecycle.ts` — Computer-scoped stores reset here; agent hooks were missing.
+
+### Required fix
+
+Add `resetForConnectionChange()` that clears sessions, grouping snapshot, and attention, then re-hydrates from the new Computer. Call it from `resetLegacyServerStateForConnectionChange`. Invalidate in-flight hydrate with a generation counter so the previous GET cannot land after the switch.
+
+### Acceptance
+
+- [x] Computer switch empties sessions / grouping keys / attention immediately.
+- [x] `hooksHydrated` goes false so the new snapshot can paint.
+- [x] WS listeners are not torn down.
+
+### Fix log
+
+- 2026-08-13 - `resetForConnectionChange` on `agent-hooks-store`; wired through `legacy-server-state-reset.ts`. Test: `agent-hooks-store.reset.test.ts`.
+

@@ -11,12 +11,14 @@ export async function resetLegacyServerStateForConnectionChange(): Promise<void>
     { useReviewSnapshotStore },
     { invalidateLocalComputerStatusCache },
     { clearWelcomeGithubCaches },
+    { useAgentHooksStore },
   ] = await Promise.all([
     import("@/features/git/store/use-git-store"),
     import("@/features/wiki/store/use-wiki-store"),
     import("@/features/code-review/store/review-snapshot-store"),
     import("@/features/connection/lib/atmos-computer-local"),
     import("@/features/welcome/lib/welcome-page-helpers"),
+    import("@/features/agent/store/agent-hooks-store"),
   ]);
 
   // Git snapshots (status, changedFiles, fileDiff, branches) are now owned by
@@ -30,4 +32,7 @@ export async function resetLegacyServerStateForConnectionChange(): Promise<void>
   invalidateLocalComputerStatusCache();
   // Issue list cache is still a module-level Map; PR cache is Query-owned.
   clearWelcomeGithubCaches();
+  // Agent hook sessions / attention / grouping snapshot are Computer-scoped
+  // in-memory maps. WS listeners stay; hydrate re-reads the new target.
+  useAgentHooksStore.getState().resetForConnectionChange();
 }
