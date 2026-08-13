@@ -7,6 +7,7 @@ import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
+  cn,
 } from "@workspace/ui";
 import { Loader2, Trash2 } from "lucide-react";
 import type { CleanupKind, CleanupSuggestion } from "@/api/ws/disk-analyzer-api";
@@ -157,10 +158,10 @@ function SuggestRow({
   const shortLocation = shortLocationLabel(item, pathTitle);
   return (
     <div className={divided ? "border-t border-border/50" : undefined}>
-      <div className="flex h-8 items-center gap-1 px-1.5 hover:bg-muted/50">
+      <div className="group flex h-8 items-center gap-1 overflow-hidden px-1.5 hover:bg-muted/50">
         <Tooltip>
           <TooltipTrigger asChild>
-            <div className="flex min-w-0 flex-1 cursor-default items-center gap-2 px-1">
+            <div className="flex min-w-0 flex-1 cursor-default items-center px-1">
               <p className="min-w-0 flex-1 truncate text-xs">
                 <span className="font-medium">{localizeName(item.name)}</span>
                 {showShortLocation ? (
@@ -170,15 +171,6 @@ function SuggestRow({
                   </span>
                 ) : null}
               </p>
-              <p className="shrink-0 text-[11px] tabular-nums text-muted-foreground">
-                {formatBytes(item.size)}
-                {idle != null ? (
-                  <>
-                    <span className="px-1 text-muted-foreground/50">·</span>
-                    {t("suggestIdleDays", { days: idle })}
-                  </>
-                ) : null}
-              </p>
               <span className="sr-only">{fullPath}</span>
             </div>
           </TooltipTrigger>
@@ -186,18 +178,36 @@ function SuggestRow({
             {fullPath}
           </TooltipContent>
         </Tooltip>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-xs"
-          className="size-6 shrink-0 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-          disabled={locked}
-          aria-label={t("deleteItem")}
-          title={t("deleteItem")}
-          onClick={onDelete}
-        >
-          <Trash2 className="size-3" />
-        </Button>
+        <div className="relative z-10 flex shrink-0 items-center">
+          <span className="text-[11px] tabular-nums text-muted-foreground transition-transform duration-200 ease-out">
+            {formatBytes(item.size)}
+            {idle != null ? (
+              <>
+                <span className="px-1 text-muted-foreground/50">·</span>
+                {t("suggestIdleDays", { days: idle })}
+              </>
+            ) : null}
+          </span>
+          <div
+            className={cn(
+              "overflow-hidden transition-[width,margin,opacity] duration-200 ease-out",
+              "ml-0 w-0 opacity-0 group-hover:ml-0.5 group-hover:w-6 group-hover:opacity-100",
+            )}
+          >
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-xs"
+              className="size-6 shrink-0 translate-x-2 text-muted-foreground transition-transform duration-200 ease-out hover:bg-destructive/10 hover:text-destructive group-hover:translate-x-0"
+              disabled={locked}
+              aria-label={t("deleteItem")}
+              title={t("deleteItem")}
+              onClick={onDelete}
+            >
+              <Trash2 className="size-3" />
+            </Button>
+          </div>
+        </div>
       </div>
     </div>
   );
