@@ -149,18 +149,22 @@ export function SimulatorPanel({
       return;
     }
     if (firstFrameKeyRef.current === streamKey) return;
-    const event =
-      session.transport === "webrtc"
-        ? "webrtc_unusable"
-        : session.codec === "h264"
-          ? "h264_unusable"
-          : null;
-    if (!event) return;
+    // No WebRTC consumer yet: fall straight to HTTP rather than waiting for a
+    // first frame that this panel cannot decode.
+    if (session.transport === "webrtc") {
+      void desktopInvoke("simulator_stream_event", {
+        workspaceId,
+        event: "webrtc_unusable",
+      }).catch(() => undefined);
+      return;
+    }
+    if (session.codec !== "h264") return;
     const timer = window.setTimeout(() => {
       if (firstFrameKeyRef.current === streamKey) return;
-      void desktopInvoke("simulator_stream_event", { workspaceId, event }).catch(
-        () => undefined,
-      );
+      void desktopInvoke("simulator_stream_event", {
+        workspaceId,
+        event: "h264_unusable",
+      }).catch(() => undefined);
     }, 8_000);
     return () => window.clearTimeout(timer);
   }, [
