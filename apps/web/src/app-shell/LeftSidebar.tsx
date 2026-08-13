@@ -59,6 +59,7 @@ import {
   type KanbanCardProperties,
 } from '@/app-shell/sidebar/WorkspaceKanbanView';
 import {
+  parseSidebarGroupingMode,
   type SidebarGroupingMode,
 } from '@/app-shell/sidebar/workspace-status';
 import {
@@ -102,6 +103,7 @@ import {
     selectAttentionFilterMode,
     useAgentAttentionStore,
 } from '@/features/agent/store/agent-attention-store';
+import { useWorkspaceAgentGroupKeyMap } from '@/features/agent/hooks/use-workspace-agent-status';
 import { Bell } from 'lucide-react';
 
 interface LeftSidebarProps {
@@ -127,6 +129,11 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
         const ids = attentionContextKey ? attentionContextKey.split('\0').filter(Boolean) : [];
         return filterProjectsByAttention(projects, ids);
     }, [attentionContextKey, attentionFilterMode, projects]);
+    const workspaceAgentContextIds = React.useMemo(
+        () => listProjects.flatMap((project) => project.workspaces.map((workspace) => workspace.id)),
+        [listProjects],
+    );
+    const agentGroupKeyByWorkspaceId = useWorkspaceAgentGroupKeyMap(workspaceAgentContextIds);
 
     // When filtering to attention items, expand projects that still have workspaces
     // to show. Project-only attention keeps the row collapsed (children are hidden).
@@ -214,6 +221,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
     const workspaceSidebarPriorityTwoColumn = useLayoutSettingsStore((s) => s.workspaceSidebarPriorityTwoColumn);
     const workspaceSidebarLabelTwoColumn = useLayoutSettingsStore((s) => s.workspaceSidebarLabelTwoColumn);
     const workspaceSidebarGroupTwoColumn = useLayoutSettingsStore((s) => s.workspaceSidebarGroupTwoColumn);
+    const workspaceSidebarAgentTwoColumn = useLayoutSettingsStore((s) => s.workspaceSidebarAgentTwoColumn);
     const layoutLoaded = useLayoutSettingsStore((s) => s.loaded);
     const loadLayoutSettings = useLayoutSettingsStore((s) => s.loadSettings);
     useEffect(() => { loadLayoutSettings(); }, [loadLayoutSettings]);
@@ -354,17 +362,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
                     if (settingsScopeVersionRef.current !== scopeVersion) return;
 
                     const groupingModeSetting = settings.workspace_sidebar?.grouping_mode;
-                    let nextGroupingMode: SidebarGroupingMode = 'project';
-                    if (
-                        groupingModeSetting === 'project' ||
-                        groupingModeSetting === 'group' ||
-                        groupingModeSetting === 'status' ||
-                        groupingModeSetting === 'time' ||
-                        groupingModeSetting === 'label' ||
-                        groupingModeSetting === 'priority'
-                    ) {
-                        nextGroupingMode = groupingModeSetting;
-                    }
+                    const nextGroupingMode = parseSidebarGroupingMode(groupingModeSetting);
                     persistedGroupingModeRef.current = nextGroupingMode;
                     setGroupingMode(nextGroupingMode);
 
@@ -1059,6 +1057,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
         groups,
         kanbanFilters: sidebarWorkspaceFilters,
         labelGroupOrder: effectiveLabelGroupOrder,
+        agentGroupKeyByWorkspaceId,
         projectSidebarSelectionRouteKey,
         projects: listProjects,
         selectedProjectSidebarId,
@@ -1070,6 +1069,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
         workspaceSidebarPriorityTwoColumn,
         workspaceSidebarLabelTwoColumn,
         workspaceSidebarGroupTwoColumn,
+        workspaceSidebarAgentTwoColumn,
         workspaceSidebarTwoColumn,
         workspaceLabels,
     });
@@ -1189,6 +1189,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
             availableLabels={workspaceLabels}
             groupingMode={groupingMode}
             labelGroupOrder={effectiveLabelGroupOrder}
+            agentGroupKeyByWorkspaceId={agentGroupKeyByWorkspaceId}
             isCollapsed={isPinnedSectionCollapsed}
             isDividerHovered={isPinnedDividerHovered}
             isSortingDisabled={isPinnedSortingDisabled}

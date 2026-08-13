@@ -306,7 +306,11 @@
       "last_7_days": "最近 7 天",
       "last_30_days": "最近 30 天",
       "older": "更早",
-      "untagged": "无标签"
+      "untagged": "无标签",
+      "agent_permission": "需要授权",
+      "agent_attention": "需要关注",
+      "agent_running": "运行中",
+      "agent_idle": "空闲"
     },
     "groups": {
       "ungrouped": "未分组",
@@ -1126,6 +1130,7 @@
         "project": "按项目",
         "group": "按分组",
         "status": "按状态",
+        "agent": "按 Agent",
         "time": "按时间",
         "label": "按标签",
         "priority": "按优先级",
@@ -4603,6 +4608,9 @@
             "byGroupUsesSecondColumn": {
               "label": "按分组使用第二列"
             },
+            "byAgentGroupUsesSecondColumn": {
+              "label": "按 Agent 分组时使用第二列"
+            },
             "headerLayout": {
               "label": "Header 布局"
             },
@@ -5567,7 +5575,7 @@
       },
       "workspaceSidebar": {
         "title": "工作区侧边栏双列布局",
-        "description": "配置 Project、By Group、By Time、By Status、By Priority 和 By Label 侧边栏模式下可选的双列工作区浏览器。",
+        "description": "配置 Project、By Group、By Time、By Status、By Agent、By Priority 和 By Label 侧边栏模式下可选的双列工作区浏览器。",
         "enabled": "已启用",
         "disabled": "已关闭",
         "projectTwoColumnTitle": "Project 侧边栏双列布局",
@@ -5585,7 +5593,9 @@
         "byLabelTitle": "By Label 分组使用第二列",
         "byLabelDescription": "在侧边栏的 By Label 模式下，点击分组会在可调整大小的第二列中打开其工作区，而不是内联展开。",
         "byGroupTitle": "By Group 使用第二列",
-        "byGroupDescription": "在侧边栏的 By Group 模式下，点击分组会在可调整大小的第二列中打开其项目与工作区，而不是内联展开。"
+        "byGroupDescription": "在侧边栏的 By Group 模式下，点击分组会在可调整大小的第二列中打开其项目与工作区，而不是内联展开。",
+        "byAgentTitle": "By Agent 分组使用第二列",
+        "byAgentDescription": "在侧边栏的 By Agent 模式下，点击分组会在可调整大小的第二列中打开其工作区，而不是内联展开。"
       },
       "footer": {
         "title": "页脚布局",

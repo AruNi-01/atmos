@@ -157,4 +157,34 @@ Use `agent-browser` after implementation. Load Agent Browser instructions first 
 
 ## Coverage Status
 
-> Filled after implementation by `atmos-specs-test-run`.
+> Updated 2026-08-13 after implementation.
+
+| Scenario | Status | Proof |
+|----------|--------|-------|
+| S1 | covered | `apps/web/src/app-shell/sidebar/workspace-grouping.test.ts` `parseSidebarGroupingMode` |
+| S2 | covered | `apps/web/src/features/agent/lib/__tests__/workspace-agent-status.test.ts` `resolveWorkspaceAgentGroupKey` |
+| S3 | covered | `workspace-grouping.test.ts` `always emits four agent buckets` |
+| S4 | covered | `resolveWorkspaceAgentGroupKey` live/sticky permission vs idle+complete |
+| S5 | covered | `keeps a running agent in running even with a leftover complete latch` |
+| S6 | covered | `rebuckets a workspace when the agent map changes` |
+| S7 | covered | `apps/web/src/app-shell/sidebar/kanban-columns.test.ts` |
+| S8 | planned | `e2e/tests/specs/APP-058_agent-status-workspace-grouping.e2e.ts` (Playwright; not run in this pass) |
+| S9 | covered | `apps/web/src/features/settings/store/layout-settings-store.agent-grouping.test.ts` |
+
+Commands:
+
+```bash
+cd apps/web && bun test \
+  src/features/agent/lib/__tests__/workspace-agent-status.test.ts \
+  src/app-shell/sidebar/workspace-grouping.test.ts \
+  src/app-shell/sidebar/kanban-columns.test.ts \
+  src/features/settings/store/layout-settings-store.agent-grouping.test.ts
+# 21 pass
+
+cd apps/web && bun run typecheck
+# pass
+```
+
+Agent-browser exploratory checks: not_run (no browser session in this implementation pass).
+
+Remaining gaps: S8 Playwright smoke; manual live Agent permission / running→idle latch.

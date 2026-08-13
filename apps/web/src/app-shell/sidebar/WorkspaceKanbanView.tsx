@@ -37,6 +37,7 @@ import type {
   WorkspaceWorkflowStatus,
 } from "@/shared/types/domain";
 import {
+  getWorkspaceAgentGroupMeta,
   getWorkspaceWorkflowStatusMeta,
   SIDEBAR_GROUPING_OPTIONS,
   type SidebarGroupingMode,
@@ -56,6 +57,7 @@ import {
   Search,
   Settings2,
 } from "lucide-react";
+import { useWorkspaceAgentGroupKeyMap } from "@/features/agent/hooks/use-workspace-agent-status";
 import { CreateWorkspaceDialog } from "@/features/workspace/components/CreateWorkspaceDialog";
 import {
   WorkspaceKanbanFilterMenu,
@@ -180,6 +182,11 @@ export function WorkspaceKanbanView({
   const groupsT = useTranslations("appShell.groups");
   const groupingT = useTranslations("appShell.workspaceGrouping");
   const router = useAppRouter();
+  const workspaceAgentContextIds = React.useMemo(
+    () => projects.flatMap((project) => project.workspaces.map((workspace) => workspace.id)),
+    [projects],
+  );
+  const agentGroupKeyByWorkspaceId = useWorkspaceAgentGroupKeyMap(workspaceAgentContextIds);
   const [searchQuery, setSearchQuery] = useQueryState("lsTaskQ", leftSidebarParams.lsTaskQ);
   const availableStatusSet = React.useMemo(
     () => new Set(WORKSPACE_WORKFLOW_STATUS_OPTIONS.map((option) => option.value)),
@@ -392,6 +399,7 @@ export function WorkspaceKanbanView({
           projectId: project.id,
           workspace,
           groups,
+          agentGroupKey: agentGroupKeyByWorkspaceId[workspace.id],
         });
         const entry = { projectId: project.id, projectName: project.name, workspace };
         for (const key of columnKeys) {
@@ -438,7 +446,7 @@ export function WorkspaceKanbanView({
     });
 
     return buckets;
-  }, [filters, groupingMode, groups, projects, searchQuery, sortBy, sortOrder]);
+  }, [agentGroupKeyByWorkspaceId, filters, groupingMode, groups, projects, searchQuery, sortBy, sortOrder]);
 
   React.useEffect(() => {
     if (typeof document === "undefined") return;
@@ -688,12 +696,16 @@ export function WorkspaceKanbanView({
                     const priorityMeta = column.priority
                       ? getWorkspacePriorityMeta(column.priority)
                       : null;
-                    const HeaderIcon = statusMeta?.icon ?? priorityMeta?.icon ?? ModeIcon;
+                    const agentMeta = column.agentGroup
+                      ? getWorkspaceAgentGroupMeta(column.agentGroup)
+                      : null;
+                    const HeaderIcon = statusMeta?.icon ?? priorityMeta?.icon ?? agentMeta?.icon ?? ModeIcon;
                     const headerIconClass =
                       statusMeta?.className ??
                       priorityMeta?.className ??
+                      agentMeta?.className ??
                       "text-muted-foreground";
-                    // Color-backed modes use a swatch; status/priority keep their level icons.
+                    // Color-backed modes use a swatch; status/priority/agent keep their level icons.
                     const showColorSwatch =
                       groupingMode === "label" ||
                       groupingMode === "project" ||

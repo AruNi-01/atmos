@@ -260,7 +260,8 @@ export type TaskGroupingModeParam =
   | "status"
   | "time"
   | "label"
-  | "priority";
+  | "priority"
+  | "agent";
 
 const parseAsStringList = parseAsArrayOf(parseAsString).withDefault([]);
 
@@ -275,6 +276,7 @@ export const taskParams = {
     "time",
     "label",
     "priority",
+    "agent",
   ]).withDefault("status"),
   /** Atmos board filters (comma-separated ids / enum values). */
   taskStatuses: parseAsStringList,

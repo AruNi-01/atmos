@@ -9,7 +9,11 @@ import enMessages from "../../../messages/en.json";
 import zhMessages from "../../../messages/zh.json";
 import { currentAppLocale } from "@/shared/lib/current-app-locale";
 import type { SidebarGroupingMode } from "./workspace-status";
-import { getWorkspaceWorkflowStatusMeta } from "./workspace-status";
+import { getWorkspaceAgentGroupMeta, getWorkspaceWorkflowStatusMeta } from "./workspace-status";
+import {
+  WORKSPACE_AGENT_GROUP_ORDER,
+  type WorkspaceAgentGroupKey,
+} from "@/features/agent/lib/workspace-agent-status";
 import {
   WORKSPACE_PRIORITY_OPTIONS,
   WORKSPACE_PRIORITY_SORT_WEIGHT,
@@ -166,15 +170,36 @@ export function getWorkspaceLabelGroupKey(
   ).find((label) => workspaceLabelIds.has(label.id))?.id ?? workspace.labels[0].id;
 }
 
+export function getWorkspaceAgentGroupLabel(key: WorkspaceAgentGroupKey): string {
+  return workspaceGroupingT(getWorkspaceAgentGroupMeta(key).groupingLabelKey);
+}
+
 export function groupWorkspaces(
   items: FlattenedWorkspaceEntry[],
   groupingMode: Exclude<SidebarGroupingMode, "project" | "group">,
   options: {
     availableLabels?: WorkspaceLabel[];
     labelGroupOrder?: string[];
+    agentGroupKeyByWorkspaceId?: Readonly<Record<string, WorkspaceAgentGroupKey>>;
   } = {},
 ): WorkspaceGroup[] {
   const sortedItems = sortEntriesByRecency(items);
+
+  if (groupingMode === "agent") {
+    const grouped = new Map<WorkspaceAgentGroupKey, FlattenedWorkspaceEntry[]>();
+    for (const item of sortedItems) {
+      const key = options.agentGroupKeyByWorkspaceId?.[item.workspace.id] ?? "idle";
+      const bucket = grouped.get(key) ?? [];
+      bucket.push(item);
+      grouped.set(key, bucket);
+    }
+
+    return WORKSPACE_AGENT_GROUP_ORDER.map((key) => ({
+      key,
+      label: getWorkspaceAgentGroupLabel(key),
+      items: grouped.get(key) ?? [],
+    }));
+  }
 
   if (groupingMode === "status") {
     const STATUS_ORDER: WorkspaceWorkflowStatus[] = [

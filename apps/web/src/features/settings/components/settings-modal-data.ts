@@ -530,7 +530,7 @@ const SETTINGS_SETTING_ITEMS: Record<SettingsSectionId, readonly SettingsSearchI
     }),
     settingsModalSearchItem("layout.workspaceSidebarTwoColumnLayout", {
       hasDescription: true,
-      keywords: ["project sidebar", "by group", "by time", "by status", "by priority", "by label", "second column"],
+      keywords: ["project sidebar", "by group", "by time", "by status", "by agent", "by priority", "by label", "second column"],
     }),
     settingsModalSearchItem("layout.projectSidebarTwoColumnLayout", {
       keywords: ["projects in first column", "workspaces in second column"],
@@ -555,6 +555,9 @@ const SETTINGS_SETTING_ITEMS: Record<SettingsSectionId, readonly SettingsSearchI
     }),
     settingsModalSearchItem("layout.byGroupUsesSecondColumn", {
       keywords: ["group grouping", "sidebar by group", "user groups"],
+    }),
+    settingsModalSearchItem("layout.byAgentGroupUsesSecondColumn", {
+      keywords: ["agent grouping", "sidebar by agent", "idle", "running", "permission", "need attention"],
     }),
     settingsModalSearchItem("layout.headerLayout", {
       keywords: ["workspace utilities", "global search", "header summary"],

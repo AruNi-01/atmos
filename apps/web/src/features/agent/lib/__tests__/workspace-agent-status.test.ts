@@ -3,7 +3,9 @@ import { describe, expect, it } from "bun:test";
 import { AGENT_STATE } from "@/features/agent/store/agent-hooks-store";
 import {
   resolveRolledAttentionReason,
+  resolveWorkspaceAgentGroupKey,
   resolveWorkspaceAgentStatusView,
+  WORKSPACE_AGENT_GROUP_ORDER,
 } from "../workspace-agent-status";
 
 describe("resolveWorkspaceAgentStatusView", () => {
@@ -67,5 +69,58 @@ describe("resolveRolledAttentionReason", () => {
 
   it("returns null when empty", () => {
     expect(resolveRolledAttentionReason([null, undefined])).toBeNull();
+  });
+});
+
+describe("resolveWorkspaceAgentGroupKey", () => {
+  it("maps live or sticky permission to permission", () => {
+    expect(
+      resolveWorkspaceAgentGroupKey({
+        agentState: AGENT_STATE.PERMISSION_REQUEST,
+        attentionReason: null,
+      }),
+    ).toBe("permission");
+    expect(
+      resolveWorkspaceAgentGroupKey({
+        agentState: AGENT_STATE.IDLE,
+        attentionReason: "permission_request",
+      }),
+    ).toBe("permission");
+  });
+
+  it("keeps a running agent in running even with a leftover complete latch", () => {
+    expect(
+      resolveWorkspaceAgentGroupKey({
+        agentState: AGENT_STATE.RUNNING,
+        attentionReason: "task_complete",
+      }),
+    ).toBe("running");
+  });
+
+  it("maps idle plus task_complete to attention", () => {
+    expect(
+      resolveWorkspaceAgentGroupKey({
+        agentState: AGENT_STATE.IDLE,
+        attentionReason: "task_complete",
+      }),
+    ).toBe("attention");
+  });
+
+  it("maps idle with no latch to idle", () => {
+    expect(
+      resolveWorkspaceAgentGroupKey({
+        agentState: AGENT_STATE.IDLE,
+        attentionReason: null,
+      }),
+    ).toBe("idle");
+  });
+
+  it("uses action-first bucket order", () => {
+    expect(WORKSPACE_AGENT_GROUP_ORDER).toEqual([
+      "permission",
+      "attention",
+      "running",
+      "idle",
+    ]);
   });
 });
