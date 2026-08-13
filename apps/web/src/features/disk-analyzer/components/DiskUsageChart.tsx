@@ -13,9 +13,12 @@ import {
 } from "@workspace/ui";
 import type { DiskNode } from "@/api/ws/disk-analyzer-api";
 import {
+  GIT_WORKTREES_GROUP_PATH,
   SUNBURST_CHART_DEPTH,
   TREEMAP_CHART_DEPTH,
   formatBytes,
+  friendlyDiskEntryPath,
+  isAtmosSyntheticPath,
   layoutValue,
   toEChartsTree,
   type ChartMode,
@@ -56,6 +59,8 @@ type ChartNodeData = {
   isDir?: boolean;
   isProject?: boolean;
   isWorkspace?: boolean;
+  isGitWorktree?: boolean;
+  isAgentData?: boolean;
   isAtmosRuntime?: boolean;
   bytes?: number;
   value?: number;
@@ -84,8 +89,12 @@ type Props = {
   scanPath: string;
   projectLabel: string;
   workspaceLabel: string;
+  gitWorktreeLabel: string;
+  gitWorktreesLabel: string;
+  agentDataLabel: string;
   runtimeLabel: string;
   otherLabel?: string;
+  localizeName?: (name: string) => string;
   enterDirectoryLabel: string;
   deleteLabel: string;
   onSelectPath: (path: string) => void;
@@ -100,8 +109,12 @@ export function DiskUsageChart({
   scanPath,
   projectLabel,
   workspaceLabel,
+  gitWorktreeLabel,
+  gitWorktreesLabel,
+  agentDataLabel,
   runtimeLabel,
   otherLabel = "Other",
+  localizeName,
   enterDirectoryLabel,
   deleteLabel,
   onSelectPath,
@@ -215,6 +228,7 @@ export function DiskUsageChart({
         toEChartsTree(node, chartRootSize, {
           maxDepth: 1,
           otherLabel,
+          localizeName,
           valueMode: "hierarchical",
         }),
       ];
@@ -226,13 +240,14 @@ export function DiskUsageChart({
         {
           maxDepth: SUNBURST_CHART_DEPTH,
           otherLabel,
+          localizeName,
           valueMode: "hierarchical",
         },
         0,
         i,
       ),
     );
-  }, [node, chartRootSize, orderedChildren, otherLabel]);
+  }, [node, chartRootSize, orderedChildren, otherLabel, localizeName]);
 
   /**
    * Treemap leafDepth=1 only paints the first ring. Override first-level `value`
@@ -268,10 +283,17 @@ export function DiskUsageChart({
       const share = Math.min(100, (size / denom) * 100).toFixed(1);
       const name = escapeHtml(p.name ?? "");
       const fullPath = p.data.path ?? "";
-      const path = escapeHtml(middleEllipsisPath(fullPath));
+      const hoverPath = friendlyDiskEntryPath(fullPath);
+      const path =
+        isAtmosSyntheticPath(fullPath) || p.data?.isAgentData
+          ? ""
+          : escapeHtml(middleEllipsisPath(hoverPath));
       const kindChip = kindChipHtml(p.data, {
         projectLabel,
         workspaceLabel,
+        gitWorktreeLabel,
+        gitWorktreesLabel,
+        agentDataLabel,
         runtimeLabel,
       });
       const sizeText = escapeHtml(`${formatBytes(size)} · ${share}%`);
@@ -284,7 +306,7 @@ export function DiskUsageChart({
         `<span style="flex-shrink:0;font-variant-numeric:tabular-nums;opacity:0.9">${sizeText}</span>`,
         `</div>`,
         path
-          ? `<div style="opacity:0.75;font-size:11px;margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:320px" title="${escapeHtml(fullPath)}">${path}</div>`
+          ? `<div style="opacity:0.75;font-size:11px;margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:320px" title="${escapeHtml(hoverPath)}">${path}</div>`
           : "",
       ].join("");
     };
@@ -471,6 +493,9 @@ export function DiskUsageChart({
     runtimeLabel,
     seriesData,
     workspaceLabel,
+    gitWorktreeLabel,
+    gitWorktreesLabel,
+    agentDataLabel,
   ]);
 
   const openContextMenu = (params: {
@@ -667,6 +692,9 @@ function kindChipHtml(
   labels: {
     projectLabel: string;
     workspaceLabel: string;
+    gitWorktreeLabel: string;
+    gitWorktreesLabel?: string;
+    agentDataLabel: string;
     runtimeLabel: string;
   },
 ): string {
@@ -674,6 +702,12 @@ function kindChipHtml(
   if (data?.isAtmosRuntime) text = labels.runtimeLabel;
   else if (data?.isWorkspace) text = labels.workspaceLabel;
   else if (data?.isProject) text = labels.projectLabel;
+  else if (data?.isGitWorktree) {
+    text =
+      data.path === GIT_WORKTREES_GROUP_PATH
+        ? (labels.gitWorktreesLabel ?? labels.gitWorktreeLabel)
+        : labels.gitWorktreeLabel;
+  } else if (data?.isAgentData) text = labels.agentDataLabel;
   if (!text) return "";
   return [
     `<span style="`,

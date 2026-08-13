@@ -1,19 +1,40 @@
 import { describe, expect, test } from "bun:test";
 import {
+  AGENT_DATA_GROUP_PATH,
+  ATMOS_OVERVIEW_PATH,
+  GIT_WORKTREES_GROUP_PATH,
+  breadcrumbPaths,
+  buildBreadcrumbs,
+  canDeleteDiskPath,
   cleanupHintMessageKey,
   collectCleanupSuggestions,
+  compareSuggestionsForCleanup,
+  groupClearSuggestions,
+  isWorktreeSuggestion,
+  SMALL_SUGGEST_BYTES,
+  suggestCleanupScore,
+  suggestIdleDays,
+  suggestLocationRaw,
+  suggestShortLocation,
+  suggestionSurvivesDelete,
+  suggestionTotalSize,
   filterTree,
   formatBytes,
   getCleanupHintKey,
+  isAtmosOverviewPath,
   isAtmosRuntimeDir,
+  localizeAgentSessionName,
+  friendlyDiskEntryName,
+  friendlyDiskEntryPath,
+  isAtmosSyntheticPath,
   isChildrenLoaded,
   layoutValue,
+  levelNeedsWiderTopN,
+  localizedSyntheticName,
   sizeToUsageColor,
   sortNodes,
   takeTopChildren,
   toEChartsTree,
-  breadcrumbPaths,
-  buildBreadcrumbs,
   type DiskFilters,
 } from "./tree-adapters";
 import type { DiskNode } from "@/api/ws/disk-analyzer-api";
@@ -117,6 +138,172 @@ describe("disk analyzer tree adapters", () => {
     // No special project/workspace tile chrome — color tracks size share.
     expect(proj?.itemStyle?.borderWidth).toBeUndefined();
     expect(proj?.itemStyle?.color).toMatch(/^#[0-9a-f]{6}$/i);
+  });
+
+  test("echarts adapter flags git worktree and agent data (workspace wins)", () => {
+    const tree: DiskNode = {
+      name: "root",
+      path: "/root",
+      size: 300,
+      is_dir: true,
+      is_project: false,
+      file_count: 0,
+      dir_count: 3,
+      children: [
+        {
+          name: "feat",
+          path: "/root/feat",
+          size: 100,
+          is_dir: true,
+          is_project: false,
+          is_git_worktree: true,
+          file_count: 1,
+          dir_count: 0,
+        },
+        {
+          name: ".cursor",
+          path: "/root/.cursor",
+          size: 100,
+          is_dir: true,
+          is_project: false,
+          is_agent_data: true,
+          file_count: 1,
+          dir_count: 0,
+        },
+        {
+          name: "ws",
+          path: "/root/ws",
+          size: 100,
+          is_dir: true,
+          is_project: false,
+          is_workspace: true,
+          is_git_worktree: true,
+          file_count: 1,
+          dir_count: 0,
+        },
+      ],
+    };
+    const chart = toEChartsTree(tree, tree.size, { maxDepth: 2 });
+    expect(chart.children?.find((c) => c.name === "feat")?.isGitWorktree).toBe(true);
+    expect(chart.children?.find((c) => c.name === ".cursor")?.isAgentData).toBe(true);
+    const ws = chart.children?.find((c) => c.name === "ws");
+    expect(ws?.isWorkspace).toBe(true);
+    expect(ws?.isGitWorktree).toBe(false);
+  });
+
+  test("synthetic group paths localize and cannot be deleted", () => {
+    expect(isAtmosOverviewPath(ATMOS_OVERVIEW_PATH)).toBe(true);
+    expect(isAtmosOverviewPath(GIT_WORKTREES_GROUP_PATH)).toBe(false);
+    expect(isAtmosSyntheticPath(GIT_WORKTREES_GROUP_PATH)).toBe(true);
+    expect(localizedSyntheticName(AGENT_DATA_GROUP_PATH, {
+      atmosRoot: "Atmos",
+      agentData: "Agent data",
+      gitWorktrees: "Git worktrees",
+    })).toBe("Agent data");
+    const group: DiskNode = {
+      name: "Git worktrees",
+      path: GIT_WORKTREES_GROUP_PATH,
+      size: 100,
+      is_dir: true,
+      is_project: false,
+      is_git_worktree: true,
+      file_count: 1,
+      dir_count: 1,
+      children: [
+        {
+          name: "feat",
+          path: "/tmp/feat",
+          size: 100,
+          is_dir: true,
+          is_project: false,
+          is_git_worktree: true,
+          file_count: 1,
+          dir_count: 0,
+        },
+      ],
+    };
+    const chart = toEChartsTree(group, group.size, {
+      maxDepth: 2,
+      gitWorktreesLabel: "Git worktrees",
+    });
+    expect(chart.name).toBe("Git worktrees");
+    expect(chart.isGitWorktree).toBe(true);
+    expect(canDeleteDiskPath(GIT_WORKTREES_GROUP_PATH, "Git worktrees", ATMOS_OVERVIEW_PATH)).toBe(
+      false,
+    );
+    expect(canDeleteDiskPath("/tmp/feat", "feat", ATMOS_OVERVIEW_PATH)).toBe(true);
+  });
+
+  test("cleanup hint keys cover agent sessions, not whole homes", () => {
+    expect(getCleanupHintKey(".cursor", 1024)).toBeUndefined();
+    expect(getCleanupHintKey(".claude", 1024)).toBeUndefined();
+    expect(getCleanupHintKey("session-state", 1024)).toBeUndefined();
+    expect(getCleanupHintKey("acp-events", 1024)).toBe("acp_events");
+    expect(getCleanupHintKey("claude", 1024)).toBe("agent_session");
+    expect(getCleanupHintKey("cursorChats", 1024)).toBe("agent_session");
+  });
+
+  test("agent session labels are product names, not directories", () => {
+    const labels: Record<string, string> = {
+      claude: "Claude Code sessions",
+      opencode: "OpenCode sessions",
+    };
+    const lookup = (key: string) => labels[key];
+    expect(localizeAgentSessionName("claude", lookup)).toBe("Claude Code sessions");
+    expect(localizeAgentSessionName("opencode (1)", lookup)).toBe("OpenCode sessions (1)");
+    expect(localizeAgentSessionName(".claude/projects", lookup)).toBe(".claude/projects");
+    const chart = toEChartsTree(
+      {
+        name: "claude",
+        path: "/home/u/.claude/projects",
+        size: 50,
+        is_dir: true,
+        is_project: false,
+        is_agent_data: true,
+        file_count: 1,
+        dir_count: 0,
+      },
+      50,
+      { maxDepth: 1, localizeName: (name) => localizeAgentSessionName(name, lookup) },
+    );
+    expect(chart.name).toBe("Claude Code sessions");
+  });
+
+  test("percent-encoded session folders show a short decoded name", () => {
+    const encoded =
+      "%2FUsers%2Flurunrun%2Fown_spa%2F%E4%B8%AD%E6%96%87%E9%A1%B9%E7%9B%AE";
+    expect(friendlyDiskEntryName(encoded)).toBe("中文项目");
+    expect(
+      friendlyDiskEntryPath(`/Users/lurunrun/.grok/sessions/${encoded}`),
+    ).toBe("/Users/lurunrun/own_spa/中文项目");
+    expect(friendlyDiskEntryName("src")).toBe("src");
+    expect(friendlyDiskEntryPath("/Users/lurunrun/src")).toBe("/Users/lurunrun/src");
+    expect(
+      friendlyDiskEntryPath(
+        `/Users/lurunrun/.grok/sessions/${encoded}/019fc5bb-c28c-7c73-aa3a-5d952100f71d`,
+      ),
+    ).toBe("/Users/lurunrun/own_spa/中文项目/019fc5bb-c28c-7c73-aa3a-5d952100f71d");
+    expect(
+      friendlyDiskEntryPath(
+        "/Users/lurunrun/.grok/sessions/%2FUsers%2Flurunrun%2Fown_space%2FOpen Source%2Fatmos/019fc5bb-c28c-7c73-aa3a-5d952100f71d",
+      ),
+    ).toBe(
+      "/Users/lurunrun/own_space/Open Source/atmos/019fc5bb-c28c-7c73-aa3a-5d952100f71d",
+    );
+    const chart = toEChartsTree(
+      {
+        name: encoded,
+        path: `/Users/lurunrun/.grok/sessions/${encoded}`,
+        size: 40,
+        is_dir: true,
+        is_project: false,
+        file_count: 1,
+        dir_count: 0,
+      },
+      40,
+      { maxDepth: 1 },
+    );
+    expect(chart.name).toBe("中文项目");
   });
 
   test("bytes-eased keeps larger folders larger among siblings", () => {
@@ -425,6 +612,38 @@ describe("disk analyzer tree adapters", () => {
     expect(limited.children?.filter((c) => c.name === "__other__").length).toBe(1);
   });
 
+  test("levelNeedsWiderTopN is true only when __other__ hides extra children", () => {
+    const pruned: DiskNode = {
+      ...sample,
+      children: [
+        {
+          name: "a",
+          path: "/home/a",
+          size: 100,
+          is_dir: false,
+          is_project: false,
+          file_count: 1,
+          dir_count: 0,
+          children: [],
+        },
+        {
+          name: "__other__",
+          path: "/home/__other__",
+          size: 50,
+          is_dir: true,
+          is_project: false,
+          file_count: 2,
+          dir_count: 0,
+          children: [],
+        },
+      ],
+    };
+    expect(levelNeedsWiderTopN(pruned, 10)).toBe(true);
+    expect(levelNeedsWiderTopN(pruned, 1)).toBe(false);
+    expect(levelNeedsWiderTopN(sample, 100)).toBe(false);
+    expect(levelNeedsWiderTopN(null, 50)).toBe(false);
+  });
+
   test("sortNodes keeps __other__ last even when largest", () => {
     const nodes: DiskNode[] = [
       {
@@ -695,6 +914,11 @@ describe("disk analyzer tree adapters", () => {
     expect(getCleanupHintKey("node_modules", 100)).toBe("node_modules");
     expect(getCleanupHintKey(".next", 100)).toBe("dot_next");
     expect(getCleanupHintKey("src", 100)).toBeUndefined();
+    expect(getCleanupHintKey("build", 100)).toBeUndefined();
+    expect(getCleanupHintKey("dist", 100)).toBeUndefined();
+    expect(getCleanupHintKey("out", 100)).toBeUndefined();
+    expect(getCleanupHintKey("output", 100)).toBeUndefined();
+    expect(getCleanupHintKey("tmp", 100)).toBeUndefined();
     expect(getCleanupHintKey("node_modules", 0)).toBeUndefined();
   });
 
@@ -751,6 +975,264 @@ describe("disk analyzer tree adapters", () => {
     // When user drills into src, only that level's children matter.
     const srcLevel = collectCleanupSuggestions(children[1].children);
     expect(srcLevel.map((t) => t.name)).toEqual(["target"]);
+  });
+});
+
+describe("disk analyzer suggestion helpers", () => {
+  test("worktree kinds are treated as git removals", () => {
+    expect(
+      isWorktreeSuggestion({
+        path: "/wt",
+        name: "wt",
+        size: 1,
+        reason: "",
+        kind: "worktree",
+      }),
+    ).toBe(true);
+    expect(
+      isWorktreeSuggestion({
+        path: "/ws",
+        name: "ws",
+        size: 1,
+        reason: "",
+        kind: "workspace",
+      }),
+    ).toBe(true);
+    expect(
+      isWorktreeSuggestion({
+        path: "/nm",
+        name: "node_modules",
+        size: 1,
+        reason: "",
+        kind: "cache",
+      }),
+    ).toBe(false);
+  });
+
+  test("suggestionTotalSize sums card sizes", () => {
+    expect(
+      suggestionTotalSize([
+        { path: "/a", name: "a", size: 10, reason: "" },
+        { path: "/b", name: "b", size: 25, reason: "" },
+      ]),
+    ).toBe(35);
+  });
+
+  test("groupClearSuggestions merges kinds and same-name caches", () => {
+    const now = Date.UTC(2026, 7, 13);
+    const groups = groupClearSuggestions(
+      [
+        {
+          path: "/a/node_modules",
+          name: "node_modules",
+          size: 7_200_000_000,
+          reason: "",
+          kind: "cache",
+        },
+        {
+          path: "/b/node_modules",
+          name: "node_modules",
+          size: 361_000_000,
+          reason: "",
+          kind: "cache",
+        },
+        {
+          path: "/wt",
+          name: "feat",
+          size: 1_300_000_000,
+          reason: "",
+          kind: "worktree",
+          last_activity_ms: now - 79 * 86_400_000,
+        },
+        {
+          path: "/sessions/codex",
+          name: "Codex archived sessions",
+          size: 314_000_000,
+          reason: "",
+          kind: "session",
+          last_activity_ms: now - 40 * 86_400_000,
+        },
+        {
+          path: "/sessions/pi",
+          name: "Pi sessions",
+          size: 0,
+          reason: "",
+          kind: "session",
+          last_activity_ms: now - 31 * 86_400_000,
+        },
+      ],
+      now,
+    );
+    expect(groups.map((group) => group.kind)).toEqual([
+      "cache",
+      "worktree",
+      "session",
+    ]);
+    expect(groups[0].buckets).toHaveLength(1);
+    expect(groups[0].buckets[0].items).toHaveLength(2);
+    expect(groups[0].buckets[0].name).toBe("node_modules");
+    expect(groups[2].items.map((item) => item.name)).toEqual([
+      "Codex archived sessions",
+      "Pi sessions",
+    ]);
+  });
+
+  test("groupClearSuggestions sorts groups by total size", () => {
+    const groups = groupClearSuggestions([
+      {
+        path: "/cache/node_modules",
+        name: "node_modules",
+        size: 10,
+        reason: "",
+        kind: "cache",
+      },
+      {
+        path: "/sessions/codex",
+        name: "Codex sessions",
+        size: 9_000,
+        reason: "",
+        kind: "session",
+      },
+    ]);
+    expect(groups.map((group) => group.kind)).toEqual(["session", "cache"]);
+  });
+
+  test("same-name caches stay together even when one is under 1MB", () => {
+    const groups = groupClearSuggestions([
+      {
+        path: "/a/node_modules",
+        name: "node_modules",
+        size: 8_000_000,
+        reason: "",
+        kind: "cache",
+      },
+      {
+        path: "/b/target",
+        name: "target",
+        size: 3_000_000,
+        reason: "",
+        kind: "cache",
+      },
+      {
+        path: "/c/node_modules",
+        name: "node_modules",
+        size: 100,
+        reason: "",
+        kind: "cache",
+      },
+    ]);
+    expect(groups[0].items.map((item) => item.path)).toEqual([
+      "/a/node_modules",
+      "/c/node_modules",
+      "/b/target",
+    ]);
+  });
+
+  test("compareSuggestionsForCleanup sinks tiny items and boosts idle size", () => {
+    const now = Date.UTC(2026, 7, 13);
+    const tiny = {
+      path: "/tiny",
+      name: "tiny",
+      size: SMALL_SUGGEST_BYTES - 1,
+      reason: "",
+      kind: "cache" as const,
+      last_activity_ms: now - 180 * 86_400_000,
+    };
+    const fresh = {
+      path: "/fresh",
+      name: "fresh",
+      size: 200_000_000,
+      reason: "",
+      kind: "cache" as const,
+      last_activity_ms: now - 2 * 86_400_000,
+    };
+    const stale = {
+      path: "/stale",
+      name: "stale",
+      size: 200_000_000,
+      reason: "",
+      kind: "cache" as const,
+      last_activity_ms: now - 90 * 86_400_000,
+    };
+    expect(compareSuggestionsForCleanup(tiny, fresh, now)).toBeGreaterThan(0);
+    expect(compareSuggestionsForCleanup(stale, fresh, now)).toBeLessThan(0);
+    expect(suggestCleanupScore(stale, now)).toBeGreaterThan(
+      suggestCleanupScore(fresh, now),
+    );
+    expect(suggestIdleDays(undefined, now)).toBeNull();
+    expect(suggestIdleDays(0, now)).toBeNull();
+    expect(suggestIdleDays(now - 12 * 60 * 60 * 1000, now)).toBe(1);
+    const idle180 = {
+      path: "/cap",
+      name: "cap",
+      size: 100,
+      reason: "",
+      last_activity_ms: now - 180 * 86_400_000,
+    };
+    const idle181 = {
+      ...idle180,
+      last_activity_ms: now - 181 * 86_400_000,
+    };
+    expect(suggestCleanupScore(idle180, now)).toBe(200);
+    expect(suggestCleanupScore(idle181, now)).toBe(200);
+  });
+
+  test("suggestLocationRaw uses the parent folder for cache items", () => {
+    expect(
+      suggestLocationRaw({
+        path: "/home/proj/node_modules",
+        name: "node_modules",
+        size: 1,
+        reason: "",
+        kind: "cache",
+      }),
+    ).toBe("/home/proj");
+    expect(
+      suggestLocationRaw({
+        path: "/home/.codex/sessions",
+        name: "Codex sessions",
+        size: 1,
+        reason: "",
+        kind: "session",
+      }),
+    ).toBe("/home/.codex/sessions");
+    expect(
+      suggestShortLocation({
+        path: "/home/proj/node_modules",
+        name: "node_modules",
+        size: 1,
+        reason: "",
+        kind: "cache",
+      }),
+    ).toBe("proj");
+    expect(
+      suggestLocationRaw({
+        path: "/home/.codex/worktrees/feat",
+        name: "feat",
+        size: 1,
+        reason: "",
+        kind: "worktree",
+      }),
+    ).toBe("/home/.codex/worktrees/feat");
+    expect(
+      suggestShortLocation({
+        path: "C:\\Users\\me\\proj\\node_modules",
+        name: "node_modules",
+        size: 1,
+        reason: "",
+        kind: "cache",
+      }),
+    ).toBe("proj");
+  });
+
+  test("suggestionSurvivesDelete drops the path and its children", () => {
+    expect(suggestionSurvivesDelete("/a/node_modules", ["/a/node_modules"])).toBe(
+      false,
+    );
+    expect(suggestionSurvivesDelete("/a/node_modules/pkg", ["/a/node_modules"])).toBe(
+      false,
+    );
+    expect(suggestionSurvivesDelete("/b/target", ["/a/node_modules"])).toBe(true);
   });
 });
 

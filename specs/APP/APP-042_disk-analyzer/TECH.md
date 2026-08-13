@@ -73,7 +73,10 @@ struct DiskNode {
   path: String,
   size: u64,          // allocated bytes
   is_dir: bool,
-  is_project: bool,   // project or workspace root match
+  is_project: bool,   // Atmos project root
+  is_workspace: bool, // Atmos workspace worktree (serde default)
+  is_git_worktree: bool, // linked git worktree, not an Atmos workspace
+  is_agent_data: bool,   // code-agent home / session directory
   file_count: u64,
   dir_count: u64,
   children: Vec<DiskNode>,
@@ -102,11 +105,54 @@ Visualization prune rules (serialization):
 - Per directory, keep top `N` children by size (default 40); collapse remainder into an `__other__` synthetic child preserving leftover bytes/counts.
 - Parent `size` remains the true aggregated total.
 - Cleanup suggestions are computed **before** prune so cache dirs collapsed into `__other__` still surface.
+- Stale worktree / workspace / agent-session suggestions use last-activity time only (gitdir + last commit for checkouts; shallow child mtimes for sessions). Rebuildable cache basenames stay size-agnostic. Synthetic `atmos://` nodes, `__other__`, and project roots are never suggested.
 
-Project marking:
+Project / worktree / agent marking:
 
-- Collect absolute paths for all projects + workspaces known to Atmos.
-- Mark node `is_project=true` when `path` equals one of those roots (normalized).
+- Collect absolute paths for Atmos projects + workspaces.
+- On every default scan (not optional), discover **linked** git worktrees. First paint does **not** wait on a home-wide `.git` walk:
+  1. Measure Atmos entries + agent session dirs (`exists()` only).
+  2. Then `GitEngine::discover_linked_worktrees` (home walk + seed `~/.cursor/worktrees` / `~/.codex/worktrees` / `~/.grok/worktrees`) and append uncovered worktrees.
+- Drill-in / scan-all badge linked worktrees from a `.git` **file** on the path (no extra home walk). `discover_linked_worktrees_fast` only walks known agent worktree dirs when marks are not already on the session.
+- Collect existing **session** directories (`agent_data_roots`) when the path `exists()`. The first tuple field is a stable **i18n key** (`claude`, `cursor`, `grok`, …), not a filesystem path. Web copy is `DiskAnalyzer.agentSessionNames.*` (e.g. “Claude Code sessions”). Skill scan looks at in-repo `.agent/skills`; session stores are home / XDG paths. Do **not** measure whole agent homes or IDE Application Support.
+
+  Covered session roots (env overrides in parentheses):
+
+  | Agent | Session path |
+  |-------|----------------|
+  | Claude Code | `~/.claude/projects` (`CLAUDE_CONFIG_DIR`) |
+  | Cursor | `~/.cursor/projects`, `~/.cursor/chats` |
+  | Codex | `$CODEX_HOME/sessions`, `archived_sessions`, `headless` |
+  | Copilot CLI | `$COPILOT_HOME/session-state`, `history-session-state` |
+  | Gemini CLI | `~/.gemini/tmp` |
+  | Antigravity | `~/.gemini/antigravity-cli/conversations` |
+  | Continue | `~/.continue/sessions` |
+  | Grok Build | `$GROK_HOME/sessions` (default `~/.grok/sessions`) |
+  | OpenCode | `~/.local/share/opencode` (+ macOS Application Support); not `~/.opencode` |
+  | Devin CLI | `~/.local/share/devin/cli`; Desktop ACP `…/Devin/User/acp-events` |
+  | Amp | `~/.local/share/amp/threads` |
+  | Factory Droid | `~/.factory/sessions` |
+  | Pi / Oh My Pi | `~/.pi/agent/sessions` (`PI_CODING_AGENT_DIR`), `~/.omp/agent/sessions` |
+  | Kimi CLI / Code | `~/.kimi/sessions` (`KIMI_SHARE_DIR`), `$KIMI_CODE_HOME/sessions` |
+  | Qwen | `~/.qwen/tmp`, `~/.qwen/projects` |
+  | Cline CLI | `~/.cline/data/sessions` (`CLINE_SESSION_DATA_DIR` / `CLINE_DATA_DIR` / `CLINE_DIR`) |
+  | Goose | `~/.config/goose/sessions`, `~/.local/share/goose/sessions` (`GOOSE_PATH_ROOT`) |
+  | Crush | `~/.crush` when `crush.db` exists, else `sessions/` |
+  | Hermes | `$HERMES_HOME/sessions` only (not the whole home) |
+  | OpenClaw | `~/.openclaw/agents` |
+  | OpenHands | `~/.openhands/conversations` |
+  | Mux / Junie / Augment | `~/.mux/sessions`, `~/.junie/sessions`, `~/.augment/sessions` |
+  | Command Code / CodeBuddy | `~/.commandcode/projects`, `~/.codebuddy/projects` |
+  | Vibe | `~/.vibe/logs/session` |
+  | Kiro | `~/.kiro/sessions`, `~/.local/share/kiro-cli` |
+  | Windsurf Cascade | `~/.codeium/windsurf/cascade` |
+
+  Omitted (no confirmed home session root, or would swallow IDE/settings): Aider per-repo history, VS Code extension task DBs (Cline/Roo/Kilo), Replit cloud, and skill-only trees without a known session dir (`iflow`, `kode`, `qoder`, `trae`, …).
+
+- Worktree seeds: `~/.cursor/worktrees`, `$CODEX_HOME/worktrees`, `$GROK_HOME/worktrees`.
+- Badge exclusivity: workspace > project > git worktree > agent data.
+- Default Atmos overview **groups** uncovered agent **session** dirs under `atmos://disk-usage/agent-data` and leftover worktrees under `atmos://disk-usage/git-worktrees`. `.atmos` / projects / Atmos.app stay as top-level tiles. Groups are `children_loaded=true` synthetic dirs (not deletable). Scan-all does not add extra tiles; it still badges in-place.
+- Delete routes by path: Atmos workspace (active or archived, still on disk) → `git worktree remove` then `WorkspaceService::delete_workspace` (soft-delete DB). Other linked worktrees → `GitEngine::remove_linked_worktree`. Everything else → trash / permanent. Synthetic `atmos://` paths are refused.
 
 ## WebSocket protocol
 
@@ -116,7 +162,8 @@ Project marking:
 |--------|---------|----------|
 | `DiskAnalyzerStartScan` | `{ path?: string, max_children?: number }` | `{ scan_id, root_path }` |
 | `DiskAnalyzerCancelScan` | `{ scan_id }` | `{ ok: true }` — owner connection only |
-| `DiskAnalyzerGetTree` | `{ scan_id, path?: string, max_children?: number }` | `{ tree, stats }` — owner only; snapshot then prune outside lock |
+| `DiskAnalyzerGetTree` | `{ scan_id, path?: string, max_children?: number }` | `{ tree, stats }` — owner only; snapshot then prune outside lock. If the cached node was already pruned into `__other__` below the requested `max_children`, re-walk that path instead of returning the truncated snapshot. |
+| `DiskAnalyzerGetSuggestions` | `{ scan_id }` | `{ suggestions, ready }` — owner only; recomputes cache hints plus stale worktrees/sessions from **time only** (no size gate). `ready` is true after the overview walk finishes. |
 | `DiskAnalyzerDelete` | `{ scan_id, path, permanent?: bool }` | `{ success, path, freed_bytes, permanent }` — owner only; path must canonicalize under session root |
 | `DiskAnalyzerDiskInfo` | `{ path?: string }` | `DiskVolumeInfo` |
 
@@ -140,7 +187,7 @@ Default `path` for start/info = home directory from existing `FsEngine::get_home
 
 ## Backend module layout
 
-- `crates/core-engine/src/disk_analyzer/mod.rs` — walk, hardlink dedup, prune, suggestions, delete, disk info.
+- `crates/core-engine/src/disk_analyzer/` — walk, hardlink dedup, prune, suggestions, delete, disk info.
 - Dependencies: `jwalk`, `trash`, `fs4`, existing `serde`/`dirs`; `uuid` is a **dev-dependency** for fixture dirs.
 - `crates/core-service/src/service/disk_analyzer.rs` — `DiskAnalyzerService` owns sessions + events.
 - API handlers under `apps/api/src/api/ws/router/disk_analyzer.rs` + message DTOs; unicast forwarder in `main.rs`.
@@ -148,7 +195,7 @@ Default `path` for start/info = home directory from existing `FsEngine::get_home
 ## Security / privacy
 
 - Operations are local filesystem only; do not upload trees.
-- Scan sessions are bound to the initiating WebSocket `conn_id`; cancel/get_tree/delete require ownership.
+- Scan sessions are bound to the initiating WebSocket `conn_id`; cancel/get_tree/get_suggestions/delete require ownership.
 - Progress/completion notifications are unicast to the owner only.
 - Delete requires `scan_id`; path must canonicalize under that session’s root; refuse filesystem roots via portable `parent().is_none()` (covers `/` and drive roots).
 - Permanent delete requires explicit flag + UI confirmation.
@@ -158,6 +205,7 @@ Default `path` for start/info = home directory from existing `FsEngine::get_home
 
 - Parallel walk via `jwalk` (Rayon under the hood).
 - Progress emit throttled (~250ms) to avoid WS floods.
+- Default overview: Atmos + agent tiles first; home-wide worktree discovery is a second wave so `~/.atmos` is not blocked by walking the rest of the machine.
 - Pruned tree for chart; optional `DiskAnalyzerGetTree` for deeper path (Arc snapshot, prune outside lock).
 - Delete runs on `spawn_blocking`.
 - Cancel sets an atomic flag checked during walk.
