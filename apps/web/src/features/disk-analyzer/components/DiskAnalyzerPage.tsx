@@ -63,6 +63,18 @@ export function DiskAnalyzerPage() {
     [t],
   );
   const analyzer = useDiskAnalyzer();
+  const pathTitle = useCallback(
+    (path: string) =>
+      displayNodePath(
+        path,
+        analyzer.scanPath,
+        t("computerRoot"),
+        t("atmosRoot"),
+        t("agentData"),
+        t("gitWorktrees"),
+      ),
+    [analyzer.scanPath, t],
+  );
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [listDeletePath, setListDeletePath] = useState<string | null>(null);
   const [permanent, setPermanent] = useState(false);
@@ -268,7 +280,7 @@ export function DiskAnalyzerPage() {
                           ? "font-medium text-foreground"
                           : "text-muted-foreground hover:bg-muted hover:text-foreground",
                       )}
-                      title={friendlyDiskEntryPath(crumb.path)}
+                      title={pathTitle(crumb.path)}
                       onClick={() => analyzer.drillTo(crumb.path)}
                     >
                       {index === 0
@@ -408,9 +420,9 @@ export function DiskAnalyzerPage() {
                     {analyzer.progress?.current_path ? (
                       <p
                         className="max-w-md truncate text-xs text-muted-foreground/70"
-                        title={friendlyDiskEntryPath(analyzer.progress.current_path)}
+                        title={pathTitle(analyzer.progress.current_path)}
                       >
-                        {friendlyDiskEntryPath(analyzer.progress.current_path)}
+                        {pathTitle(analyzer.progress.current_path)}
                       </p>
                     ) : null}
                   </>
@@ -441,7 +453,7 @@ export function DiskAnalyzerPage() {
                     <div className="flex min-w-0 items-center gap-1.5">
                       <div
                         className="min-w-0 shrink truncate text-sm font-semibold"
-                        title={friendlyDiskEntryPath(analyzer.selectedNode.path)}
+                        title={pathTitle(analyzer.selectedNode.path)}
                       >
                         {displayNodeName(
                           analyzer.selectedNode,
@@ -579,7 +591,7 @@ export function DiskAnalyzerPage() {
                             <div className="relative flex min-w-0 flex-1 items-center gap-1.5 text-left">
                               <span
                                 className="truncate text-xs font-medium"
-                                title={friendlyDiskEntryPath(child.path)}
+                                title={pathTitle(child.path)}
                               >
                                 {displayNodeName(
                                   child,
