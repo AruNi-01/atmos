@@ -153,7 +153,7 @@ impl DiskPathKind {
                 ..Self::default()
             };
         }
-        if matches(&roots.git_worktree_roots) || path.join(".git").is_file() {
+        if matches(&roots.git_worktree_roots) || crate::git::is_linked_worktree(path) {
             return Self {
                 is_git_worktree: true,
                 ..Self::default()
@@ -356,7 +356,7 @@ impl DiskAnalyzerEngine {
                     is_project: true,
                     ..DiskPathKind::default()
                 }
-            } else if worktree_set.contains(&p) || p.join(".git").is_file() {
+            } else if worktree_set.contains(&p) || crate::git::is_linked_worktree(&p) {
                 DiskPathKind {
                     is_git_worktree: true,
                     ..DiskPathKind::default()
@@ -2278,6 +2278,26 @@ mod tests {
             .expect("worktree child");
         assert!(wt_node.is_git_worktree);
         assert!(!wt_node.is_project);
+    }
+
+    #[test]
+    fn scan_does_not_mark_submodule_as_worktree() {
+        let root = tempfile_dir("disk-analyzer-submodule");
+        let sub = root.join("vendor");
+        fs::create_dir_all(&sub).unwrap();
+        fs::write(sub.join(".git"), "gitdir: ../.git/modules/vendor\n").unwrap();
+        write_file(&sub.join("a.txt"), 40);
+        let engine = DiskAnalyzerEngine::new();
+        let (tree, _, _) = engine
+            .scan_path("s", &root, &DiskScanRoots::default(), Some(40), None, None)
+            .unwrap();
+        let sub_node = tree
+            .children
+            .iter()
+            .find(|c| c.name == "vendor")
+            .expect("submodule child");
+        assert!(!sub_node.is_git_worktree);
+        assert!(!sub_node.is_project);
     }
 
     #[test]

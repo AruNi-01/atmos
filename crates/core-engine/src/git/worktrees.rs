@@ -415,8 +415,32 @@ fn git_common_dir(seed: &Path) -> Option<PathBuf> {
     Some(std::fs::canonicalize(&abs).unwrap_or(abs))
 }
 
-fn is_linked_worktree(path: &Path) -> bool {
-    path.join(".git").is_file()
+/// Linked worktrees store `gitdir: …/.git/worktrees/<name>` in a `.git` file.
+/// Submodule checkouts also use a `.git` file, but point at `…/.git/modules/…`.
+pub(crate) fn is_linked_worktree(path: &Path) -> bool {
+    let git = path.join(".git");
+    if !git.is_file() {
+        return false;
+    }
+    let Ok(text) = std::fs::read_to_string(&git) else {
+        return false;
+    };
+    gitdir_points_at_worktree(&text)
+}
+
+fn gitdir_points_at_worktree(git_file: &str) -> bool {
+    let Some(gitdir) = git_file.lines().find_map(|line| {
+        line.trim()
+            .strip_prefix("gitdir:")
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+    }) else {
+        return false;
+    };
+    Path::new(gitdir)
+        .parent()
+        .and_then(|parent| parent.file_name())
+        .is_some_and(|name| name == "worktrees")
 }
 
 #[cfg(test)]
@@ -568,5 +592,23 @@ mod tests {
                 .any(|p| p == &home.join(".cursor").join("worktrees")),
             "expected ~/.cursor/worktrees in {roots:?}"
         );
+    }
+
+    #[test]
+    fn is_linked_worktree_accepts_worktree_gitdir_not_submodule() {
+        let root = unique_temp_dir("gitdir-kind");
+        let worktree = root.join("linked");
+        let submodule = root.join("vendor");
+        fs::create_dir_all(&worktree).unwrap();
+        fs::create_dir_all(&submodule).unwrap();
+        fs::write(
+            worktree.join(".git"),
+            "gitdir: /tmp/example.git/worktrees/x\n",
+        )
+        .unwrap();
+        fs::write(submodule.join(".git"), "gitdir: ../.git/modules/vendor\n").unwrap();
+        assert!(is_linked_worktree(&worktree));
+        assert!(!is_linked_worktree(&submodule));
+        let _ = fs::remove_dir_all(&root);
     }
 }
