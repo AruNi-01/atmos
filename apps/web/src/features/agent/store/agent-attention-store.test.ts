@@ -4,12 +4,17 @@ import {
   setAgentPaneAcknowledgedHandler,
   useAgentAttentionStore,
 } from "./agent-attention-store";
+import { useAgentAttentionSummaryStore } from "./agent-attention-summary-store";
 
 beforeEach(() => {
   useAgentAttentionStore.setState({
     panes: new Map(),
     filterMode: false,
     focusedStablePaneId: null,
+    revision: 0,
+  });
+  useAgentAttentionSummaryStore.setState({
+    panes: new Map(),
     revision: 0,
   });
   setAgentPaneAcknowledgedHandler(null);
@@ -60,6 +65,29 @@ describe("agent-attention-store", () => {
     useAgentAttentionStore.getState().notifyPaneFocused("ws-1:main");
     expect(ack).toHaveBeenCalledTimes(1);
     expect(ack).toHaveBeenCalledWith("ws-1:main");
+  });
+
+  test("notifyPaneFocused keeps auto-summary chrome", () => {
+    useAgentAttentionSummaryStore.getState().upsert({
+      stablePaneId: "ws-1:main",
+      contextId: "ws-1",
+      sessionId: "ws-1:main",
+      status: "ready",
+      summary: "Shipped the recap.",
+      nextSteps: ["Open the PR"],
+      startedAt: Date.now(),
+    });
+    const store = useAgentAttentionStore.getState();
+    store.raise({
+      stablePaneId: "ws-1:main",
+      contextId: "ws-1",
+      reason: "task_complete",
+    });
+    store.notifyPaneFocused("ws-1:main");
+    expect(store.hasPaneAttention("ws-1:main")).toBe(false);
+    expect(
+      useAgentAttentionSummaryStore.getState().getPane("ws-1:main")?.summary,
+    ).toBe("Shipped the recap.");
   });
 
   test("notifyPaneFocused clears attention when focus key matches sessionId alias", () => {

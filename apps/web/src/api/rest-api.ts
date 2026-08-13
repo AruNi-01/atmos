@@ -667,6 +667,8 @@ export const agentHooksApi = {
     stablePaneIds?: string[];
     /** RFC3339: only clear latches raised at or before this (dismiss race guard). */
     notAfter?: string;
+    /** Also drop auto-summary chrome. Focus-ack omits this; Dismiss / send set it. */
+    dismissSummary?: boolean;
   }): Promise<{ cleared: string[] }> => {
     return fetchHooksApi<{ cleared: string[] }>('/hooks/attention/clear', {
       method: 'POST',
@@ -674,6 +676,7 @@ export const agentHooksApi = {
         stable_pane_id: input.stablePaneId,
         stable_pane_ids: input.stablePaneIds,
         not_after: input.notAfter,
+        dismiss_summary: input.dismissSummary === true ? true : undefined,
       }),
     });
   },

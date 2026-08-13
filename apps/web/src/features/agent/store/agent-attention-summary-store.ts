@@ -6,6 +6,10 @@ import {
   type AgentAttentionSummaryDto,
   type AttentionSummaryStatusDto,
 } from "@/api/rest-api";
+import {
+  type PaneAttention,
+  useAgentAttentionStore,
+} from "@/features/agent/store/agent-attention-store";
 
 export type AttentionSummaryStatus = AttentionSummaryStatusDto;
 
@@ -146,5 +150,92 @@ export async function hydrateAttentionSummariesFromServer(): Promise<void> {
       "[AgentAttentionSummaryStore] Failed to hydrate summaries:",
       error,
     );
+  }
+}
+
+/**
+ * Explicit Dismiss / composer send / pane destroy. Focus-ack must not call this
+ * — the recap stays until the user has actually consumed it.
+ */
+export function dismissAttentionSummaryChrome(stablePaneId: string): void {
+  const id = stablePaneId?.trim();
+  if (!id) return;
+
+  const attentionStore = useAgentAttentionStore.getState();
+  const summaryStore = useAgentAttentionSummaryStore.getState();
+  const prevAttentionList = collectMatchingAttention(attentionStore.panes, id);
+  const prevSummary = summaryStore.panes.get(id) ?? null;
+  if (prevAttentionList.length === 0 && !prevSummary) return;
+
+  const latch = prevAttentionList[0];
+  const notAfter = latch?.raisedAt
+    ? new Date(latch.raisedAt).toISOString()
+    : prevSummary?.startedAt
+      ? new Date(prevSummary.startedAt).toISOString()
+      : undefined;
+
+  summaryStore.clearPane(id);
+  attentionStore.clearMatchingSessionIds([id]);
+
+  void agentHooksApi
+    .clearAttention({ stablePaneId: id, notAfter, dismissSummary: true })
+    .catch((error) => {
+      console.warn(
+        "[AgentAttentionSummaryStore] Failed to dismiss summary:",
+        error,
+      );
+      restoreDismissedAttentionSummary(id, prevAttentionList, prevSummary);
+    });
+}
+
+function collectMatchingAttention(
+  panes: Map<string, PaneAttention>,
+  id: string,
+): PaneAttention[] {
+  const matched: PaneAttention[] = [];
+  for (const [key, pane] of panes) {
+    if (key === id || pane.sessionId === id) {
+      matched.push(pane);
+    }
+  }
+  return matched;
+}
+
+function restoreDismissedAttentionSummary(
+  id: string,
+  prevAttentionList: readonly PaneAttention[],
+  prevSummary: PaneAttentionSummary | null,
+): void {
+  const attentionNow = useAgentAttentionStore.getState();
+  const summaryNow = useAgentAttentionSummaryStore.getState();
+  // Restore per-pane, not by global revision — another pane can bump either
+  // store while this request is in flight.
+  const currentMatches = collectMatchingAttention(attentionNow.panes, id);
+  const newestCurrentRaisedAt = currentMatches.reduce(
+    (best, pane) => Math.max(best, pane.raisedAt),
+    0,
+  );
+  const prevRaisedAt = prevAttentionList.reduce(
+    (best, pane) => Math.max(best, pane.raisedAt),
+    prevSummary?.startedAt ?? 0,
+  );
+  const newerTurnTookOver =
+    newestCurrentRaisedAt > 0 && newestCurrentRaisedAt > prevRaisedAt;
+
+  if (currentMatches.length === 0) {
+    for (const prev of prevAttentionList) {
+      attentionNow.raise({
+        stablePaneId: prev.stablePaneId,
+        contextId: prev.contextId,
+        reason: prev.reason,
+        sessionId: prev.sessionId,
+        tool: prev.tool,
+        raisedAt: prev.raisedAt,
+      });
+    }
+  }
+
+  if (!newerTurnTookOver && !summaryNow.panes.has(id) && prevSummary) {
+    useAgentAttentionSummaryStore.getState().upsert(prevSummary);
   }
 }

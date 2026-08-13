@@ -258,10 +258,6 @@ export const useAgentHooksStore = create<AgentHooksStore>((set, get) => ({
         const { stable_pane_ids } = data as { stable_pane_ids?: string[] };
         if (!stable_pane_ids?.length) return;
         useAgentAttentionStore.getState().clearMatchingSessionIds(stable_pane_ids);
-        // Backend also clears summaries, but keep client in sync if events reorder.
-        useAgentAttentionSummaryStore
-          .getState()
-          .clearMatchingIds(stable_pane_ids);
       },
     );
 

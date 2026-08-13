@@ -15,7 +15,7 @@ import { cn } from "@workspace/ui";
 import type { TerminalRef } from "./Terminal";
 import type { TerminalPaneAgent } from "../types/index";
 import { isPathLikeTitle } from "./terminal-title";
-import { systemApi } from "@/api/rest-api";
+import { agentHooksApi, systemApi } from "@/api/rest-api";
 import { useTerminalStore, FIXED_TERMINAL_TAB_VALUE } from "@/features/terminal/store/use-terminal-store";
 import { useTerminalSplitPrefsStore } from "@/features/settings/store/terminal-split-prefs-store";
 import { resolveDefaultSplitAgent } from "@/features/terminal/lib/terminal-split-prefs";
@@ -48,6 +48,7 @@ import { useTerminalGridCanvasPins } from "../hooks/use-terminal-grid-canvas-pin
 import { useTerminalGridHotkeys } from "../hooks/use-terminal-grid-hotkeys";
 import { useContestedCliOwners } from "../hooks/use-contested-cli-owners";
 import { useAgentAttentionStore } from "@/features/agent/store/agent-attention-store";
+import { useAgentAttentionSummaryStore } from "@/features/agent/store/agent-attention-summary-store";
 import { useAgentHooksStore } from "@/features/agent/store/agent-hooks-store";
 import {
   toPendingTerminalRun,
@@ -418,6 +419,12 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
     if (!windowName || !workspaceId) return;
     const stablePaneId = `${workspaceId}:${windowName}`;
     useAgentAttentionStore.getState().clearPane(stablePaneId);
+    useAgentAttentionSummaryStore.getState().clearPane(stablePaneId);
+    void agentHooksApi
+      .clearAttention({ stablePaneId, dismissSummary: true })
+      .catch((error) => {
+        console.warn("[TerminalGrid] Failed to dismiss attention summary on pane close:", error);
+      });
     void useAgentHooksStore.getState().removeSession(stablePaneId);
   }, [workspaceId]);
 

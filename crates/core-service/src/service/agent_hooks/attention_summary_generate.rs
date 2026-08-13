@@ -23,9 +23,7 @@ use super::AgentAttentionLatch;
 use crate::error::{Result, ServiceError};
 use crate::service::automation::{resolve_automation_agent_with_config, AutomationAgentRunConfig};
 use crate::service::llm_text_generation::generate_text;
-use crate::service::terminal::{
-    CapturePanePlainTextParams, TerminalService, TranscriptBudget,
-};
+use crate::service::terminal::{CapturePanePlainTextParams, TerminalService, TranscriptBudget};
 
 const DEFAULT_TIMEOUT: Duration = Duration::from_secs(180);
 const MAX_TERMINAL_CONTEXT_BYTES: u32 = 12_000;
