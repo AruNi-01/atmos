@@ -4112,7 +4112,7 @@
         },
         "scriptTrust": {
           "title": "Review this project's setup script",
-          "description": "This command comes from the project's .atmos/scripts/atmos.json and has not been reviewed yet. It runs in your shell with your permissions, so read it before continuing.",
+          "description": "These commands come from the project's .atmos/scripts/atmos.json and have not been reviewed yet. They run in your shell with your permissions. Accepting trusts the whole file, so read every command below — not just the one about to run.",
           "trustAndRun": "Trust and run",
           "trusting": "Trusting…",
           "skip": "Skip and enter workspace",
@@ -4320,6 +4320,10 @@
           "conflict": "This note changed elsewhere. Reload before saving your draft.",
           "reload": "Reload"
         }
+      },
+      "scriptTrustReview": {
+        "empty": "This project's script file has no commands in it.",
+        "aboutToRun": "About to run"
       }
     }
   },
@@ -8908,7 +8912,7 @@
     },
     "scriptTrust": {
       "title": "Review this project's run script",
-      "description": "This command comes from the project's .atmos/scripts/atmos.json and has not been reviewed yet. It runs in your terminal with your permissions, so read it before continuing.",
+      "description": "These commands come from the project's .atmos/scripts/atmos.json and have not been reviewed yet. They run in your terminal with your permissions. Accepting trusts the whole file, so read every command below — not just the one about to run.",
       "trustAndRun": "Trust and run",
       "trusting": "Trusting…",
       "cancel": "Cancel",

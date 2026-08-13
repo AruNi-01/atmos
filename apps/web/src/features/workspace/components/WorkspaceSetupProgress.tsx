@@ -27,6 +27,7 @@ import { FitAddon } from "@xterm/addon-fit";
 import "@xterm/xterm/css/xterm.css";
 import { atmosDarkTheme, defaultTerminalOptions } from "../../terminal/lib/theme";
 import { getWorkspaceSetupCurrentStepKey, type WorkspaceSetupStepKey } from "@/features/workspace/lib/workspace-setup";
+import { ScriptTrustReview } from "@/features/workspace/components/ScriptTrustReview";
 
 const Progress = ({ value, className }: { value: number; className?: string }) => (
   <div className={cn("w-full overflow-hidden rounded-full bg-muted", className)}>
@@ -55,6 +56,29 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
   const retryWorkspaceSetup = useProjectStore((s) => s.retryWorkspaceSetup);
   const needsScriptTrust = progress.requiresScriptTrust === true;
   const [isTrustingScript, setIsTrustingScript] = useState(false);
+
+  /**
+   * The server sends the whole script file here, serialized from the same read
+   * as `scriptHash`, so what is displayed always matches what gets trusted.
+   */
+  const scriptsForReview = useMemo<Record<string, string>>(() => {
+    if (!needsScriptTrust) return {};
+    try {
+      const parsed = JSON.parse(output) as unknown;
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+        return { setup: output };
+      }
+      return Object.fromEntries(
+        Object.entries(parsed as Record<string, unknown>).map(([key, value]) => [
+          key,
+          typeof value === "string" ? value : JSON.stringify(value),
+        ]),
+      );
+    } catch {
+      // Older server sent just the setup command.
+      return { setup: output };
+    }
+  }, [needsScriptTrust, output]);
 
   const handleTrustScript = async () => {
     const projectGuid = progress.scriptProjectGuid;
@@ -474,9 +498,7 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
             </div>
           </div>
           <div className={cn("flex-1 overflow-auto", compact ? "px-4 py-3" : "px-5 py-4")}>
-            <pre className="whitespace-pre-wrap break-words rounded-md bg-muted/50 p-3 text-[12px] leading-relaxed text-foreground">
-              <code>{output}</code>
-            </pre>
+            <ScriptTrustReview scripts={scriptsForReview} highlightField="setup" />
           </div>
         </div>
       );

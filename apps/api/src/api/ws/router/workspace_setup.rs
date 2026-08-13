@@ -47,6 +47,10 @@ pub(super) struct WorkspaceSetupPlan {
     project_main_file_path: String,
     project_guid: String,
     setup_script: Option<String>,
+    /// Whole script file, pretty-printed, for the review UI. Trust is recorded
+    /// for the entire file, so confirmation must show every command in it — not
+    /// just the one about to run.
+    scripts_document: Option<String>,
     /// Whether the user has accepted the current `.atmos` script content. The
     /// file is repository content, so a clone or pull can change it without the
     /// user ever seeing it; setup parks instead of running untrusted commands.
@@ -127,17 +131,20 @@ impl WsMessageService {
             .read_project_scripts(project_guid.to_string())
             .await
             .ok();
-        let setup_script = project_scripts.as_ref().and_then(|scripts| {
-            scripts.scripts["setup"]
-                .as_str()
-                .map(str::trim)
-                .filter(|value| !value.is_empty())
-                .map(ToOwned::to_owned)
-        });
+        let setup_script = project_scripts
+            .as_ref()
+            .and_then(|scripts| scripts.command("setup"))
+            .map(ToOwned::to_owned);
         let setup_script_trusted = project_scripts
             .as_ref()
             .map(|scripts| scripts.trusted)
             .unwrap_or(false);
+        // Trust covers the whole file, so review has to show the whole file.
+        // Serialized from the same read as the hash, otherwise the user could
+        // confirm a hash that belongs to content they were not shown.
+        let scripts_document = project_scripts
+            .as_ref()
+            .and_then(|scripts| serde_json::to_string_pretty(&scripts.scripts).ok());
         let setup_script_hash = project_scripts.and_then(|scripts| scripts.hash);
 
         // NOTE: WriteRequirement is intentionally NOT pushed into the plan.
@@ -172,6 +179,7 @@ impl WsMessageService {
             project_main_file_path: project.main_file_path,
             project_guid: project_guid.to_string(),
             setup_script,
+            scripts_document,
             setup_script_trusted,
             setup_script_hash,
         })
@@ -584,7 +592,10 @@ impl WsMessageService {
                                 step_key: Some(step.key().to_string()),
                                 failed_step_key: None,
                                 step_title: "Review Setup Script".to_string(),
-                                output: Some(script.clone()),
+                                output: plan
+                                    .scripts_document
+                                    .clone()
+                                    .or_else(|| Some(script.clone())),
                                 replace_output: true,
                                 requires_confirmation: false,
                                 requires_script_trust: true,

@@ -24,6 +24,7 @@ import {
 
 import { useEditorStore } from '@/features/editor/store/use-editor-store';
 import { WorkspaceScriptDialog } from '@/features/workspace/components/WorkspaceScriptDialog';
+import { ScriptTrustReview } from '@/features/workspace/components/ScriptTrustReview';
 import { wsScriptApi } from '@/api/ws-api';
 import { toastManager } from '@workspace/ui';
 import type { TerminalRef } from "@/features/terminal/components/Terminal";
@@ -158,7 +159,7 @@ export const RunScript: React.FC<RunScriptProps> = ({ workspaceId, projectId, is
    * the command is shown for review before it reaches a terminal.
    */
   const [pendingScriptTrust, setPendingScriptTrust] = useState<
-    { command: string; hash: string } | null
+    { scripts: Record<string, string>; hash: string } | null
   >(null);
   const [isTrustingScript, setIsTrustingScript] = useState(false);
   const [runningScripts, setRunningScripts] = useState<Record<string, boolean>>({});
@@ -324,9 +325,10 @@ export const RunScript: React.FC<RunScriptProps> = ({ workspaceId, projectId, is
       const { scripts, trusted, hash } = await wsScriptApi.get(projectId);
       const runCommand = scripts.run;
 
-      // Never hand unreviewed repository content to a terminal.
+      // Never hand unreviewed repository content to a terminal. Trust covers the
+      // whole file, so review shows every command in it, not just `run`.
       if (runCommand?.trim() && !trusted && hash) {
-        setPendingScriptTrust({ command: runCommand, hash });
+        setPendingScriptTrust({ scripts, hash });
         return;
       }
 
@@ -691,9 +693,12 @@ export const RunScript: React.FC<RunScriptProps> = ({ workspaceId, projectId, is
                 {scriptTrustDescription}
               </DialogDescription>
             </DialogHeader>
-            <pre className="max-h-56 overflow-auto whitespace-pre-wrap break-words rounded-md bg-muted/50 p-3 text-[12px] leading-relaxed text-foreground">
-              <code>{pendingScriptTrust?.command}</code>
-            </pre>
+            <div className="max-h-56 overflow-auto">
+              <ScriptTrustReview
+                scripts={pendingScriptTrust?.scripts ?? {}}
+                highlightField="run"
+              />
+            </div>
             <DialogFooter>
               <Button
                 variant="outline"
