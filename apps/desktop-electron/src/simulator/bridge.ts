@@ -1639,7 +1639,11 @@ export class SimulatorBridge {
         hideNote: session.hideNote,
         sessionToken: session.sessionToken,
       });
-      if (session.suppressExit || !this.stillOwnsClaim(session.simulatorId, workspaceId)) {
+      if (
+        session.suppressExit ||
+        this.sessions.get(workspaceId) !== session ||
+        !this.stillOwnsClaim(session.simulatorId, workspaceId)
+      ) {
         this.discardSpawnedHelper(next);
         return;
       }
@@ -1723,7 +1727,7 @@ export class SimulatorBridge {
       next.visibleSurfaces = session.visibleSurfaces;
       next.lastVisibleAt = session.lastVisibleAt;
       next.streamThrottled = session.streamThrottled;
-      if (session.suppressExit && !this.sessions.has(session.workspaceId)) {
+      if (this.sessions.get(session.workspaceId) !== session) {
         this.discardSpawnedHelper(next);
         return;
       }

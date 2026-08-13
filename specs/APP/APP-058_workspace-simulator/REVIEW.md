@@ -1637,6 +1637,7 @@ Only tear down if the map still points at this session object.
 ### Fix log
 
 - 2026-08-13 - identity check in respawn catch.
+- 2026-08-13 - success path also no-ops unless `sessions.get(workspaceId) === session`.
 
 ---
 
