@@ -10,6 +10,7 @@ use commands::computer::{execute as execute_computer, ComputerCommand};
 use commands::desktop_use::{execute as execute_desktop_use, DesktopUseCommand};
 use commands::review::{execute as execute_review, ReviewCommand};
 use commands::runtime::{execute as execute_runtime, RuntimeCommand};
+use commands::simulator::{execute as execute_simulator, SimulatorCommand, SimulatorOpts};
 use commands::update::{execute as execute_update, update_hint_if_needed, UpdateArgs};
 use output::{render_error, render_output, CommandKind};
 
@@ -65,6 +66,13 @@ enum Commands {
         #[command(subcommand)]
         command: BrowserUseCommand,
     },
+    /// Control the Simulator surface in Atmos Desktop.
+    Simulator {
+        #[command(flatten)]
+        opts: SimulatorOpts,
+        #[command(subcommand)]
+        command: SimulatorCommand,
+    },
     /// Check for or install CLI updates.
     Update(UpdateArgs),
 }
@@ -83,6 +91,18 @@ async fn run() -> Result<(), String> {
     let command_kind = CommandKind::from_command(&cli.command);
 
     let output = match cli.command {
+        Commands::Simulator { opts, command } => {
+            let simulator_output = execute_simulator(opts.workspace, command).await?;
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&simulator_output.value)
+                    .map_err(|err| format!("Failed to serialize command output: {err}"))?
+            );
+            if simulator_output.exit_code != 0 {
+                std::process::exit(simulator_output.exit_code);
+            }
+            return Ok(());
+        }
         Commands::Review { command } => execute_review(cli.api, command).await,
         Commands::Runtime { command } => execute_runtime(command).await,
         Commands::Computer { command } => execute_computer(command).await,
