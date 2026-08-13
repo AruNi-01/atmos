@@ -153,7 +153,7 @@ impl DiskPathKind {
                 ..Self::default()
             };
         }
-        if matches(&roots.git_worktree_roots) {
+        if matches(&roots.git_worktree_roots) || path.join(".git").is_file() {
             return Self {
                 is_git_worktree: true,
                 ..Self::default()
@@ -241,14 +241,7 @@ impl DiskAnalyzerEngine {
         cancel: Option<Arc<AtomicBool>>,
         on_progress: Option<ProgressCallback>,
     ) -> Result<(DiskNode, ScanStats, Vec<CleanupSuggestion>)> {
-        self.scan_level(
-            scan_id,
-            root,
-            roots,
-            max_children,
-            cancel,
-            on_progress,
-        )
+        self.scan_level(scan_id, root, roots, max_children, cancel, on_progress)
     }
 
     /// Return a valid on-disk measure cache entry (mtime + 3-day TTL), if any.
@@ -363,7 +356,7 @@ impl DiskAnalyzerEngine {
                     is_project: true,
                     ..DiskPathKind::default()
                 }
-            } else if worktree_set.contains(&p) {
+            } else if worktree_set.contains(&p) || p.join(".git").is_file() {
                 DiskPathKind {
                     is_git_worktree: true,
                     ..DiskPathKind::default()
@@ -1895,7 +1888,14 @@ mod tests {
         let cancel = Arc::new(AtomicBool::new(true));
         let engine = DiskAnalyzerEngine::new();
         let err = engine
-            .scan_path("t3", &root, &DiskScanRoots::default(), Some(40), Some(cancel), None)
+            .scan_path(
+                "t3",
+                &root,
+                &DiskScanRoots::default(),
+                Some(40),
+                Some(cancel),
+                None,
+            )
             .expect_err("should cancel");
         assert!(err.to_string().contains("cancelled"));
     }
@@ -2071,6 +2071,26 @@ mod tests {
             .find(|c| c.name == ".cursor")
             .expect("agent child");
         assert!(agent_node.is_agent_data);
+    }
+
+    #[test]
+    fn scan_marks_gitdir_file_as_worktree_without_roots() {
+        let root = tempfile_dir("disk-analyzer-gitdir");
+        let wt = root.join("linked-wt");
+        fs::create_dir_all(&wt).unwrap();
+        fs::write(wt.join(".git"), "gitdir: /tmp/example.git/worktrees/x").unwrap();
+        write_file(&wt.join("a.txt"), 40);
+        let engine = DiskAnalyzerEngine::new();
+        let (tree, _, _) = engine
+            .scan_path("g", &root, &DiskScanRoots::default(), Some(40), None, None)
+            .unwrap();
+        let wt_node = tree
+            .children
+            .iter()
+            .find(|c| c.name == "linked-wt")
+            .expect("worktree child");
+        assert!(wt_node.is_git_worktree);
+        assert!(!wt_node.is_project);
     }
 
     #[test]

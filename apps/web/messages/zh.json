@@ -9544,6 +9544,7 @@
     "atmosProject": "项目",
     "atmosWorkspace": "工作区",
     "gitWorktree": "Git 工作树",
+    "gitWorktrees": "Git 工作树",
     "agentData": "Agent 数据",
     "atmosRuntimeDir": "Atmos 运行时目录",
     "enterDirectory": "进入目录",

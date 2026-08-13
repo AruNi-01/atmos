@@ -263,48 +263,68 @@ impl GitEngine {
     /// Walks for `.git` dirs/files while skipping heavy trees, then runs
     /// `git worktree list` once per unique repository. Returns only **linked**
     /// worktrees (`.git` is a file), not the main checkout.
+    ///
+    /// Also seeds known agent worktree dirs (`~/.cursor/worktrees`, …) even
+    /// though those parent trees are skipped during the home walk.
     pub fn discover_linked_worktrees(
         &self,
         search_root: &Path,
         cancel: Option<&AtomicBool>,
     ) -> Vec<PathBuf> {
-        let mut seeds = Vec::new();
-        collect_git_seeds(search_root, cancel, &mut seeds);
-        for extra in extra_worktree_search_roots(search_root) {
-            if extra.exists() {
-                collect_git_seeds(&extra, cancel, &mut seeds);
-            }
-        }
-
-        let mut seen_common = HashSet::new();
-        let mut linked = Vec::new();
-        let mut seen_path = HashSet::new();
-        for seed in seeds {
-            if cancel.is_some_and(|c| c.load(Ordering::Relaxed)) {
-                break;
-            }
-            let Some(common) = git_common_dir(&seed) else {
-                continue;
-            };
-            if !seen_common.insert(common) {
-                continue;
-            }
-            let Ok(Some(stdout)) = try_run_git(&seed, &["worktree", "list", "--porcelain"]) else {
-                continue;
-            };
-            for info in parse_worktree_list(&stdout) {
-                if !is_linked_worktree(&info.path) {
-                    continue;
-                }
-                let canon = std::fs::canonicalize(&info.path).unwrap_or(info.path);
-                if seen_path.insert(canon.clone()) {
-                    linked.push(canon);
-                }
-            }
-        }
-        linked.sort();
-        linked
+        let mut roots = vec![search_root.to_path_buf()];
+        roots.extend(extra_worktree_search_roots(search_root));
+        linked_worktrees_from_roots(&roots, cancel)
     }
+
+    /// Cheap pass: only known agent worktree directories, no home-wide `.git` walk.
+    pub fn discover_linked_worktrees_fast(
+        &self,
+        home: &Path,
+        cancel: Option<&AtomicBool>,
+    ) -> Vec<PathBuf> {
+        linked_worktrees_from_roots(&extra_worktree_search_roots(home), cancel)
+    }
+}
+
+fn linked_worktrees_from_roots(roots: &[PathBuf], cancel: Option<&AtomicBool>) -> Vec<PathBuf> {
+    let mut seeds = Vec::new();
+    for root in roots {
+        if cancel.is_some_and(|c| c.load(Ordering::Relaxed)) {
+            break;
+        }
+        if root.is_dir() {
+            collect_git_seeds(root, cancel, &mut seeds);
+        }
+    }
+
+    let mut seen_common = HashSet::new();
+    let mut linked = Vec::new();
+    let mut seen_path = HashSet::new();
+    for seed in seeds {
+        if cancel.is_some_and(|c| c.load(Ordering::Relaxed)) {
+            break;
+        }
+        let Some(common) = git_common_dir(&seed) else {
+            continue;
+        };
+        if !seen_common.insert(common) {
+            continue;
+        }
+        let Ok(Some(stdout)) = try_run_git(&seed, &["worktree", "list", "--porcelain"]) else {
+            continue;
+        };
+        for info in parse_worktree_list(&stdout) {
+            if !is_linked_worktree(&info.path) {
+                continue;
+            }
+            let canon = std::fs::canonicalize(&info.path).unwrap_or(info.path);
+            if seen_path.insert(canon.clone()) {
+                linked.push(canon);
+            }
+        }
+    }
+    linked.sort();
+    linked
 }
 
 fn extra_worktree_search_roots(home: &Path) -> Vec<PathBuf> {
@@ -362,11 +382,7 @@ fn git_common_dir(seed: &Path) -> Option<PathBuf> {
         return None;
     }
     let p = PathBuf::from(raw);
-    let abs = if p.is_absolute() {
-        p
-    } else {
-        seed.join(p)
-    };
+    let abs = if p.is_absolute() { p } else { seed.join(p) };
     Some(std::fs::canonicalize(&abs).unwrap_or(abs))
 }
 
@@ -442,6 +458,61 @@ mod tests {
         assert!(
             found.iter().all(|p| p != &repo_canon),
             "main checkout must not be listed as linked: {found:?}"
+        );
+    }
+
+    #[test]
+    fn discover_linked_worktrees_fast_skips_home_and_hits_agent_dirs() {
+        let root = unique_temp_dir("fast");
+        let repo = root.join("repo");
+        let leftover = root.join("leftover-wt");
+        let cursor_wt = root.join(".cursor").join("worktrees").join("feat");
+        fs::create_dir_all(&repo).unwrap();
+        git(&repo, &["init"]);
+        git(&repo, &["config", "user.email", "test@example.com"]);
+        git(&repo, &["config", "user.name", "Test"]);
+        fs::write(repo.join("README.md"), "hi").unwrap();
+        git(&repo, &["add", "README.md"]);
+        git(&repo, &["commit", "-m", "init"]);
+        git(
+            &repo,
+            &[
+                "worktree",
+                "add",
+                "-b",
+                "left",
+                leftover.to_str().expect("utf8"),
+            ],
+        );
+        git(
+            &repo,
+            &[
+                "worktree",
+                "add",
+                "-b",
+                "cursor",
+                cursor_wt.to_str().expect("utf8"),
+            ],
+        );
+
+        let leftover_canon = std::fs::canonicalize(&leftover).unwrap_or_else(|_| leftover.clone());
+        let cursor_canon = std::fs::canonicalize(&cursor_wt).unwrap_or_else(|_| cursor_wt.clone());
+        let engine = GitEngine::new();
+        let fast = engine.discover_linked_worktrees_fast(&root, None);
+        let full = engine.discover_linked_worktrees(&root, None);
+        let _ = fs::remove_dir_all(&root);
+
+        assert!(
+            fast.iter().any(|p| p == &cursor_canon),
+            "fast pass should find agent worktrees: {fast:?}"
+        );
+        assert!(
+            fast.iter().all(|p| p != &leftover_canon),
+            "fast pass must not walk the rest of home: {fast:?}"
+        );
+        assert!(
+            full.iter().any(|p| p == &leftover_canon),
+            "full pass should find leftover worktrees: {full:?}"
         );
     }
 }

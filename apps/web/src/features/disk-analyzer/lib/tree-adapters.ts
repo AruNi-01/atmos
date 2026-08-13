@@ -18,6 +18,48 @@ export const TREEMAP_CHART_DEPTH = 1;
  */
 export const SUNBURST_CHART_DEPTH = 3;
 
+/** Synthetic Atmos overview root (not a filesystem path). */
+export const ATMOS_OVERVIEW_PATH = "atmos://disk-usage";
+/** Group of code-agent home / session directories. */
+export const AGENT_DATA_GROUP_PATH = "atmos://disk-usage/agent-data";
+/** Group of leftover linked git worktrees. */
+export const GIT_WORKTREES_GROUP_PATH = "atmos://disk-usage/git-worktrees";
+
+export function isAtmosOverviewPath(path: string): boolean {
+  return path === ATMOS_OVERVIEW_PATH;
+}
+
+export function isAtmosSyntheticPath(path: string): boolean {
+  return path === ATMOS_OVERVIEW_PATH || path.startsWith(`${ATMOS_OVERVIEW_PATH}/`);
+}
+
+export function localizedSyntheticName(
+  path: string,
+  labels: {
+    atmosRoot: string;
+    agentData: string;
+    gitWorktrees: string;
+  },
+): string | null {
+  if (path === ATMOS_OVERVIEW_PATH) return labels.atmosRoot;
+  if (path === AGENT_DATA_GROUP_PATH) return labels.agentData;
+  if (path === GIT_WORKTREES_GROUP_PATH) return labels.gitWorktrees;
+  return null;
+}
+
+/** Synthetic overview/group URIs and the scan root itself cannot be deleted. */
+export function canDeleteDiskPath(
+  path: string,
+  name: string,
+  scanPath: string,
+): boolean {
+  return (
+    name !== "__other__" &&
+    path !== scanPath &&
+    !isAtmosSyntheticPath(path)
+  );
+}
+
 export function formatBytes(bytes: number): string {
   if (!Number.isFinite(bytes) || bytes <= 0) return "0 B";
   const units = ["B", "KB", "MB", "GB", "TB", "PB"];
@@ -496,6 +538,8 @@ export type ToEChartsTreeOptions = {
   maxDepth?: number;
   /** Display label for synthetic `__other__` buckets. */
   otherLabel?: string;
+  agentDataLabel?: string;
+  gitWorktreesLabel?: string;
   /**
    * How ECharts `value` (area / angle) is derived:
    * - `bytes-eased` (treemap): always layoutValue(real bytes) — **monotone in size**
@@ -554,7 +598,13 @@ export function toEChartsTree(
   const color = isOther
     ? "#636b78"
     : sizeToUsageColor(ratio, siblingIndex);
-  const displayName = isOther ? otherLabel : node.name;
+  const displayName = isOther
+    ? otherLabel
+    : node.path === AGENT_DATA_GROUP_PATH
+      ? (options.agentDataLabel ?? node.name)
+      : node.path === GIT_WORKTREES_GROUP_PATH
+        ? (options.gitWorktreesLabel ?? node.name)
+        : node.name;
   const bytes = Math.max(node.size, 0);
 
   // At max depth, stop nesting — size still represents the whole subtree.

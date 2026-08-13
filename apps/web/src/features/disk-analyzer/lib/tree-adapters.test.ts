@@ -1,19 +1,26 @@
 import { describe, expect, test } from "bun:test";
 import {
+  AGENT_DATA_GROUP_PATH,
+  ATMOS_OVERVIEW_PATH,
+  GIT_WORKTREES_GROUP_PATH,
+  breadcrumbPaths,
+  buildBreadcrumbs,
+  canDeleteDiskPath,
   cleanupHintMessageKey,
   collectCleanupSuggestions,
   filterTree,
   formatBytes,
   getCleanupHintKey,
+  isAtmosOverviewPath,
   isAtmosRuntimeDir,
+  isAtmosSyntheticPath,
   isChildrenLoaded,
   layoutValue,
+  localizedSyntheticName,
   sizeToUsageColor,
   sortNodes,
   takeTopChildren,
   toEChartsTree,
-  breadcrumbPaths,
-  buildBreadcrumbs,
   type DiskFilters,
 } from "./tree-adapters";
 import type { DiskNode } from "@/api/ws/disk-analyzer-api";
@@ -168,6 +175,49 @@ describe("disk analyzer tree adapters", () => {
     const ws = chart.children?.find((c) => c.name === "ws");
     expect(ws?.isWorkspace).toBe(true);
     expect(ws?.isGitWorktree).toBe(false);
+  });
+
+  test("synthetic group paths localize and cannot be deleted", () => {
+    expect(isAtmosOverviewPath(ATMOS_OVERVIEW_PATH)).toBe(true);
+    expect(isAtmosOverviewPath(GIT_WORKTREES_GROUP_PATH)).toBe(false);
+    expect(isAtmosSyntheticPath(GIT_WORKTREES_GROUP_PATH)).toBe(true);
+    expect(localizedSyntheticName(AGENT_DATA_GROUP_PATH, {
+      atmosRoot: "Atmos",
+      agentData: "Agent data",
+      gitWorktrees: "Git worktrees",
+    })).toBe("Agent data");
+    const group: DiskNode = {
+      name: "Git worktrees",
+      path: GIT_WORKTREES_GROUP_PATH,
+      size: 100,
+      is_dir: true,
+      is_project: false,
+      is_git_worktree: true,
+      file_count: 1,
+      dir_count: 1,
+      children: [
+        {
+          name: "feat",
+          path: "/tmp/feat",
+          size: 100,
+          is_dir: true,
+          is_project: false,
+          is_git_worktree: true,
+          file_count: 1,
+          dir_count: 0,
+        },
+      ],
+    };
+    const chart = toEChartsTree(group, group.size, {
+      maxDepth: 2,
+      gitWorktreesLabel: "Git worktrees",
+    });
+    expect(chart.name).toBe("Git worktrees");
+    expect(chart.isGitWorktree).toBe(true);
+    expect(canDeleteDiskPath(GIT_WORKTREES_GROUP_PATH, "Git worktrees", ATMOS_OVERVIEW_PATH)).toBe(
+      false,
+    );
+    expect(canDeleteDiskPath("/tmp/feat", "feat", ATMOS_OVERVIEW_PATH)).toBe(true);
   });
 
   test("cleanup hint keys cover agent homes", () => {

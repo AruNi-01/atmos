@@ -41,9 +41,13 @@ import {
 import { DiskUsageChart } from "@/features/disk-analyzer/components/DiskUsageChart";
 import { useDiskAnalyzer } from "@/features/disk-analyzer/hooks/use-disk-analyzer";
 import {
+  GIT_WORKTREES_GROUP_PATH,
+  canDeleteDiskPath,
   formatBytes,
   getCleanupHintKey,
+  isAtmosOverviewPath,
   isAtmosRuntimeDir,
+  localizedSyntheticName,
   TOP_N_OPTIONS,
 } from "@/features/disk-analyzer/lib/tree-adapters";
 
@@ -261,9 +265,12 @@ export function DiskAnalyzerPage() {
                             t("computerRoot"),
                             t("atmosRoot"),
                           )
-                        : crumb.name === "__other__"
-                          ? t("other")
-                          : crumb.name}
+                        : (localizedSyntheticName(crumb.path, {
+                            atmosRoot: t("atmosRoot"),
+                            agentData: t("agentData"),
+                            gitWorktrees: t("gitWorktrees"),
+                          }) ??
+                          (crumb.name === "__other__" ? t("other") : crumb.name))}
                     </button>
                   </React.Fragment>
                 ))
@@ -355,6 +362,7 @@ export function DiskAnalyzerPage() {
                   projectLabel={t("atmosProject")}
                   workspaceLabel={t("atmosWorkspace")}
                   gitWorktreeLabel={t("gitWorktree")}
+                  gitWorktreesLabel={t("gitWorktrees")}
                   agentDataLabel={t("agentData")}
                   runtimeLabel={t("atmosRuntimeDir")}
                   otherLabel={t("other")}
@@ -421,6 +429,8 @@ export function DiskAnalyzerPage() {
                           t("computerRoot"),
                           t("atmosRoot"),
                           t("other"),
+                          t("agentData"),
+                          t("gitWorktrees"),
                         )}
                       </div>
                       <NodeKindBadge
@@ -428,6 +438,7 @@ export function DiskAnalyzerPage() {
                         projectLabel={t("atmosProject")}
                         workspaceLabel={t("atmosWorkspace")}
                         gitWorktreeLabel={t("gitWorktree")}
+                        gitWorktreesLabel={t("gitWorktrees")}
                         agentDataLabel={t("agentData")}
                         runtimeLabel={t("atmosRuntimeDir")}
                       />
@@ -454,6 +465,8 @@ export function DiskAnalyzerPage() {
                           analyzer.scanPath,
                           t("computerRoot"),
                           t("atmosRoot"),
+                          t("agentData"),
+                          t("gitWorktrees"),
                         )}
                         className="min-w-0 flex-1"
                       />
@@ -471,8 +484,11 @@ export function DiskAnalyzerPage() {
                         {t("sizeEstimateNote")}
                       </p>
                     ) : null}
-                    {analyzer.selectedNode.path !== analyzer.scanPath &&
-                    analyzer.selectedNode.name !== "__other__" ? (
+                    {canDeleteDiskPath(
+                      analyzer.selectedNode.path,
+                      analyzer.selectedNode.name,
+                      analyzer.scanPath,
+                    ) ? (
                       <Button
                         variant="destructive"
                         size="sm"
@@ -502,9 +518,11 @@ export function DiskAnalyzerPage() {
                             ? Math.min(100, (child.size / parentSize) * 100)
                             : 0;
                         const cleanupHintKey = getCleanupHintKey(child.name, child.size);
-                        const canDelete =
-                          child.name !== "__other__" &&
-                          child.path !== analyzer.scanPath;
+                        const canDelete = canDeleteDiskPath(
+                          child.path,
+                          child.name,
+                          analyzer.scanPath,
+                        );
                         const popoverOpen = listDeletePath === child.path;
                         const enterRow = () => {
                           analyzer.setSelectedPath(child.path);
@@ -539,13 +557,22 @@ export function DiskAnalyzerPage() {
                             />
                             <div className="relative flex min-w-0 flex-1 items-center gap-1.5 text-left">
                               <span className="truncate text-xs font-medium">
-                                {child.name === "__other__" ? t("other") : child.name}
+                                {displayNodeName(
+                                  child,
+                                  analyzer.scanPath,
+                                  t("computerRoot"),
+                                  t("atmosRoot"),
+                                  t("other"),
+                                  t("agentData"),
+                                  t("gitWorktrees"),
+                                )}
                               </span>
                               <NodeKindBadge
                                 node={child}
                                 projectLabel={t("atmosProject")}
                                 workspaceLabel={t("atmosWorkspace")}
                                 gitWorktreeLabel={t("gitWorktree")}
+                                gitWorktreesLabel={t("gitWorktrees")}
                                 agentDataLabel={t("agentData")}
                                 runtimeLabel={t("atmosRuntimeDir")}
                               />
@@ -778,6 +805,7 @@ function NodeKindBadge({
   projectLabel,
   workspaceLabel,
   gitWorktreeLabel,
+  gitWorktreesLabel,
   agentDataLabel,
   runtimeLabel,
 }: {
@@ -792,6 +820,7 @@ function NodeKindBadge({
   projectLabel: string;
   workspaceLabel: string;
   gitWorktreeLabel: string;
+  gitWorktreesLabel: string;
   agentDataLabel: string;
   runtimeLabel: string;
 }) {
@@ -803,7 +832,10 @@ function NodeKindBadge({
   } else if (node.is_project) {
     label = projectLabel;
   } else if (node.is_git_worktree) {
-    label = gitWorktreeLabel;
+    label =
+      node.path === GIT_WORKTREES_GROUP_PATH
+        ? gitWorktreesLabel
+        : gitWorktreeLabel;
   } else if (node.is_agent_data) {
     label = agentDataLabel;
   }
@@ -845,10 +877,6 @@ function isHomeRootPath(path: string): boolean {
   return (parts[0] === "Users" || parts[0] === "home") && parts.length === 2;
 }
 
-function isAtmosOverviewPath(path: string): boolean {
-  return path === "atmos://disk-usage" || path.startsWith("atmos://");
-}
-
 function rootBreadcrumbLabel(
   scanPath: string,
   homeLabel: string,
@@ -864,9 +892,17 @@ function displayNodeName(
   homeLabel: string,
   atmosLabel: string,
   otherLabel: string,
+  agentDataLabel: string,
+  gitWorktreesLabel: string,
 ): string {
   if (node.name === "__other__") return otherLabel;
-  if (isAtmosOverviewPath(node.path) || node.name === "Atmos") return atmosLabel;
+  const synthetic = localizedSyntheticName(node.path, {
+    atmosRoot: atmosLabel,
+    agentData: agentDataLabel,
+    gitWorktrees: gitWorktreesLabel,
+  });
+  if (synthetic) return synthetic;
+  if (node.name === "Atmos") return atmosLabel;
   if (
     (scanPath && node.path === scanPath && isHomeRootPath(scanPath)) ||
     node.name === "/" ||
@@ -882,14 +918,21 @@ function displayNodeName(
   return node.name;
 }
 
-/** Show `~` / Atmos for the scan root path; otherwise the real absolute path. */
+/** Show `~` / Atmos / group names for synthetic roots; otherwise the real absolute path. */
 function displayNodePath(
   path: string,
   scanPath: string,
   homeLabel: string,
   atmosLabel: string,
+  agentDataLabel: string,
+  gitWorktreesLabel: string,
 ): string {
-  if (isAtmosOverviewPath(path)) return atmosLabel;
+  const synthetic = localizedSyntheticName(path, {
+    atmosRoot: atmosLabel,
+    agentData: agentDataLabel,
+    gitWorktrees: gitWorktreesLabel,
+  });
+  if (synthetic) return synthetic;
   if (!path || path === "/") {
     if (scanPath && scanPath !== "/" && isHomeRootPath(scanPath)) {
       return homeLabel;

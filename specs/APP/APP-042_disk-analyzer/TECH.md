@@ -109,11 +109,14 @@ Visualization prune rules (serialization):
 Project / worktree / agent marking:
 
 - Collect absolute paths for Atmos projects + workspaces.
-- On every default scan (not optional), discover **linked** git worktrees under the user home via `GitEngine::discover_linked_worktrees` (`.git` walk + `git worktree list` per unique repo). Skip heavy dirs (`node_modules`, `Library`, `.cursor`, …); also seed `~/.cursor/worktrees` and `~/.codex/worktrees`.
+- On every default scan (not optional), discover **linked** git worktrees. First paint does **not** wait on a home-wide `.git` walk:
+  1. Measure Atmos entries + agent homes (`exists()` only).
+  2. Then `GitEngine::discover_linked_worktrees` (home walk + seed `~/.cursor/worktrees` / `~/.codex/worktrees`) and append uncovered worktrees.
+- Drill-in / scan-all badge linked worktrees from a `.git` **file** on the path (no extra home walk). `discover_linked_worktrees_fast` only walks known agent worktree dirs when marks are not already on the session.
 - Collect existing code-agent homes (`agent_data_roots`).
 - Badge exclusivity: workspace > project > git worktree > agent data.
-- Default Atmos overview adds **measure-only** tiles for uncovered worktrees and agent homes (already-covered paths, e.g. under `~/.atmos` or `.cursor`, are not listed twice). Scan-all does not add extra tiles; it still badges.
-- Delete remains trash; UI notes that trashing a git worktree does not run `git worktree remove`.
+- Default Atmos overview **groups** uncovered agent homes under `atmos://disk-usage/agent-data` and leftover worktrees under `atmos://disk-usage/git-worktrees`. `.atmos` / projects / Atmos.app stay as top-level tiles. Groups are `children_loaded=true` synthetic dirs (not deletable). Scan-all does not add extra tiles; it still badges in-place.
+- Delete remains trash; UI notes that trashing a git worktree does not run `git worktree remove`. Synthetic `atmos://` paths are refused.
 
 ## WebSocket protocol
 
@@ -165,6 +168,7 @@ Default `path` for start/info = home directory from existing `FsEngine::get_home
 
 - Parallel walk via `jwalk` (Rayon under the hood).
 - Progress emit throttled (~250ms) to avoid WS floods.
+- Default overview: Atmos + agent tiles first; home-wide worktree discovery is a second wave so `~/.atmos` is not blocked by walking the rest of the machine.
 - Pruned tree for chart; optional `DiskAnalyzerGetTree` for deeper path (Arc snapshot, prune outside lock).
 - Delete runs on `spawn_blocking`.
 - Cancel sets an atomic flag checked during walk.

@@ -2,10 +2,12 @@
 //!
 //! Default scans cover Atmos-related paths (`~/.atmos`, imported projects,
 //! Atmos.app, app support) plus linked git worktrees and code-agent session
-//! directories discovered under the user home. Opt-in `scan_all` walks the
-//! user home (+ Applications) and still badges those paths.
+//! directories discovered under the user home. The first overview paint is
+//! Atmos + agent homes; leftover worktrees are grouped in a second wave.
+//! Opt-in `scan_all` walks the user home (+ Applications) and still badges
+//! those paths.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
 use std::sync::Arc;
@@ -36,6 +38,10 @@ const ENTRY_KEY_APPLICATIONS: &str = "applications";
 /// Synthetic overview root for Atmos-scoped multi-entry scans.
 const ATMOS_OVERVIEW_PATH: &str = "atmos://disk-usage";
 const ATMOS_OVERVIEW_NAME: &str = "Atmos";
+const AGENT_GROUP_PATH: &str = "atmos://disk-usage/agent-data";
+const AGENT_GROUP_NAME: &str = "Agent data";
+const WORKTREE_GROUP_PATH: &str = "atmos://disk-usage/git-worktrees";
+const WORKTREE_GROUP_NAME: &str = "Git worktrees";
 /// Cap concurrent `du` during overview (each is I/O heavy; unlimited thrashing made
 /// large roots like `~/.atmos` finish last and take minutes).
 const OVERVIEW_DU_CONCURRENCY: usize = 3;
@@ -377,11 +383,7 @@ impl DiskAnalyzerService {
             .map(|s| s.to_string_lossy().into_owned())
             .unwrap_or_else(|| path.display().to_string());
         let mut parent = path.parent();
-        if parent
-            .and_then(|p| p.file_name())
-            .and_then(|n| n.to_str())
-            == Some("worktrees")
-        {
+        if parent.and_then(|p| p.file_name()).and_then(|n| n.to_str()) == Some("worktrees") {
             parent = parent.and_then(|p| p.parent());
             if parent
                 .and_then(|p| p.file_name())
@@ -424,15 +426,6 @@ impl DiskAnalyzerService {
                 kind: Some(AtmosEntryKind::GitWorktree),
             });
         }
-    }
-
-    fn discover_machine_marks(
-        home: &Path,
-        cancel: &AtomicBool,
-    ) -> (Vec<PathBuf>, Vec<(String, PathBuf)>) {
-        let git_worktrees = GitEngine::new().discover_linked_worktrees(home, Some(cancel));
-        let agent_roots = agent_data_roots(home);
-        (git_worktrees, agent_roots)
     }
 
     pub async fn start_scan(
@@ -647,14 +640,7 @@ impl DiskAnalyzerService {
         path: Option<&str>,
         max_children: Option<usize>,
     ) -> Result<Value> {
-        let (
-            target_key,
-            scan_roots,
-            session_max,
-            cancel,
-            entry_roots,
-            inflight,
-        ) = {
+        let (target_key, scan_roots, session_max, cancel, entry_roots, inflight) = {
             let sessions = self.sessions.lock();
             let session = sessions
                 .get(scan_id)
@@ -777,6 +763,12 @@ impl DiskAnalyzerService {
             (session.entry_roots.clone(), session.root_path.clone())
         };
 
+        if path.starts_with("atmos://") {
+            return Err(ServiceError::Validation(
+                "cannot delete a synthetic disk-analyzer path".into(),
+            ));
+        }
+
         let path = self.fs_engine.expand_path(path)?;
         let allowed_root = entry_roots
             .iter()
@@ -862,13 +854,18 @@ impl DiskAnalyzerService {
 
         tokio::task::spawn_blocking(move || {
             let started = Instant::now();
-            let (discovered_worktrees, discovered_agents) = dirs::home_dir()
-                .map(|h| DiskAnalyzerService::discover_machine_marks(&h, &cancel))
+            // Cheap first paint: Atmos entries plus agent homes (exists() only).
+            // Home-wide `.git` discovery waits until after this wave so ~/.atmos
+            // is not blocked on walking the rest of the machine.
+            let home = dirs::home_dir();
+            let discovered_agents = home
+                .as_ref()
+                .map(|h| agent_data_roots(h))
                 .unwrap_or_default();
             if matches!(kind, OverviewKind::AtmosSynthetic) {
                 DiskAnalyzerService::append_discovered_overview_entries(
                     &mut entries,
-                    &discovered_worktrees,
+                    &[],
                     &discovered_agents,
                 );
             }
@@ -876,17 +873,18 @@ impl DiskAnalyzerService {
                 discovered_agents.iter().map(|(_, p)| p.clone()).collect();
             if let Some(session) = sessions.lock().get_mut(&scan_id) {
                 session.entry_roots = entries.iter().map(|e| e.path.clone()).collect();
-                session.git_worktree_roots = discovered_worktrees.clone();
                 session.agent_data_roots = agent_paths.clone();
+                // Drill-in can badge linked worktrees via `.git` files; skip a
+                // duplicate home walk from spawn_walk while overview is in flight.
                 session.marks_ready = true;
             }
-            let roots = DiskScanRoots {
+            let mut roots = DiskScanRoots {
                 project_roots,
                 workspace_roots,
-                git_worktree_roots: discovered_worktrees,
+                git_worktree_roots: vec![],
                 agent_data_roots: agent_paths,
             };
-            let entry_labels = DiskAnalyzerService::overview_entry_labels(&entries);
+            let mut entry_labels = DiskAnalyzerService::overview_entry_labels(&entries);
 
             let parts: Arc<Mutex<HashMap<String, DiskNode>>> = Arc::new(Mutex::new(HashMap::new()));
             let files_scanned = Arc::new(AtomicU64::new(0));
@@ -983,11 +981,7 @@ impl DiskAnalyzerService {
                         .cloned()
                         .unwrap_or_else(|| entry.label.clone());
                     let real_path = path_key(&entry.path);
-                    let kind = DiskAnalyzerService::kind_for_entry(
-                        entry.kind,
-                        &real_path,
-                        &roots,
-                    );
+                    let kind = DiskAnalyzerService::kind_for_entry(entry.kind, &real_path, &roots);
                     map.insert(
                         entry.label.clone(),
                         DiskAnalyzerService::dir_shell(display, real_path, kind),
@@ -1030,11 +1024,7 @@ impl DiskAnalyzerService {
                         .get(&entry.label)
                         .cloned()
                         .unwrap_or_else(|| entry.label.clone());
-                    let kind = DiskAnalyzerService::kind_for_entry(
-                        entry.kind,
-                        &real_path,
-                        &roots,
-                    );
+                    let kind = DiskAnalyzerService::kind_for_entry(entry.kind, &real_path, &roots);
                     let mut tree = DiskAnalyzerService::dir_shell(display_name, real_path, kind);
                     tree.size = m.size;
                     tree.file_count = m.file_count;
@@ -1261,9 +1251,7 @@ impl DiskAnalyzerService {
                                 match engine.measure_path(&entry_path, Some(Arc::clone(&cancel))) {
                                     Ok(m) => {
                                         let kind = DiskAnalyzerService::kind_for_entry(
-                                            entry_kind,
-                                            &real_path,
-                                            &roots,
+                                            entry_kind, &real_path, &roots,
                                         );
                                         let mut tree = DiskAnalyzerService::dir_shell(
                                             display_name.clone(),
@@ -1307,9 +1295,7 @@ impl DiskAnalyzerService {
                                 tree.path = real_path;
                                 tree.name = display_name;
                                 let kind = DiskAnalyzerService::kind_for_entry(
-                                    entry_kind,
-                                    &tree.path,
-                                    &roots,
+                                    entry_kind, &tree.path, &roots,
                                 );
                                 DiskAnalyzerService::apply_kind(&mut tree, kind);
                                 // Keep children from scan_level so target/node_modules/.next
@@ -1334,6 +1320,215 @@ impl DiskAnalyzerService {
                     });
                 }
             });
+
+            if matches!(kind, OverviewKind::AtmosSynthetic) && !cancel.load(Ordering::Relaxed) {
+                let discovered_worktrees = home
+                    .as_ref()
+                    .map(|h| GitEngine::new().discover_linked_worktrees(h, Some(&cancel)))
+                    .unwrap_or_default();
+                roots.git_worktree_roots = discovered_worktrees.clone();
+                let existing: HashSet<String> = entries.iter().map(|e| e.label.clone()).collect();
+                DiskAnalyzerService::append_discovered_overview_entries(
+                    &mut entries,
+                    &discovered_worktrees,
+                    &[],
+                );
+                entry_labels = DiskAnalyzerService::overview_entry_labels(&entries);
+                let new_entries: Vec<EntryRoot> = entries
+                    .iter()
+                    .filter(|e| !existing.contains(&e.label))
+                    .cloned()
+                    .collect();
+                if let Some(session) = sessions.lock().get_mut(&scan_id) {
+                    session.entry_roots = entries.iter().map(|e| e.path.clone()).collect();
+                    session.git_worktree_roots = discovered_worktrees;
+                }
+                if !new_entries.is_empty() {
+                    {
+                        let mut map = parts.lock();
+                        for entry in &new_entries {
+                            let real_path = path_key(&entry.path);
+                            let display = entry_labels
+                                .get(&entry.label)
+                                .cloned()
+                                .unwrap_or_else(|| entry.label.clone());
+                            let kind =
+                                DiskAnalyzerService::kind_for_entry(entry.kind, &real_path, &roots);
+                            map.insert(
+                                entry.label.clone(),
+                                DiskAnalyzerService::dir_shell(display, real_path, kind),
+                            );
+                        }
+                    }
+                    {
+                        let map = parts.lock().clone();
+                        emit_assembled(ScanStatus::Running, None, &map, None);
+                    }
+
+                    let engine = DiskAnalyzerEngine::new();
+                    for entry in &new_entries {
+                        if cancel.load(Ordering::Relaxed) {
+                            break;
+                        }
+                        if let Some(m) = engine.try_cached_measure(&entry.path) {
+                            let real_path = path_key(&entry.path);
+                            let display_name = entry_labels
+                                .get(&entry.label)
+                                .cloned()
+                                .unwrap_or_else(|| entry.label.clone());
+                            let kind =
+                                DiskAnalyzerService::kind_for_entry(entry.kind, &real_path, &roots);
+                            let mut tree =
+                                DiskAnalyzerService::dir_shell(display_name, real_path, kind);
+                            tree.size = m.size;
+                            tree.file_count = m.file_count;
+                            tree.dir_count = m.dir_count;
+                            files_scanned.fetch_add(m.file_count, Ordering::Relaxed);
+                            dirs_scanned
+                                .fetch_add(m.dir_count.saturating_add(1), Ordering::Relaxed);
+                            parts.lock().insert(entry.label.clone(), tree);
+                        }
+                    }
+                    {
+                        let map = parts.lock().clone();
+                        emit_assembled(ScanStatus::Running, None, &map, None);
+                    }
+
+                    std::thread::scope(|scope| {
+                        for entry in new_entries {
+                            if cancel.load(Ordering::Relaxed) {
+                                break;
+                            }
+                            let already = parts
+                                .lock()
+                                .get(&entry.label)
+                                .is_some_and(|n| n.size > 0 || n.file_count > 0 || n.dir_count > 0);
+                            if already {
+                                continue;
+                            }
+                            let parts = Arc::clone(&parts);
+                            let files_scanned = Arc::clone(&files_scanned);
+                            let dirs_scanned = Arc::clone(&dirs_scanned);
+                            let error_count = Arc::clone(&error_count);
+                            let sessions = Arc::clone(&sessions);
+                            let event_tx = event_tx.clone();
+                            let owner = owner.clone();
+                            let scan_id = scan_id.clone();
+                            let cancel = Arc::clone(&cancel);
+                            let roots = roots.clone();
+                            let root_path_str = root_path_str.clone();
+                            let root_display_name = root_display_name.clone();
+                            let entry_labels = entry_labels.clone();
+                            let du_budget = Arc::clone(&du_budget);
+                            let engine = DiskAnalyzerEngine::new();
+                            scope.spawn(move || {
+                                if cancel.load(Ordering::Relaxed) {
+                                    return;
+                                }
+                                let part_key = entry.label.clone();
+                                let real_path = path_key(&entry.path);
+                                let display_name = entry_labels
+                                    .get(&part_key)
+                                    .cloned()
+                                    .unwrap_or_else(|| part_key.clone());
+                                loop {
+                                    if cancel.load(Ordering::Relaxed) {
+                                        return;
+                                    }
+                                    let cur = du_budget.load(Ordering::Relaxed);
+                                    if cur == 0 {
+                                        std::thread::yield_now();
+                                        continue;
+                                    }
+                                    if du_budget
+                                        .compare_exchange_weak(
+                                            cur,
+                                            cur - 1,
+                                            Ordering::SeqCst,
+                                            Ordering::Relaxed,
+                                        )
+                                        .is_ok()
+                                    {
+                                        break;
+                                    }
+                                }
+                                let out = engine.measure_path(&entry.path, Some(Arc::clone(&cancel)));
+                                du_budget.fetch_add(1, Ordering::SeqCst);
+                                match out {
+                                    Ok(m) => {
+                                        let path_kind = DiskAnalyzerService::kind_for_entry(
+                                            entry.kind,
+                                            &real_path,
+                                            &roots,
+                                        );
+                                        let mut tree = DiskAnalyzerService::dir_shell(
+                                            display_name.clone(),
+                                            real_path.clone(),
+                                            path_kind,
+                                        );
+                                        tree.size = m.size;
+                                        tree.file_count = m.file_count;
+                                        tree.dir_count = m.dir_count;
+                                        files_scanned.fetch_add(m.file_count, Ordering::Relaxed);
+                                        dirs_scanned.fetch_add(
+                                            m.dir_count.saturating_add(1),
+                                            Ordering::Relaxed,
+                                        );
+                                        error_count.fetch_add(m.error_count, Ordering::Relaxed);
+                                        let snapshot = {
+                                            let mut map = parts.lock();
+                                            map.insert(part_key, tree);
+                                            map.clone()
+                                        };
+                                        if let Some(mut tree) = assemble_overview(
+                                            kind,
+                                            &snapshot,
+                                            &root_path_str,
+                                            &root_display_name,
+                                            &entry_labels,
+                                        ) {
+                                            finalize_tree(
+                                                &mut tree,
+                                                max_children,
+                                                OVERVIEW_TREE_DEPTH,
+                                                false,
+                                            );
+                                            if let Some(session) =
+                                                sessions.lock().get_mut(&scan_id)
+                                            {
+                                                session.tree = Some(Arc::new(tree.clone()));
+                                            }
+                                            let payload = json!({
+                                                "scan_id": scan_id,
+                                                "status": "running",
+                                                "files_scanned": files_scanned.load(Ordering::Relaxed),
+                                                "bytes_scanned": tree.size,
+                                                "dirs_scanned": dirs_scanned.load(Ordering::Relaxed),
+                                                "error_count": error_count.load(Ordering::Relaxed),
+                                                "current_path": real_path,
+                                                "percent": Value::Null,
+                                                "error": Value::Null,
+                                                "tree": tree,
+                                                "level_path": root_path_str,
+                                            });
+                                            let _ = event_tx.send(DiskAnalyzerScanEvent {
+                                                owner_conn_id: owner,
+                                                payload,
+                                            });
+                                        }
+                                    }
+                                    Err(e) if e.to_string().contains("cancelled") => {
+                                        cancel.store(true, Ordering::Relaxed);
+                                    }
+                                    Err(_) => {
+                                        error_count.fetch_add(1, Ordering::Relaxed);
+                                    }
+                                }
+                            });
+                        }
+                    });
+                }
+            }
 
             if cancel.load(Ordering::Relaxed) {
                 let map = parts.lock().clone();
@@ -1413,10 +1608,12 @@ impl DiskAnalyzerService {
                 .unwrap_or(true);
             if need_discover {
                 if let Some(home) = dirs::home_dir() {
-                    let (worktrees, agents) =
-                        DiskAnalyzerService::discover_machine_marks(&home, &cancel);
-                    roots.git_worktree_roots = worktrees;
-                    roots.agent_data_roots = agents.into_iter().map(|(_, p)| p).collect();
+                    roots.agent_data_roots = agent_data_roots(&home)
+                        .into_iter()
+                        .map(|(_, p)| p)
+                        .collect();
+                    roots.git_worktree_roots =
+                        GitEngine::new().discover_linked_worktrees_fast(&home, Some(&cancel));
                     if let Some(session) = sessions.lock().get_mut(&scan_id) {
                         session.git_worktree_roots = roots.git_worktree_roots.clone();
                         session.agent_data_roots = roots.agent_data_roots.clone();
@@ -1668,6 +1865,33 @@ enum OverviewKind {
     AtmosSynthetic,
 }
 
+fn synthetic_group(
+    name: &str,
+    path: &str,
+    mut children: Vec<DiskNode>,
+    is_git_worktree: bool,
+    is_agent_data: bool,
+) -> DiskNode {
+    children.sort_by(|a, b| b.size.cmp(&a.size).then_with(|| a.name.cmp(&b.name)));
+    let size: u64 = children.iter().map(|c| c.size).sum();
+    let file_count: u64 = children.iter().map(|c| c.file_count).sum();
+    let dir_count: u64 = children.len() as u64 + children.iter().map(|c| c.dir_count).sum::<u64>();
+    DiskNode {
+        name: name.to_string(),
+        path: path.to_string(),
+        size,
+        is_dir: true,
+        is_project: false,
+        is_workspace: false,
+        is_git_worktree,
+        is_agent_data,
+        file_count,
+        dir_count,
+        children_loaded: true,
+        children,
+    }
+}
+
 /// Merge parallel entry scans into one overview tree.
 fn assemble_overview(
     kind: OverviewKind,
@@ -1718,16 +1942,42 @@ fn assemble_overview(
             Some(root)
         }
         OverviewKind::AtmosSynthetic => {
-            let mut children: Vec<DiskNode> = parts
-                .iter()
-                .map(|(key, node)| {
-                    let mut n = node.clone();
-                    if let Some(label) = entry_labels.get(key) {
-                        n.name = label.clone();
-                    }
-                    n
-                })
-                .collect();
+            let mut atmos_children = Vec::new();
+            let mut agent_children = Vec::new();
+            let mut worktree_children = Vec::new();
+            for (key, node) in parts {
+                let mut n = node.clone();
+                if let Some(label) = entry_labels.get(key) {
+                    n.name = label.clone();
+                }
+                if n.is_git_worktree {
+                    worktree_children.push(n);
+                } else if n.is_agent_data {
+                    agent_children.push(n);
+                } else {
+                    atmos_children.push(n);
+                }
+            }
+
+            let mut children = atmos_children;
+            if !agent_children.is_empty() {
+                children.push(synthetic_group(
+                    AGENT_GROUP_NAME,
+                    AGENT_GROUP_PATH,
+                    agent_children,
+                    false,
+                    true,
+                ));
+            }
+            if !worktree_children.is_empty() {
+                children.push(synthetic_group(
+                    WORKTREE_GROUP_NAME,
+                    WORKTREE_GROUP_PATH,
+                    worktree_children,
+                    true,
+                    false,
+                ));
+            }
             children.sort_by(|a, b| b.size.cmp(&a.size).then_with(|| a.name.cmp(&b.name)));
 
             let total_size: u64 = children.iter().map(|c| c.size).sum();
@@ -2112,5 +2362,83 @@ mod tests {
         );
 
         let _ = std::fs::remove_dir_all(&tmp);
+    }
+
+    fn overview_part(
+        name: &str,
+        path: &str,
+        size: u64,
+        is_git_worktree: bool,
+        is_agent_data: bool,
+    ) -> DiskNode {
+        DiskNode {
+            name: name.into(),
+            path: path.into(),
+            size,
+            is_dir: true,
+            is_project: false,
+            is_workspace: false,
+            is_git_worktree,
+            is_agent_data,
+            file_count: 1,
+            dir_count: 1,
+            children_loaded: false,
+            children: vec![],
+        }
+    }
+
+    #[test]
+    fn assemble_overview_groups_agent_and_worktree_entries() {
+        let mut parts = HashMap::new();
+        parts.insert(
+            ".atmos".into(),
+            overview_part(".atmos", "/home/u/.atmos", 100, false, false),
+        );
+        parts.insert(
+            ".cursor".into(),
+            overview_part(".cursor", "/home/u/.cursor", 50, false, true),
+        );
+        parts.insert(
+            "feat".into(),
+            overview_part("feat", "/tmp/feat", 80, true, false),
+        );
+
+        let tree = assemble_overview(
+            OverviewKind::AtmosSynthetic,
+            &parts,
+            ATMOS_OVERVIEW_PATH,
+            ATMOS_OVERVIEW_NAME,
+            &HashMap::new(),
+        )
+        .expect("overview");
+
+        let names: Vec<_> = tree.children.iter().map(|c| c.name.as_str()).collect();
+        assert!(
+            names.contains(&".atmos"),
+            "Atmos runtime stays at root: {names:?}"
+        );
+        assert!(
+            !names.contains(&".cursor") && !names.contains(&"feat"),
+            "agent/worktree tiles must nest under groups: {names:?}"
+        );
+
+        let agent = tree
+            .children
+            .iter()
+            .find(|c| c.path == AGENT_GROUP_PATH)
+            .expect("agent group");
+        assert!(agent.is_agent_data);
+        assert!(agent.children_loaded);
+        assert!(agent.children.iter().any(|c| c.name == ".cursor"));
+
+        let worktrees = tree
+            .children
+            .iter()
+            .find(|c| c.path == WORKTREE_GROUP_PATH)
+            .expect("worktree group");
+        assert!(worktrees.is_git_worktree);
+        assert!(worktrees.children_loaded);
+        assert!(worktrees.children.iter().any(|c| c.name == "feat"));
+        assert_eq!(tree.size, 230);
     }
 }

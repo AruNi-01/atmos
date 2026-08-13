@@ -11,7 +11,7 @@
 | Rule | Detail |
 |------|--------|
 | **When to add** | After fixing a user-reported bug, reliability issue, quality regression, agent ergonomics gap, or deliberate product parity gap. |
-| **Entry id** | `IMP-NNN` — zero-padded, monotonic in this file (next: **IMP-002**). |
+| **Entry id** | `IMP-NNN` — zero-padded, monotonic in this file (next: **IMP-003**). |
 | **Status** | `open` → `mitigated` → `closed` (or `wont-fix` with reason). |
 | **Do not** | Duplicate full TECH sections; link to TECH/PRD and paste only deltas. |
 | **Versions** | If agent-facing behavior changes, note the relevant Skill / CLI / runtime version in the entry. |
@@ -23,6 +23,7 @@
 | Id | Title | Status | Date |
 |----|-------|--------|------|
 | IMP-001 | Default scan covers machine git worktrees and agent homes | mitigated | 2026-08-13 |
+| IMP-002 | Overview first paint + grouping for worktrees / agent data | mitigated | 2026-08-13 |
 
 ---
 
@@ -70,5 +71,41 @@ Default overview lists Atmos roots plus machine worktrees and agent data, labele
 
 ### Follow-ups
 
+- [x] First-paint Atmos tiles before home-wide `.git` walk (IMP-002)
+- [x] Group leftover worktrees / agent homes instead of flattening next to `.atmos` (IMP-002)
 - [ ] Manual smoke: default scan shows a Cursor/Codex worktree and `.cursor` / `.claude` with badges
-- [ ] Confirm home-wide `.git` discovery stays acceptable on a large developer home
+
+---
+
+## IMP-002 · Overview first paint + grouping for worktrees / agent data
+
+| Field | Value |
+|-------|--------|
+| **Date** | 2026-08-13 |
+| **Status** | mitigated |
+| **Reported by** | user |
+| **Severity** | ergonomics |
+
+### Problem
+
+IMP-001 discovery ran a home-wide `.git` walk **before** the first overview placeholder, so `~/.atmos` / Atmos.app waited on the rest of the machine. Leftover worktrees and agent homes also sat as siblings of `.atmos`, crowding the first screen.
+
+### Solution
+
+- Wave 1: Atmos entries + agent homes (`exists()` only) → placeholder → measure.
+- Wave 2: `discover_linked_worktrees` (full) appends uncovered worktrees and measures them.
+- `assemble_overview` nests agent tiles under `atmos://disk-usage/agent-data` and worktrees under `atmos://disk-usage/git-worktrees`. Groups are loaded, not deletable.
+- Drill-in uses `.git` file classification plus `discover_linked_worktrees_fast` (known agent worktree dirs only).
+
+### Result
+
+First chart paint is Atmos-shaped; worktrees appear when found. Agent/worktree clutter is grouped.
+
+### Code / docs touched
+
+- `crates/core-engine/src/git/worktrees.rs` (`discover_linked_worktrees_fast`)
+- `crates/core-engine/src/disk_analyzer/mod.rs` (`.git` file classify)
+- `crates/core-service/src/service/disk_analyzer.rs`
+- `apps/web/src/features/disk-analyzer/`
+- `apps/web/messages/en.json`, `apps/web/messages/zh.json`
+- [TECH.md](./TECH.md), [TEST.md](./TEST.md)

@@ -13,9 +13,11 @@ import {
 } from "@workspace/ui";
 import type { DiskNode } from "@/api/ws/disk-analyzer-api";
 import {
+  GIT_WORKTREES_GROUP_PATH,
   SUNBURST_CHART_DEPTH,
   TREEMAP_CHART_DEPTH,
   formatBytes,
+  isAtmosSyntheticPath,
   layoutValue,
   toEChartsTree,
   type ChartMode,
@@ -87,6 +89,7 @@ type Props = {
   projectLabel: string;
   workspaceLabel: string;
   gitWorktreeLabel: string;
+  gitWorktreesLabel: string;
   agentDataLabel: string;
   runtimeLabel: string;
   otherLabel?: string;
@@ -105,6 +108,7 @@ export function DiskUsageChart({
   projectLabel,
   workspaceLabel,
   gitWorktreeLabel,
+  gitWorktreesLabel,
   agentDataLabel,
   runtimeLabel,
   otherLabel = "Other",
@@ -274,11 +278,14 @@ export function DiskUsageChart({
       const share = Math.min(100, (size / denom) * 100).toFixed(1);
       const name = escapeHtml(p.name ?? "");
       const fullPath = p.data.path ?? "";
-      const path = escapeHtml(middleEllipsisPath(fullPath));
+      const path = isAtmosSyntheticPath(fullPath)
+        ? ""
+        : escapeHtml(middleEllipsisPath(fullPath));
       const kindChip = kindChipHtml(p.data, {
         projectLabel,
         workspaceLabel,
         gitWorktreeLabel,
+        gitWorktreesLabel,
         agentDataLabel,
         runtimeLabel,
       });
@@ -480,6 +487,7 @@ export function DiskUsageChart({
     seriesData,
     workspaceLabel,
     gitWorktreeLabel,
+    gitWorktreesLabel,
     agentDataLabel,
   ]);
 
@@ -678,6 +686,7 @@ function kindChipHtml(
     projectLabel: string;
     workspaceLabel: string;
     gitWorktreeLabel: string;
+    gitWorktreesLabel?: string;
     agentDataLabel: string;
     runtimeLabel: string;
   },
@@ -686,8 +695,12 @@ function kindChipHtml(
   if (data?.isAtmosRuntime) text = labels.runtimeLabel;
   else if (data?.isWorkspace) text = labels.workspaceLabel;
   else if (data?.isProject) text = labels.projectLabel;
-  else if (data?.isGitWorktree) text = labels.gitWorktreeLabel;
-  else if (data?.isAgentData) text = labels.agentDataLabel;
+  else if (data?.isGitWorktree) {
+    text =
+      data.path === GIT_WORKTREES_GROUP_PATH
+        ? (labels.gitWorktreesLabel ?? labels.gitWorktreeLabel)
+        : labels.gitWorktreeLabel;
+  } else if (data?.isAgentData) text = labels.agentDataLabel;
   if (!text) return "";
   return [
     `<span style="`,
