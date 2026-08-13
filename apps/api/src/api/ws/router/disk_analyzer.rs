@@ -4,7 +4,8 @@ use core_service::{Result, ServiceError};
 
 use super::{
     DiskAnalyzerCancelScanRequest, DiskAnalyzerDeleteRequest, DiskAnalyzerDiskInfoRequest,
-    DiskAnalyzerGetTreeRequest, DiskAnalyzerStartScanRequest, WsMessageService,
+    DiskAnalyzerGetSuggestionsRequest, DiskAnalyzerGetTreeRequest, DiskAnalyzerStartScanRequest,
+    WsMessageService,
 };
 
 impl WsMessageService {
@@ -43,6 +44,15 @@ impl WsMessageService {
             req.path.as_deref(),
             req.max_children,
         )
+    }
+
+    pub(super) fn handle_disk_analyzer_get_suggestions(
+        &self,
+        conn_id: &str,
+        req: DiskAnalyzerGetSuggestionsRequest,
+    ) -> Result<Value> {
+        self.disk_analyzer_service
+            .get_suggestions(conn_id, &req.scan_id)
     }
 
     pub(super) async fn handle_disk_analyzer_delete(

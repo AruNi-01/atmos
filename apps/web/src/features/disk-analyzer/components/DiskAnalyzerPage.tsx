@@ -27,18 +27,30 @@ import {
   cn,
 } from "@workspace/ui";
 import {
+  Tabs,
+  TabsList,
+  TabsTrigger,
+} from "@workspace/ui/components/motion/tabs";
+import {
   ChartPie,
   ChevronRight,
   CircleAlert,
+  Folder,
   HardDrive,
   LayoutGrid,
   Loader2,
   PanelRightClose,
   PanelRightOpen,
   RefreshCw,
+  Sparkles,
   Trash2,
 } from "lucide-react";
 import { DiskUsageChart } from "@/features/disk-analyzer/components/DiskUsageChart";
+import {
+  DiskAnalyzerSuggestPanel,
+  isWorktreeSuggestion,
+  suggestionTotalSize,
+} from "@/features/disk-analyzer/components/DiskAnalyzerSuggestPanel";
 import { useDiskAnalyzer } from "@/features/disk-analyzer/hooks/use-disk-analyzer";
 import {
   GIT_WORKTREES_GROUP_PATH,
@@ -76,11 +88,18 @@ export function DiskAnalyzerPage() {
     [analyzer.scanPath, t],
   );
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteAllOpen, setDeleteAllOpen] = useState(false);
   const [listDeletePath, setListDeletePath] = useState<string | null>(null);
   const [permanent, setPermanent] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(true);
+  const [detailTab, setDetailTab] = useState<"dirs" | "suggest">("dirs");
+  const [pendingSuggest, setPendingSuggest] = useState<{
+    path: string;
+    size: number;
+    isWorktree: boolean;
+  } | null>(null);
   /** Keep last paint-able chart node so list drill does not unmount the chart (kills ECharts data morph). */
   const lastChartNodeRef = useRef(analyzer.focusedNode);
 
@@ -113,6 +132,24 @@ export function DiskAnalyzerPage() {
 
   const openDeleteDialog = (path?: string) => {
     if (path) analyzer.setSelectedPath(path);
+    setPendingSuggest(null);
+    setPermanent(false);
+    setDeleteError(null);
+    setListDeletePath(null);
+    setDeleteOpen(true);
+  };
+
+  const openSuggestDelete = (item: {
+    path: string;
+    size: number;
+    kind?: string | null;
+  }) => {
+    analyzer.setSelectedPath(item.path);
+    setPendingSuggest({
+      path: item.path,
+      size: item.size,
+      isWorktree: item.kind === "worktree" || item.kind === "workspace",
+    });
     setPermanent(false);
     setDeleteError(null);
     setListDeletePath(null);
@@ -123,12 +160,29 @@ export function DiskAnalyzerPage() {
     setDeleting(true);
     setDeleteError(null);
     try {
-      await analyzer.deleteSelected(permanent);
-      setDeleteOpen(false);
-      setListDeletePath(null);
+      const target = pendingSuggest?.path ?? analyzer.selectedPath;
+      if (target) {
+        await analyzer.deletePathAt(target, permanent);
+        setDeleteOpen(false);
+        setListDeletePath(null);
+        setPermanent(false);
+        setPendingSuggest(null);
+        await analyzer.refreshAfterDelete(target);
+      }
+    } catch (e) {
+      setDeleteError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const onConfirmDeleteAll = async () => {
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      await analyzer.deleteSuggestions(permanent);
+      setDeleteAllOpen(false);
       setPermanent(false);
-      // Stay in the current folder — do not restart the whole scan from root.
-      await analyzer.refreshAfterDelete();
     } catch (e) {
       setDeleteError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -434,17 +488,71 @@ export function DiskAnalyzerPage() {
           </div>
         </section>
 
-        {/* Side rail — Details list (cleanup tips as inline badges) */}
+        {/* Side rail — Dirs list or cleanup suggestions */}
         <aside
           className={cn(
             // Width transition shrinks the main flex column; chart listens via ResizeObserver.
             "flex shrink-0 flex-col border-l border-border/60 bg-background/40 transition-[width] duration-200 ease-out",
-            detailsOpen ? "w-[280px] sm:w-[300px]" : "w-0 overflow-hidden border-l-0",
+            detailsOpen ? "w-[300px] sm:w-[320px]" : "w-0 overflow-hidden border-l-0",
           )}
           aria-hidden={!detailsOpen}
         >
           {detailsOpen ? (
             <TooltipProvider delayDuration={250}>
+            <Tabs
+              value={detailTab}
+              onValueChange={(value) =>
+                setDetailTab(value === "suggest" ? "suggest" : "dirs")
+              }
+              variant="pill"
+              className="flex min-h-0 flex-1 flex-col"
+            >
+            <div className="flex h-10 shrink-0 items-center gap-1.5 px-2 pt-2">
+              <TabsList className="h-8 min-w-0 gap-0.5 p-0.5">
+                <TabsTrigger value="dirs" className="h-7 gap-1 px-2 text-xs">
+                  <Folder className="size-3.5 shrink-0" />
+                  {t("tabDirs")}
+                </TabsTrigger>
+                <TabsTrigger value="suggest" className="h-7 gap-1 px-2 text-xs">
+                  <Sparkles className="size-3.5 shrink-0" />
+                  {t("tabClearSuggest")}
+                </TabsTrigger>
+              </TabsList>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="ml-auto h-7 shrink-0 rounded-full px-2.5 text-xs shadow-none"
+                disabled={analyzer.refreshingDetails || !analyzer.scanId}
+                aria-label={t("refreshDetailsAria")}
+                title={t("refreshDetailsAria")}
+                onClick={() => void analyzer.refreshDetails()}
+              >
+                <RefreshCw
+                  className={cn(
+                    "size-3.5",
+                    analyzer.refreshingDetails && "animate-spin",
+                  )}
+                />
+                {t("refreshDetails")}
+              </Button>
+            </div>
+            {detailTab === "suggest" ? (
+              <DiskAnalyzerSuggestPanel
+                suggestions={analyzer.sessionSuggestions}
+                ready={analyzer.suggestionsReady}
+                scanning={scanning}
+                deleting={deleting}
+                localizeName={sessionName}
+                pathTitle={pathTitle}
+                onDeleteOne={(item) => openSuggestDelete(item)}
+                onDeleteAll={() => {
+                  setPermanent(false);
+                  setDeleteError(null);
+                  setDeleteAllOpen(true);
+                }}
+              />
+            ) : (
             <div className="flex min-h-0 flex-1 flex-col">
               <div className="shrink-0 space-y-2 border-b border-border/50 px-4 py-3">
                 {analyzer.selectedNode ? (
@@ -756,21 +864,36 @@ export function DiskAnalyzerPage() {
                 )}
               </div>
             </div>
+            )}
+            </Tabs>
             </TooltipProvider>
           ) : null}
         </aside>
       </div>
 
-      <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+      <Dialog
+        open={deleteOpen}
+        onOpenChange={(open) => {
+          setDeleteOpen(open);
+          if (!open) setPendingSuggest(null);
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{t("deleteTitle")}</DialogTitle>
             <DialogDescription className="min-w-0 whitespace-pre-wrap break-all">
               {t("deleteDescription", {
-                path: analyzer.selectedNode?.path ?? "",
-                size: formatBytes(analyzer.selectedNode?.size ?? 0),
+                path:
+                  pendingSuggest?.path ??
+                  analyzer.selectedNode?.path ??
+                  analyzer.selectedPath ??
+                  "",
+                size: formatBytes(
+                  pendingSuggest?.size ?? analyzer.selectedNode?.size ?? 0,
+                ),
               })}
-              {analyzer.selectedNode?.is_git_worktree ? (
+              {pendingSuggest?.isWorktree ||
+              analyzer.selectedNode?.is_git_worktree ? (
                 <>
                   {"\n\n"}
                   {t("deleteWorktreeNote")}
@@ -797,6 +920,50 @@ export function DiskAnalyzerPage() {
               variant="destructive"
               disabled={deleting}
               onClick={() => void onConfirmDelete()}
+            >
+              {deleting ? <Loader2 className="size-4 animate-spin" /> : null}
+              {permanent ? t("confirmPermanent") : t("confirmTrash")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={deleteAllOpen} onOpenChange={setDeleteAllOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t("deleteAllSuggestTitle")}</DialogTitle>
+            <DialogDescription className="min-w-0 whitespace-pre-wrap break-all">
+              {t("deleteAllSuggestDescription", {
+                count: analyzer.sessionSuggestions.length,
+                size: formatBytes(suggestionTotalSize(analyzer.sessionSuggestions)),
+              })}
+              {analyzer.sessionSuggestions.some(isWorktreeSuggestion) ? (
+                <>
+                  {"\n\n"}
+                  {t("deleteWorktreeNote")}
+                </>
+              ) : null}
+            </DialogDescription>
+          </DialogHeader>
+          <label className="flex min-w-0 items-start gap-2 text-sm leading-snug">
+            <Checkbox
+              className="mt-0.5 shrink-0"
+              checked={permanent}
+              onCheckedChange={(checked) => setPermanent(checked === true)}
+            />
+            <span className="min-w-0 break-words">{t("permanentDelete")}</span>
+          </label>
+          {deleteError ? (
+            <div className="text-sm text-destructive">{deleteError}</div>
+          ) : null}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteAllOpen(false)}>
+              {t("cancel")}
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={deleting || analyzer.sessionSuggestions.length === 0}
+              onClick={() => void onConfirmDeleteAll()}
             >
               {deleting ? <Loader2 className="size-4 animate-spin" /> : null}
               {permanent ? t("confirmPermanent") : t("confirmTrash")}

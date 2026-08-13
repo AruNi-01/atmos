@@ -257,6 +257,7 @@
   "disk_analyzer_start_scan",
   "disk_analyzer_cancel_scan",
   "disk_analyzer_get_tree",
+  "disk_analyzer_get_suggestions",
   "disk_analyzer_delete",
   "disk_analyzer_disk_info"
 ]

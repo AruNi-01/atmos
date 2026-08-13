@@ -734,6 +734,8 @@ pub enum WsAction {
     DiskAnalyzerCancelScan,
     /// Fetch a (sub)tree from a completed scan session
     DiskAnalyzerGetTree,
+    /// Recompute cleanup suggestions from the current scan tree
+    DiskAnalyzerGetSuggestions,
     /// Move a path to trash or permanently delete it
     DiskAnalyzerDelete,
     /// Read volume total/available bytes for a path

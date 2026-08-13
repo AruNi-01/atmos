@@ -1,5 +1,6 @@
 //! Disk usage analyzer — parallel walk, hierarchical size tree, trash/delete.
 
+mod activity;
 mod agent_roots;
 mod cache;
 mod delete;
@@ -13,7 +14,7 @@ pub use cache::{
     clear_all as clear_path_cache, invalidate_path as invalidate_path_cache, CACHE_TTL,
 };
 pub use prune::{finalize_tree, limit_tree_depth, node_needs_wider_children, prune_tree};
-pub use suggestions::{cleanup_suggestions, CleanupSuggestion};
+pub use suggestions::{cleanup_suggestions, clear_suggestions, CleanupKind, CleanupSuggestion};
 pub use types::{
     DiskAnalyzerEngine, DiskNode, DiskPathKind, DiskScanRoots, DiskVolumeInfo, PathMeasure,
     ProgressCallback, ScanProgress, ScanStats, ScanStatus, DEFAULT_TREE_DEPTH, OTHER_NAME,
@@ -520,6 +521,75 @@ mod tests {
                 "bare {name} must not be a cleanup hint: {tips:?}"
             );
         }
+    }
+
+    fn suggestion_node(name: &str, path: &str, size: u64) -> DiskNode {
+        DiskNode {
+            name: name.into(),
+            path: path.into(),
+            size,
+            is_dir: true,
+            is_project: false,
+            is_workspace: false,
+            is_git_worktree: false,
+            is_agent_data: false,
+            file_count: 0,
+            dir_count: 0,
+            children_loaded: true,
+            children: vec![],
+        }
+    }
+
+    #[test]
+    fn clear_suggestions_skips_synthetic_and_project_roots() {
+        let mut project = suggestion_node("app", "/proj/app", 80);
+        project.is_project = true;
+        project.is_git_worktree = true;
+        project.children = vec![suggestion_node(
+            "node_modules",
+            "/proj/app/node_modules",
+            70,
+        )];
+
+        let mut group = suggestion_node("Git worktrees", "atmos://disk-usage/git-worktrees", 80);
+        group.is_git_worktree = true;
+        group.children = vec![project.clone()];
+
+        let mut other = suggestion_node("__other__", "/proj/__other__", 9);
+        other.children = vec![suggestion_node("target", "/proj/__other__/target", 8)];
+
+        let tree = DiskNode {
+            name: "Atmos".into(),
+            path: "atmos://disk-usage".into(),
+            size: 160,
+            is_dir: true,
+            is_project: false,
+            is_workspace: false,
+            is_git_worktree: false,
+            is_agent_data: false,
+            file_count: 0,
+            dir_count: 2,
+            children_loaded: true,
+            children: vec![group, other],
+        };
+
+        let tips = clear_suggestions(&tree);
+        assert!(
+            tips.iter().all(|t| !t.path.starts_with("atmos://")),
+            "synthetic paths must not be suggested: {tips:?}"
+        );
+        assert!(
+            tips.iter().all(|t| t.path != "/proj/app"),
+            "project roots must not be suggested: {tips:?}"
+        );
+        assert!(
+            tips.iter().any(|t| t.path == "/proj/app/node_modules"),
+            "rebuildable caches under a project should still surface: {tips:?}"
+        );
+        assert!(
+            tips.iter().all(|t| t.name != "__other__"),
+            "__other__ itself must not be suggested: {tips:?}"
+        );
     }
 
     #[test]

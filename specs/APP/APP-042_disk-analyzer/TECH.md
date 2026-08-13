@@ -105,6 +105,7 @@ Visualization prune rules (serialization):
 - Per directory, keep top `N` children by size (default 40); collapse remainder into an `__other__` synthetic child preserving leftover bytes/counts.
 - Parent `size` remains the true aggregated total.
 - Cleanup suggestions are computed **before** prune so cache dirs collapsed into `__other__` still surface.
+- Stale worktree / workspace / agent-session suggestions use last-activity time only (gitdir + last commit for checkouts; shallow child mtimes for sessions). Rebuildable cache basenames stay size-agnostic. Synthetic `atmos://` nodes, `__other__`, and project roots are never suggested.
 
 Project / worktree / agent marking:
 
@@ -162,6 +163,7 @@ Project / worktree / agent marking:
 | `DiskAnalyzerStartScan` | `{ path?: string, max_children?: number }` | `{ scan_id, root_path }` |
 | `DiskAnalyzerCancelScan` | `{ scan_id }` | `{ ok: true }` — owner connection only |
 | `DiskAnalyzerGetTree` | `{ scan_id, path?: string, max_children?: number }` | `{ tree, stats }` — owner only; snapshot then prune outside lock. If the cached node was already pruned into `__other__` below the requested `max_children`, re-walk that path instead of returning the truncated snapshot. |
+| `DiskAnalyzerGetSuggestions` | `{ scan_id }` | `{ suggestions, ready }` — owner only; recomputes cache hints plus stale worktrees/sessions from **time only** (no size gate). `ready` is true after the overview walk finishes. |
 | `DiskAnalyzerDelete` | `{ scan_id, path, permanent?: bool }` | `{ success, path, freed_bytes, permanent }` — owner only; path must canonicalize under session root |
 | `DiskAnalyzerDiskInfo` | `{ path?: string }` | `DiskVolumeInfo` |
 
@@ -193,7 +195,7 @@ Default `path` for start/info = home directory from existing `FsEngine::get_home
 ## Security / privacy
 
 - Operations are local filesystem only; do not upload trees.
-- Scan sessions are bound to the initiating WebSocket `conn_id`; cancel/get_tree/delete require ownership.
+- Scan sessions are bound to the initiating WebSocket `conn_id`; cancel/get_tree/get_suggestions/delete require ownership.
 - Progress/completion notifications are unicast to the owner only.
 - Delete requires `scan_id`; path must canonicalize under that session’s root; refuse filesystem roots via portable `parent().is_none()` (covers `/` and drive roots).
 - Permanent delete requires explicit flag + UI confirmation.

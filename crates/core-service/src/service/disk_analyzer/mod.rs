@@ -18,8 +18,9 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use core_engine::{
-    finalize_tree, node_needs_wider_children, CleanupSuggestion, DiskAnalyzerEngine, DiskNode,
-    DiskScanRoots, DiskVolumeInfo, FsEngine, GitEngine, ScanStats, DEFAULT_TREE_DEPTH,
+    clear_suggestions, finalize_tree, node_needs_wider_children, CleanupSuggestion,
+    DiskAnalyzerEngine, DiskNode, DiskScanRoots, DiskVolumeInfo, FsEngine, GitEngine, ScanStats,
+    DEFAULT_TREE_DEPTH,
 };
 use parking_lot::Mutex;
 use serde::Serialize;
@@ -340,6 +341,29 @@ impl DiskAnalyzerService {
         session.cancel.store(true, Ordering::Relaxed);
         sessions.remove(scan_id);
         Ok(json!({ "ok": true, "scan_id": scan_id }))
+    }
+
+    /// Recompute cleanup suggestions from the current session tree.
+    ///
+    /// `ready` is true only after the overview walk finished, so the UI can
+    /// avoid an "all clean" empty state while more paths may still appear.
+    pub fn get_suggestions(&self, owner_conn_id: &str, scan_id: &str) -> Result<Value> {
+        let (tree, ready) = {
+            let sessions = self.sessions.lock();
+            let session = sessions
+                .get(scan_id)
+                .ok_or_else(|| ServiceError::NotFound(format!("scan {scan_id}")))?;
+            Self::ensure_owner(session, owner_conn_id)?;
+            (session.tree.clone(), session.completed_at.is_some())
+        };
+        let suggestions = tree
+            .as_ref()
+            .map(|tree| clear_suggestions(tree.as_ref()))
+            .unwrap_or_default();
+        Ok(json!({
+            "suggestions": suggestions,
+            "ready": ready,
+        }))
     }
 
     pub fn get_tree(

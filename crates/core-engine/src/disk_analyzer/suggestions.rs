@@ -1,8 +1,11 @@
 //! Cleanup-hint matching against scanned tree basenames.
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
-use super::types::DiskNode;
+use super::activity::{
+    git_worktree_last_activity_ms, is_stale, now_ms, session_dir_last_activity_ms,
+};
+use super::types::{DiskNode, OTHER_NAME};
 
 /// Common cleanup suggestion heuristics from a scanned tree.
 ///
@@ -17,6 +20,87 @@ pub fn cleanup_suggestions(tree: &DiskNode) -> Vec<CleanupSuggestion> {
     out.dedup_by(|a, b| a.path == b.path);
     out.truncate(40);
     out
+}
+
+/// Cache hints plus leftover worktrees / sessions judged **only by last activity**.
+///
+/// Synthetic `atmos://` groups are skipped. Project roots are never suggested.
+pub fn clear_suggestions(tree: &DiskNode) -> Vec<CleanupSuggestion> {
+    let now = now_ms();
+    let mut out = cleanup_suggestions(tree);
+    collect_stale_targets(tree, now, &mut out);
+    out.sort_by(|a, b| {
+        match (a.last_activity_ms, b.last_activity_ms) {
+            (Some(x), Some(y)) => x.cmp(&y).then_with(|| b.size.cmp(&a.size)),
+            (Some(_), None) => std::cmp::Ordering::Less,
+            (None, Some(_)) => std::cmp::Ordering::Greater,
+            (None, None) => b.size.cmp(&a.size),
+        }
+        .then_with(|| a.path.cmp(&b.path))
+    });
+    out.dedup_by(|a, b| a.path == b.path);
+    out.truncate(40);
+    out
+}
+
+fn collect_stale_targets(node: &DiskNode, now: u64, out: &mut Vec<CleanupSuggestion>) {
+    if node.name == OTHER_NAME || node.path.starts_with("atmos://") {
+        for child in &node.children {
+            collect_stale_targets(child, now, out);
+        }
+        return;
+    }
+    if node.is_project {
+        for child in &node.children {
+            collect_stale_targets(child, now, out);
+        }
+        return;
+    }
+
+    let path = std::path::Path::new(&node.path);
+    if node.is_workspace || node.is_git_worktree {
+        if let Some(activity) = git_worktree_last_activity_ms(path) {
+            if is_stale(activity, now) {
+                let kind = if node.is_workspace {
+                    CleanupKind::Workspace
+                } else {
+                    CleanupKind::Worktree
+                };
+                out.push(CleanupSuggestion {
+                    path: node.path.clone(),
+                    name: node.name.clone(),
+                    size: node.size,
+                    reason: if node.is_workspace {
+                        "Atmos workspace with no recent git activity".into()
+                    } else {
+                        "Linked git worktree with no recent git activity".into()
+                    },
+                    kind,
+                    last_activity_ms: Some(activity),
+                });
+            }
+        }
+    } else if node.is_agent_data && node.children.is_empty() {
+        // Leaf (or not-yet-expanded) session folder — activity is read from disk.
+        // Containers with children are skipped so one live session does not
+        // hide sibling stale sessions, and the parent is not suggested.
+        if let Some(activity) = session_dir_last_activity_ms(path) {
+            if is_stale(activity, now) {
+                out.push(CleanupSuggestion {
+                    path: node.path.clone(),
+                    name: node.name.clone(),
+                    size: node.size,
+                    reason: "Agent session directory with no recent activity".into(),
+                    kind: CleanupKind::Session,
+                    last_activity_ms: Some(activity),
+                });
+            }
+        }
+    }
+
+    for child in &node.children {
+        collect_stale_targets(child, now, out);
+    }
 }
 
 /// Rebuildable / cache basenames across common languages and frameworks.
@@ -211,12 +295,39 @@ const CLEANUP_HINTS: &[(&str, &str)] = &[
     ("acp-events", "Devin session files"),
 ];
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CleanupKind {
+    #[default]
+    Cache,
+    Worktree,
+    Session,
+    Workspace,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CleanupSuggestion {
     pub path: String,
     pub name: String,
     pub size: u64,
     pub reason: String,
+    #[serde(default)]
+    pub kind: CleanupKind,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_activity_ms: Option<u64>,
+}
+
+impl CleanupSuggestion {
+    fn cache(path: String, name: String, size: u64, reason: String) -> Self {
+        Self {
+            path,
+            name,
+            size,
+            reason,
+            kind: CleanupKind::Cache,
+            last_activity_ms: None,
+        }
+    }
 }
 
 fn collect_suggestions(node: &DiskNode, hints: &[(&str, &str)], out: &mut Vec<CleanupSuggestion>) {
@@ -229,12 +340,12 @@ fn collect_suggestions(node: &DiskNode, hints: &[(&str, &str)], out: &mut Vec<Cl
                 continue;
             }
             if node_name.eq_ignore_ascii_case(name) {
-                out.push(CleanupSuggestion {
-                    path: node.path.clone(),
-                    name: node.name.clone(),
-                    size: node.size,
-                    reason: (*reason).to_string(),
-                });
+                out.push(CleanupSuggestion::cache(
+                    node.path.clone(),
+                    node.name.clone(),
+                    node.size,
+                    (*reason).to_string(),
+                ));
                 break; // one reason per node
             }
         }
@@ -246,19 +357,19 @@ fn collect_suggestions(node: &DiskNode, hints: &[(&str, &str)], out: &mut Vec<Cl
         {
             // Only flag sizable egg-info / tsbuildinfo dirs/files.
             if node_name.ends_with(".egg-info") {
-                out.push(CleanupSuggestion {
-                    path: node.path.clone(),
-                    name: node.name.clone(),
-                    size: node.size,
-                    reason: "Python package egg-info (rebuildable)".into(),
-                });
+                out.push(CleanupSuggestion::cache(
+                    node.path.clone(),
+                    node.name.clone(),
+                    node.size,
+                    "Python package egg-info (rebuildable)".into(),
+                ));
             } else if node_name.ends_with(".tsbuildinfo") && node.size > 1024 {
-                out.push(CleanupSuggestion {
-                    path: node.path.clone(),
-                    name: node.name.clone(),
-                    size: node.size,
-                    reason: "TypeScript incremental build info".into(),
-                });
+                out.push(CleanupSuggestion::cache(
+                    node.path.clone(),
+                    node.name.clone(),
+                    node.size,
+                    "TypeScript incremental build info".into(),
+                ));
             }
         }
     }

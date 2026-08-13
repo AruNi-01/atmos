@@ -7,8 +7,9 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use core_engine::{
-    agent_data_roots, finalize_tree, CleanupSuggestion, DiskAnalyzerEngine, DiskNode, DiskPathKind,
-    DiskScanRoots, GitEngine, ProgressCallback, ScanProgress, ScanStats, ScanStatus,
+    agent_data_roots, clear_suggestions, finalize_tree, CleanupSuggestion, DiskAnalyzerEngine,
+    DiskNode, DiskPathKind, DiskScanRoots, GitEngine, ProgressCallback, ScanProgress, ScanStats,
+    ScanStatus,
 };
 use parking_lot::Mutex;
 use serde_json::{json, Value};
@@ -406,7 +407,6 @@ impl DiskAnalyzerService {
                 |status: ScanStatus,
                  current: Option<String>,
                  parts: &HashMap<String, DiskNode>,
-                 suggestions: Option<&[CleanupSuggestion]>,
                  labels: &HashMap<String, String>| {
                     let Some(mut tree) =
                         assemble_overview(kind, parts, &root_path_str, &root_display_name, labels)
@@ -416,6 +416,9 @@ impl DiskAnalyzerService {
                     // Completed assembly prunes root; partial progress keeps all root children.
                     // Depth 3 keeps entry children (target / node_modules / .next / workspaces).
                     let prune_root = matches!(status, ScanStatus::Completed);
+                    // Score suggestions on the unpruned tree so caches collapsed
+                    // into `__other__` still surface. Activity is read from disk.
+                    let suggestions = clear_suggestions(&tree);
                     finalize_tree(&mut tree, max_children, OVERVIEW_TREE_DEPTH, prune_root);
                     bytes_scanned.store(tree.size, Ordering::Relaxed);
 
@@ -443,11 +446,9 @@ impl DiskAnalyzerService {
                         ) {
                             session.inflight_root = None;
                             session.completed_at = Some(Instant::now());
-                            if matches!(status, ScanStatus::Completed) {
-                                if let Some(s) = suggestions {
-                                    session.suggestions = Some(s.to_vec());
-                                }
-                            }
+                            session.suggestions = Some(suggestions.clone());
+                        } else if !suggestions.is_empty() {
+                            session.suggestions = Some(suggestions.clone());
                         }
                     }
 
@@ -494,7 +495,7 @@ impl DiskAnalyzerService {
                         DiskAnalyzerService::dir_shell(display, real_path, kind),
                     );
                 }
-                emit_assembled(ScanStatus::Running, None, &map, None, &entry_labels);
+                emit_assembled(ScanStatus::Running, None, &map, &entry_labels);
             }
 
             // Phase 1: apply every valid cache hit synchronously (instant paint for
@@ -543,7 +544,7 @@ impl DiskAnalyzerService {
                 }
                 if any_hit {
                     let map = parts.lock().clone();
-                    emit_assembled(ScanStatus::Running, None, &map, None, &entry_labels);
+                    emit_assembled(ScanStatus::Running, None, &map, &entry_labels);
                 }
             }
 
@@ -869,7 +870,7 @@ impl DiskAnalyzerService {
                     }
                     {
                         let map = parts.lock().clone();
-                        emit_assembled(ScanStatus::Running, None, &map, None, &entry_labels);
+                        emit_assembled(ScanStatus::Running, None, &map, &entry_labels);
                     }
 
                     let engine = DiskAnalyzerEngine::new();
@@ -898,7 +899,7 @@ impl DiskAnalyzerService {
                     }
                     {
                         let map = parts.lock().clone();
-                        emit_assembled(ScanStatus::Running, None, &map, None, &entry_labels);
+                        emit_assembled(ScanStatus::Running, None, &map, &entry_labels);
                     }
 
                     std::thread::scope(|scope| {
@@ -1040,25 +1041,12 @@ impl DiskAnalyzerService {
 
             if cancel.load(Ordering::Relaxed) {
                 let map = parts.lock().clone();
-                emit_assembled(ScanStatus::Cancelled, None, &map, None, &entry_labels);
+                emit_assembled(ScanStatus::Cancelled, None, &map, &entry_labels);
                 return;
             }
 
             let map = parts.lock().clone();
-            let mut all_suggestions = Vec::new();
-            for node in map.values() {
-                all_suggestions.extend(core_engine::cleanup_suggestions(node));
-            }
-            all_suggestions.sort_by_key(|s| std::cmp::Reverse(s.size));
-            all_suggestions.truncate(20);
-
-            emit_assembled(
-                ScanStatus::Completed,
-                None,
-                &map,
-                Some(all_suggestions.as_slice()),
-                &entry_labels,
-            );
+            emit_assembled(ScanStatus::Completed, None, &map, &entry_labels);
         });
     }
 

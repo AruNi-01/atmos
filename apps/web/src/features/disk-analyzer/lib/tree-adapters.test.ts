@@ -28,6 +28,10 @@ import {
   type DiskFilters,
 } from "./tree-adapters";
 import type { DiskNode } from "@/api/ws/disk-analyzer-api";
+import {
+  isWorktreeSuggestion,
+  suggestionTotalSize,
+} from "@/features/disk-analyzer/components/DiskAnalyzerSuggestPanel";
 
 const sample: DiskNode = {
   name: "home",
@@ -965,6 +969,47 @@ describe("disk analyzer tree adapters", () => {
     // When user drills into src, only that level's children matter.
     const srcLevel = collectCleanupSuggestions(children[1].children);
     expect(srcLevel.map((t) => t.name)).toEqual(["target"]);
+  });
+});
+
+describe("disk analyzer suggestion helpers", () => {
+  test("worktree kinds are treated as git removals", () => {
+    expect(
+      isWorktreeSuggestion({
+        path: "/wt",
+        name: "wt",
+        size: 1,
+        reason: "",
+        kind: "worktree",
+      }),
+    ).toBe(true);
+    expect(
+      isWorktreeSuggestion({
+        path: "/ws",
+        name: "ws",
+        size: 1,
+        reason: "",
+        kind: "workspace",
+      }),
+    ).toBe(true);
+    expect(
+      isWorktreeSuggestion({
+        path: "/nm",
+        name: "node_modules",
+        size: 1,
+        reason: "",
+        kind: "cache",
+      }),
+    ).toBe(false);
+  });
+
+  test("suggestionTotalSize sums card sizes", () => {
+    expect(
+      suggestionTotalSize([
+        { path: "/a", name: "a", size: 10, reason: "" },
+        { path: "/b", name: "b", size: 25, reason: "" },
+      ]),
+    ).toBe(35);
   });
 });
 
