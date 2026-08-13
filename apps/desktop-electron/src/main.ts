@@ -136,6 +136,7 @@ async function boot() {
       },
       resourcesPath:
         typeof process.resourcesPath === "string" ? process.resourcesPath : undefined,
+      repoRoot: process.cwd(),
     });
     state.simulator.start();
   }

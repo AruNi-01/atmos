@@ -2,6 +2,7 @@ import { mkdirSync, readFileSync, writeFileSync, existsSync, unlinkSync, appendF
 import { dirname } from "node:path";
 import { tmpdir as osTmpdir } from "node:os";
 import { join } from "node:path";
+import { spawn } from "node:child_process";
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import { randomUUID } from "node:crypto";
@@ -16,6 +17,7 @@ import type { CommandRunner } from "./command-runner.ts";
 import { SimulatorControlPlane, newToken } from "./control-plane.ts";
 import {
   initialDegradeState,
+  isCaptureMismatchStderr,
   reduceDegrade,
   type DegradeState,
 } from "./degrade.ts";
@@ -31,6 +33,7 @@ import {
   resolveHelperDir,
 } from "./helper-resolve.ts";
 import {
+  assertLoopbackUrl,
   helperStateLogPath,
   helperStateRecordPath,
   parseHelperStateRecord,
@@ -100,6 +103,7 @@ type LiveSession = {
   degrade: DegradeState;
   hideNote?: string;
   inputWs: WebSocket | null;
+  suppressExit?: boolean;
 };
 
 function hostFromProcess(): ProbeHost {
@@ -227,14 +231,14 @@ export class SimulatorBridge {
       message: "Checking the local simulator environment",
     });
     if (!force && this.probeCache && this.now() - this.probeCache.at < 8_000) {
-      this.emit("simulator://probe", this.probeCache.result);
+      this.emitProbe(workspaceId, this.probeCache.result);
       return this.probeCache.result;
     }
     const fake = this.fakeName();
     if (fake) {
       const result = fakeProbeResult(fake);
       this.probeCache = { at: this.now(), result };
-      this.emit("simulator://probe", result);
+      this.emitProbe(workspaceId, result);
       return result;
     }
     const helper = resolveHelperDir({
@@ -249,13 +253,14 @@ export class SimulatorBridge {
       helperVersion: "dir" in helper ? helper.version : PINNED_HELPER_VERSION,
     });
     this.probeCache = { at: this.now(), result };
-    this.emit("simulator://probe", result);
+    this.emitProbe(workspaceId, result);
     return result;
   }
 
   async attach(
     workspaceId: string,
     simulatorId?: string,
+    webrtc?: boolean,
   ): Promise<SessionView> {
     const existing = this.sessions.get(workspaceId);
     if (existing) {
@@ -308,10 +313,15 @@ export class SimulatorBridge {
       new Date(this.now()).toISOString(),
     );
     if (!acquired.ok) {
-      throw new DesktopCommandError(
+      return this.failAttach(
+        workspaceId,
         "simulator_in_use",
         `In use by workspace ${acquired.holder.workspaceId}`,
-        "simulator_attach",
+        {
+          id: chosen.id,
+          name: chosen.name,
+          runtime: chosen.runtimeId,
+        },
       );
     }
     this.writeClaims(acquired.table);
@@ -339,24 +349,73 @@ export class SimulatorBridge {
       repoRoot: this.hooks.repoRoot ?? null,
     });
     if ("code" in helper) {
-      throw new DesktopCommandError("helper_missing", "Reinstall Atmos", "simulator_attach");
+      this.writeClaims(releaseClaim(this.readClaims(), chosen.id, workspaceId));
+      return this.failAttach(workspaceId, "helper_missing", "Reinstall Atmos");
     }
     assertHelperVersion(helper);
 
-    const webrtcOptIn = this.env.ATMOS_SIMULATOR_WEBRTC === "1";
+    const webrtcOptIn =
+      webrtc === true || this.env.ATMOS_SIMULATOR_WEBRTC === "1";
     let degrade = reduceDegrade(initialDegradeState(), {
       type: "start",
       webrtcOptIn,
     });
-    const session = await this.spawnHelper({
-      workspaceId,
-      simulatorId: chosen.id,
-      simulatorName: chosen.name,
-      runtime: chosen.runtimeId,
-      transport: degrade.transport,
-      codec: degrade.codec === "mjpeg" ? "mjpeg" : "h264",
-      hideNote: hide.hidden ? undefined : hide.message,
-    });
+    let session: LiveSession | undefined;
+    try {
+      session = await this.spawnHelper({
+        workspaceId,
+        simulatorId: chosen.id,
+        simulatorName: chosen.name,
+        runtime: chosen.runtimeId,
+        transport: degrade.transport,
+        codec: degrade.codec === "mjpeg" ? "mjpeg" : "h264",
+        hideNote: hide.hidden ? undefined : hide.message,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const logPath = helperStateLogPath(chosen.id, this.hooks.tmpdir ?? osTmpdir());
+      const log = existsSync(logPath) ? readFileSync(logPath, "utf8") : "";
+      const stderr = `${message}\n${log}`;
+      if (isCaptureMismatchStderr(stderr) && !degrade.mismatchRetryDone) {
+        degrade = reduceDegrade(degrade, { type: "mismatch_stderr", stderr });
+        if (degrade.codec === "mjpeg" && degrade.phase !== "failed") {
+          try {
+            session = await this.spawnHelper({
+              workspaceId,
+              simulatorId: chosen.id,
+              simulatorName: chosen.name,
+              runtime: chosen.runtimeId,
+              transport: "http",
+              codec: "mjpeg",
+              hideNote: hide.hidden ? undefined : hide.message,
+            });
+          } catch {
+            this.writeClaims(releaseClaim(this.readClaims(), chosen.id, workspaceId));
+            return this.failAttach(
+              workspaceId,
+              "capture_xcode_mismatch",
+              stderr.trim() || message,
+            );
+          }
+        } else {
+          this.writeClaims(releaseClaim(this.readClaims(), chosen.id, workspaceId));
+          return this.failAttach(
+            workspaceId,
+            degrade.lastError?.code ?? "capture_xcode_mismatch",
+            degrade.lastError?.message ?? message,
+          );
+        }
+      } else {
+        this.writeClaims(releaseClaim(this.readClaims(), chosen.id, workspaceId));
+        const code =
+          error instanceof DesktopCommandError ? error.code : "capture_failed";
+        return this.failAttach(workspaceId, code, message);
+      }
+    }
+    if (!session) {
+      this.writeClaims(releaseClaim(this.readClaims(), chosen.id, workspaceId));
+      return this.failAttach(workspaceId, "capture_failed", "Capture helper did not start");
+    }
     session.degrade = degrade;
     this.sessions.set(workspaceId, session);
     this.writeLastUsed(workspaceId, chosen.id);
@@ -400,13 +459,34 @@ export class SimulatorBridge {
   async setVisibility(workspaceId: string, visible: boolean): Promise<{ ok: true }> {
     const session = this.sessions.get(workspaceId);
     if (!session) return { ok: true };
-    if (visible) {
-      session.visibleSurfaces += 1;
-      session.lastVisibleAt = this.now();
-    } else {
-      session.visibleSurfaces = Math.max(0, session.visibleSurfaces - 1);
-      if (session.visibleSurfaces === 0) session.lastVisibleAt = this.now();
+    const wasVisible = session.visibleSurfaces > 0;
+    session.visibleSurfaces = visible ? 1 : 0;
+    if (visible || wasVisible) session.lastVisibleAt = this.now();
+    return { ok: true };
+  }
+
+  async reportStreamEvent(
+    workspaceId: string,
+    event: string,
+  ): Promise<{ ok: true }> {
+    const session = this.sessions.get(workspaceId);
+    if (!session) return { ok: true };
+    if (event === "first_frame") {
+      session.degrade = reduceDegrade(session.degrade, { type: "first_frame" });
+      session.phase = session.degrade.phase;
+      return { ok: true };
     }
+    if (event !== "webrtc_unusable" && event !== "h264_unusable") {
+      return { ok: true };
+    }
+    const next = reduceDegrade(session.degrade, { type: event });
+    if (next.transport === session.transport && next.codec === session.codec) {
+      return { ok: true };
+    }
+    session.degrade = next;
+    session.phase = next.phase;
+    this.emit("simulator://status", this.toView(session));
+    await this.respawnHelperKeepingToken(session);
     return { ok: true };
   }
 
@@ -551,6 +631,16 @@ export class SimulatorBridge {
             workspaceId,
             typeof req.args?.id === "string" ? req.args.id : undefined,
           );
+          if (view.phase === "setup_required" || view.phase === "failed") {
+            return {
+              ok: false,
+              error_code: view.lastError?.code ?? "setup_required",
+              error: view.lastError?.message ?? view.phase,
+              op,
+              workspaceId,
+              result: view,
+            };
+          }
           return { ok: true, op, workspaceId, result: view };
         }
         case "tap": {
@@ -578,6 +668,7 @@ export class SimulatorBridge {
         }
         case "gesture": {
           const kind = String(req.args?.kind ?? "swipe");
+          const durationMs = Math.max(0, Number(req.args?.durationMs) || 0);
           if (kind === "pinch") {
             await this.input(workspaceId, {
               op: "pinch",
@@ -587,6 +678,7 @@ export class SimulatorBridge {
               x2: Number(req.args?.x2),
               y2: Number(req.args?.y2),
             });
+            if (durationMs > 0) await sleep(durationMs);
             await this.input(workspaceId, {
               op: "pinch",
               type: "end",
@@ -601,8 +693,21 @@ export class SimulatorBridge {
             const x2 = Number(req.args?.x2);
             const y2 = Number(req.args?.y2);
             await this.input(workspaceId, { op: "touch", type: "begin", x: x1, y: y1 });
-            await this.input(workspaceId, { op: "touch", type: "move", x: x2, y: y2 });
-            await this.input(workspaceId, { op: "touch", type: "end", x: x2, y: y2 });
+            const steps =
+              durationMs > 0
+                ? Math.max(2, Math.min(24, Math.round(durationMs / 16)))
+                : 1;
+            const stepDelay = durationMs > 0 ? durationMs / steps : 0;
+            for (let i = 1; i <= steps; i++) {
+              if (stepDelay > 0) await sleep(stepDelay);
+              const t = i / steps;
+              await this.input(workspaceId, {
+                op: "touch",
+                type: i === steps ? "end" : "move",
+                x: x1 + (x2 - x1) * t,
+                y: y1 + (y2 - y1) * t,
+              });
+            }
           }
           return { ok: true, op, workspaceId, result: req.args };
         }
@@ -630,7 +735,13 @@ export class SimulatorBridge {
           const path =
             op === "screenshot" ? "/screenshot" : op === "ax" ? "/ax" : "/logs";
           const res = await fetch(`http://127.0.0.1:${session.helperPort}${path}`);
-          const result = await res.text();
+          let result = await res.text();
+          if (op === "logs") {
+            const tail = Number(req.args?.tail);
+            if (Number.isFinite(tail) && tail > 0) {
+              result = result.split("\n").slice(-tail).join("\n");
+            }
+          }
           return { ok: res.ok, op, workspaceId, result };
         }
         case "kill": {
@@ -754,7 +865,26 @@ export class SimulatorBridge {
       );
     }
     const record = parseHelperStateRecord(raw);
+    try {
+      assertLoopbackUrl(record.streamUrl);
+      assertLoopbackUrl(record.wsUrl);
+    } catch {
+      try {
+        if (child.pid) process.kill(child.pid, "SIGTERM");
+      } catch {
+        /* ignore */
+      }
+      throw new DesktopCommandError(
+        "helper_bind_not_loopback",
+        "Capture helper published a non-loopback URL",
+        "simulator_attach",
+      );
+    }
     await this.assertHelperHealth(record.port, child.pid ?? record.pid);
+    const childPid = child.pid ?? record.pid;
+    child.on("exit", () => {
+      void this.handleHelperExit(opts.workspaceId, childPid);
+    });
     return {
       workspaceId: opts.workspaceId,
       runtimeKind: "ios",
@@ -762,7 +892,7 @@ export class SimulatorBridge {
       simulatorName: opts.simulatorName,
       runtime: opts.runtime,
       phase: "streaming",
-      childPid: child.pid ?? record.pid,
+      childPid,
       helperPort: record.port,
       sessionToken: newToken(),
       streamUrl: record.streamUrl,
@@ -770,7 +900,7 @@ export class SimulatorBridge {
       streamSettingsUrl: record.streamSettingsUrl,
       transport: opts.transport,
       codec: opts.codec,
-      visibleSurfaces: 1,
+      visibleSurfaces: 0,
       lastVisibleAt: this.now(),
       health: "ok",
       degrade: initialDegradeState(),
@@ -831,6 +961,7 @@ export class SimulatorBridge {
   ): Promise<void> {
     const session = this.sessions.get(workspaceId);
     if (!session) return;
+    session.suppressExit = true;
     try {
       session.inputWs?.close();
     } catch {
@@ -956,7 +1087,7 @@ export class SimulatorBridge {
       streamSettingsUrl: `http://127.0.0.1:${this.control.getPort()}/s/${token}/stream-settings`,
       transport: "http",
       codec: "mjpeg",
-      visibleSurfaces: 1,
+      visibleSurfaces: 0,
       lastVisibleAt: this.now(),
       health: "ok",
       degrade: reduceDegrade(initialDegradeState(), { type: "first_frame" }),
@@ -981,6 +1112,52 @@ export class SimulatorBridge {
     };
   }
 
+  private failAttach(
+    workspaceId: string,
+    code: string,
+    message: string,
+    simulator?: { id: string; name: string; runtime: string },
+  ): SessionView {
+    const view = {
+      ...this.emptyView(workspaceId, "setup_required", { code, message }),
+      simulator: simulator ?? null,
+    };
+    this.emit("simulator://status", view);
+    return view;
+  }
+
+  private async handleHelperExit(workspaceId: string, pid: number): Promise<void> {
+    const session = this.sessions.get(workspaceId);
+    if (!session || session.suppressExit || session.childPid !== pid) return;
+    session.degrade = reduceDegrade(session.degrade, { type: "helper_died" });
+    session.phase = session.degrade.phase;
+    session.health = session.degrade.phase === "failed" ? "dead" : "stale";
+    this.emit("simulator://status", this.toView(session));
+    if (session.degrade.phase === "failed") return;
+    try {
+      const next = await this.spawnHelper({
+        workspaceId: session.workspaceId,
+        simulatorId: session.simulatorId,
+        simulatorName: session.simulatorName,
+        runtime: session.runtime,
+        transport: session.degrade.transport,
+        codec: session.degrade.codec === "mjpeg" ? "mjpeg" : "h264",
+        hideNote: session.hideNote,
+      });
+      next.degrade = reduceDegrade(session.degrade, { type: "reconnect_ok" });
+      next.sessionToken = session.sessionToken;
+      next.visibleSurfaces = session.visibleSurfaces;
+      next.lastVisibleAt = session.lastVisibleAt;
+      this.sessions.set(workspaceId, next);
+      this.emit("simulator://status", this.toView(next));
+    } catch {
+      session.degrade = reduceDegrade(session.degrade, { type: "helper_died" });
+      session.phase = session.degrade.phase;
+      session.health = "dead";
+      this.emit("simulator://status", this.toView(session));
+    }
+  }
+
   private emptyView(
     workspaceId: string,
     phase: Phase,
@@ -998,6 +1175,58 @@ export class SimulatorBridge {
     };
   }
 
+  private emitProbe(workspaceId: string, result: ProbeResult): void {
+    this.emit("simulator://probe", { ...result, workspaceId });
+  }
+
+  private async respawnHelperKeepingToken(session: LiveSession): Promise<void> {
+    session.suppressExit = true;
+    try {
+      session.inputWs?.close();
+    } catch {
+      /* ignore */
+    }
+    session.inputWs = null;
+    if (session.childPid) {
+      try {
+        process.kill(session.childPid, "SIGTERM");
+      } catch {
+        /* ignore */
+      }
+    }
+    const token = session.sessionToken;
+    if (this.fakeName()) {
+      session.transport = session.degrade.transport;
+      session.codec = session.degrade.codec === "mjpeg" ? "mjpeg" : "h264";
+      session.phase = "streaming";
+      session.suppressExit = false;
+      this.emit("simulator://status", this.toView(session));
+      return;
+    }
+    try {
+      const next = await this.spawnHelper({
+        workspaceId: session.workspaceId,
+        simulatorId: session.simulatorId,
+        simulatorName: session.simulatorName,
+        runtime: session.runtime,
+        transport: session.degrade.transport,
+        codec: session.degrade.codec === "mjpeg" ? "mjpeg" : "h264",
+        hideNote: session.hideNote,
+      });
+      next.degrade = session.degrade;
+      next.sessionToken = token;
+      next.visibleSurfaces = session.visibleSurfaces;
+      next.lastVisibleAt = session.lastVisibleAt;
+      this.sessions.set(session.workspaceId, next);
+      this.emit("simulator://status", this.toView(next));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.sessions.delete(session.workspaceId);
+      this.writeClaims(releaseClaim(this.readClaims(), session.simulatorId, session.workspaceId));
+      this.failAttach(session.workspaceId, "capture_failed", message);
+    }
+  }
+
   private emitStatus(workspaceId: string, phase: Phase, simulatorId?: string): void {
     this.emit("simulator://status", {
       ...this.emptyView(workspaceId, phase),
@@ -1006,6 +1235,10 @@ export class SimulatorBridge {
         : null,
     } satisfies SessionView);
   }
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function fakeProbeResult(name: string): ProbeResult {

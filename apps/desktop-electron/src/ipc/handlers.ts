@@ -866,6 +866,7 @@ export function createAllHandlers(
       return state.simulator.attach(
         str(args.workspaceId),
         typeof args.simulatorId === "string" ? args.simulatorId : undefined,
+        typeof args.webrtc === "boolean" ? args.webrtc : undefined,
       );
     },
     async simulator_input(args) {
@@ -893,6 +894,13 @@ export function createAllHandlers(
       return state.simulator.setVisibility(
         str(args.workspaceId),
         Boolean(args.visible),
+      );
+    },
+    async simulator_stream_event(args) {
+      if (!state.simulator) throw new Error("simulator unavailable");
+      return state.simulator.reportStreamEvent(
+        str(args.workspaceId),
+        str(args.event),
       );
     },
     async simulator_open_project(args) {
