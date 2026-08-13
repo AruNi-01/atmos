@@ -127,7 +127,7 @@ CLI talks only to the owner recorded in `control.json`. Extra fields are ignored
 { "op": "tap", "workspaceId": "ws_…", "args": { "x": 0.5, "y": 0.42 } }
 ```
 
-The CLI never spawns a helper, never talks to the helper directly, and never reaches `apps/api`. This mirrors `browser/browser-use-control.ts` + `crates/browser-use/src/backends/embedded.rs`.
+The CLI never spawns a helper, never talks to the helper directly, and never reaches `apps/api`. This mirrors `browser/browser-use-control.ts` + `crates/browser-use/src/backends/embedded.rs`. The CLI HTTP client uses a 5 s connect timeout and a **120 s** request timeout so `attach` can cover `simctl boot` / `bootstatus` (90 s) plus helper handshake.
 
 ### 3.3 Stream proxy (mandatory)
 
@@ -247,7 +247,7 @@ type SimulatorSession = {
 
 ### 6.2 Exclusivity
 
-A machine-wide claim table maps `simulatorId → { workspaceId, instanceId, desktopPid, helperPid?, since }`. `simulator_attach` on a claimed simulator returns `simulator_in_use` with the holder (and an instance marker when another Desktop holds it). `simulator_take_over` kills the holder's session, re-claims, and writes an audit log line. Cross-instance claims are detected through the claim file (`desktopPid` liveness) plus `serve-sim --list`.
+A machine-wide claim table maps `simulatorId → { workspaceId, instanceId, desktopPid, helperPid?, since }`. `simulator_attach` on a claimed simulator returns `simulator_in_use` with the holder (and an instance marker when another Desktop holds it). An existing **healthy** session for the same workspace is a no-op; `failed` / `helper_dead` is torn down and retried. `simulator_take_over` writes the new claim, kills the previous local session when the workspace differs, and runs `serve-sim --kill <udid>` (plus SIGTERM `helperPid`) when the previous holder is another workspace or another instance — including an in-flight spawn that has not yet entered the session map. Cross-instance claims are detected through the claim file (`desktopPid` liveness) plus `serve-sim --list`. Helper reconnect reuses the session token and rebuilds proxy `wsUrl` / `streamSettingsUrl` from that token so the renderer and CLI keep talking to the same capability. `killSession` emits `idle` so the victim surface does not stay on a dead stream. Handshake failure reaps only this spawn's pids (and `--kill <udid>` only while this workspace still owns the claim).
 
 ### 6.3 Lifecycle and resource governance
 
@@ -288,7 +288,7 @@ Runs in main, 8 s budget, result on `simulator://probe`. Pure functions over an 
 | iOS runtime | ≥ 1 `isAvailable` iOS runtime in `simctl list runtimes -j` | `missing_ios_runtime` |
 | Bootable iPhone | ≥ 1 iPhone on an available runtime | `missing_iphone` |
 | Capture helper | pinned payload present in app Resources and executable | `helper_missing` (broken install → "Reinstall Atmos") |
-| Capture smoke (only when something is already `Booted`) | helper `/health` 200 within 2 s | `capture_xcode_mismatch` \| `capture_failed` |
+| Capture smoke (only when something is already `Booted`) | a **live** session helper `/health` 200 within 2 s; failed/`helper_dead` sessions are skipped | `capture_xcode_mismatch` \| `capture_failed` |
 
 Probing never boots anything and never opens `Simulator.app`. `helper_missing` means a damaged install rather than a user-fixable state, so its card says to reinstall Atmos and is expected to be unreachable in practice.
 
@@ -385,7 +385,7 @@ The spike is closed, so the feature ships as a single mergeable unit. These are 
 | Verb | Args | Notes |
 |------|------|-------|
 | `list` | `--json` | probe view + which simulator is active for this workspace |
-| `attach` | `--id <udid>` | omit → last-used/default; an existing session is a no-op returning the same session |
+| `attach` | `--id <udid>` | omit → last-used/default; an existing healthy session is a no-op; `failed` / `helper_dead` tears down and retries |
 | `tap` | `--x --y` | normalized `0–1`, origin top-left |
 | `type` | `--text` / `--stdin` | |
 | `gesture` | `--kind swipe\|pinch --x1 --y1 --x2 --y2 --duration-ms` | |
@@ -401,6 +401,7 @@ Rules:
 - Out-of-range coordinates are **rejected**, never silently clamped → `coord_out_of_range`.
 - Workspace resolution: `--workspace` → otherwise the single active session → otherwise `workspace_ambiguous` listing candidates. There is no server-side "currently selected workspace" to fall back on.
 - Exit codes: `0` ok; `2` `setup_required` / `simulator_in_use` / `workspace_ambiguous` / session errors; `1` transport or auth failure.
+- Invoke HTTP: 5 s connect timeout, 120 s request timeout (covers the 90 s boot budget).
 - `list` returns `ok: true` with the probe payload even when prerequisites are missing; only `attach` fails on them.
 
 ```json

@@ -169,6 +169,13 @@ export function normalizePointer(
   return { x, y };
 }
 
+export function resolveTouchEndPoint(
+  current: { x: number; y: number } | null,
+  last: { x: number; y: number } | null,
+): { x: number; y: number } | null {
+  return current ?? last;
+}
+
 export function parseConfigFrame(
   data: unknown,
 ): { width?: number; height?: number; orientation?: string } | null {

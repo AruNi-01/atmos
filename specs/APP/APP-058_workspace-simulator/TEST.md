@@ -52,8 +52,8 @@ Honest limits: nothing that needs a real iOS runtime or a signed macOS build can
 | S11 | manual | macOS 14+ arm64 + Xcode | cold machine | frame < 45 s, progress visible | pending |
 | S12 | manual | macOS 14+ arm64 + Xcode | multiple `Simulator.app` windows | all hidden, or a non-blocking note; streaming unaffected | pending |
 | S13 | manual | macOS 14+ arm64 + Xcode | booted simulator | tap/drag/scroll/keyboard land in the app | pending |
-| S14 | unit web | `simulator-stream-client.test.ts` | synthetic pointer events | opcode byte + JSON per TECH §5.1; `0–1` payloads, top-left origin | pending |
-| S15 | unit CLI | `cargo test --package atmos` | — | `--x 1.5` → `coord_out_of_range`, exit 2 | pending |
+| S14 | unit web | `simulator-stream-client.test.ts` | synthetic pointer events | opcode byte + JSON per TECH §5.1; `0–1` payloads, top-left origin; touch `end` uses last in-range point | pending |
+| S15 | unit CLI | `cargo test --package atmos` | — | `--x 1.5` → `coord_out_of_range`, exit 2; invoke timeout ≥ 90 s | pending |
 | S16 | unit CLI | `cargo test --package atmos` | two sessions | `workspace_ambiguous` with candidates, exit 2 | pending |
 | S17 | manual | macOS 14+ arm64 + Xcode | live session | `atmos simulator tap` moves the human's screen; one helper pid | pending |
 | S18 | unit | `degrade.test.ts` (reducer) | webrtc-timeout event | `webrtc → h264 → mjpeg`; phase never leaves a rendering state | pending |
@@ -61,7 +61,7 @@ Honest limits: nothing that needs a real iOS runtime or a signed macOS build can
 | S20 | unit | `degrade.test.ts` | helper-death events | 3 restarts → `failed` | pending |
 | S21 | e2e | APP-058 e2e, fallback group | stub driving fallback | last frame or skeleton visible at all times; no blank canvas | pending |
 | S22 | unit | `proxy.test.ts` | route table | only allow-listed upstream paths; wrong/absent token → 403; no arbitrary-port forwarding | pending |
-| S23 | unit | `spawn-args.test.ts` + `handshake.test.ts` | sample helper state record | `--no-preview`, `--host 127.0.0.1`, ephemeral `-p`; URLs read from the record, not hardcoded; env free of `ATMOS_LOCAL_TOKEN` | pending |
+| S23 | unit | `spawn-args.test.ts` + `handshake.test.ts` | sample helper state record | `--no-preview`, `--host 127.0.0.1`, ephemeral `-p`; URLs read from the record, not hardcoded; env free of `ATMOS_LOCAL_TOKEN`; reconnect proxy URLs keep the session token; spawn-failure pids ignore another port's daemon | pending |
 | S24 | manual | macOS | after attach | upstream preview port not listening; no non-loopback listener in the helper process; UI copy contains no `npx` | pending |
 | S25 | unit | `governance.test.ts` | visibility events + clock | throttle ≤ 5 s after hide; release at 10 min; simulator stays booted | pending |
 | S26 | unit | `governance.test.ts` | 3 sessions | least-recently-visible killed at cap 2 | pending |

@@ -4,6 +4,7 @@ import {
   CoordOutOfRangeError,
   encodeSimulatorInput,
   normalizePointer,
+  resolveTouchEndPoint,
   streamAvccUrl,
   streamMjpegUrl,
   streamWsUrl,
@@ -83,6 +84,17 @@ describe("simulator stream client", () => {
         height: 100,
       } as DOMRect),
     ).toThrow("Coordinates must be in 0–1");
+  });
+
+  it("uses the last in-range point when touch end is outside the screen", () => {
+    expect(
+      resolveTouchEndPoint(null, { x: 0.2, y: 0.8 }),
+    ).toEqual({ x: 0.2, y: 0.8 });
+    expect(resolveTouchEndPoint({ x: 0.1, y: 0.1 }, { x: 0.2, y: 0.8 })).toEqual({
+      x: 0.1,
+      y: 0.1,
+    });
+    expect(resolveTouchEndPoint(null, null)).toBeNull();
   });
 
   it("builds stream URLs", () => {

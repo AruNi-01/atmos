@@ -83,6 +83,14 @@ describe("useSimulatorSessionStore", () => {
     expect(store.beginAttachIfIdle(workspaceId)).toBe(false);
   });
 
+  it("allows Recheck to attach after failed", () => {
+    const workspaceId = "workspace-attach-failed";
+    const store = useSimulatorSessionStore.getState();
+    store.applyStatus(workspaceId, session(workspaceId, "failed"));
+
+    expect(store.beginAttachIfIdle(workspaceId)).toBe(true);
+  });
+
   it("counts visible sidebar and center surfaces independently", () => {
     const workspaceId = "workspace-visible-surfaces";
     const store = useSimulatorSessionStore.getState();

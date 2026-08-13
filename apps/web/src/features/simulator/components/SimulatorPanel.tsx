@@ -198,10 +198,10 @@ export function SimulatorPanel({
     if (!workspaceId || !electron) return;
     void desktopInvoke<{ ok?: boolean }>("simulator_probe", { workspaceId, force: true })
       .then((result) => {
-        if (result?.ok) beginAttach();
+        if (result?.ok || session.phase === "failed") beginAttach();
       })
       .catch(() => undefined);
-  }, [beginAttach, electron, workspaceId]);
+  }, [beginAttach, electron, session.phase, workspaceId]);
 
   const handleAction = useCallback(
     (action: SetupAction) => {

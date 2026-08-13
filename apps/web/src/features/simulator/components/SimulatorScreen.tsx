@@ -7,6 +7,7 @@ import {
   encodeSimulatorInput,
   normalizePointer,
   parseConfigFrame,
+  resolveTouchEndPoint,
   streamAvccUrl,
   streamMjpegUrl,
   streamWsUrl,
@@ -34,6 +35,7 @@ export function SimulatorScreen({
 }: SimulatorScreenProps) {
   const socketRef = useRef<WebSocket | null>(null);
   const pointerIdRef = useRef<number | null>(null);
+  const lastPointRef = useRef<{ x: number; y: number } | null>(null);
   const frameNotifiedRef = useRef(false);
   const [frameStreamUrl, setFrameStreamUrl] = useState<string | null>(null);
   const [videoStreamUrl, setVideoStreamUrl] = useState<string | null>(null);
@@ -103,22 +105,29 @@ export function SimulatorScreen({
     event.currentTarget.setPointerCapture(event.pointerId);
     pointerIdRef.current = event.pointerId;
     const point = pointerPosition(event);
-    if (point) sendInput({ op: "touch", type: "begin", ...point });
+    if (point) {
+      lastPointRef.current = point;
+      sendInput({ op: "touch", type: "begin", ...point });
+    }
   };
 
   const handlePointerMove = (event: PointerEvent<HTMLDivElement>) => {
     if (disabled || pointerIdRef.current !== event.pointerId) return;
     event.preventDefault();
     const point = pointerPosition(event);
-    if (point) sendInput({ op: "touch", type: "move", ...point });
+    if (point) {
+      lastPointRef.current = point;
+      sendInput({ op: "touch", type: "move", ...point });
+    }
   };
 
   const handlePointerUp = (event: PointerEvent<HTMLDivElement>) => {
     if (disabled || pointerIdRef.current !== event.pointerId) return;
     event.preventDefault();
-    const point = pointerPosition(event);
+    const point = resolveTouchEndPoint(pointerPosition(event), lastPointRef.current);
     if (point) sendInput({ op: "touch", type: "end", ...point });
     pointerIdRef.current = null;
+    lastPointRef.current = null;
     if (event.currentTarget.hasPointerCapture(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId);
     }

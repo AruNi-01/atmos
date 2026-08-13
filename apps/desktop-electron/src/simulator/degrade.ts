@@ -23,6 +23,14 @@ export type DegradeEvent =
 
 const MAX_RECONNECTS = 3;
 
+/** Attach must replace these instead of returning the dead session. */
+export function liveSessionShouldRestart(session: {
+  phase: Phase;
+  health?: string;
+}): boolean {
+  return session.phase === "failed" || session.health === "dead";
+}
+
 export function isCaptureMismatchStderr(stderr: string): boolean {
   return /SimulatorKit|IOSurface|dlopen/i.test(stderr);
 }

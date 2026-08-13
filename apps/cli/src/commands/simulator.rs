@@ -12,6 +12,9 @@ use serde_json::{json, Value};
 
 const CONTROL_PROTOCOL: &str = "atmos-simulator/v1";
 const INVOKE_PATH: &str = "/v1/invoke";
+/// Covers `simctl boot` / `bootstatus` (90s) plus helper handshake.
+const INVOKE_TIMEOUT_SECS: u64 = 120;
+const CONNECT_TIMEOUT_SECS: u64 = 5;
 
 #[derive(Debug)]
 pub struct SimulatorOutput {
@@ -346,7 +349,8 @@ impl SimulatorClient {
         }
 
         let client = reqwest::Client::builder()
-            .timeout(Duration::from_secs(5))
+            .connect_timeout(Duration::from_secs(CONNECT_TIMEOUT_SECS))
+            .timeout(Duration::from_secs(INVOKE_TIMEOUT_SECS))
             .redirect(reqwest::redirect::Policy::none())
             .build()
             .map_err(|error| format!("failed to create Simulator HTTP client: {error}"))?;
@@ -587,5 +591,11 @@ mod tests {
             2
         );
         assert_eq!(invoke_exit_code(&json!({ "ok": true, "result": "x" })), 0);
+    }
+
+    #[test]
+    fn invoke_timeout_covers_simulator_boot() {
+        assert!(INVOKE_TIMEOUT_SECS >= 90);
+        assert!(CONNECT_TIMEOUT_SECS <= 5);
     }
 }

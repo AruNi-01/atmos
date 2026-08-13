@@ -4,6 +4,7 @@ import { join } from "node:path";
 import {
   initialDegradeState,
   isCaptureMismatchStderr,
+  liveSessionShouldRestart,
   reduceDegrade,
 } from "./degrade.ts";
 
@@ -74,5 +75,11 @@ describe("degrade reducer", () => {
     state = reduceDegrade(state, { type: "helper_died" });
     expect(state.phase).toBe("failed");
     expect(state.reconnectAttempts).toBe(4);
+  });
+
+  it("treats failed and dead sessions as restartable", () => {
+    expect(liveSessionShouldRestart({ phase: "failed" })).toBe(true);
+    expect(liveSessionShouldRestart({ phase: "streaming", health: "dead" })).toBe(true);
+    expect(liveSessionShouldRestart({ phase: "streaming", health: "ok" })).toBe(false);
   });
 });

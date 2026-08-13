@@ -5,6 +5,8 @@ import {
   assertLoopbackUrl,
   deriveStreamSettingsUrl,
   parseHelperStateRecord,
+  sessionProxyUrls,
+  spawnFailurePids,
 } from "./handshake.ts";
 
 describe("handshake", () => {
@@ -26,5 +28,44 @@ describe("handshake", () => {
     expect(() => assertLoopbackUrl("http://0.0.0.0:9/")).toThrow(
       "helper_bind_not_loopback",
     );
+  });
+
+  it("rebuilds proxy URLs from the reused session token", () => {
+    const first = sessionProxyUrls({
+      controlPort: 52413,
+      token: "old-token",
+      wsPath: "/ws",
+      settingsPath: "/stream-settings",
+    });
+    const reused = sessionProxyUrls({
+      controlPort: 52413,
+      token: "old-token",
+      wsPath: "/input",
+      settingsPath: "/stream-settings",
+    });
+    expect(first.wsUrl).toBe("ws://127.0.0.1:52413/s/old-token/ws");
+    expect(reused.wsUrl).toBe("ws://127.0.0.1:52413/s/old-token/input");
+    expect(reused.streamSettingsUrl).toBe(
+      "http://127.0.0.1:52413/s/old-token/stream-settings",
+    );
+  });
+
+  it("does not signal a helper pid published on another spawn's port", () => {
+    expect(
+      spawnFailurePids({
+        childPid: 11,
+        recordPid: 22,
+        recordPort: 4000,
+        spawnPort: 4001,
+      }),
+    ).toEqual([11]);
+    expect(
+      spawnFailurePids({
+        childPid: 11,
+        recordPid: 22,
+        recordPort: 4001,
+        spawnPort: 4001,
+      }),
+    ).toEqual([11, 22]);
   });
 });

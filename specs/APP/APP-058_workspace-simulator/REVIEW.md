@@ -13,7 +13,7 @@
 | Rule | Detail |
 |------|--------|
 | **When to add** | After code implementation reaches review or post-review and the findings need durable tracking before cleanup. |
-| **Entry id** | `REV-NNN` - zero-padded, monotonic in this file (next: **REV-037**). |
+| **Entry id** | `REV-NNN` - zero-padded, monotonic in this file (next: **REV-044**). |
 | **Status** | `open` -> `in_progress` -> `fixed` -> `verified` (or `wont-fix` with reason). |
 | **Do not** | Duplicate full TECH/TEST content; link to baseline docs and record only review findings plus fix status. |
 | **Fix proof** | Each fixed item should name the code change and the verification command or manual check. |
@@ -60,6 +60,13 @@
 | REV-034 | P2 | backend | Nested `/anything/health` passed the proxy allow-list | verified |
 | REV-035 | P1 | backend | Same-instance take-over left the previous helper running | verified |
 | REV-036 | P1 | frontend | Disconnect immediately reattaches | verified |
+| REV-037 | P1 | backend | Reconnect keeps old token but new proxy URLs | verified |
+| REV-038 | P1 | backend | Failed session cannot be reattached | verified |
+| REV-039 | P1 | backend | Handshake timeout leaks the detached helper | verified |
+| REV-040 | P1 | backend | `killSession` does not emit idle | verified |
+| REV-041 | P1 | backend | CLI invoke aborts after 5s | verified |
+| REV-042 | P1 | frontend | Touch end dropped off the screen | verified |
+| REV-043 | P1 | backend | In-flight spawn can kill the take-over winner | verified |
 
 ---
 
@@ -1194,6 +1201,207 @@ Auto-attach only when the surface **becomes** active while idle, not on every id
 ### Fix log
 
 - 2026-08-13 - `wasActiveRef` gates auto-attach on becoming active; workspace id changes reset the gate.
+
+---
+
+## REV-037 · Reconnect keeps old token but new proxy URLs
+
+| Field | Value |
+|-------|--------|
+| **Status** | verified |
+| **Severity** | P1 |
+| **Area** | backend |
+| **Reported by** | internal review |
+| **Owner** | unassigned |
+
+### Finding
+
+`spawnHelper` minted a new session token into `wsUrl` / `streamSettingsUrl`, then reconnect copied only the old `sessionToken`. Proxy lookup uses the session token, so input and stream-settings hit 403 while `streamBaseUrl` stayed on the dead token.
+
+### Required fix
+
+Pass the reused token into `spawnHelper` so proxy URLs are built from that token.
+
+### Acceptance
+
+- [x] Reused token appears in both `wsUrl` and `streamSettingsUrl`.
+- [x] A helper pid on a different port is not SIGTERM'd on spawn failure.
+
+### Fix log
+
+- 2026-08-13 - `sessionProxyUrls` + `spawnHelper({ sessionToken })`. `bun test src/simulator` handshake tests.
+
+---
+
+## REV-038 · Failed session cannot be reattached
+
+| Field | Value |
+|-------|--------|
+| **Status** | verified |
+| **Severity** | P1 |
+| **Area** | backend |
+| **Reported by** | internal review |
+| **Owner** | unassigned |
+
+### Finding
+
+After reconnect exhaustion, `attach` returned the dead session. Recheck probed that session's `/health`, got `capture_failed`, and the setup card had no Disconnect.
+
+### Required fix
+
+Replace `failed` / `helper_dead` sessions; skip capture-smoke against them; Recheck may attach when phase is `failed`.
+
+### Acceptance
+
+- [x] `liveSessionShouldRestart` is true for `failed` and `health: dead`.
+- [x] Store allows attach from `failed`.
+
+### Fix log
+
+- 2026-08-13 - `attach` kills restartable sessions first; `probeHelperHealth` skips them.
+
+---
+
+## REV-039 · Handshake timeout leaks the detached helper
+
+| Field | Value |
+|-------|--------|
+| **Status** | verified |
+| **Severity** | P1 |
+| **Area** | backend |
+| **Reported by** | internal review |
+| **Owner** | unassigned |
+
+### Finding
+
+`waitForFile` / parse failures threw before `killSpawned`, leaving a detached helper. `attach` then released the claim.
+
+### Required fix
+
+Reap this spawn on any handshake failure: SIGTERM own pids; `--kill <udid>` only while this workspace still owns the claim.
+
+### Acceptance
+
+- [x] Spawn failure path always calls `reapSpawnedHelper`.
+- [x] Lost-claim reap does not `--kill` the winner's UDID.
+
+### Fix log
+
+- 2026-08-13 - `reapSpawnedHelper` + `spawnFailurePids` port guard.
+
+---
+
+## REV-040 · `killSession` does not emit idle
+
+| Field | Value |
+|-------|--------|
+| **Status** | verified |
+| **Severity** | P1 |
+| **Area** | backend |
+| **Reported by** | internal review |
+| **Owner** | unassigned |
+
+### Finding
+
+Same-instance take-over and warm-cap eviction killed the helper without `simulator://status`, so the victim UI stayed `streaming` against a 403 URL.
+
+### Required fix
+
+Emit `idle` from `killSession`.
+
+### Acceptance
+
+- [x] `killSession` emits `emptyView(..., "idle")`.
+- [x] Idle-release no longer double-emits from `onTick`.
+
+### Fix log
+
+- 2026-08-13 - emit moved into `killSession`.
+
+---
+
+## REV-041 · CLI invoke aborts after 5s
+
+| Field | Value |
+|-------|--------|
+| **Status** | verified |
+| **Severity** | P1 |
+| **Area** | backend |
+| **Reported by** | internal review |
+| **Owner** | unassigned |
+
+### Finding
+
+`atmos simulator attach` used a 5 s reqwest timeout while Desktop boot can take 90 s, so cold attach failed as transport exit 1.
+
+### Required fix
+
+120 s request timeout and 5 s connect timeout.
+
+### Acceptance
+
+- [x] `INVOKE_TIMEOUT_SECS >= 90`.
+
+### Fix log
+
+- 2026-08-13 - CLI client timeouts; unit assertion in `simulator.rs`.
+
+---
+
+## REV-042 · Touch end dropped off the screen
+
+| Field | Value |
+|-------|--------|
+| **Status** | verified |
+| **Severity** | P1 |
+| **Area** | frontend |
+| **Reported by** | internal review |
+| **Owner** | unassigned |
+
+### Finding
+
+`normalizePointer` throws outside 0–1, so a swipe that ended on the bezel never sent `touch end` and the helper stayed finger-down.
+
+### Required fix
+
+On pointer up/cancel, send `end` with the last in-range point.
+
+### Acceptance
+
+- [x] `resolveTouchEndPoint(null, last)` returns `last`.
+
+### Fix log
+
+- 2026-08-13 - `lastPointRef` + `resolveTouchEndPoint` in `SimulatorScreen`.
+
+---
+
+## REV-043 · In-flight spawn can kill the take-over winner
+
+| Field | Value |
+|-------|--------|
+| **Status** | verified |
+| **Severity** | P1 |
+| **Area** | backend |
+| **Reported by** | internal review |
+| **Owner** | unassigned |
+
+### Finding
+
+Same-instance take-over during an in-flight attach had no session to `killSession`, skipped `--kill <udid>`, and the loser's `killSpawned` SIGTERM'd `record.pid` — often the winner's helper.
+
+### Required fix
+
+`--kill <udid>` for other-workspace take-over; check the claim before unlink/spawn; on lost claim SIGTERM only this spawn's port/pids.
+
+### Acceptance
+
+- [x] Other-workspace take-over always calls `killClaimedHelper`.
+- [x] `spawnFailurePids` ignores a record whose port is not ours.
+
+### Fix log
+
+- 2026-08-13 - take-over `--kill` for other workspace; claim check before unlink; port-guarded reap.
 
 
 

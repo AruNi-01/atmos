@@ -73,3 +73,34 @@ export function assertLoopbackUrl(url: string): void {
     throw new Error("helper_bind_not_loopback");
   }
 }
+
+export function sessionProxyUrls(opts: {
+  controlPort: number;
+  token: string;
+  wsPath: string;
+  settingsPath: string;
+}): { wsUrl: string; streamSettingsUrl: string } {
+  const wsPath = opts.wsPath.startsWith("/") ? opts.wsPath : `/${opts.wsPath}`;
+  const settingsPath = opts.settingsPath.startsWith("/")
+    ? opts.settingsPath
+    : `/${opts.settingsPath}`;
+  return {
+    wsUrl: `ws://127.0.0.1:${opts.controlPort}/s/${opts.token}${wsPath}`,
+    streamSettingsUrl: `http://127.0.0.1:${opts.controlPort}/s/${opts.token}${settingsPath}`,
+  };
+}
+
+/** Pids this spawn may signal on failure. Never SIGTERM a helper record for a different port. */
+export function spawnFailurePids(opts: {
+  childPid?: number;
+  recordPid?: number;
+  recordPort?: number;
+  spawnPort: number;
+}): number[] {
+  const pids = new Set<number>();
+  if (opts.childPid) pids.add(opts.childPid);
+  if (opts.recordPid && opts.recordPort === opts.spawnPort) {
+    pids.add(opts.recordPid);
+  }
+  return [...pids];
+}

@@ -29,6 +29,7 @@ import {
 import {
   initialDegradeState,
   isCaptureMismatchStderr,
+  liveSessionShouldRestart,
   reduceDegrade,
   type DegradeState,
 } from "./degrade.ts";
@@ -48,6 +49,8 @@ import {
   helperStateLogPath,
   helperStateRecordPath,
   parseHelperStateRecord,
+  sessionProxyUrls,
+  spawnFailurePids,
 } from "./handshake.ts";
 import { planOpenInSimulator } from "./open-project.ts";
 import {
@@ -81,6 +84,7 @@ import {
 } from "./governance.ts";
 import type {
   ClaimTable,
+  HelperStateRecord,
   Phase,
   ProbeHost,
   ProbeResult,
@@ -341,12 +345,13 @@ export class SimulatorBridge {
     webrtc?: boolean,
   ): Promise<SessionView> {
     const existing = this.sessions.get(workspaceId);
-    if (existing && (!simulatorId || existing.simulatorId === simulatorId)) {
+    if (existing && liveSessionShouldRestart(existing)) {
+      await this.killSession(workspaceId, { shutdownSimulator: false });
+    } else if (existing && (!simulatorId || existing.simulatorId === simulatorId)) {
       const view = this.toView(existing);
       this.emit("simulator://status", view);
       return view;
-    }
-    if (existing) {
+    } else if (existing) {
       await this.killSession(workspaceId, { shutdownSimulator: false });
     }
 
@@ -590,10 +595,8 @@ export class SimulatorBridge {
       if (otherWorkspace) {
         await this.killSession(taken.previous.workspaceId, { shutdownSimulator: false });
       }
-      if (remote) {
-        await this.killClaimedHelper(simulatorId, taken.previous);
-      }
       if (remote || otherWorkspace) {
+        await this.killClaimedHelper(simulatorId, taken.previous);
         const auditPath = auditLogPath(this.env);
         ensureDir(dirname(auditPath));
         appendFileSync(
@@ -979,6 +982,7 @@ export class SimulatorBridge {
     transport: StreamTransport;
     codec: StreamCodec;
     hideNote?: string;
+    sessionToken?: string;
   }): Promise<LiveSession> {
     const helper = resolveHelperDir({
       env: this.env,
@@ -987,6 +991,13 @@ export class SimulatorBridge {
     });
     if ("code" in helper) {
       throw new DesktopCommandError("helper_missing", "Reinstall Atmos", "simulator_attach");
+    }
+    if (!this.stillOwnsClaim(opts.simulatorId, opts.workspaceId)) {
+      throw new DesktopCommandError(
+        "simulator_in_use",
+        "Simulator was taken over during attach",
+        "simulator_attach",
+      );
     }
     const port = await ephemeralLoopbackPort();
     const argv = buildHelperArgv({
@@ -999,6 +1010,13 @@ export class SimulatorBridge {
     const entry = join(helper.dir, "dist", "serve-sim.js");
     const tmp = this.hooks.tmpdir ?? osTmpdir();
     const recordPath = helperStateRecordPath(opts.simulatorId, tmp);
+    if (!this.stillOwnsClaim(opts.simulatorId, opts.workspaceId)) {
+      throw new DesktopCommandError(
+        "simulator_in_use",
+        "Simulator was taken over during attach",
+        "simulator_attach",
+      );
+    }
     if (existsSync(recordPath)) {
       try {
         unlinkSync(recordPath);
@@ -1014,69 +1032,75 @@ export class SimulatorBridge {
       detached: true,
     });
     child.unref();
-    let raw: string;
+    let record: HelperStateRecord | undefined;
     try {
-      raw = await waitForFile(recordPath, 20_000, () => this.now());
-    } catch (error) {
-      const logPath = helperStateLogPath(opts.simulatorId, tmp);
-      const log = existsSync(logPath) ? readFileSync(logPath, "utf8") : "";
-      throw new DesktopCommandError(
-        "capture_failed",
-        log.trim() || (error instanceof Error ? error.message : String(error)),
-        "simulator_attach",
-      );
-    }
-    const record = parseHelperStateRecord(raw);
-    const daemonPid = record.pid;
-    const killSpawned = () => {
-      for (const pid of [daemonPid, child.pid]) {
-        if (!pid) continue;
-        try {
-          process.kill(pid, "SIGTERM");
-        } catch {
-          /* ignore */
-        }
+      let raw: string;
+      try {
+        raw = await waitForFile(recordPath, 20_000, () => this.now());
+      } catch (error) {
+        const logPath = helperStateLogPath(opts.simulatorId, tmp);
+        const log = existsSync(logPath) ? readFileSync(logPath, "utf8") : "";
+        throw new DesktopCommandError(
+          "capture_failed",
+          log.trim() || (error instanceof Error ? error.message : String(error)),
+          "simulator_attach",
+        );
       }
-    };
-    try {
-      assertLoopbackUrl(record.streamUrl);
-      assertLoopbackUrl(record.wsUrl);
-      assertLoopbackUrl(record.streamSettingsUrl);
-    } catch {
-      killSpawned();
-      throw new DesktopCommandError(
-        "helper_bind_not_loopback",
-        "Capture helper published a non-loopback URL",
-        "simulator_attach",
-      );
-    }
-    if (!this.stillOwnsClaim(opts.simulatorId, opts.workspaceId)) {
-      killSpawned();
-      throw new DesktopCommandError(
-        "simulator_in_use",
-        "Simulator was taken over during attach",
-        "simulator_attach",
-      );
-    }
-    try {
-      await this.assertHelperHealth(record.port, daemonPid);
+      record = parseHelperStateRecord(raw);
+      try {
+        assertLoopbackUrl(record.streamUrl);
+        assertLoopbackUrl(record.wsUrl);
+        assertLoopbackUrl(record.streamSettingsUrl);
+      } catch {
+        throw new DesktopCommandError(
+          "helper_bind_not_loopback",
+          "Capture helper published a non-loopback URL",
+          "simulator_attach",
+        );
+      }
+      if (!this.stillOwnsClaim(opts.simulatorId, opts.workspaceId)) {
+        throw new DesktopCommandError(
+          "simulator_in_use",
+          "Simulator was taken over during attach",
+          "simulator_attach",
+        );
+      }
+      await this.assertHelperHealth(record.port, record.pid);
+      if (!this.stillOwnsClaim(opts.simulatorId, opts.workspaceId)) {
+        throw new DesktopCommandError(
+          "simulator_in_use",
+          "Simulator was taken over during attach",
+          "simulator_attach",
+        );
+      }
     } catch (error) {
-      killSpawned();
+      await this.reapSpawnedHelper({
+        simulatorId: opts.simulatorId,
+        workspaceId: opts.workspaceId,
+        childPid: child.pid,
+        record,
+        spawnPort: port,
+      });
       throw error;
     }
-    if (!this.stillOwnsClaim(opts.simulatorId, opts.workspaceId)) {
-      killSpawned();
+    if (!record) {
       throw new DesktopCommandError(
-        "simulator_in_use",
-        "Simulator was taken over during attach",
+        "capture_failed",
+        "Capture helper did not start",
         "simulator_attach",
       );
     }
-    this.patchClaim(opts.simulatorId, opts.workspaceId, { helperPid: daemonPid });
-    const sessionToken = newToken();
+    this.patchClaim(opts.simulatorId, opts.workspaceId, { helperPid: record.pid });
+    const sessionToken = opts.sessionToken ?? newToken();
     const controlPort = this.control.getPort();
     const wsPath = new URL(record.wsUrl).pathname || "/ws";
     const settingsPath = new URL(record.streamSettingsUrl).pathname || "/stream-settings";
+    const proxy = sessionProxyUrls({
+      controlPort,
+      token: sessionToken,
+      wsPath,
+      settingsPath,
+    });
     return {
       workspaceId: opts.workspaceId,
       runtimeKind: "ios",
@@ -1084,12 +1108,12 @@ export class SimulatorBridge {
       simulatorName: opts.simulatorName,
       runtime: opts.runtime,
       phase: "starting",
-      childPid: daemonPid,
+      childPid: record.pid,
       helperPort: record.port,
       sessionToken,
       streamUrl: record.streamUrl,
-      wsUrl: `ws://127.0.0.1:${controlPort}/s/${sessionToken}${wsPath}`,
-      streamSettingsUrl: `http://127.0.0.1:${controlPort}/s/${sessionToken}${settingsPath}`,
+      wsUrl: proxy.wsUrl,
+      streamSettingsUrl: proxy.streamSettingsUrl,
       transport: opts.transport,
       codec: opts.codec,
       visibleSurfaces: 0,
@@ -1173,6 +1197,7 @@ export class SimulatorBridge {
     if (opts.shutdownSimulator) {
       await this.runner("xcrun", ["simctl", "shutdown", session.simulatorId]);
     }
+    this.emit("simulator://status", this.emptyView(workspaceId, "idle"));
   }
 
   private trimWarm(): void {
@@ -1193,10 +1218,6 @@ export class SimulatorBridge {
     for (const session of this.sessions.values()) {
       if (shouldReleaseIdle(session, now)) {
         void this.killSession(session.workspaceId, { shutdownSimulator: false });
-        this.emit(
-          "simulator://status",
-          this.emptyView(session.workspaceId, "idle"),
-        );
         continue;
       }
       if (shouldThrottle(session, now)) {
@@ -1434,7 +1455,9 @@ export class SimulatorBridge {
   }
 
   private async probeHelperHealth(): Promise<{ ok: boolean; mismatch?: boolean }> {
-    const session = this.sessions.values().next().value as LiveSession | undefined;
+    const session = [...this.sessions.values()].find(
+      (row) => !liveSessionShouldRestart(row),
+    );
     if (!session || this.fakeName()) return { ok: true };
     try {
       const res = await fetch(
@@ -1483,6 +1506,31 @@ export class SimulatorBridge {
     }
   }
 
+  private async reapSpawnedHelper(opts: {
+    simulatorId: string;
+    workspaceId: string;
+    childPid?: number;
+    record?: HelperStateRecord;
+    spawnPort: number;
+  }): Promise<void> {
+    const owns = this.stillOwnsClaim(opts.simulatorId, opts.workspaceId);
+    for (const pid of spawnFailurePids({
+      childPid: opts.childPid,
+      recordPid: opts.record?.pid,
+      recordPort: opts.record?.port,
+      spawnPort: opts.spawnPort,
+    })) {
+      try {
+        process.kill(pid, "SIGTERM");
+      } catch {
+        /* ignore */
+      }
+    }
+    if (owns) {
+      await this.helperCli(["--kill", opts.simulatorId]);
+    }
+  }
+
   private async handleHelperExit(workspaceId: string, pid: number): Promise<void> {
     const session = this.sessions.get(workspaceId);
     if (!session || session.suppressExit || session.childPid !== pid) return;
@@ -1514,9 +1562,9 @@ export class SimulatorBridge {
         transport: session.degrade.transport,
         codec: session.degrade.codec === "mjpeg" ? "mjpeg" : "h264",
         hideNote: session.hideNote,
+        sessionToken: session.sessionToken,
       });
       next.degrade = reduceDegrade(session.degrade, { type: "reconnect_ok" });
-      next.sessionToken = session.sessionToken;
       next.visibleSurfaces = session.visibleSurfaces;
       next.lastVisibleAt = session.lastVisibleAt;
       this.sessions.set(workspaceId, next);
@@ -1585,9 +1633,9 @@ export class SimulatorBridge {
         transport: session.degrade.transport,
         codec: session.degrade.codec === "mjpeg" ? "mjpeg" : "h264",
         hideNote: session.hideNote,
+        sessionToken: token,
       });
       next.degrade = session.degrade;
-      next.sessionToken = token;
       next.visibleSurfaces = session.visibleSurfaces;
       next.lastVisibleAt = session.lastVisibleAt;
       this.sessions.set(session.workspaceId, next);
