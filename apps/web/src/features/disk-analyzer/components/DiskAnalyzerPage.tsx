@@ -311,30 +311,40 @@ export function DiskAnalyzerPage() {
                 </TooltipProvider>
               </div>
               <Button
-                variant="outline"
+                variant="ghost"
                 size="sm"
-                className="h-9 rounded-xl"
-                onClick={() => void analyzer.startScan()}
-                disabled={scanLocked}
+                className={cn("h-9 rounded-xl", scanning && "group")}
+                onClick={() => {
+                  if (scanning) {
+                    void analyzer.cancelScan();
+                    return;
+                  }
+                  void analyzer.startScan();
+                }}
+                disabled={analyzer.status === "idle"}
                 aria-busy={scanLocked}
+                aria-label={scanning ? t("cancel") : undefined}
               >
                 {scanLocked ? (
                   <Loader2 className="size-4 animate-spin" />
                 ) : (
                   <RefreshCw className="size-4" />
                 )}
-                {scanLocked ? t("scanningButton") : t("rescan")}
+                {scanning ? (
+                  <span className="relative">
+                    <span className="group-hover:invisible group-focus-visible:invisible">
+                      {t("scanningButton")}
+                    </span>
+                    <span className="invisible absolute inset-0 flex items-center justify-center group-hover:visible group-focus-visible:visible">
+                      {t("cancel")}
+                    </span>
+                  </span>
+                ) : scanLocked ? (
+                  t("scanningButton")
+                ) : (
+                  t("rescan")
+                )}
               </Button>
-              {scanning ? (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-9 rounded-xl"
-                  onClick={() => void analyzer.cancelScan()}
-                >
-                  {t("cancel")}
-                </Button>
-              ) : null}
             </div>
           </div>
 
@@ -553,7 +563,7 @@ export function DiskAnalyzerPage() {
               </TabsList>
               <Button
                 type="button"
-                variant="outline"
+                variant="ghost"
                 size="sm"
                 className="ml-auto h-7 shrink-0 rounded-full px-2.5 text-xs shadow-none"
                 disabled={analyzer.refreshingDetails || !analyzer.scanId}
