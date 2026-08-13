@@ -59,6 +59,7 @@ export function SimulatorPanel({
   const session = slice.session;
   const streamKey = `${session.streamBaseUrl ?? ""}:${session.transport ?? ""}:${session.codec ?? ""}`;
   const firstFrameKeyRef = useRef<string | null>(null);
+  const wasActiveRef = useRef(false);
 
   useEffect(() => {
     if (!electron) return;
@@ -125,7 +126,10 @@ export function SimulatorPanel({
   }, [electron, simulatorWebrtcOptIn, workspaceId]);
 
   useEffect(() => {
-    if (!electron || !isActive || !workspaceId || session.phase !== "idle") return;
+    if (!electron || !workspaceId) return;
+    const becameActive = isActive && !wasActiveRef.current;
+    wasActiveRef.current = isActive;
+    if (!becameActive || session.phase !== "idle") return;
     beginAttach();
   }, [beginAttach, electron, isActive, session.phase, workspaceId]);
 

@@ -1064,9 +1064,19 @@ export class SimulatorBridge {
       killSpawned();
       throw error;
     }
+    if (!this.stillOwnsClaim(opts.simulatorId, opts.workspaceId)) {
+      killSpawned();
+      throw new DesktopCommandError(
+        "simulator_in_use",
+        "Simulator was taken over during attach",
+        "simulator_attach",
+      );
+    }
     this.patchClaim(opts.simulatorId, opts.workspaceId, { helperPid: daemonPid });
     const sessionToken = newToken();
-    const proxyBase = `http://127.0.0.1:${this.control.getPort()}/s/${sessionToken}`;
+    const controlPort = this.control.getPort();
+    const wsPath = new URL(record.wsUrl).pathname || "/ws";
+    const settingsPath = new URL(record.streamSettingsUrl).pathname || "/stream-settings";
     return {
       workspaceId: opts.workspaceId,
       runtimeKind: "ios",
@@ -1078,8 +1088,8 @@ export class SimulatorBridge {
       helperPort: record.port,
       sessionToken,
       streamUrl: record.streamUrl,
-      wsUrl: `ws://127.0.0.1:${this.control.getPort()}/s/${sessionToken}/ws`,
-      streamSettingsUrl: `${proxyBase}/stream-settings`,
+      wsUrl: `ws://127.0.0.1:${controlPort}/s/${sessionToken}${wsPath}`,
+      streamSettingsUrl: `http://127.0.0.1:${controlPort}/s/${sessionToken}${settingsPath}`,
       transport: opts.transport,
       codec: opts.codec,
       visibleSurfaces: 0,

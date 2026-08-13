@@ -13,7 +13,7 @@
 | Rule | Detail |
 |------|--------|
 | **When to add** | After code implementation reaches review or post-review and the findings need durable tracking before cleanup. |
-| **Entry id** | `REV-NNN` - zero-padded, monotonic in this file (next: **REV-036**). |
+| **Entry id** | `REV-NNN` - zero-padded, monotonic in this file (next: **REV-037**). |
 | **Status** | `open` -> `in_progress` -> `fixed` -> `verified` (or `wont-fix` with reason). |
 | **Do not** | Duplicate full TECH/TEST content; link to baseline docs and record only review findings plus fix status. |
 | **Fix proof** | Each fixed item should name the code change and the verification command or manual check. |
@@ -59,6 +59,7 @@
 | REV-033 | P1 | backend | CLI `type` drops shift | verified |
 | REV-034 | P2 | backend | Nested `/anything/health` passed the proxy allow-list | verified |
 | REV-035 | P1 | backend | Same-instance take-over left the previous helper running | verified |
+| REV-036 | P1 | frontend | Disconnect immediately reattaches | verified |
 
 ---
 
@@ -1135,4 +1136,64 @@ Keep exact `/health` and last-segment `stream-settings` only.
 ### Fix log
 
 - 2026-08-13 - proxy allow-list no longer treats last-segment `health` as allowed.
+
+---
+
+## REV-035 · Same-instance take-over left the previous helper running
+
+| Field | Value |
+|-------|--------|
+| **Status** | verified |
+| **Severity** | P1 |
+| **Area** | backend |
+| **Reported by** | internal review |
+| **Owner** | unassigned |
+
+### Finding
+
+The cross-instance take-over change only killed sessions when `instanceId` differed, so taking over from another workspace in the **same** Desktop process left two helpers on one UDID. Failed attach after writing the claim could also leak the row.
+
+### Required fix
+
+Kill the previous local session when the workspace differs; kill the remote helper when the instance differs; release the claim if attach then fails with no session. Reconnect and `patchClaim` require `stillOwnsClaim(simulatorId, workspaceId)`.
+
+### Acceptance
+
+- [x] Same-instance other-workspace take-over calls `killSession`.
+- [x] `stillOwnsClaim` includes workspace id.
+
+### Fix log
+
+- 2026-08-13 - take-over branches on remote vs other-workspace; failed attach releases the claim; helper input/settings go through the token proxy.
+
+---
+
+## REV-036 · Disconnect immediately reattaches
+
+| Field | Value |
+|-------|--------|
+| **Status** | verified |
+| **Severity** | P1 |
+| **Area** | frontend |
+| **Reported by** | internal review |
+| **Owner** | unassigned |
+
+### Finding
+
+The panel auto-attached whenever an active surface saw `phase === idle`. Disconnect emits `idle`, so Disconnect started a new session immediately.
+
+### Required fix
+
+Auto-attach only when the surface **becomes** active while idle, not on every idle transition while already active.
+
+### Acceptance
+
+- [x] Disconnect while the tab stays open does not call `beginAttach`.
+- [x] Opening the tab from inactive still attaches.
+
+### Fix log
+
+- 2026-08-13 - `wasActiveRef` gates auto-attach on becoming active.
+
+
 
