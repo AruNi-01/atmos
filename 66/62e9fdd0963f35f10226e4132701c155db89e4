@@ -1,0 +1,34 @@
+apps/mobile/src/features/settings/SettingsComputerDetailScreen.tsx
+  h_5be255725524c8 1-136
+apps/mobile/src/features/settings/SettingsComputersScreen.tsx
+  h_5be255725524c8 1-136
+apps/mobile/src/features/settings/SettingsIndexScreen.tsx
+  h_5be255725524c8 1-136
+apps/mobile/src/features/settings/SettingsRegisterScreen.tsx
+  h_5be255725524c8 1-106
+apps/mobile/src/features/settings/SettingsRelayScreen.tsx
+  h_5be255725524c8 1-108
+apps/mobile/src/features/settings/SettingsScreen.tsx
+  h_5be255725524c8 1-9
+apps/mobile/src/features/settings/settings-shared.tsx
+  h_5be255725524c8 1-253
+apps/mobile/src/features/workspaces/CreateWorkspaceScreen.tsx
+  h_5be255725524c8 3,14-18,22,73-80,157
+apps/mobile/src/features/workspaces/create-workspace-helpers.ts
+  h_5be255725524c8 1-40
+apps/mobile/src/features/workspaces/use-create-workspace-setup.ts
+  h_5be255725524c8 1-136
+automations/review/quality/result/2026-08/08-12_score-80_RESULT.md
+  h_5be255725524c8 1-129
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "6662e9fdd0963f35f10226e4132701c155db89e4",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
