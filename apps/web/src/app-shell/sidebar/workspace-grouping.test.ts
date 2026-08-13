@@ -9,6 +9,7 @@ import {
 import {
   parseSidebarGroupingMode,
   SIDEBAR_GROUPING_OPTIONS,
+  WORKSPACE_AGENT_GROUP_OPTIONS,
 } from "@/app-shell/sidebar/workspace-status";
 import type { Workspace, WorkspaceLabel } from "@/shared/types/domain";
 
@@ -188,5 +189,13 @@ describe("parseSidebarGroupingMode", () => {
     expect(parseSidebarGroupingMode("status")).toBe("status");
     expect(parseSidebarGroupingMode("nope")).toBe("project");
     expect(parseSidebarGroupingMode(undefined)).toBe("project");
+  });
+});
+
+describe("agent group icons", () => {
+  it("gives each By Agent Status bucket a distinct icon", () => {
+    const icons = WORKSPACE_AGENT_GROUP_OPTIONS.map((option) => option.icon);
+    expect(icons).toHaveLength(4);
+    expect(new Set(icons).size).toBe(4);
   });
 });

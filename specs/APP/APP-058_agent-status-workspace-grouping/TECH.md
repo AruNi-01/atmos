@@ -91,7 +91,7 @@ impl AgentHooksService {
 - Extend `SidebarGroupingMode` with `"agent"`.
 - Add `parseSidebarGroupingMode(value: unknown): SidebarGroupingMode` (unknown → `"project"`) and use it in `LeftSidebar` load path so the allowlist lives in one place.
 - Add Group By option `{ value: "agent", labelKey: "grouping.agent", icon: Bot }` (copy: **By Agent Status**).
-- Export `WORKSPACE_AGENT_GROUP_META` (i18n key, icon, className, color) for sidebar group markers and kanban headers.
+- Export `WORKSPACE_AGENT_GROUP_META` (i18n key, **distinct lucide icon**, className, color) for sidebar group markers and kanban headers: ShieldAlert (permission), Bell (attention), LoaderCircle (running), Circle (idle).
 
 ### `apps/web/src/app-shell/sidebar/workspace-grouping.ts`
 

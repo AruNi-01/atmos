@@ -16,11 +16,15 @@ import {
 } from "@workspace/ui";
 import type { Project, Workspace, WorkspaceWorkflowStatus } from "@/shared/types/domain";
 import {
+  Bell,
   Bot,
+  Circle,
   Clock3,
   Flag,
   FolderKanban,
   Folders,
+  LoaderCircle,
+  ShieldAlert,
   Tags,
 } from "lucide-react";
 import {
@@ -115,47 +119,6 @@ function StatusCanceled({ className }: { className?: string }) {
   );
 }
 
-function AgentIdleIcon({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 16 16" fill="none" className={className}>
-      <circle cx="8" cy="8" r="3" fill="currentColor" />
-    </svg>
-  );
-}
-
-function AgentRunningIcon({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 16 16" fill="none" className={className}>
-      <circle cx="8" cy="8" r="6.5" stroke="currentColor" strokeWidth="1.5" opacity="0.3" />
-      <path d="M8 1.5 A6.5 6.5 0 0 1 14.5 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-function AgentPermissionIcon({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 16 16" fill="none" className={className}>
-      <circle cx="8" cy="8" r="6.5" stroke="currentColor" strokeWidth="1.5" />
-      <path d="M8 5v3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-      <circle cx="8" cy="11" r="0.8" fill="currentColor" />
-    </svg>
-  );
-}
-
-function AgentAttentionIcon({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 16 16" fill="none" className={className}>
-      <path
-        d="M8 2.5c-2.2 0-4 1.7-4 3.8 0 2.2 1.3 4 3.1 4.7v1.2h1.8V11c1.8-.7 3.1-2.5 3.1-4.7 0-2.1-1.8-3.8-4-3.8Z"
-        stroke="currentColor"
-        strokeWidth="1.4"
-        strokeLinejoin="round"
-      />
-      <path d="M6.5 13.2h3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-    </svg>
-  );
-}
-
 type WorkflowStatusMeta = {
   value: WorkspaceWorkflowStatus;
   label: string;
@@ -245,7 +208,7 @@ const AGENT_GROUP_META: Record<WorkspaceAgentGroupKey, AgentGroupMeta> = {
     value: "permission",
     labelKey: "agentStatus.permission",
     groupingLabelKey: "agent_permission",
-    icon: AgentPermissionIcon,
+    icon: ShieldAlert,
     className: "text-amber-500",
     color: "#f59e0b",
   },
@@ -253,7 +216,7 @@ const AGENT_GROUP_META: Record<WorkspaceAgentGroupKey, AgentGroupMeta> = {
     value: "attention",
     labelKey: "agentStatus.attention",
     groupingLabelKey: "agent_attention",
-    icon: AgentAttentionIcon,
+    icon: Bell,
     className: "text-emerald-500",
     color: "#10b981",
   },
@@ -261,7 +224,7 @@ const AGENT_GROUP_META: Record<WorkspaceAgentGroupKey, AgentGroupMeta> = {
     value: "running",
     labelKey: "agentStatus.running",
     groupingLabelKey: "agent_running",
-    icon: AgentRunningIcon,
+    icon: LoaderCircle,
     className: "text-blue-500",
     color: "#3b82f6",
   },
@@ -269,7 +232,7 @@ const AGENT_GROUP_META: Record<WorkspaceAgentGroupKey, AgentGroupMeta> = {
     value: "idle",
     labelKey: "agentStatus.idle",
     groupingLabelKey: "agent_idle",
-    icon: AgentIdleIcon,
+    icon: Circle,
     className: "text-muted-foreground",
     color: "#94a3b8",
   },
