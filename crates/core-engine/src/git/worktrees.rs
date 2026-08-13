@@ -682,11 +682,14 @@ mod tests {
             .expect("remove linked worktree");
         assert!(!linked.exists(), "worktree directory should be gone");
 
+        let linked_name = linked.file_name().map(|n| n.to_os_string());
         let list = engine.list_worktrees(&repo).expect("worktree list");
+        let still_listed = list.iter().any(|info| {
+            info.path == linked || info.path.file_name().map(|n| n.to_os_string()) == linked_name
+        });
         let _ = fs::remove_dir_all(&root);
         assert!(
-            list.iter().all(|info| info.path != linked
-                && std::fs::canonicalize(&info.path).ok() != std::fs::canonicalize(&linked).ok()),
+            !still_listed,
             "git must no longer list the removed worktree: {list:?}"
         );
     }

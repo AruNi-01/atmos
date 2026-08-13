@@ -30,6 +30,9 @@ mod tests {
     use super::*;
     use std::fs;
     use std::io::Write;
+    use std::path::{Path, PathBuf};
+    use std::sync::atomic::AtomicBool;
+    use std::sync::Arc;
 
     fn write_file(path: &Path, bytes: usize) {
         if let Some(parent) = path.parent() {
