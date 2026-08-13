@@ -161,7 +161,7 @@ Project / worktree / agent marking:
 |--------|---------|----------|
 | `DiskAnalyzerStartScan` | `{ path?: string, max_children?: number }` | `{ scan_id, root_path }` |
 | `DiskAnalyzerCancelScan` | `{ scan_id }` | `{ ok: true }` — owner connection only |
-| `DiskAnalyzerGetTree` | `{ scan_id, path?: string, max_children?: number }` | `{ tree, stats }` — owner only; snapshot then prune outside lock |
+| `DiskAnalyzerGetTree` | `{ scan_id, path?: string, max_children?: number }` | `{ tree, stats }` — owner only; snapshot then prune outside lock. If the cached node was already pruned into `__other__` below the requested `max_children`, re-walk that path instead of returning the truncated snapshot. |
 | `DiskAnalyzerDelete` | `{ scan_id, path, permanent?: bool }` | `{ success, path, freed_bytes, permanent }` — owner only; path must canonicalize under session root |
 | `DiskAnalyzerDiskInfo` | `{ path?: string }` | `DiskVolumeInfo` |
 

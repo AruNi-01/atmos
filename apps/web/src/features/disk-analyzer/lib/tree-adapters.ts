@@ -194,6 +194,17 @@ function otherPathFor(parentPath: string): string {
   return `${parentPath.replace(/\/$/, "")}/${OTHER_NAME}`;
 }
 
+/** True when this folder was pruned into `__other__` below `topN` — needs a wider fetch. */
+export function levelNeedsWiderTopN(
+  node: DiskNode | null | undefined,
+  topN: number,
+): boolean {
+  if (!node?.children?.length) return false;
+  const n = Math.max(1, topN);
+  const real = node.children.filter((child) => !isOtherNode(child)).length;
+  return node.children.some(isOtherNode) && real < n;
+}
+
 export type TakeTopOptions = {
   /** Nesting levels to keep under this node (default: sunburst depth). */
   maxDepth?: number;

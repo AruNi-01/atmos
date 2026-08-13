@@ -14,9 +14,10 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use core_engine::{
-    agent_data_roots, clear_path_cache, finalize_tree, invalidate_path_cache, CleanupSuggestion,
-    DiskAnalyzerEngine, DiskNode, DiskPathKind, DiskScanRoots, DiskVolumeInfo, FsEngine, GitEngine,
-    ProgressCallback, ScanProgress, ScanStats, ScanStatus, DEFAULT_TREE_DEPTH,
+    agent_data_roots, clear_path_cache, finalize_tree, invalidate_path_cache,
+    node_needs_wider_children, CleanupSuggestion, DiskAnalyzerEngine, DiskNode, DiskPathKind,
+    DiskScanRoots, DiskVolumeInfo, FsEngine, GitEngine, ProgressCallback, ScanProgress, ScanStats,
+    ScanStatus, DEFAULT_TREE_DEPTH,
 };
 use parking_lot::Mutex;
 use serde::Serialize;
@@ -666,14 +667,22 @@ impl DiskAnalyzerService {
                 if let Some(node) = find_node(tree.as_ref(), &target_key) {
                     // Truncated leaves need a fresh walk; only return cache when expanded.
                     if !node.is_dir || node.children_loaded {
-                        let mut cloned = node.clone();
                         let max = max_children.unwrap_or(session.max_children).max(1);
-                        finalize_tree(&mut cloned, max, DEFAULT_TREE_DEPTH, true);
-                        return Ok(json!({
-                            "status": "ready",
-                            "tree": cloned,
-                            "stats": session.stats.clone(),
-                        }));
+                        let synthetic =
+                            target_key == ATMOS_OVERVIEW_PATH || target_key.starts_with("atmos://");
+                        // Pruned snapshots cannot grow past the original cap. Re-walk
+                        // when the UI asks for more than the cached real children.
+                        let serve_cache =
+                            !node.is_dir || synthetic || !node_needs_wider_children(node, max);
+                        if serve_cache {
+                            let mut cloned = node.clone();
+                            finalize_tree(&mut cloned, max, DEFAULT_TREE_DEPTH, true);
+                            return Ok(json!({
+                                "status": "ready",
+                                "tree": cloned,
+                                "stats": session.stats.clone(),
+                            }));
+                        }
                     }
                 }
             }
@@ -725,6 +734,9 @@ impl DiskAnalyzerService {
             let mut sessions = self.sessions.lock();
             if let Some(session) = sessions.get_mut(scan_id) {
                 session.inflight_root = Some(target_key.clone());
+                if max > session.max_children {
+                    session.max_children = max;
+                }
             }
         }
 
@@ -2311,6 +2323,142 @@ mod tests {
                 .map(|a| !a.is_empty())
                 .unwrap_or(false),
             "loaded dir should include children"
+        );
+
+        let _ = std::fs::remove_dir_all(&base);
+    }
+
+    fn test_leaf(name: &str, path: &str, size: u64) -> DiskNode {
+        DiskNode {
+            name: name.into(),
+            path: path.into(),
+            size,
+            is_dir: false,
+            is_project: false,
+            is_workspace: false,
+            is_git_worktree: false,
+            is_agent_data: false,
+            file_count: 1,
+            dir_count: 0,
+            children_loaded: true,
+            children: vec![],
+        }
+    }
+
+    #[tokio::test]
+    async fn get_tree_rewalks_when_requested_max_exceeds_pruned_cache() {
+        let base = std::env::temp_dir().join(format!(
+            "disk-analyzer-get-tree-wider-{}",
+            std::process::id()
+        ));
+        let entry = base.join(".atmos");
+        let _ = std::fs::remove_dir_all(&base);
+        std::fs::create_dir_all(&entry).expect("mkdir");
+        for i in 0..5 {
+            std::fs::write(entry.join(format!("f{i}.bin")), vec![0u8; 64]).expect("write");
+        }
+
+        let entry_key = path_key(&entry);
+        let pruned = DiskNode {
+            name: ".atmos".into(),
+            path: entry_key.clone(),
+            size: 320,
+            is_dir: true,
+            is_project: false,
+            is_workspace: false,
+            is_git_worktree: false,
+            is_agent_data: false,
+            file_count: 5,
+            dir_count: 0,
+            children_loaded: true,
+            children: vec![
+                test_leaf("f0.bin", &format!("{entry_key}/f0.bin"), 64),
+                test_leaf("f1.bin", &format!("{entry_key}/f1.bin"), 64),
+                DiskNode {
+                    name: "__other__".into(),
+                    path: format!("{entry_key}/__other__"),
+                    size: 192,
+                    is_dir: true,
+                    is_project: false,
+                    is_workspace: false,
+                    is_git_worktree: false,
+                    is_agent_data: false,
+                    file_count: 3,
+                    dir_count: 0,
+                    children_loaded: true,
+                    children: vec![],
+                },
+            ],
+        };
+
+        let mut sessions = HashMap::new();
+        sessions.insert(
+            "scan-1".to_string(),
+            DiskAnalyzerSession {
+                owner_conn_id: "conn-1".to_string(),
+                cancel: Arc::new(AtomicBool::new(false)),
+                tree: Some(Arc::new(pruned)),
+                inflight_root: None,
+                stats: None,
+                suggestions: None,
+                root_path: PathBuf::from(ATMOS_OVERVIEW_PATH),
+                entry_roots: vec![entry.clone()],
+                max_children: 2,
+                project_roots: vec![],
+                workspace_roots: vec![],
+                git_worktree_roots: vec![],
+                agent_data_roots: vec![],
+                marks_ready: false,
+                started_at: Instant::now(),
+                completed_at: Some(Instant::now()),
+                is_overview: true,
+            },
+        );
+
+        let db = Arc::new(sea_orm::DatabaseConnection::default());
+        let service = DiskAnalyzerService {
+            engine: DiskAnalyzerEngine::new(),
+            fs_engine: FsEngine::new(),
+            project_service: Arc::new(ProjectService::new(Arc::clone(&db))),
+            workspace_service: Arc::new(WorkspaceService::new(Arc::clone(&db))),
+            sessions: Arc::new(Mutex::new(sessions)),
+            event_tx: broadcast::channel(16).0,
+        };
+
+        let same_cap = service
+            .get_tree("conn-1", "scan-1", Some(&entry_key), Some(2))
+            .expect("get_tree same cap");
+        assert_eq!(same_cap["status"], "ready");
+        assert_eq!(
+            service
+                .sessions
+                .lock()
+                .get("scan-1")
+                .unwrap()
+                .inflight_root
+                .as_deref(),
+            None,
+            "same cap should serve the pruned snapshot"
+        );
+
+        let wider = service
+            .get_tree("conn-1", "scan-1", Some(&entry_key), Some(5))
+            .expect("get_tree wider");
+        assert_eq!(wider["status"], "loading");
+        assert_eq!(
+            service
+                .sessions
+                .lock()
+                .get("scan-1")
+                .unwrap()
+                .inflight_root
+                .as_deref(),
+            Some(entry_key.as_str()),
+            "wider cap must re-walk instead of returning the pruned snapshot"
+        );
+        assert_eq!(
+            service.sessions.lock().get("scan-1").unwrap().max_children,
+            5
         );
 
         let _ = std::fs::remove_dir_all(&base);

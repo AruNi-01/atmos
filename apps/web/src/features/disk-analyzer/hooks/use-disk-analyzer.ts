@@ -27,6 +27,7 @@ import {
   formatBytes,
   isChildrenLoaded,
   isFsPathAncestor,
+  levelNeedsWiderTopN,
   sortNodes,
   takeTopChildren,
   type ChartMode,
@@ -158,6 +159,11 @@ export function useDiskAnalyzer() {
   const [loadingPath, setLoadingPath] = useState<string | null>(null);
   const autoStartedRef = useRef(false);
   const loadingPathRef = useRef<string | null>(null);
+  const focusPathRef = useRef<string | null>(null);
+  const prevTopNRef = useRef(topN);
+  const treeRef = useRef<DiskNode | null>(null);
+  focusPathRef.current = focusPath;
+  treeRef.current = tree;
 
   const rememberLevel = useCallback((level: DiskNode) => {
     const nextCache = { ...levelCacheRef.current, [level.path]: level };
@@ -447,6 +453,20 @@ export function useDiskAnalyzer() {
     },
     [queryClient, queryScope, rememberLevel, scanId, topN],
   );
+
+  // Raising Top N cannot invent children from a pruned snapshot — refetch this folder.
+  useEffect(() => {
+    if (prevTopNRef.current === topN) return;
+    prevTopNRef.current = topN;
+    const path = focusPathRef.current;
+    if (!scanIdRef.current || !path) return;
+    const cached = levelCacheRef.current[path];
+    const fromTree = treeRef.current ? findNodeByPath(treeRef.current, path) : null;
+    const node = cached ?? fromTree;
+    if (levelNeedsWiderTopN(node, topN)) {
+      void loadLevel(path, { force: true });
+    }
+  }, [loadLevel, topN]);
 
   const drillTo = useCallback(
     (path: string) => {

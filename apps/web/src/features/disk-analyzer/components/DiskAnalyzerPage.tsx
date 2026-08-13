@@ -332,6 +332,8 @@ export function DiskAnalyzerPage() {
                 <SelectTrigger
                   size="sm"
                   className="w-auto min-w-[5.5rem] gap-1.5 border-border/60 bg-muted/20 text-xs shadow-none"
+                  title={t("topNHint")}
+                  aria-label={t("topNHint")}
                 >
                   <span className="text-muted-foreground">{t("topN")}</span>
                   <SelectValue />

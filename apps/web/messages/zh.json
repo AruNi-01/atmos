@@ -9518,6 +9518,7 @@
     "treemap": "矩形树图",
     "switchChartMode": "切换为{mode}",
     "topN": "Top",
+    "topNHint": "显示当前目录中占用最大的 N 项。目录条目不足时画面不会变化。",
     "computerRoot": "~",
     "atmosRoot": "Atmos",
     "scanAllSpace": "扫描全部空间",

@@ -18,7 +18,7 @@ pub use cache::{
     clear_all as clear_path_cache, invalidate_path as invalidate_path_cache, CACHE_TTL,
 };
 
-const OTHER_NAME: &str = "__other__";
+pub const OTHER_NAME: &str = "__other__";
 const DEFAULT_MAX_CHILDREN: usize = 30;
 /// Structural depth kept in multi-level trees (legacy finalize). Level scans return depth 1.
 pub const DEFAULT_TREE_DEPTH: usize = 2;
@@ -1172,6 +1172,19 @@ fn windows_allocated_size(path: &Path) -> Option<u64> {
     None
 }
 
+/// True when this node was top-N pruned below `max_children` (`__other__` holds the rest).
+/// A wider `get_tree` must re-walk instead of returning the pruned snapshot.
+pub fn node_needs_wider_children(node: &DiskNode, max_children: usize) -> bool {
+    let max = max_children.max(1);
+    let real = node
+        .children
+        .iter()
+        .filter(|child| child.name != OTHER_NAME)
+        .count();
+    let has_other = node.children.iter().any(|child| child.name == OTHER_NAME);
+    has_other && real < max
+}
+
 /// Keep top `max_children` by size; collapse the rest into `__other__`.
 pub fn prune_tree(node: &mut DiskNode, max_children: usize) {
     if node.children.is_empty() {
@@ -1913,6 +1926,45 @@ mod tests {
         let other = node.children.iter().find(|c| c.name == OTHER_NAME).unwrap();
         assert_eq!(other.size, 60);
         assert_eq!(node.size, 100);
+        assert!(node_needs_wider_children(&node, 3));
+        assert!(node_needs_wider_children(&node, 5));
+        assert!(!node_needs_wider_children(&node, 2));
+        assert!(!node_needs_wider_children(&node, 1));
+    }
+
+    #[test]
+    fn complete_directory_does_not_need_wider_children() {
+        let node = DiskNode {
+            name: "root".into(),
+            path: "/tmp/root".into(),
+            size: 40,
+            is_dir: true,
+            is_project: false,
+            is_workspace: false,
+            is_git_worktree: false,
+            is_agent_data: false,
+            file_count: 2,
+            dir_count: 0,
+            children_loaded: true,
+            children: (0..2)
+                .map(|i| DiskNode {
+                    name: format!("c{i}"),
+                    path: format!("/tmp/root/c{i}"),
+                    size: 20,
+                    is_dir: false,
+                    is_project: false,
+                    is_workspace: false,
+                    is_git_worktree: false,
+                    is_agent_data: false,
+                    file_count: 0,
+                    dir_count: 0,
+                    children_loaded: true,
+                    children: vec![],
+                })
+                .collect(),
+        };
+        assert!(!node_needs_wider_children(&node, 30));
+        assert!(!node_needs_wider_children(&node, 100));
     }
 
     #[test]

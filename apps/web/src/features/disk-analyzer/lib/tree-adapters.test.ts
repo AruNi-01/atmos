@@ -19,6 +19,7 @@ import {
   isAtmosSyntheticPath,
   isChildrenLoaded,
   layoutValue,
+  levelNeedsWiderTopN,
   localizedSyntheticName,
   sizeToUsageColor,
   sortNodes,
@@ -587,6 +588,38 @@ describe("disk analyzer tree adapters", () => {
     expect(limited.children?.length).toBe(3);
     expect(limited.children?.[0]?.name).toBe("c0");
     expect(limited.children?.filter((c) => c.name === "__other__").length).toBe(1);
+  });
+
+  test("levelNeedsWiderTopN is true only when __other__ hides extra children", () => {
+    const pruned: DiskNode = {
+      ...sample,
+      children: [
+        {
+          name: "a",
+          path: "/home/a",
+          size: 100,
+          is_dir: false,
+          is_project: false,
+          file_count: 1,
+          dir_count: 0,
+          children: [],
+        },
+        {
+          name: "__other__",
+          path: "/home/__other__",
+          size: 50,
+          is_dir: true,
+          is_project: false,
+          file_count: 2,
+          dir_count: 0,
+          children: [],
+        },
+      ],
+    };
+    expect(levelNeedsWiderTopN(pruned, 10)).toBe(true);
+    expect(levelNeedsWiderTopN(pruned, 1)).toBe(false);
+    expect(levelNeedsWiderTopN(sample, 100)).toBe(false);
+    expect(levelNeedsWiderTopN(null, 50)).toBe(false);
   });
 
   test("sortNodes keeps __other__ last even when largest", () => {

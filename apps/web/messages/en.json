@@ -9518,6 +9518,7 @@
     "treemap": "Treemap",
     "switchChartMode": "Switch to {mode}",
     "topN": "Top",
+    "topNHint": "Largest N items in this folder. No change when the folder has fewer items.",
     "computerRoot": "~",
     "atmosRoot": "Atmos",
     "scanAllSpace": "Scan all space",

@@ -16,9 +16,9 @@ pub mod tmux;
 pub use app::AppEngine;
 pub use disk_analyzer::{
     agent_data_roots, cleanup_suggestions, clear_path_cache, finalize_tree, invalidate_path_cache,
-    limit_tree_depth, prune_tree, CleanupSuggestion, DiskAnalyzerEngine, DiskNode, DiskPathKind,
-    DiskScanRoots, DiskVolumeInfo, ProgressCallback, ScanProgress, ScanStats, ScanStatus,
-    CACHE_TTL, DEFAULT_TREE_DEPTH,
+    limit_tree_depth, node_needs_wider_children, prune_tree, CleanupSuggestion, DiskAnalyzerEngine,
+    DiskNode, DiskPathKind, DiskScanRoots, DiskVolumeInfo, ProgressCallback, ScanProgress,
+    ScanStats, ScanStatus, CACHE_TTL, DEFAULT_TREE_DEPTH, OTHER_NAME,
 };
 pub use error::EngineError;
 pub use fs::{
