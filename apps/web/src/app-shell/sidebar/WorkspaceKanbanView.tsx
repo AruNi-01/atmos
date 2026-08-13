@@ -800,12 +800,35 @@ export function WorkspaceKanbanView({
                         {hiddenColumnList.map((column) => {
                           const title = columnTitle(column);
                           const hiddenCount = (grouped.get(column.key) ?? []).length;
+                          const statusMeta = column.status
+                            ? getWorkspaceWorkflowStatusMeta(column.status)
+                            : null;
+                          const priorityMeta = column.priority
+                            ? getWorkspacePriorityMeta(column.priority)
+                            : null;
+                          const agentMeta = column.agentGroup
+                            ? getWorkspaceAgentGroupMeta(column.agentGroup)
+                            : null;
+                          const HiddenIcon =
+                            statusMeta?.icon ??
+                            priorityMeta?.icon ??
+                            agentMeta?.icon ??
+                            null;
+                          const hiddenIconClass =
+                            statusMeta?.className ??
+                            priorityMeta?.className ??
+                            agentMeta?.className ??
+                            "text-muted-foreground";
                           return (
                             <div key={column.key} className="flex items-center rounded-md border border-border/60 bg-background px-2 py-1.5">
-                              <span
-                                className="size-2.5 shrink-0 rounded-full"
-                                style={{ backgroundColor: column.color }}
-                              />
+                              {HiddenIcon ? (
+                                <HiddenIcon className={cn("size-2.5 shrink-0", hiddenIconClass)} />
+                              ) : (
+                                <span
+                                  className="size-2.5 shrink-0 rounded-full"
+                                  style={{ backgroundColor: column.color }}
+                                />
+                              )}
                               <span className="ml-2 truncate text-xs text-foreground">{title}</span>
                               <span className="ml-1 text-xs text-muted-foreground">{hiddenCount}</span>
                               <button

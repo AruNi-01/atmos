@@ -116,7 +116,7 @@ Subscribe to the group-key map; pass into `resolveKanbanColumnKeys`. No create-w
 
 ### Hydrate (refresh)
 
-`useAgentHooksStore.init()` loads sessions, attention, and workspace-agent-groups in `Promise.all`, then applies them together. `useWorkspaceAgentGroupKeyMap` uses the API snapshot until that hydrate finishes, then follows live stores (WS).
+`useAgentHooksStore.init()` fetches `GET /hooks/workspace-agent-groups` first and applies `serverWorkspaceGroupKeys` while `hooksHydrated` is still `false`, so By Agent Status can paint from API memory. Sessions + attention load in parallel afterward; then `hooksHydrated` becomes `true` and the map follows live stores (WS). Panes acknowledged during that window are recorded and stripped from the attention snapshot (and from the grouping snapshot when live is idle) so a GET that started before the ack cannot resurrect Need permission / Need attention.
 
 ### Settings / URL
 

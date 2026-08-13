@@ -171,6 +171,13 @@ mod tests {
         );
         assert_eq!(
             resolve_workspace_agent_group_key(
+                AgentHookState::Running,
+                Some(AgentAttentionReason::PermissionRequest),
+            ),
+            WorkspaceAgentGroupKey::Permission
+        );
+        assert_eq!(
+            resolve_workspace_agent_group_key(
                 AgentHookState::Idle,
                 Some(AgentAttentionReason::TaskComplete),
             ),
@@ -259,6 +266,61 @@ mod tests {
         let groups = service.list_workspace_agent_groups();
         assert_eq!(
             group_for(&groups, "ws-perm").map(|row| row.group_key),
+            Some(WorkspaceAgentGroupKey::Permission)
+        );
+    }
+
+    #[test]
+    fn snapshot_keeps_permission_when_running_with_sticky_latch() {
+        let service = AgentHooksService::new();
+        let pane_ctx = ctx("ws-both", "ws-both:agent");
+        service.update_state(
+            "ws-both:agent",
+            AgentToolType::ClaudeCode,
+            AgentHookState::PermissionRequest,
+            None,
+            &pane_ctx,
+            StateUpdateKind::Permission,
+        );
+        service.update_state(
+            "ws-both:agent",
+            AgentToolType::ClaudeCode,
+            AgentHookState::Running,
+            None,
+            &pane_ctx,
+            StateUpdateKind::NewTurn,
+        );
+
+        let groups = service.list_workspace_agent_groups();
+        assert_eq!(
+            group_for(&groups, "ws-both").map(|row| row.group_key),
+            Some(WorkspaceAgentGroupKey::Permission)
+        );
+    }
+
+    #[test]
+    fn snapshot_permission_beats_running_on_same_context() {
+        let service = AgentHooksService::new();
+        service.update_state(
+            "ws-mix:run",
+            AgentToolType::ClaudeCode,
+            AgentHookState::Running,
+            None,
+            &ctx("ws-mix", "ws-mix:run"),
+            StateUpdateKind::NewTurn,
+        );
+        service.update_state(
+            "ws-mix:perm",
+            AgentToolType::Codex,
+            AgentHookState::PermissionRequest,
+            None,
+            &ctx("ws-mix", "ws-mix:perm"),
+            StateUpdateKind::Permission,
+        );
+
+        let groups = service.list_workspace_agent_groups();
+        assert_eq!(
+            group_for(&groups, "ws-mix").map(|row| row.group_key),
             Some(WorkspaceAgentGroupKey::Permission)
         );
     }

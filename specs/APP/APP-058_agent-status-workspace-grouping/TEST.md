@@ -167,7 +167,7 @@ Use `agent-browser` after implementation. Load Agent Browser instructions first 
 
 ## Coverage Status
 
-> Updated 2026-08-13 after By Agent Status rename + API-memory hydrate.
+> Updated 2026-08-13 after hydrate-race fix (REV-001 / REV-002).
 
 | Scenario | Status | Proof |
 |----------|--------|-------|
@@ -190,13 +190,13 @@ cd apps/web && bun test \
   src/app-shell/sidebar/workspace-grouping.test.ts \
   src/app-shell/sidebar/kanban-columns.test.ts \
   src/features/settings/store/layout-settings-store.agent-grouping.test.ts
-# 21 pass
+# 25 pass
 
 cd apps/web && bun run typecheck
 # pass
 
 cargo +stable test -p core-service workspace_agent_group
-# 5 pass
+# 7 pass
 ```
 
 Agent-browser exploratory checks: not_run (no browser session in this implementation pass).

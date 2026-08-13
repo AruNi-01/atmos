@@ -2,6 +2,7 @@
 import { describe, expect, it } from "bun:test";
 import { AGENT_STATE } from "@/features/agent/store/agent-hooks-store";
 import {
+  resolveHydratedWorkspaceAgentGroupKey,
   resolveRolledAttentionReason,
   resolveWorkspaceAgentGroupKey,
   resolveWorkspaceAgentStatusView,
@@ -86,6 +87,12 @@ describe("resolveWorkspaceAgentGroupKey", () => {
         attentionReason: "permission_request",
       }),
     ).toBe("permission");
+    expect(
+      resolveWorkspaceAgentGroupKey({
+        agentState: AGENT_STATE.RUNNING,
+        attentionReason: "permission_request",
+      }),
+    ).toBe("permission");
   });
 
   it("keeps a running agent in running even with a leftover complete latch", () => {
@@ -122,5 +129,37 @@ describe("resolveWorkspaceAgentGroupKey", () => {
       "running",
       "idle",
     ]);
+  });
+});
+
+describe("resolveHydratedWorkspaceAgentGroupKey", () => {
+  it("uses the API snapshot until hydrate finishes when live is idle", () => {
+    expect(
+      resolveHydratedWorkspaceAgentGroupKey({
+        live: "idle",
+        server: "attention",
+        hooksHydrated: false,
+      }),
+    ).toBe("attention");
+  });
+
+  it("lets live non-idle win over the snapshot", () => {
+    expect(
+      resolveHydratedWorkspaceAgentGroupKey({
+        live: "running",
+        server: "attention",
+        hooksHydrated: false,
+      }),
+    ).toBe("running");
+  });
+
+  it("ignores the snapshot after hydrate", () => {
+    expect(
+      resolveHydratedWorkspaceAgentGroupKey({
+        live: "idle",
+        server: "permission",
+        hooksHydrated: true,
+      }),
+    ).toBe("idle");
   });
 });

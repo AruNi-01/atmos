@@ -62,6 +62,22 @@ export function resolveWorkspaceAgentGroupKey(input: {
 }
 
 /**
+ * Refresh hydrate: live WS/stores always win when they are not idle.
+ * Until sessions+attention finish loading, fall back to the API-memory snapshot.
+ */
+export function resolveHydratedWorkspaceAgentGroupKey(input: {
+  live: WorkspaceAgentGroupKey;
+  server?: WorkspaceAgentGroupKey;
+  hooksHydrated: boolean;
+}): WorkspaceAgentGroupKey {
+  if (input.live !== "idle") return input.live;
+  if (!input.hooksHydrated && input.server && input.server !== "idle") {
+    return input.server;
+  }
+  return input.live;
+}
+
+/**
  * Single priority for list-surface agent marks (sidebar / kanban / search):
  *
  * 1. Attention filter mode + sticky reason → attention bell

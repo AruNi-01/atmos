@@ -12,6 +12,7 @@ import {
   type AttentionReason,
 } from "@/features/agent/store/agent-attention-store";
 import {
+  resolveHydratedWorkspaceAgentGroupKey,
   resolveRolledAttentionReason,
   resolveWorkspaceAgentGroupKey,
   resolveWorkspaceAgentStatusView,
@@ -81,12 +82,13 @@ export function useWorkspaceAgentGroupKeyMap(
         agentState: hooks.getAgentStateForContextId(id),
         attentionReason: attention.getContextReason(id),
       });
-      const server = hooks.serverWorkspaceGroupKeys[id] as
-        | WorkspaceAgentGroupKey
-        | undefined;
-      // Before hydrate finishes, prefer the API-memory snapshot so a refresh
-      // does not flash every workspace as Idle.
-      map[id] = !hooks.hooksHydrated && server ? server : live;
+      map[id] = resolveHydratedWorkspaceAgentGroupKey({
+        live,
+        server: hooks.serverWorkspaceGroupKeys[id] as
+          | WorkspaceAgentGroupKey
+          | undefined,
+        hooksHydrated: hooks.hooksHydrated,
+      });
     }
     return map;
   }, [

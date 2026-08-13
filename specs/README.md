@@ -134,7 +134,7 @@ These files are not requirements sources. Requirements live in `PRD.md`, archite
 | **APP-055** | Run Terminal Logs (project-local `.atmos/run-logs/`, slash View Run Logs chip for agents) | `specs/APP/APP-055_run-terminal-logs/` (`BRAINSTORM.md`, `PRD.md`, `TECH.md`, `TEST.md`) |
 | **APP-056** | Usage Share, Users & Devices (Atmos Hub; GitHub+Google; device credentials; token-usage share) | `specs/APP/APP-056_usage-share-and-accounts/` (`BRAINSTORM.md`, `PRD.md`, `TECH.md`, `TEST.md`) |
 | **APP-057** | Linear Task Integration (Task source; Hub-account-bound credentials + local fallback) | `specs/APP/APP-057_linear-task-integration/` (`BRAINSTORM.md`, `PRD.md`, `TECH.md`, `TEST.md`) |
-| **APP-058** | Agent Status Workspace Grouping (sidebar + Task kanban By Agent Status) | `specs/APP/APP-058_agent-status-workspace-grouping/` (`BRAINSTORM.md`, `PRD.md`, `TECH.md`, `TEST.md`) |
+| **APP-058** | Agent Status Workspace Grouping (sidebar + Task kanban By Agent Status) | `specs/APP/APP-058_agent-status-workspace-grouping/` (`BRAINSTORM.md`, `PRD.md`, `TECH.md`, `TEST.md`, `REVIEW.md`) |
 | **QUALITY-001** | Large File Code Debt Cleanup | `specs/APP/QUALITY-001_large-file-code-debt-cleanup/` (`TECH.md`, `TEST.md`) |
 | **QUALITY-002** | Spec Test Execution Loop | `specs/APP/QUALITY-002_spec-test-execution-loop/` (`TECH.md`, `TEST.md`) |
 | **QUALITY-003** | Playwright E2E Harness | `specs/APP/QUALITY-003_playwright-e2e-harness/` (`TECH.md`, `TEST.md`) |
