@@ -27,7 +27,7 @@ import { FitAddon } from "@xterm/addon-fit";
 import "@xterm/xterm/css/xterm.css";
 import { atmosDarkTheme, defaultTerminalOptions } from "../../terminal/lib/theme";
 import { getWorkspaceSetupCurrentStepKey, type WorkspaceSetupStepKey } from "@/features/workspace/lib/workspace-setup";
-import { ScriptTrustReview } from "@/features/workspace/components/ScriptTrustReview";
+import { ScriptTrustReview } from "@/shared/components/ScriptTrustReview";
 
 const Progress = ({ value, className }: { value: number; className?: string }) => (
   <div className={cn("w-full overflow-hidden rounded-full bg-muted", className)}>

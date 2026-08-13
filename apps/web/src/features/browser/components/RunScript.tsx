@@ -24,7 +24,7 @@ import {
 
 import { useEditorStore } from '@/features/editor/store/use-editor-store';
 import { WorkspaceScriptDialog } from '@/features/workspace/components/WorkspaceScriptDialog';
-import { ScriptTrustReview } from '@/features/workspace/components/ScriptTrustReview';
+import { ScriptTrustReview } from '@/shared/components/ScriptTrustReview';
 import { wsScriptApi } from '@/api/ws-api';
 import { toastManager } from '@workspace/ui';
 import type { TerminalRef } from "@/features/terminal/components/Terminal";

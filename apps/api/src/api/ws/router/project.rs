@@ -329,9 +329,11 @@ impl WsMessageService {
                 .map_err(|e| ServiceError::Validation(format!("Invalid script JSON: {}", e)))?;
             self.fs_engine.write_file(&scripts_path, &content)?;
             // The user just authored this content in the app, so asking them to
-            // confirm their own edit would be noise.
+            // confirm their own edit would be noise. Trust the bytes we wrote
+            // rather than re-reading the file, which could pick up a concurrent
+            // rewrite and trust content the user never saw.
             self.project_service
-                .trust_current_project_scripts(req.project_guid)
+                .trust_written_project_scripts(req.project_guid, &content)
                 .await?;
             Ok(json!({ "success": true }))
         } else {

@@ -4320,10 +4320,6 @@
           "conflict": "此备注已在其他位置更改。请先重新加载，再保存草稿。",
           "reload": "重新加载"
         }
-      },
-      "scriptTrustReview": {
-        "empty": "该项目的脚本文件里没有任何命令。",
-        "aboutToRun": "即将执行"
       }
     }
   },
@@ -7678,6 +7674,10 @@
         "diff": "Diff",
         "codeBlock": "代码块"
       }
+    },
+    "scriptTrustReview": {
+      "empty": "该项目的脚本文件里没有任何命令。",
+      "aboutToRun": "即将执行"
     }
   },
   "diff": {

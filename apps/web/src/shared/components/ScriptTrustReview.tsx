@@ -7,6 +7,9 @@ import { cn } from "@/shared/lib/utils";
 /**
  * Shows every command in a project's `.atmos/scripts/atmos.json`.
  *
+ * Lives in `shared/` because two unrelated features confirm scripts: workspace
+ * setup and the browser Run panel.
+ *
  * Trust is recorded for the whole file, so confirmation has to show the whole
  * file: accepting from the setup prompt also accepts `run` (and anything else in
  * there), and the user cannot consent to commands they were never shown.
@@ -21,7 +24,7 @@ export function ScriptTrustReview({
   highlightField?: string;
   className?: string;
 }) {
-  const t = useTranslations("Workspace.components.scriptTrustReview");
+  const t = useTranslations("shared.scriptTrustReview");
 
   const entries = React.useMemo(
     () =>

