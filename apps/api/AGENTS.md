@@ -55,6 +55,8 @@ On successful `TcpListener::bind`:
 
 **Auth**: `require_local_token` applies only when `ATMOS_LOCAL_TOKEN` is configured. Default dev/Desktop path is **open loopback**.
 
+**Origin guard**: `require_allowed_origin` is the outermost layer and is the control that keeps a random web page from driving this Server. A WebSocket handshake is exempt from CORS, so the `Origin` allowlist must be enforced as a request guard — `CorsLayer` alone does not protect `/ws*`. Rules: a request with no `Origin` is allowed (non-browser clients such as the relay/tunnel bridge and CLI never send one); a request with `Origin` must satisfy `ServerConfig::is_origin_allowed`; and the `Host` header must be an IP literal, `localhost`, or listed in `ATMOS_ALLOWED_HOSTS` (blocks DNS rebinding, which arrives without an `Origin` header). Keep CORS and the guard on the same predicate — never add a second origin rule.
+
 ---
 
 ## Coding Conventions

@@ -137,7 +137,14 @@ async fn proxy_http(
     let target_url = format!("{}{}", state.target_base_url, uri);
     let mut builder = state.client.request(method, &target_url);
     for (key, value) in &headers {
-        if key != header::HOST && key != header::COOKIE {
+        // Host/Cookie are ours to set. Origin/Referer describe the remote page,
+        // which this gateway already authorized via entry_token; passing them to
+        // the local Server would only trip its origin guard.
+        if key != header::HOST
+            && key != header::COOKIE
+            && key != header::ORIGIN
+            && key != header::REFERER
+        {
             builder = builder.header(key, value);
         }
     }

@@ -10,7 +10,7 @@ use std::sync::Arc;
 use crate::api::ws::{
     automation_event_to_ws_message, WsEvent, WsManager, WsMessage, WsMessageService,
 };
-use crate::middleware::{require_local_token, require_loopback_or_token};
+use crate::middleware::{require_allowed_origin, require_local_token, require_loopback_or_token};
 use app_state::{AppServices, AppState};
 use axum::{
     http::{
@@ -821,6 +821,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let agent_hooks_for_startup = Arc::clone(&app_state.agent_hooks_service);
     let terminal_service_for_startup = Arc::clone(&app_state.terminal_service);
 
+    // Outermost layer: a WebSocket handshake bypasses CORS entirely, so untrusted
+    // browser origins have to be rejected before routing reaches /ws.
+    let origin_guard_config = Arc::new(server_config.clone());
+
     let mut app = Router::new()
         .route("/healthz", get(|| async { StatusCode::OK }))
         .merge(destructive)
@@ -828,7 +832,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with_state(app_state)
         .layer(TraceLayer::new_for_http())
         .layer(map_response(add_private_network_header))
-        .layer(cors);
+        .layer(cors)
+        .layer(from_fn(move |headers, req, next| {
+            require_allowed_origin(headers, req, next, origin_guard_config.clone())
+        }));
 
     if let Ok(static_dir) = std::env::var("ATMOS_STATIC_DIR") {
         let static_path = std::path::PathBuf::from(&static_dir);
