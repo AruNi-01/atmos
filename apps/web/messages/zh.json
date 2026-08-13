@@ -9509,7 +9509,7 @@
   },
   "DiskAnalyzer": {
     "title": "磁盘分析器",
-    "subtitle": "默认扫描 Atmos 相关占用（~/.atmos、已导入项目、Atmos.app），以及本机 Git 工作树和 Agent 数据。可勾选扫描全部空间。",
+    "subtitle": "分析磁盘占用情况，并给出清理建议。",
     "pathPlaceholder": "要扫描的绝对路径",
     "scan": "开始扫描",
     "rescan": "重新扫描",
