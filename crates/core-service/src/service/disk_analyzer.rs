@@ -1490,10 +1490,11 @@ impl DiskAnalyzerService {
                                                 OVERVIEW_TREE_DEPTH,
                                                 false,
                                             );
+                                            let shared = Arc::new(tree.clone());
                                             if let Some(session) =
                                                 sessions.lock().get_mut(&scan_id)
                                             {
-                                                session.tree = Some(Arc::new(tree.clone()));
+                                                session.tree = Some(Arc::clone(&shared));
                                             }
                                             let payload = json!({
                                                 "scan_id": scan_id,
@@ -1612,11 +1613,11 @@ impl DiskAnalyzerService {
                         .collect();
                     roots.git_worktree_roots =
                         GitEngine::new().discover_linked_worktrees_fast(&home, Some(&cancel));
-                    if let Some(session) = sessions.lock().get_mut(&scan_id) {
-                        session.git_worktree_roots = roots.git_worktree_roots.clone();
-                        session.agent_data_roots = roots.agent_data_roots.clone();
-                        session.marks_ready = true;
-                    }
+                }
+                if let Some(session) = sessions.lock().get_mut(&scan_id) {
+                    session.git_worktree_roots = roots.git_worktree_roots.clone();
+                    session.agent_data_roots = roots.agent_data_roots.clone();
+                    session.marks_ready = true;
                 }
             } else if let Some(session) = sessions.lock().get(&scan_id) {
                 roots.git_worktree_roots = session.git_worktree_roots.clone();

@@ -221,13 +221,10 @@ describe("disk analyzer tree adapters", () => {
     expect(canDeleteDiskPath("/tmp/feat", "feat", ATMOS_OVERVIEW_PATH)).toBe(true);
   });
 
-  test("cleanup hint keys cover agent homes", () => {
-    expect(cleanupHintMessageKey(".claude")).toBe("dot_claude");
-    expect(getCleanupHintKey(".cursor", 1024)).toBe("dot_cursor");
-    expect(getCleanupHintKey(".codex", 1024)).toBe("dot_codex");
-    expect(getCleanupHintKey("session-state", 1024)).toBe("session_state");
-    expect(getCleanupHintKey(".grok", 1024)).toBe("dot_grok");
-    expect(getCleanupHintKey(".factory", 1024)).toBe("dot_factory");
+  test("cleanup hint keys cover agent sessions, not whole homes", () => {
+    expect(getCleanupHintKey(".cursor", 1024)).toBeUndefined();
+    expect(getCleanupHintKey(".claude", 1024)).toBeUndefined();
+    expect(getCleanupHintKey("session-state", 1024)).toBeUndefined();
     expect(getCleanupHintKey("acp-events", 1024)).toBe("acp_events");
     expect(getCleanupHintKey("claude", 1024)).toBe("agent_session");
     expect(getCleanupHintKey("cursorChats", 1024)).toBe("agent_session");
