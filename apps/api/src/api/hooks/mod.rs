@@ -268,6 +268,10 @@ struct ClearAttentionBody {
     /// late dismiss cannot wipe a newer turn that landed after the client acted.
     #[serde(default)]
     not_after: Option<String>,
+    /// When true, also drop auto-summary chrome (explicit Dismiss / send / pane
+    /// destroy). Focus-ack omits this so the user can still read the recap.
+    #[serde(default)]
+    dismiss_summary: bool,
 }
 
 async fn clear_attention(
@@ -285,30 +289,9 @@ async fn clear_attention(
         .as_deref()
         .map(str::trim)
         .filter(|s| !s.is_empty());
-    let cleared = if let Some(cutoff) = not_after {
-        if ids.len() == 1 {
-            state
-                .agent_hooks_service
-                .clear_attention_for_pane_not_after(ids[0].as_str(), cutoff)
-        } else {
-            // Multi-id guarded clear: reuse single-id path per id.
-            let mut all = Vec::new();
-            for id in &ids {
-                all.extend(
-                    state
-                        .agent_hooks_service
-                        .clear_attention_for_pane_not_after(id.as_str(), cutoff),
-                );
-            }
-            all
-        }
-    } else if ids.len() == 1 {
-        state
-            .agent_hooks_service
-            .clear_attention_for_pane(ids[0].as_str())
-    } else {
-        state.agent_hooks_service.clear_attention_matching_ids(&ids)
-    };
+    let cleared = state
+        .agent_hooks_service
+        .clear_attention_matching_ids_not_after(&ids, not_after, body.dismiss_summary);
     Json(serde_json::json!({ "cleared": cleared }))
 }
 

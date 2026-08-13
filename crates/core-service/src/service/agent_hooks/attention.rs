@@ -175,6 +175,8 @@ impl AgentHooksService {
     }
 
     /// Clear sticky attention for a focused/acknowledged pane (and session aliases).
+    /// Does not drop auto-summary chrome — focusing the pane is how the user
+    /// *sees* "while you were away".
     pub fn clear_attention_for_pane(&self, stable_pane_id: &str) -> Vec<String> {
         let pane_id = stable_pane_id.trim();
         if pane_id.is_empty() {
@@ -194,18 +196,28 @@ impl AgentHooksService {
         if pane_id.is_empty() {
             return Vec::new();
         }
-        self.clear_attention_matching_ids_not_after(&[pane_id.to_string()], Some(not_after))
+        self.clear_attention_matching_ids_not_after(&[pane_id.to_string()], Some(not_after), false)
     }
 
     /// Clear latches whose map key or stored `session_id` matches any of `ids`.
+    /// Leaves auto-summaries in place unless `dismiss_summary` is set.
     pub fn clear_attention_matching_ids(&self, ids: &[String]) -> Vec<String> {
-        self.clear_attention_matching_ids_not_after(ids, None)
+        self.clear_attention_matching_ids_not_after(ids, None, false)
     }
 
-    fn clear_attention_matching_ids_not_after(
+    /// Pane/session destroy: drop both the latch and any auto-summary chrome.
+    pub fn clear_attention_and_summaries_matching_ids(&self, ids: &[String]) -> Vec<String> {
+        self.clear_attention_matching_ids_not_after(ids, None, true)
+    }
+
+    /// Acknowledge a pane. When `dismiss_summary` is true, also drop the
+    /// auto-summary (explicit Dismiss / send / pane destroy). Focus-ack
+    /// passes false so the user can still read the recap.
+    pub fn clear_attention_matching_ids_not_after(
         &self,
         ids: &[String],
         not_after: Option<&str>,
+        dismiss_summary: bool,
     ) -> Vec<String> {
         let id_set: HashSet<&str> = ids
             .iter()
@@ -252,29 +264,28 @@ impl AgentHooksService {
             to_clear
         };
 
-        // Drop summary chrome for cleared panes. When not_after guards skipped a
-        // newer latch, leave its summary alone (to_clear won't include it).
-        // Also drop orphan summaries for the requested ids only when we are not
-        // guarded, or when no newer latch remains for that id.
-        let mut summary_ids = cleared.clone();
-        if not_after_ts.is_none() {
-            summary_ids.extend(ids.iter().cloned());
-        } else {
-            // For guarded clears: also drop orphan summaries for requested ids
-            // that currently have no latch (dismiss of a finished summary whose
-            // latch was already gone).
-            let attention = self.attention.read();
-            for id in &id_set {
-                if !attention.contains_key(*id)
-                    && !attention
-                        .values()
-                        .any(|latch| latch.session_id.as_str() == *id)
-                {
-                    summary_ids.push((*id).to_string());
+        if dismiss_summary {
+            // Drop summary chrome for cleared panes. When not_after guards skipped
+            // a newer latch, leave its summary alone (to_clear won't include it).
+            // Also drop orphan summaries (latch already gone after a focus-ack)
+            // when no newer latch remains for that id.
+            let mut summary_ids = cleared.clone();
+            if not_after_ts.is_none() {
+                summary_ids.extend(ids.iter().cloned());
+            } else {
+                let attention = self.attention.read();
+                for id in &id_set {
+                    if !attention.contains_key(*id)
+                        && !attention
+                            .values()
+                            .any(|latch| latch.session_id.as_str() == *id)
+                    {
+                        summary_ids.push((*id).to_string());
+                    }
                 }
             }
+            self.clear_attention_summaries_matching_ids(&summary_ids);
         }
-        self.clear_attention_summaries_matching_ids(&summary_ids);
 
         if !cleared.is_empty() {
             self.broadcast_attention_cleared(cleared.clone());
@@ -511,13 +522,18 @@ mod tests {
                 can_close_session: true,
             },
         );
-        // Remove latch without going through clear (simulate orphan).
+        // Remove latch without going through clear (simulate focus-ack already
+        // dropped the latch while the recap is still showing).
         service.test_remove_attention_latch_only("ws-1:main");
         assert!(service.get_attention_summary("ws-1:main").is_some());
 
-        // Clear by pane id must still drop the orphan summary.
+        // Focus-style clear must keep the orphan recap.
         let cleared = service.clear_attention_for_pane("ws-1:main");
         assert!(cleared.is_empty());
+        assert!(service.get_attention_summary("ws-1:main").is_some());
+
+        // Explicit dismiss drops the orphan summary.
+        service.clear_attention_matching_ids_not_after(&["ws-1:main".to_string()], None, true);
         assert!(service.get_attention_summary("ws-1:main").is_none());
     }
 
@@ -569,5 +585,86 @@ mod tests {
         assert!(cleared.is_empty());
         assert_eq!(service.get_all_attention().len(), 1);
         assert_eq!(service.get_all_attention()[0].raised_at, new_raised);
+    }
+
+    #[test]
+    fn dismiss_summary_not_after_skips_newer_turn() {
+        let service = AgentHooksService::new();
+        let ctx = ctx_with_pane("ws-1:main");
+        service.update_state(
+            "ws-1:main",
+            AgentToolType::ClaudeCode,
+            AgentHookState::Running,
+            Some("/tmp/p".into()),
+            &ctx,
+            StateUpdateKind::NewTurn,
+        );
+        service.update_state(
+            "ws-1:main",
+            AgentToolType::ClaudeCode,
+            AgentHookState::Idle,
+            Some("/tmp/p".into()),
+            &ctx,
+            StateUpdateKind::TerminalIdle,
+        );
+        let old_raised = service.get_all_attention()[0].raised_at.clone();
+        let (_, _, gen) = service
+            .begin_attention_summary("ws-1:main")
+            .expect("begin first");
+        let _ = service.complete_attention_summary(
+            "ws-1:main",
+            gen,
+            AttentionSummaryPayload {
+                summary: "old turn".into(),
+                next_steps: vec![],
+                can_close_session: true,
+            },
+        );
+
+        // Newer turn replaces the latch and drops the old summary.
+        service.update_state(
+            "ws-1:main",
+            AgentToolType::ClaudeCode,
+            AgentHookState::Running,
+            Some("/tmp/p".into()),
+            &ctx,
+            StateUpdateKind::NewTurn,
+        );
+        service.update_state(
+            "ws-1:main",
+            AgentToolType::ClaudeCode,
+            AgentHookState::Idle,
+            Some("/tmp/p".into()),
+            &ctx,
+            StateUpdateKind::TerminalIdle,
+        );
+        let (_, _, gen2) = service
+            .begin_attention_summary("ws-1:main")
+            .expect("begin second");
+        let _ = service.complete_attention_summary(
+            "ws-1:main",
+            gen2,
+            AttentionSummaryPayload {
+                summary: "new turn".into(),
+                next_steps: vec![],
+                can_close_session: false,
+            },
+        );
+
+        // Late dismiss of the old recap must not wipe the newer latch or summary.
+        service.clear_attention_matching_ids_not_after(
+            &["ws-1:main".to_string()],
+            Some(&old_raised),
+            true,
+        );
+        assert_eq!(service.get_all_attention().len(), 1);
+        assert_eq!(
+            service
+                .get_attention_summary("ws-1:main")
+                .unwrap()
+                .summary
+                .as_deref(),
+            Some("new turn")
+        );
     }
 }

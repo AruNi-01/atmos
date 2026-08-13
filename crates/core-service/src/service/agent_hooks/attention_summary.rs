@@ -286,14 +286,11 @@ impl AgentHooksService {
         // Hold attention.read across the summaries write so a concurrent
         // `raise_attention` cannot insert a replacement latch and leave us
         // completing the previous generation against the new turn.
+        // Latch may already be gone (user focused the pane while summarizing);
+        // still apply the result so they can read it. Generation token is the
+        // guard against a newer turn — `raise_attention` drops the row first.
         let updated = {
-            let attention = self.attention.read();
-            if !attention.contains_key(pane_id) {
-                drop(attention);
-                self.clear_attention_summaries_matching_ids(&[pane_id.to_string()]);
-                return None;
-            }
-
+            let _attention = self.attention.read();
             let mut summaries = self.summaries.write();
             let entry = summaries.get_mut(pane_id)?;
             if entry.generation != generation {
@@ -334,13 +331,7 @@ impl AgentHooksService {
         }
 
         let updated = {
-            let attention = self.attention.read();
-            if !attention.contains_key(pane_id) {
-                drop(attention);
-                self.clear_attention_summaries_matching_ids(&[pane_id.to_string()]);
-                return None;
-            }
-
+            let _attention = self.attention.read();
             let mut summaries = self.summaries.write();
             let entry = summaries.get_mut(pane_id)?;
             if entry.generation != generation {
@@ -499,8 +490,16 @@ mod tests {
         assert_eq!(ready.next_steps.len(), 2);
         assert_eq!(ready.can_close_session, Some(true));
 
-        // Clear attention also drops summary.
+        // Focus-ack clears the latch but keeps the recap for the user to read.
         service.clear_attention_for_pane("ws-1:main");
+        assert!(service.get_all_attention().is_empty());
+        assert_eq!(
+            service.get_attention_summary("ws-1:main").unwrap().status,
+            AttentionSummaryStatus::Ready
+        );
+
+        // Explicit dismiss drops the summary.
+        service.clear_attention_matching_ids_not_after(&["ws-1:main".to_string()], None, true);
         assert!(service.get_all_attention_summaries().is_empty());
     }
 
@@ -566,5 +565,39 @@ mod tests {
         let due = service.attention_due_for_summary(Duration::from_secs(0));
         assert_eq!(due.len(), 1);
         assert!(service.get_attention_summary("ws-1:main").is_none());
+    }
+
+    #[test]
+    fn complete_after_focus_ack_still_lands_ready() {
+        let service = AgentHooksService::new();
+        raise_task_complete(&service, "ws-1:main");
+        let (_, _, gen) = service.begin_attention_summary("ws-1:main").expect("begin");
+        service.clear_attention_for_pane("ws-1:main");
+        assert!(service.get_all_attention().is_empty());
+        assert_eq!(
+            service.get_attention_summary("ws-1:main").unwrap().status,
+            AttentionSummaryStatus::Summarizing
+        );
+
+        let ready = service
+            .complete_attention_summary(
+                "ws-1:main",
+                gen,
+                AttentionSummaryPayload {
+                    summary: "Finished while the user was opening the pane.".into(),
+                    next_steps: vec!["Review the diff".into()],
+                    can_close_session: false,
+                },
+            )
+            .expect("complete after focus-ack");
+        assert_eq!(ready.status, AttentionSummaryStatus::Ready);
+        assert_eq!(
+            service
+                .get_attention_summary("ws-1:main")
+                .unwrap()
+                .summary
+                .as_deref(),
+            Some("Finished while the user was opening the pane.")
+        );
     }
 }

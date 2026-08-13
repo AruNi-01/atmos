@@ -6,6 +6,7 @@ import {
   type AgentAttentionSummaryDto,
   type AttentionSummaryStatusDto,
 } from "@/api/rest-api";
+import { useAgentAttentionStore } from "@/features/agent/store/agent-attention-store";
 
 export type AttentionSummaryStatus = AttentionSummaryStatusDto;
 
@@ -147,4 +148,61 @@ export async function hydrateAttentionSummariesFromServer(): Promise<void> {
       error,
     );
   }
+}
+
+/**
+ * Explicit Dismiss / composer send / pane destroy. Focus-ack must not call this
+ * — the recap stays until the user has actually consumed it.
+ */
+export function dismissAttentionSummaryChrome(stablePaneId: string): void {
+  const id = stablePaneId?.trim();
+  if (!id) return;
+
+  const attentionStore = useAgentAttentionStore.getState();
+  const summaryStore = useAgentAttentionSummaryStore.getState();
+  const latch = attentionStore.panes.get(id);
+  const prevSummary = summaryStore.panes.get(id) ?? null;
+  if (!latch && !prevSummary) return;
+  const prevAttention = latch ?? null;
+  const notAfter = latch?.raisedAt
+    ? new Date(latch.raisedAt).toISOString()
+    : prevSummary?.startedAt
+      ? new Date(prevSummary.startedAt).toISOString()
+      : undefined;
+
+  summaryStore.clearPane(id);
+  attentionStore.clearPane(id);
+
+  const attentionRevAfterClear = useAgentAttentionStore.getState().revision;
+  const summaryRevAfterClear = useAgentAttentionSummaryStore.getState().revision;
+
+  void agentHooksApi
+    .clearAttention({ stablePaneId: id, notAfter, dismissSummary: true })
+    .catch((error) => {
+      console.warn(
+        "[AgentAttentionSummaryStore] Failed to dismiss summary:",
+        error,
+      );
+      const attentionNow = useAgentAttentionStore.getState();
+      const summaryNow = useAgentAttentionSummaryStore.getState();
+      if (
+        attentionNow.revision !== attentionRevAfterClear ||
+        summaryNow.revision !== summaryRevAfterClear
+      ) {
+        return;
+      }
+      if (!attentionNow.panes.has(id) && prevAttention) {
+        attentionNow.raise({
+          stablePaneId: prevAttention.stablePaneId,
+          contextId: prevAttention.contextId,
+          reason: prevAttention.reason,
+          sessionId: prevAttention.sessionId,
+          tool: prevAttention.tool,
+          raisedAt: prevAttention.raisedAt,
+        });
+      }
+      if (!summaryNow.panes.has(id) && prevSummary) {
+        useAgentAttentionSummaryStore.getState().upsert(prevSummary);
+      }
+    });
 }

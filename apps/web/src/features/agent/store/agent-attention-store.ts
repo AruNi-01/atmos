@@ -5,7 +5,6 @@ import {
   agentHooksApi,
   type AgentAttentionLatchDto,
 } from "@/api/rest-api";
-import { useAgentAttentionSummaryStore } from "@/features/agent/store/agent-attention-summary-store";
 
 export type AttentionReason = "permission_request" | "task_complete";
 
@@ -206,8 +205,6 @@ export const useAgentAttentionStore = create<AgentAttentionStore>((set, get) => 
       const filterMode = panes.size === 0 ? false : state.filterMode;
       return { panes, filterMode, revision: state.revision + 1 };
     });
-    // Keep auto-summary chrome in sync with local acknowledge.
-    useAgentAttentionSummaryStore.getState().clearPane(stablePaneId);
   },
 
   clearMatchingSessionIds: (ids) => {
