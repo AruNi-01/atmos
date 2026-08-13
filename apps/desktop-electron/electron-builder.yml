@@ -52,6 +52,9 @@ asarUnpack:
 afterPack: scripts/after-pack-macos-icon.cjs
 
 mac:
+  extraResources:
+    - from: resources/simulator-helper
+      to: simulator-helper
   category: public.app-category.developer-tools
   # Legacy ICNS for CFBundleIconFile + pre-Tahoe / DMG volume icon.
   # macOS 26 Liquid Glass: afterPack compiles resources/icons/icon.icon → Assets.car.

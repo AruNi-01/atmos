@@ -12,10 +12,17 @@ import {
   rmSync,
   writeFileSync,
 } from "node:fs";
+import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createRequire } from "node:module";
+import {
+  PINNED_HELPER,
+  PINNED_HELPER_TARBALL_SHA256,
+  PINNED_HELPER_TARBALL_URL,
+  PINNED_HELPER_VERSION,
+} from "../src/simulator/pin.ts";
 import {
   cookieHelperBinName,
   findCookieHelperBinary,
@@ -199,6 +206,66 @@ function main() {
     }
     console.warn(msg);
   }
+
+  stageSimulatorHelper();
+}
+
+function stageSimulatorHelper() {
+  if (process.platform !== "darwin") {
+    console.log("[prepare-package] skip simulator helper (not darwin)");
+    return;
+  }
+
+  const destRoot = join(appRoot, "resources/simulator-helper");
+  const destPayload = join(destRoot, "serve-sim");
+  mkdirSync(destRoot, { recursive: true });
+
+  const tmpTar = join(destRoot, "serve-sim.tgz");
+  const fetch = spawnSync("curl", ["-fsSL", PINNED_HELPER_TARBALL_URL, "-o", tmpTar], {
+    encoding: "utf8",
+  });
+  if (fetch.status !== 0) {
+    throw new Error(
+      `[prepare-package] failed to fetch ${PINNED_HELPER}@${PINNED_HELPER_VERSION}: ${fetch.stderr}`,
+    );
+  }
+
+  const digest = createHash("sha256").update(readFileSync(tmpTar)).digest("hex");
+  if (digest !== PINNED_HELPER_TARBALL_SHA256) {
+    rmSync(tmpTar, { force: true });
+    throw new Error(
+      `[prepare-package] simulator helper sha256 mismatch: got ${digest}, expected ${PINNED_HELPER_TARBALL_SHA256}`,
+    );
+  }
+
+  rmSync(destPayload, { recursive: true, force: true });
+  mkdirSync(destPayload, { recursive: true });
+  const extract = spawnSync(
+    "tar",
+    ["-xzf", tmpTar, "-C", destPayload, "--strip-components=1"],
+    { encoding: "utf8" },
+  );
+  rmSync(tmpTar, { force: true });
+  if (extract.status !== 0) {
+    throw new Error(
+      `[prepare-package] failed to extract simulator helper: ${extract.stderr}`,
+    );
+  }
+
+  const manifest = {
+    helper: PINNED_HELPER,
+    version: PINNED_HELPER_VERSION,
+    tarball_sha256: PINNED_HELPER_TARBALL_SHA256,
+    requires: { os: "darwin", arch: "arm64", minos: "14.0" },
+  };
+  writeFileSync(
+    join(destRoot, "helper-manifest.json"),
+    `${JSON.stringify(manifest, null, 2)}\n`,
+    "utf8",
+  );
+  console.log(
+    `[prepare-package] staged ${PINNED_HELPER}@${PINNED_HELPER_VERSION} → ${destPayload}`,
+  );
 }
 
 main();

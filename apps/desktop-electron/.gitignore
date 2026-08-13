@@ -22,4 +22,8 @@ logs/
 # Packaged cookie helper binary (staged by prepare-package from target/release)
 resources/bin/*
 !resources/bin/.gitkeep
+
+# Staged @expo/serve-sim payload (APP-058). README stays committed so extraResources has a from-dir.
+resources/simulator-helper/serve-sim/
+resources/simulator-helper/helper-manifest.json
 main.js
