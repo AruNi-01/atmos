@@ -1,11 +1,26 @@
 "use client";
 
 import React, { useState } from 'react';
-import { Play, Settings, Plus, X, Command, Lock, Unlock, Square, Skull, Loader2 } from "lucide-react";
+import { Play, Settings, Plus, X, Command, Lock, Unlock, Square, Skull, Loader2, ShieldAlert } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Terminal } from "@/features/terminal/components/Terminal";
 import { cn } from "@/shared/lib/utils";
-import { Tabs, TabsList, TabsTab, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@workspace/ui";
+import {
+  Button,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  Tabs,
+  TabsList,
+  TabsTab,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@workspace/ui";
 
 import { useEditorStore } from '@/features/editor/store/use-editor-store';
 import { WorkspaceScriptDialog } from '@/features/workspace/components/WorkspaceScriptDialog';
@@ -120,6 +135,12 @@ export const RunScript: React.FC<RunScriptProps> = ({ workspaceId, projectId, is
   const mainWorkspaceLabel = t("workspace.main");
   const terminalLockedTitle = t("toasts.terminalLocked.title");
   const terminalLockedDescription = t("toasts.terminalLocked.description");
+  const scriptTrustTitle = t("scriptTrust.title");
+  const scriptTrustDescription = t("scriptTrust.description");
+  const scriptTrustConfirmLabel = t("scriptTrust.trustAndRun");
+  const scriptTrustCancelLabel = t("scriptTrust.cancel");
+  const scriptTrustTrustingLabel = t("scriptTrust.trusting");
+  const scriptTrustFailedTitle = t("scriptTrust.trustFailed");
 
   // Initial tab
   const [tabs, setTabs] = useState<RunTerminalTab[]>(defaultRunTabs);
@@ -131,6 +152,15 @@ export const RunScript: React.FC<RunScriptProps> = ({ workspaceId, projectId, is
   // Lazy initialization state
   const [hasBeenActive, setHasBeenActive] = React.useState(false);
   const [isScriptDialogOpen, setIsScriptDialogOpen] = useState(false);
+  /**
+   * Set when the run script has not been accepted yet. The `.atmos` script file
+   * ships with the repository, so it can change under the user via clone or pull;
+   * the command is shown for review before it reaches a terminal.
+   */
+  const [pendingScriptTrust, setPendingScriptTrust] = useState<
+    { command: string; hash: string } | null
+  >(null);
+  const [isTrustingScript, setIsTrustingScript] = useState(false);
   const [runningScripts, setRunningScripts] = useState<Record<string, boolean>>({});
   const [readyTabs, setReadyTabs] = useState<Record<string, boolean>>({});
   const [isStartingRun, setIsStartingRun] = useState(false);
@@ -291,8 +321,14 @@ export const RunScript: React.FC<RunScriptProps> = ({ workspaceId, projectId, is
     setIsStartingRun(true);
     try {
       // 1. Fetch script
-      const scripts = await wsScriptApi.get(projectId);
+      const { scripts, trusted, hash } = await wsScriptApi.get(projectId);
       const runCommand = scripts.run;
+
+      // Never hand unreviewed repository content to a terminal.
+      if (runCommand?.trim() && !trusted && hash) {
+        setPendingScriptTrust({ command: runCommand, hash });
+        return;
+      }
 
       if (!runCommand || !runCommand.trim()) {
         toastManager.add({
@@ -638,6 +674,71 @@ export const RunScript: React.FC<RunScriptProps> = ({ workspaceId, projectId, is
           isOpen={isScriptDialogOpen}
           onClose={() => setIsScriptDialogOpen(false)}
         />
+
+        <Dialog
+          open={pendingScriptTrust !== null}
+          onOpenChange={(open) => {
+            if (!open) setPendingScriptTrust(null);
+          }}
+        >
+          <DialogContent showCloseButton={true}>
+            <DialogHeader>
+              <div className="mb-2 flex size-10 items-center justify-center rounded-full bg-destructive/10">
+                <ShieldAlert className="size-5 text-destructive" />
+              </div>
+              <DialogTitle>{scriptTrustTitle}</DialogTitle>
+              <DialogDescription className="text-pretty">
+                {scriptTrustDescription}
+              </DialogDescription>
+            </DialogHeader>
+            <pre className="max-h-56 overflow-auto whitespace-pre-wrap break-words rounded-md bg-muted/50 p-3 text-[12px] leading-relaxed text-foreground">
+              <code>{pendingScriptTrust?.command}</code>
+            </pre>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                className="cursor-pointer"
+                disabled={isTrustingScript}
+                onClick={() => setPendingScriptTrust(null)}
+              >
+                {scriptTrustCancelLabel}
+              </Button>
+              <Button
+                variant="destructive"
+                className="cursor-pointer"
+                disabled={isTrustingScript}
+                onClick={async () => {
+                  if (!projectId || !pendingScriptTrust) return;
+                  setIsTrustingScript(true);
+                  try {
+                    // The hash pins the content shown above; a file that changed
+                    // since is rejected by the server rather than trusted blindly.
+                    await wsScriptApi.trust(projectId, pendingScriptTrust.hash);
+                    setPendingScriptTrust(null);
+                    await handleRunScript(false);
+                  } catch (error) {
+                    toastManager.add({
+                      title: scriptTrustFailedTitle,
+                      description: error instanceof Error ? error.message : String(error),
+                      type: "error",
+                    });
+                  } finally {
+                    setIsTrustingScript(false);
+                  }
+                }}
+              >
+                {isTrustingScript ? (
+                  <>
+                    <Loader2 className="mr-1.5 size-3.5 animate-spin" />
+                    {scriptTrustTrustingLabel}
+                  </>
+                ) : (
+                  scriptTrustConfirmLabel
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </TooltipProvider>
   )

@@ -349,6 +349,10 @@ impl WsMessageService {
             // Script
             WsAction::ScriptGet => self.handle_script_get(parse_request(request.data)?).await,
             WsAction::ScriptSave => self.handle_script_save(parse_request(request.data)?).await,
+            WsAction::ProjectScriptTrust => {
+                self.handle_project_script_trust(conn_id, parse_request(request.data)?)
+                    .await
+            }
 
             // Workspace
             WsAction::WorkspaceList => {

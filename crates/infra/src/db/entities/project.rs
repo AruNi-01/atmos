@@ -24,6 +24,11 @@ pub struct Model {
     pub terminal_layout: Option<String>,
     /// The ID of the currently maximized terminal pane, if any
     pub maximized_terminal_id: Option<String>,
+    /// SHA-256 of the `.atmos/scripts/atmos.json` content the user explicitly
+    /// trusted. `None` means never trusted; a mismatch means the file changed
+    /// since (e.g. pulled from the remote) and must be confirmed again before
+    /// any script in it runs.
+    pub trusted_scripts_hash: Option<String>,
 }
 
 impl_base_entity!(Model);

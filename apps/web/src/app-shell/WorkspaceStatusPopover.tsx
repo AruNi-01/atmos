@@ -26,24 +26,31 @@ function ProgressRing({
   progress,
   status,
   highlightReview,
+  highlightScriptTrust,
 }: {
   progress: number;
   status: WorkspaceSetupProgress["status"];
   highlightReview: boolean;
+  highlightScriptTrust: boolean;
 }) {
   const locale = useLocale();
   const radius = 9;
   const circumference = 2 * Math.PI * radius;
   const dashOffset = circumference - (progress / 100) * circumference;
-  const strokeClass =
-    highlightReview
+  // An unreviewed setup script is a stronger signal than a TODO review, so it
+  // gets the destructive tone rather than amber.
+  const strokeClass = highlightScriptTrust
+    ? "stroke-destructive"
+    : highlightReview
       ? "stroke-amber-500"
       : status === "error"
       ? "stroke-destructive"
       : status === "completed"
         ? "stroke-emerald-500"
         : "stroke-primary";
-  const numberClass = highlightReview
+  const numberClass = highlightScriptTrust
+    ? "text-destructive"
+    : highlightReview
     ? "text-amber-500"
     : status === "error"
       ? "text-destructive"
@@ -92,7 +99,15 @@ export function WorkspaceStatusPopover({
   const [open, setOpen] = React.useState(false);
   const progressValue = Math.round(getWorkspaceSetupProgressValue(progress));
   const isReviewingTodos = progress.requiresConfirmation === true;
+  const needsScriptTrust = progress.requiresScriptTrust === true;
   const shimmerToneStyle = React.useMemo(() => {
+    if (needsScriptTrust || progress.status === "error") {
+      return {
+        "--base-color": "rgb(239 68 68 / 0.72)",
+        "--base-gradient-color": "rgb(248 113 113)",
+      } as React.CSSProperties;
+    }
+
     if (isReviewingTodos) {
       return {
         "--base-color": "rgb(217 119 6 / 0.72)",
@@ -100,15 +115,8 @@ export function WorkspaceStatusPopover({
       } as React.CSSProperties;
     }
 
-    if (progress.status === "error") {
-      return {
-        "--base-color": "rgb(239 68 68 / 0.72)",
-        "--base-gradient-color": "rgb(248 113 113)",
-      } as React.CSSProperties;
-    }
-
     return undefined;
-  }, [isReviewingTodos, progress.status]);
+  }, [isReviewingTodos, needsScriptTrust, progress.status]);
   const stepCount = getWorkspaceSetupSteps(progress).length;
   const popoverWidthClass =
     stepCount <= 3
@@ -142,6 +150,7 @@ export function WorkspaceStatusPopover({
             progress={progressValue}
             status={progress.status}
             highlightReview={isReviewingTodos}
+            highlightScriptTrust={needsScriptTrust}
           />
           <div className="min-w-0 overflow-hidden text-center">
             <TextShimmer

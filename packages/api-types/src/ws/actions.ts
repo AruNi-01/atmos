@@ -69,6 +69,7 @@ export const WS_ACTIONS = [
   "group_update_member_order",
   "script_get",
   "script_save",
+  "project_script_trust",
   "workspace_list",
   "workspace_create",
   "workspace_update_name",

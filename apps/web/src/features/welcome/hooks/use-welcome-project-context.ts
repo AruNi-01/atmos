@@ -260,11 +260,12 @@ export function useWelcomeProjectContext({
       }
 
       try {
-        const [fetchedRemoteBranches, scripts, status] = await Promise.all([
+        const [fetchedRemoteBranches, projectScripts, status] = await Promise.all([
           gitApi.listRemoteBranches(selectedProjectPath),
           wsScriptApi.get(selectedProjectId),
           gitApi.getStatus(selectedProjectPath),
         ]);
+        const scripts = projectScripts.scripts;
 
         if (!cancelled) {
           const nextRemoteBranches = fetchedRemoteBranches.sort();

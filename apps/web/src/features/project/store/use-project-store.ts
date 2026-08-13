@@ -373,7 +373,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
 
       let hasSetupScript = false;
       try {
-        const scripts = await wsScriptApi.get(projectId);
+        const { scripts } = await wsScriptApi.get(projectId);
         hasSetupScript = typeof scripts.setup === 'string' && scripts.setup.trim().length > 0;
       } catch {
         hasSetupScript = false;

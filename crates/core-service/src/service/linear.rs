@@ -516,6 +516,7 @@ mod tests {
             target_branch: Set(None),
             terminal_layout: Set(None),
             maximized_terminal_id: Set(None),
+            trusted_scripts_hash: Set(None),
         }
         .insert(db)
         .await

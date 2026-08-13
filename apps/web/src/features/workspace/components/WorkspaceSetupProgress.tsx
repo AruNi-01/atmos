@@ -6,6 +6,7 @@ import {
   AlertCircle,
   ArrowRight,
   CheckCircle2,
+  ShieldAlert,
   Circle,
   Clock,
   Eye,
@@ -18,7 +19,7 @@ import {
 import { Button, Textarea, toastManager } from "@workspace/ui";
 import { cn } from "@/shared/lib/utils";
 import { WorkspaceSetupProgress, useProjectStore } from "@/features/project/store/use-project-store";
-import { wsWorkspaceApi } from "@/api/ws-api";
+import { wsScriptApi, wsWorkspaceApi } from "@/api/ws-api";
 import { MarkdownRenderer } from "@/shared/components/markdown/MarkdownRenderer";
 import { useHotkeys } from "react-hotkeys-hook";
 import { Terminal as XTerm } from "@xterm/xterm";
@@ -52,6 +53,29 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
   const { status, stepTitle, output, workspaceId, stepKey, lastStepKey, failedStepKey, setupContext } =
     progress;
   const retryWorkspaceSetup = useProjectStore((s) => s.retryWorkspaceSetup);
+  const needsScriptTrust = progress.requiresScriptTrust === true;
+  const [isTrustingScript, setIsTrustingScript] = useState(false);
+
+  const handleTrustScript = async () => {
+    const projectGuid = progress.scriptProjectGuid;
+    const hash = progress.scriptHash;
+    if (!projectGuid || !hash || isTrustingScript) return;
+
+    setIsTrustingScript(true);
+    try {
+      // The hash pins what was rendered above: if the file changed since, the
+      // server rejects this and the script is shown again.
+      await wsScriptApi.trust(projectGuid, hash, workspaceId);
+    } catch (error) {
+      toastManager.add({
+        title: t("scriptTrust.trustFailed"),
+        description: error instanceof Error ? error.message : String(error),
+        type: "error",
+      });
+    } finally {
+      setIsTrustingScript(false);
+    }
+  };
 
   const currentStepKey: WorkspaceSetupStepKey = useMemo(
     () => getWorkspaceSetupCurrentStepKey(progress),
@@ -429,6 +453,35 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
       );
     }
 
+    if (needsScriptTrust) {
+      return (
+        <div className={cn(
+          "flex w-full flex-1 flex-col overflow-hidden border border-destructive/40 bg-background",
+          compact ? "min-h-[220px] rounded-lg" : "min-h-[260px] rounded-xl",
+        )}>
+          <div className={cn(
+            "flex items-start gap-3 border-b border-destructive/40 bg-destructive/5",
+            compact ? "px-4 py-3" : "px-5 py-4",
+          )}>
+            <ShieldAlert className="mt-0.5 size-4 shrink-0 text-destructive" />
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-foreground">
+                {t("scriptTrust.title")}
+              </p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {t("scriptTrust.description")}
+              </p>
+            </div>
+          </div>
+          <div className={cn("flex-1 overflow-auto", compact ? "px-4 py-3" : "px-5 py-4")}>
+            <pre className="whitespace-pre-wrap break-words rounded-md bg-muted/50 p-3 text-[12px] leading-relaxed text-foreground">
+              <code>{output}</code>
+            </pre>
+          </div>
+        </div>
+      );
+    }
+
     if (currentStepKey === "extract_todos") {
       const todoContent = editedTodoOutput ?? output;
       return (
@@ -709,6 +762,43 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
                 onClick={() => retryWorkspaceSetup(workspaceId)}
               >
                 {t("actions.retryInitialization")}
+              </Button>
+            </>
+          ) : needsScriptTrust ? (
+            <>
+              <Button
+                variant="outline"
+                size={compact ? "default" : "lg"}
+                className={cn(
+                  "rounded-sm shadow-lg transition-all hover:scale-105 active:scale-95",
+                  compact ? "px-4" : "px-8",
+                )}
+                disabled={isTrustingScript}
+                onClick={onFinish}
+              >
+                {t("scriptTrust.skip")}
+              </Button>
+              <Button
+                variant="destructive"
+                size={compact ? "default" : "lg"}
+                className={cn(
+                  "gap-3 rounded-sm shadow-lg transition-all hover:scale-105 active:scale-95",
+                  compact ? "px-4" : "px-12",
+                )}
+                disabled={isTrustingScript || !progress.scriptHash}
+                onClick={handleTrustScript}
+              >
+                {isTrustingScript ? (
+                  <>
+                    <Loader2 className="size-5 animate-spin" />
+                    {t("scriptTrust.trusting")}
+                  </>
+                ) : (
+                  <>
+                    {t("scriptTrust.trustAndRun")}
+                    <ArrowRight className="size-5" />
+                  </>
+                )}
               </Button>
             </>
           ) : progress.requiresConfirmation ? (
