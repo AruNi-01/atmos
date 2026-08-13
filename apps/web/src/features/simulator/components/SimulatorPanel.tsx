@@ -28,6 +28,7 @@ import {
   ensureSimulatorEventBridge,
   useSimulatorSession,
   useSimulatorSessionStore,
+  type SessionView,
 } from "@/features/simulator/store/use-simulator-session-store";
 
 type SimulatorPanelProps = {
@@ -94,11 +95,17 @@ export function SimulatorPanel({
     if (!electron || !workspaceId) return false;
     const store = useSimulatorSessionStore.getState();
     if (!store.beginAttachIfIdle(workspaceId)) return false;
-    void desktopInvoke("simulator_attach", {
-      workspaceId,
-      webrtc: simulatorWebrtcOptIn,
-    })
-      .catch((error) => {
+    void (async () => {
+      try {
+        await ensureSimulatorEventBridge();
+        const result = await desktopInvoke<SessionView>("simulator_attach", {
+          workspaceId,
+          webrtc: simulatorWebrtcOptIn,
+        });
+        if (result && typeof result === "object" && "phase" in result) {
+          useSimulatorSessionStore.getState().applyStatus(workspaceId, result);
+        }
+      } catch (error) {
         if (!isDesktopBridgeError(error)) return;
         useSimulatorSessionStore.getState().applyStatus(workspaceId, {
           phase: "setup_required",
@@ -110,10 +117,10 @@ export function SimulatorPanel({
           size: null,
           lastError: { code: error.code, message: error.message },
         });
-      })
-      .finally(() => {
+      } finally {
         useSimulatorSessionStore.getState().markAttachInFlight(workspaceId, false);
-      });
+      }
+    })();
     return true;
   }, [electron, simulatorWebrtcOptIn, workspaceId]);
 
@@ -189,16 +196,13 @@ export function SimulatorPanel({
   const handleAction = useCallback(
     (action: SetupAction) => {
       if (!workspaceId || !electron) return;
-      if (action === "reinstall") return;
-      if (action === "check_update") {
+      if (action === "reinstall" || action === "check_update") {
         void openDesktopExternalUrl("https://github.com/AruNi-01/atmos/releases");
         void checkForUpdate().catch(() => undefined);
         return;
       }
       if (action === "take_over") {
-        const simulatorId =
-          session.simulator?.id ??
-          slice.probe?.facts.simulators.find((item) => item.isAvailable)?.id;
+        const simulatorId = session.simulator?.id;
         if (!simulatorId) return;
         void desktopInvoke("simulator_take_over", {
           workspaceId,
@@ -208,7 +212,7 @@ export function SimulatorPanel({
       }
       void desktopInvoke("simulator_setup_action", { action }).catch(() => undefined);
     },
-    [electron, session.lastError?.message, session.simulator?.id, slice.probe, workspaceId],
+    [electron, session.simulator?.id, workspaceId],
   );
 
   const handleDisconnect = useCallback(() => {
@@ -259,6 +263,7 @@ export function SimulatorPanel({
   const setupRequired =
     session.phase === "setup_required" ||
     session.phase === "failed" ||
+    session.lastError?.code === "helper_dead" ||
     (session.phase === "reconnecting" &&
       session.lastError?.code === "reconnecting_exhausted");
 

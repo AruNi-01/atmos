@@ -1,12 +1,18 @@
+import { join } from "node:path";
+
 import type { StreamCodec, StreamTransport } from "./types.ts";
 
 const STRIP_ENV = [
   "ATMOS_LOCAL_TOKEN",
   "ATMOS_API_TOKEN",
+  "ATMOS_HUB_TOKEN",
   "GITHUB_TOKEN",
   "GH_TOKEN",
   "GIT_ASKPASS",
   "GIT_TERMINAL_PROMPT",
+  "SSH_ASKPASS",
+  "NPM_TOKEN",
+  "NODE_AUTH_TOKEN",
 ];
 
 export type SpawnArgOpts = {
@@ -43,6 +49,20 @@ export function stripHelperEnv(
   }
   next.ELECTRON_RUN_AS_NODE = "1";
   next.ELECTRON_NO_ATTACH_CONSOLE = "1";
+  return next;
+}
+
+export function withHelperSpawnEnv(
+  env: NodeJS.ProcessEnv = process.env,
+  opts?: { developerDir?: string },
+): NodeJS.ProcessEnv {
+  const next = stripHelperEnv(env);
+  const developerDir = opts?.developerDir?.trim();
+  if (developerDir) {
+    next.DEVELOPER_DIR = developerDir;
+    const xcodeBin = join(developerDir, "usr", "bin");
+    next.PATH = next.PATH ? `${xcodeBin}:${next.PATH}` : xcodeBin;
+  }
   return next;
 }
 

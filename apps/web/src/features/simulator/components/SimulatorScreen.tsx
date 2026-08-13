@@ -36,6 +36,11 @@ export function SimulatorScreen({
   const frameNotifiedRef = useRef(false);
   const [frameStreamUrl, setFrameStreamUrl] = useState<string | null>(null);
   const [videoStreamUrl, setVideoStreamUrl] = useState<string | null>(null);
+  const [frameSize, setFrameSize] = useState(size);
+
+  useEffect(() => {
+    if (size?.width && size?.height) setFrameSize(size);
+  }, [size]);
 
   const markFirstFrame = useCallback(() => {
     setFrameStreamUrl(streamBaseUrl);
@@ -54,7 +59,10 @@ export function SimulatorScreen({
     socket.binaryType = "arraybuffer";
     socket.onmessage = (event) => {
       if (typeof event.data !== "string") return;
-      void parseConfigFrame(event.data);
+      const parsed = parseConfigFrame(event.data);
+      if (parsed?.width && parsed?.height) {
+        setFrameSize({ width: parsed.width, height: parsed.height });
+      }
     };
     socketRef.current = socket;
 
@@ -130,7 +138,9 @@ export function SimulatorScreen({
 
   const hasFrame = streamBaseUrl !== null && frameStreamUrl === streamBaseUrl;
   const showVideo = codec === "h264" && videoStreamUrl === streamBaseUrl;
-  const aspectRatio = size ? `${size.width} / ${size.height}` : "9 / 19.5";
+  const aspectRatio = frameSize
+    ? `${frameSize.width} / ${frameSize.height}`
+    : "9 / 19.5";
 
   return (
     <div

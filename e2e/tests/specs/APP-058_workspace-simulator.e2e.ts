@@ -151,13 +151,18 @@ async function getWorkspaceContext(page: Page): Promise<{
   await connectLocalComputer(page, { locale: "en" });
   await expectHealthyRoute(page, "/", { locale: "en" });
 
-  const contextUrl = withSearchParams(await buildProjectWorkspaceDeepLink(page), {
+  const projectUrl = withSearchParams(await buildProjectWorkspaceDeepLink(page), {
     activeSettingTab: null,
   });
-  const workspaceId = new URL(contextUrl).searchParams.get("id");
-  expect(workspaceId, "missing project id in project deep link").toBeTruthy();
+  const pvUrl = new URL(projectUrl).searchParams.get("pvUrl");
+  expect(pvUrl, "missing workspace preview URL").toBeTruthy();
+  const workspaceId = new URL(pvUrl!).searchParams.get("id");
+  expect(workspaceId, "missing workspace id in preview URL").toBeTruthy();
 
-  return { contextUrl, workspaceId: workspaceId! };
+  return {
+    contextUrl: withSearchParams(pvUrl!, { activeSettingTab: null }),
+    workspaceId: workspaceId!,
+  };
 }
 
 async function openSimulatorSurfaces(

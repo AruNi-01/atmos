@@ -248,6 +248,19 @@ const CenterStage: React.FC = () => {
   const simulatorTabOpen = useSimulatorCenterTabStore((state) =>
     effectiveContextId ? state.openByContext[effectiveContextId] === true : false,
   );
+  const [simulatorPersistHydrated, setSimulatorPersistHydrated] = React.useState(
+    () => useSimulatorCenterTabStore.persist?.hasHydrated?.() ?? true,
+  );
+  React.useEffect(() => {
+    const persistApi = useSimulatorCenterTabStore.persist;
+    if (typeof persistApi?.hasHydrated === "function" && persistApi.hasHydrated()) {
+      setSimulatorPersistHydrated(true);
+      return;
+    }
+    return persistApi?.onFinishHydration?.(() => {
+      setSimulatorPersistHydrated(true);
+    });
+  }, []);
   const simulatorOpenedAt = useSimulatorCenterTabStore((state) =>
     effectiveContextId ? (state.openedAtByContext[effectiveContextId] ?? 0) : 0,
   );
@@ -347,14 +360,11 @@ const CenterStage: React.FC = () => {
   const [{ tab: tabFromUrl, wikiPage: wikiPageFromUrl, terminalTmux }, setUrlParams] = useQueryStates(centerStageParams);
 
   React.useEffect(() => {
-    if (!effectiveContextId) return;
-    if (!isSimulatorCenterTabValue(tabFromUrl) || simulatorTabOpen) return;
-    const persistApi = useSimulatorCenterTabStore.persist;
-    if (typeof persistApi?.hasHydrated === "function" && !persistApi.hasHydrated()) {
-      return;
-    }
+    if (!effectiveContextId || !simulatorPersistHydrated) return;
+    if (!isSimulatorCenterTabValue(tabFromUrl)) return;
+    if (useSimulatorCenterTabStore.getState().isOpen(effectiveContextId)) return;
     useSimulatorCenterTabStore.getState().open(effectiveContextId);
-  }, [effectiveContextId, simulatorTabOpen, tabFromUrl]);
+  }, [effectiveContextId, simulatorPersistHydrated, tabFromUrl]);
 
   const redirectMissingNamedTerminalTab = React.useCallback(() => {
     setUrlParams({ tab: fallbackCenterTab });
@@ -406,7 +416,8 @@ const CenterStage: React.FC = () => {
         : fallbackCenterTab;
     }
     if (isSimulatorCenterTabValue(tabFromUrl)) {
-      return simulatorTabOpen ? tabFromUrl : fallbackCenterTab;
+      if (!simulatorPersistHydrated || simulatorTabOpen) return tabFromUrl;
+      return fallbackCenterTab;
     }
     return tabFromUrl;
   }, [
@@ -420,6 +431,7 @@ const CenterStage: React.FC = () => {
     visibleTerminalTabs,
     browserTabs,
     simulatorTabOpen,
+    simulatorPersistHydrated,
   ]);
 
   React.useEffect(() => {

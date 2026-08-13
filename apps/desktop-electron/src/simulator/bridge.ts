@@ -47,9 +47,14 @@ import {
 } from "./paths.ts";
 import { PINNED_HELPER_VERSION } from "./pin.ts";
 import { probeSimulator } from "./probe.ts";
+import { simulatorNeedsBoot } from "./parse-simctl.ts";
 import { defaultCommandRunner, runCommand } from "./run-command.ts";
 import { selectSimulator } from "./select.ts";
-import { buildHelperArgv, stripHelperEnv } from "./spawn-args.ts";
+import {
+  assertSpawnSafety,
+  buildHelperArgv,
+  withHelperSpawnEnv,
+} from "./spawn-args.ts";
 import {
   shouldReleaseIdle,
   shouldThrottle,
@@ -106,6 +111,18 @@ type LiveSession = {
   suppressExit?: boolean;
 };
 
+const SETUP_REQUIRED_CODES = new Set([
+  "platform_not_macos",
+  "helper_arch_unsupported",
+  "macos_too_old",
+  "missing_simctl",
+  "missing_ios_runtime",
+  "missing_iphone",
+  "helper_missing",
+  "simulator_in_use",
+  "setup_required",
+]);
+
 function hostFromProcess(): ProbeHost {
   return {
     platform: process.platform,
@@ -158,6 +175,7 @@ export class SimulatorBridge {
   private probeCache: { at: number; result: ProbeResult } | null = null;
   private tick: ReturnType<typeof setInterval> | null = null;
   private started = false;
+  private readonly reconnecting = new Set<string>();
 
   constructor(hooks: BridgeHooks) {
     this.hooks = hooks;
@@ -191,11 +209,13 @@ export class SimulatorBridge {
     this.tick = setInterval(() => this.onTick(), 1_000);
   }
 
-  stop(): void {
-    for (const workspaceId of [...this.sessions.keys()]) {
-      void this.killSession(workspaceId, { shutdownSimulator: false });
-    }
-    void this.helperCli(["--kill"]);
+  async stop(): Promise<void> {
+    const workspaceIds = [...this.sessions.keys()];
+    await Promise.all(
+      workspaceIds.map((workspaceId) =>
+        this.killSession(workspaceId, { shutdownSimulator: false }),
+      ),
+    );
     this.control.stop();
     if (this.tick) clearInterval(this.tick);
     this.tick = null;
@@ -251,6 +271,7 @@ export class SimulatorBridge {
       host: hostFromProcess(),
       helperPresent: !("code" in helper),
       helperVersion: "dir" in helper ? helper.version : PINNED_HELPER_VERSION,
+      helperHealth: () => this.probeHelperHealth(),
     });
     this.probeCache = { at: this.now(), result };
     this.emitProbe(workspaceId, result);
@@ -263,10 +284,13 @@ export class SimulatorBridge {
     webrtc?: boolean,
   ): Promise<SessionView> {
     const existing = this.sessions.get(workspaceId);
-    if (existing) {
+    if (existing && (!simulatorId || existing.simulatorId === simulatorId)) {
       const view = this.toView(existing);
       this.emit("simulator://status", view);
       return view;
+    }
+    if (existing) {
+      await this.killSession(workspaceId, { shutdownSimulator: false });
     }
 
     this.emitStatus(workspaceId, "probing");
@@ -352,7 +376,12 @@ export class SimulatorBridge {
       this.writeClaims(releaseClaim(this.readClaims(), chosen.id, workspaceId));
       return this.failAttach(workspaceId, "helper_missing", "Reinstall Atmos");
     }
-    assertHelperVersion(helper);
+    try {
+      assertHelperVersion(helper);
+    } catch {
+      this.writeClaims(releaseClaim(this.readClaims(), chosen.id, workspaceId));
+      return this.failAttach(workspaceId, "helper_missing", "Reinstall Atmos");
+    }
 
     const webrtcOptIn =
       webrtc === true || this.env.ATMOS_SIMULATOR_WEBRTC === "1";
@@ -417,6 +446,7 @@ export class SimulatorBridge {
       return this.failAttach(workspaceId, "capture_failed", "Capture helper did not start");
     }
     session.degrade = degrade;
+    session.phase = degrade.phase;
     this.sessions.set(workspaceId, session);
     this.writeLastUsed(workspaceId, chosen.id);
     this.trimWarm();
@@ -474,6 +504,7 @@ export class SimulatorBridge {
     if (event === "first_frame") {
       session.degrade = reduceDegrade(session.degrade, { type: "first_frame" });
       session.phase = session.degrade.phase;
+      this.emit("simulator://status", this.toView(session));
       return { ok: true };
     }
     if (event !== "webrtc_unusable" && event !== "h264_unusable") {
@@ -501,8 +532,10 @@ export class SimulatorBridge {
     );
     if (taken.previous && taken.previous.workspaceId !== workspaceId) {
       await this.killSession(taken.previous.workspaceId, { shutdownSimulator: false });
+      const auditPath = auditLogPath(this.env);
+      ensureDir(dirname(auditPath));
       appendFileSync(
-        auditLogPath(this.env),
+        auditPath,
         `${new Date(this.now()).toISOString()} take-over simulator=${simulatorId} from=${taken.previous.workspaceId} to=${workspaceId}\n`,
       );
     }
@@ -734,15 +767,26 @@ export class SimulatorBridge {
           }
           const path =
             op === "screenshot" ? "/screenshot" : op === "ax" ? "/ax" : "/logs";
-          const res = await fetch(`http://127.0.0.1:${session.helperPort}${path}`);
+          const res = await fetch(
+            `http://127.0.0.1:${this.control.getPort()}/s/${session.sessionToken}${path}`,
+          );
           let result = await res.text();
+          if (!res.ok) {
+            return {
+              ok: false,
+              error_code: "helper_request_failed",
+              error: result.trim() || `Helper ${op} failed`,
+              op,
+              workspaceId,
+            };
+          }
           if (op === "logs") {
             const tail = Number(req.args?.tail);
             if (Number.isFinite(tail) && tail > 0) {
               result = result.split("\n").slice(-tail).join("\n");
             }
           }
-          return { ok: res.ok, op, workspaceId, result };
+          return { ok: true, op, workspaceId, result };
         }
         case "kill": {
           if (req.args?.shutdownSimulator) await this.shutdown(workspaceId);
@@ -762,7 +806,7 @@ export class SimulatorBridge {
             ok: false,
             error_code: error.code,
             error: error.message,
-            candidates: this.activeSessions(),
+            candidates: this.activeSessions().map((session) => session.workspaceId),
           };
         }
         return { ok: false, error_code: error.code, error: error.message };
@@ -811,7 +855,7 @@ export class SimulatorBridge {
       message: "Waiting for the simulator to boot",
     });
     const list = await this.runner("xcrun", ["simctl", "list", "-j"]);
-    if (!list.stdout.includes(simulatorId) || !/Booted/.test(list.stdout)) {
+    if (simulatorNeedsBoot(list.stdout, simulatorId)) {
       await this.runner("xcrun", ["simctl", "boot", simulatorId], { timeoutMs: 90_000 });
     }
     await this.runner("xcrun", ["simctl", "bootstatus", simulatorId, "-b"], {
@@ -843,9 +887,12 @@ export class SimulatorBridge {
       transport: opts.transport,
       codec: opts.codec === "mjpeg" ? "mjpeg" : "auto",
     });
+    assertSpawnSafety(argv);
     const entry = join(helper.dir, "dist", "serve-sim.js");
     const child = spawn(this.hooks.execPath ?? process.execPath, [entry, ...argv], {
-      env: stripHelperEnv(this.env),
+      env: withHelperSpawnEnv(this.env, {
+        developerDir: this.probeCache?.result.facts.xcodePath,
+      }),
       stdio: "ignore",
       detached: true,
     });
@@ -865,34 +912,42 @@ export class SimulatorBridge {
       );
     }
     const record = parseHelperStateRecord(raw);
+    const daemonPid = record.pid;
+    const killSpawned = () => {
+      for (const pid of [daemonPid, child.pid]) {
+        if (!pid) continue;
+        try {
+          process.kill(pid, "SIGTERM");
+        } catch {
+          /* ignore */
+        }
+      }
+    };
     try {
       assertLoopbackUrl(record.streamUrl);
       assertLoopbackUrl(record.wsUrl);
     } catch {
-      try {
-        if (child.pid) process.kill(child.pid, "SIGTERM");
-      } catch {
-        /* ignore */
-      }
+      killSpawned();
       throw new DesktopCommandError(
         "helper_bind_not_loopback",
         "Capture helper published a non-loopback URL",
         "simulator_attach",
       );
     }
-    await this.assertHelperHealth(record.port, child.pid ?? record.pid);
-    const childPid = child.pid ?? record.pid;
-    child.on("exit", () => {
-      void this.handleHelperExit(opts.workspaceId, childPid);
-    });
+    try {
+      await this.assertHelperHealth(record.port, daemonPid);
+    } catch (error) {
+      killSpawned();
+      throw error;
+    }
     return {
       workspaceId: opts.workspaceId,
       runtimeKind: "ios",
       simulatorId: opts.simulatorId,
       simulatorName: opts.simulatorName,
       runtime: opts.runtime,
-      phase: "streaming",
-      childPid,
+      phase: "starting",
+      childPid: daemonPid,
       helperPort: record.port,
       sessionToken: newToken(),
       streamUrl: record.streamUrl,
@@ -1015,6 +1070,12 @@ export class SimulatorBridge {
           }),
         }).catch(() => undefined);
       }
+      if (!session.childPid || this.fakeName() || this.reconnecting.has(session.workspaceId)) {
+        continue;
+      }
+      if (!this.helperPidAlive(session.childPid)) {
+        void this.handleHelperExit(session.workspaceId, session.childPid);
+      }
     }
   }
 
@@ -1027,7 +1088,9 @@ export class SimulatorBridge {
     if ("code" in helper) return;
     const entry = join(helper.dir, "dist", "serve-sim.js");
     await runCommand(this.hooks.execPath ?? process.execPath, [entry, ...args], {
-      env: stripHelperEnv(this.env),
+      env: withHelperSpawnEnv(this.env, {
+        developerDir: this.probeCache?.result.facts.xcodePath,
+      }),
       timeoutMs: 8_000,
     });
   }
@@ -1118,22 +1181,53 @@ export class SimulatorBridge {
     message: string,
     simulator?: { id: string; name: string; runtime: string },
   ): SessionView {
+    const phase: Phase = SETUP_REQUIRED_CODES.has(code) ? "setup_required" : "failed";
     const view = {
-      ...this.emptyView(workspaceId, "setup_required", { code, message }),
+      ...this.emptyView(workspaceId, phase, { code, message }),
       simulator: simulator ?? null,
     };
     this.emit("simulator://status", view);
     return view;
   }
 
+  private helperPidAlive(pid: number): boolean {
+    try {
+      process.kill(pid, 0);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  private async probeHelperHealth(): Promise<{ ok: boolean; mismatch?: boolean }> {
+    const session = this.sessions.values().next().value as LiveSession | undefined;
+    if (!session || this.fakeName()) return { ok: true };
+    try {
+      const res = await fetch(
+        `http://127.0.0.1:${this.control.getPort()}/s/${session.sessionToken}/health`,
+      );
+      return {
+        ok: res.ok,
+        mismatch: session.degrade.lastError?.code === "capture_xcode_mismatch",
+      };
+    } catch {
+      return { ok: false, mismatch: false };
+    }
+  }
+
   private async handleHelperExit(workspaceId: string, pid: number): Promise<void> {
     const session = this.sessions.get(workspaceId);
     if (!session || session.suppressExit || session.childPid !== pid) return;
+    if (this.reconnecting.has(workspaceId)) return;
+    this.reconnecting.add(workspaceId);
     session.degrade = reduceDegrade(session.degrade, { type: "helper_died" });
     session.phase = session.degrade.phase;
     session.health = session.degrade.phase === "failed" ? "dead" : "stale";
     this.emit("simulator://status", this.toView(session));
-    if (session.degrade.phase === "failed") return;
+    if (session.degrade.phase === "failed") {
+      this.reconnecting.delete(workspaceId);
+      return;
+    }
     try {
       const next = await this.spawnHelper({
         workspaceId: session.workspaceId,
@@ -1155,6 +1249,8 @@ export class SimulatorBridge {
       session.phase = session.degrade.phase;
       session.health = "dead";
       this.emit("simulator://status", this.toView(session));
+    } finally {
+      this.reconnecting.delete(workspaceId);
     }
   }
 

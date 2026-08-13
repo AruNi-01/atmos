@@ -289,7 +289,7 @@ if (!gotLock) {
           /* ignore */
         }
         try {
-          state.simulator?.stop();
+          await state.simulator?.stop();
         } catch {
           /* ignore */
         }

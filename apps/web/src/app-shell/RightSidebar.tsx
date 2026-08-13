@@ -1179,7 +1179,7 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
             )}
           >
             <SimulatorPanel
-              workspaceId={contextId ?? null}
+              workspaceId={workspaceId ?? null}
               worktreePath={currentEffectivePath}
               isActive={
                 activeTab === "simulator" && !isRightCollapsed && isContextSettled

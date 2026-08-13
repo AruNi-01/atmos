@@ -88,6 +88,14 @@ export function parseSimctlSimulators(
   return out;
 }
 
+/** True when the chosen UDID is missing or not already Booted. */
+export function simulatorNeedsBoot(listStdout: string, simulatorId: string): boolean {
+  const simulators = parseSimctlSimulators(listStdout, parseSimctlRuntimes(listStdout));
+  const found = simulators.find((entry) => entry.id === simulatorId);
+  if (!found) return true;
+  return found.state !== "Booted";
+}
+
 /** Match Apple's iPhone product family in simctl names / type identifiers. */
 export function isSelectableIosHandset(entry: {
   name: string;

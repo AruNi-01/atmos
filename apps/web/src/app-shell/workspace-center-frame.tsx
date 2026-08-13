@@ -665,7 +665,11 @@ function WorkspaceCenterFrameImpl({
           )}
         >
           <SimulatorPanel
-            workspaceId={contextId}
+            workspaceId={
+              currentView === "workspace"
+                ? (currentWorkspace?.id ?? contextId)
+                : (currentWorkspace?.id ?? null)
+            }
             worktreePath={isUrlSyncedActive ? currentWorkspace?.localPath : undefined}
             isActive={
               isActiveContext &&

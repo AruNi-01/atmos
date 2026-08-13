@@ -9789,7 +9789,8 @@
       "capture_xcode_mismatch": "采集辅助程序与当前 Xcode 版本不匹配。",
       "capture_failed": "模拟器采集未能启动。",
       "helper_bind_not_loopback": "采集辅助程序未绑定到本机回环地址，已被停止。",
-      "simulator_in_use": "该模拟器已被另一个工作区占用。"
+      "simulator_in_use": "该模拟器已被另一个工作区占用。",
+      "helper_dead": "采集辅助程序在多次重连后已停止。"
     },
     "facts": {
       "macos": "macOS",

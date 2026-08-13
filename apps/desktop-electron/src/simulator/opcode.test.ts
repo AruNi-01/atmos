@@ -31,6 +31,25 @@ describe("opcode encoder", () => {
     ).toBe(7);
   });
 
+  it("encodes pinch, key, and software keyboard opcodes", () => {
+    expect(
+      encodeSimulatorInput({
+        op: "pinch",
+        type: "begin",
+        x1: 0.2,
+        y1: 0.3,
+        x2: 0.8,
+        y2: 0.7,
+      })[0],
+    ).toBe(SIMULATOR_OP.pinch);
+    expect(
+      encodeSimulatorInput({ op: "key", type: "down", usage: 4 })[0],
+    ).toBe(SIMULATOR_OP.key);
+    expect(encodeSimulatorInput({ op: "software_keyboard" })[0]).toBe(
+      SIMULATOR_OP.softwareKeyboard,
+    );
+  });
+
   it("rejects out-of-range coordinates", () => {
     expect(() =>
       encodeSimulatorInput({ op: "touch", type: "end", x: 1.5, y: 0.2 }),

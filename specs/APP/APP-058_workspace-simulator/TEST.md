@@ -93,7 +93,7 @@ Honest limits: nothing that needs a real iOS runtime or a signed macOS build can
 ### S6 / S7 Probe codes are exact
 **Given** each environment fixture
 **When** probe runs
-**Then** the emitted code is exactly one of `platform_not_macos`, `helper_arch_unsupported`, `macos_too_old`, `missing_simctl`, `missing_ios_runtime`, `missing_iphone`, `helper_not_installed`, or ok — and nothing is booted.
+**Then** the emitted code is exactly one of `platform_not_macos`, `helper_arch_unsupported`, `macos_too_old`, `missing_simctl`, `missing_ios_runtime`, `missing_iphone`, `helper_missing`, or ok — and nothing is booted.
 **Signals**: no `simctl boot` in the recorded runner calls.
 
 ### S8 Every missing prerequisite ends on a usable card

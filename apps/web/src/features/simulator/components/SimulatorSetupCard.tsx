@@ -35,7 +35,7 @@ function reasonKey(
 ): string {
   if (code === "missing_iphone") return "missingHandset";
   if (code === "hosted_web" || code === "requires_desktop") return "requiresDesktop";
-  if (code === "reconnecting_exhausted") return "reconnecting";
+  if (code === "reconnecting_exhausted" || code === "helper_dead") return "helper_dead";
   if (code) return code;
   return phase === "reconnecting" ? "reconnecting" : "failed";
 }

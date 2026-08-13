@@ -398,18 +398,16 @@ impl SimulatorClient {
                 "Simulator control request was rejected (HTTP {status})"
             ));
         }
-        let protocol_error_code = value
-            .get("error_code")
-            .and_then(Value::as_str)
-            .filter(|_| value.get("ok").and_then(Value::as_bool) == Some(false));
-        if !status.is_success() && protocol_error_code.is_none() {
+        let ok_false = value.get("ok").and_then(Value::as_bool) == Some(false);
+        if !status.is_success() && !ok_false {
             return Err(format!(
                 "Simulator control request failed (HTTP {status}): {value}"
             ));
         }
-
-        let exit_code = protocol_error_code.map(exit_code_for).unwrap_or(0);
-        Ok(SimulatorOutput { value, exit_code })
+        Ok(SimulatorOutput {
+            value: value.clone(),
+            exit_code: invoke_exit_code(&value),
+        })
     }
 }
 
@@ -471,6 +469,18 @@ pub fn is_loopback_base_url(base_url: &str) -> bool {
         return false;
     };
     matches!(url.host_str(), Some("127.0.0.1" | "localhost"))
+}
+
+pub fn invoke_exit_code(value: &Value) -> i32 {
+    if value.get("ok").and_then(Value::as_bool) == Some(false) {
+        value
+            .get("error_code")
+            .and_then(Value::as_str)
+            .map(exit_code_for)
+            .unwrap_or(1)
+    } else {
+        0
+    }
 }
 
 pub fn exit_code_for(error_code: &str) -> i32 {
@@ -571,5 +581,11 @@ mod tests {
         assert_eq!(exit_code_for("missing_iphone"), 2);
         assert_eq!(exit_code_for("helper_dead"), 2);
         assert_eq!(exit_code_for("unknown_op"), 1);
+        assert_eq!(invoke_exit_code(&json!({ "ok": false })), 1);
+        assert_eq!(
+            invoke_exit_code(&json!({ "ok": false, "error_code": "no_session" })),
+            2
+        );
+        assert_eq!(invoke_exit_code(&json!({ "ok": true, "result": "x" })), 0);
     }
 }

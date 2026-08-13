@@ -44,6 +44,33 @@ describe("simulator stream client", () => {
     expect(decodePayload(orientation)).toEqual({ orientation: "landscape_left" });
   });
 
+  it("encodes pinch, key, and software keyboard opcodes", () => {
+    const pinch = encodeSimulatorInput({
+      op: "pinch",
+      type: "begin",
+      x1: 0.2,
+      y1: 0.3,
+      x2: 0.8,
+      y2: 0.7,
+    });
+    expect(pinch[0]).toBe(5);
+    expect(decodePayload(pinch)).toEqual({
+      type: "begin",
+      x1: 0.2,
+      y1: 0.3,
+      x2: 0.8,
+      y2: 0.7,
+    });
+
+    const key = encodeSimulatorInput({ op: "key", type: "down", usage: 4 });
+    expect(key[0]).toBe(6);
+    expect(decodePayload(key)).toEqual({ type: "down", usage: 4 });
+
+    const keyboard = encodeSimulatorInput({ op: "software_keyboard" });
+    expect(keyboard[0]).toBe(12);
+    expect(keyboard.length).toBe(1);
+  });
+
   it("rejects coordinates outside the normalized range", () => {
     expect(() =>
       encodeSimulatorInput({ op: "touch", type: "move", x: -0.01, y: 0.5 }),

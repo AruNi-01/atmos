@@ -5,7 +5,7 @@ import {
   deriveStreamSettingsUrl,
   parseHelperStateRecord,
 } from "./handshake.ts";
-import { assertSpawnSafety, buildHelperArgv, stripHelperEnv } from "./spawn-args.ts";
+import { assertSpawnSafety, buildHelperArgv, stripHelperEnv, withHelperSpawnEnv } from "./spawn-args.ts";
 
 describe("spawn args", () => {
   it("passes --no-preview, loopback host, and ephemeral port", () => {
@@ -34,6 +34,21 @@ describe("spawn args", () => {
     expect(env.GITHUB_TOKEN).toBeUndefined();
     expect(env.PATH).toBe("/usr/bin");
     expect(env.ELECTRON_RUN_AS_NODE).toBe("1");
+  });
+
+  it("sets DEVELOPER_DIR and prepends Xcode usr/bin", () => {
+    const env = withHelperSpawnEnv(
+      {
+        PATH: "/usr/bin",
+        ATMOS_LOCAL_TOKEN: "secret",
+      },
+      { developerDir: "/Applications/Xcode.app/Contents/Developer" },
+    );
+    expect(env.ATMOS_LOCAL_TOKEN).toBeUndefined();
+    expect(env.DEVELOPER_DIR).toBe("/Applications/Xcode.app/Contents/Developer");
+    expect(env.PATH).toBe(
+      "/Applications/Xcode.app/Contents/Developer/usr/bin:/usr/bin",
+    );
   });
 });
 

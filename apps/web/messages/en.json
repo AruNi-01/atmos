@@ -9788,7 +9788,8 @@
       "capture_xcode_mismatch": "The capture helper does not match this Xcode version.",
       "capture_failed": "Simulator capture failed to start.",
       "helper_bind_not_loopback": "The capture helper did not bind to loopback and was stopped.",
-      "simulator_in_use": "This simulator is already in use by another workspace."
+      "simulator_in_use": "This simulator is already in use by another workspace.",
+      "helper_dead": "The capture helper stopped after several reconnects."
     },
     "facts": {
       "macos": "macOS",
