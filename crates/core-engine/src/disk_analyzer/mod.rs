@@ -39,7 +39,7 @@ pub struct DiskNode {
     /// Linked git worktree that is not an Atmos workspace.
     #[serde(default)]
     pub is_git_worktree: bool,
-    /// Mainstream code-agent home / session directory.
+    /// Mainstream code-agent session / transcript directory.
     #[serde(default)]
     pub is_agent_data: bool,
     pub file_count: u64,
@@ -1493,19 +1493,46 @@ const CLEANUP_HINTS: &[(&str, &str)] = &[
     (".vscode-test", "VS Code extension test host"),
     (".history", "Local History IDE plugin data"),
     // ── Code agent homes / sessions (often multi‑GB) ───────────────
-    (".claude", "Claude Code sessions and project transcripts"),
-    (".cursor", "Cursor agent chats, projects, and worktrees"),
-    (".codex", "Codex sessions and worktrees"),
-    (".copilot", "GitHub Copilot CLI sessions"),
-    (".gemini", "Gemini CLI / Antigravity conversations"),
-    (".kimi-code", "Kimi Code sessions"),
-    (".continue", "Continue agent data"),
+    (
+        ".claude",
+        "Claude Code home (sessions live under projects/)",
+    ),
+    (
+        ".cursor",
+        "Cursor home (sessions under projects/; worktrees scanned separately)",
+    ),
+    (
+        ".codex",
+        "Codex home (sessions under sessions/; worktrees scanned separately)",
+    ),
+    (
+        ".copilot",
+        "GitHub Copilot CLI home (sessions under session-state/)",
+    ),
+    (".gemini", "Gemini CLI home (sessions under tmp/)"),
+    (".kimi-code", "Kimi Code data"),
+    (".continue", "Continue home (sessions under sessions/)"),
     (".codeium", "Codeium / Windsurf data"),
     (".windsurf", "Windsurf agent data"),
     (".aider", "Aider session data"),
+    ("session-state", "GitHub Copilot CLI session transcripts"),
+    ("archived_sessions", "Codex archived session transcripts"),
 ];
 
-/// Known code-agent home / session directories under the user home (existing only).
+fn env_home_dir(var: &str, fallback: PathBuf) -> PathBuf {
+    std::env::var(var)
+        .ok()
+        .map(|s| PathBuf::from(s.trim()))
+        .filter(|p| !p.as_os_str().is_empty())
+        .unwrap_or(fallback)
+}
+
+/// Session / transcript directories for mainstream code agents (existing only).
+///
+/// Does **not** include the whole agent home (`~/.cursor`, `~/.claude`, …) or
+/// IDE Application Support trees. Linked git worktrees (`~/.cursor/worktrees`,
+/// `$CODEX_HOME/worktrees`, leftover `git worktree add` checkouts) are
+/// discovered separately.
 pub fn agent_data_roots(home: &Path) -> Vec<(String, PathBuf)> {
     let mut out = Vec::new();
     let mut push = |label: &str, path: PathBuf| {
@@ -1513,39 +1540,36 @@ pub fn agent_data_roots(home: &Path) -> Vec<(String, PathBuf)> {
             out.push((label.to_string(), path));
         }
     };
-    push(".claude", home.join(".claude"));
-    push(".cursor", home.join(".cursor"));
-    push(".codex", home.join(".codex"));
-    drop(push);
-    if let Ok(codex_home) = std::env::var("CODEX_HOME") {
-        let p = PathBuf::from(codex_home.trim());
-        if !p.as_os_str().is_empty() {
-            let already = out.iter().any(|(_, existing)| {
-                std::fs::canonicalize(existing).ok() == std::fs::canonicalize(&p).ok()
-                    && std::fs::canonicalize(&p).is_ok()
-            });
-            if !already && p.is_dir() {
-                out.push(("CODEX_HOME".into(), p));
-            }
-        }
-    }
-    let mut push = |label: &str, path: PathBuf| {
-        if path.is_dir() {
-            out.push((label.to_string(), path));
-        }
-    };
-    push(".copilot", home.join(".copilot"));
-    push(".gemini", home.join(".gemini"));
-    push(".kimi-code", home.join(".kimi-code"));
-    push(".continue", home.join(".continue"));
-    push(".codeium", home.join(".codeium"));
-    push(".windsurf", home.join(".windsurf"));
-    push(".aider", home.join(".aider"));
-    let app_support = home.join("Library/Application Support");
-    push("Cursor", app_support.join("Cursor"));
-    push("Claude", app_support.join("Claude"));
-    push("Windsurf", app_support.join("Windsurf"));
-    push("Codeium", app_support.join("Codeium"));
+
+    // Claude Code: ~/.claude/projects/<encoded-cwd>/*.jsonl
+    let claude_home = env_home_dir("CLAUDE_CONFIG_DIR", home.join(".claude"));
+    push(".claude/projects", claude_home.join("projects"));
+
+    // Cursor: agent transcripts + composer chat DBs. Worktrees are not sessions.
+    push(".cursor/projects", home.join(".cursor").join("projects"));
+    push(".cursor/chats", home.join(".cursor").join("chats"));
+
+    // Codex CLI / app: $CODEX_HOME/sessions (+ archived). Worktrees separate.
+    let codex_home = env_home_dir("CODEX_HOME", home.join(".codex"));
+    push(".codex/sessions", codex_home.join("sessions"));
+    push(
+        ".codex/archived_sessions",
+        codex_home.join("archived_sessions"),
+    );
+
+    // GitHub Copilot CLI: ~/.copilot/session-state/<id>/
+    let copilot_home = env_home_dir("COPILOT_HOME", home.join(".copilot"));
+    push(".copilot/session-state", copilot_home.join("session-state"));
+
+    // Gemini CLI: ~/.gemini/tmp/<project-hash>/chats/
+    push(".gemini/tmp", home.join(".gemini").join("tmp"));
+
+    // Continue: ~/.continue/sessions/<uuid>.json
+    push(
+        ".continue/sessions",
+        home.join(".continue").join("sessions"),
+    );
+
     out
 }
 
@@ -2038,7 +2062,7 @@ mod tests {
     fn scan_marks_git_worktree_and_agent_data() {
         let root = tempfile_dir("disk-analyzer-kinds");
         let wt = root.join("linked-wt");
-        let agent = root.join(".cursor");
+        let agent = root.join("agent-sessions");
         fs::create_dir_all(&wt).unwrap();
         fs::create_dir_all(&agent).unwrap();
         write_file(&wt.join("a.txt"), 100);
@@ -2068,7 +2092,7 @@ mod tests {
         let agent_node = tree
             .children
             .iter()
-            .find(|c| c.name == ".cursor")
+            .find(|c| c.name == "agent-sessions")
             .expect("agent child");
         assert!(agent_node.is_agent_data);
     }
@@ -2098,10 +2122,21 @@ mod tests {
         let root = tempfile_dir("disk-analyzer-agent-roots");
         fs::create_dir_all(root.join(".cursor")).unwrap();
         fs::create_dir_all(root.join(".claude")).unwrap();
+        fs::create_dir_all(root.join(".cursor").join("worktrees").join("feat")).unwrap();
+        fs::create_dir_all(root.join("Library/Application Support/Cursor")).unwrap();
+        let empty = agent_data_roots(&root);
+        assert!(
+            empty.is_empty(),
+            "whole agent homes and worktrees must not be session roots: {empty:?}"
+        );
+
+        fs::create_dir_all(root.join(".cursor").join("projects")).unwrap();
+        fs::create_dir_all(root.join(".claude").join("projects")).unwrap();
         let found = agent_data_roots(&root);
         let names: Vec<_> = found.iter().map(|(n, _)| n.as_str()).collect();
-        assert!(names.contains(&".cursor"));
-        assert!(names.contains(&".claude"));
-        assert!(!names.contains(&".codex"));
+        assert!(names.contains(&".cursor/projects"));
+        assert!(names.contains(&".claude/projects"));
+        assert!(!names.iter().any(|n| *n == ".cursor" || *n == ".claude"));
+        assert!(!names.contains(&".codex/sessions"));
     }
 }

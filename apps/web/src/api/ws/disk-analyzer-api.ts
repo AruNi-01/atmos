@@ -13,7 +13,7 @@ export interface DiskNode {
   is_workspace?: boolean;
   /** Linked git worktree that is not an Atmos workspace. */
   is_git_worktree?: boolean;
-  /** Mainstream code-agent home / session directory. */
+  /** Mainstream code-agent session / transcript directory. */
   is_agent_data?: boolean;
   file_count: number;
   dir_count: number;

@@ -1,9 +1,9 @@
 //! Disk Analyzer business service — scan sessions, ownership, project roots.
 //!
 //! Default scans cover Atmos-related paths (`~/.atmos`, imported projects,
-//! Atmos.app, app support) plus linked git worktrees and code-agent session
-//! directories discovered under the user home. The first overview paint is
-//! Atmos + agent homes; leftover worktrees are grouped in a second wave.
+//! Atmos.app) plus linked git worktrees and code-agent **session**
+//! directories (not whole agent homes). The first overview paint is
+//! Atmos + session dirs; leftover worktrees are grouped in a second wave.
 //! Opt-in `scan_all` walks the user home (+ Applications) and still badges
 //! those paths.
 
@@ -92,7 +92,7 @@ struct DiskAnalyzerSession {
     workspace_roots: Vec<PathBuf>,
     /// Linked git worktrees discovered on this machine (not Atmos workspaces).
     git_worktree_roots: Vec<PathBuf>,
-    /// Code-agent home / session directories.
+    /// Code-agent session / transcript directories.
     agent_data_roots: Vec<PathBuf>,
     /// True after home discovery has populated worktree / agent roots (may be empty).
     marks_ready: bool,
@@ -854,7 +854,7 @@ impl DiskAnalyzerService {
 
         tokio::task::spawn_blocking(move || {
             let started = Instant::now();
-            // Cheap first paint: Atmos entries plus agent homes (exists() only).
+            // Cheap first paint: Atmos entries plus agent session dirs (exists() only).
             // Home-wide `.git` discovery waits until after this wave so ~/.atmos
             // is not blocked on walking the rest of the machine.
             let home = dirs::home_dir();
@@ -2323,10 +2323,11 @@ mod tests {
         ));
         let _ = std::fs::remove_dir_all(&tmp);
         let atmos = tmp.join(".atmos");
-        let cursor = tmp.join(".cursor");
-        let nested_wt = cursor.join("worktrees").join("feat");
+        let cursor_sessions = tmp.join(".cursor").join("projects");
+        let nested_wt = tmp.join(".cursor").join("worktrees").join("feat");
         let extra_wt = tmp.join("extra-wt");
         std::fs::create_dir_all(&atmos).expect("atmos");
+        std::fs::create_dir_all(&cursor_sessions).expect("cursor sessions");
         std::fs::create_dir_all(&nested_wt).expect("nested wt");
         std::fs::create_dir_all(&extra_wt).expect("extra wt");
 
@@ -2337,13 +2338,13 @@ mod tests {
         }];
         DiskAnalyzerService::append_discovered_overview_entries(
             &mut entries,
-            &[nested_wt, extra_wt.clone()],
-            &[(".cursor".into(), cursor)],
+            &[nested_wt.clone(), extra_wt.clone()],
+            &[(".cursor/projects".into(), cursor_sessions)],
         );
 
         let labels: Vec<_> = entries.iter().map(|e| e.label.as_str()).collect();
         assert!(labels.contains(&".atmos"));
-        assert!(labels.contains(&".cursor"));
+        assert!(labels.contains(&".cursor/projects"));
         assert!(
             entries
                 .iter()
@@ -2351,8 +2352,10 @@ mod tests {
             "uncovered worktree should become an overview tile: {labels:?}"
         );
         assert!(
-            !entries.iter().any(|e| e.label.contains("feat")),
-            "worktree under .cursor must not duplicate: {labels:?}"
+            entries
+                .iter()
+                .any(|e| e.path == nested_wt && e.kind == Some(AtmosEntryKind::GitWorktree)),
+            "worktree under .cursor/worktrees is not covered by session dir: {labels:?}"
         );
         assert!(
             DiskAnalyzerService::worktree_overview_label(&extra_wt).starts_with("extra-wt"),
@@ -2393,8 +2396,14 @@ mod tests {
             overview_part(".atmos", "/home/u/.atmos", 100, false, false),
         );
         parts.insert(
-            ".cursor".into(),
-            overview_part(".cursor", "/home/u/.cursor", 50, false, true),
+            ".cursor/projects".into(),
+            overview_part(
+                ".cursor/projects",
+                "/home/u/.cursor/projects",
+                50,
+                false,
+                true,
+            ),
         );
         parts.insert(
             "feat".into(),
@@ -2416,7 +2425,7 @@ mod tests {
             "Atmos runtime stays at root: {names:?}"
         );
         assert!(
-            !names.contains(&".cursor") && !names.contains(&"feat"),
+            !names.contains(&".cursor/projects") && !names.contains(&"feat"),
             "agent/worktree tiles must nest under groups: {names:?}"
         );
 
@@ -2427,7 +2436,7 @@ mod tests {
             .expect("agent group");
         assert!(agent.is_agent_data);
         assert!(agent.children_loaded);
-        assert!(agent.children.iter().any(|c| c.name == ".cursor"));
+        assert!(agent.children.iter().any(|c| c.name == ".cursor/projects"));
 
         let worktrees = tree
             .children

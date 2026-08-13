@@ -11,7 +11,7 @@
 | Rule | Detail |
 |------|--------|
 | **When to add** | After fixing a user-reported bug, reliability issue, quality regression, agent ergonomics gap, or deliberate product parity gap. |
-| **Entry id** | `IMP-NNN` — zero-padded, monotonic in this file (next: **IMP-003**). |
+| **Entry id** | `IMP-NNN` — zero-padded, monotonic in this file (next: **IMP-004**). |
 | **Status** | `open` → `mitigated` → `closed` (or `wont-fix` with reason). |
 | **Do not** | Duplicate full TECH sections; link to TECH/PRD and paste only deltas. |
 | **Versions** | If agent-facing behavior changes, note the relevant Skill / CLI / runtime version in the entry. |
@@ -24,6 +24,7 @@
 |----|-------|--------|------|
 | IMP-001 | Default scan covers machine git worktrees and agent homes | mitigated | 2026-08-13 |
 | IMP-002 | Overview first paint + grouping for worktrees / agent data | mitigated | 2026-08-13 |
+| IMP-003 | Measure agent sessions only, not whole agent homes | mitigated | 2026-08-13 |
 
 ---
 
@@ -107,5 +108,45 @@ First chart paint is Atmos-shaped; worktrees appear when found. Agent/worktree c
 - `crates/core-engine/src/disk_analyzer/mod.rs` (`.git` file classify)
 - `crates/core-service/src/service/disk_analyzer.rs`
 - `apps/web/src/features/disk-analyzer/`
+- `apps/web/messages/en.json`, `apps/web/messages/zh.json`
+- [TECH.md](./TECH.md), [TEST.md](./TEST.md)
+
+---
+
+## IMP-003 · Measure agent sessions only, not whole agent homes
+
+| Field | Value |
+|-------|--------|
+| **Date** | 2026-08-13 |
+| **Status** | mitigated |
+| **Reported by** | user |
+| **Severity** | ergonomics |
+
+### Problem
+
+Wave 1 measured entire agent homes (`~/.cursor`, `~/.claude`, `~/Library/Application Support/Cursor`, …). That mixed settings/extensions into “Agent data”, and `path_covered_by_entries` treated `~/.cursor/worktrees` as already covered so those checkouts never became Git worktree tiles.
+
+### Solution
+
+`agent_data_roots` is session directories only:
+
+- Claude Code: `~/.claude/projects` (`CLAUDE_CONFIG_DIR`)
+- Cursor: `~/.cursor/projects`, `~/.cursor/chats`
+- Codex: `$CODEX_HOME/sessions`, `archived_sessions`
+- Copilot CLI: `$COPILOT_HOME/session-state`
+- Gemini CLI: `~/.gemini/tmp`
+- Continue: `~/.continue/sessions`
+
+Linked worktrees stay on `discover_linked_worktrees` / `~/.cursor/worktrees` / `$CODEX_HOME/worktrees`.
+
+### Result
+
+Agent data tiles are transcripts/chats. Cursor/Codex worktrees show up in the Git worktrees group.
+
+### Code / docs touched
+
+- `crates/core-engine/src/disk_analyzer/mod.rs`
+- `crates/core-service/src/service/disk_analyzer.rs`
+- `apps/web/src/features/disk-analyzer/lib/tree-adapters.ts`
 - `apps/web/messages/en.json`, `apps/web/messages/zh.json`
 - [TECH.md](./TECH.md), [TEST.md](./TEST.md)

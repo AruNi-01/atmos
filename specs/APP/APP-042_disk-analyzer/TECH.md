@@ -110,12 +110,12 @@ Project / worktree / agent marking:
 
 - Collect absolute paths for Atmos projects + workspaces.
 - On every default scan (not optional), discover **linked** git worktrees. First paint does **not** wait on a home-wide `.git` walk:
-  1. Measure Atmos entries + agent homes (`exists()` only).
+  1. Measure Atmos entries + agent session dirs (`exists()` only).
   2. Then `GitEngine::discover_linked_worktrees` (home walk + seed `~/.cursor/worktrees` / `~/.codex/worktrees`) and append uncovered worktrees.
 - Drill-in / scan-all badge linked worktrees from a `.git` **file** on the path (no extra home walk). `discover_linked_worktrees_fast` only walks known agent worktree dirs when marks are not already on the session.
-- Collect existing code-agent homes (`agent_data_roots`).
+- Collect existing **session** directories (`agent_data_roots`): `~/.claude/projects`, `~/.cursor/projects` (+ `chats`), `$CODEX_HOME/sessions` (+ `archived_sessions`), `~/.copilot/session-state`, `~/.gemini/tmp`, `~/.continue/sessions`. Do **not** measure whole agent homes or IDE Application Support; that would swallow `~/.cursor/worktrees` and mix in settings/extensions.
 - Badge exclusivity: workspace > project > git worktree > agent data.
-- Default Atmos overview **groups** uncovered agent homes under `atmos://disk-usage/agent-data` and leftover worktrees under `atmos://disk-usage/git-worktrees`. `.atmos` / projects / Atmos.app stay as top-level tiles. Groups are `children_loaded=true` synthetic dirs (not deletable). Scan-all does not add extra tiles; it still badges in-place.
+- Default Atmos overview **groups** uncovered agent **session** dirs under `atmos://disk-usage/agent-data` and leftover worktrees under `atmos://disk-usage/git-worktrees`. `.atmos` / projects / Atmos.app stay as top-level tiles. Groups are `children_loaded=true` synthetic dirs (not deletable). Scan-all does not add extra tiles; it still badges in-place.
 - Delete remains trash; UI notes that trashing a git worktree does not run `git worktree remove`. Synthetic `atmos://` paths are refused.
 
 ## WebSocket protocol

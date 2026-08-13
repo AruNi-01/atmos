@@ -224,6 +224,7 @@ describe("disk analyzer tree adapters", () => {
     expect(cleanupHintMessageKey(".claude")).toBe("dot_claude");
     expect(getCleanupHintKey(".cursor", 1024)).toBe("dot_cursor");
     expect(getCleanupHintKey(".codex", 1024)).toBe("dot_codex");
+    expect(getCleanupHintKey("session-state", 1024)).toBe("session_state");
   });
 
   test("bytes-eased keeps larger folders larger among siblings", () => {
