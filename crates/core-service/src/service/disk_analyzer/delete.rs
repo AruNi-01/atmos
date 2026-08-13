@@ -33,11 +33,11 @@ impl DiskAnalyzerService {
             ));
         }
 
-        let path = self.fs_engine.expand_path(path)?;
+        let path = canonicalize_or_clone(&self.fs_engine.expand_path(path)?);
         let allowed_root = entry_roots
             .iter()
-            .find(|root| path == **root || path.starts_with(root))
-            .cloned()
+            .map(|root| canonicalize_or_clone(root))
+            .find(|root| path == *root || path.starts_with(root))
             .ok_or_else(|| {
                 ServiceError::Validation(format!(
                     "path {} is outside scan entry roots",
@@ -68,7 +68,6 @@ impl DiskAnalyzerService {
             let mut sessions = self.sessions.lock();
             if let Some(session) = sessions.get_mut(scan_id) {
                 session.tree = None;
-                session.completed_at = None;
                 if let Some(list) = session.suggestions.as_mut() {
                     let deleted = path.to_string_lossy();
                     let deleted = deleted.trim_end_matches('/');
@@ -89,18 +88,13 @@ impl DiskAnalyzerService {
     }
 
     async fn find_workspace_for_path(&self, path: &Path) -> Result<Option<WorkspaceDto>> {
-        let Ok(projects) = self.project_service.list_projects().await else {
-            return Ok(None);
-        };
+        let projects = self.project_service.list_projects().await?;
         let git_engine = GitEngine::new();
         for project in projects {
-            let Ok(workspaces) = self
+            let workspaces = self
                 .workspace_service
                 .list_all_by_project(project.guid.clone())
-                .await
-            else {
-                continue;
-            };
+                .await?;
             for workspace in workspaces {
                 let Some(ws_path) = workspace_disk_path(&workspace, &git_engine) else {
                     continue;
@@ -166,9 +160,20 @@ pub(super) fn delete_non_workspace_path(
 ) -> std::result::Result<u64, core_engine::EngineError> {
     let git = GitEngine::new();
     if git.is_linked_worktree(path) {
+        let path = canonicalize_or_clone(path);
+        let allowed_root = canonicalize_or_clone(allowed_root);
+        if path != allowed_root && !path.starts_with(&allowed_root) {
+            return Err(core_engine::EngineError::FileSystem(format!(
+                "path {} is outside scan entry roots",
+                path.display()
+            )));
+        }
         let engine = DiskAnalyzerEngine::new();
-        let freed = engine.measure_path(path, None).map(|m| m.size).unwrap_or(0);
-        git.remove_linked_worktree(path)?;
+        let freed = engine
+            .measure_path(&path, None)
+            .map(|m| m.size)
+            .unwrap_or(0);
+        git.remove_linked_worktree(&path)?;
         return Ok(freed);
     }
     DiskAnalyzerEngine::new().delete_path(path, permanent, Some(allowed_root))

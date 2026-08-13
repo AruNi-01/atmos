@@ -477,6 +477,10 @@ fn gitdir_points_at_worktree(git_file: &str) -> bool {
     }) else {
         return false;
     };
+    let normalized = gitdir.replace('\\', "/");
+    if normalized.contains(".git/modules/") {
+        return false;
+    }
     Path::new(gitdir)
         .parent()
         .and_then(|parent| parent.file_name())
@@ -647,8 +651,19 @@ mod tests {
         )
         .unwrap();
         fs::write(submodule.join(".git"), "gitdir: ../.git/modules/vendor\n").unwrap();
+        let nested = root.join("nested-sub");
+        fs::create_dir_all(&nested).unwrap();
+        fs::write(
+            nested.join(".git"),
+            "gitdir: ../.git/modules/worktrees/nested\n",
+        )
+        .unwrap();
         assert!(is_linked_worktree(&worktree));
         assert!(!is_linked_worktree(&submodule));
+        assert!(
+            !is_linked_worktree(&nested),
+            "submodule under modules/worktrees must not look like a linked worktree"
+        );
         let _ = fs::remove_dir_all(&root);
     }
 

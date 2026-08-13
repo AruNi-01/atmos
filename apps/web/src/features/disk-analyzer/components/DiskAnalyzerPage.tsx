@@ -166,10 +166,13 @@ export function DiskAnalyzerPage() {
     try {
       const target = pendingSuggest?.path ?? analyzer.selectedPath;
       if (target) {
-        await analyzer.deletePathAt(
-          target,
-          pendingSuggest?.isWorktree ? true : permanent,
-        );
+        const requiresPermanent =
+          pendingSuggest?.isWorktree ||
+          Boolean(
+            analyzer.selectedNode?.is_git_worktree ||
+              analyzer.selectedNode?.is_workspace,
+          );
+        await analyzer.deletePathAt(target, requiresPermanent ? true : permanent);
         setDeleteOpen(false);
         setListDeletePath(null);
         setPermanent(false);
@@ -848,6 +851,7 @@ export function DiskAnalyzerPage() {
                                             ) : null}
                                           </p>
                                         </div>
+                                        {child.is_git_worktree || child.is_workspace ? null : (
                                         <label className="flex min-w-0 items-start gap-2 text-xs leading-snug">
                                           <Checkbox
                                             className="mt-0.5 shrink-0"
@@ -860,6 +864,7 @@ export function DiskAnalyzerPage() {
                                             {t("permanentDelete")}
                                           </span>
                                         </label>
+                                        )}
                                         {deleteError && listDeletePath === child.path ? (
                                           <div className="text-xs text-destructive">
                                             {deleteError}
@@ -884,7 +889,9 @@ export function DiskAnalyzerPage() {
                                             {deleting ? (
                                               <Loader2 className="size-3.5 animate-spin" />
                                             ) : null}
-                                            {permanent
+                                            {child.is_git_worktree ||
+                                            child.is_workspace ||
+                                            permanent
                                               ? t("confirmPermanent")
                                               : t("confirmTrash")}
                                           </Button>
