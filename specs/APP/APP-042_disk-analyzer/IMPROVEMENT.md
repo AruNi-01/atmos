@@ -11,7 +11,7 @@
 | Rule | Detail |
 |------|--------|
 | **When to add** | After fixing a user-reported bug, reliability issue, quality regression, agent ergonomics gap, or deliberate product parity gap. |
-| **Entry id** | `IMP-NNN` — zero-padded, monotonic in this file (next: **IMP-004**). |
+| **Entry id** | `IMP-NNN` — zero-padded, monotonic in this file (next: **IMP-005**). |
 | **Status** | `open` → `mitigated` → `closed` (or `wont-fix` with reason). |
 | **Do not** | Duplicate full TECH sections; link to TECH/PRD and paste only deltas. |
 | **Versions** | If agent-facing behavior changes, note the relevant Skill / CLI / runtime version in the entry. |
@@ -25,6 +25,7 @@
 | IMP-001 | Default scan covers machine git worktrees and agent homes | mitigated | 2026-08-13 |
 | IMP-002 | Overview first paint + grouping for worktrees / agent data | mitigated | 2026-08-13 |
 | IMP-003 | Measure agent sessions only, not whole agent homes | mitigated | 2026-08-13 |
+| IMP-004 | Cover Grok / OpenCode / Devin and other skill-listed agent session stores | mitigated | 2026-08-13 |
 
 ---
 
@@ -147,6 +148,39 @@ Agent data tiles are transcripts/chats. Cursor/Codex worktrees show up in the Gi
 
 - `crates/core-engine/src/disk_analyzer/mod.rs`
 - `crates/core-service/src/service/disk_analyzer.rs`
+- `apps/web/src/features/disk-analyzer/lib/tree-adapters.ts`
+- `apps/web/messages/en.json`, `apps/web/messages/zh.json`
+- [TECH.md](./TECH.md), [TEST.md](./TEST.md)
+
+---
+
+## IMP-004 · Cover Grok / OpenCode / Devin and other skill-listed agent session stores
+
+| Field | Value |
+|-------|--------|
+| **Date** | 2026-08-13 |
+| **Status** | mitigated |
+| **Reported by** | user |
+| **Severity** | ergonomics |
+
+### Problem
+
+Disk Analyzer session roots only covered Claude / Cursor / Codex / Copilot / Gemini / Continue. Skill scan (`AGENT_SKILL_DIRS`) and builtin terminal agents also include Grok Build, OpenCode, Devin, Amp, Factory Droid, Pi, Kimi, Qwen, Cline, Goose, Crush, Hermes, OpenClaw, OpenHands, Mux, Junie, Command Code, CodeBuddy, Augment, Vibe, Kiro, Antigravity, Windsurf Cascade. Those session stores were invisible unless they happened to sit under a scanned parent.
+
+### Solution
+
+`agent_data_roots` now lists confirmed **session** directories for those agents (home / XDG / documented env overrides). Directory must `exists()`. Whole agent homes, `~/.opencode` skills trees, `~/.devin` plans, IDE Application Support, and VS Code extension task DBs are still not measured.
+
+Worktree seed adds `$GROK_HOME/worktrees`. Home `.git` walk skip list includes the extra agent home names so discovery does not descend into them.
+
+### Result
+
+Installed Grok / OpenCode / Devin / Amp / Factory / … session dirs show under Agent data. Cursor/Codex/Grok worktrees remain a separate git-worktree pass.
+
+### Code / docs touched
+
+- `crates/core-engine/src/disk_analyzer/mod.rs`
+- `crates/core-engine/src/git/worktrees.rs`
 - `apps/web/src/features/disk-analyzer/lib/tree-adapters.ts`
 - `apps/web/messages/en.json`, `apps/web/messages/zh.json`
 - [TECH.md](./TECH.md), [TEST.md](./TEST.md)

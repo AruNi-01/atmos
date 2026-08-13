@@ -111,9 +111,44 @@ Project / worktree / agent marking:
 - Collect absolute paths for Atmos projects + workspaces.
 - On every default scan (not optional), discover **linked** git worktrees. First paint does **not** wait on a home-wide `.git` walk:
   1. Measure Atmos entries + agent session dirs (`exists()` only).
-  2. Then `GitEngine::discover_linked_worktrees` (home walk + seed `~/.cursor/worktrees` / `~/.codex/worktrees`) and append uncovered worktrees.
+  2. Then `GitEngine::discover_linked_worktrees` (home walk + seed `~/.cursor/worktrees` / `~/.codex/worktrees` / `~/.grok/worktrees`) and append uncovered worktrees.
 - Drill-in / scan-all badge linked worktrees from a `.git` **file** on the path (no extra home walk). `discover_linked_worktrees_fast` only walks known agent worktree dirs when marks are not already on the session.
-- Collect existing **session** directories (`agent_data_roots`): `~/.claude/projects`, `~/.cursor/projects` (+ `chats`), `$CODEX_HOME/sessions` (+ `archived_sessions`), `~/.copilot/session-state`, `~/.gemini/tmp`, `~/.continue/sessions`. Do **not** measure whole agent homes or IDE Application Support; that would swallow `~/.cursor/worktrees` and mix in settings/extensions.
+- Collect existing **session** directories (`agent_data_roots`) when the path `exists()`. Skill scan looks at in-repo `.agent/skills`; session stores are home / XDG paths. Do **not** measure whole agent homes or IDE Application Support.
+
+  Covered session roots (env overrides in parentheses):
+
+  | Agent | Session path |
+  |-------|----------------|
+  | Claude Code | `~/.claude/projects` (`CLAUDE_CONFIG_DIR`) |
+  | Cursor | `~/.cursor/projects`, `~/.cursor/chats` |
+  | Codex | `$CODEX_HOME/sessions`, `archived_sessions`, `headless` |
+  | Copilot CLI | `$COPILOT_HOME/session-state`, `history-session-state` |
+  | Gemini CLI | `~/.gemini/tmp` |
+  | Antigravity | `~/.gemini/antigravity-cli/conversations` |
+  | Continue | `~/.continue/sessions` |
+  | Grok Build | `$GROK_HOME/sessions` (default `~/.grok/sessions`) |
+  | OpenCode | `~/.local/share/opencode` (+ macOS Application Support); not `~/.opencode` |
+  | Devin CLI | `~/.local/share/devin/cli`; Desktop ACP `…/Devin/User/acp-events` |
+  | Amp | `~/.local/share/amp/threads` |
+  | Factory Droid | `~/.factory/sessions` |
+  | Pi / Oh My Pi | `~/.pi/agent/sessions` (`PI_CODING_AGENT_DIR`), `~/.omp/agent/sessions` |
+  | Kimi CLI / Code | `~/.kimi/sessions` (`KIMI_SHARE_DIR`), `$KIMI_CODE_HOME/sessions` |
+  | Qwen | `~/.qwen/tmp`, `~/.qwen/projects` |
+  | Cline CLI | `~/.cline/data/sessions` (`CLINE_SESSION_DATA_DIR` / `CLINE_DATA_DIR` / `CLINE_DIR`) |
+  | Goose | `~/.config/goose/sessions`, `~/.local/share/goose/sessions` (`GOOSE_PATH_ROOT`) |
+  | Crush | `~/.crush` when `crush.db` exists, else `sessions/` |
+  | Hermes | `$HERMES_HOME/sessions` only (not the whole home) |
+  | OpenClaw | `~/.openclaw/agents` |
+  | OpenHands | `~/.openhands/conversations` |
+  | Mux / Junie / Augment | `~/.mux/sessions`, `~/.junie/sessions`, `~/.augment/sessions` |
+  | Command Code / CodeBuddy | `~/.commandcode/projects`, `~/.codebuddy/projects` |
+  | Vibe | `~/.vibe/logs/session` |
+  | Kiro | `~/.kiro/sessions`, `~/.local/share/kiro-cli` |
+  | Windsurf Cascade | `~/.codeium/windsurf/cascade` |
+
+  Omitted (no confirmed home session root, or would swallow IDE/settings): Aider per-repo history, VS Code extension task DBs (Cline/Roo/Kilo), Replit cloud, and skill-only trees without a known session dir (`iflow`, `kode`, `qoder`, `trae`, …).
+
+- Worktree seeds: `~/.cursor/worktrees`, `$CODEX_HOME/worktrees`, `$GROK_HOME/worktrees`.
 - Badge exclusivity: workspace > project > git worktree > agent data.
 - Default Atmos overview **groups** uncovered agent **session** dirs under `atmos://disk-usage/agent-data` and leftover worktrees under `atmos://disk-usage/git-worktrees`. `.atmos` / projects / Atmos.app stay as top-level tiles. Groups are `children_loaded=true` synthetic dirs (not deletable). Scan-all does not add extra tiles; it still badges in-place.
 - Delete remains trash; UI notes that trashing a git worktree does not run `git worktree remove`. Synthetic `atmos://` paths are refused.

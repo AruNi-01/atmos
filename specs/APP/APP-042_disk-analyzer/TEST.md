@@ -118,8 +118,8 @@
 ### S11 — Linked git worktrees and agent homes
 - **Given** a fixture with a main git checkout plus a linked worktree, and an existing `.cursor` (or `.claude`) directory
 - **When** the default disk analyzer scan / classify runs
-- **Then** the linked worktree is discovered (main checkout is not listed as linked); uncovered worktrees and agent **session** dirs become overview tiles or badges; default overview nests them under Agent data / Git worktrees groups; whole agent homes are not measured; `is_git_worktree` / `is_agent_data` are exclusive of Atmos workspace; agent basenames have cleanup hints
-- **Signals**: `discover_linked_worktrees_finds_extra_checkout_not_main`; `discover_linked_worktrees_fast_skips_home_and_hits_agent_dirs`; `scan_marks_gitdir_file_as_worktree_without_roots`; `agent_data_roots_only_existing_dirs`; `assemble_overview_groups_agent_and_worktree_entries`; `append_discovered_skips_covered_paths_and_labels_worktrees`; bun adapter flags + synthetic group delete guard + `dot_cursor` hint key
+- **Then** the linked worktree is discovered (main checkout is not listed as linked); uncovered worktrees and agent **session** dirs become overview tiles or badges; default overview nests them under Agent data / Git worktrees groups; whole agent homes are not measured; Grok/OpenCode/Devin/Amp/Factory session dirs are included when they exist; `is_git_worktree` / `is_agent_data` are exclusive of Atmos workspace; agent basenames have cleanup hints
+- **Signals**: `discover_linked_worktrees_finds_extra_checkout_not_main`; `discover_linked_worktrees_fast_skips_home_and_hits_agent_dirs`; `extra_worktree_search_roots_includes_grok`; `scan_marks_gitdir_file_as_worktree_without_roots`; `agent_data_roots_only_existing_dirs`; `assemble_overview_groups_agent_and_worktree_entries`; `append_discovered_skips_covered_paths_and_labels_worktrees`; bun adapter flags + synthetic group delete guard + `dot_cursor` / `dot_grok` hint keys
 
 ## Exploratory agent-browser checks
 
@@ -163,7 +163,7 @@ _Updated 2026-07-22 during PR review fixes (REV-001–REV-018)._
 | S7b delete boundaries | covered | `delete_outside_scan_root_rejected`, `delete_refuses_filesystem_root` |
 | S7c trash failure contract | covered (unit) | `trash_delete_does_not_fallback_to_permanent` — asserts `Err`, no silent permanent success |
 | S10 suggestions before prune | covered | `suggestions_computed_before_prune` |
-| S11 worktree + agent marks | covered | `discover_linked_worktrees_finds_extra_checkout_not_main`; `discover_linked_worktrees_fast_skips_home_and_hits_agent_dirs`; `scan_marks_git_worktree_and_agent_data`; `scan_marks_gitdir_file_as_worktree_without_roots`; `agent_data_roots_only_existing_dirs`; `assemble_overview_groups_agent_and_worktree_entries`; `append_discovered_skips_covered_paths_and_labels_worktrees`; bun `echarts adapter flags git worktree and agent data`; bun `synthetic group paths localize and cannot be deleted` |
+| S11 worktree + agent marks | covered | `discover_linked_worktrees_finds_extra_checkout_not_main`; `discover_linked_worktrees_fast_skips_home_and_hits_agent_dirs`; `extra_worktree_search_roots_includes_grok`; `scan_marks_git_worktree_and_agent_data`; `scan_marks_gitdir_file_as_worktree_without_roots`; `agent_data_roots_only_existing_dirs`; `assemble_overview_groups_agent_and_worktree_entries`; `append_discovered_skips_covered_paths_and_labels_worktrees`; bun `echarts adapter flags git worktree and agent data`; bun `synthetic group paths localize and cannot be deleted` |
 | S1 / S8 / S9 | partial | Management Center + i18n keys wired (`scanFailed`, `gitWorktree`, `agentData`); UI exploratory not_run in this environment |
 | Trash-mode happy path on real Desktop trash backend | **partial / gap** | Headless CI lacks a reliable trash backend; S7c covers failure contract only. Full `permanent=false` success remains manual/desktop. |
 

@@ -48,7 +48,28 @@ const DISCOVER_SKIP_DIR_NAMES: &[&str] = &[
     ".windsurf",
     ".codeium",
     ".aider",
+    ".kimi",
     ".kimi-code",
+    ".grok",
+    ".factory",
+    ".opencode",
+    ".devin",
+    ".openclaw",
+    ".hermes",
+    ".openhands",
+    ".crush",
+    ".mux",
+    ".junie",
+    ".commandcode",
+    ".codebuddy",
+    ".augment",
+    ".vibe",
+    ".omp",
+    ".cline",
+    ".pi",
+    ".qwen",
+    ".kiro",
+    ".goose",
     ".local",
 ];
 
@@ -331,11 +352,14 @@ fn extra_worktree_search_roots(home: &Path) -> Vec<PathBuf> {
     let mut roots = vec![
         home.join(".cursor").join("worktrees"),
         home.join(".codex").join("worktrees"),
+        home.join(".grok").join("worktrees"),
     ];
-    if let Ok(codex_home) = std::env::var("CODEX_HOME") {
-        let p = PathBuf::from(codex_home.trim());
-        if !p.as_os_str().is_empty() {
-            roots.push(p.join("worktrees"));
+    for var in ["CODEX_HOME", "GROK_HOME"] {
+        if let Ok(value) = std::env::var(var) {
+            let p = PathBuf::from(value.trim());
+            if !p.as_os_str().is_empty() {
+                roots.push(p.join("worktrees"));
+            }
         }
     }
     roots
@@ -525,6 +549,24 @@ mod tests {
         assert!(
             full.iter().any(|p| p == &leftover_canon),
             "full pass should find leftover worktrees: {full:?}"
+        );
+    }
+
+    #[test]
+    fn extra_worktree_search_roots_includes_grok() {
+        let home = PathBuf::from("/tmp/fake-home");
+        let roots = extra_worktree_search_roots(&home);
+        assert!(
+            roots
+                .iter()
+                .any(|p| p == &home.join(".grok").join("worktrees")),
+            "expected ~/.grok/worktrees in {roots:?}"
+        );
+        assert!(
+            roots
+                .iter()
+                .any(|p| p == &home.join(".cursor").join("worktrees")),
+            "expected ~/.cursor/worktrees in {roots:?}"
         );
     }
 }

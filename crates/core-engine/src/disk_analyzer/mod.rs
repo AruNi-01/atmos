@@ -1515,8 +1515,47 @@ const CLEANUP_HINTS: &[(&str, &str)] = &[
     (".codeium", "Codeium / Windsurf data"),
     (".windsurf", "Windsurf agent data"),
     (".aider", "Aider session data"),
+    (
+        ".grok",
+        "Grok Build home (sessions under sessions/; worktrees scanned separately)",
+    ),
+    (".factory", "Factory Droid home (sessions under sessions/)"),
+    (
+        ".opencode",
+        "OpenCode project dir (sessions live under XDG data, not this folder)",
+    ),
+    (".devin", "Devin home (CLI sessions live under XDG data)"),
+    (".kimi", "Kimi CLI home (sessions under sessions/)"),
+    (".openclaw", "OpenClaw home (sessions under agents/)"),
+    (".hermes", "Hermes home (sessions under sessions/)"),
+    (
+        ".openhands",
+        "OpenHands home (sessions under conversations/)",
+    ),
+    (".crush", "Crush session store"),
+    (".mux", "Mux home (sessions under sessions/)"),
+    (".junie", "Junie home (sessions under sessions/)"),
+    (
+        ".commandcode",
+        "Command Code home (sessions under projects/)",
+    ),
+    (".codebuddy", "CodeBuddy home (sessions under projects/)"),
+    (".augment", "Augment home (sessions under sessions/)"),
+    (".vibe", "Vibe home (sessions under logs/session/)"),
+    (".omp", "Oh My Pi home (sessions under agent/sessions/)"),
+    (".cline", "Cline home (sessions under data/sessions/)"),
+    (".pi", "Pi home (sessions under agent/sessions/)"),
+    (".qwen", "Qwen CLI home (sessions under tmp/)"),
+    (".kiro", "Kiro home (sessions under sessions/)"),
+    (".goose", "Goose home (sessions under sessions/)"),
     ("session-state", "GitHub Copilot CLI session transcripts"),
+    (
+        "history-session-state",
+        "GitHub Copilot CLI history session transcripts",
+    ),
     ("archived_sessions", "Codex archived session transcripts"),
+    ("acp-events", "Devin Desktop ACP session events"),
+    ("cascade", "Windsurf Cascade session transcripts"),
 ];
 
 fn env_home_dir(var: &str, fallback: PathBuf) -> PathBuf {
@@ -1527,17 +1566,57 @@ fn env_home_dir(var: &str, fallback: PathBuf) -> PathBuf {
         .unwrap_or(fallback)
 }
 
+fn extra_env_dir(var: &str) -> Option<PathBuf> {
+    std::env::var(var)
+        .ok()
+        .map(|s| PathBuf::from(s.trim()))
+        .filter(|p| !p.as_os_str().is_empty())
+}
+
+/// Home-relative XDG layout plus an env override when it points somewhere else.
+fn xdg_dir_candidates(home: &Path, env_var: &str, relative: &[&str]) -> Vec<PathBuf> {
+    let mut dir = home.to_path_buf();
+    for part in relative {
+        dir.push(part);
+    }
+    let mut dirs = vec![dir];
+    if let Some(p) = extra_env_dir(env_var) {
+        if !dirs.iter().any(|d| d == &p) {
+            dirs.push(p);
+        }
+    }
+    dirs
+}
+
+fn session_label(home: &Path, path: &Path, fallback: &str) -> String {
+    path.strip_prefix(home)
+        .ok()
+        .and_then(|rel| rel.to_str())
+        .filter(|s| !s.is_empty())
+        .map(|s| s.replace('\\', "/"))
+        .unwrap_or_else(|| fallback.to_string())
+}
+
 /// Session / transcript directories for mainstream code agents (existing only).
 ///
 /// Does **not** include the whole agent home (`~/.cursor`, `~/.claude`, …) or
 /// IDE Application Support trees. Linked git worktrees (`~/.cursor/worktrees`,
-/// `$CODEX_HOME/worktrees`, leftover `git worktree add` checkouts) are
-/// discovered separately.
+/// `$CODEX_HOME/worktrees`, `$GROK_HOME/worktrees`, leftover `git worktree add`
+/// checkouts) are discovered separately.
+///
+/// Skill scan (`AGENT_SKILL_DIRS`) looks at **in-repo** `.agent/skills` folders.
+/// Session stores are almost always under the user home / XDG data dir — that is
+/// what this list covers. Agents with no confirmed home session root are omitted
+/// rather than guessed (Aider per-repo history, VS Code extension task DBs,
+/// Replit cloud, etc.).
 pub fn agent_data_roots(home: &Path) -> Vec<(String, PathBuf)> {
     let mut out = Vec::new();
-    let mut push = |label: &str, path: PathBuf| {
-        if path.is_dir() {
-            out.push((label.to_string(), path));
+    let mut seen = HashSet::new();
+    let xdg_data_dirs = xdg_dir_candidates(home, "XDG_DATA_HOME", &[".local", "share"]);
+    let xdg_config_dirs = xdg_dir_candidates(home, "XDG_CONFIG_HOME", &[".config"]);
+    let mut push = |fallback: &str, path: PathBuf| {
+        if path.is_dir() && seen.insert(path.clone()) {
+            out.push((session_label(home, &path, fallback), path));
         }
     };
 
@@ -1549,25 +1628,175 @@ pub fn agent_data_roots(home: &Path) -> Vec<(String, PathBuf)> {
     push(".cursor/projects", home.join(".cursor").join("projects"));
     push(".cursor/chats", home.join(".cursor").join("chats"));
 
-    // Codex CLI / app: $CODEX_HOME/sessions (+ archived). Worktrees separate.
+    // Codex CLI / app: $CODEX_HOME/sessions (+ archived / headless). Worktrees separate.
     let codex_home = env_home_dir("CODEX_HOME", home.join(".codex"));
     push(".codex/sessions", codex_home.join("sessions"));
     push(
         ".codex/archived_sessions",
         codex_home.join("archived_sessions"),
     );
+    push(".codex/headless", codex_home.join("headless"));
 
     // GitHub Copilot CLI: ~/.copilot/session-state/<id>/
     let copilot_home = env_home_dir("COPILOT_HOME", home.join(".copilot"));
     push(".copilot/session-state", copilot_home.join("session-state"));
+    push(
+        ".copilot/history-session-state",
+        copilot_home.join("history-session-state"),
+    );
 
     // Gemini CLI: ~/.gemini/tmp/<project-hash>/chats/
     push(".gemini/tmp", home.join(".gemini").join("tmp"));
+    // Antigravity CLI (agy) conversations sit next to Gemini, not in ~/.gemini/tmp.
+    push(
+        ".gemini/antigravity-cli/conversations",
+        home.join(".gemini")
+            .join("antigravity-cli")
+            .join("conversations"),
+    );
 
     // Continue: ~/.continue/sessions/<uuid>.json
     push(
         ".continue/sessions",
         home.join(".continue").join("sessions"),
+    );
+
+    // Grok Build: $GROK_HOME/sessions (default ~/.grok/sessions). Worktrees separate.
+    let grok_home = env_home_dir("GROK_HOME", home.join(".grok"));
+    push(".grok/sessions", grok_home.join("sessions"));
+
+    // OpenCode: XDG data SQLite (`opencode.db`); macOS also uses Application Support.
+    // Do not scan ~/.opencode — that is the in-repo / config skills tree.
+    for data in &xdg_data_dirs {
+        push("opencode", data.join("opencode"));
+    }
+    push(
+        "Library/Application Support/opencode",
+        home.join("Library")
+            .join("Application Support")
+            .join("opencode"),
+    );
+
+    // Devin CLI: ~/.local/share/devin/cli (`sessions.db`). Desktop ACP events are separate.
+    // ~/.devin/plans are plan files, not the session store — skip the whole ~/.devin home.
+    for data in &xdg_data_dirs {
+        push("devin/cli", data.join("devin").join("cli"));
+    }
+    push(
+        "Library/Application Support/Devin/User/acp-events",
+        home.join("Library")
+            .join("Application Support")
+            .join("Devin")
+            .join("User")
+            .join("acp-events"),
+    );
+    for config in &xdg_config_dirs {
+        push(
+            "Devin/User/acp-events",
+            config.join("Devin").join("User").join("acp-events"),
+        );
+    }
+
+    // Amp: ~/.local/share/amp/threads
+    for data in &xdg_data_dirs {
+        push("amp/threads", data.join("amp").join("threads"));
+    }
+
+    // Factory Droid: ~/.factory/sessions
+    push(".factory/sessions", home.join(".factory").join("sessions"));
+
+    // Pi / Oh My Pi
+    let pi_home = env_home_dir("PI_CODING_AGENT_DIR", home.join(".pi").join("agent"));
+    push(".pi/agent/sessions", pi_home.join("sessions"));
+    push(
+        ".omp/agent/sessions",
+        home.join(".omp").join("agent").join("sessions"),
+    );
+
+    // Kimi CLI + Kimi Code
+    let kimi_share = env_home_dir("KIMI_SHARE_DIR", home.join(".kimi"));
+    push(".kimi/sessions", kimi_share.join("sessions"));
+    let kimi_code = env_home_dir("KIMI_CODE_HOME", home.join(".kimi-code"));
+    push(".kimi-code/sessions", kimi_code.join("sessions"));
+
+    // Qwen CLI (Gemini-like tmp + optional projects transcripts)
+    push(".qwen/tmp", home.join(".qwen").join("tmp"));
+    push(".qwen/projects", home.join(".qwen").join("projects"));
+
+    // Cline CLI: $CLINE_SESSION_DATA_DIR or ~/.cline/data/sessions
+    let cline_dir = env_home_dir("CLINE_DIR", home.join(".cline"));
+    let cline_data = env_home_dir("CLINE_DATA_DIR", cline_dir.join("data"));
+    let cline_sessions = env_home_dir("CLINE_SESSION_DATA_DIR", cline_data.join("sessions"));
+    push(".cline/data/sessions", cline_sessions);
+
+    // Goose
+    for config in &xdg_config_dirs {
+        push(
+            ".config/goose/sessions",
+            config.join("goose").join("sessions"),
+        );
+    }
+    for data in &xdg_data_dirs {
+        push(
+            ".local/share/goose/sessions",
+            data.join("goose").join("sessions"),
+        );
+    }
+    if let Some(root) = extra_env_dir("GOOSE_PATH_ROOT") {
+        push("goose/sessions", root.join("sessions"));
+    }
+
+    // Crush: crush.db lives in ~/.crush or XDG data (not in-repo .crush/skills).
+    // Only measure the home when the session DB is present; otherwise sessions/.
+    let crush_home = home.join(".crush");
+    if crush_home.join("crush.db").is_file() {
+        push(".crush", crush_home);
+    } else {
+        push(".crush/sessions", crush_home.join("sessions"));
+    }
+    for data in &xdg_data_dirs {
+        let crush_xdg = data.join("crush");
+        if crush_xdg.join("crush.db").is_file() {
+            push("crush", crush_xdg);
+        } else {
+            push("crush/sessions", crush_xdg.join("sessions"));
+        }
+    }
+
+    // Hermes: measure sessions/ only — ~/.hermes also holds skills/config.
+    let hermes_home = env_home_dir("HERMES_HOME", home.join(".hermes"));
+    push(".hermes/sessions", hermes_home.join("sessions"));
+
+    // OpenClaw / OpenHands / Mux / Junie / Command Code / CodeBuddy / Augment / Vibe / Kiro
+    push(".openclaw/agents", home.join(".openclaw").join("agents"));
+    push(
+        ".openhands/conversations",
+        home.join(".openhands").join("conversations"),
+    );
+    push(".mux/sessions", home.join(".mux").join("sessions"));
+    push(".junie/sessions", home.join(".junie").join("sessions"));
+    push(
+        ".commandcode/projects",
+        home.join(".commandcode").join("projects"),
+    );
+    push(
+        ".codebuddy/projects",
+        home.join(".codebuddy").join("projects"),
+    );
+    push(".augment/sessions", home.join(".augment").join("sessions"));
+    push(
+        ".vibe/logs/session",
+        home.join(".vibe").join("logs").join("session"),
+    );
+    push(".kiro/sessions", home.join(".kiro").join("sessions"));
+    for data in &xdg_data_dirs {
+        push("kiro-cli", data.join("kiro-cli"));
+    }
+
+    // Windsurf Cascade transcripts (not the whole ~/.codeium or IDE Application Support).
+    push(
+        ".codeium/windsurf/cascade",
+        home.join(".codeium").join("windsurf").join("cascade"),
     );
 
     out
@@ -2120,11 +2349,24 @@ mod tests {
     #[test]
     fn agent_data_roots_only_existing_dirs() {
         let root = tempfile_dir("disk-analyzer-agent-roots");
-        fs::create_dir_all(root.join(".cursor")).unwrap();
-        fs::create_dir_all(root.join(".claude")).unwrap();
+        for home in [
+            ".cursor",
+            ".claude",
+            ".grok",
+            ".factory",
+            ".opencode",
+            ".crush",
+            ".hermes",
+            ".devin",
+        ] {
+            fs::create_dir_all(root.join(home)).unwrap();
+        }
         fs::create_dir_all(root.join(".cursor").join("worktrees").join("feat")).unwrap();
         fs::create_dir_all(root.join("Library/Application Support/Cursor")).unwrap();
-        let empty = agent_data_roots(&root);
+        let empty: Vec<_> = agent_data_roots(&root)
+            .into_iter()
+            .filter(|(_, p)| p.starts_with(&root))
+            .collect();
         assert!(
             empty.is_empty(),
             "whole agent homes and worktrees must not be session roots: {empty:?}"
@@ -2132,11 +2374,42 @@ mod tests {
 
         fs::create_dir_all(root.join(".cursor").join("projects")).unwrap();
         fs::create_dir_all(root.join(".claude").join("projects")).unwrap();
-        let found = agent_data_roots(&root);
+        fs::create_dir_all(root.join(".grok").join("sessions")).unwrap();
+        fs::create_dir_all(root.join(".factory").join("sessions")).unwrap();
+        fs::create_dir_all(root.join(".local").join("share").join("opencode")).unwrap();
+        fs::create_dir_all(root.join(".local").join("share").join("devin").join("cli")).unwrap();
+        fs::create_dir_all(
+            root.join(".local")
+                .join("share")
+                .join("amp")
+                .join("threads"),
+        )
+        .unwrap();
+        fs::create_dir_all(root.join(".pi").join("agent").join("sessions")).unwrap();
+        let found: Vec<_> = agent_data_roots(&root)
+            .into_iter()
+            .filter(|(_, p)| p.starts_with(&root))
+            .collect();
         let names: Vec<_> = found.iter().map(|(n, _)| n.as_str()).collect();
         assert!(names.contains(&".cursor/projects"));
         assert!(names.contains(&".claude/projects"));
-        assert!(!names.iter().any(|n| *n == ".cursor" || *n == ".claude"));
+        assert!(names.contains(&".grok/sessions"));
+        assert!(names.contains(&".factory/sessions"));
+        assert!(names.contains(&".local/share/opencode"));
+        assert!(names.contains(&".local/share/devin/cli"));
+        assert!(names.contains(&".local/share/amp/threads"));
+        assert!(names.contains(&".pi/agent/sessions"));
+        assert!(!names.iter().any(|n| [
+            ".cursor",
+            ".claude",
+            ".grok",
+            ".factory",
+            ".opencode",
+            ".crush",
+            ".hermes",
+            ".devin"
+        ]
+        .contains(n)));
         assert!(!names.contains(&".codex/sessions"));
     }
 }
