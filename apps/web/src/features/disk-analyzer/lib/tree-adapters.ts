@@ -705,6 +705,14 @@ export function suggestLocationRaw(item: CleanupSuggestion): string {
   return item.path;
 }
 
+/** Last path segment of the location — used only when names collide. */
+export function suggestShortLocation(item: CleanupSuggestion): string {
+  const loc = suggestLocationRaw(item).replace(/\/+$/, "");
+  const idx = loc.lastIndexOf("/");
+  if (idx < 0) return loc;
+  return loc.slice(idx + 1) || loc;
+}
+
 export type SuggestNameBucket = {
   name: string;
   items: CleanupSuggestion[];

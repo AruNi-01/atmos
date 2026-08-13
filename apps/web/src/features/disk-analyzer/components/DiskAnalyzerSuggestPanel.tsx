@@ -2,14 +2,20 @@
 
 import { useMemo } from "react";
 import { useTranslations } from "next-intl";
-import { Button, cn } from "@workspace/ui";
+import {
+  Button,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@workspace/ui";
 import { Loader2, Trash2 } from "lucide-react";
 import type { CleanupKind, CleanupSuggestion } from "@/api/ws/disk-analyzer-api";
 import {
   formatBytes,
   groupClearSuggestions,
   suggestIdleDays,
-  suggestLocationRaw,
+  suggestShortLocation,
   suggestionTotalSize,
 } from "@/features/disk-analyzer/lib/tree-adapters";
 
@@ -68,77 +74,61 @@ export function DiskAnalyzerSuggestPanel({
             {ready || !scanning ? t("suggestEmpty") : t("suggestScanning")}
           </p>
         ) : (
-          <div className="space-y-3">
-            {groups.map((group) => (
-              <section key={group.kind} className="min-w-0">
-                <div className="flex items-center gap-1.5 px-1 pb-1">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs font-medium">{kindLabel(group.kind, t)}</p>
-                    <p className="truncate text-[11px] text-muted-foreground">
-                      {t("suggestCount", { count: group.items.length })}
-                      <span className="px-1 text-muted-foreground/50">·</span>
-                      <span className="tabular-nums">{formatBytes(group.size)}</span>
-                      {idleRangeLabel(group.minIdleDays, group.maxIdleDays, t) ? (
-                        <>
+          <TooltipProvider delayDuration={250}>
+            <div className="space-y-3">
+              {groups.map((group) => {
+                const nameCounts = countNames(group.items);
+                return (
+                  <section key={group.kind} className="min-w-0">
+                    <div className="flex items-center gap-1.5 px-1 pb-1.5">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-medium">{kindLabel(group.kind, t)}</p>
+                        <p className="truncate text-[11px] text-muted-foreground">
+                          {t("suggestCount", { count: group.items.length })}
                           <span className="px-1 text-muted-foreground/50">·</span>
-                          {idleRangeLabel(group.minIdleDays, group.maxIdleDays, t)}
-                        </>
-                      ) : null}
-                    </p>
-                  </div>
-                  {group.items.length > 1 ? (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon-xs"
-                      className="size-6 shrink-0 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                      disabled={deleting}
-                      aria-label={t("suggestDeleteGroup")}
-                      title={t("suggestDeleteGroup")}
-                      onClick={() => onDeleteGroup(group.items)}
-                    >
-                      <Trash2 className="size-3" />
-                    </Button>
-                  ) : null}
-                </div>
-
-                <div className="space-y-2">
-                  {group.buckets.map((bucket) => {
-                    const merged = bucket.items.length > 1;
-                    return (
-                      <div key={`${group.kind}:${bucket.name.toLowerCase()}`}>
-                        {merged ? (
-                          <p className="px-1 pb-0.5 text-[11px] font-medium text-muted-foreground">
-                            {localizeName(bucket.name)}
-                            <span className="px-1 text-muted-foreground/50">·</span>
-                            <span className="tabular-nums">{formatBytes(bucket.size)}</span>
-                          </p>
-                        ) : null}
-                        <div className={cn(merged && "space-y-px")}>
-                          {bucket.items.map((item) => (
-                            <SuggestRow
-                              key={item.path}
-                              item={item}
-                              hideName={merged}
-                              deleting={deleting}
-                              localizeName={localizeName}
-                              pathTitle={pathTitle}
-                              onDelete={() => onDeleteOne(item)}
-                            />
-                          ))}
-                        </div>
+                          <span className="tabular-nums">{formatBytes(group.size)}</span>
+                        </p>
                       </div>
-                    );
-                  })}
-                </div>
-              </section>
-            ))}
-            {!ready || scanning ? (
-              <p className="px-1 pt-1 text-[11px] leading-snug text-muted-foreground">
-                {t("suggestScanning")}
-              </p>
-            ) : null}
-          </div>
+                      {group.items.length > 1 ? (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon-xs"
+                          className="size-6 shrink-0 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                          disabled={deleting}
+                          aria-label={t("suggestDeleteGroup")}
+                          title={t("suggestDeleteGroup")}
+                          onClick={() => onDeleteGroup(group.items)}
+                        >
+                          <Trash2 className="size-3" />
+                        </Button>
+                      ) : null}
+                    </div>
+
+                    <div className="overflow-hidden rounded-xl border border-border/60 bg-muted/20">
+                      {group.items.map((item, index) => (
+                        <SuggestRow
+                          key={item.path}
+                          item={item}
+                          showShortLocation={(nameCounts.get(item.name.toLowerCase()) ?? 0) > 1}
+                          divided={index > 0}
+                          deleting={deleting}
+                          localizeName={localizeName}
+                          pathTitle={pathTitle}
+                          onDelete={() => onDeleteOne(item)}
+                        />
+                      ))}
+                    </div>
+                  </section>
+                );
+              })}
+              {!ready || scanning ? (
+                <p className="px-1 pt-1 text-[11px] leading-snug text-muted-foreground">
+                  {t("suggestScanning")}
+                </p>
+              ) : null}
+            </div>
+          </TooltipProvider>
         )}
       </div>
     </div>
@@ -147,61 +137,80 @@ export function DiskAnalyzerSuggestPanel({
 
 function SuggestRow({
   item,
-  hideName,
+  showShortLocation,
+  divided,
   deleting,
   localizeName,
   pathTitle,
   onDelete,
 }: {
   item: CleanupSuggestion;
-  hideName: boolean;
+  showShortLocation: boolean;
+  divided: boolean;
   deleting: boolean;
   localizeName: (name: string) => string;
   pathTitle: (path: string) => string;
   onDelete: () => void;
 }) {
   const t = useTranslations("DiskAnalyzer");
-  const location = pathTitle(suggestLocationRaw(item));
   const idle = suggestIdleDays(item.last_activity_ms);
+  const fullPath = pathTitle(item.path);
   return (
-    <div className="flex items-start gap-1 rounded-md px-1 py-1 hover:bg-muted/40">
-      <div className="min-w-0 flex-1">
-        {hideName ? null : (
-          <p className="truncate text-xs font-medium" title={pathTitle(item.path)}>
-            {localizeName(item.name)}
-          </p>
-        )}
-        <p
-          className="truncate text-[11px] text-muted-foreground"
-          title={pathTitle(item.path)}
-          style={{ direction: "rtl", textAlign: "left" }}
-        >
-          <bdi style={{ unicodeBidi: "plaintext" }}>{location}</bdi>
-        </p>
-        <p className="text-[11px] tabular-nums text-muted-foreground">
-          {formatBytes(item.size)}
-          {idle != null ? (
-            <>
-              <span className="px-1 text-muted-foreground/50">·</span>
-              {t("suggestIdleDays", { days: idle })}
-            </>
-          ) : null}
-        </p>
-      </div>
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon-xs"
-        className="size-6 shrink-0 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-        disabled={deleting}
-        aria-label={t("deleteItem")}
-        title={t("deleteItem")}
-        onClick={onDelete}
-      >
-        <Trash2 className="size-3" />
-      </Button>
+    <div className={divided ? "border-t border-border/50" : undefined}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <div className="flex h-8 cursor-default items-center gap-2 px-2.5 hover:bg-muted/50">
+            <p className="min-w-0 flex-1 truncate text-xs">
+              <span className="font-medium">{localizeName(item.name)}</span>
+              {showShortLocation ? (
+                <span className="text-muted-foreground">
+                  {" · "}
+                  {suggestShortLocation(item)}
+                </span>
+              ) : null}
+            </p>
+            <p className="shrink-0 text-[11px] tabular-nums text-muted-foreground">
+              {formatBytes(item.size)}
+              {idle != null ? (
+                <>
+                  <span className="px-1 text-muted-foreground/50">·</span>
+                  {t("suggestIdleDays", { days: idle })}
+                </>
+              ) : null}
+            </p>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-xs"
+              className="size-6 shrink-0 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+              disabled={deleting}
+              aria-label={t("deleteItem")}
+              title={t("deleteItem")}
+              onClick={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                onDelete();
+              }}
+            >
+              <Trash2 className="size-3" />
+            </Button>
+          </div>
+        </TooltipTrigger>
+        <TooltipContent side="left" className="max-w-xs break-all">
+          {fullPath}
+        </TooltipContent>
+      </Tooltip>
     </div>
   );
+}
+
+function countNames(items: CleanupSuggestion[]): Map<string, number> {
+  const counts = new Map<string, number>();
+  for (const item of items) {
+    const key = item.name.toLowerCase();
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+  return counts;
 }
 
 function kindLabel(
@@ -212,14 +221,4 @@ function kindLabel(
     return t(`suggestKind.${kind}`);
   }
   return t("suggestKind.cache");
-}
-
-function idleRangeLabel(
-  min: number | null,
-  max: number | null,
-  t: ReturnType<typeof useTranslations<"DiskAnalyzer">>,
-): string | null {
-  if (min == null || max == null) return null;
-  if (min === max) return t("suggestIdleDays", { days: min });
-  return t("suggestIdleRange", { min, max });
 }

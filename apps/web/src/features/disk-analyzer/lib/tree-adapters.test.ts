@@ -14,6 +14,7 @@ import {
   SMALL_SUGGEST_BYTES,
   suggestCleanupScore,
   suggestLocationRaw,
+  suggestShortLocation,
   suggestionTotalSize,
   filterTree,
   formatBytes,
@@ -1126,6 +1127,15 @@ describe("disk analyzer suggestion helpers", () => {
         kind: "session",
       }),
     ).toBe("/home/.codex/sessions");
+    expect(
+      suggestShortLocation({
+        path: "/home/proj/node_modules",
+        name: "node_modules",
+        size: 1,
+        reason: "",
+        kind: "cache",
+      }),
+    ).toBe("proj");
   });
 });
 
