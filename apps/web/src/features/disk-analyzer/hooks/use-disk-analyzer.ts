@@ -158,6 +158,7 @@ export function useDiskAnalyzer() {
   const [busy, setBusy] = useState(false);
   const [loadingPath, setLoadingPath] = useState<string | null>(null);
   const autoStartedRef = useRef(false);
+  const startLockRef = useRef(false);
   const loadingPathRef = useRef<string | null>(null);
   const focusPathRef = useRef<string | null>(null);
   const prevTopNRef = useRef(topN);
@@ -275,6 +276,7 @@ export function useDiskAnalyzer() {
         }
 
         if (payload.status === "completed") {
+          startLockRef.current = false;
           setBusy(false);
           loadingPathRef.current = null;
           setLoadingPath(null);
@@ -287,11 +289,13 @@ export function useDiskAnalyzer() {
         }
         if (payload.status === "failed") {
           setError(payload.error ?? scanFailedLabel);
+          startLockRef.current = false;
           setBusy(false);
           loadingPathRef.current = null;
           setLoadingPath(null);
         }
         if (payload.status === "cancelled") {
+          startLockRef.current = false;
           setBusy(false);
           loadingPathRef.current = null;
           setLoadingPath(null);
@@ -302,6 +306,8 @@ export function useDiskAnalyzer() {
   }, [queryClient, queryScope, rememberLevel, scanFailedLabel, topN]);
 
   const startScan = useCallback(async () => {
+    if (startLockRef.current) return;
+    startLockRef.current = true;
     setError(null);
     setBusy(true);
     setTree(null);
@@ -349,6 +355,7 @@ export function useDiskAnalyzer() {
         // Volume lookup is best-effort; do not fail a running scan.
       }
     } catch (e) {
+      startLockRef.current = false;
       setBusy(false);
       setStatus("failed");
       setError(e instanceof Error ? e.message : String(e));
@@ -389,6 +396,7 @@ export function useDiskAnalyzer() {
       // Free UI immediately; server has already dropped the session slot.
       scanIdRef.current = null;
       setScanId(null);
+      startLockRef.current = false;
       setBusy(false);
       setStatus("cancelled");
       setProgress(null);

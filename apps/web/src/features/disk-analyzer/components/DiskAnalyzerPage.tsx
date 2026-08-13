@@ -96,6 +96,8 @@ export function DiskAnalyzerPage() {
     ? analyzer.chartRootSize
     : (analyzer.focusedNode?.size ?? analyzer.chartRootSize ?? 1);
   const scanning = analyzer.status === "running" || analyzer.busy;
+  /** First paint is idle until auto-start; keep Rescan locked so it cannot race. */
+  const scanLocked = scanning || analyzer.status === "idle";
 
   const openDeleteDialog = (path?: string) => {
     if (path) analyzer.setSelectedPath(path);
@@ -209,6 +211,21 @@ export function DiskAnalyzerPage() {
                   </Tooltip>
                 </TooltipProvider>
               </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-9 rounded-xl"
+                onClick={() => void analyzer.startScan()}
+                disabled={scanLocked}
+                aria-busy={scanLocked}
+              >
+                {scanLocked ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <RefreshCw className="size-4" />
+                )}
+                {scanLocked ? t("scanningButton") : t("rescan")}
+              </Button>
               {scanning ? (
                 <Button
                   variant="outline"
@@ -218,22 +235,7 @@ export function DiskAnalyzerPage() {
                 >
                   {t("cancel")}
                 </Button>
-              ) : (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-9 rounded-xl"
-                  onClick={() => void analyzer.startScan()}
-                  disabled={analyzer.busy}
-                >
-                  {analyzer.busy ? (
-                    <Loader2 className="size-4 animate-spin" />
-                  ) : (
-                    <RefreshCw className="size-4" />
-                  )}
-                  {t("rescan")}
-                </Button>
-              )}
+              ) : null}
             </div>
           </div>
 
@@ -404,8 +406,11 @@ export function DiskAnalyzerPage() {
                         : t("scanningWait")}
                     </p>
                     {analyzer.progress?.current_path ? (
-                      <p className="max-w-md truncate text-xs text-muted-foreground/70">
-                        {analyzer.progress.current_path}
+                      <p
+                        className="max-w-md truncate text-xs text-muted-foreground/70"
+                        title={friendlyDiskEntryPath(analyzer.progress.current_path)}
+                      >
+                        {friendlyDiskEntryPath(analyzer.progress.current_path)}
                       </p>
                     ) : null}
                   </>

@@ -9513,6 +9513,7 @@
     "pathPlaceholder": "要扫描的绝对路径",
     "scan": "开始扫描",
     "rescan": "重新扫描",
+    "scanningButton": "扫描中…",
     "cancel": "取消",
     "sunburst": "旭日图",
     "treemap": "矩形树图",

@@ -9513,6 +9513,7 @@
     "pathPlaceholder": "Absolute path to scan",
     "scan": "Scan",
     "rescan": "Rescan",
+    "scanningButton": "Scanning…",
     "cancel": "Cancel",
     "sunburst": "Sunburst",
     "treemap": "Treemap",

@@ -268,6 +268,18 @@ describe("disk analyzer tree adapters", () => {
     ).toBe("/Users/lurunrun/own_spa/中文项目");
     expect(friendlyDiskEntryName("src")).toBe("src");
     expect(friendlyDiskEntryPath("/Users/lurunrun/src")).toBe("/Users/lurunrun/src");
+    expect(
+      friendlyDiskEntryPath(
+        `/Users/lurunrun/.grok/sessions/${encoded}/019fc5bb-c28c-7c73-aa3a-5d952100f71d`,
+      ),
+    ).toBe("/Users/lurunrun/own_spa/中文项目/019fc5bb-c28c-7c73-aa3a-5d952100f71d");
+    expect(
+      friendlyDiskEntryPath(
+        "/Users/lurunrun/.grok/sessions/%2FUsers%2Flurunrun%2Fown_space%2FOpen Source%2Fatmos/019fc5bb-c28c-7c73-aa3a-5d952100f71d",
+      ),
+    ).toBe(
+      "/Users/lurunrun/own_space/Open Source/atmos/019fc5bb-c28c-7c73-aa3a-5d952100f71d",
+    );
     const chart = toEChartsTree(
       {
         name: encoded,

@@ -135,20 +135,38 @@ export function friendlyDiskEntryName(name: string): string {
 }
 
 /**
- * Hover path for a disk entry. When the basename is an encoded cwd, show that
- * decoded project path instead of `…/sessions/%2FUsers%2F…`.
+ * Hover / details path. Decode every percent-encoded segment. When a segment
+ * is an encoded cwd (`%2FUsers%2F…/project`), replace the prefix with that
+ * project path and keep any descendants (session ids, nested folders).
  */
 export function friendlyDiskEntryPath(fsPath: string): string {
-  const base = lastPathComponent(fsPath);
-  const decodedName = decodePercentEncoded(base);
-  if (decodedName !== base && (decodedName.includes("/") || decodedName.includes("\\"))) {
-    return decodedName;
+  if (!fsPath || isAtmosSyntheticPath(fsPath)) return fsPath;
+  if (!PERCENT_ENCODED_RE.test(fsPath)) return fsPath;
+
+  const parts = fsPath.replace(/\\/g, "/").split("/");
+  const out: string[] = [];
+  for (const part of parts) {
+    if (part === "") {
+      if (out.length === 0) out.push("");
+      continue;
+    }
+    const decoded = decodePercentEncoded(part);
+    if (decoded !== part && (decoded.includes("/") || decoded.includes("\\"))) {
+      const cwd = decoded.replace(/\\/g, "/").replace(/\/+$/, "");
+      out.length = 0;
+      if (cwd.startsWith("/")) {
+        out.push("");
+        out.push(...cwd.split("/").filter(Boolean));
+      } else {
+        out.push(...cwd.split("/").filter(Boolean));
+      }
+      continue;
+    }
+    out.push(decoded);
   }
-  if (decodedName !== base) {
-    const parent = fsPath.slice(0, Math.max(0, fsPath.length - base.length));
-    return `${parent}${decodedName}`;
-  }
-  return fsPath;
+  if (out.length === 0) return fsPath;
+  if (out.length === 1 && out[0] === "") return "/";
+  return out.join("/");
 }
 
 /** Product session label when known; otherwise a decoded short folder name. */
