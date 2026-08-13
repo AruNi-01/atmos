@@ -16,6 +16,7 @@ function session(workspaceId: string, phase: SessionView["phase"]): SessionView 
     codec: null,
     size: null,
     lastError: null,
+    streamRev: null,
   };
 }
 

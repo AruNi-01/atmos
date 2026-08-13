@@ -104,3 +104,10 @@ export function spawnFailurePids(opts: {
   }
   return [...pids];
 }
+
+export function isOwnHelperRecord(
+  record: { port: number },
+  spawnPort: number,
+): boolean {
+  return record.port === spawnPort;
+}

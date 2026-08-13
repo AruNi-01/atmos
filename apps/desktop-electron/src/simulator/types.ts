@@ -76,6 +76,8 @@ export type SessionView = {
   codec: StreamCodec | null;
   size: { width: number; height: number } | null;
   lastError: { code: string; message: string } | null;
+  /** Bumps when the helper process behind the same token is replaced. */
+  streamRev?: number | null;
 };
 
 export type HelperStateRecord = {

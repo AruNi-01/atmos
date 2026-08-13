@@ -7,6 +7,7 @@ import {
   parseHelperStateRecord,
   sessionProxyUrls,
   spawnFailurePids,
+  isOwnHelperRecord,
 } from "./handshake.ts";
 
 describe("handshake", () => {
@@ -67,5 +68,10 @@ describe("handshake", () => {
         spawnPort: 4001,
       }),
     ).toEqual([11, 22]);
+  });
+
+  it("only accepts a helper record for this spawn's port", () => {
+    expect(isOwnHelperRecord({ port: 4001 }, 4001)).toBe(true);
+    expect(isOwnHelperRecord({ port: 4000 }, 4001)).toBe(false);
   });
 });

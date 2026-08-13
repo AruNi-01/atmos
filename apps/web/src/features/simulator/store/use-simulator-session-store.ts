@@ -22,6 +22,7 @@ export type SessionView = {
   codec: "h264" | "mjpeg" | null;
   size: { width: number; height: number } | null;
   lastError: { code: string; message: string } | null;
+  streamRev?: number | null;
 };
 
 export type ProbeResult = {
@@ -96,6 +97,7 @@ function createInitialSlice(workspaceId: string): SimulatorSlice {
       codec: null,
       size: null,
       lastError: null,
+      streamRev: null,
     },
     probe: null,
     logs: [],

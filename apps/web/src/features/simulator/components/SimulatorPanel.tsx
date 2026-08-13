@@ -57,7 +57,7 @@ export function SimulatorPanel({
   );
   const [orientation, setOrientation] = useState<"portrait" | "landscape_left">("portrait");
   const session = slice.session;
-  const streamKey = `${session.streamBaseUrl ?? ""}:${session.transport ?? ""}:${session.codec ?? ""}`;
+  const streamKey = `${session.streamBaseUrl ?? ""}:${session.transport ?? ""}:${session.codec ?? ""}:${session.streamRev ?? 0}`;
   const firstFrameKeyRef = useRef<string | null>(null);
   const wasActiveRef = useRef(false);
   const lastWorkspaceRef = useRef<string | null>(null);
@@ -355,6 +355,7 @@ export function SimulatorPanel({
           <span className="absolute bottom-2 left-1/2 h-1 w-20 -translate-x-1/2 rounded-full bg-foreground/25" />
         </div>
         <SimulatorScreen
+          key={`${session.streamBaseUrl ?? ""}:${session.codec ?? ""}:${session.streamRev ?? 0}`}
           className="relative z-0 w-full"
           streamBaseUrl={session.streamBaseUrl}
           codec={session.codec}

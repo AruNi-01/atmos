@@ -51,6 +51,7 @@ import {
   parseHelperStateRecord,
   sessionProxyUrls,
   spawnFailurePids,
+  isOwnHelperRecord,
 } from "./handshake.ts";
 import { planOpenInSimulator } from "./open-project.ts";
 import {
@@ -135,6 +136,7 @@ type LiveSession = {
   inputWs: WebSocket | null;
   suppressExit?: boolean;
   streamThrottled?: boolean;
+  streamRev: number;
 };
 
 const SETUP_REQUIRED_CODES = new Set([
@@ -210,6 +212,8 @@ export class SimulatorBridge {
   private started = false;
   private ownsControlFile = false;
   private readonly reconnecting = new Set<string>();
+  private readonly attachGen = new Map<string, number>();
+  private streamRevSeq = 0;
 
   constructor(hooks: BridgeHooks) {
     this.hooks = hooks;
@@ -370,8 +374,12 @@ export class SimulatorBridge {
       await this.killSession(workspaceId, { shutdownSimulator: false });
     }
 
+    const attachGen = this.bumpAttachGen(workspaceId);
     this.emitStatus(workspaceId, "probing");
     const probe = await this.probe(workspaceId, true);
+    if (!this.attachIsCurrent(workspaceId, attachGen)) {
+      return this.emptyView(workspaceId, "idle");
+    }
     if (!probe.ok) {
       const view = this.emptyView(workspaceId, "setup_required", {
         code: probe.code ?? "setup_required",
@@ -422,6 +430,10 @@ export class SimulatorBridge {
     this.writeClaims(acquired.table);
 
     if (this.fakeName()) {
+      if (!this.attachIsCurrent(workspaceId, attachGen)) {
+        this.writeClaims(releaseClaim(this.readClaims(), chosen.id, workspaceId, this.instanceId));
+        return this.emptyView(workspaceId, "idle");
+      }
       const session = this.createFakeSession(workspaceId, chosen.id, chosen.name, chosen.runtimeId);
       this.sessions.set(workspaceId, session);
       this.trimWarm();
@@ -439,6 +451,10 @@ export class SimulatorBridge {
       const code =
         error instanceof DesktopCommandError ? error.code : "capture_failed";
       return this.failAttach(workspaceId, code, message);
+    }
+    if (!this.attachIsCurrent(workspaceId, attachGen)) {
+      this.writeClaims(releaseClaim(this.readClaims(), chosen.id, workspaceId, this.instanceId));
+      return this.emptyView(workspaceId, "idle");
     }
     const hide = await hideSimulatorAppWindows();
     this.hooks.focusApp?.();
@@ -523,6 +539,13 @@ export class SimulatorBridge {
     if (!session) {
       this.writeClaims(releaseClaim(this.readClaims(), chosen.id, workspaceId, this.instanceId));
       return this.failAttach(workspaceId, "capture_failed", "Capture helper did not start");
+    }
+    if (!this.attachIsCurrent(workspaceId, attachGen)) {
+      this.discardSpawnedHelper(session);
+      this.writeClaims(releaseClaim(this.readClaims(), chosen.id, workspaceId, this.instanceId));
+      const view = this.emptyView(workspaceId, "idle");
+      this.emit("simulator://status", view);
+      return view;
     }
     session.degrade = degrade;
     session.phase = degrade.phase;
@@ -1077,6 +1100,24 @@ export class SimulatorBridge {
         );
       }
       record = parseHelperStateRecord(raw);
+      const deadline = this.now() + 20_000;
+      while (!isOwnHelperRecord(record, port) && this.now() < deadline) {
+        await sleep(50);
+        if (!existsSync(recordPath)) continue;
+        try {
+          record = parseHelperStateRecord(readFileSync(recordPath, "utf8"));
+        } catch {
+          /* keep waiting for this spawn's port */
+        }
+      }
+      if (!isOwnHelperRecord(record, port)) {
+        record = undefined;
+        throw new DesktopCommandError(
+          "capture_failed",
+          "Capture helper did not publish this spawn's port",
+          "simulator_attach",
+        );
+      }
       try {
         assertLoopbackUrl(record.streamUrl);
         assertLoopbackUrl(record.wsUrl);
@@ -1152,6 +1193,7 @@ export class SimulatorBridge {
       degrade: initialDegradeState(),
       hideNote: opts.hideNote,
       inputWs: null,
+      streamRev: ++this.streamRevSeq,
     };
   }
 
@@ -1205,6 +1247,7 @@ export class SimulatorBridge {
     workspaceId: string,
     opts: { shutdownSimulator: boolean },
   ): Promise<void> {
+    this.bumpAttachGen(workspaceId);
     const session = this.sessions.get(workspaceId);
     if (!session) return;
     session.suppressExit = true;
@@ -1446,6 +1489,7 @@ export class SimulatorBridge {
       health: "ok",
       degrade: reduceDegrade(initialDegradeState(), { type: "first_frame" }),
       inputWs: null,
+      streamRev: ++this.streamRevSeq,
     };
   }
 
@@ -1463,6 +1507,7 @@ export class SimulatorBridge {
       codec: session.codec,
       size: null,
       lastError: session.degrade.lastError,
+      streamRev: session.streamRev,
     };
   }
 
@@ -1605,7 +1650,7 @@ export class SimulatorBridge {
       this.sessions.set(workspaceId, next);
       this.emit("simulator://status", this.toView(next));
     } catch {
-      if (session.suppressExit) return;
+      if (session.suppressExit || this.sessions.get(workspaceId) !== session) return;
       session.degrade = reduceDegrade(session.degrade, { type: "helper_died" });
       session.phase = session.degrade.phase;
       session.health = "dead";
@@ -1629,6 +1674,7 @@ export class SimulatorBridge {
       codec: null,
       size: null,
       lastError: lastError ?? null,
+      streamRev: null,
     };
   }
 
@@ -1688,12 +1734,22 @@ export class SimulatorBridge {
       this.sessions.set(session.workspaceId, next);
       this.emit("simulator://status", this.toView(next));
     } catch (error) {
-      if (session.suppressExit && !this.sessions.has(session.workspaceId)) return;
+      if (this.sessions.get(session.workspaceId) !== session) return;
       const message = error instanceof Error ? error.message : String(error);
       this.sessions.delete(session.workspaceId);
       this.writeClaims(releaseClaim(this.readClaims(), session.simulatorId, session.workspaceId, this.instanceId));
       this.failAttach(session.workspaceId, "capture_failed", message);
     }
+  }
+
+  private bumpAttachGen(workspaceId: string): number {
+    const next = (this.attachGen.get(workspaceId) ?? 0) + 1;
+    this.attachGen.set(workspaceId, next);
+    return next;
+  }
+
+  private attachIsCurrent(workspaceId: string, gen: number): boolean {
+    return this.attachGen.get(workspaceId) === gen;
   }
 
   private discardSpawnedHelper(session: LiveSession): void {

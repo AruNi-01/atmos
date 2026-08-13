@@ -13,7 +13,7 @@
 | Rule | Detail |
 |------|--------|
 | **When to add** | After code implementation reaches review or post-review and the findings need durable tracking before cleanup. |
-| **Entry id** | `REV-NNN` - zero-padded, monotonic in this file (next: **REV-050**). |
+| **Entry id** | `REV-NNN` - zero-padded, monotonic in this file (next: **REV-053**). |
 | **Status** | `open` -> `in_progress` -> `fixed` -> `verified` (or `wont-fix` with reason). |
 | **Do not** | Duplicate full TECH/TEST content; link to baseline docs and record only review findings plus fix status. |
 | **Fix proof** | Each fixed item should name the code change and the verification command or manual check. |
@@ -73,6 +73,9 @@
 | REV-047 | P1 | backend | Overlapping degrade respawns | verified |
 | REV-048 | P1 | frontend | Open in simulator queues Metro on the pane id | verified |
 | REV-049 | P1 | backend | Handshake reap `--kill` can still hit the winner | verified |
+| REV-050 | P1 | backend | Handshake accepts another spawn's UDID record | verified |
+| REV-051 | P1 | backend | Degrade respawn catch can delete a replacement session | verified |
+| REV-052 | P1 | frontend | Same-token reconnect leaves a dead MJPEG/WS | verified |
 
 ---
 
@@ -1577,6 +1580,92 @@ Reap only this spawn's port-guarded pids. Do not `--kill <udid>` from handshake 
 ### Fix log
 
 - 2026-08-13 - handshake reap is SIGTERM of own pids only. Also re-read the control lease after `control.start()` before writing.
+
+---
+
+## REV-050 · Handshake accepts another spawn's UDID record
+
+| Field | Value |
+|-------|--------|
+| **Status** | verified |
+| **Severity** | P1 |
+| **Area** | backend |
+| **Reported by** | internal review |
+| **Owner** | unassigned |
+
+### Finding
+
+`waitForFile` accepted the first `server-<udid>.json` even when `record.port` was not this spawn's port, so a take-over winner could bind the loser's helper.
+
+### Required fix
+
+Keep polling until `record.port === spawnPort`. Disconnect/kill bumps an attach generation so an in-flight attach cannot `sessions.set` after abort.
+
+### Acceptance
+
+- [x] `isOwnHelperRecord` is false for a different port.
+- [x] `killSession` bumps attach generation even with no session row.
+
+### Fix log
+
+- 2026-08-13 - port-matched handshake; attach generation.
+
+---
+
+## REV-051 · Degrade respawn catch can delete a replacement session
+
+| Field | Value |
+|-------|--------|
+| **Status** | verified |
+| **Severity** | P1 |
+| **Area** | backend |
+| **Reported by** | internal review |
+| **Owner** | unassigned |
+
+### Finding
+
+`respawnHelperKeepingToken` catch deleted whatever was in the map whenever `suppressExit` was true and a row still existed, including a session installed by a later attach.
+
+### Required fix
+
+Only tear down if the map still points at this session object.
+
+### Acceptance
+
+- [x] Catch no-ops when `sessions.get(workspaceId) !== session`.
+
+### Fix log
+
+- 2026-08-13 - identity check in respawn catch.
+
+---
+
+## REV-052 · Same-token reconnect leaves a dead MJPEG/WS
+
+| Field | Value |
+|-------|--------|
+| **Status** | verified |
+| **Severity** | P1 |
+| **Area** | frontend |
+| **Reported by** | internal review |
+| **Owner** | unassigned |
+
+### Finding
+
+Reconnect reuses the session token so `streamBaseUrl` is unchanged. `SimulatorScreen` only remounts when that URL or codec changes, so the panel kept dead MJPEG and input sockets.
+
+### Required fix
+
+Bump `streamRev` on each helper spawn and key the screen on it.
+
+### Acceptance
+
+- [x] `toView` includes `streamRev`.
+- [x] Panel `streamKey` includes `streamRev`.
+
+### Fix log
+
+- 2026-08-13 - `streamRev` on `SessionView`; `SimulatorScreen` remounts on bump.
 
 
 
