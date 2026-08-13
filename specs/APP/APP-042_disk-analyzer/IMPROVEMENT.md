@@ -11,7 +11,7 @@
 | Rule | Detail |
 |------|--------|
 | **When to add** | After fixing a user-reported bug, reliability issue, quality regression, agent ergonomics gap, or deliberate product parity gap. |
-| **Entry id** | `IMP-NNN` — zero-padded, monotonic in this file (next: **IMP-006**). |
+| **Entry id** | `IMP-NNN` — zero-padded, monotonic in this file (next: **IMP-007**). |
 | **Status** | `open` → `mitigated` → `closed` (or `wont-fix` with reason). |
 | **Do not** | Duplicate full TECH sections; link to TECH/PRD and paste only deltas. |
 | **Versions** | If agent-facing behavior changes, note the relevant Skill / CLI / runtime version in the entry. |
@@ -27,6 +27,7 @@
 | IMP-003 | Measure agent sessions only, not whole agent homes | mitigated | 2026-08-13 |
 | IMP-004 | Cover Grok / OpenCode / Devin and other skill-listed agent session stores | mitigated | 2026-08-13 |
 | IMP-005 | C-end agent session labels hide directories | mitigated | 2026-08-13 |
+| IMP-006 | Decode percent-encoded session folder names | mitigated | 2026-08-13 |
 
 ---
 
@@ -216,3 +217,33 @@ Users see which agent’s session files a tile is, not where it lives on disk. D
 - `apps/web/src/features/disk-analyzer/`
 - `apps/web/messages/en.json`, `apps/web/messages/zh.json`
 - [TECH.md](./TECH.md), [TEST.md](./TEST.md)
+
+---
+
+## IMP-006 · Decode percent-encoded session folder names
+
+| Field | Value |
+|-------|--------|
+| **Date** | 2026-08-13 |
+| **Status** | mitigated |
+| **Reported by** | user |
+| **Severity** | ergonomics |
+| **Skill / CLI / runtime** | N/A — C-end display only |
+
+### Problem
+
+Grok (and similar) session folders are named with a percent-encoded cwd (`%2FUsers%2F…` plus UTF-8 sequences for Chinese). Tiles, the child list, and chart tooltips showed that encoded string as the label, so Chinese was unreadable and the full path crowded the row.
+
+### Solution
+
+Percent-decode folder names and show only the last path component in tiles, list, breadcrumbs, and the details title. Hover (native `title` and chart tooltip) shows the decoded project path. Agent-data group tiles still omit the filesystem path.
+
+### Result
+
+A folder `%2FUsers%2Flurunrun%2Fown_spa%2F中文项目` appears as `中文项目`; hovering reveals `/Users/lurunrun/own_spa/中文项目`.
+
+### Code / docs touched
+
+- `apps/web/src/features/disk-analyzer/lib/tree-adapters.ts`
+- `apps/web/src/features/disk-analyzer/components/DiskAnalyzerPage.tsx`
+- `apps/web/src/features/disk-analyzer/components/DiskUsageChart.tsx`

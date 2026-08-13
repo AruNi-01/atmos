@@ -43,12 +43,13 @@ import { useDiskAnalyzer } from "@/features/disk-analyzer/hooks/use-disk-analyze
 import {
   GIT_WORKTREES_GROUP_PATH,
   canDeleteDiskPath,
+  displayDiskName,
   formatBytes,
+  friendlyDiskEntryPath,
   getCleanupHintKey,
   isAtmosOverviewPath,
   isAtmosRuntimeDir,
   localizedSyntheticName,
-  localizeAgentSessionName,
   TOP_N_OPTIONS,
 } from "@/features/disk-analyzer/lib/tree-adapters";
 
@@ -56,7 +57,7 @@ export function DiskAnalyzerPage() {
   const t = useTranslations("DiskAnalyzer");
   const sessionName = useCallback(
     (name: string) =>
-      localizeAgentSessionName(name, (key) =>
+      displayDiskName(name, (key) =>
         t.has(`agentSessionNames.${key}`) ? t(`agentSessionNames.${key}`) : undefined,
       ),
     [t],
@@ -265,6 +266,7 @@ export function DiskAnalyzerPage() {
                           ? "font-medium text-foreground"
                           : "text-muted-foreground hover:bg-muted hover:text-foreground",
                       )}
+                      title={friendlyDiskEntryPath(crumb.path)}
                       onClick={() => analyzer.drillTo(crumb.path)}
                     >
                       {index === 0
@@ -432,7 +434,7 @@ export function DiskAnalyzerPage() {
                     <div className="flex min-w-0 items-center gap-1.5">
                       <div
                         className="min-w-0 shrink truncate text-sm font-semibold"
-                        title={analyzer.selectedNode.name}
+                        title={friendlyDiskEntryPath(analyzer.selectedNode.path)}
                       >
                         {displayNodeName(
                           analyzer.selectedNode,
@@ -568,7 +570,10 @@ export function DiskAnalyzerPage() {
                               style={{ width: `${share}%` }}
                             />
                             <div className="relative flex min-w-0 flex-1 items-center gap-1.5 text-left">
-                              <span className="truncate text-xs font-medium">
+                              <span
+                                className="truncate text-xs font-medium"
+                                title={friendlyDiskEntryPath(child.path)}
+                              >
                                 {displayNodeName(
                                   child,
                                   analyzer.scanPath,
@@ -957,5 +962,5 @@ function displayNodePath(
     return isAtmosOverviewPath(scanPath) ? atmosLabel : homeLabel;
   }
   if (isHomeRootPath(path)) return homeLabel;
-  return path;
+  return friendlyDiskEntryPath(path);
 }

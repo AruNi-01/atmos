@@ -107,6 +107,62 @@ export function localizeAgentSessionName(
   return suffix ? `${label} (${suffix})` : label;
 }
 
+const PERCENT_ENCODED_RE = /%[0-9A-Fa-f]{2}/;
+
+/** Decode `%2F` / UTF-8 percent sequences. Invalid sequences stay as-is. */
+export function decodePercentEncoded(value: string): string {
+  if (!PERCENT_ENCODED_RE.test(value)) return value;
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
+function lastPathComponent(value: string): string {
+  const parts = value.replace(/\\/g, "/").split("/").filter(Boolean);
+  return parts.at(-1) ?? value;
+}
+
+/**
+ * Folder names used by Grok/Claude-style session stores are often a
+ * percent-encoded cwd. Tiles/lists show only the last path component.
+ */
+export function friendlyDiskEntryName(name: string): string {
+  const decoded = decodePercentEncoded(name);
+  if (decoded === name) return name;
+  return lastPathComponent(decoded);
+}
+
+/**
+ * Hover path for a disk entry. When the basename is an encoded cwd, show that
+ * decoded project path instead of `…/sessions/%2FUsers%2F…`.
+ */
+export function friendlyDiskEntryPath(fsPath: string): string {
+  const base = lastPathComponent(fsPath);
+  const decodedName = decodePercentEncoded(base);
+  if (decodedName !== base && (decodedName.includes("/") || decodedName.includes("\\"))) {
+    return decodedName;
+  }
+  if (decodedName !== base) {
+    const parent = fsPath.slice(0, Math.max(0, fsPath.length - base.length));
+    return `${parent}${decodedName}`;
+  }
+  return fsPath;
+}
+
+/** Product session label when known; otherwise a decoded short folder name. */
+export function displayDiskName(
+  name: string,
+  lookup: (key: string) => string | undefined,
+): string {
+  const { base } = agentSessionNameBase(name);
+  if (AGENT_SESSION_NAME_KEYS.has(base)) {
+    return localizeAgentSessionName(name, lookup);
+  }
+  return friendlyDiskEntryName(name);
+}
+
 /** Synthetic overview/group URIs and the scan root itself cannot be deleted. */
 export function canDeleteDiskPath(
   path: string,
@@ -280,7 +336,14 @@ export function filterTree(node: DiskNode, filters: DiskFilters): DiskNode | nul
     .map((child) => filterTree(child, filters))
     .filter((child): child is DiskNode => child !== null);
 
-  const nameMatch = !query || node.name.toLowerCase().includes(query) || node.path.toLowerCase().includes(query);
+  const decodedName = decodePercentEncoded(node.name).toLowerCase();
+  const decodedPath = friendlyDiskEntryPath(node.path).toLowerCase();
+  const nameMatch =
+    !query ||
+    node.name.toLowerCase().includes(query) ||
+    node.path.toLowerCase().includes(query) ||
+    decodedName.includes(query) ||
+    decodedPath.includes(query);
   const sizeMatch = node.size >= filters.minSize;
   const projectMatch = !filters.projectsOnly || node.is_project || childResults.some((c) => c.is_project || hasProjectDescendant(c));
 
@@ -664,7 +727,7 @@ export function toEChartsTree(
       ? (options.agentDataLabel ?? node.name)
       : node.path === GIT_WORKTREES_GROUP_PATH
         ? (options.gitWorktreesLabel ?? node.name)
-        : (options.localizeName?.(node.name) ?? node.name);
+        : friendlyDiskEntryName(options.localizeName?.(node.name) ?? node.name);
   const bytes = Math.max(node.size, 0);
 
   // At max depth, stop nesting — size still represents the whole subtree.

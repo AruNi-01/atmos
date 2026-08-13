@@ -14,6 +14,8 @@ import {
   isAtmosOverviewPath,
   isAtmosRuntimeDir,
   localizeAgentSessionName,
+  friendlyDiskEntryName,
+  friendlyDiskEntryPath,
   isAtmosSyntheticPath,
   isChildrenLoaded,
   layoutValue,
@@ -254,6 +256,31 @@ describe("disk analyzer tree adapters", () => {
       { maxDepth: 1, localizeName: (name) => localizeAgentSessionName(name, lookup) },
     );
     expect(chart.name).toBe("Claude Code sessions");
+  });
+
+  test("percent-encoded session folders show a short decoded name", () => {
+    const encoded =
+      "%2FUsers%2Flurunrun%2Fown_spa%2F%E4%B8%AD%E6%96%87%E9%A1%B9%E7%9B%AE";
+    expect(friendlyDiskEntryName(encoded)).toBe("中文项目");
+    expect(
+      friendlyDiskEntryPath(`/Users/lurunrun/.grok/sessions/${encoded}`),
+    ).toBe("/Users/lurunrun/own_spa/中文项目");
+    expect(friendlyDiskEntryName("src")).toBe("src");
+    expect(friendlyDiskEntryPath("/Users/lurunrun/src")).toBe("/Users/lurunrun/src");
+    const chart = toEChartsTree(
+      {
+        name: encoded,
+        path: `/Users/lurunrun/.grok/sessions/${encoded}`,
+        size: 40,
+        is_dir: true,
+        is_project: false,
+        file_count: 1,
+        dir_count: 0,
+      },
+      40,
+      { maxDepth: 1 },
+    );
+    expect(chart.name).toBe("中文项目");
   });
 
   test("bytes-eased keeps larger folders larger among siblings", () => {

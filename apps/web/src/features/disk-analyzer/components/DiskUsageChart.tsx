@@ -17,6 +17,7 @@ import {
   SUNBURST_CHART_DEPTH,
   TREEMAP_CHART_DEPTH,
   formatBytes,
+  friendlyDiskEntryPath,
   isAtmosSyntheticPath,
   layoutValue,
   toEChartsTree,
@@ -282,10 +283,11 @@ export function DiskUsageChart({
       const share = Math.min(100, (size / denom) * 100).toFixed(1);
       const name = escapeHtml(p.name ?? "");
       const fullPath = p.data.path ?? "";
+      const hoverPath = friendlyDiskEntryPath(fullPath);
       const path =
         isAtmosSyntheticPath(fullPath) || p.data?.isAgentData
           ? ""
-          : escapeHtml(middleEllipsisPath(fullPath));
+          : escapeHtml(middleEllipsisPath(hoverPath));
       const kindChip = kindChipHtml(p.data, {
         projectLabel,
         workspaceLabel,
@@ -304,7 +306,7 @@ export function DiskUsageChart({
         `<span style="flex-shrink:0;font-variant-numeric:tabular-nums;opacity:0.9">${sizeText}</span>`,
         `</div>`,
         path
-          ? `<div style="opacity:0.75;font-size:11px;margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:320px" title="${escapeHtml(fullPath)}">${path}</div>`
+          ? `<div style="opacity:0.75;font-size:11px;margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:320px" title="${escapeHtml(hoverPath)}">${path}</div>`
           : "",
       ].join("");
     };
