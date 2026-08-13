@@ -346,6 +346,8 @@ pub enum WsAction {
     ScriptGet,
     /// 保存项目脚本配置
     ScriptSave,
+    /// 信任当前项目脚本内容（按内容 hash 确认）
+    ProjectScriptTrust,
 
     // ===== Workspace 操作 =====
     /// 获取项目下的 Workspace 列表
@@ -1016,6 +1018,18 @@ pub struct ScriptGetRequest {
 pub struct ScriptSaveRequest {
     pub project_guid: String,
     pub scripts: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProjectScriptTrustRequest {
+    pub project_guid: String,
+    /// Hash of the script content the user reviewed. The server rejects a
+    /// mismatch so a file that changed since is not trusted unseen.
+    pub hash: String,
+    /// Set when a workspace setup is parked waiting for this confirmation, so
+    /// the setup can resume once the script is accepted.
+    #[serde(default)]
+    pub workspace_id: Option<String>,
 }
 
 // ===== WsMessage 工厂方法 =====

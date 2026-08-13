@@ -53,7 +53,7 @@ pub use service::local_services::{
 };
 pub use service::message_push::MessagePushService;
 pub use service::notification::NotificationService;
-pub use service::project::ProjectService;
+pub use service::project::{ProjectScripts, ProjectService, PROJECT_SCRIPTS_RELATIVE_PATH};
 pub use service::review::ReviewService;
 pub use service::terminal::{
     process_captured_pane_text, select_transcript, strip_ansi_and_controls, AttachSessionParams,

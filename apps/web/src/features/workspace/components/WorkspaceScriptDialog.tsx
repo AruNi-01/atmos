@@ -46,7 +46,7 @@ export const WorkspaceScriptDialog: React.FC<WorkspaceScriptDialogProps> = ({
     if (!projectId) return;
     setIsLoading(true);
     try {
-      const scripts = await wsScriptApi.get(projectId);
+      const { scripts } = await wsScriptApi.get(projectId);
       setSetupScript(scripts.setup || '');
       setRunScript(scripts.run || '');
       setPurgeScript(scripts.purge || '');

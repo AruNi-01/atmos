@@ -43,6 +43,7 @@ export type {
 
 export type {
   ProjectModel,
+  ProjectScripts,
   ProjectWorkspaceBootstrapResponse,
 } from "@atmos/api-types/ws/dto/project";
 

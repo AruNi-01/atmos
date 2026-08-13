@@ -4109,6 +4109,14 @@
         "tip": {
           "press": "Tip: Press",
           "toContinue": "to continue"
+        },
+        "scriptTrust": {
+          "title": "Review this project's setup script",
+          "description": "These commands come from the project's .atmos/scripts/atmos.json and have not been reviewed yet. They run in your shell with your permissions. Accepting trusts the whole file, so read every command below — not just the one about to run.",
+          "trustAndRun": "Trust and run",
+          "trusting": "Trusting…",
+          "skip": "Skip and enter workspace",
+          "trustFailed": "Could not trust the script"
         }
       },
       "taskListPanel": {
@@ -7666,6 +7674,10 @@
         "diff": "Diff",
         "codeBlock": "Code Block"
       }
+    },
+    "scriptTrustReview": {
+      "empty": "This project's script file has no commands in it.",
+      "aboutToRun": "About to run"
     }
   },
   "diff": {
@@ -8897,6 +8909,14 @@
     },
     "workspace": {
       "main": "Main"
+    },
+    "scriptTrust": {
+      "title": "Review this project's run script",
+      "description": "These commands come from the project's .atmos/scripts/atmos.json and have not been reviewed yet. They run in your terminal with your permissions. Accepting trusts the whole file, so read every command below — not just the one about to run.",
+      "trustAndRun": "Trust and run",
+      "trusting": "Trusting…",
+      "cancel": "Cancel",
+      "trustFailed": "Could not trust the script"
     }
   },
   "chatSessions": {

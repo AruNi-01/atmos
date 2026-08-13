@@ -4109,6 +4109,14 @@
         "tip": {
           "press": "提示：按",
           "toContinue": "继续"
+        },
+        "scriptTrust": {
+          "title": "请先确认该项目的初始化脚本",
+          "description": "这些命令来自项目的 .atmos/scripts/atmos.json，尚未经你确认，会以你的权限在 shell 中执行。确认即表示信任整个文件，所以请把下面每一条都读一遍，而不只是即将执行的那条。",
+          "trustAndRun": "信任并运行",
+          "trusting": "正在信任…",
+          "skip": "跳过并进入工作区",
+          "trustFailed": "无法信任该脚本"
         }
       },
       "taskListPanel": {
@@ -7666,6 +7674,10 @@
         "diff": "Diff",
         "codeBlock": "代码块"
       }
+    },
+    "scriptTrustReview": {
+      "empty": "该项目的脚本文件里没有任何命令。",
+      "aboutToRun": "即将执行"
     }
   },
   "diff": {
@@ -8897,6 +8909,14 @@
     },
     "workspace": {
       "main": "主终端"
+    },
+    "scriptTrust": {
+      "title": "请先确认该项目的运行脚本",
+      "description": "这些命令来自项目的 .atmos/scripts/atmos.json，尚未经你确认，会以你的权限在终端中执行。确认即表示信任整个文件，所以请把下面每一条都读一遍，而不只是即将执行的那条。",
+      "trustAndRun": "信任并运行",
+      "trusting": "正在信任…",
+      "cancel": "取消",
+      "trustFailed": "无法信任该脚本"
     }
   },
   "chatSessions": {

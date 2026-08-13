@@ -93,6 +93,15 @@ pub struct WorkspaceSetupProgressNotification {
     pub replace_output: bool,
     #[serde(default)]
     pub requires_confirmation: bool,
+    /// Setup is parked because the project's `.atmos` script content has not been
+    /// accepted by the user. `output` carries the script for review, and the
+    /// client confirms with `ProjectScriptTrust` using `script_hash`.
+    #[serde(default)]
+    pub requires_script_trust: bool,
+    #[serde(default)]
+    pub script_project_guid: Option<String>,
+    #[serde(default)]
+    pub script_hash: Option<String>,
     pub success: bool,
     /// 倒计时 (秒)
     pub countdown: Option<u32>,

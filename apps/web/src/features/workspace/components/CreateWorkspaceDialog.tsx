@@ -340,7 +340,7 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
           }
         }
 
-        const scripts = await wsScriptApi.get(selectedProjectId);
+        const { scripts } = await wsScriptApi.get(selectedProjectId);
         if (!cancelled) {
           setHasSetupScript(
             typeof scripts.setup === 'string' && scripts.setup.trim().length > 0,

