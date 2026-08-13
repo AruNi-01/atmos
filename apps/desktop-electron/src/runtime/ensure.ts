@@ -17,6 +17,8 @@ import { fileURLToPath } from "node:url";
 
 export const DEFAULT_HOST = "127.0.0.1";
 export const DEFAULT_PORT = 30303;
+/** Hosted web app that is allowed to talk to a local Server directly. */
+export const HOSTED_WEB_ORIGIN = "https://app.atmos.land";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -604,6 +606,14 @@ function spawnViaShell(
           SERVER_HOST: host,
           ATMOS_PORT: String(port),
           ATMOS_STATIC_DIR: web,
+          // Pin the browser origins allowed to reach this Server. Setting this
+          // also turns off the dev-only "any localhost port is trusted" rule, so
+          // a page served by some other local process cannot drive our API.
+          CORS_ORIGIN: [
+            `http://127.0.0.1:${port}`,
+            `http://localhost:${port}`,
+            HOSTED_WEB_ORIGIN,
+          ].join(","),
           ATMOS_RUNTIME_DIR: runtimeDir,
           ATMOS_DATA_DIR: dataDir,
           ATMOS_LOCAL_API_BIN: apiBin,

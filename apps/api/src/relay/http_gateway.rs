@@ -97,6 +97,12 @@ pub async fn handle_http_envelope(body: &str) -> Option<String> {
         if lower == "authorization" {
             continue;
         }
+        // The remote browser's origin belongs to the edge hop, which already
+        // authenticated this request. Forwarding it would make the local origin
+        // guard judge a page it cannot reason about.
+        if lower == "origin" || lower == "referer" {
+            continue;
+        }
         let Ok(header_name) = HeaderName::from_bytes(name.as_bytes()) else {
             continue;
         };
