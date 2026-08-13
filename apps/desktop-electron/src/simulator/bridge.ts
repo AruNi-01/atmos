@@ -1,4 +1,4 @@
-import { mkdirSync, readFileSync, writeFileSync, existsSync, unlinkSync, appendFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync, existsSync, unlinkSync, appendFileSync, readdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { tmpdir as osTmpdir } from "node:os";
 import { join } from "node:path";
@@ -9,12 +9,23 @@ import { randomUUID } from "node:crypto";
 import { DesktopCommandError } from "../errors.js";
 import { listenersAreLoopback } from "./bind-assert.ts";
 import {
+  dropClaims,
+  dropClaimsHeldBy,
   releaseClaim,
   takeOverClaim,
   tryAcquireClaim,
 } from "./claims.ts";
 import type { CommandRunner } from "./command-runner.ts";
 import { SimulatorControlPlane, newToken } from "./control-plane.ts";
+import {
+  CONTROL_PROTOCOL,
+  isProcessAlive,
+  leaseBelongsToProcess,
+  parseControlLease,
+  probeControlHealth,
+  shouldTakeOverLease,
+  type ControlLease,
+} from "./control-lease.ts";
 import {
   initialDegradeState,
   isCaptureMismatchStderr,
@@ -47,6 +58,12 @@ import {
 } from "./paths.ts";
 import { PINNED_HELPER_VERSION } from "./pin.ts";
 import { probeSimulator } from "./probe.ts";
+import {
+  listedHelperFromStateRecordRaw,
+  parseHelperList,
+  planOrphanKills,
+  type ListedHelper,
+} from "./orphan.ts";
 import { simulatorNeedsBoot } from "./parse-simctl.ts";
 import { defaultCommandRunner, runCommand } from "./run-command.ts";
 import { selectSimulator } from "./select.ts";
@@ -68,6 +85,7 @@ import type {
   ProbeHost,
   ProbeResult,
   SessionView,
+  SimulatorClaim,
   StreamCodec,
   StreamTransport,
 } from "./types.ts";
@@ -85,6 +103,7 @@ export type BridgeHooks = {
   tmpdir?: string;
   env?: NodeJS.ProcessEnv;
   execPath?: string;
+  pid?: number;
 };
 
 type LiveSession = {
@@ -175,6 +194,7 @@ export class SimulatorBridge {
   private probeCache: { at: number; result: ProbeResult } | null = null;
   private tick: ReturnType<typeof setInterval> | null = null;
   private started = false;
+  private ownsControlFile = false;
   private readonly reconnecting = new Set<string>();
 
   constructor(hooks: BridgeHooks) {
@@ -184,9 +204,20 @@ export class SimulatorBridge {
     this.env = hooks.env ?? process.env;
   }
 
-  start(): void {
+  async start(): Promise<void> {
     if (this.started) return;
     this.started = true;
+    const existing = this.readControlLease();
+    let takeOver = true;
+    try {
+      const healthOk = existing ? await probeControlHealth(existing.base_url) : false;
+      takeOver = shouldTakeOverLease(existing, {
+        isPidAlive: isProcessAlive,
+        healthOk,
+      });
+    } catch {
+      takeOver = true;
+    }
     const { port, token } = this.control.start({
       lookupSession: (sessionToken) => {
         for (const session of this.sessions.values()) {
@@ -198,14 +229,19 @@ export class SimulatorBridge {
       },
       invoke: (body) => this.handleControlInvoke(body),
     });
-    writePrivateJson(controlJsonPath(this.env), {
-      protocol: "atmos-simulator/v1",
-      base_url: `http://127.0.0.1:${port}`,
-      port,
-      token,
-      updated_at: new Date(this.now()).toISOString(),
-    });
-    void this.reconcileOrphans();
+    if (takeOver) {
+      writePrivateJson(controlJsonPath(this.env), {
+        protocol: CONTROL_PROTOCOL,
+        base_url: `http://127.0.0.1:${port}`,
+        port,
+        token,
+        pid: this.pid(),
+        instance_id: this.instanceId,
+        updated_at: new Date(this.now()).toISOString(),
+      });
+      this.ownsControlFile = true;
+    }
+    await this.reconcileOrphans().catch(() => undefined);
     this.tick = setInterval(() => this.onTick(), 1_000);
   }
 
@@ -220,15 +256,29 @@ export class SimulatorBridge {
     if (this.tick) clearInterval(this.tick);
     this.tick = null;
     this.started = false;
-    for (const path of [controlJsonPath(this.env), claimsJsonPath(this.env)]) {
-      if (existsSync(path)) {
-        try {
-          unlinkSync(path);
-        } catch {
-          /* ignore */
-        }
-      }
+    if (this.ownsControlFile) {
+      await this.reconcileOrphans().catch(() => undefined);
+      this.unlinkControlLeaseIfOwned();
     }
+    this.ownsControlFile = false;
+    this.writeClaims(dropClaimsHeldBy(this.readClaims(), {
+      instanceId: this.instanceId,
+      desktopPid: this.pid(),
+    }));
+  }
+
+  private pid(): number {
+    return this.hooks.pid ?? process.pid;
+  }
+
+  private newClaim(workspaceId: string, helperPid?: number): SimulatorClaim {
+    return {
+      workspaceId,
+      instanceId: this.instanceId,
+      desktopPid: this.pid(),
+      since: new Date(this.now()).toISOString(),
+      ...(helperPid !== undefined ? { helperPid } : {}),
+    };
   }
 
   private now(): number {
@@ -329,13 +379,7 @@ export class SimulatorBridge {
     }
 
     const claims = this.readClaims();
-    const acquired = tryAcquireClaim(
-      claims,
-      chosen.id,
-      workspaceId,
-      this.instanceId,
-      new Date(this.now()).toISOString(),
-    );
+    const acquired = tryAcquireClaim(claims, chosen.id, this.newClaim(workspaceId));
     if (!acquired.ok) {
       return this.failAttach(
         workspaceId,
@@ -523,13 +567,7 @@ export class SimulatorBridge {
 
   async takeOver(workspaceId: string, simulatorId: string): Promise<SessionView> {
     const claims = this.readClaims();
-    const taken = takeOverClaim(
-      claims,
-      simulatorId,
-      workspaceId,
-      this.instanceId,
-      new Date(this.now()).toISOString(),
-    );
+    const taken = takeOverClaim(claims, simulatorId, this.newClaim(workspaceId));
     if (taken.previous && taken.previous.workspaceId !== workspaceId) {
       await this.killSession(taken.previous.workspaceId, { shutdownSimulator: false });
       const auditPath = auditLogPath(this.env);
@@ -913,6 +951,7 @@ export class SimulatorBridge {
     }
     const record = parseHelperStateRecord(raw);
     const daemonPid = record.pid;
+    this.patchClaim(opts.simulatorId, { helperPid: daemonPid });
     const killSpawned = () => {
       for (const pid of [daemonPid, child.pid]) {
         if (!pid) continue;
@@ -1073,21 +1112,21 @@ export class SimulatorBridge {
       if (!session.childPid || this.fakeName() || this.reconnecting.has(session.workspaceId)) {
         continue;
       }
-      if (!this.helperPidAlive(session.childPid)) {
+      if (!isProcessAlive(session.childPid)) {
         void this.handleHelperExit(session.workspaceId, session.childPid);
       }
     }
   }
 
-  private async helperCli(args: string[]): Promise<void> {
+  private async helperCli(args: string[]): Promise<{ code: number; stdout: string; stderr: string }> {
     const helper = resolveHelperDir({
       env: this.env,
       resourcesPath: this.hooks.resourcesPath ?? process.resourcesPath,
       repoRoot: this.hooks.repoRoot ?? null,
     });
-    if ("code" in helper) return;
+    if ("code" in helper) return { code: 127, stdout: "", stderr: "helper_missing" };
     const entry = join(helper.dir, "dist", "serve-sim.js");
-    await runCommand(this.hooks.execPath ?? process.execPath, [entry, ...args], {
+    return runCommand(this.hooks.execPath ?? process.execPath, [entry, ...args], {
       env: withHelperSpawnEnv(this.env, {
         developerDir: this.probeCache?.result.facts.xcodePath,
       }),
@@ -1095,8 +1134,89 @@ export class SimulatorBridge {
     });
   }
 
+  private listedHelpersFromTmpdir(): ListedHelper[] {
+    const dir = join(this.hooks.tmpdir ?? osTmpdir(), "serve-sim");
+    if (!existsSync(dir)) return [];
+    const out: ListedHelper[] = [];
+    for (const name of readdirSync(dir)) {
+      if (!name.startsWith("server-") || !name.endsWith(".json")) continue;
+      try {
+        const item = listedHelperFromStateRecordRaw(readFileSync(join(dir, name), "utf8"));
+        if (item) out.push(item);
+      } catch {
+        /* skip unreadable records */
+      }
+    }
+    return out;
+  }
+
   private async reconcileOrphans(): Promise<void> {
-    await this.helperCli(["--kill"]);
+    const listedResult = await this.helperCli(["--list", "-q"]);
+    const listed =
+      listedResult.code === 0
+        ? parseHelperList(listedResult.stdout)
+        : this.listedHelpersFromTmpdir();
+    const claims = this.readClaims();
+    const plan = planOrphanKills({
+      listed,
+      claims,
+      sessionHelperPids: new Set(
+        [...this.sessions.values()].map((session) => session.childPid).filter(Boolean),
+      ),
+      sessionSimulatorIds: new Set(
+        [...this.sessions.values()].map((session) => session.simulatorId),
+      ),
+      selfPid: this.pid(),
+      isPidAlive: isProcessAlive,
+    });
+    const listedPid = new Map(
+      listed
+        .filter((item) => item.simulatorId && item.pid)
+        .map((item) => [item.simulatorId as string, item.pid as number]),
+    );
+    for (const id of plan.killSimulatorIds) {
+      await this.helperCli(["--kill", id]);
+      const pid = listedPid.get(id);
+      if (pid && isProcessAlive(pid)) {
+        try {
+          process.kill(pid, "SIGTERM");
+        } catch {
+          /* ignore */
+        }
+      }
+    }
+    for (const pid of plan.killPids) {
+      try {
+        process.kill(pid, "SIGTERM");
+      } catch {
+        /* ignore */
+      }
+    }
+    this.writeClaims(dropClaims(this.readClaims(), plan.dropClaimIds));
+  }
+
+  private unlinkControlLeaseIfOwned(): void {
+    const current = this.readControlLease();
+    if (!leaseBelongsToProcess(current, { pid: this.pid(), instanceId: this.instanceId })) {
+      return;
+    }
+    const path = controlJsonPath(this.env);
+    if (!existsSync(path)) return;
+    try {
+      unlinkSync(path);
+    } catch {
+      /* ignore */
+    }
+  }
+
+  private readControlLease(): ControlLease | null {
+    const path = controlJsonPath(this.env);
+    if (!existsSync(path)) return null;
+    try {
+      return parseControlLease(readFileSync(path, "utf8"));
+    } catch {
+      return null;
+    }
   }
 
   private readClaims(): ClaimTable {
@@ -1110,7 +1230,25 @@ export class SimulatorBridge {
   }
 
   private writeClaims(table: ClaimTable): void {
-    writePrivateJson(claimsJsonPath(this.env), table);
+    const path = claimsJsonPath(this.env);
+    if (Object.keys(table).length === 0) {
+      if (existsSync(path)) {
+        try {
+          unlinkSync(path);
+        } catch {
+          /* ignore */
+        }
+      }
+      return;
+    }
+    writePrivateJson(path, table);
+  }
+
+  private patchClaim(simulatorId: string, patch: Partial<SimulatorClaim>): void {
+    const table = this.readClaims();
+    const current = table[simulatorId];
+    if (!current) return;
+    this.writeClaims({ ...table, [simulatorId]: { ...current, ...patch } });
   }
 
   private readLastUsed(workspaceId: string): string | null {
@@ -1188,15 +1326,6 @@ export class SimulatorBridge {
     };
     this.emit("simulator://status", view);
     return view;
-  }
-
-  private helperPidAlive(pid: number): boolean {
-    try {
-      process.kill(pid, 0);
-      return true;
-    } catch {
-      return false;
-    }
   }
 
   private async probeHelperHealth(): Promise<{ ok: boolean; mismatch?: boolean }> {

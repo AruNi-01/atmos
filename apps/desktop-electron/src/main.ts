@@ -138,7 +138,7 @@ async function boot() {
         typeof process.resourcesPath === "string" ? process.resourcesPath : undefined,
       repoRoot: process.cwd(),
     });
-    state.simulator.start();
+    await state.simulator.start();
   }
   if (!state.tunnel) {
     state.tunnel = new TunnelService();

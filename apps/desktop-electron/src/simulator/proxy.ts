@@ -15,11 +15,13 @@ const ALLOWED_UPSTREAM = new Set([
 ]);
 
 export type ParsedProxyPath =
+  | { kind: "health" }
   | { kind: "invoke" }
   | { kind: "session"; token: string; upstreamPath: string };
 
 export function parseProxyPath(pathname: string): ParsedProxyPath | null {
   const path = pathname.split("?")[0] || "/";
+  if (path === "/v1/health") return { kind: "health" };
   if (path === "/v1/invoke") return { kind: "invoke" };
   if (!path.startsWith(SESSION_PREFIX)) return null;
   const rest = path.slice(SESSION_PREFIX.length);

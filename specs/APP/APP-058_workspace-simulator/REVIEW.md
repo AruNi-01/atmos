@@ -13,7 +13,7 @@
 | Rule | Detail |
 |------|--------|
 | **When to add** | After code implementation reaches review or post-review and the findings need durable tracking before cleanup. |
-| **Entry id** | `REV-NNN` - zero-padded, monotonic in this file (next: **REV-027**). |
+| **Entry id** | `REV-NNN` - zero-padded, monotonic in this file (next: **REV-028**). |
 | **Status** | `open` -> `in_progress` -> `fixed` -> `verified` (or `wont-fix` with reason). |
 | **Do not** | Duplicate full TECH/TEST content; link to baseline docs and record only review findings plus fix status. |
 | **Fix proof** | Each fixed item should name the code change and the verification command or manual check. |
@@ -45,9 +45,9 @@
 | REV-019 | P1 | frontend | Take-over can pick a different available UDID | fixed |
 | REV-020 | P1 | frontend | Config WS frames are parsed and discarded | fixed |
 | REV-021 | P1 | backend | CLI `ok: false` without `error_code` exits 0 | fixed |
-| REV-022 | P2 | backend | `control.json` is written on Desktop start | wont-fix |
+| REV-022 | P2 | backend | `control.json` is written on Desktop start | verified |
 | REV-023 | P1 | backend | Re-attach ignores a new `simulatorId` | fixed |
-| REV-024 | P2 | backend | Global `serve-sim --kill` on every Desktop start | open |
+| REV-024 | P2 | backend | Global `serve-sim --kill` on every Desktop start | verified |
 | REV-025 | P2 | test | Opcode unit tests omit pinch / key / software keyboard | verified |
 | REV-026 | P2 | docs | TEST.md S6 still names `helper_not_installed` | verified |
 
@@ -740,7 +740,7 @@ Any `ok: false` is non-zero (`error_code` mapped, else 1). Write `--out` only wh
 
 | Field | Value |
 |-------|--------|
-| **Status** | wont-fix |
+| **Status** | verified |
 | **Severity** | P2 |
 | **Area** | backend |
 | **Reported by** | internal review |
@@ -748,7 +748,7 @@ Any `ok: false` is non-zero (`error_code` mapped, else 1). Write `--out` only wh
 
 ### Finding
 
-TECH says write the control file on first session. The bridge writes it in `start()` so `atmos simulator list` can discover the loopback plane before any attach.
+TECH originally said write the control file on first session. The bridge writes it when the control plane starts so `atmos simulator list` can discover the loopback plane before any attach.
 
 ### Evidence
 
@@ -757,15 +757,17 @@ TECH says write the control file on first session. The bridge writes it in `star
 
 ### Required fix
 
-Leave as-is. CLI discovery needs the file as soon as Desktop is running.
+Keep write-on-start. Add a lease (`pid` + `GET /v1/health`) so a second Desktop process does not overwrite a live owner's `control.json`.
 
 ### Acceptance
 
-- [x] Documented as intentional.
+- [x] TECH §3.2 documents write-on-start plus lease / take-over.
+- [x] A live owner (pid alive + `/v1/health`) is not overwritten.
+- [x] Non-owner `stop()` does not unlink the owner's file.
 
 ### Fix log
 
-- 2026-08-13 - wont-fix: CLI must be able to invoke `list` / probe with no session.
+- 2026-08-13 - implemented as a `control.json` lease (`pid`, `instance_id`, unauthenticated `GET /v1/health`) rather than delaying the write until first attach.
 
 ---
 
@@ -805,7 +807,7 @@ When `simulatorId` is set and differs, tear down and attach the requested simula
 
 | Field | Value |
 |-------|--------|
-| **Status** | open |
+| **Status** | verified |
 | **Severity** | P2 |
 | **Area** | backend |
 | **Reported by** | internal review |
@@ -813,7 +815,7 @@ When `simulatorId` is set and differs, tear down and attach the requested simula
 
 ### Finding
 
-`reconcileOrphans` runs `serve-sim --kill`, which tears down helpers owned by another Atmos Desktop instance on the same machine.
+`reconcileOrphans` ran `serve-sim --kill`, which tears down helpers owned by another Atmos Desktop instance on the same machine.
 
 ### Evidence
 
@@ -821,15 +823,18 @@ When `simulatorId` is set and differs, tear down and attach the requested simula
 
 ### Required fix
 
-Scoped orphan cleanup (instance lock or pid/claim match). Deferred: needs a second-instance design, not a silent behavior change in this pass.
+Scoped orphan cleanup: `serve-sim --list -q` (tmpdir state-record fallback), keep helpers whose claim `desktopPid` is a live other process, `--kill <udid>` only for leftovers.
 
 ### Acceptance
 
-- [ ] Second Desktop instance does not kill the first instance's helper.
+- [x] Start does not call `serve-sim --kill` with no argument.
+- [x] `planOrphanKills` keeps helpers owned by another live Desktop pid.
+- [x] Dead `desktopPid` rows are dropped and targeted for `--kill <udid>`.
 
 ### Fix log
 
 - 2026-08-13 - left open; not fixed in this pass.
+- 2026-08-13 - scoped reconcile via `orphan.ts` + claims `desktopPid`; unit tests in `orphan.test.ts` / `control-lease.test.ts`.
 
 ---
 

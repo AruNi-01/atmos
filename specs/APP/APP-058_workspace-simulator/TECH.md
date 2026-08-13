@@ -94,7 +94,7 @@ Hosted web has no `window.__ATMOS_DESKTOP__` (`isElectronShell()` in `apps/web/s
 
 ### 3.2 CLI ↔ main (loopback + discovery file)
 
-`~/.atmos/state/simulator/control.json`, mode `0600`, written on first session and removed on quit (`state/` = session & discovery per [atmos-home-layout](../../../agents/references/runtime/atmos-home-layout.md)):
+`~/.atmos/state/simulator/control.json`, mode `0600`, written when the in-process control plane starts and removed on quit by the **lease owner** (`state/` = session & discovery per [atmos-home-layout](../../../agents/references/runtime/atmos-home-layout.md)):
 
 ```json
 {
@@ -102,9 +102,24 @@ Hosted web has no `window.__ATMOS_DESKTOP__` (`isElectronShell()` in `apps/web/s
   "base_url": "http://127.0.0.1:52413",
   "port": 52413,
   "token": "<control-plane token, per Desktop run>",
+  "pid": 12345,
+  "instance_id": "<uuid of this Desktop process>",
   "updated_at": "2026-08-13T12:00:00Z"
 }
 ```
+
+`pid` is the Desktop process id (not the helper). `instance_id` is per process and cannot identify crash leftovers; liveness is `pid` plus the health probe below.
+
+Lease / take-over:
+
+1. On start, read the existing file (if any).
+2. **Live owner** = `pid` is alive **and** `GET {base_url}/v1/health` returns `{ ok: true, protocol: "atmos-simulator/v1" }` (no bearer). Then this process does **not** overwrite the file and does **not** kill that owner's helpers. It still starts its own in-process control plane for renderer IPC (`ownsControlFile = false`).
+3. If the file is missing, `pid` is dead, or health fails → take the lease, write a new file, then run scoped orphan reconcile.
+4. `stop()` unlinks `control.json` only when `ownsControlFile` is true. A non-owner must not delete the owner's file, and must not wipe the whole claims table (only rows for this `instanceId` / `desktopPid`).
+
+CLI talks only to the owner recorded in `control.json`. Extra fields are ignored by serde. Two Desktop processes (production vs a `.dev` bundle) may each attach a **different** UDID via their own IPC/proxy; the same UDID still returns `simulator_in_use` and can be taken over. Renderer traffic is never forwarded through another instance's proxy.
+
+`GET {base_url}/v1/health` is unauthenticated so a second Desktop can probe liveness without the control token. `POST /v1/invoke` still requires the bearer:
 
 `POST {base_url}/v1/invoke` with `Authorization: Bearer <token>`:
 
@@ -232,7 +247,7 @@ type SimulatorSession = {
 
 ### 6.2 Exclusivity
 
-A machine-wide claim table maps `simulatorId → { workspaceId, instanceId }`. `simulator_attach` on a claimed simulator returns `simulator_in_use` with the holder (and an instance marker when another Desktop holds it). `simulator_take_over` kills the holder's session, re-claims, and writes an audit log line. Cross-instance claims are detected through the claim file plus `serve-sim --list`.
+A machine-wide claim table maps `simulatorId → { workspaceId, instanceId, desktopPid, helperPid?, since }`. `simulator_attach` on a claimed simulator returns `simulator_in_use` with the holder (and an instance marker when another Desktop holds it). `simulator_take_over` kills the holder's session, re-claims, and writes an audit log line. Cross-instance claims are detected through the claim file (`desktopPid` liveness) plus `serve-sim --list`.
 
 ### 6.3 Lifecycle and resource governance
 
@@ -247,10 +262,10 @@ A machine-wide claim table maps `simulatorId → { workspaceId, instanceId }`. `
 | Workspace closed / worktree deleted | kill helper, release claim; simulator stays booted |
 | "Disconnect" | kill helper only |
 | "Shut down simulator" | `simctl shutdown` |
-| Desktop `before-quit` | kill all sessions, `serve-sim --kill`, remove `control.json` and claims |
-| Desktop start | reconcile via `serve-sim --list`, kill leftovers from previous runs |
+| Desktop `before-quit` | kill this process's sessions (SIGTERM recorded helper pids); lease owner runs scoped orphan reconcile then removes `control.json`; drop this process's claim rows only. Do **not** `serve-sim --kill` with no argument while another live Atmos `desktopPid` holds a claim |
+| Desktop start | read the `control.json` lease; if a live owner exists, keep their file. Reconcile via `serve-sim --list -q` (fallback: `$TMPDIR/serve-sim/server-*.json`), then `serve-sim --kill <udid>` only for leftovers whose claim `desktopPid` is dead or missing. Never blanket `--kill` |
 
-Orphan recovery uses the helper's own `--list` / `--kill`; no separate pid-file store.
+Orphan recovery uses the helper's `--list` / `--kill <udid>` plus `desktopPid` liveness on the claim table. There is no separate pid-file; the lease pid lives **in** `control.json`.
 
 ### 6.4 Boot and window hiding
 
@@ -402,8 +417,8 @@ Rules:
 
 | Path | Contents | Mode |
 |------|----------|------|
-| `~/.atmos/state/simulator/control.json` | CLI discovery: proxy `base_url`, `port`, control token | `0600` |
-| `~/.atmos/state/simulator/claims.json` | `simulatorId → { workspaceId, instanceId, since }` | `0600` |
+| `~/.atmos/state/simulator/control.json` | CLI discovery + lease: proxy `base_url`, `port`, control token, Desktop `pid`, `instance_id` | `0600` |
+| `~/.atmos/state/simulator/claims.json` | `simulatorId → { workspaceId, instanceId, desktopPid, helperPid?, since }` | `0600` |
 | `~/.atmos/state/simulator/last-used/<workspace_id>.json` | last-used simulator per workspace | `0600` |
 | `<app>/Contents/Resources/simulator-helper/` | bundled helper payload + `helper-manifest.json` (version provenance) | in-bundle, signed with the app |
 | `$TMPDIR/serve-sim/server-<udid>.{json,log}` | helper-owned, read-only to us | helper writes `0600` |
@@ -451,7 +466,7 @@ Design rule that preserves this: **Apple events are only ever sent from Electron
 | macOS 14+ / arm64 only | probe states it plainly; no silent failure |
 | Simulator + capture is power-hungry | warm cap 2, throttle on hide, idle release at 10 min, native resolution only while visible |
 | Automation TCC denied | hiding degrades to a non-blocking note; streaming is unaffected |
-| Two Desktop instances fight over one simulator | claim file + `serve-sim --list` reconciliation + explicit take-over |
+| Two Desktop instances fight over one simulator | `control.json` lease (`pid` + `GET /v1/health`) so CLI has a single owner; claims carry `desktopPid`; start/quit use scoped `serve-sim --kill <udid>` (never blanket `--kill`); same UDID still requires explicit take-over |
 | Single large branch is hard to review | §10 keeps commits step-sized with a gate each, and the risky logic is pure and unit-tested rather than only manually verified |
 | Platform scope creep | Android and remote Mac are separate specs; the `runtimeKind` + adapter seam and the proxy indirection are the only extension points this branch must keep |
 

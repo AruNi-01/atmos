@@ -33,6 +33,7 @@ Honest limits: nothing that needs a real iOS runtime or a signed macOS build can
 | M10 open in simulator | S27 |
 | Naming (PRD naming rules) | S28 |
 | Packaging + signing + authorization (TECH §4, §13.1, §13.2) | S29, S30, S31 |
+| Control-plane lease + scoped orphans (TECH §3.2, §6.3) | S32 |
 
 ## Execution map
 
@@ -69,6 +70,7 @@ Honest limits: nothing that needs a real iOS runtime or a signed macOS build can
 | S29 | unit + package check | `helper-resolve.test.ts` + packaged app inspection | staged payload | resolution order and version assertion; the packaged app contains `Resources/simulator-helper/` on macOS and not on Windows/Linux | pending |
 | S30 | manual | packaged ad-hoc build, macOS 14+ arm64 | — | the Node-API addon loads from the bundle; no entitlement present in the app | pending |
 | S31 | manual | clean macOS user account | — | exactly one permission prompt for the whole feature (Automation, named Atmos); no Screen Recording, no Accessibility, no "unidentified developer" gate | pending |
+| S32 | unit | `control-lease.test.ts`, `orphan.test.ts`, `control-plane.test.ts` | lease JSON + helper `--list` fixtures | live owner not overwritten; `--list` then `--kill <udid>` only; `/v1/health` unauthenticated | pending |
 | G* | gates | `just typecheck`, `bun test`, `just lint`, `cargo test --workspace` | — | green | pending |
 
 ## Scenarios
@@ -164,6 +166,12 @@ Honest limits: nothing that needs a real iOS runtime or a signed macOS build can
 **Then** the only permission prompt is Automation, attributed to Atmos — no Screen Recording prompt, no Accessibility prompt, and no Gatekeeper "unidentified developer" dialog for any helper binary.
 **Signals**: prompt count and prompt text; `tccutil`/System Settings shows one Atmos entry under Automation.
 
+### S32 Control-plane lease and scoped orphans
+**Given** an existing `control.json` whose `pid` is alive and `GET /v1/health` succeeds, plus a helper listed for a UDID claimed by that pid
+**When** a second Desktop process starts
+**Then** it does not overwrite `control.json`, does not call `serve-sim --kill` with no argument, and does not `--kill` that UDID.
+**Signals**: `shouldTakeOverLease` is false; `planOrphanKills` keeps the live owner's helper; a dead `desktopPid` is in `killSimulatorIds`.
+
 ## Exploratory agent-browser checks
 
 Load the Agent Browser skill (or `agent-browser skills get core --full`) before running these; see [`../../references/agent-browser-setup.md`](../../references/agent-browser-setup.md). Record `not_run` with a reason if the CLI is unavailable.
@@ -185,7 +193,7 @@ Load the Agent Browser skill (or `agent-browser skills get core --full`) before 
 - `desktop_use_*` and `browser_bridge_*` IPC families are unaffected; `ipc/handlers.ts` additions are additive.
 - `apps/api` has no simulator route and no new WS action.
 - Adding the bundled payload does not break app launch, ad-hoc signing, or DMG/zip packaging; Windows and Linux packages are unchanged in size.
-- Desktop quit leaves no helper process and removes `control.json`.
+- Desktop quit by the lease owner, with no other live Desktop pid, leaves no helper process and removes `control.json`. A non-owner quit does not delete the owner's file.
 
 ## Acceptance criteria
 
@@ -208,7 +216,7 @@ Load the Agent Browser skill (or `agent-browser skills get core --full`) before 
 3. Remove all iOS runtimes, or point `DEVELOPER_DIR` at a runtime-less Xcode → expect the runtime card and a working Platforms button.
 4. Deny Automation permission → expect streaming plus the non-blocking hide note.
 5. Two workspaces, same simulator → expect `simulator_in_use`, then a successful take-over.
-6. Quit Desktop while streaming → expect no `serve-sim` process and no `control.json`.
+6. Quit Desktop while streaming (single instance) → expect no `serve-sim` process and no `control.json`.
 7. `atmos simulator list --json`, `attach`, `tap`, `screenshot`, `ax` against the live session → expect visible changes on the human's surface and `normalizedRect` present in `ax`.
 8. Unsupported hosts: Intel Mac → arch card; macOS 13 → version card; non-macOS → macOS-only card.
 9. Inspect the packaged app: `Resources/simulator-helper/` present on macOS and absent on Windows/Linux; remove it and expect the `helper_missing` card rather than a crash.
@@ -228,4 +236,5 @@ Load the Agent Browser skill (or `agent-browser skills get core --full`) before 
 
 ## Coverage Status
 
-_To be appended after implementation / test-run._
+- 2026-08-13 — `cd apps/desktop-electron && bun test src/simulator`: 59 pass (includes S32 `control-lease`, `orphan`, `control-plane` `/v1/health`).
+- `cargo test -p atmos` remains blocked on rustc 1.83 / edition2024 in this environment.

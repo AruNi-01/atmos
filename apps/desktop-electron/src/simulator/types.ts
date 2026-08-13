@@ -92,6 +92,8 @@ export type HelperStateRecord = {
 export type SimulatorClaim = {
   workspaceId: string;
   instanceId: string;
+  desktopPid: number;
+  helperPid?: number;
   since: string;
 };
 

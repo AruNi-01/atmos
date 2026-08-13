@@ -6,6 +6,7 @@ import {
 } from "node:http";
 import { connect } from "node:net";
 import { randomBytes } from "node:crypto";
+import { CONTROL_PROTOCOL } from "./control-lease.ts";
 import {
   authorizeControlBearer,
   authorizeSessionToken,
@@ -103,6 +104,14 @@ export class SimulatorControlPlane {
     const parsed = parseProxyPath(pathname);
     if (!parsed) {
       sendJson(res, 404, { ok: false, error: "not_found" });
+      return;
+    }
+    if (parsed.kind === "health") {
+      if (req.method !== "GET") {
+        sendJson(res, 405, { ok: false, error: "method_not_allowed" });
+        return;
+      }
+      sendJson(res, 200, { ok: true, protocol: CONTROL_PROTOCOL });
       return;
     }
     if (parsed.kind === "invoke") {

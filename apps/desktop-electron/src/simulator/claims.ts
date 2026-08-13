@@ -7,14 +7,12 @@ export type ClaimAcquireResult =
 export function tryAcquireClaim(
   table: ClaimTable,
   simulatorId: string,
-  workspaceId: string,
-  instanceId: string,
-  since: string,
+  claim: SimulatorClaim,
 ): ClaimAcquireResult {
   const existing = table[simulatorId];
   if (
     existing &&
-    (existing.workspaceId !== workspaceId || existing.instanceId !== instanceId)
+    (existing.workspaceId !== claim.workspaceId || existing.instanceId !== claim.instanceId)
   ) {
     return { ok: false, code: "simulator_in_use", holder: existing };
   }
@@ -22,7 +20,7 @@ export function tryAcquireClaim(
     ok: true,
     table: {
       ...table,
-      [simulatorId]: { workspaceId, instanceId, since },
+      [simulatorId]: claim,
     },
   };
 }
@@ -42,18 +40,40 @@ export function releaseClaim(
 export function takeOverClaim(
   table: ClaimTable,
   simulatorId: string,
-  workspaceId: string,
-  instanceId: string,
-  since: string,
+  claim: SimulatorClaim,
 ): { table: ClaimTable; previous: SimulatorClaim | null } {
   const previous = table[simulatorId] ?? null;
   return {
     previous,
     table: {
       ...table,
-      [simulatorId]: { workspaceId, instanceId, since },
+      [simulatorId]: claim,
     },
   };
+}
+
+export function dropClaims(table: ClaimTable, ids: Iterable<string>): ClaimTable {
+  const drop = new Set(ids);
+  if (drop.size === 0) return table;
+  const next: ClaimTable = {};
+  for (const [id, claim] of Object.entries(table)) {
+    if (!drop.has(id)) next[id] = claim;
+  }
+  return next;
+}
+
+export function dropClaimsHeldBy(
+  table: ClaimTable,
+  opts: { instanceId: string; desktopPid: number },
+): ClaimTable {
+  const next: ClaimTable = {};
+  for (const [id, claim] of Object.entries(table)) {
+    if (claim.instanceId === opts.instanceId || claim.desktopPid === opts.desktopPid) {
+      continue;
+    }
+    next[id] = claim;
+  }
+  return next;
 }
 
 export function claimsHeldByWorkspace(

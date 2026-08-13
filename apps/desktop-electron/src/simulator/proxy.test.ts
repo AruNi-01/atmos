@@ -8,6 +8,7 @@ import {
 
 describe("simulator proxy allow-list", () => {
   it("parses session and invoke paths", () => {
+    expect(parseProxyPath("/v1/health")).toEqual({ kind: "health" });
     expect(parseProxyPath("/v1/invoke")).toEqual({ kind: "invoke" });
     expect(parseProxyPath("/s/tok123/stream.avcc")).toEqual({
       kind: "session",
