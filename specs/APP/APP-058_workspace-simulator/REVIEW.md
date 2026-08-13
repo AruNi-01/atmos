@@ -1193,7 +1193,7 @@ Auto-attach only when the surface **becomes** active while idle, not on every id
 
 ### Fix log
 
-- 2026-08-13 - `wasActiveRef` gates auto-attach on becoming active.
+- 2026-08-13 - `wasActiveRef` gates auto-attach on becoming active; workspace id changes reset the gate.
 
 
 

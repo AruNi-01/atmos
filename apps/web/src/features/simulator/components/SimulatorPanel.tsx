@@ -60,6 +60,7 @@ export function SimulatorPanel({
   const streamKey = `${session.streamBaseUrl ?? ""}:${session.transport ?? ""}:${session.codec ?? ""}`;
   const firstFrameKeyRef = useRef<string | null>(null);
   const wasActiveRef = useRef(false);
+  const lastWorkspaceRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!electron) return;
@@ -126,7 +127,12 @@ export function SimulatorPanel({
   }, [electron, simulatorWebrtcOptIn, workspaceId]);
 
   useEffect(() => {
-    if (!electron || !workspaceId) return;
+    if (!electron) return;
+    if (lastWorkspaceRef.current !== workspaceId) {
+      wasActiveRef.current = false;
+      lastWorkspaceRef.current = workspaceId;
+    }
+    if (!workspaceId) return;
     const becameActive = isActive && !wasActiveRef.current;
     wasActiveRef.current = isActive;
     if (!becameActive || session.phase !== "idle") return;
