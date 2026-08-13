@@ -13,7 +13,7 @@
 | Rule | Detail |
 |------|--------|
 | **When to add** | After code implementation reaches review or post-review and the findings need durable tracking before cleanup. |
-| **Entry id** | `REV-NNN` - zero-padded, monotonic in this file (next: **REV-028**). |
+| **Entry id** | `REV-NNN` - zero-padded, monotonic in this file (next: **REV-035**). |
 | **Status** | `open` -> `in_progress` -> `fixed` -> `verified` (or `wont-fix` with reason). |
 | **Do not** | Duplicate full TECH/TEST content; link to baseline docs and record only review findings plus fix status. |
 | **Fix proof** | Each fixed item should name the code change and the verification command or manual check. |
@@ -50,6 +50,14 @@
 | REV-024 | P2 | backend | Global `serve-sim --kill` on every Desktop start | verified |
 | REV-025 | P2 | test | Opcode unit tests omit pinch / key / software keyboard | verified |
 | REV-026 | P2 | docs | TEST.md S6 still names `helper_not_installed` | verified |
+| REV-027 | P0 | backend | Control plane reads `address()` before listen | verified |
+| REV-028 | P1 | backend | Health probe accepts `{ ok: true }` without protocol | verified |
+| REV-029 | P1 | backend | Cross-instance take-over does not kill the remote helper | verified |
+| REV-030 | P1 | backend | `releaseClaim` ignores instance identity | verified |
+| REV-031 | P1 | frontend | Panel has no keyboard input path | verified |
+| REV-032 | P1 | frontend | Parent bezel forces a fixed 9/19.5 aspect | verified |
+| REV-033 | P1 | backend | CLI `type` drops shift | verified |
+| REV-034 | P2 | backend | Nested `/anything/health` passed the proxy allow-list | verified |
 
 ---
 
@@ -900,3 +908,230 @@ Align the scenario with `helper_missing`.
 ### Fix log
 
 - 2026-08-13 - TEST.md S6 now names `helper_missing`.
+
+---
+
+## REV-027 · Control plane reads `address()` before listen
+
+| Field | Value |
+|-------|--------|
+| **Status** | verified |
+| **Severity** | P0 |
+| **Area** | backend |
+| **Reported by** | internal review |
+| **Owner** | unassigned |
+
+### Finding
+
+`server.listen()` is asynchronous in Node/Electron. Reading `server.address()` on the same tick can return `null` and throw, blocking Desktop boot. Bun's test runtime binds synchronously, so the existing test did not catch this.
+
+### Required fix
+
+Await the `listening` event before reading the bound port.
+
+### Acceptance
+
+- [x] `SimulatorControlPlane.start()` is async and waits for `listening`.
+- [x] `control-plane.test.ts` awaits start/stop.
+
+### Fix log
+
+- 2026-08-13 - await `listening`; `stop()` awaits `close()`.
+
+---
+
+## REV-028 · Health probe accepts `{ ok: true }` without protocol
+
+| Field | Value |
+|-------|--------|
+| **Status** | verified |
+| **Severity** | P1 |
+| **Area** | backend |
+| **Reported by** | internal review |
+| **Owner** | unassigned |
+
+### Finding
+
+TECH requires `{ ok: true, protocol: "atmos-simulator/v1" }`. Missing `protocol` was treated as healthy, which can suppress lease take-over.
+
+### Required fix
+
+Require an exact protocol match. Reject non-loopback `base_url`.
+
+### Acceptance
+
+- [x] `probeControlHealth` requires `CONTROL_PROTOCOL` and a loopback URL.
+
+### Fix log
+
+- 2026-08-13 - protocol + loopback checks in `control-lease.ts`.
+
+---
+
+## REV-029 · Cross-instance take-over does not kill the remote helper
+
+| Field | Value |
+|-------|--------|
+| **Status** | verified |
+| **Severity** | P1 |
+| **Area** | backend |
+| **Reported by** | internal review |
+| **Owner** | unassigned |
+
+### Finding
+
+`takeOver` only `killSession`s a workspace in this process. A helper owned by another Desktop stays up, and that instance may reconnect.
+
+### Required fix
+
+Write the new claim first, `--kill <udid>` / SIGTERM `helperPid` for the previous holder, and skip reconnect when this process no longer owns the claim.
+
+### Acceptance
+
+- [x] Take-over compares `instanceId`, not only `workspaceId`.
+- [x] `handleHelperExit` does not respawn after a lost claim.
+
+### Fix log
+
+- 2026-08-13 - `killClaimedHelper` + `stillOwnsClaim` gate on reconnect.
+
+---
+
+## REV-030 · `releaseClaim` ignores instance identity
+
+| Field | Value |
+|-------|--------|
+| **Status** | verified |
+| **Severity** | P1 |
+| **Area** | backend |
+| **Reported by** | internal review |
+| **Owner** | unassigned |
+
+### Finding
+
+Release matched only `workspaceId`, so a quitting `.dev` instance could drop a production claim for the same workspace.
+
+### Required fix
+
+Require `instanceId` on release.
+
+### Acceptance
+
+- [x] Unit test: another instance cannot release the holder.
+
+### Fix log
+
+- 2026-08-13 - `releaseClaim(..., instanceId)` and all bridge call sites updated.
+
+---
+
+## REV-031 · Panel has no keyboard input path
+
+| Field | Value |
+|-------|--------|
+| **Status** | verified |
+| **Severity** | P1 |
+| **Area** | frontend |
+| **Reported by** | internal review |
+| **Owner** | unassigned |
+
+### Finding
+
+PRD M5 requires keyboard input. `SimulatorScreen` only handled pointer and wheel.
+
+### Required fix
+
+Focusable screen; map keys to HID usages including shift.
+
+### Acceptance
+
+- [x] `tabIndex={0}` + keydown/keyup; `hid.test.ts` covers mapping.
+
+### Fix log
+
+- 2026-08-13 - panel HID mapping in `apps/web/src/features/simulator/lib/hid.ts`.
+
+---
+
+## REV-032 · Parent bezel forces a fixed 9/19.5 aspect
+
+| Field | Value |
+|-------|--------|
+| **Status** | verified |
+| **Severity** | P1 |
+| **Area** | frontend |
+| **Reported by** | internal review |
+| **Owner** | unassigned |
+
+### Finding
+
+Config frames update `SimulatorScreen` local size, but the parent bezel used `aspect-[9/19.5]` and `h-full w-full`, so the child's `aspectRatio` could not change the box.
+
+### Required fix
+
+Let the screen own the aspect ratio; do not stretch it to a fixed parent box.
+
+### Acceptance
+
+- [x] Bezel has no fixed aspect class; screen is `w-full` with inline `aspectRatio`.
+
+### Fix log
+
+- 2026-08-13 - `SimulatorPanel` / `SimulatorScreen` layout.
+
+---
+
+## REV-033 · CLI `type` drops shift
+
+| Field | Value |
+|-------|--------|
+| **Status** | verified |
+| **Severity** | P1 |
+| **Area** | backend |
+| **Reported by** | internal review |
+| **Owner** | unassigned |
+
+### Finding
+
+`hidUsageForChar` returns `shift` for uppercase, but `type` only sent the letter usage.
+
+### Required fix
+
+Wrap shifted characters with left-shift HID 0xE1 down/up.
+
+### Acceptance
+
+- [x] Bridge `type` sends `HID_LEFT_SHIFT` around shifted letters.
+
+### Fix log
+
+- 2026-08-13 - shift key events in the `type` opcode path.
+
+---
+
+## REV-034 · Nested `/anything/health` passed the proxy allow-list
+
+| Field | Value |
+|-------|--------|
+| **Status** | verified |
+| **Severity** | P2 |
+| **Area** | backend |
+| **Reported by** | internal review |
+| **Owner** | unassigned |
+
+### Finding
+
+The last-segment exception allowed `/s/<token>/anything/health`.
+
+### Required fix
+
+Keep exact `/health` and last-segment `stream-settings` only.
+
+### Acceptance
+
+- [x] `isAllowedUpstreamPath("/nested/health")` is false.
+
+### Fix log
+
+- 2026-08-13 - proxy allow-list no longer treats last-segment `health` as allowed.
+

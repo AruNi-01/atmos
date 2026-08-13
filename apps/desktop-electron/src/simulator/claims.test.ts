@@ -37,8 +37,15 @@ describe("simulator claims", () => {
     expect(taken.previous?.workspaceId).toBe("ws-a");
     expect(taken.table["SIM-1"]?.workspaceId).toBe("ws-b");
     expect(taken.table["SIM-1"]?.desktopPid).toBe(22);
-    const released = releaseClaim(taken.table, "SIM-1", "ws-b");
+    const released = releaseClaim(taken.table, "SIM-1", "ws-b", "inst-2");
     expect(released["SIM-1"]).toBeUndefined();
+  });
+
+  it("does not let another instance release the holder", () => {
+    const first = tryAcquireClaim({}, "SIM-1", claim("ws-a", "inst-1", 11, "t0"));
+    if (!first.ok) throw new Error("expected claim");
+    const skipped = releaseClaim(first.table, "SIM-1", "ws-a", "inst-other");
+    expect(skipped["SIM-1"]?.instanceId).toBe("inst-1");
   });
 
   it("dropClaimsHeldBy keeps rows owned by another live process", () => {

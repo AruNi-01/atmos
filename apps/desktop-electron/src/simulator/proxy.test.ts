@@ -22,6 +22,8 @@ describe("simulator proxy allow-list", () => {
     expect(isAllowedUpstreamPath("/stream.avcc")).toBe(true);
     expect(isAllowedUpstreamPath("/ws")).toBe(true);
     expect(isAllowedUpstreamPath("/health")).toBe(true);
+    expect(isAllowedUpstreamPath("/nested/health")).toBe(false);
+    expect(isAllowedUpstreamPath("/stream.avcc/stream-settings")).toBe(true);
     expect(isAllowedUpstreamPath("/exec")).toBe(false);
     expect(isAllowedUpstreamPath("/inspect-webkit")).toBe(false);
     expect(isAllowedUpstreamPath("/preview")).toBe(false);

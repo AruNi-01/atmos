@@ -63,10 +63,21 @@ export function shouldTakeOverLease(
   return !opts.healthOk;
 }
 
+export function isLoopbackControlUrl(baseUrl: string): boolean {
+  try {
+    const parsed = new URL(baseUrl);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return false;
+    return parsed.hostname === "127.0.0.1" || parsed.hostname === "localhost";
+  } catch {
+    return false;
+  }
+}
+
 export async function probeControlHealth(
   baseUrl: string,
   opts: { timeoutMs?: number; fetchImpl?: typeof fetch } = {},
 ): Promise<boolean> {
+  if (!isLoopbackControlUrl(baseUrl)) return false;
   const fetchImpl = opts.fetchImpl ?? fetch;
   const timeoutMs = opts.timeoutMs ?? 400;
   try {
@@ -74,11 +85,7 @@ export async function probeControlHealth(
     const res = await fetchImpl(url, { signal: AbortSignal.timeout(timeoutMs) });
     if (!res.ok) return false;
     const body = (await res.json()) as { ok?: unknown; protocol?: unknown };
-    if (body?.ok !== true) return false;
-    if (body.protocol !== undefined && body.protocol !== CONTROL_PROTOCOL) {
-      return false;
-    }
-    return true;
+    return body?.ok === true && body.protocol === CONTROL_PROTOCOL;
   } catch {
     return false;
   }

@@ -38,7 +38,7 @@ export function isAllowedUpstreamPath(upstreamPath: string): boolean {
   if (ALLOWED_UPSTREAM.has(path)) return true;
   // Allow stream-settings derived from any last-segment replacement.
   const last = path.split("/").filter(Boolean).pop();
-  return last === "stream-settings" || last === "health";
+  return last === "stream-settings";
 }
 
 export function authorizeSessionToken(

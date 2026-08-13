@@ -329,7 +329,7 @@ export function SimulatorPanel({
 
       <div
         className={cn(
-          "pointer-events-none relative mx-auto aspect-[9/19.5] w-full rounded-[2.5rem] border-[10px] border-muted-foreground/30 bg-muted/30 p-1 shadow-inner",
+          "pointer-events-none relative mx-auto w-full rounded-[2.5rem] border-[10px] border-muted-foreground/30 bg-muted/30 p-1 shadow-inner",
           surface === "sidebar" ? "max-w-[220px]" : "max-w-[320px]",
         )}
       >
@@ -341,7 +341,7 @@ export function SimulatorPanel({
           <span className="absolute bottom-2 left-1/2 h-1 w-20 -translate-x-1/2 rounded-full bg-foreground/25" />
         </div>
         <SimulatorScreen
-          className="relative z-0 h-full w-full"
+          className="relative z-0 w-full"
           streamBaseUrl={session.streamBaseUrl}
           codec={session.codec}
           transport={session.transport}

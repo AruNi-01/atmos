@@ -1,4 +1,4 @@
-/** Minimal HID keyboard usages for CLI `type` and the panel. */
+/** Minimal HID keyboard usages for the Simulator panel. */
 export const HID_LEFT_SHIFT = 0xe1;
 
 const LETTERS = "abcdefghijklmnopqrstuvwxyz";
@@ -13,5 +13,14 @@ export function hidUsageForChar(ch: string): { usage: number; shift: boolean } |
   if (letter >= 0) return { usage: 0x04 + letter, shift: ch !== lower };
   if (ch >= "1" && ch <= "9") return { usage: 0x1e + (Number(ch) - 1), shift: false };
   if (ch === "0") return { usage: 0x27, shift: false };
+  return null;
+}
+
+export function hidUsageForDomKey(key: string): { usage: number; shift: boolean } | null {
+  if (key === "Backspace") return { usage: 0x2a, shift: false };
+  if (key === "Enter") return { usage: 0x28, shift: false };
+  if (key === "Tab") return { usage: 0x2b, shift: false };
+  if (key === "Escape") return { usage: 0x29, shift: false };
+  if (key.length === 1) return hidUsageForChar(key);
   return null;
 }

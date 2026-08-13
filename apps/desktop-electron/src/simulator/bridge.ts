@@ -1,4 +1,4 @@
-import { mkdirSync, readFileSync, writeFileSync, existsSync, unlinkSync, appendFileSync, readdirSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync, existsSync, unlinkSync, appendFileSync, readdirSync, chmodSync, renameSync } from "node:fs";
 import { dirname } from "node:path";
 import { tmpdir as osTmpdir } from "node:os";
 import { join } from "node:path";
@@ -38,7 +38,7 @@ import {
   type SimulatorInputOp,
 } from "./opcode.ts";
 import { hideSimulatorAppWindows } from "./hide-windows.ts";
-import { hidUsageForChar } from "./hid.ts";
+import { hidUsageForChar, HID_LEFT_SHIFT } from "./hid.ts";
 import {
   assertHelperVersion,
   resolveHelperDir,
@@ -155,7 +155,14 @@ function ensureDir(path: string): void {
 
 function writePrivateJson(path: string, value: unknown): void {
   ensureDir(dirname(path));
-  writeFileSync(path, `${JSON.stringify(value, null, 2)}\n`, { mode: 0o600 });
+  const tmp = `${path}.${process.pid}.tmp`;
+  writeFileSync(tmp, `${JSON.stringify(value, null, 2)}\n`, { mode: 0o600 });
+  renameSync(tmp, path);
+  try {
+    chmodSync(path, 0o600);
+  } catch {
+    /* existing mode may already be 0600 */
+  }
 }
 
 async function ephemeralLoopbackPort(): Promise<number> {
@@ -218,7 +225,7 @@ export class SimulatorBridge {
     } catch {
       takeOver = true;
     }
-    const { port, token } = this.control.start({
+    const { port, token } = await this.control.start({
       lookupSession: (sessionToken) => {
         for (const session of this.sessions.values()) {
           if (session.sessionToken === sessionToken) {
@@ -252,7 +259,7 @@ export class SimulatorBridge {
         this.killSession(workspaceId, { shutdownSimulator: false }),
       ),
     );
-    this.control.stop();
+    await this.control.stop();
     if (this.tick) clearInterval(this.tick);
     this.tick = null;
     this.started = false;
@@ -417,13 +424,13 @@ export class SimulatorBridge {
       repoRoot: this.hooks.repoRoot ?? null,
     });
     if ("code" in helper) {
-      this.writeClaims(releaseClaim(this.readClaims(), chosen.id, workspaceId));
+      this.writeClaims(releaseClaim(this.readClaims(), chosen.id, workspaceId, this.instanceId));
       return this.failAttach(workspaceId, "helper_missing", "Reinstall Atmos");
     }
     try {
       assertHelperVersion(helper);
     } catch {
-      this.writeClaims(releaseClaim(this.readClaims(), chosen.id, workspaceId));
+      this.writeClaims(releaseClaim(this.readClaims(), chosen.id, workspaceId, this.instanceId));
       return this.failAttach(workspaceId, "helper_missing", "Reinstall Atmos");
     }
 
@@ -463,7 +470,7 @@ export class SimulatorBridge {
               hideNote: hide.hidden ? undefined : hide.message,
             });
           } catch {
-            this.writeClaims(releaseClaim(this.readClaims(), chosen.id, workspaceId));
+            this.writeClaims(releaseClaim(this.readClaims(), chosen.id, workspaceId, this.instanceId));
             return this.failAttach(
               workspaceId,
               "capture_xcode_mismatch",
@@ -471,7 +478,7 @@ export class SimulatorBridge {
             );
           }
         } else {
-          this.writeClaims(releaseClaim(this.readClaims(), chosen.id, workspaceId));
+          this.writeClaims(releaseClaim(this.readClaims(), chosen.id, workspaceId, this.instanceId));
           return this.failAttach(
             workspaceId,
             degrade.lastError?.code ?? "capture_xcode_mismatch",
@@ -479,14 +486,14 @@ export class SimulatorBridge {
           );
         }
       } else {
-        this.writeClaims(releaseClaim(this.readClaims(), chosen.id, workspaceId));
+        this.writeClaims(releaseClaim(this.readClaims(), chosen.id, workspaceId, this.instanceId));
         const code =
           error instanceof DesktopCommandError ? error.code : "capture_failed";
         return this.failAttach(workspaceId, code, message);
       }
     }
     if (!session) {
-      this.writeClaims(releaseClaim(this.readClaims(), chosen.id, workspaceId));
+      this.writeClaims(releaseClaim(this.readClaims(), chosen.id, workspaceId, this.instanceId));
       return this.failAttach(workspaceId, "capture_failed", "Capture helper did not start");
     }
     session.degrade = degrade;
@@ -568,8 +575,10 @@ export class SimulatorBridge {
   async takeOver(workspaceId: string, simulatorId: string): Promise<SessionView> {
     const claims = this.readClaims();
     const taken = takeOverClaim(claims, simulatorId, this.newClaim(workspaceId));
-    if (taken.previous && taken.previous.workspaceId !== workspaceId) {
+    this.writeClaims(taken.table);
+    if (taken.previous && taken.previous.instanceId !== this.instanceId) {
       await this.killSession(taken.previous.workspaceId, { shutdownSimulator: false });
+      await this.killClaimedHelper(simulatorId, taken.previous);
       const auditPath = auditLogPath(this.env);
       ensureDir(dirname(auditPath));
       appendFileSync(
@@ -577,7 +586,6 @@ export class SimulatorBridge {
         `${new Date(this.now()).toISOString()} take-over simulator=${simulatorId} from=${taken.previous.workspaceId} to=${workspaceId}\n`,
       );
     }
-    this.writeClaims(taken.table);
     return this.attach(workspaceId, simulatorId);
   }
 
@@ -732,8 +740,22 @@ export class SimulatorBridge {
           for (const ch of text) {
             const hid = hidUsageForChar(ch);
             if (!hid) continue;
+            if (hid.shift) {
+              await this.input(workspaceId, {
+                op: "key",
+                type: "down",
+                usage: HID_LEFT_SHIFT,
+              });
+            }
             await this.input(workspaceId, { op: "key", type: "down", usage: hid.usage });
             await this.input(workspaceId, { op: "key", type: "up", usage: hid.usage });
+            if (hid.shift) {
+              await this.input(workspaceId, {
+                op: "key",
+                type: "up",
+                usage: HID_LEFT_SHIFT,
+              });
+            }
           }
           return { ok: true, op, workspaceId, result: { text } };
         }
@@ -927,6 +949,15 @@ export class SimulatorBridge {
     });
     assertSpawnSafety(argv);
     const entry = join(helper.dir, "dist", "serve-sim.js");
+    const tmp = this.hooks.tmpdir ?? osTmpdir();
+    const recordPath = helperStateRecordPath(opts.simulatorId, tmp);
+    if (existsSync(recordPath)) {
+      try {
+        unlinkSync(recordPath);
+      } catch {
+        /* waitForFile must see a record from this spawn */
+      }
+    }
     const child = spawn(this.hooks.execPath ?? process.execPath, [entry, ...argv], {
       env: withHelperSpawnEnv(this.env, {
         developerDir: this.probeCache?.result.facts.xcodePath,
@@ -935,8 +966,6 @@ export class SimulatorBridge {
       detached: true,
     });
     child.unref();
-    const tmp = this.hooks.tmpdir ?? osTmpdir();
-    const recordPath = helperStateRecordPath(opts.simulatorId, tmp);
     let raw: string;
     try {
       raw = await waitForFile(recordPath, 20_000, () => this.now());
@@ -1069,7 +1098,7 @@ export class SimulatorBridge {
       }
     }
     this.sessions.delete(workspaceId);
-    this.writeClaims(releaseClaim(this.readClaims(), session.simulatorId, workspaceId));
+    this.writeClaims(releaseClaim(this.readClaims(), session.simulatorId, workspaceId, this.instanceId));
     if (opts.shutdownSimulator) {
       await this.runner("xcrun", ["simctl", "shutdown", session.simulatorId]);
     }
@@ -1344,9 +1373,37 @@ export class SimulatorBridge {
     }
   }
 
+  private stillOwnsClaim(simulatorId: string): boolean {
+    const claim = this.readClaims()[simulatorId];
+    return Boolean(claim && claim.instanceId === this.instanceId);
+  }
+
+  private async killClaimedHelper(
+    simulatorId: string,
+    claim: SimulatorClaim,
+  ): Promise<void> {
+    await this.helperCli(["--kill", simulatorId]);
+    if (claim.helperPid && isProcessAlive(claim.helperPid)) {
+      try {
+        process.kill(claim.helperPid, "SIGTERM");
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+
   private async handleHelperExit(workspaceId: string, pid: number): Promise<void> {
     const session = this.sessions.get(workspaceId);
     if (!session || session.suppressExit || session.childPid !== pid) return;
+    if (!this.stillOwnsClaim(session.simulatorId)) {
+      session.suppressExit = true;
+      this.sessions.delete(workspaceId);
+      this.emit(
+        "simulator://status",
+        this.emptyView(workspaceId, "idle"),
+      );
+      return;
+    }
     if (this.reconnecting.has(workspaceId)) return;
     this.reconnecting.add(workspaceId);
     session.degrade = reduceDegrade(session.degrade, { type: "helper_died" });
@@ -1447,7 +1504,7 @@ export class SimulatorBridge {
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       this.sessions.delete(session.workspaceId);
-      this.writeClaims(releaseClaim(this.readClaims(), session.simulatorId, session.workspaceId));
+      this.writeClaims(releaseClaim(this.readClaims(), session.simulatorId, session.workspaceId, this.instanceId));
       this.failAttach(session.workspaceId, "capture_failed", message);
     }
   }

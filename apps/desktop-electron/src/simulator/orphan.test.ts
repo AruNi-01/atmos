@@ -76,7 +76,7 @@ describe("orphan reconcile plan", () => {
       selfPid: 200,
       isPidAlive: (pid) => pid === 200,
     });
-    expect(plan.killSimulatorIds).toEqual(["UDID-DEAD", "UDID-SELF", "UDID-STALE"]);
+    expect(plan.killSimulatorIds).toEqual(["UDID-DEAD", "UDID-SELF"]);
     expect(plan.dropClaimIds).toEqual(["UDID-DEAD", "UDID-SELF", "UDID-STALE"]);
   });
 

@@ -29,9 +29,11 @@ export function releaseClaim(
   table: ClaimTable,
   simulatorId: string,
   workspaceId: string,
+  instanceId: string,
 ): ClaimTable {
   const existing = table[simulatorId];
   if (!existing || existing.workspaceId !== workspaceId) return table;
+  if (existing.instanceId !== instanceId) return table;
   const next = { ...table };
   delete next[simulatorId];
   return next;

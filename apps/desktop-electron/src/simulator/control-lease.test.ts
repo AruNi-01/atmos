@@ -88,10 +88,16 @@ describe("control lease", () => {
       });
     };
     expect(await probeControlHealth("http://127.0.0.1:52413/", { fetchImpl })).toBe(true);
+    const missingProtocol: typeof fetch = async () =>
+      new Response(JSON.stringify({ ok: true }), { status: 200 });
+    expect(
+      await probeControlHealth("http://127.0.0.1:52413", { fetchImpl: missingProtocol }),
+    ).toBe(false);
     const bad: typeof fetch = async () =>
       new Response(JSON.stringify({ ok: false }), { status: 200 });
     expect(await probeControlHealth("http://127.0.0.1:52413", { fetchImpl: bad })).toBe(
       false,
     );
+    expect(await probeControlHealth("http://example.com:9", { fetchImpl })).toBe(false);
   });
 });

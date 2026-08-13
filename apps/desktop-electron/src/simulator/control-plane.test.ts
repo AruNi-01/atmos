@@ -5,7 +5,7 @@ import { CONTROL_PROTOCOL } from "./control-lease.ts";
 describe("simulator control plane", () => {
   it("serves unauthenticated GET /v1/health and still gates invoke", async () => {
     const plane = new SimulatorControlPlane();
-    const { port, token } = plane.start({
+    const { port, token } = await plane.start({
       lookupSession: () => null,
       invoke: async () => ({ ok: true }),
     });
@@ -32,7 +32,7 @@ describe("simulator control plane", () => {
       expect(allowed.ok).toBe(true);
       expect(await allowed.json()).toEqual({ ok: true });
     } finally {
-      plane.stop();
+      await plane.stop();
     }
   });
 });

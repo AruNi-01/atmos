@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { PointerEvent, WheelEvent } from "react";
+import type { KeyboardEvent, PointerEvent, WheelEvent } from "react";
 
 import {
   encodeSimulatorInput,
@@ -11,6 +11,7 @@ import {
   streamMjpegUrl,
   streamWsUrl,
 } from "@/features/simulator/lib/simulator-stream-client";
+import { hidUsageForDomKey, HID_LEFT_SHIFT } from "@/features/simulator/lib/hid";
 import { cn } from "@/shared/lib/utils";
 
 type SimulatorScreenProps = {
@@ -98,6 +99,7 @@ export function SimulatorScreen({
   const handlePointerDown = (event: PointerEvent<HTMLDivElement>) => {
     if (disabled) return;
     event.preventDefault();
+    event.currentTarget.focus();
     event.currentTarget.setPointerCapture(event.pointerId);
     pointerIdRef.current = event.pointerId;
     const point = pointerPosition(event);
@@ -136,6 +138,20 @@ export function SimulatorScreen({
     }
   };
 
+  const handleKey = (event: KeyboardEvent<HTMLDivElement>, type: "down" | "up") => {
+    if (disabled || event.metaKey || event.ctrlKey || event.altKey || event.repeat) return;
+    const hid = hidUsageForDomKey(event.key);
+    if (!hid) return;
+    event.preventDefault();
+    if (type === "down") {
+      if (hid.shift) sendInput({ op: "key", type: "down", usage: HID_LEFT_SHIFT });
+      sendInput({ op: "key", type: "down", usage: hid.usage });
+      return;
+    }
+    sendInput({ op: "key", type: "up", usage: hid.usage });
+    if (hid.shift) sendInput({ op: "key", type: "up", usage: HID_LEFT_SHIFT });
+  };
+
   const hasFrame = streamBaseUrl !== null && frameStreamUrl === streamBaseUrl;
   const showVideo = codec === "h264" && videoStreamUrl === streamBaseUrl;
   const aspectRatio = frameSize
@@ -145,15 +161,18 @@ export function SimulatorScreen({
   return (
     <div
       className={cn(
-        "pointer-events-auto relative aspect-[9/19.5] w-full overflow-hidden rounded-[1.75rem] touch-none",
+        "pointer-events-auto relative w-full overflow-hidden rounded-[1.75rem] touch-none outline-none",
         className,
       )}
       style={{ aspectRatio }}
+      tabIndex={0}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
       onPointerCancel={handlePointerUp}
       onWheel={handleWheel}
+      onKeyDown={(event) => handleKey(event, "down")}
+      onKeyUp={(event) => handleKey(event, "up")}
     >
       {!hasFrame ? (
         <div

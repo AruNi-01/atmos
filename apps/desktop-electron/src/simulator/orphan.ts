@@ -135,11 +135,23 @@ export function planOrphanKills(input: {
     }
   }
 
+  const listedIds = new Set(
+    input.listed
+      .map((item) => item.simulatorId)
+      .filter((id): id is string => Boolean(id)),
+  );
   for (const [id, claim] of Object.entries(input.claims)) {
     if (input.sessionSimulatorIds.has(id)) continue;
     if (claimOwnerIsLiveOther(claim, input.selfPid, input.isPidAlive)) continue;
     dropClaimIds.add(id);
-    killSimulatorIds.add(id);
+    if (listedIds.has(id)) {
+      killSimulatorIds.add(id);
+    } else if (
+      claim.helperPid &&
+      !input.sessionHelperPids.has(claim.helperPid)
+    ) {
+      killPids.add(claim.helperPid);
+    }
   }
 
   return {
