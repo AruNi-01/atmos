@@ -151,7 +151,7 @@ Project / worktree / agent marking:
 - Worktree seeds: `~/.cursor/worktrees`, `$CODEX_HOME/worktrees`, `$GROK_HOME/worktrees`.
 - Badge exclusivity: workspace > project > git worktree > agent data.
 - Default Atmos overview **groups** uncovered agent **session** dirs under `atmos://disk-usage/agent-data` and leftover worktrees under `atmos://disk-usage/git-worktrees`. `.atmos` / projects / Atmos.app stay as top-level tiles. Groups are `children_loaded=true` synthetic dirs (not deletable). Scan-all does not add extra tiles; it still badges in-place.
-- Delete remains trash; UI notes that trashing a git worktree does not run `git worktree remove`. Synthetic `atmos://` paths are refused.
+- Delete routes by path: Atmos workspace (active or archived, still on disk) → `git worktree remove` then `WorkspaceService::delete_workspace` (soft-delete DB). Other linked worktrees → `GitEngine::remove_linked_worktree`. Everything else → trash / permanent. Synthetic `atmos://` paths are refused.
 
 ## WebSocket protocol
 
@@ -185,7 +185,7 @@ Default `path` for start/info = home directory from existing `FsEngine::get_home
 
 ## Backend module layout
 
-- `crates/core-engine/src/disk_analyzer/mod.rs` — walk, hardlink dedup, prune, suggestions, delete, disk info.
+- `crates/core-engine/src/disk_analyzer/` — walk, hardlink dedup, prune, suggestions, delete, disk info.
 - Dependencies: `jwalk`, `trash`, `fs4`, existing `serde`/`dirs`; `uuid` is a **dev-dependency** for fixture dirs.
 - `crates/core-service/src/service/disk_analyzer.rs` — `DiskAnalyzerService` owns sessions + events.
 - API handlers under `apps/api/src/api/ws/router/disk_analyzer.rs` + message DTOs; unicast forwarder in `main.rs`.

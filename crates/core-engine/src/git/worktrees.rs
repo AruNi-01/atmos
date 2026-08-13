@@ -305,6 +305,46 @@ impl GitEngine {
     ) -> Vec<PathBuf> {
         linked_worktrees_from_roots(&extra_worktree_search_roots(home), cancel)
     }
+
+    /// Whether `path` is a linked git worktree (`.git` file pointing at `worktrees/`).
+    pub fn is_linked_worktree(&self, path: &Path) -> bool {
+        is_linked_worktree(path)
+    }
+
+    /// Unregister and delete a linked worktree by path (`git worktree remove --force`).
+    ///
+    /// Does not delete local or remote branches. Atmos workspace cleanup still
+    /// uses [`Self::remove_worktree`] for named workspaces.
+    pub fn remove_linked_worktree(&self, worktree_path: &Path) -> Result<()> {
+        if !is_linked_worktree(worktree_path) {
+            return Err(EngineError::Git(format!(
+                "Path is not a linked git worktree: {}",
+                worktree_path.display()
+            )));
+        }
+        let common = git_common_dir(worktree_path).ok_or_else(|| {
+            EngineError::Git(format!(
+                "Failed to resolve git common dir for {}",
+                worktree_path.display()
+            ))
+        })?;
+        let main_repo = if common.file_name().is_some_and(|name| name == ".git") {
+            common
+                .parent()
+                .map(Path::to_path_buf)
+                .unwrap_or_else(|| common.clone())
+        } else {
+            common
+        };
+        let canonical =
+            std::fs::canonicalize(worktree_path).unwrap_or_else(|_| worktree_path.to_path_buf());
+        let worktree_str = canonical
+            .to_str()
+            .ok_or_else(|| EngineError::Git("Non-UTF-8 worktree path".into()))?;
+        run_git(&main_repo, &["worktree", "remove", "--force", worktree_str])?;
+        tracing::info!("Removed linked worktree {}", canonical.display());
+        Ok(())
+    }
 }
 
 fn linked_worktrees_from_roots(roots: &[PathBuf], cancel: Option<&AtomicBool>) -> Vec<PathBuf> {
@@ -610,5 +650,58 @@ mod tests {
         assert!(is_linked_worktree(&worktree));
         assert!(!is_linked_worktree(&submodule));
         let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn remove_linked_worktree_unregisters_checkout() {
+        let root = unique_temp_dir("remove-linked");
+        let repo = root.join("repo");
+        let linked = root.join("linked-wt");
+        fs::create_dir_all(&repo).unwrap();
+        git(&repo, &["init"]);
+        git(&repo, &["config", "user.email", "test@example.com"]);
+        git(&repo, &["config", "user.name", "Test"]);
+        fs::write(repo.join("README.md"), "hi").unwrap();
+        git(&repo, &["add", "README.md"]);
+        git(&repo, &["commit", "-m", "init"]);
+        git(
+            &repo,
+            &[
+                "worktree",
+                "add",
+                "-b",
+                "feature",
+                linked.to_str().expect("utf8"),
+            ],
+        );
+
+        let engine = GitEngine::new();
+        assert!(engine.is_linked_worktree(&linked));
+        engine
+            .remove_linked_worktree(&linked)
+            .expect("remove linked worktree");
+        assert!(!linked.exists(), "worktree directory should be gone");
+
+        let list = engine.list_worktrees(&repo).expect("worktree list");
+        let _ = fs::remove_dir_all(&root);
+        assert!(
+            list.iter().all(|info| info.path != linked
+                && std::fs::canonicalize(&info.path).ok() != std::fs::canonicalize(&linked).ok()),
+            "git must no longer list the removed worktree: {list:?}"
+        );
+    }
+
+    #[test]
+    fn remove_linked_worktree_rejects_regular_dir() {
+        let root = unique_temp_dir("remove-regular");
+        fs::create_dir_all(&root).unwrap();
+        let err = GitEngine::new()
+            .remove_linked_worktree(&root)
+            .expect_err("regular dir is not a linked worktree");
+        let _ = fs::remove_dir_all(&root);
+        assert!(
+            err.to_string().contains("not a linked git worktree"),
+            "unexpected err: {err}"
+        );
     }
 }

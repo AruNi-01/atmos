@@ -9599,7 +9599,7 @@
     "children": "占用最大",
     "deleteTitle": "确认删除？",
     "deleteDescription": "预计释放约 {size}：\n{path}",
-    "deleteWorktreeNote": "将 Git 工作树移到废纸篓不会注销 git 的 worktree 记录。若 git 仍列出该路径，请在主仓库执行 git worktree prune 或 git worktree remove。",
+    "deleteWorktreeNote": "删除会执行 git worktree remove，主仓库不再列出该检出。若命令失败，git 仍可能列出该路径。",
     "permanentDelete": "永久删除（不经过回收站）",
     "confirmTrash": "移至回收站",
     "confirmPermanent": "永久删除",

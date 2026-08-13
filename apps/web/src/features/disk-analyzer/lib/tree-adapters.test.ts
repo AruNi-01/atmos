@@ -904,6 +904,11 @@ describe("disk analyzer tree adapters", () => {
     expect(getCleanupHintKey("node_modules", 100)).toBe("node_modules");
     expect(getCleanupHintKey(".next", 100)).toBe("dot_next");
     expect(getCleanupHintKey("src", 100)).toBeUndefined();
+    expect(getCleanupHintKey("build", 100)).toBeUndefined();
+    expect(getCleanupHintKey("dist", 100)).toBeUndefined();
+    expect(getCleanupHintKey("out", 100)).toBeUndefined();
+    expect(getCleanupHintKey("output", 100)).toBeUndefined();
+    expect(getCleanupHintKey("tmp", 100)).toBeUndefined();
     expect(getCleanupHintKey("node_modules", 0)).toBeUndefined();
   });
 

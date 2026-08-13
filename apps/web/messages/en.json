@@ -9599,7 +9599,7 @@
     "children": "Largest items",
     "deleteTitle": "Delete path?",
     "deleteDescription": "This will reclaim about {size} from:\n{path}",
-    "deleteWorktreeNote": "Moving a git worktree to trash does not unregister it. Run git worktree prune or git worktree remove in the main repo if git still lists this path.",
+    "deleteWorktreeNote": "This runs git worktree remove so the main repo no longer lists this checkout. If remove fails, git may still list the path.",
     "permanentDelete": "Permanently delete (do not use trash)",
     "confirmTrash": "Move to trash",
     "confirmPermanent": "Delete permanently",
