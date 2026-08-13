@@ -18,8 +18,8 @@ pub use disk_analyzer::{
     agent_data_roots, cleanup_suggestions, clear_path_cache, clear_suggestions, finalize_tree,
     invalidate_path_cache, limit_tree_depth, node_needs_wider_children, prune_tree, CleanupKind,
     CleanupSuggestion, DiskAnalyzerEngine, DiskNode, DiskPathKind, DiskScanRoots, DiskVolumeInfo,
-    ProgressCallback, ScanProgress, ScanStats, ScanStatus, CACHE_TTL, DEFAULT_TREE_DEPTH,
-    OTHER_NAME,
+    MeasureBudget, ProgressCallback, ScanProgress, ScanStats, ScanStatus, CACHE_TTL,
+    DEFAULT_TREE_DEPTH, OTHER_NAME,
 };
 pub use error::EngineError;
 pub use fs::{

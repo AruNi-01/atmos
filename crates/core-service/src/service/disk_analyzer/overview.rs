@@ -2,13 +2,14 @@
 
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use core_engine::{
-    agent_data_roots, clear_suggestions, finalize_tree, DiskAnalyzerEngine, DiskNode, DiskPathKind,
-    DiskScanRoots, GitEngine, ProgressCallback, ScanProgress, ScanStats, ScanStatus,
+    agent_data_roots, cleanup_suggestions, clear_suggestions, finalize_tree, DiskAnalyzerEngine,
+    DiskNode, DiskPathKind, DiskScanRoots, GitEngine, MeasureBudget, ProgressCallback,
+    ScanProgress, ScanStats, ScanStatus,
 };
 use parking_lot::Mutex;
 use serde_json::{json, Value};
@@ -415,9 +416,14 @@ impl DiskAnalyzerService {
                     // Completed assembly prunes root; partial progress keeps all root children.
                     // Depth 3 keeps entry children (target / node_modules / .next / workspaces).
                     let prune_root = matches!(status, ScanStatus::Completed);
-                    // Score suggestions on the unpruned tree so caches collapsed
-                    // into `__other__` still surface. Activity is read from disk.
-                    let suggestions = clear_suggestions(&tree);
+                    // Cache-hint matching is cheap. Activity (git log / session
+                    // mtimes) waits until the scan completes so progress emits
+                    // do not re-stat every worktree and agent store.
+                    let suggestions = if matches!(status, ScanStatus::Completed) {
+                        clear_suggestions(&tree)
+                    } else {
+                        cleanup_suggestions(&tree)
+                    };
                     finalize_tree(&mut tree, max_children, OVERVIEW_TREE_DEPTH, prune_root);
                     bytes_scanned.store(tree.size, Ordering::Relaxed);
 
@@ -565,7 +571,21 @@ impl DiskAnalyzerService {
                 }
             });
 
-            let du_budget = Arc::new(AtomicUsize::new(OVERVIEW_DU_CONCURRENCY.max(1)));
+            let du_budget = Arc::new(MeasureBudget::new(OVERVIEW_DU_CONCURRENCY));
+            let last_progress = Arc::new(Mutex::new(Instant::now() - Duration::from_millis(200)));
+            // Overlap leftover-worktree discovery with Phase 2 measure so the
+            // home `.git` walk does not wait for every Atmos/agent `du` to finish.
+            let worktree_discovery = if matches!(kind, OverviewKind::AtmosSynthetic) {
+                home.as_ref().map(|h| {
+                    let home = h.clone();
+                    let cancel = Arc::clone(&cancel);
+                    std::thread::spawn(move || {
+                        GitEngine::new().discover_linked_worktrees(&home, Some(&cancel))
+                    })
+                })
+            } else {
+                None
+            };
 
             std::thread::scope(|scope| {
                 for entry in ordered_entries {
@@ -695,29 +715,9 @@ impl DiskAnalyzerService {
                         });
 
                         // Cap concurrent `du` so large roots are not starved.
-                        let acquire_du = || loop {
-                            if cancel.load(Ordering::Relaxed) {
-                                return false;
-                            }
-                            let cur = du_budget.load(Ordering::Relaxed);
-                            if cur == 0 {
-                                std::thread::yield_now();
-                                continue;
-                            }
-                            if du_budget
-                                .compare_exchange_weak(
-                                    cur,
-                                    cur - 1,
-                                    Ordering::SeqCst,
-                                    Ordering::Relaxed,
-                                )
-                                .is_ok()
-                            {
-                                return true;
-                            }
-                        };
+                        let acquire_du = || du_budget.acquire(Some(&cancel));
                         let release_du = || {
-                            du_budget.fetch_add(1, Ordering::SeqCst);
+                            du_budget.release();
                         };
 
                         // Expand entries that hide the real bulk (projects, ~/.atmos,
@@ -829,9 +829,8 @@ impl DiskAnalyzerService {
             });
 
             if matches!(kind, OverviewKind::AtmosSynthetic) && !cancel.load(Ordering::Relaxed) {
-                let discovered_worktrees = home
-                    .as_ref()
-                    .map(|h| GitEngine::new().discover_linked_worktrees(h, Some(&cancel)))
+                let discovered_worktrees = worktree_discovery
+                    .map(|job| job.join().unwrap_or_else(|_| Vec::new()))
                     .unwrap_or_default();
                 roots.git_worktree_roots = discovered_worktrees.clone();
                 let existing: HashSet<String> = entries.iter().map(|e| e.label.clone()).collect();
@@ -927,6 +926,7 @@ impl DiskAnalyzerService {
                             let root_display_name = root_display_name.clone();
                             let entry_labels = entry_labels.clone();
                             let du_budget = Arc::clone(&du_budget);
+                            let last_progress = Arc::clone(&last_progress);
                             let engine = DiskAnalyzerEngine::new();
                             scope.spawn(move || {
                                 if cancel.load(Ordering::Relaxed) {
@@ -938,29 +938,11 @@ impl DiskAnalyzerService {
                                     .get(&part_key)
                                     .cloned()
                                     .unwrap_or_else(|| part_key.clone());
-                                loop {
-                                    if cancel.load(Ordering::Relaxed) {
-                                        return;
-                                    }
-                                    let cur = du_budget.load(Ordering::Relaxed);
-                                    if cur == 0 {
-                                        std::thread::yield_now();
-                                        continue;
-                                    }
-                                    if du_budget
-                                        .compare_exchange_weak(
-                                            cur,
-                                            cur - 1,
-                                            Ordering::SeqCst,
-                                            Ordering::Relaxed,
-                                        )
-                                        .is_ok()
-                                    {
-                                        break;
-                                    }
+                                if !du_budget.acquire(Some(&cancel)) {
+                                    return;
                                 }
                                 let out = engine.measure_path(&entry.path, Some(Arc::clone(&cancel)));
-                                du_budget.fetch_add(1, Ordering::SeqCst);
+                                du_budget.release();
                                 match out {
                                     Ok(m) => {
                                         let path_kind = DiskAnalyzerService::kind_for_entry(
@@ -1006,23 +988,37 @@ impl DiskAnalyzerService {
                                             {
                                                 session.tree = Some(Arc::clone(&shared));
                                             }
-                                            let payload = json!({
-                                                "scan_id": scan_id,
-                                                "status": "running",
-                                                "files_scanned": files_scanned.load(Ordering::Relaxed),
-                                                "bytes_scanned": tree.size,
-                                                "dirs_scanned": dirs_scanned.load(Ordering::Relaxed),
-                                                "error_count": error_count.load(Ordering::Relaxed),
-                                                "current_path": real_path,
-                                                "percent": Value::Null,
-                                                "error": Value::Null,
-                                                "tree": tree,
-                                                "level_path": root_path_str,
-                                            });
-                                            let _ = event_tx.send(DiskAnalyzerScanEvent {
-                                                owner_conn_id: owner,
-                                                payload,
-                                            });
+                                            let should_emit = {
+                                                let mut last = last_progress.lock();
+                                                let now = Instant::now();
+                                                if now.duration_since(*last)
+                                                    < Duration::from_millis(200)
+                                                {
+                                                    false
+                                                } else {
+                                                    *last = now;
+                                                    true
+                                                }
+                                            };
+                                            if should_emit {
+                                                let payload = json!({
+                                                    "scan_id": scan_id,
+                                                    "status": "running",
+                                                    "files_scanned": files_scanned.load(Ordering::Relaxed),
+                                                    "bytes_scanned": tree.size,
+                                                    "dirs_scanned": dirs_scanned.load(Ordering::Relaxed),
+                                                    "error_count": error_count.load(Ordering::Relaxed),
+                                                    "current_path": real_path,
+                                                    "percent": Value::Null,
+                                                    "error": Value::Null,
+                                                    "tree": tree,
+                                                    "level_path": root_path_str,
+                                                });
+                                                let _ = event_tx.send(DiskAnalyzerScanEvent {
+                                                    owner_conn_id: owner,
+                                                    payload,
+                                                });
+                                            }
                                         }
                                     }
                                     Err(e) if e.to_string().contains("cancelled") => {

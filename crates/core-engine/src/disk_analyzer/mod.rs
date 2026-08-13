@@ -2,6 +2,7 @@
 
 mod activity;
 mod agent_roots;
+mod budget;
 mod cache;
 mod delete;
 mod prune;
@@ -10,6 +11,7 @@ mod suggestions;
 mod types;
 
 pub use agent_roots::agent_data_roots;
+pub use budget::MeasureBudget;
 pub use cache::{
     clear_all as clear_path_cache, invalidate_path as invalidate_path_cache, CACHE_TTL,
 };
@@ -666,6 +668,39 @@ mod tests {
             .unwrap();
         assert_eq!(a.size, b.size);
         assert!(a.children_loaded);
+    }
+
+    #[test]
+    fn scan_level_sizes_many_sibling_dirs() {
+        let root = tempfile_dir("disk-analyzer-many-siblings");
+        for i in 0..12 {
+            write_file(&root.join(format!("d{i}")).join("f.txt"), 200);
+        }
+        let engine = DiskAnalyzerEngine::new();
+        let (tree, _, _) = engine
+            .scan_level(
+                "many",
+                &root,
+                &DiskScanRoots::default(),
+                Some(30),
+                None,
+                None,
+            )
+            .unwrap();
+        let dirs: Vec<_> = tree
+            .children
+            .iter()
+            .filter(|c| c.is_dir)
+            .map(|c| c.name.as_str())
+            .collect();
+        assert_eq!(dirs.len(), 12, "{dirs:?}");
+        assert!(
+            tree.children
+                .iter()
+                .filter(|c| c.is_dir)
+                .all(|c| c.size >= 200),
+            "every sibling dir should be sized"
+        );
     }
 
     #[test]

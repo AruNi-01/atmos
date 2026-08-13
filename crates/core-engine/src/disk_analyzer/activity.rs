@@ -35,8 +35,12 @@ pub fn git_worktree_last_activity_ms(path: &Path) -> Option<u64> {
         }
         best = best.max(path_mtime_ms(&gitdir.join("logs").join("HEAD")));
     }
-    if let Some(commit_ms) = git_last_commit_ms(path) {
-        best = best.max(commit_ms);
+    // gitdir mtimes already answer "recently active". Spawn git log only when
+    // metadata is missing (bare / incomplete gitdir).
+    if best == 0 {
+        if let Some(commit_ms) = git_last_commit_ms(path) {
+            best = best.max(commit_ms);
+        }
     }
     if best == 0 {
         None
@@ -144,6 +148,23 @@ mod tests {
         fs::create_dir_all(&dir).unwrap();
         fs::write(dir.join("session.jsonl"), "x").unwrap();
         let ms = session_dir_last_activity_ms(&dir).expect("mtime");
+        let _ = fs::remove_dir_all(&dir);
+        assert!(ms > 0);
+    }
+
+    #[test]
+    fn git_worktree_activity_uses_gitdir_mtime_without_log() {
+        let dir = std::env::temp_dir().join(format!(
+            "atmos-activity-gitdir-{}",
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(dir.join(".git").join("logs")).unwrap();
+        fs::write(dir.join(".git").join("HEAD"), "ref: refs/heads/main\n").unwrap();
+        let ms = git_worktree_last_activity_ms(&dir).expect("gitdir mtime");
         let _ = fs::remove_dir_all(&dir);
         assert!(ms > 0);
     }

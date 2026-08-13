@@ -11,6 +11,7 @@ use jwalk::WalkDir;
 
 use crate::error::{EngineError, Result};
 
+use super::budget::MeasureBudget;
 use super::cache;
 use super::prune_tree;
 use super::types::{
@@ -188,24 +189,24 @@ impl DiskAnalyzerEngine {
         let worktree_set = canon_path_set(&roots.git_worktree_roots);
         let agent_set = canon_path_set(&roots.agent_data_roots);
         // Workspace > project > git worktree > agent data (exclusive badges).
+        // Callers pass already-canonical paths when possible.
         let classify = |p: &PathBuf| -> DiskPathKind {
-            let p = std::fs::canonicalize(p).unwrap_or_else(|_| p.clone());
-            if workspace_set.contains(&p) {
+            if workspace_set.contains(p) {
                 DiskPathKind {
                     is_workspace: true,
                     ..DiskPathKind::default()
                 }
-            } else if project_set.contains(&p) {
+            } else if project_set.contains(p) {
                 DiskPathKind {
                     is_project: true,
                     ..DiskPathKind::default()
                 }
-            } else if worktree_set.contains(&p) || crate::git::is_linked_worktree(&p) {
+            } else if worktree_set.contains(p) || crate::git::is_linked_worktree(p) {
                 DiskPathKind {
                     is_git_worktree: true,
                     ..DiskPathKind::default()
                 }
-            } else if agent_set.contains(&p) {
+            } else if agent_set.contains(p) {
                 DiskPathKind {
                     is_agent_data: true,
                     ..DiskPathKind::default()
@@ -219,7 +220,9 @@ impl DiskAnalyzerEngine {
         let bytes_scanned = Arc::new(AtomicU64::new(0));
         let dirs_scanned = Arc::new(AtomicU64::new(0));
         let error_count = Arc::new(AtomicU64::new(0));
-        let last_emit = std::sync::Mutex::new(Instant::now() - PROGRESS_MIN_INTERVAL);
+        let last_emit = Arc::new(std::sync::Mutex::new(
+            Instant::now() - PROGRESS_MIN_INTERVAL,
+        ));
 
         let emit = |status: ScanStatus, current: Option<String>, tree: Option<DiskNode>| {
             let Some(cb) = on_progress.as_ref() else {
@@ -285,7 +288,7 @@ impl DiskAnalyzerEngine {
                             continue;
                         }
                     };
-                    let child = ent.path();
+                    let child = std::fs::canonicalize(ent.path()).unwrap_or_else(|_| ent.path());
                     if should_skip_scan_entry(&child) {
                         continue;
                     }
@@ -326,15 +329,14 @@ impl DiskAnalyzerEngine {
         let sibling_file_ids: Arc<std::sync::Mutex<HashSet<(u64, u64)>>> =
             Arc::new(std::sync::Mutex::new(HashSet::new()));
         // Cap concurrent `du` like Mole (min(4, ncpu)) — each du is already I/O heavy.
-        let du_budget = Arc::new(AtomicUsize::new(
-            std::cmp::min(
-                4,
-                std::thread::available_parallelism()
-                    .map(|n| n.get())
-                    .unwrap_or(4),
-            )
-            .max(1),
-        ));
+        let worker_count = std::cmp::min(
+            4,
+            std::thread::available_parallelism()
+                .map(|n| n.get())
+                .unwrap_or(4),
+        )
+        .max(1);
+        let du_budget = Arc::new(MeasureBudget::new(worker_count));
 
         let root_name = root
             .file_name()
@@ -372,7 +374,8 @@ impl DiskAnalyzerEngine {
             tree
         };
 
-        // Seed: files sized now; directories pending at size 0 (Mole uses Size: -1).
+        // Seed: files sized now; cached dirs applied immediately; cold dirs pending.
+        let mut cold_dirs: Vec<(PathBuf, DiskPathKind)> = Vec::new();
         {
             let mut map = children_map.lock().unwrap_or_else(|e| e.into_inner());
             for (child_path, is_dir) in &entries {
@@ -383,23 +386,48 @@ impl DiskAnalyzerEngine {
                 let path_str = child_path.to_string_lossy().to_string();
                 let kind = classify(child_path);
                 if *is_dir {
-                    map.insert(
-                        path_str.clone(),
-                        DiskNode {
-                            name,
-                            path: path_str,
-                            size: 0,
-                            is_dir: true,
-                            is_project: kind.is_project,
-                            is_workspace: kind.is_workspace,
-                            is_git_worktree: kind.is_git_worktree,
-                            is_agent_data: kind.is_agent_data,
-                            file_count: 0,
-                            dir_count: 0,
-                            children_loaded: false,
-                            children: vec![],
-                        },
-                    );
+                    if let Some(m) = cache::get_measure(child_path) {
+                        files_scanned.fetch_add(m.file_count, Ordering::Relaxed);
+                        dirs_scanned.fetch_add(m.dir_count.saturating_add(1), Ordering::Relaxed);
+                        error_count.fetch_add(m.error_count, Ordering::Relaxed);
+                        bytes_scanned.fetch_add(m.size, Ordering::Relaxed);
+                        map.insert(
+                            path_str.clone(),
+                            DiskNode {
+                                name,
+                                path: path_str,
+                                size: m.size,
+                                is_dir: true,
+                                is_project: kind.is_project,
+                                is_workspace: kind.is_workspace,
+                                is_git_worktree: kind.is_git_worktree,
+                                is_agent_data: kind.is_agent_data,
+                                file_count: m.file_count,
+                                dir_count: m.dir_count,
+                                children_loaded: false,
+                                children: vec![],
+                            },
+                        );
+                    } else {
+                        map.insert(
+                            path_str.clone(),
+                            DiskNode {
+                                name,
+                                path: path_str,
+                                size: 0,
+                                is_dir: true,
+                                is_project: kind.is_project,
+                                is_workspace: kind.is_workspace,
+                                is_git_worktree: kind.is_git_worktree,
+                                is_agent_data: kind.is_agent_data,
+                                file_count: 0,
+                                dir_count: 0,
+                                children_loaded: false,
+                                children: vec![],
+                            },
+                        );
+                        cold_dirs.push((child_path.clone(), kind));
+                    }
                 } else {
                     let meta = match std::fs::symlink_metadata(child_path) {
                         Ok(m) => m,
@@ -438,152 +466,79 @@ impl DiskAnalyzerEngine {
                     );
                 }
             }
-            // Instant first paint (files sized, dirs pending) — Mole live_scan style.
+            // Instant first paint (files + cache hits sized, cold dirs pending).
             let snap = build_snapshot(&map);
             emit(ScanStatus::Running, Some(root_path_str.clone()), Some(snap));
         }
 
-        std::thread::scope(|scope| {
-            for (child_path, is_dir) in entries {
-                if !is_dir {
-                    continue;
-                }
-                let cancel = cancel.clone();
-                let files_scanned = Arc::clone(&files_scanned);
-                let bytes_scanned = Arc::clone(&bytes_scanned);
-                let dirs_scanned = Arc::clone(&dirs_scanned);
-                let error_count = Arc::clone(&error_count);
-                let children_map = Arc::clone(&children_map);
-                let du_budget = Arc::clone(&du_budget);
-                let emit_progress = on_progress.clone();
-                let scan_id = scan_id.to_string();
-                let root_path_str = root_path_str.clone();
-                let root_name = root_name.clone();
-                let child_kind = classify(&child_path);
-
-                scope.spawn(move || {
-                    if cancel
-                        .as_ref()
-                        .map(|c| c.load(Ordering::Relaxed))
-                        .unwrap_or(false)
-                    {
-                        return;
-                    }
-
-                    let name = child_path
-                        .file_name()
-                        .map(|s| s.to_string_lossy().to_string())
-                        .unwrap_or_else(|| child_path.to_string_lossy().to_string());
-                    let path_str = child_path.to_string_lossy().to_string();
-                    let is_project = child_kind.is_project;
-                    let is_workspace = child_kind.is_workspace;
-                    let is_git_worktree = child_kind.is_git_worktree;
-                    let is_agent_data = child_kind.is_agent_data;
-
-                    // Prefer system `du` (Mole); fall back to jwalk when du fails.
-                    let m = {
-                        // Simple semaphore for du concurrency.
-                        loop {
-                            let cur = du_budget.load(Ordering::Relaxed);
-                            if cur == 0 {
-                                std::thread::yield_now();
-                                if cancel
-                                    .as_ref()
-                                    .map(|c| c.load(Ordering::Relaxed))
-                                    .unwrap_or(false)
-                                {
-                                    return;
-                                }
-                                continue;
-                            }
-                            if du_budget
-                                .compare_exchange_weak(
-                                    cur,
-                                    cur - 1,
-                                    Ordering::SeqCst,
-                                    Ordering::Relaxed,
-                                )
-                                .is_ok()
-                            {
-                                break;
-                            }
+        if !cold_dirs.is_empty() {
+            let job_idx = AtomicUsize::new(0);
+            let workers = worker_count.min(cold_dirs.len());
+            std::thread::scope(|scope| {
+                for _ in 0..workers {
+                    let cancel = cancel.clone();
+                    let files_scanned = Arc::clone(&files_scanned);
+                    let bytes_scanned = Arc::clone(&bytes_scanned);
+                    let dirs_scanned = Arc::clone(&dirs_scanned);
+                    let error_count = Arc::clone(&error_count);
+                    let children_map = Arc::clone(&children_map);
+                    let du_budget = Arc::clone(&du_budget);
+                    let jobs = &cold_dirs;
+                    let job_idx = &job_idx;
+                    scope.spawn(move || loop {
+                        if cancel
+                            .as_ref()
+                            .map(|c| c.load(Ordering::Relaxed))
+                            .unwrap_or(false)
+                        {
+                            return;
                         }
-                        let measured = measure_directory(&child_path, cancel.as_ref());
-                        du_budget.fetch_add(1, Ordering::SeqCst);
-                        measured
-                    };
+                        let i = job_idx.fetch_add(1, Ordering::Relaxed);
+                        if i >= jobs.len() {
+                            return;
+                        }
+                        let (child_path, child_kind) = &jobs[i];
+                        if !du_budget.acquire(cancel.as_ref()) {
+                            return;
+                        }
+                        let measured = measure_directory(child_path, cancel.as_ref());
+                        du_budget.release();
 
-                    files_scanned.fetch_add(m.file_count, Ordering::Relaxed);
-                    dirs_scanned.fetch_add(m.dir_count.saturating_add(1), Ordering::Relaxed);
-                    error_count.fetch_add(m.error_count, Ordering::Relaxed);
-                    bytes_scanned.fetch_add(m.size, Ordering::Relaxed);
+                        files_scanned.fetch_add(measured.file_count, Ordering::Relaxed);
+                        dirs_scanned
+                            .fetch_add(measured.dir_count.saturating_add(1), Ordering::Relaxed);
+                        error_count.fetch_add(measured.error_count, Ordering::Relaxed);
+                        bytes_scanned.fetch_add(measured.size, Ordering::Relaxed);
 
-                    let node = DiskNode {
-                        name,
-                        path: path_str.clone(),
-                        size: m.size,
-                        is_dir: true,
-                        is_project,
-                        is_workspace,
-                        is_git_worktree,
-                        is_agent_data,
-                        file_count: m.file_count,
-                        dir_count: m.dir_count,
-                        children_loaded: false,
-                        children: vec![],
-                    };
-
-                    let snap = {
-                        let mut map = children_map.lock().unwrap_or_else(|e| e.into_inner());
-                        map.insert(path_str.clone(), node);
-                        let mut children: Vec<DiskNode> = map.values().cloned().collect();
-                        children
-                            .sort_by(|a, b| b.size.cmp(&a.size).then_with(|| a.name.cmp(&b.name)));
-                        let total_size = bytes_scanned.load(Ordering::Relaxed);
-                        let file_count: u64 = children
-                            .iter()
-                            .map(|c| c.file_count + if c.is_dir { 0 } else { 1 })
-                            .sum();
-                        let dir_count: u64 = children
-                            .iter()
-                            .map(|c| if c.is_dir { 1 + c.dir_count } else { 0 })
-                            .sum();
-                        let mut tree = DiskNode {
-                            name: root_name,
-                            path: root_path_str.clone(),
-                            size: total_size,
+                        let path_str = child_path.to_string_lossy().to_string();
+                        let name = child_path
+                            .file_name()
+                            .map(|s| s.to_string_lossy().to_string())
+                            .unwrap_or_else(|| path_str.clone());
+                        let node = DiskNode {
+                            name,
+                            path: path_str.clone(),
+                            size: measured.size,
                             is_dir: true,
-                            is_project: root_kind.is_project,
-                            is_workspace: root_kind.is_workspace,
-                            is_git_worktree: root_kind.is_git_worktree,
-                            is_agent_data: root_kind.is_agent_data,
-                            file_count,
-                            dir_count,
-                            children_loaded: true,
-                            children,
+                            is_project: child_kind.is_project,
+                            is_workspace: child_kind.is_workspace,
+                            is_git_worktree: child_kind.is_git_worktree,
+                            is_agent_data: child_kind.is_agent_data,
+                            file_count: measured.file_count,
+                            dir_count: measured.dir_count,
+                            children_loaded: false,
+                            children: vec![],
                         };
-                        prune_tree(&mut tree, max_children);
-                        tree
-                    };
-
-                    if let Some(cb) = emit_progress.as_ref() {
-                        cb(ScanProgress {
-                            scan_id: scan_id.clone(),
-                            status: ScanStatus::Running,
-                            files_scanned: files_scanned.load(Ordering::Relaxed),
-                            bytes_scanned: bytes_scanned.load(Ordering::Relaxed),
-                            dirs_scanned: dirs_scanned.load(Ordering::Relaxed),
-                            error_count: error_count.load(Ordering::Relaxed),
-                            current_path: Some(path_str),
-                            percent: None,
-                            error: None,
-                            tree: Some(snap),
-                            level_path: Some(root_path_str),
-                        });
-                    }
-                });
-            }
-        });
+                        let snap = {
+                            let mut map = children_map.lock().unwrap_or_else(|e| e.into_inner());
+                            map.insert(path_str.clone(), node);
+                            build_snapshot(&map)
+                        };
+                        emit(ScanStatus::Running, Some(path_str), Some(snap));
+                    });
+                }
+            });
+        }
 
         if cancel
             .as_ref()
