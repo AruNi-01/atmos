@@ -13,8 +13,10 @@ import {
   isWorktreeSuggestion,
   SMALL_SUGGEST_BYTES,
   suggestCleanupScore,
+  suggestIdleDays,
   suggestLocationRaw,
   suggestShortLocation,
+  suggestionSurvivesDelete,
   suggestionTotalSize,
   filterTree,
   formatBytes,
@@ -1075,6 +1077,57 @@ describe("disk analyzer suggestion helpers", () => {
     ]);
   });
 
+  test("groupClearSuggestions sorts groups by total size", () => {
+    const groups = groupClearSuggestions([
+      {
+        path: "/cache/node_modules",
+        name: "node_modules",
+        size: 10,
+        reason: "",
+        kind: "cache",
+      },
+      {
+        path: "/sessions/codex",
+        name: "Codex sessions",
+        size: 9_000,
+        reason: "",
+        kind: "session",
+      },
+    ]);
+    expect(groups.map((group) => group.kind)).toEqual(["session", "cache"]);
+  });
+
+  test("same-name caches stay together even when one is under 1MB", () => {
+    const groups = groupClearSuggestions([
+      {
+        path: "/a/node_modules",
+        name: "node_modules",
+        size: 8_000_000,
+        reason: "",
+        kind: "cache",
+      },
+      {
+        path: "/b/target",
+        name: "target",
+        size: 3_000_000,
+        reason: "",
+        kind: "cache",
+      },
+      {
+        path: "/c/node_modules",
+        name: "node_modules",
+        size: 100,
+        reason: "",
+        kind: "cache",
+      },
+    ]);
+    expect(groups[0].items.map((item) => item.path)).toEqual([
+      "/a/node_modules",
+      "/c/node_modules",
+      "/b/target",
+    ]);
+  });
+
   test("compareSuggestionsForCleanup sinks tiny items and boosts idle size", () => {
     const now = Date.UTC(2026, 7, 13);
     const tiny = {
@@ -1106,6 +1159,22 @@ describe("disk analyzer suggestion helpers", () => {
     expect(suggestCleanupScore(stale, now)).toBeGreaterThan(
       suggestCleanupScore(fresh, now),
     );
+    expect(suggestIdleDays(undefined, now)).toBeNull();
+    expect(suggestIdleDays(0, now)).toBeNull();
+    expect(suggestIdleDays(now - 12 * 60 * 60 * 1000, now)).toBe(1);
+    const idle180 = {
+      path: "/cap",
+      name: "cap",
+      size: 100,
+      reason: "",
+      last_activity_ms: now - 180 * 86_400_000,
+    };
+    const idle181 = {
+      ...idle180,
+      last_activity_ms: now - 181 * 86_400_000,
+    };
+    expect(suggestCleanupScore(idle180, now)).toBe(200);
+    expect(suggestCleanupScore(idle181, now)).toBe(200);
   });
 
   test("suggestLocationRaw uses the parent folder for cache items", () => {
@@ -1136,6 +1205,34 @@ describe("disk analyzer suggestion helpers", () => {
         kind: "cache",
       }),
     ).toBe("proj");
+    expect(
+      suggestLocationRaw({
+        path: "/home/.codex/worktrees/feat",
+        name: "feat",
+        size: 1,
+        reason: "",
+        kind: "worktree",
+      }),
+    ).toBe("/home/.codex/worktrees/feat");
+    expect(
+      suggestShortLocation({
+        path: "C:\\Users\\me\\proj\\node_modules",
+        name: "node_modules",
+        size: 1,
+        reason: "",
+        kind: "cache",
+      }),
+    ).toBe("proj");
+  });
+
+  test("suggestionSurvivesDelete drops the path and its children", () => {
+    expect(suggestionSurvivesDelete("/a/node_modules", ["/a/node_modules"])).toBe(
+      false,
+    );
+    expect(suggestionSurvivesDelete("/a/node_modules/pkg", ["/a/node_modules"])).toBe(
+      false,
+    );
+    expect(suggestionSurvivesDelete("/b/target", ["/a/node_modules"])).toBe(true);
   });
 });
 

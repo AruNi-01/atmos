@@ -9556,7 +9556,6 @@
     "suggestScanning": "仍在扫描… 建议列表可能还会增加。",
     "suggestEmpty": "当前没有清理建议。",
     "suggestIdleDays": "已闲置 {days} 天",
-    "suggestIdleRange": "已闲置 {min}–{max} 天",
     "suggestKind": {
       "cache": "缓存",
       "worktree": "Git 工作树",

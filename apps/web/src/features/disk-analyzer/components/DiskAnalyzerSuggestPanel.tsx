@@ -6,7 +6,6 @@ import {
   Button,
   Tooltip,
   TooltipContent,
-  TooltipProvider,
   TooltipTrigger,
 } from "@workspace/ui";
 import { Loader2, Trash2 } from "lucide-react";
@@ -15,7 +14,7 @@ import {
   formatBytes,
   groupClearSuggestions,
   suggestIdleDays,
-  suggestShortLocation,
+  suggestLocationRaw,
   suggestionTotalSize,
 } from "@/features/disk-analyzer/lib/tree-adapters";
 
@@ -43,6 +42,7 @@ export function DiskAnalyzerSuggestPanel({
   const t = useTranslations("DiskAnalyzer");
   const groups = useMemo(() => groupClearSuggestions(suggestions), [suggestions]);
   const totalSize = suggestionTotalSize(suggestions);
+  const actionsLocked = deleting || scanning;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -59,7 +59,7 @@ export function DiskAnalyzerSuggestPanel({
             variant="ghost"
             size="sm"
             className="h-7 shrink-0 rounded-full px-2.5 text-xs text-muted-foreground hover:text-destructive"
-            disabled={deleting}
+            disabled={actionsLocked}
             onClick={onDeleteAll}
           >
             {deleting ? <Loader2 className="size-3.5 animate-spin" /> : <Trash2 className="size-3.5" />}
@@ -74,61 +74,60 @@ export function DiskAnalyzerSuggestPanel({
             {ready || !scanning ? t("suggestEmpty") : t("suggestScanning")}
           </p>
         ) : (
-          <TooltipProvider delayDuration={250}>
-            <div className="space-y-3">
-              {groups.map((group) => {
-                const nameCounts = countNames(group.items);
-                return (
-                  <section key={group.kind} className="min-w-0">
-                    <div className="flex items-center gap-1.5 px-1 pb-1.5">
-                      <div className="min-w-0 flex-1">
-                        <p className="text-xs font-medium">{kindLabel(group.kind, t)}</p>
-                        <p className="truncate text-[11px] text-muted-foreground">
-                          {t("suggestCount", { count: group.items.length })}
-                          <span className="px-1 text-muted-foreground/50">·</span>
-                          <span className="tabular-nums">{formatBytes(group.size)}</span>
-                        </p>
-                      </div>
-                      {group.items.length > 1 ? (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon-xs"
-                          className="size-6 shrink-0 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                          disabled={deleting}
-                          aria-label={t("suggestDeleteGroup")}
-                          title={t("suggestDeleteGroup")}
-                          onClick={() => onDeleteGroup(group.items)}
-                        >
-                          <Trash2 className="size-3" />
-                        </Button>
-                      ) : null}
+          <div className="space-y-3">
+            {groups.map((group) => {
+              const rows = group.buckets.flatMap((bucket) => bucket.items);
+              const nameCounts = countNames(rows);
+              return (
+                <section key={group.kind} className="min-w-0">
+                  <div className="flex items-center gap-1.5 px-1 pb-1.5">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-medium">{kindLabel(group.kind, t)}</p>
+                      <p className="truncate text-[11px] text-muted-foreground">
+                        {t("suggestCount", { count: group.items.length })}
+                        <span className="px-1 text-muted-foreground/50">·</span>
+                        <span className="tabular-nums">{formatBytes(group.size)}</span>
+                      </p>
                     </div>
+                    {group.items.length > 1 ? (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-xs"
+                        className="size-6 shrink-0 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                        disabled={actionsLocked}
+                        aria-label={t("suggestDeleteGroup")}
+                        title={t("suggestDeleteGroup")}
+                        onClick={() => onDeleteGroup(group.items)}
+                      >
+                        <Trash2 className="size-3" />
+                      </Button>
+                    ) : null}
+                  </div>
 
-                    <div className="overflow-hidden rounded-xl border border-border/60 bg-muted/20">
-                      {group.items.map((item, index) => (
-                        <SuggestRow
-                          key={item.path}
-                          item={item}
-                          showShortLocation={(nameCounts.get(item.name.toLowerCase()) ?? 0) > 1}
-                          divided={index > 0}
-                          deleting={deleting}
-                          localizeName={localizeName}
-                          pathTitle={pathTitle}
-                          onDelete={() => onDeleteOne(item)}
-                        />
-                      ))}
-                    </div>
-                  </section>
-                );
-              })}
-              {!ready || scanning ? (
-                <p className="px-1 pt-1 text-[11px] leading-snug text-muted-foreground">
-                  {t("suggestScanning")}
-                </p>
-              ) : null}
-            </div>
-          </TooltipProvider>
+                  <div className="overflow-hidden rounded-xl border border-border/60 bg-muted/20">
+                    {rows.map((item, index) => (
+                      <SuggestRow
+                        key={item.path}
+                        item={item}
+                        showShortLocation={(nameCounts.get(item.name.toLowerCase()) ?? 0) > 1}
+                        divided={index > 0}
+                        locked={actionsLocked}
+                        localizeName={localizeName}
+                        pathTitle={pathTitle}
+                        onDelete={() => onDeleteOne(item)}
+                      />
+                    ))}
+                  </div>
+                </section>
+              );
+            })}
+            {!ready || scanning ? (
+              <p className="px-1 pt-1 text-[11px] leading-snug text-muted-foreground">
+                {t("suggestScanning")}
+              </p>
+            ) : null}
+          </div>
         )}
       </div>
     </div>
@@ -139,7 +138,7 @@ function SuggestRow({
   item,
   showShortLocation,
   divided,
-  deleting,
+  locked,
   localizeName,
   pathTitle,
   onDelete,
@@ -147,7 +146,7 @@ function SuggestRow({
   item: CleanupSuggestion;
   showShortLocation: boolean;
   divided: boolean;
-  deleting: boolean;
+  locked: boolean;
   localizeName: (name: string) => string;
   pathTitle: (path: string) => string;
   onDelete: () => void;
@@ -155,53 +154,62 @@ function SuggestRow({
   const t = useTranslations("DiskAnalyzer");
   const idle = suggestIdleDays(item.last_activity_ms);
   const fullPath = pathTitle(item.path);
+  const shortLocation = shortLocationLabel(item, pathTitle);
   return (
     <div className={divided ? "border-t border-border/50" : undefined}>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <div className="flex h-8 cursor-default items-center gap-2 px-2.5 hover:bg-muted/50">
-            <p className="min-w-0 flex-1 truncate text-xs">
-              <span className="font-medium">{localizeName(item.name)}</span>
-              {showShortLocation ? (
-                <span className="text-muted-foreground">
-                  {" · "}
-                  {suggestShortLocation(item)}
-                </span>
-              ) : null}
-            </p>
-            <p className="shrink-0 text-[11px] tabular-nums text-muted-foreground">
-              {formatBytes(item.size)}
-              {idle != null ? (
-                <>
-                  <span className="px-1 text-muted-foreground/50">·</span>
-                  {t("suggestIdleDays", { days: idle })}
-                </>
-              ) : null}
-            </p>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-xs"
-              className="size-6 shrink-0 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-              disabled={deleting}
-              aria-label={t("deleteItem")}
-              title={t("deleteItem")}
-              onClick={(event) => {
-                event.preventDefault();
-                event.stopPropagation();
-                onDelete();
-              }}
-            >
-              <Trash2 className="size-3" />
-            </Button>
-          </div>
-        </TooltipTrigger>
-        <TooltipContent side="left" className="max-w-xs break-all">
-          {fullPath}
-        </TooltipContent>
-      </Tooltip>
+      <div className="flex h-8 items-center gap-1 px-1.5 hover:bg-muted/50">
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div className="flex min-w-0 flex-1 cursor-default items-center gap-2 px-1">
+              <p className="min-w-0 flex-1 truncate text-xs">
+                <span className="font-medium">{localizeName(item.name)}</span>
+                {showShortLocation ? (
+                  <span className="text-muted-foreground">
+                    {" · "}
+                    {shortLocation}
+                  </span>
+                ) : null}
+              </p>
+              <p className="shrink-0 text-[11px] tabular-nums text-muted-foreground">
+                {formatBytes(item.size)}
+                {idle != null ? (
+                  <>
+                    <span className="px-1 text-muted-foreground/50">·</span>
+                    {t("suggestIdleDays", { days: idle })}
+                  </>
+                ) : null}
+              </p>
+              <span className="sr-only">{fullPath}</span>
+            </div>
+          </TooltipTrigger>
+          <TooltipContent side="top" className="max-w-xs break-all">
+            {fullPath}
+          </TooltipContent>
+        </Tooltip>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-xs"
+          className="size-6 shrink-0 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+          disabled={locked}
+          aria-label={t("deleteItem")}
+          title={t("deleteItem")}
+          onClick={onDelete}
+        >
+          <Trash2 className="size-3" />
+        </Button>
+      </div>
     </div>
   );
+}
+
+function shortLocationLabel(
+  item: CleanupSuggestion,
+  pathTitle: (path: string) => string,
+): string {
+  const location = pathTitle(suggestLocationRaw(item));
+  const parts = location.replace(/\\/g, "/").replace(/\/+$/, "").split("/").filter(Boolean);
+  return parts.at(-1) ?? location;
 }
 
 function countNames(items: CleanupSuggestion[]): Map<string, number> {
@@ -220,5 +228,5 @@ function kindLabel(
   if (t.has(`suggestKind.${kind}`)) {
     return t(`suggestKind.${kind}`);
   }
-  return t("suggestKind.cache");
+  return kind;
 }

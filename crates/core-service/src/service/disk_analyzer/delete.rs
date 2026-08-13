@@ -69,6 +69,14 @@ impl DiskAnalyzerService {
             if let Some(session) = sessions.get_mut(scan_id) {
                 session.tree = None;
                 session.completed_at = None;
+                if let Some(list) = session.suggestions.as_mut() {
+                    let deleted = path.to_string_lossy();
+                    let deleted = deleted.trim_end_matches('/');
+                    list.retain(|item| {
+                        let item_path = item.path.trim_end_matches('/');
+                        item_path != deleted && !item_path.starts_with(&format!("{deleted}/"))
+                    });
+                }
             }
         }
 

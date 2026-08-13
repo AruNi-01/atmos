@@ -96,6 +96,7 @@ export function DiskAnalyzerPage() {
   const [detailTab, setDetailTab] = useState<"dirs" | "suggest">("dirs");
   const [pendingSuggest, setPendingSuggest] = useState<{
     path: string;
+    displayPath: string;
     size: number;
     isWorktree: boolean;
   } | null>(null);
@@ -149,6 +150,7 @@ export function DiskAnalyzerPage() {
     analyzer.setSelectedPath(item.path);
     setPendingSuggest({
       path: item.path,
+      displayPath: pathTitle(item.path),
       size: item.size,
       isWorktree: item.kind === "worktree" || item.kind === "workspace",
     });
@@ -164,7 +166,10 @@ export function DiskAnalyzerPage() {
     try {
       const target = pendingSuggest?.path ?? analyzer.selectedPath;
       if (target) {
-        await analyzer.deletePathAt(target, permanent);
+        await analyzer.deletePathAt(
+          target,
+          pendingSuggest?.isWorktree ? true : permanent,
+        );
         setDeleteOpen(false);
         setListDeletePath(null);
         setPermanent(false);
@@ -182,11 +187,28 @@ export function DiskAnalyzerPage() {
     setDeleting(true);
     setDeleteError(null);
     try {
-      await analyzer.deleteSuggestions(permanent, pendingSuggestItems ?? undefined);
+      const trashable = (pendingSuggestItems ?? analyzer.sessionSuggestions).some(
+        (item) => !isWorktreeSuggestion(item),
+      );
+      await analyzer.deleteSuggestions(
+        trashable ? permanent : true,
+        pendingSuggestItems ?? undefined,
+      );
       setDeleteAllOpen(false);
       setPermanent(false);
       setPendingSuggestItems(null);
     } catch (e) {
+      const deletedPaths =
+        e && typeof e === "object" && "deletedPaths" in e
+          ? (e as { deletedPaths?: string[] }).deletedPaths ?? []
+          : [];
+      if (deletedPaths.length > 0) {
+        setPendingSuggestItems((prev) => {
+          if (!prev) return null;
+          const next = prev.filter((item) => !deletedPaths.includes(item.path));
+          return next.length > 0 ? next : null;
+        });
+      }
       setDeleteError(e instanceof Error ? e.message : String(e));
     } finally {
       setDeleting(false);
@@ -194,6 +216,9 @@ export function DiskAnalyzerPage() {
   };
 
   const pendingBulkItems = pendingSuggestItems ?? analyzer.sessionSuggestions;
+  const pendingBulkNeedsTrash = pendingBulkItems.some(
+    (item) => !isWorktreeSuggestion(item),
+  );
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden bg-background/50">
@@ -896,10 +921,12 @@ export function DiskAnalyzerPage() {
             <DialogDescription className="min-w-0 whitespace-pre-wrap break-all">
               {t("deleteDescription", {
                 path:
-                  pendingSuggest?.path ??
-                  analyzer.selectedNode?.path ??
-                  analyzer.selectedPath ??
-                  "",
+                  pendingSuggest?.displayPath ??
+                  (analyzer.selectedNode
+                    ? pathTitle(analyzer.selectedNode.path)
+                    : analyzer.selectedPath
+                      ? pathTitle(analyzer.selectedPath)
+                      : ""),
                 size: formatBytes(
                   pendingSuggest?.size ?? analyzer.selectedNode?.size ?? 0,
                 ),
@@ -913,14 +940,18 @@ export function DiskAnalyzerPage() {
               ) : null}
             </DialogDescription>
           </DialogHeader>
-          <label className="flex min-w-0 items-start gap-2 text-sm leading-snug">
-            <Checkbox
-              className="mt-0.5 shrink-0"
-              checked={permanent}
-              onCheckedChange={(checked) => setPermanent(checked === true)}
-            />
-            <span className="min-w-0 break-words">{t("permanentDelete")}</span>
-          </label>
+          {pendingSuggest?.isWorktree ||
+          analyzer.selectedNode?.is_git_worktree ||
+          analyzer.selectedNode?.is_workspace ? null : (
+            <label className="flex min-w-0 items-start gap-2 text-sm leading-snug">
+              <Checkbox
+                className="mt-0.5 shrink-0"
+                checked={permanent}
+                onCheckedChange={(checked) => setPermanent(checked === true)}
+              />
+              <span className="min-w-0 break-words">{t("permanentDelete")}</span>
+            </label>
+          )}
           {deleteError ? (
             <div className="text-sm text-destructive">{deleteError}</div>
           ) : null}
@@ -934,7 +965,12 @@ export function DiskAnalyzerPage() {
               onClick={() => void onConfirmDelete()}
             >
               {deleting ? <Loader2 className="size-4 animate-spin" /> : null}
-              {permanent ? t("confirmPermanent") : t("confirmTrash")}
+              {pendingSuggest?.isWorktree ||
+              analyzer.selectedNode?.is_git_worktree ||
+              analyzer.selectedNode?.is_workspace ||
+              permanent
+                ? t("confirmPermanent")
+                : t("confirmTrash")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -967,14 +1003,16 @@ export function DiskAnalyzerPage() {
               ) : null}
             </DialogDescription>
           </DialogHeader>
-          <label className="flex min-w-0 items-start gap-2 text-sm leading-snug">
-            <Checkbox
-              className="mt-0.5 shrink-0"
-              checked={permanent}
-              onCheckedChange={(checked) => setPermanent(checked === true)}
-            />
-            <span className="min-w-0 break-words">{t("permanentDelete")}</span>
-          </label>
+          {pendingBulkNeedsTrash ? (
+            <label className="flex min-w-0 items-start gap-2 text-sm leading-snug">
+              <Checkbox
+                className="mt-0.5 shrink-0"
+                checked={permanent}
+                onCheckedChange={(checked) => setPermanent(checked === true)}
+              />
+              <span className="min-w-0 break-words">{t("permanentDelete")}</span>
+            </label>
+          ) : null}
           {deleteError ? (
             <div className="text-sm text-destructive">{deleteError}</div>
           ) : null}
@@ -988,7 +1026,9 @@ export function DiskAnalyzerPage() {
               onClick={() => void onConfirmDeleteAll()}
             >
               {deleting ? <Loader2 className="size-4 animate-spin" /> : null}
-              {permanent ? t("confirmPermanent") : t("confirmTrash")}
+              {pendingBulkNeedsTrash && !permanent
+                ? t("confirmTrash")
+                : t("confirmPermanent")}
             </Button>
           </DialogFooter>
         </DialogContent>

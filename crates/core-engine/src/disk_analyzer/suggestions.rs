@@ -323,7 +323,17 @@ impl CleanupSuggestion {
     }
 }
 
+fn should_skip_suggestion_node(node: &DiskNode) -> bool {
+    node.name == OTHER_NAME || node.path.starts_with("atmos://") || node.is_project
+}
+
 fn collect_suggestions(node: &DiskNode, hints: &[(&str, &str)], out: &mut Vec<CleanupSuggestion>) {
+    if should_skip_suggestion_node(node) {
+        for child in &node.children {
+            collect_suggestions(child, hints, out);
+        }
+        return;
+    }
     if node.size > 0 {
         let node_name = node.name.as_str();
         // Exact / case-insensitive basename match.

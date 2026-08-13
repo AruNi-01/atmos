@@ -45,17 +45,32 @@ pub fn git_worktree_last_activity_ms(path: &Path) -> Option<u64> {
     }
 }
 
-/// Max mtime of the directory and its immediate children (capped).
+/// Max mtime of immediate children (capped). Parent mtime is used only when
+/// the directory has no children, so a container touch cannot hide idle sessions.
 pub fn session_dir_last_activity_ms(path: &Path) -> Option<u64> {
-    let mut best = path_mtime_ms(path);
+    let parent_mtime = path_mtime_ms(path);
     let Ok(rd) = std::fs::read_dir(path) else {
-        return if best == 0 { None } else { Some(best) };
+        return if parent_mtime == 0 {
+            None
+        } else {
+            Some(parent_mtime)
+        };
     };
-    for (i, entry) in rd.flatten().enumerate() {
+    let mut children: Vec<_> = rd.flatten().map(|entry| entry.path()).collect();
+    if children.is_empty() {
+        return if parent_mtime == 0 {
+            None
+        } else {
+            Some(parent_mtime)
+        };
+    }
+    children.sort();
+    let mut best = 0u64;
+    for (i, child) in children.iter().enumerate() {
         if i >= 256 {
             break;
         }
-        best = best.max(path_mtime_ms(&entry.path()));
+        best = best.max(path_mtime_ms(child));
     }
     if best == 0 {
         None

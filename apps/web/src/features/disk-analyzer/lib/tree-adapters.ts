@@ -694,23 +694,38 @@ export function compareSuggestionsForCleanup(
   return a.path.localeCompare(b.path);
 }
 
+function normalizeSuggestPath(path: string): string {
+  return path.replace(/\\/g, "/").replace(/\/+$/, "");
+}
+
 /** Parent folder for cache tiles; full path for sessions / worktrees. */
 export function suggestLocationRaw(item: CleanupSuggestion): string {
   if ((item.kind ?? "cache") === "cache") {
-    const normalized = item.path.replace(/\/+$/, "");
+    const normalized = normalizeSuggestPath(item.path);
     const idx = normalized.lastIndexOf("/");
-    if (idx <= 0) return item.path;
+    if (idx <= 0) return item.path.replace(/\\/g, "/");
     return normalized.slice(0, idx) || "/";
   }
-  return item.path;
+  return item.path.replace(/\\/g, "/");
 }
 
 /** Last path segment of the location — used only when names collide. */
 export function suggestShortLocation(item: CleanupSuggestion): string {
-  const loc = suggestLocationRaw(item).replace(/\/+$/, "");
+  const loc = normalizeSuggestPath(suggestLocationRaw(item));
   const idx = loc.lastIndexOf("/");
   if (idx < 0) return loc;
   return loc.slice(idx + 1) || loc;
+}
+
+export function suggestionSurvivesDelete(
+  itemPath: string,
+  deletedPaths: string[],
+): boolean {
+  const item = normalizeSuggestPath(itemPath);
+  return !deletedPaths.some((raw) => {
+    const deleted = normalizeSuggestPath(raw);
+    return item === deleted || item.startsWith(`${deleted}/`);
+  });
 }
 
 export type SuggestNameBucket = {
@@ -724,8 +739,6 @@ export type SuggestKindGroup = {
   items: CleanupSuggestion[];
   buckets: SuggestNameBucket[];
   size: number;
-  minIdleDays: number | null;
-  maxIdleDays: number | null;
 };
 
 export function groupClearSuggestions(
@@ -745,16 +758,11 @@ export function groupClearSuggestions(
     if (!list?.length) continue;
     list.sort((a, b) => compareSuggestionsForCleanup(a, b, now));
     const buckets = bucketSuggestionsByName(list, now);
-    const idles = list
-      .map((item) => suggestIdleDays(item.last_activity_ms, now))
-      .filter((days): days is number => days != null);
     groups.push({
       kind,
-      items: list,
+      items: buckets.flatMap((bucket) => bucket.items),
       buckets,
       size: suggestionTotalSize(list),
-      minIdleDays: idles.length ? Math.min(...idles) : null,
-      maxIdleDays: idles.length ? Math.max(...idles) : null,
     });
   }
   groups.sort(

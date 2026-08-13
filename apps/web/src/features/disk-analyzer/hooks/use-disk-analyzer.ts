@@ -22,6 +22,7 @@ import {
   buildBreadcrumbs,
   collectCleanupSuggestions,
   DEFAULT_TOP_N,
+  suggestionSurvivesDelete,
   filterTree,
   findNodeByPath,
   formatBytes,
@@ -141,6 +142,7 @@ export function useDiskAnalyzer() {
   const levelCacheRef = useRef<Record<string, DiskNode>>({});
   const [stats, setStats] = useState<DiskScanStats | null>(null);
   const [suggestions, setSuggestions] = useState<CleanupSuggestion[]>([]);
+  const suppressedSuggestPathsRef = useRef<string[]>([]);
   const [volume, setVolume] = useState<DiskVolumeInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [chartMode, setChartMode] = useState<ChartMode>("treemap");
@@ -276,7 +278,14 @@ export function useDiskAnalyzer() {
           // Confirmed items can stream in while scanning. Only apply an empty
           // list once the walk is done so "all clean" is not a mid-scan lie.
           if (payload.suggestions.length > 0 || payload.status === "completed") {
-            setSuggestions(payload.suggestions);
+            const suppressed = suppressedSuggestPathsRef.current;
+            setSuggestions(
+              suppressed.length === 0
+                ? payload.suggestions
+                : payload.suggestions.filter((item) =>
+                    suggestionSurvivesDelete(item.path, suppressed),
+                  ),
+            );
           }
         }
 
@@ -320,6 +329,7 @@ export function useDiskAnalyzer() {
     setLevelCache({});
     setStats(null);
     setSuggestions([]);
+    suppressedSuggestPathsRef.current = [];
     setStatus("running");
     setFocusPath(null);
     setSelectedPath(null);
@@ -508,10 +518,12 @@ export function useDiskAnalyzer() {
 
   const deletePathAt = useCallback(
     async (path: string, permanent: boolean) => {
-      if (!scanId) return null;
+      if (!scanId) {
+        throw new Error(scanFailedLabel);
+      }
       return diskAnalyzerApi.deletePath(scanId, path, permanent);
     },
-    [scanId],
+    [scanFailedLabel, scanId],
   );
 
   const deleteSelected = useCallback(
@@ -524,14 +536,10 @@ export function useDiskAnalyzer() {
 
   const dropSuggestionPaths = useCallback((paths: string[]) => {
     if (paths.length === 0) return;
+    const next = [...suppressedSuggestPathsRef.current, ...paths];
+    suppressedSuggestPathsRef.current = next;
     setSuggestions((prev) =>
-      prev.filter((item) => {
-        const itemPath = item.path.replace(/\/+$/, "");
-        return !paths.some((raw) => {
-          const deleted = raw.replace(/\/+$/, "");
-          return itemPath === deleted || itemPath.startsWith(`${deleted}/`);
-        });
-      }),
+      prev.filter((item) => suggestionSurvivesDelete(item.path, next)),
     );
   }, []);
 
@@ -611,7 +619,13 @@ export function useDiskAnalyzer() {
         await loadLevel(path, { force: true });
       }
       const result = await diskAnalyzerApi.getSuggestions(id);
-      setSuggestions(result.suggestions ?? []);
+      const incoming = result.suggestions ?? [];
+      const suppressed = suppressedSuggestPathsRef.current;
+      setSuggestions(
+        suppressed.length === 0
+          ? incoming
+          : incoming.filter((item) => suggestionSurvivesDelete(item.path, suppressed)),
+      );
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -622,7 +636,9 @@ export function useDiskAnalyzer() {
   const deleteSuggestions = useCallback(
     async (permanent: boolean, targets?: CleanupSuggestion[]) => {
       const id = scanIdRef.current ?? scanId;
-      if (!id) return;
+      if (!id) {
+        throw new Error(scanFailedLabel);
+      }
       const items = [...(targets ?? suggestions)];
       const deleted: string[] = [];
       let firstError: unknown = null;
@@ -639,12 +655,15 @@ export function useDiskAnalyzer() {
         await refreshAfterDelete(deleted);
       }
       if (firstError) {
-        throw firstError instanceof Error
-          ? firstError
-          : new Error(String(firstError));
+        const error =
+          firstError instanceof Error
+            ? firstError
+            : new Error(String(firstError));
+        throw Object.assign(error, { deletedPaths: deleted });
       }
+      return deleted;
     },
-    [refreshAfterDelete, scanId, suggestions],
+    [refreshAfterDelete, scanFailedLabel, scanId, suggestions],
   );
 
   // Filter only — apply top-N once on the focused level to avoid double `__other__`.

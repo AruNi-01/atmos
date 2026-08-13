@@ -9555,8 +9555,7 @@
     "suggestCount": "{count} items",
     "suggestScanning": "Still scanning… more suggestions may appear.",
     "suggestEmpty": "No cleanup suggestions right now.",
-    "suggestIdleDays": "Idle {days} days",
-    "suggestIdleRange": "Idle {min}–{max} days",
+    "suggestIdleDays": "Idle {days, plural, one {# day} other {# days}}",
     "suggestKind": {
       "cache": "Cache",
       "worktree": "Git worktree",

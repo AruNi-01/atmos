@@ -343,23 +343,28 @@ impl DiskAnalyzerService {
         Ok(json!({ "ok": true, "scan_id": scan_id }))
     }
 
-    /// Recompute cleanup suggestions from the current session tree.
+    /// Return the last unpruned suggestion list when present.
     ///
-    /// `ready` is true only after the overview walk finished, so the UI can
-    /// avoid an "all clean" empty state while more paths may still appear.
+    /// Recomputing from the stored tree would drop caches collapsed into
+    /// `__other__`. `ready` is true only after the overview walk finished.
     pub fn get_suggestions(&self, owner_conn_id: &str, scan_id: &str) -> Result<Value> {
-        let (tree, ready) = {
+        let (stored, tree, ready) = {
             let sessions = self.sessions.lock();
             let session = sessions
                 .get(scan_id)
                 .ok_or_else(|| ServiceError::NotFound(format!("scan {scan_id}")))?;
             Self::ensure_owner(session, owner_conn_id)?;
-            (session.tree.clone(), session.completed_at.is_some())
+            (
+                session.suggestions.clone(),
+                session.tree.clone(),
+                session.completed_at.is_some(),
+            )
         };
-        let suggestions = tree
-            .as_ref()
-            .map(|tree| clear_suggestions(tree.as_ref()))
-            .unwrap_or_default();
+        let suggestions = stored.unwrap_or_else(|| {
+            tree.as_ref()
+                .map(|tree| clear_suggestions(tree.as_ref()))
+                .unwrap_or_default()
+        });
         Ok(json!({
             "suggestions": suggestions,
             "ready": ready,

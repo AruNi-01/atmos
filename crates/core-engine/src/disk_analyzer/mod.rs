@@ -593,6 +593,40 @@ mod tests {
     }
 
     #[test]
+    fn clear_suggestions_skips_project_root_even_when_hint_named() {
+        let mut project = suggestion_node("target", "/proj/target", 80);
+        project.is_project = true;
+        project.children = vec![suggestion_node(
+            "node_modules",
+            "/proj/target/node_modules",
+            70,
+        )];
+        let tree = DiskNode {
+            name: "root".into(),
+            path: "/proj".into(),
+            size: 80,
+            is_dir: true,
+            is_project: false,
+            is_workspace: false,
+            is_git_worktree: false,
+            is_agent_data: false,
+            file_count: 0,
+            dir_count: 1,
+            children_loaded: true,
+            children: vec![project],
+        };
+        let tips = clear_suggestions(&tree);
+        assert!(
+            tips.iter().all(|t| t.path != "/proj/target"),
+            "project root named like a cache must not be suggested: {tips:?}"
+        );
+        assert!(
+            tips.iter().any(|t| t.path == "/proj/target/node_modules"),
+            "caches under that project should still surface: {tips:?}"
+        );
+    }
+
+    #[test]
     fn clear_suggestions_keeps_every_cache_hit() {
         let children = (0..45)
             .map(|i| suggestion_node("node_modules", &format!("/r/p{i}/node_modules"), 8))
