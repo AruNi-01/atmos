@@ -26,6 +26,7 @@ export function DiskAnalyzerSuggestPanel({
   deleting,
   localizeName,
   pathTitle,
+  onOpenItem,
   onDeleteOne,
   onDeleteAll,
   onDeleteGroup,
@@ -36,6 +37,7 @@ export function DiskAnalyzerSuggestPanel({
   deleting: boolean;
   localizeName: (name: string) => string;
   pathTitle: (path: string) => string;
+  onOpenItem: (item: CleanupSuggestion) => void;
   onDeleteOne: (item: CleanupSuggestion) => void;
   onDeleteAll: () => void;
   onDeleteGroup: (items: CleanupSuggestion[]) => void;
@@ -116,6 +118,7 @@ export function DiskAnalyzerSuggestPanel({
                         locked={actionsLocked}
                         localizeName={localizeName}
                         pathTitle={pathTitle}
+                        onOpen={() => onOpenItem(item)}
                         onDelete={() => onDeleteOne(item)}
                       />
                     ))}
@@ -142,6 +145,7 @@ function SuggestRow({
   locked,
   localizeName,
   pathTitle,
+  onOpen,
   onDelete,
 }: {
   item: CleanupSuggestion;
@@ -150,6 +154,7 @@ function SuggestRow({
   locked: boolean;
   localizeName: (name: string) => string;
   pathTitle: (path: string) => string;
+  onOpen: () => void;
   onDelete: () => void;
 }) {
   const t = useTranslations("DiskAnalyzer");
@@ -158,10 +163,21 @@ function SuggestRow({
   const shortLocation = shortLocationLabel(item, pathTitle);
   return (
     <div className={divided ? "border-t border-border/50" : undefined}>
-      <div className="group flex h-8 items-center gap-1 overflow-hidden px-1.5 hover:bg-muted/50">
+      <div
+        role="button"
+        tabIndex={0}
+        className="group flex h-8 cursor-pointer items-center gap-1 overflow-hidden px-1.5 hover:bg-muted/50"
+        onClick={onOpen}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            onOpen();
+          }
+        }}
+      >
         <Tooltip>
           <TooltipTrigger asChild>
-            <div className="flex min-w-0 flex-1 cursor-default items-center px-1">
+            <div className="flex min-w-0 flex-1 items-center px-1">
               <p className="min-w-0 flex-1 truncate text-xs">
                 <span className="font-medium">{localizeName(item.name)}</span>
                 {showShortLocation ? (
@@ -193,6 +209,7 @@ function SuggestRow({
               "overflow-hidden transition-[width,margin,opacity] duration-200 ease-out",
               "ml-0 w-0 opacity-0 group-hover:ml-0.5 group-hover:w-6 group-hover:opacity-100",
             )}
+            onClick={(event) => event.stopPropagation()}
           >
             <Button
               type="button"
@@ -202,7 +219,10 @@ function SuggestRow({
               disabled={locked}
               aria-label={t("deleteItem")}
               title={t("deleteItem")}
-              onClick={onDelete}
+              onClick={(event) => {
+                event.stopPropagation();
+                onDelete();
+              }}
             >
               <Trash2 className="size-3" />
             </Button>

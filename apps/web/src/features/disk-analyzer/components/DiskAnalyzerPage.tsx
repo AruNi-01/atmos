@@ -575,6 +575,7 @@ export function DiskAnalyzerPage() {
                 deleting={deleting}
                 localizeName={sessionName}
                 pathTitle={pathTitle}
+                onOpenItem={(item) => analyzer.drillTo(item.path)}
                 onDeleteOne={(item) => openSuggestDelete(item)}
                 onDeleteAll={() => {
                   setPendingSuggestItems(null);
