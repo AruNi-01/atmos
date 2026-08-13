@@ -63,6 +63,10 @@ export function useWorkspaceAgentGroupKeyMap(
   contextIds: readonly string[],
 ): Readonly<Record<string, WorkspaceAgentGroupKey>> {
   const sessions = useAgentHooksStore((s) => s.sessions);
+  const serverWorkspaceGroupKeys = useAgentHooksStore(
+    (s) => s.serverWorkspaceGroupKeys,
+  );
+  const hooksHydrated = useAgentHooksStore((s) => s.hooksHydrated);
   const attentionRevision = useAgentAttentionStore((s) => s.revision);
   const idsKey = contextIds.join("\n");
 
@@ -73,13 +77,25 @@ export function useWorkspaceAgentGroupKeyMap(
     if (!idsKey) return map;
     for (const id of idsKey.split("\n")) {
       if (!id) continue;
-      map[id] = resolveWorkspaceAgentGroupKey({
+      const live = resolveWorkspaceAgentGroupKey({
         agentState: hooks.getAgentStateForContextId(id),
         attentionReason: attention.getContextReason(id),
       });
+      const server = hooks.serverWorkspaceGroupKeys[id] as
+        | WorkspaceAgentGroupKey
+        | undefined;
+      // Before hydrate finishes, prefer the API-memory snapshot so a refresh
+      // does not flash every workspace as Idle.
+      map[id] = !hooks.hooksHydrated && server ? server : live;
     }
     return map;
-  }, [attentionRevision, idsKey, sessions]);
+  }, [
+    attentionRevision,
+    hooksHydrated,
+    idsKey,
+    serverWorkspaceGroupKeys,
+    sessions,
+  ]);
 }
 
 /**

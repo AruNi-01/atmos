@@ -39,7 +39,7 @@ No other first-class list statuses exist today (no connecting, error, paused, cr
 
 ## Options
 
-### Option A — New grouping mode `agent` (“By Agent”)
+### Option A — New grouping mode `agent` (“By Agent Status”)
 Add a seventh sidebar/kanban grouping mode. Four buckets derived from live hooks + sticky attention. Persist via existing `workspace_sidebar.grouping_mode`.
 
 **Pros**: Matches every other grouping mode; Task kanban already switches on the same enum; no backend schema.
@@ -60,7 +60,7 @@ Keep grouping as-is; add Agent-status filters next to workflow status filters.
 
 ## Key forks in the road
 
-- **Fork 1**: New mode vs overload workflow status — **lock Option A** (`agent` / “By Agent”). Decide remaining details in PRD.
+- **Fork 1**: New mode vs overload workflow status — **lock Option A** (`agent` / “By Agent Status”). Decide remaining details in PRD.
 - **Fork 2**: Bucket count — four user-facing buckets vs also splitting sticky permission vs live permission. Decide in PRD.
 - **Fork 3**: Column order — action-first (permission → attention → running → idle) vs the user’s enumeration order (idle first). Decide in PRD.
 - **Fork 4**: Kanban drag — derived live state is not assignable. Decide in TECH (must not be drag-assignable).
@@ -81,4 +81,4 @@ Keep grouping as-is; add Agent-status filters next to workflow status filters.
 ## Ready to promote
 
 - Promote to PRD: new `agent` grouping mode; four buckets; sidebar + Task kanban parity; no new Agent states.
-- Promote to TECH: derive buckets from hooks + attention stores; extend `SidebarGroupingMode`; not drag-assignable; persist `grouping_mode`.
+- Promote to TECH: derive buckets from hooks + attention stores; API in-memory grouping snapshot for refresh; extend `SidebarGroupingMode`; not drag-assignable; persist `grouping_mode`.

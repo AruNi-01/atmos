@@ -10,14 +10,14 @@
 
 ## Goals
 
-1. Primary — Users can group the left-sidebar workspace list **By Agent** into four live buckets: Need permission, Need attention, Running, Idle.
+1. Primary — Users can group the left-sidebar workspace list **By Agent Status** into four live buckets: Need permission, Need attention, Running, Idle.
 2. Secondary — Task kanban uses the same mode, same buckets, and the same assignment rules so the two surfaces do not drift.
 
 ## Users & Scenarios
 
 - **Primary persona**: Agentic builder running several Agents across worktrees.
 - **Key scenarios**:
-  1. Switch sidebar Group By to **By Agent**; workspaces waiting on permission sit at the top so they can be approved first.
+  1. Switch sidebar Group By to **By Agent Status**; workspaces waiting on permission sit at the top so they can be approved first.
   2. After an Agent finishes (running → idle) and the pane has not been focused, that workspace appears under **Need attention**.
   3. Open Task kanban with the same grouping; columns match the sidebar buckets and update as hook/attention state changes.
   4. Switch back to By Status / By Project without losing those modes.
@@ -32,7 +32,7 @@
 
 ### Must Have
 
-- **M1: Grouping mode `agent`** — Add **By Agent** to the existing Group By menu (sidebar footer and Task kanban). Persist via `workspace_sidebar.grouping_mode`. Do not overload workflow **By Status**.
+- **M1: Grouping mode `agent`** — Add **By Agent Status** to the existing Group By menu (sidebar footer and Task kanban). Persist via `workspace_sidebar.grouping_mode`. Do not overload workflow **By Status**.
 - **M2: Four buckets** — Every workspace maps to exactly one bucket:
 
   | Bucket key | Label | Rule |
@@ -45,10 +45,10 @@
   Priority: permission > running > attention > idle. A still-running Agent with a leftover `task_complete` latch stays **Running** (need attention is “after down”).
 - **M3: No extra statuses in v1** — Do not add connecting / error / paused / queued buckets. Current list-surface Agent model only has idle, running, permission_request, plus sticky permission and task_complete.
 - **M4: Empty buckets visible** — Like workflow Status grouping, always show all four groups/columns even when empty.
-- **M5: Live rebucket** — When hook state or sticky attention changes, sidebar groups and kanban columns move the workspace without reload.
-- **M6: Task kanban parity** — `taskGroupBy=agent` and Task Group By menu include By Agent. Columns, labels, and membership use M2. Drag-and-drop onto Agent columns is **disabled** (status is derived, not a writable workspace field).
-- **M7: Two-column parity** — Settings → Layout gets a **By Agent group uses second column** toggle, matching Time / Status / Priority / Label / Group.
-- **M8: Copy & i18n** — English sentence case. Chinese locales translated (do not paste English into `zh.json`). Mode label **By Agent** so it does not collide with **By Status**.
+- **M5: Live rebucket + refresh hydrate** — When hook state or sticky attention changes, sidebar groups and kanban columns move the workspace without reload. After a browser refresh, buckets restore from API in-memory sessions + attention (same process; not SQLite).
+- **M6: Task kanban parity** — `taskGroupBy=agent` and Task Group By menu include By Agent Status. Columns, labels, and membership use M2. Drag-and-drop onto Agent columns is **disabled** (status is derived, not a writable workspace field).
+- **M7: Two-column parity** — Settings → Layout gets a **By Agent Status group uses second column** toggle, matching Time / Status / Priority / Label / Group.
+- **M8: Copy & i18n** — English sentence case. Chinese locales translated (do not paste English into `zh.json`). Mode label **By Agent Status** so it does not collide with workflow **By Status**.
 
 ### Nice to Have
 
@@ -59,7 +59,7 @@
 ## Out of Scope
 
 - **New Agent runtime states** — No backend hook protocol change.
-- **Persisting Agent status on the workspace row** — Derived from live stores.
+- **Persisting Agent status on the workspace row / SQLite** — Derived from API in-memory hook sessions + sticky attention. Survives browser refresh; does not survive API process restart.
 - **Dragging to change Agent status** — Not a user-assignable field.
 - **Changing attention filter behavior** — The existing “need attention” list filter stays; grouping does not use the filter-mode glyph override (a running Agent stays in Running even if the filter overlay would show a bell).
 - **Mobile first-class grouping** — Web/desktop sidebar + Task kanban only.
@@ -67,12 +67,12 @@
 
 ## Success Metrics
 
-- Leading: Users who switch Group By to By Agent at least once in a session with ≥2 live Agent states.
+- Leading: Users who switch Group By to By Agent Status at least once in a session with ≥2 live Agent states.
 - Qualitative: “I can open the sidebar and immediately see who needs permission vs who just finished.”
 
 ## Risks & Open Questions
 
-- **Risk**: “Status” vs “Agent” naming collision. Mitigated by **By Agent** copy (M8).
+- **Risk**: “Status” vs “Agent” naming collision. Mitigated by **By Agent Status** copy (M8).
 - **Risk**: Pinned section still extracts pinned workspaces from grouped lists (existing behavior). Call this out so it is not treated as a bug.
 - **Open**: None blocking implementation. N1 deferred.
 

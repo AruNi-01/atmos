@@ -4,7 +4,10 @@ import { create } from "zustand";
 import { useWebSocketStore } from "@/features/connection/hooks/use-websocket";
 import { getRuntimeApiConfig, httpBase } from "@/shared/lib/desktop-runtime";
 import { agentHooksApi } from "@/api/rest-api";
-import type { AgentAttentionSummaryDto } from "@/api/rest-api";
+import type {
+  AgentAttentionSummaryDto,
+  WorkspaceAgentGroupKeyDto,
+} from "@/api/rest-api";
 import {
   setAgentPaneAcknowledgedHandler,
   useAgentAttentionStore,
@@ -110,6 +113,12 @@ interface AgentHookStateUpdate {
 
 interface AgentHooksStore {
   sessions: Map<string, AgentHookSession>;
+  /**
+   * Last grouping snapshot from API memory. Used until live sessions +
+   * attention hydrate, so By Agent Status buckets survive a page refresh.
+   */
+  serverWorkspaceGroupKeys: Readonly<Record<string, WorkspaceAgentGroupKeyDto>>;
+  hooksHydrated: boolean;
   _unsubscribe: (() => void) | null;
 
   init: () => void;
@@ -138,6 +147,8 @@ interface AgentHooksStore {
 
 export const useAgentHooksStore = create<AgentHooksStore>((set, get) => ({
   sessions: new Map(),
+  serverWorkspaceGroupKeys: {},
+  hooksHydrated: false,
   _unsubscribe: null,
 
   init: () => {
@@ -307,24 +318,28 @@ export const useAgentHooksStore = create<AgentHooksStore>((set, get) => ({
     };
     set({ _unsubscribe });
 
-    fetchInitialSessions().then((initialSessions) => {
-      if (initialSessions.length > 0) {
-        set((state) => {
-          const sessions = new Map(state.sessions);
-          for (const s of initialSessions) {
-            if (!sessions.has(s.session_id)) {
-              sessions.set(s.session_id, s);
-            }
-          }
-          return { sessions };
-        });
+    fetchInitialHookSnapshot().then(({ sessions: initialSessions, attention, groups }) => {
+      if (attention.length > 0) {
+        useAgentAttentionStore.getState().hydrateFromServer(attention);
       }
-    });
-
-    // Recover sticky attention from API memory after refresh / reconnect.
-    fetchInitialAttention().then((latches) => {
-      if (latches.length === 0) return;
-      useAgentAttentionStore.getState().hydrateFromServer(latches);
+      set((state) => {
+        const sessions = new Map(state.sessions);
+        for (const s of initialSessions) {
+          if (!sessions.has(s.session_id)) {
+            sessions.set(s.session_id, s);
+          }
+        }
+        const serverWorkspaceGroupKeys: Record<string, WorkspaceAgentGroupKeyDto> = {};
+        for (const row of groups) {
+          if (!row.context_id || row.group_key === "idle") continue;
+          serverWorkspaceGroupKeys[row.context_id] = row.group_key;
+        }
+        return {
+          sessions,
+          serverWorkspaceGroupKeys,
+          hooksHydrated: true,
+        };
+      });
     });
 
     void hydrateAttentionSummariesFromServer();
@@ -335,7 +350,12 @@ export const useAgentHooksStore = create<AgentHooksStore>((set, get) => ({
     if (_unsubscribe) {
       _unsubscribe();
       setAgentPaneAcknowledgedHandler(null);
-      set({ _unsubscribe: null, sessions: new Map() });
+      set({
+        _unsubscribe: null,
+        sessions: new Map(),
+        serverWorkspaceGroupKeys: {},
+        hooksHydrated: false,
+      });
       useAgentAttentionSummaryStore.getState().hydrateFromServer([]);
     }
   },
@@ -500,6 +520,43 @@ export const useAgentHooksStore = create<AgentHooksStore>((set, get) => ({
     }
   },
 }));
+
+async function fetchInitialHookSnapshot(): Promise<{
+  sessions: AgentHookSession[];
+  attention: import("@/api/rest-api").AgentAttentionLatchDto[];
+  groups: import("@/api/rest-api").WorkspaceAgentGroupSnapshotDto[];
+}> {
+  const empty = {
+    sessions: [] as AgentHookSession[],
+    attention: [] as import("@/api/rest-api").AgentAttentionLatchDto[],
+    groups: [] as import("@/api/rest-api").WorkspaceAgentGroupSnapshotDto[],
+  };
+  try {
+    const [sessions, attentionResult, groupsResult] = await Promise.all([
+      fetchInitialSessions(),
+      fetchInitialAttention(),
+      fetchWorkspaceAgentGroups(),
+    ]);
+    return {
+      sessions,
+      attention: attentionResult,
+      groups: groupsResult,
+    };
+  } catch {
+    return empty;
+  }
+}
+
+async function fetchWorkspaceAgentGroups(): Promise<
+  import("@/api/rest-api").WorkspaceAgentGroupSnapshotDto[]
+> {
+  try {
+    const { groups } = await agentHooksApi.listWorkspaceAgentGroups();
+    return groups ?? [];
+  } catch {
+    return [];
+  }
+}
 
 async function fetchInitialSessions(): Promise<AgentHookSession[]> {
   try {

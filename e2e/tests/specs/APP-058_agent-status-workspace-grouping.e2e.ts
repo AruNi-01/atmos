@@ -11,10 +11,10 @@ import {
 /**
  * APP-058: Agent Status Workspace Grouping
  *
- * Soft-checks that Group By exposes By Agent in the workspace sidebar.
+ * Soft-checks that Group By exposes By Agent Status in the workspace sidebar.
  */
 test.describe("APP-058 agent status workspace grouping", () => {
-  test("@spec Group By includes By Agent", async ({ page }) => {
+  test("@spec Group By includes By Agent Status", async ({ page }) => {
     test.setTimeout(90_000);
 
     await stubComputerClientSettingsApi(page);
@@ -33,7 +33,7 @@ test.describe("APP-058 agent status workspace grouping", () => {
     const groupByControl = page.locator("aside").getByText(/group by|by project/i).first();
     if (await groupByControl.isVisible().catch(() => false)) {
       await groupByControl.click();
-      await expect(page.getByText("By Agent", { exact: true }).first()).toBeVisible({
+      await expect(page.getByText("By Agent Status", { exact: true }).first()).toBeVisible({
         timeout: 10_000,
       });
     }

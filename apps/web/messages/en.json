@@ -1130,7 +1130,7 @@
         "project": "By Project",
         "group": "By Group",
         "status": "By Status",
-        "agent": "By Agent",
+        "agent": "By Agent Status",
         "time": "By Time",
         "label": "By Label",
         "priority": "By Priority",
@@ -4609,7 +4609,7 @@
               "label": "By Group uses second column"
             },
             "byAgentGroupUsesSecondColumn": {
-              "label": "By Agent group uses second column"
+              "label": "By Agent Status group uses second column"
             },
             "headerLayout": {
               "label": "Header layout"
@@ -5575,7 +5575,7 @@
       },
       "workspaceSidebar": {
         "title": "Workspace Sidebar Two-Column Layout",
-        "description": "Configure the optional two-column workspace browser for Project, By Group, By Time, By Status, By Agent, By Priority, and By Label sidebar modes.",
+        "description": "Configure the optional two-column workspace browser for Project, By Group, By Time, By Status, By Agent Status, By Priority, and By Label sidebar modes.",
         "enabled": "Enabled",
         "disabled": "Disabled",
         "projectTwoColumnTitle": "Project sidebar two-column layout",
@@ -5594,8 +5594,8 @@
         "byLabelDescription": "In the sidebar's By Label mode, clicking a group opens its workspaces in a second resizable column instead of expanding inline.",
         "byGroupTitle": "By Group uses second column",
         "byGroupDescription": "In the sidebar's By Group mode, clicking a group opens its projects and workspaces in a second resizable column instead of expanding inline.",
-        "byAgentTitle": "By Agent group uses second column",
-        "byAgentDescription": "In the sidebar's By Agent mode, clicking a group opens its workspaces in a second resizable column instead of expanding inline."
+        "byAgentTitle": "By Agent Status group uses second column",
+        "byAgentDescription": "In the sidebar's By Agent Status mode, clicking a group opens its workspaces in a second resizable column instead of expanding inline."
       },
       "footer": {
         "title": "Footer layout",

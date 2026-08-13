@@ -225,7 +225,7 @@ export const SIDEBAR_GROUPING_OPTIONS: Array<{
   { value: "project", label: "By Project", labelKey: "grouping.project", icon: FolderKanban },
   { value: "group", label: "By Group", labelKey: "grouping.group", icon: Folders },
   { value: "status", label: "By Status", labelKey: "grouping.status", icon: StatusBacklog },
-  { value: "agent", label: "By Agent", labelKey: "grouping.agent", icon: Bot },
+  { value: "agent", label: "By Agent Status", labelKey: "grouping.agent", icon: Bot },
   { value: "time", label: "By Time", labelKey: "grouping.time", icon: Clock3 },
   { value: "label", label: "By Label", labelKey: "grouping.label", icon: Tags },
   { value: "priority", label: "By Priority", labelKey: "grouping.priority", icon: Flag },
