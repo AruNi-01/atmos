@@ -56,11 +56,11 @@ pub use service::notification::NotificationService;
 pub use service::project::ProjectService;
 pub use service::review::ReviewService;
 pub use service::terminal::{
-    AttachSessionParams, CapturePanePlainTextParams, CaptureSideContextParams,
-    CapturedPanePlainText, CapturedSideContext, CreateSessionParams, CreateSimpleSessionParams,
-    SessionDetail, SessionType, TerminalKind, TerminalMessage, TerminalResponse, TerminalService,
+    process_captured_pane_text, select_transcript, strip_ansi_and_controls, AttachSessionParams,
+    CapturePanePlainTextParams, CaptureSideContextParams, CapturedPanePlainText,
+    CapturedSideContext, CreateSessionParams, CreateSimpleSessionParams, SessionDetail,
+    SessionType, TerminalKind, TerminalMessage, TerminalResponse, TerminalService,
     TerminalSideChatRecord, TerminalSideChatStatus, TranscriptBudget, UpsertTerminalSideChatParams,
-    process_captured_pane_text, select_transcript, strip_ansi_and_controls,
 };
 pub use service::terminal_overview::build_terminal_overview_active_sessions_json;
 pub use service::test::TestService;
