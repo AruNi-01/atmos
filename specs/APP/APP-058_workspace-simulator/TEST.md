@@ -32,7 +32,7 @@ Honest limits: nothing that needs a real iOS runtime or a signed macOS build can
 | M9 bounded resources | S25, S26 |
 | M10 open in simulator | S27 |
 | Naming (PRD naming rules) | S28 |
-| Packaging / entitlement (TECH §4, §13.1) | S29, S30 |
+| Packaging + signing + authorization (TECH §4, §13.1, §13.2) | S29, S30, S31 |
 
 ## Execution map
 
@@ -66,8 +66,9 @@ Honest limits: nothing that needs a real iOS runtime or a signed macOS build can
 | S26 | unit | `governance.test.ts` | 3 sessions | least-recently-visible killed at cap 2 | pending |
 | S27 | manual | Expo worktree | — | Metro appears in a visible pane; app launches on the active simulator; failures surface | pending |
 | S28 | grep gate | product trees | — | no `device` / `phone` / `mobile` / `emulator` identifier, path, event, code, or i18n key introduced by this feature | pending |
-| S29 | unit | `helper-install.test.ts` | tampered tarball fixture | sha256 mismatch → `helper_integrity_failed`, nothing extracted | pending |
-| S30 | manual | signed local build, macOS 14+ arm64 | — | the Node-API addon loads with the entitlement in place, and fails clearly without it | pending |
+| S29 | unit + package check | `helper-resolve.test.ts` + packaged app inspection | staged payload | resolution order and version assertion; the packaged app contains `Resources/simulator-helper/` on macOS and not on Windows/Linux | pending |
+| S30 | manual | packaged ad-hoc build, macOS 14+ arm64 | — | the Node-API addon loads from the bundle; no entitlement present in the app | pending |
+| S31 | manual | clean macOS user account | — | exactly one permission prompt for the whole feature (Automation, named Atmos); no Screen Recording, no Accessibility, no "unidentified developer" gate | pending |
 | G* | gates | `just typecheck`, `bun test`, `just lint`, `cargo test --workspace` | — | green | pending |
 
 ## Scenarios
@@ -151,10 +152,17 @@ Honest limits: nothing that needs a real iOS runtime or a signed macOS build can
 **Then** no identifier, file path, IPC command, event name, error code, CLI verb, or i18n key introduced by this feature contains `device`, `phone`, `mobile`, or `emulator`.
 **Allowed exceptions**: `Simulator.app`, quoted Apple `simctl` vocabulary in diagnostic text, and the helper's own upstream field names in the state record it publishes.
 
-### S30 The addon loads in a signed build
-**Given** a locally signed Atmos build on macOS 14+ arm64
+### S30 The addon loads from the bundle, with no entitlement
+**Given** a packaged ad-hoc-signed Atmos build on macOS 14+ arm64
 **When** a session starts
-**Then** the Node-API addon loads; and with the entitlement removed the failure is explicit and surfaced as a card, not a silent hang.
+**Then** the Node-API addon loads from `Contents/Resources/simulator-helper/`, and `codesign -d --entitlements` shows the app carries no `disable-library-validation`.
+**Signals**: streaming works; no entitlements plist in the build.
+
+### S31 One authorization for the whole feature
+**Given** a clean macOS user account and a first run
+**When** the user opens the surface, streams, and lets Atmos hide `Simulator.app`
+**Then** the only permission prompt is Automation, attributed to Atmos — no Screen Recording prompt, no Accessibility prompt, and no Gatekeeper "unidentified developer" dialog for any helper binary.
+**Signals**: prompt count and prompt text; `tccutil`/System Settings shows one Atmos entry under Automation.
 
 ## Exploratory agent-browser checks
 
@@ -176,13 +184,13 @@ Load the Agent Browser skill (or `agent-browser skills get core --full`) before 
 - `browser` sessions still key per surface and still clone on "move to center" — this feature must not change that model.
 - `desktop_use_*` and `browser_bridge_*` IPC families are unaffected; `ipc/handlers.ts` additions are additive.
 - `apps/api` has no simulator route and no new WS action.
-- The entitlement change does not break notarization or app launch on a clean machine.
+- Adding the bundled payload does not break app launch, ad-hoc signing, or DMG/zip packaging; Windows and Linux packages are unchanged in size.
 - Desktop quit leaves no helper process and removes `control.json`.
 
 ## Acceptance criteria
 
 1. M1–M10 have passing scenarios at the level named in the execution map, and every `manual` row records the machine it was verified on.
-2. Unit coverage for probe, selection, degradation, claims, governance, proxy, spawn/handshake, helper install integrity, input encoding, and CLI coordinate/workspace handling is green in CI **without** Xcode.
+2. Unit coverage for probe, selection, degradation, claims, governance, proxy, spawn/handshake, helper resolution, input encoding, and CLI coordinate/workspace handling is green in CI **without** Xcode.
 3. Playwright covers every phase and every setup card, including the hosted-web state.
 4. No black screen in any documented fallback (S18, S21).
 5. The repository contains no `@expo/hub-*` dependency, no `EvanBacon/serve-sim` or unscoped `serve-sim` source, no frontend `npx` spawn, and no second capture protocol.
@@ -191,7 +199,7 @@ Load the Agent Browser skill (or `agent-browser skills get core --full`) before 
 8. `NOTICE` contains the helper entry (Apache-2.0 + embedded WebRTC).
 9. `just typecheck`, `bun test`, `just lint`, `cargo test --workspace` are green.
 10. Both `en` and `zh` contain the full `simulator.*` copy, localized rather than copied.
-11. The addon loads in a signed build with the entitlement (S30), and the entitlement tradeoff is documented in TECH §13.1.
+11. The addon loads from the bundled payload with **no** new entitlement (S30), and the feature asks for at most one macOS permission, attributed to Atmos (S31).
 
 ## Manual verification steps
 
@@ -203,7 +211,7 @@ Load the Agent Browser skill (or `agent-browser skills get core --full`) before 
 6. Quit Desktop while streaming → expect no `serve-sim` process and no `control.json`.
 7. `atmos simulator list --json`, `attach`, `tap`, `screenshot`, `ax` against the live session → expect visible changes on the human's surface and `normalizedRect` present in `ax`.
 8. Unsupported hosts: Intel Mac → arch card; macOS 13 → version card; non-macOS → macOS-only card.
-9. Tamper with the pinned tarball hash locally → expect `helper_integrity_failed` and no extraction.
+9. Inspect the packaged app: `Resources/simulator-helper/` present on macOS and absent on Windows/Linux; remove it and expect the `helper_missing` card rather than a crash.
 
 ## Non-coverage
 

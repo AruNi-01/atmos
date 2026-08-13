@@ -38,7 +38,7 @@ While developing an iOS app in an Atmos workspace, see and touch the running sim
 | **M5** | Pixels and input in the panel: tap, drag/swipe, scroll, keyboard, plus Home / lock / rotate / disconnect controls. Input coordinates are normalized `0–1` and identical to the agent's coordinate space. |
 | **M6** | Agent CLI `atmos simulator` with `list`, `attach`, `tap`, `type`, `gesture`, `button`, `rotate`, `screenshot`, `ax`, `logs`, `kill` — `--json` for every verb. The agent drives the **same** session as the panel. |
 | **M7** | Failure is always explained and never black: capture-vs-Xcode mismatch, WebRTC that cannot connect, a crashed helper, an unsupported macOS version or architecture, a non-macOS machine, and hosted web without Atmos Desktop each have a named state with a next step. During any fallback the last frame or a skeleton stays on screen. |
-| **M8** | The capture helper is never exposed beyond this machine, never reachable without the session token, and the user is never asked to start it. |
+| **M8** | The capture helper is never exposed beyond this machine, never reachable without the session token, and the user is never asked to start or install it. The feature asks for **at most one** macOS permission — the Automation grant used to hide `Simulator.app` windows — and it is attributed to Atmos. |
 | **M9** | Resource behaviour is bounded: at most 2 warm sessions per machine, hidden surfaces throttle the stream, and a fully hidden session is released after an idle period without shutting the simulator down. |
 | **M10** | For Expo / React Native worktrees only: **Open in simulator** starts Metro in a visible terminal pane in that worktree, installs, and launches on the active simulator. |
 
@@ -100,8 +100,8 @@ One card shape for every state: **title** (what happened) → **reason** (the on
 | No `xcrun simctl` | Open the Xcode download page (system browser); secondary: install Command Line Tools |
 | Xcode present, no iOS runtime | Open Xcode → Settings → Platforms |
 | No bootable iPhone | Create a default iPhone — no trip to `Simulator.app` → Devices |
-| Capture helper not installed yet | Install capture helper, with progress in the card |
-| Capture incompatible with this Xcode | Update capture helper; explain that capture uses Xcode private API |
+| Capture incompatible with this Xcode | Check for an Atmos update; explain that capture uses Xcode private API and ships with the app |
+| Capture helper missing from the install | Reinstall Atmos — a damaged install, not a user-fixable state |
 | Unsupported architecture or macOS version | State that Apple Silicon and macOS 14+ are required |
 | Not macOS | State that iOS simulators only run on macOS; no hint that Xcode could be installed here |
 | Hosted web, no Atmos Desktop | State that the Simulator surface needs Atmos Desktop |
@@ -128,7 +128,6 @@ Status is inline in the panel and its toolbar. No success toasts for connect, di
 |-----------|------|
 | Atmos Desktop (Electron), macOS 14+ arm64 | Host; `apps/desktop-electron` |
 | Xcode + at least one iOS runtime | User-installed; Atmos only probes and guides |
-| `@expo/serve-sim` (pinned) | Capture helper, installed on demand — [TECH §4](./TECH.md#4-capture-helper-distribution) |
-| macOS entitlement change | Loading the ad-hoc-signed helper addon requires disabling library validation — [TECH §13](./TECH.md#13-security) |
+| `@expo/serve-sim` (pinned) | Capture helper, **bundled in the app** — [TECH §4](./TECH.md#4-capture-helper-distribution). No new entitlement and no extra user authorization — [TECH §13.1](./TECH.md#131-code-signing-and-entitlements-nothing-new-required), [§13.2](./TECH.md#132-user-authorization-exactly-one-prompt-on-atmos) |
 | [APP-052](../APP-052_desktop-use/TECH.md) | Automation TCC grant UX to reuse for hiding `Simulator.app` windows |
 | [APP-016](../APP-016_atmos-computer/TECH.md) | Only for the future remote-Mac spec, not here |

@@ -8,10 +8,9 @@
 
 | Area | Change |
 |------|--------|
-| `apps/desktop-electron/src/simulator/` | **new** — SimulatorBridge: probe, selection, boot, window hiding, helper install, session + port ownership, loopback control plane and stream proxy |
+| `apps/desktop-electron/src/simulator/` | **new** — SimulatorBridge: probe, selection, boot, window hiding, session + port ownership, loopback control plane and stream proxy |
 | `apps/desktop-electron/src/ipc/handlers.ts` | register `simulator_*` commands (same family as `desktop_use_*`) |
-| `apps/desktop-electron/resources/simulator-helper/helper-manifest.json` + `scripts/prepare-package.ts` | pinned helper manifest staged into `extraResources` (**not** the helper payload) |
-| `apps/desktop-electron` mac entitlements + `electron-builder.yml` | `com.apple.security.cs.disable-library-validation` (§13) |
+| `apps/desktop-electron/resources/simulator-helper/` + `scripts/prepare-package.ts` + `electron-builder.yml` | stage the pinned helper payload into `extraResources` (§4) |
 | `apps/web/src/features/simulator/` | **new** — panel, setup cards, bezel, screen consumer, `useSimulatorSessionStore` |
 | `apps/web/src/app-shell/*` | register the center surface tab + right-sidebar tab |
 | `apps/web/src/features/settings/*` | `rsShowSimulator` visibility row + WebRTC opt-in |
@@ -42,7 +41,7 @@ flowchart TB
     B <--> X
   end
 
-  subgraph H["capture helper — ~/.atmos/data/simulator-helper/&lt;ver&gt;"]
+  subgraph H["capture helper — bundled in app Resources"]
     SS["serve-sim --no-preview --detach<br/>--host 127.0.0.1 -p &lt;ephemeral&gt;"]
   end
 
@@ -78,7 +77,6 @@ Commands via `window.__ATMOS_DESKTOP__.invoke(cmd, args)` → `atmos:desktop-inv
 | `simulator_hide_windows` | `{ workspaceId }` | `{ hidden: boolean }` |
 | `simulator_visibility` | `{ workspaceId, visible }` | `{ ok }` — drives throttle + idle release (§6.3) |
 | `simulator_open_project` | `{ workspaceId }` | `{ ok }` — "Open in simulator" (Metro + install + launch) |
-| `simulator_install_helper` | `{}` | `{ version }` — progress via events |
 | `simulator_setup_action` | `{ action }` | `{ ok }` — `install_clt` \| `open_xcode_platforms` \| `open_xcode_download` \| `create_default_iphone` |
 | `simulator_take_over` | `{ workspaceId, simulatorId }` | `SessionView` |
 
@@ -131,29 +129,36 @@ This is required, not defensive styling: the helper performs **no Origin check a
 
 ## 4. Capture helper distribution
 
-Engine model, mirroring `desktop-use` ([BRAINSTORM D3](./BRAINSTORM.md#d3-capture-helper-distribution)).
+**Bundled in the app. No runtime download, no install step, no integrity check at runtime, one code path** ([BRAINSTORM D3](./BRAINSTORM.md#d3-capture-helper-distribution)).
 
 ```text
-apps/desktop-electron/resources/simulator-helper/helper-manifest.json   → extraResources
-{
-  "helper": "@expo/serve-sim",
-  "version": "0.1.37",
-  "tarball_sha256": "<pinned>",
-  "requires": { "os": "darwin", "arch": "arm64", "min_macos": "14.0", "node": ">=20" }
-}
-
-~/.atmos/data/simulator-helper/0.1.37/                                  → installed payload
+apps/desktop-electron/resources/simulator-helper/        → extraResources → Contents/Resources/simulator-helper/
+  serve-sim/…                                            payload staged from the pinned npm tarball at build time
+  helper-manifest.json                                   { helper, version, tarball_sha256, requires }
 ```
 
-Rules:
+Build side (`scripts/prepare-package.ts`, next to how `resources/bin` and `resources/desktop-use` are staged today):
 
-- Install is triggered by `simulator_install_helper` (from the setup card) or lazily by the first `simulator_attach`; progress is reported on `simulator://log`. It is never a user shell step and never mentions `npx`.
-- The download is verified against `tarball_sha256` before extraction; a mismatch fails with `helper_integrity_failed` and installs nothing.
-- Resolution order: `ATMOS_SIMULATOR_HELPER_DIR` (tests) → `~/.atmos/data/simulator-helper/<manifest version>` → not installed.
+- Fetch the pinned `@expo/serve-sim@<version>` tarball, verify `tarball_sha256`, extract into `resources/simulator-helper/serve-sim/`, write `helper-manifest.json` for provenance. Integrity is a **build-time** gate, so no verification code ships.
+- Add one `extraResources` entry in `electron-builder.yml`.
+- macOS only: skip the step on other platforms so Windows/Linux packages do not carry a 15.8 MB arm64 payload.
+
+Runtime side:
+
+- Resolution order: `ATMOS_SIMULATOR_HELPER_DIR` (tests) → `process.resourcesPath/simulator-helper/serve-sim/` → `helper_missing`.
 - `ATMOS_SIMULATOR_DEV=1` additionally allows a monorepo `node_modules` path for Desktop engineers. Off by default; never surfaced in UI copy.
-- The payload is an ESM entry plus a **Node-API** native addon, not a standalone binary, so it is launched with Electron as Node (`ELECTRON_RUN_AS_NODE=1`; precedent `appshot/trigger-event-tap.ts`). ABI compatibility is not version-sensitive ([BRAINSTORM C1](./BRAINSTORM.md#c1--native-addon-abi-node-api-loads-under-electron)).
-- A newer helper ships by bumping the manifest, which is the fix path for an Xcode major bump (§7.2).
-- `NOTICE` gains one entry covering `@expo/serve-sim` (Apache-2.0) and the WebRTC framework embedded in its payload.
+- Main asserts the payload's version matches `helper-manifest.json` before spawning, so a partially replaced Resources directory fails loudly instead of streaming from an unknown build.
+- The payload is an ESM entry plus a **Node-API** native addon, not a standalone binary, so it is launched with Electron as Node (`ELECTRON_RUN_AS_NODE=1`). Direct precedent in this app: `appshot/shift-helper-main.ts` runs as an `ELECTRON_RUN_AS_NODE` child and `dlopen`s koffi's third-party `.node` plus our own dylib, today, with `identity: "-"` and no entitlements ([BRAINSTORM C2](./BRAINSTORM.md#c2--code-signing-no-entitlement-needed-because-we-bundle-and-we-are-ad-hoc)).
+- A newer helper ships with a patch Desktop release, which is the fix path for an Xcode major bump (§7.2).
+- `NOTICE` gains one entry covering `@expo/serve-sim` (Apache-2.0) and the WebRTC framework embedded in its payload. Bundling makes this mandatory rather than optional: we now redistribute the payload.
+
+Packaging notes:
+
+| Item | Detail |
+|------|--------|
+| Size | +15.8 MB on macOS, of which 12.3 MB is `LiveKitWebRTC.framework` for a transport that defaults off. Accepted; pruning it is only an option if the WebRTC path is dropped, and would need a startup check that the helper does not resolve the framework eagerly |
+| Nested Mach-O | the payload contains a framework, a `.node`, and two small helper executables. Under today's ad-hoc `identity: "-"` electron-builder seals them with the app. When we adopt Developer ID, they must be included in signing (`mac.binaries` or an `afterSign` hook) or notarization fails — that is packaging work, not a design risk |
+| `asar` | irrelevant here: `extraResources` lands outside `app.asar`, so no `asarUnpack` entry is needed |
 
 ## 5. Spawn contract and handshake
 
@@ -267,10 +272,10 @@ Runs in main, 8 s budget, result on `simulator://probe`. Pure functions over an 
 | `xcrun simctl` | exits 0 | `missing_simctl` |
 | iOS runtime | ≥ 1 `isAvailable` iOS runtime in `simctl list runtimes -j` | `missing_ios_runtime` |
 | Bootable iPhone | ≥ 1 iPhone on an available runtime | `missing_iphone` |
-| Capture helper | manifest version installed and executable | `helper_not_installed` |
+| Capture helper | pinned payload present in app Resources and executable | `helper_missing` (broken install → "Reinstall Atmos") |
 | Capture smoke (only when something is already `Booted`) | helper `/health` 200 within 2 s | `capture_xcode_mismatch` \| `capture_failed` |
 
-Probing never boots anything and never opens `Simulator.app`.
+Probing never boots anything and never opens `Simulator.app`. `helper_missing` means a damaged install rather than a user-fixable state, so its card says to reinstall Atmos and is expected to be unreachable in practice.
 
 Selection: last used for this workspace (still present, runtime still available) → otherwise the first available iPhone `simctl` lists under the newest installed runtime → otherwise `simctl create` on that runtime's default iPhone type. No curated tier ranking ([BRAINSTORM D9](./BRAINSTORM.md#d9-default-simulator-selection)).
 
@@ -283,7 +288,7 @@ Selection: last used for this workspace (still present, runtime still available)
 | Helper process dies | `reconnecting`, restart the same simulator up to 3× → `failed` with "Reconnect" | silent stall |
 | Missing prerequisite | `setup_required` card | spawning anything |
 
-The mismatch card's primary action is **Update capture helper** (manifest-driven, §4) — not "update Atmos Desktop", because the helper upgrades independently. Note the accepted limit: the pinned scoped package ships no Swift sources, so the helper cannot be rebuilt locally against a new Xcode.
+The mismatch card's primary action is **Check for Atmos update**, because the helper is bundled and upgrades with the app (§4). Two accepted limits: the pinned scoped package ships no Swift sources, so it cannot be rebuilt locally against a new Xcode; and the fix path is a patch Desktop release rather than a same-day manifest bump ([BRAINSTORM D3](./BRAINSTORM.md#d3-capture-helper-distribution)).
 
 ## 8. Surfaces
 
@@ -347,7 +352,7 @@ The spike is closed, so the feature ships as a single mergeable unit. These are 
 | Step | Work | Gate before moving on |
 |------|------|-----------------------|
 | 1 | `src/simulator/` skeleton: types, `CommandRunner`, fixtures, probe + selection as pure modules | `bun test` covers every probe code and selection branch |
-| 2 | Helper manifest, install with sha256 verification, resolution order, entitlement change in `electron-builder.yml` | manifest install unit-tested; a signed local build loads the addon on macOS 14+ arm64 |
+| 2 | `prepare-package.ts` stages the pinned helper payload; `extraResources` entry; resolution + version assertion in main | packaged build contains the payload; the Node-API addon loads in an ad-hoc-signed local build on macOS 14+ arm64 |
 | 3 | Spawn + handshake (state record read), health/loopback assertion, session table, ephemeral ports | `serve-sim --list` shows exactly one helper; non-loopback bind is killed |
 | 4 | Loopback control plane + token-gated stream proxy + `control.json` | proxy allow-list/token unit tests; direct helper access refused |
 | 5 | `simulator_*` IPC + `simulator://*` events + `useSimulatorSessionStore` | fake bridge drives all phases |
@@ -400,8 +405,7 @@ Rules:
 | `~/.atmos/state/simulator/control.json` | CLI discovery: proxy `base_url`, `port`, control token | `0600` |
 | `~/.atmos/state/simulator/claims.json` | `simulatorId → { workspaceId, instanceId, since }` | `0600` |
 | `~/.atmos/state/simulator/last-used/<workspace_id>.json` | last-used simulator per workspace | `0600` |
-| `~/.atmos/data/simulator-helper/<version>/` | installed helper payload | — |
-| `apps/desktop-electron/resources/simulator-helper/helper-manifest.json` | pinned version + integrity | in-bundle |
+| `<app>/Contents/Resources/simulator-helper/` | bundled helper payload + `helper-manifest.json` (version provenance) | in-bundle, signed with the app |
 | `$TMPDIR/serve-sim/server-<udid>.{json,log}` | helper-owned, read-only to us | helper writes `0600` |
 
 Nothing is written inside a worktree; no helper URL is written to git, wiki, or skill files.
@@ -420,19 +424,30 @@ Nothing is written inside a worktree; no helper URL is written to git, wiki, or 
 | Accessibility trees may contain typed text | returned verbatim to the agent over `--json`; the UI does not render the whole tree by default |
 | Probe stays local | simulator lists are never uploaded |
 
-### 13.1 Accepted tradeoff: library validation
+### 13.1 Code signing and entitlements: nothing new required
 
-The helper's native addon is **ad-hoc signed** ([BRAINSTORM C2](./BRAINSTORM.md#c2--new-blocker-found-and-solved-hardened-runtime-library-validation)), so loading it under hardened runtime requires `com.apple.security.cs.disable-library-validation` in the app's mac entitlements and `entitlementsInherit`.
+**No entitlement is added.** The helper's native addon is ad-hoc signed, but so is the app (`mac.identity: "-"`, `hardenedRuntime: true`, and no entitlements plist anywhere in the repo), and an ad-hoc signature has no Team ID for library validation to match against. The same pattern already ships: `appshot/shift-helper-main.ts` `dlopen`s koffi's third-party `.node` from an `ELECTRON_RUN_AS_NODE` child today ([BRAINSTORM C2](./BRAINSTORM.md#c2--code-signing-no-entitlement-needed-because-we-bundle-and-we-are-ad-hoc)).
 
-This weakens library validation for the Atmos app as a whole, which is why it is recorded here rather than buried in build config. Compensating controls: the payload is downloaded only from the pinned registry tarball and verified against `tarball_sha256` before extraction; the install directory is under the user's `~/.atmos`; and the manifest version is the only thing that decides what gets loaded. If we later need to drop the entitlement, the alternative is shipping a separately signed helper runner executable — noted as a follow-up, not done here.
+Bundling also makes this durable rather than deferred: when we adopt Developer ID plus notarization, everything inside `Contents/Resources` is re-signed with our identity, so library validation is satisfied and `com.apple.security.cs.disable-library-validation` is still not needed. The signing work at that point is including the nested Mach-O in the signing pass (§4), not weakening the runtime.
+
+### 13.2 User authorization: exactly one prompt, on Atmos
+
+| Surface | Prompt |
+|---------|--------|
+| Framebuffer capture | **none** — `SimulatorKit` / `CoreSimulator` / `IOSurface` is a simulator-private channel, not the system screen, so no Screen Recording or Accessibility grant |
+| Hiding `Simulator.app` windows | **Automation TCC**, requested once, attributed to Atmos because the Apple event is sent from Electron main |
+| Running the helper | **none** — the payload ships inside the app bundle and inherits the app's Gatekeeper state; there is no separately downloaded executable for the user to approve |
+
+Design rule that preserves this: **Apple events are only ever sent from Electron main.** If the helper process sent them, macOS would attribute a second Automation prompt to a binary the user has never heard of ([BRAINSTORM C7](./BRAINSTORM.md#c7--no-additional-user-authorization-either-way)).
 
 ## 14. Risks
 
 | Risk | Mitigation |
 |------|-----------|
-| Xcode major bump breaks capture | manifest-driven helper upgrade (§4) + mismatch card + MJPEG retry; accepted limit: no local rebuild from the scoped tarball |
-| Upstream helper churn (3 published versions, active repo) | version pinned with integrity; upgrades are a deliberate manifest change plus a re-run of the contract record |
-| Entitlement weakens library validation | §13.1, with compensating controls and a named alternative |
+| Xcode major bump breaks capture | mismatch card + MJPEG retry, then a patch Desktop release with a newer pinned helper; accepted limit: no local rebuild from the scoped tarball, and no same-day out-of-band fix |
+| macOS package grows 15.8 MB | accepted (§4); staged only on macOS so other platforms are unaffected |
+| Nested Mach-O signing when we adopt Developer ID | include the payload in the signing pass (`mac.binaries` / `afterSign`); caught by the first notarized build, not by users |
+| Upstream helper churn (3 published versions, active repo) | version pinned in the manifest and staged at build time; upgrades are a deliberate change plus a re-run of the contract record |
 | macOS 14+ / arm64 only | probe states it plainly; no silent failure |
 | Simulator + capture is power-hungry | warm cap 2, throttle on hide, idle release at 10 min, native resolution only while visible |
 | Automation TCC denied | hiding degrades to a non-blocking note; streaming is unaffected |
@@ -446,4 +461,4 @@ This weakens library validation for the Atmos app as a whole, which is why it is
 |-----------|--------------------------------|
 | Additional runtime kinds (e.g. Android) | `runtimeKind` field + a `SimulatorAdapter` interface (`probe`, `select`, `boot`, `spawn`, `input`) so a second adapter needs no redesign |
 | Remote Mac host | `streamBaseUrl` is already an indirection, so a Relay-backed base URL substitutes cleanly. That spec must force H.264 with `--max-dimension` / `--video-fps` / `--video-bitrate` caps and must not enable MJPEG across a network |
-| Dropping the library-validation entitlement | separately signed helper runner (§13.1) |
+| Out-of-band helper hotfix, if annual Xcode breaks prove too painful | the `simulator-helper` layout and manifest already carry a version, so an optional `~/.atmos` override could be added without touching the rest of the design |

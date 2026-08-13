@@ -89,11 +89,28 @@ Mach-O facts from the same binary:
 | Linked/loaded | `SimulatorKit.framework`, `CoreSimulator.framework` (resolved via `dlopen` + `/usr/bin/xcode-select`), `IOSurface`, `VideoToolbox`, `AccessibilityPlatformTranslation`, `/usr/lib/swift/*` | confirms the Xcode-private-API dependency and that `DEVELOPER_DIR` must be in the child environment |
 | WebRTC | referenced as `/../bin/LiveKitWebRTC.framework/LiveKitWebRTC` | only needed on the WebRTC path, which is off by default |
 
-### C2 — New blocker found and solved: hardened runtime library validation
+### C2 — Code signing: no entitlement needed, because we bundle and we are ad-hoc
 
-The addon is **ad-hoc signed**, not signed by our Team ID. Under macOS hardened runtime, a process may only load libraries signed by the same team or by Apple. Our signed Electron app therefore cannot `dlopen` it as-is.
+The addon is **ad-hoc signed** (`CodeDirectory` flags `0x2`), not signed by a Team ID. That looked like a blocker — hardened runtime's library validation only allows loading code signed by the same team or by Apple — but checking our own build settles it.
 
-Resolution: the process that loads the addon needs the **`com.apple.security.cs.disable-library-validation`** entitlement. Since the helper runs as a detached child launched through the app binary, the entitlement goes on the app's mac entitlements plus `entitlementsInherit`. This is a standard requirement for Electron apps that load third-party native modules, and it is recorded as an explicit security tradeoff in [TECH §13](./TECH.md#13-security).
+Our signing posture today (`apps/desktop-electron/electron-builder.yml`, `.github/workflows/release-desktop-electron.yml`):
+
+| Setting | Value |
+|---------|-------|
+| `mac.identity` | `"-"` → **ad-hoc**, with `CSC_NAME: ${{ secrets.APPLE_SIGNING_IDENTITY \|\| '-' }}` falling back to ad-hoc in CI |
+| `mac.hardenedRuntime` | `true` |
+| `mac.gatekeeperAssess` | `false` |
+| Entitlements plist | **none exists anywhere in the repo** |
+| Notarization | not configured |
+
+An ad-hoc signature carries no Team ID, so library validation has nothing to match and does not reject ad-hoc or unsigned libraries. And this is not theory — **the exact pattern already ships in this app**: `appshot/shift-helper-main.ts` runs as an `ELECTRON_RUN_AS_NODE` child, `require("koffi")` loads koffi's third-party prebuilt `.node` from npm, and `koffi.load(dylib)` then loads our own dylib from `resources/bin`. That works today under `identity: "-"`, `hardenedRuntime: true`, and zero entitlements.
+
+Note which precedent is the relevant one: `desktop-use` and the `atmos` CLI being ad-hoc signed proves nothing here, because we **exec** them as separate processes and library validation only governs code loaded *into* a process. `koffi` is the real precedent, because it is `dlopen`'d.
+
+Two consequences, both pointing the same way:
+
+1. **No entitlement is required for this feature as designed.** `com.apple.security.cs.disable-library-validation` is not added.
+2. **Bundling the helper into the app is the durable answer**, not the risky one. Anything inside the bundle is re-signed with our identity at package time, so on the day we adopt Developer ID plus notarization, library validation is satisfied automatically and still needs no entitlement. Downloading an ad-hoc payload into `~/.atmos` is the option that would eventually need one. That reverses [D3](#d3-capture-helper-distribution).
 
 ### C3 — Bind surface and the host flag
 
@@ -135,6 +152,18 @@ Coordinates arrive **normalized** and are multiplied by the captured width/heigh
 
 `writeWebSocketAccept` upgrades on nothing but a valid `sec-websocket-key`. **There is no Origin check and no token on the helper.** Any local process, and any page the user happens to open (WebSocket ignores CORS), could connect and inject touches. The token-gated proxy in [D6](#d6-helper-authentication) is therefore mandatory. Separately, the preview server carries a token-gated `/exec` shell route (`execToken` in `previewConfigForState`), which is why `--no-preview` is a security requirement rather than a UI preference.
 
+### C7 — No additional user authorization, either way
+
+The feature adds **exactly one** possible macOS permission prompt, and it is attributed to Atmos.
+
+| Surface | Needs authorization? |
+|---------|---------------------|
+| Simulator framebuffer capture | **No.** The addon links `SimulatorKit` / `CoreSimulator` / `IOSurface` — a simulator-private channel, not the system screen. No Screen Recording, no Accessibility |
+| Hiding `Simulator.app` windows | **Yes — Automation TCC**, and the Apple event is sent by Electron main, so the prompt reads as Atmos controlling `Simulator.app`. One prompt |
+| Running the helper binary | **No.** Gatekeeper's "unidentified developer" gate applies to quarantined files, and files placed by our own build or written by our own downloader do not carry `com.apple.quarantine` — that xattr comes from apps that opt into file quarantine, such as browsers. `~/.atmos/bin/atmos` and the `desktop-use` engine already install this way with no prompt |
+
+So bundling versus downloading does not change the number of authorizations: it is one Automation prompt in both cases. The design rule that preserves this: **the AppleScript stays in Electron main.** If the helper process sent Apple events, macOS would attribute them to the helper and could raise a second prompt against a binary the user has never heard of.
+
 ### Still needs a Mac (verification, not design risk)
 
 | Item | How it is closed |
@@ -159,9 +188,22 @@ Forced by the audit — `@expo/hub-client` is unpublished. This is not "our own 
 
 ### D3 Capture helper distribution
 
-**Engine model: pin a manifest in `extraResources`, install the helper into `~/.atmos/data/simulator-helper/<version>/` on first use.**
+**Bundle the pinned helper payload into the app via `extraResources`. No runtime download, no install step, one code path.** Reversed from an earlier draft after [C2](#c2--code-signing-no-entitlement-needed-because-we-bundle-and-we-are-ad-hoc) and [C7](#c7--no-additional-user-authorization-either-way).
 
-Rejected: bundling into the app. Three reasons: (a) the payload is 15.8 MB dominated by a WebRTC framework we default to *off*; (b) multiple Mach-O binaries plus a framework complicate signing and notarization; (c) capture uses Xcode private API, so an Xcode major bump breaks it — with a bundled helper the only fix is a Desktop release, while a manifest bump is a same-day fix. Precedent: `desktop-use` pins `engine-manifest.json` and installs under `~/.atmos/data/desktop-use/`.
+Why bundling wins:
+
+| Consideration | Bundled | Downloaded into `~/.atmos` |
+|---------------|---------|----------------------------|
+| Code signing | payload is re-signed with our identity at package time, so library validation is satisfied now (ad-hoc) **and** after we adopt Developer ID — no entitlement ever | stays ad-hoc; needs `disable-library-validation` the day we sign with Developer ID |
+| User authorization | one Automation prompt (C7) | identical — one Automation prompt |
+| Moving parts | staged by `prepare-package.ts`; integrity verified at **build** time | downloader, progress UI, sha256 check, install-state probe code, an extra setup card |
+| Offline / first run | works | needs network on first use |
+| Size | **+15.8 MB** on a DMG that already ships Electron | no size cost |
+| Xcode major bump | needs a patch Desktop release | manifest bump, same day |
+
+The two costs are real and accepted: 15.8 MB (the 12.3 MB WebRTC framework is the bulk of it, for a transport that defaults off), and an Xcode-break fix requiring a Desktop release rather than a manifest bump. Xcode major bumps are roughly annual and Desktop already has a release flow, so that is a worse-but-acceptable recovery path in exchange for deleting the whole install/verify/download surface and never needing an entitlement.
+
+`desktop-use` is a different case, not a counter-example: it installs the **Atmos CLI**, which is deliberately never bundled (ADR-005, `apps/desktop-electron/AGENTS.md`), and which we `exec` rather than `dlopen`.
 
 ### D4 Android
 
