@@ -13,7 +13,7 @@ const runtimesEmpty = readFileSync(
 );
 const listOk = readFileSync(join(fixtures, "simctl-list-ok.json"), "utf8");
 const listNoIosHandset = readFileSync(
-  join(fixtures, "simctl-list-no-iphone.json"),
+  join(fixtures, "simctl-list-ipad-only.json"),
   "utf8",
 );
 const listNone = readFileSync(join(fixtures, "simctl-list-no-runtime.json"), "utf8");
