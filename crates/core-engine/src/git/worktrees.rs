@@ -355,7 +355,12 @@ fn collect_git_seeds(root: &Path, cancel: Option<&AtomicBool>, out: &mut Vec<Pat
         .follow_links(false)
         .skip_hidden(false)
         .max_depth(16)
-        .process_read_dir(|_depth, path, _state, children| {
+        .process_read_dir(|depth, path, _state, children| {
+            // jwalk's first callback uses depth=None and `path` = parent of the
+            // walk root. Skipping that would drop `~/.cursor/worktrees` itself.
+            if depth.is_none() {
+                return;
+            }
             let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
             if name == ".git" || should_skip_discover_dir(name) {
                 children.retain(|_| false);
@@ -464,18 +469,24 @@ mod tests {
     #[test]
     fn discover_linked_worktrees_fast_skips_home_and_hits_agent_dirs() {
         let root = unique_temp_dir("fast");
-        let repo = root.join("repo");
+        let leftover_repo = root.join("leftover-repo");
         let leftover = root.join("leftover-wt");
+        let cursor_repo = root.join("cursor-repo");
         let cursor_wt = root.join(".cursor").join("worktrees").join("feat");
-        fs::create_dir_all(&repo).unwrap();
-        git(&repo, &["init"]);
-        git(&repo, &["config", "user.email", "test@example.com"]);
-        git(&repo, &["config", "user.name", "Test"]);
-        fs::write(repo.join("README.md"), "hi").unwrap();
-        git(&repo, &["add", "README.md"]);
-        git(&repo, &["commit", "-m", "init"]);
+
+        fn init_repo_with_commit(repo: &Path) {
+            fs::create_dir_all(repo).unwrap();
+            git(repo, &["init"]);
+            git(repo, &["config", "user.email", "test@example.com"]);
+            git(repo, &["config", "user.name", "Test"]);
+            fs::write(repo.join("README.md"), "hi").unwrap();
+            git(repo, &["add", "README.md"]);
+            git(repo, &["commit", "-m", "init"]);
+        }
+
+        init_repo_with_commit(&leftover_repo);
         git(
-            &repo,
+            &leftover_repo,
             &[
                 "worktree",
                 "add",
@@ -484,8 +495,9 @@ mod tests {
                 leftover.to_str().expect("utf8"),
             ],
         );
+        init_repo_with_commit(&cursor_repo);
         git(
-            &repo,
+            &cursor_repo,
             &[
                 "worktree",
                 "add",
