@@ -10,9 +10,9 @@ use crate::error::{Result, ServiceError};
 
 use super::runtime::apply_utf8_env_to_tmux_command;
 use super::text_capture::{
-    count_lines, process_captured_pane_text, DEFAULT_CAPTURE_APPROX_LINES,
+    count_lines, process_captured_pane_text, TranscriptBudget, DEFAULT_CAPTURE_APPROX_LINES,
     DEFAULT_HEAD_PREFIX_BYTES, DEFAULT_MAX_RAW_CAPTURE_BYTES, DEFAULT_PROMPT_BUDGET_BYTES,
-    MAX_PROMPT_BUDGET_BYTES, MIN_PROMPT_BUDGET_BYTES, TranscriptBudget,
+    MAX_PROMPT_BUDGET_BYTES, MIN_PROMPT_BUDGET_BYTES,
 };
 use super::{
     CapturePanePlainTextParams, CaptureSideContextParams, CapturedPanePlainText,

@@ -278,7 +278,9 @@ export function DiskAnalyzerPage() {
                             agentData: t("agentData"),
                             gitWorktrees: t("gitWorktrees"),
                           }) ??
-                          (crumb.name === "__other__" ? t("other") : sessionName(crumb.name))}
+                          (crumb.name === "__other__"
+                            ? t("other")
+                            : sessionName(crumb.name)))}
                     </button>
                   </React.Fragment>
                 ))

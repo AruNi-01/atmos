@@ -616,7 +616,6 @@ impl DiskAnalyzerEngine {
                 let root_path_str = root_path_str.clone();
                 let root_name = root_name.clone();
                 let child_kind = classify(&child_path);
-                let root_kind = root_kind;
 
                 scope.spawn(move || {
                     if cancel
