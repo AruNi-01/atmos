@@ -1,0 +1,11 @@
+{
+  "runtimes": [
+    {
+      "platform": "watchOS",
+      "identifier": "com.apple.CoreSimulator.SimRuntime.watchOS-11-0",
+      "version": "11.0",
+      "isAvailable": true,
+      "name": "watchOS 11.0"
+    }
+  ]
+}

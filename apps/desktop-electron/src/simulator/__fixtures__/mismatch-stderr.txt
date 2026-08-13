@@ -1,0 +1,2 @@
+dlopen(/Applications/Xcode.app/Contents/Developer/Library/PrivateFrameworks/SimulatorKit.framework/SimulatorKit): Incompatible library version
+IOSurface lookup failed for framebuffer

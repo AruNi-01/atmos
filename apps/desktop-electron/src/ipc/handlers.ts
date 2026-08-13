@@ -852,8 +852,66 @@ export function createAllHandlers(
         (args as { req?: { provider?: ProviderKind } }).req?.provider) as
         | ProviderKind
         | undefined;
-      if (provider) state.tunnel?.clearCredential(provider);
+      if (provider)       state.tunnel?.clearCredential(provider);
       return null;
+    },
+
+    // --- simulator (APP-058) ---
+    async simulator_probe(args) {
+      if (!state.simulator) throw new Error("simulator unavailable");
+      return state.simulator.probe(str(args.workspaceId), Boolean(args.force));
+    },
+    async simulator_attach(args) {
+      if (!state.simulator) throw new Error("simulator unavailable");
+      return state.simulator.attach(
+        str(args.workspaceId),
+        typeof args.simulatorId === "string" ? args.simulatorId : undefined,
+      );
+    },
+    async simulator_input(args) {
+      if (!state.simulator) throw new Error("simulator unavailable");
+      const op = str(args.op);
+      return state.simulator.input(str(args.workspaceId), {
+        op,
+        ...args,
+      } as never);
+    },
+    async simulator_disconnect(args) {
+      if (!state.simulator) throw new Error("simulator unavailable");
+      return state.simulator.disconnect(str(args.workspaceId));
+    },
+    async simulator_shutdown(args) {
+      if (!state.simulator) throw new Error("simulator unavailable");
+      return state.simulator.shutdown(str(args.workspaceId));
+    },
+    async simulator_hide_windows(args) {
+      if (!state.simulator) throw new Error("simulator unavailable");
+      return state.simulator.hideWindows(str(args.workspaceId));
+    },
+    async simulator_visibility(args) {
+      if (!state.simulator) throw new Error("simulator unavailable");
+      return state.simulator.setVisibility(
+        str(args.workspaceId),
+        Boolean(args.visible),
+      );
+    },
+    async simulator_open_project(args) {
+      if (!state.simulator) throw new Error("simulator unavailable");
+      return state.simulator.openProject(
+        str(args.workspaceId),
+        typeof args.worktreePath === "string" ? args.worktreePath : undefined,
+      );
+    },
+    async simulator_setup_action(args) {
+      if (!state.simulator) throw new Error("simulator unavailable");
+      return state.simulator.setupAction(str(args.action));
+    },
+    async simulator_take_over(args) {
+      if (!state.simulator) throw new Error("simulator unavailable");
+      return state.simulator.takeOver(
+        str(args.workspaceId),
+        str(args.simulatorId),
+      );
     },
   };
 }

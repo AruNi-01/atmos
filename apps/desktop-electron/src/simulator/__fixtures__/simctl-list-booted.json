@@ -1,0 +1,19 @@
+{
+  "devicetypes": [
+    {
+      "name": "iPhone 16",
+      "identifier": "com.apple.CoreSimulator.SimDeviceType.iPhone-16"
+    }
+  ],
+  "devices": {
+    "com.apple.CoreSimulator.SimRuntime.iOS-18-5": [
+      {
+        "udid": "BOOTED-1",
+        "name": "iPhone 16",
+        "state": "Booted",
+        "isAvailable": true,
+        "deviceTypeIdentifier": "com.apple.CoreSimulator.SimDeviceType.iPhone-16"
+      }
+    ]
+  }
+}

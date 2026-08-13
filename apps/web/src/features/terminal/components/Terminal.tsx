@@ -590,6 +590,14 @@ const Terminal = ({
       onAttached: handleAttached,
     });
 
+  useEffect(() => {
+    if (!isConnected) return;
+    void import("@/features/terminal/lib/queued-pane-input").then(({ takeQueuedPaneInput }) => {
+      const queued = takeQueuedPaneInput(sessionId);
+      if (queued) sendInput(queued);
+    });
+  }, [isConnected, sendInput, sessionId]);
+
   const handleRetryAttach = useCallback(() => {
     setAttachError(null);
     setStatus("connecting");

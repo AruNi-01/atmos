@@ -1,0 +1,19 @@
+{
+  "devicetypes": [
+    {
+      "name": "iPad Pro 13-inch (M4)",
+      "identifier": "com.apple.CoreSimulator.SimDeviceType.iPad-Pro-13-inch-M4"
+    }
+  ],
+  "devices": {
+    "com.apple.CoreSimulator.SimRuntime.iOS-18-5": [
+      {
+        "udid": "IPAD-ONLY",
+        "name": "iPad Pro 13-inch (M4)",
+        "state": "Shutdown",
+        "isAvailable": true,
+        "deviceTypeIdentifier": "com.apple.CoreSimulator.SimDeviceType.iPad-Pro-13-inch-M4"
+      }
+    ]
+  }
+}

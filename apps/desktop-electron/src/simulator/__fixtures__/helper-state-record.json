@@ -1,0 +1,8 @@
+{
+  "pid": 4242,
+  "port": 49152,
+  "device": "AAAA-NEWEST",
+  "url": "http://127.0.0.1:49152",
+  "streamUrl": "http://127.0.0.1:49152/stream.avcc",
+  "wsUrl": "ws://127.0.0.1:49152/ws"
+}

@@ -25,6 +25,7 @@ import {
 } from "./windows/mac-dock.js";
 import { BrowserSurfaceManager } from "./browser/surface-manager.js";
 import { BrowserUseControlPlane } from "./browser/browser-use-control.js";
+import { SimulatorBridge } from "./simulator/bridge.js";
 import { ALL_PROVIDERS, TunnelService } from "./tunnel/service.js";
 import { mainLog, mainLogPath } from "./main-log.js";
 import { formatUnknownError } from "./windows/error-page.js";
@@ -99,6 +100,44 @@ async function boot() {
   if (!state.browserUseControl && state.browser) {
     state.browserUseControl = new BrowserUseControlPlane(state.browser);
     state.browserUseControl.start();
+  }
+  if (!state.simulator) {
+    const { BrowserWindow, shell, app: electronApp } = await import("electron");
+    const hostAppPath = (() => {
+      const exe = process.execPath;
+      const idx = exe.indexOf(".app/");
+      return idx >= 0 ? exe.slice(0, idx + 4) : exe;
+    })();
+    state.simulator = new SimulatorBridge({
+      emit: (event, payload) => {
+        for (const win of BrowserWindow.getAllWindows()) {
+          if (!win.isDestroyed()) {
+            win.webContents.send(`atmos:desktop-event:${event}`, payload);
+          }
+        }
+      },
+      openExternal: async (url) => {
+        await shell.openExternal(url);
+      },
+      focusApp: () => {
+        if (state.mainWindow && !state.mainWindow.isDestroyed()) {
+          state.mainWindow.show();
+          state.mainWindow.focus();
+        }
+      },
+      showAutomationGrant: () => {
+        void import("./desktop-use/grant-overlay.js").then(({ showAccessibilityGrantOverlay }) => {
+          showAccessibilityGrantOverlay({
+            hostAppPath,
+            hostAppName: electronApp.getName() || "Atmos",
+            purpose: "automation",
+          });
+        });
+      },
+      resourcesPath:
+        typeof process.resourcesPath === "string" ? process.resourcesPath : undefined,
+    });
+    state.simulator.start();
   }
   if (!state.tunnel) {
     state.tunnel = new TunnelService();
@@ -245,6 +284,11 @@ if (!gotLock) {
       try {
         try {
           state.browserUseControl?.stop();
+        } catch {
+          /* ignore */
+        }
+        try {
+          state.simulator?.stop();
         } catch {
           /* ignore */
         }

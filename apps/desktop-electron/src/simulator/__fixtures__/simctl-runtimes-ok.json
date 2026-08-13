@@ -1,0 +1,22 @@
+{
+  "runtimes": [
+    {
+      "bundlePath": "/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Library/Developer/CoreSimulator/Profiles/Runtimes/iOS.simruntime",
+      "buildversion": "22F76",
+      "platform": "iOS",
+      "identifier": "com.apple.CoreSimulator.SimRuntime.iOS-18-5",
+      "version": "18.5",
+      "isAvailable": true,
+      "name": "iOS 18.5"
+    },
+    {
+      "bundlePath": "/Library/Developer/CoreSimulator/Profiles/Runtimes/iOS 17.5.simruntime",
+      "buildversion": "21F79",
+      "platform": "iOS",
+      "identifier": "com.apple.CoreSimulator.SimRuntime.iOS-17-5",
+      "version": "17.5",
+      "isAvailable": true,
+      "name": "iOS 17.5"
+    }
+  ]
+}

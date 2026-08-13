@@ -25,7 +25,10 @@ import {
 
 const execFileAsync = promisify(execFile);
 
-export type GrantOverlayPurpose = "accessibility" | "screen_recording";
+export type GrantOverlayPurpose =
+  | "accessibility"
+  | "screen_recording"
+  | "automation";
 
 export type GrantOverlayOptions = {
   hostAppPath: string;
@@ -125,13 +128,19 @@ function buildInstruction(
   if (isZh(locale)) {
     // Match macOS System Settings Chinese labels: 无障碍 / 屏幕录制.
     const goal =
-      purpose === "screen_recording" ? "允许屏幕录制" : "允许无障碍";
+      purpose === "screen_recording"
+        ? "允许屏幕录制"
+        : purpose === "automation"
+          ? "允许自动化"
+          : "允许无障碍";
     return `将「${hostAppName}」拖到上方列表以${goal}`;
   }
   const goal =
     purpose === "screen_recording"
       ? "to allow Screen Recording"
-      : "to allow Accessibility";
+      : purpose === "automation"
+        ? "to allow Automation"
+        : "to allow Accessibility";
   return `Drag ${hostAppName} to the list above ${goal}`;
 }
 
@@ -1169,7 +1178,11 @@ export function showAccessibilityGrantOverlay(
     hostAppPath.split("/").pop()?.replace(/\.app$/i, "") ||
     "Atmos Desktop Use";
   const purpose: GrantOverlayPurpose =
-    opts.purpose === "screen_recording" ? "screen_recording" : "accessibility";
+    opts.purpose === "screen_recording"
+      ? "screen_recording"
+      : opts.purpose === "automation"
+        ? "automation"
+        : "accessibility";
 
   pendingSourceOrigin =
     opts.sourceOrigin &&
