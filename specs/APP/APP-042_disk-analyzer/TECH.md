@@ -73,7 +73,10 @@ struct DiskNode {
   path: String,
   size: u64,          // allocated bytes
   is_dir: bool,
-  is_project: bool,   // project or workspace root match
+  is_project: bool,   // Atmos project root
+  is_workspace: bool, // Atmos workspace worktree (serde default)
+  is_git_worktree: bool, // linked git worktree, not an Atmos workspace
+  is_agent_data: bool,   // code-agent home / session directory
   file_count: u64,
   dir_count: u64,
   children: Vec<DiskNode>,
@@ -103,10 +106,14 @@ Visualization prune rules (serialization):
 - Parent `size` remains the true aggregated total.
 - Cleanup suggestions are computed **before** prune so cache dirs collapsed into `__other__` still surface.
 
-Project marking:
+Project / worktree / agent marking:
 
-- Collect absolute paths for all projects + workspaces known to Atmos.
-- Mark node `is_project=true` when `path` equals one of those roots (normalized).
+- Collect absolute paths for Atmos projects + workspaces.
+- On every default scan (not optional), discover **linked** git worktrees under the user home via `GitEngine::discover_linked_worktrees` (`.git` walk + `git worktree list` per unique repo). Skip heavy dirs (`node_modules`, `Library`, `.cursor`, …); also seed `~/.cursor/worktrees` and `~/.codex/worktrees`.
+- Collect existing code-agent homes (`agent_data_roots`).
+- Badge exclusivity: workspace > project > git worktree > agent data.
+- Default Atmos overview adds **measure-only** tiles for uncovered worktrees and agent homes (already-covered paths, e.g. under `~/.atmos` or `.cursor`, are not listed twice). Scan-all does not add extra tiles; it still badges.
+- Delete remains trash; UI notes that trashing a git worktree does not run `git worktree remove`.
 
 ## WebSocket protocol
 

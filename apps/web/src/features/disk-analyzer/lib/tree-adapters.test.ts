@@ -119,6 +119,63 @@ describe("disk analyzer tree adapters", () => {
     expect(proj?.itemStyle?.color).toMatch(/^#[0-9a-f]{6}$/i);
   });
 
+  test("echarts adapter flags git worktree and agent data (workspace wins)", () => {
+    const tree: DiskNode = {
+      name: "root",
+      path: "/root",
+      size: 300,
+      is_dir: true,
+      is_project: false,
+      file_count: 0,
+      dir_count: 3,
+      children: [
+        {
+          name: "feat",
+          path: "/root/feat",
+          size: 100,
+          is_dir: true,
+          is_project: false,
+          is_git_worktree: true,
+          file_count: 1,
+          dir_count: 0,
+        },
+        {
+          name: ".cursor",
+          path: "/root/.cursor",
+          size: 100,
+          is_dir: true,
+          is_project: false,
+          is_agent_data: true,
+          file_count: 1,
+          dir_count: 0,
+        },
+        {
+          name: "ws",
+          path: "/root/ws",
+          size: 100,
+          is_dir: true,
+          is_project: false,
+          is_workspace: true,
+          is_git_worktree: true,
+          file_count: 1,
+          dir_count: 0,
+        },
+      ],
+    };
+    const chart = toEChartsTree(tree, tree.size, { maxDepth: 2 });
+    expect(chart.children?.find((c) => c.name === "feat")?.isGitWorktree).toBe(true);
+    expect(chart.children?.find((c) => c.name === ".cursor")?.isAgentData).toBe(true);
+    const ws = chart.children?.find((c) => c.name === "ws");
+    expect(ws?.isWorkspace).toBe(true);
+    expect(ws?.isGitWorktree).toBe(false);
+  });
+
+  test("cleanup hint keys cover agent homes", () => {
+    expect(cleanupHintMessageKey(".claude")).toBe("dot_claude");
+    expect(getCleanupHintKey(".cursor", 1024)).toBe("dot_cursor");
+    expect(getCleanupHintKey(".codex", 1024)).toBe("dot_codex");
+  });
+
   test("bytes-eased keeps larger folders larger among siblings", () => {
     const a = toEChartsTree(
       {

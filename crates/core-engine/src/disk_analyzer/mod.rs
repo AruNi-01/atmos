@@ -36,6 +36,12 @@ pub struct DiskNode {
     /// Identified Atmos **workspace** worktree path.
     #[serde(default)]
     pub is_workspace: bool,
+    /// Linked git worktree that is not an Atmos workspace.
+    #[serde(default)]
+    pub is_git_worktree: bool,
+    /// Mainstream code-agent home / session directory.
+    #[serde(default)]
+    pub is_agent_data: bool,
     pub file_count: u64,
     pub dir_count: u64,
     /// When false, children are not expanded for visualization yet.
@@ -108,6 +114,68 @@ pub struct PathMeasure {
     pub error_count: u64,
 }
 
+/// Roots used to badge directories during a scan.
+#[derive(Debug, Clone, Default)]
+pub struct DiskScanRoots {
+    pub project_roots: Vec<PathBuf>,
+    pub workspace_roots: Vec<PathBuf>,
+    pub git_worktree_roots: Vec<PathBuf>,
+    pub agent_data_roots: Vec<PathBuf>,
+}
+
+/// Exclusive path badge. Workspace wins over project; git worktree over agent data.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct DiskPathKind {
+    pub is_project: bool,
+    pub is_workspace: bool,
+    pub is_git_worktree: bool,
+    pub is_agent_data: bool,
+}
+
+impl DiskPathKind {
+    pub fn classify(path: &Path, roots: &DiskScanRoots) -> Self {
+        let canon = std::fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
+        let matches = |candidates: &[PathBuf]| {
+            candidates.iter().any(|r| {
+                let r = std::fs::canonicalize(r).unwrap_or_else(|_| r.clone());
+                canon == r
+            })
+        };
+        if matches(&roots.workspace_roots) {
+            return Self {
+                is_workspace: true,
+                ..Self::default()
+            };
+        }
+        if matches(&roots.project_roots) {
+            return Self {
+                is_project: true,
+                ..Self::default()
+            };
+        }
+        if matches(&roots.git_worktree_roots) {
+            return Self {
+                is_git_worktree: true,
+                ..Self::default()
+            };
+        }
+        if matches(&roots.agent_data_roots) {
+            return Self {
+                is_agent_data: true,
+                ..Self::default()
+            };
+        }
+        Self::default()
+    }
+}
+
+fn canon_path_set(paths: &[PathBuf]) -> HashSet<PathBuf> {
+    paths
+        .iter()
+        .map(|p| std::fs::canonicalize(p).unwrap_or_else(|_| p.clone()))
+        .collect()
+}
+
 pub struct DiskAnalyzerEngine;
 
 impl DiskAnalyzerEngine {
@@ -168,8 +236,7 @@ impl DiskAnalyzerEngine {
         &self,
         scan_id: &str,
         root: &Path,
-        project_roots: &[PathBuf],
-        workspace_roots: &[PathBuf],
+        roots: &DiskScanRoots,
         max_children: Option<usize>,
         cancel: Option<Arc<AtomicBool>>,
         on_progress: Option<ProgressCallback>,
@@ -177,8 +244,7 @@ impl DiskAnalyzerEngine {
         self.scan_level(
             scan_id,
             root,
-            project_roots,
-            workspace_roots,
+            roots,
             max_children,
             cancel,
             on_progress,
@@ -247,8 +313,7 @@ impl DiskAnalyzerEngine {
         &self,
         scan_id: &str,
         path: &Path,
-        project_roots: &[PathBuf],
-        workspace_roots: &[PathBuf],
+        roots: &DiskScanRoots,
         max_children: Option<usize>,
         cancel: Option<Arc<AtomicBool>>,
         on_progress: Option<ProgressCallback>,
@@ -281,22 +346,35 @@ impl DiskAnalyzerEngine {
         let started = Instant::now();
         let max_children = max_children.unwrap_or(DEFAULT_MAX_CHILDREN).max(1);
         let root_path_str = root.to_string_lossy().to_string();
-        let project_set: HashSet<PathBuf> = project_roots
-            .iter()
-            .filter_map(|p| std::fs::canonicalize(p).ok().or_else(|| Some(p.clone())))
-            .collect();
-        let workspace_set: HashSet<PathBuf> = workspace_roots
-            .iter()
-            .filter_map(|p| std::fs::canonicalize(p).ok().or_else(|| Some(p.clone())))
-            .collect();
-        // Workspace worktrees win over project (exclusive badges).
-        let classify = |p: &PathBuf| -> (bool, bool) {
-            if workspace_set.contains(p) {
-                (false, true)
-            } else if project_set.contains(p) {
-                (true, false)
+        let project_set = canon_path_set(&roots.project_roots);
+        let workspace_set = canon_path_set(&roots.workspace_roots);
+        let worktree_set = canon_path_set(&roots.git_worktree_roots);
+        let agent_set = canon_path_set(&roots.agent_data_roots);
+        // Workspace > project > git worktree > agent data (exclusive badges).
+        let classify = |p: &PathBuf| -> DiskPathKind {
+            let p = std::fs::canonicalize(p).unwrap_or_else(|_| p.clone());
+            if workspace_set.contains(&p) {
+                DiskPathKind {
+                    is_workspace: true,
+                    ..DiskPathKind::default()
+                }
+            } else if project_set.contains(&p) {
+                DiskPathKind {
+                    is_project: true,
+                    ..DiskPathKind::default()
+                }
+            } else if worktree_set.contains(&p) {
+                DiskPathKind {
+                    is_git_worktree: true,
+                    ..DiskPathKind::default()
+                }
+            } else if agent_set.contains(&p) {
+                DiskPathKind {
+                    is_agent_data: true,
+                    ..DiskPathKind::default()
+                }
             } else {
-                (false, false)
+                DiskPathKind::default()
             }
         };
 
@@ -425,7 +503,7 @@ impl DiskAnalyzerEngine {
             .file_name()
             .map(|s| s.to_string_lossy().to_string())
             .unwrap_or_else(|| root.to_string_lossy().to_string());
-        let (root_is_project, root_is_workspace) = classify(&root);
+        let root_kind = classify(&root);
 
         let build_snapshot = |map: &HashMap<String, DiskNode>| -> DiskNode {
             let mut children: Vec<DiskNode> = map.values().cloned().collect();
@@ -444,8 +522,10 @@ impl DiskAnalyzerEngine {
                 path: root_path_str.clone(),
                 size: total_size,
                 is_dir: true,
-                is_project: root_is_project,
-                is_workspace: root_is_workspace,
+                is_project: root_kind.is_project,
+                is_workspace: root_kind.is_workspace,
+                is_git_worktree: root_kind.is_git_worktree,
+                is_agent_data: root_kind.is_agent_data,
                 file_count,
                 dir_count,
                 children_loaded: true,
@@ -464,7 +544,7 @@ impl DiskAnalyzerEngine {
                     .map(|s| s.to_string_lossy().to_string())
                     .unwrap_or_else(|| child_path.to_string_lossy().to_string());
                 let path_str = child_path.to_string_lossy().to_string();
-                let (is_project, is_workspace) = classify(child_path);
+                let kind = classify(child_path);
                 if *is_dir {
                     map.insert(
                         path_str.clone(),
@@ -473,8 +553,10 @@ impl DiskAnalyzerEngine {
                             path: path_str,
                             size: 0,
                             is_dir: true,
-                            is_project,
-                            is_workspace,
+                            is_project: kind.is_project,
+                            is_workspace: kind.is_workspace,
+                            is_git_worktree: kind.is_git_worktree,
+                            is_agent_data: kind.is_agent_data,
                             file_count: 0,
                             dir_count: 0,
                             children_loaded: false,
@@ -507,8 +589,10 @@ impl DiskAnalyzerEngine {
                             path: path_str,
                             size: raw_size,
                             is_dir: false,
-                            is_project,
-                            is_workspace,
+                            is_project: kind.is_project,
+                            is_workspace: kind.is_workspace,
+                            is_git_worktree: kind.is_git_worktree,
+                            is_agent_data: kind.is_agent_data,
                             file_count: 0,
                             dir_count: 0,
                             children_loaded: true,
@@ -538,7 +622,8 @@ impl DiskAnalyzerEngine {
                 let scan_id = scan_id.to_string();
                 let root_path_str = root_path_str.clone();
                 let root_name = root_name.clone();
-                let (child_is_project, child_is_workspace) = classify(&child_path);
+                let child_kind = classify(&child_path);
+                let root_kind = root_kind;
 
                 scope.spawn(move || {
                     if cancel
@@ -554,8 +639,10 @@ impl DiskAnalyzerEngine {
                         .map(|s| s.to_string_lossy().to_string())
                         .unwrap_or_else(|| child_path.to_string_lossy().to_string());
                     let path_str = child_path.to_string_lossy().to_string();
-                    let is_project = child_is_project;
-                    let is_workspace = child_is_workspace;
+                    let is_project = child_kind.is_project;
+                    let is_workspace = child_kind.is_workspace;
+                    let is_git_worktree = child_kind.is_git_worktree;
+                    let is_agent_data = child_kind.is_agent_data;
 
                     // Prefer system `du` (Mole); fall back to jwalk when du fails.
                     let m = {
@@ -602,6 +689,8 @@ impl DiskAnalyzerEngine {
                         is_dir: true,
                         is_project,
                         is_workspace,
+                        is_git_worktree,
+                        is_agent_data,
                         file_count: m.file_count,
                         dir_count: m.dir_count,
                         children_loaded: false,
@@ -628,8 +717,10 @@ impl DiskAnalyzerEngine {
                             path: root_path_str.clone(),
                             size: total_size,
                             is_dir: true,
-                            is_project: root_is_project,
-                            is_workspace: root_is_workspace,
+                            is_project: root_kind.is_project,
+                            is_workspace: root_kind.is_workspace,
+                            is_git_worktree: root_kind.is_git_worktree,
+                            is_agent_data: root_kind.is_agent_data,
                             file_count,
                             dir_count,
                             children_loaded: true,
@@ -677,8 +768,10 @@ impl DiskAnalyzerEngine {
             path: root_path_str.clone(),
             size: bytes_scanned.load(Ordering::Relaxed),
             is_dir: true,
-            is_project: root_is_project,
-            is_workspace: root_is_workspace,
+            is_project: root_kind.is_project,
+            is_workspace: root_kind.is_workspace,
+            is_git_worktree: root_kind.is_git_worktree,
+            is_agent_data: root_kind.is_agent_data,
             file_count: files_scanned.load(Ordering::Relaxed),
             dir_count: dirs_scanned.load(Ordering::Relaxed),
             children_loaded: true,
@@ -1127,6 +1220,8 @@ pub fn prune_tree(node: &mut DiskNode, max_children: usize) {
         is_dir: true,
         is_project: false,
         is_workspace: false,
+        is_git_worktree: false,
+        is_agent_data: false,
         file_count: other_files,
         dir_count: other_dirs,
         children_loaded: true,
@@ -1404,7 +1499,62 @@ const CLEANUP_HINTS: &[(&str, &str)] = &[
     // ── IDE / editor test hosts ─────────────────────────────────────
     (".vscode-test", "VS Code extension test host"),
     (".history", "Local History IDE plugin data"),
+    // ── Code agent homes / sessions (often multi‑GB) ───────────────
+    (".claude", "Claude Code sessions and project transcripts"),
+    (".cursor", "Cursor agent chats, projects, and worktrees"),
+    (".codex", "Codex sessions and worktrees"),
+    (".copilot", "GitHub Copilot CLI sessions"),
+    (".gemini", "Gemini CLI / Antigravity conversations"),
+    (".kimi-code", "Kimi Code sessions"),
+    (".continue", "Continue agent data"),
+    (".codeium", "Codeium / Windsurf data"),
+    (".windsurf", "Windsurf agent data"),
+    (".aider", "Aider session data"),
 ];
+
+/// Known code-agent home / session directories under the user home (existing only).
+pub fn agent_data_roots(home: &Path) -> Vec<(String, PathBuf)> {
+    let mut out = Vec::new();
+    let mut push = |label: &str, path: PathBuf| {
+        if path.is_dir() {
+            out.push((label.to_string(), path));
+        }
+    };
+    push(".claude", home.join(".claude"));
+    push(".cursor", home.join(".cursor"));
+    push(".codex", home.join(".codex"));
+    drop(push);
+    if let Ok(codex_home) = std::env::var("CODEX_HOME") {
+        let p = PathBuf::from(codex_home.trim());
+        if !p.as_os_str().is_empty() {
+            let already = out.iter().any(|(_, existing)| {
+                std::fs::canonicalize(existing).ok() == std::fs::canonicalize(&p).ok()
+                    && std::fs::canonicalize(&p).is_ok()
+            });
+            if !already && p.is_dir() {
+                out.push(("CODEX_HOME".into(), p));
+            }
+        }
+    }
+    let mut push = |label: &str, path: PathBuf| {
+        if path.is_dir() {
+            out.push((label.to_string(), path));
+        }
+    };
+    push(".copilot", home.join(".copilot"));
+    push(".gemini", home.join(".gemini"));
+    push(".kimi-code", home.join(".kimi-code"));
+    push(".continue", home.join(".continue"));
+    push(".codeium", home.join(".codeium"));
+    push(".windsurf", home.join(".windsurf"));
+    push(".aider", home.join(".aider"));
+    let app_support = home.join("Library/Application Support");
+    push("Cursor", app_support.join("Cursor"));
+    push("Claude", app_support.join("Claude"));
+    push("Windsurf", app_support.join("Windsurf"));
+    push("Codeium", app_support.join("Codeium"));
+    out
+}
 
 #[derive(Debug, Clone, Serialize)]
 pub struct CleanupSuggestion {
@@ -1491,7 +1641,7 @@ mod tests {
 
         let engine = DiskAnalyzerEngine::new();
         let (tree, stats, _) = engine
-            .scan_path("t1", &root, &[], &[], Some(40), None, None)
+            .scan_path("t1", &root, &DiskScanRoots::default(), Some(40), None, None)
             .expect("scan");
 
         // Size is authoritative (via `du` or walk); file counts may be 0 when `du` is used.
@@ -1518,8 +1668,10 @@ mod tests {
             .scan_path(
                 "t2",
                 &root,
-                std::slice::from_ref(&project),
-                &[],
+                &DiskScanRoots {
+                    project_roots: vec![project.clone()],
+                    ..DiskScanRoots::default()
+                },
                 Some(40),
                 None,
                 None,
@@ -1547,7 +1699,7 @@ mod tests {
 
         let engine = DiskAnalyzerEngine::new();
         let (tree, stats, _) = engine
-            .scan_path("hl", &root, &[], &[], Some(40), None, None)
+            .scan_path("hl", &root, &DiskScanRoots::default(), Some(40), None, None)
             .expect("scan");
 
         assert_eq!(stats.files_scanned, 2);
@@ -1571,7 +1723,7 @@ mod tests {
 
         let engine = DiskAnalyzerEngine::new();
         let (tree, _, suggestions) = engine
-            .scan_path("sug", &root, &[], &[], Some(3), None, None)
+            .scan_path("sug", &root, &DiskScanRoots::default(), Some(3), None, None)
             .expect("scan");
 
         assert!(suggestions.iter().any(|s| s.name == "node_modules"));
@@ -1587,6 +1739,8 @@ mod tests {
             is_dir: true,
             is_project: false,
             is_workspace: false,
+            is_git_worktree: false,
+            is_agent_data: false,
             file_count: 5,
             dir_count: 5,
             children_loaded: true,
@@ -1598,6 +1752,8 @@ mod tests {
                     is_dir: false,
                     is_project: false,
                     is_workspace: false,
+                    is_git_worktree: false,
+                    is_agent_data: false,
                     file_count: 0,
                     dir_count: 0,
                     children_loaded: true,
@@ -1621,6 +1777,8 @@ mod tests {
             is_dir: true,
             is_project: false,
             is_workspace: false,
+            is_git_worktree: false,
+            is_agent_data: false,
             file_count: 1,
             dir_count: 1,
             children_loaded: true,
@@ -1631,6 +1789,8 @@ mod tests {
                 is_dir: true,
                 is_project: false,
                 is_workspace: false,
+                is_git_worktree: false,
+                is_agent_data: false,
                 file_count: 1,
                 dir_count: 1,
                 children_loaded: true,
@@ -1641,6 +1801,8 @@ mod tests {
                     is_dir: true,
                     is_project: false,
                     is_workspace: false,
+                    is_git_worktree: false,
+                    is_agent_data: false,
                     file_count: 1,
                     dir_count: 1,
                     children_loaded: true,
@@ -1651,6 +1813,8 @@ mod tests {
                         is_dir: true,
                         is_project: false,
                         is_workspace: false,
+                        is_git_worktree: false,
+                        is_agent_data: false,
                         file_count: 1,
                         dir_count: 0,
                         children_loaded: true,
@@ -1661,6 +1825,8 @@ mod tests {
                             is_dir: false,
                             is_project: false,
                             is_workspace: false,
+                            is_git_worktree: false,
+                            is_agent_data: false,
                             file_count: 0,
                             dir_count: 0,
                             children_loaded: true,
@@ -1690,6 +1856,8 @@ mod tests {
             is_dir: true,
             is_project: false,
             is_workspace: false,
+            is_git_worktree: false,
+            is_agent_data: false,
             file_count: 0,
             dir_count: 0,
             children_loaded: true,
@@ -1700,6 +1868,8 @@ mod tests {
                 is_dir: true,
                 is_project: false,
                 is_workspace: false,
+                is_git_worktree: false,
+                is_agent_data: false,
                 file_count: 0,
                 dir_count: 0,
                 children_loaded: false,
@@ -1725,7 +1895,7 @@ mod tests {
         let cancel = Arc::new(AtomicBool::new(true));
         let engine = DiskAnalyzerEngine::new();
         let err = engine
-            .scan_path("t3", &root, &[], &[], Some(40), Some(cancel), None)
+            .scan_path("t3", &root, &DiskScanRoots::default(), Some(40), Some(cancel), None)
             .expect_err("should cancel");
         assert!(err.to_string().contains("cancelled"));
     }
@@ -1790,6 +1960,8 @@ mod tests {
             is_dir: true,
             is_project: false,
             is_workspace: false,
+            is_git_worktree: false,
+            is_agent_data: false,
             file_count: 1,
             dir_count: 1,
             children_loaded: true,
@@ -1801,6 +1973,8 @@ mod tests {
                     is_dir: true,
                     is_project: false,
                     is_workspace: false,
+                    is_git_worktree: false,
+                    is_agent_data: false,
                     file_count: 1,
                     dir_count: 0,
                     children_loaded: false,
@@ -1813,6 +1987,8 @@ mod tests {
                     is_dir: true,
                     is_project: false,
                     is_workspace: false,
+                    is_git_worktree: false,
+                    is_agent_data: false,
                     file_count: 0,
                     dir_count: 0,
                     children_loaded: false,
@@ -1825,6 +2001,8 @@ mod tests {
                     is_dir: true,
                     is_project: false,
                     is_workspace: false,
+                    is_git_worktree: false,
+                    is_agent_data: false,
                     file_count: 0,
                     dir_count: 0,
                     children_loaded: false,
@@ -1847,12 +2025,63 @@ mod tests {
         write_file(&root.join("x.txt"), 500);
         let engine = DiskAnalyzerEngine::new();
         let (a, _, _) = engine
-            .scan_path("a", &root, &[], &[], Some(30), None, None)
+            .scan_path("a", &root, &DiskScanRoots::default(), Some(30), None, None)
             .unwrap();
         let (b, _, _) = engine
-            .scan_level("b", &root, &[], &[], Some(30), None, None)
+            .scan_level("b", &root, &DiskScanRoots::default(), Some(30), None, None)
             .unwrap();
         assert_eq!(a.size, b.size);
         assert!(a.children_loaded);
+    }
+
+    #[test]
+    fn scan_marks_git_worktree_and_agent_data() {
+        let root = tempfile_dir("disk-analyzer-kinds");
+        let wt = root.join("linked-wt");
+        let agent = root.join(".cursor");
+        fs::create_dir_all(&wt).unwrap();
+        fs::create_dir_all(&agent).unwrap();
+        write_file(&wt.join("a.txt"), 100);
+        write_file(&agent.join("chat.json"), 100);
+        let engine = DiskAnalyzerEngine::new();
+        let (tree, _, _) = engine
+            .scan_path(
+                "k",
+                &root,
+                &DiskScanRoots {
+                    git_worktree_roots: vec![wt],
+                    agent_data_roots: vec![agent],
+                    ..DiskScanRoots::default()
+                },
+                Some(40),
+                None,
+                None,
+            )
+            .unwrap();
+        let wt_node = tree
+            .children
+            .iter()
+            .find(|c| c.name == "linked-wt")
+            .expect("worktree child");
+        assert!(wt_node.is_git_worktree);
+        assert!(!wt_node.is_workspace);
+        let agent_node = tree
+            .children
+            .iter()
+            .find(|c| c.name == ".cursor")
+            .expect("agent child");
+        assert!(agent_node.is_agent_data);
+    }
+
+    #[test]
+    fn agent_data_roots_only_existing_dirs() {
+        let root = tempfile_dir("disk-analyzer-agent-roots");
+        fs::create_dir_all(root.join(".cursor")).unwrap();
+        fs::create_dir_all(root.join(".claude")).unwrap();
+        let found = agent_data_roots(&root);
+        let names: Vec<_> = found.iter().map(|(n, _)| n.as_str()).collect();
+        assert!(names.contains(&".cursor"));
+        assert!(names.contains(&".claude"));
+        assert!(!names.contains(&".codex"));
     }
 }

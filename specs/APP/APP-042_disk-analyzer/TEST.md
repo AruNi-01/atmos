@@ -20,6 +20,7 @@
 | M11–M12 | S1, S9 |
 | N1–N2 | S10 (optional) |
 | N6 | S4 |
+| IMP-001 worktrees / agent homes | S11 |
 
 ## Execution map
 
@@ -37,6 +38,7 @@
 | S8 | exploratory | agent-browser/manual | confirm dialog shows freed bytes | pending |
 | S9 | unit | bun / messages | i18n keys present en+zh | pending |
 | S10 | unit/manual | cargo/web | disk info + suggestions | pending |
+| S11 | unit | cargo + bun | linked worktree discover + badges + agent cleanup hints | pending |
 
 ## Scenarios
 
@@ -113,6 +115,12 @@
 - **Then** total/available bytes are > 0 on supported platforms; suggestions list may include known heavy dirs even when prune collapses them into `__other__`
 - **Signals**: optional cargo/web assertions; `suggestions_computed_before_prune`
 
+### S11 — Linked git worktrees and agent homes
+- **Given** a fixture with a main git checkout plus a linked worktree, and an existing `.cursor` (or `.claude`) directory
+- **When** the default disk analyzer scan / classify runs
+- **Then** the linked worktree is discovered (main checkout is not listed as linked); uncovered worktrees and agent homes become overview tiles or badges; `is_git_worktree` / `is_agent_data` are exclusive of Atmos workspace; agent basenames have cleanup hints
+- **Signals**: `discover_linked_worktrees_finds_extra_checkout_not_main`; `scan_marks_git_worktree_and_agent_data`; `append_discovered_skips_covered_paths_and_labels_worktrees`; bun adapter flags + `dot_cursor` hint key
+
 ## Exploratory agent-browser checks
 
 - Open `/disk-analyzer` from Management Center; verify layout does not overflow at 1280×720 and ~390×844.
@@ -155,7 +163,8 @@ _Updated 2026-07-22 during PR review fixes (REV-001–REV-018)._
 | S7b delete boundaries | covered | `delete_outside_scan_root_rejected`, `delete_refuses_filesystem_root` |
 | S7c trash failure contract | covered (unit) | `trash_delete_does_not_fallback_to_permanent` — asserts `Err`, no silent permanent success |
 | S10 suggestions before prune | covered | `suggestions_computed_before_prune` |
-| S1 / S8 / S9 | partial | Management Center + i18n keys wired (`scanFailed`); UI exploratory not_run in this environment |
+| S11 worktree + agent marks | covered | `discover_linked_worktrees_finds_extra_checkout_not_main`; `scan_marks_git_worktree_and_agent_data`; `append_discovered_skips_covered_paths_and_labels_worktrees`; bun `echarts adapter flags git worktree and agent data` |
+| S1 / S8 / S9 | partial | Management Center + i18n keys wired (`scanFailed`, `gitWorktree`, `agentData`); UI exploratory not_run in this environment |
 | Trash-mode happy path on real Desktop trash backend | **partial / gap** | Headless CI lacks a reliable trash backend; S7c covers failure contract only. Full `permanent=false` success remains manual/desktop. |
 
 Commands run:

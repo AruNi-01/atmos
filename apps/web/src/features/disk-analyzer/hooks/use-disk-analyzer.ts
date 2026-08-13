@@ -64,6 +64,8 @@ function graftLevelOntoTree(root: DiskNode, level: DiskNode): DiskNode {
       ...level,
       is_project: level.is_project || previous?.is_project || false,
       is_workspace: level.is_workspace || previous?.is_workspace || false,
+      is_git_worktree: level.is_git_worktree || previous?.is_git_worktree || false,
+      is_agent_data: level.is_agent_data || previous?.is_agent_data || false,
     };
     if (idx >= 0) children[idx] = grafted;
     else children.push(grafted);
@@ -85,6 +87,8 @@ function mergeLevelIntoTree(root: DiskNode | null, level: DiskNode): DiskNode {
         ...level,
         is_project: level.is_project || node.is_project,
         is_workspace: level.is_workspace || node.is_workspace,
+        is_git_worktree: level.is_git_worktree || node.is_git_worktree,
+        is_agent_data: level.is_agent_data || node.is_agent_data,
       };
     }
     if (!node.children?.length) return node;

@@ -1,7 +1,9 @@
 //! Disk Analyzer business service — scan sessions, ownership, project roots.
 //!
-//! Default scans cover Atmos-related paths only (`~/.atmos`, imported projects,
-//! Atmos.app, app support). Opt-in `scan_all` walks the user home (+ Applications).
+//! Default scans cover Atmos-related paths (`~/.atmos`, imported projects,
+//! Atmos.app, app support) plus linked git worktrees and code-agent session
+//! directories discovered under the user home. Opt-in `scan_all` walks the
+//! user home (+ Applications) and still badges those paths.
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -10,9 +12,9 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use core_engine::{
-    clear_path_cache, finalize_tree, invalidate_path_cache, CleanupSuggestion, DiskAnalyzerEngine,
-    DiskNode, DiskVolumeInfo, FsEngine, GitEngine, ProgressCallback, ScanProgress, ScanStats,
-    ScanStatus, DEFAULT_TREE_DEPTH,
+    agent_data_roots, clear_path_cache, finalize_tree, invalidate_path_cache, CleanupSuggestion,
+    DiskAnalyzerEngine, DiskNode, DiskPathKind, DiskScanRoots, DiskVolumeInfo, FsEngine, GitEngine,
+    ProgressCallback, ScanProgress, ScanStats, ScanStatus, DEFAULT_TREE_DEPTH,
 };
 use parking_lot::Mutex;
 use serde::Serialize;
@@ -49,10 +51,12 @@ pub struct DiskAnalyzerScanEvent {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[allow(dead_code)] // Workspace reserved for future overview tiles of worktrees outside static roots
+#[allow(dead_code)]
 enum AtmosEntryKind {
     Project,
     Workspace,
+    GitWorktree,
+    AgentData,
 }
 
 #[derive(Clone)]
@@ -80,6 +84,12 @@ struct DiskAnalyzerSession {
     project_roots: Vec<PathBuf>,
     /// Identified Atmos workspace worktree paths.
     workspace_roots: Vec<PathBuf>,
+    /// Linked git worktrees discovered on this machine (not Atmos workspaces).
+    git_worktree_roots: Vec<PathBuf>,
+    /// Code-agent home / session directories.
+    agent_data_roots: Vec<PathBuf>,
+    /// True after home discovery has populated worktree / agent roots (may be empty).
+    marks_ready: bool,
     started_at: Instant,
     completed_at: Option<Instant>,
     #[allow(dead_code)]
@@ -261,25 +271,168 @@ impl DiskAnalyzerService {
         }
     }
 
-    fn classify_path(
-        path: &str,
+    #[allow(dead_code)]
+    fn scan_roots(
         project_roots: &[PathBuf],
         workspace_roots: &[PathBuf],
-    ) -> (bool, bool) {
-        let p = PathBuf::from(path);
-        let canon = std::fs::canonicalize(&p).unwrap_or(p);
-        let is_ws = workspace_roots.iter().any(|w| {
-            let w = std::fs::canonicalize(w).unwrap_or_else(|_| w.clone());
-            canon == w
-        });
-        if is_ws {
-            return (false, true);
+        git_worktree_roots: &[PathBuf],
+        agent_data_roots: &[PathBuf],
+    ) -> DiskScanRoots {
+        DiskScanRoots {
+            project_roots: project_roots.to_vec(),
+            workspace_roots: workspace_roots.to_vec(),
+            git_worktree_roots: git_worktree_roots.to_vec(),
+            agent_data_roots: agent_data_roots.to_vec(),
         }
-        let is_proj = project_roots.iter().any(|r| {
-            let r = std::fs::canonicalize(r).unwrap_or_else(|_| r.clone());
-            canon == r
-        });
-        (is_proj, false)
+    }
+
+    fn kind_for_entry(
+        kind: Option<AtmosEntryKind>,
+        path: &str,
+        roots: &DiskScanRoots,
+    ) -> DiskPathKind {
+        match kind {
+            Some(AtmosEntryKind::Project) => DiskPathKind {
+                is_project: true,
+                ..DiskPathKind::default()
+            },
+            Some(AtmosEntryKind::Workspace) => DiskPathKind {
+                is_workspace: true,
+                ..DiskPathKind::default()
+            },
+            Some(AtmosEntryKind::GitWorktree) => DiskPathKind {
+                is_git_worktree: true,
+                ..DiskPathKind::default()
+            },
+            Some(AtmosEntryKind::AgentData) => DiskPathKind {
+                is_agent_data: true,
+                ..DiskPathKind::default()
+            },
+            None => DiskPathKind::classify(Path::new(path), roots),
+        }
+    }
+
+    fn apply_kind(node: &mut DiskNode, kind: DiskPathKind) {
+        node.is_project = kind.is_project;
+        node.is_workspace = kind.is_workspace;
+        node.is_git_worktree = kind.is_git_worktree;
+        node.is_agent_data = kind.is_agent_data;
+    }
+
+    fn dir_shell(name: String, path: String, kind: DiskPathKind) -> DiskNode {
+        DiskNode {
+            name,
+            path,
+            size: 0,
+            is_dir: true,
+            is_project: kind.is_project,
+            is_workspace: kind.is_workspace,
+            is_git_worktree: kind.is_git_worktree,
+            is_agent_data: kind.is_agent_data,
+            file_count: 0,
+            dir_count: 0,
+            children_loaded: false,
+            children: vec![],
+        }
+    }
+
+    fn overview_entry_labels(entries: &[EntryRoot]) -> HashMap<String, String> {
+        entries
+            .iter()
+            .map(|e| {
+                let display = match e.label.as_str() {
+                    ENTRY_KEY_HOME => "~".to_string(),
+                    ENTRY_KEY_APPLICATIONS => "Applications".to_string(),
+                    other => other.to_string(),
+                };
+                (e.label.clone(), display)
+            })
+            .collect()
+    }
+
+    fn path_covered_by_entries(path: &Path, entries: &[EntryRoot]) -> bool {
+        let canon = std::fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
+        entries.iter().any(|e| {
+            let er = std::fs::canonicalize(&e.path).unwrap_or_else(|_| e.path.clone());
+            canon == er || canon.starts_with(&er)
+        })
+    }
+
+    fn unique_entry_label(base: String, entries: &[EntryRoot]) -> String {
+        if !entries.iter().any(|e| e.label == base) {
+            return base;
+        }
+        for i in 1..1000 {
+            let candidate = format!("{base} ({i})");
+            if !entries.iter().any(|e| e.label == candidate) {
+                return candidate;
+            }
+        }
+        format!("{base}-extra")
+    }
+
+    fn worktree_overview_label(path: &Path) -> String {
+        let name = path
+            .file_name()
+            .map(|s| s.to_string_lossy().into_owned())
+            .unwrap_or_else(|| path.display().to_string());
+        let mut parent = path.parent();
+        if parent
+            .and_then(|p| p.file_name())
+            .and_then(|n| n.to_str())
+            == Some("worktrees")
+        {
+            parent = parent.and_then(|p| p.parent());
+            if parent
+                .and_then(|p| p.file_name())
+                .and_then(|n| n.to_str())
+                .is_some_and(|n| n.starts_with('.'))
+            {
+                parent = parent.and_then(|p| p.parent());
+            }
+        }
+        match parent.and_then(|p| p.file_name()) {
+            Some(p) => format!("{name} ({})", p.to_string_lossy()),
+            None => name,
+        }
+    }
+
+    fn append_discovered_overview_entries(
+        entries: &mut Vec<EntryRoot>,
+        git_worktrees: &[PathBuf],
+        agent_roots: &[(String, PathBuf)],
+    ) {
+        for (label, path) in agent_roots {
+            if !path.exists() || Self::path_covered_by_entries(path, entries) {
+                continue;
+            }
+            let label = Self::unique_entry_label(label.clone(), entries);
+            entries.push(EntryRoot {
+                label,
+                path: path.clone(),
+                kind: Some(AtmosEntryKind::AgentData),
+            });
+        }
+        for path in git_worktrees {
+            if !path.exists() || Self::path_covered_by_entries(path, entries) {
+                continue;
+            }
+            let label = Self::unique_entry_label(Self::worktree_overview_label(path), entries);
+            entries.push(EntryRoot {
+                label,
+                path: path.clone(),
+                kind: Some(AtmosEntryKind::GitWorktree),
+            });
+        }
+    }
+
+    fn discover_machine_marks(
+        home: &Path,
+        cancel: &AtomicBool,
+    ) -> (Vec<PathBuf>, Vec<(String, PathBuf)>) {
+        let git_worktrees = GitEngine::new().discover_linked_worktrees(home, Some(cancel));
+        let agent_roots = agent_data_roots(home);
+        (git_worktrees, agent_roots)
     }
 
     pub async fn start_scan(
@@ -408,6 +561,9 @@ impl DiskAnalyzerService {
                     max_children,
                     project_roots: project_roots.clone(),
                     workspace_roots: workspace_roots.clone(),
+                    git_worktree_roots: vec![],
+                    agent_data_roots: vec![],
+                    marks_ready: false,
                     started_at: Instant::now(),
                     completed_at: None,
                     is_overview,
@@ -450,8 +606,12 @@ impl DiskAnalyzerService {
                     scan_id_task,
                     owner,
                     single,
-                    project_roots,
-                    workspace_roots,
+                    DiskScanRoots {
+                        project_roots,
+                        workspace_roots,
+                        git_worktree_roots: vec![],
+                        agent_data_roots: vec![],
+                    },
                     max_children,
                     cancel,
                     true,
@@ -489,8 +649,7 @@ impl DiskAnalyzerService {
     ) -> Result<Value> {
         let (
             target_key,
-            project_roots,
-            workspace_roots,
+            scan_roots,
             session_max,
             cancel,
             entry_roots,
@@ -543,8 +702,12 @@ impl DiskAnalyzerService {
                 .unwrap_or(false);
             (
                 target_key,
-                session.project_roots.clone(),
-                session.workspace_roots.clone(),
+                DiskScanRoots {
+                    project_roots: session.project_roots.clone(),
+                    workspace_roots: session.workspace_roots.clone(),
+                    git_worktree_roots: session.git_worktree_roots.clone(),
+                    agent_data_roots: session.agent_data_roots.clone(),
+                },
                 session.max_children,
                 Arc::clone(&session.cancel),
                 session.entry_roots.clone(),
@@ -585,8 +748,7 @@ impl DiskAnalyzerService {
             scan_id.to_string(),
             owner_conn_id.to_string(),
             target_path,
-            project_roots,
-            workspace_roots,
+            scan_roots,
             max,
             cancel,
             false,
@@ -674,7 +836,7 @@ impl DiskAnalyzerService {
         event_tx: broadcast::Sender<DiskAnalyzerScanEvent>,
         scan_id: String,
         owner: String,
-        entries: Vec<EntryRoot>,
+        mut entries: Vec<EntryRoot>,
         project_roots: Vec<PathBuf>,
         workspace_roots: Vec<PathBuf>,
         max_children: usize,
@@ -698,21 +860,34 @@ impl DiskAnalyzerService {
             ),
         };
 
-        // Labels used when grafting each entry as a top-level overview child.
-        let entry_labels: HashMap<String, String> = entries
-            .iter()
-            .map(|e| {
-                let display = match e.label.as_str() {
-                    ENTRY_KEY_HOME => "~".to_string(),
-                    ENTRY_KEY_APPLICATIONS => "Applications".to_string(),
-                    other => other.to_string(),
-                };
-                (e.label.clone(), display)
-            })
-            .collect();
-
         tokio::task::spawn_blocking(move || {
             let started = Instant::now();
+            let (discovered_worktrees, discovered_agents) = dirs::home_dir()
+                .map(|h| DiskAnalyzerService::discover_machine_marks(&h, &cancel))
+                .unwrap_or_default();
+            if matches!(kind, OverviewKind::AtmosSynthetic) {
+                DiskAnalyzerService::append_discovered_overview_entries(
+                    &mut entries,
+                    &discovered_worktrees,
+                    &discovered_agents,
+                );
+            }
+            let agent_paths: Vec<PathBuf> =
+                discovered_agents.iter().map(|(_, p)| p.clone()).collect();
+            if let Some(session) = sessions.lock().get_mut(&scan_id) {
+                session.entry_roots = entries.iter().map(|e| e.path.clone()).collect();
+                session.git_worktree_roots = discovered_worktrees.clone();
+                session.agent_data_roots = agent_paths.clone();
+                session.marks_ready = true;
+            }
+            let roots = DiskScanRoots {
+                project_roots,
+                workspace_roots,
+                git_worktree_roots: discovered_worktrees,
+                agent_data_roots: agent_paths,
+            };
+            let entry_labels = DiskAnalyzerService::overview_entry_labels(&entries);
+
             let parts: Arc<Mutex<HashMap<String, DiskNode>>> = Arc::new(Mutex::new(HashMap::new()));
             let files_scanned = Arc::new(AtomicU64::new(0));
             let bytes_scanned = Arc::new(AtomicU64::new(0));
@@ -807,25 +982,15 @@ impl DiskAnalyzerService {
                         .get(&entry.label)
                         .cloned()
                         .unwrap_or_else(|| entry.label.clone());
-                    let (is_project, is_workspace) = match entry.kind {
-                        Some(AtmosEntryKind::Project) => (true, false),
-                        Some(AtmosEntryKind::Workspace) => (false, true),
-                        None => (false, false),
-                    };
+                    let real_path = path_key(&entry.path);
+                    let kind = DiskAnalyzerService::kind_for_entry(
+                        entry.kind,
+                        &real_path,
+                        &roots,
+                    );
                     map.insert(
                         entry.label.clone(),
-                        DiskNode {
-                            name: display,
-                            path: path_key(&entry.path),
-                            size: 0,
-                            is_dir: true,
-                            is_project,
-                            is_workspace,
-                            file_count: 0,
-                            dir_count: 0,
-                            children_loaded: false,
-                            children: vec![],
-                        },
+                        DiskAnalyzerService::dir_shell(display, real_path, kind),
                     );
                 }
                 emit_assembled(ScanStatus::Running, None, &map, None);
@@ -865,23 +1030,15 @@ impl DiskAnalyzerService {
                         .get(&entry.label)
                         .cloned()
                         .unwrap_or_else(|| entry.label.clone());
-                    let (is_project, is_workspace) = match entry.kind {
-                        Some(AtmosEntryKind::Project) => (true, false),
-                        Some(AtmosEntryKind::Workspace) => (false, true),
-                        None => Self::classify_path(&real_path, &project_roots, &workspace_roots),
-                    };
-                    let tree = DiskNode {
-                        name: display_name,
-                        path: real_path,
-                        size: m.size,
-                        is_dir: true,
-                        is_project,
-                        is_workspace,
-                        file_count: m.file_count,
-                        dir_count: m.dir_count,
-                        children_loaded: false,
-                        children: vec![],
-                    };
+                    let kind = DiskAnalyzerService::kind_for_entry(
+                        entry.kind,
+                        &real_path,
+                        &roots,
+                    );
+                    let mut tree = DiskAnalyzerService::dir_shell(display_name, real_path, kind);
+                    tree.size = m.size;
+                    tree.file_count = m.file_count;
+                    tree.dir_count = m.dir_count;
                     files_scanned.fetch_add(m.file_count, Ordering::Relaxed);
                     dirs_scanned.fetch_add(m.dir_count.saturating_add(1), Ordering::Relaxed);
                     parts.lock().insert(entry.label.clone(), tree);
@@ -938,8 +1095,7 @@ impl DiskAnalyzerService {
                     let owner = owner.clone();
                     let scan_id = scan_id.clone();
                     let cancel = Arc::clone(&cancel);
-                    let project_roots = project_roots.clone();
-                    let workspace_roots = workspace_roots.clone();
+                    let roots = roots.clone();
                     let entry_kind = entry.kind;
                     let root_path_str = root_path_str.clone();
                     let root_display_name = root_display_name.clone();
@@ -1090,8 +1246,7 @@ impl DiskAnalyzerService {
                             let out = engine.scan_level(
                                 &format!("{scan_id}:{part_key}"),
                                 &entry_path,
-                                &project_roots,
-                                &workspace_roots,
+                                &roots,
                                 Some(max_children),
                                 Some(Arc::clone(&cancel)),
                                 Some(on_progress),
@@ -1105,27 +1260,19 @@ impl DiskAnalyzerService {
                             let out =
                                 match engine.measure_path(&entry_path, Some(Arc::clone(&cancel))) {
                                     Ok(m) => {
-                                        let (is_project, is_workspace) = match entry_kind {
-                                            Some(AtmosEntryKind::Project) => (true, false),
-                                            Some(AtmosEntryKind::Workspace) => (false, true),
-                                            None => DiskAnalyzerService::classify_path(
-                                                &real_path,
-                                                &project_roots,
-                                                &workspace_roots,
-                                            ),
-                                        };
-                                        let tree = DiskNode {
-                                            name: display_name.clone(),
-                                            path: real_path.clone(),
-                                            size: m.size,
-                                            is_dir: true,
-                                            is_project,
-                                            is_workspace,
-                                            file_count: m.file_count,
-                                            dir_count: m.dir_count,
-                                            children_loaded: false,
-                                            children: vec![],
-                                        };
+                                        let kind = DiskAnalyzerService::kind_for_entry(
+                                            entry_kind,
+                                            &real_path,
+                                            &roots,
+                                        );
+                                        let mut tree = DiskAnalyzerService::dir_shell(
+                                            display_name.clone(),
+                                            real_path.clone(),
+                                            kind,
+                                        );
+                                        tree.size = m.size;
+                                        tree.file_count = m.file_count;
+                                        tree.dir_count = m.dir_count;
                                         let stats = ScanStats {
                                             root_path: real_path.clone(),
                                             total_size: m.size,
@@ -1159,17 +1306,12 @@ impl DiskAnalyzerService {
                             Ok((mut tree, stats, _suggestions)) => {
                                 tree.path = real_path;
                                 tree.name = display_name;
-                                let (is_project, is_workspace) = match entry_kind {
-                                    Some(AtmosEntryKind::Project) => (true, false),
-                                    Some(AtmosEntryKind::Workspace) => (false, true),
-                                    None => DiskAnalyzerService::classify_path(
-                                        &tree.path,
-                                        &project_roots,
-                                        &workspace_roots,
-                                    ),
-                                };
-                                tree.is_project = is_project;
-                                tree.is_workspace = is_workspace;
+                                let kind = DiskAnalyzerService::kind_for_entry(
+                                    entry_kind,
+                                    &tree.path,
+                                    &roots,
+                                );
+                                DiskAnalyzerService::apply_kind(&mut tree, kind);
                                 // Keep children from scan_level so target/node_modules/.next
                                 // appear under projects and workspaces under ~/.atmos.
                                 // Only measure-only shells stay collapsed for drill-in.
@@ -1223,8 +1365,7 @@ impl DiskAnalyzerService {
         scan_id: String,
         owner: String,
         level_path: PathBuf,
-        project_roots: Vec<PathBuf>,
-        workspace_roots: Vec<PathBuf>,
+        mut roots: DiskScanRoots,
         max_children: usize,
         cancel: Arc<AtomicBool>,
         is_session_root: bool,
@@ -1265,11 +1406,31 @@ impl DiskAnalyzerService {
         });
 
         tokio::task::spawn_blocking(move || {
+            let need_discover = sessions
+                .lock()
+                .get(&scan_id)
+                .map(|s| !s.marks_ready)
+                .unwrap_or(true);
+            if need_discover {
+                if let Some(home) = dirs::home_dir() {
+                    let (worktrees, agents) =
+                        DiskAnalyzerService::discover_machine_marks(&home, &cancel);
+                    roots.git_worktree_roots = worktrees;
+                    roots.agent_data_roots = agents.into_iter().map(|(_, p)| p).collect();
+                    if let Some(session) = sessions.lock().get_mut(&scan_id) {
+                        session.git_worktree_roots = roots.git_worktree_roots.clone();
+                        session.agent_data_roots = roots.agent_data_roots.clone();
+                        session.marks_ready = true;
+                    }
+                }
+            } else if let Some(session) = sessions.lock().get(&scan_id) {
+                roots.git_worktree_roots = session.git_worktree_roots.clone();
+                roots.agent_data_roots = session.agent_data_roots.clone();
+            }
             let result = engine.scan_path(
                 &scan_id,
                 &level_path,
-                &project_roots,
-                &workspace_roots,
+                &roots,
                 Some(max_children),
                 Some(cancel),
                 Some(on_progress),
@@ -1531,6 +1692,8 @@ fn assemble_overview(
                     is_dir: true,
                     is_project: false,
                     is_workspace: false,
+                    is_git_worktree: false,
+                    is_agent_data: false,
                     file_count: 0,
                     dir_count: 0,
                     children_loaded: true,
@@ -1579,6 +1742,8 @@ fn assemble_overview(
                 is_dir: true,
                 is_project: false,
                 is_workspace: false,
+                is_git_worktree: false,
+                is_agent_data: false,
                 file_count,
                 dir_count,
                 children_loaded: true,
@@ -1641,6 +1806,9 @@ mod tests {
                 max_children: 30,
                 project_roots: vec![],
                 workspace_roots: vec![],
+                git_worktree_roots: vec![],
+                agent_data_roots: vec![],
+                marks_ready: false,
                 started_at: Instant::now(),
                 completed_at: None,
                 is_overview: true,
@@ -1680,6 +1848,9 @@ mod tests {
                 max_children: 30,
                 project_roots: vec![],
                 workspace_roots: vec![],
+                git_worktree_roots: vec![],
+                agent_data_roots: vec![],
+                marks_ready: false,
                 started_at: Instant::now() - (SESSION_TTL * 2 + Duration::from_secs(1)),
                 completed_at: None,
                 is_overview: false,
@@ -1720,6 +1891,8 @@ mod tests {
             is_dir: true,
             is_project: false,
             is_workspace: false,
+            is_git_worktree: false,
+            is_agent_data: false,
             file_count: 1,
             dir_count: 1,
             children_loaded: true,
@@ -1730,6 +1903,8 @@ mod tests {
                 is_dir: true,
                 is_project: false,
                 is_workspace: false,
+                is_git_worktree: false,
+                is_agent_data: false,
                 file_count: 1,
                 dir_count: 1,
                 children_loaded: false,
@@ -1752,6 +1927,9 @@ mod tests {
                 max_children: 30,
                 project_roots: vec![],
                 workspace_roots: vec![],
+                git_worktree_roots: vec![],
+                agent_data_roots: vec![],
+                marks_ready: false,
                 started_at: Instant::now(),
                 completed_at: Some(Instant::now()),
                 is_overview: true,
@@ -1805,6 +1983,8 @@ mod tests {
             is_dir: true,
             is_project: false,
             is_workspace: false,
+            is_git_worktree: false,
+            is_agent_data: false,
             file_count: 1,
             dir_count: 1,
             children_loaded: true,
@@ -1815,6 +1995,8 @@ mod tests {
                 is_dir: true,
                 is_project: false,
                 is_workspace: false,
+                is_git_worktree: false,
+                is_agent_data: false,
                 file_count: 1,
                 dir_count: 0,
                 children_loaded: true,
@@ -1825,6 +2007,8 @@ mod tests {
                     is_dir: false,
                     is_project: false,
                     is_workspace: false,
+                    is_git_worktree: false,
+                    is_agent_data: false,
                     file_count: 1,
                     dir_count: 0,
                     children_loaded: true,
@@ -1848,6 +2032,9 @@ mod tests {
                 max_children: 30,
                 project_roots: vec![],
                 workspace_roots: vec![],
+                git_worktree_roots: vec![],
+                agent_data_roots: vec![],
+                marks_ready: false,
                 started_at: Instant::now(),
                 completed_at: Some(Instant::now()),
                 is_overview: true,
@@ -1878,5 +2065,52 @@ mod tests {
         );
 
         let _ = std::fs::remove_dir_all(&base);
+    }
+
+    #[test]
+    fn append_discovered_skips_covered_paths_and_labels_worktrees() {
+        let tmp = std::env::temp_dir().join(format!(
+            "disk-analyzer-discover-entries-{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&tmp);
+        let atmos = tmp.join(".atmos");
+        let cursor = tmp.join(".cursor");
+        let nested_wt = cursor.join("worktrees").join("feat");
+        let extra_wt = tmp.join("extra-wt");
+        std::fs::create_dir_all(&atmos).expect("atmos");
+        std::fs::create_dir_all(&nested_wt).expect("nested wt");
+        std::fs::create_dir_all(&extra_wt).expect("extra wt");
+
+        let mut entries = vec![EntryRoot {
+            label: ".atmos".into(),
+            path: atmos,
+            kind: None,
+        }];
+        DiskAnalyzerService::append_discovered_overview_entries(
+            &mut entries,
+            &[nested_wt, extra_wt.clone()],
+            &[(".cursor".into(), cursor)],
+        );
+
+        let labels: Vec<_> = entries.iter().map(|e| e.label.as_str()).collect();
+        assert!(labels.contains(&".atmos"));
+        assert!(labels.contains(&".cursor"));
+        assert!(
+            entries
+                .iter()
+                .any(|e| e.path == extra_wt && e.kind == Some(AtmosEntryKind::GitWorktree)),
+            "uncovered worktree should become an overview tile: {labels:?}"
+        );
+        assert!(
+            !entries.iter().any(|e| e.label.contains("feat")),
+            "worktree under .cursor must not duplicate: {labels:?}"
+        );
+        assert!(
+            DiskAnalyzerService::worktree_overview_label(&extra_wt).starts_with("extra-wt"),
+            "worktree label should start with the directory name"
+        );
+
+        let _ = std::fs::remove_dir_all(&tmp);
     }
 }

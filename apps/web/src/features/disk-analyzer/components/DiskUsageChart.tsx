@@ -56,6 +56,8 @@ type ChartNodeData = {
   isDir?: boolean;
   isProject?: boolean;
   isWorkspace?: boolean;
+  isGitWorktree?: boolean;
+  isAgentData?: boolean;
   isAtmosRuntime?: boolean;
   bytes?: number;
   value?: number;
@@ -84,6 +86,8 @@ type Props = {
   scanPath: string;
   projectLabel: string;
   workspaceLabel: string;
+  gitWorktreeLabel: string;
+  agentDataLabel: string;
   runtimeLabel: string;
   otherLabel?: string;
   enterDirectoryLabel: string;
@@ -100,6 +104,8 @@ export function DiskUsageChart({
   scanPath,
   projectLabel,
   workspaceLabel,
+  gitWorktreeLabel,
+  agentDataLabel,
   runtimeLabel,
   otherLabel = "Other",
   enterDirectoryLabel,
@@ -272,6 +278,8 @@ export function DiskUsageChart({
       const kindChip = kindChipHtml(p.data, {
         projectLabel,
         workspaceLabel,
+        gitWorktreeLabel,
+        agentDataLabel,
         runtimeLabel,
       });
       const sizeText = escapeHtml(`${formatBytes(size)} · ${share}%`);
@@ -471,6 +479,8 @@ export function DiskUsageChart({
     runtimeLabel,
     seriesData,
     workspaceLabel,
+    gitWorktreeLabel,
+    agentDataLabel,
   ]);
 
   const openContextMenu = (params: {
@@ -667,6 +677,8 @@ function kindChipHtml(
   labels: {
     projectLabel: string;
     workspaceLabel: string;
+    gitWorktreeLabel: string;
+    agentDataLabel: string;
     runtimeLabel: string;
   },
 ): string {
@@ -674,6 +686,8 @@ function kindChipHtml(
   if (data?.isAtmosRuntime) text = labels.runtimeLabel;
   else if (data?.isWorkspace) text = labels.workspaceLabel;
   else if (data?.isProject) text = labels.projectLabel;
+  else if (data?.isGitWorktree) text = labels.gitWorktreeLabel;
+  else if (data?.isAgentData) text = labels.agentDataLabel;
   if (!text) return "";
   return [
     `<span style="`,

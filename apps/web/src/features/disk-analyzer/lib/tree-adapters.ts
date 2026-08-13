@@ -235,6 +235,10 @@ const HOTSPOT_NAMES = new Set([
   "zig-cache",
   "_build",
   ".terraform",
+  ".claude",
+  ".cursor",
+  ".codex",
+  "worktrees",
 ]);
 
 function hotspotRank(name: string): number {
@@ -358,6 +362,17 @@ const CLEANUP_HINTS: Record<string, string> = {
   _site: "Jekyll / static site output",
   ".vuepress": "VuePress cache/dist",
   ".vscode-test": "VS Code extension test host",
+  ".history": "Local History IDE plugin data",
+  ".claude": "Claude Code sessions and project transcripts",
+  ".cursor": "Cursor agent chats, projects, and worktrees",
+  ".codex": "Codex sessions and worktrees",
+  ".copilot": "GitHub Copilot CLI sessions",
+  ".gemini": "Gemini CLI / Antigravity conversations",
+  ".kimi-code": "Kimi Code sessions",
+  ".continue": "Continue agent data",
+  ".codeium": "Codeium / Windsurf data",
+  ".windsurf": "Windsurf agent data",
+  ".aider": "Aider session data",
 };
 
 /**
@@ -465,6 +480,8 @@ export type EChartsTreeDatum = {
   path: string;
   isProject: boolean;
   isWorkspace: boolean;
+  isGitWorktree: boolean;
+  isAgentData: boolean;
   /** Basename/path is `~/.atmos` runtime data dir. */
   isAtmosRuntime: boolean;
   isDir: boolean;
@@ -523,6 +540,14 @@ export function toEChartsTree(
   const isAtmosRuntime = isAtmosRuntimeDir(node);
   const isWorkspace = !isAtmosRuntime && node.is_workspace === true;
   const isProject = !isAtmosRuntime && node.is_project === true && !isWorkspace;
+  const isGitWorktree =
+    !isAtmosRuntime && !isWorkspace && !isProject && node.is_git_worktree === true;
+  const isAgentData =
+    !isAtmosRuntime &&
+    !isWorkspace &&
+    !isProject &&
+    !isGitWorktree &&
+    node.is_agent_data === true;
   // Always size-based hues so a folder full of workspaces still shows relative weight.
   // Kind identity is shown as chips in Details / tooltip, not tile color.
   // Prefer #rrggbb — canvas emphasis/repaint can drop hsl() to black.
@@ -566,6 +591,8 @@ export function toEChartsTree(
     path: node.path,
     isProject,
     isWorkspace,
+    isGitWorktree,
+    isAgentData,
     isAtmosRuntime,
     isDir: node.is_dir,
     fileCount: node.file_count,

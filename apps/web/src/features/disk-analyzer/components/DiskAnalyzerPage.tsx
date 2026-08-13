@@ -354,6 +354,8 @@ export function DiskAnalyzerPage() {
                   scanPath={analyzer.scanPath}
                   projectLabel={t("atmosProject")}
                   workspaceLabel={t("atmosWorkspace")}
+                  gitWorktreeLabel={t("gitWorktree")}
+                  agentDataLabel={t("agentData")}
                   runtimeLabel={t("atmosRuntimeDir")}
                   otherLabel={t("other")}
                   enterDirectoryLabel={t("enterDirectory")}
@@ -425,6 +427,8 @@ export function DiskAnalyzerPage() {
                         node={analyzer.selectedNode}
                         projectLabel={t("atmosProject")}
                         workspaceLabel={t("atmosWorkspace")}
+                        gitWorktreeLabel={t("gitWorktree")}
+                        agentDataLabel={t("agentData")}
                         runtimeLabel={t("atmosRuntimeDir")}
                       />
                       <CanCleanBadge
@@ -541,6 +545,8 @@ export function DiskAnalyzerPage() {
                                 node={child}
                                 projectLabel={t("atmosProject")}
                                 workspaceLabel={t("atmosWorkspace")}
+                                gitWorktreeLabel={t("gitWorktree")}
+                                agentDataLabel={t("agentData")}
                                 runtimeLabel={t("atmosRuntimeDir")}
                               />
                               <CanCleanBadge
@@ -624,6 +630,12 @@ export function DiskAnalyzerPage() {
                                               path: child.path,
                                               size: formatBytes(child.size),
                                             })}
+                                            {child.is_git_worktree ? (
+                                              <>
+                                                {"\n\n"}
+                                                {t("deleteWorktreeNote")}
+                                              </>
+                                            ) : null}
                                           </p>
                                         </div>
                                         <label className="flex min-w-0 items-start gap-2 text-xs leading-snug">
@@ -694,6 +706,12 @@ export function DiskAnalyzerPage() {
                 path: analyzer.selectedNode?.path ?? "",
                 size: formatBytes(analyzer.selectedNode?.size ?? 0),
               })}
+              {analyzer.selectedNode?.is_git_worktree ? (
+                <>
+                  {"\n\n"}
+                  {t("deleteWorktreeNote")}
+                </>
+              ) : null}
             </DialogDescription>
           </DialogHeader>
           <label className="flex min-w-0 items-start gap-2 text-sm leading-snug">
@@ -759,11 +777,22 @@ function NodeKindBadge({
   node,
   projectLabel,
   workspaceLabel,
+  gitWorktreeLabel,
+  agentDataLabel,
   runtimeLabel,
 }: {
-  node: { name?: string; path?: string; is_project?: boolean; is_workspace?: boolean };
+  node: {
+    name?: string;
+    path?: string;
+    is_project?: boolean;
+    is_workspace?: boolean;
+    is_git_worktree?: boolean;
+    is_agent_data?: boolean;
+  };
   projectLabel: string;
   workspaceLabel: string;
+  gitWorktreeLabel: string;
+  agentDataLabel: string;
   runtimeLabel: string;
 }) {
   let label: string | null = null;
@@ -773,6 +802,10 @@ function NodeKindBadge({
     label = workspaceLabel;
   } else if (node.is_project) {
     label = projectLabel;
+  } else if (node.is_git_worktree) {
+    label = gitWorktreeLabel;
+  } else if (node.is_agent_data) {
+    label = agentDataLabel;
   }
   if (!label) return null;
   return (

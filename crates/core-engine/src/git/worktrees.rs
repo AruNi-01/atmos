@@ -1,4 +1,8 @@
+use std::collections::HashSet;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
+
+use jwalk::WalkDir;
 
 use crate::error::{EngineError, Result};
 
@@ -6,6 +10,47 @@ use super::{
     fetch_remote_branch, remote_branch_fetch_target, run_git, try_run_git,
     types::parse_worktree_list, GitEngine, WorktreeInfo,
 };
+
+/// Directories that are almost never git repo roots and are expensive to walk.
+const DISCOVER_SKIP_DIR_NAMES: &[&str] = &[
+    "node_modules",
+    "target",
+    ".next",
+    "dist",
+    "build",
+    "__pycache__",
+    ".venv",
+    "venv",
+    ".tox",
+    ".m2",
+    ".gradle",
+    ".npm",
+    ".pnpm-store",
+    ".cache",
+    ".Trash",
+    "DerivedData",
+    "Pods",
+    ".turbo",
+    "coverage",
+    ".yarn",
+    "CMakeFiles",
+    "zig-cache",
+    ".direnv",
+    ".devenv",
+    "Library",
+    ".atmos",
+    ".claude",
+    ".cursor",
+    ".codex",
+    ".copilot",
+    ".gemini",
+    ".continue",
+    ".windsurf",
+    ".codeium",
+    ".aider",
+    ".kimi-code",
+    ".local",
+];
 
 impl GitEngine {
     /// Get the atmos workspace base directory: ~/.atmos/workspaces
@@ -211,5 +256,192 @@ impl GitEngine {
     pub fn list_worktrees(&self, repo_path: &Path) -> Result<Vec<WorktreeInfo>> {
         let stdout = run_git(repo_path, &["worktree", "list", "--porcelain"])?;
         Ok(parse_worktree_list(&stdout))
+    }
+
+    /// Find linked git worktrees under `search_root` (typically the user home).
+    ///
+    /// Walks for `.git` dirs/files while skipping heavy trees, then runs
+    /// `git worktree list` once per unique repository. Returns only **linked**
+    /// worktrees (`.git` is a file), not the main checkout.
+    pub fn discover_linked_worktrees(
+        &self,
+        search_root: &Path,
+        cancel: Option<&AtomicBool>,
+    ) -> Vec<PathBuf> {
+        let mut seeds = Vec::new();
+        collect_git_seeds(search_root, cancel, &mut seeds);
+        for extra in extra_worktree_search_roots(search_root) {
+            if extra.exists() {
+                collect_git_seeds(&extra, cancel, &mut seeds);
+            }
+        }
+
+        let mut seen_common = HashSet::new();
+        let mut linked = Vec::new();
+        let mut seen_path = HashSet::new();
+        for seed in seeds {
+            if cancel.is_some_and(|c| c.load(Ordering::Relaxed)) {
+                break;
+            }
+            let Some(common) = git_common_dir(&seed) else {
+                continue;
+            };
+            if !seen_common.insert(common) {
+                continue;
+            }
+            let Ok(Some(stdout)) = try_run_git(&seed, &["worktree", "list", "--porcelain"]) else {
+                continue;
+            };
+            for info in parse_worktree_list(&stdout) {
+                if !is_linked_worktree(&info.path) {
+                    continue;
+                }
+                let canon = std::fs::canonicalize(&info.path).unwrap_or(info.path);
+                if seen_path.insert(canon.clone()) {
+                    linked.push(canon);
+                }
+            }
+        }
+        linked.sort();
+        linked
+    }
+}
+
+fn extra_worktree_search_roots(home: &Path) -> Vec<PathBuf> {
+    let mut roots = vec![
+        home.join(".cursor").join("worktrees"),
+        home.join(".codex").join("worktrees"),
+    ];
+    if let Ok(codex_home) = std::env::var("CODEX_HOME") {
+        let p = PathBuf::from(codex_home.trim());
+        if !p.as_os_str().is_empty() {
+            roots.push(p.join("worktrees"));
+        }
+    }
+    roots
+}
+
+fn should_skip_discover_dir(name: &str) -> bool {
+    DISCOVER_SKIP_DIR_NAMES
+        .iter()
+        .any(|skip| name.eq_ignore_ascii_case(skip))
+}
+
+fn collect_git_seeds(root: &Path, cancel: Option<&AtomicBool>, out: &mut Vec<PathBuf>) {
+    if !root.is_dir() {
+        return;
+    }
+    let walker = WalkDir::new(root)
+        .follow_links(false)
+        .skip_hidden(false)
+        .max_depth(16)
+        .process_read_dir(|_depth, path, _state, children| {
+            let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
+            if name == ".git" || should_skip_discover_dir(name) {
+                children.retain(|_| false);
+            }
+        });
+    for entry in walker {
+        if cancel.is_some_and(|c| c.load(Ordering::Relaxed)) {
+            break;
+        }
+        let Ok(entry) = entry else {
+            continue;
+        };
+        if entry.file_name() != ".git" {
+            continue;
+        }
+        out.push(entry.parent_path().to_path_buf());
+    }
+}
+
+fn git_common_dir(seed: &Path) -> Option<PathBuf> {
+    let raw = try_run_git(seed, &["rev-parse", "--git-common-dir"]).ok()??;
+    let raw = raw.trim();
+    if raw.is_empty() {
+        return None;
+    }
+    let p = PathBuf::from(raw);
+    let abs = if p.is_absolute() {
+        p
+    } else {
+        seed.join(p)
+    };
+    Some(std::fs::canonicalize(&abs).unwrap_or(abs))
+}
+
+fn is_linked_worktree(path: &Path) -> bool {
+    path.join(".git").is_file()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+    use std::process::Command;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    fn unique_temp_dir(name: &str) -> PathBuf {
+        let suffix = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("clock")
+            .as_nanos();
+        let dir = std::env::temp_dir().join(format!("atmos-git-discover-{name}-{suffix}"));
+        fs::create_dir_all(&dir).expect("temp dir");
+        dir
+    }
+
+    fn git(dir: &Path, args: &[&str]) {
+        let output = Command::new("git")
+            .current_dir(dir)
+            .args(args)
+            .output()
+            .expect("git");
+        assert!(
+            output.status.success(),
+            "git {args:?} failed: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
+
+    #[test]
+    fn discover_linked_worktrees_finds_extra_checkout_not_main() {
+        let root = unique_temp_dir("linked");
+        let repo = root.join("repo");
+        let linked = root.join("linked-wt");
+        fs::create_dir_all(&repo).unwrap();
+        git(&repo, &["init"]);
+        git(&repo, &["config", "user.email", "test@example.com"]);
+        git(&repo, &["config", "user.name", "Test"]);
+        fs::write(repo.join("README.md"), "hi").unwrap();
+        git(&repo, &["add", "README.md"]);
+        git(&repo, &["commit", "-m", "init"]);
+        git(
+            &repo,
+            &[
+                "worktree",
+                "add",
+                "-b",
+                "feature",
+                linked.to_str().expect("utf8"),
+            ],
+        );
+
+        // Fake nested .git under node_modules must not become a seed we walk into.
+        let fake = repo.join("node_modules").join("pkg").join(".git");
+        fs::create_dir_all(&fake).unwrap();
+
+        let linked_canon = std::fs::canonicalize(&linked).unwrap_or_else(|_| linked.clone());
+        let repo_canon = std::fs::canonicalize(&repo).unwrap_or_else(|_| repo.clone());
+        let found = GitEngine::new().discover_linked_worktrees(&root, None);
+        let _ = fs::remove_dir_all(&root);
+        assert!(
+            found.iter().any(|p| p == &linked_canon),
+            "expected linked worktree in {found:?}"
+        );
+        assert!(
+            found.iter().all(|p| p != &repo_canon),
+            "main checkout must not be listed as linked: {found:?}"
+        );
     }
 }
