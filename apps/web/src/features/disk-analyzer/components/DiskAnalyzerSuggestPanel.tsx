@@ -133,10 +133,3 @@ function idleDaysLabel(
   return t("suggestIdleDays", { days });
 }
 
-export function isWorktreeSuggestion(item: CleanupSuggestion): boolean {
-  return item.kind === "worktree" || item.kind === "workspace";
-}
-
-export function suggestionTotalSize(items: CleanupSuggestion[]): number {
-  return items.reduce((sum, item) => sum + (item.size ?? 0), 0);
-}

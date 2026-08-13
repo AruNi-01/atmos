@@ -46,11 +46,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { DiskUsageChart } from "@/features/disk-analyzer/components/DiskUsageChart";
-import {
-  DiskAnalyzerSuggestPanel,
-  isWorktreeSuggestion,
-  suggestionTotalSize,
-} from "@/features/disk-analyzer/components/DiskAnalyzerSuggestPanel";
+import { DiskAnalyzerSuggestPanel } from "@/features/disk-analyzer/components/DiskAnalyzerSuggestPanel";
 import { useDiskAnalyzer } from "@/features/disk-analyzer/hooks/use-disk-analyzer";
 import {
   GIT_WORKTREES_GROUP_PATH,
@@ -61,7 +57,9 @@ import {
   getCleanupHintKey,
   isAtmosOverviewPath,
   isAtmosRuntimeDir,
+  isWorktreeSuggestion,
   localizedSyntheticName,
+  suggestionTotalSize,
   TOP_N_OPTIONS,
 } from "@/features/disk-analyzer/lib/tree-adapters";
 

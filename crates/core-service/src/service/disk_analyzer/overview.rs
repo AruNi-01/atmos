@@ -7,7 +7,7 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use core_engine::{
-    agent_data_roots, clear_suggestions, finalize_tree, CleanupSuggestion, DiskAnalyzerEngine,
+    agent_data_roots, clear_suggestions, finalize_tree, DiskAnalyzerEngine,
     DiskNode, DiskPathKind, DiskScanRoots, GitEngine, ProgressCallback, ScanProgress, ScanStats,
     ScanStatus,
 };

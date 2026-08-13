@@ -8,6 +8,8 @@ import {
   canDeleteDiskPath,
   cleanupHintMessageKey,
   collectCleanupSuggestions,
+  isWorktreeSuggestion,
+  suggestionTotalSize,
   filterTree,
   formatBytes,
   getCleanupHintKey,
@@ -28,10 +30,6 @@ import {
   type DiskFilters,
 } from "./tree-adapters";
 import type { DiskNode } from "@/api/ws/disk-analyzer-api";
-import {
-  isWorktreeSuggestion,
-  suggestionTotalSize,
-} from "@/features/disk-analyzer/components/DiskAnalyzerSuggestPanel";
 
 const sample: DiskNode = {
   name: "home",
