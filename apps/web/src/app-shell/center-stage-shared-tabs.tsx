@@ -23,6 +23,7 @@ import {
   GitCommitHorizontal,
   Globe,
   SquareTerminal as TerminalIcon,
+  Tablet,
   Workflow,
 } from "lucide-react";
 
@@ -58,7 +59,8 @@ export type CenterStageSurfaceTabVariant =
   | "github-issue"
   | "github-action"
   | "github-commit"
-  | "browser";
+  | "browser"
+  | "simulator";
 
 export function CenterStageTabList({
   children,
@@ -265,6 +267,8 @@ export function CenterStageSurfaceContentTab({
             <GitCommitHorizontal className="size-3.5 shrink-0" />
           ) : variant === "browser" ? (
             <BrowserTabFavicon faviconUrl={faviconUrl} />
+          ) : variant === "simulator" ? (
+            <Tablet className="size-3.5 shrink-0" />
           ) : (
             <CenterStageFileIcon name={name} className="size-3.5 shrink-0" />
           )}
@@ -440,6 +444,15 @@ export function CenterStageTabGroupItemContent({
     return (
       <>
         <BrowserTabFavicon faviconUrl={tab.faviconUrl} />
+        {label(tab.label)}
+      </>
+    );
+  }
+
+  if (tab.kind === "simulator") {
+    return (
+      <>
+        <Tablet className="size-3.5 shrink-0" />
         {label(tab.label)}
       </>
     );

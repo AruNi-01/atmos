@@ -29,6 +29,7 @@ export interface RightSidebarLayoutPrefs {
   rsShowChanges: boolean;
   rsShowReview: boolean;
   rsShowBrowser: boolean;
+  rsShowSimulator: boolean;
   rsShowRun: boolean;
   /** Single GitHub tab (PRs, Issues, Actions). */
   rsShowGithub: boolean;
@@ -44,6 +45,7 @@ interface LayoutSettingsState extends FooterLayoutPrefs, HeaderLayoutPrefs, Righ
   workspaceSidebarPriorityTwoColumn: boolean;
   workspaceSidebarLabelTwoColumn: boolean;
   workspaceSidebarGroupTwoColumn: boolean;
+  simulatorWebrtcOptIn: boolean;
   loaded: boolean;
   loadSettings: (force?: boolean) => Promise<void>;
   setProjectFilesSide: (value: ProjectFilesSide) => Promise<void>;
@@ -71,6 +73,8 @@ interface LayoutSettingsState extends FooterLayoutPrefs, HeaderLayoutPrefs, Righ
   setRightSidebarShowChanges: (value: boolean) => Promise<void>;
   setRightSidebarShowReview: (value: boolean) => Promise<void>;
   setRightSidebarShowBrowser: (value: boolean) => Promise<void>;
+  setRightSidebarShowSimulator: (value: boolean) => Promise<void>;
+  setSimulatorWebrtcOptIn: (value: boolean) => Promise<void>;
   setRightSidebarShowRun: (value: boolean) => Promise<void>;
   setRightSidebarShowGithub: (value: boolean) => Promise<void>;
 }
@@ -130,6 +134,7 @@ function readRightSidebarLayout(layout: Record<string, unknown> | undefined): Ri
     rsShowChanges: layout?.right_sidebar_show_changes !== false,
     rsShowReview: layout?.right_sidebar_show_review !== false,
     rsShowBrowser: layout?.right_sidebar_show_browser !== false,
+    rsShowSimulator: layout?.right_sidebar_show_simulator !== false,
     rsShowRun: layout?.right_sidebar_show_run !== false,
     rsShowGithub,
   };
@@ -175,6 +180,8 @@ export const useLayoutSettingsStore = create<LayoutSettingsState>((set, get) => 
     rsShowChanges: true,
     rsShowReview: true,
     rsShowBrowser: true,
+    rsShowSimulator: true,
+    simulatorWebrtcOptIn: false,
     rsShowRun: true,
     rsShowGithub: true,
     loaded: false,
@@ -204,6 +211,7 @@ export const useLayoutSettingsStore = create<LayoutSettingsState>((set, get) => 
           ...footer,
           ...header,
           ...rightSidebar,
+          simulatorWebrtcOptIn: layout?.simulator_webrtc_opt_in === true,
           loaded: true,
         });
       } catch {
@@ -313,6 +321,12 @@ export const useLayoutSettingsStore = create<LayoutSettingsState>((set, get) => 
 
     setRightSidebarShowBrowser: (value) =>
       updateLayoutSetting({ rsShowBrowser: value }, 'right_sidebar_show_browser', value),
+
+    setRightSidebarShowSimulator: (value) =>
+      updateLayoutSetting({ rsShowSimulator: value }, 'right_sidebar_show_simulator', value),
+
+    setSimulatorWebrtcOptIn: (value) =>
+      updateLayoutSetting({ simulatorWebrtcOptIn: value }, 'simulator_webrtc_opt_in', value),
 
     setRightSidebarShowRun: (value) =>
       updateLayoutSetting({ rsShowRun: value }, 'right_sidebar_show_run', value),

@@ -33,6 +33,7 @@ import {
   Plus,
   RotateCw,
   SquareTerminal as TerminalIcon,
+  Tablet,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import type { OpenFile } from "@/features/editor/store/use-editor-store";
@@ -90,6 +91,8 @@ interface CenterStageTabBarProps {
   projectWikiTabVisible: boolean;
   scrollableTabsRef: React.RefObject<HTMLDivElement | null>;
   sessionDisplay: SessionDisplay;
+  simulatorOpenedAt: number;
+  simulatorTabOpen: boolean;
   tabGroupDndSensors: React.ComponentProps<typeof CenterStageTabGroupPopover>["sensors"];
   tabGroupPopoverOpen: boolean;
   /** Saved strip order (tab ids). Missing/new tabs append after. */
@@ -105,6 +108,8 @@ interface CenterStageTabBarProps {
   handleCloseGithubTab: (value: string) => void;
   handleCloseTerminalCenterTab: (tabId: string) => void;
   handleCreateBrowserCenterTab: () => void;
+  handleCreateSimulatorCenterTab: () => void;
+  handleCloseSimulatorCenterTab: () => void;
   handleCreateTerminalCenterTab: () => void;
   handleRenameTerminalCenterTab: (tabId: string, title: string) => void;
   handleSelectTabGroupItem: (tab: TabGroupItem) => void;
@@ -134,6 +139,8 @@ export function CenterStageTabBar({
   projectWikiTabVisible,
   scrollableTabsRef,
   sessionDisplay,
+  simulatorOpenedAt,
+  simulatorTabOpen,
   tabGroupDndSensors,
   tabGroupPopoverOpen,
   tabStripOrder,
@@ -146,8 +153,10 @@ export function CenterStageTabBar({
   handleCloseBrowserTab,
   handleCloseFile,
   handleCloseGithubTab,
+  handleCloseSimulatorCenterTab,
   handleCloseTerminalCenterTab,
   handleCreateBrowserCenterTab,
+  handleCreateSimulatorCenterTab,
   handleCreateTerminalCenterTab,
   handleRenameTerminalCenterTab,
   handleSelectTabGroupItem,
@@ -165,6 +174,7 @@ export function CenterStageTabBar({
   const t = useTranslations("appShell");
   const newTerminalTabLabel = t("centerStageTabBar.newTerminalTab");
   const newBrowserLabel = t("centerStageTabBar.newBrowser");
+  const newSimulatorLabel = t("centerStageTabBar.newSimulator");
   const newTabMenuLabel = t("centerStageTabBar.newTabMenu");
 
   const renderTabGroupItemContent = React.useCallback((tab: TabGroupItem) => {
@@ -177,6 +187,7 @@ export function CenterStageTabBar({
       | { type: "file"; openedAt: number; file: OpenFile }
       | { type: "github"; openedAt: number; tab: GithubCenterTab }
       | { type: "browser"; openedAt: number; tab: BrowserCenterTab }
+      | { type: "simulator"; openedAt: number }
     >
   >(() => {
     const items = [
@@ -189,9 +200,12 @@ export function CenterStageTabBar({
       ...browserTabs.map(
         (tab) => ({ type: "browser" as const, openedAt: tab.openedAt, tab }),
       ),
+      ...(simulatorTabOpen
+        ? [{ type: "simulator" as const, openedAt: simulatorOpenedAt }]
+        : []),
     ];
     return items.sort((left, right) => left.openedAt - right.openedAt);
-  }, [browserTabs, githubTabs, openFiles]);
+  }, [browserTabs, githubTabs, openFiles, simulatorOpenedAt, simulatorTabOpen]);
 
   // Base visual order: terminals → special terminals → surface tabs by open time.
   // User drag order is applied on top via tabStripOrder.
@@ -251,6 +265,16 @@ export function CenterStageTabBar({
           value: item.tab.value,
           kind: "browser",
           label,
+        });
+        continue;
+      }
+
+      if (item.type === "simulator") {
+        descriptors.push({
+          id: "simulator",
+          value: "simulator",
+          kind: "simulator",
+          label: t("centerStageTabBar.simulator"),
         });
         continue;
       }
@@ -432,6 +456,23 @@ export function CenterStageTabBar({
       );
     }
 
+    if (tab.kind === "simulator") {
+      const label = t("centerStageTabBar.simulator");
+      return (
+        <CenterStageSurfaceContentTab
+          key={tab.id}
+          closeLabel={t("centerStageTabBar.closeSimulatorTab")}
+          name={label}
+          onClose={handleCloseSimulatorCenterTab}
+          onContextMenu={(event) => openContextMenu(event, tab)}
+          path={label}
+          tooltip={label}
+          value="simulator"
+          variant="simulator"
+        />
+      );
+    }
+
     const githubTab = githubTabs.find((item) => item.value === tab.value);
     if (!githubTab) return null;
     return (
@@ -540,9 +581,11 @@ export function CenterStageTabBar({
       <CenterStageStickyTabActions>
         <CenterStageNewTabMenu
           browserLabel={newBrowserLabel}
+          simulatorLabel={newSimulatorLabel}
           menuLabel={newTabMenuLabel}
           terminalLabel={newTerminalTabLabel}
           onCreateBrowser={handleCreateBrowserCenterTab}
+          onCreateSimulator={handleCreateSimulatorCenterTab}
           onCreateTerminal={handleCreateTerminalCenterTab}
         />
         <CenterStageTabGroupPopover
@@ -576,7 +619,8 @@ function isTabGroupItemClosable(tab: TabGroupItem) {
     tab.kind === "github-pr" ||
     tab.kind === "github-issue" ||
     tab.kind === "github-action" ||
-    tab.kind === "browser"
+    tab.kind === "browser" ||
+    tab.kind === "simulator"
   );
 }
 
@@ -780,15 +824,19 @@ function TerminalExtraTab({
 
 function CenterStageNewTabMenu({
   browserLabel,
+  simulatorLabel,
   menuLabel,
   terminalLabel,
   onCreateBrowser,
+  onCreateSimulator,
   onCreateTerminal,
 }: {
   browserLabel: string;
+  simulatorLabel: string;
   menuLabel: string;
   terminalLabel: string;
   onCreateBrowser: () => void;
+  onCreateSimulator: () => void;
   onCreateTerminal: () => void;
 }) {
   const [open, setOpen] = React.useState(false);
@@ -866,6 +914,17 @@ function CenterStageNewTabMenu({
         >
           <Globe className="size-3.5 shrink-0 text-muted-foreground" />
           <span className="min-w-0 flex-1 truncate">{browserLabel}</span>
+        </button>
+        <button
+          type="button"
+          className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-foreground transition-colors hover:bg-muted/60"
+          onClick={() => {
+            onCreateSimulator();
+            setOpen(false);
+          }}
+        >
+          <Tablet className="size-3.5 shrink-0 text-muted-foreground" />
+          <span className="min-w-0 flex-1 truncate">{simulatorLabel}</span>
         </button>
       </PopoverContent>
     </Popover>

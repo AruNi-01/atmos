@@ -96,6 +96,7 @@ export function buildOpenCenterTabValues(input: {
   projectWikiVisible: boolean;
   codeReviewVisible: boolean;
   wikiEnabled: boolean;
+  simulatorTabOpen?: boolean;
   /** Always-available fixed surfaces (defaults to overview). */
   fixedAlwaysOpen?: readonly string[];
   exclude?: Iterable<string>;
@@ -104,6 +105,7 @@ export function buildOpenCenterTabValues(input: {
   if (input.wikiEnabled) open.add("wiki");
   if (input.projectWikiVisible) open.add("project-wiki");
   if (input.codeReviewVisible) open.add("code-review");
+  if (input.simulatorTabOpen) open.add("simulator");
   for (const id of input.terminalTabIds) open.add(id);
   for (const value of input.githubTabValues) open.add(value);
   for (const value of input.browserTabValues) open.add(value);

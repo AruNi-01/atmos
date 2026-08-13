@@ -35,6 +35,10 @@ import { useEditorStore } from "@/features/editor/store/use-editor-store";
 import { useGithubCenterTabsStore } from "@/features/github/store/use-github-center-tabs";
 import { useBrowserCenterTabsStore } from "@/features/browser/store/use-browser-center-tabs";
 import {
+  SIMULATOR_TAB_VALUE,
+  useSimulatorCenterTabStore,
+} from "@/features/simulator/store/use-simulator-center-tab";
+import {
   EMPTY_MOUNTED_TAB_IDS,
   WorkspaceCenterFrame,
   type TerminalQuickOpenAgent,
@@ -159,6 +163,7 @@ export function CenterStagePanels({
   const getOpenFiles = useEditorStore((s) => s.getOpenFiles);
   const githubTabsByContext = useGithubCenterTabsStore((s) => s.tabsByContext);
   const browserTabsByContext = useBrowserCenterTabsStore((s) => s.tabsByContext);
+  const simulatorOpenByContext = useSimulatorCenterTabStore((s) => s.openByContext);
 
   // Sticky leave tracks paint (live) id so the shell we just left stays mounted
   // while deferred URL-sync catches up.
@@ -238,6 +243,9 @@ export function CenterStagePanels({
           "code-review",
           FIXED_TERMINAL_TAB_VALUE,
         ];
+        if (simulatorOpenByContext[contextId] === true) {
+          validForContext.push(SIMULATOR_TAB_VALUE);
+        }
         const frameActiveTab = resolveFrameActiveTab({
           isActiveFrame: isActive,
           urlOrEditorTab: isActive ? activeValue : null,
@@ -255,6 +263,13 @@ export function CenterStagePanels({
           if (frameActiveTab === tab.value || (isActive && activeValue === tab.value)) {
             lightIds.push(tab.value);
           }
+        }
+        if (
+          simulatorOpenByContext[contextId] === true &&
+          (frameActiveTab === SIMULATOR_TAB_VALUE ||
+            (isActive && activeValue === SIMULATOR_TAB_VALUE))
+        ) {
+          lightIds.push(SIMULATOR_TAB_VALUE);
         }
         const named: Array<"project-wiki" | "code-review"> = [];
         if (
@@ -306,6 +321,7 @@ export function CenterStagePanels({
     getOpenFiles,
     githubTabsByContext,
     mountedTerminalTabsByContext,
+    simulatorOpenByContext,
     // Structure only — titles/agent fields must not appear here.
     terminalPaneStructureKey,
     projectWikiTabVisible,

@@ -86,6 +86,7 @@ describe("center-stage-tab-activation-stack", () => {
       projectWikiVisible: true,
       codeReviewVisible: false,
       wikiEnabled: true,
+      simulatorTabOpen: true,
       exclude: ["/b.ts", "term-2"],
     });
     expect(open.has("overview")).toBe(true);
@@ -98,5 +99,6 @@ describe("center-stage-tab-activation-stack", () => {
     expect(open.has("term-2")).toBe(false);
     expect(open.has("github-pr:1")).toBe(true);
     expect(open.has("browser:x")).toBe(true);
+    expect(open.has("simulator")).toBe(true);
   });
 });

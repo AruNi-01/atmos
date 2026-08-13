@@ -32,6 +32,10 @@ import { isDiffGroupEditorPath } from "@/features/diff/lib/diff-editor-paths";
 import { useGithubCenterTabsStore } from "@/features/github/store/use-github-center-tabs";
 import { useBrowserCenterTabsStore } from "@/features/browser/store/use-browser-center-tabs";
 import {
+  SIMULATOR_TAB_VALUE,
+  useSimulatorCenterTabStore,
+} from "@/features/simulator/store/use-simulator-center-tab";
+import {
   browserMountKey,
   editorMountKey,
   isFramePanelVisible,
@@ -134,6 +138,13 @@ const BrowserPanel = dynamic(
     ),
   { ssr: false },
 );
+const SimulatorPanel = dynamic(
+  () =>
+    import("@/features/simulator/components/SimulatorPanel").then(
+      (mod) => mod.SimulatorPanel,
+    ),
+  { ssr: false },
+);
 
 export const EMPTY_MOUNTED_TAB_IDS: string[] = [];
 
@@ -179,6 +190,9 @@ function WorkspaceCenterFrameImpl({
   );
   const storeBrowserTabs = useBrowserCenterTabsStore(
     (s) => s.tabsByContext[contextId],
+  );
+  const simulatorTabOpen = useSimulatorCenterTabStore(
+    (s) => s.openByContext[contextId] === true,
   );
 
   const baseTabs = isUrlSyncedActive
@@ -226,6 +240,7 @@ function WorkspaceCenterFrameImpl({
     "code-review",
     FIXED_TERMINAL_TAB_VALUE,
   ];
+  if (simulatorTabOpen) validTabs.push(SIMULATOR_TAB_VALUE);
   const frameActiveTab = resolveFrameActiveTab({
     isActiveFrame: isActiveContext,
     urlOrEditorTab: isUrlSyncedActive ? activeValue : null,
@@ -634,6 +649,37 @@ function WorkspaceCenterFrameImpl({
           </div>
         );
       })}
+
+      {(frameActiveTab === SIMULATOR_TAB_VALUE ||
+        (isUrlSyncedActive &&
+          simulatorTabOpen &&
+          (!planReady ||
+            isKeyMounted(mountPlan, lightMountKey(contextId, SIMULATOR_TAB_VALUE))))) && (
+        <div
+          className={lightSurfacePanelClass(
+            isFramePanelVisible({
+              isActiveFrame: isActiveContext,
+              frameActiveTab,
+              panelTabId: SIMULATOR_TAB_VALUE,
+            }),
+          )}
+        >
+          <SimulatorPanel
+            workspaceId={contextId}
+            worktreePath={isUrlSyncedActive ? currentWorkspace?.localPath : undefined}
+            isActive={
+              isActiveContext &&
+              isFramePanelVisible({
+                isActiveFrame: isActiveContext,
+                frameActiveTab,
+                panelTabId: SIMULATOR_TAB_VALUE,
+              })
+            }
+            surface="center"
+            className="h-full overflow-auto p-3"
+          />
+        </div>
+      )}
     </div>
   );
 }

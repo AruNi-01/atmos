@@ -365,7 +365,10 @@
       "codeReviewTerminal": "Code Review Terminal",
       "closeCodeReviewTab": "Close Code Review tab",
       "renameTab": "Rename Tab",
-      "renameTabPlaceholder": "Enter a tab name…"
+      "renameTabPlaceholder": "Enter a tab name…",
+      "newSimulator": "Simulator",
+      "simulator": "Simulator",
+      "closeSimulatorTab": "Close Simulator tab"
     },
     "footer": {
       "openOnCanvasLabel": "Open on canvas",
@@ -1092,7 +1095,8 @@
         "conflict": "Conflict Resolve",
         "github": "GitHub",
         "browser": "Browser",
-        "other": "Tabs"
+        "other": "Tabs",
+        "simulator": "Simulator"
       },
       "browser": {
         "newTab": "New Tab",
@@ -1542,7 +1546,8 @@
           "github": "GitHub",
           "pullRequests": "Pull Requests",
           "issues": "Issues",
-          "actions": "Actions"
+          "actions": "Actions",
+          "simulator": "Simulator"
         },
         "noContext": "No repository context",
         "changes": {
@@ -5793,7 +5798,11 @@
       "runTitle": "Run",
       "runDescription": "Start and monitor project run scripts.",
       "githubTitle": "GitHub",
-      "githubDescription": "Browse pull requests, issues, and Actions workflow runs. Hiding this removes the GitHub tab and stops related lookups."
+      "githubDescription": "Browse pull requests, issues, and Actions workflow runs. Hiding this removes the GitHub tab and stops related lookups.",
+      "simulatorTitle": "Simulator",
+      "simulatorDescription": "Show a live iOS Simulator in the right sidebar.",
+      "webrtcTitle": "Simulator WebRTC",
+      "webrtcDescription": "Prefer WebRTC for Simulator capture when available. Off by default."
     },
     "agentHookStatusCard": {
       "title": "Agent Hook Status",
@@ -9761,6 +9770,61 @@
       "unableToLink": "Could not link this account. Try again or use another provider.",
       "stateMismatch": "Sign-in expired or was started twice. Close this tab and try again from Atmos.",
       "sessionRequired": "Sign in first, then link another account."
+    }
+  },
+  "simulator": {
+    "cards": {
+      "title": "Set up Simulator",
+      "missingHandset": "No bootable iPhone simulator is installed.",
+      "requiresDesktop": "Requires Atmos Desktop",
+      "reconnecting": "Lost the capture connection after several retries.",
+      "failed": "Could not start Simulator. {message}",
+      "platform_not_macos": "Simulator capture runs on macOS only.",
+      "helper_arch_unsupported": "This Mac architecture is not supported for Simulator capture.",
+      "macos_too_old": "Simulator capture needs macOS 14 or later.",
+      "missing_simctl": "Xcode command-line tools are missing, so simctl is unavailable.",
+      "missing_ios_runtime": "No available iOS runtime is installed.",
+      "helper_missing": "The capture helper is missing from this Atmos install.",
+      "capture_xcode_mismatch": "The capture helper does not match this Xcode version.",
+      "capture_failed": "Simulator capture failed to start.",
+      "helper_bind_not_loopback": "The capture helper did not bind to loopback and was stopped.",
+      "simulator_in_use": "This simulator is already in use by another workspace."
+    },
+    "facts": {
+      "macos": "macOS",
+      "arch": "Architecture",
+      "xcodePath": "Xcode",
+      "xcodeVersion": "Xcode version",
+      "helper": "Capture helper",
+      "runtimes": "Runtimes",
+      "simulators": "Simulators"
+    },
+    "actions": {
+      "createDefault": "Create a default iPhone",
+      "install_clt": "Install command-line tools",
+      "open_xcode_platforms": "Open Xcode platforms",
+      "open_xcode_download": "Open Xcode download",
+      "take_over": "Take over",
+      "check_update": "Check for Atmos update",
+      "reinstall": "Reinstall Atmos",
+      "recheck": "Re-check"
+    },
+    "phases": {
+      "idle": "Idle",
+      "probing": "Checking setup",
+      "setup_required": "Setup required",
+      "starting": "Starting",
+      "streaming": "Streaming",
+      "reconnecting": "Reconnecting",
+      "failed": "Failed"
+    },
+    "toolbar": {
+      "unnamed": "Simulator",
+      "disconnect": "Disconnect",
+      "home": "Home",
+      "lock": "Lock",
+      "rotate": "Rotate",
+      "openInSimulator": "Open in simulator"
     }
   }
 }

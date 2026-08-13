@@ -14,6 +14,8 @@ import {
   Globe,
   PanelRight,
   Play,
+  Radio,
+  Tablet,
 } from 'lucide-react';
 import { useLayoutSettingsStore } from '@/features/settings/store/layout-settings-store';
 import { SettingsToggleRow } from '@/features/settings/components/settings/SettingsToggleRow';
@@ -33,11 +35,15 @@ export function RightSidebarLayoutSettingsSection({
     rsShowChanges,
     rsShowReview,
     rsShowBrowser,
+    rsShowSimulator,
+    simulatorWebrtcOptIn,
     rsShowRun,
     rsShowGithub,
     setRightSidebarShowChanges,
     setRightSidebarShowReview,
     setRightSidebarShowBrowser,
+    setRightSidebarShowSimulator,
+    setSimulatorWebrtcOptIn,
     setRightSidebarShowRun,
     setRightSidebarShowGithub,
   } = useLayoutSettingsStore();
@@ -46,6 +52,7 @@ export function RightSidebarLayoutSettingsSection({
     Number(rsShowChanges) +
     Number(rsShowReview) +
     Number(rsShowBrowser) +
+    Number(rsShowSimulator) +
     Number(rsShowRun) +
     Number(rsShowGithub);
 
@@ -97,6 +104,20 @@ export function RightSidebarLayoutSettingsSection({
             description={t('browserDescription')}
             checked={rsShowBrowser}
             onCheckedChange={(value) => void setRightSidebarShowBrowser(value)}
+          />
+          <SettingsToggleRow
+            icon={<Tablet className="size-4" />}
+            title={t('simulatorTitle')}
+            description={t('simulatorDescription')}
+            checked={rsShowSimulator}
+            onCheckedChange={(value) => void setRightSidebarShowSimulator(value)}
+          />
+          <SettingsToggleRow
+            icon={<Radio className="size-4" />}
+            title={t('webrtcTitle')}
+            description={t('webrtcDescription')}
+            checked={simulatorWebrtcOptIn}
+            onCheckedChange={(value) => void setSimulatorWebrtcOptIn(value)}
           />
           <SettingsToggleRow
             icon={<Play className="size-4" />}

@@ -142,6 +142,11 @@ import {
   type BrowserCenterTab,
   useBrowserCenterTabsStore,
 } from "@/features/browser/store/use-browser-center-tabs";
+import {
+  isSimulatorCenterTabValue,
+  SIMULATOR_TAB_VALUE,
+  useSimulatorCenterTabStore,
+} from "@/features/simulator/store/use-simulator-center-tab";
 import { useBrowserTabCommandsStore } from "@/features/browser/store/use-browser-tab-commands";
 import {
   DEFAULT_PREVIEW_BROWSER_PREFS,
@@ -240,6 +245,12 @@ const CenterStage: React.FC = () => {
   );
   const openBrowserCenterTab = useBrowserCenterTabsStore((state) => state.openBrowser);
   const closeBrowserCenterTab = useBrowserCenterTabsStore((state) => state.closeBrowser);
+  const simulatorTabOpen = useSimulatorCenterTabStore((state) =>
+    effectiveContextId ? state.openByContext[effectiveContextId] === true : false,
+  );
+  const simulatorOpenedAt = useSimulatorCenterTabStore((state) =>
+    effectiveContextId ? (state.openedAtByContext[effectiveContextId] ?? 0) : 0,
+  );
   const selectBrowserInternalTab = useBrowserTabCommandsStore((state) => state.selectTab);
   const closeBrowserInternalTab = useBrowserTabCommandsStore((state) => state.closeTab);
   const activeInstanceId = useConnectionStore((state) => state.activeInstanceId);
@@ -335,6 +346,16 @@ const CenterStage: React.FC = () => {
   // --- URL-synced tab state ---
   const [{ tab: tabFromUrl, wikiPage: wikiPageFromUrl, terminalTmux }, setUrlParams] = useQueryStates(centerStageParams);
 
+  React.useEffect(() => {
+    if (!effectiveContextId) return;
+    if (!isSimulatorCenterTabValue(tabFromUrl) || simulatorTabOpen) return;
+    const persistApi = useSimulatorCenterTabStore.persist;
+    if (typeof persistApi?.hasHydrated === "function" && !persistApi.hasHydrated()) {
+      return;
+    }
+    useSimulatorCenterTabStore.getState().open(effectiveContextId);
+  }, [effectiveContextId, simulatorTabOpen, tabFromUrl]);
+
   const redirectMissingNamedTerminalTab = React.useCallback(() => {
     setUrlParams({ tab: fallbackCenterTab });
   }, [fallbackCenterTab, setUrlParams]);
@@ -384,6 +405,9 @@ const CenterStage: React.FC = () => {
         ? tabFromUrl
         : fallbackCenterTab;
     }
+    if (isSimulatorCenterTabValue(tabFromUrl)) {
+      return simulatorTabOpen ? tabFromUrl : fallbackCenterTab;
+    }
     return tabFromUrl;
   }, [
     tabFromUrl,
@@ -395,6 +419,7 @@ const CenterStage: React.FC = () => {
     fallbackCenterTab,
     visibleTerminalTabs,
     browserTabs,
+    simulatorTabOpen,
   ]);
 
   React.useEffect(() => {
@@ -588,6 +613,7 @@ const CenterStage: React.FC = () => {
         projectWikiVisible: projectWikiTabVisible,
         codeReviewVisible: codeReviewTabVisible,
         wikiEnabled: centerWikiTabEnabled,
+        simulatorTabOpen,
         exclude,
       }),
     [
@@ -597,6 +623,7 @@ const CenterStage: React.FC = () => {
       githubTabs,
       openFiles,
       projectWikiTabVisible,
+      simulatorTabOpen,
       visibleTerminalTabs,
     ],
   );
@@ -736,6 +763,19 @@ const CenterStage: React.FC = () => {
     void setUrlParams({ tab: tab.value, wikiPage: null });
   }, [effectiveContextId, openBrowserCenterTab, setActiveFile, setUrlParams]);
 
+  const handleCreateSimulatorCenterTab = React.useCallback(() => {
+    if (!effectiveContextId) return;
+    useSimulatorCenterTabStore.getState().open(effectiveContextId);
+    setActiveFile(null, effectiveContextId);
+    void setUrlParams({ tab: SIMULATOR_TAB_VALUE, wikiPage: null });
+  }, [effectiveContextId, setActiveFile, setUrlParams]);
+
+  const handleCloseSimulatorCenterTab = React.useCallback(() => {
+    if (!effectiveContextId) return;
+    useSimulatorCenterTabStore.getState().close(effectiveContextId);
+    activateNextAfterClosing(SIMULATOR_TAB_VALUE);
+  }, [activateNextAfterClosing, effectiveContextId]);
+
   // Promote / sticky leave track the live URL so warm membership is not deferred.
   useTerminalTabMountLifecycle({
     activeValue,
@@ -823,7 +863,8 @@ const CenterStage: React.FC = () => {
             (isGithubCenterTabValue(restoreTarget) &&
               !githubTabs.some((tab) => tab.value === restoreTarget)) ||
             (isBrowserCenterTabValue(restoreTarget) &&
-              !browserTabs.some((tab) => tab.value === restoreTarget));
+              !browserTabs.some((tab) => tab.value === restoreTarget)) ||
+            (isSimulatorCenterTabValue(restoreTarget) && !simulatorTabOpen);
 
           if (!restoreFailed) {
             return;
@@ -870,6 +911,10 @@ const CenterStage: React.FC = () => {
           restoringCenterTabToRef.current = last;
           setUrlParams({ tab: last, wikiPage: null });
           return;
+        } else if (isSimulatorCenterTabValue(last) && simulatorTabOpen) {
+          restoringCenterTabToRef.current = last;
+          setUrlParams({ tab: last, wikiPage: null });
+          return;
         } else if (openFiles.some((f) => f.path === last)) {
           restoringCenterTabToRef.current = last;
           setActiveFile(last, effectiveContextId);
@@ -909,6 +954,7 @@ const CenterStage: React.FC = () => {
     setUrlParams,
     tabFromUrl,
     visibleTerminalTabs,
+    simulatorTabOpen,
   ]);
 
   const { defaultAgentId, terminalQuickOpenAgents } = useCenterStageTerminalAgents(isSetupBlocking);
@@ -1530,6 +1576,15 @@ const CenterStage: React.FC = () => {
           closeBrowserCenterTab(effectiveContextId, tab.value);
           closedImmediately.push(tab.value);
         }
+        continue;
+      }
+
+      if (tab.kind === "simulator") {
+        if (effectiveContextId) {
+          useSimulatorCenterTabStore.getState().close(effectiveContextId);
+          closedImmediately.push(tab.value);
+        }
+        continue;
       }
     }
 
@@ -1702,6 +1757,12 @@ const CenterStage: React.FC = () => {
     } else if (isBrowserCenterTabValue(val)) {
       setUrlParams({ tab: val, wikiPage: null });
       setActiveFile(null, effectiveContextId || undefined);
+    } else if (isSimulatorCenterTabValue(val)) {
+      if (effectiveContextId) {
+        useSimulatorCenterTabStore.getState().open(effectiveContextId);
+      }
+      setUrlParams({ tab: val, wikiPage: null });
+      setActiveFile(null, effectiveContextId || undefined);
     } else if (FIXED_TABS.has(val)) {
       setFixedTab(val as FixedTab);
       setActiveFile(null, effectiveContextId || undefined);
@@ -1739,6 +1800,7 @@ const CenterStage: React.FC = () => {
     openFiles,
     previewBrowserPrefs,
     projectWikiTabVisible,
+    simulatorTabOpen,
     terminalTabs: visibleTerminalTabs,
   });
 
@@ -1794,6 +1856,11 @@ const CenterStage: React.FC = () => {
       return;
     }
 
+    if (tab.kind === "simulator") {
+      handleCloseSimulatorCenterTab();
+      return;
+    }
+
     if (tab.file) {
       handleCloseFile(tab.file);
     }
@@ -1802,6 +1869,7 @@ const CenterStage: React.FC = () => {
     handleCloseBrowserTab,
     handleCloseFile,
     handleCloseGithubTab,
+    handleCloseSimulatorCenterTab,
     handleCloseTerminalCenterTab,
     previewBrowserPrefs,
   ]);
@@ -1942,6 +2010,10 @@ const CenterStage: React.FC = () => {
           handleCloseGithubTab={handleCloseGithubTab}
           handleCloseTerminalCenterTab={handleCloseTerminalCenterTab}
           handleCreateBrowserCenterTab={handleCreateBrowserCenterTab}
+          handleCreateSimulatorCenterTab={handleCreateSimulatorCenterTab}
+          handleCloseSimulatorCenterTab={handleCloseSimulatorCenterTab}
+          simulatorOpenedAt={simulatorOpenedAt}
+          simulatorTabOpen={simulatorTabOpen}
           handleCreateTerminalCenterTab={handleCreateTerminalCenterTab}
           handleRenameTerminalCenterTab={handleRenameTerminalCenterTab}
           handleSelectTabGroupItem={handleSelectTabGroupItem}

@@ -64,7 +64,8 @@ export type TabGroupItem = {
     | "github-issue"
     | "github-action"
     | "github-commit"
-    | "browser";
+    | "browser"
+    | "simulator";
   file?: OpenFile;
   /** Center browser instance id (for kind === "browser"). */
   browserId?: string;

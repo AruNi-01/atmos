@@ -184,6 +184,7 @@ export type RightSidebarTab =
   | "github"
   | "review"
   | "browser"
+  | "simulator"
   | "run";
 
 const RIGHT_SIDEBAR_TABS = [
@@ -192,6 +193,7 @@ const RIGHT_SIDEBAR_TABS = [
   "github",
   "review",
   "browser",
+  "simulator",
   "run",
 ] as const satisfies readonly RightSidebarTab[];
 

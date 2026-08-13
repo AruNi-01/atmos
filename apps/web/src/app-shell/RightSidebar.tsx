@@ -50,6 +50,7 @@ import {
   FolderTree,
   Workflow,
   Github,
+  Tablet,
 } from "lucide-react";
 import { cn } from "@/shared/lib/utils";
 import { useQueryStates } from "nuqs";
@@ -108,6 +109,13 @@ const BrowserPanel = dynamic(
     ),
   { ssr: false },
 );
+const SimulatorPanel = dynamic(
+  () =>
+    import("@/features/simulator/components/SimulatorPanel").then(
+      (m) => m.SimulatorPanel,
+    ),
+  { ssr: false },
+);
 const RunScript = dynamic(
   () =>
     import("@/features/browser/components/RunScript").then(
@@ -127,6 +135,7 @@ const BASE_TABS: Array<{
   { value: "changes", labelKey: "rightSidebar.topTabs.changes", Icon: GitBranch },
   { value: "review", labelKey: "rightSidebar.topTabs.review", Icon: FileDiff },
   { value: "browser", labelKey: "rightSidebar.topTabs.browser", Icon: Globe },
+  { value: "simulator", labelKey: "rightSidebar.topTabs.simulator", Icon: Tablet },
   { value: "run", labelKey: "rightSidebar.topTabs.run", Icon: Play },
   { value: "github", labelKey: "rightSidebar.topTabs.github", Icon: Github },
 ];
@@ -209,6 +218,7 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
   const rsShowChanges = useLayoutSettingsStore((s) => s.rsShowChanges);
   const rsShowReview = useLayoutSettingsStore((s) => s.rsShowReview);
   const rsShowBrowser = useLayoutSettingsStore((s) => s.rsShowBrowser);
+  const rsShowSimulator = useLayoutSettingsStore((s) => s.rsShowSimulator);
   const rsShowRun = useLayoutSettingsStore((s) => s.rsShowRun);
   const rsShowGithub = useLayoutSettingsStore((s) => s.rsShowGithub);
   const loadLayoutSettings = useLayoutSettingsStore((s) => s.loadSettings);
@@ -219,11 +229,12 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
       changes: rsShowChanges,
       review: rsShowReview,
       browser: rsShowBrowser,
+      simulator: rsShowSimulator,
       run: rsShowRun,
       github: rsShowGithub,
       files: true, // controlled separately by projectFilesSide
     }),
-    [rsShowChanges, rsShowReview, rsShowBrowser, rsShowRun, rsShowGithub],
+    [rsShowChanges, rsShowReview, rsShowBrowser, rsShowSimulator, rsShowRun, rsShowGithub],
   );
   const topTabs = useMemo(() => {
     // Insert FILES_TAB into the canonical order first, then filter by
@@ -1155,6 +1166,25 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
                 activeTab === "browser" && !isRightCollapsed && isContextSettled
               }
               allowMoveToCenter
+            />
+          </div>
+          )}
+
+          {/* Simulator tab content */}
+          {rsShowSimulator && (
+          <div
+            className={cn(
+              "flex-1 min-h-0 overflow-auto p-3",
+              activeTab !== "simulator" && "hidden",
+            )}
+          >
+            <SimulatorPanel
+              workspaceId={contextId ?? null}
+              worktreePath={currentEffectivePath}
+              isActive={
+                activeTab === "simulator" && !isRightCollapsed && isContextSettled
+              }
+              surface="sidebar"
             />
           </div>
           )}

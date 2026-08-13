@@ -131,6 +131,7 @@ export function useCenterStageTabGroups({
   openFiles,
   previewBrowserPrefs = DEFAULT_PREVIEW_BROWSER_PREFS,
   projectWikiTabVisible = false,
+  simulatorTabOpen = false,
   terminalTabs = [],
 }: {
   browserTabs: BrowserCenterTab[];
@@ -140,6 +141,7 @@ export function useCenterStageTabGroups({
   openFiles: OpenFile[];
   previewBrowserPrefs?: PreviewBrowserPrefs;
   projectWikiTabVisible?: boolean;
+  simulatorTabOpen?: boolean;
   terminalTabs?: TerminalGroupTab[];
 }) {
   const t = useTranslations("appShell.centerStageTabGroups");
@@ -318,6 +320,21 @@ export function useCenterStageTabGroups({
       groups.push({ key: "browser", label: t("groups.browser"), tabs: browserGroupTabs });
     }
 
+    if (simulatorTabOpen) {
+      groups.push({
+        key: "simulator",
+        label: t("groups.simulator"),
+        tabs: [
+          {
+            id: "simulator",
+            label: tabBarT("simulator"),
+            value: "simulator",
+            kind: "simulator",
+          },
+        ],
+      });
+    }
+
     return groups;
   }, [
     browserFallbackLabel,
@@ -327,6 +344,7 @@ export function useCenterStageTabGroups({
     openFiles,
     previewBrowserPrefs,
     projectWikiTabVisible,
+    simulatorTabOpen,
     t,
     tabBarT,
     terminalTabs,

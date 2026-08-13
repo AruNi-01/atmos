@@ -365,7 +365,10 @@
       "codeReviewTerminal": "代码评审终端",
       "closeCodeReviewTab": "关闭代码评审标签页",
       "renameTab": "重命名标签页",
-      "renameTabPlaceholder": "输入标签页名称…"
+      "renameTabPlaceholder": "输入标签页名称…",
+      "newSimulator": "模拟器",
+      "simulator": "模拟器",
+      "closeSimulatorTab": "关闭模拟器标签页"
     },
     "footer": {
       "openOnCanvasLabel": "在画布中打开",
@@ -1092,7 +1095,8 @@
         "conflict": "冲突解决",
         "github": "GitHub",
         "browser": "浏览器",
-        "other": "标签页"
+        "other": "标签页",
+        "simulator": "模拟器"
       },
       "browser": {
         "newTab": "新标签页",
@@ -1542,7 +1546,8 @@
           "github": "GitHub",
           "pullRequests": "拉取请求",
           "issues": "议题",
-          "actions": "操作"
+          "actions": "操作",
+          "simulator": "模拟器"
         },
         "noContext": "没有仓库上下文",
         "changes": {
@@ -5793,7 +5798,11 @@
       "runTitle": "运行",
       "runDescription": "启动并监控项目运行脚本。",
       "githubTitle": "GitHub",
-      "githubDescription": "浏览拉取请求、议题和 Actions 工作流运行记录。隐藏后将移除 GitHub 标签页并停止相关查询。"
+      "githubDescription": "浏览拉取请求、议题和 Actions 工作流运行记录。隐藏后将移除 GitHub 标签页并停止相关查询。",
+      "simulatorTitle": "模拟器",
+      "simulatorDescription": "在右侧栏显示正在运行的 iOS 模拟器。",
+      "webrtcTitle": "模拟器 WebRTC",
+      "webrtcDescription": "在可用时优先使用 WebRTC 采集模拟器画面。默认关闭。"
     },
     "agentHookStatusCard": {
       "title": "Agent Hook 状态",
@@ -9762,6 +9771,61 @@
       "unableToLink": "无法关联该账号。请重试或换用其他登录方式。",
       "stateMismatch": "登录已过期或重复发起。请关闭此标签页，从 Atmos 重新开始。",
       "sessionRequired": "请先登录，再关联其他账号。"
+    }
+  },
+  "simulator": {
+    "cards": {
+      "title": "设置模拟器",
+      "missingHandset": "尚未安装可启动的 iPhone 模拟器。",
+      "requiresDesktop": "需要 Atmos Desktop",
+      "reconnecting": "多次重试后仍无法恢复采集连接。",
+      "failed": "无法启动模拟器。{message}",
+      "platform_not_macos": "模拟器采集仅支持 macOS。",
+      "helper_arch_unsupported": "当前 Mac 架构不支持模拟器采集。",
+      "macos_too_old": "模拟器采集需要 macOS 14 或更高版本。",
+      "missing_simctl": "缺少 Xcode 命令行工具，因此无法使用 simctl。",
+      "missing_ios_runtime": "尚未安装可用的 iOS runtime。",
+      "helper_missing": "当前 Atmos 安装缺少采集辅助程序。",
+      "capture_xcode_mismatch": "采集辅助程序与当前 Xcode 版本不匹配。",
+      "capture_failed": "模拟器采集未能启动。",
+      "helper_bind_not_loopback": "采集辅助程序未绑定到本机回环地址，已被停止。",
+      "simulator_in_use": "该模拟器已被另一个工作区占用。"
+    },
+    "facts": {
+      "macos": "macOS",
+      "arch": "架构",
+      "xcodePath": "Xcode",
+      "xcodeVersion": "Xcode 版本",
+      "helper": "采集辅助程序",
+      "runtimes": "运行时",
+      "simulators": "模拟器"
+    },
+    "actions": {
+      "createDefault": "创建默认 iPhone",
+      "install_clt": "安装命令行工具",
+      "open_xcode_platforms": "打开 Xcode 平台",
+      "open_xcode_download": "打开 Xcode 下载",
+      "take_over": "接管",
+      "check_update": "检查 Atmos 更新",
+      "reinstall": "重新安装 Atmos",
+      "recheck": "重新检查"
+    },
+    "phases": {
+      "idle": "空闲",
+      "probing": "正在检查环境",
+      "setup_required": "需要完成设置",
+      "starting": "正在启动",
+      "streaming": "正在串流",
+      "reconnecting": "正在重连",
+      "failed": "失败"
+    },
+    "toolbar": {
+      "unnamed": "模拟器",
+      "disconnect": "断开",
+      "home": "主屏幕",
+      "lock": "锁定",
+      "rotate": "旋转",
+      "openInSimulator": "在模拟器中打开"
     }
   }
 }
