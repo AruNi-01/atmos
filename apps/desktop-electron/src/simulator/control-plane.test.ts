@@ -31,6 +31,17 @@ describe("simulator control plane", () => {
       });
       expect(allowed.ok).toBe(true);
       expect(await allowed.json()).toEqual({ ok: true });
+
+      const malformed = await fetch(`http://127.0.0.1:${port}/v1/invoke`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          authorization: `Bearer ${token}`,
+        },
+        body: "{",
+      });
+      expect(malformed.status).toBe(500);
+      expect(await malformed.json()).toEqual({ ok: false, error: "internal" });
     } finally {
       await plane.stop();
     }

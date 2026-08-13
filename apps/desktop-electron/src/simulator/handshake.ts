@@ -1,14 +1,16 @@
+import { join } from "node:path";
+
 import type { HelperStateRecord } from "./types.ts";
 
 export function helperStateRecordPath(
   simulatorId: string,
   tmpdir: string,
 ): string {
-  return `${tmpdir.replace(/\/+$/, "")}/serve-sim/server-${simulatorId}.json`;
+  return join(tmpdir, "serve-sim", `server-${simulatorId}.json`);
 }
 
 export function helperStateLogPath(simulatorId: string, tmpdir: string): string {
-  return `${tmpdir.replace(/\/+$/, "")}/serve-sim/server-${simulatorId}.log`;
+  return join(tmpdir, "serve-sim", `server-${simulatorId}.log`);
 }
 
 function asRecord(value: unknown): Record<string, unknown> | null {

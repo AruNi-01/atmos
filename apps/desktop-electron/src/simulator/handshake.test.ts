@@ -4,6 +4,8 @@ import { join } from "node:path";
 import {
   assertLoopbackUrl,
   deriveStreamSettingsUrl,
+  helperStateLogPath,
+  helperStateRecordPath,
   parseHelperStateRecord,
   sessionProxyUrls,
   spawnFailurePids,
@@ -73,5 +75,14 @@ describe("handshake", () => {
   it("only accepts a helper record for this spawn's port", () => {
     expect(isOwnHelperRecord({ port: 4001 }, 4001)).toBe(true);
     expect(isOwnHelperRecord({ port: 4000 }, 4001)).toBe(false);
+  });
+
+  it("joins helper state paths without a trailing-slash regex", () => {
+    expect(helperStateRecordPath("udid-1", "/tmp/")).toBe(
+      "/tmp/serve-sim/server-udid-1.json",
+    );
+    expect(helperStateLogPath("udid-1", "/var/tmp")).toBe(
+      "/var/tmp/serve-sim/server-udid-1.log",
+    );
   });
 });

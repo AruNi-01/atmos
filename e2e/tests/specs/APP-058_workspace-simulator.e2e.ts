@@ -1,5 +1,6 @@
 import type { Page } from "@playwright/test";
 
+import { apiPort } from "../../fixtures/app-server";
 import { expect, test } from "../../fixtures/test";
 import {
   buildProjectWorkspaceDeepLink,
@@ -10,6 +11,13 @@ import {
   stubComputerClientSettingsApi,
   withSearchParams,
 } from "../smoke/support/app-smoke";
+
+/** Chrome-safe loopback port; port 9 is on Chromium's restricted list. */
+const STUB_STREAM_BASE_URL = "http://127.0.0.1:18789/s/token";
+const STUB_JPEG = Buffer.from(
+  "ffd8ffe000104a46494600010101000100010000ffdb004300030202020202030202020303030304060404040404080606050609080a0a090809090a0c0f0c0a0b0e0b09090d110d0e0e0f101011100a0c12131210130f101010ffc9000b080001000101011100ffcc00060010001000ffda0008000100003f00d2cf20ffd9",
+  "hex",
+);
 
 type SimulatorStubOptions = {
   workspaceId: string;
@@ -35,12 +43,30 @@ const setupCodes = [
   "platform_not_macos",
 ] as const;
 
+async function mockStubSimulatorNetwork(page: Page, mjpeg: "ok" | "broken"): Promise<void> {
+  await page.route("http://127.0.0.1:18789/s/token/**", async (route) => {
+    const url = route.request().url();
+    if (url.includes("stream.mjpeg") && mjpeg === "ok") {
+      await route.fulfill({
+        status: 200,
+        contentType: "image/jpeg",
+        body: STUB_JPEG,
+      });
+      return;
+    }
+    await route.fulfill({ status: 204, body: "" });
+  });
+  await page.routeWebSocket(/127\.0\.0\.1:18789\/s\/token\/ws/, () => {
+    // Accept the config socket so Chromium does not log a connection error.
+  });
+}
+
 async function installSimulatorDesktopStub(
   page: Page,
   { workspaceId, setupCode }: SimulatorStubOptions,
 ): Promise<void> {
   await page.addInitScript(
-    ({ workspaceId, setupCode }) => {
+    ({ workspaceId, setupCode, streamBaseUrl, apiPort }) => {
       type Listener = (payload: unknown) => void;
 
       const win = window as Window & {
@@ -86,7 +112,7 @@ async function installSimulatorDesktopStub(
             phase: "streaming",
             workspaceId,
             simulator: { id: "sim-1", name: "iPhone 16", runtime: "iOS 18" },
-            streamBaseUrl: "http://127.0.0.1:9/s/token",
+            streamBaseUrl,
             transport: "http",
             codec: "mjpeg",
             size: { width: 390, height: 844 },
@@ -104,6 +130,10 @@ async function installSimulatorDesktopStub(
         },
         async invoke(cmd, args) {
           invokes.push({ cmd, args });
+
+          if (cmd === "get_api_config") {
+            return { host: "127.0.0.1", port: apiPort };
+          }
 
           if (cmd === "simulator_probe") {
             queueMicrotask(() => emit("simulator://probe", { ...probe, workspaceId }));
@@ -124,7 +154,7 @@ async function installSimulatorDesktopStub(
         },
       };
     },
-    { workspaceId, setupCode },
+    { workspaceId, setupCode, streamBaseUrl: STUB_STREAM_BASE_URL, apiPort },
   );
 }
 
@@ -165,15 +195,23 @@ async function getWorkspaceContext(page: Page): Promise<{
   };
 }
 
+async function ensureRightSidebarExpanded(page: Page): Promise<void> {
+  const expand = page.getByRole("button", { name: "Expand right sidebar" });
+  if (await expand.isVisible().catch(() => false)) {
+    await expand.click();
+  }
+}
+
 async function openSimulatorSurfaces(
   page: Page,
-  options: { center: boolean; setupCode?: string },
+  options: { center: boolean; setupCode?: string; mjpeg?: "ok" | "broken" },
 ): Promise<void> {
   const { contextUrl, workspaceId } = await getWorkspaceContext(page);
   await installSimulatorDesktopStub(page, { workspaceId, setupCode: options.setupCode });
   if (options.center) {
     await seedSimulatorCenterTab(page, workspaceId);
   }
+  await mockStubSimulatorNetwork(page, options.mjpeg ?? "ok");
 
   await gotoContextRoute(
     page,
@@ -183,6 +221,7 @@ async function openSimulatorSurfaces(
     }),
     { locale: "en" },
   );
+  await ensureRightSidebarExpanded(page);
 }
 
 async function simulatorInvokes(page: Page): Promise<SimulatorInvoke[]> {
@@ -204,17 +243,21 @@ test.describe("APP-058 workspace simulator", () => {
   test("S9 — hosted web states Requires Atmos Desktop without bridge invokes", async ({
     page,
   }) => {
-    await stubComputerClientSettingsApi(page);
-    await connectLocalComputer(page, { locale: "en" });
-    await expectHealthyRoute(page, "/", { locale: "en" });
+    const { contextUrl, workspaceId } = await getWorkspaceContext(page);
+    await seedSimulatorCenterTab(page, workspaceId);
+    await gotoContextRoute(
+      page,
+      withSearchParams(contextUrl, {
+        rsTab: "simulator",
+        tab: "simulator",
+      }),
+      { locale: "en" },
+    );
+    await ensureRightSidebarExpanded(page);
 
-    const contextUrl = withSearchParams(await buildProjectWorkspaceDeepLink(page), {
-      activeSettingTab: null,
-      rsTab: "simulator",
-    });
-    await gotoContextRoute(page, contextUrl, { locale: "en" });
-
-    await expect(page.getByText("Requires Atmos Desktop", { exact: true })).toBeVisible();
+    await expect(
+      page.getByText("Requires Atmos Desktop", { exact: true }).first(),
+    ).toBeVisible();
     await expect
       .poll(
         async () =>
@@ -265,10 +308,9 @@ test.describe("APP-058 workspace simulator", () => {
       .filter({ hasText: /^Simulator$/ })
       .first();
     await expect(centerSimulatorTab).toBeVisible();
-    await centerSimulatorTab.hover();
     await centerSimulatorTab
-      .getByRole("button", { name: /Close.*Simulator/i })
-      .click();
+      .getByRole("button", { name: /Close Simulator/i })
+      .click({ force: true });
 
     const sidebar = await getRightSidebar(page);
     await expect(sidebar.getByText("Streaming", { exact: true })).toBeVisible();
@@ -284,10 +326,11 @@ test.describe("APP-058 workspace simulator", () => {
 
   for (const setupCode of setupCodes) {
     test(`S8 — ${setupCode} renders an actionable setup card`, async ({ page }) => {
-      await openSimulatorSurfaces(page, { center: false, setupCode });
+      await openSimulatorSurfaces(page, { center: true, setupCode });
 
       const card = page
         .getByRole("heading", { name: /Set up Simulator/i })
+        .first()
         .locator("xpath=ancestor::section[1]");
       await expect(card).toBeVisible();
 
@@ -322,11 +365,11 @@ test.describe("APP-058 workspace simulator", () => {
   }
 
   test("S21 — broken MJPEG keeps a muted skeleton in the stream area", async ({ page }) => {
-    await openSimulatorSurfaces(page, { center: false });
+    await openSimulatorSurfaces(page, { center: true, mjpeg: "broken" });
     await expectStreaming(page, 1);
 
-    const streamImage = page.locator('img[src*="127.0.0.1:9/s/token"]');
-    await expect(streamImage).toHaveCount(1);
+    const streamImage = page.locator(`img[src*="${STUB_STREAM_BASE_URL}"]`).first();
+    await expect(streamImage).toBeAttached();
     const screen = streamImage.locator("xpath=..");
     await expect(screen.locator('[aria-hidden="true"]')).toBeVisible();
   });

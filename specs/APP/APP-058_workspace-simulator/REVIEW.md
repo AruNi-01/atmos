@@ -13,7 +13,7 @@
 | Rule | Detail |
 |------|--------|
 | **When to add** | After code implementation reaches review or post-review and the findings need durable tracking before cleanup. |
-| **Entry id** | `REV-NNN` - zero-padded, monotonic in this file (next: **REV-053**). |
+| **Entry id** | `REV-NNN` - zero-padded, monotonic in this file (next: **REV-054**). |
 | **Status** | `open` -> `in_progress` -> `fixed` -> `verified` (or `wont-fix` with reason). |
 | **Do not** | Duplicate full TECH/TEST content; link to baseline docs and record only review findings plus fix status. |
 | **Fix proof** | Each fixed item should name the code change and the verification command or manual check. |
@@ -76,6 +76,7 @@
 | REV-050 | P1 | backend | Handshake accepts another spawn's UDID record | verified |
 | REV-051 | P1 | backend | Degrade respawn catch can delete a replacement session | verified |
 | REV-052 | P1 | frontend | Same-token reconnect leaves a dead MJPEG/WS | verified |
+| REV-053 | P1 | test | E2E stub broke workbench WS; CodeQL on handshake/control-plane | fixed |
 
 ---
 
@@ -1667,6 +1668,34 @@ Bump `streamRev` on each helper spawn and key the screen on it.
 ### Fix log
 
 - 2026-08-13 - `streamRev` on `SessionView`; `SimulatorScreen` remounts on bump.
+
+## REV-053 · E2E stub broke workbench WS; CodeQL on handshake/control-plane
+
+| Field | Value |
+|-------|--------|
+| **Status** | fixed |
+| **Severity** | P1 |
+| **Area** | test |
+| **Reported by** | CI / CodeQL |
+| **Owner** | unassigned |
+
+### Finding
+
+Playwright's `__ATMOS_DESKTOP__` stub returned `{ ok: true }` for `get_api_config`, so the workbench WebSocket URL became `ws://127.0.0.1:undefined`. The stub stream used Chromium-blocked port 9. CodeQL flagged `/\/+$/` on `tmpdir` and 500 responses that echoed exception text.
+
+### Required fix
+
+Serve a real `get_api_config` from the stub, use a Chrome-safe loopback port, mock the stub stream, and stop sending caught exception strings on `/v1/invoke`.
+
+### Acceptance
+
+- [x] Stub `get_api_config` returns the E2E API port.
+- [x] Handshake paths use `path.join`, not a trailing-slash regex.
+- [x] Invoke 500 body is `{ ok: false, error: "internal" }`.
+
+### Fix log
+
+- 2026-08-13 - E2E stub + stream mock; handshake `path.join`; control-plane 500 sanitization.
 
 
 

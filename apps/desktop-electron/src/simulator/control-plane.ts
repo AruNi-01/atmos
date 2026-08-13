@@ -142,11 +142,8 @@ export class SimulatorControlPlane {
         const body = raw ? JSON.parse(raw) : {};
         const result = await this.invoke(body);
         sendJson(res, 200, result);
-      } catch (error) {
-        sendJson(res, 500, {
-          ok: false,
-          error: error instanceof Error ? error.message : String(error),
-        });
+      } catch {
+        sendJson(res, 500, { ok: false, error: "internal" });
       }
       return;
     }

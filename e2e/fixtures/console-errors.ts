@@ -15,6 +15,8 @@ const allowedConsoleErrorPatterns = [
   /CancelledError\b/,
   // Canvas probes the default pin doc; missing docs 404 is expected until first save.
   /\[response\.404\] .*\/api\/canvas\/documents\/Default\.atmos\.tldr(?:\?.*)?$/i,
+  // APP-058 Playwright stub has no live capture helper on loopback 18789.
+  /127\.0\.0\.1:18789\/s\/token/,
 ];
 
 function formatConsoleMessage(message: ConsoleMessage): string {
