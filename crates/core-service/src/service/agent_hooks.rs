@@ -289,8 +289,9 @@ impl AgentHooksService {
         self.clear_child_tracking(session_id);
         if removed {
             self.broadcast_sessions_cleared(vec![session_id.to_string()]);
-            // Explicit session dismiss drops the latch but keeps auto-summary
-            // chrome (focus-ack / idle dismiss is how the user gets to read it).
+            // Removing the session row drops the latch but keeps auto-summary
+            // chrome — the pane may still exist, so the user can still read the
+            // recap. Only explicit Dismiss / send / pane destroy drop it.
             self.clear_attention_matching_ids(&[session_id.to_string()]);
         }
         removed

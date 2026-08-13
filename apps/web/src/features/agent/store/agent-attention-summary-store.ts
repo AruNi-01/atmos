@@ -6,7 +6,10 @@ import {
   type AgentAttentionSummaryDto,
   type AttentionSummaryStatusDto,
 } from "@/api/rest-api";
-import { useAgentAttentionStore } from "@/features/agent/store/agent-attention-store";
+import {
+  type PaneAttention,
+  useAgentAttentionStore,
+} from "@/features/agent/store/agent-attention-store";
 
 export type AttentionSummaryStatus = AttentionSummaryStatusDto;
 
@@ -160,10 +163,11 @@ export function dismissAttentionSummaryChrome(stablePaneId: string): void {
 
   const attentionStore = useAgentAttentionStore.getState();
   const summaryStore = useAgentAttentionSummaryStore.getState();
-  const latch = attentionStore.panes.get(id);
+  const prevAttentionList = collectMatchingAttention(attentionStore.panes, id);
   const prevSummary = summaryStore.panes.get(id) ?? null;
-  if (!latch && !prevSummary) return;
-  const prevAttention = latch ?? null;
+  if (prevAttentionList.length === 0 && !prevSummary) return;
+
+  const latch = prevAttentionList[0];
   const notAfter = latch?.raisedAt
     ? new Date(latch.raisedAt).toISOString()
     : prevSummary?.startedAt
@@ -171,10 +175,7 @@ export function dismissAttentionSummaryChrome(stablePaneId: string): void {
       : undefined;
 
   summaryStore.clearPane(id);
-  attentionStore.clearPane(id);
-
-  const attentionRevAfterClear = useAgentAttentionStore.getState().revision;
-  const summaryRevAfterClear = useAgentAttentionSummaryStore.getState().revision;
+  attentionStore.clearMatchingSessionIds([id]);
 
   void agentHooksApi
     .clearAttention({ stablePaneId: id, notAfter, dismissSummary: true })
@@ -183,26 +184,58 @@ export function dismissAttentionSummaryChrome(stablePaneId: string): void {
         "[AgentAttentionSummaryStore] Failed to dismiss summary:",
         error,
       );
-      const attentionNow = useAgentAttentionStore.getState();
-      const summaryNow = useAgentAttentionSummaryStore.getState();
-      if (
-        attentionNow.revision !== attentionRevAfterClear ||
-        summaryNow.revision !== summaryRevAfterClear
-      ) {
-        return;
-      }
-      if (!attentionNow.panes.has(id) && prevAttention) {
-        attentionNow.raise({
-          stablePaneId: prevAttention.stablePaneId,
-          contextId: prevAttention.contextId,
-          reason: prevAttention.reason,
-          sessionId: prevAttention.sessionId,
-          tool: prevAttention.tool,
-          raisedAt: prevAttention.raisedAt,
-        });
-      }
-      if (!summaryNow.panes.has(id) && prevSummary) {
-        useAgentAttentionSummaryStore.getState().upsert(prevSummary);
-      }
+      restoreDismissedAttentionSummary(id, prevAttentionList, prevSummary);
     });
+}
+
+function collectMatchingAttention(
+  panes: Map<string, PaneAttention>,
+  id: string,
+): PaneAttention[] {
+  const matched: PaneAttention[] = [];
+  for (const [key, pane] of panes) {
+    if (key === id || pane.sessionId === id) {
+      matched.push(pane);
+    }
+  }
+  return matched;
+}
+
+function restoreDismissedAttentionSummary(
+  id: string,
+  prevAttentionList: readonly PaneAttention[],
+  prevSummary: PaneAttentionSummary | null,
+): void {
+  const attentionNow = useAgentAttentionStore.getState();
+  const summaryNow = useAgentAttentionSummaryStore.getState();
+  // Restore per-pane, not by global revision — another pane can bump either
+  // store while this request is in flight.
+  const currentMatches = collectMatchingAttention(attentionNow.panes, id);
+  const newestCurrentRaisedAt = currentMatches.reduce(
+    (best, pane) => Math.max(best, pane.raisedAt),
+    0,
+  );
+  const prevRaisedAt = prevAttentionList.reduce(
+    (best, pane) => Math.max(best, pane.raisedAt),
+    prevSummary?.startedAt ?? 0,
+  );
+  const newerTurnTookOver =
+    newestCurrentRaisedAt > 0 && newestCurrentRaisedAt > prevRaisedAt;
+
+  if (currentMatches.length === 0) {
+    for (const prev of prevAttentionList) {
+      attentionNow.raise({
+        stablePaneId: prev.stablePaneId,
+        contextId: prev.contextId,
+        reason: prev.reason,
+        sessionId: prev.sessionId,
+        tool: prev.tool,
+        raisedAt: prev.raisedAt,
+      });
+    }
+  }
+
+  if (!newerTurnTookOver && !summaryNow.panes.has(id) && prevSummary) {
+    useAgentAttentionSummaryStore.getState().upsert(prevSummary);
+  }
 }

@@ -932,7 +932,8 @@ export const TerminalAgentInputOverlay = React.forwardRef<
     await onStartSideChat(prompt, agent, sanitizeRunConfig(runConfig), contexts);
     const flyTarget = await resolveSideChatFlyTarget(getSideChatFlyTargetClientPoint);
     startSuccessfulSubmitAnimation(prompt, flyTarget);
-  }, [getSideChatFlyTargetClientPoint, onStartSideChat, startSuccessfulSubmitAnimation]);
+    if (stablePaneId) dismissAttentionSummaryChrome(stablePaneId);
+  }, [getSideChatFlyTargetClientPoint, onStartSideChat, stablePaneId, startSuccessfulSubmitAnimation]);
 
   const runSpawn = React.useCallback(async (
     prompt: string,
@@ -943,7 +944,8 @@ export const TerminalAgentInputOverlay = React.forwardRef<
     if (!onSpawn) return;
     await onSpawn(prompt, agent, sanitizeRunConfig(runConfig), contexts);
     startSuccessfulSubmitAnimation(prompt);
-  }, [onSpawn, startSuccessfulSubmitAnimation]);
+    if (stablePaneId) dismissAttentionSummaryChrome(stablePaneId);
+  }, [onSpawn, stablePaneId, startSuccessfulSubmitAnimation]);
 
   const handleSideChatRunConfigChange = React.useCallback(
     (agentId: string, value: TerminalAgentRunConfigInput | null) => {
@@ -1025,7 +1027,6 @@ export const TerminalAgentInputOverlay = React.forwardRef<
         } else {
           await runSideChat(prompt, contextAgent.agent, contextAgent.runConfig, selectedContexts);
         }
-        if (stablePaneId) dismissAttentionSummaryChrome(stablePaneId);
         return;
       }
 
