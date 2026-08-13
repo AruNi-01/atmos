@@ -9550,9 +9550,13 @@
     "deleteAllSuggest": "Delete all",
     "deleteAllSuggestTitle": "Delete all suggestions?",
     "deleteAllSuggestDescription": "This will reclaim about {size} from {count} suggested items.",
+    "suggestDeleteGroup": "Delete group",
+    "suggestDeleteGroupTitle": "Delete this group?",
+    "suggestCount": "{count} items",
     "suggestScanning": "Still scanning… more suggestions may appear.",
     "suggestEmpty": "No cleanup suggestions right now.",
     "suggestIdleDays": "Idle {days} days",
+    "suggestIdleRange": "Idle {min}–{max} days",
     "suggestKind": {
       "cache": "Cache",
       "worktree": "Git worktree",

@@ -593,6 +593,33 @@ mod tests {
     }
 
     #[test]
+    fn clear_suggestions_keeps_every_cache_hit() {
+        let children = (0..45)
+            .map(|i| suggestion_node("node_modules", &format!("/r/p{i}/node_modules"), 8))
+            .collect();
+        let tree = DiskNode {
+            name: "root".into(),
+            path: "/r".into(),
+            size: 360,
+            is_dir: true,
+            is_project: false,
+            is_workspace: false,
+            is_git_worktree: false,
+            is_agent_data: false,
+            file_count: 0,
+            dir_count: 45,
+            children_loaded: true,
+            children,
+        };
+        let tips = clear_suggestions(&tree);
+        assert_eq!(
+            tips.len(),
+            45,
+            "clear suggest must not cap the list: {tips:?}"
+        );
+    }
+
+    #[test]
     fn scan_level_matches_scan_path() {
         let root = tempfile_dir("disk-analyzer-level-alias");
         write_file(&root.join("x.txt"), 500);

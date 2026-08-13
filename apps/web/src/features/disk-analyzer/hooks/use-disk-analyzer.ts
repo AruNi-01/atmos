@@ -620,10 +620,10 @@ export function useDiskAnalyzer() {
   }, [loadLevel, scanId, scanPath]);
 
   const deleteSuggestions = useCallback(
-    async (permanent: boolean) => {
+    async (permanent: boolean, targets?: CleanupSuggestion[]) => {
       const id = scanIdRef.current ?? scanId;
       if (!id) return;
-      const items = [...suggestions];
+      const items = [...(targets ?? suggestions)];
       const deleted: string[] = [];
       let firstError: unknown = null;
       for (const item of items) {

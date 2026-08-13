@@ -45,6 +45,7 @@ import {
   Sparkles,
   Trash2,
 } from "lucide-react";
+import type { CleanupSuggestion } from "@/api/ws/disk-analyzer-api";
 import { DiskUsageChart } from "@/features/disk-analyzer/components/DiskUsageChart";
 import { DiskAnalyzerSuggestPanel } from "@/features/disk-analyzer/components/DiskAnalyzerSuggestPanel";
 import { useDiskAnalyzer } from "@/features/disk-analyzer/hooks/use-disk-analyzer";
@@ -98,6 +99,9 @@ export function DiskAnalyzerPage() {
     size: number;
     isWorktree: boolean;
   } | null>(null);
+  const [pendingSuggestItems, setPendingSuggestItems] = useState<
+    CleanupSuggestion[] | null
+  >(null);
   /** Keep last paint-able chart node so list drill does not unmount the chart (kills ECharts data morph). */
   const lastChartNodeRef = useRef(analyzer.focusedNode);
 
@@ -178,15 +182,18 @@ export function DiskAnalyzerPage() {
     setDeleting(true);
     setDeleteError(null);
     try {
-      await analyzer.deleteSuggestions(permanent);
+      await analyzer.deleteSuggestions(permanent, pendingSuggestItems ?? undefined);
       setDeleteAllOpen(false);
       setPermanent(false);
+      setPendingSuggestItems(null);
     } catch (e) {
       setDeleteError(e instanceof Error ? e.message : String(e));
     } finally {
       setDeleting(false);
     }
   };
+
+  const pendingBulkItems = pendingSuggestItems ?? analyzer.sessionSuggestions;
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden bg-background/50">
@@ -545,6 +552,13 @@ export function DiskAnalyzerPage() {
                 pathTitle={pathTitle}
                 onDeleteOne={(item) => openSuggestDelete(item)}
                 onDeleteAll={() => {
+                  setPendingSuggestItems(null);
+                  setPermanent(false);
+                  setDeleteError(null);
+                  setDeleteAllOpen(true);
+                }}
+                onDeleteGroup={(items) => {
+                  setPendingSuggestItems(items);
                   setPermanent(false);
                   setDeleteError(null);
                   setDeleteAllOpen(true);
@@ -926,16 +940,26 @@ export function DiskAnalyzerPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={deleteAllOpen} onOpenChange={setDeleteAllOpen}>
+      <Dialog
+        open={deleteAllOpen}
+        onOpenChange={(open) => {
+          setDeleteAllOpen(open);
+          if (!open) setPendingSuggestItems(null);
+        }}
+      >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{t("deleteAllSuggestTitle")}</DialogTitle>
+            <DialogTitle>
+              {pendingSuggestItems
+                ? t("suggestDeleteGroupTitle")
+                : t("deleteAllSuggestTitle")}
+            </DialogTitle>
             <DialogDescription className="min-w-0 whitespace-pre-wrap break-all">
               {t("deleteAllSuggestDescription", {
-                count: analyzer.sessionSuggestions.length,
-                size: formatBytes(suggestionTotalSize(analyzer.sessionSuggestions)),
+                count: pendingBulkItems.length,
+                size: formatBytes(suggestionTotalSize(pendingBulkItems)),
               })}
-              {analyzer.sessionSuggestions.some(isWorktreeSuggestion) ? (
+              {pendingBulkItems.some(isWorktreeSuggestion) ? (
                 <>
                   {"\n\n"}
                   {t("deleteWorktreeNote")}
@@ -960,7 +984,7 @@ export function DiskAnalyzerPage() {
             </Button>
             <Button
               variant="destructive"
-              disabled={deleting || analyzer.sessionSuggestions.length === 0}
+              disabled={deleting || pendingBulkItems.length === 0}
               onClick={() => void onConfirmDeleteAll()}
             >
               {deleting ? <Loader2 className="size-4 animate-spin" /> : null}

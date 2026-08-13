@@ -25,21 +25,14 @@ pub fn cleanup_suggestions(tree: &DiskNode) -> Vec<CleanupSuggestion> {
 /// Cache hints plus leftover worktrees / sessions judged **only by last activity**.
 ///
 /// Synthetic `atmos://` groups are skipped. Project roots are never suggested.
+/// The UI groups and ranks this full list — do not cap it here.
 pub fn clear_suggestions(tree: &DiskNode) -> Vec<CleanupSuggestion> {
     let now = now_ms();
-    let mut out = cleanup_suggestions(tree);
+    let mut out = Vec::new();
+    collect_suggestions(tree, CLEANUP_HINTS, &mut out);
     collect_stale_targets(tree, now, &mut out);
-    out.sort_by(|a, b| {
-        match (a.last_activity_ms, b.last_activity_ms) {
-            (Some(x), Some(y)) => x.cmp(&y).then_with(|| b.size.cmp(&a.size)),
-            (Some(_), None) => std::cmp::Ordering::Less,
-            (None, Some(_)) => std::cmp::Ordering::Greater,
-            (None, None) => b.size.cmp(&a.size),
-        }
-        .then_with(|| a.path.cmp(&b.path))
-    });
+    out.sort_by(|a, b| b.size.cmp(&a.size).then_with(|| a.path.cmp(&b.path)));
     out.dedup_by(|a, b| a.path == b.path);
-    out.truncate(40);
     out
 }
 

@@ -9550,9 +9550,13 @@
     "deleteAllSuggest": "全部删除",
     "deleteAllSuggestTitle": "删除全部建议？",
     "deleteAllSuggestDescription": "将从 {count} 个建议项中释放约 {size}。",
+    "suggestDeleteGroup": "删除本组",
+    "suggestDeleteGroupTitle": "删除这一组？",
+    "suggestCount": "{count} 项",
     "suggestScanning": "仍在扫描… 建议列表可能还会增加。",
     "suggestEmpty": "当前没有清理建议。",
     "suggestIdleDays": "已闲置 {days} 天",
+    "suggestIdleRange": "已闲置 {min}–{max} 天",
     "suggestKind": {
       "cache": "缓存",
       "worktree": "Git 工作树",

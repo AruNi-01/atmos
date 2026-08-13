@@ -1,4 +1,8 @@
-import type { CleanupSuggestion, DiskNode } from "@/api/ws/disk-analyzer-api";
+import type {
+  CleanupKind,
+  CleanupSuggestion,
+  DiskNode,
+} from "@/api/ws/disk-analyzer-api";
 
 export type ChartMode = "sunburst" | "treemap";
 
@@ -648,6 +652,141 @@ export function isWorktreeSuggestion(item: CleanupSuggestion): boolean {
 
 export function suggestionTotalSize(items: CleanupSuggestion[]): number {
   return items.reduce((sum, item) => sum + (item.size ?? 0), 0);
+}
+
+/** Items smaller than this sort below everything else in Clear suggest. */
+export const SMALL_SUGGEST_BYTES = 1024 * 1024;
+
+const SUGGEST_KIND_ORDER: CleanupKind[] = [
+  "cache",
+  "worktree",
+  "workspace",
+  "session",
+];
+
+export function suggestIdleDays(
+  lastActivityMs: number | null | undefined,
+  now = Date.now(),
+): number | null {
+  if (!lastActivityMs || lastActivityMs <= 0) return null;
+  return Math.max(1, Math.floor((now - lastActivityMs) / 86_400_000));
+}
+
+/** Size first; idle time can boost a stale item up to 2×. */
+export function suggestCleanupScore(
+  item: CleanupSuggestion,
+  now = Date.now(),
+): number {
+  const days = suggestIdleDays(item.last_activity_ms, now) ?? 0;
+  return (item.size ?? 0) * (1 + Math.min(days, 180) / 180);
+}
+
+export function compareSuggestionsForCleanup(
+  a: CleanupSuggestion,
+  b: CleanupSuggestion,
+  now = Date.now(),
+): number {
+  const aSmall = (a.size ?? 0) < SMALL_SUGGEST_BYTES;
+  const bSmall = (b.size ?? 0) < SMALL_SUGGEST_BYTES;
+  if (aSmall !== bSmall) return aSmall ? 1 : -1;
+  const delta = suggestCleanupScore(b, now) - suggestCleanupScore(a, now);
+  if (delta !== 0) return delta > 0 ? 1 : -1;
+  return a.path.localeCompare(b.path);
+}
+
+/** Parent folder for cache tiles; full path for sessions / worktrees. */
+export function suggestLocationRaw(item: CleanupSuggestion): string {
+  if ((item.kind ?? "cache") === "cache") {
+    const normalized = item.path.replace(/\/+$/, "");
+    const idx = normalized.lastIndexOf("/");
+    if (idx <= 0) return item.path;
+    return normalized.slice(0, idx) || "/";
+  }
+  return item.path;
+}
+
+export type SuggestNameBucket = {
+  name: string;
+  items: CleanupSuggestion[];
+  size: number;
+};
+
+export type SuggestKindGroup = {
+  kind: CleanupKind;
+  items: CleanupSuggestion[];
+  buckets: SuggestNameBucket[];
+  size: number;
+  minIdleDays: number | null;
+  maxIdleDays: number | null;
+};
+
+export function groupClearSuggestions(
+  items: CleanupSuggestion[],
+  now = Date.now(),
+): SuggestKindGroup[] {
+  const byKind = new Map<CleanupKind, CleanupSuggestion[]>();
+  for (const item of items) {
+    const kind = item.kind ?? "cache";
+    const list = byKind.get(kind) ?? [];
+    list.push(item);
+    byKind.set(kind, list);
+  }
+  const groups: SuggestKindGroup[] = [];
+  for (const kind of SUGGEST_KIND_ORDER) {
+    const list = byKind.get(kind);
+    if (!list?.length) continue;
+    list.sort((a, b) => compareSuggestionsForCleanup(a, b, now));
+    const buckets = bucketSuggestionsByName(list, now);
+    const idles = list
+      .map((item) => suggestIdleDays(item.last_activity_ms, now))
+      .filter((days): days is number => days != null);
+    groups.push({
+      kind,
+      items: list,
+      buckets,
+      size: suggestionTotalSize(list),
+      minIdleDays: idles.length ? Math.min(...idles) : null,
+      maxIdleDays: idles.length ? Math.max(...idles) : null,
+    });
+  }
+  groups.sort(
+    (a, b) =>
+      b.size - a.size ||
+      SUGGEST_KIND_ORDER.indexOf(a.kind) - SUGGEST_KIND_ORDER.indexOf(b.kind),
+  );
+  return groups;
+}
+
+function bucketSuggestionsByName(
+  items: CleanupSuggestion[],
+  now: number,
+): SuggestNameBucket[] {
+  const map = new Map<string, SuggestNameBucket>();
+  for (const item of items) {
+    const key = item.name.toLowerCase();
+    const existing = map.get(key);
+    if (existing) {
+      existing.items.push(item);
+      existing.size += item.size ?? 0;
+    } else {
+      map.set(key, {
+        name: item.name,
+        items: [item],
+        size: item.size ?? 0,
+      });
+    }
+  }
+  const buckets = [...map.values()];
+  for (const bucket of buckets) {
+    bucket.items.sort((a, b) => compareSuggestionsForCleanup(a, b, now));
+  }
+  buckets.sort((a, b) => {
+    const aSmall = a.size < SMALL_SUGGEST_BYTES;
+    const bSmall = b.size < SMALL_SUGGEST_BYTES;
+    if (aSmall !== bSmall) return aSmall ? 1 : -1;
+    return b.size - a.size || a.name.localeCompare(b.name);
+  });
+  return buckets;
 }
 
 export function sortNodes(nodes: DiskNode[], sortBy: "size" | "name"): DiskNode[] {

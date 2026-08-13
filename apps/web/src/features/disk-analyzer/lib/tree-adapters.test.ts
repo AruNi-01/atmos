@@ -8,7 +8,12 @@ import {
   canDeleteDiskPath,
   cleanupHintMessageKey,
   collectCleanupSuggestions,
+  compareSuggestionsForCleanup,
+  groupClearSuggestions,
   isWorktreeSuggestion,
+  SMALL_SUGGEST_BYTES,
+  suggestCleanupScore,
+  suggestLocationRaw,
   suggestionTotalSize,
   filterTree,
   formatBytes,
@@ -1008,6 +1013,119 @@ describe("disk analyzer suggestion helpers", () => {
         { path: "/b", name: "b", size: 25, reason: "" },
       ]),
     ).toBe(35);
+  });
+
+  test("groupClearSuggestions merges kinds and same-name caches", () => {
+    const now = Date.UTC(2026, 7, 13);
+    const groups = groupClearSuggestions(
+      [
+        {
+          path: "/a/node_modules",
+          name: "node_modules",
+          size: 7_200_000_000,
+          reason: "",
+          kind: "cache",
+        },
+        {
+          path: "/b/node_modules",
+          name: "node_modules",
+          size: 361_000_000,
+          reason: "",
+          kind: "cache",
+        },
+        {
+          path: "/wt",
+          name: "feat",
+          size: 1_300_000_000,
+          reason: "",
+          kind: "worktree",
+          last_activity_ms: now - 79 * 86_400_000,
+        },
+        {
+          path: "/sessions/codex",
+          name: "Codex archived sessions",
+          size: 314_000_000,
+          reason: "",
+          kind: "session",
+          last_activity_ms: now - 40 * 86_400_000,
+        },
+        {
+          path: "/sessions/pi",
+          name: "Pi sessions",
+          size: 0,
+          reason: "",
+          kind: "session",
+          last_activity_ms: now - 31 * 86_400_000,
+        },
+      ],
+      now,
+    );
+    expect(groups.map((group) => group.kind)).toEqual([
+      "cache",
+      "worktree",
+      "session",
+    ]);
+    expect(groups[0].buckets).toHaveLength(1);
+    expect(groups[0].buckets[0].items).toHaveLength(2);
+    expect(groups[0].buckets[0].name).toBe("node_modules");
+    expect(groups[2].items.map((item) => item.name)).toEqual([
+      "Codex archived sessions",
+      "Pi sessions",
+    ]);
+  });
+
+  test("compareSuggestionsForCleanup sinks tiny items and boosts idle size", () => {
+    const now = Date.UTC(2026, 7, 13);
+    const tiny = {
+      path: "/tiny",
+      name: "tiny",
+      size: SMALL_SUGGEST_BYTES - 1,
+      reason: "",
+      kind: "cache" as const,
+      last_activity_ms: now - 180 * 86_400_000,
+    };
+    const fresh = {
+      path: "/fresh",
+      name: "fresh",
+      size: 200_000_000,
+      reason: "",
+      kind: "cache" as const,
+      last_activity_ms: now - 2 * 86_400_000,
+    };
+    const stale = {
+      path: "/stale",
+      name: "stale",
+      size: 200_000_000,
+      reason: "",
+      kind: "cache" as const,
+      last_activity_ms: now - 90 * 86_400_000,
+    };
+    expect(compareSuggestionsForCleanup(tiny, fresh, now)).toBeGreaterThan(0);
+    expect(compareSuggestionsForCleanup(stale, fresh, now)).toBeLessThan(0);
+    expect(suggestCleanupScore(stale, now)).toBeGreaterThan(
+      suggestCleanupScore(fresh, now),
+    );
+  });
+
+  test("suggestLocationRaw uses the parent folder for cache items", () => {
+    expect(
+      suggestLocationRaw({
+        path: "/home/proj/node_modules",
+        name: "node_modules",
+        size: 1,
+        reason: "",
+        kind: "cache",
+      }),
+    ).toBe("/home/proj");
+    expect(
+      suggestLocationRaw({
+        path: "/home/.codex/sessions",
+        name: "Codex sessions",
+        size: 1,
+        reason: "",
+        kind: "session",
+      }),
+    ).toBe("/home/.codex/sessions");
   });
 });
 
