@@ -3,6 +3,8 @@ export const HIDE_THROTTLE_MS = 5_000;
 export const IDLE_RELEASE_MS = 10 * 60 * 1000;
 export const THROTTLE_MAX_FPS = 5;
 export const THROTTLE_MAX_DIMENSION = 720;
+export const NATIVE_FPS = 60;
+export const NATIVE_MAX_DIMENSION = 4096;
 
 export type GovernanceSession = {
   workspaceId: string;

@@ -232,17 +232,21 @@ export function SimulatorPanel({
 
   const handleOpenProject = useCallback(async () => {
     if (!workspaceId || !electron) return;
-    const created = await createTerminalTabWithInitialPane(workspaceId, "workspace", {
-      title: "Metro",
-    });
-    if (!created) return;
-
-    const result = await desktopInvoke<{ metroCommand?: string }>("simulator_open_project", {
-      workspaceId,
-      worktreePath,
-    });
-    if (result.metroCommand) queuePaneInput(created.paneId, `${result.metroCommand}\n`);
-    void setUrlParams({ tab: created.tab.id });
+    try {
+      const result = await desktopInvoke<{ metroCommand?: string }>("simulator_open_project", {
+        workspaceId,
+        worktreePath,
+      });
+      if (!result.metroCommand) return;
+      const created = await createTerminalTabWithInitialPane(workspaceId, "workspace", {
+        title: "Metro",
+      });
+      if (!created) return;
+      queuePaneInput(created.pane.sessionId, `${result.metroCommand}\n`);
+      void setUrlParams({ tab: created.tab.id });
+    } catch (error) {
+      if (!isDesktopBridgeError(error)) return;
+    }
   }, [
     createTerminalTabWithInitialPane,
     electron,

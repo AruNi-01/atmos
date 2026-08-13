@@ -81,6 +81,8 @@ import {
   workspacesOverWarmCap,
   THROTTLE_MAX_DIMENSION,
   THROTTLE_MAX_FPS,
+  NATIVE_FPS,
+  NATIVE_MAX_DIMENSION,
 } from "./governance.ts";
 import type {
   ClaimTable,
@@ -132,6 +134,7 @@ type LiveSession = {
   hideNote?: string;
   inputWs: WebSocket | null;
   suppressExit?: boolean;
+  streamThrottled?: boolean;
 };
 
 const SETUP_REQUIRED_CODES = new Set([
@@ -240,6 +243,18 @@ export class SimulatorBridge {
       },
       invoke: (body) => this.handleControlInvoke(body),
     });
+    const latest = this.readControlLease();
+    if (latest) {
+      try {
+        const healthOk = await probeControlHealth(latest.base_url);
+        takeOver = shouldTakeOverLease(latest, {
+          isPidAlive: isProcessAlive,
+          healthOk,
+        });
+      } catch {
+        takeOver = true;
+      }
+    }
     if (takeOver) {
       writePrivateJson(controlJsonPath(this.env), {
         protocol: CONTROL_PROTOCOL,
@@ -556,6 +571,13 @@ export class SimulatorBridge {
     const wasVisible = session.visibleSurfaces > 0;
     session.visibleSurfaces = visible ? 1 : 0;
     if (visible || wasVisible) session.lastVisibleAt = this.now();
+    if (visible && session.streamThrottled) {
+      session.streamThrottled = false;
+      this.postStreamSettings(session, {
+        fps: NATIVE_FPS,
+        maxDimension: NATIVE_MAX_DIMENSION,
+      });
+    }
     return { ok: true };
   }
 
@@ -574,14 +596,22 @@ export class SimulatorBridge {
     if (event !== "webrtc_unusable" && event !== "h264_unusable") {
       return { ok: true };
     }
+    if (this.reconnecting.has(workspaceId)) return { ok: true };
     const next = reduceDegrade(session.degrade, { type: event });
     if (next.transport === session.transport && next.codec === session.codec) {
       return { ok: true };
     }
     session.degrade = next;
     session.phase = next.phase;
+    session.transport = next.transport;
+    session.codec = next.codec === "mjpeg" ? "mjpeg" : "h264";
     this.emit("simulator://status", this.toView(session));
-    await this.respawnHelperKeepingToken(session);
+    this.reconnecting.add(workspaceId);
+    try {
+      await this.respawnHelperKeepingToken(session);
+    } finally {
+      this.reconnecting.delete(workspaceId);
+    }
     return { ok: true };
   }
 
@@ -1220,15 +1250,12 @@ export class SimulatorBridge {
         void this.killSession(session.workspaceId, { shutdownSimulator: false });
         continue;
       }
-      if (shouldThrottle(session, now)) {
-        void fetch(session.streamSettingsUrl, {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({
-            fps: THROTTLE_MAX_FPS,
-            maxDimension: THROTTLE_MAX_DIMENSION,
-          }),
-        }).catch(() => undefined);
+      if (shouldThrottle(session, now) && !session.streamThrottled) {
+        session.streamThrottled = true;
+        this.postStreamSettings(session, {
+          fps: THROTTLE_MAX_FPS,
+          maxDimension: THROTTLE_MAX_DIMENSION,
+        });
       }
       if (!session.childPid || this.fakeName() || this.reconnecting.has(session.workspaceId)) {
         continue;
@@ -1456,19 +1483,26 @@ export class SimulatorBridge {
 
   private async probeHelperHealth(): Promise<{ ok: boolean; mismatch?: boolean }> {
     const session = [...this.sessions.values()].find(
-      (row) => !liveSessionShouldRestart(row),
+      (row) =>
+        row.health === "ok" &&
+        (row.phase === "streaming" || row.phase === "starting"),
     );
     if (!session || this.fakeName()) return { ok: true };
+    const ac = new AbortController();
+    const timer = setTimeout(() => ac.abort(), 2_000);
     try {
       const res = await fetch(
         `http://127.0.0.1:${this.control.getPort()}/s/${session.sessionToken}/health`,
+        { signal: ac.signal },
       );
       return {
         ok: res.ok,
         mismatch: session.degrade.lastError?.code === "capture_xcode_mismatch",
       };
     } catch {
-      return { ok: false, mismatch: false };
+      return { ok: true };
+    } finally {
+      clearTimeout(timer);
     }
   }
 
@@ -1513,7 +1547,6 @@ export class SimulatorBridge {
     record?: HelperStateRecord;
     spawnPort: number;
   }): Promise<void> {
-    const owns = this.stillOwnsClaim(opts.simulatorId, opts.workspaceId);
     for (const pid of spawnFailurePids({
       childPid: opts.childPid,
       recordPid: opts.record?.pid,
@@ -1525,9 +1558,6 @@ export class SimulatorBridge {
       } catch {
         /* ignore */
       }
-    }
-    if (owns) {
-      await this.helperCli(["--kill", opts.simulatorId]);
     }
   }
 
@@ -1564,12 +1594,18 @@ export class SimulatorBridge {
         hideNote: session.hideNote,
         sessionToken: session.sessionToken,
       });
+      if (session.suppressExit || !this.stillOwnsClaim(session.simulatorId, workspaceId)) {
+        this.discardSpawnedHelper(next);
+        return;
+      }
       next.degrade = reduceDegrade(session.degrade, { type: "reconnect_ok" });
       next.visibleSurfaces = session.visibleSurfaces;
       next.lastVisibleAt = session.lastVisibleAt;
+      next.streamThrottled = session.streamThrottled;
       this.sessions.set(workspaceId, next);
       this.emit("simulator://status", this.toView(next));
     } catch {
+      if (session.suppressExit) return;
       session.degrade = reduceDegrade(session.degrade, { type: "helper_died" });
       session.phase = session.degrade.phase;
       session.health = "dead";
@@ -1609,11 +1645,13 @@ export class SimulatorBridge {
     }
     session.inputWs = null;
     if (session.childPid) {
+      const pid = session.childPid;
       try {
-        process.kill(session.childPid, "SIGTERM");
+        process.kill(pid, "SIGTERM");
       } catch {
         /* ignore */
       }
+      await this.waitForPidExit(pid, 500);
     }
     const token = session.sessionToken;
     if (this.fakeName()) {
@@ -1638,14 +1676,43 @@ export class SimulatorBridge {
       next.degrade = session.degrade;
       next.visibleSurfaces = session.visibleSurfaces;
       next.lastVisibleAt = session.lastVisibleAt;
+      next.streamThrottled = session.streamThrottled;
+      if (session.suppressExit && !this.sessions.has(session.workspaceId)) {
+        this.discardSpawnedHelper(next);
+        return;
+      }
+      if (!this.stillOwnsClaim(session.simulatorId, session.workspaceId)) {
+        this.discardSpawnedHelper(next);
+        return;
+      }
       this.sessions.set(session.workspaceId, next);
       this.emit("simulator://status", this.toView(next));
     } catch (error) {
+      if (session.suppressExit && !this.sessions.has(session.workspaceId)) return;
       const message = error instanceof Error ? error.message : String(error);
       this.sessions.delete(session.workspaceId);
       this.writeClaims(releaseClaim(this.readClaims(), session.simulatorId, session.workspaceId, this.instanceId));
       this.failAttach(session.workspaceId, "capture_failed", message);
     }
+  }
+
+  private discardSpawnedHelper(session: LiveSession): void {
+    try {
+      if (session.childPid) process.kill(session.childPid, "SIGTERM");
+    } catch {
+      /* ignore */
+    }
+  }
+
+  private postStreamSettings(
+    session: LiveSession,
+    body: { fps: number; maxDimension: number },
+  ): void {
+    void fetch(session.streamSettingsUrl, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+    }).catch(() => undefined);
   }
 
   private emitStatus(workspaceId: string, phase: Phase, simulatorId?: string): void {

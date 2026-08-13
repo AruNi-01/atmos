@@ -63,7 +63,7 @@ Honest limits: nothing that needs a real iOS runtime or a signed macOS build can
 | S22 | unit | `proxy.test.ts` | route table | only allow-listed upstream paths; wrong/absent token → 403; no arbitrary-port forwarding | pending |
 | S23 | unit | `spawn-args.test.ts` + `handshake.test.ts` | sample helper state record | `--no-preview`, `--host 127.0.0.1`, ephemeral `-p`; URLs read from the record, not hardcoded; env free of `ATMOS_LOCAL_TOKEN`; reconnect proxy URLs keep the session token; spawn-failure pids ignore another port's daemon | pending |
 | S24 | manual | macOS | after attach | upstream preview port not listening; no non-loopback listener in the helper process; UI copy contains no `npx` | pending |
-| S25 | unit | `governance.test.ts` | visibility events + clock | throttle ≤ 5 s after hide; release at 10 min; simulator stays booted | pending |
+| S25 | unit | `governance.test.ts` | visibility events + clock | throttle ≤ 5 s after hide; restore native on show; release at 10 min; simulator stays booted | pending |
 | S26 | unit | `governance.test.ts` | 3 sessions | least-recently-visible killed at cap 2 | pending |
 | S27 | manual | Expo worktree | — | Metro appears in a visible pane; app launches on the active simulator; failures surface | pending |
 | S28 | grep gate | product trees | — | no `device` / `phone` / `mobile` / `emulator` identifier, path, event, code, or i18n key introduced by this feature | pending |

@@ -13,7 +13,7 @@
 | Rule | Detail |
 |------|--------|
 | **When to add** | After code implementation reaches review or post-review and the findings need durable tracking before cleanup. |
-| **Entry id** | `REV-NNN` - zero-padded, monotonic in this file (next: **REV-044**). |
+| **Entry id** | `REV-NNN` - zero-padded, monotonic in this file (next: **REV-050**). |
 | **Status** | `open` -> `in_progress` -> `fixed` -> `verified` (or `wont-fix` with reason). |
 | **Do not** | Duplicate full TECH/TEST content; link to baseline docs and record only review findings plus fix status. |
 | **Fix proof** | Each fixed item should name the code change and the verification command or manual check. |
@@ -67,6 +67,12 @@
 | REV-041 | P1 | backend | CLI invoke aborts after 5s | verified |
 | REV-042 | P1 | frontend | Touch end dropped off the screen | verified |
 | REV-043 | P1 | backend | In-flight spawn can kill the take-over winner | verified |
+| REV-044 | P1 | backend | Hidden throttle is never restored | verified |
+| REV-045 | P1 | backend | Disconnect during reconnect does not stick | verified |
+| REV-046 | P1 | backend | Capture smoke uses reconnecting sessions | verified |
+| REV-047 | P1 | backend | Overlapping degrade respawns | verified |
+| REV-048 | P1 | frontend | Open in simulator queues Metro on the pane id | verified |
+| REV-049 | P1 | backend | Handshake reap `--kill` can still hit the winner | verified |
 
 ---
 
@@ -1402,6 +1408,175 @@ Same-instance take-over during an in-flight attach had no session to `killSessio
 ### Fix log
 
 - 2026-08-13 - take-over `--kill` for other workspace; claim check before unlink; port-guarded reap.
+
+---
+
+## REV-044 · Hidden throttle is never restored
+
+| Field | Value |
+|-------|--------|
+| **Status** | verified |
+| **Severity** | P1 |
+| **Area** | backend |
+| **Reported by** | internal review |
+| **Owner** | unassigned |
+
+### Finding
+
+`onTick` posted 5 fps / 720 px after hide and never restored native settings when a surface became visible.
+
+### Required fix
+
+Latch throttle once; on `visible: true` POST native stream-settings.
+
+### Acceptance
+
+- [x] `NATIVE_FPS` > throttle fps.
+- [x] `setVisibility(true)` clears `streamThrottled`.
+
+### Fix log
+
+- 2026-08-13 - `streamThrottled` + restore 60 fps / 4096 px.
+
+---
+
+## REV-045 · Disconnect during reconnect does not stick
+
+| Field | Value |
+|-------|--------|
+| **Status** | verified |
+| **Severity** | P1 |
+| **Area** | backend |
+| **Reported by** | internal review |
+| **Owner** | unassigned |
+
+### Finding
+
+`handleHelperExit` / degrade respawn kept going after `killSession` and could `sessions.set` a new helper over idle.
+
+### Required fix
+
+After `spawnHelper`, discard the helper if `suppressExit` or the claim is gone; do not emit `failed` over idle.
+
+### Acceptance
+
+- [x] Reconnect and respawn check `suppressExit` / claim before `sessions.set`.
+
+### Fix log
+
+- 2026-08-13 - `discardSpawnedHelper` after lost claim or Disconnect.
+
+---
+
+## REV-046 · Capture smoke uses reconnecting sessions
+
+| Field | Value |
+|-------|--------|
+| **Status** | verified |
+| **Severity** | P1 |
+| **Area** | backend |
+| **Reported by** | internal review |
+| **Owner** | unassigned |
+
+### Finding
+
+`probeHelperHealth` fetched any non-failed session, including `reconnecting`/`stale`, with no timeout, so another workspace's attach could fail `capture_failed`.
+
+### Required fix
+
+Smoke only `health === ok` + `starting`/`streaming`, 2 s abort; timeout skips smoke.
+
+### Acceptance
+
+- [x] Reconnecting sessions are not used for capture smoke.
+
+### Fix log
+
+- 2026-08-13 - live-only smoke + 2 s abort.
+
+---
+
+## REV-047 · Overlapping degrade respawns
+
+| Field | Value |
+|-------|--------|
+| **Status** | verified |
+| **Severity** | P1 |
+| **Area** | backend |
+| **Reported by** | internal review |
+| **Owner** | unassigned |
+
+### Finding
+
+Two panels both fired `webrtc_unusable`; overlapping `respawnHelperKeepingToken` could `--kill` the fallback helper.
+
+### Required fix
+
+Single-flight via `reconnecting`; set `transport`/`codec` before await; wait for the old pid to exit.
+
+### Acceptance
+
+- [x] Second degrade event while reconnecting is a no-op.
+
+### Fix log
+
+- 2026-08-13 - `reconnecting` gate + waitForPidExit on degrade respawn.
+
+---
+
+## REV-048 · Open in simulator queues Metro on the pane id
+
+| Field | Value |
+|-------|--------|
+| **Status** | verified |
+| **Severity** | P1 |
+| **Area** | frontend |
+| **Reported by** | internal review |
+| **Owner** | unassigned |
+
+### Finding
+
+`queuePaneInput` used `paneId` while Terminal consumes `sessionId`, and the pane was created before the worktree check.
+
+### Required fix
+
+Queue on `pane.sessionId` after a successful `metroCommand`; do not create a Metro tab on failure.
+
+### Acceptance
+
+- [x] `handleOpenProject` queues `created.pane.sessionId`.
+
+### Fix log
+
+- 2026-08-13 - create pane after `metroCommand`; queue the PTY session id.
+
+---
+
+## REV-049 · Handshake reap `--kill` can still hit the winner
+
+| Field | Value |
+|-------|--------|
+| **Status** | verified |
+| **Severity** | P1 |
+| **Area** | backend |
+| **Reported by** | internal review |
+| **Owner** | unassigned |
+
+### Finding
+
+`reapSpawnedHelper` snapped `owns` then awaited `--kill <udid>`, so a take-over that completed during that await was killed.
+
+### Required fix
+
+Reap only this spawn's port-guarded pids. Do not `--kill <udid>` from handshake failure.
+
+### Acceptance
+
+- [x] `reapSpawnedHelper` has no `helperCli(["--kill", ...)`.
+
+### Fix log
+
+- 2026-08-13 - handshake reap is SIGTERM of own pids only. Also re-read the control lease after `control.start()` before writing.
 
 
 

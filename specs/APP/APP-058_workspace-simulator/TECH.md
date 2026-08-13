@@ -257,6 +257,7 @@ A machine-wide claim table maps `simulatorId → { workspaceId, instanceId, desk
 | Second surface opens | attaches the existing `streamBaseUrl`; no probe, no spawn |
 | One surface closes/hides | stream continues |
 | All surfaces hidden | throttle via `stream-settings` (≤ 5 fps, ≤ 720 px) within 5 s |
+| A surface becomes visible again | restore native stream-settings (60 fps / 4096 px) |
 | All surfaces hidden ≥ **10 min** | kill helper, release claim, phase → `idle`; **simulator stays booted** |
 | More than **2** warm sessions | least-recently-visible session is killed |
 | Workspace closed / worktree deleted | kill helper, release claim; simulator stays booted |
