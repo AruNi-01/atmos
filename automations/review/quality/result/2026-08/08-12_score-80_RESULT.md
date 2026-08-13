@@ -125,5 +125,5 @@ Mobile 设计系统与 UI README 方向清晰，WorkspaceList 等有收缩；`Cr
 ## 11. 结果提交与推送
 
 - 修复分支：`grokbuild/quality-fix/2026-08-12`
-- 修复提交：（见 PR）
-- PR URL：（创建后回填）
+- 修复提交：`6662e9fdd`
+- PR URL：https://github.com/AruNi-01/atmos/pull/227
