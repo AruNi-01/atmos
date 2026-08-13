@@ -2339,12 +2339,12 @@ mod tests {
         DiskAnalyzerService::append_discovered_overview_entries(
             &mut entries,
             &[nested_wt.clone(), extra_wt.clone()],
-            &[(".cursor/projects".into(), cursor_sessions)],
+            &[("cursor".into(), cursor_sessions)],
         );
 
         let labels: Vec<_> = entries.iter().map(|e| e.label.as_str()).collect();
         assert!(labels.contains(&".atmos"));
-        assert!(labels.contains(&".cursor/projects"));
+        assert!(labels.contains(&"cursor"));
         assert!(
             entries
                 .iter()
@@ -2396,14 +2396,8 @@ mod tests {
             overview_part(".atmos", "/home/u/.atmos", 100, false, false),
         );
         parts.insert(
-            ".cursor/projects".into(),
-            overview_part(
-                ".cursor/projects",
-                "/home/u/.cursor/projects",
-                50,
-                false,
-                true,
-            ),
+            "cursor".into(),
+            overview_part("cursor", "/home/u/.cursor/projects", 50, false, true),
         );
         parts.insert(
             "feat".into(),
@@ -2425,7 +2419,7 @@ mod tests {
             "Atmos runtime stays at root: {names:?}"
         );
         assert!(
-            !names.contains(&".cursor/projects") && !names.contains(&"feat"),
+            !names.contains(&"cursor") && !names.contains(&"feat"),
             "agent/worktree tiles must nest under groups: {names:?}"
         );
 
@@ -2436,7 +2430,7 @@ mod tests {
             .expect("agent group");
         assert!(agent.is_agent_data);
         assert!(agent.children_loaded);
-        assert!(agent.children.iter().any(|c| c.name == ".cursor/projects"));
+        assert!(agent.children.iter().any(|c| c.name == "cursor"));
 
         let worktrees = tree
             .children

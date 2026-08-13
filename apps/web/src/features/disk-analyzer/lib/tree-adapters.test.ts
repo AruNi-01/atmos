@@ -13,6 +13,7 @@ import {
   getCleanupHintKey,
   isAtmosOverviewPath,
   isAtmosRuntimeDir,
+  localizeAgentSessionName,
   isAtmosSyntheticPath,
   isChildrenLoaded,
   layoutValue,
@@ -228,6 +229,34 @@ describe("disk analyzer tree adapters", () => {
     expect(getCleanupHintKey(".grok", 1024)).toBe("dot_grok");
     expect(getCleanupHintKey(".factory", 1024)).toBe("dot_factory");
     expect(getCleanupHintKey("acp-events", 1024)).toBe("acp_events");
+    expect(getCleanupHintKey("claude", 1024)).toBe("agent_session");
+    expect(getCleanupHintKey("cursorChats", 1024)).toBe("agent_session");
+  });
+
+  test("agent session labels are product names, not directories", () => {
+    const labels: Record<string, string> = {
+      claude: "Claude Code sessions",
+      opencode: "OpenCode sessions",
+    };
+    const lookup = (key: string) => labels[key];
+    expect(localizeAgentSessionName("claude", lookup)).toBe("Claude Code sessions");
+    expect(localizeAgentSessionName("opencode (1)", lookup)).toBe("OpenCode sessions (1)");
+    expect(localizeAgentSessionName(".claude/projects", lookup)).toBe(".claude/projects");
+    const chart = toEChartsTree(
+      {
+        name: "claude",
+        path: "/home/u/.claude/projects",
+        size: 50,
+        is_dir: true,
+        is_project: false,
+        is_agent_data: true,
+        file_count: 1,
+        dir_count: 0,
+      },
+      50,
+      { maxDepth: 1, localizeName: (name) => localizeAgentSessionName(name, lookup) },
+    );
+    expect(chart.name).toBe("Claude Code sessions");
   });
 
   test("bytes-eased keeps larger folders larger among siblings", () => {

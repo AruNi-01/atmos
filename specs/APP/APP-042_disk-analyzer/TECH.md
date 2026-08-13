@@ -113,7 +113,7 @@ Project / worktree / agent marking:
   1. Measure Atmos entries + agent session dirs (`exists()` only).
   2. Then `GitEngine::discover_linked_worktrees` (home walk + seed `~/.cursor/worktrees` / `~/.codex/worktrees` / `~/.grok/worktrees`) and append uncovered worktrees.
 - Drill-in / scan-all badge linked worktrees from a `.git` **file** on the path (no extra home walk). `discover_linked_worktrees_fast` only walks known agent worktree dirs when marks are not already on the session.
-- Collect existing **session** directories (`agent_data_roots`) when the path `exists()`. Skill scan looks at in-repo `.agent/skills`; session stores are home / XDG paths. Do **not** measure whole agent homes or IDE Application Support.
+- Collect existing **session** directories (`agent_data_roots`) when the path `exists()`. The first tuple field is a stable **i18n key** (`claude`, `cursor`, `grok`, …), not a filesystem path. Web copy is `DiskAnalyzer.agentSessionNames.*` (e.g. “Claude Code sessions”). Skill scan looks at in-repo `.agent/skills`; session stores are home / XDG paths. Do **not** measure whole agent homes or IDE Application Support.
 
   Covered session roots (env overrides in parentheses):
 

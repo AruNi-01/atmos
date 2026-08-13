@@ -1493,69 +1493,42 @@ const CLEANUP_HINTS: &[(&str, &str)] = &[
     (".vscode-test", "VS Code extension test host"),
     (".history", "Local History IDE plugin data"),
     // ── Code agent homes / sessions (often multi‑GB) ───────────────
-    (
-        ".claude",
-        "Claude Code home (sessions live under projects/)",
-    ),
-    (
-        ".cursor",
-        "Cursor home (sessions under projects/; worktrees scanned separately)",
-    ),
-    (
-        ".codex",
-        "Codex home (sessions under sessions/; worktrees scanned separately)",
-    ),
-    (
-        ".copilot",
-        "GitHub Copilot CLI home (sessions under session-state/)",
-    ),
-    (".gemini", "Gemini CLI home (sessions under tmp/)"),
-    (".kimi-code", "Kimi Code data"),
-    (".continue", "Continue home (sessions under sessions/)"),
-    (".codeium", "Codeium / Windsurf data"),
-    (".windsurf", "Windsurf agent data"),
-    (".aider", "Aider session data"),
-    (
-        ".grok",
-        "Grok Build home (sessions under sessions/; worktrees scanned separately)",
-    ),
-    (".factory", "Factory Droid home (sessions under sessions/)"),
-    (
-        ".opencode",
-        "OpenCode project dir (sessions live under XDG data, not this folder)",
-    ),
-    (".devin", "Devin home (CLI sessions live under XDG data)"),
-    (".kimi", "Kimi CLI home (sessions under sessions/)"),
-    (".openclaw", "OpenClaw home (sessions under agents/)"),
-    (".hermes", "Hermes home (sessions under sessions/)"),
-    (
-        ".openhands",
-        "OpenHands home (sessions under conversations/)",
-    ),
-    (".crush", "Crush session store"),
-    (".mux", "Mux home (sessions under sessions/)"),
-    (".junie", "Junie home (sessions under sessions/)"),
-    (
-        ".commandcode",
-        "Command Code home (sessions under projects/)",
-    ),
-    (".codebuddy", "CodeBuddy home (sessions under projects/)"),
-    (".augment", "Augment home (sessions under sessions/)"),
-    (".vibe", "Vibe home (sessions under logs/session/)"),
-    (".omp", "Oh My Pi home (sessions under agent/sessions/)"),
-    (".cline", "Cline home (sessions under data/sessions/)"),
-    (".pi", "Pi home (sessions under agent/sessions/)"),
-    (".qwen", "Qwen CLI home (sessions under tmp/)"),
-    (".kiro", "Kiro home (sessions under sessions/)"),
-    (".goose", "Goose home (sessions under sessions/)"),
-    ("session-state", "GitHub Copilot CLI session transcripts"),
-    (
-        "history-session-state",
-        "GitHub Copilot CLI history session transcripts",
-    ),
-    ("archived_sessions", "Codex archived session transcripts"),
-    ("acp-events", "Devin Desktop ACP session events"),
-    ("cascade", "Windsurf Cascade session transcripts"),
+    (".claude", "Claude Code session files"),
+    (".cursor", "Cursor session files"),
+    (".codex", "Codex session files"),
+    (".copilot", "Copilot CLI session files"),
+    (".gemini", "Gemini CLI session files"),
+    (".kimi-code", "Kimi Code session files"),
+    (".continue", "Continue session files"),
+    (".codeium", "Windsurf Cascade session files"),
+    (".windsurf", "Windsurf session files"),
+    (".aider", "Aider session files"),
+    (".grok", "Grok Build session files"),
+    (".factory", "Droid session files"),
+    (".opencode", "OpenCode session files"),
+    (".devin", "Devin session files"),
+    (".kimi", "Kimi session files"),
+    (".openclaw", "OpenClaw session files"),
+    (".hermes", "Hermes session files"),
+    (".openhands", "OpenHands session files"),
+    (".crush", "Crush session files"),
+    (".mux", "Mux session files"),
+    (".junie", "Junie session files"),
+    (".commandcode", "Command Code session files"),
+    (".codebuddy", "CodeBuddy session files"),
+    (".augment", "Augment session files"),
+    (".vibe", "Vibe session files"),
+    (".omp", "Oh My Pi session files"),
+    (".cline", "Cline session files"),
+    (".pi", "Pi session files"),
+    (".qwen", "Qwen session files"),
+    (".kiro", "Kiro session files"),
+    (".goose", "Goose session files"),
+    ("session-state", "Copilot CLI session files"),
+    ("history-session-state", "Copilot CLI session files"),
+    ("archived_sessions", "Codex session files"),
+    ("acp-events", "Devin session files"),
+    ("cascade", "Windsurf Cascade session files"),
 ];
 
 fn env_home_dir(var: &str, fallback: PathBuf) -> PathBuf {
@@ -1588,15 +1561,6 @@ fn xdg_dir_candidates(home: &Path, env_var: &str, relative: &[&str]) -> Vec<Path
     dirs
 }
 
-fn session_label(home: &Path, path: &Path, fallback: &str) -> String {
-    path.strip_prefix(home)
-        .ok()
-        .and_then(|rel| rel.to_str())
-        .filter(|s| !s.is_empty())
-        .map(|s| s.replace('\\', "/"))
-        .unwrap_or_else(|| fallback.to_string())
-}
-
 /// Session / transcript directories for mainstream code agents (existing only).
 ///
 /// Does **not** include the whole agent home (`~/.cursor`, `~/.claude`, …) or
@@ -1614,56 +1578,48 @@ pub fn agent_data_roots(home: &Path) -> Vec<(String, PathBuf)> {
     let mut seen = HashSet::new();
     let xdg_data_dirs = xdg_dir_candidates(home, "XDG_DATA_HOME", &[".local", "share"]);
     let xdg_config_dirs = xdg_dir_candidates(home, "XDG_CONFIG_HOME", &[".config"]);
-    let mut push = |fallback: &str, path: PathBuf| {
+    // First field is a stable i18n key (`DiskAnalyzer.agentSessionNames.*`), not a path.
+    let mut push = |key: &str, path: PathBuf| {
         if path.is_dir() && seen.insert(path.clone()) {
-            out.push((session_label(home, &path, fallback), path));
+            out.push((key.to_string(), path));
         }
     };
 
     // Claude Code: ~/.claude/projects/<encoded-cwd>/*.jsonl
     let claude_home = env_home_dir("CLAUDE_CONFIG_DIR", home.join(".claude"));
-    push(".claude/projects", claude_home.join("projects"));
+    push("claude", claude_home.join("projects"));
 
     // Cursor: agent transcripts + composer chat DBs. Worktrees are not sessions.
-    push(".cursor/projects", home.join(".cursor").join("projects"));
-    push(".cursor/chats", home.join(".cursor").join("chats"));
+    push("cursor", home.join(".cursor").join("projects"));
+    push("cursorChats", home.join(".cursor").join("chats"));
 
     // Codex CLI / app: $CODEX_HOME/sessions (+ archived / headless). Worktrees separate.
     let codex_home = env_home_dir("CODEX_HOME", home.join(".codex"));
-    push(".codex/sessions", codex_home.join("sessions"));
-    push(
-        ".codex/archived_sessions",
-        codex_home.join("archived_sessions"),
-    );
-    push(".codex/headless", codex_home.join("headless"));
+    push("codex", codex_home.join("sessions"));
+    push("codexArchived", codex_home.join("archived_sessions"));
+    push("codexHeadless", codex_home.join("headless"));
 
     // GitHub Copilot CLI: ~/.copilot/session-state/<id>/
     let copilot_home = env_home_dir("COPILOT_HOME", home.join(".copilot"));
-    push(".copilot/session-state", copilot_home.join("session-state"));
-    push(
-        ".copilot/history-session-state",
-        copilot_home.join("history-session-state"),
-    );
+    push("copilot", copilot_home.join("session-state"));
+    push("copilotHistory", copilot_home.join("history-session-state"));
 
     // Gemini CLI: ~/.gemini/tmp/<project-hash>/chats/
-    push(".gemini/tmp", home.join(".gemini").join("tmp"));
+    push("gemini", home.join(".gemini").join("tmp"));
     // Antigravity CLI (agy) conversations sit next to Gemini, not in ~/.gemini/tmp.
     push(
-        ".gemini/antigravity-cli/conversations",
+        "antigravity",
         home.join(".gemini")
             .join("antigravity-cli")
             .join("conversations"),
     );
 
     // Continue: ~/.continue/sessions/<uuid>.json
-    push(
-        ".continue/sessions",
-        home.join(".continue").join("sessions"),
-    );
+    push("continue", home.join(".continue").join("sessions"));
 
     // Grok Build: $GROK_HOME/sessions (default ~/.grok/sessions). Worktrees separate.
     let grok_home = env_home_dir("GROK_HOME", home.join(".grok"));
-    push(".grok/sessions", grok_home.join("sessions"));
+    push("grok", grok_home.join("sessions"));
 
     // OpenCode: XDG data SQLite (`opencode.db`); macOS also uses Application Support.
     // Do not scan ~/.opencode — that is the in-repo / config skills tree.
@@ -1671,7 +1627,7 @@ pub fn agent_data_roots(home: &Path) -> Vec<(String, PathBuf)> {
         push("opencode", data.join("opencode"));
     }
     push(
-        "Library/Application Support/opencode",
+        "opencode",
         home.join("Library")
             .join("Application Support")
             .join("opencode"),
@@ -1680,10 +1636,10 @@ pub fn agent_data_roots(home: &Path) -> Vec<(String, PathBuf)> {
     // Devin CLI: ~/.local/share/devin/cli (`sessions.db`). Desktop ACP events are separate.
     // ~/.devin/plans are plan files, not the session store — skip the whole ~/.devin home.
     for data in &xdg_data_dirs {
-        push("devin/cli", data.join("devin").join("cli"));
+        push("devin", data.join("devin").join("cli"));
     }
     push(
-        "Library/Application Support/Devin/User/acp-events",
+        "devinAcp",
         home.join("Library")
             .join("Application Support")
             .join("Devin")
@@ -1692,110 +1648,89 @@ pub fn agent_data_roots(home: &Path) -> Vec<(String, PathBuf)> {
     );
     for config in &xdg_config_dirs {
         push(
-            "Devin/User/acp-events",
+            "devinAcp",
             config.join("Devin").join("User").join("acp-events"),
         );
     }
 
     // Amp: ~/.local/share/amp/threads
     for data in &xdg_data_dirs {
-        push("amp/threads", data.join("amp").join("threads"));
+        push("amp", data.join("amp").join("threads"));
     }
 
     // Factory Droid: ~/.factory/sessions
-    push(".factory/sessions", home.join(".factory").join("sessions"));
+    push("droid", home.join(".factory").join("sessions"));
 
     // Pi / Oh My Pi
     let pi_home = env_home_dir("PI_CODING_AGENT_DIR", home.join(".pi").join("agent"));
-    push(".pi/agent/sessions", pi_home.join("sessions"));
-    push(
-        ".omp/agent/sessions",
-        home.join(".omp").join("agent").join("sessions"),
-    );
+    push("pi", pi_home.join("sessions"));
+    push("omp", home.join(".omp").join("agent").join("sessions"));
 
     // Kimi CLI + Kimi Code
     let kimi_share = env_home_dir("KIMI_SHARE_DIR", home.join(".kimi"));
-    push(".kimi/sessions", kimi_share.join("sessions"));
+    push("kimi", kimi_share.join("sessions"));
     let kimi_code = env_home_dir("KIMI_CODE_HOME", home.join(".kimi-code"));
-    push(".kimi-code/sessions", kimi_code.join("sessions"));
+    push("kimiCode", kimi_code.join("sessions"));
 
     // Qwen CLI (Gemini-like tmp + optional projects transcripts)
-    push(".qwen/tmp", home.join(".qwen").join("tmp"));
-    push(".qwen/projects", home.join(".qwen").join("projects"));
+    push("qwen", home.join(".qwen").join("tmp"));
+    push("qwenProjects", home.join(".qwen").join("projects"));
 
     // Cline CLI: $CLINE_SESSION_DATA_DIR or ~/.cline/data/sessions
     let cline_dir = env_home_dir("CLINE_DIR", home.join(".cline"));
     let cline_data = env_home_dir("CLINE_DATA_DIR", cline_dir.join("data"));
     let cline_sessions = env_home_dir("CLINE_SESSION_DATA_DIR", cline_data.join("sessions"));
-    push(".cline/data/sessions", cline_sessions);
+    push("cline", cline_sessions);
 
     // Goose
     for config in &xdg_config_dirs {
-        push(
-            ".config/goose/sessions",
-            config.join("goose").join("sessions"),
-        );
+        push("goose", config.join("goose").join("sessions"));
     }
     for data in &xdg_data_dirs {
-        push(
-            ".local/share/goose/sessions",
-            data.join("goose").join("sessions"),
-        );
+        push("goose", data.join("goose").join("sessions"));
     }
     if let Some(root) = extra_env_dir("GOOSE_PATH_ROOT") {
-        push("goose/sessions", root.join("sessions"));
+        push("goose", root.join("sessions"));
     }
 
     // Crush: crush.db lives in ~/.crush or XDG data (not in-repo .crush/skills).
     // Only measure the home when the session DB is present; otherwise sessions/.
     let crush_home = home.join(".crush");
     if crush_home.join("crush.db").is_file() {
-        push(".crush", crush_home);
+        push("crush", crush_home);
     } else {
-        push(".crush/sessions", crush_home.join("sessions"));
+        push("crush", crush_home.join("sessions"));
     }
     for data in &xdg_data_dirs {
         let crush_xdg = data.join("crush");
         if crush_xdg.join("crush.db").is_file() {
             push("crush", crush_xdg);
         } else {
-            push("crush/sessions", crush_xdg.join("sessions"));
+            push("crush", crush_xdg.join("sessions"));
         }
     }
 
     // Hermes: measure sessions/ only — ~/.hermes also holds skills/config.
     let hermes_home = env_home_dir("HERMES_HOME", home.join(".hermes"));
-    push(".hermes/sessions", hermes_home.join("sessions"));
+    push("hermes", hermes_home.join("sessions"));
 
     // OpenClaw / OpenHands / Mux / Junie / Command Code / CodeBuddy / Augment / Vibe / Kiro
-    push(".openclaw/agents", home.join(".openclaw").join("agents"));
-    push(
-        ".openhands/conversations",
-        home.join(".openhands").join("conversations"),
-    );
-    push(".mux/sessions", home.join(".mux").join("sessions"));
-    push(".junie/sessions", home.join(".junie").join("sessions"));
-    push(
-        ".commandcode/projects",
-        home.join(".commandcode").join("projects"),
-    );
-    push(
-        ".codebuddy/projects",
-        home.join(".codebuddy").join("projects"),
-    );
-    push(".augment/sessions", home.join(".augment").join("sessions"));
-    push(
-        ".vibe/logs/session",
-        home.join(".vibe").join("logs").join("session"),
-    );
-    push(".kiro/sessions", home.join(".kiro").join("sessions"));
+    push("openclaw", home.join(".openclaw").join("agents"));
+    push("openhands", home.join(".openhands").join("conversations"));
+    push("mux", home.join(".mux").join("sessions"));
+    push("junie", home.join(".junie").join("sessions"));
+    push("commandcode", home.join(".commandcode").join("projects"));
+    push("codebuddy", home.join(".codebuddy").join("projects"));
+    push("augment", home.join(".augment").join("sessions"));
+    push("vibe", home.join(".vibe").join("logs").join("session"));
+    push("kiro", home.join(".kiro").join("sessions"));
     for data in &xdg_data_dirs {
-        push("kiro-cli", data.join("kiro-cli"));
+        push("kiroCli", data.join("kiro-cli"));
     }
 
     // Windsurf Cascade transcripts (not the whole ~/.codeium or IDE Application Support).
     push(
-        ".codeium/windsurf/cascade",
+        "windsurf",
         home.join(".codeium").join("windsurf").join("cascade"),
     );
 
@@ -2391,14 +2326,14 @@ mod tests {
             .filter(|(_, p)| p.starts_with(&root))
             .collect();
         let names: Vec<_> = found.iter().map(|(n, _)| n.as_str()).collect();
-        assert!(names.contains(&".cursor/projects"));
-        assert!(names.contains(&".claude/projects"));
-        assert!(names.contains(&".grok/sessions"));
-        assert!(names.contains(&".factory/sessions"));
-        assert!(names.contains(&".local/share/opencode"));
-        assert!(names.contains(&".local/share/devin/cli"));
-        assert!(names.contains(&".local/share/amp/threads"));
-        assert!(names.contains(&".pi/agent/sessions"));
+        assert!(names.contains(&"cursor"));
+        assert!(names.contains(&"claude"));
+        assert!(names.contains(&"grok"));
+        assert!(names.contains(&"droid"));
+        assert!(names.contains(&"opencode"));
+        assert!(names.contains(&"devin"));
+        assert!(names.contains(&"amp"));
+        assert!(names.contains(&"pi"));
         assert!(!names.iter().any(|n| [
             ".cursor",
             ".claude",
@@ -2410,6 +2345,6 @@ mod tests {
             ".devin"
         ]
         .contains(n)));
-        assert!(!names.contains(&".codex/sessions"));
+        assert!(!names.contains(&"codex"));
     }
 }

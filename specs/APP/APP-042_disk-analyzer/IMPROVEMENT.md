@@ -11,7 +11,7 @@
 | Rule | Detail |
 |------|--------|
 | **When to add** | After fixing a user-reported bug, reliability issue, quality regression, agent ergonomics gap, or deliberate product parity gap. |
-| **Entry id** | `IMP-NNN` — zero-padded, monotonic in this file (next: **IMP-005**). |
+| **Entry id** | `IMP-NNN` — zero-padded, monotonic in this file (next: **IMP-006**). |
 | **Status** | `open` → `mitigated` → `closed` (or `wont-fix` with reason). |
 | **Do not** | Duplicate full TECH sections; link to TECH/PRD and paste only deltas. |
 | **Versions** | If agent-facing behavior changes, note the relevant Skill / CLI / runtime version in the entry. |
@@ -26,6 +26,7 @@
 | IMP-002 | Overview first paint + grouping for worktrees / agent data | mitigated | 2026-08-13 |
 | IMP-003 | Measure agent sessions only, not whole agent homes | mitigated | 2026-08-13 |
 | IMP-004 | Cover Grok / OpenCode / Devin and other skill-listed agent session stores | mitigated | 2026-08-13 |
+| IMP-005 | C-end agent session labels hide directories | mitigated | 2026-08-13 |
 
 ---
 
@@ -182,5 +183,36 @@ Installed Grok / OpenCode / Devin / Amp / Factory / … session dirs show under 
 - `crates/core-engine/src/disk_analyzer/mod.rs`
 - `crates/core-engine/src/git/worktrees.rs`
 - `apps/web/src/features/disk-analyzer/lib/tree-adapters.ts`
+- `apps/web/messages/en.json`, `apps/web/messages/zh.json`
+- [TECH.md](./TECH.md), [TEST.md](./TEST.md)
+
+---
+
+## IMP-005 · C-end agent session labels hide directories
+
+| Field | Value |
+|-------|--------|
+| **Date** | 2026-08-13 |
+| **Status** | mitigated |
+| **Reported by** | user |
+| **Severity** | ergonomics |
+
+### Problem
+
+Overview tiles used filesystem paths as names (`.claude/projects`, `.local/share/opencode`). Cleanup hints also mentioned `sessions/` / `projects/` subdirs. That is developer layout, not C-end copy.
+
+### Solution
+
+`agent_data_roots` labels are stable keys (`claude`, `cursor`, `grok`, …). Web maps them through `DiskAnalyzer.agentSessionNames.*` to “Claude Code sessions” / “Claude Code 会话”. Chart, list, breadcrumbs, and tooltips use that name; agent-data hover omits the raw path. Cleanup hints say “session files” without directories.
+
+### Result
+
+Users see which agent’s session files a tile is, not where it lives on disk. Details still expose the real path for delete/inspect.
+
+### Code / docs touched
+
+- `crates/core-engine/src/disk_analyzer/mod.rs`
+- `crates/core-service/src/service/disk_analyzer.rs`
+- `apps/web/src/features/disk-analyzer/`
 - `apps/web/messages/en.json`, `apps/web/messages/zh.json`
 - [TECH.md](./TECH.md), [TEST.md](./TEST.md)

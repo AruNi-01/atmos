@@ -93,6 +93,7 @@ type Props = {
   agentDataLabel: string;
   runtimeLabel: string;
   otherLabel?: string;
+  localizeName?: (name: string) => string;
   enterDirectoryLabel: string;
   deleteLabel: string;
   onSelectPath: (path: string) => void;
@@ -112,6 +113,7 @@ export function DiskUsageChart({
   agentDataLabel,
   runtimeLabel,
   otherLabel = "Other",
+  localizeName,
   enterDirectoryLabel,
   deleteLabel,
   onSelectPath,
@@ -225,6 +227,7 @@ export function DiskUsageChart({
         toEChartsTree(node, chartRootSize, {
           maxDepth: 1,
           otherLabel,
+          localizeName,
           valueMode: "hierarchical",
         }),
       ];
@@ -236,13 +239,14 @@ export function DiskUsageChart({
         {
           maxDepth: SUNBURST_CHART_DEPTH,
           otherLabel,
+          localizeName,
           valueMode: "hierarchical",
         },
         0,
         i,
       ),
     );
-  }, [node, chartRootSize, orderedChildren, otherLabel]);
+  }, [node, chartRootSize, orderedChildren, otherLabel, localizeName]);
 
   /**
    * Treemap leafDepth=1 only paints the first ring. Override first-level `value`
@@ -278,9 +282,10 @@ export function DiskUsageChart({
       const share = Math.min(100, (size / denom) * 100).toFixed(1);
       const name = escapeHtml(p.name ?? "");
       const fullPath = p.data.path ?? "";
-      const path = isAtmosSyntheticPath(fullPath)
-        ? ""
-        : escapeHtml(middleEllipsisPath(fullPath));
+      const path =
+        isAtmosSyntheticPath(fullPath) || p.data?.isAgentData
+          ? ""
+          : escapeHtml(middleEllipsisPath(fullPath));
       const kindChip = kindChipHtml(p.data, {
         projectLabel,
         workspaceLabel,

@@ -119,7 +119,7 @@
 - **Given** a fixture with a main git checkout plus a linked worktree, and an existing `.cursor` (or `.claude`) directory
 - **When** the default disk analyzer scan / classify runs
 - **Then** the linked worktree is discovered (main checkout is not listed as linked); uncovered worktrees and agent **session** dirs become overview tiles or badges; default overview nests them under Agent data / Git worktrees groups; whole agent homes are not measured; Grok/OpenCode/Devin/Amp/Factory session dirs are included when they exist; `is_git_worktree` / `is_agent_data` are exclusive of Atmos workspace; agent basenames have cleanup hints
-- **Signals**: `discover_linked_worktrees_finds_extra_checkout_not_main`; `discover_linked_worktrees_fast_skips_home_and_hits_agent_dirs`; `extra_worktree_search_roots_includes_grok`; `scan_marks_gitdir_file_as_worktree_without_roots`; `agent_data_roots_only_existing_dirs`; `assemble_overview_groups_agent_and_worktree_entries`; `append_discovered_skips_covered_paths_and_labels_worktrees`; bun adapter flags + synthetic group delete guard + `dot_cursor` / `dot_grok` hint keys
+- **Signals**: `discover_linked_worktrees_finds_extra_checkout_not_main`; `discover_linked_worktrees_fast_skips_home_and_hits_agent_dirs`; `extra_worktree_search_roots_includes_grok`; `scan_marks_gitdir_file_as_worktree_without_roots`; `agent_data_roots_only_existing_dirs`; `assemble_overview_groups_agent_and_worktree_entries`; `append_discovered_skips_covered_paths_and_labels_worktrees`; bun adapter flags + synthetic group delete guard + `dot_cursor` / `dot_grok` hint keys + `localizeAgentSessionName`
 
 ## Exploratory agent-browser checks
 

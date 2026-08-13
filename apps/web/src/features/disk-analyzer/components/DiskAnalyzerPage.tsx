@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import {
   Button,
@@ -48,11 +48,19 @@ import {
   isAtmosOverviewPath,
   isAtmosRuntimeDir,
   localizedSyntheticName,
+  localizeAgentSessionName,
   TOP_N_OPTIONS,
 } from "@/features/disk-analyzer/lib/tree-adapters";
 
 export function DiskAnalyzerPage() {
   const t = useTranslations("DiskAnalyzer");
+  const sessionName = useCallback(
+    (name: string) =>
+      localizeAgentSessionName(name, (key) =>
+        t.has(`agentSessionNames.${key}`) ? t(`agentSessionNames.${key}`) : undefined,
+      ),
+    [t],
+  );
   const analyzer = useDiskAnalyzer();
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [listDeletePath, setListDeletePath] = useState<string | null>(null);
@@ -270,7 +278,7 @@ export function DiskAnalyzerPage() {
                             agentData: t("agentData"),
                             gitWorktrees: t("gitWorktrees"),
                           }) ??
-                          (crumb.name === "__other__" ? t("other") : crumb.name))}
+                          (crumb.name === "__other__" ? t("other") : sessionName(crumb.name))}
                     </button>
                   </React.Fragment>
                 ))
@@ -366,6 +374,7 @@ export function DiskAnalyzerPage() {
                   agentDataLabel={t("agentData")}
                   runtimeLabel={t("atmosRuntimeDir")}
                   otherLabel={t("other")}
+                  localizeName={sessionName}
                   enterDirectoryLabel={t("enterDirectory")}
                   deleteLabel={t("delete")}
                   onSelectPath={analyzer.setSelectedPath}
@@ -431,6 +440,7 @@ export function DiskAnalyzerPage() {
                           t("other"),
                           t("agentData"),
                           t("gitWorktrees"),
+                          sessionName,
                         )}
                       </div>
                       <NodeKindBadge
@@ -565,6 +575,7 @@ export function DiskAnalyzerPage() {
                                   t("other"),
                                   t("agentData"),
                                   t("gitWorktrees"),
+                                  sessionName,
                                 )}
                               </span>
                               <NodeKindBadge
@@ -894,6 +905,7 @@ function displayNodeName(
   otherLabel: string,
   agentDataLabel: string,
   gitWorktreesLabel: string,
+  localizeName?: (name: string) => string,
 ): string {
   if (node.name === "__other__") return otherLabel;
   const synthetic = localizedSyntheticName(node.path, {
@@ -915,7 +927,7 @@ function displayNodeName(
   if (scanPath && node.path === scanPath) {
     return isAtmosOverviewPath(scanPath) ? atmosLabel : homeLabel;
   }
-  return node.name;
+  return localizeName?.(node.name) ?? node.name;
 }
 
 /** Show `~` / Atmos / group names for synthetic roots; otherwise the real absolute path. */

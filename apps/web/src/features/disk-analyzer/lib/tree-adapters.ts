@@ -47,6 +47,66 @@ export function localizedSyntheticName(
   return null;
 }
 
+/** Stable keys from `agent_data_roots` — UI shows agent session names, never paths. */
+export const AGENT_SESSION_NAME_KEYS = new Set([
+  "claude",
+  "cursor",
+  "cursorChats",
+  "codex",
+  "codexArchived",
+  "codexHeadless",
+  "copilot",
+  "copilotHistory",
+  "gemini",
+  "antigravity",
+  "continue",
+  "grok",
+  "opencode",
+  "devin",
+  "devinAcp",
+  "amp",
+  "droid",
+  "pi",
+  "omp",
+  "kimi",
+  "kimiCode",
+  "qwen",
+  "qwenProjects",
+  "cline",
+  "goose",
+  "crush",
+  "hermes",
+  "openclaw",
+  "openhands",
+  "mux",
+  "junie",
+  "commandcode",
+  "codebuddy",
+  "augment",
+  "vibe",
+  "kiro",
+  "kiroCli",
+  "windsurf",
+]);
+
+export function agentSessionNameBase(name: string): { base: string; suffix: string | null } {
+  const match = /^(.*) \((\d+)\)$/.exec(name);
+  if (match) return { base: match[1], suffix: match[2] };
+  return { base: name, suffix: null };
+}
+
+/** Map a backend session key (`claude`, `cursor (1)`) to C-end copy. */
+export function localizeAgentSessionName(
+  name: string,
+  lookup: (key: string) => string | undefined,
+): string {
+  const { base, suffix } = agentSessionNameBase(name);
+  if (!AGENT_SESSION_NAME_KEYS.has(base)) return name;
+  const label = lookup(base);
+  if (!label) return name;
+  return suffix ? `${label} (${suffix})` : label;
+}
+
 /** Synthetic overview/group URIs and the scan root itself cannot be deleted. */
 export function canDeleteDiskPath(
   path: string,
@@ -405,42 +465,42 @@ const CLEANUP_HINTS: Record<string, string> = {
   ".vuepress": "VuePress cache/dist",
   ".vscode-test": "VS Code extension test host",
   ".history": "Local History IDE plugin data",
-    ".claude": "Claude Code home (sessions live under projects/)",
-  ".cursor": "Cursor home (sessions under projects/; worktrees scanned separately)",
-  ".codex": "Codex home (sessions under sessions/; worktrees scanned separately)",
-  ".copilot": "GitHub Copilot CLI home (sessions under session-state/)",
-  ".gemini": "Gemini CLI home (sessions under tmp/)",
-  ".kimi-code": "Kimi Code data",
-  ".continue": "Continue home (sessions under sessions/)",
-  ".codeium": "Codeium / Windsurf data",
-  ".windsurf": "Windsurf agent data",
-  ".aider": "Aider session data",
-  ".grok": "Grok Build home (sessions under sessions/; worktrees scanned separately)",
-  ".factory": "Factory Droid home (sessions under sessions/)",
-  ".opencode": "OpenCode project dir (sessions live under XDG data, not this folder)",
-  ".devin": "Devin home (CLI sessions live under XDG data)",
-  ".kimi": "Kimi CLI home (sessions under sessions/)",
-  ".openclaw": "OpenClaw home (sessions under agents/)",
-  ".hermes": "Hermes home (sessions under sessions/)",
-  ".openhands": "OpenHands home (sessions under conversations/)",
-  ".crush": "Crush session store",
-  ".mux": "Mux home (sessions under sessions/)",
-  ".junie": "Junie home (sessions under sessions/)",
-  ".commandcode": "Command Code home (sessions under projects/)",
-  ".codebuddy": "CodeBuddy home (sessions under projects/)",
-  ".augment": "Augment home (sessions under sessions/)",
-  ".vibe": "Vibe home (sessions under logs/session/)",
-  ".omp": "Oh My Pi home (sessions under agent/sessions/)",
-  ".cline": "Cline home (sessions under data/sessions/)",
-  ".pi": "Pi home (sessions under agent/sessions/)",
-  ".qwen": "Qwen CLI home (sessions under tmp/)",
-  ".kiro": "Kiro home (sessions under sessions/)",
-  ".goose": "Goose home (sessions under sessions/)",
-  "session-state": "GitHub Copilot CLI session transcripts",
-  "history-session-state": "GitHub Copilot CLI history session transcripts",
-  "archived_sessions": "Codex archived session transcripts",
-  "acp-events": "Devin Desktop ACP session events",
-  cascade: "Windsurf Cascade session transcripts",
+    ".claude": "Claude Code session files",
+    ".cursor": "Cursor session files",
+    ".codex": "Codex session files",
+    ".copilot": "Copilot CLI session files",
+    ".gemini": "Gemini CLI session files",
+    ".kimi-code": "Kimi Code session files",
+    ".continue": "Continue session files",
+    ".codeium": "Windsurf Cascade session files",
+    ".windsurf": "Windsurf session files",
+    ".aider": "Aider session files",
+    ".grok": "Grok Build session files",
+    ".factory": "Droid session files",
+    ".opencode": "OpenCode session files",
+    ".devin": "Devin session files",
+    ".kimi": "Kimi session files",
+    ".openclaw": "OpenClaw session files",
+    ".hermes": "Hermes session files",
+    ".openhands": "OpenHands session files",
+    ".crush": "Crush session files",
+    ".mux": "Mux session files",
+    ".junie": "Junie session files",
+    ".commandcode": "Command Code session files",
+    ".codebuddy": "CodeBuddy session files",
+    ".augment": "Augment session files",
+    ".vibe": "Vibe session files",
+    ".omp": "Oh My Pi session files",
+    ".cline": "Cline session files",
+    ".pi": "Pi session files",
+    ".qwen": "Qwen session files",
+    ".kiro": "Kiro session files",
+    ".goose": "Goose session files",
+    "session-state": "Copilot CLI session files",
+    "history-session-state": "Copilot CLI session files",
+    "archived_sessions": "Codex session files",
+    "acp-events": "Devin session files",
+    cascade: "Windsurf Cascade session files",
 };
 
 /**
@@ -471,6 +531,8 @@ export function cleanupHintMessageKey(basename: string): string {
  */
 export function getCleanupHintKey(name: string, size: number): string | undefined {
   if (size <= 0) return undefined;
+  const { base } = agentSessionNameBase(name);
+  if (AGENT_SESSION_NAME_KEYS.has(base)) return "agent_session";
   const key = name.toLowerCase();
   if (CLEANUP_HINTS[key]) return cleanupHintMessageKey(key);
   if (name.endsWith(".egg-info")) return "egg_info";
@@ -483,6 +545,10 @@ export function getCleanupHintKey(name: string, size: number): string | undefine
  */
 export function getCleanupReason(name: string, size: number): string | undefined {
   if (size <= 0) return undefined;
+  const { base } = agentSessionNameBase(name);
+  if (AGENT_SESSION_NAME_KEYS.has(base)) {
+    return "Session files for this agent. Deleting them removes chat history.";
+  }
   const key = name.toLowerCase();
   if (CLEANUP_HINTS[key]) return CLEANUP_HINTS[key];
   if (name.endsWith(".egg-info")) return "Python package egg-info (rebuildable)";
@@ -566,6 +632,7 @@ export type ToEChartsTreeOptions = {
   otherLabel?: string;
   agentDataLabel?: string;
   gitWorktreesLabel?: string;
+  localizeName?: (name: string) => string;
   /**
    * How ECharts `value` (area / angle) is derived:
    * - `bytes-eased` (treemap): always layoutValue(real bytes) — **monotone in size**
@@ -630,7 +697,7 @@ export function toEChartsTree(
       ? (options.agentDataLabel ?? node.name)
       : node.path === GIT_WORKTREES_GROUP_PATH
         ? (options.gitWorktreesLabel ?? node.name)
-        : node.name;
+        : (options.localizeName?.(node.name) ?? node.name);
   const bytes = Math.max(node.size, 0);
 
   // At max depth, stop nesting — size still represents the whole subtree.
