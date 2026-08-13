@@ -96,6 +96,7 @@ export class SimulatorControlPlane {
     this.port = 0;
     this.controlToken = "";
     if (!server) return;
+    server.closeAllConnections?.();
     await new Promise<void>((resolve) => {
       server.close(() => resolve());
     });

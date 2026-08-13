@@ -411,7 +411,15 @@ export class SimulatorBridge {
     }
 
     this.emitStatus(workspaceId, "starting", chosen.id);
-    await this.bootIfNeeded(workspaceId, chosen.id);
+    try {
+      await this.bootIfNeeded(workspaceId, chosen.id);
+    } catch (error) {
+      this.writeClaims(releaseClaim(this.readClaims(), chosen.id, workspaceId, this.instanceId));
+      const message = error instanceof Error ? error.message : String(error);
+      const code =
+        error instanceof DesktopCommandError ? error.code : "capture_failed";
+      return this.failAttach(workspaceId, code, message);
+    }
     const hide = await hideSimulatorAppWindows();
     this.hooks.focusApp?.();
     if (!hide.hidden && hide.needsAutomation) {
@@ -576,17 +584,34 @@ export class SimulatorBridge {
     const claims = this.readClaims();
     const taken = takeOverClaim(claims, simulatorId, this.newClaim(workspaceId));
     this.writeClaims(taken.table);
-    if (taken.previous && taken.previous.instanceId !== this.instanceId) {
-      await this.killSession(taken.previous.workspaceId, { shutdownSimulator: false });
-      await this.killClaimedHelper(simulatorId, taken.previous);
-      const auditPath = auditLogPath(this.env);
-      ensureDir(dirname(auditPath));
-      appendFileSync(
-        auditPath,
-        `${new Date(this.now()).toISOString()} take-over simulator=${simulatorId} from=${taken.previous.workspaceId} to=${workspaceId}\n`,
+    if (taken.previous) {
+      const remote = taken.previous.instanceId !== this.instanceId;
+      const otherWorkspace = taken.previous.workspaceId !== workspaceId;
+      if (otherWorkspace) {
+        await this.killSession(taken.previous.workspaceId, { shutdownSimulator: false });
+      }
+      if (remote) {
+        await this.killClaimedHelper(simulatorId, taken.previous);
+      }
+      if (remote || otherWorkspace) {
+        const auditPath = auditLogPath(this.env);
+        ensureDir(dirname(auditPath));
+        appendFileSync(
+          auditPath,
+          `${new Date(this.now()).toISOString()} take-over simulator=${simulatorId} from=${taken.previous.workspaceId} to=${workspaceId}\n`,
+        );
+      }
+    }
+    const view = await this.attach(workspaceId, simulatorId);
+    if (
+      (view.phase === "setup_required" || view.phase === "failed") &&
+      !this.sessions.has(workspaceId)
+    ) {
+      this.writeClaims(
+        releaseClaim(this.readClaims(), simulatorId, workspaceId, this.instanceId),
       );
     }
-    return this.attach(workspaceId, simulatorId);
+    return view;
   }
 
   async setupAction(action: string): Promise<{ ok: true }> {
@@ -692,8 +717,8 @@ export class SimulatorBridge {
       args?: Record<string, unknown>;
     };
     const op = req.op ?? "";
-    const workspaceId = this.resolveWorkspace(req.workspaceId, op);
     try {
+      const workspaceId = this.resolveWorkspace(req.workspaceId, op);
       switch (op) {
         case "list": {
           const probe = await this.probe(workspaceId || "cli", false);
@@ -915,12 +940,35 @@ export class SimulatorBridge {
       message: "Waiting for the simulator to boot",
     });
     const list = await this.runner("xcrun", ["simctl", "list", "-j"]);
-    if (simulatorNeedsBoot(list.stdout, simulatorId)) {
-      await this.runner("xcrun", ["simctl", "boot", simulatorId], { timeoutMs: 90_000 });
+    if (list.code !== 0) {
+      throw new DesktopCommandError(
+        "missing_simctl",
+        list.stderr.trim() || "simctl list failed",
+        "simulator_attach",
+      );
     }
-    await this.runner("xcrun", ["simctl", "bootstatus", simulatorId, "-b"], {
+    if (simulatorNeedsBoot(list.stdout, simulatorId)) {
+      const boot = await this.runner("xcrun", ["simctl", "boot", simulatorId], {
+        timeoutMs: 90_000,
+      });
+      if (boot.code !== 0 && !/already booted/i.test(boot.stderr)) {
+        throw new DesktopCommandError(
+          "capture_failed",
+          boot.stderr.trim() || "simctl boot failed",
+          "simulator_attach",
+        );
+      }
+    }
+    const status = await this.runner("xcrun", ["simctl", "bootstatus", simulatorId, "-b"], {
       timeoutMs: 90_000,
     });
+    if (status.code !== 0) {
+      throw new DesktopCommandError(
+        "capture_failed",
+        status.stderr.trim() || "Simulator did not reach Booted",
+        "simulator_attach",
+      );
+    }
   }
 
   private async spawnHelper(opts: {
@@ -980,7 +1028,6 @@ export class SimulatorBridge {
     }
     const record = parseHelperStateRecord(raw);
     const daemonPid = record.pid;
-    this.patchClaim(opts.simulatorId, { helperPid: daemonPid });
     const killSpawned = () => {
       for (const pid of [daemonPid, child.pid]) {
         if (!pid) continue;
@@ -994,11 +1041,20 @@ export class SimulatorBridge {
     try {
       assertLoopbackUrl(record.streamUrl);
       assertLoopbackUrl(record.wsUrl);
+      assertLoopbackUrl(record.streamSettingsUrl);
     } catch {
       killSpawned();
       throw new DesktopCommandError(
         "helper_bind_not_loopback",
         "Capture helper published a non-loopback URL",
+        "simulator_attach",
+      );
+    }
+    if (!this.stillOwnsClaim(opts.simulatorId, opts.workspaceId)) {
+      killSpawned();
+      throw new DesktopCommandError(
+        "simulator_in_use",
+        "Simulator was taken over during attach",
         "simulator_attach",
       );
     }
@@ -1008,6 +1064,9 @@ export class SimulatorBridge {
       killSpawned();
       throw error;
     }
+    this.patchClaim(opts.simulatorId, opts.workspaceId, { helperPid: daemonPid });
+    const sessionToken = newToken();
+    const proxyBase = `http://127.0.0.1:${this.control.getPort()}/s/${sessionToken}`;
     return {
       workspaceId: opts.workspaceId,
       runtimeKind: "ios",
@@ -1017,10 +1076,10 @@ export class SimulatorBridge {
       phase: "starting",
       childPid: daemonPid,
       helperPort: record.port,
-      sessionToken: newToken(),
+      sessionToken,
       streamUrl: record.streamUrl,
-      wsUrl: record.wsUrl,
-      streamSettingsUrl: record.streamSettingsUrl,
+      wsUrl: `ws://127.0.0.1:${this.control.getPort()}/s/${sessionToken}/ws`,
+      streamSettingsUrl: `${proxyBase}/stream-settings`,
       transport: opts.transport,
       codec: opts.codec,
       visibleSurfaces: 0,
@@ -1091,11 +1150,13 @@ export class SimulatorBridge {
       /* ignore */
     }
     if (session.childPid) {
+      const pid = session.childPid;
       try {
-        process.kill(session.childPid, "SIGTERM");
+        process.kill(pid, "SIGTERM");
       } catch {
         /* ignore */
       }
+      await this.waitForPidExit(pid, 500);
     }
     this.sessions.delete(workspaceId);
     this.writeClaims(releaseClaim(this.readClaims(), session.simulatorId, workspaceId, this.instanceId));
@@ -1273,7 +1334,12 @@ export class SimulatorBridge {
     writePrivateJson(path, table);
   }
 
-  private patchClaim(simulatorId: string, patch: Partial<SimulatorClaim>): void {
+  private patchClaim(
+    simulatorId: string,
+    workspaceId: string,
+    patch: Partial<SimulatorClaim>,
+  ): void {
+    if (!this.stillOwnsClaim(simulatorId, workspaceId)) return;
     const table = this.readClaims();
     const current = table[simulatorId];
     if (!current) return;
@@ -1373,9 +1439,24 @@ export class SimulatorBridge {
     }
   }
 
-  private stillOwnsClaim(simulatorId: string): boolean {
+  private async waitForPidExit(pid: number, timeoutMs: number): Promise<void> {
+    const start = this.now();
+    while (this.now() - start < timeoutMs) {
+      if (!isProcessAlive(pid)) return;
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+    try {
+      process.kill(pid, "SIGKILL");
+    } catch {
+      /* ignore */
+    }
+  }
+
+  private stillOwnsClaim(simulatorId: string, workspaceId?: string): boolean {
     const claim = this.readClaims()[simulatorId];
-    return Boolean(claim && claim.instanceId === this.instanceId);
+    if (!claim || claim.instanceId !== this.instanceId) return false;
+    if (workspaceId && claim.workspaceId !== workspaceId) return false;
+    return true;
   }
 
   private async killClaimedHelper(
@@ -1395,7 +1476,7 @@ export class SimulatorBridge {
   private async handleHelperExit(workspaceId: string, pid: number): Promise<void> {
     const session = this.sessions.get(workspaceId);
     if (!session || session.suppressExit || session.childPid !== pid) return;
-    if (!this.stillOwnsClaim(session.simulatorId)) {
+    if (!this.stillOwnsClaim(session.simulatorId, workspaceId)) {
       session.suppressExit = true;
       this.sessions.delete(workspaceId);
       this.emit(

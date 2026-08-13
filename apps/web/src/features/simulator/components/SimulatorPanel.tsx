@@ -89,7 +89,7 @@ export function SimulatorPanel({
       workspaceId,
       visible,
     }).catch(() => undefined);
-  }, [electron, isActive, surface, workspaceId]);
+  }, [electron, isActive, session.phase, surface, workspaceId]);
 
   const beginAttach = useCallback(() => {
     if (!electron || !workspaceId) return false;

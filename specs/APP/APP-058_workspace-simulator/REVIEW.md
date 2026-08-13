@@ -13,7 +13,7 @@
 | Rule | Detail |
 |------|--------|
 | **When to add** | After code implementation reaches review or post-review and the findings need durable tracking before cleanup. |
-| **Entry id** | `REV-NNN` - zero-padded, monotonic in this file (next: **REV-035**). |
+| **Entry id** | `REV-NNN` - zero-padded, monotonic in this file (next: **REV-036**). |
 | **Status** | `open` -> `in_progress` -> `fixed` -> `verified` (or `wont-fix` with reason). |
 | **Do not** | Duplicate full TECH/TEST content; link to baseline docs and record only review findings plus fix status. |
 | **Fix proof** | Each fixed item should name the code change and the verification command or manual check. |
@@ -58,6 +58,7 @@
 | REV-032 | P1 | frontend | Parent bezel forces a fixed 9/19.5 aspect | verified |
 | REV-033 | P1 | backend | CLI `type` drops shift | verified |
 | REV-034 | P2 | backend | Nested `/anything/health` passed the proxy allow-list | verified |
+| REV-035 | P1 | backend | Same-instance take-over left the previous helper running | verified |
 
 ---
 
