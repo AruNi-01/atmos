@@ -1,14 +1,14 @@
 ---
 version: alpha
 name: Atmos
-description: Local-first agentic development cockpit with dense IDE-like web/desktop chrome and a ChatGPT-style native mobile companion built from quiet white/black surfaces, generous rounded controls, and bottom-anchored actions.
+description: Local-first agentic development cockpit with dense IDE-like web/desktop chrome, a restrained soft-neumorphic orbital identity, and a ChatGPT-style native mobile companion built from cool graphite surfaces, tactile controls, and bottom-anchored actions.
 colors:
-  background: "oklch(1 0 0)"
-  foreground: "oklch(0.141 0.005 285.823)"
-  card: "oklch(1 0 0)"
-  card-foreground: "oklch(0.141 0.005 285.823)"
-  popover: "oklch(1 0 0)"
-  popover-foreground: "oklch(0.141 0.005 285.823)"
+  background: "oklch(0.945 0.008 260)"
+  foreground: "oklch(0.19 0.01 260)"
+  card: "oklch(0.97 0.006 260)"
+  card-foreground: "oklch(0.19 0.01 260)"
+  popover: "oklch(0.975 0.005 260)"
+  popover-foreground: "oklch(0.19 0.01 260)"
   primary: "oklch(0.21 0.006 285.885)"
   primary-foreground: "oklch(0.985 0 0)"
   secondary: "oklch(0.955 0.002 286.375)"
@@ -22,8 +22,8 @@ colors:
   info: "oklch(0.62 0.17 251)"
   success: "oklch(0.63 0.18 148)"
   warning: "oklch(0.72 0.16 79)"
-  sidebar: "oklch(0.985 0 0)"
-  sidebar-foreground: "oklch(0.141 0.005 285.823)"
+  sidebar: "oklch(0.955 0.009 260)"
+  sidebar-foreground: "oklch(0.19 0.01 260)"
   terminal-background: "#09090b"
   dark-background: "oklch(0.141 0.005 285.823)"
   dark-foreground: "oklch(0.985 0 0)"
@@ -265,7 +265,7 @@ Core traits:
 
 - **Dense**: compact controls, short rows, tight lists, and panels that make full use of the screen.
 - **Neutral**: black, white, gray, and low-chroma surfaces dominate; color is reserved for state and action.
-- **Border-led**: hierarchy is created with 1px borders, tonal layers, and hover states rather than heavy shadows.
+- **Soft chrome, border-led tools**: navigation controls and sidebars use restrained highlights, inset depth, and gentle shadows; terminals, editors, diffs, previews, and canvas remain border-led tools without decorative cards.
 - **Tool-first**: terminals, editors, diffs, previews, and canvas surfaces are real tools, not decorative cards.
 - **Native on mobile**: mobile shares Atmos product intent, but its visual reference is the ChatGPT iOS app: white/black surfaces, sparse typography, large rounded inputs, bottom prompt/action docks, and native navigation.
 

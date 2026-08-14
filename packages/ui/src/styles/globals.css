@@ -84,12 +84,12 @@
 
 :root {
   --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.141 0.005 285.823);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.141 0.005 285.823);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.141 0.005 285.823);
+  --background: oklch(0.945 0.008 260);
+  --foreground: oklch(0.19 0.01 260);
+  --card: oklch(0.97 0.006 260);
+  --card-foreground: oklch(0.19 0.01 260);
+  --popover: oklch(0.975 0.005 260);
+  --popover-foreground: oklch(0.19 0.01 260);
   --primary: oklch(0.21 0.006 285.885);
   --primary-foreground: oklch(0.985 0 0);
   /* muted/secondary/accent: clearly distinct gray (dark uses 0.274 vs bg 0.141; similar perceptual gap) */
@@ -98,8 +98,8 @@
   --muted: oklch(0.955 0.002 286.375);
   --muted-foreground: oklch(0.552 0.016 285.938);
   /* Subtle elevated surface for active pills (TabsSubtle, etc.) */
-  --active: oklch(0.94 0.004 286);
-  --hover: oklch(0 0 0 / 4%);
+  --active: oklch(0.91 0.014 255);
+  --hover: oklch(0.27 0.02 255 / 7%);
   /* Checkerboard under translucent colors (color picker alpha / tiles) */
   --checker-a: oklch(0.88 0 0);
   --checker-b: oklch(0.98 0 0);
@@ -112,7 +112,10 @@
   --surface-6: #ffffff;
   --surface-7: #ffffff;
   --surface-8: #ffffff;
-  --shadow-color: rgb(0 0 0 / 0.06);
+  --shadow-color: rgb(74 92 120 / 0.14);
+  --atmos-chrome-high: rgb(255 255 255 / 0.88);
+  --atmos-chrome-low: rgb(124 142 168 / 0.2);
+  --atmos-chrome-fill: rgb(238 241 247 / 0.84);
   --shadow-1: 0 0 0 1px var(--shadow-color);
   --shadow-2: 0 0 0 1px var(--shadow-color), 0 1px 1px -0.5px var(--shadow-color);
   --shadow-3: 0 0 0 1px var(--shadow-color), 0 1px 1px -0.5px var(--shadow-color), 0 3px 3px -1.5px var(--shadow-color);
@@ -129,16 +132,16 @@
   --warning: oklch(0.72 0.16 79);
   --favorite: oklch(0.72 0.16 79);
   /* border/input: black/10–14% mirrors dark's white/10–15%, adapts to any background naturally */
-  --border: oklch(0 0 0 / 10%);
-  --input: oklch(0 0 0 / 14%);
-  --ring: oklch(0.705 0.015 286.067);
+  --border: oklch(0.32 0.015 260 / 13%);
+  --input: oklch(0.32 0.015 260 / 17%);
+  --ring: oklch(0.62 0.17 251);
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.398 0.07 227.392);
   --chart-4: oklch(0.828 0.189 84.429);
   --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.141 0.005 285.823);
+  --sidebar: oklch(0.955 0.009 260);
+  --sidebar-foreground: oklch(0.19 0.01 260);
   --sidebar-primary: oklch(0.21 0.006 285.885);
   --sidebar-primary-foreground: oklch(0.985 0 0);
   --sidebar-accent: oklch(0.955 0.002 286.375);
@@ -150,19 +153,19 @@
 }
 
 .dark {
-  --background: oklch(0.141 0.005 285.823);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.21 0.006 285.885);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.21 0.006 285.885);
-  --popover-foreground: oklch(0.985 0 0);
+  --background: oklch(0.175 0.011 260);
+  --foreground: oklch(0.965 0.006 260);
+  --card: oklch(0.22 0.012 260);
+  --card-foreground: oklch(0.965 0.006 260);
+  --popover: oklch(0.235 0.012 260);
+  --popover-foreground: oklch(0.965 0.006 260);
   --primary: oklch(0.92 0.004 286.32);
   --primary-foreground: oklch(0.21 0.006 285.885);
   --secondary: oklch(0.274 0.006 286.033);
   --secondary-foreground: oklch(0.985 0 0);
   --muted: oklch(0.274 0.006 286.033);
-  --active: oklch(0.32 0.006 286);
-  --hover: oklch(1 0 0 / 6%);
+  --active: oklch(0.31 0.026 255);
+  --hover: oklch(0.75 0.08 250 / 10%);
   /* Checkerboard under translucent colors (color picker alpha / tiles) */
   --checker-a: oklch(0.28 0 0);
   --checker-b: oklch(0.38 0 0);
@@ -182,7 +185,10 @@
   --dm-ring-base: rgba(255, 255, 255, 0.02);
   --dm-ring-mid: rgba(255, 255, 255, 0.04);
   --dm-ring-high: rgba(255, 255, 255, 0.06);
-  --dm-drop: rgba(0, 0, 0, 0.18);
+  --dm-drop: rgba(0, 0, 0, 0.28);
+  --atmos-chrome-high: rgba(255, 255, 255, 0.07);
+  --atmos-chrome-low: rgba(0, 0, 0, 0.34);
+  --atmos-chrome-fill: rgba(37, 41, 49, 0.9);
   --shadow-1: inset 0 0 0 1px var(--dm-ring-base);
   --shadow-2: inset 0 1px 0 0 var(--dm-hi-base), inset 0 0 0 1px var(--dm-ring-base), 0 1px 1px -0.5px var(--dm-drop);
   --shadow-3: inset 0 1px 0 0 var(--dm-hi-mid), inset 0 0 0 1px var(--dm-ring-base), 0 0 0 1px rgba(0, 0, 0, 0.12), 0 1px 1px -0.5px var(--dm-drop), 0 3px 3px -1.5px var(--dm-drop);
@@ -199,16 +205,16 @@
   --success: oklch(0.76 0.16 148);
   --warning: oklch(0.8 0.14 79);
   --favorite: oklch(0.8 0.14 79);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.552 0.016 285.938);
+  --border: oklch(0.9 0.008 260 / 12%);
+  --input: oklch(0.9 0.008 260 / 16%);
+  --ring: oklch(0.72 0.15 245);
   --chart-1: oklch(0.488 0.243 264.376);
   --chart-2: oklch(0.696 0.17 162.48);
   --chart-3: oklch(0.769 0.188 70.08);
   --chart-4: oklch(0.627 0.265 303.9);
   --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.21 0.006 285.885);
-  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar: oklch(0.205 0.014 260);
+  --sidebar-foreground: oklch(0.965 0.006 260);
   --sidebar-primary: oklch(0.488 0.243 264.376);
   --sidebar-primary-foreground: oklch(0.985 0 0);
   --sidebar-accent: oklch(0.274 0.006 286.033);
@@ -224,6 +230,48 @@
   }
   body {
     @apply bg-background text-foreground;
+  }
+}
+
+@layer components {
+  /* Soft-neumorphic treatment is reserved for navigation chrome and tactile controls.
+     Tool surfaces such as terminals, editors, diffs, and previews remain unframed. */
+  .atmos-chrome-control {
+    border: 1px solid color-mix(in oklab, var(--foreground) 8%, transparent);
+    background: linear-gradient(145deg, var(--atmos-chrome-high), var(--atmos-chrome-fill));
+    box-shadow:
+      inset 0 1px 0 var(--atmos-chrome-high),
+      inset 0 -1px 0 color-mix(in oklab, var(--atmos-chrome-low) 58%, transparent),
+      0 2px 5px var(--atmos-chrome-low);
+    transition: background 160ms ease, box-shadow 160ms ease, color 160ms ease, transform 120ms ease;
+  }
+
+  .atmos-chrome-control:hover {
+    background: linear-gradient(145deg, color-mix(in oklab, var(--atmos-chrome-high) 82%, var(--atmos-chrome-fill)), var(--atmos-chrome-fill));
+    box-shadow:
+      inset 0 1px 0 var(--atmos-chrome-high),
+      inset 0 -1px 0 color-mix(in oklab, var(--atmos-chrome-low) 44%, transparent),
+      0 4px 10px var(--atmos-chrome-low);
+  }
+
+  .atmos-chrome-control:active {
+    transform: translateY(1px) scale(0.98);
+    box-shadow:
+      inset 0 1px 2px var(--atmos-chrome-low),
+      inset 0 -1px 0 var(--atmos-chrome-high);
+  }
+
+  .atmos-sidebar-shell {
+    background: linear-gradient(145deg, color-mix(in oklab, var(--sidebar) 90%, white), var(--sidebar));
+    box-shadow:
+      inset -1px 0 0 color-mix(in oklab, var(--foreground) 8%, transparent),
+      inset 0 1px 0 var(--atmos-chrome-high);
+  }
+
+  .atmos-workbench {
+    background:
+      radial-gradient(circle at 50% -35%, color-mix(in oklab, var(--ring) 9%, transparent), transparent 38%),
+      var(--background);
   }
 }
 

@@ -302,7 +302,7 @@ export function PanelLayout({
         setIsLeftCollapsed(false);
       }}
       className={cn(
-        "h-full flex flex-col",
+        "atmos-sidebar-shell h-full flex flex-col",
         // Isolate left list layout/paint from center thrash (IMP-013).
         // Only when expanded: contain makes this panel the fixed containing
         // block and clips paint, which zeros out the collapsed edge-hover peek
@@ -323,7 +323,7 @@ export function PanelLayout({
   );
 
   return (
-    <div ref={layoutRootRef} className="relative flex-1 flex min-h-0 overflow-hidden">
+    <div ref={layoutRootRef} className="atmos-workbench relative flex-1 flex min-h-0 overflow-hidden">
       <PanelGroup
         ref={panelGroupRef}
         autoSaveId={ROOT_SIDEBAR_LAYOUT_AUTO_SAVE_ID}
@@ -347,7 +347,7 @@ export function PanelLayout({
           order={2}
           defaultSize={showRightSidebar ? 80 - DEFAULT_LEFT_SIDEBAR_SIZE : 100 - DEFAULT_LEFT_SIDEBAR_SIZE}
           minSize={25}
-          className="h-full [contain:layout]"
+          className="h-full bg-background [contain:layout]"
         >
           {centerStage}
         </Panel>
@@ -373,7 +373,7 @@ export function PanelLayout({
               onCollapse={() => setIsRightCollapsed(true)}
               onExpand={() => setIsRightCollapsed(false)}
               className={cn(
-                "h-full flex flex-col",
+                "atmos-sidebar-shell h-full flex flex-col",
                 !isDragging && "transition-[flex-grow,flex-shrink,basis] duration-300 ease-in-out",
                 isRightCollapsed && "min-w-0!"
               )}
@@ -414,7 +414,7 @@ function ResizeHandle({
       onDragging={onDragging}
       hitAreaMargins={hitAreaMargins}
       className={cn(
-        "relative flex w-px items-center justify-center bg-border transition-colors duration-200 hover:bg-border/80 group touch-none",
+        "relative flex w-px items-center justify-center bg-transparent after:absolute after:inset-y-2 after:left-0 after:w-px after:bg-border/75 after:transition-colors hover:after:bg-ring/70 group touch-none",
         className
       )}
     />
