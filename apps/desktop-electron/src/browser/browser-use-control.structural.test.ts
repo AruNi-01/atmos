@@ -27,7 +27,14 @@ describe("browser-use-control structural", () => {
     expect(src).toContain("/v1/pointer");
     expect(src).toContain("/v1/dialog");
     expect(src).toContain("/v1/download");
+    expect(src).toContain("/v1/press-key");
+    expect(src).toContain("/v1/end");
     expect(src).toContain("persist:atmos-browser");
+    expect(src).toContain("token");
+    expect(src).toContain("embedded_dom_v1");
+    expect(src).toContain("browser_ref_stale");
+    expect(src).toContain("authorization");
+    expect(src).toContain("atmos-browser-use-cursor");
   });
 
   it("wires Desktop Use agent chrome on embedded click/type", () => {
@@ -46,7 +53,7 @@ describe("browser-use-control structural", () => {
     expect(src).toContain("Typing in page");
     // Click path remains CDP / DOM — not drive click
     expect(src).toContain("Input.dispatchMouseEvent");
-    expect(src).toContain("el.click");
+    expect(src).toContain("node.click");
   });
 
   it("implements full browser action surface on embedded host", () => {
@@ -59,6 +66,9 @@ describe("browser-use-control structural", () => {
     expect(src).toContain("will-download");
     expect(src).toContain("mouseWheel");
     expect(src).toContain("Input.insertText");
+    expect(src).toContain("pressKey");
+    expect(src).toContain("embedded_dom_v1");
+    expect(src).toContain("emitBrowserUseActivity");
   });
 });
 

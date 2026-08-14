@@ -1,5 +1,6 @@
 import type { SkillInfo } from "@/api/ws-api";
 import type { SlashCommandOption } from "@/features/welcome/hooks/use-welcome-slash-navigation";
+import { isDesktopRuntime } from "@/shared/lib/desktop-runtime";
 
 export const BROWSER_USE_SLASH_COMMAND_ID = "browser-use";
 export const BROWSER_USE_SKILL_NAME = "atmos-browser-use";
@@ -58,4 +59,12 @@ export function resolveBrowserUseSkillRef(skills: SkillInfo[]): {
     name: BROWSER_USE_SKILL_NAME,
     status: "enabled",
   };
+}
+
+/**
+ * Desktop already has the in-app Browser control plane. Do not block `/browser-use`
+ * on Desktop Use engine / TCC. Web (external-only) still needs that gate.
+ */
+export function browserUseSlashNeedsDesktopUseGate(): boolean {
+  return !isDesktopRuntime();
 }

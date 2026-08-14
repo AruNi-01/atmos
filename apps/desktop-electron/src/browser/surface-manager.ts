@@ -306,6 +306,15 @@ export class BrowserSurfaceManager {
     }
   }
 
+  emitBrowserUseActivity(sessionId: string, status: string, active = true): void {
+    this.emitToSession(sessionId, "desktop-browser:agent-activity", {
+      type: "atmos-browser:agent-activity",
+      sessionId,
+      status,
+      active,
+    });
+  }
+
   private emitToSession(sessionId: string, channel: string, payload: unknown) {
     const s = this.surfaces.get(sessionId);
     this.emitToApp(channel, payload, s ? this.surfaceHost(s) : null);

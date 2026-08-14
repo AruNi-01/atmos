@@ -7,7 +7,10 @@
 //! **No MCP.**
 
 mod backends;
+mod binding;
 mod chrome;
+mod errors;
+mod surface;
 mod types;
 
 pub use backends::{EmbeddedBackend, ExternalBackend};
@@ -16,18 +19,48 @@ pub use chrome::{
     wants_action_chrome, BrowserChromeTarget, DEFAULT_BROWSER_USE_SESSION,
 };
 pub use types::{
-    BrowserAction, BrowserBackendKind, BrowserError, BrowserRequest, BrowserResult,
-    DEFAULT_SNAPSHOT_FORMAT, ERR_EMBEDDED_HOST_UNAVAILABLE, ERR_NO_MCP, PINNED_ENGINE_VERSION,
+    action_name, BrowserAction, BrowserBackendKind, BrowserError, BrowserRequest, BrowserResult,
+    DEFAULT_SNAPSHOT_FORMAT, EMBEDDED_SNAPSHOT_FORMAT, ERR_EMBEDDED_HOST_UNAVAILABLE, ERR_NO_MCP,
+    PINNED_ENGINE_VERSION,
 };
 
 use backends::BrowserBackend;
 
 /// Dispatch a browser-use request to the selected backend.
-pub fn execute(req: BrowserRequest) -> BrowserResult {
-    match req.backend {
-        BrowserBackendKind::External => ExternalBackend.execute(req),
-        BrowserBackendKind::Embedded => EmbeddedBackend.execute(req),
+pub fn execute(mut req: BrowserRequest) -> BrowserResult {
+    let binding_id = req.binding_id.clone();
+    let applied = binding::apply_binding_defaults(
+        req.backend,
+        req.backend_explicit,
+        req.target_id.clone(),
+        req.tab_id.clone(),
+        req.session.clone(),
+        binding_id.as_deref(),
+    );
+    req.backend = applied.backend;
+    req.target_id = applied.target_id;
+    req.tab_id = applied.tab_id;
+    req.session = applied.session_id;
+    let resolved_from = applied.resolved_from;
+
+    if req.action == BrowserAction::End {
+        if let Some(id) = binding::resolve_binding_id(binding_id.as_deref()) {
+            let _ = binding::clear_binding(&id);
+        }
     }
+
+    let mut result = match req.backend {
+        BrowserBackendKind::External => ExternalBackend.execute(req.clone()),
+        BrowserBackendKind::Embedded => EmbeddedBackend.execute(req.clone()),
+    };
+    result.resolved_from = resolved_from.or(result.resolved_from);
+    binding::fill_result_ids(&mut result);
+    if result.ok {
+        binding::commit_binding_from_result(binding_id.as_deref(), req.backend, &result);
+    }
+    surface::attach_surface(&mut result, req.backend);
+    surface::attach_success_recovery(&mut result);
+    result
 }
 
 /// Map a browser request to control-engine tool + args (external path).
@@ -302,5 +335,83 @@ mod tests {
             ..Default::default()
         });
         assert_eq!(res.backend, "external");
+    }
+
+    #[test]
+    fn external_download_uses_destination_root() {
+        let req = BrowserRequest {
+            backend: BrowserBackendKind::External,
+            action: BrowserAction::Download,
+            target_id: Some("tgt".into()),
+            tab_id: Some("tab".into()),
+            element_ref: Some("e1".into()),
+            download_dir: Some("/tmp/out".into()),
+            ..Default::default()
+        };
+        let (tool, args) = build_external_tool_call(&req).unwrap();
+        assert_eq!(tool, "browser_download");
+        assert_eq!(args["destination_root"], "/tmp/out");
+        assert!(args.get("dir").is_none());
+    }
+
+    #[test]
+    fn unknown_strategy_is_invalid_args() {
+        let req = BrowserRequest {
+            backend: BrowserBackendKind::External,
+            action: BrowserAction::Prepare,
+            pid: Some(1),
+            profile_strategy: Some("steal_cookies".into()),
+            ..Default::default()
+        };
+        let err = build_external_tool_call(&req).unwrap_err();
+        assert!(err.contains("unknown --strategy"));
+    }
+
+    #[test]
+    fn existing_profile_fails_closed_without_grant() {
+        let res = execute(BrowserRequest {
+            backend: BrowserBackendKind::External,
+            action: BrowserAction::Prepare,
+            pid: Some(1),
+            window_id: Some(2),
+            profile_strategy: Some("existing_profile".into()),
+            ..Default::default()
+        });
+        assert!(!res.ok);
+        assert_eq!(
+            res.error_code.as_deref(),
+            Some(crate::errors::BROWSER_PROFILE_GRANT_REQUIRED)
+        );
+        assert!(res.recovery.as_deref().unwrap().contains("isolated_new"));
+    }
+
+    #[test]
+    fn external_upload_maps_to_set_input_files() {
+        let req = BrowserRequest {
+            backend: BrowserBackendKind::External,
+            action: BrowserAction::Upload,
+            target_id: Some("tgt".into()),
+            tab_id: Some("tab".into()),
+            element_ref: Some("e2".into()),
+            files: vec!["/tmp/a.png".into()],
+            ..Default::default()
+        };
+        let (tool, args) = build_external_tool_call(&req).unwrap();
+        assert_eq!(tool, "browser_set_input_files");
+        assert_eq!(args["paths"][0], "/tmp/a.png");
+        assert_eq!(args["ref"], "e2");
+    }
+
+    #[test]
+    fn press_key_is_not_an_external_tool() {
+        let req = BrowserRequest {
+            backend: BrowserBackendKind::External,
+            action: BrowserAction::PressKey,
+            target_id: Some("tgt".into()),
+            tab_id: Some("tab".into()),
+            key: Some("Enter".into()),
+            ..Default::default()
+        };
+        assert!(build_external_tool_call(&req).is_err());
     }
 }

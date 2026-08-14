@@ -5,9 +5,10 @@
  * Uses guest WebContents debugger / executeJavaScript (not user-Chrome prepare).
  */
 
+import { randomBytes } from "node:crypto";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { mkdirSync, writeFileSync, unlinkSync, existsSync } from "node:fs";
-import { basename, join } from "node:path";
+import { basename, join, resolve, sep } from "node:path";
 import { homedir } from "node:os";
 import type { Debugger, DownloadItem, WebContents } from "electron";
 import type { BrowserSurfaceManager } from "./surface-manager.js";
@@ -23,6 +24,10 @@ const CONTROL_DIR = () =>
   process.env.ATMOS_BROWSER_USE_HOME?.trim() ||
   join(homedir(), ".atmos", "data", "browser-use");
 
+const DEFAULT_DOWNLOAD_ROOT = () =>
+  join(CONTROL_DIR(), "downloads");
+
+const ALLOWED_NAV_SCHEMES = new Set(["http:", "https:", "about:"]);
 
 type SnapshotEl = {
   ref: string;
@@ -31,6 +36,7 @@ type SnapshotEl = {
   name: string;
   href?: string | null;
   value?: string | null;
+  visible: boolean;
   rect: { x: number; y: number; width: number; height: number };
 };
 
@@ -38,7 +44,47 @@ type SessionCache = {
   elements: SnapshotEl[];
   url: string;
   title: string;
+  generation: number;
+  format: "embedded_dom_v1";
 };
+
+function isExactLoopbackHost(hostHeader: string | undefined): boolean {
+  if (!hostHeader) return false;
+  const host = hostHeader.split(":")[0]?.trim().toLowerCase() ?? "";
+  return host === "127.0.0.1" || host === "localhost" || host === "[::1]";
+}
+
+function isLoopbackOrigin(origin: string | undefined): boolean {
+  if (!origin || origin === "null") return true;
+  try {
+    const url = new URL(origin);
+    return (
+      (url.hostname === "127.0.0.1" ||
+        url.hostname === "localhost" ||
+        url.hostname === "[::1]") &&
+      (url.protocol === "http:" || url.protocol === "https:")
+    );
+  } catch {
+    return false;
+  }
+}
+
+function isPathInside(root: string, candidate: string): boolean {
+  const rootPath = resolve(root) + sep;
+  const resolved = resolve(candidate);
+  return resolved === resolve(root) || resolved.startsWith(rootPath);
+}
+
+function isAllowedNavigateUrl(raw: string): boolean {
+  try {
+    const url = new URL(raw);
+    if (!ALLOWED_NAV_SCHEMES.has(url.protocol)) return false;
+    if (url.protocol === "about:" && url.pathname !== "blank") return false;
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 type PendingDialog = {
   dialog_id: string;
@@ -51,13 +97,22 @@ type PendingDialog = {
 export class BrowserUseControlPlane {
   private server: Server | null = null;
   private port = 0;
+  private token = "";
   private readonly manager: BrowserSurfaceManager;
   private readonly snapshots = new Map<string, SessionCache>();
+  private snapshotGeneration = 0;
   /** Latest JS dialog per guest session (CDP Page.javascriptDialogOpening). */
   private readonly pendingDialogs = new Map<string, PendingDialog>();
   /** Sessions with a long-lived debugger attach for dialog events. */
   private readonly dialogCdpSessions = new Set<string>();
   private dialogSeq = 0;
+  /** Per-target FIFO so concurrent agent calls cannot interleave CDP. */
+  private readonly queues = new Map<string, Promise<unknown>>();
+  /** Only intercept will-download while an agent download is armed. */
+  private readonly armedDownloads = new Map<
+    string,
+    { dir: string; deadline: number }
+  >();
 
   constructor(manager: BrowserSurfaceManager) {
     this.manager = manager;
@@ -67,6 +122,7 @@ export class BrowserUseControlPlane {
     if (this.server) {
       return { baseUrl: `http://127.0.0.1:${this.port}`, port: this.port };
     }
+    this.token = randomBytes(32).toString("hex");
     const server = createServer((req, res) => {
       void this.handle(req, res);
     });
@@ -118,6 +174,7 @@ export class BrowserUseControlPlane {
     const payload = {
       base_url: `http://127.0.0.1:${this.port}`,
       port: this.port,
+      token: this.token,
       partition: "persist:atmos-browser",
       protocol: "atmos-browser-use/v1",
       updated_at: new Date().toISOString(),
@@ -162,6 +219,28 @@ export class BrowserUseControlPlane {
     return this.manager.listBrowserUseSessions();
   }
 
+  private enqueue<T>(targetId: string, fn: () => Promise<T>): Promise<T> {
+    const key = targetId.trim() || "_global";
+    const prev = this.queues.get(key) ?? Promise.resolve();
+    const next = prev.catch(() => undefined).then(fn);
+    this.queues.set(
+      key,
+      next.then(
+        () => undefined,
+        () => undefined,
+      ),
+    );
+    return next;
+  }
+
+  private markActivity(sessionId: string, status: string): void {
+    try {
+      this.manager.emitBrowserUseActivity(sessionId, status, true);
+    } catch {
+      /* best-effort */
+    }
+  }
+
   private async snapshot(sessionId: string): Promise<SessionCache> {
     const guest = this.guestFor(sessionId);
     if (!guest) {
@@ -169,13 +248,38 @@ export class BrowserUseControlPlane {
         `no bound webview guest for target_id=${sessionId}; open Atmos Browser tab first`,
       );
     }
+    this.snapshotGeneration += 1;
+    const generation = this.snapshotGeneration;
     const script = `(() => {
       const selectors = 'a,button,input,textarea,select,summary,[role="button"],[role="link"],[role="textbox"],[contenteditable="true"]';
-      const nodes = Array.from(document.querySelectorAll(selectors)).slice(0, 250);
+      const nodes = Array.from(document.querySelectorAll(selectors));
+      const visible = [];
+      for (const el of nodes) {
+        const r = el.getBoundingClientRect();
+        const style = window.getComputedStyle(el);
+        if (r.width < 2 || r.height < 2) continue;
+        if (style.visibility === 'hidden' || style.display === 'none' || Number(style.opacity) === 0) continue;
+        visible.push(el);
+        if (visible.length >= 200) break;
+      }
+      const secretType = (el) => {
+        if (!(el instanceof HTMLInputElement)) return false;
+        const type = (el.type || '').toLowerCase();
+        const auto = (el.autocomplete || '').toLowerCase();
+        const name = (el.name || el.id || '').toLowerCase();
+        return (
+          type === 'password' ||
+          type === 'hidden' ||
+          auto.includes('one-time-code') ||
+          auto.includes('otp') ||
+          name.includes('otp') ||
+          name.includes('one-time')
+        );
+      };
       return {
         url: location.href,
         title: document.title || '',
-        elements: nodes.map((el, i) => {
+        elements: visible.map((el, i) => {
           const r = el.getBoundingClientRect();
           const name =
             (el.getAttribute('aria-label') ||
@@ -185,18 +289,17 @@ export class BrowserUseControlPlane {
               el.getAttribute('href') ||
               '').slice(0, 120);
           return {
-            ref: 'e' + i,
+            ref: 'g${generation}:e' + i,
             tag: el.tagName.toLowerCase(),
             role: el.getAttribute('role'),
             name,
             href: el.getAttribute('href'),
-            // Never surface password field values in Browser Use snapshots.
-            value:
-              el instanceof HTMLInputElement && el.type === 'password'
-                ? null
-                : el.value != null
-                  ? String(el.value).slice(0, 200)
-                  : null,
+            value: secretType(el)
+              ? null
+              : el.value != null
+                ? String(el.value).slice(0, 200)
+                : null,
+            visible: true,
             rect: { x: r.x, y: r.y, width: r.width, height: r.height },
           };
         }),
@@ -211,17 +314,53 @@ export class BrowserUseControlPlane {
       url: raw?.url ?? guest.getURL(),
       title: raw?.title ?? guest.getTitle(),
       elements: Array.isArray(raw?.elements) ? raw.elements : [],
+      generation,
+      format: "embedded_dom_v1",
     };
     this.snapshots.set(sessionId, cache);
     return cache;
   }
 
-  /** Best-effort Desktop Use chrome for embedded spatial actions. */
+  /** Guest-local cursor overlay (no focus steal) plus optional host chrome. */
   private showChromeForRef(
     sessionId: string,
     el: SnapshotEl,
     status: string,
   ): void {
+    this.markActivity(sessionId, status);
+    const guest = this.guestFor(sessionId);
+    if (guest) {
+      const x = el.rect.x + Math.max(1, el.rect.width / 2);
+      const y = el.rect.y + Math.max(1, el.rect.height / 2);
+      void guest
+        .executeJavaScript(
+          `(() => {
+            const id = 'atmos-browser-use-cursor';
+            let node = document.getElementById(id);
+            if (!node) {
+              node = document.createElement('div');
+              node.id = id;
+              node.setAttribute('aria-hidden', 'true');
+              node.style.cssText = 'position:fixed;z-index:2147483646;width:14px;height:14px;margin:-7px 0 0 -7px;border:2px solid #5b8cff;border-radius:50%;pointer-events:none;box-shadow:0 0 0 3px rgba(91,140,255,.25)';
+              document.documentElement.appendChild(node);
+            }
+            node.style.left = ${JSON.stringify(x)} + 'px';
+            node.style.top = ${JSON.stringify(y)} + 'px';
+            const badgeId = 'atmos-browser-use-badge';
+            let badge = document.getElementById(badgeId);
+            if (!badge) {
+              badge = document.createElement('div');
+              badge.id = badgeId;
+              badge.setAttribute('aria-hidden', 'true');
+              badge.style.cssText = 'position:fixed;z-index:2147483646;top:8px;right:8px;padding:4px 8px;border-radius:999px;background:rgba(20,20,20,.72);color:#fff;font:12px/1.2 system-ui,sans-serif;pointer-events:none';
+              document.documentElement.appendChild(badge);
+            }
+            badge.textContent = ${JSON.stringify(status)};
+          })()`,
+          true,
+        )
+        .catch(() => undefined);
+    }
     try {
       const host = this.manager.getHostWindowForSession(sessionId);
       if (!host || host.isDestroyed()) return;
@@ -280,10 +419,18 @@ export class BrowserUseControlPlane {
       Number.isFinite(x) &&
       Number.isFinite(y);
     if (ref && String(ref).trim()) {
-      const cache =
-        this.snapshots.get(sessionId) ?? (await this.snapshot(sessionId));
+      const cache = this.snapshots.get(sessionId);
+      if (!cache) {
+        throw new Error(
+          `unknown ref ${ref}; run state snapshot first (refs are snapshot-scoped)`,
+        );
+      }
       const el = cache.elements.find((e) => e.ref === ref);
-      if (!el) throw new Error(`unknown ref ${ref}; run state snapshot first`);
+      if (!el) {
+        throw new Error(
+          `unknown ref ${ref}; snapshot expired or ref is stale — run state snapshot first`,
+        );
+      }
       this.showChromeForRef(sessionId, el, status);
       return {
         x: el.rect.x + Math.max(1, el.rect.width / 2),
@@ -328,12 +475,40 @@ export class BrowserUseControlPlane {
     });
   }
 
+  private async hitTest(
+    guest: WebContents,
+    x: number,
+    y: number,
+  ): Promise<{ tag: string; name: string } | null> {
+    try {
+      const hit = (await guest.executeJavaScript(
+        `(() => {
+          const el = document.elementFromPoint(${JSON.stringify(x)}, ${JSON.stringify(y)});
+          if (!el) return null;
+          return {
+            tag: el.tagName.toLowerCase(),
+            name: (el.getAttribute('aria-label') || el.getAttribute('name') || (el.innerText || '').trim() || '').slice(0, 80),
+          };
+        })()`,
+        true,
+      )) as { tag: string; name: string } | null;
+      return hit ?? null;
+    } catch {
+      return null;
+    }
+  }
+
   private async clickRef(
     sessionId: string,
     ref: string | null | undefined,
     x?: number | null,
     y?: number | null,
-  ): Promise<{ ref: string | null; x: number; y: number }> {
+  ): Promise<{
+    ref: string | null;
+    x: number;
+    y: number;
+    hit?: { tag: string; name: string } | null;
+  }> {
     const guest = this.guestFor(sessionId);
     if (!guest) throw new Error(`no guest for ${sessionId}`);
     const pt = await this.resolvePoint(sessionId, ref, x, y, "Clicking page");
@@ -342,25 +517,26 @@ export class BrowserUseControlPlane {
         button: "left",
         clickCount: 1,
       });
-      return pt;
     } catch {
-      /* fall through to DOM click when ref known */
+      if (!pt.ref) throw new Error("CDP click failed and no ref for DOM fallback");
+      const cache = this.snapshots.get(sessionId);
+      const el = cache?.elements.find((item) => item.ref === pt.ref);
+      if (!el) throw new Error(`unknown ref ${pt.ref}; run state snapshot first`);
+      await guest.executeJavaScript(
+        `(() => {
+          const x = ${JSON.stringify(pt.x)};
+          const y = ${JSON.stringify(pt.y)};
+          const node = document.elementFromPoint(x, y);
+          if (!node) throw new Error('ref not found');
+          node.focus?.();
+          node.click?.();
+          return true;
+        })()`,
+        true,
+      );
     }
-    if (!pt.ref) throw new Error("CDP click failed and no ref for DOM fallback");
-    const idx = Number(String(pt.ref).replace(/^e/, ""));
-    await guest.executeJavaScript(
-      `(() => {
-        const selectors = 'a,button,input,textarea,select,summary,[role="button"],[role="link"],[role="textbox"],[contenteditable="true"]';
-        const nodes = Array.from(document.querySelectorAll(selectors));
-        const el = nodes[${Number.isFinite(idx) ? idx : -1}];
-        if (!el) throw new Error('ref not found');
-        el.focus?.();
-        el.click?.();
-        return true;
-      })()`,
-      true,
-    );
-    return pt;
+    const hit = await this.hitTest(guest, pt.x, pt.y);
+    return { ...pt, hit };
   }
 
   private async typeRef(
@@ -374,18 +550,20 @@ export class BrowserUseControlPlane {
     const replace = Boolean(opts?.replace);
     const mode = (opts?.mode || "insert_text").trim();
     if (ref) {
-      const cache =
-        this.snapshots.get(sessionId) ?? (await this.snapshot(sessionId));
+      const cache = this.snapshots.get(sessionId);
+      if (!cache) {
+        throw new Error(
+          `unknown ref ${ref}; run state snapshot first (refs are snapshot-scoped)`,
+        );
+      }
       const el = cache.elements.find((e) => e.ref === ref);
       if (!el) throw new Error(`unknown ref ${ref}; run state snapshot first`);
       this.showChromeForRef(sessionId, el, "Typing in page");
-      const idx = Number(String(ref).replace(/^e/, ""));
-      // Focus + optional replace via DOM, then prefer CDP insertText for durability.
+      const cx = el.rect.x + Math.max(1, el.rect.width / 2);
+      const cy = el.rect.y + Math.max(1, el.rect.height / 2);
       await guest.executeJavaScript(
         `(() => {
-          const selectors = 'a,button,input,textarea,select,summary,[role="button"],[role="link"],[role="textbox"],[contenteditable="true"]';
-          const nodes = Array.from(document.querySelectorAll(selectors));
-          const el = nodes[${Number.isFinite(idx) ? idx : -1}];
+          const el = document.elementFromPoint(${JSON.stringify(cx)}, ${JSON.stringify(cy)});
           if (!el) throw new Error('ref not found');
           el.focus?.();
           if (${replace ? "true" : "false"}) {
@@ -425,9 +603,7 @@ export class BrowserUseControlPlane {
       }
       await guest.executeJavaScript(
         `(() => {
-          const selectors = 'a,button,input,textarea,select,summary,[role="button"],[role="link"],[role="textbox"],[contenteditable="true"]';
-          const nodes = Array.from(document.querySelectorAll(selectors));
-          const el = nodes[${Number.isFinite(idx) ? idx : -1}];
+          const el = document.elementFromPoint(${JSON.stringify(cx)}, ${JSON.stringify(cy)});
           if (!el) throw new Error('ref not found');
           el.focus?.();
           if ('value' in el) {
@@ -702,32 +878,56 @@ export class BrowserUseControlPlane {
     };
   }
 
+  private resolveDownloadDir(requested: string | undefined): string {
+    const root = DEFAULT_DOWNLOAD_ROOT();
+    mkdirSync(root, { recursive: true });
+    if (!requested || !requested.trim()) return root;
+    const candidate = resolve(requested.trim());
+    if (!isPathInside(root, candidate)) {
+      const err = new Error(
+        `download dir must stay under ${root}`,
+      ) as Error & { code?: string };
+      err.code = "browser_download_denied";
+      throw err;
+    }
+    mkdirSync(candidate, { recursive: true });
+    return candidate;
+  }
+
   private async downloadViaRef(
     sessionId: string,
     ref: string,
-    dir: string,
+    dir: string | undefined,
   ): Promise<Record<string, unknown>> {
     const guest = this.guestFor(sessionId);
     if (!guest) throw new Error(`no guest for ${sessionId}`);
-    mkdirSync(dir, { recursive: true });
+    const saveDir = this.resolveDownloadDir(dir);
+    this.armedDownloads.set(sessionId, {
+      dir: saveDir,
+      deadline: Date.now() + 30_000,
+    });
 
     const savePromise = new Promise<{
       path: string;
       filename: string;
       state: string;
-    }>((resolve, reject) => {
+    }>((resolvePromise, reject) => {
       const timer = setTimeout(() => {
         cleanup();
         reject(new Error("download timed out (30s)"));
       }, 30_000);
       const onWillDownload = (_event: unknown, item: DownloadItem) => {
+        const armed = this.armedDownloads.get(sessionId);
+        if (!armed || Date.now() > armed.deadline) {
+          return;
+        }
         const filename = item.getFilename() || "download.bin";
-        const savePath = join(dir, basename(filename));
+        const savePath = join(armed.dir, basename(filename));
         item.setSavePath(savePath);
         item.once("done", (_e, state) => {
           cleanup();
           if (state === "completed") {
-            resolve({ path: savePath, filename, state });
+            resolvePromise({ path: savePath, filename, state });
           } else {
             reject(new Error(`download ${state}`));
           }
@@ -735,6 +935,7 @@ export class BrowserUseControlPlane {
       };
       const cleanup = () => {
         clearTimeout(timer);
+        this.armedDownloads.delete(sessionId);
         try {
           guest.session.removeListener("will-download", onWillDownload);
         } catch {
@@ -744,15 +945,66 @@ export class BrowserUseControlPlane {
       guest.session.once("will-download", onWillDownload);
     });
 
-    // Trigger download by clicking the ref (link / button).
     await this.clickRef(sessionId, ref);
     const result = await savePromise;
     return {
       ok: true,
       ref,
-      dir,
+      dir: saveDir,
       ...result,
     };
+  }
+
+  private async pressKey(
+    sessionId: string,
+    key: string,
+    ref?: string | null,
+  ): Promise<Record<string, unknown>> {
+    const guest = this.guestFor(sessionId);
+    if (!guest) throw new Error(`no guest for ${sessionId}`);
+    if (ref) {
+      await this.resolvePoint(sessionId, ref, null, null, "Pressing key");
+    }
+    this.markActivity(sessionId, "Pressing key");
+    await this.withDebugger(guest, sessionId, async (dbg) => {
+      await dbg.sendCommand("Input.dispatchKeyEvent", {
+        type: "keyDown",
+        key,
+        windowsVirtualKeyCode: 0,
+      });
+      await dbg.sendCommand("Input.dispatchKeyEvent", {
+        type: "keyUp",
+        key,
+        windowsVirtualKeyCode: 0,
+      });
+    });
+    return { key, ref: ref ?? null };
+  }
+
+  private async captureScreenshot(sessionId: string): Promise<string | null> {
+    const guest = this.guestFor(sessionId);
+    if (!guest) return null;
+    try {
+      const image = await guest.capturePage();
+      return image.toPNG().toString("base64");
+    } catch {
+      return null;
+    }
+  }
+
+  private authorize(req: IncomingMessage): string | null {
+    if (!isExactLoopbackHost(req.headers.host)) {
+      return "host must be exact loopback";
+    }
+    if (!isLoopbackOrigin(req.headers.origin)) {
+      return "origin must be loopback or omitted";
+    }
+    const auth = req.headers.authorization ?? "";
+    const token = auth.startsWith("Bearer ") ? auth.slice(7).trim() : "";
+    if (!this.token || token !== this.token) {
+      return "missing or invalid bearer token";
+    }
+    return null;
   }
 
   private async handle(
@@ -761,6 +1013,15 @@ export class BrowserUseControlPlane {
   ): Promise<void> {
     try {
       const url = new URL(req.url || "/", "http://127.0.0.1");
+      const authError = this.authorize(req);
+      if (authError) {
+        this.send(res, 401, {
+          ok: false,
+          error: authError,
+          error_code: "browser_control_auth_failed",
+        });
+        return;
+      }
       if (req.method === "GET" && url.pathname === "/v1/health") {
         this.send(res, 200, {
           ok: true,
@@ -774,6 +1035,8 @@ export class BrowserUseControlPlane {
             "pointer",
             "dialog",
             "download",
+            "press-key",
+            "end",
           ],
         });
         return;
@@ -782,9 +1045,71 @@ export class BrowserUseControlPlane {
         this.send(res, 405, { ok: false, error: "method not allowed" });
         return;
       }
+      const contentType = String(req.headers["content-type"] || "");
+      if (contentType && !contentType.toLowerCase().includes("application/json")) {
+        this.send(res, 415, {
+          ok: false,
+          error: "Content-Type must be application/json",
+          error_code: "invalid_args",
+        });
+        return;
+      }
       const body = await this.readBody(req);
       const path = url.pathname;
+      const queueKey =
+        typeof body.target_id === "string" && body.target_id.trim()
+          ? body.target_id.trim()
+          : path;
+      await this.enqueue(queueKey, () => this.dispatch(path, body, res));
+    } catch (e) {
+      this.sendFailure(res, e);
+    }
+  }
 
+  private sendFailure(res: ServerResponse, e: unknown): void {
+    console.error("[browser-use] control plane request failed:", e);
+    const msg = e instanceof Error ? e.message : "browser engine failed";
+    const code =
+      (e as { code?: string }).code ||
+      (msg.includes("unknown ref") || msg.includes("stale")
+        ? "browser_ref_stale"
+        : msg.includes("download dir must stay")
+          ? "browser_download_denied"
+          : msg.includes("navigate") && msg.includes("scheme")
+            ? "browser_navigate_denied"
+            : msg.includes("requires") ||
+                msg.includes("timed out") ||
+                msg.includes("download") ||
+                msg.includes("dialog") ||
+                msg.includes("no guest") ||
+                msg.includes("no bound")
+              ? "browser_engine_failed"
+              : "browser_engine_failed");
+    const clientMsg =
+      msg.includes("unknown ref") ||
+      msg.includes("stale") ||
+      msg.includes("requires") ||
+      msg.includes("timed out") ||
+      msg.includes("download") ||
+      msg.includes("dialog") ||
+      msg.includes("no guest") ||
+      msg.includes("no bound") ||
+      msg.includes("scheme")
+        ? msg
+        : "browser engine failed";
+    this.send(res, 500, {
+      ok: false,
+      error: clientMsg,
+      error_code: code,
+    });
+  }
+
+  private async dispatch(
+    path: string,
+    body: Record<string, unknown>,
+    res: ServerResponse,
+  ): Promise<void> {
+    try {
       if (path === "/v1/prepare") {
         const sessions = this.listSessions();
         this.send(res, 200, {
@@ -801,6 +1126,8 @@ export class BrowserUseControlPlane {
             "pointer",
             "dialog",
             "download",
+            "press-key",
+            "end",
           ],
           note:
             sessions.length === 0
@@ -815,13 +1142,36 @@ export class BrowserUseControlPlane {
           typeof body.target_id === "string" ? body.target_id.trim() : "";
         if (!targetId) {
           const sessions = this.listSessions();
+          const bound = sessions.filter((s) => s.bound);
+          if (bound.length > 1) {
+            this.send(res, 200, {
+              ok: false,
+              mode: "bind",
+              sessions,
+              error: "multiple embedded browser sessions are open; pass --target-id",
+              error_code: "browser_ambiguous_target",
+            });
+            return;
+          }
           this.send(res, 200, {
             ok: true,
             mode: "bind",
             sessions,
-            // Convenience: first bound session as default target
-            target_id: sessions.find((s) => s.bound)?.target_id ?? null,
+            target_id: bound[0]?.target_id ?? null,
             tab_id: "main",
+          });
+          return;
+        }
+        if (
+          typeof body.snapshot_format === "string" &&
+          body.snapshot_format.trim() &&
+          body.snapshot_format.trim() !== "embedded_dom_v1" &&
+          body.snapshot_format.trim() !== "dom_refs_v1"
+        ) {
+          this.send(res, 400, {
+            ok: false,
+            error: `embedded snapshot format ${body.snapshot_format} is unsupported (use embedded_dom_v1)`,
+            error_code: "browser_unsupported",
           });
           return;
         }
@@ -835,9 +1185,15 @@ export class BrowserUseControlPlane {
             /* optional */
           }
         }
+        const includeScreenshot = body.include_screenshot === true;
+        const screenshot = includeScreenshot
+          ? await this.captureScreenshot(targetId)
+          : null;
         this.send(res, 200, {
           ok: true,
           mode: "snapshot",
+          snapshot_format: snap.format,
+          generation: snap.generation,
           target_id: targetId,
           tab_id: "main",
           url: snap.url,
@@ -845,6 +1201,7 @@ export class BrowserUseControlPlane {
           elements: snap.elements,
           element_count: snap.elements.length,
           pending_dialog: this.pendingDialogs.get(targetId) ?? null,
+          ...(screenshot ? { screenshot } : {}),
         });
         return;
       }
@@ -880,6 +1237,7 @@ export class BrowserUseControlPlane {
           ref: pt.ref,
           x: pt.x,
           y: pt.y,
+          hit: pt.hit ?? null,
         });
         return;
       }
@@ -923,6 +1281,15 @@ export class BrowserUseControlPlane {
           });
           return;
         }
+        if (!isAllowedNavigateUrl(navUrl)) {
+          this.send(res, 400, {
+            ok: false,
+            error: "navigate scheme must be http, https, or about:blank",
+            error_code: "browser_navigate_denied",
+          });
+          return;
+        }
+        this.markActivity(targetId, "Navigating");
         // Host-owned navigation for detached / bookkeeping; guest loadURL when bound.
         const guest = this.guestFor(targetId);
         if (guest) {
@@ -970,11 +1337,14 @@ export class BrowserUseControlPlane {
       if (path === "/v1/download") {
         const targetId = String(body.target_id || "").trim();
         const ref = String(body.ref || "").trim();
-        const dir = String(body.dir || "").trim();
-        if (!targetId || !ref || !dir) {
+        const dir =
+          typeof body.dir === "string" && body.dir.trim()
+            ? body.dir.trim()
+            : undefined;
+        if (!targetId || !ref) {
           this.send(res, 400, {
             ok: false,
-            error: "download requires target_id, ref, and dir",
+            error: "download requires target_id and ref",
             error_code: "invalid_args",
           });
           return;
@@ -984,28 +1354,40 @@ export class BrowserUseControlPlane {
         return;
       }
 
+      if (path === "/v1/press-key") {
+        const targetId = String(body.target_id || "").trim();
+        const key = String(body.key || "").trim();
+        const ref =
+          typeof body.ref === "string" && body.ref.trim()
+            ? body.ref.trim()
+            : null;
+        if (!targetId || !key) {
+          this.send(res, 400, {
+            ok: false,
+            error: "press-key requires target_id and key",
+            error_code: "invalid_args",
+          });
+          return;
+        }
+        const result = await this.pressKey(targetId, key, ref);
+        this.send(res, 200, { ok: true, target_id: targetId, ...result });
+        return;
+      }
+
+      if (path === "/v1/end") {
+        const targetId = String(body.target_id || "").trim();
+        if (targetId) {
+          this.snapshots.delete(targetId);
+          this.pendingDialogs.delete(targetId);
+          this.armedDownloads.delete(targetId);
+        }
+        this.send(res, 200, { ok: true, ended: true, target_id: targetId || null });
+        return;
+      }
+
       this.send(res, 404, { ok: false, error: "not found" });
     } catch (e) {
-      // Log full error server-side only — never put Error/stack on the wire
-      // (CodeQL js/stack-trace-exposure). Clients get a stable generic message.
-      console.error("[browser-use] control plane request failed:", e);
-      const msg = e instanceof Error ? e.message : "browser engine failed";
-      // Safe subset of client-facing errors (no stacks).
-      const clientMsg =
-        msg.includes("unknown ref") ||
-        msg.includes("requires") ||
-        msg.includes("timed out") ||
-        msg.includes("download") ||
-        msg.includes("dialog") ||
-        msg.includes("no guest") ||
-        msg.includes("no bound")
-          ? msg
-          : "browser engine failed";
-      this.send(res, 500, {
-        ok: false,
-        error: clientMsg,
-        error_code: "browser_engine_failed",
-      });
+      this.sendFailure(res, e);
     }
   }
 }

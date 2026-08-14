@@ -1,6 +1,6 @@
 ---
 name: atmos-browser-use
-version: "2.0.0"
+version: "2.1.0"
 description: >
   Control web pages via Browser Use (`atmos browser-use`), separate from Desktop Use.
   Prefer for Chrome/Chromium page DOM or Atmos in-app browser (embedded). Do not use for
@@ -10,92 +10,103 @@ description: >
 
 # Atmos Browser Use
 
-**Page / tab control** — not Desktop Use. **No MCP.**  
-External engine pin: **0.19.2** (`semantic_v2`, pointer, dialog, download).
+**Page / tab control** — not Desktop Use. **No MCP.**
+External engine pin: **0.19.2** (`semantic_v2`, pointer, dialog, download, upload).
+Embedded snapshot contract: **`embedded_dom_v1`**.
+
+`atmos browser-use` always prints JSON. Do **not** pass `--json` (it is a no-op on this command).
 
 ## Backends
 
 | `--backend` | Meaning |
 |-------------|---------|
-| `external` (default) | System Chrome/Chromium via Desktop Use control engine |
+| omitted | Reuse the scoped binding; otherwise `external` |
+| `external` | System Chrome/Chromium via Desktop Use control engine |
 | `embedded` | Atmos in-app browser via Desktop host control plane |
 
-## System Chrome loop (external) — canonical
+On Atmos Desktop, prefer **embedded** when a Browser tab is already open. `/browser-use` is not blocked on Desktop Use TCC in that case.
+
+## Binding (omit target / tab after the first success)
+
+Scope (first match wins): `--binding-id` → `ATMOS_BROWSER_USE_BINDING_ID` → `ATMOS_SIDE_CHAT_ID` → `ATMOS_PANE_ID`.
+
+After a successful `prepare` / `state` / act, later calls in the same scope may omit `--backend`, `--target-id`, and `--tab-id`. If several surfaces match, the CLI returns `browser_ambiguous_target` — pass the ids from `state`. Bindings store `{backend,target_id,tab_id}` only. **Never persist refs.**
+
+## System Chrome loop (external)
 
 ```bash
-# 0) Engine ready
-atmos desktop-use --json status
-# if needed: atmos desktop-use --json driver ensure
+# 0) Engine ready (external only)
+atmos desktop-use status
+# if needed: atmos desktop-use driver ensure
 
 # 1) Find Chrome window
-atmos desktop-use --json drive verify
+atmos desktop-use drive verify
 
-# 2) Prepare — default is driver-owned isolated_new (does not mutate user profile)
-atmos browser-use --json prepare --backend external --pid <chrome_pid>
-# authenticated profile (opt-in only):
-# atmos browser-use --json prepare --backend external --pid <pid> --window-id <wid> \
-#   --strategy existing_profile
+# 2) Prepare — default isolated_new (does not mutate the user profile)
+atmos browser-use prepare --pid <chrome_pid>
+# isolated_new may start a NEW process. Bind with prepared_pid / prepared_window_id
+# from the prepare response — do not reuse the original --pid.
 
 # 3) Bind native window → target_id / tab_ids
-atmos browser-use --json state --backend external --pid <pid> --window-id <wid>
+atmos browser-use state --pid <prepared_pid> --window-id <prepared_window_id>
 
-# 4) Snapshot page (semantic_v2 by default)
-atmos browser-use --json state --backend external \
-  --target-id <target> --tab-id <tab> --include-screenshot
+# 4) Snapshot (semantic_v2). Refs die after the next snapshot / navigate.
+atmos browser-use state --target-id <target> --tab-id <tab> --include-screenshot
+# Narrow a large page:
+atmos browser-use state --target-id <target> --tab-id <tab> --query "Sign in"
+# Continue a truncated semantic_v2 page:
+atmos browser-use state --target-id <target> --tab-id <tab> --continuation <token>
 
-# 5) Act (refs invalidate after navigate / newer snapshot — re-state)
-atmos browser-use --json click --backend external --target-id … --tab-id … --ref …
-atmos browser-use --json type --backend external --target-id … --tab-id … --ref … --text "…"
-atmos browser-use --json navigate --backend external --target-id … --tab-id … --url https://…
-atmos browser-use --json pointer --backend external --target-id … --tab-id … \
-  --action hover --ref …
-atmos browser-use --json dialog --backend external --target-id … --tab-id … --action inspect
+# 5) Act
+atmos browser-use click --ref …
+atmos browser-use type --ref … --text "…"
+atmos browser-use navigate --url https://…
+atmos browser-use pointer --action hover --ref …
+atmos browser-use dialog --action inspect
+atmos browser-use download --ref … --dir "$HOME/.atmos/data/browser-use/downloads"
+atmos browser-use upload --ref … --file /path/to/file
+atmos browser-use end
 ```
+
+`existing_profile` is **not granted** on this host. Do not use it unless the user has enabled that grant. Default remains `isolated_new`.
 
 ### Notes (0.19)
 
-- Prefer **isolated** prepare; only use `existing_profile` when cookies/login are required.
-- Snapshot default: `semantic_v2` (outline + typed action refs). Use `--snapshot-format dom_refs_v1` only if needed.
-- Click accepts `--ref` **or** `--x`/`--y` (viewport CSS px). Convert from PNG with engine scale fields when using screenshots.
+- Snapshot default: `semantic_v2`. Use `--snapshot-format dom_refs_v1` only if needed.
+- Click accepts `--ref` **or** `--x`/`--y` (viewport CSS px).
+- `--input-route trusted` (default) vs `dom_event` (page JS listeners only; weaker, use when trusted click is refused).
 - Type requires `--ref`; optional `--mode insert_text|keystrokes`, `--replace`.
-- Always re-`state` after navigate or mutation when refs may be stale.
+- Always re-`state` after navigate or mutation. Do **not** click `e0` after a failed lookup or a missing snapshot — that is `browser_ref_stale`.
 - Window chrome / OS dialogs / file pickers → **`atmos-desktop-use`**, not Browser Use.
+- `press-key` is **embedded only**.
 
 ## Atmos embedded loop (in-app browser)
 
-Requires **Atmos Desktop** with at least one Browser tab open.  
-Same CLI surface as external (click / type / navigate / pointer / dialog / download); execution is Electron guest CDP, not system Chrome.
+Requires **Atmos Desktop** with at least one Browser tab open.
 
 ```bash
-# 1) List / bind sessions (target_id = in-app browser session id)
-atmos browser-use --json prepare --backend embedded
-atmos browser-use --json state --backend embedded
-
-# 2) Snapshot DOM refs
-atmos browser-use --json state --backend embedded --target-id <session_id>
-
-# 3) Act (full surface)
-atmos browser-use --json click --backend embedded --target-id <session_id> --tab-id main --ref e0
-atmos browser-use --json type --backend embedded --target-id <session_id> --tab-id main --ref e3 --text "hello"
-atmos browser-use --json navigate --backend embedded --target-id <session_id> --tab-id main --url https://example.com
-atmos browser-use --json pointer --backend embedded --target-id <session_id> --tab-id main \
-  --action hover --ref e0
-atmos browser-use --json dialog --backend embedded --target-id <session_id> --tab-id main --action inspect
-atmos browser-use --json download --backend embedded --target-id <session_id> --tab-id main \
-  --ref e5 --dir "$HOME/Downloads/atmos-browser"
+atmos browser-use prepare --backend embedded
+atmos browser-use state --backend embedded
+atmos browser-use state --backend embedded --target-id <session_id>
+atmos browser-use click --backend embedded --target-id <session_id> --ref g1:e0
+atmos browser-use type --backend embedded --target-id <session_id> --ref g1:e3 --text "hello"
+atmos browser-use press-key --backend embedded --target-id <session_id> --key Enter
+atmos browser-use navigate --backend embedded --target-id <session_id> --url https://example.com
+atmos browser-use end --backend embedded
 ```
 
 Notes:
 
-- Refs come from embedded snapshot (`e0`, `e1`, …); re-`state` after navigate.
-- `dialog inspect` arms CDP `Page.javascriptDialogOpening`; accept/dismiss needs `dialog_id`.
-- `download` clicks the ref and saves via the guest session `will-download` into `--dir`.
+- Snapshot format is `embedded_dom_v1` (visible nodes, truncated, generation-scoped refs like `g1:e0`). `semantic_v2` is unsupported here.
+- Do not invent a ref. If cache is empty, `state` first — the host will **not** auto-snapshot and then click `e0`.
+- `download` writes under `~/.atmos/data/browser-use/downloads` unless `--dir` is inside that root.
+- `upload` is external-only.
 
 ## Decision
 
 | Target | Surface |
 |--------|---------|
-| Atmos in-app browser page | `--backend embedded` (full CLI; host control plane) |
+| Atmos in-app browser page | `--backend embedded` |
 | User Chrome/Chromium page | `--backend external` (engine 0.19.2+) |
 | Window chrome / Slack / VS Code / any non-browser app | **`atmos-desktop-use`** |
 
@@ -104,5 +115,11 @@ Notes:
 | Code | Meaning |
 |------|---------|
 | `embedded_browser_host_unavailable` | Desktop Browser Use host not running |
+| `browser_control_auth_failed` | Restart Atmos Desktop (control-plane token) |
 | `control_engine_not_installed` / `browser_engine_failed` | Install/update Desktop Use engine (0.19.2+) |
-| `invalid_args` | Missing target_id / ref / url / bind ids |
+| `browser_ref_stale` | Re-run `state`; use a ref from that snapshot |
+| `browser_ambiguous_target` | Pass `--target-id` / `--tab-id` |
+| `browser_profile_grant_required` | Use `isolated_new`, not `existing_profile` |
+| `browser_download_denied` | `--dir` outside the approved downloads root |
+| `browser_navigate_denied` | Only http / https / about:blank |
+| `invalid_args` | Missing target_id / ref / url / bind ids / unknown `--strategy` |

@@ -1,8 +1,8 @@
 //! Atmos embedded browser (in-app webview) via host-owned control plane.
 //!
 //! Electron Desktop writes `~/.atmos/data/browser-use/control.json` with a loopback
-//! HTTP base URL. This backend talks to that plane — **not** user-Chrome
-//! `browser_prepare`.
+//! HTTP base URL and a per-runtime bearer token. This backend talks to that plane —
+//! **not** user-Chrome `browser_prepare`.
 
 use std::fs;
 use std::io::{Read, Write};
@@ -17,12 +17,23 @@ const MAX_RESPONSE_BYTES: u64 = 8 * 1024 * 1024;
 use serde_json::{json, Value};
 
 use super::BrowserBackend;
+use crate::errors::{
+    fail, fail_with_recovery, classify_engine_message, recovery_for, BROWSER_CONTROL_AUTH_FAILED,
+    BROWSER_CONTROL_UNAVAILABLE, BROWSER_INVALID_ARGS, BROWSER_UNSUPPORTED,
+};
 use crate::types::{
-    BrowserAction, BrowserError, BrowserRequest, BrowserResult, ERR_EMBEDDED_HOST_UNAVAILABLE,
+    action_name, BrowserAction, BrowserError, BrowserRequest, BrowserResult,
+    EMBEDDED_SNAPSHOT_FORMAT, ERR_EMBEDDED_HOST_UNAVAILABLE,
 };
 
 #[derive(Debug, Default)]
 pub struct EmbeddedBackend;
+
+#[derive(Debug, Clone)]
+pub struct ControlMeta {
+    base_url: String,
+    token: String,
+}
 
 fn control_dir() -> PathBuf {
     if let Ok(p) = std::env::var("ATMOS_BROWSER_USE_HOME") {
@@ -41,8 +52,12 @@ fn control_meta_path() -> PathBuf {
     control_dir().join("control.json")
 }
 
-/// Resolve loopback base URL from host-written control.json, e.g. `http://127.0.0.1:18765`.
-pub fn read_control_base_url() -> Result<String, String> {
+fn is_exact_loopback_host(host: &str) -> bool {
+    matches!(host, "127.0.0.1" | "localhost" | "[::1]" | "::1")
+}
+
+/// Resolve loopback base URL + bearer token from host-written control.json.
+pub fn read_control_meta() -> Result<ControlMeta, String> {
     let path = control_meta_path();
     let raw = fs::read_to_string(&path).map_err(|_| {
         format!(
@@ -57,19 +72,53 @@ pub fn read_control_base_url() -> Result<String, String> {
         .map(str::trim)
         .filter(|s| !s.is_empty())
         .ok_or_else(|| "control.json missing base_url".to_string())?;
-    if !(base.starts_with("http://127.0.0.1") || base.starts_with("http://localhost")) {
-        return Err("control base_url must be loopback HTTP".into());
+    let parsed = parse_http_url(base)?;
+    if !is_exact_loopback_host(&parsed.host) {
+        return Err("control base_url must be exact loopback HTTP (127.0.0.1 or localhost)".into());
     }
-    Ok(base.trim_end_matches('/').to_string())
+    let token = v
+        .get("token")
+        .and_then(|x| x.as_str())
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .ok_or_else(|| {
+            "control.json missing token — restart Atmos Desktop so the embedded control plane can issue a bearer token".to_string()
+        })?;
+    Ok(ControlMeta {
+        base_url: base.trim_end_matches('/').to_string(),
+        token: token.to_string(),
+    })
+}
+
+/// Backward-compatible helper used by older tests / callers.
+#[allow(dead_code)]
+pub fn read_control_base_url() -> Result<String, String> {
+    Ok(read_control_meta()?.base_url)
 }
 
 /// Minimal HTTP/1.1 POST JSON (no reqwest dep).
+#[allow(dead_code)]
 pub fn http_post_json(base: &str, path: &str, body: &Value) -> Result<Value, String> {
+    http_post_json_auth(base, path, body, None)
+}
+
+pub fn http_post_json_auth(
+    base: &str,
+    path: &str,
+    body: &Value,
+    token: Option<&str>,
+) -> Result<Value, String> {
     let url = format!("{base}{path}");
     let parsed = parse_http_url(&url)?;
+    if !is_exact_loopback_host(&parsed.host) {
+        return Err("embedded host must be exact loopback".into());
+    }
     let payload = serde_json::to_vec(body).map_err(|e| e.to_string())?;
+    let auth = token
+        .map(|t| format!("Authorization: Bearer {t}\r\n"))
+        .unwrap_or_default();
     let req = format!(
-        "POST {} HTTP/1.1\r\nHost: {}:{}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+        "POST {} HTTP/1.1\r\nHost: {}:{}\r\nOrigin: http://127.0.0.1\r\nContent-Type: application/json\r\nAccept: application/json\r\n{auth}Content-Length: {}\r\nConnection: close\r\n\r\n",
         parsed.path,
         parsed.host,
         parsed.port,
@@ -85,7 +134,6 @@ pub fn http_post_json(base: &str, path: &str, body: &Value) -> Result<Value, Str
         .and_then(|_| stream.write_all(&payload))
         .map_err(|e| format!("write embedded host failed: {e}"))?;
     let mut buf = Vec::new();
-    // Read one past the cap so we can reject oversized responses.
     let mut limited = (&mut stream).take(MAX_RESPONSE_BYTES + 1);
     limited
         .read_to_end(&mut buf)
@@ -99,8 +147,10 @@ pub fn http_post_json(base: &str, path: &str, body: &Value) -> Result<Value, Str
         .map(|i| i + 4)
         .ok_or_else(|| "invalid HTTP response from embedded host".to_string())?;
     let status_line = text.lines().next().unwrap_or("");
+    if status_line.contains(" 401 ") || status_line.contains(" 403 ") {
+        return Err("embedded host rejected the control-plane token".into());
+    }
     if !status_line.contains(" 200 ") && !status_line.ends_with(" 200") {
-        // Still try parse body for structured error
         if let Ok(v) = serde_json::from_str::<Value>(text[body_start..].trim()) {
             return Ok(v);
         }
@@ -147,19 +197,6 @@ fn parse_http_url(url: &str) -> Result<ParsedUrl, String> {
     Ok(ParsedUrl { host, port, path })
 }
 
-fn action_name(a: BrowserAction) -> &'static str {
-    match a {
-        BrowserAction::Prepare => "prepare",
-        BrowserAction::State => "state",
-        BrowserAction::Click => "click",
-        BrowserAction::Type => "type",
-        BrowserAction::Navigate => "navigate",
-        BrowserAction::Pointer => "pointer",
-        BrowserAction::Dialog => "dialog",
-        BrowserAction::Download => "download",
-    }
-}
-
 fn request_path(a: BrowserAction) -> &'static str {
     match a {
         BrowserAction::Prepare => "/v1/prepare",
@@ -170,27 +207,44 @@ fn request_path(a: BrowserAction) -> &'static str {
         BrowserAction::Pointer => "/v1/pointer",
         BrowserAction::Dialog => "/v1/dialog",
         BrowserAction::Download => "/v1/download",
+        BrowserAction::PressKey => "/v1/press-key",
+        BrowserAction::Upload => "/v1/upload",
+        BrowserAction::End => "/v1/end",
     }
 }
 
+fn session_id(req: &BrowserRequest) -> String {
+    crate::binding::engine_session_id(req.binding_id.as_deref(), req.session.as_deref())
+}
+
 pub fn build_embedded_body(req: &BrowserRequest) -> Result<Value, String> {
-    let session = req
-        .session
-        .clone()
-        .unwrap_or_else(|| "atmos-browser-use".into());
+    let session = session_id(req);
     match req.action {
         BrowserAction::Prepare => Ok(json!({
             "session": session,
-            // Optional preferred in-app browser session id (maps to target_id)
             "target_id": req.target_id,
             "url": req.url,
         })),
         BrowserAction::State => {
-            // Bind: no target → list sessions. Snapshot: target_id (+ optional tab_id)
+            if let Some(fmt) = req
+                .snapshot_format
+                .as_deref()
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+            {
+                if fmt != EMBEDDED_SNAPSHOT_FORMAT && fmt != "dom_refs_v1" {
+                    return Err(format!(
+                        "embedded snapshot format {fmt:?} is unsupported (use {EMBEDDED_SNAPSHOT_FORMAT})"
+                    ));
+                }
+            }
             Ok(json!({
                 "session": session,
                 "target_id": req.target_id,
                 "tab_id": req.tab_id,
+                "snapshot_format": EMBEDDED_SNAPSHOT_FORMAT,
+                "include_screenshot": req.include_screenshot,
+                "query": req.query,
             }))
         }
         BrowserAction::Click => {
@@ -206,6 +260,19 @@ pub fn build_embedded_body(req: &BrowserRequest) -> Result<Value, String> {
             let has_xy = req.x.is_some() && req.y.is_some();
             if !has_ref && !has_xy {
                 return Err("click requires --ref or both --x and --y".into());
+            }
+            if let Some(route) = req
+                .input_route
+                .as_ref()
+                .map(|s| s.trim())
+                .filter(|s| !s.is_empty())
+            {
+                if route != "trusted" {
+                    return Err(
+                        "embedded click does not support --input-route besides the default trusted path"
+                            .into(),
+                    );
+                }
             }
             let mut a = json!({
                 "session": session,
@@ -363,20 +430,49 @@ pub fn build_embedded_body(req: &BrowserRequest) -> Result<Value, String> {
                 .map(|s| s.trim())
                 .filter(|s| !s.is_empty())
                 .ok_or_else(|| "download requires --ref".to_string())?;
-            let dir = req
-                .download_dir
-                .as_ref()
-                .map(|s| s.trim())
-                .filter(|s| !s.is_empty())
-                .ok_or_else(|| "download requires --dir".to_string())?;
-            Ok(json!({
+            let mut a = json!({
                 "session": session,
                 "target_id": target,
                 "tab_id": req.tab_id.clone().unwrap_or_else(|| "main".into()),
                 "ref": r,
-                "dir": dir,
+            });
+            if let Some(dir) = req
+                .download_dir
+                .as_ref()
+                .map(|s| s.trim())
+                .filter(|s| !s.is_empty())
+            {
+                a["dir"] = json!(dir);
+            }
+            Ok(a)
+        }
+        BrowserAction::PressKey => {
+            let target = req
+                .target_id
+                .as_ref()
+                .ok_or_else(|| "press-key requires --target-id".to_string())?;
+            let key = req
+                .key
+                .as_ref()
+                .map(|s| s.trim())
+                .filter(|s| !s.is_empty())
+                .ok_or_else(|| "press-key requires --key".to_string())?;
+            Ok(json!({
+                "session": session,
+                "target_id": target,
+                "tab_id": req.tab_id.clone().unwrap_or_else(|| "main".into()),
+                "ref": req.element_ref,
+                "key": key,
             }))
         }
+        BrowserAction::Upload => Err(
+            "upload / set-input-files is not supported on --backend embedded yet; use --backend external"
+                .into(),
+        ),
+        BrowserAction::End => Ok(json!({
+            "session": session,
+            "target_id": req.target_id,
+        })),
     }
 }
 
@@ -386,18 +482,21 @@ impl BrowserBackend for EmbeddedBackend {
         let body = match build_embedded_body(&req) {
             Ok(b) => b,
             Err(e) => {
-                let err = BrowserError::InvalidArgs(e);
-                return BrowserResult {
-                    ok: false,
-                    action: action.into(),
-                    backend: "embedded".into(),
-                    result: None,
-                    error: Some(err.message()),
-                    error_code: Some(err.code().into()),
+                let code = if e.contains("not supported") || e.contains("unsupported") {
+                    BROWSER_UNSUPPORTED
+                } else {
+                    BROWSER_INVALID_ARGS
                 };
+                return fail_with_recovery(
+                    action,
+                    "embedded",
+                    code,
+                    BrowserError::InvalidArgs(e).message(),
+                    recovery_for(code),
+                );
             }
         };
-        let base = match read_control_base_url() {
+        let meta = match read_control_meta() {
             Ok(b) => b,
             Err(e) => {
                 return BrowserResult {
@@ -411,11 +510,13 @@ impl BrowserBackend for EmbeddedBackend {
                     })),
                     error: Some(e),
                     error_code: Some(ERR_EMBEDDED_HOST_UNAVAILABLE.into()),
+                    recovery: recovery_for(BROWSER_CONTROL_UNAVAILABLE),
+                    ..BrowserResult::default()
                 };
             }
         };
         let path = request_path(req.action);
-        match http_post_json(&base, path, &body) {
+        match http_post_json_auth(&meta.base_url, path, &body, Some(&meta.token)) {
             Ok(v) => {
                 let ok = v.get("ok").and_then(|x| x.as_bool()).unwrap_or(true);
                 if !ok {
@@ -424,37 +525,29 @@ impl BrowserBackend for EmbeddedBackend {
                         .and_then(|x| x.as_str())
                         .unwrap_or("embedded browser action failed")
                         .to_string();
-                    let code = v
-                        .get("error_code")
-                        .and_then(|x| x.as_str())
-                        .unwrap_or("browser_engine_failed")
-                        .to_string();
-                    return BrowserResult {
-                        ok: false,
-                        action: action.into(),
-                        backend: "embedded".into(),
-                        result: Some(v),
-                        error: Some(msg),
-                        error_code: Some(code),
-                    };
+                    let host_code = v.get("error_code").and_then(|x| x.as_str());
+                    let (code, recovery) = classify_engine_message(host_code, &msg);
+                    let mut result = fail_with_recovery(action, "embedded", code, msg, recovery);
+                    result.result = Some(v);
+                    return result;
                 }
                 BrowserResult {
                     ok: true,
                     action: action.into(),
                     backend: "embedded".into(),
                     result: Some(v),
-                    error: None,
-                    error_code: None,
+                    ..BrowserResult::default()
                 }
             }
-            Err(e) => BrowserResult {
-                ok: false,
-                action: action.into(),
-                backend: "embedded".into(),
-                result: None,
-                error: Some(e),
-                error_code: Some(ERR_EMBEDDED_HOST_UNAVAILABLE.into()),
-            },
+            Err(e) => {
+                let auth_fail = e.contains("token") || e.contains("401") || e.contains("403");
+                let code = if auth_fail {
+                    BROWSER_CONTROL_AUTH_FAILED
+                } else {
+                    ERR_EMBEDDED_HOST_UNAVAILABLE
+                };
+                fail_with_recovery(action, "embedded", code, e, recovery_for(code))
+            }
         }
     }
 }
@@ -486,6 +579,8 @@ mod tests {
         assert_eq!(request_path(BrowserAction::Pointer), "/v1/pointer");
         assert_eq!(request_path(BrowserAction::Dialog), "/v1/dialog");
         assert_eq!(request_path(BrowserAction::Download), "/v1/download");
+        assert_eq!(request_path(BrowserAction::PressKey), "/v1/press-key");
+        assert_eq!(request_path(BrowserAction::End), "/v1/end");
     }
 
     #[test]
@@ -516,10 +611,49 @@ mod tests {
     }
 
     #[test]
+    fn rejects_semantic_v2_on_embedded() {
+        let req = BrowserRequest {
+            backend: BrowserBackendKind::Embedded,
+            action: BrowserAction::State,
+            snapshot_format: Some("semantic_v2".into()),
+            ..Default::default()
+        };
+        assert!(build_embedded_body(&req).is_err());
+    }
+
+    #[test]
+    fn upload_is_unsupported() {
+        let req = BrowserRequest {
+            backend: BrowserBackendKind::Embedded,
+            action: BrowserAction::Upload,
+            target_id: Some("s1".into()),
+            files: vec!["/tmp/a.png".into()],
+            ..Default::default()
+        };
+        assert!(build_embedded_body(&req).unwrap_err().contains("not supported"));
+    }
+
+    #[test]
     fn parse_loopback_url() {
         let p = parse_http_url("http://127.0.0.1:18765/v1/state").unwrap();
         assert_eq!(p.host, "127.0.0.1");
         assert_eq!(p.port, 18765);
         assert_eq!(p.path, "/v1/state");
+        assert!(is_exact_loopback_host("127.0.0.1"));
+        assert!(is_exact_loopback_host("localhost"));
+        assert!(!is_exact_loopback_host("localhost.evil"));
+    }
+
+    #[test]
+    fn download_dir_is_optional_for_embedded() {
+        let dl = BrowserRequest {
+            backend: BrowserBackendKind::Embedded,
+            action: BrowserAction::Download,
+            target_id: Some("s1".into()),
+            element_ref: Some("e1".into()),
+            ..Default::default()
+        };
+        let body = build_embedded_body(&dl).unwrap();
+        assert!(body.get("dir").is_none());
     }
 }

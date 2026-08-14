@@ -20,6 +20,7 @@ describe("APP-053 browser webview structural (shipped sources)", () => {
     expect(src).not.toContain("browser_bridge_hide");
     expect(src).toContain("mode: 'desktop'");
     expect(src).toContain("desktop-browser:viewport-changed");
+    expect(src).toContain("desktop-browser:agent-activity");
     expect(src).toContain("browser_bridge_query_element_rects");
     expect(src).toContain("queryElementRects");
   });
