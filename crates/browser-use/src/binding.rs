@@ -341,6 +341,9 @@ fn now_ms() -> u64 {
 }
 
 #[cfg(test)]
+pub(crate) static TEST_HOME_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+#[cfg(test)]
 mod tests {
     use super::*;
 
@@ -421,6 +424,7 @@ mod tests {
 
     #[test]
     fn end_and_close_do_not_leave_a_dead_target() {
+        let _guard = TEST_HOME_LOCK.lock().expect("test home lock");
         let dir = tempfile::tempdir().unwrap();
         unsafe {
             std::env::set_var("ATMOS_BROWSER_USE_HOME", dir.path());

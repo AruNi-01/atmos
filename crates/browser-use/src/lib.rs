@@ -86,6 +86,7 @@ mod tests {
 
     #[test]
     fn embedded_without_host_fails_closed() {
+        let _guard = binding::TEST_HOME_LOCK.lock().expect("test home lock");
         let dir = tempfile::tempdir().unwrap();
         // SAFETY: test isolation via env override
         unsafe {

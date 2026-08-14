@@ -150,15 +150,16 @@ describe("APP-053 browser webview structural (shipped sources)", () => {
 
   it("surface manager injects host-driven selection (showSelectionToolbar false)", () => {
     const src = read("apps/desktop-electron/src/browser/surface-manager.ts");
-    expect(src).toContain("showSelectionToolbar: false");
+    const runtimeInject = read("apps/desktop-electron/src/browser/webview-runtime.ts");
+    expect(runtimeInject).toContain("showSelectionToolbar: false");
     // Guest still draws pick hover labels (host owns toolbar only).
-    expect(src).toContain("showHoverLabel: true");
+    expect(runtimeInject).toContain("showHoverLabel: true");
     expect(src).not.toContain("WebContentsView");
     expect(src).not.toContain("addChildView");
     expect(src).toContain("BROWSER_PARTITION");
-    expect(src).toContain("browser-runtime.js");
+    expect(runtimeInject).toContain("browser-runtime.js");
     // Packaged DMG must resolve dist-local runtime (not monorepo-only path).
-    expect(src).toContain("resolveBrowserRuntimeScriptPath");
+    expect(runtimeInject).toContain("resolveBrowserRuntimeScriptPath");
     const pathHelper = read("apps/desktop-electron/src/browser/browser-runtime-path.ts");
     expect(pathHelper).toContain("browser-runtime.js");
     const build = read("apps/desktop-electron/scripts/build.ts");
