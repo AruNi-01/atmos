@@ -55,7 +55,7 @@ Given zero bound guests, When `/v1/state` has no `target_id`, Then renderer ensu
 Given sidebar guest `sess-1`, When `tabs open` includes that `targetId`, Then no new center chrome.
 
 ### S5 — Hosts exist, no silent ensure
-Given two panels and no last-active uniqueness, When `tabs open` has no target, Then `browser_ambiguous_target` and `ensureSurface` is not called.
+Given two panels, neither UI-active, and no last-active hint, When `tabs open` has no target, Then `browser_ambiguous_target` and `ensureSurface` is not called. A unique UI-active panel wins over last-active.
 
 ### S6 — Sidebar default shows module
 Given `rsShowBrowser === false`, When default surface is set to Sidebar or sidebar ensure runs, Then `rsShowBrowser` is true.

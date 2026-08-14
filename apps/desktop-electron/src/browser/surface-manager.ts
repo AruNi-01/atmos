@@ -375,6 +375,7 @@ export class BrowserSurfaceManager {
     action: string;
     url?: string;
     targetId?: string;
+    preferredTargetId?: string;
   }): boolean {
     let host = this.resolveAgentTabHost(payload.targetId);
     if (!host && payload.action === "ensure-bind" && this.surfaces.size === 0) {
@@ -391,6 +392,7 @@ export class BrowserSurfaceManager {
         tabAction: payload.action,
         url: payload.url,
         targetId: payload.targetId,
+        preferredTargetId: payload.preferredTargetId,
       },
       host,
     );

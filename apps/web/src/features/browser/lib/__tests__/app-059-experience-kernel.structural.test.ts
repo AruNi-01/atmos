@@ -34,6 +34,7 @@ describe("APP-059 experience kernel", () => {
     );
     expect(bridge).toContain('action === "ensure-bind"');
     expect(bridge).toContain('action === "navigate"');
+    expect(bridge).toContain("preferredTargetId");
     expect(bridge).toContain("ensureSurface");
     const state = readFileSync(
       join(root, "apps/web/src/features/browser/hooks/use-browser-state.ts"),

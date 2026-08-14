@@ -27,6 +27,7 @@
 9. Atmos Desktop up (`control.json`) ⇒ Embedded unless the caller passed `--backend external`. A stored `external` binding does not win.
 10. External bind-mode `state` follows through to a snapshot in the same call. Bind-only (`ok: true`, no `elements`) is not a successful page read.
 11. Human `/browser-use` (Welcome **and** terminal slash) ensures the Settings default surface. Center `+` stays an explicit new tab.
+12. `tabs open` without `--target-id` follows the Browser the user is using (unique UI `isActive`), then last-active as a tie-break / fallback.
 
 ## Unified `state` envelope (U1–U3)
 
@@ -88,7 +89,7 @@ POST /v1/state  { target_id?, query? }
 
 CLI: omitted `--backend` defaults to **embedded** when `control.json` exists. `execute(State)` on embedded **does not inject** a stored `target_id` (so last-active / pick handoff can run); it commits the snapshot ids afterward. Click/type still reuse the stored target. Binding merge never writes `None` over a live `tab_id`. `fill_result_envelope` stamps `capability_flags` on every success but lifts `elements[]` only for `state` / `prepare`.
 
-`tabs open` with zero hosts: renderer `ensureSurface` then in-panel open (H2). With a resolvable last-active and no target: open a page tab **in that panel**, do not ensure a second chrome.
+`tabs open` with zero hosts: renderer `ensureSurface` then in-panel open (H2). With no `--target-id`: open in the **UI-active** Browser the user is using. If none or several panels are UI-active, use the last-active session's panel. Do not ensure a second chrome.
 
 ## Handoff (P1–P3)
 

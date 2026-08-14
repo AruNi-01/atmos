@@ -20,6 +20,7 @@ type AgentTabPayload = {
   tabAction?: string;
   url?: string;
   targetId?: string;
+  preferredTargetId?: string;
 };
 
 let listening = false;
@@ -100,7 +101,7 @@ async function handleAgentTab(payload: AgentTabPayload): Promise<void> {
         });
         return;
       }
-      let routed = map.resolveContext(payload.targetId);
+      let routed = map.resolveContext(payload.targetId, payload.preferredTargetId);
       if (
         !routed.ok &&
         (routed.error_code === "embedded_browser_host_unavailable" ||

@@ -76,6 +76,8 @@ describe("browser-use-control structural", () => {
     expect(src).toContain('code === "invalid_args"');
     expect(src).toContain('action: "navigate"');
     expect(src).toContain("isDetached");
+    expect(src).toContain("preferredTargetId");
+    expect(src).toContain("lastActiveBoundSessionId");
   });
 
   it("wires Desktop Use agent chrome on embedded click/type", () => {

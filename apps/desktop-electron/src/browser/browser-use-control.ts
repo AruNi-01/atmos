@@ -423,6 +423,9 @@ export class BrowserUseControlPlane {
         action: cmd.action,
         url: cmd.url,
         targetId: cmd.targetId,
+        preferredTargetId: cmd.targetId
+          ? undefined
+          : (this.manager.lastActiveBoundSessionId() ?? undefined),
       });
       if (!delivered) {
         clearTimeout(timer);

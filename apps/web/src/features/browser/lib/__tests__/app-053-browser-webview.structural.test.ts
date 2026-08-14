@@ -308,9 +308,13 @@ describe("APP-053 browser webview structural (shipped sources)", () => {
   it("routes agent tabs without silently guessing a window", () => {
     const map = read("apps/web/src/features/browser/store/use-browser-session-map.ts");
     expect(map).toContain("resolveContext");
-    expect(map).toContain("browser_route_unavailable");
-    expect(map).toContain("browser_ambiguous_target");
+    expect(map).toContain("resolveBrowserContext");
     expect(map).not.toContain("pickContext");
+    const resolve = read("apps/web/src/features/browser/store/resolve-browser-context.ts");
+    expect(resolve).toContain("panel.isActive");
+    expect(resolve).toContain("preferredSessionId");
+    expect(resolve).toContain("browser_route_unavailable");
+    expect(resolve).toContain("browser_ambiguous_target");
 
     const activity = read("apps/web/src/features/browser/store/use-browser-use-activity.ts");
     expect(activity).toContain("sessionId && current.sessionId !== sessionId");
