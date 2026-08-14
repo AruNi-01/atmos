@@ -218,6 +218,14 @@ For a fresh iOS/Android mobile environment, follow [agents/references/mobile/dev
 
 ---
 
+## ☁️ Dev & Cloud Environment
+
+How to bring the dev environment up on a **new machine, CI, or a Cloud Agent**: pinned toolchains (`rust-toolchain.toml`, bun via `package.json` `packageManager`, plus `just` / `zsh` / `tmux`), an optional reproducible **Nix** dev shell (`flake.nix` + direnv `.envrc`), and vendor-neutral one-command bootstrap scripts — `scripts/dev/setup.sh` (install) and `scripts/dev/start.sh` (run API + web). The scripts prefer the Nix shell when present and fall back to host toolchains.
+
+→ **[Full reference](agents/references/dev-environment.md)**
+
+---
+
 ## 🪲 Debug Logging
 
 The project has a ready-made debug logging infrastructure (Rust + TypeScript) that writes structured JSON-line logs to `./logs/debug/`. Use it whenever you need to instrument a lifecycle flow or diagnose a tricky bug.
