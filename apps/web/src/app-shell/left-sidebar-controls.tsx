@@ -35,10 +35,12 @@ import {
   WorkspaceListShowMoreLess,
 } from "@/app-shell/sidebar/workspace-list-pagination";
 import {
+  getWorkspaceAgentGroupMeta,
   getWorkspaceWorkflowStatusMeta,
   type SidebarGroupingMode,
 } from "@/app-shell/sidebar/workspace-status";
 import { getWorkspacePriorityMeta } from "@/app-shell/sidebar/workspace-metadata-controls";
+import type { WorkspaceAgentGroupKey } from "@/features/agent/lib/workspace-agent-status";
 import {
   UNTAGGED_WORKSPACE_GROUP_KEY,
   type FlattenedWorkspaceEntry,
@@ -375,7 +377,10 @@ function WorkspaceGroupMarker({
         group.key as Parameters<typeof getWorkspacePriorityMeta>[0],
       )
     : null;
-  const GroupIcon = statusMeta?.icon ?? priorityMeta?.icon;
+  const agentMeta = groupingMode === "agent"
+    ? getWorkspaceAgentGroupMeta(group.key as WorkspaceAgentGroupKey)
+    : null;
+  const GroupIcon = statusMeta?.icon ?? priorityMeta?.icon ?? agentMeta?.icon;
 
   if (GroupIcon) {
     return (
@@ -383,7 +388,7 @@ function WorkspaceGroupMarker({
         className={cn(
           // size-4 matches Launchpad / outside nav icons for a shared icon column.
           "size-4 shrink-0",
-          statusMeta?.className ?? priorityMeta?.className,
+          statusMeta?.className ?? priorityMeta?.className ?? agentMeta?.className,
         )}
       />
     );

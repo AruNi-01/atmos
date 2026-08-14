@@ -15,6 +15,7 @@ mod hermes;
 mod kiro;
 mod opencode;
 mod pi;
+mod workspace_agent_group;
 
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
@@ -36,6 +37,9 @@ pub use attention_summary::{
 };
 pub use attention_summary_generate::generate_attention_summary;
 pub(super) use child_agent::{extract_child_agent_id, is_child_start_event, is_child_stop_event};
+pub use workspace_agent_group::{
+    resolve_workspace_agent_group_key, WorkspaceAgentGroupKey, WorkspaceAgentGroupSnapshot,
+};
 
 /// How long late mid-turn progress events are ignored after a terminal idle /
 /// forced idle transition. Prevents a delayed PostToolUse from resurrecting a

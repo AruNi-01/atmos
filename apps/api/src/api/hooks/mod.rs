@@ -67,9 +67,11 @@ pub fn routes() -> Router<AppState> {
             post(force_session_idle),
         )
         .route("/sessions/{session_id}", delete(remove_hook_session))
-        // Attention routes before `/{tool}/…` so "attention" is not parsed as a tool name.
-        // REST (not WS): same pre-connection bootstrap as GET /attention — used to hydrate
-        // sticky latch/summary state on browser refresh before the WS session is ready.
+        // Attention / grouping snapshot routes before `/{tool}/…` so those
+        // names are not parsed as a tool. REST (not WS): pre-connection
+        // bootstrap so browser refresh can hydrate sticky attention and
+        // By Agent Status buckets from API memory before WS is ready.
+        .route("/workspace-agent-groups", get(list_workspace_agent_groups))
         .route("/attention", get(list_attention))
         .route("/attention/clear", post(clear_attention))
         .route("/attention/summaries", get(list_attention_summaries))
@@ -245,6 +247,11 @@ async fn handle_kiro_hook(
 async fn list_hook_sessions(State(state): State<AppState>) -> Json<Value> {
     let sessions = state.agent_hooks_service.get_all_sessions();
     Json(serde_json::json!({ "sessions": sessions }))
+}
+
+async fn list_workspace_agent_groups(State(state): State<AppState>) -> Json<Value> {
+    let groups = state.agent_hooks_service.list_workspace_agent_groups();
+    Json(serde_json::json!({ "groups": groups }))
 }
 
 async fn list_attention(State(state): State<AppState>) -> Json<Value> {
