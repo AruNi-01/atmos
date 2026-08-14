@@ -19,7 +19,7 @@ pub use binding::{
     apply_binding_defaults, apply_result_to_binding, clear_binding, commit_binding_from_result,
     engine_session_id, extract_ids, fill_result_ids, load_binding, resolve_binding_id,
     resolve_binding_scope, resolve_native_route, save_binding, AppliedBinding, BINDING_SCOPE_ENV,
-    BrowserBinding, NativeRouteHint,
+    BrowserBinding, DEFAULT_BINDING_SCOPE, NativeRouteHint,
 };
 pub use chrome::{
     chrome_target_for_request, show_browser_action_chrome, status_for_browser_action,

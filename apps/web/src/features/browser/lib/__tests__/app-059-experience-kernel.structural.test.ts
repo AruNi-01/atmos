@@ -18,6 +18,8 @@ describe("APP-059 experience kernel", () => {
     expect(skill).not.toContain("user_picks");
     expect(skill).not.toContain("prepare --backend embedded");
     expect(skill).toContain("Placement is the user's Settings");
+    expect(skill).toContain("bind-only is not a page");
+    expect(skill).toContain("in-app Browser");
     const cli = readFileSync(
       join(root, "apps/cli/src/commands/browser_use.rs"),
       "utf8",
@@ -75,7 +77,18 @@ describe("APP-059 experience kernel", () => {
       "utf8",
     );
     expect(hook).toContain("ensureSurface");
-    expect(welcome).toContain("ensureSurface");
+    expect(welcome).toContain("ensureBrowserUseSlashSurface");
     expect(layout).toContain("currentContextId");
+    const slash = readFileSync(
+      join(root, "apps/web/src/features/welcome/lib/slash-browser-use.ts"),
+      "utf8",
+    );
+    const terminal = readFileSync(
+      join(root, "apps/web/src/features/terminal/components/TerminalAgentInputOverlay.tsx"),
+      "utf8",
+    );
+    expect(slash).toContain("ensureBrowserUseSlashSurface");
+    expect(slash).toContain("ensureSurface");
+    expect(terminal).toContain("ensureBrowserUseSlashSurface");
   });
 });

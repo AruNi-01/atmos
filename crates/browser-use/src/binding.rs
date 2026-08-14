@@ -50,6 +50,10 @@ pub const BINDING_SCOPE_ENV: &[&str] = &[
     "ATMOS_PANE_ID",
 ];
 
+/// When Atmos did not inject a pane/chat id, follow-up `click --ref` still
+/// needs a disk key so the two-line skill loop can omit `--target-id`.
+pub const DEFAULT_BINDING_SCOPE: &str = "atmos-browser-use";
+
 /// Caller-supplied route for a future native tool. Same resolver as `execute()`.
 #[derive(Debug, Clone, Default)]
 pub struct NativeRouteHint {
@@ -75,7 +79,10 @@ pub fn resolve_native_route(hint: NativeRouteHint) -> AppliedBinding {
 }
 
 pub fn resolve_binding_id(explicit: Option<&str>) -> Option<String> {
-    resolve_binding_scope(explicit, env_nonempty)
+    Some(
+        resolve_binding_scope(explicit, env_nonempty)
+            .unwrap_or_else(|| DEFAULT_BINDING_SCOPE.to_string()),
+    )
 }
 
 /// Pure scope resolver. `lookup` is `env_nonempty` in production.
@@ -135,24 +142,15 @@ pub fn apply_binding_defaults(
     let stored = binding_id.as_deref().and_then(load_binding);
     let backend = if backend_explicit {
         request_backend
+    } else if crate::backends::embedded::embedded_host_available() {
+        // Atmos Desktop is up → in-app Browser. Stored `external` must not win.
+        BrowserBackendKind::Embedded
     } else if let Some(stored) = stored.as_ref() {
         stored.backend
-    } else if crate::backends::embedded::embedded_host_available() {
-        BrowserBackendKind::Embedded
     } else {
         request_backend
     };
-    // No pane/chat scope: still pick Embedded when Desktop wrote control.json,
-    // but never merge a stored target/tab (those are scope-owned).
-    let Some(binding_id) = binding_id else {
-        return AppliedBinding {
-            backend,
-            target_id,
-            tab_id,
-            session_id,
-            resolved_from: None,
-        };
-    };
+    let binding_id = binding_id.expect("default binding scope");
     if let Some(stored) = stored.as_ref() {
         if stored.backend != backend {
             return AppliedBinding {
@@ -396,6 +394,92 @@ mod tests {
         assert_eq!(applied.target_id.as_deref(), Some("t"));
         assert_eq!(applied.backend, BrowserBackendKind::External);
         assert!(applied.resolved_from.is_none());
+        unsafe {
+            std::env::remove_var("ATMOS_BROWSER_USE_HOME");
+        }
+    }
+
+    #[test]
+    fn no_env_uses_default_scope_so_follow_up_can_omit_ids() {
+        let _guard = TEST_HOME_LOCK.lock().expect("test home lock");
+        let dir = tempfile::tempdir().unwrap();
+        unsafe {
+            std::env::set_var("ATMOS_BROWSER_USE_HOME", dir.path());
+            for key in BINDING_SCOPE_ENV {
+                std::env::remove_var(key);
+            }
+        }
+        apply_result_to_binding(
+            None,
+            BrowserBackendKind::Embedded,
+            crate::types::BrowserAction::State,
+            None,
+            &BrowserResult {
+                ok: true,
+                action: "state".into(),
+                backend: "embedded".into(),
+                target_id: Some("sess".into()),
+                tab_id: Some("main".into()),
+                ..BrowserResult::default()
+            },
+        );
+        let stored = load_binding(DEFAULT_BINDING_SCOPE).unwrap();
+        assert_eq!(stored.target_id.as_deref(), Some("sess"));
+        assert_eq!(stored.tab_id.as_deref(), Some("main"));
+        let applied = apply_binding_defaults(
+            BrowserBackendKind::Embedded,
+            true,
+            None,
+            None,
+            None,
+            None,
+        );
+        assert_eq!(applied.target_id.as_deref(), Some("sess"));
+        assert_eq!(applied.tab_id.as_deref(), Some("main"));
+        unsafe {
+            std::env::remove_var("ATMOS_BROWSER_USE_HOME");
+        }
+    }
+
+    #[test]
+    fn desktop_host_overrides_stored_external_unless_explicit() {
+        let _guard = TEST_HOME_LOCK.lock().expect("test home lock");
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("control.json"), "{}").unwrap();
+        unsafe {
+            std::env::set_var("ATMOS_BROWSER_USE_HOME", dir.path());
+        }
+        let binding_id = "pane-external";
+        save_binding(&BrowserBinding::new(
+            binding_id,
+            BrowserBackendKind::External,
+            Some("chrome-tgt".into()),
+            Some("tab-1".into()),
+            None,
+        ))
+        .unwrap();
+        let applied = apply_binding_defaults(
+            BrowserBackendKind::External,
+            false,
+            None,
+            None,
+            None,
+            Some(binding_id),
+        );
+        assert_eq!(applied.backend, BrowserBackendKind::Embedded);
+        assert!(applied.target_id.is_none());
+        assert!(applied.resolved_from.is_none());
+
+        let explicit = apply_binding_defaults(
+            BrowserBackendKind::External,
+            true,
+            None,
+            None,
+            None,
+            Some(binding_id),
+        );
+        assert_eq!(explicit.backend, BrowserBackendKind::External);
+        assert_eq!(explicit.target_id.as_deref(), Some("chrome-tgt"));
         unsafe {
             std::env::remove_var("ATMOS_BROWSER_USE_HOME");
         }

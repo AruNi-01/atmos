@@ -1,6 +1,6 @@
 ---
 name: atmos-browser-use
-version: "3.1.0"
+version: "3.2.0"
 description: >
   Control web pages via Browser Use (`atmos browser-use`), separate from Desktop Use.
   Prefer for Chrome/Chromium page DOM or Atmos in-app browser (embedded). Do not use for
@@ -68,8 +68,12 @@ follows the last-active tab (including a user highlight). Several surfaces →
 
 ## External (system Chrome)
 
-Only when `capability_flags.ensure_surface` is false / you are not on Desktop.
-If `state` has no `elements` and asks for setup, prepare **once**, then `state` again:
+Only when Atmos Desktop is **not** the host — `capability_flags.ensure_surface`
+is false, or the user passed `--backend external` (Desktop Use operating a
+system browser). Inside Atmos, omitted `--backend` is the in-app Browser.
+
+If `state` has no `elements` and asks for setup, prepare **once**, then `state`
+again. That second `state` must return `elements[]` (bind-only is not a page):
 
 ```bash
 atmos desktop-use status

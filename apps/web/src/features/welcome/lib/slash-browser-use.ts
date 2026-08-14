@@ -68,3 +68,15 @@ export function resolveBrowserUseSkillRef(skills: SkillInfo[]): {
 export function browserUseSlashNeedsDesktopUseGate(): boolean {
   return !isDesktopRuntime();
 }
+
+/** H6: Welcome and terminal `/browser-use` open the Settings default surface. */
+export function ensureBrowserUseSlashSurface(contextId?: string | null): void {
+  if (browserUseSlashNeedsDesktopUseGate()) return;
+  void import("@/features/browser/lib/ensure-browser-surface").then(
+    ({ currentBrowserHostContextId, ensureSurface }) => {
+      const id = contextId?.trim() || currentBrowserHostContextId() || "";
+      if (!id) return;
+      void ensureSurface({ contextId: id });
+    },
+  );
+}

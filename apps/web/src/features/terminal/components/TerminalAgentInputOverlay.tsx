@@ -46,9 +46,11 @@ import {
   BROWSER_USE_SLASH_COMMAND_ID,
   browserUseSlashNeedsDesktopUseGate,
   buildBrowserUseSlashCommand,
+  ensureBrowserUseSlashSurface,
   matchesBrowserUseSlashQuery,
   resolveBrowserUseSkillRef,
 } from "@/features/welcome/lib/slash-browser-use";
+import { useContextParams } from "@/shared/hooks/use-context-params";
 import {
   buildDesktopUseSlashCommand,
   DESKTOP_USE_SLASH_COMMAND_ID,
@@ -177,6 +179,7 @@ export const TerminalAgentInputOverlay = React.forwardRef<
   surfaceActive = true,
 }, ref) {
   const t = useTranslations("terminal.agentInput");
+  const { effectiveContextId } = useContextParams();
   const {
     enabled: richInputEnabled,
     triggerBarVisible,
@@ -647,6 +650,7 @@ export const TerminalAgentInputOverlay = React.forwardRef<
         };
         if (!browserUseSlashNeedsDesktopUseGate()) {
           insertSkill();
+          ensureBrowserUseSlashSurface(effectiveContextId);
           return;
         }
         void import("@/features/desktop-use/lib/readiness-modal-bus").then(

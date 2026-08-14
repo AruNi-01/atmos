@@ -33,12 +33,11 @@ import {
   BROWSER_USE_SLASH_COMMAND_ID,
   browserUseSlashNeedsDesktopUseGate,
   buildBrowserUseSlashCommand,
+  ensureBrowserUseSlashSurface,
   matchesBrowserUseSlashQuery,
   resolveBrowserUseSkillRef,
 } from "@/features/welcome/lib/slash-browser-use";
 import { useContextParams } from "@/shared/hooks/use-context-params";
-import { isDesktopRuntime } from "@/shared/lib/desktop-runtime";
-import { ensureSurface } from "@/features/browser/lib/ensure-browser-surface";
 import {
   buildDesktopUseSlashCommand,
   DESKTOP_USE_SLASH_COMMAND_ID,
@@ -684,9 +683,7 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
         };
         if (!browserUseSlashNeedsDesktopUseGate()) {
           insertSkill();
-          if (isDesktopRuntime() && effectiveContextId) {
-            void ensureSurface({ contextId: effectiveContextId });
-          }
+          ensureBrowserUseSlashSurface(effectiveContextId);
           return;
         }
         void import("@/features/desktop-use/lib/readiness-modal-bus").then(

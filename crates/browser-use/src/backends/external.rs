@@ -5,7 +5,7 @@ use serde_json::{json, Value};
 use super::BrowserBackend;
 use crate::errors::{
     fail, fail_with_recovery, map_engine_failure, BROWSER_INVALID_ARGS,
-    BROWSER_PROFILE_GRANT_REQUIRED, BROWSER_UNSUPPORTED, recovery_for,
+    BROWSER_PROFILE_GRANT_REQUIRED, BROWSER_SETUP_REQUIRED, BROWSER_UNSUPPORTED, recovery_for,
 };
 use crate::types::{
     action_name, BrowserAction, BrowserBackendKind, BrowserError, BrowserRequest, BrowserResult,
@@ -451,6 +451,103 @@ pub fn build_tool_call(req: &BrowserRequest) -> Result<(&'static str, Value), St
     }
 }
 
+fn state_payload_has_elements(v: &Value) -> bool {
+    v.get("elements")
+        .and_then(Value::as_array)
+        .is_some_and(|els| !els.is_empty())
+        || v.get("snapshot")
+            .and_then(|s| s.get("elements"))
+            .and_then(Value::as_array)
+            .is_some_and(|els| !els.is_empty())
+        || v.get("nodes")
+            .and_then(Value::as_array)
+            .is_some_and(|els| !els.is_empty())
+}
+
+fn follow_bind_with_snapshot(
+    engine: &std::path::Path,
+    socket: &std::path::Path,
+    session: &str,
+    bind: Value,
+    req: &BrowserRequest,
+) -> Result<Value, BrowserResult> {
+    if state_payload_has_elements(&bind) {
+        return Ok(bind);
+    }
+    let tmp = BrowserResult {
+        ok: true,
+        result: Some(bind.clone()),
+        target_id: req.target_id.clone(),
+        tab_id: req.tab_id.clone(),
+        ..BrowserResult::default()
+    };
+    let (target_id, tab_id, _) = crate::binding::extract_ids(&tmp);
+    let (Some(target_id), Some(tab_id)) = (target_id, tab_id) else {
+        return Err(fail_with_recovery(
+            action_name(BrowserAction::State),
+            BrowserBackendKind::External.as_str(),
+            BROWSER_SETUP_REQUIRED,
+            "External bind is not a page snapshot (no elements, no target_id/tab_id).",
+            Some(
+                "Prepare once, then `atmos browser-use state --pid <prepared_pid> --window-id <prepared_window_id>`. That call must return elements[]."
+                    .into(),
+            ),
+        ));
+    };
+    let fmt = req
+        .snapshot_format
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .unwrap_or(DEFAULT_SNAPSHOT_FORMAT);
+    let mut args = json!({
+        "session": session,
+        "target_id": target_id,
+        "tab_id": tab_id,
+        "snapshot_format": fmt,
+    });
+    if req.include_screenshot {
+        args["include_screenshot"] = json!(true);
+    }
+    match host::call_tool(engine, socket, "get_browser_state", &args) {
+        Ok(mut snap) => {
+            if let Some(fail_msg) = desktop_use::engine_protocol::engine_payload_is_failure(&snap) {
+                return Err(map_engine_failure(
+                    action_name(BrowserAction::State),
+                    BrowserBackendKind::External.as_str(),
+                    &snap,
+                    &fail_msg,
+                ));
+            }
+            if !state_payload_has_elements(&snap) {
+                return Err(fail_with_recovery(
+                    action_name(BrowserAction::State),
+                    BrowserBackendKind::External.as_str(),
+                    BROWSER_SETUP_REQUIRED,
+                    "External state bound a window but did not snapshot the page.",
+                    Some(
+                        "Retry `atmos browser-use state --target-id <id> --tab-id <tab>`. Do not treat a bind-only list as a finished page."
+                            .into(),
+                    ),
+                ));
+            }
+            if snap.get("target_id").and_then(Value::as_str).is_none() {
+                snap["target_id"] = json!(target_id);
+            }
+            if snap.get("tab_id").and_then(Value::as_str).is_none() {
+                snap["tab_id"] = json!(tab_id);
+            }
+            Ok(snap)
+        }
+        Err(e) => Err(map_engine_failure(
+            action_name(BrowserAction::State),
+            BrowserBackendKind::External.as_str(),
+            &json!({ "error": e }),
+            "browser engine failed",
+        )),
+    }
+}
+
 fn enrich_prepare_result(v: &mut Value, requested_pid: Option<i32>) {
     let prepared_pid = v
         .get("pid")
@@ -554,6 +651,12 @@ impl BrowserBackend for ExternalBackend {
                 if req.action == BrowserAction::Prepare {
                     enrich_prepare_result(&mut v, req.pid);
                 }
+                if req.action == BrowserAction::State {
+                    match follow_bind_with_snapshot(&engine, &socket, &session, v, &req) {
+                        Ok(snap) => v = snap,
+                        Err(failure) => return failure,
+                    }
+                }
                 let mut result = BrowserResult {
                     ok: true,
                     action: action.into(),
@@ -583,5 +686,26 @@ impl BrowserBackend for ExternalBackend {
                 "browser engine failed",
             ),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn bind_payload_without_elements_is_not_a_snapshot() {
+        assert!(!state_payload_has_elements(&json!({
+            "mode": "bind",
+            "target_id": "t",
+            "tab_id": "tab"
+        })));
+        assert!(!state_payload_has_elements(&json!({ "elements": [] })));
+        assert!(state_payload_has_elements(&json!({
+            "elements": [{ "ref": "p1:0" }]
+        })));
+        assert!(state_payload_has_elements(&json!({
+            "snapshot": { "elements": [{ "ref": "p1:0" }] }
+        })));
     }
 }

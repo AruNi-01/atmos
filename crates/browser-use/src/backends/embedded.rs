@@ -66,7 +66,7 @@ pub fn read_control_meta() -> Result<ControlMeta, String> {
     let path = control_meta_path();
     let raw = fs::read_to_string(&path).map_err(|_| {
         format!(
-            "Atmos Browser Use host is not running (missing {}). Open Atmos Desktop with an in-app Browser tab, then retry --backend embedded.",
+            "Atmos Browser Use host is not running (missing {}). Open Atmos Desktop with an in-app Browser tab, then retry `atmos browser-use state`.",
             path.display()
         )
     })?;

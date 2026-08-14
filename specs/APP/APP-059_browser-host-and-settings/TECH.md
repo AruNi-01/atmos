@@ -23,6 +23,10 @@
 5. Ensure only when **zero** hosts. Bound `target_id` never relocates chrome.
 6. Sidebar default / sidebar ensure ⇒ `rsShowBrowser = true`.
 7. Desktop Use stays on its own Settings page.
+8. Binding persists under pane/chat env, or default scope `atmos-browser-use` when none is injected — so `click --ref` can omit `--target-id`.
+9. Atmos Desktop up (`control.json`) ⇒ Embedded unless the caller passed `--backend external`. A stored `external` binding does not win.
+10. External bind-mode `state` follows through to a snapshot in the same call. Bind-only (`ok: true`, no `elements`) is not a successful page read.
+11. Human `/browser-use` (Welcome **and** terminal slash) ensures the Settings default surface. Center `+` stays an explicit new tab.
 
 ## Unified `state` envelope (U1–U3)
 
@@ -148,7 +152,7 @@ atmos browser-use tabs --action open --url …
 # only if capability_flags.upload / continuation / …
 ```
 
-External: if `prepare` is required by the engine, the skill does it **once** when `capability_flags` from a failed `state` say setup is needed — not as the default first line on Desktop.
+External: if `prepare` is required by the engine, the skill does it **once** when `capability_flags` from a failed `state` say setup is needed — not as the default first line on Desktop. A pid/window `state` must return `elements[]` (crate auto-snapshots after bind). Inside Atmos, omitted `--backend` is always the in-app Browser.
 
 ## Rollout (implementation chunks, one ship)
 

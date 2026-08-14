@@ -186,10 +186,10 @@ pub fn recovery_for(code: &str) -> Option<String> {
                 "Restart Atmos Desktop so the embedded Browser Use control plane can issue a fresh token."
             }
             BROWSER_CONTROL_UNAVAILABLE => {
-                "Open Atmos Desktop so the in-app Browser host can write control.json, then retry `atmos browser-use state --backend embedded`. Do not prepare a system Chrome session."
+                "Open Atmos Desktop so the in-app Browser host can write control.json, then retry `atmos browser-use state`. Do not prepare a system Chrome session."
             }
             "control_engine_not_installed" | "control_engine_failed" => {
-                "Install or pin Desktop Use control engine 0.19.2, or pass `--backend embedded` when Atmos Desktop is open."
+                "Install or pin Desktop Use control engine 0.19.2 for system Chrome, or open Atmos Desktop and omit `--backend` to use the in-app Browser."
             }
             _ => "Retry after `atmos browser-use state`. If the surface disappeared, start a new isolated session.",
         }
