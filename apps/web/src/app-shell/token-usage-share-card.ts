@@ -191,6 +191,7 @@ export async function composeShareCardPng(
   options: {
     slogan: string;
     siteHost: string;
+    websiteLabel?: string;
     isDark?: boolean;
   },
 ): Promise<Blob> {
@@ -263,7 +264,11 @@ export async function composeShareCardPng(
   ctx.textAlign = "right";
   ctx.fillStyle = muted;
   ctx.font = `500 ${chrome.brandSize}px ui-sans-serif, system-ui, -apple-system, sans-serif`;
-  ctx.fillText("Website", out.width - chrome.padX, textY + chrome.footerPadY);
+  ctx.fillText(
+    options.websiteLabel ?? "Website",
+    out.width - chrome.padX,
+    textY + chrome.footerPadY,
+  );
   ctx.fillStyle = fg;
   ctx.font = `600 ${chrome.sloganSize}px ui-sans-serif, system-ui, -apple-system, sans-serif`;
   ctx.fillText(
@@ -291,6 +296,7 @@ export async function captureShareCardPng(
     pixelRatio?: number;
     slogan?: string;
     siteHost?: string;
+    websiteLabel?: string;
     isDark?: boolean;
   } = {},
 ): Promise<Blob> {
@@ -301,6 +307,7 @@ export async function captureShareCardPng(
   return composeShareCardPng(pageCanvas, {
     slogan: options.slogan ?? ATMOS_SLOGAN,
     siteHost: options.siteHost ?? ATMOS_SITE_HOST,
+    websiteLabel: options.websiteLabel,
     isDark: options.isDark,
   });
 }

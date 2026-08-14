@@ -100,20 +100,32 @@ describe("getProjectModeProjects", () => {
 });
 
 describe("mergeExpandedProjectIds", () => {
-  it("expands every project on first load", () => {
+  it("expands every project on first load without mutating the seen set", () => {
     const seen = new Set<string>();
-    expect(mergeExpandedProjectIds([], ["a", "b"], seen)).toEqual(["a", "b"]);
-    expect(seen).toEqual(new Set(["a", "b"]));
+    const result = mergeExpandedProjectIds([], ["a", "b"], seen);
+    expect(result.expandedIds).toEqual(["a", "b"]);
+    expect(result.nextSeenIds).toEqual(new Set(["a", "b"]));
+    expect(seen.size).toBe(0);
+  });
+
+  it("returns a full expansion twice when the seen set is still empty", () => {
+    const seen = new Set<string>();
+    expect(mergeExpandedProjectIds([], ["a", "b"], seen).expandedIds).toEqual(["a", "b"]);
+    expect(mergeExpandedProjectIds([], ["a", "b"], seen).expandedIds).toEqual(["a", "b"]);
+    expect(seen.size).toBe(0);
   });
 
   it("does not re-expand after the user collapses the last project", () => {
     const seen = new Set(["a", "b"]);
-    expect(mergeExpandedProjectIds([], ["a", "b"], seen)).toEqual([]);
+    expect(mergeExpandedProjectIds([], ["a", "b"], seen).expandedIds).toEqual([]);
+    expect(seen).toEqual(new Set(["a", "b"]));
   });
 
-  it("expands only newly seen projects", () => {
+  it("expands only newly seen projects without mutating the seen set", () => {
     const seen = new Set(["a"]);
-    expect(mergeExpandedProjectIds(["a"], ["a", "b"], seen)).toEqual(["a", "b"]);
-    expect(seen.has("b")).toBe(true);
+    const result = mergeExpandedProjectIds(["a"], ["a", "b"], seen);
+    expect(result.expandedIds).toEqual(["a", "b"]);
+    expect(result.nextSeenIds.has("b")).toBe(true);
+    expect(seen.has("b")).toBe(false);
   });
 });

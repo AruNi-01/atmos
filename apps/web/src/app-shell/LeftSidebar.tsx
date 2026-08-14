@@ -466,13 +466,26 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
     ]);
 
     useEffect(() => {
-        setExpandedProjects((prev) =>
-            mergeExpandedProjectIds(
-                prev,
-                projects.map((project) => project.id),
-                seenProjectIdsRef.current,
-            ),
-        );
+        const projectIds = projects.map((project) => project.id);
+        const seen = seenProjectIdsRef.current;
+        if (seen.size === 0) {
+            const { expandedIds, nextSeenIds } = mergeExpandedProjectIds(
+                [],
+                projectIds,
+                seen,
+            );
+            seenProjectIdsRef.current = nextSeenIds;
+            setExpandedProjects(expandedIds);
+            return;
+        }
+
+        const added = projectIds.filter((id) => !seen.has(id));
+        if (added.length === 0) {
+            return;
+        }
+
+        seenProjectIdsRef.current = mergeExpandedProjectIds([], projectIds, seen).nextSeenIds;
+        setExpandedProjects((prev) => [...prev, ...added]);
     }, [projects]);
 
     const [scriptDialogProjectId, setScriptDialogProjectId] = useState<string | null>(null);

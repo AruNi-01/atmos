@@ -107,10 +107,14 @@ impl TokenUsageCollector for TokscaleCollector {
                     partial_warnings: sync_outcome.warnings,
                 }),
             },
-            Err(_) => CookieEnrichmentOutcome {
-                warnings: sync_outcome.warnings,
-                reports: None,
-            },
+            Err(error) => {
+                let mut warnings = sync_outcome.warnings;
+                warnings.push(format!("Cookie usage reports failed: {error}"));
+                CookieEnrichmentOutcome {
+                    warnings,
+                    reports: None,
+                }
+            }
         }
     }
 }

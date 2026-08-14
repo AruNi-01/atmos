@@ -76,28 +76,44 @@ export function getSelectedProjectUnpinnedWorkspaces(
     return project?.workspaces.filter((workspace) => !workspace.isPinned) ?? [];
 }
 
+export type MergeExpandedProjectIdsResult = {
+    expandedIds: string[];
+    nextSeenIds: Set<string>;
+};
+
 /**
  * Expand newly seen projects on first load, but never re-expand after the user
  * collapses the last open project (`prev.length === 0` used to mean "not
  * initialized" and immediately unfolded everything again).
+ *
+ * Pure: does not mutate `seenIds`. Callers must assign `nextSeenIds` themselves
+ * after applying `expandedIds`, so React StrictMode can invoke this twice with
+ * the same empty seen set and still get a full expansion both times.
  */
 export function mergeExpandedProjectIds(
-    prev: string[],
-    projectIds: string[],
-    seenIds: Set<string>,
-): string[] {
-    if (projectIds.length === 0) return prev;
+    prev: readonly string[],
+    projectIds: readonly string[],
+    seenIds: ReadonlySet<string>,
+): MergeExpandedProjectIdsResult {
+    if (projectIds.length === 0) {
+        return { expandedIds: [...prev], nextSeenIds: new Set(seenIds) };
+    }
     if (seenIds.size === 0) {
-        for (const id of projectIds) seenIds.add(id);
-        return projectIds;
+        return {
+            expandedIds: [...projectIds],
+            nextSeenIds: new Set(projectIds),
+        };
     }
-    const added: string[] = [];
-    for (const id of projectIds) {
-        if (!seenIds.has(id)) {
-            seenIds.add(id);
-            added.push(id);
-        }
+    const added = projectIds.filter((id) => !seenIds.has(id));
+    if (added.length === 0) {
+        return { expandedIds: [...prev], nextSeenIds: new Set(seenIds) };
     }
-    if (added.length === 0) return prev;
-    return [...prev, ...added];
+    const nextSeenIds = new Set(seenIds);
+    for (const id of added) {
+        nextSeenIds.add(id);
+    }
+    return {
+        expandedIds: [...prev, ...added],
+        nextSeenIds,
+    };
 }

@@ -129,9 +129,10 @@ export function TokenUsageSharePopover({
       pixelRatio: Math.min(2, window.devicePixelRatio || 2),
       slogan: ATMOS_SLOGAN,
       siteHost: ATMOS_SITE_HOST,
+      websiteLabel: t("websiteLabel"),
       isDark,
     });
-  }, [captureTargetRef, isDark]);
+  }, [captureTargetRef, isDark, t]);
 
   // Capture when popover opens. Keep blob alive while lightbox is open even if
   // the popover closes (clicking preview would otherwise revoke URL immediately).

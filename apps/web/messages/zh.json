@@ -617,6 +617,7 @@
         "save": "保存图片",
         "saved": "已保存",
         "sharePrimary": "我在 Atmos 的 AI agent 用量：{tokens} tokens · {cost}",
+        "websiteLabel": "网站",
         "status": {
           "saved": "已下载。",
           "shared": "已分享。",
