@@ -19,6 +19,8 @@ export type BrowserCenterTab = {
 type BrowserCenterTabsStore = {
   tabsByContext: Record<string, BrowserCenterTab[]>;
   openBrowser: (contextId: string) => BrowserCenterTab;
+  lastBrowser: (contextId: string) => BrowserCenterTab | null;
+  reuseOrOpenBrowser: (contextId: string) => BrowserCenterTab;
   closeBrowser: (contextId: string, value: string) => void;
 };
 
@@ -100,6 +102,13 @@ export const useBrowserCenterTabsStore = create<BrowserCenterTabsStore>()(
           },
         }));
         return tab;
+      },
+      lastBrowser: (contextId) => {
+        const tabs = get().tabsByContext[contextId] ?? [];
+        return tabs[tabs.length - 1] ?? null;
+      },
+      reuseOrOpenBrowser: (contextId) => {
+        return get().lastBrowser(contextId) ?? get().openBrowser(contextId);
       },
       closeBrowser: (contextId, value) => {
         const tabs = get().tabsByContext[contextId] ?? [];

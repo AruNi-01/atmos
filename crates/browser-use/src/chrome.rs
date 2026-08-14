@@ -26,7 +26,11 @@ pub fn wants_action_chrome(action: BrowserAction, element_ref: Option<&str>) -> 
         | BrowserAction::State
         | BrowserAction::Navigate
         | BrowserAction::Dialog
-        | BrowserAction::Download => false,
+        | BrowserAction::Download
+        | BrowserAction::PressKey
+        | BrowserAction::Upload
+        | BrowserAction::End
+        | BrowserAction::Tabs => false,
     }
 }
 
@@ -69,7 +73,11 @@ pub fn chrome_target_for_request(
         | BrowserAction::Prepare
         | BrowserAction::State
         | BrowserAction::Dialog
-        | BrowserAction::Download => return None,
+        | BrowserAction::Download
+        | BrowserAction::PressKey
+        | BrowserAction::Upload
+        | BrowserAction::End
+        | BrowserAction::Tabs => return None,
     };
     let cursor = cursor
         .or_else(|| window_bounds.map(|(x, y, w, h)| (x + w.max(1.0) / 2.0, y + h.max(1.0) / 2.0)));
@@ -183,6 +191,10 @@ pub fn status_for_browser_action(action: BrowserAction) -> &'static str {
         BrowserAction::Pointer => "Pointer on page",
         BrowserAction::Dialog => "Page dialog",
         BrowserAction::Download => "Downloading file",
+        BrowserAction::PressKey => "Pressing key",
+        BrowserAction::Upload => "Uploading file",
+        BrowserAction::End => "Ending browser session",
+        BrowserAction::Tabs => "Updating browser tabs",
     }
 }
 

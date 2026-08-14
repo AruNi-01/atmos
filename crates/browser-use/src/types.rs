@@ -13,6 +13,9 @@ pub const PINNED_ENGINE_VERSION: &str = "0.19.2";
 /// Default snapshot contract for external page state (0.19+).
 pub const DEFAULT_SNAPSHOT_FORMAT: &str = "semantic_v2";
 
+/// Snapshot contract for the in-app Atmos Browser (not CUA semantic_v2).
+pub const EMBEDDED_SNAPSHOT_FORMAT: &str = "embedded_dom_v1";
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum BrowserBackendKind {
@@ -55,11 +58,38 @@ pub enum BrowserAction {
     Dialog,
     /// Trigger a download through a page ref into an approved directory
     Download,
+    /// Embedded-only: dispatch a key (Enter, Tab, Escape, …).
+    PressKey,
+    /// External: `browser_set_input_files`. Embedded: unsupported.
+    Upload,
+    /// End the engine session (external) and clear the scoped binding.
+    End,
+    /// Embedded: open / close / select / list in-app Browser tabs (renderer-owned).
+    Tabs,
+}
+
+pub fn action_name(action: BrowserAction) -> &'static str {
+    match action {
+        BrowserAction::Prepare => "prepare",
+        BrowserAction::State => "state",
+        BrowserAction::Click => "click",
+        BrowserAction::Type => "type",
+        BrowserAction::Navigate => "navigate",
+        BrowserAction::Pointer => "pointer",
+        BrowserAction::Dialog => "dialog",
+        BrowserAction::Download => "download",
+        BrowserAction::PressKey => "press_key",
+        BrowserAction::Upload => "upload",
+        BrowserAction::End => "end",
+        BrowserAction::Tabs => "tabs",
+    }
 }
 
 #[derive(Debug, Clone, Default)]
 pub struct BrowserRequest {
     pub backend: BrowserBackendKind,
+    /// True when the caller passed `--backend` explicitly (do not replace from binding).
+    pub backend_explicit: bool,
     pub action: BrowserAction,
     pub pid: Option<i32>,
     /// Native window id — required for existing_profile prepare and bind-mode state.
@@ -77,13 +107,13 @@ pub struct BrowserRequest {
     pub profile_name: Option<String>,
     /// Legacy / interactive approval token for browser_prepare (CLI browser-approve).
     pub approval_token: Option<String>,
-    /// Snapshot contract: semantic_v2 (default) | dom_refs_v1
+    /// Snapshot contract: semantic_v2 (default external) | dom_refs_v1 | embedded_dom_v1
     pub snapshot_format: Option<String>,
     /// CDP tab screenshot on state snapshot.
     pub include_screenshot: bool,
     /// semantic_v2 continuation token.
     pub continuation: Option<String>,
-    /// semantic_v2 query string.
+    /// Snapshot filter: semantic_v2 query, or embedded name/role/tag/href match.
     pub query: Option<String>,
     /// semantic_v2 scope_ref.
     pub scope_ref: Option<String>,
@@ -108,11 +138,35 @@ pub struct BrowserRequest {
     pub dialog_id: Option<String>,
     pub prompt_text: Option<String>,
     pub delivery_mode: Option<String>,
-    /// browser_download destination directory.
+    /// User-facing download directory (`--dir`). External wire name is `destination_root`.
     pub download_dir: Option<String>,
+    /// Scoped binding id (`--binding-id` or ATMOS_SIDE_CHAT_ID / ATMOS_PANE_ID).
+    pub binding_id: Option<String>,
+    /// press-key key name (Enter, Tab, Escape, ArrowDown, …).
+    pub key: Option<String>,
+    /// Local file paths for `browser_set_input_files`.
+    pub files: Vec<String>,
+    /// `tabs` sub-action: list | open | close | select
+    pub tab_action: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct AtmosBrowserSurface {
+    pub kind: String,
+    pub hint: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
+pub struct ResolvedFrom {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub binding_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub target_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tab_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 pub struct BrowserResult {
     pub ok: bool,
     pub action: String,
@@ -123,6 +177,47 @@ pub struct BrowserResult {
     pub error: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub error_code: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub recovery: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub atmos_browser_surface: Option<AtmosBrowserSurface>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub target_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tab_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub resolved_from: Option<ResolvedFrom>,
+    /// Present on every successful action. Skill branches on flags, not backend tutorials.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub capability_flags: Option<serde_json::Value>,
+}
+
+impl BrowserResult {
+    pub fn fail(action: &str, backend: &str, code: &str, message: impl Into<String>) -> Self {
+        Self {
+            ok: false,
+            action: action.to_string(),
+            backend: backend.to_string(),
+            error: Some(message.into()),
+            error_code: Some(code.to_string()),
+            ..Self::default()
+        }
+    }
+
+    pub fn fail_with_recovery(
+        action: &str,
+        backend: &str,
+        code: &str,
+        message: impl Into<String>,
+        recovery: Option<String>,
+    ) -> Self {
+        Self {
+            recovery,
+            ..Self::fail(action, backend, code, message)
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -168,5 +263,6 @@ mod tests {
         assert_eq!(BrowserBackendKind::default().as_str(), "external");
         assert_eq!(PINNED_ENGINE_VERSION, "0.19.2");
         assert_eq!(DEFAULT_SNAPSHOT_FORMAT, "semantic_v2");
+        assert_eq!(EMBEDDED_SNAPSHOT_FORMAT, "embedded_dom_v1");
     }
 }

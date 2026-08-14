@@ -44,10 +44,13 @@ import {
 import { useWelcomeSlashSearch } from "@/features/welcome/hooks/use-welcome-slash-search";
 import {
   BROWSER_USE_SLASH_COMMAND_ID,
+  browserUseSlashNeedsDesktopUseGate,
   buildBrowserUseSlashCommand,
+  ensureBrowserUseSlashSurface,
   matchesBrowserUseSlashQuery,
   resolveBrowserUseSkillRef,
 } from "@/features/welcome/lib/slash-browser-use";
+import { useContextParams } from "@/shared/hooks/use-context-params";
 import {
   buildDesktopUseSlashCommand,
   DESKTOP_USE_SLASH_COMMAND_ID,
@@ -176,6 +179,7 @@ export const TerminalAgentInputOverlay = React.forwardRef<
   surfaceActive = true,
 }, ref) {
   const t = useTranslations("terminal.agentInput");
+  const { effectiveContextId } = useContextParams();
   const {
     enabled: richInputEnabled,
     triggerBarVisible,
@@ -630,23 +634,29 @@ export const TerminalAgentInputOverlay = React.forwardRef<
           setSlashPopoverView("menu");
           return;
         }
-        // Non-blocking readiness: insert only when engine + permissions OK.
+        // Desktop already has the in-app Browser plane — do not block on Desktop Use TCC.
         setSlashPopover(null);
         setSlashPopoverView("menu");
+        const insertSkill = () => {
+          composerRef.current?.applySlashAtRange(
+            popover.slashOffset,
+            popover.query.length,
+            {
+              kind: "skill",
+              absolutePath: skill.absolutePath,
+              name: skill.name,
+            },
+          );
+        };
+        if (!browserUseSlashNeedsDesktopUseGate()) {
+          insertSkill();
+          ensureBrowserUseSlashSurface(effectiveContextId);
+          return;
+        }
         void import("@/features/desktop-use/lib/readiness-modal-bus").then(
           ({ gateDesktopUseFeature }) => {
             gateDesktopUseFeature("browser", {
-              onReady: () => {
-                composerRef.current?.applySlashAtRange(
-                  popover.slashOffset,
-                  popover.query.length,
-                  {
-                    kind: "skill",
-                    absolutePath: skill.absolutePath,
-                    name: skill.name,
-                  },
-                );
-              },
+              onReady: insertSkill,
             });
           },
         );

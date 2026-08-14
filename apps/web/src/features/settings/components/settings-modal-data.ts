@@ -32,7 +32,7 @@ export const SETTINGS_GROUPS = [
     id: "interface",
     label: settingsModalT("groups.interface.label"),
     description: settingsModalT("groups.interface.description"),
-    items: ["layout", "editor", "canvas", "terminal"] as const,
+    items: ["layout", "editor", "canvas", "terminal", "browser"] as const,
   },
   {
     id: "personal",
@@ -103,6 +103,11 @@ export const SETTINGS_SECTIONS = [
     id: "terminal",
     label: settingsModalT("sections.terminal.label"),
     description: settingsModalT("sections.terminal.description"),
+  },
+  {
+    id: "browser",
+    label: settingsModalT("sections.browser.label"),
+    description: settingsModalT("sections.browser.description"),
   },
   {
     id: "workspace",
@@ -317,6 +322,17 @@ const SETTINGS_SECTION_KEYWORDS: Record<SettingsSectionId, readonly string[]> = 
     "default split agent",
     "split",
     "last split agent",
+  ],
+  browser: [
+    "browser",
+    "sidebar",
+    "center tabs",
+    "homepage",
+    "new tab",
+    "agent chrome",
+    "downloads",
+    "in-app browser",
+    "webview",
   ],
   workspace: [
     "workspace",
@@ -746,6 +762,24 @@ const SETTINGS_SETTING_ITEMS: Record<SettingsSectionId, readonly SettingsSearchI
     }),
     settingsModalSearchItem("codeAgent.idleSessionCleanup", {
       keywords: ["remove idle agent sessions", "every 5 minutes", "timeout"],
+    }),
+  ],
+  browser: [
+    settingsModalSearchItem("browser.defaultSurface", {
+      hasDescription: true,
+      keywords: ["sidebar", "center tabs", "placement", "default surface"],
+    }),
+    settingsModalSearchItem("browser.sidebar", {
+      keywords: ["show in sidebar", "right sidebar", "browser module"],
+    }),
+    settingsModalSearchItem("browser.newTabUrl", {
+      keywords: ["homepage", "new tab", "about:blank"],
+    }),
+    settingsModalSearchItem("browser.agentChrome", {
+      keywords: ["agent chrome", "cursor overlay", "highlight"],
+    }),
+    settingsModalSearchItem("browser.downloads", {
+      keywords: ["download root", "downloads"],
     }),
   ],
   terminal: [

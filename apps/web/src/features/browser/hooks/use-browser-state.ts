@@ -168,7 +168,11 @@ export function useBrowserState({
   );
 
   const persistBrowserState = useCallback((nextBrowserState?: PreviewBrowserContextPrefs) => {
-    const stateToPersist = nextBrowserState ?? browserStateRef.current;
+    const raw = nextBrowserState ?? browserStateRef.current;
+    const stateToPersist: PreviewBrowserContextPrefs = {
+      activeTabId: raw.activeTabId,
+      tabs: raw.tabs.map(({ sessionId: _sessionId, ...tab }) => tab),
+    };
     const all = readPreviewBrowserPrefs(instanceId);
     useUiPrefStore.getState().writeSlice(instanceId, "previewBrowser", {
       byContext: {
@@ -403,20 +407,39 @@ export function useBrowserState({
 
     const now = Date.now();
     const nextTab = createPreviewBrowserTab(normalizedUrl, now + 1);
+    let evictedSessionIds: string[] = [];
     setBrowserState((current) => {
       const touchedTabs = touchTab(current.tabs, current.activeTabId, now);
       const activeIndex = touchedTabs.findIndex((tab) => tab.id === current.activeTabId);
       const insertIndex = activeIndex >= 0 ? activeIndex + 1 : touchedTabs.length;
+      const next = pruneLeastRecentlyAccessed({
+        tabs: [
+          ...touchedTabs.slice(0, insertIndex),
+          nextTab,
+          ...touchedTabs.slice(insertIndex),
+        ],
+        activeTabId: nextTab.id,
+      });
+      evictedSessionIds = current.tabs
+        .filter((tab) => !next.tabs.some((item) => item.id === tab.id))
+        .map((tab) => tab.sessionId)
+        .filter((sessionId): sessionId is string => Boolean(sessionId));
+      return next;
+    });
+    return { tabId: nextTab.id, evictedSessionIds };
+  }, []);
 
+  const handleBrowserSessionReady = useCallback((tabId: string, sessionId: string | null) => {
+    setBrowserState((current) => {
+      const tab = current.tabs.find((item) => item.id === tabId);
+      if (!tab) return current;
+      const nextSessionId = sessionId?.trim() || undefined;
+      if (tab.sessionId === nextSessionId) return current;
       return {
-        ...pruneLeastRecentlyAccessed({
-          tabs: [
-            ...touchedTabs.slice(0, insertIndex),
-            nextTab,
-            ...touchedTabs.slice(insertIndex),
-          ],
-          activeTabId: nextTab.id,
-        }),
+        ...current,
+        tabs: current.tabs.map((item) =>
+          item.id === tabId ? { ...item, sessionId: nextSessionId } : item,
+        ),
       };
     });
   }, []);
@@ -485,26 +508,58 @@ export function useBrowserState({
   );
 
   const pendingCommand = useBrowserTabCommandsStore(
-    (state) => state.commandsByContext[browserContextId] ?? null,
+    (state) => state.queuesByContext[browserContextId]?.[0] ?? null,
   );
-  const clearCommand = useBrowserTabCommandsStore((state) => state.clearCommand);
+  const completeCommand = useBrowserTabCommandsStore((state) => state.completeCommand);
+  const resolveCommand = useBrowserTabCommandsStore((state) => state.resolveCommand);
+  const rejectCommand = useBrowserTabCommandsStore((state) => state.rejectCommand);
 
   useEffect(() => {
     if (!pendingCommand) return;
 
     if (pendingCommand.type === "select") {
       handleSelectBrowserTab(pendingCommand.tabId);
+      resolveCommand(pendingCommand.token, true);
     } else if (pendingCommand.type === "close") {
       handleCloseBrowserTab(pendingCommand.tabId);
+      resolveCommand(pendingCommand.token, true);
+    } else if (pendingCommand.type === "open") {
+      const tabs = browserStateRef.current.tabs;
+      const onlyEmpty =
+        tabs.length === 1 &&
+        !String(tabs[0]?.url ?? "").trim() &&
+        !String(tabs[0]?.activeUrl ?? "").trim();
+      if (onlyEmpty && tabs[0]) {
+        setBrowserTabActivePreviewUrl(tabs[0].id, pendingCommand.url);
+        handleSelectBrowserTab(tabs[0].id);
+        resolveCommand(pendingCommand.token, {
+          tabId: tabs[0].id,
+          evictedSessionIds: [],
+        });
+      } else {
+        const opened = handleOpenBrowserTab(pendingCommand.url);
+        if (opened) {
+          resolveCommand(pendingCommand.token, opened);
+        } else {
+          rejectCommand(pendingCommand.token, new Error("tabs open requires url"));
+        }
+      }
+    } else if (pendingCommand.type === "navigate") {
+      setBrowserTabActivePreviewUrl(pendingCommand.tabId, pendingCommand.url);
+      resolveCommand(pendingCommand.token, true);
     }
 
-    clearCommand(browserContextId, pendingCommand.token);
+    completeCommand(browserContextId, pendingCommand.token);
   }, [
     browserContextId,
-    clearCommand,
+    completeCommand,
     handleCloseBrowserTab,
+    handleOpenBrowserTab,
     handleSelectBrowserTab,
     pendingCommand,
+    setBrowserTabActivePreviewUrl,
+    rejectCommand,
+    resolveCommand,
   ]);
 
   const resetBrowserState = useCallback((url = "") => {
@@ -521,6 +576,7 @@ export function useBrowserState({
     handleAddBrowserTab,
     handleCloseBrowserTab,
     handleOpenBrowserTab,
+    handleBrowserSessionReady,
     handlePreviewTitleChange,
     handlePreviewIconChange,
     handleReorderBrowserTabs,
