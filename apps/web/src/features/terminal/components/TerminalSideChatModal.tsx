@@ -178,16 +178,34 @@ export function TerminalSideChatModal({
       if (event.relatedTarget instanceof Node && modal.contains(event.relatedTarget)) return;
       setIsFocusedWithin(false);
     };
-    const handlePointerDown = () => setIsFocusedWithin(true);
+    // Capture: header drag/resize call stopPropagation, so a bubble listener
+    // never sees those clicks and the modal would stay dimmed.
+    const handlePointerDownCapture = () => setIsFocusedWithin(true);
     modal.addEventListener("focusin", handleFocusIn);
     modal.addEventListener("focusout", handleFocusOut);
-    modal.addEventListener("pointerdown", handlePointerDown);
+    modal.addEventListener("pointerdown", handlePointerDownCapture, true);
     return () => {
       modal.removeEventListener("focusin", handleFocusIn);
       modal.removeEventListener("focusout", handleFocusOut);
-      modal.removeEventListener("pointerdown", handlePointerDown);
+      modal.removeEventListener("pointerdown", handlePointerDownCapture, true);
     };
   }, []);
+
+  const handleHeaderPointerDown = React.useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      claimSideChatFocus(activeSideChatId);
+      handleDragStart(event);
+    },
+    [activeSideChatId, claimSideChatFocus, handleDragStart],
+  );
+
+  const handleResizePointerDown = React.useCallback(
+    (edge: SideChatResizeEdge) => (event: React.PointerEvent<HTMLDivElement>) => {
+      claimSideChatFocus(activeSideChatId);
+      handleResizeStart(edge)(event);
+    },
+    [activeSideChatId, claimSideChatFocus, handleResizeStart],
+  );
 
   React.useEffect(() => {
     claimSideChatFocus(activeSideChatId);
@@ -226,7 +244,7 @@ export function TerminalSideChatModal({
         onKeyDown={handleModalKeyDown}
         style={modalStyle}
       >
-        <SideChatResizeHandles onResizeStart={handleResizeStart} />
+        <SideChatResizeHandles onResizeStart={handleResizePointerDown} />
         <Tabs
           value={activeSideChatId}
           onValueChange={(value) => onSelectSideChat(value)}
@@ -235,7 +253,7 @@ export function TerminalSideChatModal({
         >
           <div
             className="flex h-11 shrink-0 cursor-grab touch-none items-center justify-between gap-3 bg-background px-3 pt-1 active:cursor-grabbing"
-            onPointerDown={handleDragStart}
+            onPointerDown={handleHeaderPointerDown}
             onClickCapture={(event) => {
               if (!suppressNextHeaderClickRef.current) return;
               suppressNextHeaderClickRef.current = false;
@@ -245,7 +263,10 @@ export function TerminalSideChatModal({
           >
             <div
               className="min-w-0 flex-1 overflow-x-auto"
-              onPointerDown={(event) => event.stopPropagation()}
+              onPointerDown={(event) => {
+                claimSideChatFocus(activeSideChatId);
+                event.stopPropagation();
+              }}
             >
               <TabsList className="h-8 max-w-full gap-0.5 p-0.5">
                 {records.map((record, index) => {
