@@ -1,0 +1,50 @@
+apps/web/messages/en.json
+  h_5be255725524c8 390,573-580,2916-2917,4484-4487,4562-4565,4575-4588,5070-5075,6224-6228
+apps/web/messages/zh.json
+  h_5be255725524c8 390,573-580,2916-2917,4484-4487,4562-4565,4575-4588,5070-5075,6224-6228
+apps/web/src/api/ws/permission-access-api.ts
+  h_5be255725524c8 1-34
+apps/web/src/api/ws/token-usage-api.ts
+  h_5be255725524c8 87-100,111,139-148
+apps/web/src/app-shell/TokenUsageCookieConsentBanner.tsx
+  h_5be255725524c8 1-106
+apps/web/src/app-shell/TokenUsagePage.tsx
+  h_5be255725524c8 22,50,302-340,352,360,667-682
+apps/web/src/features/appshot/components/AppshotsHistoryPopover.tsx
+  h_5be255725524c8 25,51,266,269
+apps/web/src/features/appshot/lib/appshot-client.ts
+  h_5be255725524c8 138,143,146
+apps/web/src/features/appshot/lib/open-desktop-use-settings.ts
+  h_5be255725524c8 15,19,26-36,47,49-59
+apps/web/src/features/desktop-use/components/DesktopUseReadinessDialog.tsx
+  h_5be255725524c8 22-25,95,132-136
+apps/web/src/features/desktop-use/lib/__tests__/readiness-gate-wiring.structural.test.ts
+  h_5be255725524c8 39
+apps/web/src/features/settings/components/DesktopUsePermissionsPanel.tsx
+  h_5be255725524c8 20,68,266-277
+apps/web/src/features/settings/components/DesktopUseSettingsSection.tsx
+  h_5be255725524c8 31,133,137,393,893,895-909
+apps/web/src/features/settings/components/PermissionAccessSettingsSection.tsx
+  h_5be255725524c8 1-135
+apps/web/src/features/settings/components/SettingsModalSections.tsx
+  h_5be255725524c8 12,315-316
+apps/web/src/features/settings/components/__tests__/desktop-use-settings-section.test.ts
+  h_5be255725524c8 34,42-50,69-70,194,248-249,264-265
+apps/web/src/features/settings/components/settings-modal-data.ts
+  h_5be255725524c8 61-66,152-156,470-483,1079-1084
+apps/web/src/features/settings/components/settings-modal-sidebar.tsx
+  h_5be255725524c8 18,116-118
+apps/web/src/shared/lib/nuqs/searchParams.ts
+  h_5be255725524c8 30-31,125,147
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "bfa8feefd55549bbee5d695d0a43a91a4582a649",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}

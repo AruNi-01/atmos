@@ -1,0 +1,76 @@
+AGENTS.md
+  h_5be255725524c8 23
+Cargo.lock
+  h_5be255725524c8 266,4446-4455,5010,7485
+agents/references/runtime/atmos-home-layout.md
+  h_5be255725524c8 32,64
+apps/api/Cargo.toml
+  h_5be255725524c8 21
+apps/api/src/api/ws/message.rs
+  h_5be255725524c8 194-207,321-326
+apps/api/src/api/ws/router/mod.rs
+  h_5be255725524c8 17,300-308
+apps/api/src/api/ws/router/permission_access.rs
+  h_5be255725524c8 1-38
+apps/api/src/api/ws/router/quota.rs
+  h_5be255725524c8 9-10,134-145
+apps/api/src/main.rs
+  h_5be255725524c8 552
+crates/AGENTS.md
+  h_5be255725524c8 18
+crates/permission-access/AGENTS.md
+  h_5be255725524c8 1-27
+crates/permission-access/Cargo.toml
+  h_5be255725524c8 1-11
+crates/permission-access/src/check.rs
+  h_5be255725524c8 1-88
+crates/permission-access/src/consent.rs
+  h_5be255725524c8 1-196
+crates/permission-access/src/lib.rs
+  h_5be255725524c8 1-16
+crates/permission-access/src/paths.rs
+  h_5be255725524c8 1-17
+crates/permission-access/src/presence.rs
+  h_5be255725524c8 1-182
+crates/permission-access/src/resources.rs
+  h_5be255725524c8 1-138
+crates/quota-usage/Cargo.toml
+  h_5be255725524c8 27
+crates/quota-usage/src/lib.rs
+  h_5be255725524c8 21-25
+crates/quota-usage/src/providers/factory/mod.rs
+  h_5be255725524c8 121-126
+crates/quota-usage/src/runtime.rs
+  h_5be255725524c8 318-327
+crates/quota-usage/src/support/browser.rs
+  h_5be255725524c8 98,124,129,134,139,144,149,154,159,162-163,191-221
+crates/quota-usage/src/support/browser_access.rs
+  h_5be255725524c8 1-138
+crates/quota-usage/src/support/mod.rs
+  h_5be255725524c8 2
+crates/token-usage/Cargo.toml
+  h_5be255725524c8 8
+crates/token-usage/src/cursor_sync.rs
+  h_5be255725524c8 8-9,27-29,36-121,128,138-140,147,152,190-218,221,304-306,413-505
+crates/token-usage/src/lib.rs
+  h_5be255725524c8 8,10-12
+crates/token-usage/src/models.rs
+  h_5be255725524c8 151-174,186-187
+crates/token-usage/src/service.rs
+  h_5be255725524c8 142,160-168,198-199,231,285,303-307
+packages/api-types/fixtures/actions.server.json
+  h_5be255725524c8 52-54
+packages/api-types/src/ws/actions.ts
+  h_5be255725524c8 54-56
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "623a934fdf583b843f53b254f4d86563b2d17251",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}

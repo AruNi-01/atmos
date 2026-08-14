@@ -1,0 +1,18 @@
+apps/api/build.rs
+  h_5be255725524c8 1-3,6,14,19
+apps/api/macos/Server-Info.plist
+  h_5be255725524c8 6,8,10,12
+crates/browser-cookies/src/keychain.rs
+  h_5be255725524c8 12
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "3d5420a46a5ff3dd8ed7abb0a3fd5e5d2f222f24",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}

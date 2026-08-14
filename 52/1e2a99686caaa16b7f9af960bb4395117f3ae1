@@ -1,0 +1,36 @@
+apps/web/src/app-shell/Footer.tsx
+  h_5be255725524c8 42,188-192,680-687
+apps/web/src/features/agent/lib/__tests__/agent-hook-navigation.test.ts
+  h_5be255725524c8 1-136
+apps/web/src/features/agent/lib/agent-hook-navigation.ts
+  h_5be255725524c8 31-36,38-44,46-89,93,97,105,109-113,115-150
+apps/web/src/features/agent/lib/agent-hook-toast.tsx
+  h_5be255725524c8 18-19,97-102
+apps/web/src/features/canvas/components/widgets/CanvasAgentStatusWidget.tsx
+  h_5be255725524c8 12,63-67
+apps/web/src/features/canvas/lib/canvas-terminal-focus.ts
+  h_5be255725524c8 3,47-53,55-56,60-61
+apps/web/src/features/terminal/components/TerminalAgentInputOverlay.tsx
+  h_5be255725524c8 1259-1264,1295
+apps/web/src/features/terminal/components/TerminalSideChatDots.tsx
+  h_5be255725524c8 37-38,43,52
+apps/web/src/features/terminal/components/TerminalSideChatLayer.tsx
+  h_5be255725524c8 16,44,72
+apps/web/src/features/terminal/components/TerminalSideChatModal.tsx
+  h_5be255725524c8 12-16,40,63,114-121,174-177,192-203,212,214,233-234,246-292,350,352,354-358,382,426,441
+apps/web/src/features/terminal/hooks/use-terminal-side-chat-records.ts
+  h_5be255725524c8 4,8,38-41,44-48,119-120,157,162,184-185,190-192,194-195,212,214
+apps/web/src/features/terminal/hooks/use-terminal-side-chats.tsx
+  h_5be255725524c8 115,117,339,358
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "521e2a99686caaa16b7f9af960bb4395117f3ae1",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
