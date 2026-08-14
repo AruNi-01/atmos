@@ -1,0 +1,14 @@
+apps/web/src/features/terminal/components/TerminalSideChatModal.tsx
+  h_5be255725524c8 181-183,186,190,194-209,247,256,266-269
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "b7a64f49d3996f921bd0f6dbccd63e780e5c37dd",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
