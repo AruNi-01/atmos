@@ -1697,5 +1697,34 @@ Serve a real `get_api_config` from the stub, use a Chrome-safe loopback port, mo
 
 - 2026-08-13 - E2E stub + stream mock; handshake `path.join`; control-plane 500 sanitization.
 
+---
+
+## REV-054 · E2E imported Playwright `Page` outside fixtures
+
+| Field | Value |
+|-------|--------|
+| **Status** | fixed |
+| **Severity** | P2 |
+| **Area** | test |
+| **Reported by** | Greptile |
+| **Owner** | unassigned |
+
+### Finding
+
+`APP-058_workspace-simulator.e2e.ts` imported `Page` from `@playwright/test`. `e2e/AGENTS.md` requires specs to use `fixtures/test.ts`.
+
+### Required fix
+
+Re-export `Page` from `e2e/fixtures/test.ts` and import it from there in the APP-058 spec.
+
+### Acceptance
+
+- [x] APP-058 e2e does not import from `@playwright/test`.
+- [x] `fixtures/test.ts` exports the `Page` type.
+
+### Fix log
+
+- 2026-08-14 - fixture re-export; spec import updated (`74acec89`).
+
 
 
