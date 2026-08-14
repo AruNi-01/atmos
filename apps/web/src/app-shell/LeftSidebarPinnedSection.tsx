@@ -25,9 +25,11 @@ import {
   WorkspaceLabelDots,
 } from "@/app-shell/sidebar/workspace-metadata-controls";
 import {
+  getWorkspaceAgentGroupMeta,
   getWorkspaceWorkflowStatusMeta,
   type SidebarGroupingMode,
 } from "@/app-shell/sidebar/workspace-status";
+import type { WorkspaceAgentGroupKey } from "@/features/agent/lib/workspace-agent-status";
 
 type DndSensors = React.ComponentProps<typeof DndContext>["sensors"];
 
@@ -35,6 +37,7 @@ export function LeftSidebarPinnedSection({
   availableLabels,
   groupingMode,
   labelGroupOrder,
+  agentGroupKeyByWorkspaceId,
   isCollapsed,
   isDividerHovered,
   isSortingDisabled,
@@ -48,6 +51,7 @@ export function LeftSidebarPinnedSection({
   availableLabels: WorkspaceLabel[];
   groupingMode: SidebarGroupingMode;
   labelGroupOrder: string[];
+  agentGroupKeyByWorkspaceId?: Readonly<Record<string, WorkspaceAgentGroupKey>>;
   isCollapsed: boolean;
   isDividerHovered: boolean;
   isSortingDisabled: boolean;
@@ -109,6 +113,10 @@ export function LeftSidebarPinnedSection({
                     labelGroupOrder,
                     availableLabels,
                   );
+                  const agentMeta = getWorkspaceAgentGroupMeta(
+                    agentGroupKeyByWorkspaceId?.[entry.workspace.id] ?? "idle",
+                  );
+                  const AgentIcon = agentMeta.icon;
                   // Only show right-side context when there is a real value (no "No label" / no priority).
                   const rightContext =
                     groupingMode === "status" ? (
@@ -122,6 +130,8 @@ export function LeftSidebarPinnedSection({
                       labelGroupKey !== UNTAGGED_WORKSPACE_GROUP_KEY &&
                       entry.workspace.labels.length > 0 ? (
                       <WorkspaceLabelDots labels={entry.workspace.labels} overlap />
+                    ) : groupingMode === "agent" ? (
+                      <AgentIcon className={cn("size-3.5 shrink-0", agentMeta.className)} />
                     ) : undefined;
 
                   return renderWorkspaceItemRow(entry, {

@@ -1066,6 +1066,9 @@ impl WsMessageService {
             WsAction::DiskAnalyzerGetTree => {
                 self.handle_disk_analyzer_get_tree(conn_id, parse_request(request.data)?)
             }
+            WsAction::DiskAnalyzerGetSuggestions => {
+                self.handle_disk_analyzer_get_suggestions(conn_id, parse_request(request.data)?)
+            }
             WsAction::DiskAnalyzerDelete => {
                 self.handle_disk_analyzer_delete(conn_id, parse_request(request.data)?)
                     .await

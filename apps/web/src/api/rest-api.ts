@@ -662,6 +662,18 @@ export const agentHooksApi = {
     return fetchHooksApi<{ attention: AgentAttentionLatchDto[] }>('/hooks/attention');
   },
 
+  /**
+   * Workspace Agent grouping snapshot held in API memory (sessions + attention).
+   * Survives browser refresh until the local API process restarts.
+   */
+  listWorkspaceAgentGroups: async (): Promise<{
+    groups: WorkspaceAgentGroupSnapshotDto[];
+  }> => {
+    return fetchHooksApi<{ groups: WorkspaceAgentGroupSnapshotDto[] }>(
+      '/hooks/workspace-agent-groups',
+    );
+  },
+
   clearAttention: async (input: {
     stablePaneId?: string;
     stablePaneIds?: string[];
@@ -699,6 +711,17 @@ export const agentHooksApi = {
 };
 
 export type AgentAttentionReasonDto = 'permission_request' | 'task_complete';
+
+export type WorkspaceAgentGroupKeyDto =
+  | 'permission'
+  | 'attention'
+  | 'running'
+  | 'idle';
+
+export type WorkspaceAgentGroupSnapshotDto = {
+  context_id: string;
+  group_key: WorkspaceAgentGroupKeyDto;
+};
 
 export type AgentAttentionLatchDto = {
   stable_pane_id: string;

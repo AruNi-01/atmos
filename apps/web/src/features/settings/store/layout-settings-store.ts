@@ -45,6 +45,7 @@ interface LayoutSettingsState extends FooterLayoutPrefs, HeaderLayoutPrefs, Righ
   workspaceSidebarPriorityTwoColumn: boolean;
   workspaceSidebarLabelTwoColumn: boolean;
   workspaceSidebarGroupTwoColumn: boolean;
+  workspaceSidebarAgentTwoColumn: boolean;
   simulatorWebrtcOptIn: boolean;
   loaded: boolean;
   loadSettings: (force?: boolean) => Promise<void>;
@@ -57,6 +58,7 @@ interface LayoutSettingsState extends FooterLayoutPrefs, HeaderLayoutPrefs, Righ
   setWorkspaceSidebarPriorityTwoColumn: (value: boolean) => Promise<void>;
   setWorkspaceSidebarLabelTwoColumn: (value: boolean) => Promise<void>;
   setWorkspaceSidebarGroupTwoColumn: (value: boolean) => Promise<void>;
+  setWorkspaceSidebarAgentTwoColumn: (value: boolean) => Promise<void>;
   setFooterShowWsConnection: (value: boolean) => Promise<void>;
   setFooterShowLocalServices: (value: boolean) => Promise<void>;
   setFooterShowUsageCarousel: (value: boolean) => Promise<void>;
@@ -164,6 +166,7 @@ export const useLayoutSettingsStore = create<LayoutSettingsState>((set, get) => 
     workspaceSidebarPriorityTwoColumn: false,
     workspaceSidebarLabelTwoColumn: false,
     workspaceSidebarGroupTwoColumn: false,
+    workspaceSidebarAgentTwoColumn: false,
     showWsConnection: true,
     showLocalServices: true,
     showUsageCarousel: true,
@@ -208,6 +211,7 @@ export const useLayoutSettingsStore = create<LayoutSettingsState>((set, get) => 
           workspaceSidebarPriorityTwoColumn: layout?.workspace_sidebar_priority_two_column === true,
           workspaceSidebarLabelTwoColumn: layout?.workspace_sidebar_label_two_column === true,
           workspaceSidebarGroupTwoColumn: layout?.workspace_sidebar_group_two_column === true,
+          workspaceSidebarAgentTwoColumn: layout?.workspace_sidebar_agent_two_column === true,
           ...footer,
           ...header,
           ...rightSidebar,
@@ -271,6 +275,13 @@ export const useLayoutSettingsStore = create<LayoutSettingsState>((set, get) => 
       updateLayoutSetting(
         { workspaceSidebarGroupTwoColumn: value },
         'workspace_sidebar_group_two_column',
+        value,
+      ),
+
+    setWorkspaceSidebarAgentTwoColumn: (value) =>
+      updateLayoutSetting(
+        { workspaceSidebarAgentTwoColumn: value },
+        'workspace_sidebar_agent_two_column',
         value,
       ),
 

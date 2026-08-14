@@ -11,6 +11,10 @@ export interface DiskNode {
   is_project: boolean;
   /** Identified Atmos workspace worktree. */
   is_workspace?: boolean;
+  /** Linked git worktree that is not an Atmos workspace. */
+  is_git_worktree?: boolean;
+  /** Mainstream code-agent session / transcript directory. */
+  is_agent_data?: boolean;
   file_count: number;
   dir_count: number;
   /** When false, directory children are not loaded yet — load on drill-in. */
@@ -43,11 +47,20 @@ export interface DiskScanProgress {
   suggestions?: CleanupSuggestion[] | null;
 }
 
+export type CleanupKind = "cache" | "worktree" | "session" | "workspace";
+
 export interface CleanupSuggestion {
   path: string;
   name: string;
   size: number;
   reason: string;
+  kind?: CleanupKind;
+  last_activity_ms?: number | null;
+}
+
+export interface DiskSuggestionsResponse {
+  suggestions: CleanupSuggestion[];
+  ready: boolean;
 }
 
 export interface DiskVolumeInfo {
@@ -88,6 +101,11 @@ export const diskAnalyzerApi = {
       scan_id: scanId,
       path: path ?? null,
       max_children: maxChildren ?? null,
+    });
+  },
+  getSuggestions: async (scanId: string) => {
+    return wsRequest<DiskSuggestionsResponse>("disk_analyzer_get_suggestions", {
+      scan_id: scanId,
     });
   },
   deletePath: async (scanId: string, path: string, permanent = false) => {

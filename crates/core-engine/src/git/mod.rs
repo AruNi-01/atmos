@@ -19,6 +19,7 @@ pub use types::{
     ChangedFileInfo, ChangedFilesInfo, CommitInfo, DiffContentKind, DiffPreviewKind, FileDiffInfo,
     GitBlobLocator, GitStatus, WorktreeInfo,
 };
+pub(crate) use worktrees::is_linked_worktree;
 
 /// Run a git command in the given repo directory and return stdout on success.
 fn run_git(repo_path: &Path, args: &[&str]) -> Result<String> {
