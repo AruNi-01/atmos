@@ -10,8 +10,9 @@ use thiserror::Error;
 use tokio::sync::{broadcast, Mutex, RwLock};
 
 use crate::models::{
-    ClientTokenUsage, DailyClientTokenUsage, DailyTokenUsage, ModelTokenUsage, MonthlyTokenUsage,
-    TokenBreakdown, TokenUsageOverview, TokenUsageQuery, TokenUsageSummary, TokenUsageUpdate,
+    ClientTokenUsage, CookieAccessStatus, DailyClientTokenUsage, DailyTokenUsage, ModelTokenUsage,
+    MonthlyTokenUsage, TokenBreakdown, TokenUsageOverview, TokenUsageQuery, TokenUsageSummary,
+    TokenUsageUpdate,
 };
 
 const DEFAULT_CACHE_TTL_SECS: u64 = 15 * 60;
@@ -32,6 +33,13 @@ pub(crate) struct CollectedTokenUsageReports {
     pub(crate) partial_warnings: Vec<String>,
 }
 
+#[derive(Debug, Default)]
+pub(crate) struct CookieEnrichmentOutcome {
+    pub(crate) cookie_access: Option<CookieAccessStatus>,
+    pub(crate) warnings: Vec<String>,
+    pub(crate) reports: Option<CollectedTokenUsageReports>,
+}
+
 #[async_trait]
 pub(crate) trait TokenUsageCollector: Send + Sync {
     async fn collect(
@@ -39,6 +47,15 @@ pub(crate) trait TokenUsageCollector: Send + Sync {
         query: &TokenUsageQuery,
         force_source_sync: bool,
     ) -> Result<CollectedTokenUsageReports, TokenUsageError>;
+
+    /// Cookie / Keychain sources. Default is a no-op so tests stay local-only.
+    async fn enrich_cookie_sources(
+        &self,
+        _query: &TokenUsageQuery,
+        _force: bool,
+    ) -> CookieEnrichmentOutcome {
+        CookieEnrichmentOutcome::default()
+    }
 }
 
 #[derive(Debug, Default)]
@@ -49,11 +66,9 @@ impl TokenUsageCollector for TokscaleCollector {
     async fn collect(
         &self,
         query: &TokenUsageQuery,
-        force_source_sync: bool,
+        _force_source_sync: bool,
     ) -> Result<CollectedTokenUsageReports, TokenUsageError> {
-        let sync_outcome =
-            crate::cursor_sync::maybe_sync_cursor_csv(query, force_source_sync).await;
-
+        // Local session files only — never wait on browser cookies / Keychain.
         let options = tokscale_options(query);
 
         let reports = tokscale_core::generate_usage_reports(options)
@@ -65,8 +80,43 @@ impl TokenUsageCollector for TokscaleCollector {
             model_report: reports.model_report,
             monthly_report: reports.monthly_report,
             processing_time_ms: reports.processing_time_ms,
-            partial_warnings: sync_outcome.warnings,
+            partial_warnings: vec![],
         })
+    }
+
+    async fn enrich_cookie_sources(
+        &self,
+        query: &TokenUsageQuery,
+        force: bool,
+    ) -> CookieEnrichmentOutcome {
+        let sync_outcome = crate::cursor_sync::maybe_sync_cursor_csv(query, force).await;
+        if !sync_outcome.updated {
+            return CookieEnrichmentOutcome {
+                cookie_access: sync_outcome.cookie_access,
+                warnings: sync_outcome.warnings,
+                reports: None,
+            };
+        }
+
+        let options = tokscale_options(query);
+        match tokscale_core::generate_usage_reports(options).await {
+            Ok(reports) => CookieEnrichmentOutcome {
+                cookie_access: sync_outcome.cookie_access,
+                warnings: sync_outcome.warnings.clone(),
+                reports: Some(CollectedTokenUsageReports {
+                    graph: reports.graph,
+                    model_report: reports.model_report,
+                    monthly_report: reports.monthly_report,
+                    processing_time_ms: reports.processing_time_ms,
+                    partial_warnings: sync_outcome.warnings,
+                }),
+            },
+            Err(_) => CookieEnrichmentOutcome {
+                cookie_access: sync_outcome.cookie_access,
+                warnings: sync_outcome.warnings,
+                reports: None,
+            },
+        }
     }
 }
 
@@ -87,6 +137,7 @@ pub struct TokenUsageService {
     cache: Arc<RwLock<HashMap<String, CachedOverview>>>,
     cache_path: Option<PathBuf>,
     refreshing_keys: Arc<Mutex<HashSet<String>>>,
+    cookie_enriching_keys: Arc<Mutex<HashSet<String>>>,
     cache_ttl: Duration,
     update_tx: broadcast::Sender<TokenUsageUpdate>,
 }
@@ -123,6 +174,7 @@ impl TokenUsageService {
             cache: Arc::new(RwLock::new(initial_cache)),
             cache_path,
             refreshing_keys: Arc::new(Mutex::new(HashSet::new())),
+            cookie_enriching_keys: Arc::new(Mutex::new(HashSet::new())),
             cache_ttl,
             update_tx,
         }
@@ -132,6 +184,15 @@ impl TokenUsageService {
         &self,
         query: TokenUsageQuery,
         refresh: bool,
+    ) -> Result<TokenUsageOverview, TokenUsageError> {
+        self.get_overview_opts(query, refresh, false).await
+    }
+
+    pub async fn get_overview_opts(
+        &self,
+        query: TokenUsageQuery,
+        refresh: bool,
+        try_cookies: bool,
     ) -> Result<TokenUsageOverview, TokenUsageError> {
         let query = query.normalized();
         let cache_key = cache_key(&query);
@@ -149,11 +210,15 @@ impl TokenUsageService {
                         .await;
                 }
 
+                if try_cookies {
+                    self.spawn_cookie_enrichment(query, cache_key, true).await;
+                }
+
                 return Ok(cached_overview);
             }
         }
 
-        self.collect_and_store(query, cache_key, refresh, refresh)
+        self.collect_and_store(query, cache_key, refresh, try_cookies)
             .await
     }
 
@@ -170,15 +235,21 @@ impl TokenUsageService {
         query: TokenUsageQuery,
         cache_key: String,
         publish_update: bool,
-        force_source_sync: bool,
+        try_cookies: bool,
     ) -> Result<TokenUsageOverview, TokenUsageError> {
-        let reports = self.collector.collect(&query, force_source_sync).await?;
-        let overview = build_overview(query, reports);
+        let reports = self.collector.collect(&query, false).await?;
+        let mut overview = build_overview(query.clone(), reports);
+        {
+            let cache = self.cache.read().await;
+            if let Some(cached) = cache.get(&cache_key) {
+                preserve_cookie_access_needed(&cached.overview, &mut overview);
+            }
+        }
 
         {
             let mut cache = self.cache.write().await;
             cache.insert(
-                cache_key,
+                cache_key.clone(),
                 CachedOverview {
                     overview: overview.clone(),
                     fetched_at: unix_now(),
@@ -193,6 +264,8 @@ impl TokenUsageService {
         }
 
         self.persist_cache_to_disk().await;
+        self.spawn_cookie_enrichment(query, cache_key, try_cookies)
+            .await;
 
         Ok(overview)
     }
@@ -214,11 +287,14 @@ impl TokenUsageService {
             let result = collector
                 .collect(&query, false)
                 .await
-                .map(|reports| build_overview(query, reports));
+                .map(|reports| build_overview(query.clone(), reports));
 
-            if let Ok(overview) = result {
+            if let Ok(mut overview) = result {
                 {
                     let mut cache_guard = cache.write().await;
+                    if let Some(cached) = cache_guard.get(&cache_key) {
+                        preserve_cookie_access_needed(&cached.overview, &mut overview);
+                    }
                     cache_guard.insert(
                         cache_key.clone(),
                         CachedOverview {
@@ -234,6 +310,53 @@ impl TokenUsageService {
 
             let mut refreshing_guard = refreshing_keys.lock().await;
             refreshing_guard.remove(&cache_key);
+        });
+    }
+
+    async fn spawn_cookie_enrichment(
+        &self,
+        query: TokenUsageQuery,
+        cache_key: String,
+        force: bool,
+    ) {
+        let mut enriching = self.cookie_enriching_keys.lock().await;
+        if !enriching.insert(cache_key.clone()) {
+            return;
+        }
+        drop(enriching);
+
+        let collector = Arc::clone(&self.collector);
+        let cache = Arc::clone(&self.cache);
+        let cache_path = self.cache_path.clone();
+        let update_tx = self.update_tx.clone();
+        let cookie_enriching_keys = Arc::clone(&self.cookie_enriching_keys);
+
+        tokio::spawn(async move {
+            let outcome = collector.enrich_cookie_sources(&query, force).await;
+            let current = {
+                let cache_guard = cache.read().await;
+                cache_guard.get(&cache_key).map(|entry| entry.overview.clone())
+            };
+
+            if let Some(current) = current {
+                if let Some(overview) = apply_cookie_enrichment(query, &current, outcome) {
+                    {
+                        let mut cache_guard = cache.write().await;
+                        cache_guard.insert(
+                            cache_key.clone(),
+                            CachedOverview {
+                                overview: overview.clone(),
+                                fetched_at: unix_now(),
+                            },
+                        );
+                    }
+                    let _ = update_tx.send(TokenUsageUpdate { overview });
+                    persist_cache_snapshot(cache_path.as_deref(), &cache).await;
+                }
+            }
+
+            let mut enriching = cookie_enriching_keys.lock().await;
+            enriching.remove(&cache_key);
         });
     }
 
@@ -284,7 +407,49 @@ fn build_overview(
             .collect(),
         generated_at: unix_now(),
         partial_warnings: reports.partial_warnings,
+        cookie_access: CookieAccessStatus::Ok,
     }
+}
+
+fn preserve_cookie_access_needed(current: &TokenUsageOverview, overview: &mut TokenUsageOverview) {
+    if current.cookie_access == CookieAccessStatus::Needed {
+        overview.cookie_access = CookieAccessStatus::Needed;
+    }
+}
+
+fn apply_cookie_enrichment(
+    query: TokenUsageQuery,
+    current: &TokenUsageOverview,
+    outcome: CookieEnrichmentOutcome,
+) -> Option<TokenUsageOverview> {
+    if let Some(reports) = outcome.reports {
+        let mut overview = build_overview(query, reports);
+        if let Some(cookie_access) = outcome.cookie_access {
+            overview.cookie_access = cookie_access;
+        }
+        if !outcome.warnings.is_empty() {
+            overview.partial_warnings = outcome.warnings;
+        }
+        return Some(overview);
+    }
+
+    let cookie_changed = outcome
+        .cookie_access
+        .is_some_and(|status| status != current.cookie_access);
+    let warnings_changed =
+        !outcome.warnings.is_empty() && outcome.warnings != current.partial_warnings;
+    if !cookie_changed && !warnings_changed {
+        return None;
+    }
+
+    let mut overview = current.clone();
+    if let Some(cookie_access) = outcome.cookie_access {
+        overview.cookie_access = cookie_access;
+    }
+    if warnings_changed {
+        overview.partial_warnings = outcome.warnings;
+    }
+    Some(overview)
 }
 
 fn build_client_usage(graph: &tokscale_core::GraphResult) -> Vec<ClientTokenUsage> {

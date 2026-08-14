@@ -5,7 +5,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use serde::{Deserialize, Serialize};
 
-use crate::models::TokenUsageQuery;
+use crate::models::{CookieAccessStatus, TokenUsageQuery};
 
 const CURSOR_CSV_ENDPOINT: &str =
     "https://cursor.com/api/dashboard/export-usage-events-csv?strategy=tokens";
@@ -17,6 +17,27 @@ const PROVIDER_METADATA_FILE_NAME: &str = "provider_metadata.json";
 #[derive(Debug)]
 pub(crate) struct CursorSyncOutcome {
     pub(crate) warnings: Vec<String>,
+    pub(crate) cookie_access: Option<CookieAccessStatus>,
+    pub(crate) updated: bool,
+}
+
+impl CursorSyncOutcome {
+    fn idle() -> Self {
+        Self {
+            warnings: vec![],
+            cookie_access: None,
+            updated: false,
+        }
+    }
+}
+
+pub(crate) fn classify_cookie_error(message: &str) -> CookieAccessStatus {
+    let msg = message.to_ascii_lowercase();
+    if msg.contains("keychain access denied") || msg.contains("keychain item unavailable") {
+        CookieAccessStatus::Needed
+    } else {
+        CookieAccessStatus::Ok
+    }
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -36,27 +57,30 @@ pub(crate) async fn maybe_sync_cursor_csv(
     force_refresh: bool,
 ) -> CursorSyncOutcome {
     if !query_includes_cursor(query) {
-        return CursorSyncOutcome { warnings: vec![] };
+        return CursorSyncOutcome::idle();
     }
 
     let cache_path = cursor_cache_path();
     let metadata_path = provider_metadata_path();
     if !force_refresh && is_within_cooldown(&cache_path) {
-        return CursorSyncOutcome { warnings: vec![] };
+        return CursorSyncOutcome::idle();
     }
 
     let session_source = match quota_usage::load_cursor_session_token() {
         Ok(Some(source)) => source,
         Ok(None) => {
             return CursorSyncOutcome {
-                warnings: vec![
-                    "Cursor session token not found. Set ATMOS_CURSOR_SESSION_TOKEN or CURSOR_SESSION_TOKEN, or place your WorkosCursorSessionToken in ~/.atmos/data/quota-usage/cursor.cookie".to_string(),
-                ],
+                warnings: vec![],
+                cookie_access: Some(CookieAccessStatus::Ok),
+                updated: false,
             };
         }
         Err(error) => {
+            let message = error.to_string();
             return CursorSyncOutcome {
-                warnings: vec![format!("Cursor session token lookup failed: {error}")],
+                warnings: vec![format!("Cursor session token lookup failed: {message}")],
+                cookie_access: Some(classify_cookie_error(&message)),
+                updated: false,
             };
         }
     };
@@ -79,7 +103,6 @@ pub(crate) async fn maybe_sync_cursor_csv(
     .await
     {
         Ok(updated) => {
-            let warnings = vec![];
             if updated {
                 tracing::info!(
                     source = %session_source.source_label,
@@ -88,10 +111,16 @@ pub(crate) async fn maybe_sync_cursor_csv(
                     "Cursor usage CSV synced"
                 );
             }
-            CursorSyncOutcome { warnings }
+            CursorSyncOutcome {
+                warnings: vec![],
+                cookie_access: Some(CookieAccessStatus::Ok),
+                updated,
+            }
         }
         Err(error) => CursorSyncOutcome {
             warnings: vec![format!("Cursor CSV sync failed: {error}")],
+            cookie_access: Some(CookieAccessStatus::Ok),
+            updated: false,
         },
     }
 }
@@ -295,4 +324,30 @@ fn write_atomic(path: &PathBuf, content: &str) -> Result<(), String> {
     fs::write(&tmp_path, content).map_err(|e| format!("Failed to write temp file: {e}"))?;
     fs::rename(&tmp_path, path).map_err(|e| format!("Failed to rename temp file: {e}"))?;
     Ok(())
+}
+
+#[cfg(test)]
+mod classify_cookie_error_tests {
+    use super::*;
+
+    #[test]
+    fn keychain_denied_needs_permission_prompt() {
+        assert_eq!(
+            classify_cookie_error("browser cookie extraction failed: keychain access denied"),
+            CookieAccessStatus::Needed
+        );
+        assert_eq!(
+            classify_cookie_error("Keychain item unavailable"),
+            CookieAccessStatus::Needed
+        );
+    }
+
+    #[test]
+    fn other_errors_do_not_block_local_scan() {
+        assert_eq!(
+            classify_cookie_error("cookie database is busy/locked"),
+            CookieAccessStatus::Ok
+        );
+        assert_eq!(classify_cookie_error(""), CookieAccessStatus::Ok);
+    }
 }

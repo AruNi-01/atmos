@@ -620,6 +620,13 @@
           "capture": "Could not capture this page."
         }
       },
+      "cookieAccess": {
+        "title": "Browser cookies",
+        "description": "Authorize cookie access to include Cursor and other signed-in web sessions.",
+        "grant": "Authorize",
+        "granting": "Waiting…",
+        "dismiss": "Dismiss"
+      },
       "overview": {
         "agentShare": "{percent}% · {tokens} tokens"
       },

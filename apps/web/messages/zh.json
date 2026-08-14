@@ -620,6 +620,13 @@
           "capture": "无法截取当前页面。"
         }
       },
+      "cookieAccess": {
+        "title": "浏览器 Cookie",
+        "description": "授权 Cookie 访问后，可补上 Cursor 等已登录网页会话的用量。",
+        "grant": "授权",
+        "granting": "等待授权…",
+        "dismiss": "关闭"
+      },
       "overview": {
         "agentShare": "{percent}% · {tokens} tokens"
       },
