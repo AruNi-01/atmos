@@ -148,7 +148,7 @@ pub struct MonthlyTokenUsage {
     pub models: Vec<String>,
 }
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum CookieAccessStatus {
     /// Cookie sources are included, not applicable, or not a permission issue.
