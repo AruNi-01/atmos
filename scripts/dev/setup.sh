@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# Atmos cloud/CI install bootstrap.
+# Atmos environment setup (install / bootstrap).
 #
-# Prefers a reproducible Nix dev shell (flake.nix) when Nix is available on the
-# host, and otherwise falls back to the host toolchains (bun + rustup/cargo).
-# Point a Cloud Agent / CI "install" step at this script for a vendor-neutral,
-# reproducible setup:
+# One idempotent command to bring up the Atmos dev dependencies in ANY new
+# environment — a fresh local machine, CI, or a Cloud Agent. Prefers a
+# reproducible Nix dev shell (flake.nix) when Nix is available, and otherwise
+# falls back to the host toolchains (bun + rustup/cargo).
 #
-#     bash scripts/dev/cloud-install.sh
+#     bash scripts/dev/setup.sh
 #
 # Env toggles:
 #   ATMOS_SKIP_NIX=1   Force the host-toolchain path even if Nix is installed.
@@ -26,10 +26,10 @@ prepare_host_path() {
 }
 
 if [ "${ATMOS_SKIP_NIX:-0}" != "1" ] && command -v nix >/dev/null 2>&1 && [ -f flake.nix ]; then
-  echo "==> Atmos install via Nix dev shell (reproducible)"
+  echo "==> Atmos setup via Nix dev shell (reproducible)"
   nix develop --command bash -c 'set -euo pipefail; bun install; cargo build --bin api'
 else
-  echo "==> Atmos install via host toolchains (no Nix)"
+  echo "==> Atmos setup via host toolchains (no Nix)"
   prepare_host_path
   bun install
   cargo build --bin api

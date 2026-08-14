@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# Atmos cloud/CI start command.
+# Atmos environment start (dev servers).
 #
-# Launches the API (Atmos Server, loopback :30303) in the background and the
-# Next.js web dev server (:3030) in the foreground so the process stays
-# attached. Prefers the Nix dev shell when available, otherwise the host
-# toolchains. Point a Cloud Agent / CI "start" step at this script:
+# Starts the Atmos dev servers in ANY environment — a fresh local machine, CI,
+# or a Cloud Agent: the API (Atmos Server, loopback :30303) in the background
+# and the Next.js web dev server (:3030) in the foreground so the process stays
+# attached. Prefers the Nix dev shell when available, otherwise host toolchains.
 #
-#     bash scripts/dev/cloud-start.sh
+#     bash scripts/dev/start.sh
 #
 # Env toggles:
 #   ATMOS_SKIP_NIX=1   Force the host-toolchain path even if Nix is installed.
@@ -17,7 +17,7 @@ cd "$repo_root"
 
 api_log="${ATMOS_API_LOG:-/tmp/atmos-api.log}"
 
-# Make host Rust/bun discoverable (see cloud-install.sh for rationale).
+# Make host Rust/bun discoverable (see setup.sh for rationale).
 prepare_host_path() {
   if [ -z "${CARGO_HOME:-}" ] && [ -d /usr/local/cargo ]; then export CARGO_HOME=/usr/local/cargo; fi
   if [ -z "${RUSTUP_HOME:-}" ] && [ -d /usr/local/rustup ]; then export RUSTUP_HOME=/usr/local/rustup; fi
