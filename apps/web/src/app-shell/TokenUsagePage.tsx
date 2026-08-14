@@ -19,6 +19,7 @@ import { useTheme } from "next-themes";
 
 import type { TokenUsageOverviewResponse } from "@/api/ws/token-usage-api";
 import { tokenUsageApi } from "@/api/ws/token-usage-api";
+import { permissionAccessApi } from "@/api/ws/permission-access-api";
 import { queryKeys } from "@/api/query/query-keys";
 import { useComputerQueryScope } from "@/api/query/query-scope";
 import { useTokenUsageQuery } from "@/features/quota-usage/hooks/use-token-usage-query";
@@ -46,6 +47,7 @@ import {
   type UsageMetric,
 } from "@/app-shell/token-usage-dialog-utils";
 import { TokenUsageSharePopover } from "@/app-shell/TokenUsageShareDialog";
+import { TokenUsageCookieConsentBanner } from "@/app-shell/TokenUsageCookieConsentBanner";
 import {
   TokenUsageOverviewTab,
   TokenUsageAgentIcon,
@@ -297,6 +299,45 @@ export function TokenUsagePage() {
       ? tokenUsageQuery.error.message
       : t("errors.loadOverviewFallback")
     : null;
+  const [consentBusy, setConsentBusy] = React.useState(false);
+
+  const applyOverview = React.useCallback(
+    (next: TokenUsageOverviewResponse) => {
+      queryClient.setQueryData(
+        queryKeys.computer.tokenUsageOverview(scope, {
+          year: null,
+          since: null,
+          until: null,
+          clients: null,
+          groupBy: null,
+        }),
+        next,
+      );
+    },
+    [queryClient, scope],
+  );
+
+  const handleCookieConsent = React.useCallback(
+    async (providerIds: string[], granted: boolean) => {
+      setConsentBusy(true);
+      try {
+        for (const providerId of providerIds) {
+          await permissionAccessApi.setConsent(providerId, granted);
+        }
+        applyOverview(
+          await tokenUsageApi.getOverview({
+            refresh: granted,
+            year: null,
+          }),
+        );
+      } catch {
+        // Keep the current overview; the banner stays so the user can retry.
+      } finally {
+        setConsentBusy(false);
+      }
+    },
+    [applyOverview],
+  );
 
   // Soft refresh whenever the page is opened / remounted (async, keep cached UI).
   React.useEffect(() => {
@@ -308,16 +349,7 @@ export function TokenUsagePage() {
           year: null,
         });
         if (cancelled) return;
-        queryClient.setQueryData(
-          queryKeys.computer.tokenUsageOverview(scope, {
-            year: null,
-            since: null,
-            until: null,
-            clients: null,
-            groupBy: null,
-          }),
-          next,
-        );
+        applyOverview(next);
       } catch {
         // Keep cached overview on background refresh failure.
       }
@@ -325,7 +357,7 @@ export function TokenUsagePage() {
     return () => {
       cancelled = true;
     };
-  }, [queryClient, scope]);
+  }, [applyOverview]);
 
   const sortedDays = React.useMemo(
     () => sortDailyUsage(overview?.by_day ?? []),
@@ -630,6 +662,22 @@ export function TokenUsagePage() {
                   disabled={loading || !overview}
                 />
               </div>
+            </div>
+
+            <div {...{ ["data-token-usage-share-exclude"]: "" }}>
+              <TokenUsageCookieConsentBanner
+                items={overview?.browser_cookie_access}
+                busy={consentBusy}
+                onAllow={(providerIds) => {
+                  void handleCookieConsent(providerIds, true);
+                }}
+                onSkip={(providerIds) => {
+                  void handleCookieConsent(providerIds, false);
+                }}
+                onEnable={(providerIds) => {
+                  void handleCookieConsent(providerIds, true);
+                }}
+              />
             </div>
 
             {/* Capture target: overview body only (no tabs / share chrome).

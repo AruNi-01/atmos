@@ -27,6 +27,8 @@ export const centerStageParams = {
   canvas: parseAsBoolean.withDefault(false),
   /** Deep-link: focus terminal pane by tmux window name (paired with `tab` = terminal sub-tab id). */
   terminalTmux: parseAsString,
+  /** Deep-link: open/focus a terminal side chat on the source pane. */
+  sideChat: parseAsString,
 };
 
 // ---------------------------------------------------------------------------
@@ -120,6 +122,7 @@ export type SettingsModalTab =
   | "tunnel-connector"
   | "atmos-computer"
   | "desktop-use"
+  | "permission-access"
   | "shortcuts"
   | "experiments";
 
@@ -141,6 +144,7 @@ export const settingsModalParams = {
     "tunnel-connector",
     "atmos-computer",
     "desktop-use",
+    "permission-access",
     "shortcuts",
     "experiments",
   ]).withDefault("layout"),
