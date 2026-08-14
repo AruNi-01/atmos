@@ -180,6 +180,8 @@ pub struct TokenUsageOverviewRequest {
     #[serde(default)]
     pub refresh: bool,
     #[serde(default)]
+    pub try_cookies: bool,
+    #[serde(default)]
     pub since: Option<String>,
     #[serde(default)]
     pub until: Option<String>,

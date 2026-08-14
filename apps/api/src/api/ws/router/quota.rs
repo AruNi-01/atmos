@@ -116,7 +116,7 @@ impl WsMessageService {
     ) -> Result<Value> {
         let overview = self
             .token_usage_service
-            .get_overview(
+            .get_overview_opts(
                 token_usage::TokenUsageQuery {
                     clients: req.clients.filter(|clients| !clients.is_empty()),
                     since: req.since,
@@ -125,6 +125,7 @@ impl WsMessageService {
                     group_by: req.group_by.unwrap_or_default(),
                 },
                 req.refresh,
+                req.try_cookies,
             )
             .await
             .map_err(|error| ServiceError::Processing(error.to_string()))?;

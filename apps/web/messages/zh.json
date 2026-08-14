@@ -620,6 +620,7 @@
         "save": "保存图片",
         "saved": "已保存",
         "sharePrimary": "我在 Atmos 的 AI agent 用量：{tokens} tokens · {cost}",
+        "websiteLabel": "网站",
         "status": {
           "saved": "已下载。",
           "shared": "已分享。",
@@ -631,6 +632,13 @@
         "errors": {
           "capture": "无法截取当前页面。"
         }
+      },
+      "cookieAccess": {
+        "title": "浏览器 Cookie",
+        "description": "授权 Cookie 访问后，可补上 Cursor 等已登录网页会话的用量。",
+        "grant": "授权",
+        "granting": "等待授权…",
+        "dismiss": "关闭"
       },
       "overview": {
         "agentShare": "{percent}% · {tokens} tokens"

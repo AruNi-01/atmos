@@ -5,6 +5,30 @@ export const ATMOS_SITE_HOST = "atmos.land";
 /** Product slogan — matches landing hero / metadata. */
 export const ATMOS_SLOGAN = "Atmosphere for Agentic Builders";
 
+/** Share-card chrome in CSS pixels at `scale === 1`. */
+export function shareCardChrome(scale: number) {
+  const topPad = Math.round(32 * scale);
+  const footerPadY = Math.round(18 * scale);
+  const brandSize = Math.round(11 * scale);
+  const sloganSize = Math.round(14 * scale);
+  const lineGap = Math.round(6 * scale);
+  const footerH = footerPadY + brandSize + lineGap + sloganSize + footerPadY;
+  const outerR = Math.round(20 * scale);
+  const seamR = Math.round(14 * scale);
+  const padX = Math.round(22 * scale);
+  return {
+    topPad,
+    footerPadY,
+    brandSize,
+    sloganSize,
+    lineGap,
+    footerH,
+    outerR,
+    seamR,
+    padX,
+  };
+}
+
 /** Mark nodes excluded from the page screenshot (share chrome, tabs, etc.). */
 export const SHARE_CAPTURE_EXCLUDE_ATTR = "data-token-usage-share-exclude";
 
@@ -167,19 +191,13 @@ export async function composeShareCardPng(
   options: {
     slogan: string;
     siteHost: string;
+    websiteLabel?: string;
     isDark?: boolean;
   },
 ): Promise<Blob> {
   const isDark = options.isDark !== false;
-  // Scale footer chrome with capture pixel ratio (≈2 on retina).
   const scale = pageCanvas.width >= 1400 ? 2 : pageCanvas.width >= 900 ? 1.5 : 1;
-
-  // Compact footer body under the seam (was 64 — too much empty space above text).
-  const footerH = Math.round(48 * scale);
-  const outerR = Math.round(20 * scale);
-  /** How far the rounded seam curves up into the screenshot. */
-  const seamR = Math.round(14 * scale);
-  const padX = Math.round(22 * scale);
+  const chrome = shareCardChrome(scale);
   const pageBg = isDark ? "#0c0c0c" : "#efefef";
   const footerBg = isDark ? "#141414" : "#f4f4f5";
   const fg = isDark ? "#ffffff" : "#0a0a0a";
@@ -188,28 +206,27 @@ export async function composeShareCardPng(
 
   const out = document.createElement("canvas");
   out.width = pageCanvas.width;
-  // Footer body sits under the page; seam radius overlaps into the page.
-  out.height = pageCanvas.height + footerH;
+  out.height = chrome.topPad + pageCanvas.height + chrome.footerH;
   const ctx = out.getContext("2d", { alpha: true });
   if (!ctx) throw new Error("2d context unavailable");
 
   ctx.clearRect(0, 0, out.width, out.height);
 
-  // 1) Full screenshot (rectangular). Footer will cover the bottom with a rounded top.
+  // 1) Top pad + screenshot. Extra top band keeps hero type off the rounded edge.
   ctx.fillStyle = pageBg;
-  ctx.fillRect(0, 0, out.width, pageCanvas.height);
-  ctx.drawImage(pageCanvas, 0, 0);
+  ctx.fillRect(0, 0, out.width, chrome.topPad + pageCanvas.height);
+  ctx.drawImage(pageCanvas, 0, chrome.topPad);
 
   // 2) Footer overlaps the bottom `seamR` of the screenshot so the top edge
-  //    can curve upward into the image (tl/tr radius). Total footer paint height
-  //    = seamR + footerH, starting at y = pageH - seamR.
-  const footerTop = pageCanvas.height - seamR;
-  const footerPaintH = seamR + footerH;
+  //    can curve upward into the image (tl/tr radius).
+  const pageBottom = chrome.topPad + pageCanvas.height;
+  const footerTop = pageBottom - chrome.seamR;
+  const footerPaintH = chrome.seamR + chrome.footerH;
 
   ctx.save();
   roundRectPathCorners(ctx, 0, footerTop, out.width, footerPaintH, {
-    tl: seamR,
-    tr: seamR,
+    tl: chrome.seamR,
+    tr: chrome.seamR,
     br: 0,
     bl: 0,
   });
@@ -218,46 +235,51 @@ export async function composeShareCardPng(
   ctx.fillRect(0, footerTop, out.width, footerPaintH);
   ctx.restore();
 
-  // Hairline only on the rounded top edge (curves up at left/right).
   ctx.save();
   ctx.beginPath();
-  ctx.moveTo(0, footerTop + seamR);
-  ctx.quadraticCurveTo(0, footerTop, seamR, footerTop);
-  ctx.lineTo(out.width - seamR, footerTop);
-  ctx.quadraticCurveTo(out.width, footerTop, out.width, footerTop + seamR);
+  ctx.moveTo(0, footerTop + chrome.seamR);
+  ctx.quadraticCurveTo(0, footerTop, chrome.seamR, footerTop);
+  ctx.lineTo(out.width - chrome.seamR, footerTop);
+  ctx.quadraticCurveTo(out.width, footerTop, out.width, footerTop + chrome.seamR);
   ctx.strokeStyle = hairline;
   ctx.lineWidth = Math.max(1, Math.round(scale));
   ctx.lineCap = "round";
   ctx.stroke();
   ctx.restore();
 
-  // Text centered in the footer body (below the seam overlap).
-  const textY = pageCanvas.height;
-  const brandSize = Math.round(11 * scale);
-  const sloganSize = Math.round(14 * scale);
-  const lineGap = Math.round(16 * scale);
-  const textMid = textY + footerH * 0.5;
-  ctx.textBaseline = "middle";
+  const textY = pageBottom;
+  ctx.textBaseline = "top";
   ctx.textAlign = "left";
   ctx.fillStyle = muted;
-  ctx.font = `500 ${brandSize}px ui-sans-serif, system-ui, -apple-system, sans-serif`;
-  ctx.fillText("Atmos", padX, textMid - lineGap * 0.5);
+  ctx.font = `500 ${chrome.brandSize}px ui-sans-serif, system-ui, -apple-system, sans-serif`;
+  ctx.fillText("Atmos", chrome.padX, textY + chrome.footerPadY);
   ctx.fillStyle = fg;
-  ctx.font = `600 ${sloganSize}px ui-sans-serif, system-ui, -apple-system, sans-serif`;
-  ctx.fillText(options.slogan, padX, textMid + lineGap * 0.5);
+  ctx.font = `600 ${chrome.sloganSize}px ui-sans-serif, system-ui, -apple-system, sans-serif`;
+  ctx.fillText(
+    options.slogan,
+    chrome.padX,
+    textY + chrome.footerPadY + chrome.brandSize + chrome.lineGap,
+  );
 
   ctx.textAlign = "right";
   ctx.fillStyle = muted;
-  ctx.font = `500 ${brandSize}px ui-sans-serif, system-ui, -apple-system, sans-serif`;
-  ctx.fillText("Website", out.width - padX, textMid - lineGap * 0.5);
+  ctx.font = `500 ${chrome.brandSize}px ui-sans-serif, system-ui, -apple-system, sans-serif`;
+  ctx.fillText(
+    options.websiteLabel ?? "Website",
+    out.width - chrome.padX,
+    textY + chrome.footerPadY,
+  );
   ctx.fillStyle = fg;
-  ctx.font = `600 ${sloganSize}px ui-sans-serif, system-ui, -apple-system, sans-serif`;
-  ctx.fillText(options.siteHost, out.width - padX, textMid + lineGap * 0.5);
+  ctx.font = `600 ${chrome.sloganSize}px ui-sans-serif, system-ui, -apple-system, sans-serif`;
+  ctx.fillText(
+    options.siteHost,
+    out.width - chrome.padX,
+    textY + chrome.footerPadY + chrome.brandSize + chrome.lineGap,
+  );
 
-  // Outer rounded silhouette only (true transparent corners, no white fill).
   ctx.save();
   ctx.globalCompositeOperation = "destination-in";
-  roundRectPath(ctx, 0, 0, out.width, out.height, outerR);
+  roundRectPath(ctx, 0, 0, out.width, out.height, chrome.outerR);
   ctx.fillStyle = "#000000";
   ctx.fill();
   ctx.restore();
@@ -274,6 +296,7 @@ export async function captureShareCardPng(
     pixelRatio?: number;
     slogan?: string;
     siteHost?: string;
+    websiteLabel?: string;
     isDark?: boolean;
   } = {},
 ): Promise<Blob> {
@@ -284,6 +307,7 @@ export async function captureShareCardPng(
   return composeShareCardPng(pageCanvas, {
     slogan: options.slogan ?? ATMOS_SLOGAN,
     siteHost: options.siteHost ?? ATMOS_SITE_HOST,
+    websiteLabel: options.websiteLabel,
     isDark: options.isDark,
   });
 }

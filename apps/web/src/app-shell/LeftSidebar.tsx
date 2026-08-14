@@ -81,6 +81,7 @@ import { LeftSidebarLaunchpad, LeftSidebarLaunchpadOutside } from '@/app-shell/L
 import { tasksPathWithStoredSource } from '@/features/task/lib/task-source-preference';
 
 import { LeftSidebarPinnedSection } from '@/app-shell/LeftSidebarPinnedSection';
+import { mergeExpandedProjectIds } from '@/app-shell/left-sidebar-derived';
 import {
     GroupedWorkspaceOneColumnContent,
     GroupedWorkspaceTwoColumnLeftContent,
@@ -241,6 +242,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
     const [newWorkspace, setNewWorkspace] = useQueryState("newWorkspace", centerStageParams.newWorkspace);
     const [canvasOpen, setCanvasOpen] = useQueryState("canvas", centerStageParams.canvas);
     const [expandedProjects, setExpandedProjects] = useState<string[]>([]);
+    const seenProjectIdsRef = useRef<Set<string>>(new Set());
     const [collapsedWorkspaceGroups, setCollapsedWorkspaceGroups] = useState<Record<string, boolean>>({});
     const [groupingMode, setGroupingMode] = useState<SidebarGroupingMode>('project');
     const [labelGroupOrder, setLabelGroupOrder] = useState<string[]>([]);
@@ -464,13 +466,27 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
     ]);
 
     useEffect(() => {
-        if (projects.length > 0 && expandedProjects.length === 0) {
-            const timer = window.setTimeout(() => {
-                setExpandedProjects(projects.map(p => p.id));
-            }, 0);
-            return () => window.clearTimeout(timer);
+        const projectIds = projects.map((project) => project.id);
+        const seen = seenProjectIdsRef.current;
+        if (seen.size === 0) {
+            const { expandedIds, nextSeenIds } = mergeExpandedProjectIds(
+                [],
+                projectIds,
+                seen,
+            );
+            seenProjectIdsRef.current = nextSeenIds;
+            setExpandedProjects(expandedIds);
+            return;
         }
-    }, [expandedProjects.length, projects]);
+
+        const added = projectIds.filter((id) => !seen.has(id));
+        if (added.length === 0) {
+            return;
+        }
+
+        seenProjectIdsRef.current = mergeExpandedProjectIds([], projectIds, seen).nextSeenIds;
+        setExpandedProjects((prev) => [...prev, ...added]);
+    }, [projects]);
 
     const [scriptDialogProjectId, setScriptDialogProjectId] = useState<string | null>(null);
     const [deleteProjectDialog, setDeleteProjectDialog] = useState<{

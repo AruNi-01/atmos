@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 
-import { getProjectModeProjects } from "@/app-shell/left-sidebar-derived";
+import { getProjectModeProjects, mergeExpandedProjectIds } from "@/app-shell/left-sidebar-derived";
 import type { Project, Workspace } from "@/shared/types/domain";
 import type { FlattenedWorkspaceEntry } from "@/app-shell/sidebar/workspace-grouping";
 
@@ -96,5 +96,36 @@ describe("getProjectModeProjects", () => {
     );
 
     expect(projects).toEqual([visibleProject]);
+  });
+});
+
+describe("mergeExpandedProjectIds", () => {
+  it("expands every project on first load without mutating the seen set", () => {
+    const seen = new Set<string>();
+    const result = mergeExpandedProjectIds([], ["a", "b"], seen);
+    expect(result.expandedIds).toEqual(["a", "b"]);
+    expect(result.nextSeenIds).toEqual(new Set(["a", "b"]));
+    expect(seen.size).toBe(0);
+  });
+
+  it("returns a full expansion twice when the seen set is still empty", () => {
+    const seen = new Set<string>();
+    expect(mergeExpandedProjectIds([], ["a", "b"], seen).expandedIds).toEqual(["a", "b"]);
+    expect(mergeExpandedProjectIds([], ["a", "b"], seen).expandedIds).toEqual(["a", "b"]);
+    expect(seen.size).toBe(0);
+  });
+
+  it("does not re-expand after the user collapses the last project", () => {
+    const seen = new Set(["a", "b"]);
+    expect(mergeExpandedProjectIds([], ["a", "b"], seen).expandedIds).toEqual([]);
+    expect(seen).toEqual(new Set(["a", "b"]));
+  });
+
+  it("expands only newly seen projects without mutating the seen set", () => {
+    const seen = new Set(["a"]);
+    const result = mergeExpandedProjectIds(["a"], ["a", "b"], seen);
+    expect(result.expandedIds).toEqual(["a", "b"]);
+    expect(result.nextSeenIds.has("b")).toBe(true);
+    expect(seen.has("b")).toBe(false);
   });
 });

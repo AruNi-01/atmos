@@ -41,7 +41,7 @@ export function TokenUsageCookieConsentBanner({
     return (
       <div
         className={cn(
-          "flex items-center justify-between gap-3 rounded-xl border border-border/40 bg-muted/10 px-3.5 py-2.5",
+          "flex w-56 flex-col gap-2.5 rounded-2xl border border-border/50 bg-background/95 px-3 py-3 shadow-lg backdrop-blur-md",
           className,
         )}
         role="status"
@@ -67,7 +67,7 @@ export function TokenUsageCookieConsentBanner({
     <div
       role="note"
       className={cn(
-        "flex gap-2.5 rounded-xl border border-border/40 bg-muted/10 px-3.5 py-3",
+        "flex w-56 gap-2.5 rounded-2xl border border-border/50 bg-background/95 px-3 py-3 shadow-lg backdrop-blur-md",
         className,
       )}
     >

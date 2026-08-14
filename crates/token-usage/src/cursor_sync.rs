@@ -18,6 +18,23 @@ const PROVIDER_METADATA_FILE_NAME: &str = "provider_metadata.json";
 #[derive(Debug)]
 pub(crate) struct CursorSyncOutcome {
     pub(crate) warnings: Vec<String>,
+    pub(crate) updated: bool,
+}
+
+impl CursorSyncOutcome {
+    fn idle() -> Self {
+        Self {
+            warnings: vec![],
+            updated: false,
+        }
+    }
+
+    fn with_warnings(warnings: Vec<String>) -> Self {
+        Self {
+            warnings,
+            updated: false,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -126,28 +143,26 @@ pub(crate) async fn maybe_sync_cursor_csv(
     force_refresh: bool,
 ) -> CursorSyncOutcome {
     if !query_includes_client(query, "cursor") {
-        return CursorSyncOutcome { warnings: vec![] };
+        return CursorSyncOutcome::idle();
     }
 
     let cache_path = cursor_cache_path();
     let metadata_path = provider_metadata_path();
     if !force_refresh && is_within_cooldown(&cache_path) {
-        return CursorSyncOutcome { warnings: vec![] };
+        return CursorSyncOutcome::idle();
     }
 
     let session_source = match resolve_cursor_session_source() {
-        SessionResolve::Skip => return CursorSyncOutcome { warnings: vec![] },
+        SessionResolve::Skip => return CursorSyncOutcome::idle(),
         SessionResolve::Missing => {
-            return CursorSyncOutcome {
-                warnings: vec![
+            return CursorSyncOutcome::with_warnings(vec![
                     "Cursor session token not found. Set ATMOS_CURSOR_SESSION_TOKEN or CURSOR_SESSION_TOKEN, or place your WorkosCursorSessionToken in ~/.atmos/data/quota-usage/cursor.cookie".to_string(),
-                ],
-            };
+                ]);
         }
         SessionResolve::Failed(error) => {
-            return CursorSyncOutcome {
-                warnings: vec![format!("Cursor session token lookup failed: {error}")],
-            };
+            return CursorSyncOutcome::with_warnings(vec![format!(
+                "Cursor session token lookup failed: {error}"
+            )]);
         }
         SessionResolve::Ready(source) => source,
     };
@@ -179,11 +194,11 @@ pub(crate) async fn maybe_sync_cursor_csv(
                     "Cursor usage CSV synced"
                 );
             }
-            CursorSyncOutcome { warnings }
+            CursorSyncOutcome { warnings, updated }
         }
-        Err(error) => CursorSyncOutcome {
-            warnings: vec![format!("Cursor CSV sync failed: {error}")],
-        },
+        Err(error) => {
+            CursorSyncOutcome::with_warnings(vec![format!("Cursor CSV sync failed: {error}")])
+        }
     }
 }
 
