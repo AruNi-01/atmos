@@ -5,7 +5,8 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use serde::{Deserialize, Serialize};
 
-use crate::models::{CookieAccessStatus, TokenUsageQuery};
+use crate::models::{BrowserCookieAccess, BrowserCookieConsent, TokenUsageQuery};
+use crate::TokenUsageError;
 
 const CURSOR_CSV_ENDPOINT: &str =
     "https://cursor.com/api/dashboard/export-usage-events-csv?strategy=tokens";
@@ -17,7 +18,6 @@ const PROVIDER_METADATA_FILE_NAME: &str = "provider_metadata.json";
 #[derive(Debug)]
 pub(crate) struct CursorSyncOutcome {
     pub(crate) warnings: Vec<String>,
-    pub(crate) cookie_access: Option<CookieAccessStatus>,
     pub(crate) updated: bool,
 }
 
@@ -25,18 +25,15 @@ impl CursorSyncOutcome {
     fn idle() -> Self {
         Self {
             warnings: vec![],
-            cookie_access: None,
             updated: false,
         }
     }
-}
 
-pub(crate) fn classify_cookie_error(message: &str) -> CookieAccessStatus {
-    let msg = message.to_ascii_lowercase();
-    if msg.contains("keychain access denied") || msg.contains("keychain item unavailable") {
-        CookieAccessStatus::Needed
-    } else {
-        CookieAccessStatus::Ok
+    fn with_warnings(warnings: Vec<String>) -> Self {
+        Self {
+            warnings,
+            updated: false,
+        }
     }
 }
 
@@ -44,19 +41,108 @@ pub(crate) fn classify_cookie_error(message: &str) -> CookieAccessStatus {
 struct CursorProviderMetadata {
     #[serde(default)]
     last_sync_time: Option<u64>,
+    /// Legacy Token Usage consent. Migrated into `permission-access`.
+    #[serde(default)]
+    cookie_consent: Option<bool>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 struct ProviderMetadataFile {
     #[serde(default)]
     cursor: CursorProviderMetadata,
+    #[serde(default)]
+    browser_cookie_consent: std::collections::BTreeMap<String, bool>,
+}
+
+pub(crate) fn current_status(query: &TokenUsageQuery) -> Vec<BrowserCookieAccess> {
+    let mut access = Vec::new();
+    if query_includes_client(query, "cursor") {
+        access.push(cursor_access_status());
+    }
+    access
+}
+
+fn cursor_access_status() -> BrowserCookieAccess {
+    migrate_legacy_cookie_consent("cursor");
+    let spec =
+        permission_access::resource_spec("cursor", permission_access::Capability::BrowserCookie);
+    let detected = spec
+        .map(permission_access::local_product_present)
+        .unwrap_or(false);
+    let has_manual_token = matches!(quota_usage::load_manual_cursor_session_token(), Ok(Some(_)));
+    let stored = permission_access::consent("cursor", permission_access::Capability::BrowserCookie);
+    let consent = if has_manual_token {
+        BrowserCookieConsent::Granted
+    } else if spec.is_some_and(|item| item.has_install_fingerprint()) && !detected {
+        BrowserCookieConsent::NotApplicable
+    } else {
+        match stored {
+            Some(true) => BrowserCookieConsent::Granted,
+            Some(false) => BrowserCookieConsent::Denied,
+            None => BrowserCookieConsent::Needed,
+        }
+    };
+
+    BrowserCookieAccess {
+        provider_id: "cursor".to_string(),
+        label: spec
+            .map(|item| item.label.to_string())
+            .unwrap_or_else(|| "Cursor".to_string()),
+        detected,
+        consent,
+        has_manual_token,
+    }
+}
+
+pub fn import_legacy_cookie_consents() {
+    migrate_legacy_cookie_consent("cursor");
+    let metadata = load_provider_metadata(&provider_metadata_path());
+    for provider_id in metadata.browser_cookie_consent.keys() {
+        migrate_legacy_cookie_consent(provider_id);
+    }
+}
+
+pub(crate) fn set_cookie_consent(provider_id: &str, granted: bool) -> Result<(), TokenUsageError> {
+    permission_access::set_consent(
+        provider_id,
+        permission_access::Capability::BrowserCookie,
+        granted,
+    )
+    .map_err(|error| TokenUsageError::Fetch(error.to_string()))
+}
+
+fn migrate_legacy_cookie_consent(provider_id: &str) {
+    if permission_access::consent(provider_id, permission_access::Capability::BrowserCookie)
+        .is_some()
+    {
+        return;
+    }
+    let metadata = load_provider_metadata(&provider_metadata_path());
+    let legacy = metadata
+        .browser_cookie_consent
+        .get(provider_id)
+        .copied()
+        .or_else(|| {
+            if provider_id == "cursor" {
+                metadata.cursor.cookie_consent
+            } else {
+                None
+            }
+        });
+    if let Some(granted) = legacy {
+        let _ = permission_access::set_consent(
+            provider_id,
+            permission_access::Capability::BrowserCookie,
+            granted,
+        );
+    }
 }
 
 pub(crate) async fn maybe_sync_cursor_csv(
     query: &TokenUsageQuery,
     force_refresh: bool,
 ) -> CursorSyncOutcome {
-    if !query_includes_cursor(query) {
+    if !query_includes_client(query, "cursor") {
         return CursorSyncOutcome::idle();
     }
 
@@ -66,23 +152,19 @@ pub(crate) async fn maybe_sync_cursor_csv(
         return CursorSyncOutcome::idle();
     }
 
-    let session_source = match quota_usage::load_cursor_session_token() {
-        Ok(Some(source)) => source,
-        Ok(None) => {
-            return CursorSyncOutcome {
-                warnings: vec![],
-                cookie_access: Some(CookieAccessStatus::Ok),
-                updated: false,
-            };
+    let session_source = match resolve_cursor_session_source() {
+        SessionResolve::Skip => return CursorSyncOutcome::idle(),
+        SessionResolve::Missing => {
+            return CursorSyncOutcome::with_warnings(vec![
+                    "Cursor session token not found. Set ATMOS_CURSOR_SESSION_TOKEN or CURSOR_SESSION_TOKEN, or place your WorkosCursorSessionToken in ~/.atmos/data/quota-usage/cursor.cookie".to_string(),
+                ]);
         }
-        Err(error) => {
-            let message = error.to_string();
-            return CursorSyncOutcome {
-                warnings: vec![format!("Cursor session token lookup failed: {message}")],
-                cookie_access: Some(classify_cookie_error(&message)),
-                updated: false,
-            };
+        SessionResolve::Failed(error) => {
+            return CursorSyncOutcome::with_warnings(vec![format!(
+                "Cursor session token lookup failed: {error}"
+            )]);
         }
+        SessionResolve::Ready(source) => source,
     };
 
     let metadata = load_provider_metadata(&metadata_path);
@@ -103,6 +185,7 @@ pub(crate) async fn maybe_sync_cursor_csv(
     .await
     {
         Ok(updated) => {
+            let warnings = vec![];
             if updated {
                 tracing::info!(
                     source = %session_source.source_label,
@@ -111,24 +194,46 @@ pub(crate) async fn maybe_sync_cursor_csv(
                     "Cursor usage CSV synced"
                 );
             }
-            CursorSyncOutcome {
-                warnings: vec![],
-                cookie_access: Some(CookieAccessStatus::Ok),
-                updated,
-            }
+            CursorSyncOutcome { warnings, updated }
         }
-        Err(error) => CursorSyncOutcome {
-            warnings: vec![format!("Cursor CSV sync failed: {error}")],
-            cookie_access: Some(CookieAccessStatus::Ok),
-            updated: false,
-        },
+        Err(error) => {
+            CursorSyncOutcome::with_warnings(vec![format!("Cursor CSV sync failed: {error}")])
+        }
     }
 }
 
-fn query_includes_cursor(query: &TokenUsageQuery) -> bool {
+enum SessionResolve {
+    Skip,
+    Missing,
+    Failed(String),
+    Ready(quota_usage::BrowserCookieSource),
+}
+
+fn resolve_cursor_session_source() -> SessionResolve {
+    match quota_usage::load_manual_cursor_session_token() {
+        Ok(Some(source)) => return SessionResolve::Ready(source),
+        Ok(None) => {}
+        Err(error) => return SessionResolve::Failed(error.to_string()),
+    }
+
+    migrate_legacy_cookie_consent("cursor");
+    if permission_access::check("cursor", permission_access::Capability::BrowserCookie)
+        != permission_access::Decision::Allow
+    {
+        return SessionResolve::Skip;
+    }
+
+    match quota_usage::load_gated_provider_browser_cookie("cursor") {
+        Ok(Some(source)) => SessionResolve::Ready(source),
+        Ok(None) => SessionResolve::Missing,
+        Err(error) => SessionResolve::Failed(error.to_string()),
+    }
+}
+
+fn query_includes_client(query: &TokenUsageQuery, client_id: &str) -> bool {
     match &query.clients {
         None => true,
-        Some(clients) => clients.iter().any(|c| c == "cursor"),
+        Some(clients) => clients.iter().any(|c| c == client_id),
     }
 }
 
@@ -211,14 +316,9 @@ async fn fetch_and_cache_csv(
     }
 
     let updated = merge_csv_to_cache(&fetched_csv, cache_path)?;
-    persist_provider_metadata(
-        metadata_path,
-        &ProviderMetadataFile {
-            cursor: CursorProviderMetadata {
-                last_sync_time: Some(end_ms),
-            },
-        },
-    )?;
+    let mut metadata = load_provider_metadata(metadata_path);
+    metadata.cursor.last_sync_time = Some(end_ms);
+    persist_provider_metadata(metadata_path, &metadata)?;
 
     Ok(updated)
 }
@@ -327,27 +427,94 @@ fn write_atomic(path: &PathBuf, content: &str) -> Result<(), String> {
 }
 
 #[cfg(test)]
-mod classify_cookie_error_tests {
+mod tests {
     use super::*;
+    use std::env;
+    use std::path::Path;
+    use std::sync::Mutex;
 
-    #[test]
-    fn keychain_denied_needs_permission_prompt() {
-        assert_eq!(
-            classify_cookie_error("browser cookie extraction failed: keychain access denied"),
-            CookieAccessStatus::Needed
-        );
-        assert_eq!(
-            classify_cookie_error("Keychain item unavailable"),
-            CookieAccessStatus::Needed
-        );
+    static ENV_LOCK: Mutex<()> = Mutex::new(());
+
+    fn with_usage_dir<T>(f: impl FnOnce(&Path) -> T) -> T {
+        let _guard = ENV_LOCK.lock().expect("env lock");
+        let prev_usage = env::var_os("ATMOS_TOKEN_USAGE_DIR");
+        let prev_access = env::var_os("ATMOS_PERMISSION_ACCESS_DIR");
+        let dir = std::env::temp_dir().join(format!(
+            "atmos-tu-cursor-{}-{}",
+            std::process::id(),
+            unix_now_millis()
+        ));
+        fs::create_dir_all(&dir).unwrap();
+        env::set_var("ATMOS_TOKEN_USAGE_DIR", &dir);
+        env::set_var("ATMOS_PERMISSION_ACCESS_DIR", &dir);
+        let result = f(&dir);
+        match prev_usage {
+            Some(value) => env::set_var("ATMOS_TOKEN_USAGE_DIR", value),
+            None => env::remove_var("ATMOS_TOKEN_USAGE_DIR"),
+        }
+        match prev_access {
+            Some(value) => env::set_var("ATMOS_PERMISSION_ACCESS_DIR", value),
+            None => env::remove_var("ATMOS_PERMISSION_ACCESS_DIR"),
+        }
+        let _ = fs::remove_dir_all(&dir);
+        result
     }
 
     #[test]
-    fn other_errors_do_not_block_local_scan() {
-        assert_eq!(
-            classify_cookie_error("cookie database is busy/locked"),
-            CookieAccessStatus::Ok
-        );
-        assert_eq!(classify_cookie_error(""), CookieAccessStatus::Ok);
+    fn query_includes_client_when_unfiltered_or_named() {
+        assert!(query_includes_client(&TokenUsageQuery::default(), "cursor"));
+        assert!(query_includes_client(
+            &TokenUsageQuery {
+                clients: Some(vec!["cursor".into()]),
+                ..Default::default()
+            },
+            "cursor"
+        ));
+        assert!(!query_includes_client(
+            &TokenUsageQuery {
+                clients: Some(vec!["claude".into()]),
+                ..Default::default()
+            },
+            "cursor"
+        ));
+    }
+
+    #[test]
+    fn persist_consent_round_trips() {
+        with_usage_dir(|_| {
+            set_cookie_consent("cursor", true).unwrap();
+            assert_eq!(
+                permission_access::consent("cursor", permission_access::Capability::BrowserCookie),
+                Some(true)
+            );
+
+            set_cookie_consent("cursor", false).unwrap();
+            assert_eq!(
+                permission_access::consent("cursor", permission_access::Capability::BrowserCookie),
+                Some(false)
+            );
+        });
+    }
+
+    #[test]
+    fn denied_or_missing_consent_skips_browser_lookup_without_manual_token() {
+        with_usage_dir(|_| {
+            if quota_usage::load_manual_cursor_session_token()
+                .ok()
+                .flatten()
+                .is_some()
+            {
+                return;
+            }
+            assert!(matches!(
+                resolve_cursor_session_source(),
+                SessionResolve::Skip
+            ));
+            set_cookie_consent("cursor", false).unwrap();
+            assert!(matches!(
+                resolve_cursor_session_source(),
+                SessionResolve::Skip
+            ));
+        });
     }
 }

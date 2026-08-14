@@ -148,14 +148,28 @@ pub struct MonthlyTokenUsage {
     pub models: Vec<String>,
 }
 
-#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
 #[serde(rename_all = "snake_case")]
-pub enum CookieAccessStatus {
-    /// Cookie sources are included, not applicable, or not a permission issue.
+pub enum BrowserCookieConsent {
     #[default]
-    Ok,
-    /// macOS Keychain / browser-cookie permission is blocking cookie sources.
+    NotApplicable,
     Needed,
+    Granted,
+    Denied,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
+pub struct BrowserCookieAccess {
+    #[serde(default)]
+    pub provider_id: String,
+    #[serde(default)]
+    pub label: String,
+    #[serde(default)]
+    pub detected: bool,
+    #[serde(default)]
+    pub consent: BrowserCookieConsent,
+    #[serde(default)]
+    pub has_manual_token: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -169,9 +183,8 @@ pub struct TokenUsageOverview {
     pub available_years: Vec<String>,
     pub generated_at: u64,
     pub partial_warnings: Vec<String>,
-    /// Whether the client should prompt for browser-cookie / Keychain access.
     #[serde(default)]
-    pub cookie_access: CookieAccessStatus,
+    pub browser_cookie_access: Vec<BrowserCookieAccess>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]

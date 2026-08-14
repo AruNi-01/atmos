@@ -193,6 +193,20 @@ pub struct TokenUsageOverviewRequest {
     pub clients: Option<Vec<String>>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TokenUsageBrowserCookieConsentRequest {
+    pub provider_id: String,
+    pub granted: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PermissionAccessSetRequest {
+    pub resource_id: String,
+    #[serde(default)]
+    pub capability: Option<String>,
+    pub granted: bool,
+}
+
 /// 操作类型枚举
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -306,6 +320,12 @@ pub enum WsAction {
     QuotaSetAutoRefresh,
     /// 获取本地 token usage 概览
     TokenUsageOverviewGet,
+    /// Persist Token Usage browser-cookie / Keychain consent
+    TokenUsageSetBrowserCookieConsent,
+    /// List Privacy & Security → Permission Access statuses
+    PermissionAccessList,
+    /// Persist Permission Access consent
+    PermissionAccessSet,
 
     // ===== Project 操作 =====
     /// 获取项目/标签/工作区启动数据

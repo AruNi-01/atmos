@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Activity, Bot, BrainCircuit, Coins, DollarSign, KeyRound } from "lucide-react";
+import { Activity, Bot, BrainCircuit, Coins, DollarSign } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import {
   TerminalLoader,
@@ -19,6 +19,7 @@ import { useTheme } from "next-themes";
 
 import type { TokenUsageOverviewResponse } from "@/api/ws/token-usage-api";
 import { tokenUsageApi } from "@/api/ws/token-usage-api";
+import { permissionAccessApi } from "@/api/ws/permission-access-api";
 import { queryKeys } from "@/api/query/query-keys";
 import { useComputerQueryScope } from "@/api/query/query-scope";
 import { useTokenUsageQuery } from "@/features/quota-usage/hooks/use-token-usage-query";
@@ -46,6 +47,7 @@ import {
   type UsageMetric,
 } from "@/app-shell/token-usage-dialog-utils";
 import { TokenUsageSharePopover } from "@/app-shell/TokenUsageShareDialog";
+import { TokenUsageCookieConsentBanner } from "@/app-shell/TokenUsageCookieConsentBanner";
 import {
   TokenUsageOverviewTab,
   TokenUsageAgentIcon,
@@ -245,8 +247,6 @@ export function TokenUsagePage() {
   const [resolution, setResolution] = React.useState<Resolution>("month");
   const [metric, setMetric] = React.useState<UsageMetric>("tokens");
   const [dimension, setDimension] = React.useState<UsageDimension>("agent");
-  const [cookieBannerDismissed, setCookieBannerDismissed] = React.useState(false);
-  const [cookieGranting, setCookieGranting] = React.useState(false);
   const [heatmapTooltip, setHeatmapTooltip] =
     React.useState<DitherTooltipState | null>(null);
   const captureTargetRef = React.useRef<HTMLDivElement>(null);
@@ -299,37 +299,46 @@ export function TokenUsagePage() {
       ? tokenUsageQuery.error.message
       : t("errors.loadOverviewFallback")
     : null;
-  const cookieAccessNeeded = overview?.cookie_access === "needed";
-  const showCookieBanner = cookieAccessNeeded && !cookieBannerDismissed;
+  const [consentBusy, setConsentBusy] = React.useState(false);
 
-  const handleGrantCookieAccess = React.useCallback(async () => {
-    setCookieGranting(true);
-    try {
-      const next = await tokenUsageApi.getOverview({
-        refresh: true,
-        tryCookies: true,
-        year: null,
-      });
-      // Local scan returns immediately. Keep a Needed prompt until cookie
-      // enrichment publishes Ok (or Needed again).
-      if (next.cookie_access === "needed" || overview?.cookie_access !== "needed") {
-        queryClient.setQueryData(
-          queryKeys.computer.tokenUsageOverview(scope, {
+  const applyOverview = React.useCallback(
+    (next: TokenUsageOverviewResponse) => {
+      queryClient.setQueryData(
+        queryKeys.computer.tokenUsageOverview(scope, {
+          year: null,
+          since: null,
+          until: null,
+          clients: null,
+          groupBy: null,
+        }),
+        next,
+      );
+    },
+    [queryClient, scope],
+  );
+
+  const handleCookieConsent = React.useCallback(
+    async (providerIds: string[], granted: boolean) => {
+      setConsentBusy(true);
+      try {
+        for (const providerId of providerIds) {
+          await permissionAccessApi.setConsent(providerId, granted);
+        }
+        applyOverview(
+          await tokenUsageApi.getOverview({
+            refresh: granted,
+            tryCookies: granted,
             year: null,
-            since: null,
-            until: null,
-            clients: null,
-            groupBy: null,
           }),
-          next,
         );
+      } catch {
+        // Keep the current overview; the banner stays so the user can retry.
+      } finally {
+        setConsentBusy(false);
       }
-    } catch {
-      // Keep cached local-scan overview; the banner stays visible.
-    } finally {
-      setCookieGranting(false);
-    }
-  }, [overview?.cookie_access, queryClient, scope]);
+    },
+    [applyOverview],
+  );
 
   // Soft refresh whenever the page is opened / remounted (async, keep cached UI).
   React.useEffect(() => {
@@ -341,16 +350,7 @@ export function TokenUsagePage() {
           year: null,
         });
         if (cancelled) return;
-        queryClient.setQueryData(
-          queryKeys.computer.tokenUsageOverview(scope, {
-            year: null,
-            since: null,
-            until: null,
-            clients: null,
-            groupBy: null,
-          }),
-          next,
-        );
+        applyOverview(next);
       } catch {
         // Keep cached overview on background refresh failure.
       }
@@ -358,7 +358,7 @@ export function TokenUsagePage() {
     return () => {
       cancelled = true;
     };
-  }, [queryClient, scope]);
+  }, [applyOverview]);
 
   const sortedDays = React.useMemo(
     () => sortDailyUsage(overview?.by_day ?? []),
@@ -729,57 +729,26 @@ export function TokenUsagePage() {
         </div>
       )}
 
-      {showCookieBanner ? (
-        <div
-          data-token-usage-share-exclude=""
-          className={cn(
-            "absolute right-4 bottom-4 z-20 w-56 rounded-2xl border px-3 py-3 shadow-lg",
-            isDark
-              ? "border-white/12 bg-zinc-950/92 text-zinc-100 backdrop-blur-md"
-              : "border-black/10 bg-white/95 text-zinc-900 shadow-black/10 backdrop-blur-md",
-          )}
-          role="status"
-        >
-          <div className="flex items-start gap-2">
-            <KeyRound className={cn("mt-0.5 size-3.5 shrink-0", muted)} />
-            <div className="min-w-0 space-y-1">
-              <div className="text-[13px] font-medium leading-tight">
-                {t("cookieAccess.title")}
-              </div>
-              <p className={cn("text-[11px] leading-snug", muted)}>
-                {t("cookieAccess.description")}
-              </p>
-            </div>
-          </div>
-          <div className="mt-2.5 flex items-center justify-end gap-1.5">
-            <button
-              type="button"
-              className={cn(
-                "rounded-md px-2 py-1 text-[11px] transition-colors",
-                isDark
-                  ? "text-zinc-400 hover:bg-white/8 hover:text-zinc-200"
-                  : "text-zinc-500 hover:bg-black/5 hover:text-zinc-800",
-              )}
-              onClick={() => setCookieBannerDismissed(true)}
-            >
-              {t("cookieAccess.dismiss")}
-            </button>
-            <button
-              type="button"
-              disabled={cookieGranting}
-              className={cn(
-                "rounded-md px-2 py-1 text-[11px] font-medium transition-colors disabled:opacity-60",
-                isDark
-                  ? "bg-white/12 text-zinc-100 hover:bg-white/18"
-                  : "bg-zinc-900 text-white hover:bg-zinc-800",
-              )}
-              onClick={() => void handleGrantCookieAccess()}
-            >
-              {cookieGranting ? t("cookieAccess.granting") : t("cookieAccess.grant")}
-            </button>
-          </div>
+      <div
+        data-token-usage-share-exclude=""
+        className="pointer-events-none absolute right-4 bottom-4 z-20"
+      >
+        <div className="pointer-events-auto">
+          <TokenUsageCookieConsentBanner
+            items={overview?.browser_cookie_access}
+            busy={consentBusy}
+            onAllow={(providerIds) => {
+              void handleCookieConsent(providerIds, true);
+            }}
+            onSkip={(providerIds) => {
+              void handleCookieConsent(providerIds, false);
+            }}
+            onEnable={(providerIds) => {
+              void handleCookieConsent(providerIds, true);
+            }}
+          />
         </div>
-      ) : null}
+      </div>
     </div>
   );
 }

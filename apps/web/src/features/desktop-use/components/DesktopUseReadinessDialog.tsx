@@ -19,7 +19,10 @@ import {
   Package,
   type LucideIcon,
 } from "lucide-react";
-import { useOpenDesktopUseSettings } from "@/features/appshot/lib/open-desktop-use-settings";
+import {
+  useOpenDesktopUseSettings,
+  useOpenPermissionAccessSettings,
+} from "@/features/appshot/lib/open-desktop-use-settings";
 import {
   closeDesktopUseReadinessModal,
   subscribeDesktopUseReadinessModal,
@@ -89,6 +92,7 @@ function primaryCtaIcon(
 export function DesktopUseReadinessDialog() {
   const t = useTranslations("desktopUse.readinessModal");
   const openDesktopUseSettings = useOpenDesktopUseSettings();
+  const openPermissionAccessSettings = useOpenPermissionAccessSettings();
   const [state, setState] = React.useState<DesktopUseReadinessModalState>({
     open: false,
     readiness: null,
@@ -125,7 +129,11 @@ export function DesktopUseReadinessDialog() {
     // Force next entry to re-check after user may install / grant.
     invalidateDesktopUseReadinessCache();
     // nuqs path — reliable under NuqsAdapter (unlike bare pushState + popstate).
-    openDesktopUseSettings();
+    if (isPermissionReason(reason)) {
+      openPermissionAccessSettings();
+    } else {
+      openDesktopUseSettings();
+    }
   };
 
   return (

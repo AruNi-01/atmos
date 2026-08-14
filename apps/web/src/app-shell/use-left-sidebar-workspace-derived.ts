@@ -27,7 +27,10 @@ import {
     type UserGroupView,
 } from '@/app-shell/sidebar/user-groups';
 import type { SidebarGroupingMode } from '@/app-shell/sidebar/workspace-status';
-import type { WorkspaceAgentGroupKey } from '@/features/agent/lib/workspace-agent-status';
+import {
+    parseWorkspaceAgentGroupKey,
+    type WorkspaceAgentGroupKey,
+} from '@/features/agent/lib/workspace-agent-status';
 
 interface UseLeftSidebarWorkspaceDerivedParams {
     currentProjectId: string | null;
@@ -159,7 +162,9 @@ export function useLeftSidebarWorkspaceDerived({
             );
         }
         if (groupingMode === 'agent') {
-            return agentGroupKeyByWorkspaceId?.[currentWorkspace.id] ?? 'idle';
+            return parseWorkspaceAgentGroupKey(
+                agentGroupKeyByWorkspaceId?.[currentWorkspace.id],
+            );
         }
         return null;
     }, [agentGroupKeyByWorkspaceId, currentWorkspace, groupingMode, groups, labelGroupOrder, workspaceLabels]);

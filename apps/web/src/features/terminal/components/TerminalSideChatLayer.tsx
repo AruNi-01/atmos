@@ -13,6 +13,7 @@ import type { TerminalRef } from "./Terminal";
 
 interface TerminalSideChatLayerProps {
   activeSideChatId: string | null;
+  focusNonce?: number;
   localPath?: string | null;
   onClose: (sideChatId: string) => void;
   onCloseAll: (sideChatIds: string[]) => void;
@@ -40,6 +41,7 @@ export function TerminalSideChatLayer({
   projectRootPath,
   records,
   activeSideChatId,
+  focusNonce = 0,
   sideChatFlyTargetRef,
   sourcePaneId,
   sourceTmuxWindowName,
@@ -67,6 +69,7 @@ export function TerminalSideChatLayer({
   return (
     <TerminalSideChatModal
       activeSideChatId={activeRecord.side_chat_id}
+      focusNonce={focusNonce}
       localPath={localPath}
       projectId={projectId}
       projectName={projectName}

@@ -10,6 +10,10 @@ interface PreviewBridgeEventPayload {
   faviconUrl?: string;
   targetUrl?: string;
   action?: 'copy' | 'add' | 'update' | 'delete';
+  tabAction?: 'open' | 'close' | 'select' | 'list';
+  requestId?: string;
+  targetId?: string;
+  url?: string;
   annotationId?: string;
   note?: string;
   capabilities?: string[];
@@ -31,6 +35,9 @@ interface PreviewBridgeEventPayload {
   sourceLocation?: unknown;
   /** Present on toolbar-action when the runtime includes a selection snapshot. */
   error?: string;
+  /** Present on desktop-browser:agent-activity. */
+  status?: string;
+  active?: boolean;
 }
 
 export async function invokeDesktopBrowserBridge<T = unknown>(

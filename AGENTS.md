@@ -20,6 +20,7 @@
 | **Backend: Agent Integration** (ACP, Agent Manager) | [crates/agent/AGENTS.md](crates/agent/AGENTS.md) |
 | **Backend: Quota Usage Tracking** | [crates/quota-usage/AGENTS.md](crates/quota-usage/AGENTS.md) |
 | **Backend: Token Usage Tracking** | [crates/token-usage/AGENTS.md](crates/token-usage/AGENTS.md) |
+| **Backend: Permission Access** | [crates/permission-access/AGENTS.md](crates/permission-access/AGENTS.md) |
 | **Backend: LLM Integration** | [crates/llm/AGENTS.md](crates/llm/AGENTS.md) |
 | **Local runtime** (manifest, supervisor, relay identity) | [agents/references/runtime/AGENTS.md](agents/references/runtime/AGENTS.md) |
 | **`~/.atmos` layout** (credentials/state/config/data) | [agents/references/runtime/atmos-home-layout.md](agents/references/runtime/atmos-home-layout.md) |
@@ -215,6 +216,14 @@ just lint               # Run all linters
 TypeScript note: `@typescript/native` (TS 7 `tsc`) is installed alongside `typescript@6` (eslint API). See [packages/config/AGENTS.md](packages/config/AGENTS.md).
 
 For a fresh iOS/Android mobile environment, follow [agents/references/mobile/dev-setup.md](agents/references/mobile/dev-setup.md) before running native dev builds.
+
+---
+
+## ☁️ Dev & Cloud Environment
+
+How to bring the dev environment up on a **new machine, CI, or a Cloud Agent**: pinned toolchains (`rust-toolchain.toml`, bun via `package.json` `packageManager`, plus `just` / `zsh` / `tmux`), an optional reproducible **Nix** dev shell (`flake.nix` + direnv `.envrc`), and vendor-neutral one-command bootstrap scripts — `scripts/dev/setup.sh` (install) and `scripts/dev/start.sh` (run API + web). The scripts prefer the Nix shell when present and fall back to host toolchains.
+
+→ **[Full reference](agents/references/dev-environment.md)**
 
 ---
 

@@ -6,7 +6,7 @@ use std::{fs, path::PathBuf};
 use async_trait::async_trait;
 use tokio::time::{sleep, timeout, Instant};
 
-use crate::models::{CookieAccessStatus, TokenUsageGroupBy, TokenUsageQuery};
+use crate::models::{TokenUsageGroupBy, TokenUsageQuery};
 use crate::service::{CollectedTokenUsageReports, CookieEnrichmentOutcome, TokenUsageCollector};
 use crate::{TokenUsageError, TokenUsageService};
 
@@ -44,13 +44,13 @@ impl TokenUsageCollector for DelayedCollector {
     }
 }
 
-struct CookieNeededCollector {
+struct DelayedEnrichCollector {
     collect_calls: Arc<AtomicUsize>,
     enrich_delay: Duration,
 }
 
 #[async_trait]
-impl TokenUsageCollector for CookieNeededCollector {
+impl TokenUsageCollector for DelayedEnrichCollector {
     async fn collect(
         &self,
         _query: &TokenUsageQuery,
@@ -67,9 +67,8 @@ impl TokenUsageCollector for CookieNeededCollector {
     ) -> CookieEnrichmentOutcome {
         sleep(self.enrich_delay).await;
         CookieEnrichmentOutcome {
-            cookie_access: Some(CookieAccessStatus::Needed),
             warnings: vec![],
-            reports: None,
+            reports: Some(sample_reports()),
         }
     }
 }
@@ -274,10 +273,10 @@ async fn get_overview_loads_cached_overview_from_disk_on_startup() {
 }
 
 #[tokio::test]
-async fn get_overview_returns_local_scan_before_cookie_permission_prompt() {
+async fn get_overview_returns_local_scan_before_cookie_enrichment() {
     let collect_calls = Arc::new(AtomicUsize::new(0));
     let service = TokenUsageService::new(
-        Arc::new(CookieNeededCollector {
+        Arc::new(DelayedEnrichCollector {
             collect_calls: Arc::clone(&collect_calls),
             enrich_delay: Duration::from_millis(80),
         }),
@@ -295,7 +294,7 @@ async fn get_overview_returns_local_scan_before_cookie_permission_prompt() {
     let started = Instant::now();
     let overview = service.get_overview(query, false).await.unwrap();
     assert!(started.elapsed() < Duration::from_millis(50));
-    assert_eq!(overview.cookie_access, CookieAccessStatus::Ok);
+    assert_eq!(overview.summary.total_tokens, 710);
     assert_eq!(collect_calls.load(Ordering::SeqCst), 1);
     assert!(matches!(
         updates.try_recv(),
@@ -306,7 +305,7 @@ async fn get_overview_returns_local_scan_before_cookie_permission_prompt() {
         .await
         .expect("cookie enrichment should publish")
         .unwrap();
-    assert_eq!(update.overview.cookie_access, CookieAccessStatus::Needed);
+    assert_eq!(update.overview.summary.total_tokens, 710);
 }
 
 fn test_cache_path(label: &str) -> PathBuf {

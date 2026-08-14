@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { invalidateDesktopUseReadinessCache } from "@/features/desktop-use/lib/readiness";
 import { desktopInvoke, isDesktopRuntime } from "@/shared/lib/desktop-bridge";
+import { useOpenDesktopUseSettings } from "@/features/appshot/lib/open-desktop-use-settings";
 
 type PermissionName = "accessibility" | "screen_recording";
 
@@ -64,6 +65,7 @@ export function DesktopUsePermissionsPanel({
   doctorRefreshToken = 0,
 }: DesktopUsePermissionsPanelProps) {
   const t = useTranslations("settings.desktopUse");
+  const openDesktopUseSettings = useOpenDesktopUseSettings();
   const [doctor, setDoctor] = React.useState<DoctorStatus | null>(null);
   const [error, setError] = React.useState<string | null>(null);
   const [initialLoading, setInitialLoading] = React.useState(true);
@@ -261,9 +263,18 @@ export function DesktopUsePermissionsPanel({
 
   if (!engineInstalled) {
     return (
-      <p className={cn("px-2 py-4 text-sm text-muted-foreground", className)}>
-        {t("permissions.installFirst")}
-      </p>
+      <div className={cn("flex items-center justify-between gap-3 px-2 py-4", className)}>
+        <p className="text-sm text-muted-foreground">{t("permissions.installFirst")}</p>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          className="cursor-pointer shrink-0"
+          onClick={() => openDesktopUseSettings()}
+        >
+          {t("groups.engine.title")}
+        </Button>
+      </div>
     );
   }
 

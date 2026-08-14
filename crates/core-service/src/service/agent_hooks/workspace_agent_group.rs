@@ -18,7 +18,10 @@ pub enum WorkspaceAgentGroupKey {
     Permission,
     Attention,
     Running,
-    Idle,
+    /// Remainder bucket (never-run, acknowledged, or no live status).
+    /// `idle` is accepted for older API snapshots.
+    #[serde(alias = "idle")]
+    Done,
 }
 
 /// One workspace (or project-context) row in the grouping snapshot.
@@ -30,7 +33,7 @@ pub struct WorkspaceAgentGroupSnapshot {
 
 /// Grouping bucket for one workspace.
 ///
-/// Priority: permission (live or sticky) > running > task_complete attention > idle.
+/// Priority: permission (live or sticky) > running > task_complete attention > done.
 /// A still-running agent with a leftover `task_complete` latch stays `running`.
 pub fn resolve_workspace_agent_group_key(
     live_state: AgentHookState,
@@ -47,11 +50,11 @@ pub fn resolve_workspace_agent_group_key(
     if attention_reason == Some(AgentAttentionReason::TaskComplete) {
         return WorkspaceAgentGroupKey::Attention;
     }
-    WorkspaceAgentGroupKey::Idle
+    WorkspaceAgentGroupKey::Done
 }
 
 impl AgentHooksService {
-    /// In-memory snapshot of non-idle Agent grouping keys, keyed by workspace
+    /// In-memory snapshot of non-remainder Agent grouping keys, keyed by workspace
     /// (or project) context id. Survives browser refresh until the API process
     /// itself restarts.
     pub fn list_workspace_agent_groups(&self) -> Vec<WorkspaceAgentGroupSnapshot> {
@@ -112,7 +115,7 @@ impl AgentHooksService {
                     .unwrap_or(AgentHookState::Idle);
                 let attention_reason = attention_by_context.get(&context_id).copied();
                 let group_key = resolve_workspace_agent_group_key(live_state, attention_reason);
-                if group_key == WorkspaceAgentGroupKey::Idle {
+                if group_key == WorkspaceAgentGroupKey::Done {
                     return None;
                 }
                 Some(WorkspaceAgentGroupSnapshot {
@@ -185,7 +188,7 @@ mod tests {
         );
         assert_eq!(
             resolve_workspace_agent_group_key(AgentHookState::Idle, None),
-            WorkspaceAgentGroupKey::Idle
+            WorkspaceAgentGroupKey::Done
         );
     }
 
@@ -326,7 +329,7 @@ mod tests {
     }
 
     #[test]
-    fn snapshot_omits_pure_idle_contexts() {
+    fn snapshot_omits_remainder_done_contexts() {
         let service = AgentHooksService::new();
         service.update_state(
             "ws-idle:agent",

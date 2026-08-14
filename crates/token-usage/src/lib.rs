@@ -5,9 +5,10 @@ mod service;
 #[cfg(test)]
 mod tests;
 
+pub use cursor_sync::import_legacy_cookie_consents;
 pub use models::{
-    ClientTokenUsage, CookieAccessStatus, DailyClientTokenUsage, DailyTokenUsage, ModelTokenUsage,
-    MonthlyTokenUsage, TokenUsageGroupBy, TokenUsageOverview, TokenUsageQuery, TokenUsageSummary,
-    TokenUsageUpdate,
+    BrowserCookieAccess, BrowserCookieConsent, ClientTokenUsage, DailyClientTokenUsage,
+    DailyTokenUsage, ModelTokenUsage, MonthlyTokenUsage, TokenUsageGroupBy, TokenUsageOverview,
+    TokenUsageQuery, TokenUsageSummary, TokenUsageUpdate,
 };
 pub use service::{TokenUsageError, TokenUsageService};

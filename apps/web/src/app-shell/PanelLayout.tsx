@@ -22,6 +22,8 @@ import {
   ROOT_SIDEBAR_LAYOUT_AUTO_SAVE_ID,
 } from "@/app-shell/sidebar-layout-constants";
 import { NewWorkspaceWelcomeOverlay } from "@/app-shell/NewWorkspaceWelcomeOverlay";
+import { ensureBrowserAgentTabListener } from "@/features/browser/hooks/use-browser-agent-tab-bridge";
+import { registerBrowserHostChrome } from "@/features/browser/lib/ensure-browser-surface";
 
 const DEFAULT_RIGHT_SIDEBAR_SIZE = 20;
 
@@ -37,7 +39,7 @@ export function PanelLayout({
   centerStage,
 }: PanelLayoutProps) {
   const storage = useAppStorage();
-  const { currentView } = useContextParams();
+  const { currentView, effectiveContextId } = useContextParams();
   const layoutRootRef = useRef<HTMLDivElement>(null);
   const panelGroupRef = useRef<ImperativePanelGroupHandle>(null);
   const leftPanelRef = useRef<ImperativePanelHandle>(null);
@@ -59,6 +61,14 @@ export function PanelLayout({
     setToggleRightSidebar,
   } = useSidebarLayout();
   const [isDragging, setIsDragging] = useState(false);
+  useEffect(() => {
+    void ensureBrowserAgentTabListener();
+  }, []);
+  useEffect(() => {
+    registerBrowserHostChrome({
+      currentContextId: () => effectiveContextId,
+    });
+  }, [effectiveContextId]);
   const [layoutRootWidth, setLayoutRootWidth] = useState(0);
   const [leftOverlaySize, setLeftOverlaySize] = useState(
     leftSidebarSize > 0 ? leftSidebarSize : DEFAULT_LEFT_SIDEBAR_SIZE,

@@ -34,13 +34,13 @@ export function TerminalSideChatDots({
   return (
     <span
       className={cn(
-        "inline-flex items-center overflow-hidden transition-all duration-200 ease-out",
-        shouldShowIndicator ? "h-5 w-[38px] opacity-100" : "h-0 w-0 opacity-0",
+        "inline-flex items-end overflow-hidden transition-all duration-200 ease-out",
+        shouldShowIndicator ? "h-3 w-8 opacity-100" : "h-0 w-0 opacity-0",
       )}
     >
       {isStarting ? (
         <span
-          className="ml-1.5 inline-flex h-5 w-8 items-center justify-center"
+          className="inline-flex h-3 w-8 items-end justify-center"
           title={t("starting")}
         >
           <span className={cn(sideChatIndicatorClassName, "animate-pulse")} />
@@ -49,7 +49,7 @@ export function TerminalSideChatDots({
       {!isStarting && targetRecord && !hasOpenRecord ? (
         <button
           type="button"
-          className="group/side-dot ml-1.5 inline-flex h-5 w-8 items-center justify-center"
+          className="group/side-dot inline-flex h-3 w-8 items-end justify-center"
           aria-label={t("show")}
           title={t("show")}
           onClick={() => onShow(targetRecord.side_chat_id)}

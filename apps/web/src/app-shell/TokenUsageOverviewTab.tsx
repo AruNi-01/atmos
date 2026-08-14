@@ -20,6 +20,7 @@ import {
   cn,
   compactSlidingParts,
   currencySlidingParts,
+  detailedSlidingParts,
   percentSlidingParts,
   type DitherHeatmapCell,
   type DitherTheme,
@@ -45,15 +46,6 @@ import {
   type UsageDimension,
   type UsageMetric,
 } from "@/app-shell/token-usage-dialog-utils";
-
-/** Force one fractional digit for hero totals (11 → 11.0, 1.5K stays 1.5K). */
-function forceOneDecimal(parts: SlidingMetricParts): SlidingMetricParts {
-  return {
-    ...parts,
-    value: Math.round(parts.value * 10) / 10,
-    decimals: 1,
-  };
-}
 
 const TOKEN_USAGE_AGENT_ICON_ID: Record<string, string> = {
   claude: "claude-code",
@@ -364,13 +356,10 @@ export function TokenUsageOverviewTab({
               ) : (
                 // Stable tree: never remount SlidingMetric on metric toggle so
                 // digit springs can morph tokens ↔ cost mantissas.
-                // Always one decimal place (e.g. 11.0K, $1.2K), even for whole numbers.
                 <SlidingMetric
-                  {...forceOneDecimal(
-                    metric === "cost"
-                      ? currencySlidingParts(heroValue, locale, "compact")
-                      : compactSlidingParts(heroValue, locale),
-                  )}
+                  {...(metric === "cost"
+                    ? currencySlidingParts(heroValue, locale, "compact")
+                    : compactSlidingParts(heroValue, locale))}
                 />
               )}
             </div>
@@ -413,7 +402,7 @@ export function TokenUsageOverviewTab({
                     <span className="flex shrink-0 items-center gap-2 tabular-nums">
                       <span className={cn("text-xs", muted)}>
                         <SlidingMetric
-                          {...percentSlidingParts(row.sharePercent, locale, 0)}
+                          {...percentSlidingParts(row.sharePercent, locale, 1)}
                         />
                       </span>
                       <SlidingMetric
@@ -476,9 +465,10 @@ export function TokenUsageOverviewTab({
                   "—"
                 ) : (
                   <SlidingMetric
-                    {...compactSlidingParts(
+                    {...detailedSlidingParts(
                       overview?.summary.active_days ?? 0,
                       locale,
+                      0,
                     )}
                   />
                 )
@@ -536,6 +526,7 @@ export function TokenUsageOverviewTab({
                     formatValue={(v) => formatCompactNumber(v, locale)}
                     formatShare={(s) =>
                       `${(Math.round(s * 1000) / 10).toLocaleString(locale, {
+                        minimumFractionDigits: 1,
                         maximumFractionDigits: 1,
                       })}%`
                     }

@@ -15,6 +15,7 @@
 | Capability | `llm` | [llm/AGENTS.md](llm/AGENTS.md) |
 | Capability | `quota-usage` | [quota-usage/AGENTS.md](quota-usage/AGENTS.md) |
 | Capability | `token-usage` | [token-usage/AGENTS.md](token-usage/AGENTS.md) |
+| Capability | `permission-access` | [permission-access/AGENTS.md](permission-access/AGENTS.md) |
 | Capability | `local-model-runtime` | — |
 | Capability | `tunnel-connector` | — |
 | Host | `runtime-manager` | [runtime-manager/AGENTS.md](runtime-manager/AGENTS.md) |

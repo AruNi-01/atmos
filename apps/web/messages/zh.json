@@ -310,7 +310,7 @@
       "agent_permission": "需要授权",
       "agent_attention": "需要关注",
       "agent_running": "运行中",
-      "agent_idle": "空闲"
+      "agent_done": "已完成"
     },
     "groups": {
       "ungrouped": "未分组",
@@ -387,6 +387,7 @@
       "waitingForPermission": "等待权限",
       "running": "运行中",
       "napping": "休眠中 ~",
+      "sideChat": "侧聊",
       "agentIdle": "Agent：空闲",
       "status": {
         "normal": "正常",
@@ -568,6 +569,14 @@
       "errors": {
         "loadOverviewFallback": "加载 Token 用量概览失败",
         "loadOverviewTitle": "加载 Token 用量失败"
+      },
+      "browserCookie": {
+        "title": "包含已登录网页用量",
+        "note": "检测到本机安装了 {products}。若要把对应控制台的 token 用量算进来，Atmos Server 会向钥匙串申请权限，用于解密浏览器里的登录 Cookie。密钥只留在本机，且仅用于读取用量。",
+        "allow": "允许",
+        "skip": "暂不",
+        "denied": "未包含 {products} 云端用量。",
+        "enable": "开启"
       },
       "header": {
         "badges": {
@@ -2911,7 +2920,8 @@
       "notifications": {
         "permissionRequired": "需要权限",
         "completed": "已完成",
-        "jump": "跳转"
+        "jump": "跳转",
+        "sideChat": "侧聊"
       },
       "desktopAgentChatWindow": {
         "failedToOpenChatWindow": "打开聊天窗口失败"
@@ -4460,7 +4470,7 @@
       "groups": {
         "interface": {
           "label": "界面",
-          "description": "布局、编辑器、画布与键盘偏好设置"
+          "description": "布局、编辑器、画布、Browser 与键盘偏好设置"
         },
         "personal": {
           "label": "个人",
@@ -4477,6 +4487,10 @@
         "systemIntegration": {
           "label": "系统集成",
           "description": "集成、Desktop Use 与通知"
+        },
+        "privacySecurity": {
+          "label": "隐私与安全性",
+          "description": "权限访问及其他隐私相关设置"
         },
         "workspaceProjects": {
           "label": "工作区与项目",
@@ -4507,6 +4521,10 @@
         "terminal": {
           "label": "终端",
           "description": "终端行为、恢复和文件链接处理。"
+        },
+        "browser": {
+          "label": "Browser",
+          "description": "应用内 Browser 的打开位置、侧栏、主页与 Agent 高亮。"
         },
         "workspace": {
           "label": "工作区",
@@ -4552,6 +4570,10 @@
           "label": "Desktop Use",
           "description": "本机桌面捕获、控制引擎与 macOS 权限"
         },
+        "permissionAccess": {
+          "label": "权限访问",
+          "description": "在本机已安装对应产品时，允许 Atmos Server 读取已登录浏览器 Cookie。"
+        },
         "account": {
           "label": "账号",
           "description": "登录、信任此设备，并管理你的 Atmos 账号"
@@ -4560,6 +4582,20 @@
       "dialog": {
         "title": "设置",
         "description": "管理 ATMOS 设置、产品信息和桌面端更新。"
+      },
+      "permissionAccessSection": {
+        "title": "浏览器 Cookie",
+        "description": "Atmos Server 可以解密已登录的浏览器 Cookie 来读取用量。密钥只留在本机。打开某个来源后，macOS 可能会弹出钥匙串授权。",
+        "installed": "已安装",
+        "notInstalled": "未安装",
+        "webSession": "已登录网页会话",
+        "desktopUse": {
+          "title": "Desktop Use",
+          "description": "为 Atmos Desktop Use 授予辅助功能和屏幕录制。以 macOS 系统设置为准——Atmos 不能自己记下这些授权。"
+        },
+        "empty": "暂无权限来源。",
+        "error": "无法更新权限访问。请检查连接后重试。",
+        "toggleAria": "允许读取 {name} 的浏览器 Cookie"
       },
       "unknownError": "未知错误",
       "errors": {
@@ -5042,6 +5078,12 @@
               "label": "Project Wiki（Center Tabs）"
             }
           },
+          "permissionAccess": {
+            "browserCookies": {
+              "label": "浏览器 Cookie",
+              "description": "用于已登录网页用量的钥匙串访问"
+            }
+          },
           "about": {
             "runtime": {
               "label": "Runtime"
@@ -5054,6 +5096,24 @@
             },
             "checkForUpdates": {
               "label": "检查更新"
+            }
+          },
+          "browser": {
+            "defaultSurface": {
+              "label": "默认打开位置",
+              "description": "还没有 Browser 时，新窗口开在哪里"
+            },
+            "sidebar": {
+              "label": "在侧栏显示"
+            },
+            "newTabUrl": {
+              "label": "新标签页网址"
+            },
+            "agentChrome": {
+              "label": "Agent 高亮"
+            },
+            "downloads": {
+              "label": "下载目录"
             }
           },
           "desktopUse": {
@@ -6169,6 +6229,59 @@
         "description": "启用 Project Wiki 作为中心区域标签页，便于快速访问项目文档和知识库。"
       }
     },
+    "browser": {
+      "groups": {
+        "placement": {
+          "title": "打开位置",
+          "description": "还没有 Browser 界面时，Agent 在哪里打开。"
+        },
+        "sidebar": {
+          "title": "侧栏",
+          "description": "是否在右侧栏显示 Browser 模块。"
+        },
+        "pages": {
+          "title": "页面",
+          "description": "Agent 打开新标签页时使用的主页。"
+        },
+        "agent": {
+          "title": "Agent",
+          "description": "Browser Use 操作时的页面光标与高亮。"
+        },
+        "downloads": {
+          "title": "下载",
+          "description": "内嵌 Browser 的下载会写到 Atmos Browser Use 目录下。"
+        }
+      },
+      "defaultSurface": {
+        "title": "默认打开位置",
+        "description": "侧栏或中间标签页。现有用户默认仍是侧栏。",
+        "sidebar": "侧栏",
+        "center": "中间标签页"
+      },
+      "sidebar": {
+        "title": "在侧栏显示",
+        "description": "在右侧栏保留 Browser 模块。把默认位置设为侧栏时会自动打开此项。"
+      },
+      "newTabUrl": {
+        "title": "新标签页网址",
+        "description": "Agent 打开标签页但没有给出网址时使用。留空则打开 Browser 主页。"
+      },
+      "agentChrome": {
+        "title": "显示 Agent 高亮",
+        "description": "Agent 点击或输入时绘制光标叠加层。"
+      },
+      "downloads": {
+        "title": "下载根目录",
+        "description": "内嵌 Browser Use 会把下载写到这里。外部 Chrome 仍需要 --dir。"
+      },
+      "links": {
+        "desktopUse": {
+          "title": "Desktop Use",
+          "description": "系统 Chrome、捕获和 macOS 权限仍在 Desktop Use 页。",
+          "action": "打开 Desktop Use"
+        }
+      }
+    },
     "desktopUse": {
       "label": "Desktop Use",
       "description": "本机桌面捕获与控制（截图、点击、输入）",
@@ -6190,7 +6303,11 @@
         },
         "permissions": {
           "title": "权限",
-          "description": "为 Atmos Desktop Use 授予辅助功能与屏幕录制权限——捕获、控制与 AppShot 的 Left⇧+Right⇧ 快捷键共用同一身份。"
+          "description": "为 Atmos Desktop Use 授予辅助功能与屏幕录制权限——捕获、控制与 AppShot 的 Left⇧+Right⇧ 快捷键共用同一身份。",
+          "openAccessHint": "Desktop Use 的系统授权在「隐私与安全性 → 权限访问」里处理。",
+          "openAccessTitle": "权限访问",
+          "openAccessDescription": "在统一的权限访问页授予辅助功能和屏幕录制。",
+          "openAccess": "打开权限访问"
         },
         "visibility": {
           "title": "视觉反馈",
@@ -9291,6 +9408,7 @@
       "url": {
         "enter": "输入 URL..."
       },
+      "agentActive": "Agent 正在操作此页面",
       "actions": {
         "openInBrowser": "在浏览器中打开",
         "openDeveloperTools": "打开开发者工具",

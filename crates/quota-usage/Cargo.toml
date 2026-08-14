@@ -24,3 +24,4 @@ tokio = { version = "1.0", features = ["sync", "time", "macros", "rt"] }
 tracing = "0.1"
 infra = { version = "0.1.0", path = "../infra" }
 browser-cookies = { version = "0.1.0", path = "../browser-cookies" }
+permission-access = { version = "0.1.0", path = "../permission-access" }

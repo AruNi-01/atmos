@@ -15,7 +15,7 @@ import {
   MotionSidebarProvider,
   cn,
 } from "@workspace/ui";
-import { Search, X } from "lucide-react";
+import { KeyRound, Search, X } from "lucide-react";
 import InfoCircleIcon from "@workspace/ui/components/icons/info-circle-icon";
 import LayoutDashboardIcon from "@workspace/ui/components/icons/layout-dashboard-icon";
 import TerminalIcon from "@workspace/ui/components/icons/terminal-icon";
@@ -25,6 +25,7 @@ import { BellIcon } from "@workspace/ui/components/icons/bell-icon";
 import WorldIcon from "@workspace/ui/components/icons/world-icon";
 import ComputerIcon from "@workspace/ui/components/icons/computer-icon";
 import DesktopUseIcon from "@workspace/ui/components/icons/desktop-use-icon";
+import { Globe } from "lucide-react";
 import { FolderKanbanIcon } from "@workspace/ui/components/icons/folder-kanban-icon";
 import { TagIcon } from "@workspace/ui/components/icons/tag-icon";
 import KeyboardIcon from "@workspace/ui/components/icons/keyboard-icon";
@@ -112,6 +113,12 @@ function SettingsSectionIcon({
   if (sectionId === "atmos-computer") return <ComputerIcon ref={iconRef} className="shrink-0" size={16} />;
   if (sectionId === "desktop-use") {
     return <DesktopUseIcon ref={iconRef} className="shrink-0" size={16} />;
+  }
+  if (sectionId === "browser") {
+    return <Globe className="shrink-0" size={16} />;
+  }
+  if (sectionId === "permission-access") {
+    return <KeyRound className="shrink-0" size={16} />;
   }
   if (sectionId === "shortcuts") return <KeyboardIcon ref={iconRef} className="shrink-0" size={16} />;
   if (sectionId === "experiments") {

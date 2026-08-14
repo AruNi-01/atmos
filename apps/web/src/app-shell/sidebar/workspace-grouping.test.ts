@@ -142,13 +142,13 @@ describe("groupWorkspaces", () => {
     const groups = groupWorkspaces(
       [
         entry(workspace({ id: "needs-permission" })),
-        entry(workspace({ id: "idle-one" })),
+        entry(workspace({ id: "done-one" })),
       ],
       "agent",
       {
         agentGroupKeyByWorkspaceId: {
           "needs-permission": "permission",
-          "idle-one": "idle",
+          "done-one": "done",
         },
       },
     );
@@ -157,12 +157,32 @@ describe("groupWorkspaces", () => {
       "permission",
       "attention",
       "running",
-      "idle",
+      "done",
     ]);
     expect(groups[0].items.map((item) => item.workspace.id)).toEqual(["needs-permission"]);
     expect(groups[1].items).toEqual([]);
     expect(groups[2].items).toEqual([]);
-    expect(groups[3].items.map((item) => item.workspace.id)).toEqual(["idle-one"]);
+    expect(groups[3].items.map((item) => item.workspace.id)).toEqual(["done-one"]);
+  });
+
+  it("puts unmapped and legacy idle workspaces in done", () => {
+    const groups = groupWorkspaces(
+      [
+        entry(workspace({ id: "never-ran" })),
+        entry(workspace({ id: "acked" })),
+      ],
+      "agent",
+      {
+        agentGroupKeyByWorkspaceId: {
+          acked: "idle" as never,
+        },
+      },
+    );
+
+    expect(groups.find((group) => group.key === "done")?.items.map((item) => item.workspace.id)).toEqual([
+      "never-ran",
+      "acked",
+    ]);
   });
 
   it("rebuckets a workspace when the agent map changes", () => {
@@ -171,12 +191,12 @@ describe("groupWorkspaces", () => {
       agentGroupKeyByWorkspaceId: { "ws-run": "running" },
     });
     const second = groupWorkspaces([running], "agent", {
-      agentGroupKeyByWorkspaceId: { "ws-run": "idle" },
+      agentGroupKeyByWorkspaceId: { "ws-run": "done" },
     });
 
     expect(first.find((group) => group.key === "running")?.items).toHaveLength(1);
     expect(second.find((group) => group.key === "running")?.items).toHaveLength(0);
-    expect(second.find((group) => group.key === "idle")?.items.map((item) => item.workspace.id)).toEqual([
+    expect(second.find((group) => group.key === "done")?.items.map((item) => item.workspace.id)).toEqual([
       "ws-run",
     ]);
   });

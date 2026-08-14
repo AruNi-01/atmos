@@ -16,6 +16,7 @@ This directory contains cross-cutting references and guidelines that apply acros
 | `references/debug-logging.md` | When adding debug logging or instrumenting lifecycle flows |
 | `references/compact-instructions.md` | When compressing context or creating coding handoff summaries |
 | `references/cli-feature-versions.md` | When a feature depends on Atmos CLI: min version pins, install/upgrade gates, Desktop packaging |
+| `references/dev-environment.md` | When setting up / reproducing the dev environment (local, CI, or Cloud Agent), editing the Nix flake or `scripts/dev/*`, or wiring a Cloud/CI install & start step |
 | `references/mobile/dev-setup.md` | When setting up or debugging the Expo mobile native dev environment |
 | `references/mobile/native-navigation.md` | When changing mobile page titles, headers, navigation bars, or header buttons |
 | `references/design/AGENTS.md` | When changing UI design, visual language, component styling, or platform-specific app chrome |
@@ -32,6 +33,7 @@ agents/
     ├── debug-logging.md        # Debug logging infrastructure
     ├── compact-instructions.md # Context compression and handoff summaries
     ├── cli-feature-versions.md # CLI install path + per-feature min version pins
+    ├── dev-environment.md      # Dev/CI/Cloud env setup: toolchains, Nix, scripts/dev/*
     ├── mobile/                 # Mobile app setup and native UI references
     │   ├── dev-setup.md         # Expo mobile native dev environment setup
     │   └── native-navigation.md # Native headers, titles, bars, and menus

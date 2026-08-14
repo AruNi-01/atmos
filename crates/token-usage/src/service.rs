@@ -10,9 +10,8 @@ use thiserror::Error;
 use tokio::sync::{broadcast, Mutex, RwLock};
 
 use crate::models::{
-    ClientTokenUsage, CookieAccessStatus, DailyClientTokenUsage, DailyTokenUsage, ModelTokenUsage,
-    MonthlyTokenUsage, TokenBreakdown, TokenUsageOverview, TokenUsageQuery, TokenUsageSummary,
-    TokenUsageUpdate,
+    ClientTokenUsage, DailyClientTokenUsage, DailyTokenUsage, ModelTokenUsage, MonthlyTokenUsage,
+    TokenBreakdown, TokenUsageOverview, TokenUsageQuery, TokenUsageSummary, TokenUsageUpdate,
 };
 
 const DEFAULT_CACHE_TTL_SECS: u64 = 15 * 60;
@@ -35,7 +34,6 @@ pub(crate) struct CollectedTokenUsageReports {
 
 #[derive(Debug, Default)]
 pub(crate) struct CookieEnrichmentOutcome {
-    pub(crate) cookie_access: Option<CookieAccessStatus>,
     pub(crate) warnings: Vec<String>,
     pub(crate) reports: Option<CollectedTokenUsageReports>,
 }
@@ -92,7 +90,6 @@ impl TokenUsageCollector for TokscaleCollector {
         let sync_outcome = crate::cursor_sync::maybe_sync_cursor_csv(query, force).await;
         if !sync_outcome.updated {
             return CookieEnrichmentOutcome {
-                cookie_access: sync_outcome.cookie_access,
                 warnings: sync_outcome.warnings,
                 reports: None,
             };
@@ -101,7 +98,6 @@ impl TokenUsageCollector for TokscaleCollector {
         let options = tokscale_options(query);
         match tokscale_core::generate_usage_reports(options).await {
             Ok(reports) => CookieEnrichmentOutcome {
-                cookie_access: sync_outcome.cookie_access,
                 warnings: sync_outcome.warnings.clone(),
                 reports: Some(CollectedTokenUsageReports {
                     graph: reports.graph,
@@ -112,7 +108,6 @@ impl TokenUsageCollector for TokscaleCollector {
                 }),
             },
             Err(_) => CookieEnrichmentOutcome {
-                cookie_access: sync_outcome.cookie_access,
                 warnings: sync_outcome.warnings,
                 reports: None,
             },
@@ -200,7 +195,7 @@ impl TokenUsageService {
         if !refresh {
             let cache = self.cache.read().await;
             if let Some(cached) = cache.get(&cache_key) {
-                let cached_overview = cached.overview.clone();
+                let cached_overview = with_cursor_status(cached.overview.clone());
                 let is_stale =
                     unix_now().saturating_sub(cached.fetched_at) >= self.cache_ttl.as_secs();
                 drop(cache);
@@ -222,6 +217,16 @@ impl TokenUsageService {
             .await
     }
 
+    pub async fn set_browser_cookie_consent(
+        &self,
+        provider_id: &str,
+        granted: bool,
+    ) -> Result<TokenUsageOverview, TokenUsageError> {
+        crate::cursor_sync::set_cookie_consent(provider_id, granted)?;
+        self.get_overview_opts(TokenUsageQuery::default(), granted, granted)
+            .await
+    }
+
     pub fn subscribe_updates(&self) -> broadcast::Receiver<TokenUsageUpdate> {
         self.update_tx.subscribe()
     }
@@ -238,13 +243,7 @@ impl TokenUsageService {
         try_cookies: bool,
     ) -> Result<TokenUsageOverview, TokenUsageError> {
         let reports = self.collector.collect(&query, false).await?;
-        let mut overview = build_overview(query.clone(), reports);
-        {
-            let cache = self.cache.read().await;
-            if let Some(cached) = cache.get(&cache_key) {
-                preserve_cookie_access_needed(&cached.overview, &mut overview);
-            }
-        }
+        let overview = with_cursor_status(build_overview(query.clone(), reports));
 
         {
             let mut cache = self.cache.write().await;
@@ -289,12 +288,10 @@ impl TokenUsageService {
                 .await
                 .map(|reports| build_overview(query.clone(), reports));
 
-            if let Ok(mut overview) = result {
+            if let Ok(overview) = result {
+                let overview = with_cursor_status(overview);
                 {
                     let mut cache_guard = cache.write().await;
-                    if let Some(cached) = cache_guard.get(&cache_key) {
-                        preserve_cookie_access_needed(&cached.overview, &mut overview);
-                    }
                     cache_guard.insert(
                         cache_key.clone(),
                         CachedOverview {
@@ -395,6 +392,7 @@ fn build_overview(
     };
 
     TokenUsageOverview {
+        browser_cookie_access: crate::cursor_sync::current_status(&query),
         query,
         summary,
         by_client: build_client_usage(&reports.graph),
@@ -409,14 +407,12 @@ fn build_overview(
             .collect(),
         generated_at: unix_now(),
         partial_warnings: reports.partial_warnings,
-        cookie_access: CookieAccessStatus::Ok,
     }
 }
 
-fn preserve_cookie_access_needed(current: &TokenUsageOverview, overview: &mut TokenUsageOverview) {
-    if current.cookie_access == CookieAccessStatus::Needed {
-        overview.cookie_access = CookieAccessStatus::Needed;
-    }
+fn with_cursor_status(mut overview: TokenUsageOverview) -> TokenUsageOverview {
+    overview.browser_cookie_access = crate::cursor_sync::current_status(&overview.query);
+    overview
 }
 
 fn apply_cookie_enrichment(
@@ -425,31 +421,21 @@ fn apply_cookie_enrichment(
     outcome: CookieEnrichmentOutcome,
 ) -> Option<TokenUsageOverview> {
     if let Some(reports) = outcome.reports {
-        let mut overview = build_overview(query, reports);
-        if let Some(cookie_access) = outcome.cookie_access {
-            overview.cookie_access = cookie_access;
-        }
+        let mut overview = with_cursor_status(build_overview(query, reports));
         if !outcome.warnings.is_empty() {
             overview.partial_warnings = outcome.warnings;
         }
         return Some(overview);
     }
 
-    let cookie_changed = outcome
-        .cookie_access
-        .is_some_and(|status| status != current.cookie_access);
+    let mut overview = with_cursor_status(current.clone());
     let warnings_changed =
         !outcome.warnings.is_empty() && outcome.warnings != current.partial_warnings;
-    if !cookie_changed && !warnings_changed {
-        return None;
-    }
-
-    let mut overview = current.clone();
-    if let Some(cookie_access) = outcome.cookie_access {
-        overview.cookie_access = cookie_access;
-    }
     if warnings_changed {
         overview.partial_warnings = outcome.warnings;
+    }
+    if overview.browser_cookie_access == current.browser_cookie_access && !warnings_changed {
+        return None;
     }
     Some(overview)
 }

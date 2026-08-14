@@ -28,7 +28,7 @@ import {
   TriangleAlert,
 } from "lucide-react";
 import { systemApi } from "@/api/rest-api";
-import { DesktopUsePermissionsPanel } from "@/features/settings/components/DesktopUsePermissionsPanel";
+import { useOpenPermissionAccessSettings } from "@/features/appshot/lib/open-desktop-use-settings";
 // systemApi used only for install/update of the canonical CLI (not for version gate).
 import { DesktopUseEngineProgressBar } from "@/features/settings/components/DesktopUseEngineProgressBar";
 import {
@@ -130,17 +130,11 @@ export function DesktopUseSettingsSection() {
 
   // Collapsible groups — defaults applied once after first status/doctor load.
   const [engineOpen, setEngineOpen] = useState(true);
+  const openPermissionAccessSettings = useOpenPermissionAccessSettings();
   const [permissionsOpen, setPermissionsOpen] = useState(true);
   const [visibilityOpen, setVisibilityOpen] = useState(true);
   const defaultsAppliedRef = useRef(false);
-  /** Refresh control published by DesktopUsePermissionsPanel → group header. */
-  const [permissionsHeaderEnd, setPermissionsHeaderEnd] =
-    useState<React.ReactNode>(null);
-  /**
-   * Bumped after install/update/stop/uninstall so the permissions panel re-runs
-   * doctor without requiring collapse/expand (Collapsible keeps children mounted).
-   */
-  const [permissionsRefreshToken, setPermissionsRefreshToken] = useState(0);
+
 
   const applyRuntimeCheck = useCallback(
     (check: RuntimeCheckResult["check"] | null | undefined) => {
@@ -314,7 +308,6 @@ export function DesktopUseSettingsSection() {
       await systemApi.installCli(true);
       invalidateDesktopUseReadinessCache();
       await load({ silent: true });
-      setPermissionsRefreshToken((n) => n + 1);
       setEngineOpen(true);
     } catch (e) {
       setError(
@@ -397,10 +390,7 @@ export function DesktopUseSettingsSection() {
       // Install / stop / uninstall change doctor results — drop readiness cache.
       invalidateDesktopUseReadinessCache();
       await load({ silent: true });
-      // Permissions panel does not share status IPC — poke it to re-doctor.
-      setPermissionsRefreshToken((n) => n + 1);
-      // After install/update/uninstall, surface the permissions group so Grant
-      // rows are visible without the user re-expanding the card.
+      // After install/update/uninstall, surface the Permission Access jump.
       if (
         actionKey === "install" ||
         actionKey === "update" ||
@@ -895,22 +885,28 @@ export function DesktopUseSettingsSection() {
         </DialogContent>
       </Dialog>
 
-      {/* 2. Permissions — collapse by default when all granted */}
       <SettingsGroupCard
         open={permissionsOpen}
         onOpenChange={setPermissionsOpen}
         icon={Shield}
         title={t("groups.permissions.title")}
-        description={t("groups.permissions.description")}
-        headerEnd={permissionsHeaderEnd}
+        description={t("groups.permissions.openAccessHint")}
       >
-        <DesktopUsePermissionsPanel
-          onHeaderEndChange={setPermissionsHeaderEnd}
-          engineInstalledFromParent={
-            desktop && cliReady ? installed : desktop ? false : null
-          }
-          doctorRefreshToken={permissionsRefreshToken}
-        />
+        <SettingsGroupRow
+          title={t("groups.permissions.openAccessTitle")}
+          description={t("groups.permissions.openAccessDescription")}
+          wide
+        >
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="cursor-pointer"
+            onClick={() => openPermissionAccessSettings()}
+          >
+            {t("groups.permissions.openAccess")}
+          </Button>
+        </SettingsGroupRow>
       </SettingsGroupCard>
 
       {/* 3. Visual feedback — operation border (+ future under-cursor cues) */}

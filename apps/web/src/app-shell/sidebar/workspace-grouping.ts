@@ -11,6 +11,7 @@ import { currentAppLocale } from "@/shared/lib/current-app-locale";
 import type { SidebarGroupingMode } from "./workspace-status";
 import { getWorkspaceAgentGroupMeta, getWorkspaceWorkflowStatusMeta } from "./workspace-status";
 import {
+  parseWorkspaceAgentGroupKey,
   WORKSPACE_AGENT_GROUP_ORDER,
   type WorkspaceAgentGroupKey,
 } from "@/features/agent/lib/workspace-agent-status";
@@ -188,7 +189,9 @@ export function groupWorkspaces(
   if (groupingMode === "agent") {
     const grouped = new Map<WorkspaceAgentGroupKey, FlattenedWorkspaceEntry[]>();
     for (const item of sortedItems) {
-      const key = options.agentGroupKeyByWorkspaceId?.[item.workspace.id] ?? "idle";
+      const key = parseWorkspaceAgentGroupKey(
+        options.agentGroupKeyByWorkspaceId?.[item.workspace.id],
+      );
       const bucket = grouped.get(key) ?? [];
       bucket.push(item);
       grouped.set(key, bucket);

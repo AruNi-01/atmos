@@ -32,7 +32,7 @@ export const SETTINGS_GROUPS = [
     id: "interface",
     label: settingsModalT("groups.interface.label"),
     description: settingsModalT("groups.interface.description"),
-    items: ["layout", "editor", "canvas", "terminal"] as const,
+    items: ["layout", "editor", "canvas", "terminal", "browser"] as const,
   },
   {
     id: "personal",
@@ -57,6 +57,12 @@ export const SETTINGS_GROUPS = [
     label: settingsModalT("groups.systemIntegration.label"),
     description: settingsModalT("groups.systemIntegration.description"),
     items: ["integrations", "desktop-use", "notify"] as const,
+  },
+  {
+    id: "privacy-security",
+    label: settingsModalT("groups.privacySecurity.label"),
+    description: settingsModalT("groups.privacySecurity.description"),
+    items: ["permission-access"] as const,
   },
   {
     id: "workspace-projects",
@@ -97,6 +103,11 @@ export const SETTINGS_SECTIONS = [
     id: "terminal",
     label: settingsModalT("sections.terminal.label"),
     description: settingsModalT("sections.terminal.description"),
+  },
+  {
+    id: "browser",
+    label: settingsModalT("sections.browser.label"),
+    description: settingsModalT("sections.browser.description"),
   },
   {
     id: "workspace",
@@ -142,6 +153,11 @@ export const SETTINGS_SECTIONS = [
     id: "desktop-use",
     label: settingsModalT("sections.desktopUse.label"),
     description: settingsModalT("sections.desktopUse.description"),
+  },
+  {
+    id: "permission-access",
+    label: settingsModalT("sections.permissionAccess.label"),
+    description: settingsModalT("sections.permissionAccess.description"),
   },
   {
     id: "shortcuts",
@@ -307,6 +323,17 @@ const SETTINGS_SECTION_KEYWORDS: Record<SettingsSectionId, readonly string[]> = 
     "split",
     "last split agent",
   ],
+  browser: [
+    "browser",
+    "sidebar",
+    "center tabs",
+    "homepage",
+    "new tab",
+    "agent chrome",
+    "downloads",
+    "in-app browser",
+    "webview",
+  ],
   workspace: [
     "workspace",
     "project",
@@ -456,6 +483,20 @@ const SETTINGS_SECTION_KEYWORDS: Record<SettingsSectionId, readonly string[]> = 
     "click",
     "type",
   ],
+  "permission-access": [
+    "permission access",
+    "privacy",
+    "security",
+    "privacy and security",
+    "keychain",
+    "browser cookie",
+    "chrome safe storage",
+    "cursor",
+    "consent",
+    "accessibility",
+    "screen recording",
+    "desktop use",
+  ],
   shortcuts: [
     "shortcuts",
     "keyboard",
@@ -557,7 +598,7 @@ const SETTINGS_SETTING_ITEMS: Record<SettingsSectionId, readonly SettingsSearchI
       keywords: ["group grouping", "sidebar by group", "user groups"],
     }),
     settingsModalSearchItem("layout.byAgentGroupUsesSecondColumn", {
-      keywords: ["agent grouping", "sidebar by agent status", "idle", "running", "permission", "need attention"],
+      keywords: ["agent grouping", "sidebar by agent status", "done", "running", "permission", "need attention"],
     }),
     settingsModalSearchItem("layout.headerLayout", {
       keywords: ["workspace utilities", "global search", "header summary"],
@@ -721,6 +762,24 @@ const SETTINGS_SETTING_ITEMS: Record<SettingsSectionId, readonly SettingsSearchI
     }),
     settingsModalSearchItem("codeAgent.idleSessionCleanup", {
       keywords: ["remove idle agent sessions", "every 5 minutes", "timeout"],
+    }),
+  ],
+  browser: [
+    settingsModalSearchItem("browser.defaultSurface", {
+      hasDescription: true,
+      keywords: ["sidebar", "center tabs", "placement", "default surface"],
+    }),
+    settingsModalSearchItem("browser.sidebar", {
+      keywords: ["show in sidebar", "right sidebar", "browser module"],
+    }),
+    settingsModalSearchItem("browser.newTabUrl", {
+      keywords: ["homepage", "new tab", "about:blank"],
+    }),
+    settingsModalSearchItem("browser.agentChrome", {
+      keywords: ["agent chrome", "cursor overlay", "highlight"],
+    }),
+    settingsModalSearchItem("browser.downloads", {
+      keywords: ["download root", "downloads"],
     }),
   ],
   terminal: [
@@ -1051,6 +1110,12 @@ const SETTINGS_SETTING_ITEMS: Record<SettingsSectionId, readonly SettingsSearchI
     }),
   ],
 
+  "permission-access": [
+    settingsModalSearchItem("permissionAccess.browserCookies", {
+      hasDescription: true,
+      keywords: ["keychain", "chrome safe storage", "cursor", "cookie"],
+    }),
+  ],
   about: [
     settingsModalSearchItem("about.runtime", {
       keywords: ["web", "desktop", "runtime"],

@@ -310,7 +310,7 @@
       "agent_permission": "Need permission",
       "agent_attention": "Need attention",
       "agent_running": "Running",
-      "agent_idle": "Idle"
+      "agent_done": "Done"
     },
     "groups": {
       "ungrouped": "Ungrouped",
@@ -387,6 +387,7 @@
       "waitingForPermission": "Waiting for permission",
       "running": "Running",
       "napping": "Napping ~",
+      "sideChat": "Side chat",
       "agentIdle": "Agent: Idle",
       "status": {
         "normal": "NORMAL",
@@ -568,6 +569,14 @@
       "errors": {
         "loadOverviewFallback": "Failed to load token usage overview",
         "loadOverviewTitle": "Failed to load token usage"
+      },
+      "browserCookie": {
+        "title": "Include signed-in web usage",
+        "note": "Atmos found {products} on this computer. To add dashboard token usage, Atmos Server will ask Keychain Access to decrypt the matching browser cookie. Keys stay local and are used only to read usage data.",
+        "allow": "Allow",
+        "skip": "Not now",
+        "denied": "{products} cloud usage is off.",
+        "enable": "Enable"
       },
       "header": {
         "badges": {
@@ -2911,7 +2920,8 @@
       "notifications": {
         "permissionRequired": "Permission required",
         "completed": "Completed",
-        "jump": "Jump"
+        "jump": "Jump",
+        "sideChat": "Side chat"
       },
       "desktopAgentChatWindow": {
         "failedToOpenChatWindow": "Failed to open chat window"
@@ -4460,7 +4470,7 @@
       "groups": {
         "interface": {
           "label": "Interface",
-          "description": "Layout, editor, canvas, and keyboard preferences"
+          "description": "Layout, editor, canvas, Browser, and keyboard preferences"
         },
         "personal": {
           "label": "Personal",
@@ -4477,6 +4487,10 @@
         "systemIntegration": {
           "label": "System Integration",
           "description": "Integrations, Desktop Use, and notifications"
+        },
+        "privacySecurity": {
+          "label": "Privacy & Security",
+          "description": "Permission access and other privacy controls"
         },
         "workspaceProjects": {
           "label": "Workspace & Projects",
@@ -4507,6 +4521,10 @@
         "terminal": {
           "label": "Terminal",
           "description": "Terminal behavior, restore, and file-link handling."
+        },
+        "browser": {
+          "label": "Browser",
+          "description": "In-app Browser placement, sidebar, homepage, and agent chrome."
         },
         "workspace": {
           "label": "Workspace",
@@ -4552,6 +4570,10 @@
           "label": "Desktop Use",
           "description": "Local desktop capture, control engine, and macOS permissions"
         },
+        "permissionAccess": {
+          "label": "Permission access",
+          "description": "Allow Atmos Server to read signed-in browser cookies when a product is installed."
+        },
         "account": {
           "label": "Account",
           "description": "Sign in, trust this device, and manage your Atmos account"
@@ -4560,6 +4582,20 @@
       "dialog": {
         "title": "Settings",
         "description": "Manage ATMOS settings, product information, and desktop updates."
+      },
+      "permissionAccessSection": {
+        "title": "Browser cookies",
+        "description": "Atmos Server can decrypt signed-in browser cookies to read usage data. Keys stay on this computer. macOS may ask for Keychain Access after you turn a source on.",
+        "installed": "Installed",
+        "notInstalled": "Not installed",
+        "webSession": "Signed-in web session",
+        "desktopUse": {
+          "title": "Desktop Use",
+          "description": "Grant Accessibility and Screen Recording to Atmos Desktop Use. macOS System Settings is the source of truth — Atmos cannot store these grants itself."
+        },
+        "empty": "No permission sources available.",
+        "error": "Could not update Permission access. Check your connection and try again.",
+        "toggleAria": "Allow browser cookie access for {name}"
       },
       "unknownError": "Unknown error",
       "errors": {
@@ -5042,6 +5078,12 @@
               "label": "Project Wiki (Center Tabs)"
             }
           },
+          "permissionAccess": {
+            "browserCookies": {
+              "label": "Browser cookies",
+              "description": "Keychain access for signed-in web usage"
+            }
+          },
           "about": {
             "runtime": {
               "label": "Runtime"
@@ -5054,6 +5096,24 @@
             },
             "checkForUpdates": {
               "label": "Check for updates"
+            }
+          },
+          "browser": {
+            "defaultSurface": {
+              "label": "Default surface",
+              "description": "Where a new Browser opens when none exists"
+            },
+            "sidebar": {
+              "label": "Show in sidebar"
+            },
+            "newTabUrl": {
+              "label": "New tab URL"
+            },
+            "agentChrome": {
+              "label": "Agent chrome"
+            },
+            "downloads": {
+              "label": "Download folder"
             }
           },
           "desktopUse": {
@@ -6169,6 +6229,59 @@
         "description": "Enable Project Wiki as a center stage tab for quick access to your project documentation and knowledge base."
       }
     },
+    "browser": {
+      "groups": {
+        "placement": {
+          "title": "Placement",
+          "description": "Where the agent opens Browser chrome when none is mounted."
+        },
+        "sidebar": {
+          "title": "Sidebar",
+          "description": "Show the Browser module in the right sidebar."
+        },
+        "pages": {
+          "title": "Pages",
+          "description": "Homepage used when the agent opens a new tab."
+        },
+        "agent": {
+          "title": "Agent",
+          "description": "On-page cursor and highlight while Browser Use acts."
+        },
+        "downloads": {
+          "title": "Downloads",
+          "description": "Embedded downloads stay under the Atmos Browser Use folder."
+        }
+      },
+      "defaultSurface": {
+        "title": "Default surface",
+        "description": "Sidebar or Center tabs. Existing users stay on Sidebar.",
+        "sidebar": "Sidebar",
+        "center": "Center tabs"
+      },
+      "sidebar": {
+        "title": "Show in sidebar",
+        "description": "Keep the Browser module in the right sidebar. Saving Sidebar as the default surface turns this on."
+      },
+      "newTabUrl": {
+        "title": "New tab URL",
+        "description": "Used when the agent opens a tab without a URL. Leave empty for the Browser home."
+      },
+      "agentChrome": {
+        "title": "Show agent chrome",
+        "description": "Draw a cursor overlay when the agent clicks or types."
+      },
+      "downloads": {
+        "title": "Download root",
+        "description": "Embedded Browser Use writes downloads here. External Chrome still requires --dir."
+      },
+      "links": {
+        "desktopUse": {
+          "title": "Desktop Use",
+          "description": "System Chrome, capture, and macOS permissions stay on the Desktop Use page.",
+          "action": "Open Desktop Use"
+        }
+      }
+    },
     "desktopUse": {
       "label": "Desktop Use",
       "description": "Capture and control the local desktop (screenshot, click, type)",
@@ -6190,7 +6303,11 @@
         },
         "permissions": {
           "title": "Permissions",
-          "description": "Grant Accessibility and Screen Recording to Atmos Desktop Use — one identity for capture, control, and AppShot’s Left⇧+Right⇧ shortcut."
+          "description": "Grant Accessibility and Screen Recording to Atmos Desktop Use — one identity for capture, control, and AppShot’s Left⇧+Right⇧ shortcut.",
+          "openAccessHint": "OS grants for Desktop Use live under Privacy & Security → Permission access.",
+          "openAccessTitle": "Permission access",
+          "openAccessDescription": "Grant Accessibility and Screen Recording in the shared Permission access page.",
+          "openAccess": "Open Permission access"
         },
         "visibility": {
           "title": "Visual feedback",
@@ -9291,6 +9408,7 @@
       "url": {
         "enter": "Enter URL..."
       },
+      "agentActive": "Agent is using this page",
       "actions": {
         "openInBrowser": "Open in browser",
         "openDeveloperTools": "Open developer tools",

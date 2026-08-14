@@ -9,7 +9,7 @@
 //! multi-provider `quota-usage` scans do not re-prompt within one Server lifetime.
 //! Failures are never cached so the user can grant access and retry.
 //!
-//! Note: ad-hoc signed `Atmos Server` (`com.atmos.desktop.sidecar`) has no Team
+//! Note: ad-hoc signed `Atmos Server` (`land.atmos.server`) has no Team
 //! ID, so macOS "Always Allow" is bound to a changing cdhash and often does not
 //! stick across rebuilds/restarts. Fixing that requires a stable Developer ID
 //! signature — not a local secret file.

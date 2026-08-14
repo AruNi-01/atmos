@@ -3,12 +3,12 @@
 <plist version="1.0">
 <dict>
 	<key>CFBundleName</key>
-	<string>Atmos sidecar</string>
+	<string>Atmos Server</string>
 	<key>CFBundleDisplayName</key>
-	<string>Atmos sidecar</string>
+	<string>Atmos Server</string>
 	<key>CFBundleIdentifier</key>
-	<string>com.atmos.desktop.sidecar</string>
+	<string>land.atmos.server</string>
 	<key>CFBundleIconFile</key>
-	<string>AtmosSidecar</string>
+	<string>AtmosServer</string>
 </dict>
 </plist>

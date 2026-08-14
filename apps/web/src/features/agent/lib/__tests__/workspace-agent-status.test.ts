@@ -2,6 +2,7 @@
 import { describe, expect, it } from "bun:test";
 import { AGENT_STATE } from "@/features/agent/store/agent-hooks-store";
 import {
+  parseWorkspaceAgentGroupKey,
   resolveHydratedWorkspaceAgentGroupKey,
   resolveRolledAttentionReason,
   resolveWorkspaceAgentGroupKey,
@@ -113,13 +114,13 @@ describe("resolveWorkspaceAgentGroupKey", () => {
     ).toBe("attention");
   });
 
-  it("maps idle with no latch to idle", () => {
+  it("maps idle with no latch to done", () => {
     expect(
       resolveWorkspaceAgentGroupKey({
         agentState: AGENT_STATE.IDLE,
         attentionReason: null,
       }),
-    ).toBe("idle");
+    ).toBe("done");
   });
 
   it("uses action-first bucket order", () => {
@@ -127,16 +128,25 @@ describe("resolveWorkspaceAgentGroupKey", () => {
       "permission",
       "attention",
       "running",
-      "idle",
+      "done",
     ]);
   });
 });
 
+describe("parseWorkspaceAgentGroupKey", () => {
+  it("maps the legacy idle alias and unknown values to done", () => {
+    expect(parseWorkspaceAgentGroupKey("idle")).toBe("done");
+    expect(parseWorkspaceAgentGroupKey("done")).toBe("done");
+    expect(parseWorkspaceAgentGroupKey("running")).toBe("running");
+    expect(parseWorkspaceAgentGroupKey(undefined)).toBe("done");
+  });
+});
+
 describe("resolveHydratedWorkspaceAgentGroupKey", () => {
-  it("uses the API snapshot until hydrate finishes when live is idle", () => {
+  it("uses the API snapshot until hydrate finishes when live is done", () => {
     expect(
       resolveHydratedWorkspaceAgentGroupKey({
-        live: "idle",
+        live: "done",
         server: "attention",
         hooksHydrated: false,
       }),
@@ -156,10 +166,10 @@ describe("resolveHydratedWorkspaceAgentGroupKey", () => {
   it("ignores the snapshot after hydrate", () => {
     expect(
       resolveHydratedWorkspaceAgentGroupKey({
-        live: "idle",
+        live: "done",
         server: "permission",
         hooksHydrated: true,
       }),
-    ).toBe("idle");
+    ).toBe("done");
   });
 });

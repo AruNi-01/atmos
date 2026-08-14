@@ -22,20 +22,37 @@ export type WorkspaceAgentGroupKey =
   | "permission"
   | "attention"
   | "running"
-  | "idle";
+  | "done";
 
 export const WORKSPACE_AGENT_GROUP_ORDER: WorkspaceAgentGroupKey[] = [
   "permission",
   "attention",
   "running",
-  "idle",
+  "done",
 ];
+
+const WORKSPACE_AGENT_GROUP_KEYS = new Set<WorkspaceAgentGroupKey>(
+  WORKSPACE_AGENT_GROUP_ORDER,
+);
+
+/**
+ * Accepts the live key, a snapshot value, or the pre-Done wire alias `idle`.
+ * Unknown / missing values fall through to `done` (the remainder bucket).
+ */
+export function parseWorkspaceAgentGroupKey(value: unknown): WorkspaceAgentGroupKey {
+  if (value === "idle") return "done";
+  if (typeof value === "string" && WORKSPACE_AGENT_GROUP_KEYS.has(value as WorkspaceAgentGroupKey)) {
+    return value as WorkspaceAgentGroupKey;
+  }
+  return "done";
+}
 
 /**
  * Grouping bucket for one workspace. Does **not** honor attention-filter overlay:
  * a still-running agent stays in `running` even if the filter would show a bell.
  *
- * Priority: permission (live or sticky) > running > task_complete attention > idle.
+ * Priority: permission (live or sticky) > running > task_complete attention > done.
+ * `done` is the remainder: never-run, acknowledged attention, or no live status.
  */
 export function resolveWorkspaceAgentGroupKey(input: {
   agentState: AgentHookState;
@@ -58,11 +75,11 @@ export function resolveWorkspaceAgentGroupKey(input: {
     return "attention";
   }
 
-  return "idle";
+  return "done";
 }
 
 /**
- * Refresh hydrate: live WS/stores always win when they are not idle.
+ * Refresh hydrate: live WS/stores always win when they are not the remainder.
  * Until sessions+attention finish loading, fall back to the API-memory snapshot.
  */
 export function resolveHydratedWorkspaceAgentGroupKey(input: {
@@ -70,8 +87,8 @@ export function resolveHydratedWorkspaceAgentGroupKey(input: {
   server?: WorkspaceAgentGroupKey;
   hooksHydrated: boolean;
 }): WorkspaceAgentGroupKey {
-  if (input.live !== "idle") return input.live;
-  if (!input.hooksHydrated && input.server && input.server !== "idle") {
+  if (input.live !== "done") return input.live;
+  if (!input.hooksHydrated && input.server && input.server !== "done") {
     return input.server;
   }
   return input.live;

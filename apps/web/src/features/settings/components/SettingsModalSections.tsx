@@ -9,6 +9,8 @@ import type { QuickOpenAppName } from '@/app-shell/quick-open-apps';
 import { AtmosComputerSection } from '@/features/atmos-computer/components/AtmosComputerSection';
 import { TunnelConnectorSection } from '@/features/tunnel-connector/components/TunnelConnectorSection';
 import { DesktopUseSettingsSection } from '@/features/settings/components/DesktopUseSettingsSection';
+import { BrowserSettingsSection } from '@/features/settings/components/BrowserSettingsSection';
+import { PermissionAccessSettingsSection } from '@/features/settings/components/PermissionAccessSettingsSection';
 import { CanvasSettingsSection } from '@/features/settings/components/CanvasSettingsSection';
 import { CodeAgentSettingsSection } from '@/features/settings/components/CodeAgentSettingsSection';
 import { EditorSettingsSection } from '@/features/settings/components/EditorSettingsSection';
@@ -311,6 +313,10 @@ export function SettingsModalSections(props: SettingsModalSectionsProps) {
       return <AtmosComputerSection />;
     case 'desktop-use':
       return <DesktopUseSettingsSection />;
+    case 'browser':
+      return <BrowserSettingsSection />;
+    case 'permission-access':
+      return <PermissionAccessSettingsSection />;
     case 'shortcuts':
       return <ShortcutsSettingsSection />;
     case 'experiments':
