@@ -17,13 +17,20 @@ cd "$repo_root"
 
 api_log="${ATMOS_API_LOG:-/tmp/atmos-api.log}"
 
+# Make host Rust/bun discoverable (see cloud-install.sh for rationale).
+prepare_host_path() {
+  if [ -z "${CARGO_HOME:-}" ] && [ -d /usr/local/cargo ]; then export CARGO_HOME=/usr/local/cargo; fi
+  if [ -z "${RUSTUP_HOME:-}" ] && [ -d /usr/local/rustup ]; then export RUSTUP_HOME=/usr/local/rustup; fi
+  if [ -n "${CARGO_HOME:-}" ] && [ -d "${CARGO_HOME}/bin" ]; then export PATH="${CARGO_HOME}/bin:${PATH}"; fi
+  if [ -d "${HOME}/.bun/bin" ]; then export PATH="${HOME}/.bun/bin:${PATH}"; fi
+}
+
 if [ "${ATMOS_SKIP_NIX:-0}" != "1" ] && command -v nix >/dev/null 2>&1 && [ -f flake.nix ]; then
   echo "==> Atmos start via Nix dev shell (reproducible)"
   exec nix develop --command bash -c "just dev-api > '$api_log' 2>&1 & exec just dev-web"
 else
-  echo "==> Atmos start via host toolchains (no Nix detected)"
-  [ -d "$HOME/.bun/bin" ] && export PATH="$HOME/.bun/bin:$PATH"
-  [ -d /usr/local/cargo/bin ] && export PATH="/usr/local/cargo/bin:$PATH"
+  echo "==> Atmos start via host toolchains (no Nix)"
+  prepare_host_path
   just dev-api > "$api_log" 2>&1 &
   exec just dev-web
 fi
