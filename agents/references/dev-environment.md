@@ -46,9 +46,9 @@ bash scripts/dev/start.sh   # run: API (:30303, background) + web (:3030, foregr
 
 - Both scripts auto-detect Nix (`flake.nix` present + `nix` on PATH) and fall
   back to host toolchains otherwise. Force the host path with `ATMOS_SKIP_NIX=1`.
-- `start.sh` runs `just dev-api` in the background and execs `just dev-web` in the
+- `start.sh` runs `just dev-api` in the background and `just dev-web` in the
   foreground so the process stays attached (suitable for a Cloud Agent / CI
-  "start" step).
+  "start" step). The supervising shell tears down the API when web exits.
 
 ### Manual dev (equivalent)
 
