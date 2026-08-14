@@ -31,7 +31,25 @@ describe("APP-059 experience kernel", () => {
       "utf8",
     );
     expect(bridge).toContain('action === "ensure-bind"');
+    expect(bridge).toContain('action === "navigate"');
     expect(bridge).toContain("ensureSurface");
+    const state = readFileSync(
+      join(root, "apps/web/src/features/browser/hooks/use-browser-state.ts"),
+      "utf8",
+    );
+    expect(state).toContain("setBrowserTabActivePreviewUrl(tabs[0].id, pendingCommand.url)");
+    const session = readFileSync(
+      join(root, "apps/web/src/features/browser/components/BrowserSession.tsx"),
+      "utf8",
+    );
+    expect(session).toContain("canonicalizeUrl(requestedIframeUrl) === canonicalizeUrl(activeUrl)");
+    const surface = readFileSync(
+      join(root, "apps/desktop-electron/src/browser/surface-manager.ts"),
+      "utf8",
+    );
+    expect(surface).toMatch(
+      /if \(cur && cur\.guestWebContentsId === wc\.id\) \{[\s\S]*clearLastActiveIf[\s\S]*onBrowserUseClosed/,
+    );
   });
 
   it("center tabs reuse the last Browser instead of always creating", () => {

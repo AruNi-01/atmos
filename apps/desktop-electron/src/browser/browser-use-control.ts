@@ -486,8 +486,16 @@ export class BrowserUseControlPlane {
 
   private enqueue<T>(targetId: string, fn: () => Promise<T>): Promise<T> {
     const key = targetId.trim() || "_global";
+    // Target-scoped work (click/type after a bare `state`) must wait for the
+    // in-flight ensure/snapshot, not race it on a parallel session queue.
+    const ensureTail =
+      key === "__ensure__"
+        ? Promise.resolve()
+        : (this.queues.get("__ensure__") ?? Promise.resolve());
     const prev = this.queues.get(key) ?? Promise.resolve();
-    const next = prev.catch(() => undefined).then(fn);
+    const next = Promise.all([ensureTail, prev])
+      .catch(() => undefined)
+      .then(fn);
     this.queues.set(
       key,
       next.then(
@@ -496,6 +504,50 @@ export class BrowserUseControlPlane {
       ),
     );
     return next;
+  }
+
+  private sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  private isBlankGuestUrl(url: string): boolean {
+    const trimmed = url.trim();
+    return !trimmed || trimmed === "about:blank" || trimmed === "about:blank#blocked";
+  }
+
+  private async waitForGuestReady(
+    targetId: string,
+    timeoutMs = 8_000,
+  ): Promise<WebContents | null> {
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+      const guest = this.guestFor(targetId);
+      if (guest && !guest.isDestroyed()) return guest;
+      await this.sleep(50);
+    }
+    return this.guestFor(targetId);
+  }
+
+  private async waitForGuestNavigated(
+    targetId: string,
+    opts?: { expectedUrl?: string; requireNonBlank?: boolean; timeoutMs?: number },
+  ): Promise<WebContents | null> {
+    const timeoutMs = opts?.timeoutMs ?? 8_000;
+    const guest = await this.waitForGuestReady(targetId, timeoutMs);
+    if (!guest) return null;
+    const expected = opts?.expectedUrl?.trim() ?? "";
+    const requireNonBlank =
+      opts?.requireNonBlank === true ||
+      (Boolean(expected) && !this.isBlankGuestUrl(expected));
+    if (!requireNonBlank) return guest;
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+      if (guest.isDestroyed()) return null;
+      if (!this.isBlankGuestUrl(guest.getURL())) return guest;
+      await this.sleep(50);
+    }
+    if (guest.isDestroyed()) return null;
+    return this.isBlankGuestUrl(guest.getURL()) ? null : guest;
   }
 
   private markActivity(sessionId: string, status: string): void {
@@ -1477,6 +1529,7 @@ export class BrowserUseControlPlane {
                 ? "browser_engine_failed"
                 : "browser_engine_failed");
     const clientMsg =
+      code === "invalid_args" ||
       msg.includes("unknown ref") ||
       msg.includes("stale") ||
       msg.includes("requires") ||
@@ -1488,7 +1541,13 @@ export class BrowserUseControlPlane {
       msg.includes("scheme")
         ? msg
         : "browser engine failed";
-    this.send(res, 500, {
+    const status =
+      code === "invalid_args"
+        ? 400
+        : code === "browser_route_unavailable"
+          ? 200
+          : 500;
+    this.send(res, status, {
       ok: false,
       error: clientMsg,
       error_code: code,
@@ -1576,7 +1635,11 @@ export class BrowserUseControlPlane {
             });
             return;
           } else {
-            const ack = await this.ensureBoundTarget();
+            const requestedUrl =
+              typeof body.url === "string" && body.url.trim()
+                ? body.url.trim()
+                : undefined;
+            const ack = await this.ensureBoundTarget(requestedUrl);
             if (!ack.ok || !ack.target_id) {
               this.send(res, 200, {
                 ok: false,
@@ -1589,7 +1652,31 @@ export class BrowserUseControlPlane {
               return;
             }
             targetId = ack.target_id;
+            const guest = await this.waitForGuestNavigated(targetId, {
+              expectedUrl: requestedUrl,
+              requireNonBlank: true,
+            });
+            if (!guest) {
+              this.send(res, 200, {
+                ok: false,
+                sessions: this.listSessions(),
+                error:
+                  "Browser chrome opened but the webview is not ready; retry state",
+                error_code: "browser_route_unavailable",
+              });
+              return;
+            }
           }
+        }
+        const guest = await this.waitForGuestReady(targetId);
+        if (!guest) {
+          this.send(res, 200, {
+            ok: false,
+            sessions: this.listSessions(),
+            error: `no bound webview guest for target_id=${targetId}; retry state`,
+            error_code: "browser_route_unavailable",
+          });
+          return;
         }
         await this.respondSnapshot(res, targetId, query, includeScreenshot);
         return;
@@ -1679,7 +1766,24 @@ export class BrowserUseControlPlane {
           return;
         }
         this.markActivity(targetId, "Navigating");
-        // Host-owned navigation for detached / bookkeeping; guest loadURL when bound.
+        if (!this.manager.isDetached(targetId)) {
+          const ack = await this.requestAgentTab({
+            action: "navigate",
+            targetId,
+            url: navUrl,
+          });
+          if (!ack.ok) {
+            this.send(res, 200, {
+              ok: false,
+              error: ack.error || "in-panel navigate was not handled",
+              error_code: ack.error_code || "browser_route_unavailable",
+            });
+            return;
+          }
+          this.invalidateSession(targetId);
+          this.send(res, 200, { ok: true, target_id: targetId, url: navUrl });
+          return;
+        }
         const guest = this.guestFor(targetId);
         if (guest) {
           await guest.loadURL(navUrl);
@@ -1811,6 +1915,25 @@ export class BrowserUseControlPlane {
             url: navUrl,
             targetId: targetId || undefined,
           });
+          if (ack.ok && ack.target_id) {
+            const guest = await this.waitForGuestNavigated(ack.target_id, {
+              expectedUrl: navUrl,
+              requireNonBlank: true,
+            });
+            if (!guest) {
+              this.send(res, 200, {
+                ok: false,
+                action: "open",
+                target_id: ack.target_id,
+                tab_id: ack.tab_id ?? "main",
+                url: navUrl,
+                evicted_target_ids: ack.evicted_target_ids ?? [],
+                error: "tab opened but the page is still loading; retry state",
+                error_code: "browser_route_unavailable",
+              });
+              return;
+            }
+          }
           this.send(res, ack.ok ? 200 : 400, {
             ok: ack.ok,
             action: "open",

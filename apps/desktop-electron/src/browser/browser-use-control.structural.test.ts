@@ -70,6 +70,12 @@ describe("browser-use-control structural", () => {
     expect(src).toContain("browser_ref_stale");
     expect(src).toContain("authorization");
     expect(src).toContain("atmos-browser-use-cursor");
+    expect(src).toContain("waitForGuestReady");
+    expect(src).toContain("waitForGuestNavigated");
+    expect(src).toContain('queues.get("__ensure__")');
+    expect(src).toContain('code === "invalid_args"');
+    expect(src).toContain('action: "navigate"');
+    expect(src).toContain("isDetached");
   });
 
   it("wires Desktop Use agent chrome on embedded click/type", () => {

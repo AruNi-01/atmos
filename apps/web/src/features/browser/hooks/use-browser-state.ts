@@ -530,7 +530,7 @@ export function useBrowserState({
         !String(tabs[0]?.url ?? "").trim() &&
         !String(tabs[0]?.activeUrl ?? "").trim();
       if (onlyEmpty && tabs[0]) {
-        setBrowserTabPreviewUrl(tabs[0].id, pendingCommand.url);
+        setBrowserTabActivePreviewUrl(tabs[0].id, pendingCommand.url);
         handleSelectBrowserTab(tabs[0].id);
         resolveCommand(pendingCommand.token, {
           tabId: tabs[0].id,
@@ -544,6 +544,9 @@ export function useBrowserState({
           rejectCommand(pendingCommand.token, new Error("tabs open requires url"));
         }
       }
+    } else if (pendingCommand.type === "navigate") {
+      setBrowserTabActivePreviewUrl(pendingCommand.tabId, pendingCommand.url);
+      resolveCommand(pendingCommand.token, true);
     }
 
     completeCommand(browserContextId, pendingCommand.token);
@@ -554,7 +557,7 @@ export function useBrowserState({
     handleOpenBrowserTab,
     handleSelectBrowserTab,
     pendingCommand,
-    setBrowserTabPreviewUrl,
+    setBrowserTabActivePreviewUrl,
     rejectCommand,
     resolveCommand,
   ]);

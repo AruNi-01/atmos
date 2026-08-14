@@ -223,9 +223,9 @@ export class BrowserSurfaceManager {
         // Only re-pending when surface still open (host will remount webview).
         // Detached window path does not need in-panel re-attach.
         cur.pendingAttach = !cur.detached && this.surfaces.has(sessionId);
+        this.clearLastActiveIf(sessionId);
+        this.onBrowserUseClosed?.(sessionId);
       }
-      this.clearLastActiveIf(sessionId);
-      this.onBrowserUseClosed?.(sessionId);
     });
   }
 
@@ -455,6 +455,11 @@ export class BrowserSurfaceManager {
 
   knownSessionIds(): Set<string> {
     return new Set(this.surfaces.keys());
+  }
+
+  /** Detached window owns loadURL; in-panel navigation stays on the renderer webview. */
+  isDetached(sessionId: string): boolean {
+    return this.surfaces.get(sessionId)?.detached === true;
   }
 
   /** Bound guest WebContents for Browser Use embedded control (APP-053). */

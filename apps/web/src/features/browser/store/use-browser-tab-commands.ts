@@ -13,7 +13,8 @@ import { create } from "zustand";
 export type BrowserTabCommand =
   | { type: "select"; tabId: string; token: number }
   | { type: "close"; tabId: string; token: number }
-  | { type: "open"; url: string; token: number };
+  | { type: "open"; url: string; token: number }
+  | { type: "navigate"; tabId: string; url: string; token: number };
 
 export type OpenTabResult = {
   tabId: string;
@@ -34,6 +35,7 @@ type BrowserTabCommandsStore = {
   selectTab: (browserContextId: string, tabId: string) => Promise<true>;
   closeTab: (browserContextId: string, tabId: string) => Promise<true>;
   openTab: (browserContextId: string, url: string) => Promise<OpenTabResult>;
+  navigateTab: (browserContextId: string, tabId: string, url: string) => Promise<true>;
   resolveCommand: (token: number, value: OpenTabResult | true) => void;
   rejectCommand: (token: number, error: Error) => void;
   completeCommand: (browserContextId: string, token: number) => void;
@@ -82,6 +84,15 @@ export const useBrowserTabCommandsStore = create<BrowserTabCommandsStore>((set, 
   openTab: (browserContextId, url) => {
     const token = nextToken++;
     return enqueue(set, browserContextId, { type: "open", url, token }) as Promise<OpenTabResult>;
+  },
+  navigateTab: (browserContextId, tabId, url) => {
+    const token = nextToken++;
+    return enqueue(set, browserContextId, {
+      type: "navigate",
+      tabId,
+      url,
+      token,
+    }) as Promise<true>;
   },
   resolveCommand: (token, value) => {
     const waiter = waiters.get(token);

@@ -436,6 +436,12 @@ export const BrowserSession: React.FC<BrowserSessionProps> = ({
     urlInputRef,
   });
 
+  useEffect(() => {
+    if (!activeUrl) return;
+    if (canonicalizeUrl(requestedIframeUrl) === canonicalizeUrl(activeUrl)) return;
+    navigateToUrl(activeUrl);
+  }, [activeUrl, navigateToUrl, requestedIframeUrl]);
+
   const getIframeAccess = useCallback(() => {
     try {
       const iframe = iframeRef.current;

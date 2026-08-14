@@ -264,7 +264,9 @@ describe("APP-053 browser webview structural (shipped sources)", () => {
   it("agent tab CRUD goes through the renderer command bus", () => {
     const commands = read("apps/web/src/features/browser/store/use-browser-tab-commands.ts");
     expect(commands).toContain('type: "open"');
+    expect(commands).toContain('type: "navigate"');
     expect(commands).toContain("openTab");
+    expect(commands).toContain("navigateTab");
     expect(commands).toContain("queuesByContext");
     expect(commands).toContain("Electron main must not mutate this store");
 
@@ -274,6 +276,8 @@ describe("APP-053 browser webview structural (shipped sources)", () => {
     expect(bridge).toContain("commands.openTab");
     expect(bridge).toContain("commands.closeTab");
     expect(bridge).toContain("commands.selectTab");
+    expect(bridge).toContain("commands.navigateTab");
+    expect(bridge).toContain('action === "navigate"');
     expect(bridge).toContain("evicted_target_ids");
     expect(bridge).toContain("browser_route_unavailable");
     expect(bridge).toContain("resolveContext");
@@ -281,6 +285,8 @@ describe("APP-053 browser webview structural (shipped sources)", () => {
     const control = read("apps/desktop-electron/src/browser/browser-use-control.ts");
     expect(control).toContain("/v1/tabs");
     expect(control).toContain("requestAgentTab");
+    expect(control).toContain('action: "navigate"');
+    expect(control).toContain("isDetached");
     expect(control).not.toMatch(/new BrowserWindow\(/);
 
     const handlers = read("apps/desktop-electron/src/ipc/handlers.ts");

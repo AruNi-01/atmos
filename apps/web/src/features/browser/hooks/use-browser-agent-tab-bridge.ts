@@ -160,6 +160,38 @@ async function handleAgentTab(payload: AgentTabPayload): Promise<void> {
       return;
     }
 
+    if (action === "navigate") {
+      const targetId = payload.targetId?.trim() ?? "";
+      const url = payload.url?.trim() ?? "";
+      const binding = targetId ? map.findBySession(targetId) : null;
+      if (!binding) {
+        await ackAgentTab({
+          requestId,
+          ok: false,
+          error: `unknown target_id ${targetId || "(empty)"}`,
+          error_code: "browser_route_unavailable",
+        });
+        return;
+      }
+      if (!url) {
+        await ackAgentTab({
+          requestId,
+          ok: false,
+          error: "navigate requires url",
+          error_code: "invalid_args",
+        });
+        return;
+      }
+      await commands.navigateTab(binding.contextId, binding.tabId, url);
+      await ackAgentTab({
+        requestId,
+        ok: true,
+        target_id: targetId,
+        tab_id: "main",
+      });
+      return;
+    }
+
     if (action === "select" || action === "close") {
       const targetId = payload.targetId?.trim() ?? "";
       const binding = targetId ? map.findBySession(targetId) : null;
@@ -212,7 +244,7 @@ async function handleAgentTab(payload: AgentTabPayload): Promise<void> {
     await ackAgentTab({
       requestId,
       ok: false,
-      error: "tabs requires action list|open|close|select",
+      error: "tabs requires action list|open|close|select|navigate",
       error_code: "invalid_args",
     });
   } catch (error) {

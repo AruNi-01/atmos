@@ -131,16 +131,8 @@ pub fn apply_binding_defaults(
     session_id: Option<String>,
     binding_id: Option<&str>,
 ) -> AppliedBinding {
-    let Some(binding_id) = resolve_binding_id(binding_id) else {
-        return AppliedBinding {
-            backend: request_backend,
-            target_id,
-            tab_id,
-            session_id,
-            resolved_from: None,
-        };
-    };
-    let stored = load_binding(&binding_id);
+    let binding_id = resolve_binding_id(binding_id);
+    let stored = binding_id.as_deref().and_then(load_binding);
     let backend = if backend_explicit {
         request_backend
     } else if let Some(stored) = stored.as_ref() {
@@ -149,6 +141,17 @@ pub fn apply_binding_defaults(
         BrowserBackendKind::Embedded
     } else {
         request_backend
+    };
+    // No pane/chat scope: still pick Embedded when Desktop wrote control.json,
+    // but never merge a stored target/tab (those are scope-owned).
+    let Some(binding_id) = binding_id else {
+        return AppliedBinding {
+            backend,
+            target_id,
+            tab_id,
+            session_id,
+            resolved_from: None,
+        };
     };
     if let Some(stored) = stored.as_ref() {
         if stored.backend != backend {
@@ -377,6 +380,11 @@ mod tests {
 
     #[test]
     fn apply_without_scope_is_passthrough() {
+        let _guard = TEST_HOME_LOCK.lock().expect("test home lock");
+        let dir = tempfile::tempdir().unwrap();
+        unsafe {
+            std::env::set_var("ATMOS_BROWSER_USE_HOME", dir.path());
+        }
         let applied = apply_binding_defaults(
             BrowserBackendKind::External,
             false,
@@ -386,7 +394,36 @@ mod tests {
             None,
         );
         assert_eq!(applied.target_id.as_deref(), Some("t"));
+        assert_eq!(applied.backend, BrowserBackendKind::External);
         assert!(applied.resolved_from.is_none());
+        unsafe {
+            std::env::remove_var("ATMOS_BROWSER_USE_HOME");
+        }
+    }
+
+    #[test]
+    fn apply_without_scope_defaults_embedded_when_control_json_exists() {
+        let _guard = TEST_HOME_LOCK.lock().expect("test home lock");
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("control.json"), "{}").unwrap();
+        unsafe {
+            std::env::set_var("ATMOS_BROWSER_USE_HOME", dir.path());
+        }
+        let applied = apply_binding_defaults(
+            BrowserBackendKind::External,
+            false,
+            Some("t".into()),
+            Some("tab".into()),
+            None,
+            None,
+        );
+        assert_eq!(applied.backend, BrowserBackendKind::Embedded);
+        assert_eq!(applied.target_id.as_deref(), Some("t"));
+        assert_eq!(applied.tab_id.as_deref(), Some("tab"));
+        assert!(applied.resolved_from.is_none());
+        unsafe {
+            std::env::remove_var("ATMOS_BROWSER_USE_HOME");
+        }
     }
 
     #[test]
