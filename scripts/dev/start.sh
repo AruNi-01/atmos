@@ -41,18 +41,25 @@ if [ "${ATMOS_IN_NIX_SHELL:-0}" != "1" ]; then
   prepare_host_path
 fi
 
-# Job control puts the background API in its own process group (PGID == pid),
-# so cleanup can reap just → recipe bash → cargo → api without pgrep.
+# Job control gives each background job its own process group (PGID == pid).
+# Cleanup then reaps just → recipe → child trees without pgrep, including when
+# SIGTERM hits this supervisor directly (Cloud/CI stop) rather than the tty.
 set -m
 just dev-api > "$api_log" 2>&1 &
 api_pid=$!
+just dev-web &
+web_pid=$!
 
 cleanup() {
   trap - EXIT INT TERM
+  if [ -n "${web_pid:-}" ]; then
+    kill -- -"$web_pid" 2>/dev/null || kill "$web_pid" 2>/dev/null || true
+    wait "$web_pid" 2>/dev/null || true
+  fi
   if [ -n "${api_pid:-}" ]; then
     kill -- -"$api_pid" 2>/dev/null || kill "$api_pid" 2>/dev/null || true
     wait "$api_pid" 2>/dev/null || true
   fi
 }
 trap cleanup EXIT INT TERM
-just dev-web
+wait "$web_pid"
