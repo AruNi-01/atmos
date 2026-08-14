@@ -5,7 +5,7 @@
  * Uses guest WebContents debugger / executeJavaScript (not user-Chrome prepare).
  */
 
-import { randomBytes } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { mkdirSync, writeFileSync, unlinkSync, existsSync } from "node:fs";
 import { basename, join, resolve, sep } from "node:path";
@@ -38,6 +38,28 @@ type SnapshotEl = {
   value?: string | null;
   visible: boolean;
   rect: { x: number; y: number; width: number; height: number };
+  selector?: string;
+  note?: string;
+  source?: string;
+};
+
+export type BrowserUseUserPick = {
+  id?: string;
+  source?: "current" | "annotation";
+  selector: string;
+  name?: string;
+  note?: string;
+  tag?: string;
+  rect?: { x: number; y: number; width: number; height: number };
+};
+
+export type AgentTabAck = {
+  requestId: string;
+  ok: boolean;
+  target_id?: string | null;
+  tab_id?: string | null;
+  error?: string;
+  error_code?: string;
 };
 
 type SessionCache = {
@@ -112,6 +134,15 @@ export class BrowserUseControlPlane {
   private readonly armedDownloads = new Map<
     string,
     { dir: string; deadline: number }
+  >();
+  /** User pick / annotate payloads from the renderer (not clipboard). */
+  private readonly userPicks = new Map<string, BrowserUseUserPick[]>();
+  private readonly pendingAgentTabs = new Map<
+    string,
+    {
+      resolve: (ack: AgentTabAck) => void;
+      timer: ReturnType<typeof setTimeout>;
+    }
   >();
 
   constructor(manager: BrowserSurfaceManager) {
@@ -219,6 +250,97 @@ export class BrowserUseControlPlane {
     return this.manager.listBrowserUseSessions();
   }
 
+  setUserPicks(sessionId: string, picks: BrowserUseUserPick[]): void {
+    const id = sessionId.trim();
+    if (!id) return;
+    const cleaned = picks.filter((pick) => pick.selector?.trim());
+    if (cleaned.length === 0) {
+      this.userPicks.delete(id);
+      return;
+    }
+    this.userPicks.set(id, cleaned);
+  }
+
+  completeAgentTab(ack: AgentTabAck): void {
+    const pending = this.pendingAgentTabs.get(ack.requestId);
+    if (!pending) return;
+    clearTimeout(pending.timer);
+    this.pendingAgentTabs.delete(ack.requestId);
+    pending.resolve(ack);
+  }
+
+  private requestAgentTab(cmd: {
+    action: string;
+    url?: string;
+    targetId?: string;
+  }): Promise<AgentTabAck> {
+    const requestId = randomUUID();
+    return new Promise((resolve) => {
+      const timer = setTimeout(() => {
+        this.pendingAgentTabs.delete(requestId);
+        resolve({
+          requestId,
+          ok: false,
+          error:
+            "renderer did not handle the tab command (open a Browser tab in Desktop first)",
+          error_code: "embedded_browser_host_unavailable",
+        });
+      }, 10_000);
+      this.pendingAgentTabs.set(requestId, { resolve, timer });
+      this.manager.emitAgentTab({
+        requestId,
+        action: cmd.action,
+        url: cmd.url,
+        targetId: cmd.targetId,
+      });
+    });
+  }
+
+  private async querySelectorRect(
+    guest: WebContents,
+    selector: string,
+  ): Promise<{
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    tag: string;
+  } | null> {
+    try {
+      const live = (await guest.executeJavaScript(
+        `(() => {
+          try {
+            const el = document.querySelector(${JSON.stringify(selector)});
+            if (!el) return null;
+            const r = el.getBoundingClientRect();
+            return {
+              x: r.x,
+              y: r.y,
+              width: r.width,
+              height: r.height,
+              tag: el.tagName.toLowerCase(),
+            };
+          } catch {
+            return null;
+          }
+        })()`,
+        true,
+      )) as {
+        x: number;
+        y: number;
+        width: number;
+        height: number;
+        tag: string;
+      } | null;
+      if (!live || !Number.isFinite(live.width) || live.width < 1 || live.height < 1) {
+        return null;
+      }
+      return live;
+    } catch {
+      return null;
+    }
+  }
+
   private enqueue<T>(targetId: string, fn: () => Promise<T>): Promise<T> {
     const key = targetId.trim() || "_global";
     const prev = this.queues.get(key) ?? Promise.resolve();
@@ -310,10 +432,33 @@ export class BrowserUseControlPlane {
       title: string;
       elements: SnapshotEl[];
     };
+    const domElements = Array.isArray(raw?.elements) ? raw.elements : [];
+    const userEls: SnapshotEl[] = [];
+    const picks = this.userPicks.get(sessionId) ?? [];
+    for (let i = 0; i < picks.length; i += 1) {
+      const pick = picks[i];
+      const live = await this.querySelectorRect(guest, pick.selector);
+      const rect = live
+        ? { x: live.x, y: live.y, width: live.width, height: live.height }
+        : pick.rect && pick.rect.width > 0 && pick.rect.height > 0
+          ? pick.rect
+          : { x: 0, y: 0, width: 0, height: 0 };
+      userEls.push({
+        ref: `g${generation}:u${i}`,
+        tag: live?.tag ?? pick.tag ?? "unknown",
+        role: "user_pick",
+        name: (pick.name || pick.selector).slice(0, 120),
+        visible: rect.width > 0 && rect.height > 0,
+        rect,
+        selector: pick.selector,
+        note: pick.note,
+        source: pick.source ?? "annotation",
+      });
+    }
     const cache: SessionCache = {
       url: raw?.url ?? guest.getURL(),
       title: raw?.title ?? guest.getTitle(),
-      elements: Array.isArray(raw?.elements) ? raw.elements : [],
+      elements: [...domElements, ...userEls],
       generation,
       format: "embedded_dom_v1",
     };
@@ -431,10 +576,24 @@ export class BrowserUseControlPlane {
           `unknown ref ${ref}; snapshot expired or ref is stale — run state snapshot first`,
         );
       }
+      let rect = el.rect;
+      if (el.selector) {
+        const guest = this.guestFor(sessionId);
+        const live = guest ? await this.querySelectorRect(guest, el.selector) : null;
+        if (live) {
+          rect = { x: live.x, y: live.y, width: live.width, height: live.height };
+          el.rect = rect;
+          el.tag = live.tag;
+        } else if (rect.width < 1 || rect.height < 1) {
+          throw new Error(
+            `unknown ref ${ref}; snapshot expired or ref is stale — run state snapshot first`,
+          );
+        }
+      }
       this.showChromeForRef(sessionId, el, status);
       return {
-        x: el.rect.x + Math.max(1, el.rect.width / 2),
-        y: el.rect.y + Math.max(1, el.rect.height / 2),
+        x: rect.x + Math.max(1, rect.width / 2),
+        y: rect.y + Math.max(1, rect.height / 2),
         ref: el.ref,
       };
     }
@@ -1037,6 +1196,7 @@ export class BrowserUseControlPlane {
             "download",
             "press-key",
             "end",
+            "tabs",
           ],
         });
         return;
@@ -1128,6 +1288,7 @@ export class BrowserUseControlPlane {
             "download",
             "press-key",
             "end",
+            "tabs",
           ],
           note:
             sessions.length === 0
@@ -1189,6 +1350,7 @@ export class BrowserUseControlPlane {
         const screenshot = includeScreenshot
           ? await this.captureScreenshot(targetId)
           : null;
+        const userPicks = snap.elements.filter((el) => el.source);
         this.send(res, 200, {
           ok: true,
           mode: "snapshot",
@@ -1200,6 +1362,7 @@ export class BrowserUseControlPlane {
           title: snap.title,
           elements: snap.elements,
           element_count: snap.elements.length,
+          user_picks: userPicks,
           pending_dialog: this.pendingDialogs.get(targetId) ?? null,
           ...(screenshot ? { screenshot } : {}),
         });
@@ -1300,6 +1463,7 @@ export class BrowserUseControlPlane {
         // Page document changed — drop stale element refs/coords.
         this.snapshots.delete(targetId);
         this.pendingDialogs.delete(targetId);
+        this.userPicks.delete(targetId);
         this.send(res, 200, { ok: true, target_id: targetId, url: navUrl });
         return;
       }
@@ -1380,8 +1544,91 @@ export class BrowserUseControlPlane {
           this.snapshots.delete(targetId);
           this.pendingDialogs.delete(targetId);
           this.armedDownloads.delete(targetId);
+          this.userPicks.delete(targetId);
         }
         this.send(res, 200, { ok: true, ended: true, target_id: targetId || null });
+        return;
+      }
+
+      if (path === "/v1/tabs") {
+        const action = String(body.action || "").trim();
+        const targetId =
+          typeof body.target_id === "string" ? body.target_id.trim() : "";
+        if (action === "list") {
+          this.send(res, 200, {
+            ok: true,
+            action: "list",
+            sessions: this.listSessions(),
+          });
+          return;
+        }
+        if (action === "open") {
+          const navUrl = String(body.url || "").trim();
+          if (!navUrl) {
+            this.send(res, 400, {
+              ok: false,
+              error: "tabs open requires url",
+              error_code: "invalid_args",
+            });
+            return;
+          }
+          if (!isAllowedNavigateUrl(navUrl)) {
+            this.send(res, 400, {
+              ok: false,
+              error: "navigate scheme must be http, https, or about:blank",
+              error_code: "browser_navigate_denied",
+            });
+            return;
+          }
+          const ack = await this.requestAgentTab({
+            action: "open",
+            url: navUrl,
+            targetId: targetId || undefined,
+          });
+          this.send(res, ack.ok ? 200 : 400, {
+            ok: ack.ok,
+            action: "open",
+            target_id: ack.target_id ?? null,
+            tab_id: ack.tab_id ?? "main",
+            url: navUrl,
+            error: ack.error,
+            error_code: ack.error_code,
+          });
+          return;
+        }
+        if (action === "close" || action === "select") {
+          if (!targetId) {
+            this.send(res, 400, {
+              ok: false,
+              error: `tabs ${action} requires target_id`,
+              error_code: "invalid_args",
+            });
+            return;
+          }
+          const ack = await this.requestAgentTab({
+            action,
+            targetId,
+          });
+          if (ack.ok && action === "close") {
+            this.snapshots.delete(targetId);
+            this.pendingDialogs.delete(targetId);
+            this.userPicks.delete(targetId);
+          }
+          this.send(res, ack.ok ? 200 : 400, {
+            ok: ack.ok,
+            action,
+            target_id: ack.target_id ?? targetId,
+            tab_id: ack.tab_id ?? "main",
+            error: ack.error,
+            error_code: ack.error_code,
+          });
+          return;
+        }
+        this.send(res, 400, {
+          ok: false,
+          error: "tabs requires action list|open|close|select",
+          error_code: "invalid_args",
+        });
         return;
       }
 

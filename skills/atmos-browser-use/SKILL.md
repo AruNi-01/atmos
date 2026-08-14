@@ -1,6 +1,6 @@
 ---
 name: atmos-browser-use
-version: "2.1.0"
+version: "2.2.0"
 description: >
   Control web pages via Browser Use (`atmos browser-use`), separate from Desktop Use.
   Prefer for Chrome/Chromium page DOM or Atmos in-app browser (embedded). Do not use for
@@ -92,6 +92,10 @@ atmos browser-use click --backend embedded --target-id <session_id> --ref g1:e0
 atmos browser-use type --backend embedded --target-id <session_id> --ref g1:e3 --text "hello"
 atmos browser-use press-key --backend embedded --target-id <session_id> --key Enter
 atmos browser-use navigate --backend embedded --target-id <session_id> --url https://example.com
+atmos browser-use tabs --backend embedded --action list
+atmos browser-use tabs --backend embedded --action open --url https://example.com
+atmos browser-use tabs --backend embedded --action select --target-id <session_id>
+atmos browser-use tabs --backend embedded --action close --target-id <session_id>
 atmos browser-use end --backend embedded
 ```
 
@@ -99,6 +103,8 @@ Notes:
 
 - Snapshot format is `embedded_dom_v1` (visible nodes, truncated, generation-scoped refs like `g1:e0`). `semantic_v2` is unsupported here.
 - Do not invent a ref. If cache is empty, `state` first — the host will **not** auto-snapshot and then click `e0`.
+- User pick / annotate in the Desktop Browser is included on the next `state` as `user_picks` with snapshot-scoped refs (`g1:u0`). Click those refs — do not paste clipboard selectors.
+- `tabs` is **embedded only**. The web renderer owns open/close/select. The host does not create webviews itself. `open` returns a new `target_id` (session id); bind that before acting.
 - `download` writes under `~/.atmos/data/browser-use/downloads` unless `--dir` is inside that root.
 - `upload` is external-only.
 

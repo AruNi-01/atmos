@@ -168,7 +168,11 @@ export function useBrowserState({
   );
 
   const persistBrowserState = useCallback((nextBrowserState?: PreviewBrowserContextPrefs) => {
-    const stateToPersist = nextBrowserState ?? browserStateRef.current;
+    const raw = nextBrowserState ?? browserStateRef.current;
+    const stateToPersist: PreviewBrowserContextPrefs = {
+      activeTabId: raw.activeTabId,
+      tabs: raw.tabs.map(({ sessionId: _sessionId, ...tab }) => tab),
+    };
     const all = readPreviewBrowserPrefs(instanceId);
     useUiPrefStore.getState().writeSlice(instanceId, "previewBrowser", {
       byContext: {
@@ -419,6 +423,22 @@ export function useBrowserState({
         }),
       };
     });
+    return nextTab.id;
+  }, []);
+
+  const handleBrowserSessionReady = useCallback((tabId: string, sessionId: string | null) => {
+    setBrowserState((current) => {
+      const tab = current.tabs.find((item) => item.id === tabId);
+      if (!tab) return current;
+      const nextSessionId = sessionId?.trim() || undefined;
+      if (tab.sessionId === nextSessionId) return current;
+      return {
+        ...current,
+        tabs: current.tabs.map((item) =>
+          item.id === tabId ? { ...item, sessionId: nextSessionId } : item,
+        ),
+      };
+    });
   }, []);
 
   const handleSelectBrowserTab = useCallback((tabId: string) => {
@@ -488,6 +508,7 @@ export function useBrowserState({
     (state) => state.commandsByContext[browserContextId] ?? null,
   );
   const clearCommand = useBrowserTabCommandsStore((state) => state.clearCommand);
+  const resolveOpen = useBrowserTabCommandsStore((state) => state.resolveOpen);
 
   useEffect(() => {
     if (!pendingCommand) return;
@@ -496,6 +517,9 @@ export function useBrowserState({
       handleSelectBrowserTab(pendingCommand.tabId);
     } else if (pendingCommand.type === "close") {
       handleCloseBrowserTab(pendingCommand.tabId);
+    } else if (pendingCommand.type === "open") {
+      const tabId = handleOpenBrowserTab(pendingCommand.url);
+      if (tabId) resolveOpen(pendingCommand.token, tabId);
     }
 
     clearCommand(browserContextId, pendingCommand.token);
@@ -503,8 +527,10 @@ export function useBrowserState({
     browserContextId,
     clearCommand,
     handleCloseBrowserTab,
+    handleOpenBrowserTab,
     handleSelectBrowserTab,
     pendingCommand,
+    resolveOpen,
   ]);
 
   const resetBrowserState = useCallback((url = "") => {
@@ -521,6 +547,7 @@ export function useBrowserState({
     handleAddBrowserTab,
     handleCloseBrowserTab,
     handleOpenBrowserTab,
+    handleBrowserSessionReady,
     handlePreviewTitleChange,
     handlePreviewIconChange,
     handleReorderBrowserTabs,

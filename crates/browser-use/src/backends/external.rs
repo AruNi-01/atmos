@@ -444,6 +444,10 @@ pub fn build_tool_call(req: &BrowserRequest) -> Result<(&'static str, Value), St
                 "session": session,
             }),
         )),
+        BrowserAction::Tabs => Err(
+            "tabs is only available with --backend embedded (in-app Browser tabs are renderer-owned)"
+                .into(),
+        ),
     }
 }
 

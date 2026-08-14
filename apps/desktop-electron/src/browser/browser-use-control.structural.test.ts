@@ -16,6 +16,7 @@ describe("browser-use-control structural", () => {
     const sm = readFileSync(join(root, "browser/surface-manager.ts"), "utf8");
     expect(sm).toContain("getGuestWebContents");
     expect(sm).toContain("listBrowserUseSessions");
+    expect(sm).toContain("emitAgentTab");
   });
 
   it("control plane uses loopback + control.json", () => {
@@ -29,6 +30,11 @@ describe("browser-use-control structural", () => {
     expect(src).toContain("/v1/download");
     expect(src).toContain("/v1/press-key");
     expect(src).toContain("/v1/end");
+    expect(src).toContain("/v1/tabs");
+    expect(src).toContain("user_picks");
+    expect(src).toContain("emitAgentTab");
+    expect(src).toContain("setUserPicks");
+    expect(src).toContain("completeAgentTab");
     expect(src).toContain("persist:atmos-browser");
     expect(src).toContain("token");
     expect(src).toContain("embedded_dom_v1");

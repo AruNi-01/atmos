@@ -210,6 +210,7 @@ fn request_path(a: BrowserAction) -> &'static str {
         BrowserAction::PressKey => "/v1/press-key",
         BrowserAction::Upload => "/v1/upload",
         BrowserAction::End => "/v1/end",
+        BrowserAction::Tabs => "/v1/tabs",
     }
 }
 
@@ -473,6 +474,47 @@ pub fn build_embedded_body(req: &BrowserRequest) -> Result<Value, String> {
             "session": session,
             "target_id": req.target_id,
         })),
+        BrowserAction::Tabs => {
+            let action = req
+                .tab_action
+                .as_deref()
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+                .ok_or_else(|| "tabs requires --action list|open|close|select".to_string())?;
+            match action {
+                "list" | "open" | "close" | "select" => {}
+                other => {
+                    return Err(format!(
+                        "unknown tabs --action {other:?} (use list|open|close|select)"
+                    ));
+                }
+            }
+            if action == "open" {
+                let url = req
+                    .url
+                    .as_deref()
+                    .map(str::trim)
+                    .filter(|s| !s.is_empty())
+                    .ok_or_else(|| "tabs open requires --url".to_string())?;
+                let mut body = json!({
+                    "session": session,
+                    "action": action,
+                    "url": url,
+                });
+                if let Some(target) = req.target_id.as_ref() {
+                    body["target_id"] = json!(target);
+                }
+                return Ok(body);
+            }
+            if matches!(action, "close" | "select") && req.target_id.is_none() {
+                return Err(format!("tabs {action} requires --target-id"));
+            }
+            Ok(json!({
+                "session": session,
+                "action": action,
+                "target_id": req.target_id,
+            }))
+        }
     }
 }
 
@@ -581,6 +623,7 @@ mod tests {
         assert_eq!(request_path(BrowserAction::Download), "/v1/download");
         assert_eq!(request_path(BrowserAction::PressKey), "/v1/press-key");
         assert_eq!(request_path(BrowserAction::End), "/v1/end");
+        assert_eq!(request_path(BrowserAction::Tabs), "/v1/tabs");
     }
 
     #[test]
@@ -642,6 +685,47 @@ mod tests {
         assert!(is_exact_loopback_host("127.0.0.1"));
         assert!(is_exact_loopback_host("localhost"));
         assert!(!is_exact_loopback_host("localhost.evil"));
+    }
+
+    #[test]
+    fn tabs_open_requires_url_and_valid_action() {
+        let missing = BrowserRequest {
+            backend: BrowserBackendKind::Embedded,
+            action: BrowserAction::Tabs,
+            tab_action: Some("open".into()),
+            ..Default::default()
+        };
+        assert!(build_embedded_body(&missing).unwrap_err().contains("--url"));
+
+        let bad = BrowserRequest {
+            backend: BrowserBackendKind::Embedded,
+            action: BrowserAction::Tabs,
+            tab_action: Some("explode".into()),
+            ..Default::default()
+        };
+        assert!(build_embedded_body(&bad).unwrap_err().contains("unknown tabs"));
+
+        let open = BrowserRequest {
+            backend: BrowserBackendKind::Embedded,
+            action: BrowserAction::Tabs,
+            tab_action: Some("open".into()),
+            url: Some("https://example.com".into()),
+            ..Default::default()
+        };
+        let body = build_embedded_body(&open).unwrap();
+        assert_eq!(body["action"], "open");
+        assert_eq!(body["url"], "https://example.com");
+
+        let close = BrowserRequest {
+            backend: BrowserBackendKind::Embedded,
+            action: BrowserAction::Tabs,
+            tab_action: Some("close".into()),
+            target_id: Some("sess".into()),
+            ..Default::default()
+        };
+        let body = build_embedded_body(&close).unwrap();
+        assert_eq!(body["action"], "close");
+        assert_eq!(body["target_id"], "sess");
     }
 
     #[test]

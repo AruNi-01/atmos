@@ -259,4 +259,37 @@ describe("APP-053 browser webview structural (shipped sources)", () => {
     expect(client).toContain("open_browser_window");
     expect(client).toContain("openBrowserWindow");
   });
+
+  it("agent tab CRUD goes through the renderer command bus", () => {
+    const commands = read("apps/web/src/features/browser/store/use-browser-tab-commands.ts");
+    expect(commands).toContain('type: "open"');
+    expect(commands).toContain("openTab");
+    expect(commands).toContain("Electron main must not mutate this store");
+
+    const bridge = read("apps/web/src/features/browser/hooks/use-browser-agent-tab-bridge.ts");
+    expect(bridge).toContain("desktop-browser:agent-tab");
+    expect(bridge).toContain("browser_bridge_agent_tab_result");
+    expect(bridge).toContain("commands.openTab");
+    expect(bridge).toContain("commands.closeTab");
+    expect(bridge).toContain("commands.selectTab");
+
+    const control = read("apps/desktop-electron/src/browser/browser-use-control.ts");
+    expect(control).toContain("/v1/tabs");
+    expect(control).toContain("requestAgentTab");
+    expect(control).not.toMatch(/new BrowserWindow\(/);
+
+    const handlers = read("apps/desktop-electron/src/ipc/handlers.ts");
+    expect(handlers).toContain("browser_bridge_agent_tab_result");
+    expect(handlers).toContain("browser_bridge_user_picks");
+  });
+
+  it("user picks sync to the embedded control plane", () => {
+    const session = read("apps/web/src/features/browser/components/BrowserSession.tsx");
+    expect(session).toContain("pushBrowserUseUserPicks");
+    const picks = read("apps/web/src/features/browser/lib/browser-use-user-picks.ts");
+    expect(picks).toContain("browser_bridge_user_picks");
+    const control = read("apps/desktop-electron/src/browser/browser-use-control.ts");
+    expect(control).toContain("user_picks");
+    expect(control).toContain("g${generation}:u");
+  });
 });

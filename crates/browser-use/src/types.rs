@@ -64,6 +64,8 @@ pub enum BrowserAction {
     Upload,
     /// End the engine session (external) and clear the scoped binding.
     End,
+    /// Embedded: open / close / select / list in-app Browser tabs (renderer-owned).
+    Tabs,
 }
 
 pub fn action_name(action: BrowserAction) -> &'static str {
@@ -79,6 +81,7 @@ pub fn action_name(action: BrowserAction) -> &'static str {
         BrowserAction::PressKey => "press_key",
         BrowserAction::Upload => "upload",
         BrowserAction::End => "end",
+        BrowserAction::Tabs => "tabs",
     }
 }
 
@@ -143,6 +146,8 @@ pub struct BrowserRequest {
     pub key: Option<String>,
     /// Local file paths for `browser_set_input_files`.
     pub files: Vec<String>,
+    /// `tabs` sub-action: list | open | close | select
+    pub tab_action: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

@@ -42,14 +42,52 @@ impl BrowserBinding {
     }
 }
 
+/// Scope lookup order for native (non-MCP) tools and the CLI.
+/// First match wins: explicit id, then these environment keys.
+pub const BINDING_SCOPE_ENV: &[&str] = &[
+    "ATMOS_BROWSER_USE_BINDING_ID",
+    "ATMOS_SIDE_CHAT_ID",
+    "ATMOS_PANE_ID",
+];
+
+/// Caller-supplied route for a future native tool. Same resolver as `execute()`.
+#[derive(Debug, Clone, Default)]
+pub struct NativeRouteHint {
+    pub backend: BrowserBackendKind,
+    pub backend_explicit: bool,
+    pub target_id: Option<String>,
+    pub tab_id: Option<String>,
+    pub session_id: Option<String>,
+    pub binding_id: Option<String>,
+}
+
+/// Resolve `{backend,target_id,tab_id}` for any native Browser Use caller.
+/// Do not reimplement this order in CLI / host / future tool shims.
+pub fn resolve_native_route(hint: NativeRouteHint) -> AppliedBinding {
+    apply_binding_defaults(
+        hint.backend,
+        hint.backend_explicit,
+        hint.target_id,
+        hint.tab_id,
+        hint.session_id,
+        hint.binding_id.as_deref(),
+    )
+}
+
 pub fn resolve_binding_id(explicit: Option<&str>) -> Option<String> {
+    resolve_binding_scope(explicit, env_nonempty)
+}
+
+/// Pure scope resolver. `lookup` is `env_nonempty` in production.
+pub fn resolve_binding_scope(
+    explicit: Option<&str>,
+    lookup: impl Fn(&str) -> Option<String>,
+) -> Option<String> {
     explicit
         .map(str::trim)
         .filter(|value| !value.is_empty())
         .map(ToOwned::to_owned)
-        .or_else(|| env_nonempty("ATMOS_BROWSER_USE_BINDING_ID"))
-        .or_else(|| env_nonempty("ATMOS_SIDE_CHAT_ID"))
-        .or_else(|| env_nonempty("ATMOS_PANE_ID"))
+        .or_else(|| BINDING_SCOPE_ENV.iter().find_map(|key| lookup(key)))
 }
 
 pub fn load_binding(binding_id: &str) -> Option<BrowserBinding> {
@@ -299,6 +337,69 @@ mod tests {
             None,
         );
         assert_eq!(applied.target_id.as_deref(), Some("t"));
+        assert!(applied.resolved_from.is_none());
+    }
+
+    #[test]
+    fn scope_order_is_explicit_then_binding_then_side_chat_then_pane() {
+        assert_eq!(
+            BINDING_SCOPE_ENV,
+            &[
+                "ATMOS_BROWSER_USE_BINDING_ID",
+                "ATMOS_SIDE_CHAT_ID",
+                "ATMOS_PANE_ID",
+            ]
+        );
+
+        let env = |key: &str| match key {
+            "ATMOS_BROWSER_USE_BINDING_ID" => Some("from-binding".into()),
+            "ATMOS_SIDE_CHAT_ID" => Some("from-chat".into()),
+            "ATMOS_PANE_ID" => Some("from-pane".into()),
+            _ => None,
+        };
+        assert_eq!(
+            resolve_binding_scope(Some("explicit"), env),
+            Some("explicit".into())
+        );
+        assert_eq!(
+            resolve_binding_scope(None, env),
+            Some("from-binding".into())
+        );
+
+        let no_binding = |key: &str| match key {
+            "ATMOS_SIDE_CHAT_ID" => Some("from-chat".into()),
+            "ATMOS_PANE_ID" => Some("from-pane".into()),
+            _ => None,
+        };
+        assert_eq!(
+            resolve_binding_scope(None, no_binding),
+            Some("from-chat".into())
+        );
+
+        let pane_only = |key: &str| match key {
+            "ATMOS_PANE_ID" => Some("from-pane".into()),
+            _ => None,
+        };
+        assert_eq!(
+            resolve_binding_scope(None, pane_only),
+            Some("from-pane".into())
+        );
+        assert_eq!(resolve_binding_scope(Some("  "), pane_only), Some("from-pane".into()));
+        assert_eq!(resolve_binding_scope(None, |_| None), None);
+    }
+
+    #[test]
+    fn native_route_reuses_the_same_resolver() {
+        let applied = resolve_native_route(NativeRouteHint {
+            backend: BrowserBackendKind::Embedded,
+            backend_explicit: true,
+            target_id: Some("sess".into()),
+            tab_id: Some("main".into()),
+            ..Default::default()
+        });
+        assert_eq!(applied.backend, BrowserBackendKind::Embedded);
+        assert_eq!(applied.target_id.as_deref(), Some("sess"));
+        assert_eq!(applied.tab_id.as_deref(), Some("main"));
         assert!(applied.resolved_from.is_none());
     }
 }

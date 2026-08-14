@@ -315,6 +315,26 @@ export class BrowserSurfaceManager {
     });
   }
 
+  /**
+   * Ask the web renderer to mutate React tab state.
+   * Main must not create webviews or write the tab store itself.
+   */
+  emitAgentTab(payload: {
+    requestId: string;
+    action: string;
+    url?: string;
+    targetId?: string;
+  }): void {
+    this.emitToSession(payload.targetId ?? "", "desktop-browser:agent-tab", {
+      type: "atmos-browser:agent-tab",
+      sessionId: payload.targetId || "browser-use",
+      requestId: payload.requestId,
+      tabAction: payload.action,
+      url: payload.url,
+      targetId: payload.targetId,
+    });
+  }
+
   private emitToSession(sessionId: string, channel: string, payload: unknown) {
     const s = this.surfaces.get(sessionId);
     this.emitToApp(channel, payload, s ? this.surfaceHost(s) : null);

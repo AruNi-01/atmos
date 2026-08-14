@@ -497,6 +497,81 @@ export function createAllHandlers(
      * Lightweight URL shape check (http/https only). No network fetch.
      * Product navigation does not require this; kept for tooling/smoke.
      */
+    async browser_bridge_agent_tab_result(args) {
+      const requestId = str(args.requestId ?? args.request_id);
+      if (!requestId) return null;
+      state.browserUseControl?.completeAgentTab({
+        requestId,
+        ok: args.ok !== false,
+        target_id:
+          typeof args.target_id === "string"
+            ? args.target_id
+            : typeof args.targetId === "string"
+              ? args.targetId
+              : null,
+        tab_id:
+          typeof args.tab_id === "string"
+            ? args.tab_id
+            : typeof args.tabId === "string"
+              ? args.tabId
+              : "main",
+        error: typeof args.error === "string" ? args.error : undefined,
+        error_code:
+          typeof args.error_code === "string"
+            ? args.error_code
+            : typeof args.errorCode === "string"
+              ? args.errorCode
+              : undefined,
+      });
+      return null;
+    },
+
+    async browser_bridge_user_picks(args) {
+      const sessionId = str(args.session_id ?? args.sessionId);
+      const raw = args.picks ?? args.annotations;
+      const current = args.current;
+      const picks: Array<Record<string, unknown>> = [];
+      if (current && typeof current === "object") {
+        picks.push({ ...(current as Record<string, unknown>), source: "current" });
+      }
+      if (Array.isArray(raw)) {
+        for (const item of raw) {
+          if (item && typeof item === "object") {
+            picks.push({
+              ...(item as Record<string, unknown>),
+              source:
+                (item as { source?: string }).source === "current"
+                  ? "current"
+                  : "annotation",
+            });
+          }
+        }
+      }
+      state.browserUseControl?.setUserPicks(
+        sessionId,
+        picks
+          .map((pick) => ({
+            id: typeof pick.id === "string" ? pick.id : undefined,
+            source: pick.source === "current" ? "current" as const : "annotation" as const,
+            selector: str(pick.selector),
+            name: typeof pick.name === "string" ? pick.name : undefined,
+            note: typeof pick.note === "string" ? pick.note : undefined,
+            tag: typeof pick.tag === "string" ? pick.tag : undefined,
+            rect:
+              pick.rect && typeof pick.rect === "object"
+                ? (pick.rect as {
+                    x: number;
+                    y: number;
+                    width: number;
+                    height: number;
+                  })
+                : undefined,
+          }))
+          .filter((pick) => pick.selector.trim()),
+      );
+      return null;
+    },
+
     async browser_bridge_probe_url(args) {
       const url = str(args.url);
       try {

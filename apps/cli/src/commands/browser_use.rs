@@ -158,6 +158,18 @@ pub async fn execute_cmd(command: BrowserUseCommand) -> Result<Value, String> {
             tab_id: a.route.tab_id,
             ..Default::default()
         },
+        BrowserUseCommand::Tabs(a) => BrowserRequest {
+            backend: parse_backend_opt(a.route.backend.as_deref())?.0,
+            backend_explicit: a.route.backend.is_some(),
+            action: BrowserAction::Tabs,
+            tab_action: Some(a.action),
+            url: a.url,
+            target_id: a.route.target_id,
+            tab_id: a.route.tab_id,
+            session: a.route.session,
+            binding_id: a.route.binding_id,
+            ..Default::default()
+        },
     };
     let res = execute(req);
     serde_json::to_value(res).map_err(|e| e.to_string())
@@ -215,6 +227,8 @@ pub enum BrowserUseCommand {
     Upload(UploadArgs),
     /// End the engine session and clear the scoped binding.
     End(EndArgs),
+    /// Open / close / select / list in-app Browser tabs (embedded only).
+    Tabs(TabsArgs),
 }
 
 #[derive(Debug, Args)]
@@ -387,6 +401,18 @@ pub struct EndArgs {
     pub route: RouteArgs,
 }
 
+#[derive(Debug, Args)]
+pub struct TabsArgs {
+    #[command(flatten)]
+    pub route: RouteArgs,
+    /// list | open | close | select
+    #[arg(long)]
+    pub action: String,
+    /// Required for open (http / https / about:blank).
+    #[arg(long)]
+    pub url: Option<String>,
+}
+
 /// Helpful static note for agents (not a runtime command).
 #[allow(dead_code)]
 pub fn product_note() -> Value {
@@ -404,6 +430,7 @@ pub fn product_note() -> Value {
             "end",
         ],
         "embedded": "Atmos Desktop in-app browser via host control plane",
+        "tabs": "embedded only — renderer owns tab CRUD; main process does not create webviews",
         "json_flag": "browser-use always prints JSON; --json is a no-op",
     })
 }

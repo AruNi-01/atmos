@@ -7,13 +7,19 @@
 //! **No MCP.**
 
 mod backends;
-mod binding;
+pub mod binding;
 mod chrome;
 mod errors;
 mod surface;
 mod types;
 
 pub use backends::{EmbeddedBackend, ExternalBackend};
+pub use binding::{
+    apply_binding_defaults, clear_binding, commit_binding_from_result, engine_session_id,
+    extract_ids, fill_result_ids, load_binding, resolve_binding_id, resolve_binding_scope,
+    resolve_native_route, save_binding, AppliedBinding, BINDING_SCOPE_ENV, BrowserBinding,
+    NativeRouteHint,
+};
 pub use chrome::{
     chrome_target_for_request, show_browser_action_chrome, status_for_browser_action,
     wants_action_chrome, BrowserChromeTarget, DEFAULT_BROWSER_USE_SESSION,
@@ -413,5 +419,20 @@ mod tests {
             ..Default::default()
         };
         assert!(build_external_tool_call(&req).is_err());
+    }
+
+    #[test]
+    fn tabs_is_embedded_only() {
+        let req = BrowserRequest {
+            backend: BrowserBackendKind::External,
+            action: BrowserAction::Tabs,
+            tab_action: Some("open".into()),
+            url: Some("https://example.com".into()),
+            ..Default::default()
+        };
+        assert!(build_external_tool_call(&req)
+            .unwrap_err()
+            .contains("embedded"));
+        assert_eq!(action_name(BrowserAction::Tabs), "tabs");
     }
 }
