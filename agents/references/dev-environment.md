@@ -14,7 +14,7 @@ same setup works locally, in CI, and on ephemeral Cloud Agents.
 | Tool | Pin / source | Notes |
 |------|--------------|-------|
 | Rust | `rust-toolchain.toml` (`channel = "stable"`) | Auto-selected by `rustup` and by Nix (`rust-overlay`). Must be ≥ 1.85 for `edition2024` deps. Matches CI (`dtolnay/rust-toolchain@stable`). |
-| bun | `package.json` → `packageManager` (`bun@1.3.x`) | JS/TS package manager for all workspaces. |
+| bun | `package.json` → `packageManager` (`bun@1.3.14`) | Single pin for CI (`setup-bun`), host installs, and the Nix shell. nixpkgs is still on 1.3.13, so the flake fetches the official Oven zip for this version. When bumping: update `packageManager`, `.github/actions/setup-bun/action.yml`, and the hash table in `flake.nix`. |
 | node | v22 | Used by `scripts/*` node tooling. |
 | just, zsh | task runner + shell the `justfile` requires (`set shell := ["zsh", ...]`) | |
 | tmux, git, gh | terminal PTY sessions, VCS, agent-hook/review flows | |
