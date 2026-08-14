@@ -18,7 +18,6 @@ use browser_cookies::{
     ChromiumProfileCandidate, ExtractError, FirefoxProfileCandidate,
 };
 
-use crate::constants::COMMANDCODE_COOKIE_NAMES;
 use crate::models::ProviderError;
 
 fn map_extract_error(error: ExtractError) -> ProviderError {
@@ -96,7 +95,7 @@ pub(crate) fn load_amp_session_cookie_source(
 
 pub(crate) fn load_amp_browser_cookie_source() -> Result<Option<BrowserCookieSource>, ProviderError>
 {
-    load_browser_cookie_source(&["ampcode.com", "www.ampcode.com"], &["session"])
+    load_gated_provider_browser_cookie("amp")
 }
 
 pub(crate) fn load_factory_session_cookie_source(
@@ -122,88 +121,46 @@ pub(crate) fn load_factory_session_cookie_source(
 
 pub(crate) fn load_factory_browser_cookie_source(
 ) -> Result<Option<BrowserCookieSource>, ProviderError> {
-    load_browser_cookie_source_with_session_detection(
-        &["factory.ai", "app.factory.ai", "auth.factory.ai"],
-        &[
-            "wos-session",
-            "__Secure-next-auth.session-token",
-            "next-auth.session-token",
-            "__Secure-authjs.session-token",
-            "__Host-authjs.csrf-token",
-            "authjs.session-token",
-            "session",
-            "access-token",
-        ],
-    )
+    load_gated_provider_browser_cookie("factory")
 }
 
 pub(crate) fn load_mimo_browser_cookie_source() -> Result<Option<BrowserCookieSource>, ProviderError>
 {
-    load_browser_cookie_source_with_session_detection(
-        &["platform.xiaomimimo.com", "xiaomimimo.com"],
-        &["api-platform_serviceToken"],
-    )
+    load_gated_provider_browser_cookie("mimo")
 }
 
 pub(crate) fn load_minimax_browser_cookie_source(
 ) -> Result<Option<BrowserCookieSource>, ProviderError> {
-    load_browser_cookie_source_with_session_detection(
-        &[
-            "platform.minimax.io",
-            "openplatform.minimax.io",
-            "minimax.io",
-            "platform.minimaxi.com",
-            "openplatform.minimaxi.com",
-            "minimaxi.com",
-        ],
-        &["HERTZ-SESSION"],
-    )
+    load_gated_provider_browser_cookie("minimax")
 }
 
 pub(crate) fn load_zai_browser_cookie_source() -> Result<Option<BrowserCookieSource>, ProviderError>
 {
-    load_browser_cookie_source_with_session_detection(
-        &[
-            "bigmodel.cn",
-            "open.bigmodel.cn",
-            "chat.z.ai",
-            "z.ai",
-            "api.z.ai",
-        ],
-        &["bigmodel_token_production", "token", "TDC_itoken"],
-    )
+    load_gated_provider_browser_cookie("zai")
 }
 
 pub(crate) fn load_zed_browser_cookie_source() -> Result<Option<BrowserCookieSource>, ProviderError>
 {
-    load_browser_cookie_source(
-        &["zed.dev", "cloud.zed.dev", "dashboard.zed.dev"],
-        &["zed.session"],
-    )
+    load_gated_provider_browser_cookie("zed")
 }
 
 pub(crate) fn load_opencode_browser_cookie_source(
 ) -> Result<Option<BrowserCookieSource>, ProviderError> {
-    load_browser_cookie_source(&["opencode.ai", "www.opencode.ai"], &["auth"])
+    load_gated_provider_browser_cookie("opencode")
 }
 
 pub(crate) fn load_workos_browser_cookie_source(
 ) -> Result<Option<BrowserCookieSource>, ProviderError> {
-    load_browser_cookie_source_with_session_detection(
-        &["workos.com"],
-        &["__wuid", "__kduid", "wos-session"],
-    )
+    load_gated_provider_browser_cookie("workos")
 }
 
 pub(crate) fn load_commandcode_browser_cookie_source(
 ) -> Result<Option<BrowserCookieSource>, ProviderError> {
-    load_browser_cookie_source_with_session_detection(
-        &["commandcode.ai", "www.commandcode.ai"],
-        COMMANDCODE_COOKIE_NAMES,
-    )
+    load_gated_provider_browser_cookie("commandcode")
 }
 
-pub fn load_cursor_session_token() -> Result<Option<BrowserCookieSource>, ProviderError> {
+/// Env / `cursor.cookie` only — never opens a browser cookie DB or Keychain.
+pub fn load_manual_cursor_session_token() -> Result<Option<BrowserCookieSource>, ProviderError> {
     for key in &["ATMOS_CURSOR_SESSION_TOKEN", "CURSOR_SESSION_TOKEN"] {
         if let Some(value) = env::var(key).ok().filter(|v| !v.trim().is_empty()) {
             return Ok(Some(BrowserCookieSource {
@@ -231,10 +188,37 @@ pub fn load_cursor_session_token() -> Result<Option<BrowserCookieSource>, Provid
         }
     }
 
-    load_browser_cookie_source(
-        &["cursor.com", "www.cursor.com"],
-        &["WorkosCursorSessionToken", "team_id"],
-    )
+    Ok(None)
+}
+
+pub fn load_cursor_session_token() -> Result<Option<BrowserCookieSource>, ProviderError> {
+    if let Some(source) = load_manual_cursor_session_token()? {
+        return Ok(Some(source));
+    }
+    load_gated_provider_browser_cookie("cursor")
+}
+
+/// Apply Permission Access, then read browser cookies.
+pub fn load_gated_provider_browser_cookie(
+    provider_id: &str,
+) -> Result<Option<BrowserCookieSource>, ProviderError> {
+    if !crate::support::browser_access::may_probe_browser_cookies(provider_id) {
+        return Ok(None);
+    }
+    load_provider_browser_cookie_raw(provider_id)
+}
+
+fn load_provider_browser_cookie_raw(
+    provider_id: &str,
+) -> Result<Option<BrowserCookieSource>, ProviderError> {
+    let Some(spec) = crate::support::browser_access::browser_cookie_spec(provider_id) else {
+        return Ok(None);
+    };
+    if spec.require_named_session {
+        load_browser_cookie_source_with_session_detection(spec.domains, spec.cookie_names)
+    } else {
+        load_browser_cookie_source(spec.domains, spec.cookie_names)
+    }
 }
 
 fn load_browser_cookie_source(

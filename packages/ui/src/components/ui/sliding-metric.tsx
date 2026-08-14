@@ -94,8 +94,8 @@ export function compactSlidingParts(
   }
 
   return {
-    value: Math.round(safe),
-    decimals: 0,
+    value: roundTo(safe, 1),
+    decimals: 1,
     decimalSeparator,
   };
 }
@@ -123,8 +123,8 @@ export function currencySlidingParts(
   if (safe > 0 && safe < 1) {
     return {
       prefix: "$",
-      value: roundTo(safe, 2),
-      decimals: 2,
+      value: roundTo(safe, 1),
+      decimals: 1,
       decimalSeparator,
     };
   }

@@ -43,7 +43,7 @@ describe("kanban agent grouping", () => {
       "permission",
       "attention",
       "running",
-      "idle",
+      "done",
     ]);
     expect(isKanbanDragAssignable("agent")).toBe(false);
     expect(isKanbanDragAssignable("status")).toBe(true);
@@ -66,6 +66,6 @@ describe("kanban agent grouping", () => {
         workspace: workspace(),
         groups: [],
       }),
-    ).toEqual(["idle"]);
+    ).toEqual(["done"]);
   });
 });

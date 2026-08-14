@@ -18,6 +18,7 @@ llm = { path = "../../crates/llm" }
 local-model-runtime = { path = "../../crates/local-model-runtime" }
 runtime-manager = { path = "../../crates/runtime-manager", default-features = true, features = ["client"] }
 token-usage = { path = "../../crates/token-usage" }
+permission-access = { path = "../../crates/permission-access" }
 
 axum = { version = "0.8", features = ["ws", "multipart"] }
 tokio = { version = "1.0", features = ["full"] }

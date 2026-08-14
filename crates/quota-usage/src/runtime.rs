@@ -315,14 +315,16 @@ pub(crate) fn detect_auth(spec: &ProviderSpec) -> AuthState {
     }
 
     if spec.id == "factory" {
-        if let Ok(tokens) = factory::storage::load_factory_local_storage_tokens() {
-            if let Some(token) = tokens.first() {
-                return AuthState {
-                    status: AuthStateStatus::Detected,
-                    source: Some(token.source_label.clone()),
-                    detail: Some("Detected browser local storage token".to_string()),
-                    setup_hint: Some(spec.setup_hint.to_string()),
-                };
+        if crate::support::browser_access::may_probe_browser_cookies("factory") {
+            if let Ok(tokens) = factory::storage::load_factory_local_storage_tokens() {
+                if let Some(token) = tokens.first() {
+                    return AuthState {
+                        status: AuthStateStatus::Detected,
+                        source: Some(token.source_label.clone()),
+                        detail: Some("Detected browser local storage token".to_string()),
+                        setup_hint: Some(spec.setup_hint.to_string()),
+                    };
+                }
             }
         }
 

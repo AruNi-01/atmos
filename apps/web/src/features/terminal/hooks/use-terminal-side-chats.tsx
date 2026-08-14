@@ -112,7 +112,9 @@ export function useTerminalSideChats({
   const {
     activeSideChatId,
     addRecord,
+    bumpFocus,
     closeSideChat,
+    focusNonce,
     hideSideChat,
     persistRecord,
     records,
@@ -334,6 +336,7 @@ export function useTerminalSideChats({
       projectRootPath={projectRootPath}
       records={records}
       activeSideChatId={activeSideChatId}
+      focusNonce={focusNonce}
       sourcePaneId={sourcePaneId}
       sourceTmuxWindowName={sourceTmuxWindowName ?? ""}
       sideChatFlyTargetRef={sideChatFlyTargetRef}
@@ -352,6 +355,7 @@ export function useTerminalSideChats({
         if (!record) return;
         if (isSideChatOpen(record.status)) {
           setActiveSideChatId(sideChatId);
+          bumpFocus();
           return;
         }
         void showSideChat(sideChatId);

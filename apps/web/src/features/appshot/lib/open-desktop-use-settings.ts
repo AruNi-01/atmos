@@ -12,21 +12,28 @@ import { useCallback } from "react";
 import { useQueryState } from "nuqs";
 import { settingsModalParams } from "@/shared/lib/nuqs/searchParams";
 
-/** Open Settings → Desktop Use via URL params (no full page reload when nuqs is active). */
-export function openDesktopUseSettingsInApp(): void {
+function openSettingsTabInApp(tab: "desktop-use" | "permission-access"): void {
   if (typeof window === "undefined") return;
   const url = new URL(window.location.href);
   url.searchParams.set("settingsModal", "true");
-  url.searchParams.set("activeSettingTab", "desktop-use");
+  url.searchParams.set("activeSettingTab", tab);
   url.searchParams.delete("appshotPermissions");
   const next = `${url.pathname}?${url.searchParams.toString()}${url.hash}`;
-  // Prefer history mutation so SPA / nuqs can pick up the change without hard reload.
   window.history.pushState(window.history.state, "", next);
   window.dispatchEvent(new PopStateEvent("popstate"));
 }
 
-/** Hook: open Settings → Desktop Use (same path as other header settings CTAs). */
-export function useOpenDesktopUseSettings(): () => void {
+/** Open Settings → Desktop Use (engine / CLI). */
+export function openDesktopUseSettingsInApp(): void {
+  openSettingsTabInApp("desktop-use");
+}
+
+/** Open Settings → Privacy & Security → Permission access (OS / cookie grants). */
+export function openPermissionAccessSettingsInApp(): void {
+  openSettingsTabInApp("permission-access");
+}
+
+function useOpenSettingsTab(tab: "desktop-use" | "permission-access"): () => void {
   const [, setIsSettingsOpen] = useQueryState(
     "settingsModal",
     settingsModalParams.settingsModal,
@@ -37,7 +44,17 @@ export function useOpenDesktopUseSettings(): () => void {
   );
 
   return useCallback(() => {
-    void setActiveSettingTab("desktop-use");
+    void setActiveSettingTab(tab);
     void setIsSettingsOpen(true);
-  }, [setActiveSettingTab, setIsSettingsOpen]);
+  }, [setActiveSettingTab, setIsSettingsOpen, tab]);
+}
+
+/** Hook: open Settings → Desktop Use (engine / CLI). */
+export function useOpenDesktopUseSettings(): () => void {
+  return useOpenSettingsTab("desktop-use");
+}
+
+/** Hook: open Settings → Permission access (TCC + browser-cookie grants). */
+export function useOpenPermissionAccessSettings(): () => void {
+  return useOpenSettingsTab("permission-access");
 }

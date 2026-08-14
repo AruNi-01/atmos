@@ -59,6 +59,12 @@ export const SETTINGS_GROUPS = [
     items: ["integrations", "desktop-use", "notify"] as const,
   },
   {
+    id: "privacy-security",
+    label: settingsModalT("groups.privacySecurity.label"),
+    description: settingsModalT("groups.privacySecurity.description"),
+    items: ["permission-access"] as const,
+  },
+  {
     id: "workspace-projects",
     label: settingsModalT("groups.workspaceProjects.label"),
     description: settingsModalT("groups.workspaceProjects.description"),
@@ -147,6 +153,11 @@ export const SETTINGS_SECTIONS = [
     id: "desktop-use",
     label: settingsModalT("sections.desktopUse.label"),
     description: settingsModalT("sections.desktopUse.description"),
+  },
+  {
+    id: "permission-access",
+    label: settingsModalT("sections.permissionAccess.label"),
+    description: settingsModalT("sections.permissionAccess.description"),
   },
   {
     id: "shortcuts",
@@ -472,6 +483,20 @@ const SETTINGS_SECTION_KEYWORDS: Record<SettingsSectionId, readonly string[]> = 
     "click",
     "type",
   ],
+  "permission-access": [
+    "permission access",
+    "privacy",
+    "security",
+    "privacy and security",
+    "keychain",
+    "browser cookie",
+    "chrome safe storage",
+    "cursor",
+    "consent",
+    "accessibility",
+    "screen recording",
+    "desktop use",
+  ],
   shortcuts: [
     "shortcuts",
     "keyboard",
@@ -573,7 +598,7 @@ const SETTINGS_SETTING_ITEMS: Record<SettingsSectionId, readonly SettingsSearchI
       keywords: ["group grouping", "sidebar by group", "user groups"],
     }),
     settingsModalSearchItem("layout.byAgentGroupUsesSecondColumn", {
-      keywords: ["agent grouping", "sidebar by agent status", "idle", "running", "permission", "need attention"],
+      keywords: ["agent grouping", "sidebar by agent status", "done", "running", "permission", "need attention"],
     }),
     settingsModalSearchItem("layout.headerLayout", {
       keywords: ["workspace utilities", "global search", "header summary"],
@@ -1085,6 +1110,12 @@ const SETTINGS_SETTING_ITEMS: Record<SettingsSectionId, readonly SettingsSearchI
     }),
   ],
 
+  "permission-access": [
+    settingsModalSearchItem("permissionAccess.browserCookies", {
+      hasDescription: true,
+      keywords: ["keychain", "chrome safe storage", "cursor", "cookie"],
+    }),
+  ],
   about: [
     settingsModalSearchItem("about.runtime", {
       keywords: ["web", "desktop", "runtime"],

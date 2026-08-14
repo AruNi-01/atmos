@@ -15,7 +15,7 @@ import {
   MotionSidebarProvider,
   cn,
 } from "@workspace/ui";
-import { Search, X } from "lucide-react";
+import { KeyRound, Search, X } from "lucide-react";
 import InfoCircleIcon from "@workspace/ui/components/icons/info-circle-icon";
 import LayoutDashboardIcon from "@workspace/ui/components/icons/layout-dashboard-icon";
 import TerminalIcon from "@workspace/ui/components/icons/terminal-icon";
@@ -116,6 +116,9 @@ function SettingsSectionIcon({
   }
   if (sectionId === "browser") {
     return <Globe className="shrink-0" size={16} />;
+  }
+  if (sectionId === "permission-access") {
+    return <KeyRound className="shrink-0" size={16} />;
   }
   if (sectionId === "shortcuts") return <KeyboardIcon ref={iconRef} className="shrink-0" size={16} />;
   if (sectionId === "experiments") {

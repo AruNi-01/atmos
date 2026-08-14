@@ -9,11 +9,11 @@ import { useProjects } from "@/features/project/hooks/use-project-bootstrap-quer
 import type { AgentHookSession } from "@/features/agent/store/agent-hooks-store";
 import {
   navigateToAgentHookSessionPane,
+  resolveAgentHookNavigationTarget,
 } from "@/features/agent/lib/agent-hook-navigation";
 import {
   findCanvasTerminalShapeForAgentSession,
   focusCanvasTerminalShape,
-  tmuxWindowNameFromAgentPaneId,
 } from "@/features/canvas/lib/canvas-terminal-focus";
 import { getCanvasTerminalShapes } from "@/features/canvas/lib/canvas-terminal-shape";
 import { useCanvasRuntimeStore } from "@/features/canvas/store/canvas-runtime-store";
@@ -60,11 +60,11 @@ export function CanvasAgentStatusWidget({ shape }: { shape: CanvasWidgetShape })
 
   const isSessionOnCanvas = React.useCallback(
     (session: AgentHookSession) => {
-      const contextId = session.context_id;
-      if (!contextId) return false;
-      const tmuxWindowName = tmuxWindowNameFromAgentPaneId(session.pane_id);
-      if (!tmuxWindowName) return false;
-      return canvasTerminalKeySet.has(canvasTerminalKey(contextId, tmuxWindowName));
+      const target = resolveAgentHookNavigationTarget(session);
+      if (!target.contextId || !target.tmuxWindowName) return false;
+      return canvasTerminalKeySet.has(
+        canvasTerminalKey(target.contextId, target.tmuxWindowName),
+      );
     },
     [canvasTerminalKeySet],
   );

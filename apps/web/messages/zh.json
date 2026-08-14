@@ -310,7 +310,7 @@
       "agent_permission": "需要授权",
       "agent_attention": "需要关注",
       "agent_running": "运行中",
-      "agent_idle": "空闲"
+      "agent_done": "已完成"
     },
     "groups": {
       "ungrouped": "未分组",
@@ -387,6 +387,7 @@
       "waitingForPermission": "等待权限",
       "running": "运行中",
       "napping": "休眠中 ~",
+      "sideChat": "侧聊",
       "agentIdle": "Agent：空闲",
       "status": {
         "normal": "正常",
@@ -568,6 +569,14 @@
       "errors": {
         "loadOverviewFallback": "加载 Token 用量概览失败",
         "loadOverviewTitle": "加载 Token 用量失败"
+      },
+      "browserCookie": {
+        "title": "包含已登录网页用量",
+        "note": "检测到本机安装了 {products}。若要把对应控制台的 token 用量算进来，Atmos Server 会向钥匙串申请权限，用于解密浏览器里的登录 Cookie。密钥只留在本机，且仅用于读取用量。",
+        "allow": "允许",
+        "skip": "暂不",
+        "denied": "未包含 {products} 云端用量。",
+        "enable": "开启"
       },
       "header": {
         "badges": {
@@ -2904,7 +2913,8 @@
       "notifications": {
         "permissionRequired": "需要权限",
         "completed": "已完成",
-        "jump": "跳转"
+        "jump": "跳转",
+        "sideChat": "侧聊"
       },
       "desktopAgentChatWindow": {
         "failedToOpenChatWindow": "打开聊天窗口失败"
@@ -4471,6 +4481,10 @@
           "label": "系统集成",
           "description": "集成、Desktop Use 与通知"
         },
+        "privacySecurity": {
+          "label": "隐私与安全性",
+          "description": "权限访问及其他隐私相关设置"
+        },
         "workspaceProjects": {
           "label": "工作区与项目",
           "description": "工作区管理与标签"
@@ -4549,6 +4563,10 @@
           "label": "Desktop Use",
           "description": "本机桌面捕获、控制引擎与 macOS 权限"
         },
+        "permissionAccess": {
+          "label": "权限访问",
+          "description": "在本机已安装对应产品时，允许 Atmos Server 读取已登录浏览器 Cookie。"
+        },
         "account": {
           "label": "账号",
           "description": "登录、信任此设备，并管理你的 Atmos 账号"
@@ -4557,6 +4575,20 @@
       "dialog": {
         "title": "设置",
         "description": "管理 ATMOS 设置、产品信息和桌面端更新。"
+      },
+      "permissionAccessSection": {
+        "title": "浏览器 Cookie",
+        "description": "Atmos Server 可以解密已登录的浏览器 Cookie 来读取用量。密钥只留在本机。打开某个来源后，macOS 可能会弹出钥匙串授权。",
+        "installed": "已安装",
+        "notInstalled": "未安装",
+        "webSession": "已登录网页会话",
+        "desktopUse": {
+          "title": "Desktop Use",
+          "description": "为 Atmos Desktop Use 授予辅助功能和屏幕录制。以 macOS 系统设置为准——Atmos 不能自己记下这些授权。"
+        },
+        "empty": "暂无权限来源。",
+        "error": "无法更新权限访问。请检查连接后重试。",
+        "toggleAria": "允许读取 {name} 的浏览器 Cookie"
       },
       "unknownError": "未知错误",
       "errors": {
@@ -5037,6 +5069,12 @@
           "experiments": {
             "projectWikiCenterTabs": {
               "label": "Project Wiki（Center Tabs）"
+            }
+          },
+          "permissionAccess": {
+            "browserCookies": {
+              "label": "浏览器 Cookie",
+              "description": "用于已登录网页用量的钥匙串访问"
             }
           },
           "about": {
@@ -6258,7 +6296,11 @@
         },
         "permissions": {
           "title": "权限",
-          "description": "为 Atmos Desktop Use 授予辅助功能与屏幕录制权限——捕获、控制与 AppShot 的 Left⇧+Right⇧ 快捷键共用同一身份。"
+          "description": "为 Atmos Desktop Use 授予辅助功能与屏幕录制权限——捕获、控制与 AppShot 的 Left⇧+Right⇧ 快捷键共用同一身份。",
+          "openAccessHint": "Desktop Use 的系统授权在「隐私与安全性 → 权限访问」里处理。",
+          "openAccessTitle": "权限访问",
+          "openAccessDescription": "在统一的权限访问页授予辅助功能和屏幕录制。",
+          "openAccess": "打开权限访问"
         },
         "visibility": {
           "title": "视觉反馈",

@@ -1,4 +1,5 @@
 pub(crate) mod browser;
+pub(crate) mod browser_access;
 mod formatting;
 mod system;
 

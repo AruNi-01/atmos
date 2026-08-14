@@ -146,7 +146,7 @@ export function TokenUsageStatCards({
       },
       {
         label: t("stats.activeDays.label"),
-        value: formatCompactNumber(overview?.summary.active_days ?? 0, locale),
+        value: formatDetailedNumber(overview?.summary.active_days ?? 0, locale),
         note: t("stats.activeDays.note"),
         icon: CalendarRange,
       },

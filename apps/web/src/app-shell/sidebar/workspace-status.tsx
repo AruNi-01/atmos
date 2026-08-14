@@ -18,7 +18,7 @@ import type { Project, Workspace, WorkspaceWorkflowStatus } from "@/shared/types
 import {
   Bell,
   Bot,
-  Circle,
+  CircleCheck,
   Clock3,
   Flag,
   FolderKanban,
@@ -28,6 +28,7 @@ import {
   Tags,
 } from "lucide-react";
 import {
+  parseWorkspaceAgentGroupKey,
   WORKSPACE_AGENT_GROUP_ORDER,
   type WorkspaceAgentGroupKey,
 } from "@/features/agent/lib/workspace-agent-status";
@@ -228,11 +229,11 @@ const AGENT_GROUP_META: Record<WorkspaceAgentGroupKey, AgentGroupMeta> = {
     className: "text-blue-500",
     color: "#3b82f6",
   },
-  idle: {
-    value: "idle",
-    labelKey: "agentStatus.idle",
-    groupingLabelKey: "agent_idle",
-    icon: Circle,
+  done: {
+    value: "done",
+    labelKey: "agentStatus.done",
+    groupingLabelKey: "agent_done",
+    icon: CircleCheck,
     className: "text-muted-foreground",
     color: "#94a3b8",
   },
@@ -242,8 +243,8 @@ export const WORKSPACE_AGENT_GROUP_OPTIONS = WORKSPACE_AGENT_GROUP_ORDER.map(
   (key) => AGENT_GROUP_META[key],
 );
 
-export function getWorkspaceAgentGroupMeta(key: WorkspaceAgentGroupKey): AgentGroupMeta {
-  return AGENT_GROUP_META[key];
+export function getWorkspaceAgentGroupMeta(key: string): AgentGroupMeta {
+  return AGENT_GROUP_META[parseWorkspaceAgentGroupKey(key)];
 }
 
 export const WORKSPACE_WORKFLOW_STATUS_OPTIONS = Object.values(WORKFLOW_STATUS_META);

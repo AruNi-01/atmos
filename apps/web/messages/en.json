@@ -310,7 +310,7 @@
       "agent_permission": "Need permission",
       "agent_attention": "Need attention",
       "agent_running": "Running",
-      "agent_idle": "Idle"
+      "agent_done": "Done"
     },
     "groups": {
       "ungrouped": "Ungrouped",
@@ -387,6 +387,7 @@
       "waitingForPermission": "Waiting for permission",
       "running": "Running",
       "napping": "Napping ~",
+      "sideChat": "Side chat",
       "agentIdle": "Agent: Idle",
       "status": {
         "normal": "NORMAL",
@@ -568,6 +569,14 @@
       "errors": {
         "loadOverviewFallback": "Failed to load token usage overview",
         "loadOverviewTitle": "Failed to load token usage"
+      },
+      "browserCookie": {
+        "title": "Include signed-in web usage",
+        "note": "Atmos found {products} on this computer. To add dashboard token usage, Atmos Server will ask Keychain Access to decrypt the matching browser cookie. Keys stay local and are used only to read usage data.",
+        "allow": "Allow",
+        "skip": "Not now",
+        "denied": "{products} cloud usage is off.",
+        "enable": "Enable"
       },
       "header": {
         "badges": {
@@ -2904,7 +2913,8 @@
       "notifications": {
         "permissionRequired": "Permission required",
         "completed": "Completed",
-        "jump": "Jump"
+        "jump": "Jump",
+        "sideChat": "Side chat"
       },
       "desktopAgentChatWindow": {
         "failedToOpenChatWindow": "Failed to open chat window"
@@ -4471,6 +4481,10 @@
           "label": "System Integration",
           "description": "Integrations, Desktop Use, and notifications"
         },
+        "privacySecurity": {
+          "label": "Privacy & Security",
+          "description": "Permission access and other privacy controls"
+        },
         "workspaceProjects": {
           "label": "Workspace & Projects",
           "description": "Workspace management and labels"
@@ -4549,6 +4563,10 @@
           "label": "Desktop Use",
           "description": "Local desktop capture, control engine, and macOS permissions"
         },
+        "permissionAccess": {
+          "label": "Permission access",
+          "description": "Allow Atmos Server to read signed-in browser cookies when a product is installed."
+        },
         "account": {
           "label": "Account",
           "description": "Sign in, trust this device, and manage your Atmos account"
@@ -4557,6 +4575,20 @@
       "dialog": {
         "title": "Settings",
         "description": "Manage ATMOS settings, product information, and desktop updates."
+      },
+      "permissionAccessSection": {
+        "title": "Browser cookies",
+        "description": "Atmos Server can decrypt signed-in browser cookies to read usage data. Keys stay on this computer. macOS may ask for Keychain Access after you turn a source on.",
+        "installed": "Installed",
+        "notInstalled": "Not installed",
+        "webSession": "Signed-in web session",
+        "desktopUse": {
+          "title": "Desktop Use",
+          "description": "Grant Accessibility and Screen Recording to Atmos Desktop Use. macOS System Settings is the source of truth — Atmos cannot store these grants itself."
+        },
+        "empty": "No permission sources available.",
+        "error": "Could not update Permission access. Check your connection and try again.",
+        "toggleAria": "Allow browser cookie access for {name}"
       },
       "unknownError": "Unknown error",
       "errors": {
@@ -5037,6 +5069,12 @@
           "experiments": {
             "projectWikiCenterTabs": {
               "label": "Project Wiki (Center Tabs)"
+            }
+          },
+          "permissionAccess": {
+            "browserCookies": {
+              "label": "Browser cookies",
+              "description": "Keychain access for signed-in web usage"
             }
           },
           "about": {
@@ -6258,7 +6296,11 @@
         },
         "permissions": {
           "title": "Permissions",
-          "description": "Grant Accessibility and Screen Recording to Atmos Desktop Use — one identity for capture, control, and AppShot’s Left⇧+Right⇧ shortcut."
+          "description": "Grant Accessibility and Screen Recording to Atmos Desktop Use — one identity for capture, control, and AppShot’s Left⇧+Right⇧ shortcut.",
+          "openAccessHint": "OS grants for Desktop Use live under Privacy & Security → Permission access.",
+          "openAccessTitle": "Permission access",
+          "openAccessDescription": "Grant Accessibility and Screen Recording in the shared Permission access page.",
+          "openAccess": "Open Permission access"
         },
         "visibility": {
           "title": "Visual feedback",

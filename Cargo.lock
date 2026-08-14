@@ -263,6 +263,7 @@ dependencies = [
  "libc",
  "llm",
  "local-model-runtime",
+ "permission-access",
  "portable-pty",
  "quota-usage",
  "reqwest 0.12.28",
@@ -4443,6 +4444,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9b4f627cb1b25917193a259e49bdad08f671f8d9708acfd5fe0a8c1455d87220"
 
 [[package]]
+name = "permission-access"
+version = "0.1.0"
+dependencies = [
+ "dirs 6.0.0",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.17",
+]
+
+[[package]]
 name = "pgvector"
 version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4996,6 +5007,7 @@ dependencies = [
  "hex",
  "infra",
  "pbkdf2",
+ "permission-access",
  "regex",
  "reqwest 0.12.28",
  "serde",
@@ -7470,6 +7482,7 @@ version = "0.1.0"
 dependencies = [
  "async-trait",
  "dirs 6.0.0",
+ "permission-access",
  "quota-usage",
  "reqwest 0.12.28",
  "serde",

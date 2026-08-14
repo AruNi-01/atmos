@@ -1,5 +1,6 @@
 import type { Editor, TLShapeId } from "tldraw";
 
+import { resolveAgentHookNavigationTarget } from "@/features/agent/lib/agent-hook-navigation";
 import { useAgentAttentionStore } from "@/features/agent/store/agent-attention-store";
 import { writeLastPinnedTerminal, type CanvasLastPinnedTerminal } from "@/shared/stores/use-ui-pref-hooks";
 
@@ -43,17 +44,21 @@ export function tmuxWindowNameFromAgentPaneId(paneId: string | null | undefined)
 /** Matches an agent-hook session to a live canvas-terminal shape on the current page. */
 export function findCanvasTerminalShapeForAgentSession(
   editor: Editor,
-  session: { context_id?: string | null; pane_id?: string | null },
+  session: {
+    context_id?: string | null;
+    pane_id?: string | null;
+    side_chat_id?: string | null;
+    source_pane_id?: string | null;
+    terminal_kind?: string | null;
+  },
 ): CanvasTerminalShape | null {
-  const contextId = session.context_id;
-  if (!contextId) return null;
-  const tmuxWindowName = tmuxWindowNameFromAgentPaneId(session.pane_id);
-  if (!tmuxWindowName) return null;
+  const target = resolveAgentHookNavigationTarget(session);
+  if (!target.contextId || !target.tmuxWindowName) return null;
   return (
     getCanvasTerminalShapes(editor).find(
       (shape) =>
-        shape.props.workspaceId === contextId &&
-        shape.props.tmuxWindowName === tmuxWindowName,
+        shape.props.workspaceId === target.contextId &&
+        shape.props.tmuxWindowName === target.tmuxWindowName,
     ) ?? null
   );
 }

@@ -1,9 +1,11 @@
 "use client";
 
 import React from "react";
+import { useQueryState } from "nuqs";
 
 import { terminalSideChatApi, type TerminalSideChatRecord } from "@/api/ws-api";
 import type { TerminalRef } from "@/features/terminal/components/Terminal";
+import { centerStageParams } from "@/shared/lib/nuqs/searchParams";
 import {
   getAvailableSideChatRecords,
   getFirstOpenSideChatRecord,
@@ -33,12 +35,19 @@ export function useTerminalSideChatRecords({
   terminalRefs,
   workspaceId,
 }: UseTerminalSideChatRecordsOptions) {
-  const openedSideChatParamRef = React.useRef<string | null>(null);
+  const [sideChatParam, setSideChatParam] = useQueryState(
+    "sideChat",
+    centerStageParams.sideChat,
+  );
   const [records, setRecords] = React.useState<LocalSideChatRecord[]>([]);
   const [activeSideChatId, setActiveSideChatId] = React.useState<string | null>(null);
+  const [focusNonce, setFocusNonce] = React.useState(0);
+
+  const bumpFocus = React.useCallback(() => {
+    setFocusNonce((current) => current + 1);
+  }, []);
 
   React.useEffect(() => {
-    openedSideChatParamRef.current = null;
     setActiveSideChatId(null);
     setRecords([]);
   }, [sourceSurfaceKind, sourceSurfaceRefJson, sourceTmuxWindowName, workspaceId]);
@@ -107,7 +116,8 @@ export function useTerminalSideChatRecords({
   const addRecord = React.useCallback((record: LocalSideChatRecord) => {
     setActiveSideChatId(record.side_chat_id);
     setRecords((current) => [...current, record]);
-  }, []);
+    bumpFocus();
+  }, [bumpFocus]);
 
   const hideSideChat = React.useCallback(
     async () => {
@@ -144,11 +154,12 @@ export function useTerminalSideChatRecords({
         });
         setActiveSideChatId(sideChatId);
         applyPersistedRecords([updatedRecord]);
+        bumpFocus();
       } catch (error) {
         console.error("Failed to show terminal side chat:", error);
       }
     },
-    [applyPersistedRecords, workspaceId],
+    [applyPersistedRecords, bumpFocus, workspaceId],
   );
 
   const closeSideChat = React.useCallback(
@@ -170,16 +181,18 @@ export function useTerminalSideChatRecords({
   );
 
   React.useEffect(() => {
-    if (typeof window === "undefined") return;
-    const sideChatId = new URLSearchParams(window.location.search).get("sideChat");
-    if (!sideChatId || openedSideChatParamRef.current === sideChatId) return;
+    const sideChatId = sideChatParam?.trim();
+    if (!sideChatId) return;
     const record = records.find((item) => item.side_chat_id === sideChatId);
     if (!record) return;
-    openedSideChatParamRef.current = sideChatId;
     if (!isSideChatOpen(record.status)) {
       void showSideChat(sideChatId);
+    } else {
+      setActiveSideChatId(sideChatId);
+      bumpFocus();
     }
-  }, [records, showSideChat]);
+    void setSideChatParam(null);
+  }, [bumpFocus, records, setSideChatParam, showSideChat, sideChatParam]);
 
   React.useEffect(() => {
     const availableRecords = getAvailableSideChatRecords(records);
@@ -196,7 +209,9 @@ export function useTerminalSideChatRecords({
   return {
     activeSideChatId,
     addRecord,
+    bumpFocus,
     closeSideChat,
+    focusNonce,
     hideSideChat,
     persistRecord,
     records,

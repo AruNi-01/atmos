@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 quota-usage = { path = "../quota-usage" }
+permission-access = { path = "../permission-access" }
 async-trait = "0.1"
 dirs = "6.0"
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }

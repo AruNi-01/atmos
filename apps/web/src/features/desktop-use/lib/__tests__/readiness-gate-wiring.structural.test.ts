@@ -36,6 +36,7 @@ describe("desktop-use readiness gate wiring", () => {
       "apps/web/src/features/desktop-use/components/DesktopUseReadinessDialog.tsx",
     );
     expect(dialog).toContain("useOpenDesktopUseSettings");
+    expect(dialog).toContain("useOpenPermissionAccessSettings");
     expect(dialog).toContain("OPEN_SETTLE_MS");
     expect(dialog).toContain("onPointerDownOutside");
   });

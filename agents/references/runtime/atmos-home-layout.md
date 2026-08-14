@@ -29,6 +29,7 @@ Canonical on-disk layout (no legacy root-level secret/config files).
     browser-use/
     quota-usage/        # always here — never under data/desktop/
     token-usage/        # always here — never under data/desktop/
+    permission-access/  # consent.json — never under data/desktop/
     local-model-runtime/
     agent/sessions/
 
@@ -60,6 +61,7 @@ Desktop may set `ATMOS_DATA_DIR=~/.atmos/data/desktop` for **shell-scoped** Serv
 |---------|----------------|--------------|
 | Token usage | `~/.atmos/data/token-usage` | `ATMOS_TOKEN_USAGE_DIR` |
 | Quota usage | `~/.atmos/data/quota-usage` | `ATMOS_QUOTA_USAGE_DIR` |
+| Permission Access | `~/.atmos/data/permission-access` | `ATMOS_PERMISSION_ACCESS_DIR` |
 | SQLite | `~/.atmos/data/db/atmos.db` | (infra path) |
 | Workspaces | `~/.atmos/data/workspaces` | — |
 
