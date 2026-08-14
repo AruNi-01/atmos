@@ -168,6 +168,10 @@ pub fn http_post_json_auth(
     serde_json::from_str(body_str).map_err(|e| format!("embedded host JSON: {e}"))
 }
 
+fn control_envelope_ok(v: &Value) -> bool {
+    v.get("ok").and_then(Value::as_bool).unwrap_or(false)
+}
+
 struct ParsedUrl {
     host: String,
     port: u16,
@@ -565,7 +569,7 @@ impl BrowserBackend for EmbeddedBackend {
         let path = request_path(req.action);
         match http_post_json_auth(&meta.base_url, path, &body, Some(&meta.token)) {
             Ok(v) => {
-                let ok = v.get("ok").and_then(|x| x.as_bool()).unwrap_or(true);
+                let ok = control_envelope_ok(&v);
                 if !ok {
                     let msg = v
                         .get("error")
@@ -681,6 +685,14 @@ mod tests {
         assert!(build_embedded_body(&req)
             .unwrap_err()
             .contains("not supported"));
+    }
+
+    #[test]
+    fn missing_ok_is_not_success() {
+        assert!(control_envelope_ok(&json!({ "ok": true })));
+        assert!(!control_envelope_ok(&json!({ "ok": false })));
+        assert!(!control_envelope_ok(&json!({})));
+        assert!(!control_envelope_ok(&json!({ "error": "nope" })));
     }
 
     #[test]
