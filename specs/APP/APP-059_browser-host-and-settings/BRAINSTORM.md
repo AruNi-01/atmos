@@ -1,68 +1,63 @@
-# Brainstorm · APP-059: Browser Host & Settings
+# Brainstorm · APP-059: Browser Use experience kernel
 
-> Problem space and exploration. Settled content graduates to PRD.md; committed architecture graduates to TECH.md.
+> Problem space. The Settings page and agent-opened tabs are **one** surface of a larger leap: unified agent contract, first-success without ritual, and human→agent handoff.
 
 ## Context
 
-Browser Use is now reliable (snapshot-scoped refs, honest routing, renderer-owned tabs) but still a **tool the agent must already find**. If no Browser chrome is mounted, `tabs open` / `state` fail closed. Humans already have two surfaces — right sidebar `BrowserPanel` and center-stage browser tabs — plus a layout toggle `rsShowBrowser`. Agents cannot create either surface, and there is no Settings home for Browser itself.
+Hardening made Browser Use **correct**. It is still not **pleasant**:
 
-Trigger: after the Browser Use hardening pass, the remaining leap is **ensure-then-act** plus a user-owned default surface (sidebar vs center).
+1. Agent learns two backends, two snapshot names, two loops (`prepare` then bind `state` then snapshot `state`).
+2. First refs take three round-trips even when a Browser tab is already on screen.
+3. User pick/annotate is a side channel (`user_picks`) the model must be taught to read.
+4. If no chrome is mounted, the agent cannot open one; placement (sidebar vs center) is implicit.
 
-Who feels it: Desktop builders who want the agent to open pages in *their* Browser, and anyone hunting cookie / sidebar / download prefs across Layout, Desktop Use, and implicit defaults.
+(4) is the new product capability. (1)–(3) are the experience lift called out after hardening. This spec does **all four**. Shipping only (4) is not “optimal UX”.
 
 ## Goals (draft)
 
-- Primary: agent can open a real Atmos Browser tab without the user pre-opening one; placement follows a user setting.
-- Primary: Settings gains a **Browser** page that owns all Browser product prefs.
-- Secondary: one agent-facing loop (capabilities from `prepare`), not two tutorials.
-- Non-goal: MCP, first-class `browser_*` tools, faking `semantic_v2` on embedded.
+- One agent-facing `state` envelope and one skill loop. Backends stay two runtimes; the CLI hides the split.
+- First Desktop embedded success is one `state` (or one `tabs open`). No mandatory `prepare`. No bind-only `state` when a host is already resolvable.
+- User highlights become the first `elements[]` on the next `state`. No second API.
+- User setting owns sidebar vs center; agent can ensure that chrome when none exists.
 
-## Options
+## Options (experience kernel)
 
-### Option A — Agent picks `--surface sidebar|center`
-Agent decides where the tab goes.
+### Unify — A: Fake one snapshot format
+Map embedded DOM onto `semantic_v2`.
 
-**Pros**: flexible per task.
-**Cons**: fights the user's layout; models will guess; two more flags in the skill.
-**Unknown**: none — rejected.
+**Rejected**: lies about engine contract; breaks continuation / roles.
 
-### Option B — User setting is the only placement; agent only says “open”
-Settings `Default surface`: Sidebar | Center tabs. `tabs open` / first `state` **ensures** that chrome, then binds.
+### Unify — B: CLI envelope + capability_flags (locked)
+Same JSON shape for `state` on both backends: `elements[]`, `truncated`, `total_candidates`, `capability_flags`. Honest `snapshot_format`. Skill is one procedure.
 
-**Pros**: user owns layout; agent loop stays short; matches “open a browser” mental model.
-**Cons**: cannot put one task in center and the next in sidebar without changing Settings.
-**Unknown**: none for v1 — this is the locked shape.
+### First success — A: Keep prepare + bind + snapshot
+**Rejected**: that is today’s ritual.
 
-### Option C — Always open center (or always sidebar)
-Hard-code one chrome.
+### First success — B: Resolvable host ⇒ snapshot now (locked)
+No target + last-active or unique guest → return a **snapshot**, not a bind list. Zero hosts → ensure default surface, then snapshot. `prepare` remains for external / capability probe only.
 
-**Pros**: simplest code.
-**Cons**: ignores the two surfaces we already shipped; user asked for a setting.
-**Unknown**: none — rejected.
+### Handoff — A: Teach `user_picks` in the skill
+**Rejected**: second channel, models miss it.
 
-## Key forks in the road
+### Handoff — B: Picks are the snapshot (locked)
+On pick, mark last-active and refresh the snapshot cache. Next `state` prepends live highlights as normal refs. Skill never says “read `user_picks`”.
 
-- **Placement authority**: user setting, not agent flag — locked for PRD.
-- **Ensure vs fail-closed**: first bound action may create chrome — locked for PRD.
-- **Existing target**: if `--target-id` is already bound, open an in-panel tab there; do not spawn a second chrome — locked for TECH.
-- **Hide-sidebar vs default-sidebar**: choosing Sidebar as default turns the sidebar Browser module on — locked for PRD.
-- **Desktop Use on the Browser page**: link only, do not move TCC / engine install — locked for PRD.
+### Placement — user setting, not `--surface` (locked)
+See PRD M1–M7. Agent does not choose chrome.
 
-## Open questions
+## Key forks
 
-- [x] Default surface for existing users → **sidebar** (current product home).
-- [x] Agent `--surface` override → **out of scope** for v1.
-- [x] Web (non-Desktop) ensure → Settings + human center/sidebar only; embedded control plane stays Desktop.
+- Unify by **envelope**, not by faking `semantic_v2` — PRD.
+- Bind-mode `state` **dies** for the common path — TECH.
+- `user_picks` may remain as a compatibility alias; it is not the agent API — PRD.
+- Settings / ensure is required, not a substitute for (1)–(3) — PRD.
 
 ## References
 
-- Existing chrome: `apps/web/src/app-shell/RightSidebar.tsx`, `use-browser-center-tabs.ts`, `BrowserPanel.tsx`
-- Agent tab bus: `use-browser-agent-tab-bridge.ts`, `browser-use-control.ts` `/v1/tabs`
-- Layout toggle: `layout-settings-store.ts` `rsShowBrowser`
-- Settings IA: `settings-modal-data.ts`, `SettingsModalRule.md`
-- Related: APP-052 (Browser Use / no MCP), APP-053 (webview), APP-041 (cookie sync)
+- Hardening: binding lifecycle, last-active host, query/truncated, renderer-owned tabs.
+- Chrome: `RightSidebar.tsx`, `use-browser-center-tabs.ts`, `BrowserPanel.tsx`.
+- APP-052 (no MCP), APP-053 (webview), APP-041 (cookies).
 
 ## Ready to promote
 
-- Promote to PRD: ensure-then-act; Settings → Browser; default surface sidebar|center; agent does not choose surface.
-- Promote to TECH: `ensureSurface` on the renderer command bus; `functionSettings` group `browser`; capabilities on `prepare`/`state`; skill one-loop rewrite.
+All four pillars are Must Have in one ship: unify, first success, handoff, host+settings.

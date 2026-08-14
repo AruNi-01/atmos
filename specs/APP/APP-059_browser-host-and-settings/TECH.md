@@ -1,207 +1,177 @@
-# TECH · APP-059: Browser Host & Settings
+# TECH · APP-059: Browser Use experience kernel
 
-> HOW. Domain: **browser**. WebSocket-first for settings persistence (existing `functionSettingsApi`). No new REST. No MCP.
+> HOW. No new REST. No MCP. Settings via existing `functionSettingsApi`.
 
-<!-- updated 2026-08-14: initial design -->
+<!-- updated 2026-08-14: four pillars — unify, first success, handoff, host+settings -->
 
 ## Scope
 
 | Area | Change |
 |------|--------|
-| Settings | New `browser` tab; Interface group; i18n `settings.browser.*` + `settings.modal.sections.browser` |
-| Function settings | New group `browser` (or extend `layout` only for `rsShowBrowser`) |
-| Renderer host | `ensureSurface` on the Browser command bus |
-| Agent tab bridge | `open` / bind-mode `state` may ensure before acting |
-| Control plane | `/v1/tabs` open and `/v1/state` bind already talk to renderer; no new HTTP routes |
-| Skill | One loop + capabilities; version bump |
-| Layout settings UI | Remove Browser row from Right sidebar layout card; keep key + store method |
+| CLI + `crates/browser-use` | Unified `state` envelope; `capability_flags` on every success; bind-mode no longer the empty-`state` success path |
+| Embedded control plane | `/v1/state` without target snapshots last-active / unique guest; zero guests → renderer ensure |
+| Renderer | `ensureSurface`; pick marks last-active + asks host to refresh snapshot cache |
+| Skill | One loop; no `prepare`-first; no `user_picks` workflow |
+| Settings | `browser` tab + store; move Layout Browser row |
 
 ## Locked decisions
 
-1. **User owns placement.** Persist `browser.default_surface`: `"sidebar" | "center"`. Default `"sidebar"`.
-2. **Ensure only when zero hosts.** Last-active / single-host / ambiguous stay as shipped in the hardening pass.
-3. **Bound `target_id` never relocates chrome.**
-4. **No `--surface` CLI flag** in this spec.
-5. **Sidebar default ⇒ `rsShowBrowser = true`** on save and on ensure.
-6. Desktop Use stays on its own Settings page; Browser page links to `desktop-use`.
+1. Unify by **envelope + flags**, not by faking `semantic_v2`.
+2. Empty `state` that can resolve a host returns a **snapshot**, not a session list.
+3. Picks are **prepended `elements`**. `user_picks` is a compatibility alias only.
+4. User owns placement. No `--surface`.
+5. Ensure only when **zero** hosts. Bound `target_id` never relocates chrome.
+6. Sidebar default / sidebar ensure ⇒ `rsShowBrowser = true`.
+7. Desktop Use stays on its own Settings page.
 
-## Architecture
+## Unified `state` envelope (U1–U3)
 
-```text
-User setting (functionSettings group `browser`)
-  default_surface: sidebar | center
-  new_tab_url: string
-  show_agent_chrome: bool
-
-Agent / CLI
-  atmos browser-use tabs --action open --url …
-  atmos browser-use state --backend embedded     # bind, zero guests
-
-Embedded control plane (main)
-  POST /v1/tabs { action: open, url }
-  POST /v1/state { }                             # bind mode
-        │
-        ▼
-  emitAgentTab { tabAction: open|ensure-bind, url? }
-        │
-        ▼
-Renderer (same window that owns the host)
-  read default_surface
-  if zero Browser panels mounted:
-      ensureSurface(placement, url?)
-  else:
-      resolveContext (existing honesty)
-  open in-panel tab / bind session
-  ack { target_id, tab_id, surface }
-```
-
-Do **not** let Electron main create a `<webview>` or write tab stores. Ensure is renderer-owned, same as today’s tab CRUD.
-
-## Data
-
-### Function settings group `browser`
-
-| Key | Type | Default | Notes |
-|-----|------|---------|-------|
-| `default_surface` | `"sidebar" \| "center"` | `"sidebar"` | M1 |
-| `new_tab_url` | string | `""` | Empty = current empty-tab behavior (`about:blank` / user typed URL) |
-| `show_agent_chrome` | bool | `true` | Badge + guest cursor |
-
-`right_sidebar_show_browser` remains on the existing **layout** group so sidebar module visibility does not fork. Browser Settings writes it through `setRightSidebarShowBrowser`.
-
-Store: `apps/web/src/features/settings/store/browser-settings-store.ts` (zustand + `functionSettingsApi.update('browser', key, value)`), matching terminal/layout stores.
-
-### Agent tab payload (extend, do not replace)
-
-```ts
-type AgentTabPayload = {
-  requestId: string;
-  tabAction: "open" | "select" | "close" | "ensure-bind";
-  url?: string;
-  targetId?: string;
-};
-```
-
-`ensure-bind` is bind-mode `state` when the renderer reports zero panels. `open` with a URL and zero panels also ensures, then opens.
-
-Ack adds:
-
-```ts
-surface?: "sidebar" | "center";
-```
-
-CLI / crate pass `surface` through on the JSON result (optional field). Binding still stores only `{backend,target_id,tab_id}`.
-
-## Renderer: `ensureSurface`
-
-Add to `use-browser-tab-commands.ts` (or a sibling `use-browser-host.ts` if the command union would blur). Keep **one FIFO per context**.
-
-```ts
-ensureSurface(input: {
-  contextId: string;          // workspace/project context, not session id
-  placement: "sidebar" | "center";
-  url?: string;
-}): Promise<{ tabId: string; evictedSessionIds: string[]; surface: "sidebar" | "center" }>;
-```
-
-### Sidebar path
-
-1. `setRightSidebarShowBrowser(true)` if needed.
-2. Expand right sidebar if collapsed (existing RightSidebar collapse API).
-3. Select sidebar tab `"browser"`.
-4. If `url`, enqueue existing `openTab` on the sidebar `browserContextId`.
-5. Wait for `sessionForTab` (same 8s bind wait as today’s open).
-
-### Center path
-
-1. `useBrowserCenterTabsStore.openBrowser(contextId)` if this workspace has no center browser, **or** reuse the last center browser for that context when one exists and we are ensuring (not when the user asked for a brand-new human center tab).
-2. `setCenterStageParams({ tab: centerTab.value })`.
-3. If `url`, `openTab` on `centerTab.browserContextId`.
-4. Wait for bind.
-
-**Reuse rule (locked):** ensure prefers one chrome per workspace per placement. Do not open a new center Browser on every agent `tabs open` when a center Browser already exists for that workspace.
-
-### Human entry points
-
-`use-open-browser-center-tab.ts` and Welcome / slash “open Browser” read `default_surface` and call `ensureSurface` instead of hard-coding center or sidebar.
-
-## Control plane
-
-No new HTTP path. Changes in `requestAgentTab` / `/v1/state` bind:
-
-- Bind with **zero** sessions: emit `ensure-bind` (or `open` with `new_tab_url` / `about:blank`) instead of `ok: false` + `browser_route_unavailable`.
-- `/v1/tabs` `open` already emits `open`; renderer performs ensure when `resolveContext` would have returned `embedded_browser_host_unavailable`.
-- Timeouts stay host 15s > renderer 8s + bind 8s.
-- Unknown explicit `target_id` stays `browser_route_unavailable` (do not ensure a *different* surface to “save” a bad id).
-
-`prepare` / health capabilities array already exists; add structured:
+CLI / crate normalize every successful `state` (and `prepare` for flags) to:
 
 ```json
-"capability_flags": {
-  "tabs": true,
-  "query": true,
-  "continuation": false,
-  "upload": false,
-  "press_key": true,
+{
+  "ok": true,
+  "action": "state",
+  "backend": "embedded",
+  "target_id": "…",
+  "tab_id": "main",
   "snapshot_format": "embedded_dom_v1",
-  "ensure_surface": true
+  "elements": [],
+  "element_count": 0,
+  "truncated": false,
+  "total_candidates": 0,
+  "capability_flags": {
+    "tabs": true,
+    "query": true,
+    "continuation": false,
+    "upload": false,
+    "press_key": true,
+    "ensure_surface": true,
+    "snapshot_format": "embedded_dom_v1"
+  },
+  "pending_dialog": null
 }
 ```
 
-External `prepare` returns the inverse flags (`continuation` / `upload` true, `tabs` / `press_key` / `ensure_surface` false).
+Implementation: `fill_result_envelope(&mut BrowserResult, backend)` in `crates/browser-use` after each backend returns. Embedded host already has `truncated` / `total_candidates`; external maps engine fields into the same names (missing ⇒ `false` / `elements.len()`).
 
-## Settings UI
+Skill: one loop in `skills/atmos-browser-use` (bump version). Desktop embedded starts at `state`. `prepare` is documented only as “external engine / optional probe”.
 
-Follow `SettingsModalRule.md`.
+## First success (F1–F3)
 
-- `SettingsModalTab` += `"browser"`.
-- `SETTINGS_GROUPS.interface.items` += `"browser"` after `"terminal"` (or after `"layout"` — **after terminal** keeps layout as chrome chrome, Browser as the product).
-- New `BrowserSettingsSection.tsx`: cards
-  1. **Placement** — segmented control Sidebar | Center tabs; description: “New Browser sessions from you or an agent.”
-  2. **Right sidebar** — show Browser module (existing switch).
-  3. **New tab** — URL input; empty allowed.
-  4. **Agent** — show activity chrome switch.
-  5. **Downloads** — read-only path `~/.atmos/data/browser-use/downloads` + one sentence; no free-form dir (still enforced by control plane).
-  6. **Related** — links to Settings → Desktop Use, and cookie / site-data actions already in the Browser toolbar (do not rebuild APP-041 here; link or short “Clear site data is in the Browser menu” note).
+Today `/v1/state` without `target_id` is bind-only (list + maybe one id). That is the extra round-trip.
 
-Layout `RightSidebarLayoutSettingsSection`: delete the Browser row so there is a single editor. Search keywords on the Browser section include `sidebar`, `center`, `webview`, `homepage`, `download`.
+**New host behavior:**
 
-i18n: `apps/web/messages/en.json` + `zh.json`. English sentence case. Chinese natural prose; product name `Browser` stays English.
+```text
+POST /v1/state  { target_id?, query? }
+  if target_id:
+      snapshot(target_id, query)           # unchanged
+  else if last-active bound guest:
+      snapshot(last-active, query)         # NEW — snapshot now
+  else if exactly one bound guest:
+      snapshot(that guest, query)          # NEW
+  else if several bound guests:
+      200 { ok:false, error_code: browser_ambiguous_target, sessions }
+  else: # zero
+      renderer ensure-bind (default surface, new_tab_url)
+      snapshot(new target, query)
+```
 
-## Skill (`skills/atmos-browser-use`)
+`prepare` does **not** run in this path. Embedded backend already talks to the control plane if `control.json` exists.
 
-Rewrite to **one** loop:
+CLI `execute(State)` commits binding from the snapshot ids (already true after hardening).
 
-1. `prepare` (backend omitted → binding / Desktop prefers embedded).
-2. Read `capability_flags`.
-3. `state` (ensure + bind if embedded and empty).
-4. Act with refs from that snapshot.
-5. `tabs` only if `tabs: true`.
+`tabs open` with zero hosts: renderer `ensureSurface` then in-panel open (H2). With a resolvable last-active and no target: open a page tab **in that panel**, do not ensure a second chrome.
 
-Document: “If no tab is open, embedded `state` / `tabs open` creates one in the user’s default surface (Settings → Browser).”
+## Handoff (P1–P3)
 
-## Rollout
+On `browser_bridge_user_picks`:
 
-1. Settings store + Browser page + move layout toggle (no agent behavior change).
-2. `ensureSurface` + human entry points honor `default_surface`.
-3. Agent tab bridge / control-plane bind-empty path.
-4. Capabilities + skill rewrite.
-5. Tests in TEST.md.
+1. `setUserPicks(sessionId, picks)` (already).
+2. `markLastActive(sessionId)` on the surface manager.
+3. `refreshSnapshotCache(sessionId)` — rebuild cache with picks **prepended** as `g{gen}:u0…`, then remaining DOM `eN`. Bump generation so prior refs stale.
+4. Do not require the agent to call anything else.
 
-Each step stays shippable; 1–2 are useful without 3.
+`/v1/state` snapshot builder already merges picks; change order to **picks first**, and stop treating missing selector as a clickable rect (hardening). Skill: “Highlighted nodes are the first elements. Re-`state` after the user points at something.”
+
+`user_picks` key may still be emitted as `elements.filter(source)` for one release; skill and `--help` omit it.
+
+## Host & Settings (H1–H7)
+
+Unchanged from the previous TECH draft, summarized:
+
+- Function settings group `browser`: `default_surface` (`sidebar`|`center`, default `sidebar`), `new_tab_url`, `show_agent_chrome`.
+- `rsShowBrowser` stays on **layout** group; Browser page is the only editor.
+- `ensureSurface({ contextId, placement, url? })` on the renderer FIFO.
+  - Sidebar: show module, expand, select `browser`, optional `openTab`.
+  - Center: reuse last center Browser for the workspace, else `openBrowser`, then optional `openTab`.
+- Agent tab actions: `open` | `select` | `close` | `ensure-bind`.
+- Ack may include `surface`.
+- Settings tab `browser` in Interface; Layout card drops the Browser row.
+- i18n en+zh, sentence case.
+
+```text
+User setting default_surface
+        │
+Agent: state | tabs open
+        │
+Control plane
+        ├─ host resolvable → snapshot / open-in-panel
+        └─ zero hosts → emitAgentTab(ensure-bind|open)
+                │
+         Renderer ensureSurface(placement)
+                │
+         bind session → ack target_id
+                │
+         snapshot (state) or done (tabs open)
+```
+
+Main process still does not create in-panel webviews or write React tab state.
+
+## Skill loop (canonical)
+
+```text
+# Desktop / embedded (host up or will ensure)
+atmos browser-use state
+# → elements, target_id, capability_flags
+# act with refs from THIS snapshot only
+atmos browser-use click --ref …
+# after navigate, user pick, or mutation:
+atmos browser-use state
+
+# only if capability_flags.tabs
+atmos browser-use tabs --action open --url …
+
+# only if capability_flags.upload / continuation / …
+```
+
+External: if `prepare` is required by the engine, the skill does it **once** when `capability_flags` from a failed `state` say setup is needed — not as the default first line on Desktop.
+
+## Rollout (implementation chunks, one ship)
+
+These are engineering slices, not product phases. All Must Haves land in the same PR train:
+
+1. Envelope + `capability_flags` + skill one-loop (U*, F1 documentation).
+2. `/v1/state` snapshot-now + pick prepend + last-active on pick (F2, P*).
+3. Settings page + `ensureSurface` + empty-host ensure (H*, F2 zero-guest).
+4. TEST.md scenarios green.
+
+Do not ship Settings/ensure without U/F/P — that is the failure mode of the first draft of this spec.
 
 ## Risks
 
 | Risk | Mitigation |
 |------|------------|
-| Ensure opens chrome in the wrong window | Keep last-active host routing; ensure only at zero hosts |
-| Center `openBrowser` creates a new center tab every call | Reuse last center browser per workspace on ensure |
-| User hid sidebar but default is sidebar | Saving Sidebar default and ensure both set `rsShowBrowser` |
-| Settings group schema missing on older computers | Default locally; `functionSettingsApi` create-on-write like other groups |
-| Dual FIFO (ensure + open) races | One command token; ensure internally calls open after chrome exists |
+| Snapshot-now on the wrong tab | Only last-active or unique guest; else ambiguous |
+| Ensure in the wrong window | Ensure only at zero hosts; otherwise last-active host |
+| Models still call `prepare` | Skill + CLI help; `prepare` remains harmless |
+| Old clients read `user_picks` | Keep alias one release |
+| Center ensure spawns many tabs | Reuse last center Browser per workspace |
 
 ## Non-goals (tech)
 
-- New WS actions (unless function-settings group registration already requires a known key list — extend that list, do not invent a parallel channel).
+- New public REST.
 - Main-process tab store.
-- Broadcasting `agent-tab` to every window.
+- Broadcast `agent-tab` to every window.
+- `--surface` clap flag.

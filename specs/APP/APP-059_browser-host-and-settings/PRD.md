@@ -1,76 +1,96 @@
-# PRD · APP-059: Browser Host & Settings
+# PRD · APP-059: Browser Use experience kernel
 
-> WHAT & WHY. Product domain: **browser**. Builds on APP-052 (Browser Use, no MCP) and APP-053 (in-app webview).
+> WHAT & WHY. Domain: **browser**. Builds on APP-052 / APP-053. Includes the new host+settings capability **and** the three experience lifts (unify, first success, handoff). None of the four is optional.
 
 ## Context
 
-- **Problem**: Agents can drive a page only after a human has already opened Atmos Browser. Placement (sidebar vs center) is implicit. Browser prefs are scattered (Layout “show Browser”, cookies, downloads, agent chrome).
-- **Why now**: Browser Use is reliable enough to become a **host the product opens**, not a tool that hopes chrome exists.
-- **Related**: APP-052, APP-053, APP-041. Does not change Desktop Use TCC / engine install (APP-052).
+- **Problem**: Browser Use is operable but not a product. Agents run a three-step ritual (`prepare` → bind `state` → snapshot `state`), learn two backends, and must be taught a side channel for user highlights. They also cannot open sidebar vs center chrome; humans hunt Browser prefs across Layout.
+- **Why now**: Reliability work is done. The next layer is **one contract, one first call, one handoff, one Settings page**.
+- **Related**: APP-052, APP-053, APP-041. Desktop Use TCC/engine stay on their own page.
 
 ## Goals
 
-1. Primary — A user setting chooses where new Browser sessions appear: **right sidebar** or **center tabs**. Agents and humans follow it.
-2. Primary — An agent can open a Browser tab without a pre-existing panel (`ensure-then-act`).
-3. Secondary — Settings has a **Browser** page that owns all Browser product preferences.
+1. **Unify** — One agent-facing `state` shape and one skill loop. CLI publishes `capability_flags`; it does not pretend embedded is `semantic_v2`.
+2. **First success** — On Desktop with embedded, the first command is `state` (or `tabs open`). If a Browser is already open and resolvable, that call **returns the snapshot**. No `prepare`. No second `state` just to bind.
+3. **Handoff** — After the user picks/annotates, the next `state` shows those nodes as the **first `elements[]`**. The agent is not taught `user_picks`.
+4. **Host** — User setting chooses Sidebar vs Center tabs. If no chrome exists, the agent’s `state` / `tabs open` creates it there.
 
 ## Users & Scenarios
 
-- **Primary persona**: Desktop builder using `/browser-use` or `atmos browser-use --backend embedded`.
+- **Primary persona**: Desktop builder + `/browser-use` / `atmos browser-use --backend embedded`.
 - **Key scenarios**:
-  1. Settings → Browser → Default surface = Center tabs. Agent runs `tabs --action open --url https://example.com`. A center Browser tab appears and binds; no human pre-click.
-  2. Default surface = Sidebar. Same command opens the right-sidebar Browser module (showing it if hidden) and a page tab inside it.
-  3. Agent already has a `--target-id`. `tabs open` adds a tab **in that panel**, wherever it already lives.
-  4. User opens Settings → Browser and changes homepage, agent chrome, downloads, sidebar visibility, cookie-related Browser prefs — without visiting Layout / Desktop Use except via a link.
+  1. Browser already open in the sidebar. Agent runs only `atmos browser-use state`. JSON has `target_id` **and** `elements`. Binding is committed. No `prepare`.
+  2. No Browser open. Same `state` (or `tabs open --url …`) creates chrome in Settings → Browser → Default surface, then snapshots / binds.
+  3. User highlights a button. Agent’s next `state` lists that node first (`gN:u0` or equivalent). Skill never mentions `user_picks`.
+  4. External Chrome path uses the **same** `state` fields; `capability_flags.continuation` / `upload` are true; `tabs` / `ensure_surface` are false. One skill loop.
+  5. User changes Default surface to Center tabs; the next ensure opens center, not sidebar.
+  6. Settings → Browser is the only place for surface, sidebar visibility, homepage, agent chrome, download root copy.
 
 ## User Stories
 
-- As a builder, I want the agent to open pages in the chrome I already use so I can watch or take over.
-- As a builder, I want one Settings page for Browser so I am not hunting toggles.
-- As an agent, I want `state` / `tabs open` to succeed on a fresh Desktop window so I do not ask the user to “open a Browser tab first”.
+- As an agent, I want one `state` call to mean “here is the page I should act on”.
+- As an agent, I want user highlights to show up as normal refs so I do not learn a second API.
+- As a builder, I want the agent to open pages in the chrome I configured.
+- As a builder, I want one Settings page named Browser.
 
 ## Functional Requirements
 
-### Must Have
+### Must Have — Unify (agent contract)
 
-- **M1: Default surface setting** — `Sidebar` | `Center tabs`. Default for existing users: **Sidebar**. Sentence case in English UI. Persisted with other function settings (not a one-off localStorage key).
-- **M2: Agent ensure-then-act** — On Desktop, if no Browser host is mounted, `tabs --action open` and bind-mode `state` (no `--target-id`, zero bound guests) create the default surface, then bind. Failure is only when Desktop / renderer cannot create chrome (`embedded_browser_host_unavailable`).
-- **M3: Existing target stays put** — If `--target-id` is bound, open/select/close act on that panel. Do not spawn a second sidebar or center chrome.
-- **M4: Last-active before ensure** — If guests already exist and the call has no target, keep today’s honest routing (last-active host, else one host, else `browser_ambiguous_target`). Ensure only when **zero** hosts exist.
-- **M5: Sidebar default implies module on** — Choosing Sidebar as default surface turns on `rsShowBrowser` and focuses the sidebar Browser tab when ensuring. Choosing Center does not hide the sidebar module.
-- **M6: Settings → Browser page** — New Settings section in the Interface group, next to Layout / Editor / Canvas / Terminal. Owns:
-  - Default surface (M1)
-  - Show Browser in the right sidebar (moved UI from Layout; same persisted key)
-  - New tab / homepage URL
-  - Show agent activity chrome (badge + guest cursor)
-  - Embedded download root explanation (path is still the approved Browser Use downloads directory)
-  - Entry points / links for cookie sync (APP-041) and “system Chrome / Desktop Use” (do not duplicate engine/TCC controls)
-- **M7: Human open follows the same default** — Welcome / slash / empty-state “open Browser” uses M1. Existing “Move to center” on a sidebar panel stays as an explicit move, not a settings change.
-- **M8: One agent loop** — Skill + `prepare` expose a **capabilities** object (`tabs`, `query`, `continuation`, `upload`, `press_key`, `snapshot_format`). Skill is one procedure that branches on capabilities. Do not teach two full tutorials.
-- **M9: Placement is not an agent flag** — No `--surface` in v1. User setting is the source of truth.
+- **U1: One `state` envelope** — Both backends return the same top-level fields: `ok`, `backend`, `target_id`, `tab_id`, `snapshot_format`, `elements` (`ref`, `name`, `role`, `tag`, `href?`, `visible`, `rect?`), `truncated`, `total_candidates`, `capability_flags`, `pending_dialog?`. Honest `snapshot_format` (`embedded_dom_v1` vs `semantic_v2`). CLI fills missing fields (e.g. embedded `truncated`) so the skill never branches on “is this bind or snapshot”.
+- **U2: `capability_flags` on every success** — At least `tabs`, `query`, `continuation`, `upload`, `press_key`, `ensure_surface`, `snapshot_format`. Not only on `prepare`.
+- **U3: One skill loop** — `skills/atmos-browser-use` is a single procedure: `state` → act → re-`state` after navigate/mutation. Branch only on flags (`if continuation`, `if upload`, `if tabs`). Delete the two full backend tutorials. Do not document `user_picks` as a workflow. Do not require `prepare` on Desktop embedded.
+
+### Must Have — First success
+
+- **F1: No mandatory prepare (embedded Desktop)** — Host already running ⇒ `state` / `tabs` / click work without a prior `prepare`. `prepare` stays for external engine setup and as an optional capability probe.
+- **F2: Resolvable host ⇒ snapshot now** — `state` without `--target-id`:
+  - last-active or exactly one bound guest → **snapshot that guest** (elements in the same response);
+  - several guests and no last-active → `browser_ambiguous_target`;
+  - zero guests → **ensure** default surface (H2), then snapshot (homepage / `new_tab_url` / `about:blank`).
+  Bind-only `state` (sessions list, `target_id`, no elements) is **not** the success path.
+- **F3: Binding after first success** — That `state` commits `{backend,target_id,tab_id}` so later calls omit the ids.
+
+### Must Have — Handoff
+
+- **P1: Picks are elements** — Live user pick/annotate nodes are prepended to `elements[]` with snapshot-scoped refs. `user_picks` may remain as a duplicate array for old clients; the skill and CLI help do not mention it.
+- **P2: Pick focuses the route** — A pick marks that guest last-active and refreshes the snapshot cache (old refs stale). The next `state` without `--target-id` lands on that tab and shows highlights first.
+- **P3: No extra agent step** — The agent does not call a pick API. After the user highlights, one `state` is enough.
+
+### Must Have — Host & Settings (new capability)
+
+- **H1: Default surface** — `Sidebar` | `Center tabs`. Existing users default **Sidebar**. Sentence case. Persisted via function settings.
+- **H2: Ensure-then-act** — Zero hosts only. `tabs open` and F2’s empty `state` create the default surface, then bind/snapshot. Wrong `--target-id` does **not** ensure a different surface.
+- **H3: Bound target stays** — Existing `target_id` opens/selects/closes in that panel.
+- **H4: Sidebar default shows the module** — Saving Sidebar or ensuring sidebar sets `rsShowBrowser` true and focuses the sidebar Browser tab. Center default does not hide the module.
+- **H5: Settings → Browser** — Interface group. Owns: default surface, show-in-sidebar (moved from Layout, same key), new-tab URL, agent chrome, download-root copy, links to Desktop Use and in-browser cookie/site-data (APP-041 not rebuilt).
+- **H6: Human open follows H1** — Welcome / slash / empty-state “open Browser” uses the same default. “Move to center” stays an explicit move.
+- **H7: No `--surface`** — User setting is the only placement authority.
 
 ### Nice to Have
 
-- Remember last human-used surface as a “Follow last used” third option.
+- “Follow last used” as a third default-surface option.
 - Per-workspace default surface.
-- Agent `--surface` override after v1 if a real task needs both chromes at once.
+- `highlight_count` on `state` as a redundant hint (P1 already sufficient).
 
 ## Non-Goals
 
-- MCP or first-class `browser_*` tools (APP-052).
+- MCP / first-class `browser_*` tools.
 - Faking `semantic_v2` on embedded; auto-snapshot then click `e0`.
-- Moving Desktop Use driver / TCC / AppShot into the Browser page.
+- Moving Desktop Use driver / TCC / AppShot into Browser settings.
 - Web (non-Desktop) embedded control plane.
-- Changing external CUA `start_session` behavior.
+- Changing external CUA `start_session`.
+- Teaching agents a `--surface` flag.
 - Mobile.
 
 ## Success
 
-- Fresh Desktop workspace: `atmos browser-use --backend embedded tabs --action open --url https://example.com` returns `ok: true` with a `target_id`, and the page is visible in the user’s default surface.
-- Changing Default surface and repeating the command opens the other chrome, not both.
-- Settings search finds “Browser”, “sidebar”, “center tabs”, “homepage”, “agent chrome”.
-- Layout no longer hosts the only Browser toggle; Browser page is canonical.
+- Desktop, Browser already open: one `atmos browser-use state` returns elements + `target_id`. Zero `prepare` in the trace.
+- Desktop, no Browser: the same command (or `tabs open`) creates the configured chrome and returns a snapshot / bind.
+- After a user pick, the next `state` has that node as `elements[0]` (or first highlight ref). Skill source has no `user_picks` workflow.
+- External and embedded `state` JSON share the U1 field set; flags differ.
+- Settings search finds Browser / sidebar / center tabs / homepage / agent chrome. Layout no longer owns the only Browser toggle.
 
-## Out of scope copy
+## Copy
 
-English UI: `Sidebar`, `Center tabs`, `Browser` — not `SIDEBAR` / `CENTER`.
+English: `Sidebar`, `Center tabs`, `Browser` — not all-caps.
