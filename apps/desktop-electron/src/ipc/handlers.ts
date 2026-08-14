@@ -856,7 +856,7 @@ export function createAllHandlers(
       return null;
     },
 
-    // --- simulator (APP-058) ---
+    // --- simulator (APP-059) ---
     async simulator_probe(args) {
       if (!state.simulator) throw new Error("simulator unavailable");
       return state.simulator.probe(str(args.workspaceId), Boolean(args.force));

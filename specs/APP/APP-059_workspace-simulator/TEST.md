@@ -1,4 +1,4 @@
-# TEST · APP-058: Workspace Simulator
+# TEST · APP-059: Workspace Simulator
 
 > Verification contract for [PRD.md](./PRD.md) Must Haves M1–M10, designed around [TECH §9](./TECH.md#9-testability-seams-design-requirement).
 > One branch, so acceptance is all-or-nothing: the branch merges when every row here is green or explicitly recorded as a gap.
@@ -39,15 +39,15 @@ Honest limits: nothing that needs a real iOS runtime or a signed macOS build can
 
 | Id | Level | Target | Fixture / data | Signals | Status |
 |----|-------|--------|----------------|---------|--------|
-| S1 | e2e | `e2e/tests/specs/APP-058_workspace-simulator.e2e.ts` | stub bridge, probe ok | one `simulator_attach` for two surfaces | pending |
+| S1 | e2e | `e2e/tests/specs/APP-059_workspace-simulator.e2e.ts` | stub bridge, probe ok | one `simulator_attach` for two surfaces | pending |
 | S2 | unit web | `use-simulator-session-store` | scripted `simulator://status` | both surfaces read one slice; no local phase derivation | pending |
 | S3 | e2e | same file as S1 | stub | closing one surface keeps `streaming` | pending |
 | S4 | unit | `claims.test.ts` | claim table | second claim → `simulator_in_use` + holder | pending |
 | S5 | unit | `claims.test.ts` | claim table | take-over releases + audit entry | pending |
 | S6 | unit | `probe.test.ts` | `simctl list -j` fixtures (ok / no-runtime / no-iphone / booted) | exact code per fixture | pending |
 | S7 | unit | `probe.test.ts` | non-darwin, x86_64, macOS 13 runners | `platform_not_macos`, `helper_arch_unsupported`, `macos_too_old` | pending |
-| S8 | e2e | APP-058 e2e, setup-card group | stub per probe code | title + reason + facts + button per code; no shell string as primary CTA | pending |
-| S9 | e2e | APP-058 e2e, setup-card group | stub without `__ATMOS_DESKTOP__` | "Requires Atmos Desktop"; zero invokes | pending |
+| S8 | e2e | APP-059 e2e, setup-card group | stub per probe code | title + reason + facts + button per code; no shell string as primary CTA | pending |
+| S9 | e2e | APP-059 e2e, setup-card group | stub without `__ATMOS_DESKTOP__` | "Requires Atmos Desktop"; zero invokes | pending |
 | S10 | unit | `select-simulator.test.ts` | runtime + simulator fixtures | last-used → newest-runtime iPhone → create; no tier table | pending |
 | S11 | manual | macOS 14+ arm64 + Xcode | cold machine | frame < 45 s, progress visible | pending |
 | S12 | manual | macOS 14+ arm64 + Xcode | multiple `Simulator.app` windows | all hidden, or a non-blocking note; streaming unaffected | pending |
@@ -59,7 +59,7 @@ Honest limits: nothing that needs a real iOS runtime or a signed macOS build can
 | S18 | unit | `degrade.test.ts` (reducer) | webrtc-timeout event | `webrtc → h264 → mjpeg`; phase never leaves a rendering state | pending |
 | S19 | unit | `degrade.test.ts` | mismatch stderr fixtures | one MJPEG retry then `capture_xcode_mismatch`; no screenshot-poll branch exists | pending |
 | S20 | unit | `degrade.test.ts` | helper-death events | 3 restarts → `failed` | pending |
-| S21 | e2e | APP-058 e2e, fallback group | stub driving fallback | last frame or skeleton visible at all times; no blank canvas | pending |
+| S21 | e2e | APP-059 e2e, fallback group | stub driving fallback | last frame or skeleton visible at all times; no blank canvas | pending |
 | S22 | unit | `proxy.test.ts` | route table | only allow-listed upstream paths; wrong/absent token → 403; no arbitrary-port forwarding | pending |
 | S23 | unit | `spawn-args.test.ts` + `handshake.test.ts` | sample helper state record | `--no-preview`, `--host 127.0.0.1`, ephemeral `-p`; URLs read from the record, not hardcoded; env free of `ATMOS_LOCAL_TOKEN`; reconnect proxy URLs keep the session token; spawn-failure pids ignore another port's daemon | pending |
 | S24 | manual | macOS | after attach | upstream preview port not listening; no non-loopback listener in the helper process; UI copy contains no `npx` | pending |

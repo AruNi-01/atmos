@@ -1,10 +1,11 @@
-# REVIEW · APP-058: Workspace Simulator - Implementation Review
+# REVIEW · APP-059: Workspace Simulator - Implementation Review
 
 > Post-implementation review log for functional completeness, architecture, maintainability, code size, testability, and follow-up fixes. Complements the planning quartet ([BRAINSTORM](./BRAINSTORM.md) -> [PRD](./PRD.md) -> [TECH](./TECH.md) -> [TEST](./TEST.md)); does not replace them.
 
 **Review date**: 2026-08-13  
 **Review scope**: functional review | quality review | implementation review | architecture review  
-**Related code**: `apps/desktop-electron/src/simulator/`, `apps/web/src/features/simulator/`, `apps/web/src/app-shell/`, `apps/cli/src/commands/simulator.rs`, `e2e/tests/specs/APP-058_workspace-simulator.e2e.ts`
+**Related code**: `apps/desktop-electron/src/simulator/`, `apps/web/src/features/simulator/`, `apps/web/src/app-shell/`, `apps/cli/src/commands/simulator.rs`, `e2e/tests/specs/APP-059_workspace-simulator.e2e.ts`  
+**Renumber**: 2026-08-14 — this spec moved from APP-058 after `main` shipped Agent Status Workspace Grouping as APP-058.
 
 ---
 
@@ -13,7 +14,7 @@
 | Rule | Detail |
 |------|--------|
 | **When to add** | After code implementation reaches review or post-review and the findings need durable tracking before cleanup. |
-| **Entry id** | `REV-NNN` - zero-padded, monotonic in this file (next: **REV-054**). |
+| **Entry id** | `REV-NNN` - zero-padded, monotonic in this file (next: **REV-055**). |
 | **Status** | `open` -> `in_progress` -> `fixed` -> `verified` (or `wont-fix` with reason). |
 | **Do not** | Duplicate full TECH/TEST content; link to baseline docs and record only review findings plus fix status. |
 | **Fix proof** | Each fixed item should name the code change and the verification command or manual check. |
@@ -195,7 +196,7 @@ Right sidebar and center frame pass `contextId` (`workspaceId || projectId`) int
 
 - `apps/web/src/app-shell/RightSidebar.tsx` — `workspaceId={contextId ?? null}`
 - `apps/web/src/app-shell/workspace-center-frame.tsx` — `workspaceId={contextId}`
-- `e2e/tests/specs/APP-058_workspace-simulator.e2e.ts` — parses project `id`
+- `e2e/tests/specs/APP-059_workspace-simulator.e2e.ts` — parses project `id`
 
 ### Required fix
 
@@ -914,7 +915,7 @@ The shipped probe code is `helper_missing`. TEST S6 still lists `helper_not_inst
 
 ### Evidence
 
-- `specs/APP/APP-058_workspace-simulator/TEST.md` — S6 Then clause
+- `specs/APP/APP-059_workspace-simulator/TEST.md` — S6 Then clause
 
 ### Required fix
 
@@ -1711,15 +1712,15 @@ Serve a real `get_api_config` from the stub, use a Chrome-safe loopback port, mo
 
 ### Finding
 
-`APP-058_workspace-simulator.e2e.ts` imported `Page` from `@playwright/test`. `e2e/AGENTS.md` requires specs to use `fixtures/test.ts`.
+`APP-059_workspace-simulator.e2e.ts` imported `Page` from `@playwright/test`. `e2e/AGENTS.md` requires specs to use `fixtures/test.ts`.
 
 ### Required fix
 
-Re-export `Page` from `e2e/fixtures/test.ts` and import it from there in the APP-058 spec.
+Re-export `Page` from `e2e/fixtures/test.ts` and import it from there in the APP-059 spec.
 
 ### Acceptance
 
-- [x] APP-058 e2e does not import from `@playwright/test`.
+- [x] APP-059 e2e does not import from `@playwright/test`.
 - [x] `fixtures/test.ts` exports the `Page` type.
 
 ### Fix log

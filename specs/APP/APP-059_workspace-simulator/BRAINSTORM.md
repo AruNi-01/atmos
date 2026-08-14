@@ -1,4 +1,4 @@
-# BRAINSTORM · APP-058: Workspace Simulator
+# BRAINSTORM · APP-059: Workspace Simulator
 
 > Problem space, measured dependency evidence, decisions, and the **contract record** that unblocked implementation.
 > Requirements: [PRD.md](./PRD.md). Design: [TECH.md](./TECH.md).

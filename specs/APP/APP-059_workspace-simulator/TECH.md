@@ -1,4 +1,4 @@
-# TECH · APP-058: Workspace Simulator
+# TECH · APP-059: Workspace Simulator
 
 > HOW. Domain: **simulator** — one word in code, IPC, CLI, paths, error codes, and copy.
 > Target: local iOS Simulator, macOS 14+ arm64, inside Atmos Desktop. Delivered as **one branch**.
