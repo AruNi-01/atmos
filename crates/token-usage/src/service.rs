@@ -335,7 +335,9 @@ impl TokenUsageService {
             let outcome = collector.enrich_cookie_sources(&query, force).await;
             let current = {
                 let cache_guard = cache.read().await;
-                cache_guard.get(&cache_key).map(|entry| entry.overview.clone())
+                cache_guard
+                    .get(&cache_key)
+                    .map(|entry| entry.overview.clone())
             };
 
             if let Some(current) = current {
