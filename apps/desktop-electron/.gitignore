@@ -23,7 +23,7 @@ logs/
 resources/bin/*
 !resources/bin/.gitkeep
 
-# Staged @expo/serve-sim payload (APP-059). README stays committed so extraResources has a from-dir.
+# Staged @expo/serve-sim payload (APP-060). README stays committed so extraResources has a from-dir.
 resources/simulator-helper/serve-sim/
 resources/simulator-helper/helper-manifest.json
 main.js

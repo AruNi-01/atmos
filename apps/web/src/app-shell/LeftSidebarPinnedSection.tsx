@@ -29,7 +29,10 @@ import {
   getWorkspaceWorkflowStatusMeta,
   type SidebarGroupingMode,
 } from "@/app-shell/sidebar/workspace-status";
-import type { WorkspaceAgentGroupKey } from "@/features/agent/lib/workspace-agent-status";
+import {
+  parseWorkspaceAgentGroupKey,
+  type WorkspaceAgentGroupKey,
+} from "@/features/agent/lib/workspace-agent-status";
 
 type DndSensors = React.ComponentProps<typeof DndContext>["sensors"];
 
@@ -114,7 +117,9 @@ export function LeftSidebarPinnedSection({
                     availableLabels,
                   );
                   const agentMeta = getWorkspaceAgentGroupMeta(
-                    agentGroupKeyByWorkspaceId?.[entry.workspace.id] ?? "idle",
+                    parseWorkspaceAgentGroupKey(
+                      agentGroupKeyByWorkspaceId?.[entry.workspace.id],
+                    ),
                   );
                   const AgentIcon = agentMeta.icon;
                   // Only show right-side context when there is a real value (no "No label" / no priority).

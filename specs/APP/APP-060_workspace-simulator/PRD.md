@@ -1,4 +1,4 @@
-# PRD · APP-059: Workspace Simulator
+# PRD · APP-060: Workspace Simulator
 
 > WHAT & WHY. Surface name: **Simulator** (`模拟器`) — one word everywhere, product copy included.
 > Scope: local iOS Simulator on macOS 14+ arm64 inside Atmos Desktop, delivered as one branch.

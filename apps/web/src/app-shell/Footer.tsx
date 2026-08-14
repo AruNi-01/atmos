@@ -39,6 +39,7 @@ import { useLayoutSettingsStore } from '@/features/settings/store/layout-setting
 import { useAppRouter } from '@/shared/hooks/use-app-router';
 import { LocalServicesFooterItem } from '@/features/local-services/components/LocalServicesFooterItem';
 import {
+  isAgentHookSideChatSession,
   navigateToAgentHookSessionPane,
   resolveAgentHookContextNames,
 } from '@/features/agent/lib/agent-hook-navigation';
@@ -184,6 +185,11 @@ function SessionRow({ session, onNavigate, onCanvas = false }: { session: AgentH
       <div className="flex items-center gap-1.5 min-w-0">
         <AgentHookStatusIndicator state={session.state} variant="compact" placement="footer" />
         <AgentToolName tool={session.tool} iconSize={11} className="text-[10px] font-medium" />
+        {isAgentHookSideChatSession(session) ? (
+          <span className="shrink-0 rounded-sm bg-cyan-500/15 px-1 text-[9px] font-medium text-cyan-700 dark:text-cyan-300">
+            {t("footer.sideChat")}
+          </span>
+        ) : null}
         {onCanvas && (
           <span title={t("footer.openOnCanvasLabel")} className="inline-flex shrink-0 text-sky-500">
             <LayoutDashboard className="size-3" />
@@ -671,6 +677,14 @@ const Footer: React.FC = () => {
                             </span>
                           ) : null;
                         })()}
+                        {isAgentHookSideChatSession(tickerSession) ? (
+                          <>
+                            <span className="text-muted-foreground mx-1">/</span>
+                            <span className="whitespace-nowrap text-cyan-700 dark:text-cyan-300">
+                              {t("footer.sideChat")}
+                            </span>
+                          </>
+                        ) : null}
                         <span className="text-muted-foreground mx-1">/</span>
                         <span className="inline-flex items-center gap-1 whitespace-nowrap">
                           <AgentIcon

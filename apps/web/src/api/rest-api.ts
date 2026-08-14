@@ -716,6 +716,7 @@ export type WorkspaceAgentGroupKeyDto =
   | 'permission'
   | 'attention'
   | 'running'
+  | 'done'
   | 'idle';
 
 export type WorkspaceAgentGroupSnapshotDto = {

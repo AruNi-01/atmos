@@ -28,6 +28,7 @@ import { useAgentFixLauncherStore } from "@/features/agent-fix/store/agent-fix-l
 import type { ResolvedAgentFixLaunchRequest } from "@/features/agent-fix/types";
 import type { FixedTab } from "@/shared/lib/nuqs/searchParams";
 import { useContextParams } from "@/shared/hooks/use-context-params";
+import { registerBrowserHostChrome } from "@/features/browser/lib/ensure-browser-surface";
 import { useDialogStore } from "@/app-shell/state/use-dialog-store";
 import { useProjectStore } from "@/features/project/store/use-project-store";
 import { useProjects } from "@/features/project/hooks/use-project-bootstrap-query";
@@ -244,6 +245,7 @@ const CenterStage: React.FC = () => {
       : EMPTY_BROWSER_TABS,
   );
   const openBrowserCenterTab = useBrowserCenterTabsStore((state) => state.openBrowser);
+  const reuseOrOpenBrowser = useBrowserCenterTabsStore((state) => state.reuseOrOpenBrowser);
   const closeBrowserCenterTab = useBrowserCenterTabsStore((state) => state.closeBrowser);
   const simulatorTabOpen = useSimulatorCenterTabStore((state) =>
     effectiveContextId ? state.openByContext[effectiveContextId] === true : false,
@@ -787,6 +789,16 @@ const CenterStage: React.FC = () => {
     useSimulatorCenterTabStore.getState().close(effectiveContextId);
     activateNextAfterClosing(SIMULATOR_TAB_VALUE);
   }, [activateNextAfterClosing, effectiveContextId]);
+
+  React.useEffect(() => {
+    registerBrowserHostChrome({
+      showCenterBrowser: (contextId) => {
+        const tab = reuseOrOpenBrowser(contextId);
+        setActiveFile(null, contextId);
+        void setUrlParams({ tab: tab.value, wikiPage: null });
+      },
+    });
+  }, [reuseOrOpenBrowser, setActiveFile, setUrlParams]);
 
   // Promote / sticky leave track the live URL so warm membership is not deferred.
   useTerminalTabMountLifecycle({

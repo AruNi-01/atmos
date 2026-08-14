@@ -21,7 +21,9 @@ import {
 } from "@/shared/lib/standalone-window-handoff";
 import { useUiPrefStore } from "@/shared/stores/use-ui-pref-store";
 
+import { useBrowserAgentTabBridge } from "../hooks/use-browser-agent-tab-bridge";
 import { useBrowserState } from "../hooks/use-browser-state";
+import { useBrowserSessionMapStore } from "../store/use-browser-session-map";
 import { openBrowserWindow } from "../lib/desktop-browser-window";
 import {
   cloneBrowserContext,
@@ -77,6 +79,7 @@ export const BrowserPanel: React.FC<BrowserPanelProps> = ({
     handleAddBrowserTab,
     handleCloseBrowserTab,
     handleOpenBrowserTab,
+    handleBrowserSessionReady,
     handlePreviewIconChange,
     handlePreviewTitleChange,
     handleReorderBrowserTabs,
@@ -93,6 +96,23 @@ export const BrowserPanel: React.FC<BrowserPanelProps> = ({
     browserContextId,
     syncUrlQueryParam,
   });
+  useBrowserAgentTabBridge({
+    contextId: resolvedBrowserContextId,
+    isActive,
+    tabCount: browserState.tabs.length,
+  });
+  const handleSessionReady = useCallback((tabId: string, sessionId: string | null) => {
+    handleBrowserSessionReady(tabId, sessionId);
+    if (sessionId) {
+      useBrowserSessionMapStore.getState().bindSession(
+        resolvedBrowserContextId,
+        tabId,
+        sessionId,
+      );
+    } else {
+      useBrowserSessionMapStore.getState().unbindTab(tabId);
+    }
+  }, [handleBrowserSessionReady, resolvedBrowserContextId]);
   // Per-instance handoff so opening one browser in a Desktop window does not
   // pause every other browser (sidebar / other center instances).
   const standaloneSurfaceKey = useMemo(
@@ -256,6 +276,7 @@ export const BrowserPanel: React.FC<BrowserPanelProps> = ({
             handlePreviewIconChange(tab.id, faviconUrl)
           }
           onOpenPageInNewTab={handleOpenBrowserTab}
+          onSessionReady={(sessionId) => handleSessionReady(tab.id, sessionId)}
           browserTabBarProps={{
             tabs: browserState.tabs,
             activeTabId: browserState.activeTabId,

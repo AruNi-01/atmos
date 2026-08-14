@@ -118,7 +118,12 @@ pub(crate) async fn fetch_factory_live(client: &Client) -> Result<LiveFetchResul
     let cli_auth_token = load_factory_cli_auth_access_token().ok().flatten();
     let mut last_error = None::<String>;
 
-    for token in load_factory_local_storage_tokens()? {
+    let browser_tokens = if crate::support::browser_access::may_probe_browser_cookies("factory") {
+        load_factory_local_storage_tokens()?
+    } else {
+        Vec::new()
+    };
+    for token in browser_tokens {
         if let Some(access_token) = token
             .access_token
             .as_deref()

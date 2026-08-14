@@ -13,7 +13,10 @@ import {
   WORKSPACE_AGENT_GROUP_OPTIONS,
   WORKSPACE_WORKFLOW_STATUS_OPTIONS,
 } from "@/app-shell/sidebar/workspace-status";
-import type { WorkspaceAgentGroupKey } from "@/features/agent/lib/workspace-agent-status";
+import {
+  parseWorkspaceAgentGroupKey,
+  type WorkspaceAgentGroupKey,
+} from "@/features/agent/lib/workspace-agent-status";
 import {
   WORKSPACE_PRIORITY_OPTIONS,
   WORKSPACE_PRIORITY_SORT_WEIGHT,
@@ -299,7 +302,7 @@ export function resolveKanbanColumnKeys(params: {
 }): string[] {
   const { groupingMode, projectId, workspace, groups, agentGroupKey } = params;
 
-  if (groupingMode === "agent") return [agentGroupKey ?? "idle"];
+  if (groupingMode === "agent") return [parseWorkspaceAgentGroupKey(agentGroupKey)];
   if (groupingMode === "status") return [workspace.workflowStatus];
   if (groupingMode === "priority") return [workspace.priority];
   if (groupingMode === "project") return [projectId];

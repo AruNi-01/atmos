@@ -89,6 +89,7 @@ async fn run() -> Result<(), String> {
     let cli = Cli::parse();
     let should_check_for_updates = !matches!(cli.command, Commands::Update(_));
     let command_kind = CommandKind::from_command(&cli.command);
+    let is_browser_use = matches!(cli.command, Commands::BrowserUse { .. });
 
     let output = match cli.command {
         Commands::Simulator { opts, command } => {
@@ -133,6 +134,11 @@ async fn run() -> Result<(), String> {
         if let Some(hint) = update_hint_if_needed().await {
             eprintln!("{}", hint);
         }
+    }
+
+    // Print JSON first, then fail the process so agents still see the structured error.
+    if is_browser_use && output.get("ok") == Some(&serde_json::Value::Bool(false)) {
+        std::process::exit(1);
     }
     Ok(())
 }

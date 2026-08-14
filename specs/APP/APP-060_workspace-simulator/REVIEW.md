@@ -1,11 +1,11 @@
-# REVIEW · APP-059: Workspace Simulator - Implementation Review
+# REVIEW · APP-060: Workspace Simulator - Implementation Review
 
 > Post-implementation review log for functional completeness, architecture, maintainability, code size, testability, and follow-up fixes. Complements the planning quartet ([BRAINSTORM](./BRAINSTORM.md) -> [PRD](./PRD.md) -> [TECH](./TECH.md) -> [TEST](./TEST.md)); does not replace them.
 
 **Review date**: 2026-08-13  
 **Review scope**: functional review | quality review | implementation review | architecture review  
-**Related code**: `apps/desktop-electron/src/simulator/`, `apps/web/src/features/simulator/`, `apps/web/src/app-shell/`, `apps/cli/src/commands/simulator.rs`, `e2e/tests/specs/APP-059_workspace-simulator.e2e.ts`  
-**Renumber**: 2026-08-14 — this spec moved from APP-058 after `main` shipped Agent Status Workspace Grouping as APP-058.
+**Related code**: `apps/desktop-electron/src/simulator/`, `apps/web/src/features/simulator/`, `apps/web/src/app-shell/`, `apps/cli/src/commands/simulator.rs`, `e2e/tests/specs/APP-060_workspace-simulator.e2e.ts`  
+**Renumber**: 2026-08-14 — moved from APP-058 after Agent Status Workspace Grouping shipped as APP-058, then from APP-059 after Browser Use shipped as APP-059.
 
 ---
 
@@ -196,7 +196,7 @@ Right sidebar and center frame pass `contextId` (`workspaceId || projectId`) int
 
 - `apps/web/src/app-shell/RightSidebar.tsx` — `workspaceId={contextId ?? null}`
 - `apps/web/src/app-shell/workspace-center-frame.tsx` — `workspaceId={contextId}`
-- `e2e/tests/specs/APP-059_workspace-simulator.e2e.ts` — parses project `id`
+- `e2e/tests/specs/APP-060_workspace-simulator.e2e.ts` — parses project `id`
 
 ### Required fix
 
@@ -915,7 +915,7 @@ The shipped probe code is `helper_missing`. TEST S6 still lists `helper_not_inst
 
 ### Evidence
 
-- `specs/APP/APP-059_workspace-simulator/TEST.md` — S6 Then clause
+- `specs/APP/APP-060_workspace-simulator/TEST.md` — S6 Then clause
 
 ### Required fix
 
@@ -1712,15 +1712,15 @@ Serve a real `get_api_config` from the stub, use a Chrome-safe loopback port, mo
 
 ### Finding
 
-`APP-059_workspace-simulator.e2e.ts` imported `Page` from `@playwright/test`. `e2e/AGENTS.md` requires specs to use `fixtures/test.ts`.
+`APP-060_workspace-simulator.e2e.ts` imported `Page` from `@playwright/test`. `e2e/AGENTS.md` requires specs to use `fixtures/test.ts`.
 
 ### Required fix
 
-Re-export `Page` from `e2e/fixtures/test.ts` and import it from there in the APP-059 spec.
+Re-export `Page` from `e2e/fixtures/test.ts` and import it from there in the APP-060 spec.
 
 ### Acceptance
 
-- [x] APP-059 e2e does not import from `@playwright/test`.
+- [x] APP-060 e2e does not import from `@playwright/test`.
 - [x] `fixtures/test.ts` exports the `Page` type.
 
 ### Fix log

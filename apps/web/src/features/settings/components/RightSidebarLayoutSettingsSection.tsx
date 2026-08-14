@@ -11,7 +11,6 @@ import {
   FileDiff,
   GitBranch,
   Github,
-  Globe,
   PanelRight,
   Play,
   Radio,
@@ -34,14 +33,12 @@ export function RightSidebarLayoutSettingsSection({
   const {
     rsShowChanges,
     rsShowReview,
-    rsShowBrowser,
     rsShowSimulator,
     simulatorWebrtcOptIn,
     rsShowRun,
     rsShowGithub,
     setRightSidebarShowChanges,
     setRightSidebarShowReview,
-    setRightSidebarShowBrowser,
     setRightSidebarShowSimulator,
     setSimulatorWebrtcOptIn,
     setRightSidebarShowRun,
@@ -51,7 +48,6 @@ export function RightSidebarLayoutSettingsSection({
   const enabledCount =
     Number(rsShowChanges) +
     Number(rsShowReview) +
-    Number(rsShowBrowser) +
     Number(rsShowSimulator) +
     Number(rsShowRun) +
     Number(rsShowGithub);
@@ -97,13 +93,6 @@ export function RightSidebarLayoutSettingsSection({
             description={t('reviewDescription')}
             checked={rsShowReview}
             onCheckedChange={(value) => void setRightSidebarShowReview(value)}
-          />
-          <SettingsToggleRow
-            icon={<Globe className="size-4" />}
-            title={t('browserTitle')}
-            description={t('browserDescription')}
-            checked={rsShowBrowser}
-            onCheckedChange={(value) => void setRightSidebarShowBrowser(value)}
           />
           <SettingsToggleRow
             icon={<Tablet className="size-4" />}

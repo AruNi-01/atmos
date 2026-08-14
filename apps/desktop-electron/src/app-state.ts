@@ -11,7 +11,7 @@ export type AppState = {
   browser: BrowserSurfaceManager | null;
   /** Loopback control plane for `atmos browser-use --backend embedded`. */
   browserUseControl: BrowserUseControlPlane | null;
-  /** Workspace Simulator (APP-059) — loopback control plane + helper sessions. */
+  /** Workspace Simulator (APP-060) — loopback control plane + helper sessions. */
   simulator: SimulatorBridge | null;
   tunnel: TunnelService | null;
   /** Whether this Electron process started the Server (vs reused existing). */

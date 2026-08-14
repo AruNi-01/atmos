@@ -87,6 +87,7 @@ import { RefreshableTabsTab } from "@/shared/components/ui/RefreshableTabsTab";
 import { useSidebarUiPrefs } from "@/shared/stores/use-ui-pref-hooks";
 import { useOpenGithubCenterTab } from "@/features/github/hooks/use-open-github-center-tab";
 import { useSidebarLayout } from "@/app-shell/SidebarLayoutContext";
+import { registerBrowserHostChrome } from "@/features/browser/lib/ensure-browser-surface";
 
 function sumChangeCounts(files: GitChangedFile[]) {
   return files.reduce(
@@ -198,7 +199,7 @@ interface RightSidebarProps {
 
 const RightSidebar: React.FC<RightSidebarProps> = () => {
   const t = useTranslations("AppShell.chrome");
-  const { isRightCollapsed } = useSidebarLayout();
+  const { isRightCollapsed, setIsRightCollapsed, setShowRightSidebar } = useSidebarLayout();
   const { workspaceId: liveWorkspaceId, projectId: liveProjectIdFromUrl } = useContextParams();
   // Defer heavy tree/changes rebind so CenterStage frame switch paints first.
   const workspaceId = useDeferredValue(liveWorkspaceId);
@@ -334,6 +335,17 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
 
   const [{ rsTab: activeTab }, setSidebarParams] =
     useQueryStates(rightSidebarParams);
+
+  useEffect(() => {
+    registerBrowserHostChrome({
+      currentContextId: () => contextId || null,
+      showSidebarBrowser: () => {
+        setShowRightSidebar(true);
+        setIsRightCollapsed(false);
+        void setSidebarParams({ rsTab: "browser" });
+      },
+    });
+  }, [contextId, setIsRightCollapsed, setShowRightSidebar, setSidebarParams]);
 
   // If the active tab has been hidden via layout settings, fall back to the
   // first visible tab so the sidebar never shows an empty pane.

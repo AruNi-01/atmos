@@ -36,6 +36,7 @@ describe("desktop-use readiness gate wiring", () => {
       "apps/web/src/features/desktop-use/components/DesktopUseReadinessDialog.tsx",
     );
     expect(dialog).toContain("useOpenDesktopUseSettings");
+    expect(dialog).toContain("useOpenPermissionAccessSettings");
     expect(dialog).toContain("OPEN_SETTLE_MS");
     expect(dialog).toContain("onPointerDownOutside");
   });
@@ -46,6 +47,7 @@ describe("desktop-use readiness gate wiring", () => {
     expect(page).toContain('"slash"');
     expect(page).toContain('"browser"');
     expect(page).toContain("BROWSER_USE_SLASH_COMMAND_ID");
+    expect(page).toContain("browserUseSlashNeedsDesktopUseGate");
     expect(page).toContain("DESKTOP_USE_SLASH_COMMAND_ID");
   });
 
@@ -57,6 +59,7 @@ describe("desktop-use readiness gate wiring", () => {
     expect(overlay).toContain('"slash"');
     expect(overlay).toContain('"browser"');
     expect(overlay).toContain("BROWSER_USE_SLASH_COMMAND_ID");
+    expect(overlay).toContain("browserUseSlashNeedsDesktopUseGate");
     expect(overlay).toContain("DESKTOP_USE_SLASH_COMMAND_ID");
   });
 

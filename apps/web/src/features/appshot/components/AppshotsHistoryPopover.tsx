@@ -22,7 +22,7 @@ import {
   readAppshotSnapshot,
   watchAppshotStatusAfterPermissionOpen,
 } from "../lib/appshot-client";
-import { useOpenDesktopUseSettings } from "../lib/open-desktop-use-settings";
+import { useOpenPermissionAccessSettings } from "../lib/open-desktop-use-settings";
 import { sanitizeRecordDetailPayloads } from "../lib/appshot-payload";
 import type {
   AppshotRecordDetail,
@@ -48,7 +48,7 @@ export function AppshotsHistoryPopover({
   onClose,
 }: AppshotsHistoryPopoverProps) {
   const t = useTranslations("appshot.components");
-  const openDesktopUseSettings = useOpenDesktopUseSettings();
+  const openPermissionAccessSettings = useOpenPermissionAccessSettings();
   const [status, setStatus] = React.useState<AppshotStatus | null>(null);
   const [statusError, setStatusError] = React.useState<string | null>(null);
   const [statusLoading, setStatusLoading] = React.useState(false);
@@ -262,12 +262,11 @@ export function AppshotsHistoryPopover({
   }, [hasMore, listReady, loadMore, open, visibleCount]);
 
   const handleOpenPermission = React.useCallback(() => {
-    // Header Appshots → authorize: open Settings → Desktop Use (only path).
     onClose?.();
-    openDesktopUseSettings();
+    openPermissionAccessSettings();
     permissionWatcherRef.current?.();
     permissionWatcherRef.current = watchAppshotStatusAfterPermissionOpen(refreshStatus);
-  }, [onClose, openDesktopUseSettings, refreshStatus]);
+  }, [onClose, openPermissionAccessSettings, refreshStatus]);
 
   const handleCopy = React.useCallback(async (timestamp: string) => {
     setCopyingTimestamp(timestamp);

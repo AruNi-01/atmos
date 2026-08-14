@@ -84,6 +84,20 @@ export interface MonthlyTokenUsageResponse {
   models: string[];
 }
 
+export type BrowserCookieConsent =
+  | "not_applicable"
+  | "needed"
+  | "granted"
+  | "denied";
+
+export interface BrowserCookieAccessResponse {
+  provider_id: string;
+  label: string;
+  detected: boolean;
+  consent: BrowserCookieConsent;
+  has_manual_token: boolean;
+}
+
 export interface TokenUsageOverviewResponse {
   query: TokenUsageQueryResponse;
   summary: TokenUsageSummaryResponse;
@@ -94,6 +108,7 @@ export interface TokenUsageOverviewResponse {
   available_years: string[];
   generated_at: number;
   partial_warnings: string[];
+  browser_cookie_access?: BrowserCookieAccessResponse[];
 }
 
 export interface TokenUsageUpdateResponse {
@@ -120,5 +135,15 @@ export const tokenUsageApi = {
       clients: params?.clients?.length ? params.clients : null,
       group_by: params?.groupBy ?? null,
     });
+  },
+
+  setBrowserCookieConsent: async (
+    providerId: string,
+    granted: boolean,
+  ): Promise<TokenUsageOverviewResponse> => {
+    return wsRequest<TokenUsageOverviewResponse>(
+      "token_usage_set_browser_cookie_consent",
+      { provider_id: providerId, granted },
+    );
   },
 };

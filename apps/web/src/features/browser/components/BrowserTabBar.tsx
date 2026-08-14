@@ -46,6 +46,8 @@ export interface PreviewBrowserTab {
   titleUrl?: string;
   faviconUrl?: string;
   lastAccessedAt?: number;
+  /** Runtime webview session id — not persisted. */
+  sessionId?: string;
 }
 
 export interface PreviewBrowserChromeControls {

@@ -1258,7 +1258,8 @@ function formatPeriodLabel(key: string, resolution: Resolution, locale: string) 
 export function formatCompactNumber(value: number, locale: string) {
   return new Intl.NumberFormat(locale, {
     notation: "compact",
-    maximumFractionDigits: value >= 1_000_000 ? 1 : 0,
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
   }).format(value);
 }
 
@@ -1284,13 +1285,14 @@ export function formatCurrencyCompact(value: number | null, locale: string) {
 
   if (Math.abs(value) < 1) {
     return formatUsdAmount(value, locale, {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
+      minimumFractionDigits: 1,
+      maximumFractionDigits: 1,
     });
   }
 
   return formatUsdAmount(value, locale, {
     notation: "compact",
+    minimumFractionDigits: 1,
     maximumFractionDigits: 1,
   });
 }

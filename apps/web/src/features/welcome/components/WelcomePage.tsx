@@ -31,10 +31,13 @@ import {
 import type { SlashPopoverView } from "@/features/welcome/components/SlashCommandPopover";
 import {
   BROWSER_USE_SLASH_COMMAND_ID,
+  browserUseSlashNeedsDesktopUseGate,
   buildBrowserUseSlashCommand,
+  ensureBrowserUseSlashSurface,
   matchesBrowserUseSlashQuery,
   resolveBrowserUseSkillRef,
 } from "@/features/welcome/lib/slash-browser-use";
+import { useContextParams } from "@/shared/hooks/use-context-params";
 import {
   buildDesktopUseSlashCommand,
   DESKTOP_USE_SLASH_COMMAND_ID,
@@ -129,6 +132,7 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
   className,
 }) => {
   const t = useTranslations("Welcome.components");
+  const { effectiveContextId } = useContextParams();
   const tr = React.useCallback(
     (key: string, values?: Record<string, string | number | boolean | null | undefined>) =>
       t(key as never, values as never),
@@ -664,22 +668,28 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
           setSlashPopover(null);
           return;
         }
-        // Non-blocking readiness: insert skill only when engine + permissions OK.
+        // Desktop already has the in-app Browser plane — do not block on Desktop Use TCC.
         setSlashPopover(null);
+        const insertSkill = () => {
+          composerRef.current?.applySlashAtRange(
+            popover.slashOffset,
+            popover.query.length,
+            {
+              kind: "skill",
+              absolutePath: skill.absolutePath,
+              name: skill.name,
+            },
+          );
+        };
+        if (!browserUseSlashNeedsDesktopUseGate()) {
+          insertSkill();
+          ensureBrowserUseSlashSurface(effectiveContextId);
+          return;
+        }
         void import("@/features/desktop-use/lib/readiness-modal-bus").then(
           ({ gateDesktopUseFeature }) => {
             gateDesktopUseFeature("browser", {
-              onReady: () => {
-                composerRef.current?.applySlashAtRange(
-                  popover.slashOffset,
-                  popover.query.length,
-                  {
-                    kind: "skill",
-                    absolutePath: skill.absolutePath,
-                    name: skill.name,
-                  },
-                );
-              },
+              onReady: insertSkill,
             });
           },
         );

@@ -70,6 +70,11 @@ export interface FunctionSettings {
     };
     [key: string]: unknown;
   };
+  browser?: {
+    default_surface?: "sidebar" | "center";
+    new_tab_url?: string;
+    show_agent_chrome?: boolean;
+  };
   inner_browser?: {
     favorite_site?: Array<{
       url: string;

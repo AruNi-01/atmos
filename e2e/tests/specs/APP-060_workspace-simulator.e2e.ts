@@ -237,7 +237,7 @@ async function expectStreaming(page: Page, count: number): Promise<void> {
     .toBeGreaterThanOrEqual(count);
 }
 
-test.describe("APP-059 workspace simulator", () => {
+test.describe("APP-060 workspace simulator", () => {
   test("S9 — hosted web states Requires Atmos Desktop without bridge invokes", async ({
     page,
   }) => {
