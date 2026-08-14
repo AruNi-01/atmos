@@ -91,7 +91,7 @@ them by default).
 
 Point the environment's **install** and **start** steps at the scripts:
 
-```
+```text
 install: bash scripts/dev/setup.sh
 start:   bash scripts/dev/start.sh
 ```
