@@ -464,6 +464,7 @@ fn state_payload_has_elements(v: &Value) -> bool {
             .is_some_and(|els| !els.is_empty())
 }
 
+#[allow(clippy::result_large_err)]
 fn follow_bind_with_snapshot(
     engine: &std::path::Path,
     socket: &std::path::Path,

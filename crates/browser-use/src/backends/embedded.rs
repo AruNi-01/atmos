@@ -18,7 +18,7 @@ use serde_json::{json, Value};
 
 use super::BrowserBackend;
 use crate::errors::{
-    classify_engine_message, fail, fail_with_recovery, recovery_for, BROWSER_CONTROL_AUTH_FAILED,
+    classify_engine_message, fail_with_recovery, recovery_for, BROWSER_CONTROL_AUTH_FAILED,
     BROWSER_CONTROL_UNAVAILABLE, BROWSER_INVALID_ARGS, BROWSER_UNSUPPORTED,
 };
 use crate::types::{
