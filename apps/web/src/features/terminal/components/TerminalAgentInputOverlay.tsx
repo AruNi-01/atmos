@@ -1256,7 +1256,12 @@ export const TerminalAgentInputOverlay = React.forwardRef<
           }
         />
 
-        <div className="flex items-end">
+        <div
+          className={cn(
+            "flex items-end justify-center",
+            triggerBarVisible && "gap-1.5",
+          )}
+        >
           {triggerBarVisible ? (
             <button
               type="button"
@@ -1287,7 +1292,7 @@ export const TerminalAgentInputOverlay = React.forwardRef<
           ) : null}
           <div
             className={cn(
-              "flex items-end gap-1 transition-opacity duration-200",
+              "flex items-end transition-opacity duration-200",
               isOverlayVisible ? "pointer-events-none opacity-0" : "opacity-100",
             )}
           >

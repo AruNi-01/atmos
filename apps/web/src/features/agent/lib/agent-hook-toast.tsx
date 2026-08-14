@@ -15,6 +15,8 @@ import { AgentIcon } from "@/features/agent/components/AgentIcon";
 import { getProjectBootstrapSnapshot } from "@/features/project/hooks/use-project-bootstrap-query";
 import { useAppRouter } from "@/shared/hooks/use-app-router";
 import {
+  canNavigateToAgentHookSession,
+  isAgentHookSideChatSession,
   navigateToAgentHookSessionPane,
   resolveAgentHookContextNames,
 } from "@/features/agent/lib/agent-hook-navigation";
@@ -92,8 +94,12 @@ export function showAgentHookStateToast(options: {
     ? t("notifications.permissionRequired")
     : t("notifications.completed");
   const workspaceLabel = workspaceDisplayName ?? workspaceName;
-  const contextLabel = [projectName, workspaceLabel].filter(Boolean).join(" / ");
-  const canNavigate = Boolean(update.context_id && update.pane_id);
+  const contextLabel = [
+    projectName,
+    workspaceLabel,
+    isAgentHookSideChatSession(update) ? t("notifications.sideChat") : null,
+  ].filter(Boolean).join(" / ");
+  const canNavigate = canNavigateToAgentHookSession(update);
   const toastId = `agent-hook-${update.session_id}-${update.state}-${update.timestamp}`;
 
   agentToastManager.add({
