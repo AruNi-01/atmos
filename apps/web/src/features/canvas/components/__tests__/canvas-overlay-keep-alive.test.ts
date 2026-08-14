@@ -26,6 +26,21 @@ describe("CanvasOverlay keep-alive", () => {
     expect(source).toContain("<CanvasView />");
   });
 
+  it("pauses work while keep-alive hidden via overlay activity context", () => {
+    const overlaySource = readFileSync(
+      join(import.meta.dirname, "../CanvasOverlay.tsx"),
+      "utf8",
+    );
+    const viewSource = readFileSync(
+      join(import.meta.dirname, "../CanvasView.tsx"),
+      "utf8",
+    );
+    expect(overlaySource).toContain("CanvasOverlayActiveContext.Provider");
+    expect(overlaySource).toContain("value={!isKeepAliveHidden}");
+    expect(viewSource).toContain("useCanvasOverlayActive");
+    expect(viewSource).toContain("if (!editorReady || !fileName || !overlayActive) return");
+  });
+
   it("unmounts warm canvas after a one-hour keep-alive TTL", () => {
     expect(CANVAS_KEEP_ALIVE_TTL_MS).toBe(60 * 60 * 1000);
     expect(source).toContain("CANVAS_KEEP_ALIVE_TTL_MS");

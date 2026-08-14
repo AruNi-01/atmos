@@ -1,6 +1,7 @@
 "use client";
 
 import { QuotaPopover } from "@/app-shell/QuotaPopover";
+import { useCanvasOverlayActive } from "@/features/canvas/lib/canvas-overlay-activity";
 import type {
   CanvasWidgetShape,
   CanvasWidgetSourceRef,
@@ -9,6 +10,7 @@ import type {
 type CanvasAIQuotaUsageWidgetSource = Extract<CanvasWidgetSourceRef, { type: "ai-quota-usage" }>;
 
 export function CanvasAIQuotaUsageWidget({ shape }: { shape: CanvasWidgetShape }) {
+  const overlayActive = useCanvasOverlayActive();
   const source = shape.props.source as CanvasAIQuotaUsageWidgetSource;
   if (source.type !== "ai-quota-usage") {
     return null;
@@ -16,7 +18,7 @@ export function CanvasAIQuotaUsageWidget({ shape }: { shape: CanvasWidgetShape }
 
   return (
     <div className="h-full min-h-0 overflow-hidden bg-background">
-      <QuotaPopover embedded />
+      <QuotaPopover embedded dataEnabled={overlayActive} />
     </div>
   );
 }
