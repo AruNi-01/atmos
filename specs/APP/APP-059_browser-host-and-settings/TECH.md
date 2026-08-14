@@ -73,14 +73,16 @@ POST /v1/state  { target_id?, query? }
       snapshot(that guest, query)          # NEW
   else if several bound guests:
       200 { ok:false, error_code: browser_ambiguous_target, sessions }
-  else: # zero
+  else if hosts exist but none bound:
+      200 { ok:false, error_code: browser_route_unavailable }  # do not ensure a second surface
+  else: # zero hosts
       renderer ensure-bind (default surface, new_tab_url)
       snapshot(new target, query)
 ```
 
 `prepare` does **not** run in this path. Embedded backend already talks to the control plane if `control.json` exists.
 
-CLI `execute(State)` commits binding from the snapshot ids (already true after hardening).
+CLI: omitted `--backend` defaults to **embedded** when `control.json` exists. `execute(State)` on embedded **does not inject** a stored `target_id` (so last-active / pick handoff can run); it commits the snapshot ids afterward. Click/type still reuse the stored target. Binding merge never writes `None` over a live `tab_id`. `fill_result_envelope` stamps `capability_flags` on every success but lifts `elements[]` only for `state` / `prepare`.
 
 `tabs open` with zero hosts: renderer `ensureSurface` then in-panel open (H2). With a resolvable last-active and no target: open a page tab **in that panel**, do not ensure a second chrome.
 

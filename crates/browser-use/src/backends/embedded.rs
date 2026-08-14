@@ -52,6 +52,11 @@ fn control_meta_path() -> PathBuf {
     control_dir().join("control.json")
 }
 
+/// Desktop host is up enough to default `--backend` to embedded.
+pub fn embedded_host_available() -> bool {
+    control_meta_path().is_file()
+}
+
 fn is_exact_loopback_host(host: &str) -> bool {
     matches!(host, "127.0.0.1" | "localhost" | "[::1]" | "::1")
 }

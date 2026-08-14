@@ -100,7 +100,26 @@ async function handleAgentTab(payload: AgentTabPayload): Promise<void> {
         });
         return;
       }
-      const routed = map.resolveContext(payload.targetId);
+      let routed = map.resolveContext(payload.targetId);
+      if (
+        !routed.ok &&
+        (routed.error_code === "embedded_browser_host_unavailable" ||
+          Object.keys(useBrowserSessionMapStore.getState().panels).length === 0)
+      ) {
+        const contextId = currentBrowserHostContextId();
+        if (contextId) {
+          const ensured = await ensureSurface({ contextId, url });
+          await ackAgentTab({
+            requestId,
+            ok: ensured.ok,
+            target_id: ensured.target_id,
+            tab_id: "main",
+            error: ensured.error,
+            error_code: ensured.error_code,
+          });
+          return;
+        }
+      }
       if (!routed.ok || !routed.contextId) {
         await ackAgentTab({
           requestId,
@@ -117,13 +136,10 @@ async function handleAgentTab(payload: AgentTabPayload): Promise<void> {
       );
       const sessionId = useBrowserSessionMapStore.getState().sessionForTab(opened.tabId);
       if (!bound || !sessionId) {
-        const panel = useBrowserSessionMapStore.getState().panels[routed.contextId];
-        if (panel && panel.tabCount > 1) {
-          try {
-            await commands.closeTab(routed.contextId, opened.tabId);
-          } catch {
-            /* best-effort rollback */
-          }
+        try {
+          await commands.closeTab(routed.contextId, opened.tabId);
+        } catch {
+          /* best-effort rollback */
         }
         await ackAgentTab({
           requestId,

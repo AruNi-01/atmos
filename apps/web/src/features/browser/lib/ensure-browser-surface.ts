@@ -51,9 +51,12 @@ function waitFor(predicate: () => boolean, timeoutMs: number): Promise<boolean> 
   });
 }
 
-function firstBoundSession(): string | null {
-  const sessions = Object.keys(useBrowserSessionMapStore.getState().bySession);
-  return sessions[0] ?? null;
+function sessionForPanel(panelId: string): string | null {
+  const map = useBrowserSessionMapStore.getState();
+  for (const [sessionId, binding] of Object.entries(map.bySession)) {
+    if (binding.contextId === panelId) return sessionId;
+  }
+  return null;
 }
 
 export async function ensureSurface(input: {
@@ -74,16 +77,19 @@ export async function ensureSurface(input: {
     };
   }
 
+  let panelId = contextId;
   if (placement === "sidebar") {
     await useLayoutSettingsStore.getState().setRightSidebarShowBrowser(true);
     chrome.showSidebarBrowser?.();
+    panelId = chrome.currentContextId?.() || contextId;
   } else {
-    useBrowserCenterTabsStore.getState().reuseOrOpenBrowser(contextId);
+    const tab = useBrowserCenterTabsStore.getState().reuseOrOpenBrowser(contextId);
     chrome.showCenterBrowser?.(contextId);
+    panelId = tab.browserContextId;
   }
 
-  const bound = await waitFor(() => firstBoundSession() != null, 8_000);
-  let sessionId = firstBoundSession();
+  const bound = await waitFor(() => sessionForPanel(panelId) != null, 8_000);
+  let sessionId = sessionForPanel(panelId);
   if (!bound || !sessionId) {
     return {
       ok: false,
@@ -93,20 +99,22 @@ export async function ensureSurface(input: {
     };
   }
 
-  const url = requestedUrl;
-  if (url) {
-    const map = useBrowserSessionMapStore.getState();
-    const binding = map.findBySession(sessionId);
-    const panelId = binding?.contextId;
-    if (panelId) {
-      const opened = await useBrowserTabCommandsStore.getState().openTab(panelId, url);
-      const nextBound = await waitFor(
-        () => Boolean(useBrowserSessionMapStore.getState().sessionForTab(opened.tabId)),
-        8_000,
-      );
-      const nextId = useBrowserSessionMapStore.getState().sessionForTab(opened.tabId);
-      if (nextBound && nextId) sessionId = nextId;
+  if (requestedUrl) {
+    const opened = await useBrowserTabCommandsStore.getState().openTab(panelId, requestedUrl);
+    const nextBound = await waitFor(
+      () => Boolean(useBrowserSessionMapStore.getState().sessionForTab(opened.tabId)),
+      8_000,
+    );
+    const nextId = useBrowserSessionMapStore.getState().sessionForTab(opened.tabId);
+    if (!nextBound || !nextId) {
+      return {
+        ok: false,
+        surface: placement,
+        error: "tab opened but the webview did not bind",
+        error_code: "browser_engine_failed",
+      };
     }
+    sessionId = nextId;
   }
 
   return { ok: true, target_id: sessionId, surface: placement };

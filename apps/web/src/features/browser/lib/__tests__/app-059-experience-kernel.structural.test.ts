@@ -11,7 +11,9 @@ describe("APP-059 experience kernel", () => {
       "utf8",
     );
     expect(skill).toContain("## One loop");
-    expect(skill).toContain("atmos browser-use state --backend embedded");
+    expect(skill).toContain("atmos browser-use state");
+    expect(skill).toContain("capability table");
+    expect(skill).toContain("do **not** include `elements[]`");
     expect(skill).toContain("capability_flags");
     expect(skill).not.toContain("user_picks");
     expect(skill).not.toContain("prepare --backend embedded");
@@ -46,6 +48,16 @@ describe("APP-059 experience kernel", () => {
       join(root, "apps/web/src/features/browser/hooks/use-open-browser-center-tab.ts"),
       "utf8",
     );
+    const welcome = readFileSync(
+      join(root, "apps/web/src/features/welcome/components/WelcomePage.tsx"),
+      "utf8",
+    );
+    const layout = readFileSync(
+      join(root, "apps/web/src/app-shell/PanelLayout.tsx"),
+      "utf8",
+    );
     expect(hook).toContain("ensureSurface");
+    expect(welcome).toContain("ensureSurface");
+    expect(layout).toContain("currentContextId");
   });
 });

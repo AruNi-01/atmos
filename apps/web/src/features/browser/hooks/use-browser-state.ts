@@ -524,11 +524,25 @@ export function useBrowserState({
       handleCloseBrowserTab(pendingCommand.tabId);
       resolveCommand(pendingCommand.token, true);
     } else if (pendingCommand.type === "open") {
-      const opened = handleOpenBrowserTab(pendingCommand.url);
-      if (opened) {
-        resolveCommand(pendingCommand.token, opened);
+      const tabs = browserStateRef.current.tabs;
+      const onlyEmpty =
+        tabs.length === 1 &&
+        !String(tabs[0]?.url ?? "").trim() &&
+        !String(tabs[0]?.activeUrl ?? "").trim();
+      if (onlyEmpty && tabs[0]) {
+        setBrowserTabPreviewUrl(tabs[0].id, pendingCommand.url);
+        handleSelectBrowserTab(tabs[0].id);
+        resolveCommand(pendingCommand.token, {
+          tabId: tabs[0].id,
+          evictedSessionIds: [],
+        });
       } else {
-        rejectCommand(pendingCommand.token, new Error("tabs open requires url"));
+        const opened = handleOpenBrowserTab(pendingCommand.url);
+        if (opened) {
+          resolveCommand(pendingCommand.token, opened);
+        } else {
+          rejectCommand(pendingCommand.token, new Error("tabs open requires url"));
+        }
       }
     }
 
@@ -540,6 +554,7 @@ export function useBrowserState({
     handleOpenBrowserTab,
     handleSelectBrowserTab,
     pendingCommand,
+    setBrowserTabPreviewUrl,
     rejectCommand,
     resolveCommand,
   ]);

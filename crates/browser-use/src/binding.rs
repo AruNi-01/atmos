@@ -143,11 +143,12 @@ pub fn apply_binding_defaults(
     let stored = load_binding(&binding_id);
     let backend = if backend_explicit {
         request_backend
+    } else if let Some(stored) = stored.as_ref() {
+        stored.backend
+    } else if crate::backends::embedded::embedded_host_available() {
+        BrowserBackendKind::Embedded
     } else {
-        stored
-            .as_ref()
-            .map(|binding| binding.backend)
-            .unwrap_or(request_backend)
+        request_backend
     };
     if let Some(stored) = stored.as_ref() {
         if stored.backend != backend {
@@ -206,6 +207,9 @@ pub fn apply_result_to_binding(
         return;
     };
     if !result.ok {
+        if should_clear_dead_binding(result) {
+            let _ = clear_binding(&binding_id);
+        }
         return;
     }
     if action == crate::types::BrowserAction::End {
@@ -231,8 +235,19 @@ pub fn apply_result_to_binding(
     if target_id.is_none() && tab_id.is_none() && session_id.is_none() {
         return;
     }
-    let binding = BrowserBinding::new(binding_id, backend, target_id, tab_id, session_id);
+    let stored = load_binding(&binding_id);
+    let binding = BrowserBinding::new(
+        binding_id,
+        backend,
+        first_nonempty(target_id, stored.as_ref().and_then(|b| b.target_id.clone())),
+        first_nonempty(tab_id, stored.as_ref().and_then(|b| b.tab_id.clone())),
+        first_nonempty(session_id, stored.as_ref().and_then(|b| b.session_id.clone())),
+    );
     let _ = save_binding(&binding);
+}
+
+fn should_clear_dead_binding(result: &BrowserResult) -> bool {
+    result.error_code.as_deref() == Some("browser_route_unavailable")
 }
 
 pub fn extract_ids(result: &BrowserResult) -> (Option<String>, Option<String>, Option<String>) {
@@ -527,5 +542,77 @@ mod tests {
         assert_eq!(applied.target_id.as_deref(), Some("sess"));
         assert_eq!(applied.tab_id.as_deref(), Some("main"));
         assert!(applied.resolved_from.is_none());
+    }
+
+    #[test]
+    fn click_does_not_wipe_stored_tab_id() {
+        let _guard = TEST_HOME_LOCK.lock().expect("test home lock");
+        let dir = tempfile::tempdir().unwrap();
+        unsafe {
+            std::env::set_var("ATMOS_BROWSER_USE_HOME", dir.path());
+        }
+        let binding_id = "pane-merge";
+        save_binding(&BrowserBinding::new(
+            binding_id,
+            BrowserBackendKind::Embedded,
+            Some("sess".into()),
+            Some("main".into()),
+            None,
+        ))
+        .unwrap();
+        apply_result_to_binding(
+            Some(binding_id),
+            BrowserBackendKind::Embedded,
+            crate::types::BrowserAction::Click,
+            None,
+            &BrowserResult {
+                ok: true,
+                action: "click".into(),
+                backend: "embedded".into(),
+                target_id: Some("sess".into()),
+                ..BrowserResult::default()
+            },
+        );
+        let stored = load_binding(binding_id).unwrap();
+        assert_eq!(stored.target_id.as_deref(), Some("sess"));
+        assert_eq!(stored.tab_id.as_deref(), Some("main"));
+        unsafe {
+            std::env::remove_var("ATMOS_BROWSER_USE_HOME");
+        }
+    }
+
+    #[test]
+    fn route_unavailable_clears_dead_binding() {
+        let _guard = TEST_HOME_LOCK.lock().expect("test home lock");
+        let dir = tempfile::tempdir().unwrap();
+        unsafe {
+            std::env::set_var("ATMOS_BROWSER_USE_HOME", dir.path());
+        }
+        let binding_id = "pane-dead";
+        save_binding(&BrowserBinding::new(
+            binding_id,
+            BrowserBackendKind::Embedded,
+            Some("dead".into()),
+            Some("main".into()),
+            None,
+        ))
+        .unwrap();
+        apply_result_to_binding(
+            Some(binding_id),
+            BrowserBackendKind::Embedded,
+            crate::types::BrowserAction::State,
+            None,
+            &BrowserResult {
+                ok: false,
+                action: "state".into(),
+                backend: "embedded".into(),
+                error_code: Some("browser_route_unavailable".into()),
+                ..BrowserResult::default()
+            },
+        );
+        assert!(load_binding(binding_id).is_none());
+        unsafe {
+            std::env::remove_var("ATMOS_BROWSER_USE_HOME");
+        }
     }
 }

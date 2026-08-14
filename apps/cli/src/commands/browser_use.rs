@@ -1,12 +1,29 @@
 //! `atmos browser-use` — page CDP control (separate from Desktop Use).
 //! Engine pin: cua-driver-rs 0.19.2 (extension-free browser tools).
 
-use browser_use::{execute, BrowserAction, BrowserBackendKind, BrowserRequest};
+use browser_use::{execute, BrowserAction, BrowserBackendKind, BrowserRequest, BrowserResult};
 use clap::{Args, Subcommand};
 use serde_json::{json, Value};
 
 pub async fn execute_cmd(command: BrowserUseCommand) -> Result<Value, String> {
-    let req = match command {
+    let req = match build_request(command) {
+        Ok(req) => req,
+        Err(message) => {
+            return serde_json::to_value(BrowserResult::fail(
+                "browser-use",
+                "external",
+                "invalid_args",
+                message,
+            ))
+            .map_err(|e| e.to_string());
+        }
+    };
+    let res = execute(req);
+    serde_json::to_value(res).map_err(|e| e.to_string())
+}
+
+fn build_request(command: BrowserUseCommand) -> Result<BrowserRequest, String> {
+    Ok(match command {
         BrowserUseCommand::Prepare(a) => BrowserRequest {
             backend: parse_backend_opt(a.route.backend.as_deref())?.0,
             backend_explicit: a.route.backend.is_some(),
@@ -170,9 +187,7 @@ pub async fn execute_cmd(command: BrowserUseCommand) -> Result<Value, String> {
             binding_id: a.route.binding_id,
             ..Default::default()
         },
-    };
-    let res = execute(req);
-    serde_json::to_value(res).map_err(|e| e.to_string())
+    })
 }
 
 fn parse_backend_opt(s: Option<&str>) -> Result<(BrowserBackendKind, bool), String> {
@@ -187,7 +202,7 @@ fn parse_backend_opt(s: Option<&str>) -> Result<(BrowserBackendKind, bool), Stri
 #[derive(Debug, Args)]
 pub struct RouteArgs {
     /// Backend: `external` (system Chrome) | `embedded` (Atmos in-app browser).
-    /// Omit to reuse the scoped binding, otherwise defaults to external.
+    /// Omit to reuse the scoped binding, or default to embedded when Desktop is open.
     #[arg(long)]
     pub backend: Option<String>,
     /// Opaque target from a prior `state` / `prepare`. Omit to reuse the scoped binding.
@@ -255,10 +270,10 @@ pub struct PrepareArgs {
 pub struct StateArgs {
     #[command(flatten)]
     pub route: RouteArgs,
-    /// Bind mode: native browser pid (with --window-id).
+    /// External only: system Chrome pid (with --window-id) when setup is required.
     #[arg(long)]
     pub pid: Option<i32>,
-    /// Bind mode: native window id (with --pid).
+    /// External only: system Chrome window id (with --pid).
     #[arg(long)]
     pub window_id: Option<i64>,
     /// semantic_v2 (external default) | dom_refs_v1 | embedded_dom_v1
@@ -422,15 +437,9 @@ pub fn product_note() -> Value {
         "engine_pin": "0.19.2",
         "desktop_use": "separate — OS windows / keys / AX",
         "backends": ["external", "embedded"],
-        "external_loop": [
-            "prepare (isolated_new default)",
-            "state bind pid+window_id using prepared_pid",
-            "state snapshot semantic_v2",
-            "click/type/navigate/pointer/dialog/download/upload",
-            "end",
-        ],
+        "loop": "state → act → state. Desktop defaults to embedded when control.json exists.",
         "embedded": "Atmos Desktop in-app browser via host control plane",
         "tabs": "embedded only — renderer owns tab CRUD; main process does not create webviews",
-        "json_flag": "browser-use always prints JSON; --json is a no-op",
+        "json_flag": "browser-use always prints JSON; do not pass --json",
     })
 }

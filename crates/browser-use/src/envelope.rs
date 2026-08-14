@@ -35,7 +35,7 @@ fn snapshot_format_for(backend: BrowserBackendKind) -> &'static str {
     }
 }
 
-fn lift_elements(obj: &mut serde_json::Map<String, Value>) {
+fn lift_elements_if_present(obj: &mut serde_json::Map<String, Value>) {
     if obj.contains_key("elements") {
         return;
     }
@@ -46,12 +46,15 @@ fn lift_elements(obj: &mut serde_json::Map<String, Value>) {
         .or_else(|| obj.get("nodes").cloned())
     {
         obj.insert("elements".into(), els);
-        return;
     }
-    obj.insert("elements".into(), json!([]));
 }
 
-/// Normalize every successful `state` / `prepare` so both backends share one envelope.
+fn is_snapshot_action(action: &str) -> bool {
+    matches!(action, "state" | "prepare")
+}
+
+/// Flags on every success. Snapshot fields only on real `state` / `prepare`.
+/// Never invent `elements: []` on click/tabs — that looks like an empty page.
 pub fn fill_result_envelope(result: &mut BrowserResult, backend: BrowserBackendKind) {
     if !result.ok {
         return;
@@ -59,25 +62,31 @@ pub fn fill_result_envelope(result: &mut BrowserResult, backend: BrowserBackendK
     let flags = capability_flags(backend);
     result.capability_flags = Some(flags.clone());
 
-    let mut payload = result.result.take().unwrap_or_else(|| json!({}));
+    let Some(mut payload) = result.result.take() else {
+        return;
+    };
     if !payload.is_object() {
         payload = json!({ "value": payload });
     }
     let obj = payload.as_object_mut().expect("object payload");
-    lift_elements(obj);
-    let count = obj
-        .get("elements")
-        .and_then(Value::as_array)
-        .map(Vec::len)
-        .unwrap_or(0);
-    obj.entry("element_count")
-        .or_insert_with(|| json!(count));
-    obj.entry("truncated").or_insert_with(|| json!(false));
-    obj.entry("total_candidates")
-        .or_insert_with(|| json!(count));
-    obj.entry("snapshot_format")
-        .or_insert_with(|| json!(snapshot_format_for(backend)));
     obj.insert("capability_flags".into(), flags);
+    if is_snapshot_action(result.action.as_str()) {
+        lift_elements_if_present(obj);
+        if obj.contains_key("elements") {
+            let count = obj
+                .get("elements")
+                .and_then(Value::as_array)
+                .map(Vec::len)
+                .unwrap_or(0);
+            obj.entry("element_count")
+                .or_insert_with(|| json!(count));
+            obj.entry("truncated").or_insert_with(|| json!(false));
+            obj.entry("total_candidates")
+                .or_insert_with(|| json!(count));
+            obj.entry("snapshot_format")
+                .or_insert_with(|| json!(snapshot_format_for(backend)));
+        }
+    }
     result.result = Some(payload);
 }
 
@@ -128,5 +137,22 @@ mod tests {
         fill_result_envelope(&mut fail, BrowserBackendKind::Embedded);
         assert!(fail.capability_flags.is_none());
         assert!(fail.result.is_none());
+    }
+
+    #[test]
+    fn does_not_invent_elements_on_click() {
+        let mut click = BrowserResult {
+            ok: true,
+            action: "click".into(),
+            backend: "embedded".into(),
+            result: Some(json!({ "target_id": "s1", "x": 10, "y": 20 })),
+            ..Default::default()
+        };
+        fill_result_envelope(&mut click, BrowserBackendKind::Embedded);
+        let payload = click.result.as_ref().unwrap();
+        assert!(payload.get("elements").is_none());
+        assert!(payload.get("snapshot_format").is_none());
+        assert_eq!(payload["capability_flags"]["tabs"], true);
+        assert!(click.capability_flags.is_some());
     }
 }

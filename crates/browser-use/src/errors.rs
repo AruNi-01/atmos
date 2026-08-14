@@ -84,6 +84,14 @@ pub fn classify_engine_message(
             recovery_for(BROWSER_UNTRUSTED_CONTENT),
         );
     }
+    if matches_any(&lower, &["existing-profile", "existing_profile"])
+        && matches_any(&lower, &["grant", "not allowed", "denied", "not granted"])
+    {
+        return (
+            BROWSER_PROFILE_GRANT_REQUIRED,
+            recovery_for(BROWSER_PROFILE_GRANT_REQUIRED),
+        );
+    }
     if matches_any(
         &lower,
         &[
@@ -95,14 +103,6 @@ pub fn classify_engine_message(
         ],
     ) {
         return (BROWSER_SETUP_REQUIRED, recovery_for(BROWSER_SETUP_REQUIRED));
-    }
-    if matches_any(&lower, &["existing-profile", "existing_profile"])
-        && matches_any(&lower, &["grant", "not allowed", "denied", "not granted"])
-    {
-        return (
-            BROWSER_PROFILE_GRANT_REQUIRED,
-            recovery_for(BROWSER_PROFILE_GRANT_REQUIRED),
-        );
     }
     if matches_any(
         &lower,
@@ -185,6 +185,12 @@ pub fn recovery_for(code: &str) -> Option<String> {
             BROWSER_CONTROL_AUTH_FAILED => {
                 "Restart Atmos Desktop so the embedded Browser Use control plane can issue a fresh token."
             }
+            BROWSER_CONTROL_UNAVAILABLE => {
+                "Open Atmos Desktop so the in-app Browser host can write control.json, then retry `atmos browser-use state --backend embedded`. Do not prepare a system Chrome session."
+            }
+            "control_engine_not_installed" | "control_engine_failed" => {
+                "Install or pin Desktop Use control engine 0.19.2, or pass `--backend embedded` when Atmos Desktop is open."
+            }
             _ => "Retry after `atmos browser-use state`. If the surface disappeared, start a new isolated session.",
         }
         .to_string(),
@@ -227,5 +233,19 @@ mod tests {
         let (code, recovery) = classify_engine_message(None, "no bound webview guest");
         assert_eq!(code, BROWSER_ROUTE_UNAVAILABLE);
         assert!(recovery.unwrap().contains("target-id"));
+    }
+
+    #[test]
+    fn existing_profile_grant_beats_generic_not_granted() {
+        let (code, _) =
+            classify_engine_message(None, "existing_profile is not granted on this host");
+        assert_eq!(code, BROWSER_PROFILE_GRANT_REQUIRED);
+    }
+
+    #[test]
+    fn embedded_host_recovery_does_not_suggest_prepare() {
+        let recovery = recovery_for(BROWSER_CONTROL_UNAVAILABLE).unwrap();
+        assert!(recovery.contains("Desktop"));
+        assert!(!recovery.to_ascii_lowercase().contains("isolated"));
     }
 }

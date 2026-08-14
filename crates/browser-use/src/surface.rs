@@ -17,15 +17,17 @@ pub fn attach_surface(result: &mut BrowserResult, backend: BrowserBackendKind) {
 }
 
 pub fn attach_success_recovery(result: &mut BrowserResult) {
-    if !result.ok || result.recovery.is_some() {
+    if !result.ok || result.recovery.is_some() || result.action != "state" {
         return;
     }
-    let has_snapshot = result.result.as_ref().is_some_and(|value| {
-        value.get("elements").is_some()
-            || value.get("snapshot").is_some()
-            || value.get("snapshot_format").is_some()
-            || value.get("mode").and_then(|m| m.as_str()) == Some("snapshot")
-    });
+    let Some(value) = result.result.as_ref() else {
+        return;
+    };
+    if value.get("mode").and_then(|m| m.as_str()) == Some("bind") {
+        return;
+    }
+    let has_snapshot = value.get("elements").is_some()
+        || value.get("mode").and_then(|m| m.as_str()) == Some("snapshot");
     if has_snapshot {
         result.recovery = Some(
             "Use only refs from this snapshot. The next snapshot invalidates previous refs."

@@ -22,6 +22,8 @@ function parseSurface(value: unknown): BrowserDefaultSurface {
   return value === "center" ? "center" : "sidebar";
 }
 
+let inflight: Promise<void> | null = null;
+
 export const useBrowserSettingsStore = create<BrowserSettingsState>((set, get) => ({
   defaultSurface: "sidebar",
   newTabUrl: "",
@@ -30,25 +32,34 @@ export const useBrowserSettingsStore = create<BrowserSettingsState>((set, get) =
   loading: false,
 
   loadSettings: async (force = false) => {
-    if ((get().loaded && !force) || get().loading) return;
-    set({ loading: true });
-    try {
-      const settings = await useFunctionSettingsStore.getState().load();
-      const browser = (settings.browser ?? {}) as {
-        default_surface?: unknown;
-        new_tab_url?: unknown;
-        show_agent_chrome?: unknown;
-      };
-      set({
-        defaultSurface: parseSurface(browser.default_surface),
-        newTabUrl: typeof browser.new_tab_url === "string" ? browser.new_tab_url : "",
-        showAgentChrome: browser.show_agent_chrome !== false,
-        loaded: true,
-        loading: false,
-      });
-    } catch {
-      set({ loading: false, loaded: true });
+    if (get().loaded && !force) return;
+    if (inflight) {
+      await inflight;
+      return;
     }
+    set({ loading: true });
+    inflight = (async () => {
+      try {
+        const settings = await useFunctionSettingsStore.getState().load();
+        const browser = (settings.browser ?? {}) as {
+          default_surface?: unknown;
+          new_tab_url?: unknown;
+          show_agent_chrome?: unknown;
+        };
+        set({
+          defaultSurface: parseSurface(browser.default_surface),
+          newTabUrl: typeof browser.new_tab_url === "string" ? browser.new_tab_url : "",
+          showAgentChrome: browser.show_agent_chrome !== false,
+          loaded: true,
+          loading: false,
+        });
+      } catch {
+        set({ loading: false, loaded: false });
+      } finally {
+        inflight = null;
+      }
+    })();
+    await inflight;
   },
 
   setDefaultSurface: async (value) => {

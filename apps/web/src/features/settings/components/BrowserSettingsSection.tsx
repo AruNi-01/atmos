@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Globe, LayoutTemplate, Link2, Scan, Download } from "lucide-react";
-import { Input, Switch } from "@workspace/ui";
+import { Input } from "@workspace/ui";
 import {
   SettingsGroupCard,
   SettingsGroupRow,

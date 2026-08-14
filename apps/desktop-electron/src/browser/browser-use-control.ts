@@ -101,8 +101,17 @@ type SessionCache = {
 
 function isExactLoopbackHost(hostHeader: string | undefined): boolean {
   if (!hostHeader) return false;
-  const host = hostHeader.split(":")[0]?.trim().toLowerCase() ?? "";
-  return host === "127.0.0.1" || host === "localhost" || host === "[::1]";
+  const raw = hostHeader.trim().toLowerCase();
+  try {
+    const url = new URL(raw.includes("://") ? raw : `http://${raw}`);
+    return (
+      url.hostname === "127.0.0.1" ||
+      url.hostname === "localhost" ||
+      url.hostname === "[::1]"
+    );
+  } catch {
+    return false;
+  }
 }
 
 function isLoopbackOrigin(origin: string | undefined): boolean {
@@ -178,6 +187,12 @@ export class BrowserUseControlPlane {
     this.manager = manager;
     this.manager.setOnBrowserUseNavigated((sessionId) => {
       this.invalidateSession(sessionId);
+    });
+    this.manager.setOnBrowserUseClosed((sessionId) => {
+      this.invalidateSession(sessionId, {
+        releaseDialog: true,
+        dropQueue: true,
+      });
     });
   }
 
@@ -284,7 +299,11 @@ export class BrowserUseControlPlane {
     try {
       return JSON.parse(raw) as Record<string, unknown>;
     } catch {
-      return {};
+      const err = new Error("request body is not valid JSON") as Error & {
+        code?: string;
+      };
+      err.code = "invalid_args";
+      throw err;
     }
   }
 
@@ -587,20 +606,7 @@ export class BrowserUseControlPlane {
     for (let i = 0; i < picks.length; i += 1) {
       const pick = picks[i];
       const live = await this.querySelectorRect(guest, pick.selector);
-      if (!live) {
-        userEls.push({
-          ref: `g${generation}:u${i}`,
-          tag: pick.tag ?? "unknown",
-          role: "user_pick",
-          name: (pick.name || pick.selector).slice(0, 120),
-          visible: false,
-          rect: { x: 0, y: 0, width: 0, height: 0 },
-          selector: pick.selector,
-          note: pick.note,
-          source: pick.source ?? "annotation",
-        });
-        continue;
-      }
+      if (!live) continue;
       userEls.push({
         ref: `g${generation}:u${i}`,
         tag: live.tag,
@@ -919,17 +925,9 @@ export class BrowserUseControlPlane {
     const replace = Boolean(opts?.replace);
     const mode = (opts?.mode || "insert_text").trim();
     if (ref) {
-      const cache = this.snapshots.get(sessionId);
-      if (!cache) {
-        throw new Error(
-          `unknown ref ${ref}; run state snapshot first (refs are snapshot-scoped)`,
-        );
-      }
-      const el = cache.elements.find((e) => e.ref === ref);
-      if (!el) throw new Error(`unknown ref ${ref}; run state snapshot first`);
-      this.showChromeForRef(sessionId, el, "Typing in page");
-      const cx = el.rect.x + Math.max(1, el.rect.width / 2);
-      const cy = el.rect.y + Math.max(1, el.rect.height / 2);
+      const pt = await this.resolvePoint(sessionId, ref, null, null, "Typing in page");
+      const cx = pt.x;
+      const cy = pt.y;
       await guest.executeJavaScript(
         `(() => {
           const el = document.elementFromPoint(${JSON.stringify(cx)}, ${JSON.stringify(cy)});
@@ -1291,7 +1289,7 @@ export class BrowserUseControlPlane {
         item: DownloadItem,
         wc?: WebContents,
       ) => {
-        if (wc && wc.id !== guest.id) return;
+        if (!wc || wc.id !== guest.id) return;
         const armed = this.armedDownloads.get(sessionId);
         if (!armed || Date.now() > armed.deadline) {
           return;
@@ -1444,10 +1442,13 @@ export class BrowserUseControlPlane {
       }
       const body = await this.readBody(req);
       const path = url.pathname;
-      const queueKey =
-        typeof body.target_id === "string" && body.target_id.trim()
-          ? body.target_id.trim()
-          : path;
+      const target =
+        typeof body.target_id === "string" ? body.target_id.trim() : "";
+      const ensureLike =
+        !target &&
+        (path === "/v1/state" ||
+          (path === "/v1/tabs" && String(body.action || "").trim() === "open"));
+      const queueKey = target || (ensureLike ? "__ensure__" : path);
       await this.enqueue(queueKey, () => this.dispatch(path, body, res));
     } catch (e) {
       this.sendFailure(res, e);
@@ -1522,7 +1523,7 @@ export class BrowserUseControlPlane {
           ],
           note:
             sessions.length === 0
-              ? "No open Atmos Browser webviews. Open a Browser tab in Desktop first."
+              ? "Optional probe. Empty `state` / `tabs open` will ensure the user's default Browser surface."
               : "Embedded browser sessions ready (no user-Chrome prepare).",
         });
         return;
@@ -1563,6 +1564,15 @@ export class BrowserUseControlPlane {
               sessions,
               error: "multiple embedded browser sessions are open; pass --target-id",
               error_code: "browser_ambiguous_target",
+            });
+            return;
+          } else if (sessions.length > 0) {
+            this.send(res, 200, {
+              ok: false,
+              sessions,
+              error:
+                "Browser chrome exists but no webview is bound yet; retry state",
+              error_code: "browser_route_unavailable",
             });
             return;
           } else {
@@ -1794,9 +1804,8 @@ export class BrowserUseControlPlane {
             return;
           }
           const sessions = this.listSessions();
-          const bound = sessions.filter((s) => s.bound);
           const actionName =
-            !targetId && bound.length === 0 ? "ensure-bind" : "open";
+            !targetId && sessions.length === 0 ? "ensure-bind" : "open";
           const ack = await this.requestAgentTab({
             action: actionName,
             url: navUrl,
@@ -1832,6 +1841,10 @@ export class BrowserUseControlPlane {
               releaseDialog: true,
               dropQueue: true,
             });
+            this.manager.clearLastActiveIf(targetId);
+          }
+          if (ack.ok && action === "select") {
+            this.manager.markLastActiveSession(targetId);
           }
           this.send(res, ack.ok ? 200 : 400, {
             ok: ack.ok,

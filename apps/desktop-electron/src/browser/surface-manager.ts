@@ -72,6 +72,7 @@ export class BrowserSurfaceManager {
   private onBrowserUseNavigated:
     | ((sessionId: string, url: string) => void)
     | null = null;
+  private onBrowserUseClosed: ((sessionId: string) => void) | null = null;
 
   constructor(private readonly state: AppState) {
     this.browserSession = session.fromPartition(BROWSER_PARTITION);
@@ -223,6 +224,8 @@ export class BrowserSurfaceManager {
         // Detached window path does not need in-panel re-attach.
         cur.pendingAttach = !cur.detached && this.surfaces.has(sessionId);
       }
+      this.clearLastActiveIf(sessionId);
+      this.onBrowserUseClosed?.(sessionId);
     });
   }
 
@@ -328,6 +331,10 @@ export class BrowserSurfaceManager {
     this.onBrowserUseNavigated = cb;
   }
 
+  setOnBrowserUseClosed(cb: ((sessionId: string) => void) | null): void {
+    this.onBrowserUseClosed = cb;
+  }
+
   lastActiveBoundSessionId(): string | null {
     const id = this.lastActiveSessionId?.trim() ?? "";
     if (!id) return null;
@@ -338,6 +345,22 @@ export class BrowserSurfaceManager {
 
   markLastActiveSession(sessionId: string): void {
     this.markLastActive(sessionId);
+  }
+
+  clearLastActiveIf(sessionId: string): void {
+    const id = sessionId.trim();
+    if (!id || this.lastActiveSessionId !== id) return;
+    this.lastActiveSessionId = null;
+    const remaining: string[] = [];
+    for (const surface of this.surfaces.values()) {
+      const guest = surface.guestWebContents;
+      if (guest && !guest.isDestroyed() && surface.sessionId !== id) {
+        remaining.push(surface.sessionId);
+      }
+    }
+    if (remaining.length === 1 && remaining[0]) {
+      this.lastActiveSessionId = remaining[0];
+    }
   }
 
   /**
@@ -354,7 +377,7 @@ export class BrowserSurfaceManager {
     targetId?: string;
   }): boolean {
     let host = this.resolveAgentTabHost(payload.targetId);
-    if (!host && payload.action === "ensure-bind") {
+    if (!host && payload.action === "ensure-bind" && this.surfaces.size === 0) {
       const main = this.state.mainWindow;
       if (main && !main.isDestroyed()) host = main;
     }
@@ -983,6 +1006,8 @@ export class BrowserSurfaceManager {
   close(sessionId: string): void {
     const s = this.surfaces.get(sessionId);
     if (!s) return;
+    this.onBrowserUseClosed?.(sessionId);
+    this.clearLastActiveIf(sessionId);
     try {
       if (s.guestWebContents && !s.guestWebContents.isDestroyed()) {
         // Prefer blur-safe teardown; guest is destroyed with webview element in host.

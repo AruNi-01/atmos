@@ -37,7 +37,11 @@ use backends::BrowserBackend;
 /// Dispatch a browser-use request to the selected backend.
 pub fn execute(mut req: BrowserRequest) -> BrowserResult {
     let binding_id = req.binding_id.clone();
-    let applied = binding::apply_binding_defaults(
+    let target_explicit = req
+        .target_id
+        .as_ref()
+        .is_some_and(|value| !value.trim().is_empty());
+    let mut applied = binding::apply_binding_defaults(
         req.backend,
         req.backend_explicit,
         req.target_id.clone(),
@@ -45,6 +49,14 @@ pub fn execute(mut req: BrowserRequest) -> BrowserResult {
         req.session.clone(),
         binding_id.as_deref(),
     );
+    // Embedded `state` without an explicit target must hit last-active / ensure.
+    // Injecting the stored id would pin the old tab and skip pick handoff.
+    if req.action == BrowserAction::State
+        && applied.backend == BrowserBackendKind::Embedded
+        && !target_explicit
+    {
+        applied.target_id = None;
+    }
     req.backend = applied.backend;
     req.target_id = applied.target_id;
     req.tab_id = applied.tab_id;

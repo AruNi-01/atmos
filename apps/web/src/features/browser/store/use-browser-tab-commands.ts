@@ -49,6 +49,14 @@ function enqueue(
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
       if (!waiters.delete(command.token)) return;
+      set((state) => ({
+        queuesByContext: {
+          ...state.queuesByContext,
+          [browserContextId]: (state.queuesByContext[browserContextId] ?? []).filter(
+            (item) => item.token !== command.token,
+          ),
+        },
+      }));
       reject(new Error("tab command was not handled by a Browser panel"));
     }, COMMAND_TIMEOUT_MS);
     waiters.set(command.token, { resolve, reject, timer });
