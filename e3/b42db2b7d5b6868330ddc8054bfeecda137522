@@ -1,0 +1,24 @@
+apps/web/src/app-shell/TokenUsageOverviewTab.tsx
+  h_5be255725524c8 23,360-362,405,468,471,529
+apps/web/src/app-shell/__tests__/token-usage-model-icon.test.ts
+  h_5be255725524c8 6-7,149-159
+apps/web/src/app-shell/token-usage-dialog-parts.tsx
+  h_5be255725524c8 149
+apps/web/src/app-shell/token-usage-dialog-utils.ts
+  h_5be255725524c8 1261-1262,1288-1289,1295
+packages/ui/src/components/ui/sliding-metric.test.ts
+  h_5be255725524c8 19-25,35,38-39,44
+packages/ui/src/components/ui/sliding-metric.tsx
+  h_5be255725524c8 97-98,126-127
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "e3b42db2b7d5b6868330ddc8054bfeecda137522",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
