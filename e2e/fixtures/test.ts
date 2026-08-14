@@ -17,3 +17,4 @@ export const test = base.extend<AtmosFixtures>({
 });
 
 export { expect };
+export type { Page } from "@playwright/test";

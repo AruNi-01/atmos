@@ -1,7 +1,5 @@
-import type { Page } from "@playwright/test";
-
 import { apiPort } from "../../fixtures/app-server";
-import { expect, test } from "../../fixtures/test";
+import { expect, test, type Page } from "../../fixtures/test";
 import {
   buildProjectWorkspaceDeepLink,
   connectLocalComputer,
