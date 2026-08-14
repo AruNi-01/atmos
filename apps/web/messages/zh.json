@@ -9284,6 +9284,7 @@
       "url": {
         "enter": "输入 URL..."
       },
+      "agentActive": "Agent 正在操作此页面",
       "actions": {
         "openInBrowser": "在浏览器中打开",
         "openDeveloperTools": "打开开发者工具",

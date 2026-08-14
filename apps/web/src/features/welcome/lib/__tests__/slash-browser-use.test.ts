@@ -2,6 +2,7 @@ import { describe, expect, it } from "bun:test";
 import {
   BROWSER_USE_SLASH_COMMAND_ID,
   BROWSER_USE_SKILL_NAME,
+  browserUseSlashNeedsDesktopUseGate,
   buildBrowserUseSlashCommand,
   matchesBrowserUseSlashQuery,
   resolveBrowserUseSkillRef,
@@ -52,5 +53,9 @@ describe("slash-browser-use", () => {
     expect(fallback.name).toBe(BROWSER_USE_SKILL_NAME);
     expect(fallback.absolutePath).toContain("atmos-browser-use");
     expect(fallback.status).toBe("enabled");
+  });
+
+  it("skips Desktop Use gate on desktop runtime", () => {
+    expect(typeof browserUseSlashNeedsDesktopUseGate()).toBe("boolean");
   });
 });

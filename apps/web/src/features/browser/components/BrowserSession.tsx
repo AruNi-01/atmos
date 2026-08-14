@@ -36,6 +36,7 @@ import { useBrowserIframeLoad } from "../hooks/use-browser-iframe-load";
 import { useBrowserLifecycleEffects } from "../hooks/use-browser-lifecycle-effects";
 import { useBrowserNavigation } from "../hooks/use-browser-navigation";
 import { useBrowserSelection } from "../hooks/use-browser-selection";
+import { pushBrowserUseUserPicks } from "../lib/browser-use-user-picks";
 import { useBrowserToolbarLayout } from "../hooks/use-browser-toolbar-layout";
 import { useBrowserWindowState } from "../hooks/use-browser-window-state";
 import {
@@ -66,6 +67,7 @@ interface BrowserSessionProps {
   onPageTitleChange?: (title: string, pageUrl?: string) => void;
   onPageIconChange?: (faviconUrl: string) => void;
   onOpenPageInNewTab?: (url: string) => void;
+  onSessionReady?: (sessionId: string | null) => void;
   browserTabBarProps?: Omit<BrowserTabBarProps, "chromeControls">;
   isStandaloneBrowserWindow?: boolean;
   isPreviewStandaloneOpen?: boolean;
@@ -106,6 +108,7 @@ export const BrowserSession: React.FC<BrowserSessionProps> = ({
   onPageTitleChange,
   onPageIconChange,
   onOpenPageInNewTab,
+  onSessionReady,
   browserTabBarProps,
   isStandaloneBrowserWindow = false,
   isPreviewStandaloneOpen = false,
@@ -163,6 +166,8 @@ export const BrowserSession: React.FC<BrowserSessionProps> = ({
   const iframeUrlWatcherCleanupRef = useRef<(() => void) | null>(null);
   const transportControllerRef = useRef<BrowserBridgeController | null>(null);
   const transportSessionIdRef = useRef<string | null>(null);
+  const onSessionReadyRef = useRef(onSessionReady);
+  onSessionReadyRef.current = onSessionReady;
   const desktopPreviewUrlRef = useRef<string | null>(null);
   const desktopPreviewViewportRef = useRef<string | null>(null);
   const desktopPreviewVisibleRef = useRef(false);
@@ -336,6 +341,16 @@ export const BrowserSession: React.FC<BrowserSessionProps> = ({
     transportControllerRef,
   });
 
+  useEffect(() => {
+    const sessionId = desktopAttach?.sessionId ?? transportSessionIdRef.current;
+    if (!sessionId || preferredTransportMode !== "desktop") return;
+    void pushBrowserUseUserPicks({
+      sessionId,
+      current: selectionInfo,
+      annotations: selectionAnnotations,
+    }).catch(() => undefined);
+  }, [desktopAttach?.sessionId, preferredTransportMode, selectionAnnotations, selectionInfo]);
+
   // Only auto-dismiss when the picker is off. While pick mode is on, guest clicks
   // intentionally select elements and must open the host SelectionPopover — webview
   // focus/blur must not race-close it.
@@ -363,6 +378,9 @@ export const BrowserSession: React.FC<BrowserSessionProps> = ({
   const teardownTransport = useCallback((clearSelection = true) => {
     const activeController = transportControllerRef.current;
     transportControllerRef.current = null;
+    if (transportSessionIdRef.current) {
+      onSessionReadyRef.current?.(null);
+    }
     transportSessionIdRef.current = null;
     desktopPreviewUrlRef.current = null;
     desktopPreviewViewportRef.current = null;
@@ -787,6 +805,7 @@ export const BrowserSession: React.FC<BrowserSessionProps> = ({
         message: '',
         capabilities: [],
       });
+      onSessionReadyRef.current?.(sessionId);
     } catch (error) {
       console.error('[browser] desktop transport connect failed:', error);
       desktopCommittedUrlRef.current = "";
@@ -1186,6 +1205,7 @@ export const BrowserSession: React.FC<BrowserSessionProps> = ({
     usesDesktopToolbarExpand: isChromeManagedByTabBar ? false : usesDesktopToolbarExpand,
     usesToolbarHoverOverlay: isChromeManagedByTabBar ? false : usesToolbarHoverOverlay,
     viewMode,
+    browserUseSessionId: desktopAttach?.sessionId ?? null,
     focusUrlInput,
     handleAddFavorite,
     handleDownloadExtension,

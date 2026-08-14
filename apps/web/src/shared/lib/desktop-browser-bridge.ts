@@ -10,6 +10,10 @@ interface PreviewBridgeEventPayload {
   faviconUrl?: string;
   targetUrl?: string;
   action?: 'copy' | 'add' | 'update' | 'delete';
+  tabAction?: 'open' | 'close' | 'select' | 'list';
+  requestId?: string;
+  targetId?: string;
+  url?: string;
   annotationId?: string;
   note?: string;
   capabilities?: string[];

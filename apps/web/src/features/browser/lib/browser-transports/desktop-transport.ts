@@ -2,6 +2,7 @@ import {
   invokeDesktopBrowserBridge,
   listenDesktopBrowserBridge,
 } from '@/shared/lib/desktop-browser-bridge';
+import { markBrowserUseActivity } from '../../store/use-browser-use-activity';
 import type {
   BrowserBridgeController,
   BrowserBridgeEventHandlers,
@@ -121,6 +122,15 @@ export async function connectDesktopBrowserTransport(
     listenDesktopBrowserBridge('desktop-browser:viewport-changed', (payload) => {
       if (payload.sessionId !== options.sessionId) return;
       options.onViewportChanged?.();
+    }),
+    listenDesktopBrowserBridge('desktop-browser:agent-activity', (payload) => {
+      if (payload.sessionId !== options.sessionId) return;
+      const active = (payload as { active?: boolean }).active !== false;
+      const status =
+        typeof (payload as { status?: unknown }).status === "string"
+          ? (payload as { status: string }).status
+          : "Agent is using this page";
+      markBrowserUseActivity(payload.sessionId, status, active);
     }),
   ]);
 

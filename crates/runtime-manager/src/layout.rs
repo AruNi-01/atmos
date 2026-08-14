@@ -131,6 +131,15 @@ pub fn browser_use_data_dir() -> Result<PathBuf, String> {
     Ok(data_dir()?.join("browser-use"))
 }
 
+/// Short-lived Browser Use capability bindings (not durable product data).
+pub fn browser_use_state_dir() -> Result<PathBuf, String> {
+    Ok(state_dir()?.join("browser-use"))
+}
+
+pub fn browser_use_bindings_dir() -> Result<PathBuf, String> {
+    Ok(browser_use_state_dir()?.join("bindings"))
+}
+
 pub fn local_model_runtime_data_dir() -> Result<PathBuf, String> {
     Ok(data_dir()?.join("local-model-runtime"))
 }
@@ -158,5 +167,11 @@ mod tests {
         assert!(quota_usage_data_dir()
             .unwrap()
             .starts_with(home.join("data")));
+        assert!(browser_use_state_dir()
+            .unwrap()
+            .starts_with(home.join("state")));
+        assert!(browser_use_bindings_dir()
+            .unwrap()
+            .starts_with(home.join("state").join("browser-use")));
     }
 }

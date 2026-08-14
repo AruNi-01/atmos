@@ -3,8 +3,12 @@
 use serde_json::{json, Value};
 
 use super::BrowserBackend;
+use crate::errors::{
+    fail, fail_with_recovery, map_engine_failure, BROWSER_INVALID_ARGS,
+    BROWSER_PROFILE_GRANT_REQUIRED, BROWSER_UNSUPPORTED, recovery_for,
+};
 use crate::types::{
-    BrowserAction, BrowserBackendKind, BrowserError, BrowserRequest, BrowserResult,
+    action_name, BrowserAction, BrowserBackendKind, BrowserError, BrowserRequest, BrowserResult,
     DEFAULT_SNAPSHOT_FORMAT,
 };
 use desktop_use::host;
@@ -14,10 +18,13 @@ use desktop_use::manager::DesktopUseManager;
 pub struct ExternalBackend;
 
 fn session_id(req: &BrowserRequest) -> String {
-    req.session
-        .clone()
-        .filter(|s| !s.trim().is_empty())
-        .unwrap_or_else(|| crate::chrome::DEFAULT_BROWSER_USE_SESSION.into())
+    crate::binding::engine_session_id(req.binding_id.as_deref(), req.session.as_deref())
+}
+
+fn is_existing_profile(strategy: Option<&str>) -> bool {
+    strategy
+        .map(str::trim)
+        .is_some_and(|s| s.contains("existing"))
 }
 
 /// Map a browser request to control-engine tool + args (0.19.2 contracts).
@@ -72,8 +79,10 @@ pub fn build_tool_call(req: &BrowserRequest) -> Result<(&'static str, Value), St
                     a["profile"] = json!({ "mode": "isolated_new" });
                     a["allow_launch"] = json!(true);
                 }
-                Some(_) => {
-                    // Unknown strategy: attach window_id only (detect-only prepare).
+                Some(unknown) => {
+                    return Err(format!(
+                        "unknown --strategy {unknown:?} (use isolated_new | isolated_named | existing_profile)"
+                    ));
                 }
                 None => {
                     // Optimal default: driver-owned isolated profile (never mutates user Chrome).
@@ -114,6 +123,12 @@ pub fn build_tool_call(req: &BrowserRequest) -> Result<(&'static str, Value), St
                     .map(str::trim)
                     .filter(|s| !s.is_empty())
                     .unwrap_or(DEFAULT_SNAPSHOT_FORMAT);
+                if fmt == "embedded_dom_v1" {
+                    return Err(
+                        "snapshot format embedded_dom_v1 is only valid with --backend embedded"
+                            .into(),
+                    );
+                }
                 a["snapshot_format"] = json!(fmt);
                 if req.include_screenshot {
                     a["include_screenshot"] = json!(true);
@@ -386,23 +401,74 @@ pub fn build_tool_call(req: &BrowserRequest) -> Result<(&'static str, Value), St
                     "target_id": target,
                     "tab_id": tab,
                     "ref": r,
-                    "dir": dir,
+                    "destination_root": dir,
                 }),
             ))
         }
+        BrowserAction::PressKey => Err(
+            "press-key is only available with --backend embedded (CUA has no browser_press_key)"
+                .into(),
+        ),
+        BrowserAction::Upload => {
+            let target = req
+                .target_id
+                .as_ref()
+                .ok_or_else(|| "upload requires --target-id".to_string())?;
+            let tab = req
+                .tab_id
+                .as_ref()
+                .ok_or_else(|| "upload requires --tab-id".to_string())?;
+            let r = req
+                .element_ref
+                .as_ref()
+                .map(|s| s.trim())
+                .filter(|s| !s.is_empty())
+                .ok_or_else(|| "upload requires --ref".to_string())?;
+            if req.files.is_empty() {
+                return Err("upload requires --file (one or more local paths)".into());
+            }
+            Ok((
+                "browser_set_input_files",
+                json!({
+                    "session": session,
+                    "target_id": target,
+                    "tab_id": tab,
+                    "ref": r,
+                    "paths": req.files,
+                }),
+            ))
+        }
+        BrowserAction::End => Ok((
+            "end_session",
+            json!({
+                "session": session,
+            }),
+        )),
+        BrowserAction::Tabs => Err(
+            "tabs is only available with --backend embedded (in-app Browser tabs are renderer-owned)"
+                .into(),
+        ),
     }
 }
 
-fn action_name(action: BrowserAction) -> &'static str {
-    match action {
-        BrowserAction::Prepare => "prepare",
-        BrowserAction::State => "state",
-        BrowserAction::Click => "click",
-        BrowserAction::Type => "type",
-        BrowserAction::Navigate => "navigate",
-        BrowserAction::Pointer => "pointer",
-        BrowserAction::Dialog => "dialog",
-        BrowserAction::Download => "download",
+fn enrich_prepare_result(v: &mut Value, requested_pid: Option<i32>) {
+    let prepared_pid = v
+        .get("pid")
+        .and_then(Value::as_i64)
+        .or_else(|| v.pointer("/process/pid").and_then(Value::as_i64))
+        .or_else(|| v.pointer("/browser/pid").and_then(Value::as_i64));
+    let prepared_window = v
+        .get("window_id")
+        .and_then(Value::as_i64)
+        .or_else(|| v.pointer("/window/id").and_then(Value::as_i64));
+    if let Some(pid) = prepared_pid {
+        v["prepared_pid"] = json!(pid);
+        if requested_pid.is_some_and(|req| i64::from(req) != pid) {
+            v["rebind_required"] = json!(true);
+        }
+    }
+    if let Some(wid) = prepared_window {
+        v["prepared_window_id"] = json!(wid);
     }
 }
 
@@ -411,17 +477,31 @@ impl BrowserBackend for ExternalBackend {
         let action = action_name(req.action);
         let backend = BrowserBackendKind::External.as_str();
 
+        if is_existing_profile(req.profile_strategy.as_deref()) {
+            return fail_with_recovery(
+                action,
+                backend,
+                BROWSER_PROFILE_GRANT_REQUIRED,
+                "`existing_profile` is not granted on this Desktop Use host. The daemon is started without `--grant existing-profile`.",
+                recovery_for(BROWSER_PROFILE_GRANT_REQUIRED),
+            );
+        }
+
         let (tool, args) = match build_tool_call(&req) {
             Ok(v) => v,
             Err(e) => {
-                return BrowserResult {
-                    ok: false,
-                    action: action.into(),
-                    backend: backend.into(),
-                    result: None,
-                    error: Some(BrowserError::InvalidArgs(e).message()),
-                    error_code: Some(BrowserError::InvalidArgs(String::new()).code().into()),
+                let code = if e.contains("only available") {
+                    BROWSER_UNSUPPORTED
+                } else {
+                    BROWSER_INVALID_ARGS
                 };
+                return fail_with_recovery(
+                    action,
+                    backend,
+                    code,
+                    BrowserError::InvalidArgs(e).message(),
+                    recovery_for(code),
+                );
             }
         };
 
@@ -429,41 +509,30 @@ impl BrowserBackend for ExternalBackend {
         let engine = match mgr.require_engine() {
             Ok(p) => p,
             Err(e) => {
-                return BrowserResult {
-                    ok: false,
-                    action: action.into(),
-                    backend: backend.into(),
-                    result: None,
-                    error: Some(e),
-                    error_code: Some("control_engine_not_installed".into()),
-                };
+                return fail(action, backend, "control_engine_not_installed", e);
             }
         };
         let socket = mgr.socket_path();
         let host_app = mgr.host_app_path();
         if let Err(e) = host::ensure_daemon(&engine, &socket, host_app.as_deref()) {
-            return BrowserResult {
-                ok: false,
-                action: action.into(),
-                backend: backend.into(),
-                result: None,
-                error: Some(e),
-                error_code: Some("control_engine_failed".into()),
-            };
+            return fail(action, backend, "control_engine_failed", e);
         }
 
-        // Ensure a named engine session so browser capabilities + cursor palette stick.
         let session = session_id(&req);
-        let _ = host::call_tool(
-            &engine,
-            &socket,
-            "start_session",
-            &json!({ "session": session }),
-        );
+        if req.action != BrowserAction::End {
+            let _ = host::call_tool(
+                &engine,
+                &socket,
+                "start_session",
+                &json!({ "session": session }),
+            );
+        }
 
-        // Desktop Use-class chrome (session cursor + operation border) for spatial
-        // actions. Best-effort; does not replace browser_click / browser_type.
-        if crate::chrome::wants_action_chrome(req.action, req.element_ref.as_deref()) {
+        // Desktop Use-class chrome only when we have a native window to bound.
+        // APP-052: do not couple page actions to a guessed operation border.
+        if req.window_id.is_some()
+            && crate::chrome::wants_action_chrome(req.action, req.element_ref.as_deref())
+        {
             let bounds = req.window_id.and_then(crate::chrome::resolve_window_bounds);
             if let Some(target) = crate::chrome::chrome_target_for_request(
                 req.action,
@@ -478,34 +547,41 @@ impl BrowserBackend for ExternalBackend {
         }
 
         match host::call_tool(&engine, &socket, tool, &args) {
-            Ok(v) => {
-                if let Some(fail) = desktop_use::engine_protocol::engine_payload_is_failure(&v) {
-                    return BrowserResult {
-                        ok: false,
-                        action: action.into(),
-                        backend: backend.into(),
-                        result: Some(v),
-                        error: Some(BrowserError::Engine(fail).message()),
-                        error_code: Some(BrowserError::Engine(String::new()).code().into()),
-                    };
+            Ok(mut v) => {
+                if let Some(fail_msg) = desktop_use::engine_protocol::engine_payload_is_failure(&v) {
+                    return map_engine_failure(action, backend, &v, &fail_msg);
                 }
-                BrowserResult {
+                if req.action == BrowserAction::Prepare {
+                    enrich_prepare_result(&mut v, req.pid);
+                }
+                let mut result = BrowserResult {
                     ok: true,
                     action: action.into(),
                     backend: backend.into(),
                     result: Some(v),
-                    error: None,
-                    error_code: None,
+                    ..BrowserResult::default()
+                };
+                if req.action == BrowserAction::Prepare
+                    && result
+                        .result
+                        .as_ref()
+                        .and_then(|v| v.get("rebind_required"))
+                        .and_then(Value::as_bool)
+                        == Some(true)
+                {
+                    result.recovery = Some(
+                        "`isolated_new` launched a new browser process. Bind with `prepared_pid` / `prepared_window_id` from this response — do not reuse the original --pid."
+                            .into(),
+                    );
                 }
+                result
             }
-            Err(e) => BrowserResult {
-                ok: false,
-                action: action.into(),
-                backend: backend.into(),
-                result: None,
-                error: Some(BrowserError::Engine(e).message()),
-                error_code: Some(BrowserError::Engine(String::new()).code().into()),
-            },
+            Err(e) => map_engine_failure(
+                action,
+                backend,
+                &json!({ "error": e }),
+                "browser engine failed",
+            ),
         }
     }
 }

@@ -9284,6 +9284,7 @@
       "url": {
         "enter": "Enter URL..."
       },
+      "agentActive": "Agent is using this page",
       "actions": {
         "openInBrowser": "Open in browser",
         "openDeveloperTools": "Open developer tools",

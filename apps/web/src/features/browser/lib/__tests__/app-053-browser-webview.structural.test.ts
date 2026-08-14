@@ -20,6 +20,7 @@ describe("APP-053 browser webview structural (shipped sources)", () => {
     expect(src).not.toContain("browser_bridge_hide");
     expect(src).toContain("mode: 'desktop'");
     expect(src).toContain("desktop-browser:viewport-changed");
+    expect(src).toContain("desktop-browser:agent-activity");
     expect(src).toContain("browser_bridge_query_element_rects");
     expect(src).toContain("queryElementRects");
   });
@@ -149,15 +150,16 @@ describe("APP-053 browser webview structural (shipped sources)", () => {
 
   it("surface manager injects host-driven selection (showSelectionToolbar false)", () => {
     const src = read("apps/desktop-electron/src/browser/surface-manager.ts");
-    expect(src).toContain("showSelectionToolbar: false");
+    const runtimeInject = read("apps/desktop-electron/src/browser/webview-runtime.ts");
+    expect(runtimeInject).toContain("showSelectionToolbar: false");
     // Guest still draws pick hover labels (host owns toolbar only).
-    expect(src).toContain("showHoverLabel: true");
+    expect(runtimeInject).toContain("showHoverLabel: true");
     expect(src).not.toContain("WebContentsView");
     expect(src).not.toContain("addChildView");
     expect(src).toContain("BROWSER_PARTITION");
-    expect(src).toContain("browser-runtime.js");
+    expect(runtimeInject).toContain("browser-runtime.js");
     // Packaged DMG must resolve dist-local runtime (not monorepo-only path).
-    expect(src).toContain("resolveBrowserRuntimeScriptPath");
+    expect(runtimeInject).toContain("resolveBrowserRuntimeScriptPath");
     const pathHelper = read("apps/desktop-electron/src/browser/browser-runtime-path.ts");
     expect(pathHelper).toContain("browser-runtime.js");
     const build = read("apps/desktop-electron/scripts/build.ts");
@@ -257,5 +259,57 @@ describe("APP-053 browser webview structural (shipped sources)", () => {
     const client = read("apps/web/src/features/browser/lib/desktop-browser-window.ts");
     expect(client).toContain("open_browser_window");
     expect(client).toContain("openBrowserWindow");
+  });
+
+  it("agent tab CRUD goes through the renderer command bus", () => {
+    const commands = read("apps/web/src/features/browser/store/use-browser-tab-commands.ts");
+    expect(commands).toContain('type: "open"');
+    expect(commands).toContain("openTab");
+    expect(commands).toContain("queuesByContext");
+    expect(commands).toContain("Electron main must not mutate this store");
+
+    const bridge = read("apps/web/src/features/browser/hooks/use-browser-agent-tab-bridge.ts");
+    expect(bridge).toContain("desktop-browser:agent-tab");
+    expect(bridge).toContain("browser_bridge_agent_tab_result");
+    expect(bridge).toContain("commands.openTab");
+    expect(bridge).toContain("commands.closeTab");
+    expect(bridge).toContain("commands.selectTab");
+    expect(bridge).toContain("evicted_target_ids");
+    expect(bridge).toContain("browser_route_unavailable");
+    expect(bridge).toContain("resolveContext");
+
+    const control = read("apps/desktop-electron/src/browser/browser-use-control.ts");
+    expect(control).toContain("/v1/tabs");
+    expect(control).toContain("requestAgentTab");
+    expect(control).not.toMatch(/new BrowserWindow\(/);
+
+    const handlers = read("apps/desktop-electron/src/ipc/handlers.ts");
+    expect(handlers).toContain("browser_bridge_agent_tab_result");
+    expect(handlers).toContain("browser_bridge_user_picks");
+  });
+
+  it("user picks sync to the embedded control plane", () => {
+    const session = read("apps/web/src/features/browser/components/BrowserSession.tsx");
+    expect(session).toContain("pushBrowserUseUserPicks");
+    const picks = read("apps/web/src/features/browser/lib/browser-use-user-picks.ts");
+    expect(picks).toContain("browser_bridge_user_picks");
+    const control = read("apps/desktop-electron/src/browser/browser-use-control.ts");
+    expect(control).toContain("user_picks");
+    expect(control).toContain("g${generation}:u");
+    expect(control).toContain("truncated");
+  });
+
+  it("routes agent tabs without silently guessing a window", () => {
+    const map = read("apps/web/src/features/browser/store/use-browser-session-map.ts");
+    expect(map).toContain("resolveContext");
+    expect(map).toContain("browser_route_unavailable");
+    expect(map).toContain("browser_ambiguous_target");
+    expect(map).not.toContain("pickContext");
+
+    const activity = read("apps/web/src/features/browser/store/use-browser-use-activity.ts");
+    expect(activity).toContain("sessionId && current.sessionId !== sessionId");
+
+    const toolbar = read("apps/web/src/features/browser/components/BrowserToolbar.tsx");
+    expect(toolbar).toContain("useBrowserUseActivity(sessionId)");
   });
 });
