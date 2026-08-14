@@ -310,7 +310,7 @@
       "agent_permission": "Need permission",
       "agent_attention": "Need attention",
       "agent_running": "Running",
-      "agent_idle": "Idle"
+      "agent_done": "Done"
     },
     "groups": {
       "ungrouped": "Ungrouped",

@@ -310,7 +310,7 @@
       "agent_permission": "需要授权",
       "agent_attention": "需要关注",
       "agent_running": "运行中",
-      "agent_idle": "空闲"
+      "agent_done": "已完成"
     },
     "groups": {
       "ungrouped": "未分组",

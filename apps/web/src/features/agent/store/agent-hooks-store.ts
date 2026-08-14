@@ -581,7 +581,7 @@ async function hydrateHookSnapshots(
         ...state.serverWorkspaceGroupKeys,
       };
       for (const row of groups) {
-        if (!row.context_id || row.group_key === "idle") continue;
+        if (!row.context_id || row.group_key === "idle" || row.group_key === "done") continue;
         serverWorkspaceGroupKeys[row.context_id] = row.group_key;
       }
       for (const paneId of ackedDuringHydrate) {

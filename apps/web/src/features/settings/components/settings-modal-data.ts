@@ -557,7 +557,7 @@ const SETTINGS_SETTING_ITEMS: Record<SettingsSectionId, readonly SettingsSearchI
       keywords: ["group grouping", "sidebar by group", "user groups"],
     }),
     settingsModalSearchItem("layout.byAgentGroupUsesSecondColumn", {
-      keywords: ["agent grouping", "sidebar by agent status", "idle", "running", "permission", "need attention"],
+      keywords: ["agent grouping", "sidebar by agent status", "done", "running", "permission", "need attention"],
     }),
     settingsModalSearchItem("layout.headerLayout", {
       keywords: ["workspace utilities", "global search", "header summary"],
