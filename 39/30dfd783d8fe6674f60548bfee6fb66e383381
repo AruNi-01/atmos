@@ -1,0 +1,44 @@
+apps/web/messages/en.json
+  h_5be255725524c8 313
+apps/web/messages/zh.json
+  h_5be255725524c8 313
+apps/web/src/api/rest-api.ts
+  h_5be255725524c8 719
+apps/web/src/app-shell/LeftSidebarPinnedSection.tsx
+  h_5be255725524c8 32-35,120-122
+apps/web/src/app-shell/sidebar/kanban-columns.test.ts
+  h_5be255725524c8 46,69
+apps/web/src/app-shell/sidebar/kanban-columns.ts
+  h_5be255725524c8 16-19,305
+apps/web/src/app-shell/sidebar/workspace-grouping.test.ts
+  h_5be255725524c8 145,151,160,165-185,194,199
+apps/web/src/app-shell/sidebar/workspace-grouping.ts
+  h_5be255725524c8 14,192-194
+apps/web/src/app-shell/sidebar/workspace-status.tsx
+  h_5be255725524c8 21,31,232-236,246-247
+apps/web/src/app-shell/use-left-sidebar-workspace-derived.ts
+  h_5be255725524c8 30-33,165-167
+apps/web/src/features/agent/hooks/use-workspace-agent-status.ts
+  h_5be255725524c8 15,86,89
+apps/web/src/features/agent/lib/__tests__/workspace-agent-status.test.ts
+  h_5be255725524c8 5,117,123,131,136-144,146,149,169,173
+apps/web/src/features/agent/lib/workspace-agent-status.ts
+  h_5be255725524c8 25,31,34-49,54-55,78,82,90-91
+apps/web/src/features/agent/store/agent-hooks-store.ts
+  h_5be255725524c8 584
+apps/web/src/features/settings/components/settings-modal-data.ts
+  h_5be255725524c8 560
+crates/core-service/src/service/agent_hooks/workspace_agent_group.rs
+  h_5be255725524c8 21-24,36,53,57,118,191,332
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "3930dfd783d8fe6674f60548bfee6fb66e383381",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
