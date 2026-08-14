@@ -4453,7 +4453,7 @@
       "groups": {
         "interface": {
           "label": "Interface",
-          "description": "Layout, editor, canvas, and keyboard preferences"
+          "description": "Layout, editor, canvas, Browser, and keyboard preferences"
         },
         "personal": {
           "label": "Personal",
@@ -4500,6 +4500,10 @@
         "terminal": {
           "label": "Terminal",
           "description": "Terminal behavior, restore, and file-link handling."
+        },
+        "browser": {
+          "label": "Browser",
+          "description": "In-app Browser placement, sidebar, homepage, and agent chrome."
         },
         "workspace": {
           "label": "Workspace",
@@ -5047,6 +5051,24 @@
             },
             "checkForUpdates": {
               "label": "Check for updates"
+            }
+          },
+          "browser": {
+            "defaultSurface": {
+              "label": "Default surface",
+              "description": "Where a new Browser opens when none exists"
+            },
+            "sidebar": {
+              "label": "Show in sidebar"
+            },
+            "newTabUrl": {
+              "label": "New tab URL"
+            },
+            "agentChrome": {
+              "label": "Agent chrome"
+            },
+            "downloads": {
+              "label": "Download folder"
             }
           },
           "desktopUse": {
@@ -6160,6 +6182,59 @@
       "centerWikiTab": {
         "title": "Project Wiki (Center Tabs)",
         "description": "Enable Project Wiki as a center stage tab for quick access to your project documentation and knowledge base."
+      }
+    },
+    "browser": {
+      "groups": {
+        "placement": {
+          "title": "Placement",
+          "description": "Where the agent opens Browser chrome when none is mounted."
+        },
+        "sidebar": {
+          "title": "Sidebar",
+          "description": "Show the Browser module in the right sidebar."
+        },
+        "pages": {
+          "title": "Pages",
+          "description": "Homepage used when the agent opens a new tab."
+        },
+        "agent": {
+          "title": "Agent",
+          "description": "On-page cursor and highlight while Browser Use acts."
+        },
+        "downloads": {
+          "title": "Downloads",
+          "description": "Embedded downloads stay under the Atmos Browser Use folder."
+        }
+      },
+      "defaultSurface": {
+        "title": "Default surface",
+        "description": "Sidebar or Center tabs. Existing users stay on Sidebar.",
+        "sidebar": "Sidebar",
+        "center": "Center tabs"
+      },
+      "sidebar": {
+        "title": "Show in sidebar",
+        "description": "Keep the Browser module in the right sidebar. Saving Sidebar as the default surface turns this on."
+      },
+      "newTabUrl": {
+        "title": "New tab URL",
+        "description": "Used when the agent opens a tab without a URL. Leave empty for the Browser home."
+      },
+      "agentChrome": {
+        "title": "Show agent chrome",
+        "description": "Draw a cursor overlay when the agent clicks or types."
+      },
+      "downloads": {
+        "title": "Download root",
+        "description": "Embedded Browser Use writes downloads here. External Chrome still requires --dir."
+      },
+      "links": {
+        "desktopUse": {
+          "title": "Desktop Use",
+          "description": "System Chrome, capture, and macOS permissions stay on the Desktop Use page.",
+          "action": "Open Desktop Use"
+        }
       }
     },
     "desktopUse": {

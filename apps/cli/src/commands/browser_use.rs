@@ -207,7 +207,7 @@ pub struct RouteArgs {
 pub enum BrowserUseCommand {
     /// Prepare a browser profile / DevTools endpoint (isolated by default).
     Prepare(PrepareArgs),
-    /// Bind native window or snapshot a bound tab (semantic_v2 / embedded_dom_v1).
+    /// Snapshot the current page. Desktop embedded: no prepare; empty state snapshots last-active or ensures chrome.
     State(StateArgs),
     /// Click by ref or viewport CSS coordinates.
     Click(ClickArgs),

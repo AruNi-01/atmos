@@ -189,6 +189,9 @@ pub struct BrowserResult {
     pub session_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub resolved_from: Option<ResolvedFrom>,
+    /// Present on every successful action. Skill branches on flags, not backend tutorials.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub capability_flags: Option<serde_json::Value>,
 }
 
 impl BrowserResult {

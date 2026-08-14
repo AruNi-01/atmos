@@ -22,6 +22,7 @@ import {
   ROOT_SIDEBAR_LAYOUT_AUTO_SAVE_ID,
 } from "@/app-shell/sidebar-layout-constants";
 import { NewWorkspaceWelcomeOverlay } from "@/app-shell/NewWorkspaceWelcomeOverlay";
+import { ensureBrowserAgentTabListener } from "@/features/browser/hooks/use-browser-agent-tab-bridge";
 
 const DEFAULT_RIGHT_SIDEBAR_SIZE = 20;
 
@@ -59,6 +60,9 @@ export function PanelLayout({
     setToggleRightSidebar,
   } = useSidebarLayout();
   const [isDragging, setIsDragging] = useState(false);
+  useEffect(() => {
+    void ensureBrowserAgentTabListener();
+  }, []);
   const [layoutRootWidth, setLayoutRootWidth] = useState(0);
   const [leftOverlaySize, setLeftOverlaySize] = useState(
     leftSidebarSize > 0 ? leftSidebarSize : DEFAULT_LEFT_SIDEBAR_SIZE,

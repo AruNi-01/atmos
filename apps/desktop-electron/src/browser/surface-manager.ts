@@ -328,10 +328,24 @@ export class BrowserSurfaceManager {
     this.onBrowserUseNavigated = cb;
   }
 
+  lastActiveBoundSessionId(): string | null {
+    const id = this.lastActiveSessionId?.trim() ?? "";
+    if (!id) return null;
+    const guest = this.getGuestWebContents(id);
+    if (!guest || guest.isDestroyed()) return null;
+    return id;
+  }
+
+  markLastActiveSession(sessionId: string): void {
+    this.markLastActive(sessionId);
+  }
+
   /**
    * Ask the web renderer to mutate React tab state.
    * Main must not create webviews or write the tab store itself.
-   * Returns false when no host can be resolved (do not silently hit main).
+   * Returns false when no host can be resolved (do not silently hit main),
+   * except `ensure-bind` which may fall back to the main window when no
+   * Browser chrome exists yet.
    */
   emitAgentTab(payload: {
     requestId: string;
@@ -339,7 +353,11 @@ export class BrowserSurfaceManager {
     url?: string;
     targetId?: string;
   }): boolean {
-    const host = this.resolveAgentTabHost(payload.targetId);
+    let host = this.resolveAgentTabHost(payload.targetId);
+    if (!host && payload.action === "ensure-bind") {
+      const main = this.state.mainWindow;
+      if (main && !main.isDestroyed()) host = main;
+    }
     if (!host) return false;
     this.emitToApp(
       "desktop-browser:agent-tab",

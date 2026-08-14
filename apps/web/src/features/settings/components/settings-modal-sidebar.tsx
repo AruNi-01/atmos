@@ -25,6 +25,7 @@ import { BellIcon } from "@workspace/ui/components/icons/bell-icon";
 import WorldIcon from "@workspace/ui/components/icons/world-icon";
 import ComputerIcon from "@workspace/ui/components/icons/computer-icon";
 import DesktopUseIcon from "@workspace/ui/components/icons/desktop-use-icon";
+import { Globe } from "lucide-react";
 import { FolderKanbanIcon } from "@workspace/ui/components/icons/folder-kanban-icon";
 import { TagIcon } from "@workspace/ui/components/icons/tag-icon";
 import KeyboardIcon from "@workspace/ui/components/icons/keyboard-icon";
@@ -112,6 +113,9 @@ function SettingsSectionIcon({
   if (sectionId === "atmos-computer") return <ComputerIcon ref={iconRef} className="shrink-0" size={16} />;
   if (sectionId === "desktop-use") {
     return <DesktopUseIcon ref={iconRef} className="shrink-0" size={16} />;
+  }
+  if (sectionId === "browser") {
+    return <Globe className="shrink-0" size={16} />;
   }
   if (sectionId === "shortcuts") return <KeyboardIcon ref={iconRef} className="shrink-0" size={16} />;
   if (sectionId === "experiments") {

@@ -10,6 +10,10 @@ import { isDesktopRuntime } from "@/shared/lib/desktop-runtime";
 
 import { useBrowserSessionMapStore } from "../store/use-browser-session-map";
 import { useBrowserTabCommandsStore } from "../store/use-browser-tab-commands";
+import {
+  currentBrowserHostContextId,
+  ensureSurface,
+} from "../lib/ensure-browser-surface";
 
 type AgentTabPayload = {
   requestId?: string;
@@ -59,6 +63,32 @@ async function handleAgentTab(payload: AgentTabPayload): Promise<void> {
   const commands = useBrowserTabCommandsStore.getState();
 
   try {
+    if (action === "ensure-bind") {
+      const contextId = currentBrowserHostContextId();
+      if (!contextId) {
+        await ackAgentTab({
+          requestId,
+          ok: false,
+          error: "no workspace context is active for Browser ensure",
+          error_code: "browser_route_unavailable",
+        });
+        return;
+      }
+      const ensured = await ensureSurface({
+        contextId,
+        url: payload.url?.trim() || undefined,
+      });
+      await ackAgentTab({
+        requestId,
+        ok: ensured.ok,
+        target_id: ensured.target_id,
+        tab_id: "main",
+        error: ensured.error,
+        error_code: ensured.error_code,
+      });
+      return;
+    }
+
     if (action === "open") {
       const url = payload.url?.trim() ?? "";
       if (!url) {
@@ -179,7 +209,7 @@ async function handleAgentTab(payload: AgentTabPayload): Promise<void> {
   }
 }
 
-async function ensureListener(): Promise<void> {
+export async function ensureBrowserAgentTabListener(): Promise<void> {
   if (listening || listenStarted || !isDesktopRuntime()) return;
   listenStarted = true;
   await listenDesktopBrowserBridge("desktop-browser:agent-tab", (payload) => {
@@ -211,6 +241,6 @@ export function useBrowserAgentTabBridge(options: {
   }, [contextId, isActive, tabCount]);
 
   useEffect(() => {
-    void ensureListener();
+    void ensureBrowserAgentTabListener();
   }, []);
 }

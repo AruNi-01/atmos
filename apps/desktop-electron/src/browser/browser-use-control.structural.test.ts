@@ -18,6 +18,9 @@ describe("browser-use-control structural", () => {
     expect(sm).toContain("listBrowserUseSessions");
     expect(sm).toContain("emitAgentTab");
     expect(sm).toContain("lastActiveSessionId");
+    expect(sm).toContain("lastActiveBoundSessionId");
+    expect(sm).toContain("markLastActiveSession");
+    expect(sm).toContain('payload.action === "ensure-bind"');
     expect(sm).toContain("focused");
     expect(sm).toContain("did-navigate");
     expect(sm).toContain("did-navigate-in-page");
@@ -39,6 +42,12 @@ describe("browser-use-control structural", () => {
     expect(src).toContain("/v1/end");
     expect(src).toContain("/v1/tabs");
     expect(src).toContain("user_picks");
+    expect(src).toContain("[...userEls, ...domElements]");
+    expect(src).toContain("respondSnapshot");
+    expect(src).toContain("ensureBoundTarget");
+    expect(src).toContain('action: "ensure-bind"');
+    expect(src).toContain("lastActiveBoundSessionId");
+    expect(src).not.toContain('mode: "bind"');
     expect(src).toContain("emitAgentTab");
     expect(src).toContain("setUserPicks");
     expect(src).toContain("completeAgentTab");

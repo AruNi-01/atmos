@@ -9,6 +9,7 @@
 mod backends;
 pub mod binding;
 mod chrome;
+mod envelope;
 mod errors;
 mod surface;
 mod types;
@@ -24,6 +25,7 @@ pub use chrome::{
     chrome_target_for_request, show_browser_action_chrome, status_for_browser_action,
     wants_action_chrome, BrowserChromeTarget, DEFAULT_BROWSER_USE_SESSION,
 };
+pub use envelope::{capability_flags, fill_result_envelope};
 pub use types::{
     action_name, BrowserAction, BrowserBackendKind, BrowserError, BrowserRequest, BrowserResult,
     DEFAULT_SNAPSHOT_FORMAT, EMBEDDED_SNAPSHOT_FORMAT, ERR_EMBEDDED_HOST_UNAVAILABLE, ERR_NO_MCP,
@@ -63,6 +65,7 @@ pub fn execute(mut req: BrowserRequest) -> BrowserResult {
         &result,
     );
     surface::attach_surface(&mut result, req.backend);
+    envelope::fill_result_envelope(&mut result, req.backend);
     surface::attach_success_recovery(&mut result);
     result
 }

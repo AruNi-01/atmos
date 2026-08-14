@@ -120,6 +120,7 @@ export type SettingsModalTab =
   | "tunnel-connector"
   | "atmos-computer"
   | "desktop-use"
+  | "browser"
   | "shortcuts"
   | "experiments";
 
@@ -141,6 +142,7 @@ export const settingsModalParams = {
     "tunnel-connector",
     "atmos-computer",
     "desktop-use",
+    "browser",
     "shortcuts",
     "experiments",
   ]).withDefault("layout"),

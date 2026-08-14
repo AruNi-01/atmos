@@ -11,6 +11,7 @@ import {
   chmodSync,
   existsSync,
   mkdirSync,
+  readFileSync,
   renameSync,
   unlinkSync,
   writeFileSync,
@@ -30,6 +31,21 @@ export { mapGuestRectToScreen, showEmbeddedBrowserChrome } from "./browser-use-c
 const CONTROL_DIR = () =>
   process.env.ATMOS_BROWSER_USE_HOME?.trim() ||
   join(homedir(), ".atmos", "data", "browser-use");
+
+function readBrowserAgentChromeEnabled(): boolean {
+  try {
+    const raw = readFileSync(
+      join(homedir(), ".atmos", "config", "function_settings.json"),
+      "utf8",
+    );
+    const parsed = JSON.parse(raw) as {
+      browser?: { show_agent_chrome?: boolean };
+    };
+    return parsed.browser?.show_agent_chrome !== false;
+  } catch {
+    return true;
+  }
+}
 
 const DEFAULT_DOWNLOAD_ROOT = () =>
   join(CONTROL_DIR(), "downloads");
@@ -349,9 +365,12 @@ export class BrowserUseControlPlane {
     const cleaned = picks.filter((pick) => pick.selector?.trim());
     if (cleaned.length === 0) {
       this.userPicks.delete(id);
+      this.snapshots.delete(id);
       return;
     }
     this.userPicks.set(id, cleaned);
+    this.snapshots.delete(id);
+    this.manager.markLastActiveSession(id);
   }
 
   completeAgentTab(ack: AgentTabAck): void {
@@ -601,7 +620,7 @@ export class BrowserUseControlPlane {
     const cache: SessionCache = {
       url: raw?.url ?? guest.getURL(),
       title: raw?.title ?? guest.getTitle(),
-      elements: [...domElements, ...userEls],
+      elements: [...userEls, ...domElements],
       generation,
       format: "embedded_dom_v1",
       truncated: Boolean(raw?.truncated),
@@ -611,12 +630,58 @@ export class BrowserUseControlPlane {
     return cache;
   }
 
+  private async respondSnapshot(
+    res: ServerResponse,
+    targetId: string,
+    query: string | undefined,
+    includeScreenshot: boolean,
+  ): Promise<void> {
+    const snap = await this.snapshot(targetId, query);
+    const guest = this.guestFor(targetId);
+    if (guest) {
+      try {
+        await this.armDialogListener(targetId, guest);
+      } catch {
+        /* optional */
+      }
+    }
+    const screenshot = includeScreenshot
+      ? await this.captureScreenshot(targetId)
+      : null;
+    const userPicks = snap.elements.filter((el) => el.source);
+    this.send(res, 200, {
+      ok: true,
+      mode: "snapshot",
+      snapshot_format: snap.format,
+      generation: snap.generation,
+      target_id: targetId,
+      tab_id: "main",
+      url: snap.url,
+      title: snap.title,
+      elements: snap.elements,
+      element_count: snap.elements.length,
+      truncated: snap.truncated,
+      total_candidates: snap.total_candidates,
+      user_picks: userPicks,
+      pending_dialog: this.pendingDialogs.get(targetId) ?? null,
+      ...(screenshot ? { screenshot } : {}),
+    });
+  }
+
+  private async ensureBoundTarget(url?: string): Promise<AgentTabAck> {
+    return this.requestAgentTab({
+      action: "ensure-bind",
+      url,
+    });
+  }
+
   /** Guest-local cursor overlay (no focus steal) plus optional host chrome. */
   private showChromeForRef(
     sessionId: string,
     el: SnapshotEl,
     status: string,
   ): void {
+    if (!readBrowserAgentChromeEnabled()) return;
     this.markActivity(sessionId, status);
     const guest = this.guestFor(sessionId);
     if (guest) {
@@ -1464,40 +1529,13 @@ export class BrowserUseControlPlane {
       }
 
       if (path === "/v1/state") {
-        const targetId =
+        let targetId =
           typeof body.target_id === "string" ? body.target_id.trim() : "";
-        if (!targetId) {
-          const sessions = this.listSessions();
-          const bound = sessions.filter((s) => s.bound);
-          if (bound.length > 1) {
-            this.send(res, 200, {
-              ok: false,
-              mode: "bind",
-              sessions,
-              error: "multiple embedded browser sessions are open; pass --target-id",
-              error_code: "browser_ambiguous_target",
-            });
-            return;
-          }
-          if (bound.length === 0) {
-            this.send(res, 200, {
-              ok: false,
-              mode: "bind",
-              sessions,
-              error: "no bound Atmos Browser webview; open a Browser tab first",
-              error_code: "browser_route_unavailable",
-            });
-            return;
-          }
-          this.send(res, 200, {
-            ok: true,
-            mode: "bind",
-            sessions,
-            target_id: bound[0]?.target_id ?? null,
-            tab_id: "main",
-          });
-          return;
-        }
+        const query =
+          typeof body.query === "string" && body.query.trim()
+            ? body.query.trim()
+            : undefined;
+        const includeScreenshot = body.include_screenshot === true;
         if (
           typeof body.snapshot_format === "string" &&
           body.snapshot_format.trim() &&
@@ -1511,42 +1549,39 @@ export class BrowserUseControlPlane {
           });
           return;
         }
-        const query =
-          typeof body.query === "string" && body.query.trim()
-            ? body.query.trim()
-            : undefined;
-        const snap = await this.snapshot(targetId, query);
-        // Best-effort: arm dialog listener while inspecting the tab.
-        const guest = this.guestFor(targetId);
-        if (guest) {
-          try {
-            await this.armDialogListener(targetId, guest);
-          } catch {
-            /* optional */
+        if (!targetId) {
+          const sessions = this.listSessions();
+          const bound = sessions.filter((s) => s.bound);
+          const lastActive = this.manager.lastActiveBoundSessionId();
+          if (lastActive) {
+            targetId = lastActive;
+          } else if (bound.length === 1 && bound[0]?.target_id) {
+            targetId = bound[0].target_id;
+          } else if (bound.length > 1) {
+            this.send(res, 200, {
+              ok: false,
+              sessions,
+              error: "multiple embedded browser sessions are open; pass --target-id",
+              error_code: "browser_ambiguous_target",
+            });
+            return;
+          } else {
+            const ack = await this.ensureBoundTarget();
+            if (!ack.ok || !ack.target_id) {
+              this.send(res, 200, {
+                ok: false,
+                sessions,
+                error:
+                  ack.error ||
+                  "no bound Atmos Browser webview; open a Browser tab first",
+                error_code: ack.error_code || "browser_route_unavailable",
+              });
+              return;
+            }
+            targetId = ack.target_id;
           }
         }
-        const includeScreenshot = body.include_screenshot === true;
-        const screenshot = includeScreenshot
-          ? await this.captureScreenshot(targetId)
-          : null;
-        const userPicks = snap.elements.filter((el) => el.source);
-        this.send(res, 200, {
-          ok: true,
-          mode: "snapshot",
-          snapshot_format: snap.format,
-          generation: snap.generation,
-          target_id: targetId,
-          tab_id: "main",
-          url: snap.url,
-          title: snap.title,
-          elements: snap.elements,
-          element_count: snap.elements.length,
-          truncated: snap.truncated,
-          total_candidates: snap.total_candidates,
-          user_picks: userPicks,
-          pending_dialog: this.pendingDialogs.get(targetId) ?? null,
-          ...(screenshot ? { screenshot } : {}),
-        });
+        await this.respondSnapshot(res, targetId, query, includeScreenshot);
         return;
       }
 
@@ -1758,8 +1793,12 @@ export class BrowserUseControlPlane {
             });
             return;
           }
+          const sessions = this.listSessions();
+          const bound = sessions.filter((s) => s.bound);
+          const actionName =
+            !targetId && bound.length === 0 ? "ensure-bind" : "open";
           const ack = await this.requestAgentTab({
-            action: "open",
+            action: actionName,
             url: navUrl,
             targetId: targetId || undefined,
           });

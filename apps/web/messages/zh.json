@@ -4453,7 +4453,7 @@
       "groups": {
         "interface": {
           "label": "界面",
-          "description": "布局、编辑器、画布与键盘偏好设置"
+          "description": "布局、编辑器、画布、Browser 与键盘偏好设置"
         },
         "personal": {
           "label": "个人",
@@ -4500,6 +4500,10 @@
         "terminal": {
           "label": "终端",
           "description": "终端行为、恢复和文件链接处理。"
+        },
+        "browser": {
+          "label": "Browser",
+          "description": "应用内 Browser 的打开位置、侧栏、主页与 Agent 高亮。"
         },
         "workspace": {
           "label": "工作区",
@@ -5047,6 +5051,24 @@
             },
             "checkForUpdates": {
               "label": "检查更新"
+            }
+          },
+          "browser": {
+            "defaultSurface": {
+              "label": "默认打开位置",
+              "description": "还没有 Browser 时，新窗口开在哪里"
+            },
+            "sidebar": {
+              "label": "在侧栏显示"
+            },
+            "newTabUrl": {
+              "label": "新标签页网址"
+            },
+            "agentChrome": {
+              "label": "Agent 高亮"
+            },
+            "downloads": {
+              "label": "下载目录"
             }
           },
           "desktopUse": {
@@ -6160,6 +6182,59 @@
       "centerWikiTab": {
         "title": "Project Wiki（Center Tabs）",
         "description": "启用 Project Wiki 作为中心区域标签页，便于快速访问项目文档和知识库。"
+      }
+    },
+    "browser": {
+      "groups": {
+        "placement": {
+          "title": "打开位置",
+          "description": "还没有 Browser 界面时，Agent 在哪里打开。"
+        },
+        "sidebar": {
+          "title": "侧栏",
+          "description": "是否在右侧栏显示 Browser 模块。"
+        },
+        "pages": {
+          "title": "页面",
+          "description": "Agent 打开新标签页时使用的主页。"
+        },
+        "agent": {
+          "title": "Agent",
+          "description": "Browser Use 操作时的页面光标与高亮。"
+        },
+        "downloads": {
+          "title": "下载",
+          "description": "内嵌 Browser 的下载会写到 Atmos Browser Use 目录下。"
+        }
+      },
+      "defaultSurface": {
+        "title": "默认打开位置",
+        "description": "侧栏或中间标签页。现有用户默认仍是侧栏。",
+        "sidebar": "侧栏",
+        "center": "中间标签页"
+      },
+      "sidebar": {
+        "title": "在侧栏显示",
+        "description": "在右侧栏保留 Browser 模块。把默认位置设为侧栏时会自动打开此项。"
+      },
+      "newTabUrl": {
+        "title": "新标签页网址",
+        "description": "Agent 打开标签页但没有给出网址时使用。留空则打开 Browser 主页。"
+      },
+      "agentChrome": {
+        "title": "显示 Agent 高亮",
+        "description": "Agent 点击或输入时绘制光标叠加层。"
+      },
+      "downloads": {
+        "title": "下载根目录",
+        "description": "内嵌 Browser Use 会把下载写到这里。外部 Chrome 仍需要 --dir。"
+      },
+      "links": {
+        "desktopUse": {
+          "title": "Desktop Use",
+          "description": "系统 Chrome、捕获和 macOS 权限仍在 Desktop Use 页。",
+          "action": "打开 Desktop Use"
+        }
       }
     },
     "desktopUse": {
