@@ -75,3 +75,29 @@ export function getSelectedProjectUnpinnedWorkspaces(
 ): Workspace[] {
     return project?.workspaces.filter((workspace) => !workspace.isPinned) ?? [];
 }
+
+/**
+ * Expand newly seen projects on first load, but never re-expand after the user
+ * collapses the last open project (`prev.length === 0` used to mean "not
+ * initialized" and immediately unfolded everything again).
+ */
+export function mergeExpandedProjectIds(
+    prev: string[],
+    projectIds: string[],
+    seenIds: Set<string>,
+): string[] {
+    if (projectIds.length === 0) return prev;
+    if (seenIds.size === 0) {
+        for (const id of projectIds) seenIds.add(id);
+        return projectIds;
+    }
+    const added: string[] = [];
+    for (const id of projectIds) {
+        if (!seenIds.has(id)) {
+            seenIds.add(id);
+            added.push(id);
+        }
+    }
+    if (added.length === 0) return prev;
+    return [...prev, ...added];
+}

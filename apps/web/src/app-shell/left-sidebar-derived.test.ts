@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 
-import { getProjectModeProjects } from "@/app-shell/left-sidebar-derived";
+import { getProjectModeProjects, mergeExpandedProjectIds } from "@/app-shell/left-sidebar-derived";
 import type { Project, Workspace } from "@/shared/types/domain";
 import type { FlattenedWorkspaceEntry } from "@/app-shell/sidebar/workspace-grouping";
 
@@ -96,5 +96,24 @@ describe("getProjectModeProjects", () => {
     );
 
     expect(projects).toEqual([visibleProject]);
+  });
+});
+
+describe("mergeExpandedProjectIds", () => {
+  it("expands every project on first load", () => {
+    const seen = new Set<string>();
+    expect(mergeExpandedProjectIds([], ["a", "b"], seen)).toEqual(["a", "b"]);
+    expect(seen).toEqual(new Set(["a", "b"]));
+  });
+
+  it("does not re-expand after the user collapses the last project", () => {
+    const seen = new Set(["a", "b"]);
+    expect(mergeExpandedProjectIds([], ["a", "b"], seen)).toEqual([]);
+  });
+
+  it("expands only newly seen projects", () => {
+    const seen = new Set(["a"]);
+    expect(mergeExpandedProjectIds(["a"], ["a", "b"], seen)).toEqual(["a", "b"]);
+    expect(seen.has("b")).toBe(true);
   });
 });
