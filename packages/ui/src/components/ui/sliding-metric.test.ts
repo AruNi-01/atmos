@@ -16,6 +16,13 @@ describe("compactSlidingParts", () => {
     expect(compactSlidingParts(2_500_000, "en").decimals).toBe(1);
   });
 
+  test("keeps one decimal for unscaled values", () => {
+    const parts = compactSlidingParts(42, "en");
+    expect(parts.suffix).toBeUndefined();
+    expect(parts.value).toBe(42);
+    expect(parts.decimals).toBe(1);
+  });
+
   test("uses 万/亿 for zh with one decimal", () => {
     expect(compactSlidingParts(12_000, "zh-CN").suffix).toBe("万");
     expect(compactSlidingParts(12_000, "zh-CN").decimals).toBe(1);
@@ -25,15 +32,16 @@ describe("compactSlidingParts", () => {
 });
 
 describe("currencySlidingParts", () => {
-  test("prefixes $ and keeps small values with decimals", () => {
+  test("prefixes $ and keeps one decimal in compact mode", () => {
     const small = currencySlidingParts(0.42, "en", "compact");
     expect(small.prefix).toBe("$");
-    expect(small.value).toBe(0.42);
-    expect(small.decimals).toBe(2);
+    expect(small.value).toBe(0.4);
+    expect(small.decimals).toBe(1);
 
     const compact = currencySlidingParts(11_200, "en", "compact");
     expect(compact.prefix).toBe("$");
     expect(compact.suffix).toBe("K");
+    expect(compact.decimals).toBe(1);
   });
 });
 

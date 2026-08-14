@@ -3,6 +3,8 @@ import { describe, expect, test } from "bun:test";
 import {
   buildModelProviderMap,
   buildOverviewBreakdownShares,
+  formatCompactNumber,
+  formatCurrencyCompact,
   inferProviderIdFromModel,
   primaryProviderSegment,
   resolveTokenUsageModelIconSrc,
@@ -142,5 +144,16 @@ describe("buildModelProviderMap", () => {
 
     expect(map.get("gpt-5")).toBe("openai");
     expect(map.get("claude-sonnet-4")).toBe("anthropic");
+  });
+});
+
+describe("token usage compact number formatting", () => {
+  test("always keeps one fraction digit for tokens and cost", () => {
+    expect(formatCompactNumber(42, "en")).toBe("42.0");
+    expect(formatCompactNumber(11_000, "en")).toBe("11.0K");
+    expect(formatCompactNumber(11_500, "en")).toBe("11.5K");
+    expect(formatCurrencyCompact(0.42, "en")).toBe("$0.4");
+    expect(formatCurrencyCompact(12, "en")).toBe("$12.0");
+    expect(formatCurrencyCompact(11_200, "en")).toBe("$11.2K");
   });
 });
