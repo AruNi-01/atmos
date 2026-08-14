@@ -283,26 +283,41 @@ impl TokenUsageService {
         let refreshing_keys = Arc::clone(&self.refreshing_keys);
 
         tokio::spawn(async move {
+            let started_at = unix_now();
             let result = collector
                 .collect(&query, false)
                 .await
-                .map(|reports| build_overview(query.clone(), reports));
+                .map(|reports| with_cursor_status(build_overview(query.clone(), reports)));
 
             if let Ok(overview) = result {
-                let overview = with_cursor_status(overview);
+                let mut should_publish = true;
                 {
                     let mut cache_guard = cache.write().await;
-                    cache_guard.insert(
-                        cache_key.clone(),
-                        CachedOverview {
-                            overview: overview.clone(),
-                            fetched_at: unix_now(),
-                        },
-                    );
+                    if let Some(existing) = cache_guard.get(&cache_key) {
+                        // Cookie enrichment may have landed while this local scan
+                        // was in flight. Don't replace a richer cache entry.
+                        if existing.fetched_at > started_at
+                            || existing.overview.summary.total_tokens
+                                > overview.summary.total_tokens
+                        {
+                            should_publish = false;
+                        }
+                    }
+                    if should_publish {
+                        cache_guard.insert(
+                            cache_key.clone(),
+                            CachedOverview {
+                                overview: overview.clone(),
+                                fetched_at: unix_now(),
+                            },
+                        );
+                    }
                 }
 
-                let _ = update_tx.send(TokenUsageUpdate { overview });
-                persist_cache_snapshot(cache_path.as_deref(), &cache).await;
+                if should_publish {
+                    let _ = update_tx.send(TokenUsageUpdate { overview });
+                    persist_cache_snapshot(cache_path.as_deref(), &cache).await;
+                }
             }
 
             let mut refreshing_guard = refreshing_keys.lock().await;
