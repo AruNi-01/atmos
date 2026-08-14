@@ -18,7 +18,7 @@ use serde_json::{json, Value};
 
 use super::BrowserBackend;
 use crate::errors::{
-    fail, fail_with_recovery, classify_engine_message, recovery_for, BROWSER_CONTROL_AUTH_FAILED,
+    classify_engine_message, fail, fail_with_recovery, recovery_for, BROWSER_CONTROL_AUTH_FAILED,
     BROWSER_CONTROL_UNAVAILABLE, BROWSER_INVALID_ARGS, BROWSER_UNSUPPORTED,
 };
 use crate::types::{
@@ -678,7 +678,9 @@ mod tests {
             files: vec!["/tmp/a.png".into()],
             ..Default::default()
         };
-        assert!(build_embedded_body(&req).unwrap_err().contains("not supported"));
+        assert!(build_embedded_body(&req)
+            .unwrap_err()
+            .contains("not supported"));
     }
 
     #[test]
@@ -708,7 +710,9 @@ mod tests {
             tab_action: Some("explode".into()),
             ..Default::default()
         };
-        assert!(build_embedded_body(&bad).unwrap_err().contains("unknown tabs"));
+        assert!(build_embedded_body(&bad)
+            .unwrap_err()
+            .contains("unknown tabs"));
 
         let open = BrowserRequest {
             backend: BrowserBackendKind::Embedded,

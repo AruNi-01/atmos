@@ -30,7 +30,12 @@ pub fn fail_with_recovery(
     BrowserResult::fail_with_recovery(action, backend, code, message, recovery)
 }
 
-pub fn map_engine_failure(action: &str, backend: &str, payload: &Value, fallback: &str) -> BrowserResult {
+pub fn map_engine_failure(
+    action: &str,
+    backend: &str,
+    payload: &Value,
+    fallback: &str,
+) -> BrowserResult {
     let engine_code = desktop_use::engine_protocol::engine_failure_code(payload);
     let raw_message = payload
         .get("error")
@@ -71,7 +76,12 @@ pub fn classify_engine_message(
     }
     if matches_any(
         &lower,
-        &["ambiguous", "multiple targets", "more than one", "multiple tabs"],
+        &[
+            "ambiguous",
+            "multiple targets",
+            "more than one",
+            "multiple tabs",
+        ],
     ) {
         return (
             BROWSER_AMBIGUOUS_TARGET,
@@ -127,10 +137,7 @@ pub fn classify_engine_message(
     {
         return (BROWSER_INVALID_ARGS, recovery_for(BROWSER_INVALID_ARGS));
     }
-    (
-        BROWSER_ENGINE_FAILED,
-        recovery_for(BROWSER_ENGINE_FAILED),
-    )
+    (BROWSER_ENGINE_FAILED, recovery_for(BROWSER_ENGINE_FAILED))
 }
 
 fn map_known_engine_code(code: &str) -> &'static str {

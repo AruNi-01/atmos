@@ -30,8 +30,7 @@ pub fn attach_success_recovery(result: &mut BrowserResult) {
         || value.get("mode").and_then(|m| m.as_str()) == Some("snapshot");
     if has_snapshot {
         result.recovery = Some(
-            "Use only refs from this snapshot. The next snapshot invalidates previous refs."
-                .into(),
+            "Use only refs from this snapshot. The next snapshot invalidates previous refs.".into(),
         );
     }
 }

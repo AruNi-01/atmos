@@ -4,8 +4,8 @@ use serde_json::{json, Value};
 
 use super::BrowserBackend;
 use crate::errors::{
-    fail, fail_with_recovery, map_engine_failure, BROWSER_INVALID_ARGS,
-    BROWSER_PROFILE_GRANT_REQUIRED, BROWSER_SETUP_REQUIRED, BROWSER_UNSUPPORTED, recovery_for,
+    fail, fail_with_recovery, map_engine_failure, recovery_for, BROWSER_INVALID_ARGS,
+    BROWSER_PROFILE_GRANT_REQUIRED, BROWSER_SETUP_REQUIRED, BROWSER_UNSUPPORTED,
 };
 use crate::types::{
     action_name, BrowserAction, BrowserBackendKind, BrowserError, BrowserRequest, BrowserResult,
@@ -645,7 +645,8 @@ impl BrowserBackend for ExternalBackend {
 
         match host::call_tool(&engine, &socket, tool, &args) {
             Ok(mut v) => {
-                if let Some(fail_msg) = desktop_use::engine_protocol::engine_payload_is_failure(&v) {
+                if let Some(fail_msg) = desktop_use::engine_protocol::engine_payload_is_failure(&v)
+                {
                     return map_engine_failure(action, backend, &v, &fail_msg);
                 }
                 if req.action == BrowserAction::Prepare {

@@ -78,8 +78,7 @@ pub fn fill_result_envelope(result: &mut BrowserResult, backend: BrowserBackendK
                 .and_then(Value::as_array)
                 .map(Vec::len)
                 .unwrap_or(0);
-            obj.entry("element_count")
-                .or_insert_with(|| json!(count));
+            obj.entry("element_count").or_insert_with(|| json!(count));
             obj.entry("truncated").or_insert_with(|| json!(false));
             obj.entry("total_candidates")
                 .or_insert_with(|| json!(count));

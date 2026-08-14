@@ -35,6 +35,9 @@ interface PreviewBridgeEventPayload {
   sourceLocation?: unknown;
   /** Present on toolbar-action when the runtime includes a selection snapshot. */
   error?: string;
+  /** Present on desktop-browser:agent-activity. */
+  status?: string;
+  active?: boolean;
 }
 
 export async function invokeDesktopBrowserBridge<T = unknown>(

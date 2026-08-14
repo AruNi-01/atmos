@@ -125,10 +125,10 @@ export async function connectDesktopBrowserTransport(
     }),
     listenDesktopBrowserBridge('desktop-browser:agent-activity', (payload) => {
       if (payload.sessionId !== options.sessionId) return;
-      const active = (payload as { active?: boolean }).active !== false;
+      const active = payload.active !== false;
       const status =
-        typeof (payload as { status?: unknown }).status === "string"
-          ? (payload as { status: string }).status
+        typeof payload.status === "string"
+          ? payload.status
           : "Agent is using this page";
       markBrowserUseActivity(payload.sessionId, status, active);
     }),

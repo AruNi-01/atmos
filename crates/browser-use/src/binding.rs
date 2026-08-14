@@ -166,7 +166,10 @@ pub fn apply_binding_defaults(
         target_id.clone(),
         stored.as_ref().and_then(|b| b.target_id.clone()),
     );
-    let resolved_tab = first_nonempty(tab_id.clone(), stored.as_ref().and_then(|b| b.tab_id.clone()));
+    let resolved_tab = first_nonempty(
+        tab_id.clone(),
+        stored.as_ref().and_then(|b| b.tab_id.clone()),
+    );
     let resolved_session = first_nonempty(
         session_id.clone(),
         stored.as_ref().and_then(|b| b.session_id.clone()),
@@ -192,7 +195,13 @@ pub fn commit_binding_from_result(
     backend: BrowserBackendKind,
     result: &BrowserResult,
 ) {
-    apply_result_to_binding(binding_id, backend, crate::types::BrowserAction::State, None, result);
+    apply_result_to_binding(
+        binding_id,
+        backend,
+        crate::types::BrowserAction::State,
+        None,
+        result,
+    );
 }
 
 /// Persist, clear, or leave the scoped binding after an action.
@@ -242,7 +251,10 @@ pub fn apply_result_to_binding(
         backend,
         first_nonempty(target_id, stored.as_ref().and_then(|b| b.target_id.clone())),
         first_nonempty(tab_id, stored.as_ref().and_then(|b| b.tab_id.clone())),
-        first_nonempty(session_id, stored.as_ref().and_then(|b| b.session_id.clone())),
+        first_nonempty(
+            session_id,
+            stored.as_ref().and_then(|b| b.session_id.clone()),
+        ),
     );
     let _ = save_binding(&binding);
 }
@@ -261,8 +273,7 @@ pub fn extract_ids(result: &BrowserResult) -> (Option<String>, Option<String>, O
         first_nonempty(result.tab_id.clone(), json_string(from_result, "tab_id")),
         first_nonempty(
             result.session_id.clone(),
-            json_string(from_result, "session")
-                .or_else(|| json_string(from_result, "session_id")),
+            json_string(from_result, "session").or_else(|| json_string(from_result, "session_id")),
         ),
     )
 }
@@ -426,14 +437,8 @@ mod tests {
         let stored = load_binding(DEFAULT_BINDING_SCOPE).unwrap();
         assert_eq!(stored.target_id.as_deref(), Some("sess"));
         assert_eq!(stored.tab_id.as_deref(), Some("main"));
-        let applied = apply_binding_defaults(
-            BrowserBackendKind::Embedded,
-            true,
-            None,
-            None,
-            None,
-            None,
-        );
+        let applied =
+            apply_binding_defaults(BrowserBackendKind::Embedded, true, None, None, None, None);
         assert_eq!(applied.target_id.as_deref(), Some("sess"));
         assert_eq!(applied.tab_id.as_deref(), Some("main"));
         unsafe {
@@ -554,7 +559,10 @@ mod tests {
             resolve_binding_scope(None, pane_only),
             Some("from-pane".into())
         );
-        assert_eq!(resolve_binding_scope(Some("  "), pane_only), Some("from-pane".into()));
+        assert_eq!(
+            resolve_binding_scope(Some("  "), pane_only),
+            Some("from-pane".into())
+        );
         assert_eq!(resolve_binding_scope(None, |_| None), None);
     }
 
