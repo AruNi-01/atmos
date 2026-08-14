@@ -1205,6 +1205,7 @@ export const BrowserSession: React.FC<BrowserSessionProps> = ({
     usesDesktopToolbarExpand: isChromeManagedByTabBar ? false : usesDesktopToolbarExpand,
     usesToolbarHoverOverlay: isChromeManagedByTabBar ? false : usesToolbarHoverOverlay,
     viewMode,
+    browserUseSessionId: desktopAttach?.sessionId ?? null,
     focusUrlInput,
     handleAddFavorite,
     handleDownloadExtension,

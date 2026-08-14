@@ -77,6 +77,7 @@ interface PreviewToolbarProps {
   usesDesktopToolbarExpand: boolean;
   usesToolbarHoverOverlay: boolean;
   viewMode: PreviewViewMode;
+  browserUseSessionId?: string | null;
   focusUrlInput: () => void;
   handleAddFavorite: () => Promise<void>;
   handleDownloadExtension: () => Promise<void>;
@@ -141,6 +142,7 @@ export function BrowserToolbar({
   usesDesktopToolbarExpand,
   usesToolbarHoverOverlay,
   viewMode,
+  browserUseSessionId,
   focusUrlInput,
   handleAddFavorite,
   handleDownloadExtension,
@@ -323,7 +325,7 @@ export function BrowserToolbar({
             </button>
           )}
 
-          <BrowserUseActivityBadge />
+          <BrowserUseActivityBadge sessionId={browserUseSessionId} />
           <FavoriteSavePopover
             activeFavorite={activeFavorite}
             favoriteNameDraft={favoriteNameDraft}
@@ -759,9 +761,13 @@ function PreviewExtensionInstallPopover({
   );
 }
 
-function BrowserUseActivityBadge() {
+function BrowserUseActivityBadge({
+  sessionId,
+}: {
+  sessionId?: string | null;
+}) {
   const t = useTranslations("browser.toolbar");
-  const { active, status } = useBrowserUseActivity();
+  const { active, status } = useBrowserUseActivity(sessionId);
   if (!active) return null;
   return (
     <span

@@ -407,23 +407,26 @@ export function useBrowserState({
 
     const now = Date.now();
     const nextTab = createPreviewBrowserTab(normalizedUrl, now + 1);
+    let evictedSessionIds: string[] = [];
     setBrowserState((current) => {
       const touchedTabs = touchTab(current.tabs, current.activeTabId, now);
       const activeIndex = touchedTabs.findIndex((tab) => tab.id === current.activeTabId);
       const insertIndex = activeIndex >= 0 ? activeIndex + 1 : touchedTabs.length;
-
-      return {
-        ...pruneLeastRecentlyAccessed({
-          tabs: [
-            ...touchedTabs.slice(0, insertIndex),
-            nextTab,
-            ...touchedTabs.slice(insertIndex),
-          ],
-          activeTabId: nextTab.id,
-        }),
-      };
+      const next = pruneLeastRecentlyAccessed({
+        tabs: [
+          ...touchedTabs.slice(0, insertIndex),
+          nextTab,
+          ...touchedTabs.slice(insertIndex),
+        ],
+        activeTabId: nextTab.id,
+      });
+      evictedSessionIds = current.tabs
+        .filter((tab) => !next.tabs.some((item) => item.id === tab.id))
+        .map((tab) => tab.sessionId)
+        .filter((sessionId): sessionId is string => Boolean(sessionId));
+      return next;
     });
-    return nextTab.id;
+    return { tabId: nextTab.id, evictedSessionIds };
   }, []);
 
   const handleBrowserSessionReady = useCallback((tabId: string, sessionId: string | null) => {
@@ -505,32 +508,40 @@ export function useBrowserState({
   );
 
   const pendingCommand = useBrowserTabCommandsStore(
-    (state) => state.commandsByContext[browserContextId] ?? null,
+    (state) => state.queuesByContext[browserContextId]?.[0] ?? null,
   );
-  const clearCommand = useBrowserTabCommandsStore((state) => state.clearCommand);
-  const resolveOpen = useBrowserTabCommandsStore((state) => state.resolveOpen);
+  const completeCommand = useBrowserTabCommandsStore((state) => state.completeCommand);
+  const resolveCommand = useBrowserTabCommandsStore((state) => state.resolveCommand);
+  const rejectCommand = useBrowserTabCommandsStore((state) => state.rejectCommand);
 
   useEffect(() => {
     if (!pendingCommand) return;
 
     if (pendingCommand.type === "select") {
       handleSelectBrowserTab(pendingCommand.tabId);
+      resolveCommand(pendingCommand.token, true);
     } else if (pendingCommand.type === "close") {
       handleCloseBrowserTab(pendingCommand.tabId);
+      resolveCommand(pendingCommand.token, true);
     } else if (pendingCommand.type === "open") {
-      const tabId = handleOpenBrowserTab(pendingCommand.url);
-      if (tabId) resolveOpen(pendingCommand.token, tabId);
+      const opened = handleOpenBrowserTab(pendingCommand.url);
+      if (opened) {
+        resolveCommand(pendingCommand.token, opened);
+      } else {
+        rejectCommand(pendingCommand.token, new Error("tabs open requires url"));
+      }
     }
 
-    clearCommand(browserContextId, pendingCommand.token);
+    completeCommand(browserContextId, pendingCommand.token);
   }, [
     browserContextId,
-    clearCommand,
+    completeCommand,
     handleCloseBrowserTab,
     handleOpenBrowserTab,
     handleSelectBrowserTab,
     pendingCommand,
-    resolveOpen,
+    rejectCommand,
+    resolveCommand,
   ]);
 
   const resetBrowserState = useCallback((url = "") => {

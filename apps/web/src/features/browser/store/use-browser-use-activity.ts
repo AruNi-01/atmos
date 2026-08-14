@@ -50,9 +50,15 @@ function getSnapshot(): ActivityState {
   return state;
 }
 
-export function useBrowserUseActivity(): { active: boolean; status: string } {
+export function useBrowserUseActivity(sessionId?: string | null): {
+  active: boolean;
+  status: string;
+} {
   const current = useSyncExternalStore(subscribe, getSnapshot, () => null);
   if (!current || Date.now() > current.until) {
+    return { active: false, status: "" };
+  }
+  if (sessionId && current.sessionId !== sessionId) {
     return { active: false, status: "" };
   }
   return { active: true, status: current.status };

@@ -67,6 +67,11 @@ export class BrowserSurfaceManager {
   private readonly browserSession: Session;
   /** FIFO of sessionIds that passed will-attach and await did-attach bind. */
   private readonly attachQueue: string[] = [];
+  /** Last guest the user or agent actually used — tab events go to this host. */
+  private lastActiveSessionId: string | null = null;
+  private onBrowserUseNavigated:
+    | ((sessionId: string, url: string) => void)
+    | null = null;
 
   constructor(private readonly state: AppState) {
     this.browserSession = session.fromPartition(BROWSER_PARTITION);
@@ -206,6 +211,7 @@ export class BrowserSurfaceManager {
     });
 
     void this.applyGuestColorScheme(s);
+    this.markLastActive(sessionId);
 
     wc.once("destroyed", () => {
       const cur = this.surfaces.get(sessionId);
@@ -307,6 +313,7 @@ export class BrowserSurfaceManager {
   }
 
   emitBrowserUseActivity(sessionId: string, status: string, active = true): void {
+    this.markLastActive(sessionId);
     this.emitToSession(sessionId, "desktop-browser:agent-activity", {
       type: "atmos-browser:agent-activity",
       sessionId,
@@ -315,24 +322,75 @@ export class BrowserSurfaceManager {
     });
   }
 
+  setOnBrowserUseNavigated(
+    cb: ((sessionId: string, url: string) => void) | null,
+  ): void {
+    this.onBrowserUseNavigated = cb;
+  }
+
   /**
    * Ask the web renderer to mutate React tab state.
    * Main must not create webviews or write the tab store itself.
+   * Returns false when no host can be resolved (do not silently hit main).
    */
   emitAgentTab(payload: {
     requestId: string;
     action: string;
     url?: string;
     targetId?: string;
-  }): void {
-    this.emitToSession(payload.targetId ?? "", "desktop-browser:agent-tab", {
-      type: "atmos-browser:agent-tab",
-      sessionId: payload.targetId || "browser-use",
-      requestId: payload.requestId,
-      tabAction: payload.action,
-      url: payload.url,
-      targetId: payload.targetId,
-    });
+  }): boolean {
+    const host = this.resolveAgentTabHost(payload.targetId);
+    if (!host) return false;
+    this.emitToApp(
+      "desktop-browser:agent-tab",
+      {
+        type: "atmos-browser:agent-tab",
+        sessionId: payload.targetId || this.lastActiveSessionId || "browser-use",
+        requestId: payload.requestId,
+        tabAction: payload.action,
+        url: payload.url,
+        targetId: payload.targetId,
+      },
+      host,
+    );
+    return true;
+  }
+
+  private markLastActive(sessionId: string): void {
+    const id = sessionId.trim();
+    if (!id || !this.surfaces.has(id)) return;
+    this.lastActiveSessionId = id;
+  }
+
+  private notifyBrowserUseNavigated(sessionId: string, url: string): void {
+    this.markLastActive(sessionId);
+    try {
+      this.onBrowserUseNavigated?.(sessionId, url);
+    } catch (error) {
+      console.warn("[browser] onBrowserUseNavigated failed", error);
+    }
+  }
+
+  /** Route tab commands to the named guest, else the last-active host, else the only host. */
+  private resolveAgentTabHost(targetId?: string): BrowserWindow | null {
+    const explicit = targetId?.trim() ?? "";
+    if (explicit) {
+      const surface = this.surfaces.get(explicit);
+      return surface ? this.surfaceHost(surface) : null;
+    }
+    if (this.lastActiveSessionId) {
+      const surface = this.surfaces.get(this.lastActiveSessionId);
+      if (surface) return this.surfaceHost(surface);
+    }
+    const hosts = new Set<BrowserWindow>();
+    for (const surface of this.surfaces.values()) {
+      const host = this.surfaceHost(surface);
+      if (host && !host.isDestroyed()) hosts.add(host);
+    }
+    if (hosts.size === 1) {
+      return [...hosts][0] ?? null;
+    }
+    return null;
   }
 
   private emitToSession(sessionId: string, channel: string, payload: unknown) {
@@ -384,6 +442,7 @@ export class BrowserSurfaceManager {
     url: string;
     title: string;
     bound: boolean;
+    focused: boolean;
   }> {
     const out: Array<{
       target_id: string;
@@ -391,6 +450,7 @@ export class BrowserSurfaceManager {
       url: string;
       title: string;
       bound: boolean;
+      focused: boolean;
     }> = [];
     for (const s of this.surfaces.values()) {
       const g = s.guestWebContents;
@@ -401,6 +461,7 @@ export class BrowserSurfaceManager {
         url: bound ? g!.getURL() : s.currentUrl,
         title: bound ? g!.getTitle() : "",
         bound,
+        focused: s.sessionId === this.lastActiveSessionId,
       });
     }
     return out;
@@ -484,6 +545,29 @@ export class BrowserSurfaceManager {
         ...(pageTitle ? { pageTitle } : {}),
         faviconUrl,
       });
+    });
+    wc.on("did-navigate", (_e, url) => {
+      this.notifyBrowserUseNavigated(sessionId, url || wc.getURL());
+    });
+    wc.on("did-navigate-in-page", (_e, url) => {
+      this.notifyBrowserUseNavigated(sessionId, url || wc.getURL());
+    });
+    wc.on("did-start-navigation", (...args: unknown[]) => {
+      const details = args[0] as
+        | { url?: string; isMainFrame?: boolean }
+        | undefined;
+      const url =
+        typeof details?.url === "string"
+          ? details.url
+          : typeof args[1] === "string"
+            ? args[1]
+            : wc.getURL();
+      const isMainFrame =
+        typeof details?.isMainFrame === "boolean"
+          ? details.isMainFrame
+          : args[3] !== false;
+      if (!isMainFrame) return;
+      this.notifyBrowserUseNavigated(sessionId, url);
     });
   }
 
@@ -745,6 +829,7 @@ export class BrowserSurfaceManager {
   navigate(sessionId: string, url: string): void {
     const s = this.surfaces.get(sessionId);
     if (!s) return;
+    this.markLastActive(sessionId);
     s.currentUrl = url;
     if (s.detached && s.detachedWindow && !s.detachedWindow.isDestroyed()) {
       void s.detachedWindow

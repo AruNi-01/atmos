@@ -23,7 +23,12 @@ type BrowserSessionMapStore = {
   unbindTab: (tabId: string) => void;
   findBySession: (sessionId: string) => SessionBinding | null;
   sessionForTab: (tabId: string) => string | null;
-  pickContext: (targetSessionId?: string) => string | null;
+  resolveContext: (targetSessionId?: string) => {
+    ok: boolean;
+    contextId?: string;
+    error?: string;
+    error_code?: string;
+  };
 };
 
 export const useBrowserSessionMapStore = create<BrowserSessionMapStore>((set, get) => ({
@@ -82,18 +87,36 @@ export const useBrowserSessionMapStore = create<BrowserSessionMapStore>((set, ge
   },
   findBySession: (sessionId) => get().bySession[sessionId] ?? null,
   sessionForTab: (tabId) => get().byTab[tabId] ?? null,
-  pickContext: (targetSessionId) => {
+  resolveContext: (targetSessionId) => {
     const state = get();
     if (targetSessionId) {
       const bound = state.bySession[targetSessionId];
-      if (bound) return bound.contextId;
+      if (bound) return { ok: true, contextId: bound.contextId };
+      return {
+        ok: false,
+        error: `unknown target_id ${targetSessionId}`,
+        error_code: "browser_route_unavailable",
+      };
     }
     const entries = Object.entries(state.panels);
-    if (entries.length === 0) return null;
-    const active = entries
-      .filter(([, panel]) => panel.isActive)
-      .sort((a, b) => b[1].updatedAt - a[1].updatedAt);
-    if (active[0]) return active[0][0];
-    return entries.sort((a, b) => b[1].updatedAt - a[1].updatedAt)[0]?.[0] ?? null;
+    if (entries.length === 0) {
+      return {
+        ok: false,
+        error: "no Atmos Browser panel is mounted; open a Browser tab first",
+        error_code: "embedded_browser_host_unavailable",
+      };
+    }
+    if (entries.length === 1) {
+      return { ok: true, contextId: entries[0][0] };
+    }
+    const active = entries.filter(([, panel]) => panel.isActive);
+    if (active.length === 1) {
+      return { ok: true, contextId: active[0][0] };
+    }
+    return {
+      ok: false,
+      error: "multiple Browser panels are open; pass --target-id of a tab in the desired panel",
+      error_code: "browser_ambiguous_target",
+    };
   },
 }));

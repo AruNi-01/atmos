@@ -17,6 +17,13 @@ describe("browser-use-control structural", () => {
     expect(sm).toContain("getGuestWebContents");
     expect(sm).toContain("listBrowserUseSessions");
     expect(sm).toContain("emitAgentTab");
+    expect(sm).toContain("lastActiveSessionId");
+    expect(sm).toContain("focused");
+    expect(sm).toContain("did-navigate");
+    expect(sm).toContain("did-navigate-in-page");
+    expect(sm).toContain("did-start-navigation");
+    expect(sm).toContain("resolveAgentTabHost");
+    expect(sm).toContain("setOnBrowserUseNavigated");
   });
 
   it("control plane uses loopback + control.json", () => {
@@ -35,6 +42,13 @@ describe("browser-use-control structural", () => {
     expect(src).toContain("emitAgentTab");
     expect(src).toContain("setUserPicks");
     expect(src).toContain("completeAgentTab");
+    expect(src).toContain("invalidateSession");
+    expect(src).toContain("truncated");
+    expect(src).toContain("total_candidates");
+    expect(src).toContain("AGENT_TAB_TIMEOUT_MS");
+    expect(src).toContain("pid: process.pid");
+    expect(src).toContain("MAX_BODY_BYTES");
+    expect(src).toContain("browser_route_unavailable");
     expect(src).toContain("persist:atmos-browser");
     expect(src).toContain("token");
     expect(src).toContain("embedded_dom_v1");
@@ -70,6 +84,7 @@ describe("browser-use-control structural", () => {
     expect(src).toContain("Page.handleJavaScriptDialog");
     expect(src).toContain("javascriptDialogOpening");
     expect(src).toContain("will-download");
+    expect(src).toContain("wc.id !== guest.id");
     expect(src).toContain("mouseWheel");
     expect(src).toContain("Input.insertText");
     expect(src).toContain("pressKey");

@@ -264,6 +264,7 @@ describe("APP-053 browser webview structural (shipped sources)", () => {
     const commands = read("apps/web/src/features/browser/store/use-browser-tab-commands.ts");
     expect(commands).toContain('type: "open"');
     expect(commands).toContain("openTab");
+    expect(commands).toContain("queuesByContext");
     expect(commands).toContain("Electron main must not mutate this store");
 
     const bridge = read("apps/web/src/features/browser/hooks/use-browser-agent-tab-bridge.ts");
@@ -272,6 +273,9 @@ describe("APP-053 browser webview structural (shipped sources)", () => {
     expect(bridge).toContain("commands.openTab");
     expect(bridge).toContain("commands.closeTab");
     expect(bridge).toContain("commands.selectTab");
+    expect(bridge).toContain("evicted_target_ids");
+    expect(bridge).toContain("browser_route_unavailable");
+    expect(bridge).toContain("resolveContext");
 
     const control = read("apps/desktop-electron/src/browser/browser-use-control.ts");
     expect(control).toContain("/v1/tabs");
@@ -291,5 +295,20 @@ describe("APP-053 browser webview structural (shipped sources)", () => {
     const control = read("apps/desktop-electron/src/browser/browser-use-control.ts");
     expect(control).toContain("user_picks");
     expect(control).toContain("g${generation}:u");
+    expect(control).toContain("truncated");
+  });
+
+  it("routes agent tabs without silently guessing a window", () => {
+    const map = read("apps/web/src/features/browser/store/use-browser-session-map.ts");
+    expect(map).toContain("resolveContext");
+    expect(map).toContain("browser_route_unavailable");
+    expect(map).toContain("browser_ambiguous_target");
+    expect(map).not.toContain("pickContext");
+
+    const activity = read("apps/web/src/features/browser/store/use-browser-use-activity.ts");
+    expect(activity).toContain("sessionId && current.sessionId !== sessionId");
+
+    const toolbar = read("apps/web/src/features/browser/components/BrowserToolbar.tsx");
+    expect(toolbar).toContain("useBrowserUseActivity(sessionId)");
   });
 });

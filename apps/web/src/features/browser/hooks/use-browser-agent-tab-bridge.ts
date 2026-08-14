@@ -44,6 +44,7 @@ async function ackAgentTab(result: {
   ok: boolean;
   target_id?: string | null;
   tab_id?: string | null;
+  evicted_target_ids?: string[];
   error?: string;
   error_code?: string;
 }): Promise<void> {
@@ -69,28 +70,37 @@ async function handleAgentTab(payload: AgentTabPayload): Promise<void> {
         });
         return;
       }
-      const contextId = map.pickContext(payload.targetId);
-      if (!contextId) {
+      const routed = map.resolveContext(payload.targetId);
+      if (!routed.ok || !routed.contextId) {
         await ackAgentTab({
           requestId,
           ok: false,
-          error: "no Atmos Browser panel is mounted; open a Browser tab first",
-          error_code: "embedded_browser_host_unavailable",
+          error: routed.error,
+          error_code: routed.error_code,
         });
         return;
       }
-      const tabId = await commands.openTab(contextId, url);
+      const opened = await commands.openTab(routed.contextId, url);
       const bound = await waitFor(
-        () => Boolean(useBrowserSessionMapStore.getState().sessionForTab(tabId)),
+        () => Boolean(useBrowserSessionMapStore.getState().sessionForTab(opened.tabId)),
         8_000,
       );
-      const sessionId = useBrowserSessionMapStore.getState().sessionForTab(tabId);
+      const sessionId = useBrowserSessionMapStore.getState().sessionForTab(opened.tabId);
       if (!bound || !sessionId) {
+        const panel = useBrowserSessionMapStore.getState().panels[routed.contextId];
+        if (panel && panel.tabCount > 1) {
+          try {
+            await commands.closeTab(routed.contextId, opened.tabId);
+          } catch {
+            /* best-effort rollback */
+          }
+        }
         await ackAgentTab({
           requestId,
           ok: false,
           error: "tab opened but the webview did not bind",
           error_code: "browser_engine_failed",
+          evicted_target_ids: opened.evictedSessionIds,
         });
         return;
       }
@@ -99,6 +109,7 @@ async function handleAgentTab(payload: AgentTabPayload): Promise<void> {
         ok: true,
         target_id: sessionId,
         tab_id: "main",
+        evicted_target_ids: opened.evictedSessionIds,
       });
       return;
     }
@@ -111,7 +122,7 @@ async function handleAgentTab(payload: AgentTabPayload): Promise<void> {
           requestId,
           ok: false,
           error: `unknown target_id ${targetId || "(empty)"}`,
-          error_code: "invalid_args",
+          error_code: "browser_route_unavailable",
         });
         return;
       }
@@ -126,13 +137,22 @@ async function handleAgentTab(payload: AgentTabPayload): Promise<void> {
           });
           return;
         }
-        commands.closeTab(binding.contextId, binding.tabId);
-        await waitFor(
+        await commands.closeTab(binding.contextId, binding.tabId);
+        const gone = await waitFor(
           () => !useBrowserSessionMapStore.getState().findBySession(targetId),
           3_000,
         );
+        if (!gone) {
+          await ackAgentTab({
+            requestId,
+            ok: false,
+            error: "tab close did not unbind the webview",
+            error_code: "browser_engine_failed",
+          });
+          return;
+        }
       } else {
-        commands.selectTab(binding.contextId, binding.tabId);
+        await commands.selectTab(binding.contextId, binding.tabId);
       }
       await ackAgentTab({
         requestId,

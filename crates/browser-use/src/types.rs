@@ -113,7 +113,7 @@ pub struct BrowserRequest {
     pub include_screenshot: bool,
     /// semantic_v2 continuation token.
     pub continuation: Option<String>,
-    /// semantic_v2 query string.
+    /// Snapshot filter: semantic_v2 query, or embedded name/role/tag/href match.
     pub query: Option<String>,
     /// semantic_v2 scope_ref.
     pub scope_ref: Option<String>,

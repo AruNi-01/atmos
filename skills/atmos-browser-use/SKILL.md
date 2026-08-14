@@ -1,6 +1,6 @@
 ---
 name: atmos-browser-use
-version: "2.2.0"
+version: "2.3.0"
 description: >
   Control web pages via Browser Use (`atmos browser-use`), separate from Desktop Use.
   Prefer for Chrome/Chromium page DOM or Atmos in-app browser (embedded). Do not use for
@@ -31,6 +31,8 @@ On Atmos Desktop, prefer **embedded** when a Browser tab is already open. `/brow
 Scope (first match wins): `--binding-id` → `ATMOS_BROWSER_USE_BINDING_ID` → `ATMOS_SIDE_CHAT_ID` → `ATMOS_PANE_ID`.
 
 After a successful `prepare` / `state` / act, later calls in the same scope may omit `--backend`, `--target-id`, and `--tab-id`. If several surfaces match, the CLI returns `browser_ambiguous_target` — pass the ids from `state`. Bindings store `{backend,target_id,tab_id}` only. **Never persist refs.**
+
+`end` clears the scoped binding. `tabs --action close` clears it only when the closed `target_id` is the stored current target. `tabs --action list` does not rewrite the binding.
 
 ## System Chrome loop (external)
 
@@ -88,6 +90,7 @@ Requires **Atmos Desktop** with at least one Browser tab open.
 atmos browser-use prepare --backend embedded
 atmos browser-use state --backend embedded
 atmos browser-use state --backend embedded --target-id <session_id>
+atmos browser-use state --backend embedded --target-id <session_id> --query "Sign in"
 atmos browser-use click --backend embedded --target-id <session_id> --ref g1:e0
 atmos browser-use type --backend embedded --target-id <session_id> --ref g1:e3 --text "hello"
 atmos browser-use press-key --backend embedded --target-id <session_id> --key Enter
@@ -101,11 +104,14 @@ atmos browser-use end --backend embedded
 
 Notes:
 
-- Snapshot format is `embedded_dom_v1` (visible nodes, truncated, generation-scoped refs like `g1:e0`). `semantic_v2` is unsupported here.
+- Snapshot format is `embedded_dom_v1` (visible nodes, generation-scoped refs like `g1:e0`). `semantic_v2` is unsupported here (`browser_unsupported`).
+- `--query` filters embedded snapshots by name / role / tag / href. The response includes `truncated` and `total_candidates` when more than 200 matches exist. Re-`state` with a narrower query instead of inventing refs.
 - Do not invent a ref. If cache is empty, `state` first — the host will **not** auto-snapshot and then click `e0`.
-- User pick / annotate in the Desktop Browser is included on the next `state` as `user_picks` with snapshot-scoped refs (`g1:u0`). Click those refs — do not paste clipboard selectors.
+- User pick / annotate in the Desktop Browser is included on the next `state` as `user_picks` with snapshot-scoped refs (`g1:u0`). Click those refs — do not paste clipboard selectors. If the selector is gone, the pick is not clickable (`browser_ref_stale`); do not reuse an old rectangle.
 - `tabs` is **embedded only**. The web renderer owns open/close/select. The host does not create webviews itself. `open` returns a new `target_id` (session id); bind that before acting.
-- `download` writes under `~/.atmos/data/browser-use/downloads` unless `--dir` is inside that root.
+- Tab routing: pass `--target-id` of a tab in the desired panel. The host sends the command to that guest's window, or to the last-active Browser window. It does **not** silently pick the main window or guess among several panels (`browser_ambiguous_target` / `browser_route_unavailable`).
+- `tabs --action list` includes `focused` for the last-active guest.
+- `download` on **embedded** writes under `~/.atmos/data/browser-use/downloads` when `--dir` is omitted; if you pass `--dir`, it must stay inside that root. On **external**, `--dir` is required.
 - `upload` is external-only.
 
 ## Decision
@@ -124,7 +130,11 @@ Notes:
 | `browser_control_auth_failed` | Restart Atmos Desktop (control-plane token) |
 | `control_engine_not_installed` / `browser_engine_failed` | Install/update Desktop Use engine (0.19.2+) |
 | `browser_ref_stale` | Re-run `state`; use a ref from that snapshot |
-| `browser_ambiguous_target` | Pass `--target-id` / `--tab-id` |
+| `browser_ambiguous_target` | Pass `--target-id` / `--tab-id` of the intended panel |
+| `browser_route_unavailable` | No bound guest / unknown `--target-id` / no host window for the tab command |
+| `browser_unsupported` | Action or snapshot format is not available on this backend |
+| `browser_untrusted_content` | Page refused a trusted input; ask the user or use a trusted snapshot |
+| `browser_setup_required` | Desktop Use / system permissions are missing |
 | `browser_profile_grant_required` | Use `isolated_new`, not `existing_profile` |
 | `browser_download_denied` | `--dir` outside the approved downloads root |
 | `browser_navigate_denied` | Only http / https / about:blank |

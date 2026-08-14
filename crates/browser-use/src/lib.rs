@@ -15,10 +15,10 @@ mod types;
 
 pub use backends::{EmbeddedBackend, ExternalBackend};
 pub use binding::{
-    apply_binding_defaults, clear_binding, commit_binding_from_result, engine_session_id,
-    extract_ids, fill_result_ids, load_binding, resolve_binding_id, resolve_binding_scope,
-    resolve_native_route, save_binding, AppliedBinding, BINDING_SCOPE_ENV, BrowserBinding,
-    NativeRouteHint,
+    apply_binding_defaults, apply_result_to_binding, clear_binding, commit_binding_from_result,
+    engine_session_id, extract_ids, fill_result_ids, load_binding, resolve_binding_id,
+    resolve_binding_scope, resolve_native_route, save_binding, AppliedBinding, BINDING_SCOPE_ENV,
+    BrowserBinding, NativeRouteHint,
 };
 pub use chrome::{
     chrome_target_for_request, show_browser_action_chrome, status_for_browser_action,
@@ -49,21 +49,19 @@ pub fn execute(mut req: BrowserRequest) -> BrowserResult {
     req.session = applied.session_id;
     let resolved_from = applied.resolved_from;
 
-    if req.action == BrowserAction::End {
-        if let Some(id) = binding::resolve_binding_id(binding_id.as_deref()) {
-            let _ = binding::clear_binding(&id);
-        }
-    }
-
     let mut result = match req.backend {
         BrowserBackendKind::External => ExternalBackend.execute(req.clone()),
         BrowserBackendKind::Embedded => EmbeddedBackend.execute(req.clone()),
     };
     result.resolved_from = resolved_from.or(result.resolved_from);
     binding::fill_result_ids(&mut result);
-    if result.ok {
-        binding::commit_binding_from_result(binding_id.as_deref(), req.backend, &result);
-    }
+    binding::apply_result_to_binding(
+        binding_id.as_deref(),
+        req.backend,
+        req.action,
+        req.tab_action.as_deref(),
+        &result,
+    );
     surface::attach_surface(&mut result, req.backend);
     surface::attach_success_recovery(&mut result);
     result

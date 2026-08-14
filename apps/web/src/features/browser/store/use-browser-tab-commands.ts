@@ -8,81 +8,94 @@ import { create } from "zustand";
  * lifting all browser state into a shared store.
  *
  * Electron main must not mutate this store or create webviews itself.
+ * Commands are a per-context FIFO so concurrent agent calls cannot overwrite.
  */
-type BrowserTabCommand =
+export type BrowserTabCommand =
   | { type: "select"; tabId: string; token: number }
   | { type: "close"; tabId: string; token: number }
   | { type: "open"; url: string; token: number };
 
-type OpenWaiter = {
-  resolve: (tabId: string) => void;
+export type OpenTabResult = {
+  tabId: string;
+  evictedSessionIds: string[];
+};
+
+type CommandWaiter = {
+  resolve: (value: OpenTabResult | true) => void;
   reject: (error: Error) => void;
   timer: ReturnType<typeof setTimeout>;
 };
 
-const openWaiters = new Map<number, OpenWaiter>();
+const waiters = new Map<number, CommandWaiter>();
+const COMMAND_TIMEOUT_MS = 8_000;
 
 type BrowserTabCommandsStore = {
-  commandsByContext: Record<string, BrowserTabCommand | null>;
-  selectTab: (browserContextId: string, tabId: string) => void;
-  closeTab: (browserContextId: string, tabId: string) => void;
-  openTab: (browserContextId: string, url: string) => Promise<string>;
-  resolveOpen: (token: number, tabId: string) => void;
-  clearCommand: (browserContextId: string, token: number) => void;
+  queuesByContext: Record<string, BrowserTabCommand[]>;
+  selectTab: (browserContextId: string, tabId: string) => Promise<true>;
+  closeTab: (browserContextId: string, tabId: string) => Promise<true>;
+  openTab: (browserContextId: string, url: string) => Promise<OpenTabResult>;
+  resolveCommand: (token: number, value: OpenTabResult | true) => void;
+  rejectCommand: (token: number, error: Error) => void;
+  completeCommand: (browserContextId: string, token: number) => void;
 };
 
 let nextToken = 1;
 
-export const useBrowserTabCommandsStore = create<BrowserTabCommandsStore>((set, get) => ({
-  commandsByContext: {},
-  selectTab: (browserContextId, tabId) => {
-    const token = nextToken++;
+function enqueue(
+  set: (fn: (state: BrowserTabCommandsStore) => Partial<BrowserTabCommandsStore>) => void,
+  browserContextId: string,
+  command: BrowserTabCommand,
+): Promise<OpenTabResult | true> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      if (!waiters.delete(command.token)) return;
+      reject(new Error("tab command was not handled by a Browser panel"));
+    }, COMMAND_TIMEOUT_MS);
+    waiters.set(command.token, { resolve, reject, timer });
     set((state) => ({
-      commandsByContext: {
-        ...state.commandsByContext,
-        [browserContextId]: { type: "select", tabId, token },
+      queuesByContext: {
+        ...state.queuesByContext,
+        [browserContextId]: [...(state.queuesByContext[browserContextId] ?? []), command],
       },
     }));
+  });
+}
+
+export const useBrowserTabCommandsStore = create<BrowserTabCommandsStore>((set, get) => ({
+  queuesByContext: {},
+  selectTab: (browserContextId, tabId) => {
+    const token = nextToken++;
+    return enqueue(set, browserContextId, { type: "select", tabId, token }) as Promise<true>;
   },
   closeTab: (browserContextId, tabId) => {
     const token = nextToken++;
-    set((state) => ({
-      commandsByContext: {
-        ...state.commandsByContext,
-        [browserContextId]: { type: "close", tabId, token },
-      },
-    }));
+    return enqueue(set, browserContextId, { type: "close", tabId, token }) as Promise<true>;
   },
   openTab: (browserContextId, url) => {
     const token = nextToken++;
-    return new Promise<string>((resolve, reject) => {
-      const timer = setTimeout(() => {
-        if (!openWaiters.delete(token)) return;
-        reject(new Error("open tab command was not handled by a Browser panel"));
-      }, 3_000);
-      openWaiters.set(token, { resolve, reject, timer });
-      set((state) => ({
-        commandsByContext: {
-          ...state.commandsByContext,
-          [browserContextId]: { type: "open", url, token },
-        },
-      }));
-    });
+    return enqueue(set, browserContextId, { type: "open", url, token }) as Promise<OpenTabResult>;
   },
-  resolveOpen: (token, tabId) => {
-    const waiter = openWaiters.get(token);
+  resolveCommand: (token, value) => {
+    const waiter = waiters.get(token);
     if (!waiter) return;
     clearTimeout(waiter.timer);
-    openWaiters.delete(token);
-    waiter.resolve(tabId);
+    waiters.delete(token);
+    waiter.resolve(value);
   },
-  clearCommand: (browserContextId, token) => {
-    const current = get().commandsByContext[browserContextId];
-    if (!current || current.token !== token) return;
+  rejectCommand: (token, error) => {
+    const waiter = waiters.get(token);
+    if (!waiter) return;
+    clearTimeout(waiter.timer);
+    waiters.delete(token);
+    waiter.reject(error);
+  },
+  completeCommand: (browserContextId, token) => {
+    const queue = get().queuesByContext[browserContextId] ?? [];
+    if (queue[0]?.token !== token) return;
     set((state) => ({
-      commandsByContext: {
-        ...state.commandsByContext,
-        [browserContextId]: null,
+      queuesByContext: {
+        ...state.queuesByContext,
+        [browserContextId]: (state.queuesByContext[browserContextId] ?? []).slice(1),
       },
     }));
   },

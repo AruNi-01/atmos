@@ -100,7 +100,7 @@ pub fn save_binding(binding: &BrowserBinding) -> Result<(), String> {
     let dir = bindings_dir();
     fs::create_dir_all(&dir).map_err(|error| error.to_string())?;
     let path = binding_path(&binding.binding_id);
-    let tmp = path.with_extension("json.tmp");
+    let tmp = path.with_extension(format!("json.{}.tmp", std::process::id()));
     let payload = serde_json::to_vec_pretty(binding).map_err(|error| error.to_string())?;
     fs::write(&tmp, payload).map_err(|error| error.to_string())?;
     fs::rename(&tmp, path).map_err(|error| error.to_string())
@@ -190,11 +190,42 @@ pub fn commit_binding_from_result(
     backend: BrowserBackendKind,
     result: &BrowserResult,
 ) {
+    apply_result_to_binding(binding_id, backend, crate::types::BrowserAction::State, None, result);
+}
+
+/// Persist, clear, or leave the scoped binding after an action.
+/// `end` / `tabs close` must not leave a dead target as "current".
+pub fn apply_result_to_binding(
+    binding_id: Option<&str>,
+    backend: BrowserBackendKind,
+    action: crate::types::BrowserAction,
+    tab_action: Option<&str>,
+    result: &BrowserResult,
+) {
     let Some(binding_id) = resolve_binding_id(binding_id) else {
         return;
     };
     if !result.ok {
         return;
+    }
+    if action == crate::types::BrowserAction::End {
+        let _ = clear_binding(&binding_id);
+        return;
+    }
+    if action == crate::types::BrowserAction::Tabs {
+        let tab_action = tab_action.map(str::trim).unwrap_or("");
+        if tab_action == "list" {
+            return;
+        }
+        if tab_action == "close" {
+            let (closed_target, _, _) = extract_ids(result);
+            if let Some(stored) = load_binding(&binding_id) {
+                if closed_target.is_some() && stored.target_id == closed_target {
+                    let _ = clear_binding(&binding_id);
+                }
+            }
+            return;
+        }
     }
     let (target_id, tab_id, session_id) = extract_ids(result);
     if target_id.is_none() && tab_id.is_none() && session_id.is_none() {
@@ -386,6 +417,97 @@ mod tests {
         );
         assert_eq!(resolve_binding_scope(Some("  "), pane_only), Some("from-pane".into()));
         assert_eq!(resolve_binding_scope(None, |_| None), None);
+    }
+
+    #[test]
+    fn end_and_close_do_not_leave_a_dead_target() {
+        let dir = tempfile::tempdir().unwrap();
+        unsafe {
+            std::env::set_var("ATMOS_BROWSER_USE_HOME", dir.path());
+        }
+        let binding_id = "pane-close";
+        let stored = BrowserBinding::new(
+            binding_id,
+            BrowserBackendKind::Embedded,
+            Some("dead".into()),
+            Some("main".into()),
+            None,
+        );
+        save_binding(&stored).unwrap();
+
+        apply_result_to_binding(
+            Some(binding_id),
+            BrowserBackendKind::Embedded,
+            crate::types::BrowserAction::Tabs,
+            Some("close"),
+            &BrowserResult {
+                ok: true,
+                action: "tabs".into(),
+                backend: "embedded".into(),
+                target_id: Some("dead".into()),
+                tab_id: Some("main".into()),
+                ..BrowserResult::default()
+            },
+        );
+        assert!(load_binding(binding_id).is_none());
+
+        save_binding(&stored).unwrap();
+        apply_result_to_binding(
+            Some(binding_id),
+            BrowserBackendKind::Embedded,
+            crate::types::BrowserAction::End,
+            None,
+            &BrowserResult {
+                ok: true,
+                action: "end".into(),
+                backend: "embedded".into(),
+                target_id: Some("dead".into()),
+                ..BrowserResult::default()
+            },
+        );
+        assert!(load_binding(binding_id).is_none());
+
+        save_binding(&stored).unwrap();
+        apply_result_to_binding(
+            Some(binding_id),
+            BrowserBackendKind::Embedded,
+            crate::types::BrowserAction::Tabs,
+            Some("list"),
+            &BrowserResult {
+                ok: true,
+                action: "tabs".into(),
+                backend: "embedded".into(),
+                target_id: Some("other".into()),
+                tab_id: Some("main".into()),
+                ..BrowserResult::default()
+            },
+        );
+        assert_eq!(
+            load_binding(binding_id).and_then(|b| b.target_id),
+            Some("dead".into())
+        );
+
+        apply_result_to_binding(
+            Some(binding_id),
+            BrowserBackendKind::Embedded,
+            crate::types::BrowserAction::Tabs,
+            Some("close"),
+            &BrowserResult {
+                ok: true,
+                action: "tabs".into(),
+                backend: "embedded".into(),
+                target_id: Some("other".into()),
+                tab_id: Some("main".into()),
+                ..BrowserResult::default()
+            },
+        );
+        assert_eq!(
+            load_binding(binding_id).and_then(|b| b.target_id),
+            Some("dead".into())
+        );
+        unsafe {
+            std::env::remove_var("ATMOS_BROWSER_USE_HOME");
+        }
     }
 
     #[test]

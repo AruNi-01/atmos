@@ -146,6 +146,7 @@ fn map_known_engine_code(code: &str) -> &'static str {
         "browser_download_denied" => BROWSER_DOWNLOAD_DENIED,
         "browser_navigate_denied" => BROWSER_NAVIGATE_DENIED,
         "browser_control_auth_failed" => BROWSER_CONTROL_AUTH_FAILED,
+        "embedded_browser_host_unavailable" => BROWSER_CONTROL_UNAVAILABLE,
         _ => BROWSER_ENGINE_FAILED,
     }
 }
@@ -169,7 +170,7 @@ pub fn recovery_for(code: &str) -> Option<String> {
                 "`existing_profile` is not granted on this host. Use `--strategy isolated_new` (default) or ask the user to enable the existing-profile grant."
             }
             BROWSER_ROUTE_UNAVAILABLE => {
-                "Run `atmos browser-use state` and pass `--target-id` / `--tab-id`, or start a new isolated session with `--strategy isolated_new`."
+                "Run `atmos browser-use state` or `tabs --action list` and pass `--target-id`. On external, `prepare` a new isolated session if no window is bound."
             }
             BROWSER_INVALID_ARGS => "Check the tool arguments against `atmos browser-use --help`.",
             BROWSER_UNSUPPORTED => {
@@ -215,5 +216,16 @@ mod tests {
     fn prefers_engine_code() {
         let (code, _) = classify_engine_message(Some("browser_ref_stale"), "boom");
         assert_eq!(code, BROWSER_REF_STALE);
+    }
+
+    #[test]
+    fn maps_embedded_host_and_unknown_target() {
+        assert_eq!(
+            map_known_engine_code("embedded_browser_host_unavailable"),
+            BROWSER_CONTROL_UNAVAILABLE
+        );
+        let (code, recovery) = classify_engine_message(None, "no bound webview guest");
+        assert_eq!(code, BROWSER_ROUTE_UNAVAILABLE);
+        assert!(recovery.unwrap().contains("target-id"));
     }
 }

@@ -522,6 +522,11 @@ export function createAllHandlers(
             : typeof args.errorCode === "string"
               ? args.errorCode
               : undefined,
+        evicted_target_ids: Array.isArray(args.evicted_target_ids)
+          ? args.evicted_target_ids.filter(
+              (id): id is string => typeof id === "string" && id.trim().length > 0,
+            )
+          : undefined,
       });
       return null;
     },

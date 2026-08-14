@@ -7,7 +7,14 @@
 
 import { randomBytes, randomUUID } from "node:crypto";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
-import { mkdirSync, writeFileSync, unlinkSync, existsSync } from "node:fs";
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  renameSync,
+  unlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { basename, join, resolve, sep } from "node:path";
 import { homedir } from "node:os";
 import type { Debugger, DownloadItem, WebContents } from "electron";
@@ -28,6 +35,9 @@ const DEFAULT_DOWNLOAD_ROOT = () =>
   join(CONTROL_DIR(), "downloads");
 
 const ALLOWED_NAV_SCHEMES = new Set(["http:", "https:", "about:"]);
+const MAX_BODY_BYTES = 1_048_576;
+const AGENT_TAB_TIMEOUT_MS = 15_000;
+const SNAPSHOT_LIMIT = 200;
 
 type SnapshotEl = {
   ref: string;
@@ -58,6 +68,7 @@ export type AgentTabAck = {
   ok: boolean;
   target_id?: string | null;
   tab_id?: string | null;
+  evicted_target_ids?: string[];
   error?: string;
   error_code?: string;
 };
@@ -68,6 +79,8 @@ type SessionCache = {
   title: string;
   generation: number;
   format: "embedded_dom_v1";
+  truncated: boolean;
+  total_candidates: number;
 };
 
 function isExactLoopbackHost(hostHeader: string | undefined): boolean {
@@ -147,6 +160,9 @@ export class BrowserUseControlPlane {
 
   constructor(manager: BrowserSurfaceManager) {
     this.manager = manager;
+    this.manager.setOnBrowserUseNavigated((sessionId) => {
+      this.invalidateSession(sessionId);
+    });
   }
 
   start(): { baseUrl: string; port: number } {
@@ -201,22 +217,51 @@ export class BrowserUseControlPlane {
 
   private writeMeta(): void {
     const dir = CONTROL_DIR();
-    mkdirSync(dir, { recursive: true });
+    mkdirSync(dir, { recursive: true, mode: 0o700 });
+    try {
+      chmodSync(dir, 0o700);
+    } catch {
+      /* best-effort on platforms that ignore mode */
+    }
     const payload = {
       base_url: `http://127.0.0.1:${this.port}`,
       port: this.port,
       token: this.token,
+      pid: process.pid,
       partition: "persist:atmos-browser",
       protocol: "atmos-browser-use/v1",
       updated_at: new Date().toISOString(),
     };
-    writeFileSync(join(dir, "control.json"), JSON.stringify(payload, null, 2));
+    const dest = join(dir, "control.json");
+    const tmp = join(dir, `control.${process.pid}.json.tmp`);
+    writeFileSync(tmp, JSON.stringify(payload, null, 2), { mode: 0o600 });
+    try {
+      chmodSync(tmp, 0o600);
+    } catch {
+      /* ignore */
+    }
+    renameSync(tmp, dest);
+    try {
+      chmodSync(dest, 0o600);
+    } catch {
+      /* ignore */
+    }
   }
 
   private async readBody(req: IncomingMessage): Promise<Record<string, unknown>> {
     const chunks: Buffer[] = [];
+    let size = 0;
     for await (const c of req) {
-      chunks.push(Buffer.isBuffer(c) ? c : Buffer.from(c));
+      const buf = Buffer.isBuffer(c) ? c : Buffer.from(c);
+      size += buf.length;
+      if (size > MAX_BODY_BYTES) {
+        const err = new Error("request body too large") as Error & {
+          code?: string;
+        };
+        err.code = "invalid_args";
+        throw err;
+      }
+      chunks.push(buf);
     }
     const raw = Buffer.concat(chunks).toString("utf8").trim();
     if (!raw) return {};
@@ -246,8 +291,56 @@ export class BrowserUseControlPlane {
     url: string;
     title: string;
     bound: boolean;
+    focused: boolean;
   }> {
     return this.manager.listBrowserUseSessions();
+  }
+
+  private invalidateSession(
+    sessionId: string,
+    opts?: { releaseDialog?: boolean; dropQueue?: boolean },
+  ): void {
+    const id = sessionId.trim();
+    if (!id) return;
+    this.snapshots.delete(id);
+    this.pendingDialogs.delete(id);
+    this.userPicks.delete(id);
+    this.armedDownloads.delete(id);
+    this.removeGuestChrome(id);
+    if (opts?.releaseDialog) {
+      this.releaseDialogCdp(id);
+    }
+    if (opts?.dropQueue) {
+      this.queues.delete(id);
+    }
+  }
+
+  private removeGuestChrome(sessionId: string): void {
+    const guest = this.guestFor(sessionId);
+    if (!guest) return;
+    void guest
+      .executeJavaScript(
+        `(() => {
+          document.getElementById('atmos-browser-use-cursor')?.remove();
+          document.getElementById('atmos-browser-use-badge')?.remove();
+        })()`,
+        true,
+      )
+      .catch(() => undefined);
+  }
+
+  private releaseDialogCdp(sessionId: string): void {
+    this.dialogCdpSessions.delete(sessionId);
+    const guest = this.guestFor(sessionId);
+    if (!guest) return;
+    try {
+      if (guest.debugger.isAttached()) {
+        guest.debugger.removeAllListeners("message");
+        guest.debugger.detach();
+      }
+    } catch {
+      /* ignore */
+    }
   }
 
   setUserPicks(sessionId: string, picks: BrowserUseUserPick[]): void {
@@ -285,14 +378,26 @@ export class BrowserUseControlPlane {
             "renderer did not handle the tab command (open a Browser tab in Desktop first)",
           error_code: "embedded_browser_host_unavailable",
         });
-      }, 10_000);
+      }, AGENT_TAB_TIMEOUT_MS);
       this.pendingAgentTabs.set(requestId, { resolve, timer });
-      this.manager.emitAgentTab({
+      const delivered = this.manager.emitAgentTab({
         requestId,
         action: cmd.action,
         url: cmd.url,
         targetId: cmd.targetId,
       });
+      if (!delivered) {
+        clearTimeout(timer);
+        this.pendingAgentTabs.delete(requestId);
+        resolve({
+          requestId,
+          ok: false,
+          error: cmd.targetId
+            ? `unknown target_id ${cmd.targetId}`
+            : "no Atmos Browser host window is available for this tab command",
+          error_code: "browser_route_unavailable",
+        });
+      }
     });
   }
 
@@ -363,16 +468,23 @@ export class BrowserUseControlPlane {
     }
   }
 
-  private async snapshot(sessionId: string): Promise<SessionCache> {
+  private async snapshot(
+    sessionId: string,
+    query?: string,
+  ): Promise<SessionCache> {
     const guest = this.guestFor(sessionId);
     if (!guest) {
-      throw new Error(
+      const err = new Error(
         `no bound webview guest for target_id=${sessionId}; open Atmos Browser tab first`,
-      );
+      ) as Error & { code?: string };
+      err.code = "browser_route_unavailable";
+      throw err;
     }
     this.snapshotGeneration += 1;
     const generation = this.snapshotGeneration;
     const script = `(() => {
+      const query = ${JSON.stringify((query ?? "").trim().toLowerCase())};
+      const limit = ${SNAPSHOT_LIMIT};
       const selectors = 'a,button,input,textarea,select,summary,[role="button"],[role="link"],[role="textbox"],[contenteditable="true"]';
       const nodes = Array.from(document.querySelectorAll(selectors));
       const visible = [];
@@ -381,8 +493,26 @@ export class BrowserUseControlPlane {
         const style = window.getComputedStyle(el);
         if (r.width < 2 || r.height < 2) continue;
         if (style.visibility === 'hidden' || style.display === 'none' || Number(style.opacity) === 0) continue;
-        visible.push(el);
-        if (visible.length >= 200) break;
+        const name =
+          (el.getAttribute('aria-label') ||
+            el.getAttribute('placeholder') ||
+            el.getAttribute('name') ||
+            (el.innerText || '').trim() ||
+            el.getAttribute('href') ||
+            '');
+        const role = el.getAttribute('role') || '';
+        const tag = el.tagName.toLowerCase();
+        const href = el.getAttribute('href') || '';
+        if (
+          query &&
+          !name.toLowerCase().includes(query) &&
+          !role.toLowerCase().includes(query) &&
+          !tag.includes(query) &&
+          !href.toLowerCase().includes(query)
+        ) {
+          continue;
+        }
+        visible.push({ el, name });
       }
       const secretType = (el) => {
         if (!(el instanceof HTMLInputElement)) return false;
@@ -398,23 +528,21 @@ export class BrowserUseControlPlane {
           name.includes('one-time')
         );
       };
+      const truncated = visible.length > limit;
+      const kept = visible.slice(0, limit);
       return {
         url: location.href,
         title: document.title || '',
-        elements: visible.map((el, i) => {
+        total_candidates: visible.length,
+        truncated,
+        elements: kept.map((item, i) => {
+          const el = item.el;
           const r = el.getBoundingClientRect();
-          const name =
-            (el.getAttribute('aria-label') ||
-              el.getAttribute('placeholder') ||
-              el.getAttribute('name') ||
-              (el.innerText || '').trim() ||
-              el.getAttribute('href') ||
-              '').slice(0, 120);
           return {
             ref: 'g${generation}:e' + i,
             tag: el.tagName.toLowerCase(),
             role: el.getAttribute('role'),
-            name,
+            name: String(item.name).slice(0, 120),
             href: el.getAttribute('href'),
             value: secretType(el)
               ? null
@@ -431,6 +559,8 @@ export class BrowserUseControlPlane {
       url: string;
       title: string;
       elements: SnapshotEl[];
+      truncated?: boolean;
+      total_candidates?: number;
     };
     const domElements = Array.isArray(raw?.elements) ? raw.elements : [];
     const userEls: SnapshotEl[] = [];
@@ -438,29 +568,44 @@ export class BrowserUseControlPlane {
     for (let i = 0; i < picks.length; i += 1) {
       const pick = picks[i];
       const live = await this.querySelectorRect(guest, pick.selector);
-      const rect = live
-        ? { x: live.x, y: live.y, width: live.width, height: live.height }
-        : pick.rect && pick.rect.width > 0 && pick.rect.height > 0
-          ? pick.rect
-          : { x: 0, y: 0, width: 0, height: 0 };
+      if (!live) {
+        userEls.push({
+          ref: `g${generation}:u${i}`,
+          tag: pick.tag ?? "unknown",
+          role: "user_pick",
+          name: (pick.name || pick.selector).slice(0, 120),
+          visible: false,
+          rect: { x: 0, y: 0, width: 0, height: 0 },
+          selector: pick.selector,
+          note: pick.note,
+          source: pick.source ?? "annotation",
+        });
+        continue;
+      }
       userEls.push({
         ref: `g${generation}:u${i}`,
-        tag: live?.tag ?? pick.tag ?? "unknown",
+        tag: live.tag,
         role: "user_pick",
         name: (pick.name || pick.selector).slice(0, 120),
-        visible: rect.width > 0 && rect.height > 0,
-        rect,
+        visible: true,
+        rect: { x: live.x, y: live.y, width: live.width, height: live.height },
         selector: pick.selector,
         note: pick.note,
         source: pick.source ?? "annotation",
       });
     }
+    const totalCandidates =
+      typeof raw?.total_candidates === "number"
+        ? raw.total_candidates + userEls.length
+        : domElements.length + userEls.length;
     const cache: SessionCache = {
       url: raw?.url ?? guest.getURL(),
       title: raw?.title ?? guest.getTitle(),
       elements: [...domElements, ...userEls],
       generation,
       format: "embedded_dom_v1",
+      truncated: Boolean(raw?.truncated),
+      total_candidates: totalCandidates,
     };
     this.snapshots.set(sessionId, cache);
     return cache;
@@ -580,15 +725,14 @@ export class BrowserUseControlPlane {
       if (el.selector) {
         const guest = this.guestFor(sessionId);
         const live = guest ? await this.querySelectorRect(guest, el.selector) : null;
-        if (live) {
-          rect = { x: live.x, y: live.y, width: live.width, height: live.height };
-          el.rect = rect;
-          el.tag = live.tag;
-        } else if (rect.width < 1 || rect.height < 1) {
+        if (!live) {
           throw new Error(
             `unknown ref ${ref}; snapshot expired or ref is stale — run state snapshot first`,
           );
         }
+        rect = { x: live.x, y: live.y, width: live.width, height: live.height };
+        el.rect = rect;
+        el.tag = live.tag;
       }
       this.showChromeForRef(sessionId, el, status);
       return {
@@ -605,13 +749,14 @@ export class BrowserUseControlPlane {
 
   private async dispatchClick(
     guest: WebContents,
+    sessionId: string,
     x: number,
     y: number,
     opts?: { button?: "left" | "right" | "middle"; clickCount?: number },
   ): Promise<void> {
     const button = opts?.button ?? "left";
     const clickCount = opts?.clickCount ?? 1;
-    await this.withDebugger(guest, null, async (dbg) => {
+    await this.withDebugger(guest, sessionId, async (dbg) => {
       await dbg.sendCommand("Input.dispatchMouseEvent", {
         type: "mouseMoved",
         x,
@@ -672,7 +817,7 @@ export class BrowserUseControlPlane {
     if (!guest) throw new Error(`no guest for ${sessionId}`);
     const pt = await this.resolvePoint(sessionId, ref, x, y, "Clicking page");
     try {
-      await this.dispatchClick(guest, pt.x, pt.y, {
+      await this.dispatchClick(guest, sessionId, pt.x, pt.y, {
         button: "left",
         clickCount: 1,
       });
@@ -967,7 +1112,7 @@ export class BrowserUseControlPlane {
     }
 
     if (action === "right_click") {
-      await this.dispatchClick(guest, pt.x, pt.y, {
+      await this.dispatchClick(guest, sessionId, pt.x, pt.y, {
         button: "right",
         clickCount: 1,
       });
@@ -975,7 +1120,7 @@ export class BrowserUseControlPlane {
     }
 
     // double_click
-    await this.dispatchClick(guest, pt.x, pt.y, {
+    await this.dispatchClick(guest, sessionId, pt.x, pt.y, {
       button: "left",
       clickCount: 2,
     });
@@ -1071,11 +1216,17 @@ export class BrowserUseControlPlane {
       filename: string;
       state: string;
     }>((resolvePromise, reject) => {
+      let cleaned = false;
       const timer = setTimeout(() => {
         cleanup();
         reject(new Error("download timed out (30s)"));
       }, 30_000);
-      const onWillDownload = (_event: unknown, item: DownloadItem) => {
+      const onWillDownload = (
+        _event: unknown,
+        item: DownloadItem,
+        wc?: WebContents,
+      ) => {
+        if (wc && wc.id !== guest.id) return;
         const armed = this.armedDownloads.get(sessionId);
         if (!armed || Date.now() > armed.deadline) {
           return;
@@ -1093,6 +1244,8 @@ export class BrowserUseControlPlane {
         });
       };
       const cleanup = () => {
+        if (cleaned) return;
+        cleaned = true;
         clearTimeout(timer);
         this.armedDownloads.delete(sessionId);
         try {
@@ -1101,10 +1254,16 @@ export class BrowserUseControlPlane {
           /* ignore */
         }
       };
-      guest.session.once("will-download", onWillDownload);
+      guest.session.on("will-download", onWillDownload);
+      void this.clickRef(sessionId, ref).then(
+        () => undefined,
+        (error) => {
+          cleanup();
+          reject(error instanceof Error ? error : new Error(String(error)));
+        },
+      );
     });
 
-    await this.clickRef(sessionId, ref);
     const result = await savePromise;
     return {
       ok: true,
@@ -1202,7 +1361,11 @@ export class BrowserUseControlPlane {
         return;
       }
       if (req.method !== "POST") {
-        this.send(res, 405, { ok: false, error: "method not allowed" });
+        this.send(res, 405, {
+          ok: false,
+          error: "method not allowed",
+          error_code: "invalid_args",
+        });
         return;
       }
       const contentType = String(req.headers["content-type"] || "");
@@ -1237,14 +1400,16 @@ export class BrowserUseControlPlane {
           ? "browser_download_denied"
           : msg.includes("navigate") && msg.includes("scheme")
             ? "browser_navigate_denied"
-            : msg.includes("requires") ||
-                msg.includes("timed out") ||
-                msg.includes("download") ||
-                msg.includes("dialog") ||
-                msg.includes("no guest") ||
-                msg.includes("no bound")
-              ? "browser_engine_failed"
-              : "browser_engine_failed");
+            : msg.includes("no guest") ||
+                msg.includes("no bound") ||
+                msg.includes("unknown target")
+              ? "browser_route_unavailable"
+              : msg.includes("requires") ||
+                  msg.includes("timed out") ||
+                  msg.includes("download") ||
+                  msg.includes("dialog")
+                ? "browser_engine_failed"
+                : "browser_engine_failed");
     const clientMsg =
       msg.includes("unknown ref") ||
       msg.includes("stale") ||
@@ -1314,6 +1479,16 @@ export class BrowserUseControlPlane {
             });
             return;
           }
+          if (bound.length === 0) {
+            this.send(res, 200, {
+              ok: false,
+              mode: "bind",
+              sessions,
+              error: "no bound Atmos Browser webview; open a Browser tab first",
+              error_code: "browser_route_unavailable",
+            });
+            return;
+          }
           this.send(res, 200, {
             ok: true,
             mode: "bind",
@@ -1336,7 +1511,11 @@ export class BrowserUseControlPlane {
           });
           return;
         }
-        const snap = await this.snapshot(targetId);
+        const query =
+          typeof body.query === "string" && body.query.trim()
+            ? body.query.trim()
+            : undefined;
+        const snap = await this.snapshot(targetId, query);
         // Best-effort: arm dialog listener while inspecting the tab.
         const guest = this.guestFor(targetId);
         if (guest) {
@@ -1362,6 +1541,8 @@ export class BrowserUseControlPlane {
           title: snap.title,
           elements: snap.elements,
           element_count: snap.elements.length,
+          truncated: snap.truncated,
+          total_candidates: snap.total_candidates,
           user_picks: userPicks,
           pending_dialog: this.pendingDialogs.get(targetId) ?? null,
           ...(screenshot ? { screenshot } : {}),
@@ -1460,10 +1641,7 @@ export class BrowserUseControlPlane {
         } else {
           this.manager.navigate(targetId, navUrl);
         }
-        // Page document changed — drop stale element refs/coords.
-        this.snapshots.delete(targetId);
-        this.pendingDialogs.delete(targetId);
-        this.userPicks.delete(targetId);
+        this.invalidateSession(targetId);
         this.send(res, 200, { ok: true, target_id: targetId, url: navUrl });
         return;
       }
@@ -1541,10 +1719,10 @@ export class BrowserUseControlPlane {
       if (path === "/v1/end") {
         const targetId = String(body.target_id || "").trim();
         if (targetId) {
-          this.snapshots.delete(targetId);
-          this.pendingDialogs.delete(targetId);
-          this.armedDownloads.delete(targetId);
-          this.userPicks.delete(targetId);
+          this.invalidateSession(targetId, {
+            releaseDialog: true,
+            dropQueue: true,
+          });
         }
         this.send(res, 200, { ok: true, ended: true, target_id: targetId || null });
         return;
@@ -1591,6 +1769,7 @@ export class BrowserUseControlPlane {
             target_id: ack.target_id ?? null,
             tab_id: ack.tab_id ?? "main",
             url: navUrl,
+            evicted_target_ids: ack.evicted_target_ids ?? [],
             error: ack.error,
             error_code: ack.error_code,
           });
@@ -1610,9 +1789,10 @@ export class BrowserUseControlPlane {
             targetId,
           });
           if (ack.ok && action === "close") {
-            this.snapshots.delete(targetId);
-            this.pendingDialogs.delete(targetId);
-            this.userPicks.delete(targetId);
+            this.invalidateSession(targetId, {
+              releaseDialog: true,
+              dropQueue: true,
+            });
           }
           this.send(res, ack.ok ? 200 : 400, {
             ok: ack.ok,
@@ -1632,7 +1812,11 @@ export class BrowserUseControlPlane {
         return;
       }
 
-      this.send(res, 404, { ok: false, error: "not found" });
+      this.send(res, 404, {
+        ok: false,
+        error: "not found",
+        error_code: "invalid_args",
+      });
     } catch (e) {
       this.sendFailure(res, e);
     }
