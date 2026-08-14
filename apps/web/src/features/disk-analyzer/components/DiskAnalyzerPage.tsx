@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import {
   Button,
@@ -27,35 +27,82 @@ import {
   cn,
 } from "@workspace/ui";
 import {
+  Tabs,
+  TabsList,
+  TabsTrigger,
+} from "@workspace/ui/components/motion/tabs";
+import {
   ChartPie,
   ChevronRight,
   CircleAlert,
+  Folder,
   HardDrive,
   LayoutGrid,
   Loader2,
   PanelRightClose,
   PanelRightOpen,
   RefreshCw,
+  Sparkles,
   Trash2,
 } from "lucide-react";
+import type { CleanupSuggestion } from "@/api/ws/disk-analyzer-api";
 import { DiskUsageChart } from "@/features/disk-analyzer/components/DiskUsageChart";
+import { DiskAnalyzerSuggestPanel } from "@/features/disk-analyzer/components/DiskAnalyzerSuggestPanel";
 import { useDiskAnalyzer } from "@/features/disk-analyzer/hooks/use-disk-analyzer";
 import {
+  GIT_WORKTREES_GROUP_PATH,
+  canDeleteDiskPath,
+  displayDiskName,
   formatBytes,
+  friendlyDiskEntryPath,
   getCleanupHintKey,
+  isAtmosOverviewPath,
   isAtmosRuntimeDir,
+  isWorktreeSuggestion,
+  localizedSyntheticName,
+  suggestionTotalSize,
   TOP_N_OPTIONS,
 } from "@/features/disk-analyzer/lib/tree-adapters";
 
 export function DiskAnalyzerPage() {
   const t = useTranslations("DiskAnalyzer");
+  const sessionName = useCallback(
+    (name: string) =>
+      displayDiskName(name, (key) =>
+        t.has(`agentSessionNames.${key}`) ? t(`agentSessionNames.${key}`) : undefined,
+      ),
+    [t],
+  );
   const analyzer = useDiskAnalyzer();
+  const pathTitle = useCallback(
+    (path: string) =>
+      displayNodePath(
+        path,
+        analyzer.scanPath,
+        t("computerRoot"),
+        t("atmosRoot"),
+        t("agentData"),
+        t("gitWorktrees"),
+      ),
+    [analyzer.scanPath, t],
+  );
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteAllOpen, setDeleteAllOpen] = useState(false);
   const [listDeletePath, setListDeletePath] = useState<string | null>(null);
   const [permanent, setPermanent] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(true);
+  const [detailTab, setDetailTab] = useState<"dirs" | "suggest">("dirs");
+  const [pendingSuggest, setPendingSuggest] = useState<{
+    path: string;
+    displayPath: string;
+    size: number;
+    isWorktree: boolean;
+  } | null>(null);
+  const [pendingSuggestItems, setPendingSuggestItems] = useState<
+    CleanupSuggestion[] | null
+  >(null);
   /** Keep last paint-able chart node so list drill does not unmount the chart (kills ECharts data morph). */
   const lastChartNodeRef = useRef(analyzer.focusedNode);
 
@@ -83,9 +130,30 @@ export function DiskAnalyzerPage() {
     ? analyzer.chartRootSize
     : (analyzer.focusedNode?.size ?? analyzer.chartRootSize ?? 1);
   const scanning = analyzer.status === "running" || analyzer.busy;
+  /** First paint is idle until auto-start; keep Rescan locked so it cannot race. */
+  const scanLocked = scanning || analyzer.status === "idle";
 
   const openDeleteDialog = (path?: string) => {
     if (path) analyzer.setSelectedPath(path);
+    setPendingSuggest(null);
+    setPermanent(false);
+    setDeleteError(null);
+    setListDeletePath(null);
+    setDeleteOpen(true);
+  };
+
+  const openSuggestDelete = (item: {
+    path: string;
+    size: number;
+    kind?: string | null;
+  }) => {
+    analyzer.setSelectedPath(item.path);
+    setPendingSuggest({
+      path: item.path,
+      displayPath: pathTitle(item.path),
+      size: item.size,
+      isWorktree: item.kind === "worktree" || item.kind === "workspace",
+    });
     setPermanent(false);
     setDeleteError(null);
     setListDeletePath(null);
@@ -96,18 +164,64 @@ export function DiskAnalyzerPage() {
     setDeleting(true);
     setDeleteError(null);
     try {
-      await analyzer.deleteSelected(permanent);
-      setDeleteOpen(false);
-      setListDeletePath(null);
-      setPermanent(false);
-      // Stay in the current folder — do not restart the whole scan from root.
-      await analyzer.refreshAfterDelete();
+      const target = pendingSuggest?.path ?? analyzer.selectedPath;
+      if (target) {
+        const requiresPermanent =
+          pendingSuggest?.isWorktree ||
+          Boolean(
+            analyzer.selectedNode?.is_git_worktree ||
+              analyzer.selectedNode?.is_workspace,
+          );
+        await analyzer.deletePathAt(target, requiresPermanent ? true : permanent);
+        setDeleteOpen(false);
+        setListDeletePath(null);
+        setPermanent(false);
+        setPendingSuggest(null);
+        await analyzer.refreshAfterDelete(target);
+      }
     } catch (e) {
       setDeleteError(e instanceof Error ? e.message : String(e));
     } finally {
       setDeleting(false);
     }
   };
+
+  const onConfirmDeleteAll = async () => {
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      const trashable = (pendingSuggestItems ?? analyzer.sessionSuggestions).some(
+        (item) => !isWorktreeSuggestion(item),
+      );
+      await analyzer.deleteSuggestions(
+        trashable ? permanent : true,
+        pendingSuggestItems ?? undefined,
+      );
+      setDeleteAllOpen(false);
+      setPermanent(false);
+      setPendingSuggestItems(null);
+    } catch (e) {
+      const deletedPaths =
+        e && typeof e === "object" && "deletedPaths" in e
+          ? (e as { deletedPaths?: string[] }).deletedPaths ?? []
+          : [];
+      if (deletedPaths.length > 0) {
+        setPendingSuggestItems((prev) => {
+          if (!prev) return null;
+          const next = prev.filter((item) => !deletedPaths.includes(item.path));
+          return next.length > 0 ? next : null;
+        });
+      }
+      setDeleteError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const pendingBulkItems = pendingSuggestItems ?? analyzer.sessionSuggestions;
+  const pendingBulkNeedsTrash = pendingBulkItems.some(
+    (item) => !isWorktreeSuggestion(item),
+  );
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden bg-background/50">
@@ -196,31 +310,41 @@ export function DiskAnalyzerPage() {
                   </Tooltip>
                 </TooltipProvider>
               </div>
-              {scanning ? (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-9 rounded-xl"
-                  onClick={() => void analyzer.cancelScan()}
-                >
-                  {t("cancel")}
-                </Button>
-              ) : (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-9 rounded-xl"
-                  onClick={() => void analyzer.startScan()}
-                  disabled={analyzer.busy}
-                >
-                  {analyzer.busy ? (
-                    <Loader2 className="size-4 animate-spin" />
-                  ) : (
-                    <RefreshCw className="size-4" />
-                  )}
-                  {t("rescan")}
-                </Button>
-              )}
+              <Button
+                variant="ghost"
+                size="sm"
+                className={cn("h-9 rounded-xl", scanning && "group")}
+                onClick={() => {
+                  if (scanning) {
+                    void analyzer.cancelScan();
+                    return;
+                  }
+                  void analyzer.startScan();
+                }}
+                disabled={analyzer.status === "idle"}
+                aria-busy={scanLocked}
+                aria-label={scanning ? t("cancel") : undefined}
+              >
+                {scanLocked ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <RefreshCw className="size-4" />
+                )}
+                {scanning ? (
+                  <span className="relative">
+                    <span className="group-hover:invisible group-focus-visible:invisible">
+                      {t("scanningButton")}
+                    </span>
+                    <span className="invisible absolute inset-0 flex items-center justify-center group-hover:visible group-focus-visible:visible">
+                      {t("cancel")}
+                    </span>
+                  </span>
+                ) : scanLocked ? (
+                  t("scanningButton")
+                ) : (
+                  t("rescan")
+                )}
+              </Button>
             </div>
           </div>
 
@@ -253,6 +377,7 @@ export function DiskAnalyzerPage() {
                           ? "font-medium text-foreground"
                           : "text-muted-foreground hover:bg-muted hover:text-foreground",
                       )}
+                      title={pathTitle(crumb.path)}
                       onClick={() => analyzer.drillTo(crumb.path)}
                     >
                       {index === 0
@@ -261,9 +386,14 @@ export function DiskAnalyzerPage() {
                             t("computerRoot"),
                             t("atmosRoot"),
                           )
-                        : crumb.name === "__other__"
-                          ? t("other")
-                          : crumb.name}
+                        : (localizedSyntheticName(crumb.path, {
+                            atmosRoot: t("atmosRoot"),
+                            agentData: t("agentData"),
+                            gitWorktrees: t("gitWorktrees"),
+                          }) ??
+                          (crumb.name === "__other__"
+                            ? t("other")
+                            : sessionName(crumb.name)))}
                     </button>
                   </React.Fragment>
                 ))
@@ -313,6 +443,8 @@ export function DiskAnalyzerPage() {
                 <SelectTrigger
                   size="sm"
                   className="w-auto min-w-[5.5rem] gap-1.5 border-border/60 bg-muted/20 text-xs shadow-none"
+                  title={t("topNHint")}
+                  aria-label={t("topNHint")}
                 >
                   <span className="text-muted-foreground">{t("topN")}</span>
                   <SelectValue />
@@ -354,8 +486,12 @@ export function DiskAnalyzerPage() {
                   scanPath={analyzer.scanPath}
                   projectLabel={t("atmosProject")}
                   workspaceLabel={t("atmosWorkspace")}
+                  gitWorktreeLabel={t("gitWorktree")}
+                  gitWorktreesLabel={t("gitWorktrees")}
+                  agentDataLabel={t("agentData")}
                   runtimeLabel={t("atmosRuntimeDir")}
                   otherLabel={t("other")}
+                  localizeName={sessionName}
                   enterDirectoryLabel={t("enterDirectory")}
                   deleteLabel={t("delete")}
                   onSelectPath={analyzer.setSelectedPath}
@@ -379,8 +515,11 @@ export function DiskAnalyzerPage() {
                         : t("scanningWait")}
                     </p>
                     {analyzer.progress?.current_path ? (
-                      <p className="max-w-md truncate text-xs text-muted-foreground/70">
-                        {analyzer.progress.current_path}
+                      <p
+                        className="max-w-md truncate text-xs text-muted-foreground/70"
+                        title={pathTitle(analyzer.progress.current_path)}
+                      >
+                        {pathTitle(analyzer.progress.current_path)}
                       </p>
                     ) : null}
                   </>
@@ -392,17 +531,79 @@ export function DiskAnalyzerPage() {
           </div>
         </section>
 
-        {/* Side rail — Details list (cleanup tips as inline badges) */}
+        {/* Side rail — Dirs list or cleanup suggestions */}
         <aside
           className={cn(
             // Width transition shrinks the main flex column; chart listens via ResizeObserver.
             "flex shrink-0 flex-col border-l border-border/60 bg-background/40 transition-[width] duration-200 ease-out",
-            detailsOpen ? "w-[280px] sm:w-[300px]" : "w-0 overflow-hidden border-l-0",
+            detailsOpen ? "w-[300px] sm:w-[320px]" : "w-0 overflow-hidden border-l-0",
           )}
           aria-hidden={!detailsOpen}
         >
           {detailsOpen ? (
             <TooltipProvider delayDuration={250}>
+            <Tabs
+              value={detailTab}
+              onValueChange={(value) =>
+                setDetailTab(value === "suggest" ? "suggest" : "dirs")
+              }
+              variant="pill"
+              className="flex min-h-0 flex-1 flex-col"
+            >
+            <div className="flex h-10 shrink-0 items-center gap-1.5 px-2 pt-2">
+              <TabsList className="h-8 min-w-0 gap-0.5 p-0.5">
+                <TabsTrigger value="dirs" className="h-7 gap-1 px-2 text-xs">
+                  <Folder className="size-3.5 shrink-0" />
+                  {t("tabDirs")}
+                </TabsTrigger>
+                <TabsTrigger value="suggest" className="h-7 gap-1 px-2 text-xs">
+                  <Sparkles className="size-3.5 shrink-0" />
+                  {t("tabClearSuggest")}
+                </TabsTrigger>
+              </TabsList>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="ml-auto h-7 shrink-0 rounded-full px-2.5 text-xs shadow-none"
+                disabled={analyzer.refreshingDetails || !analyzer.scanId}
+                aria-label={t("refreshDetailsAria")}
+                title={t("refreshDetailsAria")}
+                onClick={() => void analyzer.refreshDetails()}
+              >
+                <RefreshCw
+                  className={cn(
+                    "size-3.5",
+                    analyzer.refreshingDetails && "animate-spin",
+                  )}
+                />
+                {t("refreshDetails")}
+              </Button>
+            </div>
+            {detailTab === "suggest" ? (
+              <DiskAnalyzerSuggestPanel
+                suggestions={analyzer.sessionSuggestions}
+                ready={analyzer.suggestionsReady}
+                scanning={scanning}
+                deleting={deleting}
+                localizeName={sessionName}
+                pathTitle={pathTitle}
+                onOpenItem={(item) => analyzer.drillTo(item.path)}
+                onDeleteOne={(item) => openSuggestDelete(item)}
+                onDeleteAll={() => {
+                  setPendingSuggestItems(null);
+                  setPermanent(false);
+                  setDeleteError(null);
+                  setDeleteAllOpen(true);
+                }}
+                onDeleteGroup={(items) => {
+                  setPendingSuggestItems(items);
+                  setPermanent(false);
+                  setDeleteError(null);
+                  setDeleteAllOpen(true);
+                }}
+              />
+            ) : (
             <div className="flex min-h-0 flex-1 flex-col">
               <div className="shrink-0 space-y-2 border-b border-border/50 px-4 py-3">
                 {analyzer.selectedNode ? (
@@ -411,7 +612,7 @@ export function DiskAnalyzerPage() {
                     <div className="flex min-w-0 items-center gap-1.5">
                       <div
                         className="min-w-0 shrink truncate text-sm font-semibold"
-                        title={analyzer.selectedNode.name}
+                        title={pathTitle(analyzer.selectedNode.path)}
                       >
                         {displayNodeName(
                           analyzer.selectedNode,
@@ -419,12 +620,18 @@ export function DiskAnalyzerPage() {
                           t("computerRoot"),
                           t("atmosRoot"),
                           t("other"),
+                          t("agentData"),
+                          t("gitWorktrees"),
+                          sessionName,
                         )}
                       </div>
                       <NodeKindBadge
                         node={analyzer.selectedNode}
                         projectLabel={t("atmosProject")}
                         workspaceLabel={t("atmosWorkspace")}
+                        gitWorktreeLabel={t("gitWorktree")}
+                        gitWorktreesLabel={t("gitWorktrees")}
+                        agentDataLabel={t("agentData")}
                         runtimeLabel={t("atmosRuntimeDir")}
                       />
                       <CanCleanBadge
@@ -450,6 +657,8 @@ export function DiskAnalyzerPage() {
                           analyzer.scanPath,
                           t("computerRoot"),
                           t("atmosRoot"),
+                          t("agentData"),
+                          t("gitWorktrees"),
                         )}
                         className="min-w-0 flex-1"
                       />
@@ -467,8 +676,11 @@ export function DiskAnalyzerPage() {
                         {t("sizeEstimateNote")}
                       </p>
                     ) : null}
-                    {analyzer.selectedNode.path !== analyzer.scanPath &&
-                    analyzer.selectedNode.name !== "__other__" ? (
+                    {canDeleteDiskPath(
+                      analyzer.selectedNode.path,
+                      analyzer.selectedNode.name,
+                      analyzer.scanPath,
+                    ) ? (
                       <Button
                         variant="destructive"
                         size="sm"
@@ -498,9 +710,11 @@ export function DiskAnalyzerPage() {
                             ? Math.min(100, (child.size / parentSize) * 100)
                             : 0;
                         const cleanupHintKey = getCleanupHintKey(child.name, child.size);
-                        const canDelete =
-                          child.name !== "__other__" &&
-                          child.path !== analyzer.scanPath;
+                        const canDelete = canDeleteDiskPath(
+                          child.path,
+                          child.name,
+                          analyzer.scanPath,
+                        );
                         const popoverOpen = listDeletePath === child.path;
                         const enterRow = () => {
                           analyzer.setSelectedPath(child.path);
@@ -534,13 +748,28 @@ export function DiskAnalyzerPage() {
                               style={{ width: `${share}%` }}
                             />
                             <div className="relative flex min-w-0 flex-1 items-center gap-1.5 text-left">
-                              <span className="truncate text-xs font-medium">
-                                {child.name === "__other__" ? t("other") : child.name}
+                              <span
+                                className="truncate text-xs font-medium"
+                                title={pathTitle(child.path)}
+                              >
+                                {displayNodeName(
+                                  child,
+                                  analyzer.scanPath,
+                                  t("computerRoot"),
+                                  t("atmosRoot"),
+                                  t("other"),
+                                  t("agentData"),
+                                  t("gitWorktrees"),
+                                  sessionName,
+                                )}
                               </span>
                               <NodeKindBadge
                                 node={child}
                                 projectLabel={t("atmosProject")}
                                 workspaceLabel={t("atmosWorkspace")}
+                                gitWorktreeLabel={t("gitWorktree")}
+                                gitWorktreesLabel={t("gitWorktrees")}
+                                agentDataLabel={t("agentData")}
                                 runtimeLabel={t("atmosRuntimeDir")}
                               />
                               <CanCleanBadge
@@ -624,8 +853,15 @@ export function DiskAnalyzerPage() {
                                               path: child.path,
                                               size: formatBytes(child.size),
                                             })}
+                                            {child.is_git_worktree ? (
+                                              <>
+                                                {"\n\n"}
+                                                {t("deleteWorktreeNote")}
+                                              </>
+                                            ) : null}
                                           </p>
                                         </div>
+                                        {child.is_git_worktree || child.is_workspace ? null : (
                                         <label className="flex min-w-0 items-start gap-2 text-xs leading-snug">
                                           <Checkbox
                                             className="mt-0.5 shrink-0"
@@ -638,6 +874,7 @@ export function DiskAnalyzerPage() {
                                             {t("permanentDelete")}
                                           </span>
                                         </label>
+                                        )}
                                         {deleteError && listDeletePath === child.path ? (
                                           <div className="text-xs text-destructive">
                                             {deleteError}
@@ -662,7 +899,9 @@ export function DiskAnalyzerPage() {
                                             {deleting ? (
                                               <Loader2 className="size-3.5 animate-spin" />
                                             ) : null}
-                                            {permanent
+                                            {child.is_git_worktree ||
+                                            child.is_workspace ||
+                                            permanent
                                               ? t("confirmPermanent")
                                               : t("confirmTrash")}
                                           </Button>
@@ -680,30 +919,57 @@ export function DiskAnalyzerPage() {
                 )}
               </div>
             </div>
+            )}
+            </Tabs>
             </TooltipProvider>
           ) : null}
         </aside>
       </div>
 
-      <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+      <Dialog
+        open={deleteOpen}
+        onOpenChange={(open) => {
+          setDeleteOpen(open);
+          if (!open) setPendingSuggest(null);
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{t("deleteTitle")}</DialogTitle>
             <DialogDescription className="min-w-0 whitespace-pre-wrap break-all">
               {t("deleteDescription", {
-                path: analyzer.selectedNode?.path ?? "",
-                size: formatBytes(analyzer.selectedNode?.size ?? 0),
+                path:
+                  pendingSuggest?.displayPath ??
+                  (analyzer.selectedNode
+                    ? pathTitle(analyzer.selectedNode.path)
+                    : analyzer.selectedPath
+                      ? pathTitle(analyzer.selectedPath)
+                      : ""),
+                size: formatBytes(
+                  pendingSuggest?.size ?? analyzer.selectedNode?.size ?? 0,
+                ),
               })}
+              {pendingSuggest?.isWorktree ||
+              analyzer.selectedNode?.is_git_worktree ? (
+                <>
+                  {"\n\n"}
+                  {t("deleteWorktreeNote")}
+                </>
+              ) : null}
             </DialogDescription>
           </DialogHeader>
-          <label className="flex min-w-0 items-start gap-2 text-sm leading-snug">
-            <Checkbox
-              className="mt-0.5 shrink-0"
-              checked={permanent}
-              onCheckedChange={(checked) => setPermanent(checked === true)}
-            />
-            <span className="min-w-0 break-words">{t("permanentDelete")}</span>
-          </label>
+          {pendingSuggest?.isWorktree ||
+          analyzer.selectedNode?.is_git_worktree ||
+          analyzer.selectedNode?.is_workspace ? null : (
+            <label className="flex min-w-0 items-start gap-2 text-sm leading-snug">
+              <Checkbox
+                className="mt-0.5 shrink-0"
+                checked={permanent}
+                onCheckedChange={(checked) => setPermanent(checked === true)}
+              />
+              <span className="min-w-0 break-words">{t("permanentDelete")}</span>
+            </label>
+          )}
           {deleteError ? (
             <div className="text-sm text-destructive">{deleteError}</div>
           ) : null}
@@ -717,7 +983,70 @@ export function DiskAnalyzerPage() {
               onClick={() => void onConfirmDelete()}
             >
               {deleting ? <Loader2 className="size-4 animate-spin" /> : null}
-              {permanent ? t("confirmPermanent") : t("confirmTrash")}
+              {pendingSuggest?.isWorktree ||
+              analyzer.selectedNode?.is_git_worktree ||
+              analyzer.selectedNode?.is_workspace ||
+              permanent
+                ? t("confirmPermanent")
+                : t("confirmTrash")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={deleteAllOpen}
+        onOpenChange={(open) => {
+          setDeleteAllOpen(open);
+          if (!open) setPendingSuggestItems(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {pendingSuggestItems
+                ? t("suggestDeleteGroupTitle")
+                : t("deleteAllSuggestTitle")}
+            </DialogTitle>
+            <DialogDescription className="min-w-0 whitespace-pre-wrap break-all">
+              {t("deleteAllSuggestDescription", {
+                count: pendingBulkItems.length,
+                size: formatBytes(suggestionTotalSize(pendingBulkItems)),
+              })}
+              {pendingBulkItems.some(isWorktreeSuggestion) ? (
+                <>
+                  {"\n\n"}
+                  {t("deleteWorktreeNote")}
+                </>
+              ) : null}
+            </DialogDescription>
+          </DialogHeader>
+          {pendingBulkNeedsTrash ? (
+            <label className="flex min-w-0 items-start gap-2 text-sm leading-snug">
+              <Checkbox
+                className="mt-0.5 shrink-0"
+                checked={permanent}
+                onCheckedChange={(checked) => setPermanent(checked === true)}
+              />
+              <span className="min-w-0 break-words">{t("permanentDelete")}</span>
+            </label>
+          ) : null}
+          {deleteError ? (
+            <div className="text-sm text-destructive">{deleteError}</div>
+          ) : null}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteAllOpen(false)}>
+              {t("cancel")}
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={deleting || pendingBulkItems.length === 0}
+              onClick={() => void onConfirmDeleteAll()}
+            >
+              {deleting ? <Loader2 className="size-4 animate-spin" /> : null}
+              {pendingBulkNeedsTrash && !permanent
+                ? t("confirmTrash")
+                : t("confirmPermanent")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -759,11 +1088,24 @@ function NodeKindBadge({
   node,
   projectLabel,
   workspaceLabel,
+  gitWorktreeLabel,
+  gitWorktreesLabel,
+  agentDataLabel,
   runtimeLabel,
 }: {
-  node: { name?: string; path?: string; is_project?: boolean; is_workspace?: boolean };
+  node: {
+    name?: string;
+    path?: string;
+    is_project?: boolean;
+    is_workspace?: boolean;
+    is_git_worktree?: boolean;
+    is_agent_data?: boolean;
+  };
   projectLabel: string;
   workspaceLabel: string;
+  gitWorktreeLabel: string;
+  gitWorktreesLabel: string;
+  agentDataLabel: string;
   runtimeLabel: string;
 }) {
   let label: string | null = null;
@@ -773,6 +1115,13 @@ function NodeKindBadge({
     label = workspaceLabel;
   } else if (node.is_project) {
     label = projectLabel;
+  } else if (node.is_git_worktree) {
+    label =
+      node.path === GIT_WORKTREES_GROUP_PATH
+        ? gitWorktreesLabel
+        : gitWorktreeLabel;
+  } else if (node.is_agent_data) {
+    label = agentDataLabel;
   }
   if (!label) return null;
   return (
@@ -812,10 +1161,6 @@ function isHomeRootPath(path: string): boolean {
   return (parts[0] === "Users" || parts[0] === "home") && parts.length === 2;
 }
 
-function isAtmosOverviewPath(path: string): boolean {
-  return path === "atmos://disk-usage" || path.startsWith("atmos://");
-}
-
 function rootBreadcrumbLabel(
   scanPath: string,
   homeLabel: string,
@@ -831,9 +1176,18 @@ function displayNodeName(
   homeLabel: string,
   atmosLabel: string,
   otherLabel: string,
+  agentDataLabel: string,
+  gitWorktreesLabel: string,
+  localizeName?: (name: string) => string,
 ): string {
   if (node.name === "__other__") return otherLabel;
-  if (isAtmosOverviewPath(node.path) || node.name === "Atmos") return atmosLabel;
+  const synthetic = localizedSyntheticName(node.path, {
+    atmosRoot: atmosLabel,
+    agentData: agentDataLabel,
+    gitWorktrees: gitWorktreesLabel,
+  });
+  if (synthetic) return synthetic;
+  if (node.name === "Atmos") return atmosLabel;
   if (
     (scanPath && node.path === scanPath && isHomeRootPath(scanPath)) ||
     node.name === "/" ||
@@ -846,17 +1200,24 @@ function displayNodeName(
   if (scanPath && node.path === scanPath) {
     return isAtmosOverviewPath(scanPath) ? atmosLabel : homeLabel;
   }
-  return node.name;
+  return localizeName?.(node.name) ?? node.name;
 }
 
-/** Show `~` / Atmos for the scan root path; otherwise the real absolute path. */
+/** Show `~` / Atmos / group names for synthetic roots; otherwise the real absolute path. */
 function displayNodePath(
   path: string,
   scanPath: string,
   homeLabel: string,
   atmosLabel: string,
+  agentDataLabel: string,
+  gitWorktreesLabel: string,
 ): string {
-  if (isAtmosOverviewPath(path)) return atmosLabel;
+  const synthetic = localizedSyntheticName(path, {
+    atmosRoot: atmosLabel,
+    agentData: agentDataLabel,
+    gitWorktrees: gitWorktreesLabel,
+  });
+  if (synthetic) return synthetic;
   if (!path || path === "/") {
     if (scanPath && scanPath !== "/" && isHomeRootPath(scanPath)) {
       return homeLabel;
@@ -867,5 +1228,5 @@ function displayNodePath(
     return isAtmosOverviewPath(scanPath) ? atmosLabel : homeLabel;
   }
   if (isHomeRootPath(path)) return homeLabel;
-  return path;
+  return friendlyDiskEntryPath(path);
 }

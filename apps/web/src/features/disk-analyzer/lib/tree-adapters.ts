@@ -1,4 +1,8 @@
-import type { CleanupSuggestion, DiskNode } from "@/api/ws/disk-analyzer-api";
+import type {
+  CleanupKind,
+  CleanupSuggestion,
+  DiskNode,
+} from "@/api/ws/disk-analyzer-api";
 
 export type ChartMode = "sunburst" | "treemap";
 
@@ -18,6 +22,182 @@ export const TREEMAP_CHART_DEPTH = 1;
  */
 export const SUNBURST_CHART_DEPTH = 3;
 
+/** Synthetic Atmos overview root (not a filesystem path). */
+export const ATMOS_OVERVIEW_PATH = "atmos://disk-usage";
+/** Group of code-agent home / session directories. */
+export const AGENT_DATA_GROUP_PATH = "atmos://disk-usage/agent-data";
+/** Group of leftover linked git worktrees. */
+export const GIT_WORKTREES_GROUP_PATH = "atmos://disk-usage/git-worktrees";
+
+export function isAtmosOverviewPath(path: string): boolean {
+  return path === ATMOS_OVERVIEW_PATH;
+}
+
+export function isAtmosSyntheticPath(path: string): boolean {
+  return path === ATMOS_OVERVIEW_PATH || path.startsWith(`${ATMOS_OVERVIEW_PATH}/`);
+}
+
+export function localizedSyntheticName(
+  path: string,
+  labels: {
+    atmosRoot: string;
+    agentData: string;
+    gitWorktrees: string;
+  },
+): string | null {
+  if (path === ATMOS_OVERVIEW_PATH) return labels.atmosRoot;
+  if (path === AGENT_DATA_GROUP_PATH) return labels.agentData;
+  if (path === GIT_WORKTREES_GROUP_PATH) return labels.gitWorktrees;
+  return null;
+}
+
+/** Stable keys from `agent_data_roots` — UI shows agent session names, never paths. */
+export const AGENT_SESSION_NAME_KEYS = new Set([
+  "claude",
+  "cursor",
+  "cursorChats",
+  "codex",
+  "codexArchived",
+  "codexHeadless",
+  "copilot",
+  "copilotHistory",
+  "gemini",
+  "antigravity",
+  "continue",
+  "grok",
+  "opencode",
+  "devin",
+  "devinAcp",
+  "amp",
+  "droid",
+  "pi",
+  "omp",
+  "kimi",
+  "kimiCode",
+  "qwen",
+  "qwenProjects",
+  "cline",
+  "goose",
+  "crush",
+  "hermes",
+  "openclaw",
+  "openhands",
+  "mux",
+  "junie",
+  "commandcode",
+  "codebuddy",
+  "augment",
+  "vibe",
+  "kiro",
+  "kiroCli",
+  "windsurf",
+]);
+
+export function agentSessionNameBase(name: string): { base: string; suffix: string | null } {
+  const match = /^(.*) \((\d+)\)$/.exec(name);
+  if (match) return { base: match[1], suffix: match[2] };
+  return { base: name, suffix: null };
+}
+
+/** Map a backend session key (`claude`, `cursor (1)`) to C-end copy. */
+export function localizeAgentSessionName(
+  name: string,
+  lookup: (key: string) => string | undefined,
+): string {
+  const { base, suffix } = agentSessionNameBase(name);
+  if (!AGENT_SESSION_NAME_KEYS.has(base)) return name;
+  const label = lookup(base);
+  if (!label) return name;
+  return suffix ? `${label} (${suffix})` : label;
+}
+
+const PERCENT_ENCODED_RE = /%[0-9A-Fa-f]{2}/;
+
+/** Decode `%2F` / UTF-8 percent sequences. Invalid sequences stay as-is. */
+export function decodePercentEncoded(value: string): string {
+  if (!PERCENT_ENCODED_RE.test(value)) return value;
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
+function lastPathComponent(value: string): string {
+  const parts = value.replace(/\\/g, "/").split("/").filter(Boolean);
+  return parts.at(-1) ?? value;
+}
+
+/**
+ * Folder names used by Grok/Claude-style session stores are often a
+ * percent-encoded cwd. Tiles/lists show only the last path component.
+ */
+export function friendlyDiskEntryName(name: string): string {
+  const decoded = decodePercentEncoded(name);
+  if (decoded === name) return name;
+  return lastPathComponent(decoded);
+}
+
+/**
+ * Hover / details path. Decode every percent-encoded segment. When a segment
+ * is an encoded cwd (`%2FUsers%2F…/project`), replace the prefix with that
+ * project path and keep any descendants (session ids, nested folders).
+ */
+export function friendlyDiskEntryPath(fsPath: string): string {
+  if (!fsPath || isAtmosSyntheticPath(fsPath)) return fsPath;
+  if (!PERCENT_ENCODED_RE.test(fsPath)) return fsPath;
+
+  const parts = fsPath.replace(/\\/g, "/").split("/");
+  const out: string[] = [];
+  for (const part of parts) {
+    if (part === "") {
+      if (out.length === 0) out.push("");
+      continue;
+    }
+    const decoded = decodePercentEncoded(part);
+    if (decoded !== part && (decoded.includes("/") || decoded.includes("\\"))) {
+      const cwd = decoded.replace(/\\/g, "/").replace(/\/+$/, "");
+      out.length = 0;
+      if (cwd.startsWith("/")) {
+        out.push("");
+        out.push(...cwd.split("/").filter(Boolean));
+      } else {
+        out.push(...cwd.split("/").filter(Boolean));
+      }
+      continue;
+    }
+    out.push(decoded);
+  }
+  if (out.length === 0) return fsPath;
+  if (out.length === 1 && out[0] === "") return "/";
+  return out.join("/");
+}
+
+/** Product session label when known; otherwise a decoded short folder name. */
+export function displayDiskName(
+  name: string,
+  lookup: (key: string) => string | undefined,
+): string {
+  const { base } = agentSessionNameBase(name);
+  if (AGENT_SESSION_NAME_KEYS.has(base)) {
+    return localizeAgentSessionName(name, lookup);
+  }
+  return friendlyDiskEntryName(name);
+}
+
+/** Synthetic overview/group URIs and the scan root itself cannot be deleted. */
+export function canDeleteDiskPath(
+  path: string,
+  name: string,
+  scanPath: string,
+): boolean {
+  return (
+    name !== "__other__" &&
+    path !== scanPath &&
+    !isAtmosSyntheticPath(path)
+  );
+}
+
 export function formatBytes(bytes: number): string {
   if (!Number.isFinite(bytes) || bytes <= 0) return "0 B";
   const units = ["B", "KB", "MB", "GB", "TB", "PB"];
@@ -34,6 +214,17 @@ function isOtherNode(node: DiskNode): boolean {
 
 function otherPathFor(parentPath: string): string {
   return `${parentPath.replace(/\/$/, "")}/${OTHER_NAME}`;
+}
+
+/** True when this folder was pruned into `__other__` below `topN` — needs a wider fetch. */
+export function levelNeedsWiderTopN(
+  node: DiskNode | null | undefined,
+  topN: number,
+): boolean {
+  if (!node?.children?.length) return false;
+  const n = Math.max(1, topN);
+  const real = node.children.filter((child) => !isOtherNode(child)).length;
+  return node.children.some(isOtherNode) && real < n;
 }
 
 export type TakeTopOptions = {
@@ -178,7 +369,14 @@ export function filterTree(node: DiskNode, filters: DiskFilters): DiskNode | nul
     .map((child) => filterTree(child, filters))
     .filter((child): child is DiskNode => child !== null);
 
-  const nameMatch = !query || node.name.toLowerCase().includes(query) || node.path.toLowerCase().includes(query);
+  const decodedName = decodePercentEncoded(node.name).toLowerCase();
+  const decodedPath = friendlyDiskEntryPath(node.path).toLowerCase();
+  const nameMatch =
+    !query ||
+    node.name.toLowerCase().includes(query) ||
+    node.path.toLowerCase().includes(query) ||
+    decodedName.includes(query) ||
+    decodedPath.includes(query);
   const sizeMatch = node.size >= filters.minSize;
   const projectMatch = !filters.projectsOnly || node.is_project || childResults.some((c) => c.is_project || hasProjectDescendant(c));
 
@@ -235,6 +433,10 @@ const HOTSPOT_NAMES = new Set([
   "zig-cache",
   "_build",
   ".terraform",
+  ".claude",
+  ".cursor",
+  ".codex",
+  "worktrees",
 ]);
 
 function hotspotRank(name: string): number {
@@ -273,14 +475,9 @@ const CLEANUP_HINTS: Record<string, string> = {
   ".vitest": "Vitest cache",
   ".swc": "SWC compiler cache",
   ".nx": "Nx computation cache",
-  dist: "Build distribution output",
-  build: "Build output (Gradle/CMake/web/etc.)",
-  out: "Compile/export output",
-  output: "Generic build output",
   ".cache": "Tool cache directory",
   ".tmp": "Temporary build files",
   ".temp": "Temporary build files",
-  tmp: "Temporary files (project-local)",
   target: "Rust/Cargo or sbt/Scala build artifacts",
   __pycache__: "Python bytecode cache",
   ".pytest_cache": "pytest cache",
@@ -358,6 +555,10 @@ const CLEANUP_HINTS: Record<string, string> = {
   _site: "Jekyll / static site output",
   ".vuepress": "VuePress cache/dist",
   ".vscode-test": "VS Code extension test host",
+  ".history": "Local History IDE plugin data",
+  "history-session-state": "Copilot CLI session files",
+  archived_sessions: "Codex session files",
+  "acp-events": "Devin session files",
 };
 
 /**
@@ -388,6 +589,8 @@ export function cleanupHintMessageKey(basename: string): string {
  */
 export function getCleanupHintKey(name: string, size: number): string | undefined {
   if (size <= 0) return undefined;
+  const { base } = agentSessionNameBase(name);
+  if (AGENT_SESSION_NAME_KEYS.has(base)) return "agent_session";
   const key = name.toLowerCase();
   if (CLEANUP_HINTS[key]) return cleanupHintMessageKey(key);
   if (name.endsWith(".egg-info")) return "egg_info";
@@ -400,6 +603,10 @@ export function getCleanupHintKey(name: string, size: number): string | undefine
  */
 export function getCleanupReason(name: string, size: number): string | undefined {
   if (size <= 0) return undefined;
+  const { base } = agentSessionNameBase(name);
+  if (AGENT_SESSION_NAME_KEYS.has(base)) {
+    return "Session files for this agent. Deleting them removes chat history.";
+  }
   const key = name.toLowerCase();
   if (CLEANUP_HINTS[key]) return CLEANUP_HINTS[key];
   if (name.endsWith(".egg-info")) return "Python package egg-info (rebuildable)";
@@ -439,6 +646,165 @@ export function collectCleanupSuggestions(
   return out.slice(0, limit);
 }
 
+export function isWorktreeSuggestion(item: CleanupSuggestion): boolean {
+  return item.kind === "worktree" || item.kind === "workspace";
+}
+
+export function suggestionTotalSize(items: CleanupSuggestion[]): number {
+  return items.reduce((sum, item) => sum + (item.size ?? 0), 0);
+}
+
+/** Items smaller than this sort below everything else in Clear suggest. */
+export const SMALL_SUGGEST_BYTES = 1024 * 1024;
+
+const SUGGEST_KIND_ORDER: CleanupKind[] = [
+  "cache",
+  "worktree",
+  "workspace",
+  "session",
+];
+
+export function suggestIdleDays(
+  lastActivityMs: number | null | undefined,
+  now = Date.now(),
+): number | null {
+  if (!lastActivityMs || lastActivityMs <= 0) return null;
+  return Math.max(1, Math.floor((now - lastActivityMs) / 86_400_000));
+}
+
+/** Size first; idle time can boost a stale item up to 2×. */
+export function suggestCleanupScore(
+  item: CleanupSuggestion,
+  now = Date.now(),
+): number {
+  const days = suggestIdleDays(item.last_activity_ms, now) ?? 0;
+  return (item.size ?? 0) * (1 + Math.min(days, 180) / 180);
+}
+
+export function compareSuggestionsForCleanup(
+  a: CleanupSuggestion,
+  b: CleanupSuggestion,
+  now = Date.now(),
+): number {
+  const aSmall = (a.size ?? 0) < SMALL_SUGGEST_BYTES;
+  const bSmall = (b.size ?? 0) < SMALL_SUGGEST_BYTES;
+  if (aSmall !== bSmall) return aSmall ? 1 : -1;
+  const delta = suggestCleanupScore(b, now) - suggestCleanupScore(a, now);
+  if (delta !== 0) return delta > 0 ? 1 : -1;
+  return a.path.localeCompare(b.path);
+}
+
+function normalizeSuggestPath(path: string): string {
+  return path.replace(/\\/g, "/").replace(/\/+$/, "");
+}
+
+/** Parent folder for cache tiles; full path for sessions / worktrees. */
+export function suggestLocationRaw(item: CleanupSuggestion): string {
+  if ((item.kind ?? "cache") === "cache") {
+    const normalized = normalizeSuggestPath(item.path);
+    const idx = normalized.lastIndexOf("/");
+    if (idx <= 0) return item.path.replace(/\\/g, "/");
+    return normalized.slice(0, idx) || "/";
+  }
+  return item.path.replace(/\\/g, "/");
+}
+
+/** Last path segment of the location — used only when names collide. */
+export function suggestShortLocation(item: CleanupSuggestion): string {
+  const loc = normalizeSuggestPath(suggestLocationRaw(item));
+  const idx = loc.lastIndexOf("/");
+  if (idx < 0) return loc;
+  return loc.slice(idx + 1) || loc;
+}
+
+export function suggestionSurvivesDelete(
+  itemPath: string,
+  deletedPaths: string[],
+): boolean {
+  const item = normalizeSuggestPath(itemPath);
+  return !deletedPaths.some((raw) => {
+    const deleted = normalizeSuggestPath(raw);
+    return item === deleted || item.startsWith(`${deleted}/`);
+  });
+}
+
+export type SuggestNameBucket = {
+  name: string;
+  items: CleanupSuggestion[];
+  size: number;
+};
+
+export type SuggestKindGroup = {
+  kind: CleanupKind;
+  items: CleanupSuggestion[];
+  buckets: SuggestNameBucket[];
+  size: number;
+};
+
+export function groupClearSuggestions(
+  items: CleanupSuggestion[],
+  now = Date.now(),
+): SuggestKindGroup[] {
+  const byKind = new Map<CleanupKind, CleanupSuggestion[]>();
+  for (const item of items) {
+    const kind = item.kind ?? "cache";
+    const list = byKind.get(kind) ?? [];
+    list.push(item);
+    byKind.set(kind, list);
+  }
+  const groups: SuggestKindGroup[] = [];
+  for (const kind of SUGGEST_KIND_ORDER) {
+    const list = byKind.get(kind);
+    if (!list?.length) continue;
+    list.sort((a, b) => compareSuggestionsForCleanup(a, b, now));
+    const buckets = bucketSuggestionsByName(list, now);
+    groups.push({
+      kind,
+      items: buckets.flatMap((bucket) => bucket.items),
+      buckets,
+      size: suggestionTotalSize(list),
+    });
+  }
+  groups.sort(
+    (a, b) =>
+      b.size - a.size ||
+      SUGGEST_KIND_ORDER.indexOf(a.kind) - SUGGEST_KIND_ORDER.indexOf(b.kind),
+  );
+  return groups;
+}
+
+function bucketSuggestionsByName(
+  items: CleanupSuggestion[],
+  now: number,
+): SuggestNameBucket[] {
+  const map = new Map<string, SuggestNameBucket>();
+  for (const item of items) {
+    const key = item.name.toLowerCase();
+    const existing = map.get(key);
+    if (existing) {
+      existing.items.push(item);
+      existing.size += item.size ?? 0;
+    } else {
+      map.set(key, {
+        name: item.name,
+        items: [item],
+        size: item.size ?? 0,
+      });
+    }
+  }
+  const buckets = [...map.values()];
+  for (const bucket of buckets) {
+    bucket.items.sort((a, b) => compareSuggestionsForCleanup(a, b, now));
+  }
+  buckets.sort((a, b) => {
+    const aSmall = a.size < SMALL_SUGGEST_BYTES;
+    const bSmall = b.size < SMALL_SUGGEST_BYTES;
+    if (aSmall !== bSmall) return aSmall ? 1 : -1;
+    return b.size - a.size || a.name.localeCompare(b.name);
+  });
+  return buckets;
+}
+
 export function sortNodes(nodes: DiskNode[], sortBy: "size" | "name"): DiskNode[] {
   const sorted = [...nodes];
   sorted.sort((a, b) => {
@@ -465,6 +831,8 @@ export type EChartsTreeDatum = {
   path: string;
   isProject: boolean;
   isWorkspace: boolean;
+  isGitWorktree: boolean;
+  isAgentData: boolean;
   /** Basename/path is `~/.atmos` runtime data dir. */
   isAtmosRuntime: boolean;
   isDir: boolean;
@@ -479,6 +847,9 @@ export type ToEChartsTreeOptions = {
   maxDepth?: number;
   /** Display label for synthetic `__other__` buckets. */
   otherLabel?: string;
+  agentDataLabel?: string;
+  gitWorktreesLabel?: string;
+  localizeName?: (name: string) => string;
   /**
    * How ECharts `value` (area / angle) is derived:
    * - `bytes-eased` (treemap): always layoutValue(real bytes) — **monotone in size**
@@ -523,13 +894,27 @@ export function toEChartsTree(
   const isAtmosRuntime = isAtmosRuntimeDir(node);
   const isWorkspace = !isAtmosRuntime && node.is_workspace === true;
   const isProject = !isAtmosRuntime && node.is_project === true && !isWorkspace;
+  const isGitWorktree =
+    !isAtmosRuntime && !isWorkspace && !isProject && node.is_git_worktree === true;
+  const isAgentData =
+    !isAtmosRuntime &&
+    !isWorkspace &&
+    !isProject &&
+    !isGitWorktree &&
+    node.is_agent_data === true;
   // Always size-based hues so a folder full of workspaces still shows relative weight.
   // Kind identity is shown as chips in Details / tooltip, not tile color.
   // Prefer #rrggbb — canvas emphasis/repaint can drop hsl() to black.
   const color = isOther
     ? "#636b78"
     : sizeToUsageColor(ratio, siblingIndex);
-  const displayName = isOther ? otherLabel : node.name;
+  const displayName = isOther
+    ? otherLabel
+    : node.path === AGENT_DATA_GROUP_PATH
+      ? (options.agentDataLabel ?? node.name)
+      : node.path === GIT_WORKTREES_GROUP_PATH
+        ? (options.gitWorktreesLabel ?? node.name)
+        : friendlyDiskEntryName(options.localizeName?.(node.name) ?? node.name);
   const bytes = Math.max(node.size, 0);
 
   // At max depth, stop nesting — size still represents the whole subtree.
@@ -566,6 +951,8 @@ export function toEChartsTree(
     path: node.path,
     isProject,
     isWorkspace,
+    isGitWorktree,
+    isAgentData,
     isAtmosRuntime,
     isDir: node.is_dir,
     fileCount: node.file_count,

@@ -28,6 +28,11 @@ pub struct DiskAnalyzerGetTreeRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DiskAnalyzerGetSuggestionsRequest {
+    pub scan_id: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DiskAnalyzerDeleteRequest {
     pub scan_id: String,
     pub path: String,
