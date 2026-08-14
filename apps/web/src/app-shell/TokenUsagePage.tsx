@@ -327,6 +327,7 @@ export function TokenUsagePage() {
         applyOverview(
           await tokenUsageApi.getOverview({
             refresh: granted,
+            tryCookies: granted,
             year: null,
           }),
         );
@@ -664,22 +665,6 @@ export function TokenUsagePage() {
               </div>
             </div>
 
-            <div {...{ ["data-token-usage-share-exclude"]: "" }}>
-              <TokenUsageCookieConsentBanner
-                items={overview?.browser_cookie_access}
-                busy={consentBusy}
-                onAllow={(providerIds) => {
-                  void handleCookieConsent(providerIds, true);
-                }}
-                onSkip={(providerIds) => {
-                  void handleCookieConsent(providerIds, false);
-                }}
-                onEnable={(providerIds) => {
-                  void handleCookieConsent(providerIds, true);
-                }}
-              />
-            </div>
-
             {/* Capture target: overview body only (no tabs / share chrome).
                 No top padding — toolbar gap is enough; share card still has
                 horizontal + bottom padding. */}
@@ -743,6 +728,27 @@ export function TokenUsagePage() {
           </div>
         </div>
       )}
+
+      <div
+        data-token-usage-share-exclude=""
+        className="pointer-events-none absolute right-4 bottom-4 z-20"
+      >
+        <div className="pointer-events-auto">
+          <TokenUsageCookieConsentBanner
+            items={overview?.browser_cookie_access}
+            busy={consentBusy}
+            onAllow={(providerIds) => {
+              void handleCookieConsent(providerIds, true);
+            }}
+            onSkip={(providerIds) => {
+              void handleCookieConsent(providerIds, false);
+            }}
+            onEnable={(providerIds) => {
+              void handleCookieConsent(providerIds, true);
+            }}
+          />
+        </div>
+      </div>
     </div>
   );
 }

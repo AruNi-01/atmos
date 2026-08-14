@@ -102,10 +102,12 @@ interface QuotaPopoverProps {
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
   embedded?: boolean;
+  /** When false, skip quota fetches (e.g. Canvas keep-alive hidden). */
+  dataEnabled?: boolean;
   onPopoverCloseAutoFocus?: (e: Event) => void;
 }
 
-export function QuotaPopover({ open: externalOpen, onOpenChange: externalOnOpenChange, embedded = false, onPopoverCloseAutoFocus }: QuotaPopoverProps = {}) {
+export function QuotaPopover({ open: externalOpen, onOpenChange: externalOnOpenChange, embedded = false, dataEnabled = true, onPopoverCloseAutoFocus }: QuotaPopoverProps = {}) {
   const t = useTranslations("appShell.usagePopover");
   const locale = useLocale();
   const providerScrollRef = useRef<HTMLDivElement | null>(null);
@@ -113,7 +115,7 @@ export function QuotaPopover({ open: externalOpen, onOpenChange: externalOnOpenC
   const [internalOpen, setInternalOpen] = useState(false);
   const open = embedded ? true : externalOpen !== undefined ? externalOpen : internalOpen;
   const setOpen = externalOnOpenChange !== undefined ? externalOnOpenChange : setInternalOpen;
-  const usageQuery = useQuotaOverviewQuery({ enabled: open || embedded });
+  const usageQuery = useQuotaOverviewQuery({ enabled: dataEnabled && (open || embedded) });
   const { setOverview: writeOverviewCache } = useQuotaOverviewCache();
   const overview = usageQuery.data ?? null;
   const [selectedProviderId, setSelectedProviderId] = useState<string>(ALL_PROVIDER_ID);
@@ -255,7 +257,7 @@ export function QuotaPopover({ open: externalOpen, onOpenChange: externalOnOpenC
   }, [usageQuery.isError, usageQuery.error, overview]);
 
   useEffect(() => {
-    if (!open || !overview?.auto_refresh.interval_minutes) return;
+    if (!dataEnabled || !open || !overview?.auto_refresh.interval_minutes) return;
 
     setNowMs(Date.now());
 
@@ -264,7 +266,7 @@ export function QuotaPopover({ open: externalOpen, onOpenChange: externalOnOpenC
     }, 1_000);
 
     return () => window.clearInterval(timer);
-  }, [open, overview?.auto_refresh.interval_minutes]);
+  }, [dataEnabled, open, overview?.auto_refresh.interval_minutes]);
 
   useEffect(() => {
     if (selectedProviderId === ALL_PROVIDER_ID) return;
@@ -420,7 +422,7 @@ export function QuotaPopover({ open: externalOpen, onOpenChange: externalOnOpenC
   const showProviderArrows = providerScrollState.hasOverflow;
 
   useEffect(() => {
-    if (!open || showFooterActions || !canCycleFooterInfo) {
+    if (!dataEnabled || !open || showFooterActions || !canCycleFooterInfo) {
       setFooterInfoMode("updated");
       return;
     }
@@ -434,6 +436,7 @@ export function QuotaPopover({ open: externalOpen, onOpenChange: externalOnOpenC
 
     return () => window.clearInterval(timer);
   }, [
+    dataEnabled,
     open,
     showFooterActions,
     canCycleFooterInfo,

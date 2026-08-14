@@ -8,6 +8,7 @@ import { ChevronDown } from "lucide-react";
 import { centerStageParams } from "@/shared/lib/nuqs/searchParams";
 import { useDesktopTrafficLightsPadding } from "@/shared/hooks/use-desktop-traffic-lights-padding";
 import { cn } from "@/shared/lib/utils";
+import { CanvasOverlayActiveContext } from "@/features/canvas/lib/canvas-overlay-activity";
 
 const CanvasView = dynamic(() => import("./CanvasView").then((mod) => mod.CanvasView), {
   ssr: false,
@@ -159,7 +160,9 @@ export function CanvasOverlay() {
         Always keep CanvasView once mounted — do not gate on animState.
         Closing only slides the shell; the board stays warm in memory.
       */}
-      <CanvasView />
+      <CanvasOverlayActiveContext.Provider value={!isKeepAliveHidden}>
+        <CanvasView />
+      </CanvasOverlayActiveContext.Provider>
       {/*
         Top-center "pull-down" collapse affordance — mirrors the New Workspace
         welcome overlay's bouncing chevron so users get a consistent gesture

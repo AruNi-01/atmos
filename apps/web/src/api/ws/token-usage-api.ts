@@ -121,6 +121,7 @@ export const tokenUsageApi = {
    */
   getOverview: async (params?: {
     refresh?: boolean;
+    tryCookies?: boolean;
     year?: string | null;
     since?: string | null;
     until?: string | null;
@@ -129,6 +130,7 @@ export const tokenUsageApi = {
   }): Promise<TokenUsageOverviewResponse> => {
     return wsRequest<TokenUsageOverviewResponse>("token_usage_overview_get", {
       refresh: params?.refresh ?? false,
+      try_cookies: params?.tryCookies ?? false,
       year: params?.year ?? null,
       since: params?.since ?? null,
       until: params?.until ?? null,
