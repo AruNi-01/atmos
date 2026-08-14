@@ -549,6 +549,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let quota_usage_service = Arc::new(QuotaUsageService::default());
     quota_usage_service.attach_jobs(Arc::clone(&jobs)).await;
     let token_usage_service = Arc::new(TokenUsageService::default());
+    token_usage::import_legacy_cookie_consents();
     let terminal_service = Arc::new(TerminalService::new_with_db(Arc::clone(&db)));
     let agent_hooks_service = Arc::new(AgentHooksService::new());
     let notification_service = Arc::new(NotificationService::new());

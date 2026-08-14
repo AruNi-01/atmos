@@ -14,6 +14,7 @@ mod group;
 mod linear;
 mod local_model;
 mod local_services;
+mod permission_access;
 mod project;
 mod quota;
 mod review;
@@ -294,6 +295,15 @@ impl WsMessageService {
             }
             WsAction::TokenUsageOverviewGet => {
                 self.handle_token_usage_overview_get(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::TokenUsageSetBrowserCookieConsent => {
+                self.handle_token_usage_set_browser_cookie_consent(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::PermissionAccessList => self.handle_permission_access_list().await,
+            WsAction::PermissionAccessSet => {
+                self.handle_permission_access_set(parse_request(request.data)?)
                     .await
             }
 

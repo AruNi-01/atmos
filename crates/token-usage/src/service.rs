@@ -139,7 +139,7 @@ impl TokenUsageService {
         if !refresh {
             let cache = self.cache.read().await;
             if let Some(cached) = cache.get(&cache_key) {
-                let cached_overview = cached.overview.clone();
+                let cached_overview = with_cursor_status(cached.overview.clone());
                 let is_stale =
                     unix_now().saturating_sub(cached.fetched_at) >= self.cache_ttl.as_secs();
                 drop(cache);
@@ -155,6 +155,15 @@ impl TokenUsageService {
 
         self.collect_and_store(query, cache_key, refresh, refresh)
             .await
+    }
+
+    pub async fn set_browser_cookie_consent(
+        &self,
+        provider_id: &str,
+        granted: bool,
+    ) -> Result<TokenUsageOverview, TokenUsageError> {
+        crate::cursor_sync::set_cookie_consent(provider_id, granted)?;
+        self.get_overview(TokenUsageQuery::default(), granted).await
     }
 
     pub fn subscribe_updates(&self) -> broadcast::Receiver<TokenUsageUpdate> {
@@ -185,6 +194,8 @@ impl TokenUsageService {
                 },
             );
         }
+
+        let overview = with_cursor_status(overview);
 
         if publish_update {
             self.publish_update(TokenUsageUpdate {
@@ -217,6 +228,7 @@ impl TokenUsageService {
                 .map(|reports| build_overview(query, reports));
 
             if let Ok(overview) = result {
+                let overview = with_cursor_status(overview);
                 {
                     let mut cache_guard = cache.write().await;
                     cache_guard.insert(
@@ -270,6 +282,7 @@ fn build_overview(
     };
 
     TokenUsageOverview {
+        browser_cookie_access: crate::cursor_sync::current_status(&query),
         query,
         summary,
         by_client: build_client_usage(&reports.graph),
@@ -285,6 +298,11 @@ fn build_overview(
         generated_at: unix_now(),
         partial_warnings: reports.partial_warnings,
     }
+}
+
+fn with_cursor_status(mut overview: TokenUsageOverview) -> TokenUsageOverview {
+    overview.browser_cookie_access = crate::cursor_sync::current_status(&overview.query);
+    overview
 }
 
 fn build_client_usage(graph: &tokscale_core::GraphResult) -> Vec<ClientTokenUsage> {
