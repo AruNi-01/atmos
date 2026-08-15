@@ -24,6 +24,7 @@ import {
   mapGuestRectToScreen,
   showEmbeddedBrowserChrome,
 } from "./browser-use-chrome.js";
+import { systemDownloadsDir } from "./system-downloads.js";
 
 // Re-export chrome helpers for existing callers.
 export { mapGuestRectToScreen, showEmbeddedBrowserChrome } from "./browser-use-chrome.js";
@@ -47,8 +48,7 @@ function readBrowserAgentChromeEnabled(): boolean {
   }
 }
 
-const DEFAULT_DOWNLOAD_ROOT = () =>
-  join(CONTROL_DIR(), "downloads");
+const DEFAULT_DOWNLOAD_ROOT = () => systemDownloadsDir();
 
 const ALLOWED_NAV_SCHEMES = new Set(["http:", "https:", "about:"]);
 const MAX_BODY_BYTES = 1_048_576;
@@ -127,6 +127,14 @@ function isLoopbackOrigin(origin: string | undefined): boolean {
   } catch {
     return false;
   }
+}
+
+function expandUserPath(raw: string): string {
+  if (raw === "~") return homedir();
+  if (raw.startsWith("~/") || raw.startsWith("~\\")) {
+    return join(homedir(), raw.slice(2));
+  }
+  return raw;
 }
 
 function isPathInside(root: string, candidate: string): boolean {
@@ -1304,7 +1312,7 @@ export class BrowserUseControlPlane {
     const root = DEFAULT_DOWNLOAD_ROOT();
     mkdirSync(root, { recursive: true });
     if (!requested || !requested.trim()) return root;
-    const candidate = resolve(requested.trim());
+    const candidate = resolve(expandUserPath(requested.trim()));
     if (!isPathInside(root, candidate)) {
       const err = new Error(
         `download dir must stay under ${root}`,

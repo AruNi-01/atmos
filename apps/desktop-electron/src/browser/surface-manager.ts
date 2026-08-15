@@ -31,6 +31,7 @@ import {
   buildBridgeInjection,
 } from "./webview-runtime.js";
 import { applyGuestColorScheme as applyGuestColorSchemeToWebContents } from "./webview-color-scheme.js";
+import { systemDownloadsDir } from "./system-downloads.js";
 
 const requireElectron = createRequire(import.meta.url);
 
@@ -76,6 +77,7 @@ export class BrowserSurfaceManager {
 
   constructor(private readonly state: AppState) {
     this.browserSession = session.fromPartition(BROWSER_PARTITION);
+    this.browserSession.setDownloadPath(systemDownloadsDir());
   }
 
   getPreloadAbsolutePath(): string {

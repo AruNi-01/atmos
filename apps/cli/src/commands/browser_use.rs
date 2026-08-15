@@ -383,7 +383,7 @@ pub struct DownloadArgs {
     pub route: RouteArgs,
     #[arg(long = "ref")]
     pub element_ref: String,
-    /// Approved destination directory. External wire name is destination_root.
+    /// Folder under the system Downloads directory. Defaults to the system Downloads folder.
     #[arg(long)]
     pub dir: Option<String>,
 }

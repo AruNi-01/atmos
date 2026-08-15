@@ -9,6 +9,7 @@
 mod backends;
 pub mod binding;
 mod chrome;
+mod download;
 mod envelope;
 mod errors;
 mod surface;
@@ -33,6 +34,7 @@ pub use types::{
 };
 
 use backends::BrowserBackend;
+use errors::{fail_with_recovery, recovery_for, BROWSER_DOWNLOAD_DENIED};
 
 /// Dispatch a browser-use request to the selected backend.
 pub fn execute(mut req: BrowserRequest) -> BrowserResult {
@@ -62,6 +64,28 @@ pub fn execute(mut req: BrowserRequest) -> BrowserResult {
     req.tab_id = applied.tab_id;
     req.session = applied.session_id;
     let resolved_from = applied.resolved_from;
+
+    if req.action == BrowserAction::Download {
+        match download::resolve_download_dir(req.download_dir.as_deref()) {
+            Ok(dir) => req.download_dir = Some(dir),
+            Err(message) => {
+                let backend = match req.backend {
+                    BrowserBackendKind::External => "external",
+                    BrowserBackendKind::Embedded => "embedded",
+                };
+                let mut result = fail_with_recovery(
+                    "download",
+                    backend,
+                    BROWSER_DOWNLOAD_DENIED,
+                    message,
+                    recovery_for(BROWSER_DOWNLOAD_DENIED),
+                );
+                result.resolved_from = resolved_from;
+                envelope::fill_result_envelope(&mut result, req.backend);
+                return result;
+            }
+        }
+    }
 
     let mut result = match req.backend {
         BrowserBackendKind::External => ExternalBackend.execute(req.clone()),
@@ -355,6 +379,29 @@ mod tests {
             ..Default::default()
         });
         assert_eq!(res.backend, "external");
+    }
+
+    #[test]
+    fn download_outside_system_folder_is_denied() {
+        let _guard = binding::TEST_HOME_LOCK.lock().expect("test home lock");
+        let root = tempfile::tempdir().unwrap();
+        let outside = tempfile::tempdir().unwrap();
+        unsafe {
+            std::env::set_var("ATMOS_BROWSER_USE_DOWNLOADS", root.path());
+        }
+        let res = execute(BrowserRequest {
+            backend: BrowserBackendKind::Embedded,
+            action: BrowserAction::Download,
+            target_id: Some("s1".into()),
+            element_ref: Some("e1".into()),
+            download_dir: Some(outside.path().to_string_lossy().into_owned()),
+            ..Default::default()
+        });
+        unsafe {
+            std::env::remove_var("ATMOS_BROWSER_USE_DOWNLOADS");
+        }
+        assert!(!res.ok);
+        assert_eq!(res.error_code.as_deref(), Some("browser_download_denied"));
     }
 
     #[test]
