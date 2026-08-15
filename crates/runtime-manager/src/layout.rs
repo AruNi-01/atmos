@@ -73,6 +73,17 @@ pub fn client_session_path() -> Result<PathBuf, String> {
     Ok(state_dir()?.join("client-session.json"))
 }
 
+/// APP-062 `pipe-pane` helper sockets (`~/.atmos/state/tmux-pipes/`).
+/// Override with `ATMOS_TMUX_PIPES_DIR` (tests).
+pub fn tmux_pipes_dir() -> Result<PathBuf, String> {
+    if let Ok(dir) = std::env::var("ATMOS_TMUX_PIPES_DIR") {
+        if !dir.is_empty() {
+            return Ok(PathBuf::from(dir));
+        }
+    }
+    Ok(state_dir()?.join("tmux-pipes"))
+}
+
 // --- config ---
 
 pub fn function_settings_path() -> Result<PathBuf, String> {
@@ -189,5 +200,8 @@ mod tests {
         assert!(simulator_state_dir()
             .unwrap()
             .starts_with(home.join("state").join("simulator")));
+        assert!(tmux_pipes_dir()
+            .unwrap()
+            .starts_with(home.join("state").join("tmux-pipes")));
     }
 }

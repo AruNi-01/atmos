@@ -14,6 +14,7 @@ Canonical on-disk layout (no legacy root-level secret/config files).
     client-session.json
     cli/update-check.json
     simulator/              # APP-060 claims / leases (not under data/desktop/)
+    tmux-pipes/             # APP-062 pipe-pane helper UDS (dir mode 0700)
 
   config/               # non-secret preferences
     function_settings.json
@@ -45,7 +46,7 @@ Canonical on-disk layout (no legacy root-level secret/config files).
 | Kind | Directory | Examples |
 |------|-----------|----------|
 | Secrets | `credentials/` | device credential, Linear API keys, server_secret |
-| Session / discovery | `state/` | runtime manifest, relay client session |
+| Session / discovery | `state/` | runtime manifest, relay client session, tmux-pipes |
 | Preferences | `config/` | function_settings, code agents, LLM providers |
 | Large / feature data | `data/` | SQLite, workspaces, desktop-use |
 | Install | top-level | `bin/`, `runtime/`, `skills/` |

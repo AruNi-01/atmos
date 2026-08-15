@@ -1,5 +1,7 @@
 # TECH · APP-062: Terminal tmux pipe-pane live path
 
+<!-- updated 2026-08-15: live loops live in PaneIoRegistry (io.rs), not a runtime.rs `run_pipe_pane_session` thread; mouse_mode_watch.rs is deleted -->
+
 > HOW. Implements [PRD.md](./PRD.md). Amends the **live transport** in [ADR-004](../../../docs/adr/004-terminal-tmux-control-mode.md). Does **not** replace tmux as the session daemon.
 
 Addresses M1–M11. N1–N2 deferred.
@@ -157,10 +159,10 @@ Extend `crates/core-service/src/service/terminal/`:
 
 | Piece | Role |
 |-------|------|
-| `io.rs` (new) | `PaneIoRegistry`: one `PaneIo` per key |
-| `runtime.rs` | `run_pipe_pane_session` is the tmux live runner. Remove live calls to `run_control_mode_tmux_session`. Keep `run_simple_pty_session` for `mode=shell` only. |
+| `io.rs` (new) | `PaneIoRegistry`: one live pipe per key; tokio read/write on the UDS; mouse observe + run-log tee + fan-out |
+| `runtime.rs` | Keep `run_simple_pty_session` for `mode=shell` only. Control-mode runner removed (no `run_pipe_pane_session` thread — the registry owns the live loops). |
 | `types.rs` | Tmux sessions do not grow an `IoMode`. `SessionType::Tmux` means pipe I/O. |
-| `mouse_mode_watch.rs` | Stop spawning `atmos_mousewatch_*`. Pipe read loop owns DEC observation. |
+| `mouse_mode_watch.rs` | Deleted. Pipe read loop owns DEC observation. |
 
 `PaneIo` lifecycle:
 
