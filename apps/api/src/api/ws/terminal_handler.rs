@@ -2,6 +2,9 @@
 //!
 //! This handler manages WebSocket connections for terminal sessions,
 //! bridging the frontend xterm.js with backend tmux-backed PTY.
+//! Tmux live I/O is one `pipe-pane` per pane (APP-062); this socket still
+//! uses JSON control + binary output. Pipe attach failure is a terminal
+//! error — there is no control-mode fallback.
 //!
 //! Key features:
 //! - Create new terminal sessions (creates tmux window)

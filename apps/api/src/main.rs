@@ -465,8 +465,18 @@ fn add_static_no_store_headers<B>(mut response: HttpResponse<B>) -> HttpResponse
     response
 }
 
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // APP-062: tmux pipe-pane helper. Must run before clap so `--internal`
+    // is not treated as an unknown flag, and before the Tokio runtime so the
+    // helper stays a small std-thread copier.
+    if core_engine::try_run_internal_from_env() {
+        return Ok(());
+    }
+    run_api()
+}
+
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
+async fn run_api() -> Result<(), Box<dyn std::error::Error>> {
     install_rustls_crypto_provider();
 
     let cli = Cli::parse();
