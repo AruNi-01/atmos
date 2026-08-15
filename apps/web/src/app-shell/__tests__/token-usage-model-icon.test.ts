@@ -1,12 +1,15 @@
 import { describe, expect, test } from "bun:test";
 
 import {
+  BREAKDOWN_OTHER_ID,
+  BREAKDOWN_TOP_N,
   buildModelProviderMap,
   buildOverviewBreakdownShares,
   formatCompactNumber,
   formatCurrencyCompact,
   inferProviderIdFromModel,
   primaryProviderSegment,
+  rankTopNWithOther,
   resolveTokenUsageModelIconSrc,
 } from "@/app-shell/token-usage-dialog-utils";
 
@@ -57,7 +60,57 @@ describe("resolveTokenUsageModelIconSrc", () => {
   });
 });
 
+describe("rankTopNWithOther", () => {
+  test("keeps a large other bucket out of the top-N slots", () => {
+    const totals = new Map<string, number>([
+      ["other", 10_000],
+      ["claude", 400],
+      ["codex", 300],
+      ["gemini", 200],
+      ["kimi", 100],
+      ["grok", 50],
+      ["tiny", 10],
+    ]);
+    const ranked = rankTopNWithOther(totals, BREAKDOWN_TOP_N);
+    expect(ranked.slice(0, BREAKDOWN_TOP_N).map(([id]) => id)).toEqual([
+      "claude",
+      "codex",
+      "gemini",
+      "kimi",
+      "grok",
+    ]);
+    expect(ranked[BREAKDOWN_TOP_N]).toEqual([BREAKDOWN_OTHER_ID, 10_010]);
+  });
+});
+
 describe("buildOverviewBreakdownShares providerId", () => {
+  test("does not let a residual other row occupy a top-5 slot", () => {
+    const shares = buildOverviewBreakdownShares(
+      {
+        by_client: [
+          { client_id: "other", total_tokens: 50_000, total_cost_usd: 10 },
+          { client_id: "claude", total_tokens: 800, total_cost_usd: 2 },
+          { client_id: "codex", total_tokens: 700, total_cost_usd: 1 },
+          { client_id: "gemini", total_tokens: 600, total_cost_usd: 1 },
+          { client_id: "kimi", total_tokens: 500, total_cost_usd: 1 },
+          { client_id: "grok", total_tokens: 400, total_cost_usd: 1 },
+        ],
+        by_model: [],
+      },
+      "tokens",
+      "agent",
+    );
+    expect(shares.slice(0, BREAKDOWN_TOP_N).map((row) => row.id)).toEqual([
+      "claude",
+      "codex",
+      "gemini",
+      "kimi",
+      "grok",
+    ]);
+    expect(shares.at(-1)?.id).toBe(BREAKDOWN_OTHER_ID);
+    expect(shares.at(-1)?.value).toBe(50_000);
+  });
+
   test("attaches dominant provider for model rows", () => {
     const shares = buildOverviewBreakdownShares(
       {
