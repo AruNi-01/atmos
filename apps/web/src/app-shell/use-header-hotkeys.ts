@@ -1,7 +1,6 @@
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, type Dispatch, type SetStateAction } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 import { useTranslations } from "next-intl";
-import type { MutableRefObject } from "react";
 import { useAgentAttentionStore } from "@/features/agent/store/agent-attention-store";
 
 function isTerminalHotkeyTarget(target: EventTarget | null) {
@@ -16,20 +15,14 @@ function isTerminalHotkeyTarget(target: EventTarget | null) {
 }
 
 export function useHeaderHotkeys({
-  actionMenuFocusRef,
-  isActionMenuOpen,
   refreshCurrentRoute,
-  setIsActionMenuOpen,
   setIsQuotaPopoverOpen,
   showRightSidebar,
   toggleLeftSidebar,
   toggleRightSidebar,
 }: {
-  actionMenuFocusRef: MutableRefObject<HTMLElement | null>;
-  isActionMenuOpen: boolean;
   refreshCurrentRoute?: () => void;
-  setIsActionMenuOpen: React.Dispatch<React.SetStateAction<boolean>>;
-  setIsQuotaPopoverOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  setIsQuotaPopoverOpen: Dispatch<SetStateAction<boolean>>;
   showRightSidebar: boolean;
   toggleLeftSidebar: () => void;
   toggleRightSidebar: () => void;
@@ -101,18 +94,6 @@ export function useHeaderHotkeys({
       description: t("toggleNeedAttention"),
     },
   );
-
-  useHotkeys("mod+shift+m", () => {
-    if (!isActionMenuOpen && document.activeElement instanceof HTMLElement) {
-      actionMenuFocusRef.current = document.activeElement;
-    }
-    setIsActionMenuOpen((prev) => !prev);
-  }, {
-    enableOnContentEditable: true,
-    enableOnFormTags: true,
-    preventDefault: true,
-    description: t("toggleMenu"),
-  }, [isActionMenuOpen]);
 
   useHotkeys("mod+shift+b", () => {
     if (showRightSidebar) {

@@ -11,6 +11,7 @@ import {
   FileDiff,
   GitBranch,
   Github,
+  Globe,
   PanelRight,
   Play,
   Smartphone,
@@ -33,11 +34,13 @@ export function RightSidebarLayoutSettingsSection({
     rsShowChanges,
     rsShowReview,
     rsShowRun,
+    rsShowBrowser,
     rsShowGithub,
     rsShowSimulator,
     setRightSidebarShowChanges,
     setRightSidebarShowReview,
     setRightSidebarShowRun,
+    setRightSidebarShowBrowser,
     setRightSidebarShowGithub,
     setRightSidebarShowSimulator,
   } = useLayoutSettingsStore();
@@ -46,6 +49,7 @@ export function RightSidebarLayoutSettingsSection({
     Number(rsShowChanges) +
     Number(rsShowReview) +
     Number(rsShowRun) +
+    Number(rsShowBrowser) +
     Number(rsShowGithub) +
     Number(rsShowSimulator);
 
@@ -97,6 +101,13 @@ export function RightSidebarLayoutSettingsSection({
             description={t('runDescription')}
             checked={rsShowRun}
             onCheckedChange={(value) => void setRightSidebarShowRun(value)}
+          />
+          <SettingsToggleRow
+            icon={<Globe className="size-4" />}
+            title={t('browserTitle')}
+            description={t('browserDescription')}
+            checked={rsShowBrowser}
+            onCheckedChange={(value) => void setRightSidebarShowBrowser(value)}
           />
           <SettingsToggleRow
             icon={<Github className="size-4" />}

@@ -2,7 +2,6 @@
 
 import * as React from "react";
 import { useTranslations } from "next-intl";
-import { useQueryState } from "nuqs";
 import {
   Button,
   Dialog,
@@ -35,7 +34,7 @@ import {
 } from "@/features/agent/lib/terminal-agent-run-config";
 import { useTerminalAgentModelCatalog } from "@/features/agent/hooks/use-terminal-agent-model-catalog";
 import type { TerminalAgentReasoningSupport } from "@/features/agent/lib/terminal-agent-definitions";
-import { settingsModalParams } from "@/shared/lib/nuqs/searchParams";
+import { useOpenSettings } from "@/features/settings/lib/open-settings";
 import { cn } from "@/shared/lib/utils";
 
 type TerminalAgentRunConfigSharedProps = {
@@ -69,14 +68,7 @@ export function TerminalAgentRunConfigContent({
   liveApply?: boolean;
 }) {
   const t = useTranslations("Agent.components");
-  const [, setSettingsModalOpen] = useQueryState(
-    "settingsModal",
-    settingsModalParams.settingsModal,
-  );
-  const [, setActiveSettingTab] = useQueryState(
-    "activeSettingTab",
-    settingsModalParams.activeSettingTab,
-  );
+  const openSettings = useOpenSettings();
   const capability = React.useMemo(() => getTerminalAgentCapability(agentId), [agentId]);
   const filteredSavedConfigs = React.useMemo(
     () => savedRunConfigs.filter((item) => item.agent_id === agentId),
@@ -236,9 +228,8 @@ export function TerminalAgentRunConfigContent({
 
   const handleOpenCodeAgentSettings = React.useCallback(() => {
     onManageConfigs?.();
-    void setSettingsModalOpen(true);
-    void setActiveSettingTab("code-agent");
-  }, [onManageConfigs, setActiveSettingTab, setSettingsModalOpen]);
+    openSettings("code-agent");
+  }, [onManageConfigs, openSettings]);
 
   return (
     <div className={cn("space-y-4", embedded ? "w-full" : "pt-2")}>

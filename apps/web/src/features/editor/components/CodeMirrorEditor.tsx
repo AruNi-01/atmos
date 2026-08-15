@@ -72,7 +72,7 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
   surfaceActive = true,
 }) => {
   const t = useTranslations("Editor.components");
-  const { effectiveContextId } = useContextParams();
+  const { effectiveContextId, currentView } = useContextParams();
   const editorContextId = contextId ?? effectiveContextId;
   const workspaceActivePath = useEditorStore((s) => s.getActiveFilePath(editorContextId || undefined));
   const updateFileContent = useEditorStore(s => s.updateFileContent);
@@ -129,6 +129,7 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
   const [editorSettingsSettled, setEditorSettingsSettled] = useState(editorSettingsLoaded);
   const [gitDiffRefreshNonce, setGitDiffRefreshNonce] = useState(0);
   const [settingsModalOpen] = useQueryState('settingsModal', settingsModalParams.settingsModal);
+  const settingsSurfaceOpen = settingsModalOpen || currentView === 'settings';
 
   const refreshEditorGitGutter = useCallback(async () => {
     if (currentProjectPath) {
@@ -149,13 +150,13 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
 
   const handleEditorSettingsPopoverOpenChange = useCallback((open: boolean) => {
     if (!surfaceActive) return;
-    if (open && settingsModalOpen) return;
+    if (open && settingsSurfaceOpen) return;
     setSettingsOpen(open);
-  }, [settingsModalOpen, surfaceActive]);
+  }, [settingsSurfaceOpen, surfaceActive]);
 
   useEffect(() => {
-    if (settingsModalOpen) setSettingsOpen(false);
-  }, [settingsModalOpen]);
+    if (settingsSurfaceOpen) setSettingsOpen(false);
+  }, [settingsSurfaceOpen]);
   const [openBreadcrumbIndex, setOpenBreadcrumbIndex] = useState<number | null>(null);
   const storeFileTreeRootPath = useFileTreeStore((s) => s.rootPath);
   const fileTreeShowHidden = useFileTreeStore((s) => s.showHidden);

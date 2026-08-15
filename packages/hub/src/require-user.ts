@@ -15,6 +15,7 @@ export type HubUser = {
   userId: string;
   email?: string | null;
   name?: string | null;
+  image?: string | null;
 };
 
 function json(data: unknown, status = 200): Response {
@@ -52,6 +53,7 @@ export async function requireSession(
     userId: session.user.id,
     email: session.user.email,
     name: session.user.name,
+    image: session.user.image ?? null,
   };
 }
 
@@ -91,6 +93,7 @@ export async function requireUser(
     .select({
       email: user.email,
       name: user.name,
+      image: user.image,
     })
     .from(user)
     .where(eq(user.id, device.userId))
@@ -100,5 +103,6 @@ export async function requireUser(
     userId: device.userId,
     email: row?.email ?? null,
     name: row?.name ?? null,
+    image: row?.image ?? null,
   };
 }

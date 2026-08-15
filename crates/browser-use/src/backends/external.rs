@@ -391,9 +391,12 @@ pub fn build_tool_call(req: &BrowserRequest) -> Result<(&'static str, Value), St
                 .as_ref()
                 .map(|s| s.trim())
                 .filter(|s| !s.is_empty())
-                .ok_or_else(|| {
-                    "download requires --dir (approved destination directory)".to_string()
-                })?;
+                .map(|s| s.to_string())
+                .unwrap_or_else(|| {
+                    crate::download::default_download_root()
+                        .to_string_lossy()
+                        .into_owned()
+                });
             Ok((
                 "browser_download",
                 json!({

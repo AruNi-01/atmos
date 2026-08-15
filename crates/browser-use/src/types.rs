@@ -56,7 +56,7 @@ pub enum BrowserAction {
     Pointer,
     /// inspect | accept | dismiss JS dialogs on a bound tab
     Dialog,
-    /// Trigger a download through a page ref into an approved directory
+    /// Trigger a download through a page ref into the system Downloads folder
     Download,
     /// Embedded-only: dispatch a key (Enter, Tab, Escape, …).
     PressKey,
@@ -138,7 +138,8 @@ pub struct BrowserRequest {
     pub dialog_id: Option<String>,
     pub prompt_text: Option<String>,
     pub delivery_mode: Option<String>,
-    /// User-facing download directory (`--dir`). External wire name is `destination_root`.
+    /// User-facing download directory (`--dir`). Defaults to the system Downloads folder.
+    /// External wire name is `destination_root`.
     pub download_dir: Option<String>,
     /// Scoped binding id (`--binding-id` or ATMOS_SIDE_CHAT_ID / ATMOS_PANE_ID).
     pub binding_id: Option<String>,

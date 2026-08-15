@@ -24,7 +24,8 @@ import {
   hubLinearStatus,
   hubMe,
 } from "@/api/hub-client";
-import { settingsModalParams, centerStageParams } from "@/shared/lib/nuqs/searchParams";
+import { centerStageParams } from "@/shared/lib/nuqs/searchParams";
+import { useOpenSettings } from "@/features/settings/lib/open-settings";
 import { GithubListPagination } from "@/features/github/components/GithubListPagination";
 import {
   DEFAULT_TASK_LINEAR_FILTERS,
@@ -98,24 +99,15 @@ export function TaskLinearPanel({
     "newWorkspace",
     centerStageParams.newWorkspace,
   );
-  const [isSettingsOpen, setIsSettingsOpen] = useQueryState(
-    "settingsModal",
-    settingsModalParams.settingsModal,
-  );
-  const [, setActiveSettingTab] = useQueryState(
-    "activeSettingTab",
-    settingsModalParams.activeSettingTab,
-  );
+  const openSettings = useOpenSettings();
 
   const openLinearIntegrations = useCallback(() => {
-    void setActiveSettingTab("integrations");
-    void setIsSettingsOpen(true);
-  }, [setActiveSettingTab, setIsSettingsOpen]);
+    openSettings("integrations");
+  }, [openSettings]);
 
   const openAccountSettings = useCallback(() => {
-    void setActiveSettingTab("account");
-    void setIsSettingsOpen(true);
-  }, [setActiveSettingTab, setIsSettingsOpen]);
+    openSettings("account");
+  }, [openSettings]);
 
   // Linear issues are not bound to an Atmos project — do not preselect one for Create.
   const [filters, setFilters] = useState<TaskLinearFilters>(() => ({
@@ -209,18 +201,6 @@ export function TaskLinearPanel({
     if (getActiveLinearLocalKey()) return;
     void selectLinearOauth().then(() => setKeysEpoch((n) => n + 1));
   }, [keysReady, statusQuery.data?.connected, statusQuery.data?.auth_method]);
-
-  // After Settings → Integrations / Account, re-check credentials once the modal closes.
-  const settingsOpenRef = React.useRef(isSettingsOpen);
-  useEffect(() => {
-    const wasOpen = settingsOpenRef.current;
-    settingsOpenRef.current = isSettingsOpen;
-    if (wasOpen && !isSettingsOpen) {
-      void ensureLinearLocalKeysHydrated().then(() => {
-        setKeysEpoch((n) => n + 1);
-      });
-    }
-  }, [isSettingsOpen]);
 
   const usedLocalCredential =
     selection.mode !== "oauth" && Boolean(activeLocal?.api_key);

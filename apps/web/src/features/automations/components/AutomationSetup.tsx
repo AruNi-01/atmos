@@ -2,7 +2,6 @@
 
 import React from "react";
 import { useTranslations } from "next-intl";
-import { useQueryState } from "nuqs";
 import { Button, TooltipProvider } from "@workspace/ui";
 import { ArrowLeft, LoaderCircle } from "lucide-react";
 import {
@@ -58,8 +57,8 @@ import {
 } from "@/features/welcome/lib/welcome-page-helpers";
 import type { SkillInfo } from "@/api/ws-api";
 import { AtmosWordmark } from "@/shared/components/ui/AtmosWordmark";
+import { useOpenSettings } from "@/features/settings/lib/open-settings";
 import type { Project } from "@/shared/types/domain";
-import { settingsModalParams } from "@/shared/lib/nuqs/searchParams";
 
 export type SetupMode = "create" | "edit";
 
@@ -124,14 +123,7 @@ export function AutomationSetup({
     setPreviewAttachment,
     syncAttachmentPlaceholders,
   } = useWelcomeComposerAttachments(composerRef);
-  const [, setSettingsModalOpen] = useQueryState(
-    "settingsModal",
-    settingsModalParams.settingsModal,
-  );
-  const [, setActiveSettingTab] = useQueryState(
-    "activeSettingTab",
-    settingsModalParams.activeSettingTab,
-  );
+  const openSettings = useOpenSettings();
   const [headline, setHeadline] = React.useState<AutomationHeadline>(
     DEFAULT_AUTOMATION_HEADLINE,
   );
@@ -534,9 +526,8 @@ export function AutomationSetup({
   }, [startGithubSetup]);
 
   const handleOpenComputerSettings = React.useCallback(() => {
-    void setActiveSettingTab("atmos-computer");
-    void setSettingsModalOpen(true);
-  }, [setActiveSettingTab, setSettingsModalOpen]);
+    openSettings("atmos-computer");
+  }, [openSettings]);
 
   if (mode === "edit" && initialAutomationLoading && !initialAutomation) {
     return (

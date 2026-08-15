@@ -23,6 +23,21 @@ export {
   type HubAuthWire,
 } from "./auth-material";
 export { hubMe } from "./me";
+export {
+  hubDeleteUsagePage,
+  hubGetPublicLeaderboards,
+  hubGetPublicTok,
+  hubGetUsagePage,
+  hubMintUsagePageSecret,
+  hubPutUsagePage,
+  type HubLeaderboardEntry,
+  type HubLeaderboards,
+  type HubPublicTok,
+  type HubUsagePage,
+  type HubUsagePagePut,
+  type HubUsagePagePutResult,
+  type UsageVisibility,
+} from "./usage-page";
 export { hubEnrollDevice, hubListDevices, hubRevokeDevice } from "./devices";
 export { hubEnrollAndStoreDevice } from "./enroll";
 export {

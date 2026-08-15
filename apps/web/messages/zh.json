@@ -633,6 +633,55 @@
           "capture": "无法截取当前页面。"
         }
       },
+      "publish": {
+        "trigger": "发布",
+        "title": "发布页面",
+        "description": "用 atmos.land 链接分享。更新会覆盖同一页。",
+        "signInHint": "登录后即可发布 Token Usage 页面。",
+        "handleLabel": "用户名",
+        "handlePlaceholder": "builder",
+        "handleLocked": "用户名只能认领一次。",
+        "visibility": {
+          "public": "公开",
+          "unlisted": "不公开"
+        },
+        "xPlaceholder": "用户名",
+        "githubPlaceholder": "用户名",
+        "includeCost": "包含估算费用",
+        "copyLink": "复制链接",
+        "copied": "已复制",
+        "publish": "发布",
+        "update": "更新",
+        "turnOff": "关闭分享",
+        "rotateSecret": "更换密钥",
+        "unlistedNeedsSecret": "不公开链接需要密钥。生成新密钥后才能复制可用地址。",
+        "errors": {
+          "generic": "无法发布此页面。",
+          "usernameTaken": "该用户名已被占用。",
+          "handleLocked": "用户名不能再改。",
+          "invalidHandle": "请使用 3–24 位字母、数字或下划线。",
+          "invalidSocial": "请检查用户名后再试。"
+        }
+      },
+      "publicPage": {
+        "notFound": "此页面不可用。",
+        "generatedDate": "{date}",
+        "generatedByPrefix": "由 ",
+        "generatedBySuffix": " 生成",
+        "leaderboardLink": "排行榜"
+      },
+      "leaderboard": {
+        "updated": "更新于 {time} · 每 2 小时刷新",
+        "tokensTitle": "Token",
+        "tokensEmpty": "还没有公开页。",
+        "costTitle": "Cost",
+        "costEmpty": "还没有人公开费用。",
+        "colRank": "排名",
+        "colUser": "用户",
+        "colX": "X",
+        "colGithub": "GitHub",
+        "outsideTop": "你的名次"
+      },
       "cookieAccess": {
         "title": "浏览器 Cookie",
         "description": "授权 Cookie 访问后，可补上 Cursor 等已登录网页会话的用量。",
@@ -934,7 +983,8 @@
       "automations": "自动化 - ATMOS",
       "diskAnalyzer": "磁盘分析器 - ATMOS",
       "tokenUsage": "Token 用量 - ATMOS",
-      "tasks": "任务 - ATMOS"
+      "tasks": "任务 - ATMOS",
+      "settings": "设置 - ATMOS"
     },
     "localModelDownload": {
       "downloadingRuntime": "正在下载运行时",
@@ -1541,7 +1591,9 @@
       },
       "leftSidebarFooter": {
         "addProject": "添加项目",
-        "openTasks": "打开任务"
+        "openTasks": "打开任务",
+        "openSettings": "打开设置",
+        "settings": "设置"
       },
       "launchpad": {
         "title": "Launchpad",
@@ -4475,11 +4527,11 @@
       "groups": {
         "interface": {
           "label": "界面",
-          "description": "布局、编辑器、画布、Browser 与键盘偏好设置"
+          "description": "布局、编辑器、画布与键盘偏好设置"
         },
         "personal": {
           "label": "个人",
-          "description": "账号与登录"
+          "description": "主题、语言与账号"
         },
         "aiAgents": {
           "label": "AI Agent",
@@ -4491,7 +4543,7 @@
         },
         "systemIntegration": {
           "label": "系统集成",
-          "description": "集成、Desktop Use 与通知"
+          "description": "集成、Browser、Desktop Use 与通知"
         },
         "privacySecurity": {
           "label": "隐私与安全性",
@@ -4529,7 +4581,7 @@
         },
         "browser": {
           "label": "Browser",
-          "description": "应用内 Browser 的打开位置、侧栏、主页与 Agent 高亮。"
+          "description": "Agent 如何打开和使用应用内 Browser。"
         },
         "workspace": {
           "label": "工作区",
@@ -4579,10 +4631,19 @@
           "label": "权限访问",
           "description": "在本机已安装对应产品时，允许 Atmos Server 读取已登录浏览器 Cookie。"
         },
+        "appearance": {
+          "label": "外观",
+          "description": "主题与语言。"
+        },
         "account": {
           "label": "账号",
           "description": "登录、信任此设备，并管理你的 Atmos 账号"
         }
+      },
+      "page": {
+        "title": "设置",
+        "back": "返回",
+        "backAria": "关闭设置"
       },
       "dialog": {
         "title": "设置",
@@ -4661,6 +4722,9 @@
             },
             "headerLayout": {
               "label": "Header 布局"
+            },
+            "rightSidebarBrowser": {
+              "label": "在侧栏显示 Browser"
             },
             "workspaceSummaryButton": {
               "label": "工作区摘要按钮"
@@ -5115,10 +5179,16 @@
               "label": "新标签页网址"
             },
             "agentChrome": {
-              "label": "Agent 高亮"
+              "label": "显示操作光标"
             },
-            "downloads": {
-              "label": "下载目录"
+            "cookiesImport": {
+              "label": "导入 Cookie"
+            },
+            "cookiesClearCache": {
+              "label": "清除缓存"
+            },
+            "cookiesClearSiteData": {
+              "label": "清除 Cookie 与存储"
             }
           },
           "desktopUse": {
@@ -5137,6 +5207,14 @@
             "border": {
               "label": "操作描边",
               "description": "Desktop Use 操作时的视觉反馈"
+            }
+          },
+          "appearance": {
+            "theme": {
+              "label": "主题"
+            },
+            "language": {
+              "label": "语言"
             }
           }
         }
@@ -5870,8 +5948,8 @@
       "changesDescription": "查看已暂存、未暂存和分支变更以及提交历史。",
       "reviewTitle": "评审",
       "reviewDescription": "对当前变更运行内置代码评审。",
-      "browserTitle": "浏览器",
-      "browserDescription": "显示用于运行开发服务器的应用内预览浏览器。",
+      "browserTitle": "Browser",
+      "browserDescription": "在右侧栏显示应用内 Browser 模块。",
       "runTitle": "运行",
       "runDescription": "启动并监控项目运行脚本。",
       "githubTitle": "GitHub",
@@ -6252,11 +6330,11 @@
         },
         "agent": {
           "title": "Agent",
-          "description": "Browser Use 操作时的页面光标与高亮。"
+          "description": "Agent 在哪里打开 Browser，以及操作时如何显示光标。"
         },
-        "downloads": {
-          "title": "下载",
-          "description": "内嵌 Browser 的下载会写到 Atmos Browser Use 目录下。"
+        "cookies": {
+          "title": "Cookie",
+          "description": "从其他浏览器导入登录态，或清除缓存与 Cookie。"
         }
       },
       "defaultSurface": {
@@ -6274,12 +6352,26 @@
         "description": "Agent 打开标签页但没有给出网址时使用。留空则打开 Browser 主页。"
       },
       "agentChrome": {
-        "title": "显示 Agent 高亮",
-        "description": "Agent 点击或输入时绘制光标叠加层。"
+        "title": "显示操作光标",
+        "description": "Agent 点击或输入时显示光标叠加层。"
       },
-      "downloads": {
-        "title": "下载根目录",
-        "description": "内嵌 Browser Use 会把下载写到这里。外部 Chrome 仍需要 --dir。"
+      "cookies": {
+        "import": {
+          "title": "导入 Cookie",
+          "description": "从这个 Mac 上的 Chrome、Edge、Brave 或 Firefox 导入已保存的登录态。",
+          "action": "导入"
+        },
+        "clearCache": {
+          "title": "清除缓存",
+          "description": "只删除缓存文件，Cookie 和登录态会保留。",
+          "action": "清除"
+        },
+        "clearSiteData": {
+          "title": "清除 Cookie 与存储",
+          "description": "删除 Cookie、本地存储和缓存文件。这会让你退出已登录的网站。",
+          "action": "清除"
+        },
+        "unavailable": "导入和清理 Cookie 需要在 macOS 上的 Atmos 桌面端使用。"
       },
       "links": {
         "desktopUse": {
@@ -6432,6 +6524,23 @@
     "browserUse": {
       "label": "Browser Use",
       "description": "控制 Atmos 内置浏览器页面（DOM 点击 / 输入 / 导航）"
+    },
+    "appearanceSection": {
+      "title": "外观",
+      "description": "选择 Atmos 的外观和界面语言。",
+      "theme": {
+        "title": "主题",
+        "description": "使用浅色、深色，或跟随系统。",
+        "light": "浅色",
+        "dark": "深色",
+        "system": "跟随系统"
+      },
+      "language": {
+        "title": "语言",
+        "description": "会立刻更新界面文案，无需刷新页面。",
+        "en": "English",
+        "zh": "简体中文"
+      }
     },
     "accountSection": {
       "title": "Atmos 账号",

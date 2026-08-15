@@ -30,6 +30,8 @@ describe("browser-use-control structural", () => {
     expect(sm).toContain("did-start-navigation");
     expect(sm).toContain("resolveAgentTabHost");
     expect(sm).toContain("setOnBrowserUseNavigated");
+    expect(sm).toContain("setDownloadPath");
+    expect(sm).toContain("systemDownloadsDir");
   });
 
   it("control plane uses loopback + control.json", () => {
@@ -107,6 +109,8 @@ describe("browser-use-control structural", () => {
     expect(src).toContain("Page.handleJavaScriptDialog");
     expect(src).toContain("javascriptDialogOpening");
     expect(src).toContain("will-download");
+    expect(src).toContain("systemDownloadsDir");
+    expect(src).not.toContain('join(CONTROL_DIR(), "downloads")');
     expect(src).toContain("wc.id !== guest.id");
     expect(src).toContain("mouseWheel");
     expect(src).toContain("Input.insertText");

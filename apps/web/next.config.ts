@@ -101,6 +101,10 @@ const devRewritesConfig =
               source: "/hooks/:path*",
               destination: `http://127.0.0.1:${devApiPort}/hooks/:path*`,
             },
+            {
+              source: "/tok/:handle*",
+              destination: "/tok",
+            },
           ];
         },
       }

@@ -184,7 +184,7 @@ pub fn recovery_for(code: &str) -> Option<String> {
                 "This action is not available on the selected backend. Use the other backend or a supported action."
             }
             BROWSER_DOWNLOAD_DENIED => {
-                "Downloads must stay under the approved Browser Use downloads root. Omit `--dir` to use the default, or pass a path inside it."
+                "Downloads must stay under your system Downloads folder. Omit `--dir` to use it, or pass a folder inside it."
             }
             BROWSER_NAVIGATE_DENIED => {
                 "Only http, https, and about:blank navigations are allowed."

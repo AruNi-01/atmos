@@ -59,9 +59,19 @@ import {
   unlinkLinkedAccount,
 } from "./user-security";
 import { makeSignature } from "better-auth/crypto";
-import { eq } from "drizzle-orm";
-import { userProfiles } from "./db/schema";
 import { requireSession, requireUser } from "./require-user";
+import {
+  claimedHandleOf,
+  getOrCreateProfile,
+  handleMintUnlistedSecret,
+  handleOwnerUsagePage,
+  handlePublicTok,
+} from "./usage-page";
+import {
+  getUsageLeaderboards,
+  jsonPublicNoStore as jsonLeaderboard,
+  refreshUsageLeaderboards,
+} from "./usage-leaderboard";
 
 function json(data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data), {
@@ -81,44 +91,9 @@ function jsonPublicNoStore(data: unknown, status = 200): Response {
   });
 }
 
-async function ensureProfile(
-  env: HubEnv,
-  userId: string,
-  name?: string | null,
-  email?: string | null,
-) {
+async function ensureProfile(env: HubEnv, userId: string) {
   const db = createDb(env);
-  const existing = await db
-    .select()
-    .from(userProfiles)
-    .where(eq(userProfiles.userId, userId))
-    .limit(1);
-  if (existing[0]) return existing[0];
-
-  const base =
-    (name || email || userId)
-      .toLowerCase()
-      .replace(/[^a-z0-9_-]+/g, "-")
-      .replace(/^-+|-+$/g, "")
-      .slice(0, 24) || "user";
-  let handle = base;
-  let n = 0;
-  while (true) {
-    const clash = await db
-      .select()
-      .from(userProfiles)
-      .where(eq(userProfiles.handle, handle))
-      .limit(1);
-    if (!clash[0]) break;
-    n += 1;
-    handle = `${base}${n}`;
-  }
-  await db.insert(userProfiles).values({
-    userId,
-    handle,
-    updatedAt: new Date(),
-  });
-  return { userId, handle };
+  return getOrCreateProfile(db, userId);
 }
 
 export default {
@@ -148,12 +123,7 @@ export default {
       if (path === "/v1/me" && request.method === "GET") {
         const session = await requireUser(env, request);
         if (session instanceof Response) return withCors(env, request, session);
-        const profile = await ensureProfile(
-          env,
-          session.userId,
-          session.name,
-          session.email,
-        );
+        const profile = await ensureProfile(env, session.userId);
         return withCors(
           env,
           request,
@@ -161,7 +131,8 @@ export default {
             user_id: session.userId,
             email: session.email,
             name: session.name,
-            handle: "handle" in profile ? profile.handle : null,
+            image: session.image ?? null,
+            handle: claimedHandleOf(profile),
           }),
         );
       }
@@ -829,6 +800,65 @@ export default {
         return withCors(env, request, json({ ok: true }));
       }
 
+      // ----- Usage page (APP-061) -----
+      if (path === "/v1/me/usage-page" && request.method === "POST") {
+        return withCors(
+          env,
+          request,
+          json({ error: "method_not_allowed" }, 405),
+        );
+      }
+      if (
+        path === "/v1/me/usage-page" &&
+        (request.method === "GET" ||
+          request.method === "PUT" ||
+          request.method === "DELETE")
+      ) {
+        const session = await requireUser(env, request);
+        if (session instanceof Response) return withCors(env, request, session);
+        const db = createDb(env);
+        return withCors(
+          env,
+          request,
+          await handleOwnerUsagePage(db, session, request),
+        );
+      }
+
+      if (
+        path === "/v1/me/usage-page/unlisted-secret" &&
+        request.method === "POST"
+      ) {
+        const session = await requireUser(env, request);
+        if (session instanceof Response) return withCors(env, request, session);
+        const db = createDb(env);
+        return withCors(
+          env,
+          request,
+          await handleMintUnlistedSecret(db, session),
+        );
+      }
+
+      if (path === "/v1/public/tok-leaderboards" && request.method === "GET") {
+        const db = createDb(env);
+        const viewer = url.searchParams.get("viewer");
+        const data = await getUsageLeaderboards(db, viewer);
+        return withCors(env, request, jsonLeaderboard(data));
+      }
+
+      const publicTok = path.match(/^\/v1\/public\/tok\/([^/]+)$/);
+      if (publicTok && request.method === "GET") {
+        const db = createDb(env);
+        return withCors(
+          env,
+          request,
+          await handlePublicTok(
+            db,
+            decodeURIComponent(publicTok[1]!),
+            request,
+          ),
+        );
+      }
+
       // ----- Usage shares (APP-056) -----
       if (path === "/v1/usage/shares" && request.method === "GET") {
         const session = await requireUser(env, request);
@@ -921,5 +951,10 @@ export default {
         ),
       );
     }
+  },
+
+  async scheduled(_event: unknown, env: HubEnv): Promise<void> {
+    const db = createDb(env);
+    await refreshUsageLeaderboards(db);
   },
 };

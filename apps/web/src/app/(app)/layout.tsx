@@ -1,13 +1,8 @@
 import { Suspense } from "react";
-import Header from "@/app-shell/Header";
-import LeftSidebar from "@/app-shell/LeftSidebar";
-import CenterStage from "@/app-shell/CenterStage";
-import RightSidebar from "@/app-shell/RightSidebar";
+import { AppShellMain } from "@/app-shell/AppShellMain";
 import GlobalSearch from "@/app-shell/GlobalSearch";
 import { ModalAgentChatPanel } from "@/features/agent/components/ModalAgentChatPanel";
-import Footer from "@/app-shell/Footer";
 import { HostedBootstrapBoundary } from "@/app-shell/HostedAppShellGate";
-import { PanelLayout } from "@/app-shell/PanelLayout";
 import { DocumentTitle } from "@/app-shell/DocumentTitle";
 import { SidebarLayoutProvider } from "@/app-shell/SidebarLayoutContext";
 import { WorkspaceCreationOverlay } from "@/app-shell/WorkspaceCreationOverlay";
@@ -51,15 +46,7 @@ export default function AppLayout({ children }: Props) {
             <HostedBootstrapBoundary>
               <OnboardingGate>
                 <E2eNavigateBridge />
-                <Header />
-
-                <PanelLayout
-                  leftSidebar={<LeftSidebar />}
-                  centerStage={<CenterStage />}
-                  rightSidebar={<RightSidebar />}
-                />
-
-                <Footer />
+                <AppShellMain />
 
                 <GlobalSearch />
 

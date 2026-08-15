@@ -4,18 +4,17 @@ import React from "react";
 import { useTranslations } from "next-intl";
 import {
   Input,
-  MotionSidebar,
-  MotionSidebarContent,
-  MotionSidebarGroup,
-  MotionSidebarGroupLabel,
-  MotionSidebarHeader,
-  MotionSidebarMenu,
-  MotionSidebarMenuButton,
-  MotionSidebarMenuItem,
-  MotionSidebarProvider,
+  Sidebar,
+  SidebarContent,
+  SidebarGroup,
+  SidebarGroupLabel,
+  SidebarHeader,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
   cn,
 } from "@workspace/ui";
-import { KeyRound, Search, X } from "lucide-react";
+import { ArrowLeft, Globe, KeyRound, Search, SunMoon, X } from "lucide-react";
 import InfoCircleIcon from "@workspace/ui/components/icons/info-circle-icon";
 import LayoutDashboardIcon from "@workspace/ui/components/icons/layout-dashboard-icon";
 import TerminalIcon from "@workspace/ui/components/icons/terminal-icon";
@@ -25,7 +24,6 @@ import { BellIcon } from "@workspace/ui/components/icons/bell-icon";
 import WorldIcon from "@workspace/ui/components/icons/world-icon";
 import ComputerIcon from "@workspace/ui/components/icons/computer-icon";
 import DesktopUseIcon from "@workspace/ui/components/icons/desktop-use-icon";
-import { Globe } from "lucide-react";
 import { FolderKanbanIcon } from "@workspace/ui/components/icons/folder-kanban-icon";
 import { TagIcon } from "@workspace/ui/components/icons/tag-icon";
 import KeyboardIcon from "@workspace/ui/components/icons/keyboard-icon";
@@ -89,6 +87,8 @@ interface SettingsModalSidebarProps {
   searchQuery: string;
   onSelectSection: (sectionId: SettingsSectionId) => void;
   onSearchQueryChange: (query: string) => void;
+  onBack: () => void;
+  trafficLightsPadding?: boolean;
 }
 
 function SettingsSectionIcon({
@@ -105,6 +105,7 @@ function SettingsSectionIcon({
   if (sectionId === "code-agent") return <BotIcon ref={iconRef} className="shrink-0" size={16} />;
   if (sectionId === "workspace") return <FolderKanbanIcon ref={iconRef} className="shrink-0" size={16} />;
   if (sectionId === "labels") return <TagIcon ref={iconRef} className="shrink-0" size={16} />;
+  if (sectionId === "appearance") return <SunMoon className="shrink-0" size={16} />;
   if (sectionId === "account") return <UserIcon ref={iconRef} className="shrink-0" size={16} />;
   if (sectionId === "integrations") return <BlocksIcon ref={iconRef} className="shrink-0" size={16} />;
   if (sectionId === "ai") return <BrainCircuitIcon ref={iconRef} className="shrink-0" size={16} />;
@@ -132,6 +133,8 @@ export function SettingsModalSidebar({
   searchQuery,
   onSelectSection,
   onSearchQueryChange,
+  onBack,
+  trafficLightsPadding = false,
 }: SettingsModalSidebarProps) {
   const t = useTranslations("settings.modal");
   const [sectionIconRefs] = React.useState(() => {
@@ -197,86 +200,91 @@ export function SettingsModalSidebar({
   }, [activeSection, matchingSectionIds, onSelectSection, orderedMatchingSectionIds, trimmedSearchQuery]);
 
   return (
-    <aside className="h-full min-h-0 border-r border-border bg-background text-sidebar-foreground">
-      <MotionSidebarProvider className="h-full min-h-0">
-        <MotionSidebar
-          collapsible="none"
-          className="h-full w-full border-0 bg-transparent text-sidebar-foreground"
-          containerClassName="h-full"
+    <Sidebar
+      collapsible="none"
+      className="h-full min-h-0 border-r border-border bg-background text-sidebar-foreground"
+    >
+      <SidebarHeader className={cn("gap-0 px-3 pb-1.5 pt-3", trafficLightsPadding && "pt-10")}>
+        <button
+          type="button"
+          onClick={onBack}
+          aria-label={t("page.backAria")}
+          className="desktop-no-drag mb-2 flex h-8 items-center gap-2 rounded-md px-2 text-sm font-medium text-sidebar-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
         >
-          <MotionSidebarHeader className="gap-0 px-3 pb-1.5 pt-3">
-            <div className="relative">
-              <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-sidebar-foreground/45" />
-              <Input
-                value={searchQuery}
-                onChange={(event) => onSearchQueryChange(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === "Escape" && searchQuery) {
-                    event.preventDefault();
-                    onSearchQueryChange("");
-                  }
-                }}
-                placeholder={t("sidebar.searchPlaceholder")}
-                aria-label={t("sidebar.searchAriaLabel")}
-                className="h-9 rounded-lg border-border bg-muted/30 pl-8 pr-8 text-sm shadow-none"
-              />
-              <button
-                type="button"
-                aria-label={t("sidebar.clearSearchAriaLabel")}
-                onClick={() => onSearchQueryChange("")}
-                className={cn(
-                  "absolute right-1.5 top-1/2 flex size-6 -translate-y-1/2 items-center justify-center rounded-md text-sidebar-foreground/45 transition-colors hover:bg-muted hover:text-sidebar-foreground",
-                  !searchQuery && "pointer-events-none opacity-0",
-                )}
-              >
-                <X className="size-3.5" />
-              </button>
-            </div>
-          </MotionSidebarHeader>
+          <ArrowLeft className="size-4 shrink-0" />
+          <span>{t("page.back")}</span>
+        </button>
+        <div className="relative desktop-no-drag">
+          <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-sidebar-foreground/45" />
+          <Input
+            value={searchQuery}
+            onChange={(event) => onSearchQueryChange(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Escape" && searchQuery) {
+                event.preventDefault();
+                event.stopPropagation();
+                onSearchQueryChange("");
+              }
+            }}
+            placeholder={t("sidebar.searchPlaceholder")}
+            aria-label={t("sidebar.searchAriaLabel")}
+            className="h-9 rounded-lg border-border bg-muted/30 pl-8 pr-8 text-sm shadow-none"
+          />
+          <button
+            type="button"
+            aria-label={t("sidebar.clearSearchAriaLabel")}
+            onClick={() => onSearchQueryChange("")}
+            className={cn(
+              "absolute right-1.5 top-1/2 flex size-6 -translate-y-1/2 items-center justify-center rounded-md text-sidebar-foreground/45 transition-colors hover:bg-muted hover:text-sidebar-foreground",
+              !searchQuery && "pointer-events-none opacity-0",
+            )}
+          >
+            <X className="size-3.5" />
+          </button>
+        </div>
+      </SidebarHeader>
 
-          <MotionSidebarContent className="gap-1 overflow-y-auto px-3 pb-3 pt-1">
-            {filteredGroups.length === 0 ? (
-              <div className="px-2 py-6 text-sm text-muted-foreground">
-                {t("sidebar.noSettingsFound")}
-              </div>
-            ) : null}
-            {filteredGroups.map((group) => (
-              <MotionSidebarGroup key={group.id} className="px-2 py-1 first:pt-1">
-                <MotionSidebarGroupLabel className="h-7">
-                  {t(`groups.${toCamelCase(group.id)}.label`)}
-                </MotionSidebarGroupLabel>
-                <MotionSidebarMenu>
-                  {group.items.map((itemId) => {
-                    const section = SETTINGS_SECTIONS.find((item) => item.id === itemId);
-                    if (!section) return null;
+      <SidebarContent className="gap-1 overflow-y-auto px-3 pb-3 pt-1">
+        {filteredGroups.length === 0 ? (
+          <div className="px-2 py-6 text-sm text-muted-foreground">
+            {t("sidebar.noSettingsFound")}
+          </div>
+        ) : null}
+        {filteredGroups.map((group) => (
+          <SidebarGroup key={group.id} className="px-2 py-1 first:pt-1">
+            <SidebarGroupLabel className="h-7">
+              {t(`groups.${toCamelCase(group.id)}.label`)}
+            </SidebarGroupLabel>
+            <SidebarMenu>
+              {group.items.map((itemId) => {
+                const section = SETTINGS_SECTIONS.find((item) => item.id === itemId);
+                if (!section) return null;
 
-                    const isActive = activeSection === section.id;
-                    const itemIconRef = sectionIconRefs[section.id];
+                const isActive = activeSection === section.id;
+                const itemIconRef = sectionIconRefs[section.id];
 
-                    return (
-                      <MotionSidebarMenuItem key={itemId}>
-                        <MotionSidebarMenuButton
-                          type="button"
-                          isActive={isActive}
-                          onClick={() => onSelectSection(section.id)}
-                          className="h-9 gap-3 rounded-lg px-3 text-left"
-                          onMouseEnter={() => itemIconRef.current?.startAnimation?.()}
-                          onMouseLeave={() => itemIconRef.current?.stopAnimation?.()}
-                        >
-                          <SettingsSectionIcon iconRef={itemIconRef} sectionId={itemId} />
-                          <span className="min-w-0 truncate text-sm font-medium">
-                            {t(`sections.${toCamelCase(section.id)}.label`)}
-                          </span>
-                        </MotionSidebarMenuButton>
-                      </MotionSidebarMenuItem>
-                    );
-                  })}
-                </MotionSidebarMenu>
-              </MotionSidebarGroup>
-            ))}
-          </MotionSidebarContent>
-        </MotionSidebar>
-      </MotionSidebarProvider>
-    </aside>
+                return (
+                  <SidebarMenuItem key={itemId}>
+                    <SidebarMenuButton
+                      type="button"
+                      isActive={isActive}
+                      onClick={() => onSelectSection(section.id)}
+                      className="h-9 gap-3 rounded-lg px-3 text-left"
+                      onMouseEnter={() => itemIconRef.current?.startAnimation?.()}
+                      onMouseLeave={() => itemIconRef.current?.stopAnimation?.()}
+                    >
+                      <SettingsSectionIcon iconRef={itemIconRef} sectionId={itemId} />
+                      <span className="min-w-0 truncate text-sm font-medium">
+                        {t(`sections.${toCamelCase(section.id)}.label`)}
+                      </span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
+            </SidebarMenu>
+          </SidebarGroup>
+        ))}
+      </SidebarContent>
+    </Sidebar>
   );
 }

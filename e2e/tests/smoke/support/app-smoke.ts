@@ -98,7 +98,49 @@ export async function expectHealthyRoute(
 
 export async function openActionMenu(page: Page): Promise<void> {
   await page.getByRole("button", { name: /Open actions menu|···/ }).click();
-  await expect(page.getByText("Settings", { exact: true })).toBeVisible();
+}
+
+export async function openSettingsPage(page: Page): Promise<void> {
+  await page.getByRole("button", { name: /Open settings|打开设置/ }).click();
+  await expect
+    .poll(async () => normalizePathname(new URL(page.url()).pathname))
+    .toBe("/settings");
+}
+
+export async function closeSettingsPage(page: Page): Promise<void> {
+  await page
+    .getByRole("button", { name: /Close settings|关闭设置|^Back$|^返回$/ })
+    .click();
+  await expect
+    .poll(async () => normalizePathname(new URL(page.url()).pathname))
+    .not.toBe("/settings");
+}
+
+export async function gotoSettingsRoute(
+  page: Page,
+  tab?: string,
+  options?: { locale?: WorkbenchLocale },
+): Promise<void> {
+  const expectedLocale = options?.locale ?? "en";
+  await seedOnboardingComplete(page);
+  await seedWorkbenchLocale(page, expectedLocale);
+  const href = tab ? `/settings?activeSettingTab=${tab}` : "/settings";
+  const response = await page.goto(href, {
+    waitUntil: "domcontentloaded",
+  });
+  expect(response, `missing navigation response for ${href}`).not.toBeNull();
+  expect(response!.status(), `unexpected status for ${href}`).toBeLessThan(500);
+  await expect
+    .poll(async () => page.locator("html").getAttribute("lang"))
+    .toBe(expectedLocale);
+  await expect
+    .poll(async () => normalizePathname(new URL(page.url()).pathname))
+    .toBe("/settings");
+  if (tab) {
+    await expect
+      .poll(async () => new URL(page.url()).searchParams.get("activeSettingTab"))
+      .toBe(tab);
+  }
 }
 
 export async function stubComputerClientSettingsApi(page: Page): Promise<void> {

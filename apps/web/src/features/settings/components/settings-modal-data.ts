@@ -32,13 +32,13 @@ export const SETTINGS_GROUPS = [
     id: "interface",
     label: settingsModalT("groups.interface.label"),
     description: settingsModalT("groups.interface.description"),
-    items: ["layout", "editor", "canvas", "terminal", "browser"] as const,
+    items: ["layout", "editor", "canvas", "terminal"] as const,
   },
   {
     id: "personal",
     label: settingsModalT("groups.personal.label"),
     description: settingsModalT("groups.personal.description"),
-    items: ["account"] as const,
+    items: ["appearance", "account"] as const,
   },
   {
     id: "ai-agents",
@@ -56,7 +56,7 @@ export const SETTINGS_GROUPS = [
     id: "system-integration",
     label: settingsModalT("groups.systemIntegration.label"),
     description: settingsModalT("groups.systemIntegration.description"),
-    items: ["integrations", "desktop-use", "notify"] as const,
+    items: ["integrations", "browser", "desktop-use", "notify"] as const,
   },
   {
     id: "privacy-security",
@@ -118,6 +118,11 @@ export const SETTINGS_SECTIONS = [
     id: "labels",
     label: settingsModalT("sections.labels.label"),
     description: settingsModalT("sections.labels.description"),
+  },
+  {
+    id: "appearance",
+    label: settingsModalT("sections.appearance.label"),
+    description: settingsModalT("sections.appearance.description"),
   },
   {
     id: "account",
@@ -193,6 +198,7 @@ const SECTION_GROUP_TERMS = SETTINGS_GROUPS.reduce(
 );
 
 const SETTINGS_SECTION_KEYWORDS: Record<SettingsSectionId, readonly string[]> = {
+  appearance: ["theme", "language", "locale", "dark", "light", "system", "appearance"],
   account: ["account", "login", "sign in", "hub", "github", "google", "device", "identity"],
   layout: [
     "layout",
@@ -202,6 +208,8 @@ const SETTINGS_SECTION_KEYWORDS: Record<SettingsSectionId, readonly string[]> = 
     "project files show side",
     "left sidebar",
     "right sidebar",
+    "in-app browser",
+    "show browser in sidebar",
     "workspace sidebar two-column layout",
     "project sidebar two-column layout",
     "show pinned workspaces in second column",
@@ -329,8 +337,12 @@ const SETTINGS_SECTION_KEYWORDS: Record<SettingsSectionId, readonly string[]> = 
     "center tabs",
     "homepage",
     "new tab",
-    "agent chrome",
-    "downloads",
+    "action overlay",
+    "cursor overlay",
+    "cookies",
+    "import cookies",
+    "clear cache",
+    "site data",
     "in-app browser",
     "webview",
   ],
@@ -563,6 +575,10 @@ function settingsModalSearchItem(
 }
 
 const SETTINGS_SETTING_ITEMS: Record<SettingsSectionId, readonly SettingsSearchItemDefinition[]> = {
+  appearance: [
+    settingsModalSearchItem("appearance.theme", { keywords: ["theme", "light", "dark", "system"] }),
+    settingsModalSearchItem("appearance.language", { keywords: ["language", "locale", "english", "chinese", "zh"] }),
+  ],
   account: [],
   layout: [
     settingsModalSearchItem("layout.projectFilesShowSide", {
@@ -602,6 +618,9 @@ const SETTINGS_SETTING_ITEMS: Record<SettingsSectionId, readonly SettingsSearchI
     }),
     settingsModalSearchItem("layout.headerLayout", {
       keywords: ["workspace utilities", "global search", "header summary"],
+    }),
+    settingsModalSearchItem("layout.rightSidebarBrowser", {
+      keywords: ["browser", "right sidebar", "show in sidebar", "in-app browser"],
     }),
     settingsModalSearchItem("layout.workspaceSummaryButton", {
       keywords: ["project", "task", "note", "commit shortcuts"],
@@ -769,17 +788,17 @@ const SETTINGS_SETTING_ITEMS: Record<SettingsSectionId, readonly SettingsSearchI
       hasDescription: true,
       keywords: ["sidebar", "center tabs", "placement", "default surface"],
     }),
-    settingsModalSearchItem("browser.sidebar", {
-      keywords: ["show in sidebar", "right sidebar", "browser module"],
-    }),
-    settingsModalSearchItem("browser.newTabUrl", {
-      keywords: ["homepage", "new tab", "about:blank"],
-    }),
     settingsModalSearchItem("browser.agentChrome", {
-      keywords: ["agent chrome", "cursor overlay", "highlight"],
+      keywords: ["action overlay", "cursor overlay", "highlight", "click"],
     }),
-    settingsModalSearchItem("browser.downloads", {
-      keywords: ["download root", "downloads"],
+    settingsModalSearchItem("browser.cookiesImport", {
+      keywords: ["import cookies", "chrome", "edge", "brave", "firefox", "sign-in"],
+    }),
+    settingsModalSearchItem("browser.cookiesClearCache", {
+      keywords: ["clear cache", "cached files"],
+    }),
+    settingsModalSearchItem("browser.cookiesClearSiteData", {
+      keywords: ["clear cookies", "delete cookies", "storage", "sign out"],
     }),
   ],
   terminal: [

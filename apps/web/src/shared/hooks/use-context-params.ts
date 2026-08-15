@@ -2,7 +2,7 @@
 
 import { usePathname, useSearchParams } from "next/navigation";
 
-export type CurrentView = "welcome" | "workspace" | "project" | "workspaces" | "skills" | "terminals" | "agents" | "automations" | "disk-analyzer" | "token-usage" | "tasks";
+export type CurrentView = "welcome" | "workspace" | "project" | "workspaces" | "skills" | "terminals" | "agents" | "automations" | "disk-analyzer" | "token-usage" | "tasks" | "settings";
 
 
 interface ContextParams {
@@ -45,6 +45,7 @@ const EMPTY: Omit<ContextParams, "currentView"> = {
  *   /disk-analyzer           → disk analyzer
  *   /token-usage             → token usage dashboard
  *   /tasks                  → task surface
+ *   /settings               → settings
  */
 export function useContextParams(): ContextParams {
   const pathname = usePathname();
@@ -86,6 +87,7 @@ export function useContextParams(): ContextParams {
   if (firstSegment === "disk-analyzer") return { ...EMPTY, currentView: "disk-analyzer" };
   if (firstSegment === "token-usage") return { ...EMPTY, currentView: "token-usage" };
   if (firstSegment === "tasks") return { ...EMPTY, currentView: "tasks" };
+  if (firstSegment === "settings") return { ...EMPTY, currentView: "settings" };
 
   return { ...EMPTY, currentView: "welcome" };
 }

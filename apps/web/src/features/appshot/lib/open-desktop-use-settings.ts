@@ -2,25 +2,21 @@
 
 /**
  * Primary recovery path for Desktop Use / AppShot permissions (APP-052):
- * open Settings modal on the Desktop Use section instead of a standalone window.
+ * open the fullscreen Settings page on Desktop Use / Permission access.
  *
- * Prefer `useOpenDesktopUseSettings()` in React components (nuqs, no full reload).
+ * Prefer `useOpenDesktopUseSettings()` in React components (router.push).
  * This function is a non-hook fallback for rare non-React call sites.
  */
 
 import { useCallback } from "react";
-import { useQueryState } from "nuqs";
-import { settingsModalParams } from "@/shared/lib/nuqs/searchParams";
+import {
+  settingsHref,
+  useOpenSettings,
+} from "@/features/settings/lib/open-settings";
 
 function openSettingsTabInApp(tab: "desktop-use" | "permission-access"): void {
   if (typeof window === "undefined") return;
-  const url = new URL(window.location.href);
-  url.searchParams.set("settingsModal", "true");
-  url.searchParams.set("activeSettingTab", tab);
-  url.searchParams.delete("appshotPermissions");
-  const next = `${url.pathname}?${url.searchParams.toString()}${url.hash}`;
-  window.history.pushState(window.history.state, "", next);
-  window.dispatchEvent(new PopStateEvent("popstate"));
+  window.location.assign(settingsHref(tab));
 }
 
 /** Open Settings → Desktop Use (engine / CLI). */
@@ -34,19 +30,10 @@ export function openPermissionAccessSettingsInApp(): void {
 }
 
 function useOpenSettingsTab(tab: "desktop-use" | "permission-access"): () => void {
-  const [, setIsSettingsOpen] = useQueryState(
-    "settingsModal",
-    settingsModalParams.settingsModal,
-  );
-  const [, setActiveSettingTab] = useQueryState(
-    "activeSettingTab",
-    settingsModalParams.activeSettingTab,
-  );
-
+  const openSettings = useOpenSettings();
   return useCallback(() => {
-    void setActiveSettingTab(tab);
-    void setIsSettingsOpen(true);
-  }, [setActiveSettingTab, setIsSettingsOpen, tab]);
+    openSettings(tab);
+  }, [openSettings, tab]);
 }
 
 /** Hook: open Settings → Desktop Use (engine / CLI). */

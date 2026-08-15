@@ -5,6 +5,7 @@ export type HubMe = {
   email?: string | null;
   name?: string | null;
   handle?: string | null;
+  image?: string | null;
 };
 
 export type HubDeviceRow = {
