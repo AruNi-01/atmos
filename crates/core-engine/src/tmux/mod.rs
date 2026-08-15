@@ -13,6 +13,8 @@ pub mod control;
 mod install;
 mod locale;
 mod mouse_modes;
+#[cfg(unix)]
+pub mod pipe;
 mod session;
 mod types;
 
@@ -27,6 +29,16 @@ pub use mouse_modes::{
     resolve_mouse_tracking_restore, MouseEventMode, MouseFormat, MouseModeState,
     ATMOS_MOUSE_TRACKING_OPTION, DEFAULT_TUI_MOUSE_RESTORE,
 };
+#[cfg(unix)]
+pub use pipe::{
+    copy_raw, run_tmux_pipe_bridge, sanitize_tmux_pipe_socket_stem, shell_single_quote,
+    tmux_pipe_socket_path, tmux_pipes_dir, try_run_internal_from_env, PanePipeSpec,
+};
+
+#[cfg(not(unix))]
+pub fn try_run_internal_from_env() -> bool {
+    false
+}
 pub use types::{
     is_inline_mouse_tui_command, is_shell_command, pane_command_basename,
     should_restore_tui_mouse_tracking, TmuxInstallPlan, TmuxPaneCapturePage, TmuxPaneSnapshot,
@@ -417,7 +429,7 @@ impl TmuxEngine {
         Ok(())
     }
 
-    /// Load mouse-tracking by stable pane id (control-mode reader seed).
+    /// Load mouse-tracking by stable pane id (reattach seed).
     pub fn get_pane_mouse_tracking_by_id(&self, pane_id: &str) -> Result<Option<MouseModeState>> {
         let raw = self.run_tmux(&[
             "display-message",
@@ -427,6 +439,39 @@ impl TmuxEngine {
             &format!("#{{{ATMOS_MOUSE_TRACKING_OPTION}}}"),
         ])?;
         Ok(MouseModeState::decode_persist(raw.trim()))
+    }
+
+    /// Pin the master window grid. Does not run `refresh-client`.
+    pub fn resize_window(
+        &self,
+        session_name: &str,
+        window_index: u32,
+        cols: u16,
+        rows: u16,
+    ) -> Result<()> {
+        let target = format!("{session_name}:{window_index}");
+        self.run_tmux(&[
+            "resize-window",
+            "-t",
+            &target,
+            "-x",
+            &cols.to_string(),
+            "-y",
+            &rows.to_string(),
+        ])?;
+        debug!("Resized window {target} to {cols}x{rows}");
+        Ok(())
+    }
+
+    /// Foreground pane pid (`#{pane_pid}`).
+    pub fn get_pane_pid(&self, session_name: &str, window_index: u32) -> Result<u32> {
+        let target = format!("{session_name}:{window_index}.0");
+        let raw = self.run_tmux(&["display-message", "-t", &target, "-p", "#{pane_pid}"])?;
+        raw.trim().parse::<u32>().map_err(|e| {
+            EngineError::Tmux(format!(
+                "Failed to parse pane pid for {target} from '{raw}': {e}"
+            ))
+        })
     }
 }
 
