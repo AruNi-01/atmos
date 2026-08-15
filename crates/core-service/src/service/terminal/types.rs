@@ -1,26 +1,19 @@
 use chrono::NaiveDateTime;
 use core_engine::TmuxPaneSnapshot;
-use std::path::PathBuf;
 use std::time::Instant;
 use tokio::sync::mpsc;
 
-/// Commands that can be sent to a terminal session thread
+/// Commands that can be sent to a simple (non-tmux) PTY session thread.
 #[derive(Debug)]
 pub(super) enum SessionCommand {
     Write(Vec<u8>),
     Enter,
-    Report(Vec<u8>),
     Resize {
         cols: u16,
         rows: u16,
     },
-    /// Close the terminal session. Control-mode sessions already know their
-    /// client session/socket; fields are kept so simple and tmux sessions share
-    /// one command shape.
-    Close {
-        client_session: Option<String>,
-        socket_path: Option<PathBuf>,
-    },
+    /// Close the simple PTY session. Tmux pipe sessions ignore this path.
+    Close,
 }
 
 /// Type of terminal session
@@ -83,11 +76,14 @@ impl TryFrom<&str> for TerminalSideChatStatus {
 
 /// Terminal session handle - thread-safe wrapper for PTY session
 pub(super) struct SessionHandle {
-    pub(super) command_tx: mpsc::UnboundedSender<SessionCommand>,
+    /// Simple PTY command channel. `None` for tmux pipe-backed sessions.
+    pub(super) command_tx: Option<mpsc::UnboundedSender<SessionCommand>>,
     pub(super) workspace_id: String,
     pub(super) tmux_session: Option<String>,
     pub(super) tmux_window_index: Option<u32>,
+    /// Legacy grouped `atmos_client_*` name; unused on the pipe live path.
     pub(super) client_session: Option<String>,
+    pub(super) pane_key: Option<super::io::PaneIoKey>,
     pub(super) session_type: SessionType,
     pub(super) project_name: Option<String>,
     pub(super) workspace_name: Option<String>,
@@ -159,7 +155,7 @@ pub enum TerminalMessage {
     TerminalInput { session_id: String, data: String },
     /// Send an Enter keypress to terminal
     TerminalEnter { session_id: String },
-    /// Send a terminal emulator report back to tmux control mode
+    /// Send a terminal emulator report back to the pane as PTY input
     TerminalReport { session_id: String, data: String },
     /// Resize terminal
     TerminalResize {

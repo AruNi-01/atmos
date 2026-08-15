@@ -5,8 +5,9 @@
 //!
 //! Design:
 //! - Each terminal session maps to a tmux window
-//! - PTY operations run in dedicated threads, communicating via channels
-//! - Closing a session detaches the PTY but keeps the tmux window alive
+//! - Tmux live I/O is one `pipe-pane` per pane (`PaneIoRegistry`); frontends subscribe
+//! - Simple `mode=shell` sessions still use a dedicated PTY thread
+//! - Closing a session detaches the observer but keeps the tmux window alive
 
 use crate::error::{Result, ServiceError};
 use core_engine::{TmuxEngine, TmuxPaneSnapshot, TmuxWindowAtmosMetadata};
@@ -20,17 +21,17 @@ use std::time::Instant;
 use tokio::sync::{mpsc, oneshot, Mutex};
 use tracing::{debug, error, info, warn};
 
+mod io;
 mod management;
-mod mouse_mode_watch;
 mod run_log_tee;
 mod runtime;
 mod text_capture;
 mod types;
 
-use mouse_mode_watch::{pane_watch_key, MouseModeWatchRegistry};
+use io::{PaneIoKey, PaneIoRegistry, TmuxPipeDriver};
 use run_log_tee::is_run_window_name as run_window_name_matches;
 pub use run_log_tee::{is_run_window_name, latest_log_path, RunLogTee};
-use runtime::{run_control_mode_tmux_session, run_simple_pty_session};
+use runtime::run_simple_pty_session;
 pub use text_capture::{
     process_captured_pane_text, select_transcript, strip_ansi_and_controls, TranscriptBudget,
 };
@@ -45,7 +46,7 @@ use types::{SessionCommand, SessionHandle};
 const MIN_BROWSER_COLS: u16 = 20;
 const MIN_BROWSER_ROWS: u16 = 8;
 
-fn is_usable_browser_size(cols: u16, rows: u16) -> bool {
+pub(super) fn is_usable_browser_size(cols: u16, rows: u16) -> bool {
     cols >= MIN_BROWSER_COLS && rows >= MIN_BROWSER_ROWS
 }
 
@@ -82,8 +83,8 @@ pub struct TerminalService {
     db: Option<Arc<DatabaseConnection>>,
     /// Optional agent-hooks service so pane destroy can clear hook sessions.
     agent_hooks: std::sync::RwLock<Option<Arc<super::agent_hooks::AgentHooksService>>>,
-    /// Detached pane watchers that keep DEC mouse modes fresh while no browser is attached (APP-054).
-    mouse_mode_watches: Arc<MouseModeWatchRegistry>,
+    /// One pipe-pane attachment per tmux pane (APP-062).
+    pane_io: Arc<PaneIoRegistry>,
     /// APP-055: project-local Run terminal log tee (single writer).
     run_log_tee: Arc<RunLogTee>,
 }
@@ -97,30 +98,7 @@ impl Default for TerminalService {
 impl TerminalService {
     /// Create a new terminal service
     pub fn new() -> Self {
-        // Install shell shims for dynamic terminal titles
-        let shims_dir = match core_engine::shims::ensure_installed() {
-            Ok(dir) => Some(dir),
-            Err(e) => {
-                warn!(
-                    "Failed to install shell shims (dynamic titles disabled): {}",
-                    e
-                );
-                None
-            }
-        };
-
-        Self {
-            sessions: Arc::new(Mutex::new(HashMap::new())),
-            tmux_engine: Arc::new(TmuxEngine::new()),
-            default_cols: 120,
-            default_rows: 30,
-            creation_locks: Arc::new(Mutex::new(HashMap::new())),
-            shims_dir,
-            db: None,
-            agent_hooks: std::sync::RwLock::new(None),
-            mouse_mode_watches: Arc::new(MouseModeWatchRegistry::new()),
-            run_log_tee: Arc::new(RunLogTee::new()),
-        }
+        Self::new_internal(None, None)
     }
 
     pub fn new_with_db(db: Arc<DatabaseConnection>) -> Self {
@@ -227,62 +205,23 @@ impl TerminalService {
             }
         };
 
+        let tmux_engine = tmux_engine.unwrap_or_else(|| Arc::new(TmuxEngine::new()));
+        let pane_io = Arc::new(PaneIoRegistry::new(Arc::new(TmuxPipeDriver::new(
+            Arc::clone(&tmux_engine),
+        ))));
+
         Self {
             sessions: Arc::new(Mutex::new(HashMap::new())),
-            tmux_engine: tmux_engine.unwrap_or_else(|| Arc::new(TmuxEngine::new())),
+            tmux_engine,
             default_cols: 120,
             default_rows: 30,
             creation_locks: Arc::new(Mutex::new(HashMap::new())),
             shims_dir,
             db,
             agent_hooks: std::sync::RwLock::new(None),
-            mouse_mode_watches: Arc::new(MouseModeWatchRegistry::new()),
+            pane_io,
             run_log_tee: Arc::new(RunLogTee::new()),
         }
-    }
-
-    /// Stop detached mouse-mode watch so a live control client owns observation.
-    pub(super) fn stop_mouse_mode_watch_for_window(&self, tmux_session: &str, window_index: u32) {
-        let key = pane_watch_key(tmux_session, window_index);
-        self.mouse_mode_watches.stop_for_pane(&key);
-    }
-
-    /// When no browser session remains for this master window, keep observing mouse modes.
-    ///
-    /// `remaining` is the sessions map **after** the closing handle was removed.
-    pub(super) async fn ensure_mouse_mode_watch_if_unattached(
-        &self,
-        tmux_session: &str,
-        window_index: u32,
-    ) {
-        let still_live = {
-            let sessions = self.sessions.lock().await;
-            sessions.values().any(|h| {
-                h.tmux_session.as_deref() == Some(tmux_session)
-                    && h.tmux_window_index == Some(window_index)
-            })
-        };
-        if still_live {
-            return;
-        }
-        let pane_id = match self.tmux_engine.get_pane_id(tmux_session, window_index) {
-            Ok(id) => id,
-            Err(error) => {
-                debug!(
-                    "Skip mouse-mode watch for {}:{} (no pane id): {}",
-                    tmux_session, window_index, error
-                );
-                return;
-            }
-        };
-        let key = pane_watch_key(tmux_session, window_index);
-        self.mouse_mode_watches.ensure_for_pane(
-            key,
-            tmux_session.to_string(),
-            window_index,
-            pane_id,
-            self.tmux_engine.socket_file_path(),
-        );
     }
 
     /// Get the TmuxEngine reference
@@ -696,7 +635,7 @@ impl TerminalService {
             }
         }
 
-        // Now attach to this tmux window via tmux control mode.
+        // Now attach to this tmux window via the shared pane pipe.
         // We keep the guard until AFTER attach_to_tmux_window completes, which inserts into self.sessions
         // This ensures a subsequent request for the same session_id will see it in the map
         let result = self
@@ -802,11 +741,12 @@ impl TerminalService {
             Ok(Ok(())) => {
                 // Store session handle with metadata
                 let handle = SessionHandle {
-                    command_tx,
+                    command_tx: Some(command_tx),
                     workspace_id: workspace_id.clone(),
                     tmux_session: None,
                     tmux_window_index: None,
                     client_session: None,
+                    pane_key: None,
                     session_type: SessionType::Simple,
                     project_name,
                     workspace_name,
@@ -946,13 +886,8 @@ impl TerminalService {
         }
 
         // NOTE: We intentionally do NOT evict existing sessions for the same tmux window
-        // here. Previously this was done to handle page-refresh races, but it also
-        // wrongly kicks legitimate simultaneous clients (e.g. tunnel connector while local
-        // browser is open). Since each connection now gets its own grouped session name
-        // (per-connection session_id), there is no tmux-level conflict between clients.
-        // Stale sessions from crashed/disconnected clients are cleaned up by:
-        //   - close_session() when the WebSocket closes cleanly
-        //   - cleanup_stale_client_sessions() on startup
+        // here. Simultaneous clients (browser + mobile + Computer) share one pipe and
+        // subscribe as observers. Stale observers are removed by close_session().
 
         info!(
             "Attaching to existing tmux window: {}:{} for session {}",
@@ -986,7 +921,7 @@ impl TerminalService {
         Ok((rx, snapshot))
     }
 
-    /// Internal: Attach PTY to a tmux window
+    /// Internal: Subscribe to the pane pipe (creating it on first observer).
     #[allow(clippy::too_many_arguments)]
     async fn attach_to_tmux_window(
         &self,
@@ -998,7 +933,6 @@ impl TerminalService {
         cols: u16,
         rows: u16,
         _is_attach: bool,
-        // Metadata for terminal manager
         project_name: Option<String>,
         workspace_name: Option<String>,
         terminal_name: Option<String>,
@@ -1008,44 +942,7 @@ impl TerminalService {
         source_pane_id: Option<String>,
         source_tmux_window_name: Option<String>,
     ) -> Result<mpsc::UnboundedReceiver<Vec<u8>>> {
-        // Each WebSocket connection gets its own tmux client session, named after
-        // the ephemeral session_id UUID assigned by the frontend.
-        //
-        // WHY per-connection (not per-window):
-        // Using a window-stable name caused multiple simultaneous clients (e.g. local
-        // browser + tunnel connector) to share the same grouped session. tmux only allows
-        // one terminal attached to a session at a time, so the second attach would
-        // detach the first, showing "[detached (from session ...)]" to the user.
-        //
-        // WHY link only the target window:
-        // A grouped session contains every master window, so a control client for
-        // one tab can still participate in tmux sizing decisions for other tabs.
-        // Full-screen TUIs such as opencode are very sensitive to those geometry
-        // changes. Link only the target master window into this client session so
-        // each browser tab affects only the pane it is displaying.
-        //
-        // PTY cleanup: stale grouped sessions from disconnected clients are cleaned up
-        // by evict_conflicting_tmux_window_sessions() on reconnect, and by
-        // cleanup_stale_client_sessions() on startup (both key on atmos_client_ prefix).
-        //
-        // Format: atmos_client_{tmux_session}_w{window_index}_{session_id_prefix}
-        //
-        // {tmux_session} + _w{window_index} — human-readable context (which workspace/window).
-        // {session_id_prefix}               — first 8 chars of UUID, unique per connection.
-        let session_id_prefix = &session_id[..8.min(session_id.len())];
-        let client_session_name = format!(
-            "atmos_client_{}_w{}_{}",
-            tmux_session.replace(':', "_"),
-            window_index,
-            session_id_prefix.replace('-', "_"),
-        );
-
-        let pane_id = self
-            .tmux_engine
-            .get_pane_id(&tmux_session, window_index)
-            .map_err(|e| ServiceError::Processing(format!("Failed to get tmux pane id: {}", e)))?;
-        // Live browser client takes over observation from any detached watcher.
-        self.stop_mouse_mode_watch_for_window(&tmux_session, window_index);
+        let pane_key = PaneIoKey::new(tmux_session.clone(), window_index);
         let (control_cols, control_rows) = if is_usable_browser_size(cols, rows) {
             (cols, rows)
         } else {
@@ -1058,117 +955,68 @@ impl TerminalService {
             (pane_cols.max(120), pane_rows.max(30))
         };
 
-        // Create an isolated one-window client session for this control client.
-        self.tmux_engine
-            .create_window_client_session(
-                &tmux_session,
-                window_index,
-                &client_session_name,
+        let run_log = match (
+            cwd.clone().filter(|r| !r.trim().is_empty()),
+            terminal_name.clone().filter(|w| run_window_name_matches(w)),
+        ) {
+            (Some(root), Some(window)) => {
+                Some((Arc::clone(&self.run_log_tee), PathBuf::from(root), window))
+            }
+            _ => None,
+        };
+
+        let output_rx = self
+            .pane_io
+            .ensure_and_subscribe(
+                pane_key.clone(),
+                session_id.clone(),
                 control_cols,
                 control_rows,
+                run_log,
             )
-            .map_err(|e| {
-                ServiceError::Processing(format!("Failed to create tmux client session: {}", e))
-            })?;
+            .await?;
 
-        let target_window = format!("{}:{}", tmux_session, window_index);
-        let cols_string = control_cols.to_string();
-        let rows_string = control_rows.to_string();
-        self.tmux_engine
-            .run_tmux_pub(&[
-                "resize-window",
-                "-t",
-                &target_window,
-                "-x",
-                &cols_string,
-                "-y",
-                &rows_string,
-            ])
-            .map_err(|e| {
-                ServiceError::Processing(format!("Failed to pin tmux window size: {}", e))
-            })?;
-        let socket_path = self.tmux_engine.socket_file_path();
-
-        // Channel for sending commands to the PTY thread
-        let (command_tx, command_rx) = mpsc::unbounded_channel::<SessionCommand>();
-
-        // Channel for receiving PTY output
-        let (raw_output_tx, output_rx) = mpsc::unbounded_channel::<Vec<u8>>();
-        // APP-055: bridge live output into project-local run logs for run-* windows.
-        let output_tx =
-            self.maybe_bridge_run_log_output(raw_output_tx, cwd.clone(), terminal_name.clone());
-        // Keep a clone so we can inject a synthetic title OSC after init
-        let title_tx = output_tx.clone();
-
-        // Channel for receiving initialization result
-        let (init_tx, init_rx) = oneshot::channel::<Result<()>>();
-
-        let session_id_clone = session_id.clone();
-        let client_session_clone = client_session_name.clone();
-        let pane_id_clone = pane_id.clone();
-
-        // Spawn a dedicated thread for tmux control mode I/O.
-        thread::spawn(move || {
-            run_control_mode_tmux_session(
-                session_id_clone,
-                client_session_clone,
-                pane_id_clone,
-                socket_path,
-                control_cols,
-                control_rows,
-                command_rx,
-                output_tx,
-                init_tx,
-            );
+        let (unbounded_tx, unbounded_rx) = mpsc::unbounded_channel::<Vec<u8>>();
+        let title_tx = unbounded_tx.clone();
+        tokio::spawn(async move {
+            let mut output_rx = output_rx;
+            while let Some(data) = output_rx.recv().await {
+                if unbounded_tx.send(data).is_err() {
+                    break;
+                }
+            }
         });
 
-        // Wait for initialization result
-        match init_rx.await {
-            Ok(Ok(())) => {
-                // Inject synthetic OSC 9998 (reattach title only — not shell 9999).
-                // Query tmux for the current pane state (command + cwd).
-                self.inject_initial_title(&tmux_session, window_index, &title_tx);
+        self.inject_initial_title(&tmux_session, window_index, &title_tx);
 
-                // Store session handle with metadata
-                let handle = SessionHandle {
-                    command_tx,
-                    workspace_id: workspace_id.clone(),
-                    tmux_session: Some(tmux_session),
-                    tmux_window_index: Some(window_index),
-                    client_session: Some(client_session_name),
-                    session_type: SessionType::Tmux,
-                    project_name,
-                    workspace_name,
-                    terminal_name,
-                    cwd,
-                    terminal_kind,
-                    side_chat_id,
-                    source_pane_id,
-                    source_tmux_window_name,
-                    created_at: Instant::now(),
-                };
+        let handle = SessionHandle {
+            command_tx: None,
+            workspace_id: workspace_id.clone(),
+            tmux_session: Some(tmux_session),
+            tmux_window_index: Some(window_index),
+            client_session: None,
+            pane_key: Some(pane_key),
+            session_type: SessionType::Tmux,
+            project_name,
+            workspace_name,
+            terminal_name,
+            cwd,
+            terminal_kind,
+            side_chat_id,
+            source_pane_id,
+            source_tmux_window_name,
+            created_at: Instant::now(),
+        };
 
-                self.sessions
-                    .lock()
-                    .await
-                    .insert(session_id.clone(), handle);
-                info!(
-                    "Terminal session created/attached: {} (window index: {})",
-                    session_id, window_index
-                );
-                Ok(output_rx)
-            }
-            Ok(Err(e)) => {
-                error!("Failed to create terminal session: {}", e);
-                Err(e)
-            }
-            Err(_) => {
-                error!("PTY thread failed to respond");
-                Err(ServiceError::Processing(
-                    "PTY initialization failed".to_string(),
-                ))
-            }
-        }
+        self.sessions
+            .lock()
+            .await
+            .insert(session_id.clone(), handle);
+        info!(
+            "Terminal session created/attached: {} (window index: {})",
+            session_id, window_index
+        );
+        Ok(unbounded_rx)
     }
 
     /// Inject a synthetic **OSC 9998** title so the frontend gets an immediate
@@ -1235,7 +1083,7 @@ impl TerminalService {
 
         if snapshot.as_ref().is_some_and(|snapshot| snapshot.alternate) {
             // Full-screen TUIs often redraw shortly after SIGWINCH from the
-            // control client resize. Give that redraw one frame before taking
+            // window pin. Give that redraw one frame before taking
             // the hydration snapshot, otherwise reconnect can replay a
             // half-updated popup/menu.
             tokio::time::sleep(std::time::Duration::from_millis(50)).await;
@@ -1301,5 +1149,40 @@ mod tests {
                 .tmux_engine
                 .get_session_name("13c75c87-516a-40ab-b7b8-bda46c0e3e3e")
         );
+    }
+
+    #[test]
+    fn tmux_live_path_does_not_start_control_mode() {
+        let terminal = include_str!("terminal.rs");
+        let runtime = include_str!("terminal/runtime.rs");
+        let management = include_str!("terminal/management.rs");
+        let io = include_str!("terminal/io.rs");
+        for (name, src) in [
+            ("terminal.rs", terminal),
+            ("runtime.rs", runtime),
+            ("management.rs", management),
+            ("io.rs", io),
+        ] {
+            assert!(
+                !src.contains("run_control_mode_tmux_session"),
+                "{name} must not spawn a control-mode client"
+            );
+            assert!(
+                !src.contains("encode_send_keys_hex_commands"),
+                "{name} must not hex-encode send-keys on the live path"
+            );
+            assert!(
+                !src.contains("refresh-client -C") && !src.contains("refresh-client -r"),
+                "{name} must not use refresh-client"
+            );
+            assert!(
+                !src.contains("atmos_mousewatch_"),
+                "{name} must not start a mousewatch control client"
+            );
+            assert!(
+                !src.contains("format!(\"atmos_client_") && !src.contains("atmos_client_{"),
+                "{name} must not mint grouped atmos_client_* sessions"
+            );
+        }
     }
 }
