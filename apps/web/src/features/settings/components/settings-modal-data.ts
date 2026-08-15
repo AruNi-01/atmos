@@ -29,22 +29,16 @@ function settingsModalT(key: string): string {
 
 export const SETTINGS_GROUPS = [
   {
-    id: "interface",
-    label: settingsModalT("groups.interface.label"),
-    description: settingsModalT("groups.interface.description"),
-    items: ["layout", "editor", "canvas", "terminal"] as const,
-  },
-  {
     id: "personal",
     label: settingsModalT("groups.personal.label"),
     description: settingsModalT("groups.personal.description"),
-    items: ["appearance", "account"] as const,
+    items: ["appearance", "account", "layout", "editor", "canvas", "terminal"] as const,
   },
   {
-    id: "ai-agents",
-    label: settingsModalT("groups.aiAgents.label"),
-    description: settingsModalT("groups.aiAgents.description"),
-    items: ["ai", "code-agent"] as const,
+    id: "coding",
+    label: settingsModalT("groups.coding.label"),
+    description: settingsModalT("groups.coding.description"),
+    items: ["ai", "code-agent", "workspace", "labels"] as const,
   },
   {
     id: "remote-access",
@@ -63,12 +57,6 @@ export const SETTINGS_GROUPS = [
     label: settingsModalT("groups.privacySecurity.label"),
     description: settingsModalT("groups.privacySecurity.description"),
     items: ["permission-access"] as const,
-  },
-  {
-    id: "workspace-projects",
-    label: settingsModalT("groups.workspaceProjects.label"),
-    description: settingsModalT("groups.workspaceProjects.description"),
-    items: ["workspace", "labels"] as const,
   },
   {
     id: "more",

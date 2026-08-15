@@ -206,7 +206,7 @@ function useSettingsContentHighlight(
   }, [activeSection, contentElement, query]);
 }
 
-export function SettingsPage() {
+export function SettingsPage({ onLeave }: { onLeave?: () => void } = {}) {
   const t = useTranslations('settings.modal');
   const router = useAppRouter();
   const needsTrafficLightsPadding = useDesktopTrafficLightsPadding();
@@ -987,8 +987,12 @@ export function SettingsPage() {
   }, [updateNotifyField]);
 
   const leaveSettings = React.useCallback(() => {
+    if (onLeave) {
+      onLeave();
+      return;
+    }
     leaveSettingsPage(router);
-  }, [router]);
+  }, [onLeave, router]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
