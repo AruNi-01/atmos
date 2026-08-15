@@ -308,7 +308,7 @@ export const ArchivedWorkspacesView: React.FC<ArchivedWorkspacesViewProps> = ({ 
                         className="space-y-4"
                       >
                         <div className="flex items-center justify-between sticky top-[76px] bg-background/95 backdrop-blur-sm py-3 z-20 border-b border-border/40">
-                          <span className="text-[11px] font-bold text-muted-foreground/80 uppercase tracking-widest flex items-center gap-3">
+                          <span className="text-[11px] font-semibold text-muted-foreground/80 flex items-center gap-3">
                             <OverflowTooltip
                               text={projectName}
                               className="max-w-[400px]"

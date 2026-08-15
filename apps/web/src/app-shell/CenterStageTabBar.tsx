@@ -53,6 +53,7 @@ import {
   CenterStageStickyTabActions,
   CenterStageTabGroupItemContent,
   CenterStageTabList,
+  CENTER_STAGE_TAB_CLASS,
   getCenterStageSurfaceTabVariant,
 } from "@/app-shell/center-stage-shared-tabs";
 import { AgentIcon } from "@/features/agent/components/AgentIcon";
@@ -530,7 +531,7 @@ export function CenterStageTabBar({
             <TabsTab
               value="wiki"
               onPointerDown={preventNonPrimaryTabActivate}
-              className="group/wiki relative h-full! pl-4 pr-4 data-active:bg-muted/40 data-active:text-foreground text-muted-foreground hover:bg-muted/50 transition-colors gap-2 grow-0 shrink-0 justify-start rounded-none border-0!"
+              className={cn(CENTER_STAGE_TAB_CLASS, "group/wiki relative gap-2 pl-4 pr-4")}
             >
               <span className="relative size-3.5">
                 <BookOpen
@@ -785,7 +786,8 @@ function TerminalExtraTab({
           onPointerDown={preventNonPrimaryTabActivate}
           onContextMenu={onContextMenu}
           className={cn(
-            "group/term-tab relative !h-full pl-4 pr-4 data-active:bg-muted/40 data-active:text-foreground text-muted-foreground hover:bg-muted/50 transition-colors gap-2 grow-0 shrink-0 justify-start rounded-none !border-0",
+            CENTER_STAGE_TAB_CLASS,
+            "group/term-tab relative gap-2 pl-4 pr-4",
             attentionReason && "agent-attention-ring-tab",
             attentionReason === "permission_request" && "agent-attention-ring-permission",
             attentionReason === "task_complete" && "agent-attention-ring-complete",
@@ -820,7 +822,7 @@ function TerminalExtraTab({
                 event.stopPropagation();
                 onClose(tab.id);
               }}
-              className="flex size-5 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-muted-foreground/20 hover:text-foreground cursor-pointer"
+              className="flex size-5 cursor-pointer items-center justify-center rounded-sm text-muted-foreground hover:bg-muted-foreground/20 hover:text-foreground"
             >
               <X className="size-3" />
             </span>
@@ -891,7 +893,7 @@ function CenterStageNewTabMenu({
           aria-label={menuLabel}
           aria-haspopup="menu"
           aria-expanded={open}
-          className="flex h-full w-10 items-center justify-center text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground data-[state=open]:bg-muted/50 data-[state=open]:text-foreground"
+          className="flex h-full w-10 items-center justify-center text-muted-foreground hover:bg-accent hover:text-accent-foreground data-[state=open]:bg-accent data-[state=open]:text-accent-foreground"
           onMouseEnter={() => {
             clearCloseTimer();
             setOpen(true);
@@ -918,7 +920,7 @@ function CenterStageNewTabMenu({
       >
         <button
           type="button"
-          className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-foreground transition-colors hover:bg-muted/60"
+          className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
           onClick={() => {
             onCreateTerminal();
             setOpen(false);
@@ -930,7 +932,7 @@ function CenterStageNewTabMenu({
         </button>
         <button
           type="button"
-          className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-foreground transition-colors hover:bg-muted/60"
+          className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
           onClick={() => {
             onCreateBrowser();
             setOpen(false);
@@ -942,7 +944,7 @@ function CenterStageNewTabMenu({
         {/*
         <button
           type="button"
-          className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-foreground transition-colors hover:bg-muted/60"
+          className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
           onClick={() => {
             onCreateSimulator();
             setOpen(false);
@@ -1027,7 +1029,8 @@ function SpecialTerminalTab({
           onPointerDown={preventNonPrimaryTabActivate}
           onContextMenu={onContextMenu}
           className={cn(
-            "relative !h-full pl-4 pr-4 data-active:bg-muted/40 data-active:text-foreground text-muted-foreground hover:bg-muted/50 transition-colors gap-2 grow-0 shrink-0 justify-start rounded-none !border-0",
+            CENTER_STAGE_TAB_CLASS,
+            "relative gap-2 pl-4 pr-4",
             variant === "project-wiki"
               ? "group/pw"
               : variant === "code-review"
@@ -1059,7 +1062,7 @@ function SpecialTerminalTab({
                 event.stopPropagation();
                 onClose();
               }}
-              className="flex size-5 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-muted-foreground/20 hover:text-foreground cursor-pointer"
+              className="flex size-5 cursor-pointer items-center justify-center rounded-sm text-muted-foreground hover:bg-muted-foreground/20 hover:text-foreground"
             >
               <X className="size-3" />
             </span>

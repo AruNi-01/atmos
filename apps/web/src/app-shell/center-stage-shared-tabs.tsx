@@ -44,6 +44,10 @@ import {
 } from "@/app-shell/center-stage-tabs";
 import { preventNonPrimaryTabActivate } from "@/app-shell/center-stage-tab-model";
 
+/** Instant fill — TabsTab otherwise fades color/background for 150ms. */
+export const CENTER_STAGE_TAB_CLASS =
+  "h-full! grow-0 shrink-0 justify-start rounded-none border-0! text-muted-foreground transition-none hover:bg-accent hover:text-accent-foreground data-active:bg-accent data-active:text-foreground";
+
 type SessionDisplay = {
   sessionTitle?: string | null;
   revisionLabel?: string | null;
@@ -139,7 +143,8 @@ export function CenterStageOverviewTab({
           value={value}
           onPointerDown={preventNonPrimaryTabActivate}
           className={cn(
-            "h-full! pl-4 pr-4 data-active:bg-muted/40 data-active:text-foreground text-muted-foreground hover:bg-muted/50 transition-colors gap-2 grow-0 shrink-0 justify-start rounded-none border-0!",
+            CENTER_STAGE_TAB_CLASS,
+            "gap-2 pl-4 pr-4",
             className,
           )}
         >
@@ -245,7 +250,7 @@ export function CenterStageSurfaceContentTab({
       <TooltipTrigger asChild>
         <TabsTab
           value={value}
-          className="!h-full pl-2 pr-1 data-active:bg-muted/40 data-active:text-foreground text-muted-foreground hover:bg-muted/50 transition-colors gap-1.5 group grow-0 shrink-0 justify-start rounded-none !border-0"
+          className={cn(CENTER_STAGE_TAB_CLASS, "group gap-1.5 pl-2 pr-1")}
           onPointerDown={preventNonPrimaryTabActivate}
           onContextMenu={onContextMenu}
           onDoubleClick={onDoubleClick}
@@ -293,7 +298,7 @@ export function CenterStageSurfaceContentTab({
                   event.stopPropagation();
                   onClose();
                 }}
-                className="absolute inset-0 opacity-0 group-hover:opacity-100 flex items-center justify-center hover:bg-muted-foreground/20 rounded-sm cursor-pointer transition-all ease-out duration-200"
+                className="absolute inset-0 flex cursor-pointer items-center justify-center rounded-sm opacity-0 transition-opacity group-hover:opacity-100 hover:bg-muted-foreground/20"
               >
                 <X className="size-3" />
               </span>

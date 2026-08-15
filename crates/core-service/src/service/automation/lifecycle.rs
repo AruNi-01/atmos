@@ -82,7 +82,8 @@ impl AutomationService {
         )?;
 
         let prompt_path = PathBuf::from(&run.run_dir).join(runner::CONTINUE_PROMPT_FILE);
-        let prompt = build_continue_prompt(&automation, &run);
+        let memory_path = artifacts::ensure_memory_file(&automation.guid)?;
+        let prompt = build_continue_prompt(&automation, &run, &memory_path);
         artifacts::write_user_private_file(&prompt_path, &prompt)?;
 
         let command = agent.build_terminal_launch_command();
@@ -295,33 +296,37 @@ fn parse_run_config(raw: &str) -> Option<agents::AutomationAgentRunConfig> {
     serde_json::from_str(raw).ok()
 }
 
-fn build_continue_prompt(automation: &automation::Model, run: &automation_run::Model) -> String {
+fn build_continue_prompt(
+    automation: &automation::Model,
+    run: &automation_run::Model,
+    memory_path: &PathBuf,
+) -> String {
     format!(
-        r#"# Continue Atmos Automation Run
-
-Automation: {automation_name}
-Automation ID: {automation_guid}
-Run ID: {run_guid}
-Run status: {status}
-Working directory: {cwd}
-
-Read the run context and continue from the result. Start by checking the final result, then inspect the event stream only if needed.
-
-Artifacts:
-- Original prompt: {prompt_path}
-- Final result: {result_path}
-- Run JSON: {run_json_path}
-
-When continuing, preserve the original automation intent and explicitly mention any follow-up actions you take.
+        r#"<automation_continue>
+  <automation_name>{automation_name}</automation_name>
+  <automation_id>{automation_guid}</automation_id>
+  <run_id>{run_guid}</run_id>
+  <status>{status}</status>
+  <cwd>{cwd}</cwd>
+  <task>Read the run context and continue from the result. Start by checking the final result, then inspect the event stream only if needed. Preserve the original automation intent and explicitly mention any follow-up actions you take.</task>
+  <artifacts>
+    <prompt>{prompt_path}</prompt>
+    <final>{result_path}</final>
+    <run_json>{run_json_path}</run_json>
+    <memory>{memory_path}</memory>
+  </artifacts>
+  <memory_policy>Follow the memory rules in the original prompt. Default: leave the file unchanged. Edit it only for a durable fact a later run would otherwise miss.</memory_policy>
+</automation_continue>
 "#,
-        automation_name = automation.display_name,
-        automation_guid = automation.guid,
-        run_guid = run.guid,
-        status = run.status,
-        cwd = run.cwd,
-        prompt_path = run.prompt_path,
-        result_path = run.result_path,
-        run_json_path = run.run_json_path,
+        automation_name = super::xml_escape(&automation.display_name),
+        automation_guid = super::xml_escape(&automation.guid),
+        run_guid = super::xml_escape(&run.guid),
+        status = super::xml_escape(&run.status),
+        cwd = super::xml_escape(&run.cwd),
+        prompt_path = super::xml_escape(&run.prompt_path),
+        result_path = super::xml_escape(&run.result_path),
+        run_json_path = super::xml_escape(&run.run_json_path),
+        memory_path = super::xml_escape(&memory_path.display().to_string()),
     )
 }
 

@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useLayoutEffect, useRef } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useQueryState } from "nuqs";
+import { PushPageStack, usePushPageTransition } from "@workspace/ui";
 
 import CenterStage from "@/app-shell/CenterStage";
 import Footer from "@/app-shell/Footer";
@@ -11,14 +12,22 @@ import LeftSidebar from "@/app-shell/LeftSidebar";
 import { PanelLayout } from "@/app-shell/PanelLayout";
 import RightSidebar from "@/app-shell/RightSidebar";
 import { SettingsPage } from "@/features/settings/components/SettingsModal";
-import { settingsHref } from "@/features/settings/lib/open-settings";
-import { rememberSettingsReturnPath } from "@/features/settings/lib/settings-return";
+import { leaveSettingsPage, settingsHref } from "@/features/settings/lib/open-settings";
+import {
+  isSettingsPathname,
+  rememberSettingsReturnPath,
+} from "@/features/settings/lib/settings-return";
 import { useAppRouter } from "@/shared/hooks/use-app-router";
-import { useContextParams } from "@/shared/hooks/use-context-params";
 import { settingsModalParams } from "@/shared/lib/nuqs/searchParams";
 
+/**
+ * Settings is a push-page over the previous shell page.
+ *
+ * While the URL is `/settings`, `useContextParams` reconstructs the underlay from
+ * the stored return path so the real previous page (not welcome) stays mounted
+ * and slides left as Settings slides in — and slides back on leave.
+ */
 export function AppShellMain() {
-  const { currentView } = useContextParams();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const router = useAppRouter();
@@ -30,39 +39,89 @@ export function AppShellMain() {
     "activeSettingTab",
     settingsModalParams.activeSettingTab,
   );
+  const {
+    phase: settingsPhase,
+    isPresented: settingsPresented,
+    open: openSettingsPush,
+    close: closeSettingsPush,
+  } = usePushPageTransition();
+
+  const isSettingsRoute = isSettingsPathname(pathname);
+  const wasSettingsRouteRef = useRef(isSettingsRoute);
+  const settingsPhaseRef = useRef(settingsPhase);
+  settingsPhaseRef.current = settingsPhase;
 
   useEffect(() => {
-    if (currentView === "settings") return;
+    if (isSettingsRoute) return;
     rememberSettingsReturnPath();
-  }, [currentView, pathname, searchParams]);
+  }, [isSettingsRoute, pathname, searchParams]);
 
   useEffect(() => {
     if (!settingsModal) return;
 
-    if (currentView === "settings") {
+    if (isSettingsRoute) {
       void setSettingsModal(false);
       return;
     }
 
     rememberSettingsReturnPath();
     router.push(settingsHref(activeSettingTab));
-  }, [activeSettingTab, currentView, router, setSettingsModal, settingsModal]);
+  }, [activeSettingTab, isSettingsRoute, router, setSettingsModal, settingsModal]);
 
-  if (currentView === "settings") {
-    return <SettingsPage />;
-  }
+  // Edge-trigger enter/exit so leave→closed does not immediately re-open.
+  useLayoutEffect(() => {
+    const wasSettings = wasSettingsRouteRef.current;
+    wasSettingsRouteRef.current = isSettingsRoute;
+
+    if (isSettingsRoute && !wasSettings) {
+      openSettingsPush();
+      return;
+    }
+
+    if (!isSettingsRoute && wasSettings && settingsPhaseRef.current === "open") {
+      closeSettingsPush();
+    }
+  }, [closeSettingsPush, isSettingsRoute, openSettingsPush]);
+
+  // Cold load already on /settings.
+  useLayoutEffect(() => {
+    if (isSettingsRoute) {
+      openSettingsPush();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- cold start only
+  }, []);
+
+  const handleLeaveSettings = () => {
+    closeSettingsPush({
+      onComplete: () => leaveSettingsPage(router),
+    });
+  };
 
   return (
-    <>
-      <Header />
+    <PushPageStack
+      phase={settingsPhase}
+      className="min-h-0 flex-1"
+      baseClassName="min-h-0 flex-1"
+      shiftBase
+      base={
+        <>
+          <Header />
 
-      <PanelLayout
-        leftSidebar={<LeftSidebar />}
-        centerStage={<CenterStage />}
-        rightSidebar={<RightSidebar />}
-      />
+          <PanelLayout
+            leftSidebar={<LeftSidebar />}
+            centerStage={<CenterStage />}
+            rightSidebar={<RightSidebar />}
+          />
 
-      <Footer />
-    </>
+          <Footer />
+        </>
+      }
+      overlay={
+        settingsPresented || isSettingsRoute ? (
+          <SettingsPage onLeave={handleLeaveSettings} />
+        ) : null
+      }
+      overlayKey="settings"
+    />
   );
 }

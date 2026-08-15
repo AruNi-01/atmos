@@ -613,6 +613,7 @@
         "model": "Model"
       },
       "share": {
+        "tab": "Share",
         "trigger": "Share",
         "dialogTitle": "Share page",
         "capturing": "Capturing…",
@@ -636,25 +637,20 @@
         }
       },
       "publish": {
-        "title": "Publish page",
-        "description": "Share a link on atmos.land. Updates overwrite the same page.",
-        "signInHint": "Sign in to publish a Token Usage page.",
+        "tab": "Publish",
         "handleLabel": "Handle",
         "handlePlaceholder": "builder",
-        "handleLocked": "Handles can only be claimed once.",
+        "linkLabel": "Link",
+        "openPage": "Open page",
         "visibility": {
           "public": "Public",
           "unlisted": "Unlisted"
         },
         "xPlaceholder": "username",
         "githubPlaceholder": "username",
-        "copyLink": "Copy link",
-        "copied": "Copied",
         "publish": "Publish",
         "update": "Update",
         "turnOff": "Turn off",
-        "rotateSecret": "New secret",
-        "unlistedNeedsSecret": "Unlisted links need the secret. Create a new secret to copy a working URL.",
         "errors": {
           "generic": "Could not publish this page.",
           "usernameTaken": "That handle is taken.",
@@ -1611,6 +1607,7 @@
         }
       },
       "rightSidebar": {
+        "expand": "Expand right sidebar",
         "topTabs": {
           "changes": "Changes",
           "review": "Review",
@@ -1856,14 +1853,49 @@
     "listPanel": {
       "title": "Automations",
       "summary": "{automationCount} automations · {supportedAgentCount} supported agents",
+      "historySummary": "{runCount} runs",
       "searchPlaceholder": "Search automations",
-      "filters": {
-        "all": "All",
-        "project": "Project",
-        "workspace": "Workspace",
-        "standalone": "Standalone"
+      "searchRunsPlaceholder": "Search runs",
+      "tabs": {
+        "automations": "Automations",
+        "history": "Run history"
       },
-      "refreshAria": "Refresh automations",
+      "filter": {
+        "trigger": "Filter",
+        "automation": "Automation",
+        "unknownAutomation": "Deleted automation",
+        "environment": "Environment",
+        "triggerType": "Trigger",
+        "state": "State",
+        "status": "Status",
+        "clearAll": "Clear all filters",
+        "environments": {
+          "project": "Project",
+          "workspace": "Workspace",
+          "newWorkspace": "New workspace",
+          "standalone": "Standalone"
+        },
+        "triggers": {
+          "manual": "Manual",
+          "github": "GitHub",
+          "hourly": "Hourly",
+          "daily": "Daily",
+          "weekly": "Weekly",
+          "monthly": "Monthly",
+          "cron": "Cron"
+        },
+        "states": {
+          "enabled": "Enabled",
+          "paused": "Paused"
+        },
+        "statuses": {
+          "running": "Running",
+          "completed": "Completed",
+          "failed": "Failed",
+          "cancelled": "Cancelled",
+          "interrupted": "Interrupted"
+        }
+      },
       "newButton": "New automation",
       "deleteDialog": {
         "title": "Delete automation?",
@@ -1881,6 +1913,7 @@
         "disableAction": "Disable",
         "enableAction": "Enable",
         "runNow": "Run now",
+        "viewRuns": "Runs",
         "history": "History",
         "actionsAria": "Automation actions",
         "edit": "Edit",
@@ -1889,17 +1922,62 @@
       "empty": {
         "queryTitle": "No matching automations",
         "defaultTitle": "No automations yet",
-        "queryDescription": "Try a different search term.",
+        "queryDescription": "Try a different search or adjust your filters.",
         "defaultDescription": "Create your first automation to get started.",
         "clearSearch": "Clear search",
+        "clearFilters": "Clear filters",
         "newAutomation": "New automation"
       }
     },
+    "runHistoryList": {
+      "unknownAutomation": "Deleted automation",
+      "openDetails": "View details",
+      "completed": "Finished {dateTime}",
+      "trigger": {
+        "manual": "Manual",
+        "github": "GitHub",
+        "scheduled": "Scheduled"
+      },
+      "empty": {
+        "queryTitle": "No matching runs",
+        "defaultTitle": "No runs yet",
+        "queryDescription": "Try a different search or adjust your filters.",
+        "defaultDescription": "Runs will appear here after an automation starts.",
+        "clearSearch": "Clear search",
+        "clearFilters": "Clear filters"
+      }
+    },
+    "runDrawer": {
+      "title": "Run details",
+      "titleNamed": "Run {id}",
+      "close": "Close run details",
+      "standalone": {
+        "title": "Standalone conversation",
+        "description": "Continue this run in a local chat.",
+        "close": "Close conversation"
+      }
+    },
     "setup": {
+      "title": {
+        "create": "New automation",
+        "edit": "Edit automation"
+      },
+      "subtitle": {
+        "create": "Name the job, pick an environment and trigger, then write the instruction.",
+        "edit": "Update this automation’s setup, instruction, or memory."
+      },
+      "instructions": {
+        "label": "Instructions"
+      },
+      "memory": {
+        "label": "Memories",
+        "description": "Persistent notes for this job. Each run gives the agent the local memory file path so it can read it and decide whether to append or rewrite it."
+      },
       "agentOptions": {
         "ready": "Ready",
         "unavailable": "Unavailable",
-        "unavailableReason": "This agent cannot be used for automations yet."
+        "unavailableReason": "This agent cannot be used for automations yet.",
+        "select": "Select agent"
       },
       "headlines": {
         "automateNext": "What should <wordmark>Atmos</wordmark> automate next?",
@@ -1938,7 +2016,14 @@
         "withAgent": "Describe what {agentName} should do...",
         "default": "Describe what this automation should do..."
       },
-      "backButton": "Back"
+      "backButton": "Back",
+      "unsavedChanges": {
+        "title": "Unsaved changes",
+        "descriptionCreate": "This automation has not been saved. Save it or discard the draft.",
+        "descriptionEdit": "This automation has unsaved changes. Save them or discard the edits.",
+        "save": "Save",
+        "discard": "Discard"
+      }
     },
     "format": {
       "target": {
@@ -2168,7 +2253,8 @@
         "enableFailed": "Enable failed",
         "disableFailed": "Disable failed",
         "cancelFailed": "Cancel failed",
-        "continueInTerminalFailed": "Failed to continue in terminal"
+        "continueInTerminalFailed": "Failed to continue in terminal",
+        "saveMemoryFailed": "Failed to save memory"
       },
       "toasts": {
         "created": "Automation created",
@@ -2228,7 +2314,9 @@
         "loadingProjects": "Loading projects",
         "selectProject": "Select project",
         "loadingWorkspaces": "Loading workspaces",
-        "selectWorkspace": "Select workspace"
+        "selectWorkspace": "Select workspace",
+        "searchWorkspaces": "Search workspaces",
+        "noMatchingWorkspaces": "No matching workspaces"
       },
       "standaloneHint": "Runs use a standalone directory under the owning Computer's automation run folder."
     },
@@ -2237,13 +2325,18 @@
         "title": "Select a run",
         "description": "Artifacts and terminal metadata appear here."
       },
-      "title": "Run Detail",
+      "title": "Run detail",
       "actions": {
         "cancel": "Cancel",
         "continue": "Continue"
       },
       "inline": {
-        "exitCode": "exit {code}"
+        "exitCode": "Exit {code}"
+      },
+      "trigger": {
+        "manual": "Manual",
+        "github": "GitHub",
+        "scheduled": "Scheduled"
       },
       "metadata": {
         "status": "Status",
@@ -2274,6 +2367,14 @@
     },
     "historyPage": {
       "title": "Automation history",
+      "tabs": {
+        "runs": "Runs",
+        "memory": "Memories"
+      },
+      "memory": {
+        "title": "Memories",
+        "description": "This file stays on this computer. The agent can read and edit it on every run."
+      },
       "badges": {
         "paused": "Paused"
       },
@@ -2310,11 +2411,11 @@
         "placeholder": "Daily repo health"
       },
       "submit": {
-        "saving": "Saving automation",
+        "saving": "Saving",
         "createAria": "Create automation",
-        "updateAria": "Update automation",
-        "create": "Create Automation",
-        "update": "Update Automation"
+        "updateAria": "Save automation",
+        "create": "Create",
+        "update": "Save"
       }
     },
     "schedule": {
@@ -2383,6 +2484,15 @@
       "failedToLoadTitle": "Failed to load run history",
       "failedToFetchArtifactTitle": "Failed to load artifact",
       "unknownError": "Unknown error"
+    },
+    "memory": {
+      "fileHint": "memory.md",
+      "save": "Save",
+      "saving": "Saving",
+      "saved": "Saved",
+      "editor": "Editor",
+      "preview": "Preview",
+      "emptyPreview": "Nothing to preview yet."
     }
   },
   "project": {
@@ -4067,44 +4177,55 @@
       },
       "scriptDialog": {
         "title": "Workspace Scripts",
-        "description": "Configure scripts for Setup, Run, and Purge. Scripts are executed in the current workspace directory.",
+        "unsaved": "Unsaved",
         "toasts": {
           "errorTitle": "Error",
           "loadFailed": "Failed to load scripts",
           "saveFailed": "Failed to save scripts"
         },
+        "phases": {
+          "label": "Lifecycle"
+        },
+        "trustHint": {
+          "label": "About script trust",
+          "tooltip": "Atmos checks whether these scripts are trusted before they run, so commands from a clone or pull cannot execute in your shell unseen. Saving here marks this copy as trusted."
+        },
         "env": {
-          "title": "Available Environment Variables:",
-          "rootProjectPath": "Path to root project",
+          "title": "Insert",
+          "rootProjectPath": "Path to the root project",
           "workspaceName": "Current workspace name",
-          "workspacePath": "Path to current workspace",
-          "note": "Note: For complex scripts, create a .sh file in .atmos/scripts/ and reference it (e.g., \"./.atmos/scripts/myscript.sh\")."
+          "workspacePath": "Path to the current workspace"
         },
         "setup": {
-          "title": "Setup Script",
-          "placeholder": "e.g. cp $ATMOS_ROOT_PROJECT_PATH/.env . && npm install",
-          "help": "Executed when setting up a new workspace."
+          "title": "Setup",
+          "placeholder": "cp $ATMOS_ROOT_PROJECT_PATH/.env . && npm install",
+          "help": "Runs once when a new workspace is created."
         },
         "run": {
-          "title": "Run Script",
-          "placeholder": "e.g. npm run dev",
-          "help": "One-click command to start services."
+          "title": "Run",
+          "placeholder": "npm run dev",
+          "help": "Starts services for this workspace."
         },
         "purge": {
-          "title": "Purge Script",
-          "placeholder": "e.g. rm -rf node_modules",
-          "help": "Executed to clean up worktree/workspace files."
+          "title": "Purge",
+          "placeholder": "rm -rf node_modules",
+          "help": "Cleans files before the workspace is removed."
+        },
+        "status": {
+          "empty": "Empty",
+          "set": "Set",
+          "edited": "Edited"
         },
         "actions": {
-          "cancel": "Cancel",
           "saving": "Saving...",
-          "saveScripts": "Save Scripts"
+          "save": "Save & Trust"
         },
         "confirmExit": {
-          "title": "Unsaved Changes",
-          "description": "You have unsaved changes. Are you sure you want to close without saving?",
-          "keepEditing": "Keep Editing",
-          "discardChanges": "Discard Changes"
+          "title": "Unsaved changes",
+          "description": "Closing will discard edits to Setup, Run, and Purge.",
+          "keepEditing": "Keep editing",
+          "discardChanges": "Discard changes",
+          "save": "Save & Trust"
         }
       },
       "workspaceSetup": {
@@ -4215,6 +4336,10 @@
           "noItemsInSection": "No items in this section."
         }
       },
+      "viewTabs": {
+        "recent": "Recent",
+        "archived": "Archived"
+      },
       "recentView": {
         "header": {
           "title": "Recent Workspaces",
@@ -4222,7 +4347,7 @@
         },
         "searchPlaceholder": "Search by name, project, or branch...",
         "unknownPath": "Unknown path",
-        "archivedBadge": "ARCHIVED",
+        "archivedBadge": "Archived",
         "groups": {
           "today": "Today",
           "yesterday": "Yesterday",
@@ -4525,17 +4650,13 @@
         "noSettingsFound": "No settings found."
       },
       "groups": {
-        "interface": {
-          "label": "Interface",
-          "description": "Layout, editor, canvas, and keyboard preferences"
-        },
         "personal": {
           "label": "Personal",
-          "description": "Theme, language, and your account"
+          "description": "Appearance, account, layout, editor, canvas, and terminal"
         },
-        "aiAgents": {
-          "label": "AI Agents",
-          "description": "AI providers and code agent configurations"
+        "coding": {
+          "label": "Coding",
+          "description": "AI, code agent, workspace, and labels"
         },
         "remoteAccess": {
           "label": "Remote Access",
@@ -4547,11 +4668,7 @@
         },
         "privacySecurity": {
           "label": "Privacy & Security",
-          "description": "Permission access and other privacy controls"
-        },
-        "workspaceProjects": {
-          "label": "Workspace & Projects",
-          "description": "Workspace management and labels"
+          "description": "Permission Access and other privacy controls"
         },
         "more": {
           "label": "More",
@@ -4628,7 +4745,7 @@
           "description": "Local desktop capture, control engine, and macOS permissions"
         },
         "permissionAccess": {
-          "label": "Permission access",
+          "label": "Permission Access",
           "description": "Allow Atmos Server to read signed-in browser cookies when a product is installed."
         },
         "appearance": {
@@ -4660,7 +4777,7 @@
           "description": "Grant Accessibility and Screen Recording to Atmos Desktop Use. macOS System Settings is the source of truth — Atmos cannot store these grants itself."
         },
         "empty": "No permission sources available.",
-        "error": "Could not update Permission access. Check your connection and try again.",
+        "error": "Could not update Permission Access. Check your connection and try again.",
         "toggleAria": "Allow browser cookie access for {name}"
       },
       "unknownError": "Unknown error",
@@ -6403,10 +6520,10 @@
         "permissions": {
           "title": "Permissions",
           "description": "Grant Accessibility and Screen Recording to Atmos Desktop Use — one identity for capture, control, and AppShot’s Left⇧+Right⇧ shortcut.",
-          "openAccessHint": "OS grants for Desktop Use live under Privacy & Security → Permission access.",
-          "openAccessTitle": "Permission access",
-          "openAccessDescription": "Grant Accessibility and Screen Recording in the shared Permission access page.",
-          "openAccess": "Open Permission access"
+          "openAccessHint": "OS grants for Desktop Use live under Privacy & Security → Permission Access.",
+          "openAccessTitle": "Permission Access",
+          "openAccessDescription": "Grant Accessibility and Screen Recording in the shared Permission Access page.",
+          "openAccess": "Open Permission Access"
         },
         "visibility": {
           "title": "Visual feedback",
@@ -7889,7 +8006,7 @@
       "heading": "Local Services",
       "title": "Atmos Local Services",
       "subtitle": "Browse local services discovered across all Atmos projects.",
-      "triggerLabel": "LOCAL {count}",
+      "triggerLabel": "Local {count}",
       "refresh": "Refresh",
       "emptyLabel": "No local services found."
     }
@@ -8278,6 +8395,33 @@
     }
   },
   "skills": {
+    "view": {
+      "title": "Skills",
+      "description": "Manage installed skills, browse the market, and discover resources.",
+      "refresh": "Refresh skills",
+      "search": {
+        "installed": "Search installed skills",
+        "market": "Search skills market",
+        "resources": "Search resources"
+      },
+      "tabs": {
+        "installed": "Installed",
+        "market": "Market",
+        "resources": "Resources"
+      },
+      "filter": {
+        "trigger": "Filter",
+        "scope": "Scope",
+        "projects": "Projects",
+        "clearAll": "Clear all filters",
+        "scopes": {
+          "all": "All",
+          "system": "Atmos built-in",
+          "global": "Global",
+          "project": "Project"
+        }
+      }
+    },
     "viewUtils": {
       "installedEmptyCopy": "Extend Atmos with local and project-scoped skills, or browse the market below.",
       "marketEmptyCopy": "No skills in the market matched your search. Try a different keyword.",

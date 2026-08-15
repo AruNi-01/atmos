@@ -2,8 +2,24 @@
 
 import { usePathname, useSearchParams } from "next/navigation";
 
-export type CurrentView = "welcome" | "workspace" | "project" | "workspaces" | "skills" | "terminals" | "agents" | "automations" | "disk-analyzer" | "token-usage" | "tasks" | "settings";
+import {
+  isSettingsPathname,
+  resolveStoredSettingsReturnPath,
+} from "@/features/settings/lib/settings-return";
 
+export type CurrentView =
+  | "welcome"
+  | "workspace"
+  | "project"
+  | "workspaces"
+  | "skills"
+  | "terminals"
+  | "agents"
+  | "automations"
+  | "disk-analyzer"
+  | "token-usage"
+  | "tasks"
+  | "settings";
 
 interface ContextParams {
   /** Workspace ID from query param ?id= on /workspace */
@@ -12,7 +28,7 @@ interface ContextParams {
   projectId: string | null;
   /** workspaceId ?? projectId — the effective context for CenterStage */
   effectiveContextId: string | null;
-  /** Which top-level view is active */
+  /** Which top-level view is active (underlay view while Settings is open) */
   currentView: CurrentView;
   /** Skill scope from query param ?scope= on /skills */
   skillScope: string | null;
@@ -29,29 +45,13 @@ const EMPTY: Omit<ContextParams, "currentView"> = {
 };
 
 /**
- * Reads context from URL search params (for dynamic data) and pathname
- * (for view identification).
- *
- * Route structure (inside `(app)/`):
- *   /                        → welcome
- *   /workspace?id=...        → workspace
- *   /project?id=...          → project
- *   /workspaces              → workspaces management
- *   /skills                  → skills list
- *   /skills?scope=...&skillId=... → skill detail
- *   /terminals               → terminals
- *   /agents                  → agents management
- *   /automations             → automations management
- *   /disk-analyzer           → disk analyzer
- *   /token-usage             → token usage dashboard
- *   /tasks                  → task surface
- *   /settings               → settings
+ * Pure URL → context parser. Also used while Settings is open to reconstruct the
+ * previous page under the push stack from the stored return path.
  */
-export function useContextParams(): ContextParams {
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
-
-  // First segment determines the view
+export function parseContextParams(
+  pathname: string,
+  searchParams: URLSearchParams | { get: (key: string) => string | null },
+): ContextParams {
   const segments = pathname.split("/").filter(Boolean);
   const firstSegment = segments[0] || "";
 
@@ -90,4 +90,55 @@ export function useContextParams(): ContextParams {
   if (firstSegment === "settings") return { ...EMPTY, currentView: "settings" };
 
   return { ...EMPTY, currentView: "welcome" };
+}
+
+function parseContextParamsFromHref(href: string): ContextParams | null {
+  try {
+    const url = new URL(href, "http://local.invalid");
+    return parseContextParams(url.pathname, url.searchParams);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Reads context from URL search params (for dynamic data) and pathname
+ * (for view identification).
+ *
+ * While the location is `/settings`, shell chrome (sidebar / center stage) is
+ * driven by the stored settings return path so the previous page stays mounted
+ * under the Settings push animation — instead of collapsing to welcome.
+ *
+ * Route structure (inside `(app)/`):
+ *   /                        → welcome
+ *   /workspace?id=...        → workspace
+ *   /project?id=...          → project
+ *   /workspaces              → workspaces management
+ *   /skills                  → skills list
+ *   /skills?scope=...&skillId=... → skill detail
+ *   /terminals               → terminals
+ *   /agents                  → agents management
+ *   /automations             → automations management
+ *   /disk-analyzer           → disk analyzer
+ *   /token-usage             → token usage dashboard
+ *   /tasks                   → task surface
+ *   /settings                → settings (shell uses return-path underlay)
+ */
+export function useContextParams(): ContextParams {
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  if (isSettingsPathname(pathname)) {
+    const returnPath = resolveStoredSettingsReturnPath();
+    if (returnPath) {
+      const underlay = parseContextParamsFromHref(returnPath);
+      if (underlay && underlay.currentView !== "settings") {
+        return underlay;
+      }
+    }
+    // No return path (cold open on /settings) — neutral underlay.
+    return { ...EMPTY, currentView: "welcome" };
+  }
+
+  return parseContextParams(pathname, searchParams);
 }

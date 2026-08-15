@@ -14,7 +14,7 @@ import {
   SidebarMenuItem,
   cn,
 } from "@workspace/ui";
-import { ArrowLeft, Globe, KeyRound, Search, SunMoon, X } from "lucide-react";
+import { ArrowLeft, Search, X } from "lucide-react";
 import InfoCircleIcon from "@workspace/ui/components/icons/info-circle-icon";
 import LayoutDashboardIcon from "@workspace/ui/components/icons/layout-dashboard-icon";
 import TerminalIcon from "@workspace/ui/components/icons/terminal-icon";
@@ -31,6 +31,9 @@ import { BlocksIcon } from "@workspace/ui/components/icons/blocks-icon";
 import { UserIcon } from "@workspace/ui/components/icons/user-icon";
 import CodeXmlIcon from "@workspace/ui/components/ui/code-xml-icon";
 import CanvasIcon from "@workspace/ui/components/icons/canvas-icon";
+import { SunMoonIcon } from "@workspace/ui/components/icons/sun-moon-icon";
+import BrandChromeIcon from "@workspace/ui/components/icons/brand-chrome-icon";
+import { KeyCircleIcon } from "@workspace/ui/components/icons/key-circle-icon";
 import type { AnimatedIconHandle } from "@workspace/ui/components/icons/types";
 import { FlaskIcon, type FlaskIconHandle } from "@/shared/components/ui/flask-icon";
 import {
@@ -105,7 +108,7 @@ function SettingsSectionIcon({
   if (sectionId === "code-agent") return <BotIcon ref={iconRef} className="shrink-0" size={16} />;
   if (sectionId === "workspace") return <FolderKanbanIcon ref={iconRef} className="shrink-0" size={16} />;
   if (sectionId === "labels") return <TagIcon ref={iconRef} className="shrink-0" size={16} />;
-  if (sectionId === "appearance") return <SunMoon className="shrink-0" size={16} />;
+  if (sectionId === "appearance") return <SunMoonIcon ref={iconRef} className="shrink-0" size={16} />;
   if (sectionId === "account") return <UserIcon ref={iconRef} className="shrink-0" size={16} />;
   if (sectionId === "integrations") return <BlocksIcon ref={iconRef} className="shrink-0" size={16} />;
   if (sectionId === "ai") return <BrainCircuitIcon ref={iconRef} className="shrink-0" size={16} />;
@@ -116,10 +119,10 @@ function SettingsSectionIcon({
     return <DesktopUseIcon ref={iconRef} className="shrink-0" size={16} />;
   }
   if (sectionId === "browser") {
-    return <Globe className="shrink-0" size={16} />;
+    return <BrandChromeIcon ref={iconRef} className="shrink-0" size={16} />;
   }
   if (sectionId === "permission-access") {
-    return <KeyRound className="shrink-0" size={16} />;
+    return <KeyCircleIcon ref={iconRef} className="shrink-0" size={16} />;
   }
   if (sectionId === "shortcuts") return <KeyboardIcon ref={iconRef} className="shrink-0" size={16} />;
   if (sectionId === "experiments") {
@@ -244,18 +247,18 @@ export function SettingsModalSidebar({
         </div>
       </SidebarHeader>
 
-      <SidebarContent className="gap-1 overflow-y-auto px-3 pb-3 pt-1">
+      <SidebarContent className="gap-0.5 overflow-y-auto px-3 pb-3 pt-1">
         {filteredGroups.length === 0 ? (
           <div className="px-2 py-6 text-sm text-muted-foreground">
             {t("sidebar.noSettingsFound")}
           </div>
         ) : null}
         {filteredGroups.map((group) => (
-          <SidebarGroup key={group.id} className="px-2 py-1 first:pt-1">
-            <SidebarGroupLabel className="h-7">
+          <SidebarGroup key={group.id} className="px-2 py-0.5 first:pt-1">
+            <SidebarGroupLabel className="h-6">
               {t(`groups.${toCamelCase(group.id)}.label`)}
             </SidebarGroupLabel>
-            <SidebarMenu>
+            <SidebarMenu className="gap-0.5">
               {group.items.map((itemId) => {
                 const section = SETTINGS_SECTIONS.find((item) => item.id === itemId);
                 if (!section) return null;
@@ -269,7 +272,7 @@ export function SettingsModalSidebar({
                       type="button"
                       isActive={isActive}
                       onClick={() => onSelectSection(section.id)}
-                      className="h-9 gap-3 rounded-lg px-3 text-left"
+                      className="h-8 gap-2.5 rounded-md px-2.5 text-left"
                       onMouseEnter={() => itemIconRef.current?.startAnimation?.()}
                       onMouseLeave={() => itemIconRef.current?.stopAnimation?.()}
                     >

@@ -8,7 +8,9 @@ import {
   buildSideChatPrompt,
   buildSideChatPromptWithContextFile,
   mergeSideChatRecords,
+  minimizedSideChatHasAttentionSummary,
   shouldInlineSideChatPrompt,
+  sideChatStablePaneId,
   type LocalSideChatRecord,
 } from "../terminal-side-chat";
 
@@ -85,6 +87,55 @@ describe("mergeSideChatRecords", () => {
         sessionId: "session-local",
       },
     ]);
+  });
+});
+
+describe("sideChatStablePaneId", () => {
+  it("uses workspace and tmux window like main pane attention keys", () => {
+    expect(
+      sideChatStablePaneId(
+        sideChatRecord({
+          side_chat_id: "side-1",
+          workspace_id: "ws-1",
+          side_tmux_window_name: "side-window-1",
+        }),
+      ),
+    ).toBe("ws-1:side-window-1");
+  });
+
+  it("falls back to the local session id when the window is not assigned yet", () => {
+    expect(
+      sideChatStablePaneId(
+        sideChatRecord({
+          side_chat_id: "side-1",
+          workspace_id: "ws-1",
+          side_tmux_window_name: "",
+          sessionId: "session-local",
+        }),
+      ),
+    ).toBe("session-local");
+  });
+});
+
+describe("minimizedSideChatHasAttentionSummary", () => {
+  it("is true only for hidden side chats that still have a summary", () => {
+    const hidden = sideChatRecord({
+      side_chat_id: "side-hidden",
+      workspace_id: "ws-1",
+      status: "hidden",
+      side_tmux_window_name: "side-hidden",
+    });
+    const open = sideChatRecord({
+      side_chat_id: "side-open",
+      workspace_id: "ws-1",
+      status: "open",
+      side_tmux_window_name: "side-open",
+    });
+    const hasSummary = (paneId: string) => paneId === "ws-1:side-hidden" || paneId === "ws-1:side-open";
+
+    expect(minimizedSideChatHasAttentionSummary([hidden], hasSummary)).toBe(true);
+    expect(minimizedSideChatHasAttentionSummary([open], hasSummary)).toBe(false);
+    expect(minimizedSideChatHasAttentionSummary([hidden], () => false)).toBe(false);
   });
 });
 

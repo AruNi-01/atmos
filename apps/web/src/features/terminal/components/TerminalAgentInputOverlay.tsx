@@ -192,7 +192,6 @@ export const TerminalAgentInputOverlay = React.forwardRef<
   const attentionSummary = useAgentAttentionSummaryStore(
     selectPaneAttentionSummary(stablePaneId ?? ""),
   );
-  const hasAttentionSummary = !!attentionSummary;
   const isSummarySummarizing = attentionSummary?.status === "summarizing";
   const isSummaryActive =
     attentionSummary?.status === "summarizing" ||
@@ -222,12 +221,6 @@ export const TerminalAgentInputOverlay = React.forwardRef<
     setIsPinned(false);
   }, [richInputActive]);
 
-  // Auto-open rich input when unattended summary starts or is ready so the
-  // loading / result panel is visible above the composer.
-  React.useEffect(() => {
-    if (!richInputActive || !isSummaryActive) return;
-    setIsOpen(true);
-  }, [isSummaryActive, richInputActive]);
   const [text, setText] = React.useState("");
   const [isSending, setIsSending] = React.useState(false);
   const [isSendAnimating, setIsSendAnimating] = React.useState(false);
@@ -253,8 +246,7 @@ export const TerminalAgentInputOverlay = React.forwardRef<
   const [sideChatRunConfigs, setSideChatRunConfigs] = React.useState<
     Record<string, TerminalAgentRunConfigInput | null>
   >({});
-  const isOverlayVisible =
-    isOpen || isSendAnimating || isSendExiting || isSummaryActive;
+  const isOverlayVisible = isOpen || isSendAnimating || isSendExiting;
   const canSubmit = isTerminalReady && text.trim().length > 0 && !isSending && !isSendAnimating && !isSendExiting;
 
   const runnableSideChatAgents = React.useMemo(
@@ -1184,7 +1176,6 @@ export const TerminalAgentInputOverlay = React.forwardRef<
             !isPinned &&
             !isSendAnimating &&
             !isSendExiting &&
-            !isSummaryActive &&
             !text.trim() &&
             attachments.length === 0
           ) {
@@ -1192,36 +1183,28 @@ export const TerminalAgentInputOverlay = React.forwardRef<
           }
         }}
       >
-        {hasAttentionSummary && attentionSummary ? (
-          <div
-            className={cn(
-              "w-full transition-[opacity,transform] duration-200 ease-out",
-              isOverlayVisible
-                ? "opacity-100 translate-y-0"
-                : "pointer-events-none opacity-0 translate-y-2",
-            )}
-          >
-            <AttentionSummaryPanel
-              summary={attentionSummary}
-              onPickNextStep={(step) => {
-                setIsOpen(true);
-                setText(step);
-                composerRef.current?.setText(step);
-                focusComposerSoon();
-              }}
-              onDismiss={() => {
-                if (!stablePaneId) return;
-                dismissAttentionSummaryChrome(stablePaneId);
-              }}
-            />
-          </div>
-        ) : null}
-
         <TerminalAgentInputShell
           attachments={attachments}
           canSubmit={canSubmit}
           composerRef={composerRef}
           handleAttachmentRemove={handleAttachmentRemove}
+          header={
+            attentionSummary ? (
+              <AttentionSummaryPanel
+                summary={attentionSummary}
+                onPickNextStep={(step) => {
+                  setIsOpen(true);
+                  setText(step);
+                  composerRef.current?.setText(step);
+                  focusComposerSoon();
+                }}
+                onDismiss={() => {
+                  if (!stablePaneId) return;
+                  dismissAttentionSummaryChrome(stablePaneId);
+                }}
+              />
+            ) : undefined
+          }
           handleImagePaste={handleImagePaste}
           handleTextChange={handleTextChange}
           inputShellRef={inputShellRef}
@@ -1283,16 +1266,17 @@ export const TerminalAgentInputOverlay = React.forwardRef<
                     : "ready"
                   : undefined
               }
+              data-stable-pane-id={stablePaneId ?? undefined}
               className={cn(
                 "h-1 w-28 rounded-full shadow-[0_1px_4px_rgba(0,0,0,0.16)] transition-[opacity,background-color,box-shadow] duration-200",
                 isSummaryActive
                   ? "terminal-agent-input-trigger--summary bg-sky-500"
                   : "bg-foreground/25",
-                isSummarySummarizing && "terminal-agent-input-trigger--pulse",
-                isOverlayVisible && !isSummaryActive
+                isSummaryActive && !isOverlayVisible && "terminal-agent-input-trigger--pulse",
+                isOverlayVisible
                   ? "opacity-0"
                   : isSummaryActive
-                    ? "opacity-100"
+                    ? undefined
                     : "opacity-100 hover:bg-foreground/35",
               )}
               onFocus={() => setIsOpen(true)}

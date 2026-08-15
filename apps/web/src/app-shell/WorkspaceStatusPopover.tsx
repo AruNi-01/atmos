@@ -143,7 +143,7 @@ export function WorkspaceStatusPopover({
       <PopoverTrigger asChild>
         <button
           type="button"
-          className="grid h-7 max-w-[280px] grid-cols-[22px_minmax(0,1fr)_2px] items-center gap-2 rounded-md border border-transparent bg-muted/40 pl-2 pr-1 text-left transition-colors hover:border-border hover:bg-muted/60"
+          className="grid h-7 max-w-[280px] grid-cols-[22px_minmax(0,1fr)_2px] items-center gap-2 rounded-md border border-transparent bg-muted/40 pl-2 pr-1 text-left hover:border-border hover:bg-muted/60"
           aria-label={`Workspace status: ${progress.stepTitle}`}
         >
           <ProgressRing

@@ -4,6 +4,8 @@ import * as React from "react";
 import { Bot, BrainCircuit, Coins, DollarSign } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import {
+  IconSwap,
+  IconSwapItem,
   cn,
   compactSlidingParts,
   currencySlidingParts,
@@ -40,8 +42,8 @@ import {
 import {
   TokenUsageAgentIcon,
   TokenUsageModelIcon,
-  TokenUsageOverviewTab,
-} from "@/features/token-usage/TokenUsageOverviewTab";
+} from "@/features/token-usage/TokenUsageIcons";
+import { TokenUsageOverviewTab } from "@/features/token-usage/TokenUsageOverviewTab";
 import {
   inflateSharePayload,
   type TokenUsageSharePayload,
@@ -86,19 +88,10 @@ function TokenUsageCycleButton({
         if (next.id !== active.id) onValueChange(next.id);
       }}
     >
-      <span className="relative size-4 shrink-0">
-        <AnimatePresence mode="wait" initial={false}>
-          <motion.span
-            key={active.id}
-            initial={{ opacity: 0, y: 5 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -5 }}
-            transition={CYCLE_TRANSITION}
-            className="absolute inset-0 flex items-center justify-center"
-          >
-            {active.icon}
-          </motion.span>
-        </AnimatePresence>
+      <span className="inline-flex size-4 shrink-0 items-center justify-center">
+        <IconSwap>
+          <IconSwapItem key={active.id}>{active.icon}</IconSwapItem>
+        </IconSwap>
       </span>
       <span className="relative inline-grid overflow-hidden leading-none">
         <span className="invisible col-start-1 row-start-1 whitespace-nowrap" aria-hidden>

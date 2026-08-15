@@ -124,14 +124,14 @@ export function LocalModelDownloadProgress() {
 
   return (
     <div
-      className="desktop-no-drag flex h-7 items-center overflow-hidden rounded-md border border-border transition-colors hover:border-border/80"
+      className="desktop-no-drag flex h-7 items-center overflow-hidden rounded-md border border-border hover:border-border/80"
       onMouseLeave={() => setIsExpanded(false)}
     >
       {/* Main indicator - always shows loading icon and progress */}
       <button
         onClick={handleClick}
         onMouseEnter={() => setIsExpanded(true)}
-        className="flex h-full items-center rounded-md px-2 transition-all outline-none hover:cursor-pointer hover:bg-accent/50"
+        className="flex h-full items-center rounded-md px-2 outline-none hover:cursor-pointer hover:bg-accent"
         title={t("openSettings")}
       >
         <Loader2 className="size-3.5 shrink-0 animate-spin text-muted-foreground" />
