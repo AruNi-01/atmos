@@ -212,7 +212,7 @@ impl PaneIoRegistry {
         let attached = tokio::task::spawn_blocking(move || driver.attach(&attach_key))
             .await
             .map_err(|error| ServiceError::Processing(format!("pipe attach task failed: {error}")))?
-            .map_err(|error| {
+            .inspect_err(|error| {
                 dbg().log(
                     "PIPE_ATTACH_FAIL",
                     "pipe-pane attach failed",
@@ -221,7 +221,6 @@ impl PaneIoRegistry {
                         "error": error.to_string(),
                     })),
                 );
-                error
             })?;
 
         let live = match self.spawn_live(key.clone(), attached, cols, rows, run_log) {

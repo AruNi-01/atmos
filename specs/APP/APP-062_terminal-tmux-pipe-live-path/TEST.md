@@ -281,4 +281,49 @@ Load the installed `agent-browser` skill (or `agent-browser skills get core --fu
 
 ## Coverage Status
 
-> Filled after implementation by `atmos-specs-test-run`. Include exact tests, commands, agent-browser notes, and remaining gaps.
+Filled 2026-08-15 after implementation.
+
+### Commands
+
+| Command | Result |
+|---------|--------|
+| `cargo clippy -p core-engine -p core-service -p api -p runtime-manager --tests -- -D warnings` | pass |
+| `cargo test -p core-engine --lib` | pass (165) |
+| `cargo test -p core-service --lib` | pass (316) |
+| `cargo test -p core-service --test app062_terminal_live_path` | pass |
+| `cargo test -p runtime-manager --lib` | pass (20) |
+| `cargo test -p api` | pass (50) |
+| `bun test apps/web/src/app-shell/__tests__/workspace-surface-policies.test.ts` | pass (20) |
+
+### Scenarios
+
+| ID | Status | Evidence |
+|----|--------|----------|
+| S1 | covered (service stub) | `PaneIoRegistry::ensure_and_subscribe` creates one live key; full WS+tmux create is dogfood |
+| S2 | covered | `tmux::pipe::tests::copy_raw_is_identity_including_nul_and_esc`, `copy_raw_does_not_hex_or_octal_encode`, `bridge_copies_stdio_to_unix_stream_pair` |
+| S3 | covered (partial) | `unsubscribe_keeps_pipe` / dropping observers does not detach; kill-window is only on destroy. Full API-crash vs real `list_windows` not run in CI |
+| S4 | covered | `io::tests::second_subscribe_does_not_reattach` (`attach_count` / `attach_invocations` == 1) |
+| S5 | covered | `io::tests::fan_out_delivers_to_both_observers` |
+| S6 | covered | `io::tests::unsubscribe_keeps_pipe` |
+| S7 | covered | `io::tests::destroy_pipe_detaches_and_drops_key`; service `destroy_session` also `kill_window` |
+| S8 | covered (structural) | `attach_session` still calls `capture_snapshot_after_attach`; remount uses existing capture helper |
+| S9 | skipped | tmux 3.5a is installed, but `attach_pane_pipe` execs `current_exe --internal`; cargo test binaries do not intercept that helper. Recorded skip, not a silent pass |
+| S10 | covered | `io::tests::same_size_resize_is_noop` |
+| S11 | covered | `io::tests::grid_change_resizes_once`; structural test forbids `refresh-client -C` |
+| S12 | covered | `io::tests::write_is_raw_bytes` + `app062_terminal_live_path` (no `encode_send_keys_hex_commands`) |
+| S13 | covered | `io::tests::report_bytes_are_raw_pipe_writes` |
+| S14 | covered | `io::tests::decset_on_pipe_persists_mouse` |
+| S15 | covered | `io::tests::unsubscribe_keeps_dec_observation_on_pipe` + structural no `atmos_mousewatch_` |
+| S16 | covered | `io::tests::attach_failure_does_not_insert_key` + structural no `run_control_mode_tmux_session` |
+| S17 | covered | `app062_terminal_live_path` reads `packages/shared/src/terminal/protocol.ts`; existing tags remain; no `io_mode`. Terminal I/O stays `/ws/terminal/:id` |
+| S18 | covered | `workspace-surface-policies.test.ts` — keep-alive class is `atmos-terminal-panel-keepalive` |
+| S19 | not_run | no Playwright fixture for a tmux-backed workspace terminal in this environment |
+| S20 | not_run | agent-browser exploratory needs `just dev-api` + `just dev-web` and a real TUI; not run in this cloud agent |
+| S21 | covered | `crates/core-service/tests/app062_terminal_live_path.rs` greps create/attach/runtime/management/io + API WS/relay |
+
+### Remaining gaps
+
+- Real tmux re-pipe pid equality (S9) wants the API helper binary, not the cargo test harness.
+- E2E type/resize (S19) and agent-browser split-drag (S20) still need a local app + tmux dogfood.
+- `tmux/control.rs` parser tests still pass; the module is unused as live transport (delete follow-up).
+

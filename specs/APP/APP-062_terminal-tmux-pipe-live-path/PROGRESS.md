@@ -4,11 +4,11 @@
 
 ## Status
 
-- **State**: in_progress
+- **State**: ready_for_review
 - **Branch**: `aarynlu/app-062-terminal-tmux-pipe-live-path-39ca`
 - **Last updated**: 2026-08-15
 - **Current owner**: cloud agent
-- **Current phase**: tests
+- **Current phase**: review
 
 ## Snapshot
 
@@ -44,8 +44,10 @@
 
 | Area | Command / Method | Last result | Notes |
 |------|------------------|-------------|-------|
-| Rust tests | `cargo test -p core-engine -p core-service -p api -p runtime-manager` | not_run | pending this session |
-| E2E / agent-browser | S19 / S20 | not_run | optional; no full TUI harness required |
+| Rust tests | `cargo test -p core-engine --lib`; `cargo test -p core-service --lib`; `cargo test -p core-service --test app062_terminal_live_path`; `cargo test -p api`; `cargo test -p runtime-manager --lib` | pass | 2026-08-15 |
+| Clippy | `cargo clippy -p core-engine -p core-service -p api -p runtime-manager --tests -- -D warnings` | pass | |
+| Web tests | `bun test apps/web/src/app-shell/__tests__/workspace-surface-policies.test.ts` | pass | APP-043 keep-alive |
+| E2E / agent-browser | S19 / S20 | not_run | no local TUI dogfood in this run |
 
 ## Known Blockers
 

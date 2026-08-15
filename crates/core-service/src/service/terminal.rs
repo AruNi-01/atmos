@@ -1150,39 +1150,4 @@ mod tests {
                 .get_session_name("13c75c87-516a-40ab-b7b8-bda46c0e3e3e")
         );
     }
-
-    #[test]
-    fn tmux_live_path_does_not_start_control_mode() {
-        let terminal = include_str!("terminal.rs");
-        let runtime = include_str!("terminal/runtime.rs");
-        let management = include_str!("terminal/management.rs");
-        let io = include_str!("terminal/io.rs");
-        for (name, src) in [
-            ("terminal.rs", terminal),
-            ("runtime.rs", runtime),
-            ("management.rs", management),
-            ("io.rs", io),
-        ] {
-            assert!(
-                !src.contains("run_control_mode_tmux_session"),
-                "{name} must not spawn a control-mode client"
-            );
-            assert!(
-                !src.contains("encode_send_keys_hex_commands"),
-                "{name} must not hex-encode send-keys on the live path"
-            );
-            assert!(
-                !src.contains("refresh-client -C") && !src.contains("refresh-client -r"),
-                "{name} must not use refresh-client"
-            );
-            assert!(
-                !src.contains("atmos_mousewatch_"),
-                "{name} must not start a mousewatch control client"
-            );
-            assert!(
-                !src.contains("format!(\"atmos_client_") && !src.contains("atmos_client_{"),
-                "{name} must not mint grouped atmos_client_* sessions"
-            );
-        }
-    }
 }
