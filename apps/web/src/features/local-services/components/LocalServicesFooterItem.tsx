@@ -3,13 +3,11 @@
 import React from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
-import { Loader2, RotateCcw, Server } from "lucide-react";
+import { Loader2, Server } from "lucide-react";
 import {
-  Button,
   Popover,
   PopoverContent,
   PopoverTrigger,
-  cn,
 } from "@workspace/ui";
 
 import { useComputerQueryScope } from "@/api/query/query-scope";
@@ -96,35 +94,12 @@ export function LocalServicesFooterItem() {
         </button>
       </PopoverTrigger>
       <PopoverContent side="top" align="start" className="w-[420px] p-0">
-        <div className="border-b border-border px-3 py-2">
-          <div className="flex items-center justify-between gap-3">
-            <div className="min-w-0">
-              <div className="text-xs font-semibold text-foreground">
-                {label("title")}
-              </div>
-              <div className="truncate text-[10px] text-muted-foreground">
-                {label("subtitle")}
-              </div>
-            </div>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="size-7"
-              onClick={() => void forceRefresh()}
-              disabled={loading || connectionState !== "connected"}
-              title={label("refresh")}
-            >
-              <RotateCcw className={cn("size-3.5", loading && "animate-spin-reverse")} />
-            </Button>
-          </div>
+        <div className="max-h-[420px] overflow-y-auto p-3">
           {error ? (
-            <div className="mt-2 rounded border border-destructive/30 bg-destructive/10 px-2 py-1 text-[10px] text-destructive">
+            <div className="mb-3 rounded border border-destructive/30 bg-destructive/10 px-2 py-1 text-[10px] text-destructive">
               {error}
             </div>
           ) : null}
-        </div>
-        <div className="max-h-[420px] overflow-y-auto p-3">
           <LocalServiceList
             services={services}
             grouped

@@ -611,6 +611,7 @@
         "model": "模型"
       },
       "share": {
+        "tab": "分享",
         "trigger": "分享",
         "dialogTitle": "分享页面",
         "capturing": "截取中…",
@@ -634,25 +635,20 @@
         }
       },
       "publish": {
-        "title": "发布页面",
-        "description": "用 atmos.land 链接分享。更新会覆盖同一页。",
-        "signInHint": "登录后即可发布 Token Usage 页面。",
+        "tab": "发布",
         "handleLabel": "用户名",
         "handlePlaceholder": "builder",
-        "handleLocked": "用户名只能认领一次。",
+        "linkLabel": "链接",
+        "openPage": "打开页面",
         "visibility": {
           "public": "公开",
           "unlisted": "不公开"
         },
         "xPlaceholder": "用户名",
         "githubPlaceholder": "用户名",
-        "copyLink": "复制链接",
-        "copied": "已复制",
         "publish": "发布",
         "update": "更新",
         "turnOff": "关闭分享",
-        "rotateSecret": "更换密钥",
-        "unlistedNeedsSecret": "不公开链接需要密钥。生成新密钥后才能复制可用地址。",
         "errors": {
           "generic": "无法发布此页面。",
           "usernameTaken": "该用户名已被占用。",
@@ -1609,6 +1605,7 @@
         }
       },
       "rightSidebar": {
+        "expand": "展开右侧边栏",
         "topTabs": {
           "changes": "变更",
           "review": "评审",
@@ -1854,14 +1851,49 @@
     "listPanel": {
       "title": "自动化",
       "summary": "{automationCount} 个自动化 · {supportedAgentCount} 个受支持 Agent",
+      "historySummary": "{runCount} 次运行",
       "searchPlaceholder": "搜索自动化",
-      "filters": {
-        "all": "全部",
-        "project": "项目",
-        "workspace": "工作区",
-        "standalone": "独立"
+      "searchRunsPlaceholder": "搜索运行记录",
+      "tabs": {
+        "automations": "自动化",
+        "history": "运行历史"
       },
-      "refreshAria": "刷新自动化列表",
+      "filter": {
+        "trigger": "筛选",
+        "automation": "自动化",
+        "unknownAutomation": "已删除的自动化",
+        "environment": "环境",
+        "triggerType": "触发方式",
+        "state": "状态",
+        "status": "状态",
+        "clearAll": "清空所有筛选",
+        "environments": {
+          "project": "项目",
+          "workspace": "工作区",
+          "newWorkspace": "新工作区",
+          "standalone": "独立"
+        },
+        "triggers": {
+          "manual": "手动",
+          "github": "GitHub",
+          "hourly": "每小时",
+          "daily": "每天",
+          "weekly": "每周",
+          "monthly": "每月",
+          "cron": "Cron"
+        },
+        "states": {
+          "enabled": "已启用",
+          "paused": "已暂停"
+        },
+        "statuses": {
+          "running": "运行中",
+          "completed": "已完成",
+          "failed": "失败",
+          "cancelled": "已取消",
+          "interrupted": "已中断"
+        }
+      },
       "newButton": "新建自动化",
       "deleteDialog": {
         "title": "删除自动化？",
@@ -1879,6 +1911,7 @@
         "disableAction": "禁用",
         "enableAction": "启用",
         "runNow": "立即运行",
+        "viewRuns": "运行记录",
         "history": "历史记录",
         "actionsAria": "自动化操作",
         "edit": "编辑",
@@ -1887,17 +1920,62 @@
       "empty": {
         "queryTitle": "没有匹配的自动化",
         "defaultTitle": "还没有自动化",
-        "queryDescription": "试试其他搜索词。",
+        "queryDescription": "试试其他搜索词，或调整筛选条件。",
         "defaultDescription": "创建第一个自动化后即可开始使用。",
         "clearSearch": "清除搜索",
+        "clearFilters": "清除筛选",
         "newAutomation": "新建自动化"
       }
     },
+    "runHistoryList": {
+      "unknownAutomation": "已删除的自动化",
+      "openDetails": "查看详情",
+      "completed": "结束于 {dateTime}",
+      "trigger": {
+        "manual": "手动",
+        "github": "GitHub",
+        "scheduled": "定时"
+      },
+      "empty": {
+        "queryTitle": "没有匹配的运行记录",
+        "defaultTitle": "还没有运行记录",
+        "queryDescription": "试试其他搜索词，或调整筛选条件。",
+        "defaultDescription": "自动化开始运行后，记录会出现在这里。",
+        "clearSearch": "清除搜索",
+        "clearFilters": "清除筛选"
+      }
+    },
+    "runDrawer": {
+      "title": "运行详情",
+      "titleNamed": "运行 {id}",
+      "close": "关闭运行详情",
+      "standalone": {
+        "title": "独立会话",
+        "description": "在本地对话中继续这次运行。",
+        "close": "关闭会话"
+      }
+    },
     "setup": {
+      "title": {
+        "create": "新建自动化",
+        "edit": "编辑自动化"
+      },
+      "subtitle": {
+        "create": "填写名称、环境和触发器，然后写下指令。",
+        "edit": "更新这个自动化的配置、指令或记忆。"
+      },
+      "instructions": {
+        "label": "指令"
+      },
+      "memory": {
+        "label": "Memories",
+        "description": "这个任务的持久记忆。每次运行都会把本地记忆文件路径告诉 Agent，让它可以读取，并在结束后自行追加或改写。"
+      },
       "agentOptions": {
         "ready": "可用",
         "unavailable": "不可用",
-        "unavailableReason": "该 Agent 暂时还不能用于自动化。"
+        "unavailableReason": "该 Agent 暂时还不能用于自动化。",
+        "select": "选择 Agent"
       },
       "headlines": {
         "automateNext": "<wordmark>Atmos</wordmark> 接下来应该自动处理什么？",
@@ -1936,7 +2014,14 @@
         "withAgent": "描述一下希望 {agentName} 做什么...",
         "default": "描述一下这个自动化应该做什么..."
       },
-      "backButton": "返回"
+      "backButton": "返回",
+      "unsavedChanges": {
+        "title": "未保存的更改",
+        "descriptionCreate": "这个自动化还没有保存。要保存，还是放弃这份草稿？",
+        "descriptionEdit": "这个自动化有未保存的更改。要保存，还是放弃这些修改？",
+        "save": "保存",
+        "discard": "放弃"
+      }
     },
     "format": {
       "target": {
@@ -2166,7 +2251,8 @@
         "enableFailed": "启用失败",
         "disableFailed": "停用失败",
         "cancelFailed": "取消失败",
-        "continueInTerminalFailed": "在终端中继续失败"
+        "continueInTerminalFailed": "在终端中继续失败",
+        "saveMemoryFailed": "保存记忆失败"
       },
       "toasts": {
         "created": "自动化已创建",
@@ -2226,7 +2312,9 @@
         "loadingProjects": "正在加载项目",
         "selectProject": "选择项目",
         "loadingWorkspaces": "正在加载工作区",
-        "selectWorkspace": "选择工作区"
+        "selectWorkspace": "选择工作区",
+        "searchWorkspaces": "搜索工作区",
+        "noMatchingWorkspaces": "没有匹配的工作区"
       },
       "standaloneHint": "运行会使用所属 Computer 的 automation run 目录下的独立文件夹。"
     },
@@ -2242,6 +2330,11 @@
       },
       "inline": {
         "exitCode": "退出码 {code}"
+      },
+      "trigger": {
+        "manual": "手动",
+        "github": "GitHub",
+        "scheduled": "定时"
       },
       "metadata": {
         "status": "状态",
@@ -2272,6 +2365,14 @@
     },
     "historyPage": {
       "title": "自动化历史",
+      "tabs": {
+        "runs": "运行",
+        "memory": "Memories"
+      },
+      "memory": {
+        "title": "Memories",
+        "description": "这份文件保存在本机。每次运行时 Agent 都可以读取并编辑它。"
+      },
       "badges": {
         "paused": "已暂停"
       },
@@ -2308,11 +2409,11 @@
         "placeholder": "每日仓库健康检查"
       },
       "submit": {
-        "saving": "正在保存自动化",
+        "saving": "保存中",
         "createAria": "创建自动化",
-        "updateAria": "更新自动化",
-        "create": "创建自动化",
-        "update": "更新自动化"
+        "updateAria": "保存自动化",
+        "create": "创建",
+        "update": "保存"
       }
     },
     "schedule": {
@@ -2381,6 +2482,15 @@
       "failedToLoadTitle": "加载运行历史失败",
       "failedToFetchArtifactTitle": "加载产物失败",
       "unknownError": "未知错误"
+    },
+    "memory": {
+      "fileHint": "memory.md",
+      "save": "保存",
+      "saving": "保存中",
+      "saved": "已保存",
+      "editor": "编辑",
+      "preview": "预览",
+      "emptyPreview": "还没有可预览的内容。"
     }
   },
   "project": {
@@ -4065,44 +4175,55 @@
       },
       "scriptDialog": {
         "title": "工作区脚本",
-        "description": "配置 Setup、Run 和 Purge 脚本。脚本会在当前工作区目录中执行。",
+        "unsaved": "未保存",
         "toasts": {
           "errorTitle": "错误",
           "loadFailed": "加载脚本失败",
           "saveFailed": "保存脚本失败"
         },
+        "phases": {
+          "label": "生命周期"
+        },
+        "trustHint": {
+          "label": "关于脚本信任",
+          "tooltip": "Atmos 会在执行前检查脚本是否受信任，避免仓库里未经审阅的命令直接在你的 shell 里运行。你在这里手动保存的内容默认视为已信任。"
+        },
         "env": {
-          "title": "可用环境变量：",
+          "title": "插入变量",
           "rootProjectPath": "根项目路径",
           "workspaceName": "当前工作区名称",
-          "workspacePath": "当前工作区路径",
-          "note": "注意：对于复杂脚本，请在 .atmos/scripts/ 中创建 .sh 文件并在此引用（例如 \"./.atmos/scripts/myscript.sh\"）。"
+          "workspacePath": "当前工作区路径"
         },
         "setup": {
-          "title": "Setup 脚本",
-          "placeholder": "例如 cp $ATMOS_ROOT_PROJECT_PATH/.env . && npm install",
-          "help": "在设置新工作区时执行。"
+          "title": "Setup",
+          "placeholder": "cp $ATMOS_ROOT_PROJECT_PATH/.env . && npm install",
+          "help": "创建新工作区时执行一次。"
         },
         "run": {
-          "title": "Run 脚本",
-          "placeholder": "例如 npm run dev",
-          "help": "用于一键启动服务的命令。"
+          "title": "Run",
+          "placeholder": "npm run dev",
+          "help": "用于启动这个工作区的服务。"
         },
         "purge": {
-          "title": "Purge 脚本",
-          "placeholder": "例如 rm -rf node_modules",
-          "help": "用于清理 worktree/workspace 文件时执行。"
+          "title": "Purge",
+          "placeholder": "rm -rf node_modules",
+          "help": "移除工作区前清理文件。"
+        },
+        "status": {
+          "empty": "空",
+          "set": "已设置",
+          "edited": "已改"
         },
         "actions": {
-          "cancel": "取消",
           "saving": "保存中...",
-          "saveScripts": "保存脚本"
+          "save": "保存并信任"
         },
         "confirmExit": {
           "title": "未保存的更改",
-          "description": "你有未保存的更改。确定要不保存直接关闭吗？",
+          "description": "关闭将丢弃对 Setup、Run 和 Purge 的修改。",
           "keepEditing": "继续编辑",
-          "discardChanges": "放弃更改"
+          "discardChanges": "放弃更改",
+          "save": "保存并信任"
         }
       },
       "workspaceSetup": {
@@ -4212,6 +4333,10 @@
           "noTasks": "还没有添加任务。",
           "noItemsInSection": "这个分组里还没有内容。"
         }
+      },
+      "viewTabs": {
+        "recent": "最近",
+        "archived": "已归档"
       },
       "recentView": {
         "header": {
@@ -4523,17 +4648,13 @@
         "noSettingsFound": "没有找到设置项。"
       },
       "groups": {
-        "interface": {
-          "label": "界面",
-          "description": "布局、编辑器、画布与键盘偏好设置"
-        },
         "personal": {
           "label": "个人",
-          "description": "主题、语言与账号"
+          "description": "外观、账号、布局、编辑器、画布与终端"
         },
-        "aiAgents": {
-          "label": "AI Agent",
-          "description": "AI 提供商与代码 Agent 配置"
+        "coding": {
+          "label": "Coding",
+          "description": "AI、代码 Agent、工作区与标签"
         },
         "remoteAccess": {
           "label": "远程访问",
@@ -4546,10 +4667,6 @@
         "privacySecurity": {
           "label": "隐私与安全性",
           "description": "权限访问及其他隐私相关设置"
-        },
-        "workspaceProjects": {
-          "label": "工作区与项目",
-          "description": "工作区管理与标签"
         },
         "more": {
           "label": "更多",
@@ -8264,6 +8381,33 @@
     }
   },
   "skills": {
+    "view": {
+      "title": "Skills",
+      "description": "管理已安装的 Skill，浏览市场，发现资源。",
+      "refresh": "刷新 Skill 列表",
+      "search": {
+        "installed": "搜索已安装的 Skill",
+        "market": "搜索 Skill 市场",
+        "resources": "搜索资源"
+      },
+      "tabs": {
+        "installed": "已安装",
+        "market": "市场",
+        "resources": "资源"
+      },
+      "filter": {
+        "trigger": "筛选",
+        "scope": "范围",
+        "projects": "项目",
+        "clearAll": "清空所有筛选",
+        "scopes": {
+          "all": "全部",
+          "system": "Atmos 内置",
+          "global": "全局",
+          "project": "项目"
+        }
+      }
+    },
     "viewUtils": {
       "installedEmptyCopy": "可以用本地或项目级技能扩展 Atmos，也可以继续浏览下面的市场。",
       "marketEmptyCopy": "市场中没有匹配当前搜索的技能。试试别的关键词。",

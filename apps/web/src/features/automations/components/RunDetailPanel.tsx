@@ -2,16 +2,12 @@
 
 import * as React from "react";
 import { useTranslations } from "next-intl";
+import { Button, Collapsible, CollapsibleContent, CollapsibleTrigger, cn } from "@workspace/ui";
 import {
-  Button,
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
   Tabs,
   TabsList,
-  TabsTab,
-  cn,
-} from "@workspace/ui";
+  TabsTrigger,
+} from "@workspace/ui/components/motion/tabs";
 import { ChevronDown, FileText, LoaderCircle, Square, Terminal } from "lucide-react";
 
 import {
@@ -31,6 +27,7 @@ import type {
   AutomationArtifactKind,
   AutomationArtifactResponse,
   AutomationRunSummary,
+  AutomationTriggerKind,
 } from "@/features/automations/types";
 
 export function RunDetailPanel({
@@ -42,6 +39,7 @@ export function RunDetailPanel({
   onCancelRun,
   onFetchArtifact,
   onContinueInTerminal,
+  headerClassName,
 }: {
   run: AutomationRunSummary | null;
   agents: AutomationAgentCapability[];
@@ -51,6 +49,7 @@ export function RunDetailPanel({
   onCancelRun: (run: AutomationRunSummary) => Promise<void>;
   onFetchArtifact: (run: AutomationRunSummary, kind: AutomationArtifactKind) => Promise<void>;
   onContinueInTerminal: (run: AutomationRunSummary) => Promise<void>;
+  headerClassName?: string;
 }) {
   const t = useTranslations("automation.runDetailPanel");
   const [metadataOpen, setMetadataOpen] = React.useState(false);
@@ -116,14 +115,14 @@ export function RunDetailPanel({
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="border-b border-border px-4 py-3">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
-              <FileText className="size-4" />
-              {t("title")}
-            </div>
-            <div className="mt-1 text-xs text-muted-foreground">{formatShortId(run.guid)}</div>
+      <div className={cn("px-4 py-3", headerClassName)}>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-2 text-sm font-semibold text-foreground">
+            <FileText className="size-4 shrink-0" />
+            <span className="truncate">{t("title")}</span>
+            <span className="truncate font-mono text-xs font-normal tabular-nums text-muted-foreground">
+              {formatShortId(run.guid)}
+            </span>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             {run.status === "running" ? (
@@ -143,7 +142,6 @@ export function RunDetailPanel({
             ) : null}
             {run.status !== "running" ? (
               <Button
-                variant="outline"
                 size="sm"
                 onClick={() => void onContinueInTerminal(run)}
                 disabled={busyAction === `continue:${run.guid}`}
@@ -165,7 +163,7 @@ export function RunDetailPanel({
           <CollapsibleTrigger className="group flex w-full items-center justify-between gap-3 px-3 py-2 text-left transition-colors hover:bg-muted/30">
             <div className="flex min-w-0 flex-wrap items-center gap-2">
               <StatusBadge status={run.status} />
-              <span className="text-xs text-muted-foreground">{run.trigger_kind}</span>
+              <span className="text-xs text-muted-foreground">{triggerKindLabel(t, run.trigger_kind)}</span>
               <span className="text-xs text-border">/</span>
               <span className="text-xs tabular-nums text-muted-foreground">{formatDateTime(run.started_at)}</span>
               {run.exit_code !== null ? (
@@ -182,7 +180,7 @@ export function RunDetailPanel({
           <CollapsibleContent>
             <div className="grid gap-3 border-t border-border p-3 md:grid-cols-2">
               <MetadataItem label={t("metadata.status")} value={<StatusBadge status={run.status} />} />
-              <MetadataItem label={t("metadata.trigger")} value={run.trigger_kind} />
+              <MetadataItem label={t("metadata.trigger")} value={triggerKindLabel(t, run.trigger_kind)} />
               {githubSource?.repository ? (
                 <MetadataItem label={t("metadata.repository")} value={githubSource.repository} />
               ) : null}
@@ -197,7 +195,12 @@ export function RunDetailPanel({
                 label={t("metadata.runner")}
                 value={
                   runAgentId ? (
-                    <AutomationAgentLabel agent={runnerAgent} agentId={runAgentId} iconSize={16} />
+                    <AutomationAgentLabel
+                      agent={runnerAgent}
+                      agentId={runAgentId}
+                      agentConfigJson={run.agent_config_json}
+                      iconSize={16}
+                    />
                   ) : run.tmux_window_name ? (
                     run.terminal_display_name || t("metadata.terminal")
                   ) : (
@@ -213,19 +216,23 @@ export function RunDetailPanel({
         <Tabs
           value={activeArtifact}
           onValueChange={(value) => setActiveArtifact(value as AutomationArtifactKind)}
-          className="mt-4 min-h-0 flex-1"
+          variant="pill"
+          className="mt-4 flex min-h-0 flex-1 flex-col"
         >
-          <TabsList className="h-9 shrink-0">
-            {ARTIFACT_OPTIONS.map((option) => (
-              <TabsTab key={option.kind} value={option.kind} className="px-3 text-xs">
-                {artifactLoading && activeArtifact === option.kind ? (
-                  <LoaderCircle className="size-3.5 animate-spin" />
-                ) : (
-                  <FileText className="size-3.5" />
-                )}
-                {option.label}
-              </TabsTab>
-            ))}
+          <TabsList className="h-8 w-fit shrink-0 gap-0.5 self-start p-0.5">
+            {ARTIFACT_OPTIONS.map((option) => {
+              const Icon = option.icon;
+              return (
+                <TabsTrigger key={option.kind} value={option.kind} className="h-7 gap-1.5 px-3 text-xs">
+                  {artifactLoading && activeArtifact === option.kind ? (
+                    <LoaderCircle className="size-3.5 animate-spin" />
+                  ) : (
+                    <Icon className="size-3.5" />
+                  )}
+                  {option.label}
+                </TabsTrigger>
+              );
+            })}
           </TabsList>
 
           <div className="mt-3 flex min-h-0 flex-1 flex-col overflow-hidden rounded-md border border-border bg-muted/10">
@@ -256,6 +263,7 @@ function ArtifactContent({
   const t = useTranslations("automation.runDetailPanel");
   const content = artifact?.content ?? "";
   const isJson = activeArtifact === "run_json";
+  const isXml = activeArtifact === "prompt";
   const scrollRef = React.useRef<HTMLElement | null>(null);
   const stickToBottomRef = React.useRef(true);
   const formatted = React.useMemo(() => {
@@ -306,14 +314,14 @@ function ArtifactContent({
     );
   }
 
-  if (isJson) {
+  if (isJson || isXml) {
     return (
       <pre
         ref={scrollRef as React.RefObject<HTMLPreElement>}
         onScroll={handleScroll}
         className="min-h-0 flex-1 overflow-auto whitespace-pre-wrap break-words p-3 text-xs leading-5 text-foreground"
       >
-        {formatted}
+        {formatted || (running ? t("artifact.waitingForOutput") : t("artifact.noContent"))}
       </pre>
     );
   }
@@ -329,6 +337,20 @@ function ArtifactContent({
       </MarkdownRenderer>
     </div>
   );
+}
+
+function triggerKindLabel(
+  t: ReturnType<typeof useTranslations<"automation.runDetailPanel">>,
+  kind: AutomationTriggerKind,
+) {
+  switch (kind) {
+    case "github":
+      return t("trigger.github");
+    case "scheduled":
+      return t("trigger.scheduled");
+    default:
+      return t("trigger.manual");
+  }
 }
 
 function formatJson(raw: string) {

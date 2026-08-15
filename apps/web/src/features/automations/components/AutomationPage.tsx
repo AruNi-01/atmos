@@ -2,7 +2,6 @@
 
 import { AnimatePresence, motion, useReducedMotion, type Transition } from "motion/react";
 
-import { AutomationHistoryPage } from "@/features/automations/components/AutomationHistoryPage";
 import { AutomationPageShell } from "@/features/automations/components/AutomationPageShell";
 import { AutomationSetup } from "@/features/automations/components/AutomationSetup";
 import { useAutomationPageState } from "@/features/automations/hooks/use-automation-page-state";
@@ -53,51 +52,6 @@ export function AutomationPage() {
               onUpdate={state.handleUpdate}
             />
           </motion.div>
-        ) : state.pageView === "history" ? (
-          <motion.div
-            key={pageKey}
-            className="absolute inset-0"
-            initial={
-              shouldReduceMotion
-                ? { opacity: 1 }
-                : { opacity: 0, x: 34, scale: 0.992, filter: "blur(3px)" }
-            }
-            animate={
-              shouldReduceMotion
-                ? { opacity: 1 }
-                : { opacity: 1, x: 0, scale: 1, filter: "blur(0px)" }
-            }
-            exit={
-              shouldReduceMotion
-                ? { opacity: 0 }
-                : { opacity: 0, x: 28, scale: 0.992, filter: "blur(3px)" }
-            }
-            transition={transition}
-          >
-            <AutomationHistoryPage
-              automation={state.selectedAutomation}
-              detail={state.selectedDetail}
-              detailLoading={state.detailLoading}
-              runs={state.runs}
-              runsLoading={state.runsLoading}
-              selectedRun={state.selectedRun}
-              selectedRunGuid={state.selectedRunGuid}
-              artifact={state.artifact}
-              artifactLoading={state.artifactLoading}
-              busyAction={state.busyAction}
-              projects={state.projects}
-              agents={state.agents}
-              onBack={state.openList}
-              standaloneChatOpen={state.standaloneChatOpen}
-              onCloseStandaloneChat={state.closeStandaloneChat}
-              onRefreshRuns={() => state.selectedAutomationGuid && void state.loadRuns(state.selectedAutomationGuid)}
-              onRunAction={state.handleDefinitionAction}
-              onSelectRun={state.setSelectedRunGuid}
-              onCancelRun={state.handleCancelRun}
-              onFetchArtifact={state.handleArtifactFetch}
-              onContinueInTerminal={state.handleContinueInTerminal}
-            />
-          </motion.div>
         ) : (
           <motion.div
             key="dashboard"
@@ -126,16 +80,32 @@ export function AutomationPage() {
               error={state.error}
               busyAction={state.busyAction}
               projects={state.projects}
-              targetFilter={state.targetFilter}
+              listTab={state.listTab}
+              listFilters={state.listFilters}
+              runFilters={state.runFilters}
               searchQuery={state.searchQuery}
-              onReload={state.handleReload}
+              runs={state.runs}
+              runsLoading={state.runsLoading}
+              selectedRun={state.selectedRun}
+              selectedRunGuid={state.selectedRunGuid}
+              artifact={state.artifact}
+              artifactLoading={state.artifactLoading}
+              standaloneChatOpen={state.standaloneChatOpen}
               onCreate={state.openCreate}
               onEdit={state.openEdit}
-              onOpenHistory={state.openHistory}
-              onTargetFilterChange={(value) => void state.setTargetFilter(value)}
+              onListTabChange={(tab) => void state.setListTab(tab)}
+              onListFiltersChange={state.setListFilters}
+              onRunFiltersChange={state.setRunFilters}
               onSearchQueryChange={(value) => void state.setSearchQuery(value)}
+              onSelectRun={state.setSelectedRunGuid}
+              onViewRuns={state.openAutomationRuns}
+              onCloseRun={state.clearRunSelection}
+              onCloseStandaloneChat={state.closeStandaloneChat}
               onRunAction={state.handleDefinitionAction}
               onToggleEnabled={state.handleToggleEnabled}
+              onCancelRun={state.handleCancelRun}
+              onFetchArtifact={state.handleArtifactFetch}
+              onContinueInTerminal={state.handleContinueInTerminal}
             />
           </motion.div>
         )}

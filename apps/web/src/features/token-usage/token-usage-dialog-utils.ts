@@ -80,6 +80,35 @@ export type YearBreakdownSummary = {
   reasoning: number;
 };
 
+/** Collapsed residual bucket — never competes for a top-N slot. */
+export const BREAKDOWN_OTHER_ID = "other";
+export const BREAKDOWN_TOP_N = 5;
+
+/**
+ * Rank named ids for top-N. Existing `other` plus anything past N fold into a
+ * trailing other bucket so a large residual cannot occupy a top slot.
+ */
+export function rankTopNWithOther(
+  totals: Map<string, number>,
+  n = BREAKDOWN_TOP_N,
+): Array<[string, number]> {
+  const named: Array<[string, number]> = [];
+  let other = 0;
+  for (const [id, value] of totals) {
+    if (id === BREAKDOWN_OTHER_ID) other += value;
+    else named.push([id, value]);
+  }
+  named.sort((a, b) => b[1] - a[1]);
+  const top = named.slice(0, n);
+  for (const [, value] of named.slice(n)) {
+    other += value;
+  }
+  if (other > 0) {
+    top.push([BREAKDOWN_OTHER_ID, other]);
+  }
+  return top;
+}
+
 export type BreakdownShare = {
   /** Agent client_id or model_id (or "other"). */
   id: string;
@@ -804,13 +833,15 @@ export function buildBreakdownSeries(
   }
 
   const ranked = Array.from(totals.entries())
+    .filter(([id]) => id !== BREAKDOWN_OTHER_ID)
     .sort((left, right) => right[1] - left[1])
     .map(([id]) => id);
 
-  const top = ranked.slice(0, 5);
+  const top = ranked.slice(0, BREAKDOWN_TOP_N);
   const topSet = new Set(top);
-  const hasOther = ranked.length > top.length;
-  const keys = hasOther ? [...top, "other"] : top;
+  const hasOther =
+    ranked.length > top.length || (totals.get(BREAKDOWN_OTHER_ID) ?? 0) > 0;
+  const keys = hasOther ? [...top, BREAKDOWN_OTHER_ID] : top;
 
   const data = Array.from(periods.entries())
     .sort((left, right) => left[0].localeCompare(right[0]))
@@ -835,7 +866,7 @@ export function buildBreakdownSeries(
       }
 
       if (hasOther) {
-        point.other = other;
+        point[BREAKDOWN_OTHER_ID] = other;
       }
 
       return point;
@@ -1049,20 +1080,17 @@ export function buildYearBreakdownShares(
     return [];
   }
 
-  return Array.from(totals.entries())
-    .sort((left, right) => right[1] - left[1])
-    .slice(0, 5)
-    .map(([id, value]) => ({
-      id,
-      label: formatDimensionLabel(id, dimension, otherLabel),
-      value,
-      share: value / totalValue,
-      sharePercent: (value / totalValue) * 100,
-      providerId:
-        dimension === "model"
-          ? pickDominantProvider(providerVotes.get(id))
-          : undefined,
-    }));
+  return rankTopNWithOther(totals).map(([id, value]) => ({
+    id,
+    label: formatDimensionLabel(id, dimension, otherLabel),
+    value,
+    share: value / totalValue,
+    sharePercent: (value / totalValue) * 100,
+    providerId:
+      dimension === "model"
+        ? pickDominantProvider(providerVotes.get(id))
+        : undefined,
+  }));
 }
 
 export function buildYearAgentShares(
@@ -1122,20 +1150,17 @@ export function buildOverviewBreakdownShares(
     return [];
   }
 
-  return Array.from(totals.entries())
-    .sort((left, right) => right[1] - left[1])
-    .slice(0, 5)
-    .map(([id, value]) => ({
-      id,
-      label: formatDimensionLabel(id, dimension, otherLabel),
-      value,
-      share: value / totalValue,
-      sharePercent: (value / totalValue) * 100,
-      providerId:
-        dimension === "model"
-          ? pickDominantProvider(providerVotes.get(id))
-          : undefined,
-    }));
+  return rankTopNWithOther(totals).map(([id, value]) => ({
+    id,
+    label: formatDimensionLabel(id, dimension, otherLabel),
+    value,
+    share: value / totalValue,
+    sharePercent: (value / totalValue) * 100,
+    providerId:
+      dimension === "model"
+        ? pickDominantProvider(providerVotes.get(id))
+        : undefined,
+  }));
 }
 
 export function calculateYearAgentRadarMax(data: BreakdownShare[]) {

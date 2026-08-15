@@ -411,6 +411,7 @@ const Header: React.FC = () => {
   return (
     <TooltipProvider>
       <header
+        data-app-shell-header=""
         onMouseDown={handleDesktopWindowMouseDown}
         className={cn(
           "relative flex h-12 items-center justify-between border-b border-sidebar-border px-4 select-none transition-[padding] duration-300 ease-out",
@@ -441,7 +442,7 @@ const Header: React.FC = () => {
                   type="button"
                   aria-label={isLeftCollapsed ? t("leftSidebar.expand") : t("leftSidebar.collapse")}
                   onClick={toggleLeftSidebar}
-                  className="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                  className="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground"
                 >
                   {isLeftCollapsed ? <PanelLeftOpen className="size-4" /> : <PanelLeftClose className="size-4" />}
                 </button>
@@ -461,7 +462,7 @@ const Header: React.FC = () => {
                   type="button"
                   aria-label={t("navigation.goBack")}
                   onClick={() => window.history.back()}
-                  className="size-8 inline-flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+                  className="size-8 inline-flex items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground"
                 >
                   <ChevronLeft className="size-4" />
                 </button>
@@ -481,7 +482,7 @@ const Header: React.FC = () => {
                   type="button"
                   aria-label={t("navigation.goForward")}
                   onClick={() => window.history.forward()}
-                  className="size-8 inline-flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+                  className="size-8 inline-flex items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground"
                 >
                   <ChevronRight className="size-4" />
                 </button>
@@ -501,7 +502,7 @@ const Header: React.FC = () => {
                   type="button"
                   aria-label={t("navigation.refreshPage")}
                   onClick={refreshCurrentRoute}
-                  className="size-8 inline-flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+                  className="size-8 inline-flex items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground"
                 >
                   <RotateCw className="size-4" />
                 </button>

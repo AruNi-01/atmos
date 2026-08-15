@@ -96,7 +96,7 @@ export function automationNotificationHref(
   params.set("automationId", automationGuid);
   if (runGuid) {
     params.set("automationRun", runGuid);
-    params.set("automationView", "history");
+    params.set("automationTab", "history");
   }
   return `/automations?${params.toString()}`;
 }

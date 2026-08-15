@@ -100,6 +100,8 @@ export function DitherStackedBars({
   if (!morphRef.current) morphRef.current = createGridMorph();
   const sigRef = useRef("");
   const domainRef = useRef(domainKey);
+  const fromAxisRef = useRef(1);
+  const toAxisRef = useRef(1);
 
   // Retarget during render so the first paint already has morph state (ref-only).
   const barsKey = gridSignature(bars.map((b) => b.segments));
@@ -108,11 +110,20 @@ export function DitherStackedBars({
   if (domainKey !== undefined) domainRef.current = domainKey;
   if (sigRef.current !== barsKey || domainChanged) {
     const next = bars.map((b) => b.segments);
+    const nextMaxTotal = Math.max(
+      1,
+      ...next.map((segs) => segs.reduce((sum, value) => sum + Math.max(0, value), 0)),
+    );
+    const nextAxis = niceAxisMax(nextMaxTotal);
     if (domainChanged) {
-      morphRef.current.retargetEnter(next);
+      // Unit flip: keep relative bar heights, lock the new axis, then lerp.
+      morphRef.current.retarget(next);
+      fromAxisRef.current = nextAxis;
     } else {
       morphRef.current.retarget(next);
+      fromAxisRef.current = axisMaxRef.current || nextAxis;
     }
+    toAxisRef.current = nextAxis;
     sigRef.current = barsKey;
   }
 
@@ -145,15 +156,16 @@ export function DitherStackedBars({
       const padB = 16;
       const plotH = h - padB;
 
-      // Lock axis to target bar totals (props), not mid-morph samples —
-      // otherwise niceAxisMax snaps every frame and bars look like they jump.
+      const prog = morphRef.current!.progress(reducedMotion);
       const targetMaxTotal = Math.max(
         1,
         ...meta.map((bar) =>
           bar.segments.reduce((s, v) => s + Math.max(0, v), 0),
         ),
       );
-      const axisMax = niceAxisMax(targetMaxTotal);
+      const toAxis = toAxisRef.current || niceAxisMax(targetMaxTotal);
+      const fromAxis = fromAxisRef.current || toAxis;
+      const axisMax = Math.max(1e-6, fromAxis + (toAxis - fromAxis) * prog);
       axisMaxRef.current = axisMax;
       const HIGHLIGHT = theme === "dark" ? "#FFFFFF" : "#0F172A";
       const tAnim = reducedMotion ? 0 : time;

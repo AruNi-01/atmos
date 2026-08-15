@@ -69,7 +69,7 @@ function GlobalSearchSubViewFrame({
       <div className="flex h-12 shrink-0 items-center gap-3 border-b border-border px-4">
         <button
           onClick={onBack}
-          className="flex size-7 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          className="flex size-7 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
         >
           <ArrowLeft className="size-4" />
         </button>
@@ -401,7 +401,7 @@ function GlobalSearchFooter() {
           </div>
           <span className="opacity-80">{t("globalSearch.navigate")}</span>
         </span>
-        <span className="flex cursor-default items-center gap-1.5 rounded-md px-2 py-0.5 transition-colors hover:bg-muted/50">
+        <span className="flex cursor-default items-center gap-1.5 rounded-md px-2 py-0.5 hover:bg-muted">
           <kbd className="flex h-[18px] min-w-[20px] items-center justify-center rounded border border-border/60 bg-background font-sans text-[10px] shadow-sm">
             <CornerDownLeft className="size-2.5" />
           </kbd>

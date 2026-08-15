@@ -1449,7 +1449,7 @@ mod tests {
 
     fn command_input() -> AutomationCommandInput {
         AutomationCommandInput {
-            prompt_path: PathBuf::from("/tmp/atmos automation/prompt.md"),
+            prompt_path: PathBuf::from("/tmp/atmos automation/prompt.xml"),
         }
     }
 
@@ -1470,7 +1470,7 @@ mod tests {
         assert_eq!(invocation.stdout_parser, StdoutParser::CodexJsonl);
         assert_eq!(
             invocation.prompt_path,
-            PathBuf::from("/tmp/atmos automation/prompt.md")
+            PathBuf::from("/tmp/atmos automation/prompt.xml")
         );
     }
 
@@ -1797,7 +1797,7 @@ mod tests {
 
         assert!(command.contains("'codex'"));
         assert!(command.contains("'exec'"));
-        assert!(command.contains("\"$(cat '/tmp/atmos automation/prompt.md')\""));
+        assert!(command.contains("\"$(cat '/tmp/atmos automation/prompt.xml')\""));
     }
 
     #[test]

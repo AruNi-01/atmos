@@ -347,10 +347,10 @@ function SortableUserGroupTwoColumnRow({
         transition,
       }}
       className={cn(
-        "group/row flex w-full items-center gap-0.5 rounded-lg transition-colors",
+        "group/row flex w-full items-center gap-0.5 rounded-lg",
         isSelected
           ? "bg-sidebar-accent text-sidebar-foreground"
-          : "text-muted-foreground hover:bg-sidebar-accent/40 hover:text-sidebar-foreground",
+          : "text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
         // Match project drag: placeholder opacity while reordering.
         isDragging ? "relative z-20 opacity-20" : "opacity-100",
         attentionFilterMode && !isDragging && "opacity-45",
@@ -448,10 +448,10 @@ export function UserGroupTwoColumnLeftContent({
           <div
             key={view.key}
             className={cn(
-              "group/row flex w-full items-center gap-0.5 rounded-lg transition-colors",
+              "group/row flex w-full items-center gap-0.5 rounded-lg",
               selectedKey === view.key
                 ? "bg-sidebar-accent text-sidebar-foreground"
-                : "text-muted-foreground hover:bg-sidebar-accent/40 hover:text-sidebar-foreground",
+                : "text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
               attentionFilterMode && "opacity-45",
             )}
           >
@@ -692,7 +692,7 @@ function SortableUserGroupOneColumnSection({
     >
       <div
         className={cn(
-          "group/header flex items-center gap-0.5 rounded-lg px-1 py-0.5 hover:bg-sidebar-accent/40",
+          "group/header flex items-center gap-0.5 rounded-lg px-1 py-0.5 hover:bg-sidebar-accent",
           // Attention filter: dim group chrome so projects/workspaces stay the focus.
           attentionFilterMode && "opacity-45",
         )}

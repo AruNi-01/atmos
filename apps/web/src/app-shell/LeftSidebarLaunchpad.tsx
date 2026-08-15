@@ -16,7 +16,6 @@ import {
   FolderKanban,
   HardDrive,
   Plus,
-  Rocket,
   Presentation,
   Puzzle,
   ListTodo,
@@ -24,6 +23,18 @@ import {
   Timer,
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
+import { BotIcon } from "@workspace/ui/components/icons/bot-icon";
+import CanvasIcon from "@workspace/ui/components/icons/canvas-icon";
+import { ChartColumnBigIcon } from "@workspace/ui/components/icons/chart-column-big-icon";
+import { FolderKanbanIcon } from "@workspace/ui/components/icons/folder-kanban-icon";
+import { HardDriveIcon } from "@workspace/ui/components/icons/hard-drive-icon";
+import { ListTodoIcon } from "@workspace/ui/components/icons/list-todo-icon";
+import { PlusIcon } from "@workspace/ui/components/icons/plus-icon";
+import { PuzzleIcon } from "@workspace/ui/components/icons/puzzle-icon";
+import { RocketIcon } from "@workspace/ui/components/icons/rocket-icon";
+import TerminalIcon from "@workspace/ui/components/icons/terminal-icon";
+import { TimerIcon } from "@workspace/ui/components/icons/timer-icon";
+import type { AnimatedIconHandle } from "@workspace/ui/components/icons/types";
 
 import type {
   LaunchpadItemId,
@@ -132,6 +143,7 @@ export function LeftSidebarLaunchpad({
   ...shared
 }: LeftSidebarLaunchpadProps) {
   const t = useTranslations("AppShell.chrome");
+  const rocketRef = React.useRef<AnimatedIconHandle | null>(null);
   const items = useMemo(
     () => resolveItemsForPlacement(launchpadItems, "inside"),
     [launchpadItems],
@@ -143,11 +155,13 @@ export function LeftSidebarLaunchpad({
   return (
     <>
       <div
-        className="h-10 flex items-center justify-between px-5 text-sm font-medium border-b border-sidebar-border cursor-pointer hover:bg-sidebar-accent/50 transition-colors select-none"
+        className="flex h-10 cursor-pointer select-none items-center justify-between border-b border-sidebar-border px-5 text-sm font-medium hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
         onClick={() => onExpandedChange(!isExpanded)}
+        onMouseEnter={() => rocketRef.current?.startAnimation?.()}
+        onMouseLeave={() => rocketRef.current?.stopAnimation?.()}
       >
         <div className="flex items-center gap-2">
-          <Rocket className="size-4 shrink-0" />
+          <RocketIcon ref={rocketRef} className="inline-flex shrink-0" size={16} />
           <span>{t("launchpad.title")}</span>
         </div>
         <div className={cn("text-muted-foreground transition-transform duration-200", isExpanded ? "rotate-90" : "")}>
@@ -189,6 +203,27 @@ function resolveItemsForPlacement(
   );
 }
 
+function LaunchpadOutsideIcon({
+  itemId,
+  iconRef,
+}: {
+  itemId: LaunchpadItemId;
+  iconRef: React.RefObject<AnimatedIconHandle | null>;
+}) {
+  const className = "inline-flex shrink-0";
+  const size = 16;
+  if (itemId === "workspaces") return <FolderKanbanIcon ref={iconRef} className={className} size={size} />;
+  if (itemId === "skills") return <PuzzleIcon ref={iconRef} className={className} size={size} />;
+  if (itemId === "terminals") return <TerminalIcon ref={iconRef} className={className} size={size} />;
+  if (itemId === "agents") return <BotIcon ref={iconRef} className={className} size={size} />;
+  if (itemId === "automations") return <TimerIcon ref={iconRef} className={className} size={size} />;
+  if (itemId === "disk-analyzer") return <HardDriveIcon ref={iconRef} className={className} size={size} />;
+  if (itemId === "token-usage") return <ChartColumnBigIcon ref={iconRef} className={className} size={size} />;
+  if (itemId === "canvas") return <CanvasIcon ref={iconRef} className={className} size={size} />;
+  if (itemId === "tasks") return <ListTodoIcon ref={iconRef} className={className} size={size} />;
+  return <PlusIcon ref={iconRef} className={className} size={size} />;
+}
+
 /** Simple icon + name row for items pinned outside the Launchpad collapsible. */
 function OutsideNavRow({
   item,
@@ -201,21 +236,27 @@ function OutsideNavRow({
   isActive: boolean;
 }) {
   const t = useTranslations("AppShell.chrome");
-  const Icon = item.icon;
+  const iconRef = React.useRef<AnimatedIconHandle | null>(null);
   const label = t(item.labelKey);
 
   const className = cn(
     // px-3 pairs with nav px-2 so icons line up with the Launchpad header rocket (px-5).
-    "flex w-full items-center gap-2 rounded-lg px-3 py-1.5 text-left text-sm transition-colors outline-none",
+    // Instant hover fill — match settings SidebarMenuButton (no color fade).
+    "flex w-full items-center gap-2 rounded-lg px-3 py-1.5 text-left text-sm outline-none",
     "focus-visible:ring-1 focus-visible:ring-ring",
     isActive
-      ? "bg-sidebar-accent text-sidebar-foreground"
-      : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
+      ? "bg-sidebar-accent text-sidebar-accent-foreground"
+      : "text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
   );
+
+  const hoverHandlers = {
+    onMouseEnter: () => iconRef.current?.startAnimation?.(),
+    onMouseLeave: () => iconRef.current?.stopAnimation?.(),
+  };
 
   const content = (
     <>
-      <Icon className="size-4 shrink-0" aria-hidden />
+      <LaunchpadOutsideIcon itemId={item.id} iconRef={iconRef} />
       <span className="min-w-0 truncate">{label}</span>
     </>
   );
@@ -224,7 +265,13 @@ function OutsideNavRow({
     return (
       <Tooltip>
         <TooltipTrigger asChild>
-          <button type="button" onClick={onOpenCanvas} className={className} aria-current={isActive ? "page" : undefined}>
+          <button
+            type="button"
+            onClick={onOpenCanvas}
+            className={className}
+            aria-current={isActive ? "page" : undefined}
+            {...hoverHandlers}
+          >
             {content}
           </button>
         </TooltipTrigger>
@@ -251,6 +298,7 @@ function OutsideNavRow({
             onClick={onOpenNewWorkspace}
             className={className}
             aria-current={isActive ? "page" : undefined}
+            {...hoverHandlers}
           >
             {content}
           </button>
@@ -274,6 +322,7 @@ function OutsideNavRow({
       onClick={() => item.path && onNavigate(item.path)}
       className={className}
       aria-current={isActive ? "page" : undefined}
+      {...hoverHandlers}
     >
       {content}
     </button>
@@ -333,7 +382,7 @@ function LaunchpadCard({
           <Icon className="size-4.5" />
         </div>
         <div className="flex items-center justify-center h-1/2 w-full px-1">
-          <span className="text-[10px] font-bold uppercase tracking-tight text-center leading-none">
+          <span className="text-[10px] font-medium tracking-tight text-center leading-none">
             {t(item.labelKey)}
           </span>
         </div>

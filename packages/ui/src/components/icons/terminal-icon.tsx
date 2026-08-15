@@ -1,4 +1,4 @@
-import { forwardRef, useImperativeHandle, useCallback } from "react";
+import { forwardRef, useImperativeHandle, useCallback, useRef } from "react";
 import type { AnimatedIconHandle, AnimatedIconProps } from "./types";
 import { motion, useAnimate } from "motion/react";
 
@@ -14,6 +14,7 @@ const TerminalIcon = forwardRef<AnimatedIconHandle, AnimatedIconProps>(
     ref,
   ) => {
     const [scope, animate] = useAnimate();
+    const isControlledRef = useRef(false);
 
     const start = useCallback(async () => {
       animate(
@@ -41,16 +42,23 @@ const TerminalIcon = forwardRef<AnimatedIconHandle, AnimatedIconProps>(
       );
     }, [animate]);
 
-    useImperativeHandle(ref, () => ({
-      startAnimation: start,
-      stopAnimation: stop,
-    }));
+    useImperativeHandle(ref, () => {
+      isControlledRef.current = true;
+      return {
+        startAnimation: start,
+        stopAnimation: stop,
+      };
+    });
 
     return (
       <motion.svg
         ref={scope}
-        onHoverStart={start}
-        onHoverEnd={stop}
+        onHoverStart={() => {
+          if (!isControlledRef.current) start();
+        }}
+        onHoverEnd={() => {
+          if (!isControlledRef.current) stop();
+        }}
         xmlns="http://www.w3.org/2000/svg"
         width={size}
         height={size}

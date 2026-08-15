@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import { Bot, BrainCircuit, Coins, Cpu, DollarSign } from "lucide-react";
 import {
   DitherFunnel,
   DitherGrowth,
@@ -9,6 +8,8 @@ import {
   DitherShareBar,
   DitherStackedBars,
   DitherTooltip,
+  IconSwap,
+  IconSwapItem,
   Select,
   SelectContent,
   SelectItem,
@@ -31,7 +32,11 @@ import {
 import { useTranslations } from "next-intl";
 
 import type { TokenUsageOverviewResponse } from "@/api/ws/token-usage-api";
-import { AgentIcon } from "@/features/agent/components/AgentIcon";
+import {
+  TokenUsageAgentIcon,
+  TokenUsageModelIcon,
+} from "@/features/token-usage/TokenUsageIcons";
+import { TokenUsageStatChip } from "@/features/token-usage/TokenUsageStatChip";
 import {
   agentChartColor,
   buildHeatmapWeeks,
@@ -39,7 +44,6 @@ import {
   formatCurrencyCompact,
   formatDetailedNumber,
   formatHeatmapDate,
-  resolveTokenUsageModelIconSrc,
   type BreakdownShare,
   type Resolution,
   type TokenMixSlice,
@@ -47,147 +51,8 @@ import {
   type UsageMetric,
 } from "@/features/token-usage/token-usage-dialog-utils";
 
-const TOKEN_USAGE_AGENT_ICON_ID: Record<string, string> = {
-  claude: "claude-code",
-  roocode: "roo",
-  kilocode: "kilo",
-  kilo: "kilo",
-  kiro: "kiro-cli",
-  commandcode: "command-code",
-  qwen: "qwen-code",
-  codebuddy: "codebuddy-code",
-  workbuddy: "codebuddy-code",
-  "devin-cli": "devin",
-  "devin-desktop": "devin",
-  "antigravity-cli": "antigravity",
-  augment: "auggie",
-  grok: "grok-build",
-  copilot: "copilot",
-  "factory-droid": "droid",
-  "github-copilot": "copilot",
-};
-
-/** Normalize token-usage client ids toward AgentIcon registry ids. */
-function normalizeAgentRegistryId(clientId: string): string {
-  const normalized = clientId.trim().toLowerCase().replace(/_/g, "-");
-  return TOKEN_USAGE_AGENT_ICON_ID[normalized] ?? normalized;
-}
-
-export function TokenUsageAgentIcon({
-  clientId,
-  name,
-  size = 12,
-  color,
-}: {
-  clientId: string;
-  name: string;
-  size?: number;
-  /** Optional monochrome tint (chart legend / segment key). */
-  color?: string;
-}) {
-  if (clientId === "other") {
-    return (
-      <Bot
-        className={cn("shrink-0", color ? undefined : "text-muted-foreground")}
-        style={{ width: size, height: size, color: color || undefined }}
-        aria-hidden
-      />
-    );
-  }
-  return (
-    <AgentIcon
-      registryId={normalizeAgentRegistryId(clientId)}
-      name={name}
-      size={size}
-      color={color}
-    />
-  );
-}
-
-/**
- * Model / provider brand icon for model-dimension rows.
- * Uses tokscale `provider_id` (with model-name inference fallback) mapped onto
- * `/ai-provider/*` or `/agents/*` assets. Falls back to Cpu when unknown.
- */
-export function TokenUsageModelIcon({
-  modelId,
-  providerId,
-  name,
-  size = 12,
-  color,
-}: {
-  modelId: string;
-  providerId?: string | null;
-  name: string;
-  size?: number;
-  /** Optional monochrome tint (chart legend / segment key). */
-  color?: string;
-}) {
-  if (modelId === "other") {
-    return (
-      <Cpu
-        className={cn("shrink-0", color ? undefined : "text-muted-foreground")}
-        style={{ width: size, height: size, color: color || undefined }}
-        aria-hidden
-      />
-    );
-  }
-
-  const iconSrc = resolveTokenUsageModelIconSrc(providerId, modelId);
-  if (!iconSrc) {
-    return (
-      <Cpu
-        className={cn("shrink-0", color ? undefined : "text-muted-foreground")}
-        style={{ width: size, height: size, color: color || undefined }}
-        aria-hidden
-      />
-    );
-  }
-
-  // Tint monochrome glyphs so legends match segment colors (same approach as AgentIcon).
-  if (color) {
-    return (
-      <span
-        role="img"
-        aria-label={`${name} icon`}
-        className="inline-block shrink-0"
-        style={{
-          width: size,
-          height: size,
-          backgroundColor: color,
-          WebkitMaskImage: `url(${iconSrc})`,
-          WebkitMaskSize: "contain",
-          WebkitMaskRepeat: "no-repeat",
-          WebkitMaskPosition: "center",
-          maskImage: `url(${iconSrc})`,
-          maskSize: "contain",
-          maskRepeat: "no-repeat",
-          maskPosition: "center",
-        }}
-      />
-    );
-  }
-
-  return (
-    <span
-      role="img"
-      aria-label={`${name} icon`}
-      className="inline-block shrink-0 bg-current text-foreground"
-      style={{
-        width: size,
-        height: size,
-        WebkitMaskImage: `url(${iconSrc})`,
-        WebkitMaskSize: "contain",
-        WebkitMaskRepeat: "no-repeat",
-        WebkitMaskPosition: "center",
-        maskImage: `url(${iconSrc})`,
-        maskSize: "contain",
-        maskRepeat: "no-repeat",
-        maskPosition: "center",
-      }}
-    />
-  );
-}
+// Re-export icons so existing `TokenUsageOverviewTab` import paths keep working.
+export { TokenUsageAgentIcon, TokenUsageModelIcon } from "@/features/token-usage/TokenUsageIcons";
 
 /** Center-stage token usage — single overview page (no tab chrome). */
 
@@ -381,20 +246,26 @@ export function TokenUsageOverviewTab({
                 <div key={`share-rank-${rankIndex}`} className="space-y-1.5">
                   <div className="flex items-center justify-between gap-2 text-sm">
                     <span className="inline-flex min-w-0 items-center gap-2">
-                      {dimension === "agent" ? (
-                        <TokenUsageAgentIcon
-                          clientId={row.id}
-                          name={row.label}
-                          size={16}
-                        />
-                      ) : (
-                        <TokenUsageModelIcon
-                          modelId={row.id}
-                          providerId={row.providerId}
-                          name={row.label}
-                          size={16}
-                        />
-                      )}
+                      <span className="inline-flex size-4 shrink-0 items-center justify-center">
+                        <IconSwap>
+                          <IconSwapItem key={`${dimension}-${row.id}`}>
+                            {dimension === "agent" ? (
+                              <TokenUsageAgentIcon
+                                clientId={row.id}
+                                name={row.label}
+                                size={16}
+                              />
+                            ) : (
+                              <TokenUsageModelIcon
+                                modelId={row.id}
+                                providerId={row.providerId}
+                                name={row.label}
+                                size={16}
+                              />
+                            )}
+                          </IconSwapItem>
+                        </IconSwap>
+                      </span>
                       <span className="truncate font-medium" title={row.label}>
                         {row.label}
                       </span>
@@ -436,11 +307,10 @@ export function TokenUsageOverviewTab({
           </div>
         </div>
 
-        <div className="flex min-w-0 flex-col gap-3">
-          <div className="grid grid-cols-2 gap-2.5 content-start">
-            <StatChip
-              panel={panel}
-              muted={muted}
+        <div className="flex h-full min-w-0 flex-col gap-2.5">
+          <div className="grid flex-[2] grid-cols-2 gap-2.5">
+            <TokenUsageStatChip
+              isDark={isDark}
               label={t("stats.messages.label")}
               value={
                 loading ? (
@@ -455,10 +325,10 @@ export function TokenUsageOverviewTab({
                 )
               }
               note={messagesNote}
+              illustration="messages"
             />
-            <StatChip
-              panel={panel}
-              muted={muted}
+            <TokenUsageStatChip
+              isDark={isDark}
               label={t("stats.activeDays.label")}
               value={
                 loading ? (
@@ -474,10 +344,10 @@ export function TokenUsageOverviewTab({
                 )
               }
               note={t("stats.activeDays.note")}
+              illustration="activeDays"
             />
-            <StatChip
-              panel={panel}
-              muted={muted}
+            <TokenUsageStatChip
+              isDark={isDark}
               label={t("stats.estimatedCost.label")}
               value={
                 loading ? (
@@ -493,10 +363,10 @@ export function TokenUsageOverviewTab({
                 )
               }
               note={t("stats.estimatedCost.note")}
+              illustration="cost"
             />
-            <StatChip
-              panel={panel}
-              muted={muted}
+            <TokenUsageStatChip
+              isDark={isDark}
               label={t("stats.totalTokens.label")}
               value={
                 loading ? (
@@ -511,11 +381,12 @@ export function TokenUsageOverviewTab({
                 )
               }
               note={rangeLabel}
+              illustration="tokens"
             />
           </div>
 
           {/* All-time token mix — horizontal dither share bar + legend */}
-          <div className={cn("rounded-xl border px-3 py-3", panel)}>
+          <div className={cn("flex shrink-0 flex-col justify-center rounded-xl border px-3 py-4", panel)}>
             <div className={cn("mb-2 text-[11px]", muted)}>{t("charts.mix.title")}</div>
             {hasMix && !loading ? (
               <>
@@ -583,7 +454,7 @@ export function TokenUsageOverviewTab({
       </div>
 
       {/* Heatmap — year only affects this chart; overview stats stay all-time */}
-      <div className="flex w-full flex-col gap-1.5">
+      <div className="flex w-full flex-col gap-3">
         <div className="flex justify-end">
           <Select
             value={heatmapYear || undefined}
@@ -802,13 +673,19 @@ export function TokenUsageOverviewTab({
                       style={{ color }}
                       title={label}
                     >
-                      {segmentIcons?.[index] ?? (
-                        <span
-                          className="size-1.5 shrink-0 rounded-full"
-                          style={{ backgroundColor: color }}
-                          aria-hidden
-                        />
-                      )}
+                      <span className="inline-flex size-3 shrink-0 items-center justify-center">
+                        <IconSwap>
+                          <IconSwapItem key={segmentId}>
+                            {segmentIcons?.[index] ?? (
+                              <span
+                                className="size-1.5 shrink-0 rounded-full"
+                                style={{ backgroundColor: color }}
+                                aria-hidden
+                              />
+                            )}
+                          </IconSwapItem>
+                        </IconSwap>
+                      </span>
                       <span className="truncate">{label}</span>
                     </span>
                   );
@@ -822,24 +699,3 @@ export function TokenUsageOverviewTab({
   );
 }
 
-function StatChip({
-  panel,
-  muted,
-  label,
-  value,
-  note,
-}: {
-  panel: string;
-  muted: string;
-  label: string;
-  value: React.ReactNode;
-  note: string;
-}) {
-  return (
-    <div className={cn("rounded-xl border px-3 py-2.5", panel)}>
-      <div className={cn("text-[11px]", muted)}>{label}</div>
-      <div className="mt-1 text-xl font-semibold tracking-tight tabular-nums">{value}</div>
-      <div className={cn("mt-0.5 truncate text-[10px]", muted)}>{note}</div>
-    </div>
-  );
-}

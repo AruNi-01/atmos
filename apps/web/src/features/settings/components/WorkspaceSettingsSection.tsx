@@ -41,7 +41,7 @@ function GitignoreDirsCard() {
     updateCustomPath,
   } = useWorkspaceGitignoreDirsStore();
 
-  const [expanded, setExpanded] = React.useState(true);
+  const [expanded, setExpanded] = React.useState(false);
   const [newPath, setNewPath] = React.useState('');
   const [editingPaths, setEditingPaths] = React.useState<Record<string, string>>({});
 
@@ -254,9 +254,9 @@ export function WorkspaceSettingsSection() {
     loadSettings,
   } = useWorkspaceSettingsStore();
 
-  const [expanded, setExpanded] = React.useState(true);
+  const [expanded, setExpanded] = React.useState(false);
   const [branchNamingExpanded, setBranchNamingExpanded] = React.useState(true);
-  const [archiveExpanded, setArchiveExpanded] = React.useState(true);
+  const [archiveExpanded, setArchiveExpanded] = React.useState(false);
   const [localPrefix, setLocalPrefix] = React.useState(branchPrefix);
   const pendingSaveRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
