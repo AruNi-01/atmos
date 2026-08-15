@@ -1,4 +1,4 @@
-type HistoryEntryLike = { url?: string };
+type HistoryEntryLike = { url?: string | null };
 
 const SETTINGS_RETURN_PATH_KEY = "atmos:settings-return-path";
 const FALLBACK_RETURN_PATH = "/";
