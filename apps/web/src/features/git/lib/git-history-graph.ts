@@ -1,5 +1,6 @@
 /**
- * Topological git-history lane layout, ported from Comet's `layout_graph`.
+ * Topological git-history lane layout, ported from Comet's `layout_graph`
+ * (https://github.com/zeronsh/comet, MIT — see root NOTICE).
  * Commits must arrive child-before-parent (`git log --topo-order`).
  */
 

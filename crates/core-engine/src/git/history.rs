@@ -1,3 +1,9 @@
+//! Topological commit history for the center-tab graph.
+//!
+//! Walk and ref collection follow Comet (https://github.com/zeronsh/comet, MIT —
+//! see root NOTICE): `git log --topo-order` seeded by HEAD, branches, remotes,
+//! and tags, plus `for-each-ref` (skipping symbolic refs).
+
 use std::collections::HashMap;
 use std::path::Path;
 
