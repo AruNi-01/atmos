@@ -1,14 +1,14 @@
 "use client";
 
-import React, { startTransition, useCallback, useDeferredValue, useEffect, useMemo, useState, ViewTransition } from "react";
+import React, { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import {
   Button,
   Input,
+  PushPageStack,
   Tabs,
-  TabsList,
-  TabsTrigger,
-  cn,
+  usePushPageTransition,
 } from "@workspace/ui";
+import { useTranslations } from "next-intl";
 import { skillsApi, type SkillInfo } from "@/api/ws-api";
 import { useAppRouter } from "@/shared/hooks/use-app-router";
 import { useSkillsListQuery, useInvalidateSkillsList, forceRefreshSkillsList } from "@/features/skills/hooks/use-skills-query";
@@ -22,9 +22,6 @@ import { useContextParams } from "@/shared/hooks/use-context-params";
 import {
   BookOpen,
   Download,
-  Filter,
-  FolderOpen,
-  Globe,
   Loader2,
   Puzzle,
   LoaderCircle,
@@ -32,7 +29,9 @@ import {
   Search,
   Store,
 } from "lucide-react";
+import { LaunchpadPageTabs } from "@/shared/components/LaunchpadPageTabs";
 import { SkillDetail } from "./SkillDetail";
+import { SkillsFilterMenu } from "./SkillsFilterMenu";
 import { SkillInstallTerminalDialog } from "./SkillInstallTerminalDialog";
 import { SkillsInstalledTab } from "./SkillsInstalledTab";
 import { SkillsMarketTab } from "./SkillsMarketTab";
@@ -50,9 +49,16 @@ import {
 } from "../lib/skills-view-utils";
 
 export const SkillsView: React.FC = () => {
+  const t = useTranslations("skills.view");
   const router = useAppRouter();
   const [{ tab: activeTab, filter: scopeFilter, projects: projectsParam, q: query }, setParams] = useQueryStates(skillsParams);
   const { skillScope, skillId } = useContextParams();
+  const {
+    phase: pushPhase,
+    isPresented: pushPresented,
+    open: pushOpen,
+    close: pushClose,
+  } = usePushPageTransition();
 
   const skillsQuery = useSkillsListQuery();
   const skills = skillsQuery.data?.skills ?? [];
@@ -62,11 +68,15 @@ export const SkillsView: React.FC = () => {
   const queryClient = useQueryClient();
   const scope = useComputerQueryScope();
   const [isForceRefreshing, setIsForceRefreshing] = useState(false);
-  const [selectedSkill, setSelectedSkill] = useState<SkillInfo | null>(null);
+  /** Skill data kept until the slide-out finishes. List payload opens first; get() enriches later. */
+  const [detailSkill, setDetailSkill] = useState<SkillInfo | null>(null);
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
-  const [showFilter, setShowFilter] = useState(scopeFilter !== "all");
   const [installingSkill, setInstallingSkill] = useState<SkillMarketItem | null>(null);
   const [collapsedMarketCategories, setCollapsedMarketCategories] = useState<Record<string, boolean>>({});
+  const detailSkillRef = useRef(detailSkill);
+  detailSkillRef.current = detailSkill;
+  const pushPhaseRef = useRef(pushPhase);
+  pushPhaseRef.current = pushPhase;
 
   const deferredQuery = useDeferredValue(query.trim().toLowerCase());
 
@@ -146,20 +156,61 @@ export const SkillsView: React.FC = () => {
           ? { skills: prev.skills.map((s) => (s.id === nextSkill.id ? nextSkill : s)) }
           : prev,
     );
-    setSelectedSkill((current) => (current?.id === nextSkill.id ? nextSkill : current));
+    setDetailSkill((current) => (current?.id === nextSkill.id ? nextSkill : current));
   }, [queryClient, scope]);
+
+  /** Open immediately with whatever skill payload we have (list row is enough). */
+  const openDetail = useCallback(
+    (skill: SkillInfo) => {
+      setDetailSkill(skill);
+      pushOpen();
+    },
+    [pushOpen],
+  );
+
+  /** Enrich open detail from skills_get without blocking or re-animating. */
+  const enrichDetailInBackground = useCallback(async (scopeArg: string, id: string) => {
+    try {
+      const result = await skillsApi.get(scopeArg, id);
+      if (pushPhaseRef.current === "closing" || pushPhaseRef.current === "closed") return;
+      if (detailSkillRef.current?.id !== result.id) return;
+      setDetailSkill(result);
+    } catch (error) {
+      console.error("Failed to load skill details:", error);
+    }
+  }, []);
 
   useEffect(() => {
     const loadSkillDetail = async () => {
       if (!skillId || !skillScope) {
-        setSelectedSkill(null);
+        // URL left detail (e.g. browser back) — slide out without pushing again.
+        if (pushPhaseRef.current === "open") {
+          pushClose({
+            onComplete: () => setDetailSkill(null),
+          });
+        }
+        setIsLoadingDetail(false);
         return;
       }
 
+      // Local close: URL still has skillId until exit finishes — do not re-open.
+      if (pushPhaseRef.current === "closing") {
+        return;
+      }
+
+      // Already showing this skill from a list click — keep UI up, refresh in background.
+      if (detailSkillRef.current?.id === skillId && pushPhaseRef.current === "open") {
+        setIsLoadingDetail(false);
+        void enrichDetailInBackground(skillScope, skillId);
+        return;
+      }
+
+      // Cold open via URL only: show spinner until we have a payload, then open.
       setIsLoadingDetail(true);
       try {
         const result = await skillsApi.get(skillScope, skillId);
-        setSelectedSkill(result);
+        if (pushPhaseRef.current === "closing") return;
+        openDetail(result);
       } catch (error) {
         console.error("Failed to load skill details:", error);
       } finally {
@@ -168,7 +219,7 @@ export const SkillsView: React.FC = () => {
     };
 
     void loadSkillDetail();
-  }, [skillId, skillScope]);
+  }, [enrichDetailInBackground, openDetail, pushClose, skillId, skillScope]);
 
   const handleScopeFilterChange = (filter: ScopeFilter) => {
     void setParams({ filter, projects: "" });
@@ -182,18 +233,19 @@ export const SkillsView: React.FC = () => {
   };
 
   const handleBack = useCallback(() => {
-    startTransition(() => {
-      router.push(
-        buildSkillListUrl({
-          activeTab,
-          filter: scopeFilter,
-          projects: projectsParam,
-          query,
-        }),
-      );
-      setSelectedSkill(null);
+    const listHref = buildSkillListUrl({
+      activeTab,
+      filter: scopeFilter,
+      projects: projectsParam,
+      query,
     });
-  }, [activeTab, projectsParam, query, router, scopeFilter]);
+    pushClose({
+      onComplete: () => {
+        setDetailSkill(null);
+        router.push(listHref);
+      },
+    });
+  }, [activeTab, projectsParam, pushClose, query, router, scopeFilter]);
 
   const handleSkillDeleted = useCallback(
     (skillIdToRemove: string) => {
@@ -202,13 +254,12 @@ export const SkillsView: React.FC = () => {
         (prev) =>
           prev ? { skills: prev.skills.filter((s) => s.id !== skillIdToRemove) } : prev,
       );
-      setSelectedSkill((current) => (current?.id === skillIdToRemove ? null : current));
-      if (selectedSkill?.id === skillIdToRemove || skillId === skillIdToRemove) {
+      if (detailSkill?.id === skillIdToRemove || skillId === skillIdToRemove) {
         handleBack();
       }
       invalidateSkillsList();
     },
-    [handleBack, invalidateSkillsList, queryClient, scope, selectedSkill?.id, skillId],
+    [detailSkill?.id, handleBack, invalidateSkillsList, queryClient, scope, skillId],
   );
 
   const handleOpenInstalledSkill = (skill: SkillInfo) => {
@@ -227,18 +278,19 @@ export const SkillsView: React.FC = () => {
     }
     searchParams.set("scope", skill.scope);
     searchParams.set("skillId", skill.id);
-    startTransition(() => {
-      setSelectedSkill(skill);
+    // Paint the detail page immediately with list data; URL + full payload follow.
+    openDetail(skill);
+    queueMicrotask(() => {
       router.push(`/skills?${searchParams.toString()}`);
     });
   };
 
   const searchPlaceholder =
     activeTab === "installed"
-      ? "Search installed skills..."
+      ? t("search.installed")
       : activeTab === "market"
-      ? "Search skills market..."
-      : "Search resources...";
+        ? t("search.market")
+        : t("search.resources");
 
   const setMarketCategoryOpen = (categoryId: string, open: boolean) => {
     setCollapsedMarketCategories((current) => ({
@@ -247,235 +299,143 @@ export const SkillsView: React.FC = () => {
     }));
   };
 
-  if (selectedSkill) {
-    return (
-      <ViewTransition key="skill-detail">
-        <div className="h-full overflow-hidden bg-background">
-          <SkillDetail
-            skill={selectedSkill}
-            onBack={handleBack}
-            onUpdated={handleSkillUpdated}
-            onDeleted={handleSkillDeleted}
-          />
-        </div>
-      </ViewTransition>
-    );
-  }
-
-  if (skillId && skillScope && isLoadingDetail) {
-    return (
-      <div className="flex h-full items-center justify-center bg-background">
-        <Loader2 className="size-8 animate-spin text-muted-foreground" />
-      </div>
-    );
-  }
+  const showDetail = detailSkill != null && pushPresented;
+  const showDetailLoading =
+    !showDetail && !!skillId && !!skillScope && isLoadingDetail && pushPhase !== "closing";
 
   return (
     <>
-      <ViewTransition key="skill-list">
-      <div className="flex h-full flex-col overflow-hidden bg-background">
-        <div className="sticky top-0 z-10 border-b border-border bg-background/50 px-8 py-6 backdrop-blur-sm">
-          <div className="mx-auto flex w-full max-w-5xl items-center justify-between gap-6">
-            <div className="flex items-center gap-4 shrink-0">
-              <div className="flex size-12 items-center justify-center rounded-2xl bg-primary/10 text-primary shadow-sm ring-1 ring-primary/20">
-                <Puzzle className="size-6" />
-              </div>
-              <div>
-                <h2 className="text-xl font-bold tracking-tight text-foreground text-balance">Skills</h2>
-                <p className="max-w-xs text-sm text-muted-foreground text-pretty">
-                  Manage installed skills, browse the market, and discover resources.
-                </p>
-              </div>
-            </div>
-
-            <div className="flex flex-1 items-center gap-3 max-w-2xl">
-              <div className="group relative w-full">
-                <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground/60 transition-colors group-focus-within:text-primary" />
-                <Input
-                  value={query}
-                  onChange={(event) => void setParams({ q: event.target.value })}
-                  placeholder={searchPlaceholder}
-                  className="h-10 rounded-xl border-border/50 bg-muted/20 pl-10 shadow-sm transition-all focus:bg-background focus-visible:ring-1 focus-visible:ring-primary/20"
-                />
-              </div>
-
-              {activeTab === "installed" && (
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant={showFilter || isFilterActive ? "secondary" : "outline"}
-                    size="icon"
-                    onClick={() => setShowFilter((value) => !value)}
-                    className={cn(
-                      "relative size-10 shrink-0 rounded-xl shadow-sm transition-all cursor-pointer",
-                      !showFilter && !isFilterActive && "border-border/50 bg-muted/20 hover:bg-background",
-                      isFilterActive && "ring-1 ring-primary/30",
-                    )}
-                    title="Toggle Filters"
-                  >
-                    <Filter className="size-4" />
-                    {isFilterActive && <span className="absolute right-2.5 top-2.5 size-1.5 rounded-full border-2 border-background bg-primary" />}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => {
-                      setIsForceRefreshing(true);
-                      void forceRefreshSkillsList().finally(() => setIsForceRefreshing(false));
-                    }}
-                    disabled={isLoading || isForceRefreshing || isRefreshing}
-                    className="size-10 shrink-0 rounded-xl border-border/50 bg-muted/20 shadow-sm transition-all hover:bg-background cursor-pointer"
-                    title="Refresh Skills"
-                  >
-                    {isForceRefreshing || isRefreshing ? <LoaderCircle className="size-4 animate-spin-reverse" /> : <RotateCcw className="size-4" />}
-                  </Button>
+      <PushPageStack
+        phase={pushPhase}
+        base={
+          <>
+            <div className="sticky top-0 z-10 bg-background/50 px-8 py-6 backdrop-blur-sm">
+              <div className="mx-auto flex w-full max-w-5xl flex-col gap-4">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="flex min-w-0 items-center gap-4">
+                    <div className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary shadow-sm ring-1 ring-primary/20">
+                      <Puzzle className="size-6" />
+                    </div>
+                    <div className="min-w-0">
+                      <h2 className="text-xl font-bold tracking-tight text-foreground text-balance">
+                        {t("title")}
+                      </h2>
+                      <p className="max-w-xs text-sm text-muted-foreground text-pretty">
+                        {t("description")}
+                      </p>
+                    </div>
+                  </div>
+                  <LaunchpadPageTabs
+                    value={activeTab}
+                    onValueChange={(value) => void setParams({ tab: value as SkillsTab })}
+                    items={[
+                      { value: "installed", label: t("tabs.installed"), icon: Download },
+                      { value: "market", label: t("tabs.market"), icon: Store },
+                      { value: "resources", label: t("tabs.resources"), icon: BookOpen },
+                    ]}
+                  />
                 </div>
-              )}
-            </div>
-          </div>
-        </div>
 
-        <Tabs
-          value={activeTab}
-          onValueChange={(value) => void setParams({ tab: value as SkillsTab })}
-          className="flex flex-1 flex-col overflow-hidden"
-        >
-          <div className="px-8 pb-2 pt-4">
-            <div className="mx-auto w-full max-w-5xl">
-              <TabsList>
-                <TabsTrigger value="installed">
-                  <Download className="size-4" />
-                  Installed
-                  {!isLoading && skills.length > 0 && (
-                    <span className="ml-1 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-1.5 text-[10px] font-medium tabular-nums text-emerald-600 dark:text-emerald-400">
-                      {skills.length}
-                    </span>
-                  )}
-                </TabsTrigger>
-                <TabsTrigger value="market">
-                  <Store className="size-4" />
-                  Market
-                  <span className="ml-1 shrink-0 rounded-full border border-sky-500/20 bg-sky-500/10 px-1.5 text-[10px] font-medium tabular-nums text-sky-700 dark:text-sky-400">
-                    {countCategoryItems(marketCategories)}
-                  </span>
-                </TabsTrigger>
-                <TabsTrigger value="resources">
-                  <BookOpen className="size-4" />
-                  Resources
-                  <span className="ml-1 shrink-0 rounded-full border border-sky-500/20 bg-sky-500/10 px-1.5 text-[10px] font-medium tabular-nums text-sky-700 dark:text-sky-400">
-                    {countCategoryItems(resourceCategories)}
-                  </span>
-                </TabsTrigger>
-              </TabsList>
-            </div>
-          </div>
-
-          <div
-            className={cn(
-              "overflow-hidden transition-all duration-300 ease-in-out",
-              activeTab === "installed" && showFilter ? "max-h-24 opacity-100" : "max-h-0 opacity-0",
-            )}
-          >
-            <div className="border-b border-border bg-background px-8 py-3">
-              <div className="mx-auto flex w-full max-w-5xl items-center gap-2 flex-wrap">
-                <Button
-                  variant={scopeFilter === "all" ? "secondary" : "ghost"}
-                  size="sm"
-                  onClick={() => handleScopeFilterChange("all")}
-                  className="h-7 cursor-pointer text-xs"
-                >
-                  All
-                </Button>
-                <Button
-                  variant={scopeFilter === "system" ? "secondary" : "ghost"}
-                  size="sm"
-                  onClick={() => handleScopeFilterChange("system")}
-                  className={cn(
-                    "h-7 cursor-pointer gap-1.5 text-xs",
-                    scopeFilter === "system" && "text-primary",
-                  )}
-                  title="Skills installed by Atmos under ~/.atmos/skills/.system/"
-                >
-                  <Puzzle className="size-3" />
-                  Atmos Built-in
-                </Button>
-                <Button
-                  variant={scopeFilter === "global" ? "secondary" : "ghost"}
-                  size="sm"
-                  onClick={() => handleScopeFilterChange("global")}
-                  className={cn("h-7 cursor-pointer gap-1.5 text-xs", scopeFilter === "global" && "text-primary")}
-                >
-                  <Globe className="size-3" />
-                  Global
-                </Button>
-                <Button
-                  variant={scopeFilter === "project" && selectedProjectIds.length === 0 ? "secondary" : "ghost"}
-                  size="sm"
-                  onClick={() => handleScopeFilterChange("project")}
-                  className={cn(
-                    "h-7 cursor-pointer gap-1.5 text-xs",
-                    scopeFilter === "project" && selectedProjectIds.length === 0 && "text-primary",
-                  )}
-                >
-                  <FolderOpen className="size-3" />
-                  Project
-                </Button>
-
-                {scopeFilter === "project" && projects.length > 0 && (
-                  <>
-                    <div className="mx-1 h-4 w-px bg-border" />
-                    {projects.map((project) => (
-                      <Button
-                        key={project.id}
-                        variant={selectedProjectIds.includes(project.id) ? "secondary" : "ghost"}
-                        size="sm"
-                        onClick={() => handleProjectToggle(project.id)}
-                        className={cn(
-                          "h-7 cursor-pointer text-xs",
-                          selectedProjectIds.includes(project.id) && "text-primary",
-                        )}
-                      >
-                        {project.name}
-                      </Button>
-                    ))}
-                  </>
-                )}
+                <div className="flex items-center gap-2">
+                  <div className="group relative min-w-0 flex-1">
+                    <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground/60 transition-colors group-focus-within:text-primary" />
+                    <Input
+                      value={query}
+                      onChange={(event) => void setParams({ q: event.target.value })}
+                      placeholder={searchPlaceholder}
+                      className="h-11 rounded-xl border-border/50 bg-muted/20 pl-10 shadow-sm transition-all focus:bg-background focus-visible:ring-1 focus-visible:ring-primary/20"
+                    />
+                  </div>
+                  {activeTab === "installed" ? (
+                    <SkillsFilterMenu
+                      scopeFilter={scopeFilter}
+                      selectedProjectIds={selectedProjectIds}
+                      projects={projects}
+                      onScopeChange={handleScopeFilterChange}
+                      onProjectToggle={handleProjectToggle}
+                      onClear={() => void setParams({ filter: "all", projects: "" })}
+                    />
+                  ) : null}
+                  {activeTab === "installed" ? (
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => {
+                        setIsForceRefreshing(true);
+                        void forceRefreshSkillsList().finally(() => setIsForceRefreshing(false));
+                      }}
+                      disabled={isLoading || isForceRefreshing || isRefreshing}
+                      className="size-11 shrink-0 rounded-xl border-border/50 bg-muted/20 shadow-sm transition-all hover:bg-background"
+                      title={t("refresh")}
+                    >
+                      {isForceRefreshing || isRefreshing ? (
+                        <LoaderCircle className="size-4 animate-spin-reverse" />
+                      ) : (
+                        <RotateCcw className="size-4" />
+                      )}
+                    </Button>
+                  ) : null}
+                </div>
               </div>
             </div>
-          </div>
 
-          <div className="flex-1 overflow-auto px-8 pb-8 pt-4">
-            <div className="mx-auto w-full max-w-5xl">
-              <SkillsInstalledTab
-                isLoading={isLoading}
-                skills={skills}
-                filteredSkills={filteredSkills}
-                query={query}
-                isFilterActive={isFilterActive}
-                onResetFilters={() => void setParams({ q: "", filter: "all", projects: "" })}
-                onOpenSkill={handleOpenInstalledSkill}
-                onSkillUpdated={handleSkillUpdated}
-                onSkillDeleted={handleSkillDeleted}
-              />
-              <SkillsMarketTab
-                categories={filteredMarketCategories}
-                resultCount={marketResultCount}
-                query={query}
-                collapsedCategories={collapsedMarketCategories}
-                onCategoryOpenChange={setMarketCategoryOpen}
-                onClearSearch={() => void setParams({ q: "" })}
-                onInstallSkill={setInstallingSkill}
-              />
-              <SkillsResourcesTab
-                categories={filteredResourceCategories}
-                resultCount={resourceResultCount}
-                query={query}
-                onClearSearch={() => void setParams({ q: "" })}
-              />
+            <Tabs
+              value={activeTab}
+              onValueChange={(value) => void setParams({ tab: value as SkillsTab })}
+              className="flex min-h-0 flex-1 flex-col overflow-hidden"
+            >
+              <div className="flex-1 overflow-auto px-8 pb-8 pt-4">
+                <div className="mx-auto w-full max-w-5xl">
+                  <SkillsInstalledTab
+                    isLoading={isLoading}
+                    skills={skills}
+                    filteredSkills={filteredSkills}
+                    query={query}
+                    isFilterActive={isFilterActive}
+                    onResetFilters={() => void setParams({ q: "", filter: "all", projects: "" })}
+                    onOpenSkill={handleOpenInstalledSkill}
+                    onSkillUpdated={handleSkillUpdated}
+                    onSkillDeleted={handleSkillDeleted}
+                  />
+                  <SkillsMarketTab
+                    categories={filteredMarketCategories}
+                    resultCount={marketResultCount}
+                    query={query}
+                    collapsedCategories={collapsedMarketCategories}
+                    onCategoryOpenChange={setMarketCategoryOpen}
+                    onClearSearch={() => void setParams({ q: "" })}
+                    onInstallSkill={setInstallingSkill}
+                  />
+                  <SkillsResourcesTab
+                    categories={filteredResourceCategories}
+                    resultCount={resourceResultCount}
+                    query={query}
+                    onClearSearch={() => void setParams({ q: "" })}
+                  />
+                </div>
+              </div>
+            </Tabs>
+          </>
+        }
+        loading={
+          showDetailLoading ? (
+            <div className="absolute inset-0 z-20 flex items-center justify-center bg-background">
+              <Loader2 className="size-8 animate-spin text-muted-foreground" />
             </div>
-          </div>
-        </Tabs>
-      </div>
-      </ViewTransition>
+          ) : null
+        }
+        overlay={
+          showDetail && detailSkill ? (
+            <SkillDetail
+              skill={detailSkill}
+              onBack={handleBack}
+              onUpdated={handleSkillUpdated}
+              onDeleted={handleSkillDeleted}
+            />
+          ) : null
+        }
+        overlayKey={detailSkill?.id}
+      />
 
       <SkillInstallTerminalDialog
         open={!!installingSkill}

@@ -48,13 +48,13 @@ function getScopeMeta(scope: SkillInfo["scope"]) {
       };
     case "system":
       return {
-        label: "Atmos Built-in",
+        label: "Atmos built-in",
         icon: Puzzle,
         className: "bg-foreground/80 text-background",
       };
     default:
       return {
-        label: "InsideTheProject",
+        label: "In project",
         icon: FolderOpen,
         className: "bg-muted text-foreground",
       };
@@ -146,7 +146,7 @@ export function InstalledSkillListCard({
                     <TooltipTrigger asChild>
                       <span
                         className={cn(
-                          "flex items-center gap-1 rounded px-1 py-0.5 text-[9px] font-medium uppercase tracking-wider cursor-default",
+                          "flex items-center gap-1 rounded px-1 py-0.5 text-[9px] font-medium cursor-default",
                           scopeMeta.className,
                         )}
                       >
@@ -164,7 +164,7 @@ export function InstalledSkillListCard({
 
                 <span
                   className={cn(
-                    "inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wider",
+                    "inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-[9px] font-medium",
                     statusMeta.className,
                   )}
                 >
