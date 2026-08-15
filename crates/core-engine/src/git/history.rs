@@ -79,8 +79,7 @@ impl GitEngine {
                 count_args.push("HEAD");
             }
             count_args.extend(["--branches", "--remotes", "--tags"]);
-            try_run_git(repo_path, &count_args)?
-                .and_then(|count| count.trim().parse().ok())
+            try_run_git(repo_path, &count_args)?.and_then(|count| count.trim().parse().ok())
         } else {
             None
         };
@@ -200,7 +199,22 @@ mod tests {
 
     #[test]
     fn parse_history_log_splits_null_records() {
-        let output = "aaaaaaa1\0bbbbbbb2 ccccccc3\0merge\0Ada\0ada@example.com\01720000000\0bbbbbbb2\0ddddddd4\0main\0Ada\0ada@example.com\01710000000\0";
+        let output = [
+            "aaaaaaa1",
+            "bbbbbbb2 ccccccc3",
+            "merge",
+            "Ada",
+            "ada@example.com",
+            "1720000000",
+            "bbbbbbb2",
+            "ddddddd4",
+            "main",
+            "Ada",
+            "ada@example.com",
+            "1710000000",
+            "",
+        ]
+        .join("\0");
         let mut refs = HashMap::new();
         refs.insert(
             "aaaaaaa1".to_string(),
@@ -209,7 +223,7 @@ mod tests {
                 label: "main".into(),
             }],
         );
-        let commits = parse_history_log(output, &refs);
+        let commits = parse_history_log(&output, &refs);
         assert_eq!(commits.len(), 2);
         assert_eq!(commits[0].hash, "aaaaaaa1");
         assert_eq!(
@@ -218,7 +232,7 @@ mod tests {
         );
         assert_eq!(commits[0].refs[0].label, "main");
         assert_eq!(commits[1].subject, "main");
-        assert_eq!(commits[1].timestamp, 17_100_000_00);
+        assert_eq!(commits[1].timestamp, 1_710_000_000);
     }
 
     #[test]

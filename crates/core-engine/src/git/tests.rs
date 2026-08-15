@@ -1017,10 +1017,16 @@ fn commit_history_includes_merge_parents_refs_and_pagination() {
     commit_file(&repo, "b.txt", "b\n", "B");
     let sha_b = git_output(&repo, &["rev-parse", "HEAD"]).trim().to_string();
 
-    git(&repo, &["merge", "--no-ff", "-m", "Merge feature", "feature"]);
+    git(
+        &repo,
+        &["merge", "--no-ff", "-m", "Merge feature", "feature"],
+    );
     let sha_merge = git_output(&repo, &["rev-parse", "HEAD"]).trim().to_string();
     git(&repo, &["tag", "v1"]);
-    git(&repo, &["update-ref", "refs/remotes/origin/main", &sha_merge]);
+    git(
+        &repo,
+        &["update-ref", "refs/remotes/origin/main", &sha_merge],
+    );
 
     let engine = GitEngine::new();
     let page = engine
@@ -1041,33 +1047,25 @@ fn commit_history_includes_merge_parents_refs_and_pagination() {
     assert_eq!(merge.parent_hashes.len(), 2);
     assert!(merge.parent_hashes.contains(&sha_b));
     assert!(merge.parent_hashes.contains(&sha_c));
-    assert!(
-        merge
-            .refs
-            .iter()
-            .any(|r| r.kind == super::HistoryRefKind::Branch && r.label == "main")
-    );
-    assert!(
-        merge
-            .refs
-            .iter()
-            .any(|r| r.kind == super::HistoryRefKind::Tag && r.label == "v1")
-    );
-    assert!(
-        merge
-            .refs
-            .iter()
-            .any(|r| r.kind == super::HistoryRefKind::Remote && r.label == "origin/main")
-    );
+    assert!(merge
+        .refs
+        .iter()
+        .any(|r| r.kind == super::HistoryRefKind::Branch && r.label == "main"));
+    assert!(merge
+        .refs
+        .iter()
+        .any(|r| r.kind == super::HistoryRefKind::Tag && r.label == "v1"));
+    assert!(merge
+        .refs
+        .iter()
+        .any(|r| r.kind == super::HistoryRefKind::Remote && r.label == "origin/main"));
 
     let feature = by_hash.get(sha_c.as_str()).expect("feature commit");
     assert_eq!(feature.parent_hashes, vec![sha_a.clone()]);
-    assert!(
-        feature
-            .refs
-            .iter()
-            .any(|r| r.kind == super::HistoryRefKind::Branch && r.label == "feature")
-    );
+    assert!(feature
+        .refs
+        .iter()
+        .any(|r| r.kind == super::HistoryRefKind::Branch && r.label == "feature"));
 
     let paged = engine
         .get_commit_history(&repo, 0, 2)
