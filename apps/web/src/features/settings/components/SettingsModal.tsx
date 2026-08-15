@@ -54,6 +54,7 @@ import {
 } from '@/features/settings/components/settings-modal-data';
 import { SettingsModalSidebar } from '@/features/settings/components/settings-modal-sidebar';
 import { useSettingsUpdateActions } from '@/features/settings/components/use-settings-update-actions';
+import { leaveSettingsPage } from '@/features/settings/lib/open-settings';
 import { isCancelledError } from '@/shared/lib/is-cancelled-error';
 import { useAppRouter } from '@/shared/hooks/use-app-router';
 import { useDesktopTrafficLightsPadding } from '@/shared/hooks/use-desktop-traffic-lights-padding';
@@ -986,7 +987,7 @@ export function SettingsPage() {
   }, [updateNotifyField]);
 
   const leaveSettings = React.useCallback(() => {
-    router.back();
+    leaveSettingsPage(router);
   }, [router]);
 
   useEffect(() => {
