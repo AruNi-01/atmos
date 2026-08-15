@@ -569,12 +569,11 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
             tabIndex={0}
             data-ws-row=""
             className={cn(
-              // transition-colors only — transition-all + backdrop-blur on hover made
-              // rapid hopping feel sticky even with few rows.
-              "relative flex items-center px-3 py-1.5 rounded-md cursor-pointer transition-colors border border-transparent hover:bg-sidebar-accent/50 group/ws",
+              // Instant hover fill — match settings SidebarMenuButton (no color fade).
+              "relative flex items-center px-3 py-1.5 rounded-md cursor-pointer border border-transparent hover:bg-sidebar-accent group/ws",
               isActive
-                ? 'bg-sidebar-accent/50 text-sidebar-foreground shadow-sm'
-                : 'text-muted-foreground hover:text-sidebar-foreground',
+                ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                : "text-muted-foreground hover:text-sidebar-accent-foreground",
               isPlaceholder && "opacity-20",
               isDragging && "bg-sidebar-accent shadow-xl scale-[1.02] border-sidebar-border text-sidebar-foreground"
             )}

@@ -458,14 +458,14 @@ function SortableWorkspaceGroupSection({
     >
       <div
         className={cn(
-          "group relative flex items-center rounded-lg transition-colors hover:bg-sidebar-accent/40",
+          "group relative flex items-center rounded-lg hover:bg-sidebar-accent",
           attentionFilterMode && "opacity-45",
         )}
       >
         <button
           type="button"
           onClick={toggleWorkspaceGroup}
-          className="flex min-w-0 flex-1 items-center gap-1.5 py-2 pl-3 pr-2 text-left text-[11px] font-semibold tracking-[0.03em] text-muted-foreground transition-colors hover:text-sidebar-foreground"
+          className="flex min-w-0 flex-1 items-center gap-1.5 py-2 pl-3 pr-2 text-left text-[11px] font-semibold tracking-[0.03em] text-muted-foreground hover:text-sidebar-accent-foreground"
         >
           <WorkspaceGroupMarker group={group} groupingMode={groupingMode} />
           <span className="truncate">{group.label}</span>
@@ -635,10 +635,10 @@ export function GroupedWorkspaceTwoColumnLeftContent({
               type="button"
               onClick={() => onSelectGroup(group.key)}
               className={cn(
-                "flex w-full items-center gap-1.5 rounded-lg px-3 py-2 text-left text-[11px] font-semibold tracking-[0.03em] transition-colors",
+                "flex w-full items-center gap-1.5 rounded-lg px-3 py-2 text-left text-[11px] font-semibold tracking-[0.03em]",
                 isSelected
                   ? "bg-sidebar-accent text-sidebar-foreground"
-                  : "text-muted-foreground hover:bg-sidebar-accent/40 hover:text-sidebar-foreground",
+                  : "text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
                 // Dim group chrome in attention filter so workspace rows stand out in the right pane.
                 attentionFilterMode && "opacity-45",
               )}
@@ -955,7 +955,7 @@ export function ProjectWorkspaceTwoColumnRightContent({
                 onOpenChange={onPinnedExpandedChange}
                 className="space-y-1.5"
               >
-                <CollapsibleTrigger className="group flex w-full items-center gap-1.5 rounded-lg px-3 py-2 text-left text-[11px] font-semibold tracking-[0.03em] text-muted-foreground transition-colors hover:bg-sidebar-accent/40 hover:text-sidebar-foreground">
+                <CollapsibleTrigger className="group flex w-full items-center gap-1.5 rounded-lg px-3 py-2 text-left text-[11px] font-semibold tracking-[0.03em] text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground">
                   <span className="truncate">{t("leftSidebarControls.pinned")}</span>
                   <ChevronRight className={cn("ml-1 size-3 shrink-0 opacity-0 transition-all duration-200 group-hover:opacity-100", isPinnedExpanded && "rotate-90")} />
                   <span className="ml-auto text-[10px] text-muted-foreground/80">
@@ -1017,7 +1017,7 @@ export function ProjectWorkspaceTwoColumnRightContent({
                 onOpenChange={onWorkspacesExpandedChange}
                 className="space-y-1.5"
               >
-                <CollapsibleTrigger className="group flex w-full items-center gap-1.5 rounded-lg px-3 py-2 text-left text-[11px] font-semibold tracking-[0.03em] text-muted-foreground transition-colors hover:bg-sidebar-accent/40 hover:text-sidebar-foreground">
+                <CollapsibleTrigger className="group flex w-full items-center gap-1.5 rounded-lg px-3 py-2 text-left text-[11px] font-semibold tracking-[0.03em] text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground">
                   <span className="truncate">{t("leftSidebarControls.workspaces")}</span>
                   <ChevronRight className={cn("ml-1 size-3 shrink-0 opacity-0 transition-all duration-200 group-hover:opacity-100", isWorkspacesExpanded && "rotate-90")} />
                   <span className="ml-auto text-[10px] text-muted-foreground/80">

@@ -57,7 +57,7 @@ export function HeaderAttentionBell() {
                 aria-pressed={filterMode}
                 onClick={() => toggleFilterMode()}
                 className={cn(
-                  "relative inline-flex size-8 items-center justify-center rounded-md transition-colors duration-200 ease-out",
+                  "relative inline-flex size-8 items-center justify-center rounded-md",
                   filterMode
                     ? "bg-accent text-foreground"
                     : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",

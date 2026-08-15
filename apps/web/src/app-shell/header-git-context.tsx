@@ -105,7 +105,7 @@ export function HeaderGitContext({
   return (
     <div
       className={cn(
-        "relative z-10 desktop-no-drag flex items-center space-x-1.5 bg-muted/40 px-2 py-1.5 rounded-md border border-transparent transition-all duration-300 ease-out h-8",
+        "relative z-10 desktop-no-drag flex items-center space-x-1.5 bg-muted/40 px-2 py-1.5 rounded-md border border-transparent h-8",
         currentWorkspace && isEditingCurrentBranch
           ? "border-sidebar-border bg-background shadow-xs w-fit"
           : "hover:bg-muted/60 hover:border-border w-fit max-w-[500px]",
@@ -120,7 +120,7 @@ export function HeaderGitContext({
                   onClick={() => onOpenPr(currentBranchPR.number, currentBranchPR.title)}
                   onMouseEnter={() => prIconRef.current?.startAnimation()}
                   onMouseLeave={() => prIconRef.current?.stopAnimation()}
-                  className="flex items-center space-x-1 py-0.5 px-1.5 rounded text-[12px] font-medium text-muted-foreground hover:text-foreground hover:bg-accent transition-colors shrink-0"
+                  className="flex items-center space-x-1 py-0.5 px-1.5 rounded text-[12px] font-medium text-muted-foreground hover:bg-accent hover:text-foreground shrink-0"
                   aria-label={t("gitContext.openPr", { number: currentBranchPR.number })}
                 >
                   {currentBranchPR.state === "CLOSED" || currentBranchPR.state === "MERGED" ? (
@@ -165,14 +165,14 @@ export function HeaderGitContext({
             />
             <button
               onClick={() => void onSaveCurrentBranch()}
-              className="relative z-20 flex size-6 items-center justify-center rounded-sm text-success transition-colors hover:bg-success/10 shrink-0"
+              className="relative z-20 flex size-6 items-center justify-center rounded-sm text-success hover:bg-success/10 shrink-0"
               aria-label={t("gitContext.saveCurrentBranch")}
             >
               <Check className="size-3.5" />
             </button>
             <button
               onClick={onCancelEditCurrentBranch}
-              className="size-6 flex items-center justify-center hover:bg-muted rounded-sm text-muted-foreground transition-colors shrink-0"
+              className="size-6 flex items-center justify-center hover:bg-muted rounded-sm text-muted-foreground shrink-0"
               aria-label={t("gitContext.cancelEditing")}
             >
               <X className="size-3.5" />
@@ -183,7 +183,7 @@ export function HeaderGitContext({
             role={currentWorkspace ? "button" : undefined}
             tabIndex={currentWorkspace ? 0 : undefined}
             className={cn(
-              "flex items-center space-x-1.5 py-0.5 px-1 rounded transition-colors overflow-hidden",
+              "flex items-center space-x-1.5 py-0.5 px-1 rounded overflow-hidden",
               currentWorkspace && "cursor-pointer group/branch hover:bg-accent",
             )}
             onClick={currentWorkspace ? () => setIsEditingCurrentBranch(true) : undefined}
@@ -226,7 +226,7 @@ export function HeaderGitContext({
           }}
         >
           <DropdownMenuTrigger asChild>
-            <button className="flex items-center space-x-1 text-[13px] font-medium text-muted-foreground hover:text-foreground transition-colors outline-none cursor-pointer group/target py-0.5 px-1 rounded hover:bg-accent max-w-full">
+            <button className="flex items-center space-x-1 text-[13px] font-medium text-muted-foreground hover:text-foreground outline-none cursor-pointer group/target py-0.5 px-1 rounded hover:bg-accent max-w-full">
               <span className="opacity-50 shrink-0">origin/</span>
               <span className="truncate block max-w-[100px]">{displayTargetBranch}</span>
               <Edit2 className="size-2.5 opacity-0 group-hover/target:opacity-100 transition-opacity ml-0.5 shrink-0" />
