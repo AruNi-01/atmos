@@ -54,6 +54,21 @@ export type {
   ActionSwapButtonSize,
   ActionSwapButtonVariant,
 } from "./components/motion/action-swap-cascade";
+export { IconSwap, IconSwapItem } from "./components/motion/icon-swap";
+export {
+  PushPageStack,
+  usePushPageTransition,
+  PUSH_PAGE_DURATION_MS,
+  PUSH_PAGE_EASE,
+} from "./components/motion/push-page-stack";
+export type {
+  PushPageAxis,
+  PushPagePhase,
+  PushPageStackProps,
+  PushPageCloseOptions,
+  UsePushPageTransitionOptions,
+  UsePushPageTransitionResult,
+} from "./components/motion/push-page-stack";
 // beui.dev motion tabs — aliased (ui/tabs already exports Tabs/TabsList/…)
 export {
   Tabs as MotionTabs,
