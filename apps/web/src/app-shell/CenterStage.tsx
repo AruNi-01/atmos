@@ -111,6 +111,8 @@ import {
   useSimulatorCenterTabStore,
 } from "@/features/simulator";
 import { simulatorApi } from "@/api/ws/simulator-api";
+import { GIT_HISTORY_TAB_VALUE } from "@/features/git/types";
+import { useGitHistoryCenterTabStore } from "@/features/git/store/use-git-history-center-tab";
 import {
   CenterStageNoContextView,
   resolveCenterStageProjectContext,
@@ -367,11 +369,23 @@ const CenterStage: React.FC = () => {
   const openSimulatorTab = useSimulatorCenterTabStore((s) => s.open);
   const closeSimulatorTab = useSimulatorCenterTabStore((s) => s.close);
 
+  const gitHistoryTabVisible = useGitHistoryCenterTabStore((s) =>
+    effectiveContextId ? Boolean(s.visibleByContext[effectiveContextId]) : false,
+  ) || tabFromUrl === GIT_HISTORY_TAB_VALUE;
+  const openGitHistoryTab = useGitHistoryCenterTabStore((s) => s.open);
+  const closeGitHistoryTab = useGitHistoryCenterTabStore((s) => s.close);
+
   React.useEffect(() => {
     if (tabFromUrl === SIMULATOR_TAB_VALUE && effectiveContextId) {
       openSimulatorTab(effectiveContextId);
     }
   }, [effectiveContextId, openSimulatorTab, tabFromUrl]);
+
+  React.useEffect(() => {
+    if (tabFromUrl === GIT_HISTORY_TAB_VALUE && effectiveContextId) {
+      openGitHistoryTab(effectiveContextId);
+    }
+  }, [effectiveContextId, openGitHistoryTab, tabFromUrl]);
 
   /** Until experiment prefs load, preserve `tab=wiki` from the URL so we do not strip deep links. */
   const wikiCenterEligible = React.useMemo(() => {
@@ -386,6 +400,7 @@ const CenterStage: React.FC = () => {
     if (tabFromUrl === "project-wiki" && !projectWikiTabVisible) return fallbackCenterTab;
     if (tabFromUrl === "code-review" && !codeReviewTabVisible) return fallbackCenterTab;
     if (tabFromUrl === SIMULATOR_TAB_VALUE) return SIMULATOR_TAB_VALUE;
+    if (tabFromUrl === GIT_HISTORY_TAB_VALUE) return GIT_HISTORY_TAB_VALUE;
     if (isTerminalCenterTabValue(tabFromUrl)) {
       return visibleTerminalTabs.some((tab) => tab.id === tabFromUrl)
         ? tabFromUrl
@@ -412,6 +427,7 @@ const CenterStage: React.FC = () => {
     projectWikiTabVisible,
     codeReviewTabVisible,
     simulatorTabVisible,
+    gitHistoryTabVisible,
     effectiveContextId,
     fallbackCenterTab,
     visibleTerminalTabs,
@@ -609,6 +625,7 @@ const CenterStage: React.FC = () => {
         projectWikiVisible: projectWikiTabVisible,
         codeReviewVisible: codeReviewTabVisible,
         simulatorVisible: simulatorTabVisible,
+        gitHistoryVisible: gitHistoryTabVisible,
         wikiEnabled: centerWikiTabEnabled,
         exclude,
       }),
@@ -620,6 +637,7 @@ const CenterStage: React.FC = () => {
       openFiles,
       projectWikiTabVisible,
       simulatorTabVisible,
+      gitHistoryTabVisible,
       visibleTerminalTabs,
     ],
   );
@@ -772,6 +790,12 @@ const CenterStage: React.FC = () => {
     void simulatorApi.stop(effectiveContextId).catch(() => {});
     activateNextAfterClosing(SIMULATOR_TAB_VALUE);
   }, [activateNextAfterClosing, closeSimulatorTab, effectiveContextId]);
+
+  const handleCloseGitHistoryTab = React.useCallback(() => {
+    if (!effectiveContextId) return;
+    closeGitHistoryTab(effectiveContextId);
+    activateNextAfterClosing(GIT_HISTORY_TAB_VALUE);
+  }, [activateNextAfterClosing, closeGitHistoryTab, effectiveContextId]);
 
   React.useEffect(() => {
     registerBrowserHostChrome({
@@ -1586,6 +1610,15 @@ const CenterStage: React.FC = () => {
           void simulatorApi.stop(effectiveContextId).catch(() => {});
           closedImmediately.push(SIMULATOR_TAB_VALUE);
         }
+        continue;
+      }
+
+      if (tab.kind === "git-history") {
+        if (effectiveContextId) {
+          closeGitHistoryTab(effectiveContextId);
+          closedImmediately.push(GIT_HISTORY_TAB_VALUE);
+        }
+        continue;
       }
     }
 
@@ -1603,6 +1636,7 @@ const CenterStage: React.FC = () => {
     closeFile,
     closeGithubTab,
     closeSimulatorTab,
+    closeGitHistoryTab,
     effectiveContextId,
     getTerminalTabPanes,
     performCloseTerminalCenterTab,
@@ -1841,6 +1875,11 @@ const CenterStage: React.FC = () => {
       return;
     }
 
+    if (tab.kind === "git-history") {
+      handleCloseGitHistoryTab();
+      return;
+    }
+
     if (tab.kind === "browser") {
       if (tab.browserContextId && tab.browserTabId) {
         const context = previewBrowserPrefs.byContext[tab.browserContextId];
@@ -1865,6 +1904,7 @@ const CenterStage: React.FC = () => {
     handleCloseFile,
     handleCloseGithubTab,
     handleCloseSimulatorTab,
+    handleCloseGitHistoryTab,
     handleCloseTerminalCenterTab,
     previewBrowserPrefs,
   ]);
@@ -1991,6 +2031,7 @@ const CenterStage: React.FC = () => {
           previewBrowserPrefs={previewBrowserPrefs}
           projectWikiTabVisible={projectWikiTabVisible}
           simulatorTabVisible={simulatorTabVisible}
+          gitHistoryTabVisible={gitHistoryTabVisible}
           scrollableTabsRef={scrollableTabsRef}
           sessionDisplay={sessionDisplay}
           tabGroupDndSensors={tabGroupDndSensors}
@@ -2009,6 +2050,7 @@ const CenterStage: React.FC = () => {
           handleCreateSimulatorCenterTab={handleCreateSimulatorCenterTab}
           handleCreateTerminalCenterTab={handleCreateTerminalCenterTab}
           handleCloseSimulatorTab={handleCloseSimulatorTab}
+          handleCloseGitHistoryTab={handleCloseGitHistoryTab}
           handleRenameTerminalCenterTab={handleRenameTerminalCenterTab}
           handleSelectTabGroupItem={handleSelectTabGroupItem}
           handleTabGroupDragEnd={handleTabGroupDragEnd}
@@ -2045,6 +2087,7 @@ const CenterStage: React.FC = () => {
           onGithubPullRequestChanged={handleGithubPullRequestChanged}
           projectWikiTabVisible={projectWikiTabVisible}
           simulatorTabVisible={simulatorTabVisible}
+          gitHistoryTabVisible={gitHistoryTabVisible}
           projectWikiTerminalGridRef={projectWikiTerminalGridRef}
           projectWikiUserTriggeredRef={projectWikiUserTriggeredRef}
           reviewTarget={reviewTarget}

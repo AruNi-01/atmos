@@ -16,7 +16,8 @@ export type CenterTabKind =
   | "github-action"
   | "github-commit"
   | "browser"
-  | "simulator";
+  | "simulator"
+  | "git-history";
 
 /**
  * Visual-order descriptor for a closable center tab.

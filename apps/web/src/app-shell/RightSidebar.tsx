@@ -65,9 +65,10 @@ import type { ActionRun } from "@/features/github/components/ActionsPanel";
 import dynamic from "next/dynamic";
 import { PRPanel, type PRPanelHandle } from "@/features/github/components/PRPanel";
 import { IssuePanel } from "@/features/github/components/IssuePanel";
-import { CommitsPanel } from "@/features/github/components/CommitsPanel";
 import { ActionsPanel } from "@/features/github/components/ActionsPanel";
 import { useGitLog } from "@/features/github/hooks/use-github";
+import { useOpenGitHistoryCenterTab } from "@/features/git/hooks/use-open-git-history-center-tab";
+import { useGitHistoryCenterTabStore } from "@/features/git/store/use-git-history-center-tab";
 import { isWorkspaceSetupBlocking } from "@/features/workspace/lib/workspace-setup";
 import { useLayoutSettingsStore } from "@/features/settings/store/layout-settings-store";
 import { FileTreePanel } from "@/features/files/components/FileTreePanel";
@@ -359,17 +360,18 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
     rightSidebarDialogParams,
   );
   const { openActionRunTab, openPullRequestTab, openIssueTab } = useOpenGithubCenterTab();
-
-  const [changesSubTab, setChangesSubTab] = useState<"changes" | "commits">(
-    "changes",
+  const { openGitHistoryTab } = useOpenGitHistoryCenterTab();
+  const selectHistoryCommit = useGitHistoryCenterTabStore((s) => s.selectCommit);
+  const historySelectedCommit = useGitHistoryCenterTabStore((s) =>
+    contextId ? (s.selectedCommitByContext[contextId] ?? null) : null,
   );
+
   const [sidebarUi, setSidebarUi] = useSidebarUiPrefs();
   const changesFileViewMode = sidebarUi.changesFileViewMode;
   const setChangesFileViewMode = (mode: "list" | "tree") =>
     setSidebarUi({ changesFileViewMode: mode });
   const [prSubTab, setPRSubTab] = useState<"open" | "closed">("open");
   const [githubSubTab, setGithubSubTab] = useState<"pr" | "issues" | "actions">("pr");
-  const [hasVisitedCommits, setHasVisitedCommits] = useState(false);
   const [actionsRefreshKey] = useState(0);
   const prPanelRef = useRef<PRPanelHandle>(null);
   const [prPanelLoading, setPRPanelLoading] = useState({
@@ -538,6 +540,7 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
         menuOpen: false,
         autoSelectScope: false,
       });
+      if (contextId) selectHistoryCommit(contextId, null);
 
       if (scope === "branch") {
         resetCompareMode();
@@ -547,7 +550,14 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
 
       void compareWorktreeChanges();
     },
-    [changesScopeKey, compareWorktreeChanges, currentProjectPath, resetCompareMode],
+    [
+      changesScopeKey,
+      compareWorktreeChanges,
+      contextId,
+      currentProjectPath,
+      resetCompareMode,
+      selectHistoryCommit,
+    ],
   );
 
   const handleSelectCommitScope = useCallback(
@@ -559,11 +569,18 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
         menuOpen: false,
         autoSelectScope: false,
       });
-      setHasVisitedCommits(true);
+      if (contextId) selectHistoryCommit(contextId, commitHash);
       void compareAgainstRef(commitHash);
     },
-    [changesScopeKey, compareAgainstRef],
+    [changesScopeKey, compareAgainstRef, contextId, selectHistoryCommit],
   );
+
+  useEffect(() => {
+    if (!historySelectedCommit || historySelectedCommit === selectedCommitHash) {
+      return;
+    }
+    handleSelectCommitScope(historySelectedCommit);
+  }, [handleSelectCommitScope, historySelectedCommit, selectedCommitHash]);
 
   const handleChangesRefresh = useCallback(async () => {
     // User clicked Refresh → force re-request. Opening Changes tab still uses cache.
@@ -719,12 +736,10 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
                 {/* Files / Commits sub-tabs */}
                 <div className="flex border-b border-sidebar-border shrink-0 bg-background/50 backdrop-blur-sm h-9">
                   <Tabs
-                    value={changesSubTab}
+                    value="changes"
                     onValueChange={(v) => {
-                      const next = v as "changes" | "commits";
-                      setChangesSubTab(next);
-                      if (next === "commits") {
-                        setHasVisitedCommits(true);
+                      if (v === "commits") {
+                        openGitHistoryTab(selectedCommitHash);
                       }
                     }}
                     className="flex-1 h-full min-w-0"
@@ -735,9 +750,9 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
                     >
                       <ChangesToolbar
                         value="changes"
-                        activeValue={changesSubTab}
+                        activeValue="changes"
                         onRefresh={handleChangesRefresh}
-                        isRefreshing={changesSubTab === "changes" && isLoading}
+                        isRefreshing={isLoading}
                         scope={changesScope}
                         selectedCommitHash={selectedCommitHash}
                         commits={commitLog.commits}
@@ -760,15 +775,16 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
                       />
                       <RefreshableTabsTab
                         value="commits"
-                        activeValue={changesSubTab}
+                        activeValue="changes"
+                        refreshWhenInactive
                         refreshTitle={t("rightSidebar.changes.refreshCommits")}
                         onRefresh={async () => {
                           await commitLog.refresh();
+                          if (currentProjectPath) {
+                            await forceRefreshGitQueries(currentProjectPath);
+                          }
                         }}
-                        isRefreshing={
-                          changesSubTab === "commits" &&
-                          (commitLog.loading || commitLog.refreshing)
-                        }
+                        isRefreshing={commitLog.loading || commitLog.refreshing}
                         className="h-full! basis-1/3 flex-[1_1_0%] text-sm gap-1.5 focus-visible:ring-0 focus-visible:ring-offset-0 rounded-none border-0!"
                       >
                         <GitCommitIcon className="size-3.5" />
@@ -781,15 +797,13 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
                 {/* Content */}
                 <div
                   className={cn(
-                    "flex-1 min-h-0 no-scrollbar overflow-y-auto",
-                    changesSubTab !== "commits" && "p-2",
-                    changesSubTab !== "commits" &&
-                      !hasDisplayedChanges &&
+                    "flex-1 min-h-0 no-scrollbar overflow-y-auto p-2",
+                    !hasDisplayedChanges &&
                       !isEmptyStateLoading &&
                       "flex items-center justify-center",
                   )}
                 >
-                  <div className={cn(changesSubTab === "commits" && "hidden")}>
+                  <div>
                     {!hasDisplayedChanges && !isEmptyStateLoading ? (
                       <div
                         className={cn(
@@ -942,42 +956,15 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
                       )
                     )}
                   </div>
-
-                  <div
-                    className={cn(
-                      changesSubTab !== "commits" && "hidden",
-                      "-mx-0 flex-1 h-full",
-                    )}
-                  >
-                    {hasVisitedCommits && currentProjectPath ? (
-                      <CommitsPanel
-                        commits={commitLog.commits}
-                        loading={commitLog.loading}
-                        page={commitLog.page}
-                        hasMore={commitLog.hasMore}
-                        goToPrevPage={commitLog.goToPrevPage}
-                        goToNextPage={commitLog.goToNextPage}
-                        owner={githubOwner ?? undefined}
-                        repo={githubRepo ?? undefined}
-                      />
-                    ) : currentProjectPath ? null : (
-                      <div className="flex flex-col items-center justify-center min-h-[200px] text-muted-foreground/50">
-                        <span className="text-xs">{t("rightSidebar.changes.noRepositoryContext")}</span>
-                      </div>
-                    )}
-                  </div>
                 </div>
 
-                {/* Commit Actions (Sticky Bottom) - only on Files sub-tab */}
-                {changesSubTab !== "commits" && (
-                  <CommitActionsContainer
-                    currentProjectPath={currentProjectPath}
-                    currentProject={currentProject}
-                    currentWorkspace={currentWorkspace}
-                    workspaceId={workspaceId}
-                    projectId={projectIdFromUrl}
-                  />
-                )}
+                <CommitActionsContainer
+                  currentProjectPath={currentProjectPath}
+                  currentProject={currentProject}
+                  currentWorkspace={currentWorkspace}
+                  workspaceId={workspaceId}
+                  projectId={projectIdFromUrl}
+                />
               </>
             ) : (
               renderNoContextMessage

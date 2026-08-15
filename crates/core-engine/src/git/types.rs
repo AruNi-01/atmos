@@ -99,6 +99,46 @@ pub struct FileDiffInfo {
     pub new_blob: Option<GitBlobLocator>,
 }
 
+/// Public Git reference attached to a commit in the history graph.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum HistoryRefKind {
+    Branch,
+    Remote,
+    Tag,
+}
+
+/// A branch, remote branch, or tag pointing at a history commit.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct HistoryRef {
+    pub kind: HistoryRefKind,
+    pub label: String,
+}
+
+/// One topologically ordered row in the repository history graph.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct HistoryCommit {
+    pub hash: String,
+    pub short_hash: String,
+    pub parent_hashes: Vec<String>,
+    pub subject: String,
+    pub author_name: String,
+    pub author_email: String,
+    /// Unix timestamp of the author date.
+    pub timestamp: i64,
+    pub refs: Vec<HistoryRef>,
+}
+
+/// Paged public commit history used by the center-tab graph.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct HistoryPage {
+    pub commits: Vec<HistoryCommit>,
+    pub head_sha: Option<String>,
+    pub next_cursor: Option<usize>,
+    pub total_count: Option<usize>,
+    pub head_commit_count: Option<usize>,
+}
+
 /// Information about a single git commit
 #[derive(Debug, Clone, Serialize)]
 pub struct CommitInfo {

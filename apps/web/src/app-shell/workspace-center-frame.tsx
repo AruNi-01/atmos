@@ -139,6 +139,11 @@ const SimulatorPanel = dynamic(
     import("@/features/simulator").then((mod) => mod.SimulatorPanel),
   { ssr: false },
 );
+const GitHistoryPanel = dynamic(
+  () =>
+    import("@/features/git/components/GitHistoryPanel").then((mod) => mod.GitHistoryPanel),
+  { ssr: false },
+);
 
 export const EMPTY_MOUNTED_TAB_IDS: string[] = [];
 
@@ -163,6 +168,7 @@ function WorkspaceCenterFrameImpl({
   projectWikiTabVisible,
   codeReviewTabVisible,
   simulatorTabVisible,
+  gitHistoryTabVisible,
   terminalQuickOpenAgents,
   terminalGridRef,
   terminalGridRefs,
@@ -231,6 +237,7 @@ function WorkspaceCenterFrameImpl({
     "project-wiki",
     "code-review",
     "simulator",
+    "git-history",
     FIXED_TERMINAL_TAB_VALUE,
   ];
   const frameActiveTab = resolveFrameActiveTab({
@@ -666,6 +673,23 @@ function WorkspaceCenterFrameImpl({
                 panelTabId: "simulator",
               })
             }
+          />
+        </div>
+      )}
+
+      {(isUrlSyncedActive ? gitHistoryTabVisible : frameActiveTab === "git-history") && (
+        <div
+          className={lightSurfacePanelClass(
+            isFramePanelVisible({
+              isActiveFrame: isActiveContext,
+              frameActiveTab,
+              panelTabId: "git-history",
+            }),
+          )}
+        >
+          <GitHistoryPanel
+            contextId={contextId}
+            repoPath={isUrlSyncedActive ? (currentRepoPath ?? null) : null}
           />
         </div>
       )}

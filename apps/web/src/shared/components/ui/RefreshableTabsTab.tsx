@@ -18,6 +18,8 @@ interface RefreshableTabsTabProps {
   forceActionsVisible?: boolean;
   className?: string;
   trailingAction?: (options: { isVisible: boolean }) => React.ReactNode;
+  /** Show the hover refresh control even when this tab is not selected. */
+  refreshWhenInactive?: boolean;
   children: React.ReactNode;
 }
 
@@ -30,6 +32,7 @@ export function RefreshableTabsTab({
   forceActionsVisible = false,
   className,
   trailingAction,
+  refreshWhenInactive = false,
   children,
 }: RefreshableTabsTabProps) {
   const [isHovered, setIsHovered] = useState(false);
@@ -37,7 +40,8 @@ export function RefreshableTabsTab({
 
   const isActive = value === activeValue;
   const showRefreshButton =
-    isActive && (isHovered || isRefreshPending || isRefreshing || forceActionsVisible);
+    (isActive || refreshWhenInactive) &&
+    (isHovered || isRefreshPending || isRefreshing || forceActionsVisible);
   const isSpinning = isRefreshPending || isRefreshing;
 
   const handleRefresh = useCallback(

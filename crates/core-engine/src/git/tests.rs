@@ -996,3 +996,89 @@ fn worktree_local_exclude_uses_private_gitdir_not_common_dir() {
 
     remove_temp_repo(root);
 }
+
+#[test]
+fn commit_history_includes_merge_parents_refs_and_pagination() {
+    let root = unique_temp_dir("history-graph");
+    let repo = root.join("repo");
+    fs::create_dir_all(&repo).expect("repo dir");
+    git(&repo, &["init"]);
+    configure_repo(&repo);
+    git(&repo, &["branch", "-m", "main"]);
+
+    commit_file(&repo, "a.txt", "a\n", "A");
+    let sha_a = git_output(&repo, &["rev-parse", "HEAD"]).trim().to_string();
+
+    git(&repo, &["checkout", "-b", "feature"]);
+    commit_file(&repo, "c.txt", "c\n", "C");
+    let sha_c = git_output(&repo, &["rev-parse", "HEAD"]).trim().to_string();
+
+    git(&repo, &["checkout", "main"]);
+    commit_file(&repo, "b.txt", "b\n", "B");
+    let sha_b = git_output(&repo, &["rev-parse", "HEAD"]).trim().to_string();
+
+    git(&repo, &["merge", "--no-ff", "-m", "Merge feature", "feature"]);
+    let sha_merge = git_output(&repo, &["rev-parse", "HEAD"]).trim().to_string();
+    git(&repo, &["tag", "v1"]);
+    git(&repo, &["update-ref", "refs/remotes/origin/main", &sha_merge]);
+
+    let engine = GitEngine::new();
+    let page = engine
+        .get_commit_history(&repo, 0, 10)
+        .expect("history should load");
+
+    assert_eq!(page.head_sha.as_deref(), Some(sha_merge.as_str()));
+    assert_eq!(page.total_count, Some(4));
+    assert_eq!(page.head_commit_count, Some(4));
+    assert!(page.next_cursor.is_none());
+
+    let by_hash: std::collections::HashMap<_, _> = page
+        .commits
+        .iter()
+        .map(|commit| (commit.hash.as_str(), commit))
+        .collect();
+    let merge = by_hash.get(sha_merge.as_str()).expect("merge commit");
+    assert_eq!(merge.parent_hashes.len(), 2);
+    assert!(merge.parent_hashes.contains(&sha_b));
+    assert!(merge.parent_hashes.contains(&sha_c));
+    assert!(
+        merge
+            .refs
+            .iter()
+            .any(|r| r.kind == super::HistoryRefKind::Branch && r.label == "main")
+    );
+    assert!(
+        merge
+            .refs
+            .iter()
+            .any(|r| r.kind == super::HistoryRefKind::Tag && r.label == "v1")
+    );
+    assert!(
+        merge
+            .refs
+            .iter()
+            .any(|r| r.kind == super::HistoryRefKind::Remote && r.label == "origin/main")
+    );
+
+    let feature = by_hash.get(sha_c.as_str()).expect("feature commit");
+    assert_eq!(feature.parent_hashes, vec![sha_a.clone()]);
+    assert!(
+        feature
+            .refs
+            .iter()
+            .any(|r| r.kind == super::HistoryRefKind::Branch && r.label == "feature")
+    );
+
+    let paged = engine
+        .get_commit_history(&repo, 0, 2)
+        .expect("paged history");
+    assert_eq!(paged.commits.len(), 2);
+    assert_eq!(paged.next_cursor, Some(2));
+    let rest = engine
+        .get_commit_history(&repo, paged.next_cursor.unwrap(), 2)
+        .expect("second page");
+    assert_eq!(rest.commits.len(), 2);
+    assert!(rest.next_cursor.is_none());
+
+    remove_temp_repo(root);
+}

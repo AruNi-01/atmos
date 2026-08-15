@@ -362,6 +362,8 @@
       "newTabMenu": "新建标签页",
       "simulator": "模拟器",
       "closeSimulatorTab": "关闭模拟器标签页",
+      "history": "历史记录",
+      "closeHistoryTab": "关闭历史记录标签页",
       "overview": "总览",
       "refreshWiki": "刷新 Wiki",
       "projectWiki": "项目 Wiki",
@@ -7865,6 +7867,18 @@
         "fastForwardNotPossible": "请先拉取远端最新更改，并解决所有冲突后再继续。",
         "notGitRepository": "此文件夹已不再是 Git 仓库。"
       }
+    },
+    "history": {
+      "title": "历史记录",
+      "loading": "正在加载历史记录…",
+      "empty": "没有找到提交",
+      "noRepository": "未选择仓库",
+      "loadMore": "加载更多",
+      "refresh": "刷新",
+      "retry": "重试",
+      "copied": "已复制",
+      "noSubject": "（无主题）",
+      "unknownAuthor": "未知"
     }
   },
   "localServices": {

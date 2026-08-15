@@ -446,6 +446,15 @@ export function CenterStageTabGroupItemContent({
     );
   }
 
+  if (tab.kind === "git-history") {
+    return (
+      <>
+        <GitCommitHorizontal className="size-3.5 shrink-0" />
+        {label(tab.label)}
+      </>
+    );
+  }
+
   if (tab.kind === "browser") {
     return (
       <>

@@ -30,6 +30,7 @@ import {
   Bot,
   Globe,
   LoaderCircle,
+  GitCommitHorizontal,
   Plus,
   RotateCw,
   Smartphone,
@@ -90,6 +91,7 @@ interface CenterStageTabBarProps {
   previewBrowserPrefs: PreviewBrowserPrefs;
   projectWikiTabVisible: boolean;
   simulatorTabVisible: boolean;
+  gitHistoryTabVisible: boolean;
   scrollableTabsRef: React.RefObject<HTMLDivElement | null>;
   sessionDisplay: SessionDisplay;
   tabGroupDndSensors: React.ComponentProps<typeof CenterStageTabGroupPopover>["sensors"];
@@ -110,6 +112,7 @@ interface CenterStageTabBarProps {
   handleCreateSimulatorCenterTab: () => void;
   handleCreateTerminalCenterTab: () => void;
   handleCloseSimulatorTab: () => void;
+  handleCloseGitHistoryTab: () => void;
   handleRenameTerminalCenterTab: (tabId: string, title: string) => void;
   handleSelectTabGroupItem: (tab: TabGroupItem) => void;
   handleTabGroupDragEnd: (event: DragEndEvent) => void;
@@ -137,6 +140,7 @@ export function CenterStageTabBar({
   previewBrowserPrefs,
   projectWikiTabVisible,
   simulatorTabVisible,
+  gitHistoryTabVisible,
   scrollableTabsRef,
   sessionDisplay,
   tabGroupDndSensors,
@@ -156,6 +160,7 @@ export function CenterStageTabBar({
   handleCreateSimulatorCenterTab,
   handleCreateTerminalCenterTab,
   handleCloseSimulatorTab,
+  handleCloseGitHistoryTab,
   handleRenameTerminalCenterTab,
   handleSelectTabGroupItem,
   handleTabGroupDragEnd,
@@ -242,6 +247,15 @@ export function CenterStageTabBar({
       });
     }
 
+    if (gitHistoryTabVisible) {
+      descriptors.push({
+        id: "git-history",
+        value: "git-history",
+        kind: "git-history",
+        label: t("centerStageTabBar.history"),
+      });
+    }
+
     for (const item of orderedSurfaceTabs) {
       if (item.type === "file") {
         const variant = getCenterStageSurfaceTabVariant(item.file.path);
@@ -284,6 +298,7 @@ export function CenterStageTabBar({
     browserFallbackLabel,
     codeReviewTabVisible,
     simulatorTabVisible,
+    gitHistoryTabVisible,
     orderedSurfaceTabs,
     previewBrowserPrefs,
     projectWikiTabVisible,
@@ -421,6 +436,22 @@ export function CenterStageTabBar({
           variant="simulator"
           value="simulator"
           onClose={handleCloseSimulatorTab}
+          onContextMenu={(event) => openContextMenu(event, tab)}
+        />
+      );
+    }
+
+    if (tab.kind === "git-history") {
+      return (
+        <SpecialTerminalTab
+          key={tab.id}
+          closeLabel={t("centerStageTabBar.closeHistoryTab")}
+          icon={<GitCommitHorizontal className="size-3.5 shrink-0" />}
+          label={t("centerStageTabBar.history")}
+          tooltip={t("centerStageTabBar.history")}
+          variant="git-history"
+          value="git-history"
+          onClose={handleCloseGitHistoryTab}
           onContextMenu={(event) => openContextMenu(event, tab)}
         />
       );
@@ -612,7 +643,8 @@ function isTabGroupItemClosable(tab: TabGroupItem) {
     tab.kind === "github-issue" ||
     tab.kind === "github-action" ||
     tab.kind === "browser" ||
-    tab.kind === "simulator"
+    tab.kind === "simulator" ||
+    tab.kind === "git-history"
   );
 }
 
@@ -982,7 +1014,7 @@ function SpecialTerminalTab({
   icon: React.ReactNode;
   label: string;
   tooltip: string;
-  variant: "project-wiki" | "code-review" | "simulator";
+  variant: "project-wiki" | "code-review" | "simulator" | "git-history";
   value: string;
   onClose: () => void;
   onContextMenu?: (event: React.MouseEvent) => void;
@@ -1000,7 +1032,9 @@ function SpecialTerminalTab({
               ? "group/pw"
               : variant === "code-review"
                 ? "group/cr"
-                : "group/sim",
+                : variant === "git-history"
+                  ? "group/hist"
+                  : "group/sim",
           )}
         >
           {icon}
@@ -1012,7 +1046,9 @@ function SpecialTerminalTab({
                 ? "opacity-0 group-hover/pw:opacity-100"
                 : variant === "code-review"
                   ? "opacity-0 group-hover/cr:opacity-100"
-                  : "opacity-0 group-hover/sim:opacity-100",
+                  : variant === "git-history"
+                    ? "opacity-0 group-hover/hist:opacity-100"
+                    : "opacity-0 group-hover/sim:opacity-100",
             )}
           >
             <span

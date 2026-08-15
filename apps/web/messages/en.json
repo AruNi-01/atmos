@@ -362,6 +362,8 @@
       "newTabMenu": "New tab",
       "simulator": "Simulator",
       "closeSimulatorTab": "Close Simulator tab",
+      "history": "History",
+      "closeHistoryTab": "Close History tab",
       "overview": "Overview",
       "refreshWiki": "Refresh Wiki",
       "projectWiki": "Project Wiki",
@@ -7865,6 +7867,18 @@
         "fastForwardNotPossible": "Pull the latest remote changes and resolve any conflicts before continuing.",
         "notGitRepository": "This folder is no longer a Git repository."
       }
+    },
+    "history": {
+      "title": "History",
+      "loading": "Loading history…",
+      "empty": "No commits found",
+      "noRepository": "No repository selected",
+      "loadMore": "Load more",
+      "refresh": "Refresh",
+      "retry": "Retry",
+      "copied": "Copied",
+      "noSubject": "(no subject)",
+      "unknownAuthor": "Unknown"
     }
   },
   "localServices": {

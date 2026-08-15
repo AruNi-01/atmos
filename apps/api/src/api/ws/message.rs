@@ -298,6 +298,8 @@ pub enum WsAction {
     GitSync,
     /// 获取当前分支的提交记录列表
     GitLog,
+    /// 获取带 parent/ref 的拓扑历史（center-tab graph）
+    GitHistory,
 
     // ===== Usage 操作 =====
     /// 获取 usage 概览

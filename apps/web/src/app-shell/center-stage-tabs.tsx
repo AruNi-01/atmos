@@ -42,7 +42,7 @@ import { cn } from "@/shared/lib/utils";
 /** Cap each group column so long labels truncate instead of stretching the popover. */
 const TAB_GROUP_COLUMN_MAX_WIDTH_CLASS = "max-w-[240px]";
 
-export const FIXED_TABS = new Set<string>(["overview", "wiki", "project-wiki", "code-review", "simulator"]);
+export const FIXED_TABS = new Set<string>(["overview", "wiki", "project-wiki", "code-review", "simulator", "git-history"]);
 export const CENTER_TERMINAL_SHORTCUT_LIMIT = 5;
 
 export type TabGroupItem = {
@@ -65,7 +65,8 @@ export type TabGroupItem = {
     | "github-action"
     | "github-commit"
     | "browser"
-    | "simulator";
+    | "simulator"
+    | "git-history";
   file?: OpenFile;
   /** Center browser instance id (for kind === "browser"). */
   browserId?: string;
