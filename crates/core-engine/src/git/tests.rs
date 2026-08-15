@@ -1067,6 +1067,27 @@ fn commit_history_includes_merge_parents_refs_and_pagination() {
         .iter()
         .any(|r| r.kind == super::HistoryRefKind::Branch && r.label == "feature"));
 
+    let expected_hashes: Vec<String> = git_output(
+        &repo,
+        &[
+            "rev-list",
+            "--topo-order",
+            "HEAD",
+            "--branches",
+            "--remotes",
+            "--tags",
+        ],
+    )
+    .lines()
+    .map(str::to_owned)
+    .collect();
+    let page_hashes: Vec<String> = page
+        .commits
+        .iter()
+        .map(|commit| commit.hash.clone())
+        .collect();
+    assert_eq!(page_hashes, expected_hashes);
+
     let paged = engine
         .get_commit_history(&repo, 0, 2)
         .expect("paged history");
@@ -1077,6 +1098,14 @@ fn commit_history_includes_merge_parents_refs_and_pagination() {
         .expect("second page");
     assert_eq!(rest.commits.len(), 2);
     assert!(rest.next_cursor.is_none());
+
+    let paged_hashes: Vec<String> = paged
+        .commits
+        .iter()
+        .chain(rest.commits.iter())
+        .map(|commit| commit.hash.clone())
+        .collect();
+    assert_eq!(paged_hashes, expected_hashes);
 
     remove_temp_repo(root);
 }

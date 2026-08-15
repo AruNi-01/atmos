@@ -243,81 +243,79 @@ function GitHistoryRow({
 
   return (
     <div
-      role="button"
-      tabIndex={0}
-      onClick={onSelect}
-      onKeyDown={(event) => {
-        if (event.key !== "Enter" && event.key !== " ") return;
-        event.preventDefault();
-        onSelect();
-      }}
       className={cn(
-        "flex h-9 w-full cursor-pointer items-center border-b border-border/40 text-left text-[11px] transition-colors hover:bg-muted/40",
+        "flex h-9 w-full items-center border-b border-border/40 text-[11px] transition-colors hover:bg-muted/40",
         selected && "bg-muted/50",
       )}
     >
-      <div className="relative h-full shrink-0" style={{ width: graphWidth }}>
-        {isHead ? (
+      <button
+        type="button"
+        aria-pressed={selected}
+        onClick={onSelect}
+        className="flex h-full min-w-0 flex-1 cursor-pointer items-center text-left"
+      >
+        <div className="relative h-full shrink-0" style={{ width: graphWidth }}>
+          {isHead ? (
+            <span
+              className="absolute rounded-full border bg-background"
+              style={{
+                left: nodeX - HISTORY_NODE_RADIUS - HISTORY_HEAD_RING_PADDING,
+                top:
+                  HISTORY_ROW_HEIGHT / 2 -
+                  HISTORY_NODE_RADIUS -
+                  HISTORY_HEAD_RING_PADDING,
+                width: (HISTORY_NODE_RADIUS + HISTORY_HEAD_RING_PADDING) * 2,
+                height: (HISTORY_NODE_RADIUS + HISTORY_HEAD_RING_PADDING) * 2,
+                borderColor: color,
+              }}
+            />
+          ) : null}
           <span
-            className="absolute rounded-full border bg-background"
+            className="absolute rounded-full"
             style={{
-              left: nodeX - HISTORY_NODE_RADIUS - HISTORY_HEAD_RING_PADDING,
-              top:
-                HISTORY_ROW_HEIGHT / 2 -
-                HISTORY_NODE_RADIUS -
-                HISTORY_HEAD_RING_PADDING,
-              width: (HISTORY_NODE_RADIUS + HISTORY_HEAD_RING_PADDING) * 2,
-              height: (HISTORY_NODE_RADIUS + HISTORY_HEAD_RING_PADDING) * 2,
-              borderColor: color,
+              left: nodeX - HISTORY_NODE_RADIUS,
+              top: HISTORY_ROW_HEIGHT / 2 - HISTORY_NODE_RADIUS,
+              width: HISTORY_NODE_RADIUS * 2,
+              height: HISTORY_NODE_RADIUS * 2,
+              backgroundColor: color,
             }}
           />
-        ) : null}
-        <span
-          className="absolute rounded-full"
-          style={{
-            left: nodeX - HISTORY_NODE_RADIUS,
-            top: HISTORY_ROW_HEIGHT / 2 - HISTORY_NODE_RADIUS,
-            width: HISTORY_NODE_RADIUS * 2,
-            height: HISTORY_NODE_RADIUS * 2,
-            backgroundColor: color,
-          }}
-        />
-      </div>
+        </div>
 
-      <span className="min-w-20 flex-1 truncate pr-2 text-xs text-foreground">
-        {subject}
-      </span>
-
-      {visibleRefs.length > 0 ? (
-        <span className="mr-2 flex min-w-0 shrink-0 items-center gap-1">
-          {visibleRefs.map((reference) => (
-            <HistoryRefBadge
-              key={`${reference.kind}:${reference.label}`}
-              reference={reference}
-            />
-          ))}
-          {hiddenRefCount > 0 ? (
-            <span className="text-[10px] text-muted-foreground">+{hiddenRefCount}</span>
-          ) : null}
+        <span className="min-w-20 flex-1 truncate pr-2 text-xs text-foreground">
+          {subject}
         </span>
-      ) : null}
 
-      <span className="w-[88px] shrink-0 truncate pr-2 text-muted-foreground">
-        {commit.author_name || t("unknownAuthor")}
-      </span>
-      <span className="w-[88px] shrink-0 truncate pr-2 text-[10.5px] text-muted-foreground">
-        {dateLabel}
-      </span>
+        {visibleRefs.length > 0 ? (
+          <span className="mr-2 flex min-w-0 shrink-0 items-center gap-1">
+            {visibleRefs.map((reference) => (
+              <HistoryRefBadge
+                key={`${reference.kind}:${reference.label}`}
+                reference={reference}
+              />
+            ))}
+            {hiddenRefCount > 0 ? (
+              <span className="text-[10px] text-muted-foreground">+{hiddenRefCount}</span>
+            ) : null}
+          </span>
+        ) : null}
+
+        <span className="w-[88px] shrink-0 truncate pr-2 text-muted-foreground">
+          {commit.author_name || t("unknownAuthor")}
+        </span>
+        <span className="w-[88px] shrink-0 truncate pr-2 text-[10.5px] text-muted-foreground">
+          {dateLabel}
+        </span>
+      </button>
       <button
         type="button"
         title={commit.hash}
+        aria-label={t("copyHash")}
         className={cn(
           "mr-1.5 flex h-6 w-[68px] shrink-0 items-center rounded-sm px-1 font-mono text-[10.5px] text-muted-foreground hover:bg-muted",
           copied && "text-info",
         )}
-        onClick={(event) => {
-          event.preventDefault();
-          event.stopPropagation();
+        onClick={() => {
           void copyToClipboard(commit.hash).then((ok) => {
             if (!ok) return;
             setCopied(true);

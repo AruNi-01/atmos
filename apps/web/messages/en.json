@@ -7994,6 +7994,7 @@
       "refresh": "Refresh",
       "retry": "Retry",
       "copied": "Copied",
+      "copyHash": "Copy commit hash",
       "noSubject": "(no subject)",
       "unknownAuthor": "Unknown"
     }
