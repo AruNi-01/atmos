@@ -2,6 +2,8 @@
 
 > Technical Design · HOW. Implements PRD APP-056 Phase 1 (accounts + snapshot share) and defines the Phase 2 ownership seam without implementing full Computer migration in Phase 1.
 
+> **Share product:** `/s/{share_id}`, `/u/{handle}`, multi-row `usage_shares`, and landing HTML are superseded for product work by [APP-061](../APP-061_token-usage-public-share/TECH.md). Do not implement new share UX from those sections.
+
 ## Scope summary
 
 | In Phase 1 | Out of Phase 1 (later) |
