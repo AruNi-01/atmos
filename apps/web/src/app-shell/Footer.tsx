@@ -45,33 +45,6 @@ import {
 } from '@/features/agent/lib/agent-hook-navigation';
 import { useTranslations } from 'next-intl';
 
-const CLIENT_TYPE_LABELS: Record<string, string> = {
-  web: 'WEB',
-  desktop: 'DSK',
-  cli: 'CLI',
-  mobile: 'MOB',
-  unknown: 'UNK',
-};
-
-const CLIENT_TYPE_STYLES: Record<string, string> = {
-  web: "bg-blue-500/20 text-blue-400",
-  desktop: "bg-purple-500/20 text-purple-400",
-  cli: "bg-amber-500/20 text-amber-400",
-  mobile: "bg-green-500/20 text-green-400",
-};
-
-function formatIdleTime(secs: number): string {
-  if (secs < 60) return `${secs}s`;
-  if (secs < 3600) return `${Math.floor(secs / 60)}m`;
-  return `${Math.floor(secs / 3600)}h`;
-}
-
-function shortId(id: string): string {
-  const dash = id.indexOf('-');
-  if (dash === -1) return id.slice(0, 8);
-  return id.slice(dash + 1, dash + 9);
-}
-
 function groupSessionsByContext(sessions: AgentHookSession[]): Map<string, AgentHookSession[]> {
   const grouped = new Map<string, AgentHookSession[]>();
   for (const session of sessions) {
@@ -458,7 +431,6 @@ const Footer: React.FC = () => {
     enabled: connectionState === 'connected' && showWsConnection && connectionsEnabled,
   });
   const connections: WsConnectionInfo[] = wsConnectionsQuery.data?.connections ?? [];
-  const loading = wsConnectionsQuery.isFetching;
   const [usageIndex, setUsageIndex] = useState(0);
   const [isUsageCarouselHovered, setIsUsageCarouselHovered] = useState(false);
 
@@ -516,12 +488,6 @@ const Footer: React.FC = () => {
     disconnected: t("footer.status.disconnected"),
   };
 
-  const grouped = connections.reduce<Record<string, WsConnectionInfo[]>>((acc, conn) => {
-    const key = conn.client_type;
-    (acc[key] ??= []).push(conn);
-    return acc;
-  }, {});
-
   const showLeftCarousel = showUsageCarousel && Boolean(usageCarouselItem);
   const showWsStatus = showWsConnection && connectionState !== "connected";
   const showLeft = showWsStatus || showLocalServices || showLeftCarousel;
@@ -547,7 +513,7 @@ const Footer: React.FC = () => {
                   <div className={cn(
                     "size-2 rounded-full mr-2",
                     statusColors[connectionState],
-                    connectionState !== 'connected' && "animate-pulse"
+                    "animate-pulse"
                   )}></div>
                   <span className="font-medium text-muted-foreground">{statusText[connectionState]}</span>
                 </div>
@@ -560,38 +526,7 @@ const Footer: React.FC = () => {
                       <span className="font-normal text-background/90">{connections.length}</span>
                     )}
                   </div>
-                  {connectionState !== 'connected' ? (
-                    <div className="text-background/90">{t("footer.notConnected")}</div>
-                  ) : loading && connections.length === 0 ? (
-                    <div className="text-background/90">{t("footer.loading")}</div>
-                  ) : connections.length === 0 ? (
-                    <div className="text-background/90">{t("footer.noConnections")}</div>
-                  ) : (
-                    <div className="space-y-1.5">
-                      {Object.entries(grouped).map(([type, conns]) => {
-                        const label = CLIENT_TYPE_LABELS[type] ?? type.toUpperCase();
-                        const style = CLIENT_TYPE_STYLES[type] ?? "bg-neutral-500/20 text-neutral-400";
-                        return (
-                          <div key={type}>
-                            <div className="flex items-center gap-1.5 mb-0.5">
-                              <span className={cn("inline-block rounded-sm px-1 py-px text-[9px] font-bold leading-tight", style)}>
-                                {label}
-                              </span>
-                              <span className="text-background/90">{conns.length}</span>
-                            </div>
-                            <div className="pl-2 space-y-px">
-                              {conns.map((conn) => (
-                                <div key={conn.id} className="flex items-center justify-between gap-3">
-                                  <span className="text-background/90 tabular-nums">{shortId(conn.id)}</span>
-                                  <span className="text-background/70 tabular-nums">{formatIdleTime(conn.idle_secs)}</span>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
+                  <div className="text-background/90">{t("footer.notConnected")}</div>
                 </div>
               </TooltipContent>
             </Tooltip>

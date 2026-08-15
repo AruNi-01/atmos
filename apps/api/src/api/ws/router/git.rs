@@ -14,9 +14,8 @@ use super::{
     GitGenerateCommitMessageRequest, GitGetCommitCountRequest, GitGetHeadCommitRequest,
     GitGetStatusBatchRequest, GitGetStatusBatchResponse, GitGetStatusBatchResult,
     GitGetStatusRequest, GitHistoryRequest, GitListBranchesRequest, GitLogRequest,
-    GitPatchChunkRequest,
-    GitPullRequest, GitPushRequest, GitRenameBranchRequest, GitStageRequest, GitStatusResponse,
-    GitSyncRequest, GitUnstageRequest, WsEvent, WsMessage, WsMessageService,
+    GitPatchChunkRequest, GitPullRequest, GitPushRequest, GitRenameBranchRequest, GitStageRequest,
+    GitStatusResponse, GitSyncRequest, GitUnstageRequest, WsEvent, WsMessage, WsMessageService,
 };
 
 const GIT_BATCH_CONCURRENCY: usize = 8;
