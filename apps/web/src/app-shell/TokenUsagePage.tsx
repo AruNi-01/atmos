@@ -17,7 +17,6 @@ import { useTokenUsageQuery } from "@/features/quota-usage/hooks/use-token-usage
 import { TokenUsageSharePopover } from "@/app-shell/TokenUsageShareDialog";
 import { TokenUsageCookieConsentBanner } from "@/app-shell/TokenUsageCookieConsentBanner";
 import { TokenUsageOverviewView } from "@/features/token-usage/TokenUsageOverviewView";
-import { TokenUsagePublishControls } from "@/features/token-usage/TokenUsagePublishControls";
 
 /** i18n keys under `tokenUsageDialog.loading.tips` — fun status lines while overview loads. */
 const TOKEN_USAGE_LOADING_TIP_KEYS = [
@@ -227,20 +226,15 @@ export function TokenUsagePage() {
             loading={loading}
             captureTargetRef={captureTargetRef}
             toolbarEnd={
-              <div className="flex items-center gap-0.5">
-                <TokenUsagePublishControls
-                  overview={overview}
-                  disabled={loading || !overview}
-                />
-                <TokenUsageSharePopover
-                  captureTargetRef={captureTargetRef}
-                  locale={locale}
-                  isDark={isDark}
-                  totalTokens={overview?.summary.total_tokens ?? 0}
-                  totalCost={overview?.summary.total_cost_usd ?? null}
-                  disabled={loading || !overview}
-                />
-              </div>
+              <TokenUsageSharePopover
+                captureTargetRef={captureTargetRef}
+                locale={locale}
+                isDark={isDark}
+                totalTokens={overview?.summary.total_tokens ?? 0}
+                totalCost={overview?.summary.total_cost_usd ?? null}
+                overview={overview}
+                disabled={loading || !overview}
+              />
             }
           />
         </div>

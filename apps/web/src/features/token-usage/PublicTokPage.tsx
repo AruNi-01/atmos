@@ -5,8 +5,6 @@ import { GithubIcon, XIcon } from "@workspace/ui";
 import { useLocale, useTranslations } from "next-intl";
 
 import { TokenUsageOverviewView } from "@/features/token-usage/TokenUsageOverviewView";
-import { PublicTokLeaderboards } from "@/features/token-usage/PublicTokLeaderboards";
-import type { PublicLeaderboards } from "@/features/token-usage/fetch-public-tok";
 import type { TokenUsageSharePayload } from "@/features/token-usage/token-usage-share-payload";
 
 export type PublicTokPageProps = {
@@ -16,7 +14,6 @@ export type PublicTokPageProps = {
   xUsername: string | null;
   generatedAt: number;
   payload: TokenUsageSharePayload;
-  leaderboards?: PublicLeaderboards | null;
 };
 
 function formatGeneratedDate(ts: number, locale: string) {
@@ -38,7 +35,6 @@ export function PublicTokPage({
   xUsername,
   generatedAt,
   payload,
-  leaderboards,
 }: PublicTokPageProps) {
   const t = useTranslations("appShell.tokenUsageDialog.publicPage");
   const locale = useLocale();
@@ -105,12 +101,6 @@ export function PublicTokPage({
       </div>
 
       <TokenUsageOverviewView payload={payload} hideCostToggle={!payload.summary.total_cost_usd} />
-
-      {leaderboards ? (
-        <div className="pt-2">
-          <PublicTokLeaderboards data={leaderboards} />
-        </div>
-      ) : null}
 
       <footer className="mx-auto flex w-full max-w-[1100px] justify-end px-4 pb-8 sm:px-5">
         <p className="text-right text-[11px] text-muted-foreground">

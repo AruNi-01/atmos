@@ -350,6 +350,15 @@ Each step 1–6 is mergeable without the rewrite.
 - **Tradeoff**: Snapshot on `user_profiles` vs `usage_shares`. **Choose profile** so handle + socials + blob are one row.
 - **Rollback**: `usage_visibility=off` or revert Worker route; local Token Usage unaffected.
 
+<!-- updated 2026-08-15: publish lives in the PNG share popover; UI always sends cost; leaderboard is /tok/leaderboard only -->
+
+## Implementation delta (2026-08-15)
+
+- Publish UI is **inside the Token Usage share popover**, not a second toolbar button/popover.
+- Handle / X / GitHub fields are one fused control: fixed prefix + editable username (no nested input chrome).
+- The in-app publish action always sends `include_cost: true` with the snapshot. Hub still accepts `include_cost` for older clients.
+- Public `/tok/@handle` is the share page only. Leaderboards render on `/tok/leaderboard` (bare `/tok` still redirects there). A header link on the share page points at the leaderboard; the board is not embedded under the snapshot.
+
 ## Dependencies & compatibility
 
 - Depends on APP-056 Hub auth + `requireUser`.

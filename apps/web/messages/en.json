@@ -634,7 +634,6 @@
         }
       },
       "publish": {
-        "trigger": "Publish",
         "title": "Publish page",
         "description": "Share a link on atmos.land. Updates overwrite the same page.",
         "signInHint": "Sign in to publish a Token Usage page.",
@@ -647,7 +646,6 @@
         },
         "xPlaceholder": "username",
         "githubPlaceholder": "username",
-        "includeCost": "Include estimated cost",
         "copyLink": "Copy link",
         "copied": "Copied",
         "publish": "Publish",

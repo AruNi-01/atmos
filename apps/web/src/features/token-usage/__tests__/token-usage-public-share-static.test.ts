@@ -21,7 +21,7 @@ describe("APP-061 static wiring", () => {
     expect(page).toContain("https://github.com/");
     expect(page).toContain("https://atmos.land");
     expect(page).toContain("overflow-y-auto");
-    expect(page).toContain("PublicTokLeaderboards");
+    expect(page).not.toContain("PublicTokLeaderboards");
     expect(page).toContain("leaderboardLink");
     expect(page).toContain("/tok/leaderboard");
     const boards = read(
@@ -34,11 +34,15 @@ describe("APP-061 static wiring", () => {
     expect(page).toContain("generatedByPrefix");
     expect(page).not.toContain("TokenUsageCookieConsentBanner");
     expect(page).not.toContain("TokenUsageSharePopover");
+    const tok = read("apps/web/src/app/tok/page.tsx");
+    expect(tok).not.toContain("leaderboards={");
+    expect(tok).toContain("fetchPublicLeaderboards");
   });
 
   it("local page keeps PNG, consent, and does not auto-upload", () => {
     const local = read("apps/web/src/app-shell/TokenUsagePage.tsx");
     expect(local).toContain("TokenUsageSharePopover");
+    expect(local).not.toContain("TokenUsagePublishControls");
     expect(local).toContain("TokenUsageCookieConsentBanner");
     expect(local).toContain("TokenUsageOverviewView");
     expect(local).toContain("tokenUsageApi.getOverview");
@@ -51,8 +55,16 @@ describe("APP-061 static wiring", () => {
       "apps/web/src/features/token-usage/TokenUsagePublishControls.tsx",
     );
     expect(publish).toContain("https://atmos.land/tok/@");
+    expect(publish).toContain("atmos.land/tok/@");
+    expect(publish).toContain("InputGroup");
+    expect(publish).toContain("include_cost: true");
+    expect(publish).toContain("{ includeCost: true }");
+    expect(publish).not.toContain("setIncludeCost");
+    expect(publish).not.toContain("PopoverTrigger");
+    const share = read("apps/web/src/app-shell/TokenUsageShareDialog.tsx");
+    expect(share).toContain("TokenUsagePublishControls");
     const hub = read("packages/hub/src/usage-page.ts");
-    expect(hub).toContain('https://atmos.land');
+    expect(hub).toContain("https://atmos.land");
     expect(hub).toContain("/tok/@");
   });
 
