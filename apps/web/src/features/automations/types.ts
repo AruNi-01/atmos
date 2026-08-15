@@ -76,6 +76,8 @@ export interface AutomationListResponse {
 
 export interface AutomationDetail extends AutomationSummary {
   instructions: string;
+  memory?: string;
+  memory_path?: string;
 }
 
 export interface AutomationAgentCapability {
@@ -112,6 +114,7 @@ export interface AutomationScheduleInput {
 export interface AutomationCreateRequest {
   display_name: string;
   instructions: string;
+  memory?: string;
   agent_id: string;
   agent_config?: TerminalAgentRunConfigInput | null;
   target: AutomationTargetInput;
@@ -124,6 +127,7 @@ export interface AutomationUpdateRequest {
   automation_guid: string;
   display_name?: string;
   instructions?: string;
+  memory?: string;
   agent_id?: string;
   agent_config?: TerminalAgentRunConfigInput | null;
   target?: AutomationTargetInput;

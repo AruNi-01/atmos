@@ -55,15 +55,69 @@ export const workspacesParams = {
 // AutomationsManagement – page state, selected definition, search, filters
 // ---------------------------------------------------------------------------
 export type AutomationsView = "list" | "create" | "edit" | "history";
-export type AutomationTargetFilter = "all" | "project" | "workspace" | "standalone";
+export type AutomationsListTab = "automations" | "history";
+export type AutomationEnvironmentFilter =
+  | "project"
+  | "workspace"
+  | "new_workspace"
+  | "standalone";
+export type AutomationTriggerFilter =
+  | "manual"
+  | "github"
+  | "hourly"
+  | "daily"
+  | "weekly"
+  | "monthly"
+  | "cron";
+export type AutomationStateFilter = "enabled" | "paused";
+export type AutomationRunStatusFilter =
+  | "running"
+  | "completed"
+  | "failed"
+  | "cancelled"
+  | "interrupted";
 
 export const automationsParams = {
   view: parseAsStringEnum<AutomationsView>(["list", "create", "edit", "history"])
     .withDefault("list")
     .withOptions({ history: "push" }),
+  tab: parseAsStringEnum<AutomationsListTab>(["automations", "history"]).withDefault(
+    "automations",
+  ),
   automation: parseAsString.withDefault(""),
   run: parseAsString.withDefault(""),
-  target: parseAsStringEnum<AutomationTargetFilter>(["all", "project", "workspace", "standalone"]).withDefault("all"),
+  environments: parseAsArrayOf(
+    parseAsStringEnum<AutomationEnvironmentFilter>([
+      "project",
+      "workspace",
+      "new_workspace",
+      "standalone",
+    ]),
+  ).withDefault([]),
+  triggers: parseAsArrayOf(
+    parseAsStringEnum<AutomationTriggerFilter>([
+      "manual",
+      "github",
+      "hourly",
+      "daily",
+      "weekly",
+      "monthly",
+      "cron",
+    ]),
+  ).withDefault([]),
+  states: parseAsArrayOf(
+    parseAsStringEnum<AutomationStateFilter>(["enabled", "paused"]),
+  ).withDefault([]),
+  runStatuses: parseAsArrayOf(
+    parseAsStringEnum<AutomationRunStatusFilter>([
+      "running",
+      "completed",
+      "failed",
+      "cancelled",
+      "interrupted",
+    ]),
+  ).withDefault([]),
+  runAutomations: parseAsArrayOf(parseAsString).withDefault([]),
   q: parseAsString.withDefault(""),
 };
 

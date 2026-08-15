@@ -10,7 +10,6 @@ import {
   SelectGroup,
   SelectItem,
   SelectLabel,
-  SelectSeparator,
   SelectTrigger,
   SelectValue,
   cn,
@@ -36,6 +35,7 @@ import type { GithubEventFamily, GithubInt64 } from "@/features/automations/type
 import {
   DAY_OPTIONS,
   TRIGGER_OPTIONS,
+  isTriggerChoice,
   type TriggerChoice,
 } from "@/features/automations/lib/automation-schedule";
 import {
@@ -200,8 +200,12 @@ export function AutomationTriggerPicker({
       <div className="mt-4 grid gap-2">
         <Label htmlFor="automation-trigger-kind">{t("fields.triggerType")}</Label>
         <Select
-          value={trigger}
-          onValueChange={(value) => onTriggerChange(value as TriggerChoice)}
+          value={isTriggerChoice(trigger) ? trigger : "manual"}
+          onValueChange={(value) => {
+            if (isTriggerChoice(value)) {
+              onTriggerChange(value);
+            }
+          }}
         >
           <SelectTrigger
             id="automation-trigger-kind"
@@ -321,7 +325,7 @@ export function AutomationTriggerPicker({
             </div>
           ) : null}
           <div className="rounded-xl border border-border/60 bg-background/35 px-3 py-2">
-            <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            <div className="flex items-center gap-2 text-xs font-medium tracking-wide text-muted-foreground">
               {previewLoading ? <LoaderCircle className="size-3.5 animate-spin" /> : <Clock3 className="size-3.5" />}
               {t("nextRuns")}
             </div>
@@ -372,29 +376,31 @@ function TimezoneSelect({
         <SelectValue placeholder={t("timezonePlaceholder")} />
       </SelectTrigger>
       <SelectContent align="end" className="max-h-[18rem] w-[18rem]">
-        {groupedOptions.map((group, index) => (
-          <React.Fragment key={group.group}>
-            {index > 0 ? <SelectSeparator /> : null}
-            <SelectGroup>
-              <SelectLabel>{group.group}</SelectLabel>
-              {group.options.map((option) => (
-                <SelectItem
-                  key={option.value}
-                  value={option.value}
-                  textValue={`${option.label} ${option.value}`}
-                >
-                  <span className="flex min-w-0 flex-col items-start gap-0.5">
-                    <span data-timezone-option-label className="max-w-[13rem] truncate">
-                      {option.label}
-                    </span>
-                    <span data-timezone-option-value className="max-w-[13rem] truncate text-xs text-muted-foreground">
+        {groupedOptions.map((group) => (
+          <SelectGroup key={group.group}>
+            <SelectLabel>{group.group}</SelectLabel>
+            {group.options.map((option) => (
+              <SelectItem
+                key={option.value}
+                value={option.value}
+                textValue={`${option.label} ${option.value}`}
+              >
+                <span className="flex min-w-0 items-center gap-1.5">
+                  <span data-timezone-option-label className="truncate">
+                    {option.label}
+                  </span>
+                  {option.value !== option.label ? (
+                    <span
+                      data-timezone-option-value
+                      className="truncate text-xs text-muted-foreground"
+                    >
                       {option.value}
                     </span>
-                  </span>
-                </SelectItem>
-              ))}
-            </SelectGroup>
-          </React.Fragment>
+                  ) : null}
+                </span>
+              </SelectItem>
+            ))}
+          </SelectGroup>
         ))}
       </SelectContent>
     </Select>

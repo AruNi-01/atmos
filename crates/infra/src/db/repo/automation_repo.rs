@@ -277,6 +277,22 @@ impl<'a> AutomationRepo<'a> {
         Ok(automation_run::Entity::find()
             .filter(automation_run::Column::AutomationGuid.eq(automation_guid))
             .filter(automation_run::Column::IsDeleted.eq(false))
+            .order_by_desc(automation_run::Column::StartedAt)
+            .order_by_desc(automation_run::Column::CreatedAt)
+            .offset(offset)
+            .limit(limit)
+            .all(self.db)
+            .await?)
+    }
+
+    pub async fn list_all_runs(
+        &self,
+        limit: u64,
+        offset: u64,
+    ) -> Result<Vec<automation_run::Model>> {
+        Ok(automation_run::Entity::find()
+            .filter(automation_run::Column::IsDeleted.eq(false))
+            .order_by_desc(automation_run::Column::StartedAt)
             .order_by_desc(automation_run::Column::CreatedAt)
             .offset(offset)
             .limit(limit)
