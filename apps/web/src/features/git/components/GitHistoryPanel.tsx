@@ -1,5 +1,10 @@
 "use client";
 
+/**
+ * Center-tab git history graph. Lane SVG drawing follows Comet
+ * (https://github.com/zeronsh/comet, MIT — see root NOTICE).
+ */
+
 import React, { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { fromUnixTime, format } from "date-fns";
