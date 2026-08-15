@@ -1,8 +1,10 @@
 import { expect, test } from "../../../fixtures/test";
 import {
   buildProjectWorkspaceDeepLink,
+  closeSettingsPage,
   connectLocalComputer,
   gotoContextRoute,
+  gotoSettingsRoute,
   normalizePathname,
   stubComputerClientSettingsApi,
   withSearchParams,
@@ -58,41 +60,25 @@ test.describe("smoke project", () => {
       .poll(async () => new URL(page.url()).searchParams.get("lsTab"))
       .toBe("projects");
 
-    const settingsDialog = page.getByRole("dialog", { name: "Settings", exact: true });
-
-    await gotoContextRoute(
-      page,
-      withSearchParams(projectUrl, {
-        lsTab: "files",
-        settingsModal: "true",
-        activeSettingTab: "about",
-      }),
-    );
+    await gotoSettingsRoute(page, "about");
     await expect
-      .poll(async () => new URL(page.url()).searchParams.get("settingsModal"))
-      .toBe("true");
+      .poll(async () => normalizePathname(new URL(page.url()).pathname))
+      .toBe("/settings");
     await expect
       .poll(async () => new URL(page.url()).searchParams.get("activeSettingTab"))
       .toBe("about");
-    await expect(settingsDialog).toBeVisible();
+    await expect(page.getByRole("heading", { name: /^(About|关于)$/ })).toBeVisible();
+    await expect(page.getByRole("dialog", { name: /^(Settings|设置)$/ })).toHaveCount(0);
 
-    await gotoContextRoute(
-      page,
-      withSearchParams(projectUrl, {
-        lsTab: "files",
-        settingsModal: "true",
-        activeSettingTab: "workspace",
-      }),
-    );
+    await gotoSettingsRoute(page, "workspace");
     await expect
       .poll(async () => new URL(page.url()).searchParams.get("activeSettingTab"))
       .toBe("workspace");
-    await expect(settingsDialog).toBeVisible();
+    await expect(page.getByRole("heading", { name: /^(Workspace|工作区)$/ })).toBeVisible();
 
-    await settingsDialog.getByRole("button", { name: /close/i }).click();
-    await expect(settingsDialog).toBeHidden();
+    await closeSettingsPage(page);
     await expect
-      .poll(async () => new URL(page.url()).searchParams.get("settingsModal") ?? "false")
-      .toBe("false");
+      .poll(async () => normalizePathname(new URL(page.url()).pathname))
+      .not.toBe("/settings");
   });
 });

@@ -44,6 +44,8 @@ export function DocumentTitle() {
           return t("tokenUsage");
         case "tasks":
           return t("tasks");
+        case "settings":
+          return t("settings");
       }
     }
     return t("app");

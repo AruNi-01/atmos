@@ -115,6 +115,7 @@ export type SettingsModalTab =
   | "code-agent"
   | "workspace"
   | "labels"
+  | "appearance"
   | "account"
   | "integrations"
   | "ai"
@@ -138,6 +139,7 @@ export const settingsModalParams = {
     "code-agent",
     "workspace",
     "labels",
+    "appearance",
     "account",
     "integrations",
     "ai",

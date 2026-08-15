@@ -5,14 +5,17 @@ import { join } from "node:path";
 const root = join(import.meta.dir, "../../../../../../..");
 
 describe("APP-059 Browser settings wiring", () => {
-  it("registers browser settings section in Interface", () => {
+  it("registers browser settings section in System Integration", () => {
     const data = readFileSync(
       join(root, "apps/web/src/features/settings/components/settings-modal-data.ts"),
       "utf8",
     );
-    expect(data).toContain('"browser"');
     expect(data).toContain("sections.browser");
     expect(data).toContain("browser.defaultSurface");
+    expect(data).toContain('items: ["layout", "editor", "canvas", "terminal"] as const');
+    expect(data).toContain(
+      'items: ["integrations", "browser", "desktop-use", "notify"] as const',
+    );
   });
 
   it("includes browser in SettingsModalTab enum list", () => {
@@ -32,7 +35,7 @@ describe("APP-059 Browser settings wiring", () => {
     expect(sections).toContain("case 'browser'");
   });
 
-  it("Layout no longer owns the Browser module row", () => {
+  it("Layout right sidebar owns the Browser module row", () => {
     const layout = readFileSync(
       join(
         root,
@@ -40,8 +43,23 @@ describe("APP-059 Browser settings wiring", () => {
       ),
       "utf8",
     );
-    expect(layout).not.toContain("browserTitle");
-    expect(layout).not.toContain("setRightSidebarShowBrowser");
+    expect(layout).toContain("browserTitle");
+    expect(layout).toContain("setRightSidebarShowBrowser");
+  });
+
+  it("Browser page no longer owns the sidebar visibility toggle", () => {
+    const section = readFileSync(
+      join(root, "apps/web/src/features/settings/components/BrowserSettingsSection.tsx"),
+      "utf8",
+    );
+    expect(section).not.toContain("groups.sidebar");
+    expect(section).not.toContain("newTabUrl");
+    expect(section).not.toContain("links.desktopUse");
+    expect(section).toContain("defaultSurface");
+    expect(section).toContain("groups.agent");
+    expect(section).toContain("BrowserCookiesSettingsCard");
+    expect(section).not.toContain("downloads");
+    expect(section).not.toContain("~/Downloads");
   });
 
   it("Browser page uses sentence-case surface labels", () => {

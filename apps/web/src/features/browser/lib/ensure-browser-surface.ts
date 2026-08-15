@@ -67,7 +67,7 @@ export async function ensureSurface(input: {
   await useBrowserSettingsStore.getState().loadSettings();
   const settings = useBrowserSettingsStore.getState();
   const placement = input.placement ?? settings.defaultSurface;
-  const requestedUrl = input.url?.trim() || settings.newTabUrl.trim() || undefined;
+  const requestedUrl = input.url?.trim() || undefined;
   const contextId = input.contextId.trim();
   if (!contextId) {
     return {

@@ -27,7 +27,7 @@ import { HardDrive, Presentation } from "lucide-react";
 import { appApi } from "@/api/ws-api";
 import type { GithubPrPayload } from "@/api/ws/github-api";
 import { currentAppLocale } from "@/shared/lib/current-app-locale";
-import type { SettingsModalTab } from "@/shared/lib/nuqs/searchParams";
+import { settingsHref } from "@/features/settings/lib/open-settings";
 import { writeQuickOpenLastUsed } from "@/shared/stores/use-ui-pref-hooks";
 import { tasksPathWithStoredSource } from "@/features/task/lib/task-source-preference";
 import enMessages from "../../messages/en.json";
@@ -118,8 +118,6 @@ interface BuildGlobalSearchItemsParams {
   setCanvasOpen: (open: boolean) => void;
 
   setIsLeftCollapsed: (collapsed: boolean) => void;
-  setActiveSettingTab: (tab: SettingsModalTab) => void;
-  setSettingsOpen: (open: boolean) => void;
   setSubView: (view: "todo" | "commit" | "usage") => void;
   showCreating: () => void;
   showOpening: (workspaceId: string) => void;
@@ -150,9 +148,6 @@ export function buildGlobalSearchItems({
   setLeftSidebarTab,
   setCanvasOpen,
   setIsLeftCollapsed,
-
-  setActiveSettingTab,
-  setSettingsOpen,
   setSubView,
   showCreating,
   showOpening,
@@ -444,8 +439,7 @@ export function buildGlobalSearchItems({
       icon: <Settings className="size-4 text-muted-foreground" />,
       action: () => {
         setPendingSettingsHighlight(null);
-        setActiveSettingTab("about");
-        setSettingsOpen(true);
+        router.push(settingsHref("about"));
         setGlobalSearchOpen(false);
       },
     },
@@ -469,8 +463,7 @@ export function buildGlobalSearchItems({
       icon: <Settings className="size-4 text-muted-foreground" />,
       action: () => {
         setPendingSettingsHighlight(null);
-        setActiveSettingTab(section.id);
-        setSettingsOpen(true);
+        router.push(settingsHref(section.id));
         setGlobalSearchOpen(false);
       },
     });
@@ -497,8 +490,7 @@ export function buildGlobalSearchItems({
       searchOnly: true,
       action: () => {
         setPendingSettingsHighlight(`${settingItem.label} ${settingItem.description}`.trim());
-        setActiveSettingTab(settingItem.sectionId);
-        setSettingsOpen(true);
+        router.push(settingsHref(settingItem.sectionId));
         setGlobalSearchOpen(false);
       },
     });

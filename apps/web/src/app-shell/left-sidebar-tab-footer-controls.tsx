@@ -2,16 +2,20 @@
 
 import React from "react";
 import { useTranslations } from "next-intl";
-import { TabsList, TabsTab, cn } from "@workspace/ui";
-import { Folder, FolderKanban, FolderPlus } from "lucide-react";
+import {
+  TabsList,
+  TabsTab,
+  cn,
+} from "@workspace/ui";
+import { Folder, FolderKanban, FolderPlus, Settings } from "lucide-react";
 import type { LeftSidebarTab } from "@/shared/lib/nuqs/searchParams";
-import type { Project, WorkspaceLabel } from "@/shared/types/domain";
+import type { Group, Project, WorkspaceLabel } from "@/shared/types/domain";
 import {
   WorkspaceKanbanFilterMenu,
   type WorkspaceKanbanFilters,
 } from "@/app-shell/sidebar/WorkspaceKanbanFilterMenu";
 import type { SidebarGroupingMode } from "@/app-shell/sidebar/workspace-status";
-import type { Group } from "@/shared/types/domain";
+import { useOpenSettings } from "@/features/settings/lib/open-settings";
 
 export function LeftSidebarTabsHeader({
   filesOnRight,
@@ -49,6 +53,25 @@ export function LeftSidebarTabsHeader({
   );
 }
 
+function LeftSidebarSettingsButton() {
+  const t = useTranslations("AppShell.chrome");
+  const openSettings = useOpenSettings();
+  const label = t("leftSidebarFooter.openSettings");
+
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      onClick={() => openSettings()}
+      className="group relative inline-flex h-8 items-center gap-1 rounded-lg bg-transparent px-2 text-[11px] text-muted-foreground/90 transition-colors hover:text-sidebar-foreground"
+    >
+      <span className="inline-flex size-5 items-center justify-center rounded-md text-muted-foreground transition-colors group-hover:text-sidebar-foreground">
+        <Settings className="size-3.5" />
+      </span>
+    </button>
+  );
+}
+
 export function LeftSidebarFooter({
   activeTab,
   availableLabels,
@@ -73,39 +96,43 @@ export function LeftSidebarFooter({
   onGroupingModeChange: (mode: SidebarGroupingMode) => void;
 }) {
   const t = useTranslations("AppShell.chrome");
-
-  if (activeTab !== "projects" && !filesOnRight) return null;
+  const showProjectControls = activeTab === "projects" || filesOnRight;
 
   return (
     <div className="relative shrink-0 border-t border-sidebar-border bg-transparent">
       <div className="relative flex items-center justify-between gap-1 px-1.5 py-0.5">
         <div className="flex items-center gap-0">
-          <button
-            type="button"
-            title={t("leftSidebarFooter.addProject")}
-            aria-label={t("leftSidebarFooter.addProject")}
-            onClick={onAddProject}
-            className="group inline-flex h-8 items-center gap-1 rounded-lg bg-transparent px-0.5 text-[11px] text-muted-foreground/90 transition-colors hover:text-sidebar-foreground"
-          >
-            <span className="inline-flex size-5 items-center justify-center rounded-md text-muted-foreground transition-colors group-hover:text-sidebar-foreground">
-              <FolderPlus className="size-3.5" />
-            </span>
-          </button>
+          {showProjectControls ? (
+            <button
+              type="button"
+              title={t("leftSidebarFooter.addProject")}
+              aria-label={t("leftSidebarFooter.addProject")}
+              onClick={onAddProject}
+              className="group inline-flex h-8 items-center gap-1 rounded-lg bg-transparent px-0.5 text-[11px] text-muted-foreground/90 transition-colors hover:text-sidebar-foreground"
+            >
+              <span className="inline-flex size-5 items-center justify-center rounded-md text-muted-foreground transition-colors group-hover:text-sidebar-foreground">
+                <FolderPlus className="size-3.5" />
+              </span>
+            </button>
+          ) : null}
         </div>
         <div className="flex items-center gap-0">
-          <WorkspaceKanbanFilterMenu
-            projects={projects}
-            availableLabels={availableLabels}
-            groups={groups}
-            filters={filters}
-            onFiltersChange={onFiltersChange}
-            triggerVariant="icon"
-            align="end"
-            side="top"
-            showGrouping
-            groupingMode={groupingMode}
-            onGroupingModeChange={onGroupingModeChange}
-          />
+          {showProjectControls ? (
+            <WorkspaceKanbanFilterMenu
+              projects={projects}
+              availableLabels={availableLabels}
+              groups={groups}
+              filters={filters}
+              onFiltersChange={onFiltersChange}
+              triggerVariant="icon"
+              align="end"
+              side="top"
+              showGrouping
+              groupingMode={groupingMode}
+              onGroupingModeChange={onGroupingModeChange}
+            />
+          ) : null}
+          <LeftSidebarSettingsButton />
         </div>
       </div>
     </div>

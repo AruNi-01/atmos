@@ -259,7 +259,13 @@ mock.module("../lib/open-desktop-use-settings", () => ({
   openDesktopUseSettingsInApp: () => {
     calls.openDesktopUseSettings += 1;
   },
+  openPermissionAccessSettingsInApp: () => {
+    calls.openDesktopUseSettings += 1;
+  },
   useOpenDesktopUseSettings: () => () => {
+    calls.openDesktopUseSettings += 1;
+  },
+  useOpenPermissionAccessSettings: () => () => {
     calls.openDesktopUseSettings += 1;
   },
 }));

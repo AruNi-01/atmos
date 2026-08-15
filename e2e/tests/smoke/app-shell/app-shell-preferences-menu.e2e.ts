@@ -1,40 +1,34 @@
 import { expect, test } from "../../../fixtures/test";
 import {
   connectLocalComputer,
-  openActionMenu,
+  gotoSettingsRoute,
   stubComputerClientSettingsApi,
 } from "../support/app-smoke";
 
 test.describe("smoke app shell preferences menu", () => {
-  test("@smoke @stateful exercises theme and language controls from the header menu", async ({
+  test("@smoke @stateful exercises theme and language controls from Appearance settings", async ({
     page,
   }) => {
     await stubComputerClientSettingsApi(page);
     await connectLocalComputer(page);
 
-    const pathnameBefore = new URL(page.url()).pathname;
+    await gotoSettingsRoute(page, "appearance");
+    await expect(page.getByRole("heading", { name: /^(Appearance|外观)$/ }).first()).toBeVisible();
 
-    await openActionMenu(page);
-    await page.getByText("Theme", { exact: true }).click();
-    await page.getByText(/Light/).click();
+    await page.getByRole("tab", { name: /^(Light|浅色)$/ }).click();
     await expect
       .poll(async () => page.evaluate(() => document.documentElement.classList.contains("light")))
       .toBe(true);
 
-    await openActionMenu(page);
-    const languageTrigger = page.getByRole("menuitem", { name: /Language/ });
-    await languageTrigger.focus();
-    await page.keyboard.press("ArrowRight");
-    const zhOption = page.getByRole("menuitem", { name: /简体中文/ });
-    await expect(zhOption).toBeVisible();
-    await zhOption.click();
+    await page.getByRole("combobox", { name: /^(Language|语言)$/ }).click();
+    await page.getByRole("option", { name: /简体中文/ }).click();
     await expect
       .poll(async () => page.locator("html").getAttribute("lang"))
       .toBe("zh");
     // APP-028: runtime locale must not navigate to /zh/...
     await expect
       .poll(async () => new URL(page.url()).pathname)
-      .toBe(pathnameBefore);
+      .not.toMatch(/^\/zh(\/|$)/);
     await expect
       .poll(async () =>
         page.evaluate(() => window.localStorage.getItem("atmos:v1:global:locale")),

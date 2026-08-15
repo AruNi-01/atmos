@@ -983,7 +983,8 @@
       "automations": "Automations - ATMOS",
       "diskAnalyzer": "Disk Analyzer - ATMOS",
       "tokenUsage": "Token Usage - ATMOS",
-      "tasks": "Task - ATMOS"
+      "tasks": "Task - ATMOS",
+      "settings": "Settings - ATMOS"
     },
     "localModelDownload": {
       "downloadingRuntime": "Downloading runtime",
@@ -1590,7 +1591,9 @@
       },
       "leftSidebarFooter": {
         "addProject": "Add Project",
-        "openTasks": "Open Task"
+        "openTasks": "Open Task",
+        "openSettings": "Open settings",
+        "settings": "Settings"
       },
       "launchpad": {
         "title": "Launchpad",
@@ -4524,11 +4527,11 @@
       "groups": {
         "interface": {
           "label": "Interface",
-          "description": "Layout, editor, canvas, Browser, and keyboard preferences"
+          "description": "Layout, editor, canvas, and keyboard preferences"
         },
         "personal": {
           "label": "Personal",
-          "description": "Your account and sign-in"
+          "description": "Theme, language, and your account"
         },
         "aiAgents": {
           "label": "AI Agents",
@@ -4540,7 +4543,7 @@
         },
         "systemIntegration": {
           "label": "System Integration",
-          "description": "Integrations, Desktop Use, and notifications"
+          "description": "Integrations, Browser, Desktop Use, and notifications"
         },
         "privacySecurity": {
           "label": "Privacy & Security",
@@ -4578,7 +4581,7 @@
         },
         "browser": {
           "label": "Browser",
-          "description": "In-app Browser placement, sidebar, homepage, and agent chrome."
+          "description": "How the agent opens and uses the in-app Browser."
         },
         "workspace": {
           "label": "Workspace",
@@ -4628,10 +4631,19 @@
           "label": "Permission access",
           "description": "Allow Atmos Server to read signed-in browser cookies when a product is installed."
         },
+        "appearance": {
+          "label": "Appearance",
+          "description": "Theme and language."
+        },
         "account": {
           "label": "Account",
           "description": "Sign in, trust this device, and manage your Atmos account"
         }
+      },
+      "page": {
+        "title": "Settings",
+        "back": "Back",
+        "backAria": "Close settings"
       },
       "dialog": {
         "title": "Settings",
@@ -4710,6 +4722,9 @@
             },
             "headerLayout": {
               "label": "Header layout"
+            },
+            "rightSidebarBrowser": {
+              "label": "Show Browser in sidebar"
             },
             "workspaceSummaryButton": {
               "label": "Workspace summary button"
@@ -5164,10 +5179,16 @@
               "label": "New tab URL"
             },
             "agentChrome": {
-              "label": "Agent chrome"
+              "label": "Show action overlay"
             },
-            "downloads": {
-              "label": "Download folder"
+            "cookiesImport": {
+              "label": "Import cookies"
+            },
+            "cookiesClearCache": {
+              "label": "Clear cache"
+            },
+            "cookiesClearSiteData": {
+              "label": "Clear cookies and storage"
             }
           },
           "desktopUse": {
@@ -5186,6 +5207,14 @@
             "border": {
               "label": "Operation border",
               "description": "Visual feedback while Desktop Use operates"
+            }
+          },
+          "appearance": {
+            "theme": {
+              "label": "Theme"
+            },
+            "language": {
+              "label": "Language"
             }
           }
         }
@@ -5920,7 +5949,7 @@
       "reviewTitle": "Review",
       "reviewDescription": "Run the built-in code review over the current changes.",
       "browserTitle": "Browser",
-      "browserDescription": "Show the in-app preview browser for running dev servers.",
+      "browserDescription": "Show the in-app Browser module in the right sidebar.",
       "runTitle": "Run",
       "runDescription": "Start and monitor project run scripts.",
       "githubTitle": "GitHub",
@@ -6301,11 +6330,11 @@
         },
         "agent": {
           "title": "Agent",
-          "description": "On-page cursor and highlight while Browser Use acts."
+          "description": "Where the agent opens Browser, and how actions appear on the page."
         },
-        "downloads": {
-          "title": "Downloads",
-          "description": "Embedded downloads stay under the Atmos Browser Use folder."
+        "cookies": {
+          "title": "Cookies",
+          "description": "Import sign-ins from another browser, or clear cache and cookies."
         }
       },
       "defaultSurface": {
@@ -6323,12 +6352,26 @@
         "description": "Used when the agent opens a tab without a URL. Leave empty for the Browser home."
       },
       "agentChrome": {
-        "title": "Show agent chrome",
+        "title": "Show action overlay",
         "description": "Draw a cursor overlay when the agent clicks or types."
       },
-      "downloads": {
-        "title": "Download root",
-        "description": "Embedded Browser Use writes downloads here. External Chrome still requires --dir."
+      "cookies": {
+        "import": {
+          "title": "Import cookies",
+          "description": "Bring saved sign-ins from Chrome, Edge, Brave, or Firefox on this Mac.",
+          "action": "Import"
+        },
+        "clearCache": {
+          "title": "Clear cache",
+          "description": "Remove cached files only. Cookies and sign-ins stay.",
+          "action": "Clear"
+        },
+        "clearSiteData": {
+          "title": "Clear cookies and storage",
+          "description": "Remove cookies, local storage, and cached files. This signs you out of sites.",
+          "action": "Clear"
+        },
+        "unavailable": "Cookie import and cleanup need Atmos Desktop on macOS."
       },
       "links": {
         "desktopUse": {
@@ -6481,6 +6524,23 @@
     "browserUse": {
       "label": "Browser Use",
       "description": "Control Atmos in-app browser pages (DOM click / type / navigate)"
+    },
+    "appearanceSection": {
+      "title": "Appearance",
+      "description": "Choose how Atmos looks and which language it uses.",
+      "theme": {
+        "title": "Theme",
+        "description": "Use light, dark, or match the system.",
+        "light": "Light",
+        "dark": "Dark",
+        "system": "System"
+      },
+      "language": {
+        "title": "Language",
+        "description": "Changes labels across the app. Does not reload the page.",
+        "en": "English",
+        "zh": "简体中文"
+      }
     },
     "accountSection": {
       "title": "Atmos Account",

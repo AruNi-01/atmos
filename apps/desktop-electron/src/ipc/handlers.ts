@@ -671,9 +671,9 @@ export function createAllHandlers(
         BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0];
       if (win && !win.isDestroyed()) {
         const url = new URL(win.webContents.getURL());
-        url.searchParams.set("settingsModal", "true");
-        url.searchParams.set("activeSettingTab", "desktop-use");
-        await win.loadURL(url.toString());
+        const next = new URL("/settings", url.origin);
+        next.searchParams.set("activeSettingTab", "desktop-use");
+        await win.loadURL(next.toString());
         win.show();
         win.focus();
         return null;

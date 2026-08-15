@@ -1,10 +1,12 @@
 import { expect, test } from "../../../fixtures/test";
 import {
   buildProjectWorkspaceDeepLink,
+  closeSettingsPage,
   connectLocalComputer,
   expectHealthyRoute,
   getRightSidebar,
   gotoContextRoute,
+  gotoSettingsRoute,
   normalizePathname,
   stubComputerClientSettingsApi,
   withSearchParams,
@@ -90,7 +92,7 @@ test.describe("smoke workspace", () => {
     await expect(githubSidebar.getByRole("tab", { name: "操作" })).toBeVisible();
   });
 
-  test("@smoke @stateful boots direct workspace urls with read-only sidebar toggles and settings modal", async ({
+  test("@smoke @stateful boots direct workspace urls with read-only sidebar toggles and settings page", async ({
     page,
   }) => {
     await stubComputerClientSettingsApi(page);
@@ -146,31 +148,19 @@ test.describe("smoke workspace", () => {
       .poll(async () => new URL(page.url()).searchParams.get("lsTask") ?? "")
       .toBe("");
 
-    const settingsRoute = withSearchParams(workspaceUrl!, {
-      lsTab: "files",
-      settingsModal: "true",
-      activeSettingTab: "shortcuts",
-    });
-    const thirdResponse = await page.goto(settingsRoute, {
-      waitUntil: "domcontentloaded",
-    });
-    expect(thirdResponse, `missing navigation response for ${settingsRoute}`).not.toBeNull();
-    expect(thirdResponse!.status(), `unexpected status for ${settingsRoute}`).toBeLessThan(500);
+    await gotoSettingsRoute(page, "shortcuts", { locale: "zh" });
     await expect
-      .poll(async () => new URL(page.url()).searchParams.get("settingsModal"))
-      .toBe("true");
+      .poll(async () => normalizePathname(new URL(page.url()).pathname))
+      .toBe("/settings");
     await expect
       .poll(async () => new URL(page.url()).searchParams.get("activeSettingTab"))
       .toBe("shortcuts");
+    await expect(page.getByRole("heading", { name: /^(Shortcuts|快捷键)$/ })).toBeVisible();
+    await expect(page.getByRole("dialog", { name: /^(Settings|设置)$/ })).toHaveCount(0);
 
-    const settingsDialog = page.getByRole("dialog", {
-      name: /^(Settings|设置)$/,
-    });
-    await expect(settingsDialog).toBeVisible();
-    await settingsDialog.getByRole("button", { name: /close|关闭/i }).click();
-    await expect(settingsDialog).toBeHidden();
+    await closeSettingsPage(page);
     await expect
-      .poll(async () => new URL(page.url()).searchParams.get("settingsModal") ?? "false")
-      .toBe("false");
+      .poll(async () => normalizePathname(new URL(page.url()).pathname))
+      .not.toBe("/settings");
   });
 });

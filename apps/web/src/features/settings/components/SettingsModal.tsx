@@ -4,11 +4,10 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useTranslations } from 'next-intl';
 import { useQueryState } from 'nuqs';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogTitle,
   ScrollArea,
+  SidebarInset,
+  SidebarProvider,
+  cn,
   toastManager,
 } from '@workspace/ui';
 import { AGENT_OPTIONS } from '@/features/wiki/components/AgentSelect';
@@ -56,12 +55,9 @@ import {
 import { SettingsModalSidebar } from '@/features/settings/components/settings-modal-sidebar';
 import { useSettingsUpdateActions } from '@/features/settings/components/use-settings-update-actions';
 import { isCancelledError } from '@/shared/lib/is-cancelled-error';
-
-interface SettingsModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  activeSectionOverride?: SettingsSectionId | null;
-}
+import { useAppRouter } from '@/shared/hooks/use-app-router';
+import { useDesktopTrafficLightsPadding } from '@/shared/hooks/use-desktop-traffic-lights-padding';
+import { useDesktopWindowDrag } from '@/shared/hooks/use-desktop-window-drag';
 
 type CssHighlightRegistry = {
   set: (name: string, highlight: unknown) => void;
@@ -209,12 +205,11 @@ function useSettingsContentHighlight(
   }, [activeSection, contentElement, query]);
 }
 
-export const SettingsModal: React.FC<SettingsModalProps> = ({
-  isOpen,
-  onClose,
-  activeSectionOverride,
-}) => {
+export function SettingsPage() {
   const t = useTranslations('settings.modal');
+  const router = useAppRouter();
+  const needsTrafficLightsPadding = useDesktopTrafficLightsPadding();
+  const { handleDesktopWindowMouseDown, isDesktopDragEnabled } = useDesktopWindowDrag();
   const {
     appVersion,
     cliVersionInfo,
@@ -381,19 +376,18 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   }, []);
 
   useEffect(() => {
-    if (!isOpen) return;
     void loadAgentSettings();
-  }, [isOpen, loadAgentSettings]);
+  }, [loadAgentSettings]);
 
   useEffect(() => {
-    if (!isOpen || typeof window === 'undefined') return;
+    if (typeof window === 'undefined') return;
 
     const pendingHighlightQuery = window.sessionStorage.getItem(SETTINGS_SEARCH_HIGHLIGHT_STORAGE_KEY);
     if (!pendingHighlightQuery) return;
 
     setSettingsSearchQuery(pendingHighlightQuery);
     window.sessionStorage.removeItem(SETTINGS_SEARCH_HIGHLIGHT_STORAGE_KEY);
-  }, [isOpen]);
+  }, []);
 
   const {
     settings: notifySettings,
@@ -408,14 +402,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   } = useNotificationSettingsStore();
 
   useEffect(() => {
-    if (!isOpen) return;
     void loadNotifySettings();
-  }, [isOpen, loadNotifySettings]);
-
-  useEffect(() => {
-    if (!isOpen || !activeSectionOverride) return;
-    void setActiveSection(activeSectionOverride);
-  }, [activeSectionOverride, isOpen, setActiveSection]);
+  }, [loadNotifySettings]);
 
   const persistCodeAgents = React.useCallback(async (agents: CodeAgentCustomEntry[]) => {
     const nextAgents = dedupeCodeAgentEntries(agents);
@@ -788,9 +776,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   }, []);
 
   useEffect(() => {
-    if (!isOpen) return;
     void loadLlmConfig();
-  }, [isOpen, loadLlmConfig]);
+  }, [loadLlmConfig]);
 
   useEffect(() => {
     const testUnsubscribeRef = providerTestUnsubscribeRef;
@@ -998,39 +985,77 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     void updateNotifyField('browser_notification', checked);
   }, [updateNotifyField]);
 
+  const leaveSettings = React.useCallback(() => {
+    router.back();
+  }, [router]);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape' || event.defaultPrevented || event.isComposing) return;
+      if (providerDialogState.open) return;
+      const target = event.target;
+      if (
+        target instanceof HTMLElement &&
+        target.closest('[role="dialog"], [data-slot="dialog-content"]')
+      ) {
+        return;
+      }
+      if (settingsSearchQuery.trim()) {
+        event.preventDefault();
+        setSettingsSearchQuery('');
+        return;
+      }
+      event.preventDefault();
+      leaveSettings();
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [leaveSettings, providerDialogState.open, settingsSearchQuery]);
+
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent onPointerDownOutside={(e) => e.preventDefault()} onInteractOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()} className="h-[min(90vh,820px)] w-[min(96vw,1360px)] max-w-[min(96vw,1360px)] overflow-hidden border-border bg-background p-0 sm:!max-w-[min(96vw,1360px)]">
-        <DialogTitle className="sr-only">{t('dialog.title')}</DialogTitle>
-        <DialogDescription className="sr-only">
-          {t('dialog.description')}
-        </DialogDescription>
+    <div
+      onMouseDown={handleDesktopWindowMouseDown}
+      className={cn(
+        'flex h-dvh min-h-0 w-full bg-background',
+        isDesktopDragEnabled && 'desktop-drag-region',
+      )}
+    >
+      <SidebarProvider
+        keyboardShortcut={false}
+        className="h-full min-h-0 w-full"
+        style={{ '--sidebar-width': '240px' } as React.CSSProperties}
+      >
+        <SettingsModalSidebar
+          activeSection={resolvedActiveSection}
+          onSelectSection={(sectionId) => void setActiveSection(sectionId)}
+          searchQuery={settingsSearchQuery}
+          onSearchQueryChange={setSettingsSearchQuery}
+          onBack={leaveSettings}
+          trafficLightsPadding={needsTrafficLightsPadding}
+        />
 
-        <div className="grid h-full min-h-0 grid-cols-[240px_minmax(0,1fr)]">
-          <SettingsModalSidebar
-            activeSection={resolvedActiveSection}
-            onSelectSection={(sectionId) => void setActiveSection(sectionId)}
-            searchQuery={settingsSearchQuery}
-            onSearchQueryChange={setSettingsSearchQuery}
-          />
+        <SidebarInset className="min-h-0 min-w-0 overflow-hidden">
+          <section
+            ref={setSettingsContentElement}
+            className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
+          >
+          <div className="px-8 py-4">
+            <h2 className="text-[28px] font-semibold tracking-tight text-foreground">
+              {t(`sections.${toCamelCase(activeSectionMeta.id)}.label`)}
+            </h2>
+            <p className="mt-1 max-w-md text-sm leading-5 text-muted-foreground">
+              {t(`sections.${toCamelCase(activeSectionMeta.id)}.description`)}
+            </p>
+          </div>
+          <div className="px-8">
+            <div className="border-b border-border" />
+          </div>
 
-          <section ref={setSettingsContentElement} className="flex min-h-0 min-w-0 flex-col overflow-hidden">
-            <div className="px-8 py-4">
-              <h2 className="text-[28px] font-semibold tracking-tight text-foreground">
-                {t(`sections.${toCamelCase(activeSectionMeta.id)}.label`)}
-              </h2>
-              <p className="mt-1 max-w-md text-sm leading-5 text-muted-foreground">
-                {t(`sections.${toCamelCase(activeSectionMeta.id)}.description`)}
-              </p>
-            </div>
-            <div className="px-8">
-              <div className="border-b border-border" />
-            </div>
-
-            <div className="min-h-0 flex-1 overflow-hidden">
-              <ScrollArea className="size-full">
-                <div className="px-8 py-6">
-                  <SettingsModalSections
+          <div className="min-h-0 flex-1 overflow-hidden">
+            <ScrollArea className="size-full">
+              <div className="px-8 py-6">
+                <SettingsModalSections
                     activeSection={resolvedActiveSection}
                     appVersion={appVersion}
                     cliVersionInfo={cliVersionInfo}
@@ -1161,7 +1186,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               </ScrollArea>
             </div>
           </section>
-        </div>
+        </SidebarInset>
 
         <LlmProviderEditorDialog
           open={providerDialogState.open}
@@ -1173,7 +1198,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             void loadLlmConfig();
           }}
         />
-      </DialogContent>
-    </Dialog>
+      </SidebarProvider>
+    </div>
   );
-};
+}
+
+export const SettingsModal = SettingsPage;

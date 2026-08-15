@@ -19,7 +19,7 @@ import { useWorkspaceCreationStore } from '@/features/workspace/store/workspace-
 import { useEditorStore } from '@/features/editor/store/use-editor-store';
 import { fsApi, type SearchMatch, type FileTreeNode } from '@/api/ws-api';
 import { useFileTreeQuery } from '@/features/files/hooks/use-file-tree-query';
-import { llmProvidersModalParams, agentChatParams, settingsModalParams, leftSidebarParams, centerStageParams } from '@/shared/lib/nuqs/searchParams';
+import { llmProvidersModalParams, agentChatParams, leftSidebarParams, centerStageParams } from '@/shared/lib/nuqs/searchParams';
 import { useWorkspaceContext } from '@/features/workspace/hooks/use-workspace-context';
 import { useSidebarLayout } from '@/app-shell/SidebarLayoutContext';
 import { useExperimentSettingsStore } from '@/features/settings/store/experiment-settings-store';
@@ -138,8 +138,6 @@ export function GlobalSearch() {
   // URL-param driven modals
   const [, setLlmProvidersOpen] = useQueryState("llmProvidersModal", llmProvidersModalParams.llmProvidersModal);
   const [, setAgentChatOpen] = useQueryState("chat", agentChatParams.chat);
-  const [, setSettingsOpen] = useQueryState("settingsModal", settingsModalParams.settingsModal);
-  const [, setActiveSettingTab] = useQueryState("activeSettingTab", settingsModalParams.activeSettingTab);
   const [, setLeftSidebarTab] = useQueryState("lsTab", leftSidebarParams.lsTab);
   const [, setCanvasOpen] = useQueryState("canvas", centerStageParams.canvas);
 
@@ -355,14 +353,12 @@ export function GlobalSearch() {
       setLeftSidebarTab,
       setCanvasOpen,
       setIsLeftCollapsed,
-      setActiveSettingTab,
-      setSettingsOpen,
       setSubView,
       showCreating,
       showOpening,
       clearWorkspaceCreationOverlay,
     });
-  }, [projects, router, setTheme, setGlobalSearchOpen, setCreateProjectOpen, setSelectedProjectId, setCreateWorkspaceOpen, quickAddWorkspace, isFullScreen, toggleFullScreen, currentProject, setLlmProvidersOpen, setAgentChatOpen, setLeftSidebarTab, setCanvasOpen, isLeftCollapsed, setIsLeftCollapsed, setActiveSettingTab, setSettingsOpen, currentWorkspaceId, currentWorkspace, launchpadTerminalsEnabled, launchpadAgentsEnabled, automationsEnabled, clearWorkspaceCreationOverlay, currentEffectivePath, showCreating, showOpening]);
+  }, [projects, router, setTheme, setGlobalSearchOpen, setCreateProjectOpen, setSelectedProjectId, setCreateWorkspaceOpen, quickAddWorkspace, isFullScreen, toggleFullScreen, currentProject, setLlmProvidersOpen, setAgentChatOpen, setLeftSidebarTab, setCanvasOpen, isLeftCollapsed, setIsLeftCollapsed, currentWorkspaceId, currentWorkspace, launchpadTerminalsEnabled, launchpadAgentsEnabled, automationsEnabled, clearWorkspaceCreationOverlay, currentEffectivePath, showCreating, showOpening]);
 
   // Filter app items with deterministic matching. Single-word keyword hits must be exact
   // to keep broad keyword phrases from pulling unrelated results into the command palette.

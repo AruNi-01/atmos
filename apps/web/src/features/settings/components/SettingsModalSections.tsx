@@ -16,6 +16,7 @@ import { CodeAgentSettingsSection } from '@/features/settings/components/CodeAge
 import { EditorSettingsSection } from '@/features/settings/components/EditorSettingsSection';
 import { ExperimentSettingsSection } from '@/features/settings/components/ExperimentSettingsSection';
 import { AccountSettingsSection } from '@/features/settings/components/AccountSettingsSection';
+import { AppearanceSettingsSection } from '@/features/settings/components/AppearanceSettingsSection';
 import { IntegrationsSettingsSection } from '@/features/settings/components/IntegrationsSettingsSection';
 import { LabelSettingsSection } from '@/features/settings/components/LabelSettingsSection';
 import { LayoutSettingsSection } from '@/features/settings/components/LayoutSettingsSection';
@@ -264,6 +265,8 @@ export function SettingsModalSections(props: SettingsModalSectionsProps) {
       return <WorkspaceSettingsSection />;
     case 'labels':
       return <LabelSettingsSection />;
+    case 'appearance':
+      return <AppearanceSettingsSection />;
     case 'account':
       return <AccountSettingsSection />;
     case 'integrations':
