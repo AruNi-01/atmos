@@ -633,6 +633,55 @@
           "capture": "无法截取当前页面。"
         }
       },
+      "publish": {
+        "trigger": "发布",
+        "title": "发布页面",
+        "description": "用 atmos.land 链接分享。更新会覆盖同一页。",
+        "signInHint": "登录后即可发布 Token Usage 页面。",
+        "handleLabel": "用户名",
+        "handlePlaceholder": "builder",
+        "handleLocked": "用户名只能认领一次。",
+        "visibility": {
+          "public": "公开",
+          "unlisted": "不公开"
+        },
+        "xPlaceholder": "用户名",
+        "githubPlaceholder": "用户名",
+        "includeCost": "包含估算费用",
+        "copyLink": "复制链接",
+        "copied": "已复制",
+        "publish": "发布",
+        "update": "更新",
+        "turnOff": "关闭分享",
+        "rotateSecret": "更换密钥",
+        "unlistedNeedsSecret": "不公开链接需要密钥。生成新密钥后才能复制可用地址。",
+        "errors": {
+          "generic": "无法发布此页面。",
+          "usernameTaken": "该用户名已被占用。",
+          "handleLocked": "用户名不能再改。",
+          "invalidHandle": "请使用 3–24 位字母、数字或下划线。",
+          "invalidSocial": "请检查用户名后再试。"
+        }
+      },
+      "publicPage": {
+        "notFound": "此页面不可用。",
+        "generatedDate": "{date}",
+        "generatedByPrefix": "由 ",
+        "generatedBySuffix": " 生成",
+        "leaderboardLink": "排行榜"
+      },
+      "leaderboard": {
+        "updated": "更新于 {time} · 每 2 小时刷新",
+        "tokensTitle": "Token",
+        "tokensEmpty": "还没有公开页。",
+        "costTitle": "Cost",
+        "costEmpty": "还没有人公开费用。",
+        "colRank": "排名",
+        "colUser": "用户",
+        "colX": "X",
+        "colGithub": "GitHub",
+        "outsideTop": "你的名次"
+      },
       "cookieAccess": {
         "title": "浏览器 Cookie",
         "description": "授权 Cookie 访问后，可补上 Cursor 等已登录网页会话的用量。",

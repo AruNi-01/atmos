@@ -1,0 +1,2 @@
+# APP-061: /tok/@handle and /tok/leaderboard serve the static /tok page; the client reads the path.
+/tok/* /tok/index.html 200

@@ -132,6 +132,7 @@ function ensurePagesRedirects() {
     join(landingOutDir, "_redirects"),
     `/en / 302
 /en/* /:splat 302
+/tok/* https://app.atmos.land/tok/:splat 302
 `,
     "utf8",
   );
