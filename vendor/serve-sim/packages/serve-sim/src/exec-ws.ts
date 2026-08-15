@@ -6,6 +6,7 @@ import {
   type ExecWebSocket,
   type SseRequestHandler,
 } from "./exec-ws-utils";
+import { rewriteHostCommand } from "./host-bin";
 
 // WebSocket control channel for the preview page. Browsers cap HTTP/1.1 at
 // six connections per origin, and every preview tab used to hold several
@@ -201,7 +202,7 @@ function wireExecSocket(
       return;
     }
     const { id, command } = msg;
-    exec(command, { maxBuffer: 16 * 1024 * 1024 }, (err, stdout, stderr) => {
+    exec(rewriteHostCommand(command), { maxBuffer: 16 * 1024 * 1024 }, (err, stdout, stderr) => {
       const result = {
         id,
         stdout: stdout.toString(),

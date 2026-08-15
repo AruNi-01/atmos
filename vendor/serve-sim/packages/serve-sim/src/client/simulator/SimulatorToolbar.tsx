@@ -118,6 +118,8 @@ export interface TitleProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>
   hideChevron?: boolean;
   /** Hide the subtitle row entirely. */
   hideSubtitle?: boolean;
+  /** Warning turns the name amber — used for stream/device errors. */
+  tone?: "default" | "warning";
 }
 
 const titleButtonStyle: CSSProperties = {
@@ -139,7 +141,7 @@ const titleButtonStyle: CSSProperties = {
 };
 
 const Title = forwardRef<HTMLButtonElement, TitleProps>(function Title(
-  { name, subtitle, hideChevron, hideSubtitle, style, onMouseEnter, onMouseLeave, ...rest },
+  { name, subtitle, hideChevron, hideSubtitle, tone = "default", style, onMouseEnter, onMouseLeave, title, ...rest },
   ref,
 ) {
   const ctx = useToolbar("Title");
@@ -147,12 +149,17 @@ const Title = forwardRef<HTMLButtonElement, TitleProps>(function Title(
   const displayName = name ?? ctx.deviceName ?? "No simulator";
   const displaySubtitle =
     subtitle ?? (ctx.deviceRuntime ? ctx.deviceRuntime.replace(/\./, " ") : "—");
+  const nameColor = tone === "warning" ? "#facc15" : "#fff";
+  const tooltip = title ?? (typeof displayName === "string" ? displayName : undefined);
+  const chip = hideSubtitle && hideChevron;
 
   return (
     <button
       ref={ref}
       type="button"
       data-simulator-toolbar-title
+      data-tone={tone}
+      title={tooltip}
       onMouseEnter={(e) => {
         setHover(true);
         onMouseEnter?.(e);
@@ -163,6 +170,21 @@ const Title = forwardRef<HTMLButtonElement, TitleProps>(function Title(
       }}
       style={{
         ...titleButtonStyle,
+        ...(chip
+          ? {
+              boxSizing: "border-box",
+              display: "flex",
+              flexDirection: "row",
+              alignItems: "center",
+              minWidth: "max-content",
+              minHeight: 31,
+              height: 31,
+              margin: 0,
+              padding: "0 10px",
+              borderRadius: 12,
+              lineHeight: 1,
+            }
+          : {}),
         background: hover ? "rgba(255,255,255,0.1)" : "transparent",
         ...style,
       }}
@@ -173,16 +195,22 @@ const Title = forwardRef<HTMLButtonElement, TitleProps>(function Title(
           display: "inline-flex",
           alignItems: "center",
           gap: 4,
-          fontSize: 12,
-          fontWeight: 600,
-          color: "#fff",
           maxWidth: "100%",
           overflow: "hidden",
-          textOverflow: "ellipsis",
-          whiteSpace: "nowrap",
         }}
       >
-        {displayName}
+        <span
+          style={{
+            fontSize: 12,
+            fontWeight: 600,
+            color: nameColor,
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {displayName}
+        </span>
         {!hideChevron && (
           <svg
             width="10"
@@ -235,6 +263,8 @@ function Actions({ style, ...rest }: HTMLAttributes<HTMLDivElement>) {
 export interface ToolbarButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   /** Force disabled even if the toolbar is ready. */
   forceDisabled?: boolean;
+  /** Keep the button clickable even when the stream is not live. */
+  forceEnabled?: boolean;
   /** Override the hover/focus tooltip label. Defaults to title or aria-label. */
   tooltip?: ReactNode;
 }
@@ -257,6 +287,7 @@ const buttonStyle: CSSProperties = {
 const ToolbarButton = forwardRef<HTMLButtonElement, ToolbarButtonProps>(function ToolbarButton(
   {
     forceDisabled,
+    forceEnabled,
     tooltip,
     style,
     disabled,
@@ -274,7 +305,8 @@ const ToolbarButton = forwardRef<HTMLButtonElement, ToolbarButtonProps>(function
   ref,
 ) {
   const ctx = useContext(ToolbarContext);
-  const effectiveDisabled = disabled || forceDisabled || ctx?.disabled;
+  const effectiveDisabled =
+    forceDisabled || disabled || (!forceEnabled && !!ctx?.disabled);
   const [hover, setHover] = useState(false);
   const [focus, setFocus] = useState(false);
   const pointerFocusedRef = useRef(false);

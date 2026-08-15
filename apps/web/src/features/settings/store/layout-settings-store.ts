@@ -136,7 +136,7 @@ function readRightSidebarLayout(layout: Record<string, unknown> | undefined): Ri
     rsShowBrowser: layout?.right_sidebar_show_browser !== false,
     rsShowRun: layout?.right_sidebar_show_run !== false,
     rsShowGithub,
-    rsShowSimulator: layout?.right_sidebar_show_simulator !== false,
+    rsShowSimulator: layout?.right_sidebar_show_simulator === true,
   };
 }
 
@@ -183,7 +183,7 @@ export const useLayoutSettingsStore = create<LayoutSettingsState>((set, get) => 
     rsShowBrowser: true,
     rsShowRun: true,
     rsShowGithub: true,
-    rsShowSimulator: true,
+    rsShowSimulator: false,
     loaded: false,
 
     loadSettings: async (force = false) => {

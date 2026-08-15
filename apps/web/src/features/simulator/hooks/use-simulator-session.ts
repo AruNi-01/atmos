@@ -5,6 +5,7 @@ import {
   listenSimulatorDownload,
   simulatorApi,
 } from "@/api/ws/simulator-api";
+import { useSimulatorRuntimeStore } from "../store/use-simulator-runtime-store";
 import {
   setupActionForReason,
   type SimulatorDownloadProgress,
@@ -36,6 +37,10 @@ export function useSimulatorSession(input: {
   const { workspaceId, active } = input;
   const [state, setState] = React.useState<SimulatorSessionState>(INITIAL);
   const readyForRef = React.useRef<string | null>(null);
+  const setRunning = useSimulatorRuntimeStore((store) => store.setRunning);
+  const running = useSimulatorRuntimeStore((store) =>
+    Boolean(workspaceId && store.runningByWorkspace[workspaceId]),
+  );
 
   const start = React.useCallback(async () => {
     if (!workspaceId) return;
@@ -47,6 +52,7 @@ export function useSimulatorSession(input: {
       setState((prev) => ({ ...prev, phase: "starting", error: null }));
       const result = await simulatorApi.start(workspaceId);
       if (!result.ready) {
+        setRunning(workspaceId, false);
         setState({
           phase: result.reason === "ok" || result.reason === "helper_missing" ? "idle" : "setup",
           reason: result.reason ?? "start_failed",
@@ -58,6 +64,7 @@ export function useSimulatorSession(input: {
         return;
       }
       readyForRef.current = workspaceId;
+      setRunning(workspaceId, true);
       setState({
         phase: "ready",
         reason: "ok",
@@ -67,6 +74,7 @@ export function useSimulatorSession(input: {
         error: null,
       });
     } catch (err) {
+      setRunning(workspaceId, false);
       setState({
         phase: "error",
         reason: "start_failed",
@@ -78,7 +86,7 @@ export function useSimulatorSession(input: {
     } finally {
       off();
     }
-  }, [workspaceId]);
+  }, [setRunning, workspaceId]);
 
   React.useEffect(() => {
     if (!active || !workspaceId) return;
@@ -96,6 +104,7 @@ export function useSimulatorSession(input: {
         if (cancelled) return;
         if (claim?.url) {
           readyForRef.current = workspaceId;
+          setRunning(workspaceId, true);
           setState({
             phase: "ready",
             reason: "ok",
@@ -106,6 +115,7 @@ export function useSimulatorSession(input: {
           });
           return;
         }
+        setRunning(workspaceId, false);
         const reason = probe.reason;
         const canStart = reason === "ok" || reason === "helper_missing";
         setState({
@@ -131,7 +141,20 @@ export function useSimulatorSession(input: {
     return () => {
       cancelled = true;
     };
-  }, [active, workspaceId]);
+  }, [active, setRunning, workspaceId]);
+
+  React.useEffect(() => {
+    if (!workspaceId || running || state.phase !== "ready") return;
+    readyForRef.current = null;
+    setState({
+      phase: "idle",
+      reason: "ok",
+      url: null,
+      udid: null,
+      progress: null,
+      error: null,
+    });
+  }, [running, state.phase, workspaceId]);
 
   const disconnect = React.useCallback(async () => {
     if (!workspaceId) return;
@@ -141,8 +164,9 @@ export function useSimulatorSession(input: {
       /* ignore */
     }
     readyForRef.current = null;
+    setRunning(workspaceId, false);
     setState((prev) => ({ ...prev, phase: "idle", reason: "ok", url: null, udid: null }));
-  }, [workspaceId]);
+  }, [setRunning, workspaceId]);
 
   return {
     ...state,

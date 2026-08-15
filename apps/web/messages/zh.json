@@ -10021,7 +10021,13 @@
         "installXcode": "安装 Xcode",
         "openXcode": "安装 iOS 运行时",
         "retry": "重试",
-        "start": "启动"
+        "start": "启动",
+        "stop": "停止",
+        "cancel": "取消"
+      },
+      "stopConfirm": {
+        "title": "停止模拟器预览？",
+        "body": "这会结束后台助手并释放这台设备。"
       },
       "reasons": {
         "ok": {

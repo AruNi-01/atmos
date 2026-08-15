@@ -22,6 +22,40 @@ describe("SimulatorToolbar.Title", () => {
     expect(html).not.toContain("iOS-26-5");
   });
 
+  test("sizes a name chip to its label", () => {
+    const html = renderToStaticMarkup(
+      <SimulatorToolbar
+        exec={exec}
+        deviceUdid="booted"
+        deviceName="iPhone 17 Pro"
+        streaming
+      >
+        <SimulatorToolbar.Title hideChevron hideSubtitle />
+      </SimulatorToolbar>,
+    );
+
+    expect(html).toContain("iPhone 17 Pro");
+    expect(html).toContain("min-width:max-content");
+    expect(html).toContain("height:31px");
+  });
+
+  test("warns with yellow name text", () => {
+    const html = renderToStaticMarkup(
+      <SimulatorToolbar
+        exec={exec}
+        deviceUdid="booted"
+        deviceName="iPhone 16 Pro Max"
+        streaming
+      >
+        <SimulatorToolbar.Title hideChevron hideSubtitle tone="warning" />
+      </SimulatorToolbar>,
+    );
+
+    expect(html).toContain("data-tone=\"warning\"");
+    expect(html).toContain("color:#facc15");
+    expect(html).toContain("text-overflow:ellipsis");
+  });
+
   test("can hide the chevron", () => {
     const html = renderToStaticMarkup(
       <SimulatorToolbar
@@ -72,6 +106,19 @@ describe("SimulatorToolbar.Button", () => {
     );
 
     expect(html).toContain("background:var(--serve-sim-panel-bg, #181818)");
+  });
+
+  test("can stay enabled before the stream is live", () => {
+    const html = renderToStaticMarkup(
+      <SimulatorToolbar exec={exec} deviceUdid="booted" streaming={false}>
+        <SimulatorToolbar.Button forceEnabled aria-label="Tools">
+          tools
+        </SimulatorToolbar.Button>
+      </SimulatorToolbar>,
+    );
+
+    expect(html).not.toContain("disabled");
+    expect(html).not.toContain("not-allowed");
   });
 
   test("uses a rounded hover surface for icon actions", () => {

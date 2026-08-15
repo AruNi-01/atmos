@@ -62,10 +62,18 @@ describe("control plane", () => {
 });
 
 function enStartAction(): string {
+  return enSimulatorActions().start;
+}
+
+function enStopAction(): string {
+  return enSimulatorActions().stop;
+}
+
+function enSimulatorActions(): { start: string; stop: string } {
   const en = JSON.parse(
     readFileSync(join(repoRoot, "apps/web/messages/en.json"), "utf8"),
-  ) as { features: { simulator: { actions: { start: string } } } };
-  return en.features.simulator.actions.start;
+  ) as { features: { simulator: { actions: { start: string; stop: string } } } };
+  return en.features.simulator.actions;
 }
 
 describe("no custom phone chrome", () => {
@@ -79,6 +87,33 @@ describe("no custom phone chrome", () => {
     expect(panel).toContain("simulator-guest.css");
     expect(panel).not.toContain("SimulatorScreen");
     expect(panel).not.toContain("device-shell");
+  });
+
+  it("stops the helper from the preview toolbar after confirm", () => {
+    const panel = readFileSync(
+      join(import.meta.dir, "../components/SimulatorPanel.tsx"),
+      "utf8",
+    );
+    const header = readFileSync(
+      join(import.meta.dir, "../../../app-shell/header-action-controls.tsx"),
+      "utf8",
+    );
+    const stop = readFileSync(
+      join(repoRoot, "vendor/serve-sim/packages/serve-sim/src/client/components/stop-preview-button.tsx"),
+      "utf8",
+    );
+    const client = readFileSync(
+      join(repoRoot, "vendor/serve-sim/packages/serve-sim/src/client/client.tsx"),
+      "utf8",
+    );
+    expect(header).not.toContain("SimulatorStopButton");
+    expect(panel).toContain("atmos:simulator-stop");
+    expect(panel).toContain("session.disconnect()");
+    expect(client).toContain("<StopPreviewButton");
+    expect(stop).toContain("Power");
+    expect(stop).toContain("#f87171");
+    expect(stop).toContain("Stop the simulator preview?");
+    expect(enStopAction()).toBe("Stop");
   });
 
   it("freezes the guest iframe while host tooltips or sidebar drags use the pointer", () => {
@@ -149,6 +184,35 @@ describe("right sidebar", () => {
     );
     expect(client).toContain("Open tools panel");
     expect(client).toMatch(/\{\/\*[\s\S]*Open WebKit DevTools[\s\S]*\*\/\}/);
+  });
+
+  it("keeps devices and tools chrome on the phone toolbar", () => {
+    const client = readFileSync(
+      join(repoRoot, "vendor/serve-sim/packages/serve-sim/src/client/client.tsx"),
+      "utf8",
+    );
+    expect(client).toMatch(/\{\/\*[\s\S]*<DeviceSidebarToggle[\s\S]*\*\/\}/);
+    expect(client).toContain('aria-label="Simulator status"');
+    expect(client).toContain("Open tools panel");
+    expect(client).toContain("forceEnabled");
+    expect(client).not.toContain("StreamStatusPill");
+    expect(client).toContain('tone={useWebRtcVideo && webrtc.error ? "warning" : "default"}');
+    expect(client).toContain("flex w-full min-w-0 items-center justify-center gap-2");
+    expect(client).toContain('width: "max-content"');
+  });
+
+  it("rewrites compiled bunfs serve-sim paths before /bin/sh", () => {
+    const hostBin = readFileSync(
+      join(repoRoot, "vendor/serve-sim/packages/serve-sim/src/host-bin.ts"),
+      "utf8",
+    );
+    const execWs = readFileSync(
+      join(repoRoot, "vendor/serve-sim/packages/serve-sim/src/exec-ws.ts"),
+      "utf8",
+    );
+    expect(hostBin).toContain("/$bunfs/");
+    expect(hostBin).toContain("rewriteHostCommand");
+    expect(execWs).toContain("rewriteHostCommand(command)");
   });
 
   it("does not open the tools pane on first visit", () => {

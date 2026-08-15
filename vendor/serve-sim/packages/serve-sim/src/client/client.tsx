@@ -27,11 +27,12 @@ import {
 } from "./simulator";
 
 import { /* Globe, */ PanelRight, Upload } from "lucide-react";
+import { StopPreviewButton } from "./components/stop-preview-button";
 import { ReloadIcon } from "./icons";
 import { AxDomOverlay } from "./components/ax-dom-overlay";
 import { AxStateProvider } from "./components/ax-state-provider";
 import { AxToolbarButton } from "./components/ax-toolbar-button";
-import { DeviceSidebarToggle } from "./components/device-sidebar-toggle";
+// import { DeviceSidebarToggle } from "./components/device-sidebar-toggle";
 import { DevicePlaceholder } from "./components/device-placeholder";
 import { DeviceKitChrome, type ChromeButtonPress } from "./components/device-chrome-frame";
 import { GridPanel } from "./components/grid-panel";
@@ -39,7 +40,7 @@ import { ResizeHandle } from "./components/resize-handle";
 import { SimulatorResizeCornerHandle } from "./components/simulator-resize-corner-handle";
 import { ServeSimToaster } from "./components/app-toasts";
 import { SimulatorResizeSizeBadge } from "./components/simulator-resize-size-badge";
-import { StreamStatusPill } from "./components/stream-status-pill";
+
 import { ToolsPanel } from "./components/tools-panel";
 import { WebKitDevtoolsPanel } from "./components/webkit-devtools-panel";
 import { useMediaDrop } from "./hooks/use-media-drop";
@@ -382,16 +383,44 @@ function App() {
         style={{ paddingLeft: leftPad, paddingRight: 24 }}
       >
         {selectedDevice ? (
-          <DevicePlaceholder
-            name={selectedDevice.name}
-            runtime={selectedDevice.runtime}
-            chrome={selectedDevice.chrome ?? null}
-            placeholderAsset={selectedDevice.placeholderAsset ?? null}
-            busy={!!selectedDevice.helper || !!starting[selectedDevice.device]}
-            busyLabel={selectedDevice.helper ? "Connecting…" : "Starting…"}
-            error={actionErrors[selectedDevice.device] ?? null}
-            onStart={() => startDevice(selectedDevice.device)}
-          />
+          <>
+            <SimulatorToolbar
+              exec={execOnHost}
+              deviceUdid={selectedDevice.device}
+              deviceName={selectedDevice.name}
+              deviceRuntime={selectedDevice.runtime}
+              streaming={false}
+              aria-label="Simulator status"
+              style={{
+                width: "max-content",
+                maxWidth: "100%",
+                minWidth: 0,
+                flexWrap: "nowrap",
+                justifyContent: "center",
+                padding: "6px 8px",
+                borderRadius: 18,
+              }}
+            >
+              <SimulatorToolbar.Title
+                onClick={() => setGridOpen((o) => !o)}
+                aria-label="Toggle simulators sidebar"
+                aria-pressed={gridOpen}
+                hideSubtitle
+                hideChevron
+                tone={actionErrors[selectedDevice.device] ? "warning" : "default"}
+              />
+            </SimulatorToolbar>
+            <DevicePlaceholder
+              name={selectedDevice.name}
+              runtime={selectedDevice.runtime}
+              chrome={selectedDevice.chrome ?? null}
+              placeholderAsset={selectedDevice.placeholderAsset ?? null}
+              busy={!!selectedDevice.helper || !!starting[selectedDevice.device]}
+              busyLabel={selectedDevice.helper ? "Connecting…" : "Starting…"}
+              error={actionErrors[selectedDevice.device] ?? null}
+              onStart={() => startDevice(selectedDevice.device)}
+            />
+          </>
         ) : (
           <div className="flex flex-col items-center gap-3 text-center">
             <h1 className="text-[18px] m-0 text-white/90">No simulators available</h1>
@@ -434,7 +463,9 @@ function App() {
         ariaLabel="Resize simulators sidebar"
         side="left"
       />
+      {/*
       <DeviceSidebarToggle open={gridOpen} onClick={() => setGridOpen(true)} />
+      */}
     </>
   );
 }
@@ -987,40 +1018,81 @@ function AppWithConfig({
               : SIMULATOR_RESIZE_LAYOUT_TRANSITION,
         }}
       >
-        <SimulatorToolbar
-          exec={execOnHost}
-          onRotate={rotateDevice}
-          orientation={(activeStreamConfig as { orientation?: SimulatorOrientation }).orientation ?? null}
-          deviceUdid={config.device}
-          deviceName={deviceName}
-          deviceRuntime={deviceRuntime}
-          streaming={streaming}
-          aria-label="Simulator status"
-          style={{
-            alignSelf: "center",
-            width: "auto",
-            minWidth: 0,
-            maxWidth: "100%",
-            flexWrap: "nowrap",
-            justifyContent: "center",
-            gap: 10,
-            padding: "6px 10px",
-            borderRadius: 18,
-          }}
-        >
-          <SimulatorToolbar.Title
-            onClick={() => setGridOpen((o) => !o)}
-            aria-label="Toggle simulators sidebar"
-            aria-pressed={gridOpen}
-            title="Simulators"
-            hideSubtitle
-            hideChevron
+        <div className="flex w-full min-w-0 items-center justify-center gap-2">
+          <SimulatorToolbar
+            exec={execOnHost}
+            onRotate={rotateDevice}
+            orientation={(activeStreamConfig as { orientation?: SimulatorOrientation }).orientation ?? null}
+            deviceUdid={config.device}
+            deviceName={deviceName}
+            deviceRuntime={deviceRuntime}
+            streaming={streaming}
+            aria-label="Simulator status"
             style={{
-              maxWidth: "min(230px, calc(100vw - 170px))",
+              width: "max-content",
+              maxWidth: "calc(100% - 52px)",
+              minWidth: 0,
+              flex: "0 1 auto",
+              flexWrap: "nowrap",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: "6px 8px",
+              borderRadius: 18,
             }}
-          />
-          <StreamStatusPill streaming={streaming} />
-        </SimulatorToolbar>
+          >
+            <SimulatorToolbar.Title
+              onClick={() => setGridOpen((o) => !o)}
+              aria-label="Toggle simulators sidebar"
+              aria-pressed={gridOpen}
+              hideSubtitle
+              hideChevron
+              tone={useWebRtcVideo && webrtc.error ? "warning" : "default"}
+              style={{ maxWidth: "100%" }}
+            />
+          </SimulatorToolbar>
+          <SimulatorToolbar
+            exec={execOnHost}
+            onRotate={rotateDevice}
+            orientation={(activeStreamConfig as { orientation?: SimulatorOrientation }).orientation ?? null}
+            deviceUdid={config.device}
+            deviceName={deviceName}
+            deviceRuntime={deviceRuntime}
+            streaming={streaming}
+            aria-label="Preview controls"
+            style={{
+              width: "auto",
+              minWidth: 0,
+              flexShrink: 0,
+              justifyContent: "center",
+              padding: "6px 8px",
+              borderRadius: 18,
+            }}
+          >
+            <SimulatorToolbar.Actions>
+              <StopPreviewButton />
+              <SimulatorToolbar.Button
+                forceEnabled
+                aria-label={panelOpen ? "Hide tools panel" : "Open tools panel"}
+                aria-pressed={panelOpen}
+                title="Tools"
+                onClick={() => {
+                  setDevtoolsOpen(false);
+                  setPanelOpen((open) => !open);
+                }}
+                style={
+                  panelOpen
+                    ? {
+                        background: "rgba(255,255,255,0.08)",
+                        color: "rgba(255,255,255,0.95)",
+                      }
+                    : undefined
+                }
+              >
+                <PanelRight size={19} strokeWidth={2} />
+              </SimulatorToolbar.Button>
+            </SimulatorToolbar.Actions>
+          </SimulatorToolbar>
+        </div>
         <div
           ref={simContainerRef}
           className="relative max-h-full"
@@ -1209,7 +1281,7 @@ function AppWithConfig({
       {/* The left device sidebar + its rail live in App so they persist across
           stream swaps; AppWithConfig only renders the streaming-specific UI. */}
 
-      {/* Right-edge rail: tools + WebKit DevTools. */}
+      {/* Corner rails are folded into the status toolbar above the device.
       <div
         className={`fixed top-3 right-3 flex flex-col gap-1 p-1 bg-panel-bg border border-white/8 rounded-[10px] backdrop-blur-[12px] [-webkit-backdrop-filter:blur(12px)] [transition:opacity_0.18s_ease] z-40 ${(panelOpen || devtoolsOpen) ? "opacity-0 pointer-events-none" : "opacity-100 pointer-events-auto"}`}
       >
@@ -1225,7 +1297,6 @@ function AppWithConfig({
         >
           <PanelRight size={18} strokeWidth={1.75} />
         </button>
-        {/*
         <button
           onClick={() => {
             setPanelOpen(false);
@@ -1238,8 +1309,8 @@ function AppWithConfig({
         >
           <Globe size={18} strokeWidth={1.75} />
         </button>
-        */}
       </div>
+      */}
 
       <ToolsPanel
         open={panelOpen}

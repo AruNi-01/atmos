@@ -10020,7 +10020,13 @@
         "installXcode": "Install Xcode",
         "openXcode": "Install an iOS runtime",
         "retry": "Retry",
-        "start": "Start"
+        "start": "Start",
+        "stop": "Stop",
+        "cancel": "Cancel"
+      },
+      "stopConfirm": {
+        "title": "Stop the simulator preview?",
+        "body": "This ends the helper process and frees the device."
       },
       "reasons": {
         "ok": {

@@ -1,11 +1,14 @@
 "use client";
 
+import React from "react";
 import { useTranslations } from "next-intl";
 import { LoaderCircle } from "lucide-react";
 import { useSimulatorSession } from "../hooks/use-simulator-session";
 import "../simulator-guest.css";
 import { iframeSrc } from "../types";
 import { SimulatorSetupCard } from "./SimulatorSetupCard";
+
+const SIMULATOR_STOP_MESSAGE = "atmos:simulator-stop";
 
 export function SimulatorPanel({
   workspaceId,
@@ -16,10 +19,22 @@ export function SimulatorPanel({
 }) {
   const t = useTranslations("features.simulator");
   const session = useSimulatorSession({ workspaceId, active });
+  const iframeRef = React.useRef<HTMLIFrameElement>(null);
+
+  React.useEffect(() => {
+    const onMessage = (event: MessageEvent) => {
+      if (event.source !== iframeRef.current?.contentWindow) return;
+      if (event.data?.type !== SIMULATOR_STOP_MESSAGE) return;
+      void session.disconnect();
+    };
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, [session.disconnect]);
 
   if (session.phase === "ready" && session.url) {
     return (
       <iframe
+        ref={iframeRef}
         title={t("iframeTitle")}
         src={iframeSrc(session.url, session.udid ?? undefined)}
         data-atmos-guest-iframe=""

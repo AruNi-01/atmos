@@ -32,6 +32,7 @@ import {
   serveDevicePlaceholderAsset,
 } from "./devicekit-chrome";
 import { createExecWebSocketHandler, type UiRequestHandler } from "./exec-ws";
+import { hostServeSimBin, rewriteHostCommand } from "./host-bin";
 import { UI_OPTIONS, getUiStatus, normalizeUiValue, setUiOption } from "./ui-settings";
 import { type WebMiddleware } from "./runtime-utils";
 import { connectToFetch, type ConnectMiddleware } from "./connect-to-fetch";
@@ -1096,11 +1097,7 @@ let _html: string | null = null;
  * Falls back to the literal `serve-sim` if we can't determine a usable path.
  */
 function serveSimBinPath(): string {
-  try {
-    const argv = process.argv;
-    if (argv[1] && existsSync(argv[1])) return argv[1];
-  } catch {}
-  return "serve-sim";
+  return hostServeSimBin();
 }
 
 function loadHtml(): string {
@@ -2112,7 +2109,7 @@ export function simMiddleware(options?: SimMiddlewareOptions): SimMiddleware {
           res.end(JSON.stringify({ stdout: "", stderr: "Missing command", exitCode: 1 }));
           return;
         }
-        exec(command, { maxBuffer: 16 * 1024 * 1024 }, (err, stdout, stderr) => {
+        exec(rewriteHostCommand(command), { maxBuffer: 16 * 1024 * 1024 }, (err, stdout, stderr) => {
           const exitCode = err ? (err as ExecException).code ?? 1 : 0;
           recordCommandEvent(command, { exitCode });
           res.writeHead(200, { "Content-Type": "application/json" });

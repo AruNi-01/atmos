@@ -35,6 +35,7 @@ import {
   sendCameraHelperCommand as sendHelperCommand,
 } from "./camera-helper";
 import { parseIceUrlList, streamHelperArgs, streamSettingsEqual } from "./stream-runtime-args";
+import { hostServeSimBin, isBunVirtualPath } from "./host-bin";
 
 // `import.meta.dir` is Bun-only; resolve once via fileURLToPath so the bundled
 // CLI works under plain `node` too.
@@ -350,8 +351,14 @@ async function ensureBooted(udid: string): Promise<void> {
 
 /** Resolve the command to re-exec this CLI (compiled binary or `node …js`). */
 function reExecArgs(extra: string[]): { command: string; args: string[] } {
+  const bin = hostServeSimBin();
+  if (bin !== "serve-sim") {
+    if (/\.ts$/.test(bin)) return { command: "bun", args: [bin, ...extra] };
+    if (/\.js$/.test(bin)) return { command: "node", args: [bin, ...extra] };
+    return { command: bin, args: extra };
+  }
   // Compiled standalone binary: argv[0] is the serve-sim binary itself.
-  if (process.argv[0] && /(^|\/)serve-sim$/.test(process.argv[0])) {
+  if (process.argv[0] && /(^|\/)serve-sim$/.test(process.argv[0]) && !isBunVirtualPath(process.argv[0])) {
     return { command: process.argv[0], args: extra };
   }
   // Running the JS bundle: `node /path/to/serve-sim.js`.

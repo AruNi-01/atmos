@@ -92,7 +92,7 @@ pub struct SimulatorStartResult {
 }
 
 struct Running {
-    child: Child,
+    child: Option<Child>,
     claim: SimulatorClaim,
 }
 
@@ -193,8 +193,11 @@ impl SimulatorRuntime {
             (device.udid.clone(), evicted)
         };
         let (device_udid, evicted) = evicted;
+        let killed_pid = evicted.as_ref().map(|prev| prev.claim.pid);
         if let Some(mut prev) = evicted {
-            let _ = prev.child.start_kill();
+            if let Some(child) = prev.child.as_mut() {
+                let _ = child.start_kill();
+            }
         }
         let device = probe
             .devices
@@ -202,31 +205,64 @@ impl SimulatorRuntime {
             .find(|d| d.udid == device_udid)
             .ok_or_else(|| "No available iOS Simulator".to_string())?;
 
+        if let Some((pid, port)) = live_helper(&device.udid).await {
+            if Some(pid) != killed_pid {
+                let claim = SimulatorClaim {
+                    workspace_id: workspace_id.to_string(),
+                    pid,
+                    port,
+                    udid: device.udid.clone(),
+                    url: claim_preview_url(port, &device.udid),
+                    version: self.pin.version.clone(),
+                };
+                {
+                    let mut guard = self.running.lock().await;
+                    guard.insert(
+                        workspace_id.to_string(),
+                        Running {
+                            child: None,
+                            claim: claim.clone(),
+                        },
+                    );
+                    persist_claims(guard.values().map(|running| &running.claim))?;
+                }
+                return Ok(ready_result(claim, probe));
+            }
+        }
+
         kill_leftover_helpers(&device.udid).await;
         background_simulator_app().await;
         let port = reserve_loopback_port().await?;
         let install = install_dir(&self.pin.version)?;
         let binary = install.join("serve-sim");
+        let log_path = std::env::temp_dir().join(format!("atmos-serve-sim-{}.log", device.udid));
+        let log_file = std::fs::File::create(&log_path).ok();
         let mut child = Command::new(&binary)
             .args(serve_sim_args(port, &device.udid))
             .current_dir(&install)
             .kill_on_drop(true)
             .stdout(std::process::Stdio::null())
-            .stderr(std::process::Stdio::null())
+            .stderr(match log_file {
+                Some(file) => std::process::Stdio::from(file),
+                None => std::process::Stdio::null(),
+            })
             .spawn()
             .map_err(|e| format!("failed to start serve-sim: {e}"))?;
 
         if wait_until_listening(&mut child, port).await.is_err() {
-            let _ = child.start_kill();
-            probe.reason = SimulatorReason::StartFailed;
-            probe.ready = false;
-            return Ok(SimulatorStartResult {
-                ready: false,
-                reason: Some(SimulatorReason::StartFailed),
-                url: None,
-                udid: None,
-                probe,
-            });
+            let still_up = matches!(child.try_wait(), Ok(None)) && port_is_open(port).await;
+            if !still_up {
+                let _ = child.start_kill();
+                probe.reason = SimulatorReason::StartFailed;
+                probe.ready = false;
+                return Ok(SimulatorStartResult {
+                    ready: false,
+                    reason: Some(SimulatorReason::StartFailed),
+                    url: None,
+                    udid: None,
+                    probe,
+                });
+            }
         }
         background_simulator_app().await;
 
@@ -244,7 +280,7 @@ impl SimulatorRuntime {
             guard.insert(
                 workspace_id.to_string(),
                 Running {
-                    child,
+                    child: Some(child),
                     claim: claim.clone(),
                 },
             );
@@ -261,8 +297,16 @@ impl SimulatorRuntime {
             running
         };
         if let Some(running) = running.as_mut() {
-            let _ = running.child.start_kill();
-            let _ = running.child.wait().await;
+            if let Some(child) = running.child.as_mut() {
+                let _ = child.start_kill();
+                let _ = child.wait().await;
+            } else if running.claim.pid != 0 {
+                let _ = Command::new("kill")
+                    .arg(running.claim.pid.to_string())
+                    .status()
+                    .await;
+            }
+            kill_leftover_helpers(&running.claim.udid).await;
         }
         Ok(())
     }
@@ -497,8 +541,11 @@ async fn reserve_loopback_port() -> Result<u16, String> {
     Ok(listener.local_addr().map_err(|e| e.to_string())?.port())
 }
 
-fn child_is_running(child: &mut Child) -> bool {
-    matches!(child.try_wait(), Ok(None))
+fn child_is_running(child: &mut Option<Child>) -> bool {
+    match child.as_mut() {
+        Some(child) => matches!(child.try_wait(), Ok(None)),
+        None => true,
+    }
 }
 
 async fn port_is_open(port: u16) -> bool {
@@ -508,9 +555,9 @@ async fn port_is_open(port: u16) -> bool {
 }
 
 async fn wait_until_listening(child: &mut Child, port: u16) -> Result<(), String> {
-    let deadline = Instant::now() + Duration::from_secs(45);
+    let deadline = Instant::now() + Duration::from_secs(150);
     loop {
-        if !child_is_running(child) {
+        if !matches!(child.try_wait(), Ok(None)) {
             return Err("serve-sim exited before the preview port opened".into());
         }
         if port_is_open(port).await {
@@ -521,6 +568,40 @@ async fn wait_until_listening(child: &mut Child, port: u16) -> Result<(), String
         }
         tokio::time::sleep(Duration::from_millis(150)).await;
     }
+}
+
+fn parse_helper_line(line: &str, udid: &str) -> Option<(u32, u16)> {
+    if !line.contains("serve-sim") || !line.contains(udid) {
+        return None;
+    }
+    let mut parts = line.split_whitespace();
+    let pid = parts.next()?.parse().ok()?;
+    let args: Vec<&str> = parts.collect();
+    let port = args.iter().enumerate().find_map(|(i, arg)| {
+        if *arg == "-p" || *arg == "--port" {
+            args.get(i + 1)?.parse().ok()
+        } else {
+            arg.strip_prefix("--port=")?.parse().ok()
+        }
+    })?;
+    Some((pid, port))
+}
+
+async fn live_helper(udid: &str) -> Option<(u32, u16)> {
+    let output = Command::new("pgrep")
+        .args(["-lf", "serve-sim"])
+        .output()
+        .await
+        .ok()?;
+    for line in String::from_utf8_lossy(&output.stdout).lines() {
+        let Some((pid, port)) = parse_helper_line(line, udid) else {
+            continue;
+        };
+        if port_is_open(port).await {
+            return Some((pid, port));
+        }
+    }
+    None
 }
 
 async fn kill_leftover_helpers(udid: &str) {
@@ -856,6 +937,16 @@ mod tests {
         assert!(port_is_open(port).await);
         drop(listener);
         assert!(!port_is_open(port).await);
+    }
+
+    #[test]
+    fn parse_helper_line_reads_pid_port_and_udid() {
+        let line = "63839 /Users/aarynlu/.atmos/runtime/serve-sim/0.1.37-atmos.1/serve-sim --host 127.0.0.1 -p 63817 B3CE3FD6-769B-48A3-B0F7-5933C74D1E39";
+        assert_eq!(
+            parse_helper_line(line, "B3CE3FD6-769B-48A3-B0F7-5933C74D1E39"),
+            Some((63839, 63817))
+        );
+        assert_eq!(parse_helper_line(line, "other-udid"), None);
     }
 
     #[test]
