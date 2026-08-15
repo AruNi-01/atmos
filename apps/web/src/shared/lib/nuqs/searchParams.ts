@@ -151,7 +151,9 @@ export const settingsModalParams = {
     "permission-access",
     "shortcuts",
     "experiments",
-  ]).withDefault("layout"),
+  ])
+    .withDefault("layout")
+    .withOptions({ history: "replace" }),
 };
 
 // ---------------------------------------------------------------------------

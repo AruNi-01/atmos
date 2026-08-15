@@ -4,7 +4,11 @@ import { useCallback } from "react";
 
 import type { SettingsModalTab } from "@/shared/lib/nuqs/searchParams";
 import { useAppRouter } from "@/shared/hooks/use-app-router";
-import { resolveSettingsReturnHref } from "@/features/settings/lib/settings-return";
+import {
+  findSettingsReturnHref,
+  rememberSettingsReturnPath,
+  resolveStoredSettingsReturnPath,
+} from "@/features/settings/lib/settings-return";
 
 type NavigationLike = {
   entries?: () => Array<{ url?: string }>;
@@ -23,7 +27,8 @@ export function leaveSettingsPage(router: { replace: (path: string) => void }): 
 
   const navigation = (window as Window & { navigation?: NavigationLike }).navigation;
   const entries = navigation?.entries?.() ?? [];
-  router.replace(resolveSettingsReturnHref(entries, window.location.origin));
+  const fromHistory = findSettingsReturnHref(entries, window.location.origin);
+  router.replace(fromHistory ?? resolveStoredSettingsReturnPath() ?? "/");
 }
 
 export function useOpenSettings() {
@@ -31,6 +36,7 @@ export function useOpenSettings() {
 
   return useCallback(
     (tab?: SettingsModalTab | null) => {
+      rememberSettingsReturnPath();
       router.push(settingsHref(tab));
     },
     [router],

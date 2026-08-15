@@ -1,6 +1,17 @@
-import { describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, test } from "bun:test";
 
-import { isSettingsPathname, resolveSettingsReturnHref } from "./settings-return";
+import {
+  __resetSettingsReturnPathForTests,
+  findSettingsReturnHref,
+  isSettingsPathname,
+  rememberSettingsReturnPath,
+  resolveSettingsReturnHref,
+  resolveStoredSettingsReturnPath,
+} from "./settings-return";
+
+afterEach(() => {
+  __resetSettingsReturnPathForTests();
+});
 
 describe("settings return href", () => {
   test("treats trailing slashes as the settings route", () => {
@@ -33,5 +44,22 @@ describe("settings return href", () => {
         "https://app.atmos.local",
       ),
     ).toBe("/");
+    expect(
+      findSettingsReturnHref(
+        [
+          { url: "https://app.atmos.local/settings?activeSettingTab=layout" },
+          { url: "https://app.atmos.local/settings?activeSettingTab=about" },
+        ],
+        "https://app.atmos.local",
+      ),
+    ).toBeNull();
+  });
+
+  test("keeps the last workbench path when later settings URLs are ignored", () => {
+    rememberSettingsReturnPath("/project?id=proj-1&lsTab=files");
+    rememberSettingsReturnPath("/settings?activeSettingTab=about");
+    rememberSettingsReturnPath("/settings?activeSettingTab=workspace");
+
+    expect(resolveStoredSettingsReturnPath()).toBe("/project?id=proj-1&lsTab=files");
   });
 });
