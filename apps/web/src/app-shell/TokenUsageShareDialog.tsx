@@ -37,6 +37,8 @@ import {
   formatCompactNumber,
   formatCurrencyCompact,
 } from "@/app-shell/token-usage-dialog-utils";
+import type { TokenUsageOverviewResponse } from "@/api/ws/token-usage-api";
+import { TokenUsagePublishControls } from "@/features/token-usage/TokenUsagePublishControls";
 
 type TokenUsageSharePopoverProps = {
   captureTargetRef: React.RefObject<HTMLElement | null>;
@@ -44,6 +46,7 @@ type TokenUsageSharePopoverProps = {
   isDark: boolean;
   totalTokens: number;
   totalCost: number | null;
+  overview?: TokenUsageOverviewResponse | null;
   disabled?: boolean;
 };
 
@@ -61,7 +64,7 @@ const SOCIALS: Array<{
 /** Compact ~16:9 preview — image fills the box (object-cover). */
 const PREVIEW_FRAME_H = 168;
 const ACTIONS_ROW_H = 44;
-const POPOVER_W = 300;
+const POPOVER_W = 320;
 
 export function TokenUsageSharePopover({
   captureTargetRef,
@@ -69,6 +72,7 @@ export function TokenUsageSharePopover({
   isDark,
   totalTokens,
   totalCost,
+  overview = null,
   disabled,
 }: TokenUsageSharePopoverProps) {
   const t = useTranslations("appShell.tokenUsageDialog.share");
@@ -81,6 +85,7 @@ export function TokenUsageSharePopover({
   const previewUrlRef = React.useRef<string | null>(null);
   /** True while lightbox is open or was opened from this popover — keep popover open. */
   const lightboxActiveRef = React.useRef(false);
+  const nestedDialogOpenRef = React.useRef(false);
 
   const notify = React.useCallback(
     (title: string, type: "success" | "error" | "info" = "info") => {
@@ -278,8 +283,11 @@ export function TokenUsageSharePopover({
 
   const handlePopoverOpenChange = React.useCallback(
     (next: boolean) => {
-      // While the full-size preview is open (or just closing), do not dismiss the popover.
-      if (!next && (lightboxOpen || lightboxActiveRef.current)) {
+      // While the full-size preview or nested sign-in dialog is open, keep the popover.
+      if (
+        !next &&
+        (lightboxOpen || lightboxActiveRef.current || nestedDialogOpenRef.current)
+      ) {
         return;
       }
       setOpen(next);
@@ -337,24 +345,37 @@ export function TokenUsageSharePopover({
           side="bottom"
           sideOffset={8}
           className={cn(
-            "overflow-hidden rounded-[20px] border-border/70 p-0 shadow-[0_20px_60px_-28px_rgba(15,23,42,0.35)]",
+            "max-h-[min(80vh,720px)] overflow-y-auto rounded-[20px] border-border/70 p-0 shadow-[0_20px_60px_-28px_rgba(15,23,42,0.35)]",
           )}
           style={{ width: POPOVER_W, maxWidth: "calc(100vw - 1.5rem)" }}
           {...{ [SHARE_CAPTURE_EXCLUDE_ATTR]: "" }}
           onOpenAutoFocus={(event) => event.preventDefault()}
           onCloseAutoFocus={(event) => event.preventDefault()}
           onPointerDownOutside={(event) => {
-            if (lightboxOpen || isDialogSurface(event.target)) {
+            if (
+              lightboxOpen ||
+              nestedDialogOpenRef.current ||
+              isDialogSurface(event.target)
+            ) {
               event.preventDefault();
             }
           }}
           onFocusOutside={(event) => {
-            if (lightboxOpen || lightboxActiveRef.current) {
+            if (
+              lightboxOpen ||
+              lightboxActiveRef.current ||
+              nestedDialogOpenRef.current ||
+              isDialogSurface(event.target)
+            ) {
               event.preventDefault();
             }
           }}
           onInteractOutside={(event) => {
-            if (lightboxOpen || isDialogSurface(event.target)) {
+            if (
+              lightboxOpen ||
+              nestedDialogOpenRef.current ||
+              isDialogSurface(event.target)
+            ) {
               event.preventDefault();
             }
           }}
@@ -442,6 +463,15 @@ export function TokenUsageSharePopover({
               <Download className="size-3.5 opacity-90" aria-hidden />
             </Button>
           </div>
+
+          <TokenUsagePublishControls
+            overview={overview}
+            disabled={disabled}
+            onDialogOpenChange={(next) => {
+              nestedDialogOpenRef.current = next;
+              if (next) setOpen(true);
+            }}
+          />
         </PopoverContent>
       </Popover>
 

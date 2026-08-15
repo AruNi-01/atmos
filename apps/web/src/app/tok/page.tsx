@@ -42,7 +42,9 @@ export default function TokPage() {
   const [profile, setProfile] = React.useState<PublicTokData | null | undefined>(
     route.kind === "home" ? null : undefined,
   );
-  const [boards, setBoards] = React.useState<PublicLeaderboards | null>(null);
+  const [boards, setBoards] = React.useState<PublicLeaderboards | null | undefined>(
+    route.kind === "leaderboard" ? undefined : null,
+  );
 
   React.useEffect(() => {
     if (route.kind === "home") {
@@ -63,13 +65,9 @@ export default function TokPage() {
         return;
       }
 
-      const [page, nextBoards] = await Promise.all([
-        fetchPublicTok(route.handle, k),
-        fetchPublicLeaderboards(),
-      ]);
+      const page = await fetchPublicTok(route.handle, k);
       if (cancelled) return;
       setProfile(page);
-      setBoards(nextBoards);
     })();
 
     return () => {
@@ -112,7 +110,6 @@ export default function TokPage() {
       xUsername={profile.x_username}
       generatedAt={profile.generated_at}
       payload={profile.snapshot}
-      leaderboards={boards}
     />
   );
 }

@@ -634,7 +634,6 @@
         }
       },
       "publish": {
-        "trigger": "发布",
         "title": "发布页面",
         "description": "用 atmos.land 链接分享。更新会覆盖同一页。",
         "signInHint": "登录后即可发布 Token Usage 页面。",
@@ -647,7 +646,6 @@
         },
         "xPlaceholder": "用户名",
         "githubPlaceholder": "用户名",
-        "includeCost": "包含估算费用",
         "copyLink": "复制链接",
         "copied": "已复制",
         "publish": "发布",

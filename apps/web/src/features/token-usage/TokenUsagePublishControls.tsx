@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Link2, Loader2, LogIn } from "lucide-react";
+import { Loader2, LogIn } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { AuthView } from "@daveyplate/better-auth-ui";
@@ -12,10 +12,9 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  Input,
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput,
   cn,
 } from "@workspace/ui";
 
@@ -39,24 +38,67 @@ type Visibility = "off" | "public" | "unlisted";
 export function TokenUsagePublishControls({
   overview,
   disabled,
+  onDialogOpenChange,
 }: {
   overview: TokenUsageOverviewResponse | null;
   disabled?: boolean;
+  onDialogOpenChange?: (open: boolean) => void;
 }) {
   if (!hubConfigured()) return null;
   return (
     <HubAuthUIProvider>
-      <PublishBody overview={overview} disabled={disabled} />
+      <PublishBody
+        overview={overview}
+        disabled={disabled}
+        onDialogOpenChange={onDialogOpenChange}
+      />
     </HubAuthUIProvider>
+  );
+}
+
+function PrefixedField({
+  prefix,
+  value,
+  onChange,
+  placeholder,
+  disabled,
+  "aria-label": ariaLabel,
+}: {
+  prefix: string;
+  value: string;
+  onChange: (next: string) => void;
+  placeholder: string;
+  disabled?: boolean;
+  "aria-label": string;
+}) {
+  return (
+    <InputGroup className="h-8">
+      <InputGroupAddon
+        align="inline-start"
+        className="h-8 shrink-0 whitespace-nowrap pl-2.5 pr-0 text-[11px] font-normal text-muted-foreground"
+      >
+        {prefix}
+      </InputGroupAddon>
+      <InputGroupInput
+        aria-label={ariaLabel}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        placeholder={placeholder}
+        disabled={disabled}
+        className="h-8 min-w-0 pl-0 text-xs"
+      />
+    </InputGroup>
   );
 }
 
 function PublishBody({
   overview,
   disabled,
+  onDialogOpenChange,
 }: {
   overview: TokenUsageOverviewResponse | null;
   disabled?: boolean;
+  onDialogOpenChange?: (open: boolean) => void;
 }) {
   const t = useTranslations("appShell.tokenUsageDialog.publish");
   const signInT = useTranslations("settings.accountSection");
@@ -88,17 +130,23 @@ function PublishBody({
   const signedIn = Boolean(sessionQuery.data?.user?.id || meQuery.data?.user_id);
   const page: HubUsagePage | null = pageQuery.data ?? null;
 
-  const [open, setOpen] = React.useState(false);
   const [signInOpen, setSignInOpen] = React.useState(false);
   const [handle, setHandle] = React.useState("");
   const [visibility, setVisibility] = React.useState<Visibility>("public");
   const [github, setGithub] = React.useState("");
   const [x, setX] = React.useState("");
-  const [includeCost, setIncludeCost] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [secretOnce, setSecretOnce] = React.useState<string | null>(null);
   const [copied, setCopied] = React.useState(false);
+
+  const setSignInDialog = React.useCallback(
+    (open: boolean) => {
+      setSignInOpen(open);
+      onDialogOpenChange?.(open);
+    },
+    [onDialogOpenChange],
+  );
 
   React.useEffect(() => {
     if (!page) return;
@@ -106,7 +154,6 @@ function PublishBody({
     if (page.visibility) setVisibility(page.visibility === "off" ? "public" : page.visibility);
     setGithub(page.github_username ?? "");
     setX(page.x_username ?? "");
-    setIncludeCost(page.include_cost);
   }, [page]);
 
   const claimed = Boolean(page?.handle_claimed && page.handle);
@@ -136,11 +183,11 @@ function PublishBody({
     setBusy(true);
     setError(null);
     try {
-      const snapshot = mapOverviewToSharePayload(overview, { includeCost });
+      const snapshot = mapOverviewToSharePayload(overview, { includeCost: true });
       const result = await hubPutUsagePage({
         handle: claimed ? undefined : handle,
         visibility,
-        include_cost: includeCost,
+        include_cost: true,
         github_username: github,
         x_username: x,
         snapshot,
@@ -184,173 +231,139 @@ function PublishBody({
 
   return (
     <>
-      <Popover open={open} onOpenChange={setOpen}>
-        <PopoverTrigger asChild>
-          <Button
-            type="button"
-            size="sm"
-            variant="ghost"
-            className="h-8 gap-1.5 px-2.5 text-xs"
-            disabled={disabled}
-          >
-            <Link2 className="size-3.5" />
-            {t("trigger")}
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent align="end" className="z-[70] w-80 space-y-3">
-          {!signedIn ? (
-            <div className="space-y-3">
-              <p className="text-sm text-muted-foreground">{t("signInHint")}</p>
-              <Button
-                type="button"
-                size="sm"
-                className="h-8 gap-1.5"
-                onClick={() => setSignInOpen(true)}
-              >
-                <LogIn className="size-3.5" />
-                {signInT("signIn")}
-              </Button>
+      <div className="space-y-3 border-t border-border/70 px-3 py-3">
+        {!signedIn ? (
+          <div className="space-y-3">
+            <p className="text-sm font-medium">{t("title")}</p>
+            <p className="text-xs text-muted-foreground">{t("signInHint")}</p>
+            <Button
+              type="button"
+              size="sm"
+              className="h-8 gap-1.5"
+              onClick={() => setSignInDialog(true)}
+            >
+              <LogIn className="size-3.5" />
+              {signInT("signIn")}
+            </Button>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <p className="text-sm font-medium">{t("title")}</p>
+              <p className="text-xs text-muted-foreground">{t("description")}</p>
             </div>
-          ) : (
-            <div className="space-y-3">
-              <div className="space-y-1">
-                <p className="text-sm font-medium">{t("title")}</p>
-                <p className="text-xs text-muted-foreground">{t("description")}</p>
-              </div>
 
-              <label className="block space-y-1">
-                <span className="text-[11px] text-muted-foreground">
-                  {t("handleLabel")}
-                </span>
-                <div className="flex items-center gap-1 rounded-md border border-border px-2">
-                  <span className="shrink-0 text-[11px] text-muted-foreground">
-                    atmos.land/tok/@
-                  </span>
-                  <Input
-                    value={handle}
-                    onChange={(e) => setHandle(e.target.value)}
-                    placeholder={t("handlePlaceholder")}
-                    disabled={claimed || busy}
-                    className="h-8 border-0 px-0 shadow-none focus-visible:ring-0"
-                  />
-                </div>
-                {claimed ? (
-                  <p className="text-[11px] text-muted-foreground">{t("handleLocked")}</p>
-                ) : null}
-              </label>
-
-              <div className="flex gap-1">
-                {(["public", "unlisted"] as const).map((id) => (
-                  <button
-                    key={id}
-                    type="button"
-                    className={cn(
-                      "h-7 rounded-full px-2.5 text-[11px]",
-                      visibility === id
-                        ? "bg-foreground text-background"
-                        : "bg-muted text-muted-foreground",
-                    )}
-                    onClick={() => setVisibility(id)}
-                  >
-                    {t(`visibility.${id}`)}
-                  </button>
-                ))}
-              </div>
-
-              <label className="block space-y-1">
-                <span className="text-[11px] text-muted-foreground">x.com/</span>
-                <Input
-                  value={x}
-                  onChange={(e) => setX(e.target.value)}
-                  placeholder={t("xPlaceholder")}
-                  disabled={busy}
-                  className="h-8"
-                />
-              </label>
-              <label className="block space-y-1">
-                <span className="text-[11px] text-muted-foreground">github.com/</span>
-                <Input
-                  value={github}
-                  onChange={(e) => setGithub(e.target.value)}
-                  placeholder={t("githubPlaceholder")}
-                  disabled={busy}
-                  className="h-8"
-                />
-              </label>
-
-              <label className="flex items-center gap-2 text-xs">
-                <input
-                  type="checkbox"
-                  checked={includeCost}
-                  onChange={(e) => setIncludeCost(e.target.checked)}
-                  disabled={busy}
-                />
-                {t("includeCost")}
-              </label>
-
-              {shareUrl ? (
-                <div className="space-y-1">
-                  <p className="break-all text-[11px] text-muted-foreground">{shareUrl}</p>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    className="h-7 text-xs"
-                    onClick={() => void copyUrl(shareUrl)}
-                  >
-                    {copied ? t("copied") : t("copyLink")}
-                  </Button>
-                </div>
-              ) : visibility === "unlisted" && live ? (
-                <p className="text-[11px] text-muted-foreground">
-                  {t("unlistedNeedsSecret")}
-                </p>
+            <div className="space-y-1">
+              <PrefixedField
+                prefix="atmos.land/tok/@"
+                value={handle}
+                onChange={setHandle}
+                placeholder={t("handlePlaceholder")}
+                disabled={claimed || busy}
+                aria-label={t("handleLabel")}
+              />
+              {claimed ? (
+                <p className="text-[11px] text-muted-foreground">{t("handleLocked")}</p>
               ) : null}
+            </div>
 
-              {error ? <p className="text-xs text-destructive">{error}</p> : null}
+            <div className="flex gap-1">
+              {(["public", "unlisted"] as const).map((id) => (
+                <button
+                  key={id}
+                  type="button"
+                  className={cn(
+                    "h-7 rounded-full px-2.5 text-[11px]",
+                    visibility === id
+                      ? "bg-foreground text-background"
+                      : "bg-muted text-muted-foreground",
+                  )}
+                  onClick={() => setVisibility(id)}
+                >
+                  {t(`visibility.${id}`)}
+                </button>
+              ))}
+            </div>
 
-              <div className="flex flex-wrap items-center gap-2">
+            <PrefixedField
+              prefix="x.com/"
+              value={x}
+              onChange={setX}
+              placeholder={t("xPlaceholder")}
+              disabled={busy}
+              aria-label={t("xPlaceholder")}
+            />
+            <PrefixedField
+              prefix="github.com/"
+              value={github}
+              onChange={setGithub}
+              placeholder={t("githubPlaceholder")}
+              disabled={busy}
+              aria-label={t("githubPlaceholder")}
+            />
+
+            {shareUrl ? (
+              <div className="space-y-1">
+                <p className="break-all text-[11px] text-muted-foreground">{shareUrl}</p>
                 <Button
                   type="button"
                   size="sm"
-                  className="h-8"
-                  disabled={busy || !overview || (!claimed && handle.trim().length < 3)}
-                  onClick={() => void publish()}
+                  variant="outline"
+                  className="h-7 text-xs"
+                  onClick={() => void copyUrl(shareUrl)}
                 >
-                  {busy ? <Loader2 className="size-3.5 animate-spin" /> : null}
-                  {live ? t("update") : t("publish")}
+                  {copied ? t("copied") : t("copyLink")}
                 </Button>
-                {live ? (
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="ghost"
-                    className="h-8"
-                    disabled={busy}
-                    onClick={() => void turnOff()}
-                  >
-                    {t("turnOff")}
-                  </Button>
-                ) : null}
-                {visibility === "unlisted" && live ? (
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="ghost"
-                    className="h-8"
-                    disabled={busy}
-                    onClick={() => void rotate()}
-                  >
-                    {t("rotateSecret")}
-                  </Button>
-                ) : null}
               </div>
-            </div>
-          )}
-        </PopoverContent>
-      </Popover>
+            ) : visibility === "unlisted" && live ? (
+              <p className="text-[11px] text-muted-foreground">
+                {t("unlistedNeedsSecret")}
+              </p>
+            ) : null}
 
-      <Dialog open={signInOpen} onOpenChange={setSignInOpen}>
+            {error ? <p className="text-xs text-destructive">{error}</p> : null}
+
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                type="button"
+                size="sm"
+                className="h-8"
+                disabled={disabled || busy || !overview || (!claimed && handle.trim().length < 3)}
+                onClick={() => void publish()}
+              >
+                {busy ? <Loader2 className="size-3.5 animate-spin" /> : null}
+                {live ? t("update") : t("publish")}
+              </Button>
+              {live ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  className="h-8"
+                  disabled={busy}
+                  onClick={() => void turnOff()}
+                >
+                  {t("turnOff")}
+                </Button>
+              ) : null}
+              {visibility === "unlisted" && live ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  className="h-8"
+                  disabled={busy}
+                  onClick={() => void rotate()}
+                >
+                  {t("rotateSecret")}
+                </Button>
+              ) : null}
+            </div>
+          </div>
+        )}
+      </div>
+
+      <Dialog open={signInOpen} onOpenChange={setSignInDialog}>
         <DialogContent
           className="z-[70] w-full max-w-sm gap-0 overflow-hidden border-none bg-transparent p-0 shadow-none sm:max-w-sm"
           overlayClassName="z-[70]"
