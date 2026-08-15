@@ -356,6 +356,28 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 -------------------------------------------------------------------------------
+11. serve-sim (preview helper)
+-------------------------------------------------------------------------------
+
+Source:   https://github.com/EvanBacon/serve-sim
+Pin:      https://github.com/expo/serve-sim  tag @expo/serve-sim@0.1.37
+          commit  b2c92534d373f2a2975a3c013c25a3ab3985f268
+Location: vendor/serve-sim/
+          Redistributed binary: GitHub Release tag serve-sim-<version>
+          (darwin-arm64 archive extracted to ~/.atmos/runtime/serve-sim/<version>/)
+License:  Apache License 2.0
+Copyright: serve-sim authors (Evan Bacon / Expo)
+
+This project vendors a modified copy of serve-sim (HTTP POST /exec removed,
+/exec-ws shell frames disabled, bind forced to 127.0.0.1). The full Apache-2.0
+text ships at vendor/serve-sim/LICENSE and inside the published archive.
+Atmos changes are listed in vendor/serve-sim/ATMOS-PATCHES.md.
+
+The compiled helper also redistributes LiveKitWebRTC.framework (BSD-style,
+see the LICENSE copied next to the framework in the GitHub Release archive).
+That binary is loaded by serve-sim-native.node, not by Electron.
+
+-------------------------------------------------------------------------------
 End of NOTICE
 -------------------------------------------------------------------------------
 

@@ -107,6 +107,11 @@ type PendingCenterTabClose =
   | { kind: "code-review" };
 import { CenterStagePanels } from "@/app-shell/CenterStagePanels";
 import {
+  SIMULATOR_TAB_VALUE,
+  useSimulatorCenterTabStore,
+} from "@/features/simulator";
+import { simulatorApi } from "@/api/ws/simulator-api";
+import {
   CenterStageNoContextView,
   resolveCenterStageProjectContext,
   useCenterStageKeyboardShortcuts,
@@ -356,6 +361,18 @@ const CenterStage: React.FC = () => {
     onMissingProjectWikiTab: redirectMissingNamedTerminalTab,
   });
 
+  const simulatorTabVisible = useSimulatorCenterTabStore((s) =>
+    effectiveContextId ? Boolean(s.visibleByContext[effectiveContextId]) : false,
+  ) || tabFromUrl === SIMULATOR_TAB_VALUE;
+  const openSimulatorTab = useSimulatorCenterTabStore((s) => s.open);
+  const closeSimulatorTab = useSimulatorCenterTabStore((s) => s.close);
+
+  React.useEffect(() => {
+    if (tabFromUrl === SIMULATOR_TAB_VALUE && effectiveContextId) {
+      openSimulatorTab(effectiveContextId);
+    }
+  }, [effectiveContextId, openSimulatorTab, tabFromUrl]);
+
   /** Until experiment prefs load, preserve `tab=wiki` from the URL so we do not strip deep links. */
   const wikiCenterEligible = React.useMemo(() => {
     if (experimentPrefsLoaded) return centerWikiTabEnabled;
@@ -368,6 +385,7 @@ const CenterStage: React.FC = () => {
     }
     if (tabFromUrl === "project-wiki" && !projectWikiTabVisible) return fallbackCenterTab;
     if (tabFromUrl === "code-review" && !codeReviewTabVisible) return fallbackCenterTab;
+    if (tabFromUrl === SIMULATOR_TAB_VALUE) return SIMULATOR_TAB_VALUE;
     if (isTerminalCenterTabValue(tabFromUrl)) {
       return visibleTerminalTabs.some((tab) => tab.id === tabFromUrl)
         ? tabFromUrl
@@ -393,6 +411,7 @@ const CenterStage: React.FC = () => {
     centerWikiTabEnabled,
     projectWikiTabVisible,
     codeReviewTabVisible,
+    simulatorTabVisible,
     effectiveContextId,
     fallbackCenterTab,
     visibleTerminalTabs,
@@ -589,6 +608,7 @@ const CenterStage: React.FC = () => {
         browserTabValues: browserTabs.map((tab) => tab.value),
         projectWikiVisible: projectWikiTabVisible,
         codeReviewVisible: codeReviewTabVisible,
+        simulatorVisible: simulatorTabVisible,
         wikiEnabled: centerWikiTabEnabled,
         exclude,
       }),
@@ -599,6 +619,7 @@ const CenterStage: React.FC = () => {
       githubTabs,
       openFiles,
       projectWikiTabVisible,
+      simulatorTabVisible,
       visibleTerminalTabs,
     ],
   );
@@ -737,6 +758,20 @@ const CenterStage: React.FC = () => {
     setActiveFile(null, effectiveContextId);
     void setUrlParams({ tab: tab.value, wikiPage: null });
   }, [effectiveContextId, openBrowserCenterTab, setActiveFile, setUrlParams]);
+
+  const handleCreateSimulatorCenterTab = React.useCallback(() => {
+    if (!effectiveContextId) return;
+    openSimulatorTab(effectiveContextId);
+    setActiveFile(null, effectiveContextId);
+    void setUrlParams({ tab: SIMULATOR_TAB_VALUE, wikiPage: null });
+  }, [effectiveContextId, openSimulatorTab, setActiveFile, setUrlParams]);
+
+  const handleCloseSimulatorTab = React.useCallback(() => {
+    if (!effectiveContextId) return;
+    closeSimulatorTab(effectiveContextId);
+    void simulatorApi.stop(effectiveContextId).catch(() => {});
+    activateNextAfterClosing(SIMULATOR_TAB_VALUE);
+  }, [activateNextAfterClosing, closeSimulatorTab, effectiveContextId]);
 
   React.useEffect(() => {
     registerBrowserHostChrome({
@@ -1542,6 +1577,15 @@ const CenterStage: React.FC = () => {
           closeBrowserCenterTab(effectiveContextId, tab.value);
           closedImmediately.push(tab.value);
         }
+        continue;
+      }
+
+      if (tab.kind === "simulator") {
+        if (effectiveContextId) {
+          closeSimulatorTab(effectiveContextId);
+          void simulatorApi.stop(effectiveContextId).catch(() => {});
+          closedImmediately.push(SIMULATOR_TAB_VALUE);
+        }
       }
     }
 
@@ -1558,6 +1602,7 @@ const CenterStage: React.FC = () => {
     closeBrowserCenterTab,
     closeFile,
     closeGithubTab,
+    closeSimulatorTab,
     effectiveContextId,
     getTerminalTabPanes,
     performCloseTerminalCenterTab,
@@ -1791,6 +1836,11 @@ const CenterStage: React.FC = () => {
       return;
     }
 
+    if (tab.kind === "simulator") {
+      handleCloseSimulatorTab();
+      return;
+    }
+
     if (tab.kind === "browser") {
       if (tab.browserContextId && tab.browserTabId) {
         const context = previewBrowserPrefs.byContext[tab.browserContextId];
@@ -1814,6 +1864,7 @@ const CenterStage: React.FC = () => {
     handleCloseBrowserTab,
     handleCloseFile,
     handleCloseGithubTab,
+    handleCloseSimulatorTab,
     handleCloseTerminalCenterTab,
     previewBrowserPrefs,
   ]);
@@ -1939,6 +1990,7 @@ const CenterStage: React.FC = () => {
           onTabStripOrderChange={handleTabStripOrderChange}
           previewBrowserPrefs={previewBrowserPrefs}
           projectWikiTabVisible={projectWikiTabVisible}
+          simulatorTabVisible={simulatorTabVisible}
           scrollableTabsRef={scrollableTabsRef}
           sessionDisplay={sessionDisplay}
           tabGroupDndSensors={tabGroupDndSensors}
@@ -1954,7 +2006,9 @@ const CenterStage: React.FC = () => {
           handleCloseGithubTab={handleCloseGithubTab}
           handleCloseTerminalCenterTab={handleCloseTerminalCenterTab}
           handleCreateBrowserCenterTab={handleCreateBrowserCenterTab}
+          handleCreateSimulatorCenterTab={handleCreateSimulatorCenterTab}
           handleCreateTerminalCenterTab={handleCreateTerminalCenterTab}
+          handleCloseSimulatorTab={handleCloseSimulatorTab}
           handleRenameTerminalCenterTab={handleRenameTerminalCenterTab}
           handleSelectTabGroupItem={handleSelectTabGroupItem}
           handleTabGroupDragEnd={handleTabGroupDragEnd}
@@ -1990,6 +2044,7 @@ const CenterStage: React.FC = () => {
           openFiles={openFiles}
           onGithubPullRequestChanged={handleGithubPullRequestChanged}
           projectWikiTabVisible={projectWikiTabVisible}
+          simulatorTabVisible={simulatorTabVisible}
           projectWikiTerminalGridRef={projectWikiTerminalGridRef}
           projectWikiUserTriggeredRef={projectWikiUserTriggeredRef}
           reviewTarget={reviewTarget}

@@ -19,6 +19,7 @@ mod project;
 mod quota;
 mod review;
 mod settings;
+mod simulator;
 mod skills;
 mod support;
 mod terminal;
@@ -40,6 +41,8 @@ use local_model_runtime::LocalRuntimeManager;
 use quota_usage::QuotaUsageService;
 use serde_json::{json, Value};
 use tokio::sync::OnceCell;
+
+use crate::simulator::SimulatorRuntime;
 
 use core_service::{
     AgentService, AgentSessionService, AutomationService, DiskAnalyzerService, GroupService,
@@ -73,6 +76,7 @@ pub struct WsMessageService {
     linear_service: LinearService,
     ws_manager: OnceCell<Arc<WsManager>>,
     local_model_manager: Arc<LocalRuntimeManager>,
+    simulator: Arc<SimulatorRuntime>,
 }
 
 impl WsMessageService {
@@ -123,6 +127,7 @@ impl WsMessageService {
             linear_service: LinearService::new(db),
             ws_manager: OnceCell::new(),
             local_model_manager: Arc::new(LocalRuntimeManager::new()),
+            simulator: Arc::new(SimulatorRuntime::new()),
         }
     }
 
@@ -1086,6 +1091,11 @@ impl WsMessageService {
             WsAction::DiskAnalyzerDiskInfo => {
                 self.handle_disk_analyzer_disk_info(parse_request(request.data)?)
             }
+
+            WsAction::SimulatorProbe => self.handle_simulator_probe(),
+            WsAction::SimulatorStart => self.handle_simulator_start(request.data).await,
+            WsAction::SimulatorStop => self.handle_simulator_stop(request.data).await,
+            WsAction::SimulatorStatus => self.handle_simulator_status(request.data).await,
         }
     }
 

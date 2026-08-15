@@ -140,6 +140,16 @@ pub fn browser_use_bindings_dir() -> Result<PathBuf, String> {
     Ok(browser_use_state_dir()?.join("bindings"))
 }
 
+/// On-demand serve-sim helper installs: `~/.atmos/runtime/serve-sim/<version>/`.
+pub fn serve_sim_runtime_dir() -> Result<PathBuf, String> {
+    Ok(atmos_home_dir()?.join("runtime").join("serve-sim"))
+}
+
+/// Simulator session claims / leases (not product data).
+pub fn simulator_state_dir() -> Result<PathBuf, String> {
+    Ok(state_dir()?.join("simulator"))
+}
+
 pub fn local_model_runtime_data_dir() -> Result<PathBuf, String> {
     Ok(data_dir()?.join("local-model-runtime"))
 }
@@ -173,5 +183,11 @@ mod tests {
         assert!(browser_use_bindings_dir()
             .unwrap()
             .starts_with(home.join("state").join("browser-use")));
+        assert!(serve_sim_runtime_dir()
+            .unwrap()
+            .starts_with(home.join("runtime").join("serve-sim")));
+        assert!(simulator_state_dir()
+            .unwrap()
+            .starts_with(home.join("state").join("simulator")));
     }
 }

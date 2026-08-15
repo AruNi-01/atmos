@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useCallback, useEffect } from "react";
+import { useTranslations } from "next-intl";
 import {
   Panel,
   PanelGroup,
@@ -39,6 +40,7 @@ export function PanelLayout({
   centerStage,
 }: PanelLayoutProps) {
   const storage = useAppStorage();
+  const t = useTranslations("AppShell.chrome");
   const { currentView, effectiveContextId } = useContextParams();
   const layoutRootRef = useRef<HTMLDivElement>(null);
   const panelGroupRef = useRef<ImperativePanelGroupHandle>(null);
@@ -63,6 +65,11 @@ export function PanelLayout({
   const [isDragging, setIsDragging] = useState(false);
   useEffect(() => {
     void ensureBrowserAgentTabListener();
+  }, []);
+  useEffect(() => {
+    return () => {
+      document.documentElement.removeAttribute("data-atmos-drag-active");
+    };
   }, []);
   useEffect(() => {
     registerBrowserHostChrome({
@@ -202,6 +209,13 @@ export function PanelLayout({
       isDividerDraggingRef.current = dragging;
       setIsDragging(dragging);
       setIsLeftSidebarDragging(dragging);
+      // Cross-origin guests (simulator iframe, desktop webview) swallow
+      // pointermove. Mark the host so they can set pointer-events: none.
+      if (dragging) {
+        document.documentElement.setAttribute("data-atmos-drag-active", "");
+      } else {
+        document.documentElement.removeAttribute("data-atmos-drag-active");
+      }
       if (!dragging) {
         const pending = pendingLeftSidebarSizeRef.current;
         if (pending != null) {
@@ -347,9 +361,17 @@ export function PanelLayout({
           order={2}
           defaultSize={showRightSidebar ? 80 - DEFAULT_LEFT_SIDEBAR_SIZE : 100 - DEFAULT_LEFT_SIDEBAR_SIZE}
           minSize={25}
-          className="h-full [contain:layout]"
+          className="relative h-full [contain:layout]"
         >
           {centerStage}
+          {showRightSidebar && isRightCollapsed ? (
+            <button
+              type="button"
+              aria-label={t("rightSidebar.expand")}
+              className="absolute inset-y-0 right-0 z-30 w-2 cursor-e-resize bg-transparent"
+              onClick={() => rightPanelRef.current?.expand()}
+            />
+          ) : null}
         </Panel>
 
         {showRightSidebar ? (
@@ -414,9 +436,13 @@ function ResizeHandle({
       onDragging={onDragging}
       hitAreaMargins={hitAreaMargins}
       className={cn(
-        "relative flex w-px items-center justify-center bg-border transition-colors duration-200 hover:bg-border/80 group touch-none",
+        "relative z-20 flex w-px items-center justify-center bg-border transition-colors duration-200 hover:bg-border/80 group touch-none",
         className
       )}
-    />
+    >
+      {/* Real DOM sliver above a full-bleed iframe. Document-level hit
+          margins never receive events once the pointer is inside a guest. */}
+      <span aria-hidden className="absolute inset-y-0 -left-1 -right-1.5" />
+    </PanelResizeHandle>
   );
 }

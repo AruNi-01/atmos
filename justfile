@@ -348,6 +348,12 @@ build-cli:
 build-local-runtime *args:
     node ./scripts/local-runtime/build-runtime.mjs {{args}}
 
+# Pack vendored serve-sim into a darwin-arm64 archive (APP-060).
+#   just pack-serve-sim
+#   just pack-serve-sim --install
+pack-serve-sim *args:
+    bash scripts/serve-sim/pack.sh {{args}}
+
 # 构建所有 Rust 项目
 build-rust:
     cargo build --release --workspace

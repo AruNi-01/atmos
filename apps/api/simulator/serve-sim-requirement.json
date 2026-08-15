@@ -1,0 +1,11 @@
+{
+  "name": "serve-sim",
+  "version": "0.1.37-atmos.1",
+  "minos": "14.0",
+  "arch": "arm64",
+  "release_tag": "serve-sim-0.1.37-atmos.1",
+  "asset": "serve-sim-0.1.37-atmos.1-darwin-arm64.tar.gz",
+  "sha256": "",
+  "download_url": "https://github.com/AruNi-01/atmos/releases/download/serve-sim-0.1.37-atmos.1/serve-sim-0.1.37-atmos.1-darwin-arm64.tar.gz",
+  "upstream_commit": "b2c92534d373f2a2975a3c013c25a3ab3985f268"
+}

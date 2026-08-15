@@ -4,6 +4,7 @@ mod config;
 mod error;
 mod middleware;
 mod relay;
+mod simulator;
 
 use std::sync::Arc;
 

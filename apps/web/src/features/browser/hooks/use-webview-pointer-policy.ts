@@ -11,6 +11,7 @@ const OVERLAY_SELECTOR = [
   '[data-slot="dropdown-menu-content"]',
   '[data-slot="context-menu-content"]',
   '[data-slot="select-content"]',
+  '[data-slot="tooltip-content"]',
   '[data-radix-popper-content-wrapper]',
   '[role="dialog"]',
   '[aria-modal="true"]',

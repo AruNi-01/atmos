@@ -22,6 +22,7 @@ import {
   GitMergeIcon,
   GitCommitHorizontal,
   Globe,
+  Smartphone,
   SquareTerminal as TerminalIcon,
   Workflow,
 } from "lucide-react";
@@ -431,6 +432,15 @@ export function CenterStageTabGroupItemContent({
         ) : (
           <GitCommitHorizontal className="size-3.5 shrink-0" />
         )}
+        {label(tab.label)}
+      </>
+    );
+  }
+
+  if (tab.kind === "simulator") {
+    return (
+      <>
+        <Smartphone className="size-3.5 shrink-0" />
         {label(tab.label)}
       </>
     );

@@ -48,6 +48,7 @@ import {
   FileDiff,
   FolderOpen,
   FolderTree,
+  Smartphone,
   Workflow,
   Github,
 } from "lucide-react";
@@ -119,6 +120,10 @@ const RunScript = dynamic(
 const ReviewView = dynamic(() => import("@/features/diff/components/ReviewView"), {
   ssr: false,
 });
+const SimulatorPanel = dynamic(
+  () => import("@/features/simulator").then((mod) => mod.SimulatorPanel),
+  { ssr: false },
+);
 
 const BASE_TABS: Array<{
   value: RightSidebarTab;
@@ -130,6 +135,7 @@ const BASE_TABS: Array<{
   { value: "browser", labelKey: "rightSidebar.topTabs.browser", Icon: Globe },
   { value: "run", labelKey: "rightSidebar.topTabs.run", Icon: Play },
   { value: "github", labelKey: "rightSidebar.topTabs.github", Icon: Github },
+  { value: "simulator", labelKey: "rightSidebar.topTabs.simulator", Icon: Smartphone },
 ];
 
 const FILES_TAB = { value: "files" as RightSidebarTab, labelKey: "common.files", Icon: FolderTree };
@@ -212,6 +218,7 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
   const rsShowBrowser = useLayoutSettingsStore((s) => s.rsShowBrowser);
   const rsShowRun = useLayoutSettingsStore((s) => s.rsShowRun);
   const rsShowGithub = useLayoutSettingsStore((s) => s.rsShowGithub);
+  const rsShowSimulator = useLayoutSettingsStore((s) => s.rsShowSimulator);
   const loadLayoutSettings = useLayoutSettingsStore((s) => s.loadSettings);
   useEffect(() => { loadLayoutSettings(); }, [loadLayoutSettings]);
   const showFilesTab = projectFilesSide === "right";
@@ -222,9 +229,10 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
       browser: rsShowBrowser,
       run: rsShowRun,
       github: rsShowGithub,
+      simulator: rsShowSimulator,
       files: true, // controlled separately by projectFilesSide
     }),
-    [rsShowChanges, rsShowReview, rsShowBrowser, rsShowRun, rsShowGithub],
+    [rsShowChanges, rsShowReview, rsShowBrowser, rsShowRun, rsShowGithub, rsShowSimulator],
   );
   const topTabs = useMemo(() => {
     // Insert FILES_TAB into the canonical order first, then filter by
@@ -1167,6 +1175,16 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
                 activeTab === "browser" && !isRightCollapsed && isContextSettled
               }
               allowMoveToCenter
+            />
+          </div>
+          )}
+
+          {/* Simulator tab content */}
+          {rsShowSimulator && activeTab === "simulator" && (
+          <div className="flex-1 min-h-0">
+            <SimulatorPanel
+              workspaceId={workspaceId ?? projectIdFromUrl ?? null}
+              active={!isRightCollapsed && isContextSettled}
             />
           </div>
           )}
