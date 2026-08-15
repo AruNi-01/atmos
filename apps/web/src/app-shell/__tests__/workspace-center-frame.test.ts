@@ -30,6 +30,7 @@ function baseWarm(overrides: Partial<WorkspaceCenterFrameProps> = {}): Workspace
     reviewTarget: undefined,
     projectWikiTabVisible: false,
     codeReviewTabVisible: false,
+    simulatorTabVisible: false,
     terminalQuickOpenAgents: undefined,
     terminalGridRef: undefined,
     terminalGridRefs: undefined,

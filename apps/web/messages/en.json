@@ -358,7 +358,10 @@
     "centerStageTabBar": {
       "newTerminalTab": "Terminal",
       "newBrowser": "Browser",
+      "newSimulator": "Simulator",
       "newTabMenu": "New tab",
+      "simulator": "Simulator",
+      "closeSimulatorTab": "Close Simulator tab",
       "overview": "Overview",
       "refreshWiki": "Refresh Wiki",
       "projectWiki": "Project Wiki",
@@ -1562,6 +1565,7 @@
           "browser": "Browser",
           "run": "Run",
           "github": "GitHub",
+          "simulator": "Simulator",
           "pullRequests": "Pull Requests",
           "issues": "Issues",
           "actions": "Actions"
@@ -5871,7 +5875,9 @@
       "runTitle": "Run",
       "runDescription": "Start and monitor project run scripts.",
       "githubTitle": "GitHub",
-      "githubDescription": "Browse pull requests, issues, and Actions workflow runs. Hiding this removes the GitHub tab and stops related lookups."
+      "githubDescription": "Browse pull requests, issues, and Actions workflow runs. Hiding this removes the GitHub tab and stops related lookups.",
+      "simulatorTitle": "Simulator",
+      "simulatorDescription": "Preview the local iOS Simulator in the right sidebar."
     },
     "agentHookStatusCard": {
       "title": "Agent Hook Status",
@@ -10000,6 +10006,82 @@
       "unableToLink": "Could not link this account. Try again or use another provider.",
       "stateMismatch": "Sign-in expired or was started twice. Close this tab and try again from Atmos.",
       "sessionRequired": "Sign in first, then link another account."
+    }
+  },
+  "features": {
+    "simulator": {
+      "tab": "Simulator",
+      "iframeTitle": "iOS Simulator preview",
+      "downloading": "Downloading Simulator helper… {percent}%",
+      "starting": "Starting Simulator preview…",
+      "checking": "Checking Simulator…",
+      "actions": {
+        "needDesktop": "Get Atmos Desktop",
+        "installXcode": "Install Xcode",
+        "openXcode": "Install an iOS runtime",
+        "retry": "Retry",
+        "start": "Start",
+        "stop": "Stop",
+        "cancel": "Cancel"
+      },
+      "stopConfirm": {
+        "title": "Stop the simulator preview?",
+        "body": "This ends the helper process and frees the device."
+      },
+      "reasons": {
+        "ok": {
+          "title": "Simulator is stopped",
+          "body": "Start the preview when you need it. This workspace can run one Simulator at a time."
+        },
+        "not_desktop": {
+          "title": "Needs a local Mac server",
+          "body": "The iOS Simulator runs on the machine that hosts this Atmos Server. Connect to a Mac that has Xcode, or start just dev-api on that Mac."
+        },
+        "unsupported_platform": {
+          "title": "Mac required",
+          "body": "The iOS Simulator is only available on macOS with Xcode."
+        },
+        "unsupported_arch": {
+          "title": "Apple Silicon required",
+          "body": "This preview helper is built for Apple Silicon Macs."
+        },
+        "macos_too_old": {
+          "title": "macOS 14 or later required",
+          "body": "Update macOS, then install the current Xcode."
+        },
+        "xcode_missing": {
+          "title": "Xcode is not installed",
+          "body": "Install Xcode from Apple, then open Simulator again."
+        },
+        "simctl_missing": {
+          "title": "Simulator tools are missing",
+          "body": "Install Xcode and accept its license so simctl is available."
+        },
+        "no_runtime": {
+          "title": "No iOS runtime",
+          "body": "Install an iOS Simulator runtime in Xcode Settings → Platforms."
+        },
+        "no_device": {
+          "title": "No Simulator device",
+          "body": "Create an iPhone simulator in Xcode, then try again."
+        },
+        "helper_missing": {
+          "title": "Helper not installed",
+          "body": "Start to download the Simulator helper, then open the preview."
+        },
+        "download_failed": {
+          "title": "Could not download helper",
+          "body": "Check your network and retry. The file is checked against a pinned checksum."
+        },
+        "checksum_mismatch": {
+          "title": "Helper checksum failed",
+          "body": "The download did not match the expected file. Retry to download again."
+        },
+        "start_failed": {
+          "title": "Could not start preview",
+          "body": "The helper did not come up. Retry after Xcode and Simulator tools are ready."
+        }
+      }
     }
   }
 }

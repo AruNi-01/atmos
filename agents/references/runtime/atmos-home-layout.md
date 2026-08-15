@@ -13,6 +13,7 @@ Canonical on-disk layout (no legacy root-level secret/config files).
     runtime_manifest.json
     client-session.json
     cli/update-check.json
+    simulator/              # APP-060 claims / leases (not under data/desktop/)
 
   config/               # non-secret preferences
     function_settings.json
@@ -34,7 +35,9 @@ Canonical on-disk layout (no legacy root-level secret/config files).
     agent/sessions/
 
   bin/ runtime/ shims/ skills/   # install artifacts
+                                 # runtime/serve-sim/<version>/  (APP-060 helper)
   logs/ cache/                   # ops
+                                 # cache/serve-sim/  (APP-060 download parts)
 ```
 
 ## Rules

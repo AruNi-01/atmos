@@ -134,6 +134,11 @@ const BrowserPanel = dynamic(
     ),
   { ssr: false },
 );
+const SimulatorPanel = dynamic(
+  () =>
+    import("@/features/simulator").then((mod) => mod.SimulatorPanel),
+  { ssr: false },
+);
 
 export const EMPTY_MOUNTED_TAB_IDS: string[] = [];
 
@@ -157,6 +162,7 @@ function WorkspaceCenterFrameImpl({
   reviewTarget,
   projectWikiTabVisible,
   codeReviewTabVisible,
+  simulatorTabVisible,
   terminalQuickOpenAgents,
   terminalGridRef,
   terminalGridRefs,
@@ -224,6 +230,7 @@ function WorkspaceCenterFrameImpl({
     "wiki",
     "project-wiki",
     "code-review",
+    "simulator",
     FIXED_TERMINAL_TAB_VALUE,
   ];
   const frameActiveTab = resolveFrameActiveTab({
@@ -634,6 +641,34 @@ function WorkspaceCenterFrameImpl({
           </div>
         );
       })}
+
+      {(isUrlSyncedActive ? simulatorTabVisible : frameActiveTab === "simulator") && (
+        <div
+          className={lightSurfacePanelClass(
+            isFramePanelVisible({
+              isActiveFrame: isActiveContext,
+              frameActiveTab,
+              panelTabId: "simulator",
+            }),
+          )}
+        >
+          <SimulatorPanel
+            workspaceId={
+              isUrlSyncedActive && currentView === "workspace"
+                ? (currentWorkspace?.id ?? contextId)
+                : contextId
+            }
+            active={
+              isActiveContext &&
+              isFramePanelVisible({
+                isActiveFrame: isActiveContext,
+                frameActiveTab,
+                panelTabId: "simulator",
+              })
+            }
+          />
+        </div>
+      )}
     </div>
   );
 }

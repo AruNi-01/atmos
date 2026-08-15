@@ -32,6 +32,7 @@ import {
   LoaderCircle,
   Plus,
   RotateCw,
+  Smartphone,
   SquareTerminal as TerminalIcon,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -88,6 +89,7 @@ interface CenterStageTabBarProps {
   orderedGroupedTabItems: Array<{ key: string; label: string; tabs: TabGroupItem[] }>;
   previewBrowserPrefs: PreviewBrowserPrefs;
   projectWikiTabVisible: boolean;
+  simulatorTabVisible: boolean;
   scrollableTabsRef: React.RefObject<HTMLDivElement | null>;
   sessionDisplay: SessionDisplay;
   tabGroupDndSensors: React.ComponentProps<typeof CenterStageTabGroupPopover>["sensors"];
@@ -105,7 +107,9 @@ interface CenterStageTabBarProps {
   handleCloseGithubTab: (value: string) => void;
   handleCloseTerminalCenterTab: (tabId: string) => void;
   handleCreateBrowserCenterTab: () => void;
+  handleCreateSimulatorCenterTab: () => void;
   handleCreateTerminalCenterTab: () => void;
+  handleCloseSimulatorTab: () => void;
   handleRenameTerminalCenterTab: (tabId: string, title: string) => void;
   handleSelectTabGroupItem: (tab: TabGroupItem) => void;
   handleTabGroupDragEnd: (event: DragEndEvent) => void;
@@ -132,6 +136,7 @@ export function CenterStageTabBar({
   orderedGroupedTabItems,
   previewBrowserPrefs,
   projectWikiTabVisible,
+  simulatorTabVisible,
   scrollableTabsRef,
   sessionDisplay,
   tabGroupDndSensors,
@@ -148,7 +153,9 @@ export function CenterStageTabBar({
   handleCloseGithubTab,
   handleCloseTerminalCenterTab,
   handleCreateBrowserCenterTab,
+  handleCreateSimulatorCenterTab,
   handleCreateTerminalCenterTab,
+  handleCloseSimulatorTab,
   handleRenameTerminalCenterTab,
   handleSelectTabGroupItem,
   handleTabGroupDragEnd,
@@ -226,6 +233,15 @@ export function CenterStageTabBar({
       });
     }
 
+    if (simulatorTabVisible) {
+      descriptors.push({
+        id: "simulator",
+        value: "simulator",
+        kind: "simulator",
+        label: t("centerStageTabBar.simulator"),
+      });
+    }
+
     for (const item of orderedSurfaceTabs) {
       if (item.type === "file") {
         const variant = getCenterStageSurfaceTabVariant(item.file.path);
@@ -267,6 +283,7 @@ export function CenterStageTabBar({
   }, [
     browserFallbackLabel,
     codeReviewTabVisible,
+    simulatorTabVisible,
     orderedSurfaceTabs,
     previewBrowserPrefs,
     projectWikiTabVisible,
@@ -388,6 +405,22 @@ export function CenterStageTabBar({
           variant="code-review"
           value="code-review"
           onClose={() => setCodeReviewCloseConfirmOpen(true)}
+          onContextMenu={(event) => openContextMenu(event, tab)}
+        />
+      );
+    }
+
+    if (tab.kind === "simulator") {
+      return (
+        <SpecialTerminalTab
+          key={tab.id}
+          closeLabel={t("centerStageTabBar.closeSimulatorTab")}
+          icon={<Smartphone className="size-3.5 shrink-0" />}
+          label={t("centerStageTabBar.simulator")}
+          tooltip={t("centerStageTabBar.simulator")}
+          variant="simulator"
+          value="simulator"
+          onClose={handleCloseSimulatorTab}
           onContextMenu={(event) => openContextMenu(event, tab)}
         />
       );
@@ -541,8 +574,10 @@ export function CenterStageTabBar({
         <CenterStageNewTabMenu
           browserLabel={newBrowserLabel}
           menuLabel={newTabMenuLabel}
+          simulatorLabel={t("centerStageTabBar.newSimulator")}
           terminalLabel={newTerminalTabLabel}
           onCreateBrowser={handleCreateBrowserCenterTab}
+          onCreateSimulator={handleCreateSimulatorCenterTab}
           onCreateTerminal={handleCreateTerminalCenterTab}
         />
         <CenterStageTabGroupPopover
@@ -576,7 +611,8 @@ function isTabGroupItemClosable(tab: TabGroupItem) {
     tab.kind === "github-pr" ||
     tab.kind === "github-issue" ||
     tab.kind === "github-action" ||
-    tab.kind === "browser"
+    tab.kind === "browser" ||
+    tab.kind === "simulator"
   );
 }
 
@@ -781,14 +817,18 @@ function TerminalExtraTab({
 function CenterStageNewTabMenu({
   browserLabel,
   menuLabel,
+  simulatorLabel,
   terminalLabel,
   onCreateBrowser,
+  onCreateSimulator,
   onCreateTerminal,
 }: {
   browserLabel: string;
   menuLabel: string;
+  simulatorLabel: string;
   terminalLabel: string;
   onCreateBrowser: () => void;
+  onCreateSimulator: () => void;
   onCreateTerminal: () => void;
 }) {
   const [open, setOpen] = React.useState(false);
@@ -867,6 +907,19 @@ function CenterStageNewTabMenu({
           <Globe className="size-3.5 shrink-0 text-muted-foreground" />
           <span className="min-w-0 flex-1 truncate">{browserLabel}</span>
         </button>
+        {/*
+        <button
+          type="button"
+          className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-foreground transition-colors hover:bg-muted/60"
+          onClick={() => {
+            onCreateSimulator();
+            setOpen(false);
+          }}
+        >
+          <Smartphone className="size-3.5 shrink-0 text-muted-foreground" />
+          <span className="min-w-0 flex-1 truncate">{simulatorLabel}</span>
+        </button>
+        */}
       </PopoverContent>
     </Popover>
   );
@@ -929,7 +982,7 @@ function SpecialTerminalTab({
   icon: React.ReactNode;
   label: string;
   tooltip: string;
-  variant: "project-wiki" | "code-review";
+  variant: "project-wiki" | "code-review" | "simulator";
   value: string;
   onClose: () => void;
   onContextMenu?: (event: React.MouseEvent) => void;
@@ -943,7 +996,11 @@ function SpecialTerminalTab({
           onContextMenu={onContextMenu}
           className={cn(
             "relative !h-full pl-4 pr-4 data-active:bg-muted/40 data-active:text-foreground text-muted-foreground hover:bg-muted/50 transition-colors gap-2 grow-0 shrink-0 justify-start rounded-none !border-0",
-            variant === "project-wiki" ? "group/pw" : "group/cr",
+            variant === "project-wiki"
+              ? "group/pw"
+              : variant === "code-review"
+                ? "group/cr"
+                : "group/sim",
           )}
         >
           {icon}
@@ -953,7 +1010,9 @@ function SpecialTerminalTab({
               "absolute right-0 top-1/2 z-10 flex h-full -translate-y-1/2 items-center pl-2 pr-1.5 backdrop-blur-[4px] [mask-image:linear-gradient(to_right,transparent,black_40%)] transition-opacity duration-200",
               variant === "project-wiki"
                 ? "opacity-0 group-hover/pw:opacity-100"
-                : "opacity-0 group-hover/cr:opacity-100",
+                : variant === "code-review"
+                  ? "opacity-0 group-hover/cr:opacity-100"
+                  : "opacity-0 group-hover/sim:opacity-100",
             )}
           >
             <span

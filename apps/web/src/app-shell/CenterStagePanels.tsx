@@ -78,6 +78,7 @@ interface CenterStagePanelsProps {
   openFiles: OpenFile[];
   onGithubPullRequestChanged: () => void;
   projectWikiTabVisible: boolean;
+  simulatorTabVisible: boolean;
   projectWikiTerminalGridRef: React.RefObject<TerminalGridHandle | null>;
   projectWikiUserTriggeredRef: React.RefObject<boolean>;
   reviewTarget: ReviewTarget | null;
@@ -115,6 +116,7 @@ export function CenterStagePanels({
   openFiles,
   onGithubPullRequestChanged,
   projectWikiTabVisible,
+  simulatorTabVisible,
   projectWikiTerminalGridRef,
   projectWikiUserTriggeredRef,
   reviewTarget,
@@ -236,6 +238,7 @@ export function CenterStagePanels({
           "wiki",
           "project-wiki",
           "code-review",
+          "simulator",
           FIXED_TERMINAL_TAB_VALUE,
         ];
         const frameActiveTab = resolveFrameActiveTab({
@@ -246,7 +249,7 @@ export function CenterStagePanels({
           validTabs: validForContext,
         });
         const lightIds: string[] = [];
-        if (frameActiveTab === "overview" || frameActiveTab === "wiki") {
+        if (frameActiveTab === "overview" || frameActiveTab === "wiki" || frameActiveTab === "simulator") {
           lightIds.push(frameActiveTab);
         }
         // GitHub center tabs are light surfaces — only last-active / active-tab ids enter mount plan.
@@ -309,6 +312,7 @@ export function CenterStagePanels({
     // Structure only — titles/agent fields must not appear here.
     terminalPaneStructureKey,
     projectWikiTabVisible,
+    simulatorTabVisible,
     visibleTerminalTabs,
     effectiveContextId,
     paintContextId,
@@ -356,6 +360,7 @@ export function CenterStagePanels({
             reviewTarget={isUrlSyncedActive ? reviewTarget : undefined}
             projectWikiTabVisible={projectWikiTabVisible}
             codeReviewTabVisible={codeReviewTabVisible}
+            simulatorTabVisible={simulatorTabVisible}
             terminalQuickOpenAgents={
               isUrlSyncedActive ? terminalQuickOpenAgents : undefined
             }

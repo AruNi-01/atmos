@@ -190,7 +190,8 @@ export type RightSidebarTab =
   | "github"
   | "review"
   | "browser"
-  | "run";
+  | "run"
+  | "simulator";
 
 const RIGHT_SIDEBAR_TABS = [
   "files",
@@ -199,6 +200,7 @@ const RIGHT_SIDEBAR_TABS = [
   "review",
   "browser",
   "run",
+  "simulator",
 ] as const satisfies readonly RightSidebarTab[];
 
 /** Legacy deep-link values from before PR/Issues/Actions were merged into GitHub. */

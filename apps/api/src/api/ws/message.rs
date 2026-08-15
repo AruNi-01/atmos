@@ -764,6 +764,16 @@ pub enum WsAction {
     DiskAnalyzerDelete,
     /// Read volume total/available bytes for a path
     DiskAnalyzerDiskInfo,
+
+    // ===== Workspace Simulator (APP-060) =====
+    /// Probe this Server host for Xcode / helper / devices
+    SimulatorProbe,
+    /// Download (if needed) and start serve-sim; embed its preview URL
+    SimulatorStart,
+    /// Stop the serve-sim process this Server started
+    SimulatorStop,
+    /// Current claim for a workspace, if any
+    SimulatorStatus,
 }
 
 /// 服务端主动推送的事件类型
@@ -826,6 +836,8 @@ pub enum WsEvent {
     AutomationNotification,
     /// Disk analyzer scan progress / completion (APP-042)
     DiskAnalyzerScanProgress,
+    /// serve-sim helper download progress (APP-060)
+    SimulatorDownloadProgress,
 }
 
 /// 项目删除进度通知数据
@@ -1231,6 +1243,18 @@ pub struct LocalModelCustomAddRequest {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LocalModelCustomDeleteRequest {
     pub model_id: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SimulatorStartRequest {
+    pub workspace_id: String,
+    #[serde(default)]
+    pub udid: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SimulatorWorkspaceRequest {
+    pub workspace_id: String,
 }
 
 // ===== Local Model Notification Payload =====

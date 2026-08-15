@@ -13,6 +13,7 @@ import {
   Github,
   PanelRight,
   Play,
+  Smartphone,
 } from 'lucide-react';
 import { useLayoutSettingsStore } from '@/features/settings/store/layout-settings-store';
 import { SettingsToggleRow } from '@/features/settings/components/settings/SettingsToggleRow';
@@ -33,17 +34,20 @@ export function RightSidebarLayoutSettingsSection({
     rsShowReview,
     rsShowRun,
     rsShowGithub,
+    rsShowSimulator,
     setRightSidebarShowChanges,
     setRightSidebarShowReview,
     setRightSidebarShowRun,
     setRightSidebarShowGithub,
+    setRightSidebarShowSimulator,
   } = useLayoutSettingsStore();
 
   const enabledCount =
     Number(rsShowChanges) +
     Number(rsShowReview) +
     Number(rsShowRun) +
-    Number(rsShowGithub);
+    Number(rsShowGithub) +
+    Number(rsShowSimulator);
 
   return (
     <Collapsible
@@ -100,6 +104,13 @@ export function RightSidebarLayoutSettingsSection({
             description={t('githubDescription')}
             checked={rsShowGithub}
             onCheckedChange={(value) => void setRightSidebarShowGithub(value)}
+          />
+          <SettingsToggleRow
+            icon={<Smartphone className="size-4" />}
+            title={t('simulatorTitle')}
+            description={t('simulatorDescription')}
+            checked={rsShowSimulator}
+            onCheckedChange={(value) => void setRightSidebarShowSimulator(value)}
           />
         </div>
       </CollapsibleContent>

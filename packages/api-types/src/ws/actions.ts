@@ -266,6 +266,10 @@ export const WS_ACTIONS = [
   "disk_analyzer_get_suggestions",
   "disk_analyzer_delete",
   "disk_analyzer_disk_info",
+  "simulator_probe",
+  "simulator_start",
+  "simulator_stop",
+  "simulator_status",
 ] as const;
 
 export type WsAction = (typeof WS_ACTIONS)[number];

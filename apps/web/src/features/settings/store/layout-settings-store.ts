@@ -32,6 +32,7 @@ export interface RightSidebarLayoutPrefs {
   rsShowRun: boolean;
   /** Single GitHub tab (PRs, Issues, Actions). */
   rsShowGithub: boolean;
+  rsShowSimulator: boolean;
 }
 
 interface LayoutSettingsState extends FooterLayoutPrefs, HeaderLayoutPrefs, RightSidebarLayoutPrefs {
@@ -75,6 +76,7 @@ interface LayoutSettingsState extends FooterLayoutPrefs, HeaderLayoutPrefs, Righ
   setRightSidebarShowBrowser: (value: boolean) => Promise<void>;
   setRightSidebarShowRun: (value: boolean) => Promise<void>;
   setRightSidebarShowGithub: (value: boolean) => Promise<void>;
+  setRightSidebarShowSimulator: (value: boolean) => Promise<void>;
 }
 
 function readFooterLayout(layout: Record<string, unknown> | undefined): FooterLayoutPrefs {
@@ -134,6 +136,7 @@ function readRightSidebarLayout(layout: Record<string, unknown> | undefined): Ri
     rsShowBrowser: layout?.right_sidebar_show_browser !== false,
     rsShowRun: layout?.right_sidebar_show_run !== false,
     rsShowGithub,
+    rsShowSimulator: layout?.right_sidebar_show_simulator === true,
   };
 }
 
@@ -180,6 +183,7 @@ export const useLayoutSettingsStore = create<LayoutSettingsState>((set, get) => 
     rsShowBrowser: true,
     rsShowRun: true,
     rsShowGithub: true,
+    rsShowSimulator: false,
     loaded: false,
 
     loadSettings: async (force = false) => {
@@ -330,5 +334,8 @@ export const useLayoutSettingsStore = create<LayoutSettingsState>((set, get) => 
 
     setRightSidebarShowGithub: (value) =>
       updateLayoutSetting({ rsShowGithub: value }, 'right_sidebar_show_github', value),
+
+    setRightSidebarShowSimulator: (value) =>
+      updateLayoutSetting({ rsShowSimulator: value }, 'right_sidebar_show_simulator', value),
   };
 });
