@@ -27,6 +27,13 @@ describe("PT Design Atmos host wiring", () => {
     );
     expect(launchpad).toContain("pt-design");
     expect(launchpad).toContain("onOpenPtDesign");
+    const sidebar = readFileSync(
+      join(import.meta.dir, "../LeftSidebar.tsx"),
+      "utf8",
+    );
+    expect(sidebar).toContain("onOpenPtDesign");
+    expect(sidebar).not.toContain("useOpenToolCenterTab");
+    expect(sidebar).not.toMatch(/useQueryState\(\s*["']tab["']/);
     expect(launchpad).not.toMatch(/bare ["']Canvas["']\s*\n.*pt-design/i);
   });
 

@@ -80,6 +80,7 @@ import {
   isTerminalCenterTabValue,
   type TabGroupItem,
 } from "@/app-shell/center-stage-tabs";
+import { shouldSkipLastTabRestoreForUrlTab } from "@/app-shell/center-stage-fixed-tabs";
 import { CenterStageTabBar } from "@/app-shell/CenterStageTabBar";
 import {
   CenterStageTabContextMenu,
@@ -1007,6 +1008,9 @@ const CenterStage: React.FC = () => {
         }
       } else if (activeFilePath) {
         // An active file for this workspace is itself the restored surface.
+        pendingCenterTabRestoreContextRef.current = null;
+      } else if (shouldSkipLastTabRestoreForUrlTab(tabFromUrl)) {
+        // Deep link / e2e `?tab=changes` wins over a persisted last tab (`files`).
         pendingCenterTabRestoreContextRef.current = null;
       } else {
         const last = readCenterStageLastTab(effectiveContextId);

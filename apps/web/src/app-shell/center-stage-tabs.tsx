@@ -41,19 +41,10 @@ import { cn } from "@/shared/lib/utils";
 /** Cap each group column so long labels truncate instead of stretching the popover. */
 const TAB_GROUP_COLUMN_MAX_WIDTH_CLASS = "max-w-[240px]";
 
-export const FIXED_TABS = new Set<string>([
-  "overview",
-  "wiki",
-  "project-wiki",
-  "code-review",
-  "simulator",
-  "git-history",
-  "changes",
-  "review",
-  "run",
-  "github",
-  "files",
-]);
+export {
+  FIXED_TABS,
+  shouldSkipLastTabRestoreForUrlTab,
+} from "@/app-shell/center-stage-fixed-tabs";
 export const CENTER_TERMINAL_SHORTCUT_LIMIT = 5;
 
 export type TabGroupItem = {

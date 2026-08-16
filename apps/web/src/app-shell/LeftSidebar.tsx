@@ -77,7 +77,9 @@ import { useExperimentSettingsStore } from '@/features/settings/store/experiment
 import { useInitialProjectsLoading } from '@/features/project/store/use-initial-projects-loading';
 import { ProjectsSidebarLoading } from '@/app-shell/ProjectsSidebarLoading';
 import { LeftSidebarLaunchpad, LeftSidebarLaunchpadOutside } from '@/app-shell/LeftSidebarLaunchpad';
-import { useOpenToolCenterTab } from '@/app-shell/use-open-tool-center-tab';
+import { useSearchParams } from 'next/navigation';
+import { useEditorStore } from '@/features/editor/store/use-editor-store';
+import { useToolCenterTabsStore } from '@/app-shell/center-tool-tabs';
 import { tasksPathWithStoredSource } from '@/features/task/lib/task-source-preference';
 
 import { LeftSidebarPinnedSection } from '@/app-shell/LeftSidebarPinnedSection';
@@ -225,8 +227,10 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
 
     const [newWorkspace, setNewWorkspace] = useQueryState("newWorkspace", centerStageParams.newWorkspace);
     const [canvasOpen, setCanvasOpen] = useQueryState("canvas", centerStageParams.canvas);
-    const [centerTab] = useQueryState("tab", centerStageParams.tab);
-    const { openToolTab } = useOpenToolCenterTab();
+    const searchParams = useSearchParams();
+    const centerTab = searchParams.get("tab");
+    const openPtDesignTab = useToolCenterTabsStore((s) => s.open);
+    const setActiveFile = useEditorStore((s) => s.setActiveFile);
     const [expandedProjects, setExpandedProjects] = useState<string[]>([]);
     const seenProjectIdsRef = useRef<Set<string>>(new Set());
     const [collapsedWorkspaceGroups, setCollapsedWorkspaceGroups] = useState<Record<string, boolean>>({});
@@ -1458,7 +1462,15 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
         },
         onOpenCanvas: () => void setCanvasOpen(true),
         onOpenNewWorkspace: handleOpenNewWorkspace,
-        onOpenPtDesign: () => openToolTab("pt-design"),
+        onOpenPtDesign: () => {
+            if (!effectiveContextId) return;
+            openPtDesignTab(effectiveContextId, "pt-design");
+            setActiveFile(null, effectiveContextId);
+            const url = new URL(window.location.href);
+            url.searchParams.set("tab", "pt-design");
+            url.searchParams.delete("wikiPage");
+            router.push(`${url.pathname}${url.search}${url.hash}`);
+        },
         ptDesignOpen: centerTab === "pt-design",
     };
 
