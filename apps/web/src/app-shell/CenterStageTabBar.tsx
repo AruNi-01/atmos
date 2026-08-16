@@ -142,6 +142,7 @@ interface CenterStageTabBarProps {
   runTabVisible: boolean;
   githubHubTabVisible: boolean;
   filesTabVisible: boolean;
+  ptDesignTabVisible: boolean;
   handleRenameTerminalCenterTab: (tabId: string, title: string) => void;
   handleSelectTabGroupItem: (tab: TabGroupItem) => void;
   handleTabGroupDragEnd: (event: DragEndEvent) => void;
@@ -184,6 +185,7 @@ export function CenterStageTabBar({
   runTabVisible,
   githubHubTabVisible,
   filesTabVisible,
+  ptDesignTabVisible,
   scrollableTabsRef,
   sessionDisplay,
   tabGroupDndSensors,
@@ -360,6 +362,15 @@ export function CenterStageTabBar({
       });
     }
 
+    if (ptDesignTabVisible) {
+      descriptors.push({
+        id: "pt-design",
+        value: "pt-design",
+        kind: "pt-design",
+        label: t("centerStageTabBar.ptDesign"),
+      });
+    }
+
     for (const item of orderedSurfaceTabs) {
       if (item.type === "file") {
         const variant = getCenterStageSurfaceTabVariant(item.file.path);
@@ -403,6 +414,7 @@ export function CenterStageTabBar({
     changesTabVisible,
     codeReviewTabVisible,
     filesTabVisible,
+    ptDesignTabVisible,
     githubHubTabVisible,
     reviewTabVisible,
     runTabVisible,
@@ -632,6 +644,21 @@ export function CenterStageTabBar({
       );
     }
 
+    if (tab.kind === "pt-design") {
+      return (
+        <SpecialTerminalTab
+          key={tab.id}
+          closeLabel={t("centerStageTabBar.closePtDesignTab")}
+          icon={<LayoutTemplate className="size-3.5 shrink-0" />}
+          label={t("centerStageTabBar.ptDesign")}
+          tooltip={t("centerStageTabBar.ptDesign")}
+          value="pt-design"
+          onClose={() => handleCloseToolTab("pt-design")}
+          onContextMenu={(event) => openContextMenu(event, tab)}
+        />
+      );
+    }
+
     if (tab.file) {
       return (
         <CenterStageOpenFileTab
@@ -699,6 +726,7 @@ export function CenterStageTabBar({
             changesLabel={t("centerStageTabBar.newChanges")}
             filesLabel={t("centerStageTabBar.newFiles")}
             githubLabel={t("centerStageTabBar.newGithub")}
+            ptDesignLabel={t("centerStageTabBar.newPtDesign")}
             layoutLabel={t("centerStageTabBar.layouts")}
             menuLabel={newTabMenuLabel}
             newLayoutLabel={t("centerStageTabBar.saveCurrentLayout")}
@@ -849,7 +877,8 @@ function isTabGroupItemClosable(tab: TabGroupItem) {
     tab.kind === "review" ||
     tab.kind === "run" ||
     tab.kind === "github" ||
-    tab.kind === "files"
+    tab.kind === "files" ||
+    tab.kind === "pt-design"
   );
 }
 
@@ -996,6 +1025,7 @@ function CenterStageNewTabMenu({
   changesLabel,
   filesLabel,
   githubLabel,
+  ptDesignLabel,
   layoutLabel,
   menuLabel,
   newLayoutLabel,
@@ -1023,6 +1053,7 @@ function CenterStageNewTabMenu({
   changesLabel: string;
   filesLabel: string;
   githubLabel: string;
+  ptDesignLabel: string;
   layoutLabel: string;
   menuLabel: string;
   newLayoutLabel: string;
@@ -1220,6 +1251,17 @@ function CenterStageNewTabMenu({
           >
             <Github className="size-3.5 shrink-0 text-muted-foreground" />
             <span className="min-w-0 flex-1 truncate">{githubLabel}</span>
+          </button>
+          <button
+            type="button"
+            className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
+            onClick={() => {
+              onCreateToolTab("pt-design");
+              setOpen(false);
+            }}
+          >
+            <LayoutTemplate className="size-3.5 shrink-0 text-muted-foreground" />
+            <span className="min-w-0 flex-1 truncate">{ptDesignLabel}</span>
           </button>
           <button
             type="button"

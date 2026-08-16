@@ -22,7 +22,8 @@ export type CenterTabKind =
   | "changes"
   | "review"
   | "run"
-  | "files";
+  | "files"
+  | "pt-design";
 
 /**
  * Visual-order descriptor for a closable center tab.

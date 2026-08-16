@@ -102,6 +102,7 @@ export function buildOpenCenterTabValues(input: {
   runVisible?: boolean;
   githubHubVisible?: boolean;
   filesVisible?: boolean;
+  ptDesignVisible?: boolean;
   wikiEnabled: boolean;
   /** Always-available fixed surfaces (defaults to overview). */
   fixedAlwaysOpen?: readonly string[];
@@ -118,6 +119,7 @@ export function buildOpenCenterTabValues(input: {
   if (input.runVisible) open.add("run");
   if (input.githubHubVisible) open.add("github");
   if (input.filesVisible) open.add("files");
+  if (input.ptDesignVisible) open.add("pt-design");
   for (const id of input.terminalTabIds) open.add(id);
   for (const value of input.githubTabValues) open.add(value);
   for (const value of input.browserTabValues) open.add(value);

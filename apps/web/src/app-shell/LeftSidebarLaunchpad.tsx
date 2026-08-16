@@ -15,6 +15,7 @@ import {
   Command,
   FolderKanban,
   HardDrive,
+  LayoutTemplate,
   Plus,
   Presentation,
   Puzzle,
@@ -48,7 +49,7 @@ type LaunchpadItemDef = {
   labelKey: string;
   icon: typeof FolderKanban;
   path?: string;
-  kind?: "new-workspace" | "canvas";
+  kind?: "new-workspace" | "canvas" | "pt-design";
 };
 
 const ITEM_DEF_BY_ID: Record<LaunchpadItemId, LaunchpadItemDef> = {
@@ -60,6 +61,7 @@ const ITEM_DEF_BY_ID: Record<LaunchpadItemId, LaunchpadItemDef> = {
   "disk-analyzer": { id: "disk-analyzer", labelKey: "launchpad.items.diskAnalyzer", icon: HardDrive, path: "/disk-analyzer" },
   "token-usage": { id: "token-usage", labelKey: "launchpad.items.tokenUsage", icon: ChartColumnBig, path: "/token-usage" },
   canvas: { id: "canvas", labelKey: "launchpad.items.canvas", icon: Presentation, kind: "canvas" },
+  "pt-design": { id: "pt-design", labelKey: "launchpad.items.ptDesign", icon: LayoutTemplate, kind: "pt-design" },
   tasks: { id: "tasks", labelKey: "launchpad.items.tasks", icon: ListTodo, path: "/tasks" },
   "new-workspace": { id: "new-workspace", labelKey: "launchpad.items.newWorkspace", icon: Plus, kind: "new-workspace" },
 };
@@ -72,11 +74,13 @@ type LaunchpadSharedProps = {
   onNavigate: (path: string) => void;
   onOpenCanvas: () => void;
   onOpenNewWorkspace: () => void;
+  onOpenPtDesign: () => void;
+  ptDesignOpen: boolean;
 };
 
 function isLaunchpadItemActive(
   item: LaunchpadItemDef,
-  shared: Pick<LaunchpadSharedProps, "currentView" | "canvasOpen" | "newWorkspaceOpen">,
+  shared: Pick<LaunchpadSharedProps, "currentView" | "canvasOpen" | "newWorkspaceOpen" | "ptDesignOpen">,
 ): boolean {
   // Overlay surfaces (new-workspace / canvas) sit on top of the current route.
   // While one is open, only that item should highlight — route-backed items
@@ -86,6 +90,9 @@ function isLaunchpadItemActive(
   }
   if (shared.canvasOpen) {
     return item.kind === "canvas";
+  }
+  if (item.kind === "pt-design") {
+    return shared.ptDesignOpen && !shared.canvasOpen && !shared.newWorkspaceOpen;
   }
   if (item.kind === "canvas" || item.kind === "new-workspace") {
     return false;
@@ -229,6 +236,7 @@ function OutsideNavRow({
   onNavigate,
   onOpenCanvas,
   onOpenNewWorkspace,
+  onOpenPtDesign,
 }: LaunchpadSharedProps & {
   item: LaunchpadItemDef;
   isActive: boolean;
@@ -258,6 +266,21 @@ function OutsideNavRow({
       <span className="min-w-0 truncate">{label}</span>
     </>
   );
+
+  if (item.kind === "pt-design") {
+    return (
+      <button
+        type="button"
+        onClick={onOpenPtDesign}
+        className={className}
+        aria-current={isActive ? "page" : undefined}
+        aria-label={label}
+        {...hoverHandlers}
+      >
+        {content}
+      </button>
+    );
+  }
 
   if (item.kind === "canvas") {
     return (
@@ -335,6 +358,7 @@ function LaunchpadCard({
   onNavigate,
   onOpenCanvas,
   onOpenNewWorkspace,
+  onOpenPtDesign,
 }: LaunchpadSharedProps & {
   item: LaunchpadItemDef;
   index?: number;
@@ -383,6 +407,14 @@ function LaunchpadCard({
       </div>
     </>
   );
+
+  if (item.kind === "pt-design") {
+    return (
+      <div onClick={onOpenPtDesign} className={cardClassName} role="button" aria-label={t("launchpad.items.ptDesign")}>
+        {cardInner}
+      </div>
+    );
+  }
 
   if (item.kind === "canvas") {
     return (

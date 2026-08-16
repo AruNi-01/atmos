@@ -133,6 +133,7 @@ export function useCenterStageTabGroups({
   runTabVisible = false,
   githubHubTabVisible = false,
   filesTabVisible = false,
+  ptDesignTabVisible = false,
   githubTabs,
   openFiles,
   previewBrowserPrefs = DEFAULT_PREVIEW_BROWSER_PREFS,
@@ -148,6 +149,7 @@ export function useCenterStageTabGroups({
   runTabVisible?: boolean;
   githubHubTabVisible?: boolean;
   filesTabVisible?: boolean;
+  ptDesignTabVisible?: boolean;
   githubTabs: GithubCenterTab[];
   openFiles: OpenFile[];
   previewBrowserPrefs?: PreviewBrowserPrefs;
@@ -213,6 +215,14 @@ export function useCenterStageTabGroups({
         label: tabBarT("files"),
         value: "files",
         kind: "files",
+      });
+    }
+    if (ptDesignTabVisible) {
+      fileTabs.push({
+        id: "pt-design",
+        label: tabBarT("ptDesign"),
+        value: "pt-design",
+        kind: "pt-design",
       });
     }
     openFiles
@@ -381,6 +391,7 @@ export function useCenterStageTabGroups({
     changesTabVisible,
     codeReviewTabVisible,
     filesTabVisible,
+    ptDesignTabVisible,
     gitHistoryTabVisible,
     githubHubTabVisible,
     githubTabs,

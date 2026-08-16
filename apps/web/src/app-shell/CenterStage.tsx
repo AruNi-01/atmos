@@ -427,6 +427,9 @@ const CenterStage: React.FC = () => {
   const filesTabVisible =
     Boolean(effectiveContextId && toolTabsVisibleByContext[effectiveContextId]?.files) ||
     tabFromUrl === "files";
+  const ptDesignTabVisible =
+    Boolean(effectiveContextId && toolTabsVisibleByContext[effectiveContextId]?.["pt-design"]) ||
+    tabFromUrl === "pt-design";
 
   React.useEffect(() => {
     if (tabFromUrl === SIMULATOR_TAB_VALUE && effectiveContextId) {
@@ -700,6 +703,7 @@ const CenterStage: React.FC = () => {
         runVisible: runTabVisible,
         githubHubVisible: githubHubTabVisible,
         filesVisible: filesTabVisible,
+        ptDesignVisible: ptDesignTabVisible,
         wikiEnabled: centerWikiTabEnabled,
         exclude,
       }),
@@ -717,6 +721,7 @@ const CenterStage: React.FC = () => {
       runTabVisible,
       githubHubTabVisible,
       filesTabVisible,
+      ptDesignTabVisible,
       visibleTerminalTabs,
     ],
   );
@@ -1949,6 +1954,7 @@ const CenterStage: React.FC = () => {
     runTabVisible,
     githubHubTabVisible,
     filesTabVisible,
+    ptDesignTabVisible,
     githubTabs,
     openFiles,
     previewBrowserPrefs,
@@ -2347,6 +2353,7 @@ const CenterStage: React.FC = () => {
         runTabVisible={runTabVisible && has("run")}
         githubHubTabVisible={githubHubTabVisible && has("github")}
         filesTabVisible={filesTabVisible && has("files")}
+        ptDesignTabVisible={ptDesignTabVisible && has("pt-design")}
         scrollableTabsRef={scrollableTabsRef}
         sessionDisplay={sessionDisplay}
         tabGroupDndSensors={tabGroupDndSensors}
@@ -2423,6 +2430,7 @@ const CenterStage: React.FC = () => {
       runTabVisible={runTabVisible}
       githubHubTabVisible={githubHubTabVisible}
       filesTabVisible={filesTabVisible}
+      ptDesignTabVisible={ptDesignTabVisible}
       projectWikiTerminalGridRef={projectWikiTerminalGridRef}
       projectWikiUserTriggeredRef={projectWikiUserTriggeredRef}
       reviewTarget={reviewTarget}

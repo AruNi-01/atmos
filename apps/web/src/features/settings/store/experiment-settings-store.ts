@@ -13,6 +13,7 @@ export type LaunchpadItemId =
   | 'disk-analyzer'
   | 'token-usage'
   | 'canvas'
+  | 'pt-design'
   | 'tasks'
   | 'new-workspace';
 
@@ -34,6 +35,7 @@ export const LAUNCHPAD_ITEM_IDS: LaunchpadItemId[] = [
   'disk-analyzer',
   'token-usage',
   'canvas',
+  'pt-design',
   'tasks',
   'new-workspace',
 ];
@@ -46,6 +48,7 @@ const ALWAYS_ON_DEFAULT_IDS: LaunchpadItemId[] = [
   'disk-analyzer',
   'token-usage',
   'canvas',
+  'pt-design',
   'tasks',
   'new-workspace',
 ];
@@ -56,6 +59,7 @@ const DEFAULT_OUTSIDE_PLACEMENT_IDS: LaunchpadItemId[] = [
   'automations',
   'token-usage',
   'canvas',
+  'pt-design',
   'tasks',
   'new-workspace',
 ];

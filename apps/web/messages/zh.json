@@ -355,6 +355,7 @@
       "newReview": "评审",
       "newRun": "运行",
       "newGithub": "GitHub",
+      "newPtDesign": "PT Design",
       "newFiles": "文件",
       "newSimulator": "模拟器",
       "splitRight": "向右分屏",
@@ -377,6 +378,8 @@
       "closeGithubTab": "关闭 GitHub 标签页",
       "files": "文件",
       "closeFilesTab": "关闭文件标签页",
+      "ptDesign": "PT Design",
+      "closePtDesignTab": "关闭 PT Design 标签页",
       "simulator": "模拟器",
       "closeSimulatorTab": "关闭模拟器标签页",
       "history": "图形历史",
@@ -1618,6 +1621,7 @@
           "agents": "Agent",
           "automations": "自动化",
           "canvas": "画布",
+          "ptDesign": "PT Design",
           "newWorkspace": "新建工作区",
           "diskAnalyzer": "磁盘分析器",
           "tokenUsage": "Token 用量",
@@ -5945,6 +5949,10 @@
           "canvas": {
             "title": "Canvas",
             "description": "打开全屏 Canvas 运维画布。"
+          },
+          "ptDesign": {
+            "title": "PT Design",
+            "description": "在中间区域打开原型设计画板。"
           },
           "newWorkspace": {
             "title": "New Workspace",

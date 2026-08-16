@@ -1,0 +1,11 @@
+{
+  "extends": "../config/typescript/base.json",
+  "compilerOptions": {
+    "declaration": true,
+    "declarationMap": true,
+    "jsx": "react-jsx",
+    "types": ["node"]
+  },
+  "include": ["src", "bin", "playground"],
+  "exclude": ["node_modules", "dist"]
+}

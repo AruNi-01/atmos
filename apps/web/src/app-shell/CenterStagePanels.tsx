@@ -92,6 +92,7 @@ interface CenterStagePanelsProps {
   runTabVisible: boolean;
   githubHubTabVisible: boolean;
   filesTabVisible: boolean;
+  ptDesignTabVisible: boolean;
   projectWikiTerminalGridRef: React.RefObject<TerminalGridHandle | null>;
   projectWikiUserTriggeredRef: React.RefObject<boolean>;
   reviewTarget: ReviewTarget | null;
@@ -139,6 +140,7 @@ export function CenterStagePanels({
   runTabVisible,
   githubHubTabVisible,
   filesTabVisible,
+  ptDesignTabVisible,
   projectWikiTerminalGridRef,
   projectWikiUserTriggeredRef,
   reviewTarget,
@@ -357,6 +359,7 @@ export function CenterStagePanels({
     runTabVisible,
     githubHubTabVisible,
     filesTabVisible,
+    ptDesignTabVisible,
     visibleTerminalTabs,
     effectiveContextId,
     paintContextId,
@@ -414,6 +417,7 @@ export function CenterStagePanels({
             runTabVisible={runTabVisible}
             githubHubTabVisible={githubHubTabVisible}
             filesTabVisible={filesTabVisible}
+            ptDesignTabVisible={ptDesignTabVisible}
             terminalQuickOpenAgents={
               isUrlSyncedActive ? terminalQuickOpenAgents : undefined
             }

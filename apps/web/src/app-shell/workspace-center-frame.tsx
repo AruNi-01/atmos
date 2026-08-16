@@ -165,6 +165,13 @@ const GithubHubPanel = dynamic(
     ),
   { ssr: false },
 );
+const PtDesignCenterPanel = dynamic(
+  () =>
+    import("@/features/pt-design/PtDesignCenterPanel").then(
+      (mod) => mod.PtDesignCenterPanel,
+    ),
+  { ssr: false },
+);
 const RunScript = dynamic(
   () =>
     import("@/features/browser/components/RunScript").then((mod) => mod.RunScript),
@@ -236,6 +243,7 @@ function WorkspaceCenterFrameImpl({
   runTabVisible,
   githubHubTabVisible,
   filesTabVisible,
+  ptDesignTabVisible,
   terminalQuickOpenAgents,
   terminalGridRef,
   terminalGridRefs,
@@ -310,6 +318,7 @@ function WorkspaceCenterFrameImpl({
     "run",
     "github",
     "files",
+    "pt-design",
     FIXED_TERMINAL_TAB_VALUE,
   ];
   const frameActiveTab = resolveFrameActiveTab({
@@ -795,6 +804,15 @@ function WorkspaceCenterFrameImpl({
               panelVisible("files")
             }
           />
+        </div>
+      )}
+
+      {(isUrlSyncedActive ? ptDesignTabVisible : frameActiveTab === "pt-design") && (
+        <div
+          className={cn(lightSurfacePanelClass(panelVisible("pt-design")), multiActiveTabIds && panelVisible("pt-design") && "pointer-events-auto")}
+          style={panelStyle("pt-design", panelVisible("pt-design"))}
+        >
+          <PtDesignCenterPanel contextId={contextId} />
         </div>
       )}
     </div>

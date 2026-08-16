@@ -77,6 +77,7 @@ import { useExperimentSettingsStore } from '@/features/settings/store/experiment
 import { useInitialProjectsLoading } from '@/features/project/store/use-initial-projects-loading';
 import { ProjectsSidebarLoading } from '@/app-shell/ProjectsSidebarLoading';
 import { LeftSidebarLaunchpad, LeftSidebarLaunchpadOutside } from '@/app-shell/LeftSidebarLaunchpad';
+import { useOpenToolCenterTab } from '@/app-shell/use-open-tool-center-tab';
 import { tasksPathWithStoredSource } from '@/features/task/lib/task-source-preference';
 
 import { LeftSidebarPinnedSection } from '@/app-shell/LeftSidebarPinnedSection';
@@ -224,6 +225,8 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
 
     const [newWorkspace, setNewWorkspace] = useQueryState("newWorkspace", centerStageParams.newWorkspace);
     const [canvasOpen, setCanvasOpen] = useQueryState("canvas", centerStageParams.canvas);
+    const [centerTab] = useQueryState("tab", centerStageParams.tab);
+    const { openToolTab } = useOpenToolCenterTab();
     const [expandedProjects, setExpandedProjects] = useState<string[]>([]);
     const seenProjectIdsRef = useRef<Set<string>>(new Set());
     const [collapsedWorkspaceGroups, setCollapsedWorkspaceGroups] = useState<Record<string, boolean>>({});
@@ -1455,6 +1458,8 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
         },
         onOpenCanvas: () => void setCanvasOpen(true),
         onOpenNewWorkspace: handleOpenNewWorkspace,
+        onOpenPtDesign: () => openToolTab("pt-design"),
+        ptDesignOpen: centerTab === "pt-design",
     };
 
     return (
