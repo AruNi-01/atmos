@@ -10,22 +10,18 @@ function isTerminalHotkeyTarget(target: EventTarget | null) {
   ];
   return candidates.some((node) => {
     const element = node instanceof Element ? node : node?.parentElement;
-    return Boolean(element?.closest(".terminal-mosaic-container"));
+    return Boolean(element?.closest(".terminal-grid-container"));
   });
 }
 
 export function useHeaderHotkeys({
   refreshCurrentRoute,
   setIsQuotaPopoverOpen,
-  showRightSidebar,
   toggleLeftSidebar,
-  toggleRightSidebar,
 }: {
   refreshCurrentRoute?: () => void;
   setIsQuotaPopoverOpen: Dispatch<SetStateAction<boolean>>;
-  showRightSidebar: boolean;
   toggleLeftSidebar: () => void;
-  toggleRightSidebar: () => void;
 }) {
   const t = useTranslations("header.hotkeys");
   const handleRefreshCurrentRoute = useCallback(() => {
@@ -95,14 +91,4 @@ export function useHeaderHotkeys({
     },
   );
 
-  useHotkeys("mod+shift+b", () => {
-    if (showRightSidebar) {
-      toggleRightSidebar();
-    }
-  }, {
-    enableOnContentEditable: true,
-    enableOnFormTags: true,
-    preventDefault: true,
-    description: t("toggleRightSidebar"),
-  });
 }

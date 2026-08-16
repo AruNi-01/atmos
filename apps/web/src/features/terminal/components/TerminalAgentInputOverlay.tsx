@@ -1196,6 +1196,7 @@ export const TerminalAgentInputOverlay = React.forwardRef<
                   setIsOpen(true);
                   setText(step);
                   composerRef.current?.setText(step);
+                  composerRef.current?.focus();
                   focusComposerSoon();
                 }}
                 onDismiss={() => {
@@ -1270,7 +1271,7 @@ export const TerminalAgentInputOverlay = React.forwardRef<
               className={cn(
                 "h-1 w-28 rounded-full shadow-[0_1px_4px_rgba(0,0,0,0.16)] transition-[opacity,background-color,box-shadow] duration-200",
                 isSummaryActive
-                  ? "terminal-agent-input-trigger--summary bg-sky-500"
+                  ? "terminal-agent-input-trigger--summary"
                   : "bg-foreground/25",
                 isSummaryActive && !isOverlayVisible && "terminal-agent-input-trigger--pulse",
                 isOverlayVisible

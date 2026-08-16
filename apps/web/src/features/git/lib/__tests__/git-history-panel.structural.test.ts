@@ -76,9 +76,9 @@ describe("git history panel structural", () => {
     expect(panel).toContain("commitDrawerKey");
     expect(panel).toContain("onSelect={() => openCommitDrawer(commit)}");
 
-    const sidebar = read("apps/web/src/app-shell/RightSidebar.tsx");
-    expect(sidebar).not.toContain("handleSelectCommitScope(historySelectedCommit)");
-    expect(sidebar).not.toContain("historySelectedCommit");
+    const changesPanel = read("apps/web/src/features/git/components/ChangesPanel.tsx");
+    expect(changesPanel).not.toContain("handleSelectCommitScope(historySelectedCommit)");
+    expect(changesPanel).not.toContain("historySelectedCommit");
 
     const drawer = read(
       "apps/web/src/features/task/components/task-github-drawer/TaskGithubDrawerHost.tsx",

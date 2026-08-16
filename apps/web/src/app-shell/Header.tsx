@@ -68,7 +68,7 @@ const Header: React.FC = () => {
 
   const searchParams = useSearchParams();
   const { workspaceId: currentWorkspaceId, projectId: currentProjectIdFromUrl } = useContextParams();
-  const { isLeftCollapsed, isRightCollapsed, showRightSidebar, toggleLeftSidebar, toggleRightSidebar } = useSidebarLayout();
+  const { isLeftCollapsed, toggleLeftSidebar } = useSidebarLayout();
   const { handleDesktopWindowMouseDown, isDesktopDragEnabled } = useDesktopWindowDrag();
 
   const projects = useProjects();
@@ -259,9 +259,7 @@ const Header: React.FC = () => {
   useHeaderHotkeys({
     refreshCurrentRoute,
     setIsQuotaPopoverOpen,
-    showRightSidebar,
     toggleLeftSidebar,
-    toggleRightSidebar,
   });
 
   // Sync context when project/workspace changes
@@ -414,9 +412,15 @@ const Header: React.FC = () => {
         data-app-shell-header=""
         onMouseDown={handleDesktopWindowMouseDown}
         className={cn(
-          "relative flex h-12 items-center justify-between border-b border-sidebar-border px-4 select-none transition-[padding] duration-300 ease-out",
+          "relative flex h-12 items-center justify-between px-4 select-none transition-[padding] duration-300 ease-out",
           isDesktopDragEnabled && "desktop-drag-region",
-          isDesktopDragEnabled && (isDesktopFullscreen ? "pl-4" : "pl-[92px]")
+          // Traffic lights sit over the full-height left sidebar when expanded.
+          // Only reserve macOS traffic-light inset when the sidebar is collapsed
+          // (header then starts at the window's left edge under the lights).
+          isDesktopDragEnabled &&
+            !isDesktopFullscreen &&
+            isLeftCollapsed &&
+            "pl-[92px]",
         )}
       >
         {isDesktopDragEnabled ? (
@@ -602,7 +606,6 @@ const Header: React.FC = () => {
           isDesktopRuntime={isDesktopRuntime}
           isOpeningDesktopWeb={isOpeningDesktopWeb}
           isTunnelConnectorRunning={isTunnelConnectorRunning}
-          isRightCollapsed={isRightCollapsed}
           isQuotaPopoverOpen={isQuotaPopoverOpen}
           currentProjectName={currentProject?.name}
           currentWorkspaceDisplayName={currentWorkspace?.displayName}
@@ -620,8 +623,6 @@ const Header: React.FC = () => {
           setDesktopWebPopoverOpen={setDesktopWebPopoverOpen}
           setGlobalSearchOpen={setGlobalSearchOpen}
           setIsQuotaPopoverOpen={setIsQuotaPopoverOpen}
-          showRightSidebar={showRightSidebar}
-          toggleRightSidebar={toggleRightSidebar}
         />
 
         {/* Delete Workspace Dialog */}

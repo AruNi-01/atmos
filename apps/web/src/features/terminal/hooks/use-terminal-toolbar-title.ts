@@ -19,14 +19,14 @@ import { useAgentTitleSettingsStore } from "@/features/settings/store/agent-titl
 import type { TerminalPaneAgent } from "@/features/terminal/types/index";
 import { useContestedCliOwners } from "./use-contested-cli-owners";
 
-/** Where OSC title updates should be persisted (center mosaic pane vs canvas pin). */
+/** Where OSC title updates should be persisted (center terminal pane vs canvas pin). */
 export type TerminalToolbarStoreWrite =
-  | { kind: "mosaic-pane"; workspaceId: string; paneId: string; terminalTabId?: string }
+  | { kind: "terminal-pane"; workspaceId: string; paneId: string; terminalTabId?: string }
   | { kind: "tmux-window"; workspaceId: string; tmuxWindowName: string; contextScope: "workspace" | "project" }
   | { kind: "none" };
 
 /**
- * Shared terminal tab title: subscribe to the same zustand fields as the center mosaic,
+ * Shared terminal tab title: subscribe to the same zustand fields as the center terminal pane,
  * merge shim dynamic titles + native OSC 0/2 titles, run {@link getTerminalDisplayMeta},
  * and emit onTitleChange / onOscTitleChange that persist display state like {@link TerminalGrid}.
  */
@@ -49,7 +49,7 @@ export function useTerminalToolbarTitle(options: {
 
   const storeLive = useTerminalStore(
     useShallow((s) => {
-      if (storeWrite.kind === "mosaic-pane") {
+      if (storeWrite.kind === "terminal-pane") {
         return getWorkspacePaneFieldsByPaneId(
           s,
           storeWrite.workspaceId,
@@ -78,7 +78,7 @@ export function useTerminalToolbarTitle(options: {
       const { setDynamicTitle, setPaneAgent } = useTerminalStore.getState();
       // Agent detection uses shim dynamic titles only — never native OSC (APP-047).
       const detected = resolveAgentForTitle(title, configuredAgents, { contestedOwners });
-      if (storeWrite.kind === "mosaic-pane") {
+      if (storeWrite.kind === "terminal-pane") {
         setDynamicTitle(
           storeWrite.workspaceId,
           storeWrite.paneId,
@@ -127,7 +127,7 @@ export function useTerminalToolbarTitle(options: {
       const { setOscTitle } = useTerminalStore.getState();
       // Pass the raw value; setOscTitle re-applies nextOscTitleFromIncoming against
       // the store's previous value (same rules as local state above).
-      if (storeWrite.kind === "mosaic-pane") {
+      if (storeWrite.kind === "terminal-pane") {
         setOscTitle(
           storeWrite.workspaceId,
           storeWrite.paneId,

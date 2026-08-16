@@ -27,7 +27,7 @@ describe("collectDiffGroupTabs", () => {
         file(`${EDITOR_DIFF_GROUP_PREFIX}unstaged`, 3),
         file(`${EDITOR_DIFF_GROUP_PREFIX}staged`, 1),
       ],
-      { visible: true, label: "Graph History" },
+      { gitHistory: { visible: true, label: "Graph History" } },
     );
 
     expect(tabs.map((tab) => tab.id)).toEqual([
@@ -44,8 +44,7 @@ describe("collectDiffGroupTabs", () => {
 
   test("still opens a diff group when only Graph History is visible", () => {
     const tabs = collectDiffGroupTabs([file("src/a.ts", 1)], {
-      visible: true,
-      label: "Graph History",
+      gitHistory: { visible: true, label: "Graph History" },
     });
     expect(tabs).toEqual([
       {
@@ -60,7 +59,7 @@ describe("collectDiffGroupTabs", () => {
   test("omits Graph History when the tab is closed", () => {
     const tabs = collectDiffGroupTabs(
       [file(`${EDITOR_DIFF_GROUP_PREFIX}branch`, 1)],
-      { visible: false, label: "Graph History" },
+      { gitHistory: { visible: false, label: "Graph History" } },
     );
     expect(tabs.map((tab) => tab.kind)).toEqual(["diff-group"]);
   });

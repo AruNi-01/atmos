@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { APP_FOOTER_HEIGHT_PX } from "@/app-shell/sidebar-layout-constants";
 
 const GAP_PX = 8;
 
@@ -39,12 +40,12 @@ export function useTaskDrawerInsets(): TaskDrawerInsets {
           document.querySelector<HTMLElement>("#root-center-stage");
 
         if (!center) {
-          // Fallback: header h-12 (48) + footer h-6 (24) + gap.
+          // Fallback: header h-12 (48) + shared app footer + gap.
           setInsets({
             left: GAP_PX,
             top: 48 + GAP_PX,
             right: GAP_PX,
-            bottom: 24 + GAP_PX,
+            bottom: APP_FOOTER_HEIGHT_PX + GAP_PX,
             gap: GAP_PX,
           });
           return;
@@ -80,11 +81,6 @@ export function useTaskDrawerInsets(): TaskDrawerInsets {
       document.querySelector<HTMLElement>('[data-panel-id="root-left-sidebar"]') ??
       document.querySelector<HTMLElement>("#root-left-sidebar");
     if (left) observer.observe(left);
-
-    const right =
-      document.querySelector<HTMLElement>('[data-panel-id="root-right-sidebar"]') ??
-      document.querySelector<HTMLElement>("#root-right-sidebar");
-    if (right) observer.observe(right);
 
     window.addEventListener("resize", measure);
 

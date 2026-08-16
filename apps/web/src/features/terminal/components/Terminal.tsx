@@ -99,7 +99,7 @@ export interface TerminalRef {
   getScreenText: (maxLines: number, skipFromBottom?: number) => string;
 }
 
-// tldraw / mosaic can report a usable but transient terminal grid while a new
+// tldraw / terminal grid can report a usable but transient terminal grid while a new
 // pane is still being inserted. Pin tmux only after the first fit settles.
 const INITIAL_CONNECT_MIN_FRAMES = 2;
 const INITIAL_CONNECT_STABLE_FRAMES = 2;

@@ -267,7 +267,7 @@ export async function buildProjectWorkspaceDeepLink(page: Page): Promise<string>
   targetUrl.searchParams.set("id", target.projectGuid);
   targetUrl.searchParams.set("pvUrl", `${origin}/workspace?id=${target.workspaceGuid}`);
   targetUrl.searchParams.set("activeSettingTab", "shortcuts");
-  targetUrl.searchParams.set("lsTab", "files");
+  targetUrl.searchParams.set("tab", "files");
   return targetUrl.toString();
 }
 
@@ -286,16 +286,10 @@ export function withSearchParams(
   return url.toString();
 }
 
-export async function getRightSidebar(page: Page) {
-  const asides = page.locator("aside");
-  await expect
-    .poll(async () => asides.count(), {
-      timeout: 45_000,
-    })
-    .toBeGreaterThan(0);
-  const resolvedCount = await asides.count();
-  expect(resolvedCount, "missing sidebars for context page").toBeGreaterThan(0);
-  return asides.nth(resolvedCount - 1);
+export async function getCenterStage(page: Page) {
+  const main = page.locator("main");
+  await expect(main.first()).toBeVisible({ timeout: 45_000 });
+  return main.first();
 }
 
 export async function gotoContextRoute(
@@ -314,8 +308,8 @@ export async function gotoContextRoute(
   await expect
     .poll(async () => page.locator("html").getAttribute("lang"))
     .toBe(expectedLocale);
-  const rightSidebar = await getRightSidebar(page);
-  await expect(rightSidebar).toBeVisible();
+  const centerStage = await getCenterStage(page);
+  await expect(centerStage).toBeVisible();
   await page.waitForTimeout(400);
 }
 

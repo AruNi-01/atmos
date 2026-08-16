@@ -6,8 +6,8 @@ import { Button } from "@workspace/ui";
 import { ClipboardCheck, ExternalLink, Sparkles } from "lucide-react";
 import { useQueryStates } from "nuqs";
 import { parseAsString } from "nuqs";
-import { rightSidebarParams } from "@/shared/lib/nuqs/searchParams";
-import { useSidebarLayout } from "@/app-shell/SidebarLayoutContext";
+import { centerStageParams } from "@/shared/lib/nuqs/searchParams";
+import { useOpenToolCenterTab } from "@/app-shell/use-open-tool-center-tab";
 import { useAppNavigationInterceptor } from "@/shared/hooks/app-navigation-intercept";
 import type { AtmosReviewMetadata } from "@/features/code-review/lib/review-report-frontmatter";
 
@@ -18,17 +18,16 @@ interface ReviewReportMetadataCardProps {
 /**
  * Rendered above the markdown body of an Atmos review report. Shows session / run /
  * revision / skill identifiers and a single action to reopen the originating session
- * in the right sidebar's Review tab (by setting `rsTab`, `reviewSession`, `reviewRevision`
- * and expanding the sidebar).
+ * in the Review center tab (by setting `tab`, `reviewSession`, `reviewRevision`).
  */
 export const ReviewReportMetadataCard: React.FC<ReviewReportMetadataCardProps> = ({
   metadata,
 }) => {
   const t = useTranslations("codeReview.reviewReportMetadataCard");
-  const { setIsRightCollapsed, setShowRightSidebar } = useSidebarLayout();
+  const { openToolTab } = useOpenToolCenterTab();
   const navigationInterceptor = useAppNavigationInterceptor();
-  const [, setSidebarParams] = useQueryStates({
-    rsTab: rightSidebarParams.rsTab,
+  const [, setReviewParams] = useQueryStates({
+    tab: centerStageParams.tab,
     reviewSession: parseAsString,
     reviewRevision: parseAsString,
   });
@@ -36,7 +35,7 @@ export const ReviewReportMetadataCard: React.FC<ReviewReportMetadataCardProps> =
   const handleOpenSession = useCallback(() => {
     if (typeof window !== "undefined") {
       const targetUrl = new URL(window.location.href);
-      targetUrl.searchParams.set("rsTab", "review");
+      targetUrl.searchParams.set("tab", "review");
       targetUrl.searchParams.set("reviewSession", metadata.session_guid);
       targetUrl.searchParams.set("reviewRevision", metadata.current_revision_guid);
       targetUrl.searchParams.delete("canvas");
@@ -46,20 +45,18 @@ export const ReviewReportMetadataCard: React.FC<ReviewReportMetadataCardProps> =
       }
     }
 
-    void setSidebarParams({
-      rsTab: "review",
+    openToolTab("review");
+    void setReviewParams({
+      tab: "review",
       reviewSession: metadata.session_guid,
       reviewRevision: metadata.current_revision_guid,
     });
-    setShowRightSidebar(true);
-    setIsRightCollapsed(false);
   }, [
     metadata.session_guid,
     metadata.current_revision_guid,
     navigationInterceptor,
-    setSidebarParams,
-    setShowRightSidebar,
-    setIsRightCollapsed,
+    openToolTab,
+    setReviewParams,
   ]);
 
   const generatedAtDisplay = formatGeneratedAt(metadata.generated_at);

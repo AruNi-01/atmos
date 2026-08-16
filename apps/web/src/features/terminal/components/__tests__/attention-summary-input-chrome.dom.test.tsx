@@ -102,8 +102,9 @@ describe("attention summary inside terminal input shell", () => {
     expect(header?.getAttribute("data-visible")).toBe("true");
     expect(panel).not.toBeNull();
     expect(shell?.contains(panel)).toBe(true);
-    expect(panel?.className).toContain("bg-sky-50");
-    expect(panel?.className).toContain("dark:bg-[#163042]");
+    expect(panel?.className).toContain("border-dashed");
+    expect(panel?.className).toContain("bg-[#e7eef2]");
+    expect(panel?.className).toContain("dark:bg-[#0d171e]");
   });
 
   it("collapses the shell — and the attached summary — when the input is hidden", async () => {

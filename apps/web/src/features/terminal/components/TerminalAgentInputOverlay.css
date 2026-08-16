@@ -178,12 +178,10 @@
   }
 }
 
-/* Unattended attention auto-summary trigger bar (blue solid / pulse). */
+/* Unattended attention auto-summary trigger bar — same muted slate as the card, no glow. */
 .terminal-agent-input-trigger--summary {
-  background: #0ea5e9 !important;
-  box-shadow:
-    0 0 0 1px color-mix(in srgb, #38bdf8 45%, transparent),
-    0 0 12px color-mix(in srgb, #0ea5e9 40%, transparent);
+  background: #3e5460 !important;
+  box-shadow: none;
 }
 
 .terminal-agent-input-trigger--pulse {
@@ -193,25 +191,19 @@
 @keyframes terminal-agent-input-trigger-pulse {
   0%,
   100% {
-    opacity: 0.38;
-    box-shadow:
-      0 0 0 1px color-mix(in srgb, #38bdf8 22%, transparent),
-      0 0 5px color-mix(in srgb, #0ea5e9 18%, transparent);
+    opacity: 0.42;
   }
   50% {
-    opacity: 1;
-    box-shadow:
-      0 0 0 2px color-mix(in srgb, #38bdf8 58%, transparent),
-      0 0 18px color-mix(in srgb, #0ea5e9 62%, transparent);
+    opacity: 0.88;
   }
 }
 
 .attention-summary-skeleton {
   background: linear-gradient(
     90deg,
-    color-mix(in srgb, #0ea5e9 16%, var(--muted)) 0%,
-    color-mix(in srgb, #7dd3fc 38%, var(--muted)) 45%,
-    color-mix(in srgb, #0ea5e9 16%, var(--muted)) 100%
+    color-mix(in srgb, #3e5460 14%, var(--muted)) 0%,
+    color-mix(in srgb, #64748b 28%, var(--muted)) 45%,
+    color-mix(in srgb, #3e5460 14%, var(--muted)) 100%
   );
   background-size: 200% 100%;
   animation: attention-summary-skeleton 1.2s ease-in-out infinite;

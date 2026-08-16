@@ -19,6 +19,11 @@ import {
   cn,
   toastManager,
 } from "@workspace/ui";
+import {
+  Tabs,
+  TabsList,
+  TabsTrigger,
+} from "@workspace/ui/components/motion/tabs";
 import { CircleHelp, Loader2 } from "lucide-react";
 import { wsScriptApi } from "@/api/ws-api";
 import {
@@ -217,7 +222,7 @@ export const WorkspaceScriptDialog: React.FC<WorkspaceScriptDialogProps> = ({
     <>
       <Dialog open={isOpen} onOpenChange={(open) => !open && handleCloseAttempt()}>
         <DialogContent
-          className="flex h-[min(86vh,640px)] w-full flex-col gap-0 overflow-hidden p-0 sm:max-w-[760px]"
+          className="flex h-[min(86vh,640px)] w-full flex-col gap-0 overflow-hidden p-0 sm:max-w-[560px]"
           onInteractOutside={(event) => {
             event.preventDefault();
             handleCloseAttempt();
@@ -240,60 +245,56 @@ export const WorkspaceScriptDialog: React.FC<WorkspaceScriptDialogProps> = ({
             <DialogDescription className="sr-only">{t("title")}</DialogDescription>
           </DialogHeader>
 
-          <div className="@container min-h-0 flex-1 px-6">
-            <div className="flex h-full min-h-0 flex-col gap-4 @min-[560px]:grid @min-[560px]:grid-cols-[172px_minmax(0,1fr)] @min-[560px]:gap-6">
-              <PhaseRail
-                activePhase={activePhase}
-                scripts={scripts}
-                initialScripts={initialScripts}
-                onSelect={selectPhase}
-              />
-              <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-                <p className="mb-3 shrink-0 text-xs leading-5 text-muted-foreground">
-                  {t(`${activePhase}.help`)}
-                </p>
+          <div className="flex min-h-0 flex-1 flex-col px-6">
+            <PhaseTabs
+              activePhase={activePhase}
+              scripts={scripts}
+              initialScripts={initialScripts}
+              onSelect={selectPhase}
+            />
+            <p className="mb-3 mt-3 shrink-0 text-xs leading-5 text-muted-foreground">
+              {t(`${activePhase}.help`)}
+            </p>
 
-                <div
-                  id={`workspace-script-${activePhase}`}
-                  role="tabpanel"
-                  aria-label={t(`${activePhase}.title`)}
-                  className={cn(
-                    "relative flex min-h-[200px] flex-1 flex-col overflow-hidden rounded-lg border border-border",
-                    "focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50",
-                  )}
-                >
-                  {isLoading ? (
-                    <div className="flex flex-1 flex-col gap-2 p-3">
-                      <Skeleton className="h-3 w-4/5" />
-                      <Skeleton className="h-3 w-2/3" />
-                      <Skeleton className="h-3 w-3/5" />
-                    </div>
-                  ) : (
-                    <>
-                      <CodeMirrorEditor
-                        className="h-full min-h-0"
-                        language="shell"
-                        value={activeScript}
-                        onChange={updateActiveScript}
-                        onCreateEditor={(view) => {
-                          handleCreateEditor(view);
-                        }}
-                        onSave={() => void handleSave()}
-                        lineWrap
-                        autoFocus
-                      />
-                      {activeScript.trim().length === 0 ? (
-                        <div className="pointer-events-none absolute inset-y-0 right-0 left-10 pt-2 font-mono text-[13px] leading-[1.6] text-muted-foreground/70">
-                          {t(`${activePhase}.placeholder`)}
-                        </div>
-                      ) : null}
-                    </>
-                  )}
+            <div
+              id={`workspace-script-${activePhase}`}
+              role="tabpanel"
+              aria-label={t(`${activePhase}.title`)}
+              className={cn(
+                "relative flex min-h-[200px] flex-1 flex-col overflow-hidden rounded-lg border border-border",
+                "focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50",
+              )}
+            >
+              {isLoading ? (
+                <div className="flex flex-1 flex-col gap-2 p-3">
+                  <Skeleton className="h-3 w-4/5" />
+                  <Skeleton className="h-3 w-2/3" />
+                  <Skeleton className="h-3 w-3/5" />
                 </div>
-
-                <EnvInsertBar disabled={isLoading} onInsert={insertEnv} />
-              </div>
+              ) : (
+                <>
+                  <CodeMirrorEditor
+                    className="h-full min-h-0"
+                    language="shell"
+                    value={activeScript}
+                    onChange={updateActiveScript}
+                    onCreateEditor={(view) => {
+                      handleCreateEditor(view);
+                    }}
+                    onSave={() => void handleSave()}
+                    lineWrap
+                    autoFocus
+                  />
+                  {activeScript.trim().length === 0 ? (
+                    <div className="pointer-events-none absolute inset-y-0 right-0 left-10 pt-2 font-mono text-[13px] leading-[1.6] text-muted-foreground/70">
+                      {t(`${activePhase}.placeholder`)}
+                    </div>
+                  ) : null}
+                </>
+              )}
             </div>
+
+            <EnvInsertBar disabled={isLoading} onInsert={insertEnv} />
           </div>
 
           <DialogFooter className="flex-row items-center justify-between px-6 pb-5 pt-2">
@@ -332,7 +333,11 @@ export const WorkspaceScriptDialog: React.FC<WorkspaceScriptDialogProps> = ({
   );
 };
 
-function PhaseRail({
+function isWorkspaceScriptPhase(value: string): value is WorkspaceScriptPhase {
+  return (WORKSPACE_SCRIPT_PHASES as readonly string[]).includes(value);
+}
+
+function PhaseTabs({
   activePhase,
   scripts,
   initialScripts,
@@ -346,50 +351,40 @@ function PhaseRail({
   const t = useTranslations("Workspace.components.scriptDialog");
 
   return (
-    <nav
-      aria-label={t("phases.label")}
-      role="tablist"
-      className="flex shrink-0 gap-1 overflow-x-auto @min-[560px]:flex-col @min-[560px]:gap-0.5 @min-[560px]:overflow-visible"
+    <Tabs
+      value={activePhase}
+      onValueChange={(value) => {
+        if (isWorkspaceScriptPhase(value)) onSelect(value);
+      }}
+      variant="pill"
+      className="shrink-0"
     >
-      {WORKSPACE_SCRIPT_PHASES.map((phase, index) => {
-        const status = phaseStatus(scripts[phase], initialScripts?.[phase]);
-        const selected = phase === activePhase;
-        return (
-          <button
-            key={phase}
-            type="button"
-            data-script-phase={phase}
-            data-script-phase-status={status}
-            role="tab"
-            aria-selected={selected}
-            aria-controls={`workspace-script-${phase}`}
-            onClick={() => onSelect(phase)}
-            className={cn(
-              "flex min-w-[7.5rem] flex-1 cursor-pointer items-center gap-2.5 rounded-lg px-2 py-2.5 text-left @min-[560px]:min-w-0 @min-[560px]:flex-none",
-              selected
-                ? "bg-accent text-foreground"
-                : "text-muted-foreground hover:bg-accent hover:text-foreground",
-            )}
-          >
-            <span
-              className={cn(
-                "flex w-6 shrink-0 justify-center font-mono text-[11px] tabular-nums",
-                selected ? "text-foreground" : "text-muted-foreground",
-              )}
+      <TabsList className="h-8 gap-0.5 p-0.5">
+        {WORKSPACE_SCRIPT_PHASES.map((phase, index) => {
+          const status = phaseStatus(scripts[phase], initialScripts?.[phase]);
+          return (
+            <TabsTrigger
+              key={phase}
+              value={phase}
+              className="h-7 gap-1.5 px-3 text-xs"
             >
-              {String(index + 1).padStart(2, "0")}
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className="block truncate text-sm">{t(`${phase}.title`)}</span>
-            </span>
-            {status === "edited" ? (
-              <span className="size-1.5 shrink-0 rounded-full bg-foreground" aria-hidden />
-            ) : null}
-            <span className="sr-only">{t(`status.${status}`)}</span>
-          </button>
-        );
-      })}
-    </nav>
+              <span
+                data-script-phase={phase}
+                data-script-phase-status={status}
+                className="inline-flex items-center gap-1.5"
+              >
+                <span className="font-mono tabular-nums">{index + 1}</span>
+                {t(`${phase}.title`)}
+                {status === "edited" ? (
+                  <span className="size-1.5 shrink-0 rounded-full bg-current" aria-hidden />
+                ) : null}
+              </span>
+              <span className="sr-only">{t(`status.${status}`)}</span>
+            </TabsTrigger>
+          );
+        })}
+      </TabsList>
+    </Tabs>
   );
 }
 

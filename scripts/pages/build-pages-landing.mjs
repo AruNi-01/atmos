@@ -132,8 +132,23 @@ function ensurePagesRedirects() {
     join(landingOutDir, "_redirects"),
     `/en / 302
 /en/* /:splat 302
-/tok/* https://app.atmos.land/tok/:splat 302
 `,
+    "utf8",
+  );
+}
+
+function ensurePagesRoutes() {
+  writeFileSync(
+    join(landingOutDir, "_routes.json"),
+    `${JSON.stringify(
+      {
+        version: 1,
+        include: ["/tok", "/tok/*"],
+        exclude: [],
+      },
+      null,
+      2,
+    )}\n`,
     "utf8",
   );
 }
@@ -164,6 +179,7 @@ try {
   ensureRootIndex();
   ensurePagesHeaders();
   ensurePagesRedirects();
+  ensurePagesRoutes();
 } catch (error) {
   console.error(error.message ?? error);
   exitCode = error?.exitCode ?? 1;

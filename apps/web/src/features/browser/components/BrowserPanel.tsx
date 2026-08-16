@@ -4,13 +4,8 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 
 import { Minimize } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useQueryStates } from "nuqs";
 import { createPortal } from "react-dom";
 
-import { useConnectionStore } from "@/features/connection/store/connection-store";
-import { useEditorStore } from "@/features/editor/store/use-editor-store";
-import { useContextParams } from "@/shared/hooks/use-context-params";
-import { centerStageParams } from "@/shared/lib/nuqs/searchParams";
 import { cn } from "@/shared/lib/utils";
 import {
   isStandaloneSurfaceOpen as readStandaloneSurfaceOpen,
@@ -19,19 +14,11 @@ import {
   restoreStandaloneSurface,
   subscribeStandaloneSurface,
 } from "@/shared/lib/standalone-window-handoff";
-import { useUiPrefStore } from "@/shared/stores/use-ui-pref-store";
 
 import { useBrowserAgentTabBridge } from "../hooks/use-browser-agent-tab-bridge";
 import { useBrowserState } from "../hooks/use-browser-state";
 import { useBrowserSessionMapStore } from "../store/use-browser-session-map";
 import { openBrowserWindow } from "../lib/desktop-browser-window";
-import {
-  cloneBrowserContext,
-  createInitialBrowserContext,
-  DEFAULT_PREVIEW_BROWSER_PREFS,
-  type PreviewBrowserPrefs,
-} from "../lib/browser-labels";
-import { useBrowserCenterTabsStore } from "../store/use-browser-center-tabs";
 import {
   BrowserSession,
   type BrowserCanvasViewportController,
@@ -44,8 +31,6 @@ interface BrowserPanelProps {
   browserContextId?: string;
   allowStandaloneWindow?: boolean;
   allowMaximize?: boolean;
-  /** Show chrome action to hand off this browser into Center Stage. */
-  allowMoveToCenter?: boolean;
   keepInactiveTabsMounted?: boolean;
   syncUrlQueryParam?: boolean;
   canvasViewportControllerRef?: React.MutableRefObject<BrowserCanvasViewportController | null>;
@@ -59,18 +44,12 @@ export const BrowserPanel: React.FC<BrowserPanelProps> = ({
   browserContextId,
   allowStandaloneWindow = true,
   allowMaximize = true,
-  allowMoveToCenter = false,
   keepInactiveTabsMounted = true,
   syncUrlQueryParam = true,
   canvasViewportControllerRef,
   className,
 }) => {
   const previewToolbarT = useTranslations("browser.toolbar");
-  const { effectiveContextId } = useContextParams();
-  const [, setCenterStageParams] = useQueryStates(centerStageParams);
-  const setActiveFile = useEditorStore((state) => state.setActiveFile);
-  const openBrowserCenterTab = useBrowserCenterTabsStore((state) => state.openBrowser);
-  const activeInstanceId = useConnectionStore((state) => state.activeInstanceId);
   const [isPreviewMaximized, setIsPreviewMaximized] = useState(false);
   const [isPreviewStandaloneOpen, setIsPreviewStandaloneOpen] = useState(false);
   const {
@@ -87,7 +66,6 @@ export const BrowserPanel: React.FC<BrowserPanelProps> = ({
     persistBrowserState,
     previewTabsToRender,
     reloadBrowserStateFromPrefs,
-    resetBrowserState,
     setBrowserTabActivePreviewUrl,
     setBrowserTabPreviewUrl,
     urlFocusTabId,
@@ -186,47 +164,7 @@ export const BrowserPanel: React.FC<BrowserPanelProps> = ({
     setIsPreviewStandaloneOpen(false);
   }, [reloadBrowserStateFromPrefs, standaloneSurfaceKey]);
 
-  const handleMoveToCenter = useCallback(() => {
-    if (!allowMoveToCenter || !effectiveContextId) return;
 
-    // Snapshot current sidebar browser before resetting.
-    const movedState = cloneBrowserContext(browserState);
-    const centerTab = openBrowserCenterTab(effectiveContextId);
-
-    const prefs =
-      (useUiPrefStore
-        .getState()
-        .readSlice(
-          activeInstanceId,
-          "previewBrowser",
-          DEFAULT_PREVIEW_BROWSER_PREFS,
-        ) as PreviewBrowserPrefs) ?? DEFAULT_PREVIEW_BROWSER_PREFS;
-
-    useUiPrefStore.getState().writeSlice(activeInstanceId, "previewBrowser", {
-      byContext: {
-        ...prefs.byContext,
-        // Seed the new center browser with the moved tabs/titles.
-        [centerTab.browserContextId]: movedState,
-        // Right sidebar returns to a fresh single empty tab.
-        [resolvedBrowserContextId]: createInitialBrowserContext(""),
-      },
-    } satisfies PreviewBrowserPrefs);
-
-    resetBrowserState("");
-    setIsPreviewMaximized(false);
-    setActiveFile(null, effectiveContextId);
-    void setCenterStageParams({ tab: centerTab.value, wikiPage: null });
-  }, [
-    activeInstanceId,
-    allowMoveToCenter,
-    browserState,
-    effectiveContextId,
-    openBrowserCenterTab,
-    resetBrowserState,
-    resolvedBrowserContextId,
-    setActiveFile,
-    setCenterStageParams,
-  ]);
 
   const browserContent = effectiveIsPreviewStandaloneOpen ? (
     <PreviewStandalonePaused
@@ -269,7 +207,7 @@ export const BrowserPanel: React.FC<BrowserPanelProps> = ({
           onOpenPreviewBrowserWindow={
             allowStandaloneWindow ? handleOpenPreviewBrowserWindow : undefined
           }
-          onMoveToCenter={allowMoveToCenter ? handleMoveToCenter : undefined}
+
           onPageTitleChange={(title, pageUrl) =>
             handlePreviewTitleChange(tab.id, title, pageUrl)
           }

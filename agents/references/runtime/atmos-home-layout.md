@@ -16,7 +16,7 @@ Canonical on-disk layout (no legacy root-level secret/config files).
     simulator/              # APP-060 claims / leases (not under data/desktop/)
 
   config/               # non-secret preferences
-    function_settings.json
+    function_settings.json   # includes center_stage.saved_layouts (named multi-pane layouts)
     agent/              # terminal_code_agent.json, acp_registry.json, …
     llm/providers.json
 

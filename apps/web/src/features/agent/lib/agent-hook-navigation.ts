@@ -43,7 +43,7 @@ export function isAgentHookSideChatSession(session: {
   return session.terminal_kind === "side_chat";
 }
 
-/** Prefer the source mosaic/canvas pane for side chats; never the side tmux window. */
+/** Prefer the source terminal/canvas pane for side chats; never the side tmux window. */
 export function resolveAgentHookNavigationTarget(session: {
   context_id?: string | null;
   pane_id?: string | null;

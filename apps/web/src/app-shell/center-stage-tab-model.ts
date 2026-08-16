@@ -15,9 +15,14 @@ export type CenterTabKind =
   | "github-issue"
   | "github-action"
   | "github-commit"
+  | "github"
   | "browser"
   | "simulator"
-  | "git-history";
+  | "git-history"
+  | "changes"
+  | "review"
+  | "run"
+  | "files";
 
 /**
  * Visual-order descriptor for a closable center tab.
@@ -87,8 +92,8 @@ export function orderCenterTabsBySavedOrder(
 }
 
 /**
- * Block non-primary pointer from activating Base UI Tabs (right-click must not switch).
- * Call from onPointerDown on TabsTab.
+ * Block non-primary pointer from activating a tab (right-click must not switch).
+ * Call from onPointerDown on CenterStageTab.
  */
 export function preventNonPrimaryTabActivate(
   event: PointerEvent | MouseEvent,

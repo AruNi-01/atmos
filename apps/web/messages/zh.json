@@ -154,12 +154,6 @@
       "expandLabel": "展开左侧边栏",
       "collapseLabel": "收起左侧边栏"
     },
-    "rightSidebar": {
-      "expand": "展开右侧边栏",
-      "collapse": "收起右侧边栏",
-      "expandLabel": "展开右侧边栏",
-      "collapseLabel": "收起右侧边栏"
-    },
     "navigation": {
       "goBack": "返回上一步",
       "goForward": "前进",
@@ -280,8 +274,7 @@
       "refreshPage": "刷新页面",
       "toggleQuotaUsage": "切换配额用量",
       "toggleNeedAttention": "切换需要关注筛选",
-      "toggleMenu": "切换菜单",
-      "toggleRightSidebar": "切换右侧边栏"
+      "toggleMenu": "切换菜单"
     },
     "headerParts": {
       "defaultBranch": "默认分支",
@@ -358,8 +351,32 @@
     "centerStageTabBar": {
       "newTerminalTab": "终端",
       "newBrowser": "浏览器",
+      "newChanges": "变更",
+      "newReview": "评审",
+      "newRun": "运行",
+      "newGithub": "GitHub",
+      "newFiles": "文件",
       "newSimulator": "模拟器",
+      "splitRight": "向右分屏",
+      "splitDown": "向下分屏",
+      "layouts": "布局",
+      "saveCurrentLayout": "保存当前布局",
+      "saveLayoutDialogTitle": "保存布局",
+      "saveLayoutNamePlaceholder": "布局名称",
+      "saveLayoutConfirm": "保存",
+      "saveLayoutCancel": "取消",
+      "emptyPaneHint": "在此区域打开一个标签页",
       "newTabMenu": "新建标签页",
+      "changes": "变更",
+      "closeChangesTab": "关闭变更标签页",
+      "review": "评审",
+      "closeReviewTab": "关闭评审标签页",
+      "run": "运行",
+      "closeRunTab": "关闭运行标签页",
+      "github": "GitHub",
+      "closeGithubTab": "关闭 GitHub 标签页",
+      "files": "文件",
+      "closeFilesTab": "关闭文件标签页",
       "simulator": "模拟器",
       "closeSimulatorTab": "关闭模拟器标签页",
       "history": "图形历史",
@@ -1607,79 +1624,6 @@
           "tasks": "任务"
         }
       },
-      "rightSidebar": {
-        "expand": "展开右侧边栏",
-        "topTabs": {
-          "changes": "变更",
-          "review": "评审",
-          "browser": "浏览器",
-          "run": "运行",
-          "github": "GitHub",
-          "simulator": "模拟器",
-          "pullRequests": "拉取请求",
-          "issues": "议题",
-          "actions": "操作"
-        },
-        "noContext": "没有仓库上下文",
-        "changes": {
-          "selectScope": "选择变更范围",
-          "noCommitChanges": "提交 {commit} 没有文件变更",
-          "noChangesAgainst": "与 {compareRef} 相比没有变更",
-          "noChangesDetected": "未检测到变更",
-          "compareWithDefaultBranch": "与默认分支比较（{branch}）",
-          "branchChanges": "分支变更",
-          "commitChanges": "提交 {commit} 的变更",
-          "stagedChanges": "已暂存变更",
-          "unstagedChanges": "未暂存变更",
-          "untrackedChanges": "未跟踪文件",
-          "noRepositoryContext": "没有仓库上下文",
-          "history": "图形历史",
-          "view": {
-            "settings": "更改文件视图",
-            "section": "视图",
-            "list": "列表",
-            "tree": "树状"
-          },
-          "actions": {
-            "stageAll": "全部暂存",
-            "unstageAll": "全部取消暂存",
-            "discardTracked": "丢弃已跟踪的变更",
-            "trashUntracked": "删除未跟踪文件",
-            "moreActions": "更多变更操作",
-            "failedTitle": "Git 操作失败",
-            "failedDescription": "请重试。"
-          },
-          "scope": {
-            "unstaged": "未暂存",
-            "staged": "已暂存",
-            "commit": "提交",
-            "branch": "分支"
-          }
-        },
-        "pr": {
-          "refreshOpenPullRequests": "刷新打开的拉取请求",
-          "refreshClosedPullRequests": "刷新已关闭的拉取请求",
-          "loadingOpen": "正在加载打开的拉取请求...",
-          "loadingClosed": "正在加载已关闭的拉取请求...",
-          "noOpenFound": "未找到针对 <highlight>{branch}</highlight> 的打开的拉取请求",
-          "noClosedFound": "未找到针对 <highlight>{branch}</highlight> 的已关闭的拉取请求",
-          "selfMerging": "检测到自我合并（循环或同步 PR）",
-          "outgoingPr": "检测为从当前分支（{branch}）发出的拉取请求（OUTGOING）",
-          "incomingPr": "检测为针对当前分支（{branch}）的拉取请求（INCOMING）",
-          "to": "至",
-          "unknownAuthor": "未知",
-          "stateOpen": "开启",
-          "stateClosed": "关闭",
-          "stateMerged": "已合并",
-          "page": "第 {page} / {total} 页",
-          "previousPage": "上一页",
-          "nextPage": "下一页"
-        },
-        "issues": {
-          "refresh": "刷新议题"
-        },
-        "notAGitHubRepository": "不是 GitHub 仓库"
-      },
       "projectItem": {
         "mainDirectoryTooltip": "主目录",
         "quickNewWorkspace": "新建工作区",
@@ -1853,6 +1797,73 @@
         "unstagedChanges": "未暂存更改",
         "untrackedChanges": "未跟踪文件",
         "noChangedFiles": "没有变更文件"
+      },
+      "changes": {
+        "selectScope": "选择变更范围",
+        "noCommitChanges": "提交 {commit} 没有文件变更",
+        "noChangesAgainst": "与 {compareRef} 相比没有变更",
+        "noChangesDetected": "未检测到变更",
+        "compareWithDefaultBranch": "与默认分支比较（{branch}）",
+        "branchChanges": "分支变更",
+        "commitChanges": "提交 {commit} 的变更",
+        "stagedChanges": "已暂存变更",
+        "unstagedChanges": "未暂存变更",
+        "untrackedChanges": "未跟踪文件",
+        "noRepositoryContext": "没有仓库上下文",
+        "history": "图形历史",
+        "view": {
+          "settings": "更改文件视图",
+          "section": "视图",
+          "list": "列表",
+          "tree": "树状"
+        },
+        "actions": {
+          "stageAll": "全部暂存",
+          "unstageAll": "全部取消暂存",
+          "discardTracked": "丢弃已跟踪的变更",
+          "trashUntracked": "删除未跟踪文件",
+          "moreActions": "更多变更操作",
+          "failedTitle": "Git 操作失败",
+          "failedDescription": "请重试。"
+        },
+        "scope": {
+          "unstaged": "未暂存",
+          "staged": "已暂存",
+          "commit": "提交",
+          "branch": "分支"
+        },
+        "noContext": "没有仓库上下文"
+      },
+      "github": {
+        "noContext": "没有仓库上下文",
+        "notAGitHubRepository": "不是 GitHub 仓库",
+        "topTabs": {
+          "pullRequests": "拉取请求",
+          "issues": "议题",
+          "actions": "操作"
+        },
+        "pr": {
+          "refreshOpenPullRequests": "刷新打开的拉取请求",
+          "refreshClosedPullRequests": "刷新已关闭的拉取请求",
+          "loadingOpen": "正在加载打开的拉取请求...",
+          "loadingClosed": "正在加载已关闭的拉取请求...",
+          "noOpenFound": "未找到针对 <highlight>{branch}</highlight> 的打开的拉取请求",
+          "noClosedFound": "未找到针对 <highlight>{branch}</highlight> 的已关闭的拉取请求",
+          "selfMerging": "检测到自我合并（循环或同步 PR）",
+          "outgoingPr": "检测为从当前分支（{branch}）发出的拉取请求（OUTGOING）",
+          "incomingPr": "检测为针对当前分支（{branch}）的拉取请求（INCOMING）",
+          "to": "至",
+          "unknownAuthor": "未知",
+          "stateOpen": "开启",
+          "stateClosed": "关闭",
+          "stateMerged": "已合并",
+          "page": "第 {page} / {total} 页",
+          "previousPage": "上一页",
+          "nextPage": "下一页"
+        },
+        "issues": {
+          "refresh": "刷新议题"
+        }
       }
     },
     "globalSearchItems": {}
@@ -4199,7 +4210,7 @@
           "tooltip": "Atmos 会在执行前检查脚本是否受信任，避免仓库里未经审阅的命令直接在你的 shell 里运行。你在这里手动保存的内容默认视为已信任。"
         },
         "env": {
-          "title": "插入变量",
+          "title": "插入环境变量：",
           "rootProjectPath": "根项目路径",
           "workspaceName": "当前工作区名称",
           "workspacePath": "当前工作区路径"
@@ -4847,9 +4858,6 @@
             },
             "headerLayout": {
               "label": "Header 布局"
-            },
-            "rightSidebarBrowser": {
-              "label": "在侧栏显示 Browser"
             },
             "workspaceSummaryButton": {
               "label": "工作区摘要按钮"
@@ -5504,7 +5512,6 @@
           "title": "全局",
           "items": {
             "toggleLeftSidebar": "切换左侧边栏",
-            "toggleRightSidebar": "切换右侧边栏",
             "commandPalette": "命令面板 / 全局搜索",
             "quickOpenFile": "快速打开文件",
             "navigateBack": "返回上一步",
@@ -6063,24 +6070,6 @@
       "remoteAccessDescription": "显示 Atmos Computer 与隧道连接器控件。隐藏后将停止隧道状态轮询。",
       "appshotTitle": "Appshot 按钮",
       "appshotDescription": "在顶部栏显示 Appshot 截屏按钮。"
-    },
-    "rightSidebarLayoutSection": {
-      "title": "右侧栏标签页",
-      "description": "选择显示哪些右侧栏标签页。隐藏的标签页会被完全移除，并跳过其后台数据加载。",
-      "enabledCount": "已启用 {count} 项",
-      "hidden": "已隐藏",
-      "changesTitle": "变更",
-      "changesDescription": "查看已暂存、未暂存和分支变更以及提交历史。",
-      "reviewTitle": "评审",
-      "reviewDescription": "对当前变更运行内置代码评审。",
-      "browserTitle": "Browser",
-      "browserDescription": "在右侧栏显示应用内 Browser 模块。",
-      "runTitle": "运行",
-      "runDescription": "启动并监控项目运行脚本。",
-      "githubTitle": "GitHub",
-      "githubDescription": "浏览拉取请求、议题和 Actions 工作流运行记录。隐藏后将移除 GitHub 标签页并停止相关查询。",
-      "simulatorTitle": "模拟器",
-      "simulatorDescription": "在右侧边栏预览本机 iOS 模拟器。"
     },
     "agentHookStatusCard": {
       "title": "Agent Hook 状态",
@@ -9601,7 +9590,7 @@
       "orphanedProcessesLabel": "{count, plural, one {# 个孤儿进程} other {# 个孤儿进程}}",
       "orphanedProcessesTooltip": "这些是可能正在占用 PTY 设备的孤儿 shell 进程（PPID=1）。详情请查看下面的 Orphaned Processes 区域。"
     },
-    "mosaicWorkspacePaneWindow": {
+    "workspacePane": {
       "pin": {
         "title": "固定到 Canvas（⌘⇧P）",
         "alreadyPinnedTitle": "已固定到 Canvas"
@@ -9885,9 +9874,6 @@
         "detailsLabel": "详情",
         "retry": "重试",
         "openInBrowser": "在浏览器中打开"
-      },
-      "loading": {
-        "label": "正在加载浏览器..."
       },
       "home": {
         "title": "浏览器",

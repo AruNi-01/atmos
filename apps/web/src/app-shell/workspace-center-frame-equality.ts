@@ -20,6 +20,13 @@ export type TerminalQuickOpenAgent = {
   command: string;
 };
 
+export type PaneSlotBox = {
+  top: number;
+  left: number;
+  width: number;
+  height: number;
+};
+
 export type WorkspaceCenterFrameProps = {
   contextId: string;
   isActiveContext: boolean;
@@ -32,6 +39,15 @@ export type WorkspaceCenterFrameProps = {
   mountPlan: MountPlan;
   // --- URL-synced live props (ignored for warm equality when not url-synced) ---
   activeValue: string | null;
+  /**
+   * Multi-pane: every pane's active tab is visible simultaneously on the active frame.
+   * When null/empty, falls back to single `activeValue` / frameActiveTab behavior.
+   */
+  activeTabIds?: readonly string[] | null;
+  /** Multi-pane: map tab id → pane id for slot positioning. */
+  tabToPaneId?: Readonly<Record<string, string>> | null;
+  /** Multi-pane: content-slot boxes relative to the panel host. */
+  paneSlotBoxes?: Readonly<Record<string, PaneSlotBox>> | null;
   visibleTerminalTabs: TerminalCenterTab[] | undefined;
   openFiles: OpenFile[] | undefined;
   githubTabs: GithubCenterTab[] | undefined;
@@ -46,6 +62,11 @@ export type WorkspaceCenterFrameProps = {
   codeReviewTabVisible: boolean;
   simulatorTabVisible: boolean;
   gitHistoryTabVisible: boolean;
+  changesTabVisible: boolean;
+  reviewTabVisible: boolean;
+  runTabVisible: boolean;
+  githubHubTabVisible: boolean;
+  filesTabVisible: boolean;
   terminalQuickOpenAgents: TerminalQuickOpenAgent[] | undefined;
   terminalGridRef: RefObject<TerminalGridHandle | null> | undefined;
   terminalGridRefs: RefObject<Record<string, TerminalGridHandle | null>> | undefined;
@@ -96,6 +117,9 @@ export function workspaceCenterFramePropsAreEqual(
 
   return (
     prev.activeValue === next.activeValue &&
+    sameStringList(prev.activeTabIds ?? [], next.activeTabIds ?? []) &&
+    prev.tabToPaneId === next.tabToPaneId &&
+    prev.paneSlotBoxes === next.paneSlotBoxes &&
     prev.visibleTerminalTabs === next.visibleTerminalTabs &&
     prev.openFiles === next.openFiles &&
     prev.githubTabs === next.githubTabs &&
@@ -110,6 +134,11 @@ export function workspaceCenterFramePropsAreEqual(
     prev.codeReviewTabVisible === next.codeReviewTabVisible &&
     prev.simulatorTabVisible === next.simulatorTabVisible &&
     prev.gitHistoryTabVisible === next.gitHistoryTabVisible &&
+    prev.changesTabVisible === next.changesTabVisible &&
+    prev.reviewTabVisible === next.reviewTabVisible &&
+    prev.runTabVisible === next.runTabVisible &&
+    prev.githubHubTabVisible === next.githubHubTabVisible &&
+    prev.filesTabVisible === next.filesTabVisible &&
     prev.terminalQuickOpenAgents === next.terminalQuickOpenAgents &&
     prev.terminalGridRef === next.terminalGridRef &&
     prev.terminalGridRefs === next.terminalGridRefs &&

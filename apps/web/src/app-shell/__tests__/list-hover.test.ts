@@ -6,8 +6,8 @@ const changeSection = readFileSync(
   join(import.meta.dir, "../sidebar/ChangeSection.tsx"),
   "utf8",
 );
-const rightSidebar = readFileSync(
-  join(import.meta.dir, "../RightSidebar.tsx"),
+const changesPanel = readFileSync(
+  join(import.meta.dir, "../../features/git/components/ChangesPanel.tsx"),
   "utf8",
 );
 const fileTreeRow = readFileSync(
@@ -38,8 +38,23 @@ const gitHistoryPanel = readFileSync(
   join(import.meta.dir, "../../features/git/components/GitHistoryPanel.tsx"),
   "utf8",
 );
+const centerPaneEmptyState = readFileSync(
+  join(import.meta.dir, "../center-pane/CenterPaneEmptyState.tsx"),
+  "utf8",
+);
 
-describe("right sidebar list hover", () => {
+describe("center list hover", () => {
+  it("uses instant hover on split-pane empty launcher rows", () => {
+    const rowClass = centerPaneEmptyState.slice(
+      centerPaneEmptyState.indexOf("flex w-full items-center gap-2.5 rounded-lg"),
+      centerPaneEmptyState.indexOf("focus-visible:outline-none focus-visible:ring-2"),
+    );
+    expect(rowClass).toContain("hover:bg-accent");
+    expect(rowClass).not.toContain("transition-colors");
+    expect(rowClass).not.toContain("transition-all");
+    expect(rowClass).not.toContain("duration-");
+  });
+
   it("uses instant hover on changes file rows, not a delayed color fade", () => {
     const rowClass = changeSection.slice(
       changeSection.indexOf("group flex items-center px-2 py-1.5"),
@@ -52,9 +67,9 @@ describe("right sidebar list hover", () => {
   });
 
   it("uses instant hover on empty-state change-scope recommendations", () => {
-    const rowClass = rightSidebar.slice(
-      rightSidebar.indexOf("group flex w-full items-center gap-2 rounded-sm px-2 py-2"),
-      rightSidebar.indexOf("ScopeIcon className="),
+    const rowClass = changesPanel.slice(
+      changesPanel.indexOf("group flex w-full items-center gap-2 rounded-sm px-2 py-2"),
+      changesPanel.indexOf("ScopeIcon className="),
     );
     expect(rowClass).toContain("hover:bg-sidebar-accent/50");
     expect(rowClass).not.toContain("transition-colors");

@@ -4,7 +4,7 @@ import { create } from "zustand";
 import { functionSettingsApi } from "@/api/ws-api";
 import { useFunctionSettingsStore } from "@/features/settings/store/function-settings-store";
 
-export type BrowserDefaultSurface = "sidebar" | "center";
+export type BrowserDefaultSurface = "center";
 
 type BrowserSettingsState = {
   defaultSurface: BrowserDefaultSurface;
@@ -18,14 +18,14 @@ type BrowserSettingsState = {
   setShowAgentChrome: (value: boolean) => Promise<void>;
 };
 
-function parseSurface(value: unknown): BrowserDefaultSurface {
-  return value === "center" ? "center" : "sidebar";
+function parseSurface(_value: unknown): BrowserDefaultSurface {
+  return "center";
 }
 
 let inflight: Promise<void> | null = null;
 
 export const useBrowserSettingsStore = create<BrowserSettingsState>((set, get) => ({
-  defaultSurface: "sidebar",
+  defaultSurface: "center",
   newTabUrl: "",
   showAgentChrome: true,
   loaded: false,

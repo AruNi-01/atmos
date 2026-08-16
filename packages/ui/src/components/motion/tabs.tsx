@@ -4,11 +4,14 @@
 import { motion, MotionConfig, useReducedMotion, type Transition } from "motion/react";
 import {
   createContext,
+  forwardRef,
   useCallback,
   useContext,
   useId,
   useMemo,
   useState,
+  type ButtonHTMLAttributes,
+  type MouseEvent as ReactMouseEvent,
   type ReactNode,
 } from "react";
 import { EASE_OUT } from "../../lib/ease";
@@ -101,69 +104,74 @@ export function TabsList({ children, className }: { children: ReactNode; classNa
   );
 }
 
-export function TabsTrigger({
-  value,
-  children,
-  className,
-  indicatorClassName,
-}: {
+type TabsTriggerProps = {
   value: string;
   children: ReactNode;
   className?: string;
   indicatorClassName?: string;
-}) {
-  const { value: current, setValue, layoutId, variant } = useTabs();
-  const active = current === value;
+} & Omit<ButtonHTMLAttributes<HTMLButtonElement>, "value">;
 
-  if (variant === "underline") {
+export const TabsTrigger = forwardRef<HTMLButtonElement, TabsTriggerProps>(
+  function TabsTrigger(
+    {
+      value,
+      children,
+      className,
+      indicatorClassName,
+      onClick,
+      type = "button",
+      ...props
+    },
+    ref,
+  ) {
+    const { value: current, setValue, layoutId, variant } = useTabs();
+    const active = current === value;
+    const handleClick = (event: ReactMouseEvent<HTMLButtonElement>) => {
+      onClick?.(event);
+      if (!event.defaultPrevented) setValue(value);
+    };
+
+    if (variant === "underline") {
+      return (
+        <button
+          {...props}
+          ref={ref}
+          type={type}
+          role="tab"
+          aria-selected={active}
+          onClick={handleClick}
+          className={cn(
+            "relative isolate px-3 pb-2.5 pt-1 -mb-px text-sm font-medium transition-colors min-h-[44px] inline-flex items-center",
+            active ? "text-foreground" : "text-muted-foreground hover:text-foreground",
+            className,
+          )}
+        >
+          {children}
+          {active ? (
+            <motion.span
+              layoutId={layoutId}
+              className={cn(
+                "absolute -bottom-px left-0 right-0 h-px bg-primary",
+                indicatorClassName,
+              )}
+            />
+          ) : null}
+        </button>
+      );
+    }
+
+    const radius = variant === "pill" ? "rounded-full" : "rounded-md";
+
     return (
       <button
-        type="button"
+        {...props}
+        ref={ref}
+        type={type}
         role="tab"
         aria-selected={active}
-        onClick={() => setValue(value)}
+        onClick={handleClick}
         className={cn(
-          "relative isolate px-3 pb-2.5 pt-1 -mb-px text-sm font-medium transition-colors min-h-[44px] inline-flex items-center",
-          active ? "text-foreground" : "text-muted-foreground hover:text-foreground",
-          className,
-        )}
-      >
-        {children}
-        {active ? (
-          <motion.span
-            layoutId={layoutId}
-            className={cn(
-              "absolute -bottom-px left-0 right-0 h-px bg-primary",
-              indicatorClassName,
-            )}
-          />
-        ) : null}
-      </button>
-    );
-  }
-
-  const radius = variant === "pill" ? "rounded-full" : "rounded-md";
-
-  return (
-    <div className="relative">
-      {active ? (
-        <motion.span
-          layoutId={layoutId}
-          style={{ borderRadius: variant === "pill" ? 9999 : 8 }}
-          className={cn(
-            "absolute inset-0 bg-primary",
-            radius,
-            indicatorClassName,
-          )}
-        />
-      ) : null}
-      <button
-        type="button"
-        role="tab"
-        aria-selected={active}
-        onClick={() => setValue(value)}
-        className={cn(
-          "relative z-10 inline-flex items-center justify-center whitespace-nowrap bg-transparent px-3.5 py-1.5 text-sm font-medium outline-none",
+          "relative isolate z-10 inline-flex items-center justify-center whitespace-nowrap bg-transparent px-3.5 py-1.5 text-sm font-medium outline-none",
           "transition-colors",
           active
             ? "text-primary-foreground"
@@ -172,11 +180,22 @@ export function TabsTrigger({
           className,
         )}
       >
+        {active ? (
+          <motion.span
+            layoutId={layoutId}
+            style={{ borderRadius: variant === "pill" ? 9999 : 8 }}
+            className={cn(
+              "absolute inset-0 -z-10 bg-primary",
+              radius,
+              indicatorClassName,
+            )}
+          />
+        ) : null}
         {children}
       </button>
-    </div>
-  );
-}
+    );
+  },
+);
 
 export function TabsContent({
   value,

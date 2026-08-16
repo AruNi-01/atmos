@@ -44,6 +44,7 @@ import {
   resolveAgentHookContextNames,
 } from '@/features/agent/lib/agent-hook-navigation';
 import { useTranslations } from 'next-intl';
+import { APP_FOOTER_HEIGHT_CLASS } from '@/app-shell/sidebar-layout-constants';
 
 function groupSessionsByContext(sessions: AgentHookSession[]): Map<string, AgentHookSession[]> {
   const grouped = new Map<string, AgentHookSession[]>();
@@ -500,7 +501,7 @@ const Footer: React.FC = () => {
   }
 
   return (
-    <footer className="h-6 flex items-center justify-between px-3 backdrop-blur-md border-t border-sidebar-border text-[10px] font-mono text-muted-foreground select-none shadow-sm">
+    <footer className={cn(APP_FOOTER_HEIGHT_CLASS, "flex shrink-0 items-center justify-between px-3 backdrop-blur-md text-[10px] font-mono text-muted-foreground select-none")}>
       {showLeft ? (
         <div className="flex items-center space-x-2">
           {showWsStatus ? (

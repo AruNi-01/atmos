@@ -89,6 +89,13 @@ export function isHostedAtmosOrigin(): boolean {
   );
 }
 
+/** Public Token Usage / leaderboard share pages — no workbench WebSocket. */
+export function isPublicTokPath(
+  pathname = typeof window === 'undefined' ? '' : window.location.pathname,
+): boolean {
+  return pathname === '/tok' || pathname.startsWith('/tok/');
+}
+
 export function setHostedRuntimeApiOverride(cfg: ApiConfig | null): void {
   hostedRuntimeOverride = cfg;
   cachedConfig = cfg;

@@ -23,6 +23,7 @@ import {
 } from "./runtime-events.js";
 import {
   BROWSER_PARTITION,
+  isAllowedBrowserGuestPermission,
   toPreloadFileUrl,
   type RegisteredBrowserSession,
 } from "./webview-attach-policy.js";
@@ -208,9 +209,15 @@ export class BrowserSurfaceManager {
       s.listenersAttached = true;
     }
 
-    // Default-deny guest permissions (media/notifications/etc.). Intentional lockdown.
-    wc.session.setPermissionRequestHandler((_wc, _permission, callback) => {
-      callback(false);
+    // Default-deny high-risk guest permissions (USB/HID, capture, geolocation…).
+    // Clipboard + media + notifications + common preview UX stay allowed so
+    // local dev (Next.js Copy, getUserMedia, Notification) works in-browser.
+    // Both handlers are required: Chromium may check and/or request permission.
+    wc.session.setPermissionRequestHandler((_wc, permission, callback) => {
+      callback(isAllowedBrowserGuestPermission(permission));
+    });
+    wc.session.setPermissionCheckHandler((_wc, permission) => {
+      return isAllowedBrowserGuestPermission(permission);
     });
 
     void this.applyGuestColorScheme(s);

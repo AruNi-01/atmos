@@ -126,7 +126,9 @@ describe("WorkspaceScriptDialog", () => {
   it("loads scripts into a lifecycle rail and focused editor", async () => {
     const container = await renderDialog();
 
-    expect(container.querySelector('[data-script-phase="setup"]')?.getAttribute("aria-selected")).toBe("true");
+    expect(
+      container.querySelector('[data-script-phase="setup"]')?.closest('[role="tab"]')?.getAttribute("aria-selected"),
+    ).toBe("true");
     expect(container.querySelector('[data-script-phase="run"]')).not.toBeNull();
     expect(container.querySelector('[data-script-phase="purge"]')).not.toBeNull();
     expect(

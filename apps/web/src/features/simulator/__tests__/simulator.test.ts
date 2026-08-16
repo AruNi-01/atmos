@@ -136,7 +136,7 @@ describe("no custom phone chrome", () => {
     expect(layout).toContain('data-atmos-drag-active');
     expect(layout).toContain("relative z-20");
     expect(layout).toContain("-right-1.5");
-    expect(layout).toContain("rightPanelRef.current?.expand()");
+    expect(layout).not.toContain("rightPanelRef");
   });
 });
 
@@ -159,16 +159,20 @@ describe("i18n", () => {
   });
 });
 
-describe("right sidebar", () => {
-  it("exposes a simulator tab next to the other sidebar modules", () => {
-    const sidebar = readFileSync(
-      join(import.meta.dir, "../../../app-shell/RightSidebar.tsx"),
+describe("center simulator tab", () => {
+  it("exposes simulator from the center plus menu and frame", () => {
+    const tabBar = readFileSync(
+      join(import.meta.dir, "../../../app-shell/CenterStageTabBar.tsx"),
       "utf8",
     );
-    expect(sidebar).toContain('value: "simulator"');
-    expect(sidebar).toContain("<SimulatorPanel");
-    expect(sidebar).not.toContain("configureTabs");
-    expect(sidebar).not.toContain("Settings2");
+    expect(tabBar).toContain("onCreateSimulator");
+    expect(tabBar).toContain("newSimulator");
+
+    const frame = readFileSync(
+      join(import.meta.dir, "../../../app-shell/workspace-center-frame.tsx"),
+      "utf8",
+    );
+    expect(frame).toContain("<SimulatorPanel");
 
     const tabs = readFileSync(
       join(import.meta.dir, "../../../shared/lib/nuqs/searchParams.ts"),

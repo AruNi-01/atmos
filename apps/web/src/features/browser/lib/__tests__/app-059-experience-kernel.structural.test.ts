@@ -64,7 +64,7 @@ describe("APP-059 experience kernel", () => {
     expect(store).toContain("lastBrowser");
   });
 
-  it("human open follows the default surface", () => {
+  it("human open always uses the center browser", () => {
     const hook = readFileSync(
       join(root, "apps/web/src/features/browser/hooks/use-open-browser-center-tab.ts"),
       "utf8",

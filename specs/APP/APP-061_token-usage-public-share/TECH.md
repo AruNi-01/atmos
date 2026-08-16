@@ -368,4 +368,4 @@ Each step 1–6 is mergeable without the rewrite.
 
 ## Open questions
 
-- [ ] Worker vs landing `_worker` for the rewrite — pick at implement time; user-visible URL does not change.
+- [x] Worker vs landing `_worker` for the rewrite — landing Pages Function (`functions/_middleware.ts`) reverse-proxies `/tok*` and missing `/_next` / icon assets from `app.atmos.land`.

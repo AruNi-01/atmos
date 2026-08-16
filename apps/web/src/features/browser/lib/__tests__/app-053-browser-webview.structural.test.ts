@@ -58,6 +58,28 @@ describe("APP-053 browser webview structural (shipped sources)", () => {
     expect(surface).toContain("queryElementRects");
   });
 
+  it("guest permission lockdown allows clipboard/media/notifications for preview", () => {
+    const surface = read("apps/desktop-electron/src/browser/surface-manager.ts");
+    expect(surface).toContain("setPermissionRequestHandler");
+    expect(surface).toContain("setPermissionCheckHandler");
+    expect(surface).toContain("isAllowedBrowserGuestPermission");
+
+    const policy = read(
+      "apps/desktop-electron/src/browser/webview-attach-policy.ts",
+    );
+    expect(policy).toContain("clipboard-sanitized-write");
+    expect(policy).toContain("clipboard-read");
+    expect(policy).toContain('"media"');
+    expect(policy).toContain('"notifications"');
+
+    const viewport = read(
+      "apps/web/src/features/browser/components/BrowserViewport.tsx",
+    );
+    expect(viewport).toContain(
+      'allow="clipboard-read; clipboard-write; camera; microphone"',
+    );
+  });
+
   it("host SelectionPopover is used for desktop (no desktop-only null branch)", () => {
     const src = read("apps/web/src/features/browser/components/BrowserViewport.tsx");
     expect(src).toContain("SelectionPopover");
@@ -144,8 +166,28 @@ describe("APP-053 browser webview structural (shipped sources)", () => {
     expect(mountExpr).toContain("layoutReady");
     expect(mountExpr).not.toContain("layoutHidden");
     expect(src).toContain("onLoadingChange");
-    expect(src).toContain("did-start-loading");
+    expect(src).toContain("did-start-navigation");
+    expect(src).toContain("isMainFrameDocumentNavigation");
     expect(src).toContain("did-stop-loading");
+    expect(src).not.toContain("did-start-loading");
+    expect(src).not.toMatch(/layoutHidden && "hidden"/);
+    expect(src).toContain("pointer-events-none opacity-0");
+
+    const session = read("apps/web/src/features/browser/components/BrowserSession.tsx");
+    expect(session).not.toContain("shouldShowBrowserLoadingOverlay");
+    expect(session).not.toContain("hasPaintedGuest");
+    const viewport = read("apps/web/src/features/browser/components/BrowserViewport.tsx");
+    expect(viewport).not.toContain("showLoadingOverlay");
+    expect(viewport).not.toContain("renderPreviewLoadingOverlay");
+
+    const frame = read("apps/web/src/app-shell/workspace-center-frame.tsx");
+    expect(frame).toContain("browserKeepAlivePanelClass");
+    expect(frame).not.toMatch(/contextBrowserTabs\.map\([\s\S]{0,400}lightSurfacePanelClass/);
+    expect(frame).not.toContain("allowMoveToCenter");
+
+    const panel = read("apps/web/src/features/browser/components/BrowserPanel.tsx");
+    expect(panel).toContain("pointer-events-none z-0 opacity-0");
+    expect(panel).not.toContain("allowMoveToCenter");
   });
 
   it("surface manager injects host-driven selection (showSelectionToolbar false)", () => {

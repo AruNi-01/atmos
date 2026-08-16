@@ -89,7 +89,7 @@ function CenterTerminalMockPreview({ styleId }: { styleId: AgentActivityIndicato
   );
 }
 
-/** 1:1 mock of terminal mosaic pane toolbar full agent status. */
+/** 1:1 mock of terminal pane toolbar full agent status. */
 function TerminalPanelMockPreview({ styleId }: { styleId: AgentActivityIndicatorId }) {
   return (
     <div className="flex min-w-0 max-w-[260px] items-center gap-2 rounded-md border border-border/60 bg-background px-2 py-1.5">

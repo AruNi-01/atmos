@@ -78,7 +78,7 @@ export function focusCanvasTerminalShape(
 ): void {
   const shapeId = shape.id as TLShapeId;
   const attachedAt = Date.now();
-  // Same stable pane key as mosaic terminals / agent hooks.
+  // Same stable pane key as terminal panes / agent hooks.
   const stablePaneId = `${shape.props.workspaceId}:${shape.props.tmuxWindowName}`;
 
   const nextRendered = promoteRenderedShapeId(
@@ -90,7 +90,7 @@ export function focusCanvasTerminalShape(
   );
   options.setRenderedShapeIds(nextRendered);
   options.setActiveShapeId(shapeId);
-  // Treat focusing a canvas terminal like focusing its source mosaic pane.
+  // Treat focusing a canvas terminal like focusing its source terminal pane.
   useAgentAttentionStore.getState().notifyPaneFocused(stablePaneId);
 
   try {

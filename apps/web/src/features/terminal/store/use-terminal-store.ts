@@ -2,7 +2,8 @@
 
 import { create } from "zustand";
 import { v4 as uuidv4 } from "uuid";
-import { MosaicNode, getLeaves } from "react-mosaic-component";
+import type { TerminalLayoutNode } from "@/features/terminal/types/index";
+import { getLeaves } from "@/features/terminal/lib/terminal-layout-tree";
 import { workspaceLayoutApi, projectLayoutApi, systemApi } from "@/api/rest-api";
 import type { TerminalPaneProps } from "@/features/terminal/types/index";
 import { createTerminalAuxiliaryActions } from "@/features/terminal/store/terminal-store-auxiliary-actions";
@@ -440,7 +441,7 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => {
 
     const nextPanes = { ...panes, [newId]: newPane };
 
-    let nextLayout: MosaicNode<string>;
+    let nextLayout: TerminalLayoutNode<string>;
     if (!layout) {
       nextLayout = newId;
     } else {

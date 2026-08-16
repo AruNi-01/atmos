@@ -154,12 +154,6 @@
       "expandLabel": "Expand Left Sidebar",
       "collapseLabel": "Collapse Left Sidebar"
     },
-    "rightSidebar": {
-      "expand": "Expand right sidebar",
-      "collapse": "Collapse right sidebar",
-      "expandLabel": "Expand Right Sidebar",
-      "collapseLabel": "Collapse Right Sidebar"
-    },
     "navigation": {
       "goBack": "Go back",
       "goForward": "Go forward",
@@ -280,8 +274,7 @@
       "refreshPage": "Refresh page",
       "toggleQuotaUsage": "Toggle Quota Usage",
       "toggleNeedAttention": "Toggle need attention filter",
-      "toggleMenu": "Toggle menu",
-      "toggleRightSidebar": "Toggle right sidebar"
+      "toggleMenu": "Toggle menu"
     },
     "headerParts": {
       "defaultBranch": "default branch",
@@ -358,8 +351,32 @@
     "centerStageTabBar": {
       "newTerminalTab": "Terminal",
       "newBrowser": "Browser",
+      "newChanges": "Changes",
+      "newReview": "Review",
+      "newRun": "Run",
+      "newGithub": "GitHub",
+      "newFiles": "Files",
       "newSimulator": "Simulator",
+      "splitRight": "Split right",
+      "splitDown": "Split down",
+      "layouts": "Layouts",
+      "saveCurrentLayout": "Save current layout",
+      "saveLayoutDialogTitle": "Save layout",
+      "saveLayoutNamePlaceholder": "Layout name",
+      "saveLayoutConfirm": "Save",
+      "saveLayoutCancel": "Cancel",
+      "emptyPaneHint": "Open a tab in this pane",
       "newTabMenu": "New tab",
+      "changes": "Changes",
+      "closeChangesTab": "Close Changes tab",
+      "review": "Review",
+      "closeReviewTab": "Close Review tab",
+      "run": "Run",
+      "closeRunTab": "Close Run tab",
+      "github": "GitHub",
+      "closeGithubTab": "Close GitHub tab",
+      "files": "Files",
+      "closeFilesTab": "Close Files tab",
       "simulator": "Simulator",
       "closeSimulatorTab": "Close Simulator tab",
       "history": "Graph History",
@@ -1607,79 +1624,6 @@
           "tasks": "Task"
         }
       },
-      "rightSidebar": {
-        "expand": "Expand right sidebar",
-        "topTabs": {
-          "changes": "Changes",
-          "review": "Review",
-          "browser": "Browser",
-          "run": "Run",
-          "github": "GitHub",
-          "simulator": "Simulator",
-          "pullRequests": "Pull Requests",
-          "issues": "Issues",
-          "actions": "Actions"
-        },
-        "noContext": "No repository context",
-        "changes": {
-          "selectScope": "Select changes scope",
-          "noCommitChanges": "Commit {commit} has no file changes",
-          "noChangesAgainst": "No changes against {compareRef}",
-          "noChangesDetected": "No changes detected",
-          "compareWithDefaultBranch": "Compare with default branch ({branch})",
-          "branchChanges": "Branch changes",
-          "commitChanges": "Commit {commit} changes",
-          "stagedChanges": "Staged changes",
-          "unstagedChanges": "Unstaged changes",
-          "untrackedChanges": "Untracked changes",
-          "noRepositoryContext": "No repository context",
-          "history": "Graph History",
-          "view": {
-            "settings": "Change file view",
-            "section": "View",
-            "list": "List",
-            "tree": "Tree"
-          },
-          "actions": {
-            "stageAll": "Stage all",
-            "unstageAll": "Unstage all",
-            "discardTracked": "Discard tracked changes",
-            "trashUntracked": "Trash untracked files",
-            "moreActions": "More change actions",
-            "failedTitle": "Git action failed",
-            "failedDescription": "Try again."
-          },
-          "scope": {
-            "unstaged": "Unstaged",
-            "staged": "Staged",
-            "commit": "Commit",
-            "branch": "Branch"
-          }
-        },
-        "pr": {
-          "refreshOpenPullRequests": "Refresh open pull requests",
-          "refreshClosedPullRequests": "Refresh closed pull requests",
-          "loadingOpen": "Loading open pull requests...",
-          "loadingClosed": "Loading closed pull requests...",
-          "noOpenFound": "No open pull requests found for <highlight>{branch}</highlight>",
-          "noClosedFound": "No closed pull requests found for <highlight>{branch}</highlight>",
-          "selfMerging": "Self-merging detected (Circular or Sync PR)",
-          "outgoingPr": "Detected as an OUTGOING PR from your current branch ({branch})",
-          "incomingPr": "Detected as an INCOMING PR targeting your current branch ({branch})",
-          "to": "TO",
-          "unknownAuthor": "unknown",
-          "stateOpen": "open",
-          "stateClosed": "closed",
-          "stateMerged": "merged",
-          "page": "Page {page} of {total}",
-          "previousPage": "Previous",
-          "nextPage": "Next"
-        },
-        "issues": {
-          "refresh": "Refresh issues"
-        },
-        "notAGitHubRepository": "Not a GitHub repository"
-      },
       "projectItem": {
         "mainDirectoryTooltip": "Main directory",
         "quickNewWorkspace": "New Workspace",
@@ -1853,6 +1797,73 @@
         "unstagedChanges": "Unstaged Changes",
         "untrackedChanges": "Untracked Changes",
         "noChangedFiles": "No changed files"
+      },
+      "changes": {
+        "selectScope": "Select changes scope",
+        "noCommitChanges": "Commit {commit} has no file changes",
+        "noChangesAgainst": "No changes against {compareRef}",
+        "noChangesDetected": "No changes detected",
+        "compareWithDefaultBranch": "Compare with default branch ({branch})",
+        "branchChanges": "Branch changes",
+        "commitChanges": "Commit {commit} changes",
+        "stagedChanges": "Staged changes",
+        "unstagedChanges": "Unstaged changes",
+        "untrackedChanges": "Untracked changes",
+        "noRepositoryContext": "No repository context",
+        "history": "Graph History",
+        "view": {
+          "settings": "Change file view",
+          "section": "View",
+          "list": "List",
+          "tree": "Tree"
+        },
+        "actions": {
+          "stageAll": "Stage all",
+          "unstageAll": "Unstage all",
+          "discardTracked": "Discard tracked changes",
+          "trashUntracked": "Trash untracked files",
+          "moreActions": "More change actions",
+          "failedTitle": "Git action failed",
+          "failedDescription": "Try again."
+        },
+        "scope": {
+          "unstaged": "Unstaged",
+          "staged": "Staged",
+          "commit": "Commit",
+          "branch": "Branch"
+        },
+        "noContext": "No repository context"
+      },
+      "github": {
+        "noContext": "No repository context",
+        "notAGitHubRepository": "Not a GitHub repository",
+        "topTabs": {
+          "pullRequests": "Pull Requests",
+          "issues": "Issues",
+          "actions": "Actions"
+        },
+        "pr": {
+          "refreshOpenPullRequests": "Refresh open pull requests",
+          "refreshClosedPullRequests": "Refresh closed pull requests",
+          "loadingOpen": "Loading open pull requests...",
+          "loadingClosed": "Loading closed pull requests...",
+          "noOpenFound": "No open pull requests found for <highlight>{branch}</highlight>",
+          "noClosedFound": "No closed pull requests found for <highlight>{branch}</highlight>",
+          "selfMerging": "Self-merging detected (Circular or Sync PR)",
+          "outgoingPr": "Detected as an OUTGOING PR from your current branch ({branch})",
+          "incomingPr": "Detected as an INCOMING PR targeting your current branch ({branch})",
+          "to": "TO",
+          "unknownAuthor": "unknown",
+          "stateOpen": "open",
+          "stateClosed": "closed",
+          "stateMerged": "merged",
+          "page": "Page {page} of {total}",
+          "previousPage": "Previous",
+          "nextPage": "Next"
+        },
+        "issues": {
+          "refresh": "Refresh issues"
+        }
       }
     },
     "globalSearchItems": {}
@@ -4199,7 +4210,7 @@
           "tooltip": "Atmos checks whether these scripts are trusted before they run, so commands from a clone or pull cannot execute in your shell unseen. Saving here marks this copy as trusted."
         },
         "env": {
-          "title": "Insert",
+          "title": "Insert env:",
           "rootProjectPath": "Path to the root project",
           "workspaceName": "Current workspace name",
           "workspacePath": "Path to the current workspace"
@@ -4847,9 +4858,6 @@
             },
             "headerLayout": {
               "label": "Header layout"
-            },
-            "rightSidebarBrowser": {
-              "label": "Show Browser in sidebar"
             },
             "workspaceSummaryButton": {
               "label": "Workspace summary button"
@@ -5504,7 +5512,6 @@
           "title": "Global",
           "items": {
             "toggleLeftSidebar": "Toggle left sidebar",
-            "toggleRightSidebar": "Toggle right sidebar",
             "commandPalette": "Command palette / global search",
             "quickOpenFile": "Quick open file",
             "navigateBack": "Navigate back",
@@ -6063,24 +6070,6 @@
       "remoteAccessDescription": "Show the Atmos Computer and tunnel connector controls. Hiding this stops tunnel status polling.",
       "appshotTitle": "Appshot button",
       "appshotDescription": "Show the Appshot screen capture button in the header."
-    },
-    "rightSidebarLayoutSection": {
-      "title": "Right sidebar tabs",
-      "description": "Choose which right sidebar tabs are shown. Hidden tabs are fully removed and skip their background data loading.",
-      "enabledCount": "{count} enabled",
-      "hidden": "Hidden",
-      "changesTitle": "Changes",
-      "changesDescription": "Review staged, unstaged, and branch changes plus the commit history.",
-      "reviewTitle": "Review",
-      "reviewDescription": "Run the built-in code review over the current changes.",
-      "browserTitle": "Browser",
-      "browserDescription": "Show the in-app Browser module in the right sidebar.",
-      "runTitle": "Run",
-      "runDescription": "Start and monitor project run scripts.",
-      "githubTitle": "GitHub",
-      "githubDescription": "Browse pull requests, issues, and Actions workflow runs. Hiding this removes the GitHub tab and stops related lookups.",
-      "simulatorTitle": "Simulator",
-      "simulatorDescription": "Preview the local iOS Simulator in the right sidebar."
     },
     "agentHookStatusCard": {
       "title": "Agent Hook Status",
@@ -9601,7 +9590,7 @@
       "orphanedProcessesLabel": "{count, plural, one {# orphan} other {# orphans}}",
       "orphanedProcessesTooltip": "Orphaned shell processes (PPID=1) that may be holding PTY devices. See the Orphaned Processes section below for details."
     },
-    "mosaicWorkspacePaneWindow": {
+    "workspacePane": {
       "pin": {
         "title": "Pin to canvas (⌘⇧P)",
         "alreadyPinnedTitle": "Already pinned to canvas"
@@ -9885,9 +9874,6 @@
         "detailsLabel": "Details",
         "retry": "Retry",
         "openInBrowser": "Open in browser"
-      },
-      "loading": {
-        "label": "Loading Browser..."
       },
       "home": {
         "title": "Browser",

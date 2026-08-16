@@ -284,5 +284,6 @@ Implementation pass (2026-08-15):
 
 - Hub: `bun test packages/hub/test/usage-page.test.ts` — claim/immutable/unique/reserved, public vs unlisted `k`, unpublish 404, allowlist/size, cost strip, other residual (S5–S13, S15–S17, S23).
 - Web mapper + wiring: `bun test apps/web/src/features/token-usage/__tests__` plus existing Token Usage PNG/cookie/model-icon tests (S1, S2, S15, S16, M1/M8 static).
-- Not automated here: S4 sign-in E2E, S18 render, S19–S20 agent-browser, S22 live atmos.land rewrite (landing 302 fallback + `_redirects`; see `rewrite-limit.txt`).
+- S22 atmos.land rewrite: landing Pages Function (`functions/_lib/tok-app-proxy.test.ts`) reverse-proxies `/tok*` without a 302; `_redirects` no longer sends `/tok/*` to `app.atmos.land`. Live host still needs a landing Pages deploy.
+- Not automated here: S4 sign-in E2E, S18 render, S19–S20 agent-browser.
 - Review: functional CLEAN (M1–M12); quality CLEAN after static-export / unlisted-copy fixes.

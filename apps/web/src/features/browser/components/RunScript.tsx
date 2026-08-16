@@ -267,7 +267,7 @@ export const RunScript: React.FC<RunScriptProps> = ({ workspaceId, projectId, is
   }, []);
 
   const handleRunScript = React.useCallback(async (force: boolean = false) => {
-    // RightSidebar sets isActive=false while deferred URL context is unsettled.
+    // Host sets isActive=false while deferred URL context is unsettled.
     // Running during that window can load/send against the prior project.
     if (!isActive) return;
 

@@ -69,6 +69,11 @@ export function TerminalChrome({
   const scrollbarWidth = Math.max(2, 6 * normalizedTerminalScale);
   const scrollbarHoverWidth = Math.max(3, 8 * normalizedTerminalScale);
   const scrollbarOffset = Math.max(1, 2 * normalizedTerminalScale);
+  // Keep xterm's square canvas inset from the floating center card's
+  // rounded-xl (12px) bottom corners so they stay visible.
+  const padTop = 8 * normalizedTerminalScale;
+  const padSide = 12 * normalizedTerminalScale;
+  const padBottom = 14 * normalizedTerminalScale;
   const terminalScrollbarStyle = {
     "--atmos-terminal-scrollbar-width": `${scrollbarWidth}px`,
     "--atmos-terminal-scrollbar-hover-width": `${scrollbarHoverWidth}px`,
@@ -94,9 +99,7 @@ export function TerminalChrome({
       style={{
         width: "100%",
         height: "100%",
-        padding: `${8 * normalizedTerminalScale}px 0 ${8 * normalizedTerminalScale}px ${
-          8 * normalizedTerminalScale
-        }px`,
+        padding: `${padTop}px ${padSide}px ${padBottom}px ${padSide}px`,
         backgroundColor: "transparent",
         position: "relative",
         boxSizing: "border-box",

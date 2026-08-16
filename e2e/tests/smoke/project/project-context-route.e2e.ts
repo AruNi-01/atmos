@@ -36,7 +36,7 @@ test.describe("smoke project", () => {
       })
       .toBe("/workspace:true");
     await expect
-      .poll(async () => new URL(page.url()).searchParams.get("lsTab"))
+      .poll(async () => new URL(page.url()).searchParams.get("tab"))
       .toBe("files");
   });
 
@@ -49,7 +49,7 @@ test.describe("smoke project", () => {
     const contextUrl = await buildProjectWorkspaceDeepLink(page);
     const projectUrl = withSearchParams(contextUrl, {
       activeSettingTab: null,
-      rsTab: "files",
+      tab: "files",
     });
 
     await gotoContextRoute(page, withSearchParams(projectUrl, { lsTab: "projects" }));
@@ -57,8 +57,8 @@ test.describe("smoke project", () => {
       .poll(async () => normalizePathname(new URL(page.url()).pathname))
       .toBe("/project");
     await expect
-      .poll(async () => new URL(page.url()).searchParams.get("lsTab"))
-      .toBe("projects");
+      .poll(async () => new URL(page.url()).searchParams.get("tab"))
+      .toBe("files");
 
     await gotoSettingsRoute(page, "about");
     await expect

@@ -50,7 +50,7 @@ import {
   selectAttentionFilterMode,
   useAgentAttentionStore,
 } from "@/features/agent/store/agent-attention-store";
-export { LeftSidebarFooter, LeftSidebarTabsHeader } from "./left-sidebar-tab-footer-controls";
+export { LeftSidebarFooter } from "./left-sidebar-tab-footer-controls";
 
 type DndSensors = React.ComponentProps<typeof DndContext>["sensors"];
 type PanelGroupStorage = React.ComponentProps<typeof PanelGroup>["storage"];
@@ -277,7 +277,9 @@ export function SidebarColumnResizeHandle({
     <PanelResizeHandle
       onDragging={onDragging}
       className={cn(
-        "relative flex h-full self-stretch w-px items-center justify-center bg-sidebar-border/70 transition-colors duration-200 hover:bg-sidebar-border group touch-none",
+        // Invisible by default so the sidebar has no hard divider; show a thin
+        // hover affordance so resize remains discoverable.
+        "relative flex h-full self-stretch w-px items-center justify-center bg-transparent transition-colors duration-200 hover:bg-sidebar-border/50 group touch-none",
         "before:absolute before:inset-y-0 before:left-1/2 before:w-1 before:-translate-x-1/2",
       )}
     />
@@ -695,24 +697,22 @@ export function GroupedWorkspaceTwoColumnRightContent({
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="border-b border-sidebar-border">
-        <div className={cn("flex min-h-10 items-center gap-1", headerPad)}>
-          <div className="flex min-w-0 flex-1 items-center gap-2">
-            {selectedGroup ? (
-              <WorkspaceGroupMarker group={selectedGroup} groupingMode={groupingMode} />
-            ) : null}
-            <div className="min-w-0">
-              <div className="truncate text-sm font-medium text-sidebar-foreground">
-                {selectedGroup?.label ?? t("leftSidebarControls.selectGroup")}
-              </div>
+      <div className={cn("flex min-h-10 items-center gap-1", headerPad)}>
+        <div className="flex min-w-0 flex-1 items-center gap-2">
+          {selectedGroup ? (
+            <WorkspaceGroupMarker group={selectedGroup} groupingMode={groupingMode} />
+          ) : null}
+          <div className="min-w-0">
+            <div className="truncate text-sm font-medium text-sidebar-foreground">
+              {selectedGroup?.label ?? t("leftSidebarControls.selectGroup")}
             </div>
           </div>
-          <div className="shrink-0">
-            <TwoColumnSidebarToggleButton
-              collapsed={isPrimaryCollapsed}
-              onClick={onTogglePrimaryPanel}
-            />
-          </div>
+        </div>
+        <div className="shrink-0">
+          <TwoColumnSidebarToggleButton
+            collapsed={isPrimaryCollapsed}
+            onClick={onTogglePrimaryPanel}
+          />
         </div>
       </div>
       <div className="scrollbar-on-hover flex-1 overflow-y-auto px-3 py-2">

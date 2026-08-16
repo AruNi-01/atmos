@@ -56,10 +56,10 @@ describe("settings return href", () => {
   });
 
   test("keeps the last workbench path when later settings URLs are ignored", () => {
-    rememberSettingsReturnPath("/project?id=proj-1&lsTab=files");
+    rememberSettingsReturnPath("/project?id=proj-1&tab=files");
     rememberSettingsReturnPath("/settings?activeSettingTab=about");
     rememberSettingsReturnPath("/settings?activeSettingTab=workspace");
 
-    expect(resolveStoredSettingsReturnPath()).toBe("/project?id=proj-1&lsTab=files");
+    expect(resolveStoredSettingsReturnPath()).toBe("/project?id=proj-1&tab=files");
   });
 });

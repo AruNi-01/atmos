@@ -59,7 +59,8 @@ export function SidebarPeekShell({
         ref={triggerRef}
         aria-hidden="true"
         className={cn(
-          "peer fixed top-12 bottom-6 z-[70] bg-transparent",
+          // Full-height shell: sidebar peeks from the full viewport edge.
+          "peer fixed inset-y-0 z-[70] bg-transparent",
           edgeClassName,
         )}
         style={{ width: SIDEBAR_PEEK_HIT_AREA_PX }}
@@ -72,7 +73,7 @@ export function SidebarPeekShell({
         // pointer-events policy so guest webviews do not steal clicks while open.
         data-atmos-browser-surface-overlay="true"
         className={cn(
-          "fixed top-12 bottom-6 z-[45] min-w-0 overflow-hidden bg-background text-foreground shadow-2xl ring-1 ring-sidebar-border/80",
+          "fixed inset-y-0 z-[45] min-w-0 overflow-hidden bg-sidebar text-sidebar-foreground shadow-2xl ring-1 ring-sidebar-border/80",
           "transition-[translate,opacity,box-shadow] duration-250 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-[translate,opacity]",
           isVisible
             ? "pointer-events-auto translate-x-0 opacity-100"

@@ -76,7 +76,6 @@ interface BrowserSessionProps {
   canvasViewportControllerRef?: React.MutableRefObject<BrowserCanvasViewportController | null>;
   onOpenPreviewBrowserWindow?: (url: string) => Promise<void> | void;
   onCloseStandalonePreviewWindow?: () => void;
-  onMoveToCenter?: () => void;
   /** Focus the address bar after a user-created empty tab mounts. */
   requestUrlFocus?: boolean;
 }
@@ -119,7 +118,6 @@ export const BrowserSession: React.FC<BrowserSessionProps> = ({
   canvasViewportControllerRef,
   onOpenPreviewBrowserWindow,
   onCloseStandalonePreviewWindow,
-  onMoveToCenter,
   requestUrlFocus = false,
 }) => {
   const previewToolbarT = useTranslations("browser.toolbar");
@@ -184,6 +182,7 @@ export const BrowserSession: React.FC<BrowserSessionProps> = ({
       setHoverCursorLabel(null);
     }
   }, [isElementPickerEnabled]);
+
   const desktopConnectingRef = useRef(false);
   const iframeLoadResolveRef = useRef<(() => void) | null>(null);
   const extensionVersionRef = useRef<string | null>(null);
@@ -285,9 +284,6 @@ export const BrowserSession: React.FC<BrowserSessionProps> = ({
       return isDesktopRuntime() ? 'desktop' : 'unavailable';
     }
   }, [normalizedActiveUrl]);
-  // NOTE: Do not suspend based on right-sidebar collapse — that used to hide
-  // *every* desktop surface (including center browsers). Sidebar
-  // visibility is handled via BrowserPanel `isActive` in RightSidebar instead.
   // In-DOM webview: overlays stack with z-index — do not hide the live guest for menus.
   // Only "suspend" layout when this tab is not the active surface (handled via CSS) or standalone handoff.
   const shouldSuspendDesktopPreview =
@@ -1364,7 +1360,6 @@ export const BrowserSession: React.FC<BrowserSessionProps> = ({
                 needsDesktopPreviewSafeInset,
                 openInWindowTitle: previewToolbarT("actions.openBrowserWindow"),
                 returnToEmbeddedTitle: previewToolbarT("actions.returnToEmbeddedPreview"),
-                moveToCenterTitle: previewToolbarT("browserTabs.moveToCenter"),
                 toolbarToggleTitle,
                 onOpenInWindow: canOpenPreviewBrowserWindow
                   ? handleOpenPreviewBrowserWindow
@@ -1372,10 +1367,6 @@ export const BrowserSession: React.FC<BrowserSessionProps> = ({
                 onReturnToEmbedded: isStandaloneBrowserWindow
                   ? handleCloseStandalonePreviewWindow
                   : undefined,
-                onMoveToCenter:
-                  onMoveToCenter && !isStandaloneBrowserWindow
-                    ? onMoveToCenter
-                    : undefined,
                 onToggleMaximized:
                   allowMaximize && !isStandaloneBrowserWindow
                     ? handleToggleMaximized

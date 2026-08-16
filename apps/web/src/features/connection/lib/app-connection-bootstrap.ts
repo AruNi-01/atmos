@@ -4,7 +4,7 @@ import { ensureComputerClientSettingsHydrated } from '@/features/connection/lib/
 import { prepareConnectionTargetChange } from '@/app-shell/bootstrap/connection-target-lifecycle';
 import { hydrateRelaySessionFromDisk } from '@/features/connection/lib/hydrate-relay-session';
 import { workbenchRelayClientKind } from '@/features/connection/lib/workbench-relay-client-kind';
-import { isHostedAtmosOrigin } from '@/shared/lib/desktop-runtime';
+import { isHostedAtmosOrigin, isPublicTokPath } from '@/shared/lib/desktop-runtime';
 
 let localBootstrapPromise: Promise<void> | null = null;
 
@@ -13,7 +13,11 @@ let localBootstrapPromise: Promise<void> | null = null;
  * sync editor prefs. Idempotent — safe to call from splash prefetch and WS connect.
  */
 export function ensureLocalAppConnectionBootstrap(): Promise<void> {
-  if (typeof window === 'undefined' || isHostedAtmosOrigin()) {
+  if (
+    typeof window === 'undefined' ||
+    isHostedAtmosOrigin() ||
+    isPublicTokPath(window.location.pathname)
+  ) {
     return Promise.resolve();
   }
 

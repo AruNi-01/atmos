@@ -12,6 +12,7 @@ import {
   resolveFrameActiveTab,
   selectEditorMountSet,
   sweepWarmByTtl,
+  browserKeepAlivePanelClass,
   lightSurfacePanelClass,
   terminalKeepAlivePanelClass,
   terminalMountKey,
@@ -68,6 +69,22 @@ describe("resolveFrameActiveTab / panel visibility", () => {
     expect(
       isFramePanelVisible({
         isActiveFrame: true,
+        frameActiveTab: "terminal",
+        frameActiveTabIds: ["terminal", "overview"],
+        panelTabId: "overview",
+      }),
+    ).toBe(true);
+    expect(
+      isFramePanelVisible({
+        isActiveFrame: true,
+        frameActiveTab: "terminal",
+        frameActiveTabIds: ["terminal", "overview"],
+        panelTabId: "wiki",
+      }),
+    ).toBe(false);
+    expect(
+      isFramePanelVisible({
+        isActiveFrame: true,
         frameActiveTab: "file/x.ts",
         panelTabId: "file/x.ts",
       }),
@@ -90,6 +107,14 @@ describe("resolveFrameActiveTab / panel visibility", () => {
     expect(lightSurfacePanelClass(true)).not.toContain("hidden");
     expect(lightSurfacePanelClass(false)).toContain("hidden");
     expect(lightSurfacePanelClass(false)).toContain("bg-background");
+    expect(browserKeepAlivePanelClass(true)).toContain("absolute");
+    expect(browserKeepAlivePanelClass(true)).toContain("bg-background");
+    expect(browserKeepAlivePanelClass(true).split(/\s+/)).not.toContain("hidden");
+    expect(browserKeepAlivePanelClass(true)).not.toContain("opacity-0");
+    expect(browserKeepAlivePanelClass(false).split(/\s+/)).not.toContain("hidden");
+    expect(browserKeepAlivePanelClass(false)).toContain("opacity-0");
+    expect(browserKeepAlivePanelClass(false)).toContain("pointer-events-none");
+    expect(browserKeepAlivePanelClass(false)).toContain("bg-background");
   });
 });
 
@@ -398,7 +423,7 @@ describe("selectEditorMountSet + computeMountPlan", () => {
     expect(terminals.length).toBe(2);
   });
 
-  it("counts mosaic pane units toward max_global_terminal_panes", () => {
+  it("counts terminal split-pane units toward max_global_terminal_panes", () => {
     const plan = computeMountPlan({
       activeContextId: "a",
       warm: [{ contextId: "b", lastAccessed: 10 }],

@@ -10,7 +10,6 @@ import Footer from "@/app-shell/Footer";
 import Header from "@/app-shell/Header";
 import LeftSidebar from "@/app-shell/LeftSidebar";
 import { PanelLayout } from "@/app-shell/PanelLayout";
-import RightSidebar from "@/app-shell/RightSidebar";
 import { SettingsPage } from "@/features/settings/components/SettingsModal";
 import { leaveSettingsPage, settingsHref } from "@/features/settings/lib/open-settings";
 import {
@@ -104,17 +103,20 @@ export function AppShellMain() {
       baseClassName="min-h-0 flex-1"
       shiftBase
       base={
-        <>
-          <Header />
-
-          <PanelLayout
-            leftSidebar={<LeftSidebar />}
-            centerStage={<CenterStage />}
-            rightSidebar={<RightSidebar />}
-          />
-
-          <Footer />
-        </>
+        // Left sidebar spans full viewport height; header + center + footer
+        // live only in the main column to the right of the sidebar.
+        <PanelLayout
+          leftSidebar={<LeftSidebar />}
+          centerStage={
+            <div className="flex h-full min-h-0 flex-col overflow-hidden bg-sidebar">
+              <Header />
+              <div className="min-h-0 flex-1 overflow-hidden">
+                <CenterStage />
+              </div>
+              <Footer />
+            </div>
+          }
+        />
       }
       overlay={
         settingsPresented || isSettingsRoute ? (

@@ -12,17 +12,45 @@ const tabBar = readFileSync(
 );
 
 describe("center stage tab hover", () => {
-  it("overrides TabsTab's background fade with an instant accent fill", () => {
-    expect(shared).toContain("CENTER_STAGE_TAB_CLASS");
-    expect(shared).toContain("transition-none");
-    expect(shared).toContain("hover:bg-accent");
-    expect(shared).not.toContain("hover:bg-muted/50");
-    expect(shared).not.toContain("transition-colors");
+  it("uses the tasks-page motion pill tabs without a bottom divider", () => {
+    expect(shared).toContain('@workspace/ui/components/motion/tabs');
+    expect(shared).toContain('variant="pill"');
+    expect(shared).toContain("flex h-8 w-full min-w-0 justify-start gap-0.5 overflow-hidden bg-background p-0.5");
+    expect(shared).toContain("group h-7 shrink-0 gap-1.5 px-1.5 text-xs");
+    expect(shared).toContain("aria-selected:!text-foreground");
+    expect(shared).toContain('CENTER_STAGE_TAB_INDICATOR_CLASS = "bg-active"');
+    expect(shared).not.toContain("border-b border-sidebar-border");
+    expect(shared).not.toContain("variant=\"underline\"");
+    expect(shared).toContain("{children}");
+    expect(shared).toContain("{actions}");
   });
 
-  it("uses the same instant hover on wiki, terminal, and new-tab chrome", () => {
-    expect(tabBar).toContain("CENTER_STAGE_TAB_CLASS");
+  it("keeps trailing chrome inside the pill track", () => {
+    const listBlock = shared.slice(
+      shared.indexOf("<MotionTabsList"),
+      shared.indexOf("</MotionTabsList>"),
+    );
+    expect(listBlock).toContain("{actions}");
+  });
+
+  it("uses Atmos surfaces instead of the motion-tabs card/primary fill", () => {
+    expect(shared).toContain("bg-background");
+    expect(shared).toContain('CENTER_STAGE_TAB_INDICATOR_CLASS = "bg-active"');
+    expect(shared).not.toContain("aria-selected:[&_img]:![filter:brightness(0)_invert(1)]");
+  });
+
+  it("keeps wiki, terminal, and new-tab chrome on the shared pill trigger", () => {
+    expect(tabBar).toContain("CenterStageTab");
     expect(tabBar).not.toContain("hover:bg-muted/50");
     expect(tabBar).not.toContain("transition-colors hover:bg-muted");
+  });
+
+  it("replaces the leading icon with close on hover instead of a trailing control", () => {
+    expect(shared).toContain("export function CenterStageTabIconSlot");
+    expect(shared).toContain("group-hover:invisible");
+    expect(shared).toContain("group-hover:pointer-events-auto");
+    expect(tabBar).toContain("CenterStageTabIconSlot");
+    expect(tabBar).not.toContain("CreateTerminalTabButton");
+    expect(tabBar).not.toContain("backdrop-blur-[4px]");
   });
 });

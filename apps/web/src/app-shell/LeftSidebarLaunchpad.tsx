@@ -130,8 +130,6 @@ export function LeftSidebarLaunchpadOutside({
           />
         ))}
       </nav>
-      {/* Full-width divider between outside items and the workspace list below */}
-      <div className="border-b border-sidebar-border" role="separator" />
     </div>
   );
 }
@@ -155,7 +153,7 @@ export function LeftSidebarLaunchpad({
   return (
     <>
       <div
-        className="flex h-10 cursor-pointer select-none items-center justify-between border-b border-sidebar-border px-5 text-sm font-medium hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+        className="flex h-10 cursor-pointer select-none items-center justify-between px-5 text-sm font-medium hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
         onClick={() => onExpandedChange(!isExpanded)}
         onMouseEnter={() => rocketRef.current?.startAnimation?.()}
         onMouseLeave={() => rocketRef.current?.stopAnimation?.()}
@@ -172,7 +170,7 @@ export function LeftSidebarLaunchpad({
       <div
         className={cn(
           "grid transition-[grid-template-rows] duration-200 ease-in-out",
-          isExpanded ? "grid-rows-[1fr] border-b border-sidebar-border" : "grid-rows-[0fr]",
+          isExpanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]",
         )}
       >
         <div className="overflow-hidden">
@@ -346,14 +344,10 @@ function LaunchpadCard({
   const t = useTranslations("AppShell.chrome");
   const Icon = item.icon;
   const isOddCount = totalItems % 2 === 1;
-  const isLeftColumnOnTwoCol = index % 2 === 0;
   const isLastItemAlone = isOddCount && index === totalItems - 1;
   const cardClassName = cn(
-    "group relative h-12 cursor-pointer overflow-hidden transition-all duration-300 outline-none",
-    "border-b border-b-sidebar-border/30 transition-colors",
-    isLastItemAlone
-      ? "@[200px]:col-span-2"
-      : isLeftColumnOnTwoCol && "@[200px]:border-r @[200px]:border-sidebar-border/30",
+    "group relative h-12 cursor-pointer overflow-hidden outline-none transition-all duration-300 transition-colors",
+    isLastItemAlone ? "@[200px]:col-span-2" : null,
     isActive ? "text-sidebar-foreground" : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
   );
   const cardInner = (

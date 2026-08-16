@@ -7,7 +7,6 @@
  */
 
 import {
-  createParser,
   parseAsArrayOf,
   parseAsBoolean,
   parseAsInteger,
@@ -18,7 +17,19 @@ import {
 // ---------------------------------------------------------------------------
 // CenterStage – tab & wiki page
 // ---------------------------------------------------------------------------
-export type FixedTab = "overview" | "terminal" | "wiki" | "project-wiki" | "code-review";
+export type FixedTab =
+  | "overview"
+  | "terminal"
+  | "wiki"
+  | "project-wiki"
+  | "code-review"
+  | "simulator"
+  | "git-history"
+  | "changes"
+  | "review"
+  | "run"
+  | "github"
+  | "files";
 
 export const centerStageParams = {
   tab: parseAsString.withDefault("terminal"),
@@ -222,64 +233,21 @@ export const agentChatParams = {
 };
 
 // ---------------------------------------------------------------------------
-// RightSidebar – create pull request dialog
+// GitHub hub – create pull request dialog
 // ---------------------------------------------------------------------------
-export const rightSidebarDialogParams = {
-  rsCreatePr: parseAsBoolean.withDefault(false),
+export const createPrDialogParams = {
+  createPr: parseAsBoolean.withDefault(false),
 };
 
 // ---------------------------------------------------------------------------
 // LeftSidebar – tab
 // ---------------------------------------------------------------------------
-export type LeftSidebarTab = "projects" | "files";
+export type LeftSidebarTab = "projects";
 
 export const leftSidebarParams = {
-  lsTab: parseAsStringEnum<LeftSidebarTab>(["projects", "files"]).withDefault("projects"),
+  lsTab: parseAsStringEnum<LeftSidebarTab>(["projects"]).withDefault("projects"),
   lsTask: parseAsBoolean.withDefault(false),
   lsTaskQ: parseAsString.withDefault(""),
-};
-
-// ---------------------------------------------------------------------------
-// RightSidebar – tab
-// ---------------------------------------------------------------------------
-export type RightSidebarTab =
-  | "files"
-  | "changes"
-  | "github"
-  | "review"
-  | "browser"
-  | "run"
-  | "simulator";
-
-const RIGHT_SIDEBAR_TABS = [
-  "files",
-  "changes",
-  "github",
-  "review",
-  "browser",
-  "run",
-  "simulator",
-] as const satisfies readonly RightSidebarTab[];
-
-/** Legacy deep-link values from before PR/Issues/Actions were merged into GitHub. */
-const LEGACY_RS_TAB_MAP: Record<string, RightSidebarTab> = {
-  pr: "github",
-  issues: "github",
-  actions: "github",
-};
-
-function parseRightSidebarTab(value: string): RightSidebarTab | null {
-  const mapped = LEGACY_RS_TAB_MAP[value] ?? value;
-  return (RIGHT_SIDEBAR_TABS as readonly string[]).includes(mapped)
-    ? (mapped as RightSidebarTab)
-    : null;
-}
-
-export const rightSidebarParams = {
-  rsTab: createParser({
-    parse: parseRightSidebarTab,
-    serialize: (value: RightSidebarTab) => value,
-  }).withDefault("changes" satisfies RightSidebarTab),
 };
 
 // ---------------------------------------------------------------------------
