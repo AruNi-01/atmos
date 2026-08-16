@@ -86,16 +86,16 @@ export async function runCli(argv = process.argv.slice(2)): Promise<number> {
       return 0;
     }
     const { name, rest } = resolveTool(parsed.tokens);
-    const needsFile = name !== "pt_catalog_list" && name !== "pt_doc_init";
-    const create = name === "pt_doc_init" || parsed.flags.create === true;
-    if (needsFile && !parsed.file && name !== "pt_catalog_list") {
-      if (name !== "pt_doc_init") {
-        throw new PtDesignError(PT_ERROR_CODES.USAGE, "--file is required");
-      }
+    const create =
+      name === "pt_doc_init" ||
+      name === "pt_place" ||
+      parsed.flags.create === true;
+    if (name !== "pt_catalog_list" && name !== "pt_doc_init" && !parsed.file) {
+      throw new PtDesignError(PT_ERROR_CODES.USAGE, "--file is required");
     }
     const fs = openFileSession({
       file: parsed.file,
-      create: create || name === "pt_place" || name === "pt_doc_init",
+      create,
       autoSave: true,
     });
     const args: Record<string, unknown> = { ...parsed.flags, file: parsed.file };
@@ -138,8 +138,4 @@ export async function runCli(argv = process.argv.slice(2)): Promise<number> {
     );
     return 4;
   }
-}
-
-if (import.meta.main) {
-  void runCli().then((code) => process.exit(code));
 }

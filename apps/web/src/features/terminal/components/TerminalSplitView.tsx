@@ -31,6 +31,9 @@ export function TerminalSplitView({
   onResizeDragChange,
   className,
 }: TerminalSplitViewProps) {
+  const layoutRef = React.useRef(layout);
+  layoutRef.current = layout;
+
   if (maximizedId) {
     return (
       <div className={cn("h-full w-full min-h-0 min-w-0", className)}>
@@ -38,9 +41,6 @@ export function TerminalSplitView({
       </div>
     );
   }
-
-  const layoutRef = React.useRef(layout);
-  layoutRef.current = layout;
 
   return (
     <div className={cn("h-full w-full min-h-0 min-w-0", className)}>
@@ -71,17 +71,8 @@ function SplitNode({
   onLayoutChange: (next: TerminalLayoutNode<string>) => void;
   onResizeDragChange?: (dragging: boolean) => void;
 }) {
-  if (!isTerminalLayoutBranch(node)) {
-    return (
-      <div className="h-full w-full min-h-0 min-w-0 overflow-hidden">
-        {renderPane(node)}
-      </div>
-    );
-  }
-
-  const isRow = node.direction === "row";
-  const pct = clampSplitPercentage(node.splitPercentage ?? 50);
   const containerRef = React.useRef<HTMLDivElement>(null);
+  const isRow = isTerminalLayoutBranch(node) && node.direction === "row";
 
   const startResize = React.useCallback(
     (event: React.PointerEvent) => {
@@ -114,6 +105,16 @@ function SplitNode({
     },
     [isRow, layoutRef, onLayoutChange, onResizeDragChange, path],
   );
+
+  if (!isTerminalLayoutBranch(node)) {
+    return (
+      <div className="h-full w-full min-h-0 min-w-0 overflow-hidden">
+        {renderPane(node)}
+      </div>
+    );
+  }
+
+  const pct = clampSplitPercentage(node.splitPercentage ?? 50);
 
   return (
     <div

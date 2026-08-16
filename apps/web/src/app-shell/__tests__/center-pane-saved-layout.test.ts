@@ -16,6 +16,7 @@ import { FIXED_TERMINAL_TAB_VALUE } from "@/features/terminal/store/use-terminal
 describe("center-pane-saved-layout", () => {
   it("maps live tab ids to portable surface kinds", () => {
     expect(tabIdToSurfaceKind("files")).toBe("files");
+    expect(tabIdToSurfaceKind("pt-design")).toBe("pt-design");
     expect(tabIdToSurfaceKind(FIXED_TERMINAL_TAB_VALUE)).toBe("terminal");
     expect(tabIdToSurfaceKind("overview")).toBe("overview");
     expect(tabIdToSurfaceKind("/Users/me/repo/src/a.ts")).toBeNull();

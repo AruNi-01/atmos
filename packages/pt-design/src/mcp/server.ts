@@ -45,8 +45,8 @@ export async function serveMcpStdio(file?: string) {
     process.stdout.write(text);
   };
 
-  for await (const chunk of Bun.stdin.stream()) {
-    buf += decoder.decode(chunk);
+  for await (const chunk of process.stdin) {
+    buf += typeof chunk === "string" ? chunk : decoder.decode(chunk);
     let idx: number;
     while ((idx = buf.indexOf("\n")) >= 0) {
       const line = buf.slice(0, idx).trim();

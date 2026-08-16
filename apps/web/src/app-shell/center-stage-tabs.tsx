@@ -82,7 +82,8 @@ export type TabGroupItem = {
     | "changes"
     | "review"
     | "run"
-    | "files";
+    | "files"
+    | "pt-design";
   file?: OpenFile;
   /** Center browser instance id (for kind === "browser"). */
   browserId?: string;

@@ -240,6 +240,8 @@ export function useCenterStageTabGroups({
       fileTabs.sort((left, right) => {
         if (left.kind === "files") return -1;
         if (right.kind === "files") return 1;
+        if (left.kind === "pt-design") return -1;
+        if (right.kind === "pt-design") return 1;
         return byOpenedAt(
           { openedAt: left.file!.lastOpenedAt },
           { openedAt: right.file!.lastOpenedAt },
