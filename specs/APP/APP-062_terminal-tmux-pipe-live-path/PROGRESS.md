@@ -13,7 +13,9 @@
 ## Snapshot
 
 - Production live path is `pipe-pane -I -O` via `PaneIoRegistry`; control-mode runner and `atmos_mousewatch_*` are gone.
-- Desktop local renderer terminal stream uses `ByteStreamPort` IPC (ADR-006); API still `/ws/terminal/:id`.
+- Desktop local renderer terminal stream uses `ByteStreamPort` IPC (ADR-006); main↔API prefers `~/.atmos/state/api.sock` (same `/ws/terminal/:id` router) with loopback WS fallback.
+- PTY input is raw binary; JSON control stays on the same connection (logical ControlPort).
+- N2: last observer gone starts a 15-minute idle timer; timeout detaches the pipe and leaves the tmux window.
 - Do not restore `tmux -C`, `send-keys -H`, `ATMOS_TERMINAL_IO`, or `IoMode`.
 
 ## Implementation Checklist
@@ -22,6 +24,8 @@
 - [x] Service `PaneIoRegistry` + create/attach/close/destroy
 - [x] API `--internal` helper; relay uses the same service path
 - [x] ADR-004 note + `~/.atmos/state/tmux-pipes/` layout
+- [x] N2 idle tear (15m)
+- [x] Desktop main↔API UDS + binary PTY input + Control vs bytes split
 - [ ] Regression gate (`cargo test` / clippy on touched crates)
 - [ ] TEST.md Coverage Status (`atmos-specs-test-run`)
 
@@ -40,6 +44,11 @@
 |----|----------|-----|---------------|
 | D1 | Live loops live in `PaneIoRegistry` tokio tasks, not `run_pipe_pane_session` | Matches “one attachment / pane” better than a per-session OS thread | TECH.md module table |
 | D2 | Desktop local renderer uses `ByteStreamPort` IPC; API remains `/ws/terminal/:id` | N1 Phase 0–1 from known-debt; Web/remote stay on WS | ADR-006 |
+| D3 | N2 idle tear is 15m; unsubscribe does not detach immediately | Matches PRD M4 + N2 | TECH.md lifecycle |
+| D4 | ControlPort is JSON multiplexed on the same stream, not REST/invoke | Attach still opens the byte stream | ADR-006 |
+| D5 | Desktop main↔API prefers `api.sock` UDS; TCP WS fallback | Same Axum router; no third protocol | known-debt Phase 3 |
+| D4 | ControlPort is JSON multiplexed on the same stream, not REST/invoke | Attach still opens the byte stream | ADR-006 |
+| D5 | Desktop main↔API prefers `api.sock` UDS; TCP WS fallback | Same Axum router; no third protocol | known-debt Phase 3 |
 
 ## Verification Status
 

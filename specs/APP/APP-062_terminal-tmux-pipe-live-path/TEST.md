@@ -25,8 +25,8 @@ Agent-browser can smoke the visible terminal, but cannot prove UDS/pipe ownershi
 | M9 no control fallback | S16 |
 | M10 existing WS shapes | S1, S17 |
 | M11 snapshot on remount only | S8, S18 |
-| N1 Desktop UDS | remainder: main↔API UDS. Renderer IPC covered by `byte-stream-port` / desktop `stream-hub` unit tests |
-| N2 idle tear | non-coverage |
+| N1 Desktop UDS | Renderer IPC + main↔API UDS (`stream-hub` unit tests; TCP WS fallback) |
+| N2 idle tear | S22, S23 |
 
 ## Execution map
 
@@ -53,6 +53,8 @@ Agent-browser can smoke the visible terminal, but cannot prove UDS/pipe ownershi
 | S19 | E2E | Playwright | `just test-e2e -- tests/specs/APP-062_terminal-tmux-pipe-live-path.e2e.ts` | local app + tmux | type echo; resize; no crash | planned |
 | S20 | agent-browser | `agent-browser` | exploratory | local app + tmux | type, split drag, no console WS errors | planned |
 | S21 | Structural | grep | create/attach/relay | `terminal.rs` / `runtime.rs` / relay | no live call to `run_control_mode_tmux_session` | planned |
+| S22 | Rust unit | `cargo test -p core-service` | idle tear | short timeout | last unsubscribe does not detach immediately; timeout detaches; window not killed | planned |
+| S23 | Rust unit | `cargo test -p core-service` | idle cancel | resubscribe before timeout | pipe stays; no second attach | planned |
 
 ## Scenarios
 
@@ -224,6 +226,22 @@ Agent-browser can smoke the visible terminal, but cannot prove UDS/pipe ownershi
 - **Then**: no live caller of `run_control_mode_tmux_session`; no `atmos_client_*` name builder on attach.
 - **Signals**: grep / review.
 
+### S22 — Idle tear detaches the pipe, not the window
+
+- **Level**: Rust unit
+- **Given**: a live pipe with one observer.
+- **When**: that observer unsubscribes and the idle timeout elapses.
+- **Then**: `destroy_pipe` runs (detach); the registry key is gone; the tmux window is not killed (driver has no kill-window).
+- **Signals**: `idle_tear_detaches_pipe_after_timeout`.
+
+### S23 — Resubscribe cancels idle tear
+
+- **Level**: Rust unit
+- **Given**: last observer unsubscribed and the idle timer is running.
+- **When**: another observer `ensure_and_subscribe`s before timeout.
+- **Then**: the pipe stays live; attach is not invoked again.
+- **Signals**: `resubscribe_cancels_idle_tear`.
+
 ## Performance & load budgets
 
 These are **dogfood budgets**, not CI gates unless a bench exists:
@@ -273,8 +291,6 @@ Load the installed `agent-browser` skill (or `agent-browser skills get core --fu
 
 ## Non-coverage
 
-- Desktop main↔API UDS (remainder of N1). Renderer local IPC is ADR-006.
-- Idle pipe teardown (N2).
 - Ghostty renderer.
 - Full VT snapshot fidelity (still `capture-pane` cells + mouse option, ADR-004).
 - Multi-user authorization (single-operator product).

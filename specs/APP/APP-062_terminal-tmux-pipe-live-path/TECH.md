@@ -1,10 +1,11 @@
 # TECH · APP-062: Terminal tmux pipe-pane live path
 
 <!-- updated 2026-08-15: live loops live in PaneIoRegistry (io.rs), not a runtime.rs `run_pipe_pane_session` thread; mouse_mode_watch.rs is deleted -->
+<!-- updated 2026-08-16: N2 idle tear 15m; ControlPort is JSON on the same carrier; PTY input is raw binary; desktop main↔API prefers UDS -->
 
 > HOW. Implements [PRD.md](./PRD.md). Amends the **live transport** in [ADR-004](../../../docs/adr/004-terminal-tmux-control-mode.md). Does **not** replace tmux as the session daemon.
 
-Addresses M1–M11. N2 deferred. Client **ByteStreamPort** (N1 Phase 0–1) is [ADR-006](../../../docs/adr/006-terminal-client-byte-stream-port.md): desktop local renderer uses IPC; API still serves `/ws/terminal/:id`.
+Addresses M1–M11. N2 idle tear is 15 minutes with no observers (window stays). Client **ByteStreamPort** + logical **ControlPort** is [ADR-006](../../../docs/adr/006-terminal-client-byte-stream-port.md): desktop local renderer uses IPC; main↔API prefers UDS (`~/.atmos/state/api.sock`) with loopback WS fallback. API still serves `/ws/terminal/:id`.
 
 ---
 
@@ -177,7 +178,7 @@ Extend `crates/core-service/src/service/terminal/`:
           │ (error to    ▼
           │  client, ┌───────────┐
           │  retry)  │   live    │── last observer gone ──► stay live (M4)
-          │          └─────┬─────┘   (N2 may idle-tear later)
+          │          └─────┬─────┘   (N2 idle-tear after 15m with no observers)
           │                │ destroy / pipe EOF + window gone
           │                ▼
           │          ┌───────────┐
@@ -389,5 +390,5 @@ Each step is mergeable. Do not ship a dual-stack “dark control” period.
 
 ## Open questions
 
-- [ ] N2 idle pipe tear timeout (suggested 15m, window stays). Not required to ship M1–M11.
+- [x] N2 idle pipe tear timeout (15m, window stays). `PaneIoRegistry` starts a timer on last observer drop; `ensure_and_subscribe` cancels it; timeout calls `destroy_pipe`.
 - [ ] Whether leftover `tmux/control.rs` parser tests stay one PR or a delete-follow-up. Not a product fork.
