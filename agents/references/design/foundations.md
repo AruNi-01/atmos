@@ -121,3 +121,6 @@ Rules:
 - Large layout transitions can use 300-500ms.
 - Motion must not cause layout jumps.
 - Loading and agent activity animations should be clear but restrained.
+- Hover background fills on lists and rows must be instant. Do not add `transition-colors`, `transition-all`, or duration/ease classes to the hover background of sidebar rows, file trees, change/review/GitHub/history lists, or other scan-and-select lists. A color fade makes dense lists feel laggy.
+- Keep a transition only when a shared primitive already owns it (Button, Tabs, SidebarMenuButton, and similar), or when the motion is a real state change: `transition-transform` for expand chevrons, `transition-opacity` for hover-revealed row actions, and layout expand/collapse.
+- If a primitive's built-in color fade makes a list or tab hover feel delayed, override that hover fill with `transition-none` instead of adding another duration.
