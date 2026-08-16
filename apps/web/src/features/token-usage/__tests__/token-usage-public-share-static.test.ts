@@ -13,6 +13,22 @@ describe("APP-061 static wiring", () => {
   it("public page composes the same overview view and shell", () => {
     expect(existsSync(join(root, "apps/web/src/app/tok/page.tsx"))).toBe(true);
     expect(existsSync(join(root, "apps/landing/src/app/tok"))).toBe(false);
+    expect(existsSync(join(root, "apps/landing/functions/_middleware.ts"))).toBe(
+      true,
+    );
+    const landingProxy = read(
+      "apps/landing/functions/_lib/tok-app-proxy.ts",
+    );
+    expect(landingProxy).toContain("rewriteTokHtml");
+    expect(landingProxy).toContain("https://app.atmos.land");
+    expect(landingProxy).toContain("isTokPath");
+    const landingRedirects = read("scripts/pages/build-pages-landing.mjs");
+    expect(landingRedirects).not.toContain(
+      "/tok/* https://app.atmos.land/tok/:splat 302",
+    );
+    const landingRoutes = read("apps/landing/public/_routes.json");
+    expect(landingRoutes).toContain('"/tok/*"');
+    expect(landingRoutes).not.toContain('"/_next/*"');
     const page = read("apps/web/src/features/token-usage/PublicTokPage.tsx");
     expect(page).toContain("TokenUsageOverviewView");
     expect(page).toContain("payload={payload}");

@@ -46,7 +46,7 @@ Site URL: `https://docs.atmos.land`
   - Sets `BUILD_TARGET=pages` and `NEXT_PUBLIC_ASSETS_BASE_URL` (R2 public host for demo videos/posters).
   - Temporarily removes `apps/landing/src/proxy.ts` and the unused `api/download-links` route during export.
   - Temporarily moves aside `public/videos/` so large MP4s are not copied into `out/` (media loads from R2 at runtime).
-  - Copies default locale (`en`) pages to `out/` root and writes `_headers` + `_redirects` (`/en` → `/`).
+  - Copies default locale (`en`) pages to `out/` root and writes `_headers` + `_redirects` (`/en` → `/`). Public `/tok*` pages stay on `atmos.land` via `apps/landing/functions` (no 302 to `app.atmos.land`).
 
 - `deploy-pages-landing.mjs`
   - Uploads `apps/landing/out` via Wrangler (`apps/landing/wrangler.jsonc`).
