@@ -62,7 +62,8 @@
 | Rust tests | `cargo test -p core-engine --lib`; `cargo test -p core-service --lib`; `cargo test -p core-service --test app062_terminal_live_path`; `cargo test -p api`; `cargo test -p runtime-manager --lib` | pass | 2026-08-16: 165 / 318 / 1 / 52 / 22 |
 | Clippy | `cargo clippy -p core-engine -p core-service -p api -p runtime-manager --tests -- -D warnings` | pass | |
 | Bun tests | shared `src/terminal`, desktop-electron `src/terminal`, web bind/dispatch/IPC + APP-043 policies | pass | 28 + 9 + 27 |
-| E2E / agent-browser | S19 / S20 | not_run | no local TUI dogfood in this run |
+| E2E / agent-browser | S19 / S20 | not_run | no Playwright TUI fixture |
+| Desktop dogfood | Electron on Linux DISPLAY=:1, demo workspace terminal | pass | 2026-08-16: `carrier=ipc sidecar=uds`, unix connect 2–8ms; `printf` echo + `date -u` 06:51:52Z. First boot crashed until `ws` stayed esbuild-external. |
 
 ## Known Blockers
 
