@@ -362,8 +362,8 @@
       "newTabMenu": "New tab",
       "simulator": "Simulator",
       "closeSimulatorTab": "Close Simulator tab",
-      "history": "History",
-      "closeHistoryTab": "Close History tab",
+      "history": "Graph History",
+      "closeHistoryTab": "Close Graph History tab",
       "overview": "Overview",
       "refreshWiki": "Refresh Wiki",
       "projectWiki": "Project Wiki",
@@ -1292,6 +1292,7 @@
         "enterWorkspace": "Enter workspace",
         "create": "Create",
         "enter": "Enter",
+        "close": "Close",
         "draft": "Draft",
         "pagination": {
           "previous": "Previous",
@@ -1622,8 +1623,6 @@
         "noContext": "No repository context",
         "changes": {
           "selectScope": "Select changes scope",
-          "loadingCommits": "Loading commits...",
-          "noCommitsOnBranch": "No commits on branch",
           "noCommitChanges": "Commit {commit} has no file changes",
           "noChangesAgainst": "No changes against {compareRef}",
           "noChangesDetected": "No changes detected",
@@ -1635,6 +1634,12 @@
           "untrackedChanges": "Untracked changes",
           "noRepositoryContext": "No repository context",
           "history": "Graph History",
+          "view": {
+            "settings": "Change file view",
+            "section": "View",
+            "list": "List",
+            "tree": "Tree"
+          },
           "actions": {
             "stageAll": "Stage all",
             "unstageAll": "Unstage all",
@@ -7989,7 +7994,7 @@
       }
     },
     "history": {
-      "title": "History",
+      "title": "Graph History",
       "loading": "Loading history…",
       "empty": "No commits found",
       "noRepository": "No repository selected",
@@ -8005,7 +8010,15 @@
       "previousMatch": "Previous match",
       "nextMatch": "Next match",
       "matchCount": "{current}/{total}",
-      "loadingMore": "Loading more commits…"
+      "loadingMore": "Loading more commits…",
+      "columns": {
+        "graph": "Graph",
+        "description": "Description",
+        "date": "Date",
+        "author": "Author",
+        "commit": "Commit"
+      },
+      "resizeColumn": "Resize {column} column"
     }
   },
   "localServices": {

@@ -5,6 +5,7 @@
  */
 
 export const HISTORY_ROW_HEIGHT = 36;
+export const HISTORY_HEADER_HEIGHT = 28;
 export const HISTORY_LANE_SPACING = 12;
 export const HISTORY_NODE_RADIUS = 3;
 export const HISTORY_HEAD_RING_PADDING = 2;

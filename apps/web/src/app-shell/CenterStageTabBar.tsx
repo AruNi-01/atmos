@@ -30,7 +30,7 @@ import {
   Bot,
   Globe,
   LoaderCircle,
-  GitCommitHorizontal,
+  GitGraph,
   Plus,
   RotateCw,
   Smartphone,
@@ -447,7 +447,7 @@ export function CenterStageTabBar({
         <SpecialTerminalTab
           key={tab.id}
           closeLabel={t("centerStageTabBar.closeHistoryTab")}
-          icon={<GitCommitHorizontal className="size-3.5 shrink-0" />}
+          icon={<GitGraph className="size-3.5 shrink-0" />}
           label={t("centerStageTabBar.history")}
           tooltip={t("centerStageTabBar.history")}
           variant="git-history"

@@ -1,5 +1,7 @@
 import { describe, expect, test } from "bun:test";
+import { HISTORY_COLUMN_MINS } from "./git-history-columns";
 import {
+  historyGraphWidth,
   layoutGitHistoryGraph,
   type GraphRow,
 } from "./git-history-graph";
@@ -79,5 +81,11 @@ describe("layoutGitHistoryGraph", () => {
     expect(fullLayout.rows.slice(0, prefix.length).map(compactRow)).toEqual(
       prefixLayout.rows.map(compactRow),
     );
+  });
+});
+
+describe("git history table columns", () => {
+  test("graph header column is wider than a single-lane drawing", () => {
+    expect(historyGraphWidth(1)).toBeLessThan(HISTORY_COLUMN_MINS.graph);
   });
 });

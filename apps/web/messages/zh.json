@@ -362,8 +362,8 @@
       "newTabMenu": "新建标签页",
       "simulator": "模拟器",
       "closeSimulatorTab": "关闭模拟器标签页",
-      "history": "历史记录",
-      "closeHistoryTab": "关闭历史记录标签页",
+      "history": "图形历史",
+      "closeHistoryTab": "关闭图形历史标签页",
       "overview": "总览",
       "refreshWiki": "刷新 Wiki",
       "projectWiki": "项目 Wiki",
@@ -1292,6 +1292,7 @@
         "enterWorkspace": "进入工作区",
         "create": "创建",
         "enter": "进入",
+        "close": "关闭",
         "draft": "草稿",
         "pagination": {
           "previous": "上一页",
@@ -1622,8 +1623,6 @@
         "noContext": "没有仓库上下文",
         "changes": {
           "selectScope": "选择变更范围",
-          "loadingCommits": "正在加载提交...",
-          "noCommitsOnBranch": "当前分支没有提交",
           "noCommitChanges": "提交 {commit} 没有文件变更",
           "noChangesAgainst": "与 {compareRef} 相比没有变更",
           "noChangesDetected": "未检测到变更",
@@ -1635,6 +1634,12 @@
           "untrackedChanges": "未跟踪文件",
           "noRepositoryContext": "没有仓库上下文",
           "history": "图形历史",
+          "view": {
+            "settings": "更改文件视图",
+            "section": "视图",
+            "list": "列表",
+            "tree": "树状"
+          },
           "actions": {
             "stageAll": "全部暂存",
             "unstageAll": "全部取消暂存",
@@ -7989,7 +7994,7 @@
       }
     },
     "history": {
-      "title": "历史记录",
+      "title": "图形历史",
       "loading": "正在加载历史记录…",
       "empty": "没有找到提交",
       "noRepository": "未选择仓库",
@@ -8005,7 +8010,15 @@
       "previousMatch": "上一个匹配",
       "nextMatch": "下一个匹配",
       "matchCount": "{current}/{total}",
-      "loadingMore": "正在加载更多提交…"
+      "loadingMore": "正在加载更多提交…",
+      "columns": {
+        "graph": "图形",
+        "description": "描述",
+        "date": "日期",
+        "author": "作者",
+        "commit": "提交"
+      },
+      "resizeColumn": "调整{column}列宽"
     }
   },
   "localServices": {
