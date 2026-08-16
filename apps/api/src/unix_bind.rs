@@ -54,7 +54,18 @@ mod tests {
         }
         let (listener, path) = result.expect("bind unix");
         assert_eq!(path, sock);
-        assert!(path.is_file());
+        let meta = std::fs::metadata(&path).expect("socket metadata");
+        assert!(
+            std::os::unix::fs::FileTypeExt::is_socket(&meta.file_type()),
+            "expected a unix socket at {}",
+            path.display()
+        );
+        let (client, accepted) =
+            tokio::join!(tokio::net::UnixStream::connect(&path), listener.accept());
+        assert!(client.is_ok(), "client connect failed: {client:?}");
+        assert!(accepted.is_ok(), "accept failed: {accepted:?}");
+        drop(client);
+        drop(accepted);
         drop(listener);
         super::remove_api_unix_socket(&path);
     }
