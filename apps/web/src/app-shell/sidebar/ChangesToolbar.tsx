@@ -7,6 +7,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuSub,
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
@@ -32,6 +33,7 @@ interface ChangesScopeMenuProps {
   onOpenChange: (open: boolean) => void;
   onSelectScope: (scope: Exclude<ChangesDiffScope, "commit">) => void;
   onSelectCommit: (commitHash: string) => void;
+  onOpenHistory?: () => void;
 }
 
 interface ChangesToolbarProps extends Omit<ChangesScopeMenuProps, "isVisible"> {
@@ -61,6 +63,7 @@ function ChangesScopeMenu({
   onOpenChange,
   onSelectScope,
   onSelectCommit,
+  onOpenHistory,
 }: ChangesScopeMenuProps) {
   const t = useTranslations("AppShell.chrome");
   const selectedCommit = commits.find((commit) => commit.hash === selectedCommitHash);
@@ -176,6 +179,14 @@ function ChangesScopeMenu({
           <span className="flex-1">{t("rightSidebar.changes.scope.branch")}</span>
           {renderTrailingCheck(scope === "branch")}
         </DropdownMenuItem>
+        {onOpenHistory ? (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem className="cursor-pointer" onSelect={onOpenHistory}>
+              <span className="flex-1">{t("rightSidebar.changes.history")}</span>
+            </DropdownMenuItem>
+          </>
+        ) : null}
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -189,6 +200,7 @@ export function ChangesToolbar({
   loadingCommits,
   onOpenChange,
   onRefresh,
+  onOpenHistory,
   onSelectCommit,
   onSelectScope,
   onToggleViewMode,
@@ -224,6 +236,7 @@ export function ChangesToolbar({
             onOpenChange={onOpenChange}
             onSelectScope={onSelectScope}
             onSelectCommit={onSelectCommit}
+            onOpenHistory={onOpenHistory}
           />
           <span
             role="button"

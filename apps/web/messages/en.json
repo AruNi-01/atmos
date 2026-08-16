@@ -1628,7 +1628,6 @@
           "showAsTree": "Show as tree",
           "showChangedFilesAsList": "Show changed files as list",
           "showChangedFilesAsTree": "Show changed files as tree",
-          "refreshCommits": "Refresh commits",
           "loadingCommits": "Loading commits...",
           "noCommitsOnBranch": "No commits on branch",
           "noCommitChanges": "Commit {commit} has no file changes",
@@ -1641,6 +1640,7 @@
           "unstagedChanges": "Unstaged changes",
           "untrackedChanges": "Untracked changes",
           "noRepositoryContext": "No repository context",
+          "history": "History",
           "scope": {
             "unstaged": "Unstaged",
             "staged": "Staged",

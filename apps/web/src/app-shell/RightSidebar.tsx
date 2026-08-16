@@ -44,7 +44,6 @@ import {
   GitPullRequestClosed,
   CircleDot,
   GitBranch,
-  GitCommit as GitCommitIcon,
   FileDiff,
   FolderOpen,
   FolderTree,
@@ -84,7 +83,6 @@ import { RightSidebarCreatePrDialog } from "@/app-shell/sidebar/RightSidebarCrea
 import { ReviewContextProvider } from "@/features/diff/components/review/ReviewContextProvider";
 import type { GitChangedFile, ReviewTarget } from "@/api/ws-api";
 import { ReviewActions } from "@/features/diff/components/review/ReviewActions";
-import { RefreshableTabsTab } from "@/shared/components/ui/RefreshableTabsTab";
 import { useSidebarUiPrefs } from "@/shared/stores/use-ui-pref-hooks";
 import { useOpenGithubCenterTab } from "@/features/github/hooks/use-open-github-center-tab";
 import { useSidebarLayout } from "@/app-shell/SidebarLayoutContext";
@@ -733,16 +731,11 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
           >
             {hasWorkingContext ? (
               <>
-                {/* Files / Commits sub-tabs */}
-                <div className="flex border-b border-sidebar-border shrink-0 bg-background/50 backdrop-blur-sm h-9">
+                {/* Changes toolbar */}
+                <div className="flex h-9 shrink-0 border-b border-sidebar-border bg-background/50 backdrop-blur-sm">
                   <Tabs
                     value="changes"
-                    onValueChange={(v) => {
-                      if (v === "commits") {
-                        openGitHistoryTab(selectedCommitHash);
-                      }
-                    }}
-                    className="flex-1 h-full min-w-0"
+                    className="h-full min-w-0 flex-1"
                   >
                     <TabsList
                       variant="underline"
@@ -766,30 +759,14 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
                         onOpenChange={setChangesScopeMenuOpen}
                         onSelectScope={handleSelectChangesScope}
                         onSelectCommit={handleSelectCommitScope}
+                        onOpenHistory={() => openGitHistoryTab(selectedCommitHash)}
                         onToggleViewMode={() =>
                           setChangesFileViewMode(
                             changesFileViewMode === "tree" ? "list" : "tree",
                           )
                         }
-                        className="h-full! basis-2/3 flex-[2_1_0%] text-sm gap-1.5 focus-visible:ring-0 focus-visible:ring-offset-0 rounded-none border-0!"
+                        className="h-full! flex-1 text-sm gap-1.5 focus-visible:ring-0 focus-visible:ring-offset-0 rounded-none border-0!"
                       />
-                      <RefreshableTabsTab
-                        value="commits"
-                        activeValue="changes"
-                        refreshWhenInactive
-                        refreshTitle={t("rightSidebar.changes.refreshCommits")}
-                        onRefresh={async () => {
-                          await commitLog.refresh();
-                          if (currentProjectPath) {
-                            await forceRefreshGitQueries(currentProjectPath);
-                          }
-                        }}
-                        isRefreshing={commitLog.loading || commitLog.refreshing}
-                        className="h-full! basis-1/3 flex-[1_1_0%] text-sm gap-1.5 focus-visible:ring-0 focus-visible:ring-offset-0 rounded-none border-0!"
-                      >
-                        <GitCommitIcon className="size-3.5" />
-                        <span>{t("common.commits")}</span>
-                      </RefreshableTabsTab>
                     </TabsList>
                   </Tabs>
                 </div>

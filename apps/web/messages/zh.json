@@ -1628,7 +1628,6 @@
           "showAsTree": "以树状显示",
           "showChangedFilesAsList": "以列表显示变更文件",
           "showChangedFilesAsTree": "以树状显示变更文件",
-          "refreshCommits": "刷新提交",
           "loadingCommits": "正在加载提交...",
           "noCommitsOnBranch": "当前分支没有提交",
           "noCommitChanges": "提交 {commit} 没有文件变更",
@@ -1641,6 +1640,7 @@
           "unstagedChanges": "未暂存变更",
           "untrackedChanges": "未跟踪文件",
           "noRepositoryContext": "没有仓库上下文",
+          "history": "历史记录",
           "scope": {
             "unstaged": "未暂存",
             "staged": "已暂存",
