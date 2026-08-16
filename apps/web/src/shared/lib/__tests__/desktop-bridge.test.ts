@@ -8,6 +8,7 @@ import {
   createUnsupportedCommandError,
   desktopInvoke,
   detectDesktopShell,
+  getDesktopTerminalStreamApi,
   invokeViaShell,
   isDesktopBridgeError,
   isDesktopRuntime,
@@ -191,5 +192,31 @@ describe("invokeViaShell / desktopInvoke routing", () => {
       electronInvoke: async () => ({ host: "127.0.0.1", port: 1 }),
     });
     expect(tauriCalled).toBe(false);
+  });
+});
+
+describe("getDesktopTerminalStreamApi", () => {
+  it("returns null without a terminalStream bridge", () => {
+    const win = installWindow();
+    (win as unknown as { __ATMOS_DESKTOP__: object }).__ATMOS_DESKTOP__ = {
+      shell: "electron",
+      invoke: async () => ({}),
+    };
+    expect(getDesktopTerminalStreamApi()).toBeNull();
+  });
+
+  it("returns the preload terminalStream API when present", () => {
+    const win = installWindow();
+    const terminalStream = {
+      open: async () => ({ streamId: "s1" }),
+      send: () => {},
+      close: () => {},
+    };
+    (win as unknown as { __ATMOS_DESKTOP__: object }).__ATMOS_DESKTOP__ = {
+      shell: "electron",
+      invoke: async () => ({}),
+      terminalStream,
+    };
+    expect(getDesktopTerminalStreamApi()).toBe(terminalStream);
   });
 });
