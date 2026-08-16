@@ -34,6 +34,168 @@ export interface ChangelogItem {
 
 export const changelogData: ChangelogItem[] = [
   {
+    id: "desktop-2026.8.16",
+    title: {
+      zh: "Graph History · Changes 列表/树 · Skills Launchpad · Automations",
+      en: "Graph History, Changes List/Tree, Skills Launchpad & Automations",
+    },
+    description: {
+      zh: "Atmos Desktop 2026.8.16 在中心标签打开 Graph History 提交图，重做 Changes 的列表/树视图与范围批量操作，并统一 Launchpad 在 Settings、Skills 与 Automations 中的滑动动效。",
+      en: "Atmos Desktop 2026.8.16 opens Graph History as a center-tab commit graph, restyles Changes around list/tree views and scoped bulk actions, and polishes Launchpad motion across Settings, Skills, and Automations.",
+    },
+    date: "2026-08-16",
+    version: "2026.8.16",
+    releaseUrl:
+      "https://github.com/AruNi-01/atmos/releases/tag/desktop-electron-2026.8.16",
+    tags: [
+      { zh: "Graph History", en: "Graph History" },
+      { zh: "Changes", en: "Changes" },
+      { zh: "Launchpad", en: "Launchpad" },
+      { zh: "Automations", en: "Automations" },
+    ],
+    content: {
+      zh: {
+        features: [
+          "**Graph History** — 从 Changes 范围菜单在中心标签打开拓扑提交图，可搜索提交、调整列宽，点击一行即在 Changes 中查看该提交的 diff。",
+          "**Changes 列表/树** — 文件列表可在列表与树之间切换，工具栏更紧凑，支持 Stage all / Unstage all 等范围批量操作。",
+          "**Automations 记忆与运行** — 持久保存 `memory.md`，可筛选仪表盘，并在抽屉中查看一次运行的聊天与产物。",
+          "**Skills Launchpad** — 用标签与筛选浏览 skills，详情页沿用 Settings 与 Canvas 的推页动效。",
+          "**仓库脚本** — 将 setup、run、purge 分成独立阶段审阅，信任提示绑定到 `.atmos/scripts/atmos.json`。",
+        ],
+        fixes: [
+          "**Settings 拖动** — 打开 Settings 时不再从页面 chrome 误触发 Desktop 窗口拖动。",
+          "**Browser 地址栏** — 新建 Browser 标签会聚焦 URL 栏，可立即输入。",
+          "**扫描选择悬停** — 列表悬停高亮即时跟随指针，不再滞后。",
+          "**退出时的 Desktop Use** — 退出 Atmos 会停止 Desktop Use 宿主，避免后台残留。",
+        ],
+        improvements: [
+          "**Launchpad 动效** — Settings、Canvas 与 skill 详情共用同一滑动过渡，Settings 会保留下层上一页。",
+          "**Token 用量分享** — 发布入口收进分享菜单，公开 `/tok/@handle` 页不再内嵌排行榜，排名仍在 `/tok/leaderboard`。",
+          "**侧边聊天提醒** — 最小化的终端侧边聊天会提示需要你，而不会自动打开输入框。",
+          "**抽屉** — Automations、GitHub、Linear 等抽屉共用同一套 overlay 关闭控件。",
+          "**Desktop Use 名称** — Activity Monitor 显示 `Atmos Desktop Use`，不再用上游引擎进程名。",
+          "**Changes 确认** — 破坏性批量操作会先确认；切换分支或项目会丢掉过期的历史选中。",
+        ],
+        others: [
+          "完整对比：https://github.com/AruNi-01/atmos/compare/desktop-electron-2026.8.15...desktop-electron-2026.8.16",
+        ],
+      },
+      en: {
+        features: [
+          "**Graph History** — Open a topological commit graph in a center tab from the Changes scope menu. Search commits, resize columns, and click a row to show that commit’s diff in Changes.",
+          "**Changes list/tree** — Switch the file list between list and tree, with a denser toolbar for Stage all / Unstage all and other scoped bulk actions.",
+          "**Automations memory & runs** — Keep persistent `memory.md`, filter the dashboard, and inspect a run in a drawer with chat and artifacts.",
+          "**Skills launchpad** — Browse skills with tabs and filters, then open detail with the same push-page motion as Settings and Canvas.",
+          "**Repository scripts** — Review setup, run, and purge as separate phases, with a trust hint bound to `.atmos/scripts/atmos.json`.",
+        ],
+        fixes: [
+          "**Settings drag** — Opening Settings no longer starts a Desktop window drag from the page chrome.",
+          "**Browser address bar** — New Browser tabs focus the URL field so you can type immediately.",
+          "**Scan-and-select hover** — List hover highlighting updates instantly instead of lagging behind the pointer.",
+          "**Desktop Use on quit** — Quitting Atmos stops the Desktop Use host instead of leaving it running in the background.",
+        ],
+        improvements: [
+          "**Launchpad motion** — Settings, Canvas, and skill detail share one slide transition, and Settings keeps the previous page mounted underneath.",
+          "**Token Usage share** — Publish lives in the share menu, public `/tok/@handle` pages no longer embed the leaderboard, and `/tok/leaderboard` stays the ranking destination.",
+          "**Side chat attention** — Minimized terminal side chats show when they need you, without auto-opening the composer.",
+          "**Drawers** — Overlay close chrome is shared across Automations, GitHub, Linear, and similar drawers.",
+          "**Desktop Use branding** — Activity Monitor shows `Atmos Desktop Use` instead of the upstream engine process name.",
+          "**Changes confirm** — Destructive bulk actions ask before they run, and switching branch or project drops a stale history selection.",
+        ],
+        others: [
+          "Full comparison: https://github.com/AruNi-01/atmos/compare/desktop-electron-2026.8.15...desktop-electron-2026.8.16",
+        ],
+      },
+    },
+  },
+  {
+    id: "desktop-2026.8.15",
+    title: {
+      zh: "按 Agent 状态分组 · Disk Analyzer · 仓库脚本信任 · Token 用量公开页",
+      en: "Agent Status Groups, Disk Analyzer, Script Trust & Public Token Usage",
+    },
+    description: {
+      zh: "Atmos Desktop 2026.8.15 按实时 Agent 状态分组工作区，扩展 Disk Analyzer 覆盖 Git worktree 与 Agent 会话，运行仓库脚本前先征求信任，自动为未处理的 Agent 写一句摘要，并带来更稳的应用内 Browser、权限访问设置，以及可公开分享的 Token 用量页。",
+      en: "Atmos Desktop 2026.8.15 groups workspaces by live Agent status, expands Disk Analyzer to Git worktrees and Agent session data, asks before running repository scripts, auto-summarizes unattended Agents, and ships a more reliable in-app Browser, Permission Access settings, and public Token Usage pages.",
+    },
+    date: "2026-08-15",
+    version: "2026.8.15",
+    releaseUrl:
+      "https://github.com/AruNi-01/atmos/releases/tag/desktop-electron-2026.8.15",
+    tags: [
+      { zh: "Agent 状态", en: "Agent Status" },
+      { zh: "Disk Analyzer", en: "Disk Analyzer" },
+      { zh: "Browser", en: "Browser" },
+      { zh: "Token 用量", en: "Token Usage" },
+    ],
+    content: {
+      zh: {
+        features: [
+          "**按 Agent 状态分组** — 侧栏与 Task 看板分成 Need permission、Need attention、Running、Idle、Done，不用扫遍每个工作区就能找到需要你的 Agent。",
+          "**Disk Analyzer worktree 与 Agent 数据** — 默认扫描机器上的 Git worktree 与 Agent 会话目录，按类型分组，并提供 Clear 建议卡片、路径与按时间的清理提示。",
+          "**仓库脚本信任** — setup 与 Run 在审阅 `.atmos/scripts/atmos.json` 中的全部命令前不会执行。信任绑定到文件内容，后续拉取或编辑会再次询问。",
+          "**Need-attention 自动摘要** — Agent 结束后若未确认，Atmos 会在终端输入框上方写一句回顾和下一步 chips。聚焦 Terminal 后摘要仍在，并可使用终端记录作为上下文。",
+          "**应用内 Browser** — 统一状态信封、首次成功快照、选中交接，以及 Settings → Browser 作为放置权威。默认使用应用内 Browser，新标签会开在你正在用的那个 Browser。",
+          "**权限访问** — 在 Privacy & Security 中收集浏览器 cookie 同意与 Desktop Use 系统授权，Token 用量解密 cookie 前会先询问。",
+          "**Token 用量公开页** — 发布可分享的 `/tok/@handle` 用量页与 `/tok/leaderboard` 排行榜。",
+          "**iOS 预览** — 内嵌 serve-sim，可在 Desktop 中预览 iOS 界面。",
+        ],
+        fixes: [
+          "**Need-attention 回顾** — 聚焦 Terminal 后保留摘要，并关掉可能丢掉或恢复错误回顾的竞态。",
+          "**不受信任的来源** — 拒绝来自未信任源的浏览器 WebSocket 与 HTTP 请求。",
+          "**Disk Analyzer** — 扫描更快；悬停取消与无边框刷新；从 Clear 建议钻入图表；解码会话文件夹名；忽略 git submodule 作为 worktree；删除时注销 worktree。",
+          "**侧栏项目组** — 用户折叠 Project 分组后保持收起。",
+          "**Canvas 后台请求** — keep-alive 隐藏时停止自动保存与配额拉取。",
+          "**Token 用量本地优先** — 先扫描本地文件，在角落提示 cookie 访问，过期的本地刷新不会覆盖 cookie 补全。",
+          "**Settings 返回** — 离开 Settings 回到上次工作台路径，而不是只退一步历史。",
+        ],
+        improvements: [
+          "**Code Agent Behaviour** — 可为 attention 自动摘要配置开关、延迟、agent 与模型，Behaviour 设置布局更清晰。",
+          "**Tasks** — 预热 GitHub 标签缓存与 Task 来源标签，切换来源更跟手。",
+          "**Settings 独立页** — Settings 作为路由页打开，并沿用 Launchpad 推页动效。",
+          "**侧边聊天** — 可从 agent hook 导航打开侧边聊天，点击弹层标题时保持焦点。",
+          "**Browser 下载** — 下载限制在系统 Downloads 文件夹。",
+          "**Atmos Server 名称** — Activity Monitor 与钥匙串提示显示 Atmos Server，而不再用旧的 sidecar 名称。",
+        ],
+        others: [
+          "完整对比：https://github.com/AruNi-01/atmos/compare/desktop-electron-2026.8.11...desktop-electron-2026.8.15",
+        ],
+      },
+      en: {
+        features: [
+          "**By Agent Status** — Group the sidebar and Task kanban into Need permission, Need attention, Running, Idle, and Done so you can find Agents that need you without scanning every workspace.",
+          "**Disk Analyzer worktrees & Agent data** — Default scans now include machine Git worktrees and Agent session folders, grouped by kind, with Clear suggest cards, paths, and time-based cleanup hints.",
+          "**Repository script trust** — Setup and Run no longer execute `.atmos/scripts/atmos.json` until you review every command in the file. Trust is bound to the file bytes, so a later pull or edit asks again.",
+          "**Need-attention auto-summary** — After an Agent finishes and stays unacknowledged, Atmos writes a one-sentence recap with next-step chips above the terminal input. Summaries stay after you focus Terminal, and can use the terminal transcript as context.",
+          "**In-app Browser** — One state envelope, first-success snapshot, pick-as-handoff, and Settings → Browser as the placement authority. In-app Browser is the default; new tabs open in the Browser you are already using.",
+          "**Permission Access** — Collect browser-cookie consent and Desktop Use OS grants under Privacy & Security, and ask before Token Usage decrypts cookies.",
+          "**Public Token Usage pages** — Publish shareable `/tok/@handle` usage pages and a `/tok/leaderboard` ranking destination.",
+          "**iOS preview** — Embed serve-sim so you can preview iOS UI inside Desktop.",
+        ],
+        fixes: [
+          "**Need-attention recap** — Keep the summary after focusing Terminal, and close races that could drop or restore the wrong recap.",
+          "**Untrusted origins** — Reject browser WebSocket and HTTP requests from origins that are not trusted.",
+          "**Disk Analyzer** — Faster scans; hover-to-cancel and borderless refresh; chart drill-in from Clear suggest; decode session folder names; ignore git submodules as worktrees; unregister worktrees on delete.",
+          "**Sidebar project groups** — Keep Project groups collapsed after the user folds them.",
+          "**Canvas background work** — Stop autosave and quota fetches while keep-alive is hidden.",
+          "**Token Usage local-first** — Scan local files first, prompt cookie access in-corner, and do not let a stale local refresh overwrite cookie enrichment.",
+          "**Settings leave** — Leave Settings back to the last workbench path instead of only one history step.",
+        ],
+        improvements: [
+          "**Code Agent Behaviour** — Settings for attention auto-summary (enable, delay, agent, model) plus a clearer Behaviour settings layout.",
+          "**Tasks** — Warmer GitHub tab cache and Task source tabs so switching sources feels snappier.",
+          "**Settings as a page** — Open Settings as a routed page with the same Launchpad push-page motion.",
+          "**Side chat** — Open side chat from agent hook navigation, and keep the overlay focused when you click the modal header.",
+          "**Browser downloads** — Confine downloads to the system Downloads folder.",
+          "**Atmos Server branding** — Activity Monitor and Keychain prompts show Atmos Server instead of the leftover sidecar name.",
+        ],
+        others: [
+          "Full comparison: https://github.com/AruNi-01/atmos/compare/desktop-electron-2026.8.11...desktop-electron-2026.8.15",
+        ],
+      },
+    },
+  },
+  {
     id: "desktop-2026.8.11",
     title: {
       zh: "Hub 账号 · Linear 任务 · 手机扫码配对 · Token 用量总览",
