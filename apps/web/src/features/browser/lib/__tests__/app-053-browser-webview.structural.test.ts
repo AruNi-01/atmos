@@ -267,6 +267,22 @@ describe("APP-053 browser webview structural (shipped sources)", () => {
     expect(surface).toContain("guest.close()");
   });
 
+  it("new Browser tab focuses the address bar", () => {
+    const state = read("apps/web/src/features/browser/hooks/use-browser-state.ts");
+    expect(state).toContain("setPendingUrlFocusTabId(nextTab.id)");
+    expect(state).toContain("pendingUrlFocusTabId");
+    expect(state).toContain("consumeUrlFocusRequest");
+
+    const session = read("apps/web/src/features/browser/components/BrowserSession.tsx");
+    expect(session).toContain("autoFocusAddressBar");
+    expect(session).toContain("focusUrlInput()");
+
+    const panel = read("apps/web/src/features/browser/components/BrowserPanel.tsx");
+    expect(panel).toContain("autoFocusAddressBar={tab.id === pendingUrlFocusTabId}");
+    const standalone = read("apps/web/src/features/browser/components/BrowserStandalonePage.tsx");
+    expect(standalone).toContain("autoFocusAddressBar={tab.id === pendingUrlFocusTabId}");
+  });
+
   it("permanent tab slots keep all tabs mounted (BrowserPanel)", () => {
     const src = read("apps/web/src/features/browser/components/BrowserPanel.tsx");
     expect(src).toContain("tabsToRender.map");

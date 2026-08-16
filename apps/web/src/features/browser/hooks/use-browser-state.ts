@@ -396,6 +396,19 @@ export function useBrowserState({
     [updateBrowserTab],
   );
 
+  const [pendingUrlFocusTabId, setPendingUrlFocusTabId] = useState<string | null>(null);
+
+  const consumeUrlFocusRequest = useCallback((tabId: string) => {
+    setPendingUrlFocusTabId((current) => (current === tabId ? null : current));
+  }, []);
+
+  useEffect(() => {
+    const current = browserStateRef.current;
+    const tab = current.tabs.find((item) => item.id === current.activeTabId);
+    if (!tab || tab.url.trim() || tab.activeUrl.trim()) return;
+    setPendingUrlFocusTabId(tab.id);
+  }, []);
+
   const handleAddBrowserTab = useCallback(() => {
     const now = Date.now();
     const nextTab = createPreviewBrowserTab("", now + 1);
@@ -405,6 +418,7 @@ export function useBrowserState({
         activeTabId: nextTab.id,
       }),
     }));
+    setPendingUrlFocusTabId(nextTab.id);
   }, []);
 
   const handleOpenBrowserTab = useCallback((nextUrl: string) => {
@@ -589,8 +603,10 @@ export function useBrowserState({
     activeBrowserTab,
     browserContextId,
     browserState,
+    consumeUrlFocusRequest,
     handleAddBrowserTab,
     handleCloseBrowserTab,
+    pendingUrlFocusTabId,
     handleOpenBrowserTab,
     handleBrowserSessionReady,
     handlePreviewTitleChange,

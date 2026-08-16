@@ -76,8 +76,10 @@ export const BrowserPanel: React.FC<BrowserPanelProps> = ({
   const {
     browserContextId: resolvedBrowserContextId,
     browserState,
+    consumeUrlFocusRequest,
     handleAddBrowserTab,
     handleCloseBrowserTab,
+    pendingUrlFocusTabId,
     handleOpenBrowserTab,
     handleBrowserSessionReady,
     handlePreviewIconChange,
@@ -277,6 +279,8 @@ export const BrowserPanel: React.FC<BrowserPanelProps> = ({
           }
           onOpenPageInNewTab={handleOpenBrowserTab}
           onSessionReady={(sessionId) => handleSessionReady(tab.id, sessionId)}
+          autoFocusAddressBar={tab.id === pendingUrlFocusTabId}
+          onAutoFocusAddressBar={() => consumeUrlFocusRequest(tab.id)}
           browserTabBarProps={{
             tabs: browserState.tabs,
             activeTabId: browserState.activeTabId,

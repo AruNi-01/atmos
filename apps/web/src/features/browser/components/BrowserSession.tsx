@@ -77,6 +77,9 @@ interface BrowserSessionProps {
   onOpenPreviewBrowserWindow?: (url: string) => Promise<void> | void;
   onCloseStandalonePreviewWindow?: () => void;
   onMoveToCenter?: () => void;
+  /** Focus the address bar after this tab is created / selected empty. */
+  autoFocusAddressBar?: boolean;
+  onAutoFocusAddressBar?: () => void;
 }
 
 /**
@@ -118,6 +121,8 @@ export const BrowserSession: React.FC<BrowserSessionProps> = ({
   onOpenPreviewBrowserWindow,
   onCloseStandalonePreviewWindow,
   onMoveToCenter,
+  autoFocusAddressBar = false,
+  onAutoFocusAddressBar,
 }) => {
   const previewToolbarT = useTranslations("browser.toolbar");
   const headerHasOpenOverlay = useDialogStore(s => s.headerHasOpenOverlay);
@@ -435,6 +440,19 @@ export const BrowserSession: React.FC<BrowserSessionProps> = ({
     url,
     urlInputRef,
   });
+
+  const onAutoFocusAddressBarRef = useRef(onAutoFocusAddressBar);
+  onAutoFocusAddressBarRef.current = onAutoFocusAddressBar;
+
+  useEffect(() => {
+    if (!isActive || !autoFocusAddressBar) return;
+    if (canonicalizeUrl(activeUrl) || (url ?? "").trim()) {
+      onAutoFocusAddressBarRef.current?.();
+      return;
+    }
+    focusUrlInput();
+    onAutoFocusAddressBarRef.current?.();
+  }, [activeUrl, autoFocusAddressBar, focusUrlInput, isActive, url]);
 
   useEffect(() => {
     if (!activeUrl) return;
