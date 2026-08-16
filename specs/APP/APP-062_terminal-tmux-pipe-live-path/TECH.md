@@ -1,8 +1,11 @@
 # TECH · APP-062: Terminal tmux pipe-pane live path
 
+<!-- updated 2026-08-15: live loops live in PaneIoRegistry (io.rs), not a runtime.rs `run_pipe_pane_session` thread; mouse_mode_watch.rs is deleted -->
+<!-- updated 2026-08-16: N2 idle tear 15m; ControlPort is JSON on the same carrier; PTY input is raw binary; desktop main↔API prefers UDS -->
+
 > HOW. Implements [PRD.md](./PRD.md). Amends the **live transport** in [ADR-004](../../../docs/adr/004-terminal-tmux-control-mode.md). Does **not** replace tmux as the session daemon.
 
-Addresses M1–M11. N1–N2 deferred.
+Addresses M1–M11. N2 idle tear is 15 minutes with no observers (window stays). Client **ByteStreamPort** + logical **ControlPort** is [ADR-006](../../../docs/adr/006-terminal-client-byte-stream-port.md): desktop local renderer uses IPC; main↔API prefers UDS (`~/.atmos/state/api.sock`) with loopback WS fallback. API still serves `/ws/terminal/:id`.
 
 ---
 
@@ -22,13 +25,13 @@ Keep the APP-002 master session + named windows. Stop using a per-browser `tmux 
                                     ATMOS_TERMINAL_IO / IoMode
 ```
 
-Desktop UDS (N1) is a later hop on top of this pipe. This spec still uses the existing terminal WebSocket. Control mode is not retained as a second transport.
+Desktop main↔API UDS is a later hop. Desktop **renderer** local attach uses Electron IPC (`ByteStreamPort`, ADR-006); API still serves the same `/ws/terminal/:id`. Control mode is not retained as a second transport.
 
 ---
 
 ## Architecture overview
 
-Layers: `apps/web` (unchanged wire) → `apps/api` WS handler → `crates/core-service` pane I/O registry → `crates/core-engine` tmux `pipe-pane` + `resize-window`.
+Layers: `apps/web` (ByteStreamPort: WS or desktop IPC) → `apps/api` `/ws/terminal/:id` → `crates/core-service` pane I/O registry → `crates/core-engine` tmux `pipe-pane` + `resize-window`.
 
 ### Today (control mode)
 
@@ -157,10 +160,10 @@ Extend `crates/core-service/src/service/terminal/`:
 
 | Piece | Role |
 |-------|------|
-| `io.rs` (new) | `PaneIoRegistry`: one `PaneIo` per key |
-| `runtime.rs` | `run_pipe_pane_session` is the tmux live runner. Remove live calls to `run_control_mode_tmux_session`. Keep `run_simple_pty_session` for `mode=shell` only. |
+| `io.rs` (new) | `PaneIoRegistry`: one live pipe per key; tokio read/write on the UDS; mouse observe + run-log tee + fan-out |
+| `runtime.rs` | Keep `run_simple_pty_session` for `mode=shell` only. Control-mode runner removed (no `run_pipe_pane_session` thread — the registry owns the live loops). |
 | `types.rs` | Tmux sessions do not grow an `IoMode`. `SessionType::Tmux` means pipe I/O. |
-| `mouse_mode_watch.rs` | Stop spawning `atmos_mousewatch_*`. Pipe read loop owns DEC observation. |
+| `mouse_mode_watch.rs` | Deleted. Pipe read loop owns DEC observation. |
 
 `PaneIo` lifecycle:
 
@@ -175,7 +178,7 @@ Extend `crates/core-service/src/service/terminal/`:
           │ (error to    ▼
           │  client, ┌───────────┐
           │  retry)  │   live    │── last observer gone ──► stay live (M4)
-          │          └─────┬─────┘   (N2 may idle-tear later)
+          │          └─────┬─────┘   (N2 idle-tear after 15m with no observers)
           │                │ destroy / pipe EOF + window gone
           │                ▼
           │          ┌───────────┐
@@ -387,5 +390,5 @@ Each step is mergeable. Do not ship a dual-stack “dark control” period.
 
 ## Open questions
 
-- [ ] N2 idle pipe tear timeout (suggested 15m, window stays). Not required to ship M1–M11.
+- [x] N2 idle pipe tear timeout (15m, window stays). `PaneIoRegistry` starts a timer on last observer drop; `ensure_and_subscribe` cancels it; timeout calls `destroy_pipe`.
 - [ ] Whether leftover `tmux/control.rs` parser tests stay one PR or a delete-follow-up. Not a product fork.

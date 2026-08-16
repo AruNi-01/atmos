@@ -24,6 +24,12 @@ export type DesktopListenFn = (
   handler: (payload: unknown) => void,
 ) => Promise<DesktopListenUnlisten> | DesktopListenUnlisten;
 
+export type DesktopTerminalStreamApi = {
+  open: (url: string) => Promise<{ streamId: string; sidecar?: "uds" | "ws" }>;
+  send: (streamId: string, data: ArrayBuffer | string) => void;
+  close: (streamId: string) => void;
+};
+
 export type AtmosDesktopPreload = {
   shell: "electron";
   invoke: DesktopInvokeFn;
@@ -31,6 +37,8 @@ export type AtmosDesktopPreload = {
     event: string,
     handler: (payload: unknown) => void,
   ) => DesktopListenUnlisten | void;
+  /** Binary terminal stream (renderer ↔ main). Absent on older shells. */
+  terminalStream?: DesktopTerminalStreamApi;
 };
 
 type WindowWithDesktop = Window & {
@@ -267,4 +275,20 @@ export async function desktopListen(
   }
 
   return () => {};
+}
+
+/** Renderer binary terminal stream API from Electron preload, or null. */
+export function getDesktopTerminalStreamApi(
+  globalObj: GlobalWithWindow = globalThis as GlobalWithWindow,
+): DesktopTerminalStreamApi | null {
+  const api = globalObj.window?.__ATMOS_DESKTOP__?.terminalStream;
+  if (
+    !api ||
+    typeof api.open !== "function" ||
+    typeof api.send !== "function" ||
+    typeof api.close !== "function"
+  ) {
+    return null;
+  }
+  return api;
 }

@@ -342,7 +342,12 @@ function formatPortOccupiedWithoutUi(
     .join("\n");
 }
 
-function writeManifest(host: string, port: number, pid: number | null) {
+function writeManifest(
+  host: string,
+  port: number,
+  pid: number | null,
+  unixSocket: string | null,
+) {
   const path = manifestPath();
   mkdirSync(dirname(path), { recursive: true });
   writeFileSync(
@@ -352,7 +357,13 @@ function writeManifest(host: string, port: number, pid: number | null) {
         version: 1,
         source: "desktop-electron",
         pid,
-        api: { host, port, url: `http://${host}:${port}` },
+        api: {
+          host,
+          port,
+          url: `http://${host}:${port}`,
+          ws_url: `ws://${host}:${port}`,
+          ...(unixSocket ? { unix_socket: unixSocket } : {}),
+        },
         updated_at: new Date().toISOString(),
       },
       null,
@@ -365,6 +376,7 @@ function writeManifest(host: string, port: number, pid: number | null) {
 export type EnsureResult = {
   host: string;
   port: number;
+  unixSocket: string | null;
   runtimeDir: string;
   webDir: string;
   started: boolean;
@@ -477,7 +489,15 @@ export async function ensureAtmosServer(
       ensureLog(
         `reusing existing Atmos Server at http://${host}:${port} (UI OK)`,
       );
-      return { host, port, runtimeDir, webDir: web, started: false, pid: null };
+      return {
+        host,
+        port,
+        unixSocket: readManifestUnixSocket(),
+        runtimeDir,
+        webDir: web,
+        started: false,
+        pid: null,
+      };
     }
     // e.g. leftover `just dev-api` / target/debug/api — healthz without static.
     // Desktop product must own the port with ATMOS_STATIC_DIR; reclaim then spawn.
@@ -523,8 +543,9 @@ export async function ensureAtmosServer(
         );
       }
       ownedServerPid = pid;
-      writeManifest(host, port, pid);
-      return { host, port, runtimeDir, webDir: web, started: true, pid };
+      const unixSocket = readManifestUnixSocket();
+      writeManifest(host, port, pid, unixSocket);
+      return { host, port, unixSocket, runtimeDir, webDir: web, started: true, pid };
     }
     await sleep(500);
   }
@@ -671,6 +692,17 @@ export function readManifestPort(): number | null {
     const raw = readFileSync(manifestPath(), "utf8");
     const m = JSON.parse(raw) as { api?: { port?: number } };
     return m.api?.port ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export function readManifestUnixSocket(): string | null {
+  try {
+    const raw = readFileSync(manifestPath(), "utf8");
+    const m = JSON.parse(raw) as { api?: { unix_socket?: unknown } };
+    const socket = m.api?.unix_socket;
+    return typeof socket === "string" && socket.startsWith("/") ? socket : null;
   } catch {
     return null;
   }

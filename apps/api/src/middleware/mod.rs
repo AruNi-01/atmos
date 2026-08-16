@@ -13,6 +13,10 @@ use std::sync::Arc;
 
 use crate::config::ServerConfig;
 
+/// Marker for connections accepted on the local Unix socket (same-user).
+#[derive(Clone, Copy, Debug)]
+pub struct UnixSocketPeer;
+
 fn constant_time_eq(a: &str, b: &str) -> bool {
     let hash_a = Sha256::digest(a.as_bytes());
     let hash_b = Sha256::digest(b.as_bytes());
@@ -42,14 +46,16 @@ pub async fn require_allowed_origin(
     next: Next,
     config: Arc<ServerConfig>,
 ) -> Result<Response, StatusCode> {
-    if let Some(host) = headers.get(HOST).and_then(|value| value.to_str().ok()) {
-        if !config.is_host_allowed(host) {
-            tracing::warn!(
-                "Rejected request with untrusted Host header: host={}, path={}",
-                host,
-                request.uri().path()
-            );
-            return Err(StatusCode::FORBIDDEN);
+    if request.extensions().get::<UnixSocketPeer>().is_none() {
+        if let Some(host) = headers.get(HOST).and_then(|value| value.to_str().ok()) {
+            if !config.is_host_allowed(host) {
+                tracing::warn!(
+                    "Rejected request with untrusted Host header: host={}, path={}",
+                    host,
+                    request.uri().path()
+                );
+                return Err(StatusCode::FORBIDDEN);
+            }
         }
     }
 
@@ -70,7 +76,6 @@ pub async fn require_allowed_origin(
 /// General middleware: trusts loopback by default.
 /// LAN trust can be opt-in via configuration.
 pub async fn require_local_token(
-    connect_info: ConnectInfo<SocketAddr>,
     headers: HeaderMap,
     request: Request<axum::body::Body>,
     next: Next,
@@ -80,6 +85,17 @@ pub async fn require_local_token(
     let path = request.uri().path().to_string();
     let query = request.uri().query().map(|s| s.to_string());
 
+    if request.extensions().get::<UnixSocketPeer>().is_some() {
+        return Ok(next.run(request).await);
+    }
+
+    let Some(connect_info) = request.extensions().get::<ConnectInfo<SocketAddr>>() else {
+        tracing::warn!(
+            "Unauthorized API request: path={}, missing peer address",
+            path
+        );
+        return Err(StatusCode::UNAUTHORIZED);
+    };
     let remote_ip = connect_info.0.ip();
 
     if is_trusted_local_source(&remote_ip, allow_lan_without_token) {
@@ -101,7 +117,6 @@ pub async fn require_local_token(
 /// Stricter middleware for destructive operations: only loopback is trusted
 /// without a token. LAN clients must also provide a valid token.
 pub async fn require_loopback_or_token(
-    connect_info: ConnectInfo<SocketAddr>,
     headers: HeaderMap,
     request: Request<axum::body::Body>,
     next: Next,
@@ -109,6 +124,18 @@ pub async fn require_loopback_or_token(
 ) -> Result<Response, StatusCode> {
     let path = request.uri().path().to_string();
     let query = request.uri().query().map(|s| s.to_string());
+
+    if request.extensions().get::<UnixSocketPeer>().is_some() {
+        return Ok(next.run(request).await);
+    }
+
+    let Some(connect_info) = request.extensions().get::<ConnectInfo<SocketAddr>>() else {
+        tracing::warn!(
+            "Unauthorized destructive API request: path={}, missing peer address",
+            path
+        );
+        return Err(StatusCode::UNAUTHORIZED);
+    };
     let remote_ip = connect_info.0.ip();
 
     if is_loopback_ip(&remote_ip) {
@@ -277,6 +304,36 @@ mod tests {
             status_for(&[("host", "rebind.evil.example:30303")]).await,
             StatusCode::FORBIDDEN
         );
+    }
+
+    #[tokio::test]
+    async fn allows_unix_socket_clients_with_socket_path_host() {
+        let config = Arc::new(ServerConfig {
+            host: "127.0.0.1".to_string(),
+            port: 30303,
+            cors_origins: CorsOriginConfig::List(vec!["https://app.atmos.land".to_string()]),
+            allow_dynamic_localhost_origins: false,
+            local_api_token: None,
+            allow_lan_without_token: false,
+            allowed_hosts: Vec::new(),
+        });
+        let app = Router::new()
+            .route("/ws/terminal/{session_id}", get(|| async { "reached" }))
+            .layer(from_fn(move |headers, req, next| {
+                require_allowed_origin(headers, req, next, config.clone())
+            }))
+            .layer(axum::Extension(UnixSocketPeer));
+        let request = HttpRequest::builder()
+            .uri("/ws/terminal/abc")
+            .header("host", "/home/user/.atmos/state/api.sock")
+            .body(Body::empty())
+            .expect("request builds");
+        let status = app
+            .oneshot(request)
+            .await
+            .expect("router responds")
+            .status();
+        assert_eq!(status, StatusCode::OK);
     }
 
     #[tokio::test]

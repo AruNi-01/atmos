@@ -48,10 +48,11 @@ apps/api/
 
 On successful `TcpListener::bind`:
 
-1. **`runtime_manager::write_runtime_manifest`** — loopback URL for Desktop/CLI (`source: "api"`).
-2. On shutdown — **`remove_runtime_manifest`** (graceful exit).
-3. If `relay_identity.json` exists and `ATMOS_RELAY_DISABLE != 1` — spawn **`relay::run`** (outbound WSS to `packages/relay`).
-4. If `ATMOS_REGISTER_TOKEN` set at startup — **`relay::try_consume_register_token`** then clear env.
+1. **Unix listener** (unix only) — same Axum `Router` on `~/.atmos/state/api.sock` (override `ATMOS_API_UNIX_SOCKET`; `off`/`0`/empty skips). File mode 0600, parent dir 0700. UDS peers are treated as same-user loopback (`UnixSocketPeer`); Host DNS-rebinding checks are skipped.
+2. **`runtime_manager::write_runtime_manifest`** — loopback URL for Desktop/CLI (`source: "api"`), optional `api.unix_socket` (manifest version stays 1).
+3. On shutdown — **`remove_runtime_manifest`** (graceful exit) and unlink the unix socket.
+4. If `relay_identity.json` exists and `ATMOS_RELAY_DISABLE != 1` — spawn **`relay::run`** (outbound WSS to `packages/relay`).
+5. If `ATMOS_REGISTER_TOKEN` set at startup — **`relay::try_consume_register_token`** then clear env.
 
 **Auth**: `require_local_token` applies only when `ATMOS_LOCAL_TOKEN` is configured. Default dev/Desktop path is **open loopback**.
 

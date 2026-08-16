@@ -2,6 +2,9 @@
 //!
 //! This handler manages WebSocket connections for terminal sessions,
 //! bridging the frontend xterm.js with backend tmux-backed PTY.
+//! Tmux live I/O is one `pipe-pane` per pane (APP-062); this socket still
+//! uses JSON control + binary output. Pipe attach failure is a terminal
+//! error — there is no control-mode fallback.
 //!
 //! Key features:
 //! - Create new terminal sessions (creates tmux window)
@@ -24,7 +27,7 @@ use core_service::{
 use futures_util::{SinkExt, StreamExt};
 use serde::Deserialize;
 use std::sync::Arc;
-use tokio::sync::mpsc;
+use tokio::sync::{mpsc, oneshot};
 use tracing::{debug, error, info, warn};
 
 use crate::app_state::AppState;
@@ -400,6 +403,7 @@ async fn handle_terminal_socket(socket: WebSocket, config: TerminalSessionConfig
     // can drop 8-bit control bytes used by full-screen TUIs.
     let session_id_output = session_id.clone();
     let ws_tx_clone = ws_tx.clone();
+    let (output_done_tx, mut output_done_rx) = oneshot::channel::<()>();
     let output_task = tokio::spawn(async move {
         let mut output_rx = output_rx;
         while let Some(data) = output_rx.recv().await {
@@ -415,6 +419,7 @@ async fn handle_terminal_socket(socket: WebSocket, config: TerminalSessionConfig
                 break;
             }
         }
+        let _ = output_done_tx.send(());
     });
 
     // Task: Send messages from channel to WebSocket
@@ -439,7 +444,16 @@ async fn handle_terminal_socket(socket: WebSocket, config: TerminalSessionConfig
     let terminal_service_clone = terminal_service.clone();
     let session_id_recv = session_id.clone();
     let workspace_id_recv = workspace_id.clone();
-    while let Some(result) = ws_receiver.next().await {
+    while let Some(result) = tokio::select! {
+        _ = &mut output_done_rx => {
+            debug!(
+                "Terminal output channel closed for session: {}",
+                session_id_recv
+            );
+            None
+        }
+        result = ws_receiver.next() => result,
+    } {
         match result {
             Ok(msg) => {
                 let should_continue = handle_terminal_message(
@@ -606,9 +620,10 @@ async fn handle_terminal_message(
             true
         }
         Message::Binary(data) => {
-            // Handle binary data as raw terminal input
-            let text = String::from_utf8_lossy(&data);
-            if let Err(e) = terminal_service.send_input(session_id, &text).await {
+            if let Err(e) = terminal_service
+                .send_input_bytes(session_id, data.to_vec())
+                .await
+            {
                 error!(
                     "Failed to send binary input to session {}: {}",
                     session_id, e

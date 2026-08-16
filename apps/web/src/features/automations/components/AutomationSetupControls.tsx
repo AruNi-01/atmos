@@ -5,22 +5,9 @@ import { useTranslations } from "next-intl";
 import {
   Button,
   Input,
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-  cn,
+  Label,
 } from "@workspace/ui";
-import {
-  CalendarClock,
-  FolderGit2,
-  LoaderCircle,
-  PencilLine,
-  Timer,
-  type LucideIcon,
-} from "lucide-react";
+import { LoaderCircle, PencilLine } from "lucide-react";
 
 import { AutomationEnvironmentPicker } from "@/features/automations/components/AutomationEnvironmentPicker";
 import { AutomationTriggerPicker } from "@/features/automations/components/AutomationTriggerPicker";
@@ -34,120 +21,53 @@ type TriggerPickerProps = Omit<
   "surface"
 >;
 
-const AUTOMATION_POPOVER_CONTENT_CLASS =
-  "flex overflow-hidden rounded-[1.5rem] border border-border/60 bg-background p-0 shadow-2xl backdrop-blur-md";
-const AUTOMATION_POPOVER_BODY_CLASS = "min-h-0 flex-1 overflow-y-auto p-4 sm:p-5";
-
 export function AutomationSetupControls({
   displayName,
-  displayNameValid,
-  environmentLabel,
-  environmentValid,
-  triggerLabel,
-  triggerValid,
   submitError,
   onDisplayNameChange,
-  onTriggerOpenChange,
   environmentPickerProps,
   triggerPickerProps,
 }: {
   displayName: string;
-  displayNameValid: boolean;
-  environmentLabel: string;
-  environmentValid: boolean;
-  triggerLabel: string;
-  triggerValid: boolean;
   submitError: string | null;
   onDisplayNameChange: (value: string) => void;
-  onTriggerOpenChange?: (open: boolean) => void;
   environmentPickerProps: EnvironmentPickerProps;
   triggerPickerProps: TriggerPickerProps;
 }) {
   const t = useTranslations("automation.setupControls");
-  const [openControl, setOpenControl] = React.useState<"environment" | "trigger" | null>(null);
-  const handleTriggerOpenChange = React.useCallback(
-    (open: boolean) => {
-      setOpenControl(open ? "trigger" : null);
-      onTriggerOpenChange?.(open);
-    },
-    [onTriggerOpenChange],
-  );
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
-      <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
-        <Popover
-          modal={false}
-          open={openControl === "trigger"}
-          onOpenChange={handleTriggerOpenChange}
-        >
-          <PopoverTrigger asChild>
-            <ControlButton
-              icon={CalendarClock}
-              label={t("triggerLabel")}
-              value={triggerLabel}
-              valid={triggerValid}
-            />
-          </PopoverTrigger>
-          <PopoverContent
-            align="start"
-            side="top"
-            sideOffset={8}
-            collisionPadding={16}
-            className={cn(
-              AUTOMATION_POPOVER_CONTENT_CLASS,
-              "w-[min(calc(100vw-2rem),30rem)]",
-            )}
-            style={{ maxHeight: "var(--radix-popover-content-available-height)" }}
-          >
-            <div className={AUTOMATION_POPOVER_BODY_CLASS}>
-              <AutomationTriggerPicker {...triggerPickerProps} surface="plain" />
-            </div>
-          </PopoverContent>
-        </Popover>
-
-        <NameInlineControl
+    <div className="flex flex-col gap-8">
+      <section className="space-y-3">
+        <div className="flex items-center gap-2">
+          <PencilLine className="size-4 text-muted-foreground" />
+          <Label htmlFor="automation-display-name" className="text-sm font-semibold text-foreground">
+            {t("name.label")}
+          </Label>
+        </div>
+        <Input
+          id="automation-display-name"
           value={displayName}
-          valid={displayNameValid}
-          onChange={onDisplayNameChange}
+          onChange={(event) => onDisplayNameChange(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              event.preventDefault();
+            }
+          }}
+          placeholder={t("name.placeholder")}
+          maxLength={80}
+          className="h-10"
         />
+      </section>
 
-        <Popover
-          modal={false}
-          open={openControl === "environment"}
-          onOpenChange={(open) => setOpenControl(open ? "environment" : null)}
-        >
-          <PopoverTrigger asChild>
-            <ControlButton
-              icon={FolderGit2}
-              label={t("environmentLabel")}
-              value={environmentLabel}
-              valid={environmentValid}
-            />
-          </PopoverTrigger>
-          <PopoverContent
-            align="start"
-            side="top"
-            sideOffset={8}
-            collisionPadding={16}
-            className={cn(
-              AUTOMATION_POPOVER_CONTENT_CLASS,
-              "w-[min(calc(100vw-2rem),36rem)]",
-            )}
-            style={{ maxHeight: "var(--radix-popover-content-available-height)" }}
-          >
-            <div className={AUTOMATION_POPOVER_BODY_CLASS}>
-              <AutomationEnvironmentPicker {...environmentPickerProps} surface="plain" />
-            </div>
-          </PopoverContent>
-        </Popover>
+      <AutomationEnvironmentPicker {...environmentPickerProps} surface="plain" />
+      <AutomationTriggerPicker {...triggerPickerProps} surface="plain" />
 
-        {submitError ? (
-          <div className="w-full rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive md:basis-full">
-            {submitError}
-          </div>
-        ) : null}
-      </div>
+      {submitError ? (
+        <div className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+          {submitError}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -163,109 +83,13 @@ export function AutomationSetupSubmitButton({
 }) {
   const t = useTranslations("automation.setupControls");
   return (
-    <div className="flex justify-end">
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            type="submit"
-            size="icon"
-            className="size-9 shrink-0 rounded-md"
-            disabled={disabledSubmit}
-            aria-label={
-              isSubmitting
-                ? t("submit.saving")
-                : mode === "create"
-                  ? t("submit.createAria")
-                  : t("submit.updateAria")
-            }
-          >
-            {isSubmitting ? (
-              <LoaderCircle className="size-4 animate-spin" />
-            ) : (
-              <Timer className="size-4" />
-            )}
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent side="bottom">
-          {mode === "create" ? t("submit.create") : t("submit.update")}
-        </TooltipContent>
-      </Tooltip>
-    </div>
+    <Button type="submit" disabled={disabledSubmit}>
+      {isSubmitting ? <LoaderCircle className="size-4 animate-spin" /> : null}
+      {isSubmitting
+        ? t("submit.saving")
+        : mode === "create"
+          ? t("submit.create")
+          : t("submit.update")}
+    </Button>
   );
 }
-
-function NameInlineControl({
-  value,
-  valid,
-  onChange,
-}: {
-  value: string;
-  valid: boolean;
-  onChange: (value: string) => void;
-}) {
-  const t = useTranslations("automation.setupControls");
-  return (
-    <div
-      className={cn(
-        "inline-flex h-9 max-w-full items-center gap-2 rounded-md border border-border/60 bg-background/25 px-3 text-sm text-muted-foreground backdrop-blur-sm transition-colors focus-within:border-border focus-within:bg-background/45",
-        !valid && "border-dashed border-destructive/45 text-destructive/90",
-      )}
-    >
-      <PencilLine className="size-3.5 shrink-0" />
-      <label
-        htmlFor="automation-display-name"
-        className="shrink-0 font-medium text-foreground/88"
-      >
-        {t("name.label")}
-      </label>
-      <Input
-        id="automation-display-name"
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        onKeyDown={(event) => {
-          if (event.key === "Enter") {
-            event.preventDefault();
-          }
-        }}
-        placeholder={t("name.placeholder")}
-        maxLength={80}
-        className="h-7 !w-[8rem] min-w-0 flex-none rounded-none border-0 !bg-transparent px-1.5 py-0 text-sm text-foreground shadow-none placeholder:text-muted-foreground/70 focus-visible:border-transparent focus-visible:ring-0 dark:!bg-transparent sm:!w-[9rem]"
-      />
-    </div>
-  );
-}
-
-const ControlButton = React.forwardRef<HTMLButtonElement, React.ButtonHTMLAttributes<HTMLButtonElement> & {
-  icon: LucideIcon;
-  label: string;
-  value: string;
-  valid: boolean;
-}>(
-  function ControlButton({
-    icon: Icon,
-    label,
-    value,
-    valid,
-    className,
-    ...props
-  }, ref) {
-    return (
-      <button
-        ref={ref}
-        type="button"
-        {...props}
-        className={cn(
-          "inline-flex h-9 max-w-full items-center gap-2 rounded-md border border-border/60 bg-background/25 px-3 text-sm text-muted-foreground backdrop-blur-sm transition-colors hover:bg-muted",
-          !valid && "border-dashed border-destructive/45 text-destructive/90",
-          className,
-        )}
-      >
-        <Icon className="size-3.5 shrink-0" />
-        <span className="font-medium text-foreground/88">{label}</span>
-        <span className="max-w-[18rem] truncate" title={value}>
-          {value}
-        </span>
-      </button>
-    );
-  },
-);

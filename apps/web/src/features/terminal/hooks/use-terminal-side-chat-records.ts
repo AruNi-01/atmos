@@ -6,6 +6,7 @@ import { useQueryState } from "nuqs";
 import { terminalSideChatApi, type TerminalSideChatRecord } from "@/api/ws-api";
 import type { TerminalRef } from "@/features/terminal/components/Terminal";
 import { centerStageParams } from "@/shared/lib/nuqs/searchParams";
+import { dismissAttentionSummaryChrome } from "@/features/agent/store/agent-attention-summary-store";
 import {
   getAvailableSideChatRecords,
   getFirstOpenSideChatRecord,
@@ -15,6 +16,7 @@ import {
   normalizeSideChatStatus,
   parseAgentRef,
   sideChatRecordMatchesSource,
+  sideChatStablePaneId,
   toSideChatDto,
   type LocalSideChatRecord,
   type SourceSurfaceKind,
@@ -171,13 +173,16 @@ export function useTerminalSideChatRecords({
         });
         terminalRefs.current.get(sideChatId)?.destroy();
         terminalRefs.current.delete(sideChatId);
+        const record = records.find((item) => item.side_chat_id === sideChatId);
+        const paneId = record ? sideChatStablePaneId(record) : null;
+        if (paneId) dismissAttentionSummaryChrome(paneId);
         setActiveSideChatId((current) => (current === sideChatId ? null : current));
-        setRecords((current) => current.filter((record) => record.side_chat_id !== sideChatId));
+        setRecords((current) => current.filter((item) => item.side_chat_id !== sideChatId));
       } catch (error) {
         console.error("Failed to close terminal side chat:", error);
       }
     },
-    [terminalRefs, workspaceId],
+    [records, terminalRefs, workspaceId],
   );
 
   React.useEffect(() => {

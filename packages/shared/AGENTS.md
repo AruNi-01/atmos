@@ -46,7 +46,7 @@ packages/shared/
 ### ALWAYS
 - Keep `utils/` functions pure and reusable
 - Use tree-shaking-friendly exports
-- Put **terminal stream** protocol helpers under `src/terminal/` only (not a dumping ground for main `/ws`)
+- Put **terminal stream** protocol helpers, `ByteStreamPort`, and logical ControlPort under `src/terminal/` only (not a dumping ground for main `/ws`)
 
 ### Exception: `src/debug/`
 `src/debug/` is explicitly allowed to contain utilities with side effects (network

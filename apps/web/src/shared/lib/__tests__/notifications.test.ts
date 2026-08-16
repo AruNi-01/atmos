@@ -95,7 +95,7 @@ describe("automationNotificationHref", () => {
       "/automations?automationId=auto-1",
     );
     expect(automationNotificationHref("auto-1", "run-9")).toBe(
-      "/automations?automationId=auto-1&automationRun=run-9&automationView=history",
+      "/automations?automationId=auto-1&automationRun=run-9&automationTab=history",
     );
   });
 });

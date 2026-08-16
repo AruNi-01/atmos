@@ -56,6 +56,11 @@ describe("APP-053 browser webview structural (shipped sources)", () => {
     expect(surface).toContain("sessionIdFromGuestWebContents");
     expect(surface).toContain("prevId !== wc.id");
     expect(surface).toContain("queryElementRects");
+    // destroyed hook must sit inside needsListeners — keep-alive rebind must not stack it.
+    expect(surface).toMatch(
+      /if \(needsListeners\) \{[\s\S]*?once\("destroyed"[\s\S]*?\n    \}/,
+    );
+    expect(surface).toContain("Same WC is rebound on keep-alive");
   });
 
   it("host SelectionPopover is used for desktop (no desktop-only null branch)", () => {
@@ -146,6 +151,24 @@ describe("APP-053 browser webview structural (shipped sources)", () => {
     expect(src).toContain("onLoadingChange");
     expect(src).toContain("did-start-loading");
     expect(src).toContain("did-stop-loading");
+    expect(src).toContain("pointer-events-none opacity-0");
+    expect(src).not.toMatch(/layoutHidden && "hidden"/);
+    expect(src).toContain("onBindGuestRef");
+    expect(src).toContain("parent re-renders (workspace hop) must not re-bind");
+    expect(src).toContain("}, [shouldMountGuest, attachSessionId]);");
+    expect(src).not.toContain("onBindGuest,\n    onDomReady,\n    onLoadingChange,");
+  });
+
+  it("center Browser keep-alive uses opacity, not display:none", () => {
+    const frame = read("apps/web/src/app-shell/workspace-center-frame.tsx");
+    expect(frame).toContain("browserKeepAlivePanelClass");
+    expect(frame).toContain("shouldKeepBrowserSurfaceMounted");
+    const lifecycle = read(
+      "apps/web/src/features/browser/hooks/use-browser-lifecycle-effects.ts",
+    );
+    expect(lifecycle).toContain("shouldReuseLoadedBrowserGuest");
+    expect(lifecycle).not.toContain("canReuseLoadedIframe");
+    expect(lifecycle).not.toContain("navigationToken === 0");
   });
 
   it("surface manager injects host-driven selection (showSelectionToolbar false)", () => {
@@ -220,6 +243,44 @@ describe("APP-053 browser webview structural (shipped sources)", () => {
   it("APP-029 occlusion module is deleted", () => {
     expect(existsSync(join(feature, "hooks/use-native-preview-occlusion.ts"))).toBe(false);
     expect(existsSync(join(feature, "hooks/__tests__/use-native-preview-occlusion.test.ts"))).toBe(false);
+  });
+
+  it("closing a Browser tab or center surface tears down desktop guests", () => {
+    const state = read("apps/web/src/features/browser/hooks/use-browser-state.ts");
+    expect(state).toContain("closeDesktopBrowserSessions");
+    expect(state).toContain("sessionForTab");
+
+    const center = read("apps/web/src/app-shell/CenterStage.tsx");
+    expect(center).toContain("performCloseBrowserCenterTab");
+    expect(center).toContain("closeDesktopBrowserContext");
+    expect(center).toContain("dropPreviewBrowserContext");
+    expect(center).toContain("Always kill tmux windows");
+    expect(center).toContain("grid.destroyAllTerminals()");
+    expect(center).toContain("systemApi.killTmuxWindow");
+
+    const grid = read("apps/web/src/features/terminal/components/TerminalGrid.tsx");
+    expect(grid).toContain("clearAgentHookSessionForPane(pane)");
+    expect(grid).toContain("pendingRunsRef.current.clear()");
+
+    const surface = read("apps/desktop-electron/src/browser/surface-manager.ts");
+    expect(surface).toContain("this.surfaces.delete(sessionId)");
+    expect(surface).toContain("guest.close()");
+  });
+
+  it("new Browser tab focuses the address bar", () => {
+    const state = read("apps/web/src/features/browser/hooks/use-browser-state.ts");
+    expect(state).toContain("setPendingUrlFocusTabId(nextTab.id)");
+    expect(state).toContain("pendingUrlFocusTabId");
+    expect(state).toContain("consumeUrlFocusRequest");
+
+    const session = read("apps/web/src/features/browser/components/BrowserSession.tsx");
+    expect(session).toContain("autoFocusAddressBar");
+    expect(session).toContain("focusUrlInput()");
+
+    const panel = read("apps/web/src/features/browser/components/BrowserPanel.tsx");
+    expect(panel).toContain("autoFocusAddressBar={tab.id === pendingUrlFocusTabId}");
+    const standalone = read("apps/web/src/features/browser/components/BrowserStandalonePage.tsx");
+    expect(standalone).toContain("autoFocusAddressBar={tab.id === pendingUrlFocusTabId}");
   });
 
   it("permanent tab slots keep all tabs mounted (BrowserPanel)", () => {

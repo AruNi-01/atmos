@@ -1,9 +1,13 @@
 # ADR-004: 终端改为 tmux Control Mode Transport
 
-**状态**: ✅ 已采纳  
+**状态**: 部分修订（APP-062）  
 **日期**: 2026-04-19  
 **决策者**: Aaryn, Codex  
 **替代**: [ADR-003](./003-terminal-scrolling-and-resize.md)
+
+> **APP-062 (2026-08-15):** live I/O 不再走 per-browser `tmux -C` / `send-keys -H` / `%output`。唯一 live 路径是 master pane 上的一条 `pipe-pane -I -O`，由 API `PaneIoRegistry` fan-out 到 N 个 frontend attach。本 ADR 的 **persistence 模型不变**：master tmux session + named window、`capture-pane` snapshot 只做 remount hydration、JSON 控制 + binary output。control-mode parser（`tmux/control.rs`）不再是 live transport。详见 [APP-062 TECH](../../specs/APP/APP-062_terminal-tmux-pipe-live-path/TECH.md)。
+>
+> **ADR-006 (2026-08-16):** 浏览器↔API 的 **carrier** 可以是 WebSocket 或桌面本地 IPC；消息形状仍是 `/ws/terminal/:id`。Desktop renderer 本地不再自己开 terminal WS。
 
 ## 背景 (Context)
 
@@ -226,3 +230,4 @@ snapshot 只用于刷新/重连 hydration：
 ## 更新历史 (Update History)
 
 - 2026-04-19: 初始版本，记录 tmux control mode terminal transport 重构过程和最终决策。
+- 2026-08-15: APP-062 将 live path 替换为 `pipe-pane -I -O` + `PaneIoRegistry`。master window / snapshot / binary WS 仍按本 ADR；不再为每个浏览器创建 `atmos_client_*` 或 `tmux -C`。

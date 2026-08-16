@@ -116,10 +116,14 @@ describe("promoteWorkspaceSurfaceSwitch + prepareWorkspaceContextNavigation", ()
     document.body.innerHTML = `
       <div data-workspace-frame="ws-a" data-tier="active"></div>
       <div data-workspace-frame="ws-b" data-tier="warm" hidden class="hidden" style="content-visibility: hidden"></div>
+      <div data-workspace-tabbar="ws-a" data-tier="active"></div>
+      <div data-workspace-tabbar="ws-b" data-tier="warm"></div>
     `;
     applyWorkspaceFrameVisualDom("ws-b");
     const a = document.querySelector('[data-workspace-frame="ws-a"]') as HTMLElement;
     const b = document.querySelector('[data-workspace-frame="ws-b"]') as HTMLElement;
+    const tabA = document.querySelector('[data-workspace-tabbar="ws-a"]') as HTMLElement;
+    const tabB = document.querySelector('[data-workspace-tabbar="ws-b"]') as HTMLElement;
     // Warm uses opacity stacking (data-tier), not HTML hidden / display:none.
     expect(a.hidden).toBe(false);
     expect(a.hasAttribute("hidden")).toBe(false);
@@ -133,6 +137,10 @@ describe("promoteWorkspaceSurfaceSwitch + prepareWorkspaceContextNavigation", ()
     expect(b.hasAttribute("inert")).toBe(false);
     expect(b.classList.contains("hidden")).toBe(false);
     expect(b.style.contentVisibility).toBe("");
+    expect(tabA.getAttribute("data-tier")).toBe("warm");
+    expect(tabA.hasAttribute("inert")).toBe(true);
+    expect(tabB.getAttribute("data-tier")).toBe("active");
+    expect(tabB.hasAttribute("inert")).toBe(false);
   });
 
   it("prime does not claim cold targets and clears stale visual lead", () => {

@@ -1,9 +1,12 @@
-//! tmux control mode protocol helpers.
+//! Legacy tmux control-mode protocol helpers.
+//!
+//! APP-062 removed control mode from the live I/O path (`pipe-pane` in
+//! `pipe.rs` is the only live transport). This module stays for unit tests and
+//! a possible delete follow-up. Do not call it from create/attach/resize/report.
 //!
 //! Control mode sends pane output as textual `%output` notifications. The
 //! payload is not raw bytes: tmux escapes non-printable bytes and backslashes as
-//! octal sequences, so callers must decode it before forwarding to a terminal
-//! emulator.
+//! octal sequences.
 
 /// A tmux control mode event that Atmos cares about.
 #[derive(Debug, Clone, PartialEq, Eq)]

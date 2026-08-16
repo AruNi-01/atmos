@@ -24,9 +24,9 @@ export function AttentionSummaryPanel({
   return (
     <div
       className={cn(
-        "attention-summary-panel mb-1.5 w-full overflow-hidden rounded-2xl border px-3.5 py-3",
-        "border-sky-500/35 bg-sky-500/8 shadow-[0_10px_28px_rgba(14,165,233,0.12)]",
-        "dark:border-sky-400/30 dark:bg-sky-400/10",
+        "attention-summary-panel w-full overflow-hidden rounded-[1.25rem] border px-3.5 py-3",
+        "border-sky-500/40 bg-sky-50",
+        "dark:border-sky-400/40 dark:bg-[#163042]",
       )}
       data-status={summary.status}
     >
@@ -104,7 +104,7 @@ export function AttentionSummaryPanel({
                       key={step}
                       type="button"
                       className={cn(
-                        "max-w-full truncate rounded-full border border-sky-500/30 bg-background/80",
+                        "max-w-full truncate rounded-full border border-sky-500/35 bg-background",
                         "px-2.5 py-1 text-left text-xs text-foreground transition-colors",
                         "hover:border-sky-500/55 hover:bg-sky-500/10",
                       )}

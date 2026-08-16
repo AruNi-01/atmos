@@ -28,6 +28,9 @@ import { BrowserUseControlPlane } from "./browser/browser-use-control.js";
 import { ALL_PROVIDERS, TunnelService } from "./tunnel/service.js";
 import { mainLog, mainLogPath } from "./main-log.js";
 import { formatUnknownError } from "./windows/error-page.js";
+import { createTerminalStreamHub } from "./terminal/stream-hub.js";
+import { registerTerminalStreamIpc } from "./terminal/register-ipc.js";
+import { createNodeSidecarSocket } from "./terminal/sidecar-ws.js";
 
 // Before ready: menu / process name → "Atmos" instead of "Electron".
 applyEarlyAppBranding();
@@ -37,6 +40,17 @@ mainLog(`[boot] main process start log=${mainLogPath()}`);
 
 const state = createAppState();
 let router = createDesktopCommandRouter(createAllHandlers(state));
+const terminalStreamHub = createTerminalStreamHub({
+  getApi: () =>
+    state.apiPort == null
+      ? null
+      : {
+          host: state.apiHost,
+          port: state.apiPort,
+          unixSocket: state.apiUnixSocket,
+        },
+  connect: createNodeSidecarSocket,
+});
 
 /** Shared boot promise so whenReady + activate cannot double-start services. */
 let bootPromise: Promise<void> | null = null;
@@ -53,6 +67,7 @@ function registerIpc() {
     };
     return router.invokeSafe(cmd, args);
   });
+  registerTerminalStreamIpc(ipcMain, state, terminalStreamHub);
 }
 
 function servicesReady(): boolean {
@@ -84,6 +99,7 @@ async function boot() {
   const runtime = await ensureAtmosServer();
   state.apiHost = runtime.host;
   state.apiPort = runtime.port;
+  state.apiUnixSocket = runtime.unixSocket;
   state.startedServer = runtime.started;
   console.log(
     `[desktop-electron] API ${state.apiHost}:${state.apiPort} started=${runtime.started}`,

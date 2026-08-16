@@ -211,7 +211,10 @@ export function TokenUsagePage() {
           </div>
         </div>
       ) : (
-        <div className="relative z-[1] min-h-0 flex-1 overflow-y-auto overscroll-contain">
+        <div
+          data-token-usage-page-scroll=""
+          className="relative z-[1] min-h-0 flex-1 overflow-y-auto overscroll-contain"
+        >
           {error ? (
             <div className="mx-auto mt-4 flex max-w-[1100px] items-center gap-3 rounded-2xl border border-destructive/30 bg-destructive/10 px-4 py-4">
               <Activity className="size-4 shrink-0 text-destructive" />

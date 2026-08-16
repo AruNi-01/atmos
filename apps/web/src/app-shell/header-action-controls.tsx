@@ -625,7 +625,7 @@ export function HeaderActionControls({
       {showGlobalSearch ? (
         <button
           aria-label={t("searchAria")}
-          className="desktop-no-drag flex items-center gap-3 px-3 py-1.5 h-8 min-w-[180px] bg-muted/40 hover:bg-muted/60 text-muted-foreground text-[12px] rounded-md border border-transparent hover:border-border transition-colors ease-out duration-200 cursor-pointer"
+          className="desktop-no-drag flex items-center gap-3 px-3 py-1.5 h-8 min-w-[180px] bg-muted/40 hover:bg-muted/60 text-muted-foreground text-[12px] rounded-md border border-transparent hover:border-border cursor-pointer"
           onClick={() => setGlobalSearchOpen(true)}
         >
           <Search className="size-3.5" />
@@ -666,7 +666,7 @@ export function HeaderActionControls({
             <PopoverTrigger asChild>
               <button
                 aria-label={t("menu.openInWeb")}
-                className="relative size-8 flex items-center justify-center rounded-md text-muted-foreground transition-colors duration-200 ease-out hover:bg-accent hover:text-accent-foreground"
+                className="relative size-8 flex items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground"
                 title={t("menu.remoteAccess")}
               >
                 <Globe className="size-4" />
@@ -734,7 +734,7 @@ export function HeaderActionControls({
                     type="button"
                     aria-label={isRightCollapsed ? t("rightSidebar.expand") : t("rightSidebar.collapse")}
                     onClick={toggleRightSidebar}
-                    className="size-8 flex items-center justify-center rounded-md text-muted-foreground transition-colors duration-200 ease-out hover:bg-accent hover:text-accent-foreground"
+                    className="size-8 flex items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground"
                   >
                     {isRightCollapsed ? (
                       <PanelRightOpen className="size-4" />

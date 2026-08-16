@@ -67,7 +67,11 @@ export function createAllHandlers(
     // --- runtime ---
     async get_api_config() {
       if (state.apiPort == null) throw new Error("API not ready");
-      return { host: state.apiHost, port: state.apiPort };
+      return {
+        host: state.apiHost,
+        port: state.apiPort,
+        unix_socket: state.apiUnixSocket ?? undefined,
+      };
     },
 
     async get_version_info() {

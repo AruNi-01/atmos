@@ -30,10 +30,12 @@ import { BaseCodeMirrorEditor } from './BaseCodeMirrorEditor';
 import { setCodeMirrorSearchPanelMessages } from './codemirror-search-panel';
 import { useSelectionPopover } from '@/features/selection/hooks/use-selection-popover';
 import { SelectionPopover } from '@/features/selection/components/SelectionPopover';
+import { usePathname } from "next/navigation";
 import { useContextParams } from "@/shared/hooks/use-context-params";
 import { useEditorSettingsStore } from '@/features/settings/store/editor-settings-store';
 import { useQueryState } from 'nuqs';
 import { settingsModalParams } from '@/shared/lib/nuqs/searchParams';
+import { isSettingsPathname } from "@/features/settings/lib/settings-return";
 import { parseReviewReportMetadata } from '@/features/code-review/lib/review-report-frontmatter';
 import { ReviewReportMetadataCard } from '@/features/code-review/components/ReviewReportMetadataCard';
 import { useProjects } from '@/features/project/hooks/use-project-bootstrap-query';
@@ -72,7 +74,8 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
   surfaceActive = true,
 }) => {
   const t = useTranslations("Editor.components");
-  const { effectiveContextId, currentView } = useContextParams();
+  const pathname = usePathname();
+  const { effectiveContextId } = useContextParams();
   const editorContextId = contextId ?? effectiveContextId;
   const workspaceActivePath = useEditorStore((s) => s.getActiveFilePath(editorContextId || undefined));
   const updateFileContent = useEditorStore(s => s.updateFileContent);
@@ -129,7 +132,8 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
   const [editorSettingsSettled, setEditorSettingsSettled] = useState(editorSettingsLoaded);
   const [gitDiffRefreshNonce, setGitDiffRefreshNonce] = useState(0);
   const [settingsModalOpen] = useQueryState('settingsModal', settingsModalParams.settingsModal);
-  const settingsSurfaceOpen = settingsModalOpen || currentView === 'settings';
+  // Settings path keeps underlay context for push animation — detect via pathname, not currentView.
+  const settingsSurfaceOpen = settingsModalOpen || isSettingsPathname(pathname);
 
   const refreshEditorGitGutter = useCallback(async () => {
     if (currentProjectPath) {

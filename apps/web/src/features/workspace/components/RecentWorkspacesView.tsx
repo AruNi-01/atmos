@@ -401,7 +401,7 @@ export const RecentWorkspacesView: React.FC<RecentWorkspacesViewProps> = ({ refr
                       className="space-y-4"
                     >
                       <div className="flex items-center gap-3 sticky top-[76px] bg-background/95 backdrop-blur-sm py-3 z-5 border-b border-border/40">
-                        <span className="text-[11px] font-bold text-muted-foreground/80 uppercase tracking-widest">{t(`groups.${group}`)}</span>
+                        <span className="text-[11px] font-semibold text-muted-foreground/80">{t(`groups.${group}`)}</span>
                         <span className="bg-primary/10 text-primary border border-primary/20 px-2 py-0.5 rounded-full text-[10px] font-bold font-mono">
                           {items.length}
                         </span>

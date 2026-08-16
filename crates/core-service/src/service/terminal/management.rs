@@ -1,5 +1,4 @@
 use std::collections::HashSet;
-use std::path::PathBuf;
 
 use core_engine::{TmuxPaneCapturePage, TmuxPaneSnapshot, TmuxWindowAtmosMetadata};
 use infra::db::entities::terminal_side_chat;
@@ -8,7 +7,7 @@ use tracing::{debug, info, warn};
 
 use crate::error::{Result, ServiceError};
 
-use super::runtime::apply_utf8_env_to_tmux_command;
+use super::io::PaneIoKey;
 use super::text_capture::{
     count_lines, process_captured_pane_text, TranscriptBudget, DEFAULT_CAPTURE_APPROX_LINES,
     DEFAULT_HEAD_PREFIX_BYTES, DEFAULT_MAX_RAW_CAPTURE_BYTES, DEFAULT_PROMPT_BUDGET_BYTES,
@@ -462,17 +461,13 @@ impl TerminalService {
 
     /// Send input data to a terminal session
     pub async fn send_input(&self, session_id: &str, data: &str) -> Result<()> {
-        let sessions = self.sessions.lock().await;
-        let handle = sessions
-            .get(session_id)
-            .ok_or_else(|| ServiceError::NotFound(format!("Session not found: {}", session_id)))?;
+        self.send_input_bytes(session_id, data.as_bytes().to_vec())
+            .await
+    }
 
-        handle
-            .command_tx
-            .send(SessionCommand::Write(data.as_bytes().to_vec()))
-            .map_err(|_| ServiceError::Processing("Session thread has exited".to_string()))?;
-
-        Ok(())
+    /// Write raw PTY bytes (binary WebSocket frames; not UTF-8 lossy).
+    pub async fn send_input_bytes(&self, session_id: &str, data: Vec<u8>) -> Result<()> {
+        self.write_session_bytes(session_id, data).await
     }
 
     /// Send an Enter keypress to a terminal session.
@@ -482,29 +477,43 @@ impl TerminalService {
             .get(session_id)
             .ok_or_else(|| ServiceError::NotFound(format!("Session not found: {}", session_id)))?;
 
+        if let Some(key) = handle.pane_key.clone() {
+            drop(sessions);
+            return self.pane_io.write(&key, b"\r".to_vec());
+        }
+
         handle
             .command_tx
+            .as_ref()
+            .ok_or_else(|| ServiceError::Processing("Session has no writer".to_string()))?
             .send(SessionCommand::Enter)
             .map_err(|_| ServiceError::Processing("Session thread has exited".to_string()))?;
 
         Ok(())
     }
 
-    /// Send a terminal emulator report to the active terminal pane.
-    ///
-    /// xterm.js generates these in response to terminal queries such as OSC 11,
-    /// cursor-position requests, and device-attributes probes. In tmux control
-    /// mode these must be sent with `refresh-client -r` so tmux treats them as
-    /// terminal reports from the client, not as ordinary keyboard input.
+    /// Send a terminal emulator report to the active terminal pane as PTY input.
     pub async fn send_terminal_report(&self, session_id: &str, data: &str) -> Result<()> {
+        self.write_session_bytes(session_id, data.as_bytes().to_vec())
+            .await
+    }
+
+    async fn write_session_bytes(&self, session_id: &str, data: Vec<u8>) -> Result<()> {
         let sessions = self.sessions.lock().await;
         let handle = sessions
             .get(session_id)
             .ok_or_else(|| ServiceError::NotFound(format!("Session not found: {}", session_id)))?;
 
+        if let Some(key) = handle.pane_key.clone() {
+            drop(sessions);
+            return self.pane_io.write(&key, data);
+        }
+
         handle
             .command_tx
-            .send(SessionCommand::Report(data.as_bytes().to_vec()))
+            .as_ref()
+            .ok_or_else(|| ServiceError::Processing("Session has no writer".to_string()))?
+            .send(SessionCommand::Write(data))
             .map_err(|_| ServiceError::Processing("Session thread has exited".to_string()))?;
 
         Ok(())
@@ -512,16 +521,28 @@ impl TerminalService {
 
     /// Resize a terminal session
     ///
-    /// Tmux-backed sessions are control-mode clients, so resize is sent through
-    /// `refresh-client -C`; simple shell sessions still resize their PTY.
+    /// Tmux-backed sessions pin the master window with `resize-window` (same-size
+    /// is a no-op). Simple shell sessions still resize their PTY.
     pub async fn resize(&self, session_id: &str, cols: u16, rows: u16) -> Result<()> {
         let sessions = self.sessions.lock().await;
         let handle = sessions
             .get(session_id)
             .ok_or_else(|| ServiceError::NotFound(format!("Session not found: {}", session_id)))?;
 
+        if let Some(key) = handle.pane_key.clone() {
+            drop(sessions);
+            self.pane_io.resize(&key, cols, rows)?;
+            debug!(
+                "Terminal session {} resized to {}x{}",
+                session_id, cols, rows
+            );
+            return Ok(());
+        }
+
         handle
             .command_tx
+            .as_ref()
+            .ok_or_else(|| ServiceError::Processing("Session has no writer".to_string()))?
             .send(SessionCommand::Resize { cols, rows })
             .map_err(|_| ServiceError::Processing("Session thread has exited".to_string()))?;
 
@@ -532,34 +553,20 @@ impl TerminalService {
         Ok(())
     }
 
-    /// Close a terminal session (detach control client but keep tmux window)
+    /// Close a terminal session (drop this observer; keep tmux window and pipe)
     pub async fn close_session(&self, session_id: &str) -> Result<()> {
-        let sock = self.tmux_engine.socket_file_path();
-
         let mut sessions = self.sessions.lock().await;
         if let Some(handle) = sessions.remove(session_id) {
-            // Signal the control-mode thread to detach this client and kill the
-            // per-connection grouped session. The master tmux session/window is
-            // preserved for reconnection.
-            let _ = handle.command_tx.send(SessionCommand::Close {
-                client_session: handle.client_session.clone(),
-                socket_path: Some(PathBuf::from(&sock)),
-            });
-
-            let watch_target = match (handle.tmux_session.clone(), handle.tmux_window_index) {
-                (Some(ts), Some(twi)) => Some((ts, twi)),
-                _ => None,
-            };
-            drop(sessions);
-
-            // APP-054: if no other browser client remains on this window, keep
-            // observing DEC mouse modes so reattach restore stays accurate.
-            if let Some((ts, twi)) = watch_target {
-                self.ensure_mouse_mode_watch_if_unattached(&ts, twi).await;
+            if let Some(ref tx) = handle.command_tx {
+                let _ = tx.send(SessionCommand::Close);
+            }
+            if let Some(key) = handle.pane_key.clone() {
+                drop(sessions);
+                self.pane_io.unsubscribe(&key, session_id);
             }
 
             info!(
-                "Terminal session closed (detached): {} - tmux window {:?}:{:?} preserved",
+                "Terminal session closed (observer detached): {} - tmux window {:?}:{:?} preserved",
                 session_id, handle.tmux_session, handle.tmux_window_index
             );
             Ok(())
@@ -572,25 +579,35 @@ impl TerminalService {
         }
     }
 
-    /// Destroy a terminal session (kill tmux window)
+    /// Destroy a terminal session (kill tmux window and tear the pipe)
     pub async fn destroy_session(&self, session_id: &str) -> Result<()> {
         let mut sessions = self.sessions.lock().await;
         if let Some(handle) = sessions.remove(session_id) {
             let workspace_id = handle.workspace_id.clone();
             let terminal_name = handle.terminal_name.clone();
+            let pane_key = handle.pane_key.clone();
 
-            // Step 1: Ask the control-mode thread to detach and shut down its
-            // per-connection grouped session.
-            let _ = handle.command_tx.send(SessionCommand::Close {
-                client_session: handle.client_session.clone(),
-                socket_path: Some(PathBuf::from(self.tmux_engine.socket_file_path())),
-            });
+            if let Some(ref tx) = handle.command_tx {
+                let _ = tx.send(SessionCommand::Close);
+            }
 
-            tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+            if let Some(ref key) = pane_key {
+                let other_ids: Vec<String> = sessions
+                    .iter()
+                    .filter(|(_, h)| h.pane_key.as_ref() == Some(key))
+                    .map(|(id, _)| id.clone())
+                    .collect();
+                for id in other_ids {
+                    sessions.remove(&id);
+                }
+            }
+            drop(sessions);
 
-            // Step 2: Kill the tmux window in the master session.
+            if let Some(key) = pane_key {
+                self.pane_io.destroy_pipe(&key);
+            }
+
             if let (Some(ts), Some(twi)) = (&handle.tmux_session, handle.tmux_window_index) {
-                self.stop_mouse_mode_watch_for_window(ts, twi);
                 if handle.terminal_kind != super::TerminalKind::SideChat {
                     let source_name = handle.terminal_name.clone().or_else(|| {
                         self.tmux_engine.list_windows(ts).ok().and_then(|windows| {
@@ -618,14 +635,6 @@ impl TerminalService {
                 }
             }
 
-            // Step 3: Best-effort cleanup if the control-mode thread has not
-            // already removed the grouped session.
-            if let Some(client_session) = &handle.client_session {
-                let _ = self.tmux_engine.kill_session(client_session);
-            }
-
-            // Drop agent-hook rows keyed by the stable ATMOS_PANE_ID so UI
-            // indicators cannot stay "running" after the pane is gone.
             if let Some(name) = terminal_name.as_deref() {
                 self.clear_agent_hooks_for_pane(&workspace_id, name);
             }
@@ -680,6 +689,8 @@ impl TerminalService {
             .tmux_engine
             .find_window_index_by_name(session_name, "Generate Project Wiki")?
         {
+            self.pane_io
+                .destroy_pipe(&PaneIoKey::new(session_name, index));
             self.tmux_engine.kill_window(session_name, index)?;
         }
         Ok(())
@@ -691,6 +702,8 @@ impl TerminalService {
             .tmux_engine
             .find_window_index_by_name(session_name, tmux_window_name)?
         {
+            self.pane_io
+                .destroy_pipe(&PaneIoKey::new(session_name, index));
             self.tmux_engine.kill_window(session_name, index)?;
             return Ok(true);
         }
@@ -725,6 +738,8 @@ impl TerminalService {
             .tmux_engine
             .find_window_index_by_name(session_name, "Code Review")?
         {
+            self.pane_io
+                .destroy_pipe(&PaneIoKey::new(session_name, index));
             self.tmux_engine.kill_window(session_name, index)?;
         }
         Ok(())
@@ -759,7 +774,7 @@ impl TerminalService {
     /// PTY device exhaustion ("unable to allocate pty: Device not configured").
     pub async fn shutdown(&self) {
         info!("Shutting down terminal service, cleaning up all sessions...");
-        self.mouse_mode_watches.stop_all();
+        self.pane_io.destroy_all_pipes();
 
         let mut sessions = self.sessions.lock().await;
         let count = sessions.len();
@@ -768,43 +783,16 @@ impl TerminalService {
             info!("No active terminal sessions to clean up");
             drop(sessions);
         } else {
-            // Drain all sessions and clean up
             let handles: Vec<(String, SessionHandle)> = sessions.drain().collect();
-            drop(sessions); // Release the lock early
+            drop(sessions);
 
-            let sock = self.tmux_engine.socket_file_path();
             for (session_id, handle) in &handles {
-                // On full shutdown we kill the grouped session (window-stable
-                // sessions are recreated on the next API start + first connect).
-                if let Some(ref client_session) = handle.client_session {
-                    let mut detach_cmd = std::process::Command::new("tmux");
-                    detach_cmd.args([
-                        "-u",
-                        "-f",
-                        "/dev/null",
-                        "-S",
-                        &sock,
-                        "detach-client",
-                        "-s",
-                        client_session,
-                    ]);
-                    apply_utf8_env_to_tmux_command(&mut detach_cmd);
-                    let _ = detach_cmd.output();
-                    let _ = self.tmux_engine.kill_session(client_session);
+                if let Some(ref tx) = handle.command_tx {
+                    let _ = tx.send(SessionCommand::Close);
                 }
-
-                // Signal the PTY thread to stop its command loop.
-                let _ = handle.command_tx.send(SessionCommand::Close {
-                    client_session: None,
-                    socket_path: None,
-                });
-
                 debug!("Sent shutdown signal to session: {}", session_id);
             }
 
-            // Brief wait for PTY threads to see EOF and exit cleanly.
-            // Synchronous kill above ensures the PTY fd is already released;
-            // this just gives threads time to drain and exit gracefully.
             tokio::time::sleep(std::time::Duration::from_millis(200)).await;
 
             info!(
@@ -904,29 +892,13 @@ impl TerminalService {
         };
 
         if !matching_handles.is_empty() {
-            let sock = self.tmux_engine.socket_file_path();
             for (session_id, handle) in &matching_handles {
-                // Detach first (releases PTY fd immediately), then kill the ghost session.
-                if let Some(ref client_session) = handle.client_session {
-                    let mut detach_cmd = std::process::Command::new("tmux");
-                    detach_cmd.args([
-                        "-u",
-                        "-f",
-                        "/dev/null",
-                        "-S",
-                        &sock,
-                        "detach-client",
-                        "-s",
-                        client_session,
-                    ]);
-                    apply_utf8_env_to_tmux_command(&mut detach_cmd);
-                    let _ = detach_cmd.output();
-                    let _ = self.tmux_engine.kill_session(client_session);
+                if let Some(ref key) = handle.pane_key {
+                    self.pane_io.destroy_pipe(key);
                 }
-                let _ = handle.command_tx.send(SessionCommand::Close {
-                    client_session: None,
-                    socket_path: None,
-                });
+                if let Some(ref tx) = handle.command_tx {
+                    let _ = tx.send(SessionCommand::Close);
+                }
                 debug!(
                     "Sent workspace cleanup signal to terminal session: {}",
                     session_id
@@ -1008,6 +980,8 @@ impl TerminalService {
                 .find_window_index_by_name(&session_name, &record.side_tmux_window_name)
             {
                 Ok(Some(index)) => {
+                    self.pane_io
+                        .destroy_pipe(&PaneIoKey::new(&session_name, index));
                     let _ = self.tmux_engine.kill_window(&session_name, index);
                     return;
                 }

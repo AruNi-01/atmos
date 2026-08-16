@@ -195,6 +195,22 @@ html:not([data-theme-ready="true"]) body {
 }
 
 /*
+ * Per-context center tab chrome (IMP-015). Same opacity stack as frames so
+ * workspace hops hide/show already-mounted strips instead of remounting them.
+ */
+[data-workspace-tabbar][data-tier="warm"] {
+  opacity: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+
+[data-workspace-tabbar][data-tier="active"] {
+  opacity: 1;
+  pointer-events: auto;
+  z-index: 1;
+}
+
+/*
  * Keep-alive terminal panels (tab switch within a frame). Same WebGL rule:
  * stay mounted and sized without display:none so xterm does not blank.
  *

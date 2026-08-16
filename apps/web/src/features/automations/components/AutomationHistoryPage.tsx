@@ -1,12 +1,17 @@
 "use client";
 
+import * as React from "react";
 import { useTranslations } from "next-intl";
 import {
   Badge,
   Button,
+  Tabs,
+  TabsList,
+  TabsTab,
 } from "@workspace/ui";
 import {
   ArrowLeft,
+  Brain,
   LoaderCircle,
   Play,
   Timer,
@@ -15,6 +20,7 @@ import {
 } from "lucide-react";
 import dynamic from "next/dynamic";
 
+import { AutomationMemoryEditor } from "@/features/automations/components/AutomationMemoryEditor";
 import { RunDetailPanel } from "@/features/automations/components/RunDetailPanel";
 import { RunHistoryPanel } from "@/features/automations/components/RunHistoryPanel";
 import {
@@ -63,6 +69,7 @@ export function AutomationHistoryPage({
   onCancelRun,
   onFetchArtifact,
   onContinueInTerminal,
+  onSaveMemory,
 }: {
   automation: AutomationSummary | null;
   detail: AutomationDetail | null;
@@ -85,12 +92,22 @@ export function AutomationHistoryPage({
   onCancelRun: (run: AutomationRunSummary) => Promise<void>;
   onFetchArtifact: (run: AutomationRunSummary, kind: AutomationArtifactKind) => Promise<void>;
   onContinueInTerminal: (run: AutomationRunSummary) => Promise<void>;
+  onSaveMemory: (automationGuid: string, memory: string) => Promise<void>;
 }) {
   const t = useTranslations("automation.historyPage");
+  const [pageTab, setPageTab] = React.useState<"runs" | "memory">("runs");
+  const [memoryDraft, setMemoryDraft] = React.useState("");
+  const [memorySaving, setMemorySaving] = React.useState(false);
   const visibleAutomation = detail ?? automation;
   const agent = visibleAutomation
     ? (agents.find((item) => item.agent_id === visibleAutomation.agent_id) ?? null)
     : null;
+  const savedMemory = detail?.memory ?? "";
+  const memoryDirty = memoryDraft !== savedMemory;
+
+  React.useEffect(() => {
+    setMemoryDraft(detail?.memory ?? "");
+  }, [detail?.guid, detail?.memory]);
 
   return (
     <div className="flex h-full flex-col overflow-hidden bg-background">
@@ -111,7 +128,11 @@ export function AutomationHistoryPage({
               <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                 {visibleAutomation ? (
                   <>
-                    <AutomationAgentLabel agent={agent} agentId={visibleAutomation.agent_id} />
+                    <AutomationAgentLabel
+                      agent={agent}
+                      agentId={visibleAutomation.agent_id}
+                      agentConfigJson={visibleAutomation.agent_config_json}
+                    />
                     <span className="text-border">/</span>
                     <span>{formatTarget(visibleAutomation, projects)}</span>
                     <span className="text-border">/</span>
@@ -132,6 +153,19 @@ export function AutomationHistoryPage({
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-2 pl-[3.25rem] lg:pl-0">
+            <Tabs
+              value={pageTab}
+              onValueChange={(value) => setPageTab(value as "runs" | "memory")}
+            >
+              <TabsList className="h-9">
+                <TabsTab value="runs" className="px-3 text-xs">
+                  {t("tabs.runs")}
+                </TabsTab>
+                <TabsTab value="memory" className="px-3 text-xs">
+                  {t("tabs.memory")}
+                </TabsTab>
+              </TabsList>
+            </Tabs>
             <Button
               variant="outline"
               size="sm"
@@ -158,6 +192,44 @@ export function AutomationHistoryPage({
       </div>
 
       <div className="min-h-0 flex-1 overflow-hidden px-6 py-6">
+        {pageTab === "memory" ? (
+          <div className="mx-auto flex h-full w-full max-w-5xl flex-col gap-3">
+            <div>
+              <div className="flex items-center gap-2">
+                <Brain className="size-4 text-muted-foreground" />
+                <h3 className="text-sm font-semibold text-foreground">{t("memory.title")}</h3>
+              </div>
+              <p className="mt-1 text-sm text-muted-foreground">{t("memory.description")}</p>
+            </div>
+            <div className="min-h-0 flex-1">
+              {detailLoading && !detail ? (
+                <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+                  <LoaderCircle className="mr-2 size-4 animate-spin" />
+                  {t("loadingAutomation")}
+                </div>
+              ) : visibleAutomation ? (
+                <AutomationMemoryEditor
+                  value={memoryDraft}
+                  onChange={setMemoryDraft}
+                  path={detail?.memory_path}
+                  saving={memorySaving}
+                  saved={!memoryDirty && !memorySaving}
+                  onSave={() => {
+                    if (!memoryDirty) return;
+                    setMemorySaving(true);
+                    void onSaveMemory(visibleAutomation.guid, memoryDraft)
+                      .catch(() => undefined)
+                      .finally(() => setMemorySaving(false));
+                  }}
+                />
+              ) : (
+                <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+                  {t("notFound")}
+                </div>
+              )}
+            </div>
+          </div>
+        ) : (
         <div className={standaloneChatOpen
           ? "mx-auto grid h-full w-full max-w-[1600px] grid-cols-1 gap-5 xl:grid-cols-[340px_minmax(0,1fr)_420px]"
           : "mx-auto grid h-full w-full max-w-7xl grid-cols-1 gap-5 xl:grid-cols-[390px_minmax(0,1fr)]"
@@ -208,6 +280,7 @@ export function AutomationHistoryPage({
             </section>
           ) : null}
         </div>
+        )}
       </div>
 
     </div>

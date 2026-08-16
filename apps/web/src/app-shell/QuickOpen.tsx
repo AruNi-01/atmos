@@ -126,14 +126,14 @@ export const QuickOpen = ({ workspace, path }: QuickOpenProps) => {
 
   return (
     <div
-      className="flex h-7 items-stretch rounded-md border border-transparent bg-muted/40 transition-colors hover:border-border hover:bg-muted/60"
+      className="flex h-7 items-stretch rounded-md border border-transparent bg-muted/40 hover:border-border hover:bg-muted/60"
       onMouseLeave={() => { if (!isDropdownOpen) setIsExpanded(false); }}
     >
       {/* Main Action Button */}
       <button
         onClick={handleMainClick}
         onMouseEnter={() => setIsExpanded(true)}
-        className="flex h-full items-center overflow-hidden rounded-l-md border-r border-border/50 px-2 transition-all outline-none hover:cursor-pointer hover:bg-accent/50"
+        className="flex h-full items-center overflow-hidden rounded-l-md border-r border-border/50 px-2 outline-none hover:cursor-pointer hover:bg-accent"
         title={t('quickOpen.openWithShortcut', { app: CurrentLabel })}
       >
         <span className="flex size-4 shrink-0 items-center justify-center">
@@ -150,7 +150,7 @@ export const QuickOpen = ({ workspace, path }: QuickOpenProps) => {
       {/* Dropdown Trigger */}
       <DropdownMenu onOpenChange={(open) => { setIsDropdownOpen(open); if (!open) setIsExpanded(false); }}>
         <DropdownMenuTrigger asChild>
-          <button className="flex h-full items-center justify-center rounded-r-md px-1.5 outline-none transition-all duration-200 ease-out hover:bg-accent/50">
+          <button className="flex h-full items-center justify-center rounded-r-md px-1.5 outline-none hover:bg-accent">
             <ChevronDown className="size-3 shrink-0 text-muted-foreground opacity-60 transition-opacity hover:opacity-100" />
           </button>
         </DropdownMenuTrigger>

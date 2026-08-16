@@ -31,7 +31,7 @@ export function AppshotsHeaderButton({ onCloseAutoFocus }: AppshotsHeaderButtonP
             <button
               type="button"
               aria-label="Appshots"
-              className="relative size-8 flex items-center justify-center rounded-md text-muted-foreground transition-colors duration-200 ease-out hover:bg-accent hover:text-accent-foreground"
+              className="relative size-8 flex items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground"
             >
               <Camera className="size-4" />
             </button>

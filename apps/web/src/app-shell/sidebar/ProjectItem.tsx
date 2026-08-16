@@ -404,9 +404,9 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
     >
       <div
         className={cn(
-            "flex items-center px-2 py-1.5 hover:bg-sidebar-accent/50 rounded-sm mx-2 transition-all duration-300 relative",
+            "flex items-center px-2 py-1.5 hover:bg-sidebar-accent rounded-sm mx-2 relative",
             isDragging && "bg-sidebar-accent shadow-2xl scale-[1.02]",
-            (isActiveProject || isSelected) && "bg-sidebar-accent/70"
+            (isActiveProject || isSelected) && "bg-sidebar-accent"
           )}
       >
         <div

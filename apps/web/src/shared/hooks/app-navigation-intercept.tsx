@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, type ReactNode } from "react";
+import { createContext, useContext, useEffect, type ReactNode } from "react";
 
 export type AppNavigationTarget = {
   path: string;
@@ -31,4 +31,23 @@ export function AppNavigationInterceptProvider({
 
 export function useAppNavigationInterceptor(): AppNavigationInterceptor | null {
   return useContext(AppNavigationInterceptContext);
+}
+
+let registeredGuard: AppNavigationInterceptor | null = null;
+
+export function runRegisteredAppNavigationGuard(target: AppNavigationTarget): boolean {
+  return registeredGuard?.(target) === true;
+}
+
+export function useRegisteredAppNavigationGuard(
+  guard: AppNavigationInterceptor | null,
+) {
+  useEffect(() => {
+    registeredGuard = guard;
+    return () => {
+      if (registeredGuard === guard) {
+        registeredGuard = null;
+      }
+    };
+  }, [guard]);
 }

@@ -1,3 +1,6 @@
+//! Computer / relay terminal frames use the same `PaneIoRegistry` pipe path
+//! as local `/ws/terminal/:id` (APP-062). No per-browser `tmux -C`.
+
 use std::collections::HashMap;
 
 use base64::engine::general_purpose::STANDARD as BASE64_STANDARD;

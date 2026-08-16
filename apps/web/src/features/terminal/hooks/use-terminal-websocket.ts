@@ -1,12 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import type { ByteStreamPort, StreamHandle } from "@atmos/shared/terminal";
 import type {
   WsTerminalRequest,
-  WsTerminalResponse,
   TerminalSize,
   TerminalSnapshot,
 } from "../types/index";
+import { createBoundTerminalByteStreamPort } from "../lib/bind-terminal-byte-stream-port";
+import { dispatchTerminalServerPayload } from "../lib/dispatch-terminal-server-message";
 
 interface UseTerminalWebSocketOptions {
   url: string;
@@ -19,6 +21,8 @@ interface UseTerminalWebSocketOptions {
   reconnectAttempts?: number;
   reconnectDelay?: number;
   workspaceId?: string;
+  /** Test seam: inject a port instead of runtime binding (ws vs ipc). */
+  createPort?: (url: string) => ByteStreamPort;
 }
 
 interface UseTerminalWebSocketReturn {
@@ -31,7 +35,7 @@ interface UseTerminalWebSocketReturn {
   sendCreate: (workspaceId: string) => void;
   sendAttach: (workspaceId: string, tmuxWindowName: string) => void;
   sendDestroy: () => void;
-  /** Connect to WebSocket. Pass urlOverride to use a different URL (e.g. with cols/rows). */
+  /** Connect. Pass urlOverride to use a different URL (e.g. with cols/rows). */
   connect: (urlOverride?: string) => void;
   disconnect: () => void;
 }
@@ -47,13 +51,16 @@ export function useTerminalWebSocket({
   reconnectAttempts = 3,
   reconnectDelay = 1000,
   workspaceId,
+  createPort,
 }: UseTerminalWebSocketOptions): UseTerminalWebSocketReturn {
-  const wsRef = useRef<WebSocket | null>(null);
+  const handleRef = useRef<StreamHandle | null>(null);
   const connectRef = useRef<(() => void) | null>(null);
   const reconnectCountRef = useRef(0);
-  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const openingRef = useRef(false);
+  const generationRef = useRef(0);
   /** Once disconnect() is called, this ref prevents any further reconnection
-   *  attempts even from stale onclose handlers of previous WebSocket instances. */
+   *  attempts even from stale onclose handlers of previous stream handles. */
   const disconnectedRef = useRef(false);
   const [isConnected, setIsConnected] = useState(false);
   const [isReconnecting, setIsReconnecting] = useState(false);
@@ -65,235 +72,221 @@ export function useTerminalWebSocket({
     }
   }, []);
 
-  const sendMessage = useCallback((message: WsTerminalRequest) => {
-    if (wsRef.current?.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify(message));
+  const dropHandle = useCallback(() => {
+    const handle = handleRef.current;
+    handleRef.current = null;
+    openingRef.current = false;
+    handle?.close();
+  }, []);
+
+  const sendControl = useCallback((message: WsTerminalRequest) => {
+    const handle = handleRef.current;
+    if (handle?.readyState() === "open") {
+      handle.control.send(JSON.stringify(message));
     }
-  }, [sessionId]);
+  }, []);
+
+  const sendBytes = useCallback((data: Uint8Array) => {
+    const handle = handleRef.current;
+    if (handle?.readyState() === "open") {
+      handle.bytes.send(data);
+    }
+  }, []);
 
   const sendInput = useCallback(
     (data: string) => {
-      sendMessage({
-        type: "terminal_input",
-        session_id: sessionId,
-        data,
-      });
+      sendBytes(new TextEncoder().encode(data));
     },
-    [sessionId, sendMessage]
+    [sendBytes]
   );
 
   const sendEnter = useCallback(
     () => {
-      sendMessage({
+      sendControl({
         type: "terminal_enter",
         session_id: sessionId,
       });
     },
-    [sessionId, sendMessage]
+    [sessionId, sendControl]
   );
 
   const sendTerminalReport = useCallback(
     (data: string) => {
-      sendMessage({
-        type: "terminal_report",
-        session_id: sessionId,
-        data,
-      });
+      sendBytes(new TextEncoder().encode(data));
     },
-    [sessionId, sendMessage]
+    [sendBytes]
   );
 
   const sendResize = useCallback(
     (size: TerminalSize) => {
-      sendMessage({
+      sendControl({
         type: "terminal_resize",
         session_id: sessionId,
         cols: size.cols,
         rows: size.rows,
       });
     },
-    [sessionId, sendMessage]
+    [sessionId, sendControl]
   );
 
   const sendCreate = useCallback(
     (workspaceId: string) => {
-      sendMessage({
+      sendControl({
         type: "terminal_create",
         workspace_id: workspaceId,
       });
     },
-    [sendMessage]
+    [sendControl]
   );
 
   const sendAttach = useCallback(
     (workspaceId: string, tmuxWindowName: string) => {
-      sendMessage({
+      sendControl({
         type: "terminal_attach",
         workspace_id: workspaceId,
         tmux_window_name: tmuxWindowName,
       });
     },
-    [sendMessage]
+    [sendControl]
   );
 
   const sendDestroy = useCallback(() => {
-    sendMessage({
+    sendControl({
       type: "terminal_destroy",
       session_id: sessionId,
     });
-  }, [sessionId, sendMessage]);
+  }, [sessionId, sendControl]);
+
+  const scheduleReconnect = useCallback(() => {
+    if (disconnectedRef.current) {
+      setIsReconnecting(false);
+      return;
+    }
+    if (reconnectCountRef.current < reconnectAttempts) {
+      reconnectCountRef.current++;
+      setIsReconnecting(true);
+      reconnectTimeoutRef.current = setTimeout(() => {
+        connectRef.current?.();
+      }, reconnectDelay * reconnectCountRef.current);
+    } else {
+      setIsReconnecting(false);
+    }
+  }, [reconnectAttempts, reconnectDelay]);
 
   const disconnect = useCallback(() => {
-    // Mark as permanently disconnected - prevents all future reconnection
-    // attempts, even from stale onclose handlers of previous WebSocket instances
     disconnectedRef.current = true;
+    generationRef.current += 1;
     clearReconnectTimeout();
-    reconnectCountRef.current = reconnectAttempts; // Prevent reconnection
-    if (wsRef.current) {
-      wsRef.current.close();
-      wsRef.current = null;
-    }
+    reconnectCountRef.current = reconnectAttempts;
+    dropHandle();
     setIsConnected(false);
     setIsReconnecting(false);
-  }, [clearReconnectTimeout, reconnectAttempts, sessionId]);
+  }, [clearReconnectTimeout, dropHandle, reconnectAttempts, sessionId]);
 
-  // Store the effective URL for reconnections (may include cols/rows from initial connect)
   const effectiveUrlRef = useRef(url);
 
   const connect = useCallback((urlOverride?: string) => {
-    // Guard against both OPEN and CONNECTING states to prevent duplicate connections.
-    // In desktop (Tauri) mode, getRuntimeApiConfig() is async (~50ms IPC round-trip).
-    // React Strict Mode double-mounts the component, launching two async IIFEs. Both
-    // complete after the cleanup runs (which only nulls wsRef when no socket exists yet),
-    // so both call connect() — the second one sees the first socket still CONNECTING and
-    // would create a second connection, causing every PTY character to arrive twice.
-    if (wsRef.current &&
-        (wsRef.current.readyState === WebSocket.OPEN ||
-         wsRef.current.readyState === WebSocket.CONNECTING)) {
+    const liveHandle = handleRef.current;
+    if (
+      openingRef.current ||
+      (liveHandle && liveHandle.readyState() !== "closed")
+    ) {
       return;
     }
 
-    // If a URL override is provided (e.g. with cols/rows), store it for reconnections
     const connectUrl = urlOverride || effectiveUrlRef.current;
     if (urlOverride) {
       effectiveUrlRef.current = urlOverride;
     }
 
-    try {
-      // Reset disconnected flag since connect() is always an intentional call.
-      // The flag only prevents stale onclose handlers from triggering reconnection.
-      disconnectedRef.current = false;
-      reconnectCountRef.current = 0;
-      const ws = new WebSocket(connectUrl);
-      ws.binaryType = "arraybuffer";
-      wsRef.current = ws;
+    disconnectedRef.current = false;
+    reconnectCountRef.current = 0;
+    openingRef.current = true;
+    const generation = ++generationRef.current;
+    const port = (createPort ?? createBoundTerminalByteStreamPort)(connectUrl);
 
-      ws.onopen = () => {
-        setIsConnected(true);
-        setIsReconnecting(false);
-        reconnectCountRef.current = 0;
-        onConnected?.();
-      };
-
-      ws.onmessage = (event) => {
-        if (typeof event.data !== "string") {
-          const bytes = readBinaryMessage(event.data);
-          if (bytes?.length) {
-            onOutput(bytes);
-          } else if (typeof Blob !== "undefined" && event.data instanceof Blob) {
-            void event.data.arrayBuffer().then((buffer) => {
-              const blobBytes = new Uint8Array(buffer);
-              if (blobBytes.length) {
-                onOutput(blobBytes);
-              }
-            });
-          }
+    void (async () => {
+      try {
+        const handle = await port.open({
+          url: connectUrl,
+          sessionId,
+        });
+        if (generation !== generationRef.current || disconnectedRef.current) {
+          handle.close();
           return;
         }
-
-        try {
-          const message: WsTerminalResponse = JSON.parse(event.data);
-
-          switch (message.type) {
-            case "terminal_output":
-              if (message.session_id === sessionId) {
-                onOutput(message.data);
-              }
+        handleRef.current = handle;
+        openingRef.current = false;
+        const dispatchPayload = (data: string | Uint8Array) => {
+          if (generation !== generationRef.current) return;
+          const dispatch = dispatchTerminalServerPayload(data, sessionId);
+          switch (dispatch.action) {
+            case "output":
+              onOutput(dispatch.data);
               break;
-            case "terminal_created":
-              if (message.session_id === sessionId) {
-                onAttached?.(message.snapshot);
-              }
+            case "attached":
+              onAttached?.(dispatch.snapshot);
               break;
-            case "terminal_attached":
-              // Session attached (reconnected)
-              if (message.session_id === sessionId) {
-                onAttached?.(message.snapshot);
-              }
+            case "closed":
+              disconnect();
               break;
-            case "terminal_closed":
-              if (message.session_id === sessionId) {
-                // Session closed (detached) - could reconnect
-                disconnect();
-              }
+            case "destroyed":
+              reconnectCountRef.current = reconnectAttempts;
+              disconnect();
               break;
-            case "terminal_destroyed":
-              if (message.session_id === sessionId) {
-                // Session destroyed - no reconnect possible
-                reconnectCountRef.current = reconnectAttempts; // Prevent reconnect
-                disconnect();
-              }
-              break;
-            case "terminal_error":
-              // Fatal for this connection: attach/create already exhausted
-              // server-side retries. Do not auto-reconnect — onopen resets the
-              // reconnect counter, so reconnecting would loop forever and wipe
-              // the error UI. User can Retry manually.
+            case "error":
               reconnectCountRef.current = reconnectAttempts;
               clearReconnectTimeout();
-              onError?.(message.error);
+              onError?.(dispatch.error);
+              break;
+            case "ignore":
               break;
           }
-        } catch {
-          // Handle non-JSON messages (raw terminal output)
-          onOutput(event.data);
-        }
-      };
+        };
+        handle.subscribe({
+          onOpen: () => {
+            if (generation !== generationRef.current) return;
+            setIsConnected(true);
+            setIsReconnecting(false);
+            reconnectCountRef.current = 0;
+            onConnected?.();
+          },
+          onControl: (json) => {
+            dispatchPayload(json);
+          },
+          onBytes: (data) => {
+            dispatchPayload(data);
+          },
+          onClose: () => {
+            const superseded =
+              handleRef.current != null && handleRef.current !== handle;
+            if (handleRef.current === handle) {
+              handleRef.current = null;
+            }
+            openingRef.current = false;
+            if (superseded) return;
 
-      ws.onclose = () => {
-        setIsConnected(false);
-        onDisconnected?.();
-
-        // Do NOT reconnect if disconnect() was called (permanent teardown)
-        if (disconnectedRef.current) {
-          setIsReconnecting(false);
-          return;
-        }
-
-        // Attempt to reconnect
-        if (reconnectCountRef.current < reconnectAttempts) {
-          reconnectCountRef.current++;
-          setIsReconnecting(true);
-          reconnectTimeoutRef.current = setTimeout(() => {
-            connectRef.current?.();
-          }, reconnectDelay * reconnectCountRef.current);
-        } else {
-          setIsReconnecting(false);
-        }
-      };
-
-      ws.onerror = () => {
-        // Ignore errors from sockets we intentionally closed/replaced during
-        // terminal teardown or remounts. These are expected and should not
-        // surface as user-facing errors in the parent dialog.
-        if (disconnectedRef.current || wsRef.current !== ws) {
-          return;
-        }
-        onError?.("WebSocket connection error");
-      };
-    } catch (err) {
-      onError?.(`Failed to connect: ${err}`);
-    }
+            setIsConnected(false);
+            onDisconnected?.();
+            scheduleReconnect();
+          },
+          onError: () => {
+            if (
+              disconnectedRef.current ||
+              generation !== generationRef.current
+            ) {
+              return;
+            }
+            onError?.("Terminal connection error");
+          },
+        });
+      } catch (err) {
+        if (generation !== generationRef.current) return;
+        openingRef.current = false;
+        onError?.(`Failed to connect: ${err}`);
+        scheduleReconnect();
+      }
+    })();
   }, [
     url,
     sessionId,
@@ -307,27 +300,23 @@ export function useTerminalWebSocket({
     reconnectDelay,
     clearReconnectTimeout,
     disconnect,
+    createPort,
+    scheduleReconnect,
   ]);
 
   useEffect(() => {
     connectRef.current = connect;
   }, [connect]);
 
-  // Cleanup on unmount - must also set disconnectedRef to prevent
-  // zombie reconnections from stale onclose handlers.
-  // This cleanup runs BEFORE Terminal.tsx's disconnect() during unmount,
-  // so we need to mark as disconnected here as well.
   useEffect(() => {
     return () => {
       disconnectedRef.current = true;
+      generationRef.current += 1;
       clearReconnectTimeout();
-      if (wsRef.current) {
-        wsRef.current.close();
-        wsRef.current = null;
-      }
+      dropHandle();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [clearReconnectTimeout]);
+  }, [clearReconnectTimeout, dropHandle]);
 
   return {
     isConnected,
@@ -342,16 +331,4 @@ export function useTerminalWebSocket({
     connect,
     disconnect,
   };
-}
-
-function readBinaryMessage(data: unknown): Uint8Array | null {
-  if (data instanceof ArrayBuffer) {
-    return new Uint8Array(data);
-  }
-
-  if (ArrayBuffer.isView(data)) {
-    return new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
-  }
-
-  return null;
 }

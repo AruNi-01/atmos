@@ -25,8 +25,8 @@ Agent-browser can smoke the visible terminal, but cannot prove UDS/pipe ownershi
 | M9 no control fallback | S16 |
 | M10 existing WS shapes | S1, S17 |
 | M11 snapshot on remount only | S8, S18 |
-| N1 Desktop UDS | non-coverage |
-| N2 idle tear | non-coverage |
+| N1 Desktop UDS | Renderer IPC + main↔API UDS (`stream-hub` unit tests; TCP WS fallback) |
+| N2 idle tear | S22, S23 |
 
 ## Execution map
 
@@ -53,6 +53,8 @@ Agent-browser can smoke the visible terminal, but cannot prove UDS/pipe ownershi
 | S19 | E2E | Playwright | `just test-e2e -- tests/specs/APP-062_terminal-tmux-pipe-live-path.e2e.ts` | local app + tmux | type echo; resize; no crash | planned |
 | S20 | agent-browser | `agent-browser` | exploratory | local app + tmux | type, split drag, no console WS errors | planned |
 | S21 | Structural | grep | create/attach/relay | `terminal.rs` / `runtime.rs` / relay | no live call to `run_control_mode_tmux_session` | planned |
+| S22 | Rust unit | `cargo test -p core-service` | idle tear | short timeout | last unsubscribe does not detach immediately; timeout detaches; window not killed | planned |
+| S23 | Rust unit | `cargo test -p core-service` | idle cancel | resubscribe before timeout | pipe stays; no second attach | planned |
 
 ## Scenarios
 
@@ -224,6 +226,22 @@ Agent-browser can smoke the visible terminal, but cannot prove UDS/pipe ownershi
 - **Then**: no live caller of `run_control_mode_tmux_session`; no `atmos_client_*` name builder on attach.
 - **Signals**: grep / review.
 
+### S22 — Idle tear detaches the pipe, not the window
+
+- **Level**: Rust unit
+- **Given**: a live pipe with one observer.
+- **When**: that observer unsubscribes and the idle timeout elapses.
+- **Then**: `destroy_pipe` runs (detach); the registry key is gone; the tmux window is not killed (driver has no kill-window).
+- **Signals**: `idle_tear_detaches_pipe_after_timeout`.
+
+### S23 — Resubscribe cancels idle tear
+
+- **Level**: Rust unit
+- **Given**: last observer unsubscribed and the idle timer is running.
+- **When**: another observer `ensure_and_subscribe`s before timeout.
+- **Then**: the pipe stays live; attach is not invoked again.
+- **Signals**: `resubscribe_cancels_idle_tear`.
+
 ## Performance & load budgets
 
 These are **dogfood budgets**, not CI gates unless a bench exists:
@@ -273,12 +291,60 @@ Load the installed `agent-browser` skill (or `agent-browser skills get core --fu
 
 ## Non-coverage
 
-- Desktop UDS `ByteStreamPort` (N1).
-- Idle pipe teardown (N2).
 - Ghostty renderer.
 - Full VT snapshot fidelity (still `capture-pane` cells + mouse option, ADR-004).
 - Multi-user authorization (single-operator product).
 
 ## Coverage Status
 
-> Filled after implementation by `atmos-specs-test-run`. Include exact tests, commands, agent-browser notes, and remaining gaps.
+Filled 2026-08-15 after implementation. Re-run 2026-08-16 after UDS sidecar, binary PTY input, and N2 idle tear.
+
+### Commands
+
+| Command | Result |
+|---------|--------|
+| `cargo clippy -p core-engine -p core-service -p api -p runtime-manager --tests -- -D warnings` | pass |
+| `cargo test -p core-engine --lib` | pass (165) |
+| `cargo test -p core-service --lib` | pass (318) |
+| `cargo test -p core-service --test app062_terminal_live_path` | pass |
+| `cargo test -p runtime-manager --lib` | pass (22) |
+| `cargo test -p api` | pass (52) |
+| `bun test packages/shared/src/terminal` | pass (28) |
+| `bun test apps/desktop-electron/src/terminal` | pass (9) |
+| `bun test` web bind/dispatch/IPC + `workspace-surface-policies.test.ts` | pass (27) |
+
+### Scenarios
+
+| ID | Status | Evidence |
+|----|--------|----------|
+| S1 | covered (service stub) | `PaneIoRegistry::ensure_and_subscribe` creates one live key; full WS+tmux create is dogfood |
+| S2 | covered | `tmux::pipe::tests::copy_raw_is_identity_including_nul_and_esc`, `copy_raw_does_not_hex_or_octal_encode`, `bridge_copies_stdio_to_unix_stream_pair` |
+| S3 | covered (partial) | `unsubscribe_keeps_pipe` / dropping observers does not detach; kill-window is only on destroy. Full API-crash vs real `list_windows` not run in CI |
+| S4 | covered | `io::tests::second_subscribe_does_not_reattach` (`attach_count` / `attach_invocations` == 1) |
+| S5 | covered | `io::tests::fan_out_delivers_to_both_observers` |
+| S6 | covered | `io::tests::unsubscribe_keeps_pipe` |
+| S7 | covered | `io::tests::destroy_pipe_detaches_and_drops_key`; service `destroy_session` also `kill_window` |
+| S8 | covered (structural) | `attach_session` still calls `capture_snapshot_after_attach`; remount uses existing capture helper |
+| S9 | skipped | tmux 3.5a is installed, but `attach_pane_pipe` execs `current_exe --internal`; cargo test binaries do not intercept that helper. Recorded skip, not a silent pass |
+| S10 | covered | `io::tests::same_size_resize_is_noop` |
+| S11 | covered | `io::tests::grid_change_resizes_once`; structural test forbids `refresh-client -C` |
+| S12 | covered | `io::tests::write_is_raw_bytes` + `app062_terminal_live_path` (no `encode_send_keys_hex_commands`) |
+| S13 | covered | `io::tests::report_bytes_are_raw_pipe_writes` |
+| S14 | covered | `io::tests::decset_on_pipe_persists_mouse` |
+| S15 | covered | `io::tests::unsubscribe_keeps_dec_observation_on_pipe` + structural no `atmos_mousewatch_` |
+| S16 | covered | `io::tests::attach_failure_does_not_insert_key` + structural no `run_control_mode_tmux_session` |
+| S17 | covered | `app062_terminal_live_path` reads `packages/shared/src/terminal/protocol.ts`; existing tags remain; no `io_mode`. Terminal I/O stays `/ws/terminal/:id` |
+| S18 | covered | `workspace-surface-policies.test.ts` — keep-alive class is `atmos-terminal-panel-keepalive` |
+| S19 | not_run | no Playwright fixture for a tmux-backed workspace terminal in this environment |
+| S20 | not_run | agent-browser exploratory needs `just dev-api` + `just dev-web` and a real TUI; not run in this cloud agent |
+| S21 | covered | `crates/core-service/tests/app062_terminal_live_path.rs` greps create/attach/runtime/management/io + API WS/relay |
+| S22 | covered | `io::tests::idle_tear_detaches_pipe_after_timeout` (40ms timeout; pipe gone, window not killed) |
+| S23 | covered | `io::tests::resubscribe_cancels_idle_tear` (pipe stays; attach_count stays 1) |
+| N1 | covered | `stream-hub.test.ts` UDS prefer + TCP fallback; `unix_bind::tests::binds_overridable_socket_path`; WS/IPC `bytes.send` is ArrayBuffer |
+
+### Remaining gaps
+
+- Real tmux re-pipe pid equality (S9) wants the API helper binary, not the cargo test harness.
+- E2E type/resize (S19) and agent-browser split-drag (S20) still need a local app + tmux dogfood.
+- `tmux/control.rs` parser tests still pass; the module is unused as live transport (delete follow-up).
+

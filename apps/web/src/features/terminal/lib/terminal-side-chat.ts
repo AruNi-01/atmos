@@ -163,6 +163,29 @@ export function hasOpenSideChatRecord(records: LocalSideChatRecord[]): boolean {
   return getFirstOpenSideChatRecord(records) !== undefined;
 }
 
+/** `{workspaceId}:{side_tmux_window_name}` — same key the hook attention summary uses. */
+export function sideChatStablePaneId(
+  record: Pick<LocalSideChatRecord, "workspace_id" | "side_tmux_window_name" | "sessionId">,
+): string | null {
+  const workspaceId = record.workspace_id?.trim();
+  const windowName = record.side_tmux_window_name?.trim();
+  if (workspaceId && windowName) return `${workspaceId}:${windowName}`;
+  const sessionId = record.sessionId?.trim();
+  return sessionId || null;
+}
+
+/** Hidden (minimized) side chats that still have an unconsumed attention summary. */
+export function minimizedSideChatHasAttentionSummary(
+  records: readonly LocalSideChatRecord[],
+  hasSummary: (stablePaneId: string) => boolean,
+): boolean {
+  return records.some((record) => {
+    if (isSideChatClosing(record.status) || isSideChatOpen(record.status)) return false;
+    const paneId = sideChatStablePaneId(record);
+    return Boolean(paneId && hasSummary(paneId));
+  });
+}
+
 export function pickUniqueBrightColor(existingColors: string[]) {
   const used = new Set(existingColors.map((color) => color.toLowerCase()));
   const available = BRIGHT_SIDE_CHAT_COLORS.filter((color) => !used.has(color.toLowerCase()));

@@ -2,15 +2,14 @@
 //!
 //! `capture-pane` restores cells only. Full-screen TUIs enable mouse via DECSET
 //! (`1000`/`1002`/`1003`/`1006`/…). Atmos observes those sequences on the live
-//! control-mode stream, persists the effective mode on the tmux pane, and
-//! reattaches with an exact restore sequence instead of a fixed guess.
+//! `pipe-pane` byte stream (APP-062), persists the effective mode on the tmux
+//! pane, and reattaches with an exact restore sequence instead of a fixed guess.
 //!
 //! Event modes follow xterm.js exclusivity (last enable wins among
 //! 9/1000/1002/1003). Format modes are independent (1005/1006/1015/1016).
 //!
-//! Control-mode `%output` can split CSI private-mode sequences across chunks;
-//! incomplete trailing prefixes are retained and completed on the next chunk
-//! (APP-054).
+//! Pipe chunks can split CSI private-mode sequences; incomplete trailing
+//! prefixes are retained and completed on the next chunk (APP-054).
 
 use std::fmt;
 

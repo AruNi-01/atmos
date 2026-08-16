@@ -28,8 +28,10 @@ const shared: esbuild.BuildOptions = {
   target: "node20",
   format: "esm",
   sourcemap: true,
-  // Native modules stay external so Electron loads platform binaries from node_modules.
-  external: ["electron", "koffi"],
+  // Native / CJS packages stay external so Electron loads them from node_modules.
+  // `ws` is CommonJS (`require("events")`); bundling it into ESM main.js throws
+  // "Dynamic require of events is not supported" and blocks unix sidecar sockets.
+  external: ["electron", "koffi", "ws", "bufferutil", "utf-8-validate"],
   logLevel: "info",
 };
 

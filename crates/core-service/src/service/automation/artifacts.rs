@@ -10,6 +10,7 @@ pub const AUTOMATIONS_DIR: &str = "automations";
 pub const DEFINITIONS_DIR: &str = "definitions";
 pub const RUNS_DIR: &str = "runs";
 pub const INSTRUCTIONS_FILE: &str = "instructions.md";
+pub const MEMORY_FILE: &str = "memory.md";
 pub const ATTACHMENTS_DIR: &str = "attachments";
 
 #[derive(Debug, Clone)]
@@ -40,6 +41,10 @@ pub fn instructions_path(automation_guid: &str) -> Result<PathBuf> {
     Ok(definition_dir(automation_guid)?.join(INSTRUCTIONS_FILE))
 }
 
+pub fn memory_path(automation_guid: &str) -> Result<PathBuf> {
+    Ok(definition_dir(automation_guid)?.join(MEMORY_FILE))
+}
+
 pub fn attachments_dir(automation_guid: &str) -> Result<PathBuf> {
     Ok(definition_dir(automation_guid)?.join(ATTACHMENTS_DIR))
 }
@@ -50,6 +55,30 @@ pub fn write_instructions(automation_guid: &str, instructions: &str) -> Result<P
     Ok(path)
 }
 
+pub fn write_memory(automation_guid: &str, memory: &str) -> Result<PathBuf> {
+    let path = memory_path(automation_guid)?;
+    write_user_private_file(&path, memory)?;
+    Ok(path)
+}
+
+pub fn ensure_memory_file(automation_guid: &str) -> Result<PathBuf> {
+    let path = memory_path(automation_guid)?;
+    if !path.exists() {
+        write_user_private_file(&path, "")?;
+    }
+    Ok(path)
+}
+
+pub fn read_memory_for_guid(automation_guid: &str) -> Result<(String, PathBuf)> {
+    let path = memory_path(automation_guid)?;
+    if !path.exists() {
+        return Ok((String::new(), path));
+    }
+    let content = fs::read_to_string(&path)
+        .map_err(|error| ServiceError::Validation(format!("Failed to read memory: {error}")))?;
+    Ok((content, path))
+}
+
 pub struct PreparedCreateArtifacts {
     definition_dir: PathBuf,
     instructions_path: PathBuf,
@@ -58,9 +87,10 @@ pub struct PreparedCreateArtifacts {
 }
 
 impl PreparedCreateArtifacts {
-    pub fn prepare(automation_guid: &str, instructions: &str) -> Result<Self> {
+    pub fn prepare(automation_guid: &str, instructions: &str, memory: &str) -> Result<Self> {
         let definition_dir = definition_dir(automation_guid)?;
         let instructions_path = write_instructions(automation_guid, instructions)?;
+        write_memory(automation_guid, memory)?;
         let artifact_root = automation_root()?;
         Ok(Self {
             definition_dir,
@@ -123,9 +153,41 @@ pub fn discard_staged_instructions(staged: &StagedInstructions) {
     let _ = fs::remove_file(&staged.temp_path);
 }
 
+pub struct StagedMemory {
+    temp_path: PathBuf,
+    final_path: PathBuf,
+}
+
+pub fn stage_memory(automation_guid: &str, memory: &str) -> Result<StagedMemory> {
+    let final_path = memory_path(automation_guid)?;
+    let temp_path = definition_dir(automation_guid)?.join(format!(
+        "{}.pending-{}",
+        MEMORY_FILE,
+        Uuid::new_v4()
+    ));
+    write_user_private_file(&temp_path, memory)?;
+    Ok(StagedMemory {
+        temp_path,
+        final_path,
+    })
+}
+
+pub fn commit_staged_memory(staged: &StagedMemory) -> Result<PathBuf> {
+    fs::rename(&staged.temp_path, &staged.final_path).map_err(|error| {
+        ServiceError::Validation(format!("Failed to update automation memory: {error}"))
+    })?;
+    set_file_permissions(&staged.final_path)?;
+    Ok(staged.final_path.clone())
+}
+
+pub fn discard_staged_memory(staged: &StagedMemory) {
+    let _ = fs::remove_file(&staged.temp_path);
+}
+
 pub struct PreparedUpdateArtifacts {
     attachments: Vec<WrittenAttachment>,
     staged_instructions: Option<StagedInstructions>,
+    staged_memory: Option<StagedMemory>,
     committed: bool,
 }
 
@@ -134,6 +196,7 @@ impl PreparedUpdateArtifacts {
         automation_guid: &str,
         written_attachments: Vec<WrittenAttachment>,
         instructions: Option<&str>,
+        memory: Option<&str>,
     ) -> Result<Self> {
         let staged_instructions = match instructions {
             Some(instructions) => match stage_instructions(automation_guid, instructions) {
@@ -145,10 +208,24 @@ impl PreparedUpdateArtifacts {
             },
             None => None,
         };
+        let staged_memory = match memory {
+            Some(memory) => match stage_memory(automation_guid, memory) {
+                Ok(staged) => Some(staged),
+                Err(error) => {
+                    if let Some(staged) = staged_instructions.as_ref() {
+                        discard_staged_instructions(staged);
+                    }
+                    discard_written_attachments(&written_attachments);
+                    return Err(error);
+                }
+            },
+            None => None,
+        };
 
         Ok(Self {
             attachments: written_attachments,
             staged_instructions,
+            staged_memory,
             committed: false,
         })
     }
@@ -156,6 +233,9 @@ impl PreparedUpdateArtifacts {
     pub fn commit(mut self) -> Result<()> {
         if let Some(staged) = self.staged_instructions.as_ref() {
             commit_staged_instructions(staged)?;
+        }
+        if let Some(staged) = self.staged_memory.as_ref() {
+            commit_staged_memory(staged)?;
         }
         self.committed = true;
         Ok(())
@@ -169,6 +249,9 @@ impl Drop for PreparedUpdateArtifacts {
         }
         if let Some(staged) = self.staged_instructions.as_ref() {
             discard_staged_instructions(staged);
+        }
+        if let Some(staged) = self.staged_memory.as_ref() {
+            discard_staged_memory(staged);
         }
         discard_written_attachments(&self.attachments);
     }

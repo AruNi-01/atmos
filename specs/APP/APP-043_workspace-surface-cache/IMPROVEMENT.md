@@ -13,7 +13,7 @@
 | Rule | Detail |
 |------|--------|
 | **When to add** | After fixing a user-reported bug, reliability issue, quality regression, or deliberate product parity gap. |
-| **Entry id** | `IMP-NNN` — zero-padded, monotonic in this file (next: **IMP-015**). |
+| **Entry id** | `IMP-NNN` — zero-padded, monotonic in this file (next: **IMP-016**). |
 | **Status** | `open` → `mitigated` → `closed` (or `wont-fix` with reason). |
 | **Do not** | Duplicate full TECH sections; link to TECH/PRD and paste only deltas. |
 
@@ -37,6 +37,7 @@
 | [IMP-012](#imp-012--keep-sidebar-input-interruptible-during-switch) | Keep sidebar input interruptible during switch | mitigated | 2026-07-26 |
 | [IMP-013](#imp-013--defer-center-rebind-so-sidebar-stays-interactive) | Defer center rebind so sidebar stays interactive | mitigated | 2026-07-26 |
 | [IMP-014](#imp-014--pause-hidden-terminal-fit--resizeobserver) | Pause hidden terminal fit / ResizeObserver | mitigated | 2026-07-26 |
+| [IMP-015](#imp-015--keep-center-tab-chrome-mounted-across-hops) | Keep center tab chrome mounted across hops | mitigated | 2026-08-16 |
 
 ---
 
@@ -446,7 +447,7 @@ Warm hops should paint the retained center surface and sidebar selection on the 
 ### Follow-ups
 
 - [x] Memo per-frame body → [IMP-011](#imp-011--per-frame-memo-isolation)
-- [ ] Optional: optimistic tab-bar chrome for warm hops (still URL-synced today)
+- [x] Optimistic tab-bar chrome for warm hops → [IMP-015](#imp-015--keep-center-tab-chrome-mounted-across-hops)
 
 ---
 
@@ -612,3 +613,43 @@ Hidden warm terminals should no longer participate in hop-time layout storms. Ac
 ### Follow-ups
 
 - [ ] Re-measure Safari Timeline with 6 idle terminal workspaces
+
+---
+
+## IMP-015 · Keep center tab chrome mounted across hops
+
+| Field | Value |
+|-------|--------|
+| **Date** | 2026-08-16 |
+| **Status** | mitigated |
+| **Reported by** | user |
+| **Severity** | UX |
+
+### Problem
+
+Workspace/Project hops already opacity-hide retained **frames**, but the center tab strip was a single URL/deferred bar. Every hop remounted the strip, so tabs disappeared and re-displayed instead of hiding in place.
+
+### Root cause
+
+Tab chrome lived outside the per-context frame stack and rebound when `effectiveContextId` (deferred) caught up. IMP-010 called this out as a follow-up.
+
+### Solution
+
+1. Mount one tab strip per Active ∪ Warm (plus sticky-leave) context.
+2. Hide inactive strips with the same `data-tier` opacity + inert stack as frames (`[data-workspace-tabbar]`).
+3. `applyWorkspaceFrameVisualDom` flips tab chrome in the same click-path DOM write as frames.
+
+### Result
+
+Warm A→B→A hops should reveal the already-mounted destination tabs instead of remounting the strip.
+
+### Code / docs touched
+
+- `apps/web/src/app-shell/workspace-center-tab-bars.tsx`
+- `apps/web/src/app-shell/CenterStage.tsx`
+- `apps/web/src/app-shell/workspace-surface-switch.ts`
+- `apps/web/src/app/globals.css`
+
+### Follow-ups
+
+- [ ] Dogfood rapid hops with ≥3 warm workspaces that have different tab sets

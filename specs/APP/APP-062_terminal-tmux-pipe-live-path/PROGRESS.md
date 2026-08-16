@@ -1,0 +1,92 @@
+# PROGRESS · APP-062: Terminal tmux pipe-pane live path
+
+> Implementation Progress · current state, handoff notes, blockers, and verification status. This file is not a requirements source.
+
+## Status
+
+- **State**: ready_for_review
+- **Branch**: `aarynlu/app-062-terminal-tmux-pipe-live-path-39ca`
+- **Last updated**: 2026-08-16
+- **Current owner**: cloud agent
+- **Current phase**: review
+
+## Snapshot
+
+- Production live path is `pipe-pane -I -O` via `PaneIoRegistry`; control-mode runner and `atmos_mousewatch_*` are gone.
+- Desktop local renderer terminal stream uses `ByteStreamPort` IPC (ADR-006); main↔API prefers `~/.atmos/state/api.sock` (same `/ws/terminal/:id` router) with loopback WS fallback.
+- PTY input is raw binary; JSON control stays on the same connection (logical ControlPort).
+- N2: last observer gone starts a 15-minute idle timer; timeout detaches the pipe and leaves the tmux window.
+- Do not restore `tmux -C`, `send-keys -H`, `ATMOS_TERMINAL_IO`, or `IoMode`.
+
+## Implementation Checklist
+
+- [x] Engine `pipe.rs` helper + attach/detach
+- [x] Service `PaneIoRegistry` + create/attach/close/destroy
+- [x] API `--internal` helper; relay uses the same service path
+- [x] ADR-004 note + `~/.atmos/state/tmux-pipes/` layout
+- [x] N2 idle tear (15m)
+- [x] Desktop main↔API UDS + binary PTY input + Control vs bytes split
+- [x] Regression gate (`cargo test` / clippy on touched crates)
+- [x] TEST.md Coverage Status (`atmos-specs-test-run`)
+
+## Progress Log
+
+### 2026-08-16
+
+- N2 idle tear (15m, window stays).
+- API same-router UDS at `~/.atmos/state/api.sock`; desktop main prefers it, TCP WS fallback.
+- PTY input is raw binary; JSON control multiplexed on the same carrier.
+- Regression gate re-run; unix bind test asserts `FileType::is_socket()` (not `is_file()`).
+
+### 2026-08-15
+
+- Engine: UDS helper, sanitize, copy_raw, attach with `-o` + one retry.
+- Service: one pipe per pane, observer watermark, DEC observe on pipe, no mousewatch.
+- API: `--internal tmux-pipe-bridge` before clap/Tokio.
+- Docs: ADR-004 live-path note; home layout `state/tmux-pipes/`.
+
+## Decisions Since TECH
+
+| ID | Decision | Why | Source update |
+|----|----------|-----|---------------|
+| D1 | Live loops live in `PaneIoRegistry` tokio tasks, not `run_pipe_pane_session` | Matches “one attachment / pane” better than a per-session OS thread | TECH.md module table |
+| D2 | Desktop local renderer uses `ByteStreamPort` IPC; API remains `/ws/terminal/:id` | N1 Phase 0–1 from known-debt; Web/remote stay on WS | ADR-006 |
+| D3 | N2 idle tear is 15m; unsubscribe does not detach immediately | Matches PRD M4 + N2 | TECH.md lifecycle |
+| D4 | ControlPort is JSON multiplexed on the same stream, not REST/invoke | Attach still opens the byte stream | ADR-006 |
+| D5 | Desktop main↔API prefers `api.sock` UDS; TCP WS fallback | Same Axum router; no third protocol | known-debt Phase 3 |
+
+## Verification Status
+
+| Area | Command / Method | Last result | Notes |
+|------|------------------|-------------|-------|
+| Rust tests | `cargo test -p core-engine --lib`; `cargo test -p core-service --lib`; `cargo test -p core-service --test app062_terminal_live_path`; `cargo test -p api`; `cargo test -p runtime-manager --lib` | pass | 2026-08-16: 165 / 318 / 1 / 52 / 22 |
+| Clippy | `cargo clippy -p core-engine -p core-service -p api -p runtime-manager --tests -- -D warnings` | pass | |
+| Bun tests | shared `src/terminal`, desktop-electron `src/terminal`, web bind/dispatch/IPC + APP-043 policies | pass | 28 + 9 + 27 |
+| E2E / agent-browser | S19 / S20 | not_run | no Playwright TUI fixture |
+| Desktop dogfood | Electron on Linux DISPLAY=:1, demo workspace terminal | pass | 2026-08-16: `carrier=ipc sidecar=uds`, unix connect 2–8ms; `printf` echo + `date -u` 06:51:52Z. First boot crashed until `ws` stayed esbuild-external. |
+
+## Known Blockers
+
+- [ ] S9 needs a real tmux; skip and record if missing.
+
+## Handoff Notes
+
+### Task goal
+
+Ship APP-062 M1–M11: tmux still owns the pane; live I/O is one `pipe-pane`.
+
+### Constraints
+
+- No control-mode fallback. No new REST. No frontend protocol change. No APP-043 keep-alive change.
+- Helper is API `current_exe --internal tmux-pipe-bridge --uds <path>`.
+- `tmux/control.rs` parser stays this PR (delete follow-up allowed).
+
+### Relevant files/symbols
+
+- `crates/core-engine/src/tmux/pipe.rs`
+- `crates/core-service/src/service/terminal/io.rs`
+- `crates/runtime-manager/src/layout.rs` (`api_unix_socket_path`)
+- `apps/api/src/main.rs` (`try_run_internal_from_env`, Unix listener)
+- `apps/api/src/unix_bind.rs`
+- `apps/desktop-electron/src/terminal/stream-hub.ts`
+- `packages/shared/src/terminal/byte-stream-port.ts`

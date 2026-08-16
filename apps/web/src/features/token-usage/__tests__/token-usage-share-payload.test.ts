@@ -8,6 +8,11 @@ import {
   mapOverviewToSharePayload,
 } from "@/features/token-usage/token-usage-share-payload";
 import { buildPublicTokPreview } from "@/features/token-usage/public-tok-preview";
+import {
+  BREAKDOWN_OTHER_ID,
+  buildBreakdownSeries,
+  buildOverviewBreakdownShares,
+} from "@/features/token-usage/token-usage-dialog-utils";
 
 function overviewFixture(): TokenUsageOverviewResponse {
   const clients = Array.from({ length: 12 }, (_, i) => ({
@@ -142,5 +147,41 @@ describe("mapOverviewToSharePayload", () => {
     expect(asModel.by_day[0]?.by_client.some((r) => r.model_id === "other")).toBe(
       true,
     );
+    const shares = buildOverviewBreakdownShares(overview, "tokens", "agent");
+    expect(shares.slice(0, SHARE_TOP_N).every((row) => row.id !== "other")).toBe(
+      true,
+    );
+    expect(shares.some((row) => row.id === BREAKDOWN_OTHER_ID)).toBe(true);
+    const series = buildBreakdownSeries(
+      overview.by_day,
+      "day",
+      "en",
+      "tokens",
+      "agent",
+    );
+    expect(series.keys.slice(0, SHARE_TOP_N)).not.toContain("other");
+    expect(series.keys.at(-1)).toBe(BREAKDOWN_OTHER_ID);
+  });
+
+  it("does not promote an existing other client into the shared top-N", () => {
+    const base = overviewFixture();
+    const payload = mapOverviewToSharePayload(
+      {
+        ...base,
+        by_client: [
+          {
+            client_id: "other",
+            total_tokens: 40_000,
+            total_cost_usd: 20,
+            message_count: 80,
+            model_count: 1,
+          },
+          ...(base.by_client ?? []),
+        ],
+      },
+      { includeCost: false },
+    );
+    expect(payload.by_client.map((row) => row.id)).not.toContain("other");
+    expect(payload.by_client).toHaveLength(SHARE_TOP_N);
   });
 });

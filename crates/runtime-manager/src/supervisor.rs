@@ -158,7 +158,12 @@ pub async fn ensure_running(options: EnsureOptions) -> Result<EnsureOutcome, Str
     }
     let pid = resolve_api_process_id(&layout.api_bin_path, options.port).unwrap_or(launched_pid);
 
-    let manifest = RuntimeManifest::new(&options.host, options.port, Some(pid), "runtime-manager");
+    let existing = read_runtime_manifest().ok().flatten();
+    let unix_socket = existing
+        .as_ref()
+        .and_then(|manifest| manifest.unix_socket_if_pid(pid));
+    let manifest = RuntimeManifest::new(&options.host, options.port, Some(pid), "runtime-manager")
+        .with_unix_socket(unix_socket);
     let manifest_path = write_runtime_manifest(&manifest)?;
 
     let status = RuntimeStatus {
@@ -260,7 +265,8 @@ async fn collect_status(layout: Option<&RuntimeLayout>) -> Result<RuntimeStatus,
                     m.api.port,
                     Some(runtime_process.pid),
                     &m.source,
-                );
+                )
+                .with_unix_socket(m.api.unix_socket.clone());
                 let _ = write_runtime_manifest(&updated);
             }
         } else if m.pid.is_some() {

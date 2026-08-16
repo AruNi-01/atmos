@@ -32,7 +32,7 @@ type DesktopBrowserWebviewProps = {
   pointerEventsNone?: boolean;
   /**
    * Hide without destroying the guest (tab switch / suspend).
-   * Uses layout-removing CSS; React keeps the <webview> mounted so page state is preserved.
+   * Opacity only — never `display:none`, which tears down the Electron guest.
    */
   layoutHidden?: boolean;
   onBindGuest?: (webContentsId: number) => void;
@@ -80,6 +80,33 @@ function normalizeNavUrl(url: string): string {
   return t.length > 0 ? t : "about:blank";
 }
 
+function applyWebviewColorScheme(
+  el: ElectronWebviewElement,
+  sessionId: string,
+  scheme: "light" | "dark",
+): void {
+  try {
+    void el.insertCSS?.(
+      `:root, html { color-scheme: ${scheme} !important; }`,
+    );
+    void el.executeJavaScript?.(
+      `(() => {
+        try {
+          document.documentElement.style.colorScheme = ${JSON.stringify(scheme)};
+          document.documentElement.setAttribute('data-atmos-color-scheme', ${JSON.stringify(scheme)});
+        } catch (_) {}
+      })();`,
+      false,
+    );
+  } catch {
+    /* guest mid-navigation */
+  }
+  void invokeDesktopBrowserBridge("browser_bridge_set_color_scheme", {
+    sessionId,
+    scheme,
+  }).catch(() => undefined);
+}
+
 export function DesktopBrowserWebview({
   attach,
   src,
@@ -101,9 +128,18 @@ export function DesktopBrowserWebview({
   const boundIdRef = useRef<number | null>(null);
   const lastSrcRef = useRef<string>("");
   const mountedSessionRef = useRef<string | null>(null);
+  const onBindGuestRef = useRef(onBindGuest);
+  const onDomReadyRef = useRef(onDomReady);
+  const onLoadingChangeRef = useRef(onLoadingChange);
+  const guestColorSchemeRef = useRef(guestColorScheme);
+  onBindGuestRef.current = onBindGuest;
+  onDomReadyRef.current = onDomReady;
+  onLoadingChangeRef.current = onLoadingChange;
+  guestColorSchemeRef.current = guestColorScheme;
+  const attachSessionId = attach?.sessionId ?? null;
 
   // Measure host until it has size. Do NOT reset layoutReady when layoutHidden —
-  // inactive tabs use display:none but must keep the guest mounted.
+  // inactive tabs stay opacity-hidden so the guest keeps its layout box.
   useEffect(() => {
     if (!isElectron) return;
     const host = hostRef.current;
@@ -144,8 +180,10 @@ export function DesktopBrowserWebview({
     Boolean(attach?.partition) &&
     Boolean(attach?.preloadUrl);
 
+  // Subscribe once per mounted guest. Electron <webview> maps each addEventListener
+  // onto the guest WebContents; parent re-renders (workspace hop) must not re-bind.
   useEffect(() => {
-    if (!shouldMountGuest || !attach) return;
+    if (!shouldMountGuest || !attachSessionId) return;
     const el = webviewRef.current;
     if (!el) return;
 
@@ -154,21 +192,21 @@ export function DesktopBrowserWebview({
         const id = el.getWebContentsId?.();
         if (typeof id === "number" && id > 0 && boundIdRef.current !== id) {
           boundIdRef.current = id;
-          onBindGuest?.(id);
+          onBindGuestRef.current?.(id);
         }
       } catch {
         /* guest not ready */
       }
-      onLoadingChange?.(false);
-      onDomReady?.();
+      onLoadingChangeRef.current?.(false);
+      onDomReadyRef.current?.();
     };
 
     const onStartLoading = () => {
-      onLoadingChange?.(true);
+      onLoadingChangeRef.current?.(true);
     };
 
     const onStopLoading = () => {
-      onLoadingChange?.(false);
+      onLoadingChangeRef.current?.(false);
     };
 
     const onFail = (event: Event) => {
@@ -187,39 +225,16 @@ export function DesktopBrowserWebview({
           errorDescription: detail.errorDescription,
           validatedURL: detail.validatedURL,
           isMainFrame: detail.isMainFrame,
-          sessionId: attach?.sessionId,
+          sessionId: attachSessionId,
         },
       );
-      onLoadingChange?.(false);
+      onLoadingChangeRef.current?.(false);
     };
 
     el.addEventListener("dom-ready", onReady as EventListener);
     el.addEventListener("did-start-loading", onStartLoading as EventListener);
     el.addEventListener("did-stop-loading", onStopLoading as EventListener);
     el.addEventListener("did-fail-load", onFail as EventListener);
-
-    const sessionChanged = mountedSessionRef.current !== attach.sessionId;
-    if (sessionChanged) {
-      mountedSessionRef.current = attach.sessionId;
-      lastSrcRef.current = navUrl;
-      // Initial src is on the attribute; mark loading until stop-loading/dom-ready.
-      if (navUrl && navUrl !== "about:blank") {
-        onLoadingChange?.(true);
-      }
-    } else if (navUrl && lastSrcRef.current !== navUrl) {
-      lastSrcRef.current = navUrl;
-      onLoadingChange?.(true);
-      try {
-        if (typeof el.loadURL === "function") {
-          void el.loadURL(navUrl);
-        } else {
-          el.setAttribute("src", navUrl);
-        }
-      } catch (err) {
-        console.error("[browser] webview loadURL failed", err);
-        el.setAttribute("src", navUrl);
-      }
-    }
 
     try {
       const id = el.getWebContentsId?.();
@@ -236,14 +251,39 @@ export function DesktopBrowserWebview({
       el.removeEventListener("did-stop-loading", onStopLoading as EventListener);
       el.removeEventListener("did-fail-load", onFail as EventListener);
     };
-  }, [
-    shouldMountGuest,
-    attach,
-    navUrl,
-    onBindGuest,
-    onDomReady,
-    onLoadingChange,
-  ]);
+  }, [shouldMountGuest, attachSessionId]);
+
+  // Navigate in place. Do not remount the <webview> or re-subscribe loading events.
+  useEffect(() => {
+    if (!shouldMountGuest || !attachSessionId) return;
+    const el = webviewRef.current;
+    if (!el) return;
+
+    const sessionChanged = mountedSessionRef.current !== attachSessionId;
+    if (sessionChanged) {
+      mountedSessionRef.current = attachSessionId;
+      lastSrcRef.current = navUrl;
+      // Initial src is on the attribute; mark loading until stop-loading/dom-ready.
+      if (navUrl && navUrl !== "about:blank") {
+        onLoadingChangeRef.current?.(true);
+      }
+      return;
+    }
+    if (navUrl && lastSrcRef.current !== navUrl) {
+      lastSrcRef.current = navUrl;
+      onLoadingChangeRef.current?.(true);
+      try {
+        if (typeof el.loadURL === "function") {
+          void el.loadURL(navUrl);
+        } else {
+          el.setAttribute("src", navUrl);
+        }
+      } catch (err) {
+        console.error("[browser] webview loadURL failed", err);
+        el.setAttribute("src", navUrl);
+      }
+    }
+  }, [shouldMountGuest, attachSessionId, navUrl]);
 
   useEffect(() => {
     if (!isElectron || !layoutHidden) return;
@@ -255,40 +295,14 @@ export function DesktopBrowserWebview({
   }, [isElectron, layoutHidden]);
 
   // Sync Atmos theme → guest color-scheme so scrollbars match system Chrome dark UI.
+  // Subscribe once per guest; scheme changes apply without re-binding paint listeners.
   useEffect(() => {
-    if (!shouldMountGuest || !attach) return;
+    if (!shouldMountGuest || !attachSessionId) return;
     const el = webviewRef.current;
     if (!el) return;
 
-    const applyLocal = () => {
-      try {
-        void el.insertCSS?.(
-          `:root, html { color-scheme: ${guestColorScheme} !important; }`,
-        );
-        void el.executeJavaScript?.(
-          `(() => {
-            try {
-              document.documentElement.style.colorScheme = ${JSON.stringify(guestColorScheme)};
-              document.documentElement.setAttribute('data-atmos-color-scheme', ${JSON.stringify(guestColorScheme)});
-            } catch (_) {}
-          })();`,
-          false,
-        );
-      } catch {
-        /* guest mid-navigation */
-      }
-    };
-
-    const pushToMain = () => {
-      void invokeDesktopBrowserBridge("browser_bridge_set_color_scheme", {
-        sessionId: attach.sessionId,
-        scheme: guestColorScheme,
-      }).catch(() => undefined);
-    };
-
     const onPaintReady = () => {
-      applyLocal();
-      pushToMain();
+      applyWebviewColorScheme(el, attachSessionId, guestColorSchemeRef.current);
     };
 
     el.addEventListener("dom-ready", onPaintReady as EventListener);
@@ -301,7 +315,14 @@ export function DesktopBrowserWebview({
       el.removeEventListener("did-finish-load", onPaintReady as EventListener);
       el.removeEventListener("did-navigate-in-page", onPaintReady as EventListener);
     };
-  }, [shouldMountGuest, attach, guestColorScheme]);
+  }, [shouldMountGuest, attachSessionId]);
+
+  useEffect(() => {
+    if (!shouldMountGuest || !attachSessionId) return;
+    const el = webviewRef.current;
+    if (!el) return;
+    applyWebviewColorScheme(el, attachSessionId, guestColorScheme);
+  }, [shouldMountGuest, attachSessionId, guestColorScheme]);
 
   if (!isElectron) {
     return null;
@@ -312,8 +333,9 @@ export function DesktopBrowserWebview({
       ref={hostRef}
       className={cn(
         "absolute inset-0 h-full w-full",
-        // display:none stops guest paint but keeps the node mounted (no reparent/destroy).
-        layoutHidden && "hidden",
+        // Opacity hide keeps the guest composited and sized. `hidden`/`display:none`
+        // destroys the Electron guest and reloads the page on the next show.
+        layoutHidden && "pointer-events-none opacity-0",
         className,
       )}
       style={{ zIndex: BROWSER_Z.webview }}
@@ -325,7 +347,7 @@ export function DesktopBrowserWebview({
           className={cn(
             // Match app chrome: avoid pure white flash under loading overlay.
             "absolute inset-0 h-full w-full border-0 bg-transparent",
-            pointerEventsNone && "pointer-events-none",
+            (pointerEventsNone || layoutHidden) && "pointer-events-none",
           )}
           // color-scheme on the frame element influences guest preferred scheme
           // (same idea as iframe colorScheme) so Chromium paints dark scrollbars.

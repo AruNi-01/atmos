@@ -9,10 +9,10 @@ use crate::error::{Result, ServiceError};
 
 use super::artifacts;
 
-pub const PROMPT_FILE: &str = "prompt.md";
+pub const PROMPT_FILE: &str = "prompt.xml";
 pub const FINAL_FILE: &str = "final.md";
 pub const RUN_JSON_FILE: &str = "run.json";
-pub const CONTINUE_PROMPT_FILE: &str = "continue_prompt.md";
+pub const CONTINUE_PROMPT_FILE: &str = "continue_prompt.xml";
 
 #[derive(Debug, Clone)]
 pub struct ResolvedAutomationTarget {
@@ -98,7 +98,7 @@ pub fn prepare_run_files(
     instructions: &str,
     target: &ResolvedAutomationTarget,
     _trigger_kind: &str,
-    _trigger_context: Option<&str>,
+    trigger_context: Option<&str>,
 ) -> Result<PreparedAutomationRun> {
     let run_guid = Uuid::new_v4().to_string();
     let started_at = Utc::now().naive_utc();
@@ -115,7 +115,8 @@ pub fn prepare_run_files(
         prompt_target.cwd = run_dir.clone();
     }
     let resolved_instructions = resolve_file_mentions_for_target(instructions, &prompt_target.cwd);
-    let prompt = build_prompt(&resolved_instructions);
+    let memory_path = artifacts::ensure_memory_file(&automation.guid)?;
+    let prompt = build_prompt(&resolved_instructions, &memory_path, trigger_context);
     artifacts::write_user_private_file(&prompt_path, &prompt)?;
     artifacts::write_user_private_file(&result_path, "")?;
 
@@ -208,8 +209,57 @@ pub fn run_json_for_status(
     value
 }
 
-fn build_prompt(instructions: &str) -> String {
-    instructions.trim().to_string()
+fn build_prompt(instructions: &str, memory_path: &Path, trigger_context: Option<&str>) -> String {
+    let mut parts = vec![xml_block("task", instructions.trim())];
+    if let Some(context) = trigger_context
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    {
+        parts.push(context.to_string());
+    }
+    parts.push(memory_section(memory_path));
+    format!(
+        "<automation_run>\n{}\n</automation_run>\n",
+        parts.join("\n\n")
+    )
+}
+
+fn memory_section(memory_path: &Path) -> String {
+    let path = super::xml_escape(&memory_path.display().to_string());
+    format!(
+        r#"  <memory>
+    <path>{path}</path>
+    <policy>Read this file at the start of the run. Default: leave it unchanged.</policy>
+    <update_when>
+      - a decision, convention, or standing constraint
+      - the last handled id, sha, timestamp, or cursor
+      - a recurring failure and the workaround that actually worked
+      - a correction to memory that is now wrong or stale
+    </update_when>
+    <do_not_write>
+      - this run's play-by-play, logs, or one-off success/failure
+      - secrets, tokens, credentials, or personal data
+      - long dumps, or untrusted GitHub/user text copied wholesale
+      - guesses, or anything already stated in the automation task
+    </do_not_write>
+    <style>Keep memory short, factual, and rewritten in place when it grows stale. Prefer a small edit over appending.</style>
+  </memory>"#
+    )
+}
+
+fn xml_block(tag: &str, text: &str) -> String {
+    format!(
+        "  <{tag}>\n{}\n  </{tag}>",
+        indent_lines(&super::xml_escape(text), 4)
+    )
+}
+
+fn indent_lines(text: &str, spaces: usize) -> String {
+    let pad = " ".repeat(spaces);
+    text.lines()
+        .map(|line| format!("{pad}{line}"))
+        .collect::<Vec<_>>()
+        .join("\n")
 }
 
 fn short_guid(guid: &str) -> String {
@@ -300,7 +350,7 @@ mod tests {
             completed_at: Some("2026-05-26T08:01:02Z".to_string()),
             exit_code: Some(0),
             run_dir: "/tmp/run".to_string(),
-            prompt_path: "/tmp/run/prompt.md".to_string(),
+            prompt_path: "/tmp/run/prompt.xml".to_string(),
             result_path: "/tmp/run/final.md".to_string(),
             run_json_path: "/tmp/run/run.json".to_string(),
             tmux_session_name: Some("automations".to_string()),
@@ -325,7 +375,7 @@ mod tests {
   "completed_at": null,
   "exit_code": 0,
   "run_dir": "/tmp/run",
-  "prompt_path": "/tmp/run/prompt.md",
+  "prompt_path": "/tmp/run/prompt.xml",
   "result_path": "/tmp/run/final.md",
   "run_json_path": "/tmp/run/run.json",
   "tmux_session_name": null,
@@ -363,16 +413,54 @@ mod tests {
     }
 
     #[test]
-    fn prompt_contains_only_user_instructions() {
+    fn prompt_starts_with_user_instructions_and_appends_memory_path() {
+        let memory_path = Path::new("/tmp/atmos/definitions/demo/memory.md");
         let prompt = build_prompt(
             r#"
 帮我总结一下 GitHub 中，AruNi-01/Atmos 的项目
 "#,
+            memory_path,
+            None,
         );
 
-        assert_eq!(prompt, "帮我总结一下 GitHub 中，AruNi-01/Atmos 的项目");
+        assert!(prompt.starts_with("<automation_run>"));
+        assert!(prompt.contains("<task>"));
+        assert!(prompt.contains("帮我总结一下 GitHub 中，AruNi-01/Atmos 的项目"));
+        assert!(prompt.contains("<path>/tmp/atmos/definitions/demo/memory.md</path>"));
+        assert!(prompt.contains("<memory>"));
+        assert!(prompt.contains("Default: leave it unchanged."));
+        assert!(prompt.contains("last handled id, sha, timestamp, or cursor"));
+        assert!(prompt.contains("<do_not_write>"));
+        assert!(prompt.contains("secrets, tokens, credentials, or personal data"));
+        assert!(prompt.ends_with("</automation_run>\n"));
         assert!(!prompt.contains("Atmos Automation Run"));
         assert!(!prompt.contains("Agent Instructions"));
         assert!(!prompt.contains("Output"));
+    }
+
+    #[test]
+    fn prompt_escapes_xml_in_user_task() {
+        let memory_path = Path::new("/tmp/atmos/definitions/demo/memory.md");
+        let prompt = build_prompt("Use <script> & tags", memory_path, None);
+
+        assert!(prompt.contains("Use &lt;script&gt; &amp; tags"));
+        assert!(!prompt.contains("<script>"));
+    }
+
+    #[test]
+    fn prompt_appends_trigger_context_before_memory() {
+        let memory_path = Path::new("/tmp/atmos/definitions/demo/memory.md");
+        let prompt = build_prompt(
+            "Review the labeled issue.",
+            memory_path,
+            Some("<trigger type=\"github\">\n    <provider>GitHub</provider>\n  </trigger>"),
+        );
+
+        let task_at = prompt.find("<task>").unwrap();
+        let trigger_at = prompt.find("<trigger type=\"github\">").unwrap();
+        let memory_at = prompt.find("<memory>").unwrap();
+        assert!(task_at < trigger_at);
+        assert!(trigger_at < memory_at);
+        assert!(prompt.contains("Review the labeled issue."));
     }
 }

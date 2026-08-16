@@ -27,6 +27,9 @@ pub struct ApiEndpoint {
     pub port: u16,
     pub url: String,
     pub ws_url: String,
+    /// Same-machine Unix socket serving the same HTTP/WS router as `url`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub unix_socket: Option<String>,
 }
 
 impl RuntimeManifest {
@@ -47,10 +50,28 @@ impl RuntimeManifest {
                 port,
                 url,
                 ws_url,
+                unix_socket: None,
             },
             pid,
             started_at: Utc::now().to_rfc3339(),
             source: source.into(),
+        }
+    }
+
+    pub fn with_unix_socket(mut self, unix_socket: Option<impl Into<String>>) -> Self {
+        self.api.unix_socket = unix_socket.map(Into::into).filter(|path| !path.is_empty());
+        self
+    }
+
+    /// Copy `unix_socket` only when `pid` matches this manifest's process.
+    ///
+    /// Supervisor rewrites must not advertise a previous API process's socket
+    /// after this bind failed or the pid changed.
+    pub fn unix_socket_if_pid(&self, pid: u32) -> Option<String> {
+        if self.pid == Some(pid) {
+            self.api.unix_socket.clone()
+        } else {
+            None
         }
     }
 }
@@ -272,5 +293,58 @@ mod tests {
 
         let url = resolve_api_base_url(None).unwrap();
         assert_eq!(url, "https://relay.example/v1/computers/sid/proxy");
+    }
+
+    #[test]
+    fn runtime_manifest_round_trips_optional_unix_socket() {
+        let guard = EnvGuard::new();
+        let tmp = TempDir::new().unwrap();
+        guard.set_home(tmp.path());
+
+        let data = RuntimeManifest::new("127.0.0.1", 30303, Some(7), "api")
+            .with_unix_socket(Some("/tmp/api.sock"));
+        write_runtime_manifest(&data).unwrap();
+        let loaded = read_runtime_manifest()
+            .unwrap()
+            .expect("runtime manifest should exist");
+        assert_eq!(loaded.api.unix_socket.as_deref(), Some("/tmp/api.sock"));
+        assert_eq!(loaded.version, RUNTIME_MANIFEST_VERSION);
+    }
+
+    #[test]
+    fn unix_socket_if_pid_ignores_stale_process() {
+        let current = RuntimeManifest::new("127.0.0.1", 30303, Some(7), "api")
+            .with_unix_socket(Some("/tmp/api.sock"));
+        assert_eq!(
+            current.unix_socket_if_pid(7).as_deref(),
+            Some("/tmp/api.sock")
+        );
+        assert_eq!(current.unix_socket_if_pid(8), None);
+        let missing = RuntimeManifest::new("127.0.0.1", 30303, Some(7), "api");
+        assert_eq!(missing.unix_socket_if_pid(7), None);
+    }
+
+    #[test]
+    fn api_unix_socket_path_default_override_and_off() {
+        let guard = EnvGuard::new();
+        let tmp = TempDir::new().unwrap();
+        guard.set_home(tmp.path());
+        let saved = std::env::var_os("ATMOS_API_UNIX_SOCKET");
+        unsafe { std::env::remove_var("ATMOS_API_UNIX_SOCKET") };
+        assert_eq!(
+            crate::api_unix_socket_path().unwrap(),
+            Some(tmp.path().join(".atmos/state/api.sock"))
+        );
+        unsafe { std::env::set_var("ATMOS_API_UNIX_SOCKET", "/custom/api.sock") };
+        assert_eq!(
+            crate::api_unix_socket_path().unwrap(),
+            Some(std::path::PathBuf::from("/custom/api.sock"))
+        );
+        unsafe { std::env::set_var("ATMOS_API_UNIX_SOCKET", "off") };
+        assert_eq!(crate::api_unix_socket_path().unwrap(), None);
+        match saved {
+            Some(value) => unsafe { std::env::set_var("ATMOS_API_UNIX_SOCKET", value) },
+            None => unsafe { std::env::remove_var("ATMOS_API_UNIX_SOCKET") },
+        }
     }
 }

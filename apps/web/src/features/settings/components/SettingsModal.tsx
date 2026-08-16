@@ -4,7 +4,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useTranslations } from 'next-intl';
 import { useQueryState } from 'nuqs';
 import {
-  ScrollArea,
   SidebarInset,
   SidebarProvider,
   cn,
@@ -206,7 +205,7 @@ function useSettingsContentHighlight(
   }, [activeSection, contentElement, query]);
 }
 
-export function SettingsPage() {
+export function SettingsPage({ onLeave }: { onLeave?: () => void } = {}) {
   const t = useTranslations('settings.modal');
   const router = useAppRouter();
   const needsTrafficLightsPadding = useDesktopTrafficLightsPadding();
@@ -987,8 +986,12 @@ export function SettingsPage() {
   }, [updateNotifyField]);
 
   const leaveSettings = React.useCallback(() => {
+    if (onLeave) {
+      onLeave();
+      return;
+    }
     leaveSettingsPage(router);
-  }, [router]);
+  }, [onLeave, router]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -1018,7 +1021,9 @@ export function SettingsPage() {
     <div
       onMouseDown={handleDesktopWindowMouseDown}
       className={cn(
-        'flex h-dvh min-h-0 w-full bg-background',
+        // Fill the push-page overlay, not 100dvh — a taller h-dvh child
+        // inside overflow-hidden clips the bottom and leaves nothing to scroll.
+        'flex h-full min-h-0 w-full bg-background',
         isDesktopDragEnabled && 'desktop-drag-region',
       )}
     >
@@ -1036,12 +1041,12 @@ export function SettingsPage() {
           trafficLightsPadding={needsTrafficLightsPadding}
         />
 
-        <SidebarInset className="min-h-0 min-w-0 overflow-hidden">
+        <SidebarInset className="desktop-no-drag min-h-0 min-w-0 overflow-hidden">
           <section
             ref={setSettingsContentElement}
             className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
           >
-          <div className="px-8 py-4">
+          <div className="shrink-0 px-8 py-4">
             <h2 className="text-[28px] font-semibold tracking-tight text-foreground">
               {t(`sections.${toCamelCase(activeSectionMeta.id)}.label`)}
             </h2>
@@ -1049,12 +1054,11 @@ export function SettingsPage() {
               {t(`sections.${toCamelCase(activeSectionMeta.id)}.description`)}
             </p>
           </div>
-          <div className="px-8">
+          <div className="shrink-0 px-8">
             <div className="border-b border-border" />
           </div>
 
-          <div className="min-h-0 flex-1 overflow-hidden">
-            <ScrollArea className="size-full">
+          <div className="min-h-0 flex-1 overflow-y-auto">
               <div className="px-8 py-6">
                 <SettingsModalSections
                     activeSection={resolvedActiveSection}
@@ -1183,9 +1187,8 @@ export function SettingsPage() {
                     onUpdatePushServer={updatePushServer}
                     onTestPushServer={testPushServer}
                   />
-                </div>
-              </ScrollArea>
-            </div>
+              </div>
+          </div>
           </section>
         </SidebarInset>
 
