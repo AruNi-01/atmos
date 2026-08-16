@@ -4,8 +4,8 @@ import { create } from 'zustand';
 
 /**
  * Lightweight global store for the AgentChatPanel to publish its readiness
- * so other components (e.g. RightSidebar commit-message generation) can
- * check whether the agent is available before sending a prompt.
+ * so other components (e.g. commit-message generation) can check whether
+ * the agent is available before sending a prompt.
  */
 interface AgentChatStatusStore {
   hasInstalledAgents: boolean;

@@ -24,14 +24,14 @@ export function AttentionSummaryPanel({
   return (
     <div
       className={cn(
-        "attention-summary-panel w-full overflow-hidden rounded-[1.25rem] border px-3.5 py-3",
-        "border-sky-500/40 bg-sky-50",
-        "dark:border-sky-400/40 dark:bg-[#163042]",
+        "attention-summary-panel w-full overflow-hidden rounded-[1.25rem] border border-dashed px-3.5 py-3",
+        "border-slate-400/45 bg-[#e7eef2]",
+        "dark:border-slate-500/30 dark:bg-[#0d171e]",
       )}
       data-status={summary.status}
     >
       <div className="flex items-start gap-2.5">
-        <div className="mt-0.5 shrink-0 text-sky-500 dark:text-sky-300">
+        <div className="mt-0.5 shrink-0 text-slate-500 dark:text-slate-400">
           {isLoading ? (
             <Loader2 className="size-4 animate-spin" aria-hidden />
           ) : isError ? (
@@ -42,7 +42,7 @@ export function AttentionSummaryPanel({
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <p className="text-xs font-medium tracking-wide text-sky-700 dark:text-sky-200">
+            <p className="text-xs font-medium tracking-wide text-slate-600 dark:text-slate-300">
               {isLoading
                 ? t("loadingTitle")
                 : isError
@@ -66,7 +66,7 @@ export function AttentionSummaryPanel({
             {onDismiss && (isReady || isError) ? (
               <button
                 type="button"
-                className="ml-auto text-[11px] text-muted-foreground transition-colors hover:text-foreground"
+                className="ml-auto -mr-1 rounded-md px-2 py-1 text-[11px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                 onClick={onDismiss}
               >
                 {t("dismiss")}
@@ -104,9 +104,9 @@ export function AttentionSummaryPanel({
                       key={step}
                       type="button"
                       className={cn(
-                        "max-w-full truncate rounded-full border border-sky-500/35 bg-background",
+                        "max-w-full truncate rounded-full border border-slate-400/40 bg-background",
                         "px-2.5 py-1 text-left text-xs text-foreground transition-colors",
-                        "hover:border-sky-500/55 hover:bg-sky-500/10",
+                        "hover:border-slate-400/60 hover:bg-foreground/5",
                       )}
                       onClick={() => onPickNextStep(step)}
                       title={step}

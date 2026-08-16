@@ -38,7 +38,7 @@ export function TerminalSideChatDots({
   const sideChatIndicatorClassName = cn(
     "h-1 w-6 rounded-full shadow-[0_1px_4px_rgba(0,0,0,0.16)]",
     hasMinimizedSummary
-      ? "terminal-agent-input-trigger--summary terminal-agent-input-trigger--pulse bg-sky-500"
+      ? "terminal-agent-input-trigger--summary terminal-agent-input-trigger--pulse"
       : "bg-cyan-600 dark:bg-cyan-300",
   );
 

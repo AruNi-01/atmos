@@ -44,7 +44,6 @@ export function ShortcutsSettingsSection() {
         title={t('groups.global.title')}
         shortcuts={[
           { keys: ['⌘', 'B'], description: t('groups.global.items.toggleLeftSidebar') },
-          { keys: ['⌘', '⇧', 'B'], description: t('groups.global.items.toggleRightSidebar') },
           { keys: ['⌘', 'K'], description: t('groups.global.items.commandPalette') },
           { keys: ['⌘', 'O'], description: t('groups.global.items.quickOpenFile') },
           { keys: ['⌘', '['], description: t('groups.global.items.navigateBack') },

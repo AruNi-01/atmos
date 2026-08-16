@@ -17,6 +17,7 @@ import { localServicesScanQueryOptions } from "@/features/local-services/lib/loc
 import type { LocalService } from "@/features/local-services/types";
 import { useAppRouter } from "@/shared/hooks/use-app-router";
 import { useLocalServicesScanQuery } from "@/features/local-services/hooks/use-local-services-query";
+import { ensureSurface } from "@/features/browser/lib/ensure-browser-surface";
 import { LocalServiceList } from "./LocalServiceList";
 
 const FOOTER_REQUEST = {
@@ -60,17 +61,18 @@ export function LocalServicesFooterItem() {
   const handleOpen = React.useCallback((service: LocalService) => {
     const openUrl = localServiceOpenUrl(service);
     if (!openUrl) return;
-    const params = new URLSearchParams();
-    params.set("rsTab", "browser");
-    params.set("pvUrl", openUrl);
+    const contextId = service.owner.workspace_id || service.owner.project_id;
     if (service.owner.workspace_id) {
-      params.set("id", service.owner.workspace_id);
-      router.push(`/workspace?${params.toString()}`);
+      router.push(`/workspace?id=${encodeURIComponent(service.owner.workspace_id)}`);
     } else if (service.owner.project_id) {
-      params.set("id", service.owner.project_id);
-      router.push(`/project?${params.toString()}`);
+      router.push(`/project?id=${encodeURIComponent(service.owner.project_id)}`);
     } else {
       window.open(openUrl, "_blank", "noopener,noreferrer");
+      setOpen(false);
+      return;
+    }
+    if (contextId) {
+      void ensureSurface({ contextId, url: openUrl });
     }
     setOpen(false);
   }, [router]);

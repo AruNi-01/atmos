@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, ReactNode, useRef } from 'react';
+import { usePathname } from 'next/navigation';
 import { useWebSocketStore } from '@/features/connection/hooks/use-websocket';
 import { useAgentHooksStore } from '@/features/agent/store/agent-hooks-store';
 import { useAgentNotifications } from '@/features/agent/hooks/use-agent-notifications';
@@ -9,7 +10,7 @@ import { useAgentTitleSettingsStore } from '@/features/settings/store/agent-titl
 import { useAgentActivityIndicatorSettingsStore } from '@/features/settings/store/agent-activity-indicator-settings-store';
 import { useExperimentSettingsStore } from '@/features/settings/store/experiment-settings-store';
 import { useHostedConnectionStore } from '@/features/connection/store/hosted-connection-store';
-import { isHostedAtmosOrigin } from '@/shared/lib/desktop-runtime';
+import { isHostedAtmosOrigin, isPublicTokPath } from '@/shared/lib/desktop-runtime';
 import {
   subscribeToWorkspaceDeleteProgress,
   subscribeToWorkspaceGitignoreSyncFailed,
@@ -35,8 +36,10 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
   const disconnect = useWebSocketStore(s => s.disconnect);
   const connectionState = useWebSocketStore(s => s.connectionState);
   const hostedBootstrapState = useHostedConnectionStore(s => s.bootstrapState);
+  const pathname = usePathname();
   const shouldConnect =
-    !isHostedAtmosOrigin() || hostedBootstrapState === 'connected';
+    !isPublicTokPath(pathname) &&
+    (!isHostedAtmosOrigin() || hostedBootstrapState === 'connected');
   const prevConnectionStateRef = useRef(connectionState);
 
   useEffect(() => {

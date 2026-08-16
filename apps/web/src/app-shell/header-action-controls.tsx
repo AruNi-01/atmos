@@ -1,7 +1,6 @@
 "use client";
 
 import React from "react";
-import { AnimatePresence, motion } from "motion/react";
 import { useTranslations } from "next-intl";
 import {
   Badge,
@@ -22,14 +21,11 @@ import {
   toastManager,
 } from "@workspace/ui";
 import {
-  ArrowBigUp,
   Command,
   Computer,
   ExternalLink,
   Globe,
   LoaderCircle,
-  PanelRightClose,
-  PanelRightOpen,
   RotateCcw,
 } from "lucide-react";
 
@@ -74,7 +70,6 @@ type HeaderActionControlsProps = {
   isDesktopRuntime: boolean;
   isOpeningDesktopWeb: boolean;
   isTunnelConnectorRunning: boolean;
-  isRightCollapsed: boolean;
   isQuotaPopoverOpen: boolean;
   currentProjectName?: string | null;
   currentWorkspaceDisplayName?: string | null;
@@ -96,8 +91,6 @@ type HeaderActionControlsProps = {
   setDesktopWebPopoverOpen: React.Dispatch<React.SetStateAction<boolean>>;
   setGlobalSearchOpen: (open: boolean) => void;
   setIsQuotaPopoverOpen: React.Dispatch<React.SetStateAction<boolean>>;
-  showRightSidebar: boolean;
-  toggleRightSidebar: () => void;
 };
 
 type RemoteAccessSettingsSection = "atmos-computer" | "tunnel-connector";
@@ -586,7 +579,6 @@ export function HeaderActionControls({
   isDesktopRuntime,
   isOpeningDesktopWeb,
   isTunnelConnectorRunning,
-  isRightCollapsed,
   isQuotaPopoverOpen,
   currentProjectName,
   currentWorkspaceDisplayName,
@@ -604,8 +596,6 @@ export function HeaderActionControls({
   setDesktopWebPopoverOpen,
   setGlobalSearchOpen,
   setIsQuotaPopoverOpen,
-  showRightSidebar,
-  toggleRightSidebar,
 }: HeaderActionControlsProps) {
   const t = useTranslations("header");
   const showHeaderSummary = useLayoutSettingsStore((state) => state.showHeaderSummary);
@@ -718,45 +708,6 @@ export function HeaderActionControls({
           </TooltipContent>
         </Tooltip>
 
-        <AnimatePresence initial={false}>
-          {showRightSidebar ? (
-            <motion.div
-              key="right-sidebar-toggle"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.18, ease: "easeOut" }}
-              className="flex"
-            >
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    type="button"
-                    aria-label={isRightCollapsed ? t("rightSidebar.expand") : t("rightSidebar.collapse")}
-                    onClick={toggleRightSidebar}
-                    className="size-8 flex items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-                  >
-                    {isRightCollapsed ? (
-                      <PanelRightOpen className="size-4" />
-                    ) : (
-                      <PanelRightClose className="size-4" />
-                    )}
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <div className="flex items-center gap-2">
-                    <span>{isRightCollapsed ? t("rightSidebar.expandLabel") : t("rightSidebar.collapseLabel")}</span>
-                    <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-foreground/90">
-                      <Command className="size-3" />
-                      <ArrowBigUp className="size-3" />
-                      <span className="text-xs">B</span>
-                    </kbd>
-                  </div>
-                </TooltipContent>
-              </Tooltip>
-            </motion.div>
-          ) : null}
-        </AnimatePresence>
       </div>
     </div>
   );

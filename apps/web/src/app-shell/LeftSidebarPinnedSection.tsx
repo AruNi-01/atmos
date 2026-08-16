@@ -153,14 +153,13 @@ export function LeftSidebarPinnedSection({
       </DndContext>
       <div
         onClick={() => onCollapsedChange(!isCollapsed)}
-        className="group/divider relative mx-4 my-1.5 flex items-center cursor-pointer"
+        className="group/divider relative mx-4 my-1.5 flex items-center justify-center cursor-pointer"
       >
-        <div className="flex-1 border-t border-dashed border-sidebar-border" />
         <div
           onMouseEnter={() => onDividerHoverChange(true)}
           onMouseLeave={() => onDividerHoverChange(false)}
           className={cn(
-            "relative flex items-center gap-1 cursor-pointer pl-2 transition-colors duration-200",
+            "relative flex items-center gap-1 cursor-pointer transition-colors duration-200",
             isDividerHovered ? "text-sidebar-foreground" : "text-muted-foreground",
           )}
         >
@@ -180,7 +179,6 @@ export function LeftSidebarPinnedSection({
             </span>
           )}
         </div>
-        <div className="flex-1 border-t border-dashed border-sidebar-border" />
       </div>
     </>
   );

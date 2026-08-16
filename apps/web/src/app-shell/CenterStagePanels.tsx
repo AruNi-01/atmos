@@ -39,7 +39,6 @@ import {
   WorkspaceCenterFrame,
   type TerminalQuickOpenAgent,
 } from "@/app-shell/workspace-center-frame";
-
 const WikiTab = dynamic(
   () => import("@/features/wiki").then((m) => m.WikiTab),
   { ssr: false },
@@ -47,6 +46,14 @@ const WikiTab = dynamic(
 
 interface CenterStagePanelsProps {
   activeValue: string;
+  /** Multi-pane: all pane active tabs (focused first). */
+  activeTabIds?: readonly string[] | null;
+  /** Multi-pane: tab id → pane id for slot positioning. */
+  tabToPaneId?: Readonly<Record<string, string>> | null;
+  /** Multi-pane: content slot boxes relative to the panel host. */
+  paneSlotBoxes?: Readonly<
+    Record<string, { top: number; left: number; width: number; height: number }>
+  > | null;
   browserTabs: BrowserCenterTab[];
   codeReviewTabVisible: boolean;
   codeReviewTerminalGridRef: React.RefObject<TerminalGridHandle | null>;
@@ -80,6 +87,11 @@ interface CenterStagePanelsProps {
   projectWikiTabVisible: boolean;
   simulatorTabVisible: boolean;
   gitHistoryTabVisible: boolean;
+  changesTabVisible: boolean;
+  reviewTabVisible: boolean;
+  runTabVisible: boolean;
+  githubHubTabVisible: boolean;
+  filesTabVisible: boolean;
   projectWikiTerminalGridRef: React.RefObject<TerminalGridHandle | null>;
   projectWikiUserTriggeredRef: React.RefObject<boolean>;
   reviewTarget: ReviewTarget | null;
@@ -99,6 +111,9 @@ interface CenterStagePanelsProps {
 
 export function CenterStagePanels({
   activeValue,
+  activeTabIds,
+  tabToPaneId,
+  paneSlotBoxes,
   browserTabs,
   codeReviewTabVisible,
   codeReviewTerminalGridRef,
@@ -119,6 +134,11 @@ export function CenterStagePanels({
   projectWikiTabVisible,
   simulatorTabVisible,
   gitHistoryTabVisible,
+  changesTabVisible,
+  reviewTabVisible,
+  runTabVisible,
+  githubHubTabVisible,
+  filesTabVisible,
   projectWikiTerminalGridRef,
   projectWikiUserTriggeredRef,
   reviewTarget,
@@ -242,6 +262,11 @@ export function CenterStagePanels({
           "code-review",
           "simulator",
           "git-history",
+          "changes",
+          "review",
+          "run",
+          "github",
+          "files",
           FIXED_TERMINAL_TAB_VALUE,
         ];
         const frameActiveTab = resolveFrameActiveTab({
@@ -252,7 +277,17 @@ export function CenterStagePanels({
           validTabs: validForContext,
         });
         const lightIds: string[] = [];
-        if (frameActiveTab === "overview" || frameActiveTab === "wiki" || frameActiveTab === "simulator" || frameActiveTab === "git-history") {
+        if (
+          frameActiveTab === "overview" ||
+          frameActiveTab === "wiki" ||
+          frameActiveTab === "simulator" ||
+          frameActiveTab === "git-history" ||
+          frameActiveTab === "changes" ||
+          frameActiveTab === "review" ||
+          frameActiveTab === "run" ||
+          frameActiveTab === "github" ||
+          frameActiveTab === "files"
+        ) {
           lightIds.push(frameActiveTab);
         }
         // GitHub center tabs are light surfaces — only last-active / active-tab ids enter mount plan.
@@ -317,6 +352,11 @@ export function CenterStagePanels({
     projectWikiTabVisible,
     simulatorTabVisible,
     gitHistoryTabVisible,
+    changesTabVisible,
+    reviewTabVisible,
+    runTabVisible,
+    githubHubTabVisible,
+    filesTabVisible,
     visibleTerminalTabs,
     effectiveContextId,
     paintContextId,
@@ -352,6 +392,9 @@ export function CenterStagePanels({
             mountedTabIds={mountedTabIds}
             fallbackTerminalTitle={fallbackTerminalTitle}
             activeValue={isUrlSyncedActive ? activeValue : null}
+            activeTabIds={isUrlSyncedActive ? activeTabIds : null}
+            tabToPaneId={isUrlSyncedActive ? tabToPaneId : null}
+            paneSlotBoxes={isUrlSyncedActive ? paneSlotBoxes : null}
             visibleTerminalTabs={isUrlSyncedActive ? visibleTerminalTabs : undefined}
             openFiles={isUrlSyncedActive ? openFiles : undefined}
             githubTabs={isUrlSyncedActive ? githubTabs : undefined}
@@ -366,6 +409,11 @@ export function CenterStagePanels({
             codeReviewTabVisible={codeReviewTabVisible}
             simulatorTabVisible={simulatorTabVisible}
             gitHistoryTabVisible={gitHistoryTabVisible}
+            changesTabVisible={changesTabVisible}
+            reviewTabVisible={reviewTabVisible}
+            runTabVisible={runTabVisible}
+            githubHubTabVisible={githubHubTabVisible}
+            filesTabVisible={filesTabVisible}
             terminalQuickOpenAgents={
               isUrlSyncedActive ? terminalQuickOpenAgents : undefined
             }
@@ -400,8 +448,26 @@ export function CenterStagePanels({
         <div
           className={cn(
             "absolute inset-0 z-[2] min-h-0 min-w-0 overflow-hidden bg-background",
-            activeValue !== "wiki" && "hidden",
+            !(
+              activeValue === "wiki" ||
+              (activeTabIds && activeTabIds.includes("wiki"))
+            ) && "hidden",
+            activeTabIds && activeTabIds.includes("wiki") && "pointer-events-auto",
           )}
+          style={
+            activeTabIds &&
+            activeTabIds.includes("wiki") &&
+            tabToPaneId?.wiki &&
+            paneSlotBoxes?.[tabToPaneId.wiki]
+              ? {
+                  inset: "auto",
+                  top: paneSlotBoxes[tabToPaneId.wiki]!.top,
+                  left: paneSlotBoxes[tabToPaneId.wiki]!.left,
+                  width: paneSlotBoxes[tabToPaneId.wiki]!.width,
+                  height: paneSlotBoxes[tabToPaneId.wiki]!.height,
+                }
+              : undefined
+          }
         >
           <WikiTab
             contextId={effectiveContextId}

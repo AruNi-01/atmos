@@ -13,8 +13,7 @@ interface SettingsToggleRowProps {
 }
 
 /**
- * Shared row primitive for boolean settings toggles. Used by the header and
- * right sidebar layout sections so styling stays in one place.
+ * Shared row primitive for boolean settings toggles (layout / header sections).
  */
 export function SettingsToggleRow({
   icon,

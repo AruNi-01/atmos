@@ -13,7 +13,6 @@ import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-  X,
   closestCenter,
   getFileIconProps,
   restrictToVerticalAxis,
@@ -42,7 +41,19 @@ import { cn } from "@/shared/lib/utils";
 /** Cap each group column so long labels truncate instead of stretching the popover. */
 const TAB_GROUP_COLUMN_MAX_WIDTH_CLASS = "max-w-[240px]";
 
-export const FIXED_TABS = new Set<string>(["overview", "wiki", "project-wiki", "code-review", "simulator", "git-history"]);
+export const FIXED_TABS = new Set<string>([
+  "overview",
+  "wiki",
+  "project-wiki",
+  "code-review",
+  "simulator",
+  "git-history",
+  "changes",
+  "review",
+  "run",
+  "github",
+  "files",
+]);
 export const CENTER_TERMINAL_SHORTCUT_LIMIT = 5;
 
 export type TabGroupItem = {
@@ -64,9 +75,14 @@ export type TabGroupItem = {
     | "github-issue"
     | "github-action"
     | "github-commit"
+    | "github"
     | "browser"
     | "simulator"
-    | "git-history";
+    | "git-history"
+    | "changes"
+    | "review"
+    | "run"
+    | "files";
   file?: OpenFile;
   /** Center browser instance id (for kind === "browser"). */
   browserId?: string;
@@ -185,19 +201,14 @@ export function SortableTabGroupItem({
   tab,
   isActive,
   children,
-  closable,
   onSelect,
-  onClose,
 }: {
   groupKey: string;
   tab: TabGroupItem;
   isActive: boolean;
   children: React.ReactNode;
-  closable: boolean;
   onSelect: () => void;
-  onClose: () => void;
 }) {
-  const t = useTranslations("AppShell.chrome");
   const {
     attributes,
     listeners,
@@ -266,7 +277,7 @@ export function SortableTabGroupItem({
             transition,
           }}
           className={cn(
-            "group/tab-item relative flex h-10 w-full min-w-0 cursor-grab items-center gap-1 rounded-md pl-2 pr-2 text-left text-muted-foreground active:cursor-grabbing",
+            "group group/tab-item relative flex h-10 w-full min-w-0 cursor-grab items-center gap-1 rounded-md pl-2 pr-2 text-left text-muted-foreground active:cursor-grabbing",
             "hover:bg-accent hover:text-accent-foreground",
             isActive && "bg-accent text-accent-foreground",
             isDragging && "z-10 opacity-70 shadow-md",
@@ -282,27 +293,6 @@ export function SortableTabGroupItem({
           >
             {children}
           </div>
-          {closable ? (
-            <span
-              role="button"
-              tabIndex={0}
-              aria-label={t("centerStageTabs.closeTab", { label: tab.label })}
-              onPointerDown={(event) => event.stopPropagation()}
-              onClick={(event) => {
-                event.stopPropagation();
-                onClose();
-              }}
-              onKeyDown={(event) => {
-                if (event.key !== "Enter" && event.key !== " ") return;
-                event.preventDefault();
-                event.stopPropagation();
-                onClose();
-              }}
-              className="ml-0.5 flex size-5 shrink-0 cursor-pointer items-center justify-center rounded-sm text-muted-foreground opacity-0 transition-opacity hover:bg-muted-foreground/20 hover:text-foreground group-hover/tab-item:opacity-100"
-            >
-              <X className="size-3" />
-            </span>
-          ) : null}
         </div>
       </TooltipTrigger>
       {isLabelTruncated ? (
@@ -338,7 +328,10 @@ export function CenterStageTabGroupPopover({
   isClosable: (tab: TabGroupItem) => boolean;
   /** Optional override for active highlighting (e.g. browser internal tabs). */
   isItemActive?: (tab: TabGroupItem) => boolean;
-  renderContent: (tab: TabGroupItem) => React.ReactNode;
+  renderContent: (
+    tab: TabGroupItem,
+    close?: { label: string; onClose: () => void },
+  ) => React.ReactNode;
 }) {
   const t = useTranslations("AppShell.chrome");
 
@@ -347,7 +340,7 @@ export function CenterStageTabGroupPopover({
       <PopoverTrigger asChild>
         <Button
           variant="ghost"
-          className="h-full! rounded-none border-0 px-4 text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+          className="h-7 w-7 min-h-0 shrink-0 rounded-full border-0 px-0 text-muted-foreground hover:bg-active hover:text-foreground"
           aria-label={t("centerStageTabs.openTabGroups")}
         >
           <List className="size-4" />
@@ -419,11 +412,19 @@ export function CenterStageTabGroupPopover({
                                       ? isItemActive(tab)
                                       : activeValue === tab.value
                                   }
-                                  closable={isClosable(tab)}
                                   onSelect={() => onSelect(tab)}
-                                  onClose={() => onClose(tab)}
                                 >
-                                  {renderContent(tab)}
+                                  {renderContent(
+                                    tab,
+                                    isClosable(tab)
+                                      ? {
+                                          label: t("centerStageTabs.closeTab", {
+                                            label: tab.label,
+                                          }),
+                                          onClose: () => onClose(tab),
+                                        }
+                                      : undefined,
+                                  )}
                                 </SortableTabGroupItem>
                               ))}
                             </div>

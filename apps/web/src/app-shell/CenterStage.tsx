@@ -107,12 +107,44 @@ type PendingCenterTabClose =
   | { kind: "code-review" };
 import { CenterStagePanels } from "@/app-shell/CenterStagePanels";
 import {
+  CenterPaneContentSlot,
+  CenterPaneGrid,
+} from "@/app-shell/center-pane/CenterPaneGrid";
+import { useCenterPaneLayoutStore } from "@/app-shell/center-pane/center-pane-layout-store";
+import {
+  collectActiveTabIds,
+  createDefaultLayout,
+  isEmptyPane,
+  isPrimaryPane,
+  MAX_CENTER_PANES,
+  OVERVIEW_TAB_ID,
+} from "@/app-shell/center-pane/center-pane-layout";
+import { useCenterPaneSlotBoxes } from "@/app-shell/center-pane/use-center-pane-slot-boxes";
+import {
+  collectSavedSurfaces,
+  isToolSurfaceKind,
+  materializeSavedLayout,
+  resolveSurfaceTabId,
+  snapshotCenterLayout,
+  type CenterSurfaceKind,
+} from "@/app-shell/center-pane/center-pane-saved-layout";
+import { useCenterPaneSavedLayoutStore } from "@/app-shell/center-pane/center-pane-saved-layout-store";
+import {
+  buildDefaultEmptyPaneActions,
+  CenterPaneEmptyState,
+} from "@/app-shell/center-pane/CenterPaneEmptyState";
+import {
   SIMULATOR_TAB_VALUE,
   useSimulatorCenterTabStore,
 } from "@/features/simulator";
 import { simulatorApi } from "@/api/ws/simulator-api";
 import { GIT_HISTORY_TAB_VALUE } from "@/features/git/types";
 import { useGitHistoryCenterTabStore } from "@/features/git/store/use-git-history-center-tab";
+import {
+  isCenterToolTabValue,
+  useToolCenterTabsStore,
+  type CenterToolTabValue,
+} from "@/app-shell/center-tool-tabs";
 import {
   CenterStageNoContextView,
   resolveCenterStageProjectContext,
@@ -158,12 +190,15 @@ import {
 } from "@/features/browser/lib/browser-labels";
 import { useConnectionStore } from "@/features/connection/store/connection-store";
 import { useUiPrefStore } from "@/shared/stores/use-ui-pref-store";
+import { CENTER_STAGE_GUTTER_CLASS } from "@/app-shell/sidebar-layout-constants";
+import { cn } from "@/shared/lib/utils";
 
 const EMPTY_GITHUB_TABS: GithubCenterTab[] = [];
 const EMPTY_BROWSER_TABS: BrowserCenterTab[] = [];
 
 const CenterStage: React.FC = () => {
   const t = useTranslations("appShell.centerStage");
+  const tabBarT = useTranslations("appShell.centerStageTabBar");
   const githubTabsT = useTranslations("github.centerTabs");
   usePrewarmCodeLanguages();
   const router = useAppRouter();
@@ -190,7 +225,6 @@ const CenterStage: React.FC = () => {
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 
-  const [termTabPlusHoveredTabId, setTermTabPlusHoveredTabId] = React.useState<string | null>(null);
   const [terminalTabCloseConfirm, setTerminalTabCloseConfirm] = React.useState<{
     tabId: string;
     title: string;
@@ -215,8 +249,8 @@ const CenterStage: React.FC = () => {
     effectiveContextId: liveEffectiveContextId,
     currentView,
   } = useContextParams();
-  // IMP-013: heavy tab/file/terminal rebind follows deferred IDs (same pattern as
-  // RightSidebar). Live IDs stay for promote + paint so the left sidebar's urgent
+  // IMP-013: heavy tab/file/terminal rebind follows deferred IDs.
+  // Live IDs stay for promote + paint so the left sidebar's urgent
   // URL update is not stuck behind a multi-frame center commit.
   const workspaceId = React.useDeferredValue(liveWorkspaceId);
   const projectIdFromUrl = React.useDeferredValue(liveProjectIdFromUrl);
@@ -375,6 +409,24 @@ const CenterStage: React.FC = () => {
   ) || tabFromUrl === GIT_HISTORY_TAB_VALUE;
   const openGitHistoryTab = useGitHistoryCenterTabStore((s) => s.open);
   const closeGitHistoryTab = useGitHistoryCenterTabStore((s) => s.close);
+  const toolTabsVisibleByContext = useToolCenterTabsStore((s) => s.visibleByContext);
+  const openToolTab = useToolCenterTabsStore((s) => s.open);
+  const closeToolTab = useToolCenterTabsStore((s) => s.close);
+  const changesTabVisible =
+    Boolean(effectiveContextId && toolTabsVisibleByContext[effectiveContextId]?.changes) ||
+    tabFromUrl === "changes";
+  const reviewTabVisible =
+    Boolean(effectiveContextId && toolTabsVisibleByContext[effectiveContextId]?.review) ||
+    tabFromUrl === "review";
+  const runTabVisible =
+    Boolean(effectiveContextId && toolTabsVisibleByContext[effectiveContextId]?.run) ||
+    tabFromUrl === "run";
+  const githubHubTabVisible =
+    Boolean(effectiveContextId && toolTabsVisibleByContext[effectiveContextId]?.github) ||
+    tabFromUrl === "github";
+  const filesTabVisible =
+    Boolean(effectiveContextId && toolTabsVisibleByContext[effectiveContextId]?.files) ||
+    tabFromUrl === "files";
 
   React.useEffect(() => {
     if (tabFromUrl === SIMULATOR_TAB_VALUE && effectiveContextId) {
@@ -387,6 +439,12 @@ const CenterStage: React.FC = () => {
       openGitHistoryTab(effectiveContextId);
     }
   }, [effectiveContextId, openGitHistoryTab, tabFromUrl]);
+
+  React.useEffect(() => {
+    if (isCenterToolTabValue(tabFromUrl) && effectiveContextId) {
+      openToolTab(effectiveContextId, tabFromUrl);
+    }
+  }, [effectiveContextId, openToolTab, tabFromUrl]);
 
   /** Until experiment prefs load, preserve `tab=wiki` from the URL so we do not strip deep links. */
   const wikiCenterEligible = React.useMemo(() => {
@@ -402,6 +460,7 @@ const CenterStage: React.FC = () => {
     if (tabFromUrl === "code-review" && !codeReviewTabVisible) return fallbackCenterTab;
     if (tabFromUrl === SIMULATOR_TAB_VALUE) return SIMULATOR_TAB_VALUE;
     if (tabFromUrl === GIT_HISTORY_TAB_VALUE) return GIT_HISTORY_TAB_VALUE;
+    if (isCenterToolTabValue(tabFromUrl)) return tabFromUrl;
     if (isTerminalCenterTabValue(tabFromUrl)) {
       return visibleTerminalTabs.some((tab) => tab.id === tabFromUrl)
         ? tabFromUrl
@@ -487,6 +546,8 @@ const CenterStage: React.FC = () => {
   const projects = useProjects();
   const clearSetupProgress = useProjectStore(s => s.clearSetupProgress);
   const centerStageRepoPath = useGitStore((s) => s.currentRepoPath);
+  const setCurrentRepoPath = useGitStore((s) => s.setCurrentRepoPath);
+  const currentProjectPath = useEditorStore((s) => s.currentProjectPath);
   const statusQuery = useGitStatusQuery(centerStageRepoPath);
   const currentBranch = statusQuery.data?.current_branch ?? null;
   const githubOwner = statusQuery.data?.github_owner ?? null;
@@ -587,6 +648,13 @@ const CenterStage: React.FC = () => {
     });
   }, [effectiveContextId, isCenterContextSettled, setWorkspaceId]);
 
+  React.useEffect(() => {
+    if (!isCenterContextSettled) return;
+    return scheduleAfterPaint(() => {
+      setCurrentRepoPath(isSetupBlocking ? null : currentProjectPath || null);
+    });
+  }, [currentProjectPath, isCenterContextSettled, isSetupBlocking, setCurrentRepoPath]);
+
   // Load per-workspace tab strip drag order when the center context changes.
   React.useEffect(() => {
     if (!effectiveContextId) {
@@ -627,6 +695,11 @@ const CenterStage: React.FC = () => {
         codeReviewVisible: codeReviewTabVisible,
         simulatorVisible: simulatorTabVisible,
         gitHistoryVisible: gitHistoryTabVisible,
+        changesVisible: changesTabVisible,
+        reviewVisible: reviewTabVisible,
+        runVisible: runTabVisible,
+        githubHubVisible: githubHubTabVisible,
+        filesVisible: filesTabVisible,
         wikiEnabled: centerWikiTabEnabled,
         exclude,
       }),
@@ -639,6 +712,11 @@ const CenterStage: React.FC = () => {
       projectWikiTabVisible,
       simulatorTabVisible,
       gitHistoryTabVisible,
+      changesTabVisible,
+      reviewTabVisible,
+      runTabVisible,
+      githubHubTabVisible,
+      filesTabVisible,
       visibleTerminalTabs,
     ],
   );
@@ -777,6 +855,8 @@ const CenterStage: React.FC = () => {
     requestBrowserContextUrlFocus(tab.browserContextId);
     setActiveFile(null, effectiveContextId);
     void setUrlParams({ tab: tab.value, wikiPage: null });
+    // Attach exclusively to the focused multi-pane slot (not via URL effect).
+    useCenterPaneLayoutStore.getState().openTab(effectiveContextId, tab.value);
   }, [effectiveContextId, openBrowserCenterTab, setActiveFile, setUrlParams]);
 
   const handleCreateSimulatorCenterTab = React.useCallback(() => {
@@ -784,6 +864,7 @@ const CenterStage: React.FC = () => {
     openSimulatorTab(effectiveContextId);
     setActiveFile(null, effectiveContextId);
     void setUrlParams({ tab: SIMULATOR_TAB_VALUE, wikiPage: null });
+    useCenterPaneLayoutStore.getState().openTab(effectiveContextId, SIMULATOR_TAB_VALUE);
   }, [effectiveContextId, openSimulatorTab, setActiveFile, setUrlParams]);
 
   const handleCloseSimulatorTab = React.useCallback(() => {
@@ -798,6 +879,21 @@ const CenterStage: React.FC = () => {
     closeGitHistoryTab(effectiveContextId);
     activateNextAfterClosing(GIT_HISTORY_TAB_VALUE);
   }, [activateNextAfterClosing, closeGitHistoryTab, effectiveContextId]);
+
+  const handleCreateToolCenterTab = React.useCallback((tab: CenterToolTabValue) => {
+    if (!effectiveContextId) return;
+    openToolTab(effectiveContextId, tab);
+    setActiveFile(null, effectiveContextId);
+    void setUrlParams({ tab, wikiPage: null });
+    // Exclusive attach so Files/Changes/etc. land on the focused pane only.
+    useCenterPaneLayoutStore.getState().openTab(effectiveContextId, tab);
+  }, [effectiveContextId, openToolTab, setActiveFile, setUrlParams]);
+
+  const handleCloseToolTab = React.useCallback((tab: CenterToolTabValue) => {
+    if (!effectiveContextId) return;
+    closeToolTab(effectiveContextId, tab);
+    activateNextAfterClosing(tab);
+  }, [activateNextAfterClosing, closeToolTab, effectiveContextId]);
 
   React.useEffect(() => {
     registerBrowserHostChrome({
@@ -1264,6 +1360,8 @@ const CenterStage: React.FC = () => {
     setActiveTerminalTab(effectiveContextId, nextTab.id);
     setUrlParams({ tab: nextTab.id, wikiPage: null });
     setActiveFile(null, effectiveContextId);
+    // New terminal id always attaches to the focused pane (isolated from siblings).
+    useCenterPaneLayoutStore.getState().openTab(effectiveContextId, nextTab.id);
 
     // Await prefs before resolving the default agent so a cold mount does not
     // launch a plain shell while disk prefs still say "apply to new tab".
@@ -1622,6 +1720,14 @@ const CenterStage: React.FC = () => {
         }
         continue;
       }
+
+      if (isCenterToolTabValue(tab.kind)) {
+        if (effectiveContextId) {
+          closeToolTab(effectiveContextId, tab.kind);
+          closedImmediately.push(tab.kind);
+        }
+        continue;
+      }
     }
 
     if (closedImmediately.length > 0) {
@@ -1639,6 +1745,7 @@ const CenterStage: React.FC = () => {
     closeGithubTab,
     closeSimulatorTab,
     closeGitHistoryTab,
+    closeToolTab,
     effectiveContextId,
     getTerminalTabPanes,
     performCloseTerminalCenterTab,
@@ -1767,6 +1874,9 @@ const CenterStage: React.FC = () => {
     if (val === "wiki" && experimentPrefsLoaded && !centerWikiTabEnabled) {
       setUrlParams({ tab: FIXED_TERMINAL_TAB_VALUE, wikiPage: null });
       setActiveFile(null, effectiveContextId || undefined);
+      if (effectiveContextId) {
+        useCenterPaneLayoutStore.getState().openTab(effectiveContextId, FIXED_TERMINAL_TAB_VALUE);
+      }
       return;
     }
     if (isTerminalCenterTabValue(val)) {
@@ -1803,6 +1913,11 @@ const CenterStage: React.FC = () => {
       // Clear tab param when opening a file
       setUrlParams({ tab: null, wikiPage: null });
     }
+    // Multi-pane isolation: URL is only chrome focus. Ownership of the surface
+    // always follows the focused pane (exclusive; removed from siblings).
+    if (effectiveContextId && val) {
+      useCenterPaneLayoutStore.getState().openTab(effectiveContextId, val);
+    }
   }, [
     centerWikiTabEnabled,
     experimentPrefsLoaded,
@@ -1829,6 +1944,11 @@ const CenterStage: React.FC = () => {
     codeReviewTabVisible,
     effectiveContextId,
     gitHistoryTabVisible,
+    changesTabVisible,
+    reviewTabVisible,
+    runTabVisible,
+    githubHubTabVisible,
+    filesTabVisible,
     githubTabs,
     openFiles,
     previewBrowserPrefs,
@@ -1883,6 +2003,11 @@ const CenterStage: React.FC = () => {
       return;
     }
 
+    if (isCenterToolTabValue(tab.kind)) {
+      handleCloseToolTab(tab.kind);
+      return;
+    }
+
     if (tab.kind === "browser") {
       if (tab.browserContextId && tab.browserTabId) {
         const context = previewBrowserPrefs.byContext[tab.browserContextId];
@@ -1908,6 +2033,7 @@ const CenterStage: React.FC = () => {
     handleCloseGithubTab,
     handleCloseSimulatorTab,
     handleCloseGitHistoryTab,
+    handleCloseToolTab,
     handleCloseTerminalCenterTab,
     previewBrowserPrefs,
   ]);
@@ -1978,8 +2104,206 @@ const CenterStage: React.FC = () => {
     });
   };
 
+  // Paint / render context ids (may be empty before a workspace is selected).
+  const paintContextId: string | null = liveEffectiveContextId;
+  const renderContextId: string = effectiveContextId ?? liveEffectiveContextId ?? "";
+
+  // --- Multi-pane center layout (dnd-kit grid) — hooks before any early return ---
+  const hydratePaneLayout = useCenterPaneLayoutStore((s) => s.hydrate);
+  const ensurePaneLayout = useCenterPaneLayoutStore((s) => s.ensureLayout);
+  const paneLayout = useCenterPaneLayoutStore((s) =>
+    renderContextId ? (s.byContext[renderContextId] ?? null) : null,
+  );
+  const focusCenterPane = useCenterPaneLayoutStore((s) => s.focus);
+  const splitCenterPane = useCenterPaneLayoutStore((s) => s.split);
+  const resizeCenterColumns = useCenterPaneLayoutStore((s) => s.resizeColumns);
+  const resizeCenterRows = useCenterPaneLayoutStore((s) => s.resizeRows);
+  const setPaneActiveTab = useCenterPaneLayoutStore((s) => s.setActiveTab);
+  const setCenterPaneLayout = useCenterPaneLayoutStore((s) => s.setLayout);
+  const hydrateSavedLayouts = useCenterPaneSavedLayoutStore((s) => s.hydrate);
+  const syncSavedLayoutsFromDisk = useCenterPaneSavedLayoutStore(
+    (s) => s.syncFromDisk,
+  );
+  const savedLayouts = useCenterPaneSavedLayoutStore((s) => s.layouts);
+  const saveCenterLayout = useCenterPaneSavedLayoutStore((s) => s.save);
+  const panelHostRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    hydratePaneLayout();
+    // Instant localStorage cache, then fill/migrate from ~/.atmos when empty.
+    hydrateSavedLayouts();
+    void syncSavedLayoutsFromDisk();
+  }, [hydratePaneLayout, hydrateSavedLayouts, syncSavedLayoutsFromDisk]);
+
+  // Content-stable key so array identity churn from open-file lists cannot loop effects.
+  const openTabIdKey = React.useMemo(() => {
+    const ids = Array.from(collectOpenCenterTabValues());
+    ids.sort();
+    return ids.join("\0");
+  }, [collectOpenCenterTabValues]);
+
+  const openTabIdList = React.useMemo(
+    () => (openTabIdKey ? openTabIdKey.split("\0") : []),
+    [openTabIdKey],
+  );
+
+  const resolvedPaneLayout = React.useMemo(
+    () => paneLayout ?? createDefaultLayout(openTabIdList, activeValue),
+    [activeValue, openTabIdList, paneLayout],
+  );
+
+  React.useEffect(() => {
+    if (!renderContextId) return;
+    // Reconcile open-tab membership only. Do NOT auto-openTab from URL here —
+    // that steals surfaces between multi-panes whenever `?tab=` changes.
+    // Explicit navigation (tab click / create / hotkey) calls openTab itself.
+    ensurePaneLayout(renderContextId, openTabIdList, activeValue);
+  }, [
+    activeValue,
+    ensurePaneLayout,
+    openTabIdKey,
+    openTabIdList,
+    renderContextId,
+  ]);
+  const isMultiPane = resolvedPaneLayout.order.length > 1;
+  const paneSlotBoxes = useCenterPaneSlotBoxes(
+    panelHostRef,
+    resolvedPaneLayout,
+    isMultiPane,
+  );
+  const multiActiveTabIds = React.useMemo(() => {
+    if (!isMultiPane) return null;
+    // Always pass a list when multi-pane so content slots position correctly
+    // even if only one pane has an active tab (others empty).
+    return collectActiveTabIds(resolvedPaneLayout);
+  }, [isMultiPane, resolvedPaneLayout]);
+  const tabToPaneId = React.useMemo(() => {
+    if (!isMultiPane) return null;
+    const map: Record<string, string> = {};
+    for (const pane of resolvedPaneLayout.panes) {
+      for (const tabId of pane.tabIds) {
+        map[tabId] = pane.id;
+      }
+      map[pane.activeTabId] = pane.id;
+    }
+    return map;
+  }, [isMultiPane, resolvedPaneLayout.panes]);
+
+  const handleSplitRight = React.useCallback(() => {
+    if (!renderContextId) return;
+    if (resolvedPaneLayout.panes.length >= MAX_CENTER_PANES) return;
+    // Empty pane — no tab steal; launcher empty state.
+    splitCenterPane(renderContextId, "right");
+  }, [resolvedPaneLayout.panes.length, renderContextId, splitCenterPane]);
+
+  const handleSplitDown = React.useCallback(() => {
+    if (!renderContextId) return;
+    if (resolvedPaneLayout.panes.length >= MAX_CENTER_PANES) return;
+    splitCenterPane(renderContextId, "down");
+  }, [resolvedPaneLayout.panes.length, renderContextId, splitCenterPane]);
+
+  const handlePaneTabChange = React.useCallback(
+    (paneId: string, tabValue: string) => {
+      if (!renderContextId) return;
+      // Overview always activates on the primary pane.
+      const targetPaneId =
+        tabValue === OVERVIEW_TAB_ID
+          ? (resolvedPaneLayout.panes.find((p) =>
+              isPrimaryPane(resolvedPaneLayout, p.id),
+            )?.id ?? paneId)
+          : paneId;
+      // Focus first so exclusive openTab lands on this pane (not a sibling).
+      focusCenterPane(renderContextId, targetPaneId);
+      // Exclusive ownership + URL chrome. openTab removes tab from other panes.
+      setPaneActiveTab(renderContextId, targetPaneId, tabValue);
+      handleCenterStageTabChange(tabValue);
+    },
+    [
+      focusCenterPane,
+      handleCenterStageTabChange,
+      renderContextId,
+      resolvedPaneLayout,
+      setPaneActiveTab,
+    ],
+  );
+
+  const handleSaveCenterLayout = React.useCallback(
+    (name: string) => {
+      const snap = snapshotCenterLayout(resolvedPaneLayout, name);
+      if (!snap) return;
+      saveCenterLayout(snap);
+    },
+    [resolvedPaneLayout, saveCenterLayout],
+  );
+
+  const handleApplyCenterLayout = React.useCallback(
+    (layoutId: string) => {
+      if (!renderContextId) return;
+      const saved = useCenterPaneSavedLayoutStore.getState().getById(layoutId);
+      if (!saved) return;
+
+      const surfaces = collectSavedSurfaces(saved);
+      let browserTabValue: string | null = null;
+
+      for (const surface of surfaces) {
+        if (surface === "browser") {
+          const existing = browserTabs[0]?.value ?? null;
+          if (existing) {
+            browserTabValue = existing;
+          } else {
+            const tab = openBrowserCenterTab(renderContextId);
+            browserTabValue = tab.value;
+            requestBrowserContextUrlFocus(tab.browserContextId);
+          }
+          continue;
+        }
+        if (surface === "simulator") {
+          openSimulatorTab(renderContextId);
+          continue;
+        }
+        if (surface === "git-history") {
+          openGitHistoryTab(renderContextId);
+          continue;
+        }
+        if (isToolSurfaceKind(surface)) {
+          openToolTab(renderContextId, surface);
+          continue;
+        }
+        // overview / terminal / wiki / github: opened via URL tab selection below
+      }
+
+      const resolveTabId = (kind: CenterSurfaceKind) =>
+        resolveSurfaceTabId(kind, { browserTabId: browserTabValue });
+
+      const liveLayout = materializeSavedLayout(saved, resolveTabId);
+      setCenterPaneLayout(renderContextId, liveLayout);
+
+      const focused =
+        liveLayout.panes.find((p) => p.id === liveLayout.focusedPaneId) ??
+        liveLayout.panes[0];
+      if (focused?.activeTabId) {
+        setActiveFile(null, renderContextId);
+        void setUrlParams({
+          tab: focused.activeTabId,
+          wikiPage: null,
+        });
+      }
+    },
+    [
+      browserTabs,
+      openBrowserCenterTab,
+      openGitHistoryTab,
+      openSimulatorTab,
+      openToolTab,
+      renderContextId,
+      setActiveFile,
+      setCenterPaneLayout,
+      setUrlParams,
+    ],
+  );
+
   // Gate on live URL so deferred lag never flashes the empty/welcome chrome mid-hop.
-  if (!liveEffectiveContextId) {
+  if (!liveEffectiveContextId || !paintContextId) {
     return (
       <CenterStageNoContextView
         currentView={currentView}
@@ -1992,121 +2316,282 @@ const CenterStage: React.FC = () => {
     );
   }
 
-  // After the live guard, paint id is a definite string. Deferred may still be
-  // null for one frame when entering a context from welcome — fall back to live.
-  const paintContextId: string = liveEffectiveContextId;
-  const renderContextId: string = effectiveContextId ?? liveEffectiveContextId;
+  const renderTabBar = (opts?: {
+    activeTabId?: string;
+    allowedTabIds?: ReadonlySet<string>;
+    onTabChange?: (v: string) => void;
+  }) => {
+    const allowed = opts?.allowedTabIds;
+    const filterIds = <T,>(items: T[], idOf: (item: T) => string) =>
+      allowed ? items.filter((item) => allowed.has(idOf(item))) : items;
+    const has = (id: string) => !allowed || allowed.has(id);
+    return (
+      <CenterStageTabBar
+        activeValue={opts?.activeTabId ?? activeValue}
+        browserFallbackLabel={browserFallbackLabel}
+        browserTabs={filterIds(browserTabs, (tab) => tab.value)}
+        codeReviewTabVisible={codeReviewTabVisible && has("code-review")}
+        effectiveContextId={renderContextId}
+        githubTabs={filterIds(githubTabs, (tab) => tab.value)}
+        isTabGroupItemActive={isTabGroupItemActive}
+        openFiles={filterIds(openFiles, (file) => file.path)}
+        orderedGroupedTabItems={orderedGroupedTabItems}
+        tabStripOrder={tabStripOrder}
+        onTabStripOrderChange={handleTabStripOrderChange}
+        previewBrowserPrefs={previewBrowserPrefs}
+        projectWikiTabVisible={projectWikiTabVisible && has("project-wiki")}
+        simulatorTabVisible={simulatorTabVisible && has(SIMULATOR_TAB_VALUE)}
+        gitHistoryTabVisible={gitHistoryTabVisible && has(GIT_HISTORY_TAB_VALUE)}
+        changesTabVisible={changesTabVisible && has("changes")}
+        reviewTabVisible={reviewTabVisible && has("review")}
+        runTabVisible={runTabVisible && has("run")}
+        githubHubTabVisible={githubHubTabVisible && has("github")}
+        filesTabVisible={filesTabVisible && has("files")}
+        scrollableTabsRef={scrollableTabsRef}
+        sessionDisplay={sessionDisplay}
+        tabGroupDndSensors={tabGroupDndSensors}
+        tabGroupPopoverOpen={tabGroupPopoverOpen}
+        visibleTerminalTabs={filterIds(visibleTerminalTabs, (tab) => tab.id)}
+        wikiCenterEligible={wikiCenterEligible && has("wiki")}
+        wikiRefreshing={wikiRefreshing}
+        overviewVisible={has(OVERVIEW_TAB_ID)}
+        handleCenterStageTabChange={opts?.onTabChange ?? handleCenterStageTabChange}
+        handleCloseTabGroupItem={handleCloseTabGroupItem}
+        handleCloseBrowserTab={handleCloseBrowserTab}
+        handleCloseFile={handleCloseFile}
+        handleCloseGithubTab={handleCloseGithubTab}
+        handleCloseTerminalCenterTab={handleCloseTerminalCenterTab}
+        handleCreateBrowserCenterTab={handleCreateBrowserCenterTab}
+        handleCreateSimulatorCenterTab={handleCreateSimulatorCenterTab}
+        handleCreateTerminalCenterTab={handleCreateTerminalCenterTab}
+        handleCreateToolCenterTab={handleCreateToolCenterTab}
+        handleCloseSimulatorTab={handleCloseSimulatorTab}
+        handleCloseGitHistoryTab={handleCloseGitHistoryTab}
+        handleCloseToolTab={handleCloseToolTab}
+        handleRenameTerminalCenterTab={handleRenameTerminalCenterTab}
+        handleSelectTabGroupItem={handleSelectTabGroupItem}
+        handleTabGroupDragEnd={handleTabGroupDragEnd}
+        pinFile={pinFile}
+        setCodeReviewCloseConfirmOpen={setCodeReviewCloseConfirmOpen}
+        setProjectWikiCloseConfirmOpen={setProjectWikiCloseConfirmOpen}
+        setTabContextMenu={setTabContextMenu}
+        setTabGroupPopoverOpen={setTabGroupPopoverOpen}
+        setWikiRefreshing={setWikiRefreshing}
+        setWikiRefreshTrigger={setWikiRefreshTrigger}
+        onSplitRight={handleSplitRight}
+        onSplitDown={handleSplitDown}
+        savedLayouts={savedLayouts.map((layout) => ({
+          id: layout.id,
+          name: layout.name,
+        }))}
+        onSaveLayout={handleSaveCenterLayout}
+        onApplyLayout={handleApplyCenterLayout}
+      />
+    );
+  };
+
+  const panels = (
+    <CenterStagePanels
+      activeValue={activeValue}
+      activeTabIds={multiActiveTabIds}
+      tabToPaneId={tabToPaneId}
+      paneSlotBoxes={isMultiPane ? paneSlotBoxes : null}
+      browserTabs={browserTabs}
+      codeReviewTabVisible={codeReviewTabVisible}
+      codeReviewTerminalGridRef={codeReviewTerminalGridRef}
+      currentBranch={currentBranch}
+      currentProject={currentProject}
+      currentRepoPath={currentRepoPath}
+      currentView={currentView}
+      currentWorkspace={currentWorkspace}
+      // Deferred: URL-synced live props rebind only after hop settles.
+      effectiveContextId={renderContextId}
+      // Live: shell paint identity tracks the route immediately (DOM may lead).
+      paintContextId={paintContextId}
+      githubTabs={githubTabs}
+      handleCloseGithubTab={handleCloseGithubTab}
+      handleCreateTerminalCenterTab={handleCreateTerminalCenterTab}
+      handleTerminalPaneClosed={handleTerminalPaneClosed}
+      mountedTerminalTabsByContext={mountedTerminalTabsByContext}
+      openFiles={openFiles}
+      onGithubPullRequestChanged={handleGithubPullRequestChanged}
+      projectWikiTabVisible={projectWikiTabVisible}
+      simulatorTabVisible={simulatorTabVisible}
+      gitHistoryTabVisible={gitHistoryTabVisible}
+      changesTabVisible={changesTabVisible}
+      reviewTabVisible={reviewTabVisible}
+      runTabVisible={runTabVisible}
+      githubHubTabVisible={githubHubTabVisible}
+      filesTabVisible={filesTabVisible}
+      projectWikiTerminalGridRef={projectWikiTerminalGridRef}
+      projectWikiUserTriggeredRef={projectWikiUserTriggeredRef}
+      reviewTarget={reviewTarget}
+      setFixedTab={setFixedTab}
+      setProjectWikiPendingCommand={setProjectWikiPendingCommand}
+      setProjectWikiVisibleMap={setProjectWikiVisibleMap}
+      setWikiPage={setWikiPage}
+      terminalGridRef={terminalGridRef}
+      terminalGridRefs={terminalGridRefs}
+      terminalQuickOpenAgents={terminalQuickOpenAgents}
+      visibleTerminalTabs={visibleTerminalTabs}
+      wikiCenterEligible={wikiCenterEligible}
+      wikiPageFromUrl={wikiPageFromUrl}
+      wikiRefreshTrigger={wikiRefreshTrigger}
+    />
+  );
 
   // Show setup progress if active workspace is being initialized
   if (currentSetupProgress && isSetupBlocking) {
     return (
-      <main className="h-full overflow-hidden bg-background">
-        <WorkspaceSetupProgressView
-          progress={currentSetupProgress}
-          onFinish={handleFinishSetup}
-        />
+      <main className={cn("h-full min-h-0 overflow-hidden bg-sidebar", CENTER_STAGE_GUTTER_CLASS)}>
+        <div className="h-full overflow-hidden rounded-xl bg-background ring-1 ring-border/40">
+          <WorkspaceSetupProgressView
+            progress={currentSetupProgress}
+            onFinish={handleFinishSetup}
+          />
+        </div>
       </main>
     );
   }
 
-
-
   return (
-    <main className="h-full flex flex-col overflow-hidden">
-      <Tabs
-        value={activeValue}
-        onValueChange={handleCenterStageTabChange}
-        className="flex-1 flex flex-col gap-0 min-h-0 overflow-hidden"
-      >
-        {/* Top Tab Bar */}
-        <CenterStageTabBar
-          activeValue={activeValue}
-          browserFallbackLabel={browserFallbackLabel}
-          browserTabs={browserTabs}
-          codeReviewTabVisible={codeReviewTabVisible}
-          effectiveContextId={renderContextId}
-          githubTabs={githubTabs}
-          isTabGroupItemActive={isTabGroupItemActive}
-          openFiles={openFiles}
-          orderedGroupedTabItems={orderedGroupedTabItems}
-          tabStripOrder={tabStripOrder}
-          onTabStripOrderChange={handleTabStripOrderChange}
-          previewBrowserPrefs={previewBrowserPrefs}
-          projectWikiTabVisible={projectWikiTabVisible}
-          simulatorTabVisible={simulatorTabVisible}
-          gitHistoryTabVisible={gitHistoryTabVisible}
-          scrollableTabsRef={scrollableTabsRef}
-          sessionDisplay={sessionDisplay}
-          tabGroupDndSensors={tabGroupDndSensors}
-          tabGroupPopoverOpen={tabGroupPopoverOpen}
-          termTabPlusHoveredTabId={termTabPlusHoveredTabId}
-          visibleTerminalTabs={visibleTerminalTabs}
-          wikiCenterEligible={wikiCenterEligible}
-          wikiRefreshing={wikiRefreshing}
-          handleCenterStageTabChange={handleCenterStageTabChange}
-          handleCloseTabGroupItem={handleCloseTabGroupItem}
-          handleCloseBrowserTab={handleCloseBrowserTab}
-          handleCloseFile={handleCloseFile}
-          handleCloseGithubTab={handleCloseGithubTab}
-          handleCloseTerminalCenterTab={handleCloseTerminalCenterTab}
-          handleCreateBrowserCenterTab={handleCreateBrowserCenterTab}
-          handleCreateSimulatorCenterTab={handleCreateSimulatorCenterTab}
-          handleCreateTerminalCenterTab={handleCreateTerminalCenterTab}
-          handleCloseSimulatorTab={handleCloseSimulatorTab}
-          handleCloseGitHistoryTab={handleCloseGitHistoryTab}
-          handleRenameTerminalCenterTab={handleRenameTerminalCenterTab}
-          handleSelectTabGroupItem={handleSelectTabGroupItem}
-          handleTabGroupDragEnd={handleTabGroupDragEnd}
-          pinFile={pinFile}
-          setCodeReviewCloseConfirmOpen={setCodeReviewCloseConfirmOpen}
-          setProjectWikiCloseConfirmOpen={setProjectWikiCloseConfirmOpen}
-          setTabContextMenu={setTabContextMenu}
-          setTabGroupPopoverOpen={setTabGroupPopoverOpen}
-          setTermTabPlusHoveredTabId={setTermTabPlusHoveredTabId}
-          setWikiRefreshing={setWikiRefreshing}
-          setWikiRefreshTrigger={setWikiRefreshTrigger}
-        />
+    // Inset + rounded cards so all four corners read as a floating main stage.
+    // Padding gutters use shell `bg-sidebar` so `bg-background` center pops.
+    <main
+      className={cn(
+        "relative flex h-full min-h-0 flex-col overflow-hidden bg-sidebar",
+        CENTER_STAGE_GUTTER_CLASS,
+      )}
+    >
+      {isMultiPane ? (
+        <div className="relative min-h-0 flex-1">
+          <div className="absolute inset-0 min-h-0">
+            <CenterPaneGrid
+              layout={resolvedPaneLayout}
+              onReorder={() => {
+                /* Pane chrome drag removed; order is fixed unless re-split. */
+              }}
+              onFocus={(paneId) => {
+                if (!renderContextId) return;
+                focusCenterPane(renderContextId, paneId);
+                const pane = resolvedPaneLayout.panes.find((p) => p.id === paneId);
+                // Empty launchers have no surface — don't rewrite the URL/active
+                // tab of the other pane when focusing them.
+                if (pane && pane.activeTabId && !isEmptyPane(pane)) {
+                  handleCenterStageTabChange(pane.activeTabId);
+                }
+              }}
+              onResizeColumns={(index, delta) => {
+                if (renderContextId) resizeCenterColumns(renderContextId, index, delta);
+              }}
+              onResizeRows={(index, delta) => {
+                if (renderContextId) resizeCenterRows(renderContextId, index, delta);
+              }}
+              renderPaneChrome={(pane) => {
+                const primary = isPrimaryPane(resolvedPaneLayout, pane.id);
+                const empty = isEmptyPane(pane);
+                const allowed = new Set(
+                  pane.tabIds.filter(
+                    (id) => primary || id !== OVERVIEW_TAB_ID,
+                  ),
+                );
+                // Overview never appears in secondary pane tab strips.
+                if (!primary) allowed.delete(OVERVIEW_TAB_ID);
+                const activeTabId =
+                  empty
+                    ? ""
+                    : !primary && pane.activeTabId === OVERVIEW_TAB_ID
+                      ? (pane.tabIds.find((id) => id !== OVERVIEW_TAB_ID) ??
+                        pane.activeTabId)
+                      : pane.activeTabId;
 
-        <CenterStagePanels
-          activeValue={activeValue}
-          browserTabs={browserTabs}
-          codeReviewTabVisible={codeReviewTabVisible}
-          codeReviewTerminalGridRef={codeReviewTerminalGridRef}
-          currentBranch={currentBranch}
-          currentProject={currentProject}
-          currentRepoPath={currentRepoPath}
-          currentView={currentView}
-          currentWorkspace={currentWorkspace}
-          // Deferred: URL-synced live props rebind only after hop settles.
-          effectiveContextId={renderContextId}
-          // Live: shell paint identity tracks the route immediately (DOM may lead).
-          paintContextId={paintContextId}
-          githubTabs={githubTabs}
-          handleCloseGithubTab={handleCloseGithubTab}
-          handleCreateTerminalCenterTab={handleCreateTerminalCenterTab}
-          handleTerminalPaneClosed={handleTerminalPaneClosed}
-          mountedTerminalTabsByContext={mountedTerminalTabsByContext}
-          openFiles={openFiles}
-          onGithubPullRequestChanged={handleGithubPullRequestChanged}
-          projectWikiTabVisible={projectWikiTabVisible}
-          simulatorTabVisible={simulatorTabVisible}
-          gitHistoryTabVisible={gitHistoryTabVisible}
-          projectWikiTerminalGridRef={projectWikiTerminalGridRef}
-          projectWikiUserTriggeredRef={projectWikiUserTriggeredRef}
-          reviewTarget={reviewTarget}
-          setFixedTab={setFixedTab}
-          setProjectWikiPendingCommand={setProjectWikiPendingCommand}
-          setProjectWikiVisibleMap={setProjectWikiVisibleMap}
-          setWikiPage={setWikiPage}
-          terminalGridRef={terminalGridRef}
-          terminalGridRefs={terminalGridRefs}
-          terminalQuickOpenAgents={terminalQuickOpenAgents}
-          visibleTerminalTabs={visibleTerminalTabs}
-          wikiCenterEligible={wikiCenterEligible}
-          wikiPageFromUrl={wikiPageFromUrl}
-          wikiRefreshTrigger={wikiRefreshTrigger}
-        />
-      </Tabs>
+                const openInThisPane = (run: () => void) => {
+                  if (renderContextId) {
+                    focusCenterPane(renderContextId, pane.id);
+                  }
+                  run();
+                };
+
+                const emptyActions = buildDefaultEmptyPaneActions({
+                  labels: {
+                    terminal: tabBarT("newTerminalTab"),
+                    files: tabBarT("newFiles"),
+                    changes: tabBarT("newChanges"),
+                    review: tabBarT("newReview"),
+                    run: tabBarT("newRun"),
+                    github: tabBarT("newGithub"),
+                    simulator: tabBarT("newSimulator"),
+                  },
+                  modKey:
+                    typeof navigator !== "undefined" &&
+                    /Mac|iPhone|iPad|iPod/i.test(navigator.platform)
+                      ? "⌘"
+                      : "Ctrl",
+                  includeOverview: primary,
+                  overviewLabel: tabBarT("overview"),
+                  onCreateTerminal: () =>
+                    openInThisPane(handleCreateTerminalCenterTab),
+                  onCreateToolTab: (tab) =>
+                    openInThisPane(() => handleCreateToolCenterTab(tab)),
+                  onCreateSimulator: () =>
+                    openInThisPane(handleCreateSimulatorCenterTab),
+                  onOpenOverview: () =>
+                    openInThisPane(() => handleCenterStageTabChange("overview")),
+                });
+
+                if (empty) {
+                  return (
+                    <div className="flex h-full min-h-0 flex-col overflow-hidden">
+                      <div className="shrink-0">
+                        {renderTabBar({
+                          // Empty secondary launcher: no active tab (do not mirror
+                          // the other pane's URL active / Overview selection).
+                          activeTabId: "",
+                          allowedTabIds: allowed,
+                          onTabChange: (value) =>
+                            handlePaneTabChange(pane.id, value),
+                        })}
+                      </div>
+                      <CenterPaneEmptyState actions={emptyActions} />
+                    </div>
+                  );
+                }
+
+                return (
+                  <Tabs
+                    value={activeTabId}
+                    onValueChange={(value) => handlePaneTabChange(pane.id, value)}
+                    className="flex h-full min-h-0 flex-col gap-0 overflow-hidden"
+                  >
+                    {renderTabBar({
+                      activeTabId,
+                      allowedTabIds: allowed,
+                      onTabChange: (value) => handlePaneTabChange(pane.id, value),
+                    })}
+                    <CenterPaneContentSlot paneId={pane.id} />
+                  </Tabs>
+                );
+              }}
+            />
+          </div>
+          <div
+            ref={panelHostRef}
+            className="pointer-events-none absolute inset-0 min-h-0"
+          >
+            {panels}
+          </div>
+        </div>
+      ) : (
+        <Tabs
+          value={activeValue}
+          onValueChange={handleCenterStageTabChange}
+          // isolate helps clip xterm WebGL to the rounded card corners.
+          className="flex min-h-0 flex-1 flex-col gap-0 isolate overflow-hidden rounded-xl bg-background ring-1 ring-border/40"
+        >
+          {renderTabBar()}
+          {panels}
+        </Tabs>
+      )}
 
       <CenterStageTabContextMenu
         tabContextMenu={tabContextMenu}

@@ -155,7 +155,7 @@ function CanvasTerminalCardInner({ shape }: { shape: CanvasTerminalShape }) {
   );
   const isActive = activeShapeId === shape.id;
   const isRendered = renderedShapeIds.includes(shape.id);
-  // Same stable pane key as center-stage mosaic terminals (`contextId:tmuxWindowName`).
+  // Same stable pane key as center-stage terminal panes (`contextId:tmuxWindowName`).
   // Agent hooks + sticky attention are keyed by this id, so canvas terminals must reuse it.
   const stablePaneId = `${shape.props.workspaceId}:${shape.props.tmuxWindowName}`;
   const sourcePaneId = stablePaneId;
@@ -248,7 +248,7 @@ function CanvasTerminalCardInner({ shape }: { shape: CanvasTerminalShape }) {
   const activateTerminal = React.useCallback(() => {
     setActiveShapeId(shape.id);
     editor.select(shape.id as TLShapeId);
-    // Mirror mosaic pane focus: clear sticky need-attention + dismiss idle hook rows.
+    // Mirror terminal pane focus: clear sticky need-attention + dismiss idle hook rows.
     useAgentAttentionStore.getState().notifyPaneFocused(stablePaneId);
     const attachedAt = Date.now();
     const nextRenderedShapeIds = promoteRenderedShapeId(

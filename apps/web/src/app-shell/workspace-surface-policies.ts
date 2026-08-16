@@ -135,10 +135,20 @@ export function resolveFrameActiveTab(input: {
  */
 export function isFramePanelVisible(input: {
   isActiveFrame: boolean;
+  /** Primary / focused active tab (legacy single-pane). */
   frameActiveTab: string;
   panelTabId: string;
+  /**
+   * When multi-pane center is open, every pane's active tab is visible.
+   * Falls back to `frameActiveTab` when omitted or empty.
+   */
+  frameActiveTabIds?: readonly string[] | null;
 }): boolean {
   void input.isActiveFrame;
+  const multi = input.frameActiveTabIds;
+  if (multi && multi.length > 0) {
+    return multi.includes(input.panelTabId);
+  }
   return input.frameActiveTab === input.panelTabId;
 }
 
@@ -156,16 +166,29 @@ export function terminalKeepAlivePanelClass(visible: boolean): string {
 
 /**
  * Full-bleed opaque stacker for non-terminal center panels (overview, PR,
- * files, browser, …). Terminal keep-alive sits at z-0 with opacity stacking;
+ * files, …). Terminal keep-alive sits at z-0 with opacity stacking;
  * these panels must cover it with an opaque layer so transparent layout gaps
  * cannot show the xterm canvas underneath.
  *
- * Uses `hidden` when inactive — safe here because these surfaces are not WebGL.
+ * Uses `hidden` when inactive — safe here because these surfaces are not WebGL
+ * or Electron `<webview>`. Browser tabs use `browserKeepAlivePanelClass`.
  */
 export function lightSurfacePanelClass(visible: boolean): string {
   return [
     "absolute inset-0 z-[1] flex min-h-0 min-w-0 flex-col bg-background",
     visible ? "overflow-auto" : "hidden pointer-events-none",
+  ].join(" ");
+}
+
+/**
+ * Center-stage Browser keep-alive. Same opacity stacking as terminals:
+ * `display:none` / `visibility:hidden` discard the in-DOM `<webview>` guest
+ * and reload the page on the next tab hop.
+ */
+export function browserKeepAlivePanelClass(visible: boolean): string {
+  return [
+    "absolute inset-0 z-[1] flex min-h-0 min-w-0 flex-col bg-background",
+    visible ? "overflow-auto" : "pointer-events-none overflow-hidden opacity-0",
   ].join(" ");
 }
 
@@ -321,7 +344,7 @@ export interface ContextSurfaceSnapshot {
   /** Terminal tab ids currently candidates for mount (usually active + previously open). */
   terminalTabIds: string[];
   /**
-   * Mosaic pane counts per terminal tab id. Defaults to 1 when omitted.
+   * Terminal split-pane counts per terminal tab id. Defaults to 1 when omitted.
    * Used so `max_global_terminal_panes` tracks real xterm instances, not only tabs.
    */
   terminalPaneCountByTabId?: Record<string, number>;

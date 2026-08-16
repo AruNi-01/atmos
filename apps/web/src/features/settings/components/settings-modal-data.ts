@@ -195,9 +195,6 @@ const SETTINGS_SECTION_KEYWORDS: Record<SettingsSectionId, readonly string[]> = 
     "interface",
     "project files show side",
     "left sidebar",
-    "right sidebar",
-    "in-app browser",
-    "show browser in sidebar",
     "workspace sidebar two-column layout",
     "project sidebar two-column layout",
     "show pinned workspaces in second column",
@@ -571,7 +568,7 @@ const SETTINGS_SETTING_ITEMS: Record<SettingsSectionId, readonly SettingsSearchI
   layout: [
     settingsModalSearchItem("layout.projectFilesShowSide", {
       hasDescription: true,
-      keywords: ["left sidebar", "right sidebar", "project file tree"],
+      keywords: ["left sidebar", "project file tree", "files column"],
     }),
     settingsModalSearchItem("layout.workspaceSidebarTwoColumnLayout", {
       hasDescription: true,
@@ -607,9 +604,7 @@ const SETTINGS_SETTING_ITEMS: Record<SettingsSectionId, readonly SettingsSearchI
     settingsModalSearchItem("layout.headerLayout", {
       keywords: ["workspace utilities", "global search", "header summary"],
     }),
-    settingsModalSearchItem("layout.rightSidebarBrowser", {
-      keywords: ["browser", "right sidebar", "show in sidebar", "in-app browser"],
-    }),
+
     settingsModalSearchItem("layout.workspaceSummaryButton", {
       keywords: ["project", "task", "note", "commit shortcuts"],
     }),
@@ -772,10 +767,6 @@ const SETTINGS_SETTING_ITEMS: Record<SettingsSectionId, readonly SettingsSearchI
     }),
   ],
   browser: [
-    settingsModalSearchItem("browser.defaultSurface", {
-      hasDescription: true,
-      keywords: ["sidebar", "center tabs", "placement", "default surface"],
-    }),
     settingsModalSearchItem("browser.agentChrome", {
       keywords: ["action overlay", "cursor overlay", "highlight", "click"],
     }),
@@ -1081,7 +1072,6 @@ const SETTINGS_SETTING_ITEMS: Record<SettingsSectionId, readonly SettingsSearchI
     settingsModalSearchItem("shortcuts.globalShortcuts", {
       keywords: [
         "toggle left sidebar",
-        "toggle right sidebar",
         "command palette",
         "global search",
         "quick open file",

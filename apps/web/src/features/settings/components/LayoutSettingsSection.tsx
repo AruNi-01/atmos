@@ -9,20 +9,17 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
   Switch,
-  cn,
 } from '@workspace/ui';
 import { ChevronDown, Columns2, PanelBottom } from 'lucide-react';
 import { useExperimentSettingsStore } from '@/features/settings/store/experiment-settings-store';
 import { useLayoutSettingsStore } from '@/features/settings/store/layout-settings-store';
 import { settingsModalParams } from '@/shared/lib/nuqs/searchParams';
 import { HeaderLayoutSettingsSection } from '@/features/settings/components/HeaderLayoutSettingsSection';
-import { RightSidebarLayoutSettingsSection } from '@/features/settings/components/RightSidebarLayoutSettingsSection';
 import { LaunchpadLayoutSettings } from '@/features/settings/components/LaunchpadLayoutSettings';
 
 export function LayoutSettingsSection() {
   const t = useTranslations('settings.layoutSection');
   const {
-    projectFilesSide,
     workspaceSidebarTwoColumn,
     workspaceSidebarTwoColumnShowPinned,
     workspaceSidebarSecondColumnKanban,
@@ -37,7 +34,7 @@ export function LayoutSettingsSection() {
     showUsageCarousel,
     showAgentStatus,
     loadSettings,
-    setProjectFilesSide,
+
     setWorkspaceSidebarTwoColumn,
     setWorkspaceSidebarTwoColumnShowPinned,
     setWorkspaceSidebarSecondColumnKanban,
@@ -58,7 +55,6 @@ export function LayoutSettingsSection() {
   const [workspaceSidebarLayoutExpanded, setWorkspaceSidebarLayoutExpanded] = React.useState(false);
   const [launchpadExpanded, setLaunchpadExpanded] = React.useState(false);
   const [headerLayoutExpanded, setHeaderLayoutExpanded] = React.useState(false);
-  const [rightSidebarLayoutExpanded, setRightSidebarLayoutExpanded] = React.useState(false);
   const [footerLayoutExpanded, setFooterLayoutExpanded] = React.useState(false);
   const isAnyTwoColumnEnabled =
     workspaceSidebarTwoColumn ||
@@ -78,45 +74,6 @@ export function LayoutSettingsSection() {
 
   return (
     <div className="space-y-4">
-      <div className="overflow-hidden rounded-2xl border border-border">
-        <div className="grid grid-cols-[minmax(0,1fr)_320px] gap-8 px-6 py-5">
-          <div>
-            <p className="text-base font-medium text-foreground">{t('projectFilesSide.title')}</p>
-            <p className="mt-2 text-sm leading-6 text-muted-foreground">
-              {t('projectFilesSide.description')}
-            </p>
-          </div>
-          <div className="flex items-center justify-end">
-            <div className="inline-flex h-9 items-center rounded-lg border border-border bg-background p-0.5">
-              <button
-                type="button"
-                onClick={() => setProjectFilesSide('left')}
-                className={cn(
-                  'h-full rounded-md px-3 text-sm font-medium transition-colors',
-                  projectFilesSide === 'left'
-                    ? 'bg-muted text-foreground'
-                    : 'text-muted-foreground hover:text-foreground',
-                )}
-              >
-                {t('projectFilesSide.left')}
-              </button>
-              <button
-                type="button"
-                onClick={() => setProjectFilesSide('right')}
-                className={cn(
-                  'h-full rounded-md px-3 text-sm font-medium transition-colors',
-                  projectFilesSide === 'right'
-                    ? 'bg-muted text-foreground'
-                    : 'text-muted-foreground hover:text-foreground',
-                )}
-              >
-                {t('projectFilesSide.right')}
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-
       <LaunchpadLayoutSettings
         expanded={launchpadExpanded}
         onExpandedChange={setLaunchpadExpanded}
@@ -304,11 +261,6 @@ export function LayoutSettingsSection() {
       <HeaderLayoutSettingsSection
         expanded={headerLayoutExpanded}
         onExpandedChange={setHeaderLayoutExpanded}
-      />
-
-      <RightSidebarLayoutSettingsSection
-        expanded={rightSidebarLayoutExpanded}
-        onExpandedChange={setRightSidebarLayoutExpanded}
       />
 
       <Collapsible

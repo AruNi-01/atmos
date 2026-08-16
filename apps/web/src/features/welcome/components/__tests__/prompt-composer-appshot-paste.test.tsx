@@ -361,6 +361,31 @@ describe("PromptComposer mention and slash triggers", () => {
 
     expect(composerRef.current?.getText()).toBe("Run with  now");
   });
+
+  it("places the caret at the end after setText and focus", async () => {
+    const composerRef = React.createRef<ComposerHandle>();
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    root = createRoot(container);
+
+    await act(async () => {
+      root?.render(<PromptComposer ref={composerRef} />);
+    });
+
+    const editor = container.querySelector<HTMLElement>("[contenteditable='true']");
+    if (!editor) {
+      throw new Error("PromptComposer editor not found");
+    }
+
+    const step = "Pick a slice (web UI, API/WS, desktop, agents, or specs)";
+    await act(async () => {
+      composerRef.current?.setText(step);
+      composerRef.current?.focus();
+    });
+
+    expect(composerRef.current?.getText()).toBe(step);
+    expect(caretTextOffset(editor)).toBe(step.length);
+  });
 });
 
 function pasteEvent(text: string): Event {
@@ -373,6 +398,16 @@ function pasteEvent(text: string): Event {
     },
   });
   return event;
+}
+
+function caretTextOffset(element: HTMLElement): number {
+  const selection = window.getSelection();
+  if (!selection || selection.rangeCount === 0) return -1;
+  const range = selection.getRangeAt(0);
+  const before = document.createRange();
+  before.selectNodeContents(element);
+  before.setEnd(range.startContainer, range.startOffset);
+  return before.toString().length;
 }
 
 function placeCaretAtEnd(element: HTMLElement): void {

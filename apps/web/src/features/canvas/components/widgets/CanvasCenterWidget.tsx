@@ -338,7 +338,35 @@ function CanvasCenterWidgetBody({
         onValueChange={handleTabChange}
         className="flex h-full min-h-0 flex-col gap-0 overflow-hidden"
       >
-        <CenterStageTabList>
+        <CenterStageTabList
+          value={activeTabId}
+          onValueChange={handleTabChange}
+          actions={
+            <CenterStageStickyTabActions>
+              <CenterStageTabGroupPopover
+                open={tabGroupPopoverOpen}
+                onOpenChange={setTabGroupPopoverOpen}
+                groups={orderedGroupedTabItems}
+                activeValue={activeTabId}
+                sensors={tabGroupDndSensors}
+                onDragEnd={handleTabGroupDragEnd}
+                onSelect={(tab) => {
+                  handleTabChange(tab.value);
+                  setTabGroupPopoverOpen(false);
+                }}
+                onClose={handleCloseTabGroupItem}
+                isClosable={isCanvasTabGroupItemClosable}
+                renderContent={(tab, close) => (
+                  <CenterStageTabGroupItemContent
+                    tab={tab}
+                    closeLabel={close?.label}
+                    onClose={close?.onClose}
+                  />
+                )}
+              />
+            </CenterStageStickyTabActions>
+          }
+        >
           <CenterStageOverviewTab />
           <CenterStageScrollableTabs>
             {tabs
@@ -372,23 +400,6 @@ function CanvasCenterWidgetBody({
                 />
               ))}
           </CenterStageScrollableTabs>
-          <CenterStageStickyTabActions>
-            <CenterStageTabGroupPopover
-              open={tabGroupPopoverOpen}
-              onOpenChange={setTabGroupPopoverOpen}
-              groups={orderedGroupedTabItems}
-              activeValue={activeTabId}
-              sensors={tabGroupDndSensors}
-              onDragEnd={handleTabGroupDragEnd}
-              onSelect={(tab) => {
-                handleTabChange(tab.value);
-                setTabGroupPopoverOpen(false);
-              }}
-              onClose={handleCloseTabGroupItem}
-              isClosable={isCanvasTabGroupItemClosable}
-              renderContent={(tab) => <CenterStageTabGroupItemContent tab={tab} />}
-            />
-          </CenterStageStickyTabActions>
         </CenterStageTabList>
         <div className="min-h-0 flex-1 overflow-hidden">
           {activeTab ? (

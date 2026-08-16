@@ -4,6 +4,7 @@ import { Window } from "happy-dom";
 
 import {
   isDesktopRuntime,
+  isPublicTokPath,
   isTauriRuntime,
 } from "../desktop-runtime";
 
@@ -91,6 +92,14 @@ describe("desktop runtime gates for dual-shell", () => {
     expect(isDesktopRuntime()).toBe(true);
     expect(/Mac/i.test(ua)).toBe(true);
     expect(cookieToolsAvailable).toBe(true);
+  });
+
+  it("treats public share paths as /tok, not the in-app Token Usage page", () => {
+    expect(isPublicTokPath("/tok")).toBe(true);
+    expect(isPublicTokPath("/tok/leaderboard")).toBe(true);
+    expect(isPublicTokPath("/tok/@builder")).toBe(true);
+    expect(isPublicTokPath("/token-usage")).toBe(false);
+    expect(isPublicTokPath("/")).toBe(false);
   });
 });
 

@@ -6,7 +6,7 @@
  * Mount order:
  * 1. Measure host shell until non-zero size (once)
  * 2. Mount <webview> with partition + preload + src (will-attach must see real src)
- * 3. Keep guest mounted across tab hide/show — CSS hide only, never remount on tab switch
+ * 3. Keep guest mounted across tab hide/show — opacity hide only, never remount on tab switch
  * 4. Bind guest webContentsId on dom-ready
  */
 
@@ -15,6 +15,10 @@ import { useTheme } from "next-themes";
 import { cn } from "@workspace/ui";
 import { isElectronShell } from "@/shared/lib/desktop-bridge";
 import { invokeDesktopBrowserBridge } from "@/shared/lib/desktop-browser-bridge";
+import {
+  isMainFrameDocumentNavigation,
+  readWebviewNavigationStart,
+} from "../lib/browser-loading-chrome";
 import type { DesktopBrowserAttachConfig } from "../lib/browser-transports/desktop-transport";
 
 /** z-index tokens within the browser viewport stacking context. */
@@ -32,7 +36,7 @@ type DesktopBrowserWebviewProps = {
   pointerEventsNone?: boolean;
   /**
    * Hide without destroying the guest (tab switch / suspend).
-   * Uses layout-removing CSS; React keeps the <webview> mounted so page state is preserved.
+   * Uses opacity stacking; React keeps the <webview> mounted so page state is preserved.
    */
   layoutHidden?: boolean;
   onBindGuest?: (webContentsId: number) => void;
@@ -163,7 +167,8 @@ export function DesktopBrowserWebview({
       onDomReady?.();
     };
 
-    const onStartLoading = () => {
+    const onStartNavigation = (event: Event) => {
+      if (!isMainFrameDocumentNavigation(readWebviewNavigationStart(event))) return;
       onLoadingChange?.(true);
     };
 
@@ -180,6 +185,7 @@ export function DesktopBrowserWebview({
       };
       // -3 = aborted (navigation superseded); ignore.
       if (detail.errorCode === -3) return;
+      if (detail.isMainFrame === false) return;
       console.error(
         "[browser] webview did-fail-load",
         {
@@ -194,7 +200,7 @@ export function DesktopBrowserWebview({
     };
 
     el.addEventListener("dom-ready", onReady as EventListener);
-    el.addEventListener("did-start-loading", onStartLoading as EventListener);
+    el.addEventListener("did-start-navigation", onStartNavigation as EventListener);
     el.addEventListener("did-stop-loading", onStopLoading as EventListener);
     el.addEventListener("did-fail-load", onFail as EventListener);
 
@@ -232,7 +238,7 @@ export function DesktopBrowserWebview({
 
     return () => {
       el.removeEventListener("dom-ready", onReady as EventListener);
-      el.removeEventListener("did-start-loading", onStartLoading as EventListener);
+      el.removeEventListener("did-start-navigation", onStartNavigation as EventListener);
       el.removeEventListener("did-stop-loading", onStopLoading as EventListener);
       el.removeEventListener("did-fail-load", onFail as EventListener);
     };
@@ -312,10 +318,12 @@ export function DesktopBrowserWebview({
       ref={hostRef}
       className={cn(
         "absolute inset-0 h-full w-full",
-        // display:none stops guest paint but keeps the node mounted (no reparent/destroy).
-        layoutHidden && "hidden",
+        // Opacity hide keeps the guest composited. display:none / visibility:hidden
+        // make Chromium discard the <webview> and reload on reveal.
+        layoutHidden && "pointer-events-none opacity-0",
         className,
       )}
+      aria-hidden={layoutHidden}
       style={{ zIndex: BROWSER_Z.webview }}
     >
       {shouldMountGuest && attach ? (

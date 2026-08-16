@@ -12,7 +12,6 @@ import type { BrowserTransportMode } from "../lib/browser-bridge/types";
 import type { PreviewSelectionAnnotation } from "../hooks/use-browser-selection";
 import {
   renderPreviewErrorCard,
-  renderPreviewLoadingOverlay,
   type PreviewLoadError,
 } from "../lib/browser-utils";
 import { mapGuestRectToShellLocal } from "../lib/map-guest-rect";
@@ -264,14 +263,6 @@ export function BrowserViewport({
               onBindGuest={onDesktopBindGuest}
               onLoadingChange={onDesktopLoadingChange}
             />
-            {isPreviewLoading ? (
-              <div
-                className="absolute inset-0 bg-background/80 backdrop-blur-[1px]"
-                style={{ zIndex: BROWSER_Z.insetChrome }}
-              >
-                {renderPreviewLoadingOverlay(viewMode)}
-              </div>
-            ) : null}
             {annotationLayer}
             {transportMessage ? (
               <div
@@ -294,6 +285,9 @@ export function BrowserViewport({
               ref={iframeRef}
               src={iframeSrc || undefined}
               onLoad={handleIframeLoad}
+              // Guest Permissions Policy: clipboard + media for local preview UX
+              // (Next.js Copy, getUserMedia). Notifications stay host/desktop-gated.
+              allow="clipboard-read; clipboard-write; camera; microphone"
               style={{
                 colorScheme: guestColorScheme,
                 backgroundColor: guestColorScheme === "dark" ? "#0a0a0a" : "#ffffff",
@@ -301,17 +295,14 @@ export function BrowserViewport({
               className={cn(
                 "block h-full w-full border-0 outline-none transition-all duration-300",
                 guestColorScheme === "dark" ? "bg-neutral-950" : "bg-white",
-                ((requestedIframeUrl && requestedIframeUrl !== iframeSrc) || isPreviewLoading || previewLoadError) &&
+                ((requestedIframeUrl && requestedIframeUrl !== iframeSrc) || previewLoadError) &&
                   "pointer-events-none opacity-0",
                 viewMode === "mobile" && "border-x border-border shadow-sm",
               )}
               title="Browser"
             />
-            {isPreviewLoading ? renderPreviewLoadingOverlay(viewMode) : null}
             {annotationLayer}
           </div>
-        ) : isPreviewLoading ? (
-          renderPreviewLoadingOverlay(viewMode)
         ) : (
           <BrowserHome
             projectId={projectId}

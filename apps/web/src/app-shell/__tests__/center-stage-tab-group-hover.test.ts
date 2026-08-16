@@ -21,4 +21,11 @@ describe("center tab group popover hover", () => {
   it("keeps a gap between grouped tab items so hover fills do not touch", () => {
     expect(tabs).toContain("flex w-full min-w-0 flex-col gap-1");
   });
+
+  it("hands close into the leading icon slot instead of a trailing button", () => {
+    expect(tabs).toContain("renderContent(");
+    expect(tabs).toContain("onClose: () => onClose(tab)");
+    expect(tabs).not.toContain("group-hover/tab-item:opacity-100");
+    expect(tabs).not.toContain("<X className=\"size-3\" />");
+  });
 });

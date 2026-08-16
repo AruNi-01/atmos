@@ -16,7 +16,7 @@ import {
   PanelTopOpen,
   PictureInPicture,
   PictureInPicture2,
-  RotateCcwSquare,
+
   Trash2,
 } from "lucide-react";
 import {
@@ -57,11 +57,9 @@ export interface PreviewBrowserChromeControls {
   needsDesktopPreviewSafeInset: boolean;
   openInWindowTitle?: string;
   returnToEmbeddedTitle?: string;
-  moveToCenterTitle?: string;
   toolbarToggleTitle: string;
   onOpenInWindow?: () => void;
   onReturnToEmbedded?: () => void;
-  onMoveToCenter?: () => void;
   onToggleMaximized?: () => void;
   onToggleToolbarHidden: () => void;
   // --- APP-041 Browser Cookie Sync (desktop + macOS 14+ only) ---
@@ -257,7 +255,6 @@ function PreviewBrowserChromeOverflowMenu({ controls }: PreviewBrowserChromeOver
   const hasSurfaceControls = Boolean(
     controls.onOpenInWindow ||
       controls.onReturnToEmbedded ||
-      controls.onMoveToCenter ||
       controls.onToggleMaximized,
   );
 
@@ -396,12 +393,6 @@ function PreviewBrowserChromeOverflowMenu({ controls }: PreviewBrowserChromeOver
               <DropdownMenuItem onSelect={() => controls.onReturnToEmbedded?.()}>
                 <PictureInPicture className="size-4" />
                 {controls.returnToEmbeddedTitle ?? t("actions.returnToEmbeddedPreview")}
-              </DropdownMenuItem>
-            ) : null}
-            {controls.onMoveToCenter ? (
-              <DropdownMenuItem onSelect={() => controls.onMoveToCenter?.()}>
-                <RotateCcwSquare className="size-4" />
-                {controls.moveToCenterTitle ?? t("browserTabs.moveToCenter")}
               </DropdownMenuItem>
             ) : null}
             {controls.onToggleMaximized ? (

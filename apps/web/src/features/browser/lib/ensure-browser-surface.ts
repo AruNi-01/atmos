@@ -1,5 +1,4 @@
 import { useBrowserSettingsStore } from "@/features/settings/store/browser-settings-store";
-import { useLayoutSettingsStore } from "@/features/settings/store/layout-settings-store";
 import { useBrowserCenterTabsStore } from "@/features/browser/store/use-browser-center-tabs";
 import { useBrowserSessionMapStore } from "@/features/browser/store/use-browser-session-map";
 import { useBrowserTabCommandsStore } from "@/features/browser/store/use-browser-tab-commands";
@@ -14,13 +13,11 @@ export type EnsureSurfaceResult = {
 };
 
 type BrowserHostChrome = {
-  showSidebarBrowser: (() => void) | null;
   showCenterBrowser: ((contextId: string) => void) | null;
   currentContextId: (() => string | null) | null;
 };
 
 let chrome: BrowserHostChrome = {
-  showSidebarBrowser: null,
   showCenterBrowser: null,
   currentContextId: null,
 };
@@ -65,8 +62,7 @@ export async function ensureSurface(input: {
   url?: string;
 }): Promise<EnsureSurfaceResult> {
   await useBrowserSettingsStore.getState().loadSettings();
-  const settings = useBrowserSettingsStore.getState();
-  const placement = input.placement ?? settings.defaultSurface;
+  const placement: BrowserDefaultSurface = "center";
   const requestedUrl = input.url?.trim() || undefined;
   const contextId = input.contextId.trim();
   if (!contextId) {
@@ -77,16 +73,9 @@ export async function ensureSurface(input: {
     };
   }
 
-  let panelId = contextId;
-  if (placement === "sidebar") {
-    await useLayoutSettingsStore.getState().setRightSidebarShowBrowser(true);
-    chrome.showSidebarBrowser?.();
-    panelId = chrome.currentContextId?.() || contextId;
-  } else {
-    const tab = useBrowserCenterTabsStore.getState().reuseOrOpenBrowser(contextId);
-    chrome.showCenterBrowser?.(contextId);
-    panelId = tab.browserContextId;
-  }
+  const tab = useBrowserCenterTabsStore.getState().reuseOrOpenBrowser(contextId);
+  chrome.showCenterBrowser?.(contextId);
+  const panelId = tab.browserContextId;
 
   const bound = await waitFor(() => sessionForPanel(panelId) != null, 8_000);
   let sessionId = sessionForPanel(panelId);

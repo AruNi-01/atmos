@@ -1,8 +1,13 @@
 "use client";
 
-import type { MosaicNode } from "react-mosaic-component";
 import { isPathLikeTitle } from "@atmos/shared/terminal";
-import type { MosaicBranch, TerminalPaneAgent, TerminalPaneProps } from "../types/index";
+import type {
+  TerminalLayoutBranch,
+  TerminalLayoutNode,
+  TerminalPaneAgent,
+  TerminalPaneProps,
+} from "../types/index";
+import { getLeaves } from "@/features/terminal/lib/terminal-layout-tree";
 
 export type TerminalGridScope = "default" | "project-wiki" | "code-review";
 
@@ -156,9 +161,6 @@ export function hasNonIdleTerminalPanes(
   return panes.some((pane) => isTerminalPaneNonIdle(pane, tmuxWindows));
 }
 
-export function flattenMosaicLayout(layout: MosaicNode<string> | null): string[] {
-  if (!layout) return [];
-  if (typeof layout === "string") return [layout];
-  const branch = layout as MosaicBranch<string>;
-  return [...flattenMosaicLayout(branch.first), ...flattenMosaicLayout(branch.second)];
+export function flattenTerminalLayout(layout: TerminalLayoutNode<string> | null): string[] {
+  return getLeaves(layout);
 }

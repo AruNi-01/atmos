@@ -1214,14 +1214,16 @@ export const PromptComposer = React.forwardRef<ComposerHandle, PromptComposerPro
       if (!editor) return;
       editor.focus({ preventScroll: true });
       if (savedCaretOffsetRef.current === null) return;
-      window.requestAnimationFrame(() => {
+      const place = () => {
         const current = editorRef.current;
         if (!current || document.activeElement !== current) return;
         const savedOffset = savedCaretOffsetRef.current;
         if (savedOffset === null) return;
         const boundedOffset = Math.max(0, Math.min(savedOffset, serialize(current).length));
         setCaretAtTextOffset(current, boundedOffset);
-      });
+      };
+      place();
+      window.requestAnimationFrame(place);
     }, []);
 
     const setCaretAtOffsetAndRemember = React.useCallback((offset: number) => {
@@ -1243,7 +1245,12 @@ export const PromptComposer = React.forwardRef<ComposerHandle, PromptComposerPro
       setText: (text: string) => {
         if (!editorRef.current) return;
         inflateInto(editorRef.current, text);
+        const nextOffset = serialize(editorRef.current).length;
+        savedCaretOffsetRef.current = nextOffset;
         fireChange();
+        if (document.activeElement === editorRef.current) {
+          setCaretAtTextOffset(editorRef.current, nextOffset);
+        }
       },
       clear: () => {
         if (!editorRef.current) return;

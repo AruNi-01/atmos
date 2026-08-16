@@ -4,7 +4,10 @@ import type { OpenFile } from "@/features/editor/store/use-editor-store";
 
 export function collectDiffGroupTabs(
   openFiles: OpenFile[],
-  gitHistory?: { visible: boolean; label: string },
+  extras?: {
+    gitHistory?: { visible: boolean; label: string };
+    changes?: { visible: boolean; label: string };
+  },
 ): TabGroupItem[] {
   const diffTabs: TabGroupItem[] = openFiles
     .filter((file) => isDiffGroupEditorPath(file.path))
@@ -20,12 +23,21 @@ export function collectDiffGroupTabs(
         (left.file?.lastOpenedAt ?? 0) - (right.file?.lastOpenedAt ?? 0),
     );
 
-  if (gitHistory?.visible) {
+  if (extras?.gitHistory?.visible) {
     diffTabs.unshift({
       id: "git-history",
-      label: gitHistory.label,
+      label: extras.gitHistory.label,
       value: "git-history",
       kind: "git-history",
+    });
+  }
+
+  if (extras?.changes?.visible) {
+    diffTabs.unshift({
+      id: "changes",
+      label: extras.changes.label,
+      value: "changes",
+      kind: "changes",
     });
   }
 

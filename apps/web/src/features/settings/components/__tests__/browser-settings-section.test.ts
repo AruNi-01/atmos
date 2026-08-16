@@ -11,8 +11,11 @@ describe("APP-059 Browser settings wiring", () => {
       "utf8",
     );
     expect(data).toContain("sections.browser");
-    expect(data).toContain("browser.defaultSurface");
-    expect(data).toContain('items: ["layout", "editor", "canvas", "terminal"] as const');
+    expect(data).toContain("browser.agentChrome");
+    expect(data).not.toContain("browser.defaultSurface");
+    expect(data).toContain(
+      'items: ["appearance", "account", "layout", "editor", "canvas", "terminal"] as const',
+    );
     expect(data).toContain(
       'items: ["integrations", "browser", "desktop-use", "notify"] as const',
     );
@@ -35,19 +38,7 @@ describe("APP-059 Browser settings wiring", () => {
     expect(sections).toContain("case 'browser'");
   });
 
-  it("Layout right sidebar owns the Browser module row", () => {
-    const layout = readFileSync(
-      join(
-        root,
-        "apps/web/src/features/settings/components/RightSidebarLayoutSettingsSection.tsx",
-      ),
-      "utf8",
-    );
-    expect(layout).toContain("browserTitle");
-    expect(layout).toContain("setRightSidebarShowBrowser");
-  });
-
-  it("Browser page no longer owns the sidebar visibility toggle", () => {
+  it("Browser page no longer owns sidebar placement or visibility", () => {
     const section = readFileSync(
       join(root, "apps/web/src/features/settings/components/BrowserSettingsSection.tsx"),
       "utf8",
@@ -55,21 +46,10 @@ describe("APP-059 Browser settings wiring", () => {
     expect(section).not.toContain("groups.sidebar");
     expect(section).not.toContain("newTabUrl");
     expect(section).not.toContain("links.desktopUse");
-    expect(section).toContain("defaultSurface");
+    expect(section).not.toContain("defaultSurface");
     expect(section).toContain("groups.agent");
     expect(section).toContain("BrowserCookiesSettingsCard");
     expect(section).not.toContain("downloads");
     expect(section).not.toContain("~/Downloads");
-  });
-
-  it("Browser page uses sentence-case surface labels", () => {
-    const section = readFileSync(
-      join(root, "apps/web/src/features/settings/components/BrowserSettingsSection.tsx"),
-      "utf8",
-    );
-    expect(section).toContain('t("defaultSurface.sidebar")');
-    expect(section).toContain('t("defaultSurface.center")');
-    expect(section).not.toContain("SIDEBAR");
-    expect(section).not.toContain("CENTER TABS");
   });
 });

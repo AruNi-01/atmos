@@ -1,19 +1,10 @@
 "use client";
 
-// Suppress React 19 ref warnings from react-mosaic-component
-// This must be imported before react-mosaic-component
-import "@/shared/lib/suppress-react19-ref-warning";
-
 import React, { useCallback, useEffect } from "react";
-import {
-  Mosaic,
-  MosaicNode,
-  MosaicPath,
-} from "react-mosaic-component";
 
 import { cn } from "@workspace/ui";
 import type { TerminalRef } from "./Terminal";
-import type { TerminalPaneAgent } from "../types/index";
+import type { TerminalLayoutNode, TerminalPaneAgent } from "../types/index";
 import { isPathLikeTitle } from "./terminal-title";
 import { agentHooksApi, systemApi } from "@/api/rest-api";
 import { useTerminalStore, FIXED_TERMINAL_TAB_VALUE } from "@/features/terminal/store/use-terminal-store";
@@ -25,9 +16,10 @@ import {
 } from "@/features/project/hooks/use-project-bootstrap-query";
 import { buildCanvasTerminalPinKey } from "@/features/canvas/lib/canvas-terminal-shape";
 import {
-  TerminalMosaicWorkspacePaneWindow,
-} from "./terminal-mosaic-workspace-pane-window";
-import { TerminalMosaicScopedPaneWindow } from "./terminal-mosaic-scoped-pane-window";
+  TerminalWorkspacePane,
+} from "./TerminalWorkspacePane";
+import { TerminalScopedPane } from "./TerminalScopedPane";
+import { TerminalSplitView } from "./TerminalSplitView";
 import type { TerminalAgentInputOverlayHandle } from "./TerminalAgentInputOverlay";
 import type { SpawnTerminalRequest } from "../hooks/use-terminal-side-chats";
 import {
@@ -36,7 +28,7 @@ import {
 } from "./TerminalGridContextMenu";
 import {
   DEFAULT_TOOLBAR_ACTIONS,
-  flattenMosaicLayout,
+  flattenTerminalLayout,
   isTerminalPaneNonIdle,
   type TerminalGridHandle,
   type TerminalGridProps,
@@ -56,7 +48,6 @@ import {
   type PendingTerminalRun,
 } from "../hooks/use-terminal-agent-tui-follow-up";
 
-import "react-mosaic-component/react-mosaic-component.css";
 import "./terminal-grid.css";
 
 export type { TerminalGridHandle, TerminalToolbarActions } from "../lib/terminal-grid-utils";
@@ -264,7 +255,7 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
 
   const hasPanes = Object.keys(panes).length > 0;
   const paneOrder = React.useMemo(
-    () => flattenMosaicLayout(layout).filter((paneId) => Boolean(panes[paneId])),
+    () => flattenTerminalLayout(layout).filter((paneId) => Boolean(panes[paneId])),
     [layout, panes],
   );
   const hasMultiplePanes = paneOrder.length > 1;
@@ -565,7 +556,7 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
     ? setProjectWikiPaneAgent
     : setPaneAgent;
 
-  const onChange = useCallback((newLayout: MosaicNode<string> | null) => {
+  const onChange = useCallback((newLayout: TerminalLayoutNode<string> | null) => {
     if (isCodeReview || isProjectWiki) {
       setLayoutForScope(workspaceId, newLayout);
       return;
@@ -792,10 +783,10 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
   );
 
   const handleContextMenu = useCallback((event: React.MouseEvent) => {
-    // Only show context menu when right-clicking inside the terminal mosaic container
+    // Only show context menu when right-clicking inside the terminal grid container
     // but not on toolbar buttons or other interactive elements
     const target = event.target as HTMLElement;
-    if (target.closest("button") || target.closest(".terminal-mosaic-toolbar")) return;
+    if (target.closest("button") || target.closest(".terminal-pane-toolbar")) return;
     event.preventDefault();
     setContextSplitSubmenu(null);
     setContextMenu({ x: event.clientX, y: event.clientY });
@@ -889,15 +880,14 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
     [getFocusedPaneId, isDefaultScope, setPaneTitleFlags, workspaceId, terminalTabId],
   );
 
-  const renderTile = useCallback((id: string, path: MosaicPath) => {
+  const renderPane = useCallback((id: string) => {
     const pane = panes[id];
     if (!pane) return <div className="p-4 text-xs text-muted-foreground">Pane not found: {id}</div>;
 
     if (!isCodeReview && !isProjectWiki) {
       return (
-        <TerminalMosaicWorkspacePaneWindow
+        <TerminalWorkspacePane
           id={id}
-          path={path}
           pane={pane}
           workspaceId={workspaceId}
           terminalTabId={terminalTabId ?? FIXED_TERMINAL_TAB_VALUE}
@@ -921,7 +911,6 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
           onToggleMaximize={onToggleMaximize}
           requestCloseTerminal={requestCloseTerminal}
           setActivePaneId={setActivePaneIdWithAttention}
-          setIsPaneDragging={setIsPaneDragging}
           terminalRefsMap={terminalRefsMap}
           agentInputOverlayRefsMap={agentInputOverlayRefsMap}
           readyPanesRef={readyPanesRef}
@@ -935,9 +924,8 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
     }
 
     return (
-      <TerminalMosaicScopedPaneWindow
+      <TerminalScopedPane
         id={id}
-        path={path}
         pane={pane}
         workspaceId={workspaceId}
         workspaceInfo={workspaceInfo}
@@ -960,7 +948,6 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
         onToggleMaximize={onToggleMaximize}
         requestCloseTerminal={requestCloseTerminal}
         setActivePaneId={setActivePaneIdWithAttention}
-        setIsPaneDragging={setIsPaneDragging}
         terminalRefsMap={terminalRefsMap}
         agentInputOverlayRefsMap={agentInputOverlayRefsMap}
         readyPanesRef={readyPanesRef}
@@ -1013,7 +1000,7 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
   // panes/layout, do NOT swap to LoadingState when ready flags briefly flap — that
   // remounts every Terminal and flashes "Connecting to terminal...".
   if (hasPanes && layout) {
-    // fall through to mosaic render below
+    // fall through to split-view render below
   } else if (isProjectsLoading || !workspaceExists || !workspaceReady) {
     return <TerminalGridLoadingState className={className} />;
   } else {
@@ -1036,17 +1023,19 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
       <div
         ref={terminalHotkeyScopeRef}
         tabIndex={-1}
-        className={cn("terminal-mosaic-container", className)}
+        className={cn("terminal-grid-container", className)}
         data-maximized-id={maximizedId || undefined}
         data-pane-dragging={isPaneDragging ? "true" : undefined}
         onContextMenu={handleContextMenu}
         onFocusCapture={(event) => rememberGridFocus(event.target)}
       >
-        <Mosaic<string>
-          renderTile={renderTile}
-          value={layout}
-          onChange={onChange}
-          className="atmos-mosaic-theme"
+        <TerminalSplitView
+          className="terminal-split-theme"
+          layout={layout}
+          maximizedId={maximizedId}
+          renderPane={renderPane}
+          onLayoutChange={onChange}
+          onResizeDragChange={setIsPaneDragging}
         />
 
         <TerminalGridCloseConfirmDialog

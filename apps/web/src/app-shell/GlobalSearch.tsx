@@ -204,7 +204,7 @@ export function GlobalSearch() {
 
   const currentEffectivePath = currentWorkspace?.localPath || currentProject?.mainFilePath;
 
-  // Shared file-tree query — deduplicates with the sidebar FileTreePanel when
+  // Shared file-tree query — deduplicates with the center Files tab when
   // both are mounted with the same rootPath + showHidden=false.
   const fileTreeQuery = useFileTreeQuery(currentEffectivePath ?? null, false);
   const fileTreeCache = fileTreeQuery.data?.tree ?? [];

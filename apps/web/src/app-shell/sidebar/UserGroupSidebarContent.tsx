@@ -485,7 +485,7 @@ export function UserGroupTwoColumnLeftContent({
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="flex items-center justify-between gap-1 border-b border-sidebar-border px-2 py-1.5">
+      <div className="flex items-center justify-between gap-1 px-2 py-1.5">
         <span className="px-1 text-[11px] font-semibold tracking-[0.03em] text-muted-foreground">
           Groups
         </span>
@@ -543,21 +543,19 @@ export function UserGroupTwoColumnRightContent({
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="border-b border-sidebar-border">
-        <div className={cn("flex min-h-10 items-center gap-1", headerPad)}>
-          <div className="flex min-w-0 flex-1 items-center gap-2">
-            {selectedView ? (
-              <FolderOpen className="size-4 shrink-0 text-muted-foreground" />
-            ) : null}
-            <div className="min-w-0 truncate text-sm font-medium text-sidebar-foreground">
-              {selectedView?.label ?? chromeT("leftSidebarControls.selectGroup")}
-            </div>
+      <div className={cn("flex min-h-10 items-center gap-1", headerPad)}>
+        <div className="flex min-w-0 flex-1 items-center gap-2">
+          {selectedView ? (
+            <FolderOpen className="size-4 shrink-0 text-muted-foreground" />
+          ) : null}
+          <div className="min-w-0 truncate text-sm font-medium text-sidebar-foreground">
+            {selectedView?.label ?? chromeT("leftSidebarControls.selectGroup")}
           </div>
-          <TwoColumnSidebarToggleButton
-            collapsed={isPrimaryCollapsed}
-            onClick={onTogglePrimaryPanel}
-          />
         </div>
+        <TwoColumnSidebarToggleButton
+          collapsed={isPrimaryCollapsed}
+          onClick={onTogglePrimaryPanel}
+        />
       </div>
       <div className="scrollbar-on-hover flex-1 overflow-y-auto px-3 py-2">
         {!selectedView ? (

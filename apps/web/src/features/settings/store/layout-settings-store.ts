@@ -25,17 +25,7 @@ export interface HeaderLayoutPrefs {
   showHeaderAppshot: boolean;
 }
 
-export interface RightSidebarLayoutPrefs {
-  rsShowChanges: boolean;
-  rsShowReview: boolean;
-  rsShowBrowser: boolean;
-  rsShowRun: boolean;
-  /** Single GitHub tab (PRs, Issues, Actions). */
-  rsShowGithub: boolean;
-  rsShowSimulator: boolean;
-}
-
-interface LayoutSettingsState extends FooterLayoutPrefs, HeaderLayoutPrefs, RightSidebarLayoutPrefs {
+interface LayoutSettingsState extends FooterLayoutPrefs, HeaderLayoutPrefs {
   projectFilesSide: ProjectFilesSide;
   workspaceSidebarTwoColumn: boolean;
   workspaceSidebarTwoColumnShowPinned: boolean;
@@ -71,12 +61,6 @@ interface LayoutSettingsState extends FooterLayoutPrefs, HeaderLayoutPrefs, Righ
   setHeaderShowGlobalSearch: (value: boolean) => Promise<void>;
   setHeaderShowRemoteAccess: (value: boolean) => Promise<void>;
   setHeaderShowAppshot: (value: boolean) => Promise<void>;
-  setRightSidebarShowChanges: (value: boolean) => Promise<void>;
-  setRightSidebarShowReview: (value: boolean) => Promise<void>;
-  setRightSidebarShowBrowser: (value: boolean) => Promise<void>;
-  setRightSidebarShowRun: (value: boolean) => Promise<void>;
-  setRightSidebarShowGithub: (value: boolean) => Promise<void>;
-  setRightSidebarShowSimulator: (value: boolean) => Promise<void>;
 }
 
 function readFooterLayout(layout: Record<string, unknown> | undefined): FooterLayoutPrefs {
@@ -108,35 +92,6 @@ function readHeaderLayout(layout: Record<string, unknown> | undefined): HeaderLa
     showHeaderGlobalSearch: layout?.header_show_global_search !== false,
     showHeaderRemoteAccess: layout?.header_show_remote_access !== false,
     showHeaderAppshot: layout?.header_show_appshot !== false,
-  };
-}
-
-function readRightSidebarLayout(layout: Record<string, unknown> | undefined): RightSidebarLayoutPrefs {
-  let rsShowGithub: boolean;
-  if (!layout) {
-    rsShowGithub = true;
-  } else if ('right_sidebar_show_github' in layout) {
-    rsShowGithub = layout.right_sidebar_show_github !== false;
-  } else {
-    // Migrate pre-consolidation github sub-tabs (PR / Issues / Actions).
-    // Show GitHub if any legacy tab was explicitly on; hide only when every
-    // present legacy flag is false.
-    const legacy = [
-      layout.right_sidebar_show_pr,
-      layout.right_sidebar_show_actions,
-      layout.right_sidebar_show_issues,
-    ];
-    const present = legacy.filter((v): v is boolean => typeof v === 'boolean');
-    rsShowGithub = present.length === 0 ? true : present.some((v) => v === true);
-  }
-
-  return {
-    rsShowChanges: layout?.right_sidebar_show_changes !== false,
-    rsShowReview: layout?.right_sidebar_show_review !== false,
-    rsShowBrowser: layout?.right_sidebar_show_browser !== false,
-    rsShowRun: layout?.right_sidebar_show_run !== false,
-    rsShowGithub,
-    rsShowSimulator: layout?.right_sidebar_show_simulator === true,
   };
 }
 
@@ -178,12 +133,6 @@ export const useLayoutSettingsStore = create<LayoutSettingsState>((set, get) => 
     showHeaderGlobalSearch: true,
     showHeaderRemoteAccess: true,
     showHeaderAppshot: true,
-    rsShowChanges: true,
-    rsShowReview: true,
-    rsShowBrowser: true,
-    rsShowRun: true,
-    rsShowGithub: true,
-    rsShowSimulator: false,
     loaded: false,
 
     loadSettings: async (force = false) => {
@@ -197,7 +146,6 @@ export const useLayoutSettingsStore = create<LayoutSettingsState>((set, get) => 
         const side = layout?.project_files_side;
         const footer = readFooterLayout(layout);
         const header = readHeaderLayout(layout);
-        const rightSidebar = readRightSidebarLayout(layout);
         set({
           projectFilesSide: side === 'left' ? 'left' : 'right',
           workspaceSidebarTwoColumn: layout?.workspace_sidebar_two_column === true,
@@ -211,7 +159,6 @@ export const useLayoutSettingsStore = create<LayoutSettingsState>((set, get) => 
           workspaceSidebarAgentTwoColumn: layout?.workspace_sidebar_agent_two_column === true,
           ...footer,
           ...header,
-          ...rightSidebar,
           loaded: true,
         });
       } catch {
@@ -319,23 +266,5 @@ export const useLayoutSettingsStore = create<LayoutSettingsState>((set, get) => 
 
     setHeaderShowAppshot: (value) =>
       updateLayoutSetting({ showHeaderAppshot: value }, 'header_show_appshot', value),
-
-    setRightSidebarShowChanges: (value) =>
-      updateLayoutSetting({ rsShowChanges: value }, 'right_sidebar_show_changes', value),
-
-    setRightSidebarShowReview: (value) =>
-      updateLayoutSetting({ rsShowReview: value }, 'right_sidebar_show_review', value),
-
-    setRightSidebarShowBrowser: (value) =>
-      updateLayoutSetting({ rsShowBrowser: value }, 'right_sidebar_show_browser', value),
-
-    setRightSidebarShowRun: (value) =>
-      updateLayoutSetting({ rsShowRun: value }, 'right_sidebar_show_run', value),
-
-    setRightSidebarShowGithub: (value) =>
-      updateLayoutSetting({ rsShowGithub: value }, 'right_sidebar_show_github', value),
-
-    setRightSidebarShowSimulator: (value) =>
-      updateLayoutSetting({ rsShowSimulator: value }, 'right_sidebar_show_simulator', value),
   };
 });

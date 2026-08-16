@@ -94,11 +94,11 @@ export const PRPanel = React.forwardRef<PRPanelHandle, PRPanelProps>(function PR
           ) : prList.length === 0 ? (
             <div className="flex min-h-40 items-center justify-center px-6 text-center text-xs text-muted-foreground">
               {stateFilter === 'OPEN'
-                ? t.rich("rightSidebar.pr.noOpenFound", {
+                ? t.rich("github.pr.noOpenFound", {
                     branch,
                     highlight: (chunks) => <>{chunks}</>,
                   })
-                : t.rich("rightSidebar.pr.noClosedFound", {
+                : t.rich("github.pr.noClosedFound", {
                     branch,
                     highlight: (chunks) => <>{chunks}</>,
                   })}
@@ -114,10 +114,10 @@ export const PRPanel = React.forwardRef<PRPanelHandle, PRPanelProps>(function PR
 
                 // Detection logic for tooltip
                 const detectionMethod = isFrom && isTo
-                  ? t("rightSidebar.pr.selfMerging")
+                  ? t("github.pr.selfMerging")
                   : isFrom
-                    ? t("rightSidebar.pr.outgoingPr", { branch })
-                    : t("rightSidebar.pr.incomingPr", { branch });
+                    ? t("github.pr.outgoingPr", { branch })
+                    : t("github.pr.incomingPr", { branch });
 
                 return (
                   <div
@@ -137,10 +137,10 @@ export const PRPanel = React.forwardRef<PRPanelHandle, PRPanelProps>(function PR
                             'bg-red-500/10 text-red-500 border border-red-500/20'
                       )}>
                         {prState === 'OPEN'
-                          ? t("rightSidebar.pr.stateOpen")
+                          ? t("github.pr.stateOpen")
                           : prState === 'MERGED'
-                          ? t("rightSidebar.pr.stateMerged")
-                          : t("rightSidebar.pr.stateClosed")}
+                          ? t("github.pr.stateMerged")
+                          : t("github.pr.stateClosed")}
                       </span>
                     </div>
 
@@ -152,7 +152,7 @@ export const PRPanel = React.forwardRef<PRPanelHandle, PRPanelProps>(function PR
                           avatarUrl={pr.author?.avatar_url || pr.author?.avatarUrl}
                           className="size-4.5 shrink-0 border border-border/40 shadow-sm"
                           fallbackClassName="text-[6px]"
-                          label={pr.author?.login || t("rightSidebar.pr.unknownAuthor")}
+                          label={pr.author?.login || t("github.pr.unknownAuthor")}
                           labelClassName="text-[11px] font-bold text-foreground/70 truncate max-w-[80px]"
                         />
                       </div>
@@ -174,7 +174,7 @@ export const PRPanel = React.forwardRef<PRPanelHandle, PRPanelProps>(function PR
                           <div className="font-bold flex items-center gap-2">
                             <GitBranch className="size-3.5" />
                             <span className="truncate">{pr.headRefName}</span>
-                            <span className="px-1 text-[9px] bg-background/10 rounded font-black opacity-60">{t("rightSidebar.pr.to")}</span>
+                            <span className="px-1 text-[9px] bg-background/10 rounded font-black opacity-60">{t("github.pr.to")}</span>
                             <span className="truncate">{pr.baseRefName}</span>
                           </div>
                           <div className="opacity-95 border-t border-background/10 pt-1.5 leading-relaxed">
@@ -223,8 +223,8 @@ export const PRPanel = React.forwardRef<PRPanelHandle, PRPanelProps>(function PR
                 page={page}
                 hasMore={hasMore}
                 onPageChange={setPage}
-                previousLabel={t("rightSidebar.pr.previousPage")}
-                nextLabel={t("rightSidebar.pr.nextPage")}
+                previousLabel={t("github.pr.previousPage")}
+                nextLabel={t("github.pr.nextPage")}
               />
             </div>
           )}

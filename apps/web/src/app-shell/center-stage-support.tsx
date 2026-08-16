@@ -22,6 +22,8 @@ import {
   readCenterStageLastTab,
   setCenterStageLastTab,
 } from "@/shared/stores/use-ui-pref-hooks";
+import { CENTER_STAGE_GUTTER_CLASS } from "@/app-shell/sidebar-layout-constants";
+import { cn } from "@/shared/lib/utils";
 
 type TerminalGridRef = React.RefObject<TerminalGridHandle | null>;
 type TerminalGridRefs = React.RefObject<Record<string, TerminalGridHandle | null>>;
@@ -120,9 +122,17 @@ export function CenterStageNoContextView({
     );
   }
 
+  // Match workspace center-stage chrome: inset gutters + rounded floating card.
   return (
-    <main className="h-full overflow-hidden">
-      <HostedWelcomeGate onAddProject={onAddProject} onConnectAgent={onConnectAgent} />
+    <main
+      className={cn(
+        "h-full min-h-0 overflow-hidden bg-sidebar",
+        CENTER_STAGE_GUTTER_CLASS,
+      )}
+    >
+      <div className="h-full overflow-hidden rounded-xl bg-background ring-1 ring-border/40">
+        <HostedWelcomeGate onAddProject={onAddProject} onConnectAgent={onConnectAgent} />
+      </div>
     </main>
   );
 }

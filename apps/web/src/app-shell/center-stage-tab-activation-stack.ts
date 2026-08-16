@@ -97,6 +97,11 @@ export function buildOpenCenterTabValues(input: {
   codeReviewVisible: boolean;
   simulatorVisible?: boolean;
   gitHistoryVisible?: boolean;
+  changesVisible?: boolean;
+  reviewVisible?: boolean;
+  runVisible?: boolean;
+  githubHubVisible?: boolean;
+  filesVisible?: boolean;
   wikiEnabled: boolean;
   /** Always-available fixed surfaces (defaults to overview). */
   fixedAlwaysOpen?: readonly string[];
@@ -108,6 +113,11 @@ export function buildOpenCenterTabValues(input: {
   if (input.codeReviewVisible) open.add("code-review");
   if (input.simulatorVisible) open.add("simulator");
   if (input.gitHistoryVisible) open.add("git-history");
+  if (input.changesVisible) open.add("changes");
+  if (input.reviewVisible) open.add("review");
+  if (input.runVisible) open.add("run");
+  if (input.githubHubVisible) open.add("github");
+  if (input.filesVisible) open.add("files");
   for (const id of input.terminalTabIds) open.add(id);
   for (const value of input.githubTabValues) open.add(value);
   for (const value of input.browserTabValues) open.add(value);

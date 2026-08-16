@@ -202,7 +202,7 @@ html:not([data-theme-ready="true"]) body {
  * terminal grid (relative flex ↔ absolute was a 1-col thrash → SIGWINCH →
  * Grok full redraw flash). Only opacity / z-index / pointer-events flip.
  *
- * Parent opacity:0 already hides maximized mosaic children that force
+ * Parent opacity:0 already hides maximized terminal pane children that force
  * visibility:visible — no need for a visibility override that re-opens leaks.
  */
 .atmos-terminal-panel-keepalive {
@@ -214,10 +214,13 @@ html:not([data-theme-ready="true"]) body {
   min-height: 0;
   min-width: 0;
   overflow: hidden;
+  /* Match center-stage rounded-xl so WebGL canvas cannot square off bottom corners. */
+  border-bottom-left-radius: 12px;
+  border-bottom-right-radius: 12px;
 }
 
-.atmos-terminal-panel-keepalive .mosaic-window.is-maximized,
-.atmos-terminal-panel-keepalive .terminal-mosaic-container[data-maximized-id] .mosaic-window.is-maximized {
+.atmos-terminal-panel-keepalive .terminal-pane.is-maximized,
+.atmos-terminal-panel-keepalive .terminal-grid-container[data-maximized-id] .terminal-pane.is-maximized {
   position: absolute !important;
   inset: 0 !important;
   top: 0 !important;
@@ -239,6 +242,9 @@ html:not([data-theme-ready="true"]) body {
   min-height: 0;
   min-width: 0;
   overflow: hidden;
+  /* Match center-stage rounded-xl so WebGL canvas cannot square off bottom corners. */
+  border-bottom-left-radius: 12px;
+  border-bottom-right-radius: 12px;
 }
 
   html,

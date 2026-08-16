@@ -1,7 +1,8 @@
 "use client";
 
 import { v4 as uuidv4 } from "uuid";
-import { getLeaves, type MosaicNode } from "react-mosaic-component";
+import type { TerminalLayoutNode } from "@/features/terminal/types/index";
+import { getLeaves } from "@/features/terminal/lib/terminal-layout-tree";
 import { systemApi } from "@/api/rest-api";
 import type { TerminalPaneProps } from "@/features/terminal/types/index";
 import {
@@ -105,7 +106,7 @@ export function createTerminalAuxiliaryActions(
         agent,
       });
       const nextPanes = { ...panes, [newId]: newPane };
-      let nextLayout: MosaicNode<string>;
+      let nextLayout: TerminalLayoutNode<string>;
       if (!layout) {
         nextLayout = newId;
       } else {
@@ -303,7 +304,7 @@ export function createTerminalAuxiliaryActions(
         agent,
       });
       const nextPanes = { ...panes, [newId]: newPane };
-      let nextLayout: MosaicNode<string>;
+      let nextLayout: TerminalLayoutNode<string>;
       if (!layout) {
         nextLayout = newId;
       } else {

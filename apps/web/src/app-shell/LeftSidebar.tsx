@@ -6,8 +6,8 @@ import { useAppRouter } from '@/shared/hooks/use-app-router';
 import { useQueryState } from 'nuqs';
 import { useContextParams } from '@/shared/hooks/use-context-params';
 import { useSidebarLayout } from '@/app-shell/SidebarLayoutContext';
-import { centerStageParams, leftSidebarParams, type LeftSidebarTab } from '@/shared/lib/nuqs/searchParams';
-import { cn, Tabs, TabsPanel } from "@workspace/ui";
+import { centerStageParams } from '@/shared/lib/nuqs/searchParams';
+import { cn } from "@workspace/ui";
 import { useAppStorage } from "@atmos/shared";
 import type { Project } from '@/shared/types/domain';
 import { useProjectStore } from '@/features/project/store/use-project-store';
@@ -46,7 +46,6 @@ import { useTranslations } from 'next-intl';
 import { CreateProjectDialog } from '@/features/project/components/CreateProjectDialog';
 import { WorkspaceScriptDialog } from '@/features/workspace/components/WorkspaceScriptDialog';
 import { DeleteProjectDialog } from '@/features/project/components/DeleteProjectDialog';
-import { FileTreePanel } from '@/features/files/components/FileTreePanel';
 import { functionSettingsApi } from '@/api/ws-api';
 import { useComputerQueryScope } from '@/api/query/query-scope';
 import { isComputerQueryScopeCurrent } from '@/api/ws/request';
@@ -88,12 +87,10 @@ import {
     GroupedWorkspaceTwoColumnRightContent,
     LeftSidebarFooter,
     LeftSidebarSortableProjectList,
-    LeftSidebarTabsHeader,
     ProjectWorkspaceTwoColumnRightContent,
     TwoColumnSidebarContent,
 } from '@/app-shell/left-sidebar-controls';
 import { useLeftSidebarFileTreeSync } from '@/app-shell/use-left-sidebar-file-tree-sync';
-import { useEditorStore } from '@/features/editor/store/use-editor-store';
 import { useLeftSidebarTwoColumnResize } from '@/app-shell/use-left-sidebar-two-column-resize';
 import { useLeftSidebarWorkspaceDerived } from '@/app-shell/use-left-sidebar-workspace-derived';
 import { useLeftSidebarWorkspaceRenderers } from '@/app-shell/use-left-sidebar-workspace-renderers';
@@ -213,7 +210,6 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
 
     const { setCurrentContext } = useGitInfoStore();
     const { isLeftCollapsed, leftSidebarSize, resizeLeftSidebar } = useSidebarLayout();
-    const filesOnRight = useLayoutSettingsStore((s) => s.projectFilesSide === 'right');
     const workspaceSidebarTwoColumn = useLayoutSettingsStore((s) => s.workspaceSidebarTwoColumn);
     const workspaceSidebarTwoColumnShowPinned = useLayoutSettingsStore((s) => s.workspaceSidebarTwoColumnShowPinned);
     const workspaceSidebarSecondColumnKanban = useLayoutSettingsStore((s) => s.workspaceSidebarSecondColumnKanban);
@@ -223,22 +219,9 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
     const workspaceSidebarLabelTwoColumn = useLayoutSettingsStore((s) => s.workspaceSidebarLabelTwoColumn);
     const workspaceSidebarGroupTwoColumn = useLayoutSettingsStore((s) => s.workspaceSidebarGroupTwoColumn);
     const workspaceSidebarAgentTwoColumn = useLayoutSettingsStore((s) => s.workspaceSidebarAgentTwoColumn);
-    const layoutLoaded = useLayoutSettingsStore((s) => s.loaded);
     const loadLayoutSettings = useLayoutSettingsStore((s) => s.loadSettings);
     useEffect(() => { loadLayoutSettings(); }, [loadLayoutSettings]);
 
-    const [activeTab, setActiveTab] = useQueryState("lsTab", leftSidebarParams.lsTab);
-    const fileTreeRevealTarget = useEditorStore((s) => s.fileTreeRevealTarget);
-    // Attention list lives on the Projects tab; force that tab when the filter turns on
-    // so the bell does not appear ineffective while Files is selected.
-    // A pending file-tree reveal must win until cleared — otherwise this effect
-    // and useLeftSidebarFileTreeSync fight (Projects ↔ Files oscillation).
-    useEffect(() => {
-        if (!attentionFilterMode || filesOnRight) return;
-        if (fileTreeRevealTarget) return;
-        if (activeTab === 'projects') return;
-        void setActiveTab('projects');
-    }, [attentionFilterMode, filesOnRight, activeTab, setActiveTab, fileTreeRevealTarget]);
     const [newWorkspace, setNewWorkspace] = useQueryState("newWorkspace", centerStageParams.newWorkspace);
     const [canvasOpen, setCanvasOpen] = useQueryState("canvas", centerStageParams.canvas);
     const [expandedProjects, setExpandedProjects] = useState<string[]>([]);
@@ -633,19 +616,12 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
     }, [currentView, currentWorkspaceId, isLoading, markWorkspaceVisited, projects]);
 
     useLeftSidebarFileTreeSync({
-        activeTab,
         currentEffectivePath,
         currentProjectId,
         currentWorkspaceId,
         effectiveContextId,
-        filesOnRight,
         isSettingUp,
-        setActiveTab,
     });
-
-    const handleTabChange = (value: string) => {
-        setActiveTab(value as LeftSidebarTab);
-    };
 
     const toggleProject = (id: string) => {
         setExpandedProjects(prev =>
@@ -1483,7 +1459,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
 
     return (
         <>
-            <aside className="@container w-full flex flex-col h-full select-none">
+            <aside className="@container flex h-full w-full flex-col select-none bg-sidebar text-sidebar-foreground">
                 {/* Launchpad — wait for first load attempt to avoid default-config flash */}
                 {launchpadSettled ? (
                     <>
@@ -1503,7 +1479,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
 
                 <div className="flex-1 flex flex-col min-h-0">
                     {attentionFilterMode ? (
-                        <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border/60 px-3 py-2">
+                        <div className="flex shrink-0 items-center justify-between gap-2 px-3 py-2">
                             <div className="flex min-w-0 items-center gap-1.5">
                                 <Bell className="size-3.5 shrink-0 text-muted-foreground" />
                                 <p className="truncate text-[12px] font-medium text-foreground">
@@ -1520,44 +1496,20 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
                         </div>
                     ) : null}
 
-                    <Tabs
-                        value={filesOnRight ? 'projects' : activeTab}
-                        className="flex flex-col h-full overflow-hidden"
-                        onValueChange={handleTabChange}
-                    >
-                        <LeftSidebarTabsHeader
-                            filesOnRight={filesOnRight}
-                            layoutLoaded={layoutLoaded}
-                            onTabChange={handleTabChange}
-                        />
-
-                        <TabsPanel
-                            value="projects"
-                            className={cn(
-                                "flex-1 overflow-hidden",
-                                isTwoColumnSidebar ? "pt-0 pb-0" : "pt-1.5 pb-3",
-                            )}
-                        >
-                            <div className="flex h-full min-h-0 flex-col">
-                                {!isTwoColumnSidebar ? pinnedWorkspaceSection : null}
-                                <div className="flex-1 min-h-0 overflow-hidden">
-                                    {projectTabContent}
-                                </div>
-                            </div>
-                        </TabsPanel>
-
-                        {!filesOnRight && layoutLoaded && (
-                        <TabsPanel value="files" className="flex-1 overflow-hidden flex flex-col">
-                            <FileTreePanel projectName={currentProject?.name} />
-                        </TabsPanel>
+                    <div
+                        className={cn(
+                            "flex min-h-0 flex-1 flex-col overflow-hidden",
+                            isTwoColumnSidebar ? "pt-0 pb-0" : "pt-1.5 pb-3",
                         )}
-
-                    </Tabs>
+                    >
+                        {!isTwoColumnSidebar ? pinnedWorkspaceSection : null}
+                        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+                            {projectTabContent}
+                        </div>
+                    </div>
                 </div>
                 <LeftSidebarFooter
-                    activeTab={activeTab}
                     availableLabels={workspaceLabels}
-                    filesOnRight={filesOnRight}
                     filters={sidebarWorkspaceFilters}
                     groupingMode={groupingMode}
                     groups={groups}

@@ -489,7 +489,7 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
             )}
           >
             {/*
-              Match terminal mosaic toolbar action-rail motion:
+              Match terminal pane toolbar action-rail motion:
               fixed open width (not max-width) + cubic-bezier expand + short opacity fade.
               Stay open while the ··· menu is open so the rail doesn't collapse under a portaled menu.
             */}
