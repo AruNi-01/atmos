@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 
+import { mainLog } from "../main-log.js";
 import {
   rewriteTerminalStreamUrlToLocalApi,
   rewriteTerminalStreamUrlToUnixSocket,
@@ -164,6 +165,7 @@ export function createTerminalStreamHub(options: {
 
       let sidecar: TerminalSidecar = "ws";
       let ws: SidecarWebSocket;
+      const startedAt = Date.now();
       if (unixUrl) {
         const unixWs = connect(unixUrl);
         unixWs.binaryType = "arraybuffer";
@@ -172,6 +174,11 @@ export function createTerminalStreamHub(options: {
           sidecar = "uds";
           ws = unixWs;
         } catch {
+          const unixMs = Date.now() - startedAt;
+          mainLog(
+            `[terminal-stream] unix sidecar failed after ${unixMs}ms; falling back to loopback ws`,
+            "warn",
+          );
           const tcpWs = connect(tcpUrl);
           tcpWs.binaryType = "arraybuffer";
           await waitUntilOpen(tcpWs, CONNECT_TIMEOUT_MS);
@@ -183,6 +190,9 @@ export function createTerminalStreamHub(options: {
         ws.binaryType = "arraybuffer";
         await waitUntilOpen(ws, CONNECT_TIMEOUT_MS);
       }
+      mainLog(
+        `[terminal-stream] sidecar=${sidecar} elapsed_ms=${Date.now() - startedAt} unix=${unixPath ?? "none"}`,
+      );
 
       const streamId = randomUUID();
       const stream: LiveStream = {
