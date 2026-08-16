@@ -297,7 +297,7 @@ Load the installed `agent-browser` skill (or `agent-browser skills get core --fu
 
 ## Coverage Status
 
-Filled 2026-08-15 after implementation.
+Filled 2026-08-15 after implementation. Re-run 2026-08-16 after UDS sidecar, binary PTY input, and N2 idle tear.
 
 ### Commands
 
@@ -305,11 +305,13 @@ Filled 2026-08-15 after implementation.
 |---------|--------|
 | `cargo clippy -p core-engine -p core-service -p api -p runtime-manager --tests -- -D warnings` | pass |
 | `cargo test -p core-engine --lib` | pass (165) |
-| `cargo test -p core-service --lib` | pass (316) |
+| `cargo test -p core-service --lib` | pass (318) |
 | `cargo test -p core-service --test app062_terminal_live_path` | pass |
-| `cargo test -p runtime-manager --lib` | pass (20) |
-| `cargo test -p api` | pass (50) |
-| `bun test apps/web/src/app-shell/__tests__/workspace-surface-policies.test.ts` | pass (20) |
+| `cargo test -p runtime-manager --lib` | pass (22) |
+| `cargo test -p api` | pass (52) |
+| `bun test packages/shared/src/terminal` | pass (28) |
+| `bun test apps/desktop-electron/src/terminal` | pass (9) |
+| `bun test` web bind/dispatch/IPC + `workspace-surface-policies.test.ts` | pass (27) |
 
 ### Scenarios
 
@@ -336,6 +338,9 @@ Filled 2026-08-15 after implementation.
 | S19 | not_run | no Playwright fixture for a tmux-backed workspace terminal in this environment |
 | S20 | not_run | agent-browser exploratory needs `just dev-api` + `just dev-web` and a real TUI; not run in this cloud agent |
 | S21 | covered | `crates/core-service/tests/app062_terminal_live_path.rs` greps create/attach/runtime/management/io + API WS/relay |
+| S22 | covered | `io::tests::idle_tear_detaches_pipe_after_timeout` (40ms timeout; pipe gone, window not killed) |
+| S23 | covered | `io::tests::resubscribe_cancels_idle_tear` (pipe stays; attach_count stays 1) |
+| N1 | covered | `stream-hub.test.ts` UDS prefer + TCP fallback; `unix_bind::tests::binds_overridable_socket_path`; WS/IPC `bytes.send` is ArrayBuffer |
 
 ### Remaining gaps
 

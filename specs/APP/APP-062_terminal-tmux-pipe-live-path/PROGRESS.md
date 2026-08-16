@@ -26,10 +26,17 @@
 - [x] ADR-004 note + `~/.atmos/state/tmux-pipes/` layout
 - [x] N2 idle tear (15m)
 - [x] Desktop main↔API UDS + binary PTY input + Control vs bytes split
-- [ ] Regression gate (`cargo test` / clippy on touched crates)
-- [ ] TEST.md Coverage Status (`atmos-specs-test-run`)
+- [x] Regression gate (`cargo test` / clippy on touched crates)
+- [x] TEST.md Coverage Status (`atmos-specs-test-run`)
 
 ## Progress Log
+
+### 2026-08-16
+
+- N2 idle tear (15m, window stays).
+- API same-router UDS at `~/.atmos/state/api.sock`; desktop main prefers it, TCP WS fallback.
+- PTY input is raw binary; JSON control multiplexed on the same carrier.
+- Regression gate re-run; unix bind test asserts `FileType::is_socket()` (not `is_file()`).
 
 ### 2026-08-15
 
@@ -47,16 +54,14 @@
 | D3 | N2 idle tear is 15m; unsubscribe does not detach immediately | Matches PRD M4 + N2 | TECH.md lifecycle |
 | D4 | ControlPort is JSON multiplexed on the same stream, not REST/invoke | Attach still opens the byte stream | ADR-006 |
 | D5 | Desktop main↔API prefers `api.sock` UDS; TCP WS fallback | Same Axum router; no third protocol | known-debt Phase 3 |
-| D4 | ControlPort is JSON multiplexed on the same stream, not REST/invoke | Attach still opens the byte stream | ADR-006 |
-| D5 | Desktop main↔API prefers `api.sock` UDS; TCP WS fallback | Same Axum router; no third protocol | known-debt Phase 3 |
 
 ## Verification Status
 
 | Area | Command / Method | Last result | Notes |
 |------|------------------|-------------|-------|
-| Rust tests | `cargo test -p core-engine --lib`; `cargo test -p core-service --lib`; `cargo test -p core-service --test app062_terminal_live_path`; `cargo test -p api`; `cargo test -p runtime-manager --lib` | pass | 2026-08-15 |
+| Rust tests | `cargo test -p core-engine --lib`; `cargo test -p core-service --lib`; `cargo test -p core-service --test app062_terminal_live_path`; `cargo test -p api`; `cargo test -p runtime-manager --lib` | pass | 2026-08-16: 165 / 318 / 1 / 52 / 22 |
 | Clippy | `cargo clippy -p core-engine -p core-service -p api -p runtime-manager --tests -- -D warnings` | pass | |
-| Web tests | `bun test apps/web/src/app-shell/__tests__/workspace-surface-policies.test.ts` | pass | APP-043 keep-alive |
+| Bun tests | shared `src/terminal`, desktop-electron `src/terminal`, web bind/dispatch/IPC + APP-043 policies | pass | 28 + 9 + 27 |
 | E2E / agent-browser | S19 / S20 | not_run | no local TUI dogfood in this run |
 
 ## Known Blockers
@@ -79,4 +84,8 @@ Ship APP-062 M1–M11: tmux still owns the pane; live I/O is one `pipe-pane`.
 
 - `crates/core-engine/src/tmux/pipe.rs`
 - `crates/core-service/src/service/terminal/io.rs`
-- `apps/api/src/main.rs` (`try_run_internal_from_env`)
+- `crates/runtime-manager/src/layout.rs` (`api_unix_socket_path`)
+- `apps/api/src/main.rs` (`try_run_internal_from_env`, Unix listener)
+- `apps/api/src/unix_bind.rs`
+- `apps/desktop-electron/src/terminal/stream-hub.ts`
+- `packages/shared/src/terminal/byte-stream-port.ts`
