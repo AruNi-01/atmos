@@ -39,12 +39,13 @@ pub use identity::{
     RELAY_IDENTITY_FILE_NAME,
 };
 pub use layout::{
-    agent_config_dir, atmos_home_dir, automations_data_dir, browser_use_bindings_dir,
-    browser_use_data_dir, browser_use_state_dir, config_dir, credentials_dir, data_dir,
-    db_data_dir, desktop_data_dir, desktop_use_data_dir, ensure_layout_dirs,
-    function_settings_path, llm_config_dir, llm_providers_path, local_model_runtime_data_dir,
-    quota_usage_data_dir, review_data_dir, serve_sim_runtime_dir, simulator_state_dir, state_dir,
-    terminal_code_agent_path, tmux_pipes_dir, token_usage_data_dir, workspaces_data_dir,
+    agent_config_dir, api_unix_socket_path, atmos_home_dir, automations_data_dir,
+    browser_use_bindings_dir, browser_use_data_dir, browser_use_state_dir, config_dir,
+    credentials_dir, data_dir, db_data_dir, desktop_data_dir, desktop_use_data_dir,
+    ensure_layout_dirs, function_settings_path, llm_config_dir, llm_providers_path,
+    local_model_runtime_data_dir, quota_usage_data_dir, review_data_dir, serve_sim_runtime_dir,
+    simulator_state_dir, state_dir, terminal_code_agent_path, tmux_pipes_dir, token_usage_data_dir,
+    workspaces_data_dir,
 };
 pub use linear_local_keys::{
     clear_linear_local_keys, linear_local_keys_path, read_linear_local_keys,

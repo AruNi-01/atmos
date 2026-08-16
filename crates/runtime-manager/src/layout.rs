@@ -84,6 +84,26 @@ pub fn tmux_pipes_dir() -> Result<PathBuf, String> {
     Ok(state_dir()?.join("tmux-pipes"))
 }
 
+/// Loopback HTTP/WS Unix domain socket (`~/.atmos/state/api.sock`).
+///
+/// Same Axum router as TCP, including `/ws/terminal/:id`. Not the APP-062
+/// `tmux-pipes/` helper sockets. Override with `ATMOS_API_UNIX_SOCKET`; set that
+/// env to empty / `off` / `0` to skip binding.
+pub fn api_unix_socket_path() -> Result<Option<PathBuf>, String> {
+    if let Ok(dir) = std::env::var("ATMOS_API_UNIX_SOCKET") {
+        let trimmed = dir.trim();
+        if trimmed.is_empty()
+            || trimmed == "0"
+            || trimmed.eq_ignore_ascii_case("off")
+            || trimmed.eq_ignore_ascii_case("none")
+        {
+            return Ok(None);
+        }
+        return Ok(Some(PathBuf::from(trimmed)));
+    }
+    Ok(Some(state_dir()?.join("api.sock")))
+}
+
 // --- config ---
 
 pub fn function_settings_path() -> Result<PathBuf, String> {
