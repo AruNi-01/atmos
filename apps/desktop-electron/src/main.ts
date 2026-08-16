@@ -124,6 +124,17 @@ async function boot() {
 
   // Arm Appshots Left+Right Shift global gesture (macOS). Always attempt on boot.
   if (process.platform === "darwin") {
+    try {
+      const { ensureDesktopUseHostBranding } = await import(
+        "./desktop-use/host-branding.js"
+      );
+      await ensureDesktopUseHostBranding();
+    } catch (e) {
+      mainLog(
+        `[boot] desktop-use host branding failed: ${e instanceof Error ? e.message : String(e)}`,
+        "warn",
+      );
+    }
     // Do NOT warm the capture overlay BrowserWindow at boot — creating that
     // always-on-top surface (historically type:"panel") leaves a zero-width
     // Dock tile so Atmos appears icon-less next to 豆包 / Downloads.
@@ -255,6 +266,14 @@ if (!gotLock) {
           } catch {
             /* ignore */
           }
+        }
+        try {
+          const { stopDesktopUseOnAppQuit } = await import(
+            "./desktop-use/lifecycle.js"
+          );
+          await stopDesktopUseOnAppQuit();
+        } catch (err) {
+          console.warn("[desktop-electron] desktop-use stop on quit failed:", err);
         }
         await stopAllTunnelsBeforeExit();
         // Production ownership: stop Server only when this process started it.
