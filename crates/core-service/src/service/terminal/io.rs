@@ -3,6 +3,7 @@
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU16, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 
 use core_engine::{MouseModeState, TmuxEngine};
 use infra::utils::debug_logging::DebugLogger;
@@ -17,6 +18,9 @@ use super::is_usable_browser_size;
 use super::run_log_tee::RunLogTee;
 
 const OBSERVER_WATERMARK: usize = 256;
+
+/// N2: tear `pipe-pane` after this long with zero observers. The tmux window stays.
+pub const PANE_IDLE_TEAR_DEFAULT: Duration = Duration::from_secs(15 * 60);
 
 fn dbg() -> DebugLogger {
     DebugLogger::new("terminal-pipe")
@@ -150,16 +154,24 @@ struct PaneIoInner {
     attach_invocations: AtomicUsize,
     /// Serializes first-open so two WS clients cannot each `pipe-pane`.
     opening: tokio::sync::Mutex<()>,
+    idle_timeout: Duration,
+    idle_cancels: Mutex<HashMap<PaneIoKey, watch::Sender<bool>>>,
 }
 
 impl PaneIoRegistry {
     pub fn new(driver: Arc<dyn PanePipeDriver>) -> Self {
+        Self::new_with_idle_timeout(driver, PANE_IDLE_TEAR_DEFAULT)
+    }
+
+    pub fn new_with_idle_timeout(driver: Arc<dyn PanePipeDriver>, idle_timeout: Duration) -> Self {
         Self {
             inner: Arc::new(PaneIoInner {
                 panes: Mutex::new(HashMap::new()),
                 driver,
                 attach_invocations: AtomicUsize::new(0),
                 opening: tokio::sync::Mutex::new(()),
+                idle_timeout,
+                idle_cancels: Mutex::new(HashMap::new()),
             }),
         }
     }
@@ -201,6 +213,7 @@ impl PaneIoRegistry {
         run_log: Option<(Arc<RunLogTee>, std::path::PathBuf, String)>,
     ) -> Result<mpsc::Receiver<Vec<u8>>> {
         let _open = self.inner.opening.lock().await;
+        self.cancel_idle_tear(&key);
         if let Some(live) = self.get_live(&key) {
             self.resize(&key, cols, rows)?;
             return Ok(self.subscribe(&live, session_id));
@@ -286,16 +299,21 @@ impl PaneIoRegistry {
     }
 
     pub fn unsubscribe(&self, key: &PaneIoKey, session_id: &str) {
-        if let Some(live) = self.get_live(key) {
-            live.observers
-                .lock()
-                .unwrap_or_else(|e| e.into_inner())
-                .remove(session_id);
+        let last_gone = if let Some(live) = self.get_live(key) {
+            let mut observers = live.observers.lock().unwrap_or_else(|e| e.into_inner());
+            observers.remove(session_id);
+            observers.is_empty()
+        } else {
+            false
+        };
+        if last_gone {
+            self.schedule_idle_tear(key);
         }
     }
 
     /// Tear the pipe. Does not kill the tmux window.
     pub fn destroy_pipe(&self, key: &PaneIoKey) {
+        self.cancel_idle_tear(key);
         let live = {
             let mut panes = self.inner.panes.lock().unwrap_or_else(|e| e.into_inner());
             panes.remove(key)
@@ -325,6 +343,85 @@ impl PaneIoRegistry {
         for key in keys {
             self.destroy_pipe(&key);
         }
+    }
+
+    fn live_observer_count(&self, key: &PaneIoKey) -> usize {
+        self.get_live(key)
+            .map(|live| {
+                live.observers
+                    .lock()
+                    .unwrap_or_else(|e| e.into_inner())
+                    .len()
+            })
+            .unwrap_or(0)
+    }
+
+    fn cancel_idle_tear(&self, key: &PaneIoKey) {
+        let tx = {
+            let mut cancels = self
+                .inner
+                .idle_cancels
+                .lock()
+                .unwrap_or_else(|e| e.into_inner());
+            cancels.remove(key)
+        };
+        if let Some(tx) = tx {
+            let _ = tx.send(true);
+        }
+    }
+
+    fn schedule_idle_tear(&self, key: &PaneIoKey) {
+        self.cancel_idle_tear(key);
+        let timeout = self.inner.idle_timeout;
+        if timeout.is_zero() {
+            return;
+        }
+        let (tx, mut rx) = watch::channel(false);
+        {
+            let mut cancels = self
+                .inner
+                .idle_cancels
+                .lock()
+                .unwrap_or_else(|e| e.into_inner());
+            cancels.insert(key.clone(), tx);
+        }
+        let registry = PaneIoRegistry {
+            inner: Arc::clone(&self.inner),
+        };
+        let tear_key = key.clone();
+        tokio::spawn(async move {
+            tokio::select! {
+                _ = tokio::time::sleep(timeout) => {
+                    let _opening = registry.inner.opening.lock().await;
+                    {
+                        let mut cancels = registry
+                            .inner
+                            .idle_cancels
+                            .lock()
+                            .unwrap_or_else(|e| e.into_inner());
+                        cancels.remove(&tear_key);
+                    }
+                    if registry.live_observer_count(&tear_key) == 0 && registry.contains_live(&tear_key)
+                    {
+                        dbg().log(
+                            "PIPE_IDLE_TEAR",
+                            "pipe-pane idle timeout; detaching (window stays)",
+                            Some(serde_json::json!({ "pane": tear_key.as_log() })),
+                        );
+                        registry.destroy_pipe(&tear_key);
+                    }
+                }
+                _ = rx.changed() => {}
+            }
+        });
+    }
+
+    fn contains_live(&self, key: &PaneIoKey) -> bool {
+        self.inner
+            .panes
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .contains_key(key)
     }
 
     fn get_live(&self, key: &PaneIoKey) -> Option<Arc<LivePane>> {
@@ -755,6 +852,49 @@ mod tests {
         assert!(registry.contains(&k));
         assert_eq!(registry.observer_count(&k), 0);
         assert_eq!(driver.detach_count.load(Ordering::SeqCst), 0);
+    }
+
+    #[tokio::test]
+    async fn idle_tear_detaches_pipe_after_timeout() {
+        let driver = Arc::new(TestPipeDriver::new());
+        let registry = PaneIoRegistry::new_with_idle_timeout(
+            driver.clone(),
+            std::time::Duration::from_millis(40),
+        );
+        let k = key();
+        let _a = registry
+            .ensure_and_subscribe(k.clone(), "a".into(), 80, 24, None)
+            .await
+            .unwrap();
+        registry.unsubscribe(&k, "a");
+        assert!(registry.contains(&k));
+        assert_eq!(driver.detach_count.load(Ordering::SeqCst), 0);
+        tokio::time::sleep(std::time::Duration::from_millis(90)).await;
+        assert!(!registry.contains(&k));
+        assert_eq!(driver.detach_count.load(Ordering::SeqCst), 1);
+    }
+
+    #[tokio::test]
+    async fn resubscribe_cancels_idle_tear() {
+        let driver = Arc::new(TestPipeDriver::new());
+        let registry = PaneIoRegistry::new_with_idle_timeout(
+            driver.clone(),
+            std::time::Duration::from_millis(80),
+        );
+        let k = key();
+        let _a = registry
+            .ensure_and_subscribe(k.clone(), "a".into(), 80, 24, None)
+            .await
+            .unwrap();
+        registry.unsubscribe(&k, "a");
+        let _b = registry
+            .ensure_and_subscribe(k.clone(), "b".into(), 80, 24, None)
+            .await
+            .unwrap();
+        tokio::time::sleep(std::time::Duration::from_millis(120)).await;
+        assert!(registry.contains(&k));
+        assert_eq!(driver.detach_count.load(Ordering::SeqCst), 0);
+        assert_eq!(driver.attach_count.load(Ordering::SeqCst), 1);
     }
 
     #[tokio::test]

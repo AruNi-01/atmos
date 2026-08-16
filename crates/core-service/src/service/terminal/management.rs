@@ -461,8 +461,13 @@ impl TerminalService {
 
     /// Send input data to a terminal session
     pub async fn send_input(&self, session_id: &str, data: &str) -> Result<()> {
-        self.write_session_bytes(session_id, data.as_bytes().to_vec())
+        self.send_input_bytes(session_id, data.as_bytes().to_vec())
             .await
+    }
+
+    /// Write raw PTY bytes (binary WebSocket frames; not UTF-8 lossy).
+    pub async fn send_input_bytes(&self, session_id: &str, data: Vec<u8>) -> Result<()> {
+        self.write_session_bytes(session_id, data).await
     }
 
     /// Send an Enter keypress to a terminal session.
