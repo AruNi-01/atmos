@@ -6,6 +6,7 @@ import type { TunnelService } from "./tunnel/service.js";
 export type AppState = {
   apiHost: string;
   apiPort: number | null;
+  apiUnixSocket: string | null;
   mainWindow: BrowserWindow | null;
   browser: BrowserSurfaceManager | null;
   /** Loopback control plane for `atmos browser-use --backend embedded`. */
@@ -19,6 +20,7 @@ export function createAppState(): AppState {
   return {
     apiHost: "127.0.0.1",
     apiPort: null,
+    apiUnixSocket: null,
     mainWindow: null,
     browser: null,
     browserUseControl: null,

@@ -39,6 +39,9 @@ function senderPayload(event: TerminalStreamEvent): unknown {
   if (event.type === "error") {
     return { streamId: event.streamId, error: event.error };
   }
+  if (event.type === "open") {
+    return { streamId: event.streamId, sidecar: event.sidecar };
+  }
   return { streamId: event.streamId };
 }
 

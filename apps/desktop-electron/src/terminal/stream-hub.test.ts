@@ -18,6 +18,12 @@ class FakeSidecarSocket implements SidecarWebSocket {
 
   constructor(public url: string) {
     FakeSidecarSocket.instances.push(this);
+    queueMicrotask(() => this.completeConnect());
+  }
+
+  protected completeConnect(): void {
+    this.readyState = 1;
+    this.onopen?.(null);
   }
 
   send(data: string | ArrayBufferLike): void {
@@ -26,12 +32,21 @@ class FakeSidecarSocket implements SidecarWebSocket {
 
   close(): void {
     this.readyState = 3;
-    this.onclose?.(null);
   }
 
-  openNow(): void {
-    this.readyState = 1;
-    this.onopen?.(null);
+  emit(data: unknown): void {
+    this.onmessage?.({ data });
+  }
+}
+
+class UnixFailsThenTcpOpens extends FakeSidecarSocket {
+  protected completeConnect(): void {
+    if (this.url.startsWith("ws+unix:")) {
+      this.readyState = 3;
+      this.onerror?.(null);
+      return;
+    }
+    super.completeConnect();
   }
 }
 
@@ -50,23 +65,20 @@ describe("createTerminalStreamHub", () => {
       },
     };
 
-    const { streamId } = await hub.open(
+    const { streamId, sidecar } = await hub.open(
       sink,
       "ws://localhost:1/ws/terminal/abc?workspace_id=w",
     );
+    expect(sidecar).toBe("ws");
     expect(FakeSidecarSocket.instances[0]?.url).toBe(
       "ws://127.0.0.1:30303/ws/terminal/abc?workspace_id=w",
     );
     expect(FakeSidecarSocket.instances[0]?.binaryType).toBe("arraybuffer");
-
-    FakeSidecarSocket.instances[0]?.openNow();
     expect(events.some((e) => e.type === "open" && e.streamId === streamId)).toBe(
       true,
     );
 
-    FakeSidecarSocket.instances[0]?.onmessage?.({
-      data: new Uint8Array([9, 8, 7]),
-    });
+    FakeSidecarSocket.instances[0]?.emit(new Uint8Array([9, 8, 7]));
     const binary = events.find(
       (e) => e.type === "message" && e.kind === "binary",
     );
@@ -80,6 +92,47 @@ describe("createTerminalStreamHub", () => {
 
     hub.closeAllForSender(7);
     expect(hub.size()).toBe(0);
+  });
+
+  it("prefers unix sidecar when the API advertises a socket", async () => {
+    FakeSidecarSocket.instances = [];
+    const hub = createTerminalStreamHub({
+      getApi: () => ({
+        host: "127.0.0.1",
+        port: 30303,
+        unixSocket: "/tmp/api.sock",
+      }),
+      WebSocketImpl: FakeSidecarSocket,
+    });
+    const { sidecar } = await hub.open(
+      { id: 1, send() {} },
+      "ws://127.0.0.1:9/ws/terminal/t1",
+    );
+    expect(sidecar).toBe("uds");
+    expect(FakeSidecarSocket.instances[0]?.url).toBe(
+      "ws+unix:///tmp/api.sock:/ws/terminal/t1",
+    );
+  });
+
+  it("falls back to loopback WS when unix connect fails", async () => {
+    FakeSidecarSocket.instances = [];
+    const hub = createTerminalStreamHub({
+      getApi: () => ({
+        host: "127.0.0.1",
+        port: 30303,
+        unixSocket: "/tmp/missing.sock",
+      }),
+      WebSocketImpl: UnixFailsThenTcpOpens,
+    });
+    const { sidecar } = await hub.open(
+      { id: 1, send() {} },
+      "ws://127.0.0.1:9/ws/terminal/t1",
+    );
+    expect(sidecar).toBe("ws");
+    expect(FakeSidecarSocket.instances.map((socket) => socket.url)).toEqual([
+      "ws+unix:///tmp/missing.sock:/ws/terminal/t1",
+      "ws://127.0.0.1:30303/ws/terminal/t1",
+    ]);
   });
 
   it("rejects open when the API is not ready", async () => {

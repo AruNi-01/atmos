@@ -29,7 +29,7 @@ const shared: esbuild.BuildOptions = {
   format: "esm",
   sourcemap: true,
   // Native modules stay external so Electron loads platform binaries from node_modules.
-  external: ["electron", "koffi"],
+  external: ["electron", "koffi", "bufferutil", "utf-8-validate"],
   logLevel: "info",
 };
 

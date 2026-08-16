@@ -47,6 +47,7 @@ contextBridge.exposeInMainWorld("__ATMOS_DESKTOP__", {
     open(url: string) {
       return ipcRenderer.invoke("atmos:terminal-stream-open", { url }) as Promise<{
         streamId: string;
+        sidecar?: "uds" | "ws";
       }>;
     },
     send(streamId: string, data: ArrayBuffer | string) {
