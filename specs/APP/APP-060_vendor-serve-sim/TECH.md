@@ -98,7 +98,7 @@ Camera dylibs (`dist/simcam/`) are not required for the preview. Omit them in v1
 }
 ```
 
-CI: `.github/workflows/release-serve-sim.yml` on tag `serve-sim-*`, `macos-14` arm64 runner, same script, `gh release create` with tarball + `manifest.json`. **GitHub Releases only. No R2.**
+CI: `.github/workflows/release-serve-sim.yml` on tag `serve-sim-*`, `macos-26` arm64 runner (Xcode 26 / Swift that accepts `--build-system swiftbuild` for SimNative macros; `macos-14` fails with exit 64), same script, `gh release create` with tarball + `manifest.json`. **GitHub Releases only. No R2.**
 
 Dev without a published release: `just pack-serve-sim --install` extracts into `~/.atmos/runtime/serve-sim/<version>/` so Desktop can skip the network.
 
