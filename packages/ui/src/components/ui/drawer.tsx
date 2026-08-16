@@ -1,9 +1,56 @@
 "use client";
 
 import * as React from "react";
+import { XIcon } from "lucide-react";
 import { Drawer as DrawerPrimitive } from "vaul";
 
 import { cn } from "../../lib/utils";
+
+/**
+ * Overlay close sits in the first compact header row (~40px: py-2.5 + text-sm).
+ * `top-1.5` + `size-7` centers the control there. Taller headers keep it in
+ * the top-right padding instead of dropping onto the title baseline.
+ */
+const drawerCloseButtonClassName =
+  "absolute right-2 top-1.5 z-30 inline-flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground";
+
+/** Right padding so header content clears `DrawerCloseButton`. */
+const drawerCloseReserveClass = "pr-11";
+
+const DrawerCloseReserveContext = React.createContext(false);
+
+function DrawerCloseReserveProvider({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <DrawerCloseReserveContext.Provider value={true}>
+      {children}
+    </DrawerCloseReserveContext.Provider>
+  );
+}
+
+function useDrawerCloseReserve() {
+  return React.useContext(DrawerCloseReserveContext);
+}
+
+function DrawerCloseButton({
+  className,
+  children,
+  ...props
+}: React.ComponentProps<"button">) {
+  return (
+    <button
+      type="button"
+      data-slot="drawer-close-button"
+      className={cn(drawerCloseButtonClassName, className)}
+      {...props}
+    >
+      {children ?? <XIcon className="size-3.5" />}
+    </button>
+  );
+}
 
 /**
  * Vaul-based drawer primitives (https://vaul.emilkowal.ski).
@@ -193,6 +240,8 @@ export {
   DrawerOverlay,
   DrawerTrigger,
   DrawerClose,
+  DrawerCloseButton,
+  DrawerCloseReserveProvider,
   DrawerContent,
   DrawerContentBare,
   DrawerHandle,
@@ -200,4 +249,7 @@ export {
   DrawerFooter,
   DrawerTitle,
   DrawerDescription,
+  drawerCloseButtonClassName,
+  drawerCloseReserveClass,
+  useDrawerCloseReserve,
 };

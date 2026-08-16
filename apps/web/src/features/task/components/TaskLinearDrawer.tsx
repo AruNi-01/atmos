@@ -5,11 +5,14 @@ import { useLocale, useTranslations } from "next-intl";
 import {
   Button,
   Drawer,
+  DrawerCloseButton,
+  DrawerCloseReserveProvider,
   DrawerContentBare,
   DrawerOverlay,
   DrawerPortal,
   DrawerTitle,
   cn,
+  drawerCloseReserveClass,
 } from "@workspace/ui";
 import {
   ArrowRight,
@@ -22,7 +25,6 @@ import {
   Signal,
   Tag,
   UserRound,
-  X,
 } from "lucide-react";
 import { LinearIcon } from "@workspace/ui/components/icons/linear-icon";
 import type {
@@ -181,20 +183,14 @@ export function TaskLinearDrawer({
               : t("drawer.titleFallback")}
           </DrawerTitle>
 
-          <div className="relative flex h-full min-h-0 w-full flex-col overflow-hidden">
-            <button
-              type="button"
-              className="absolute right-3 top-3 z-30 inline-flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-              onClick={close}
-              aria-label={t("drawer.close")}
-            >
-              <X className="size-3.5" />
-            </button>
+          <DrawerCloseReserveProvider>
+            <div className="relative flex h-full min-h-0 w-full flex-col overflow-hidden">
+              <DrawerCloseButton onClick={close} aria-label={t("drawer.close")} />
 
             {issue ? (
               <>
                 <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-6 pt-5">
-                  <div className="mb-5 flex items-start gap-3 pr-8">
+                  <div className={cn("mb-5 flex items-start gap-3", drawerCloseReserveClass)}>
                     <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted/40 text-muted-foreground">
                       <LinearIcon className="size-5" size={20} />
                     </div>
@@ -405,7 +401,8 @@ export function TaskLinearDrawer({
                 </div>
               </>
             ) : null}
-          </div>
+            </div>
+          </DrawerCloseReserveProvider>
         </DrawerContentBare>
       </DrawerPortal>
     </Drawer>

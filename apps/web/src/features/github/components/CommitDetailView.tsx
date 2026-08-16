@@ -6,12 +6,18 @@ import dynamic from "next/dynamic";
 import { Loader2, Github, GitCommit, Copy, Check } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { enUS, zhCN } from "date-fns/locale";
-import { Avatar, AvatarImage, AvatarFallback } from "@workspace/ui";
+import {
+  Avatar,
+  AvatarImage,
+  AvatarFallback,
+  cn,
+  drawerCloseReserveClass,
+  useDrawerCloseReserve,
+} from "@workspace/ui";
 import { useGithubCommitDetail } from "@/features/github/hooks/use-github";
 import type { PrFile } from "@/features/github/hooks/use-github";
 import { PRFilesTab } from "./PRFilesTab";
 import { usePrContextHeader } from "./use-pr-context-header";
-import { cn } from "@/shared/lib/utils";
 
 const MarkdownRenderer = dynamic(
   () => import("@/shared/components/markdown/MarkdownRenderer").then((m) => m.MarkdownRenderer),
@@ -39,6 +45,7 @@ export function CommitDetailView({
 }: CommitDetailViewProps) {
   const t = useTranslations("github.commitDetail");
   const locale = useLocale();
+  const reserveClose = useDrawerCloseReserve();
   const dateLocale = locale.startsWith("zh") ? zhCN : enUS;
   const [copied, setCopied] = React.useState(false);
 
@@ -106,25 +113,34 @@ export function CommitDetailView({
   return (
     <div className="flex h-full w-full flex-col">
       {/* Fixed header */}
-      <div className="flex shrink-0 items-center gap-2 border-b border-border px-4 py-2.5">
+      <div
+        className={cn(
+          "flex min-w-0 shrink-0 items-center gap-2 border-b border-border py-2.5 pl-4",
+          reserveClose ? drawerCloseReserveClass : "pr-4",
+        )}
+      >
         <GitCommit className="size-4 shrink-0 text-muted-foreground" />
-        <span className="text-sm font-semibold truncate">{messageParts.headline}</span>
-        <button
-          type="button"
-          onClick={handleCopyHash}
-          className="flex shrink-0 items-center gap-1 px-1.5 py-0.5 rounded font-mono text-[10px] text-muted-foreground hover:bg-muted transition-colors"
-        >
-          {copied ? <Check className="size-3 text-green-500" /> : <Copy className="size-3" />}
-          {sha.substring(0, 7)}
-        </button>
-        <a
-          href={githubUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="shrink-0 p-1 rounded text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-        >
-          <Github className="size-3.5" />
-        </a>
+        <span className="min-w-0 flex-1 truncate text-sm font-semibold">
+          {messageParts.headline}
+        </span>
+        <div className="flex shrink-0 items-center gap-0.5">
+          <button
+            type="button"
+            onClick={handleCopyHash}
+            className="flex items-center gap-1 rounded px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground transition-colors hover:bg-muted"
+          >
+            {copied ? <Check className="size-3 text-green-500" /> : <Copy className="size-3" />}
+            {sha.substring(0, 7)}
+          </button>
+          <a
+            href={githubUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="rounded p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          >
+            <Github className="size-3.5" />
+          </a>
+        </div>
       </div>
 
       {/* Scrollable content area */}
