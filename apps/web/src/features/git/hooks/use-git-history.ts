@@ -4,7 +4,7 @@ import { useEffect, useMemo } from "react";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { useComputerQueryScope } from "@/api/query/query-scope";
 import { useWebSocketStore } from "@/features/connection/hooks/use-websocket";
-import { gitHistoryInfiniteQueryOptions } from "@/features/git/lib/git-query-options";
+import { gitHistoryInfiniteQueryOptions, GIT_HISTORY_PREFETCH_PAGES } from "@/features/git/lib/git-query-options";
 
 export function useGitHistory(repoPath: string | null | undefined) {
   const scope = useComputerQueryScope();
@@ -22,11 +22,14 @@ export function useGitHistory(repoPath: string | null | undefined) {
   const firstPage = query.data?.pages[0];
 
   useEffect(() => {
+    const loadedPages = query.data?.pages.length ?? 0;
+    if (loadedPages >= GIT_HISTORY_PREFETCH_PAGES) return;
     if (!query.hasNextPage || query.isFetchingNextPage || query.isError) {
       return;
     }
     void query.fetchNextPage();
   }, [
+    query.data?.pages.length,
     query.dataUpdatedAt,
     query.fetchNextPage,
     query.hasNextPage,

@@ -16,8 +16,9 @@ import React, {
   useState,
 } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { useTranslations } from "next-intl";
+import { useTranslations, useLocale } from "next-intl";
 import { fromUnixTime, format } from "date-fns";
+import { enUS, zhCN } from "date-fns/locale";
 import {
   CaseSensitive,
   ChevronLeft,
@@ -95,6 +96,23 @@ export function GitHistoryPanel({
   const virtualItems = virtualizer.getVirtualItems();
   const firstVirtualItem = virtualItems[0];
   const lastVirtualItem = virtualItems[virtualItems.length - 1];
+  const lastVirtualIndex = lastVirtualItem?.index;
+
+  useEffect(() => {
+    if (lastVirtualIndex == null) return;
+    if (!history.hasNextPage || history.isFetchingNextPage || history.error) return;
+    if (lastVirtualIndex + GIT_HISTORY_ROW_OVERSCAN * 2 < history.commits.length) {
+      return;
+    }
+    void history.fetchNextPage();
+  }, [
+    history.commits.length,
+    history.error,
+    history.fetchNextPage,
+    history.hasNextPage,
+    history.isFetchingNextPage,
+    lastVirtualIndex,
+  ]);
 
   const scrollToIndex = useCallback(
     (index: number) => {
@@ -296,7 +314,7 @@ export function GitHistoryPanel({
                 key={item.key}
                 className="absolute top-0 right-0 left-0"
                 style={{
-                  height: item.size,
+                  height: HISTORY_ROW_HEIGHT,
                   transform: `translateY(${item.start}px)`,
                 }}
               >
@@ -433,10 +451,14 @@ function GitHistoryRow({
   onSelect: () => void;
 }) {
   const t = useTranslations("git.history");
+  const locale = useLocale();
+  const dateLocale = locale.startsWith("zh") ? zhCN : enUS;
   const [copied, setCopied] = useState(false);
   const color = historyGraphColor(nodeColorId);
   const nodeX = historyLaneX(nodeLane);
-  const dateLabel = format(fromUnixTime(commit.timestamp), "d MMM yyyy HH:mm");
+  const dateLabel = format(fromUnixTime(commit.timestamp), "d MMM yyyy HH:mm", {
+    locale: dateLocale,
+  });
   const visibleRefs = commit.refs.slice(0, MAX_VISIBLE_REFS);
   const hiddenRefCount = Math.max(0, commit.refs.length - visibleRefs.length);
   const subject = commit.subject.trim() ? commit.subject : t("noSubject");

@@ -63,4 +63,21 @@ describe("git history search", () => {
       { text: " sidebar", match: false },
     ]);
   });
+
+  test("highlights regex metacharacters as literal text", () => {
+    expect(splitHighlightedText("fix (web) sidebar", "(web)", false)).toEqual([
+      { text: "fix ", match: false },
+      { text: "(web)", match: true },
+      { text: " sidebar", match: false },
+    ]);
+    expect(splitHighlightedText("v1.2 files", "1.2", false)).toEqual([
+      { text: "v", match: false },
+      { text: "1.2", match: true },
+      { text: " files", match: false },
+    ]);
+    expect(splitHighlightedText("array[0]", "[0]", false)).toEqual([
+      { text: "array", match: false },
+      { text: "[0]", match: true },
+    ]);
+  });
 });

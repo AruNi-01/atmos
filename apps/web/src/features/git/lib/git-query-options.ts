@@ -202,6 +202,8 @@ export function gitLogQueryOptions(
 
 /** Zed streams graph SHAs in 1000-commit chunks; we page at the same size. */
 export const GIT_HISTORY_PAGE_SIZE = 1000;
+/** Prefetch this many pages on open, then load more from the virtualizer. */
+export const GIT_HISTORY_PREFETCH_PAGES = 2;
 
 export function gitHistoryInfiniteQueryOptions(
   scope: ComputerQueryScope,
