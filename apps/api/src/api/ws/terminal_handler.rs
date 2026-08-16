@@ -609,9 +609,10 @@ async fn handle_terminal_message(
             true
         }
         Message::Binary(data) => {
-            // Handle binary data as raw terminal input
-            let text = String::from_utf8_lossy(&data);
-            if let Err(e) = terminal_service.send_input(session_id, &text).await {
+            if let Err(e) = terminal_service
+                .send_input_bytes(session_id, data.to_vec())
+                .await
+            {
                 error!(
                     "Failed to send binary input to session {}: {}",
                     session_id, e

@@ -5,15 +5,19 @@ mod error;
 mod middleware;
 mod relay;
 mod simulator;
+mod unix_bind;
 
 use std::sync::Arc;
 
 use crate::api::ws::{
     automation_event_to_ws_message, WsEvent, WsManager, WsMessage, WsMessageService,
 };
-use crate::middleware::{require_allowed_origin, require_local_token, require_loopback_or_token};
+use crate::middleware::{
+    require_allowed_origin, require_local_token, require_loopback_or_token, UnixSocketPeer,
+};
 use app_state::{AppServices, AppState};
 use axum::{
+    extract::Extension,
     http::{
         header::{CACHE_CONTROL, EXPIRES, PRAGMA},
         HeaderName, HeaderValue, Response as HttpResponse, StatusCode,
@@ -813,20 +817,13 @@ async fn run_api() -> Result<(), Box<dyn std::error::Error>> {
     let token_for_destructive = server_config.local_api_token.clone();
     let allow_lan_without_token = server_config.allow_lan_without_token;
 
-    let protected = api::routes().route_layer(from_fn(move |ci, headers, req, next| {
-        require_local_token(
-            ci,
-            headers,
-            req,
-            next,
-            token.clone(),
-            allow_lan_without_token,
-        )
+    let protected = api::routes().route_layer(from_fn(move |headers, req, next| {
+        require_local_token(headers, req, next, token.clone(), allow_lan_without_token)
     }));
 
     let destructive =
-        api::destructive_system_routes().route_layer(from_fn(move |ci, headers, req, next| {
-            require_loopback_or_token(ci, headers, req, next, token_for_destructive.clone())
+        api::destructive_system_routes().route_layer(from_fn(move |headers, req, next| {
+            require_loopback_or_token(headers, req, next, token_for_destructive.clone())
         }));
 
     let project_service_for_startup = Arc::clone(&app_state.project_service);
@@ -889,17 +886,63 @@ async fn run_api() -> Result<(), Box<dyn std::error::Error>> {
     info!("Server listening on http://{}", actual_addr);
     println!("ATMOS_READY port={}", actual_addr.port());
 
+    let shutdown = tokio_util::sync::CancellationToken::new();
+    let shutdown_for_signal = shutdown.clone();
+    tokio::spawn(async move {
+        shutdown_signal().await;
+        shutdown_for_signal.cancel();
+    });
+
+    let mut unix_socket = None;
+    #[cfg(unix)]
+    {
+        match unix_bind::bind_api_unix_listener() {
+            Ok((unix_listener, path)) => {
+                info!(
+                    target: "atmos_runtime",
+                    path = %path.display(),
+                    "Server listening on unix socket"
+                );
+                unix_socket = Some(path.display().to_string());
+                let unix_app = app.clone().layer(Extension(UnixSocketPeer));
+                let unix_shutdown = shutdown.clone();
+                tokio::spawn(async move {
+                    let result = axum::serve(unix_listener, unix_app.into_make_service())
+                        .with_graceful_shutdown(async move {
+                            unix_shutdown.cancelled().await;
+                        })
+                        .await;
+                    unix_bind::remove_api_unix_socket(&path);
+                    if let Err(err) = result {
+                        warn!(
+                            target: "atmos_runtime",
+                            error = %err,
+                            "unix listener exited"
+                        );
+                    }
+                });
+            }
+            Err(err) => warn!(
+                target: "atmos_runtime",
+                error = %err,
+                "unix socket not bound"
+            ),
+        }
+    }
+
     let manifest = runtime_manager::RuntimeManifest::new(
         &server_config.host,
         actual_addr.port(),
         Some(std::process::id()),
         "api",
-    );
+    )
+    .with_unix_socket(unix_socket);
     match runtime_manager::write_runtime_manifest(&manifest) {
         Ok(path) => info!(
             target: "atmos_runtime",
             path = %path.display(),
             url = %manifest.api.url,
+            unix_socket = ?manifest.api.unix_socket,
             "wrote runtime manifest"
         ),
         Err(err) => warn!(
@@ -926,11 +969,14 @@ async fn run_api() -> Result<(), Box<dyn std::error::Error>> {
     // Serve with graceful shutdown — ensures PTY resources are cleaned up
     // when the process receives SIGTERM/SIGINT (e.g., during hot-reload).
     // Without this, each restart leaks PTY devices until the system runs out.
+    let tcp_shutdown = shutdown.clone();
     axum::serve(
         listener,
         app.into_make_service_with_connect_info::<std::net::SocketAddr>(),
     )
-    .with_graceful_shutdown(shutdown_signal())
+    .with_graceful_shutdown(async move {
+        tcp_shutdown.cancelled().await;
+    })
     .await?;
 
     // Graceful shutdown: stop jobs/queue, then clean up terminal sessions / PTY resources.
