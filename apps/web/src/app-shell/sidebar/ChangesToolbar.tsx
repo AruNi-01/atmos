@@ -175,12 +175,9 @@ function ChangesScopeMenu({
           {renderTrailingCheck(scope === "branch")}
         </DropdownMenuItem>
         {onOpenHistory ? (
-          <>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem className="cursor-pointer" onSelect={onOpenHistory}>
-              <span className="flex-1">{t("rightSidebar.changes.history")}</span>
-            </DropdownMenuItem>
-          </>
+          <DropdownMenuItem className="cursor-pointer" onSelect={onOpenHistory}>
+            <span className="flex-1">{t("rightSidebar.changes.history")}</span>
+          </DropdownMenuItem>
         ) : null}
       </DropdownMenuContent>
     </DropdownMenu>

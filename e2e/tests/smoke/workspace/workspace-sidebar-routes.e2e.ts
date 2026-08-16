@@ -47,7 +47,7 @@ test.describe("smoke workspace", () => {
     });
     await expect(scopeTrigger).toBeVisible();
     await scopeTrigger.click();
-    await page.getByRole("menuitem", { name: /^(历史记录|History)$/ }).click();
+    await page.getByRole("menuitem", { name: /^(图形历史|Graph History)$/ }).click();
     await expect
       .poll(async () => new URL(page.url()).searchParams.get("tab"))
       .toBe("git-history");

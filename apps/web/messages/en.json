@@ -1634,7 +1634,7 @@
           "unstagedChanges": "Unstaged changes",
           "untrackedChanges": "Untracked changes",
           "noRepositoryContext": "No repository context",
-          "history": "History",
+          "history": "Graph History",
           "actions": {
             "stageAll": "Stage all",
             "unstageAll": "Unstage all",

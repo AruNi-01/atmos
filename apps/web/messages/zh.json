@@ -1634,7 +1634,7 @@
           "unstagedChanges": "未暂存变更",
           "untrackedChanges": "未跟踪文件",
           "noRepositoryContext": "没有仓库上下文",
-          "history": "历史记录",
+          "history": "图形历史",
           "actions": {
             "stageAll": "全部暂存",
             "unstageAll": "全部取消暂存",
