@@ -5,6 +5,11 @@ import { useTranslations } from "next-intl";
 import {
   Button,
   Check,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -14,9 +19,6 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
   Loader2,
-  Popover,
-  PopoverAnchor,
-  PopoverContent,
   toastManager,
 } from "@workspace/ui";
 import { ChevronDown } from "lucide-react";
@@ -274,110 +276,106 @@ export function ChangesToolbar({
         onOpenHistory={onOpenHistory}
       />
 
-      <Popover
+      <div className="flex shrink-0 items-center">
+        <Button
+          type="button"
+          size="xs"
+          disabled={!primaryEnabled || actionsBusy}
+          onClick={() => void runAction(primaryAction)}
+          className="rounded-r-none border-r-primary-foreground/20 px-2.5"
+        >
+          {primaryLabel}
+        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              type="button"
+              size="icon-xs"
+              disabled={actionsBusy}
+              aria-label={t("rightSidebar.changes.actions.moreActions")}
+              title={t("rightSidebar.changes.actions.moreActions")}
+              className="rounded-l-none border-l-0"
+            >
+              <ChevronDown className="size-3" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-56">
+            <DropdownMenuItem
+              disabled={!canStageAll || actionsBusy}
+              onSelect={() => void runAction(onStageAll)}
+            >
+              {t("rightSidebar.changes.actions.stageAll")}
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              disabled={!canUnstageAll || actionsBusy}
+              onSelect={() => void runAction(onUnstageAll)}
+            >
+              {t("rightSidebar.changes.actions.unstageAll")}
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              variant="destructive"
+              disabled={!canDiscardTracked || actionsBusy}
+              onSelect={() => setConfirmingActionKey("toolbar-bulk-discard")}
+            >
+              {t("rightSidebar.changes.actions.discardTracked")}
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              variant="destructive"
+              disabled={!canTrashUntracked || actionsBusy}
+              onSelect={() => setConfirmingActionKey("toolbar-bulk-trash")}
+            >
+              {t("rightSidebar.changes.actions.trashUntracked")}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+      <Dialog
         open={confirmingActionKey !== null}
         onOpenChange={(open) => {
           if (actionsBusy) return;
           if (!open) setConfirmingActionKey(null);
         }}
       >
-        <PopoverAnchor asChild>
-          <div className="flex shrink-0 items-center">
+        <DialogContent className="w-[min(92vw,420px)]" showCloseButton={false}>
+          <DialogHeader>
+            <DialogTitle>
+              {confirmingTrash
+                ? t("changeSection.deleteAllUntrackedTitle")
+                : t("changeSection.discardAllUnstagedTitle")}
+            </DialogTitle>
+            <DialogDescription>
+              {confirmingTrash
+                ? t("changeSection.deleteAllUntrackedDescription")
+                : t("changeSection.discardAllUnstagedDescription")}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex items-center justify-end gap-2">
             <Button
-              type="button"
-              size="xs"
-              disabled={!primaryEnabled || actionsBusy}
-              onClick={() => void runAction(primaryAction)}
-              className="rounded-r-none border-r-primary-foreground/20 px-2.5"
+              variant="outline"
+              size="sm"
+              disabled={actionsBusy}
+              onClick={() => setConfirmingActionKey(null)}
             >
-              {primaryLabel}
+              {t("common.cancel")}
             </Button>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  type="button"
-                  size="icon-xs"
-                  disabled={actionsBusy}
-                  aria-label={t("rightSidebar.changes.actions.moreActions")}
-                  title={t("rightSidebar.changes.actions.moreActions")}
-                  className="rounded-l-none border-l-0"
-                >
-                  <ChevronDown className="size-3" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
-                <DropdownMenuItem
-                  disabled={!canStageAll || actionsBusy}
-                  onSelect={() => void runAction(onStageAll)}
-                >
-                  {t("rightSidebar.changes.actions.stageAll")}
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  disabled={!canUnstageAll || actionsBusy}
-                  onSelect={() => void runAction(onUnstageAll)}
-                >
-                  {t("rightSidebar.changes.actions.unstageAll")}
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  variant="destructive"
-                  disabled={!canDiscardTracked || actionsBusy}
-                  onSelect={() => setConfirmingActionKey("toolbar-bulk-discard")}
-                >
-                  {t("rightSidebar.changes.actions.discardTracked")}
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  variant="destructive"
-                  disabled={!canTrashUntracked || actionsBusy}
-                  onSelect={() => setConfirmingActionKey("toolbar-bulk-trash")}
-                >
-                  {t("rightSidebar.changes.actions.trashUntracked")}
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <Button
+              variant="destructive"
+              size="sm"
+              disabled={actionsBusy}
+              onClick={() => {
+                const action = confirmingTrash ? onTrashUntracked : onDiscardTracked;
+                void runAction(action).then(() => setConfirmingActionKey(null));
+              }}
+            >
+              {actionsBusy && confirmingActionKey ? (
+                <Loader2 className="mr-2 size-4 animate-spin" />
+              ) : null}
+              {t("common.confirm")}
+            </Button>
           </div>
-        </PopoverAnchor>
-        <PopoverContent align="end" className="w-72 border-border bg-popover p-3 shadow-lg">
-          <div className="space-y-3">
-            <div className="space-y-1">
-              <p className="text-sm font-medium text-foreground">
-                {confirmingTrash
-                  ? t("changeSection.deleteAllUntrackedTitle")
-                  : t("changeSection.discardAllUnstagedTitle")}
-              </p>
-              <p className="text-xs leading-relaxed text-muted-foreground">
-                {confirmingTrash
-                  ? t("changeSection.deleteAllUntrackedDescription")
-                  : t("changeSection.discardAllUnstagedDescription")}
-              </p>
-            </div>
-            <div className="flex items-center justify-end gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={actionsBusy}
-                onClick={() => setConfirmingActionKey(null)}
-              >
-                {t("common.cancel")}
-              </Button>
-              <Button
-                variant="destructive"
-                size="sm"
-                disabled={actionsBusy}
-                onClick={() => {
-                  const action = confirmingTrash ? onTrashUntracked : onDiscardTracked;
-                  void runAction(action).then(() => setConfirmingActionKey(null));
-                }}
-              >
-                {actionsBusy && confirmingActionKey ? (
-                  <Loader2 className="mr-2 size-4 animate-spin" />
-                ) : null}
-                {t("common.confirm")}
-              </Button>
-            </div>
-          </div>
-        </PopoverContent>
-      </Popover>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
