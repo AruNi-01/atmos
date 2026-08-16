@@ -48,25 +48,29 @@ describe("createWebSocketByteStreamPort", () => {
     expect(FakeWebSocket.instances).toHaveLength(1);
     expect(FakeWebSocket.instances[0]?.binaryType).toBe("arraybuffer");
 
-    const received: Array<string | Uint8Array> = [];
+    const received: Uint8Array[] = [];
+    const control: string[] = [];
     let opened = false;
     handle.subscribe({
       onOpen: () => {
         opened = true;
       },
-      onMessage: (data) => {
+      onBytes: (data) => {
         received.push(data);
+      },
+      onControl: (json) => {
+        control.push(json);
       },
     });
 
-    handle.send("too-early");
+    handle.control.send("too-early");
     expect(FakeWebSocket.instances[0]?.sent).toEqual([]);
 
     FakeWebSocket.instances[0]?.openNow();
     expect(opened).toBe(true);
     expect(handle.readyState()).toBe("open");
 
-    handle.send(JSON.stringify({ type: "terminal_resize", cols: 80, rows: 24 }));
+    handle.control.send(JSON.stringify({ type: "terminal_resize", cols: 80, rows: 24 }));
     expect(FakeWebSocket.instances[0]?.sent).toHaveLength(1);
 
     FakeWebSocket.instances[0]?.emit(new Uint8Array([65, 66]));

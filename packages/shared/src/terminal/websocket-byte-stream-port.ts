@@ -1,10 +1,11 @@
 import type {
-  ByteStreamListener,
-  ByteStreamMessage,
   ByteStreamPort,
+  ControlHandle,
+  PtyByteHandle,
   StreamHandle,
   StreamOpenMeta,
   StreamReadyState,
+  TerminalSessionListener,
 } from "./byte-stream-port";
 
 export type WebSocketLike = {
@@ -49,6 +50,16 @@ function readyStateOf(ws: WebSocketLike): StreamReadyState {
   return "closed";
 }
 
+function sendOnSocket(ws: WebSocketLike, data: string | Uint8Array): void {
+  if (ws.readyState !== WS_OPEN) return;
+  if (typeof data === "string") {
+    ws.send(data);
+    return;
+  }
+  const copy = data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength);
+  ws.send(copy);
+}
+
 export function createWebSocketByteStreamPort(
   WebSocketImpl: WebSocketConstructor = defaultWebSocketCtor(),
 ): ByteStreamPort {
@@ -58,7 +69,7 @@ export function createWebSocketByteStreamPort(
       const ws = new WebSocketImpl(meta.url);
       ws.binaryType = "arraybuffer";
 
-      const listeners = new Set<ByteStreamListener>();
+      const listeners = new Set<TerminalSessionListener>();
       let opened = false;
       let closed = false;
       let lastError: string | null = null;
@@ -88,30 +99,31 @@ export function createWebSocketByteStreamPort(
       };
       ws.onmessage = (event) => {
         if (typeof event.data === "string") {
-          for (const listener of listeners) listener.onMessage?.(event.data);
+          for (const listener of listeners) listener.onControl?.(event.data);
           return;
         }
         const bytes = readBinaryMessage(event.data);
         if (bytes?.length) {
-          for (const listener of listeners) listener.onMessage?.(bytes);
+          for (const listener of listeners) listener.onBytes?.(bytes);
         }
+      };
+
+      const control: ControlHandle = {
+        send(json) {
+          sendOnSocket(ws, json);
+        },
+      };
+      const bytes: PtyByteHandle = {
+        send(data) {
+          sendOnSocket(ws, data);
+        },
       };
 
       const handle: StreamHandle = {
         carrier: "ws",
         readyState: () => readyStateOf(ws),
-        send(data: ByteStreamMessage) {
-          if (ws.readyState !== WS_OPEN) return;
-          if (typeof data === "string") {
-            ws.send(data);
-            return;
-          }
-          const copy = data.buffer.slice(
-            data.byteOffset,
-            data.byteOffset + data.byteLength,
-          );
-          ws.send(copy);
-        },
+        control,
+        bytes,
         close() {
           if (closed) return;
           ws.close();

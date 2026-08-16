@@ -1,16 +1,18 @@
 import type {
-  ByteStreamListener,
-  ByteStreamMessage,
   ByteStreamPort,
+  ControlHandle,
+  PtyByteHandle,
   StreamHandle,
   StreamOpenMeta,
   StreamReadyState,
+  TerminalSessionListener,
 } from "./byte-stream-port";
 
 type MemoryStream = {
   state: StreamReadyState;
-  listeners: Set<ByteStreamListener>;
-  sent: ByteStreamMessage[];
+  listeners: Set<TerminalSessionListener>;
+  sentControl: string[];
+  sentBytes: Uint8Array[];
 };
 
 function notifyOpen(stream: MemoryStream): void {
@@ -19,9 +21,15 @@ function notifyOpen(stream: MemoryStream): void {
   }
 }
 
-function notifyMessage(stream: MemoryStream, data: ByteStreamMessage): void {
+function notifyControl(stream: MemoryStream, json: string): void {
   for (const listener of stream.listeners) {
-    listener.onMessage?.(data);
+    listener.onControl?.(json);
+  }
+}
+
+function notifyBytes(stream: MemoryStream, data: Uint8Array): void {
+  for (const listener of stream.listeners) {
+    listener.onBytes?.(data);
   }
 }
 
@@ -43,8 +51,10 @@ function notifyError(stream: MemoryStream, error: string): void {
  */
 export type MemoryByteStreamController = {
   port: ByteStreamPort;
-  push(data: ByteStreamMessage): void;
-  takeSent(): ByteStreamMessage[];
+  push(data: Uint8Array): void;
+  pushControl(json: string): void;
+  takeSentControl(): string[];
+  takeSentBytes(): Uint8Array[];
   openNow(): void;
   fail(error: string): void;
   closeRemote(): void;
@@ -59,17 +69,29 @@ export function createMemoryByteStreamPort(): MemoryByteStreamController {
       const current: MemoryStream = {
         state: "connecting",
         listeners: new Set(),
-        sent: [],
+        sentControl: [],
+        sentBytes: [],
       };
       stream = current;
+
+      const control: ControlHandle = {
+        send(json) {
+          if (current.state !== "open") return;
+          current.sentControl.push(json);
+        },
+      };
+      const bytes: PtyByteHandle = {
+        send(data) {
+          if (current.state !== "open") return;
+          current.sentBytes.push(data);
+        },
+      };
 
       const handle: StreamHandle = {
         carrier: "memory",
         readyState: () => current.state,
-        send(data) {
-          if (current.state !== "open") return;
-          current.sent.push(data);
-        },
+        control,
+        bytes,
         close() {
           if (current.state === "closed") return;
           current.state = "closed";
@@ -92,12 +114,22 @@ export function createMemoryByteStreamPort(): MemoryByteStreamController {
     port,
     push(data) {
       if (!stream || stream.state !== "open") return;
-      notifyMessage(stream, data);
+      notifyBytes(stream, data);
     },
-    takeSent() {
+    pushControl(json) {
+      if (!stream || stream.state !== "open") return;
+      notifyControl(stream, json);
+    },
+    takeSentControl() {
       if (!stream) return [];
-      const sent = stream.sent;
-      stream.sent = [];
+      const sent = stream.sentControl;
+      stream.sentControl = [];
+      return sent;
+    },
+    takeSentBytes() {
+      if (!stream) return [];
+      const sent = stream.sentBytes;
+      stream.sentBytes = [];
       return sent;
     },
     openNow() {

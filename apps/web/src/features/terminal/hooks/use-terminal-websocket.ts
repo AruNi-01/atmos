@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ByteStreamPort, StreamHandle } from "@atmos/shared/terminal";
+import { formatTerminalCarrierLog } from "@atmos/shared/terminal";
 import type {
   WsTerminalRequest,
   TerminalSize,
@@ -80,84 +81,83 @@ export function useTerminalWebSocket({
     handle?.close();
   }, []);
 
-  const sendMessage = useCallback((message: WsTerminalRequest) => {
+  const sendControl = useCallback((message: WsTerminalRequest) => {
     const handle = handleRef.current;
     if (handle?.readyState() === "open") {
-      handle.send(JSON.stringify(message));
+      handle.control.send(JSON.stringify(message));
     }
-  }, [sessionId]);
+  }, []);
+
+  const sendBytes = useCallback((data: Uint8Array) => {
+    const handle = handleRef.current;
+    if (handle?.readyState() === "open") {
+      handle.bytes.send(data);
+    }
+  }, []);
 
   const sendInput = useCallback(
     (data: string) => {
-      sendMessage({
-        type: "terminal_input",
-        session_id: sessionId,
-        data,
-      });
+      sendBytes(new TextEncoder().encode(data));
     },
-    [sessionId, sendMessage]
+    [sendBytes]
   );
 
   const sendEnter = useCallback(
     () => {
-      sendMessage({
+      sendControl({
         type: "terminal_enter",
         session_id: sessionId,
       });
     },
-    [sessionId, sendMessage]
+    [sessionId, sendControl]
   );
 
   const sendTerminalReport = useCallback(
     (data: string) => {
-      sendMessage({
-        type: "terminal_report",
-        session_id: sessionId,
-        data,
-      });
+      sendBytes(new TextEncoder().encode(data));
     },
-    [sessionId, sendMessage]
+    [sendBytes]
   );
 
   const sendResize = useCallback(
     (size: TerminalSize) => {
-      sendMessage({
+      sendControl({
         type: "terminal_resize",
         session_id: sessionId,
         cols: size.cols,
         rows: size.rows,
       });
     },
-    [sessionId, sendMessage]
+    [sessionId, sendControl]
   );
 
   const sendCreate = useCallback(
     (workspaceId: string) => {
-      sendMessage({
+      sendControl({
         type: "terminal_create",
         workspace_id: workspaceId,
       });
     },
-    [sendMessage]
+    [sendControl]
   );
 
   const sendAttach = useCallback(
     (workspaceId: string, tmuxWindowName: string) => {
-      sendMessage({
+      sendControl({
         type: "terminal_attach",
         workspace_id: workspaceId,
         tmux_window_name: tmuxWindowName,
       });
     },
-    [sendMessage]
+    [sendControl]
   );
 
   const sendDestroy = useCallback(() => {
-    sendMessage({
+    sendControl({
       type: "terminal_destroy",
       session_id: sessionId,
     });
-  }, [sessionId, sendMessage]);
+  }, [sessionId, sendControl]);
 
   const disconnect = useCallback(() => {
     disconnectedRef.current = true;
@@ -204,8 +204,34 @@ export function useTerminalWebSocket({
         handleRef.current = handle;
         openingRef.current = false;
         debugLog(
-          `terminal-stream open session=${sessionId} carrier=${handle.carrier}`,
+          `terminal-stream open session=${sessionId} ${formatTerminalCarrierLog(handle)}`,
         );
+        const dispatchPayload = (data: string | Uint8Array) => {
+          if (generation !== generationRef.current) return;
+          const dispatch = dispatchTerminalServerPayload(data, sessionId);
+          switch (dispatch.action) {
+            case "output":
+              onOutput(dispatch.data);
+              break;
+            case "attached":
+              onAttached?.(dispatch.snapshot);
+              break;
+            case "closed":
+              disconnect();
+              break;
+            case "destroyed":
+              reconnectCountRef.current = reconnectAttempts;
+              disconnect();
+              break;
+            case "error":
+              reconnectCountRef.current = reconnectAttempts;
+              clearReconnectTimeout();
+              onError?.(dispatch.error);
+              break;
+            case "ignore":
+              break;
+          }
+        };
         handle.subscribe({
           onOpen: () => {
             if (generation !== generationRef.current) return;
@@ -214,31 +240,11 @@ export function useTerminalWebSocket({
             reconnectCountRef.current = 0;
             onConnected?.();
           },
-          onMessage: (data) => {
-            if (generation !== generationRef.current) return;
-            const dispatch = dispatchTerminalServerPayload(data, sessionId);
-            switch (dispatch.action) {
-              case "output":
-                onOutput(dispatch.data);
-                break;
-              case "attached":
-                onAttached?.(dispatch.snapshot);
-                break;
-              case "closed":
-                disconnect();
-                break;
-              case "destroyed":
-                reconnectCountRef.current = reconnectAttempts;
-                disconnect();
-                break;
-              case "error":
-                reconnectCountRef.current = reconnectAttempts;
-                clearReconnectTimeout();
-                onError?.(dispatch.error);
-                break;
-              case "ignore":
-                break;
-            }
+          onControl: (json) => {
+            dispatchPayload(json);
+          },
+          onBytes: (data) => {
+            dispatchPayload(data);
           },
           onClose: () => {
             const superseded =

@@ -25,7 +25,7 @@ export type DesktopListenFn = (
 ) => Promise<DesktopListenUnlisten> | DesktopListenUnlisten;
 
 export type DesktopTerminalStreamApi = {
-  open: (url: string) => Promise<{ streamId: string }>;
+  open: (url: string) => Promise<{ streamId: string; sidecar?: "uds" | "ws" }>;
   send: (streamId: string, data: ArrayBuffer | string) => void;
   close: (streamId: string) => void;
 };

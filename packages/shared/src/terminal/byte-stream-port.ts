@@ -1,13 +1,23 @@
 /**
- * Carrier-agnostic duplex port for terminal I/O.
+ * Carrier-agnostic duplex ports for terminal I/O.
  *
  * Features talk to {@link ByteStreamPort} / {@link StreamHandle}, not WebSocket
- * or Electron IPC. JSON control frames are UTF-8 strings; PTY output is binary.
+ * or Electron IPC. JSON control and PTY bytes share one connection (WS text vs
+ * binary, or IPC kind) but are separate handles so TUI input is never JSON.
  */
 
 export type ByteStreamCarrier = "ws" | "ipc" | "uds" | "memory";
 
-export type ByteStreamMessage = string | Uint8Array;
+/** Desktop main↔API hop when the renderer carrier is `ipc`. */
+export type TerminalSidecar = "uds" | "ws";
+
+export type ControlHandle = {
+  send(json: string): void;
+};
+
+export type PtyByteHandle = {
+  send(data: Uint8Array): void;
+};
 
 export type StreamOpenMeta = {
   /** Logical endpoint (today: `/ws/terminal/:id?...`). Carriers may rewrite delivery. */
@@ -15,9 +25,10 @@ export type StreamOpenMeta = {
   sessionId: string;
 };
 
-export type ByteStreamListener = {
+export type TerminalSessionListener = {
   onOpen?: () => void;
-  onMessage?: (data: ByteStreamMessage) => void;
+  onControl?: (json: string) => void;
+  onBytes?: (data: Uint8Array) => void;
   onClose?: () => void;
   onError?: (error: string) => void;
 };
@@ -26,10 +37,12 @@ export type StreamReadyState = "connecting" | "open" | "closed";
 
 export type StreamHandle = {
   readonly carrier: ByteStreamCarrier;
+  readonly sidecar?: TerminalSidecar;
   readyState(): StreamReadyState;
-  send(data: ByteStreamMessage): void;
+  readonly control: ControlHandle;
+  readonly bytes: PtyByteHandle;
   close(): void;
-  subscribe(listener: ByteStreamListener): () => void;
+  subscribe(listener: TerminalSessionListener): () => void;
 };
 
 export type ByteStreamPort = {
@@ -64,7 +77,7 @@ export function isLoopbackWebSocketUrl(url: string): boolean {
 }
 
 /**
- * Choose the byte-stream carrier.
+ * Choose the renderer byte-stream carrier.
  *
  * Desktop local (Electron + IPC bridge + loopback sidecar) → `ipc`.
  * Browser, Tauri, remote/tunnel, or missing IPC → `ws`.
@@ -80,4 +93,13 @@ export function resolveTerminalByteStreamCarrier(
     return "ipc";
   }
   return "ws";
+}
+
+export function formatTerminalCarrierLog(
+  handle: Pick<StreamHandle, "carrier" | "sidecar">,
+): string {
+  if (handle.sidecar) {
+    return `carrier=${handle.carrier} sidecar=${handle.sidecar}`;
+  }
+  return `carrier=${handle.carrier}`;
 }

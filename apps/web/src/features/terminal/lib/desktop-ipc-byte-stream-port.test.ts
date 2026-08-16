@@ -28,7 +28,7 @@ describe("createDesktopIpcByteStreamPort", () => {
             bytes: new Uint8Array([1, 2]).buffer,
           });
         }
-        return { streamId };
+        return { streamId: "stream-1", sidecar: "uds" };
       },
       send(streamId, data) {
         sent.push({ streamId, data });
@@ -54,24 +54,25 @@ describe("createDesktopIpcByteStreamPort", () => {
     });
     expect(port.carrier).toBe("ipc");
 
-    const messages: Array<string | Uint8Array> = [];
+    const messages: Uint8Array[] = [];
     let opened = false;
     handle.subscribe({
       onOpen: () => {
         opened = true;
       },
-      onMessage: (data) => {
+      onBytes: (data) => {
         messages.push(data);
       },
     });
 
     expect(opened).toBe(true);
     expect(handle.readyState()).toBe("open");
+    expect(handle.sidecar).toBe("uds");
     expect(messages).toHaveLength(1);
     expect(Array.from(messages[0] as Uint8Array)).toEqual([1, 2]);
 
-    handle.send("{\"type\":\"terminal_input\"}");
+    handle.bytes.send(new Uint8Array([3, 4]));
     expect(sent).toHaveLength(1);
-    expect(sent[0]?.data).toBe("{\"type\":\"terminal_input\"}");
+    expect(sent[0]?.data).toBeInstanceOf(ArrayBuffer);
   });
 });

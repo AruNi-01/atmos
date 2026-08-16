@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
 import {
+  formatTerminalCarrierLog,
   isLoopbackHostname,
   isLoopbackWebSocketUrl,
   resolveTerminalByteStreamCarrier,
@@ -96,13 +97,13 @@ describe("createMemoryByteStreamPort", () => {
       url: "memory://t1",
       sessionId: "t1",
     });
-    const messages: Array<string | Uint8Array> = [];
+    const messages: Uint8Array[] = [];
     let opened = 0;
     handle.subscribe({
       onOpen: () => {
         opened += 1;
       },
-      onMessage: (data) => {
+      onBytes: (data) => {
         messages.push(data);
       },
     });
@@ -110,11 +111,22 @@ describe("createMemoryByteStreamPort", () => {
     expect(opened).toBe(1);
     expect(handle.readyState()).toBe("open");
 
-    handle.send("hello");
-    expect(memory.takeSent()).toEqual(["hello"]);
+    handle.control.send("hello");
+    expect(memory.takeSentControl()).toEqual(["hello"]);
+    handle.bytes.send(new Uint8Array([9]));
+    expect(Array.from(memory.takeSentBytes()[0] ?? [])).toEqual([9]);
 
     memory.push(new Uint8Array([1, 2, 3]));
     expect(messages).toHaveLength(1);
     expect(messages[0]).toBeInstanceOf(Uint8Array);
+  });
+});
+
+describe("formatTerminalCarrierLog", () => {
+  test("includes sidecar for desktop ipc hops", () => {
+    expect(
+      formatTerminalCarrierLog({ carrier: "ipc", sidecar: "uds" }),
+    ).toBe("carrier=ipc sidecar=uds");
+    expect(formatTerminalCarrierLog({ carrier: "ws" })).toBe("carrier=ws");
   });
 });

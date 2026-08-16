@@ -1,10 +1,12 @@
 import type {
-  ByteStreamListener,
-  ByteStreamMessage,
   ByteStreamPort,
+  ControlHandle,
+  PtyByteHandle,
   StreamHandle,
   StreamOpenMeta,
   StreamReadyState,
+  TerminalSessionListener,
+  TerminalSidecar,
 } from "@atmos/shared/terminal";
 import {
   getDesktopTerminalStreamApi,
@@ -17,11 +19,14 @@ type EventListen = (
   handler: (payload: unknown) => void,
 ) => DesktopListenUnlisten | void;
 
+type IpcFrame = { kind: "control"; json: string } | { kind: "bytes"; data: Uint8Array };
+
 type LiveIpcStream = {
   state: StreamReadyState;
-  listeners: Set<ByteStreamListener>;
+  sidecar?: TerminalSidecar;
+  listeners: Set<TerminalSessionListener>;
   lastError: string | null;
-  backlog: ByteStreamMessage[];
+  backlog: IpcFrame[];
 };
 
 const streams = new Map<string, LiveIpcStream>();
@@ -65,8 +70,23 @@ function retire(streamId: string): void {
   streams.delete(streamId);
 }
 
-function notify(stream: LiveIpcStream, fn: (listener: ByteStreamListener) => void): void {
+function notify(stream: LiveIpcStream, fn: (listener: TerminalSessionListener) => void): void {
   for (const listener of stream.listeners) fn(listener);
+}
+
+function deliver(stream: LiveIpcStream, frame: IpcFrame): void {
+  if (stream.listeners.size === 0) {
+    stream.backlog.push(frame);
+    if (stream.backlog.length > 256) {
+      stream.backlog.shift();
+    }
+    return;
+  }
+  if (frame.kind === "control") {
+    notify(stream, (listener) => listener.onControl?.(frame.json));
+    return;
+  }
+  notify(stream, (listener) => listener.onBytes?.(frame.data));
 }
 
 function onOpen(streamId: string): void {
@@ -78,18 +98,11 @@ function onOpen(streamId: string): void {
   });
 }
 
-function onMessage(streamId: string, data: ByteStreamMessage): void {
+function onFrame(streamId: string, frame: IpcFrame): void {
   enqueue(streamId, () => {
     const stream = streams.get(streamId);
     if (!stream || stream.state === "closed") return;
-    if (stream.listeners.size === 0) {
-      stream.backlog.push(data);
-      if (stream.backlog.length > 256) {
-        stream.backlog.shift();
-      }
-      return;
-    }
-    notify(stream, (listener) => listener.onMessage?.(data));
+    deliver(stream, frame);
   });
 }
 
@@ -143,11 +156,11 @@ async function ensureBus(on: EventListen): Promise<void> {
     if (!streamId || !payload || typeof payload !== "object") return;
     const message = payload as { kind?: unknown; text?: unknown; bytes?: unknown };
     if (message.kind === "text" && typeof message.text === "string") {
-      onMessage(streamId, message.text);
+      onFrame(streamId, { kind: "control", json: message.text });
       return;
     }
     const bytes = asBytes(message.bytes);
-    if (bytes?.length) onMessage(streamId, bytes);
+    if (bytes?.length) onFrame(streamId, { kind: "bytes", data: bytes });
   });
   subscribe("terminal_stream_error", (payload) => {
     const streamId = payloadStreamId(payload);
@@ -173,6 +186,10 @@ function copyBytes(data: Uint8Array): ArrayBuffer {
   return copy.buffer;
 }
 
+function readSidecar(value: unknown): TerminalSidecar | undefined {
+  return value === "uds" || value === "ws" ? value : undefined;
+}
+
 export function createDesktopIpcByteStreamPort(
   api: DesktopTerminalStreamApi | null = getDesktopTerminalStreamApi(),
   listen: EventListen = defaultListen(),
@@ -185,9 +202,12 @@ export function createDesktopIpcByteStreamPort(
     carrier: "ipc",
     async open(meta: StreamOpenMeta): Promise<StreamHandle> {
       await ensureBus(listen);
-      const { streamId } = await api.open(meta.url);
+      const opened = await api.open(meta.url);
+      const streamId = opened.streamId;
+      const sidecar = readSidecar(opened.sidecar);
       const stream: LiveIpcStream = {
         state: "connecting",
+        sidecar,
         listeners: new Set(),
         lastError: null,
         backlog: [],
@@ -195,17 +215,25 @@ export function createDesktopIpcByteStreamPort(
       streams.set(streamId, stream);
       flush(streamId);
 
-      const handle: StreamHandle = {
-        carrier: "ipc",
-        readyState: () => stream.state,
+      const control: ControlHandle = {
+        send(json) {
+          if (stream.state !== "open") return;
+          api.send(streamId, json);
+        },
+      };
+      const bytes: PtyByteHandle = {
         send(data) {
           if (stream.state !== "open") return;
-          if (typeof data === "string") {
-            api.send(streamId, data);
-            return;
-          }
           api.send(streamId, copyBytes(data));
         },
+      };
+
+      const handle: StreamHandle = {
+        carrier: "ipc",
+        sidecar,
+        readyState: () => stream.state,
+        control,
+        bytes,
         close() {
           if (stream.state === "closed") return;
           stream.state = "closed";
@@ -222,7 +250,10 @@ export function createDesktopIpcByteStreamPort(
           if (stream.backlog.length > 0) {
             const queued = stream.backlog;
             stream.backlog = [];
-            for (const data of queued) listener.onMessage?.(data);
+            for (const frame of queued) {
+              if (frame.kind === "control") listener.onControl?.(frame.json);
+              else listener.onBytes?.(frame.data);
+            }
           }
           if (stream.state === "closed") listener.onClose?.();
           return () => {
