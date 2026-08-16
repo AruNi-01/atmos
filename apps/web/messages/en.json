@@ -1621,13 +1621,7 @@
         },
         "noContext": "No repository context",
         "changes": {
-          "refreshChanges": "Refresh changes",
-          "diffTab": "Files Diff",
           "selectScope": "Select changes scope",
-          "showAsList": "Show as list",
-          "showAsTree": "Show as tree",
-          "showChangedFilesAsList": "Show changed files as list",
-          "showChangedFilesAsTree": "Show changed files as tree",
           "loadingCommits": "Loading commits...",
           "noCommitsOnBranch": "No commits on branch",
           "noCommitChanges": "Commit {commit} has no file changes",
@@ -1641,6 +1635,15 @@
           "untrackedChanges": "Untracked changes",
           "noRepositoryContext": "No repository context",
           "history": "History",
+          "actions": {
+            "stageAll": "Stage all",
+            "unstageAll": "Unstage all",
+            "discardTracked": "Discard tracked changes",
+            "trashUntracked": "Trash untracked files",
+            "moreActions": "More change actions",
+            "failedTitle": "Git action failed",
+            "failedDescription": "Try again."
+          },
           "scope": {
             "unstaged": "Unstaged",
             "staged": "Staged",

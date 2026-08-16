@@ -42,9 +42,6 @@ test.describe("smoke workspace", () => {
       .poll(async () => new URL(page.url()).searchParams.get("rsTab") ?? "changes")
       .toBe("changes");
     const changesSidebar = await getRightSidebar(page);
-    const filesDiffTab = changesSidebar.getByRole("tab", { name: "文件对比" });
-    await expect(filesDiffTab).toBeVisible();
-    await filesDiffTab.hover();
     const scopeTrigger = changesSidebar.getByRole("button", { name: "选择变更范围" });
     await expect(scopeTrigger).toBeVisible();
     await scopeTrigger.click();

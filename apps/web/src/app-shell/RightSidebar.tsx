@@ -14,7 +14,6 @@ import { useGitInfoStore } from "@/features/git/store/use-git-info-store";
 import {
   useGitChangedFilesQuery,
   invalidateGitQueries,
-  forceRefreshGitQueries,
   GIT_WORKTREE_PARAMS,
 } from "@/features/git/hooks/use-git-changed-files-query";
 import { useGitStatusQuery } from "@/features/git/hooks/use-git-status-query";
@@ -292,7 +291,6 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
     compareAgainstRef,
     compareWorktreeChanges,
     resetCompareMode,
-    fetchChanges,
     isLoading: isMutating,
   } = useGitStore();
 
@@ -364,10 +362,8 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
     contextId ? (s.selectedCommitByContext[contextId] ?? null) : null,
   );
 
-  const [sidebarUi, setSidebarUi] = useSidebarUiPrefs();
+  const [sidebarUi] = useSidebarUiPrefs();
   const changesFileViewMode = sidebarUi.changesFileViewMode;
-  const setChangesFileViewMode = (mode: "list" | "tree") =>
-    setSidebarUi({ changesFileViewMode: mode });
   const [prSubTab, setPRSubTab] = useState<"open" | "closed">("open");
   const [githubSubTab, setGithubSubTab] = useState<"pr" | "issues" | "actions">("pr");
   const [actionsRefreshKey] = useState(0);
@@ -580,33 +576,6 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
     handleSelectCommitScope(historySelectedCommit);
   }, [handleSelectCommitScope, historySelectedCommit, selectedCommitHash]);
 
-  const handleChangesRefresh = useCallback(async () => {
-    // User clicked Refresh → force re-request. Opening Changes tab still uses cache.
-    if (changesScope === "commit" && selectedCommitHash) {
-      await compareAgainstRef(selectedCommitHash);
-      if (currentProjectPath) await forceRefreshGitQueries(currentProjectPath);
-      return;
-    }
-
-    if (changesScope === "staged" || changesScope === "unstaged") {
-      await compareWorktreeChanges();
-      if (currentProjectPath) await forceRefreshGitQueries(currentProjectPath);
-      return;
-    }
-
-    resetCompareMode();
-    // Remote `git fetch` then invalidate active git queries (real re-request).
-    await fetchChanges();
-  }, [
-    changesScope,
-    compareAgainstRef,
-    compareWorktreeChanges,
-    currentProjectPath,
-    fetchChanges,
-    resetCompareMode,
-    selectedCommitHash,
-  ]);
-
   const stageAllUnstagedFn = useCallback(async () => {
     await stageAllUnstaged(unstagedFiles.map((f) => f.path));
   }, [stageAllUnstaged, unstagedFiles]);
@@ -614,6 +583,11 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
   const stageAllUntrackedFn = useCallback(async () => {
     await stageAllUntracked(untrackedFiles.map((f) => f.path));
   }, [stageAllUntracked, untrackedFiles]);
+
+  const stageAllChangesFn = useCallback(async () => {
+    await stageAllUnstaged(unstagedFiles.map((file) => file.path));
+    await stageAllUntracked(untrackedFiles.map((file) => file.path));
+  }, [stageAllUnstaged, stageAllUntracked, unstagedFiles, untrackedFiles]);
 
   const unstageAllFn = useCallback(async () => {
     await unstageAll(stagedFiles.map((f) => f.path));
@@ -733,42 +707,25 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
               <>
                 {/* Changes toolbar */}
                 <div className="flex h-9 shrink-0 border-b border-sidebar-border bg-background/50 backdrop-blur-sm">
-                  <Tabs
-                    value="changes"
-                    className="h-full min-w-0 flex-1"
-                  >
-                    <TabsList
-                      variant="underline"
-                      className="h-full w-full gap-0 py-0!"
-                    >
-                      <ChangesToolbar
-                        value="changes"
-                        activeValue="changes"
-                        onRefresh={handleChangesRefresh}
-                        isRefreshing={isLoading}
-                        scope={changesScope}
-                        selectedCommitHash={selectedCommitHash}
-                        commits={commitLog.commits}
-                        loadingCommits={commitLog.loading}
-                        stagedCount={displayedStagedFiles.length}
-                        unstagedCount={
-                          displayedUnstagedFiles.length + displayedUntrackedFiles.length
-                        }
-                        open={changesScopeMenuOpen}
-                        viewMode={changesFileViewMode}
-                        onOpenChange={setChangesScopeMenuOpen}
-                        onSelectScope={handleSelectChangesScope}
-                        onSelectCommit={handleSelectCommitScope}
-                        onOpenHistory={() => openGitHistoryTab(selectedCommitHash)}
-                        onToggleViewMode={() =>
-                          setChangesFileViewMode(
-                            changesFileViewMode === "tree" ? "list" : "tree",
-                          )
-                        }
-                        className="h-full! flex-1 text-sm gap-1.5 focus-visible:ring-0 focus-visible:ring-offset-0 rounded-none border-0!"
-                      />
-                    </TabsList>
-                  </Tabs>
+                  <ChangesToolbar
+                    scope={changesScope}
+                    selectedCommitHash={selectedCommitHash}
+                    commits={commitLog.commits}
+                    loadingCommits={commitLog.loading}
+                    stagedCount={displayedStagedFiles.length}
+                    unstagedCount={displayedUnstagedFiles.length}
+                    untrackedCount={displayedUntrackedFiles.length}
+                    open={changesScopeMenuOpen}
+                    isBusy={isMutating}
+                    onOpenChange={setChangesScopeMenuOpen}
+                    onSelectScope={handleSelectChangesScope}
+                    onSelectCommit={handleSelectCommitScope}
+                    onOpenHistory={() => openGitHistoryTab(selectedCommitHash)}
+                    onStageAll={stageAllChangesFn}
+                    onUnstageAll={unstageAllFn}
+                    onDiscardTracked={discardAllUnstagedFn}
+                    onTrashUntracked={discardAllUntrackedFn}
+                  />
                 </div>
 
                 {/* Content */}

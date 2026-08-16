@@ -2,7 +2,7 @@
 
 import React from "react";
 import { useTranslations } from "next-intl";
-import { Check, Tabs, TabsList } from "@workspace/ui";
+import { Check } from "@workspace/ui";
 
 import type { GitChangedFile } from "@/api/ws-api";
 import {
@@ -66,10 +66,8 @@ function CanvasChangesWidgetBody({
   const repoPath = source.context.repoPath ?? source.context.localPath;
   const contextId = getCanvasContextId(source.context);
   const [selectedFilePath, setSelectedFilePath] = React.useState<string | null>(null);
-  const [sidebarUi, setSidebarUi] = useSidebarUiPrefs();
+  const [sidebarUi] = useSidebarUiPrefs();
   const viewMode = sidebarUi.changesFileViewMode;
-  const setViewMode = (mode: "list" | "tree") =>
-    setSidebarUi({ changesFileViewMode: mode });
   const openCenterTab = useOpenCanvasCenterTab(shapeId, source.context);
   const {
     compareMode,
@@ -77,12 +75,12 @@ function CanvasChangesWidgetBody({
     compareAgainstRef,
     compareWorktreeChanges,
     resetCompareMode,
-    fetchChanges,
     setCurrentRepoPath,
     stageFiles,
     unstageFiles,
     discardUnstagedChanges,
     discardUntrackedFiles,
+    isLoading: isMutating,
   } = useGitStore();
 
   const statusQuery = useGitStatusQuery(repoPath ?? null);
@@ -171,34 +169,37 @@ function CanvasChangesWidgetBody({
     [changesScopeKey, compareAgainstRef],
   );
 
-  const handleChangesRefresh = React.useCallback(async () => {
-    if (changesScope === "commit" && selectedCommitHash) {
-      await compareAgainstRef(selectedCommitHash);
-      return;
-    }
-
-    if (changesScope === "staged" || changesScope === "unstaged") {
-      await compareWorktreeChanges();
-      if (repoPath) await invalidateGitQueries(repoPath);
-      return;
-    }
-
-    resetCompareMode();
-    await fetchChanges();
-  }, [
-    changesScope,
-    compareAgainstRef,
-    compareWorktreeChanges,
-    fetchChanges,
-    repoPath,
-    resetCompareMode,
-    selectedCommitHash,
-  ]);
-
   const displayedComparedFiles = compareFiles;
   const displayedStagedFiles = stagedFiles;
   const displayedUnstagedFiles = unstagedFiles;
   const displayedUntrackedFiles = untrackedFiles;
+  const stageAllChanges = React.useCallback(
+    async () => {
+      await stageFiles([
+        ...displayedUnstagedFiles.map((file) => file.path),
+        ...displayedUntrackedFiles.map((file) => file.path),
+      ]);
+    },
+    [displayedUnstagedFiles, displayedUntrackedFiles, stageFiles],
+  );
+  const unstageAllChanges = React.useCallback(
+    async () => {
+      await unstageFiles(displayedStagedFiles.map((file) => file.path));
+    },
+    [displayedStagedFiles, unstageFiles],
+  );
+  const discardAllTrackedChanges = React.useCallback(
+    async () => {
+      await discardUnstagedChanges(displayedUnstagedFiles.map((file) => file.path));
+    },
+    [discardUnstagedChanges, displayedUnstagedFiles],
+  );
+  const trashAllUntrackedFiles = React.useCallback(
+    async () => {
+      await discardUntrackedFiles(displayedUntrackedFiles.map((file) => file.path));
+    },
+    [discardUntrackedFiles, displayedUntrackedFiles],
+  );
   const hasDisplayedChanges =
     changesScope === "branch" || changesScope === "commit"
       ? displayedComparedFiles.length > 0
@@ -253,29 +254,24 @@ function CanvasChangesWidgetBody({
   return (
     <div className="flex h-full flex-col overflow-hidden">
       <div className="flex h-9 shrink-0 border-b border-sidebar-border bg-background/50 backdrop-blur-sm">
-        <Tabs value="changes" className="h-full min-w-0 flex-1">
-          <TabsList variant="underline" className="h-full w-full gap-0 py-0!">
-            <ChangesToolbar
-              value="changes"
-              activeValue="changes"
-              isRefreshing={isLoading}
-              onRefresh={handleChangesRefresh}
-              scope={changesScope}
-              selectedCommitHash={selectedCommitHash}
-              commits={commitLog.commits}
-              loadingCommits={commitLog.loading}
-              stagedCount={displayedStagedFiles.length}
-              unstagedCount={displayedUnstagedFiles.length + displayedUntrackedFiles.length}
-              open={changesScopeMenuOpen}
-              viewMode={viewMode}
-              onOpenChange={setChangesScopeMenuOpen}
-              onSelectScope={handleSelectChangesScope}
-              onSelectCommit={handleSelectCommitScope}
-              onToggleViewMode={() => setViewMode(viewMode === "tree" ? "list" : "tree")}
-              className="h-full! flex-1 rounded-none border-0! text-sm focus-visible:ring-0 focus-visible:ring-offset-0"
-            />
-          </TabsList>
-        </Tabs>
+        <ChangesToolbar
+          scope={changesScope}
+          selectedCommitHash={selectedCommitHash}
+          commits={commitLog.commits}
+          loadingCommits={commitLog.loading}
+          stagedCount={displayedStagedFiles.length}
+          unstagedCount={displayedUnstagedFiles.length}
+          untrackedCount={displayedUntrackedFiles.length}
+          open={changesScopeMenuOpen}
+          isBusy={isMutating}
+          onOpenChange={setChangesScopeMenuOpen}
+          onSelectScope={handleSelectChangesScope}
+          onSelectCommit={handleSelectCommitScope}
+          onStageAll={stageAllChanges}
+          onUnstageAll={unstageAllChanges}
+          onDiscardTracked={discardAllTrackedChanges}
+          onTrashUntracked={trashAllUntrackedFiles}
+        />
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto p-2">
         {isLoading && !hasDisplayedChanges ? (
