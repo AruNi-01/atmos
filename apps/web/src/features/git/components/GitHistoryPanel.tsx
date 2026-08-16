@@ -5,16 +5,17 @@
  * (https://github.com/zeronsh/comet, MIT — see root NOTICE).
  * Search + chunked prefetch follow Zed's git graph (open source):
  * https://github.com/zed-industries/zed
+ * Row virtualization uses @tanstack/react-virtual (fixed 36px rows).
  */
 
 import React, {
   useCallback,
   useEffect,
-  useLayoutEffect,
   useMemo,
   useRef,
   useState,
 } from "react";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { useTranslations } from "next-intl";
 import { fromUnixTime, format } from "date-fns";
 import {
@@ -49,12 +50,9 @@ import {
   collectGitHistoryMatchIndexes,
   splitHighlightedText,
 } from "@/features/git/lib/git-history-search";
-import {
-  gitHistoryRowScrollTop,
-  visibleGitHistoryRowRange,
-} from "@/features/git/lib/git-history-virtual-range";
 
 const MAX_VISIBLE_REFS = 3;
+const GIT_HISTORY_ROW_OVERSCAN = 12;
 
 export function GitHistoryPanel({
   repoPath,
@@ -77,7 +75,6 @@ export function GitHistoryPanel({
   const [query, setQuery] = useState("");
   const [caseSensitive, setCaseSensitive] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const [viewport, setViewport] = useState({ scrollTop: 0, height: HISTORY_ROW_HEIGHT * 12 });
   const matchIndexes = useMemo(
     () => collectGitHistoryMatchIndexes(history.commits, query, caseSensitive),
     [caseSensitive, history.commits, query],
@@ -86,40 +83,24 @@ export function GitHistoryPanel({
   const selectedMatchPosition = selectedHash
     ? matchIndexes.findIndex((index) => history.commits[index]?.hash === selectedHash)
     : -1;
-  const visibleRange = visibleGitHistoryRowRange(
-    viewport.scrollTop,
-    viewport.height,
-    history.commits.length,
-    HISTORY_ROW_HEIGHT,
-  );
   const matchIndexSet = useMemo(() => new Set(matchIndexes), [matchIndexes]);
-  const graphStart = visibleRange.start;
-  const graphEnd = visibleRange.end;
   const autoSelectedQuery = useRef("");
-
-  const syncViewport = useCallback(() => {
-    const element = scrollRef.current;
-    if (!element) return;
-    setViewport({ scrollTop: element.scrollTop, height: element.clientHeight });
-  }, []);
-
-  useLayoutEffect(() => {
-    syncViewport();
-    const element = scrollRef.current;
-    if (!element) return;
-    const observer = new ResizeObserver(syncViewport);
-    observer.observe(element);
-    return () => observer.disconnect();
-  }, [history.commits.length, syncViewport]);
+  const virtualizer = useVirtualizer({
+    count: history.commits.length,
+    getScrollElement: () => scrollRef.current,
+    estimateSize: () => HISTORY_ROW_HEIGHT,
+    overscan: GIT_HISTORY_ROW_OVERSCAN,
+    getItemKey: (index) => history.commits[index]?.hash ?? index,
+  });
+  const virtualItems = virtualizer.getVirtualItems();
+  const firstVirtualItem = virtualItems[0];
+  const lastVirtualItem = virtualItems[virtualItems.length - 1];
 
   const scrollToIndex = useCallback(
     (index: number) => {
-      const element = scrollRef.current;
-      if (!element) return;
-      element.scrollTop = gitHistoryRowScrollTop(index, HISTORY_ROW_HEIGHT, element.clientHeight);
-      syncViewport();
+      virtualizer.scrollToIndex(index, { align: "center" });
     },
-    [syncViewport],
+    [virtualizer],
   );
 
   const selectMatchAt = useCallback(
@@ -284,47 +265,56 @@ export function GitHistoryPanel({
         </Button>
       </div>
 
-      <div
-        ref={scrollRef}
-        className="min-h-0 flex-1 overflow-auto"
-        onScroll={syncViewport}
-      >
+      <div ref={scrollRef} className="min-h-0 flex-1 overflow-auto">
         <div
           className="relative"
           style={{
             minWidth: graphWidth + 420,
-            height: history.commits.length * HISTORY_ROW_HEIGHT,
+            height: virtualizer.getTotalSize(),
           }}
         >
-          <div
-            className="absolute right-0 left-0"
-            style={{ top: graphStart * HISTORY_ROW_HEIGHT }}
-          >
-            <GitHistoryGraphSvg
-              rows={layout.rows.slice(graphStart, graphEnd)}
-              width={graphWidth}
-            />
-            {history.commits.slice(visibleRange.start, visibleRange.end).map((commit, offset) => {
-              const index = visibleRange.start + offset;
-              const row = layout.rows[index];
-              if (!row) return null;
-              return (
+          {firstVirtualItem && lastVirtualItem ? (
+            <div
+              className="absolute top-0 right-0 left-0"
+              style={{ transform: `translateY(${firstVirtualItem.start}px)` }}
+            >
+              <GitHistoryGraphSvg
+                rows={layout.rows.slice(
+                  firstVirtualItem.index,
+                  lastVirtualItem.index + 2,
+                )}
+                width={graphWidth}
+              />
+            </div>
+          ) : null}
+          {virtualItems.map((item) => {
+            const commit = history.commits[item.index];
+            const row = layout.rows[item.index];
+            if (!commit || !row) return null;
+            return (
+              <div
+                key={item.key}
+                className="absolute top-0 right-0 left-0"
+                style={{
+                  height: item.size,
+                  transform: `translateY(${item.start}px)`,
+                }}
+              >
                 <GitHistoryRow
-                  key={commit.hash}
                   commit={commit}
                   graphWidth={graphWidth}
                   nodeLane={row.nodeLane}
                   nodeColorId={row.nodeColorId}
                   isHead={row.isHead}
                   selected={selectedHash === commit.hash}
-                  matched={activeQuery.length > 0 && matchIndexSet.has(index)}
+                  matched={activeQuery.length > 0 && matchIndexSet.has(item.index)}
                   query={activeQuery}
                   caseSensitive={caseSensitive}
                   onSelect={() => selectCommit(contextId, commit.hash)}
                 />
-              );
-            })}
-          </div>
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>
