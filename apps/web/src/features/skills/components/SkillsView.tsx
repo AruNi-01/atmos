@@ -7,6 +7,7 @@ import {
   PushPageStack,
   Tabs,
   usePushPageTransition,
+  type PushPagePhase,
 } from "@workspace/ui";
 import { useTranslations } from "next-intl";
 import { skillsApi, type SkillInfo } from "@/api/ws-api";
@@ -47,6 +48,10 @@ import {
   filterMarketCategories,
   filterResourceCategories,
 } from "../lib/skills-view-utils";
+
+function isClosingPushPhase(phase: PushPagePhase): boolean {
+  return phase === "closing";
+}
 
 export const SkillsView: React.FC = () => {
   const t = useTranslations("skills.view");
@@ -194,7 +199,7 @@ export const SkillsView: React.FC = () => {
       }
 
       // Local close: URL still has skillId until exit finishes — do not re-open.
-      if (pushPhaseRef.current === "closing") {
+      if (isClosingPushPhase(pushPhaseRef.current)) {
         return;
       }
 
@@ -209,7 +214,7 @@ export const SkillsView: React.FC = () => {
       setIsLoadingDetail(true);
       try {
         const result = await skillsApi.get(skillScope, skillId);
-        if (pushPhaseRef.current === "closing") return;
+        if (isClosingPushPhase(pushPhaseRef.current)) return;
         openDetail(result);
       } catch (error) {
         console.error("Failed to load skill details:", error);

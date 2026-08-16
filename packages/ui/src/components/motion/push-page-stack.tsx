@@ -81,7 +81,7 @@ export function usePushPageTransition(
         closeTimerRef.current = null;
       }
       const delayMs = prefersReducedMotion() ? 0 : durationMs;
-      const timer = window.setTimeout(() => {
+      const timer = setTimeout(() => {
         if (phaseRef.current !== "closing") return;
         if (closeTimerRef.current !== timer) return;
         closeTimerRef.current = null;
