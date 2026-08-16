@@ -64,4 +64,11 @@ export type PtScene = {
   };
 };
 
+export function emptyScene(): PtScene {
+  return {
+    elements: [],
+    appState: { viewBackgroundColor: "#ffffff" },
+  };
+}
+
 export type BBox = { x: number; y: number; w: number; h: number };

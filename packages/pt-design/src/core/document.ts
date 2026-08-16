@@ -2,7 +2,9 @@ import { mkdirSync, readFileSync, renameSync, writeFileSync, existsSync } from "
 import { dirname, resolve } from "node:path";
 import { CATALOG_VERSION } from "../catalog/shadcn-list";
 import { PT_ERROR_CODES, PtDesignError } from "../agent/errors";
-import type { PtScene } from "./types";
+import { emptyScene, type PtScene } from "./types";
+
+export { emptyScene };
 
 export const FILE_FORMAT = "pt-design-file/1" as const;
 export const EXCALIDRAW_COMPAT = "0.18";
@@ -14,13 +16,6 @@ export type PtDesignFile = {
   excalidrawCompat: string;
   scene: PtScene;
 };
-
-export function emptyScene(): PtScene {
-  return {
-    elements: [],
-    appState: { viewBackgroundColor: "#ffffff" },
-  };
-}
 
 export function initDesignDocument(path: string): PtDesignFile {
   const abs = resolve(path);

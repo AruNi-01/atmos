@@ -12,8 +12,7 @@ import type { DesignIR } from "../ir/schema";
 import { frameEl } from "../catalog/primitives";
 import { PT_ERROR_CODES, PtDesignError } from "../agent/errors";
 import { createId } from "./ids";
-import { emptyScene } from "./document";
-import type { BBox, PtElement, PtProps, PtScene, PtSize } from "./types";
+import { emptyScene, type BBox, type PtElement, type PtProps, type PtScene, type PtSize } from "./types";
 
 export type PtDesignCommand =
   | {

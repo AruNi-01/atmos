@@ -31,10 +31,12 @@ describe("package isolation", () => {
     expect(hits).toEqual([]);
   });
 
-  test("browser barrel does not import Ink, CLI, or MCP", () => {
+  test("browser barrel does not import Ink, CLI, MCP, or node:fs", () => {
     const index = readFileSync(join(srcRoot, "index.ts"), "utf8");
-    expect(index).not.toMatch(/headless|cli\/bin|mcp\/server|from ["']ink["']/);
+    expect(index).not.toMatch(/headless|cli\/bin|mcp\/server|core\/document|from ["']ink["']/);
     const embed = readFileSync(join(srcRoot, "embed", "PtDesignApp.tsx"), "utf8");
-    expect(embed).not.toMatch(/headless|cli\/bin|mcp\/server|from ["']ink["']/);
+    expect(embed).not.toMatch(/headless|cli\/bin|mcp\/server|core\/document|node:fs|from ["']ink["']/);
+    const session = readFileSync(join(srcRoot, "core", "session.ts"), "utf8");
+    expect(session).not.toMatch(/node:fs|from ["']\.\/document["']/);
   });
 });
