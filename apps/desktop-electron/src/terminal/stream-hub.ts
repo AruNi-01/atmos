@@ -41,7 +41,7 @@ type LiveStream = {
 
 export type TerminalStreamHub = {
   open(sink: TerminalStreamSink, requestedUrl: string): Promise<{ streamId: string }>;
-  send(senderId: number, streamId: string, data: string | ArrayBuffer): void;
+  send(senderId: number, streamId: string, data: string | ArrayBufferLike): void;
   close(senderId: number, streamId: string): void;
   closeAllForSender(senderId: number): void;
   size(): number;

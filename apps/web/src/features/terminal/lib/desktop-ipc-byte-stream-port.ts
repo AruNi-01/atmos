@@ -21,6 +21,7 @@ type LiveIpcStream = {
   state: StreamReadyState;
   listeners: Set<ByteStreamListener>;
   lastError: string | null;
+  backlog: ByteStreamMessage[];
 };
 
 const streams = new Map<string, LiveIpcStream>();
@@ -81,6 +82,13 @@ function onMessage(streamId: string, data: ByteStreamMessage): void {
   enqueue(streamId, () => {
     const stream = streams.get(streamId);
     if (!stream || stream.state === "closed") return;
+    if (stream.listeners.size === 0) {
+      stream.backlog.push(data);
+      if (stream.backlog.length > 256) {
+        stream.backlog.shift();
+      }
+      return;
+    }
     notify(stream, (listener) => listener.onMessage?.(data));
   });
 }
@@ -182,6 +190,7 @@ export function createDesktopIpcByteStreamPort(
         state: "connecting",
         listeners: new Set(),
         lastError: null,
+        backlog: [],
       };
       streams.set(streamId, stream);
       flush(streamId);
@@ -209,6 +218,11 @@ export function createDesktopIpcByteStreamPort(
           if (stream.state === "open") listener.onOpen?.();
           if (stream.lastError && stream.state !== "closed") {
             listener.onError?.(stream.lastError);
+          }
+          if (stream.backlog.length > 0) {
+            const queued = stream.backlog;
+            stream.backlog = [];
+            for (const data of queued) listener.onMessage?.(data);
           }
           if (stream.state === "closed") listener.onClose?.();
           return () => {

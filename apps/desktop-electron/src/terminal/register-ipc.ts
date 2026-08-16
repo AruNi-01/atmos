@@ -1,28 +1,6 @@
+import type { IpcMain } from "electron";
 import type { AppState } from "../app-state.js";
 import type { TerminalStreamEvent, TerminalStreamHub } from "./stream-hub.js";
-
-type IpcMainLike = {
-  removeHandler(channel: string): void;
-  handle(
-    channel: string,
-    listener: (
-      event: { sender: IpcSender },
-      payload: unknown,
-    ) => unknown | Promise<unknown>,
-  ): void;
-  removeAllListeners(channel: string): void;
-  on(
-    channel: string,
-    listener: (event: { sender: IpcSender }, ...args: unknown[]) => void,
-  ): void;
-};
-
-type IpcSender = {
-  id: number;
-  isDestroyed?: () => boolean;
-  send: (channel: string, payload: unknown) => void;
-  once?: (event: string, listener: () => void) => void;
-};
 
 const OPEN_CHANNEL = "atmos:terminal-stream-open";
 const SEND_CHANNEL = "atmos:terminal-stream-send";
@@ -65,7 +43,7 @@ function senderPayload(event: TerminalStreamEvent): unknown {
 }
 
 export function registerTerminalStreamIpc(
-  ipcMain: IpcMainLike,
+  ipcMain: IpcMain,
   _state: AppState,
   hub: TerminalStreamHub,
 ): void {
@@ -100,18 +78,15 @@ export function registerTerminalStreamIpc(
 
   ipcMain.on(SEND_CHANNEL, (event, streamId, data) => {
     if (typeof streamId !== "string") return;
-    if (typeof data !== "string" && !(data instanceof ArrayBuffer)) {
-      if (ArrayBuffer.isView(data)) {
-        hub.send(
-          event.sender.id,
-          streamId,
-          data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength),
-        );
-        return;
-      }
+    if (typeof data === "string" || data instanceof ArrayBuffer) {
+      hub.send(event.sender.id, streamId, data);
       return;
     }
-    hub.send(event.sender.id, streamId, data);
+    if (ArrayBuffer.isView(data)) {
+      const copy = new Uint8Array(data.byteLength);
+      copy.set(new Uint8Array(data.buffer, data.byteOffset, data.byteLength));
+      hub.send(event.sender.id, streamId, copy.buffer);
+    }
   });
 
   ipcMain.on(CLOSE_CHANNEL, (event, streamId) => {
