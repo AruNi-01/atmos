@@ -37,6 +37,22 @@ function automationsT(
 
 export type TriggerChoice = "manual" | AutomationScheduleKind | "github";
 
+export const SCHEDULE_KINDS = [
+  "hourly",
+  "daily",
+  "weekly",
+  "monthly",
+  "cron",
+] as const satisfies readonly AutomationScheduleKind[];
+
+export function isScheduleKind(value: string | null | undefined): value is AutomationScheduleKind {
+  return SCHEDULE_KINDS.some((kind) => kind === value);
+}
+
+export function isTriggerChoice(value: string | null | undefined): value is TriggerChoice {
+  return value === "manual" || value === "github" || isScheduleKind(value);
+}
+
 export const TRIGGER_OPTIONS: Array<{
   value: TriggerChoice;
   label: string;
@@ -161,20 +177,23 @@ export function buildScheduleInput(
   dayOfMonth: number,
   cronExpr: string,
 ): AutomationScheduleInput | null {
-  if (trigger === "manual" || trigger === "github") {
+  if (!isScheduleKind(trigger)) {
     return null;
   }
+
+  const resolvedTimezone = timezone.trim() || undefined;
+
   if (trigger === "cron") {
     return {
       kind: "cron",
       expr: cronExpr.trim(),
-      timezone,
+      timezone: resolvedTimezone,
     };
   }
 
   const base = {
     kind: trigger,
-    timezone,
+    timezone: resolvedTimezone,
     minute: clampNumber(minute, 0, 59),
   };
 
@@ -219,7 +238,7 @@ export function parseSchedule(automation: AutomationSummary): {
   if (automation.trigger_kind === "github") {
     return { ...fallback, trigger: "github" };
   }
-  if (!automation.schedule_kind || !automation.schedule_expr) {
+  if (!isScheduleKind(automation.schedule_kind) || !automation.schedule_expr?.trim()) {
     return fallback;
   }
   const parts = automation.schedule_expr.split(/\s+/);

@@ -3,11 +3,15 @@
 import { useTranslations } from "next-intl";
 import { cn } from "@workspace/ui";
 
+import { useAgentAttentionSummaryStore } from "@/features/agent/store/agent-attention-summary-store";
 import {
   getAvailableSideChatRecords,
   hasOpenSideChatRecord,
+  minimizedSideChatHasAttentionSummary,
   type LocalSideChatRecord,
 } from "@/features/terminal/lib/terminal-side-chat";
+
+import "./TerminalAgentInputOverlay.css";
 
 export function TerminalSideChatDots({
   records,
@@ -21,6 +25,9 @@ export function TerminalSideChatDots({
   onShow: (sideChatId: string) => void;
 }) {
   const t = useTranslations("terminal.sideChat");
+  const hasMinimizedSummary = useAgentAttentionSummaryStore((state) =>
+    minimizedSideChatHasAttentionSummary(records, (paneId) => state.panes.has(paneId)),
+  );
   const availableRecords = getAvailableSideChatRecords(records);
   const hasOpenRecord = hasOpenSideChatRecord(availableRecords);
   const targetRecord =
@@ -28,8 +35,12 @@ export function TerminalSideChatDots({
     availableRecords.at(-1) ??
     null;
   const shouldShowIndicator = isStarting || Boolean(targetRecord && !hasOpenRecord);
-  const sideChatIndicatorClassName =
-    "h-1 w-6 rounded-full bg-cyan-600 shadow-[0_1px_4px_rgba(0,0,0,0.16)] dark:bg-cyan-300";
+  const sideChatIndicatorClassName = cn(
+    "h-1 w-6 rounded-full shadow-[0_1px_4px_rgba(0,0,0,0.16)]",
+    hasMinimizedSummary
+      ? "terminal-agent-input-trigger--summary terminal-agent-input-trigger--pulse bg-sky-500"
+      : "bg-cyan-600 dark:bg-cyan-300",
+  );
 
   return (
     <span
@@ -52,12 +63,14 @@ export function TerminalSideChatDots({
           className="group/side-dot inline-flex h-3 w-8 items-end justify-center"
           aria-label={t("show")}
           title={t("show")}
+          data-attention-summary={hasMinimizedSummary ? "ready" : undefined}
           onClick={() => onShow(targetRecord.side_chat_id)}
         >
           <span
             className={cn(
               sideChatIndicatorClassName,
-              "transition-colors duration-200 group-hover/side-dot:bg-cyan-500 dark:group-hover/side-dot:bg-cyan-200",
+              !hasMinimizedSummary &&
+                "transition-colors duration-200 group-hover/side-dot:bg-cyan-500 dark:group-hover/side-dot:bg-cyan-200",
             )}
           />
         </button>

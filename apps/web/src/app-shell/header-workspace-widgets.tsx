@@ -275,7 +275,7 @@ export function HeaderWorkspaceSummaryButton({
             <button
               type="button"
               aria-label={t("summary.openWorkspaceSummary")}
-              className="desktop-no-drag flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors duration-200 ease-out hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="desktop-no-drag flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <PanelTop className="size-4" />
             </button>

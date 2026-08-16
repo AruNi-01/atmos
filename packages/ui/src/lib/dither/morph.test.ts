@@ -3,6 +3,7 @@ import { describe, expect, test } from "bun:test";
 import {
   createGridMorph,
   createSeriesMorph,
+  remapSeriesLength,
   seriesScaleDiscontinuity,
 } from "./morph";
 
@@ -42,20 +43,33 @@ describe("createSeriesMorph", () => {
     expect(morph.sample(true)).toEqual([150, 250]);
   });
 
-  test("enters from zero on tokens ↔ cost scale jump", () => {
+  test("length change remaps the previous silhouette instead of growing from zero", () => {
+    const morph = createSeriesMorph();
+    morph.retarget([10, 20]);
+    morph.sample(true);
+    morph.retarget([10, 13, 17, 20]);
+    const from = morph.current();
+    expect(from).toHaveLength(4);
+    expect(from.every((value) => value > 0)).toBe(true);
+    expect(from[0]).toBeCloseTo(10);
+    expect(from[from.length - 1]).toBeCloseTo(20);
+  });
+
+  test("unit flip remaps by relative height instead of growing from zero", () => {
     const morph = createSeriesMorph();
     morph.retarget([5_000_000, 3_000_000]);
     morph.sample(true);
 
-    morph.retarget([50, 30]);
-    // Immediately after retarget, current is the from-values (zeros for enter).
-    expect(morph.current()).toEqual([0, 0]);
-    expect(morph.sample(true)).toEqual([50, 30]);
+    morph.retarget([50, 40]);
+    // Old 5:3 silhouette at the new amplitude (peak 50) → [50, 30], then morphs to [50, 40].
+    expect(morph.current()[0]).toBeCloseTo(50);
+    expect(morph.current()[1]).toBeCloseTo(30);
+    expect(morph.sample(true)).toEqual([50, 40]);
   });
 });
 
 describe("createGridMorph", () => {
-  test("enters on same shape when segment magnitudes jump (metric flip)", () => {
+  test("metric flip remaps stacked bars by relative height", () => {
     const morph = createGridMorph();
     morph.retarget([
       [1_000_000, 500_000],
@@ -64,13 +78,36 @@ describe("createGridMorph", () => {
     morph.sample(true);
 
     morph.retarget([
-      [10, 5],
-      [8, 2],
+      [10, 8],
+      [4, 2],
     ]);
-    // Scale discontinuity inside flat series → enter from zero.
     const mid = morph.sample(false);
-    // Early frame should still be near zero, not mid-lerp of millions.
-    expect(mid[0]![0]!).toBeLessThan(1);
+    // Old 2:1 mix at the new amplitude starts near [10, 5], not at zero.
+    expect(mid[0]![0]!).toBeGreaterThan(8);
+    expect(mid[0]![1]!).toBeGreaterThan(3);
+    expect(mid[0]![1]!).toBeLessThan(7);
+    expect(morph.sample(true)).toEqual([
+      [10, 8],
+      [4, 2],
+    ]);
+  });
+
+  test("bar-count change remaps heights instead of growing from zero", () => {
+    const morph = createGridMorph();
+    morph.retarget([
+      [100, 40],
+      [80, 20],
+    ]);
+    morph.sample(true);
+    morph.retarget([
+      [100, 40],
+      [90, 30],
+      [80, 20],
+      [70, 10],
+    ]);
+    const mid = morph.sample(false);
+    expect(mid).toHaveLength(4);
+    expect(mid[0]![0]!).toBeGreaterThan(20);
   });
 
   test("retargetEnter grows from zero even when shape is unchanged", () => {
@@ -90,5 +127,14 @@ describe("createGridMorph", () => {
       [10, 5],
       [8, 2],
     ]);
+  });
+});
+
+describe("remapSeriesLength", () => {
+  test("keeps endpoints when stretching a series", () => {
+    const remapped = remapSeriesLength([10, 20], 5);
+    expect(remapped).toHaveLength(5);
+    expect(remapped[0]).toBeCloseTo(10);
+    expect(remapped[4]).toBeCloseTo(20);
   });
 });

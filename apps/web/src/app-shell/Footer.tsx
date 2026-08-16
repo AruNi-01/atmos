@@ -523,7 +523,8 @@ const Footer: React.FC = () => {
   }, {});
 
   const showLeftCarousel = showUsageCarousel && Boolean(usageCarouselItem);
-  const showLeft = showWsConnection || showLocalServices || showLeftCarousel;
+  const showWsStatus = showWsConnection && connectionState !== "connected";
+  const showLeft = showWsStatus || showLocalServices || showLeftCarousel;
   const showRightAgent = showAgentStatus;
   const showRightAcp = launchpadAgentsEnabled;
   const showRight = showRightAgent || showRightAcp;
@@ -536,7 +537,7 @@ const Footer: React.FC = () => {
     <footer className="h-6 flex items-center justify-between px-3 backdrop-blur-md border-t border-sidebar-border text-[10px] font-mono text-muted-foreground select-none shadow-sm">
       {showLeft ? (
         <div className="flex items-center space-x-2">
-          {showWsConnection ? (
+          {showWsStatus ? (
             <Tooltip>
               <TooltipTrigger asChild>
                 <div
@@ -595,7 +596,7 @@ const Footer: React.FC = () => {
               </TooltipContent>
             </Tooltip>
           ) : null}
-          {showWsConnection && (showLocalServices || showLeftCarousel) ? (
+          {showWsStatus && (showLocalServices || showLeftCarousel) ? (
             <div className="h-3 w-px bg-border" />
           ) : null}
           {showLocalServices ? (

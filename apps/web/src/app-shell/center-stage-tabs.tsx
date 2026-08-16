@@ -265,9 +265,9 @@ export function SortableTabGroupItem({
             transition,
           }}
           className={cn(
-            "group/tab-item relative flex h-10 w-full min-w-0 cursor-grab items-center gap-1 rounded-md pl-2 pr-2 text-left text-muted-foreground transition-colors active:cursor-grabbing",
-            "hover:bg-sidebar-accent/70 hover:text-sidebar-foreground dark:hover:bg-muted/45",
-            isActive && "bg-muted/40 hover:bg-sidebar-accent/70",
+            "group/tab-item relative flex h-10 w-full min-w-0 cursor-grab items-center gap-1 rounded-md pl-2 pr-2 text-left text-muted-foreground active:cursor-grabbing",
+            "hover:bg-accent hover:text-accent-foreground",
+            isActive && "bg-accent text-accent-foreground",
             isDragging && "z-10 opacity-70 shadow-md",
           )}
           {...attributes}
@@ -297,7 +297,7 @@ export function SortableTabGroupItem({
                 event.stopPropagation();
                 onClose();
               }}
-              className="ml-0.5 flex size-5 shrink-0 cursor-pointer items-center justify-center rounded-sm text-muted-foreground opacity-0 transition-all hover:bg-muted-foreground/20 hover:text-foreground group-hover/tab-item:opacity-100"
+              className="ml-0.5 flex size-5 shrink-0 cursor-pointer items-center justify-center rounded-sm text-muted-foreground opacity-0 transition-opacity hover:bg-muted-foreground/20 hover:text-foreground group-hover/tab-item:opacity-100"
             >
               <X className="size-3" />
             </span>
@@ -346,7 +346,7 @@ export function CenterStageTabGroupPopover({
       <PopoverTrigger asChild>
         <Button
           variant="ghost"
-          className="h-full! rounded-none border-0 px-4 text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
+          className="h-full! rounded-none border-0 px-4 text-muted-foreground hover:bg-accent hover:text-accent-foreground"
           aria-label={t("centerStageTabs.openTabGroups")}
         >
           <List className="size-4" />
@@ -407,7 +407,7 @@ export function CenterStageTabGroupPopover({
                             items={section.tabs.map((tab) => tab.id)}
                             strategy={verticalListSortingStrategy}
                           >
-                            <div className="w-full min-w-0">
+                            <div className="flex w-full min-w-0 flex-col gap-1">
                               {section.tabs.map((tab) => (
                                 <SortableTabGroupItem
                                   key={tab.id}

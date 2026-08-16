@@ -153,10 +153,15 @@ function BoardTable({
   empty,
   board,
   metric,
+  onOpenProfile,
 }: {
   empty: string;
   board: PublicLeaderboards["tokens"];
   metric: BoardTab;
+  onOpenProfile?: (
+    handle: string,
+    entry?: PublicLeaderboardEntry,
+  ) => void;
 }) {
   const t = useTranslations("appShell.tokenUsageDialog.leaderboard");
   const valueTitle = metric === "cost" ? t("costTitle") : t("tokensTitle");
@@ -219,7 +224,12 @@ function BoardTable({
           </thead>
           <tbody>
             {board.entries.map((row) => (
-              <LeaderRow key={row.handle} row={row} metric={metric} />
+              <LeaderRow
+                key={row.handle}
+                row={row}
+                metric={metric}
+                onOpenProfile={onOpenProfile}
+              />
             ))}
           </tbody>
         </table>
@@ -231,9 +241,14 @@ function BoardTable({
 function LeaderRow({
   row,
   metric,
+  onOpenProfile,
 }: {
   row: PublicLeaderboardEntry;
   metric: BoardTab;
+  onOpenProfile?: (
+    handle: string,
+    entry?: PublicLeaderboardEntry,
+  ) => void;
 }) {
   const locale = useLocale();
   const value = useEnterValue(row.value);
@@ -241,15 +256,21 @@ function LeaderRow({
     metric === "cost"
       ? currencySlidingParts(value, locale, "compact")
       : compactSlidingParts(value, locale);
+  const href = `/tok/@${row.handle}`;
 
   return (
     <tr className="group relative text-sm">
       <td className="rounded-l-lg py-1.5 pl-2 group-hover:bg-muted/60">
-        <a
-          href={`/tok/@${row.handle}`}
-          className="absolute inset-0 z-10"
-          aria-label={`@${row.handle}`}
-        />
+        {onOpenProfile ? (
+          <button
+            type="button"
+            className="absolute inset-0 z-10 cursor-pointer"
+            aria-label={`@${row.handle}`}
+            onClick={() => onOpenProfile(row.handle, row)}
+          />
+        ) : (
+          <a href={href} className="absolute inset-0 z-10" aria-label={`@${row.handle}`} />
+        )}
         <span className="flex justify-start">
           <RankMark rank={row.rank} />
         </span>
@@ -284,8 +305,14 @@ function LeaderRow({
 
 export function PublicTokLeaderboards({
   data,
+  onOpenProfile,
 }: {
   data: PublicLeaderboards;
+  /** Client push navigation into a profile; falls back to hard links when omitted. */
+  onOpenProfile?: (
+    handle: string,
+    entry?: PublicLeaderboardEntry,
+  ) => void;
 }) {
   const t = useTranslations("appShell.tokenUsageDialog.leaderboard");
   const locale = useLocale();
@@ -341,6 +368,7 @@ export function PublicTokLeaderboards({
             empty={tab === "cost" ? t("costEmpty") : t("tokensEmpty")}
             board={tab === "cost" ? data.cost : data.tokens}
             metric={tab}
+            onOpenProfile={onOpenProfile}
           />
         </Tabs>
         {updated ? (

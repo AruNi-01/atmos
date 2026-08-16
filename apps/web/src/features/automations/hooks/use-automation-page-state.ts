@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useTranslations } from "next-intl";
 import { toastManager } from "@workspace/ui";
-import { useQueryState } from "nuqs";
+import { useQueryState, useQueryStates } from "nuqs";
 
 import { useAutomations } from "@/features/automations/hooks/use-automations";
 import { useGithubRelayPrerequisites } from "@/features/automations/hooks/use-github-relay-prerequisites";
@@ -12,6 +12,7 @@ import { useAutomationWebsocketSync } from "@/features/automations/hooks/use-aut
 import { formatShortId } from "@/features/automations/lib/automation-format";
 import { deleteAutomationWithGithubRoute } from "@/features/automations/lib/github-route-lifecycle";
 import { parseGithubTriggerConfig } from "@/features/automations/lib/github-trigger-relay";
+import type { AutomationListFilters } from "@/features/automations/lib/automation-list-filters";
 import type { SetupMode } from "@/features/automations/components/AutomationSetup";
 import type {
   AutomationCreateRequest,
@@ -28,7 +29,12 @@ import { useProjectStore } from "@/features/project/store/use-project-store";
 import { useWorkspaceCreationStore } from "@/features/workspace/store/workspace-creation-store";
 import { useAppRouter } from "@/shared/hooks/use-app-router";
 import {
+  runFiltersForAutomation,
+  type AutomationRunListFilters,
+} from "@/features/automations/lib/automation-run-filters";
+import {
   automationsParams,
+  type AutomationsListTab,
   type AutomationsView,
 } from "@/shared/lib/nuqs/searchParams";
 
@@ -49,7 +55,6 @@ export function useAutomationPageState() {
     agents,
     loading,
     error,
-    reload,
     upsertAutomation,
     removeAutomation,
     refreshAutomation,
@@ -77,6 +82,18 @@ export function useAutomationPageState() {
     "automationView",
     automationsParams.view,
   );
+  const [listTab, setListTab] = useQueryState(
+    "automationTab",
+    automationsParams.tab,
+  );
+  const [runStatuses, setRunStatuses] = useQueryState(
+    "automationRunStatuses",
+    automationsParams.runStatuses,
+  );
+  const [runAutomationGuids, setRunAutomationGuids] = useQueryState(
+    "automationRunAutomations",
+    automationsParams.runAutomations,
+  );
   const [automationParam, setAutomationParam] = useQueryState(
     "automationId",
     automationsParams.automation,
@@ -85,13 +102,61 @@ export function useAutomationPageState() {
     "automationRun",
     automationsParams.run,
   );
-  const [targetFilter, setTargetFilter] = useQueryState(
-    "automationTarget",
-    automationsParams.target,
-  );
+  const [filterParams, setFilterParams] = useQueryStates({
+    automationEnvironments: automationsParams.environments,
+    automationTriggers: automationsParams.triggers,
+    automationStates: automationsParams.states,
+  });
   const [searchQuery, setSearchQuery] = useQueryState(
     "automationQ",
     automationsParams.q,
+  );
+  const listFilters = React.useMemo<AutomationListFilters>(
+    () => ({
+      environments: filterParams.automationEnvironments,
+      triggers: filterParams.automationTriggers,
+      states: filterParams.automationStates,
+    }),
+    [
+      filterParams.automationEnvironments,
+      filterParams.automationStates,
+      filterParams.automationTriggers,
+    ],
+  );
+  const setListFilters = React.useCallback(
+    (filters: AutomationListFilters) => {
+      void setFilterParams({
+        automationEnvironments: filters.environments,
+        automationTriggers: filters.triggers,
+        automationStates: filters.states,
+      });
+    },
+    [setFilterParams],
+  );
+  const runFilters = React.useMemo<AutomationRunListFilters>(
+    () => ({
+      environments: filterParams.automationEnvironments,
+      triggers: filterParams.automationTriggers,
+      statuses: runStatuses,
+      automationGuids: runAutomationGuids,
+    }),
+    [
+      filterParams.automationEnvironments,
+      filterParams.automationTriggers,
+      runAutomationGuids,
+      runStatuses,
+    ],
+  );
+  const setRunFilters = React.useCallback(
+    (filters: AutomationRunListFilters) => {
+      void setFilterParams({
+        automationEnvironments: filters.environments,
+        automationTriggers: filters.triggers,
+      });
+      void setRunStatuses(filters.statuses);
+      void setRunAutomationGuids(filters.automationGuids);
+    },
+    [setFilterParams, setRunAutomationGuids, setRunStatuses],
   );
 
   const setupMode: SetupMode | null =
@@ -134,7 +199,6 @@ export function useAutomationPageState() {
     setRuns,
     setSelectedRun,
   } = useAutomationRunHistoryState({
-    pageView: pageView as AutomationsView | null,
     selectedAutomationGuid,
     selectedRunGuid,
     setRunParam,
@@ -145,10 +209,12 @@ export function useAutomationPageState() {
   // Projects are now loaded by the TanStack Query bootstrap; no manual fetch needed.
 
   React.useEffect(() => {
-    if (
-      (pageView === "edit" || pageView === "history") &&
-      !selectedAutomationGuid
-    ) {
+    if (pageView === "history") {
+      void setListTab("history");
+      void setPageView("list");
+      return;
+    }
+    if (pageView === "edit" && !selectedAutomationGuid) {
       void setPageView("list");
       return;
     }
@@ -159,43 +225,21 @@ export function useAutomationPageState() {
         (automation) => automation.guid === selectedAutomationGuid,
       )
     ) {
-      void setPageView("list");
+      if (pageView === "edit") {
+        void setPageView("list");
+        void setRunParam(null);
+      }
       void setAutomationParam(null);
-      void setRunParam(null);
     }
   }, [
     automations,
     pageView,
     selectedAutomationGuid,
     setAutomationParam,
+    setListTab,
     setPageView,
     setRunParam,
   ]);
-
-  const loadAutomationDetail = React.useCallback(
-    async (automationGuid: string, showToast = true) => {
-      setDetailLoading(true);
-      try {
-        const detail = await getAutomation(automationGuid);
-        setSelectedDetail(detail);
-        upsertAutomation(detail);
-        return detail;
-      } catch (err) {
-        setSelectedDetail(null);
-        if (showToast) {
-          toastManager.add({
-            title: t("errors.loadAutomation"),
-            description: err instanceof Error ? err.message : t("errors.unknown"),
-            type: "error",
-          });
-        }
-        return null;
-      } finally {
-        setDetailLoading(false);
-      }
-    },
-    [getAutomation, t, upsertAutomation],
-  );
 
   React.useEffect(() => {
     if (!selectedAutomationGuid) {
@@ -300,7 +344,7 @@ export function useAutomationPageState() {
       try {
         if (action === "run") {
           const run = await runNow(automation.guid);
-          if (pageView === "history") {
+          if (listTab === "history") {
             void setRunParam(run.guid);
           }
           setSelectedRun(run);
@@ -380,9 +424,9 @@ export function useAutomationPageState() {
     [
       deleteAutomation,
       githubPrereqs,
+      listTab,
       loadRuns,
       pauseAutomation,
-      pageView,
       refreshAutomation,
       removeAutomation,
       resumeAutomation,
@@ -552,14 +596,26 @@ export function useAutomationPageState() {
     [continueInTerminal, ensureWorkspaceVisible, router, showOpening, t],
   );
 
-  const handleReload = React.useCallback(() => {
-    void reload().then(() => {
-      if (selectedAutomationGuid) {
-        void loadAutomationDetail(selectedAutomationGuid, false);
-        void loadRuns(selectedAutomationGuid);
+  const handleSaveMemory = React.useCallback(
+    async (automationGuid: string, memory: string) => {
+      try {
+        const detail = await updateAutomation({
+          automation_guid: automationGuid,
+          memory,
+        });
+        upsertAutomation(detail);
+        setSelectedDetail(detail);
+      } catch (err) {
+        toastManager.add({
+          title: t("errors.saveMemoryFailed"),
+          description: err instanceof Error ? err.message : t("errors.unknown"),
+          type: "error",
+        });
+        throw err;
       }
-    });
-  }, [loadAutomationDetail, loadRuns, reload, selectedAutomationGuid]);
+    },
+    [t, updateAutomation, upsertAutomation],
+  );
 
   const openList = React.useCallback(() => {
     void setPageView("list");
@@ -568,12 +624,22 @@ export function useAutomationPageState() {
   }, [setAutomationParam, setPageView, setRunParam]);
 
   const openHistory = React.useCallback(
-    (automationGuid: string) => {
-      void setAutomationParam(automationGuid);
-      void setRunParam(null);
-      void setPageView("history");
+    (runGuid?: string) => {
+      void setListTab("history");
+      void setPageView("list");
+      void setRunParam(runGuid ?? null);
     },
-    [setAutomationParam, setPageView, setRunParam],
+    [setListTab, setPageView, setRunParam],
+  );
+
+  const openAutomationRuns = React.useCallback(
+    (automationGuid: string) => {
+      setRunFilters(runFiltersForAutomation(automationGuid, runFilters));
+      void setListTab("history");
+      void setPageView("list");
+      void setRunParam(null);
+    },
+    [runFilters, setListTab, setPageView, setRunFilters, setRunParam],
   );
 
   const openEdit = React.useCallback(
@@ -625,7 +691,9 @@ export function useAutomationPageState() {
     projects,
     isProjectsLoading,
     pageView: pageView as AutomationsView,
-    targetFilter,
+    listTab: listTab as AutomationsListTab,
+    listFilters,
+    runFilters,
     searchQuery,
     setupMode,
     selectedAutomationGuid,
@@ -644,14 +712,16 @@ export function useAutomationPageState() {
     schedulePreview,
     setSetupMode,
     setSelectedAutomationGuid: openHistory,
-    setTargetFilter,
+    setListTab,
+    setListFilters,
+    setRunFilters,
     setSearchQuery,
     openList,
     openHistory,
+    openAutomationRuns,
     openEdit,
     openCreate,
     loadRuns,
-    handleReload,
     handleCreate,
     handleUpdate,
     handleDefinitionAction,
@@ -659,6 +729,8 @@ export function useAutomationPageState() {
     handleCancelRun,
     handleArtifactFetch,
     handleContinueInTerminal,
+    handleSaveMemory,
     setSelectedRunGuid,
+    clearRunSelection,
   };
 }

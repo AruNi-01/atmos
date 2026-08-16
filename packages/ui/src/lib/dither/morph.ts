@@ -3,12 +3,13 @@
  * Timed ease-out matches Amicro / DitherFunnel (~480ms).
  */
 
-export const DITHER_MORPH_MS = 480;
+export const DITHER_MORPH_MS = 560;
 
-/** Exponential ease-out (same curve as DitherFunnel). */
+/** Cubic ease-out — Amicro stacked/growth period morph. */
 export function ditherMorphEase(t: number): number {
   const p = Math.max(0, Math.min(1, t));
-  return 1 - Math.pow(2, -10 * p);
+  const inv = 1 - p;
+  return 1 - inv * inv * inv;
 }
 
 export function ditherMorphProgress(
@@ -29,6 +30,79 @@ export function lerp(a: number, b: number, t: number): number {
 export function alignSeries(from: readonly number[], to: readonly number[]): number[] {
   if (from.length === to.length) return from.slice();
   return to.map((_, i) => from[i] ?? 0);
+}
+
+/**
+ * Resample `from` onto `toLength` by x-position (Amicro DitherGrowthChart).
+ * Month↔day (and 7D↔90D) keep the previous silhouette instead of growing
+ * every new index from 0.
+ */
+export function remapSeriesLength(
+  from: readonly number[],
+  toLength: number,
+): number[] {
+  if (toLength <= 0) return [];
+  if (from.length === 0) return Array.from({ length: toLength }, () => 0);
+  if (from.length === toLength) return from.slice();
+  if (toLength === 1) return [from[from.length - 1] ?? 0];
+  if (from.length === 1) return Array.from({ length: toLength }, () => from[0] ?? 0);
+  return Array.from({ length: toLength }, (_, i) => {
+    const t = i / (toLength - 1);
+    const idx = t * (from.length - 1);
+    const i0 = Math.floor(idx);
+    const i1 = Math.min(i0 + 1, from.length - 1);
+    return lerp(from[i0] ?? 0, from[i1] ?? 0, idx - i0);
+  });
+}
+
+function seriesPeak(values: readonly number[]): number {
+  let peak = 0;
+  for (const v of values) {
+    if (Number.isFinite(v)) peak = Math.max(peak, Math.abs(v));
+  }
+  return peak;
+}
+
+/** Put `from` into `to`'s amplitude so the silhouette morphs at the new scale. */
+export function rescaleSeriesToPeak(
+  from: readonly number[],
+  to: readonly number[],
+): number[] {
+  const fromPeak = seriesPeak(from);
+  const toPeak = seriesPeak(to);
+  if (fromPeak === 0 || toPeak === 0) return from.slice();
+  const scale = toPeak / fromPeak;
+  return from.map((v) => v * scale);
+}
+
+function remapGrid(
+  from: readonly (readonly number[])[],
+  to: readonly (readonly number[])[],
+): number[][] {
+  if (to.length === 0) return [];
+  if (from.length === 0) return to.map((row) => row.map(() => 0));
+  return to.map((toRow, i) => {
+    const barT = to.length === 1 ? 0 : i / (to.length - 1);
+    const fromBar = barT * Math.max(0, from.length - 1);
+    const b0 = Math.floor(fromBar);
+    const b1 = Math.min(b0 + 1, from.length - 1);
+    const barFrac = fromBar - b0;
+    const row0 = from[b0] ?? [];
+    const row1 = from[b1] ?? row0;
+    return toRow.map((_, j) => {
+      const segT = toRow.length === 1 ? 0 : j / Math.max(1, toRow.length - 1);
+      return lerp(sampleSeries(row0, segT), sampleSeries(row1, segT), barFrac);
+    });
+  });
+}
+
+function sampleSeries(series: readonly number[], t: number): number {
+  if (series.length === 0) return 0;
+  if (series.length === 1) return series[0] ?? 0;
+  const idx = t * (series.length - 1);
+  const i0 = Math.floor(idx);
+  const i1 = Math.min(i0 + 1, series.length - 1);
+  return lerp(series[i0] ?? 0, series[i1] ?? 0, idx - i0);
 }
 
 /**
@@ -76,9 +150,13 @@ export type SeriesMorph = {
    * index-aligned morph would look wrong — e.g. agent→model segments).
    */
   retargetEnter: (next: readonly number[]) => void;
+  /** Start a morph from an explicit series (already remapped / rescaled). */
+  retargetFrom: (from: readonly number[], next: readonly number[]) => void;
   sample: (reducedMotion: boolean) => number[];
   /** Last sampled values (mid-animation capture uses this). */
   current: () => number[];
+  /** Eased 0–1 progress of the active morph (for axis / label lerps). */
+  progress: (reducedMotion: boolean) => number;
 };
 
 export function createSeriesMorph(initial: readonly number[] = []): SeriesMorph {
@@ -104,20 +182,32 @@ export function createSeriesMorph(initial: readonly number[] = []): SeriesMorph 
         begin(to, to.map(() => 0));
         return;
       }
-      const fromAligned = alignSeries(current, to);
-      // Tokens ↔ cost (and similar unit flips): grow-in so axis labels stay
-      // in the new unit and the chart actually re-enters instead of a no-op
-      // shape morph at a wildly different absolute scale.
+      const lengthChanged = current.length !== to.length;
+      let fromAligned = lengthChanged
+        ? remapSeriesLength(current, to.length)
+        : alignSeries(current, to);
+      // Tokens↔cost (and any huge unit jump): keep relative heights, put them
+      // on the new amplitude, then lerp. Do not grow from zero — that either
+      // pops from the baseline or, if the axis eases too, looks like no motion.
       if (seriesScaleDiscontinuity(fromAligned, to)) {
-        begin(to, to.map(() => 0));
-        return;
+        fromAligned = rescaleSeriesToPeak(fromAligned, to);
       }
-      // Capture mid-animation position so rapid tab switches stay smooth.
       begin(to, fromAligned);
     },
     retargetEnter(next) {
       const to = next.map((v) => Math.max(0, Number.isFinite(v) ? v : 0));
       begin(to, to.map(() => 0));
+    },
+    retargetFrom(fromVals, next) {
+      const to = next.map((v) => Math.max(0, Number.isFinite(v) ? v : 0));
+      let fromA = fromVals.map((v) => Math.max(0, Number.isFinite(v) ? v : 0));
+      if (fromA.length !== to.length) {
+        fromA = remapSeriesLength(fromA, to.length);
+      }
+      if (seriesScaleDiscontinuity(fromA, to)) {
+        fromA = rescaleSeriesToPeak(fromA, to);
+      }
+      begin(to, fromA);
     },
     sample(reducedMotion) {
       if (target.length === 0) {
@@ -133,6 +223,11 @@ export function createSeriesMorph(initial: readonly number[] = []): SeriesMorph 
       return current;
     },
     current: () => current,
+    progress(reducedMotion) {
+      return reducedMotion
+        ? 1
+        : ditherMorphEase(ditherMorphProgress(startMs, reducedMotion));
+    },
   };
 }
 
@@ -146,6 +241,7 @@ export type GridMorph = {
   /** Force grow-in from zero regardless of shape (e.g. tokens↔cost). */
   retargetEnter: (next: readonly (readonly number[])[]) => void;
   sample: (reducedMotion: boolean) => number[][];
+  progress: (reducedMotion: boolean) => number;
 };
 
 export function createGridMorph(
@@ -166,9 +262,13 @@ export function createGridMorph(
     retarget(next) {
       const nextShape = shapeSignature(next);
       const values = flattenGrid(next);
-      if (nextShape !== shapeKey) {
+      if (nextShape !== shapeKey && rowCount > 0) {
+        const remapped = remapGrid(
+          unflattenGrid(flat.current(), rowCount, rowLens),
+          next,
+        );
         applyShape(next);
-        flat.retargetEnter(values);
+        flat.retargetFrom(flattenGrid(remapped), values);
       } else {
         applyShape(next);
         flat.retarget(values);
@@ -181,6 +281,9 @@ export function createGridMorph(
     sample(reducedMotion) {
       const values = flat.sample(reducedMotion);
       return unflattenGrid(values, rowCount, rowLens);
+    },
+    progress(reducedMotion) {
+      return flat.progress(reducedMotion);
     },
   };
 }

@@ -2,18 +2,29 @@
 
 import React from "react";
 import { useTranslations } from "next-intl";
-import { Button, TooltipProvider } from "@workspace/ui";
-import { ArrowLeft, LoaderCircle } from "lucide-react";
+import { Button, Label, TooltipProvider } from "@workspace/ui";
+import { useAppRouter } from "@/shared/hooks/use-app-router";
+import {
+  useRegisteredAppNavigationGuard,
+  type AppNavigationTarget,
+} from "@/shared/hooks/app-navigation-intercept";
+import { ArrowLeft, Brain, ChevronDown, LoaderCircle, Sparkles } from "lucide-react";
+import { AgentIcon } from "@/features/agent/components/AgentIcon";
 import {
   sanitizeRunConfig,
 } from "@/features/agent/lib/terminal-agent-run-config";
 
 import { AutomationAttachmentPreviewDialog } from "@/features/automations/components/AutomationAttachmentPreviewDialog";
+import { AutomationMemoryEditor } from "@/features/automations/components/AutomationMemoryEditor";
+import { AutomationSetupUnsavedDialog } from "@/features/automations/components/AutomationSetupUnsavedDialog";
 import {
   AutomationSetupControls,
   AutomationSetupSubmitButton,
 } from "@/features/automations/components/AutomationSetupControls";
-import { buildTargetInput } from "@/features/automations/lib/automation-format";
+import {
+  buildTargetInput,
+  formatAutomationAgentDisplayName,
+} from "@/features/automations/lib/automation-format";
 import {
   validationMessage,
 } from "@/features/automations/lib/automation-schedule";
@@ -40,8 +51,8 @@ import {
 } from "@/features/welcome/components/WelcomeMentionPopover";
 import { SlashCommandPopover } from "@/features/welcome/components/SlashCommandPopover";
 import { WelcomeAgentSelector } from "@/features/welcome/components/WelcomeComposerControls";
-import { WelcomeComposerCard } from "@/features/welcome/components/WelcomeComposerCard";
-import { WelcomePageBackdrop } from "@/features/welcome/components/WelcomePageShell";
+import { AttachmentBar } from "@/features/welcome/components/AttachmentBar";
+import { PromptComposer } from "@/features/welcome/components/PromptComposer";
 import { useWelcomeComposerAttachments } from "@/features/welcome/hooks/use-welcome-composer-attachments";
 import { useWelcomeMentionSearch } from "@/features/welcome/hooks/use-welcome-mention-search";
 import {
@@ -56,34 +67,10 @@ import {
   type MentionFileCandidate,
 } from "@/features/welcome/lib/welcome-page-helpers";
 import type { SkillInfo } from "@/api/ws-api";
-import { AtmosWordmark } from "@/shared/components/ui/AtmosWordmark";
 import { useOpenSettings } from "@/features/settings/lib/open-settings";
 import type { Project } from "@/shared/types/domain";
 
 export type SetupMode = "create" | "edit";
-
-type AutomationHeadline =
-  | "automate_next"
-  | "run_on_schedule"
-  | "handle_later"
-  | "keep_running";
-
-const AUTOMATION_HEADLINES: AutomationHeadline[] = [
-  "automate_next",
-  "run_on_schedule",
-  "handle_later",
-  "keep_running",
-];
-const DEFAULT_AUTOMATION_HEADLINE: AutomationHeadline = "automate_next";
-const DAY_LABEL_KEYS: Record<number, string> = {
-  0: "sunday",
-  1: "monday",
-  2: "tuesday",
-  3: "wednesday",
-  4: "thursday",
-  5: "friday",
-  6: "saturday",
-};
 
 export function AutomationSetup({
   mode,
@@ -113,6 +100,7 @@ export function AutomationSetup({
   onUpdate: (request: AutomationUpdateRequest) => Promise<AutomationDetail>;
 }) {
   const t = useTranslations("automation.setup");
+  const router = useAppRouter();
   const composerRef = React.useRef<ComposerHandle | null>(null);
   const {
     attachments,
@@ -124,9 +112,6 @@ export function AutomationSetup({
     syncAttachmentPlaceholders,
   } = useWelcomeComposerAttachments(composerRef);
   const openSettings = useOpenSettings();
-  const [headline, setHeadline] = React.useState<AutomationHeadline>(
-    DEFAULT_AUTOMATION_HEADLINE,
-  );
   const [mentionPopover, setMentionPopover] =
     React.useState<MentionPopoverState>(null);
   const [slashPopover, setSlashPopover] =
@@ -135,6 +120,7 @@ export function AutomationSetup({
     timezone,
     displayName,
     instructions,
+    memory,
     agentId,
     targetKind,
     projectGuid,
@@ -150,19 +136,18 @@ export function AutomationSetup({
     previewLoading,
     submitError,
     submitting,
+    ready,
     workspaces,
     agentRunConfigs,
     selectedAgent,
     selectedAgentRunConfig,
     selectedTargetProject,
     targetValid,
-    environmentLabel,
-    scheduleInput,
     scheduleValid,
-    triggerValid,
     formValid,
     requestSchedule,
     setInstructions,
+    setMemory,
     setSubmitting,
     setSubmitError,
     clearSubmitError,
@@ -331,7 +316,6 @@ export function AutomationSetup({
     githubSetupMessage,
     buildGithubConfig,
     refreshGithubInstallations,
-    resetGithubSetupButton,
     startGithubSetup,
     setGithubInstallationId,
     setGithubRepositoryFullName,
@@ -347,81 +331,174 @@ export function AutomationSetup({
   } = useGithubTriggerSetup({ mode, initialAutomation, trigger });
 
   React.useEffect(() => {
-    const nextHeadline =
-      AUTOMATION_HEADLINES[
-        Math.floor(Math.random() * AUTOMATION_HEADLINES.length)
-      ] ?? DEFAULT_AUTOMATION_HEADLINE;
-    setHeadline(nextHeadline);
-  }, []);
-
-  React.useEffect(() => {
     if (mode === "edit" && initialAutomation) {
       window.requestAnimationFrame(() => {
         composerRef.current?.setText(initialAutomation.instructions);
       });
     }
   }, [initialAutomation, mode]);
-  const wordmark = (
-    <span className="inline-flex items-center">
-      <AtmosWordmark
-        className="gap-0"
-        logoClassName="size-10 sm:size-12 md:size-14"
-        letterClassName="text-4xl sm:text-5xl md:text-6xl leading-none font-semibold"
-        sloganClassName="hidden"
-      />
-    </span>
+
+  const setupSnapshot = React.useMemo(
+    () =>
+      JSON.stringify({
+        displayName,
+        instructions,
+        memory,
+        agentId,
+        targetKind,
+        projectGuid,
+        workspaceGuid,
+        trigger,
+        timezone,
+        hour,
+        minute,
+        dayOfWeek,
+        dayOfMonth,
+        cronExpr,
+        agentRunConfig: sanitizeRunConfig(selectedAgentRunConfig),
+        attachmentIds: attachments.map((attachment) => attachment.id),
+        github:
+          trigger === "github"
+            ? {
+                githubInstallationId,
+                githubRepositoryFullName,
+                githubEventFamily,
+                githubIssueAction,
+                githubIssueLabel,
+                githubPullRequestAction,
+                githubBranchFilter,
+                githubCommentContains,
+                githubSenderLogins,
+                githubWorkflowName,
+                githubWorkflowConclusion,
+              }
+            : null,
+      }),
+    [
+      agentId,
+      attachments,
+      cronExpr,
+      dayOfMonth,
+      dayOfWeek,
+      displayName,
+      githubBranchFilter,
+      githubCommentContains,
+      githubEventFamily,
+      githubInstallationId,
+      githubIssueAction,
+      githubIssueLabel,
+      githubPullRequestAction,
+      githubRepositoryFullName,
+      githubSenderLogins,
+      githubWorkflowConclusion,
+      githubWorkflowName,
+      hour,
+      instructions,
+      memory,
+      minute,
+      projectGuid,
+      selectedAgentRunConfig,
+      targetKind,
+      timezone,
+      trigger,
+      workspaceGuid,
+    ],
   );
-  const headlineContent = React.useMemo(() => {
-    switch (headline) {
-      case "automate_next":
-        return t.rich("headlines.automateNext", { wordmark: () => wordmark });
-      case "run_on_schedule":
-        return t.rich("headlines.runOnSchedule", { wordmark: () => wordmark });
-      case "handle_later":
-        return t.rich("headlines.handleLater", { wordmark: () => wordmark });
-      case "keep_running":
-        return t.rich("headlines.keepRunning", { wordmark: () => wordmark });
-    }
-  }, [headline, t, wordmark]);
-  const triggerLabel = React.useMemo(() => {
-    const time = `${twoDigit(hour)}:${twoDigit(minute)}`;
+  const baselineRef = React.useRef<string | null>(null);
+  const [leaveDialogOpen, setLeaveDialogOpen] = React.useState(false);
+  const pendingLeaveRef = React.useRef<{
+    discard: () => void;
+    afterSave: () => void;
+  } | null>(null);
+  const bypassNavRef = React.useRef(false);
+  const isDirtyRef = React.useRef(false);
+  const allowPopStateLeaveRef = React.useRef(false);
 
-    switch (trigger) {
-      case "manual":
-        return t("triggerLabel.manual");
-      case "github":
-        return githubRepositoryFullName
-          ? t("triggerLabel.githubWithRepository", { repositoryFullName: githubRepositoryFullName })
-          : t("triggerLabel.github");
-      case "hourly":
-        return t("triggerLabel.hourly", { minute: twoDigit(minute), timezone });
-      case "daily":
-        return t("triggerLabel.daily", { time, timezone });
-      case "weekly": {
-        const dayLabel = t(`days.${DAY_LABEL_KEYS[dayOfWeek] ?? "weekday"}`);
-        return t("triggerLabel.weekly", { dayLabel, time, timezone });
+  React.useEffect(() => {
+    if (!ready) return;
+    if (mode === "create" && !agentId) return;
+    if (baselineRef.current === null) {
+      baselineRef.current = setupSnapshot;
+    }
+  }, [agentId, mode, ready, setupSnapshot]);
+
+  const isDirty =
+    baselineRef.current !== null && baselineRef.current !== setupSnapshot;
+  isDirtyRef.current = isDirty;
+
+  const requestLeave = React.useCallback(
+    (actions: { discard: () => void; afterSave?: () => void }) => {
+      if (!isDirtyRef.current) {
+        actions.discard();
+        return;
       }
-      case "monthly":
-        return t("triggerLabel.monthly", { dayOfMonth, time, timezone });
-      case "cron":
-        return cronExpr.trim()
-          ? t("triggerLabel.cron", { cronExpr: cronExpr.trim(), timezone })
-          : t("triggerLabel.cronFallback", { timezone });
-    }
-  }, [
-    cronExpr,
-    dayOfMonth,
-    dayOfWeek,
-    githubRepositoryFullName,
-    hour,
-    minute,
-    t,
-    timezone,
-    trigger,
-  ]);
+      pendingLeaveRef.current = {
+        discard: actions.discard,
+        afterSave: actions.afterSave ?? (() => undefined),
+      };
+      setLeaveDialogOpen(true);
+    },
+    [],
+  );
 
-  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+  const resumeNavigation = React.useCallback(
+    (target: AppNavigationTarget) => {
+      bypassNavRef.current = true;
+      if (target.kind === "replace") {
+        router.replace(target.path);
+      } else {
+        router.push(target.path);
+      }
+      bypassNavRef.current = false;
+    },
+    [router],
+  );
+
+  const navigationGuard = React.useCallback(
+    (target: AppNavigationTarget) => {
+      if (bypassNavRef.current || !isDirtyRef.current) {
+        return false;
+      }
+      requestLeave({
+        discard: () => resumeNavigation(target),
+        afterSave: () => resumeNavigation(target),
+      });
+      return true;
+    },
+    [requestLeave, resumeNavigation],
+  );
+  useRegisteredAppNavigationGuard(navigationGuard);
+
+  React.useEffect(() => {
+    if (!isDirty) return;
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [isDirty]);
+
+  React.useEffect(() => {
+    if (!isDirty) return;
+    window.history.pushState({ automationSetupGuard: true }, "", window.location.href);
+    const handlePopState = () => {
+      if (allowPopStateLeaveRef.current || !isDirtyRef.current) {
+        return;
+      }
+      window.history.pushState({ automationSetupGuard: true }, "", window.location.href);
+      requestLeave({
+        discard: () => {
+          allowPopStateLeaveRef.current = true;
+          window.history.back();
+        },
+      });
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, [isDirty, requestLeave]);
+
+  const saveAutomation = async () => {
     setSubmitError(null);
 
     const githubTriggerValid = trigger !== "github" || githubRouteReady;
@@ -438,13 +515,13 @@ export function AutomationSetup({
             })
           : t("errors.githubFiltersRequired"),
       );
-      return;
+      return false;
     }
 
     const target = buildTargetInput(targetKind, projectGuid, workspaceGuid);
     if (trigger !== "manual" && trigger !== "github" && !requestSchedule) {
       setSubmitError(t("errors.invalidSchedule"));
-      return;
+      return false;
     }
     const githubConfig = trigger === "github" ? buildGithubConfig() : null;
     const previousGithubConfig = mode === "edit" ? initialGithubConfig : null;
@@ -473,6 +550,7 @@ export function AutomationSetup({
           request: {
             display_name: displayName.trim(),
             instructions: resolvedInstructions.trim(),
+            memory,
             agent_id: agentId,
             agent_config: sanitizeRunConfig(selectedAgentRunConfig),
             target,
@@ -492,6 +570,7 @@ export function AutomationSetup({
             automation_guid: initialAutomation.guid,
             display_name: displayName.trim(),
             instructions: resolvedInstructions.trim(),
+            memory,
             agent_id: agentId,
             agent_config: sanitizeRunConfig(selectedAgentRunConfig),
             target,
@@ -509,16 +588,57 @@ export function AutomationSetup({
       }
       if (savedAutomation) {
         setInstructions(savedAutomation.instructions);
+        setMemory(savedAutomation.memory ?? "");
         composerRef.current?.setText(savedAutomation.instructions);
+        baselineRef.current = null;
+        isDirtyRef.current = false;
       }
       clearAttachments();
+      return Boolean(savedAutomation);
     } catch (err) {
       setSubmitError(
         err instanceof Error ? err.message : t("errors.saveFailed"),
       );
+      return false;
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    await saveAutomation();
+  };
+
+  const handleBack = () => {
+    requestLeave({ discard: onCancel });
+  };
+
+  const handleStay = () => {
+    setLeaveDialogOpen(false);
+    pendingLeaveRef.current = null;
+  };
+
+  const handleDiscard = () => {
+    const pending = pendingLeaveRef.current;
+    isDirtyRef.current = false;
+    baselineRef.current = setupSnapshot;
+    setLeaveDialogOpen(false);
+    pendingLeaveRef.current = null;
+    pending?.discard();
+  };
+
+  const handleSaveAndLeave = async () => {
+    const pending = pendingLeaveRef.current;
+    const saved = await saveAutomation();
+    if (!saved) {
+      setLeaveDialogOpen(false);
+      pendingLeaveRef.current = null;
+      return;
+    }
+    setLeaveDialogOpen(false);
+    pendingLeaveRef.current = null;
+    pending?.afterSave();
   };
 
   const handleGithubStartSetup = React.useCallback(() => {
@@ -548,262 +668,329 @@ export function AutomationSetup({
 
   return (
     <TooltipProvider delayDuration={300}>
-      <div className="relative h-full overflow-auto bg-background px-4 py-8 selection:bg-foreground/10 sm:px-6">
-        <WelcomePageBackdrop />
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          onClick={onCancel}
-          disabled={submitting}
-          className="absolute left-4 top-4 z-20 gap-2 sm:left-6"
-        >
-          <ArrowLeft className="size-4" />
-          {t("backButton")}
-        </Button>
+      <div className="h-full overflow-auto bg-background">
+        <div className="mx-auto flex w-full max-w-3xl flex-col px-5 py-6 sm:px-8 sm:py-8">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={handleBack}
+            disabled={submitting}
+            className="-ml-2 w-fit gap-2"
+          >
+            <ArrowLeft className="size-4" />
+            {t("backButton")}
+          </Button>
 
-        <div className="relative z-10 mx-auto flex min-h-full w-full max-w-5xl flex-col items-center justify-center py-8 sm:-translate-y-8 md:-translate-y-16">
-          <div className="mb-10 flex w-full max-w-4xl flex-col items-center">
-            <h1 className="flex flex-wrap items-center justify-center gap-x-3 gap-y-2 text-center text-4xl font-semibold tracking-tight text-foreground sm:text-5xl md:text-6xl">
-              {headlineContent}
+          <header className="mt-5 mb-8">
+            <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+              {mode === "create" ? t("title.create") : t("title.edit")}
             </h1>
-          </div>
+            <p className="mt-1.5 text-sm text-muted-foreground">
+              {mode === "create" ? t("subtitle.create") : t("subtitle.edit")}
+            </p>
+          </header>
 
-          <form onSubmit={handleSubmit} className="w-full max-w-4xl">
-            <div className="relative">
-              <WelcomeAgentSelector
-                availableAgents={agentOptions}
-                selectedAgentId={agentId}
-                runConfigByAgentId={agentRunConfigs}
-                onRunConfigChange={(nextAgentId, nextValue) => {
-                  setAgentRunConfig(nextAgentId, nextValue);
-                  setAgentId(nextAgentId);
+          <form onSubmit={handleSubmit} className="flex flex-col gap-8 pb-10">
+            <AutomationSetupControls
+              displayName={displayName}
+              submitError={null}
+              onDisplayNameChange={(value) => {
+                setDisplayName(value);
+                clearSubmitError();
+              }}
+              environmentPickerProps={{
+                targetKind,
+                projectGuid,
+                workspaceGuid,
+                projects,
+                workspaces,
+                projectsLoading,
+                onTargetKindChange: (nextKind) => {
+                  setTargetKind(nextKind);
                   clearSubmitError();
-                }}
-                purpose="automation"
-                onSelectAgent={(nextAgentId) => {
-                  setAgentId(nextAgentId);
+                },
+                onProjectGuidChange: (guid) => {
+                  setProjectGuid(guid);
                   clearSubmitError();
-                }}
-              />
-              <WelcomeComposerCard
-                attachments={attachments}
-                composerRef={composerRef}
-                disabledSubmit={disabledSubmit}
-                isInitialProjectsLoading={projectsLoading}
-                isSubmitting={submitting}
-                onAtCancel={() => {
-                  setMentionPopover(null);
-                  setIsMentionFilesLoading(false);
-                }}
-                onAtTrigger={(ctx) => {
-                  setMentionPopover({
-                    top: ctx.caretRect.bottom + 4,
-                    left: ctx.caretRect.left,
-                    atOffset: ctx.atOffset,
-                    query: ctx.query,
-                  });
-                }}
-                onAttachmentPreview={(attachment) =>
-                  setPreviewAttachment(attachment)
-                }
-                onAttachmentRemove={handleAttachmentRemove}
-                onImagePaste={handleImagePaste}
-                onSlashCancel={() => {
-                  setSlashPopover(null);
-                  setExpandedSections({
-                    skills: false,
-                    projects: false,
-                    agents: false,
-                  });
-                }}
-                onSlashTrigger={(ctx) => {
-                  setSlashPopover({
-                    top: ctx.caretRect.bottom + 4,
-                    left: ctx.caretRect.left,
-                    slashOffset: ctx.slashOffset,
-                    query: ctx.query,
-                  });
-                }}
-                onTextChange={(text) => {
-                  setInstructions(text);
+                },
+                onWorkspaceGuidChange: (guid) => {
+                  setWorkspaceGuid(guid);
                   clearSubmitError();
-                  setMentionPopover((prev) => {
-                    if (!prev) return prev;
-                    if (text.length < prev.atOffset) return null;
-                    if (text.charAt(prev.atOffset - 1) !== "@") return null;
-                    const newQuery = text.slice(prev.atOffset);
-                    const spaceIdx = newQuery.search(/\s/);
-                    if (spaceIdx >= 0) return null;
-                    return newQuery === prev.query
-                      ? prev
-                      : { ...prev, query: newQuery };
-                  });
-                  syncAttachmentPlaceholders(text);
-                }}
-                placeholder={<span>{placeholder}</span>}
-                controls={
-                  <AutomationSetupSubmitButton
-                    mode={mode}
-                    disabledSubmit={disabledSubmit}
-                    isSubmitting={submitting}
-                  />
-                }
-                footer={
-                  <AutomationSetupControls
-                    displayName={displayName}
-                    displayNameValid={displayName.trim().length > 0}
-                    environmentLabel={environmentLabel}
-                    environmentValid={targetValid}
-                    triggerLabel={triggerLabel}
-                    triggerValid={triggerValid}
-                    submitError={submitError}
-                    onDisplayNameChange={(value) => {
-                      setDisplayName(value);
+                },
+              }}
+              triggerPickerProps={{
+                trigger,
+                timezone,
+                hour,
+                minute,
+                dayOfWeek,
+                dayOfMonth,
+                cronExpr,
+                preview,
+                previewError,
+                previewLoading,
+                githubRelayReady,
+                githubSetupMessage,
+                githubInstallations,
+                githubRepositories,
+                githubLoading,
+                githubRepositoriesLoading,
+                githubError,
+                githubSetupRefreshAvailable,
+                githubInstallationId,
+                githubRepositoryFullName,
+                githubEventFamily,
+                githubIssueAction,
+                githubIssueLabel,
+                githubPullRequestAction,
+                githubBranchFilter,
+                githubCommentContains,
+                githubSenderLogins,
+                githubWorkflowName,
+                githubWorkflowConclusion,
+                onTriggerChange: (nextTrigger) => {
+                  setTrigger(nextTrigger);
+                  clearSubmitError();
+                },
+                onTimezoneChange: (nextTimezone) => {
+                  setTimezone(nextTimezone);
+                  clearSubmitError();
+                },
+                onHourChange: setHour,
+                onMinuteChange: setMinute,
+                onDayOfWeekChange: setDayOfWeek,
+                onDayOfMonthChange: setDayOfMonth,
+                onCronExprChange: setCronExpr,
+                onGithubStartSetup: handleGithubStartSetup,
+                onGithubRefreshInstallations: refreshGithubInstallations,
+                onGithubOpenComputerSettings: handleOpenComputerSettings,
+                onGithubInstallationChange: (installationId) => {
+                  setGithubInstallationId(installationId);
+                  setGithubRepositoryFullName("");
+                  clearSubmitError();
+                },
+                onGithubRepositoryChange: (fullName) => {
+                  setGithubRepositoryFullName(fullName);
+                  clearSubmitError();
+                },
+                onGithubEventFamilyChange: (family) => {
+                  setGithubEventFamily(family);
+                  if (family === "issues") {
+                    setGithubIssueAction("labeled");
+                  }
+                  clearSubmitError();
+                },
+                onGithubIssueActionChange: setGithubIssueAction,
+                onGithubIssueLabelChange: setGithubIssueLabel,
+                onGithubPullRequestActionChange:
+                  setGithubPullRequestAction,
+                onGithubBranchFilterChange: setGithubBranchFilter,
+                onGithubCommentContainsChange: setGithubCommentContains,
+                onGithubSenderLoginsChange: setGithubSenderLogins,
+                onGithubWorkflowNameChange: setGithubWorkflowName,
+                onGithubWorkflowConclusionChange:
+                  setGithubWorkflowConclusion,
+              }}
+            />
+
+            <section className="space-y-3">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="size-4 text-muted-foreground" />
+                  <Label className="text-sm font-semibold text-foreground">
+                    {t("instructions.label")}
+                  </Label>
+                </div>
+                <WelcomeAgentSelector
+                  variant="menu"
+                  availableAgents={agentOptions}
+                  selectedAgentId={agentId}
+                  runConfigByAgentId={agentRunConfigs}
+                  onRunConfigChange={(nextAgentId, nextValue) => {
+                    setAgentRunConfig(nextAgentId, nextValue);
+                    setAgentId(nextAgentId);
+                    clearSubmitError();
+                  }}
+                  purpose="automation"
+                  trigger={
+                    <button
+                      type="button"
+                      className="inline-flex h-8 max-w-[24rem] items-center gap-2 rounded-md border border-border bg-background px-2.5 text-sm text-foreground transition-colors hover:bg-muted"
+                    >
+                      {selectedAgent ? (
+                        <AgentIcon
+                          registryId={selectedAgent.agent_id}
+                          name={selectedAgent.label}
+                          size={16}
+                        />
+                      ) : null}
+                      <span className="truncate">
+                        {selectedAgent
+                          ? formatAutomationAgentDisplayName(
+                              selectedAgent.label,
+                              selectedAgentRunConfig,
+                            )
+                          : t("agentOptions.select")}
+                      </span>
+                      <ChevronDown className="size-3.5 shrink-0 text-muted-foreground" />
+                    </button>
+                  }
+                  onSelectAgent={(nextAgentId) => {
+                    setAgentId(nextAgentId);
+                    clearSubmitError();
+                  }}
+                />
+              </div>
+              <div className="relative overflow-visible rounded-lg border border-border bg-background">
+                <div className="px-3 pt-2">
+                  <PromptComposer
+                    ref={composerRef}
+                    placeholder={<span>{placeholder}</span>}
+                    editorClassName="min-h-[160px] max-h-[280px] rounded-none border-0 py-2"
+                    onTextChange={(text) => {
+                      setInstructions(text);
                       clearSubmitError();
+                      setMentionPopover((prev) => {
+                        if (!prev) return prev;
+                        if (text.length < prev.atOffset) return null;
+                        if (text.charAt(prev.atOffset - 1) !== "@") return null;
+                        const newQuery = text.slice(prev.atOffset);
+                        const spaceIdx = newQuery.search(/\s/);
+                        if (spaceIdx >= 0) return null;
+                        return newQuery === prev.query
+                          ? prev
+                          : { ...prev, query: newQuery };
+                      });
+                      syncAttachmentPlaceholders(text);
                     }}
-                    onTriggerOpenChange={(open) => {
-                      if (!open) {
-                        resetGithubSetupButton();
-                      }
+                    onImagePaste={handleImagePaste}
+                    onAtCancel={() => {
+                      setMentionPopover(null);
+                      setIsMentionFilesLoading(false);
                     }}
-                    environmentPickerProps={{
-                      targetKind,
-                      projectGuid,
-                      workspaceGuid,
-                      projects,
-                      workspaces,
-                      projectsLoading,
-                      onTargetKindChange: (nextKind) => {
-                        setTargetKind(nextKind);
-                        clearSubmitError();
-                      },
-                      onProjectGuidChange: (guid) => {
-                        setProjectGuid(guid);
-                        clearSubmitError();
-                      },
-                      onWorkspaceGuidChange: (guid) => {
-                        setWorkspaceGuid(guid);
-                        clearSubmitError();
-                      },
+                    onAtTrigger={(ctx) => {
+                      setMentionPopover({
+                        top: ctx.caretRect.bottom + 4,
+                        left: ctx.caretRect.left,
+                        atOffset: ctx.atOffset,
+                        query: ctx.query,
+                      });
                     }}
-                    triggerPickerProps={{
-                      trigger,
-                      timezone,
-                      hour,
-                      minute,
-                      dayOfWeek,
-                      dayOfMonth,
-                      cronExpr,
-                      preview,
-                      previewError,
-                      previewLoading,
-                      githubRelayReady,
-                      githubSetupMessage,
-                      githubInstallations,
-                      githubRepositories,
-                      githubLoading,
-                      githubRepositoriesLoading,
-                      githubError,
-                      githubSetupRefreshAvailable,
-                      githubInstallationId,
-                      githubRepositoryFullName,
-                      githubEventFamily,
-                      githubIssueAction,
-                      githubIssueLabel,
-                      githubPullRequestAction,
-                      githubBranchFilter,
-                      githubCommentContains,
-                      githubSenderLogins,
-                      githubWorkflowName,
-                      githubWorkflowConclusion,
-                      onTriggerChange: (nextTrigger) => {
-                        setTrigger(nextTrigger);
-                        clearSubmitError();
-                      },
-                      onTimezoneChange: (nextTimezone) => {
-                        setTimezone(nextTimezone);
-                        clearSubmitError();
-                      },
-                      onHourChange: setHour,
-                      onMinuteChange: setMinute,
-                      onDayOfWeekChange: setDayOfWeek,
-                      onDayOfMonthChange: setDayOfMonth,
-                      onCronExprChange: setCronExpr,
-                      onGithubStartSetup: handleGithubStartSetup,
-                      onGithubRefreshInstallations: refreshGithubInstallations,
-                      onGithubOpenComputerSettings: handleOpenComputerSettings,
-                      onGithubInstallationChange: (installationId) => {
-                        setGithubInstallationId(installationId);
-                        setGithubRepositoryFullName("");
-                        clearSubmitError();
-                      },
-                      onGithubRepositoryChange: (fullName) => {
-                        setGithubRepositoryFullName(fullName);
-                        clearSubmitError();
-                      },
-                      onGithubEventFamilyChange: (family) => {
-                        setGithubEventFamily(family);
-                        if (family === "issues") {
-                          setGithubIssueAction("labeled");
-                        }
-                        clearSubmitError();
-                      },
-                      onGithubIssueActionChange: setGithubIssueAction,
-                      onGithubIssueLabelChange: setGithubIssueLabel,
-                      onGithubPullRequestActionChange:
-                        setGithubPullRequestAction,
-                      onGithubBranchFilterChange: setGithubBranchFilter,
-                      onGithubCommentContainsChange: setGithubCommentContains,
-                      onGithubSenderLoginsChange: setGithubSenderLogins,
-                      onGithubWorkflowNameChange: setGithubWorkflowName,
-                      onGithubWorkflowConclusionChange:
-                        setGithubWorkflowConclusion,
+                    onSlashCancel={() => {
+                      setSlashPopover(null);
+                      setExpandedSections({
+                        skills: false,
+                        projects: false,
+                        agents: false,
+                      });
+                    }}
+                    onSlashTrigger={(ctx) => {
+                      setSlashPopover({
+                        top: ctx.caretRect.bottom + 4,
+                        left: ctx.caretRect.left,
+                        slashOffset: ctx.slashOffset,
+                        query: ctx.query,
+                      });
                     }}
                   />
-                }
+                </div>
+                {attachments.length > 0 ? (
+                  <div className="border-t border-border px-3 py-2">
+                    <AttachmentBar
+                      attachments={attachments}
+                      onRemove={handleAttachmentRemove}
+                      onPreview={(attachment) => setPreviewAttachment(attachment)}
+                    />
+                  </div>
+                ) : null}
+                <WelcomeMentionPopover
+                  activeIndex={activeMentionFileIndex}
+                  issuePreview={null}
+                  isLoading={isMentionFilesLoading}
+                  listRef={mentionPopoverListRef}
+                  mentionFiles={mentionFiles}
+                  onClose={() => setMentionPopover(null)}
+                  onSelectFile={selectMentionFile}
+                  onSelectNavItem={selectMentionNavItem}
+                  onSetItemRef={setMentionItemRef}
+                  popover={mentionPopover}
+                  prPreview={null}
+                />
+                <SlashCommandPopover
+                  activeIndex={activeSlashItemIndex}
+                  expandedSections={expandedSections}
+                  filteredAgents={filteredAgents}
+                  filteredProjects={filteredProjects}
+                  filteredSkills={filteredSkills}
+                  isSkillsLoading={isSkillsLoading}
+                  listRef={slashPopoverListRef}
+                  onClose={() => setSlashPopover(null)}
+                  onSelectAgent={selectSlashAgent}
+                  onSelectProject={selectSlashProject}
+                  onSelectSkill={selectSlashSkill}
+                  popover={slashPopover}
+                  setExpandedSections={setExpandedSections}
+                  setItemRef={setSlashItemRef}
+                />
+              </div>
+            </section>
+
+            <section className="space-y-3">
+              <div>
+                <div className="flex items-center gap-2">
+                  <Brain className="size-4 text-muted-foreground" />
+                  <Label className="text-sm font-semibold text-foreground">
+                    {t("memory.label")}
+                  </Label>
+                </div>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {t("memory.description")}
+                </p>
+              </div>
+              <AutomationMemoryEditor
+                compact
+                defaultPreview={mode !== "create"}
+                value={memory}
+                onChange={(next) => {
+                  setMemory(next);
+                  clearSubmitError();
+                }}
+                path={initialAutomation?.memory_path}
+                disabled={submitting}
               />
-              <WelcomeMentionPopover
-                activeIndex={activeMentionFileIndex}
-                issuePreview={null}
-                isLoading={isMentionFilesLoading}
-                listRef={mentionPopoverListRef}
-                mentionFiles={mentionFiles}
-                onClose={() => setMentionPopover(null)}
-                onSelectFile={selectMentionFile}
-                onSelectNavItem={selectMentionNavItem}
-                onSetItemRef={setMentionItemRef}
-                popover={mentionPopover}
-                prPreview={null}
-              />
-              <SlashCommandPopover
-                activeIndex={activeSlashItemIndex}
-                expandedSections={expandedSections}
-                filteredAgents={filteredAgents}
-                filteredProjects={filteredProjects}
-                filteredSkills={filteredSkills}
-                isSkillsLoading={isSkillsLoading}
-                listRef={slashPopoverListRef}
-                onClose={() => setSlashPopover(null)}
-                onSelectAgent={selectSlashAgent}
-                onSelectProject={selectSlashProject}
-                onSelectSkill={selectSlashSkill}
-                popover={slashPopover}
-                setExpandedSections={setExpandedSections}
-                setItemRef={setSlashItemRef}
-              />
-              <AutomationAttachmentPreviewDialog
-                attachment={previewAttachment}
-                onClose={() => setPreviewAttachment(null)}
+            </section>
+
+            {submitError ? (
+              <div className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+                {submitError}
+              </div>
+            ) : null}
+
+            <div className="flex justify-end">
+              <AutomationSetupSubmitButton
+                mode={mode}
+                disabledSubmit={disabledSubmit}
+                isSubmitting={submitting}
               />
             </div>
           </form>
         </div>
+        <AutomationAttachmentPreviewDialog
+          attachment={previewAttachment}
+          onClose={() => setPreviewAttachment(null)}
+        />
+        <AutomationSetupUnsavedDialog
+          open={leaveDialogOpen}
+          mode={mode}
+          saving={submitting}
+          onStay={handleStay}
+          onDiscard={handleDiscard}
+          onSave={() => {
+            void handleSaveAndLeave();
+          }}
+        />
       </div>
     </TooltipProvider>
   );
-}
-
-function twoDigit(value: number) {
-  return String(Math.trunc(value)).padStart(2, "0");
 }

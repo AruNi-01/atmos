@@ -42,10 +42,16 @@ export const SkillCard: React.FC<SkillCardProps> = ({ skill, onClick }) => {
   const primaryAgentConfig = primaryAgent ? getAgentConfig(primaryAgent) : null;
   const primaryAgentRegistryId = primaryAgent ? getAgentRegistryId(primaryAgent) : null;
   const scopeLabel = isSystemScoped
-    ? 'Atmos Built-in'
-    : skill.scope === 'inside_project'
-      ? 'Inside Project'
-      : skill.scope;
+    ? "Atmos built-in"
+    : skill.scope === "inside_project"
+      ? "In project"
+      : skill.scope === "global"
+        ? "Global"
+        : skill.scope === "project"
+          ? "Project"
+          : skill.scope === "workspace"
+            ? "Workspace"
+            : skill.scope;
 
   return (
     <div
@@ -70,7 +76,7 @@ export const SkillCard: React.FC<SkillCardProps> = ({ skill, onClick }) => {
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <span className={cn(
-                      "text-[9px] px-1 py-0.5 rounded font-medium flex items-center gap-1 cursor-default uppercase tracking-wider",
+                      "text-[9px] px-1 py-0.5 rounded font-medium flex items-center gap-1 cursor-default",
                       isSystemScoped
                         ? "bg-foreground/80 text-background"
                         : skill.scope === 'global'
@@ -98,7 +104,7 @@ export const SkillCard: React.FC<SkillCardProps> = ({ skill, onClick }) => {
               </TooltipProvider>
 
               {fileCount > 0 && (
-                <span className="text-[9px] px-1 py-0.5 rounded bg-muted text-muted-foreground flex items-center gap-1 uppercase tracking-wider font-medium">
+                <span className="text-[9px] px-1 py-0.5 rounded bg-muted text-muted-foreground flex items-center gap-1 font-medium">
                   <FileText className="size-2" />
                   {fileCount}
                 </span>

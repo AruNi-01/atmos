@@ -4,14 +4,20 @@ import { Badge, cn } from "@workspace/ui";
 import {
   AlertCircle,
   Bot,
+  Braces,
   CheckCircle2,
+  FileCheck,
+  FileCode,
   LoaderCircle,
   Square,
   XCircle,
+  type LucideIcon,
 } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { AgentIcon } from "@/features/agent/components/AgentIcon";
+import type { TerminalAgentRunConfigInput } from "@/features/agent/lib/terminal-agent-run-config";
+import { formatAutomationAgentDisplayName } from "@/features/automations/lib/automation-format";
 import type {
   AutomationAgentCapability,
   AutomationArtifactKind,
@@ -22,10 +28,11 @@ export const ARTIFACT_OPTIONS: Array<{
   kind: AutomationArtifactKind;
   label: string;
   description: string;
+  icon: LucideIcon;
 }> = [
-  { kind: "final", label: "Result", description: "final.md" },
-  { kind: "prompt", label: "Prompt", description: "prompt.md" },
-  { kind: "run_json", label: "Run JSON", description: "run.json" },
+  { kind: "final", label: "Result", description: "final.md", icon: FileCheck },
+  { kind: "prompt", label: "Prompt", description: "prompt.xml", icon: FileCode },
+  { kind: "run_json", label: "Run JSON", description: "run.json", icon: Braces },
 ];
 
 const STATUS_STYLES: Record<
@@ -62,7 +69,7 @@ const STATUS_STYLES: Record<
 export function MetadataItem({ label, value }: { label: string; value: ReactNode }) {
   return (
     <div className="rounded-md border border-border bg-muted/15 px-3 py-2">
-      <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</div>
+      <div className="text-xs font-medium text-muted-foreground">{label}</div>
       <div className="mt-1 truncate text-sm text-foreground">{value || "None"}</div>
     </div>
   );
@@ -82,15 +89,20 @@ export function StatusBadge({ status }: { status: AutomationRunStatus }) {
 export function AutomationAgentLabel({
   agent,
   agentId,
+  agentConfigJson,
+  runConfig,
   className,
   iconSize = 14,
 }: {
   agent: AutomationAgentCapability | null;
   agentId: string;
+  agentConfigJson?: string | null;
+  runConfig?: TerminalAgentRunConfigInput | null;
   className?: string;
   iconSize?: number;
 }) {
   const label = agent?.label ?? agentId;
+  const displayName = formatAutomationAgentDisplayName(label, runConfig ?? agentConfigJson);
 
   return (
     <span className={cn("inline-flex min-w-0 items-center gap-1.5", className)}>
@@ -99,7 +111,7 @@ export function AutomationAgentLabel({
       ) : (
         <Bot className="shrink-0 text-muted-foreground" style={{ width: iconSize, height: iconSize }} />
       )}
-      <span className="truncate">{label}</span>
+      <span className="truncate">{displayName}</span>
     </span>
   );
 }

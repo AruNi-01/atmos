@@ -57,14 +57,16 @@ export function buildTargetInput(
   projectGuid: string,
   workspaceGuid: string,
 ): AutomationTargetInput {
+  const project = projectGuid.trim() || null;
+  const workspace = workspaceGuid.trim() || null;
   if (targetKind === "project") {
-    return { target_kind: "project", project_guid: projectGuid, workspace_guid: null };
+    return { target_kind: "project", project_guid: project, workspace_guid: null };
   }
   if (targetKind === "new_workspace") {
-    return { target_kind: "new_workspace", project_guid: projectGuid, workspace_guid: null };
+    return { target_kind: "new_workspace", project_guid: project, workspace_guid: null };
   }
   if (targetKind === "workspace") {
-    return { target_kind: "workspace", project_guid: null, workspace_guid: workspaceGuid };
+    return { target_kind: "workspace", project_guid: null, workspace_guid: workspace };
   }
   return { target_kind: "standalone", project_guid: null, workspace_guid: null };
 }
@@ -188,6 +190,71 @@ export function statusMeta(status: AutomationRunStatus | null): { status: Automa
 
 export function capitalize(value: string) {
   return value.charAt(0).toUpperCase() + value.slice(1);
+}
+
+export function formatAutomationReasoningLabel(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return "";
+  }
+  if (/^[a-z0-9]+$/.test(trimmed)) {
+    return capitalize(trimmed);
+  }
+  return trimmed;
+}
+
+type AgentConfigLike = {
+  model?: string | null;
+  reasoning?: { value?: string | null } | null;
+};
+
+function readAgentRunConfig(
+  value: AgentConfigLike | string | null | undefined,
+): { model: string | null; reasoning: string | null } | null {
+  if (!value) {
+    return null;
+  }
+  let parsed: AgentConfigLike | null = null;
+  if (typeof value === "string") {
+    try {
+      parsed = JSON.parse(value) as AgentConfigLike;
+    } catch {
+      return null;
+    }
+  } else {
+    parsed = value;
+  }
+  const model = parsed.model?.trim() || null;
+  const reasoning = parsed.reasoning?.value?.trim() || null;
+  if (!model && !reasoning) {
+    return null;
+  }
+  return { model, reasoning };
+}
+
+export function formatAutomationAgentConfigSuffix(
+  value: AgentConfigLike | string | null | undefined,
+): string | null {
+  const config = readAgentRunConfig(value);
+  if (!config) {
+    return null;
+  }
+  const parts: string[] = [];
+  if (config.model) {
+    parts.push(config.model);
+  }
+  if (config.reasoning) {
+    parts.push(formatAutomationReasoningLabel(config.reasoning));
+  }
+  return parts.length > 0 ? parts.join(" - ") : null;
+}
+
+export function formatAutomationAgentDisplayName(
+  agentLabel: string,
+  value: AgentConfigLike | string | null | undefined,
+): string {
+  const suffix = formatAutomationAgentConfigSuffix(value);
+  return suffix ? `${agentLabel} - ${suffix}` : agentLabel;
 }
 
 export function clampNumber(value: number, min: number, max: number) {

@@ -1,5 +1,5 @@
 export {
   TokenUsageAgentIcon,
   TokenUsageModelIcon,
-  TokenUsageOverviewTab,
-} from "@/features/token-usage/TokenUsageOverviewTab";
+} from "@/features/token-usage/TokenUsageIcons";
+export { TokenUsageOverviewTab } from "@/features/token-usage/TokenUsageOverviewTab";

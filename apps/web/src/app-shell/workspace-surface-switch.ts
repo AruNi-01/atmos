@@ -100,9 +100,8 @@ export function applyWorkspaceSidebarSelectionDom(activeWorkspaceId: string | nu
     host.dataset.paintActive = isActive ? "true" : "false";
     const row = host.querySelector<HTMLElement>("[data-ws-row]");
     if (!row) continue;
-    row.classList.toggle("bg-sidebar-accent/50", isActive);
-    row.classList.toggle("text-sidebar-foreground", isActive);
-    row.classList.toggle("shadow-sm", isActive);
+    row.classList.toggle("bg-sidebar-accent", isActive);
+    row.classList.toggle("text-sidebar-accent-foreground", isActive);
     row.classList.toggle("text-muted-foreground", !isActive);
   }
 }

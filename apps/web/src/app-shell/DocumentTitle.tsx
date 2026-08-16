@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect } from "react";
+import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useContextParams } from "@/shared/hooks/use-context-params";
 import { useProjects } from "@/features/project/hooks/use-project-bootstrap-query";
+import { isSettingsPathname } from "@/features/settings/lib/settings-return";
 
 /**
  * Client-side document title updater.
@@ -11,11 +13,16 @@ import { useProjects } from "@/features/project/hooks/use-project-bootstrap-quer
  * Renders nothing — purely a side-effect component.
  */
 export function DocumentTitle() {
+  const pathname = usePathname();
   const { workspaceId, projectId, currentView, skillId } = useContextParams();
   const projects = useProjects();
   const t = useTranslations("appShell.documentTitle");
 
   const derivedTitle = (() => {
+    // Settings route uses underlay context for shell, but the tab title stays Settings.
+    if (isSettingsPathname(pathname)) {
+      return t("settings");
+    }
     if (workspaceId) {
       for (const project of projects) {
         const workspace = project.workspaces.find((w) => w.id === workspaceId);

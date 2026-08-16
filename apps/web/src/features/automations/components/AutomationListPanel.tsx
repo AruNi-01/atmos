@@ -18,9 +18,6 @@ import {
   Input,
   ScrollArea,
   Switch,
-  Tabs,
-  TabsList,
-  TabsTab,
 } from "@workspace/ui";
 import {
   CalendarClock,
@@ -31,7 +28,6 @@ import {
   LoaderCircle,
   Pencil,
   Play,
-  RefreshCw,
   Search,
   Timer,
   Trash2,
@@ -42,6 +38,7 @@ import {
   StatusBadge,
 } from "@/features/automations/components/automation-common";
 import {
+  formatAutomationAgentConfigSuffix,
   formatDateTime,
   formatScheduleLabel,
   formatTarget,
@@ -52,12 +49,25 @@ import {
 } from "@/features/automations/lib/automation-format";
 import type {
   AutomationAgentCapability,
+  AutomationRunSummary,
   AutomationSummary,
 } from "@/features/automations/types";
-import type { AutomationTargetFilter } from "@/shared/lib/nuqs/searchParams";
 import type { Project } from "@/shared/types/domain";
-
-const TARGET_FILTER_VALUES: AutomationTargetFilter[] = ["all", "project", "workspace", "standalone"];
+import { AutomationDashboardTabs } from "@/features/automations/components/AutomationDashboardTabs";
+import { AutomationListFilterMenu } from "@/features/automations/components/AutomationListFilterMenu";
+import { AutomationRunFilterMenu } from "@/features/automations/components/AutomationRunFilterMenu";
+import { AutomationRunHistoryList } from "@/features/automations/components/AutomationRunHistoryList";
+import {
+  EMPTY_AUTOMATION_LIST_FILTERS,
+  getActiveAutomationFilterCount,
+  matchesAutomationListFilters,
+  type AutomationListFilters,
+} from "@/features/automations/lib/automation-list-filters";
+import {
+  EMPTY_AUTOMATION_RUN_FILTERS,
+  type AutomationRunListFilters,
+} from "@/features/automations/lib/automation-run-filters";
+import type { AutomationsListTab } from "@/shared/lib/nuqs/searchParams";
 
 export function AutomationListPanel({
   automations,
@@ -68,14 +78,21 @@ export function AutomationListPanel({
   createDisabled,
   busyAction,
   projects,
-  targetFilter,
+  listTab,
+  listFilters,
+  runFilters,
   searchQuery,
-  onReload,
+  runs,
+  runsLoading,
+  selectedRunGuid,
   onCreate,
   onEdit,
-  onOpenHistory,
-  onTargetFilterChange,
+  onListTabChange,
+  onListFiltersChange,
+  onRunFiltersChange,
   onSearchQueryChange,
+  onSelectRun,
+  onViewRuns,
   onRunAction,
   onToggleEnabled,
 }: {
@@ -87,14 +104,21 @@ export function AutomationListPanel({
   createDisabled: boolean;
   busyAction: string | null;
   projects: Project[];
-  targetFilter: AutomationTargetFilter;
+  listTab: AutomationsListTab;
+  listFilters: AutomationListFilters;
+  runFilters: AutomationRunListFilters;
   searchQuery: string;
-  onReload: () => void;
+  runs: AutomationRunSummary[];
+  runsLoading: boolean;
+  selectedRunGuid: string | null;
   onCreate: () => void;
   onEdit: (guid: string) => void;
-  onOpenHistory: (guid: string) => void;
-  onTargetFilterChange: (value: AutomationTargetFilter) => void;
+  onListTabChange: (tab: AutomationsListTab) => void;
+  onListFiltersChange: (filters: AutomationListFilters) => void;
+  onRunFiltersChange: (filters: AutomationRunListFilters) => void;
   onSearchQueryChange: (value: string) => void;
+  onSelectRun: (guid: string) => void;
+  onViewRuns: (guid: string) => void;
   onRunAction: (action: "run" | "pause" | "resume" | "delete", automation: AutomationSummary) => Promise<void>;
   onToggleEnabled: (automation: AutomationSummary, enabled: boolean) => Promise<void>;
 }) {
@@ -104,29 +128,12 @@ export function AutomationListPanel({
     () => new Map(agents.map((agent) => [agent.agent_id, agent])),
     [agents],
   );
-  const targetFilters = React.useMemo(
-    () =>
-      TARGET_FILTER_VALUES.map((value) => ({
-        value,
-        label: t(`filters.${value}`),
-      })),
-    [t],
-  );
-
-  const filterCounts = React.useMemo(() => {
-    return TARGET_FILTER_VALUES.reduce<Record<AutomationTargetFilter, number>>(
-      (acc, filter) => {
-        acc[filter] = automations.filter((automation) => matchesTargetFilter(automation, filter)).length;
-        return acc;
-      },
-      { all: 0, project: 0, workspace: 0, standalone: 0 },
-    );
-  }, [automations]);
+  const hasActiveFilters = getActiveAutomationFilterCount(listFilters) > 0;
 
   const filteredAutomations = React.useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
     return automations.filter((automation) => {
-      if (!matchesTargetFilter(automation, targetFilter)) {
+      if (!matchesAutomationListFilters(automation, listFilters)) {
         return false;
       }
       if (!query) {
@@ -137,6 +144,7 @@ export function AutomationListPanel({
         automation.display_name,
         automation.agent_id,
         agent?.label,
+        formatAutomationAgentConfigSuffix(automation.agent_config_json),
         formatTarget(automation, projects),
         formatScheduleLabel(automation),
       ]
@@ -145,7 +153,7 @@ export function AutomationListPanel({
         .toLowerCase();
       return haystack.includes(query);
     });
-  }, [agentById, automations, projects, searchQuery, targetFilter]);
+  }, [agentById, automations, listFilters, projects, searchQuery]);
 
   const deleteBusy = deleteTarget ? busyAction === `delete:${deleteTarget.guid}` : false;
 
@@ -156,64 +164,59 @@ export function AutomationListPanel({
       <ScrollArea className="min-h-0 flex-1 scrollbar-on-hover">
         <div className="mx-auto w-full max-w-6xl px-6 sm:px-8">
           <div className="space-y-2 pb-8 pt-10">
-            <div className="flex items-center gap-3">
-              <div className="flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                <Timer className="size-5" />
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+              <div className="flex min-w-0 items-center gap-3">
+                <div className="flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                  <Timer className="size-5" />
+                </div>
+                <div className="min-w-0">
+                  <h2 className="text-2xl font-bold tracking-tight text-foreground">{t("title")}</h2>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {listTab === "history"
+                      ? t("historySummary", { runCount: runs.length })
+                      : t("summary", {
+                          automationCount: automations.length,
+                          supportedAgentCount,
+                        })}
+                  </p>
+                </div>
               </div>
-              <div className="min-w-0">
-                <h2 className="text-2xl font-bold tracking-tight text-foreground">{t("title")}</h2>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  {t("summary", {
-                    automationCount: automations.length,
-                    supportedAgentCount,
-                  })}
-                </p>
-              </div>
+              <AutomationDashboardTabs tab={listTab} onTabChange={onListTabChange} />
             </div>
           </div>
 
           <div className="sticky top-0 z-10 -mx-4 bg-background/85 px-4 pb-6 pt-2 backdrop-blur-md sm:-mx-8 sm:px-8">
             <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-              <div className="relative group min-w-0 flex-1">
-                <Search className="absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground/60 transition-colors group-focus-within:text-primary" />
-                <Input
-                  value={searchQuery}
-                  onChange={(event) => onSearchQueryChange(event.target.value)}
-                  placeholder={t("searchPlaceholder")}
-                  className="h-11 rounded-xl border-border/50 bg-muted/20 pl-10 shadow-sm transition-all focus:bg-background focus-visible:ring-1 focus-visible:ring-primary/20"
-                />
+              <div className="flex min-w-0 flex-1 items-center gap-2">
+                <div className="relative group min-w-0 flex-1">
+                  <Search className="absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground/60 transition-colors group-focus-within:text-primary" />
+                  <Input
+                    value={searchQuery}
+                    onChange={(event) => onSearchQueryChange(event.target.value)}
+                    placeholder={
+                      listTab === "history"
+                        ? t("searchRunsPlaceholder")
+                        : t("searchPlaceholder")
+                    }
+                    className="h-11 rounded-xl border-border/50 bg-muted/20 pl-10 shadow-sm transition-all focus:bg-background focus-visible:ring-1 focus-visible:ring-primary/20"
+                  />
+                </div>
+                {listTab === "history" ? (
+                  <AutomationRunFilterMenu
+                    filters={runFilters}
+                    runs={runs}
+                    automations={automations}
+                    onFiltersChange={onRunFiltersChange}
+                  />
+                ) : (
+                  <AutomationListFilterMenu
+                    filters={listFilters}
+                    automations={automations}
+                    onFiltersChange={onListFiltersChange}
+                  />
+                )}
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                <Tabs
-                  value={targetFilter}
-                  onValueChange={(value) => onTargetFilterChange(value as AutomationTargetFilter)}
-                  className="shrink-0"
-                >
-                  <TabsList className="h-9">
-                    {targetFilters.map((filter) => (
-                      <TabsTab
-                        key={filter.value}
-                        value={filter.value}
-                        className="px-3 text-xs"
-                      >
-                        {filter.label}
-                        <span className="ml-1.5 text-[10px] tabular-nums text-muted-foreground">
-                          {filterCounts[filter.value]}
-                        </span>
-                      </TabsTab>
-                    ))}
-                  </TabsList>
-                </Tabs>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="size-9 rounded-xl"
-                  onClick={onReload}
-                  disabled={loading}
-                  aria-label={t("refreshAria")}
-                >
-                  {loading ? <LoaderCircle className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
-                </Button>
                 <Button size="sm" disabled={createDisabled} onClick={onCreate}>
                   <Timer className="size-4" />
                   {t("newButton")}
@@ -229,7 +232,22 @@ export function AutomationListPanel({
           ) : null}
 
           <div className="pb-12">
-            {loading && automations.length === 0 ? (
+            {listTab === "history" ? (
+              <AutomationRunHistoryList
+                runs={runs}
+                automations={automations}
+                agents={agents}
+                loading={runsLoading}
+                searchQuery={searchQuery}
+                filters={runFilters}
+                selectedRunGuid={selectedRunGuid}
+                onSelectRun={onSelectRun}
+                onClear={() => {
+                  onSearchQueryChange("");
+                  onRunFiltersChange(EMPTY_AUTOMATION_RUN_FILTERS);
+                }}
+              />
+            ) : loading && automations.length === 0 ? (
               <div className="grid gap-2.5">
                 {Array.from({ length: 5 }).map((_, index) => (
                   <div
@@ -241,9 +259,13 @@ export function AutomationListPanel({
             ) : filteredAutomations.length === 0 ? (
               <EmptyAutomationList
                 hasQuery={Boolean(searchQuery.trim())}
+                hasFilters={hasActiveFilters}
                 hasAutomations={automations.length > 0}
                 createDisabled={createDisabled}
-                onClear={() => onSearchQueryChange("")}
+                onClear={() => {
+                  onSearchQueryChange("");
+                  onListFiltersChange(EMPTY_AUTOMATION_LIST_FILTERS);
+                }}
                 onCreate={onCreate}
               />
             ) : (
@@ -258,7 +280,7 @@ export function AutomationListPanel({
                       busyAction={busyAction}
                       index={index}
                       onRun={() => void onRunAction("run", automation)}
-                      onHistory={() => onOpenHistory(automation.guid)}
+                      onViewRuns={() => onViewRuns(automation.guid)}
                       onEdit={() => onEdit(automation.guid)}
                       onDelete={() => setDeleteTarget(automation)}
                       onToggleEnabled={(enabled) => void onToggleEnabled(automation, enabled)}
@@ -313,7 +335,7 @@ function AutomationListRow({
   busyAction,
   index,
   onRun,
-  onHistory,
+  onViewRuns,
   onEdit,
   onDelete,
   onToggleEnabled,
@@ -324,7 +346,7 @@ function AutomationListRow({
   busyAction: string | null;
   index: number;
   onRun: () => void;
-  onHistory: () => void;
+  onViewRuns: () => void;
   onEdit: () => void;
   onDelete: () => void;
   onToggleEnabled: (enabled: boolean) => void;
@@ -369,17 +391,21 @@ function AutomationListRow({
               <span className="truncate">{targetLabel}</span>
             </span>
             <span className="text-border">/</span>
-            <AutomationAgentLabel agent={agent} agentId={automation.agent_id} />
+            <AutomationAgentLabel
+              agent={agent}
+              agentId={automation.agent_id}
+              agentConfigJson={automation.agent_config_json}
+            />
             <span className="text-border">/</span>
             <span className="inline-flex items-center gap-1">
               <Clock3 className="size-3.5" />
               {t("row.runs", { count: automation.run_count })}
             </span>
           </div>
-          <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground/80">
-            <span className="inline-flex items-center gap-1">
-              <CalendarClock className="size-3.5" />
-              {scheduleLabel}
+          <div className="mt-2 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground/80">
+            <span className="inline-flex min-w-0 items-center gap-1">
+              <CalendarClock className="size-3.5 shrink-0" />
+              <span className="truncate">{scheduleLabel}</span>
             </span>
             {automation.next_run_at ? (
               <>
@@ -405,13 +431,18 @@ function AutomationListRow({
             onCheckedChange={(checked) => onToggleEnabled(Boolean(checked))}
           />
         ) : null}
-        <Button variant="outline" size="sm" disabled={runBusy} onClick={onRun}>
+        <Button size="sm" disabled={runBusy} onClick={onRun}>
           {runBusy ? <LoaderCircle className="size-4 animate-spin" /> : <Play className="size-4" />}
           {t("row.runNow")}
         </Button>
-        <Button variant="outline" size="sm" onClick={onHistory}>
+        <Button
+          variant="secondary"
+          size="sm"
+          data-testid="automation-row-view-runs"
+          onClick={onViewRuns}
+        >
           <History className="size-4" />
-          {t("row.history")}
+          {t("row.viewRuns")}
         </Button>
         <DropdownMenu modal={false}>
           <DropdownMenuTrigger asChild>
@@ -441,18 +472,21 @@ function AutomationListRow({
 
 function EmptyAutomationList({
   hasQuery,
+  hasFilters,
   hasAutomations,
   createDisabled,
   onClear,
   onCreate,
 }: {
   hasQuery: boolean;
+  hasFilters: boolean;
   hasAutomations: boolean;
   createDisabled: boolean;
   onClear: () => void;
   onCreate: () => void;
 }) {
   const t = useTranslations("automation.listPanel");
+  const showFilteredEmpty = hasAutomations && (hasQuery || hasFilters);
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -460,20 +494,18 @@ function EmptyAutomationList({
       className="flex min-h-[360px] flex-col items-center justify-center rounded-xl border border-dashed border-border bg-muted/10 px-6 py-16 text-center"
     >
       <div className="mb-5 flex size-16 items-center justify-center rounded-2xl bg-muted/40 text-muted-foreground">
-        {hasQuery || hasAutomations ? <Search className="size-8" /> : <Timer className="size-8" />}
+        {showFilteredEmpty ? <Search className="size-8" /> : <Timer className="size-8" />}
       </div>
       <h3 className="text-lg font-semibold text-foreground">
-        {hasQuery || hasAutomations ? t("empty.queryTitle") : t("empty.defaultTitle")}
+        {showFilteredEmpty ? t("empty.queryTitle") : t("empty.defaultTitle")}
       </h3>
       <p className="mt-2 max-w-sm text-sm text-muted-foreground">
-        {hasQuery || hasAutomations
-          ? t("empty.queryDescription")
-          : t("empty.defaultDescription")}
+        {showFilteredEmpty ? t("empty.queryDescription") : t("empty.defaultDescription")}
       </p>
       <div className="mt-5 flex items-center gap-2">
-        {hasQuery ? (
+        {showFilteredEmpty ? (
           <Button variant="outline" onClick={onClear}>
-            {t("empty.clearSearch")}
+            {hasFilters ? t("empty.clearFilters") : t("empty.clearSearch")}
           </Button>
         ) : null}
         {!hasAutomations ? (
@@ -487,12 +519,4 @@ function EmptyAutomationList({
   );
 }
 
-function matchesTargetFilter(automation: AutomationSummary, filter: AutomationTargetFilter) {
-  if (filter === "all") {
-    return true;
-  }
-  if (filter === "project") {
-    return automation.target_kind === "project" || automation.target_kind === "new_workspace";
-  }
-  return automation.target_kind === filter;
-}
+

@@ -1,5 +1,71 @@
 import type { QuotaProviderResponse } from "@/api/ws-api";
 
+export type QuotaProviderOrderItem = {
+  id: string;
+  label: string;
+  switch_enabled: boolean;
+};
+
+function arrayMoveIds(ids: string[], fromIndex: number, toIndex: number): string[] {
+  const next = ids.slice();
+  const [moved] = next.splice(fromIndex, 1);
+  if (moved === undefined) return ids;
+  next.splice(toIndex, 0, moved);
+  return next;
+}
+
+/** Keep switch-enabled ids in front of disabled ids, preserving relative order. */
+export function partitionQuotaProviderIdsBySwitch(
+  ids: string[],
+  switchEnabledIds: Iterable<string>,
+): string[] {
+  const enabled = new Set(switchEnabledIds);
+  const on: string[] = [];
+  const off: string[] = [];
+  for (const id of ids) {
+    if (enabled.has(id)) on.push(id);
+    else off.push(id);
+  }
+  return [...on, ...off];
+}
+
+export function sortQuotaProvidersBySwitchAndOrder<T extends QuotaProviderOrderItem>(
+  providers: T[],
+  providerOrder: string[],
+): T[] {
+  const orderIndex = new Map(providerOrder.map((id, index) => [id, index]));
+  return [...providers].sort((left, right) => {
+    if (left.switch_enabled !== right.switch_enabled) {
+      return left.switch_enabled ? -1 : 1;
+    }
+    const leftOrder = orderIndex.get(left.id) ?? Number.MAX_SAFE_INTEGER;
+    const rightOrder = orderIndex.get(right.id) ?? Number.MAX_SAFE_INTEGER;
+    if (leftOrder !== rightOrder) return leftOrder - rightOrder;
+    return left.label.localeCompare(right.label);
+  });
+}
+
+/**
+ * Reorder from the currently displayed (enabled-first) list, then snap
+ * enabled providers back in front of disabled ones.
+ */
+export function reorderQuotaProvidersKeepingEnabledFirst(
+  visualIds: string[],
+  activeId: string,
+  overId: string,
+  switchEnabledIds: Iterable<string>,
+): string[] {
+  const oldIndex = visualIds.indexOf(activeId);
+  const newIndex = visualIds.indexOf(overId);
+  if (oldIndex === -1 || newIndex === -1 || oldIndex === newIndex) {
+    return partitionQuotaProviderIdsBySwitch(visualIds, switchEnabledIds);
+  }
+  return partitionQuotaProviderIdsBySwitch(
+    arrayMoveIds(visualIds, oldIndex, newIndex),
+    switchEnabledIds,
+  );
+}
+
 export type QuotaPopoverFormatters = {
   unknownLabel?: string;
   resetUnknownLabel?: string;

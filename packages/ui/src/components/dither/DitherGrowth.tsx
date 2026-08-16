@@ -95,6 +95,9 @@ export function DitherGrowth({
   if (!morphRef.current) morphRef.current = createSeriesMorph();
   const sigRef = useRef("");
   const domainRef = useRef(domainKey);
+  const fromAxisRef = useRef(0);
+  const toAxisRef = useRef(1);
+  const lastAxisRef = useRef(0);
 
   // Retarget during render so the first paint already has morph state (ref-only).
   const valuesKey = seriesSignature(values);
@@ -102,13 +105,17 @@ export function DitherGrowth({
     domainKey !== undefined && domainRef.current !== domainKey;
   if (domainKey !== undefined) domainRef.current = domainKey;
   if (sigRef.current !== valuesKey || domainChanged) {
-    const prevLen = morphRef.current.current().length;
-    // Domain flip (tokens↔cost) or length jump: grow-in from zero.
-    if (domainChanged || (prevLen > 0 && prevLen !== values.length)) {
-      morphRef.current.retargetEnter(values);
+    const nextPeak = Math.max(0, ...values);
+    const nextAxis = growthAxisMax(nextPeak > 0 ? nextPeak : 1);
+    if (domainChanged) {
+      // Unit flip: morph by relative height on the new axis (not raw values).
+      morphRef.current.retarget(values);
+      fromAxisRef.current = nextAxis;
     } else {
       morphRef.current.retarget(values);
+      fromAxisRef.current = lastAxisRef.current || nextAxis;
     }
+    toAxisRef.current = nextAxis;
     sigRef.current = valuesKey;
   }
 
@@ -171,12 +178,15 @@ export function DitherGrowth({
       const data = morphRef.current!.sample(reducedMotion);
       if (data.length === 0 || w < 2 || h < 2) return;
 
-      // Lock axis to the *target* series (props), not mid-morph samples.
-      // Otherwise every point scales by the same ease and the curve stays
-      // full-height every frame — looks like a hard jump, not a grow/morph.
+      const prog = morphRef.current!.progress(reducedMotion);
       const targetPeak = Math.max(0, ...valuesRef.current);
       const samplePeak = Math.max(0, ...data);
-      const axisMax = growthAxisMax(targetPeak > 0 ? targetPeak : samplePeak);
+      const fromAxis = fromAxisRef.current;
+      const toAxis =
+        toAxisRef.current ||
+        growthAxisMax(targetPeak > 0 ? targetPeak : samplePeak);
+      const axisMax = Math.max(1e-6, fromAxis + (toAxis - fromAxis) * prog);
+      lastAxisRef.current = axisMax;
       const yTickCount = 3;
       const yTickValues = Array.from(
         { length: yTickCount },

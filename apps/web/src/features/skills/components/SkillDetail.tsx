@@ -363,6 +363,21 @@ export const SkillDetail: React.FC<SkillDetailProps> = ({ skill, onBack, onUpdat
   const isMarkdown = selectedFile?.name.endsWith('.md') || selectedFile?.name.endsWith('.mdx');
   const language = selectedFile ? getLanguageFromFileName(selectedFile.name) : 'plaintext';
 
+  // When parent enriches skill after optimistic open (list → skills_get), pick up new file rows.
+  useEffect(() => {
+    setSelectedFile((prev) => {
+      const files = skill.files || [];
+      if (files.length === 0) return prev;
+      if (!prev) {
+        return files.find((f) => f.is_main) || files[0] || null;
+      }
+      const match =
+        files.find((f) => f.absolute_path === prev.absolute_path) ||
+        files.find((f) => f.relative_path === prev.relative_path);
+      return match ?? prev;
+    });
+  }, [skill]);
+
   // Load file content if it's not already available
   useEffect(() => {
     const loadFileContent = async () => {
@@ -517,6 +532,7 @@ export const SkillDetail: React.FC<SkillDetailProps> = ({ skill, onBack, onUpdat
       <div className="flex items-center gap-4 px-4 py-3 border-b border-border shrink-0">
         <div className="flex items-center gap-3 flex-1 min-w-0">
           <button
+            type="button"
             onClick={onBack}
             className="group/icon relative size-9 shrink-0 overflow-hidden rounded-lg border border-border bg-muted/40 transition-colors duration-200 hover:bg-accent cursor-pointer"
             title={t('back')}

@@ -370,6 +370,65 @@
   transform-origin: top left;
 }
 
+/* Hierarchical push navigation — horizontal (list → detail, shell → settings) */
+@keyframes push-page-in-x {
+  from {
+    transform: translate3d(100%, 0, 0);
+  }
+  to {
+    transform: translate3d(0, 0, 0);
+  }
+}
+@keyframes push-page-out-x {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(100%, 0, 0);
+  }
+}
+/* Vertical (app → canvas, etc.) */
+@keyframes push-page-in-y {
+  from {
+    transform: translate3d(0, 100%, 0);
+  }
+  to {
+    transform: translate3d(0, 0, 0);
+  }
+}
+@keyframes push-page-out-y {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(0, 100%, 0);
+  }
+}
+.push-page-slide-in-x,
+.push-page-slide-in {
+  animation: push-page-in-x 450ms cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+.push-page-slide-out-x,
+.push-page-slide-out {
+  animation: push-page-out-x 450ms cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+.push-page-slide-in-y {
+  animation: push-page-in-y 450ms cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+.push-page-slide-out-y {
+  animation: push-page-out-y 450ms cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .push-page-slide-in,
+  .push-page-slide-out,
+  .push-page-slide-in-x,
+  .push-page-slide-out-x,
+  .push-page-slide-in-y,
+  .push-page-slide-out-y {
+    animation-duration: 0ms !important;
+  }
+}
+
 @keyframes bounce-down {
   0%, 100% {
     transform: translateY(0);

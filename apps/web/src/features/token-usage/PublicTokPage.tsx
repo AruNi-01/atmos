@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { Trophy } from "lucide-react";
 import { GithubIcon, XIcon } from "@workspace/ui";
 import { useLocale, useTranslations } from "next-intl";
 
@@ -14,6 +15,8 @@ export type PublicTokPageProps = {
   xUsername: string | null;
   generatedAt: number;
   payload: TokenUsageSharePayload;
+  /** When set, leaderboard link uses push-back instead of a hard navigation. */
+  onBack?: () => void;
 };
 
 function formatGeneratedDate(ts: number, locale: string) {
@@ -35,6 +38,7 @@ export function PublicTokPage({
   xUsername,
   generatedAt,
   payload,
+  onBack,
 }: PublicTokPageProps) {
   const t = useTranslations("appShell.tokenUsageDialog.publicPage");
   const locale = useLocale();
@@ -44,7 +48,7 @@ export function PublicTokPage({
   const showAvatar = Boolean(avatarUrl) && !avatarFailed;
 
   return (
-    <div className="relative flex h-dvh min-h-0 flex-col overflow-x-hidden overflow-y-auto bg-background text-foreground">
+    <div className="relative flex h-full min-h-0 flex-col overflow-x-hidden overflow-y-auto bg-background text-foreground">
       <div className="mx-auto flex w-full max-w-[1100px] flex-col px-4 pt-5 sm:px-5">
         <header className="flex items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-2.5">
@@ -68,12 +72,6 @@ export function PublicTokPage({
             <span className="truncate text-sm font-medium">@{handle}</span>
           </div>
           <div className="flex shrink-0 items-center gap-3">
-            <a
-              href="/tok/leaderboard"
-              className="text-xs text-muted-foreground hover:text-foreground"
-            >
-              {t("leaderboardLink")}
-            </a>
             {xUsername ? (
               <a
                 href={`https://x.com/${xUsername}`}
@@ -102,7 +100,25 @@ export function PublicTokPage({
 
       <TokenUsageOverviewView payload={payload} hideCostToggle={!payload.summary.total_cost_usd} />
 
-      <footer className="mx-auto flex w-full max-w-[1100px] justify-end px-4 pb-8 sm:px-5">
+      <footer className="mx-auto flex w-full max-w-[1100px] items-center justify-between gap-3 px-4 pb-8 sm:px-5">
+        {onBack ? (
+          <button
+            type="button"
+            onClick={onBack}
+            className="inline-flex shrink-0 cursor-pointer items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground"
+          >
+            <Trophy className="size-3 shrink-0" aria-hidden />
+            {t("leaderboardLink")}
+          </button>
+        ) : (
+          <a
+            href="/tok/leaderboard"
+            className="inline-flex shrink-0 items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground"
+          >
+            <Trophy className="size-3 shrink-0" aria-hidden />
+            {t("leaderboardLink")}
+          </a>
+        )}
         <p className="text-right text-[11px] text-muted-foreground">
           {t("generatedDate", { date })} · {t("generatedByPrefix")}
           <a

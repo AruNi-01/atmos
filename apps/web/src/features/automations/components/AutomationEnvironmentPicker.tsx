@@ -1,8 +1,18 @@
 "use client";
 
+import * as React from "react";
 import { useTranslations } from "next-intl";
 import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
   Label,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
   Select,
   SelectContent,
   SelectItem,
@@ -11,6 +21,8 @@ import {
   cn,
 } from "@workspace/ui";
 import {
+  Check,
+  ChevronDown,
   Folder,
   FolderGit2,
   FolderPlus,
@@ -125,13 +137,16 @@ export function AutomationEnvironmentPicker({
       <div className="mt-4">
         {targetKind === "project" || targetKind === "new_workspace" ? (
           <div className="space-y-2">
-            <Label>{t("fields.project")}</Label>
+            <Label className="flex items-center gap-2">
+              <FolderGit2 className="size-4 text-muted-foreground" />
+              {t("fields.project")}
+            </Label>
             <Select
               value={projectGuid}
               onValueChange={onProjectGuidChange}
               disabled={projectsLoading || projects.length === 0}
             >
-              <SelectTrigger className="w-full">
+              <SelectTrigger className="w-full bg-background/35">
                 <SelectValue
                   placeholder={
                     projectsLoading
@@ -142,8 +157,11 @@ export function AutomationEnvironmentPicker({
               </SelectTrigger>
               <SelectContent>
                 {projects.map((project) => (
-                  <SelectItem key={project.id} value={project.id}>
-                    {project.name}
+                  <SelectItem key={project.id} value={project.id} textValue={project.name}>
+                    <span className="flex items-center gap-2">
+                      <FolderGit2 className="size-4 shrink-0 text-muted-foreground" />
+                      {project.name}
+                    </span>
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -151,29 +169,17 @@ export function AutomationEnvironmentPicker({
           </div>
         ) : targetKind === "workspace" ? (
           <div className="space-y-2">
-            <Label>{t("fields.workspace")}</Label>
-            <Select
-              value={workspaceGuid}
-              onValueChange={onWorkspaceGuidChange}
+            <Label className="flex items-center gap-2">
+              <Folder className="size-4 text-muted-foreground" />
+              {t("fields.workspace")}
+            </Label>
+            <WorkspaceSelect
+              workspaces={workspaces}
+              workspaceGuid={workspaceGuid}
               disabled={projectsLoading || workspaces.length === 0}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue
-                  placeholder={
-                    projectsLoading
-                      ? t("placeholders.loadingWorkspaces")
-                      : t("placeholders.selectWorkspace")
-                  }
-                />
-              </SelectTrigger>
-              <SelectContent>
-                {workspaces.map(({ project, workspace }) => (
-                  <SelectItem key={workspace.id} value={workspace.id}>
-                    {workspace.displayName || workspace.name} / {project.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              loading={projectsLoading}
+              onWorkspaceGuidChange={onWorkspaceGuidChange}
+            />
           </div>
         ) : (
           <div className="rounded-xl border border-border/60 bg-background/35 px-3 py-2 text-sm text-muted-foreground">
@@ -182,5 +188,98 @@ export function AutomationEnvironmentPicker({
         )}
       </div>
     </section>
+  );
+}
+
+function WorkspaceSelect({
+  workspaces,
+  workspaceGuid,
+  disabled,
+  loading,
+  onWorkspaceGuidChange,
+}: {
+  workspaces: Array<{ project: Project; workspace: Workspace }>;
+  workspaceGuid: string;
+  disabled: boolean;
+  loading: boolean;
+  onWorkspaceGuidChange: (guid: string) => void;
+}) {
+  const t = useTranslations("automation.environmentPicker");
+  const [open, setOpen] = React.useState(false);
+  const selected = workspaces.find((item) => item.workspace.id === workspaceGuid);
+  const selectedLabel = selected
+    ? `${selected.workspace.displayName || selected.workspace.name} / ${selected.project.name}`
+    : null;
+
+  return (
+    <Popover
+      open={open}
+      onOpenChange={(nextOpen) => {
+        if (!disabled) setOpen(nextOpen);
+      }}
+    >
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          role="combobox"
+          aria-expanded={open}
+          disabled={disabled}
+          className={cn(
+            "border-input flex h-9 w-full items-center justify-between gap-2 rounded-md border bg-background/35 px-3 py-2 text-sm shadow-xs outline-none transition-[color,box-shadow]",
+            "focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]",
+            "dark:bg-input/30 dark:hover:bg-input/50",
+            "disabled:cursor-not-allowed disabled:opacity-50",
+            !selectedLabel && "text-muted-foreground",
+          )}
+        >
+          <span className="flex min-w-0 items-center gap-2">
+            <Folder className="size-4 shrink-0 text-muted-foreground" />
+            <span className="truncate">
+              {selectedLabel
+                ?? (loading
+                  ? t("placeholders.loadingWorkspaces")
+                  : t("placeholders.selectWorkspace"))}
+            </span>
+          </span>
+          <ChevronDown className="size-4 shrink-0 opacity-50" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent
+        align="start"
+        className="w-[var(--radix-popover-trigger-width)] p-0"
+      >
+        <Command>
+          <CommandInput placeholder={t("placeholders.searchWorkspaces")} />
+          <CommandList className="max-h-64">
+            <CommandEmpty>{t("placeholders.noMatchingWorkspaces")}</CommandEmpty>
+            <CommandGroup>
+              {workspaces.map(({ project, workspace }) => {
+                const label = `${workspace.displayName || workspace.name} / ${project.name}`;
+                const isSelected = workspace.id === workspaceGuid;
+                return (
+                  <CommandItem
+                    key={workspace.id}
+                    value={label}
+                    onSelect={() => {
+                      onWorkspaceGuidChange(workspace.id);
+                      setOpen(false);
+                    }}
+                  >
+                    <Folder className="size-4 shrink-0 text-muted-foreground" />
+                    <span className="min-w-0 flex-1 truncate">{label}</span>
+                    <Check
+                      className={cn(
+                        "size-4 shrink-0",
+                        isSelected ? "opacity-100" : "opacity-0",
+                      )}
+                    />
+                  </CommandItem>
+                );
+              })}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
   );
 }

@@ -61,11 +61,12 @@ function topKeys(
   extra: Iterable<string> = [],
 ): Set<string> {
   const ranked = [...totals.entries()]
+    .filter(([id]) => id !== "other")
     .sort((a, b) => b[1] - a[1])
     .map(([id]) => id);
   const keys = new Set(ranked.slice(0, SHARE_TOP_N));
   for (const id of extra) {
-    if (id) keys.add(id);
+    if (id && id !== "other") keys.add(id);
   }
   return keys;
 }
@@ -142,12 +143,14 @@ export function mapOverviewToSharePayload(
 
   const clientCostKeys = includeCost
     ? [...clientCost.entries()]
+        .filter(([id]) => id !== "other")
         .sort((a, b) => b[1] - a[1])
         .slice(0, SHARE_TOP_N)
         .map(([id]) => id)
     : [];
   const modelCostKeys = includeCost
     ? [...modelCost.entries()]
+        .filter(([id]) => id !== "other")
         .sort((a, b) => b[1] - a[1])
         .slice(0, SHARE_TOP_N)
         .map(([id]) => id)

@@ -15,15 +15,17 @@ import {
   TabsTrigger,
 } from "@workspace/ui/components/motion/tabs";
 
+import { useAgentAttentionStore } from "@/features/agent/store/agent-attention-store";
+import { useTerminalRichInputSettingsStore } from "@/features/settings/store/terminal-rich-input-settings-store";
 import {
   useSideChatModalLayout,
   type SideChatResizeEdge,
 } from "@/features/terminal/hooks/use-side-chat-modal-layout";
 import {
+  sideChatStablePaneId,
   sideChatTabLabel,
   type LocalSideChatRecord,
 } from "@/features/terminal/lib/terminal-side-chat";
-import { useTerminalRichInputSettingsStore } from "@/features/settings/store/terminal-rich-input-settings-store";
 import {
   isTerminalAgentInputPinShortcut,
   isTerminalAgentInputShortcut,
@@ -118,7 +120,10 @@ export function TerminalSideChatModal({
     setIsFocusedWithin(true);
     modalRef.current?.focus({ preventScroll: true });
     terminalRefs.current.get(sideChatId)?.focus();
-  }, [terminalRefs]);
+    const record = records.find((item) => item.side_chat_id === sideChatId);
+    const paneId = record ? sideChatStablePaneId(record) : null;
+    if (paneId) useAgentAttentionStore.getState().notifyPaneFocused(paneId);
+  }, [records, terminalRefs]);
   const {
     handleDragStart,
     handleResizeStart,
@@ -441,6 +446,7 @@ export function TerminalSideChatModal({
                     terminalRefs.current.get(record.side_chat_id)?.getCursorClientPoint() ?? null
                   }
                   agent={record.agent}
+                  stablePaneId={sideChatStablePaneId(record)}
                   isTerminalReady={readySideChatIds.has(record.side_chat_id)}
                   localPath={localPath}
                   skillsContext={skillsContext}

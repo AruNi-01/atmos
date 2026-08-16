@@ -62,6 +62,21 @@ const DEFAULT_SCHEDULE_PREVIEW_COUNT: usize = 5;
 // Keep previews bounded; clients should request follow-up pages through run history, not schedule preview.
 const MAX_SCHEDULE_PREVIEW_COUNT: usize = 25;
 
+pub(super) fn xml_escape(value: &str) -> String {
+    let mut escaped = String::with_capacity(value.len());
+    for ch in value.chars() {
+        match ch {
+            '&' => escaped.push_str("&amp;"),
+            '<' => escaped.push_str("&lt;"),
+            '>' => escaped.push_str("&gt;"),
+            '"' => escaped.push_str("&quot;"),
+            '\'' => escaped.push_str("&apos;"),
+            _ => escaped.push(ch),
+        }
+    }
+    escaped
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum AutomationTargetKind {
@@ -220,6 +235,8 @@ pub struct AutomationGetReq {
 pub struct AutomationCreateReq {
     pub display_name: String,
     pub instructions: String,
+    #[serde(default)]
+    pub memory: Option<String>,
     pub agent_id: String,
     #[serde(default)]
     pub agent_config: Option<AutomationAgentRunConfig>,
@@ -240,6 +257,8 @@ pub struct AutomationUpdateReq {
     #[serde(default)]
     pub instructions: Option<String>,
     #[serde(default)]
+    pub memory: Option<String>,
+    #[serde(default)]
     pub attachments: Vec<WorkspaceAttachmentPayload>,
     #[serde(default)]
     pub agent_id: Option<String>,
@@ -247,10 +266,20 @@ pub struct AutomationUpdateReq {
     pub agent_config: Option<AutomationAgentRunConfig>,
     #[serde(default)]
     pub target: Option<AutomationTargetInput>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "deserialize_nullable_update_field")]
     pub schedule: Option<Option<AutomationScheduleInput>>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "deserialize_nullable_update_field")]
     pub trigger: Option<Option<AutomationTriggerInput>>,
+}
+
+fn deserialize_nullable_update_field<'de, D, T>(
+    deserializer: D,
+) -> std::result::Result<Option<Option<T>>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+    T: serde::Deserialize<'de>,
+{
+    Option::<T>::deserialize(deserializer).map(Some)
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -270,7 +299,8 @@ pub struct AutomationRunGetReq {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AutomationRunListReq {
-    pub automation_guid: String,
+    #[serde(default)]
+    pub automation_guid: Option<String>,
     #[serde(default)]
     pub limit: Option<u64>,
     #[serde(default)]
@@ -325,6 +355,8 @@ pub struct AutomationDetail {
     #[serde(flatten)]
     pub summary: AutomationSummary,
     pub instructions: String,
+    pub memory: String,
+    pub memory_path: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -484,6 +516,7 @@ impl AutomationService {
         let prepared_artifacts = prepare_create_definition_artifacts(
             &automation_guid,
             req.instructions,
+            req.memory.unwrap_or_default(),
             req.attachments,
         )?;
 
@@ -595,8 +628,12 @@ impl AutomationService {
             req.schedule.as_ref().map(|schedule| schedule.is_some()),
             &existing,
         )?;
-        let prepared_artifacts =
-            prepare_update_definition_artifacts(&existing.guid, req.attachments, req.instructions)?;
+        let prepared_artifacts = prepare_update_definition_artifacts(
+            &existing.guid,
+            req.attachments,
+            req.instructions,
+            req.memory,
+        )?;
 
         let update = UpdateAutomationRecord {
             display_name,
@@ -704,11 +741,22 @@ impl AutomationService {
 
     pub async fn list_runs(&self, req: AutomationRunListReq) -> Result<AutomationRunList> {
         let repo = AutomationRepo::new(&self.db);
-        let limit = req.limit.unwrap_or(50).clamp(1, 100);
+        let automation_guid = req
+            .automation_guid
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty());
+        let listing_all = automation_guid.is_none();
+        let limit = req
+            .limit
+            .unwrap_or(if listing_all { 100 } else { 50 })
+            .clamp(1, if listing_all { 200 } else { 100 });
         let offset = parse_run_page_token(req.page_token.as_deref())?;
-        let mut models = repo
-            .list_runs(&req.automation_guid, limit + 1, offset)
-            .await?;
+        let mut models = if let Some(automation_guid) = automation_guid {
+            repo.list_runs(automation_guid, limit + 1, offset).await?
+        } else {
+            repo.list_all_runs(limit + 1, offset).await?
+        };
         let next_page_token = if models.len() > limit as usize {
             models.truncate(limit as usize);
             Some((offset + limit).to_string())
@@ -789,9 +837,12 @@ impl AutomationService {
 
     fn detail_from_model(&self, model: automation::Model) -> Result<AutomationDetail> {
         let instructions = artifacts::read_instructions(&model.instructions_path)?;
+        let (memory, memory_path) = artifacts::read_memory_for_guid(&model.guid)?;
         Ok(AutomationDetail {
             summary: AutomationSummary::from(model),
             instructions,
+            memory,
+            memory_path: memory_path.to_string_lossy().to_string(),
         })
     }
 }
@@ -964,6 +1015,7 @@ impl From<automation::Model> for AutomationSummary {
 fn prepare_create_definition_artifacts(
     automation_guid: &str,
     instructions: String,
+    memory: String,
     attachments: Vec<WorkspaceAttachmentPayload>,
 ) -> Result<artifacts::PreparedCreateArtifacts> {
     let attachment_paths = artifacts::write_attachments(automation_guid, attachments)?;
@@ -978,7 +1030,7 @@ fn prepare_create_definition_artifacts(
         }
     };
 
-    match artifacts::PreparedCreateArtifacts::prepare(automation_guid, &instructions) {
+    match artifacts::PreparedCreateArtifacts::prepare(automation_guid, &instructions, &memory) {
         Ok(prepared) => Ok(prepared),
         Err(error) => {
             artifacts::discard_written_attachments(&attachment_paths);
@@ -991,6 +1043,7 @@ fn prepare_update_definition_artifacts(
     automation_guid: &str,
     attachments: Vec<WorkspaceAttachmentPayload>,
     instructions: Option<String>,
+    memory: Option<String>,
 ) -> Result<artifacts::PreparedUpdateArtifacts> {
     let written_attachments = artifacts::write_attachments(automation_guid, attachments)?;
     let resolved_instructions = match instructions {
@@ -1011,6 +1064,7 @@ fn prepare_update_definition_artifacts(
         automation_guid,
         written_attachments,
         resolved_instructions.as_deref(),
+        memory.as_deref(),
     )
 }
 
@@ -1050,6 +1104,57 @@ mod tests {
     use std::path::PathBuf;
 
     use super::*;
+
+    #[test]
+    fn update_request_treats_json_null_schedule_as_clear() {
+        let missing: AutomationUpdateReq = serde_json::from_value(json!({
+            "automation_guid": "auto-1"
+        }))
+        .unwrap();
+        assert!(missing.schedule.is_none());
+        assert!(missing.trigger.is_none());
+
+        let cleared: AutomationUpdateReq = serde_json::from_value(json!({
+            "automation_guid": "auto-1",
+            "schedule": null,
+            "trigger": null
+        }))
+        .unwrap();
+        assert!(matches!(cleared.schedule, Some(None)));
+        assert!(matches!(cleared.trigger, Some(None)));
+
+        let scheduled: AutomationUpdateReq = serde_json::from_value(json!({
+            "automation_guid": "auto-1",
+            "schedule": {
+                "kind": "daily",
+                "timezone": "Asia/Shanghai",
+                "hour": 23,
+                "minute": 3
+            }
+        }))
+        .unwrap();
+        let schedule = scheduled
+            .schedule
+            .expect("schedule present")
+            .expect("schedule configured");
+        assert_eq!(schedule.kind, AutomationScheduleKind::Daily);
+        assert_eq!(schedule.timezone.as_deref(), Some("Asia/Shanghai"));
+        assert_eq!(schedule.hour, Some(23));
+        assert_eq!(schedule.minute, Some(3));
+    }
+
+    #[test]
+    fn update_request_rejects_empty_schedule_kind() {
+        let error = serde_json::from_value::<AutomationUpdateReq>(json!({
+            "automation_guid": "auto-1",
+            "schedule": { "kind": "" }
+        }))
+        .unwrap_err();
+        assert!(
+            error.to_string().contains("hourly"),
+            "unexpected deserialize error: {error}"
+        );
+    }
 
     #[test]
     fn github_trigger_disabled_without_config_normalizes_to_needs_setup() {

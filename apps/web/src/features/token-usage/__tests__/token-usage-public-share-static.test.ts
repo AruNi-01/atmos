@@ -37,6 +37,8 @@ describe("APP-061 static wiring", () => {
     const tok = read("apps/web/src/app/tok/page.tsx");
     expect(tok).not.toContain("leaderboards={");
     expect(tok).toContain("fetchPublicLeaderboards");
+    expect(tok).toContain("PushPageStack");
+    expect(tok).toContain("onOpenProfile");
   });
 
   it("local page keeps PNG, consent, and does not auto-upload", () => {
@@ -55,14 +57,27 @@ describe("APP-061 static wiring", () => {
       "apps/web/src/features/token-usage/TokenUsagePublishControls.tsx",
     );
     expect(publish).toContain("https://atmos.land/tok/@");
-    expect(publish).toContain("atmos.land/tok/@");
+    expect(publish).toContain('prefix="atmos.land/tok/ @"');
     expect(publish).toContain("InputGroup");
     expect(publish).toContain("include_cost: true");
     expect(publish).toContain("{ includeCost: true }");
+    expect(publish).toContain("Switch");
+    expect(publish).toContain("ExternalLink");
     expect(publish).not.toContain("setIncludeCost");
     expect(publish).not.toContain("PopoverTrigger");
+    expect(publish).not.toContain("copyLink");
     const share = read("apps/web/src/app-shell/TokenUsageShareDialog.tsx");
     expect(share).toContain("TokenUsagePublishControls");
+    expect(share).toContain("@workspace/ui/components/motion/tabs");
+    expect(share).toContain('useState("publish")');
+    expect(share.indexOf('value="share"')).toBeLessThan(
+      share.indexOf('value="publish"'),
+    );
+    expect(share).toContain('sticky="always"');
+    expect(share).toContain("clampBelowHeader");
+    expect(share).toContain("data-token-usage-page-scroll");
+    const page = read("apps/web/src/app-shell/TokenUsagePage.tsx");
+    expect(page).toContain("data-token-usage-page-scroll");
     const hub = read("packages/hub/src/usage-page.ts");
     expect(hub).toContain("https://atmos.land");
     expect(hub).toContain("/tok/@");
