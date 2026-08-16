@@ -8,6 +8,7 @@ import { encodeDesignIR, normalizeIR } from "../ir/encode";
 import { applyDesignIR } from "../ir/apply";
 import { HANDOFF_INSTRUCTIONS } from "../ir/handoff";
 import { PT_ERROR_CODES, isPtDesignError } from "../agent/errors";
+import { emptyScene } from "./types";
 
 describe("session + IR", () => {
   test("place update delete and frame membership", () => {
@@ -160,37 +161,33 @@ describe("session + IR", () => {
   });
 
   test("applyIR replace materializes frames onto an empty scene", () => {
-    const ir = {
-      version: "pt-design-ir/1" as const,
-      catalogVersion: "2026.08-shadcn",
-      meta: { exportedAt: "2026-01-01T00:00:00.000Z", source: "pt-design" as const },
-      frames: [
-        {
-          id: "frame-login",
-          name: "Login",
-          bbox: { x: 10, y: 20, w: 400, h: 300 },
-          nodes: [
-            {
-              instanceId: "n1",
-              componentType: "button",
-              props: { label: "Go" },
-              bbox: { x: 30, y: 50, w: 80, h: 32 },
-            },
-          ],
-        },
-      ],
-      freeNodes: [],
-    };
-    const scene = applyDesignIR({ elements: [], appState: { viewBackgroundColor: "#ffffff" } }, ir, "replace");
+    const session = createPtDesignSession();
+    const { frameId } = session.dispatch({
+      type: "createFrame",
+      name: "Login",
+      bbox: { x: 10, y: 20, w: 400, h: 300 },
+    });
+    session.dispatch({
+      type: "place",
+      componentType: "button",
+      at: { x: 30, y: 50 },
+      frameId,
+      props: { label: "Go" },
+    });
+    const ir = session.getIR();
+    expect(ir.frames[0]?.name).toBe("Login");
+    const scene = applyDesignIR(emptyScene(), ir, "replace");
     const encoded = encodeDesignIR(scene);
-    expect(scene.elements.some((el) => el.type === "frame" && el.id === "frame-login")).toBe(true);
+    const next = createPtDesignSession(scene).getIR();
+    expect(scene.elements.some((el) => el.type === "frame" && el.id === frameId)).toBe(true);
     expect(encoded.frames).toHaveLength(1);
-    expect(encoded.frames[0]?.id).toBe("frame-login");
+    expect(encoded.frames[0]?.id).toBe(frameId);
     expect(encoded.frames[0]?.name).toBe("Login");
     expect(encoded.frames[0]?.bbox).toEqual({ x: 10, y: 20, w: 400, h: 300 });
-    expect(encoded.frames[0]?.nodes).toHaveLength(1);
-    expect(encoded.frames[0]?.nodes[0]?.componentType).toBe("button");
+    expect(encoded.frames[0]?.nodes.some((n) => n.componentType === "button")).toBe(true);
     expect(encoded.freeNodes).toEqual([]);
+    expect(next.frames[0]?.name).toBe("Login");
+    expect(next.frames[0]?.nodes.some((n) => n.componentType === "button")).toBe(true);
   });
 
   test("applyIR replace drops leftover children when swapping types", () => {

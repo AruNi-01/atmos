@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { startPlayground } from "../../playground/server";
 
 const playground = join(dirname(fileURLToPath(import.meta.url)), "../../playground");
 
@@ -14,5 +15,18 @@ describe("standalone playground", () => {
     expect(server).toContain("pt-design-playground");
     expect(server).toContain("main.tsx");
     expect(server).not.toMatch(/console\.log\("PT Design playground: import PtDesignApp/);
+  });
+
+  test("serves the real embed without Atmos API", async () => {
+    const server = await startPlayground(0);
+    try {
+      const html = await (await fetch(`http://127.0.0.1:${server.port}/`)).text();
+      const js = await (await fetch(`http://127.0.0.1:${server.port}/playground.js`)).text();
+      expect(html).toContain("pt-design-playground");
+      expect(js.includes("PtDesignApp") || js.includes("PT Design")).toBe(true);
+      expect(js.toLowerCase()).toContain("excalidraw");
+    } finally {
+      server.stop();
+    }
   });
 });
