@@ -14,11 +14,10 @@ import { useGitInfoStore } from "@/features/git/store/use-git-info-store";
 import {
   useGitChangedFilesQuery,
   invalidateGitQueries,
-  forceRefreshGitQueries,
   GIT_WORKTREE_PARAMS,
 } from "@/features/git/hooks/use-git-changed-files-query";
 import { useGitStatusQuery } from "@/features/git/hooks/use-git-status-query";
-import { computeCompareParams, selectCompareChangedFiles, isCompareQueryEnabled, EMPTY_CHANGED_FILES } from "@/features/git/lib/git-query-options";
+import { computeCompareParams, selectCompareChangedFiles, isCompareQueryEnabled, EMPTY_CHANGED_FILES, collectStageAllPaths } from "@/features/git/lib/git-query-options";
 import { useEditorStore } from "@/features/editor/store/use-editor-store";
 import { useProjectStore } from "@/features/project/store/use-project-store";
 import { useProjects } from "@/features/project/hooks/use-project-bootstrap-query";
@@ -44,7 +43,6 @@ import {
   GitPullRequestClosed,
   CircleDot,
   GitBranch,
-  GitCommit as GitCommitIcon,
   FileDiff,
   FolderOpen,
   FolderTree,
@@ -65,9 +63,9 @@ import type { ActionRun } from "@/features/github/components/ActionsPanel";
 import dynamic from "next/dynamic";
 import { PRPanel, type PRPanelHandle } from "@/features/github/components/PRPanel";
 import { IssuePanel } from "@/features/github/components/IssuePanel";
-import { CommitsPanel } from "@/features/github/components/CommitsPanel";
 import { ActionsPanel } from "@/features/github/components/ActionsPanel";
-import { useGitLog } from "@/features/github/hooks/use-github";
+import { useOpenGitHistoryCenterTab } from "@/features/git/hooks/use-open-git-history-center-tab";
+import { useGitHistoryCenterTabStore } from "@/features/git/store/use-git-history-center-tab";
 import { isWorkspaceSetupBlocking } from "@/features/workspace/lib/workspace-setup";
 import { useLayoutSettingsStore } from "@/features/settings/store/layout-settings-store";
 import { FileTreePanel } from "@/features/files/components/FileTreePanel";
@@ -83,7 +81,6 @@ import { RightSidebarCreatePrDialog } from "@/app-shell/sidebar/RightSidebarCrea
 import { ReviewContextProvider } from "@/features/diff/components/review/ReviewContextProvider";
 import type { GitChangedFile, ReviewTarget } from "@/api/ws-api";
 import { ReviewActions } from "@/features/diff/components/review/ReviewActions";
-import { RefreshableTabsTab } from "@/shared/components/ui/RefreshableTabsTab";
 import { useSidebarUiPrefs } from "@/shared/stores/use-ui-pref-hooks";
 import { useOpenGithubCenterTab } from "@/features/github/hooks/use-open-github-center-tab";
 import { useSidebarLayout } from "@/app-shell/SidebarLayoutContext";
@@ -290,10 +287,8 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
     discardAllUnstaged,
     discardAllUntracked,
     compareAgainstDefaultBranch,
-    compareAgainstRef,
     compareWorktreeChanges,
     resetCompareMode,
-    fetchChanges,
     isLoading: isMutating,
   } = useGitStore();
 
@@ -359,17 +354,13 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
     rightSidebarDialogParams,
   );
   const { openActionRunTab, openPullRequestTab, openIssueTab } = useOpenGithubCenterTab();
+  const { openGitHistoryTab } = useOpenGitHistoryCenterTab();
+  const selectHistoryCommit = useGitHistoryCenterTabStore((s) => s.selectCommit);
 
-  const [changesSubTab, setChangesSubTab] = useState<"changes" | "commits">(
-    "changes",
-  );
-  const [sidebarUi, setSidebarUi] = useSidebarUiPrefs();
+  const [sidebarUi] = useSidebarUiPrefs();
   const changesFileViewMode = sidebarUi.changesFileViewMode;
-  const setChangesFileViewMode = (mode: "list" | "tree") =>
-    setSidebarUi({ changesFileViewMode: mode });
   const [prSubTab, setPRSubTab] = useState<"open" | "closed">("open");
   const [githubSubTab, setGithubSubTab] = useState<"pr" | "issues" | "actions">("pr");
-  const [hasVisitedCommits, setHasVisitedCommits] = useState(false);
   const [actionsRefreshKey] = useState(0);
   const prPanelRef = useRef<PRPanelHandle>(null);
   const [prPanelLoading, setPRPanelLoading] = useState({
@@ -447,10 +438,18 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
   const changesScopeMenuOpen = activeChangesScopeState.menuOpen;
   useEffect(() => {
     resetCompareMode();
+    if (contextId) selectHistoryCommit(contextId, null);
     if (hasWorkingContext && currentProjectPath) {
       void invalidateGitQueries(currentProjectPath);
     }
-  }, [changesScopeKey, hasWorkingContext, currentProjectPath, resetCompareMode]);
+  }, [
+    changesScopeKey,
+    contextId,
+    currentProjectPath,
+    hasWorkingContext,
+    resetCompareMode,
+    selectHistoryCommit,
+  ]);
   const setChangesScopeMenuOpen = useCallback(
     (open: boolean) => {
       setChangesScopeState((current) => ({
@@ -463,21 +462,11 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
     [changesScopeKey],
   );
 
-  const commitLog = useGitLog({
-    repoPath: hasWorkingContext ? currentProjectPath ?? null : null,
-    branchKey: hasWorkingContext ? currentBranch ?? null : null,
-  });
-  const selectedCommit = useMemo(
-    () => commitLog.commits.find((commit) => commit.hash === selectedCommitHash),
-    [commitLog.commits, selectedCommitHash],
-  );
-
   const displayedComparedFiles = compareFiles;
   const displayedStagedFiles = stagedFiles;
   const displayedUnstagedFiles = unstagedFiles;
   const displayedUntrackedFiles = untrackedFiles;
-  const selectedCommitLabel =
-    selectedCommit?.short_hash ?? selectedCommitHash?.slice(0, 7) ?? null;
+  const selectedCommitLabel = selectedCommitHash?.slice(0, 7) ?? null;
   const emptyCompareLabel = changesScope === "commit" ? null : compareRef;
   const hasDisplayedChanges =
     changesScope === "branch" || changesScope === "commit"
@@ -538,6 +527,7 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
         menuOpen: false,
         autoSelectScope: false,
       });
+      if (contextId) selectHistoryCommit(contextId, null);
 
       if (scope === "branch") {
         resetCompareMode();
@@ -547,50 +537,15 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
 
       void compareWorktreeChanges();
     },
-    [changesScopeKey, compareWorktreeChanges, currentProjectPath, resetCompareMode],
+    [
+      changesScopeKey,
+      compareWorktreeChanges,
+      contextId,
+      currentProjectPath,
+      resetCompareMode,
+      selectHistoryCommit,
+    ],
   );
-
-  const handleSelectCommitScope = useCallback(
-    (commitHash: string) => {
-      setChangesScopeState({
-        key: changesScopeKey,
-        scope: "commit",
-        selectedCommitHash: commitHash,
-        menuOpen: false,
-        autoSelectScope: false,
-      });
-      setHasVisitedCommits(true);
-      void compareAgainstRef(commitHash);
-    },
-    [changesScopeKey, compareAgainstRef],
-  );
-
-  const handleChangesRefresh = useCallback(async () => {
-    // User clicked Refresh → force re-request. Opening Changes tab still uses cache.
-    if (changesScope === "commit" && selectedCommitHash) {
-      await compareAgainstRef(selectedCommitHash);
-      if (currentProjectPath) await forceRefreshGitQueries(currentProjectPath);
-      return;
-    }
-
-    if (changesScope === "staged" || changesScope === "unstaged") {
-      await compareWorktreeChanges();
-      if (currentProjectPath) await forceRefreshGitQueries(currentProjectPath);
-      return;
-    }
-
-    resetCompareMode();
-    // Remote `git fetch` then invalidate active git queries (real re-request).
-    await fetchChanges();
-  }, [
-    changesScope,
-    compareAgainstRef,
-    compareWorktreeChanges,
-    currentProjectPath,
-    fetchChanges,
-    resetCompareMode,
-    selectedCommitHash,
-  ]);
 
   const stageAllUnstagedFn = useCallback(async () => {
     await stageAllUnstaged(unstagedFiles.map((f) => f.path));
@@ -599,6 +554,10 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
   const stageAllUntrackedFn = useCallback(async () => {
     await stageAllUntracked(untrackedFiles.map((f) => f.path));
   }, [stageAllUntracked, untrackedFiles]);
+
+  const stageAllChangesFn = useCallback(async () => {
+    await stageFiles(collectStageAllPaths(unstagedFiles, untrackedFiles));
+  }, [stageFiles, unstagedFiles, untrackedFiles]);
 
   const unstageAllFn = useCallback(async () => {
     await unstageAll(stagedFiles.map((f) => f.path));
@@ -716,80 +675,36 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
           >
             {hasWorkingContext ? (
               <>
-                {/* Files / Commits sub-tabs */}
-                <div className="flex border-b border-sidebar-border shrink-0 bg-background/50 backdrop-blur-sm h-9">
-                  <Tabs
-                    value={changesSubTab}
-                    onValueChange={(v) => {
-                      const next = v as "changes" | "commits";
-                      setChangesSubTab(next);
-                      if (next === "commits") {
-                        setHasVisitedCommits(true);
-                      }
-                    }}
-                    className="flex-1 h-full min-w-0"
-                  >
-                    <TabsList
-                      variant="underline"
-                      className="h-full w-full gap-0 py-0!"
-                    >
-                      <ChangesToolbar
-                        value="changes"
-                        activeValue={changesSubTab}
-                        onRefresh={handleChangesRefresh}
-                        isRefreshing={changesSubTab === "changes" && isLoading}
-                        scope={changesScope}
-                        selectedCommitHash={selectedCommitHash}
-                        commits={commitLog.commits}
-                        loadingCommits={commitLog.loading}
-                        stagedCount={displayedStagedFiles.length}
-                        unstagedCount={
-                          displayedUnstagedFiles.length + displayedUntrackedFiles.length
-                        }
-                        open={changesScopeMenuOpen}
-                        viewMode={changesFileViewMode}
-                        onOpenChange={setChangesScopeMenuOpen}
-                        onSelectScope={handleSelectChangesScope}
-                        onSelectCommit={handleSelectCommitScope}
-                        onToggleViewMode={() =>
-                          setChangesFileViewMode(
-                            changesFileViewMode === "tree" ? "list" : "tree",
-                          )
-                        }
-                        className="h-full! basis-2/3 flex-[2_1_0%] text-sm gap-1.5 focus-visible:ring-0 focus-visible:ring-offset-0 rounded-none border-0!"
-                      />
-                      <RefreshableTabsTab
-                        value="commits"
-                        activeValue={changesSubTab}
-                        refreshTitle={t("rightSidebar.changes.refreshCommits")}
-                        onRefresh={async () => {
-                          await commitLog.refresh();
-                        }}
-                        isRefreshing={
-                          changesSubTab === "commits" &&
-                          (commitLog.loading || commitLog.refreshing)
-                        }
-                        className="h-full! basis-1/3 flex-[1_1_0%] text-sm gap-1.5 focus-visible:ring-0 focus-visible:ring-offset-0 rounded-none border-0!"
-                      >
-                        <GitCommitIcon className="size-3.5" />
-                        <span>{t("common.commits")}</span>
-                      </RefreshableTabsTab>
-                    </TabsList>
-                  </Tabs>
+                {/* Changes toolbar */}
+                <div className="flex h-9 shrink-0 bg-background/50 backdrop-blur-sm">
+                  <ChangesToolbar
+                    scope={changesScope}
+                    selectedCommitHash={selectedCommitHash}
+                    stagedCount={displayedStagedFiles.length}
+                    unstagedCount={displayedUnstagedFiles.length}
+                    untrackedCount={displayedUntrackedFiles.length}
+                    open={changesScopeMenuOpen}
+                    isBusy={isMutating}
+                    onOpenChange={setChangesScopeMenuOpen}
+                    onSelectScope={handleSelectChangesScope}
+                    onOpenHistory={() => openGitHistoryTab(selectedCommitHash)}
+                    onStageAll={stageAllChangesFn}
+                    onUnstageAll={unstageAllFn}
+                    onDiscardTracked={discardAllUnstagedFn}
+                    onTrashUntracked={discardAllUntrackedFn}
+                  />
                 </div>
 
                 {/* Content */}
                 <div
                   className={cn(
-                    "flex-1 min-h-0 no-scrollbar overflow-y-auto",
-                    changesSubTab !== "commits" && "p-2",
-                    changesSubTab !== "commits" &&
-                      !hasDisplayedChanges &&
+                    "flex-1 min-h-0 no-scrollbar overflow-y-auto p-2",
+                    !hasDisplayedChanges &&
                       !isEmptyStateLoading &&
                       "flex items-center justify-center",
                   )}
                 >
-                  <div className={cn(changesSubTab === "commits" && "hidden")}>
+                  <div>
                     {!hasDisplayedChanges && !isEmptyStateLoading ? (
                       <div
                         className={cn(
@@ -842,7 +757,7 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
                                   onClick={() =>
                                     handleSelectChangesScope(recommendation.scope)
                                   }
-                                  className="group flex w-full items-center gap-2 rounded-sm px-2 py-2 text-left transition-colors duration-200 hover:bg-sidebar-accent/50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                                  className="group flex w-full items-center gap-2 rounded-sm px-2 py-2 text-left hover:bg-sidebar-accent/50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                                 >
                                   <ScopeIcon className="size-3.5 shrink-0 text-muted-foreground/70 group-hover:text-foreground" />
                                   <span className="min-w-0 flex-1 truncate text-xs font-medium text-muted-foreground group-hover:text-foreground">
@@ -942,42 +857,15 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
                       )
                     )}
                   </div>
-
-                  <div
-                    className={cn(
-                      changesSubTab !== "commits" && "hidden",
-                      "-mx-0 flex-1 h-full",
-                    )}
-                  >
-                    {hasVisitedCommits && currentProjectPath ? (
-                      <CommitsPanel
-                        commits={commitLog.commits}
-                        loading={commitLog.loading}
-                        page={commitLog.page}
-                        hasMore={commitLog.hasMore}
-                        goToPrevPage={commitLog.goToPrevPage}
-                        goToNextPage={commitLog.goToNextPage}
-                        owner={githubOwner ?? undefined}
-                        repo={githubRepo ?? undefined}
-                      />
-                    ) : currentProjectPath ? null : (
-                      <div className="flex flex-col items-center justify-center min-h-[200px] text-muted-foreground/50">
-                        <span className="text-xs">{t("rightSidebar.changes.noRepositoryContext")}</span>
-                      </div>
-                    )}
-                  </div>
                 </div>
 
-                {/* Commit Actions (Sticky Bottom) - only on Files sub-tab */}
-                {changesSubTab !== "commits" && (
-                  <CommitActionsContainer
-                    currentProjectPath={currentProjectPath}
-                    currentProject={currentProject}
-                    currentWorkspace={currentWorkspace}
-                    workspaceId={workspaceId}
-                    projectId={projectIdFromUrl}
-                  />
-                )}
+                <CommitActionsContainer
+                  currentProjectPath={currentProjectPath}
+                  currentProject={currentProject}
+                  currentWorkspace={currentWorkspace}
+                  workspaceId={workspaceId}
+                  projectId={projectIdFromUrl}
+                />
               </>
             ) : (
               renderNoContextMessage

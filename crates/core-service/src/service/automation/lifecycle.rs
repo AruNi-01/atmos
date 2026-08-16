@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use chrono::Utc;
@@ -299,7 +299,7 @@ fn parse_run_config(raw: &str) -> Option<agents::AutomationAgentRunConfig> {
 fn build_continue_prompt(
     automation: &automation::Model,
     run: &automation_run::Model,
-    memory_path: &PathBuf,
+    memory_path: &Path,
 ) -> String {
     format!(
         r#"<automation_continue>

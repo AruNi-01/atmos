@@ -362,6 +362,8 @@
       "newTabMenu": "新建标签页",
       "simulator": "模拟器",
       "closeSimulatorTab": "关闭模拟器标签页",
+      "history": "图形历史",
+      "closeHistoryTab": "关闭图形历史标签页",
       "overview": "总览",
       "refreshWiki": "刷新 Wiki",
       "projectWiki": "项目 Wiki",
@@ -1290,6 +1292,7 @@
         "enterWorkspace": "进入工作区",
         "create": "创建",
         "enter": "进入",
+        "close": "关闭",
         "draft": "草稿",
         "pagination": {
           "previous": "上一页",
@@ -1619,16 +1622,7 @@
         },
         "noContext": "没有仓库上下文",
         "changes": {
-          "refreshChanges": "刷新变更",
-          "diffTab": "文件对比",
           "selectScope": "选择变更范围",
-          "showAsList": "以列表显示",
-          "showAsTree": "以树状显示",
-          "showChangedFilesAsList": "以列表显示变更文件",
-          "showChangedFilesAsTree": "以树状显示变更文件",
-          "refreshCommits": "刷新提交",
-          "loadingCommits": "正在加载提交...",
-          "noCommitsOnBranch": "当前分支没有提交",
           "noCommitChanges": "提交 {commit} 没有文件变更",
           "noChangesAgainst": "与 {compareRef} 相比没有变更",
           "noChangesDetected": "未检测到变更",
@@ -1639,6 +1633,22 @@
           "unstagedChanges": "未暂存变更",
           "untrackedChanges": "未跟踪文件",
           "noRepositoryContext": "没有仓库上下文",
+          "history": "图形历史",
+          "view": {
+            "settings": "更改文件视图",
+            "section": "视图",
+            "list": "列表",
+            "tree": "树状"
+          },
+          "actions": {
+            "stageAll": "全部暂存",
+            "unstageAll": "全部取消暂存",
+            "discardTracked": "丢弃已跟踪的变更",
+            "trashUntracked": "删除未跟踪文件",
+            "moreActions": "更多变更操作",
+            "failedTitle": "Git 操作失败",
+            "failedDescription": "请重试。"
+          },
           "scope": {
             "unstaged": "未暂存",
             "staged": "已暂存",
@@ -7982,6 +7992,33 @@
         "fastForwardNotPossible": "请先拉取远端最新更改，并解决所有冲突后再继续。",
         "notGitRepository": "此文件夹已不再是 Git 仓库。"
       }
+    },
+    "history": {
+      "title": "图形历史",
+      "loading": "正在加载历史记录…",
+      "empty": "没有找到提交",
+      "noRepository": "未选择仓库",
+      "loadMore": "加载更多",
+      "refresh": "刷新",
+      "retry": "重试",
+      "copied": "已复制",
+      "copyHash": "复制提交哈希",
+      "noSubject": "（无主题）",
+      "unknownAuthor": "未知",
+      "searchPlaceholder": "搜索提交…",
+      "matchCase": "区分大小写",
+      "previousMatch": "上一个匹配",
+      "nextMatch": "下一个匹配",
+      "matchCount": "{current}/{total}",
+      "loadingMore": "正在加载更多提交…",
+      "columns": {
+        "graph": "图形",
+        "description": "描述",
+        "date": "日期",
+        "author": "作者",
+        "commit": "提交"
+      },
+      "resizeColumn": "调整{column}列宽"
     }
   },
   "localServices": {

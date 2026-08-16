@@ -375,14 +375,14 @@ function DiffFileTreeRow({
         row.type === "directory" ? openDirectories.has(row.path) : undefined
       }
       className={cn(
-        "group/file relative flex h-7 min-w-0 items-center gap-1 rounded-md px-2 text-[13px] outline-none transition-colors",
+        "group/file relative flex h-7 min-w-0 items-center gap-1 rounded-md px-2 text-[13px] outline-none",
         file ? "cursor-pointer" : "cursor-default",
         isSelected
           ? "bg-sidebar-accent text-sidebar-foreground"
           : "hover:bg-sidebar-accent/50",
       )}
       draggable
-      style={{ paddingLeft: indentOffset + 8 + row.depth * 14 }}
+      style={{ paddingLeft: indentOffset + 4 + row.depth * 12 }}
       onDragStart={(event) => {
         setAgentContextDragData(event.dataTransfer, {
           kind: file ? "file" : "directory",

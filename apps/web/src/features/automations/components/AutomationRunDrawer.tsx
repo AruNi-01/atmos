@@ -6,6 +6,8 @@ import { useTranslations } from "next-intl";
 import {
   Button,
   Drawer,
+  DrawerCloseButton,
+  DrawerCloseReserveProvider,
   DrawerContentBare,
   DrawerOverlay,
   DrawerPortal,
@@ -99,17 +101,9 @@ export function AutomationRunDrawer({
             {run ? t("titleNamed", { id: run.guid.slice(0, 8) }) : t("title")}
           </DrawerTitle>
 
-          <div className="relative flex h-full min-h-0 w-full flex-col overflow-hidden">
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="absolute right-3 top-3 z-30 size-7 text-muted-foreground hover:text-foreground"
-              onClick={onClose}
-              aria-label={t("close")}
-            >
-              <X className="size-3.5" />
-            </Button>
+          <DrawerCloseReserveProvider>
+            <div className="relative flex h-full min-h-0 w-full flex-col overflow-hidden">
+              <DrawerCloseButton onClick={onClose} aria-label={t("close")} />
 
             <div
               className={
@@ -162,7 +156,8 @@ export function AutomationRunDrawer({
                 </section>
               ) : null}
             </div>
-          </div>
+            </div>
+          </DrawerCloseReserveProvider>
         </DrawerContentBare>
       </DrawerPortal>
     </Drawer>

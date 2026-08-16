@@ -209,7 +209,8 @@ export const SkillsView: React.FC = () => {
       setIsLoadingDetail(true);
       try {
         const result = await skillsApi.get(skillScope, skillId);
-        if (pushPhaseRef.current === "closing") return;
+        const phaseAfterLoad: string = pushPhaseRef.current;
+        if (phaseAfterLoad === "closing") return;
         openDetail(result);
       } catch (error) {
         console.error("Failed to load skill details:", error);

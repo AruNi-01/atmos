@@ -124,6 +124,9 @@ export const queryKeys = {
       repoPath: string,
       params: { branchKey: string | null; limit: number; page: number },
     ) => [...queryKeys.computer.git(scope, repoPath), "log", params] as const,
+    /** Topological commit history pages for the center-tab graph. */
+    gitHistory: (scope: ComputerQueryScope, repoPath: string) =>
+      [...queryKeys.computer.git(scope, repoPath), "history"] as const,
     /** Prefix for all filesystem queries — used for broad reconnect invalidation. */
     filesRoot: (scope: ComputerQueryScope) =>
       [...queryKeys.computer.root(scope), "files"] as const,

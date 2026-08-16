@@ -12,6 +12,8 @@ import {
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
+  cn,
+  useDrawerCloseReserve,
 } from '@workspace/ui';
 import { GithubUserAvatar, GithubUserHoverCard } from '@/features/github/components/GithubUserHoverCard';
 import { useGithubPRDetail, useGithubPRDetailSidebar, useGithubPRTimeline, useGithubPRFiles } from '@/features/github/hooks/use-github';
@@ -44,7 +46,6 @@ import {
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { enUS, zhCN } from 'date-fns/locale';
-import { cn } from '@/shared/lib/utils';
 import { MarkdownRenderer } from '@/shared/components/markdown/MarkdownRenderer';
 import { useAgentFixContext } from '@/features/agent-fix/hooks/use-agent-fix-context';
 import { AgentFixButton } from '@/features/agent-fix/components/AgentFixButton';
@@ -94,6 +95,7 @@ const prMainTabCache = new Map<number, PRMainTab>();
 export function PRDetailView({ owner, repo, branch, prNumber, active, onRequestClose, onMerged, onClosed, headerTrailing }: PRDetailViewProps) {
   const locale = useLocale();
   const t = useTranslations('github.prDetail');
+  const reserveClose = useDrawerCloseReserve();
   const relativeTimeLocale = locale.startsWith('zh') ? zhCN : enUS;
   const agentFixContext = useAgentFixContext();
   const { openCommitTab } = useOpenGithubCenterTab();
@@ -421,7 +423,7 @@ export function PRDetailView({ owner, repo, branch, prNumber, active, onRequestC
         <div className="flex flex-col flex-1 min-h-0">
           <header className={cn(
             "relative flex shrink-0 flex-row items-center gap-3 pb-4 pt-6",
-            headerTrailing ? "pr-14" : "pr-12",
+            headerTrailing || reserveClose ? "pr-14" : "pr-12",
           )}>
             <Github className="size-4.5 text-muted-foreground/60" />
             <div className="flex items-center gap-2.5 min-w-0">
@@ -435,7 +437,7 @@ export function PRDetailView({ owner, repo, branch, prNumber, active, onRequestC
             <div className={cn(
               "absolute top-6 flex items-center gap-1.5",
               // Leave room for the Task drawer close control when present.
-              headerTrailing ? "right-10" : "right-0",
+              headerTrailing || reserveClose ? "right-10" : "right-0",
             )}>
               {headerTrailing}
               <button

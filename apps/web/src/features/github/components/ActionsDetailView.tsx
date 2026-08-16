@@ -5,6 +5,8 @@ import {
   Skeleton,
   TabsSubtle,
   TabsSubtleItem,
+  drawerCloseReserveClass,
+  useDrawerCloseReserve,
 } from "@workspace/ui";
 import { GithubUserAvatar } from "@/features/github/components/GithubUserHoverCard";
 import { useWebSocketStore } from "@/features/connection/hooks/use-websocket";
@@ -85,6 +87,7 @@ export function ActionsDetailView({
   onRequestClose,
 }: ActionsDetailViewProps) {
   const t = useTranslations("github.actionsDetail");
+  const reserveClose = useDrawerCloseReserve();
   const agentFixContext = useAgentFixContext();
   const send = useWebSocketStore((s) => s.send);
   const invalidateActions = useInvalidateGithubActions();
@@ -355,7 +358,12 @@ export function ActionsDetailView({
   return (
     <div className="relative flex h-full min-h-0 w-full flex-col overflow-hidden">
       <div className="mx-auto w-full max-w-2xl shrink-0 px-6">
-        <header className="relative flex shrink-0 flex-row items-center gap-3 pb-4 pt-6">
+        <header
+          className={cn(
+            "relative flex min-w-0 shrink-0 flex-row items-center gap-3 pb-4 pt-6",
+            reserveClose && drawerCloseReserveClass,
+          )}
+        >
           <WorkflowIcon className="size-4.5 text-muted-foreground/60" />
           <div className="flex min-w-0 items-center gap-2.5">
             <h2 className="whitespace-nowrap text-base font-bold">

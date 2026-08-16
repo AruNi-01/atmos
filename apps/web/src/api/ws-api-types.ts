@@ -18,6 +18,10 @@ export type {
   GitGenerateCommitMessageResponse,
   GitGetStatusBatchResponse,
   GitGetStatusBatchResult,
+  GitHistoryCommit,
+  GitHistoryPage,
+  GitHistoryRef,
+  GitHistoryRefKind,
   GitPatchChunkResponse,
   GitStatusResponse,
 } from "@atmos/api-types/ws/dto/git";

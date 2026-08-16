@@ -11,6 +11,7 @@ import {
   Textarea,
   TabsSubtle,
   TabsSubtleItem,
+  useDrawerCloseReserve,
 } from "@workspace/ui";
 import { GithubUserAvatar, GithubUserHoverCard } from "@/features/github/components/GithubUserHoverCard";
 import {
@@ -102,6 +103,7 @@ export function IssueDetailView({
 }: IssueDetailViewProps) {
   const locale = useLocale();
   const t = useTranslations("github.issueDetail");
+  const reserveClose = useDrawerCloseReserve();
   const relativeTimeLocale = locale.startsWith("zh") ? zhCN : enUS;
   const { openCommitTab } = useOpenGithubCenterTab();
   const { data: issue, loading } = useGithubIssueDetail(
@@ -181,7 +183,7 @@ export function IssueDetailView({
       <header
         className={cn(
           "relative flex shrink-0 items-center gap-3 pb-4 pt-6",
-          headerTrailing ? "pr-14" : "pr-12",
+          headerTrailing || reserveClose ? "pr-14" : "pr-12",
         )}
       >
         <Github className="size-4.5 text-muted-foreground/60" />
@@ -199,7 +201,7 @@ export function IssueDetailView({
         <div
           className={cn(
             "absolute top-6 flex items-center gap-1.5",
-            headerTrailing ? "right-10" : "right-0",
+            headerTrailing || reserveClose ? "right-10" : "right-0",
           )}
         >
           {headerTrailing}

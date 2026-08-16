@@ -180,6 +180,16 @@ export const apiOperationInventory = [
   },
   {
     domain: "git",
+    operation: "gitHistory",
+    transport: "websocket-request",
+    classification: "query",
+    legacyOwner: "GitHistoryPanel / useGitHistory",
+    queryKeyRoot: "queryKeys.computer.gitHistory",
+    phase: "domain",
+    status: "complete",
+  },
+  {
+    domain: "git",
     operation: "gitFileDiff",
     transport: "websocket-request",
     classification: "query",

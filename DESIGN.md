@@ -293,3 +293,4 @@ Core traits:
 - On iOS, use system/native Liquid Glass surfaces wherever supported for controls, sheets, and floating chrome instead of hand-rolled glass effects; grouped content cards stay plain.
 - On Android, keep Android controls native; do not clone iOS glass.
 - Keep text from overlapping icons, counters, row actions, or neighboring content.
+- List and row hover fills are instant. Do not add `transition-colors`, `transition-all`, or duration/ease classes to hover backgrounds on sidebar rows, file trees, change/review/GitHub/history lists, or similar scan-and-select lists. Keep a transition only when a shared primitive already owns it, or when the motion is a real state change such as expand, fade-in row actions, or layout. If a primitive's hover fill feels delayed, override it with `transition-none`.

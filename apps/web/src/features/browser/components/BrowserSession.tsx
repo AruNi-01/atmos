@@ -77,6 +77,8 @@ interface BrowserSessionProps {
   onOpenPreviewBrowserWindow?: (url: string) => Promise<void> | void;
   onCloseStandalonePreviewWindow?: () => void;
   onMoveToCenter?: () => void;
+  /** Focus the address bar after a user-created empty tab mounts. */
+  requestUrlFocus?: boolean;
 }
 
 /**
@@ -118,6 +120,7 @@ export const BrowserSession: React.FC<BrowserSessionProps> = ({
   onOpenPreviewBrowserWindow,
   onCloseStandalonePreviewWindow,
   onMoveToCenter,
+  requestUrlFocus = false,
 }) => {
   const previewToolbarT = useTranslations("browser.toolbar");
   const headerHasOpenOverlay = useDialogStore(s => s.headerHasOpenOverlay);
@@ -137,7 +140,9 @@ export const BrowserSession: React.FC<BrowserSessionProps> = ({
     y: number;
   } | null>(null);
   const [currentPageTitle, setCurrentPageTitle] = useState("");
-  const [isUrlInputFocused, setIsUrlInputFocused] = useState(false);
+  const [isUrlInputFocused, setIsUrlInputFocused] = useState(
+    () => Boolean(isActive && requestUrlFocus),
+  );
   const [transportState, setTransportState] = useState<PreviewTransportState>({
     mode: 'unavailable',
     connected: false,
@@ -405,7 +410,7 @@ export const BrowserSession: React.FC<BrowserSessionProps> = ({
     handleGoForward,
     handleGoHome,
     handleRefresh,
-    handleUrlInputBlur,
+    handleUrlInputBlur: handleUrlInputBlurInner,
     navigateToUrl,
     pushHistoryEntry,
     skipExternalHistorySyncRef,
@@ -433,8 +438,49 @@ export const BrowserSession: React.FC<BrowserSessionProps> = ({
     teardownTransport,
     transportControllerRef,
     url,
-    urlInputRef,
   });
+
+  useLayoutEffect(() => {
+    if (!isActive || !requestUrlFocus) return;
+    if ((url ?? "").trim() || (activeUrl ?? "").trim()) return;
+    setIsUrlInputFocused(true);
+  }, [activeUrl, isActive, requestUrlFocus, url]);
+
+  useLayoutEffect(() => {
+    if (!isActive || !isUrlInputFocused) return;
+    const focusInput = () => {
+      const input = urlInputRef.current;
+      if (!input) return false;
+      input.focus();
+      input.select();
+      return true;
+    };
+    if (focusInput()) return;
+    const frame = window.requestAnimationFrame(() => {
+      focusInput();
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [isActive, isUrlInputFocused]);
+
+  const handleUrlInputBlur = useCallback(
+    (event?: { relatedTarget: EventTarget | null }) => {
+      // Adding a tab blurs the + button after click. Ignore that empty
+      // relatedTarget so the new empty address bar stays open.
+      if (
+        requestUrlFocus &&
+        !(url ?? "").trim() &&
+        !(activeUrl ?? "").trim() &&
+        !(event?.relatedTarget instanceof Node)
+      ) {
+        window.requestAnimationFrame(() => {
+          urlInputRef.current?.focus();
+        });
+        return;
+      }
+      handleUrlInputBlurInner();
+    },
+    [activeUrl, handleUrlInputBlurInner, requestUrlFocus, url],
+  );
 
   useEffect(() => {
     if (!activeUrl) return;

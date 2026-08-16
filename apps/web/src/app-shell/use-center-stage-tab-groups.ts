@@ -15,7 +15,7 @@ import {
   readCenterStageTabGroupOrder,
   writeCenterStageTabGroupOrder,
 } from "@/shared/stores/use-ui-pref-hooks";
-import { isDiffGroupEditorPath } from "@/features/diff/lib/diff-editor-paths";
+import { collectDiffGroupTabs } from "@/app-shell/center-stage-tab-groups";
 import type { GithubCenterTab } from "@/features/github/store/use-github-center-tabs";
 import type { BrowserCenterTab } from "@/features/browser/store/use-browser-center-tabs";
 import {
@@ -127,6 +127,7 @@ export function useCenterStageTabGroups({
   browserTabs,
   codeReviewTabVisible = false,
   effectiveContextId,
+  gitHistoryTabVisible = false,
   githubTabs,
   openFiles,
   previewBrowserPrefs = DEFAULT_PREVIEW_BROWSER_PREFS,
@@ -136,6 +137,7 @@ export function useCenterStageTabGroups({
   browserTabs: BrowserCenterTab[];
   codeReviewTabVisible?: boolean;
   effectiveContextId: string | null;
+  gitHistoryTabVisible?: boolean;
   githubTabs: GithubCenterTab[];
   openFiles: OpenFile[];
   previewBrowserPrefs?: PreviewBrowserPrefs;
@@ -214,24 +216,12 @@ export function useCenterStageTabGroups({
       groups.push({ key: "file", label: t("groups.file"), tabs: fileTabs });
     }
 
-    // Diff tabs
-    const diffTabs: TabGroupItem[] = [];
-    openFiles
-      .filter((file) => isDiffGroupEditorPath(file.path))
-      .forEach((file) => {
-        diffTabs.push({
-          id: file.path,
-          label: file.name,
-          value: file.path,
-          kind: "diff-group" as const,
-          file,
-        });
-      });
+    // Diff tabs — Graph History lives in this column with file diffs.
+    const diffTabs = collectDiffGroupTabs(openFiles, {
+      visible: gitHistoryTabVisible,
+      label: tabBarT("history"),
+    });
     if (diffTabs.length > 0) {
-      diffTabs.sort((a, b) => byOpenedAt(
-        { openedAt: a.file!.lastOpenedAt },
-        { openedAt: b.file!.lastOpenedAt },
-      ));
       groups.push({ key: "diff", label: t("groups.diff"), tabs: diffTabs });
     }
 
@@ -323,6 +313,7 @@ export function useCenterStageTabGroups({
     browserFallbackLabel,
     browserTabs,
     codeReviewTabVisible,
+    gitHistoryTabVisible,
     githubTabs,
     openFiles,
     previewBrowserPrefs,

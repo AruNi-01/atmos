@@ -90,7 +90,7 @@ export function FileTreeRow({
       onDoubleClick={() => onDoubleClick(itemData, isFolder)}
       onContextMenu={(event) => onContextMenu(event, itemData.path)}
       className={cn(
-        'flex items-center py-1 px-2 cursor-pointer select-none rounded-sm transition-colors outline-none',
+        'flex items-center py-1 px-2 cursor-pointer select-none rounded-sm outline-none',
         'hover:bg-sidebar-accent/50',
         (isActive || isContextTarget) && 'bg-sidebar-accent text-sidebar-foreground',
         isHighlighted && !isActive && 'bg-sidebar-accent/70 text-sidebar-foreground',

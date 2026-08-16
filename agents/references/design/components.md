@@ -91,6 +91,7 @@ Rules:
 - Project and workspace rows should be scannable at volume.
 - Status, priority, and labels should appear as small metadata, not large cards.
 - Do not use oversized avatars or thumbnail art in the sidebar.
+- Hover fill is instant. Do not add `transition-colors` or other color fades to row backgrounds unless a shared primitive already owns the transition or the motion is expand / fade-in actions / layout. Override a delayed primitive hover with `transition-none`.
 
 ## Badges And Chips
 

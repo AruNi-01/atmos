@@ -244,7 +244,7 @@ export const FrozenFileList: React.FC<FrozenFileListProps> = ({
             }}
             className={cn(
               "group flex items-center gap-2 rounded-md px-2 py-1.5 text-xs",
-              "hover:bg-sidebar-accent transition-colors",
+              "hover:bg-sidebar-accent",
               isCurrent && "bg-sidebar-accent",
             )}
           >

@@ -17,6 +17,15 @@ use crate::strings::scrub_vendor;
 /// Atmos product icon for the rebranded host app (replaces vendor AppIcon).
 const HOST_APP_ICON_ICNS: &[u8] = include_bytes!("../assets/host-app-icon.icns");
 
+/// Upstream host executable filename inside the extracted `.app` (never user-facing).
+pub(crate) const VENDOR_HOST_EXECUTABLE: &str = if cfg!(windows) {
+    "cua-driver.exe"
+} else {
+    "cua-driver"
+};
+
+const DEFAULT_HOST_SERVE_NAME: &str = "Atmos Desktop Use";
+
 pub struct InstallLayout {
     pub engine_bin: PathBuf,
     pub host_app: Option<PathBuf>,
@@ -41,14 +50,7 @@ pub fn install_from_archive(
     let engine_src = runtime_dir.join(&entry.engine_inner_path);
     if !engine_src.is_file() {
         // Some archives flatten paths — search for engine binary name.
-        let fallback = find_named_file(
-            &runtime_dir,
-            if cfg!(windows) {
-                "cua-driver.exe"
-            } else {
-                "cua-driver"
-            },
-        );
+        let fallback = find_named_file(&runtime_dir, VENDOR_HOST_EXECUTABLE);
         let src = fallback.ok_or_else(|| {
             scrub_vendor(&format!(
                 "engine binary missing in package at {}",
@@ -337,6 +339,148 @@ fn find_named_file(root: &Path, name: &str) -> Option<PathBuf> {
     None
 }
 
+pub(crate) fn host_macos_dir(app: &Path) -> PathBuf {
+    app.join("Contents").join("MacOS")
+}
+
+pub(crate) fn host_serve_executable_name(app: &Path) -> String {
+    app.file_stem()
+        .and_then(|s| s.to_str())
+        .filter(|s| !s.is_empty())
+        .unwrap_or(DEFAULT_HOST_SERVE_NAME)
+        .to_string()
+}
+
+/// Preferred serve binary inside the host `.app` (product name, then vendor fallback).
+pub fn resolve_host_serve_bin(app: &Path) -> Option<PathBuf> {
+    let macos = host_macos_dir(app);
+    let branded = macos.join(host_serve_executable_name(app));
+    if branded.is_file() {
+        return Some(branded);
+    }
+    let vendor = macos.join(VENDOR_HOST_EXECUTABLE);
+    vendor.is_file().then_some(vendor)
+}
+
+/// True when a live `serve` process is still exec'd under the vendor filename.
+pub(crate) fn vendor_host_serve_pgrep_pattern(app: &Path) -> String {
+    format!(
+        "{}/Contents/MacOS/{} serve",
+        app.display(),
+        VENDOR_HOST_EXECUTABLE
+    )
+}
+
+/// Engine binaries are tens of MB; a trampoline/`#!` shim is tiny.
+fn is_engine_mach_o(path: &Path) -> bool {
+    fs::metadata(path)
+        .map(|m| m.len() > 64 * 1024)
+        .unwrap_or(false)
+}
+
+fn write_host_serve_trampoline(vendor: &Path, branded_name: &str) -> Result<(), String> {
+    let script = format!("#!/bin/sh\nexec \"$(dirname \"$0\")/{branded_name}\" \"$@\"\n");
+    let tmp = vendor.with_extension("trampoline-tmp");
+    fs::write(&tmp, script)
+        .map_err(|e| scrub_vendor(&format!("failed to write host serve trampoline: {e}")))?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let _ = fs::set_permissions(&tmp, fs::Permissions::from_mode(0o755));
+    }
+    fs::rename(&tmp, vendor)
+        .map_err(|e| scrub_vendor(&format!("failed to install host serve trampoline: {e}")))?;
+    Ok(())
+}
+
+fn same_file(a: &Path, b: &Path) -> bool {
+    let Ok(ma) = fs::metadata(a) else {
+        return false;
+    };
+    let Ok(mb) = fs::metadata(b) else {
+        return false;
+    };
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::MetadataExt;
+        return ma.dev() == mb.dev() && ma.ino() == mb.ino();
+    }
+    #[cfg(not(unix))]
+    {
+        ma.len() == mb.len()
+    }
+}
+
+/// Move the real engine binary to `Contents/MacOS/<product name>` and leave a
+/// tiny `exec` shim at the upstream filename.
+///
+/// Installed CLIs that still exec the upstream name then land on the product
+/// process name. Does **not** rewrite Info.plist or codesign — the Mach-O inode
+/// (and TCC cdhash) is unchanged.
+pub fn ensure_host_serve_alias(app: &Path) -> Result<bool, String> {
+    let macos = host_macos_dir(app);
+    if !macos.is_dir() {
+        return Ok(false);
+    }
+    let branded_name = host_serve_executable_name(app);
+    let branded = macos.join(&branded_name);
+    let vendor = macos.join(VENDOR_HOST_EXECUTABLE);
+
+    if !branded.exists() {
+        if !vendor.is_file() {
+            return Ok(false);
+        }
+        if is_engine_mach_o(&vendor) {
+            fs::rename(&vendor, &branded)
+                .map_err(|e| scrub_vendor(&format!("failed to rename host executable: {e}")))?;
+            write_host_serve_trampoline(&vendor, &branded_name)?;
+            return Ok(true);
+        }
+        #[cfg(unix)]
+        {
+            if fs::hard_link(&vendor, &branded).is_ok() {
+                return Ok(true);
+            }
+            std::os::unix::fs::symlink(VENDOR_HOST_EXECUTABLE, &branded)
+                .map_err(|e| scrub_vendor(&format!("failed to create host serve alias: {e}")))?;
+            return Ok(true);
+        }
+        #[cfg(not(unix))]
+        {
+            return Ok(false);
+        }
+    }
+
+    if vendor.is_file() && is_engine_mach_o(&vendor) {
+        if same_file(&vendor, &branded) {
+            let tmp = macos.join(format!("{branded_name}.mach-o-tmp"));
+            fs::copy(&vendor, &tmp)
+                .map_err(|e| scrub_vendor(&format!("failed to split host executable: {e}")))?;
+            let _ = fs::remove_file(&branded);
+            fs::rename(&tmp, &branded)
+                .map_err(|e| scrub_vendor(&format!("failed to split host executable: {e}")))?;
+        }
+        write_host_serve_trampoline(&vendor, &branded_name)?;
+        return Ok(true);
+    }
+
+    Ok(false)
+}
+
+/// Fresh-install rename of the vendor filename. Call only when the bundle will
+/// be codesigned anyway (copy from upstream archive).
+fn rename_vendor_host_executable(app: &Path, manifest: &EngineManifest) -> Result<bool, String> {
+    let macos = host_macos_dir(app);
+    let vendor = macos.join(VENDOR_HOST_EXECUTABLE);
+    let branded = macos.join(&manifest.host_app_name);
+    if !vendor.is_file() || branded.exists() {
+        return Ok(false);
+    }
+    fs::rename(&vendor, &branded)
+        .map_err(|e| scrub_vendor(&format!("failed to rename host executable: {e}")))?;
+    Ok(true)
+}
+
 fn install_host_app(src: &Path, dest: &Path, manifest: &EngineManifest) -> Result<(), String> {
     if let Some(parent) = dest.parent() {
         fs::create_dir_all(parent).map_err(|e| scrub_vendor(&e.to_string()))?;
@@ -345,6 +489,10 @@ fn install_host_app(src: &Path, dest: &Path, manifest: &EngineManifest) -> Resul
         let _ = fs::remove_dir_all(dest);
     }
     copy_dir_recursive(src, dest).map_err(|e| scrub_vendor(&e.to_string()))?;
+    // Fresh tree will be codesigned below — rename the vendor filename now so
+    // Activity Monitor / `ps` never show it. Existing installs use an alias
+    // instead (see `ensure_host_serve_alias`) so we do not rotate TCC.
+    let _ = rename_vendor_host_executable(dest, manifest);
     rebrand_existing_host_app(dest, manifest)
 }
 
@@ -357,6 +505,9 @@ pub fn rebrand_existing_host_app(dest: &Path, manifest: &EngineManifest) -> Resu
     if !dest.is_dir() {
         return Err(scrub_vendor("host app path is not a directory"));
     }
+
+    // Product-named spawn alias (no codesign). Safe on already-granted hosts.
+    let _ = ensure_host_serve_alias(dest);
 
     let mut dirty = false;
     let plist = dest.join("Contents").join("Info.plist");
@@ -442,6 +593,7 @@ fn rewrite_host_plist(plist: &Path, manifest: &EngineManifest) -> Result<(), Str
             manifest.host_app_name.as_str(),
         ),
         ("CFBundleName", manifest.host_app_name.as_str()),
+        ("CFBundleExecutable", manifest.host_app_name.as_str()),
         ("CFBundleIdentifier", manifest.host_bundle_id.as_str()),
         ("CFBundleIconFile", "AppIcon"),
         ("CFBundleIconName", "AppIcon"),
@@ -515,6 +667,68 @@ mod tests {
         assert!(HOST_APP_ICON_ICNS.len() > 1000);
         // icns magic
         assert_eq!(&HOST_APP_ICON_ICNS[0..4], b"icns");
+    }
+
+    #[test]
+    fn host_serve_alias_uses_product_name() {
+        let dir = tempdir().unwrap();
+        let app = dir.path().join("Atmos Desktop Use.app");
+        let macos = app.join("Contents").join("MacOS");
+        fs::create_dir_all(&macos).unwrap();
+        fs::write(macos.join(VENDOR_HOST_EXECUTABLE), b"#!/bin/sh\n").unwrap();
+
+        assert!(ensure_host_serve_alias(&app).unwrap());
+        let branded = macos.join("Atmos Desktop Use");
+        assert!(branded.is_file());
+        let resolved = resolve_host_serve_bin(&app).expect("resolved");
+        assert_eq!(
+            resolved.file_name().and_then(|s| s.to_str()),
+            Some("Atmos Desktop Use")
+        );
+        assert!(!ensure_host_serve_alias(&app).unwrap());
+        assert!(!crate::strings::contains_vendor_brand(
+            resolved.file_name().and_then(|s| s.to_str()).unwrap_or(""),
+        ));
+    }
+
+    #[test]
+    fn host_serve_alias_shims_large_vendor_binary() {
+        let dir = tempdir().unwrap();
+        let app = dir.path().join("Atmos Desktop Use.app");
+        let macos = app.join("Contents").join("MacOS");
+        fs::create_dir_all(&macos).unwrap();
+        fs::write(macos.join(VENDOR_HOST_EXECUTABLE), vec![0u8; 80 * 1024]).unwrap();
+
+        assert!(ensure_host_serve_alias(&app).unwrap());
+        let branded = macos.join("Atmos Desktop Use");
+        assert_eq!(fs::metadata(&branded).unwrap().len(), 80 * 1024);
+        let shim = fs::read_to_string(macos.join(VENDOR_HOST_EXECUTABLE)).unwrap();
+        assert!(shim.starts_with("#!/bin/sh"));
+        assert!(shim.contains("Atmos Desktop Use"));
+        assert!(!crate::strings::contains_vendor_brand(&shim));
+        assert!(!ensure_host_serve_alias(&app).unwrap());
+    }
+
+    #[test]
+    fn rename_vendor_host_executable_on_fresh_copy() {
+        let dir = tempdir().unwrap();
+        let app = dir.path().join("Atmos Desktop Use.app");
+        let macos = app.join("Contents").join("MacOS");
+        fs::create_dir_all(&macos).unwrap();
+        fs::write(macos.join(VENDOR_HOST_EXECUTABLE), b"bin").unwrap();
+        let manifest = EngineManifest::embedded().unwrap();
+        assert!(rename_vendor_host_executable(&app, &manifest).unwrap());
+        assert!(!macos.join(VENDOR_HOST_EXECUTABLE).exists());
+        assert!(macos.join(&manifest.host_app_name).is_file());
+        assert!(!rename_vendor_host_executable(&app, &manifest).unwrap());
+    }
+
+    #[test]
+    fn vendor_pgrep_pattern_points_at_host_macos() {
+        let app = PathBuf::from("/tmp/Atmos Desktop Use.app");
+        let pat = vendor_host_serve_pgrep_pattern(&app);
+        assert!(pat.contains("Atmos Desktop Use.app/Contents/MacOS/"));
+        assert!(pat.ends_with(" serve"));
     }
 
     #[test]

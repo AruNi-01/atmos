@@ -362,6 +362,8 @@
       "newTabMenu": "New tab",
       "simulator": "Simulator",
       "closeSimulatorTab": "Close Simulator tab",
+      "history": "Graph History",
+      "closeHistoryTab": "Close Graph History tab",
       "overview": "Overview",
       "refreshWiki": "Refresh Wiki",
       "projectWiki": "Project Wiki",
@@ -1290,6 +1292,7 @@
         "enterWorkspace": "Enter workspace",
         "create": "Create",
         "enter": "Enter",
+        "close": "Close",
         "draft": "Draft",
         "pagination": {
           "previous": "Previous",
@@ -1619,16 +1622,7 @@
         },
         "noContext": "No repository context",
         "changes": {
-          "refreshChanges": "Refresh changes",
-          "diffTab": "Files Diff",
           "selectScope": "Select changes scope",
-          "showAsList": "Show as list",
-          "showAsTree": "Show as tree",
-          "showChangedFilesAsList": "Show changed files as list",
-          "showChangedFilesAsTree": "Show changed files as tree",
-          "refreshCommits": "Refresh commits",
-          "loadingCommits": "Loading commits...",
-          "noCommitsOnBranch": "No commits on branch",
           "noCommitChanges": "Commit {commit} has no file changes",
           "noChangesAgainst": "No changes against {compareRef}",
           "noChangesDetected": "No changes detected",
@@ -1639,6 +1633,22 @@
           "unstagedChanges": "Unstaged changes",
           "untrackedChanges": "Untracked changes",
           "noRepositoryContext": "No repository context",
+          "history": "Graph History",
+          "view": {
+            "settings": "Change file view",
+            "section": "View",
+            "list": "List",
+            "tree": "Tree"
+          },
+          "actions": {
+            "stageAll": "Stage all",
+            "unstageAll": "Unstage all",
+            "discardTracked": "Discard tracked changes",
+            "trashUntracked": "Trash untracked files",
+            "moreActions": "More change actions",
+            "failedTitle": "Git action failed",
+            "failedDescription": "Try again."
+          },
           "scope": {
             "unstaged": "Unstaged",
             "staged": "Staged",
@@ -7982,6 +7992,33 @@
         "fastForwardNotPossible": "Pull the latest remote changes and resolve any conflicts before continuing.",
         "notGitRepository": "This folder is no longer a Git repository."
       }
+    },
+    "history": {
+      "title": "Graph History",
+      "loading": "Loading history…",
+      "empty": "No commits found",
+      "noRepository": "No repository selected",
+      "loadMore": "Load more",
+      "refresh": "Refresh",
+      "retry": "Retry",
+      "copied": "Copied",
+      "copyHash": "Copy commit hash",
+      "noSubject": "(no subject)",
+      "unknownAuthor": "Unknown",
+      "searchPlaceholder": "Search commits…",
+      "matchCase": "Match case",
+      "previousMatch": "Previous match",
+      "nextMatch": "Next match",
+      "matchCount": "{current}/{total}",
+      "loadingMore": "Loading more commits…",
+      "columns": {
+        "graph": "Graph",
+        "description": "Description",
+        "date": "Date",
+        "author": "Author",
+        "commit": "Commit"
+      },
+      "resizeColumn": "Resize {column} column"
     }
   },
   "localServices": {

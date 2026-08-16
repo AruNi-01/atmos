@@ -42,8 +42,17 @@ test.describe("smoke workspace", () => {
       .poll(async () => new URL(page.url()).searchParams.get("rsTab") ?? "changes")
       .toBe("changes");
     const changesSidebar = await getRightSidebar(page);
-    await changesSidebar.getByRole("tab", { name: "提交" }).click();
-    await expect(changesSidebar.getByRole("tab", { name: "提交" })).toBeVisible();
+    const scopeTrigger = changesSidebar.getByRole("button", {
+      name: /选择变更范围|Select changes scope/,
+    });
+    await expect(scopeTrigger).toBeVisible();
+    await scopeTrigger.click();
+    await page.getByRole("menuitem", { name: /^(图形历史|Graph History)$/ }).click();
+    await expect
+      .poll(async () => new URL(page.url()).searchParams.get("tab"))
+      .toBe("git-history");
+    // The tab's computed name can include the close control; do not require an exact match.
+    await expect(page.getByRole("tab", { name: /图形历史|Graph History/ })).toBeVisible();
 
     await gotoContextRoute(page, withSearchParams(contextUrl, { rsTab: "review" }), {
       locale: "zh",

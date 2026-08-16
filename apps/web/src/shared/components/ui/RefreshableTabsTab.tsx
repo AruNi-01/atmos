@@ -37,7 +37,8 @@ export function RefreshableTabsTab({
 
   const isActive = value === activeValue;
   const showRefreshButton =
-    isActive && (isHovered || isRefreshPending || isRefreshing || forceActionsVisible);
+    isActive &&
+    (isHovered || isRefreshPending || isRefreshing || forceActionsVisible);
   const isSpinning = isRefreshPending || isRefreshing;
 
   const handleRefresh = useCallback(
@@ -111,7 +112,7 @@ export function RefreshableTabsTab({
           className={cn(
             "flex h-full cursor-pointer items-center justify-center text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground",
             // Files tab (and any tab with extra hover actions): compact icon at the end.
-            // Commits / PR tabs: keep the original full-width centered refresh hit target.
+            // PR tabs: keep the original full-width centered refresh hit target.
             trailingAction
               ? "w-8 shrink-0 border-l border-sidebar-border/60"
               : "flex-1",

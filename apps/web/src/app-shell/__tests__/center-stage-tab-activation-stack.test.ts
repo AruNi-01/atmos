@@ -86,6 +86,7 @@ describe("center-stage-tab-activation-stack", () => {
       projectWikiVisible: true,
       codeReviewVisible: false,
       simulatorVisible: true,
+      gitHistoryVisible: true,
       wikiEnabled: true,
       exclude: ["/b.ts", "term-2"],
     });
@@ -94,6 +95,7 @@ describe("center-stage-tab-activation-stack", () => {
     expect(open.has("project-wiki")).toBe(true);
     expect(open.has("code-review")).toBe(false);
     expect(open.has("simulator")).toBe(true);
+    expect(open.has("git-history")).toBe(true);
     expect(open.has("/a.ts")).toBe(true);
     expect(open.has("/b.ts")).toBe(false);
     expect(open.has("terminal")).toBe(true);

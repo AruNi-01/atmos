@@ -9,6 +9,7 @@ mod actions;
 mod changes;
 mod commits;
 mod excludes;
+mod history;
 mod patches;
 mod refs;
 mod types;
@@ -17,7 +18,8 @@ mod worktrees;
 pub use excludes::{list_ignored_paths, list_ignored_paths_for_many, sync_worktree_local_excludes};
 pub use types::{
     ChangedFileInfo, ChangedFilesInfo, CommitInfo, DiffContentKind, DiffPreviewKind, FileDiffInfo,
-    GitBlobLocator, GitStatus, WorktreeInfo,
+    GitBlobLocator, GitStatus, HistoryCommit, HistoryPage, HistoryRef, HistoryRefKind,
+    WorktreeInfo,
 };
 pub(crate) use worktrees::is_linked_worktree;
 

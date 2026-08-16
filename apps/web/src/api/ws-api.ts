@@ -23,6 +23,7 @@ import type {
   GitFileDiffResponse,
   GitFilesDiffResponse,
   GitGenerateCommitMessageResponse,
+  GitHistoryPage,
   GitPatchChunkResponse,
   GitGetStatusBatchResponse,
   GitStatusResponse,
@@ -60,6 +61,10 @@ export type {
   GitFilesDiffResponse,
   GitFilesDiffResult,
   GitGenerateCommitMessageResponse,
+  GitHistoryCommit,
+  GitHistoryPage,
+  GitHistoryRef,
+  GitHistoryRefKind,
   GitPatchChunkResponse,
   GitGetStatusBatchResponse,
   GitGetStatusBatchResult,
@@ -364,6 +369,20 @@ export const gitApi = {
       path,
       base_commit: baseCommit,
       head_commit: headCommit,
+    });
+  },
+
+  /**
+   * Topological commit history with parent hashes and refs (center-tab graph).
+   */
+  getHistory: async (
+    path: string,
+    options?: { cursor?: number; limit?: number },
+  ): Promise<GitHistoryPage> => {
+    return wsRequest<GitHistoryPage>("git_history", {
+      path,
+      cursor: options?.cursor ?? 0,
+      limit: options?.limit ?? 1000,
     });
   },
 

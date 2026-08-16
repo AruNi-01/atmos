@@ -123,11 +123,11 @@ export const PRPanel = React.forwardRef<PRPanelHandle, PRPanelProps>(function PR
                   <div
                     key={pr.number}
                     onClick={() => onPrClick?.(pr.number, pr.title)}
-                    className="flex flex-col p-3 rounded-md border border-sidebar-border bg-transparent hover:bg-sidebar-accent/50 transition-all cursor-pointer group"
+                    className="flex flex-col p-3 rounded-md border border-sidebar-border bg-transparent hover:bg-sidebar-accent/50 cursor-pointer group"
                   >
                     {/* Top Row: Title & State */}
                     <div className="flex justify-between items-start mb-2.5">
-                      <span className="text-[13px] font-bold leading-tight group-hover:text-primary transition-colors line-clamp-2 pr-2">
+                      <span className="text-[13px] font-bold leading-tight group-hover:text-primary line-clamp-2 pr-2">
                         {pr.title}
                       </span>
                       <span className={cn(

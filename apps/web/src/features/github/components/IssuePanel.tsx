@@ -158,7 +158,7 @@ export const IssuePanel = React.forwardRef<
                       onIssueClick(issue.number, issue.title);
                     }
                   }}
-                  className="group flex w-full min-w-0 cursor-pointer flex-col gap-2 rounded-md border border-sidebar-border px-3 py-2.5 text-left transition-colors hover:bg-sidebar-accent/50"
+                  className="group flex w-full min-w-0 cursor-pointer flex-col gap-2 rounded-md border border-sidebar-border px-3 py-2.5 text-left hover:bg-sidebar-accent/50"
                 >
                   <div className="flex min-w-0 items-baseline gap-1.5">
                     <span className="min-w-0 flex-1 line-clamp-2 text-[13px] font-medium leading-snug group-hover:text-primary">

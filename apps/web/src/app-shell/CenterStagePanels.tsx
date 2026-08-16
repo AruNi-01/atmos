@@ -79,6 +79,7 @@ interface CenterStagePanelsProps {
   onGithubPullRequestChanged: () => void;
   projectWikiTabVisible: boolean;
   simulatorTabVisible: boolean;
+  gitHistoryTabVisible: boolean;
   projectWikiTerminalGridRef: React.RefObject<TerminalGridHandle | null>;
   projectWikiUserTriggeredRef: React.RefObject<boolean>;
   reviewTarget: ReviewTarget | null;
@@ -117,6 +118,7 @@ export function CenterStagePanels({
   onGithubPullRequestChanged,
   projectWikiTabVisible,
   simulatorTabVisible,
+  gitHistoryTabVisible,
   projectWikiTerminalGridRef,
   projectWikiUserTriggeredRef,
   reviewTarget,
@@ -239,6 +241,7 @@ export function CenterStagePanels({
           "project-wiki",
           "code-review",
           "simulator",
+          "git-history",
           FIXED_TERMINAL_TAB_VALUE,
         ];
         const frameActiveTab = resolveFrameActiveTab({
@@ -249,7 +252,7 @@ export function CenterStagePanels({
           validTabs: validForContext,
         });
         const lightIds: string[] = [];
-        if (frameActiveTab === "overview" || frameActiveTab === "wiki" || frameActiveTab === "simulator") {
+        if (frameActiveTab === "overview" || frameActiveTab === "wiki" || frameActiveTab === "simulator" || frameActiveTab === "git-history") {
           lightIds.push(frameActiveTab);
         }
         // GitHub center tabs are light surfaces — only last-active / active-tab ids enter mount plan.
@@ -313,6 +316,7 @@ export function CenterStagePanels({
     terminalPaneStructureKey,
     projectWikiTabVisible,
     simulatorTabVisible,
+    gitHistoryTabVisible,
     visibleTerminalTabs,
     effectiveContextId,
     paintContextId,
@@ -361,6 +365,7 @@ export function CenterStagePanels({
             projectWikiTabVisible={projectWikiTabVisible}
             codeReviewTabVisible={codeReviewTabVisible}
             simulatorTabVisible={simulatorTabVisible}
+            gitHistoryTabVisible={gitHistoryTabVisible}
             terminalQuickOpenAgents={
               isUrlSyncedActive ? terminalQuickOpenAgents : undefined
             }
