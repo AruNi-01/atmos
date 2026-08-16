@@ -14,6 +14,16 @@ interface CompareChangedFilesSelection {
  */
 export const EMPTY_CHANGED_FILES: GitChangedFile[] = [];
 
+export function collectStageAllPaths(
+  unstagedFiles: readonly Pick<GitChangedFile, "path">[],
+  untrackedFiles: readonly Pick<GitChangedFile, "path">[],
+): string[] {
+  return [
+    ...unstagedFiles.map((file) => file.path),
+    ...untrackedFiles.map((file) => file.path),
+  ];
+}
+
 const EMPTY_COMPARE_SELECTION: CompareChangedFilesSelection = {
   files: EMPTY_CHANGED_FILES,
   compareRef: null,

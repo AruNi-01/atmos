@@ -17,7 +17,7 @@ import {
   GIT_WORKTREE_PARAMS,
 } from "@/features/git/hooks/use-git-changed-files-query";
 import { useGitStatusQuery } from "@/features/git/hooks/use-git-status-query";
-import { computeCompareParams, selectCompareChangedFiles, isCompareQueryEnabled, EMPTY_CHANGED_FILES } from "@/features/git/lib/git-query-options";
+import { computeCompareParams, selectCompareChangedFiles, isCompareQueryEnabled, EMPTY_CHANGED_FILES, collectStageAllPaths } from "@/features/git/lib/git-query-options";
 import { useEditorStore } from "@/features/editor/store/use-editor-store";
 import { useProjectStore } from "@/features/project/store/use-project-store";
 import { useProjects } from "@/features/project/hooks/use-project-bootstrap-query";
@@ -443,10 +443,18 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
   const changesScopeMenuOpen = activeChangesScopeState.menuOpen;
   useEffect(() => {
     resetCompareMode();
+    if (contextId) selectHistoryCommit(contextId, null);
     if (hasWorkingContext && currentProjectPath) {
       void invalidateGitQueries(currentProjectPath);
     }
-  }, [changesScopeKey, hasWorkingContext, currentProjectPath, resetCompareMode]);
+  }, [
+    changesScopeKey,
+    contextId,
+    currentProjectPath,
+    hasWorkingContext,
+    resetCompareMode,
+    selectHistoryCommit,
+  ]);
   const setChangesScopeMenuOpen = useCallback(
     (open: boolean) => {
       setChangesScopeState((current) => ({
@@ -570,11 +578,18 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
   );
 
   useEffect(() => {
+    if (changesScopeState.key !== changesScopeKey) return;
     if (!historySelectedCommit || historySelectedCommit === selectedCommitHash) {
       return;
     }
     handleSelectCommitScope(historySelectedCommit);
-  }, [handleSelectCommitScope, historySelectedCommit, selectedCommitHash]);
+  }, [
+    changesScopeKey,
+    changesScopeState.key,
+    handleSelectCommitScope,
+    historySelectedCommit,
+    selectedCommitHash,
+  ]);
 
   const stageAllUnstagedFn = useCallback(async () => {
     await stageAllUnstaged(unstagedFiles.map((f) => f.path));
@@ -585,9 +600,8 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
   }, [stageAllUntracked, untrackedFiles]);
 
   const stageAllChangesFn = useCallback(async () => {
-    await stageAllUnstaged(unstagedFiles.map((file) => file.path));
-    await stageAllUntracked(untrackedFiles.map((file) => file.path));
-  }, [stageAllUnstaged, stageAllUntracked, unstagedFiles, untrackedFiles]);
+    await stageFiles(collectStageAllPaths(unstagedFiles, untrackedFiles));
+  }, [stageFiles, unstagedFiles, untrackedFiles]);
 
   const unstageAllFn = useCallback(async () => {
     await unstageAll(stagedFiles.map((f) => f.path));

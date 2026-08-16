@@ -24,7 +24,7 @@ import { ChangeSection } from "@/app-shell/sidebar/ChangeSection";
 import { useGitStore } from "@/features/git/store/use-git-store";
 import { useGitStatusQuery } from "@/features/git/hooks/use-git-status-query";
 import { useGitChangedFilesQuery, invalidateGitQueries, GIT_WORKTREE_PARAMS } from "@/features/git/hooks/use-git-changed-files-query";
-import { computeCompareParams, selectCompareChangedFiles, isCompareQueryEnabled, EMPTY_CHANGED_FILES } from "@/features/git/lib/git-query-options";
+import { computeCompareParams, selectCompareChangedFiles, isCompareQueryEnabled, EMPTY_CHANGED_FILES, collectStageAllPaths } from "@/features/git/lib/git-query-options";
 import { useGitLog } from "@/features/github/hooks/use-github";
 import { useSidebarUiPrefs } from "@/shared/stores/use-ui-pref-hooks";
 import { type TLShapeId } from "tldraw";
@@ -175,10 +175,7 @@ function CanvasChangesWidgetBody({
   const displayedUntrackedFiles = untrackedFiles;
   const stageAllChanges = React.useCallback(
     async () => {
-      await stageFiles([
-        ...displayedUnstagedFiles.map((file) => file.path),
-        ...displayedUntrackedFiles.map((file) => file.path),
-      ]);
+      await stageFiles(collectStageAllPaths(displayedUnstagedFiles, displayedUntrackedFiles));
     },
     [displayedUnstagedFiles, displayedUntrackedFiles, stageFiles],
   );
