@@ -7,7 +7,6 @@ import {
   ScrollArea,
   SidebarInset,
   SidebarProvider,
-  cn,
   toastManager,
 } from '@workspace/ui';
 import { AGENT_OPTIONS } from '@/features/wiki/components/AgentSelect';
@@ -58,7 +57,6 @@ import { leaveSettingsPage } from '@/features/settings/lib/open-settings';
 import { isCancelledError } from '@/shared/lib/is-cancelled-error';
 import { useAppRouter } from '@/shared/hooks/use-app-router';
 import { useDesktopTrafficLightsPadding } from '@/shared/hooks/use-desktop-traffic-lights-padding';
-import { useDesktopWindowDrag } from '@/shared/hooks/use-desktop-window-drag';
 
 type CssHighlightRegistry = {
   set: (name: string, highlight: unknown) => void;
@@ -210,7 +208,6 @@ export function SettingsPage({ onLeave }: { onLeave?: () => void } = {}) {
   const t = useTranslations('settings.modal');
   const router = useAppRouter();
   const needsTrafficLightsPadding = useDesktopTrafficLightsPadding();
-  const { handleDesktopWindowMouseDown, isDesktopDragEnabled } = useDesktopWindowDrag();
   const {
     appVersion,
     cliVersionInfo,
@@ -1019,13 +1016,7 @@ export function SettingsPage({ onLeave }: { onLeave?: () => void } = {}) {
   }, [leaveSettings, providerDialogState.open, settingsSearchQuery]);
 
   return (
-    <div
-      onMouseDown={handleDesktopWindowMouseDown}
-      className={cn(
-        'flex h-dvh min-h-0 w-full bg-background',
-        isDesktopDragEnabled && 'desktop-drag-region',
-      )}
-    >
+    <div className="desktop-no-drag flex h-dvh min-h-0 w-full bg-background">
       <SidebarProvider
         keyboardShortcut={false}
         className="h-full min-h-0 w-full"
