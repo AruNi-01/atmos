@@ -64,7 +64,6 @@ import dynamic from "next/dynamic";
 import { PRPanel, type PRPanelHandle } from "@/features/github/components/PRPanel";
 import { IssuePanel } from "@/features/github/components/IssuePanel";
 import { ActionsPanel } from "@/features/github/components/ActionsPanel";
-import { useGitLog } from "@/features/github/hooks/use-github";
 import { useOpenGitHistoryCenterTab } from "@/features/git/hooks/use-open-git-history-center-tab";
 import { useGitHistoryCenterTabStore } from "@/features/git/store/use-git-history-center-tab";
 import { isWorkspaceSetupBlocking } from "@/features/workspace/lib/workspace-setup";
@@ -288,7 +287,6 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
     discardAllUnstaged,
     discardAllUntracked,
     compareAgainstDefaultBranch,
-    compareAgainstRef,
     compareWorktreeChanges,
     resetCompareMode,
     isLoading: isMutating,
@@ -358,9 +356,6 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
   const { openActionRunTab, openPullRequestTab, openIssueTab } = useOpenGithubCenterTab();
   const { openGitHistoryTab } = useOpenGitHistoryCenterTab();
   const selectHistoryCommit = useGitHistoryCenterTabStore((s) => s.selectCommit);
-  const historySelectedCommit = useGitHistoryCenterTabStore((s) =>
-    contextId ? (s.selectedCommitByContext[contextId] ?? null) : null,
-  );
 
   const [sidebarUi] = useSidebarUiPrefs();
   const changesFileViewMode = sidebarUi.changesFileViewMode;
@@ -467,21 +462,11 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
     [changesScopeKey],
   );
 
-  const commitLog = useGitLog({
-    repoPath: hasWorkingContext ? currentProjectPath ?? null : null,
-    branchKey: hasWorkingContext ? currentBranch ?? null : null,
-  });
-  const selectedCommit = useMemo(
-    () => commitLog.commits.find((commit) => commit.hash === selectedCommitHash),
-    [commitLog.commits, selectedCommitHash],
-  );
-
   const displayedComparedFiles = compareFiles;
   const displayedStagedFiles = stagedFiles;
   const displayedUnstagedFiles = unstagedFiles;
   const displayedUntrackedFiles = untrackedFiles;
-  const selectedCommitLabel =
-    selectedCommit?.short_hash ?? selectedCommitHash?.slice(0, 7) ?? null;
+  const selectedCommitLabel = selectedCommitHash?.slice(0, 7) ?? null;
   const emptyCompareLabel = changesScope === "commit" ? null : compareRef;
   const hasDisplayedChanges =
     changesScope === "branch" || changesScope === "commit"
@@ -561,35 +546,6 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
       selectHistoryCommit,
     ],
   );
-
-  const handleSelectCommitScope = useCallback(
-    (commitHash: string) => {
-      setChangesScopeState({
-        key: changesScopeKey,
-        scope: "commit",
-        selectedCommitHash: commitHash,
-        menuOpen: false,
-        autoSelectScope: false,
-      });
-      if (contextId) selectHistoryCommit(contextId, commitHash);
-      void compareAgainstRef(commitHash);
-    },
-    [changesScopeKey, compareAgainstRef, contextId, selectHistoryCommit],
-  );
-
-  useEffect(() => {
-    if (changesScopeState.key !== changesScopeKey) return;
-    if (!historySelectedCommit || historySelectedCommit === selectedCommitHash) {
-      return;
-    }
-    handleSelectCommitScope(historySelectedCommit);
-  }, [
-    changesScopeKey,
-    changesScopeState.key,
-    handleSelectCommitScope,
-    historySelectedCommit,
-    selectedCommitHash,
-  ]);
 
   const stageAllUnstagedFn = useCallback(async () => {
     await stageAllUnstaged(unstagedFiles.map((f) => f.path));
@@ -724,8 +680,6 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
                   <ChangesToolbar
                     scope={changesScope}
                     selectedCommitHash={selectedCommitHash}
-                    commits={commitLog.commits}
-                    loadingCommits={commitLog.loading}
                     stagedCount={displayedStagedFiles.length}
                     unstagedCount={displayedUnstagedFiles.length}
                     untrackedCount={displayedUntrackedFiles.length}
@@ -733,7 +687,6 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
                     isBusy={isMutating}
                     onOpenChange={setChangesScopeMenuOpen}
                     onSelectScope={handleSelectChangesScope}
-                    onSelectCommit={handleSelectCommitScope}
                     onOpenHistory={() => openGitHistoryTab(selectedCommitHash)}
                     onStageAll={stageAllChangesFn}
                     onUnstageAll={unstageAllFn}
@@ -804,7 +757,7 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
                                   onClick={() =>
                                     handleSelectChangesScope(recommendation.scope)
                                   }
-                                  className="group flex w-full items-center gap-2 rounded-sm px-2 py-2 text-left transition-colors duration-200 hover:bg-sidebar-accent/50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                                  className="group flex w-full items-center gap-2 rounded-sm px-2 py-2 text-left hover:bg-sidebar-accent/50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                                 >
                                   <ScopeIcon className="size-3.5 shrink-0 text-muted-foreground/70 group-hover:text-foreground" />
                                   <span className="min-w-0 flex-1 truncate text-xs font-medium text-muted-foreground group-hover:text-foreground">

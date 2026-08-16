@@ -25,7 +25,6 @@ import { useGitStore } from "@/features/git/store/use-git-store";
 import { useGitStatusQuery } from "@/features/git/hooks/use-git-status-query";
 import { useGitChangedFilesQuery, invalidateGitQueries, GIT_WORKTREE_PARAMS } from "@/features/git/hooks/use-git-changed-files-query";
 import { computeCompareParams, selectCompareChangedFiles, isCompareQueryEnabled, EMPTY_CHANGED_FILES, collectStageAllPaths } from "@/features/git/lib/git-query-options";
-import { useGitLog } from "@/features/github/hooks/use-github";
 import { useSidebarUiPrefs } from "@/shared/stores/use-ui-pref-hooks";
 import { type TLShapeId } from "tldraw";
 
@@ -72,7 +71,6 @@ function CanvasChangesWidgetBody({
   const {
     compareMode,
     compareBaseRef,
-    compareAgainstRef,
     compareWorktreeChanges,
     resetCompareMode,
     setCurrentRepoPath,
@@ -111,10 +109,6 @@ function CanvasChangesWidgetBody({
   const changesScope = activeChangesScopeState.scope;
   const selectedCommitHash = activeChangesScopeState.selectedCommitHash;
   const changesScopeMenuOpen = activeChangesScopeState.menuOpen;
-  const commitLog = useGitLog({
-    repoPath: repoPath ?? null,
-    branchKey: currentBranch ?? null,
-  });
 
   React.useEffect(() => {
     setCurrentRepoPath(repoPath || null);
@@ -154,19 +148,6 @@ function CanvasChangesWidgetBody({
       void compareWorktreeChanges();
     },
     [changesScopeKey, compareWorktreeChanges, repoPath, resetCompareMode],
-  );
-
-  const handleSelectCommitScope = React.useCallback(
-    (commitHash: string) => {
-      setChangesScopeState({
-        key: changesScopeKey,
-        scope: "commit",
-        selectedCommitHash: commitHash,
-        menuOpen: false,
-      });
-      void compareAgainstRef(commitHash);
-    },
-    [changesScopeKey, compareAgainstRef],
   );
 
   const displayedComparedFiles = compareFiles;
@@ -254,8 +235,6 @@ function CanvasChangesWidgetBody({
         <ChangesToolbar
           scope={changesScope}
           selectedCommitHash={selectedCommitHash}
-          commits={commitLog.commits}
-          loadingCommits={commitLog.loading}
           stagedCount={displayedStagedFiles.length}
           unstagedCount={displayedUnstagedFiles.length}
           untrackedCount={displayedUntrackedFiles.length}
@@ -263,7 +242,6 @@ function CanvasChangesWidgetBody({
           isBusy={isMutating}
           onOpenChange={setChangesScopeMenuOpen}
           onSelectScope={handleSelectChangesScope}
-          onSelectCommit={handleSelectCommitScope}
           onStageAll={stageAllChanges}
           onUnstageAll={unstageAllChanges}
           onDiscardTracked={discardAllTrackedChanges}

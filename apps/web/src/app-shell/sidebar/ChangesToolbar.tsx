@@ -13,17 +13,15 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuSeparator,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
   Loader2,
   toastManager,
 } from "@workspace/ui";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, SlidersHorizontal } from "lucide-react";
 
-import type { GitCommit } from "@/features/github/hooks/use-github";
+import { useSidebarUiPrefs } from "@/shared/stores/use-ui-pref-hooks";
 import { cn } from "@/shared/lib/utils";
 
 export type ChangesDiffScope = "branch" | "unstaged" | "staged" | "commit";
@@ -31,15 +29,12 @@ export type ChangesDiffScope = "branch" | "unstaged" | "staged" | "commit";
 interface ChangesScopeMenuProps {
   scope: ChangesDiffScope;
   selectedCommitHash: string | null;
-  commits: GitCommit[];
-  loadingCommits: boolean;
   stagedCount: number;
   unstagedCount: number;
   untrackedCount: number;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSelectScope: (scope: Exclude<ChangesDiffScope, "commit">) => void;
-  onSelectCommit: (commitHash: string) => void;
   onOpenHistory?: () => void;
 }
 
@@ -52,30 +47,25 @@ interface ChangesToolbarProps extends ChangesScopeMenuProps {
   onTrashUntracked?: () => Promise<void> | void;
 }
 
-function formatCommitScopeLabel(commit: GitCommit | undefined, fallbackHash: string | null) {
-  if (commit) return commit.short_hash;
+function formatCommitScopeLabel(fallbackHash: string | null) {
   return fallbackHash ? fallbackHash.slice(0, 7) : null;
 }
 
 function ChangesScopeMenu({
   scope,
   selectedCommitHash,
-  commits,
-  loadingCommits,
   stagedCount,
   unstagedCount,
   untrackedCount,
   open,
   onOpenChange,
   onSelectScope,
-  onSelectCommit,
   onOpenHistory,
 }: ChangesScopeMenuProps) {
   const t = useTranslations("AppShell.chrome");
-  const selectedCommit = commits.find((commit) => commit.hash === selectedCommitHash);
   const label =
     scope === "commit"
-      ? formatCommitScopeLabel(selectedCommit, selectedCommitHash) ??
+      ? formatCommitScopeLabel(selectedCommitHash) ??
         t("rightSidebar.changes.scope.commit")
       : scope === "branch"
         ? t("rightSidebar.changes.scope.branch")
@@ -126,47 +116,6 @@ function ChangesScopeMenu({
           <span className="flex-1" />
           {renderTrailingCheck(scope === "staged")}
         </DropdownMenuItem>
-        <DropdownMenuSub>
-          <DropdownMenuSubTrigger
-            className={cn(
-              "group/commit-scope cursor-pointer",
-              scope === "commit" &&
-                "[&>svg:last-child]:hidden hover:[&>svg:last-child]:block data-[state=open]:[&>svg:last-child]:block",
-            )}
-          >
-            <span className="flex-1">{t("rightSidebar.changes.scope.commit")}</span>
-            {scope === "commit" ? (
-              <Check className="size-3.5 shrink-0 group-hover/commit-scope:hidden group-data-[state=open]/commit-scope:hidden" />
-            ) : null}
-          </DropdownMenuSubTrigger>
-          <DropdownMenuSubContent className="max-h-72 w-80 overflow-y-auto">
-            {loadingCommits && commits.length === 0 ? (
-              <DropdownMenuItem disabled>
-                {t("rightSidebar.changes.loadingCommits")}
-              </DropdownMenuItem>
-            ) : commits.length === 0 ? (
-              <DropdownMenuItem disabled>
-                {t("rightSidebar.changes.noCommitsOnBranch")}
-              </DropdownMenuItem>
-            ) : (
-              commits.map((commit) => (
-                <DropdownMenuItem
-                  key={commit.hash}
-                  className="min-w-0 cursor-pointer"
-                  onSelect={() => onSelectCommit(commit.hash)}
-                >
-                  <span className="w-14 shrink-0 font-mono text-[11px] text-muted-foreground">
-                    {commit.short_hash}
-                  </span>
-                  <span className="min-w-0 flex-1 truncate">{commit.subject}</span>
-                  {renderTrailingCheck(
-                    scope === "commit" && selectedCommitHash === commit.hash,
-                  )}
-                </DropdownMenuItem>
-              ))
-            )}
-          </DropdownMenuSubContent>
-        </DropdownMenuSub>
         <DropdownMenuItem
           className="cursor-pointer"
           onSelect={() => onSelectScope("branch")}
@@ -186,12 +135,9 @@ function ChangesScopeMenu({
 
 export function ChangesToolbar({
   className,
-  commits,
   isBusy = false,
-  loadingCommits,
   onOpenChange,
   onOpenHistory,
-  onSelectCommit,
   onSelectScope,
   onStageAll,
   onUnstageAll,
@@ -205,6 +151,8 @@ export function ChangesToolbar({
   untrackedCount,
 }: ChangesToolbarProps) {
   const t = useTranslations("AppShell.chrome");
+  const [sidebarUi, setSidebarUi] = useSidebarUiPrefs();
+  const viewMode = sidebarUi.changesFileViewMode;
   const [isRunningAction, setIsRunningAction] = React.useState(false);
   const [confirmingActionKey, setConfirmingActionKey] = React.useState<string | null>(
     null,
@@ -254,78 +202,110 @@ export function ChangesToolbar({
   return (
     <div
       className={cn(
-        "flex h-full w-full min-w-0 items-center justify-between gap-2 px-2",
+        "flex h-full w-full min-w-0 items-center justify-between gap-2 px-3",
         className,
       )}
     >
       <ChangesScopeMenu
         scope={scope}
         selectedCommitHash={selectedCommitHash}
-        commits={commits}
-        loadingCommits={loadingCommits}
         stagedCount={stagedCount}
         unstagedCount={unstagedCount}
         untrackedCount={untrackedCount}
         open={open}
         onOpenChange={onOpenChange}
         onSelectScope={onSelectScope}
-        onSelectCommit={onSelectCommit}
         onOpenHistory={onOpenHistory}
       />
 
-      <div className="flex shrink-0 items-center">
-        <Button
-          type="button"
-          size="xs"
-          disabled={!primaryEnabled || actionsBusy}
-          onClick={() => void runAction(primaryAction)}
-          className="rounded-r-none border-r-primary-foreground/20 px-2.5"
-        >
-          {primaryLabel}
-        </Button>
+      <div className="flex shrink-0 items-center gap-1">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
               type="button"
+              variant="ghost"
               size="icon-xs"
-              disabled={actionsBusy}
-              aria-label={t("rightSidebar.changes.actions.moreActions")}
-              title={t("rightSidebar.changes.actions.moreActions")}
-              className="rounded-l-none border-l-0"
+              aria-label={t("rightSidebar.changes.view.settings")}
+              title={t("rightSidebar.changes.view.settings")}
+              className="text-muted-foreground shadow-none hover:bg-sidebar-accent hover:text-foreground"
             >
-              <ChevronDown className="size-3" />
+              <SlidersHorizontal className="size-3.5" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56">
+          <DropdownMenuContent align="end" className="w-40">
+            <DropdownMenuLabel className="px-2 py-1 text-xs font-medium text-muted-foreground">
+              {t("rightSidebar.changes.view.section")}
+            </DropdownMenuLabel>
             <DropdownMenuItem
-              disabled={!canStageAll || actionsBusy}
-              onSelect={() => void runAction(onStageAll)}
+              className="cursor-pointer"
+              onSelect={() => setSidebarUi({ changesFileViewMode: "list" })}
             >
-              {t("rightSidebar.changes.actions.stageAll")}
+              <span className="flex-1">{t("rightSidebar.changes.view.list")}</span>
+              {viewMode === "list" ? <Check className="size-3.5 shrink-0" /> : null}
             </DropdownMenuItem>
             <DropdownMenuItem
-              disabled={!canUnstageAll || actionsBusy}
-              onSelect={() => void runAction(onUnstageAll)}
+              className="cursor-pointer"
+              onSelect={() => setSidebarUi({ changesFileViewMode: "tree" })}
             >
-              {t("rightSidebar.changes.actions.unstageAll")}
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              variant="destructive"
-              disabled={!canDiscardTracked || actionsBusy}
-              onSelect={() => setConfirmingActionKey("toolbar-bulk-discard")}
-            >
-              {t("rightSidebar.changes.actions.discardTracked")}
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              variant="destructive"
-              disabled={!canTrashUntracked || actionsBusy}
-              onSelect={() => setConfirmingActionKey("toolbar-bulk-trash")}
-            >
-              {t("rightSidebar.changes.actions.trashUntracked")}
+              <span className="flex-1">{t("rightSidebar.changes.view.tree")}</span>
+              {viewMode === "tree" ? <Check className="size-3.5 shrink-0" /> : null}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
+        <div className="flex items-stretch">
+          <Button
+            type="button"
+            size="xs"
+            disabled={!primaryEnabled || actionsBusy}
+            onClick={() => void runAction(primaryAction)}
+            className="rounded-r-none border-r-primary-foreground/20 px-2.5"
+          >
+            {primaryLabel}
+          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                type="button"
+                size="icon-xs"
+                disabled={actionsBusy}
+                aria-label={t("rightSidebar.changes.actions.moreActions")}
+                title={t("rightSidebar.changes.actions.moreActions")}
+                className="rounded-l-none border-l-0"
+              >
+                <ChevronDown className="size-3" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuItem
+                disabled={!canStageAll || actionsBusy}
+                onSelect={() => void runAction(onStageAll)}
+              >
+                {t("rightSidebar.changes.actions.stageAll")}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                disabled={!canUnstageAll || actionsBusy}
+                onSelect={() => void runAction(onUnstageAll)}
+              >
+                {t("rightSidebar.changes.actions.unstageAll")}
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                variant="destructive"
+                disabled={!canDiscardTracked || actionsBusy}
+                onSelect={() => setConfirmingActionKey("toolbar-bulk-discard")}
+              >
+                {t("rightSidebar.changes.actions.discardTracked")}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                variant="destructive"
+                disabled={!canTrashUntracked || actionsBusy}
+                onSelect={() => setConfirmingActionKey("toolbar-bulk-trash")}
+              >
+                {t("rightSidebar.changes.actions.trashUntracked")}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
       <Dialog
         open={confirmingActionKey !== null}
