@@ -6,14 +6,14 @@
 
 - **State**: ready_for_review
 - **Branch**: `aarynlu/app-062-terminal-tmux-pipe-live-path-39ca`
-- **Last updated**: 2026-08-15
+- **Last updated**: 2026-08-16
 - **Current owner**: cloud agent
 - **Current phase**: review
 
 ## Snapshot
 
 - Production live path is `pipe-pane -I -O` via `PaneIoRegistry`; control-mode runner and `atmos_mousewatch_*` are gone.
-- Next: scoped cargo tests / clippy, then `atmos-specs-test-run` Coverage Status.
+- Desktop local renderer terminal stream uses `ByteStreamPort` IPC (ADR-006); API still `/ws/terminal/:id`.
 - Do not restore `tmux -C`, `send-keys -H`, `ATMOS_TERMINAL_IO`, or `IoMode`.
 
 ## Implementation Checklist
@@ -39,6 +39,7 @@
 | ID | Decision | Why | Source update |
 |----|----------|-----|---------------|
 | D1 | Live loops live in `PaneIoRegistry` tokio tasks, not `run_pipe_pane_session` | Matches “one attachment / pane” better than a per-session OS thread | TECH.md module table |
+| D2 | Desktop local renderer uses `ByteStreamPort` IPC; API remains `/ws/terminal/:id` | N1 Phase 0–1 from known-debt; Web/remote stay on WS | ADR-006 |
 
 ## Verification Status
 

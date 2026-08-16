@@ -25,7 +25,7 @@ Agent-browser can smoke the visible terminal, but cannot prove UDS/pipe ownershi
 | M9 no control fallback | S16 |
 | M10 existing WS shapes | S1, S17 |
 | M11 snapshot on remount only | S8, S18 |
-| N1 Desktop UDS | non-coverage |
+| N1 Desktop UDS | remainder: main↔API UDS. Renderer IPC covered by `byte-stream-port` / desktop `stream-hub` unit tests |
 | N2 idle tear | non-coverage |
 
 ## Execution map
@@ -273,7 +273,7 @@ Load the installed `agent-browser` skill (or `agent-browser skills get core --fu
 
 ## Non-coverage
 
-- Desktop UDS `ByteStreamPort` (N1).
+- Desktop main↔API UDS (remainder of N1). Renderer local IPC is ADR-006.
 - Idle pipe teardown (N2).
 - Ghostty renderer.
 - Full VT snapshot fidelity (still `capture-pane` cells + mouse option, ADR-004).

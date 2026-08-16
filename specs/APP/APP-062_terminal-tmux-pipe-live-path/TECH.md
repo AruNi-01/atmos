@@ -4,7 +4,7 @@
 
 > HOW. Implements [PRD.md](./PRD.md). Amends the **live transport** in [ADR-004](../../../docs/adr/004-terminal-tmux-control-mode.md). Does **not** replace tmux as the session daemon.
 
-Addresses M1–M11. N1–N2 deferred.
+Addresses M1–M11. N2 deferred. Client **ByteStreamPort** (N1 Phase 0–1) is [ADR-006](../../../docs/adr/006-terminal-client-byte-stream-port.md): desktop local renderer uses IPC; API still serves `/ws/terminal/:id`.
 
 ---
 
@@ -24,13 +24,13 @@ Keep the APP-002 master session + named windows. Stop using a per-browser `tmux 
                                     ATMOS_TERMINAL_IO / IoMode
 ```
 
-Desktop UDS (N1) is a later hop on top of this pipe. This spec still uses the existing terminal WebSocket. Control mode is not retained as a second transport.
+Desktop main↔API UDS is a later hop. Desktop **renderer** local attach uses Electron IPC (`ByteStreamPort`, ADR-006); API still serves the same `/ws/terminal/:id`. Control mode is not retained as a second transport.
 
 ---
 
 ## Architecture overview
 
-Layers: `apps/web` (unchanged wire) → `apps/api` WS handler → `crates/core-service` pane I/O registry → `crates/core-engine` tmux `pipe-pane` + `resize-window`.
+Layers: `apps/web` (ByteStreamPort: WS or desktop IPC) → `apps/api` `/ws/terminal/:id` → `crates/core-service` pane I/O registry → `crates/core-engine` tmux `pipe-pane` + `resize-window`.
 
 ### Today (control mode)
 

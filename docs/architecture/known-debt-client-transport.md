@@ -2,9 +2,9 @@
 
 | | |
 |--|--|
-| **Status** | Known debt / follow-up architecture work |
+| **Status** | Partial: terminal ByteStreamPort Phase 0–1 shipped ([ADR-006](../adr/006-terminal-client-byte-stream-port.md)); ControlPort + main↔API UDS still follow-up |
 | **Recorded** | 2026-08-05 |
-| **Updated** | 2026-08-05 (recommended design) |
+| **Updated** | 2026-08-16 (desktop local terminal stream uses IPC) |
 | **Scope** | Web client, Desktop (Electron) shell, local runtime, terminal & other real-time paths |
 | **Not a bug** | Current WS/HTTP paths are intentional product choices; this tracks **latency and platform fit**, not correctness of a single feature |
 
@@ -27,11 +27,12 @@ Web browser
   → HTTPS / WSS → API or local runtime
 
 Desktop (Electron renderer ≈ apps/web)
-  → HTTP / WebSocket (often loopback) → local Server/runtime
+  → HTTP / WebSocket (often loopback) → local Server/runtime  (session kernel, control)
+  → Electron IPC **binary** for **local terminal ByteStream** (ADR-006)
   → (already) Electron IPC for shell-only concerns (window, AppShot, webview, …)
 ```
 
-Terminal streams, session wiring, and much of the app kernel still prefer the **network-shaped** stack so web, desktop, and remote runtime stay one model.
+Terminal **pane** bytes still multiplex in the API `PaneIoRegistry`. The desktop renderer no longer opens `/ws/terminal/:id` itself when the target is the loopback sidecar; main bridges that attach. Web, Relay, and remote URLs still use WebSocket. Session kernel `/ws` is unchanged.
 
 ---
 
@@ -144,12 +145,12 @@ resolveRuntimeBinding():
 
 ### Migration order (cost / benefit)
 
-| Phase | Work | User-visible |
-|-------|------|----------------|
-| **0** | Introduce `TerminalClient` / `RuntimeClient` + ports; implement adapters with **existing** WS/HTTP only | None (refactor) |
-| **1** | Desktop **local**: switch **ByteStreamPort** only (terminal hot path) | Lower local TUI / stream latency |
-| **2** | Desktop **local**: switch **ControlPort** (attach metadata, config) | Faster session setup; unified errors |
-| **3** | Explicit remote downgrade + metrics (`carrier=ws\|ipc\|uds`) | Safe remote; measurable wins |
+| Phase | Work | User-visible | Status |
+|-------|------|----------------|--------|
+| **0** | Introduce ports; adapters with **existing** WS/HTTP | None (refactor) | **Done for terminal stream** (`ByteStreamPort` + WS adapter) |
+| **1** | Desktop **local**: switch **ByteStreamPort** only | Lower local TUI / stream latency | **Done** (renderer IPC; main still WS to sidecar) |
+| **2** | Desktop **local**: switch **ControlPort** | Faster session setup; unified errors | Open |
+| **3** | Remote downgrade + `carrier` metrics; main↔API UDS | Safe remote; measurable wins | Open |
 
 Do not flip the whole app to IPC on day one. Terminal stream alone has the highest payback and the smallest blast radius.
 
@@ -173,23 +174,24 @@ Do not flip the whole app to IPC on day one. Terminal stream alone has the highe
 
 > **Shared `ControlPort` + `ByteStreamPort`; web carriers = HTTP/WS; desktop local carriers = IPC/UDS; remote stays network. Features never choose the socket type.**
 
-Promote this note to a formal ADR when the concrete adapter set and binding rules are chosen for implementation.
+Terminal ByteStreamPort binding is [ADR-006](../adr/006-terminal-client-byte-stream-port.md). ControlPort and main↔API UDS stay on this note until they ship.
 
 ---
 
-## Suggested entry points (when work starts)
+## Suggested entry points
 
 | Area | Notes |
 |------|--------|
-| `apps/web` connection / terminal WS clients | Depend on `ByteStreamPort` / client facades, not raw `WebSocket` only |
-| `apps/desktop-electron` preload / main | Local stream + control channels; map to the same logical ops as WS |
-| Local runtime / API entry | Accept UDS or IPC-fronted local connections without breaking remote WS |
-| Specs / ADR | Formal ADR when binding matrix and message compatibility are fixed |
+| `packages/shared/src/terminal/byte-stream-port.ts` | Carrier enum + loopback binding |
+| `apps/web` `bind-terminal-byte-stream-port.ts` / `use-terminal-websocket.ts` | Feature uses port, not raw `WebSocket` |
+| `apps/desktop-electron` `terminal/stream-hub.ts` + preload `terminalStream` | Renderer↔main binary; main bridges sidecar WS |
+| Local runtime / API entry | Still `/ws/terminal/:id`; UDS is Phase 3 |
 
 ---
 
 ## Related docs
 
+- [ADR-006 terminal ByteStreamPort](../adr/006-terminal-client-byte-stream-port.md) — browser↔runtime **carrier**
 - [ADR-004 terminal tmux control mode](../adr/004-terminal-tmux-control-mode.md) — terminal **pane** transport (tmux), not browser↔runtime carrier
 - [WebSocket architecture](./websocket_architecture.md)
 - [Desktop AGENTS](../../apps/desktop-electron/AGENTS.md)
