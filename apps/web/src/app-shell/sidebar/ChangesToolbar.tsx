@@ -271,7 +271,6 @@ export function ChangesToolbar({
           type="button"
           size="xs"
           disabled={!primaryEnabled || actionsBusy}
-          loading={isRunningAction}
           onClick={() => void runAction(primaryAction)}
           className="rounded-r-none border-r-primary-foreground/20 px-2.5"
         >
