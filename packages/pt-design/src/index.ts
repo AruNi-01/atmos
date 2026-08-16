@@ -1,17 +1,14 @@
 export { PtDesignApp } from "./embed/PtDesignApp";
 export type { PtDesignAppProps } from "./embed/PtDesignApp";
 export { createPtDesignSession } from "./core/session";
-export type { PtDesignSession, PtDesignCommand } from "./core/session";
-export {
-  openDesignDocument,
-  saveDesignDocument,
-  initDesignDocument,
-} from "./core/document";
-export type { DesignIR } from "./ir/schema";
+export type { PtDesignSession, PtDesignCommand, PtDesignSnapshot } from "./core/session";
+export type { DesignIR, DesignNode, DesignFrame } from "./ir/schema";
 export { encodeDesignIR, normalizeIR } from "./ir/encode";
 export { applyDesignIR } from "./ir/apply";
-export { buildHandoffPayload } from "./ir/handoff";
+export { buildHandoffPayload, HANDOFF_INSTRUCTIONS } from "./ir/handoff";
 export { listComponentTypes, getComponentTemplate } from "./catalog/registry";
+export { SHADCN_BASIC_IDS, REQUIRED_BLOCKS, CATALOG_VERSION } from "./catalog/shadcn-list";
 export { PT_DESIGN_TOOL_DEFS } from "./agent/tool-defs";
-export { SHADCN_BASIC_IDS, REQUIRED_BLOCKS } from "./catalog/shadcn-list";
+export { PtDesignError, PT_ERROR_CODES } from "./agent/errors";
 export type { PersistenceAdapter, HandoffSink, PtTheme } from "./host/adapters";
+export { memoryPersistence, localStoragePersistence } from "./host/adapters";
