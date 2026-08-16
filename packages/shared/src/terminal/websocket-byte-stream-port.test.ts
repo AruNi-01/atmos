@@ -71,7 +71,10 @@ describe("createWebSocketByteStreamPort", () => {
     expect(handle.readyState()).toBe("open");
 
     handle.control.send(JSON.stringify({ type: "terminal_resize", cols: 80, rows: 24 }));
-    expect(FakeWebSocket.instances[0]?.sent).toHaveLength(1);
+    handle.bytes.send(new Uint8Array([3, 0, 4]));
+    expect(FakeWebSocket.instances[0]?.sent).toHaveLength(2);
+    expect(FakeWebSocket.instances[0]?.sent[0]).toContain("terminal_resize");
+    expect(FakeWebSocket.instances[0]?.sent[1]).toBeInstanceOf(ArrayBuffer);
 
     FakeWebSocket.instances[0]?.emit(new Uint8Array([65, 66]));
     expect(received).toHaveLength(1);
