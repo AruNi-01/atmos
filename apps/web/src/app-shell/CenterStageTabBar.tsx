@@ -1026,6 +1026,7 @@ function SpecialTerminalTab({
       <TooltipTrigger asChild>
         <TabsTab
           value={value}
+          aria-label={label}
           onPointerDown={preventNonPrimaryTabActivate}
           onContextMenu={onContextMenu}
           className={cn(

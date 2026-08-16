@@ -51,7 +51,8 @@ test.describe("smoke workspace", () => {
     await expect
       .poll(async () => new URL(page.url()).searchParams.get("tab"))
       .toBe("git-history");
-    await expect(page.getByRole("tab", { name: /^(历史记录|History)$/ })).toBeVisible();
+    // The tab's computed name can include the close control; do not require an exact match.
+    await expect(page.getByRole("tab", { name: /历史记录|History/ })).toBeVisible();
 
     await gotoContextRoute(page, withSearchParams(contextUrl, { rsTab: "review" }), {
       locale: "zh",
