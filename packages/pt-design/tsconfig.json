@@ -6,6 +6,6 @@
     "jsx": "react-jsx",
     "types": ["node"]
   },
-  "include": ["src", "bin", "playground"],
-  "exclude": ["node_modules", "dist", "src/**/*.test.ts"]
+  "include": ["src", "bin"],
+  "exclude": ["node_modules", "dist", "src/**/*.test.ts", "src/**/*.test.tsx"]
 }

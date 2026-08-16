@@ -1,5 +1,6 @@
+import { frameEl } from "../catalog/primitives";
 import { getComponentTemplate } from "../catalog/registry";
-import type { PtScene } from "../core/types";
+import type { PtElement, PtScene } from "../core/types";
 import type { DesignIR, DesignNode } from "./schema";
 import { DESIGN_IR_VERSION } from "./schema";
 import { PT_ERROR_CODES, PtDesignError } from "../agent/errors";
@@ -13,8 +14,39 @@ function flattenNodes(ir: DesignIR): { node: DesignNode; frameId: string | null 
   return out;
 }
 
-function isPtRoot(el: { customData?: { pt?: { componentType?: string } } }): boolean {
-  return Boolean(el.customData?.pt?.componentType);
+function isPtSemantic(el: PtElement): boolean {
+  return Boolean(el.customData?.pt);
+}
+
+function upsertFrames(elements: PtElement[], ir: DesignIR): PtElement[] {
+  const next = elements.slice();
+  const indexById = new Map<string, number>();
+  next.forEach((el, index) => {
+    if (el.type === "frame" && !el.isDeleted) indexById.set(el.id, index);
+  });
+
+  for (const frame of ir.frames) {
+    const existingIndex = indexById.get(frame.id);
+    if (existingIndex !== undefined) {
+      const existing = next[existingIndex]!;
+      next[existingIndex] = {
+        ...existing,
+        name: frame.name,
+        x: frame.bbox.x,
+        y: frame.bbox.y,
+        width: frame.bbox.w,
+        height: frame.bbox.h,
+        isDeleted: false,
+      };
+      continue;
+    }
+    next.push(
+      frameEl(frame.bbox.x, frame.bbox.y, frame.bbox.w, frame.bbox.h, frame.name, {
+        id: frame.id,
+      }),
+    );
+  }
+  return next;
 }
 
 export function applyDesignIR(
@@ -27,18 +59,15 @@ export function applyDesignIR(
   }
 
   const incoming = flattenNodes(ir);
-  const existingById = new Map<string, string>();
-  for (const el of scene.elements) {
-    const id = el.customData?.pt?.instanceId;
-    const type = el.customData?.pt?.componentType;
-    if (id && type) existingById.set(id, el.id);
-  }
-
   let elements = scene.elements.slice();
 
   if (mode === "replace") {
-    elements = elements.filter((el) => el.isDeleted || !isPtRoot(el));
+    // Roots carry componentType; children only carry instanceId. Drop every PT
+    // semantic piece so replace does not leave leftover geometry.
+    elements = elements.filter((el) => el.isDeleted || !isPtSemantic(el));
   }
+
+  elements = upsertFrames(elements, ir);
 
   for (const { node, frameId } of incoming) {
     const built = getComponentTemplate(node.componentType, {
@@ -51,15 +80,11 @@ export function applyDesignIR(
     });
     const stamped = built.elements.map((el) => ({
       ...el,
-      frameId: frameId ?? el.frameId,
+      frameId: frameId ?? el.frameId ?? null,
     }));
 
-    if (mode === "merge" && existingById.has(node.instanceId)) {
-      const oldRootId = existingById.get(node.instanceId);
-      elements = elements.filter((el) => {
-        const inst = el.customData?.pt?.instanceId;
-        return inst !== node.instanceId && el.id !== oldRootId;
-      });
+    if (mode === "merge") {
+      elements = elements.filter((el) => el.customData?.pt?.instanceId !== node.instanceId);
     }
     elements.push(...stamped);
   }

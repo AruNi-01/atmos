@@ -4,8 +4,10 @@ Agent-first prototype wireframe package (APP-062).
 
 ## Public API
 
-- `@atmos/pt-design` — `PtDesignApp` embed + re-exports
+- `@atmos/pt-design` — `PtDesignApp` embed (official Excalidraw board) + re-exports
 - `@atmos/pt-design/headless` — session, IR, file, CLI/MCP helpers (no browser Excalidraw)
+
+`@excalidraw/excalidraw` may be imported only under `src/embed/`. Headless, CLI, and MCP must stay free of that import.
 
 ## Binaries
 

@@ -121,4 +121,53 @@ describe("agent adapters", () => {
     runTool(fs, { name: "pt_delete", args: { instanceId: placed.instanceId } });
     expect(fs.session.getIR().freeNodes.every((n) => n.instanceId !== placed.instanceId)).toBe(true);
   });
+
+  test("CLI frame create parses string numeric flags into IR bbox", async () => {
+    const file = tmpFile();
+    const logs: string[] = [];
+    const orig = process.stdout.write.bind(process.stdout);
+    process.stdout.write = ((chunk: string | Uint8Array) => {
+      logs.push(String(chunk));
+      return true;
+    }) as typeof process.stdout.write;
+    try {
+      expect(await runCli(["doc", "init", "--file", file, "--json"])).toBe(0);
+      logs.length = 0;
+      const code = await runCli([
+        "frame",
+        "create",
+        "--name",
+        "Login",
+        "--x",
+        "100",
+        "--y",
+        "80",
+        "--w",
+        "500",
+        "--h",
+        "400",
+        "--file",
+        file,
+        "--json",
+      ]);
+      expect(code).toBe(0);
+    } finally {
+      process.stdout.write = orig;
+    }
+    const parsed = JSON.parse(logs.join(""));
+    expect(parsed.ok).toBe(true);
+    const opened = openFileSession({ file });
+    expect(opened.session.getIR().frames).toHaveLength(1);
+    expect(opened.session.getIR().frames[0]?.name).toBe("Login");
+    expect(opened.session.getIR().frames[0]?.bbox).toEqual({ x: 100, y: 80, w: 500, h: 400 });
+  });
+
+  test("runTool accepts numeric strings for frame bbox", () => {
+    const fs = openFileSession({ file: tmpFile(), create: true });
+    runTool(fs, {
+      name: "pt_frame_create",
+      args: { name: "A", x: "12", y: "8", w: "200", h: "150" },
+    });
+    expect(fs.session.getIR().frames[0]?.bbox).toEqual({ x: 12, y: 8, w: 200, h: 150 });
+  });
 });

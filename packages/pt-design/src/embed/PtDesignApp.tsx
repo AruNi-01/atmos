@@ -3,13 +3,19 @@
 import React from "react";
 import { createPtDesignSession, type PtDesignSession } from "../core/session";
 import { listComponentTypes } from "../catalog/registry";
-import type { PtElement } from "../core/types";
 import {
   localStoragePersistence,
   type HandoffSink,
   type PersistenceAdapter,
   type PtTheme,
 } from "../host/adapters";
+import {
+  excalidrawElementsToScene,
+  sceneFingerprint,
+  sceneToExcalidrawElements,
+  type ExcalidrawCompatElement,
+  type ExcalidrawHostApi,
+} from "./scene-bridge";
 
 export type PtDesignAppProps = {
   session?: PtDesignSession;
@@ -20,56 +26,22 @@ export type PtDesignAppProps = {
   storageKey?: string;
 };
 
-function elementSvg(el: PtElement): React.ReactNode {
-  const common = {
-    stroke: el.strokeColor,
-    fill: el.backgroundColor === "transparent" ? "none" : el.backgroundColor,
-    strokeWidth: el.strokeWidth,
-  };
-  if (el.type === "ellipse") {
-    return (
-      <ellipse
-        key={el.id}
-        cx={el.x + el.width / 2}
-        cy={el.y + el.height / 2}
-        rx={el.width / 2}
-        ry={el.height / 2}
-        {...common}
-      />
-    );
+const ExcalidrawBoard = React.lazy(() => import("./ExcalidrawBoard"));
+
+function resolvedTheme(theme: PtTheme | undefined): "light" | "dark" {
+  if (theme === "dark") return "dark";
+  if (theme === "light") return "light";
+  if (typeof window !== "undefined" && window.matchMedia?.("(prefers-color-scheme: dark)").matches) {
+    return "dark";
   }
-  if (el.type === "text") {
-    return (
-      <text
-        key={el.id}
-        x={el.textAlign === "center" ? el.x + el.width / 2 : el.x}
-        y={el.y + el.height / 2}
-        textAnchor={el.textAlign === "center" ? "middle" : "start"}
-        dominantBaseline="middle"
-        fontSize={el.fontSize ?? 13}
-        fill={el.strokeColor}
-      >
-        {el.text}
-      </text>
-    );
-  }
-  return (
-    <rect
-      key={el.id}
-      x={el.x}
-      y={el.y}
-      width={Math.max(el.width, 1)}
-      height={Math.max(el.height, 1)}
-      rx={el.roundness ? 6 : 0}
-      {...common}
-    />
-  );
+  return "light";
 }
 
 export function PtDesignApp({
   session: external,
   persistence,
   handoff,
+  theme,
   className,
   storageKey = "pt-design:scene:v1",
 }: PtDesignAppProps) {
@@ -80,28 +52,81 @@ export function PtDesignApp({
   const [session] = React.useState(() => external ?? createPtDesignSession());
   const [, setTick] = React.useState(0);
   const [catalogType, setCatalogType] = React.useState("button");
+  const [selectedInstanceId, setSelectedInstanceId] = React.useState<string | null>(null);
+  const apiRef = React.useRef<ExcalidrawHostApi | null>(null);
+  const applyingRef = React.useRef(false);
+
+  const pushScene = React.useCallback(() => {
+    const api = apiRef.current;
+    if (!api) return;
+    const scene = session.getScene();
+    const current = excalidrawElementsToScene(
+      api.getSceneElementsIncludingDeleted(),
+      api.getAppState(),
+    );
+    if (sceneFingerprint(current) === sceneFingerprint(scene)) return;
+    applyingRef.current = true;
+    api.updateScene({ elements: sceneToExcalidrawElements(scene) });
+    applyingRef.current = false;
+  }, [session]);
 
   React.useEffect(() => {
     let cancelled = false;
     void persist.load().then((loaded) => {
       if (cancelled || !loaded) return;
+      applyingRef.current = true;
       session.dispatch({ type: "replaceScene", scene: loaded.scene });
+      applyingRef.current = false;
       setTick((n) => n + 1);
+      pushScene();
     });
     return () => {
       cancelled = true;
     };
-  }, [persist, session]);
+  }, [persist, session, pushScene]);
 
   React.useEffect(() => {
     return session.subscribe(() => {
       setTick((n) => n + 1);
       void persist.save({ scene: session.getScene() });
+      if (!applyingRef.current) pushScene();
     });
-  }, [persist, session]);
+  }, [persist, session, pushScene]);
 
   const scene = session.getScene();
   const catalog = listComponentTypes();
+  const selected = selectedInstanceId
+    ? scene.elements.find(
+        (el) => el.customData?.pt?.instanceId === selectedInstanceId && el.customData.pt.componentType,
+      )
+    : undefined;
+  const selectedType = selected?.customData?.pt?.componentType;
+  const selectedEntry = catalog.find((item) => item.componentType === selectedType);
+
+  const placeAt = () => {
+    const count = scene.elements.filter((el) => el.customData?.pt?.componentType).length;
+    return { x: 80 + (count % 6) * 24, y: 80 + Math.floor(count / 6) * 24 };
+  };
+
+  const handleBoardChange = (
+    elements: readonly ExcalidrawCompatElement[],
+    appState: { viewBackgroundColor: string; selectedElementIds: Record<string, boolean> },
+  ) => {
+    const selectedIds = Object.keys(appState.selectedElementIds ?? {}).filter(
+      (id) => appState.selectedElementIds[id],
+    );
+    const instanceId = elements.find((el) => selectedIds.includes(el.id) && el.customData?.pt?.instanceId)
+      ?.customData?.pt?.instanceId;
+    setSelectedInstanceId(instanceId ?? null);
+    if (instanceId) session.setSelection([instanceId]);
+
+    if (applyingRef.current) return;
+    const next = excalidrawElementsToScene(elements, appState);
+    if (sceneFingerprint(next) === sceneFingerprint(session.getScene())) return;
+    applyingRef.current = true;
+    session.dispatch({ type: "replaceScene", scene: next });
+    applyingRef.current = false;
+  };
 
   return (
     <div className={className} style={{ display: "flex", height: "100%", minHeight: 360, background: "#fafafa" }}>
@@ -124,7 +149,7 @@ export function PtDesignApp({
               session.dispatch({
                 type: "place",
                 componentType: item.componentType,
-                at: { x: 40 + Math.random() * 40, y: 40 + Math.random() * 40 },
+                at: placeAt(),
               });
             }}
             style={{
@@ -143,8 +168,20 @@ export function PtDesignApp({
           </button>
         ))}
       </aside>
-      <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
-        <div style={{ display: "flex", gap: 8, padding: 8, borderBottom: "1px solid #e4e4e7" }}>
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, padding: 8, borderBottom: "1px solid #e4e4e7" }}>
+          <button
+            type="button"
+            onClick={() => {
+              session.dispatch({
+                type: "createFrame",
+                name: "Frame",
+                bbox: { x: 40, y: 40, w: 480, h: 320 },
+              });
+            }}
+          >
+            Add frame
+          </button>
           <button
             type="button"
             onClick={() => {
@@ -158,20 +195,45 @@ export function PtDesignApp({
           <button
             type="button"
             onClick={() => {
-              const ir = session.getIR();
-              void navigator.clipboard?.writeText(JSON.stringify(ir, null, 2));
+              void navigator.clipboard?.writeText(JSON.stringify(session.getIR(), null, 2));
             }}
           >
             Copy IR
           </button>
+          {selectedEntry && selectedInstanceId && selectedEntry.variants.length > 1 ? (
+            <span style={{ display: "inline-flex", gap: 4, alignItems: "center", fontSize: 12 }}>
+              Variant
+              {selectedEntry.variants.map((variant) => (
+                <button
+                  key={variant}
+                  type="button"
+                  onClick={() => {
+                    session.dispatch({ type: "update", instanceId: selectedInstanceId, variant });
+                  }}
+                  style={{
+                    fontWeight: selected?.customData?.pt?.variant === variant ? 600 : 400,
+                  }}
+                >
+                  {variant}
+                </button>
+              ))}
+            </span>
+          ) : null}
         </div>
-        <svg
-          data-testid="pt-design-board"
-          viewBox="0 0 1200 800"
-          style={{ flex: 1, background: "#fff" }}
-        >
-          {scene.elements.filter((el) => !el.isDeleted).map(elementSvg)}
-        </svg>
+        <div style={{ flex: 1, minHeight: 0 }}>
+          <React.Suspense fallback={<div style={{ padding: 16, fontSize: 13 }}>Loading board…</div>}>
+            <ExcalidrawBoard
+              initialElements={sceneToExcalidrawElements(scene)}
+              viewBackgroundColor={scene.appState.viewBackgroundColor}
+              theme={resolvedTheme(theme)}
+              onApi={(api) => {
+                apiRef.current = api;
+                pushScene();
+              }}
+              onChange={handleBoardChange}
+            />
+          </React.Suspense>
+        </div>
       </div>
     </div>
   );

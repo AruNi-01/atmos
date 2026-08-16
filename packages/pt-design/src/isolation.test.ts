@@ -36,6 +36,11 @@ describe("package isolation", () => {
     expect(index).not.toMatch(/headless|cli\/bin|mcp\/server|core\/document|from ["']ink["']/);
     const embed = readFileSync(join(srcRoot, "embed", "PtDesignApp.tsx"), "utf8");
     expect(embed).not.toMatch(/headless|cli\/bin|mcp\/server|core\/document|node:fs|from ["']ink["']/);
+    expect(embed).toContain("ExcalidrawBoard");
+    expect(embed).not.toMatch(/viewBox="0 0 1200 800"/);
+    const board = readFileSync(join(srcRoot, "embed", "ExcalidrawBoard.tsx"), "utf8");
+    expect(board).toMatch(/from ["']@excalidraw\/excalidraw["']/);
+    expect(board).toContain("data-testid=\"pt-design-board\"");
     const session = readFileSync(join(srcRoot, "core", "session.ts"), "utf8");
     expect(session).not.toMatch(/node:fs|from ["']\.\/document["']/);
   });

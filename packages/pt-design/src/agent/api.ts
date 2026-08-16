@@ -68,9 +68,29 @@ function str(args: Record<string, unknown>, key: string): string | undefined {
   return typeof v === "string" ? v : undefined;
 }
 
+export function toNum(value: unknown, fallback = 0): number {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && value.trim() !== "") {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return fallback;
+}
+
 function num(args: Record<string, unknown>, key: string, fallback = 0): number {
-  const v = args[key];
-  return typeof v === "number" ? v : fallback;
+  return toNum(args[key], fallback);
+}
+
+function point(args: Record<string, unknown>): { x: number; y: number } {
+  const atRaw = args.at;
+  let x = num(args, "x");
+  let y = num(args, "y");
+  if (atRaw && typeof atRaw === "object") {
+    const rec = atRaw as Record<string, unknown>;
+    x = toNum(rec.x, x);
+    y = toNum(rec.y, y);
+  }
+  return { x, y };
 }
 
 export function runTool(fs: FileSession, call: ToolCall): unknown {
@@ -90,11 +110,11 @@ export function runTool(fs: FileSession, call: ToolCall): unknown {
       if (!componentType) {
         throw new PtDesignError(PT_ERROR_CODES.USAGE, "componentType is required");
       }
-      const atRaw = args.at as { x?: number; y?: number } | undefined;
+      const at = point(args);
       const result = fs.session.dispatch({
         type: "place",
         componentType,
-        at: { x: atRaw?.x ?? num(args, "x"), y: atRaw?.y ?? num(args, "y") },
+        at,
         props: (args.props as Record<string, string | number | boolean | null>) ?? undefined,
         variant: str(args, "variant"),
         size: str(args, "size"),

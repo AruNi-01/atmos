@@ -158,4 +158,101 @@ describe("session + IR", () => {
     const ir = encodeDesignIR(scene);
     expect(ir.freeNodes.some((n) => n.componentType === "button")).toBe(true);
   });
+
+  test("applyIR replace materializes frames onto an empty scene", () => {
+    const ir = {
+      version: "pt-design-ir/1" as const,
+      catalogVersion: "2026.08-shadcn",
+      meta: { exportedAt: "2026-01-01T00:00:00.000Z", source: "pt-design" as const },
+      frames: [
+        {
+          id: "frame-login",
+          name: "Login",
+          bbox: { x: 10, y: 20, w: 400, h: 300 },
+          nodes: [
+            {
+              instanceId: "n1",
+              componentType: "button",
+              props: { label: "Go" },
+              bbox: { x: 30, y: 50, w: 80, h: 32 },
+            },
+          ],
+        },
+      ],
+      freeNodes: [],
+    };
+    const scene = applyDesignIR({ elements: [], appState: { viewBackgroundColor: "#ffffff" } }, ir, "replace");
+    const encoded = encodeDesignIR(scene);
+    expect(scene.elements.some((el) => el.type === "frame" && el.id === "frame-login")).toBe(true);
+    expect(encoded.frames).toHaveLength(1);
+    expect(encoded.frames[0]?.id).toBe("frame-login");
+    expect(encoded.frames[0]?.name).toBe("Login");
+    expect(encoded.frames[0]?.bbox).toEqual({ x: 10, y: 20, w: 400, h: 300 });
+    expect(encoded.frames[0]?.nodes).toHaveLength(1);
+    expect(encoded.frames[0]?.nodes[0]?.componentType).toBe("button");
+    expect(encoded.freeNodes).toEqual([]);
+  });
+
+  test("applyIR replace drops leftover children when swapping types", () => {
+    const session = createPtDesignSession();
+    session.dispatch({
+      type: "place",
+      componentType: "button",
+      at: { x: 0, y: 0 },
+      instanceId: "swap",
+      props: { label: "Button" },
+    });
+    expect(session.getScene().elements.filter((el) => !el.isDeleted).length).toBeGreaterThan(1);
+
+    const incoming = createPtDesignSession();
+    incoming.dispatch({
+      type: "place",
+      componentType: "input",
+      at: { x: 0, y: 0 },
+      instanceId: "swap",
+    });
+    const replaced = applyDesignIR(session.getScene(), encodeDesignIR(incoming.getScene()), "replace");
+    const live = replaced.elements.filter((el) => !el.isDeleted);
+    const inputLive = incoming.getScene().elements.filter((el) => !el.isDeleted);
+    expect(live.length).toBe(inputLive.length);
+    expect(live.some((el) => el.customData?.pt?.componentType === "button")).toBe(false);
+    expect(live.some((el) => el.customData?.pt?.componentType === "input")).toBe(true);
+    expect(live.some((el) => el.type === "text" && el.text === "Button")).toBe(false);
+  });
+
+  test("applyIR replace keeps non-pt decoration", () => {
+    const session = createPtDesignSession();
+    session.dispatch({ type: "place", componentType: "button", at: { x: 0, y: 0 } });
+    const scene = session.getScene();
+    scene.elements.push({
+      id: "stroke1",
+      type: "freedraw",
+      x: 1,
+      y: 1,
+      width: 10,
+      height: 10,
+      angle: 0,
+      strokeColor: "#000",
+      backgroundColor: "transparent",
+      fillStyle: "solid",
+      strokeWidth: 1,
+      roughness: 0,
+      opacity: 100,
+      groupIds: [],
+      frameId: null,
+      roundness: null,
+      seed: 1,
+      versionNonce: 1,
+      isDeleted: false,
+      boundElements: null,
+      updated: 1,
+      locked: false,
+    });
+    const other = createPtDesignSession();
+    other.dispatch({ type: "place", componentType: "input", at: { x: 8, y: 8 } });
+    const replaced = applyDesignIR(scene, encodeDesignIR(other.getScene()), "replace");
+    expect(replaced.elements.some((el) => el.id === "stroke1")).toBe(true);
+    expect(encodeDesignIR(replaced).freeNodes.some((n) => n.componentType === "input")).toBe(true);
+    expect(encodeDesignIR(replaced).freeNodes.some((n) => n.componentType === "button")).toBe(false);
+  });
 });
