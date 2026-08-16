@@ -5,6 +5,7 @@ import {
   evaluateWillAttach,
   extractPreferredSessionId,
   forceGuestWebPreferences,
+  isAllowedBrowserGuestPermission,
   isAllowedBrowserSrc,
   normalizeBrowserUrl,
   toPreloadFileUrl,
@@ -202,5 +203,26 @@ describe("webview-attach-policy (APP-053)", () => {
       registered,
     });
     expect(second).toEqual({ allow: true, sessionId: "tab-b" });
+  });
+
+  it("allows clipboard/media/notifications for local preview UX", () => {
+    expect(isAllowedBrowserGuestPermission("clipboard-sanitized-write")).toBe(
+      true,
+    );
+    expect(isAllowedBrowserGuestPermission("clipboard-read")).toBe(true);
+    expect(isAllowedBrowserGuestPermission("media")).toBe(true);
+    expect(isAllowedBrowserGuestPermission("notifications")).toBe(true);
+    expect(isAllowedBrowserGuestPermission("fullscreen")).toBe(true);
+    expect(isAllowedBrowserGuestPermission("pointerLock")).toBe(true);
+  });
+
+  it("still denies high-risk device and capture permissions", () => {
+    expect(isAllowedBrowserGuestPermission("geolocation")).toBe(false);
+    expect(isAllowedBrowserGuestPermission("display-capture")).toBe(false);
+    expect(isAllowedBrowserGuestPermission("openExternal")).toBe(false);
+    expect(isAllowedBrowserGuestPermission("usb")).toBe(false);
+    expect(isAllowedBrowserGuestPermission("hid")).toBe(false);
+    expect(isAllowedBrowserGuestPermission("serial")).toBe(false);
+    expect(isAllowedBrowserGuestPermission("fileSystem")).toBe(false);
   });
 });
