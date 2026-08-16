@@ -294,6 +294,29 @@ describe("APP-053 browser webview structural (shipped sources)", () => {
     expect(handlers).toContain("browser_bridge_user_picks");
   });
 
+  it("new empty tabs request address-bar focus on the new session", () => {
+    const state = read("apps/web/src/features/browser/hooks/use-browser-state.ts");
+    expect(state).toContain("setUrlFocusTabId(nextTab.id)");
+    expect(state).toContain("urlFocusTabId");
+
+    const panel = read("apps/web/src/features/browser/components/BrowserPanel.tsx");
+    expect(panel).toContain("requestUrlFocus={urlFocusTabId === tab.id}");
+
+    const standalone = read("apps/web/src/features/browser/components/BrowserStandalonePage.tsx");
+    expect(standalone).toContain("requestUrlFocus={urlFocusTabId === tab.id}");
+
+    const session = read("apps/web/src/features/browser/components/BrowserSession.tsx");
+    expect(session).toContain("requestUrlFocus");
+    expect(session).toContain("urlInputRef.current");
+    expect(session).toContain("input.focus()");
+
+    const toolbar = read("apps/web/src/features/browser/components/BrowserToolbar.tsx");
+    expect(toolbar).toContain("autoFocus");
+
+    const center = read("apps/web/src/app-shell/CenterStage.tsx");
+    expect(center).toContain("requestBrowserContextUrlFocus(tab.browserContextId)");
+  });
+
   it("user picks sync to the embedded control plane", () => {
     const session = read("apps/web/src/features/browser/components/BrowserSession.tsx");
     expect(session).toContain("pushBrowserUseUserPicks");

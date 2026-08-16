@@ -16,6 +16,10 @@ import {
   type PreviewBrowserContextPrefs,
   type PreviewBrowserPrefs,
 } from "../lib/browser-labels";
+import {
+  clearBrowserContextUrlFocus,
+  hasBrowserContextUrlFocus,
+} from "../lib/browser-url-focus";
 import { canonicalizeUrl } from "../lib/browser-utils";
 import { useBrowserTabCommandsStore } from "../store/use-browser-tab-commands";
 
@@ -148,6 +152,7 @@ export function useBrowserState({
   const [browserState, setBrowserState] = useState<PreviewBrowserContextPrefs>(
     () => normalizeBrowserContext(undefined, committedPreviewUrl),
   );
+  const [urlFocusTabId, setUrlFocusTabId] = useState<string | null>(null);
   const browserStateRef = useRef(browserState);
   const ignoredCommittedPreviewUrlRef = useRef<string | null>(null);
   const [loadedBrowserContext, setLoadedBrowserContext] = useState<{
@@ -202,13 +207,17 @@ export function useBrowserState({
 
   useEffect(() => {
     const all = readPreviewBrowserPrefs(instanceId);
-    setBrowserState(
-      normalizeBrowserContext(
-        all.byContext[browserContextId],
-        committedPreviewUrl,
-      ),
+    const nextBrowserState = normalizeBrowserContext(
+      all.byContext[browserContextId],
+      committedPreviewUrl,
     );
+    setBrowserState(nextBrowserState);
     setLoadedBrowserContext({ instanceId, contextId: browserContextId });
+    if (hasBrowserContextUrlFocus(browserContextId)) {
+      setUrlFocusTabId(nextBrowserState.activeTabId);
+    } else {
+      setUrlFocusTabId(null);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- committedPreviewUrl is an initial seed; active tab state owns later changes.
   }, [browserContextId, instanceId]);
 
@@ -313,6 +322,10 @@ export function useBrowserState({
   const setBrowserTabActivePreviewUrl = useCallback(
     (tabId: string, nextUrl: string) => {
       const now = Date.now();
+      if (nextUrl.trim()) {
+        setUrlFocusTabId((current) => (current === tabId ? null : current));
+        clearBrowserContextUrlFocus(browserContextId);
+      }
 
       updateBrowserTab(tabId, (tab) => {
         const previousUrl = canonicalizeUrl(tab.activeUrl || tab.url);
@@ -347,7 +360,7 @@ export function useBrowserState({
         };
       });
     },
-    [updateBrowserTab],
+    [browserContextId, updateBrowserTab],
   );
 
   const handlePreviewTitleChange = useCallback(
@@ -399,6 +412,7 @@ export function useBrowserState({
         activeTabId: nextTab.id,
       }),
     }));
+    setUrlFocusTabId(nextTab.id);
   }, []);
 
   const handleOpenBrowserTab = useCallback((nextUrl: string) => {
@@ -445,6 +459,7 @@ export function useBrowserState({
   }, []);
 
   const handleSelectBrowserTab = useCallback((tabId: string) => {
+    setUrlFocusTabId((current) => (current === tabId ? current : null));
     setBrowserState((current) => {
       if (!current.tabs.some((tab) => tab.id === tabId)) return current;
 
@@ -585,6 +600,7 @@ export function useBrowserState({
     resetBrowserState,
     handleSelectBrowserTab,
     previewTabsToRender,
+    urlFocusTabId,
     setBrowserTabActivePreviewUrl,
     setBrowserTabPreviewUrl,
   };

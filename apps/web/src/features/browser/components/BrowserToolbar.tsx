@@ -90,7 +90,7 @@ interface PreviewToolbarProps {
   handleRefresh: () => void;
   handleRecheckExtension: () => Promise<void>;
   handleToggleElementPicker: () => Promise<void>;
-  handleUrlInputBlur: () => void;
+  handleUrlInputBlur: (event?: { relatedTarget: EventTarget | null }) => void;
   setDesktopToolbarHovered: React.Dispatch<React.SetStateAction<boolean>>;
   setExtensionPopoverOpen: React.Dispatch<React.SetStateAction<boolean>>;
   setExtensionUpdatePopoverOpen: React.Dispatch<React.SetStateAction<boolean>>;
@@ -285,6 +285,7 @@ export function BrowserToolbar({
           {isUrlInputFocused ? (
             <input
               ref={urlInputRef}
+              autoFocus
               className="h-full min-w-0 flex-1 border-none bg-transparent px-0.5 text-xs text-foreground placeholder:text-muted-foreground/50 focus:outline-none"
               value={url ?? ""}
               onBlur={handleUrlInputBlur}

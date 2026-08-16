@@ -90,6 +90,7 @@ export const BrowserPanel: React.FC<BrowserPanelProps> = ({
     resetBrowserState,
     setBrowserTabActivePreviewUrl,
     setBrowserTabPreviewUrl,
+    urlFocusTabId,
   } = useBrowserState({
     workspaceId,
     projectId,
@@ -277,6 +278,7 @@ export const BrowserPanel: React.FC<BrowserPanelProps> = ({
           }
           onOpenPageInNewTab={handleOpenBrowserTab}
           onSessionReady={(sessionId) => handleSessionReady(tab.id, sessionId)}
+          requestUrlFocus={urlFocusTabId === tab.id}
           browserTabBarProps={{
             tabs: browserState.tabs,
             activeTabId: browserState.activeTabId,

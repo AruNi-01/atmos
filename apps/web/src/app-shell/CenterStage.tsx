@@ -151,6 +151,7 @@ import {
   useBrowserCenterTabsStore,
 } from "@/features/browser/store/use-browser-center-tabs";
 import { useBrowserTabCommandsStore } from "@/features/browser/store/use-browser-tab-commands";
+import { requestBrowserContextUrlFocus } from "@/features/browser/lib/browser-url-focus";
 import {
   DEFAULT_PREVIEW_BROWSER_PREFS,
   type PreviewBrowserPrefs,
@@ -773,6 +774,7 @@ const CenterStage: React.FC = () => {
   const handleCreateBrowserCenterTab = React.useCallback(() => {
     if (!effectiveContextId) return;
     const tab = openBrowserCenterTab(effectiveContextId);
+    requestBrowserContextUrlFocus(tab.browserContextId);
     setActiveFile(null, effectiveContextId);
     void setUrlParams({ tab: tab.value, wikiPage: null });
   }, [effectiveContextId, openBrowserCenterTab, setActiveFile, setUrlParams]);
@@ -1826,6 +1828,7 @@ const CenterStage: React.FC = () => {
     browserTabs,
     codeReviewTabVisible,
     effectiveContextId,
+    gitHistoryTabVisible,
     githubTabs,
     openFiles,
     previewBrowserPrefs,

@@ -40,6 +40,7 @@ export function BrowserStandalonePage() {
     previewTabsToRender,
     setBrowserTabActivePreviewUrl,
     setBrowserTabPreviewUrl,
+    urlFocusTabId,
   } = useBrowserState({
     workspaceId,
     projectId,
@@ -138,6 +139,7 @@ export function BrowserStandalonePage() {
                   }
                   onOpenPageInNewTab={handleOpenBrowserTab}
                   onSessionReady={(sessionId) => handleSessionReady(tab.id, sessionId)}
+                  requestUrlFocus={urlFocusTabId === tab.id}
                   browserTabBarProps={{
                     tabs: browserState.tabs,
                     activeTabId: browserState.activeTabId,

@@ -352,7 +352,10 @@ function AddTabButton({
       type="button"
       aria-label={ariaLabel}
       title={ariaLabel}
-      onClick={onClick}
+      onClick={(event) => {
+        onClick();
+        event.currentTarget.blur();
+      }}
       className="desktop-no-drag flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-background/50 hover:text-foreground"
     >
       <Plus className="size-3.5" />
