@@ -51,20 +51,29 @@ jobs:
         if: steps.meta.outputs.create_release == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.meta.outputs.tag }}
+          PRERELEASE: ${{ steps.meta.outputs.prerelease }}
         run: |
           set -euo pipefail
-          tag="${{ steps.meta.outputs.tag }}"
-          if [[ -z "$tag" ]]; then
+          if [[ -z "$TAG" ]]; then
             echo "release tag is required" >&2
             exit 1
           fi
-          prerelease_flag=()
-          if [[ "${{ steps.meta.outputs.prerelease }}" == "true" ]]; then
-            prerelease_flag+=(--prerelease)
+          shopt -s nullglob
+          assets=(dist/serve-sim/*.tar.gz dist/serve-sim/manifest.json)
+          if [[ ${#assets[@]} -eq 0 ]]; then
+            echo "no serve-sim assets under dist/serve-sim" >&2
+            exit 1
           fi
-          gh release create "$tag" \
-            --title "$tag" \
-            --notes "Vendored serve-sim helper for Atmos Desktop (darwin-arm64). Apache-2.0; /exec shell disabled." \
-            "${prerelease_flag[@]}" \
-            dist/serve-sim/*.tar.gz \
-            dist/serve-sim/manifest.json
+          notes="Vendored serve-sim helper for Atmos Desktop (darwin-arm64). Apache-2.0; /exec shell disabled."
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "${assets[@]}" --clobber
+            echo "Uploaded assets to existing release ${TAG}"
+            exit 0
+          fi
+          if [[ "$PRERELEASE" == "true" ]]; then
+            gh release create "$TAG" --title "$TAG" --notes "$notes" --prerelease "${assets[@]}"
+          else
+            gh release create "$TAG" --title "$TAG" --notes "$notes" "${assets[@]}"
+          fi
+          echo "Created release ${TAG}"
