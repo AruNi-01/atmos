@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs";
 import { randomUUID } from "node:crypto";
 
 import { mainLog } from "../main-log.js";
@@ -44,6 +45,7 @@ type LiveStream = {
   ws: SidecarWebSocket;
   sidecar: TerminalSidecar;
   closed: boolean;
+  sink: TerminalStreamSink;
 };
 
 export type TerminalStreamHub = {
@@ -107,12 +109,16 @@ export function createTerminalStreamHub(options: {
   getApi: () => LocalApiTarget | null;
   WebSocketImpl?: SidecarWebSocketConstructor;
   connect?: SidecarWebSocketFactory;
+  unixSocketExists?: (path: string) => boolean;
 }): TerminalStreamHub {
   const WebSocketImpl = options.WebSocketImpl ?? defaultWebSocketCtor();
   const connect =
     options.connect ??
     ((url: string) => new WebSocketImpl(url));
+  const unixSocketExists = options.unixSocketExists ?? existsSync;
   const streams = new Map<string, LiveStream>();
+  const deadSenders = new Set<number>();
+  let skippedUnixPath: string | null = null;
 
   const drop = (stream: LiveStream) => {
     if (stream.closed) return;
@@ -123,6 +129,7 @@ export function createTerminalStreamHub(options: {
     } catch {
       /* already closed */
     }
+    stream.sink.send({ type: "close", streamId: stream.id });
   };
 
   const attachLiveHandlers = (stream: LiveStream, sink: TerminalStreamSink) => {
@@ -146,7 +153,6 @@ export function createTerminalStreamHub(options: {
     ws.onclose = () => {
       if (stream.closed) return;
       drop(stream);
-      sink.send({ type: "close", streamId: stream.id });
     };
   };
 
@@ -156,6 +162,16 @@ export function createTerminalStreamHub(options: {
       if (!api) {
         throw new Error("API not ready");
       }
+      const senderGone = () => deadSenders.has(sink.id);
+      const dropIfSenderGone = (socket: SidecarWebSocket) => {
+        if (!senderGone()) return false;
+        try {
+          socket.close();
+        } catch {
+          /* ignore */
+        }
+        return true;
+      };
       const tcpUrl = rewriteTerminalStreamUrlToLocalApi(requestedUrl, api);
       const unixPath = api.unixSocket?.trim();
       const unixUrl =
@@ -166,14 +182,30 @@ export function createTerminalStreamHub(options: {
       let sidecar: TerminalSidecar = "ws";
       let ws: SidecarWebSocket;
       const startedAt = Date.now();
-      if (unixUrl) {
+      let tryUnix = false;
+      if (unixUrl && unixPath) {
+        if (skippedUnixPath === unixPath && !unixSocketExists(unixPath)) {
+          skippedUnixPath = null;
+        }
+        tryUnix =
+          skippedUnixPath !== unixPath && unixSocketExists(unixPath);
+      }
+      if (tryUnix && unixUrl && unixPath) {
         const unixWs = connect(unixUrl);
         unixWs.binaryType = "arraybuffer";
         try {
           await waitUntilOpen(unixWs, CONNECT_TIMEOUT_MS);
+          if (dropIfSenderGone(unixWs)) {
+            throw new Error("sender destroyed");
+          }
           sidecar = "uds";
           ws = unixWs;
-        } catch {
+          skippedUnixPath = null;
+        } catch (error) {
+          if (senderGone()) {
+            throw error instanceof Error ? error : new Error("sender destroyed");
+          }
+          skippedUnixPath = unixPath;
           const unixMs = Date.now() - startedAt;
           mainLog(
             `[terminal-stream] unix sidecar failed after ${unixMs}ms; falling back to loopback ws`,
@@ -182,6 +214,9 @@ export function createTerminalStreamHub(options: {
           const tcpWs = connect(tcpUrl);
           tcpWs.binaryType = "arraybuffer";
           await waitUntilOpen(tcpWs, CONNECT_TIMEOUT_MS);
+          if (dropIfSenderGone(tcpWs)) {
+            throw new Error("sender destroyed");
+          }
           sidecar = "ws";
           ws = tcpWs;
         }
@@ -189,6 +224,18 @@ export function createTerminalStreamHub(options: {
         ws = connect(tcpUrl);
         ws.binaryType = "arraybuffer";
         await waitUntilOpen(ws, CONNECT_TIMEOUT_MS);
+        if (dropIfSenderGone(ws)) {
+          throw new Error("sender destroyed");
+        }
+      }
+
+      if (senderGone()) {
+        try {
+          ws.close();
+        } catch {
+          /* ignore */
+        }
+        throw new Error("sender destroyed");
       }
 
       const streamId = randomUUID();
@@ -198,6 +245,7 @@ export function createTerminalStreamHub(options: {
         ws,
         sidecar,
         closed: false,
+        sink,
       };
       streams.set(streamId, stream);
       attachLiveHandlers(stream, sink);
@@ -219,6 +267,11 @@ export function createTerminalStreamHub(options: {
     },
 
     closeAllForSender(senderId) {
+      deadSenders.add(senderId);
+      if (deadSenders.size > 1024) {
+        const oldest = deadSenders.values().next().value;
+        if (oldest !== undefined) deadSenders.delete(oldest);
+      }
       for (const stream of [...streams.values()]) {
         if (stream.senderId === senderId) drop(stream);
       }

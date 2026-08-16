@@ -62,6 +62,18 @@ impl RuntimeManifest {
         self.api.unix_socket = unix_socket.map(Into::into).filter(|path| !path.is_empty());
         self
     }
+
+    /// Copy `unix_socket` only when `pid` matches this manifest's process.
+    ///
+    /// Supervisor rewrites must not advertise a previous API process's socket
+    /// after this bind failed or the pid changed.
+    pub fn unix_socket_if_pid(&self, pid: u32) -> Option<String> {
+        if self.pid == Some(pid) {
+            self.api.unix_socket.clone()
+        } else {
+            None
+        }
+    }
 }
 
 /// Host clients should use to reach the API (normalize `0.0.0.0` bind address).
@@ -297,6 +309,19 @@ mod tests {
             .expect("runtime manifest should exist");
         assert_eq!(loaded.api.unix_socket.as_deref(), Some("/tmp/api.sock"));
         assert_eq!(loaded.version, RUNTIME_MANIFEST_VERSION);
+    }
+
+    #[test]
+    fn unix_socket_if_pid_ignores_stale_process() {
+        let current = RuntimeManifest::new("127.0.0.1", 30303, Some(7), "api")
+            .with_unix_socket(Some("/tmp/api.sock"));
+        assert_eq!(
+            current.unix_socket_if_pid(7).as_deref(),
+            Some("/tmp/api.sock")
+        );
+        assert_eq!(current.unix_socket_if_pid(8), None);
+        let missing = RuntimeManifest::new("127.0.0.1", 30303, Some(7), "api");
+        assert_eq!(missing.unix_socket_if_pid(7), None);
     }
 
     #[test]

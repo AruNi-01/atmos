@@ -63,7 +63,7 @@ export function registerTerminalStreamIpc(
     sender.once?.("destroyed", () => {
       hub.closeAllForSender(sender.id);
     });
-    return hub.open(
+    const opened = await hub.open(
       {
         id: sender.id,
         send(streamEvent) {
@@ -77,6 +77,11 @@ export function registerTerminalStreamIpc(
       },
       url,
     );
+    if (sender.isDestroyed?.()) {
+      hub.close(sender.id, opened.streamId);
+      throw new Error("Terminal window was closed");
+    }
+    return opened;
   });
 
   ipcMain.on(SEND_CHANNEL, (event, streamId, data) => {

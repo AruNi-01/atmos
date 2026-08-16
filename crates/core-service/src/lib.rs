@@ -60,8 +60,9 @@ pub use service::terminal::{
     process_captured_pane_text, select_transcript, strip_ansi_and_controls, AttachSessionParams,
     CapturePanePlainTextParams, CaptureSideContextParams, CapturedPanePlainText,
     CapturedSideContext, CreateSessionParams, CreateSimpleSessionParams, SessionDetail,
-    SessionType, TerminalKind, TerminalMessage, TerminalResponse, TerminalService,
-    TerminalSideChatRecord, TerminalSideChatStatus, TranscriptBudget, UpsertTerminalSideChatParams,
+    SessionType, TerminalKind, TerminalMessage, TerminalOutputRx, TerminalResponse,
+    TerminalService, TerminalSideChatRecord, TerminalSideChatStatus, TranscriptBudget,
+    UpsertTerminalSideChatParams,
 };
 pub use service::terminal_overview::build_terminal_overview_active_sessions_json;
 pub use service::test::TestService;

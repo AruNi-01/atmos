@@ -35,6 +35,10 @@ const retired = new Set<string>();
 let busStarted = false;
 let busUnsubs: DesktopListenUnlisten[] = [];
 
+const BACKLOG_LIMIT = 256;
+const RETIRED_LIMIT = 512;
+const PENDING_LIMIT = 256;
+
 function asBytes(data: unknown): Uint8Array | null {
   if (data instanceof ArrayBuffer) {
     return new Uint8Array(data);
@@ -53,6 +57,7 @@ function enqueue(streamId: string, apply: () => void): void {
   }
   if (retired.has(streamId)) return;
   const queue = pending.get(streamId) ?? [];
+  if (queue.length >= PENDING_LIMIT) return;
   queue.push(apply);
   pending.set(streamId, queue);
 }
@@ -68,18 +73,33 @@ function retire(streamId: string): void {
   retired.add(streamId);
   pending.delete(streamId);
   streams.delete(streamId);
+  if (retired.size > RETIRED_LIMIT) {
+    const oldest = retired.values().next().value;
+    if (oldest) retired.delete(oldest);
+  }
+}
+
+function overflowStream(streamId: string, stream: LiveIpcStream): void {
+  const error = "Terminal output overflow before subscribe";
+  stream.lastError = error;
+  stream.backlog = [];
+  stream.state = "closed";
+  notify(stream, (listener) => listener.onError?.(error));
+  notify(stream, (listener) => listener.onClose?.());
+  retire(streamId);
 }
 
 function notify(stream: LiveIpcStream, fn: (listener: TerminalSessionListener) => void): void {
   for (const listener of stream.listeners) fn(listener);
 }
 
-function deliver(stream: LiveIpcStream, frame: IpcFrame): void {
+function deliver(streamId: string, stream: LiveIpcStream, frame: IpcFrame): void {
   if (stream.listeners.size === 0) {
-    stream.backlog.push(frame);
-    if (stream.backlog.length > 256) {
-      stream.backlog.shift();
+    if (stream.backlog.length >= BACKLOG_LIMIT) {
+      overflowStream(streamId, stream);
+      return;
     }
+    stream.backlog.push(frame);
     return;
   }
   if (frame.kind === "control") {
@@ -102,7 +122,7 @@ function onFrame(streamId: string, frame: IpcFrame): void {
   enqueue(streamId, () => {
     const stream = streams.get(streamId);
     if (!stream || stream.state === "closed") return;
-    deliver(stream, frame);
+    deliver(streamId, stream, frame);
   });
 }
 
@@ -116,9 +136,16 @@ function onError(streamId: string, error: string): void {
 }
 
 function onClose(streamId: string): void {
+  if (!streams.has(streamId)) {
+    retire(streamId);
+    return;
+  }
   enqueue(streamId, () => {
     const stream = streams.get(streamId);
-    if (!stream || stream.state === "closed") return;
+    if (!stream || stream.state === "closed") {
+      retire(streamId);
+      return;
+    }
     stream.state = "closed";
     notify(stream, (listener) => listener.onClose?.());
     retire(streamId);
@@ -244,9 +271,7 @@ export function createDesktopIpcByteStreamPort(
         subscribe(listener) {
           stream.listeners.add(listener);
           if (stream.state === "open") listener.onOpen?.();
-          if (stream.lastError && stream.state !== "closed") {
-            listener.onError?.(stream.lastError);
-          }
+          if (stream.lastError) listener.onError?.(stream.lastError);
           if (stream.backlog.length > 0) {
             const queued = stream.backlog;
             stream.backlog = [];

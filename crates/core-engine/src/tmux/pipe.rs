@@ -22,6 +22,11 @@ use crate::error::{EngineError, Result};
 const ACCEPT_TIMEOUT: Duration = Duration::from_secs(3);
 const ACCEPT_POLL: Duration = Duration::from_millis(20);
 
+/// `#{pane_pipe}` is `1` when a pipe is already attached.
+pub fn pane_pipe_is_active(value: &str) -> bool {
+    matches!(value.trim(), "1" | "on")
+}
+
 /// Bound helper socket plus the accepted duplex stream.
 pub struct PanePipeSpec {
     pub stream: UnixStream,
@@ -237,6 +242,14 @@ impl TmuxEngine {
         let socket_path = tmux_pipe_socket_path(session, window_index);
         let _ = fs::remove_file(&socket_path);
 
+        if self.pane_is_piped(session, window_index) {
+            warn!(
+                "pane {}:{} already has pipe-pane; detaching before attach",
+                session, window_index
+            );
+            let _ = self.detach_pane_pipe(session, window_index);
+        }
+
         match self.attach_pane_pipe_once(session, window_index, &socket_path) {
             Ok(spec) => Ok(spec),
             Err(first) => {
@@ -304,6 +317,13 @@ impl TmuxEngine {
         })
     }
 
+    fn pane_is_piped(&self, session: &str, window_index: u32) -> bool {
+        let target = pane_target(session, window_index);
+        self.run_tmux_pub(&["display-message", "-t", &target, "-p", "#{pane_pipe}"])
+            .map(|value| pane_pipe_is_active(&value))
+            .unwrap_or(false)
+    }
+
     /// Close the pane pipe (`pipe-pane` with an empty command).
     pub fn detach_pane_pipe(&self, session: &str, window_index: u32) -> Result<()> {
         let target = pane_target(session, window_index);
@@ -354,6 +374,15 @@ mod tests {
             "Atmos_Main_w1"
         );
         assert_eq!(sanitize_tmux_pipe_socket_stem("", 0), "session_w0");
+    }
+
+    #[test]
+    fn pane_pipe_flag_parses_tmux_display() {
+        assert!(pane_pipe_is_active("1"));
+        assert!(pane_pipe_is_active(" 1\n"));
+        assert!(pane_pipe_is_active("on"));
+        assert!(!pane_pipe_is_active("0"));
+        assert!(!pane_pipe_is_active(""));
     }
 
     #[test]

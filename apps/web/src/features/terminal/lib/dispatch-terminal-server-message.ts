@@ -46,6 +46,6 @@ export function dispatchTerminalServerPayload(
         return { action: "ignore" };
     }
   } catch {
-    return { action: "output", data };
+    return { action: "ignore" };
   }
 }

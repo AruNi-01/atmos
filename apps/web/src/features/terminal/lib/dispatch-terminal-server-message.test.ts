@@ -38,4 +38,10 @@ describe("dispatchTerminalServerPayload", () => {
       ),
     ).toEqual({ action: "ignore" });
   });
+
+  test("ignores non-JSON text control frames", () => {
+    expect(dispatchTerminalServerPayload("not-json {", "s1")).toEqual({
+      action: "ignore",
+    });
+  });
 });

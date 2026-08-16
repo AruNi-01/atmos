@@ -157,6 +157,22 @@ export function useTerminalWebSocket({
     });
   }, [sessionId, sendControl]);
 
+  const scheduleReconnect = useCallback(() => {
+    if (disconnectedRef.current) {
+      setIsReconnecting(false);
+      return;
+    }
+    if (reconnectCountRef.current < reconnectAttempts) {
+      reconnectCountRef.current++;
+      setIsReconnecting(true);
+      reconnectTimeoutRef.current = setTimeout(() => {
+        connectRef.current?.();
+      }, reconnectDelay * reconnectCountRef.current);
+    } else {
+      setIsReconnecting(false);
+    }
+  }, [reconnectAttempts, reconnectDelay]);
+
   const disconnect = useCallback(() => {
     disconnectedRef.current = true;
     generationRef.current += 1;
@@ -252,21 +268,7 @@ export function useTerminalWebSocket({
 
             setIsConnected(false);
             onDisconnected?.();
-
-            if (disconnectedRef.current) {
-              setIsReconnecting(false);
-              return;
-            }
-
-            if (reconnectCountRef.current < reconnectAttempts) {
-              reconnectCountRef.current++;
-              setIsReconnecting(true);
-              reconnectTimeoutRef.current = setTimeout(() => {
-                connectRef.current?.();
-              }, reconnectDelay * reconnectCountRef.current);
-            } else {
-              setIsReconnecting(false);
-            }
+            scheduleReconnect();
           },
           onError: () => {
             if (
@@ -282,6 +284,7 @@ export function useTerminalWebSocket({
         if (generation !== generationRef.current) return;
         openingRef.current = false;
         onError?.(`Failed to connect: ${err}`);
+        scheduleReconnect();
       }
     })();
   }, [
@@ -298,6 +301,7 @@ export function useTerminalWebSocket({
     clearReconnectTimeout,
     disconnect,
     createPort,
+    scheduleReconnect,
   ]);
 
   useEffect(() => {

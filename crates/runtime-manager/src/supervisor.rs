@@ -158,12 +158,12 @@ pub async fn ensure_running(options: EnsureOptions) -> Result<EnsureOutcome, Str
     }
     let pid = resolve_api_process_id(&layout.api_bin_path, options.port).unwrap_or(launched_pid);
 
-    let existing_unix = read_runtime_manifest()
-        .ok()
-        .flatten()
-        .and_then(|existing| existing.api.unix_socket);
+    let existing = read_runtime_manifest().ok().flatten();
+    let unix_socket = existing
+        .as_ref()
+        .and_then(|manifest| manifest.unix_socket_if_pid(pid));
     let manifest = RuntimeManifest::new(&options.host, options.port, Some(pid), "runtime-manager")
-        .with_unix_socket(existing_unix);
+        .with_unix_socket(unix_socket);
     let manifest_path = write_runtime_manifest(&manifest)?;
 
     let status = RuntimeStatus {

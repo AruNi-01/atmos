@@ -152,8 +152,8 @@ struct PaneIoInner {
     panes: Mutex<HashMap<PaneIoKey, Arc<LivePane>>>,
     driver: Arc<dyn PanePipeDriver>,
     attach_invocations: AtomicUsize,
-    /// Serializes first-open so two WS clients cannot each `pipe-pane`.
-    opening: tokio::sync::Mutex<()>,
+    /// Serializes first-open per pane so two WS clients cannot each `pipe-pane`.
+    opening: Mutex<HashMap<PaneIoKey, Arc<tokio::sync::Mutex<()>>>>,
     idle_timeout: Duration,
     idle_cancels: Mutex<HashMap<PaneIoKey, watch::Sender<bool>>>,
 }
@@ -169,7 +169,7 @@ impl PaneIoRegistry {
                 panes: Mutex::new(HashMap::new()),
                 driver,
                 attach_invocations: AtomicUsize::new(0),
-                opening: tokio::sync::Mutex::new(()),
+                opening: Mutex::new(HashMap::new()),
                 idle_timeout,
                 idle_cancels: Mutex::new(HashMap::new()),
             }),
@@ -212,11 +212,12 @@ impl PaneIoRegistry {
         rows: u16,
         run_log: Option<(Arc<RunLogTee>, std::path::PathBuf, String)>,
     ) -> Result<mpsc::Receiver<Vec<u8>>> {
-        let _open = self.inner.opening.lock().await;
-        self.cancel_idle_tear(&key);
+        let _open = self.lock_opening(&key).await;
         if let Some(live) = self.get_live(&key) {
             self.resize(&key, cols, rows)?;
-            return Ok(self.subscribe(&live, session_id));
+            let rx = self.subscribe(&live, session_id);
+            self.cancel_idle_tear(&key);
+            return Ok(rx);
         }
 
         self.inner.attach_invocations.fetch_add(1, Ordering::SeqCst);
@@ -268,7 +269,19 @@ impl PaneIoRegistry {
             })),
         );
         info!("Pane pipe live for {}", key.as_log());
-        Ok(self.subscribe(&live, session_id))
+        let rx = self.subscribe(&live, session_id);
+        self.cancel_idle_tear(&key);
+        Ok(rx)
+    }
+
+    pub fn try_push_output(&self, key: &PaneIoKey, session_id: &str, data: Vec<u8>) -> bool {
+        let Some(live) = self.get_live(key) else {
+            return false;
+        };
+        let observers = live.observers.lock().unwrap_or_else(|e| e.into_inner());
+        observers
+            .get(session_id)
+            .is_some_and(|tx| tx.try_send(data).is_ok())
     }
 
     pub fn write(&self, key: &PaneIoKey, data: Vec<u8>) -> Result<()> {
@@ -356,6 +369,17 @@ impl PaneIoRegistry {
             .unwrap_or(0)
     }
 
+    async fn lock_opening(&self, key: &PaneIoKey) -> tokio::sync::OwnedMutexGuard<()> {
+        let mutex = {
+            let mut locks = self.inner.opening.lock().unwrap_or_else(|e| e.into_inner());
+            locks
+                .entry(key.clone())
+                .or_insert_with(|| Arc::new(tokio::sync::Mutex::new(())))
+                .clone()
+        };
+        mutex.lock_owned().await
+    }
+
     fn cancel_idle_tear(&self, key: &PaneIoKey) {
         let tx = {
             let mut cancels = self
@@ -392,7 +416,7 @@ impl PaneIoRegistry {
         tokio::spawn(async move {
             tokio::select! {
                 _ = tokio::time::sleep(timeout) => {
-                    let _opening = registry.inner.opening.lock().await;
+                    let _opening = registry.lock_opening(&tear_key).await;
                     {
                         let mut cancels = registry
                             .inner
@@ -460,7 +484,8 @@ impl PaneIoRegistry {
             last_rows: AtomicU16::new(rows),
             stop_tx,
         });
-        let run_log = run_log.map(|(tee, root, window)| RunLogTarget { tee, root, window });
+        let run_log_tx = run_log
+            .map(|(tee, root, window)| spawn_run_log_writer(RunLogTarget { tee, root, window }));
         let mouse = self.inner.driver.load_mouse(&key).unwrap_or_default();
 
         match attached {
@@ -481,7 +506,7 @@ impl PaneIoRegistry {
                     input_rx,
                     stop_rx,
                     mouse,
-                    run_log,
+                    run_log_tx,
                 );
             }
             #[cfg(test)]
@@ -497,7 +522,7 @@ impl PaneIoRegistry {
                     input_rx,
                     stop_rx,
                     mouse,
-                    run_log,
+                    run_log_tx,
                 );
             }
         }
@@ -516,7 +541,7 @@ impl PaneIoRegistry {
         mut input_rx: mpsc::UnboundedReceiver<Vec<u8>>,
         mut stop_rx: watch::Receiver<bool>,
         mouse: MouseModeState,
-        run_log: Option<RunLogTarget>,
+        run_log_tx: Option<mpsc::Sender<Vec<u8>>>,
     ) {
         let driver = Arc::clone(&inner.driver);
         let write_stop = stop_rx.clone();
@@ -546,6 +571,9 @@ impl PaneIoRegistry {
             let mut buf = vec![0u8; 8192];
             let mut mouse = mouse;
             let mut total: u64 = 0;
+            let registry = PaneIoRegistry {
+                inner: Arc::clone(&inner),
+            };
             loop {
                 tokio::select! {
                     _ = stop_rx.changed() => {
@@ -559,7 +587,15 @@ impl PaneIoRegistry {
                             Ok(n) => {
                                 let chunk = &buf[..n];
                                 total += n as u64;
-                                fanout_chunk(&live, &driver, &mut mouse, run_log.as_ref(), chunk);
+                                if fanout_chunk(
+                                    &live,
+                                    &driver,
+                                    &mut mouse,
+                                    run_log_tx.as_ref(),
+                                    chunk,
+                                ) {
+                                    registry.schedule_idle_tear(&live.key);
+                                }
                             }
                             Err(_) => break,
                         }
@@ -589,7 +625,7 @@ impl PaneIoRegistry {
         mut input_rx: mpsc::UnboundedReceiver<Vec<u8>>,
         mut stop_rx: watch::Receiver<bool>,
         mouse: MouseModeState,
-        run_log: Option<RunLogTarget>,
+        run_log_tx: Option<mpsc::Sender<Vec<u8>>>,
     ) {
         let write_stop = stop_rx.clone();
         tokio::spawn(async move {
@@ -614,6 +650,9 @@ impl PaneIoRegistry {
         let driver = Arc::clone(&inner.driver);
         tokio::spawn(async move {
             let mut mouse = mouse;
+            let registry = PaneIoRegistry {
+                inner: Arc::clone(&inner),
+            };
             loop {
                 tokio::select! {
                     _ = stop_rx.changed() => {
@@ -623,7 +662,15 @@ impl PaneIoRegistry {
                     }
                     chunk = output_rx.recv() => {
                         let Some(chunk) = chunk else { break; };
-                        fanout_chunk(&live, &driver, &mut mouse, run_log.as_ref(), &chunk);
+                        if fanout_chunk(
+                            &live,
+                            &driver,
+                            &mut mouse,
+                            run_log_tx.as_ref(),
+                            &chunk,
+                        ) {
+                            registry.schedule_idle_tear(&live.key);
+                        }
                     }
                 }
             }
@@ -632,27 +679,45 @@ impl PaneIoRegistry {
     }
 }
 
+fn spawn_run_log_writer(target: RunLogTarget) -> mpsc::Sender<Vec<u8>> {
+    let (tx, mut rx) = mpsc::channel::<Vec<u8>>(32);
+    tokio::spawn(async move {
+        while let Some(chunk) = rx.recv().await {
+            let tee = Arc::clone(&target.tee);
+            let root = target.root.clone();
+            let window = target.window.clone();
+            let _ = tokio::task::spawn_blocking(move || tee.append(&root, &window, &chunk)).await;
+        }
+    });
+    tx
+}
+
 fn fanout_chunk(
     live: &LivePane,
     driver: &Arc<dyn PanePipeDriver>,
     mouse: &mut MouseModeState,
-    run_log: Option<&RunLogTarget>,
+    run_log_tx: Option<&mpsc::Sender<Vec<u8>>>,
     chunk: &[u8],
-) {
+) -> bool {
     if chunk.is_empty() {
-        return;
+        return false;
     }
     if mouse.observe_bytes(chunk) {
-        if let Err(error) = driver.persist_mouse(&live.key, mouse) {
-            debug!(
-                "Failed to persist mouse tracking for {}: {}",
-                live.key.as_log(),
-                error
-            );
-        }
+        let driver = Arc::clone(driver);
+        let key = live.key.clone();
+        let state = mouse.clone();
+        tokio::task::spawn_blocking(move || {
+            if let Err(error) = driver.persist_mouse(&key, &state) {
+                debug!(
+                    "Failed to persist mouse tracking for {}: {}",
+                    key.as_log(),
+                    error
+                );
+            }
+        });
     }
-    if let Some(log) = run_log {
-        log.tee.append(&log.root, &log.window, chunk);
+    if let Some(tx) = run_log_tx {
+        let _ = tx.try_send(chunk.to_vec());
     }
 
     let mut dropped = Vec::new();
@@ -667,20 +732,25 @@ fn fanout_chunk(
             }
         }
     }
-    if !dropped.is_empty() {
+    if dropped.is_empty() {
+        return false;
+    }
+    let empty = {
         let mut observers = live.observers.lock().unwrap_or_else(|e| e.into_inner());
         for id in &dropped {
             observers.remove(id);
         }
-        dbg().log(
-            "OBSERVER_DROP",
-            "dropped slow or closed observer",
-            Some(serde_json::json!({
-                "pane": live.key.as_log(),
-                "count": dropped.len(),
-            })),
-        );
-    }
+        observers.is_empty()
+    };
+    dbg().log(
+        "OBSERVER_DROP",
+        "dropped slow or closed observer",
+        Some(serde_json::json!({
+            "pane": live.key.as_log(),
+            "count": dropped.len(),
+        })),
+    );
+    empty
 }
 
 fn remove_if_current(inner: &PaneIoInner, live: &Arc<LivePane>) {
@@ -699,6 +769,7 @@ pub(super) struct TestPipeDriver {
     pub resize_count: AtomicUsize,
     pub persist_count: AtomicUsize,
     pub fail_attach: std::sync::atomic::AtomicBool,
+    pub fail_resize: std::sync::atomic::AtomicBool,
     pub last_mouse: Mutex<Option<MouseModeState>>,
     pane_out_tx: Mutex<Option<mpsc::UnboundedSender<Vec<u8>>>>,
     pane_out_rx: Mutex<Option<mpsc::UnboundedReceiver<Vec<u8>>>>,
@@ -717,6 +788,7 @@ impl TestPipeDriver {
             resize_count: AtomicUsize::new(0),
             persist_count: AtomicUsize::new(0),
             fail_attach: std::sync::atomic::AtomicBool::new(false),
+            fail_resize: std::sync::atomic::AtomicBool::new(false),
             last_mouse: Mutex::new(None),
             pane_out_tx: Mutex::new(Some(out_tx)),
             pane_out_rx: Mutex::new(Some(out_rx)),
@@ -773,6 +845,9 @@ impl PanePipeDriver for TestPipeDriver {
     }
 
     fn resize_window(&self, _key: &PaneIoKey, _cols: u16, _rows: u16) -> Result<()> {
+        if self.fail_resize.load(Ordering::SeqCst) {
+            return Err(ServiceError::Processing("resize failed".to_string()));
+        }
         self.resize_count.fetch_add(1, Ordering::SeqCst);
         Ok(())
     }
@@ -1043,5 +1118,72 @@ mod tests {
             .unwrap()
             .unwrap();
         assert_eq!(got, report);
+    }
+
+    #[tokio::test]
+    async fn failed_resubscribe_does_not_cancel_idle_tear() {
+        let driver = Arc::new(TestPipeDriver::new());
+        let registry = PaneIoRegistry::new_with_idle_timeout(
+            driver.clone(),
+            std::time::Duration::from_millis(40),
+        );
+        let k = key();
+        let _a = registry
+            .ensure_and_subscribe(k.clone(), "a".into(), 80, 24, None)
+            .await
+            .unwrap();
+        registry.unsubscribe(&k, "a");
+        driver.fail_resize.store(true, Ordering::SeqCst);
+        let err = registry
+            .ensure_and_subscribe(k.clone(), "b".into(), 100, 30, None)
+            .await
+            .unwrap_err();
+        assert!(err.to_string().contains("resize failed"));
+        assert_eq!(registry.observer_count(&k), 0);
+        tokio::time::sleep(std::time::Duration::from_millis(90)).await;
+        assert!(!registry.contains(&k));
+        assert_eq!(driver.detach_count.load(Ordering::SeqCst), 1);
+    }
+
+    #[tokio::test]
+    async fn slow_observer_is_dropped_and_channel_closes() {
+        let driver = Arc::new(TestPipeDriver::new());
+        let out = driver.pane_output();
+        let registry = PaneIoRegistry::new_with_idle_timeout(
+            driver.clone(),
+            std::time::Duration::from_millis(40),
+        );
+        let k = key();
+        let mut a = registry
+            .ensure_and_subscribe(k.clone(), "a".into(), 80, 24, None)
+            .await
+            .unwrap();
+        for _ in 0..(OBSERVER_WATERMARK + 1) {
+            out.send(vec![b'x'; 8]).unwrap();
+        }
+        tokio::time::timeout(std::time::Duration::from_secs(1), async {
+            loop {
+                if registry.observer_count(&k) == 0 {
+                    break;
+                }
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .unwrap();
+        let mut drained = 0usize;
+        while tokio::time::timeout(std::time::Duration::from_millis(50), a.recv())
+            .await
+            .ok()
+            .flatten()
+            .is_some()
+        {
+            drained += 1;
+        }
+        assert!(drained <= OBSERVER_WATERMARK);
+        assert!(a.recv().await.is_none());
+        tokio::time::sleep(std::time::Duration::from_millis(90)).await;
+        assert!(!registry.contains(&k));
+        assert_eq!(driver.detach_count.load(Ordering::SeqCst), 1);
     }
 }

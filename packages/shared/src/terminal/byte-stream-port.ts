@@ -42,6 +42,12 @@ export type StreamHandle = {
   readonly control: ControlHandle;
   readonly bytes: PtyByteHandle;
   close(): void;
+  /**
+   * Register a listener. Frames that arrive after `open()` resolves and before
+   * the first `subscribe()` must be backlogged and replayed in order. Overflow
+   * must fail the stream (`onError` / `onClose`), not silently drop PTY bytes.
+   * There is no server-side PTY replay.
+   */
   subscribe(listener: TerminalSessionListener): () => void;
 };
 

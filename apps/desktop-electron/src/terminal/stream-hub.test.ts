@@ -57,6 +57,7 @@ describe("createTerminalStreamHub", () => {
     const hub = createTerminalStreamHub({
       getApi: () => ({ host: "127.0.0.1", port: 30303 }),
       WebSocketImpl: FakeSidecarSocket,
+      unixSocketExists: () => true,
     });
     const sink = {
       id: 7,
@@ -103,6 +104,7 @@ describe("createTerminalStreamHub", () => {
         unixSocket: "/tmp/api.sock",
       }),
       WebSocketImpl: FakeSidecarSocket,
+      unixSocketExists: () => true,
     });
     const { sidecar } = await hub.open(
       { id: 1, send() {} },
@@ -123,6 +125,7 @@ describe("createTerminalStreamHub", () => {
         unixSocket: "/tmp/missing.sock",
       }),
       WebSocketImpl: UnixFailsThenTcpOpens,
+      unixSocketExists: () => true,
     });
     const { sidecar } = await hub.open(
       { id: 1, send() {} },
@@ -146,5 +149,70 @@ describe("createTerminalStreamHub", () => {
         "ws://127.0.0.1:30303/ws/terminal/t",
       ),
     ).rejects.toThrow("API not ready");
+  });
+
+  it("skips unix sidecar when the socket file is missing", async () => {
+    FakeSidecarSocket.instances = [];
+    const hub = createTerminalStreamHub({
+      getApi: () => ({
+        host: "127.0.0.1",
+        port: 30303,
+        unixSocket: "/tmp/missing.sock",
+      }),
+      WebSocketImpl: FakeSidecarSocket,
+      unixSocketExists: () => false,
+    });
+    const { sidecar } = await hub.open(
+      { id: 1, send() {} },
+      "ws://127.0.0.1:9/ws/terminal/t1",
+    );
+    expect(sidecar).toBe("ws");
+    expect(FakeSidecarSocket.instances.map((socket) => socket.url)).toEqual([
+      "ws://127.0.0.1:30303/ws/terminal/t1",
+    ]);
+  });
+
+  it("does not retry a unix path after connect failure", async () => {
+    FakeSidecarSocket.instances = [];
+    const hub = createTerminalStreamHub({
+      getApi: () => ({
+        host: "127.0.0.1",
+        port: 30303,
+        unixSocket: "/tmp/missing.sock",
+      }),
+      WebSocketImpl: UnixFailsThenTcpOpens,
+      unixSocketExists: () => true,
+    });
+    await hub.open({ id: 1, send() {} }, "ws://127.0.0.1:9/ws/terminal/t1");
+    FakeSidecarSocket.instances = [];
+    const { sidecar } = await hub.open(
+      { id: 2, send() {} },
+      "ws://127.0.0.1:9/ws/terminal/t2",
+    );
+    expect(sidecar).toBe("ws");
+    expect(FakeSidecarSocket.instances.map((socket) => socket.url)).toEqual([
+      "ws://127.0.0.1:30303/ws/terminal/t2",
+    ]);
+  });
+
+  it("drops an in-flight open when the sender is destroyed", async () => {
+    FakeSidecarSocket.instances = [];
+    class SlowOpenSocket extends FakeSidecarSocket {
+      protected completeConnect(): void {
+        setTimeout(() => super.completeConnect(), 40);
+      }
+    }
+    const hub = createTerminalStreamHub({
+      getApi: () => ({ host: "127.0.0.1", port: 30303 }),
+      WebSocketImpl: SlowOpenSocket,
+    });
+    const openPromise = hub.open(
+      { id: 7, send() {} },
+      "ws://127.0.0.1:9/ws/terminal/t1",
+    );
+    hub.closeAllForSender(7);
+    await expect(openPromise).rejects.toThrow("sender destroyed");
+    expect(hub.size()).toBe(0);
+    expect(FakeSidecarSocket.instances[0]?.readyState).toBe(3);
   });
 });

@@ -75,4 +75,51 @@ describe("createDesktopIpcByteStreamPort", () => {
     expect(sent).toHaveLength(1);
     expect(sent[0]?.data).toBeInstanceOf(ArrayBuffer);
   });
+
+  test("overflow before subscribe errors instead of dropping oldest", async () => {
+    const handlers = new Map<string, Array<(payload: unknown) => void>>();
+    const emit = (event: string, payload: unknown) => {
+      for (const handler of handlers.get(event) ?? []) handler(payload);
+    };
+    const api: DesktopTerminalStreamApi = {
+      async open() {
+        return { streamId: "stream-overflow", sidecar: "ws" };
+      },
+      send() {},
+      close() {},
+    };
+    const port = createDesktopIpcByteStreamPort(api, (event, handler) => {
+      const list = handlers.get(event) ?? [];
+      list.push(handler);
+      handlers.set(event, list);
+      return () => {};
+    });
+    const handle = await port.open({
+      url: "ws://127.0.0.1:30303/ws/terminal/t1",
+      sessionId: "t1",
+    });
+    for (let i = 0; i < 257; i++) {
+      emit("terminal_stream_message", {
+        streamId: "stream-overflow",
+        kind: "binary",
+        bytes: new Uint8Array([i]).buffer,
+      });
+    }
+    const errors: string[] = [];
+    let closed = false;
+    handle.subscribe({
+      onError: (error) => {
+        errors.push(error);
+      },
+      onClose: () => {
+        closed = true;
+      },
+      onBytes: () => {
+        throw new Error("should not replay overflowed backlog");
+      },
+    });
+    expect(errors.some((error) => error.includes("overflow"))).toBe(true);
+    expect(closed).toBe(true);
+    expect(handle.readyState()).toBe("closed");
+  });
 });

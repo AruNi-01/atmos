@@ -50,6 +50,25 @@ pub(super) fn is_usable_browser_size(cols: u16, rows: u16) -> bool {
     cols >= MIN_BROWSER_COLS && rows >= MIN_BROWSER_ROWS
 }
 
+/// Output stream for one terminal WebSocket observer.
+///
+/// Tmux live panes use a bounded channel so a stuck client is dropped at the
+/// pane fan-out watermark. Simple `mode=shell` PTYs still use the unbounded
+/// thread-side channel.
+pub enum TerminalOutputRx {
+    Bounded(mpsc::Receiver<Vec<u8>>),
+    Unbounded(mpsc::UnboundedReceiver<Vec<u8>>),
+}
+
+impl TerminalOutputRx {
+    pub async fn recv(&mut self) -> Option<Vec<u8>> {
+        match self {
+            Self::Bounded(rx) => rx.recv().await,
+            Self::Unbounded(rx) => rx.recv().await,
+        }
+    }
+}
+
 fn validate_side_chat_id(value: &str) -> Result<()> {
     let len = value.len();
     if !(6..=96).contains(&len) {
@@ -352,7 +371,7 @@ impl TerminalService {
     pub async fn create_session(
         &self,
         params: CreateSessionParams,
-    ) -> Result<(mpsc::UnboundedReceiver<Vec<u8>>, Option<TmuxPaneSnapshot>)> {
+    ) -> Result<(TerminalOutputRx, Option<TmuxPaneSnapshot>)> {
         let CreateSessionParams {
             session_id,
             workspace_id,
@@ -676,7 +695,7 @@ impl TerminalService {
     pub async fn create_simple_session(
         &self,
         params: CreateSimpleSessionParams,
-    ) -> Result<mpsc::UnboundedReceiver<Vec<u8>>> {
+    ) -> Result<TerminalOutputRx> {
         let CreateSimpleSessionParams {
             session_id,
             workspace_id,
@@ -764,7 +783,7 @@ impl TerminalService {
                     .await
                     .insert(session_id.clone(), handle);
                 info!("Simple terminal session created: {}", session_id);
-                Ok(output_rx)
+                Ok(TerminalOutputRx::Unbounded(output_rx))
             }
             Ok(Err(e)) => {
                 error!("Failed to create simple terminal session: {}", e);
@@ -783,7 +802,7 @@ impl TerminalService {
     pub async fn attach_session(
         &self,
         params: AttachSessionParams,
-    ) -> Result<(mpsc::UnboundedReceiver<Vec<u8>>, Option<TmuxPaneSnapshot>)> {
+    ) -> Result<(TerminalOutputRx, Option<TmuxPaneSnapshot>)> {
         let AttachSessionParams {
             session_id,
             workspace_id,
@@ -841,7 +860,7 @@ impl TerminalService {
         project_name: Option<String>,
         workspace_name: Option<String>,
         cwd: Option<String>,
-    ) -> Result<(mpsc::UnboundedReceiver<Vec<u8>>, Option<TmuxPaneSnapshot>)> {
+    ) -> Result<(TerminalOutputRx, Option<TmuxPaneSnapshot>)> {
         let cols = cols.unwrap_or(self.default_cols);
         let rows = rows.unwrap_or(self.default_rows);
 
@@ -941,7 +960,7 @@ impl TerminalService {
         side_chat_id: Option<String>,
         source_pane_id: Option<String>,
         source_tmux_window_name: Option<String>,
-    ) -> Result<mpsc::UnboundedReceiver<Vec<u8>>> {
+    ) -> Result<TerminalOutputRx> {
         let pane_key = PaneIoKey::new(tmux_session.clone(), window_index);
         let (control_cols, control_rows) = if is_usable_browser_size(cols, rows) {
             (cols, rows)
@@ -976,18 +995,7 @@ impl TerminalService {
             )
             .await?;
 
-        let (unbounded_tx, unbounded_rx) = mpsc::unbounded_channel::<Vec<u8>>();
-        let title_tx = unbounded_tx.clone();
-        tokio::spawn(async move {
-            let mut output_rx = output_rx;
-            while let Some(data) = output_rx.recv().await {
-                if unbounded_tx.send(data).is_err() {
-                    break;
-                }
-            }
-        });
-
-        self.inject_initial_title(&tmux_session, window_index, &title_tx);
+        self.inject_initial_title(&tmux_session, window_index, &pane_key, &session_id);
 
         let handle = SessionHandle {
             command_tx: None,
@@ -1016,7 +1024,7 @@ impl TerminalService {
             "Terminal session created/attached: {} (window index: {})",
             session_id, window_index
         );
-        Ok(unbounded_rx)
+        Ok(TerminalOutputRx::Bounded(output_rx))
     }
 
     /// Inject a synthetic **OSC 9998** title so the frontend gets an immediate
@@ -1033,7 +1041,8 @@ impl TerminalService {
         &self,
         tmux_session: &str,
         window_index: u32,
-        output_tx: &mpsc::UnboundedSender<Vec<u8>>,
+        pane_key: &PaneIoKey,
+        session_id: &str,
     ) {
         let current_cmd = match self
             .tmux_engine
@@ -1061,8 +1070,11 @@ impl TerminalService {
             format!("\x1b]9998;CMD_START:{}\x07", current_cmd)
         };
 
-        if let Err(e) = output_tx.send(osc.into_bytes()) {
-            debug!("Failed to inject initial title OSC: {}", e);
+        if !self
+            .pane_io
+            .try_push_output(pane_key, session_id, osc.into_bytes())
+        {
+            debug!("Failed to inject initial title OSC");
         } else {
             debug!(
                 "Injected reattach title OSC 9998 for {}:{}",
