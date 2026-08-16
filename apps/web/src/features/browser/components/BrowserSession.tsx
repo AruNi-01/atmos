@@ -1239,6 +1239,13 @@ export const BrowserSession: React.FC<BrowserSessionProps> = ({
     navigateToUrl(nextUrl);
   }, [navigateToUrl]);
 
+  const onDesktopBindGuest = useCallback((webContentsId: number) => {
+    const c = transportControllerRef.current as DesktopBrowserBridgeController | null;
+    if (c && typeof c.bindGuest === 'function') {
+      void c.bindGuest(webContentsId);
+    }
+  }, []);
+
   const viewportProps: React.ComponentProps<typeof BrowserViewport> = {
     activeUrl,
     desktopViewportRef,
@@ -1246,12 +1253,7 @@ export const BrowserSession: React.FC<BrowserSessionProps> = ({
     desktopSrc: desktopCommittedUrl || desktopPreviewUrlRef.current || '',
     desktopPointerEventsNone: desktopPointerBlocked || favoritesListOpen || favoritePopoverOpen || headerHasOpenOverlay || isGlobalSearchOpen,
     desktopLayoutHidden: shouldSuspendDesktopPreview,
-    onDesktopBindGuest: (webContentsId: number) => {
-      const c = transportControllerRef.current as DesktopBrowserBridgeController | null;
-      if (c && typeof c.bindGuest === 'function') {
-        void c.bindGuest(webContentsId);
-      }
-    },
+    onDesktopBindGuest,
     onDesktopLoadingChange: setIsPreviewLoading,
     dismissSelectionPopover,
     favoritesListOpen,

@@ -79,8 +79,10 @@ export function useCenterStageNamedTerminalVisibility({
   return {
     codeReviewTabVisible,
     codeReviewUserTriggeredRef,
+    codeReviewVisibleMap,
     projectWikiTabVisible,
     projectWikiUserTriggeredRef,
+    projectWikiVisibleMap,
     setCodeReviewVisibleMap,
     setProjectWikiVisibleMap,
   };

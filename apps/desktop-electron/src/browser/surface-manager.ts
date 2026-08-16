@@ -206,6 +206,20 @@ export class BrowserSurfaceManager {
     if (needsListeners) {
       this.attachWebContentsListeners(sessionId, wc);
       s.listenersAttached = true;
+      // Same WC is rebound on keep-alive tab/workspace hops. Hook once per WC.
+      wc.once("destroyed", () => {
+        const cur = this.surfaces.get(sessionId);
+        if (cur && cur.guestWebContentsId === wc.id) {
+          cur.guestWebContents = null;
+          cur.guestWebContentsId = null;
+          cur.listenersAttached = false;
+          // Only re-pending when surface still open (host will remount webview).
+          // Detached window path does not need in-panel re-attach.
+          cur.pendingAttach = !cur.detached && this.surfaces.has(sessionId);
+          this.clearLastActiveIf(sessionId);
+          this.onBrowserUseClosed?.(sessionId);
+        }
+      });
     }
 
     // Default-deny guest permissions (media/notifications/etc.). Intentional lockdown.
@@ -215,20 +229,6 @@ export class BrowserSurfaceManager {
 
     void this.applyGuestColorScheme(s);
     this.markLastActive(sessionId);
-
-    wc.once("destroyed", () => {
-      const cur = this.surfaces.get(sessionId);
-      if (cur && cur.guestWebContentsId === wc.id) {
-        cur.guestWebContents = null;
-        cur.guestWebContentsId = null;
-        cur.listenersAttached = false;
-        // Only re-pending when surface still open (host will remount webview).
-        // Detached window path does not need in-panel re-attach.
-        cur.pendingAttach = !cur.detached && this.surfaces.has(sessionId);
-        this.clearLastActiveIf(sessionId);
-        this.onBrowserUseClosed?.(sessionId);
-      }
-    });
   }
 
   resolveHostWindow(preferred?: BrowserWindow | null): BrowserWindow {
@@ -1017,21 +1017,25 @@ export class BrowserSurfaceManager {
     if (!s) return;
     this.onBrowserUseClosed?.(sessionId);
     this.clearLastActiveIf(sessionId);
+    const guest = s.guestWebContents;
+    const detached = s.detachedWindow;
+    s.guestWebContents = null;
+    s.guestWebContentsId = null;
+    s.listenersAttached = false;
+    s.hostWindow = null;
+    s.detachedWindow = null;
+    this.surfaces.delete(sessionId);
     try {
-      if (s.guestWebContents && !s.guestWebContents.isDestroyed()) {
-        // Prefer blur-safe teardown; guest is destroyed with webview element in host.
-        s.guestWebContents.setAudioMuted(true);
+      if (guest && !guest.isDestroyed()) {
+        guest.setAudioMuted(true);
+        guest.close();
       }
     } catch {
       /* ignore */
     }
-    s.guestWebContents = null;
-    s.guestWebContentsId = null;
-    if (s.detachedWindow && !s.detachedWindow.isDestroyed()) {
-      s.detachedWindow.close();
+    if (detached && !detached.isDestroyed()) {
+      detached.close();
     }
-    s.hostWindow = null;
-    this.surfaces.delete(sessionId);
   }
 
   private webContentsFor(s: SurfaceState): WebContents | null {

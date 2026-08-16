@@ -516,10 +516,14 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
       queuePendingRun(paneId, command, { execute: false });
     },
     destroyAllTerminals: () => {
-      for (const terminalRef of terminalRefsMap.current.values()) {
+      for (const [paneId, terminalRef] of terminalRefsMap.current.entries()) {
         terminalRef.destroy();
+        const pane = panes[paneId];
+        if (pane) clearAgentHookSessionForPane(pane);
       }
       terminalRefsMap.current.clear();
+      pendingRunsRef.current.clear();
+      readyPanesRef.current.clear();
     },
     focusActivePane: () => {
       if (restoreLastFocusedElement()) {

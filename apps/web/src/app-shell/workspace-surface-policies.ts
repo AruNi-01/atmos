@@ -156,16 +156,29 @@ export function terminalKeepAlivePanelClass(visible: boolean): string {
 
 /**
  * Full-bleed opaque stacker for non-terminal center panels (overview, PR,
- * files, browser, …). Terminal keep-alive sits at z-0 with opacity stacking;
+ * files, …). Terminal keep-alive sits at z-0 with opacity stacking;
  * these panels must cover it with an opaque layer so transparent layout gaps
  * cannot show the xterm canvas underneath.
  *
- * Uses `hidden` when inactive — safe here because these surfaces are not WebGL.
+ * Uses `hidden` when inactive — safe here because these surfaces are not
+ * WebGL and do not host an Electron `<webview>`.
  */
 export function lightSurfacePanelClass(visible: boolean): string {
   return [
     "absolute inset-0 z-[1] flex min-h-0 min-w-0 flex-col bg-background",
     visible ? "overflow-auto" : "hidden pointer-events-none",
+  ].join(" ");
+}
+
+/**
+ * Center-stage browser keep-alive. Same opacity stack as terminals: never
+ * `display:none`. An ancestor `hidden` destroys the in-DOM `<webview>` guest
+ * (blank → remount → full page reload) and flashes Browser Home on hydrate.
+ */
+export function browserKeepAlivePanelClass(visible: boolean): string {
+  return [
+    "absolute inset-0 z-[1] flex min-h-0 min-w-0 flex-col bg-background",
+    visible ? "overflow-hidden" : "pointer-events-none overflow-hidden opacity-0",
   ].join(" ");
 }
 
@@ -577,4 +590,30 @@ export function mountedKeysForContext(plan: MountPlan, contextId: string): strin
 
 export function isKeyMounted(plan: MountPlan, key: string): boolean {
   return plan.mounted.includes(key);
+}
+
+/**
+ * Whether a center-stage Browser panel should stay in the React tree.
+ *
+ * Mount-plan snapshots are idle-deferred. A plan that already has terminals
+ * but no `browser:` keys yet must not evict an open Browser — that remounts
+ * the guest and flashes Browser Home.
+ */
+export function shouldKeepBrowserSurfaceMounted(input: {
+  planReady: boolean;
+  plan: MountPlan;
+  contextId: string;
+  tabValue: string;
+  isActiveContext: boolean;
+  frameActiveTab: string;
+}): boolean {
+  if (input.isActiveContext && input.frameActiveTab === input.tabValue) {
+    return true;
+  }
+  if (!input.planReady) return true;
+  const planHasContextBrowsers = input.plan.mounted.some((key) =>
+    key.startsWith(`browser:${input.contextId}:`),
+  );
+  if (!planHasContextBrowsers) return true;
+  return isKeyMounted(input.plan, browserMountKey(input.contextId, input.tabValue));
 }

@@ -47,9 +47,9 @@ export function scheduleNonUrgent(fn: () => void): void {
 }
 
 /**
- * Instant paint: flip already-mounted workspace frames in the live DOM.
- * React will reconcile `data-tier` on the next commit; this avoids waiting on
- * multi-frame React work for the retained surface to reappear.
+ * Instant paint: flip already-mounted workspace frames and tab chrome in the
+ * live DOM. React will reconcile `data-tier` on the next commit; this avoids
+ * waiting on multi-frame React work for the retained surface to reappear.
  *
  * Hide strategy is **opacity + inert**, not `display:none` /
  * `content-visibility:hidden` / `visibility:hidden`. Those discard or freeze
@@ -59,29 +59,35 @@ export function scheduleNonUrgent(fn: () => void): void {
  * Requires last-tab panels inside Warm frames to stay layout-ready (see
  * {@link isFramePanelVisible}) so flipping the shell reveals real content.
  */
+function applyWorkspaceShellTier(el: HTMLElement, isActive: boolean): void {
+  el.setAttribute("data-tier", isActive ? "active" : "warm");
+  el.setAttribute("aria-hidden", isActive ? "false" : "true");
+  // Clear legacy hide modes from older builds so they cannot re-blank WebGL.
+  el.hidden = false;
+  el.removeAttribute("hidden");
+  el.classList.remove("hidden");
+  el.style.removeProperty("content-visibility");
+  el.style.removeProperty("contain-intrinsic-size");
+  el.style.removeProperty("visibility");
+  if (isActive) {
+    el.removeAttribute("inert");
+  } else {
+    el.setAttribute("inert", "");
+  }
+}
+
 export function applyWorkspaceFrameVisualDom(activeContextId: string | null): void {
   if (typeof document === "undefined") return;
-  const frames = document.querySelectorAll<HTMLElement>("[data-workspace-frame]");
-  if (frames.length === 0) return;
+  const shells = document.querySelectorAll<HTMLElement>(
+    "[data-workspace-frame], [data-workspace-tabbar]",
+  );
+  if (shells.length === 0) return;
 
-  for (const el of frames) {
-    const id = el.getAttribute("data-workspace-frame");
+  for (const el of shells) {
+    const id =
+      el.getAttribute("data-workspace-frame") ?? el.getAttribute("data-workspace-tabbar");
     if (!id) continue;
-    const isActive = activeContextId != null && id === activeContextId;
-    el.setAttribute("data-tier", isActive ? "active" : "warm");
-    el.setAttribute("aria-hidden", isActive ? "false" : "true");
-    // Clear legacy hide modes from older builds so they cannot re-blank WebGL.
-    el.hidden = false;
-    el.removeAttribute("hidden");
-    el.classList.remove("hidden");
-    el.style.removeProperty("content-visibility");
-    el.style.removeProperty("contain-intrinsic-size");
-    el.style.removeProperty("visibility");
-    if (isActive) {
-      el.removeAttribute("inert");
-    } else {
-      el.setAttribute("inert", "");
-    }
+    applyWorkspaceShellTier(el, activeContextId != null && id === activeContextId);
   }
 }
 

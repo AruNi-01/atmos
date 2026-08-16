@@ -21,6 +21,19 @@ function eventChannel(
   }
 }
 
+const wiredSenderDestroyed = new WeakSet<object>();
+
+function wireSenderDestroyedOnce(
+  sender: { id: number; once?: (event: "destroyed", listener: () => void) => void },
+  hub: TerminalStreamHub,
+): void {
+  if (wiredSenderDestroyed.has(sender)) return;
+  wiredSenderDestroyed.add(sender);
+  sender.once?.("destroyed", () => {
+    hub.closeAllForSender(sender.id);
+  });
+}
+
 function senderPayload(event: TerminalStreamEvent): unknown {
   if (event.type === "message" && event.kind === "binary") {
     return {
@@ -60,9 +73,7 @@ export function registerTerminalStreamIpc(
         ? String((payload as { url?: unknown }).url ?? "")
         : "";
     const sender = event.sender;
-    sender.once?.("destroyed", () => {
-      hub.closeAllForSender(sender.id);
-    });
+    wireSenderDestroyedOnce(sender, hub);
     const opened = await hub.open(
       {
         id: sender.id,

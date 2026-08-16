@@ -32,7 +32,7 @@ import { isDiffGroupEditorPath } from "@/features/diff/lib/diff-editor-paths";
 import { useGithubCenterTabsStore } from "@/features/github/store/use-github-center-tabs";
 import { useBrowserCenterTabsStore } from "@/features/browser/store/use-browser-center-tabs";
 import {
-  browserMountKey,
+  browserKeepAlivePanelClass,
   editorMountKey,
   isFramePanelVisible,
   isKeyMounted,
@@ -40,6 +40,7 @@ import {
   lightSurfacePanelClass,
   namedTerminalMountKey,
   resolveFrameActiveTab,
+  shouldKeepBrowserSurfaceMounted,
   terminalKeepAlivePanelClass,
   terminalMountKey,
 } from "@/app-shell/workspace-surface-policies";
@@ -600,16 +601,21 @@ function WorkspaceCenterFrameImpl({
 
       {contextBrowserTabs.map((tab) => {
         if (
-          planReady &&
-          !isKeyMounted(mountPlan, browserMountKey(contextId, tab.value)) &&
-          !(isActiveContext && frameActiveTab === tab.value)
+          !shouldKeepBrowserSurfaceMounted({
+            planReady,
+            plan: mountPlan,
+            contextId,
+            tabValue: tab.value,
+            isActiveContext,
+            frameActiveTab,
+          })
         ) {
           return null;
         }
         return (
           <div
             key={`${contextId}-${tab.value}`}
-            className={lightSurfacePanelClass(
+            className={browserKeepAlivePanelClass(
               isFramePanelVisible({
                 isActiveFrame: isActiveContext,
                 frameActiveTab,

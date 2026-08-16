@@ -12,12 +12,15 @@ import {
   resolveFrameActiveTab,
   selectEditorMountSet,
   sweepWarmByTtl,
+  browserKeepAlivePanelClass,
   lightSurfacePanelClass,
+  shouldKeepBrowserSurfaceMounted,
   terminalKeepAlivePanelClass,
   terminalMountKey,
   namedTerminalMountKey,
   isProtected,
   DEFAULT_SURFACE_BUDGETS,
+  type MountPlan,
 } from "../workspace-surface-policies";
 
 describe("resolveFrameActiveTab / panel visibility", () => {
@@ -90,6 +93,48 @@ describe("resolveFrameActiveTab / panel visibility", () => {
     expect(lightSurfacePanelClass(true)).not.toContain("hidden");
     expect(lightSurfacePanelClass(false)).toContain("hidden");
     expect(lightSurfacePanelClass(false)).toContain("bg-background");
+    expect(browserKeepAlivePanelClass(true)).toContain("bg-background");
+    expect(browserKeepAlivePanelClass(true).split(/\s+/)).not.toContain("hidden");
+    expect(browserKeepAlivePanelClass(false)).toContain("opacity-0");
+    expect(browserKeepAlivePanelClass(false).split(/\s+/)).not.toContain("hidden");
+  });
+
+  it("keeps a Browser mounted until the plan lists browsers for that context", () => {
+    const emptyPlan: MountPlan = { mounted: ["terminal:ws-a:terminal"] };
+    expect(
+      shouldKeepBrowserSurfaceMounted({
+        planReady: true,
+        plan: emptyPlan,
+        contextId: "ws-a",
+        tabValue: "browser:ws-a:1",
+        isActiveContext: true,
+        frameActiveTab: "terminal",
+      }),
+    ).toBe(true);
+
+    const evictingPlan: MountPlan = {
+      mounted: ["browser:ws-a:browser:ws-a:keep"],
+    };
+    expect(
+      shouldKeepBrowserSurfaceMounted({
+        planReady: true,
+        plan: evictingPlan,
+        contextId: "ws-a",
+        tabValue: "browser:ws-a:drop",
+        isActiveContext: true,
+        frameActiveTab: "terminal",
+      }),
+    ).toBe(false);
+    expect(
+      shouldKeepBrowserSurfaceMounted({
+        planReady: true,
+        plan: evictingPlan,
+        contextId: "ws-a",
+        tabValue: "browser:ws-a:drop",
+        isActiveContext: true,
+        frameActiveTab: "browser:ws-a:drop",
+      }),
+    ).toBe(true);
   });
 });
 

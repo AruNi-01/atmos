@@ -4,11 +4,6 @@ import React from "react";
 import { useTranslations } from "next-intl";
 import {
   Tabs,
-  KeyboardSensor,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  sortableKeyboardCoordinates,
   toastManager,
 } from "@workspace/ui";
 import {
@@ -35,9 +30,7 @@ import { useProjects } from "@/features/project/hooks/use-project-bootstrap-quer
 import {
   clearLastPinnedTerminal,
   readCenterStageLastTab,
-  readCenterStageTabStripOrder,
   setCenterStageLastTab,
-  writeCenterStageTabStripOrder,
 } from "@/shared/stores/use-ui-pref-hooks";
 import { WorkspaceSetupProgressView } from "@/features/workspace/components/WorkspaceSetupProgress";
 import { isWorkspaceSetupBlocking } from "@/features/workspace/lib/workspace-setup";
@@ -80,7 +73,7 @@ import {
   isTerminalCenterTabValue,
   type TabGroupItem,
 } from "@/app-shell/center-stage-tabs";
-import { CenterStageTabBar } from "@/app-shell/CenterStageTabBar";
+import { WorkspaceCenterTabBars } from "@/app-shell/workspace-center-tab-bars";
 import {
   CenterStageTabContextMenu,
 } from "@/app-shell/center-stage-tab-menu";
@@ -115,13 +108,11 @@ import {
   CenterStageNoContextView,
   resolveCenterStageProjectContext,
   useCenterStageKeyboardShortcuts,
-  useCenterStageTabScrollEffects,
   usePendingNamedTerminalCommand,
   useReloadOpenFilesWhenReady,
   useTerminalTabMountLifecycle,
   type PendingNamedTerminalRun,
 } from "@/app-shell/center-stage-support";
-import { useCenterStageTabGroups } from "@/app-shell/use-center-stage-tab-groups";
 import { useCenterStageTerminalAgents } from "@/app-shell/use-center-stage-terminal-agents";
 import { useCenterStageNamedTerminalVisibility } from "@/app-shell/use-center-stage-named-terminal-visibility";
 import {
@@ -153,6 +144,10 @@ import {
   DEFAULT_PREVIEW_BROWSER_PREFS,
   type PreviewBrowserPrefs,
 } from "@/features/browser/lib/browser-labels";
+import {
+  closeDesktopBrowserContext,
+  dropPreviewBrowserContext,
+} from "@/features/browser/lib/browser-session-cleanup";
 import { useConnectionStore } from "@/features/connection/store/connection-store";
 import { useUiPrefStore } from "@/shared/stores/use-ui-pref-store";
 
@@ -169,7 +164,6 @@ const CenterStage: React.FC = () => {
   const terminalGridRef = React.useRef<TerminalGridHandle>(null);
   const terminalGridRefs = React.useRef<Record<string, TerminalGridHandle | null>>({});
   const [mountedTerminalTabsByContext, setMountedTerminalTabsByContext] = React.useState<Record<string, string[]>>({});
-  const scrollableTabsRef = React.useRef<HTMLDivElement>(null);
   const projectWikiTerminalGridRef = React.useRef<TerminalGridHandle>(null);
   const [projectWikiPendingCommand, setProjectWikiPendingCommand] =
     React.useState<PendingNamedTerminalRun | null>(null);
@@ -177,17 +171,9 @@ const CenterStage: React.FC = () => {
   const [wikiRefreshTrigger, setWikiRefreshTrigger] = React.useState(0);
   const [wikiRefreshing, setWikiRefreshing] = React.useState(false);
   const [tabContextMenu, setTabContextMenu] = React.useState<CenterTabContextMenuState>(null);
-  const [tabStripOrder, setTabStripOrder] = React.useState<string[]>([]);
   const pendingCloseQueueRef = React.useRef<PendingCenterTabClose[]>([]);
   /** True while we intentionally close a confirm dialog to advance the bulk-close queue. */
   const advancingCloseQueueRef = React.useRef(false);
-  const [tabGroupPopoverOpen, setTabGroupPopoverOpen] = React.useState(false);
-  const tabGroupDndSensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
-  );
-
-  const [termTabPlusHoveredTabId, setTermTabPlusHoveredTabId] = React.useState<string | null>(null);
   const [terminalTabCloseConfirm, setTerminalTabCloseConfirm] = React.useState<{
     tabId: string;
     title: string;
@@ -349,8 +335,10 @@ const CenterStage: React.FC = () => {
   const {
     codeReviewTabVisible,
     codeReviewUserTriggeredRef,
+    codeReviewVisibleMap,
     projectWikiTabVisible,
     projectWikiUserTriggeredRef,
+    projectWikiVisibleMap,
     setCodeReviewVisibleMap,
     setProjectWikiVisibleMap,
   } = useCenterStageNamedTerminalVisibility({
@@ -570,25 +558,6 @@ const CenterStage: React.FC = () => {
     });
   }, [effectiveContextId, isCenterContextSettled, setWorkspaceId]);
 
-  // Load per-workspace tab strip drag order when the center context changes.
-  React.useEffect(() => {
-    if (!effectiveContextId) {
-      setTabStripOrder([]);
-      return;
-    }
-    setTabStripOrder(readCenterStageTabStripOrder(effectiveContextId));
-  }, [effectiveContextId]);
-
-  const handleTabStripOrderChange = React.useCallback(
-    (order: string[]) => {
-      setTabStripOrder(order);
-      if (effectiveContextId) {
-        writeCenterStageTabStripOrder(effectiveContextId, order);
-      }
-    },
-    [effectiveContextId],
-  );
-
   const openFiles = getOpenFiles(effectiveContextId || undefined);
   const activeFilePath = getActiveFilePath(effectiveContextId || undefined);
 
@@ -743,13 +712,33 @@ const CenterStage: React.FC = () => {
     [activateNextAfterClosing, closeGithubTab, effectiveContextId],
   );
 
+  const performCloseBrowserCenterTab = React.useCallback((
+    value: string,
+    options?: { skipActivation?: boolean },
+  ) => {
+    if (!effectiveContextId) return;
+    const closed = (useBrowserCenterTabsStore.getState().tabsByContext[effectiveContextId] ?? [])
+      .find((tab) => tab.value === value);
+    closeBrowserCenterTab(effectiveContextId, value);
+    if (closed) {
+      closeDesktopBrowserContext(closed.browserContextId);
+      dropPreviewBrowserContext(activeInstanceId, closed.browserContextId);
+    }
+    if (!options?.skipActivation) {
+      activateNextAfterClosing(value);
+    }
+  }, [
+    activateNextAfterClosing,
+    activeInstanceId,
+    closeBrowserCenterTab,
+    effectiveContextId,
+  ]);
+
   const handleCloseBrowserTab = React.useCallback(
     (value: string) => {
-      if (!effectiveContextId) return;
-      closeBrowserCenterTab(effectiveContextId, value);
-      activateNextAfterClosing(value);
+      performCloseBrowserCenterTab(value);
     },
-    [activateNextAfterClosing, closeBrowserCenterTab, effectiveContextId],
+    [performCloseBrowserCenterTab],
   );
 
   const handleCreateBrowserCenterTab = React.useCallback(() => {
@@ -796,16 +785,6 @@ const CenterStage: React.FC = () => {
     isSetupBlocking,
     openFiles,
     reloadFileContent,
-  });
-
-  useCenterStageTabScrollEffects({
-    activeValue,
-    codeReviewTabVisible,
-    effectiveContextId,
-    openFilesCount: openFiles.length,
-    projectWikiTabVisible,
-    scrollableTabsRef,
-    visibleTerminalTabsCount: visibleTerminalTabs.length,
   });
 
   usePendingNamedTerminalCommand({
@@ -1388,12 +1367,13 @@ const CenterStage: React.FC = () => {
     const grid = getTerminalGridForTab(tabId);
     if (grid) {
       grid.destroyAllTerminals();
-    } else {
-      for (const tmuxWindowName of tmuxWindowNames) {
-        void systemApi.killTmuxWindow(effectiveContextId, tmuxWindowName).catch((error) => {
-          console.warn("Failed to kill tmux window for closed terminal tab", error);
-        });
-      }
+    }
+    // Always kill tmux windows. sendDestroy is a no-op when the pane WS is down
+    // (keep-alive / reconnect), so frontend destroy alone can leak panes.
+    for (const tmuxWindowName of tmuxWindowNames) {
+      void systemApi.killTmuxWindow(effectiveContextId, tmuxWindowName).catch((error) => {
+        console.warn("Failed to kill tmux window for closed terminal tab", error);
+      });
     }
 
     closeTerminalTab(effectiveContextId, tabId);
@@ -1574,7 +1554,7 @@ const CenterStage: React.FC = () => {
 
       if (tab.kind === "browser") {
         if (effectiveContextId) {
-          closeBrowserCenterTab(effectiveContextId, tab.value);
+          performCloseBrowserCenterTab(tab.value, { skipActivation: true });
           closedImmediately.push(tab.value);
         }
         continue;
@@ -1599,12 +1579,12 @@ const CenterStage: React.FC = () => {
     activateNextAfterClosing,
     advancePendingCloseQueue,
     buildTerminalCloseConfirmPayload,
-    closeBrowserCenterTab,
     closeFile,
     closeGithubTab,
     closeSimulatorTab,
     effectiveContextId,
     getTerminalTabPanes,
+    performCloseBrowserCenterTab,
     performCloseTerminalCenterTab,
   ]);
 
@@ -1643,6 +1623,11 @@ const CenterStage: React.FC = () => {
       workspaceId: effectiveContextId,
     });
     removeTerminal(effectiveContextId, event.paneId, event.terminalTabId);
+    if (tmuxWindowName) {
+      void systemApi.killTmuxWindow(effectiveContextId, tmuxWindowName).catch((error) => {
+        console.warn("Failed to kill tmux window for closed terminal pane", error);
+      });
+    }
   }, [
     cleanupCanvasTerminalsForClosedTerminal,
     currentView,
@@ -1785,20 +1770,6 @@ const CenterStage: React.FC = () => {
     visibleTerminalTabs,
   });
 
-  const {
-    handleTabGroupDragEnd,
-    orderedGroupedTabItems,
-  } = useCenterStageTabGroups({
-    browserTabs,
-    codeReviewTabVisible,
-    effectiveContextId,
-    githubTabs,
-    openFiles,
-    previewBrowserPrefs,
-    projectWikiTabVisible,
-    terminalTabs: visibleTerminalTabs,
-  });
-
   const currentRepoPath = centerStageRepoPath;
   const sessionDisplay = useReviewSnapshotStore((s) => s.sessionDisplay);
   const handleGithubPullRequestChanged = React.useCallback(() => {
@@ -1812,7 +1783,6 @@ const CenterStage: React.FC = () => {
       selectBrowserInternalTab(tab.browserContextId, tab.browserTabId);
     }
     handleCenterStageTabChange(tab.value);
-    setTabGroupPopoverOpen(false);
   }, [handleCenterStageTabChange, selectBrowserInternalTab]);
 
   const handleCloseTabGroupItem = React.useCallback((tab: TabGroupItem) => {
@@ -1868,21 +1838,6 @@ const CenterStage: React.FC = () => {
     handleCloseTerminalCenterTab,
     previewBrowserPrefs,
   ]);
-
-  const isTabGroupItemActive = React.useCallback(
-    (tab: TabGroupItem) => {
-      if (tab.kind !== "browser") {
-        return activeValue === tab.value;
-      }
-      if (activeValue !== tab.value || !tab.browserContextId || !tab.browserTabId) {
-        return false;
-      }
-      const context = previewBrowserPrefs.byContext[tab.browserContextId];
-      const activeTabId = context?.activeTabId ?? context?.tabs?.[0]?.id;
-      return activeTabId === tab.browserTabId;
-    },
-    [activeValue, previewBrowserPrefs],
-  );
 
   const { currentProject, currentWorkspace } = resolveCenterStageProjectContext(
     projects,
@@ -1975,30 +1930,18 @@ const CenterStage: React.FC = () => {
         onValueChange={handleCenterStageTabChange}
         className="flex-1 flex flex-col gap-0 min-h-0 overflow-hidden"
       >
-        {/* Top Tab Bar */}
-        <CenterStageTabBar
-          activeValue={activeValue}
-          browserFallbackLabel={browserFallbackLabel}
-          browserTabs={browserTabs}
-          codeReviewTabVisible={codeReviewTabVisible}
-          effectiveContextId={renderContextId}
-          githubTabs={githubTabs}
-          isTabGroupItemActive={isTabGroupItemActive}
-          openFiles={openFiles}
-          orderedGroupedTabItems={orderedGroupedTabItems}
-          tabStripOrder={tabStripOrder}
-          onTabStripOrderChange={handleTabStripOrderChange}
-          previewBrowserPrefs={previewBrowserPrefs}
-          projectWikiTabVisible={projectWikiTabVisible}
-          simulatorTabVisible={simulatorTabVisible}
-          scrollableTabsRef={scrollableTabsRef}
-          sessionDisplay={sessionDisplay}
-          tabGroupDndSensors={tabGroupDndSensors}
-          tabGroupPopoverOpen={tabGroupPopoverOpen}
-          termTabPlusHoveredTabId={termTabPlusHoveredTabId}
-          visibleTerminalTabs={visibleTerminalTabs}
+        <WorkspaceCenterTabBars
+          paintContextId={paintContextId}
+          urlContextId={renderContextId}
+          urlActiveValue={activeValue}
+          isUrlSynced={isCenterContextSettled}
+          projectWikiVisibleMap={projectWikiVisibleMap}
+          codeReviewVisibleMap={codeReviewVisibleMap}
           wikiCenterEligible={wikiCenterEligible}
           wikiRefreshing={wikiRefreshing}
+          sessionDisplay={sessionDisplay}
+          previewBrowserPrefs={previewBrowserPrefs}
+          browserFallbackLabel={browserFallbackLabel}
           handleCenterStageTabChange={handleCenterStageTabChange}
           handleCloseTabGroupItem={handleCloseTabGroupItem}
           handleCloseBrowserTab={handleCloseBrowserTab}
@@ -2011,13 +1954,10 @@ const CenterStage: React.FC = () => {
           handleCloseSimulatorTab={handleCloseSimulatorTab}
           handleRenameTerminalCenterTab={handleRenameTerminalCenterTab}
           handleSelectTabGroupItem={handleSelectTabGroupItem}
-          handleTabGroupDragEnd={handleTabGroupDragEnd}
           pinFile={pinFile}
           setCodeReviewCloseConfirmOpen={setCodeReviewCloseConfirmOpen}
           setProjectWikiCloseConfirmOpen={setProjectWikiCloseConfirmOpen}
           setTabContextMenu={setTabContextMenu}
-          setTabGroupPopoverOpen={setTabGroupPopoverOpen}
-          setTermTabPlusHoveredTabId={setTermTabPlusHoveredTabId}
           setWikiRefreshing={setWikiRefreshing}
           setWikiRefreshTrigger={setWikiRefreshTrigger}
         />

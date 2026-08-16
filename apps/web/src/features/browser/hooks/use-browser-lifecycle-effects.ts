@@ -9,6 +9,7 @@ import type {
   BrowserBridgeController,
   BrowserTransportMode,
 } from "../lib/browser-bridge/types";
+import { shouldReuseLoadedBrowserGuest } from "../lib/browser-navigation-reuse";
 import {
   PREVIEW_EXTENSION_REQUIRED_MESSAGE,
   PREVIEW_SELECTION_UNAVAILABLE_MESSAGE,
@@ -69,7 +70,7 @@ export function useBrowserLifecycleEffects({
   desktopCommittedUrlRef,
   desktopViewportRef,
   extensionConnectingRef,
-  hideDesktopPreview,
+  hideDesktopPreview: _hideDesktopPreview,
   iframeKey,
   iframeSrc,
   iframeUrlWatcherCleanupRef,
@@ -102,17 +103,16 @@ export function useBrowserLifecycleEffects({
     if (!requestedIframeUrl) return;
 
     const requestKey = `${navigationToken}:${requestedIframeUrl}`;
-    const currentIframeUrl = canonicalizeUrl(iframeSrc) || iframeSrc.trim();
-    const nextIframeUrl = canonicalizeUrl(requestedIframeUrl) || requestedIframeUrl.trim();
-    const canReuseLoadedIframe =
-      preferredTransportMode !== "desktop" &&
-      navigationToken === 0 &&
-      currentIframeUrl &&
-      nextIframeUrl &&
-      currentIframeUrl === nextIframeUrl;
+    const canReuseLoadedGuest = shouldReuseLoadedBrowserGuest({
+      currentUrl: iframeSrc,
+      requestedUrl: requestedIframeUrl,
+    });
 
+    // Hide/show (center tab or in-panel tab) must not remount. Remember the
+    // current request so becoming active again is a no-op. A new
+    // navigationToken (refresh / address bar) still remounts.
     if (!isActive) {
-      if (canReuseLoadedIframe) {
+      if (canReuseLoadedGuest) {
         handledNavigationRequestRef.current = requestKey;
       }
       return;
@@ -123,7 +123,7 @@ export function useBrowserLifecycleEffects({
 
     setPreviewLoadError(null);
 
-    if (canReuseLoadedIframe) {
+    if (canReuseLoadedGuest) {
       return;
     }
 
@@ -220,11 +220,9 @@ export function useBrowserLifecycleEffects({
               message: previous.message,
             },
       );
-      if (isActive) {
-        void syncDesktopPreview();
-      } else {
-        void hideDesktopPreview();
-      }
+      // Attach even while the tab is hidden so the guest can load in the
+      // background. Visibility is CSS-only (opacity), not a remount.
+      void syncDesktopPreview();
       return;
     }
 
@@ -270,10 +268,8 @@ export function useBrowserLifecycleEffects({
       };
     });
   }, [
-    hideDesktopPreview,
     iframeKey,
     iframeSrc,
-    isActive,
     preferredTransportMode,
     setTransportState,
     syncDesktopPreview,
@@ -362,13 +358,12 @@ export function useBrowserLifecycleEffects({
 
   useEffect(() => {
     if (!isDesktopRuntime()) return;
-    if (preferredTransportMode !== "desktop" || !isActive || !desktopCommittedUrl) {
+    if (preferredTransportMode !== "desktop" || !desktopCommittedUrl) {
       return;
     }
     void syncDesktopPreview();
   }, [
     desktopCommittedUrl,
-    isActive,
     preferredTransportMode,
     syncDesktopPreview,
   ]);

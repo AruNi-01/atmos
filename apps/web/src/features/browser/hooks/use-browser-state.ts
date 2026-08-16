@@ -17,6 +17,8 @@ import {
   type PreviewBrowserPrefs,
 } from "../lib/browser-labels";
 import { canonicalizeUrl } from "../lib/browser-utils";
+import { closeDesktopBrowserSessions } from "../lib/browser-session-cleanup";
+import { useBrowserSessionMapStore } from "../store/use-browser-session-map";
 import { useBrowserTabCommandsStore } from "../store/use-browser-tab-commands";
 
 const MAX_PREVIEW_BROWSER_TABS = 10;
@@ -146,14 +148,18 @@ export function useBrowserState({
   const committedPreviewUrl = syncUrlQueryParam ? queryPreviewUrl : "";
   const browserContextId = browserContextIdOverride || workspaceId || projectId || "default";
   const [browserState, setBrowserState] = useState<PreviewBrowserContextPrefs>(
-    () => normalizeBrowserContext(undefined, committedPreviewUrl),
+    () =>
+      normalizeBrowserContext(
+        readPreviewBrowserPrefs(instanceId).byContext[browserContextId],
+        committedPreviewUrl,
+      ),
   );
   const browserStateRef = useRef(browserState);
   const ignoredCommittedPreviewUrlRef = useRef<string | null>(null);
   const [loadedBrowserContext, setLoadedBrowserContext] = useState<{
     instanceId: string;
     contextId: string;
-  } | null>(null);
+  } | null>(() => ({ instanceId, contextId: browserContextId }));
   browserStateRef.current = browserState;
 
   const activeBrowserTab = useMemo(
@@ -426,6 +432,7 @@ export function useBrowserState({
         .filter((sessionId): sessionId is string => Boolean(sessionId));
       return next;
     });
+    closeDesktopBrowserSessions(evictedSessionIds);
     return { tabId: nextTab.id, evictedSessionIds };
   }, []);
 
@@ -457,26 +464,35 @@ export function useBrowserState({
   }, []);
 
   const handleCloseBrowserTab = useCallback((tabId: string) => {
-    setBrowserState((current) => {
-      if (current.tabs.length <= 1) return current;
+    const current = browserStateRef.current;
+    if (current.tabs.length <= 1) return;
 
-      const closingIndex = current.tabs.findIndex((tab) => tab.id === tabId);
-      if (closingIndex === -1) return current;
+    const closingIndex = current.tabs.findIndex((tab) => tab.id === tabId);
+    if (closingIndex === -1) return;
+    const closing = current.tabs[closingIndex];
 
-      const nextTabs = current.tabs.filter((tab) => tab.id !== tabId);
-      const nextActiveTabId =
+    const nextTabs = current.tabs.filter((tab) => tab.id !== tabId);
+    const nextActiveTabId =
+      current.activeTabId === tabId
+        ? (nextTabs[Math.max(0, closingIndex - 1)]?.id ?? nextTabs[0].id)
+        : current.activeTabId;
+
+    setBrowserState({
+      tabs:
         current.activeTabId === tabId
-          ? (nextTabs[Math.max(0, closingIndex - 1)]?.id ?? nextTabs[0].id)
-          : current.activeTabId;
-
-      return {
-        tabs:
-          current.activeTabId === tabId
-            ? touchTab(nextTabs, nextActiveTabId)
-            : nextTabs,
-        activeTabId: nextActiveTabId,
-      };
+          ? touchTab(nextTabs, nextActiveTabId)
+          : nextTabs,
+      activeTabId: nextActiveTabId,
     });
+
+    const sessionId =
+      closing?.sessionId ??
+      useBrowserSessionMapStore.getState().sessionForTab(tabId);
+    if (sessionId) {
+      closeDesktopBrowserSessions([sessionId]);
+    } else {
+      useBrowserSessionMapStore.getState().unbindTab(tabId);
+    }
   }, []);
 
   const handleReorderBrowserTabs = useCallback(

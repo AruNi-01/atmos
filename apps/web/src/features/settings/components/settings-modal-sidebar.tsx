@@ -247,7 +247,7 @@ export function SettingsModalSidebar({
         </div>
       </SidebarHeader>
 
-      <SidebarContent className="gap-0.5 overflow-y-auto px-3 pb-3 pt-1">
+      <SidebarContent className="desktop-no-drag gap-0.5 overflow-y-auto px-3 pb-3 pt-1">
         {filteredGroups.length === 0 ? (
           <div className="px-2 py-6 text-sm text-muted-foreground">
             {t("sidebar.noSettingsFound")}
