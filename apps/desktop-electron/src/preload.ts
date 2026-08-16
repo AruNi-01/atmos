@@ -42,4 +42,18 @@ contextBridge.exposeInMainWorld("__ATMOS_DESKTOP__", {
       ipcRenderer.removeListener(channel, listener);
     };
   },
+
+  terminalStream: {
+    open(url: string) {
+      return ipcRenderer.invoke("atmos:terminal-stream-open", { url }) as Promise<{
+        streamId: string;
+      }>;
+    },
+    send(streamId: string, data: ArrayBuffer | string) {
+      ipcRenderer.send("atmos:terminal-stream-send", streamId, data);
+    },
+    close(streamId: string) {
+      ipcRenderer.send("atmos:terminal-stream-close", streamId);
+    },
+  },
 });

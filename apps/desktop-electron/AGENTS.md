@@ -53,13 +53,13 @@ Release notes: `releasenotes/Atmos Desktop <version>.md`.
 
 ## Architecture
 
-- Preload: `window.__ATMOS_DESKTOP__` (`shell: 'electron'`, `invoke`, `on`)
+- Preload: `window.__ATMOS_DESKTOP__` (`shell: 'electron'`, `invoke`, `on`, `terminalStream`)
 - UI from Atmos Server loopback static
-- **Known debt (transport):** most session/terminal traffic still uses **HTTP + WebSocket** (web-first parity), not renderer→runtime IPC/UDS. Tracked for a future shared transport abstraction (web = WS/HTTP, desktop local = IPC). See [docs/architecture/known-debt-client-transport.md](../../docs/architecture/known-debt-client-transport.md).
+- **Known debt (transport):** session kernel still uses **HTTP + WebSocket**. **Local terminal live I/O** uses renderer↔main binary IPC (`terminalStream` in preload; [ADR-006](../../docs/adr/006-terminal-client-byte-stream-port.md)). Main still bridges to sidecar `/ws/terminal/:id`. ControlPort + UDS remain follow-up. See [docs/architecture/known-debt-client-transport.md](../../docs/architecture/known-debt-client-transport.md).
 - **Relay client kind:** product UI is `apps/web`; Electron is detected at runtime. Relay sessions use `@atmos/relay-client` with `clientKind: "desktop"` via `workbenchRelayClientKind()` (not a separate desktop SDK). Computer gateway REST (`/api/system/*` on `gateway_url`) stays in `apps/web/src/api/relay.ts`.
 - Browser (APP-053): in-DOM `<webview>` + `persist:atmos-browser` (default-deny `will-attach-webview`); `apps/desktop-electron/src/browser`
 - Browser guest inject: `packages/shared/browser/browser-runtime.js` is **copied into `dist/browser-runtime.js` at build** (packaged apps must not rely on monorepo paths)
-- Commands: `get_api_config`, `browser_bridge_*`, `appshot_*`, `tunnel_connector_*`, …
+- Commands: `get_api_config`, `browser_bridge_*`, `appshot_*`, `tunnel_connector_*`, …; terminal live stream is **not** a JSON command (`terminalStream` IPC)
 - AppShot: dual-shift, live TCC, frontmost capture, target-window border/flash overlay, pending auto-accept + fly-in preview (`source_bounds`), shared `appshots` layout
 - Cookies: `atmos-browser-cookies` under `resources/bin`
 - Tunnel: shared local gateway + share URL
