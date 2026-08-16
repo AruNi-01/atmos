@@ -398,7 +398,7 @@ fn default_git_log_limit() -> usize {
 pub struct GitHistoryRequest {
     /// 仓库路径
     pub path: String,
-    /// 每页条数（默认 100，最大 200）
+    /// 每页条数（默认 100，最大 1000）
     #[serde(default = "default_git_history_limit")]
     pub limit: usize,
     /// 跳过的条数（cursor，默认 0）

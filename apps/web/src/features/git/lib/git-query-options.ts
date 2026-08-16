@@ -200,7 +200,8 @@ export function gitLogQueryOptions(
   });
 }
 
-export const GIT_HISTORY_PAGE_SIZE = 100;
+/** Zed streams graph SHAs in 1000-commit chunks; we page at the same size. */
+export const GIT_HISTORY_PAGE_SIZE = 1000;
 
 export function gitHistoryInfiniteQueryOptions(
   scope: ComputerQueryScope,

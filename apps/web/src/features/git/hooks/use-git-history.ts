@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { useComputerQueryScope } from "@/api/query/query-scope";
 import { useWebSocketStore } from "@/features/connection/hooks/use-websocket";
@@ -20,6 +20,19 @@ export function useGitHistory(repoPath: string | null | undefined) {
     [query.data],
   );
   const firstPage = query.data?.pages[0];
+
+  useEffect(() => {
+    if (!query.hasNextPage || query.isFetchingNextPage || query.isError) {
+      return;
+    }
+    void query.fetchNextPage();
+  }, [
+    query.dataUpdatedAt,
+    query.fetchNextPage,
+    query.hasNextPage,
+    query.isError,
+    query.isFetchingNextPage,
+  ]);
 
   return {
     commits,

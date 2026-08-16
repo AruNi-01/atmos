@@ -42,14 +42,16 @@ test.describe("smoke workspace", () => {
       .poll(async () => new URL(page.url()).searchParams.get("rsTab") ?? "changes")
       .toBe("changes");
     const changesSidebar = await getRightSidebar(page);
-    const scopeTrigger = changesSidebar.getByRole("button", { name: "选择变更范围" });
+    const scopeTrigger = changesSidebar.getByRole("button", {
+      name: /选择变更范围|Select changes scope/,
+    });
     await expect(scopeTrigger).toBeVisible();
     await scopeTrigger.click();
-    await page.getByRole("menuitem", { name: "历史记录" }).click();
+    await page.getByRole("menuitem", { name: /^(历史记录|History)$/ }).click();
     await expect
       .poll(async () => new URL(page.url()).searchParams.get("tab"))
       .toBe("git-history");
-    await expect(page.getByRole("tab", { name: "历史记录" })).toBeVisible();
+    await expect(page.getByRole("tab", { name: /^(历史记录|History)$/ })).toBeVisible();
 
     await gotoContextRoute(page, withSearchParams(contextUrl, { rsTab: "review" }), {
       locale: "zh",

@@ -7999,7 +7999,13 @@
       "copied": "已复制",
       "copyHash": "复制提交哈希",
       "noSubject": "（无主题）",
-      "unknownAuthor": "未知"
+      "unknownAuthor": "未知",
+      "searchPlaceholder": "搜索提交…",
+      "matchCase": "区分大小写",
+      "previousMatch": "上一个匹配",
+      "nextMatch": "下一个匹配",
+      "matchCount": "{current}/{total}",
+      "loadingMore": "正在加载更多提交…"
     }
   },
   "localServices": {

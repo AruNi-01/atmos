@@ -3,19 +3,31 @@
 /**
  * Center-tab git history graph. Lane SVG drawing follows Comet
  * (https://github.com/zeronsh/comet, MIT — see root NOTICE).
+ * Search + chunked prefetch follow Zed's git graph (open source):
+ * https://github.com/zed-industries/zed
  */
 
-import React, { useMemo, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useTranslations } from "next-intl";
 import { fromUnixTime, format } from "date-fns";
 import {
+  CaseSensitive,
+  ChevronLeft,
+  ChevronRight,
   Cloud,
   GitBranch,
   LoaderCircle,
   RotateCcw,
   Tag,
 } from "lucide-react";
-import { Button } from "@workspace/ui";
+import { Button, Input } from "@workspace/ui";
 import { cn } from "@/shared/lib/utils";
 import { copyToClipboard } from "@/shared/utils/copy";
 import type { GitHistoryCommit, GitHistoryRef } from "@/api/ws-api-types";
@@ -33,6 +45,14 @@ import {
   historyLaneX,
   layoutGitHistoryGraph,
 } from "@/features/git/lib/git-history-graph";
+import {
+  collectGitHistoryMatchIndexes,
+  splitHighlightedText,
+} from "@/features/git/lib/git-history-search";
+import {
+  gitHistoryRowScrollTop,
+  visibleGitHistoryRowRange,
+} from "@/features/git/lib/git-history-virtual-range";
 
 const MAX_VISIBLE_REFS = 3;
 
@@ -54,6 +74,86 @@ export function GitHistoryPanel({
     [history.commits, history.headSha],
   );
   const graphWidth = historyGraphWidth(layout.maxLaneCount);
+  const [query, setQuery] = useState("");
+  const [caseSensitive, setCaseSensitive] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [viewport, setViewport] = useState({ scrollTop: 0, height: HISTORY_ROW_HEIGHT * 12 });
+  const matchIndexes = useMemo(
+    () => collectGitHistoryMatchIndexes(history.commits, query, caseSensitive),
+    [caseSensitive, history.commits, query],
+  );
+  const activeQuery = query.trim();
+  const selectedMatchPosition = selectedHash
+    ? matchIndexes.findIndex((index) => history.commits[index]?.hash === selectedHash)
+    : -1;
+  const visibleRange = visibleGitHistoryRowRange(
+    viewport.scrollTop,
+    viewport.height,
+    history.commits.length,
+    HISTORY_ROW_HEIGHT,
+  );
+  const matchIndexSet = useMemo(() => new Set(matchIndexes), [matchIndexes]);
+  const graphStart = visibleRange.start;
+  const graphEnd = visibleRange.end;
+  const autoSelectedQuery = useRef("");
+
+  const syncViewport = useCallback(() => {
+    const element = scrollRef.current;
+    if (!element) return;
+    setViewport({ scrollTop: element.scrollTop, height: element.clientHeight });
+  }, []);
+
+  useLayoutEffect(() => {
+    syncViewport();
+    const element = scrollRef.current;
+    if (!element) return;
+    const observer = new ResizeObserver(syncViewport);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [history.commits.length, syncViewport]);
+
+  const scrollToIndex = useCallback(
+    (index: number) => {
+      const element = scrollRef.current;
+      if (!element) return;
+      element.scrollTop = gitHistoryRowScrollTop(index, HISTORY_ROW_HEIGHT, element.clientHeight);
+      syncViewport();
+    },
+    [syncViewport],
+  );
+
+  const selectMatchAt = useCallback(
+    (position: number) => {
+      const index = matchIndexes[position];
+      const commit = index == null ? undefined : history.commits[index];
+      if (index == null || !commit) return;
+      selectCommit(contextId, commit.hash);
+      scrollToIndex(index);
+    },
+    [contextId, history.commits, matchIndexes, scrollToIndex, selectCommit],
+  );
+
+  useEffect(() => {
+    const searchKey = `${activeQuery}\0${caseSensitive}`;
+    if (!activeQuery) {
+      autoSelectedQuery.current = "";
+      return;
+    }
+    if (matchIndexes.length === 0) return;
+    if (autoSelectedQuery.current === searchKey) return;
+    autoSelectedQuery.current = searchKey;
+    selectMatchAt(0);
+  }, [activeQuery, caseSensitive, matchIndexes.length, selectMatchAt]);
+
+  const goToMatch = useCallback(
+    (delta: number) => {
+      if (matchIndexes.length === 0) return;
+      const current = selectedMatchPosition < 0 ? 0 : selectedMatchPosition;
+      const next = (current + delta + matchIndexes.length) % matchIndexes.length;
+      selectMatchAt(next);
+    },
+    [matchIndexes.length, selectMatchAt, selectedMatchPosition],
+  );
 
   if (!repoPath) {
     return (
@@ -93,7 +193,80 @@ export function GitHistoryPanel({
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-background" aria-label={t("title")}>
-      <div className="flex h-8 shrink-0 items-center justify-end border-b border-border/60 px-2">
+      <div className="flex h-10 shrink-0 items-center gap-1.5 border-b border-border/60 px-2">
+        <div className="flex h-7 min-w-0 flex-1 items-center rounded-md border border-border/80 bg-background pr-0.5">
+          <Input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" || event.key === "F3") {
+                event.preventDefault();
+                if (selectedMatchPosition < 0) {
+                  selectMatchAt(event.shiftKey && matchIndexes.length > 0 ? matchIndexes.length - 1 : 0);
+                } else {
+                  goToMatch(event.shiftKey ? -1 : 1);
+                }
+              }
+              if (event.key === "Escape" && query) {
+                event.preventDefault();
+                setQuery("");
+              }
+            }}
+            placeholder={t("searchPlaceholder")}
+            aria-label={t("searchPlaceholder")}
+            className="h-7 min-w-0 flex-1 border-0 bg-transparent shadow-none focus-visible:ring-0"
+          />
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-xs"
+            aria-pressed={caseSensitive}
+            aria-label={t("matchCase")}
+            title={t("matchCase")}
+            className={cn(caseSensitive && "bg-accent text-foreground")}
+            onClick={() => setCaseSensitive((current) => !current)}
+          >
+            <CaseSensitive className="size-3.5" />
+          </Button>
+        </div>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-xs"
+          disabled={matchIndexes.length === 0}
+          aria-label={t("previousMatch")}
+          title={t("previousMatch")}
+          onClick={() => goToMatch(-1)}
+        >
+          <ChevronLeft className="size-3.5" />
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-xs"
+          disabled={matchIndexes.length === 0}
+          aria-label={t("nextMatch")}
+          title={t("nextMatch")}
+          onClick={() => goToMatch(1)}
+        >
+          <ChevronRight className="size-3.5" />
+        </Button>
+        {activeQuery ? (
+          <span
+            className={cn(
+              "min-w-12 shrink-0 text-right text-[11px] tabular-nums text-muted-foreground",
+              matchIndexes.length === 0 && "text-destructive",
+            )}
+          >
+            {t("matchCount", {
+              current: matchIndexes.length === 0 ? 0 : selectedMatchPosition + 1,
+              total: matchIndexes.length,
+            })}
+          </span>
+        ) : null}
+        {history.isFetchingNextPage ? (
+          <LoaderCircle className="size-3.5 shrink-0 animate-spin text-muted-foreground" aria-label={t("loadingMore")} />
+        ) : null}
         <Button
           type="button"
           variant="ghost"
@@ -111,44 +284,48 @@ export function GitHistoryPanel({
         </Button>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto">
-        <div className="relative" style={{ minWidth: graphWidth + 320 }}>
-          <GitHistoryGraphSvg rows={layout.rows} width={graphWidth} />
-          {history.commits.map((commit, index) => {
-            const row = layout.rows[index];
-            if (!row) return null;
-            return (
-              <GitHistoryRow
-                key={commit.hash}
-                commit={commit}
-                graphWidth={graphWidth}
-                nodeLane={row.nodeLane}
-                nodeColorId={row.nodeColorId}
-                isHead={row.isHead}
-                selected={selectedHash === commit.hash}
-                onSelect={() => selectCommit(contextId, commit.hash)}
-              />
-            );
-          })}
-        </div>
-
-        {history.hasNextPage ? (
-          <div className="flex h-12 items-center justify-center">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="h-7 px-2.5 text-[11px]"
-              disabled={history.isFetchingNextPage}
-              onClick={() => void history.fetchNextPage()}
-            >
-              {history.isFetchingNextPage ? (
-                <LoaderCircle className="size-3 animate-spin" />
-              ) : null}
-              {t("loadMore")}
-            </Button>
+      <div
+        ref={scrollRef}
+        className="min-h-0 flex-1 overflow-auto"
+        onScroll={syncViewport}
+      >
+        <div
+          className="relative"
+          style={{
+            minWidth: graphWidth + 420,
+            height: history.commits.length * HISTORY_ROW_HEIGHT,
+          }}
+        >
+          <div
+            className="absolute right-0 left-0"
+            style={{ top: graphStart * HISTORY_ROW_HEIGHT }}
+          >
+            <GitHistoryGraphSvg
+              rows={layout.rows.slice(graphStart, graphEnd)}
+              width={graphWidth}
+            />
+            {history.commits.slice(visibleRange.start, visibleRange.end).map((commit, offset) => {
+              const index = visibleRange.start + offset;
+              const row = layout.rows[index];
+              if (!row) return null;
+              return (
+                <GitHistoryRow
+                  key={commit.hash}
+                  commit={commit}
+                  graphWidth={graphWidth}
+                  nodeLane={row.nodeLane}
+                  nodeColorId={row.nodeColorId}
+                  isHead={row.isHead}
+                  selected={selectedHash === commit.hash}
+                  matched={activeQuery.length > 0 && matchIndexSet.has(index)}
+                  query={activeQuery}
+                  caseSensitive={caseSensitive}
+                  onSelect={() => selectCommit(contextId, commit.hash)}
+                />
+              );
+            })}
           </div>
-        ) : null}
+        </div>
       </div>
     </div>
   );
@@ -215,6 +392,33 @@ function GitHistoryGraphSvg({
   );
 }
 
+function HighlightedText({
+  text,
+  query,
+  caseSensitive,
+  className,
+}: {
+  text: string;
+  query: string;
+  caseSensitive: boolean;
+  className?: string;
+}) {
+  const parts = splitHighlightedText(text, query, caseSensitive);
+  return (
+    <span className={className}>
+      {parts.map((part, index) =>
+        part.match ? (
+          <mark key={`${part.text}-${index}`} className="rounded-sm bg-info/35 text-foreground">
+            {part.text}
+          </mark>
+        ) : (
+          <React.Fragment key={`${part.text}-${index}`}>{part.text}</React.Fragment>
+        ),
+      )}
+    </span>
+  );
+}
+
 function GitHistoryRow({
   commit,
   graphWidth,
@@ -222,6 +426,9 @@ function GitHistoryRow({
   nodeColorId,
   isHead,
   selected,
+  matched,
+  query,
+  caseSensitive,
   onSelect,
 }: {
   commit: GitHistoryCommit;
@@ -230,13 +437,16 @@ function GitHistoryRow({
   nodeColorId: number;
   isHead: boolean;
   selected: boolean;
+  matched: boolean;
+  query: string;
+  caseSensitive: boolean;
   onSelect: () => void;
 }) {
   const t = useTranslations("git.history");
   const [copied, setCopied] = useState(false);
   const color = historyGraphColor(nodeColorId);
   const nodeX = historyLaneX(nodeLane);
-  const dateLabel = format(fromUnixTime(commit.timestamp), "MMM d, yyyy");
+  const dateLabel = format(fromUnixTime(commit.timestamp), "d MMM yyyy HH:mm");
   const visibleRefs = commit.refs.slice(0, MAX_VISIBLE_REFS);
   const hiddenRefCount = Math.max(0, commit.refs.length - visibleRefs.length);
   const subject = commit.subject.trim() ? commit.subject : t("noSubject");
@@ -245,6 +455,7 @@ function GitHistoryRow({
     <div
       className={cn(
         "flex h-9 w-full items-center border-b border-border/40 text-[11px] transition-colors hover:bg-muted/40",
+        matched && !selected && "bg-info/10",
         selected && "bg-muted/50",
       )}
     >
@@ -282,16 +493,14 @@ function GitHistoryRow({
           />
         </div>
 
-        <span className="min-w-20 flex-1 truncate pr-2 text-xs text-foreground">
-          {subject}
-        </span>
-
         {visibleRefs.length > 0 ? (
           <span className="mr-2 flex min-w-0 shrink-0 items-center gap-1">
             {visibleRefs.map((reference) => (
               <HistoryRefBadge
                 key={`${reference.kind}:${reference.label}`}
                 reference={reference}
+                query={query}
+                caseSensitive={caseSensitive}
               />
             ))}
             {hiddenRefCount > 0 ? (
@@ -300,19 +509,29 @@ function GitHistoryRow({
           </span>
         ) : null}
 
-        <span className="w-[88px] shrink-0 truncate pr-2 text-muted-foreground">
-          {commit.author_name || t("unknownAuthor")}
-        </span>
-        <span className="w-[88px] shrink-0 truncate pr-2 text-[10.5px] text-muted-foreground">
+        <HighlightedText
+          text={subject}
+          query={query}
+          caseSensitive={caseSensitive}
+          className="min-w-20 flex-1 truncate pr-2 text-xs text-foreground"
+        />
+
+        <span className="w-[132px] shrink-0 truncate pr-2 text-[10.5px] text-muted-foreground">
           {dateLabel}
         </span>
+        <HighlightedText
+          text={commit.author_name || t("unknownAuthor")}
+          query={query}
+          caseSensitive={caseSensitive}
+          className="w-[100px] shrink-0 truncate pr-2 text-muted-foreground"
+        />
       </button>
       <button
         type="button"
         title={commit.hash}
         aria-label={t("copyHash")}
         className={cn(
-          "mr-1.5 flex h-6 w-[68px] shrink-0 items-center rounded-sm px-1 font-mono text-[10.5px] text-muted-foreground hover:bg-muted",
+          "mr-1.5 flex h-6 w-[72px] shrink-0 items-center rounded-sm px-1 font-mono text-[10.5px] text-muted-foreground hover:bg-muted",
           copied && "text-info",
         )}
         onClick={() => {
@@ -323,13 +542,29 @@ function GitHistoryRow({
           });
         }}
       >
-        {copied ? t("copied") : commit.short_hash}
+        {copied ? (
+          t("copied")
+        ) : (
+          <HighlightedText
+            text={commit.short_hash}
+            query={query}
+            caseSensitive={caseSensitive}
+          />
+        )}
       </button>
     </div>
   );
 }
 
-function HistoryRefBadge({ reference }: { reference: GitHistoryRef }) {
+function HistoryRefBadge({
+  reference,
+  query,
+  caseSensitive,
+}: {
+  reference: GitHistoryRef;
+  query: string;
+  caseSensitive: boolean;
+}) {
   const Icon =
     reference.kind === "branch"
       ? GitBranch
@@ -351,7 +586,12 @@ function HistoryRefBadge({ reference }: { reference: GitHistoryRef }) {
       )}
     >
       <Icon className="size-2.5 shrink-0" />
-      <span className="truncate">{reference.label}</span>
+      <HighlightedText
+        text={reference.label}
+        query={query}
+        caseSensitive={caseSensitive}
+        className="truncate"
+      />
     </span>
   );
 }

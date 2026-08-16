@@ -382,7 +382,7 @@ export const gitApi = {
     return wsRequest<GitHistoryPage>("git_history", {
       path,
       cursor: options?.cursor ?? 0,
-      limit: options?.limit ?? 100,
+      limit: options?.limit ?? 1000,
     });
   },
 

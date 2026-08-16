@@ -11,7 +11,8 @@ use super::{try_run_git, GitEngine};
 use crate::error::Result;
 use crate::git::types::{HistoryCommit, HistoryPage, HistoryRef, HistoryRefKind};
 
-const GIT_HISTORY_MAX_LIMIT: usize = 200;
+/// Zed streams `git log` in 1000-commit chunks (`GRAPH_CHUNK_SIZE`).
+const GIT_HISTORY_MAX_LIMIT: usize = 1000;
 
 impl GitEngine {
     /// Public commit history in topological order. Branches, remotes, and tags

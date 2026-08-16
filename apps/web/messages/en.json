@@ -7999,7 +7999,13 @@
       "copied": "Copied",
       "copyHash": "Copy commit hash",
       "noSubject": "(no subject)",
-      "unknownAuthor": "Unknown"
+      "unknownAuthor": "Unknown",
+      "searchPlaceholder": "Search commits…",
+      "matchCase": "Match case",
+      "previousMatch": "Previous match",
+      "nextMatch": "Next match",
+      "matchCount": "{current}/{total}",
+      "loadingMore": "Loading more commits…"
     }
   },
   "localServices": {
