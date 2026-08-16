@@ -94,12 +94,3 @@ export function resolveTerminalByteStreamCarrier(
   }
   return "ws";
 }
-
-export function formatTerminalCarrierLog(
-  handle: Pick<StreamHandle, "carrier" | "sidecar">,
-): string {
-  if (handle.sidecar) {
-    return `carrier=${handle.carrier} sidecar=${handle.sidecar}`;
-  }
-  return `carrier=${handle.carrier}`;
-}

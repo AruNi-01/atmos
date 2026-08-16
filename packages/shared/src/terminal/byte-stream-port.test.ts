@@ -1,7 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
 import {
-  formatTerminalCarrierLog,
   isLoopbackHostname,
   isLoopbackWebSocketUrl,
   resolveTerminalByteStreamCarrier,
@@ -119,14 +118,5 @@ describe("createMemoryByteStreamPort", () => {
     memory.push(new Uint8Array([1, 2, 3]));
     expect(messages).toHaveLength(1);
     expect(messages[0]).toBeInstanceOf(Uint8Array);
-  });
-});
-
-describe("formatTerminalCarrierLog", () => {
-  test("includes sidecar for desktop ipc hops", () => {
-    expect(
-      formatTerminalCarrierLog({ carrier: "ipc", sidecar: "uds" }),
-    ).toBe("carrier=ipc sidecar=uds");
-    expect(formatTerminalCarrierLog({ carrier: "ws" })).toBe("carrier=ws");
   });
 });

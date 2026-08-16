@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ByteStreamPort, StreamHandle } from "@atmos/shared/terminal";
-import { formatTerminalCarrierLog } from "@atmos/shared/terminal";
 import type {
   WsTerminalRequest,
   TerminalSize,
@@ -10,7 +9,6 @@ import type {
 } from "../types/index";
 import { createBoundTerminalByteStreamPort } from "../lib/bind-terminal-byte-stream-port";
 import { dispatchTerminalServerPayload } from "../lib/dispatch-terminal-server-message";
-import { debugLog } from "@/shared/lib/desktop-logger";
 
 interface UseTerminalWebSocketOptions {
   url: string;
@@ -203,9 +201,6 @@ export function useTerminalWebSocket({
         }
         handleRef.current = handle;
         openingRef.current = false;
-        debugLog(
-          `terminal-stream open session=${sessionId} ${formatTerminalCarrierLog(handle)}`,
-        );
         const dispatchPayload = (data: string | Uint8Array) => {
           if (generation !== generationRef.current) return;
           const dispatch = dispatchTerminalServerPayload(data, sessionId);

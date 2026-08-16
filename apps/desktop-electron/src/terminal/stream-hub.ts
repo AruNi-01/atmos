@@ -190,9 +190,6 @@ export function createTerminalStreamHub(options: {
         ws.binaryType = "arraybuffer";
         await waitUntilOpen(ws, CONNECT_TIMEOUT_MS);
       }
-      mainLog(
-        `[terminal-stream] sidecar=${sidecar} elapsed_ms=${Date.now() - startedAt} unix=${unixPath ?? "none"}`,
-      );
 
       const streamId = randomUUID();
       const stream: LiveStream = {

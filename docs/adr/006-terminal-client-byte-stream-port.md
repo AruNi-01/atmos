@@ -41,9 +41,7 @@ xterm (renderer)
 
 PTY **输入和输出**都是原始字节。JSON `terminal_input` / `terminal_report` 仍被 API 接受（旧客户端）。新客户端把键入和 xterm report 走 binary。
 
-Control 帧仍是 JSON。Attach 元数据继续在 stream URL query（打开流时 subscribe observer）。
-
-可观测性：`carrier=ipc sidecar=uds` / `carrier=ipc sidecar=ws` / `carrier=ws`。
+Control 帧仍是 JSON。Attach 元数据继续在 stream URL query（打开流时 subscribe observer）。IPC `open` 回 `sidecar: "uds" | "ws"`。成功路径不打 debug 日志；仅在 UDS 失败回退 loopback WS 时 main 打 warn。
 
 ## 考虑的方案 (Alternatives Considered)
 
