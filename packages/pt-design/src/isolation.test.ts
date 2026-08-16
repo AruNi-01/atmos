@@ -30,4 +30,11 @@ describe("package isolation", () => {
     }
     expect(hits).toEqual([]);
   });
+
+  test("browser barrel does not import Ink, CLI, or MCP", () => {
+    const index = readFileSync(join(srcRoot, "index.ts"), "utf8");
+    expect(index).not.toMatch(/headless|cli\/bin|mcp\/server|from ["']ink["']/);
+    const embed = readFileSync(join(srcRoot, "embed", "PtDesignApp.tsx"), "utf8");
+    expect(embed).not.toMatch(/headless|cli\/bin|mcp\/server|from ["']ink["']/);
+  });
 });

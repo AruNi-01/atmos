@@ -1,25 +1,17 @@
 export { PtDesignApp } from "./embed/PtDesignApp";
 export type { PtDesignAppProps } from "./embed/PtDesignApp";
+export { createPtDesignSession } from "./core/session";
+export type { PtDesignSession, PtDesignCommand } from "./core/session";
 export {
-  createPtDesignSession,
   openDesignDocument,
   saveDesignDocument,
   initDesignDocument,
-  encodeDesignIR,
-  normalizeIR,
-  applyDesignIR,
-  buildHandoffPayload,
-  listComponentTypes,
-  getComponentTemplate,
-  PT_DESIGN_TOOL_DEFS,
-  SHADCN_BASIC_IDS,
-  REQUIRED_BLOCKS,
-} from "./headless";
-export type {
-  PtDesignSession,
-  PtDesignCommand,
-  DesignIR,
-  PersistenceAdapter,
-  HandoffSink,
-  PtTheme,
-} from "./headless";
+} from "./core/document";
+export type { DesignIR } from "./ir/schema";
+export { encodeDesignIR, normalizeIR } from "./ir/encode";
+export { applyDesignIR } from "./ir/apply";
+export { buildHandoffPayload } from "./ir/handoff";
+export { listComponentTypes, getComponentTemplate } from "./catalog/registry";
+export { PT_DESIGN_TOOL_DEFS } from "./agent/tool-defs";
+export { SHADCN_BASIC_IDS, REQUIRED_BLOCKS } from "./catalog/shadcn-list";
+export type { PersistenceAdapter, HandoffSink, PtTheme } from "./host/adapters";
