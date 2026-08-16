@@ -15,6 +15,7 @@ export type { GitCompareParams, GitFileDiffParams };
 export { GIT_WORKTREE_PARAMS };
 export {
   EMPTY_CHANGED_FILES,
+  collectStageAllPaths,
   selectCompareChangedFiles,
 } from "@/features/git/lib/git-changed-files-selection";
 
