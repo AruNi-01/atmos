@@ -706,7 +706,7 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
             {hasWorkingContext ? (
               <>
                 {/* Changes toolbar */}
-                <div className="flex h-9 shrink-0 border-b border-sidebar-border bg-background/50 backdrop-blur-sm">
+                <div className="flex h-9 shrink-0 bg-background/50 backdrop-blur-sm">
                   <ChangesToolbar
                     scope={changesScope}
                     selectedCommitHash={selectedCommitHash}
