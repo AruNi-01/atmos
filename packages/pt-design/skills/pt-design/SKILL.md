@@ -56,7 +56,7 @@ Implement with real shadcn/other UI libraries outside the canvas. Prefer IR over
 
 ## MCP
 
-`pt-design-mcp --file ./app.ptdesign.json` (stdio).
+Official `@modelcontextprotocol/sdk` stdio server (`pt-design-mcp-server`). Spawn `pt-design-mcp --file ./app.ptdesign.json`. Do not connect to the playground HTTP port. Tools use Zod schemas; resources are `pt-design://catalog` and `pt-design://ir`. See `packages/pt-design/README.md`.
 
 ## Non-goals
 
