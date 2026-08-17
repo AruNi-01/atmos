@@ -8,7 +8,9 @@ import { subscribeDesktopFullscreen } from "@/shared/lib/desktop-fullscreen-bus"
 
 /**
  * True when the window shows macOS traffic lights that need content inset
- * (not fullscreen). Used by main Header (pl-[92px]), agent-chat, canvas, etc.
+ * (not fullscreen). Header is a full-width chrome strip with pl-[92px];
+ * the sidebar no longer owns the traffic-light row. Also used by
+ * agent-chat, canvas, etc.
  *
  * Fullscreen: lights hide → padding off. Exit fullscreen → padding back.
  *

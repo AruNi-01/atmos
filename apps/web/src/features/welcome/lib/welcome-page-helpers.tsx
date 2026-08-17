@@ -553,7 +553,6 @@ export function renderHeadline(
     <span className="inline-flex items-center">
       <AtmosWordmark
         className="gap-0"
-        logoClassName="size-10 sm:size-12 md:size-14"
         letterClassName="text-4xl sm:text-5xl md:text-6xl leading-none font-semibold"
         sloganClassName="hidden"
       />

@@ -14,7 +14,7 @@ describe("PT Design Atmos host wiring", () => {
 
   test("launchpad includes pt-design", () => {
     const store = readFileSync(
-      join(import.meta.dir, "../../features/settings/store/experiment-settings-store.ts"),
+      join(import.meta.dir, "../../features/settings/lib/launchpad-items.ts"),
       "utf8",
     );
     expect(store).toContain("'pt-design'");
@@ -38,7 +38,8 @@ describe("PT Design Atmos host wiring", () => {
     expect(launchpad).toContain("PencilRuler");
     expect(launchpad).toContain("onOpenPtDesign");
     expect(launchpad).not.toMatch(/<div onClick=\{onOpenPtDesign\}/);
-    expect(launchpad).toMatch(/onClick=\{onOpenPtDesign\}[\s\S]{0,80}type="button"|type="button"[\s\S]{0,80}onClick=\{onOpenPtDesign\}/);
+    expect(launchpad).toMatch(/handleLaunchpadActivate\(event, onOpenPtDesign\)/);
+    expect(launchpad).toMatch(/type="button"/);
     const sidebar = readFileSync(
       join(import.meta.dir, "../LeftSidebar.tsx"),
       "utf8",

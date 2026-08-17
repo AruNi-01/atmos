@@ -33,6 +33,7 @@ import { fileURLToPath } from "node:url";
 const appRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const repoRoot = join(appRoot, "../..");
 const logoPath = join(appRoot, "resources/icons/icon.icon/Assets/Logo.png");
+const rimPath = join(appRoot, "resources/icons/icon.icon/Assets/Rim.png");
 const electronIcons = join(appRoot, "resources/icons");
 const tauriIcons = join(repoRoot, "apps/desktop/src-tauri/icons");
 const hostAppIcon = join(
@@ -54,23 +55,81 @@ function run(cmd: string, args: string[]) {
   return r;
 }
 
-function composeFullPlatePng(outPath: string) {
-  // White rounded plate + Logo for Finder/DMG/host/notification
-  // (classic .icns / PNG cannot be Assets.car).
-  // Logo.png is already drawn at product scale (disc ~84% of canvas).
-  // Do NOT shrink further — scale < 1 made DMG volume art look smaller
-  // than the .app tile (Assets.car / full mark).
+function composeBrandArt(fullPng: string) {
+  // Black rounded plate + hairline rim + white Logo mark.
+  // Classic .icns / PNG cannot be Assets.car — bake the squircle so DMG /
+  // Windows / notifications are not a sharp square. Also writes Rim.png for
+  // the Liquid Glass package (system still masks the fill; the rim layer
+  // keeps the tile from dissolving into a dark Dock, like Cursor).
+  // Logo.png stays the mark on transparent — no inner disc.
   const py = `
-from PIL import Image, ImageDraw
-logo = Image.open(${JSON.stringify(logoPath)}).convert("RGBA")
+from PIL import Image, ImageChops, ImageDraw
+
 S = 1024
-plate = Image.new("RGBA", (S, S), (0, 0, 0, 0))
-d = ImageDraw.Draw(plate)
-r = int(S * 0.223)
-d.rounded_rectangle([0, 0, S - 1, S - 1], radius=r, fill=(255, 255, 255, 255))
+SCALE = 4
+SS = S * SCALE
+RADIUS = 0.223
+STROKE = 13 * SCALE
+PAD = 8 * SCALE
+# Keep a thin margin so the horizon tips stay inside the squircle mask.
+MARK_INSET = 0.06
+RIM = (232, 232, 235, 108)
+
+# Pillow's rounded_rectangle(outline=...) only paints the four straight
+# edges — the corner arcs are missing. Fill an outer squircle and punch
+# an inner one so the hairline is continuous around all four corners.
+
+def squircle_ring(size, radius, inset, width, fill):
+    img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(img)
+    outer = [inset, inset, size - 1 - inset, size - 1 - inset]
+    inner_inset = inset + width
+    inner = [inner_inset, inner_inset, size - 1 - inner_inset, size - 1 - inner_inset]
+    draw.rounded_rectangle(outer, radius=max(1, radius - inset), fill=fill)
+    hole = Image.new("L", (size, size), 0)
+    ImageDraw.Draw(hole).rounded_rectangle(
+        inner,
+        radius=max(1, radius - inner_inset),
+        fill=255,
+    )
+    r_ch, g_ch, b_ch, a_ch = img.split()
+    return Image.merge("RGBA", (r_ch, g_ch, b_ch, ImageChops.subtract(a_ch, hole)))
+
+def fit_mark(logo, size, inset):
+    bbox = logo.getbbox()
+    if not bbox:
+        raise SystemExit("Logo.png mark is empty")
+    cropped = logo.crop(bbox)
+    target = max(1, int(round(size * (1 - 2 * inset))))
+    mw, mh = cropped.size
+    scale = min(target / mw, target / mh)
+    nw = max(1, int(round(mw * scale)))
+    nh = max(1, int(round(mh * scale)))
+    fitted = cropped.resize((nw, nh), Image.Resampling.LANCZOS)
+    canvas = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    canvas.alpha_composite(fitted, ((size - nw) // 2, (size - nh) // 2))
+    return canvas
+
+logo = fit_mark(
+    Image.open(${JSON.stringify(logoPath)}).convert("RGBA"),
+    S,
+    MARK_INSET,
+)
+logo.save(${JSON.stringify(logoPath)})
+
+hi = Image.new("RGBA", (SS, SS), (0, 0, 0, 0))
+d = ImageDraw.Draw(hi)
+r = int(SS * RADIUS)
+d.rounded_rectangle([0, 0, SS - 1, SS - 1], radius=r, fill=(0, 0, 0, 255))
+ring = squircle_ring(SS, r, PAD, STROKE, RIM)
+hi.alpha_composite(ring)
+plate = hi.resize((S, S), Image.Resampling.LANCZOS)
 lg = logo.resize((S, S), Image.Resampling.LANCZOS)
 plate.alpha_composite(lg, (0, 0))
-plate.save(${JSON.stringify(outPath)})
+plate.save(${JSON.stringify(fullPng)})
+
+rim = ring.resize((S, S), Image.Resampling.LANCZOS)
+rim.save(${JSON.stringify(rimPath)})
 print("ok")
 `;
   const pr = spawnSync("python3", ["-c", py], { encoding: "utf8" });
@@ -78,6 +137,23 @@ print("ok")
     throw new Error(
       `compose failed (need pillow): ${pr.stderr || pr.stdout}`,
     );
+  }
+}
+
+function writeIco(fullPng: string, icoOut: string) {
+  const py = `
+from PIL import Image
+im = Image.open(${JSON.stringify(fullPng)}).convert("RGBA")
+im.save(
+    ${JSON.stringify(icoOut)},
+    format="ICO",
+    sizes=[(16, 16), (32, 32), (48, 48), (64, 64), (128, 128), (256, 256)],
+)
+print("ok")
+`;
+  const pr = spawnSync("python3", ["-c", py], { encoding: "utf8" });
+  if (pr.status !== 0) {
+    throw new Error(`ico failed (need pillow): ${pr.stderr || pr.stdout}`);
   }
 }
 
@@ -121,7 +197,7 @@ function main() {
   const tmp = mkdtempSync(join(tmpdir(), "atmos-regen-icns-"));
   try {
     const fullPng = join(tmp, "full-1024.png");
-    composeFullPlatePng(fullPng);
+    composeBrandArt(fullPng);
 
     const icnsOut = join(tmp, "icon.icns");
     buildIcns(fullPng, icnsOut, tmp);
@@ -160,11 +236,21 @@ function main() {
       "--out",
       join(electronIcons, "32x32.png"),
     ]);
+    writeIco(fullPng, join(electronIcons, "icon.ico"));
 
     if (existsSync(tauriIcons)) {
+      run("sips", [
+        "-z",
+        "64",
+        "64",
+        fullPng,
+        "--out",
+        join(tauriIcons, "64x64.png"),
+      ]);
       for (const name of [
         "icon.icns",
         "icon.png",
+        "icon.ico",
         "128x128.png",
         "128x128@2x.png",
         "32x32.png",
@@ -195,7 +281,7 @@ function main() {
       `[regen-legacy-icns] wrote icon.icns + png sizes under ${electronIcons}`,
     );
     console.log(
-      "[regen-legacy-icns] surfaces: Electron/Tauri app+DMG, Desktop Use host, web notification-icon.png",
+      "[regen-legacy-icns] surfaces: Electron/Tauri app+DMG, Desktop Use host, web notification-icon.png, icon.icon/Assets/Rim.png",
     );
     console.log(
       "[regen-legacy-icns] Tahoe Atmos.app Dock still uses Assets.car from icon.icon (afterPack)",

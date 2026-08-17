@@ -571,7 +571,6 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
                   <AtmosWordmark
                     layout="compact"
                     letterClassName="text-8xl md:text-[7rem] font-semibold tracking-tight"
-                    logoClassName="size-24 md:size-28"
                     sloganClassName="hidden"
                   />
                 </div>

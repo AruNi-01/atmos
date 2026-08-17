@@ -103,20 +103,22 @@ export function AppShellMain() {
       baseClassName="min-h-0 flex-1"
       shiftBase
       base={
-        // Left sidebar spans full viewport height; header + center + footer
-        // live only in the main column to the right of the sidebar.
-        <PanelLayout
-          leftSidebar={<LeftSidebar />}
-          centerStage={
-            <div className="flex h-full min-h-0 flex-col overflow-hidden bg-sidebar">
-              <Header />
-              <div className="min-h-0 flex-1 overflow-hidden">
-                <CenterStage />
+        // Header is a full-width chrome strip above the sidebar (macOS traffic
+        // lights live in its left inset). Sidebar + center share the row below.
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-sidebar">
+          <Header />
+          <PanelLayout
+            leftSidebar={<LeftSidebar />}
+            centerStage={
+              <div className="flex h-full min-h-0 flex-col overflow-hidden bg-sidebar">
+                <div className="min-h-0 flex-1 overflow-hidden">
+                  <CenterStage />
+                </div>
+                <Footer />
               </div>
-              <Footer />
-            </div>
-          }
-        />
+            }
+          />
+        </div>
       }
       overlay={
         settingsPresented || isSettingsRoute ? (

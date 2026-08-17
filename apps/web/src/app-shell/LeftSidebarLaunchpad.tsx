@@ -6,10 +6,24 @@ import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
+  closestCenter,
   cn,
+  CSS,
+  DndContext,
+  PointerSensor,
+  SortableContext,
+  pointerWithin,
+  rectSortingStrategy,
+  useDndContext,
+  useDroppable,
+  useSensor,
+  useSensors,
+  useSortable,
+  verticalListSortingStrategy,
+  type CollisionDetection,
+  type DragEndEvent,
 } from "@workspace/ui";
 import {
-  ArrowRight,
   Bot,
   ChartColumnBig,
   Command,
@@ -23,7 +37,6 @@ import {
   SquareTerminal,
   Timer,
 } from "lucide-react";
-import { AnimatePresence, motion } from "motion/react";
 import { BotIcon } from "@workspace/ui/components/icons/bot-icon";
 import CanvasIcon from "@workspace/ui/components/icons/canvas-icon";
 import { ChartColumnBigIcon } from "@workspace/ui/components/icons/chart-column-big-icon";
@@ -43,7 +56,55 @@ import type {
   LaunchpadItems,
   LaunchpadPlacement,
 } from "@/features/settings/store/experiment-settings-store";
-import { selectLaunchpadItemsByPlacement } from "@/features/settings/store/experiment-settings-store";
+import {
+  LAUNCHPAD_DROP_INSIDE,
+  LAUNCHPAD_DROP_OUTSIDE,
+  isLaunchpadItemId,
+  selectLaunchpadItemsByPlacement,
+  useExperimentSettingsStore,
+} from "@/features/settings/store/experiment-settings-store";
+
+let suppressLaunchpadClick = false;
+let previousBodyCursor = "";
+
+function markLaunchpadDragStarted() {
+  suppressLaunchpadClick = true;
+  previousBodyCursor = document.body.style.cursor;
+  document.body.style.cursor = "default";
+}
+
+function consumeLaunchpadDragClick() {
+  if (!suppressLaunchpadClick) return false;
+  suppressLaunchpadClick = false;
+  return true;
+}
+
+function releaseLaunchpadClickSuppression() {
+  document.body.style.cursor = previousBodyCursor;
+  window.setTimeout(() => {
+    suppressLaunchpadClick = false;
+  }, 0);
+}
+
+const launchpadCollisionDetection: CollisionDetection = (args) => {
+  const pointerHits = pointerWithin(args);
+  const itemHits = pointerHits.filter((hit) => isLaunchpadItemId(String(hit.id)));
+  if (itemHits.length > 0) return itemHits;
+  if (pointerHits.length > 0) return pointerHits;
+  return closestCenter(args);
+};
+
+function handleLaunchpadActivate(
+  event: React.MouseEvent,
+  action: () => void,
+) {
+  if (consumeLaunchpadDragClick()) {
+    event.preventDefault();
+    event.stopPropagation();
+    return;
+  }
+  action();
+}
 
 type LaunchpadItemDef = {
   id: LaunchpadItemId;
@@ -107,6 +168,116 @@ interface LeftSidebarLaunchpadProps extends LaunchpadSharedProps {
   launchpadItems: LaunchpadItems;
 }
 
+export function LeftSidebarLaunchpadBlock(props: LeftSidebarLaunchpadProps) {
+  const reorderLaunchpadItems = useExperimentSettingsStore(
+    (s) => s.reorderLaunchpadItems,
+  );
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: { delay: 400, tolerance: 8 },
+    }),
+  );
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    releaseLaunchpadClickSuppression();
+    const overId = event.over?.id;
+    if (overId == null) return;
+    void reorderLaunchpadItems(String(event.active.id), String(overId));
+  };
+
+  return (
+    <DndContext
+      sensors={sensors}
+      collisionDetection={launchpadCollisionDetection}
+      onDragStart={markLaunchpadDragStarted}
+      onDragCancel={releaseLaunchpadClickSuppression}
+      onDragEnd={handleDragEnd}
+    >
+      <div className="flex shrink-0 flex-col">
+        <LeftSidebarLaunchpad {...props} />
+        <LeftSidebarLaunchpadOutside {...props} />
+      </div>
+    </DndContext>
+  );
+}
+
+function LaunchpadSortableShell({
+  id,
+  className,
+  children,
+}: {
+  id: LaunchpadItemId;
+  className?: string;
+  children: React.ReactNode;
+}) {
+  const { setNodeRef, listeners, transform, transition, isDragging } = useSortable({
+    id,
+  });
+
+  return (
+    <div
+      ref={setNodeRef}
+      className={cn(
+        "cursor-default select-none",
+        className,
+        isDragging && "relative z-20 opacity-50",
+      )}
+      style={{
+        transform: CSS.Transform.toString(transform),
+        transition: isDragging ? undefined : transition,
+        cursor: "default",
+        touchAction: "none",
+      }}
+      {...listeners}
+    >
+      {children}
+    </div>
+  );
+}
+
+function LaunchpadInsideDroppable({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const { setNodeRef } = useDroppable({ id: LAUNCHPAD_DROP_INSIDE });
+  return (
+    <div
+      ref={setNodeRef}
+      className="mx-2.5 mb-1.5 overflow-hidden rounded-2xl border border-border/70 bg-muted/20"
+    >
+      {children}
+    </div>
+  );
+}
+
+function LaunchpadInsideGrid({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="grid grid-cols-2 gap-1.5">{children}</div>
+  );
+}
+
+function LaunchpadOutsideDroppable({
+  children,
+  label,
+  empty,
+}: {
+  children: React.ReactNode;
+  label: string;
+  empty?: boolean;
+}) {
+  const { setNodeRef } = useDroppable({ id: LAUNCHPAD_DROP_OUTSIDE });
+  return (
+    <nav
+      ref={setNodeRef}
+      className={cn("flex flex-col gap-0.5 px-2 py-1.5", empty && "min-h-8")}
+      aria-label={label}
+    >
+      {children}
+    </nav>
+  );
+}
+
 export function LeftSidebarLaunchpadOutside({
   launchpadItems,
   ...shared
@@ -114,30 +285,34 @@ export function LeftSidebarLaunchpadOutside({
   launchpadItems: LaunchpadItems;
 }) {
   const t = useTranslations("AppShell.chrome");
+  const { active } = useDndContext();
   const items = useMemo(
     () => resolveItemsForPlacement(launchpadItems, "outside"),
     [launchpadItems],
   );
 
-  if (items.length === 0) return null;
+  if (items.length === 0 && !active) return null;
+
+  const itemIds = items.map((item) => item.id);
 
   return (
     <div className="flex shrink-0 flex-col">
-      <nav
-        // Match Launchpad header icon column (header px-5 = 20px):
-        // nav px-2 + row px-3 → icon at 20px.
-        className="flex flex-col gap-0.5 px-2 py-1.5"
-        aria-label={t("launchpad.title")}
-      >
-        {items.map((item) => (
-          <OutsideNavRow
-            key={item.id}
-            item={item}
-            isActive={isLaunchpadItemActive(item, shared)}
-            {...shared}
-          />
-        ))}
-      </nav>
+      <SortableContext items={itemIds} strategy={verticalListSortingStrategy}>
+        <LaunchpadOutsideDroppable
+          label={t("launchpad.title")}
+          empty={items.length === 0}
+        >
+          {items.map((item) => (
+            <LaunchpadSortableShell key={item.id} id={item.id}>
+              <OutsideNavRow
+                item={item}
+                isActive={isLaunchpadItemActive(item, shared)}
+                {...shared}
+              />
+            </LaunchpadSortableShell>
+          ))}
+        </LaunchpadOutsideDroppable>
+      </SortableContext>
     </div>
   );
 }
@@ -150,53 +325,63 @@ export function LeftSidebarLaunchpad({
 }: LeftSidebarLaunchpadProps) {
   const t = useTranslations("AppShell.chrome");
   const rocketRef = React.useRef<AnimatedIconHandle | null>(null);
+  const { active } = useDndContext();
   const items = useMemo(
     () => resolveItemsForPlacement(launchpadItems, "inside"),
     [launchpadItems],
   );
 
-  // Hide the entire Launchpad block when no inside items are enabled.
-  if (items.length === 0) return null;
+  // Hide the Launchpad chrome when no inside items are enabled, unless a drag
+  // is in progress so the empty card can receive a cross-list drop.
+  if (items.length === 0 && !active) return null;
 
   return (
-    <>
-      <div
-        className="flex h-10 cursor-pointer select-none items-center justify-between px-5 text-sm font-medium hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+    <LaunchpadInsideDroppable>
+      <button
+        type="button"
+        aria-expanded={isExpanded}
+        className="flex h-9 w-full cursor-pointer select-none items-center gap-2 px-3 text-sm font-medium outline-none hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-1 focus-visible:ring-ring"
         onClick={() => onExpandedChange(!isExpanded)}
         onMouseEnter={() => rocketRef.current?.startAnimation?.()}
         onMouseLeave={() => rocketRef.current?.stopAnimation?.()}
       >
-        <div className="flex items-center gap-2">
-          <RocketIcon ref={rocketRef} className="inline-flex shrink-0" size={16} />
-          <span>{t("launchpad.title")}</span>
-        </div>
-        <div className={cn("text-muted-foreground transition-transform duration-200", isExpanded ? "rotate-90" : "")}>
-          <ArrowRight className="size-3.5" />
-        </div>
-      </div>
+        <RocketIcon ref={rocketRef} className="inline-flex shrink-0" size={16} />
+        <span>{t("launchpad.title")}</span>
+      </button>
 
       <div
         className={cn(
-          "grid transition-[grid-template-rows] duration-200 ease-in-out",
+          "grid transition-[grid-template-rows] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]",
           isExpanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]",
         )}
       >
-        <div className="overflow-hidden">
-          <div className="grid grid-cols-1 @[200px]:grid-cols-2">
-            {items.map((item, index) => (
-              <LaunchpadCard
-                key={item.id}
-                item={item}
-                index={index}
-                totalItems={items.length}
-                isActive={isLaunchpadItemActive(item, shared)}
-                {...shared}
-              />
-            ))}
-          </div>
+        <div className="min-h-0 overflow-hidden">
+            <div
+              className={cn(
+                "border-t border-border/60 px-1.5 pb-1.5 pt-1.5 transition-opacity duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]",
+                isExpanded ? "opacity-100" : "opacity-0",
+              )}
+            >
+              <SortableContext
+                items={items.map((item) => item.id)}
+                strategy={rectSortingStrategy}
+              >
+                <LaunchpadInsideGrid>
+                  {items.map((item) => (
+                    <LaunchpadSortableShell key={item.id} id={item.id}>
+                      <LaunchpadCard
+                        item={item}
+                        isActive={isLaunchpadItemActive(item, shared)}
+                        {...shared}
+                      />
+                    </LaunchpadSortableShell>
+                  ))}
+                </LaunchpadInsideGrid>
+              </SortableContext>
+            </div>
         </div>
       </div>
-    </>
+    </LaunchpadInsideDroppable>
   );
 }
 
@@ -248,9 +433,8 @@ function OutsideNavRow({
   const label = t(item.labelKey);
 
   const className = cn(
-    // px-3 pairs with nav px-2 so icons line up with the Launchpad header rocket (px-5).
     // Instant hover fill — match settings SidebarMenuButton (no color fade).
-    "flex w-full items-center gap-2 rounded-lg px-3 py-1.5 text-left text-sm outline-none",
+    "flex w-full items-center gap-2 rounded-lg px-3 py-1.5 text-left text-sm outline-none cursor-default",
     "focus-visible:ring-1 focus-visible:ring-ring",
     isActive
       ? "bg-sidebar-accent text-sidebar-accent-foreground"
@@ -273,7 +457,7 @@ function OutsideNavRow({
     return (
       <button
         type="button"
-        onClick={onOpenPtDesign}
+        onClick={(event) => handleLaunchpadActivate(event, onOpenPtDesign)}
         className={className}
         aria-current={isActive ? "page" : undefined}
         aria-label={label}
@@ -290,7 +474,7 @@ function OutsideNavRow({
         <TooltipTrigger asChild>
           <button
             type="button"
-            onClick={onOpenCanvas}
+            onClick={(event) => handleLaunchpadActivate(event, onOpenCanvas)}
             className={className}
             aria-current={isActive ? "page" : undefined}
             {...hoverHandlers}
@@ -318,7 +502,7 @@ function OutsideNavRow({
         <TooltipTrigger asChild>
           <button
             type="button"
-            onClick={onOpenNewWorkspace}
+            onClick={(event) => handleLaunchpadActivate(event, onOpenNewWorkspace)}
             className={className}
             aria-current={isActive ? "page" : undefined}
             {...hoverHandlers}
@@ -342,7 +526,11 @@ function OutsideNavRow({
   return (
     <button
       type="button"
-      onClick={() => item.path && onNavigate(item.path)}
+      onClick={(event) =>
+        handleLaunchpadActivate(event, () => {
+          if (item.path) onNavigate(item.path);
+        })
+      }
       className={className}
       aria-current={isActive ? "page" : undefined}
       {...hoverHandlers}
@@ -354,8 +542,6 @@ function OutsideNavRow({
 
 function LaunchpadCard({
   item,
-  index = 0,
-  totalItems = 1,
   isActive,
   onNavigate,
   onOpenCanvas,
@@ -363,115 +549,76 @@ function LaunchpadCard({
   onOpenPtDesign,
 }: LaunchpadSharedProps & {
   item: LaunchpadItemDef;
-  index?: number;
-  totalItems?: number;
   isActive: boolean;
 }) {
   const t = useTranslations("AppShell.chrome");
-  const Icon = item.icon;
-  const isOddCount = totalItems % 2 === 1;
-  const isLastItemAlone = isOddCount && index === totalItems - 1;
-  const cardClassName = cn(
-    "group relative h-12 cursor-pointer overflow-hidden outline-none transition-all duration-300 transition-colors",
-    isLastItemAlone ? "@[200px]:col-span-2" : null,
-    isActive ? "text-sidebar-foreground" : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
+  const iconRef = React.useRef<AnimatedIconHandle | null>(null);
+  const label = t(item.labelKey);
+  const className = cn(
+    "flex h-9 w-full items-center justify-center rounded-xl outline-none cursor-default",
+    "focus-visible:ring-1 focus-visible:ring-ring",
+    isActive
+      ? "bg-sidebar-accent text-sidebar-accent-foreground"
+      : "bg-background/50 text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
   );
-  const cardInner = (
-    <>
-      <AnimatePresence>
-        {isActive && (
-          <motion.div
-            initial={{ scaleX: 0, opacity: 0 }}
-            animate={{ scaleX: 1, opacity: 1 }}
-            exit={{ scaleX: 0, opacity: 0 }}
-            transition={{
-              default: { ease: [0.16, 1, 0.3, 1] },
-              opacity: { duration: 0.5 },
-              scaleX: {
-                duration: isActive ? 0.6 : 1.0,
-                type: "tween",
-              },
-            }}
-            className="absolute bottom-0 left-0 right-0 h-px bg-sidebar-foreground z-10 origin-center"
-          />
-        )}
-      </AnimatePresence>
+  const hoverHandlers = {
+    onMouseEnter: () => iconRef.current?.startAnimation?.(),
+    onMouseLeave: () => iconRef.current?.stopAnimation?.(),
+  };
 
-      <div className="flex flex-col h-[200%] w-full transition-transform duration-500 cubic-bezier(0.16, 1, 0.3, 1) group-hover:-translate-y-1/2">
-        <div className="flex items-center justify-center h-1/2 w-full transition-all duration-300 group-hover:opacity-0 group-hover:scale-90">
-          <Icon className="size-4.5" />
-        </div>
-        <div className="flex items-center justify-center h-1/2 w-full px-1">
-          <span className="text-[10px] font-medium tracking-tight text-center leading-none">
-            {t(item.labelKey)}
-          </span>
-        </div>
-      </div>
-    </>
-  );
+  const activate = () => {
+    if (item.kind === "canvas") {
+      onOpenCanvas();
+      return;
+    }
+    if (item.kind === "new-workspace") {
+      onOpenNewWorkspace();
+      return;
+    }
+    if (item.kind === "pt-design") {
+      onOpenPtDesign();
+      return;
+    }
+    if (item.path) onNavigate(item.path);
+  };
 
-  if (item.kind === "pt-design") {
-    return (
-      <button
-        type="button"
-        onClick={onOpenPtDesign}
-        className={cn(cardClassName, "w-full border-0 bg-transparent p-0")}
-        aria-label={t("launchpad.items.ptDesign")}
-      >
-        {cardInner}
-      </button>
-    );
-  }
-
-  if (item.kind === "canvas") {
-    return (
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <div onClick={onOpenCanvas} className={cardClassName}>
-            {cardInner}
-          </div>
-        </TooltipTrigger>
-        <TooltipContent side="bottom">
-          <div className="flex items-center gap-2">
-            <span>{t("launchpad.items.canvas")}</span>
-            <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-foreground/90">
-              <Command className="size-3" />
-              <span className="text-xs">⇧</span>
-              <span className="text-xs">H</span>
-            </kbd>
-          </div>
-        </TooltipContent>
-      </Tooltip>
-    );
-  }
-
-  if (item.kind === "new-workspace") {
-    return (
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <div onClick={onOpenNewWorkspace} className={cardClassName}>
-            {cardInner}
-          </div>
-        </TooltipTrigger>
-        <TooltipContent side="bottom">
-          <div className="flex items-center gap-2">
-            <span>{t("launchpad.items.newWorkspace")}</span>
-            <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-foreground/90">
-              <Command className="size-3" />
-              <span className="text-xs">N</span>
-            </kbd>
-          </div>
-        </TooltipContent>
-      </Tooltip>
-    );
-  }
+  const shortcut =
+    item.kind === "canvas" ? (
+      <>
+        <span className="text-xs">⇧</span>
+        <span className="text-xs">H</span>
+      </>
+    ) : item.kind === "new-workspace" ? (
+      <span className="text-xs">N</span>
+    ) : null;
 
   return (
-    <div
-      onClick={() => item.path && onNavigate(item.path)}
-      className={cardClassName}
-    >
-      {cardInner}
-    </div>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          type="button"
+          onClick={(event) => handleLaunchpadActivate(event, activate)}
+          className={className}
+          aria-label={label}
+          aria-current={isActive ? "page" : undefined}
+          {...hoverHandlers}
+        >
+          <LaunchpadOutsideIcon itemId={item.id} iconRef={iconRef} />
+        </button>
+      </TooltipTrigger>
+      <TooltipContent side="bottom">
+        {shortcut ? (
+          <div className="flex items-center gap-2">
+            <span>{label}</span>
+            <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-foreground/90">
+              <Command className="size-3" />
+              {shortcut}
+            </kbd>
+          </div>
+        ) : (
+          label
+        )}
+      </TooltipContent>
+    </Tooltip>
   );
 }
