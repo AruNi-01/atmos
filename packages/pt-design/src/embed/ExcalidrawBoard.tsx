@@ -37,7 +37,7 @@ export default function ExcalidrawBoard({
 
   React.useEffect(() => {
     apiRef.current?.updateScene({
-      appState: { viewBackgroundColor, theme },
+      appState: { viewBackgroundColor, theme, currentItemRoughness: 1 },
     });
   }, [theme, viewBackgroundColor]);
 
@@ -62,6 +62,7 @@ export default function ExcalidrawBoard({
           appState: {
             viewBackgroundColor,
             theme,
+            currentItemRoughness: 1,
           },
         }}
         excalidrawAPI={(api) => {

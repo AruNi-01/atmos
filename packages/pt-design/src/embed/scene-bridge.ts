@@ -10,7 +10,7 @@ export type ExcalidrawCompatElement = PtElement & {
 export type ExcalidrawHostApi = {
   updateScene: (input: {
     elements?: ExcalidrawCompatElement[];
-    appState?: { viewBackgroundColor?: string; theme?: "light" | "dark" };
+    appState?: { viewBackgroundColor?: string; theme?: "light" | "dark"; currentItemRoughness?: number };
   }) => void;
   getSceneElements: () => readonly ExcalidrawCompatElement[];
   getSceneElementsIncludingDeleted: () => readonly ExcalidrawCompatElement[];
@@ -90,7 +90,7 @@ function toCompat(el: PtElement): ExcalidrawCompatElement {
     boundElements: el.boundElements ?? null,
     locked: el.locked ?? false,
     isDeleted: el.isDeleted ?? false,
-    roughness: el.roughness ?? 0,
+    roughness: el.roughness ?? 1,
     opacity: el.opacity ?? 100,
     fillStyle: el.fillStyle ?? "solid",
   };

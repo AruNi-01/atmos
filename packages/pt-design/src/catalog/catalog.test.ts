@@ -37,6 +37,16 @@ describe("catalog completeness", () => {
     }
   });
 
+  test("wireframes default to artistic roughness", () => {
+    const built = getComponentTemplate("button", {
+      x: 0,
+      y: 0,
+      props: { label: "Go" },
+    });
+    expect(built.elements.length).toBeGreaterThan(0);
+    expect(built.elements.every((el) => el.roughness === 1)).toBe(true);
+  });
+
   test("button template uses bare componentType", () => {
     const built = getComponentTemplate("button", {
       x: 0,

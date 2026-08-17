@@ -1,6 +1,9 @@
 import { createId } from "../core/ids";
 import type { PtElement } from "../core/types";
 
+/** Excalidraw "artist" sloppiness — the 艺术 line style. */
+export const ARTISTIC_ROUGHNESS = 1;
+
 export const C = {
   stroke: "#18181b",
   mutedStroke: "#a1a1aa",
@@ -27,7 +30,7 @@ function base(
     backgroundColor: C.fill,
     fillStyle: "solid",
     strokeWidth: 1,
-    roughness: 0,
+    roughness: ARTISTIC_ROUGHNESS,
     opacity: 100,
     groupIds: [],
     frameId: null,
