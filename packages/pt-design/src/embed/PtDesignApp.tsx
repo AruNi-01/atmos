@@ -78,7 +78,6 @@ export function PtDesignApp({
     void persist.load().then((loaded) => {
       if (cancelled || !loaded) return;
       loadingRef.current = true;
-      beginApply();
       session.dispatch({ type: "replaceScene", scene: loaded.scene });
       loadingRef.current = false;
       setTick((n) => n + 1);
@@ -109,7 +108,7 @@ export function PtDesignApp({
     const unsubscribe = session.subscribe(() => {
       setTick((n) => n + 1);
       if (!loadingRef.current) debouncer.schedule(session.getScene());
-      if (!applyGateRef.current.isPending()) pushScene();
+      if (!loadingRef.current && !applyGateRef.current.isPending()) pushScene();
     });
     return () => {
       unsubscribe();

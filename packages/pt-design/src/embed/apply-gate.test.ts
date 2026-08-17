@@ -47,6 +47,36 @@ describe("apply gate", () => {
     expect(session.getScene().elements.every((el) => el.roughness !== 99)).toBe(true);
   });
 
+  test("two programmatic updates each consume one async onChange", async () => {
+    const session = createPtDesignSession();
+    session.dispatch({ type: "place", componentType: "button", at: { x: 0, y: 0 } });
+    const before = sceneFingerprint(session.getScene());
+    const gate = createApplyGate();
+    const queued: Array<() => void> = [];
+    const onChange = (elements: readonly ExcalidrawCompatElement[]) => {
+      if (gate.consume()) return;
+      session.dispatch({
+        type: "replaceScene",
+        scene: excalidrawElementsToScene(elements, { viewBackgroundColor: "#ffffff" }, "light"),
+      });
+    };
+    const api: Pick<ExcalidrawHostApi, "updateScene"> = {
+      updateScene({ elements }) {
+        const mutated = (elements ?? []).map((el) => ({ ...el, roughness: 99 }));
+        queued.push(() => onChange(mutated));
+      },
+    };
+    gate.begin();
+    api.updateScene({ elements: sceneToExcalidrawElements(session.getScene(), "light") });
+    gate.begin();
+    api.updateScene({ elements: sceneToExcalidrawElements(session.getScene(), "light") });
+    expect(queued).toHaveLength(2);
+    queued[0]?.();
+    queued[1]?.();
+    expect(sceneFingerprint(session.getScene())).toBe(before);
+    expect(session.getScene().elements.every((el) => el.roughness !== 99)).toBe(true);
+  });
+
   test("PtDesignApp uses the apply gate and persist debounce", () => {
     const src = readFileSync(new URL("./PtDesignApp.tsx", import.meta.url), "utf8");
     expect(src).toContain("createApplyGate");

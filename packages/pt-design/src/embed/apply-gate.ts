@@ -1,18 +1,17 @@
-/** Tracks programmatic `updateScene` / load so the next Excalidraw `onChange` is ignored. */
+/** One token per programmatic `updateScene`. Each async `onChange` consumes one token. */
 export function createApplyGate() {
-  let gen = 0;
-  let seen = 0;
+  let pending = 0;
   return {
     begin() {
-      gen += 1;
+      pending += 1;
     },
     isPending() {
-      return seen !== gen;
+      return pending > 0;
     },
-    /** Returns true when this `onChange` is the echo of a programmatic apply. */
+    /** Returns true when this `onChange` is the echo of one programmatic apply. */
     consume() {
-      if (seen === gen) return false;
-      seen = gen;
+      if (pending === 0) return false;
+      pending -= 1;
       return true;
     },
   };
