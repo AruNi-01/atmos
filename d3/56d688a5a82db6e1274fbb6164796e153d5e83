@@ -1,0 +1,38 @@
+apps/web/src/features/terminal/components/Terminal.tsx
+  h_5be255725524c8 23,101-102,789-793,1256,1258
+apps/web/src/features/terminal/components/TerminalAgentInputOverlay.tsx
+  h_5be255725524c8 111-116,1148,1150,1157,1261
+apps/web/src/features/terminal/components/TerminalGrid.tsx
+  h_5be255725524c8 890,929,1041-1044
+apps/web/src/features/terminal/components/TerminalScopedPane.tsx
+  h_5be255725524c8 24,238-241,251
+apps/web/src/features/terminal/components/TerminalSplitView.tsx
+  h_5be255725524c8 4-5,7-27,29,31,33-37,45,49-79,81-82,90,93,95-242,253-314,318-487,492,497,502-509,511-513,521,533,538-539,541-544,546-604,606-611,613-616,618-677,680-688
+apps/web/src/features/terminal/components/TerminalWorkspacePane.tsx
+  h_5be255725524c8 25,279-282,292
+apps/web/src/features/terminal/components/__tests__/terminal-pane-title-chrome.test.ts
+  h_5be255725524c8 1-58
+apps/web/src/features/terminal/components/terminal-grid.css
+  h_5be255725524c8 3-101,227-231
+apps/web/src/features/terminal/components/terminal-pane-dnd.tsx
+  h_5be255725524c8 1-62
+apps/web/src/features/terminal/lib/__tests__/terminal-layout-tree.test.ts
+  h_5be255725524c8 3-5,7,10-11,14-21,48-201
+apps/web/src/features/terminal/lib/terminal-layout-tree.ts
+  h_5be255725524c8 20-47,63-129,170-296
+apps/web/src/features/terminal/lib/terminal-pane-drag-preview.ts
+  h_5be255725524c8 1-30
+apps/web/src/features/terminal/lib/terminal-xterm-preview.ts
+  h_5be255725524c8 1-129
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "d356d688a5a82db6e1274fbb6164796e153d5e83",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
