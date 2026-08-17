@@ -1,7 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import { mkdtempSync } from "node:fs";
+import { mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { openFileSession, runTool } from "./api";
 import { isPtDesignError } from "./errors";
 import { PT_DESIGN_TOOL_DEFS } from "./tool-defs";
@@ -57,6 +58,16 @@ describe("agent adapters", () => {
     expect(placed.isError).toBe(false);
     const opened = openFileSession({ file });
     expect(opened.session.getIR().freeNodes.some((n) => n.componentType === "button")).toBe(true);
+  });
+
+  test("CLI launcher sets exitCode instead of process.exit", () => {
+    const launcher = readFileSync(
+      join(dirname(fileURLToPath(import.meta.url)), "../../bin/pt-design.mjs"),
+      "utf8",
+    );
+    expect(launcher).toContain("#!/usr/bin/env bun");
+    expect(launcher).toContain("process.exitCode = code");
+    expect(launcher).not.toMatch(/process\.exit\(/);
   });
 
   test("CLI place --json writes parseable success", async () => {

@@ -2,4 +2,4 @@
 import { runCli } from "../src/cli/bin.ts";
 
 const code = await runCli();
-process.exit(code);
+process.exitCode = code;
