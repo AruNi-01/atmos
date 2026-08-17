@@ -94,6 +94,13 @@ describe("relay collab wire", () => {
   test("keeps official oss-collab as fallback unless primary is already official", () => {
     expect(OFFICIAL_COLLAB_SERVER).toBe("https://oss-collab.excalidraw.com");
     expect(isOfficialCollabHost(OFFICIAL_COLLAB_SERVER)).toBe(true);
+    expect(isOfficialCollabHost("oss-collab.excalidraw.com")).toBe(true);
+    expect(isOfficialCollabHost("oss-collab.excalidraw.com:443")).toBe(true);
+    expect(isOfficialCollabHost("OSS-COLLAB.EXCALIDRAW.COM.")).toBe(true);
+    expect(isOfficialCollabHost("https://evil.com/?q=oss-collab.excalidraw.com")).toBe(false);
+    expect(isOfficialCollabHost("https://oss-collab.excalidraw.com.evil.com")).toBe(false);
+    expect(isOfficialCollabHost("not-oss-collab.excalidraw.com")).toBe(false);
+    expect(isOfficialCollabHost("evil.com/oss-collab.excalidraw.com")).toBe(false);
     expect(resolveCollabServers("https://relay.atmos.land")).toEqual({
       primary: "https://relay.atmos.land",
       fallback: OFFICIAL_COLLAB_SERVER,

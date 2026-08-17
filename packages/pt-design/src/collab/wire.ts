@@ -2,12 +2,15 @@
 
 export const DEFAULT_COLLAB_SERVER = "https://relay.atmos.land";
 export const OFFICIAL_COLLAB_SERVER = "https://oss-collab.excalidraw.com";
+const OFFICIAL_COLLAB_HOST = new URL(OFFICIAL_COLLAB_SERVER).hostname;
 
 export function isOfficialCollabHost(server: string): boolean {
   try {
-    return new URL(server).hostname === "oss-collab.excalidraw.com";
+    const raw = server.trim();
+    const url = new URL(raw.includes("://") ? raw : `https://${raw}`);
+    return url.hostname.replace(/\.$/, "").toLowerCase() === OFFICIAL_COLLAB_HOST;
   } catch {
-    return server.includes("oss-collab.excalidraw.com");
+    return false;
   }
 }
 
