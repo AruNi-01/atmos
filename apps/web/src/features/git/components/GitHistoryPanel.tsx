@@ -17,33 +17,22 @@ import React, {
   useState,
 } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { useTranslations, useLocale } from "next-intl";
-import { fromUnixTime, format } from "date-fns";
-import { enUS, zhCN } from "date-fns/locale";
+import { useTranslations } from "next-intl";
 import {
   CaseSensitive,
-  Check,
   ChevronLeft,
   ChevronRight,
-  Cloud,
-  Copy,
-  GitBranch,
   LoaderCircle,
   RotateCcw,
-  Tag,
 } from "lucide-react";
 import {
   Button,
   InputGroup,
   InputGroupButton,
   InputGroupInput,
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
 } from "@workspace/ui";
 import { cn } from "@/shared/lib/utils";
-import { copyToClipboard } from "@/shared/utils/copy";
-import type { GitHistoryCommit, GitHistoryRef } from "@/api/ws-api-types";
+import type { GitHistoryCommit } from "@/api/ws-api-types";
 import { useGitHistory } from "@/features/git/hooks/use-git-history";
 import { useGitHistoryCenterTabStore } from "@/features/git/store/use-git-history-center-tab";
 import { useGitStatusQuery } from "@/features/git/hooks/use-git-status-query";
@@ -53,16 +42,8 @@ import {
 } from "@/features/task/components/task-github-drawer/TaskGithubDrawerHost";
 import { commitDrawerKey } from "@/features/task/components/task-github-drawer/types";
 import {
-  HISTORY_GRAPH_ROW_OVERLAP,
-  HISTORY_HEADER_HEIGHT,
-  HISTORY_HEAD_RING_PADDING,
-  HISTORY_NODE_RADIUS,
   HISTORY_ROW_HEIGHT,
-  HISTORY_STROKE_WIDTH,
-  GIT_HISTORY_GRAPH_COLORS,
-  historyGraphColor,
   historyGraphWidth,
-  historyLaneX,
   layoutGitHistoryGraph,
 } from "@/features/git/lib/git-history-graph";
 import {
@@ -76,12 +57,14 @@ import {
   type HistoryColumnId,
   type HistoryColumnWidths,
 } from "@/features/git/lib/git-history-columns";
+import { collectGitHistoryMatchIndexes } from "@/features/git/lib/git-history-search";
 import {
-  collectGitHistoryMatchIndexes,
-  splitHighlightedText,
-} from "@/features/git/lib/git-history-search";
+  ColumnResizeHandle,
+  GitHistoryTableHeader,
+} from "@/features/git/components/git-history-table-chrome";
+import { GitHistoryGraphSvg } from "@/features/git/components/git-history-graph-svg";
+import { GitHistoryRow } from "@/features/git/components/git-history-row";
 
-const MAX_VISIBLE_REFS = 3;
 const GIT_HISTORY_ROW_OVERSCAN = 12;
 
 export function GitHistoryPanel({
@@ -452,420 +435,5 @@ export function GitHistoryPanel({
       </div>
       <TaskGithubDrawerHost controllerRef={drawerControllerRef} />
     </div>
-  );
-}
-
-function GitHistoryTableHeader({
-  columns,
-  gridTemplate,
-}: {
-  columns: HistoryColumnWidths;
-  gridTemplate: string;
-}) {
-  const t = useTranslations("git.history");
-  return (
-    <div
-      className="sticky top-0 z-20 grid items-center border-b border-border/50 bg-background text-[10.5px] font-medium text-muted-foreground"
-      style={{
-        height: HISTORY_HEADER_HEIGHT,
-        width: historyTableWidth(columns),
-        gridTemplateColumns: gridTemplate,
-      }}
-    >
-      {HISTORY_RESIZE_COLUMNS.map((id) => (
-        <div key={id} className="min-w-0 px-1.5">
-          <span className="block truncate">{t(`columns.${id}`)}</span>
-        </div>
-      ))}
-      <div className="min-w-0 px-1.5">
-        <span className="block truncate">{t("columns.commit")}</span>
-      </div>
-    </div>
-  );
-}
-
-function ColumnResizeHandle({
-  column,
-  width,
-  left,
-  height,
-  label,
-  onResize,
-}: {
-  column: HistoryColumnId;
-  width: number;
-  left: number;
-  height: number;
-  label: string;
-  onResize: (id: HistoryColumnId, nextWidth: number) => void;
-}) {
-  const drag = useRef<{ x: number; width: number } | null>(null);
-  const [active, setActive] = useState(false);
-
-  return (
-    <div
-      role="separator"
-      aria-orientation="vertical"
-      aria-label={label}
-      tabIndex={0}
-      style={{ left, height: Math.max(height, HISTORY_HEADER_HEIGHT) }}
-      className={cn(
-        "absolute top-0 w-2.5 -translate-x-1/2 cursor-col-resize touch-none select-none",
-        "after:absolute after:inset-y-0 after:left-1/2 after:w-px after:-translate-x-1/2 after:transition-colors",
-        active
-          ? "after:bg-foreground/45"
-          : "after:bg-transparent hover:after:bg-foreground/35",
-      )}
-      onPointerDown={(event) => {
-        event.preventDefault();
-        event.stopPropagation();
-        drag.current = { x: event.clientX, width };
-        setActive(true);
-        event.currentTarget.setPointerCapture(event.pointerId);
-      }}
-      onPointerMove={(event) => {
-        if (!drag.current) return;
-        onResize(column, drag.current.width + event.clientX - drag.current.x);
-      }}
-      onPointerUp={(event) => {
-        drag.current = null;
-        setActive(false);
-        if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-          event.currentTarget.releasePointerCapture(event.pointerId);
-        }
-      }}
-      onPointerCancel={() => {
-        drag.current = null;
-        setActive(false);
-      }}
-      onKeyDown={(event) => {
-        if (event.key === "ArrowLeft") {
-          event.preventDefault();
-          onResize(column, width - 16);
-        } else if (event.key === "ArrowRight") {
-          event.preventDefault();
-          onResize(column, width + 16);
-        }
-      }}
-    />
-  );
-}
-
-function GitHistoryGraphSvg({
-  rows,
-  width,
-}: {
-  rows: ReturnType<typeof layoutGitHistoryGraph>["rows"];
-  width: number;
-}) {
-  const height = rows.length * HISTORY_ROW_HEIGHT;
-  const middle = HISTORY_ROW_HEIGHT / 2;
-  const colorCount = GIT_HISTORY_GRAPH_COLORS.length;
-
-  return (
-    <svg
-      aria-hidden
-      className="pointer-events-none absolute top-0 left-0 overflow-visible"
-      width={width}
-      height={height}
-    >
-      {Array.from({ length: colorCount }, (_, colorIndex) => {
-        const d: string[] = [];
-        for (let index = 0; index < rows.length; index++) {
-          const row = rows[index]!;
-          const originY = index * HISTORY_ROW_HEIGHT;
-          for (const segment of row.segments) {
-            if (segment.colorId % colorCount !== colorIndex) continue;
-            const fromX = historyLaneX(segment.fromLane);
-            const toX = historyLaneX(segment.toLane);
-            if (segment.shape === "incoming") {
-              d.push(
-                `M ${fromX} ${originY - HISTORY_GRAPH_ROW_OVERLAP} C ${fromX} ${originY + middle * 0.55}, ${toX} ${originY + middle * 0.55}, ${toX} ${originY + middle}`,
-              );
-            } else if (segment.shape === "outgoing") {
-              d.push(
-                `M ${fromX} ${originY + middle} C ${fromX} ${originY + middle * 1.45}, ${toX} ${originY + middle * 1.45}, ${toX} ${originY + HISTORY_ROW_HEIGHT + HISTORY_GRAPH_ROW_OVERLAP}`,
-              );
-            } else if (segment.fromLane === segment.toLane) {
-              d.push(
-                `M ${fromX} ${originY - HISTORY_GRAPH_ROW_OVERLAP} L ${toX} ${originY + HISTORY_ROW_HEIGHT + HISTORY_GRAPH_ROW_OVERLAP}`,
-              );
-            } else {
-              d.push(
-                `M ${fromX} ${originY - HISTORY_GRAPH_ROW_OVERLAP} C ${fromX} ${originY + middle}, ${toX} ${originY + middle}, ${toX} ${originY + HISTORY_ROW_HEIGHT + HISTORY_GRAPH_ROW_OVERLAP}`,
-              );
-            }
-          }
-        }
-        if (d.length === 0) return null;
-        return (
-          <path
-            key={colorIndex}
-            d={d.join(" ")}
-            fill="none"
-            stroke={historyGraphColor(colorIndex)}
-            strokeWidth={HISTORY_STROKE_WIDTH}
-          />
-        );
-      })}
-    </svg>
-  );
-}
-
-function HighlightedText({
-  text,
-  query,
-  caseSensitive,
-  className,
-}: {
-  text: string;
-  query: string;
-  caseSensitive: boolean;
-  className?: string;
-}) {
-  const parts = splitHighlightedText(text, query, caseSensitive);
-  return (
-    <span className={className}>
-      {parts.map((part, index) =>
-        part.match ? (
-          <mark key={`${part.text}-${index}`} className="rounded-sm bg-info/35 text-foreground">
-            {part.text}
-          </mark>
-        ) : (
-          <React.Fragment key={`${part.text}-${index}`}>{part.text}</React.Fragment>
-        ),
-      )}
-    </span>
-  );
-}
-
-function GitHistoryRow({
-  commit,
-  columns,
-  gridTemplate,
-  nodeLane,
-  nodeColorId,
-  isHead,
-  selected,
-  matched,
-  query,
-  caseSensitive,
-  onSelect,
-}: {
-  commit: GitHistoryCommit;
-  columns: HistoryColumnWidths;
-  gridTemplate: string;
-  nodeLane: number;
-  nodeColorId: number;
-  isHead: boolean;
-  selected: boolean;
-  matched: boolean;
-  query: string;
-  caseSensitive: boolean;
-  onSelect: () => void;
-}) {
-  const t = useTranslations("git.history");
-  const locale = useLocale();
-  const dateLocale = locale.startsWith("zh") ? zhCN : enUS;
-  const [copied, setCopied] = useState(false);
-  const color = historyGraphColor(nodeColorId);
-  const nodeX = historyLaneX(nodeLane);
-  const dateLabel = format(fromUnixTime(commit.timestamp), "d MMM yyyy HH:mm", {
-    locale: dateLocale,
-  });
-  const visibleRefs = commit.refs.slice(0, MAX_VISIBLE_REFS);
-  const hiddenRefCount = Math.max(0, commit.refs.length - visibleRefs.length);
-  const subject = commit.subject.trim() ? commit.subject : t("noSubject");
-
-  return (
-    <div
-      role="button"
-      tabIndex={0}
-      aria-pressed={selected}
-      onClick={onSelect}
-      onKeyDown={(event) => {
-        if (event.key === "Enter" || event.key === " ") {
-          event.preventDefault();
-          onSelect();
-        }
-      }}
-      className={cn(
-        "grid h-9 cursor-pointer items-center border-b border-border/40 text-[11px] hover:bg-muted/40",
-        matched && !selected && "bg-info/10",
-        selected && "bg-muted/50",
-      )}
-      style={{
-        width: historyTableWidth(columns),
-        gridTemplateColumns: gridTemplate,
-      }}
-    >
-      <div className="relative h-full min-w-0">
-        {isHead ? (
-          <span
-            className="absolute rounded-full border bg-background"
-            style={{
-              left: nodeX - HISTORY_NODE_RADIUS - HISTORY_HEAD_RING_PADDING,
-              top:
-                HISTORY_ROW_HEIGHT / 2 -
-                HISTORY_NODE_RADIUS -
-                HISTORY_HEAD_RING_PADDING,
-              width: (HISTORY_NODE_RADIUS + HISTORY_HEAD_RING_PADDING) * 2,
-              height: (HISTORY_NODE_RADIUS + HISTORY_HEAD_RING_PADDING) * 2,
-              borderColor: color,
-            }}
-          />
-        ) : null}
-        <span
-          className="absolute rounded-full"
-          style={{
-            left: nodeX - HISTORY_NODE_RADIUS,
-            top: HISTORY_ROW_HEIGHT / 2 - HISTORY_NODE_RADIUS,
-            width: HISTORY_NODE_RADIUS * 2,
-            height: HISTORY_NODE_RADIUS * 2,
-            backgroundColor: color,
-          }}
-        />
-      </div>
-
-      <div className="flex min-w-0 items-center overflow-hidden px-1.5">
-        {visibleRefs.length > 0 ? (
-          <span className="mr-1.5 flex min-w-0 max-w-[70%] items-center gap-1 overflow-hidden">
-            {visibleRefs.map((reference) => (
-              <HistoryRefBadge
-                key={`${reference.kind}:${reference.label}`}
-                reference={reference}
-                query={query}
-                caseSensitive={caseSensitive}
-              />
-            ))}
-            {hiddenRefCount > 0 ? (
-              <span className="shrink-0 text-[10px] text-muted-foreground">
-                +{hiddenRefCount}
-              </span>
-            ) : null}
-          </span>
-        ) : null}
-        <HighlightedText
-          text={subject}
-          query={query}
-          caseSensitive={caseSensitive}
-          className="min-w-0 flex-1 truncate text-xs text-foreground"
-        />
-      </div>
-
-      <span className="min-w-0 truncate px-1.5 text-[10.5px] text-muted-foreground">
-        {dateLabel}
-      </span>
-      <span className="min-w-0 truncate px-1.5 text-muted-foreground">
-        <HighlightedText
-          text={commit.author_name || t("unknownAuthor")}
-          query={query}
-          caseSensitive={caseSensitive}
-        />
-      </span>
-      <div className="group/hash flex min-w-0 items-center justify-start gap-1 px-1.5 font-mono text-[10.5px] text-muted-foreground">
-        <span className="min-w-0 truncate">
-          {copied ? (
-            <span className="text-info">{t("copied")}</span>
-          ) : (
-            <HighlightedText
-              text={commit.short_hash}
-              query={query}
-              caseSensitive={caseSensitive}
-            />
-          )}
-        </span>
-        <button
-          type="button"
-          aria-label={t("copyHash")}
-          title={t("copyHash")}
-          className={cn(
-            "inline-flex size-5 shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 transition-colors hover:bg-accent hover:text-foreground group-hover/hash:opacity-100",
-            copied && "opacity-100 text-info",
-          )}
-          onClick={(event) => {
-            event.preventDefault();
-            event.stopPropagation();
-            void copyToClipboard(commit.hash).then((ok) => {
-              if (!ok) return;
-              setCopied(true);
-              window.setTimeout(() => setCopied(false), 1200);
-            });
-          }}
-        >
-          {copied ? <Check className="size-3" /> : <Copy className="size-3" />}
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function HistoryRefBadge({
-  reference,
-  query,
-  caseSensitive,
-}: {
-  reference: GitHistoryRef;
-  query: string;
-  caseSensitive: boolean;
-}) {
-  const Icon =
-    reference.kind === "branch"
-      ? GitBranch
-      : reference.kind === "tag"
-        ? Tag
-        : Cloud;
-  const tone =
-    reference.kind === "branch"
-      ? "text-info bg-info/10"
-      : reference.kind === "tag"
-        ? "text-warning bg-warning/10"
-        : "text-muted-foreground bg-muted/60";
-  const labelRef = useRef<HTMLSpanElement>(null);
-  const [truncated, setTruncated] = useState(false);
-  const [tooltipOpen, setTooltipOpen] = useState(false);
-
-  useLayoutEffect(() => {
-    const label = labelRef.current;
-    if (!label) return;
-    const measure = () => {
-      const nextTruncated = label.scrollWidth > label.clientWidth + 1;
-      setTruncated(nextTruncated);
-      if (!nextTruncated) setTooltipOpen(false);
-    };
-    measure();
-    const observer = new ResizeObserver(measure);
-    observer.observe(label);
-    return () => observer.disconnect();
-  }, [caseSensitive, query, reference.label]);
-
-  return (
-    <Tooltip
-      open={truncated ? tooltipOpen : false}
-      onOpenChange={(next) => {
-        if (truncated) setTooltipOpen(next);
-      }}
-    >
-      <TooltipTrigger asChild>
-        <span
-          className={cn(
-            "inline-flex min-w-0 max-w-56 items-center gap-0.5 rounded-sm px-1 py-0.5 text-[10px]",
-            tone,
-          )}
-        >
-          <Icon className="size-2.5 shrink-0" />
-          <span ref={labelRef} className="truncate">
-            <HighlightedText
-              text={reference.label}
-              query={query}
-              caseSensitive={caseSensitive}
-            />
-          </span>
-        </span>
-      </TooltipTrigger>
-      <TooltipContent side="top" className="max-w-xs break-all">
-        {reference.label}
-      </TooltipContent>
-    </Tooltip>
   );
 }

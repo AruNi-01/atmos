@@ -3,11 +3,6 @@
 import React from "react";
 import { useTranslations } from "next-intl";
 import { Button, Label, TooltipProvider } from "@workspace/ui";
-import { useAppRouter } from "@/shared/hooks/use-app-router";
-import {
-  useRegisteredAppNavigationGuard,
-  type AppNavigationTarget,
-} from "@/shared/hooks/app-navigation-intercept";
 import { ArrowLeft, Brain, ChevronDown, LoaderCircle, Sparkles } from "lucide-react";
 import { AgentIcon } from "@/features/agent/components/AgentIcon";
 import {
@@ -34,6 +29,7 @@ import {
   updateAutomationWithGithubRoute,
 } from "@/features/automations/lib/github-route-lifecycle";
 import { useAutomationSetupForm } from "@/features/automations/hooks/use-automation-setup-form";
+import { useAutomationSetupLeaveGuard } from "@/features/automations/hooks/use-automation-setup-leave-guard";
 import { useGithubTriggerSetup } from "@/features/automations/hooks/use-github-trigger-setup";
 import type {
   AutomationAgentCapability,
@@ -100,7 +96,6 @@ export function AutomationSetup({
   onUpdate: (request: AutomationUpdateRequest) => Promise<AutomationDetail>;
 }) {
   const t = useTranslations("automation.setup");
-  const router = useAppRouter();
   const composerRef = React.useRef<ComposerHandle | null>(null);
   const {
     attachments,
@@ -404,99 +399,19 @@ export function AutomationSetup({
       workspaceGuid,
     ],
   );
-  const baselineRef = React.useRef<string | null>(null);
-  const [leaveDialogOpen, setLeaveDialogOpen] = React.useState(false);
-  const pendingLeaveRef = React.useRef<{
-    discard: () => void;
-    afterSave: () => void;
-  } | null>(null);
-  const bypassNavRef = React.useRef(false);
-  const isDirtyRef = React.useRef(false);
-  const allowPopStateLeaveRef = React.useRef(false);
-
-  React.useEffect(() => {
-    if (!ready) return;
-    if (mode === "create" && !agentId) return;
-    if (baselineRef.current === null) {
-      baselineRef.current = setupSnapshot;
-    }
-  }, [agentId, mode, ready, setupSnapshot]);
-
-  const isDirty =
-    baselineRef.current !== null && baselineRef.current !== setupSnapshot;
-  isDirtyRef.current = isDirty;
-
-  const requestLeave = React.useCallback(
-    (actions: { discard: () => void; afterSave?: () => void }) => {
-      if (!isDirtyRef.current) {
-        actions.discard();
-        return;
-      }
-      pendingLeaveRef.current = {
-        discard: actions.discard,
-        afterSave: actions.afterSave ?? (() => undefined),
-      };
-      setLeaveDialogOpen(true);
-    },
-    [],
-  );
-
-  const resumeNavigation = React.useCallback(
-    (target: AppNavigationTarget) => {
-      bypassNavRef.current = true;
-      if (target.kind === "replace") {
-        router.replace(target.path);
-      } else {
-        router.push(target.path);
-      }
-      bypassNavRef.current = false;
-    },
-    [router],
-  );
-
-  const navigationGuard = React.useCallback(
-    (target: AppNavigationTarget) => {
-      if (bypassNavRef.current || !isDirtyRef.current) {
-        return false;
-      }
-      requestLeave({
-        discard: () => resumeNavigation(target),
-        afterSave: () => resumeNavigation(target),
-      });
-      return true;
-    },
-    [requestLeave, resumeNavigation],
-  );
-  useRegisteredAppNavigationGuard(navigationGuard);
-
-  React.useEffect(() => {
-    if (!isDirty) return;
-    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
-      event.preventDefault();
-      event.returnValue = "";
-    };
-    window.addEventListener("beforeunload", handleBeforeUnload);
-    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
-  }, [isDirty]);
-
-  React.useEffect(() => {
-    if (!isDirty) return;
-    window.history.pushState({ automationSetupGuard: true }, "", window.location.href);
-    const handlePopState = () => {
-      if (allowPopStateLeaveRef.current || !isDirtyRef.current) {
-        return;
-      }
-      window.history.pushState({ automationSetupGuard: true }, "", window.location.href);
-      requestLeave({
-        discard: () => {
-          allowPopStateLeaveRef.current = true;
-          window.history.back();
-        },
-      });
-    };
-    window.addEventListener("popstate", handlePopState);
-    return () => window.removeEventListener("popstate", handlePopState);
-  }, [isDirty, requestLeave]);
+  const {
+    leaveDialogOpen,
+    requestLeave,
+    clearDirtyBaseline,
+    handleStay,
+    handleDiscard,
+    handleSaveAndLeave: runSaveAndLeave,
+  } = useAutomationSetupLeaveGuard({
+    ready,
+    mode,
+    agentId,
+    setupSnapshot,
+  });
 
   const saveAutomation = async () => {
     setSubmitError(null);
@@ -590,8 +505,7 @@ export function AutomationSetup({
         setInstructions(savedAutomation.instructions);
         setMemory(savedAutomation.memory ?? "");
         composerRef.current?.setText(savedAutomation.instructions);
-        baselineRef.current = null;
-        isDirtyRef.current = false;
+        clearDirtyBaseline();
       }
       clearAttachments();
       return Boolean(savedAutomation);
@@ -612,33 +526,6 @@ export function AutomationSetup({
 
   const handleBack = () => {
     requestLeave({ discard: onCancel });
-  };
-
-  const handleStay = () => {
-    setLeaveDialogOpen(false);
-    pendingLeaveRef.current = null;
-  };
-
-  const handleDiscard = () => {
-    const pending = pendingLeaveRef.current;
-    isDirtyRef.current = false;
-    baselineRef.current = setupSnapshot;
-    setLeaveDialogOpen(false);
-    pendingLeaveRef.current = null;
-    pending?.discard();
-  };
-
-  const handleSaveAndLeave = async () => {
-    const pending = pendingLeaveRef.current;
-    const saved = await saveAutomation();
-    if (!saved) {
-      setLeaveDialogOpen(false);
-      pendingLeaveRef.current = null;
-      return;
-    }
-    setLeaveDialogOpen(false);
-    pendingLeaveRef.current = null;
-    pending?.afterSave();
   };
 
   const handleGithubStartSetup = React.useCallback(() => {
@@ -987,7 +874,7 @@ export function AutomationSetup({
           onStay={handleStay}
           onDiscard={handleDiscard}
           onSave={() => {
-            void handleSaveAndLeave();
+            void runSaveAndLeave(saveAutomation);
           }}
         />
       </div>

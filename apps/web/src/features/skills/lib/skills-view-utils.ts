@@ -58,6 +58,31 @@ export function buildSkillListUrl({
   return search ? `/skills?${search}` : "/skills";
 }
 
+/** List filters + installed skill identity for push-detail deep links. */
+export function buildSkillDetailUrl({
+  activeTab,
+  filter,
+  projects,
+  query,
+  skillScope,
+  skillId,
+}: {
+  activeTab: SkillsTab;
+  filter: ScopeFilter;
+  projects: string;
+  query: string;
+  skillScope: string;
+  skillId: string;
+}) {
+  const listUrl = buildSkillListUrl({ activeTab, filter, projects, query });
+  const searchParams = new URLSearchParams(
+    listUrl.includes("?") ? listUrl.split("?", 1)[1] : "",
+  );
+  searchParams.set("scope", skillScope);
+  searchParams.set("skillId", skillId);
+  return `/skills?${searchParams.toString()}`;
+}
+
 export function filterMarketCategories(categories: SkillMarketCategory[], query: string) {
   if (!query) {
     return categories;
