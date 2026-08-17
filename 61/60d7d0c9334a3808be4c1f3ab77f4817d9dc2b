@@ -1,0 +1,32 @@
+apps/web/src/features/automations/components/AutomationSetup.tsx
+  h_5be255725524c8 32,402-414,508,877
+apps/web/src/features/automations/hooks/use-automation-setup-leave-guard.ts
+  h_5be255725524c8 1-166
+apps/web/src/features/git/components/GitHistoryPanel.tsx
+  h_5be255725524c8 20,35,60,62-66
+apps/web/src/features/git/components/git-history-graph-svg.tsx
+  h_5be255725524c8 1-73
+apps/web/src/features/git/components/git-history-row.tsx
+  h_5be255725524c8 1-283
+apps/web/src/features/git/components/git-history-table-chrome.tsx
+  h_5be255725524c8 1-109
+apps/web/src/features/git/lib/__tests__/git-history-panel.structural.test.ts
+  h_5be255725524c8 15-23,51,74,98-107
+apps/web/src/features/skills/components/SkillsView.tsx
+  h_5be255725524c8 45,271-280
+apps/web/src/features/skills/lib/skills-view-utils.ts
+  h_5be255725524c8 61-85
+automations/review/quality/result/2026-08/08-16_score-79_RESULT.md
+  h_5be255725524c8 1-156
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "6160d7d0c9334a3808be4c1f3ab77f4817d9dc2b",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
