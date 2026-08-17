@@ -45,7 +45,7 @@ export type PtDesignSnapshot = {
 };
 
 export type PtDesignSession = {
-  dispatch(cmd: PtDesignCommand): { instanceId?: string; frameId?: string };
+  dispatch(cmd: PtDesignCommand): { instanceId?: string; instanceIds?: string[]; frameId?: string };
   getScene(): PtScene;
   getIR(options?: { frameId?: string; instanceIds?: string[] }): DesignIR;
   listCatalog(): { componentType: string; variants?: string[] }[];
@@ -137,6 +137,7 @@ export function createPtDesignSession(initial?: PtScene): PtDesignSession {
           : resolvePlaceVariants(cmd.componentType);
       let cursor = { x: cmd.at.x, y: cmd.at.y };
       let firstId: string | undefined;
+      const instanceIds: string[] = [];
       const nextElements = scene.elements.slice();
       variants.forEach((variant, index) => {
         const built = getComponentTemplate(cmd.componentType, {
@@ -148,6 +149,7 @@ export function createPtDesignSession(initial?: PtScene): PtDesignSession {
           instanceId: index === 0 ? cmd.instanceId : undefined,
         });
         firstId ??= built.instanceId;
+        instanceIds.push(built.instanceId);
         nextElements.push(
           ...built.elements.map((el) => ({
             ...el,
@@ -163,7 +165,7 @@ export function createPtDesignSession(initial?: PtScene): PtDesignSession {
       });
       scene = { ...scene, elements: nextElements };
       emit();
-      return { instanceId: firstId };
+      return { instanceId: firstId, instanceIds };
     }
     if (cmd.type === "update") {
       const root = findRoot(cmd.instanceId);
@@ -197,7 +199,7 @@ export function createPtDesignSession(initial?: PtScene): PtDesignSession {
         ],
       };
       emit();
-      return { instanceId: cmd.instanceId };
+      return { instanceId: cmd.instanceId, instanceIds: [cmd.instanceId] };
     }
     if (cmd.type === "delete") {
       const ids = new Set(cmd.instanceIds);
@@ -206,7 +208,7 @@ export function createPtDesignSession(initial?: PtScene): PtDesignSession {
         elements: scene.elements.filter((el) => !ids.has(el.customData?.pt?.instanceId ?? "")),
       };
       emit();
-      return {};
+      return { instanceIds: cmd.instanceIds };
     }
     return {};
   };

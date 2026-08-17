@@ -16,6 +16,8 @@ describe("package README entry points", () => {
     expect(readme).toContain("Starting the playground does **not** start MCP");
     expect(readme).toContain("StdioServerTransport");
     expect(readme).toContain("pt-design-mcp-server");
+    expect(readme).toContain("pt-design live");
+    expect(readme).toContain("live hub");
     expect(readme).not.toMatch(/connect(?:s)? to .*4173/);
   });
 });

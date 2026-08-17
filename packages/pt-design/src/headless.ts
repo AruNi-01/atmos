@@ -14,6 +14,10 @@ export { SHADCN_BASIC_IDS, REQUIRED_BLOCKS, CATALOG_VERSION } from "./catalog/sh
 export { PT_DESIGN_TOOL_DEFS } from "./agent/tool-defs";
 export { openFileSession, runTool } from "./agent/api";
 export { createMcpServer, createSdkMcpServer, serveMcpStdio } from "./mcp/server";
+export { startLiveHub, ensureLiveHub } from "./live/hub";
+export { publishLiveEvent, attachLiveWatch } from "./live/publish";
+export type { LiveEvent } from "./live/protocol";
+export { watchDesignFile } from "./live/watch";
 export { runCli } from "./cli/bin";
 export { PtDesignError, PT_ERROR_CODES } from "./agent/errors";
 export type { PersistenceAdapter, HandoffSink, PtTheme } from "./host/adapters";

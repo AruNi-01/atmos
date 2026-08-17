@@ -6,6 +6,9 @@ import { PT_ERROR_CODES, PtDesignError } from "../agent/errors";
 import { PT_DESIGN_TOOL_DEFS, type ToolName } from "../agent/tool-defs";
 import { PT_TOOL_SCHEMAS } from "./schemas";
 import { paginate, toolError, toolSuccess, type ResponseFormat, type ToolResult } from "./format";
+import { buildLiveEvent, isMutatingTool } from "../live/event";
+import { ensureLiveHub } from "../live/hub";
+import { publishLiveEvent } from "../live/publish";
 
 export const MCP_SERVER_NAME = "pt-design-mcp-server";
 export const MCP_SERVER_VERSION = "0.0.1";
@@ -131,7 +134,23 @@ export function createSdkMcpServer(options: { file?: string } = {}): {
         annotations: annotationsFor(def.name),
       },
       async (params: Record<string, unknown>) => {
+        const prev = facade.fs.session.getScene();
         const result = executeTool(facade.fs, def.name, params ?? {});
+        if (!result.isError && isMutatingTool(def.name)) {
+          const event = buildLiveEvent(facade.fs, def.name, params ?? {}, result.data, "mcp", prev);
+          void publishLiveEvent(event);
+          void sdk.server.sendLoggingMessage({
+            level: "info",
+            logger: "pt-design",
+            data: {
+              tool: event.tool,
+              label: event.label,
+              instanceIds: event.instanceIds,
+              elementIds: event.elementIds,
+            },
+          });
+          void sdk.server.sendResourceUpdated({ uri: "pt-design://ir" });
+        }
         return {
           isError: result.isError,
           content: result.content,
@@ -218,6 +237,15 @@ export function createSdkMcpServer(options: { file?: string } = {}): {
 }
 
 export async function serveMcpStdio(file?: string): Promise<void> {
+  try {
+    const live = await ensureLiveHub({ file });
+    console.error(`${MCP_SERVER_NAME} live hub ${live}${file ? ` watching ${file}` : ""}`);
+  } catch (error) {
+    console.error(
+      `${MCP_SERVER_NAME} live hub unavailable:`,
+      error instanceof Error ? error.message : error,
+    );
+  }
   const { sdk } = createSdkMcpServer({ file });
   const transport = new StdioServerTransport();
   await sdk.connect(transport);

@@ -1,6 +1,7 @@
 import { isPtDesignError, cliExitCode, PT_ERROR_CODES, PtDesignError } from "../agent/errors";
 import { openFileSession, runTool } from "../agent/api";
 import { PT_DESIGN_TOOL_DEFS, toolNameFromCli, type ToolName } from "../agent/tool-defs";
+import { isMutatingTool } from "../live/event";
 
 type Parsed = {
   tokens: string[];
@@ -74,6 +75,25 @@ function resolveTool(tokens: string[]): { name: ToolName; rest: string[] } {
 export async function runCli(argv = process.argv.slice(2)): Promise<number> {
   try {
     const parsed = parseArgs(argv);
+    if (parsed.tokens[0] === "live") {
+      const port = typeof parsed.flags.port === "string" ? Number(parsed.flags.port) : undefined;
+      const { startLiveHub } = await import("../live/hub");
+      const hub = await startLiveHub(Number.isFinite(port) ? port : undefined, { file: parsed.file });
+      const payload = { ok: true as const, data: { url: hub.url, file: parsed.file ?? null } };
+      process.stdout.write(`${JSON.stringify(payload)}\n`);
+      process.stderr.write(
+        `PT Design live hub ${hub.url}${parsed.file ? ` watching ${parsed.file}` : ""}\n`,
+      );
+      await new Promise<void>((resolve) => {
+        const stop = () => {
+          hub.stop();
+          resolve();
+        };
+        process.once("SIGINT", stop);
+        process.once("SIGTERM", stop);
+      });
+      return 0;
+    }
     if (parsed.tokens.length === 0 || parsed.tokens[0] === "help") {
       const help = PT_DESIGN_TOOL_DEFS.map((d) => `  pt-design ${d.cli.join(" ")}`).join("\n");
       const payload = { ok: true, data: { help } };
@@ -121,7 +141,13 @@ export async function runCli(argv = process.argv.slice(2)): Promise<number> {
     if (name === "pt_ir_get") {
       args.frame = parsed.flags.frame;
     }
+    const prev = fs.session.getScene();
     const data = runTool(fs, { name, args });
+    if (isMutatingTool(name)) {
+      const { buildLiveEvent } = await import("../live/event");
+      const { publishLiveEvent } = await import("../live/publish");
+      await publishLiveEvent(buildLiveEvent(fs, name, args, data, "cli", prev));
+    }
     const out = { ok: true as const, data };
     process.stdout.write(`${JSON.stringify(out)}\n`);
     return 0;

@@ -39,6 +39,7 @@ export function PtDesignCenterPanel({ contextId }: { contextId: string }) {
         persistence={persistence}
         storageKey={`pt-design:scene:${contextId}`}
         className="h-full min-h-0"
+        liveUrl={process.env.NEXT_PUBLIC_PT_DESIGN_LIVE_URL}
       />
     </div>
   );

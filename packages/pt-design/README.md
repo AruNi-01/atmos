@@ -13,6 +13,8 @@ Prototype Design — Agent-first wireframe board + Design IR. Not live shadcn. N
 
 Starting the playground does **not** start MCP. Starting MCP does **not** serve a web UI.
 
+A separate **live hub** (`127.0.0.1:4174`) is how the open board sees Agent edits in real time. Playground and MCP start it if it is not already running. The CLI can start it with `pt-design live` and otherwise only publishes into an existing hub.
+
 ---
 
 ## Atmos embed
@@ -44,6 +46,8 @@ bun packages/pt-design/bin/pt-design.mjs ir get --file ./app.ptdesign.json --jso
 ```
 
 Every mutating command needs `--file`. Success: `{ "ok": true, "data": ... }`. Errors: `{ "ok": false, "error": { "code", "message" } }`.
+
+`pt-design live --file ./app.ptdesign.json` is the long-running CLI process: it binds the live hub and watches that JSON file. Mutating commands (`place`, `update`, …) stay one-shot — they POST an event and exit.
 
 ---
 
@@ -95,6 +99,36 @@ Do not point an MCP client at `:4173`. Logs go to stderr only.
 MCP and playground do **not** share memory. Pass the same `--file` to CLI and MCP. The Atmos embed currently persists localStorage, not that file.
 
 Without `--file`, the server keeps an in-memory document for the process lifetime.
+
+---
+
+## Agent live highlight
+
+Writing a `.ptdesign.json` file does **not** by itself notify the React board. The board only sees Agent work through a **local live hub** — same split as [mcp_excalidraw](https://github.com/yctimlin/mcp_excalidraw): MCP/CLI mutate, a small localhost process broadcasts, the open Excalidraw view applies the scene and pulses the touched shapes.
+
+```
+MCP tool / CLI command  --POST /event-->  127.0.0.1:4174  --WS /ws-->  PtDesignApp
+Agent Write of .ptdesign.json --fs.watch-->      |              (replace scene +
+MCP notifications/resources/updated              |               emerald pulse)
+pt-design live --file ./app.ptdesign.json  (hub + file watch; stays up)
+```
+
+- Playground and `pt-design-mcp` call `ensureLiveHub()` (port `PT_DESIGN_LIVE_PORT`, default **4174**). MCP also `POST /watch` so a raw file Write still reaches the board.
+- Each mutating tool publishes `{ tool, label, instanceIds, elementIds, boxes, scene }`.
+- The open board replaces the scene, scrolls the shape into view if it is off-screen, and draws an **emerald breathing ring** (same 2400ms cadence as Atmos Canvas `canvas-focus-pulse`) plus `Agent · Place button`. It does **not** steal the user's selection.
+- Catalog components pulse by `customData.pt.instanceId`. Raw circles / rectangles (no PT metadata) pulse by element id via a scene diff.
+- CLI mutating commands only POST; they do not leave a server behind. Use `pt-design live` when you want the hub + file watch without the playground.
+- MCP also sends `notifications/message` and `notifications/resources/updated` on `pt-design://ir` (Inspector / MCP client). That is not the canvas channel.
+- `https://` Atmos cloud pages cannot open `ws://127.0.0.1` (mixed content). Local playground (`http://127.0.0.1:4173`) and a local desktop origin can.
+
+```bash
+bun --cwd packages/pt-design playground          # UI + live hub
+# another terminal:
+bun packages/pt-design/bin/pt-design-mcp.mjs --file ./app.ptdesign.json
+# or:
+bun packages/pt-design/bin/pt-design.mjs live --file ./app.ptdesign.json
+bun packages/pt-design/bin/pt-design.mjs place button --at 80,80 --file ./app.ptdesign.json --json
+```
 
 ---
 

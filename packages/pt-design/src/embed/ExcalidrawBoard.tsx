@@ -13,6 +13,7 @@ export type { ExcalidrawHostApi };
 
 type ExcalidrawApi = {
   updateScene: (next: Record<string, unknown>) => void;
+  scrollToContent: (target?: unknown, opts?: { animate?: boolean; fitToContent?: boolean }) => void;
   toggleSidebar: (next: { name: string }) => unknown;
   getSceneElements: () => readonly ExcalidrawCompatElement[];
   getSceneElementsIncludingDeleted: () => readonly ExcalidrawCompatElement[];
@@ -41,6 +42,7 @@ export type ExcalidrawBoardProps = {
     },
   ) => void;
   catalog?: React.ReactNode;
+  overlay?: React.ReactNode;
 };
 
 function ComponentTrigger({
@@ -96,6 +98,7 @@ export default function ExcalidrawBoard({
   onApi,
   onChange,
   catalog,
+  overlay,
 }: ExcalidrawBoardProps) {
   const apiRef = React.useRef<ExcalidrawApi | null>(null);
 
@@ -123,7 +126,14 @@ export default function ExcalidrawBoard({
     <div
       data-testid="pt-design-board"
       data-theme={theme}
-      style={{ height: "100%", width: "100%", minHeight: 320, background: viewBackgroundColor }}
+      style={{
+        height: "100%",
+        width: "100%",
+        minHeight: 320,
+        background: viewBackgroundColor,
+        position: "relative",
+        overflow: "hidden",
+      }}
     >
       <Excalidraw
         theme={theme}
@@ -162,6 +172,9 @@ export default function ExcalidrawBoard({
                 ...(input.elements ? { elements: input.elements as never } : {}),
                 ...(input.appState ? { appState: input.appState as never } : {}),
               });
+            },
+            scrollToContent: (target, opts) => {
+              api.scrollToContent(target as never, opts);
             },
             getSceneElements: () =>
               api.getSceneElements() as unknown as readonly ExcalidrawCompatElement[],
@@ -205,6 +218,7 @@ export default function ExcalidrawBoard({
           </Sidebar>
         ) : null}
       </Excalidraw>
+      {overlay}
     </div>
   );
 }

@@ -20,6 +20,8 @@ Design files are `.ptdesign.json`.
 2. Mutate with `--file` on every command
 3. `pt-design ir get --file ./app.ptdesign.json --json`
 
+Prefer MCP/CLI tools over hand-editing the JSON so the open board can pulse the touched shape. If you do Write the file, start `pt-design live --file ./app.ptdesign.json` (or the playground) first — the live hub watches the file and pushes the scene to the UI.
+
 ## Tool ↔ CLI table
 
 | Tool | CLI |

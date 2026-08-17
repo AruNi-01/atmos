@@ -35,3 +35,15 @@ describe("excalidraw dark canvas invert", () => {
   });
 });
 
+describe("agent pulse overlay", () => {
+  test("injects canvas-matching pulse CSS so playground bun.build still shows the ring", () => {
+    const pulse = readFileSync(new URL("./AgentPulse.tsx", import.meta.url), "utf8");
+    const css = readFileSync(new URL("./agent-pulse.css", import.meta.url), "utf8");
+    expect(pulse).toContain("pt-design-agent-pulse-style");
+    expect(pulse).toContain("pt-agent-pulse");
+    expect(pulse).toContain("2400ms");
+    expect(css).toContain("@keyframes pt-agent-pulse");
+    expect(css).toContain("rgba(52, 211, 153");
+  });
+});
+

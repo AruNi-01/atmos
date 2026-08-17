@@ -21,6 +21,10 @@ import {
   type ExcalidrawCompatElement,
   type ExcalidrawHostApi,
 } from "./scene-bridge";
+import { AgentPulse } from "./AgentPulse";
+import { useLiveEvents } from "./use-live-events";
+import { boxesForTouched, sceneBoxToViewport, type SceneBox } from "../live/touched";
+import type { LiveEvent } from "../live/protocol";
 
 export type PtDesignAppProps = {
   session?: PtDesignSession;
@@ -29,6 +33,8 @@ export type PtDesignAppProps = {
   theme?: PtTheme;
   className?: string;
   storageKey?: string;
+  /** Empty string disables the local agent live channel. */
+  liveUrl?: string;
 };
 
 const ExcalidrawBoard = React.lazy(() => import("./ExcalidrawBoard"));
@@ -40,6 +46,7 @@ export function PtDesignApp({
   theme,
   className,
   storageKey = "pt-design:scene:v1",
+  liveUrl,
 }: PtDesignAppProps) {
   const persist = React.useMemo(
     () => persistence ?? localStoragePersistence(storageKey),
@@ -52,6 +59,10 @@ export function PtDesignApp({
   const apiRef = React.useRef<ExcalidrawHostApi | null>(null);
   const applyGateRef = React.useRef(createApplyGate());
   const loadingRef = React.useRef(false);
+  const [pulse, setPulse] = React.useState<{ label: string; boxes: SceneBox[] } | null>(null);
+  const [activity, setActivity] = React.useState<string | null>(null);
+  const [, setCameraTick] = React.useState(0);
+  const pulseTimer = React.useRef<number>(0);
   const boardTheme = resolveBoardTheme(theme);
   const chrome = chromeTokens(boardTheme);
 
@@ -116,7 +127,70 @@ export function PtDesignApp({
     };
   }, [persist, session, pushScene]);
 
+  const applyLiveEvent = React.useCallback(
+    (event: LiveEvent) => {
+      if (event.scene) {
+        loadingRef.current = true;
+        session.dispatch({ type: "replaceScene", scene: event.scene });
+        loadingRef.current = false;
+        setTick((n) => n + 1);
+      }
+      const scene = event.scene ?? session.getScene();
+      const boxes =
+        event.boxes.length > 0
+          ? event.boxes
+          : boxesForTouched(scene, { instanceIds: event.instanceIds, elementIds: event.elementIds });
+      const label = `Agent · ${event.label}`;
+      setActivity(label);
+      setPulse(boxes.length ? { label, boxes } : null);
+      window.clearTimeout(pulseTimer.current);
+      pulseTimer.current = window.setTimeout(() => {
+        setPulse((current) => (current?.label === label ? null : current));
+        setActivity((current) => (current === label ? null : current));
+      }, 2400);
+      pushScene();
+      const api = apiRef.current;
+      if (api && boxes.length) {
+        const cam = api.getAppState();
+        const vp = sceneBoxToViewport(boxes[0]!, cam);
+        const margin = 48;
+        const visible =
+          vp.left >= margin &&
+          vp.top >= margin &&
+          vp.left + vp.width <= cam.width - margin &&
+          vp.top + vp.height <= cam.height - margin;
+        if (!visible) {
+          const targets = scene.elements.filter((el) => {
+            if (el.isDeleted) return false;
+            if (event.elementIds.includes(el.id)) return true;
+            const instanceId = el.customData?.pt?.instanceId;
+            return Boolean(instanceId && event.instanceIds.includes(instanceId));
+          });
+          try {
+            api.scrollToContent(targets.length ? targets : undefined, { animate: true });
+          } catch {
+            /* Excalidraw may reject a transient scene */
+          }
+        }
+        setCameraTick((n) => n + 1);
+      }
+    },
+    [pushScene, session],
+  );
+
+  React.useEffect(() => {
+    return () => window.clearTimeout(pulseTimer.current);
+  }, []);
+
+  useLiveEvents(liveUrl, applyLiveEvent);
+
   const scene = session.getScene();
+  const camera = apiRef.current?.getAppState();
+  const pulseBoxes = pulse
+    ? pulse.boxes.map((box) =>
+        sceneBoxToViewport(box, camera ?? { scrollX: 0, scrollY: 0, zoom: { value: 1 } }),
+      )
+    : [];
   const catalog = listComponentTypes();
   const selected = selectedInstanceId
     ? scene.elements.find(
@@ -142,6 +216,7 @@ export function PtDesignApp({
       ?.customData?.pt?.instanceId;
     setSelectedInstanceId(instanceId ?? null);
     if (instanceId) session.setSelection([instanceId]);
+    setCameraTick((n) => n + 1);
 
     if (applyGateRef.current.consume()) return;
     const next = excalidrawElementsToScene(elements, appState, boardTheme);
@@ -217,6 +292,11 @@ export function PtDesignApp({
           >
             Copy IR
           </button>
+          {activity ? (
+            <span data-testid="pt-design-agent-activity" style={{ fontSize: 12, color: chrome.mutedFg }}>
+              {activity}
+            </span>
+          ) : null}
           {selectedEntry && selectedInstanceId && selectedEntry.variants.length > 1 ? (
             <span style={{ display: "inline-flex", gap: 4, alignItems: "center", fontSize: 12, color: chrome.mutedFg }}>
               Variant
@@ -249,6 +329,7 @@ export function PtDesignApp({
                 pushScene();
               }}
               onChange={handleBoardChange}
+              overlay={pulse ? <AgentPulse boxes={pulseBoxes} label={pulse.label} /> : null}
               catalog={
                 <ComponentCatalog
                   items={catalog}

@@ -76,5 +76,6 @@ describe("PT Design Atmos host wiring", () => {
     expect(panel).toContain("theme={theme}");
     expect(panel).toContain("bg-background");
     expect(panel).toContain("text-foreground");
+    expect(panel).toContain("liveUrl");
   });
 });

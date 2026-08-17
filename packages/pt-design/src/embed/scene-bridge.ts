@@ -19,6 +19,10 @@ export type ExcalidrawHostApi = {
       currentItemFontFamily?: number;
     };
   }) => void;
+  scrollToContent: (
+    target?: unknown,
+    opts?: { animate?: boolean; fitToContent?: boolean },
+  ) => void;
   getSceneElements: () => readonly ExcalidrawCompatElement[];
   getSceneElementsIncludingDeleted: () => readonly ExcalidrawCompatElement[];
   getAppState: () => {

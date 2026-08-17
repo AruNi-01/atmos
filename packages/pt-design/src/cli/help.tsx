@@ -12,6 +12,7 @@ export function HelpApp() {
           {"  "}pt-design {def.cli.join(" ")}
         </Text>
       ))}
+      <Text>{"  "}pt-design live --file ./app.ptdesign.json</Text>
     </Box>
   );
 }
