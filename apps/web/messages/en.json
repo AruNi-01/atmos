@@ -601,6 +601,7 @@
         "allow": "Allow",
         "skip": "Not now",
         "denied": "{products} cloud usage is off.",
+        "deniedNote": "Enabling will ask Keychain Access for the browser cookie key so Atmos can read dashboard usage. The key stays on this computer and is used only for usage data.",
         "enable": "Enable"
       },
       "header": {

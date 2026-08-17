@@ -601,6 +601,7 @@
         "allow": "允许",
         "skip": "暂不",
         "denied": "未包含 {products} 云端用量。",
+        "deniedNote": "开启后会向钥匙串申请浏览器 Cookie 密钥，以便读取控制台用量。密钥只留在本机，且仅用于用量数据。",
         "enable": "开启"
       },
       "header": {
