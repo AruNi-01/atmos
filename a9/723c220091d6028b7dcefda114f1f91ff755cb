@@ -1,0 +1,42 @@
+agents/references/runtime/atmos-home-layout.md
+  h_5be255725524c8 36,71
+apps/api/AGENTS.md
+  h_5be255725524c8 73-74
+apps/api/src/api/mod.rs
+  h_5be255725524c8 6-7,27
+apps/api/src/api/pt_design.rs
+  h_5be255725524c8 1-191
+apps/api/src/api/pt_design_agent.rs
+  h_5be255725524c8 1-321
+apps/api/src/api/ws/message.rs
+  h_5be255725524c8 253-258,837-838
+apps/api/src/api/ws/mod.rs
+  h_5be255725524c8 9,24,36-37
+apps/api/src/api/ws/pt_design.rs
+  h_5be255725524c8 1-248
+apps/api/src/api/ws/router/mod.rs
+  h_5be255725524c8 72,96,125,212-220,1188-1257,1315
+apps/api/src/app_state.rs
+  h_5be255725524c8 3,29,47,54-55,74,80,107,113
+apps/api/src/main.rs
+  h_5be255725524c8 571,585,630
+crates/runtime-manager/src/layout.rs
+  h_5be255725524c8 114-124
+crates/runtime-manager/src/lib.rs
+  h_5be255725524c8 46-48
+packages/api-types/fixtures/actions.server.json
+  h_5be255725524c8 19-21
+packages/api-types/src/ws/actions.ts
+  h_5be255725524c8 21-23
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "a9723c220091d6028b7dcefda114f1f91ff755cb",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
