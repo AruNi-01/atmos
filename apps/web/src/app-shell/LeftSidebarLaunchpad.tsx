@@ -412,9 +412,14 @@ function LaunchpadCard({
 
   if (item.kind === "pt-design") {
     return (
-      <div onClick={onOpenPtDesign} className={cardClassName} role="button" aria-label={t("launchpad.items.ptDesign")}>
+      <button
+        type="button"
+        onClick={onOpenPtDesign}
+        className={cn(cardClassName, "w-full border-0 bg-transparent p-0")}
+        aria-label={t("launchpad.items.ptDesign")}
+      >
         {cardInner}
-      </div>
+      </button>
     );
   }
 

@@ -20,6 +20,15 @@ describe("PT Design Atmos host wiring", () => {
     expect(store).toContain("'pt-design'");
   });
 
+  test("warm-frame snapshot treats pt-design as a valid light tab", () => {
+    const panels = readFileSync(
+      join(import.meta.dir, "../CenterStagePanels.tsx"),
+      "utf8",
+    );
+    expect(panels).toMatch(/validForContext[\s\S]*"pt-design"/);
+    expect(panels).toContain('frameActiveTab === "pt-design"');
+  });
+
   test("left sidebar launchpad opens the center tab", () => {
     const launchpad = readFileSync(
       join(import.meta.dir, "../LeftSidebarLaunchpad.tsx"),
@@ -28,6 +37,8 @@ describe("PT Design Atmos host wiring", () => {
     expect(launchpad).toContain("pt-design");
     expect(launchpad).toContain("PencilRuler");
     expect(launchpad).toContain("onOpenPtDesign");
+    expect(launchpad).not.toMatch(/<div onClick=\{onOpenPtDesign\}/);
+    expect(launchpad).toMatch(/onClick=\{onOpenPtDesign\}[\s\S]{0,80}type="button"|type="button"[\s\S]{0,80}onClick=\{onOpenPtDesign\}/);
     const sidebar = readFileSync(
       join(import.meta.dir, "../LeftSidebar.tsx"),
       "utf8",
