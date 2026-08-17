@@ -887,6 +887,7 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
     if (!isCodeReview && !isProjectWiki) {
       return (
         <TerminalWorkspacePane
+          key={id}
           id={id}
           pane={pane}
           workspaceId={workspaceId}
@@ -925,6 +926,7 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
 
     return (
       <TerminalScopedPane
+        key={id}
         id={id}
         pane={pane}
         workspaceId={workspaceId}
@@ -1036,6 +1038,10 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
           renderPane={renderPane}
           onLayoutChange={onChange}
           onResizeDragChange={setIsPaneDragging}
+          capturePane={(paneId, width, height) =>
+            terminalRefsMap.current.get(paneId)?.capturePreview(width, height) ??
+            null
+          }
         />
 
         <TerminalGridCloseConfirmDialog

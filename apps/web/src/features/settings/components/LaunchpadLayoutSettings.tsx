@@ -20,6 +20,7 @@ import {
   LayoutGrid,
   List,
   ListTodo,
+  PencilRuler,
   Plus,
   Presentation,
   Puzzle,
@@ -51,6 +52,7 @@ const ITEM_I18N_KEYS: Record<LaunchpadItemId, string> = {
   'disk-analyzer': 'items.diskAnalyzer',
   'token-usage': 'items.tokenUsage',
   canvas: 'items.canvas',
+  'pt-design': 'items.ptDesign',
   tasks: 'items.tasks',
   'new-workspace': 'items.newWorkspace',
 };
@@ -65,6 +67,7 @@ const ITEM_ICONS: Record<LaunchpadItemId, LucideIcon> = {
   'disk-analyzer': HardDrive,
   'token-usage': ChartColumnBig,
   canvas: Presentation,
+  'pt-design': PencilRuler,
   tasks: ListTodo,
   'new-workspace': Plus,
 };

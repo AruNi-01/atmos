@@ -280,7 +280,10 @@ export function PanelLayout({
           order={2}
           defaultSize={100 - DEFAULT_LEFT_SIDEBAR_SIZE}
           minSize={25}
-          className="relative h-full [contain:layout]"
+          /* Do not add contain:layout/paint here. It becomes the containing
+             block for position:fixed, so Excalidraw laser/eraser trails and
+             other viewport-fixed overlays shift right by the sidebar width. */
+          className="relative h-full"
         >
           {centerStage}
         </Panel>

@@ -17,6 +17,7 @@
 | **i18n** | `@atmos/i18n` | next-intl routing helpers | Mobile-only copy as sole home | Next apps |
 | **config** | `@atmos/config` | tsconfig bases | Runtime product code | Tooling |
 | **relay** | `@atmos/relay` (private) | Cloudflare Worker/DO | App business logic / client SDK | Relay edge |
+| **pt-design** | `@atmos/pt-design` | Prototype wireframe canvas, Design IR, MCP/CLI (APP-062) | api-*/shared/ui, Atmos Rust CLI | Isolated product |
 
 Apps (`apps/web`, `apps/mobile`, `apps/desktop-electron`, …) own UI, feature state, platform bootstrap, and **desktop IPC**.
 
@@ -37,7 +38,8 @@ Apps (`apps/web`, `apps/mobile`, `apps/desktop-electron`, …) own UI, feature s
 8. **Relay edge routing?** → `packages/relay` only  
 9. **Electron IPC / preload bridge?** → `apps/desktop-electron` only  
 10. **TanStack Query keys / server-state?** → app (APP-035)  
-11. **Else** → owning app  
+11. **UI prototype wireframe / Design IR / PT Design MCP or CLI?** → `@atmos/pt-design` (APP-062). Not Canvas (APP-014), not `@workspace/ui`, not `apps/cli`.
+12. **Else** → owning app  
 
 ---
 
@@ -48,6 +50,7 @@ apps/* ──► @atmos/api-client ──► @atmos/api-types
 apps/* ──► @atmos/api-types
 apps/* ──► @atmos/hub-client
 apps/* ──► @atmos/relay-client
+apps/web ──► @atmos/pt-design (public embed only)
 apps/* ──► @atmos/shared
 apps/web ──► @workspace/ui
 Next apps ──► @atmos/i18n

@@ -70,6 +70,8 @@ On successful `TcpListener::bind`:
 
 - Primary transport for interactive features (see root **Transport Rules**).
 - Browser/client WebSocket belongs here, not in `infra`.
+- `/ws/pt-design/:roomId` is the local PT Design collab hub (same frames as Relay). User + Agent on this machine stay here; remote invite still uses `packages/relay`.
+- `POST /api/pt-design/agent/invoke` is non-browser Agent/CLI ingress (same category as `/api/canvas/agent/invoke`). The Server does not run PT Design tools; it forwards to the open board over `/ws` (`pt_design_agent_dispatch`). Opening the tab is enough — Share is not required. Users do not configure MCP or put `pt-design-mcp` on PATH.
 - `api/ws` owns connection lifecycle, auth context, message parsing, protocol DTOs, action routing, and mapping service events to WS notifications.
 - `core-service` should not depend on `WsMessage`, `WsAction`, `WsManager`, or Axum. If a service needs to notify clients, emit a service event and adapt it here.
 - `relay/ingest` must treat relay peers like local WS clients for routing (`conn_id`, events), while relay protocol adaptation stays in `apps/api/src/relay`.

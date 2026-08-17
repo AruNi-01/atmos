@@ -250,6 +250,12 @@ pub enum WsAction {
     CanvasBridgeUnregister,
     /// Browser uplink for a previously dispatched canvas-agent command (APP-015)
     CanvasAgentDispatchResult,
+    /// Register this browser tab as a PT Design agent-bridge target
+    PtDesignBridgeRegister,
+    /// Unregister this browser tab from the PT Design agent bridge
+    PtDesignBridgeUnregister,
+    /// Browser uplink for a previously dispatched PT Design agent tool
+    PtDesignAgentDispatchResult,
 
     // ===== Git 操作 =====
     /// 获取 Git 状态（未提交/未推送的更改）
@@ -828,6 +834,8 @@ pub enum WsEvent {
     LocalModelStateChanged,
     /// Server → browser: terminal-agent command dispatch (APP-015)
     CanvasAgentDispatch,
+    /// Server → browser: PT Design agent tool dispatch
+    PtDesignAgentDispatch,
     /// Automation definition changed
     AutomationDefinitionUpdated,
     /// Automation run changed

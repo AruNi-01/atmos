@@ -67,6 +67,7 @@ export type WorkspaceCenterFrameProps = {
   runTabVisible: boolean;
   githubHubTabVisible: boolean;
   filesTabVisible: boolean;
+  ptDesignTabVisible: boolean;
   terminalQuickOpenAgents: TerminalQuickOpenAgent[] | undefined;
   terminalGridRef: RefObject<TerminalGridHandle | null> | undefined;
   terminalGridRefs: RefObject<Record<string, TerminalGridHandle | null>> | undefined;
@@ -139,6 +140,7 @@ export function workspaceCenterFramePropsAreEqual(
     prev.runTabVisible === next.runTabVisible &&
     prev.githubHubTabVisible === next.githubHubTabVisible &&
     prev.filesTabVisible === next.filesTabVisible &&
+    prev.ptDesignTabVisible === next.ptDesignTabVisible &&
     prev.terminalQuickOpenAgents === next.terminalQuickOpenAgents &&
     prev.terminalGridRef === next.terminalGridRef &&
     prev.terminalGridRefs === next.terminalGridRefs &&

@@ -133,6 +133,7 @@ export function useCenterStageTabGroups({
   runTabVisible = false,
   githubHubTabVisible = false,
   filesTabVisible = false,
+  ptDesignTabVisible = false,
   githubTabs,
   openFiles,
   previewBrowserPrefs = DEFAULT_PREVIEW_BROWSER_PREFS,
@@ -148,6 +149,7 @@ export function useCenterStageTabGroups({
   runTabVisible?: boolean;
   githubHubTabVisible?: boolean;
   filesTabVisible?: boolean;
+  ptDesignTabVisible?: boolean;
   githubTabs: GithubCenterTab[];
   openFiles: OpenFile[];
   previewBrowserPrefs?: PreviewBrowserPrefs;
@@ -215,6 +217,14 @@ export function useCenterStageTabGroups({
         kind: "files",
       });
     }
+    if (ptDesignTabVisible) {
+      fileTabs.push({
+        id: "pt-design",
+        label: tabBarT("ptDesign"),
+        value: "pt-design",
+        kind: "pt-design",
+      });
+    }
     openFiles
       .filter((file) => !isDiffEditorPath(file.path) && !isConflictResolveEditorPath(file.path))
       .forEach((file) => {
@@ -230,6 +240,8 @@ export function useCenterStageTabGroups({
       fileTabs.sort((left, right) => {
         if (left.kind === "files") return -1;
         if (right.kind === "files") return 1;
+        if (left.kind === "pt-design") return -1;
+        if (right.kind === "pt-design") return 1;
         return byOpenedAt(
           { openedAt: left.file!.lastOpenedAt },
           { openedAt: right.file!.lastOpenedAt },
@@ -381,6 +393,7 @@ export function useCenterStageTabGroups({
     changesTabVisible,
     codeReviewTabVisible,
     filesTabVisible,
+    ptDesignTabVisible,
     gitHistoryTabVisible,
     githubHubTabVisible,
     githubTabs,

@@ -6,6 +6,7 @@ import {
   APP_FOOTER_HEIGHT_PX,
   CENTER_STAGE_GUTTER_X_PX,
   CENTER_STAGE_GUTTER_Y_PX,
+  CENTER_STAGE_RADIUS_CLASS,
   DEFAULT_LEFT_SIDEBAR_SIZE,
 } from "@/app-shell/sidebar-layout-constants";
 import { cn } from "@/shared/lib/utils";
@@ -24,11 +25,10 @@ export function NewWorkspaceWelcomeOverlay() {
 
   const isShown = welcomeOverlay.animationState === "visible" && !welcomeOverlay.isClosing;
 
-  // Align with center-stage floating card: under header, above footer,
-  // full rounded-xl (workspace chrome uses the same radius/ring/gutters).
+  // Align with the center-stage floating card. This overlay is already inside
+  // PanelLayout (below Header), so only reserve the footer strip + gutters.
   const gutterX = CENTER_STAGE_GUTTER_X_PX;
   const gutterY = CENTER_STAGE_GUTTER_Y_PX;
-  const headerHeightPx = 48; // Header h-12
   const footerHeightPx = APP_FOOTER_HEIGHT_PX;
   const leftInset = isLeftCollapsed
     ? gutterX
@@ -46,7 +46,8 @@ export function NewWorkspaceWelcomeOverlay() {
       aria-label="New workspace"
       className={cn(
         "absolute z-[49] overflow-hidden bg-background will-change-[translate]",
-        "rounded-xl ring-1 ring-border/40 shadow-[0_-8px_30px_rgba(0,0,0,0.12)]",
+        CENTER_STAGE_RADIUS_CLASS,
+        "ring-1 ring-border/40 shadow-[0_-8px_30px_rgba(0,0,0,0.12)]",
         // Prefer reduced motion: kill the slide without fighting inline transition props.
         "motion-reduce:![transition-property:none]",
         isShown
@@ -54,7 +55,7 @@ export function NewWorkspaceWelcomeOverlay() {
           : "translate-y-full",
       )}
       style={{
-        top: headerHeightPx + gutterY,
+        top: gutterY,
         right: gutterX,
         bottom: footerHeightPx + gutterY,
         left: leftInset,

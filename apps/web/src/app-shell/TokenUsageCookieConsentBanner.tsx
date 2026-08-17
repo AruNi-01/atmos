@@ -6,6 +6,9 @@ import { Button, cn } from "@workspace/ui";
 
 import type { BrowserCookieAccessResponse } from "@/api/ws/token-usage-api";
 
+const CARD_CLASS =
+  "flex w-72 flex-col rounded-2xl border border-border/60 bg-background/95 p-3.5 shadow-lg backdrop-blur-md";
+
 export function TokenUsageCookieConsentBanner({
   items,
   busy,
@@ -39,67 +42,63 @@ export function TokenUsageCookieConsentBanner({
   if (pending.length === 0) {
     const providerIds = denied.map((item) => item.provider_id);
     return (
-      <div
-        className={cn(
-          "flex w-56 flex-col gap-2.5 rounded-2xl border border-border/50 bg-background/95 px-3 py-3 shadow-lg backdrop-blur-md",
-          className,
-        )}
-        role="status"
-      >
-        <p className="text-[11px] leading-relaxed text-muted-foreground">
-          {t("denied", { products: productLabel(denied) })}
-        </p>
-        <Button
-          type="button"
-          size="sm"
-          variant="ghost"
-          className="h-7 shrink-0 px-2 text-[11px]"
-          disabled={busy}
-          onClick={() => onEnable(providerIds)}
-        >
-          {t("enable")}
-        </Button>
+      <div className={cn(CARD_CLASS, className)} role="status">
+        <div className="flex gap-2.5">
+          <KeyRound className="mt-0.5 size-3.5 shrink-0 text-foreground/70" />
+          <div className="min-w-0 flex-1 space-y-1">
+            <p className="text-xs font-medium text-pretty text-foreground">
+              {t("denied", { products: productLabel(denied) })}
+            </p>
+            <p className="text-[11px] leading-relaxed text-pretty text-muted-foreground">
+              {t("deniedNote")}
+            </p>
+          </div>
+        </div>
+        <div className="mt-3 flex justify-end">
+          <Button
+            type="button"
+            size="sm"
+            disabled={busy}
+            loading={busy}
+            onClick={() => onEnable(providerIds)}
+          >
+            {t("enable")}
+          </Button>
+        </div>
       </div>
     );
   }
 
   return (
-    <div
-      role="note"
-      className={cn(
-        "flex w-56 gap-2.5 rounded-2xl border border-border/50 bg-background/95 px-3 py-3 shadow-lg backdrop-blur-md",
-        className,
-      )}
-    >
-      <KeyRound className="mt-0.5 size-3.5 shrink-0 text-foreground/70" />
-      <div className="min-w-0 flex-1 space-y-2.5">
-        <div className="space-y-1">
-          <p className="text-xs font-medium text-foreground">{t("title")}</p>
-          <p className="text-[11px] leading-relaxed text-muted-foreground">
+    <div role="note" className={cn(CARD_CLASS, className)}>
+      <div className="flex gap-2.5">
+        <KeyRound className="mt-0.5 size-3.5 shrink-0 text-foreground/70" />
+        <div className="min-w-0 flex-1 space-y-1">
+          <p className="text-xs font-medium text-pretty text-foreground">{t("title")}</p>
+          <p className="text-[11px] leading-relaxed text-pretty text-muted-foreground">
             {t("note", { products: productLabel(pending) })}
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <Button
-            type="button"
-            size="sm"
-            className="h-7 px-2.5 text-[11px]"
-            disabled={busy}
-            onClick={() => onAllow(pending.map((item) => item.provider_id))}
-          >
-            {t("allow")}
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant="ghost"
-            className="h-7 px-2.5 text-[11px]"
-            disabled={busy}
-            onClick={() => onSkip(pending.map((item) => item.provider_id))}
-          >
-            {t("skip")}
-          </Button>
-        </div>
+      </div>
+      <div className="mt-3 flex items-center justify-end gap-1.5">
+        <Button
+          type="button"
+          size="sm"
+          variant="ghost"
+          disabled={busy}
+          onClick={() => onSkip(pending.map((item) => item.provider_id))}
+        >
+          {t("skip")}
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          disabled={busy}
+          loading={busy}
+          onClick={() => onAllow(pending.map((item) => item.provider_id))}
+        >
+          {t("allow")}
+        </Button>
       </div>
     </div>
   );

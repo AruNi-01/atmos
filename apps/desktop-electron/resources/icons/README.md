@@ -15,6 +15,8 @@
 |-------|------|
 | `crates/desktop-use/assets/host-app-icon.icns` | **Atmos Desktop Use.app** — System Settings / Accessibility / Screen Recording |
 | `apps/web/public/notification-icon.png` | Default system-notification **content** icon (left side of banner) |
+| `apps/{docs,landing,web}/src/app/icon.png` | Site favicons (Next.js App Router) |
+| `apps/docs/src/app/apple-icon.png` + `apps/docs/public/favicon.ico` | Docs Apple touch icon and legacy favicon |
 
 Legacy bitmap/icns/ico are **synced** from the Tauri pack:
 
@@ -47,6 +49,8 @@ bun run regen-legacy-icns
 #   resources/icons/icon.icns + png sizes (+ Tauri source)
 #   crates/desktop-use/assets/host-app-icon.icns
 #   apps/web/public/notification-icon.png
+#   apps/{docs,landing,web}/src/app/icon.png
+#   apps/docs/src/app/apple-icon.png + apps/docs/public/favicon.ico
 ```
 
 After changing the host icns, the next Desktop Use engine ensure/rebrand rewrites

@@ -16,12 +16,17 @@ routes = [{ pattern = "relay.atmos.land", custom_domain = true }]
 
 [durable_objects]
 bindings = [
-  { name = "SERVER_HUB", class_name = "ServerHub" }
+  { name = "SERVER_HUB", class_name = "ServerHub" },
+  { name = "PT_DESIGN_ROOM", class_name = "PtDesignRoom" }
 ]
 
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["ServerHub"]
+
+[[migrations]]
+tag = "v2"
+new_sqlite_classes = ["PtDesignRoom"]
 
 [[d1_databases]]
 binding = "DB"

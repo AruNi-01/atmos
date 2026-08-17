@@ -69,6 +69,7 @@ pub struct WsMessageService {
     review_service: Arc<ReviewService>,
     quota_usage_service: Arc<QuotaUsageService>,
     canvas_agent_relay: Arc<CanvasAgentRelay>,
+    pt_design_agent_relay: Arc<CanvasAgentRelay>,
     local_services_service: Arc<LocalServicesService>,
     disk_analyzer_service: Arc<DiskAnalyzerService>,
     notification_service: Arc<NotificationService>,
@@ -92,6 +93,7 @@ impl WsMessageService {
         review_service: Arc<ReviewService>,
         quota_usage_service: Arc<QuotaUsageService>,
         canvas_agent_relay: Arc<CanvasAgentRelay>,
+        pt_design_agent_relay: Arc<CanvasAgentRelay>,
         notification_service: Arc<NotificationService>,
         token_usage_service: Arc<token_usage::TokenUsageService>,
         db: Arc<DatabaseConnection>,
@@ -120,6 +122,7 @@ impl WsMessageService {
             review_service,
             quota_usage_service,
             canvas_agent_relay,
+            pt_design_agent_relay,
             local_services_service,
             disk_analyzer_service,
             notification_service,
@@ -205,6 +208,15 @@ impl WsMessageService {
             }
             WsAction::CanvasAgentDispatchResult => {
                 self.handle_canvas_agent_dispatch_result(conn_id, parse_request(request.data)?)
+            }
+            WsAction::PtDesignBridgeRegister => {
+                self.handle_pt_design_bridge_register(conn_id, parse_request(request.data)?)
+            }
+            WsAction::PtDesignBridgeUnregister => {
+                self.handle_pt_design_bridge_unregister(conn_id, parse_request(request.data)?)
+            }
+            WsAction::PtDesignAgentDispatchResult => {
+                self.handle_pt_design_agent_dispatch_result(conn_id, parse_request(request.data)?)
             }
 
             // Git
@@ -1173,6 +1185,76 @@ impl WsMessageService {
         }
     }
 
+    fn handle_pt_design_bridge_register(
+        &self,
+        conn_id: &str,
+        req: CanvasBridgeRegisterRequest,
+    ) -> Result<Value> {
+        self.pt_design_agent_relay.register(
+            conn_id,
+            req.client_id.clone(),
+            req.label,
+            req.accepts_commands,
+            req.capabilities,
+            req.active_document_file_name,
+        );
+        Ok(json!({
+            "ok": true,
+            "client_id": req.client_id,
+            "conn_id": conn_id,
+        }))
+    }
+
+    fn handle_pt_design_bridge_unregister(
+        &self,
+        conn_id: &str,
+        req: CanvasBridgeUnregisterRequest,
+    ) -> Result<Value> {
+        self.pt_design_agent_relay
+            .unregister(conn_id, &req.client_id);
+        Ok(json!({ "ok": true, "client_id": req.client_id }))
+    }
+
+    fn handle_pt_design_agent_dispatch_result(
+        &self,
+        conn_id: &str,
+        req: CanvasAgentDispatchResultRequest,
+    ) -> Result<Value> {
+        let outcome = CanvasAgentDispatchOutcome {
+            success: req.success,
+            error_code: req.error_code,
+            error_message: req.error_message,
+            recoverable: req.recoverable,
+            data: req.data,
+        };
+        let result =
+            self.pt_design_agent_relay
+                .complete_dispatch(&req.request_id, conn_id, outcome);
+        match result {
+            CompleteDispatchResult::Completed => Ok(json!({
+                "ok": true,
+                "completed": true,
+                "request_id": req.request_id,
+            })),
+            CompleteDispatchResult::Unknown => Ok(json!({
+                "ok": true,
+                "completed": false,
+                "request_id": req.request_id,
+            })),
+            CompleteDispatchResult::ConnMismatch => {
+                tracing::warn!(
+                    "pt_design_agent: rejected dispatch_result for {} from foreign conn {}",
+                    req.request_id,
+                    conn_id
+                );
+                Err(ServiceError::Validation(format!(
+                    "pt_design_agent: request_id {} is owned by another connection",
+                    req.request_id
+                )))
+            }
+        }
+    }
+
     fn handle_app_open(&self, req: AppOpenRequest) -> Result<Value> {
         let path = self.fs_engine.expand_path(&req.path)?;
         self.app_engine
@@ -1230,6 +1312,7 @@ impl WsMessageHandler for WsMessageService {
         tracing::info!("[WsMessageService] Client disconnected: {}", conn_id);
         // APP-015: drop any canvas-bridge registrations associated with this conn
         self.canvas_agent_relay.unregister_conn(conn_id);
+        self.pt_design_agent_relay.unregister_conn(conn_id);
         self.disk_analyzer_service
             .remove_connection_sessions(conn_id);
     }

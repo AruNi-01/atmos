@@ -1,0 +1,41 @@
+{
+  "name": "@atmos/pt-design",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "PT Design — Agent-first prototype wireframe surface (APP-062).",
+  "exports": {
+    ".": "./src/index.ts",
+    "./headless": "./src/headless.ts"
+  },
+  "bin": {
+    "pt-design": "./bin/pt-design.mjs",
+    "pt-design-mcp": "./bin/pt-design-mcp.mjs"
+  },
+  "scripts": {
+    "typecheck": "bun ../../scripts/run-tsc7.ts --noEmit",
+    "test": "bun test src",
+    "playground": "bun ./playground/server.ts"
+  },
+  "peerDependencies": {
+    "react": ">=18",
+    "react-dom": ">=18"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3",
+    "typescript": "6.0.3"
+  },
+  "dependencies": {
+    "@excalidraw/excalidraw": "0.18.1",
+    "@modelcontextprotocol/sdk": "1.30.0",
+    "ink": "^7.1.1",
+    "lucide-react": "^0.544.0",
+    "motion": "^12.23.12",
+    "socket.io-client": "^4.8.1",
+    "zod": "^4.4.3"
+  }
+}

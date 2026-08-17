@@ -334,6 +334,18 @@ export const canvasAgentBridgeWsApi = {
     }),
 };
 
+export const ptDesignAgentBridgeWsApi = {
+  register: (payload: CanvasBridgeRegisterPayload) =>
+    wsRequest<unknown>("pt_design_bridge_register", payload),
+  unregister: (clientId: string) =>
+    wsRequest<unknown>("pt_design_bridge_unregister", { client_id: clientId }),
+  postResult: (payload: CanvasAgentDispatchResultPayload) =>
+    wsRequest<unknown>("pt_design_agent_dispatch_result", {
+      ...payload,
+      data: payload.data ?? null,
+    }),
+};
+
 // ===== Git API =====
 
 export const gitApi = {

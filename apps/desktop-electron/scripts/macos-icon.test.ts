@@ -125,8 +125,14 @@ print("ok", w / im.width)
       repoRoot,
       "apps/web/public/notification-icon.png",
     );
+    const docsIconPng = join(repoRoot, "apps/docs/src/app/icon.png");
+    const docsAppleIconPng = join(repoRoot, "apps/docs/src/app/apple-icon.png");
+    const docsFaviconIco = join(repoRoot, "apps/docs/public/favicon.ico");
     expect(existsSync(hostIcns)).toBe(true);
     expect(existsSync(notificationPng)).toBe(true);
+    expect(existsSync(docsIconPng)).toBe(true);
+    expect(existsSync(docsAppleIconPng)).toBe(true);
+    expect(existsSync(docsFaviconIco)).toBe(true);
     // When app icns is present (after sync-icons), it must match the host brand plate.
     if (!existsSync(appIcns)) {
       return;

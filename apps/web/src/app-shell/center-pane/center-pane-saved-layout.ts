@@ -53,6 +53,7 @@ export type CenterSurfaceKind =
   | "run"
   | "github"
   | "files"
+  | "pt-design"
   | "browser";
 
 export type SavedCenterPaneSpec = {

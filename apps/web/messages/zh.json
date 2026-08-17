@@ -355,6 +355,7 @@
       "newReview": "评审",
       "newRun": "运行",
       "newGithub": "GitHub",
+      "newPtDesign": "Prototype Design",
       "newFiles": "文件",
       "newSimulator": "模拟器",
       "splitRight": "向右分屏",
@@ -377,6 +378,8 @@
       "closeGithubTab": "关闭 GitHub 标签页",
       "files": "文件",
       "closeFilesTab": "关闭文件标签页",
+      "ptDesign": "Prototype Design",
+      "closePtDesignTab": "关闭 Prototype Design 标签页",
       "simulator": "模拟器",
       "closeSimulatorTab": "关闭模拟器标签页",
       "history": "图形历史",
@@ -598,6 +601,7 @@
         "allow": "允许",
         "skip": "暂不",
         "denied": "未包含 {products} 云端用量。",
+        "deniedNote": "开启后会向钥匙串申请浏览器 Cookie 密钥，以便读取控制台用量。密钥只留在本机，且仅用于用量数据。",
         "enable": "开启"
       },
       "header": {
@@ -997,6 +1001,7 @@
       "diskAnalyzer": "磁盘分析器 - ATMOS",
       "tokenUsage": "Token 用量 - ATMOS",
       "tasks": "任务 - ATMOS",
+      "ptDesign": "Prototype Design - ATMOS",
       "settings": "设置 - ATMOS"
     },
     "localModelDownload": {
@@ -1094,6 +1099,10 @@
         "tokenUsage": {
           "title": "Token 用量",
           "description": "查看模型 Token 使用和活动"
+        },
+        "ptDesign": {
+          "title": "Launchpad：Prototype Design",
+          "description": "打开独立的原型设计画板"
         }
       },
       "tasks": {
@@ -1618,6 +1627,7 @@
           "agents": "Agent",
           "automations": "自动化",
           "canvas": "画布",
+          "ptDesign": "Prototype Design",
           "newWorkspace": "新建工作区",
           "diskAnalyzer": "磁盘分析器",
           "tokenUsage": "Token 用量",
@@ -3122,6 +3132,27 @@
         "authenticationIsRequiredBeforeThisAgentCanListAcpSessions": "当前 Agent 需要先认证后才能列出 ACP 会话",
         "failedToLoadAcpSessions": "加载 ACP 会话失败"
       }
+    }
+  },
+  "ptDesign": {
+    "share": {
+      "title": "协作",
+      "nameLabel": "你的名称",
+      "agentTab": "和 Agent",
+      "humanTab": "和人类",
+      "agentHint": "把这段 Prompt 发给 Agent。它会改本机已打开的画板。",
+      "copyPrompt": "复制 Prompt",
+      "linkLabel": "链接",
+      "linkPlaceholder": "粘贴协作链接以加入",
+      "copy": "复制链接",
+      "copied": "已复制",
+      "invalidLink": "这个链接里没有房间。",
+      "privacy": "端到端加密，服务器看不到画布内容。",
+      "stopHint": "结束协作只会断开你自己，其他人仍可继续协作。",
+      "start": "开始协作",
+      "stop": "停止协作",
+      "startMenu": "协作",
+      "openMenu": "协作"
     }
   },
   "canvas": {
@@ -4910,6 +4941,9 @@
             "canvasLaunchpad": {
               "label": "Canvas（Launchpad）"
             },
+            "ptDesignLaunchpad": {
+              "label": "Prototype Design（Launchpad）"
+            },
             "newWorkspaceLaunchpad": {
               "label": "New Workspace（Launchpad）"
             },
@@ -5946,6 +5980,10 @@
             "title": "Canvas",
             "description": "打开全屏 Canvas 运维画布。"
           },
+          "ptDesign": {
+            "title": "Prototype Design",
+            "description": "从启动台打开独立的 Prototype Design 页面。工作区中心区域仍可再新建一块画布。"
+          },
           "newWorkspace": {
             "title": "New Workspace",
             "description": "快速创建新工作区。"
@@ -6953,6 +6991,7 @@
         "close": "关闭"
       },
       "paneToolbar": {
+        "dragHandle": "拖动以重新排列窗格",
         "pinAlreadyPinned": "已固定",
         "pin": "固定",
         "splitHorizontal": "水平拆分",
@@ -9591,6 +9630,10 @@
       "orphanedProcessesTooltip": "这些是可能正在占用 PTY 设备的孤儿 shell 进程（PPID=1）。详情请查看下面的 Orphaned Processes 区域。"
     },
     "workspacePane": {
+      "drag": {
+        "handle": "拖动以重新排列窗格",
+        "ghost": "终端"
+      },
       "pin": {
         "title": "固定到 Canvas（⌘⇧P）",
         "alreadyPinnedTitle": "已固定到 Canvas"
@@ -9958,7 +10001,7 @@
     "topNHint": "显示当前目录中占用最大的 N 项。目录条目不足时画面不会变化。",
     "computerRoot": "~",
     "atmosRoot": "Atmos",
-    "scanAllSpace": "扫描全部空间",
+    "fullScan": "全盘扫描",
     "scanScopeHintAria": "关于扫描范围",
     "scanScopeHint": "这不是专业的全盘扫描工具。如需系统级磁盘占用与清理，推荐使用 <mole>Mole</mole> 的磁盘扫描与清理功能。",
     "freeSpace": "可用 {free} / 共 {total}",

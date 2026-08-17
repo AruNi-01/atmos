@@ -18,7 +18,9 @@ describe("Token Usage cookie consent prompt", () => {
     expect(pageSource).toContain("absolute right-4 bottom-4");
     expect(pageSource).toContain("data-token-usage-share-exclude");
     expect(pageSource).toContain("tryCookies: granted");
-    expect(bannerSource).toContain("w-56");
+    expect(bannerSource).toContain("w-72");
     expect(bannerSource).toContain("rounded-2xl");
+    expect(bannerSource).toContain("justify-end");
+    expect(bannerSource).toContain("deniedNote");
   });
 });

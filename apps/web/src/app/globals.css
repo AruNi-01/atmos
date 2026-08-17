@@ -215,8 +215,8 @@ html:not([data-theme-ready="true"]) body {
   min-width: 0;
   overflow: hidden;
   /* Match center-stage rounded-xl so WebGL canvas cannot square off bottom corners. */
-  border-bottom-left-radius: 12px;
-  border-bottom-right-radius: 12px;
+  border-bottom-left-radius: var(--radius-xl);
+  border-bottom-right-radius: var(--radius-xl);
 }
 
 .atmos-terminal-panel-keepalive .terminal-pane.is-maximized,
@@ -243,8 +243,8 @@ html:not([data-theme-ready="true"]) body {
   min-width: 0;
   overflow: hidden;
   /* Match center-stage rounded-xl so WebGL canvas cannot square off bottom corners. */
-  border-bottom-left-radius: 12px;
-  border-bottom-right-radius: 12px;
+  border-bottom-left-radius: var(--radius-xl);
+  border-bottom-right-radius: var(--radius-xl);
 }
 
   html,

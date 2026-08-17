@@ -22,6 +22,7 @@ import {
   type TerminalAgentInputOverlayHandle,
 } from "./TerminalAgentInputOverlay";
 import { TerminalPaneAgentStatus } from "./TerminalPaneAgentStatus";
+import { TerminalPaneDragHandle } from "./terminal-pane-dnd";
 import { TerminalTitleWithAgent } from "./terminal-title";
 import type { TerminalPaneAgent, TerminalPaneProps } from "../types/index";
 import { useTerminalToolbarTitle } from "../hooks/use-terminal-toolbar-title";
@@ -275,7 +276,10 @@ export function TerminalWorkspacePane(props: TerminalWorkspacePaneProps) {
             onMouseEnter={onToolbarMouseEnter}
             onMouseLeave={onToolbarMouseLeave}
           >
-            <div className="terminal-pane-toolbar-left">
+            <TerminalPaneDragHandle
+              className="terminal-pane-toolbar-left"
+              label={t("drag.handle")}
+            >
               {displayTitle ? (
                 <TerminalTitleWithAgent
                   displayTitle={displayTitle}
@@ -285,7 +289,7 @@ export function TerminalWorkspacePane(props: TerminalWorkspacePaneProps) {
                   className="terminal-pane-title gap-1.5"
                 />
               ) : null}
-            </div>
+            </TerminalPaneDragHandle>
 
             <div className="terminal-pane-toolbar-end">
               <TerminalPaneAgentStatus paneId={stablePaneId} contextId={workspaceId} />

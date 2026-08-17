@@ -568,6 +568,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Canvas terminal-agent relay. Shared between WsMessageService (browser
     // uplink) and the HTTP invoke handler (CLI ingress).
     let canvas_agent_relay = Arc::new(CanvasAgentRelay::new());
+    let pt_design_agent_relay = Arc::new(CanvasAgentRelay::new());
 
     // WsMessageService handles all WebSocket-based operations
     let ws_message_service = Arc::new(WsMessageService::new(
@@ -581,6 +582,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Arc::clone(&review_service),
         Arc::clone(&quota_usage_service),
         Arc::clone(&canvas_agent_relay),
+        Arc::clone(&pt_design_agent_relay),
         Arc::clone(&notification_service),
         Arc::clone(&token_usage_service),
         Arc::clone(&db),
@@ -625,6 +627,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             agent_hooks_service: Arc::clone(&agent_hooks_service),
             notification_service: Arc::clone(&notification_service),
             canvas_agent_relay: Arc::clone(&canvas_agent_relay),
+            pt_design_agent_relay: Arc::clone(&pt_design_agent_relay),
             review_service: Arc::clone(&review_service),
         },
         server_config.port,

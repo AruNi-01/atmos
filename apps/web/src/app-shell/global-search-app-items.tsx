@@ -23,7 +23,7 @@ import {
   toastManager,
   Zap,
 } from "@workspace/ui";
-import { HardDrive, Presentation } from "lucide-react";
+import { HardDrive, PencilRuler, Presentation } from "lucide-react";
 import { appApi } from "@/api/ws-api";
 import type { GithubPrPayload } from "@/api/ws/github-api";
 import { currentAppLocale } from "@/shared/lib/current-app-locale";
@@ -378,6 +378,19 @@ export function buildGlobalSearchItems({
     icon: <ChartColumnBig className="size-4 text-muted-foreground" />,
     action: () => {
       router.push("/token-usage");
+      setGlobalSearchOpen(false);
+    },
+  });
+
+  items.push({
+    id: "launchpad-pt-design",
+    type: "launchpad",
+    title: globalSearchItemsT("launchpad.ptDesign.title"),
+    description: globalSearchItemsT("launchpad.ptDesign.description"),
+    keywords: ["launchpad", "prototype", "design", "pt-design", "wireframe", "board", "mockup"],
+    icon: <PencilRuler className="size-4 text-muted-foreground" />,
+    action: () => {
+      router.push("/pt-design");
       setGlobalSearchOpen(false);
     },
   });

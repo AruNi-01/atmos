@@ -34,7 +34,7 @@ export default function AppLayout({ children }: Props) {
                 <div className="h-5 w-28 animate-pulse rounded bg-muted" />
               </div>
               <div className="flex min-h-0 flex-1 items-center justify-center px-2 py-1">
-                <div className="flex h-full w-full items-center justify-center rounded-xl bg-background ring-1 ring-border/40">
+                <div className="flex h-full w-full items-center justify-center overflow-hidden rounded-xl bg-background ring-1 ring-border/40">
                   <div className="h-8 w-8 animate-spin rounded-full border-2 border-muted-foreground/25 border-t-foreground" />
                 </div>
               </div>

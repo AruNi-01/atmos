@@ -20,6 +20,7 @@ import "@xterm/xterm/css/xterm.css";
 import "./terminal-grid.css";
 
 import { defaultTerminalOptions, atmosDarkTheme, atmosLightTheme, terminalFont } from "../lib/theme";
+import { renderXtermBufferPreview } from "../lib/terminal-xterm-preview";
 import { useTerminalAppearanceSettingsStore } from "@/features/settings/store/terminal-appearance-settings-store";
 import { useTerminalWebSocket } from "../hooks/use-terminal-websocket";
 import type { TerminalProps, TerminalSnapshot } from "../types/index";
@@ -97,6 +98,8 @@ export interface TerminalRef {
   destroy: () => void;
   /** Last N lines of the xterm buffer, optionally skipping lines already read from the bottom. */
   getScreenText: (maxLines: number, skipFromBottom?: number) => string;
+  /** JPEG of the visible buffer, sized to the drag preview card. */
+  capturePreview: (width: number, height: number) => string | null;
 }
 
 // tldraw / terminal grid can report a usable but transient terminal grid while a new
@@ -783,6 +786,11 @@ const Terminal = ({
         }
         return lines.join("\n");
       },
+      capturePreview: (width: number, height: number) => {
+        const terminal = terminalRef.current;
+        if (!terminal) return null;
+        return renderXtermBufferPreview(terminal, width, height);
+      },
       subscribeOutput: (listener: (data: string) => void) => {
         outputListenersRef.current.add(listener);
         return () => {
@@ -1245,8 +1253,9 @@ const Terminal = ({
     registerTitleOsc(9999, true);
 
     // Try to load WebGL addon for better performance and crisp text rendering.
+    // preserveDrawingBuffer lets pane drag capture a real terminal snapshot.
     try {
-      const webglAddon = new WebglAddon();
+      const webglAddon = new WebglAddon(true);
       terminal.loadAddon(webglAddon);
       webglAddonRef.current = webglAddon;
 

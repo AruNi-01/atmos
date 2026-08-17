@@ -224,6 +224,8 @@ const SETTINGS_SECTION_KEYWORDS: Record<SettingsSectionId, readonly string[]> = 
     "automations",
     "disk analyzer",
     "canvas",
+    "prototype design",
+    "pt design",
     "tasks",
     "new workspace",
     "acp agent chat entry",
@@ -655,6 +657,9 @@ const SETTINGS_SETTING_ITEMS: Record<SettingsSectionId, readonly SettingsSearchI
     }),
     settingsModalSearchItem("layout.canvasLaunchpad", {
       keywords: ["canvas", "ops desk", "infinite canvas", "launchpad"],
+    }),
+    settingsModalSearchItem("layout.ptDesignLaunchpad", {
+      keywords: ["prototype design", "pt design", "wireframe", "launchpad"],
     }),
     settingsModalSearchItem("layout.tasksLaunchpad", {
       keywords: ["task board", "workspace tasks", "launchpad"],

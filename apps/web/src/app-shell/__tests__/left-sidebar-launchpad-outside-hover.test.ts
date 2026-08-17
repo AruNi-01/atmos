@@ -17,6 +17,7 @@ describe("left sidebar outside launchpad hover", () => {
     expect(launchpad).toContain("TimerIcon");
     expect(launchpad).toContain("ChartColumnBigIcon");
     expect(launchpad).toContain("CanvasIcon");
+    expect(launchpad).toContain("PencilRulerIcon");
     expect(launchpad).toContain("ListTodoIcon");
     expect(launchpad).toContain("PlusIcon");
     expect(launchpad).toContain("onMouseEnter");
@@ -37,10 +38,15 @@ describe("left sidebar outside launchpad hover", () => {
     expect(launchpad).toContain("RocketIcon");
     expect(launchpad).toContain("rocketRef.current?.startAnimation");
     const headerClass = launchpad.slice(
-      launchpad.indexOf("flex h-9 w-full cursor-pointer"),
+      launchpad.indexOf("flex h-[calc(2.25rem+2px)]"),
       launchpad.indexOf("onClick={() => onExpandedChange"),
     );
     expect(headerClass).toContain("hover:bg-sidebar-accent");
+    expect(headerClass).toContain("rounded-2xl");
+    expect(headerClass).toContain("border border-border/70");
+    expect(headerClass).not.toContain("rounded-b-xl");
+    expect(headerClass).not.toContain("px-1.5");
+    expect(headerClass).not.toContain("bg-background/50");
     expect(headerClass).not.toContain("transition-colors");
     expect(headerClass).not.toContain("hover:bg-sidebar-accent/50");
   });
@@ -55,7 +61,8 @@ describe("left sidebar outside launchpad hover", () => {
     expect(launchpad).not.toContain("grid-cols-1");
     expect(launchpad).not.toContain("@[200px]:grid-cols-2");
     expect(launchpad).toContain("rounded-xl");
-    expect(launchpad).toContain("bg-background/50");
+    expect(launchpad).not.toContain("border-t border-border/60");
+    expect(launchpad).toContain("bg-background/20");
     expect(launchpad).toContain("grid-rows-[1fr]");
     expect(launchpad).toContain("grid-rows-[0fr]");
     expect(launchpad).toContain("transition-[grid-template-rows]");
@@ -73,8 +80,9 @@ describe("left sidebar outside launchpad hover", () => {
     expect(card).toContain("LaunchpadOutsideIcon");
   });
 
-  it("long-press sorts grid and list without a drag handle or grab cursor", () => {
-    expect(launchpad).toContain("delay: 400");
+  it("press-and-move sorts grid and list without a drag handle or grab cursor", () => {
+    expect(launchpad).toContain("distance: 8");
+    expect(launchpad).not.toContain("delay: 400");
     expect(launchpad).toContain("rectSortingStrategy");
     expect(launchpad).toContain("verticalListSortingStrategy");
     expect(launchpad).toContain("cursor-default");
@@ -82,7 +90,16 @@ describe("left sidebar outside launchpad hover", () => {
     expect(launchpad).not.toContain("cursor-grab");
     expect(launchpad).not.toContain("cursor-grabbing");
     expect(launchpad).not.toContain("GripVertical");
-    expect(launchpad).not.toContain("DragOverlay");
+    expect(launchpad).toContain("DragOverlay");
+    expect(launchpad).toContain("LaunchpadDragPreview");
+    expect(launchpad).toContain("launchpadPreviewPlacement");
+    expect(launchpad).toContain("snapCenterToCursor");
+    expect(launchpad).toContain("onDragOver");
+    expect(launchpad).toContain("applyLaunchpadReorder");
+    expect(launchpad).toContain("opacity-0");
+    expect(launchpad).toContain("animateLaunchpadLayout");
+    expect(launchpad).toContain("LAUNCHPAD_SHIFT_TRANSITION");
+    expect(launchpad).toContain("suppressHover");
   });
 });
 

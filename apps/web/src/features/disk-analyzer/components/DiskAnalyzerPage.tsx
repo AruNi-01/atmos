@@ -26,6 +26,7 @@ import {
   TooltipTrigger,
   cn,
 } from "@workspace/ui";
+import { AnimatePresence, motion } from "motion/react";
 import {
   Tabs,
   TabsList,
@@ -63,6 +64,91 @@ import {
   suggestionTotalSize,
   TOP_N_OPTIONS,
 } from "@/features/disk-analyzer/lib/tree-adapters";
+
+const SCAN_CYCLE_EASE = [0.22, 1, 0.36, 1] as const;
+const SCAN_CYCLE_TRANSITION = { duration: 0.2, ease: SCAN_CYCLE_EASE } as const;
+
+function DiskAnalyzerScanButton({
+  scanning,
+  scanLocked,
+  disabled,
+  scanningLabel,
+  cancelLabel,
+  rescanLabel,
+  onClick,
+}: {
+  scanning: boolean;
+  scanLocked: boolean;
+  disabled: boolean;
+  scanningLabel: string;
+  cancelLabel: string;
+  rescanLabel: string;
+  onClick: () => void;
+}) {
+  const [intentCancel, setIntentCancel] = useState(false);
+  const showCancel = scanning && intentCancel;
+  const label = showCancel
+    ? cancelLabel
+    : scanLocked
+      ? scanningLabel
+      : rescanLabel;
+  const labelKey = showCancel ? "cancel" : scanLocked ? "scanning" : "rescan";
+
+  useEffect(() => {
+    if (!scanning) setIntentCancel(false);
+  }, [scanning]);
+
+  return (
+    <Button
+      variant="secondary"
+      size="sm"
+      className={cn(
+        "h-9 rounded-xl transition-[color,background-color,box-shadow] duration-200",
+        showCancel &&
+          "bg-destructive/10 text-destructive hover:bg-destructive/10 hover:text-destructive",
+      )}
+      onClick={onClick}
+      disabled={disabled}
+      aria-busy={scanLocked}
+      aria-label={scanning ? cancelLabel : undefined}
+      onMouseEnter={() => {
+        if (scanning) setIntentCancel(true);
+      }}
+      onMouseLeave={() => setIntentCancel(false)}
+      onFocus={() => {
+        if (scanning) setIntentCancel(true);
+      }}
+      onBlur={() => setIntentCancel(false)}
+    >
+      {scanLocked ? (
+        <Loader2 className="size-4 animate-spin" />
+      ) : (
+        <RefreshCw className="size-4" />
+      )}
+      <span className="relative inline-grid overflow-hidden leading-none">
+        <span className="invisible col-start-1 row-start-1 whitespace-nowrap" aria-hidden>
+          {[scanningLabel, cancelLabel, rescanLabel].reduce(
+            (longest, item) =>
+              item.length > longest.length ? item : longest,
+            "",
+          )}
+        </span>
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.span
+            key={labelKey}
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -6 }}
+            transition={SCAN_CYCLE_TRANSITION}
+            className="col-start-1 row-start-1 whitespace-nowrap"
+          >
+            {label}
+          </motion.span>
+        </AnimatePresence>
+      </span>
+    </Button>
+  );
+}
 
 export function DiskAnalyzerPage() {
   const t = useTranslations("DiskAnalyzer");
@@ -245,9 +331,9 @@ export function DiskAnalyzerPage() {
 
             <div className="flex flex-wrap items-center gap-3">
               <div className="flex items-center gap-1.5">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-3">
                   <Checkbox
-                    id="disk-analyzer-scan-all-space"
+                    id="disk-analyzer-full-scan"
                     checked={analyzer.scanAllSpace}
                     disabled={analyzer.busy && !scanning}
                     onCheckedChange={(checked) => {
@@ -265,11 +351,8 @@ export function DiskAnalyzerPage() {
                       })();
                     }}
                   />
-                  <Label
-                    htmlFor="disk-analyzer-scan-all-space"
-                    className="cursor-pointer text-xs font-normal text-muted-foreground"
-                  >
-                    {t("scanAllSpace")}
+                  <Label htmlFor="disk-analyzer-full-scan">
+                    {t("fullScan")}
                   </Label>
                 </div>
                 <TooltipProvider delayDuration={200}>
@@ -310,10 +393,13 @@ export function DiskAnalyzerPage() {
                   </Tooltip>
                 </TooltipProvider>
               </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                className={cn("h-9 rounded-xl", scanning && "group")}
+              <DiskAnalyzerScanButton
+                scanning={scanning}
+                scanLocked={scanLocked}
+                disabled={analyzer.status === "idle"}
+                scanningLabel={t("scanningButton")}
+                cancelLabel={t("cancel")}
+                rescanLabel={t("rescan")}
                 onClick={() => {
                   if (scanning) {
                     void analyzer.cancelScan();
@@ -321,30 +407,7 @@ export function DiskAnalyzerPage() {
                   }
                   void analyzer.startScan();
                 }}
-                disabled={analyzer.status === "idle"}
-                aria-busy={scanLocked}
-                aria-label={scanning ? t("cancel") : undefined}
-              >
-                {scanLocked ? (
-                  <Loader2 className="size-4 animate-spin" />
-                ) : (
-                  <RefreshCw className="size-4" />
-                )}
-                {scanning ? (
-                  <span className="relative">
-                    <span className="group-hover:invisible group-focus-visible:invisible">
-                      {t("scanningButton")}
-                    </span>
-                    <span className="invisible absolute inset-0 flex items-center justify-center group-hover:visible group-focus-visible:visible">
-                      {t("cancel")}
-                    </span>
-                  </span>
-                ) : scanLocked ? (
-                  t("scanningButton")
-                ) : (
-                  t("rescan")
-                )}
-              </Button>
+              />
             </div>
           </div>
 
@@ -535,8 +598,8 @@ export function DiskAnalyzerPage() {
         <aside
           className={cn(
             // Width transition shrinks the main flex column; chart listens via ResizeObserver.
-            "flex shrink-0 flex-col border-l border-border/60 bg-background/40 transition-[width] duration-200 ease-out",
-            detailsOpen ? "w-[300px] sm:w-[320px]" : "w-0 overflow-hidden border-l-0",
+            "flex shrink-0 flex-col bg-background/40 transition-[width] duration-200 ease-out",
+            detailsOpen ? "w-[300px] sm:w-[320px]" : "w-0 overflow-hidden",
           )}
           aria-hidden={!detailsOpen}
         >
@@ -605,7 +668,7 @@ export function DiskAnalyzerPage() {
               />
             ) : (
             <div className="flex min-h-0 flex-1 flex-col">
-              <div className="shrink-0 space-y-2 border-b border-border/50 px-4 py-3">
+              <div className="shrink-0 space-y-2 px-4 py-3">
                 {analyzer.selectedNode ? (
                   <>
                     {/* Row 1: name + badge …… size */}

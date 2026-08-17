@@ -3,7 +3,7 @@
 Single Cloudflare Worker that provides:
 
 - **Relay (D1)** — Hub-projected **devices**, register tokens, computer registration, listing, client session issuance
-- **Relay (Durable Objects)** — one `ServerHub` DO per `server_id`; browser and Rust `apps/api` connect as WebSocket peers
+- **Relay (Durable Objects)** — one `ServerHub` DO per `server_id`; browser and Rust `apps/api` connect as WebSocket peers. One `PtDesignRoom` DO per Prototype Design share link (`/ws/pt-design/:roomId`) forwards encrypted collaboration frames only.
 - **Provider ingress** — GitHub App webhook verification, route matching, delivery dedupe, and dispatch to an online Computer
 
 ## Identity model (APP-056)
@@ -193,6 +193,16 @@ All JSON. CORS `*` for dev. If `RELAY_SECRET_KEY` is configured, protected route
 | DELETE | `/v1/github/event_routes/:route_id` | Bearer device credential | Disable route |
 
 **Removed:** `POST /v1/tenants`, `POST /v1/tenants/rotate_token`.
+
+## Prototype Design collaboration
+
+`GET /ws/pt-design/:roomId` upgrades to a Durable Object room. The Worker never sees the room key or scene JSON — clients encrypt with the `#room=id,key` hash, same as Excalidraw's protocol.
+
+```
+wss://relay.atmos.land/ws/pt-design/<20-hex-room-id>
+```
+
+No device credential. Anyone with the room id can sit on the socket; the encryption key in the share link is what keeps the board private. Clients default to this relay origin and fall back to Excalidraw `oss-collab` if the room socket does not come up. Override with `NEXT_PUBLIC_PT_DESIGN_COLLAB_URL` / `PT_DESIGN_COLLAB_URL`.
 
 ## WebSockets
 

@@ -7,7 +7,7 @@
 Ship a **full product**:
 
 1. **`packages/pt-design`** (`@atmos/pt-design`) — Excalidraw prototype surface, **full** shadcn-aligned basic catalog, Blocks, variant UX, Design IR, headless Agent API, **MCP** + **Ink CLI + Skill**.
-2. **Atmos embed (required)** — thin host in `apps/web`: **left sidebar** entry opens PT Design in **center stage** (center tool-tab pattern).
+2. **Atmos embed (required)** — thin host in `apps/web`: **left sidebar** entry opens the standalone `/pt-design` page; a workspace can still **New** a separate center tool tab.
 
 **Not**: main `/ws` IR ownership, codegen, live React on board, Atmos Rust CLI, merging with APP-014 Canvas, core logic in apps.
 
@@ -18,7 +18,8 @@ Ship a **full product**:
 ```text
 ┌──────────────────────────────────────────────────────────────────────────┐
 │  Atmos shell (required host)                                              │
-│  left sidebar ──open──► center stage tab "pt-design"                      │
+│  left sidebar ──open──► /pt-design standalone page (own canvas)           │
+│  workspace center + ──new──► center stage tab "pt-design" (context canvas)│
 │  apps/web features/pt-design + app-shell registration (thin)              │
 └───────────────────────────────▲──────────────────────────────────────────┘
                                 │ dynamic import public embed API
@@ -355,30 +356,38 @@ type PtDesignAppProps = {
 
 ### Atmos host (M18 — required)
 
-Thin glue only. Reuse existing **center tool tab** patterns (`center-tool-tabs`, `useOpenToolCenterTab`, CenterStage panel switch).
+Thin glue only. Two host surfaces share `@atmos/pt-design`:
+
+- **Launchpad / left sidebar** navigates to **`/pt-design`** (same pattern as `/tasks` / `/skills`). This is a no-context center view with its **own** canvas. Selecting a project or workspace must not bind this page to that context.
+- **Workspace center `+` / New** still opens the existing center tool tab (`openToolTab(contextId, "pt-design")` + `?tab=pt-design`) for that workspace/project.
+
+Legacy `/?tab=pt-design` with no workspace still mounts the standalone board.
 
 ```text
+apps/web/src/app/(app)/pt-design/page.tsx
 apps/web/src/features/pt-design/
   PtDesignCenterPanel.tsx      # client-only dynamic import of PtDesignApp
-  persistence.ts               # host PersistenceAdapter (per context)
-  handoff-to-agent.ts          # optional HandoffSink → agent context (N5)
+  PtDesignStandaloneStage.tsx  # /pt-design page → contextId "global"
   # i18n: apps/web/messages/{en,zh}.json
 
 apps/web/src/app-shell/
   center-tool-tabs.ts          # PT_DESIGN_TAB_VALUE = "pt-design"
   CenterStage* / workspace-center-frame.tsx
-                               # render panel when tab active
-  left sidebar                 # control → openToolTab("pt-design")
+                               # render panel when workspace tab active
+  left sidebar launchpad       # path → /pt-design
 ```
+
+<!-- updated 2026-08-17: sidebar is a standalone page; center New stays a workspace tab -->
 
 | Concern | Decision |
 |---------|----------|
-| Entry | Left sidebar **PT Design** (i18n), icon + accessible name |
-| Open | `openToolTab(contextId, "pt-design")` + URL `tab=pt-design` |
-| Surface | **Center stage** tab/panel — not right-rail-only, not modal-only |
-| Close | Standard center tab close |
-| Context | One design per `effectiveContextId` (v1) |
-| Persist | Host adapter key e.g. `pt-design:scene:{contextId}` |
+| Entry | Left sidebar **Prototype Design** (i18n), icon + accessible name |
+| Sidebar open | `router.push("/pt-design")` — independent page, `effectiveContextId` null |
+| Center New | `openToolTab(contextId, "pt-design")` + URL `tab=pt-design` |
+| Surface | **Center stage** — not right-rail-only, not modal-only |
+| Close | Standalone: leave `/pt-design`. Workspace tab: standard center tab close |
+| Context | Sidebar: one global design. Workspace tab: one design per `effectiveContextId` |
+| Persist | Host adapter key `pt-design:scene:{contextId}` (`global` for `/pt-design`) |
 | Theme | Pass Atmos light/dark into embed |
 | SSR | `dynamic(..., { ssr: false })` |
 | Desktop | Same web shell in Electron |
@@ -483,6 +492,6 @@ Retain Excalidraw + Ink MIT notices as required.
 | M15 | cli/* + Skill |
 | M16 | offline package surfaces |
 | M17 | error.code enum |
-| M18 | Atmos left sidebar + center tool tab |
+| M18 | Atmos `/pt-design` page + optional workspace center tool tab |
 | M19 | block.* templates |
 | M20 | variant templates + update |

@@ -21,6 +21,7 @@ import {
   TerminalAgentInputOverlay,
   type TerminalAgentInputOverlayHandle,
 } from "./TerminalAgentInputOverlay";
+import { TerminalPaneDragHandle } from "./terminal-pane-dnd";
 import {
   getTerminalDisplayMeta,
   resolveAgentForTitle,
@@ -234,7 +235,10 @@ export function TerminalScopedPane({
             onMouseEnter={onToolbarMouseEnter}
             onMouseLeave={onToolbarMouseLeave}
           >
-            <div className="terminal-pane-toolbar-left">
+            <TerminalPaneDragHandle
+              className="terminal-pane-toolbar-left"
+              label={t("paneToolbar.dragHandle")}
+            >
               {displayTitle ? (
                 <TerminalTitleWithAgent
                   displayTitle={displayTitle}
@@ -244,7 +248,7 @@ export function TerminalScopedPane({
                   className="terminal-pane-title gap-1.5"
                 />
               ) : null}
-            </div>
+            </TerminalPaneDragHandle>
 
             <div className="terminal-pane-toolbar-end">
               <TerminalPaneAgentStatus paneId={pane.tmuxWindowName ? `${workspaceId}:${pane.tmuxWindowName}` : pane.sessionId} contextId={workspaceId} />

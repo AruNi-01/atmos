@@ -29,7 +29,8 @@ export type FixedTab =
   | "review"
   | "run"
   | "github"
-  | "files";
+  | "files"
+  | "pt-design";
 
 export const centerStageParams = {
   tab: parseAsString.withDefault("terminal"),

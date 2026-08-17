@@ -108,6 +108,12 @@ import { AttentionSummaryPanel } from "./AttentionSummaryPanel";
 
 import "./TerminalAgentInputOverlay.css";
 
+/** Shared dock for the AI-input trigger bar and the side-chat bar. */
+const TERMINAL_BOTTOM_TRIGGER_DOCK_CLASS =
+  "pointer-events-none absolute inset-x-0 bottom-0 z-[70] flex justify-center px-3 pb-0.5";
+/** Lift the visible pills off the pane seam; both bars share this. */
+const TERMINAL_BOTTOM_TRIGGER_ROW_CLASS = "flex items-end justify-center -translate-y-1";
+
 interface TerminalAgentInputOverlayProps {
   activeProjectId?: string | null;
   agent?: TerminalPaneAgent | null;
@@ -1139,16 +1145,16 @@ export const TerminalAgentInputOverlay = React.forwardRef<
   if (!richInputActive) {
     if (!sideChatDots) return null;
     return (
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[70] flex justify-center px-3 pb-0.5">
+      <div className={TERMINAL_BOTTOM_TRIGGER_DOCK_CLASS}>
         <div className="pointer-events-auto flex w-full max-w-3xl flex-col items-center">
-          <div className="flex items-end">{sideChatDots}</div>
+          <div className={TERMINAL_BOTTOM_TRIGGER_ROW_CLASS}>{sideChatDots}</div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[70] flex justify-center px-3 pb-0.5">
+    <div className={TERMINAL_BOTTOM_TRIGGER_DOCK_CLASS}>
       <div
         className="pointer-events-auto flex w-full max-w-3xl flex-col items-center"
         onPointerDown={stopOverlayInteractionPropagation}
@@ -1252,7 +1258,7 @@ export const TerminalAgentInputOverlay = React.forwardRef<
 
         <div
           className={cn(
-            "flex items-end justify-center",
+            TERMINAL_BOTTOM_TRIGGER_ROW_CLASS,
             triggerBarVisible && "gap-1.5",
           )}
         >

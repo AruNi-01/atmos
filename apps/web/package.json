@@ -18,6 +18,7 @@
     "@atmos/api-types": "workspace:*",
     "@atmos/hub-client": "workspace:*",
     "@atmos/i18n": "workspace:*",
+    "@atmos/pt-design": "workspace:*",
     "@atmos/relay-client": "workspace:*",
     "@atmos/shared": "workspace:*",
     "@codemirror/autocomplete": "^6",

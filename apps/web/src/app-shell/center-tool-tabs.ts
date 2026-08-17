@@ -7,6 +7,7 @@ export const REVIEW_TAB_VALUE = "review";
 export const RUN_TAB_VALUE = "run";
 export const GITHUB_HUB_TAB_VALUE = "github";
 export const FILES_TAB_VALUE = "files";
+export const PT_DESIGN_TAB_VALUE = "pt-design";
 
 export const CENTER_TOOL_TAB_VALUES = [
   CHANGES_TAB_VALUE,
@@ -14,6 +15,7 @@ export const CENTER_TOOL_TAB_VALUES = [
   RUN_TAB_VALUE,
   GITHUB_HUB_TAB_VALUE,
   FILES_TAB_VALUE,
+  PT_DESIGN_TAB_VALUE,
 ] as const;
 
 export type CenterToolTabValue = (typeof CENTER_TOOL_TAB_VALUES)[number];

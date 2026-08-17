@@ -108,6 +108,24 @@ describe("experiment settings load across computer switch", () => {
     expect(state.launchpadAgentsEnabled).toBe(false);
   });
 
+  it("commits a live drag layout to localStorage and ~/.atmos function_settings", async () => {
+    const next = {
+      ...useExperimentSettingsStore.getState().launchpadItems,
+    };
+    next.workspaces = { ...next.workspaces, placement: "outside", order: 99 };
+    await useExperimentSettingsStore.getState().commitLaunchpadItems(next);
+    expect(useExperimentSettingsStore.getState().launchpadItems.workspaces.placement).toBe(
+      "outside",
+    );
+    expect(updateMock).toHaveBeenCalledWith(
+      "experiments",
+      "launchpad_items",
+      expect.objectContaining({
+        workspaces: expect.objectContaining({ placement: "outside" }),
+      }),
+    );
+  });
+
   it("persists reorder to localStorage and ~/.atmos function_settings", async () => {
     await useExperimentSettingsStore.getState().reorderLaunchpadItems(
       "automations",

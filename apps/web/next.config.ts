@@ -111,7 +111,7 @@ const devRewritesConfig =
     : {};
 
 const nextConfig: NextConfig = {
-  transpilePackages: ["@pierre/diffs"],
+  transpilePackages: ["@pierre/diffs", "@atmos/pt-design", "@excalidraw/excalidraw"],
   output: isStaticExportTarget ? "export" : undefined,
   // Generate directory indexes so static file servers can resolve app routes
   // consistently with trailing slash URLs.

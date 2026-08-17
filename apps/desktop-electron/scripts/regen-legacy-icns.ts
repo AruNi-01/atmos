@@ -8,6 +8,8 @@
  *     → electron + Tauri: icon.icns, icon.png, size PNGs
  *     → crates/desktop-use/assets/host-app-icon.icns  (TCC host / Settings)
  *     → apps/web/public/notification-icon.png         (notification content)
+ *     → apps/{docs,landing,web}/src/app/icon.png      (site favicons)
+ *     → apps/docs/src/app/apple-icon.png + public/favicon.ico
  *
  * Run when Logo art changes:
  *   bun run scripts/regen-legacy-icns.ts
@@ -277,11 +279,28 @@ function main() {
     ]);
     console.log(`[regen-legacy-icns] notification → ${notificationIcon}`);
 
+    const siteIconPngs = [
+      "apps/docs/src/app/icon.png",
+      "apps/docs/src/app/apple-icon.png",
+      "apps/landing/src/app/icon.png",
+      "apps/web/src/app/icon.png",
+    ];
+    const electronPng = join(electronIcons, "icon.png");
+    for (const rel of siteIconPngs) {
+      const dest = join(repoRoot, rel);
+      mkdirSync(dirname(dest), { recursive: true });
+      copyFileSync(electronPng, dest);
+    }
+    const docsFaviconIco = join(repoRoot, "apps/docs/public/favicon.ico");
+    mkdirSync(dirname(docsFaviconIco), { recursive: true });
+    copyFileSync(join(electronIcons, "icon.ico"), docsFaviconIco);
+    console.log("[regen-legacy-icns] site favicons → docs/landing/web");
+
     console.log(
       `[regen-legacy-icns] wrote icon.icns + png sizes under ${electronIcons}`,
     );
     console.log(
-      "[regen-legacy-icns] surfaces: Electron/Tauri app+DMG, Desktop Use host, web notification-icon.png, icon.icon/Assets/Rim.png",
+      "[regen-legacy-icns] surfaces: Electron/Tauri app+DMG, Desktop Use host, web notification-icon.png, docs/landing/web favicons, icon.icon/Assets/Rim.png",
     );
     console.log(
       "[regen-legacy-icns] Tahoe Atmos.app Dock still uses Assets.car from icon.icon (afterPack)",

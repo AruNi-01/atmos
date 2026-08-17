@@ -2,7 +2,9 @@ import { describe, expect, it } from "bun:test";
 import {
   applyLaunchpadReorder,
   createDefaultLaunchpadItems,
+  LAUNCHPAD_DROP_INSIDE,
   LAUNCHPAD_DROP_OUTSIDE,
+  launchpadPreviewPlacement,
   readLaunchpadItems,
   selectLaunchpadItemsByPlacement,
   type LaunchpadItems,
@@ -16,8 +18,9 @@ describe("launchpad item placement helpers", () => {
     expect(items["disk-analyzer"]).toEqual({ enabled: true, placement: "inside", order: 5 });
     expect(items["token-usage"]).toEqual({ enabled: true, placement: "outside", order: 6 });
     expect(items.canvas).toEqual({ enabled: true, placement: "outside", order: 7 });
-    expect(items.tasks).toEqual({ enabled: true, placement: "outside", order: 8 });
-    expect(items["new-workspace"]).toEqual({ enabled: true, placement: "outside", order: 9 });
+    expect(items["pt-design"]).toEqual({ enabled: true, placement: "outside", order: 8 });
+    expect(items.tasks).toEqual({ enabled: true, placement: "outside", order: 9 });
+    expect(items["new-workspace"]).toEqual({ enabled: true, placement: "outside", order: 10 });
     expect(items.terminals).toEqual({ enabled: false, placement: "inside", order: 2 });
     expect(items.agents).toEqual({ enabled: false, placement: "inside", order: 3 });
     expect(items.automations).toEqual({ enabled: true, placement: "outside", order: 4 });
@@ -37,6 +40,7 @@ describe("launchpad item placement helpers", () => {
       "workspaces",
       "automations",
       "canvas",
+      "pt-design",
       "tasks",
       "new-workspace",
     ]);
@@ -94,5 +98,22 @@ describe("launchpad item placement helpers", () => {
     );
 
     expect(applyLaunchpadReorder(items, "skills", LAUNCHPAD_DROP_OUTSIDE)).toBeNull();
+
+    const movedOntoLater = applyLaunchpadReorder(items, "skills", "token-usage");
+    expect(selectLaunchpadItemsByPlacement(movedOntoLater!, "outside").slice(0, 3)).toEqual([
+      "automations",
+      "token-usage",
+      "skills",
+    ]);
+  });
+
+  it("maps the drag overlay to the hovered launchpad zone or item placement", () => {
+    const items = createDefaultLaunchpadItems();
+    expect(launchpadPreviewPlacement(null, items, "outside")).toBe("outside");
+    expect(launchpadPreviewPlacement(LAUNCHPAD_DROP_INSIDE, items, "outside")).toBe("inside");
+    expect(launchpadPreviewPlacement(LAUNCHPAD_DROP_OUTSIDE, items, "inside")).toBe("outside");
+    expect(launchpadPreviewPlacement("workspaces", items, "outside")).toBe("inside");
+    expect(launchpadPreviewPlacement("skills", items, "inside")).toBe("outside");
+    expect(launchpadPreviewPlacement("not-an-item", items, "inside")).toBe("inside");
   });
 });

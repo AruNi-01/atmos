@@ -37,6 +37,7 @@ function baseWarm(overrides: Partial<WorkspaceCenterFrameProps> = {}): Workspace
     runTabVisible: false,
     githubHubTabVisible: false,
     filesTabVisible: false,
+    ptDesignTabVisible: false,
     terminalQuickOpenAgents: undefined,
     terminalGridRef: undefined,
     terminalGridRefs: undefined,
