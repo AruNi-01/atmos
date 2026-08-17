@@ -269,6 +269,7 @@ export function CenterStagePanels({
           "run",
           "github",
           "files",
+          "pt-design",
           FIXED_TERMINAL_TAB_VALUE,
         ];
         const frameActiveTab = resolveFrameActiveTab({
@@ -288,7 +289,8 @@ export function CenterStagePanels({
           frameActiveTab === "review" ||
           frameActiveTab === "run" ||
           frameActiveTab === "github" ||
-          frameActiveTab === "files"
+          frameActiveTab === "files" ||
+          frameActiveTab === "pt-design"
         ) {
           lightIds.push(frameActiveTab);
         }
