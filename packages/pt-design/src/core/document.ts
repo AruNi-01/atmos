@@ -1,4 +1,5 @@
-import { mkdirSync, readFileSync, renameSync, writeFileSync, existsSync } from "node:fs";
+import { randomBytes } from "node:crypto";
+import { existsSync, mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { CATALOG_VERSION } from "../catalog/shadcn-list";
 import { PT_ERROR_CODES, PtDesignError } from "../agent/errors";
@@ -78,8 +79,17 @@ export function saveDesignDocument(path: string, doc: PtDesignFile): PtDesignFil
     format: FILE_FORMAT,
     revision: doc.revision + 1,
   };
-  const tmp = `${abs}.tmp`;
-  writeFileSync(tmp, `${JSON.stringify(next, null, 2)}\n`, "utf8");
-  renameSync(tmp, abs);
+  const tmp = `${abs}.${process.pid}.${randomBytes(6).toString("hex")}.tmp`;
+  try {
+    writeFileSync(tmp, `${JSON.stringify(next, null, 2)}\n`, "utf8");
+    renameSync(tmp, abs);
+  } catch (error) {
+    try {
+      unlinkSync(tmp);
+    } catch {
+      // write may have failed before the tmp existed
+    }
+    throw error;
+  }
   return next;
 }
