@@ -6,13 +6,15 @@ Sketch UI structure as wireframes Agents can read and edit. Not live components.
 
 ## Install / run
 
-On Atmos (Desktop / local Server): do **not** install a binary. After the user starts **Local** collaboration, `POST` the open board:
+On Atmos (Desktop / local Server): do **not** install a binary. After the user opens Prototype Design, `POST` the open board:
 
 `POST http://127.0.0.1:<atmos-port>/api/pt-design/agent/invoke`
 
 ```json
-{ "request_id": "<uuid>", "tool": "pt_ir_get", "args": {}, "room": "id,key" }
+{ "request_id": "<uuid>", "tool": "pt_ir_get", "args": {}, "client_id": "global" }
 ```
+
+Use `client_id` from the Give to Agent payload when more than one tab is open. `/pt-design` is `global`. Do not start MCP. Do not join a collaboration room. Do not edit a separate `.ptdesign.json`.
 
 From the Atmos monorepo only (dev / offline files):
 
@@ -22,7 +24,7 @@ bun packages/pt-design/bin/pt-design.mjs --help
 
 ## File workflow
 
-Design files are `.ptdesign.json`.
+Design files are `.ptdesign.json`. They are **not** the open tab.
 
 1. `pt-design doc init --file ./app.ptdesign.json --json`
 2. Mutate with `--file` on every command
@@ -32,14 +34,12 @@ Prefer MCP/CLI tools over hand-editing the JSON.
 
 ## Live board (Atmos Prototype Design)
 
-The user's open board is **not** a local `.ptdesign.json` copy. It lives in the collaboration room.
+The user's open board is the tab's session, not a local `.ptdesign.json` copy.
 
-1. The user must click **Share** first. If they have not, ask them to start live collaboration. Do not invent a second canvas file.
-2. Join the same room: `PT_DESIGN_COLLAB_ROOM=id,key` from the share link or the Give to Agent payload `collab` field.
-3. Pull the live scene (`pt_scene_get` / `pt_ir_get` after joining) then mutate. Publishing a stale file overwrites their board.
-4. Your cursor name is `PT_DESIGN_AGENT_NAME` / `AGENT_NAME`, otherwise `Agent`. The user should see that name on the canvas.
-
-Offline `.ptdesign.json` files are only for documents that are not the open live board.
+1. Ask the user to open Prototype Design if no tab is live.
+2. `POST` invoke. Opening the tab is enough. Share is only for other humans.
+3. Call `pt_catalog_list` and `pt_ir_get` first, then mutate.
+4. Offline `.ptdesign.json` files are only for documents that are not the open live board.
 
 ## Tool ↔ CLI table
 
@@ -77,7 +77,7 @@ Implement with real shadcn/other UI libraries outside the canvas. Prefer IR over
 
 ## MCP
 
-Optional for external agents only. Atmos does not ask the user to paste MCP JSON. Official `@modelcontextprotocol/sdk` stdio server (`pt-design-mcp-server`). After publish: `npx -y -p @atmos/pt-design pt-design-mcp`. Do not connect to the playground HTTP port. See `packages/pt-design/README.md`.
+Optional for external agents only, and only against `--file`. Atmos does not ask the user to paste MCP JSON. Official `@modelcontextprotocol/sdk` stdio server (`pt-design-mcp-server`). After publish: `npx -y -p @atmos/pt-design pt-design-mcp`. Do not connect to the playground HTTP port. See `packages/pt-design/README.md`.
 
 ## Non-goals
 

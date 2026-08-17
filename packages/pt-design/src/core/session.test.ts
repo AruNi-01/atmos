@@ -6,7 +6,7 @@ import { createPtDesignSession } from "./session";
 import { initDesignDocument, openDesignDocument, saveDesignDocument } from "./document";
 import { encodeDesignIR, normalizeIR } from "../ir/encode";
 import { applyDesignIR } from "../ir/apply";
-import { HANDOFF_INSTRUCTIONS } from "../ir/handoff";
+import { HANDOFF_INSTRUCTIONS, LIVE_BOARD_INSTRUCTIONS } from "../ir/handoff";
 import { PT_ERROR_CODES, isPtDesignError } from "../agent/errors";
 import { emptyScene } from "./types";
 
@@ -94,6 +94,15 @@ describe("session + IR", () => {
     expect(payload.ir.version).toBe("pt-design-ir/1");
     expect(payload.instructions).toBe(HANDOFF_INSTRUCTIONS);
     expect(payload.instructions.length).toBeGreaterThan(40);
+    const live = session.buildHandoff({
+      scope: "document",
+      clientId: "global",
+      invokeUrl: "http://127.0.0.1:30303/api/pt-design/agent/invoke",
+    });
+    expect(live.clientId).toBe("global");
+    expect(live.invokeUrl).toContain("/api/pt-design/agent/invoke");
+    expect(live.instructions).toContain(LIVE_BOARD_INSTRUCTIONS);
+    expect(live.instructions).not.toContain("PT_DESIGN_COLLAB_ROOM");
   });
 
   test("scene file round-trip keeps types", () => {

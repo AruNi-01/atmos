@@ -138,7 +138,7 @@ pub async fn invoke(
                 StatusCode::SERVICE_UNAVAILABLE,
                 PtDesignAgentInvokeError::new(
                     "PT_DESIGN_BRIDGE_OFFLINE",
-                    "No Prototype Design tab is live. Open the board and start Local collaboration first.",
+                    "No Prototype Design tab is live. Open Prototype Design first.",
                     true,
                 ),
             );
@@ -151,7 +151,7 @@ pub async fn invoke(
                 PtDesignAgentInvokeError::new(
                     "PT_DESIGN_CLIENT_AMBIGUOUS",
                     format!(
-                        "Multiple Prototype Design rooms are open ({}). Pass room id,key.",
+                        "Multiple Prototype Design tabs are open ({}). Pass client_id.",
                         ids.join(", ")
                     ),
                     true,
@@ -164,7 +164,7 @@ pub async fn invoke(
                 StatusCode::NOT_FOUND,
                 PtDesignAgentInvokeError::new(
                     "PT_DESIGN_CLIENT_NOT_FOUND",
-                    "No open Prototype Design tab matches that room. Start Local collaboration on the board first.",
+                    "No open Prototype Design tab matches that client_id. Open the board first.",
                     true,
                 ),
             );

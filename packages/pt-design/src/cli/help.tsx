@@ -12,7 +12,7 @@ export function HelpApp() {
           {"  "}pt-design {def.cli.join(" ")}
         </Text>
       ))}
-      <Text>{"  "}Share from the board, then PT_DESIGN_COLLAB_ROOM=id,key</Text>
+      <Text>{"  "}Open board: POST /api/pt-design/agent/invoke. Offline: --file</Text>
     </Box>
   );
 }

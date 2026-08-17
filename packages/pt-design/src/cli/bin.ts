@@ -1,7 +1,7 @@
 import { isPtDesignError, cliExitCode, PT_ERROR_CODES, PtDesignError } from "../agent/errors";
 import { openFileSession, runTool } from "../agent/api";
 import { PT_DESIGN_TOOL_DEFS, toolNameFromCli, type ToolName } from "../agent/tool-defs";
-import { isMutatingTool } from "../agent/mutating";
+import { OFFLINE_FILE_REQUIRED_MESSAGE, toolRequiresOfflineFile } from "../agent/file-required";
 
 type Parsed = {
   tokens: string[];
@@ -78,7 +78,7 @@ export async function runCli(argv = process.argv.slice(2)): Promise<number> {
     if (parsed.tokens[0] === "live") {
       throw new PtDesignError(
         PT_ERROR_CODES.USAGE,
-        "Live hub is gone. Open the board, click Share, and pass PT_DESIGN_COLLAB_ROOM=id,key to the Agent.",
+        "The live CLI hub is gone. Open Prototype Design and POST /api/pt-design/agent/invoke. For an offline document, pass --file.",
       );
     }
     if (parsed.tokens.length === 0 || parsed.tokens[0] === "help") {
@@ -97,13 +97,8 @@ export async function runCli(argv = process.argv.slice(2)): Promise<number> {
       name === "pt_doc_init" ||
       name === "pt_place" ||
       parsed.flags.create === true;
-    const { roomFromEnv } = await import("../collab/publish");
-    const liveRoom = roomFromEnv();
-    if (name !== "pt_catalog_list" && name !== "pt_doc_init" && !parsed.file && !liveRoom) {
-      throw new PtDesignError(
-        PT_ERROR_CODES.COLLAB_REQUIRED,
-        "Start live share on the board first, then set PT_DESIGN_COLLAB_ROOM=id,key — or pass --file for an offline document.",
-      );
+    if (toolRequiresOfflineFile(name) && !parsed.file) {
+      throw new PtDesignError(PT_ERROR_CODES.MISSING_FILE, OFFLINE_FILE_REQUIRED_MESSAGE);
     }
     const fs = openFileSession({
       file: parsed.file,
@@ -133,12 +128,7 @@ export async function runCli(argv = process.argv.slice(2)): Promise<number> {
     if (name === "pt_ir_get") {
       args.frame = parsed.flags.frame;
     }
-    const { prepareLiveSession, publishLiveSession } = await import("../collab/live-gate");
-    const room = await prepareLiveSession(fs, name);
     const data = runTool(fs, { name, args });
-    if (isMutatingTool(name)) {
-      await publishLiveSession(fs, room);
-    }
     const out = { ok: true as const, data };
     process.stdout.write(`${JSON.stringify(out)}\n`);
     return 0;

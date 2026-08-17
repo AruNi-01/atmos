@@ -13,7 +13,12 @@ Prototype Design — Agent-first wireframe board + Design IR. Not live shadcn. N
 
 Starting the playground does **not** start MCP. Starting MCP does **not** serve a web UI.
 
-Live edits go through **Excalidraw collaboration**. The open Atmos board is the room, not a second file. Click **Share** first. Agents join that same room (`PT_DESIGN_COLLAB_ROOM=id,key` or the file `collab` field) as `Agent`, pull the live scene, then publish. Offline `.ptdesign.json` is only for documents that are not the live board.
+There are two documents. Do not mix them:
+
+- **Open board** — the Prototype Design tab. Agents `POST /api/pt-design/agent/invoke`. Opening the tab is enough. Share is only for other humans.
+- **Offline file** — a `.ptdesign.json`. CLI/MCP use `--file`. That file is not a live copy of the open tab.
+
+`PT_DESIGN_COLLAB_ROOM` does **not** write the open board. Do not join a collaboration room to mutate.
 
 ---
 
@@ -45,9 +50,9 @@ bun packages/pt-design/bin/pt-design.mjs place button --at 10,10 --file ./app.pt
 bun packages/pt-design/bin/pt-design.mjs ir get --file ./app.ptdesign.json --json
 ```
 
-Every mutating command needs `--file`. Success: `{ "ok": true, "data": ... }`. Errors: `{ "ok": false, "error": { "code", "message" } }`.
+Every command except `catalog list` needs `--file`. Success: `{ "ok": true, "data": ... }`. Errors: `{ "ok": false, "error": { "code", "message" } }`.
 
-Mutating CLI/MCP commands publish the new scene into the collaboration room when `PT_DESIGN_COLLAB_ROOM` or the file's `collab` field is set. The Agent cursor uses `PT_DESIGN_AGENT_NAME` / `AGENT_NAME`, otherwise `Agent`.
+To edit the **open tab**, do not use this CLI. `POST /api/pt-design/agent/invoke`.
 
 ---
 
@@ -62,7 +67,7 @@ bun packages/pt-design/bin/pt-design-mcp.mjs --file ./app.ptdesign.json
 # or: PT_DESIGN_FILE=./app.ptdesign.json bun packages/pt-design/bin/pt-design-mcp.mjs
 ```
 
-Atmos in-app Agents should **not** use this. They call `POST /api/pt-design/agent/invoke` on the local Atmos Server (see Live collaboration).
+Atmos in-app Agents should **not** use this. They call `POST /api/pt-design/agent/invoke` on the local Atmos Server (see Open board).
 
 For an **external** MCP client (Cursor / Claude Desktop) after `@atmos/pt-design` is published:
 
@@ -71,10 +76,7 @@ For an **external** MCP client (Cursor / Claude Desktop) after `@atmos/pt-design
   "mcpServers": {
     "pt-design": {
       "command": "npx",
-      "args": ["-y", "-p", "@atmos/pt-design", "pt-design-mcp"],
-      "env": {
-        "PT_DESIGN_COLLAB_ROOM": "id,key"
-      }
+      "args": ["-y", "-p", "@atmos/pt-design", "pt-design-mcp"]
     }
   }
 }
@@ -99,28 +101,26 @@ Do not point an MCP client at `:4173`. Logs go to stderr only.
 
 ### Sharing state with the UI
 
-MCP and playground do **not** share memory. Pass the same `--file` to CLI and MCP. The Atmos embed currently persists localStorage, not that file.
+MCP and playground do **not** share memory. Pass `--file` to CLI and MCP. The Atmos embed persists localStorage (draft) and optional Save/Open library files — not that CLI file.
 
-Without `--file`, the server keeps an in-memory document for the process lifetime.
+Without `--file`, only `pt_catalog_list` works. Mutating tools need a bound file (`--file` or `pt_doc_init`).
 
 ---
 
-## Live collaboration
+## Open board (Atmos Agent)
 
-The share popover has two tabs. **Local** (default) is this computer only: copy an Agent prompt — no public URL. **Invite** publishes a `https://app.atmos.land/?tab=pt-design#room=…` link over Atmos Relay (official oss-collab fallback). Local fan-out is `ws://127.0.0.1:<port>/ws/pt-design/:roomId`.
+**Atmos Agent on this machine** does not use MCP or a PATH binary. Open Prototype Design, then `POST http://127.0.0.1:<port>/api/pt-design/agent/invoke`. Atmos Server forwards the tool to the open board. No user MCP config. Share is optional and only for other people.
 
-**Atmos Agent on this machine** does not use MCP or a PATH binary. Start **Local** collaboration, copy the prompt, and the Agent `POST`s `http://127.0.0.1:<port>/api/pt-design/agent/invoke`. Atmos Server forwards the tool to the open board. No user MCP config.
+Give to Agent copies a payload with `clientId` and `invokeUrl`. The Agent tab in Share copies the same invoke prompt. Start and stop live share only from the Share tab.
 
 Copied share links always point at the hosted app (`https://app.atmos.land/?tab=pt-design#room=id,key`), even when you started the session from Desktop or `localhost`. The local address bar can stay on loopback — only the copied link is rewritten. Override with `PT_DESIGN_SHARE_ORIGIN` / `NEXT_PUBLIC_PT_DESIGN_SHARE_ORIGIN`.
 
-1. Open the board and click the collab / **Share** control. That copies a link.
-2. Anyone with the link joins the same scene and sees cursors.
-3. An Agent joins as its own name (`PT_DESIGN_AGENT_NAME` / `AGENT_NAME`, otherwise `Agent`) when MCP/CLI mutate a file that already has `collab`, or when `PT_DESIGN_COLLAB_ROOM=id,key` is set.
+1. Open the board. The Agent can invoke immediately.
+2. Click **Share** only if another human should see the same scene and cursors.
+3. Offline `.ptdesign.json` files are a different document. Open them with Save/Open, or keep them on the CLI/MCP `--file` path.
 
 ```bash
 bun --cwd packages/pt-design playground
-PT_DESIGN_COLLAB_ROOM=id,key PT_DESIGN_AGENT_NAME=Codex \
-  bun packages/pt-design/bin/pt-design.mjs place button --at 80,80 --file ./app.ptdesign.json --json
 ```
 
 ---

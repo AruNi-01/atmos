@@ -11,7 +11,6 @@ import {
 } from "./room";
 import { buildLocalAgentPrompt, buildMcpConfig } from "../embed/agent-prompt";
 import { sceneFromLiveElements } from "./publish";
-import { LIVE_COLLAB_REQUIRED_MESSAGE } from "./live-gate";
 import { decryptData, encryptData, generateEncryptionKey } from "./crypto";
 import {
   DEFAULT_COLLAB_SERVER,
@@ -68,14 +67,15 @@ describe("collab rooms", () => {
     expect(inviteUrlForRoom(room)).toBe(
       "https://app.atmos.land/?tab=pt-design#room=abc123,secretKey",
     );
-    const prompt = buildLocalAgentPrompt(room, "http://127.0.0.1:30303");
+    const prompt = buildLocalAgentPrompt("global", "http://127.0.0.1:30303");
     expect(prompt).toContain("POST http://127.0.0.1:30303/api/pt-design/agent/invoke");
-    expect(prompt).toContain("abc123,secretKey");
+    expect(prompt).toContain("\"client_id\": \"global\"");
     expect(prompt).not.toContain("pt-design-mcp");
-    const mcp = JSON.parse(buildMcpConfig(room)).mcpServers["pt-design"];
+    expect(prompt).not.toContain("PT_DESIGN_COLLAB_ROOM");
+    const mcp = JSON.parse(buildMcpConfig()).mcpServers["pt-design"];
     expect(mcp.command).toBe("npx");
     expect(mcp.args).toEqual(["-y", "-p", "@atmos/pt-design", "pt-design-mcp"]);
-    expect(mcp.env.PT_DESIGN_COLLAB_ROOM).toBe("abc123,secretKey");
+    expect(mcp.env).toBeUndefined();
   });
 });
 
@@ -127,7 +127,6 @@ describe("live agent collab", () => {
     ]);
     expect(scene.elements).toHaveLength(1);
     expect(scene.appState.viewBackgroundColor).toBe("#ffffff");
-    expect(LIVE_COLLAB_REQUIRED_MESSAGE).toContain("Share");
   });
 });
 

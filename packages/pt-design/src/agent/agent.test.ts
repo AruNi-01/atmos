@@ -59,6 +59,17 @@ describe("agent adapters", () => {
     expect(opened.session.getIR().freeNodes.some((n) => n.componentType === "button")).toBe(true);
   });
 
+  test("unbound MCP mutate without a file is MISSING_FILE", () => {
+    const mcp = createMcpServer();
+    const placed = mcp.callTool("pt_place", {
+      componentType: "button",
+      at: { x: 10, y: 10 },
+    });
+    expect(placed.isError).toBe(true);
+    expect(JSON.stringify(placed)).toContain("MISSING_FILE");
+    expect(JSON.stringify(placed)).toContain("/api/pt-design/agent/invoke");
+  });
+
   test("unbound MCP session keeps autoSave so init+place persist", () => {
     const file = tmpFile();
     const mcp = createMcpServer();
@@ -84,6 +95,33 @@ describe("agent adapters", () => {
     expect(launcher).toContain("#!/usr/bin/env bun");
     expect(launcher).toContain("process.exitCode = code");
     expect(launcher).not.toMatch(/process\.exit\(/);
+  });
+
+  test("CLI place without --file does not use a collab room", async () => {
+    const logs: string[] = [];
+    const orig = process.stdout.write.bind(process.stdout);
+    const origErr = process.stderr.write.bind(process.stderr);
+    process.stdout.write = ((chunk: string | Uint8Array) => {
+      logs.push(String(chunk));
+      return true;
+    }) as typeof process.stdout.write;
+    process.stderr.write = (() => true) as typeof process.stderr.write;
+    const prev = process.env.PT_DESIGN_COLLAB_ROOM;
+    process.env.PT_DESIGN_COLLAB_ROOM = "abc123,secretKey";
+    try {
+      const code = await runCli(["place", "button", "--at", "10,10", "--json"]);
+      expect(code).toBe(2);
+    } finally {
+      process.stdout.write = orig;
+      process.stderr.write = origErr;
+      if (prev === undefined) delete process.env.PT_DESIGN_COLLAB_ROOM;
+      else process.env.PT_DESIGN_COLLAB_ROOM = prev;
+    }
+    const parsed = JSON.parse(logs.join(""));
+    expect(parsed.ok).toBe(false);
+    expect(parsed.error.code).toBe("MISSING_FILE");
+    expect(parsed.error.message).toContain("/api/pt-design/agent/invoke");
+    expect(parsed.error.message).not.toContain("PT_DESIGN_COLLAB_ROOM");
   });
 
   test("CLI place --json writes parseable success", async () => {

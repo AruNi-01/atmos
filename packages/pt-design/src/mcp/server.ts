@@ -2,11 +2,12 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 import { openFileSession, runTool, type FileSession } from "../agent/api";
-import { isPtDesignError, PT_ERROR_CODES, PtDesignError } from "../agent/errors";
+import { PT_ERROR_CODES, PtDesignError } from "../agent/errors";
 import { PT_DESIGN_TOOL_DEFS, type ToolName } from "../agent/tool-defs";
 import { PT_TOOL_SCHEMAS } from "./schemas";
 import { paginate, toolError, toolSuccess, type ResponseFormat, type ToolResult } from "./format";
 import { isMutatingTool } from "../agent/mutating";
+import { requireOfflineFile } from "../agent/file-required";
 import { resolveCollaboratorName } from "../collab/names";
 
 export const MCP_SERVER_NAME = "pt-design-mcp-server";
@@ -47,8 +48,8 @@ Get-before-set: call pt_catalog_list and pt_ir_get before mutating.
 Error handling:
   - UNKNOWN_COMPONENT_TYPE — use an id from pt_catalog_list
   - NOT_FOUND / FRAME_AMBIGUOUS — copy ids from pt_ir_get / pt_frames_list
-  - MISSING_FILE — pass file or start with --file
-  - COLLAB_REQUIRED — user must Share the live board first`;
+  - MISSING_FILE — pass --file for an offline .ptdesign.json
+  - Open board — POST /api/pt-design/agent/invoke; do not join a collaboration room`;
 }
 
 export function executeTool(fs: FileSession, name: string, raw: Record<string, unknown>): ToolResult {
@@ -67,6 +68,7 @@ export function executeTool(fs: FileSession, name: string, raw: Record<string, u
   const args = parsed.data as Record<string, unknown>;
   const format = (typeof args.response_format === "string" ? args.response_format : "json") as ResponseFormat;
   try {
+    requireOfflineFile(fs, name);
     let data = runTool(fs, { name: name as ToolName, args });
     if (name === "pt_catalog_list") {
       const page = paginate(
@@ -134,16 +136,8 @@ export function createSdkMcpServer(options: { file?: string } = {}): {
         annotations: annotationsFor(def.name),
       },
       async (params: Record<string, unknown>) => {
-        const { prepareLiveSession, publishLiveSession } = await import("../collab/live-gate");
-        let room = null;
-        try {
-          room = await prepareLiveSession(facade.fs, def.name);
-        } catch (error) {
-          return toolError(isPtDesignError(error) ? error : new PtDesignError(PT_ERROR_CODES.INTERNAL, String(error)));
-        }
         const result = executeTool(facade.fs, def.name, params ?? {});
         if (!result.isError && isMutatingTool(def.name)) {
-          await publishLiveSession(facade.fs, room);
           void sdk.server.sendLoggingMessage({
             level: "info",
             logger: "pt-design",

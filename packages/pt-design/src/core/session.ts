@@ -58,6 +58,8 @@ export type PtDesignSession = {
     instanceIds?: string[];
     prompt?: string;
     includeImage?: boolean;
+    clientId?: string;
+    invokeUrl?: string;
     collab?: { roomId: string; roomKey: string; shareUrl: string };
   }): HandoffPayload;
   resolveFrame(frameIdOrName?: string): PtElement | undefined;
@@ -269,6 +271,8 @@ export function createPtDesignSession(initial?: PtScene): PtDesignSession {
         ir,
         prompt: input.prompt,
         includeImage: input.includeImage,
+        clientId: input.clientId,
+        invokeUrl: input.invokeUrl,
         collab: input.collab,
       });
     },

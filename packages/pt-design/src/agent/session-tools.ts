@@ -142,7 +142,7 @@ export function runSessionTool(session: PtDesignSession, call: ToolCall): unknow
     case "pt_doc_save":
       throw new PtDesignError(
         PT_ERROR_CODES.USAGE,
-        "Live board tools do not use .ptdesign.json. Use Save/Open in the board, or catalog/ir/place on this room.",
+        "Live board tools do not use .ptdesign.json. Use Save/Open in the board, or catalog/ir/place on this open tab.",
       );
     default:
       throw new PtDesignError(PT_ERROR_CODES.USAGE, `Unknown tool: ${name}`);
