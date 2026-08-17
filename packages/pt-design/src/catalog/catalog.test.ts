@@ -76,6 +76,25 @@ describe("catalog completeness", () => {
     expect(Math.abs(header!.y - (headerBar!.y + (headerBar!.height - header!.height) / 2))).toBeLessThan(0.6);
   });
 
+  test("checkbox and switch IR bbox uses the advertised full bounds", () => {
+    const session = createPtDesignSession();
+    session.dispatch({ type: "place", componentType: "checkbox", at: { x: 0, y: 0 }, props: { label: "On" } });
+    session.dispatch({ type: "place", componentType: "switch", at: { x: 0, y: 40 }, props: { label: "On" } });
+    const ir = session.getIR();
+    const checkbox = ir.freeNodes.find((n) => n.componentType === "checkbox");
+    const sw = ir.freeNodes.find((n) => n.componentType === "switch");
+    expect(checkbox?.bbox).toEqual({ x: 0, y: 0, w: 162, h: 20 });
+    expect(sw?.bbox).toEqual({ x: 0, y: 40, w: 124, h: 20 });
+    const checkboxRoot = getComponentTemplate("checkbox", { x: 0, y: 0, props: { label: "On" } });
+    const switchRoot = getComponentTemplate("switch", { x: 0, y: 0, props: { label: "On" } });
+    expect(checkboxRoot.width).toBe(162);
+    expect(checkboxRoot.height).toBe(20);
+    expect(switchRoot.width).toBe(124);
+    expect(switchRoot.height).toBe(20);
+    expect(checkboxRoot.elements.find((el) => el.id === checkboxRoot.rootId)?.width).toBe(162);
+    expect(switchRoot.elements.find((el) => el.id === switchRoot.rootId)?.width).toBe(124);
+  });
+
   test("button template uses bare componentType", () => {
     const built = getComponentTemplate("button", {
       x: 0,

@@ -201,14 +201,26 @@ export function buildTemplate(
       return labeledBox(ctx, { w: 120, h: 22, title: label, bg: "transparent", stroke: "transparent" });
     case "checkbox": {
       const checked = bool(ctx.props, "checked");
+      const w = 162;
+      const h = 20;
+      const root = rect(ctx.x, ctx.y, w, h, {
+        backgroundColor: "transparent",
+        strokeColor: "transparent",
+      });
       const box = rect(ctx.x, ctx.y, 16, 16, {
         backgroundColor: checked ? C.primary : C.fill,
       });
       const text = textEl(ctx.x + 22, ctx.y, 140, 16, label, { fontSize: 13 });
-      return assemble(box, [text], 162, 20);
+      return assemble(root, [box, text], w, h);
     }
     case "switch": {
       const on = bool(ctx.props, "checked");
+      const w = 124;
+      const h = 20;
+      const root = rect(ctx.x, ctx.y, w, h, {
+        backgroundColor: "transparent",
+        strokeColor: "transparent",
+      });
       const track = rect(ctx.x, ctx.y, 36, 20, {
         backgroundColor: on ? C.primary : C.secondary,
       });
@@ -217,7 +229,7 @@ export function buildTemplate(
         strokeColor: C.outline,
       });
       const text = textEl(ctx.x + 44, ctx.y, 80, 20, label, { fontSize: 13 });
-      return assemble(track, [knob, text], 124, 20);
+      return assemble(root, [track, knob, text], w, h);
     }
     case "radio-group": {
       const items = ["Option A", "Option B", "Option C"];
