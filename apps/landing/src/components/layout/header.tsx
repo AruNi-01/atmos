@@ -91,7 +91,6 @@ const Header = ({ className }: HeaderProps) => {
   return (
     <MotionPreset
       fade
-      blur
       transition={{ duration: 0.5 }}
       delay={0.05}
       component='header'
@@ -118,7 +117,7 @@ const Header = ({ className }: HeaderProps) => {
           />
           {/* Logo */}
           <IntlLink href={{ pathname: '/', hash: 'home' }} className='flex min-w-0 items-center gap-2 sm:gap-3'>
-            <Logo animate={!isScrolled} />
+            <Logo />
           </IntlLink>
 
           <div className='flex shrink-0 items-center gap-1.5 sm:gap-3'>

@@ -1,109 +1,41 @@
 'use client';
 
 import { create } from 'zustand';
-import { functionSettingsApi } from '@/api/ws-api';
+import { functionSettingsApi } from '@/api/ws/settings-api';
 import { useFunctionSettingsStore } from '@/features/settings/store/function-settings-store';
+import { globalKey, readJson, removeKey, writeJson } from '@/shared/lib/browser-store';
+import {
+  applyLaunchpadReorder,
+  createDefaultLaunchpadItems,
+  diskHasLaunchpadItems,
+  readLaunchpadItems,
+  reindexLaunchpadOrders,
+  selectLaunchpadItemsByPlacement,
+  type LaunchpadItemConfig,
+  type LaunchpadItemId,
+  type LaunchpadItems,
+  type LaunchpadPlacement,
+} from '@/features/settings/lib/launchpad-items';
 
-export type LaunchpadItemId =
-  | 'workspaces'
-  | 'skills'
-  | 'terminals'
-  | 'agents'
-  | 'automations'
-  | 'disk-analyzer'
-  | 'token-usage'
-  | 'canvas'
-  | 'tasks'
-  | 'new-workspace';
+export type {
+  LaunchpadItemConfig,
+  LaunchpadItemId,
+  LaunchpadItems,
+  LaunchpadPlacement,
+} from '@/features/settings/lib/launchpad-items';
+export {
+  applyLaunchpadReorder,
+  createDefaultLaunchpadItems,
+  isLaunchpadItemId,
+  LAUNCHPAD_DROP_INSIDE,
+  LAUNCHPAD_DROP_OUTSIDE,
+  LAUNCHPAD_ITEM_IDS,
+  readLaunchpadItems,
+  selectLaunchpadItemsByPlacement,
+} from '@/features/settings/lib/launchpad-items';
 
-export type LaunchpadPlacement = 'inside' | 'outside';
-
-export type LaunchpadItemConfig = {
-  enabled: boolean;
-  placement: LaunchpadPlacement;
-};
-
-export type LaunchpadItems = Record<LaunchpadItemId, LaunchpadItemConfig>;
-
-export const LAUNCHPAD_ITEM_IDS: LaunchpadItemId[] = [
-  'workspaces',
-  'skills',
-  'terminals',
-  'agents',
-  'automations',
-  'disk-analyzer',
-  'token-usage',
-  'canvas',
-  'tasks',
-  'new-workspace',
-];
-
-/** Items that default enabled in Launchpad. */
-const ALWAYS_ON_DEFAULT_IDS: LaunchpadItemId[] = [
-  'workspaces',
-  'skills',
-  'automations',
-  'disk-analyzer',
-  'token-usage',
-  'canvas',
-  'tasks',
-  'new-workspace',
-];
-
-/** Default to Outside (full-width list under Launchpad header) rather than Inside grid. */
-const DEFAULT_OUTSIDE_PLACEMENT_IDS: LaunchpadItemId[] = [
-  'skills',
-  'automations',
-  'token-usage',
-  'canvas',
-  'tasks',
-  'new-workspace',
-];
-
-export function createDefaultLaunchpadItems(): LaunchpadItems {
-  const items = {} as LaunchpadItems;
-  for (const id of LAUNCHPAD_ITEM_IDS) {
-    items[id] = {
-      enabled: ALWAYS_ON_DEFAULT_IDS.includes(id),
-      placement: DEFAULT_OUTSIDE_PLACEMENT_IDS.includes(id) ? 'outside' : 'inside',
-    };
-  }
-  return items;
-}
-
-function isPlacement(value: unknown): value is LaunchpadPlacement {
-  return value === 'inside' || value === 'outside';
-}
-
-function readItemConfig(
-  raw: unknown,
-  fallback: LaunchpadItemConfig,
-): LaunchpadItemConfig {
-  if (!raw || typeof raw !== 'object') return fallback;
-  const record = raw as Record<string, unknown>;
-  return {
-    enabled: typeof record.enabled === 'boolean' ? record.enabled : fallback.enabled,
-    placement: isPlacement(record.placement) ? record.placement : fallback.placement,
-  };
-}
-
-/** Parse Launchpad item config from experiments settings. */
-export function readLaunchpadItems(ex: Record<string, unknown> | undefined): LaunchpadItems {
-  const defaults = createDefaultLaunchpadItems();
-  const rawItems = ex?.launchpad_items;
-  if (!rawItems || typeof rawItems !== 'object') {
-    return defaults;
-  }
-
-  const source = rawItems as Record<string, unknown>;
-  const merged = { ...defaults };
-  for (const id of LAUNCHPAD_ITEM_IDS) {
-    if (id in source) {
-      merged[id] = readItemConfig(source[id], defaults[id]);
-    }
-  }
-  return merged;
-}
+/** Fast browser cache. Durable copy is ~/.atmos/config/function_settings.json. */
+const LAUNCHPAD_ITEMS_STORAGE_KEY = globalKey('launchpad-items');
 
 export interface ExperimentPrefs {
   launchpadItems: LaunchpadItems;
@@ -131,6 +63,7 @@ interface ExperimentSettingsState extends ExperimentPrefs {
     placement: LaunchpadPlacement,
     enabled: boolean,
   ) => Promise<void>;
+  reorderLaunchpadItems: (activeId: string, overId: string) => Promise<void>;
   setLaunchpadTerminalsEnabled: (value: boolean) => Promise<void>;
   setLaunchpadAgentsEnabled: (value: boolean) => Promise<void>;
   setAutomationsEnabled: (value: boolean) => Promise<void>;
@@ -149,6 +82,16 @@ function deriveFlags(items: LaunchpadItems) {
   };
 }
 
+function persistLocalLaunchpadItems(items: LaunchpadItems) {
+  writeJson(LAUNCHPAD_ITEMS_STORAGE_KEY, items);
+}
+
+function readLocalLaunchpadItems(): LaunchpadItems | null {
+  const raw = readJson<unknown>(LAUNCHPAD_ITEMS_STORAGE_KEY, null);
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  return readLaunchpadItems({ launchpad_items: raw });
+}
+
 function readExperiments(raw: unknown): ExperimentPrefs {
   const section =
     raw && typeof raw === 'object' && 'experiments' in raw
@@ -164,12 +107,17 @@ function readExperiments(raw: unknown): ExperimentPrefs {
 }
 
 async function persistLaunchpadItems(items: LaunchpadItems): Promise<void> {
+  persistLocalLaunchpadItems(items);
   await functionSettingsApi.update('experiments', 'launchpad_items', items);
   useFunctionSettingsStore.getState().invalidate();
 }
 
+function initialLaunchpadItems(): LaunchpadItems {
+  return readLocalLaunchpadItems() ?? createDefaultLaunchpadItems();
+}
+
 export const useExperimentSettingsStore = create<ExperimentSettingsState>((set, get) => {
-  const defaultItems = createDefaultLaunchpadItems();
+  const defaultItems = initialLaunchpadItems();
   return {
     launchpadItems: defaultItems,
     ...deriveFlags(defaultItems),
@@ -180,6 +128,9 @@ export const useExperimentSettingsStore = create<ExperimentSettingsState>((set, 
       // Invalidate any in-flight load from the previous Computer.
       loadEpoch += 1;
       loadInflight = null;
+      // Drop the device cache so an empty disk on the next Computer does not
+      // inherit the previous Computer's Launchpad layout.
+      removeKey(LAUNCHPAD_ITEMS_STORAGE_KEY);
       const nextDefaults = createDefaultLaunchpadItems();
       set({
         launchpadItems: nextDefaults,
@@ -200,7 +151,22 @@ export const useExperimentSettingsStore = create<ExperimentSettingsState>((set, 
           const settings = await useFunctionSettingsStore.getState().load();
           // Computer switch (or a newer load generation) while we were awaiting.
           if (requestEpoch !== loadEpoch) return;
+          const local = readLocalLaunchpadItems();
+          if (!diskHasLaunchpadItems(settings) && local) {
+            // Cache hit, empty disk → migrate local layout onto ~/.atmos.
+            set({
+              launchpadItems: local,
+              ...deriveFlags(local),
+              centerWikiTabEnabled: readExperiments(settings).centerWikiTabEnabled,
+              loaded: true,
+            });
+            void persistLaunchpadItems(local).catch(() => {
+              // Offline: localStorage still holds the layout.
+            });
+            return;
+          }
           const prefs = readExperiments(settings);
+          persistLocalLaunchpadItems(prefs.launchpadItems);
           set({ ...prefs, loaded: true });
         } catch {
           // Keep loaded false so callers can retry (e.g. after WS reconnect).
@@ -224,18 +190,21 @@ export const useExperimentSettingsStore = create<ExperimentSettingsState>((set, 
 
       let nextConfig: LaunchpadItemConfig;
       if (enabled) {
-        nextConfig = { enabled: true, placement };
+        const destCount = selectLaunchpadItemsByPlacement(prevItems, placement).filter(
+          (itemId) => itemId !== id,
+        ).length;
+        nextConfig = { enabled: true, placement, order: destCount };
       } else if (current.enabled && current.placement === placement) {
-        nextConfig = { enabled: false, placement };
+        nextConfig = { ...current, enabled: false, placement };
       } else {
         // Switch off on a tab that doesn't currently own the item — no-op.
         return;
       }
 
-      const nextItems: LaunchpadItems = {
+      const nextItems = reindexLaunchpadOrders({
         ...prevItems,
         [id]: nextConfig,
-      };
+      });
 
       set({
         launchpadItems: nextItems,
@@ -246,6 +215,27 @@ export const useExperimentSettingsStore = create<ExperimentSettingsState>((set, 
         await persistLaunchpadItems(nextItems);
       } catch {
         // Only roll back when no later toggle replaced this optimistic state.
+        if (get().launchpadItems !== nextItems) return;
+        set({
+          launchpadItems: prevItems,
+          ...deriveFlags(prevItems),
+        });
+      }
+    },
+
+    reorderLaunchpadItems: async (activeId, overId) => {
+      const prevItems = get().launchpadItems;
+      const nextItems = applyLaunchpadReorder(prevItems, activeId, overId);
+      if (!nextItems) return;
+
+      set({
+        launchpadItems: nextItems,
+        ...deriveFlags(nextItems),
+      });
+
+      try {
+        await persistLaunchpadItems(nextItems);
+      } catch {
         if (get().launchpadItems !== nextItems) return;
         set({
           launchpadItems: prevItems,
@@ -281,12 +271,3 @@ export const useExperimentSettingsStore = create<ExperimentSettingsState>((set, 
     },
   };
 });
-
-export function selectLaunchpadItemsByPlacement(
-  items: LaunchpadItems,
-  placement: LaunchpadPlacement,
-): LaunchpadItemId[] {
-  return LAUNCHPAD_ITEM_IDS.filter(
-    (id) => items[id].enabled && items[id].placement === placement,
-  );
-}

@@ -38,6 +38,7 @@ import { SkillsModal } from '@/features/skills';
 import { useLayoutSettingsStore } from '@/features/settings/store/layout-settings-store';
 import { useFocusRestore } from '@/shared/hooks/use-focus-restore';
 import { useDesktopWindowDrag } from '@/shared/hooks/use-desktop-window-drag';
+import { useDesktopTrafficLightsPadding } from '@/shared/hooks/use-desktop-traffic-lights-padding';
 import { useDesktopWebLauncher } from '@/shared/hooks/use-desktop-web-launcher';
 import { isDesktopRuntime as detectDesktopShell } from '@/shared/lib/desktop-runtime';
 import { useTunnelConnector } from '@/features/connection/hooks/use-tunnel-connector';
@@ -70,6 +71,7 @@ const Header: React.FC = () => {
   const { workspaceId: currentWorkspaceId, projectId: currentProjectIdFromUrl } = useContextParams();
   const { isLeftCollapsed, toggleLeftSidebar } = useSidebarLayout();
   const { handleDesktopWindowMouseDown, isDesktopDragEnabled } = useDesktopWindowDrag();
+  const needsTrafficLightsPadding = useDesktopTrafficLightsPadding();
 
   const projects = useProjects();
   const updateWorkspaceBranch = useProjectStore(s => s.updateWorkspaceBranch);
@@ -86,10 +88,7 @@ const Header: React.FC = () => {
   const [desktopWebPopoverOpen, setDesktopWebPopoverOpen] = useState(false);
   const [isQuotaPopoverOpen, setIsQuotaPopoverOpen] = useState(false);
   const { onCloseAutoFocusPrevent } = useFocusRestore(isQuotaPopoverOpen);
-  const {
-    isDesktopFullscreen,
-    isDesktopFullscreenExiting,
-  } = useHeaderFullscreen();
+  const { isDesktopFullscreenExiting } = useHeaderFullscreen();
   const refreshCurrentRoute = useCallback(() => {
     window.location.reload();
   }, []);
@@ -414,13 +413,8 @@ const Header: React.FC = () => {
         className={cn(
           "relative flex h-12 items-center justify-between px-4 select-none transition-[padding] duration-300 ease-out",
           isDesktopDragEnabled && "desktop-drag-region",
-          // Traffic lights sit over the full-height left sidebar when expanded.
-          // Only reserve macOS traffic-light inset when the sidebar is collapsed
-          // (header then starts at the window's left edge under the lights).
-          isDesktopDragEnabled &&
-            !isDesktopFullscreen &&
-            isLeftCollapsed &&
-            "pl-[92px]",
+          // Header spans the full window, including over the left sidebar.
+          needsTrafficLightsPadding && "pl-[92px]",
         )}
       >
         {isDesktopDragEnabled ? (

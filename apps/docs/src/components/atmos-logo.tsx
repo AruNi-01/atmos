@@ -10,7 +10,7 @@ export function AtmosLogo({ className }: ComponentProps<'a'>) {
       role="img"
       aria-label="Atmos"
     >
-      <LogoSvg className="size-8 shrink-0" />
+      <LogoSvg className="h-5 w-auto shrink-0" />
       <span className="text-sm font-bold uppercase tracking-widest select-none">ATMOS</span>
     </div>
   );

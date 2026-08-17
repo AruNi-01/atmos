@@ -76,7 +76,7 @@ import { useLayoutSettingsStore } from '@/features/settings/store/layout-setting
 import { useExperimentSettingsStore } from '@/features/settings/store/experiment-settings-store';
 import { useInitialProjectsLoading } from '@/features/project/store/use-initial-projects-loading';
 import { ProjectsSidebarLoading } from '@/app-shell/ProjectsSidebarLoading';
-import { LeftSidebarLaunchpad, LeftSidebarLaunchpadOutside } from '@/app-shell/LeftSidebarLaunchpad';
+import { LeftSidebarLaunchpadBlock } from '@/app-shell/LeftSidebarLaunchpad';
 import { tasksPathWithStoredSource } from '@/features/task/lib/task-source-preference';
 
 import { LeftSidebarPinnedSection } from '@/app-shell/LeftSidebarPinnedSection';
@@ -1462,17 +1462,11 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
             <aside className="@container flex h-full w-full flex-col select-none bg-sidebar text-sidebar-foreground">
                 {/* Launchpad — wait for first load attempt to avoid default-config flash */}
                 {launchpadSettled ? (
-                    <>
-                        <div className="flex flex-col shrink-0">
-                            <LeftSidebarLaunchpad
-                                isExpanded={isWorkspacesExpanded}
-                                onExpandedChange={setIsWorkspacesExpanded}
-                                {...launchpadSharedProps}
-                            />
-                        </div>
-                        {/* Outside items: simple icon + name list below Launchpad */}
-                        <LeftSidebarLaunchpadOutside {...launchpadSharedProps} />
-                    </>
+                    <LeftSidebarLaunchpadBlock
+                        isExpanded={isWorkspacesExpanded}
+                        onExpandedChange={setIsWorkspacesExpanded}
+                        {...launchpadSharedProps}
+                    />
                 ) : null}
 
 

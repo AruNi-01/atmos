@@ -47,7 +47,7 @@ export function HostedLandingLoading() {
           layout="compact"
           className="w-full"
           letterClassName="text-[4.5rem] font-normal sm:text-[5.75rem] lg:text-[6.5rem]"
-          logoClassName="size-[4.5rem] drop-shadow-[0_0_28px_color-mix(in_oklab,var(--foreground)_18%,transparent)] sm:size-[5.25rem] lg:size-24"
+          logoClassName="drop-shadow-[0_0_28px_color-mix(in_oklab,var(--foreground)_18%,transparent)]"
           sloganClassName="hidden"
         />
 

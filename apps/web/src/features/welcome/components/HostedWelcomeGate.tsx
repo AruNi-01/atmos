@@ -518,7 +518,6 @@ function HostedConnectionOnboarding({
           <AtmosWordmark
             className="w-full"
             letterClassName="text-[5.5rem] font-semibold sm:text-[7.25rem] lg:text-[8.75rem]"
-            logoClassName="size-24 sm:size-28 lg:size-32"
             sloganClassName="hidden"
           />
           <HostedSloganShimmer />

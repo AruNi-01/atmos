@@ -95,7 +95,7 @@ const ReadyDownload = ({ downloadLinks }: ReadyDownloadProps) => {
           side={<BlinkingGrid className={landingRailClassName} />}
           contentClassName='bg-background'
         >
-        <div className='flex w-full min-w-0 flex-col items-center justify-center px-4 py-12 sm:px-6 sm:py-16 lg:px-8 lg:py-20'>
+        <div className='flex w-full min-w-0 flex-col items-center justify-center px-4 py-12 pb-8 sm:px-6 sm:py-16 sm:pb-10 lg:px-8 lg:py-20 lg:pb-10'>
           <MotionPreset
             fade
             slide={{ direction: 'down', offset: 50 }}

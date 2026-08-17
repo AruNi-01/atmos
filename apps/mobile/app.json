@@ -22,7 +22,7 @@
     "android": {
       "package": "land.atmos.mobile",
       "adaptiveIcon": {
-        "backgroundColor": "#F7F7F7",
+        "backgroundColor": "#0A0A0B",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"

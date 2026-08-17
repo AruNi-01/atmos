@@ -126,11 +126,17 @@ export interface FunctionSettings {
   experiments?: {
     automations?: boolean;
     center_wiki_tab?: boolean;
+    /**
+     * Launchpad inside/outside placement + order.
+     * Durable on disk: `~/.atmos/config/function_settings.json` → experiments.launchpad_items.
+     * Frontend also caches the same map in localStorage for instant load.
+     */
     launchpad_items?: Record<
       string,
       {
         enabled?: boolean;
         placement?: "inside" | "outside";
+        order?: number;
       }
     >;
     [key: string]: unknown;
