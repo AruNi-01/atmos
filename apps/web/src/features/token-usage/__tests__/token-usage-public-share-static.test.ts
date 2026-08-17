@@ -19,16 +19,17 @@ describe("APP-061 static wiring", () => {
     const landingProxy = read(
       "apps/landing/functions/_lib/tok-app-proxy.ts",
     );
-    expect(landingProxy).toContain("rewriteTokHtml");
+    expect(landingProxy).toContain("isProxiedAppAssetPath");
     expect(landingProxy).toContain("https://app.atmos.land");
     expect(landingProxy).toContain("isTokPath");
+    expect(landingProxy).not.toContain("rewriteTokHtml");
     const landingRedirects = read("scripts/pages/build-pages-landing.mjs");
     expect(landingRedirects).not.toContain(
       "/tok/* https://app.atmos.land/tok/:splat 302",
     );
     const landingRoutes = read("apps/landing/public/_routes.json");
     expect(landingRoutes).toContain('"/tok/*"');
-    expect(landingRoutes).not.toContain('"/_next/*"');
+    expect(landingRoutes).toContain('"/_next/*"');
     const page = read("apps/web/src/features/token-usage/PublicTokPage.tsx");
     expect(page).toContain("TokenUsageOverviewView");
     expect(page).toContain("payload={payload}");

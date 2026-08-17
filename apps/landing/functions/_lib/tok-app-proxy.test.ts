@@ -7,7 +7,6 @@ import {
   handleLandingRequest,
   isProxiedAppAssetPath,
   isTokPath,
-  rewriteTokHtml,
 } from "./tok-app-proxy";
 
 describe("tok path matching", () => {
@@ -22,29 +21,13 @@ describe("tok path matching", () => {
     expect(isTokPath("/changelog")).toBe(false);
   });
 
-  it("only proxies Next and brand-icon prefixes as app assets", () => {
+  it("proxies Next, brand-icon, and favicon paths as app assets", () => {
     expect(isProxiedAppAssetPath("/_next/static/chunks/app.js")).toBe(true);
     expect(isProxiedAppAssetPath("/ai-provider/grok.svg")).toBe(true);
     expect(isProxiedAppAssetPath("/agents/claude-code.svg")).toBe(true);
-    expect(isProxiedAppAssetPath("/icon.svg")).toBe(false);
+    expect(isProxiedAppAssetPath("/icon.svg")).toBe(true);
+    expect(isProxiedAppAssetPath("/icon.png")).toBe(true);
     expect(isProxiedAppAssetPath("/videos/demo.mp4")).toBe(false);
-  });
-});
-
-describe("rewriteTokHtml", () => {
-  it("rewrites script, stylesheet, and RSC /_next URLs to the app origin", () => {
-    const html = [
-      `<link href="/_next/static/chunks/a.css"/>`,
-      `<script src="/_next/static/chunks/b.js"></script>`,
-      `self.__next_f.push([1,"I[1,[\\"/_next/static/chunks/c.js\\"]]"])`,
-    ].join("");
-    const rewritten = rewriteTokHtml(html);
-    expect(rewritten).toContain(`${APP_ORIGIN}/_next/static/chunks/a.css`);
-    expect(rewritten).toContain(`${APP_ORIGIN}/_next/static/chunks/b.js`);
-    expect(rewritten).toContain(`${APP_ORIGIN}/_next/static/chunks/c.js`);
-    expect(rewritten).not.toContain('href="/_next/');
-    expect(rewritten).not.toContain('src="/_next/');
-    expect(rewritten).not.toContain('["/_next/');
   });
 });
 
@@ -60,7 +43,7 @@ describe("appUpstreamUrl", () => {
 });
 
 describe("handleLandingRequest", () => {
-  it("proxies /tok HTML, rewrites assets, and does not 302", async () => {
+  it("proxies /tok HTML, keeps same-origin /_next URLs, and does not 302", async () => {
     const originalFetch = globalThis.fetch;
     globalThis.fetch = async (input) => {
       const url = String(input);
@@ -80,8 +63,8 @@ describe("handleLandingRequest", () => {
       expect(response.headers.get("location")).toBeNull();
       expect(response.headers.get("cache-control")).toBe("private, no-store");
       const body = await response.text();
-      expect(body).toContain(`${APP_ORIGIN}/_next/static/x.js`);
-      expect(body).not.toContain('src="/_next/');
+      expect(body).toContain('src="/_next/static/x.js"');
+      expect(body).not.toContain(`${APP_ORIGIN}/_next/`);
     } finally {
       globalThis.fetch = originalFetch;
     }
