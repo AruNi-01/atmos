@@ -1090,3 +1090,38 @@ export const canvasApi = {
     );
   },
 };
+
+export type PtDesignLibraryItem = {
+  name: string;
+  modified_at: number;
+  size_bytes: number;
+};
+
+export type PtDesignLibraryList = {
+  dir: string;
+  items: PtDesignLibraryItem[];
+};
+
+export const ptDesignApi = {
+  listDocuments: async (): Promise<PtDesignLibraryList> => {
+    return fetchApi<PtDesignLibraryList>("/api/pt-design/documents");
+  },
+
+  getDocument: async (name: string): Promise<{ name: string; body: { scene?: unknown } }> => {
+    return fetchApi<{ name: string; body: { scene?: unknown } }>(
+      `/api/pt-design/documents/${encodeURIComponent(name)}`,
+    );
+  },
+
+  putDocument: async (
+    name: string,
+    body: unknown,
+    options?: { overwrite?: boolean },
+  ): Promise<{ name: string }> => {
+    const qs = options?.overwrite === false ? "" : "?overwrite=true";
+    return fetchApi<{ name: string }>(`/api/pt-design/documents/${encodeURIComponent(name)}${qs}`, {
+      method: "PUT",
+      body: JSON.stringify(body),
+    });
+  },
+};

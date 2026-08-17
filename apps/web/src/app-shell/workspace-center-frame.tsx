@@ -45,6 +45,7 @@ import {
   terminalMountKey,
 } from "@/app-shell/workspace-surface-policies";
 import { readCenterStageLastTab } from "@/shared/stores/use-ui-pref-hooks";
+import { CENTER_STAGE_RADIUS_CSS } from "@/app-shell/sidebar-layout-constants";
 import { cn } from "@/shared/lib/utils";
 import {
   workspaceCenterFramePropsAreEqual,
@@ -207,8 +208,8 @@ function multiPanePanelStyle(
     // Multi-pane panels sit in a host sibling of the rounded pane card, so
     // they are not clipped by the card. Round the bottom so square terminal
     // canvas does not cover the pane's rounded-xl corners.
-    borderBottomLeftRadius: 12,
-    borderBottomRightRadius: 12,
+    borderBottomLeftRadius: CENTER_STAGE_RADIUS_CSS,
+    borderBottomRightRadius: CENTER_STAGE_RADIUS_CSS,
     overflow: "hidden",
   };
 }

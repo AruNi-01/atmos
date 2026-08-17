@@ -191,7 +191,12 @@ import {
 } from "@/features/browser/lib/browser-labels";
 import { useConnectionStore } from "@/features/connection/store/connection-store";
 import { useUiPrefStore } from "@/shared/stores/use-ui-pref-store";
-import { CENTER_STAGE_GUTTER_CLASS } from "@/app-shell/sidebar-layout-constants";
+import { CenterStageSurface } from "@/app-shell/center-stage-chrome";
+import {
+  CENTER_STAGE_CARD_CLASS,
+  CENTER_STAGE_GUTTER_CLASS,
+  CENTER_STAGE_SHELL_CLASS,
+} from "@/app-shell/sidebar-layout-constants";
 import { cn } from "@/shared/lib/utils";
 
 const EMPTY_GITHUB_TABS: GithubCenterTab[] = [];
@@ -2318,6 +2323,7 @@ const CenterStage: React.FC = () => {
       <CenterStageNoContextView
         currentView={currentView}
         automationsEnabled={automationsEnabled}
+        ptDesignOpen={tabFromUrl === "pt-design"}
         onAddProject={() => setCreateProjectOpen(true)}
         onConnectAgent={() => {
           router.push('/agents');
@@ -2455,26 +2461,19 @@ const CenterStage: React.FC = () => {
   // Show setup progress if active workspace is being initialized
   if (currentSetupProgress && isSetupBlocking) {
     return (
-      <main className={cn("h-full min-h-0 overflow-hidden bg-sidebar", CENTER_STAGE_GUTTER_CLASS)}>
-        <div className="h-full overflow-hidden rounded-xl bg-background ring-1 ring-border/40">
-          <WorkspaceSetupProgressView
-            progress={currentSetupProgress}
-            onFinish={handleFinishSetup}
-          />
-        </div>
-      </main>
+      <CenterStageSurface>
+        <WorkspaceSetupProgressView
+          progress={currentSetupProgress}
+          onFinish={handleFinishSetup}
+        />
+      </CenterStageSurface>
     );
   }
 
   return (
     // Inset + rounded cards so all four corners read as a floating main stage.
     // Padding gutters use shell `bg-sidebar` so `bg-background` center pops.
-    <main
-      className={cn(
-        "relative flex h-full min-h-0 flex-col overflow-hidden bg-sidebar",
-        CENTER_STAGE_GUTTER_CLASS,
-      )}
-    >
+    <main className={cn(CENTER_STAGE_SHELL_CLASS, CENTER_STAGE_GUTTER_CLASS)}>
       {isMultiPane ? (
         <div className="relative min-h-0 flex-1">
           <div className="absolute inset-0 min-h-0">
@@ -2598,7 +2597,10 @@ const CenterStage: React.FC = () => {
           value={activeValue}
           onValueChange={handleCenterStageTabChange}
           // isolate helps clip xterm WebGL to the rounded card corners.
-          className="flex min-h-0 flex-1 flex-col gap-0 isolate overflow-hidden rounded-xl bg-background ring-1 ring-border/40"
+          className={cn(
+            "flex min-h-0 flex-1 flex-col gap-0 isolate",
+            CENTER_STAGE_CARD_CLASS,
+          )}
         >
           {renderTabBar()}
           {panels}

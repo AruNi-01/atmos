@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import dynamic from "next/dynamic";
 import { useHotkeys } from "react-hotkeys-hook";
 import { AgentManagerView } from "@/features/agent/components/AgentManagerView";
 import { AutomationPage } from "@/features/automations/components/AutomationPage";
@@ -22,8 +23,15 @@ import {
   readCenterStageLastTab,
   setCenterStageLastTab,
 } from "@/shared/stores/use-ui-pref-hooks";
-import { CENTER_STAGE_GUTTER_CLASS } from "@/app-shell/sidebar-layout-constants";
-import { cn } from "@/shared/lib/utils";
+import { CenterStageSurface } from "@/app-shell/center-stage-chrome";
+
+const PtDesignStandaloneStage = dynamic(
+  () =>
+    import("@/features/pt-design/PtDesignStandaloneStage").then(
+      (mod) => mod.PtDesignStandaloneStage,
+    ),
+  { ssr: false },
+);
 
 type TerminalGridRef = React.RefObject<TerminalGridHandle | null>;
 type TerminalGridRefs = React.RefObject<Record<string, TerminalGridHandle | null>>;
@@ -52,88 +60,37 @@ export function CenterStageNoContextView({
   automationsEnabled,
   onAddProject,
   onConnectAgent,
+  ptDesignOpen = false,
 }: {
   currentView: string;
   automationsEnabled: boolean;
   onAddProject: () => void;
   onConnectAgent: () => void;
+  ptDesignOpen?: boolean;
 }) {
-  if (currentView === "workspaces") {
+  const body = (() => {
+    if (ptDesignOpen) {
+      return <PtDesignStandaloneStage />;
+    }
+    if (currentView === "workspaces") return <WorkspacesManagementView />;
+    if (currentView === "skills") return <SkillsView />;
+    if (currentView === "terminals") return <TerminalsView />;
+    if (currentView === "agents") return <AgentManagerView />;
+    if (currentView === "automations" && automationsEnabled) return <AutomationPage />;
+    if (currentView === "disk-analyzer") return <DiskAnalyzerPage />;
+    if (currentView === "token-usage") return <TokenUsagePage />;
+    if (currentView === "tasks") return <TaskManagementView />;
     return (
-      <main className="h-full overflow-hidden">
-        <WorkspacesManagementView />
-      </main>
+      <HostedWelcomeGate onAddProject={onAddProject} onConnectAgent={onConnectAgent} />
     );
-  }
+  })();
 
-  if (currentView === "skills") {
-    return (
-      <main className="h-full overflow-hidden">
-        <SkillsView />
-      </main>
-    );
-  }
-
-  if (currentView === "terminals") {
-    return (
-      <main className="h-full overflow-hidden">
-        <TerminalsView />
-      </main>
-    );
-  }
-
-  if (currentView === "agents") {
-    return (
-      <main className="h-full overflow-hidden">
-        <AgentManagerView />
-      </main>
-    );
-  }
-
-  if (currentView === "automations" && automationsEnabled) {
-    return (
-      <main className="h-full overflow-hidden">
-        <AutomationPage />
-      </main>
-    );
-  }
-
-  if (currentView === "disk-analyzer") {
-    return (
-      <main className="h-full overflow-hidden">
-        <DiskAnalyzerPage />
-      </main>
-    );
-  }
-
-  if (currentView === "token-usage") {
-    return (
-      <main className="h-full overflow-hidden">
-        <TokenUsagePage />
-      </main>
-    );
-  }
-
-  if (currentView === "tasks") {
-    return (
-      <main className="h-full overflow-hidden">
-        <TaskManagementView />
-      </main>
-    );
-  }
-
-  // Match workspace center-stage chrome: inset gutters + rounded floating card.
   return (
-    <main
-      className={cn(
-        "h-full min-h-0 overflow-hidden bg-sidebar",
-        CENTER_STAGE_GUTTER_CLASS,
-      )}
+    <CenterStageSurface
+      data-testid={ptDesignOpen ? "pt-design-standalone" : undefined}
     >
-      <div className="h-full overflow-hidden rounded-xl bg-background ring-1 ring-border/40">
-        <HostedWelcomeGate onAddProject={onAddProject} onConnectAgent={onConnectAgent} />
-      </div>
-    </main>
+      {body}
+    </CenterStageSurface>
   );
 }
 

@@ -1463,12 +1463,14 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
         onOpenCanvas: () => void setCanvasOpen(true),
         onOpenNewWorkspace: handleOpenNewWorkspace,
         onOpenPtDesign: () => {
-            if (!effectiveContextId) return;
-            openPtDesignTab(effectiveContextId, "pt-design");
-            setActiveFile(null, effectiveContextId);
+            if (effectiveContextId) {
+                openPtDesignTab(effectiveContextId, "pt-design");
+                setActiveFile(null, effectiveContextId);
+            }
             const url = new URL(window.location.href);
             url.searchParams.set("tab", "pt-design");
             url.searchParams.delete("wikiPage");
+            url.searchParams.delete("canvas");
             router.push(`${url.pathname}${url.search}${url.hash}`);
         },
         ptDesignOpen: centerTab === "pt-design",

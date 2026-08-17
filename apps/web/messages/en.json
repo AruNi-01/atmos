@@ -3129,6 +3129,27 @@
       }
     }
   },
+  "ptDesign": {
+    "share": {
+      "title": "Live collaboration",
+      "nameLabel": "Your name",
+      "localTab": "Local",
+      "inviteTab": "Invite",
+      "agentHint": "Copy this prompt into your Agent. It calls the local Atmos API — no MCP, PATH, or extra install.",
+      "copyPrompt": "Copy prompt",
+      "localNote": "No share link. This room stays on this computer.",
+      "linkLabel": "Link",
+      "linkPlaceholder": "Paste a share link to join",
+      "copy": "Copy link",
+      "copied": "Copied",
+      "invalidLink": "That link does not contain a room.",
+      "privacy": "End-to-end encrypted. The server cannot see the board.",
+      "stopHint": "Stopping disconnects you only. Others can keep collaborating.",
+      "stop": "Stop session",
+      "startMenu": "Start live share",
+      "openMenu": "Live share"
+    }
+  },
   "canvas": {
     "changesWidget": {
       "errors": {
@@ -6962,6 +6983,7 @@
         "close": "Close"
       },
       "paneToolbar": {
+        "dragHandle": "Drag to rearrange panes",
         "pinAlreadyPinned": "Already pinned",
         "pin": "Pin",
         "splitHorizontal": "Split Horizontal",
@@ -9600,6 +9622,10 @@
       "orphanedProcessesTooltip": "Orphaned shell processes (PPID=1) that may be holding PTY devices. See the Orphaned Processes section below for details."
     },
     "workspacePane": {
+      "drag": {
+        "handle": "Drag to rearrange panes",
+        "ghost": "Terminal"
+      },
       "pin": {
         "title": "Pin to canvas (⌘⇧P)",
         "alreadyPinnedTitle": "Already pinned to canvas"

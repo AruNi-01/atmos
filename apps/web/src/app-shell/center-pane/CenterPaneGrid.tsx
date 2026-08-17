@@ -2,6 +2,7 @@
 
 import React from "react";
 import { cn } from "@/shared/lib/utils";
+import { CENTER_STAGE_RADIUS_CLASS } from "@/app-shell/sidebar-layout-constants";
 import {
   gridTemplateStyles,
   type CenterPane,
@@ -123,7 +124,8 @@ export function CenterPaneGrid({
               data-center-pane={pane.id}
               data-focused={isFocused ? "true" : "false"}
               className={cn(
-                "flex min-h-0 min-w-0 flex-col overflow-hidden rounded-xl bg-background ring-1 transition-[box-shadow,ring-color]",
+                "flex min-h-0 min-w-0 flex-col overflow-hidden bg-background ring-1 transition-[box-shadow,ring-color]",
+                CENTER_STAGE_RADIUS_CLASS,
                 // Clip children to the rounded card so pane corners always show.
                 "isolate",
                 isFocused ? "ring-border/70 shadow-sm" : "ring-border/40",

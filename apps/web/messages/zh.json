@@ -3129,6 +3129,27 @@
       }
     }
   },
+  "ptDesign": {
+    "share": {
+      "title": "实时协作",
+      "nameLabel": "你的名称",
+      "localTab": "本地",
+      "inviteTab": "邀请",
+      "agentHint": "把这段 Prompt 发给 Agent。它会请求本机 Atmos 接口，不用配 MCP、不用装命令。",
+      "copyPrompt": "复制 Prompt",
+      "localNote": "没有分享链接。这个房间只在这台电脑上。",
+      "linkLabel": "链接",
+      "linkPlaceholder": "粘贴分享链接以加入",
+      "copy": "复制链接",
+      "copied": "已复制",
+      "invalidLink": "这个链接里没有房间。",
+      "privacy": "端到端加密，服务器看不到画布内容。",
+      "stopHint": "结束会话只会断开你自己，其他人仍可继续协作。",
+      "stop": "结束会话",
+      "startMenu": "开始实时分享",
+      "openMenu": "实时分享"
+    }
+  },
   "canvas": {
     "changesWidget": {
       "errors": {
@@ -6962,6 +6983,7 @@
         "close": "关闭"
       },
       "paneToolbar": {
+        "dragHandle": "拖动以重新排列窗格",
         "pinAlreadyPinned": "已固定",
         "pin": "固定",
         "splitHorizontal": "水平拆分",
@@ -9600,6 +9622,10 @@
       "orphanedProcessesTooltip": "这些是可能正在占用 PTY 设备的孤儿 shell 进程（PPID=1）。详情请查看下面的 Orphaned Processes 区域。"
     },
     "workspacePane": {
+      "drag": {
+        "handle": "拖动以重新排列窗格",
+        "ghost": "终端"
+      },
       "pin": {
         "title": "固定到 Canvas（⌘⇧P）",
         "alreadyPinnedTitle": "已固定到 Canvas"

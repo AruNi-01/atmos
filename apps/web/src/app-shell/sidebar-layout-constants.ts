@@ -13,3 +13,18 @@ export const APP_FOOTER_HEIGHT_PX = 36;
 export const CENTER_STAGE_GUTTER_X_PX = 8;
 export const CENTER_STAGE_GUTTER_Y_PX = 4;
 export const CENTER_STAGE_GUTTER_CLASS = "px-2 py-1";
+
+/** Shell behind the floating card — matches sidebar so gutters read as inset. */
+export const CENTER_STAGE_SHELL_CLASS =
+  "relative flex h-full min-h-0 flex-col overflow-hidden bg-sidebar";
+
+/**
+ * Shared radius for every center-stage surface (`rounded-xl` = `--radius-xl`).
+ * Use this instead of hardcoded 12px so WebGL/canvas clips match the card.
+ */
+export const CENTER_STAGE_RADIUS_CLASS = "rounded-xl";
+export const CENTER_STAGE_RADIUS_CSS = "var(--radius-xl)";
+
+/** Floating card: clip children to the radius and ring the inset stage. */
+export const CENTER_STAGE_CARD_CLASS =
+  "h-full min-h-0 overflow-hidden rounded-xl bg-background ring-1 ring-border/40";

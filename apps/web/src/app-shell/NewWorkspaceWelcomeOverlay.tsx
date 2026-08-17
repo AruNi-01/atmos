@@ -6,6 +6,7 @@ import {
   APP_FOOTER_HEIGHT_PX,
   CENTER_STAGE_GUTTER_X_PX,
   CENTER_STAGE_GUTTER_Y_PX,
+  CENTER_STAGE_RADIUS_CLASS,
   DEFAULT_LEFT_SIDEBAR_SIZE,
 } from "@/app-shell/sidebar-layout-constants";
 import { cn } from "@/shared/lib/utils";
@@ -46,7 +47,8 @@ export function NewWorkspaceWelcomeOverlay() {
       aria-label="New workspace"
       className={cn(
         "absolute z-[49] overflow-hidden bg-background will-change-[translate]",
-        "rounded-xl ring-1 ring-border/40 shadow-[0_-8px_30px_rgba(0,0,0,0.12)]",
+        CENTER_STAGE_RADIUS_CLASS,
+        "ring-1 ring-border/40 shadow-[0_-8px_30px_rgba(0,0,0,0.12)]",
         // Prefer reduced motion: kill the slide without fighting inline transition props.
         "motion-reduce:![transition-property:none]",
         isShown
