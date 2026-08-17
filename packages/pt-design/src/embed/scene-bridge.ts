@@ -61,7 +61,10 @@ export function excalidrawElementsToScene(
       .filter((el) => el.type !== ("selection" as PtElementType))
       .map((el) => fromCompat(el, theme)),
     appState: {
-      viewBackgroundColor: appState?.viewBackgroundColor ?? "#ffffff",
+      viewBackgroundColor: canonicalColor(
+        appState?.viewBackgroundColor ?? "#ffffff",
+        theme,
+      ),
     },
   };
 }

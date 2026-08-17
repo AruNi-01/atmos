@@ -17,6 +17,7 @@ const TO_DARK: Record<string, string> = {
 const FROM_DARK: Record<string, string> = {
   "#f4f4f5": "#18181b",
   "#2e2e33": "#ffffff",
+  "#242428": "#ffffff",
   "#18181b": "#fafafa",
   "#3f3f46": "#f4f4f5",
   "#a1a1aa": "#71717a",

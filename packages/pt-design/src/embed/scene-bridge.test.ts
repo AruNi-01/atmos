@@ -56,6 +56,7 @@ describe("excalidraw scene bridge", () => {
     const continueLabel = dark.find((el) => el.type === "text" && el.text === "Continue");
     expect(continueLabel?.strokeColor).toBe("#18181b");
     const back = excalidrawElementsToScene(dark, { viewBackgroundColor: "#242428" }, "dark");
+    expect(back.appState.viewBackgroundColor).toBe("#ffffff");
     const canonical = back.elements.find((el) => el.customData?.pt?.componentType === "alert-dialog");
     expect(canonical?.backgroundColor).toBe("#ffffff");
     const canonicalTitle = back.elements.find((el) => el.type === "text" && el.text === "Alert Dialog");

@@ -19,6 +19,7 @@ describe("theme palette", () => {
 
   test("dark display colors unmap back to the light IR palette", () => {
     expect(canonicalColor("#2e2e33", "dark")).toBe("#ffffff");
+    expect(canonicalColor("#242428", "dark")).toBe("#ffffff");
     expect(canonicalColor("#f4f4f5", "dark")).toBe("#18181b");
     expect(canonicalColor("#18181b", "dark")).toBe("#fafafa");
   });
