@@ -92,5 +92,23 @@ describe("excalidraw scene bridge", () => {
     const stored = excalidrawElementsToScene(shown, { viewBackgroundColor: "#ffffff" }, "light");
     expect(stored.elements.filter((el) => el.type === "text").every((el) => el.fontFamily === 2)).toBe(true);
   });
+
+  test("fingerprint includes fill and canvas background", () => {
+    const session = createPtDesignSession();
+    session.dispatch({ type: "place", componentType: "button", at: { x: 0, y: 0 } });
+    const scene = session.getScene();
+    const fillOnly = {
+      ...scene,
+      elements: scene.elements.map((el) =>
+        el.customData?.pt?.componentType === "button" ? { ...el, backgroundColor: "#ef4444" } : el,
+      ),
+    };
+    const backgroundOnly = {
+      ...scene,
+      appState: { viewBackgroundColor: "#fafafa" },
+    };
+    expect(sceneFingerprint(fillOnly)).not.toBe(sceneFingerprint(scene));
+    expect(sceneFingerprint(backgroundOnly)).not.toBe(sceneFingerprint(scene));
+  });
 });
 

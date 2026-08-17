@@ -70,7 +70,7 @@ export function excalidrawElementsToScene(
 }
 
 export function sceneFingerprint(scene: PtScene): string {
-  return scene.elements
+  const elements = scene.elements
     .filter((el) => !el.isDeleted)
     .map((el) =>
       [
@@ -80,6 +80,11 @@ export function sceneFingerprint(scene: PtScene): string {
         el.y,
         el.width,
         el.height,
+        el.angle ?? 0,
+        el.roughness ?? "",
+        el.opacity ?? "",
+        el.strokeColor ?? "",
+        el.backgroundColor ?? "",
         el.frameId ?? "",
         el.text ?? "",
         el.name ?? "",
@@ -89,6 +94,7 @@ export function sceneFingerprint(scene: PtScene): string {
       ].join(":"),
     )
     .join("|");
+  return `${elements}#${scene.appState?.viewBackgroundColor ?? ""}`;
 }
 
 function toCompat(el: PtElement, theme: "light" | "dark"): ExcalidrawCompatElement {
