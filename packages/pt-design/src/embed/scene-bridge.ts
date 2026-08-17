@@ -8,7 +8,10 @@ export type ExcalidrawCompatElement = PtElement & {
 };
 
 export type ExcalidrawHostApi = {
-  updateScene: (input: { elements: ExcalidrawCompatElement[] }) => void;
+  updateScene: (input: {
+    elements?: ExcalidrawCompatElement[];
+    appState?: { viewBackgroundColor?: string; theme?: "light" | "dark" };
+  }) => void;
   getSceneElements: () => readonly ExcalidrawCompatElement[];
   getSceneElementsIncludingDeleted: () => readonly ExcalidrawCompatElement[];
   getAppState: () => {

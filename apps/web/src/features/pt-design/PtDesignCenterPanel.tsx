@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useTheme } from "next-themes";
 import { PtDesignApp, type PersistenceAdapter } from "@atmos/pt-design";
 
 function contextPersistence(contextId: string): PersistenceAdapter {
@@ -25,9 +26,20 @@ function contextPersistence(contextId: string): PersistenceAdapter {
 
 export function PtDesignCenterPanel({ contextId }: { contextId: string }) {
   const persistence = React.useMemo(() => contextPersistence(contextId), [contextId]);
+  const { resolvedTheme } = useTheme();
+  const theme = resolvedTheme === "dark" ? "dark" : "light";
   return (
-    <div className="h-full min-h-0 w-full" data-testid="pt-design-center">
-      <PtDesignApp persistence={persistence} storageKey={`pt-design:scene:${contextId}`} />
+    <div
+      className="h-full min-h-0 w-full bg-background text-foreground"
+      data-testid="pt-design-center"
+      data-theme={theme}
+    >
+      <PtDesignApp
+        theme={theme}
+        persistence={persistence}
+        storageKey={`pt-design:scene:${contextId}`}
+        className="h-full min-h-0"
+      />
     </div>
   );
 }

@@ -37,6 +37,8 @@ describe("package isolation", () => {
     const embed = readFileSync(join(srcRoot, "embed", "PtDesignApp.tsx"), "utf8");
     expect(embed).not.toMatch(/headless|cli\/bin|mcp\/server|core\/document|node:fs|from ["']ink["']/);
     expect(embed).toContain("ExcalidrawBoard");
+    expect(embed).toContain("chrome.fg");
+    expect(embed).toContain("data-testid=\"pt-design-catalog\"");
     expect(embed).not.toMatch(/viewBox="0 0 1200 800"/);
     const board = readFileSync(join(srcRoot, "embed", "ExcalidrawBoard.tsx"), "utf8");
     expect(board).toMatch(/from ["']@excalidraw\/excalidraw["']/);

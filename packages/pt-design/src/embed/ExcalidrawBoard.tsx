@@ -24,31 +24,51 @@ export type ExcalidrawBoardProps = {
 export default function ExcalidrawBoard({
   initialElements,
   viewBackgroundColor,
-  theme,
+  theme = "light",
   onApi,
   onChange,
 }: ExcalidrawBoardProps) {
+  const apiRef = React.useRef<{
+    updateScene: (next: Record<string, unknown>) => void;
+  } | null>(null);
+
+  React.useEffect(() => {
+    apiRef.current?.updateScene({
+      appState: { viewBackgroundColor, theme },
+    });
+  }, [theme, viewBackgroundColor]);
+
   return (
-    <div data-testid="pt-design-board" style={{ height: "100%", width: "100%", minHeight: 320 }}>
+    <div
+      data-testid="pt-design-board"
+      data-theme={theme}
+      style={{ height: "100%", width: "100%", minHeight: 320, background: viewBackgroundColor }}
+    >
       <Excalidraw
-        theme={theme === "dark" ? "dark" : "light"}
+        theme={theme}
         handleKeyboardGlobally={false}
         UIOptions={{
           canvasActions: {
             loadScene: false,
             saveToActiveFile: false,
+            toggleTheme: false,
           },
         }}
         initialData={{
           elements: initialElements as never,
           appState: {
             viewBackgroundColor,
+            theme,
           },
         }}
         excalidrawAPI={(api) => {
+          apiRef.current = api;
           onApi({
             updateScene: (input) => {
-              api.updateScene({ elements: input.elements as never });
+              api.updateScene({
+                ...(input.elements ? { elements: input.elements as never } : {}),
+                ...(input.appState ? { appState: input.appState as never } : {}),
+              });
             },
             getSceneElements: () =>
               api.getSceneElements() as unknown as readonly ExcalidrawCompatElement[],

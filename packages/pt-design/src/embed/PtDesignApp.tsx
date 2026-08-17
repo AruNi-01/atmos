@@ -9,6 +9,7 @@ import {
   type PersistenceAdapter,
   type PtTheme,
 } from "../host/adapters";
+import { chromeTokens, resolveBoardTheme } from "./chrome";
 import {
   excalidrawElementsToScene,
   sceneFingerprint,
@@ -28,15 +29,6 @@ export type PtDesignAppProps = {
 
 const ExcalidrawBoard = React.lazy(() => import("./ExcalidrawBoard"));
 
-function resolvedTheme(theme: PtTheme | undefined): "light" | "dark" {
-  if (theme === "dark") return "dark";
-  if (theme === "light") return "light";
-  if (typeof window !== "undefined" && window.matchMedia?.("(prefers-color-scheme: dark)").matches) {
-    return "dark";
-  }
-  return "light";
-}
-
 export function PtDesignApp({
   session: external,
   persistence,
@@ -55,6 +47,8 @@ export function PtDesignApp({
   const [selectedInstanceId, setSelectedInstanceId] = React.useState<string | null>(null);
   const apiRef = React.useRef<ExcalidrawHostApi | null>(null);
   const applyingRef = React.useRef(false);
+  const boardTheme = resolveBoardTheme(theme);
+  const chrome = chromeTokens(boardTheme);
 
   const pushScene = React.useCallback(() => {
     const api = apiRef.current;
@@ -128,50 +122,93 @@ export function PtDesignApp({
     applyingRef.current = false;
   };
 
+  const toolButton: React.CSSProperties = {
+    fontSize: 12,
+    color: chrome.fg,
+    background: chrome.muted,
+    border: `1px solid ${chrome.border}`,
+    borderRadius: 8,
+    padding: "6px 10px",
+    cursor: "pointer",
+  };
+
   return (
-    <div className={className} style={{ display: "flex", height: "100%", minHeight: 360, background: "#fafafa" }}>
+    <div
+      className={className}
+      data-testid="pt-design-app"
+      data-theme={boardTheme}
+      style={{
+        display: "flex",
+        height: "100%",
+        minHeight: 360,
+        background: chrome.bg,
+        color: chrome.fg,
+      }}
+    >
       <aside
+        data-testid="pt-design-catalog"
         style={{
           width: 220,
-          borderRight: "1px solid #e4e4e7",
+          borderRight: `1px solid ${chrome.border}`,
           overflow: "auto",
           padding: 8,
-          background: "#fff",
+          background: chrome.card,
+          color: chrome.fg,
         }}
       >
-        <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 8 }}>PT Design</div>
-        {catalog.map((item) => (
-          <button
-            key={item.componentType}
-            type="button"
-            onClick={() => {
-              setCatalogType(item.componentType);
-              session.dispatch({
-                type: "place",
-                componentType: item.componentType,
-                at: placeAt(),
-              });
-            }}
-            style={{
-              display: "block",
-              width: "100%",
-              textAlign: "left",
-              fontSize: 12,
-              padding: "4px 6px",
-              marginBottom: 2,
-              border: "none",
-              background: catalogType === item.componentType ? "#f4f4f5" : "transparent",
-              cursor: "pointer",
-            }}
-          >
-            {item.componentType}
-          </button>
-        ))}
+        <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 8, color: chrome.fg }}>
+          PT Design
+        </div>
+        {catalog.map((item) => {
+          const active = catalogType === item.componentType;
+          return (
+            <button
+              key={item.componentType}
+              type="button"
+              data-catalog-type={item.componentType}
+              onClick={() => {
+                setCatalogType(item.componentType);
+                session.dispatch({
+                  type: "place",
+                  componentType: item.componentType,
+                  at: placeAt(),
+                });
+              }}
+              style={{
+                display: "block",
+                width: "100%",
+                textAlign: "left",
+                fontSize: 12,
+                lineHeight: "18px",
+                padding: "6px 8px",
+                marginBottom: 2,
+                border: "none",
+                borderRadius: 8,
+                color: chrome.fg,
+                background: active ? chrome.muted : "transparent",
+                cursor: "pointer",
+              }}
+            >
+              {item.componentType}
+            </button>
+          );
+        })}
       </aside>
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, padding: 8, borderBottom: "1px solid #e4e4e7" }}>
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, background: chrome.bg }}>
+        <div
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            gap: 8,
+            padding: 8,
+            borderBottom: `1px solid ${chrome.border}`,
+            background: chrome.card,
+            color: chrome.fg,
+          }}
+        >
           <button
             type="button"
+            style={toolButton}
             onClick={() => {
               session.dispatch({
                 type: "createFrame",
@@ -184,6 +221,7 @@ export function PtDesignApp({
           </button>
           <button
             type="button"
+            style={toolButton}
             onClick={() => {
               const payload = session.buildHandoff({ scope: "document" });
               if (handoff) void handoff.accept(payload);
@@ -194,6 +232,7 @@ export function PtDesignApp({
           </button>
           <button
             type="button"
+            style={toolButton}
             onClick={() => {
               void navigator.clipboard?.writeText(JSON.stringify(session.getIR(), null, 2));
             }}
@@ -201,7 +240,7 @@ export function PtDesignApp({
             Copy IR
           </button>
           {selectedEntry && selectedInstanceId && selectedEntry.variants.length > 1 ? (
-            <span style={{ display: "inline-flex", gap: 4, alignItems: "center", fontSize: 12 }}>
+            <span style={{ display: "inline-flex", gap: 4, alignItems: "center", fontSize: 12, color: chrome.mutedFg }}>
               Variant
               {selectedEntry.variants.map((variant) => (
                 <button
@@ -211,6 +250,7 @@ export function PtDesignApp({
                     session.dispatch({ type: "update", instanceId: selectedInstanceId, variant });
                   }}
                   style={{
+                    ...toolButton,
                     fontWeight: selected?.customData?.pt?.variant === variant ? 600 : 400,
                   }}
                 >
@@ -220,12 +260,12 @@ export function PtDesignApp({
             </span>
           ) : null}
         </div>
-        <div style={{ flex: 1, minHeight: 0 }}>
-          <React.Suspense fallback={<div style={{ padding: 16, fontSize: 13 }}>Loading board…</div>}>
+        <div style={{ flex: 1, minHeight: 0, background: chrome.canvas }}>
+          <React.Suspense fallback={<div style={{ padding: 16, fontSize: 13, color: chrome.mutedFg }}>Loading board…</div>}>
             <ExcalidrawBoard
               initialElements={sceneToExcalidrawElements(scene)}
-              viewBackgroundColor={scene.appState.viewBackgroundColor}
-              theme={resolvedTheme(theme)}
+              viewBackgroundColor={chrome.canvas}
+              theme={boardTheme}
               onApi={(api) => {
                 apiRef.current = api;
                 pushScene();

@@ -45,4 +45,15 @@ describe("PT Design Atmos host wiring", () => {
     expect(frame).toContain("PtDesignCenterPanel");
     expect(frame).toContain("pt-design");
   });
+
+  test("host panel forwards Atmos theme and surface tokens", () => {
+    const panel = readFileSync(
+      join(import.meta.dir, "../../features/pt-design/PtDesignCenterPanel.tsx"),
+      "utf8",
+    );
+    expect(panel).toContain("useTheme");
+    expect(panel).toContain("theme={theme}");
+    expect(panel).toContain("bg-background");
+    expect(panel).toContain("text-foreground");
+  });
 });
