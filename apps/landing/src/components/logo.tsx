@@ -5,72 +5,26 @@ import { motion } from 'motion/react'
 import { cn } from '@/lib/utils'
 import { TextScramble } from '@workspace/ui/components/ui/text-scramble'
 
+const RING_D =
+  'M11.096 15.767a3.973 19.587 0 1 0 7.946 0a3.973 19.587 0 1 0-7.946 0zM11.582 15.767a3.487 17.193 0 1 0 6.974 0a3.487 17.193 0 1 0-6.974 0z'
+
 const AnimatedLogoSvg = ({ className, animate = true }: { className?: string; animate?: boolean }) => {
   return (
     <div className={cn('relative flex items-center justify-center', className)}>
-      <svg width='32' height='32' viewBox='0 0 32 32' fill='none' xmlns='http://www.w3.org/2000/svg' className="w-full h-full overflow-visible">
-        {/* Inner Circle - Core */}
-        <motion.circle
-          cx='16' cy='16' r='6'
-          stroke='currentColor'
-          strokeWidth='2.5'
-          initial={{ scale: 0.8, opacity: 0.8 }}
-          animate={animate ? {
-            scale: [0.8, 1.1, 0.8, 0.8],
-            opacity: [0.8, 1, 0.8, 0.8]
-          } : { scale: 0.8, opacity: 0.8 }}
-          transition={animate ? {
-            duration: 6,
-            times: [0, 0.2, 0.5, 1],
-            repeat: Infinity,
-            ease: "easeInOut"
-          } : { duration: 0.5, ease: "easeInOut" }}
-        />
-
-        {/* Middle Circle - Orbit 1 */}
-        <motion.circle
-          cx='16' cy='16' r='10'
-          stroke='currentColor'
-          strokeWidth='1.5'
-          opacity='0.6'
-          initial={{ rotate: 0, scale: 1 }}
-          animate={animate ? {
-            rotate: [0, 360, 360],
-            scale: [1, 1.1, 1, 1]
-          } : { rotate: 360, scale: 1 }}
-          transition={animate ? {
-            duration: 6,
-            times: [0, 0.5, 1],
-            scale: {
-              times: [0, 0.25, 0.5, 1],
-              duration: 6,
-              repeat: Infinity
-            },
-            repeat: Infinity,
-            ease: "easeInOut"
-          } : { duration: 1, ease: "easeInOut" }}
-          style={{ originX: "16px", originY: "16px" }}
-        />
-
-        {/* Outer Circle - Orbit 2 */}
-        <motion.circle
-          cx='16' cy='16' r='14'
-          stroke='currentColor'
-          strokeWidth='0.5'
-          opacity='0.3'
-          strokeDasharray="4 4"
-          initial={{ rotate: 0 }}
-          animate={animate ? {
-            rotate: [0, -360, -360]
-          } : { rotate: -360 }}
-          transition={animate ? {
-            duration: 6,
-            times: [0, 0.5, 1],
-            repeat: Infinity,
-            ease: "easeInOut"
-          } : { duration: 1, ease: "easeInOut" }}
-          style={{ originX: "16px", originY: "16px" }}
-        />
+      <svg width='32' height='32' viewBox='0 0 32 32' fill='none' xmlns='http://www.w3.org/2000/svg' className="h-full w-full overflow-visible">
+        <g fill='currentColor'>
+          <path d='M0 16Q16 14.6 32 16Q16 17.4 0 16Z' />
+          <circle cx='16' cy='16' r='7.215' />
+          <motion.g
+            animate={animate ? { rotate: 360 } : { rotate: 0 }}
+            transition={animate ? { duration: 28, repeat: Infinity, ease: 'linear' } : { duration: 0.5, ease: 'easeInOut' }}
+            style={{ originX: '16px', originY: '16px' }}
+          >
+            <g transform='rotate(51 15.069 15.767)'>
+              <path fillRule='evenodd' d={RING_D} />
+            </g>
+          </motion.g>
+        </g>
       </svg>
     </div>
   )

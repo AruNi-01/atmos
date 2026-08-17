@@ -4,12 +4,12 @@
 
 | Asset | Role |
 |-------|------|
-| `icon.icon/` | **macOS 26+ Liquid Glass** Icon Composer package (source). electron-builder + `actool` ≥ 26 → `Assets.car` + legacy ICNS. |
+| `icon.icon/` | **macOS 26+ Liquid Glass** Icon Composer package (source). Fill is black; `Assets/Logo.png` is the white mark; `Assets/Rim.png` is a hairline edge so the tile reads on a dark Dock. electron-builder + `actool` ≥ 26 → `Assets.car` + legacy ICNS. |
 | `icon.icns` | Legacy macOS app / DMG volume icon (also emitted from `.icon` when actool runs). |
 | `icon.png` / `icon.ico` | Window chrome, Windows installer, dev `dock.setIcon` (PNG preferred). |
 | `32x32.png`, `128x128*.png` | Fallback sizes |
 
-**Cross-surface brand pack** (same white-plate art as `icon.icns`, kept in lockstep by `regen-legacy-icns`):
+**Cross-surface brand pack** (same black rounded-plate art as `icon.icns`, kept in lockstep by `regen-legacy-icns`):
 
 | Asset | Role |
 |-------|------|
@@ -76,7 +76,7 @@ CI always requires Liquid Glass (`CI=true`).
 
 **Edit Liquid Glass artwork**
 
-1. Update `icon.icon/Assets/Logo.png` (1024×1024, transparent, logo only — no squircle plate) and/or `icon.json`
+1. Update `icon.icon/Assets/Logo.png` (1024×1024, transparent white mark only — no disc, no squircle plate) and/or `icon.json` (fill is black). Hairline rim is `Assets/Rim.png` (rewritten by `regen-legacy-icns`).
 2. Optionally open `icon.icon` in Apple Icon Composer for glass tuning
 3. Run `bun run regen-legacy-icns` so DMG / host / notification match
 4. Re-package on a machine with Xcode 26+

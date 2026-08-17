@@ -1,11 +1,26 @@
 <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
   <style>
-    .s { stroke: black; }
+    .m { fill: black; }
     @media (prefers-color-scheme: dark) {
-      .s { stroke: white; }
+      .m { fill: white; }
     }
   </style>
-  <circle cx="16" cy="16" r="7" class="s" stroke-width="2.5" />
-  <circle cx="16" cy="16" r="11" class="s" stroke-width="1.5" opacity="0.6" />
-  <circle cx="16" cy="16" r="15" class="s" stroke-width="0.5" opacity="0.3" stroke-dasharray="4 4" />
+  <defs>
+    <clipPath id="atmos-icon-ring-front">
+      <circle cx="0.785" cy="27.345" r="8.5" />
+      <circle cx="29.353" cy="4.189" r="8.5" />
+    </clipPath>
+  </defs>
+  <g class="m">
+    <path d="M0 16Q16 14.6 32 16Q16 17.4 0 16Z" />
+    <g transform="rotate(51 15.069 15.767)">
+      <path fill-rule="evenodd" d="M11.096 15.767a3.973 19.587 0 1 0 7.946 0a3.973 19.587 0 1 0-7.946 0zM11.582 15.767a3.487 17.193 0 1 0 6.974 0a3.487 17.193 0 1 0-6.974 0z" />
+    </g>
+    <circle cx="16" cy="16" r="7.215" />
+    <g clip-path="url(#atmos-icon-ring-front)">
+      <g transform="rotate(51 15.069 15.767)">
+        <path fill-rule="evenodd" d="M11.096 15.767a3.973 19.587 0 1 0 7.946 0a3.973 19.587 0 1 0-7.946 0zM11.582 15.767a3.487 17.193 0 1 0 6.974 0a3.487 17.193 0 1 0-6.974 0z" />
+      </g>
+    </g>
+  </g>
 </svg>
