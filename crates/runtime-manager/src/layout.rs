@@ -111,6 +111,17 @@ pub fn workspaces_data_dir() -> Result<PathBuf, String> {
     Ok(data_dir()?.join("workspaces"))
 }
 
+/// Saved Prototype Design documents: `~/.atmos/data/pt-design/`.
+pub fn pt_design_data_dir() -> Result<PathBuf, String> {
+    if let Ok(raw) = std::env::var("ATMOS_PT_DESIGN_DIR") {
+        let trimmed = raw.trim();
+        if !trimmed.is_empty() {
+            return Ok(PathBuf::from(trimmed));
+        }
+    }
+    Ok(data_dir()?.join("pt-design"))
+}
+
 pub fn review_data_dir() -> Result<PathBuf, String> {
     Ok(data_dir()?.join("review"))
 }

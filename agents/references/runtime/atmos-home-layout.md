@@ -33,6 +33,7 @@ Canonical on-disk layout (no legacy root-level secret/config files).
     permission-access/  # consent.json — never under data/desktop/
     local-model-runtime/
     agent/sessions/
+    pt-design/          # saved Prototype Design documents (*.ptdesign.json)
 
   bin/ runtime/ shims/ skills/   # install artifacts
                                  # runtime/serve-sim/<version>/  (APP-060 helper)
@@ -67,5 +68,6 @@ Desktop may set `ATMOS_DATA_DIR=~/.atmos/data/desktop` for **shell-scoped** Serv
 | Permission Access | `~/.atmos/data/permission-access` | `ATMOS_PERMISSION_ACCESS_DIR` |
 | SQLite | `~/.atmos/data/db/atmos.db` | (infra path) |
 | Workspaces | `~/.atmos/data/workspaces` | — |
+| Prototype Design | `~/.atmos/data/pt-design` | `ATMOS_PT_DESIGN_DIR` |
 
 Wrong (historical): `$ATMOS_DATA_DIR/token-usage` → `data/desktop/token-usage`.
