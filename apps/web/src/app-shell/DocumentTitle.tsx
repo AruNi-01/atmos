@@ -51,6 +51,8 @@ export function DocumentTitle() {
           return t("tokenUsage");
         case "tasks":
           return t("tasks");
+        case "pt-design":
+          return t("ptDesign");
         case "settings":
           return t("settings");
       }

@@ -69,7 +69,7 @@ export function CenterStageNoContextView({
   ptDesignOpen?: boolean;
 }) {
   const body = (() => {
-    if (ptDesignOpen) {
+    if (currentView === "pt-design" || ptDesignOpen) {
       return <PtDesignStandaloneStage />;
     }
     if (currentView === "workspaces") return <WorkspacesManagementView />;
@@ -87,7 +87,7 @@ export function CenterStageNoContextView({
 
   return (
     <CenterStageSurface
-      data-testid={ptDesignOpen ? "pt-design-standalone" : undefined}
+      data-testid={currentView === "pt-design" || ptDesignOpen ? "pt-design-standalone" : undefined}
     >
       {body}
     </CenterStageSurface>

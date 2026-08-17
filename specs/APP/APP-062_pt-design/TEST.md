@@ -53,7 +53,7 @@
 | S19 | Bun | `bun test` | HandoffSink | mock | accept once | planned |
 | S20 | Manual | review | AGENTS.md | docs | edges + binaries | planned |
 | S21 | Bun | `bun test` | place blocks | block.* | IR componentType block id | planned |
-| S22 | agent-browser / E2E | web app | left sidebar | workspace context | center tab `pt-design` | planned |
+| S22 | agent-browser / E2E | web app | left sidebar | any context | `/pt-design` standalone page | planned |
 | S23–S28 | Bun | as TECH | file/MCP/CLI/parity | temp files | normalizeIR / auto-save | planned |
 | S29 | Manual | Skill checklist | SKILL.md | sections | planned |
 | S30–S35 | Bun | failures/image | CLI/MCP | bad paths | structured errors | planned |
@@ -61,7 +61,7 @@
 | S38 | Bun | freehand IR | stroke+button | encode ok | planned |
 | S39 | Bun | structural | center-tool-tabs + open helper | source | `"pt-design"` registered | planned |
 | S40 | Bun | host persist | PersistenceAdapter mock | contextId | reload restores scene | planned |
-| S41 | agent-browser | Atmos web | open → close → reopen | same context | design restored | planned |
+| S41 | agent-browser | Atmos web | `/pt-design` → leave → sidebar reopen | standalone canvas | design restored | planned |
 | S42 | Bun | variant update | button variants | template swap | instanceId stable | planned |
 
 ## Scenarios
@@ -113,12 +113,12 @@ Each place succeeds; IR bare `componentType` matches.
 ### S21 — Blocks (M19)
 Place each required block id (`block.auth-form`, `block.settings-shell`, `block.empty-state`, `block.nav-content`); IR types match; multi-element group moves as unit when encoded.
 
-### S22 — Atmos left sidebar opens center (M18)
+### S22 — Atmos left sidebar opens standalone page (M18)
 - **Level**: agent-browser (and Playwright when harness includes app shell)
-- **Given**: authenticated/local Atmos web with a workspace context
-- **When**: user activates left sidebar **PT Design** control
-- **Then**: center stage shows PT Design surface; URL/tab value is `pt-design` (or documented equivalent); board interactive
-- **Signals**: center panel visible; tab active; not only a modal/right-rail
+- **Given**: authenticated/local Atmos web, with or without a selected project/workspace
+- **When**: user activates left sidebar **Prototype Design** control
+- **Then**: app navigates to `/pt-design`; center stage shows the standalone board; URL is **not** `/workspace?…&tab=pt-design` or `/project?…&tab=pt-design`; board interactive
+- **Signals**: pathname `/pt-design`; `data-testid="pt-design-standalone"`; launchpad item active; not only a modal/right-rail
 
 ### S23 — File init/open/save
 
@@ -158,17 +158,17 @@ Place each required block id (`block.auth-form`, `block.settings-shell`, `block.
 
 ### S40 — Host persistence per context (M18)
 - **Level**: Bun
-- **Given**: host PersistenceAdapter with context A
+- **Given**: host PersistenceAdapter with context A (`pt-design:scene:{contextId}`)
 - **When**: place component, save, new session load for A
-- **Then**: design restored; context B empty or independent
-- **Signals**: IR type for A; B not polluted
+- **Then**: design restored; context B and standalone `global` (`/pt-design`) stay independent
+- **Signals**: IR type for A; B / `global` not polluted
 
 ### S41 — Reopen restores design (M18)
 - **Level**: agent-browser
-- **Given**: design with at least one component in Atmos center PT Design
-- **When**: close center tab, reopen from left sidebar (same context)
-- **Then**: component still present (or empty state only if user cleared)
-- **Signals**: IR/UI shows prior component
+- **Given**: a design on the standalone `/pt-design` page
+- **When**: navigate away and reopen from left sidebar
+- **Then**: the standalone canvas is restored (workspace center tab, if any, stays a separate document)
+- **Signals**: IR/UI shows prior component on `/pt-design`
 
 ### S42 — Variant switch (M20)
 - **Level**: Bun

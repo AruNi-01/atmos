@@ -6,15 +6,15 @@ import { useTranslations } from "next-intl";
 import { PtDesignApp, type PersistenceAdapter } from "@atmos/pt-design";
 import { getRuntimeApiConfig, httpBase, isHostedAtmosOrigin } from "@/shared/lib/desktop-runtime";
 import { httpDesignLibrary } from "./library-adapter";
+import { ptDesignSceneStorageKey } from "./storage-key";
 import { usePtDesignAgentBridge } from "./use-pt-design-agent-bridge";
 
-const PT_DESIGN_STORAGE_KEY = "pt-design:scene:global";
-
-function globalPersistence(): PersistenceAdapter {
+function contextPersistence(contextId: string): PersistenceAdapter {
+  const key = ptDesignSceneStorageKey(contextId);
   return {
     async load() {
       if (typeof localStorage === "undefined") return null;
-      const raw = localStorage.getItem(PT_DESIGN_STORAGE_KEY);
+      const raw = localStorage.getItem(key);
       if (!raw) return null;
       try {
         return JSON.parse(raw) as { scene: Parameters<PersistenceAdapter["save"]>[0]["scene"] };
@@ -24,13 +24,14 @@ function globalPersistence(): PersistenceAdapter {
     },
     async save(input) {
       if (typeof localStorage === "undefined") return;
-      localStorage.setItem(PT_DESIGN_STORAGE_KEY, JSON.stringify({ scene: input.scene }));
+      localStorage.setItem(key, JSON.stringify({ scene: input.scene }));
     },
   };
 }
 
 export function PtDesignCenterPanel({ contextId }: { contextId: string }) {
-  const persistence = React.useMemo(() => globalPersistence(), []);
+  const storageKey = ptDesignSceneStorageKey(contextId);
+  const persistence = React.useMemo(() => contextPersistence(contextId), [contextId]);
   const { resolvedTheme } = useTheme();
   const t = useTranslations("ptDesign.share");
   const theme = resolvedTheme === "dark" ? "dark" : "light";
@@ -51,21 +52,22 @@ export function PtDesignCenterPanel({ contextId }: { contextId: string }) {
       data-theme={theme}
     >
       <PtDesignApp
+        key={storageKey}
         theme={theme}
         persistence={persistence}
-        storageKey={PT_DESIGN_STORAGE_KEY}
+        storageKey={storageKey}
         className="h-full min-h-0"
         collabServerUrl={collabServerUrl}
         library={library}
+        clientId={contextId}
         agentBridge={agentBridge}
         shareCopy={{
           title: t("title"),
           nameLabel: t("nameLabel"),
-          localTab: t("localTab"),
-          inviteTab: t("inviteTab"),
+          agentTab: t("agentTab"),
+          humanTab: t("humanTab"),
           agentHint: t("agentHint"),
           copyPrompt: t("copyPrompt"),
-          localNote: t("localNote"),
           linkLabel: t("linkLabel"),
           linkPlaceholder: t("linkPlaceholder"),
           copy: t("copy"),
@@ -73,6 +75,7 @@ export function PtDesignCenterPanel({ contextId }: { contextId: string }) {
           invalidLink: t("invalidLink"),
           privacy: t("privacy"),
           stopHint: t("stopHint"),
+          start: t("start"),
           stop: t("stop"),
           startMenu: t("startMenu"),
           openMenu: t("openMenu"),

@@ -2,7 +2,9 @@ import { describe, expect, it } from "bun:test";
 import {
   applyLaunchpadReorder,
   createDefaultLaunchpadItems,
+  LAUNCHPAD_DROP_INSIDE,
   LAUNCHPAD_DROP_OUTSIDE,
+  launchpadPreviewPlacement,
   readLaunchpadItems,
   selectLaunchpadItemsByPlacement,
   type LaunchpadItems,
@@ -96,5 +98,22 @@ describe("launchpad item placement helpers", () => {
     );
 
     expect(applyLaunchpadReorder(items, "skills", LAUNCHPAD_DROP_OUTSIDE)).toBeNull();
+
+    const movedOntoLater = applyLaunchpadReorder(items, "skills", "token-usage");
+    expect(selectLaunchpadItemsByPlacement(movedOntoLater!, "outside").slice(0, 3)).toEqual([
+      "automations",
+      "token-usage",
+      "skills",
+    ]);
+  });
+
+  it("maps the drag overlay to the hovered launchpad zone or item placement", () => {
+    const items = createDefaultLaunchpadItems();
+    expect(launchpadPreviewPlacement(null, items, "outside")).toBe("outside");
+    expect(launchpadPreviewPlacement(LAUNCHPAD_DROP_INSIDE, items, "outside")).toBe("inside");
+    expect(launchpadPreviewPlacement(LAUNCHPAD_DROP_OUTSIDE, items, "inside")).toBe("outside");
+    expect(launchpadPreviewPlacement("workspaces", items, "outside")).toBe("inside");
+    expect(launchpadPreviewPlacement("skills", items, "inside")).toBe("outside");
+    expect(launchpadPreviewPlacement("not-an-item", items, "inside")).toBe("inside");
   });
 });

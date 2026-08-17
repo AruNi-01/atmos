@@ -5,6 +5,7 @@ import {
   isCenterToolTabValue,
   PT_DESIGN_TAB_VALUE,
 } from "@/app-shell/center-tool-tabs";
+import { ptDesignSceneStorageKey } from "@/features/pt-design/storage-key";
 
 describe("PT Design Atmos host wiring", () => {
   test("center tool tab registry accepts pt-design", () => {
@@ -29,27 +30,31 @@ describe("PT Design Atmos host wiring", () => {
     expect(panels).toContain('frameActiveTab === "pt-design"');
   });
 
-  test("left sidebar launchpad opens the center tab without a workspace", () => {
+  test("left sidebar launchpad opens the standalone /pt-design page", () => {
     const launchpad = readFileSync(
       join(import.meta.dir, "../LeftSidebarLaunchpad.tsx"),
       "utf8",
     );
     expect(launchpad).toContain("pt-design");
     expect(launchpad).toContain("PencilRuler");
-    expect(launchpad).toContain("onOpenPtDesign");
-    expect(launchpad).not.toMatch(/<div onClick=\{onOpenPtDesign\}/);
-    expect(launchpad).toMatch(/handleLaunchpadActivate\(event, onOpenPtDesign\)/);
-    expect(launchpad).toMatch(/type="button"/);
+    expect(launchpad).toContain('path: "/pt-design"');
+    expect(launchpad).not.toContain("onOpenPtDesign");
+    expect(launchpad).not.toContain('kind: "pt-design"');
     const sidebar = readFileSync(
       join(import.meta.dir, "../LeftSidebar.tsx"),
       "utf8",
     );
-    expect(sidebar).toContain("onOpenPtDesign");
-    expect(sidebar).not.toContain("if (!effectiveContextId) return;");
-    expect(sidebar).toContain('url.searchParams.set("tab", "pt-design")');
+    expect(sidebar).not.toContain("onOpenPtDesign");
+    expect(sidebar).not.toContain('url.searchParams.set("tab", "pt-design")');
     expect(sidebar).not.toContain("useOpenToolCenterTab");
     expect(sidebar).not.toMatch(/useQueryState\(\s*["']tab["']/);
+    expect(sidebar).toContain("currentView === 'pt-design'");
     expect(launchpad).not.toMatch(/bare ["']Canvas["']\s*\n.*pt-design/i);
+    const page = readFileSync(
+      join(import.meta.dir, "../../app/(app)/pt-design/page.tsx"),
+      "utf8",
+    );
+    expect(page).toContain("Prototype Design");
   });
 
   test("center frame mounts the public embed panel", () => {
@@ -80,8 +85,13 @@ describe("PT Design Atmos host wiring", () => {
     expect(panel).toContain("bg-background");
     expect(panel).toContain("text-foreground");
     expect(panel).not.toContain("liveUrl");
-    expect(panel).toContain("pt-design:scene:global");
-    expect(panel).not.toContain("`pt-design:scene:${contextId}`");
+    expect(panel).toContain("ptDesignSceneStorageKey");
+    expect(panel).not.toContain('const PT_DESIGN_STORAGE_KEY = "pt-design:scene:global"');
+    const key = readFileSync(
+      join(import.meta.dir, "../../features/pt-design/storage-key.ts"),
+      "utf8",
+    );
+    expect(key).toContain("`pt-design:scene:${contextId}`");
     expect(panel).toContain("useTranslations");
     expect(panel).toContain("shareCopy");
     expect(panel).toContain("collabServerUrl");
@@ -89,9 +99,10 @@ describe("PT Design Atmos host wiring", () => {
     expect(panel).toContain("httpDesignLibrary");
     expect(panel).toContain("library={library}");
     expect(panel).toContain("agentBridge");
+    expect(panel).toContain("clientId={contextId}");
   });
 
-  test("no-context center stage opens Prototype Design from the URL tab", () => {
+  test("no-context center stage opens Prototype Design from /pt-design or a legacy tab", () => {
     const support = readFileSync(
       join(import.meta.dir, "../center-stage-support.tsx"),
       "utf8",
@@ -101,7 +112,31 @@ describe("PT Design Atmos host wiring", () => {
       "utf8",
     );
     expect(support).toContain("PtDesignStandaloneStage");
-    expect(support).toContain("ptDesignOpen");
+    expect(support).toContain('currentView === "pt-design" || ptDesignOpen');
     expect(stage).toContain('ptDesignOpen={tabFromUrl === "pt-design"}');
+  });
+
+  test("standalone page uses the global scene key while workspace tabs stay per context", () => {
+    expect(ptDesignSceneStorageKey("global")).toBe("pt-design:scene:global");
+    expect(ptDesignSceneStorageKey("ws-1")).toBe("pt-design:scene:ws-1");
+    const standalone = readFileSync(
+      join(import.meta.dir, "../../features/pt-design/PtDesignStandaloneStage.tsx"),
+      "utf8",
+    );
+    expect(standalone).toContain('PT_DESIGN_GLOBAL_CONTEXT_ID = "global"');
+    expect(standalone).toContain("PtDesignCenterPanel");
+    const frame = readFileSync(
+      join(import.meta.dir, "../workspace-center-frame.tsx"),
+      "utf8",
+    );
+    expect(frame).toContain("<PtDesignCenterPanel contextId={contextId} />");
+  });
+
+  test("center stage panel does not trap position:fixed overlays", () => {
+    const layout = readFileSync(join(import.meta.dir, "../PanelLayout.tsx"), "utf8");
+    const center = layout.slice(layout.indexOf('id="root-center-stage"'));
+    const className = center.match(/className="([^"]+)"/)?.[1] ?? "";
+    expect(className).toBe("relative h-full");
+    expect(className).not.toContain("contain:");
   });
 });

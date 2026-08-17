@@ -27,6 +27,7 @@ export {
   applyLaunchpadReorder,
   createDefaultLaunchpadItems,
   isLaunchpadItemId,
+  launchpadPreviewPlacement,
   LAUNCHPAD_DROP_INSIDE,
   LAUNCHPAD_DROP_OUTSIDE,
   LAUNCHPAD_ITEM_IDS,
@@ -64,6 +65,8 @@ interface ExperimentSettingsState extends ExperimentPrefs {
     enabled: boolean,
   ) => Promise<void>;
   reorderLaunchpadItems: (activeId: string, overId: string) => Promise<void>;
+  /** Persist an already-computed Launchpad layout (used after live drag). */
+  commitLaunchpadItems: (nextItems: LaunchpadItems) => Promise<void>;
   setLaunchpadTerminalsEnabled: (value: boolean) => Promise<void>;
   setLaunchpadAgentsEnabled: (value: boolean) => Promise<void>;
   setAutomationsEnabled: (value: boolean) => Promise<void>;
@@ -215,6 +218,24 @@ export const useExperimentSettingsStore = create<ExperimentSettingsState>((set, 
         await persistLaunchpadItems(nextItems);
       } catch {
         // Only roll back when no later toggle replaced this optimistic state.
+        if (get().launchpadItems !== nextItems) return;
+        set({
+          launchpadItems: prevItems,
+          ...deriveFlags(prevItems),
+        });
+      }
+    },
+
+    commitLaunchpadItems: async (nextItems) => {
+      const prevItems = get().launchpadItems;
+      if (prevItems === nextItems) return;
+      set({
+        launchpadItems: nextItems,
+        ...deriveFlags(nextItems),
+      });
+      try {
+        await persistLaunchpadItems(nextItems);
+      } catch {
         if (get().launchpadItems !== nextItems) return;
         set({
           launchpadItems: prevItems,

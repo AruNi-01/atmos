@@ -150,6 +150,27 @@ function dropPlacementFromOverId(overId: string): LaunchpadPlacement | null {
   return null;
 }
 
+/** Shape the drag preview should take while hovering a Launchpad drop target. */
+export function launchpadPreviewPlacement(
+  overId: string | null | undefined,
+  items: LaunchpadItems,
+  fallback: LaunchpadPlacement,
+): LaunchpadPlacement {
+  if (overId == null) return fallback;
+  const container = dropPlacementFromOverId(overId);
+  if (container) return container;
+  if (isLaunchpadItemId(overId)) return items[overId].placement;
+  return fallback;
+}
+
+function moveIndex<T>(list: T[], from: number, to: number): T[] {
+  if (from === to || from < 0 || to < 0) return list;
+  const next = list.slice();
+  const [item] = next.splice(from, 1);
+  next.splice(to, 0, item);
+  return next;
+}
+
 /** Reorder or move an enabled Launchpad item. Returns null when the drop is a no-op. */
 export function applyLaunchpadReorder(
   items: LaunchpadItems,
@@ -168,15 +189,23 @@ export function applyLaunchpadReorder(
   if (containerPlacement && containerPlacement === active.placement && !overItemId) {
     return null;
   }
-  const destList = selectLaunchpadItemsByPlacement(items, destPlacement).filter(
-    (id) => id !== activeId,
-  );
+
+  const destList = selectLaunchpadItemsByPlacement(items, destPlacement);
+  const activeIndex = destList.indexOf(activeId);
+  let nextDest: LaunchpadItemId[];
 
   if (overItemId && items[overItemId].placement === destPlacement) {
     const overIndex = destList.indexOf(overItemId);
-    destList.splice(Math.max(0, overIndex), 0, activeId);
+    if (activeIndex !== -1) {
+      // Same list: occupy the hovered slot (dnd-kit arrayMove), not "insert before".
+      nextDest = moveIndex(destList, activeIndex, overIndex);
+    } else {
+      nextDest = destList.slice();
+      nextDest.splice(Math.max(0, overIndex), 0, activeId);
+    }
   } else {
-    destList.push(activeId);
+    nextDest = destList.filter((id) => id !== activeId);
+    nextDest.push(activeId);
   }
 
   const sourcePlacement = active.placement;
@@ -185,7 +214,7 @@ export function applyLaunchpadReorder(
     [activeId]: { ...active, enabled: true, placement: destPlacement },
   };
 
-  for (const [index, id] of destList.entries()) {
+  for (const [index, id] of nextDest.entries()) {
     next[id] = { ...next[id], placement: destPlacement, order: index };
   }
 
