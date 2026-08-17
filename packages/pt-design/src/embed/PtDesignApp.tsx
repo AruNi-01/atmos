@@ -12,6 +12,8 @@ import {
 import { FONT_HELVETICA } from "../catalog/primitives";
 import { chromeTokens, resolveBoardTheme } from "./chrome";
 import { ComponentCatalog } from "./ComponentCatalog";
+import { createApplyGate } from "./apply-gate";
+import { createPersistDebouncer } from "./persist-debounce";
 import {
   excalidrawElementsToScene,
   sceneFingerprint,
@@ -48,9 +50,14 @@ export function PtDesignApp({
   const [catalogType, setCatalogType] = React.useState("button");
   const [selectedInstanceId, setSelectedInstanceId] = React.useState<string | null>(null);
   const apiRef = React.useRef<ExcalidrawHostApi | null>(null);
-  const applyingRef = React.useRef(false);
+  const applyGateRef = React.useRef(createApplyGate());
+  const loadingRef = React.useRef(false);
   const boardTheme = resolveBoardTheme(theme);
   const chrome = chromeTokens(boardTheme);
+
+  const beginApply = React.useCallback(() => {
+    applyGateRef.current.begin();
+  }, []);
 
   const pushScene = React.useCallback(() => {
     const api = apiRef.current;
@@ -62,30 +69,30 @@ export function PtDesignApp({
       boardTheme,
     );
     if (sceneFingerprint(current) === sceneFingerprint(scene)) return;
-    applyingRef.current = true;
+    beginApply();
     api.updateScene({ elements: sceneToExcalidrawElements(scene, boardTheme) });
-    applyingRef.current = false;
-  }, [session, boardTheme]);
+  }, [session, boardTheme, beginApply]);
 
   React.useEffect(() => {
     let cancelled = false;
     void persist.load().then((loaded) => {
       if (cancelled || !loaded) return;
-      applyingRef.current = true;
+      loadingRef.current = true;
+      beginApply();
       session.dispatch({ type: "replaceScene", scene: loaded.scene });
-      applyingRef.current = false;
+      loadingRef.current = false;
       setTick((n) => n + 1);
       pushScene();
     });
     return () => {
       cancelled = true;
     };
-  }, [persist, session, pushScene]);
+  }, [persist, session, pushScene, beginApply]);
 
   React.useEffect(() => {
     const api = apiRef.current;
     if (!api) return;
-    applyingRef.current = true;
+    beginApply();
     api.updateScene({
       elements: sceneToExcalidrawElements(session.getScene(), boardTheme),
       appState: {
@@ -95,15 +102,19 @@ export function PtDesignApp({
         currentItemFontFamily: FONT_HELVETICA,
       },
     });
-    applyingRef.current = false;
-  }, [boardTheme, chrome.canvas, session]);
+  }, [boardTheme, chrome.canvas, session, beginApply]);
 
   React.useEffect(() => {
-    return session.subscribe(() => {
+    const debouncer = createPersistDebouncer((scene) => persist.save({ scene }));
+    const unsubscribe = session.subscribe(() => {
       setTick((n) => n + 1);
-      void persist.save({ scene: session.getScene() });
-      if (!applyingRef.current) pushScene();
+      if (!loadingRef.current) debouncer.schedule(session.getScene());
+      if (!applyGateRef.current.isPending()) pushScene();
     });
+    return () => {
+      unsubscribe();
+      debouncer.flush();
+    };
   }, [persist, session, pushScene]);
 
   const scene = session.getScene();
@@ -133,12 +144,10 @@ export function PtDesignApp({
     setSelectedInstanceId(instanceId ?? null);
     if (instanceId) session.setSelection([instanceId]);
 
-    if (applyingRef.current) return;
+    if (applyGateRef.current.consume()) return;
     const next = excalidrawElementsToScene(elements, appState, boardTheme);
     if (sceneFingerprint(next) === sceneFingerprint(session.getScene())) return;
-    applyingRef.current = true;
     session.dispatch({ type: "replaceScene", scene: next });
-    applyingRef.current = false;
   };
 
   const toolButton: React.CSSProperties = {
