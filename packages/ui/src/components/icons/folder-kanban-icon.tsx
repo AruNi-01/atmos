@@ -17,6 +17,11 @@ interface FolderKanbanIconProps extends HTMLAttributes<HTMLDivElement> {
 }
 
 const COLUMNS_VARIANTS: Variants = {
+  normal: {
+    transition: {
+      staggerChildren: 0,
+    },
+  },
   animate: {
     transition: {
       staggerChildren: 0.2,
@@ -25,7 +30,14 @@ const COLUMNS_VARIANTS: Variants = {
 };
 
 const COLUMN_VARIANTS: Variants = {
-  normal: { opacity: 1 },
+  normal: {
+    opacity: 1,
+    transition: {
+      duration: 0.2,
+      // Motion keeps the previous infinite `repeat` unless rest sets 0.
+      repeat: 0,
+    },
+  },
   animate: {
     opacity: [1, 0.2, 1],
     transition: {
@@ -47,7 +59,10 @@ const FolderKanbanIcon = forwardRef<
     isControlledRef.current = true;
     return {
       startAnimation: () => controls.start("animate"),
-      stopAnimation: () => controls.start("normal"),
+      stopAnimation: () => {
+        controls.stop();
+        void controls.start("normal");
+      },
     };
   });
 
@@ -67,7 +82,8 @@ const FolderKanbanIcon = forwardRef<
       if (isControlledRef.current) {
         onMouseLeave?.(e);
       } else {
-        controls.start("normal");
+        controls.stop();
+        void controls.start("normal");
       }
     },
     [controls, onMouseLeave]
