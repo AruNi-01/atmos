@@ -71,6 +71,8 @@ SS = S * SCALE
 RADIUS = 0.223
 STROKE = 13 * SCALE
 PAD = 8 * SCALE
+# Keep a thin margin so the horizon tips stay inside the squircle mask.
+MARK_INSET = 0.06
 RIM = (232, 232, 235, 108)
 
 # Pillow's rounded_rectangle(outline=...) only paints the four straight
@@ -93,7 +95,27 @@ def squircle_ring(size, radius, inset, width, fill):
     r_ch, g_ch, b_ch, a_ch = img.split()
     return Image.merge("RGBA", (r_ch, g_ch, b_ch, ImageChops.subtract(a_ch, hole)))
 
-logo = Image.open(${JSON.stringify(logoPath)}).convert("RGBA")
+def fit_mark(logo, size, inset):
+    bbox = logo.getbbox()
+    if not bbox:
+        raise SystemExit("Logo.png mark is empty")
+    cropped = logo.crop(bbox)
+    target = max(1, int(round(size * (1 - 2 * inset))))
+    mw, mh = cropped.size
+    scale = min(target / mw, target / mh)
+    nw = max(1, int(round(mw * scale)))
+    nh = max(1, int(round(mh * scale)))
+    fitted = cropped.resize((nw, nh), Image.Resampling.LANCZOS)
+    canvas = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    canvas.alpha_composite(fitted, ((size - nw) // 2, (size - nh) // 2))
+    return canvas
+
+logo = fit_mark(
+    Image.open(${JSON.stringify(logoPath)}).convert("RGBA"),
+    S,
+    MARK_INSET,
+)
+logo.save(${JSON.stringify(logoPath)})
 
 hi = Image.new("RGBA", (SS, SS), (0, 0, 0, 0))
 d = ImageDraw.Draw(hi)

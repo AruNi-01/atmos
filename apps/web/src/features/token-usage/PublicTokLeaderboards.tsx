@@ -334,7 +334,7 @@ export function PublicTokLeaderboards({
           href="https://atmos.land"
           className="inline-flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-foreground"
         >
-          <LogoSvg className="size-9 shrink-0" />
+          <LogoSvg className="h-9 w-auto shrink-0" />
           <span className="text-3xl font-medium tracking-tight">Atmos</span>
           <span className="text-muted-foreground/70" aria-hidden>
             –

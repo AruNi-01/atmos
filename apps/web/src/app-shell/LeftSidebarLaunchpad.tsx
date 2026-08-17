@@ -227,12 +227,16 @@ function LaunchpadSortableShell({
   );
 }
 
-function LaunchpadInsideDroppable({ children }: { children: React.ReactNode }) {
+function LaunchpadInsideDroppable({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const { setNodeRef } = useDroppable({ id: LAUNCHPAD_DROP_INSIDE });
   return (
     <div
       ref={setNodeRef}
-      className="mx-2.5 mb-1.5 overflow-hidden rounded-[min(1.5rem,50%)] border border-border/70 bg-muted/25"
+      className="mx-2.5 mb-1.5 overflow-hidden rounded-2xl border border-border/70 bg-muted/20"
     >
       {children}
     </div>
@@ -241,7 +245,7 @@ function LaunchpadInsideDroppable({ children }: { children: React.ReactNode }) {
 
 function LaunchpadInsideGrid({ children }: { children: React.ReactNode }) {
   return (
-    <div className="grid grid-cols-1 gap-1.5 @[200px]:grid-cols-2">{children}</div>
+    <div className="grid grid-cols-2 gap-1.5">{children}</div>
   );
 }
 
@@ -355,16 +359,8 @@ export function LeftSidebarLaunchpad({
                 strategy={rectSortingStrategy}
               >
                 <LaunchpadInsideGrid>
-                  {items.map((item, index) => (
-                    <LaunchpadSortableShell
-                      key={item.id}
-                      id={item.id}
-                      className={
-                        items.length % 2 === 1 && index === items.length - 1
-                          ? "@[200px]:col-span-2"
-                          : undefined
-                      }
-                    >
+                  {items.map((item) => (
+                    <LaunchpadSortableShell key={item.id} id={item.id}>
                       <LaunchpadCard
                         item={item}
                         isActive={isLaunchpadItemActive(item, shared)}
@@ -533,7 +529,7 @@ function LaunchpadCard({
   const iconRef = React.useRef<AnimatedIconHandle | null>(null);
   const label = t(item.labelKey);
   const className = cn(
-    "flex h-9 w-full min-w-0 items-center gap-1.5 rounded-xl px-2.5 text-left text-[11px] font-medium outline-none cursor-default",
+    "flex h-9 w-full items-center justify-center rounded-xl outline-none cursor-default",
     "focus-visible:ring-1 focus-visible:ring-ring",
     isActive
       ? "bg-sidebar-accent text-sidebar-accent-foreground"
@@ -543,81 +539,56 @@ function LaunchpadCard({
     onMouseEnter: () => iconRef.current?.startAnimation?.(),
     onMouseLeave: () => iconRef.current?.stopAnimation?.(),
   };
-  const content = (
-    <>
-      <LaunchpadOutsideIcon itemId={item.id} iconRef={iconRef} />
-      <span className="min-w-0 truncate">{label}</span>
-    </>
-  );
 
-  if (item.kind === "canvas") {
-    return (
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <button
-            type="button"
-            onClick={(event) => handleLaunchpadActivate(event, onOpenCanvas)}
-            className={className}
-            aria-current={isActive ? "page" : undefined}
-            {...hoverHandlers}
-          >
-            {content}
-          </button>
-        </TooltipTrigger>
-        <TooltipContent side="bottom">
-          <div className="flex items-center gap-2">
-            <span>{label}</span>
-            <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-foreground/90">
-              <Command className="size-3" />
-              <span className="text-xs">⇧</span>
-              <span className="text-xs">H</span>
-            </kbd>
-          </div>
-        </TooltipContent>
-      </Tooltip>
-    );
-  }
+  const activate = () => {
+    if (item.kind === "canvas") {
+      onOpenCanvas();
+      return;
+    }
+    if (item.kind === "new-workspace") {
+      onOpenNewWorkspace();
+      return;
+    }
+    if (item.path) onNavigate(item.path);
+  };
 
-  if (item.kind === "new-workspace") {
-    return (
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <button
-            type="button"
-            onClick={(event) => handleLaunchpadActivate(event, onOpenNewWorkspace)}
-            className={className}
-            aria-current={isActive ? "page" : undefined}
-            {...hoverHandlers}
-          >
-            {content}
-          </button>
-        </TooltipTrigger>
-        <TooltipContent side="bottom">
-          <div className="flex items-center gap-2">
-            <span>{label}</span>
-            <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-foreground/90">
-              <Command className="size-3" />
-              <span className="text-xs">N</span>
-            </kbd>
-          </div>
-        </TooltipContent>
-      </Tooltip>
-    );
-  }
+  const shortcut =
+    item.kind === "canvas" ? (
+      <>
+        <span className="text-xs">⇧</span>
+        <span className="text-xs">H</span>
+      </>
+    ) : item.kind === "new-workspace" ? (
+      <span className="text-xs">N</span>
+    ) : null;
 
   return (
-    <button
-      type="button"
-      onClick={(event) =>
-        handleLaunchpadActivate(event, () => {
-          if (item.path) onNavigate(item.path);
-        })
-      }
-      className={className}
-      aria-current={isActive ? "page" : undefined}
-      {...hoverHandlers}
-    >
-      {content}
-    </button>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          type="button"
+          onClick={(event) => handleLaunchpadActivate(event, activate)}
+          className={className}
+          aria-label={label}
+          aria-current={isActive ? "page" : undefined}
+          {...hoverHandlers}
+        >
+          <LaunchpadOutsideIcon itemId={item.id} iconRef={iconRef} />
+        </button>
+      </TooltipTrigger>
+      <TooltipContent side="bottom">
+        {shortcut ? (
+          <div className="flex items-center gap-2">
+            <span>{label}</span>
+            <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-foreground/90">
+              <Command className="size-3" />
+              {shortcut}
+            </kbd>
+          </div>
+        ) : (
+          label
+        )}
+      </TooltipContent>
+    </Tooltip>
   );
 }

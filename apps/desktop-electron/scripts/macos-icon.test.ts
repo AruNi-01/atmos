@@ -81,6 +81,30 @@ print("ok", samples)
     expect(result.stdout).toContain("ok");
   });
 
+  it("keeps the inner mark large enough that the tile is not mostly padding", () => {
+    const logoPng = join(appRoot, ICON_COMPOSER_REL, "Assets", "Logo.png");
+    expect(existsSync(logoPng)).toBe(true);
+    const py = `
+from PIL import Image
+im = Image.open(${JSON.stringify(logoPng)}).convert("RGBA")
+bbox = im.getbbox()
+assert bbox, "empty Logo.png"
+l, t, r, b = bbox
+w = r - l
+assert w / im.width >= 0.84, (w, im.width, w / im.width)
+print("ok", w / im.width)
+`;
+    const result = spawnSync("python3", ["-c", py], { encoding: "utf8" });
+    if (result.status !== 0) {
+      const err = `${result.stderr || ""}${result.stdout || ""}`;
+      if (/Pillow|PIL/.test(err)) {
+        return;
+      }
+      throw new Error(err || `python3 exited ${result.status}`);
+    }
+    expect(result.stdout).toContain("ok");
+  });
+
   it("keeps legacy icns for DMG / older macOS when synced", () => {
     // icon.icns is gitignored and produced by `bun run sync-icons` / packaging.
     // CI smoke without a local sync should not fail — Icon Composer package is the tracked source.

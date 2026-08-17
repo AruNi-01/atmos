@@ -45,13 +45,32 @@ describe("left sidebar outside launchpad hover", () => {
     expect(headerClass).not.toContain("hover:bg-sidebar-accent/50");
   });
 
-  it("uses a rounded pill/card shell with animated expand", () => {
-    expect(launchpad).toContain("rounded-[min(1.5rem,50%)]");
+  it("uses a persistent rounded-2xl card with an always-visible border and a 2-column tile grid", () => {
+    expect(launchpad).toContain("rounded-2xl");
+    expect(launchpad).not.toContain("rounded-[min(1.5rem,50%)]");
+    expect(launchpad).toContain("border border-border/70 bg-muted/20");
+    expect(launchpad).not.toContain("border-transparent");
+    expect(launchpad).not.toContain("hover:border-border/70");
+    expect(launchpad).toContain("grid-cols-2");
+    expect(launchpad).not.toContain("grid-cols-1");
+    expect(launchpad).not.toContain("@[200px]:grid-cols-2");
     expect(launchpad).toContain("rounded-xl");
+    expect(launchpad).toContain("bg-background/50");
     expect(launchpad).toContain("grid-rows-[1fr]");
     expect(launchpad).toContain("grid-rows-[0fr]");
     expect(launchpad).toContain("transition-[grid-template-rows]");
     expect(launchpad).toContain("duration-300");
+  });
+
+  it("renders inside grid items as icons only", () => {
+    const card = launchpad.slice(
+      launchpad.indexOf("function LaunchpadCard"),
+      launchpad.lastIndexOf("TooltipContent side=\"bottom\""),
+    );
+    expect(card).toContain("justify-center");
+    expect(card).toContain("aria-label={label}");
+    expect(card).not.toContain("truncate");
+    expect(card).toContain("LaunchpadOutsideIcon");
   });
 
   it("long-press sorts grid and list without a drag handle or grab cursor", () => {

@@ -103,7 +103,6 @@ import {
 } from '@/features/agent/store/agent-attention-store';
 import { useWorkspaceAgentGroupKeyMap } from '@/features/agent/hooks/use-workspace-agent-status';
 import { Bell } from 'lucide-react';
-import { useDesktopTrafficLightsPadding } from '@/shared/hooks/use-desktop-traffic-lights-padding';
 
 interface LeftSidebarProps {
     projects?: Project[];
@@ -112,7 +111,6 @@ interface LeftSidebarProps {
 const LeftSidebar: React.FC<LeftSidebarProps> = () => {
     const storage = useAppStorage();
     const router = useAppRouter();
-    const needsTrafficLightsPadding = useDesktopTrafficLightsPadding();
     const attentionT = useTranslations('Agent.attention');
     const { workspaceId: currentWorkspaceId, projectId: currentProjectIdFromUrl, effectiveContextId, currentView } = useContextParams();
     // Row isActive follows URL only. Optimistic hop highlight is DOM-only
@@ -1462,16 +1460,6 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
     return (
         <>
             <aside className="@container flex h-full w-full flex-col select-none bg-sidebar text-sidebar-foreground">
-                {/* Full-height sidebar starts at y=0; keep Launchpad below the
-                    macOS traffic-light / header band (h-12). Also a window-drag
-                    strip. Peek overlay uses this same component. */}
-                {needsTrafficLightsPadding ? (
-                    <div
-                        aria-hidden
-                        className="h-12 shrink-0 desktop-drag-region"
-                        data-tauri-drag-region="true"
-                    />
-                ) : null}
                 {/* Launchpad — wait for first load attempt to avoid default-config flash */}
                 {launchpadSettled ? (
                     <LeftSidebarLaunchpadBlock
