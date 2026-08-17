@@ -363,6 +363,7 @@ pub fn resolve_host_serve_bin(app: &Path) -> Option<PathBuf> {
 }
 
 /// True when a live `serve` process is still exec'd under the vendor filename.
+#[cfg(any(test, target_os = "macos"))]
 pub(crate) fn vendor_host_serve_pgrep_pattern(app: &Path) -> String {
     format!(
         "{}/Contents/MacOS/{} serve",
@@ -403,7 +404,7 @@ fn same_file(a: &Path, b: &Path) -> bool {
     #[cfg(unix)]
     {
         use std::os::unix::fs::MetadataExt;
-        return ma.dev() == mb.dev() && ma.ino() == mb.ino();
+        ma.dev() == mb.dev() && ma.ino() == mb.ino()
     }
     #[cfg(not(unix))]
     {

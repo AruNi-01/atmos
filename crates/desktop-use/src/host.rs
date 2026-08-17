@@ -14,6 +14,7 @@ use serde_json::Value;
 use crate::strings::scrub_vendor;
 
 /// `pgrep`/`pkill -f` pattern for host `serve` (product or leftover vendor filename).
+#[cfg(any(test, target_os = "macos"))]
 const HOST_SERVE_PKILL_PATTERN: &str = "Atmos Desktop Use.app/Contents/MacOS/.*serve";
 
 /// Default socket under the Desktop Use data dir.
@@ -45,13 +46,13 @@ pub fn ensure_daemon(
         let _ = crate::install::ensure_host_serve_alias(app);
     }
     if is_daemon_alive(socket) {
-        if call_tool(engine_bin, socket, "get_config", &serde_json::json!({})).is_ok() {
-            if !vendor_named_host_serve_running(host_app) {
-                return Ok(());
-            }
-            // Socket is healthy but Activity Monitor still shows the vendor
-            // filename — stop and respawn via the product-named alias.
+        if call_tool(engine_bin, socket, "get_config", &serde_json::json!({})).is_ok()
+            && !vendor_named_host_serve_running(host_app)
+        {
+            return Ok(());
         }
+        // Socket is healthy but Activity Monitor still shows the vendor
+        // filename — stop and respawn via the product-named alias.
         let _ = stop_daemon(engine_bin, socket);
     }
 
@@ -127,7 +128,7 @@ fn spawn_daemon(
         let child = spawn_host_serve(engine_bin, &socket_str, host_app)?;
         let _ = child.id();
         std::mem::forget(child);
-        return Ok(());
+        Ok(())
     }
 
     #[cfg(not(target_os = "macos"))]
