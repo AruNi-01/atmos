@@ -355,7 +355,7 @@
       "newReview": "Review",
       "newRun": "Run",
       "newGithub": "GitHub",
-      "newPtDesign": "PT Design",
+      "newPtDesign": "Prototype Design",
       "newFiles": "Files",
       "newSimulator": "Simulator",
       "splitRight": "Split right",
@@ -378,8 +378,8 @@
       "closeGithubTab": "Close GitHub tab",
       "files": "Files",
       "closeFilesTab": "Close Files tab",
-      "ptDesign": "PT Design",
-      "closePtDesignTab": "Close PT Design tab",
+      "ptDesign": "Prototype Design",
+      "closePtDesignTab": "Close Prototype Design tab",
       "simulator": "Simulator",
       "closeSimulatorTab": "Close Simulator tab",
       "history": "Graph History",
@@ -1621,7 +1621,7 @@
           "agents": "Agents",
           "automations": "Automations",
           "canvas": "Canvas",
-          "ptDesign": "PT Design",
+          "ptDesign": "Prototype Design",
           "newWorkspace": "New Workspace",
           "diskAnalyzer": "Disk Analyzer",
           "tokenUsage": "Token Usage",
@@ -5951,7 +5951,7 @@
             "description": "Open the full-screen Canvas ops surface."
           },
           "ptDesign": {
-            "title": "PT Design",
+            "title": "Prototype Design",
             "description": "Open the prototype design board in the center stage."
           },
           "newWorkspace": {

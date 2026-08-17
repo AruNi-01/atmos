@@ -157,7 +157,7 @@ export function PtDesignApp({
         }}
       >
         <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 8, color: chrome.fg }}>
-          PT Design
+          Prototype Design
         </div>
         {catalog.map((item) => {
           const active = catalogType === item.componentType;

@@ -17,6 +17,7 @@ describe("left sidebar outside launchpad hover", () => {
     expect(launchpad).toContain("TimerIcon");
     expect(launchpad).toContain("ChartColumnBigIcon");
     expect(launchpad).toContain("CanvasIcon");
+    expect(launchpad).toContain("PencilRulerIcon");
     expect(launchpad).toContain("ListTodoIcon");
     expect(launchpad).toContain("PlusIcon");
     expect(launchpad).toContain("onMouseEnter");

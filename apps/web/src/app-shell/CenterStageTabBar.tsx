@@ -41,6 +41,7 @@ import {
   Globe,
   LayoutTemplate,
   LoaderCircle,
+  PencilRuler,
   GitGraph,
   Play,
   Plus,
@@ -649,7 +650,7 @@ export function CenterStageTabBar({
         <SpecialTerminalTab
           key={tab.id}
           closeLabel={t("centerStageTabBar.closePtDesignTab")}
-          icon={<LayoutTemplate className="size-3.5 shrink-0" />}
+          icon={<PencilRuler className="size-3.5 shrink-0" />}
           label={t("centerStageTabBar.ptDesign")}
           tooltip={t("centerStageTabBar.ptDesign")}
           value="pt-design"
@@ -1260,7 +1261,7 @@ function CenterStageNewTabMenu({
               setOpen(false);
             }}
           >
-            <LayoutTemplate className="size-3.5 shrink-0 text-muted-foreground" />
+            <PencilRuler className="size-3.5 shrink-0 text-muted-foreground" />
             <span className="min-w-0 flex-1 truncate">{ptDesignLabel}</span>
           </button>
           <button

@@ -15,7 +15,7 @@ import {
   Command,
   FolderKanban,
   HardDrive,
-  LayoutTemplate,
+  PencilRuler,
   Plus,
   Presentation,
   Puzzle,
@@ -30,6 +30,7 @@ import { ChartColumnBigIcon } from "@workspace/ui/components/icons/chart-column-
 import { FolderKanbanIcon } from "@workspace/ui/components/icons/folder-kanban-icon";
 import { HardDriveIcon } from "@workspace/ui/components/icons/hard-drive-icon";
 import { ListTodoIcon } from "@workspace/ui/components/icons/list-todo-icon";
+import { PencilRulerIcon } from "@workspace/ui/components/icons/pencil-ruler-icon";
 import { PlusIcon } from "@workspace/ui/components/icons/plus-icon";
 import { PuzzleIcon } from "@workspace/ui/components/icons/puzzle-icon";
 import { RocketIcon } from "@workspace/ui/components/icons/rocket-icon";
@@ -61,7 +62,7 @@ const ITEM_DEF_BY_ID: Record<LaunchpadItemId, LaunchpadItemDef> = {
   "disk-analyzer": { id: "disk-analyzer", labelKey: "launchpad.items.diskAnalyzer", icon: HardDrive, path: "/disk-analyzer" },
   "token-usage": { id: "token-usage", labelKey: "launchpad.items.tokenUsage", icon: ChartColumnBig, path: "/token-usage" },
   canvas: { id: "canvas", labelKey: "launchpad.items.canvas", icon: Presentation, kind: "canvas" },
-  "pt-design": { id: "pt-design", labelKey: "launchpad.items.ptDesign", icon: LayoutTemplate, kind: "pt-design" },
+  "pt-design": { id: "pt-design", labelKey: "launchpad.items.ptDesign", icon: PencilRuler, kind: "pt-design" },
   tasks: { id: "tasks", labelKey: "launchpad.items.tasks", icon: ListTodo, path: "/tasks" },
   "new-workspace": { id: "new-workspace", labelKey: "launchpad.items.newWorkspace", icon: Plus, kind: "new-workspace" },
 };
@@ -225,6 +226,7 @@ function LaunchpadOutsideIcon({
   if (itemId === "disk-analyzer") return <HardDriveIcon ref={iconRef} className={className} size={size} />;
   if (itemId === "token-usage") return <ChartColumnBigIcon ref={iconRef} className={className} size={size} />;
   if (itemId === "canvas") return <CanvasIcon ref={iconRef} className={className} size={size} />;
+  if (itemId === "pt-design") return <PencilRulerIcon ref={iconRef} className={className} size={size} />;
   if (itemId === "tasks") return <ListTodoIcon ref={iconRef} className={className} size={size} />;
   return <PlusIcon ref={iconRef} className={className} size={size} />;
 }

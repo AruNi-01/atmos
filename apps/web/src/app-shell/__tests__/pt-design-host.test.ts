@@ -26,6 +26,7 @@ describe("PT Design Atmos host wiring", () => {
       "utf8",
     );
     expect(launchpad).toContain("pt-design");
+    expect(launchpad).toContain("PencilRuler");
     expect(launchpad).toContain("onOpenPtDesign");
     const sidebar = readFileSync(
       join(import.meta.dir, "../LeftSidebar.tsx"),
@@ -44,6 +45,15 @@ describe("PT Design Atmos host wiring", () => {
     );
     expect(frame).toContain("PtDesignCenterPanel");
     expect(frame).toContain("pt-design");
+  });
+
+  test("user-facing copy is Prototype Design", () => {
+    const en = readFileSync(join(import.meta.dir, "../../../messages/en.json"), "utf8");
+    const zh = readFileSync(join(import.meta.dir, "../../../messages/zh.json"), "utf8");
+    expect(en).toContain("\"ptDesign\": \"Prototype Design\"");
+    expect(zh).toContain("\"ptDesign\": \"Prototype Design\"");
+    expect(en).not.toMatch(/"ptDesign": "PT Design"/);
+    expect(zh).not.toMatch(/"ptDesign": "PT Design"/);
   });
 
   test("host panel forwards Atmos theme and surface tokens", () => {
