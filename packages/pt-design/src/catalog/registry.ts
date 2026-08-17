@@ -91,8 +91,9 @@ const ENTRIES: CatalogEntry[] = [
 
 const BY_TYPE = new Map(ENTRIES.map((entry) => [entry.componentType, entry]));
 
-export function listComponentTypes(): CatalogEntry[] {
-  return ENTRIES.slice();
+export function listComponentTypes(kind?: CatalogEntry["kind"]): CatalogEntry[] {
+  if (!kind) return ENTRIES.slice();
+  return ENTRIES.filter((entry) => entry.kind === kind);
 }
 
 export function getCatalogEntry(componentType: string): CatalogEntry {

@@ -77,12 +77,27 @@ export function MotionSlideMenu({
   const parent = path.length > 0 ? findItem(items, path[path.length - 1]!) : undefined;
   const heading = parent?.label ?? rootLabel;
   const [direction, setDirection] = React.useState(1);
+  const pathKey = path.join("/") || "root";
+  const listRef = React.useRef<HTMLDivElement | null>(null);
+  const scrollMemory = React.useRef<Record<string, number>>({});
+
+  const moveTo = (next: string[], nextDirection: number) => {
+    const list = listRef.current;
+    if (list) scrollMemory.current[pathKey] = list.scrollTop;
+    setDirection(nextDirection);
+    setPath(next);
+  };
+
+  React.useLayoutEffect(() => {
+    const list = listRef.current;
+    if (!list) return;
+    list.scrollTop = scrollMemory.current[pathKey] ?? 0;
+  }, [pathKey]);
 
   const openItem = (item: MotionSlideMenuItem) => {
     if (item.disabled) return;
     if (item.children?.length) {
-      setDirection(1);
-      setPath([...path, item.id]);
+      moveTo([...path, item.id], 1);
       return;
     }
     item.onSelect?.(item);
@@ -91,8 +106,7 @@ export function MotionSlideMenu({
 
   const goBack = () => {
     if (path.length === 0) return;
-    setDirection(-1);
-    setPath(path.slice(0, -1));
+    moveTo(path.slice(0, -1), -1);
   };
 
   const duration = reduceMotion ? 0 : springDuration;
@@ -145,7 +159,9 @@ export function MotionSlideMenu({
             </button>
           ) : null}
           <div
+            ref={listRef}
             role="list"
+            data-menu-path={pathKey}
             style={{
               overflow: "auto",
               flex: 1,

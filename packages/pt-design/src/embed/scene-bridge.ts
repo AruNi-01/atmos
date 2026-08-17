@@ -22,11 +22,19 @@ export type ExcalidrawHostApi = {
       currentItemBackgroundColor?: string;
       isBindingEnabled?: boolean;
       objectsSnapModeEnabled?: boolean;
+      selectedElementIds?: Record<string, boolean>;
     };
   }) => void;
   scrollToContent: (
     target?: unknown,
-    opts?: { animate?: boolean; fitToContent?: boolean },
+    opts?: {
+      animate?: boolean;
+      duration?: number;
+      fitToContent?: boolean;
+      minZoom?: number;
+      maxZoom?: number;
+      canvasOffsets?: { top?: number; right?: number; bottom?: number; left?: number };
+    },
   ) => void;
   getSceneElements: () => readonly ExcalidrawCompatElement[];
   getSceneElementsIncludingDeleted: () => readonly ExcalidrawCompatElement[];

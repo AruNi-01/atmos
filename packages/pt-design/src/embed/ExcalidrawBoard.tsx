@@ -2,9 +2,9 @@
 
 import "./excalidraw-assets";
 import React from "react";
-import { Excalidraw, MainMenu, Sidebar } from "@excalidraw/excalidraw";
-import { ClipboardCopy, FolderOpen, Frame, Link, Save, Sparkles, Users } from "lucide-react";
-import { SharePopover, type CollabMode, type ShareCopy } from "./SharePopover";
+import { DefaultSidebar, Excalidraw, MainMenu, Sidebar } from "@excalidraw/excalidraw";
+import { ClipboardCopy, FolderOpen, Frame, Library, Link, Save, Sparkles, Users } from "lucide-react";
+import { SharePopover, type ShareCopy } from "./SharePopover";
 import type { CollabRoom } from "../collab/constants";
 import "@excalidraw/excalidraw/index.css";
 import "./excalidraw-theme.css";
@@ -15,15 +15,25 @@ import {
   isDefaultStrokeColor,
   resolveDrawingStrokeColor,
 } from "./theme-palette";
-import { ComponentSidebarIcon } from "./catalog-icons";
+import { BlockSidebarIcon, ComponentSidebarIcon } from "./catalog-icons";
 import type { ExcalidrawCompatElement, ExcalidrawHostApi } from "./scene-bridge";
 
 export type { ExcalidrawHostApi };
 
 type ExcalidrawApi = {
   updateScene: (next: Record<string, unknown>) => void;
-  scrollToContent: (target?: unknown, opts?: { animate?: boolean; fitToContent?: boolean }) => void;
-  toggleSidebar: (next: { name: string }) => unknown;
+  scrollToContent: (
+    target?: unknown,
+    opts?: {
+      animate?: boolean;
+      duration?: number;
+      fitToContent?: boolean;
+      minZoom?: number;
+      maxZoom?: number;
+      canvasOffsets?: { top?: number; right?: number; bottom?: number; left?: number };
+    },
+  ) => void;
+  toggleSidebar: (next: { name: string; tab?: string }) => unknown;
   getSceneElements: () => readonly ExcalidrawCompatElement[];
   getSceneElementsIncludingDeleted: () => readonly ExcalidrawCompatElement[];
   getAppState: () => {
@@ -35,7 +45,7 @@ type ExcalidrawApi = {
     viewBackgroundColor: string;
     selectedElementIds: Record<string, boolean>;
     currentItemStrokeColor?: string;
-    openSidebar?: { name: string } | null;
+    openSidebar?: { name: string; tab?: string } | null;
   };
 };
 
@@ -67,6 +77,7 @@ export type ExcalidrawBoardProps = {
     },
   ) => void;
   catalog?: React.ReactNode;
+  blockCatalog?: React.ReactNode;
   overlay?: React.ReactNode;
   menuItems?: BoardMenuItem[];
   isCollaborating?: boolean;
@@ -76,11 +87,11 @@ export type ExcalidrawBoardProps = {
     open: boolean;
     url: string | null;
     room: CollabRoom | null;
-    mode: CollabMode;
     username: string;
+    clientId?: string;
     apiBase?: string | null;
     copy: ShareCopy;
-    onModeChange: (mode: CollabMode) => void;
+    onStart: () => void;
     onUsernameChange: (name: string) => void;
     onJoin: (raw: string) => boolean;
     onStop: () => void;
@@ -132,42 +143,51 @@ function ShareTrigger({
   );
 }
 
-function ComponentTrigger({
+function CatalogTabPanel({ children }: { children: React.ReactNode }) {
+  return (
+    <div
+      style={{
+        flex: 1,
+        minHeight: 280,
+        overflow: "hidden",
+        display: "flex",
+        flexDirection: "column",
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+function IslandTrigger({
   active,
+  title,
+  testId,
+  iconOnly = false,
   onClick,
+  children,
 }: {
   active: boolean;
+  title: string;
+  testId: string;
+  iconOnly?: boolean;
   onClick: () => void;
+  children: React.ReactNode;
 }) {
   return (
     <button
       type="button"
-      className="sidebar-trigger"
-      data-testid="pt-design-component-trigger"
-      title="Component"
+      className="pt-design-island-trigger"
+      data-testid={testId}
+      data-active={active ? "true" : "false"}
+      data-icon-only={iconOnly ? "true" : "false"}
+      title={title}
+      aria-label={title}
       aria-pressed={active}
       onClick={onClick}
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: 6,
-        height: 36,
-        padding: "0 10px",
-        marginLeft: 8,
-        border: "none",
-        borderRadius: 8,
-        cursor: "pointer",
-        fontSize: 13,
-        fontWeight: 500,
-        background: active
-          ? "var(--muted, var(--color-surface-high))"
-          : "var(--island-bg-color, var(--card))",
-        color: "var(--icon-fill-color, var(--foreground, inherit))",
-        boxShadow: "0 0 0 1px var(--border, rgba(0,0,0,0.10))",
-      }}
+      onMouseDown={(event) => event.stopPropagation()}
     >
-      <ComponentSidebarIcon size={16} strokeWidth={2} />
-      Component
+      {children}
     </button>
   );
 }
@@ -215,6 +235,7 @@ export default function ExcalidrawBoard({
   onApi,
   onChange,
   catalog,
+  blockCatalog,
   overlay,
   menuItems,
   isCollaborating = false,
@@ -360,17 +381,41 @@ export default function ExcalidrawBoard({
               <ShareTrigger
                 active={Boolean(sharePanel?.open)}
                 collaborating={isCollaborating}
-                title={isCollaborating ? (sharePanel?.copy.openMenu ?? "Live share") : (sharePanel?.copy.startMenu ?? "Start live share")}
+                title={isCollaborating ? (sharePanel?.copy.openMenu ?? "Collaborate") : (sharePanel?.copy.startMenu ?? "Collaborate")}
                 onClick={onShare}
               />
             ) : null}
+            <IslandTrigger
+              active={appState.openSidebar?.name === "default"}
+              title="Library"
+              testId="pt-design-library-trigger"
+              iconOnly
+              onClick={() => {
+                apiRef.current?.toggleSidebar({ name: "default", tab: "library" });
+              }}
+            >
+              <Library size={16} strokeWidth={2} />
+            </IslandTrigger>
             {catalog ? (
-              <ComponentTrigger
+              <IslandTrigger
                 active={appState.openSidebar?.name === "components"}
+                title="Component"
+                testId="pt-design-component-trigger"
                 onClick={() => {
-                  apiRef.current?.toggleSidebar({ name: "components" });
+                  const open = appState.openSidebar;
+                  if (open?.name === "components") {
+                    apiRef.current?.toggleSidebar({
+                      name: "components",
+                      tab: open.tab ?? "component",
+                    });
+                    return;
+                  }
+                  apiRef.current?.toggleSidebar({ name: "components", tab: "component" });
                 }}
-              />
+              >
+                <ComponentSidebarIcon size={16} strokeWidth={2} />
+                Component
+              </IslandTrigger>
             ) : null}
           </div>
         )}
@@ -416,20 +461,29 @@ export default function ExcalidrawBoard({
             ))}
           </MainMenu>
         ) : null}
+        <DefaultSidebar className="pt-design-library-sidebar" docked={false} onDock={false} />
         {catalog ? (
-          <Sidebar name="components">
-            <Sidebar.Header />
-            <div
-              style={{
-                flex: 1,
-                minHeight: 280,
-                overflow: "hidden",
-                display: "flex",
-                flexDirection: "column",
-              }}
-            >
-              {catalog}
-            </div>
+          <Sidebar name="components" className="pt-design-catalog-sidebar" docked={false}>
+            <Sidebar.Tabs>
+              <Sidebar.Header>
+                <Sidebar.TabTriggers>
+                  <Sidebar.TabTrigger tab="component" data-testid="pt-design-catalog-tab-component">
+                    <ComponentSidebarIcon size={14} strokeWidth={2} />
+                    Component
+                  </Sidebar.TabTrigger>
+                  <Sidebar.TabTrigger tab="block" data-testid="pt-design-catalog-tab-block">
+                    <BlockSidebarIcon size={14} strokeWidth={2} />
+                    Block
+                  </Sidebar.TabTrigger>
+                </Sidebar.TabTriggers>
+              </Sidebar.Header>
+              <Sidebar.Tab tab="component">
+                <CatalogTabPanel>{catalog}</CatalogTabPanel>
+              </Sidebar.Tab>
+              <Sidebar.Tab tab="block">
+                <CatalogTabPanel>{blockCatalog}</CatalogTabPanel>
+              </Sidebar.Tab>
+            </Sidebar.Tabs>
           </Sidebar>
         ) : null}
       </Excalidraw>
@@ -445,12 +499,12 @@ export default function ExcalidrawBoard({
           <SharePopover
             theme={theme}
             username={sharePanel.username}
+            clientId={sharePanel.clientId}
             room={sharePanel.room}
             inviteUrl={sharePanel.url}
-            mode={sharePanel.mode}
             apiBase={sharePanel.apiBase}
             copy={sharePanel.copy}
-            onModeChange={sharePanel.onModeChange}
+            onStart={sharePanel.onStart}
             onUsernameChange={sharePanel.onUsernameChange}
             onJoin={sharePanel.onJoin}
             onStop={sharePanel.onStop}

@@ -4,8 +4,11 @@ import {
   AlertTriangle,
   AlignLeft,
   AppWindow,
+  ArrowDownLeft,
   ArrowLeftRight,
+  ArrowUpRight,
   Badge as BadgeIcon,
+  Ban,
   BarChart3,
   Bell,
   Calendar,
@@ -15,6 +18,8 @@ import {
   ChevronRight,
   ChevronsDownUp,
   ChevronsUpDown,
+  Circle,
+  CircleDashed,
   CircleDot,
   CircleUser,
   ClipboardList,
@@ -22,6 +27,17 @@ import {
   Columns3,
   Command,
   Component,
+  File,
+  Ghost,
+  Image,
+  Layers,
+  Link2,
+  Maximize2,
+  MousePointerClick,
+  Sparkles,
+  SquareDashed,
+  Upload,
+  User,
   CreditCard,
   FormInput,
   GalleryHorizontal,
@@ -44,7 +60,6 @@ import {
   MessagesSquare,
   Minus,
   MoreHorizontal,
-  MousePointerClick,
   Navigation,
   Paperclip,
   PanelBottom,
@@ -141,6 +156,58 @@ const ICONS: Record<string, LucideIcon> = {
 
 export const ComponentSidebarIcon = Component;
 
+/** shadcn Blocks glyph: 2×2 rounded tiles, not Lucide's window `Blocks`. */
+export function BlockSidebarIcon({
+  size = 16,
+  strokeWidth = 2,
+}: {
+  size?: number;
+  strokeWidth?: number;
+}) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={strokeWidth}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <rect x="3" y="3" width="8" height="8" rx="2" />
+      <rect x="13" y="3" width="8" height="8" rx="2" />
+      <rect x="3" y="13" width="8" height="8" rx="2" />
+      <rect x="13" y="13" width="8" height="8" rx="2" />
+    </svg>
+  );
+}
+
+const VARIANT_ICONS: Record<string, LucideIcon> = {
+  all: Layers,
+  default: Circle,
+  secondary: CircleDashed,
+  outline: SquareDashed,
+  ghost: Ghost,
+  destructive: Ban,
+  link: Link2,
+  trigger: MousePointerClick,
+  open: Maximize2,
+  bar: Menu,
+  collapsed: ChevronRight,
+  expanded: ChevronDown,
+  image: Image,
+  uploading: Upload,
+  file: File,
+  received: ArrowDownLeft,
+  sent: ArrowUpRight,
+  user: User,
+  assistant: Sparkles,
+  status: CircleDot,
+  separator: Minus,
+};
+
 export function CatalogTypeIcon({
   componentType,
   size = 14,
@@ -152,6 +219,25 @@ export function CatalogTypeIcon({
   return <Icon size={size} strokeWidth={2} aria-hidden />;
 }
 
+export function catalogVariantIconName(variant: string): string {
+  return variant in VARIANT_ICONS ? variant : "default";
+}
+
+export function CatalogVariantIcon({
+  variant,
+  size = 14,
+}: {
+  variant: string;
+  size?: number;
+}) {
+  const Icon = VARIANT_ICONS[catalogVariantIconName(variant)] ?? Circle;
+  return <Icon size={size} strokeWidth={2} aria-hidden />;
+}
+
 export function catalogIconTypes(): string[] {
   return Object.keys(ICONS);
+}
+
+export function catalogVariantIconTypes(): string[] {
+  return Object.keys(VARIANT_ICONS);
 }

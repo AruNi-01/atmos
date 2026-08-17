@@ -2,8 +2,8 @@ import { describe, expect, test } from "bun:test";
 import { REQUIRED_BLOCKS, SHADCN_BASIC_IDS } from "./shadcn-list";
 import { catalogDisplayName } from "./labels";
 import { getComponentTemplate, listComponentTypes } from "./registry";
-import { catalogIconTypes } from "../embed/catalog-icons";
-import { buildCatalogMenuItems } from "../embed/ComponentCatalog";
+import { catalogIconTypes, catalogVariantIconName, catalogVariantIconTypes } from "../embed/catalog-icons";
+import { buildCatalogMenuItems, searchCatalogEntries } from "../embed/ComponentCatalog";
 import { createPtDesignSession } from "../core/session";
 import { encodeDesignIR } from "../ir/encode";
 
@@ -19,6 +19,15 @@ describe("catalog completeness", () => {
     for (const id of REQUIRED_BLOCKS) {
       expect(types.has(id)).toBe(true);
     }
+  });
+
+  test("catalog can be listed by kind", () => {
+    const basics = listComponentTypes("basic");
+    const blocks = listComponentTypes("block");
+    expect(basics.every((entry) => entry.kind === "basic")).toBe(true);
+    expect(basics.some((entry) => entry.componentType.startsWith("block."))).toBe(false);
+    expect(blocks.map((entry) => entry.componentType)).toEqual([...REQUIRED_BLOCKS]);
+    expect(listComponentTypes()).toHaveLength(basics.length + blocks.length);
   });
 
   test("every basic id and block can be placed into IR", () => {
@@ -168,6 +177,56 @@ describe("catalog completeness", () => {
     const outline = button?.children?.find((child) => child.id === "button::outline");
     outline?.onSelect?.(outline);
     expect(placed).toEqual([{ type: "button", variant: "outline" }]);
+    const variantKeys = button?.children?.map((child) => {
+      const icon = child.icon as { props?: { variant?: string } } | undefined;
+      return icon?.props?.variant;
+    });
+    expect(variantKeys).toEqual(["all", "default", "secondary", "outline", "ghost", "destructive", "link"]);
+    expect(new Set(variantKeys).size).toBe(variantKeys?.length);
+    expect(new Set(variantKeys?.map((key) => catalogVariantIconName(key ?? "default"))).size).toBe(
+      variantKeys?.length,
+    );
+  });
+
+  test("every catalog variant has a distinct icon mapping", () => {
+    const names = catalogVariantIconTypes();
+    expect(names).toContain("all");
+    expect(names).toContain("trigger");
+    expect(names).toContain("image");
+    expect(new Set(names.map((name) => catalogVariantIconName(name))).size).toBe(names.length);
+  });
+
+  test("catalog search matches parents and auto-expands their variants", () => {
+    const basics = listComponentTypes("basic");
+    const button = searchCatalogEntries(basics, "button").find((group) => group.entry.componentType === "button");
+    expect(button?.parentMatched).toBe(true);
+    expect(button?.variants).toEqual(["default", "secondary", "outline", "ghost", "destructive", "link"]);
+  });
+
+  test("catalog search finds second-level variants without opening the parent name", () => {
+    const basics = listComponentTypes("basic");
+    const hits = searchCatalogEntries(basics, "outline");
+    expect(hits.every((group) => group.parentMatched === false)).toBe(true);
+    expect(hits.map((group) => group.entry.componentType).sort()).toEqual(["badge", "button", "toggle"]);
+    expect(hits.every((group) => group.variants.includes("outline") && group.variants.length === 1)).toBe(true);
+  });
+
+  test("catalog search is empty when nothing matches", () => {
+    expect(searchCatalogEntries(listComponentTypes("basic"), "zzzz-not-a-component")).toEqual([]);
+  });
+
+  test("component tab menu omits blocks and block tab lists required templates", () => {
+    const componentMenu = buildCatalogMenuItems(listComponentTypes("basic"), () => undefined);
+    const blockMenu = buildCatalogMenuItems(listComponentTypes("block"), () => undefined);
+    expect(componentMenu.some((item) => item.id.startsWith("block."))).toBe(false);
+    expect(componentMenu.some((item) => item.id === "button")).toBe(true);
+    expect(blockMenu.map((item) => item.id)).toEqual([...REQUIRED_BLOCKS]);
+    expect(blockMenu.map((item) => item.label)).toEqual([
+      "Auth Form",
+      "Settings Shell",
+      "Empty State",
+      "Nav Content",
+    ]);
   });
 
   test("placing attachment without variant yields image, uploading, and file", () => {

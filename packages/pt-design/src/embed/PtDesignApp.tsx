@@ -3,6 +3,7 @@
 import React from "react";
 import { createPtDesignSession, type PtDesignSession } from "../core/session";
 import { listComponentTypes } from "../catalog/registry";
+import { catalogPlaceAt, sceneViewportRect } from "../catalog/place-clear";
 import {
   localStoragePersistence,
   type DesignLibrary,
@@ -17,7 +18,7 @@ import { runSessionTool } from "../agent/session-tools";
 import type { ToolName } from "../agent/tool-defs";
 import { PT_DESIGN_TOOL_DEFS } from "../agent/tool-defs";
 import { chromeTokens, resolveBoardTheme } from "./chrome";
-import { normalizeAgentApiBase } from "./agent-prompt";
+import { agentInvokeUrl, normalizeAgentApiBase } from "./agent-prompt";
 import { drawingAppState } from "./theme-palette";
 import { ComponentCatalog } from "./ComponentCatalog";
 import { createApplyGate } from "./apply-gate";
@@ -30,9 +31,18 @@ import {
   type ExcalidrawHostApi,
 } from "./scene-bridge";
 import { useExcalidrawCollab } from "./use-collab";
-import { parseRoomFromString } from "../collab/room";
 import { resolveShareCopy, type ShareCopy } from "./SharePopover";
 import { defaultDesignName, LibraryOverlay } from "./LibraryOverlay";
+import {
+  PLACE_REVEAL_MS,
+  PLACE_SCROLL_OFFSETS,
+  elementsForInstances,
+  prefersReducedMotion,
+  sceneRectToBoardBox,
+  selectedIdsForElements,
+  unionElementBounds,
+  type RevealBox,
+} from "./place-reveal";
 
 export type { ShareCopy };
 
@@ -69,6 +79,7 @@ export type PtDesignAppProps = {
   collabServerUrl?: string;
   library?: DesignLibrary;
   agentBridge?: AgentBridge;
+  clientId?: string;
 };
 
 const ExcalidrawBoard = React.lazy(() => import("./ExcalidrawBoard"));
@@ -85,6 +96,7 @@ export function PtDesignApp({
   collabServerUrl,
   library,
   agentBridge,
+  clientId = "default",
 }: PtDesignAppProps) {
   const persist = React.useMemo(
     () => persistence ?? localStoragePersistence(storageKey),
@@ -94,6 +106,8 @@ export function PtDesignApp({
   const [, setTick] = React.useState(0);
   const [catalogType, setCatalogType] = React.useState("button");
   const [selectedInstanceId, setSelectedInstanceId] = React.useState<string | null>(null);
+  const [revealIds, setRevealIds] = React.useState<string[] | null>(null);
+  const [revealBox, setRevealBox] = React.useState<RevealBox | null>(null);
   const apiRef = React.useRef<ExcalidrawHostApi | null>(null);
   const applyGateRef = React.useRef(createApplyGate());
   const loadingRef = React.useRef(false);
@@ -219,8 +233,7 @@ export function PtDesignApp({
   const agentApiBase = normalizeAgentApiBase(collabServerUrl);
 
   React.useEffect(() => {
-    if (!agentBridge || !collab.room) return;
-    const clientId = collab.room.roomId;
+    if (!agentBridge) return;
     const tools = new Set(PT_DESIGN_TOOL_DEFS.map((def) => def.name));
     void Promise.resolve(
       agentBridge.register({ client_id: clientId, label: "Prototype Design" }),
@@ -256,7 +269,7 @@ export function PtDesignApp({
       unsubscribe();
       void Promise.resolve(agentBridge.unregister(clientId)).catch(() => undefined);
     };
-  }, [agentBridge, collab.room, session]);
+  }, [agentBridge, clientId, session]);
 
   const scene = session.getScene();
   const catalog = listComponentTypes();
@@ -268,10 +281,58 @@ export function PtDesignApp({
   const selectedType = selected?.customData?.pt?.componentType;
   const selectedEntry = catalog.find((item) => item.componentType === selectedType);
 
-  const placeAt = () => {
-    const count = scene.elements.filter((el) => el.customData?.pt?.componentType).length;
-    return { x: 80 + (count % 6) * 24, y: 80 + Math.floor(count / 6) * 24 };
+  const placeFromCatalog = (componentType: string, variant?: string) => {
+    setCatalogType(componentType);
+    const api = apiRef.current;
+    const appState = api?.getAppState();
+    const viewport = appState
+      ? sceneViewportRect(appState, { left: 24, top: 72, right: 376, bottom: 64 })
+      : undefined;
+    const placed = session.dispatch({
+      type: "place",
+      componentType,
+      variant,
+      at: catalogPlaceAt(session.getScene().elements, componentType, variant, viewport),
+    });
+    const instanceIds = placed.instanceIds ?? (placed.instanceId ? [placed.instanceId] : []);
+    if (instanceIds[0]) {
+      setSelectedInstanceId(instanceIds[0]);
+      session.setSelection(instanceIds);
+    }
+    if (!api || instanceIds.length === 0) return;
+    const targets = elementsForInstances(session.getScene().elements, instanceIds);
+    if (targets.length === 0) return;
+    api.updateScene({ appState: { selectedElementIds: selectedIdsForElements(targets) } });
+    const zoom = api.getAppState().zoom.value || 1;
+    const reduceMotion = prefersReducedMotion();
+    api.scrollToContent(targets, {
+      animate: !reduceMotion,
+      duration: reduceMotion ? 0 : 420,
+      fitToContent: true,
+      minZoom: zoom,
+      maxZoom: zoom,
+      canvasOffsets: PLACE_SCROLL_OFFSETS,
+    });
+    setRevealIds(instanceIds);
   };
+
+  React.useEffect(() => {
+    if (!revealIds) {
+      setRevealBox(null);
+      return;
+    }
+    const until = performance.now() + PLACE_REVEAL_MS;
+    let frame = 0;
+    const tick = () => {
+      const api = apiRef.current;
+      const bounds = unionElementBounds(elementsForInstances(session.getScene().elements, revealIds));
+      if (api && bounds) setRevealBox(sceneRectToBoardBox(bounds, api.getAppState()));
+      if (performance.now() < until) frame = requestAnimationFrame(tick);
+      else setRevealIds(null);
+    };
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, [revealIds, session]);
 
   const handleBoardChange = React.useCallback(
     (
@@ -310,8 +371,7 @@ export function PtDesignApp({
 
   const openShare = React.useCallback(() => {
     setShareOpen(true);
-    void collab.start();
-  }, [collab]);
+  }, []);
 
   const refreshLibrary = React.useCallback(async () => {
     if (!library) return;
@@ -392,21 +452,13 @@ export function PtDesignApp({
       id: "give-to-agent" as const,
       label: "Give to Agent",
       onSelect: () => {
-        void (async () => {
-          collab.setMode("local");
-          if (!collab.isCollaborating) {
-            setShareOpen(true);
-            await collab.start();
-          }
-          const url = (await collab.start()) ?? collab.shareUrl;
-          const parsed = parseRoomFromString(url);
-          const payload = session.buildHandoff({
-            scope: "document",
-            collab: parsed && url ? { ...parsed, shareUrl: url } : undefined,
-          });
-          if (handoff) void handoff.accept(payload);
-          else void navigator.clipboard?.writeText(JSON.stringify(payload, null, 2));
-        })();
+        const payload = session.buildHandoff({
+          scope: "document",
+          clientId,
+          invokeUrl: agentInvokeUrl(agentApiBase),
+        });
+        if (handoff) void handoff.accept(payload);
+        else void navigator.clipboard?.writeText(JSON.stringify(payload, null, 2));
       },
     },
     ...(library
@@ -473,22 +525,37 @@ export function PtDesignApp({
                 open: shareOpen,
                 url: collab.shareUrl,
                 room: collab.room,
-                mode: collab.mode,
                 username: collab.username,
+                clientId,
                 apiBase: agentApiBase,
                 copy: shareLabels,
-                onModeChange: collab.setMode,
+                onStart: () => {
+                  collab.setMode("invite");
+                  void collab.start();
+                },
                 onUsernameChange: collab.setUsername,
                 onJoin: collab.join,
                 onStop: () => {
                   collab.stop();
-                  setShareOpen(false);
                 },
                 onClose: () => setShareOpen(false),
               }}
               onPointerUpdate={collab.broadcastPointer}
               overlay={
                 <>
+                  {revealBox ? (
+                    <div
+                      data-testid="pt-design-place-reveal"
+                      className="pt-design-place-reveal"
+                      style={{
+                        left: revealBox.left,
+                        top: revealBox.top,
+                        width: revealBox.width,
+                        height: revealBox.height,
+                        color: chrome.fg,
+                      }}
+                    />
+                  ) : null}
                   {library && libraryMode ? (
                     <LibraryOverlay
                       theme={boardTheme}
@@ -545,16 +612,17 @@ export function PtDesignApp({
               catalog={
                 <ComponentCatalog
                   items={catalog}
+                  kind="basic"
                   activeType={catalogType}
-                  onPlace={(componentType, variant) => {
-                    setCatalogType(componentType);
-                    session.dispatch({
-                      type: "place",
-                      componentType,
-                      variant,
-                      at: placeAt(),
-                    });
-                  }}
+                  onPlace={placeFromCatalog}
+                />
+              }
+              blockCatalog={
+                <ComponentCatalog
+                  items={catalog}
+                  kind="block"
+                  activeType={catalogType}
+                  onPlace={placeFromCatalog}
                 />
               }
             />
