@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { PT_DESIGN_TOOL_DEFS } from "../agent/tool-defs";
-import { createSdkMcpServer, MCP_SERVER_NAME } from "./server";
+import { createMcpServer, createSdkMcpServer, MCP_SERVER_NAME } from "./server";
 
 function tmpFile() {
   return join(mkdtempSync(join(tmpdir(), "pt-mcp-")), "app.ptdesign.json");
@@ -68,5 +68,17 @@ describe("standard MCP SDK server", () => {
 
   test("server name follows MCP TypeScript convention", () => {
     expect(MCP_SERVER_NAME).toBe("pt-design-mcp-server");
+  });
+
+  test("pt_apply_ir rejects omitted or incomplete IR before dispatch", () => {
+    const mcp = createMcpServer({ file: tmpFile() });
+    expect(mcp.callTool("pt_apply_ir", { dryRun: true }).isError).toBe(true);
+    expect(mcp.callTool("pt_apply_ir", { ir: null }).isError).toBe(true);
+    expect(mcp.callTool("pt_apply_ir", { ir: { version: "pt-design-ir/1" } }).isError).toBe(true);
+    const dry = mcp.callTool("pt_apply_ir", {
+      ir: { version: "pt-design-ir/1", frames: [], freeNodes: [], extra: true },
+      dryRun: true,
+    });
+    expect(dry.isError).toBe(false);
   });
 });

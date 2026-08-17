@@ -101,7 +101,13 @@ export const PT_TOOL_SCHEMAS = {
     .strict(),
   pt_apply_ir: z
     .object({
-      ir: z.unknown().describe("Full Design IR (pt-design-ir/1)"),
+      ir: z
+        .looseObject({
+          version: z.string(),
+          frames: z.array(z.unknown()),
+          freeNodes: z.array(z.unknown()),
+        })
+        .describe("Full Design IR (pt-design-ir/1)"),
       mode: z.enum(["merge", "replace"]).default("merge"),
       dryRun: z.boolean().default(false),
     })
