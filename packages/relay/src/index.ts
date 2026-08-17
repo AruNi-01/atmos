@@ -18,9 +18,15 @@ import {
 } from "./event-routes";
 import { handleGithubWebhook } from "./github-webhook";
 import { ServerHub } from "./server-hub";
+import { PtDesignRoom } from "./pt-design-room";
+import {
+  isValidPtDesignRoomId,
+  parsePtDesignRoomPath,
+} from "./pt-design-room-protocol";
 
 export interface Env {
   SERVER_HUB: DurableObjectNamespace<ServerHub>;
+  PT_DESIGN_ROOM: DurableObjectNamespace<PtDesignRoom>;
   DB: D1Database;
   RELAY_SECRET_KEY?: string;
   /** Hub → Relay device projection (APP-056). */
@@ -39,6 +45,7 @@ const CLIENT_TOKEN_TTL_SEC = 24 * 3600;
 const REGISTER_RATE_LIMIT = 30;
 const GITHUB_WEBHOOK_RATE_LIMIT = 600;
 const GITHUB_CONTROL_RATE_LIMIT = 60;
+const PT_DESIGN_ROOM_RATE_LIMIT = 60;
 const RATE_WINDOW_SEC = 60;
 const COMPUTER_DEVICE_REGISTRATION_LIMIT = 10;
 const DEFAULT_RELAY_ORIGIN = "https://relay.atmos.land";
@@ -62,6 +69,7 @@ type AppDeviceIdParseResult =
 const registerRateByIp = new Map<string, { count: number; windowStart: number }>();
 const githubWebhookRateByIp = new Map<string, { count: number; windowStart: number }>();
 const githubControlRateByIp = new Map<string, { count: number; windowStart: number }>();
+const ptDesignRoomRateByIp = new Map<string, { count: number; windowStart: number }>();
 
 export default {
   async fetch(request: Request, env: Env, _ctx: ExecutionContext): Promise<Response> {
@@ -96,6 +104,18 @@ export default {
       return withCorsWs(res);
     }
 
+    if (path === "/ws/pt-design" || path === "/ws/pt-design/") {
+      if (request.method === "GET") {
+        return withCors(json({ ok: true, service: "pt-design-collab" }));
+      }
+    }
+
+    const ptDesignRoomId = parsePtDesignRoomPath(path);
+    if (ptDesignRoomId) {
+      const res = await handlePtDesignRoom(request, env, ptDesignRoomId);
+      return withCorsWs(res);
+    }
+
     const gateway = matchGatewayPath(path);
     if (gateway) {
       return withCors(
@@ -124,7 +144,7 @@ export default {
   },
 };
 
-export { ServerHub };
+export { ServerHub, PtDesignRoom };
 
 function normalizedPath(pathname: string): string {
   if (pathname.startsWith("/api/v1/machine")) {
@@ -874,6 +894,25 @@ async function handleHttpGatewayProxy(
   });
 
   return stub.fetch(forward);
+}
+
+async function handlePtDesignRoom(
+  request: Request,
+  env: Env,
+  roomId: string,
+): Promise<Response> {
+  if (!isValidPtDesignRoomId(roomId)) {
+    return json({ error: "invalid_room" }, 400);
+  }
+  if (request.headers.get("Upgrade") !== "websocket") {
+    return new Response("Expected WebSocket Upgrade", { status: 426 });
+  }
+  if (!checkRateLimit(clientIp(request), ptDesignRoomRateByIp, PT_DESIGN_ROOM_RATE_LIMIT)) {
+    return json({ error: "rate_limited" }, 429);
+  }
+  const id = env.PT_DESIGN_ROOM.idFromName(roomId.toLowerCase());
+  const stub = env.PT_DESIGN_ROOM.get(id);
+  return stub.fetch(request);
 }
 
 async function handleServerWebSocket(
