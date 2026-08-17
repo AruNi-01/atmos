@@ -42,6 +42,7 @@ import {
   type SkillMarketItem,
 } from "../lib/market-data";
 import {
+  buildSkillDetailUrl,
   buildSkillListUrl,
   countCategoryItems,
   filterMarketCategories,
@@ -264,25 +265,19 @@ export const SkillsView: React.FC = () => {
   );
 
   const handleOpenInstalledSkill = (skill: SkillInfo) => {
-    const searchParams = new URLSearchParams();
-    if (activeTab !== "installed") {
-      searchParams.set("tab", activeTab);
-    }
-    if (scopeFilter !== "all") {
-      searchParams.set("filter", scopeFilter);
-    }
-    if (projectsParam) {
-      searchParams.set("projects", projectsParam);
-    }
-    if (query.trim()) {
-      searchParams.set("q", query.trim());
-    }
-    searchParams.set("scope", skill.scope);
-    searchParams.set("skillId", skill.id);
     // Paint the detail page immediately with list data; URL + full payload follow.
     openDetail(skill);
     queueMicrotask(() => {
-      router.push(`/skills?${searchParams.toString()}`);
+      router.push(
+        buildSkillDetailUrl({
+          activeTab,
+          filter: scopeFilter,
+          projects: projectsParam,
+          query,
+          skillScope: skill.scope,
+          skillId: skill.id,
+        }),
+      );
     });
   };
 

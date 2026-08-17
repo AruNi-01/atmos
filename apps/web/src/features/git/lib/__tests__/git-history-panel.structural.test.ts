@@ -12,6 +12,15 @@ function read(rel: string) {
   return readFileSync(join(root, rel), "utf8");
 }
 
+function readHistoryUi() {
+  return [
+    read("apps/web/src/features/git/components/GitHistoryPanel.tsx"),
+    read("apps/web/src/features/git/components/git-history-table-chrome.tsx"),
+    read("apps/web/src/features/git/components/git-history-graph-svg.tsx"),
+    read("apps/web/src/features/git/components/git-history-row.tsx"),
+  ].join("\n");
+}
+
 describe("git history panel structural", () => {
   it("keeps match-case inside the search field and drops the toolbar divider", () => {
     const src = read("apps/web/src/features/git/components/GitHistoryPanel.tsx");
@@ -39,7 +48,7 @@ describe("git history panel structural", () => {
   });
 
   it("renders a table header and a hover copy control on the hash", () => {
-    const src = read("apps/web/src/features/git/components/GitHistoryPanel.tsx");
+    const src = readHistoryUi();
     expect(src).toContain("GitHistoryTableHeader");
     expect(src).toContain("t(`columns.${id}`)");
     expect(src).toContain('t("columns.commit")');
@@ -62,7 +71,7 @@ describe("git history panel structural", () => {
   });
 
   it("allows longer ref labels and tooltips only when truncated", () => {
-    const src = read("apps/web/src/features/git/components/GitHistoryPanel.tsx");
+    const src = read("apps/web/src/features/git/components/git-history-row.tsx");
     expect(src).toContain("max-w-56");
     expect(src).not.toContain("max-w-28");
     expect(src).toContain("open={truncated ? tooltipOpen : false}");
@@ -85,6 +94,16 @@ describe("git history panel structural", () => {
     );
     expect(drawer).toContain("openCommit: (entry: Extract<TaskGithubDrawerEntry, { kind: \"commit\" }>) => void");
     expect(drawer).toContain("CommitDetailView");
+  });
+
+  it("splits graph chrome, SVG, and rows out of the panel shell", () => {
+    const panel = read("apps/web/src/features/git/components/GitHistoryPanel.tsx");
+    expect(panel).toContain('from "@/features/git/components/git-history-table-chrome"');
+    expect(panel).toContain('from "@/features/git/components/git-history-graph-svg"');
+    expect(panel).toContain('from "@/features/git/components/git-history-row"');
+    expect(panel).not.toContain("function GitHistoryGraphSvg");
+    expect(panel).not.toContain("function GitHistoryRow");
+    expect(panel).not.toContain("function ColumnResizeHandle");
   });
 });
 
