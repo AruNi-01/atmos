@@ -3,6 +3,10 @@
  *
  * Cloudflare Pages `_redirects` cannot 200-proxy to another project, so the
  * previous `/tok/* → app.atmos.land` 302 is replaced by this Function.
+ *
+ * HTML must keep root-relative `/_next/` URLs. The web app's Turbopack runtime
+ * waits on exact script `src` keys; pointing those tags at app.atmos.land
+ * leaves the public page on the empty SSR shell.
  */
 
 export const APP_ORIGIN = "https://app.atmos.land";
@@ -48,16 +52,10 @@ export function isProxiedAppAssetPath(pathname: string): boolean {
   return (
     pathname.startsWith("/_next/") ||
     pathname.startsWith("/ai-provider/") ||
-    pathname.startsWith("/agents/")
+    pathname.startsWith("/agents/") ||
+    pathname === "/icon.svg" ||
+    pathname === "/icon.png"
   );
-}
-
-/** Point root-relative Next assets at the web origin (HTML + RSC payload). */
-export function rewriteTokHtml(
-  html: string,
-  appOrigin: string = APP_ORIGIN,
-): string {
-  return html.replace(/(["'])\/_next\//g, `$1${appOrigin}/_next/`);
 }
 
 export function appUpstreamUrl(
@@ -130,15 +128,11 @@ export async function proxyTokPage(
     ? { "Cache-Control": "private, no-store" }
     : undefined;
 
-  if (request.method === "HEAD" || !isHtml) {
-    return new Response(request.method === "HEAD" ? null : upstream.body, {
-      status: upstream.status,
-      headers: copyUpstreamHeaders(upstream.headers, extra),
-    });
-  }
-
-  const html = rewriteTokHtml(await upstream.text(), appOrigin);
-  return new Response(html, {
+  // Keep /_next/ root-relative. Turbopack keys runtime chunks by the exact
+  // script src (`/_next/static/chunks/...`). Rewriting those to
+  // https://app.atmos.land/_next/... makes the waiter never resolve, so the
+  // public page stays on the SSR empty shell.
+  return new Response(request.method === "HEAD" ? null : upstream.body, {
     status: upstream.status,
     headers: copyUpstreamHeaders(upstream.headers, extra),
   });
