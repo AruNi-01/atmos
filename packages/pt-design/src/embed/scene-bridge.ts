@@ -1,4 +1,6 @@
+import { FONT_HELVETICA, FONT_VIRGIL, layoutUnboundText } from "../catalog/primitives";
 import type { PtElement, PtElementType, PtScene } from "../core/types";
+import { canonicalColor, displayColor } from "./theme-palette";
 
 export type ExcalidrawCompatElement = PtElement & {
   strokeStyle: "solid" | "dashed" | "dotted";
@@ -10,7 +12,12 @@ export type ExcalidrawCompatElement = PtElement & {
 export type ExcalidrawHostApi = {
   updateScene: (input: {
     elements?: ExcalidrawCompatElement[];
-    appState?: { viewBackgroundColor?: string; theme?: "light" | "dark"; currentItemRoughness?: number };
+    appState?: {
+      viewBackgroundColor?: string;
+      theme?: "light" | "dark";
+      currentItemRoughness?: number;
+      currentItemFontFamily?: number;
+    };
   }) => void;
   getSceneElements: () => readonly ExcalidrawCompatElement[];
   getSceneElementsIncludingDeleted: () => readonly ExcalidrawCompatElement[];
@@ -37,18 +44,22 @@ const KNOWN_TYPES = new Set<string>([
   "image",
 ]);
 
-export function sceneToExcalidrawElements(scene: PtScene): ExcalidrawCompatElement[] {
-  return scene.elements.map((el) => toCompat(el));
+export function sceneToExcalidrawElements(
+  scene: PtScene,
+  theme: "light" | "dark" = "light",
+): ExcalidrawCompatElement[] {
+  return scene.elements.map((el) => toCompat(el, theme));
 }
 
 export function excalidrawElementsToScene(
   elements: readonly ExcalidrawCompatElement[],
   appState?: { viewBackgroundColor?: string },
+  theme: "light" | "dark" = "light",
 ): PtScene {
   return {
     elements: elements
       .filter((el) => el.type !== ("selection" as PtElementType))
-      .map((el) => fromCompat(el)),
+      .map((el) => fromCompat(el, theme)),
     appState: {
       viewBackgroundColor: appState?.viewBackgroundColor ?? "#ffffff",
     },
@@ -77,9 +88,12 @@ export function sceneFingerprint(scene: PtScene): string {
     .join("|");
 }
 
-function toCompat(el: PtElement): ExcalidrawCompatElement {
+function toCompat(el: PtElement, theme: "light" | "dark"): ExcalidrawCompatElement {
+  const textBox = el.type === "text" ? layoutUnboundText(el) : null;
   return {
     ...el,
+    strokeColor: displayColor(el.strokeColor, theme),
+    backgroundColor: displayColor(el.backgroundColor, theme),
     strokeStyle: el.strokeStyle ?? "solid",
     version: el.version ?? 1,
     link: el.link ?? null,
@@ -93,16 +107,31 @@ function toCompat(el: PtElement): ExcalidrawCompatElement {
     roughness: el.roughness ?? 1,
     opacity: el.opacity ?? 100,
     fillStyle: el.fillStyle ?? "solid",
+    y: textBox?.y ?? el.y,
+    height: textBox?.height ?? el.height,
+    fontFamily: el.type === "text" ? visibleTextFont(el.fontFamily) : el.fontFamily,
+    lineHeight: el.type === "text" ? (el.lineHeight ?? 1.25) : el.lineHeight,
+    autoResize: el.type === "text" ? (el.autoResize ?? false) : el.autoResize,
+    containerId: el.type === "text" ? (el.containerId ?? null) : el.containerId,
   };
 }
 
-function fromCompat(el: ExcalidrawCompatElement): PtElement {
+function fromCompat(el: ExcalidrawCompatElement, theme: "light" | "dark"): PtElement {
   const type = KNOWN_TYPES.has(el.type) ? (el.type as PtElementType) : "rectangle";
   return {
     ...el,
     type,
+    strokeColor: canonicalColor(el.strokeColor, theme),
+    backgroundColor: canonicalColor(el.backgroundColor, theme),
+    fontFamily: el.type === "text" ? visibleTextFont(el.fontFamily) : el.fontFamily,
     groupIds: [...(el.groupIds ?? [])],
     frameId: el.frameId ?? null,
     customData: el.customData,
   };
+}
+
+/** Virgil (1) is a downloaded face — fall back to local Helvetica so labels stay visible. */
+export function visibleTextFont(fontFamily: number | undefined): number {
+  if (!fontFamily || fontFamily === FONT_VIRGIL) return FONT_HELVETICA;
+  return fontFamily;
 }

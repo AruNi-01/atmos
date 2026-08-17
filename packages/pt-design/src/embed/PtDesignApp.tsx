@@ -9,6 +9,7 @@ import {
   type PersistenceAdapter,
   type PtTheme,
 } from "../host/adapters";
+import { FONT_HELVETICA } from "../catalog/primitives";
 import { chromeTokens, resolveBoardTheme } from "./chrome";
 import { ComponentCatalog } from "./ComponentCatalog";
 import {
@@ -58,12 +59,13 @@ export function PtDesignApp({
     const current = excalidrawElementsToScene(
       api.getSceneElementsIncludingDeleted(),
       api.getAppState(),
+      boardTheme,
     );
     if (sceneFingerprint(current) === sceneFingerprint(scene)) return;
     applyingRef.current = true;
-    api.updateScene({ elements: sceneToExcalidrawElements(scene) });
+    api.updateScene({ elements: sceneToExcalidrawElements(scene, boardTheme) });
     applyingRef.current = false;
-  }, [session]);
+  }, [session, boardTheme]);
 
   React.useEffect(() => {
     let cancelled = false;
@@ -79,6 +81,22 @@ export function PtDesignApp({
       cancelled = true;
     };
   }, [persist, session, pushScene]);
+
+  React.useEffect(() => {
+    const api = apiRef.current;
+    if (!api) return;
+    applyingRef.current = true;
+    api.updateScene({
+      elements: sceneToExcalidrawElements(session.getScene(), boardTheme),
+      appState: {
+        theme: boardTheme,
+        viewBackgroundColor: chrome.canvas,
+        currentItemRoughness: 1,
+        currentItemFontFamily: FONT_HELVETICA,
+      },
+    });
+    applyingRef.current = false;
+  }, [boardTheme, chrome.canvas, session]);
 
   React.useEffect(() => {
     return session.subscribe(() => {
@@ -116,7 +134,7 @@ export function PtDesignApp({
     if (instanceId) session.setSelection([instanceId]);
 
     if (applyingRef.current) return;
-    const next = excalidrawElementsToScene(elements, appState);
+    const next = excalidrawElementsToScene(elements, appState, boardTheme);
     if (sceneFingerprint(next) === sceneFingerprint(session.getScene())) return;
     applyingRef.current = true;
     session.dispatch({ type: "replaceScene", scene: next });
@@ -215,7 +233,7 @@ export function PtDesignApp({
         <div style={{ flex: 1, minHeight: 0, background: chrome.canvas }}>
           <React.Suspense fallback={<div style={{ padding: 16, fontSize: 13, color: chrome.mutedFg }}>Loading board…</div>}>
             <ExcalidrawBoard
-              initialElements={sceneToExcalidrawElements(scene)}
+              initialElements={sceneToExcalidrawElements(scene, boardTheme)}
               viewBackgroundColor={chrome.canvas}
               theme={boardTheme}
               onApi={(api) => {

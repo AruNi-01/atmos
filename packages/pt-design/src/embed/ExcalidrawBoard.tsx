@@ -1,8 +1,11 @@
 "use client";
 
+import "./excalidraw-assets";
 import React from "react";
 import { Excalidraw, Sidebar } from "@excalidraw/excalidraw";
 import "@excalidraw/excalidraw/index.css";
+import "./excalidraw-theme.css";
+import { FONT_HELVETICA } from "../catalog/primitives";
 import { ComponentSidebarIcon } from "./catalog-icons";
 import type { ExcalidrawCompatElement, ExcalidrawHostApi } from "./scene-bridge";
 
@@ -80,6 +83,12 @@ function ComponentTrigger({
   );
 }
 
+const DISABLE_CANVAS_INVERT = `
+.excalidraw.theme--dark canvas {
+  filter: none !important;
+}
+`;
+
 export default function ExcalidrawBoard({
   initialElements,
   viewBackgroundColor,
@@ -91,8 +100,22 @@ export default function ExcalidrawBoard({
   const apiRef = React.useRef<ExcalidrawApi | null>(null);
 
   React.useEffect(() => {
+    const id = "pt-design-excalidraw-theme";
+    if (document.getElementById(id)) return;
+    const style = document.createElement("style");
+    style.id = id;
+    style.textContent = DISABLE_CANVAS_INVERT;
+    document.head.appendChild(style);
+  }, []);
+
+  React.useEffect(() => {
     apiRef.current?.updateScene({
-      appState: { viewBackgroundColor, theme, currentItemRoughness: 1 },
+      appState: {
+        viewBackgroundColor,
+        theme,
+        currentItemRoughness: 1,
+        currentItemFontFamily: FONT_HELVETICA,
+      },
     });
   }, [theme, viewBackgroundColor]);
 
@@ -118,6 +141,7 @@ export default function ExcalidrawBoard({
             viewBackgroundColor,
             theme,
             currentItemRoughness: 1,
+            currentItemFontFamily: FONT_HELVETICA,
           },
         }}
         renderTopRightUI={(_mobile, appState) =>

@@ -4,6 +4,40 @@ import type { PtElement } from "../core/types";
 /** Excalidraw "artist" sloppiness — the 艺术 line style. */
 export const ARTISTIC_ROUGHNESS = 1;
 
+/** Excalidraw Helvetica (local system font). Virgil / Excalifont need downloaded faces. */
+export const FONT_HELVETICA = 2;
+export const FONT_VIRGIL = 1;
+export const DEFAULT_FONT_SIZE = 13;
+export const DEFAULT_LINE_HEIGHT = 1.25;
+
+export function textLineHeight(
+  fontSize = DEFAULT_FONT_SIZE,
+  lineHeight = DEFAULT_LINE_HEIGHT,
+): number {
+  return Math.round(fontSize * lineHeight);
+}
+
+/**
+ * Unbound Excalidraw text paints from the top of its box. Shrink a too-tall
+ * middle-aligned single line so the glyph sits in the control, not the cap.
+ */
+export function layoutUnboundText(el: {
+  y: number;
+  height: number;
+  text?: string;
+  fontSize?: number;
+  lineHeight?: number;
+  verticalAlign?: "top" | "middle";
+  containerId?: string | null;
+}): { y: number; height: number } {
+  if (el.containerId || el.verticalAlign === "top" || (el.text ?? "").includes("\n")) {
+    return { y: el.y, height: el.height };
+  }
+  const lineH = textLineHeight(el.fontSize ?? DEFAULT_FONT_SIZE, el.lineHeight ?? DEFAULT_LINE_HEIGHT);
+  if (el.height <= lineH + 1) return { y: el.y, height: el.height };
+  return { y: el.y + (el.height - lineH) / 2, height: lineH };
+}
+
 export const C = {
   stroke: "#18181b",
   mutedStroke: "#a1a1aa",
@@ -89,24 +123,47 @@ export function textEl(
   text: string,
   extra: Partial<PtElement> = {},
 ): PtElement {
+  const {
+    y: _ignoredY,
+    height: _ignoredH,
+    fontSize: extraFontSize,
+    lineHeight: extraLineHeight,
+    verticalAlign: extraAlign,
+    ...rest
+  } = extra;
+  const fontSize = extraFontSize ?? DEFAULT_FONT_SIZE;
+  const lineHeight = extraLineHeight ?? DEFAULT_LINE_HEIGHT;
+  const verticalAlign = extraAlign ?? "middle";
+  const laidOut = layoutUnboundText({
+    y,
+    height: h,
+    text,
+    fontSize,
+    lineHeight,
+    verticalAlign,
+    containerId: extra.containerId ?? null,
+  });
   return base({
     id: extra.id ?? createId("txt"),
     type: "text",
     x,
-    y,
     width: w,
-    height: h,
     text,
     originalText: text,
-    fontSize: extra.fontSize ?? 13,
-    fontFamily: 1,
+    fontFamily: extra.fontFamily ?? FONT_HELVETICA,
     textAlign: extra.textAlign ?? "left",
-    verticalAlign: extra.verticalAlign ?? "middle",
+    autoResize: extra.autoResize ?? false,
+    containerId: extra.containerId ?? null,
     strokeColor: extra.strokeColor ?? C.text,
     backgroundColor: "transparent",
     strokeWidth: 0,
     roundness: null,
-    ...extra,
+    ...rest,
+    y: laidOut.y,
+    height: laidOut.height,
+    fontSize,
+    lineHeight,
+    verticalAlign,
   });
 }
 

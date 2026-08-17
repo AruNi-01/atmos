@@ -46,6 +46,34 @@ describe("catalog completeness", () => {
     });
     expect(built.elements.length).toBeGreaterThan(0);
     expect(built.elements.every((el) => el.roughness === 1)).toBe(true);
+    const label = built.elements.find((el) => el.type === "text");
+    expect(label?.fontFamily).toBe(2);
+    expect(label?.lineHeight).toBe(1.25);
+    expect(label?.text).toBe("Go");
+    const root = built.elements.find((el) => el.id === built.rootId);
+    expect(root).toBeDefined();
+    expect(label?.height).toBeLessThan(root!.height);
+    expect(label!.y).toBeGreaterThan(root!.y);
+    expect(label!.y + label!.height).toBeLessThan(root!.y + root!.height);
+    expect(Math.abs(label!.y - (root!.y + (root!.height - label!.height) / 2))).toBeLessThan(0.6);
+  });
+
+  test("dialog actions and table header sit in the middle of their bars", () => {
+    const dialog = getComponentTemplate("alert-dialog", { x: 0, y: 0, variant: "open", props: {} });
+    const cancel = dialog.elements.find((el) => el.type === "text" && el.text === "Cancel");
+    const cancelBtn = dialog.elements.find(
+      (el) => el.type === "rectangle" && el.x === cancel?.x && el.height === 28,
+    );
+    expect(cancel).toBeDefined();
+    expect(cancelBtn).toBeDefined();
+    expect(Math.abs(cancel!.y - (cancelBtn!.y + (cancelBtn!.height - cancel!.height) / 2))).toBeLessThan(0.6);
+
+    const table = getComponentTemplate("table", { x: 0, y: 0, props: {} });
+    const header = table.elements.find((el) => el.type === "text" && el.text?.includes("Name"));
+    const headerBar = table.elements.find((el) => el.type === "rectangle" && el.height === 32 && el.y === 0);
+    expect(header).toBeDefined();
+    expect(headerBar).toBeDefined();
+    expect(Math.abs(header!.y - (headerBar!.y + (headerBar!.height - header!.height) / 2))).toBeLessThan(0.6);
   });
 
   test("button template uses bare componentType", () => {

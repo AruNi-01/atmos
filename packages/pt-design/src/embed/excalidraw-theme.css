@@ -1,0 +1,9 @@
+/*
+  Excalidraw dark mode applies invert(93%) hue-rotate(180deg) to the canvas.
+  That turns light wireframes into black cards on a light-looking paper and
+  hue-shifts accent/destructive colors. We keep the dark UI chrome but paint
+  component colors ourselves (see theme-palette.ts).
+*/
+.excalidraw.theme--dark canvas {
+  filter: none !important;
+}

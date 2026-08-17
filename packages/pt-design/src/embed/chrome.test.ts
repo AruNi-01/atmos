@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { readFileSync } from "node:fs";
 import { chromeTokens, resolveBoardTheme } from "./chrome";
 
 describe("embed chrome tokens", () => {
@@ -21,3 +22,16 @@ describe("embed chrome tokens", () => {
     expect(resolveBoardTheme("light")).toBe("light");
   });
 });
+
+describe("excalidraw dark canvas invert", () => {
+  test("board disables Excalidraw's canvas invert so remapped colors stay readable", () => {
+    const board = readFileSync(new URL("./ExcalidrawBoard.tsx", import.meta.url), "utf8");
+    const css = readFileSync(new URL("./excalidraw-theme.css", import.meta.url), "utf8");
+    expect(board).toContain('import "./excalidraw-theme.css"');
+    expect(board).toContain("pt-design-excalidraw-theme");
+    expect(board).toContain("DISABLE_CANVAS_INVERT");
+    expect(css).toContain(".excalidraw.theme--dark canvas");
+    expect(css).toContain("filter: none");
+  });
+});
+

@@ -57,6 +57,7 @@ export type PtElement = {
   containerId?: string | null;
   originalText?: string;
   lineHeight?: number;
+  autoResize?: boolean;
   points?: [number, number][];
   name?: string;
 };

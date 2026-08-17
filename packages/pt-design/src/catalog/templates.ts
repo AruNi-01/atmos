@@ -85,6 +85,7 @@ function labeledBox(
   const title = textEl(ctx.x + 10, ctx.y + 8, w - 20, 18, opts.title, {
     fontSize: 13,
     strokeColor: opts.fg ?? C.text,
+    verticalAlign: "top",
   });
   const kids = [title];
   if (opts.subtitle) {
@@ -92,6 +93,7 @@ function labeledBox(
       textEl(ctx.x + 10, ctx.y + 28, w - 20, 16, opts.subtitle, {
         fontSize: 11,
         strokeColor: C.mutedText,
+        verticalAlign: "top",
       }),
     );
   }
@@ -130,7 +132,7 @@ function chipRow(
   for (const label of labels) {
     const w = Math.max(48, label.length * 7 + 16);
     out.push(rect(cx, y, w, 22, { backgroundColor: fill, strokeColor: C.outline }));
-    out.push(textEl(cx + 8, y + 3, w - 12, 16, label, { fontSize: 11 }));
+    out.push(textEl(cx + 8, y, w - 16, 22, label, { fontSize: 11, textAlign: "center" }));
     cx += w + 6;
   }
   return out;
@@ -180,7 +182,7 @@ export function buildTemplate(
       const w = 240;
       const h = 36;
       const root = rect(ctx.x, ctx.y, w, h, { backgroundColor: C.fill });
-      const text = textEl(ctx.x + 10, ctx.y + 8, w - 20, 20, placeholder, {
+      const text = textEl(ctx.x + 10, ctx.y, w - 20, h, placeholder, {
         strokeColor: C.mutedText,
       });
       return assemble(root, [text], w, h);
@@ -191,6 +193,7 @@ export function buildTemplate(
       const root = rect(ctx.x, ctx.y, w, h);
       const text = textEl(ctx.x + 10, ctx.y + 8, w - 20, 20, placeholder, {
         strokeColor: C.mutedText,
+        verticalAlign: "top",
       });
       return assemble(root, [text], w, h);
     }
@@ -201,7 +204,7 @@ export function buildTemplate(
       const box = rect(ctx.x, ctx.y, 16, 16, {
         backgroundColor: checked ? C.primary : C.fill,
       });
-      const text = textEl(ctx.x + 22, ctx.y - 2, 140, 20, label, { fontSize: 13 });
+      const text = textEl(ctx.x + 22, ctx.y, 140, 16, label, { fontSize: 13 });
       return assemble(box, [text], 162, 20);
     }
     case "switch": {
@@ -262,6 +265,7 @@ export function buildTemplate(
         textEl(ctx.x + 16, ctx.y + 38, w - 32, 36, description, {
           fontSize: 12,
           strokeColor: C.mutedText,
+          verticalAlign: "top",
         }),
         rect(ctx.x + 16, ctx.y + 120, 88, 28, { backgroundColor: C.primary, strokeColor: C.primary }),
         textEl(ctx.x + 16, ctx.y + 120, 88, 28, str(ctx.props, "action", "Action"), {
@@ -359,7 +363,7 @@ export function buildTemplate(
         const root = rect(ctx.x, ctx.y, w, 40);
         return assemble(
           root,
-          [textEl(ctx.x + 12, ctx.y + 10, w - 36, 20, "Is it accessible?"), textEl(ctx.x + w - 24, ctx.y + 10, 16, 20, "▸")],
+          [textEl(ctx.x + 12, ctx.y, w - 36, 40, "Is it accessible?"), textEl(ctx.x + w - 24, ctx.y, 16, 40, "▸")],
           w,
           40,
         );
@@ -367,11 +371,12 @@ export function buildTemplate(
       const h = 120;
       const root = rect(ctx.x, ctx.y, w, h);
       const kids = [
-        textEl(ctx.x + 12, ctx.y + 10, w - 36, 18, "Is it accessible?"),
-        textEl(ctx.x + w - 24, ctx.y + 10, 16, 18, "▾"),
+        textEl(ctx.x + 12, ctx.y, w - 36, 36, "Is it accessible?"),
+        textEl(ctx.x + w - 24, ctx.y, 16, 36, "▾"),
         textEl(ctx.x + 12, ctx.y + 36, w - 24, 36, "Yes. It uses semantic markup.", {
           fontSize: 12,
           strokeColor: C.mutedText,
+          verticalAlign: "top",
         }),
         textEl(ctx.x + 12, ctx.y + 80, w - 24, 18, "Is it styled?", { strokeColor: C.mutedText }),
       ];
@@ -402,15 +407,15 @@ export function buildTemplate(
       const root = rect(ctx.x, ctx.y, w, h);
       const kids: PtElement[] = [
         rect(ctx.x, ctx.y, w, 32, { backgroundColor: C.muted, strokeColor: C.outline }),
-        textEl(ctx.x + 12, ctx.y + 6, w - 24, 20, "Name     Status     Role"),
+        textEl(ctx.x + 12, ctx.y, w - 24, 32, "Name     Status     Role"),
       ];
       for (let i = 0; i < 3; i++) {
         kids.push(
           textEl(
             ctx.x + 12,
-            ctx.y + 40 + i * 28,
+            ctx.y + 32 + i * 32,
             w - 24,
-            20,
+            32,
             `Row ${i + 1}    Active    Editor`,
             { fontSize: 12 },
           ),
@@ -430,10 +435,11 @@ export function buildTemplate(
       const h = 180;
       const root = rect(ctx.x, ctx.y, w, h);
       const kids = [
-        textEl(ctx.x + 20, ctx.y + 16, w - 40, 22, title, { fontSize: 16 }),
+        textEl(ctx.x + 20, ctx.y + 16, w - 40, 22, title, { fontSize: 16, verticalAlign: "top" }),
         textEl(ctx.x + 20, ctx.y + 46, w - 40, 40, description, {
           fontSize: 12,
           strokeColor: C.mutedText,
+          verticalAlign: "top",
         }),
         rect(ctx.x + w - 188, ctx.y + h - 48, 80, 28, { backgroundColor: C.fill }),
         textEl(ctx.x + w - 188, ctx.y + h - 48, 80, 28, "Cancel", { textAlign: "center" }),
@@ -457,10 +463,11 @@ export function buildTemplate(
       const h = 360;
       const root = rect(ctx.x, ctx.y, w, h);
       const kids = [
-        textEl(ctx.x + 16, ctx.y + 16, w - 32, 22, title, { fontSize: 16 }),
+        textEl(ctx.x + 16, ctx.y + 16, w - 32, 22, title, { fontSize: 16, verticalAlign: "top" }),
         textEl(ctx.x + 16, ctx.y + 48, w - 32, 40, description, {
           fontSize: 12,
           strokeColor: C.mutedText,
+          verticalAlign: "top",
         }),
         rect(ctx.x + 16, ctx.y + h - 52, w - 32, 32, { backgroundColor: C.primary, strokeColor: C.primary }),
         textEl(ctx.x + 16, ctx.y + h - 52, w - 32, 32, "Save", {
@@ -476,8 +483,8 @@ export function buildTemplate(
       const w = 220;
       if (variant !== "open") {
         const root = rect(ctx.x, ctx.y, w, 36);
-        const text = textEl(ctx.x + 10, ctx.y + 8, w - 36, 20, placeholder);
-        const chevron = textEl(ctx.x + w - 24, ctx.y + 8, 16, 20, "▾", { fontSize: 12 });
+        const text = textEl(ctx.x + 10, ctx.y, w - 36, 36, placeholder);
+        const chevron = textEl(ctx.x + w - 24, ctx.y, 16, 36, "▾", { fontSize: 12 });
         return assemble(root, [text, chevron], w, 36);
       }
       const h = 148;
@@ -541,7 +548,7 @@ export function buildTemplate(
       const root = rect(ctx.x, ctx.y, w, h);
       const kids = [
         rect(ctx.x + 8, ctx.y + 8, w - 16, 32, { backgroundColor: C.muted }),
-        textEl(ctx.x + 16, ctx.y + 14, w - 32, 20, "Search…", { strokeColor: C.mutedText }),
+        textEl(ctx.x + 16, ctx.y + 8, w - 32, 32, "Search…", { strokeColor: C.mutedText }),
         textEl(ctx.x + 16, ctx.y + 56, w - 32, 20, "Calendar"),
         textEl(ctx.x + 16, ctx.y + 84, w - 32, 20, "Search emoji"),
         textEl(ctx.x + 16, ctx.y + 112, w - 32, 20, "Calculator"),
@@ -556,6 +563,7 @@ export function buildTemplate(
         textEl(ctx.x + 12, ctx.y + 10, w - 24, 20, "August 2026", { textAlign: "center" }),
         textEl(ctx.x + 12, ctx.y + 40, w - 24, 180, "Su Mo Tu We Th Fr Sa\n               1\n 2  3  4  5  6  7  8", {
           fontSize: 12,
+          verticalAlign: "top",
         }),
       ];
       return assemble(root, kids, w, h);
@@ -567,8 +575,8 @@ export function buildTemplate(
         return assemble(
           root,
           [
-            textEl(ctx.x + 10, ctx.y + 8, w - 36, 20, str(ctx.props, "placeholder", "Pick a date")),
-            textEl(ctx.x + w - 24, ctx.y + 8, 16, 20, "▾", { fontSize: 12 }),
+            textEl(ctx.x + 10, ctx.y, w - 36, 36, str(ctx.props, "placeholder", "Pick a date")),
+            textEl(ctx.x + w - 24, ctx.y, 16, 36, "▾", { fontSize: 12 }),
           ],
           w,
           36,
@@ -581,6 +589,7 @@ export function buildTemplate(
         textEl(ctx.x + 12, ctx.y + 10, w - 24, 20, "August 2026", { textAlign: "center" }),
         textEl(ctx.x + 12, ctx.y + 40, w - 24, 180, "Su Mo Tu We Th Fr Sa\n               1\n 2  3  4  5  6  7  8", {
           fontSize: 12,
+          verticalAlign: "top",
         }),
       ];
       return assemble(root, kids, w, h);
@@ -628,7 +637,7 @@ export function buildTemplate(
           fontSize: 12,
         }),
         rect(ctx.x + 12, ctx.y + 32, w - 24, 36),
-        textEl(ctx.x + 20, ctx.y + 40, w - 40, 20, placeholder, { strokeColor: C.mutedText }),
+        textEl(ctx.x + 20, ctx.y + 32, w - 40, 36, placeholder, { strokeColor: C.mutedText }),
         textEl(ctx.x + 12, ctx.y + 76, w - 24, 16, "Helper text", {
           fontSize: 11,
           strokeColor: C.mutedText,
@@ -685,6 +694,7 @@ export function buildTemplate(
       const kids = [
         textEl(ctx.x + 10, ctx.y + 10, w - 28, 120, "Tag 1\nTag 2\nTag 3\nTag 4\nTag 5", {
           fontSize: 12,
+          verticalAlign: "top",
         }),
         rect(ctx.x + w - 10, ctx.y + 8, 4, 48, {
           backgroundColor: C.mutedStroke,
@@ -723,6 +733,7 @@ export function buildTemplate(
         textEl(ctx.x, ctx.y + 36, w, 48, description || "The joke tax is a terrible idea.", {
           fontSize: 13,
           strokeColor: C.mutedText,
+          verticalAlign: "top",
         }),
       ];
       return assemble(root, kids, w, h);
@@ -782,7 +793,7 @@ export function buildTemplate(
         backgroundColor: sent ? C.primary : C.muted,
         strokeColor: sent ? C.primary : C.outline,
       });
-      const text = textEl(ctx.x + 12, ctx.y + 16, w - 24, 24, label || (sent ? "Sounds good." : "Can you review this?"), {
+      const text = textEl(ctx.x + 12, ctx.y, w - 24, h, label || (sent ? "Sounds good." : "Can you review this?"), {
         strokeColor: sent ? C.primaryFg : C.text,
         fontSize: 13,
       });
@@ -803,7 +814,7 @@ export function buildTemplate(
           backgroundColor: assistant ? C.muted : C.primary,
           strokeColor: assistant ? C.outline : C.primary,
         }),
-        textEl(ctx.x + 48, ctx.y + 32, 196, 24, description || (assistant ? "Here is a draft." : "Please summarize."), {
+        textEl(ctx.x + 48, ctx.y + 24, 196, 40, description || (assistant ? "Here is a draft." : "Please summarize."), {
           fontSize: 12,
           strokeColor: assistant ? C.text : C.primaryFg,
         }),
@@ -817,11 +828,11 @@ export function buildTemplate(
       const kids = [
         textEl(ctx.x + 12, ctx.y + 10, w - 24, 16, "Today", { textAlign: "center", fontSize: 11, strokeColor: C.mutedText }),
         rect(ctx.x + 12, ctx.y + 36, 200, 40, { backgroundColor: C.muted }),
-        textEl(ctx.x + 20, ctx.y + 46, 184, 20, "Can you review this?", { fontSize: 12 }),
+        textEl(ctx.x + 20, ctx.y + 36, 184, 40, "Can you review this?", { fontSize: 12 }),
         rect(ctx.x + 88, ctx.y + 88, 200, 40, { backgroundColor: C.primary, strokeColor: C.primary }),
-        textEl(ctx.x + 96, ctx.y + 98, 184, 20, "On it.", { fontSize: 12, strokeColor: C.primaryFg }),
+        textEl(ctx.x + 96, ctx.y + 88, 184, 40, "On it.", { fontSize: 12, strokeColor: C.primaryFg }),
         rect(ctx.x + 12, ctx.y + h - 40, w - 24, 28),
-        textEl(ctx.x + 20, ctx.y + h - 36, w - 40, 20, "Message…", { fontSize: 12, strokeColor: C.mutedText }),
+        textEl(ctx.x + 20, ctx.y + h - 40, w - 40, 28, "Message…", { fontSize: 12, strokeColor: C.mutedText }),
       ];
       return assemble(root, kids, w, h);
     }
@@ -854,12 +865,15 @@ export function buildTemplate(
       const root = rect(ctx.x, ctx.y, w, h);
       const kids = [
         textEl(ctx.x + 16, ctx.y + 14, w - 32, 16, "Question 1 of 3", { fontSize: 11, strokeColor: C.mutedText }),
-        textEl(ctx.x + 16, ctx.y + 36, w - 32, 40, title || "What are you building?", { fontSize: 15 }),
+        textEl(ctx.x + 16, ctx.y + 36, w - 32, 40, title || "What are you building?", {
+          fontSize: 15,
+          verticalAlign: "top",
+        }),
         ...["Dashboard", "Chat app", "Marketing site"].flatMap((item, i) => [
           rect(ctx.x + 16, ctx.y + 88 + i * 28, w - 32, 24, {
             backgroundColor: i === 0 ? C.muted : C.fill,
           }),
-          textEl(ctx.x + 24, ctx.y + 90 + i * 28, w - 48, 20, item, { fontSize: 12 }),
+          textEl(ctx.x + 24, ctx.y + 88 + i * 28, w - 48, 24, item, { fontSize: 12 }),
         ]),
       ];
       return assemble(root, kids, w, h);
@@ -923,12 +937,13 @@ export function buildTemplate(
       const root = rect(ctx.x, ctx.y, w, h);
       const kids = [
         rect(ctx.x, ctx.y, w, 48, { backgroundColor: C.muted }),
-        textEl(ctx.x + 16, ctx.y + 14, 80, 20, "Product"),
-        textEl(ctx.x + 120, ctx.y + 14, 60, 20, "Docs", { fontSize: 13 }),
-        textEl(ctx.x + 190, ctx.y + 14, 80, 20, "Pricing", { fontSize: 13 }),
-        textEl(ctx.x + 24, ctx.y + 80, 300, 28, "Build faster", { fontSize: 22 }),
+        textEl(ctx.x + 16, ctx.y, 80, 48, "Product"),
+        textEl(ctx.x + 120, ctx.y, 60, 48, "Docs", { fontSize: 13 }),
+        textEl(ctx.x + 190, ctx.y, 80, 48, "Pricing", { fontSize: 13 }),
+        textEl(ctx.x + 24, ctx.y + 80, 300, 28, "Build faster", { fontSize: 22, verticalAlign: "top" }),
         textEl(ctx.x + 24, ctx.y + 118, 360, 40, "A clean content column under a top nav.", {
           strokeColor: C.mutedText,
+          verticalAlign: "top",
         }),
       ];
       return assemble(root, kids, w, h);

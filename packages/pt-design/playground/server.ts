@@ -1,6 +1,10 @@
 import { join } from "node:path";
 
 const dir = import.meta.dir;
+const excalidrawCss = join(
+  dir,
+  "../node_modules/@excalidraw/excalidraw/dist/dev/index.css",
+);
 
 export async function startPlayground(port = Number(process.env.PT_DESIGN_PLAYGROUND_PORT ?? 4173)) {
   const built = await Bun.build({
@@ -21,6 +25,7 @@ export async function startPlayground(port = Number(process.env.PT_DESIGN_PLAYGR
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>PT Design</title>
+  <link rel="stylesheet" href="/excalidraw.css" />
   <style>
     html, body, #root { height: 100%; margin: 0; }
     body { font-family: ui-sans-serif, system-ui, sans-serif; }
@@ -39,6 +44,11 @@ export async function startPlayground(port = Number(process.env.PT_DESIGN_PLAYGR
       if (path === "/playground.js") {
         return new Response(js, {
           headers: { "content-type": "text/javascript; charset=utf-8" },
+        });
+      }
+      if (path === "/excalidraw.css") {
+        return new Response(Bun.file(excalidrawCss), {
+          headers: { "content-type": "text/css; charset=utf-8" },
         });
       }
       return new Response(html, {
