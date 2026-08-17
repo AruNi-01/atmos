@@ -8,6 +8,23 @@ import type { ExcalidrawCompatElement, ExcalidrawHostApi } from "./scene-bridge"
 
 export type { ExcalidrawHostApi };
 
+type ExcalidrawApi = {
+  updateScene: (next: Record<string, unknown>) => void;
+  toggleSidebar: (next: { name: string }) => unknown;
+  getSceneElements: () => readonly ExcalidrawCompatElement[];
+  getSceneElementsIncludingDeleted: () => readonly ExcalidrawCompatElement[];
+  getAppState: () => {
+    scrollX: number;
+    scrollY: number;
+    zoom: { value: number };
+    width: number;
+    height: number;
+    viewBackgroundColor: string;
+    selectedElementIds: Record<string, boolean>;
+    openSidebar?: { name: string } | null;
+  };
+};
+
 export type ExcalidrawBoardProps = {
   initialElements: ExcalidrawCompatElement[];
   viewBackgroundColor: string;
@@ -23,6 +40,46 @@ export type ExcalidrawBoardProps = {
   catalog?: React.ReactNode;
 };
 
+function ComponentTrigger({
+  active,
+  onClick,
+}: {
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      className="sidebar-trigger"
+      data-testid="pt-design-component-trigger"
+      title="Component"
+      aria-pressed={active}
+      onClick={onClick}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 6,
+        height: 36,
+        padding: "0 10px",
+        marginLeft: 8,
+        border: "none",
+        borderRadius: 8,
+        cursor: "pointer",
+        fontSize: 13,
+        fontWeight: 500,
+        background: active
+          ? "var(--color-surface-high, rgba(127,127,127,0.22))"
+          : "var(--island-bg-color, var(--button-gray-1, #232329))",
+        color: "var(--icon-fill-color, var(--color-on-surface, inherit))",
+        boxShadow: "0 0 0 1px var(--color-surface-lowest, rgba(0,0,0,0.08))",
+      }}
+    >
+      <ComponentSidebarIcon size={16} strokeWidth={2} />
+      Component
+    </button>
+  );
+}
+
 export default function ExcalidrawBoard({
   initialElements,
   viewBackgroundColor,
@@ -31,9 +88,7 @@ export default function ExcalidrawBoard({
   onChange,
   catalog,
 }: ExcalidrawBoardProps) {
-  const apiRef = React.useRef<{
-    updateScene: (next: Record<string, unknown>) => void;
-  } | null>(null);
+  const apiRef = React.useRef<ExcalidrawApi | null>(null);
 
   React.useEffect(() => {
     apiRef.current?.updateScene({
@@ -65,8 +120,18 @@ export default function ExcalidrawBoard({
             currentItemRoughness: 1,
           },
         }}
+        renderTopRightUI={(_mobile, appState) =>
+          catalog ? (
+            <ComponentTrigger
+              active={appState.openSidebar?.name === "components"}
+              onClick={() => {
+                apiRef.current?.toggleSidebar({ name: "components" });
+              }}
+            />
+          ) : null
+        }
         excalidrawAPI={(api) => {
-          apiRef.current = api;
+          apiRef.current = api as unknown as ExcalidrawApi;
           onApi({
             updateScene: (input) => {
               api.updateScene({
@@ -100,19 +165,20 @@ export default function ExcalidrawBoard({
         }}
       >
         {catalog ? (
-          <>
-            <Sidebar name="components">
-              <Sidebar.Header />
-              {catalog}
-            </Sidebar>
-            <Sidebar.Trigger
-              name="components"
-              title="Component"
-              icon={<ComponentSidebarIcon size={16} strokeWidth={2} />}
+          <Sidebar name="components">
+            <Sidebar.Header />
+            <div
+              style={{
+                flex: 1,
+                minHeight: 280,
+                overflow: "hidden",
+                display: "flex",
+                flexDirection: "column",
+              }}
             >
-              Component
-            </Sidebar.Trigger>
-          </>
+              {catalog}
+            </div>
+          </Sidebar>
         ) : null}
       </Excalidraw>
     </div>

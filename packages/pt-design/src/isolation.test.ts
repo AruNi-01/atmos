@@ -47,7 +47,10 @@ describe("package isolation", () => {
     const board = readFileSync(join(srcRoot, "embed", "ExcalidrawBoard.tsx"), "utf8");
     expect(board).toMatch(/from ["']@excalidraw\/excalidraw["']/);
     expect(board).toContain("Sidebar");
-    expect(board).toContain("Component");
+    expect(board).toContain("renderTopRightUI");
+    expect(board).toContain("toggleSidebar");
+    expect(board).toContain("pt-design-component-trigger");
+    expect(board).not.toContain("Sidebar.Trigger");
     expect(board).toContain("data-testid=\"pt-design-board\"");
     const session = readFileSync(join(srcRoot, "core", "session.ts"), "utf8");
     expect(session).not.toMatch(/node:fs|from ["']\.\/document["']/);
