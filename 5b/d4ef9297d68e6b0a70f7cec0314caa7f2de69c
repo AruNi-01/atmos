@@ -1,0 +1,20 @@
+apps/web/messages/en.json
+  h_5be255725524c8 604
+apps/web/messages/zh.json
+  h_5be255725524c8 604
+apps/web/src/app-shell/TokenUsageCookieConsentBanner.tsx
+  h_5be255725524c8 9-11,45-55,57,62-63,65,69-102
+apps/web/src/app-shell/__tests__/token-usage-cookie-banner.test.ts
+  h_5be255725524c8 21,23-24
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "5bd4ef9297d68e6b0a70f7cec0314caa7f2de69c",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
