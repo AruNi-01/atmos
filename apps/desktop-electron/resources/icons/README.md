@@ -53,9 +53,11 @@ bun run regen-legacy-icns
 #   apps/docs/src/app/apple-icon.png + apps/docs/public/favicon.ico
 ```
 
-After changing the host icns, the next Desktop Use engine ensure/rebrand rewrites
-`~/.atmos/desktop-use/host/Atmos Desktop Use.app` (icon bytes differ → replace + ad-hoc re-sign).
-Re-signing can drop macOS Accessibility / Screen Recording grants for that host — users re-grant once.
+After changing the host icns, Desktop boot and the grant overlay rewrite
+`~/.atmos/desktop-use/host/Atmos Desktop Use.app` when icon bytes differ
+(replace + ad-hoc re-sign + Launch Services refresh). CLI `ensure` does the
+same from the compiled `host-app-icon.icns`. Re-signing can drop macOS
+Accessibility / Screen Recording grants for that host — users re-grant once.
 
 **Requirements**
 

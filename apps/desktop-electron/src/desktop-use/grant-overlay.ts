@@ -22,6 +22,10 @@ import {
   forceMacDockTileRefresh,
   setOverlayVisibleOnAllWorkspaces,
 } from "../windows/mac-dock.js";
+import {
+  applyHostAppIcon,
+  refreshHostAppIconRegistration,
+} from "./host-branding.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -1089,6 +1093,10 @@ function wireIpcOnce(): void {
       event.returnValue = { ok: false, error: "missing_host" };
       return;
     }
+    // Overlay chip uses the Desktop brand PNG; the dropped file is the host
+    // .app. Refresh AppIcon.icns first so System Settings does not keep the
+    // previous mark after the drop.
+    applyHostAppIcon(path);
     try {
       const icon = resolveDragGhost(path);
       if (icon.isEmpty()) {
@@ -1164,6 +1172,9 @@ export function showAccessibilityGrantOverlay(
   wireIpcOnce();
 
   const hostAppPath = resolve(opts.hostAppPath);
+  if (applyHostAppIcon(hostAppPath)) {
+    void refreshHostAppIconRegistration(hostAppPath);
+  }
   const hostAppName =
     opts.hostAppName?.trim() ||
     hostAppPath.split("/").pop()?.replace(/\.app$/i, "") ||

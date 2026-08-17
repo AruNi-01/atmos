@@ -1,12 +1,20 @@
 import { describe, expect, it } from "bun:test";
-import { mkdtempSync, readFileSync, writeFileSync, statSync } from "node:fs";
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  writeFileSync,
+  statSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
+  applyHostAppIcon,
   applyHostServeAlias,
   ensureHostMacosDir,
   HOST_APP_NAME,
   resolveDesktopUseHostApp,
+  resolveHostAppIconSource,
 } from "./host-branding.ts";
 
 describe("desktop-use host branding", () => {
@@ -51,5 +59,25 @@ describe("desktop-use host branding", () => {
     expect(result.aliased).toBe(true);
     expect(result.trampoline).toBe(false);
     expect(readFileSync(join(macos, "cua-driver"), "utf8")).toBe("#!/bin/sh\n");
+  });
+
+  it("replaces host AppIcon.icns when it differs from the product icon", () => {
+    const root = mkdtempSync(join(tmpdir(), "atmos-du-host-icon-"));
+    const app = join(root, `${HOST_APP_NAME}.app`);
+    const dest = join(app, "Contents", "Resources", "AppIcon.icns");
+    mkdirSync(join(app, "Contents", "Resources"), { recursive: true });
+    writeFileSync(dest, "old-host-icon");
+    const src = join(root, "icon.icns");
+    writeFileSync(src, "new-brand-icns");
+
+    expect(applyHostAppIcon(app, src)).toBe(true);
+    expect(readFileSync(dest, "utf8")).toBe("new-brand-icns");
+    expect(applyHostAppIcon(app, src)).toBe(false);
+  });
+
+  it("resolves a product icns for the Desktop Use host", () => {
+    const src = resolveHostAppIconSource();
+    expect(src).toBeTruthy();
+    expect(src).toMatch(/icon\.icns$|host-app-icon\.icns$/);
   });
 });

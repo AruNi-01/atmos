@@ -54,6 +54,8 @@ describe("desktop-use grant overlay", () => {
     expect(src).toContain("list above");
     expect(src).toContain("img-src data:");
     expect(src).toContain("resolveChipIconDataUrl");
+    // Dragged .app must carry the current product icns, not a stale host mark.
+    expect(src).toContain("applyHostAppIcon");
     // Never block main with sync osascript (beach-ball / stuck hover).
     expect(src).not.toContain("execFileSync");
     expect(src).toContain("execFileAsync");
