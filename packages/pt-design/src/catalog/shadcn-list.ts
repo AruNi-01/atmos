@@ -1,4 +1,4 @@
-/** Pinned from local shadcn/ui clone `apps/v4/lib/components.ts` (2026-08). */
+/** Pinned from https://ui.shadcn.com/docs/components + local clone `apps/v4` (2026-08). */
 export const CATALOG_VERSION = "2026.08-shadcn";
 
 export const SHADCN_BASIC_IDS = [
@@ -6,9 +6,11 @@ export const SHADCN_BASIC_IDS = [
   "alert",
   "alert-dialog",
   "aspect-ratio",
+  "attachment",
   "avatar",
   "badge",
   "breadcrumb",
+  "bubble",
   "button",
   "button-group",
   "calendar",
@@ -36,12 +38,16 @@ export const SHADCN_BASIC_IDS = [
   "item",
   "kbd",
   "label",
+  "marker",
   "menubar",
+  "message",
+  "message-scroller",
   "native-select",
   "navigation-menu",
   "pagination",
   "popover",
   "progress",
+  "questionnaire",
   "radio-group",
   "resizable",
   "scroll-area",

@@ -5,6 +5,7 @@ import {
   listComponentTypes,
   sanitizeProps,
 } from "../catalog/registry";
+import { nextPlaceOffset, resolvePlaceVariants, showcaseProps } from "../catalog/place-sets";
 import { applyDesignIR } from "../ir/apply";
 import { encodeDesignIR } from "../ir/encode";
 import { buildHandoffPayload, type HandoffPayload } from "../ir/handoff";
@@ -125,23 +126,41 @@ export function createPtDesignSession(initial?: PtScene): PtDesignSession {
     }
     if (cmd.type === "place") {
       getCatalogEntry(cmd.componentType);
-      const props = { ...defaultProps(cmd.componentType), ...sanitizeProps(cmd.componentType, cmd.props ?? {}) };
+      const baseProps = { ...defaultProps(cmd.componentType), ...sanitizeProps(cmd.componentType, cmd.props ?? {}) };
       const frame = resolveFrame(cmd.frameId);
-      const built = getComponentTemplate(cmd.componentType, {
-        x: cmd.at.x,
-        y: cmd.at.y,
-        variant: cmd.variant,
-        size: cmd.size,
-        props,
-        instanceId: cmd.instanceId,
+      const variants =
+        cmd.instanceId || cmd.variant
+          ? [cmd.variant ?? "default"]
+          : resolvePlaceVariants(cmd.componentType);
+      let cursor = { x: cmd.at.x, y: cmd.at.y };
+      let firstId: string | undefined;
+      const nextElements = scene.elements.slice();
+      variants.forEach((variant, index) => {
+        const built = getComponentTemplate(cmd.componentType, {
+          x: cursor.x,
+          y: cursor.y,
+          variant,
+          size: cmd.size,
+          props: showcaseProps(cmd.componentType, variant, index, baseProps),
+          instanceId: index === 0 ? cmd.instanceId : undefined,
+        });
+        firstId ??= built.instanceId;
+        nextElements.push(
+          ...built.elements.map((el) => ({
+            ...el,
+            frameId: frame?.id ?? null,
+          })),
+        );
+        cursor = nextPlaceOffset(
+          cmd.componentType,
+          index,
+          { x: cursor.x, y: cursor.y, width: built.width, height: built.height },
+          cmd.at,
+        );
       });
-      const elements = built.elements.map((el) => ({
-        ...el,
-        frameId: frame?.id ?? null,
-      }));
-      scene = { ...scene, elements: [...scene.elements, ...elements] };
+      scene = { ...scene, elements: nextElements };
       emit();
-      return { instanceId: built.instanceId };
+      return { instanceId: firstId };
     }
     if (cmd.type === "update") {
       const root = findRoot(cmd.instanceId);

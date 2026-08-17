@@ -6,13 +6,35 @@ import type { PtElement, PtProps, PtSize } from "../core/types";
 
 const BUTTON_VARIANTS = ["default", "secondary", "outline", "ghost", "destructive", "link"];
 const BADGE_VARIANTS = ["default", "secondary", "outline", "destructive"];
+const OVERLAY_VARIANTS = ["trigger", "open"];
 
 const VARIANT_MAP: Record<string, string[]> = {
   button: BUTTON_VARIANTS,
   badge: BADGE_VARIANTS,
   alert: ["default", "destructive"],
   toggle: ["default", "outline"],
-  "alert-dialog": ["default"],
+  dialog: OVERLAY_VARIANTS,
+  "alert-dialog": OVERLAY_VARIANTS,
+  sheet: OVERLAY_VARIANTS,
+  drawer: OVERLAY_VARIANTS,
+  popover: OVERLAY_VARIANTS,
+  "hover-card": OVERLAY_VARIANTS,
+  tooltip: OVERLAY_VARIANTS,
+  "dropdown-menu": OVERLAY_VARIANTS,
+  "context-menu": OVERLAY_VARIANTS,
+  menubar: ["bar", "open"],
+  "navigation-menu": OVERLAY_VARIANTS,
+  select: OVERLAY_VARIANTS,
+  "native-select": OVERLAY_VARIANTS,
+  combobox: OVERLAY_VARIANTS,
+  "date-picker": OVERLAY_VARIANTS,
+  command: OVERLAY_VARIANTS,
+  accordion: ["collapsed", "expanded"],
+  collapsible: ["collapsed", "expanded"],
+  attachment: ["image", "uploading", "file"],
+  bubble: ["received", "sent"],
+  message: ["user", "assistant"],
+  marker: ["status", "separator"],
 };
 
 const PROP_KEYS: Record<string, string[]> = {
@@ -25,10 +47,20 @@ const PROP_KEYS: Record<string, string[]> = {
   switch: ["label", "checked"],
   card: ["title", "description", "action"],
   alert: ["title", "description"],
-  dialog: ["title", "description"],
-  "alert-dialog": ["title", "description"],
+  dialog: ["title", "description", "label"],
+  "alert-dialog": ["title", "description", "label"],
+  sheet: ["title", "description", "label"],
+  drawer: ["title", "description", "label"],
+  popover: ["title", "description", "label"],
+  "hover-card": ["title", "description", "label"],
+  tooltip: ["label"],
   avatar: ["fallback"],
   toggle: ["pressed"],
+  attachment: ["label", "description"],
+  bubble: ["label"],
+  message: ["title", "description"],
+  marker: ["label"],
+  questionnaire: ["title", "description"],
 };
 
 export type CatalogEntry = {

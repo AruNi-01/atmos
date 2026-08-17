@@ -45,4 +45,35 @@ describe("catalog completeness", () => {
     expect(root?.customData?.pt?.componentType).toBe("button");
     expect(root?.customData?.pt?.componentType).not.toBe("pt.button");
   });
+
+  test("official 2026 docs extras are registered", () => {
+    const types = new Set(listComponentTypes().map((e) => e.componentType));
+    for (const id of ["attachment", "bubble", "marker", "message", "message-scroller", "questionnaire"]) {
+      expect(types.has(id)).toBe(true);
+    }
+  });
+
+  test("placing dialog without variant yields trigger and open", () => {
+    const session = createPtDesignSession();
+    session.dispatch({ type: "place", componentType: "dialog", at: { x: 0, y: 0 } });
+    const nodes = session.getIR().freeNodes.filter((n) => n.componentType === "dialog");
+    expect(nodes.map((n) => n.variant).sort()).toEqual(["open", "trigger"]);
+  });
+
+  test("explicit overlay variant places a single instance", () => {
+    const session = createPtDesignSession();
+    session.dispatch({ type: "place", componentType: "dialog", at: { x: 0, y: 0 }, variant: "open" });
+    expect(session.getIR().freeNodes.filter((n) => n.componentType === "dialog")).toHaveLength(1);
+    expect(session.getIR().freeNodes[0]?.variant).toBe("open");
+  });
+
+  test("placing attachment without variant yields image, uploading, and file", () => {
+    const session = createPtDesignSession();
+    session.dispatch({ type: "place", componentType: "attachment", at: { x: 0, y: 0 } });
+    const variants = session.getIR().freeNodes.filter((n) => n.componentType === "attachment").map((n) => n.variant);
+    expect(variants.filter((v) => v === "image")).toHaveLength(3);
+    expect(variants).toContain("uploading");
+    expect(variants).toContain("file");
+    expect(session.getIR().freeNodes.some((n) => n.props.label === "sales-dashboard.pdf")).toBe(true);
+  });
 });

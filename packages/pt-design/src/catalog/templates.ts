@@ -98,6 +98,27 @@ function labeledBox(
   return assemble(root, kids, w, h);
 }
 
+function triggerButton(ctx: TemplateContext, label: string): TemplateBuild {
+  const w = Math.max(88, label.length * 8 + 28);
+  const h = 32;
+  const root = rect(ctx.x, ctx.y, w, h, {
+    backgroundColor: C.primary,
+    strokeColor: C.primary,
+  });
+  const text = textEl(ctx.x, ctx.y, w, h, label, {
+    textAlign: "center",
+    strokeColor: C.primaryFg,
+  });
+  return assemble(root, [text], w, h);
+}
+
+function closeChip(x: number, y: number): PtElement[] {
+  return [
+    ellipse(x, y, 18, 18, { backgroundColor: C.muted, strokeColor: C.outline }),
+    textEl(x, y, 18, 18, "×", { textAlign: "center", fontSize: 12, strokeColor: C.mutedText }),
+  ];
+}
+
 function chipRow(
   x: number,
   y: number,
@@ -334,11 +355,21 @@ export function buildTemplate(
     case "accordion":
     case "collapsible": {
       const w = 280;
+      if (variant === "collapsed") {
+        const root = rect(ctx.x, ctx.y, w, 40);
+        return assemble(
+          root,
+          [textEl(ctx.x + 12, ctx.y + 10, w - 36, 20, "Is it accessible?"), textEl(ctx.x + w - 24, ctx.y + 10, 16, 20, "▸")],
+          w,
+          40,
+        );
+      }
       const h = 120;
       const root = rect(ctx.x, ctx.y, w, h);
       const kids = [
-        textEl(ctx.x + 12, ctx.y + 10, w - 24, 18, "Is it accessible?"),
-        textEl(ctx.x + 12, ctx.y + 32, w - 24, 36, "Yes. It uses semantic markup.", {
+        textEl(ctx.x + 12, ctx.y + 10, w - 36, 18, "Is it accessible?"),
+        textEl(ctx.x + w - 24, ctx.y + 10, 16, 18, "▾"),
+        textEl(ctx.x + 12, ctx.y + 36, w - 24, 36, "Yes. It uses semantic markup.", {
           fontSize: 12,
           strokeColor: C.mutedText,
         }),
@@ -389,6 +420,12 @@ export function buildTemplate(
     }
     case "dialog":
     case "alert-dialog": {
+      if (variant === "trigger") {
+        return triggerButton(
+          ctx,
+          str(ctx.props, "label", componentType === "alert-dialog" ? "Show alert" : "Open dialog"),
+        );
+      }
       const w = 320;
       const h = 180;
       const root = rect(ctx.x, ctx.y, w, h);
@@ -413,6 +450,9 @@ export function buildTemplate(
     }
     case "sheet":
     case "drawer": {
+      if (variant === "trigger") {
+        return triggerButton(ctx, str(ctx.props, "label", componentType === "sheet" ? "Open sheet" : "Open drawer"));
+      }
       const w = 280;
       const h = 360;
       const root = rect(ctx.x, ctx.y, w, h);
@@ -434,16 +474,37 @@ export function buildTemplate(
     case "native-select":
     case "combobox": {
       const w = 220;
-      const h = 36;
+      if (variant !== "open") {
+        const root = rect(ctx.x, ctx.y, w, 36);
+        const text = textEl(ctx.x + 10, ctx.y + 8, w - 36, 20, placeholder);
+        const chevron = textEl(ctx.x + w - 24, ctx.y + 8, 16, 20, "▾", { fontSize: 12 });
+        return assemble(root, [text, chevron], w, 36);
+      }
+      const h = 148;
       const root = rect(ctx.x, ctx.y, w, h);
-      const text = textEl(ctx.x + 10, ctx.y + 8, w - 36, 20, placeholder);
-      const chevron = textEl(ctx.x + w - 24, ctx.y + 8, 16, 20, "▾", { fontSize: 12 });
-      return assemble(root, [text, chevron], w, h);
+      const items = ["Apple", "Banana", "Blueberry", "Grapes"];
+      const kids = items.map((item, i) =>
+        textEl(ctx.x + 12, ctx.y + 10 + i * 32, w - 24, 22, item, { fontSize: 13 }),
+      );
+      return assemble(root, kids, w, h);
     }
     case "dropdown-menu":
     case "context-menu":
     case "menubar":
     case "navigation-menu": {
+      if (variant === "trigger" || variant === "bar") {
+        if (componentType === "menubar" || variant === "bar") {
+          const root = rect(ctx.x, ctx.y, 220, 36);
+          return assemble(root, chipRow(ctx.x + 8, ctx.y + 6, ["File", "Edit", "View"]), 220, 36);
+        }
+        const triggerLabel =
+          componentType === "context-menu"
+            ? "Right-click"
+            : componentType === "navigation-menu"
+              ? "Open nav"
+              : "Open menu";
+        return triggerButton(ctx, str(ctx.props, "label", triggerLabel));
+      }
       const w = 200;
       const h = 148;
       const root = rect(ctx.x, ctx.y, w, h);
@@ -456,6 +517,9 @@ export function buildTemplate(
     case "popover":
     case "hover-card":
     case "tooltip": {
+      if (variant === "trigger") {
+        return triggerButton(ctx, str(ctx.props, "label", componentType === "tooltip" ? "Hover" : "Open"));
+      }
       const w = componentType === "tooltip" ? 140 : 220;
       const h = componentType === "tooltip" ? 36 : 88;
       return labeledBox(ctx, {
@@ -469,6 +533,9 @@ export function buildTemplate(
       });
     }
     case "command": {
+      if (variant === "trigger") {
+        return triggerButton(ctx, str(ctx.props, "label", "Open command"));
+      }
       const w = 320;
       const h = 200;
       const root = rect(ctx.x, ctx.y, w, h);
@@ -481,8 +548,32 @@ export function buildTemplate(
       ];
       return assemble(root, kids, w, h);
     }
-    case "calendar":
+    case "calendar": {
+      const w = 260;
+      const h = 240;
+      const root = rect(ctx.x, ctx.y, w, h);
+      const kids = [
+        textEl(ctx.x + 12, ctx.y + 10, w - 24, 20, "August 2026", { textAlign: "center" }),
+        textEl(ctx.x + 12, ctx.y + 40, w - 24, 180, "Su Mo Tu We Th Fr Sa\n               1\n 2  3  4  5  6  7  8", {
+          fontSize: 12,
+        }),
+      ];
+      return assemble(root, kids, w, h);
+    }
     case "date-picker": {
+      if (variant !== "open") {
+        const w = 220;
+        const root = rect(ctx.x, ctx.y, w, 36);
+        return assemble(
+          root,
+          [
+            textEl(ctx.x + 10, ctx.y + 8, w - 36, 20, str(ctx.props, "placeholder", "Pick a date")),
+            textEl(ctx.x + w - 24, ctx.y + 8, 16, 20, "▾", { fontSize: 12 }),
+          ],
+          w,
+          36,
+        );
+      }
       const w = 260;
       const h = 240;
       const root = rect(ctx.x, ctx.y, w, h);
@@ -643,6 +734,135 @@ export function buildTemplate(
         title: "LTR / RTL",
         subtitle: "Text direction",
       });
+    }
+    case "attachment": {
+      const name = str(ctx.props, "label", "workspace.png");
+      const meta = str(ctx.props, "description", "PNG · 820 KB");
+      if (variant === "uploading") {
+        const w = 320;
+        const h = 64;
+        const root = rect(ctx.x, ctx.y, w, h);
+        const kids = [
+          ellipse(ctx.x + 12, ctx.y + 16, 32, 32, { backgroundColor: C.muted, strokeColor: C.outline }),
+          textEl(ctx.x + 20, ctx.y + 20, 16, 24, "↻", { textAlign: "center", fontSize: 14, strokeColor: C.mutedText }),
+          textEl(ctx.x + 56, ctx.y + 10, 220, 20, name),
+          textEl(ctx.x + 56, ctx.y + 32, 220, 16, meta, { fontSize: 12, strokeColor: C.mutedText }),
+          ...closeChip(ctx.x + w - 32, ctx.y + 23),
+        ];
+        return assemble(root, kids, w, h);
+      }
+      if (variant === "file") {
+        const w = 320;
+        const h = 64;
+        const root = rect(ctx.x, ctx.y, w, h);
+        const kids = [
+          rect(ctx.x + 12, ctx.y + 14, 32, 36, { backgroundColor: C.muted }),
+          textEl(ctx.x + 16, ctx.y + 22, 24, 20, "⌘", { textAlign: "center", fontSize: 12 }),
+          textEl(ctx.x + 56, ctx.y + 10, 220, 20, name),
+          textEl(ctx.x + 56, ctx.y + 32, 220, 16, meta, { fontSize: 12, strokeColor: C.mutedText }),
+          ...closeChip(ctx.x + w - 32, ctx.y + 23),
+        ];
+        return assemble(root, kids, w, h);
+      }
+      const w = 148;
+      const h = 176;
+      const root = rect(ctx.x, ctx.y, w, h);
+      const kids = [
+        rect(ctx.x + 8, ctx.y + 8, w - 16, 96, { backgroundColor: C.secondary }),
+        textEl(ctx.x + 12, ctx.y + 112, w - 24, 20, name, { fontSize: 13 }),
+        textEl(ctx.x + 12, ctx.y + 134, w - 24, 16, meta, { fontSize: 11, strokeColor: C.mutedText }),
+      ];
+      return assemble(root, kids, w, h);
+    }
+    case "bubble": {
+      const sent = variant === "sent";
+      const w = 220;
+      const h = 56;
+      const root = rect(ctx.x, ctx.y, w, h, {
+        backgroundColor: sent ? C.primary : C.muted,
+        strokeColor: sent ? C.primary : C.outline,
+      });
+      const text = textEl(ctx.x + 12, ctx.y + 16, w - 24, 24, label || (sent ? "Sounds good." : "Can you review this?"), {
+        strokeColor: sent ? C.primaryFg : C.text,
+        fontSize: 13,
+      });
+      return assemble(root, [text], w, h);
+    }
+    case "message": {
+      const assistant = variant === "assistant";
+      const w = 280;
+      const h = 72;
+      const root = rect(ctx.x, ctx.y, w, h, {
+        backgroundColor: "transparent",
+        strokeColor: "transparent",
+      });
+      const kids = [
+        ellipse(ctx.x, ctx.y + 8, 28, 28, { backgroundColor: assistant ? C.accent : C.secondary }),
+        textEl(ctx.x + 36, ctx.y + 4, 160, 16, assistant ? "Assistant" : "You", { fontSize: 11, strokeColor: C.mutedText }),
+        rect(ctx.x + 36, ctx.y + 24, 220, 40, {
+          backgroundColor: assistant ? C.muted : C.primary,
+          strokeColor: assistant ? C.outline : C.primary,
+        }),
+        textEl(ctx.x + 48, ctx.y + 32, 196, 24, description || (assistant ? "Here is a draft." : "Please summarize."), {
+          fontSize: 12,
+          strokeColor: assistant ? C.text : C.primaryFg,
+        }),
+      ];
+      return assemble(root, kids, w, h);
+    }
+    case "message-scroller": {
+      const w = 300;
+      const h = 220;
+      const root = rect(ctx.x, ctx.y, w, h, { backgroundColor: C.fill });
+      const kids = [
+        textEl(ctx.x + 12, ctx.y + 10, w - 24, 16, "Today", { textAlign: "center", fontSize: 11, strokeColor: C.mutedText }),
+        rect(ctx.x + 12, ctx.y + 36, 200, 40, { backgroundColor: C.muted }),
+        textEl(ctx.x + 20, ctx.y + 46, 184, 20, "Can you review this?", { fontSize: 12 }),
+        rect(ctx.x + 88, ctx.y + 88, 200, 40, { backgroundColor: C.primary, strokeColor: C.primary }),
+        textEl(ctx.x + 96, ctx.y + 98, 184, 20, "On it.", { fontSize: 12, strokeColor: C.primaryFg }),
+        rect(ctx.x + 12, ctx.y + h - 40, w - 24, 28),
+        textEl(ctx.x + 20, ctx.y + h - 36, w - 40, 20, "Message…", { fontSize: 12, strokeColor: C.mutedText }),
+      ];
+      return assemble(root, kids, w, h);
+    }
+    case "marker": {
+      const w = 280;
+      if (variant === "separator") {
+        const root = rect(ctx.x, ctx.y, w, 20, { backgroundColor: "transparent", strokeColor: "transparent" });
+        return assemble(
+          root,
+          [
+            rect(ctx.x, ctx.y + 9, 110, 1, { backgroundColor: C.outline, strokeColor: C.outline }),
+            textEl(ctx.x + 114, ctx.y, 52, 20, label || "Today", { textAlign: "center", fontSize: 11, strokeColor: C.mutedText }),
+            rect(ctx.x + 170, ctx.y + 9, 110, 1, { backgroundColor: C.outline, strokeColor: C.outline }),
+          ],
+          w,
+          20,
+        );
+      }
+      const root = rect(ctx.x, ctx.y, w, 28, { backgroundColor: "transparent", strokeColor: "transparent" });
+      return assemble(
+        root,
+        [textEl(ctx.x, ctx.y, w, 28, label || "Alex joined the thread", { textAlign: "center", fontSize: 12, strokeColor: C.mutedText })],
+        w,
+        28,
+      );
+    }
+    case "questionnaire": {
+      const w = 320;
+      const h = 220;
+      const root = rect(ctx.x, ctx.y, w, h);
+      const kids = [
+        textEl(ctx.x + 16, ctx.y + 14, w - 32, 16, "Question 1 of 3", { fontSize: 11, strokeColor: C.mutedText }),
+        textEl(ctx.x + 16, ctx.y + 36, w - 32, 40, title || "What are you building?", { fontSize: 15 }),
+        ...["Dashboard", "Chat app", "Marketing site"].flatMap((item, i) => [
+          rect(ctx.x + 16, ctx.y + 88 + i * 28, w - 32, 24, {
+            backgroundColor: i === 0 ? C.muted : C.fill,
+          }),
+          textEl(ctx.x + 24, ctx.y + 90 + i * 28, w - 48, 20, item, { fontSize: 12 }),
+        ]),
+      ];
+      return assemble(root, kids, w, h);
     }
     case "block.auth-form": {
       const w = 320;
