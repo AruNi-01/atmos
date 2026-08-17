@@ -153,4 +153,6 @@ Git History 后端 parse + 前端纯 layout + infinite query + 虚拟化方向�
 ## 11. 结果提交与推送
 
 - 修复分支：`grokbuild/quality-fix/2026-08-16`
-- 修复与结果将同 PR 推送；详见 PR URL（创建后回填）。
+- 修复提交：`6160d7d0c`（及后续 report URL 补全提交）
+- PR URL：https://github.com/AruNi-01/atmos/pull/246
+- Label：`GrokBuild`
