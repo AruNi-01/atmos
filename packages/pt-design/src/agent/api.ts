@@ -33,7 +33,7 @@ export function openFileSession(options: {
     const session = createPtDesignSession();
     return {
       path: null,
-      autoSave: false,
+      autoSave,
       doc: {
         format: "pt-design-file/1",
         revision: 0,

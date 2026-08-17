@@ -42,6 +42,23 @@ describe("agent adapters", () => {
     expect(opened.session.getIR().freeNodes.some((n) => n.componentType === "button")).toBe(true);
   });
 
+  test("unbound MCP session keeps autoSave so init+place persist", () => {
+    const file = tmpFile();
+    const mcp = createMcpServer();
+    expect(mcp.fs.path).toBeNull();
+    expect(mcp.fs.autoSave).toBe(true);
+    const inited = mcp.callTool("pt_doc_init", { file });
+    expect(inited.isError).toBe(false);
+    const placed = mcp.callTool("pt_place", {
+      componentType: "button",
+      at: { x: 10, y: 10 },
+      props: { label: "Save" },
+    });
+    expect(placed.isError).toBe(false);
+    const opened = openFileSession({ file });
+    expect(opened.session.getIR().freeNodes.some((n) => n.componentType === "button")).toBe(true);
+  });
+
   test("CLI place --json writes parseable success", async () => {
     const file = tmpFile();
     const logs: string[] = [];
