@@ -90,8 +90,7 @@ impl PtDesignHub {
 }
 
 fn valid_room_id(room_id: &str) -> bool {
-    let re = regex_lite_room_id(room_id);
-    re
+    regex_lite_room_id(room_id)
 }
 
 fn regex_lite_room_id(room_id: &str) -> bool {

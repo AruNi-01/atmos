@@ -117,7 +117,7 @@ pub async fn list_documents(
             size_bytes: meta.map(|m| m.len()).unwrap_or(0),
         });
     }
-    items.sort_by(|a, b| b.modified_at.cmp(&a.modified_at));
+    items.sort_by_key(|b| std::cmp::Reverse(b.modified_at));
     Ok(Json(ApiResponse::success(PtDesignListResponse {
         dir: dir.display().to_string(),
         items,
