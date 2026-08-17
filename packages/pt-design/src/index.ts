@@ -11,6 +11,7 @@ export { listComponentTypes, getComponentTemplate } from "./catalog/registry";
 export { SHADCN_BASIC_IDS, REQUIRED_BLOCKS, CATALOG_VERSION } from "./catalog/shadcn-list";
 export { PT_DESIGN_TOOL_DEFS } from "./agent/tool-defs";
 export { PtDesignError, PT_ERROR_CODES } from "./agent/errors";
+export type { PtScene } from "./core/types";
 export type {
   PersistenceAdapter,
   DesignLibrary,

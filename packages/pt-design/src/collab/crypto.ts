@@ -6,13 +6,20 @@ function subtle(): SubtleCrypto {
   return cryptoObj.subtle;
 }
 
-function randomBytes(length: number): Uint8Array {
+function randomBytes(length: number): Uint8Array<ArrayBuffer> {
   const bytes = new Uint8Array(length);
   globalThis.crypto.getRandomValues(bytes);
   return bytes;
 }
 
-export function createIV(): Uint8Array {
+function toBufferSource(data: Uint8Array | ArrayBuffer): ArrayBuffer {
+  if (data instanceof ArrayBuffer) return data;
+  const copy = new Uint8Array(data.byteLength);
+  copy.set(data);
+  return copy.buffer;
+}
+
+export function createIV(): Uint8Array<ArrayBuffer> {
   return randomBytes(IV_LENGTH_BYTES);
 }
 
@@ -50,7 +57,11 @@ export async function encryptData(
   const imported = await importKey(key, "encrypt");
   const iv = createIV();
   const buffer = typeof data === "string" ? new TextEncoder().encode(data) : data;
-  const encryptedBuffer = await subtle().encrypt({ name: "AES-GCM", iv: iv as BufferSource }, imported, buffer);
+  const encryptedBuffer = await subtle().encrypt(
+    { name: "AES-GCM", iv: toBufferSource(iv) },
+    imported,
+    toBufferSource(buffer),
+  );
   return { encryptedBuffer, iv };
 }
 
@@ -60,5 +71,9 @@ export async function decryptData(
   key: string,
 ): Promise<ArrayBuffer> {
   const imported = await importKey(key, "decrypt");
-  return subtle().decrypt({ name: "AES-GCM", iv: iv as BufferSource }, imported, encrypted);
+  return subtle().decrypt(
+    { name: "AES-GCM", iv: toBufferSource(iv) },
+    imported,
+    toBufferSource(encrypted),
+  );
 }

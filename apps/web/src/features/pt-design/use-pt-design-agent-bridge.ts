@@ -46,29 +46,33 @@ export function usePtDesignAgentBridge(): AgentBridge | undefined {
   return React.useMemo(() => {
     if (!isConnected) return undefined;
     return {
-      register: (payload) =>
-        ptDesignAgentBridgeWsApi.register({
+      register: async (payload) => {
+        await ptDesignAgentBridgeWsApi.register({
           client_id: payload.client_id,
           label: payload.label ?? "Prototype Design",
           accepts_commands: true,
           capabilities: ["pt-design.v1"],
-        }),
-      unregister: (clientId) => ptDesignAgentBridgeWsApi.unregister(clientId),
+        });
+      },
+      unregister: async (clientId) => {
+        await ptDesignAgentBridgeWsApi.unregister(clientId);
+      },
       subscribe: (handler) => {
         listeners.current.add(handler);
         return () => {
           listeners.current.delete(handler);
         };
       },
-      reply: (result) =>
-        ptDesignAgentBridgeWsApi.postResult({
+      reply: async (result) => {
+        await ptDesignAgentBridgeWsApi.postResult({
           request_id: result.request_id,
           success: result.success,
           error_code: result.error_code,
           error_message: result.error_message,
           recoverable: result.recoverable,
           data: result.data,
-        }),
+        });
+      },
     };
   }, [isConnected]);
 }
