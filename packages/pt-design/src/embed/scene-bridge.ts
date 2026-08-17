@@ -1,6 +1,7 @@
 import { FONT_HELVETICA, FONT_VIRGIL, layoutUnboundText } from "../catalog/primitives";
 import type { PtElement, PtElementType, PtScene } from "../core/types";
-import { canonicalColor, displayColor } from "./theme-palette";
+import { ATMOS_LIGHT_CANVAS } from "./chrome";
+import { canonicalColor, canonicalInk, displayColor, displayInk } from "./theme-palette";
 
 export type ExcalidrawCompatElement = PtElement & {
   strokeStyle: "solid" | "dashed" | "dotted";
@@ -17,6 +18,10 @@ export type ExcalidrawHostApi = {
       theme?: "light" | "dark";
       currentItemRoughness?: number;
       currentItemFontFamily?: number;
+      currentItemStrokeColor?: string;
+      currentItemBackgroundColor?: string;
+      isBindingEnabled?: boolean;
+      objectsSnapModeEnabled?: boolean;
     };
   }) => void;
   scrollToContent: (
@@ -57,7 +62,7 @@ export function sceneToExcalidrawElements(
 
 export function excalidrawElementsToScene(
   elements: readonly ExcalidrawCompatElement[],
-  appState?: { viewBackgroundColor?: string },
+  _appState?: { viewBackgroundColor?: string },
   theme: "light" | "dark" = "light",
 ): PtScene {
   return {
@@ -65,10 +70,9 @@ export function excalidrawElementsToScene(
       .filter((el) => el.type !== ("selection" as PtElementType))
       .map((el) => fromCompat(el, theme)),
     appState: {
-      viewBackgroundColor: canonicalColor(
-        appState?.viewBackgroundColor ?? "#ffffff",
-        theme,
-      ),
+      // Display canvas is Atmos chrome. Persist the canonical light paper so
+      // theme swaps do not rewrite the document.
+      viewBackgroundColor: ATMOS_LIGHT_CANVAS,
     },
   };
 }
@@ -101,12 +105,19 @@ export function sceneFingerprint(scene: PtScene): string {
   return `${elements}#${scene.appState?.viewBackgroundColor ?? ""}`;
 }
 
+function isCatalogElement(el: { customData?: { pt?: { instanceId?: string; componentType?: string } } }): boolean {
+  return Boolean(el.customData?.pt?.instanceId || el.customData?.pt?.componentType);
+}
+
 function toCompat(el: PtElement, theme: "light" | "dark"): ExcalidrawCompatElement {
   const textBox = el.type === "text" ? layoutUnboundText(el) : null;
+  const remap = isCatalogElement(el);
   return {
     ...el,
-    strokeColor: displayColor(el.strokeColor, theme),
-    backgroundColor: displayColor(el.backgroundColor, theme),
+    strokeColor: remap ? displayColor(el.strokeColor, theme) : displayInk(el.strokeColor, theme),
+    backgroundColor: remap ? displayColor(el.backgroundColor, theme) : displayInk(el.backgroundColor, theme),
+    startBinding: el.startBinding ?? null,
+    endBinding: el.endBinding ?? null,
     strokeStyle: el.strokeStyle ?? "solid",
     version: el.version ?? 1,
     link: el.link ?? null,
@@ -131,11 +142,14 @@ function toCompat(el: PtElement, theme: "light" | "dark"): ExcalidrawCompatEleme
 
 function fromCompat(el: ExcalidrawCompatElement, theme: "light" | "dark"): PtElement {
   const type = KNOWN_TYPES.has(el.type) ? (el.type as PtElementType) : "rectangle";
+  const remap = isCatalogElement(el);
   return {
     ...el,
     type,
-    strokeColor: canonicalColor(el.strokeColor, theme),
-    backgroundColor: canonicalColor(el.backgroundColor, theme),
+    strokeColor: remap ? canonicalColor(el.strokeColor, theme) : canonicalInk(el.strokeColor, theme),
+    backgroundColor: remap ? canonicalColor(el.backgroundColor, theme) : canonicalInk(el.backgroundColor, theme),
+    startBinding: el.startBinding ?? null,
+    endBinding: el.endBinding ?? null,
     fontFamily: el.type === "text" ? visibleTextFont(el.fontFamily) : el.fontFamily,
     groupIds: [...(el.groupIds ?? [])],
     frameId: el.frameId ?? null,

@@ -19,7 +19,8 @@ export type PtElementType =
   | "line"
   | "arrow"
   | "frame"
-  | "freedraw";
+  | "freedraw"
+  | "diamond";
 
 export type PtElement = {
   id: string;
@@ -60,6 +61,8 @@ export type PtElement = {
   autoResize?: boolean;
   points?: [number, number][];
   name?: string;
+  startBinding?: unknown | null;
+  endBinding?: unknown | null;
 };
 
 export type PtScene = {

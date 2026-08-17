@@ -2,13 +2,12 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 import { openFileSession, runTool, type FileSession } from "../agent/api";
-import { PT_ERROR_CODES, PtDesignError } from "../agent/errors";
+import { isPtDesignError, PT_ERROR_CODES, PtDesignError } from "../agent/errors";
 import { PT_DESIGN_TOOL_DEFS, type ToolName } from "../agent/tool-defs";
 import { PT_TOOL_SCHEMAS } from "./schemas";
 import { paginate, toolError, toolSuccess, type ResponseFormat, type ToolResult } from "./format";
-import { buildLiveEvent, isMutatingTool } from "../live/event";
-import { ensureLiveHub } from "../live/hub";
-import { publishLiveEvent } from "../live/publish";
+import { isMutatingTool } from "../agent/mutating";
+import { resolveCollaboratorName } from "../collab/names";
 
 export const MCP_SERVER_NAME = "pt-design-mcp-server";
 export const MCP_SERVER_VERSION = "0.0.1";
@@ -48,7 +47,8 @@ Get-before-set: call pt_catalog_list and pt_ir_get before mutating.
 Error handling:
   - UNKNOWN_COMPONENT_TYPE — use an id from pt_catalog_list
   - NOT_FOUND / FRAME_AMBIGUOUS — copy ids from pt_ir_get / pt_frames_list
-  - MISSING_FILE — pass file or start with --file`;
+  - MISSING_FILE — pass file or start with --file
+  - COLLAB_REQUIRED — user must Share the live board first`;
 }
 
 export function executeTool(fs: FileSession, name: string, raw: Record<string, unknown>): ToolResult {
@@ -134,19 +134,24 @@ export function createSdkMcpServer(options: { file?: string } = {}): {
         annotations: annotationsFor(def.name),
       },
       async (params: Record<string, unknown>) => {
-        const prev = facade.fs.session.getScene();
+        const { prepareLiveSession, publishLiveSession } = await import("../collab/live-gate");
+        let room = null;
+        try {
+          room = await prepareLiveSession(facade.fs, def.name);
+        } catch (error) {
+          return toolError(isPtDesignError(error) ? error : new PtDesignError(PT_ERROR_CODES.INTERNAL, String(error)));
+        }
         const result = executeTool(facade.fs, def.name, params ?? {});
         if (!result.isError && isMutatingTool(def.name)) {
-          const event = buildLiveEvent(facade.fs, def.name, params ?? {}, result.data, "mcp", prev);
-          void publishLiveEvent(event);
+          await publishLiveSession(facade.fs, room);
           void sdk.server.sendLoggingMessage({
             level: "info",
             logger: "pt-design",
             data: {
-              tool: event.tool,
-              label: event.label,
-              instanceIds: event.instanceIds,
-              elementIds: event.elementIds,
+              tool: def.name,
+              label: resolveCollaboratorName("agent"),
+              instanceIds: [],
+              elementIds: [],
             },
           });
           void sdk.server.sendResourceUpdated({ uri: "pt-design://ir" });
@@ -237,15 +242,6 @@ export function createSdkMcpServer(options: { file?: string } = {}): {
 }
 
 export async function serveMcpStdio(file?: string): Promise<void> {
-  try {
-    const live = await ensureLiveHub({ file });
-    console.error(`${MCP_SERVER_NAME} live hub ${live}${file ? ` watching ${file}` : ""}`);
-  } catch (error) {
-    console.error(
-      `${MCP_SERVER_NAME} live hub unavailable:`,
-      error instanceof Error ? error.message : error,
-    );
-  }
   const { sdk } = createSdkMcpServer({ file });
   const transport = new StdioServerTransport();
   await sdk.connect(transport);

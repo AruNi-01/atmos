@@ -59,17 +59,6 @@ export async function startPlayground(port = Number(process.env.PT_DESIGN_PLAYGR
 }
 
 if (import.meta.main) {
-  const { ensureLiveHub } = await import("../src/live/hub");
-  try {
-    const live = await ensureLiveHub({ file: process.env.PT_DESIGN_FILE });
-    console.log(
-      `PT Design live hub ${live}${process.env.PT_DESIGN_FILE ? ` watching ${process.env.PT_DESIGN_FILE}` : ""}  (MCP/CLI publish here)`,
-    );
-  } catch (error) {
-    console.log(
-      `PT Design live hub unavailable: ${error instanceof Error ? error.message : String(error)}`,
-    );
-  }
   const server = await startPlayground();
   console.log(`PT Design playground http://127.0.0.1:${server.port}`);
 }

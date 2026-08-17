@@ -55,7 +55,7 @@ describe("excalidraw scene bridge", () => {
     expect(panel?.backgroundColor).toBe("#2e2e33");
     const continueLabel = dark.find((el) => el.type === "text" && el.text === "Continue");
     expect(continueLabel?.strokeColor).toBe("#18181b");
-    const back = excalidrawElementsToScene(dark, { viewBackgroundColor: "#242428" }, "dark");
+    const back = excalidrawElementsToScene(dark, { viewBackgroundColor: "#18181b" }, "dark");
     expect(back.appState.viewBackgroundColor).toBe("#ffffff");
     const canonical = back.elements.find((el) => el.customData?.pt?.componentType === "alert-dialog");
     expect(canonical?.backgroundColor).toBe("#ffffff");
@@ -91,6 +91,42 @@ describe("excalidraw scene bridge", () => {
     expect(shown.filter((el) => el.type === "text").every((el) => el.fontFamily === 2)).toBe(true);
     const stored = excalidrawElementsToScene(shown, { viewBackgroundColor: "#ffffff" }, "light");
     expect(stored.elements.filter((el) => el.type === "text").every((el) => el.fontFamily === 2)).toBe(true);
+  });
+
+  test("dark theme remaps default Excalidraw ink so freehand stays visible", () => {
+    const raw = {
+      elements: [
+        {
+          id: "rect-1",
+          type: "rectangle" as const,
+          x: 0,
+          y: 0,
+          width: 80,
+          height: 40,
+          angle: 0,
+          strokeColor: "#1e1e1e",
+          backgroundColor: "transparent",
+          fillStyle: "solid" as const,
+          strokeWidth: 2,
+          roughness: 1,
+          opacity: 100,
+          groupIds: [],
+          frameId: null,
+          roundness: null,
+          seed: 1,
+          versionNonce: 1,
+          isDeleted: false,
+          boundElements: null,
+          updated: 1,
+          locked: false,
+        },
+      ],
+      appState: { viewBackgroundColor: "#ffffff" },
+    };
+    const shown = sceneToExcalidrawElements(raw, "dark");
+    expect(shown[0]?.strokeColor).toBe("#fafafa");
+    const stored = excalidrawElementsToScene(shown, { viewBackgroundColor: "#09090b" }, "dark");
+    expect(stored.elements[0]?.strokeColor).toBe("#1e1e1e");
   });
 
   test("fingerprint includes fill and canvas background", () => {

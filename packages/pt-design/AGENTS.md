@@ -12,7 +12,9 @@ Agent-first prototype wireframe package (APP-062).
 ## Binaries
 
 - `pt-design` — Ink-compatible Agent CLI (`--json`)
-- `pt-design-mcp` — MCP stdio server
+- `pt-design-mcp` — MCP stdio for **external** agents only
+
+Atmos in-app Agents call `POST /api/pt-design/agent/invoke` on the local Server. Do not tell users to put `pt-design-mcp` on PATH or paste MCP JSON.
 
 ## Forbidden imports
 

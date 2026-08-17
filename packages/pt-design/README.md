@@ -13,13 +13,13 @@ Prototype Design — Agent-first wireframe board + Design IR. Not live shadcn. N
 
 Starting the playground does **not** start MCP. Starting MCP does **not** serve a web UI.
 
-A separate **live hub** (`127.0.0.1:4174`) is how the open board sees Agent edits in real time. Playground and MCP start it if it is not already running. The CLI can start it with `pt-design live` and otherwise only publishes into an existing hub.
+Live edits go through **Excalidraw collaboration**. The open Atmos board is the room, not a second file. Click **Share** first. Agents join that same room (`PT_DESIGN_COLLAB_ROOM=id,key` or the file `collab` field) as `Agent`, pull the live scene, then publish. Offline `.ptdesign.json` is only for documents that are not the live board.
 
 ---
 
 ## Atmos embed
 
-Open Prototype Design from the Launchpad or the `pt-design` center tab. The web app lazy-loads `PtDesignApp`. Scene state lives in `localStorage` (`pt-design:scene:<contextId>`). No extra daemon or port.
+Open Prototype Design from the Launchpad or the `pt-design` center tab. The web app lazy-loads `PtDesignApp`. The working draft stays in `localStorage`. **Save** / **Open** write `*.ptdesign.json` under `~/.atmos/data/pt-design/` via the local Atmos Server.
 
 ---
 
@@ -47,7 +47,7 @@ bun packages/pt-design/bin/pt-design.mjs ir get --file ./app.ptdesign.json --jso
 
 Every mutating command needs `--file`. Success: `{ "ok": true, "data": ... }`. Errors: `{ "ok": false, "error": { "code", "message" } }`.
 
-`pt-design live --file ./app.ptdesign.json` is the long-running CLI process: it binds the live hub and watches that JSON file. Mutating commands (`place`, `update`, …) stay one-shot — they POST an event and exit.
+Mutating CLI/MCP commands publish the new scene into the collaboration room when `PT_DESIGN_COLLAB_ROOM` or the file's `collab` field is set. The Agent cursor uses `PT_DESIGN_AGENT_NAME` / `AGENT_NAME`, otherwise `Agent`.
 
 ---
 
@@ -62,22 +62,25 @@ bun packages/pt-design/bin/pt-design-mcp.mjs --file ./app.ptdesign.json
 # or: PT_DESIGN_FILE=./app.ptdesign.json bun packages/pt-design/bin/pt-design-mcp.mjs
 ```
 
-Cursor / Claude Desktop / Claude Code / Inspector:
+Atmos in-app Agents should **not** use this. They call `POST /api/pt-design/agent/invoke` on the local Atmos Server (see Live collaboration).
+
+For an **external** MCP client (Cursor / Claude Desktop) after `@atmos/pt-design` is published:
 
 ```json
 {
   "mcpServers": {
     "pt-design": {
-      "command": "bun",
-      "args": [
-        "/ABS/PATH/TO/atmos/packages/pt-design/bin/pt-design-mcp.mjs",
-        "--file",
-        "/ABS/PATH/TO/app.ptdesign.json"
-      ]
+      "command": "npx",
+      "args": ["-y", "-p", "@atmos/pt-design", "pt-design-mcp"],
+      "env": {
+        "PT_DESIGN_COLLAB_ROOM": "id,key"
+      }
     }
   }
 }
 ```
+
+`npx @atmos/pt-design` alone starts the Ink CLI, not MCP. From this repo in development you can still spawn `bun packages/pt-design/bin/pt-design-mcp.mjs`. The package is private today — `npx` will not resolve it until it is published.
 
 Inspect:
 
@@ -102,32 +105,22 @@ Without `--file`, the server keeps an in-memory document for the process lifetim
 
 ---
 
-## Agent live highlight
+## Live collaboration
 
-Writing a `.ptdesign.json` file does **not** by itself notify the React board. The board only sees Agent work through a **local live hub** — same split as [mcp_excalidraw](https://github.com/yctimlin/mcp_excalidraw): MCP/CLI mutate, a small localhost process broadcasts, the open Excalidraw view applies the scene and pulses the touched shapes.
+The share popover has two tabs. **Local** (default) is this computer only: copy an Agent prompt — no public URL. **Invite** publishes a `https://app.atmos.land/?tab=pt-design#room=…` link over Atmos Relay (official oss-collab fallback). Local fan-out is `ws://127.0.0.1:<port>/ws/pt-design/:roomId`.
 
-```
-MCP tool / CLI command  --POST /event-->  127.0.0.1:4174  --WS /ws-->  PtDesignApp
-Agent Write of .ptdesign.json --fs.watch-->      |              (replace scene +
-MCP notifications/resources/updated              |               emerald pulse)
-pt-design live --file ./app.ptdesign.json  (hub + file watch; stays up)
-```
+**Atmos Agent on this machine** does not use MCP or a PATH binary. Start **Local** collaboration, copy the prompt, and the Agent `POST`s `http://127.0.0.1:<port>/api/pt-design/agent/invoke`. Atmos Server forwards the tool to the open board. No user MCP config.
 
-- Playground and `pt-design-mcp` call `ensureLiveHub()` (port `PT_DESIGN_LIVE_PORT`, default **4174**). MCP also `POST /watch` so a raw file Write still reaches the board.
-- Each mutating tool publishes `{ tool, label, instanceIds, elementIds, boxes, scene }`.
-- The open board replaces the scene, scrolls the shape into view if it is off-screen, and draws an **emerald breathing ring** (same 2400ms cadence as Atmos Canvas `canvas-focus-pulse`) plus `Agent · Place button`. It does **not** steal the user's selection.
-- Catalog components pulse by `customData.pt.instanceId`. Raw circles / rectangles (no PT metadata) pulse by element id via a scene diff.
-- CLI mutating commands only POST; they do not leave a server behind. Use `pt-design live` when you want the hub + file watch without the playground.
-- MCP also sends `notifications/message` and `notifications/resources/updated` on `pt-design://ir` (Inspector / MCP client). That is not the canvas channel.
-- `https://` Atmos cloud pages cannot open `ws://127.0.0.1` (mixed content). Local playground (`http://127.0.0.1:4173`) and a local desktop origin can.
+Copied share links always point at the hosted app (`https://app.atmos.land/?tab=pt-design#room=id,key`), even when you started the session from Desktop or `localhost`. The local address bar can stay on loopback — only the copied link is rewritten. Override with `PT_DESIGN_SHARE_ORIGIN` / `NEXT_PUBLIC_PT_DESIGN_SHARE_ORIGIN`.
+
+1. Open the board and click the collab / **Share** control. That copies a link.
+2. Anyone with the link joins the same scene and sees cursors.
+3. An Agent joins as its own name (`PT_DESIGN_AGENT_NAME` / `AGENT_NAME`, otherwise `Agent`) when MCP/CLI mutate a file that already has `collab`, or when `PT_DESIGN_COLLAB_ROOM=id,key` is set.
 
 ```bash
-bun --cwd packages/pt-design playground          # UI + live hub
-# another terminal:
-bun packages/pt-design/bin/pt-design-mcp.mjs --file ./app.ptdesign.json
-# or:
-bun packages/pt-design/bin/pt-design.mjs live --file ./app.ptdesign.json
-bun packages/pt-design/bin/pt-design.mjs place button --at 80,80 --file ./app.ptdesign.json --json
+bun --cwd packages/pt-design playground
+PT_DESIGN_COLLAB_ROOM=id,key PT_DESIGN_AGENT_NAME=Codex \
+  bun packages/pt-design/bin/pt-design.mjs place button --at 80,80 --file ./app.ptdesign.json --json
 ```
 
 ---

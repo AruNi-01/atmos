@@ -6,6 +6,17 @@ export type PersistenceAdapter = {
   save(input: { scene: PtScene }): Promise<void>;
 };
 
+export type DesignLibraryItem = {
+  name: string;
+  modifiedAt?: number;
+};
+
+export type DesignLibrary = {
+  list(): Promise<DesignLibraryItem[]>;
+  load(name: string): Promise<{ name: string; scene: PtScene }>;
+  save(name: string, scene: PtScene): Promise<{ name: string }>;
+};
+
 export type HandoffSink = {
   accept(payload: HandoffPayload): void | Promise<void>;
 };

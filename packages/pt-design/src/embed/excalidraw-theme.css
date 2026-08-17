@@ -1,9 +1,155 @@
 /*
-  Excalidraw dark mode applies invert(93%) hue-rotate(180deg) to the canvas.
-  That turns light wireframes into black cards on a light-looking paper and
-  hue-shifts accent/destructive colors. We keep the dark UI chrome but paint
-  component colors ourselves (see theme-palette.ts).
+  Excalidraw ships a purple island theme. Override both light and dark so
+  islands, menus, and the canvas match Atmos center chrome.
+  Dark canvas invert is disabled so wireframe colors stay in theme-palette.ts.
 */
+
+.excalidraw {
+  --default-bg-color: var(--background, #ffffff);
+  --island-bg-color: var(--card, #ffffff);
+  --popup-bg-color: var(--popover, var(--card, #ffffff));
+  --popup-secondary-bg-color: var(--muted, #f4f4f5);
+  --popup-text-color: var(--foreground, #18181b);
+  --sidebar-bg-color: var(--card, #ffffff);
+  --sidebar-border-color: var(--border, rgba(0, 0, 0, 0.1));
+  --default-border-color: var(--border, rgba(0, 0, 0, 0.1));
+  --color-on-surface: var(--foreground, #18181b);
+  --text-primary-color: var(--foreground, #18181b);
+  --icon-fill-color: var(--foreground, #18181b);
+  --input-bg-color: var(--background, #ffffff);
+  --input-border-color: var(--border, rgba(0, 0, 0, 0.14));
+  --input-hover-bg-color: var(--muted, #f4f4f5);
+  --input-label-color: var(--foreground, #18181b);
+  --button-hover-bg: var(--muted, #f4f4f5);
+  --button-active-bg: var(--muted, #f4f4f5);
+  --button-gray-1: var(--muted, #f4f4f5);
+  --button-gray-2: var(--card, #ffffff);
+  --color-surface-high: var(--muted, #f4f4f5);
+  --color-surface-mid: var(--muted, #f4f4f5);
+  --color-surface-low: var(--card, #ffffff);
+  --color-surface-lowest: var(--border, rgba(0, 0, 0, 0.1));
+  --color-primary: var(--foreground, #18181b);
+  --color-primary-darker: var(--foreground, #18181b);
+  --color-primary-darkest: var(--foreground, #18181b);
+  --color-primary-light: var(--muted, #f4f4f5);
+  --color-primary-hover: var(--foreground, #18181b);
+  --color-surface-primary-container: var(--muted, #f4f4f5);
+  --color-on-primary-container: var(--foreground, #18181b);
+  --color-brand-hover: var(--foreground, #18181b);
+  --color-brand-active: var(--foreground, #18181b);
+  --color-selection: var(--muted, #f4f4f5);
+  --color-promo: var(--foreground, #18181b);
+  --border-radius-md: 0.5rem;
+  --border-radius-lg: 0.625rem;
+  --shadow-island: 0 0 0 1px var(--border, rgba(0, 0, 0, 0.1));
+  font-family: inherit;
+  background: var(--background, #ffffff);
+}
+
+.excalidraw.theme--dark {
+  --theme-filter: none;
+  --default-bg-color: var(--background, #09090b);
+  --island-bg-color: var(--card, #18181b);
+  --popup-bg-color: var(--popover, var(--card, #18181b));
+  --popup-secondary-bg-color: var(--muted, #3f3f46);
+  --popup-text-color: var(--foreground, #fafafa);
+  --sidebar-bg-color: var(--card, #18181b);
+  --sidebar-border-color: var(--border, rgba(255, 255, 255, 0.1));
+  --default-border-color: var(--border, rgba(255, 255, 255, 0.1));
+  --color-on-surface: var(--foreground, #fafafa);
+  --text-primary-color: var(--foreground, #fafafa);
+  --icon-fill-color: var(--foreground, #fafafa);
+  --input-bg-color: var(--background, #09090b);
+  --input-border-color: var(--border, rgba(255, 255, 255, 0.14));
+  --input-hover-bg-color: var(--muted, #3f3f46);
+  --input-label-color: var(--foreground, #fafafa);
+  --button-hover-bg: var(--muted, #3f3f46);
+  --button-active-bg: var(--muted, #3f3f46);
+  --button-gray-1: var(--muted, #3f3f46);
+  --button-gray-2: var(--card, #18181b);
+  --button-gray-3: #52525b;
+  --color-surface-high: var(--muted, #3f3f46);
+  --color-surface-mid: var(--muted, #3f3f46);
+  --color-surface-low: var(--card, #18181b);
+  --color-surface-lowest: var(--border, rgba(255, 255, 255, 0.1));
+  --color-primary: var(--foreground, #fafafa);
+  --color-primary-darker: var(--foreground, #fafafa);
+  --color-primary-darkest: var(--foreground, #fafafa);
+  --color-primary-light: var(--muted, #3f3f46);
+  --color-primary-hover: var(--foreground, #fafafa);
+  --color-surface-primary-container: var(--muted, #3f3f46);
+  --color-on-primary-container: var(--foreground, #fafafa);
+  --color-brand-hover: var(--foreground, #fafafa);
+  --color-brand-active: var(--foreground, #fafafa);
+  --color-selection: var(--muted, #3f3f46);
+  --color-promo: var(--foreground, #fafafa);
+  --shadow-island: 0 0 0 1px var(--border, rgba(255, 255, 255, 0.1));
+  background: var(--background, #09090b);
+}
+
 .excalidraw.theme--dark canvas {
   filter: none !important;
+}
+
+/* Official dark inverts every swatch. We only restyle the first stroke
+   top-pick so it matches the light default ink without flipping reds. */
+.excalidraw.theme--dark .color-picker__top-picks .color-picker__button:first-child {
+  --swatch-color: #fafafa !important;
+}
+
+.excalidraw.theme--dark .color-picker__button[title="#1e1e1e"],
+.excalidraw.theme--dark .color-picker__button[title="#000000"] {
+  --swatch-color: #fafafa !important;
+}
+
+.excalidraw.theme--dark .color-picker__button[title="#ffffff"] {
+  --swatch-color: #18181b !important;
+}
+
+.excalidraw .zoom-actions,
+.excalidraw .undo-redo-buttons {
+  background-color: var(--island-bg-color);
+  box-shadow: var(--shadow-island);
+}
+
+.excalidraw .zoom-button,
+.excalidraw .undo-redo-buttons button {
+  background-color: var(--island-bg-color) !important;
+}
+
+.excalidraw .library-button,
+.excalidraw .help-icon {
+  display: none !important;
+}
+
+.pt-design-share-trigger {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  background: var(--island-bg-color, var(--card));
+  color: var(--icon-fill-color, var(--foreground, inherit));
+  box-shadow: 0 0 0 1px var(--border, rgba(0, 0, 0, 0.1));
+}
+
+.pt-design-share-trigger:hover,
+.pt-design-share-trigger[data-active="true"] {
+  background: var(--muted, var(--color-surface-high));
+}
+
+.pt-design-share-dot {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--success, #22c55e);
+  box-shadow: 0 0 0 2px var(--island-bg-color, var(--card));
 }

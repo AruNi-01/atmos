@@ -6,7 +6,15 @@ Sketch UI structure as wireframes Agents can read and edit. Not live components.
 
 ## Install / run
 
-From the Atmos monorepo:
+On Atmos (Desktop / local Server): do **not** install a binary. After the user starts **Local** collaboration, `POST` the open board:
+
+`POST http://127.0.0.1:<atmos-port>/api/pt-design/agent/invoke`
+
+```json
+{ "request_id": "<uuid>", "tool": "pt_ir_get", "args": {}, "room": "id,key" }
+```
+
+From the Atmos monorepo only (dev / offline files):
 
 ```bash
 bun packages/pt-design/bin/pt-design.mjs --help
@@ -20,7 +28,18 @@ Design files are `.ptdesign.json`.
 2. Mutate with `--file` on every command
 3. `pt-design ir get --file ./app.ptdesign.json --json`
 
-Prefer MCP/CLI tools over hand-editing the JSON so the open board can pulse the touched shape. If you do Write the file, start `pt-design live --file ./app.ptdesign.json` (or the playground) first — the live hub watches the file and pushes the scene to the UI.
+Prefer MCP/CLI tools over hand-editing the JSON.
+
+## Live board (Atmos Prototype Design)
+
+The user's open board is **not** a local `.ptdesign.json` copy. It lives in the collaboration room.
+
+1. The user must click **Share** first. If they have not, ask them to start live collaboration. Do not invent a second canvas file.
+2. Join the same room: `PT_DESIGN_COLLAB_ROOM=id,key` from the share link or the Give to Agent payload `collab` field.
+3. Pull the live scene (`pt_scene_get` / `pt_ir_get` after joining) then mutate. Publishing a stale file overwrites their board.
+4. Your cursor name is `PT_DESIGN_AGENT_NAME` / `AGENT_NAME`, otherwise `Agent`. The user should see that name on the canvas.
+
+Offline `.ptdesign.json` files are only for documents that are not the open live board.
 
 ## Tool ↔ CLI table
 
@@ -58,7 +77,7 @@ Implement with real shadcn/other UI libraries outside the canvas. Prefer IR over
 
 ## MCP
 
-Official `@modelcontextprotocol/sdk` stdio server (`pt-design-mcp-server`). Spawn `pt-design-mcp --file ./app.ptdesign.json`. Do not connect to the playground HTTP port. Tools use Zod schemas; resources are `pt-design://catalog` and `pt-design://ir`. See `packages/pt-design/README.md`.
+Optional for external agents only. Atmos does not ask the user to paste MCP JSON. Official `@modelcontextprotocol/sdk` stdio server (`pt-design-mcp-server`). After publish: `npx -y -p @atmos/pt-design pt-design-mcp`. Do not connect to the playground HTTP port. See `packages/pt-design/README.md`.
 
 ## Non-goals
 

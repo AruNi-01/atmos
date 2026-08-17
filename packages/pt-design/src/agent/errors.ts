@@ -7,6 +7,7 @@ export const PT_ERROR_CODES = {
   FRAME_AMBIGUOUS: "FRAME_AMBIGUOUS",
   CONFLICT: "CONFLICT",
   USAGE: "USAGE",
+  COLLAB_REQUIRED: "COLLAB_REQUIRED",
   INTERNAL: "INTERNAL",
 } as const;
 
@@ -29,6 +30,7 @@ export function isPtDesignError(error: unknown): error is PtDesignError {
 export function cliExitCode(code: PtErrorCode): number {
   switch (code) {
     case PT_ERROR_CODES.USAGE:
+    case PT_ERROR_CODES.COLLAB_REQUIRED:
     case PT_ERROR_CODES.INVALID_JSON:
     case PT_ERROR_CODES.UNKNOWN_COMPONENT_TYPE:
     case PT_ERROR_CODES.INVALID_FILE:

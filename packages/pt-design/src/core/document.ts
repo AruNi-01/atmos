@@ -16,6 +16,7 @@ export type PtDesignFile = {
   catalogVersion: string;
   excalidrawCompat: string;
   scene: PtScene;
+  collab?: { roomId: string; roomKey: string };
 };
 
 export function initDesignDocument(path: string): PtDesignFile {
@@ -68,7 +69,17 @@ export function openDesignDocument(path: string): PtDesignFile {
       elements: scene.elements,
       appState: scene.appState ?? { viewBackgroundColor: "#ffffff" },
     },
+    collab: readCollab(rec.collab),
   };
+}
+
+function readCollab(value: unknown): { roomId: string; roomKey: string } | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const rec = value as Record<string, unknown>;
+  if (typeof rec.roomId === "string" && typeof rec.roomKey === "string") {
+    return { roomId: rec.roomId, roomKey: rec.roomKey };
+  }
+  return undefined;
 }
 
 export function saveDesignDocument(path: string, doc: PtDesignFile): PtDesignFile {

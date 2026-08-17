@@ -77,6 +77,12 @@ describe("apply gate", () => {
     expect(session.getScene().elements.every((el) => el.roughness !== 99)).toBe(true);
   });
 
+  test("PtDesignApp does not echo board strokes back into Excalidraw", () => {
+    const src = readFileSync(new URL("./PtDesignApp.tsx", import.meta.url), "utf8");
+    expect(src).toContain("echoFromBoardRef.current = true");
+    expect(src).toContain("if (echoFromBoardRef.current) return;");
+  });
+
   test("PtDesignApp uses the apply gate and persist debounce", () => {
     const src = readFileSync(new URL("./PtDesignApp.tsx", import.meta.url), "utf8");
     expect(src).toContain("createApplyGate");
@@ -84,5 +90,13 @@ describe("apply gate", () => {
     expect(src).toContain("applyGateRef.current.consume()");
     expect(src).toContain("debouncer.flush()");
     expect(src).not.toMatch(/applyingRef\.current = false/);
+  });
+
+  test("PtDesignApp does not push the scene from the Excalidraw API callback", () => {
+    const src = readFileSync(new URL("./PtDesignApp.tsx", import.meta.url), "utf8");
+    expect(src).toContain("setBoardReady");
+    expect(src).toContain("onApi={handleApi}");
+    expect(src).not.toMatch(/onApi=\{\(api\) => \{[\s\S]*pushScene\(\)/);
+    expect(src).not.toMatch(/setCameraTick\(\(n\) => n \+ 1\);\s*\n\s*\n\s*if \(applyGateRef/);
   });
 });

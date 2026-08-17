@@ -4,6 +4,8 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { openFileSession, runTool } from "./api";
+import { runSessionTool } from "./session-tools";
+import { createPtDesignSession } from "../core/session";
 import { isPtDesignError } from "./errors";
 import { PT_DESIGN_TOOL_DEFS } from "./tool-defs";
 import { createMcpServer } from "../mcp/server";
@@ -22,6 +24,20 @@ describe("agent adapters", () => {
     expect(names).toContain("pt_place");
     expect(names).toContain("pt_handoff");
     expect(names).toContain("pt_doc_init");
+  });
+
+  test("runSessionTool places on an in-memory session without a file", () => {
+    const session = createPtDesignSession();
+    const placed = runSessionTool(session, {
+      name: "pt_place",
+      args: { componentType: "button", at: { x: 12, y: 24 }, props: { label: "Go" } },
+    });
+    expect((placed as { componentType: string }).componentType).toBe("button");
+    const ir = runSessionTool(session, { name: "pt_ir_get", args: {} }) as DesignIR;
+    expect(ir.freeNodes.some((n) => n.componentType === "button")).toBe(true);
+    expect(() =>
+      runSessionTool(session, { name: "pt_doc_init", args: { file: "./nope.ptdesign.json" } }),
+    ).toThrow(/Live board/);
   });
 
   test("MCP lists tools and place+ir_get auto-saves", () => {
