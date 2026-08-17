@@ -48,6 +48,26 @@ describe("session + IR", () => {
     expect(ir.frames[0]?.nodes.some((n) => n.instanceId === inputId)).toBe(false);
   });
 
+  test("place with a missing frame does not change the scene", () => {
+    const session = createPtDesignSession();
+    session.dispatch({ type: "place", componentType: "button", at: { x: 0, y: 0 } });
+    const before = session.getScene().elements.length;
+    try {
+      session.dispatch({
+        type: "place",
+        componentType: "input",
+        at: { x: 8, y: 8 },
+        frameId: "Missing",
+      });
+      throw new Error("should have thrown");
+    } catch (error) {
+      expect(isPtDesignError(error)).toBe(true);
+      if (isPtDesignError(error)) expect(error.code).toBe(PT_ERROR_CODES.NOT_FOUND);
+    }
+    expect(session.getScene().elements.length).toBe(before);
+    expect(session.getIR().freeNodes.some((n) => n.componentType === "input")).toBe(false);
+  });
+
   test("unknown type and unknown id reject", () => {
     const session = createPtDesignSession();
     try {

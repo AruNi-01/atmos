@@ -128,6 +128,9 @@ export function createPtDesignSession(initial?: PtScene): PtDesignSession {
       getCatalogEntry(cmd.componentType);
       const baseProps = { ...defaultProps(cmd.componentType), ...sanitizeProps(cmd.componentType, cmd.props ?? {}) };
       const frame = resolveFrame(cmd.frameId);
+      if (cmd.frameId && !frame) {
+        throw new PtDesignError(PT_ERROR_CODES.NOT_FOUND, `Frame not found: ${cmd.frameId}`);
+      }
       const variants =
         cmd.instanceId || cmd.variant
           ? [cmd.variant ?? "default"]
