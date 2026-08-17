@@ -10,6 +10,7 @@ import {
   type PtTheme,
 } from "../host/adapters";
 import { chromeTokens, resolveBoardTheme } from "./chrome";
+import { ComponentCatalog } from "./ComponentCatalog";
 import {
   excalidrawElementsToScene,
   sceneFingerprint,
@@ -145,55 +146,6 @@ export function PtDesignApp({
         color: chrome.fg,
       }}
     >
-      <aside
-        data-testid="pt-design-catalog"
-        style={{
-          width: 220,
-          borderRight: `1px solid ${chrome.border}`,
-          overflow: "auto",
-          padding: 8,
-          background: chrome.card,
-          color: chrome.fg,
-        }}
-      >
-        <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 8, color: chrome.fg }}>
-          Prototype Design
-        </div>
-        {catalog.map((item) => {
-          const active = catalogType === item.componentType;
-          return (
-            <button
-              key={item.componentType}
-              type="button"
-              data-catalog-type={item.componentType}
-              onClick={() => {
-                setCatalogType(item.componentType);
-                session.dispatch({
-                  type: "place",
-                  componentType: item.componentType,
-                  at: placeAt(),
-                });
-              }}
-              style={{
-                display: "block",
-                width: "100%",
-                textAlign: "left",
-                fontSize: 12,
-                lineHeight: "18px",
-                padding: "6px 8px",
-                marginBottom: 2,
-                border: "none",
-                borderRadius: 8,
-                color: chrome.fg,
-                background: active ? chrome.muted : "transparent",
-                cursor: "pointer",
-              }}
-            >
-              {item.componentType}
-            </button>
-          );
-        })}
-      </aside>
       <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, background: chrome.bg }}>
         <div
           style={{
@@ -271,6 +223,20 @@ export function PtDesignApp({
                 pushScene();
               }}
               onChange={handleBoardChange}
+              catalog={
+                <ComponentCatalog
+                  items={catalog}
+                  activeType={catalogType}
+                  onPlace={(componentType) => {
+                    setCatalogType(componentType);
+                    session.dispatch({
+                      type: "place",
+                      componentType,
+                      at: placeAt(),
+                    });
+                  }}
+                />
+              }
             />
           </React.Suspense>
         </div>

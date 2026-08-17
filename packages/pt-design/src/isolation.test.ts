@@ -38,10 +38,15 @@ describe("package isolation", () => {
     expect(embed).not.toMatch(/headless|cli\/bin|mcp\/server|core\/document|node:fs|from ["']ink["']/);
     expect(embed).toContain("ExcalidrawBoard");
     expect(embed).toContain("chrome.fg");
-    expect(embed).toContain("data-testid=\"pt-design-catalog\"");
+    expect(embed).toContain("ComponentCatalog");
     expect(embed).not.toMatch(/viewBox="0 0 1200 800"/);
+    const catalogPanel = readFileSync(join(srcRoot, "embed", "ComponentCatalog.tsx"), "utf8");
+    expect(catalogPanel).toContain("data-testid=\"pt-design-catalog\"");
+    expect(catalogPanel).not.toContain("block.");
     const board = readFileSync(join(srcRoot, "embed", "ExcalidrawBoard.tsx"), "utf8");
     expect(board).toMatch(/from ["']@excalidraw\/excalidraw["']/);
+    expect(board).toContain("Sidebar");
+    expect(board).toContain("Component");
     expect(board).toContain("data-testid=\"pt-design-board\"");
     const session = readFileSync(join(srcRoot, "core", "session.ts"), "utf8");
     expect(session).not.toMatch(/node:fs|from ["']\.\/document["']/);

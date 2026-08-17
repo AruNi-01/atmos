@@ -1,3 +1,4 @@
+import { catalogDisplayName } from "./labels";
 import { REQUIRED_BLOCKS, SHADCN_BASIC_IDS } from "./shadcn-list";
 import { buildTemplate, stampRootMeta, type TemplateContext } from "./templates";
 import { createInstanceId } from "../core/ids";
@@ -65,6 +66,7 @@ const PROP_KEYS: Record<string, string[]> = {
 
 export type CatalogEntry = {
   componentType: string;
+  label: string;
   kind: "basic" | "block";
   variants: string[];
   propKeys: string[];
@@ -73,12 +75,14 @@ export type CatalogEntry = {
 const ENTRIES: CatalogEntry[] = [
   ...SHADCN_BASIC_IDS.map((componentType) => ({
     componentType,
+    label: catalogDisplayName(componentType),
     kind: "basic" as const,
     variants: VARIANT_MAP[componentType] ?? ["default"],
     propKeys: PROP_KEYS[componentType] ?? ["label", "title", "description"],
   })),
   ...REQUIRED_BLOCKS.map((componentType) => ({
     componentType,
+    label: catalogDisplayName(componentType),
     kind: "block" as const,
     variants: ["default"],
     propKeys: ["title", "description"],

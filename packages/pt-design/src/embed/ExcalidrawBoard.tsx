@@ -1,8 +1,9 @@
 "use client";
 
 import React from "react";
-import { Excalidraw } from "@excalidraw/excalidraw";
+import { Excalidraw, Sidebar } from "@excalidraw/excalidraw";
 import "@excalidraw/excalidraw/index.css";
+import { ComponentSidebarIcon } from "./catalog-icons";
 import type { ExcalidrawCompatElement, ExcalidrawHostApi } from "./scene-bridge";
 
 export type { ExcalidrawHostApi };
@@ -19,6 +20,7 @@ export type ExcalidrawBoardProps = {
       selectedElementIds: Record<string, boolean>;
     },
   ) => void;
+  catalog?: React.ReactNode;
 };
 
 export default function ExcalidrawBoard({
@@ -27,6 +29,7 @@ export default function ExcalidrawBoard({
   theme = "light",
   onApi,
   onChange,
+  catalog,
 }: ExcalidrawBoardProps) {
   const apiRef = React.useRef<{
     updateScene: (next: Record<string, unknown>) => void;
@@ -94,7 +97,23 @@ export default function ExcalidrawBoard({
             selectedElementIds: appState.selectedElementIds as Record<string, boolean>,
           });
         }}
-      />
+      >
+        {catalog ? (
+          <>
+            <Sidebar name="components">
+              <Sidebar.Header />
+              {catalog}
+            </Sidebar>
+            <Sidebar.Trigger
+              name="components"
+              title="Component"
+              icon={<ComponentSidebarIcon size={16} strokeWidth={2} />}
+            >
+              Component
+            </Sidebar.Trigger>
+          </>
+        ) : null}
+      </Excalidraw>
     </div>
   );
 }

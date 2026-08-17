@@ -1,6 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { REQUIRED_BLOCKS, SHADCN_BASIC_IDS } from "./shadcn-list";
+import { catalogDisplayName } from "./labels";
 import { getComponentTemplate, listComponentTypes } from "./registry";
+import { catalogIconTypes } from "../embed/catalog-icons";
 import { createPtDesignSession } from "../core/session";
 import { encodeDesignIR } from "../ir/encode";
 
@@ -65,6 +67,23 @@ describe("catalog completeness", () => {
     session.dispatch({ type: "place", componentType: "dialog", at: { x: 0, y: 0 }, variant: "open" });
     expect(session.getIR().freeNodes.filter((n) => n.componentType === "dialog")).toHaveLength(1);
     expect(session.getIR().freeNodes[0]?.variant).toBe("open");
+  });
+
+  test("user-facing labels are title case and never raw block ids", () => {
+    expect(catalogDisplayName("button")).toBe("Button");
+    expect(catalogDisplayName("alert-dialog")).toBe("Alert Dialog");
+    expect(catalogDisplayName("input-otp")).toBe("Input OTP");
+    expect(catalogDisplayName("block.auth-form")).toBe("Auth Form");
+    expect(catalogDisplayName("block.settings-shell")).toBe("Settings Shell");
+    expect(catalogDisplayName("block.empty-state")).toBe("Empty State");
+    expect(catalogDisplayName("block.nav-content")).toBe("Nav Content");
+    const labels = listComponentTypes().map((e) => e.label);
+    expect(labels).toContain("Auth Form");
+    expect(labels.some((label) => label.startsWith("block."))).toBe(false);
+    const iconTypes = new Set(catalogIconTypes());
+    for (const id of [...SHADCN_BASIC_IDS, ...REQUIRED_BLOCKS]) {
+      expect(iconTypes.has(id)).toBe(true);
+    }
   });
 
   test("placing attachment without variant yields image, uploading, and file", () => {
