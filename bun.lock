@@ -395,6 +395,7 @@
         "@excalidraw/excalidraw": "0.18.1",
         "ink": "^7.1.1",
         "lucide-react": "^0.544.0",
+        "motion": "^12.23.12",
       },
       "devDependencies": {
         "@types/node": "^20",

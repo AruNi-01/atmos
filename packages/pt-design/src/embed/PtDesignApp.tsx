@@ -227,11 +227,12 @@ export function PtDesignApp({
                 <ComponentCatalog
                   items={catalog}
                   activeType={catalogType}
-                  onPlace={(componentType) => {
+                  onPlace={(componentType, variant) => {
                     setCatalogType(componentType);
                     session.dispatch({
                       type: "place",
                       componentType,
+                      variant,
                       at: placeAt(),
                     });
                   }}

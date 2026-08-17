@@ -1,100 +1,71 @@
 "use client";
 
 import React from "react";
+import { catalogDisplayName } from "../catalog/labels";
 import type { CatalogEntry } from "../catalog/registry";
 import { CatalogTypeIcon } from "./catalog-icons";
+import { MotionSlideMenu, type MotionSlideMenuItem } from "./motion-slide-menu";
 
 export function ComponentCatalog({
   items,
-  activeType,
   onPlace,
 }: {
   items: CatalogEntry[];
   activeType: string;
-  onPlace: (componentType: string) => void;
+  onPlace: (componentType: string, variant?: string) => void;
 }) {
-  const basics = items.filter((item) => item.kind === "basic");
-  const blocks = items.filter((item) => item.kind === "block");
+  const menuItems = React.useMemo(() => buildCatalogMenuItems(items, onPlace), [items, onPlace]);
   return (
-    <div data-testid="pt-design-catalog" style={{ padding: "8px 8px 16px", overflow: "auto", height: "100%" }}>
-      <Section title="Components">
-        {basics.map((item) => (
-          <CatalogRow
-            key={item.componentType}
-            item={item}
-            active={activeType === item.componentType}
-            onPlace={onPlace}
-          />
-        ))}
-      </Section>
-      <Section title="Blocks">
-        {blocks.map((item) => (
-          <CatalogRow
-            key={item.componentType}
-            item={item}
-            active={activeType === item.componentType}
-            onPlace={onPlace}
-          />
-        ))}
-      </Section>
+    <div data-testid="pt-design-catalog" style={{ height: "100%", minHeight: 0, padding: "4px 4px 12px" }}>
+      <MotionSlideMenu items={menuItems} rootLabel="Components" maxHeight="100%" />
     </div>
   );
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div style={{ marginBottom: 16 }}>
-      <div
-        style={{
-          fontSize: 11,
-          fontWeight: 600,
-          letterSpacing: "0.02em",
-          opacity: 0.65,
-          padding: "8px 8px 6px",
-        }}
-      >
-        {title}
-      </div>
-      {children}
-    </div>
-  );
+export function buildCatalogMenuItems(
+  items: CatalogEntry[],
+  onPlace: (componentType: string, variant?: string) => void,
+): MotionSlideMenuItem[] {
+  return items.map((item) => entryToItem(item, onPlace));
 }
 
-function CatalogRow({
-  item,
-  active,
-  onPlace,
-}: {
-  item: CatalogEntry;
-  active: boolean;
-  onPlace: (componentType: string) => void;
-}) {
-  return (
-    <button
-      type="button"
-      data-catalog-type={item.componentType}
-      onClick={() => onPlace(item.componentType)}
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: 8,
-        width: "100%",
-        textAlign: "left",
-        fontSize: 12,
-        lineHeight: "18px",
-        padding: "6px 8px",
-        marginBottom: 2,
-        border: "none",
-        borderRadius: 8,
-        color: "inherit",
-        background: active ? "var(--color-surface-high, rgba(127,127,127,0.16))" : "transparent",
-        cursor: "pointer",
-      }}
-    >
-      <span style={{ display: "inline-flex", width: 16, height: 16, flexShrink: 0, opacity: 0.9 }}>
-        <CatalogTypeIcon componentType={item.componentType} />
-      </span>
-      <span>{item.label}</span>
-    </button>
-  );
+function entryToItem(
+  item: CatalogEntry,
+  onPlace: (componentType: string, variant?: string) => void,
+): MotionSlideMenuItem {
+  const icon = <CatalogTypeIcon componentType={item.componentType} />;
+  const variants = visibleVariants(item.variants);
+  if (variants.length === 0) {
+    return {
+      id: item.componentType,
+      label: item.label,
+      icon,
+      onSelect: () => onPlace(item.componentType),
+    };
+  }
+  return {
+    id: item.componentType,
+    label: item.label,
+    icon,
+    children: [
+      {
+        id: `${item.componentType}::all`,
+        label: "All",
+        icon,
+        onSelect: () => onPlace(item.componentType),
+      },
+      ...variants.map((variant) => ({
+        id: `${item.componentType}::${variant}`,
+        label: catalogDisplayName(variant),
+        icon,
+        onSelect: () => onPlace(item.componentType, variant),
+      })),
+    ],
+  };
+}
+
+function visibleVariants(variants: string[]): string[] {
+  const meaningful = variants.filter((variant) => variant !== "default");
+  if (meaningful.length === 0) return [];
+  return variants;
 }

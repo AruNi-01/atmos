@@ -3,6 +3,7 @@ import { REQUIRED_BLOCKS, SHADCN_BASIC_IDS } from "./shadcn-list";
 import { catalogDisplayName } from "./labels";
 import { getComponentTemplate, listComponentTypes } from "./registry";
 import { catalogIconTypes } from "../embed/catalog-icons";
+import { buildCatalogMenuItems } from "../embed/ComponentCatalog";
 import { createPtDesignSession } from "../core/session";
 import { encodeDesignIR } from "../ir/encode";
 
@@ -94,6 +95,32 @@ describe("catalog completeness", () => {
     for (const id of [...SHADCN_BASIC_IDS, ...REQUIRED_BLOCKS]) {
       expect(iconTypes.has(id)).toBe(true);
     }
+  });
+
+  test("variant types open a second-level slide menu", () => {
+    const placed: Array<{ type: string; variant?: string }> = [];
+    const menu = buildCatalogMenuItems(listComponentTypes(), (type, variant) => {
+      placed.push({ type, variant });
+    });
+    const button = menu.find((item) => item.id === "button");
+    const input = menu.find((item) => item.id === "input");
+    const auth = menu.find((item) => item.id === "block.auth-form");
+    expect(button?.label).toBe("Button");
+    expect(button?.children?.map((child) => child.label)).toEqual([
+      "All",
+      "Default",
+      "Secondary",
+      "Outline",
+      "Ghost",
+      "Destructive",
+      "Link",
+    ]);
+    expect(input?.children).toBeUndefined();
+    expect(auth?.label).toBe("Auth Form");
+    expect(auth?.children).toBeUndefined();
+    const outline = button?.children?.find((child) => child.id === "button::outline");
+    outline?.onSelect?.(outline);
+    expect(placed).toEqual([{ type: "button", variant: "outline" }]);
   });
 
   test("placing attachment without variant yields image, uploading, and file", () => {

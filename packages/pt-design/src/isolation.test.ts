@@ -42,6 +42,7 @@ describe("package isolation", () => {
     expect(embed).not.toMatch(/viewBox="0 0 1200 800"/);
     const catalogPanel = readFileSync(join(srcRoot, "embed", "ComponentCatalog.tsx"), "utf8");
     expect(catalogPanel).toContain("data-testid=\"pt-design-catalog\"");
+    expect(catalogPanel).toContain("MotionSlideMenu");
     expect(catalogPanel).not.toContain("block.");
     const board = readFileSync(join(srcRoot, "embed", "ExcalidrawBoard.tsx"), "utf8");
     expect(board).toMatch(/from ["']@excalidraw\/excalidraw["']/);
