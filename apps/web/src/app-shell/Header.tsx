@@ -414,9 +414,9 @@ const Header: React.FC = () => {
         className={cn(
           "relative flex h-12 items-center justify-between px-4 select-none transition-[padding] duration-300 ease-out",
           isDesktopDragEnabled && "desktop-drag-region",
-          // Traffic lights sit over the full-height left sidebar when expanded.
-          // Only reserve macOS traffic-light inset when the sidebar is collapsed
-          // (header then starts at the window's left edge under the lights).
+          // Expanded sidebar owns the traffic-light row (h-12 spacer); header
+          // sits in the main column and needs no left inset. Only pad when the
+          // sidebar is collapsed and the header starts at the window's left edge.
           isDesktopDragEnabled &&
             !isDesktopFullscreen &&
             isLeftCollapsed &&

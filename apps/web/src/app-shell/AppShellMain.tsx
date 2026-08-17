@@ -103,8 +103,9 @@ export function AppShellMain() {
       baseClassName="min-h-0 flex-1"
       shiftBase
       base={
-        // Left sidebar spans full viewport height; header + center + footer
-        // live only in the main column to the right of the sidebar.
+        // Left sidebar spans full viewport height (macOS traffic-light row is
+        // reserved inside LeftSidebar). Header + center + footer live only in
+        // the main column to the right of the sidebar.
         <PanelLayout
           leftSidebar={<LeftSidebar />}
           centerStage={

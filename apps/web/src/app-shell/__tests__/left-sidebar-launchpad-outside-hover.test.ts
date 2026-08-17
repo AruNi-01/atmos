@@ -25,7 +25,7 @@ describe("left sidebar outside launchpad hover", () => {
 
   it("uses instant full-accent hover like settings, not a delayed color fade", () => {
     const rowClass = launchpad.slice(
-      launchpad.indexOf('// px-3 pairs with nav px-2'),
+      launchpad.indexOf("/** Simple icon + name row"),
       launchpad.indexOf("const hoverHandlers"),
     );
     expect(rowClass).toContain("hover:bg-sidebar-accent");
@@ -37,12 +37,33 @@ describe("left sidebar outside launchpad hover", () => {
     expect(launchpad).toContain("RocketIcon");
     expect(launchpad).toContain("rocketRef.current?.startAnimation");
     const headerClass = launchpad.slice(
-      launchpad.indexOf("flex h-10 cursor-pointer"),
+      launchpad.indexOf("flex h-9 w-full cursor-pointer"),
       launchpad.indexOf("onClick={() => onExpandedChange"),
     );
     expect(headerClass).toContain("hover:bg-sidebar-accent");
     expect(headerClass).not.toContain("transition-colors");
     expect(headerClass).not.toContain("hover:bg-sidebar-accent/50");
+  });
+
+  it("uses a rounded pill/card shell with animated expand", () => {
+    expect(launchpad).toContain("rounded-[min(1.5rem,50%)]");
+    expect(launchpad).toContain("rounded-xl");
+    expect(launchpad).toContain("grid-rows-[1fr]");
+    expect(launchpad).toContain("grid-rows-[0fr]");
+    expect(launchpad).toContain("transition-[grid-template-rows]");
+    expect(launchpad).toContain("duration-300");
+  });
+
+  it("long-press sorts grid and list without a drag handle or grab cursor", () => {
+    expect(launchpad).toContain("delay: 400");
+    expect(launchpad).toContain("rectSortingStrategy");
+    expect(launchpad).toContain("verticalListSortingStrategy");
+    expect(launchpad).toContain("cursor-default");
+    expect(launchpad).toContain("pointerWithin");
+    expect(launchpad).not.toContain("cursor-grab");
+    expect(launchpad).not.toContain("cursor-grabbing");
+    expect(launchpad).not.toContain("GripVertical");
+    expect(launchpad).not.toContain("DragOverlay");
   });
 });
 
