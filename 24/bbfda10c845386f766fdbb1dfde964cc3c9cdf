@@ -1,0 +1,21 @@
+packages/pt-design/src/embed/LibraryOverlay.tsx
+  s_77c01b64ed3c3c::t_f71f4193852039 4-5,7-10,13-21,23-30,32-34,36-62,64-79,81,83-159,161
+packages/pt-design/src/host/adapters.ts
+  s_77c01b64ed3c3c::t_67ce8952b792e2 9-19
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "24bbfda10c845386f766fdbb1dfde964cc3c9cdf",
+  "prompts": {},
+  "sessions": {
+    "s_77c01b64ed3c3c": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "03594e9e-0cc7-4561-8956-2ff5697dd06a",
+        "model": "grok-4.6"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
