@@ -345,26 +345,39 @@ export function BreakoutErrorPage({
     event.stopPropagation();
   }, []);
 
-  const action =
-    kind === "server" && onRetry ? (
+  const homeButton =
+    kind === "server" ? (
       <Button
-        type="button"
-        onClick={onRetry}
-        onPointerDown={stopActionPointer}
-        variant="secondary"
-        className="h-11 rounded-full bg-[#9b9b9b] px-7 text-[18px] font-normal uppercase text-white shadow-none transition-colors group-hover:bg-[#111112] group-hover:text-[#fbfbfa] hover:bg-[#111112] dark:bg-[#5b5b62] dark:text-[#09090b] dark:group-hover:bg-[#f5f5f7] dark:group-hover:text-[#09090b] dark:hover:bg-[#f5f5f7]"
+        variant="ghost"
+        data-error-action="home"
+        // Native anchor, not next/link: a full document load leaves the
+        // broken route even if reset() or the client router is wedged.
+        render={<a href="/" onPointerDown={stopActionPointer} />}
       >
-        {t("server.retry")}
+        {t("server.home")}
       </Button>
     ) : (
       <Button
-        variant="secondary"
-        className="h-11 rounded-full bg-[#9b9b9b] px-7 text-[18px] font-normal uppercase text-white shadow-none transition-colors group-hover:bg-[#111112] group-hover:text-[#fbfbfa] hover:bg-[#111112] dark:bg-[#5b5b62] dark:text-[#09090b] dark:group-hover:bg-[#f5f5f7] dark:group-hover:text-[#09090b] dark:hover:bg-[#f5f5f7]"
+        variant="default"
+        data-error-action="home"
         render={<Link href="/" onPointerDown={stopActionPointer} />}
       >
         {t("notFound.home")}
       </Button>
     );
+
+  const retryButton =
+    kind === "server" && onRetry ? (
+      <Button
+        type="button"
+        onClick={onRetry}
+        onPointerDown={stopActionPointer}
+        variant="default"
+        data-error-action="retry"
+      >
+        {t("server.retry")}
+      </Button>
+    ) : null;
 
   return (
     <main
@@ -396,7 +409,10 @@ export function BreakoutErrorPage({
             {errorMessage}
           </p>
         ) : null}
-        <div className="mt-9">{action}</div>
+        <div className="mt-9 flex flex-wrap items-center justify-center gap-3">
+          {retryButton}
+          {homeButton}
+        </div>
       </section>
     </main>
   );
