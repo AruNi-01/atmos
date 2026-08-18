@@ -63,7 +63,17 @@ pub async fn get_computer_status(
 pub async fn get_runtime_info(
     State(state): State<AppState>,
 ) -> ApiResult<Json<ApiResponse<Value>>> {
-    let manifest = read_runtime_manifest().ok().flatten();
+    let manifest = match read_runtime_manifest() {
+        Ok(value) => value,
+        Err(err) => {
+            tracing::warn!(
+                target: "atmos_runtime",
+                error = %err,
+                "failed to read runtime manifest"
+            );
+            None
+        }
+    };
     let identity = read_server_identity().ok().flatten();
     let relay_connected = state.relay_supervisor.is_upstream_connected().await;
 

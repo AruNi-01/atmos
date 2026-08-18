@@ -34,7 +34,7 @@ One `apps/api` process per machine is the default Atmos Server. Desktop, CLI, an
 |------|-------|
 | Runtime manifest and relay identity helpers | `crates/runtime-manager` |
 | Local API bind and manifest write | `apps/api` |
-| Desktop ensure/start integration | `apps/desktop` |
+| Desktop ensure/start integration | `apps/desktop-electron` |
 | CLI runtime commands | `apps/cli` |
 | Relay Worker, D1, Durable Object routing | `packages/relay` |
 | Product-level Atmos Computer contract | `specs/APP/APP-016_atmos-computer/` |

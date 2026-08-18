@@ -30,7 +30,7 @@ crates/runtime-manager/src/
 
 ### `runtime_manifest.json`
 
-- Written by **`apps/api`** on bind (`source: "api"`) or **`supervisor`** after `ensure` (`source: "runtime-manager"`).
+- Written by **`apps/api`** on bind (`source: "api"`), **`supervisor`** after `ensure` (`source: "runtime-manager"`), or **Desktop Electron** after it starts/reuses the Server (`source: "desktop-electron"`).
 - Fields: `api.host`, `api.port`, `api.url`, `api.ws_url`, optional `pid`, `started_at`, `source`.
 - **No token** — loopback discovery only. Optional API hardening via `ATMOS_LOCAL_TOKEN` env (not in manifest).
 

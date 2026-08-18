@@ -342,22 +342,51 @@ function formatPortOccupiedWithoutUi(
     .join("\n");
 }
 
+/** Same schema as `runtime_manager::RuntimeManifest` (no token). */
+export type RuntimeManifestPayload = {
+  version: 1;
+  source: string;
+  pid: number | null;
+  started_at: string;
+  api: {
+    host: string;
+    port: number;
+    url: string;
+    ws_url: string;
+  };
+};
+
+export function clientLoopbackHost(host: string): string {
+  return host === "0.0.0.0" || host === "::" ? "127.0.0.1" : host;
+}
+
+export function buildRuntimeManifest(
+  host: string,
+  port: number,
+  pid: number | null,
+  options?: { startedAt?: string; source?: string },
+): RuntimeManifestPayload {
+  const clientHost = clientLoopbackHost(host);
+  return {
+    version: 1,
+    source: options?.source ?? "desktop-electron",
+    pid,
+    started_at: options?.startedAt ?? new Date().toISOString(),
+    api: {
+      host: clientHost,
+      port,
+      url: `http://${clientHost}:${port}`,
+      ws_url: `ws://${clientHost}:${port}`,
+    },
+  };
+}
+
 function writeManifest(host: string, port: number, pid: number | null) {
   const path = manifestPath();
   mkdirSync(dirname(path), { recursive: true });
   writeFileSync(
     path,
-    `${JSON.stringify(
-      {
-        version: 1,
-        source: "desktop-electron",
-        pid,
-        api: { host, port, url: `http://${host}:${port}` },
-        updated_at: new Date().toISOString(),
-      },
-      null,
-      2,
-    )}\n`,
+    `${JSON.stringify(buildRuntimeManifest(host, port, pid), null, 2)}\n`,
     "utf8",
   );
 }
@@ -474,6 +503,8 @@ export async function ensureAtmosServer(
     if (ui.ok) {
       // Reuse only when product HTML is actually served (bundled static / Next export).
       ownedServerPid = null;
+      const existingPid = listPidsListeningOnPort(port)[0] ?? null;
+      writeManifest(host, port, existingPid);
       ensureLog(
         `reusing existing Atmos Server at http://${host}:${port} (UI OK)`,
       );
