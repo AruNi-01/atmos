@@ -70,8 +70,44 @@ export function isGithubCenterTabKind(kind: CenterTabKind): boolean {
 }
 
 /**
+ * Default strip membership order used only when the user has never dragged
+ * (or when seeding a first saved order). Type grouping here is a fallback,
+ * not the add-tab rule — new tabs always go to the end of the strip.
+ */
+export function collectDefaultCenterStripTabIds(input: {
+  terminalTabIds: readonly string[];
+  projectWikiVisible?: boolean;
+  codeReviewVisible?: boolean;
+  simulatorVisible?: boolean;
+  gitHistoryVisible?: boolean;
+  changesVisible?: boolean;
+  reviewVisible?: boolean;
+  runVisible?: boolean;
+  githubHubVisible?: boolean;
+  filesVisible?: boolean;
+  ptDesignVisible?: boolean;
+  surfaceTabIds?: readonly string[];
+}): string[] {
+  const ids: string[] = [...input.terminalTabIds];
+  if (input.projectWikiVisible) ids.push("project-wiki");
+  if (input.codeReviewVisible) ids.push("code-review");
+  if (input.simulatorVisible) ids.push("simulator");
+  if (input.gitHistoryVisible) ids.push("git-history");
+  if (input.changesVisible) ids.push("changes");
+  if (input.reviewVisible) ids.push("review");
+  if (input.runVisible) ids.push("run");
+  if (input.githubHubVisible) ids.push("github");
+  if (input.filesVisible) ids.push("files");
+  if (input.ptDesignVisible) ids.push("pt-design");
+  if (input.surfaceTabIds) ids.push(...input.surfaceTabIds);
+  return ids;
+}
+
+/**
  * Apply a saved strip order. Known ids keep relative saved positions; new tabs
  * append in the order they appear in `tabs`.
+ *
+ * Independent of the grouped-tab popover order.
  */
 export function orderCenterTabsBySavedOrder(
   tabs: CenterTabDescriptor[],
@@ -90,6 +126,25 @@ export function orderCenterTabsBySavedOrder(
     if (remaining.has(tab.id)) ordered.push(tab);
   }
   return ordered;
+}
+
+/**
+ * Put a newly added center strip tab at the end.
+ * Already-open tabs stay put. If there is no saved drag order yet, seed from
+ * the current visual strip so the new tab is not inserted into a type group.
+ */
+export function appendCenterTabToStripOrder(
+  savedOrder: string[] | undefined,
+  currentVisualIds: readonly string[],
+  newTabId: string,
+): string[] {
+  if (currentVisualIds.includes(newTabId)) {
+    return savedOrder?.length ? [...savedOrder] : [...currentVisualIds];
+  }
+  const base = savedOrder?.length
+    ? savedOrder.filter((id) => id !== newTabId)
+    : currentVisualIds.filter((id) => id !== newTabId);
+  return [...base, newTabId];
 }
 
 /**

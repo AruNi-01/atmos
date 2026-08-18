@@ -25,7 +25,7 @@ function LeftSidebarSettingsButton() {
       type="button"
       aria-label={label}
       onClick={() => openSettings()}
-      className="group relative inline-flex h-8 items-center gap-1 rounded-lg bg-transparent px-2 text-[11px] text-muted-foreground/90 transition-colors hover:text-sidebar-foreground"
+      className="group relative inline-flex h-8 items-center gap-1 rounded-lg bg-transparent pl-0.5 pr-2 text-[11px] text-muted-foreground/90 transition-colors hover:text-sidebar-foreground"
     >
       <span className="inline-flex size-5 items-center justify-center rounded-md text-muted-foreground transition-colors group-hover:text-sidebar-foreground">
         <Settings className="size-3.5" />
@@ -71,7 +71,7 @@ export function LeftSidebarFooter({
             </span>
           </button>
         </div>
-        <div className="flex items-center gap-0">
+        <div className="flex items-center">
           <WorkspaceKanbanFilterMenu
             projects={projects}
             availableLabels={availableLabels}
@@ -79,6 +79,7 @@ export function LeftSidebarFooter({
             filters={filters}
             onFiltersChange={onFiltersChange}
             triggerVariant="icon"
+            triggerClassName="pr-0.5"
             align="end"
             side="top"
             showGrouping

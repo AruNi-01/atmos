@@ -89,7 +89,11 @@ import type {
   CenterTabContextMenuState,
   CenterTabDescriptor,
 } from "@/app-shell/center-stage-tab-model";
-import { isFileLikeCenterTabKind } from "@/app-shell/center-stage-tab-model";
+import {
+  appendCenterTabToStripOrder,
+  collectDefaultCenterStripTabIds,
+  isFileLikeCenterTabKind,
+} from "@/app-shell/center-stage-tab-model";
 import {
   buildOpenCenterTabValues,
   pickNextCenterTabFromActivationStack,
@@ -686,6 +690,58 @@ const CenterStage: React.FC = () => {
   const openFiles = getOpenFiles(effectiveContextId || undefined);
   const activeFilePath = getActiveFilePath(effectiveContextId || undefined);
 
+  // Visual strip membership in the default (type-grouped) order. Used only to
+  // seed a first saved order so newly added tabs can append at the end.
+  // Group-popover order is stored separately and must not drive this list.
+  const defaultStripTabIds = React.useMemo(() => {
+    const surfaceTabIds = [
+      ...openFiles.map((file) => ({ id: file.path, openedAt: file.lastOpenedAt })),
+      ...githubTabs.map((tab) => ({ id: tab.value, openedAt: tab.openedAt })),
+      ...browserTabs.map((tab) => ({ id: tab.value, openedAt: tab.openedAt })),
+    ]
+      .sort((left, right) => left.openedAt - right.openedAt)
+      .map((item) => item.id);
+
+    return collectDefaultCenterStripTabIds({
+      terminalTabIds: visibleTerminalTabs.map((tab) => tab.id),
+      projectWikiVisible: projectWikiTabVisible,
+      codeReviewVisible: codeReviewTabVisible,
+      simulatorVisible: simulatorTabVisible,
+      gitHistoryVisible: gitHistoryTabVisible,
+      changesVisible: changesTabVisible,
+      reviewVisible: reviewTabVisible,
+      runVisible: runTabVisible,
+      githubHubVisible: githubHubTabVisible,
+      filesVisible: filesTabVisible,
+      ptDesignVisible: ptDesignTabVisible,
+      surfaceTabIds,
+    });
+  }, [
+    browserTabs,
+    changesTabVisible,
+    codeReviewTabVisible,
+    filesTabVisible,
+    gitHistoryTabVisible,
+    githubHubTabVisible,
+    githubTabs,
+    openFiles,
+    projectWikiTabVisible,
+    ptDesignTabVisible,
+    reviewTabVisible,
+    runTabVisible,
+    simulatorTabVisible,
+    visibleTerminalTabs,
+  ]);
+
+  const appendTabToStripOrder = React.useCallback(
+    (tabId: string) => {
+      handleTabStripOrderChange(
+        appendCenterTabToStripOrder(tabStripOrder, defaultStripTabIds, tabId),
+      );
+    },
+    [defaultStripTabIds, handleTabStripOrderChange, tabStripOrder],
+  );
+
   // activeValue 优先使用打开的文件路径，否则使用当前 center tab
   const activeValue = activeFilePath || resolvedTab;
   const activeValueRef = React.useRef(activeValue);
@@ -868,7 +924,8 @@ const CenterStage: React.FC = () => {
     void setUrlParams({ tab: tab.value, wikiPage: null });
     // Attach exclusively to the focused multi-pane slot (not via URL effect).
     useCenterPaneLayoutStore.getState().openTab(effectiveContextId, tab.value);
-  }, [effectiveContextId, openBrowserCenterTab, setActiveFile, setUrlParams]);
+    appendTabToStripOrder(tab.value);
+  }, [appendTabToStripOrder, effectiveContextId, openBrowserCenterTab, setActiveFile, setUrlParams]);
 
   const handleCreateSimulatorCenterTab = React.useCallback(() => {
     if (!effectiveContextId) return;
@@ -876,7 +933,8 @@ const CenterStage: React.FC = () => {
     setActiveFile(null, effectiveContextId);
     void setUrlParams({ tab: SIMULATOR_TAB_VALUE, wikiPage: null });
     useCenterPaneLayoutStore.getState().openTab(effectiveContextId, SIMULATOR_TAB_VALUE);
-  }, [effectiveContextId, openSimulatorTab, setActiveFile, setUrlParams]);
+    appendTabToStripOrder(SIMULATOR_TAB_VALUE);
+  }, [appendTabToStripOrder, effectiveContextId, openSimulatorTab, setActiveFile, setUrlParams]);
 
   const handleCloseSimulatorTab = React.useCallback(() => {
     if (!effectiveContextId) return;
@@ -898,7 +956,8 @@ const CenterStage: React.FC = () => {
     void setUrlParams({ tab, wikiPage: null });
     // Exclusive attach so Files/Changes/etc. land on the focused pane only.
     useCenterPaneLayoutStore.getState().openTab(effectiveContextId, tab);
-  }, [effectiveContextId, openToolTab, setActiveFile, setUrlParams]);
+    appendTabToStripOrder(tab);
+  }, [appendTabToStripOrder, effectiveContextId, openToolTab, setActiveFile, setUrlParams]);
 
   const handleCloseToolTab = React.useCallback((tab: CenterToolTabValue) => {
     if (!effectiveContextId) return;
@@ -1320,6 +1379,7 @@ const CenterStage: React.FC = () => {
       const nextTab = createTerminalTab(effectiveContextId, {
         title: request.terminalTabTitle,
       });
+      appendTabToStripOrder(nextTab.id);
       setActiveTerminalTab(effectiveContextId, nextTab.id);
       setUrlParams({ tab: nextTab.id, wikiPage: null });
 
@@ -1350,6 +1410,7 @@ const CenterStage: React.FC = () => {
     },
     [
       activeFilePath,
+      appendTabToStripOrder,
       createTerminalTab,
       currentView,
       effectiveContextId,
@@ -1371,6 +1432,7 @@ const CenterStage: React.FC = () => {
   const handleCreateTerminalCenterTab = React.useCallback(() => {
     if (!effectiveContextId) return;
     const nextTab = createTerminalTab(effectiveContextId);
+    appendTabToStripOrder(nextTab.id);
     setActiveTerminalTab(effectiveContextId, nextTab.id);
     setUrlParams({ tab: nextTab.id, wikiPage: null });
     setActiveFile(null, effectiveContextId);
@@ -1400,6 +1462,7 @@ const CenterStage: React.FC = () => {
       });
     })();
   }, [
+    appendTabToStripOrder,
     effectiveContextId,
     createTerminalTab,
     runWhenTerminalGridReady,

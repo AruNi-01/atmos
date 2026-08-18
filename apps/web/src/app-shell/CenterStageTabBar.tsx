@@ -278,8 +278,10 @@ export function CenterStageTabBar({
     return items.sort((left, right) => left.openedAt - right.openedAt);
   }, [browserTabs, githubTabs, openFiles]);
 
-  // Base visual order: terminals → special terminals → surface tabs by open time.
-  // User drag order is applied on top via tabStripOrder.
+  // Fallback visual order when the user has never dragged the strip:
+  // terminals → special terminals → surface tabs by open time.
+  // Newly added tabs are appended via tabStripOrder and are independent
+  // of the grouped-tab popover order.
   const baseOrderedDescriptors = React.useMemo<CenterTabDescriptor[]>(() => {
     const descriptors: CenterTabDescriptor[] = [];
 

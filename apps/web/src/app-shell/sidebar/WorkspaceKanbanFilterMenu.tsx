@@ -119,6 +119,7 @@ type WorkspaceKanbanFilterMenuProps = {
   showGrouping?: boolean;
   groupingMode?: SidebarGroupingMode;
   onGroupingModeChange?: (mode: SidebarGroupingMode) => void;
+  triggerClassName?: string;
 };
 
 /** Icons aligned with SIDEBAR_GROUPING_OPTIONS for Group By + Filter. */
@@ -139,6 +140,7 @@ export function WorkspaceKanbanFilterMenu({
   showGrouping = false,
   groupingMode = "project",
   onGroupingModeChange,
+  triggerClassName,
 }: WorkspaceKanbanFilterMenuProps) {
   const t = useTranslations("appShell.task");
   const groupsT = useTranslations("appShell.groups");
@@ -226,7 +228,10 @@ export function WorkspaceKanbanFilterMenu({
         {triggerVariant === "icon" ? (
           <button
             type="button"
-            className="group relative inline-flex h-8 items-center gap-1 rounded-lg bg-transparent px-2 text-[11px] text-muted-foreground/90 transition-colors hover:text-sidebar-foreground"
+            className={cn(
+              "group relative inline-flex h-8 items-center gap-1 rounded-lg bg-transparent px-2 text-[11px] text-muted-foreground/90 transition-colors hover:text-sidebar-foreground",
+              triggerClassName,
+            )}
           >
             {activeFilterCount > 0 ? (
               <span className="absolute right-0 top-0 inline-flex size-4 items-center justify-center rounded-full bg-primary text-[10px] font-semibold text-primary-foreground">

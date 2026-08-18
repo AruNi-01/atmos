@@ -3,7 +3,6 @@
 import React from "react";
 import { useTranslations } from "next-intl";
 import {
-  Button,
   CSS,
   DndContext,
   Popover,
@@ -248,6 +247,17 @@ export function SortableTabGroupItem({
     if (!isLabelTruncated) setTooltipOpen(false);
   }, [isLabelTruncated]);
 
+  // Only while actively dragging: force grabbing cursor globally so hover
+  // over neighboring pointer items does not snap back to the default cursor.
+  React.useEffect(() => {
+    if (!isDragging) return;
+    const previous = document.body.style.cursor;
+    document.body.style.cursor = "grabbing";
+    return () => {
+      document.body.style.cursor = previous;
+    };
+  }, [isDragging]);
+
   return (
     <Tooltip
       open={isLabelTruncated ? tooltipOpen : false}
@@ -269,10 +279,10 @@ export function SortableTabGroupItem({
             transition,
           }}
           className={cn(
-            "group group/tab-item relative flex h-10 w-full min-w-0 cursor-grab items-center gap-1 rounded-md pl-2 pr-2 text-left text-muted-foreground active:cursor-grabbing",
+            "group group/tab-item relative flex h-10 w-full min-w-0 cursor-pointer items-center gap-1 rounded-md pl-2 pr-2 text-left text-muted-foreground",
             "hover:bg-accent hover:text-accent-foreground",
             isActive && "bg-accent text-accent-foreground",
-            isDragging && "z-10 opacity-70 shadow-md",
+            isDragging && "z-10 cursor-grabbing opacity-70 shadow-md",
           )}
           {...attributes}
           {...listeners}
@@ -330,13 +340,13 @@ export function CenterStageTabGroupPopover({
   return (
     <Popover open={open} onOpenChange={onOpenChange}>
       <PopoverTrigger asChild>
-        <Button
-          variant="ghost"
-          className="h-7 w-7 min-h-0 shrink-0 rounded-full border-0 px-0 text-muted-foreground hover:bg-active hover:text-foreground"
+        <button
+          type="button"
+          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-active hover:text-foreground data-[state=open]:bg-active data-[state=open]:text-foreground"
           aria-label={t("centerStageTabs.openTabGroups")}
         >
           <List className="size-4" />
-        </Button>
+        </button>
       </PopoverTrigger>
       <PopoverContent
         align="end"

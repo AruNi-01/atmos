@@ -41,6 +41,10 @@ describe("center pane tab isolation", () => {
     expect(stage).toContain("focusCenterPane(renderContextId, opts.paneId)");
     expect(stage).toContain("handleCreateTerminalCenterTab={() =>");
     expect(stage).toContain("runOnThisPane(handleCreateTerminalCenterTab)");
+    expect(stage).toContain("appendTabToStripOrder(nextTab.id)");
+    expect(stage).toContain("appendTabToStripOrder(tab.value)");
+    expect(stage).toContain("appendTabToStripOrder(SIMULATOR_TAB_VALUE)");
+    expect(stage).toContain("appendTabToStripOrder(tab)");
     expect(stage).toContain("changeTab(tab.value)");
   });
 
