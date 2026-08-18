@@ -1,14 +1,18 @@
 import { describe, expect, test } from "bun:test";
 import { Database } from "bun:sqlite";
+import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/bun-sqlite";
 import * as schema from "../src/db/schema";
-import { user } from "../src/db/schema";
+import { usageLeaderboards, user } from "../src/db/schema";
 import type { HubDb } from "../src/db/client";
 import {
   extractShareTotals,
   getUsageLeaderboards,
+  LEADERBOARD_CACHE_ID,
   LEADERBOARD_TOP_N,
+  LEADERBOARD_WRITE_REFRESH_MIN_MS,
   refreshUsageLeaderboards,
+  shouldRefreshLeaderboardCache,
 } from "../src/usage-leaderboard";
 import { putUsagePage } from "../src/usage-page";
 
@@ -85,6 +89,37 @@ function snapshot(tokens: number, cost?: number) {
     by_day: [],
   };
 }
+
+describe("shouldRefreshLeaderboardCache", () => {
+  const now = 1_700_000_000_000;
+
+  test("rebuilds when the cache is missing or older than 5 minutes", () => {
+    expect(shouldRefreshLeaderboardCache(null, now)).toBe(true);
+    expect(shouldRefreshLeaderboardCache(0, now)).toBe(true);
+    expect(
+      shouldRefreshLeaderboardCache(
+        now - LEADERBOARD_WRITE_REFRESH_MIN_MS,
+        now,
+      ),
+    ).toBe(true);
+    expect(
+      shouldRefreshLeaderboardCache(
+        now - LEADERBOARD_WRITE_REFRESH_MIN_MS - 1,
+        now,
+      ),
+    ).toBe(true);
+  });
+
+  test("skips when the cache is younger than 5 minutes", () => {
+    expect(shouldRefreshLeaderboardCache(now, now)).toBe(false);
+    expect(
+      shouldRefreshLeaderboardCache(
+        now - LEADERBOARD_WRITE_REFRESH_MIN_MS + 1,
+        now,
+      ),
+    ).toBe(false);
+  });
+});
 
 describe("extractShareTotals", () => {
   test("reads tokens and optional cost", () => {
@@ -187,5 +222,67 @@ describe("refreshUsageLeaderboards", () => {
     expect(board.tokens.viewer?.rank).toBe(35);
     expect(board.tokens.viewer?.handle).toBe("user34");
     expect(board.tokens.entries.some((e) => e.handle === "user34")).toBe(false);
+  });
+
+  test("write-path updates skip a rebuild inside the 5 minute window", async () => {
+    const db = createTestDb();
+    await seedUser(db, "a");
+    await seedUser(db, "b");
+    await putUsagePage(
+      db,
+      { userId: "a" },
+      { handle: "alice", visibility: "public", snapshot: snapshot(100) },
+    );
+    await putUsagePage(
+      db,
+      { userId: "b" },
+      { handle: "bob", visibility: "public", snapshot: snapshot(200) },
+    );
+
+    let board = await getUsageLeaderboards(db);
+    expect(board.tokens.entries.map((e) => e.handle)).toEqual(["alice"]);
+    expect(board.tokens.entries[0]?.value).toBe(100);
+
+    await putUsagePage(
+      db,
+      { userId: "a" },
+      { visibility: "public", snapshot: snapshot(400) },
+    );
+    board = await getUsageLeaderboards(db);
+    expect(board.tokens.entries.map((e) => e.handle)).toEqual(["alice"]);
+    expect(board.tokens.entries[0]?.value).toBe(100);
+  });
+
+  test("write-path updates rebuild after the cache is older than 5 minutes", async () => {
+    const db = createTestDb();
+    await seedUser(db, "a");
+    await seedUser(db, "b");
+    await putUsagePage(
+      db,
+      { userId: "a" },
+      { handle: "alice", visibility: "public", snapshot: snapshot(100) },
+    );
+    await putUsagePage(
+      db,
+      { userId: "b" },
+      { handle: "bob", visibility: "public", snapshot: snapshot(200) },
+    );
+
+    await db
+      .update(usageLeaderboards)
+      .set({
+        updatedAt: new Date(Date.now() - LEADERBOARD_WRITE_REFRESH_MIN_MS - 1),
+      })
+      .where(eq(usageLeaderboards.boardId, LEADERBOARD_CACHE_ID));
+
+    await putUsagePage(
+      db,
+      { userId: "a" },
+      { visibility: "public", snapshot: snapshot(400) },
+    );
+
+    const board = await getUsageLeaderboards(db);
+    expect(board.tokens.entries.map((e) => e.handle)).toEqual(["alice", "bob"]);
+    expect(board.tokens.entries[0]?.value).toBe(400);
   });
 });

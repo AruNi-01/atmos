@@ -1,8 +1,9 @@
 "use client";
 
 import * as React from "react";
+import { GitHubIcon } from "@daveyplate/better-auth-ui";
 import { Trophy } from "lucide-react";
-import { GithubIcon, XIcon } from "@workspace/ui";
+import { XIcon } from "@workspace/ui";
 import { useLocale, useTranslations } from "next-intl";
 
 import { GithubUserHoverCard } from "@/features/github/components/GithubUserHoverCard";
@@ -70,17 +71,7 @@ export function PublicTokPage({
       <div className="mx-auto flex w-full max-w-[1100px] flex-col px-4 pt-5 sm:px-5">
         <header className="flex items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-2.5">
-            {githubUsername ? (
-              <GithubUserHoverCard
-                username={githubUsername}
-                avatarUrl={avatarUrl}
-                source="public"
-              >
-                {avatar}
-              </GithubUserHoverCard>
-            ) : (
-              avatar
-            )}
+            {avatar}
             <span className="truncate text-sm font-medium">@{handle}</span>
           </div>
           <div className="flex shrink-0 items-center gap-3">
@@ -107,7 +98,7 @@ export function PublicTokPage({
                   rel="noreferrer"
                   className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
                 >
-                  <GithubIcon size={14} />
+                  <GitHubIcon className="size-3.5 shrink-0" />
                   <span>@{githubUsername}</span>
                 </a>
               </GithubUserHoverCard>

@@ -279,17 +279,11 @@ function PublishBody({
 
   const claimed = Boolean(page?.handle_claimed && page.handle);
   const live = page?.visibility === "public" || page?.visibility === "unlisted";
-  const dirty =
-    x.trim() !== (page?.x_username ?? "") ||
-    github.trim() !== (page?.github_username ?? "") ||
-    visibility !== (page?.visibility === "public" ? "public" : "unlisted") ||
-    (!claimed && handle.trim().length > 0);
   const updateDisabled =
     disabled ||
     busy ||
     !overview ||
-    (!claimed && handle.trim().length < 3) ||
-    (live && !dirty);
+    (!claimed && handle.trim().length < 3);
   const handleSlug = page?.handle || handle.trim().toLowerCase();
   const pageUrl = !handleSlug
     ? null
@@ -416,7 +410,7 @@ function PublishBody({
             <Button
               type="button"
               size="sm"
-              variant={live && updateDisabled ? "secondary" : "ghost"}
+              variant="ghost"
               className="h-8"
               disabled={busy || !live}
               onClick={() => void turnOff()}

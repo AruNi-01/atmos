@@ -5,7 +5,10 @@
 import { eq } from "drizzle-orm";
 import type { HubDb } from "./db/client";
 import { userProfiles } from "./db/schema";
-import { extractShareTotals } from "./usage-leaderboard";
+import {
+  extractShareTotals,
+  refreshUsageLeaderboardsIfStale,
+} from "./usage-leaderboard";
 
 export const USAGE_PAGE_PUBLIC_ORIGIN = "https://atmos.land";
 export const MAX_SNAPSHOT_BYTES = 256 * 1024;
@@ -349,6 +352,14 @@ export async function getOwnerUsagePage(db: HubDb, userId: string) {
   };
 }
 
+async function rebuildPublicLeaderboard(db: HubDb): Promise<void> {
+  try {
+    await refreshUsageLeaderboardsIfStale(db);
+  } catch (error) {
+    console.error("[hub] usage leaderboard refresh failed", error);
+  }
+}
+
 export async function putUsagePage(
   db: HubDb,
   owner: UsagePageOwner,
@@ -428,6 +439,7 @@ export async function putUsagePage(
       }
       throw error;
     }
+    await rebuildPublicLeaderboard(db);
     return {
       ok: true,
       handle,
@@ -504,6 +516,7 @@ export async function putUsagePage(
     throw error;
   }
 
+  await rebuildPublicLeaderboard(db);
   return {
     ok: true,
     handle,
@@ -534,6 +547,7 @@ export async function deleteUsagePage(db: HubDb, userId: string): Promise<boolea
       updatedAt: new Date(),
     })
     .where(eq(userProfiles.userId, userId));
+  await rebuildPublicLeaderboard(db);
   return true;
 }
 

@@ -1,6 +1,7 @@
 /**
  * Public Token Usage leaderboards (tokens + cost).
- * Totals are written on publish; the visible top-30 cache refreshes every 2h.
+ * Totals are written on publish. Write-path rebuilds skip if the cache is
+ * younger than 5 minutes; the hourly cron always rebuilds.
  */
 import { and, eq, isNotNull } from "drizzle-orm";
 import type { HubDb } from "./db/client";
@@ -8,6 +9,31 @@ import { usageLeaderboards, userProfiles } from "./db/schema";
 
 export const LEADERBOARD_TOP_N = 30;
 export const LEADERBOARD_CACHE_ID = "public_v1";
+export const LEADERBOARD_WRITE_REFRESH_MIN_MS = 5 * 60 * 1000;
+
+export function shouldRefreshLeaderboardCache(
+  updatedAtMs: number | null | undefined,
+  nowMs: number,
+  minIntervalMs = LEADERBOARD_WRITE_REFRESH_MIN_MS,
+): boolean {
+  if (
+    updatedAtMs == null ||
+    !Number.isFinite(updatedAtMs) ||
+    updatedAtMs <= 0
+  ) {
+    return true;
+  }
+  return nowMs - updatedAtMs >= minIntervalMs;
+}
+
+function cacheUpdatedAtMs(value: unknown): number | null {
+  if (value instanceof Date) {
+    const ms = value.getTime();
+    return Number.isFinite(ms) ? ms : null;
+  }
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  return null;
+}
 
 export type LeaderboardEntry = {
   rank: number;
@@ -156,6 +182,23 @@ export async function refreshUsageLeaderboards(db: HubDb): Promise<LeaderboardPa
   }
 
   return payload;
+}
+
+/** Rebuild only when the materialized cache is missing or older than 5 minutes. */
+export async function refreshUsageLeaderboardsIfStale(
+  db: HubDb,
+  nowMs = Date.now(),
+): Promise<"refreshed" | "skipped"> {
+  const existing = await db
+    .select({ updatedAt: usageLeaderboards.updatedAt })
+    .from(usageLeaderboards)
+    .where(eq(usageLeaderboards.boardId, LEADERBOARD_CACHE_ID))
+    .limit(1);
+  if (!shouldRefreshLeaderboardCache(cacheUpdatedAtMs(existing[0]?.updatedAt), nowMs)) {
+    return "skipped";
+  }
+  await refreshUsageLeaderboards(db);
+  return "refreshed";
 }
 
 export async function getUsageLeaderboards(

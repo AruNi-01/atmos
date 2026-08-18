@@ -27,7 +27,7 @@ migrations_dir = "drizzle"
 ALLOWED_ORIGINS = "http://localhost:3030,http://127.0.0.1:3030,http://localhost:30303,http://127.0.0.1:30303,http://localhost:3000,https://app.atmos.land,https://atmos.land,https://hub.atmos.land,http://localhost:8787"
 
 [triggers]
-crons = ["0 */2 * * *"]
+crons = ["0 * * * *"]
 
 [observability]
 enabled = true

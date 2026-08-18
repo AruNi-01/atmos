@@ -688,7 +688,7 @@
         "leaderboardLink": "Leaderboard"
       },
       "leaderboard": {
-        "updated": "Updated {time} · refreshes every 2 hours",
+        "updated": "Updated {time} · refreshes every hour",
         "tokensTitle": "Token",
         "tokensEmpty": "No public pages yet.",
         "costTitle": "Cost",

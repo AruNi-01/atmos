@@ -688,7 +688,7 @@
         "leaderboardLink": "排行榜"
       },
       "leaderboard": {
-        "updated": "更新于 {time} · 每 2 小时刷新",
+        "updated": "更新于 {time} · 每小时刷新",
         "tokensTitle": "Token",
         "tokensEmpty": "还没有公开页。",
         "costTitle": "Cost",

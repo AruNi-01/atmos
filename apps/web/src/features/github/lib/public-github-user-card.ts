@@ -1,7 +1,17 @@
-import type { GithubUserCardPayload } from "@atmos/api-types/ws/dto/github";
+import type {
+  GithubContributionDayPayload,
+  GithubUserCardPayload,
+} from "@atmos/api-types/ws/dto/github";
 import { queryKeys } from "@/api/query/query-keys";
 
 export type GithubUserCardSource = "auto" | "public" | "ws";
+
+/** Same window as Great UI Github Card and the local `github_user_card` WS path. */
+export const PUBLIC_USER_CARD_CONTRIBUTION_DAYS = 119;
+
+/** Jonathan Gruber's public contributions host — the one Great UI Github Card uses. */
+export const PUBLIC_GITHUB_CONTRIBUTIONS_API =
+  "https://github-contributions-api.jogruber.de/v4";
 
 export function normalizeGithubLogin(login?: string | null): string | null {
   if (!login) return null;
@@ -10,7 +20,7 @@ export function normalizeGithubLogin(login?: string | null): string | null {
   return trimmed.replace(/\[bot\]$/i, "").replace(/^@/, "") || null;
 }
 
-/** Local `gh` GraphQL when a computer WS is up; otherwise GitHub's public REST. */
+/** Local `gh` GraphQL when a computer WS is up; otherwise the public contributions API. */
 export function resolveGithubUserCardSources(
   source: GithubUserCardSource,
   wsAvailable: boolean,
@@ -22,6 +32,53 @@ export function resolveGithubUserCardSources(
   return { useWs, usePublic };
 }
 
+function parseContributionDays(raw: unknown): GithubContributionDayPayload[] {
+  if (!Array.isArray(raw)) return [];
+  const today = new Date().toISOString().slice(0, 10);
+  const days: GithubContributionDayPayload[] = [];
+
+  for (const item of raw) {
+    if (!item || typeof item !== "object") continue;
+    const day = item as {
+      date?: unknown;
+      count?: unknown;
+      level?: unknown;
+    };
+    if (typeof day.date !== "string" || !day.date || day.date > today) continue;
+    const count =
+      typeof day.count === "number" && Number.isFinite(day.count)
+        ? Math.max(0, Math.floor(day.count))
+        : 0;
+    const level =
+      typeof day.level === "number" && Number.isFinite(day.level)
+        ? Math.max(0, Math.min(4, Math.floor(day.level)))
+        : 0;
+    days.push({ date: day.date, count, level });
+  }
+
+  days.sort((a, b) => a.date.localeCompare(b.date));
+  return days.length > PUBLIC_USER_CARD_CONTRIBUTION_DAYS
+    ? days.slice(-PUBLIC_USER_CARD_CONTRIBUTION_DAYS)
+    : days;
+}
+
+function parseLastYearTotal(
+  raw: unknown,
+  contributions: GithubContributionDayPayload[],
+): number {
+  if (raw && typeof raw === "object") {
+    const total = raw as Record<string, unknown>;
+    if (typeof total.lastYear === "number" && Number.isFinite(total.lastYear)) {
+      return Math.max(0, Math.floor(total.lastYear));
+    }
+    const year = String(new Date().getFullYear());
+    if (typeof total[year] === "number" && Number.isFinite(total[year])) {
+      return Math.max(0, Math.floor(total[year] as number));
+    }
+  }
+  return contributions.reduce((sum, day) => sum + day.count, 0);
+}
+
 export function parsePublicGithubUserCard(
   body: unknown,
   fallbackLogin: string,
@@ -29,34 +86,24 @@ export function parsePublicGithubUserCard(
   if (!body || typeof body !== "object") {
     throw new Error("Invalid GitHub user payload");
   }
-  const user = body as {
-    login?: unknown;
-    name?: unknown;
-    avatar_url?: unknown;
+  const data = body as {
+    total?: unknown;
+    contributions?: unknown;
   };
-  const login =
-    typeof user.login === "string" && user.login.trim()
-      ? user.login.trim()
-      : fallbackLogin;
-  const name =
-    typeof user.name === "string" && user.name.trim() ? user.name.trim() : null;
-  const avatar_url =
-    typeof user.avatar_url === "string" && user.avatar_url.trim()
-      ? user.avatar_url.trim()
-      : null;
+  const contributions = parseContributionDays(data.contributions);
   return {
-    login,
-    name,
-    avatar_url,
-    // Public REST has no contribution calendar — empty means "not loaded".
-    total_contributions: 0,
-    contributions: [],
+    login: fallbackLogin,
+    name: null,
+    avatar_url: `https://github.com/${fallbackLogin}.png`,
+    total_contributions: parseLastYearTotal(data.total, contributions),
+    contributions,
   };
 }
 
 /**
- * Unauthenticated `GET /users/{login}`. Calendar is not in the public REST
- * surface, so the card falls back to profile only.
+ * Public share/leaderboard fallback. Uses the Great UI Github Card host
+ * (`github-contributions-api.jogruber.de`) so the browser never hits
+ * `api.github.com` — unauthenticated GitHub REST 403s under rate limits.
  */
 export async function fetchPublicGithubUserCard(
   login: string,
@@ -66,10 +113,8 @@ export async function fetchPublicGithubUserCard(
     throw new Error("GitHub username is required");
   }
 
-  // Simple GET only — custom headers trigger a CORS preflight that GitHub
-  // may not allow from the browser.
   const res = await fetch(
-    `https://api.github.com/users/${encodeURIComponent(normalized)}`,
+    `${PUBLIC_GITHUB_CONTRIBUTIONS_API}/${encodeURIComponent(normalized)}?y=last`,
     { cache: "no-store" },
   );
   if (!res.ok) {

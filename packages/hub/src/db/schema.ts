@@ -171,7 +171,7 @@ export const userProfiles = sqliteTable(
   ],
 );
 
-/** Materialized public boards; rebuilt on a 2h cron. */
+/** Materialized public boards; write-path debounce 5m, hourly cron rebuilds. */
 export const usageLeaderboards = sqliteTable("usage_leaderboards", {
   boardId: text("board_id").primaryKey(),
   payloadJson: text("payload_json").notNull(),

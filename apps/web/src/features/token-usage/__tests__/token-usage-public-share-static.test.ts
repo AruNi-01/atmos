@@ -35,6 +35,8 @@ describe("APP-061 static wiring", () => {
     expect(page).toContain("@{handle}");
     expect(page).toContain("https://x.com/");
     expect(page).toContain("https://github.com/");
+    expect(page).toContain("GitHubIcon");
+    expect(page).not.toContain("GithubIcon");
     expect(page).toContain("GithubUserHoverCard");
     expect(page).toContain('source="public"');
     expect(page).toContain("https://atmos.land");
@@ -49,6 +51,9 @@ describe("APP-061 static wiring", () => {
     expect(boards).toContain("GithubUserHoverCard");
     expect(boards).toContain("GithubCell");
     expect(boards).toContain('source="public"');
+    expect(boards).toContain("LogoSvg");
+    expect(boards).toContain("GeistPixelSquare");
+    expect(boards).not.toContain("ATMOS_SLOGAN");
     expect(boards).toContain("SlidingMetric");
     expect(boards).toContain("compactSlidingParts");
     expect(boards).toContain("useEnterValue");
@@ -82,6 +87,8 @@ describe("APP-061 static wiring", () => {
     expect(publish).toContain("InputGroup");
     expect(publish).toContain("include_cost: true");
     expect(publish).toContain("{ includeCost: true }");
+    expect(publish).toContain('live ? t("update") : t("publish")');
+    expect(publish).not.toContain("(live && !dirty)");
     expect(publish).toContain("Switch");
     expect(publish).toContain("ExternalLink");
     expect(publish).not.toContain("setIncludeCost");

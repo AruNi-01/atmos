@@ -15,8 +15,8 @@ import {
   TabsList,
   TabsTrigger,
 } from "@workspace/ui/components/motion/tabs";
+import { GeistPixelSquare } from "geist/font/pixel";
 import LogoSvg from "@workspace/ui/components/logo-svg";
-import { ATMOS_SLOGAN } from "@/app-shell/token-usage-share-card";
 import { GithubUserHoverCard } from "@/features/github/components/GithubUserHoverCard";
 
 import type {
@@ -307,30 +307,7 @@ function LeaderRow({
       </td>
       <td className="py-1.5 pl-1 group-hover:bg-muted/60">
         <span className="flex min-w-0 items-center gap-2">
-          {row.github_username ? (
-            <GithubUserHoverCard
-              username={row.github_username}
-              avatarUrl={row.avatar_url}
-              source="public"
-              className="relative z-20 shrink-0"
-            >
-              {onOpenProfile ? (
-                <button
-                  type="button"
-                  className="inline-flex appearance-none border-0 bg-transparent p-0"
-                  onClick={() => onOpenProfile(row.handle, row)}
-                >
-                  <Avatar handle={row.handle} url={row.avatar_url} />
-                </button>
-              ) : (
-                <a href={href} className="inline-flex">
-                  <Avatar handle={row.handle} url={row.avatar_url} />
-                </a>
-              )}
-            </GithubUserHoverCard>
-          ) : (
-            <Avatar handle={row.handle} url={row.avatar_url} />
-          )}
+          <Avatar handle={row.handle} url={row.avatar_url} />
           <span className="min-w-0 truncate">@{row.handle}</span>
         </span>
       </td>
@@ -382,19 +359,17 @@ export function PublicTokLeaderboards({
 
   return (
     <div className="mx-auto flex w-full max-w-[1100px] flex-col gap-4 px-4 pb-10 sm:px-5">
-      <div className="flex flex-col items-center gap-2 text-center">
+      <div className="flex flex-col items-center">
         <a
           href="https://atmos.land"
-          className="inline-flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-foreground"
+          className={`inline-flex items-center gap-[0.08em] text-4xl font-black uppercase leading-none tracking-tighter text-foreground sm:text-5xl ${GeistPixelSquare.className}`}
+          aria-label="Atmos"
         >
-          <LogoSvg className="h-9 w-auto shrink-0" />
-          <span className="text-3xl font-medium tracking-tight">Atmos</span>
-          <span className="text-muted-foreground/70" aria-hidden>
-            –
-          </span>
-          <span className="text-sm text-muted-foreground sm:text-base">
-            {ATMOS_SLOGAN}
-          </span>
+          <span>A</span>
+          <span>t</span>
+          <span>m</span>
+          <LogoSvg className="h-[0.72em] w-auto shrink-0" />
+          <span>s</span>
         </a>
       </div>
       <div className="mx-auto flex w-full max-w-3xl flex-col gap-4">

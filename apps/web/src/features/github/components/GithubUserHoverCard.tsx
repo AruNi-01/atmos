@@ -46,7 +46,7 @@ export interface GithubUserHoverCardProps {
   linkTiltMaxRotate?: number;
   /**
    * `auto` uses local `github_user_card` when a computer WS is up, then the
-   * public GitHub REST API. Public share/leaderboard pages should pass `public`.
+   * public contributions API (Great UI host). Share/leaderboard pages pass `public`.
    */
   source?: GithubUserCardSource;
   children: React.ReactNode;
@@ -270,7 +270,7 @@ function GithubUserCardBody({
 /**
  * Hover preview of a GitHub user's profile card (avatar, handle, contribution graph).
  * Data: local `github_user_card` (gh GraphQL) when a computer WS is up,
- * otherwise unauthenticated GitHub REST (profile only).
+ * otherwise the public contributions API used by Great UI Github Card.
  * Mouse-follow + 3D tilt (top/bottom only) adapted from Great UI Github Card.
  */
 export function GithubUserHoverCard({
