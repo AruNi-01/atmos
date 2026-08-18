@@ -3,6 +3,8 @@
  *
  * Cloudflare Pages `_redirects` cannot 200-proxy to another project, so the
  * previous `/tok/* → app.atmos.land` 302 is replaced by this Function.
+ * HTML keeps root-relative `/_next` URLs; missing chunks are fetched from the
+ * app origin so Next hydrates on atmos.land instead of staying a black shell.
  */
 
 export const APP_ORIGIN = "https://app.atmos.land";
@@ -48,16 +50,9 @@ export function isProxiedAppAssetPath(pathname: string): boolean {
   return (
     pathname.startsWith("/_next/") ||
     pathname.startsWith("/ai-provider/") ||
-    pathname.startsWith("/agents/")
+    pathname.startsWith("/agents/") ||
+    pathname === "/icon.svg"
   );
-}
-
-/** Point root-relative Next assets at the web origin (HTML + RSC payload). */
-export function rewriteTokHtml(
-  html: string,
-  appOrigin: string = APP_ORIGIN,
-): string {
-  return html.replace(/(["'])\/_next\//g, `$1${appOrigin}/_next/`);
 }
 
 export function appUpstreamUrl(
@@ -130,15 +125,9 @@ export async function proxyTokPage(
     ? { "Cache-Control": "private, no-store" }
     : undefined;
 
-  if (request.method === "HEAD" || !isHtml) {
-    return new Response(request.method === "HEAD" ? null : upstream.body, {
-      status: upstream.status,
-      headers: copyUpstreamHeaders(upstream.headers, extra),
-    });
-  }
-
-  const html = rewriteTokHtml(await upstream.text(), appOrigin);
-  return new Response(html, {
+  // Keep /_next URLs root-relative. Rewriting them to app.atmos.land makes
+  // Next hydrate on a foreign origin and the page stays the empty dark shell.
+  return new Response(request.method === "HEAD" ? null : upstream.body, {
     status: upstream.status,
     headers: copyUpstreamHeaders(upstream.headers, extra),
   });

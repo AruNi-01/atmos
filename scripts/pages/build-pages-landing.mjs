@@ -143,7 +143,14 @@ function ensurePagesRoutes() {
     `${JSON.stringify(
       {
         version: 1,
-        include: ["/tok", "/tok/*"],
+        include: [
+          "/tok",
+          "/tok/*",
+          "/_next/*",
+          "/ai-provider/*",
+          "/agents/*",
+          "/icon.svg",
+        ],
         exclude: [],
       },
       null,

@@ -45,7 +45,7 @@ Set in the Cloudflare Pages project (or pass at build time):
 
 Pages builds set `BUILD_TARGET=pages` / `NEXT_PUBLIC_BUILD_TARGET=pages`, use `output: 'export'`, and temporarily move aside `src/proxy.ts` (i18n middleware is incompatible with static export) and `public/videos/` (large MP4s are served from R2 instead). Desktop download links are resolved at **build time** on the home page — the legacy `/api/download-links` route is excluded from Pages exports.
 
-`/tok` and `/tok/*` are **not** marketing routes. A Pages Function (`functions/_middleware.ts`) reverse-proxies them from `https://app.atmos.land` so the address bar stays `https://atmos.land/tok/@handle` (and `/tok/leaderboard`). HTML `/_next` URLs are rewritten to `app.atmos.land` so landing's own `/_next` is untouched. Do not add a Next.js `/tok` page here, and do not 302 those paths to `app.atmos.land`.
+`/tok` and `/tok/*` are **not** marketing routes. A Pages Function (`functions/_middleware.ts`) reverse-proxies them from `https://app.atmos.land` so the address bar stays `https://atmos.land/tok/@handle` (and `/tok/leaderboard`). Missing `/_next` and brand-icon assets fall through to the same origin so Next can hydrate. Do not rewrite those URLs to `app.atmos.land` (that leaves a black shell). Do not add a Next.js `/tok` page here, and do not 302 those paths to `app.atmos.land`.
 
 Custom domains (`atmos.land`, `www.atmos.land`) are attached in the Cloudflare dashboard after the first deploy.
 
