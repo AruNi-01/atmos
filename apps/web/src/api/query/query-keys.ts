@@ -546,6 +546,11 @@ export const queryKeys = {
     root: (scope: RelayQueryScope) =>
       ["atmos", "relay", scope.relayUrl, scope.authRevision] as const,
   },
+  /** Unauthenticated GitHub REST (share/leaderboard hover cards). */
+  publicGithub: {
+    userCard: (login: string) =>
+      ["atmos", "public", "github", "userCard", login] as const,
+  },
 } as const;
 
 export type ComputerQueryRootKey = ReturnType<typeof queryKeys.computer.root>;

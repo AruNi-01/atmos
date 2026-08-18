@@ -269,7 +269,7 @@ export function TaskGithubTable({
   const assigneesColClass = "w-[7rem] shrink-0";
   // Icon + #number chips (may wrap a few links).
   const linkedColClass = "w-[5.5rem] shrink-0";
-  const commentsColClass = "w-12 shrink-0";
+  const commentsColClass = "w-[5.5rem] shrink-0";
   const updatedColClass = "w-[7.5rem] shrink-0";
   const actionColClass = "w-[5.5rem] shrink-0";
 
@@ -286,12 +286,7 @@ export function TaskGithubTable({
         ) : null}
         <div className={cn(assigneesColClass, "truncate")}>{t("table.assignees")}</div>
         <div className={cn(linkedColClass, "truncate")}>{t("table.linked")}</div>
-        <div
-          className={cn(commentsColClass, "flex items-center justify-center")}
-          title={t("table.comments")}
-        >
-          <MessageSquare className="size-3.5" aria-label={t("table.comments")} />
-        </div>
+        <div className={cn(commentsColClass, "truncate")}>{t("table.comments")}</div>
         <div className={cn(updatedColClass, "text-right")}>{t("table.updatedAt")}</div>
         <div className={cn(actionColClass, "text-right")}>{t("table.action")}</div>
       </div>
@@ -439,7 +434,7 @@ export function TaskGithubTable({
                 <div
                   className={cn(
                     commentsColClass,
-                    "flex items-center justify-center gap-0.5 text-[11px] tabular-nums text-muted-foreground",
+                    "flex items-center gap-0.5 text-[11px] tabular-nums text-muted-foreground",
                   )}
                 >
                   <MessageSquare className="size-3.5 shrink-0 opacity-70" />

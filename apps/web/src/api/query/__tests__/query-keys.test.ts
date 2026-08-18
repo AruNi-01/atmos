@@ -141,6 +141,16 @@ describe("queryKeys", () => {
     ]);
   });
 
+  test("public GitHub user card is not scoped to a computer", () => {
+    expect(queryKeys.publicGithub.userCard("octocat")).toEqual([
+      "atmos",
+      "public",
+      "github",
+      "userCard",
+      "octocat",
+    ]);
+  });
+
   test("epoch or session revision change yields a different computer root", () => {
     expect(queryKeys.computer.root({ ...scope, connectionEpoch: 4 })).not.toEqual(
       queryKeys.computer.root(scope),
