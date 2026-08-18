@@ -105,7 +105,7 @@ export function createDefaultLayout(tabIds: string[], activeTabId: string): Cent
   };
 }
 
-function joinEqual(ids: string[], direction: "row" | "column"): CenterPaneTree {
+function joinEqual(ids: CenterPaneTree[], direction: "row" | "column"): CenterPaneTree {
   if (ids.length === 0) return DEFAULT_PANE_ID;
   if (ids.length === 1) return ids[0]!;
   if (ids.length === 2) {
