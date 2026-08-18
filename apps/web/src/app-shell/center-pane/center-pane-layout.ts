@@ -294,6 +294,21 @@ export function pruneEmptySecondaryPanes(
 }
 
 /** All active tab ids across panes (unique, focus order first). */
+
+/** Map every tab id owned by a pane to that pane id (active tab wins last write). */
+export function buildTabToPaneIdMap(
+  layout: CenterPaneLayout,
+): Record<string, string> {
+  const map: Record<string, string> = {};
+  for (const pane of layout.panes) {
+    for (const tabId of pane.tabIds) {
+      map[tabId] = pane.id;
+    }
+    map[pane.activeTabId] = pane.id;
+  }
+  return map;
+}
+
 export function collectActiveTabIds(layout: CenterPaneLayout): string[] {
   const focused = getFocusedPane(layout).activeTabId;
   const ids: string[] = [];

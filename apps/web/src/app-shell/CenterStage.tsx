@@ -117,6 +117,7 @@ import {
 } from "@/app-shell/center-pane/CenterPaneGrid";
 import { useCenterPaneLayoutStore } from "@/app-shell/center-pane/center-pane-layout-store";
 import {
+  buildTabToPaneIdMap,
   collectActiveTabIds,
   createDefaultLayout,
   isEmptyPane,
@@ -125,14 +126,8 @@ import {
   OVERVIEW_TAB_ID,
 } from "@/app-shell/center-pane/center-pane-layout";
 import { useCenterPaneSlotBoxes } from "@/app-shell/center-pane/use-center-pane-slot-boxes";
-import {
-  collectSavedSurfaces,
-  isToolSurfaceKind,
-  materializeSavedLayout,
-  resolveSurfaceTabId,
-  snapshotCenterLayout,
-  type CenterSurfaceKind,
-} from "@/app-shell/center-pane/center-pane-saved-layout";
+import { snapshotCenterLayout } from "@/app-shell/center-pane/center-pane-saved-layout";
+import { prepareSavedCenterLayout } from "@/app-shell/center-pane/apply-saved-center-layout";
 import { useCenterPaneSavedLayoutStore } from "@/app-shell/center-pane/center-pane-saved-layout-store";
 import {
   buildDefaultEmptyPaneActions,
@@ -2234,15 +2229,8 @@ const CenterStage: React.FC = () => {
   }, [isMultiPane, resolvedPaneLayout]);
   const tabToPaneId = React.useMemo(() => {
     if (!isMultiPane) return null;
-    const map: Record<string, string> = {};
-    for (const pane of resolvedPaneLayout.panes) {
-      for (const tabId of pane.tabIds) {
-        map[tabId] = pane.id;
-      }
-      map[pane.activeTabId] = pane.id;
-    }
-    return map;
-  }, [isMultiPane, resolvedPaneLayout.panes]);
+    return buildTabToPaneIdMap(resolvedPaneLayout);
+  }, [isMultiPane, resolvedPaneLayout]);
 
   const handleSplitRight = React.useCallback(() => {
     if (!renderContextId) return;
@@ -2297,40 +2285,16 @@ const CenterStage: React.FC = () => {
       const saved = useCenterPaneSavedLayoutStore.getState().getById(layoutId);
       if (!saved) return;
 
-      const surfaces = collectSavedSurfaces(saved);
-      let browserTabValue: string | null = null;
-
-      for (const surface of surfaces) {
-        if (surface === "browser") {
-          const existing = browserTabs[0]?.value ?? null;
-          if (existing) {
-            browserTabValue = existing;
-          } else {
-            const tab = openBrowserCenterTab(renderContextId);
-            browserTabValue = tab.value;
-            requestBrowserContextUrlFocus(tab.browserContextId);
-          }
-          continue;
-        }
-        if (surface === "simulator") {
-          openSimulatorTab(renderContextId);
-          continue;
-        }
-        if (surface === "git-history") {
-          openGitHistoryTab(renderContextId);
-          continue;
-        }
-        if (isToolSurfaceKind(surface)) {
-          openToolTab(renderContextId, surface);
-          continue;
-        }
-        // overview / terminal / wiki / github: opened via URL tab selection below
-      }
-
-      const resolveTabId = (kind: CenterSurfaceKind) =>
-        resolveSurfaceTabId(kind, { browserTabId: browserTabValue });
-
-      const liveLayout = materializeSavedLayout(saved, resolveTabId);
+      const { liveLayout } = prepareSavedCenterLayout({
+        contextId: renderContextId,
+        saved,
+        existingBrowserTabValue: browserTabs[0]?.value ?? null,
+        openBrowserTab: () => openBrowserCenterTab(renderContextId),
+        focusBrowserUrl: requestBrowserContextUrlFocus,
+        openSimulatorTab,
+        openGitHistoryTab,
+        openToolTab,
+      });
       setCenterPaneLayout(renderContextId, liveLayout);
 
       const focused =

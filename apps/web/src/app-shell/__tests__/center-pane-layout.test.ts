@@ -1,6 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import {
   closePane,
+  buildTabToPaneIdMap,
   collectActiveTabIds,
   createDefaultLayout,
   DEFAULT_PANE_ID,
@@ -262,5 +263,20 @@ describe("center-pane-layout", () => {
     expect(reconciled).toBe(layout);
     const opened = openTabOnFocusedPane(layout, "terminal");
     expect(opened).toBe(layout);
+  });
+});
+
+describe("buildTabToPaneIdMap", () => {
+  it("maps owned tabs and active tabs to pane ids", () => {
+    let layout = createDefaultLayout(["overview", "terminal"], "overview");
+    layout = splitPane(layout, { direction: "right" });
+    const secondaryId = layout.panes.find((p) => p.id !== DEFAULT_PANE_ID)?.id;
+    expect(secondaryId).toBeDefined();
+    layout = focusPane(layout, secondaryId!);
+    layout = openTabOnFocusedPane(layout, "changes");
+    const map = buildTabToPaneIdMap(layout);
+    expect(map.overview).toBe(DEFAULT_PANE_ID);
+    expect(map.changes).toBe(secondaryId);
+    expect(Object.values(map).every((id) => layout.panes.some((p) => p.id === id))).toBe(true);
   });
 });
