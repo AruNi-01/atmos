@@ -6,7 +6,7 @@
   "header": {
     "docs": "文档",
     "changelog": "更新日志",
-    "build": "开始构建",
+    "starOnGithub": "在 GitHub 上 Star",
     "menu": "菜单"
   },
   "hero": {
