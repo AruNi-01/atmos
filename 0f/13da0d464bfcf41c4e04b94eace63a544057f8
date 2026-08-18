@@ -1,0 +1,26 @@
+apps/web/src/features/terminal/components/Terminal.tsx
+  h_5be255725524c8 65-70,304-312,328-333,1335-1336,1341-1348,1503-1514,1669-1694
+apps/web/src/features/terminal/components/TerminalAgentInputOverlay.tsx
+  h_5be255725524c8 113
+apps/web/src/features/terminal/components/TerminalChrome.tsx
+  h_5be255725524c8 72-74,77
+apps/web/src/features/terminal/components/TerminalSplitView.tsx
+  h_5be255725524c8 37-38,96-97,99,101-102,204,216,225,240,289-298,495-497,501-503,522,527,532,539
+apps/web/src/features/terminal/lib/__tests__/host-resize-pin.test.ts
+  h_5be255725524c8 1-160
+apps/web/src/features/terminal/lib/host-resize-pin.ts
+  h_5be255725524c8 1-111
+apps/web/src/features/terminal/lib/use-live-split-layout.ts
+  h_5be255725524c8 1-69
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "0f13da0d464bfcf41c4e04b94eace63a544057f8",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
