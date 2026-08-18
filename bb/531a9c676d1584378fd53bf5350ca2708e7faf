@@ -1,0 +1,14 @@
+bun.lock
+  h_5be255725524c8 27
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "bb531a9c676d1584378fd53bf5350ca2708e7faf",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
