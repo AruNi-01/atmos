@@ -1,0 +1,40 @@
+apps/web/messages/en.json
+  h_5be255725524c8 691
+apps/web/messages/zh.json
+  h_5be255725524c8 691
+apps/web/src/features/github/components/GithubUserHoverCard.tsx
+  h_5be255725524c8 49,273
+apps/web/src/features/github/lib/__tests__/public-github-user-card.test.ts
+  h_5be255725524c8 7,27,55,58-62,64,68-74,78-108,113,119-120,127-129,131-134
+apps/web/src/features/github/lib/public-github-user-card.ts
+  h_5be255725524c8 1-4,9-15,23,35-81,89-91,93,95-99,104-106,117
+apps/web/src/features/token-usage/PublicTokLeaderboards.tsx
+  h_5be255725524c8 18,310,362,365-366,368-372
+apps/web/src/features/token-usage/PublicTokPage.tsx
+  h_5be255725524c8 4,6,74,101
+apps/web/src/features/token-usage/TokenUsagePublishControls.tsx
+  h_5be255725524c8 286,413
+apps/web/src/features/token-usage/__tests__/token-usage-public-share-static.test.ts
+  h_5be255725524c8 38-39,54-56,90-91
+packages/hub/src/db/schema.ts
+  h_5be255725524c8 174
+packages/hub/src/usage-leaderboard.ts
+  h_5be255725524c8 3-4,12-36,187-203
+packages/hub/src/usage-page.ts
+  h_5be255725524c8 8-11,355-362,442,519,550
+packages/hub/test/usage-leaderboard.test.ts
+  h_5be255725524c8 3,6,11,13,15,93-123,226-287
+packages/hub/wrangler.toml
+  h_5be255725524c8 30
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "8643ed561262067bf0e1f38844398b33421d8685",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
