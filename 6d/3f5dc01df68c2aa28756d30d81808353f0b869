@@ -1,0 +1,28 @@
+apps/web/src/api/query/__tests__/query-keys.test.ts
+  h_5be255725524c8 144-153
+apps/web/src/api/query/query-keys.ts
+  h_5be255725524c8 549-553
+apps/web/src/features/github/components/GithubUserHoverCard.tsx
+  h_5be255725524c8 23-27,47-51,72,198-203,231-251,253-255,257-265,272-273,287,322,325,553,568
+apps/web/src/features/github/hooks/use-github-pr-query.ts
+  h_5be255725524c8 188
+apps/web/src/features/github/hooks/use-github-user-card-query.ts
+  h_5be255725524c8 1-64
+apps/web/src/features/github/lib/__tests__/public-github-user-card.test.ts
+  h_5be255725524c8 1-106
+apps/web/src/features/github/lib/public-github-user-card.ts
+  h_5be255725524c8 1-94
+apps/web/src/features/task/components/TaskGithubTable.tsx
+  h_5be255725524c8 272,289,437
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "6d3f5dc01df68c2aa28756d30d81808353f0b869",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
