@@ -2,6 +2,7 @@
 import { afterEach, describe, expect, it } from "bun:test";
 import {
   fetchPublicGithubUserCard,
+  formatContributionDate,
   normalizeGithubLogin,
   parsePublicGithubUserCard,
   PUBLIC_GITHUB_CONTRIBUTIONS_API,
@@ -12,6 +13,16 @@ const originalFetch = globalThis.fetch;
 
 afterEach(() => {
   globalThis.fetch = originalFetch;
+});
+
+describe("formatContributionDate", () => {
+  it("formats calendar days in the app locale, not the browser locale", () => {
+    expect(formatContributionDate("2026-06-28", "en")).toBe("Jun 28, 2026");
+    expect(formatContributionDate("2026-06-28", "zh")).toMatch(/2026/);
+    expect(formatContributionDate("2026-06-28", "zh")).not.toBe(
+      "Jun 28, 2026",
+    );
+  });
 });
 
 describe("normalizeGithubLogin", () => {

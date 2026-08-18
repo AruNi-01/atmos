@@ -14,6 +14,7 @@ import {
   useTransform,
 } from "motion/react";
 import { useTheme } from "next-themes";
+import { useLocale, useTranslations } from "next-intl";
 import {
   Avatar,
   AvatarFallback,
@@ -22,6 +23,7 @@ import {
 import { cn } from "@/shared/lib/utils";
 import { useGithubUserCardQuery } from "@/features/github/hooks/use-github-user-card-query";
 import {
+  formatContributionDate,
   normalizeGithubLogin,
   type GithubUserCardSource,
 } from "@/features/github/lib/public-github-user-card";
@@ -110,17 +112,6 @@ export function isGithubBotLogin(login?: string | null): boolean {
   );
 }
 
-function formatContributionDate(dateStr: string) {
-  if (!dateStr) return "";
-  const date = new Date(dateStr);
-  if (Number.isNaN(date.getTime())) return dateStr;
-  return date.toLocaleDateString(undefined, {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
-}
-
 function readPointerOffset(
   event: React.MouseEvent,
   el: HTMLElement | null,
@@ -189,6 +180,8 @@ function GithubUserCardBody({
   isLoading: boolean;
 }) {
   const { resolvedTheme } = useTheme();
+  const locale = useLocale();
+  const t = useTranslations("github.userCard");
   const isDark = resolvedTheme !== "light";
   const year = new Date().getFullYear();
 
@@ -244,9 +237,10 @@ function GithubUserCardBody({
                   />
                   {day.date ? (
                     <div className="pointer-events-none absolute bottom-full left-1/2 z-[60] mb-1.5 hidden -translate-x-1/2 rounded-md bg-foreground px-2 py-1 text-[10px] font-medium whitespace-nowrap text-background shadow-md group-hover/cell:block">
-                      <span className="font-semibold">{day.count}</span>
-                      {" contributions on "}
-                      {formatContributionDate(day.date)}
+                      {t("dayTooltip", {
+                        count: day.count,
+                        date: formatContributionDate(day.date, locale),
+                      })}
                     </div>
                   ) : null}
                 </div>
@@ -255,12 +249,15 @@ function GithubUserCardBody({
           </div>
 
           <span className="mt-3 block text-left font-mono text-[11px] text-muted-foreground">
-            {`${total.toLocaleString()} contributions in ${year}`}
+            {t("yearTotal", {
+              total: total.toLocaleString(locale),
+              year,
+            })}
           </span>
         </>
       ) : isLoading ? (
         <span className="block text-left font-mono text-[11px] text-muted-foreground">
-          Loading contributions…
+          {t("loading")}
         </span>
       ) : null}
     </>

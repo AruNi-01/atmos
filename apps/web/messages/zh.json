@@ -7187,6 +7187,11 @@
     }
   },
   "github": {
+    "userCard": {
+      "dayTooltip": "{date} 有 {count} 次贡献",
+      "yearTotal": "{year} 年共 {total} 次贡献",
+      "loading": "正在加载贡献…"
+    },
     "centerTabs": {
       "pullRequest": "PR #{number}",
       "issue": "议题 #{number}",

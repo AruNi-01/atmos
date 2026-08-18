@@ -7187,6 +7187,11 @@
     }
   },
   "github": {
+    "userCard": {
+      "dayTooltip": "{count} contributions on {date}",
+      "yearTotal": "{total} contributions in {year}",
+      "loading": "Loading contributions…"
+    },
     "centerTabs": {
       "pullRequest": "PR #{number}",
       "issue": "Issue #{number}",

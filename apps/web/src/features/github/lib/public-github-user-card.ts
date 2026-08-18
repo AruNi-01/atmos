@@ -13,6 +13,20 @@ export const PUBLIC_USER_CARD_CONTRIBUTION_DAYS = 119;
 export const PUBLIC_GITHUB_CONTRIBUTIONS_API =
   "https://github-contributions-api.jogruber.de/v4";
 
+export function formatContributionDate(dateStr: string, locale = "en") {
+  if (!dateStr) return "";
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateStr);
+  const date = match
+    ? new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]))
+    : new Date(dateStr);
+  if (Number.isNaN(date.getTime())) return dateStr;
+  return date.toLocaleDateString(locale, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
 export function normalizeGithubLogin(login?: string | null): string | null {
   if (!login) return null;
   const trimmed = login.trim();
