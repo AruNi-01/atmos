@@ -1,0 +1,38 @@
+apps/web/src/app-shell/CenterStage.tsx
+  h_5be255725524c8 128,2225-2247,2251,2254,2258,2260,2269,2562-2563,2567,2679
+apps/web/src/app-shell/CenterStageTabBar.tsx
+  h_5be255725524c8 802-805,856,920,943,947-951
+apps/web/src/app-shell/__tests__/center-pane-isolation.test.ts
+  h_5be255725524c8 51,53,56-62,64-73,75-76
+apps/web/src/app-shell/__tests__/center-pane-layout-motion.test.ts
+  h_5be255725524c8 1-44
+apps/web/src/app-shell/__tests__/center-stage-chrome.test.ts
+  h_5be255725524c8 26
+apps/web/src/app-shell/center-pane/CenterPaneGrid.tsx
+  h_5be255725524c8 46,56-57,94,112-118,203,212,248,250-251,253,257-258,268-269,283-290,297-306,358-367,548-596,624
+apps/web/src/app-shell/center-pane/center-pane-dnd.tsx
+  h_5be255725524c8 35-38,54
+apps/web/src/app-shell/center-pane/center-pane-grid.css
+  h_5be255725524c8 1-30,33,42
+apps/web/src/app-shell/center-pane/center-pane-layout-motion.ts
+  h_5be255725524c8 1-104
+apps/web/src/app-shell/center-pane/use-animated-pane-tiles.ts
+  h_5be255725524c8 1-110
+apps/web/src/app-shell/center-pane/use-center-pane-slot-boxes.ts
+  h_5be255725524c8 126-129
+apps/web/src/app-shell/center-stage-shared-tabs.tsx
+  h_5be255725524c8 58,165-170,182,217,243-246
+apps/web/src/app-shell/sidebar-layout-constants.ts
+  h_5be255725524c8 40
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "4efad61d9be63ef9c4ae38798c1ba0f0b6a554a8",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
