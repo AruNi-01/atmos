@@ -182,8 +182,8 @@ export function useAgentNotifications() {
     }
 
     if (settings.desktop_notification) {
-      // No agent brand mark — leave content icon unset so only app identity shows
-      // (avoids a second identical Atmos logo as content + identity).
+      // Default brand plate (current saturn mark). Leaving icon unset lets
+      // macOS reuse a cached pre-rebrand app icon on com.atmos.desktop.
       void showDesktopNotification(payload, { action });
     }
   }, [handleNotificationClickAction]);

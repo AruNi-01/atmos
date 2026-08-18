@@ -25,6 +25,21 @@ export function resolveIconFile(
   return null;
 }
 
+/**
+ * Default system-notification content icon (left side of macOS banners).
+ * Prefer the 256px brand plate so Electron does not fall back to a stale
+ * cached app identity icon from an older Atmos install.
+ */
+export function resolveDefaultNotificationIcon(
+  roots: readonly string[],
+): string | null {
+  return (
+    resolveIconFile("128x128@2x.png", roots) ??
+    resolveIconFile("notification-icon.png", roots) ??
+    resolveIconFile("icon.png", roots)
+  );
+}
+
 export type ResolvedAppIcons = {
   /** Best path for BrowserWindow.icon (png/ico preferred). */
   windowIconPath: string | null;

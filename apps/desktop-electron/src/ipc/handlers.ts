@@ -163,8 +163,9 @@ export function createAllHandlers(
           ? (args.data as Record<string, unknown>)
           : null;
       // Content icon (left on macOS). Prefer PNG data URL from the renderer so we
-      // can show the agent brand mark. The OS still attaches the Atmos app icon
-      // for identity (right side on macOS banners).
+      // can show the agent brand mark. If the renderer omits one (Settings test,
+      // automation), use the packaged brand plate — otherwise macOS keeps showing
+      // a cached pre-rebrand app icon for com.atmos.desktop.
       const iconArg = typeof args.icon === "string" ? args.icon : "";
       const { Notification, nativeImage } = await electron();
       if (!Notification.isSupported()) return null;
@@ -175,10 +176,18 @@ export function createAllHandlers(
           const image = nativeImage.createFromDataURL(iconArg);
           if (!image.isEmpty()) icon = image;
         } catch {
-          /* fall through without content icon */
+          /* fall through to packaged brand plate */
         }
       } else if (iconArg && existsSync(iconArg)) {
         icon = iconArg;
+      }
+      if (!icon) {
+        const { iconSearchRoots } = await import("../branding.js");
+        const { resolveDefaultNotificationIcon } = await import(
+          "../branding-paths.js"
+        );
+        const fallback = resolveDefaultNotificationIcon(iconSearchRoots());
+        if (fallback) icon = fallback;
       }
 
       const notification = new Notification({
