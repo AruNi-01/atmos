@@ -34,6 +34,8 @@ import {
   dragPreviewGrabOffset,
   scaleTerminalDragPreview,
 } from "@/features/terminal/lib/terminal-pane-drag-preview";
+import { HOST_RESIZE_DRAG_ATTR } from "@/features/terminal/lib/host-resize-pin";
+import { useLiveSplitLayout } from "@/features/terminal/lib/use-live-split-layout";
 import { TerminalPaneDragHandleProvider } from "./terminal-pane-dnd";
 
 type TerminalSplitViewProps = {
@@ -91,12 +93,13 @@ export function TerminalSplitView({
   className,
 }: TerminalSplitViewProps) {
   const t = useTranslations("terminal.workspacePane");
-  const layoutRef = React.useRef(layout);
+  const { live, liveRef, beginLiveResize, publishLive, commitLiveResize } =
+    useLiveSplitLayout(layout);
   const hoverRef = React.useRef<DockHover | null>(null);
-  const leafCount = React.useMemo(() => getLeaves(layout).length, [layout]);
+  const leafCount = React.useMemo(() => getLeaves(live).length, [live]);
   const geometry = React.useMemo(
-    () => collectTerminalLayoutGeometry(layout),
-    [layout],
+    () => collectTerminalLayoutGeometry(live),
+    [live],
   );
   const canDrag = !maximizedId && leafCount > 1;
   const [draggingPaneId, setDraggingPaneId] = React.useState<string | null>(null);
@@ -104,10 +107,6 @@ export function TerminalSplitView({
   const [preview, setPreview] = React.useState<PaneDragPreview | null>(null);
   const [ghostPose, setGhostPose] = React.useState<GhostPose | null>(null);
   const grabOffsetRef = React.useRef({ x: 0, y: 0 });
-
-  React.useEffect(() => {
-    layoutRef.current = layout;
-  }, [layout]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -202,7 +201,7 @@ export function TerminalSplitView({
       hoverRef.current = null;
       setHover(null);
       onResizeDragChange?.(true);
-      document.documentElement.setAttribute("data-atmos-drag-active", "");
+      document.documentElement.setAttribute(HOST_RESIZE_DRAG_ATTR, "");
     },
     [capturePane, onResizeDragChange],
   );
@@ -214,7 +213,7 @@ export function TerminalSplitView({
     setPreview(null);
     setGhostPose(null);
     onResizeDragChange?.(false);
-    document.documentElement.removeAttribute("data-atmos-drag-active");
+    document.documentElement.removeAttribute(HOST_RESIZE_DRAG_ATTR);
   }, [onResizeDragChange]);
 
   const handleDragEnd = React.useCallback(
@@ -223,7 +222,7 @@ export function TerminalSplitView({
       const nextHover = hoverRef.current;
       finishDrag();
       if (!fromId || !nextHover) return;
-      const current = layoutRef.current;
+      const current = liveRef.current;
       const next =
         nextHover.kind === "root"
           ? dockLeafAtRoot(current, fromId, nextHover.edge)
@@ -238,7 +237,7 @@ export function TerminalSplitView({
       if (terminalLayoutTopologyEqual(current, next)) return;
       onLayoutChange(next);
     },
-    [finishDrag, onLayoutChange],
+    [finishDrag, liveRef, onLayoutChange],
   );
 
   if (maximizedId) {
@@ -287,9 +286,16 @@ export function TerminalSplitView({
           <SplitHandle
             key={split.path.join("/") || "root"}
             split={split}
-            layoutRef={layoutRef}
-            onLayoutChange={onLayoutChange}
-            onResizeDragChange={onResizeDragChange}
+            layoutRef={liveRef}
+            onLiveLayout={publishLive}
+            onResizeStart={() => {
+              beginLiveResize();
+              onResizeDragChange?.(true);
+            }}
+            onResizeEnd={() => {
+              commitLiveResize(onLayoutChange);
+              onResizeDragChange?.(false);
+            }}
           />
         ))}
         {draggingPaneId
@@ -486,13 +492,15 @@ function paintTerminalRowsSnapshot(host: HTMLElement): string | null {
 function SplitHandle({
   split,
   layoutRef,
-  onLayoutChange,
-  onResizeDragChange,
+  onLiveLayout,
+  onResizeStart,
+  onResizeEnd,
 }: {
   split: TerminalSplitBox;
   layoutRef: React.MutableRefObject<TerminalLayoutNode<string>>;
-  onLayoutChange: (next: TerminalLayoutNode<string>) => void;
-  onResizeDragChange?: (dragging: boolean) => void;
+  onLiveLayout: (next: TerminalLayoutNode<string>) => void;
+  onResizeStart: () => void;
+  onResizeEnd: () => void;
 }) {
   const isRow = split.direction === "row";
   const startResize = React.useCallback(
@@ -511,26 +519,24 @@ function SplitHandle({
       const origin = isRow
         ? rootRect.left + split.parent.left * rootRect.width
         : rootRect.top + split.parent.top * rootRect.height;
-      onResizeDragChange?.(true);
-      document.documentElement.setAttribute("data-atmos-drag-active", "");
+      onResizeStart();
 
       const onMove = (ev: PointerEvent) => {
         const pos = isRow ? ev.clientX : ev.clientY;
         const nextPct = ((pos - origin) / size) * 100;
-        onLayoutChange(
+        onLiveLayout(
           updateSplitPercentageAtPath(layoutRef.current, split.path, nextPct),
         );
       };
       const onUp = () => {
-        onResizeDragChange?.(false);
-        document.documentElement.removeAttribute("data-atmos-drag-active");
+        onResizeEnd();
         window.removeEventListener("pointermove", onMove);
         window.removeEventListener("pointerup", onUp);
       };
       window.addEventListener("pointermove", onMove);
       window.addEventListener("pointerup", onUp);
     },
-    [isRow, layoutRef, onLayoutChange, onResizeDragChange, split],
+    [isRow, layoutRef, onLiveLayout, onResizeEnd, onResizeStart, split],
   );
 
   return (

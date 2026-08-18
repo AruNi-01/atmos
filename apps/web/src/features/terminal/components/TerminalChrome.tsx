@@ -69,11 +69,12 @@ export function TerminalChrome({
   const scrollbarWidth = Math.max(2, 6 * normalizedTerminalScale);
   const scrollbarHoverWidth = Math.max(3, 8 * normalizedTerminalScale);
   const scrollbarOffset = Math.max(1, 2 * normalizedTerminalScale);
-  // Keep xterm's square canvas inset from the floating center card's
-  // rounded-xl (12px) bottom corners so they stay visible.
+  // Inset the square xterm canvas from the rounded-xl card. Bottom
+  // matches top so the AI-input trigger is not sitting in a taller
+  // empty band than the padding below it.
   const padTop = 8 * normalizedTerminalScale;
   const padSide = 12 * normalizedTerminalScale;
-  const padBottom = 14 * normalizedTerminalScale;
+  const padBottom = 8 * normalizedTerminalScale;
   const terminalScrollbarStyle = {
     "--atmos-terminal-scrollbar-width": `${scrollbarWidth}px`,
     "--atmos-terminal-scrollbar-hover-width": `${scrollbarHoverWidth}px`,

@@ -110,7 +110,7 @@ import "./TerminalAgentInputOverlay.css";
 
 /** Shared dock for the AI-input trigger bar and the side-chat bar. */
 const TERMINAL_BOTTOM_TRIGGER_DOCK_CLASS =
-  "pointer-events-none absolute inset-x-0 bottom-0 z-[70] flex justify-center px-3 pb-0.5";
+  "pointer-events-none absolute inset-x-0 bottom-0 z-[70] flex justify-center px-3 py-0.5";
 /** Lift the visible pills off the pane seam; both bars share this. */
 const TERMINAL_BOTTOM_TRIGGER_ROW_CLASS = "flex items-end justify-center -translate-y-1";
 

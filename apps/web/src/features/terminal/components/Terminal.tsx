@@ -62,6 +62,12 @@ import {
   shouldDisableTuiMouseOnCmdEnd,
 } from "../lib/tui-mouse-wheel";
 import { createTerminalInputCoalesceQueue } from "../lib/terminal-input-coalesce";
+import {
+  createHostResizePinScheduler,
+  HOST_RESIZE_DRAG_ATTR,
+  isHostResizeDragActive,
+  shouldDiscardXtermScrollbackOnResize,
+} from "../lib/host-resize-pin";
 import { TerminalChrome } from "./TerminalChrome";
 import { TerminalSelectionToolbar } from "./TerminalSelectionToolbar";
 import { buildTerminalWsUrl } from "../lib/terminal-ws-url";
@@ -295,6 +301,15 @@ const Terminal = ({
   // Dedup pins so warm reveal / double onResize do not re-fire refresh-client
   // (SIGWINCH → full Grok/TUI redraw flash) when the grid is already correct.
   const lastPinnedSizeRef = useRef<{ cols: number; rows: number } | null>(null);
+  const hostResizePinRef = useRef(createHostResizePinScheduler({
+    send: (size) => {
+      const term = terminalRef.current;
+      if (term && (term.cols !== size.cols || term.rows !== size.rows)) {
+        term.resize(size.cols, size.rows);
+      }
+      sendResizeRef.current(size);
+    },
+  }));
   const pinTerminalSizeRef = useRef<
     (size: { cols: number; rows: number }, options?: { force?: boolean }) => void
   >(() => {});
@@ -310,7 +325,12 @@ const Terminal = ({
       return;
     }
     lastPinnedSizeRef.current = { cols: size.cols, rows: size.rows };
-    sendResizeRef.current(size);
+    if (options?.force) {
+      hostResizePinRef.current.cancel();
+      sendResizeRef.current(size);
+      return;
+    }
+    hostResizePinRef.current.schedule(size);
   };
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === "dark";
@@ -1312,12 +1332,20 @@ const Terminal = ({
       pinTerminalSizeRef.current({ cols, rows });
       // Inline mouse TUIs (Grok) only: a rows change can briefly park the old
       // frame as history before repaint. Idle shells and alt-screen apps must
-      // keep local scrollback intact across resize.
+      // keep local scrollback intact across resize. Skip CSI 3J while a host
+      // splitter is dragged — every discard flashes the canvas.
       if (isInlineMouseTuiScrollbackSurface(terminal)) {
         if (terminal.options.scrollback !== 0) {
           terminal.options.scrollback = 0;
         }
-        discardXtermScrollbackWhileMouseTui(terminal, true);
+        if (
+          shouldDiscardXtermScrollbackOnResize({
+            inlineMouseTuiActive: true,
+            hostResizeDragActive: isHostResizeDragActive(),
+          })
+        ) {
+          discardXtermScrollbackWhileMouseTui(terminal, true);
+        }
       }
     });
 
@@ -1470,6 +1498,18 @@ const Terminal = ({
         ) {
           return;
         }
+      }
+
+      // Inline TUIs wrap the previous frame if we resize xterm before SIGWINCH.
+      // Hold the old grid and let the throttled pin apply cols/rows + PTY together.
+      if (
+        isHostResizeDragActive() &&
+        isInlineMouseTuiScrollbackSurface(term)
+      ) {
+        const proposed = proposeTerminalGrid(term, fit);
+        if (proposed) pinTerminalSizeRef.current(proposed);
+        connectWhenVisible();
+        return;
       }
 
       fitTerminalPreservingScroll(term, fit);
@@ -1625,6 +1665,32 @@ const Terminal = ({
       cancelAnimationFrame(outer);
     };
   }, [surfaceActive]);
+
+  // Drag end (sidebar / mosaic / in-pane split) drops the host attribute.
+  // Flush the latest PTY size and one TUI scrollback discard so we do not
+  // CSI 3J on every pointermove.
+  useEffect(() => {
+    const root = document.documentElement;
+    const flushHostResize = () => {
+      hostResizePinRef.current.flush();
+      const term = terminalRef.current;
+      if (term && isInlineMouseTuiScrollbackSurface(term)) {
+        discardXtermScrollbackWhileMouseTui(term, true);
+      }
+    };
+    const observer = new MutationObserver(() => {
+      if (isHostResizeDragActive(root)) return;
+      flushHostResize();
+    });
+    observer.observe(root, {
+      attributes: true,
+      attributeFilter: [HOST_RESIZE_DRAG_ATTR],
+    });
+    return () => {
+      observer.disconnect();
+      hostResizePinRef.current.dispose();
+    };
+  }, []);
 
   return (
     <TerminalChrome
