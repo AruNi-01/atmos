@@ -139,4 +139,13 @@ describe("PT Design Atmos host wiring", () => {
     expect(className).toBe("relative h-full");
     expect(className).not.toContain("contain:");
   });
+
+  test("idle push-page shell does not keep a transform containing block", () => {
+    const stack = readFileSync(
+      join(import.meta.dir, "../../../../../packages/ui/src/components/motion/push-page-stack.tsx"),
+      "utf8",
+    );
+    expect(stack).toContain("!shiftBase || reduce || !presented");
+    expect(stack).toContain("presented && shiftBase && !reduce && \"will-change-transform\"");
+  });
 });

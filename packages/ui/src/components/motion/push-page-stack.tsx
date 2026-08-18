@@ -184,7 +184,7 @@ export function PushPageStack({
   const warmHidden = keepOverlayMounted && phase === "closed" && overlay != null;
 
   const baseMotionStyle: React.CSSProperties | undefined =
-    !shiftBase || reduce
+    !shiftBase || reduce || !presented
       ? undefined
       : {
           transitionProperty: "transform, opacity",
@@ -200,7 +200,8 @@ export function PushPageStack({
     <div className={cn("relative h-full overflow-hidden bg-background", className)}>
       <div
         className={cn(
-          "flex h-full min-h-0 flex-col overflow-hidden bg-background will-change-transform",
+          "flex h-full min-h-0 flex-col overflow-hidden bg-background",
+          presented && shiftBase && !reduce && "will-change-transform",
           blockBase && "pointer-events-none",
           baseClassName,
         )}
