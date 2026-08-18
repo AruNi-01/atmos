@@ -1,0 +1,32 @@
+apps/web/src/app-shell/CenterStage.tsx
+  h_5be255725524c8 92-96,693-744,927-928,936-937,959-960,1382,1413,1435,1465
+apps/web/src/app-shell/CenterStageTabBar.tsx
+  h_5be255725524c8 281-284
+apps/web/src/app-shell/__tests__/center-pane-isolation.test.ts
+  h_5be255725524c8 44-47
+apps/web/src/app-shell/__tests__/center-stage-tab-group-hover.test.ts
+  h_5be255725524c8 17-19,24-28,33-39
+apps/web/src/app-shell/__tests__/center-stage-tab-model.test.ts
+  h_5be255725524c8 3-4,31-85
+apps/web/src/app-shell/center-stage-tab-model.ts
+  h_5be255725524c8 72-105,109-110,131-149
+apps/web/src/app-shell/center-stage-tabs.tsx
+  h_5be255725524c8 250-260,282,285,343-345,349
+apps/web/src/app-shell/left-sidebar-tab-footer-controls.tsx
+  h_5be255725524c8 28,74,82
+apps/web/src/app-shell/sidebar/WorkspaceKanbanFilterMenu.tsx
+  h_5be255725524c8 122,143,231-234
+apps/web/src/features/workspace/components/TaskListPanel.tsx
+  h_5be255725524c8 27-28,40-41,44,46,48,50,54-59,61-64,240,244,248,251-252
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "68c9269fcfacce1b6360e3a0ef79ae3bbdd010a2",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
