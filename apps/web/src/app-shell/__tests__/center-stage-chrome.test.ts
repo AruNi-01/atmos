@@ -2,9 +2,14 @@ import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
+  APP_FOOTER_HEIGHT_PX,
   CENTER_STAGE_CARD_CLASS,
+  CENTER_STAGE_GUTTER_Y_PX,
   CENTER_STAGE_RADIUS_CLASS,
   CENTER_STAGE_RADIUS_CSS,
+  RESIZE_HAIRLINE_CORNER_INSET_CSS,
+  ROOT_RESIZE_HAIRLINE_BOTTOM_CSS,
+  ROOT_RESIZE_HAIRLINE_TOP_CSS,
 } from "@/app-shell/sidebar-layout-constants";
 
 function read(rel: string) {
@@ -41,6 +46,41 @@ describe("center-stage chrome", () => {
     expect(stage).toContain("CenterStageSurface");
     expect(stage).toContain("CENTER_STAGE_CARD_CLASS");
     expect(stage).toContain("CENTER_STAGE_SHELL_CLASS");
+    expect(stage).toContain('data-center-stage-card=""');
+  });
+
+  test("center-stage card chrome is tagged for drawer insets", () => {
+    const chrome = read("../center-stage-chrome.tsx");
+    expect(chrome).toContain('data-center-stage-card=""');
+
+    const shell = read("../AppShellMain.tsx");
+    expect(shell).toContain("data-center-stage-body");
+    expect(shell).toContain("<Footer />");
+  });
+
+  test("resize hairlines stop short of rounded-xl corners and the footer", () => {
+    expect(RESIZE_HAIRLINE_CORNER_INSET_CSS).toBe(CENTER_STAGE_RADIUS_CSS);
+    expect(ROOT_RESIZE_HAIRLINE_TOP_CSS).toContain(`${CENTER_STAGE_GUTTER_Y_PX}px`);
+    expect(ROOT_RESIZE_HAIRLINE_TOP_CSS).toContain(CENTER_STAGE_RADIUS_CSS);
+    expect(ROOT_RESIZE_HAIRLINE_BOTTOM_CSS).toContain(`${APP_FOOTER_HEIGHT_PX}px`);
+    expect(ROOT_RESIZE_HAIRLINE_BOTTOM_CSS).toContain(`${CENTER_STAGE_GUTTER_Y_PX}px`);
+    expect(ROOT_RESIZE_HAIRLINE_BOTTOM_CSS).toContain(CENTER_STAGE_RADIUS_CSS);
+
+    const layout = read("../PanelLayout.tsx");
+    expect(layout).toContain('data-resize-hairline="root"');
+    expect(layout).toContain("ROOT_RESIZE_HAIRLINE_TOP_CSS");
+    expect(layout).toContain("ROOT_RESIZE_HAIRLINE_BOTTOM_CSS");
+    expect(layout).not.toContain("hover:bg-border/50 group touch-none");
+
+    const grid = read("../center-pane/CenterPaneGrid.tsx");
+    expect(grid).toContain('data-resize-hairline={orientation}');
+    expect(grid).toContain("RESIZE_HAIRLINE_CORNER_INSET_CSS");
+    expect(grid).toContain("group-hover:bg-border/50");
+    expect(grid).toContain("center-pane-dock-preview");
+    expect(grid).toContain("center-pane-drag-ghost");
+    expect(grid).toContain("onTreeChange");
+    expect(grid).toContain("useLiveSplitLayout");
+    expect(grid).toContain("commitLiveResize");
   });
 
   test("standalone Prototype Design does not apply a second card chrome", () => {

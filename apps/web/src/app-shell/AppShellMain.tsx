@@ -111,7 +111,10 @@ export function AppShellMain() {
             leftSidebar={<LeftSidebar />}
             centerStage={
               <div className="flex h-full min-h-0 flex-col overflow-hidden bg-sidebar">
-                <div className="min-h-0 flex-1 overflow-hidden">
+                <div
+                  data-center-stage-body
+                  className="min-h-0 flex-1 overflow-hidden"
+                >
                   <CenterStage />
                 </div>
                 <Footer />

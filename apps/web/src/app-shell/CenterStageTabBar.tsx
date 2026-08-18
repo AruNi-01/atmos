@@ -104,7 +104,6 @@ interface CenterStageTabBarProps {
   codeReviewTabVisible: boolean;
   effectiveContextId: string;
   githubTabs: GithubCenterTab[];
-  isTabGroupItemActive: (tab: TabGroupItem) => boolean;
   openFiles: OpenFile[];
   orderedGroupedTabItems: Array<{ key: string; label: string; tabs: TabGroupItem[] }>;
   previewBrowserPrefs: PreviewBrowserPrefs;
@@ -114,7 +113,6 @@ interface CenterStageTabBarProps {
   scrollableTabsRef: React.RefObject<HTMLDivElement | null>;
   sessionDisplay: SessionDisplay;
   tabGroupDndSensors: React.ComponentProps<typeof CenterStageTabGroupPopover>["sensors"];
-  tabGroupPopoverOpen: boolean;
   /** Saved strip order (tab ids). Missing/new tabs append after. */
   tabStripOrder: string[];
   visibleTerminalTabs: Array<{ id: string; title: string; closable: boolean; customTitle?: string }>;
@@ -152,7 +150,6 @@ interface CenterStageTabBarProps {
   setCodeReviewCloseConfirmOpen: React.Dispatch<React.SetStateAction<boolean>>;
   setProjectWikiCloseConfirmOpen: React.Dispatch<React.SetStateAction<boolean>>;
   setTabContextMenu: (value: CenterTabContextMenuState) => void;
-  setTabGroupPopoverOpen: React.Dispatch<React.SetStateAction<boolean>>;
   setWikiRefreshing: React.Dispatch<React.SetStateAction<boolean>>;
   setWikiRefreshTrigger: React.Dispatch<React.SetStateAction<number>>;
   /** Split the center stage into another pane (right). */
@@ -174,7 +171,6 @@ export function CenterStageTabBar({
   codeReviewTabVisible,
   effectiveContextId,
   githubTabs,
-  isTabGroupItemActive,
   openFiles,
   orderedGroupedTabItems,
   previewBrowserPrefs,
@@ -190,7 +186,6 @@ export function CenterStageTabBar({
   scrollableTabsRef,
   sessionDisplay,
   tabGroupDndSensors,
-  tabGroupPopoverOpen,
   tabStripOrder,
   visibleTerminalTabs,
   wikiCenterEligible,
@@ -217,7 +212,6 @@ export function CenterStageTabBar({
   setCodeReviewCloseConfirmOpen,
   setProjectWikiCloseConfirmOpen,
   setTabContextMenu,
-  setTabGroupPopoverOpen,
   setWikiRefreshing,
   setWikiRefreshTrigger,
   onSplitRight,
@@ -230,6 +224,23 @@ export function CenterStageTabBar({
   const newTerminalTabLabel = t("centerStageTabBar.newTerminalTab");
   const newBrowserLabel = t("centerStageTabBar.newBrowser");
   const newTabMenuLabel = t("centerStageTabBar.newTabMenu");
+  // Per-instance so split panes do not share one open popover.
+  const [tabGroupPopoverOpen, setTabGroupPopoverOpen] = React.useState(false);
+
+  const isTabGroupItemActive = React.useCallback(
+    (tab: TabGroupItem) => {
+      if (tab.kind !== "browser") {
+        return activeValue === tab.value;
+      }
+      if (activeValue !== tab.value || !tab.browserContextId || !tab.browserTabId) {
+        return false;
+      }
+      const context = previewBrowserPrefs.byContext[tab.browserContextId];
+      const activeTabId = context?.activeTabId ?? context?.tabs?.[0]?.id;
+      return activeTabId === tab.browserTabId;
+    },
+    [activeValue, previewBrowserPrefs],
+  );
 
   const renderTabGroupItemContent = React.useCallback((
     tab: TabGroupItem,
@@ -758,7 +769,10 @@ export function CenterStageTabBar({
             activeValue={activeValue}
             sensors={tabGroupDndSensors}
             onDragEnd={handleTabGroupDragEnd}
-            onSelect={handleSelectTabGroupItem}
+            onSelect={(tab) => {
+              handleSelectTabGroupItem(tab);
+              setTabGroupPopoverOpen(false);
+            }}
             onClose={handleCloseTabGroupItem}
             isClosable={isTabGroupItemClosable}
             isItemActive={isTabGroupItemActive}

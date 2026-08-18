@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import type { CenterPaneLayout } from "@/app-shell/center-pane/center-pane-layout";
+import type { CenterPaneLayout, CenterPaneTree } from "@/app-shell/center-pane/center-pane-layout";
 
 export type PaneSlotBox = {
   top: number;
@@ -9,6 +9,35 @@ export type PaneSlotBox = {
   width: number;
   height: number;
 };
+
+/** Stable key for mosaic tree geometry so slot remasure follows split resize. */
+export function centerPaneTreeKey(
+  tree: CenterPaneTree | null | undefined,
+): string {
+  if (tree == null) return "";
+  if (typeof tree === "string") return tree;
+  const pct =
+    typeof tree.splitPercentage === "number" && Number.isFinite(tree.splitPercentage)
+      ? tree.splitPercentage.toFixed(3)
+      : "50";
+  return `${tree.direction}:${pct}:${centerPaneTreeKey(tree.first)}|${centerPaneTreeKey(tree.second)}`;
+}
+
+/** Changes when a pane gains or loses its content slot (empty ↔ first tab). */
+export function centerPaneSlotOccupancyKey(
+  layout: CenterPaneLayout | null | undefined,
+): string {
+  if (!layout) return "";
+  return layout.panes
+    .map((pane) => `${pane.id}:${pane.tabIds.length > 0 ? "1" : "0"}`)
+    .join(",");
+}
+
+export function isUsablePaneSlotBox(
+  box: PaneSlotBox | null | undefined,
+): box is PaneSlotBox {
+  return Boolean(box && box.width > 0 && box.height > 0);
+}
 
 /**
  * Measure `[data-center-pane-content-slot]` boxes relative to `hostRef`.
@@ -24,6 +53,12 @@ export function useCenterPaneSlotBoxes(
   const fractionKey = layout
     ? `${layout.columnFractions.join(",")}|${layout.rowFractions.join(",")}|${layout.columnCount}`
     : "";
+  // Empty launchers have no content slot. Creating the first tab inserts
+  // `[data-center-pane-content-slot]` without changing order/fractions —
+  // remasure or the new TerminalGrid overlays the whole stage and waits
+  // for a usable fit (looks like it stole the other pane's terminal).
+  const occupancyKey = centerPaneSlotOccupancyKey(layout);
+  const treeKey = centerPaneTreeKey(layout?.tree);
 
   React.useLayoutEffect(() => {
     if (!enabled || !layout || layout.order.length <= 1) {
@@ -95,7 +130,7 @@ export function useCenterPaneSlotBoxes(
       window.removeEventListener("resize", measure);
     };
     // Depend on stable string keys only — never the layout object identity.
-  }, [enabled, fractionKey, hostRef, orderKey]);
+  }, [enabled, fractionKey, hostRef, occupancyKey, orderKey, treeKey]);
 
   return boxes;
 }

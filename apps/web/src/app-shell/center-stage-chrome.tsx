@@ -28,6 +28,7 @@ export function CenterStageSurface({
       className={cn(CENTER_STAGE_SHELL_CLASS, CENTER_STAGE_GUTTER_CLASS, className)}
     >
       <div
+        data-center-stage-card=""
         className={cn(CENTER_STAGE_CARD_CLASS, isolate && "isolate", cardClassName)}
       >
         {children}

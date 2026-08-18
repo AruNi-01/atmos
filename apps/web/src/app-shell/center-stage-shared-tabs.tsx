@@ -52,6 +52,7 @@ import {
   type TabGroupItem,
 } from "@/app-shell/center-stage-tabs";
 import { preventNonPrimaryTabActivate } from "@/app-shell/center-stage-tab-model";
+import { CenterPaneDragHandle } from "@/app-shell/center-pane/center-pane-dnd";
 
 /** Tasks-page motion pill trigger density, on Atmos surfaces. */
 export const CENTER_STAGE_TAB_CLASS =
@@ -162,7 +163,7 @@ export function CenterStageTabList({
   value: string;
 }) {
   return (
-    <div className={cn("flex shrink-0 items-center gap-1.5 px-2 py-1", className)}>
+    <CenterPaneDragHandle className={cn("flex shrink-0 items-center gap-1.5 px-2 py-1", className)}>
       <MotionTabs
         value={value}
         onValueChange={onValueChange}
@@ -174,7 +175,7 @@ export function CenterStageTabList({
           {actions}
         </MotionTabsList>
       </MotionTabs>
-    </div>
+    </CenterPaneDragHandle>
   );
 }
 
@@ -212,6 +213,7 @@ export function CenterStageStickyTabActions({
         "z-20 flex h-7 shrink-0 items-center",
         className,
       )}
+      onPointerDown={(event) => event.stopPropagation()}
     >
       {children}
     </div>

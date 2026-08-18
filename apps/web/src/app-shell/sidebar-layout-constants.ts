@@ -25,6 +25,21 @@ export const CENTER_STAGE_SHELL_CLASS =
 export const CENTER_STAGE_RADIUS_CLASS = "rounded-xl";
 export const CENTER_STAGE_RADIUS_CSS = "var(--radius-xl)";
 
+/** Inset a hover resize hairline so it does not run through rounded-xl corners. */
+export const RESIZE_HAIRLINE_CORNER_INSET_CSS = CENTER_STAGE_RADIUS_CSS;
+
+/**
+ * Root sidebar↔center hairline. The handle spans the full column (card +
+ * footer); the painted line stays on the floating card face only.
+ */
+export const ROOT_RESIZE_HAIRLINE_TOP_CSS = `calc(${CENTER_STAGE_GUTTER_Y_PX}px + ${CENTER_STAGE_RADIUS_CSS})`;
+export const ROOT_RESIZE_HAIRLINE_BOTTOM_CSS = `calc(${APP_FOOTER_HEIGHT_PX}px + ${CENTER_STAGE_GUTTER_Y_PX}px + ${CENTER_STAGE_RADIUS_CSS})`;
+
 /** Floating card: clip children to the radius and ring the inset stage. */
 export const CENTER_STAGE_CARD_CLASS =
   "h-full min-h-0 overflow-hidden rounded-xl bg-background ring-1 ring-border/40";
+
+/** Column above the center-stage footer — drawer insets prefer this over the panel. */
+export const CENTER_STAGE_BODY_ATTR = "data-center-stage-body";
+/** Visual floating card inside the center-stage shell. */
+export const CENTER_STAGE_CARD_ATTR = "data-center-stage-card";

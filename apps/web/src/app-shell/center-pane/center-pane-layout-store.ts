@@ -3,10 +3,12 @@
 import { create } from "zustand";
 import { readJson, writeJson } from "@/shared/lib/browser-store";
 import {
+  applyCenterPaneTree,
   centerPaneLayoutsEqual,
   closePane,
   createDefaultLayout,
   focusPane,
+  normalizeCenterPaneLayout,
   openTabOnFocusedPane,
   reorderPanes,
   resizeAdjacentFractions,
@@ -15,6 +17,7 @@ import {
   splitPane,
   syncFractionsToPaneCount,
   type CenterPaneLayout,
+  type CenterPaneTree,
   type SplitDirection,
   reconcileOpenTabs,
   removeTabFromLayout,
@@ -60,6 +63,7 @@ type CenterPaneLayoutStore = {
     preferredActiveTabId?: string | null,
   ) => void;
   setColumns: (contextId: string, columnCount: number) => void;
+  setTree: (contextId: string, tree: CenterPaneTree) => void;
 };
 
 function persist(byContext: LayoutByContext) {
@@ -79,7 +83,12 @@ function persist(byContext: LayoutByContext) {
 function readStored(): LayoutByContext {
   const raw = readJson<LayoutByContext | null>(STORAGE_KEY, null);
   if (!raw || typeof raw !== "object") return {};
-  return raw;
+  const next: LayoutByContext = {};
+  for (const [contextId, layout] of Object.entries(raw)) {
+    if (!layout || typeof layout !== "object" || !Array.isArray(layout.panes)) continue;
+    next[contextId] = normalizeCenterPaneLayout(layout);
+  }
+  return next;
 }
 
 export const useCenterPaneLayoutStore = create<CenterPaneLayoutStore>((set, get) => ({
@@ -100,7 +109,11 @@ export const useCenterPaneLayoutStore = create<CenterPaneLayoutStore>((set, get)
     if (!contextId) return createDefaultLayout(openTabIds, activeTabId);
     const existing = get().byContext[contextId];
     if (existing) {
-      const reconciled = reconcileOpenTabs(existing, openTabIds, activeTabId);
+      const reconciled = reconcileOpenTabs(
+        normalizeCenterPaneLayout(existing),
+        openTabIds,
+        activeTabId,
+      );
       if (reconciled !== existing) {
         get().setLayout(contextId, reconciled);
       }
@@ -113,7 +126,7 @@ export const useCenterPaneLayoutStore = create<CenterPaneLayoutStore>((set, get)
 
   setLayout: (contextId, layout) => {
     if (!contextId) return;
-    const synced = syncFractionsToPaneCount(layout);
+    const synced = normalizeCenterPaneLayout(syncFractionsToPaneCount(layout));
     const prev = get().byContext[contextId];
     if (prev && centerPaneLayoutsEqual(prev, synced)) {
       return;
@@ -196,5 +209,9 @@ export const useCenterPaneLayoutStore = create<CenterPaneLayoutStore>((set, get)
 
   setColumns: (contextId, columnCount) => {
     get().patchLayout(contextId, (layout) => setColumnCount(layout, columnCount));
+  },
+
+  setTree: (contextId, tree) => {
+    get().patchLayout(contextId, (layout) => applyCenterPaneTree(layout, tree));
   },
 }));

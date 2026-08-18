@@ -1,7 +1,11 @@
 import { describe, expect, test } from "bun:test";
-import { collectDiffGroupTabs } from "@/app-shell/center-stage-tab-groups";
+import {
+  collectDiffGroupTabs,
+  filterGroupedTabItemsByAllowedIds,
+} from "@/app-shell/center-stage-tab-groups";
 import { EDITOR_DIFF_GROUP_PREFIX } from "@/features/diff/lib/diff-editor-paths";
 import type { OpenFile } from "@/features/editor/store/editor-store-types";
+import type { TabGroupItem } from "@/app-shell/center-stage-tabs";
 
 function file(path: string, lastOpenedAt: number): OpenFile {
   return {
@@ -62,5 +66,49 @@ describe("collectDiffGroupTabs", () => {
       { gitHistory: { visible: false, label: "Graph History" } },
     );
     expect(tabs.map((tab) => tab.kind)).toEqual(["diff-group"]);
+  });
+});
+
+describe("filterGroupedTabItemsByAllowedIds", () => {
+  const groups = [
+    {
+      key: "terminal",
+      label: "终端",
+      tabs: [
+        { id: "terminal", label: "Intro", value: "terminal", kind: "terminal" as const },
+        { id: "2", label: "2", value: "2", kind: "terminal" as const },
+      ] satisfies TabGroupItem[],
+    },
+    {
+      key: "github",
+      label: "GitHub",
+      tabs: [
+        { id: "github", label: "GitHub", value: "github", kind: "github" as const },
+        { id: "issue-164", label: "议题 #164", value: "issue-164", kind: "github-issue" as const },
+      ] satisfies TabGroupItem[],
+    },
+  ];
+
+  test("keeps only the tabs owned by one pane", () => {
+    const filtered = filterGroupedTabItemsByAllowedIds(groups, new Set(["2"]));
+    expect(filtered).toEqual([
+      {
+        key: "terminal",
+        label: "终端",
+        tabs: [{ id: "2", label: "2", value: "2", kind: "terminal" }],
+      },
+    ]);
+  });
+
+  test("drops empty groups and returns nothing for an empty pane", () => {
+    expect(filterGroupedTabItemsByAllowedIds(groups, new Set())).toEqual([]);
+  });
+
+  test("leaves all groups in place when no allow-list is set", () => {
+    const filtered = filterGroupedTabItemsByAllowedIds(groups, null);
+    expect(filtered.map((group) => group.tabs.map((tab) => tab.value))).toEqual([
+      ["terminal", "2"],
+      ["github", "issue-164"],
+    ]);
   });
 });

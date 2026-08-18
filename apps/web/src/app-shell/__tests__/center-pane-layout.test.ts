@@ -9,6 +9,7 @@ import {
   isEmptyPane,
   isPrimaryPane,
   MAX_CENTER_PANES,
+  normalizeCenterPaneLayout,
   openTabOnFocusedPane,
   OVERVIEW_TAB_ID,
   reconcileOpenTabs,
@@ -20,8 +21,10 @@ import {
   shouldAttachActiveTabToFocusedPane,
   splitPane,
   syncFractionsToPaneCount,
+  treeFromReadingOrder,
   MIN_FRACTION,
 } from "@/app-shell/center-pane/center-pane-layout";
+import { collectTerminalLayoutGeometry, getLeaves } from "@/features/terminal/lib/terminal-layout-tree";
 
 describe("center-pane-layout", () => {
   it("creates a single-pane default owning all tabs", () => {
@@ -217,6 +220,40 @@ describe("center-pane-layout", () => {
     const synced = syncFractionsToPaneCount(layout);
     expect(synced.columnFractions).toHaveLength(synced.columnCount);
     expect(synced.rowFractions).toHaveLength(rowCountFor(synced.order.length, synced.columnCount));
+  });
+
+  it("tiles three panes without a leftover empty cell", () => {
+    let layout = createDefaultLayout(["terminal"], "terminal");
+    layout = splitPane(layout, { direction: "right" });
+    layout = splitPane(layout, { direction: "right" });
+    expect(layout.panes).toHaveLength(3);
+    const leaves = getLeaves(layout.tree!);
+    expect(leaves).toHaveLength(3);
+    const geo = collectTerminalLayoutGeometry(layout.tree!);
+    const area = geo.leaves.reduce((sum, leaf) => sum + leaf.width * leaf.height, 0);
+    expect(area).toBeCloseTo(1, 6);
+    expect(geo.leaves.every((leaf) => leaf.width > 0 && leaf.height > 0)).toBe(true);
+  });
+
+  it("rebuilds a filling tree from a legacy grid order", () => {
+    const tree = treeFromReadingOrder(["a", "b", "c"], 2);
+    const geo = collectTerminalLayoutGeometry(tree);
+    expect(geo.leaves).toHaveLength(3);
+    const area = geo.leaves.reduce((sum, leaf) => sum + leaf.width * leaf.height, 0);
+    expect(area).toBeCloseTo(1, 6);
+    const normalized = normalizeCenterPaneLayout({
+      panes: [
+        { id: "a", tabIds: ["terminal"], activeTabId: "terminal" },
+        { id: "b", tabIds: [], activeTabId: "" },
+        { id: "c", tabIds: [], activeTabId: "" },
+      ],
+      order: ["a", "b", "c"],
+      columnCount: 2,
+      columnFractions: [0.5, 0.5],
+      rowFractions: [0.5, 0.5],
+      focusedPaneId: "a",
+    });
+    expect(getLeaves(normalized.tree!)).toEqual(["a", "b", "c"]);
   });
 
   it("returns the same layout reference when reconcile/open are no-ops", () => {

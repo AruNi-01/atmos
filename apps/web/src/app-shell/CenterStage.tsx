@@ -157,6 +157,7 @@ import {
   type PendingNamedTerminalRun,
 } from "@/app-shell/center-stage-support";
 import { useCenterStageTabGroups } from "@/app-shell/use-center-stage-tab-groups";
+import { filterGroupedTabItemsByAllowedIds } from "@/app-shell/center-stage-tab-groups";
 import { useCenterStageTerminalAgents } from "@/app-shell/use-center-stage-terminal-agents";
 import { useCenterStageNamedTerminalVisibility } from "@/app-shell/use-center-stage-named-terminal-visibility";
 import {
@@ -225,7 +226,6 @@ const CenterStage: React.FC = () => {
   const pendingCloseQueueRef = React.useRef<PendingCenterTabClose[]>([]);
   /** True while we intentionally close a confirm dialog to advance the bulk-close queue. */
   const advancingCloseQueueRef = React.useRef(false);
-  const [tabGroupPopoverOpen, setTabGroupPopoverOpen] = React.useState(false);
   const tabGroupDndSensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
@@ -1979,14 +1979,6 @@ const CenterStage: React.FC = () => {
     }
   }, [currentRepoPath]);
 
-  const handleSelectTabGroupItem = React.useCallback((tab: TabGroupItem) => {
-    if (tab.kind === "browser" && tab.browserContextId && tab.browserTabId) {
-      selectBrowserInternalTab(tab.browserContextId, tab.browserTabId);
-    }
-    handleCenterStageTabChange(tab.value);
-    setTabGroupPopoverOpen(false);
-  }, [handleCenterStageTabChange, selectBrowserInternalTab]);
-
   const handleCloseTabGroupItem = React.useCallback((tab: TabGroupItem) => {
     if (tab.kind === "terminal") {
       handleCloseTerminalCenterTab(tab.value);
@@ -2053,21 +2045,6 @@ const CenterStage: React.FC = () => {
     previewBrowserPrefs,
   ]);
 
-  const isTabGroupItemActive = React.useCallback(
-    (tab: TabGroupItem) => {
-      if (tab.kind !== "browser") {
-        return activeValue === tab.value;
-      }
-      if (activeValue !== tab.value || !tab.browserContextId || !tab.browserTabId) {
-        return false;
-      }
-      const context = previewBrowserPrefs.byContext[tab.browserContextId];
-      const activeTabId = context?.activeTabId ?? context?.tabs?.[0]?.id;
-      return activeTabId === tab.browserTabId;
-    },
-    [activeValue, previewBrowserPrefs],
-  );
-
   const { currentProject, currentWorkspace } = resolveCenterStageProjectContext(
     projects,
     effectiveContextId,
@@ -2131,8 +2108,8 @@ const CenterStage: React.FC = () => {
   );
   const focusCenterPane = useCenterPaneLayoutStore((s) => s.focus);
   const splitCenterPane = useCenterPaneLayoutStore((s) => s.split);
-  const resizeCenterColumns = useCenterPaneLayoutStore((s) => s.resizeColumns);
-  const resizeCenterRows = useCenterPaneLayoutStore((s) => s.resizeRows);
+  const setCenterPaneTree = useCenterPaneLayoutStore((s) => s.setTree);
+  const closeCenterPane = useCenterPaneLayoutStore((s) => s.close);
   const setPaneActiveTab = useCenterPaneLayoutStore((s) => s.setActiveTab);
   const setCenterPaneLayout = useCenterPaneLayoutStore((s) => s.setLayout);
   const hydrateSavedLayouts = useCenterPaneSavedLayoutStore((s) => s.hydrate);
@@ -2333,6 +2310,7 @@ const CenterStage: React.FC = () => {
   }
 
   const renderTabBar = (opts?: {
+    paneId?: string;
     activeTabId?: string;
     allowedTabIds?: ReadonlySet<string>;
     onTabChange?: (v: string) => void;
@@ -2341,6 +2319,13 @@ const CenterStage: React.FC = () => {
     const filterIds = <T,>(items: T[], idOf: (item: T) => string) =>
       allowed ? items.filter((item) => allowed.has(idOf(item))) : items;
     const has = (id: string) => !allowed || allowed.has(id);
+    const changeTab = opts?.onTabChange ?? handleCenterStageTabChange;
+    const runOnThisPane = (run: () => void) => {
+      if (opts?.paneId && renderContextId) {
+        focusCenterPane(renderContextId, opts.paneId);
+      }
+      run();
+    };
     return (
       <CenterStageTabBar
         activeValue={opts?.activeTabId ?? activeValue}
@@ -2349,9 +2334,11 @@ const CenterStage: React.FC = () => {
         codeReviewTabVisible={codeReviewTabVisible && has("code-review")}
         effectiveContextId={renderContextId}
         githubTabs={filterIds(githubTabs, (tab) => tab.value)}
-        isTabGroupItemActive={isTabGroupItemActive}
         openFiles={filterIds(openFiles, (file) => file.path)}
-        orderedGroupedTabItems={orderedGroupedTabItems}
+        orderedGroupedTabItems={filterGroupedTabItemsByAllowedIds(
+          orderedGroupedTabItems,
+          allowed,
+        )}
         tabStripOrder={tabStripOrder}
         onTabStripOrderChange={handleTabStripOrderChange}
         previewBrowserPrefs={previewBrowserPrefs}
@@ -2367,32 +2354,43 @@ const CenterStage: React.FC = () => {
         scrollableTabsRef={scrollableTabsRef}
         sessionDisplay={sessionDisplay}
         tabGroupDndSensors={tabGroupDndSensors}
-        tabGroupPopoverOpen={tabGroupPopoverOpen}
         visibleTerminalTabs={filterIds(visibleTerminalTabs, (tab) => tab.id)}
         wikiCenterEligible={wikiCenterEligible && has("wiki")}
         wikiRefreshing={wikiRefreshing}
         overviewVisible={has(OVERVIEW_TAB_ID)}
-        handleCenterStageTabChange={opts?.onTabChange ?? handleCenterStageTabChange}
+        handleCenterStageTabChange={changeTab}
         handleCloseTabGroupItem={handleCloseTabGroupItem}
         handleCloseBrowserTab={handleCloseBrowserTab}
         handleCloseFile={handleCloseFile}
         handleCloseGithubTab={handleCloseGithubTab}
         handleCloseTerminalCenterTab={handleCloseTerminalCenterTab}
-        handleCreateBrowserCenterTab={handleCreateBrowserCenterTab}
-        handleCreateSimulatorCenterTab={handleCreateSimulatorCenterTab}
-        handleCreateTerminalCenterTab={handleCreateTerminalCenterTab}
-        handleCreateToolCenterTab={handleCreateToolCenterTab}
+        handleCreateBrowserCenterTab={() =>
+          runOnThisPane(handleCreateBrowserCenterTab)
+        }
+        handleCreateSimulatorCenterTab={() =>
+          runOnThisPane(handleCreateSimulatorCenterTab)
+        }
+        handleCreateTerminalCenterTab={() =>
+          runOnThisPane(handleCreateTerminalCenterTab)
+        }
+        handleCreateToolCenterTab={(tab) =>
+          runOnThisPane(() => handleCreateToolCenterTab(tab))
+        }
         handleCloseSimulatorTab={handleCloseSimulatorTab}
         handleCloseGitHistoryTab={handleCloseGitHistoryTab}
         handleCloseToolTab={handleCloseToolTab}
         handleRenameTerminalCenterTab={handleRenameTerminalCenterTab}
-        handleSelectTabGroupItem={handleSelectTabGroupItem}
+        handleSelectTabGroupItem={(tab) => {
+          if (tab.kind === "browser" && tab.browserContextId && tab.browserTabId) {
+            selectBrowserInternalTab(tab.browserContextId, tab.browserTabId);
+          }
+          changeTab(tab.value);
+        }}
         handleTabGroupDragEnd={handleTabGroupDragEnd}
         pinFile={pinFile}
         setCodeReviewCloseConfirmOpen={setCodeReviewCloseConfirmOpen}
         setProjectWikiCloseConfirmOpen={setProjectWikiCloseConfirmOpen}
         setTabContextMenu={setTabContextMenu}
-        setTabGroupPopoverOpen={setTabGroupPopoverOpen}
         setWikiRefreshing={setWikiRefreshing}
         setWikiRefreshTrigger={setWikiRefreshTrigger}
         onSplitRight={handleSplitRight}
@@ -2475,12 +2473,12 @@ const CenterStage: React.FC = () => {
     // Padding gutters use shell `bg-sidebar` so `bg-background` center pops.
     <main className={cn(CENTER_STAGE_SHELL_CLASS, CENTER_STAGE_GUTTER_CLASS)}>
       {isMultiPane ? (
-        <div className="relative min-h-0 flex-1">
+        <div data-center-stage-card="" className="relative min-h-0 flex-1">
           <div className="absolute inset-0 min-h-0">
             <CenterPaneGrid
               layout={resolvedPaneLayout}
-              onReorder={() => {
-                /* Pane chrome drag removed; order is fixed unless re-split. */
+              onTreeChange={(tree) => {
+                if (renderContextId) setCenterPaneTree(renderContextId, tree);
               }}
               onFocus={(paneId) => {
                 if (!renderContextId) return;
@@ -2491,12 +2489,6 @@ const CenterStage: React.FC = () => {
                 if (pane && pane.activeTabId && !isEmptyPane(pane)) {
                   handleCenterStageTabChange(pane.activeTabId);
                 }
-              }}
-              onResizeColumns={(index, delta) => {
-                if (renderContextId) resizeCenterColumns(renderContextId, index, delta);
-              }}
-              onResizeRows={(index, delta) => {
-                if (renderContextId) resizeCenterRows(renderContextId, index, delta);
               }}
               renderPaneChrome={(pane) => {
                 const primary = isPrimaryPane(resolvedPaneLayout, pane.id);
@@ -2557,13 +2549,21 @@ const CenterStage: React.FC = () => {
                         {renderTabBar({
                           // Empty secondary launcher: no active tab (do not mirror
                           // the other pane's URL active / Overview selection).
+                          paneId: pane.id,
                           activeTabId: "",
                           allowedTabIds: allowed,
                           onTabChange: (value) =>
                             handlePaneTabChange(pane.id, value),
                         })}
                       </div>
-                      <CenterPaneEmptyState actions={emptyActions} />
+                      <CenterPaneEmptyState
+                        actions={emptyActions}
+                        onClose={
+                          primary || !renderContextId
+                            ? undefined
+                            : () => closeCenterPane(renderContextId, pane.id)
+                        }
+                      />
                     </div>
                   );
                 }
@@ -2575,6 +2575,7 @@ const CenterStage: React.FC = () => {
                     className="flex h-full min-h-0 flex-col gap-0 overflow-hidden"
                   >
                     {renderTabBar({
+                      paneId: pane.id,
                       activeTabId,
                       allowedTabIds: allowed,
                       onTabChange: (value) => handlePaneTabChange(pane.id, value),
@@ -2597,6 +2598,7 @@ const CenterStage: React.FC = () => {
           value={activeValue}
           onValueChange={handleCenterStageTabChange}
           // isolate helps clip xterm WebGL to the rounded card corners.
+          data-center-stage-card=""
           className={cn(
             "flex min-h-0 flex-1 flex-col gap-0 isolate",
             CENTER_STAGE_CARD_CLASS,

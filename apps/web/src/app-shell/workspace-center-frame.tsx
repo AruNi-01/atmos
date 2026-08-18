@@ -46,6 +46,7 @@ import {
 } from "@/app-shell/workspace-surface-policies";
 import { readCenterStageLastTab } from "@/shared/stores/use-ui-pref-hooks";
 import { CENTER_STAGE_RADIUS_CSS } from "@/app-shell/sidebar-layout-constants";
+import { isUsablePaneSlotBox } from "@/app-shell/center-pane/use-center-pane-slot-boxes";
 import { cn } from "@/shared/lib/utils";
 import {
   workspaceCenterFramePropsAreEqual,
@@ -196,7 +197,19 @@ function multiPanePanelStyle(
   const paneId = tabToPaneId[tabId];
   if (!paneId) return undefined;
   const box = paneSlotBoxes[paneId];
-  if (!box || box.width <= 0 || box.height <= 0) return undefined;
+  // Missing box = empty pane just grew a slot. Do not fall back to
+  // `inset: 0` (covers sibling panes and fits the PTY at the wrong size).
+  if (!isUsablePaneSlotBox(box)) {
+    return {
+      position: "absolute",
+      inset: "auto",
+      width: 0,
+      height: 0,
+      overflow: "hidden",
+      pointerEvents: "none",
+      opacity: 0,
+    };
+  }
   return {
     position: "absolute",
     inset: "auto",
@@ -382,6 +395,13 @@ function WorkspaceCenterFrameImpl({
             tab.id === frameActiveTab ||
             isMultiActive;
           if (!isRetained) return false;
+          if (
+            multiActiveTabIds &&
+            isMultiActive &&
+            !isUsablePaneSlotBox(paneSlotBoxes?.[tabToPaneId?.[tab.id] ?? ""])
+          ) {
+            return false;
+          }
           if (isActiveContext && (tab.id === frameActiveTab || isMultiActive)) return true;
           if (!planReady) {
             return isActiveContext || tab.id === frameActiveTab || isMultiActive;

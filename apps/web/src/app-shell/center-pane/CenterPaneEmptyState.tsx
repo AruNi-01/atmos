@@ -11,6 +11,7 @@ import {
   Play,
   Smartphone,
   SquareTerminal as TerminalIcon,
+  X,
 } from "lucide-react";
 import { cn } from "@/shared/lib/utils";
 import type { CenterToolTabValue } from "@/app-shell/center-tool-tabs";
@@ -56,9 +57,11 @@ function ShortcutKeys({ keys }: { keys: string[] }) {
 export function CenterPaneEmptyState({
   actions,
   className,
+  onClose,
 }: {
   actions: CenterPaneEmptyAction[];
   className?: string;
+  onClose?: () => void;
 }) {
   const t = useTranslations("appShell.centerStageTabBar");
 
@@ -71,9 +74,6 @@ export function CenterPaneEmptyState({
       data-center-pane-empty=""
     >
       <div className="w-full max-w-sm space-y-1">
-        <p className="mb-3 px-3 text-center text-xs text-muted-foreground">
-          {t("emptyPaneHint")}
-        </p>
         {actions.map((action) => (
           <button
             key={action.id}
@@ -94,6 +94,22 @@ export function CenterPaneEmptyState({
             ) : null}
           </button>
         ))}
+        {onClose ? (
+          <button
+            type="button"
+            className={cn(
+              "mt-2 flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm text-muted-foreground",
+              "hover:bg-accent hover:text-foreground",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
+            )}
+            onClick={onClose}
+          >
+            <span className="inline-flex size-5 shrink-0 items-center justify-center">
+              <X className="size-4" />
+            </span>
+            <span className="min-w-0 flex-1 truncate font-medium">{t("closePane")}</span>
+          </button>
+        ) : null}
       </div>
     </div>
   );

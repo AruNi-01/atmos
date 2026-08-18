@@ -1,7 +1,15 @@
 /**
- * Pure multi-center-pane layout math (dnd-kit grid order + fr fractions).
+ * Pure multi-center-pane layout math (binary split tree + tab ownership).
  * Free of React so unit tests can drive the model without DOM.
  */
+
+import {
+  getLeaves,
+  isTerminalLayoutBranch,
+  removePaneFromLayoutTree,
+  splitPaneInLayoutTree,
+  type TerminalLayoutNode,
+} from "@/features/terminal/lib/terminal-layout-tree";
 
 export const MAX_CENTER_PANES = 4;
 export const MIN_FRACTION = 0.15;
@@ -27,10 +35,18 @@ export function createEmptyPane(id: string): CenterPane {
   return { id, tabIds: [], activeTabId: EMPTY_PANE_ACTIVE_TAB_ID };
 }
 
+/** Mosaic tree of pane ids — same algorithm as in-pane Terminal split. */
+export type CenterPaneTree = TerminalLayoutNode<string>;
+
 export type CenterPaneLayout = {
   panes: CenterPane[];
-  /** Reading order for CSS grid + Sortable. */
+  /** Reading order (tree leaves). */
   order: string[];
+  /**
+   * Binary split tree that always tiles the stage. Older persisted layouts
+   * may omit this; {@link normalizeCenterPaneLayout} synthesizes one.
+   */
+  tree?: CenterPaneTree;
   columnCount: number;
   columnFractions: number[];
   rowFractions: number[];
@@ -81,11 +97,101 @@ export function createDefaultLayout(tabIds: string[], activeTabId: string): Cent
       },
     ],
     order: [DEFAULT_PANE_ID],
+    tree: DEFAULT_PANE_ID,
     columnCount: 1,
     columnFractions: [1],
     rowFractions: [1],
     focusedPaneId: DEFAULT_PANE_ID,
   };
+}
+
+function joinEqual(ids: string[], direction: "row" | "column"): CenterPaneTree {
+  if (ids.length === 0) return DEFAULT_PANE_ID;
+  if (ids.length === 1) return ids[0]!;
+  if (ids.length === 2) {
+    return {
+      direction,
+      first: ids[0]!,
+      second: ids[1]!,
+      splitPercentage: 50,
+    };
+  }
+  const mid = Math.ceil(ids.length / 2);
+  return {
+    direction,
+    first: joinEqual(ids.slice(0, mid), direction),
+    second: joinEqual(ids.slice(mid), direction),
+    splitPercentage: (mid / ids.length) * 100,
+  };
+}
+
+/** Build a tiling tree from row-major order so leftover cells still fill the stage. */
+export function treeFromReadingOrder(
+  order: string[],
+  columnCount = 2,
+): CenterPaneTree {
+  if (order.length === 0) return DEFAULT_PANE_ID;
+  if (order.length === 1) return order[0]!;
+  const cols = Math.max(1, Math.min(order.length, Math.floor(columnCount) || 2));
+  const rows: string[][] = [];
+  for (let i = 0; i < order.length; i += cols) {
+    rows.push(order.slice(i, i + cols));
+  }
+  return joinEqual(
+    rows.map((row) => joinEqual(row, "row")),
+    "column",
+  );
+}
+
+function treeLeavesMatchPanes(
+  tree: CenterPaneTree,
+  paneIds: ReadonlySet<string>,
+): boolean {
+  const leaves = getLeaves(tree);
+  if (leaves.length !== paneIds.size) return false;
+  const seen = new Set<string>();
+  for (const id of leaves) {
+    if (!paneIds.has(id) || seen.has(id)) return false;
+    seen.add(id);
+  }
+  return true;
+}
+
+function centerPaneTreesEqual(a: CenterPaneTree, b: CenterPaneTree): boolean {
+  if (a === b) return true;
+  if (!isTerminalLayoutBranch(a) || !isTerminalLayoutBranch(b)) return a === b;
+  return (
+    a.direction === b.direction &&
+    Math.abs((a.splitPercentage ?? 50) - (b.splitPercentage ?? 50)) < 1e-6 &&
+    centerPaneTreesEqual(a.first, b.first) &&
+    centerPaneTreesEqual(a.second, b.second)
+  );
+}
+
+/** Ensure `tree` tiles every pane exactly once and `order` follows its leaves. */
+export function normalizeCenterPaneLayout(layout: CenterPaneLayout): CenterPaneLayout {
+  const paneIds = new Set(layout.panes.map((pane) => pane.id));
+  const existingTree = layout.tree;
+  const tree =
+    existingTree && treeLeavesMatchPanes(existingTree, paneIds)
+      ? existingTree
+      : treeFromReadingOrder(
+          [
+            ...layout.order.filter((id) => paneIds.has(id)),
+            ...layout.panes.map((pane) => pane.id).filter((id) => !layout.order.includes(id)),
+          ],
+          layout.columnCount || 2,
+        );
+  const order = getLeaves(tree);
+  const focusedPaneId = paneIds.has(layout.focusedPaneId)
+    ? layout.focusedPaneId
+    : (order[0] ?? DEFAULT_PANE_ID);
+  return syncFractionsToPaneCount({
+    ...layout,
+    tree,
+    order,
+    focusedPaneId,
+  });
 }
 
 export function getPane(layout: CenterPaneLayout, paneId: string): CenterPane | undefined {
@@ -214,6 +320,14 @@ export function findPaneIdForTab(layout: CenterPaneLayout, tabId: string): strin
   return null;
 }
 
+/** Replace the mosaic tree (drag-dock / split-resize). Panes stay owned. */
+export function applyCenterPaneTree(
+  layout: CenterPaneLayout,
+  tree: CenterPaneTree,
+): CenterPaneLayout {
+  return normalizeCenterPaneLayout({ ...layout, tree });
+}
+
 export function reorderPanes(layout: CenterPaneLayout, fromIndex: number, toIndex: number): CenterPaneLayout {
   if (
     fromIndex === toIndex ||
@@ -298,30 +412,24 @@ export function splitPane(
   const focused = getFocusedPane(layout);
   const newId = createPaneId(layout.panes.map((p) => p.id));
   const newPane = createEmptyPane(newId);
-
-  const panes = [...layout.panes, newPane];
-  const focusIndex = layout.order.indexOf(focused.id);
-  const order = [...layout.order];
-  order.splice(focusIndex < 0 ? order.length : focusIndex + 1, 0, newId);
-
-  let columnCount = layout.columnCount;
-  if (options.direction === "right") {
-    columnCount = Math.min(MAX_CENTER_PANES, Math.max(columnCount, Math.min(order.length, 2)));
-    if (order.length === 3) columnCount = Math.min(3, Math.max(columnCount, 2));
-    if (order.length >= 4) columnCount = Math.min(MAX_CENTER_PANES, Math.max(columnCount, 2));
-  } else {
-    // Prefer more rows: keep columns, let rowCount grow
-    columnCount = Math.min(columnCount, Math.max(1, Math.ceil(order.length / 2)));
-    if (columnCount < 1) columnCount = 1;
-  }
+  const current = normalizeCenterPaneLayout(layout);
+  const tree = splitPaneInLayoutTree(
+    current.tree ?? focused.id,
+    focused.id,
+    newId,
+    options.direction === "right" ? "row" : "column",
+  );
 
   // Do not prune the new empty pane — empty is the intended post-split state.
-  return syncFractionsToPaneCount({
-    ...layout,
-    panes,
-    order,
-    columnCount,
+  return normalizeCenterPaneLayout({
+    ...current,
+    panes: [...current.panes, newPane],
+    tree,
     focusedPaneId: newId,
+    columnCount:
+      options.direction === "right"
+        ? Math.min(MAX_CENTER_PANES, Math.max(current.columnCount, 2))
+        : current.columnCount,
   });
 }
 
@@ -333,7 +441,11 @@ export function closePane(layout: CenterPaneLayout, paneId: string): CenterPaneL
   if (!closing) return layout;
 
   const remainingPanes = layout.panes.filter((p) => p.id !== paneId);
-  const order = layout.order.filter((id) => id !== paneId);
+  const tree = removePaneFromLayoutTree(
+    normalizeCenterPaneLayout(layout).tree ?? DEFAULT_PANE_ID,
+    paneId,
+  );
+  const order = tree ? getLeaves(tree) : layout.order.filter((id) => id !== paneId);
   const primaryId = getPrimaryPaneId(layout);
   const neighborId =
     order.includes(primaryId)
@@ -357,10 +469,11 @@ export function closePane(layout: CenterPaneLayout, paneId: string): CenterPaneL
   let columnCount = layout.columnCount;
   if (order.length === 1) columnCount = 1;
 
-  return enforceOverviewPrimaryOnly(
-    syncFractionsToPaneCount({
+  return normalizeCenterPaneLayout(
+    enforceOverviewPrimaryOnly({
       ...layout,
       panes,
+      tree: tree ?? order[0] ?? DEFAULT_PANE_ID,
       order,
       columnCount,
       focusedPaneId,
@@ -445,6 +558,10 @@ export function centerPaneLayoutsEqual(a: CenterPaneLayout, b: CenterPaneLayout)
     a.focusedPaneId !== b.focusedPaneId ||
     a.columnCount !== b.columnCount ||
     !sameStringList(a.order, b.order) ||
+    !centerPaneTreesEqual(
+      a.tree ?? treeFromReadingOrder(a.order, a.columnCount),
+      b.tree ?? treeFromReadingOrder(b.order, b.columnCount),
+    ) ||
     a.panes.length !== b.panes.length ||
     a.columnFractions.length !== b.columnFractions.length ||
     a.rowFractions.length !== b.rowFractions.length

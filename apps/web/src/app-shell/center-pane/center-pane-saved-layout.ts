@@ -10,9 +10,10 @@ import {
   DEFAULT_PANE_ID,
   FALLBACK_SECONDARY_TAB_ID,
   OVERVIEW_TAB_ID,
-  syncFractionsToPaneCount,
+  normalizeCenterPaneLayout,
   type CenterPane,
   type CenterPaneLayout,
+  type CenterPaneTree,
 } from "@/app-shell/center-pane/center-pane-layout";
 import {
   isCenterToolTabValue,
@@ -71,6 +72,7 @@ export type SavedCenterLayout = {
   columnFractions: number[];
   rowFractions: number[];
   order: string[];
+  tree?: CenterPaneTree;
   panes: SavedCenterPaneSpec[];
 };
 
@@ -109,6 +111,7 @@ export function normalizeSavedCenterLayouts(raw: unknown): SavedCenterLayout[] {
       order: Array.isArray(row.order)
         ? row.order.filter((id): id is string => typeof id === "string")
         : [],
+      tree: row.tree,
       panes: row.panes as SavedCenterLayout["panes"],
     });
     if (out.length >= MAX_SAVED_CENTER_LAYOUTS) break;
@@ -191,6 +194,7 @@ export function snapshotCenterLayout(
     columnFractions: [...layout.columnFractions],
     rowFractions: [...layout.rowFractions],
     order,
+    tree: layout.tree,
     panes,
   };
 }
@@ -253,9 +257,10 @@ export function materializeSavedLayout(
 
   const focusedPaneId = order[0] ?? DEFAULT_PANE_ID;
 
-  return syncFractionsToPaneCount({
+  return normalizeCenterPaneLayout({
     panes,
     order,
+    tree: saved.tree,
     columnCount: saved.columnCount,
     columnFractions: [...saved.columnFractions],
     rowFractions: [...saved.rowFractions],
