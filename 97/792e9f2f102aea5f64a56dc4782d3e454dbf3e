@@ -1,0 +1,14 @@
+apps/web/src/app-shell/center-pane/center-pane-layout.ts
+  h_5be255725524c8 108
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "97792e9f2f102aea5f64a56dc4782d3e454dbf3e",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
