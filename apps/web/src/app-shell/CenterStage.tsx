@@ -125,6 +125,7 @@ import {
   OVERVIEW_TAB_ID,
 } from "@/app-shell/center-pane/center-pane-layout";
 import { useCenterPaneSlotBoxes } from "@/app-shell/center-pane/use-center-pane-slot-boxes";
+import { CENTER_PANE_LAYOUT_MOTION_MS } from "@/app-shell/center-pane/center-pane-layout-motion";
 import {
   collectSavedSurfaces,
   isToolSurfaceKind,
@@ -2221,19 +2222,42 @@ const CenterStage: React.FC = () => {
     renderContextId,
   ]);
   const isMultiPane = resolvedPaneLayout.order.length > 1;
+  const paneCount = resolvedPaneLayout.order.length;
+  const prevPaneCountRef = React.useRef(paneCount);
+  const [mosaicHold, setMosaicHold] = React.useState(false);
+  const seedFromFullPane = prevPaneCountRef.current <= 1 && paneCount > 1;
+  if (prevPaneCountRef.current > 1 && paneCount <= 1 && !mosaicHold) {
+    setMosaicHold(true);
+  }
+  if (paneCount > 1 && mosaicHold) {
+    setMosaicHold(false);
+  }
+  prevPaneCountRef.current = paneCount;
+  const showMosaic = isMultiPane || mosaicHold;
+  React.useEffect(() => {
+    if (!mosaicHold) return;
+    const reduce =
+      typeof window !== "undefined" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const timer = window.setTimeout(
+      () => setMosaicHold(false),
+      reduce ? 0 : CENTER_PANE_LAYOUT_MOTION_MS,
+    );
+    return () => window.clearTimeout(timer);
+  }, [mosaicHold]);
   const paneSlotBoxes = useCenterPaneSlotBoxes(
     panelHostRef,
     resolvedPaneLayout,
-    isMultiPane,
+    showMosaic,
   );
   const multiActiveTabIds = React.useMemo(() => {
-    if (!isMultiPane) return null;
+    if (!showMosaic) return null;
     // Always pass a list when multi-pane so content slots position correctly
     // even if only one pane has an active tab (others empty).
     return collectActiveTabIds(resolvedPaneLayout);
-  }, [isMultiPane, resolvedPaneLayout]);
+  }, [resolvedPaneLayout, showMosaic]);
   const tabToPaneId = React.useMemo(() => {
-    if (!isMultiPane) return null;
+    if (!showMosaic) return null;
     const map: Record<string, string> = {};
     for (const pane of resolvedPaneLayout.panes) {
       for (const tabId of pane.tabIds) {
@@ -2242,7 +2266,7 @@ const CenterStage: React.FC = () => {
       map[pane.activeTabId] = pane.id;
     }
     return map;
-  }, [isMultiPane, resolvedPaneLayout.panes]);
+  }, [resolvedPaneLayout.panes, showMosaic]);
 
   const handleSplitRight = React.useCallback(() => {
     if (!renderContextId) return;
@@ -2535,11 +2559,12 @@ const CenterStage: React.FC = () => {
     // Inset + rounded cards so all four corners read as a floating main stage.
     // Padding gutters use shell `bg-sidebar` so `bg-background` center pops.
     <main className={cn(CENTER_STAGE_SHELL_CLASS, CENTER_STAGE_GUTTER_CLASS)}>
-      {isMultiPane ? (
-        <div data-center-stage-card="" className="relative min-h-0 flex-1">
+      {showMosaic ? (
+        <div data-center-stage-card="" className="desktop-no-drag relative min-h-0 flex-1">
           <div className="absolute inset-0 min-h-0">
             <CenterPaneGrid
               layout={resolvedPaneLayout}
+              seedFromFullPane={seedFromFullPane}
               onTreeChange={(tree) => {
                 if (renderContextId) setCenterPaneTree(renderContextId, tree);
               }}
@@ -2651,6 +2676,7 @@ const CenterStage: React.FC = () => {
           </div>
           <div
             ref={panelHostRef}
+            data-center-panel-host=""
             className="pointer-events-none absolute inset-0 min-h-0"
           >
             {panels}

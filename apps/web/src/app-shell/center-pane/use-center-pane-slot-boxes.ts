@@ -123,6 +123,10 @@ export function useCenterPaneSlotBoxes(
         `[data-center-pane-content-slot="${paneId}"]`,
       );
       if (slot) ro.observe(slot);
+      const leaf = document.querySelector<HTMLElement>(
+        `[data-center-split-leaf="${paneId}"]`,
+      );
+      if (leaf) ro.observe(leaf);
     }
     window.addEventListener("resize", measure);
     return () => {

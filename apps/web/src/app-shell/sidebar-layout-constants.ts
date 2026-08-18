@@ -37,7 +37,7 @@ export const ROOT_RESIZE_HAIRLINE_BOTTOM_CSS = `calc(${APP_FOOTER_HEIGHT_PX}px +
 
 /** Floating card: clip children to the radius and ring the inset stage. */
 export const CENTER_STAGE_CARD_CLASS =
-  "h-full min-h-0 overflow-hidden rounded-xl bg-background ring-1 ring-border/40";
+  "desktop-no-drag h-full min-h-0 overflow-hidden rounded-xl bg-background ring-1 ring-border/40";
 
 /** Column above the center-stage footer — drawer insets prefer this over the panel. */
 export const CENTER_STAGE_BODY_ATTR = "data-center-stage-body";

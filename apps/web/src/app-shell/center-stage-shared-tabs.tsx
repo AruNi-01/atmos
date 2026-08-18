@@ -52,11 +52,10 @@ import {
   type TabGroupItem,
 } from "@/app-shell/center-stage-tabs";
 import { preventNonPrimaryTabActivate } from "@/app-shell/center-stage-tab-model";
-import { CenterPaneDragHandle } from "@/app-shell/center-pane/center-pane-dnd";
 
 /** Tasks-page motion pill trigger density, on Atmos surfaces. */
 export const CENTER_STAGE_TAB_CLASS =
-  "group h-7 shrink-0 gap-1.5 px-1.5 text-xs aria-selected:!text-foreground";
+  "pointer-events-auto group h-7 shrink-0 gap-1.5 px-1.5 text-xs aria-selected:!text-foreground";
 
 export const CENTER_STAGE_TAB_INDICATOR_CLASS = "bg-active";
 
@@ -163,7 +162,12 @@ export function CenterStageTabList({
   value: string;
 }) {
   return (
-    <CenterPaneDragHandle className={cn("flex shrink-0 items-center gap-1.5 px-2 py-1", className)}>
+    <div
+      className={cn(
+        "desktop-no-drag relative z-20 flex shrink-0 items-center gap-1.5 px-2 py-1",
+        className,
+      )}
+    >
       <MotionTabs
         value={value}
         onValueChange={onValueChange}
@@ -175,7 +179,7 @@ export function CenterStageTabList({
           {actions}
         </MotionTabsList>
       </MotionTabs>
-    </CenterPaneDragHandle>
+    </div>
   );
 }
 
@@ -210,7 +214,7 @@ export function CenterStageStickyTabActions({
   return (
     <div
       className={cn(
-        "z-20 flex h-7 shrink-0 items-center",
+        "pointer-events-auto z-20 flex h-7 shrink-0 items-center",
         className,
       )}
       onPointerDown={(event) => event.stopPropagation()}
@@ -236,7 +240,10 @@ export function CenterStageOverviewTab({
       <TooltipTrigger asChild>
         <CenterStageTab
           value={value}
-          onPointerDown={preventNonPrimaryTabActivate}
+          onPointerDown={(event) => {
+            preventNonPrimaryTabActivate(event);
+            event.stopPropagation();
+          }}
           className={cn(CENTER_STAGE_ICON_TAB_CLASS, className)}
         >
           <LayoutDashboard className="size-3.5" />

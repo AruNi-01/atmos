@@ -799,7 +799,10 @@ export function CenterStageTabBar({
           <TooltipTrigger asChild>
             <CenterStageTab
               value="wiki"
-              onPointerDown={preventNonPrimaryTabActivate}
+              onPointerDown={(event) => {
+                preventNonPrimaryTabActivate(event);
+                event.stopPropagation();
+              }}
               className={cn("group/wiki relative", CENTER_STAGE_ICON_TAB_CLASS)}
             >
               <span className="relative size-3.5">
@@ -850,7 +853,7 @@ export function CenterStageTabBar({
       <div
         ref={scrollableTabsRef}
         data-center-tabs-scroll
-        className="flex min-w-0 flex-1 items-center overflow-x-auto no-scrollbar"
+        className="pointer-events-none flex min-w-0 flex-1 items-center overflow-x-auto no-scrollbar"
       >
         <DndContext
           sensors={stripDndSensors}
@@ -914,6 +917,7 @@ function SortableCenterStripTab({
     transition,
     isDragging,
   } = useSortable({ id });
+  const { onPointerDown, ...restListeners } = listeners ?? {};
 
   // Only while actively dragging: force grabbing cursor globally so it stays
   // visible even over TabsTab (cursor-pointer) and neighboring strip chrome.
@@ -936,11 +940,15 @@ function SortableCenterStripTab({
         transition,
       }}
       className={cn(
-        "flex h-7 shrink-0 items-center touch-none",
+        "pointer-events-auto flex h-7 shrink-0 items-center touch-none",
         isDragging && "z-20 cursor-grabbing opacity-60 [&_button]:cursor-grabbing",
       )}
       {...attributes}
-      {...listeners}
+      {...restListeners}
+      onPointerDown={(event) => {
+        onPointerDown?.(event);
+        event.stopPropagation();
+      }}
     >
       {children}
     </div>

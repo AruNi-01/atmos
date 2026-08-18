@@ -48,14 +48,32 @@ describe("center pane tab isolation", () => {
     expect(stage).toContain("changeTab(tab.value)");
   });
 
-  it("uses the tab bar as a mosaic drag handle when multiple panes exist", () => {
+  it("uses a top-edge mosaic handle so tabs do not steal pane or window drags", () => {
     const tabs = readSibling("center-stage-shared-tabs.tsx");
+    const tabBar = readSibling("CenterStageTabBar.tsx");
     const grid = readSibling("center-pane/CenterPaneGrid.tsx");
     const css = readSibling("center-pane/center-pane-grid.css");
-    expect(tabs).toContain("CenterPaneDragHandle");
+    const stage = readSibling("CenterStage.tsx");
+    expect(tabs).toContain("desktop-no-drag relative z-20");
+    expect(tabs).not.toContain("CenterPaneDragHandle");
+    expect(tabs).not.toContain("pointer-events-none flex h-8 w-full");
+    expect(tabBar).toContain("event.stopPropagation()");
+    expect(grid).toContain('data-center-pane-drag-handle=""');
+    expect(grid).toContain("absolute inset-x-0 top-0 z-30 h-1.5");
     expect(grid).toContain("dockLeafInLayoutTree");
-    expect(grid).toContain("center-pane-drag-ghost");
+    expect(grid).toContain("CenterPaneDockPreview");
+    expect(grid).toContain("data-center-pane-dragging");
+    expect(grid).toContain("useAnimatedPaneTiles");
+    expect(grid).toContain("center-pane-leaf");
+    expect(css).toContain("left 280ms");
+    expect(css).toContain("[data-live-resizing]");
+    expect(stage).toContain("seedFromFullPane");
+    expect(stage).toContain("showMosaic");
+    expect(stage).toContain("desktop-no-drag relative min-h-0 flex-1");
+    expect(stage).toContain('data-center-panel-host=""');
     expect(css).toContain("border-radius: var(--radius-xl)");
+    expect(css).toContain("[data-center-pane-dragging]");
+    expect(css).not.toContain("border-radius: var(--radius-xl) var(--radius-xl) 0 0");
   });
 
   it("lets an empty secondary pane close from the launcher list", () => {

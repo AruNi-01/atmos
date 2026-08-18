@@ -32,7 +32,10 @@ export function CenterPaneDragHandleProvider({
   );
 }
 
-/** Tab-bar drag handle. No-ops when the stage has only one pane. */
+/**
+ * Full pane-header drag handle (the top chrome, not individual tabs).
+ * Interactive children should use pointer-events-auto + stopPropagation.
+ */
 export function CenterPaneDragHandle({
   className,
   children,
@@ -48,7 +51,7 @@ export function CenterPaneDragHandle({
   return (
     <div
       ref={dnd.setNodeRef}
-      className={cn("cursor-grab touch-none active:cursor-grabbing", className)}
+      className={cn("relative cursor-grab touch-none active:cursor-grabbing", className)}
       data-center-pane-drag-handle=""
       {...dnd.attributes}
       {...dnd.listeners}

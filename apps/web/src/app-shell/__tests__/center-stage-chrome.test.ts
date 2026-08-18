@@ -23,6 +23,7 @@ describe("center-stage chrome", () => {
     expect(CENTER_STAGE_CARD_CLASS).toContain(CENTER_STAGE_RADIUS_CLASS);
     expect(CENTER_STAGE_CARD_CLASS).toContain("overflow-hidden");
     expect(CENTER_STAGE_CARD_CLASS).toContain("ring-1");
+    expect(CENTER_STAGE_CARD_CLASS).toContain("desktop-no-drag");
   });
 
   test("every no-context center view goes through CenterStageSurface", () => {

@@ -43,9 +43,7 @@ import {
 } from "@/features/terminal/lib/terminal-pane-drag-preview";
 import { HOST_RESIZE_DRAG_ATTR } from "@/features/terminal/lib/host-resize-pin";
 import { useLiveSplitLayout } from "@/features/terminal/lib/use-live-split-layout";
-import {
-  CenterPaneDragHandleProvider,
-} from "@/app-shell/center-pane/center-pane-dnd";
+import { useAnimatedPaneTiles } from "@/app-shell/center-pane/use-animated-pane-tiles";
 
 import "./center-pane-grid.css";
 
@@ -55,6 +53,8 @@ export type CenterPaneGridProps = {
   onTreeChange: (tree: CenterPaneTree) => void;
   /** Tab bar + optional chrome for a pane (content slot is always appended). */
   renderPaneChrome: (pane: CenterPane, ctx: { isFocused: boolean }) => React.ReactNode;
+  /** True on the render that opens the mosaic from a single pane. */
+  seedFromFullPane?: boolean;
   className?: string;
 };
 
@@ -91,6 +91,7 @@ export function CenterPaneGrid({
   onFocus,
   onTreeChange,
   renderPaneChrome,
+  seedFromFullPane = false,
   className,
 }: CenterPaneGridProps) {
   const normalized = React.useMemo(() => normalizeCenterPaneLayout(layout), [layout]);
@@ -108,6 +109,13 @@ export function CenterPaneGrid({
     [live],
   );
   const canDrag = normalized.order.length > 1;
+  const [liveResizing, setLiveResizing] = React.useState(false);
+  const paneCacheRef = React.useRef(paneById);
+  paneCacheRef.current = new Map([...paneCacheRef.current, ...paneById]);
+  const tiles = useAnimatedPaneTiles(geometry.leaves, {
+    liveResizing,
+    seedFromFullPane,
+  });
   const [draggingPaneId, setDraggingPaneId] = React.useState<string | null>(null);
   const [hover, setHover] = React.useState<DockHover | null>(null);
   const [preview, setPreview] = React.useState<PaneDragPreview | null>(null);
@@ -192,7 +200,7 @@ export function CenterPaneGrid({
     setDraggingPaneId(paneId);
     hoverRef.current = null;
     setHover(null);
-    document.documentElement.setAttribute(HOST_RESIZE_DRAG_ATTR, "");
+    setCenterPaneDragging(true);
   }, []);
 
   const finishDrag = React.useCallback(() => {
@@ -201,7 +209,7 @@ export function CenterPaneGrid({
     setHover(null);
     setPreview(null);
     setGhostPose(null);
-    document.documentElement.removeAttribute(HOST_RESIZE_DRAG_ATTR);
+    setCenterPaneDragging(false);
   }, []);
 
   const handleDragEnd = React.useCallback(
@@ -237,14 +245,17 @@ export function CenterPaneGrid({
         className={cn("relative h-full min-h-0 min-w-0", className)}
         data-center-pane-grid=""
         data-center-split-root=""
+        data-live-resizing={liveResizing ? "" : undefined}
       >
-        {geometry.leaves.map((leaf) => {
-          const pane = paneById.get(leaf.id);
+        {tiles.map((leaf) => {
+          const pane = paneById.get(leaf.id) ?? paneCacheRef.current.get(leaf.id);
           if (!pane) return null;
+          const exiting = leaf.phase === "exit";
           return (
             <div
               key={leaf.id}
-              className="absolute min-h-0 min-w-0"
+              className="center-pane-leaf absolute min-h-0 min-w-0"
+              data-phase={leaf.phase}
               style={{
                 left: `calc(${leaf.left * 100}% + ${LEAF_INSET_PX}px)`,
                 top: `calc(${leaf.top * 100}% + ${LEAF_INSET_PX}px)`,
@@ -254,10 +265,9 @@ export function CenterPaneGrid({
             >
               <SplitLeaf
                 pane={pane}
-                isFocused={normalized.focusedPaneId === pane.id}
-                canDrag={canDrag}
+                isFocused={!exiting && normalized.focusedPaneId === pane.id}
+                canDrag={canDrag && !exiting}
                 draggingPaneId={draggingPaneId}
-                hover={hover}
                 onFocus={onFocus}
                 renderPaneChrome={renderPaneChrome}
               />
@@ -270,17 +280,30 @@ export function CenterPaneGrid({
             split={split}
             treeRef={liveRef}
             onLiveTree={publishLive}
-            onResizeStart={beginLiveResize}
-            onResizeEnd={() => commitLiveResize(onTreeChange)}
+            onResizeStart={() => {
+              setLiveResizing(true);
+              beginLiveResize();
+            }}
+            onResizeEnd={() => {
+              commitLiveResize(onTreeChange);
+              setLiveResizing(false);
+            }}
           />
         ))}
         {draggingPaneId
           ? ROOT_EDGES.map((edge) => <RootEdgeDrop key={edge} edge={edge} />)
           : null}
-        {hover?.kind === "root" ? (
-          <div className="center-pane-dock-preview" data-edge={hover.edge} />
-        ) : null}
       </div>
+      {hover ? (
+        <CenterPaneDockPreview
+          edge={hover.edge}
+          box={
+            hover.kind === "root"
+              ? { left: 0, top: 0, width: 1, height: 1 }
+              : geometry.leaves.find((leaf) => leaf.id === hover.paneId) ?? null
+          }
+        />
+      ) : null}
       {preview && ghostPose && typeof document !== "undefined"
         ? createPortal(
             <CenterPaneDragGhost preview={preview} pose={ghostPose} />,
@@ -296,7 +319,6 @@ function SplitLeaf({
   isFocused,
   canDrag,
   draggingPaneId,
-  hover,
   onFocus,
   renderPaneChrome,
 }: {
@@ -304,7 +326,6 @@ function SplitLeaf({
   isFocused: boolean;
   canDrag: boolean;
   draggingPaneId: string | null;
-  hover: DockHover | null;
   onFocus: (paneId: string) => void;
   renderPaneChrome: CenterPaneGridProps["renderPaneChrome"];
 }) {
@@ -319,20 +340,7 @@ function SplitLeaf({
     data: { paneId: pane.id, kind: "pane" },
     disabled: !canDrag || isSource,
   });
-  const handleValue = React.useMemo(
-    () => ({
-      setNodeRef: setDragRef,
-      listeners: canDrag ? listeners : undefined,
-      attributes: canDrag ? attributes : undefined,
-      isDragging,
-      dragEnabled: canDrag,
-    }),
-    [attributes, canDrag, isDragging, listeners, setDragRef],
-  );
-  const showDock = hover?.kind === "pane" && hover.paneId === pane.id && !isSource;
-
   return (
-    <CenterPaneDragHandleProvider value={handleValue}>
       <div
         ref={setDropRef}
         data-center-pane={pane.id}
@@ -347,14 +355,19 @@ function SplitLeaf({
         )}
         onPointerDownCapture={() => onFocus(pane.id)}
       >
-        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        {canDrag ? (
+          <div
+            ref={setDragRef}
+            data-center-pane-drag-handle=""
+            className="absolute inset-x-0 top-0 z-30 h-1.5 cursor-grab touch-none active:cursor-grabbing"
+            {...attributes}
+            {...listeners}
+          />
+        ) : null}
+        <div className="relative z-20 flex min-h-0 flex-1 flex-col overflow-hidden">
           {renderPaneChrome(pane, { isFocused })}
         </div>
-        {showDock ? (
-          <div className="center-pane-dock-preview" data-edge={hover.edge} />
-        ) : null}
       </div>
-    </CenterPaneDragHandleProvider>
   );
 }
 
@@ -532,6 +545,55 @@ function CenterPaneDragGhost({
   );
 }
 
+function setCenterPaneDragging(active: boolean) {
+  const root = document.documentElement;
+  const card = document.querySelector("[data-center-stage-card]");
+  if (active) {
+    root.setAttribute(HOST_RESIZE_DRAG_ATTR, "");
+    card?.setAttribute("data-center-pane-dragging", "");
+    return;
+  }
+  root.removeAttribute(HOST_RESIZE_DRAG_ATTR);
+  card?.removeAttribute("data-center-pane-dragging");
+}
+
+function CenterPaneDockPreview({
+  edge,
+  box,
+}: {
+  edge: TerminalDockEdge;
+  box: { left: number; top: number; width: number; height: number } | null;
+}) {
+  const [card, setCard] = React.useState<Element | null>(null);
+  React.useLayoutEffect(() => {
+    setCard(document.querySelector("[data-center-stage-card]"));
+  }, []);
+  if (!card || !box || typeof document === "undefined") return null;
+  const inset = box.width === 1 && box.height === 1 ? 0 : LEAF_INSET_PX;
+  return createPortal(
+    <div
+      className="center-pane-dock-preview"
+      data-edge={edge}
+      style={{
+        left: `calc(${box.left * 100}% + ${inset}px)`,
+        top: `calc(${box.top * 100}% + ${inset}px)`,
+        width: `calc(${box.width * 100}% - ${inset * 2}px)`,
+        height: `calc(${box.height * 100}% - ${inset * 2}px)`,
+      }}
+    />,
+    card,
+  );
+}
+
+function readCenterPanePreviewTitle(el: HTMLElement): string {
+  const selected = el.querySelector<HTMLElement>(
+    "[data-center-tabs-scroll] [aria-selected='true'], [aria-selected='true']",
+  );
+  const raw = selected?.textContent?.replace(/\s+/g, " ").trim() ?? "";
+  if (!raw || /pick up a draggable item/i.test(raw)) return "";
+  return raw;
+}
+
 function readPaneId(data: Record<string, unknown> | undefined): string | null {
   const paneId = data?.paneId;
   return typeof paneId === "string" && paneId.length > 0 ? paneId : null;
@@ -559,10 +621,7 @@ function captureCenterPanePreview(el: HTMLElement): {
   top: number;
 } {
   const rect = el.getBoundingClientRect();
-  const title =
-    el.querySelector("[data-active], [aria-selected='true']")?.textContent?.trim() ||
-    el.querySelector("[data-center-tabs-scroll]")?.textContent?.trim() ||
-    "";
+  const title = readCenterPanePreviewTitle(el);
   return {
     width: rect.width,
     height: rect.height,
