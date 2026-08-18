@@ -19,22 +19,24 @@ describe("APP-061 static wiring", () => {
     const landingProxy = read(
       "apps/landing/functions/_lib/tok-app-proxy.ts",
     );
-    expect(landingProxy).toContain("rewriteTokHtml");
     expect(landingProxy).toContain("https://app.atmos.land");
     expect(landingProxy).toContain("isTokPath");
+    expect(landingProxy).not.toContain("rewriteTokHtml");
     const landingRedirects = read("scripts/pages/build-pages-landing.mjs");
     expect(landingRedirects).not.toContain(
       "/tok/* https://app.atmos.land/tok/:splat 302",
     );
     const landingRoutes = read("apps/landing/public/_routes.json");
     expect(landingRoutes).toContain('"/tok/*"');
-    expect(landingRoutes).not.toContain('"/_next/*"');
+    expect(landingRoutes).toContain('"/_next/*"');
     const page = read("apps/web/src/features/token-usage/PublicTokPage.tsx");
     expect(page).toContain("TokenUsageOverviewView");
     expect(page).toContain("payload={payload}");
     expect(page).toContain("@{handle}");
     expect(page).toContain("https://x.com/");
     expect(page).toContain("https://github.com/");
+    expect(page).toContain("GithubUserHoverCard");
+    expect(page).toContain('source="public"');
     expect(page).toContain("https://atmos.land");
     expect(page).toContain("overflow-y-auto");
     expect(page).not.toContain("PublicTokLeaderboards");
@@ -44,6 +46,9 @@ describe("APP-061 static wiring", () => {
       "apps/web/src/features/token-usage/PublicTokLeaderboards.tsx",
     );
     expect(boards).toContain("Crown");
+    expect(boards).toContain("GithubUserHoverCard");
+    expect(boards).toContain("GithubCell");
+    expect(boards).toContain('source="public"');
     expect(boards).toContain("SlidingMetric");
     expect(boards).toContain("compactSlidingParts");
     expect(boards).toContain("useEnterValue");
@@ -82,10 +87,13 @@ describe("APP-061 static wiring", () => {
     expect(publish).not.toContain("setIncludeCost");
     expect(publish).not.toContain("PopoverTrigger");
     expect(publish).not.toContain("copyLink");
+    expect(publish).toContain("HUB_AUTH_DONE_CHANNEL");
+    expect(publish).toContain("signedIn ? (");
     const share = read("apps/web/src/app-shell/TokenUsageShareDialog.tsx");
     expect(share).toContain("TokenUsagePublishControls");
     expect(share).toContain("@workspace/ui/components/motion/tabs");
-    expect(share).toContain('useState("publish")');
+    expect(share).toContain('useState("share")');
+    expect(share).toContain("takeTokenUsageShareResume");
     expect(share.indexOf('value="share"')).toBeLessThan(
       share.indexOf('value="publish"'),
     );

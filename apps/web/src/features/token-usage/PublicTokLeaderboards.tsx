@@ -17,6 +17,7 @@ import {
 } from "@workspace/ui/components/motion/tabs";
 import LogoSvg from "@workspace/ui/components/logo-svg";
 import { ATMOS_SLOGAN } from "@/app-shell/token-usage-share-card";
+import { GithubUserHoverCard } from "@/features/github/components/GithubUserHoverCard";
 
 import type {
   PublicLeaderboardEntry,
@@ -126,6 +127,35 @@ function SocialCell({
     >
       @{username}
     </a>
+  );
+}
+
+function GithubCell({
+  username,
+  avatarUrl,
+}: {
+  username: string | null | undefined;
+  avatarUrl?: string | null;
+}) {
+  if (!username) {
+    return <span className="text-muted-foreground">-</span>;
+  }
+  return (
+    <GithubUserHoverCard
+      username={username}
+      avatarUrl={avatarUrl}
+      source="public"
+      className="relative z-20 min-w-0 max-w-full"
+    >
+      <a
+        href={`https://github.com/${username}`}
+        target="_blank"
+        rel="noreferrer"
+        className="max-w-full truncate text-muted-foreground hover:text-foreground"
+      >
+        @{username}
+      </a>
+    </GithubUserHoverCard>
   );
 }
 
@@ -277,7 +307,30 @@ function LeaderRow({
       </td>
       <td className="py-1.5 pl-1 group-hover:bg-muted/60">
         <span className="flex min-w-0 items-center gap-2">
-          <Avatar handle={row.handle} url={row.avatar_url} />
+          {row.github_username ? (
+            <GithubUserHoverCard
+              username={row.github_username}
+              avatarUrl={row.avatar_url}
+              source="public"
+              className="relative z-20 shrink-0"
+            >
+              {onOpenProfile ? (
+                <button
+                  type="button"
+                  className="inline-flex appearance-none border-0 bg-transparent p-0"
+                  onClick={() => onOpenProfile(row.handle, row)}
+                >
+                  <Avatar handle={row.handle} url={row.avatar_url} />
+                </button>
+              ) : (
+                <a href={href} className="inline-flex">
+                  <Avatar handle={row.handle} url={row.avatar_url} />
+                </a>
+              )}
+            </GithubUserHoverCard>
+          ) : (
+            <Avatar handle={row.handle} url={row.avatar_url} />
+          )}
           <span className="min-w-0 truncate">@{row.handle}</span>
         </span>
       </td>
@@ -288,9 +341,9 @@ function LeaderRow({
         />
       </td>
       <td className="py-1.5 pl-2 text-left text-xs group-hover:bg-muted/60">
-        <SocialCell
+        <GithubCell
           username={row.github_username}
-          href={(username) => `https://github.com/${username}`}
+          avatarUrl={row.avatar_url}
         />
       </td>
       <td className="rounded-r-lg py-1.5 pr-2 text-right group-hover:bg-muted/60">

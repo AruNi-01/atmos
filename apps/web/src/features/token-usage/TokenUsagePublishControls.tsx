@@ -27,12 +27,27 @@ import {
   hubGetUsagePage,
   hubMe,
   hubPutUsagePage,
+  storeDeviceCredential,
   type HubUsagePage,
 } from "@/api/hub-client";
-import { hubGetSession } from "@/api/hub-auth-client";
-import { HubAuthUIProvider } from "@/features/settings/components/HubAuthUIProvider";
+import {
+  getHubAuthClient,
+  hubGetSession,
+} from "@/api/hub-auth-client";
+import {
+  HUB_OAUTH_STARTED_EVENT,
+  HubAuthUIProvider,
+} from "@/features/settings/components/HubAuthUIProvider";
+import {
+  HUB_AUTH_DONE_CHANNEL,
+  HUB_AUTH_DONE_MESSAGE,
+} from "@/app/hub-auth/hub-auth-channel";
+import { loadComputerClientSettingsFromDisk } from "@/features/connection/lib/sync-computer-client-settings";
+import { applyIdentityBearingComputerSettings } from "@/features/connection/lib/query-identity-lifecycle";
+import { clearWebRelayClientCache } from "@/features/connection/lib/create-web-relay-client";
 import { isDesktopRuntime } from "@/shared/lib/desktop-runtime";
 import { mapOverviewToSharePayload } from "@/features/token-usage/token-usage-share-payload";
+import { markTokenUsageShareResume } from "@/features/token-usage/token-usage-share-resume";
 
 type Visibility = "off" | "public" | "unlisted";
 
@@ -123,6 +138,8 @@ function PublishBody({
     isDesktopRuntime() ||
     process.env.NEXT_PUBLIC_BUILD_TARGET === "desktop";
 
+  const authClient = React.useMemo(() => getHubAuthClient(), []);
+  const { data: liveSession } = authClient.useSession();
   const sessionQuery = useQuery({
     queryKey: ["hub", "session"],
     queryFn: () => hubGetSession(),
@@ -140,13 +157,16 @@ function PublishBody({
     queryFn: () => hubGetUsagePage(),
     staleTime: 15_000,
     retry: false,
-    enabled: Boolean(sessionQuery.data?.user || meQuery.data?.user_id),
+    enabled: Boolean(sessionQuery.data?.user || meQuery.data?.user_id || liveSession?.user),
   });
 
-  const signedIn = Boolean(sessionQuery.data?.user?.id || meQuery.data?.user_id);
+  const signedIn = Boolean(
+    liveSession?.user?.id || sessionQuery.data?.user?.id || meQuery.data?.user_id,
+  );
   const page: HubUsagePage | null = pageQuery.data ?? null;
 
   const [signInOpen, setSignInOpen] = React.useState(false);
+  const [waitingBrowser, setWaitingBrowser] = React.useState(false);
   const [handle, setHandle] = React.useState("");
   const [visibility, setVisibility] = React.useState<Visibility>("unlisted");
   const [github, setGithub] = React.useState("");
@@ -170,6 +190,92 @@ function PublishBody({
     setGithub(page.github_username ?? "");
     setX(page.x_username ?? "");
   }, [page]);
+
+  React.useEffect(() => {
+    const onStarted = () => {
+      markTokenUsageShareResume("publish");
+      setWaitingBrowser(true);
+    };
+    window.addEventListener(HUB_OAUTH_STARTED_EVENT, onStarted);
+    return () => {
+      window.removeEventListener(HUB_OAUTH_STARTED_EVENT, onStarted);
+    };
+  }, []);
+
+  React.useEffect(() => {
+    const onDone = () => {
+      void qc.invalidateQueries({ queryKey: ["hub"] });
+      void sessionQuery.refetch();
+      void meQuery.refetch();
+    };
+    let bc: BroadcastChannel | null = null;
+    try {
+      bc = new BroadcastChannel(HUB_AUTH_DONE_CHANNEL);
+      bc.onmessage = (ev) => {
+        if (ev.data?.type === HUB_AUTH_DONE_MESSAGE && !ev.data?.error) onDone();
+      };
+    } catch {
+      /* ignore */
+    }
+    const onMessage = (ev: MessageEvent) => {
+      if (ev.origin !== window.location.origin) return;
+      if (ev.data?.type === HUB_AUTH_DONE_MESSAGE && !ev.data?.error) onDone();
+    };
+    window.addEventListener("message", onMessage);
+    return () => {
+      window.removeEventListener("message", onMessage);
+      bc?.close();
+    };
+  }, [meQuery, qc, sessionQuery]);
+
+  React.useEffect(() => {
+    if (!waitingBrowser || signedIn) return;
+
+    let cancelled = false;
+    const tick = async () => {
+      try {
+        if (desktop) {
+          const disk = await loadComputerClientSettingsFromDisk();
+          const cred = (
+            disk?.device_credential ||
+            disk?.access_token ||
+            ""
+          ).trim();
+          if (cred.length >= 32 && !cancelled) {
+            storeDeviceCredential({
+              device_id: disk?.device_id ?? "device",
+              device_credential: cred,
+            });
+            try {
+              await applyIdentityBearingComputerSettings({
+                accessToken: cred,
+                accessTokenConfigured: true,
+              });
+              clearWebRelayClientCache();
+            } catch {
+              /* local API optional */
+            }
+          }
+        }
+        await qc.invalidateQueries({ queryKey: ["hub"] });
+      } catch {
+        /* keep polling */
+      }
+    };
+
+    void tick();
+    const id = window.setInterval(() => void tick(), 1500);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, [desktop, qc, signedIn, waitingBrowser]);
+
+  React.useEffect(() => {
+    if (!signedIn || (!signInOpen && !waitingBrowser)) return;
+    setSignInDialog(false);
+    setWaitingBrowser(false);
+  }, [setSignInDialog, signInOpen, signedIn, waitingBrowser]);
 
   const claimed = Boolean(page?.handle_claimed && page.handle);
   const live = page?.visibility === "public" || page?.visibility === "unlisted";
@@ -300,17 +406,24 @@ function PublishBody({
 
         {error ? <p className="text-xs text-destructive">{error}</p> : null}
 
-        <div className="flex items-center justify-between gap-2">
-          <Button
-            type="button"
-            size="sm"
-            variant={live && updateDisabled ? "secondary" : "ghost"}
-            className="h-8"
-            disabled={!signedIn || busy || !live}
-            onClick={() => void turnOff()}
-          >
-            {t("turnOff")}
-          </Button>
+        <div
+          className={cn(
+            "flex items-center gap-2",
+            signedIn ? "justify-between" : "justify-end",
+          )}
+        >
+          {signedIn ? (
+            <Button
+              type="button"
+              size="sm"
+              variant={live && updateDisabled ? "secondary" : "ghost"}
+              className="h-8"
+              disabled={busy || !live}
+              onClick={() => void turnOff()}
+            >
+              {t("turnOff")}
+            </Button>
+          ) : null}
           {signedIn ? (
             <Button
               type="button"
@@ -327,7 +440,10 @@ function PublishBody({
               type="button"
               size="sm"
               className="h-8 gap-1.5"
-              onClick={() => setSignInDialog(true)}
+              onClick={() => {
+                markTokenUsageShareResume("publish");
+                setSignInDialog(true);
+              }}
             >
               <LogIn className="size-3.5" />
               {signInT("signIn")}

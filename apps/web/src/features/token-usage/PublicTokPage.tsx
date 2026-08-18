@@ -5,6 +5,7 @@ import { Trophy } from "lucide-react";
 import { GithubIcon, XIcon } from "@workspace/ui";
 import { useLocale, useTranslations } from "next-intl";
 
+import { GithubUserHoverCard } from "@/features/github/components/GithubUserHoverCard";
 import { TokenUsageOverviewView } from "@/features/token-usage/TokenUsageOverviewView";
 import type { TokenUsageSharePayload } from "@/features/token-usage/token-usage-share-payload";
 
@@ -46,28 +47,39 @@ export function PublicTokPage({
   const letter = (handle[0] ?? "?").toUpperCase();
   const [avatarFailed, setAvatarFailed] = React.useState(false);
   const showAvatar = Boolean(avatarUrl) && !avatarFailed;
+  const avatar = showAvatar ? (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={avatarUrl ?? ""}
+      alt=""
+      referrerPolicy="no-referrer"
+      className="size-8 shrink-0 rounded-full object-cover"
+      onError={() => setAvatarFailed(true)}
+    />
+  ) : (
+    <span
+      aria-hidden
+      className="flex size-8 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium"
+    >
+      {letter}
+    </span>
+  );
 
   return (
     <div className="relative flex h-full min-h-0 flex-col overflow-x-hidden overflow-y-auto bg-background text-foreground">
       <div className="mx-auto flex w-full max-w-[1100px] flex-col px-4 pt-5 sm:px-5">
         <header className="flex items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-2.5">
-            {showAvatar ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={avatarUrl ?? ""}
-                alt=""
-                referrerPolicy="no-referrer"
-                className="size-8 shrink-0 rounded-full object-cover"
-                onError={() => setAvatarFailed(true)}
-              />
-            ) : (
-              <span
-                aria-hidden
-                className="flex size-8 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium"
+            {githubUsername ? (
+              <GithubUserHoverCard
+                username={githubUsername}
+                avatarUrl={avatarUrl}
+                source="public"
               >
-                {letter}
-              </span>
+                {avatar}
+              </GithubUserHoverCard>
+            ) : (
+              avatar
             )}
             <span className="truncate text-sm font-medium">@{handle}</span>
           </div>
@@ -84,15 +96,21 @@ export function PublicTokPage({
               </a>
             ) : null}
             {githubUsername ? (
-              <a
-                href={`https://github.com/${githubUsername}`}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+              <GithubUserHoverCard
+                username={githubUsername}
+                avatarUrl={avatarUrl}
+                source="public"
               >
-                <GithubIcon size={14} />
-                <span>@{githubUsername}</span>
-              </a>
+                <a
+                  href={`https://github.com/${githubUsername}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+                >
+                  <GithubIcon size={14} />
+                  <span>@{githubUsername}</span>
+                </a>
+              </GithubUserHoverCard>
             ) : null}
           </div>
         </header>

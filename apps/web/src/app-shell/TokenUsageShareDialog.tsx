@@ -46,6 +46,10 @@ import {
 import type { TokenUsageOverviewResponse } from "@/api/ws/token-usage-api";
 import { hubConfigured } from "@/api/hub-client";
 import { TokenUsagePublishControls } from "@/features/token-usage/TokenUsagePublishControls";
+import {
+  consumeTokenUsageShareQuery,
+  takeTokenUsageShareResume,
+} from "@/features/token-usage/token-usage-share-resume";
 
 type TokenUsageSharePopoverProps = {
   captureTargetRef: React.RefObject<HTMLElement | null>;
@@ -273,7 +277,7 @@ export function TokenUsageSharePopover({
   const t = useTranslations("appShell.tokenUsageDialog.share");
   const publishT = useTranslations("appShell.tokenUsageDialog.publish");
   const canPublish = hubConfigured();
-  const [tab, setTab] = React.useState("publish");
+  const [tab, setTab] = React.useState("share");
   const [open, setOpen] = React.useState(false);
   const contentRef = React.useRef<HTMLDivElement | null>(null);
   const clampYRef = React.useRef(0);
@@ -491,10 +495,18 @@ export function TokenUsageSharePopover({
         return;
       }
       setOpen(next);
-      if (!next) setTab("publish");
+      if (!next) setTab("share");
     },
     [lightboxOpen],
   );
+
+  React.useLayoutEffect(() => {
+    const resume =
+      consumeTokenUsageShareQuery() ?? takeTokenUsageShareResume();
+    if (!resume) return;
+    setTab(resume);
+    setOpen(true);
+  }, []);
 
   const clampBelowHeader = React.useCallback(() => {
     const el = contentRef.current;
