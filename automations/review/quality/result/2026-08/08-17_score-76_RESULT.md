@@ -100,6 +100,8 @@ PT Design 包边界与 apply-gate、center-pane-layout 纯模块是高质量绿�
 
 总分 76 < 90，已触发自动修复。
 
+- PR：https://github.com/AruNi-01/atmos/pull/247
+
 ### 修复摘要
 
 1. **`terminal-pane-drag-preview.ts`**：迁入 `capturePanePreview` / canvas / rows 回退；`TerminalSplitView` ~697→~556。
@@ -124,4 +126,6 @@ PT Design 包边界与 apply-gate、center-pane-layout 纯模块是高质量绿�
 ## 11. 结果提交与推送
 
 - 修复分支：`grokbuild/quality-fix/2026-08-17`
-- PR URL：创建后回填。
+- 修复提交：`330d94955`
+- PR URL：https://github.com/AruNi-01/atmos/pull/247
+- Label：`GrokBuild`
