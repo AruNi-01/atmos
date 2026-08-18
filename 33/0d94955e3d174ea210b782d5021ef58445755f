@@ -1,0 +1,26 @@
+apps/web/src/app-shell/CenterStage.tsx
+  h_5be255725524c8 120,129-130,2232-2233,2288-2297
+apps/web/src/app-shell/__tests__/center-pane-layout.test.ts
+  h_5be255725524c8 4,268-282
+apps/web/src/app-shell/center-pane/apply-saved-center-layout.ts
+  h_5be255725524c8 1-70
+apps/web/src/app-shell/center-pane/center-pane-layout.ts
+  h_5be255725524c8 297-311
+apps/web/src/features/terminal/components/TerminalSplitView.tsx
+  h_5be255725524c8 34,344
+apps/web/src/features/terminal/lib/terminal-pane-drag-preview.ts
+  h_5be255725524c8 31-175
+automations/review/quality/result/2026-08/08-17_score-76_RESULT.md
+  h_5be255725524c8 1-127
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "330d94955e3d174ea210b782d5021ef58445755f",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
