@@ -55,11 +55,21 @@ export function oauthStartAuthPath(mode: string): "/api/auth/sign-in/social" | "
  * default error page (Go Home → Hub API is wrong).
  */
 function errorPageWithOptionalProvider(origin: string, source: URL): string {
+  const params = new URLSearchParams();
   const provider = source.searchParams.get("provider")?.trim();
   if (provider === "github" || provider === "google" || provider === "linear") {
-    return `${origin}/hub-auth/error?provider=${encodeURIComponent(provider)}`;
+    params.set("provider", provider);
   }
-  return `${origin}/hub-auth/error`;
+  const client = source.searchParams.get("client")?.trim();
+  if (client === "desktop" || client === "web") {
+    params.set("client", client);
+  }
+  const returnTo = source.searchParams.get("return_to")?.trim();
+  if (returnTo) {
+    params.set("return_to", returnTo);
+  }
+  const qs = params.toString();
+  return qs ? `${origin}/hub-auth/error?${qs}` : `${origin}/hub-auth/error`;
 }
 
 export function oauthErrorCallbackURL(

@@ -6,7 +6,11 @@
  */
 import type { ReactNode } from "react";
 import { Check, Loader2, X } from "lucide-react";
-import { cn } from "@workspace/ui";
+import { Button, cn } from "@workspace/ui";
+import {
+  oauthCallbackActionHref,
+  type OAuthReturnContext,
+} from "@/shared/lib/oauth-callback-return";
 import LogoSvg from "@workspace/ui/components/logo-svg";
 import { LinearIcon } from "@workspace/ui/components/icons/linear-icon";
 import { DecorIcon } from "@workspace/ui/components/ui/decor-icon";
@@ -141,10 +145,34 @@ type OAuthCallbackShellProps = {
   status: OAuthCallbackStatus;
   title: string;
   message: ReactNode;
-  /** Extra lines under the primary message (countdown, hints, error codes). */
+  /** Extra lines under the primary message (hints, error codes). */
   children?: ReactNode;
   className?: string;
 };
+
+export function OAuthCallbackReturnFooter({
+  ctx,
+  closeHint,
+  backLabel,
+  showAction,
+}: {
+  ctx: OAuthReturnContext;
+  closeHint: string;
+  backLabel: string;
+  showAction: boolean;
+}) {
+  const href = oauthCallbackActionHref(ctx);
+  return (
+    <>
+      <p className="text-xs text-muted-foreground">{closeHint}</p>
+      {showAction ? (
+        <Button className="mt-4 w-full" render={<a href={href} />}>
+          {backLabel}
+        </Button>
+      ) : null}
+    </>
+  );
+}
 
 /**
  * Full-viewport OAuth finish screen: auth-frame borders, provider ↔ Atmos logos.

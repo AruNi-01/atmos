@@ -20,20 +20,20 @@ import { hubBaseUrl, storeDeviceCredential } from "@/api/hub-client";
 import { saveComputerClientSettingsToDisk } from "@/features/connection/lib/sync-computer-client-settings";
 import { useAtmosComputerStore } from "@/features/connection/lib/atmos-computer-store";
 import {
+  OAuthCallbackReturnFooter,
   OAuthCallbackShell,
   parseOAuthCallbackProvider,
   type OAuthCallbackStatus,
 } from "@/shared/components/oauth-callback-shell";
-
-const CLOSE_COUNTDOWN_SECONDS = 5;
+import { useOAuthCallbackReturn } from "@/shared/hooks/use-oauth-callback-return";
 
 function HubAuthBridgeInner() {
   const t = useTranslations("hubAuthBridge");
   const params = useSearchParams();
   const provider = parseOAuthCallbackProvider(params.get("provider"));
+  const { ctx: returnCtx, ready: returnReady } = useOAuthCallbackReturn(params);
   const [status, setStatus] = useState<OAuthCallbackStatus>("working");
   const [message, setMessage] = useState(() => t("working"));
-  const [secondsLeft, setSecondsLeft] = useState<number | null>(null);
 
   useEffect(() => {
     const code = params.get("code");
@@ -89,7 +89,6 @@ function HubAuthBridgeInner() {
         if (cancelled) return;
         setStatus("ok");
         setMessage(t("success"));
-        setSecondsLeft(CLOSE_COUNTDOWN_SECONDS);
       } catch (e) {
         if (cancelled) return;
         setStatus("error");
@@ -102,25 +101,6 @@ function HubAuthBridgeInner() {
     };
   }, [params, t]);
 
-  // Visible 5s countdown, then try to close the OAuth tab.
-  useEffect(() => {
-    if (status !== "ok" || secondsLeft === null) return;
-
-    if (secondsLeft <= 0) {
-      try {
-        window.close();
-      } catch {
-        /* browsers may block close if not script-opened */
-      }
-      return;
-    }
-
-    const id = window.setTimeout(() => {
-      setSecondsLeft((s) => (s === null ? null : s - 1));
-    }, 1000);
-    return () => window.clearTimeout(id);
-  }, [status, secondsLeft]);
-
   return (
     <OAuthCallbackShell
       provider={provider}
@@ -128,13 +108,13 @@ function HubAuthBridgeInner() {
       title={t("title")}
       message={message}
     >
-      {status === "ok" && secondsLeft !== null && secondsLeft > 0 ? (
-        <p className="text-xs text-muted-foreground">
-          {t("closingIn", { seconds: secondsLeft })}
-        </p>
-      ) : null}
-      {status === "ok" && secondsLeft === 0 ? (
-        <p className="text-xs text-muted-foreground">{t("closeHint")}</p>
+      {status === "ok" || status === "error" ? (
+        <OAuthCallbackReturnFooter
+          ctx={returnCtx}
+          closeHint={t("closeHint")}
+          backLabel={t("backToAtmos")}
+          showAction={returnReady}
+        />
       ) : null}
     </OAuthCallbackShell>
   );

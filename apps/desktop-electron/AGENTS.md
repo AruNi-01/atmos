@@ -46,7 +46,7 @@ Shared data contracts:
 |----------|------|
 | Server shell data | `ATMOS_DATA_DIR` or `~/.atmos/data/desktop` (shell-only; product data stays under `~/.atmos/data/{token-usage,quota-usage,db,…}`) |
 | AppShot | `~/.atmos/appshots/records/<13-digit-ms>/` |
-| Protocol | `atmos://appshots/{timestamp}` |
+| Protocol | `atmos://appshots/{timestamp}` (clipboard) · `atmos://open` (focus app from OAuth callback) |
 | Tunnel gateway | `http://127.0.0.1:30313` + `entry_token` |
 
 Release notes: `releasenotes/Atmos Desktop <version>.md`.

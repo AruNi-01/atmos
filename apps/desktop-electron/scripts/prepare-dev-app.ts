@@ -99,6 +99,31 @@ function stageDarwinDevApp(electronBin: string): string {
     console.warn("[prepare-dev-app] plutil patch failed", e);
   }
 
+  const urlTypes = JSON.stringify([
+    {
+      CFBundleURLName: "Atmos",
+      CFBundleTypeRole: "Editor",
+      CFBundleURLSchemes: ["atmos"],
+    },
+  ]);
+  try {
+    execFileSync(
+      "plutil",
+      ["-replace", "CFBundleURLTypes", "-json", urlTypes, plist],
+      { stdio: "pipe" },
+    );
+  } catch {
+    try {
+      execFileSync(
+        "plutil",
+        ["-insert", "CFBundleURLTypes", "-json", urlTypes, plist],
+        { stdio: "pipe" },
+      );
+    } catch (e) {
+      console.warn("[prepare-dev-app] CFBundleURLTypes patch failed", e);
+    }
+  }
+
   if (iconPath) {
     try {
       cpSync(iconPath, join(destApp, "Contents/Resources/electron.icns"));

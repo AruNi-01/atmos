@@ -130,4 +130,26 @@ describe("oauth-start allowlists", () => {
       ),
     ).toBe("http://127.0.0.1:30303/hub-auth/error?provider=github");
   });
+
+  test("error callback forwards client and web return_to", () => {
+    expect(
+      oauthErrorCallbackURL(
+        "https://app.atmos.land/hub-auth/done?provider=google&client=web&return_to=%2Fsettings",
+        "https://hub.atmos.land",
+      ),
+    ).toBe(
+      "https://app.atmos.land/hub-auth/error?provider=google&client=web&return_to=%2Fsettings",
+    );
+    expect(
+      oauthErrorCallbackURL(
+        "https://hub.atmos.land/v1/desktop-auth/complete?return_to=" +
+          encodeURIComponent(
+            "http://127.0.0.1:30303/hub-auth/bridge?provider=github&client=desktop",
+          ),
+        "https://hub.atmos.land",
+      ),
+    ).toBe(
+      "http://127.0.0.1:30303/hub-auth/error?provider=github&client=desktop",
+    );
+  });
 });

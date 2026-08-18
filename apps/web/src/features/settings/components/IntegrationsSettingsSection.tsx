@@ -48,6 +48,11 @@ import {
 } from '@/features/settings/lib/linear-local-keys';
 import { useQuery } from '@tanstack/react-query';
 import { useQueryState } from 'nuqs';
+import { isDesktopAuthSurface } from '@/shared/lib/desktop-runtime';
+import {
+  currentOAuthReturnToPath,
+  storeOAuthReturnContext,
+} from '@/shared/lib/oauth-callback-return';
 import { useComputerQueryScope } from '@/api/query/query-scope';
 import { queryKeys } from '@/api/query/query-keys';
 import { settingsModalParams } from '@/shared/lib/nuqs/searchParams';
@@ -452,7 +457,11 @@ function LinearIntegrationCard() {
       const origin = typeof window !== 'undefined' ? window.location.origin : undefined;
       const shell =
         origin && !origin.includes('127.0.0.1:39217') ? 'web' : 'desktop';
-      const { authorize_url } = await wsLinearApi.oauthStart(shell, origin);
+      const { authorize_url, state } = await wsLinearApi.oauthStart(shell, origin);
+      storeOAuthReturnContext(state, {
+        client: isDesktopAuthSurface() ? 'desktop' : 'web',
+        returnTo: currentOAuthReturnToPath(),
+      });
       await selectLinearOauth();
       bumpKeys();
       window.open(authorize_url, '_blank', 'noopener,noreferrer');

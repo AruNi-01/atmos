@@ -4,7 +4,13 @@
  */
 
 import { app, ipcMain } from "electron";
+import path from "node:path";
 import { createAppState } from "./app-state.js";
+import {
+  ATMOS_PROTOCOL,
+  findAtmosUrlInArgv,
+  isAtmosProtocolUrl,
+} from "./deep-link.js";
 import {
   applyEarlyAppBranding,
   applyReadyAppBranding,
@@ -73,6 +79,42 @@ async function ensureMainWindow(): Promise<void> {
   createMainWindow(state, uiUrl);
   console.log(`[desktop-electron] main window ${uiUrl}`);
   mainLog(`[boot] main window ${uiUrl}`);
+}
+
+function registerAtmosProtocolClient(): void {
+  if (process.defaultApp) {
+    const appPath = process.argv[1];
+    if (appPath) {
+      app.setAsDefaultProtocolClient(ATMOS_PROTOCOL, process.execPath, [
+        path.resolve(appPath),
+      ]);
+      return;
+    }
+  }
+  app.setAsDefaultProtocolClient(ATMOS_PROTOCOL);
+}
+
+async function focusOrCreateMainWindow(): Promise<void> {
+  void ensureMacDockVisible();
+  if (state.mainWindow && !state.mainWindow.isDestroyed()) {
+    if (state.mainWindow.isMinimized()) {
+      state.mainWindow.restore();
+    }
+    state.mainWindow.show();
+    state.mainWindow.focus();
+    return;
+  }
+  if (servicesReady()) {
+    await ensureMainWindow();
+    return;
+  }
+  await bootOnce();
+}
+
+function handleAtmosDeepLink(url: string): void {
+  if (!isAtmosProtocolUrl(url)) return;
+  mainLog(`[deep-link] ${url}`);
+  void focusOrCreateMainWindow();
 }
 
 async function boot() {
@@ -203,18 +245,35 @@ async function stopAllTunnelsBeforeExit(): Promise<void> {
   }
 }
 
+registerAtmosProtocolClient();
+
 const gotLock = app.requestSingleInstanceLock();
 if (!gotLock) {
   app.quit();
 } else {
-  app.on("second-instance", () => {
-    void ensureMacDockVisible();
-    state.mainWindow?.show();
-    state.mainWindow?.focus();
+  let pendingDeepLink = findAtmosUrlInArgv(process.argv);
+
+  app.on("second-instance", (_event, argv) => {
+    const url = findAtmosUrlInArgv(argv);
+    if (url) pendingDeepLink = url;
+    void focusOrCreateMainWindow();
+  });
+
+  app.on("open-url", (event, url) => {
+    event.preventDefault();
+    pendingDeepLink = url;
+    if (app.isReady()) {
+      handleAtmosDeepLink(url);
+    }
   });
 
   app.whenReady().then(() => {
-    void bootOnce();
+    void bootOnce().then(() => {
+      if (pendingDeepLink) {
+        handleAtmosDeepLink(pendingDeepLink);
+        pendingDeepLink = null;
+      }
+    });
   });
 
   app.on("window-all-closed", () => {

@@ -366,7 +366,7 @@
       "saveLayoutNamePlaceholder": "Layout name",
       "saveLayoutConfirm": "Save",
       "saveLayoutCancel": "Cancel",
-      "emptyPaneHint": "Open a tab in this pane",
+      "closePane": "Close",
       "newTabMenu": "New tab",
       "changes": "Changes",
       "closeChangesTab": "Close Changes tab",
@@ -1342,7 +1342,7 @@
           "label": "Search query"
         },
         "table": {
-          "comments": "Comments",
+          "comments": "Discussion",
           "checks": "Checks",
           "assignees": "Assignees",
           "linked": "Linked",
@@ -6404,9 +6404,8 @@
           "loading": "Loading…",
           "working": "Finishing Linear connection…",
           "success": "Linear is linked to Atmos. You can close this tab.",
-          "closeCountdown": "This tab will close in {seconds}s…",
-          "closeNow": "Closing this tab…",
-          "closeHint": "You can also close this tab yourself and return to Atmos.",
+          "closeHint": "You can close this page.",
+          "backToAtmos": "Back to Atmos",
           "missingParams": "Missing connection details. Try connecting Linear again.",
           "finishFailed": "Could not finish connecting Linear"
         }
@@ -7449,7 +7448,9 @@
       "connectedTitle": "GitHub App connected",
       "finishedTitle": "GitHub setup finished",
       "description": "Setup is complete. Return to Atmos to continue configuring your GitHub trigger.",
-      "installation": "Installation {installationId}"
+      "installation": "Installation {installationId}",
+      "closeHint": "You can close this page.",
+      "backToAtmos": "Back to Atmos"
     },
     "prCreateModal": {
       "title": "Open a Pull Request",
@@ -9671,7 +9672,8 @@
       },
       "server": {
         "description": "Sorry, something went wrong in Atmos.",
-        "retry": "TRY AGAIN"
+        "retry": "TRY AGAIN",
+        "home": "Go back home"
       },
       "canvasLabel": {
         "notFound": "Playable Breakout board for the Atmos 404 page",
@@ -10293,8 +10295,8 @@
     "title": "Almost done",
     "working": "Finishing sign-in and trusting this device…",
     "success": "Signed in. You can close this tab and return to Atmos.",
-    "closingIn": "Closing this tab in {seconds}s…",
-    "closeHint": "Atmos will detect your session automatically. If this tab does not close, close it manually.",
+    "closeHint": "You can close this page. Atmos will pick up your session automatically.",
+    "backToAtmos": "Back to Atmos",
     "noSession": "No Atmos session found. Try signing in again from the app.",
     "failed": "Could not finish sign-in",
     "missingCode": "Missing sign-in code. Start again from Atmos Settings → Account."
@@ -10303,17 +10305,15 @@
     "title": "Sign-in complete",
     "working": "Confirming your Atmos session…",
     "success": "Signed in. You can close this tab and return to Atmos.",
-    "closingIn": "Closing this tab in {seconds}s…",
-    "closeHint": "If this tab does not close automatically, close it manually.",
+    "closeHint": "You can close this page.",
+    "backToAtmos": "Back to Atmos",
     "noSession": "No session found. Try signing in again from Atmos.",
-    "failed": "Could not confirm sign-in",
-    "goHome": "Back to Atmos"
+    "failed": "Could not confirm sign-in"
   },
   "hubAuthError": {
     "title": "Could not finish",
-    "closingIn": "Closing this tab in {seconds}s…",
-    "closeHint": "If this tab does not close automatically, close it manually.",
-    "goHome": "Back to Atmos",
+    "closeHint": "You can close this page and try again from Atmos.",
+    "backToAtmos": "Back to Atmos",
     "codeLabel": "Code: {code}",
     "errors": {
       "generic": "Something went wrong while signing in or linking an account. Try again from Atmos Settings → Account.",

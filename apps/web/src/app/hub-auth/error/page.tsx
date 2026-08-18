@@ -6,20 +6,19 @@
  * Better Auth redirects here with ?error=code instead of Hub's built-in
  * /api/auth/error page (which "Go Home" to hub.atmos.land — wrong for users).
  */
-import { Suspense, useEffect, useMemo, useState } from "react";
-import Link from "next/link";
+import { Suspense, useEffect, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import {
+  OAuthCallbackReturnFooter,
   OAuthCallbackShell,
   parseOAuthCallbackProvider,
 } from "@/shared/components/oauth-callback-shell";
+import { useOAuthCallbackReturn } from "@/shared/hooks/use-oauth-callback-return";
 import {
   HUB_AUTH_DONE_CHANNEL,
   HUB_AUTH_DONE_MESSAGE,
 } from "@/app/hub-auth/hub-auth-channel";
-
-const CLOSE_COUNTDOWN_SECONDS = 8;
 
 function HubAuthErrorInner() {
   const t = useTranslations("hubAuthError");
@@ -27,8 +26,7 @@ function HubAuthErrorInner() {
   const code = (params.get("error") ?? params.get("code") ?? "").trim();
   const description = (params.get("error_description") ?? "").trim();
   const provider = parseOAuthCallbackProvider(params.get("provider"));
-
-  const [secondsLeft, setSecondsLeft] = useState(CLOSE_COUNTDOWN_SECONDS);
+  const { ctx: returnCtx, ready: returnReady } = useOAuthCallbackReturn(params);
 
   const title = t("title");
   const message = useMemo(() => {
@@ -68,22 +66,6 @@ function HubAuthErrorInner() {
     }
   }, [code]);
 
-  useEffect(() => {
-    if (secondsLeft <= 0) {
-      try {
-        window.close();
-      } catch {
-        /* ignore */
-      }
-      return;
-    }
-    const id = window.setTimeout(
-      () => setSecondsLeft((s) => s - 1),
-      1000,
-    );
-    return () => window.clearTimeout(id);
-  }, [secondsLeft]);
-
   return (
     <OAuthCallbackShell
       provider={provider}
@@ -104,19 +86,12 @@ function HubAuthErrorInner() {
           {t("errors.accountAlreadyLinkedOtherUserHint")}
         </p>
       ) : null}
-      {secondsLeft > 0 ? (
-        <p className="text-xs text-muted-foreground">
-          {t("closingIn", { seconds: secondsLeft })}
-        </p>
-      ) : (
-        <p className="text-xs text-muted-foreground">{t("closeHint")}</p>
-      )}
-      <Link
-        href="/"
-        className="text-sm text-foreground underline underline-offset-4"
-      >
-        {t("goHome")}
-      </Link>
+      <OAuthCallbackReturnFooter
+        ctx={returnCtx}
+        closeHint={t("closeHint")}
+        backLabel={t("backToAtmos")}
+        showAction={returnReady}
+      />
     </OAuthCallbackShell>
   );
 }

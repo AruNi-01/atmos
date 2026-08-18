@@ -2,13 +2,18 @@
 
 import { useTranslations } from "next-intl";
 import { useSearchParams } from "next/navigation";
-import { OAuthCallbackShell } from "@/shared/components/oauth-callback-shell";
+import {
+  OAuthCallbackReturnFooter,
+  OAuthCallbackShell,
+} from "@/shared/components/oauth-callback-shell";
+import { useOAuthCallbackReturn } from "@/shared/hooks/use-oauth-callback-return";
 
 export function GithubSetupCompletionPage() {
   const t = useTranslations("github.setupCompletion");
   const searchParams = useSearchParams();
   const connected = searchParams.get("github_setup") === "connected";
   const installationId = searchParams.get("installation_id");
+  const { ctx: returnCtx, ready: returnReady } = useOAuthCallbackReturn(searchParams);
 
   return (
     <OAuthCallbackShell
@@ -22,6 +27,12 @@ export function GithubSetupCompletionPage() {
           {t("installation", { installationId })}
         </div>
       ) : null}
+      <OAuthCallbackReturnFooter
+        ctx={returnCtx}
+        closeHint={t("closeHint")}
+        backLabel={t("backToAtmos")}
+        showAction={returnReady}
+      />
     </OAuthCallbackShell>
   );
 }

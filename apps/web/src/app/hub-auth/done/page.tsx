@@ -4,33 +4,33 @@
  * Web OAuth return tab (new tab after GitHub/Google).
  *
  * The original Atmos tab stays open; this tab only finishes the redirect chain.
- * Notifies other tabs via BroadcastChannel, then closes after a 5s countdown.
+ * Notifies other tabs via BroadcastChannel. The user closes this tab or uses
+ * Back to Atmos (desktop deep link, or web return_to).
  */
 import { Suspense, useEffect, useState } from "react";
-import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { hubGetSession } from "@/api/hub-auth-client";
 import { ensureLocalHubDevice } from "@/features/connection/lib/ensure-local-hub-device";
 import {
+  OAuthCallbackReturnFooter,
   OAuthCallbackShell,
   parseOAuthCallbackProvider,
   type OAuthCallbackStatus,
 } from "@/shared/components/oauth-callback-shell";
+import { useOAuthCallbackReturn } from "@/shared/hooks/use-oauth-callback-return";
 import {
   HUB_AUTH_DONE_CHANNEL,
   HUB_AUTH_DONE_MESSAGE,
 } from "@/app/hub-auth/hub-auth-channel";
 
-const CLOSE_COUNTDOWN_SECONDS = 5;
-
 function HubAuthDoneInner() {
   const t = useTranslations("hubAuthDone");
   const params = useSearchParams();
   const provider = parseOAuthCallbackProvider(params.get("provider"));
+  const { ctx: returnCtx, ready: returnReady } = useOAuthCallbackReturn(params);
   const [status, setStatus] = useState<OAuthCallbackStatus>("working");
   const [message, setMessage] = useState(() => t("working"));
-  const [secondsLeft, setSecondsLeft] = useState<number | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -68,7 +68,6 @@ function HubAuthDoneInner() {
 
         setStatus("ok");
         setMessage(t("success"));
-        setSecondsLeft(CLOSE_COUNTDOWN_SECONDS);
       } catch (e) {
         if (cancelled) return;
         setStatus("error");
@@ -80,25 +79,6 @@ function HubAuthDoneInner() {
     };
   }, [t]);
 
-  // Visible 5s countdown, then try to close the OAuth tab.
-  useEffect(() => {
-    if (status !== "ok" || secondsLeft === null) return;
-
-    if (secondsLeft <= 0) {
-      try {
-        window.close();
-      } catch {
-        /* browsers may block close if not script-opened */
-      }
-      return;
-    }
-
-    const id = window.setTimeout(() => {
-      setSecondsLeft((s) => (s === null ? null : s - 1));
-    }, 1000);
-    return () => window.clearTimeout(id);
-  }, [status, secondsLeft]);
-
   return (
     <OAuthCallbackShell
       provider={provider}
@@ -106,21 +86,13 @@ function HubAuthDoneInner() {
       title={t("title")}
       message={message}
     >
-      {status === "ok" && secondsLeft !== null && secondsLeft > 0 ? (
-        <p className="text-xs text-muted-foreground">
-          {t("closingIn", { seconds: secondsLeft })}
-        </p>
-      ) : null}
-      {status === "ok" && secondsLeft === 0 ? (
-        <p className="text-xs text-muted-foreground">{t("closeHint")}</p>
-      ) : null}
-      {status === "error" ? (
-        <Link
-          href="/"
-          className="text-sm text-foreground underline underline-offset-4"
-        >
-          {t("goHome")}
-        </Link>
+      {status === "ok" || status === "error" ? (
+        <OAuthCallbackReturnFooter
+          ctx={returnCtx}
+          closeHint={t("closeHint")}
+          backLabel={t("backToAtmos")}
+          showAction={returnReady}
+        />
       ) : null}
     </OAuthCallbackShell>
   );

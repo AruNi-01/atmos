@@ -6,9 +6,11 @@ import { useTranslations } from "next-intl";
 import { wsLinearApi } from "@/api/ws/linear-api";
 import { selectLinearOauth } from "@/features/settings/lib/linear-local-keys";
 import {
+  OAuthCallbackReturnFooter,
   OAuthCallbackShell,
   type OAuthCallbackStatus,
 } from "@/shared/components/oauth-callback-shell";
+import { useOAuthCallbackReturn } from "@/shared/hooks/use-oauth-callback-return";
 
 /**
  * OAuth codes are single-use. React Strict Mode remounts effects in dev; a module-level
@@ -17,9 +19,6 @@ import {
  */
 const oauthFinishInflight = new Map<string, Promise<void>>();
 
-/** Seconds shown after success before we try `window.close()`. */
-const SUCCESS_CLOSE_SECONDS = 5;
-
 /**
  * OAuth redirect target for Linear (APP-056).
  * Desktop loopback and web both land here with ?code=&state=.
@@ -27,9 +26,11 @@ const SUCCESS_CLOSE_SECONDS = 5;
 function LinearOAuthCallbackInner() {
   const params = useSearchParams();
   const t = useTranslations("settings.integrationsSection.linear.oauthCallback");
+  const { ctx: returnCtx, ready: returnReady } = useOAuthCallbackReturn(params, {
+    state: params.get("state"),
+  });
   const [status, setStatus] = useState<OAuthCallbackStatus>("working");
   const [message, setMessage] = useState(() => t("working"));
-  const [countdown, setCountdown] = useState<number | null>(null);
 
   useEffect(() => {
     const code = params.get("code");
@@ -62,7 +63,6 @@ function LinearOAuthCallbackInner() {
         if (cancelled) return;
         setStatus("ok");
         setMessage(t("success"));
-        setCountdown(SUCCESS_CLOSE_SECONDS);
       })
       .catch((e: unknown) => {
         // Allow a manual retry after a real failure (reload with same params).
@@ -76,23 +76,6 @@ function LinearOAuthCallbackInner() {
       cancelled = true;
     };
   }, [params, t]);
-
-  // Success countdown → best-effort close (works when opened via window.open).
-  useEffect(() => {
-    if (status !== "ok" || countdown === null) return;
-    if (countdown <= 0) {
-      try {
-        window.close();
-      } catch {
-        /* ignore — user can close manually */
-      }
-      return;
-    }
-    const id = window.setTimeout(() => {
-      setCountdown((n) => (n === null ? null : n - 1));
-    }, 1000);
-    return () => window.clearTimeout(id);
-  }, [status, countdown]);
 
   const title =
     status === "ok"
@@ -108,15 +91,13 @@ function LinearOAuthCallbackInner() {
       title={title}
       message={message}
     >
-      {status === "ok" && countdown !== null ? (
-        <>
-          <p className="text-xs text-muted-foreground">
-            {countdown > 0
-              ? t("closeCountdown", { seconds: countdown })
-              : t("closeNow")}
-          </p>
-          <p className="text-xs text-muted-foreground/80">{t("closeHint")}</p>
-        </>
+      {status === "ok" || status === "error" ? (
+        <OAuthCallbackReturnFooter
+          ctx={returnCtx}
+          closeHint={t("closeHint")}
+          backLabel={t("backToAtmos")}
+          showAction={returnReady}
+        />
       ) : null}
     </OAuthCallbackShell>
   );

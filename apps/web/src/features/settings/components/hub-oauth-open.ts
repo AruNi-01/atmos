@@ -11,21 +11,17 @@ import {
   type HubSocialProvider,
 } from "@/api/hub-auth-client";
 import { openDesktopExternalUrl } from "@/shared/lib/desktop-external-url";
-import { isDesktopRuntime } from "@/shared/lib/desktop-runtime";
+import { isDesktopAuthSurface } from "@/shared/lib/desktop-runtime";
+import {
+  buildHubOAuthCallbackURL,
+  currentOAuthReturnToPath,
+} from "@/shared/lib/oauth-callback-return";
+import { applyTokenUsageShareResumeToPath } from "@/features/token-usage/token-usage-share-resume";
 
 export const HUB_OAUTH_STARTED_EVENT = "atmos:hub-oauth-started";
 
 /** @deprecated use HUB_OAUTH_STARTED_EVENT */
 export const HUB_DESKTOP_OAUTH_STARTED_EVENT = HUB_OAUTH_STARTED_EVENT;
-
-const HUB_AUTH_BRIDGE_PATH = "/hub-auth/bridge";
-const HUB_AUTH_DONE_PATH = "/hub-auth/done";
-
-function isDesktopAuthSurface(): boolean {
-  return (
-    isDesktopRuntime() || process.env.NEXT_PUBLIC_BUILD_TARGET === "desktop"
-  );
-}
 
 export function isHubSocialProvider(
   provider: string,
@@ -57,14 +53,19 @@ export async function openHubOAuth(opts: {
   const desktop = isDesktopAuthSurface();
 
   // Sign-in on desktop: finish on Hub → mint device + bounce to local bridge.
-  // Link (any surface) / web sign-in: done page so the OAuth tab can notify + close.
+  // Link (any surface) / web sign-in: done page so the OAuth tab can notify the app.
   // Do NOT send link through desktop-auth/complete (that would mint another device).
-  // `provider` query is cosmetic for the callback chrome (logos); Hub appends `code` on top.
-  const providerQuery = `provider=${encodeURIComponent(opts.provider)}`;
-  const callbackURL =
-    desktop && opts.mode === "sign-in"
-      ? `${hub}/v1/desktop-auth/complete?return_to=${encodeURIComponent(`${origin}${HUB_AUTH_BRIDGE_PATH}?${providerQuery}`)}`
-      : `${origin}${HUB_AUTH_DONE_PATH}?${providerQuery}`;
+  // `provider` / `client` / `return_to` land on the callback chrome.
+  const callbackURL = buildHubOAuthCallbackURL({
+    origin,
+    hub,
+    provider: opts.provider,
+    mode: opts.mode,
+    desktop,
+    returnTo: desktop
+      ? undefined
+      : applyTokenUsageShareResumeToPath(currentOAuthReturnToPath()),
+  });
 
   let linkTicket: string | undefined;
   if (opts.mode === "link") {

@@ -366,7 +366,7 @@
       "saveLayoutNamePlaceholder": "布局名称",
       "saveLayoutConfirm": "保存",
       "saveLayoutCancel": "取消",
-      "emptyPaneHint": "在此区域打开一个标签页",
+      "closePane": "关闭",
       "newTabMenu": "新建标签页",
       "changes": "变更",
       "closeChangesTab": "关闭变更标签页",
@@ -1342,7 +1342,7 @@
           "label": "搜索语法"
         },
         "table": {
-          "comments": "评论",
+          "comments": "讨论",
           "checks": "检查",
           "updatedAt": "更新时间",
           "action": "操作",
@@ -6404,9 +6404,8 @@
           "loading": "加载中…",
           "working": "正在完成 Linear 连接…",
           "success": "Linear 已关联到 Atmos。你可以关闭此标签页。",
-          "closeCountdown": "将在 {seconds} 秒后关闭此标签页…",
-          "closeNow": "正在关闭此标签页…",
-          "closeHint": "也可以直接关闭此标签页，返回 Atmos 即可。",
+          "closeHint": "你可以关闭此页面。",
+          "backToAtmos": "返回 Atmos",
           "missingParams": "缺少连接信息，请重新连接 Linear。",
           "finishFailed": "无法完成 Linear 连接"
         }
@@ -7449,7 +7448,9 @@
       "connectedTitle": "GitHub App 已连接",
       "finishedTitle": "GitHub 设置已完成",
       "description": "设置已完成。返回 Atmos 继续配置你的 GitHub 触发器。",
-      "installation": "安装 ID {installationId}"
+      "installation": "安装 ID {installationId}",
+      "closeHint": "你可以关闭此页面。",
+      "backToAtmos": "返回 Atmos"
     },
     "prCreateModal": {
       "title": "打开 Pull Request",
@@ -9671,7 +9672,8 @@
       },
       "server": {
         "description": "抱歉，Atmos 出了点问题。",
-        "retry": "重试"
+        "retry": "重试",
+        "home": "返回首页"
       },
       "canvasLabel": {
         "notFound": "Atmos 404 页面的可玩打砖块游戏板",
@@ -10294,8 +10296,8 @@
     "title": "即将完成",
     "working": "正在完成登录并信任此设备…",
     "success": "登录成功。你可以关闭此标签页并返回 Atmos。",
-    "closingIn": "{seconds} 秒后关闭此标签页…",
-    "closeHint": "Atmos 会自动同步你的登录状态。若标签页未自动关闭，请手动关闭。",
+    "closeHint": "你可以关闭此页面。Atmos 会自动同步登录状态。",
+    "backToAtmos": "返回 Atmos",
     "noSession": "未找到 Atmos 会话。请从应用中重新登录。",
     "failed": "无法完成登录",
     "missingCode": "缺少登录码。请从 Atmos 设置 → 账号 重新开始登录。"
@@ -10304,17 +10306,15 @@
     "title": "登录完成",
     "working": "正在确认 Atmos 会话…",
     "success": "已登录。可以关闭此标签页，返回 Atmos。",
-    "closingIn": "{seconds} 秒后关闭此标签页…",
-    "closeHint": "若标签页未自动关闭，请手动关闭。",
+    "closeHint": "你可以关闭此页面。",
+    "backToAtmos": "返回 Atmos",
     "noSession": "未找到会话。请从 Atmos 重新登录。",
-    "failed": "无法确认登录",
-    "goHome": "返回 Atmos"
+    "failed": "无法确认登录"
   },
   "hubAuthError": {
     "title": "未能完成",
-    "closingIn": "{seconds} 秒后关闭此标签页…",
-    "closeHint": "若标签页未自动关闭，请手动关闭。",
-    "goHome": "返回 Atmos",
+    "closeHint": "你可以关闭此页面，然后回到 Atmos 重试。",
+    "backToAtmos": "返回 Atmos",
     "codeLabel": "错误码：{code}",
     "errors": {
       "generic": "登录或关联账号时出错。请从 Atmos 设置 → 账号 重试。",

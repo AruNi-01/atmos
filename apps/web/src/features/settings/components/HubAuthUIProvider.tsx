@@ -12,6 +12,10 @@ import {
   isHubSocialProvider,
   openHubOAuth,
 } from "@/features/settings/components/hub-oauth-open";
+import {
+  HUB_AUTH_DONE_CHANNEL,
+  HUB_AUTH_DONE_MESSAGE,
+} from "@/app/hub-auth/hub-auth-channel";
 
 export {
   HUB_OAUTH_STARTED_EVENT,
@@ -62,6 +66,14 @@ export function HubAuthUIProvider({ children }: HubAuthUIProviderProps) {
   );
 
   const onSessionChange = React.useCallback(async () => {
+    // Drop Better Auth cookie cache so this tab sees the OAuth tab's new session.
+    try {
+      await authClient.getSession({
+        query: { disableCookieCache: true },
+      });
+    } catch {
+      /* ignore */
+    }
     // Refetch active hub identity queries so header UserView updates immediately.
     await queryClient.invalidateQueries({ queryKey: ["hub"] });
     await queryClient.refetchQueries({ queryKey: ["hub", "session"] });
@@ -75,7 +87,32 @@ export function HubAuthUIProvider({ children }: HubAuthUIProviderProps) {
     } catch {
       /* optional */
     }
-  }, [queryClient]);
+  }, [authClient, queryClient]);
+
+  React.useEffect(() => {
+    const onDone = (error?: unknown) => {
+      if (error) return;
+      void onSessionChange();
+    };
+    let bc: BroadcastChannel | null = null;
+    try {
+      bc = new BroadcastChannel(HUB_AUTH_DONE_CHANNEL);
+      bc.onmessage = (ev) => {
+        if (ev.data?.type === HUB_AUTH_DONE_MESSAGE) onDone(ev.data?.error);
+      };
+    } catch {
+      /* ignore */
+    }
+    const onMessage = (ev: MessageEvent) => {
+      if (ev.origin !== window.location.origin) return;
+      if (ev.data?.type === HUB_AUTH_DONE_MESSAGE) onDone(ev.data?.error);
+    };
+    window.addEventListener("message", onMessage);
+    return () => {
+      window.removeEventListener("message", onMessage);
+      bc?.close();
+    };
+  }, [onSessionChange]);
 
   // baseURL is prepended to callback paths inside better-auth-ui ProviderButton.
   // Keep empty so web callbackURL is the app origin (not Hub).
