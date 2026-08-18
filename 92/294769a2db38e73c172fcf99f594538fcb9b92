@@ -1,0 +1,24 @@
+agents/references/runtime/AGENTS.md
+  h_5be255725524c8 37
+apps/api/src/api/system/computer.rs
+  h_5be255725524c8 66-76
+apps/desktop-electron/src/runtime/ensure.test.ts
+  h_5be255725524c8 5-6,79-106
+apps/desktop-electron/src/runtime/ensure.ts
+  h_5be255725524c8 345-383,389,506-507
+apps/web/src/features/atmos-computer/components/ComputerDetailsDialog.tsx
+  h_5be255725524c8 148-160,162-163,165-167
+crates/runtime-manager/AGENTS.md
+  h_5be255725524c8 33
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "92294769a2db38e73c172fcf99f594538fcb9b92",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
