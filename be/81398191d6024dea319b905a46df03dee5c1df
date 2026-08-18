@@ -1,0 +1,19 @@
+packages/ui/src/lib/isolate-overlay-scroll.ts
+  s_360d4480f34d4c::t_66bca672a24144 1-31
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "be81398191d6024dea319b905a46df03dee5c1df",
+  "prompts": {},
+  "sessions": {
+    "s_360d4480f34d4c": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "058e1677-3603-490e-9617-28e29da26e8a",
+        "model": "cursor-grok-4.6-high"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
