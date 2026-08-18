@@ -1,0 +1,16 @@
+apps/web/src/features/task/components/task-github-drawer/__tests__/drawer-insets.test.ts
+  h_5be255725524c8 1-22
+apps/web/src/features/task/components/task-github-drawer/use-task-drawer-insets.ts
+  h_5be255725524c8 4-10,13-14,24-63,65,67-69,72,74,80-101,105-112,119-124
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "7ec0cdcacb4d7a94181925572f25c94777ec07b0",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
