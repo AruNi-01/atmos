@@ -1,0 +1,16 @@
+NOTICE
+  h_5be255725524c8 403-436
+crates/quota-usage/src/providers/cursor.rs
+  h_5be255725524c8 12-14,35-36,139,145-152,154,156,165-169,355,362,389-391,523-579,591,683,715-717,734,777-792,794-795,838-920
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "3ae7523ce7d85c36b358c5bb13df8453fc5cace8",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
