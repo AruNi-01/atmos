@@ -1,0 +1,22 @@
+apps/web/src/features/terminal/components/Terminal.tsx
+  h_5be255725524c8 68,71,73,174-175,311,315-337,350-351,356,360-372,1375-1376,1381,1550-1568,1729
+apps/web/src/features/terminal/lib/__tests__/host-resize-pin.test.ts
+  h_5be255725524c8 8,11,49-64,66-68,70,72-74,76,78-80,82,129-163,183,189-195
+apps/web/src/features/terminal/lib/__tests__/terminal-resize-debouncer.test.ts
+  h_5be255725524c8 1-101
+apps/web/src/features/terminal/lib/host-resize-pin.ts
+  h_5be255725524c8 1-2,11-12,14,16-19,32-73,75-77,82,146-159,172-173
+apps/web/src/features/terminal/lib/terminal-resize-debouncer.ts
+  h_5be255725524c8 1-75
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "75bee3d11af7e515e39bb428b6f22bd05c9e6181",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
