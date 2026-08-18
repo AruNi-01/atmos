@@ -65,9 +65,12 @@ import { createTerminalInputCoalesceQueue } from "../lib/terminal-input-coalesce
 import {
   createHostResizePinScheduler,
   HOST_RESIZE_DRAG_ATTR,
+  hostResizeSurfaceKind,
   isHostResizeDragActive,
   shouldDiscardXtermScrollbackOnResize,
+  shouldPinPtyDuringHostDrag,
 } from "../lib/host-resize-pin";
+import { createTerminalResizeDebouncer } from "../lib/terminal-resize-debouncer";
 import { TerminalChrome } from "./TerminalChrome";
 import { TerminalSelectionToolbar } from "./TerminalSelectionToolbar";
 import { buildTerminalWsUrl } from "../lib/terminal-ws-url";
@@ -168,6 +171,8 @@ function fitTerminalPreservingScroll(
       const after = term.buffer.active;
       term.scrollToLine(Math.max(0, after.baseY - distanceFromBottom));
     }
+    // Direct resize skips FitAddon's renderer clear. Refresh from the
+    // reflowed buffer so WebGL does not keep the previous grid as remnants.
   }
 
   return {
@@ -303,11 +308,31 @@ const Terminal = ({
   const lastPinnedSizeRef = useRef<{ cols: number; rows: number } | null>(null);
   const hostResizePinRef = useRef(createHostResizePinScheduler({
     send: (size) => {
-      const term = terminalRef.current;
-      if (term && (term.cols !== size.cols || term.rows !== size.rows)) {
-        term.resize(size.cols, size.rows);
-      }
+      lastPinnedSizeRef.current = { cols: size.cols, rows: size.rows };
       sendResizeRef.current(size);
+    },
+  }));
+  const applyXtermGrid = (size: { cols: number; rows: number }) => {
+    const term = terminalRef.current;
+    if (!term || !isUsableTerminalGrid(size.cols, size.rows)) return;
+    if (term.cols === size.cols && term.rows === size.rows) return;
+    const before = term.buffer.active;
+    const wasAtBottom = before.viewportY >= before.baseY;
+    const distanceFromBottom = Math.max(0, before.baseY - before.viewportY);
+    term.resize(size.cols, size.rows);
+    if (wasAtBottom) {
+      jumpXtermToBottom(term);
+    } else {
+      const after = term.buffer.active;
+      term.scrollToLine(Math.max(0, after.baseY - distanceFromBottom));
+    }
+  };
+  const gridResizeDebouncerRef = useRef(createTerminalResizeDebouncer({
+    apply: (size) => applyXtermGrid(size),
+    applyRows: (rows) => {
+      const term = terminalRef.current;
+      if (!term || rows < 1 || term.rows === rows) return;
+      applyXtermGrid({ cols: term.cols, rows });
     },
   }));
   const pinTerminalSizeRef = useRef<
@@ -322,12 +347,27 @@ const Terminal = ({
       last.cols === size.cols &&
       last.rows === size.rows
     ) {
+      // Drop a stale hold/debounce (shrink then return to the original grid).
+      hostResizePinRef.current.cancel();
       return;
     }
-    lastPinnedSizeRef.current = { cols: size.cols, rows: size.rows };
     if (options?.force) {
       hostResizePinRef.current.cancel();
+      lastPinnedSizeRef.current = { cols: size.cols, rows: size.rows };
       sendResizeRef.current(size);
+      return;
+    }
+    const surface = hostResizeSurfaceKind(terminalRef.current);
+    if (isHostResizeDragActive()) {
+      if (!shouldPinPtyDuringHostDrag(surface)) {
+        hostResizePinRef.current.hold(size);
+        return;
+      }
+      hostResizePinRef.current.schedule(size);
+      return;
+    }
+    if (surface === "shell") {
+      hostResizePinRef.current.debounce(size);
       return;
     }
     hostResizePinRef.current.schedule(size);
@@ -1332,18 +1372,13 @@ const Terminal = ({
       pinTerminalSizeRef.current({ cols, rows });
       // Inline mouse TUIs (Grok) only: a rows change can briefly park the old
       // frame as history before repaint. Idle shells and alt-screen apps must
-      // keep local scrollback intact across resize. Skip CSI 3J while a host
-      // splitter is dragged — every discard flashes the canvas.
+      // keep local scrollback intact across resize. Always drop the previous
+      // TUI frame here — skipping it during drag leaves stacked remnants.
       if (isInlineMouseTuiScrollbackSurface(terminal)) {
         if (terminal.options.scrollback !== 0) {
           terminal.options.scrollback = 0;
         }
-        if (
-          shouldDiscardXtermScrollbackOnResize({
-            inlineMouseTuiActive: true,
-            hostResizeDragActive: isHostResizeDragActive(),
-          })
-        ) {
+        if (shouldDiscardXtermScrollbackOnResize({ inlineMouseTuiActive: true })) {
           discardXtermScrollbackWhileMouseTui(terminal, true);
         }
       }
@@ -1512,6 +1547,25 @@ const Terminal = ({
         return;
       }
 
+      // Shells: VS Code split — rows now, cols coalesced. PTY pin is held
+      // until the splitter is released so tmux does not dump wrapped copies.
+      if (hostResizeSurfaceKind(term) === "shell") {
+        const proposed = proposeTerminalGrid(term, fit);
+        if (!proposed) {
+          connectWhenVisible();
+          return;
+        }
+        if (proposed.cols === term.cols && proposed.rows === term.rows) {
+          gridResizeDebouncerRef.current.cancel();
+          connectWhenVisible();
+          return;
+        }
+        gridResizeDebouncerRef.current.resize(proposed);
+        pinTerminalSizeRef.current(proposed);
+        connectWhenVisible();
+        return;
+      }
+
       fitTerminalPreservingScroll(term, fit);
       connectWhenVisible();
     };
@@ -1672,6 +1726,7 @@ const Terminal = ({
   useEffect(() => {
     const root = document.documentElement;
     const flushHostResize = () => {
+      gridResizeDebouncerRef.current.flush();
       hostResizePinRef.current.flush();
       const term = terminalRef.current;
       if (term && isInlineMouseTuiScrollbackSurface(term)) {

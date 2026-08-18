@@ -5,8 +5,10 @@ import {
   createHostResizePinScheduler,
   HOST_RESIZE_DRAG_ATTR,
   HOST_RESIZE_PIN_INTERVAL_MS,
+  hostResizeSurfaceKind,
   isHostResizeDragActive,
   shouldDiscardXtermScrollbackOnResize,
+  shouldPinPtyDuringHostDrag,
   type TerminalGridSize,
 } from "../host-resize-pin";
 
@@ -44,25 +46,40 @@ describe("host-resize-pin", () => {
     ).toBe(true);
   });
 
-  it("skips TUI scrollback discard only while a host resize drag is live", () => {
+  it("always discards TUI scrollback on resize so old frames cannot stack", () => {
+    expect(shouldDiscardXtermScrollbackOnResize({ inlineMouseTuiActive: true })).toBe(
+      true,
+    );
+    expect(shouldDiscardXtermScrollbackOnResize({ inlineMouseTuiActive: false })).toBe(
+      false,
+    );
+  });
+
+  it("does not SIGWINCH an idle shell while a host splitter is dragged", () => {
+    expect(shouldPinPtyDuringHostDrag("shell")).toBe(false);
+    expect(shouldPinPtyDuringHostDrag("inline-tui")).toBe(true);
+    expect(shouldPinPtyDuringHostDrag("alt-screen")).toBe(true);
+  });
+
+  it("classifies alternate vs inline-mouse vs idle shell", () => {
     expect(
-      shouldDiscardXtermScrollbackOnResize({
-        inlineMouseTuiActive: true,
-        hostResizeDragActive: false,
+      hostResizeSurfaceKind({
+        buffer: { active: { type: "alternate" } },
+        modes: { mouseTrackingMode: "any" },
       }),
-    ).toBe(true);
+    ).toBe("alt-screen");
     expect(
-      shouldDiscardXtermScrollbackOnResize({
-        inlineMouseTuiActive: true,
-        hostResizeDragActive: true,
+      hostResizeSurfaceKind({
+        buffer: { active: { type: "normal" } },
+        modes: { mouseTrackingMode: "any" },
       }),
-    ).toBe(false);
+    ).toBe("inline-tui");
     expect(
-      shouldDiscardXtermScrollbackOnResize({
-        inlineMouseTuiActive: false,
-        hostResizeDragActive: false,
+      hostResizeSurfaceKind({
+        buffer: { active: { type: "normal" } },
+        modes: { mouseTrackingMode: "none" },
       }),
-    ).toBe(false);
+    ).toBe("shell");
   });
 
   it("sends immediately when the host is not dragging", () => {
@@ -109,6 +126,41 @@ describe("host-resize-pin", () => {
     expect(sent[sent.length - 1]).toEqual({ cols: 110, rows: 32 });
   });
 
+  it("hold does not send until flush", () => {
+    const clock = createManualClock();
+    const sent: TerminalGridSize[] = [];
+    const scheduler = createHostResizePinScheduler({
+      send: (size) => sent.push(size),
+      isDragActive: () => true,
+      now: clock.now,
+      scheduleTimeout: clock.scheduleTimeout,
+      clearTimeout: clock.clearTimeout,
+    });
+    scheduler.hold({ cols: 80, rows: 24 });
+    scheduler.hold({ cols: 120, rows: 40 });
+    clock.advance(HOST_RESIZE_PIN_INTERVAL_MS);
+    expect(sent).toEqual([]);
+    scheduler.flush();
+    expect(sent).toEqual([{ cols: 120, rows: 40 }]);
+  });
+
+  it("debounce only sends the latest size after the interval", () => {
+    const clock = createManualClock();
+    const sent: TerminalGridSize[] = [];
+    const scheduler = createHostResizePinScheduler({
+      send: (size) => sent.push(size),
+      now: clock.now,
+      scheduleTimeout: clock.scheduleTimeout,
+      clearTimeout: clock.clearTimeout,
+    });
+    scheduler.debounce({ cols: 80, rows: 24 });
+    scheduler.debounce({ cols: 90, rows: 24 });
+    scheduler.debounce({ cols: 100, rows: 30 });
+    expect(sent).toEqual([]);
+    clock.advance(HOST_RESIZE_PIN_INTERVAL_MS);
+    expect(sent).toEqual([{ cols: 100, rows: 30 }]);
+  });
+
   it("cancel drops a pending drag pin", () => {
     const clock = createManualClock();
     const sent: TerminalGridSize[] = [];
@@ -128,15 +180,19 @@ describe("host-resize-pin", () => {
 });
 
 describe("host resize wiring", () => {
-  it("batches TUI fit and skips CSI 3J while a host splitter is dragged", () => {
+  it("uses VS Code-style grid debounce and holds shell PTY pins until drag end", () => {
     const terminal = readFileSync(
       join(import.meta.dir, "../../components/Terminal.tsx"),
       "utf8",
     );
     expect(terminal).toContain("createHostResizePinScheduler");
-    expect(terminal).toContain("shouldDiscardXtermScrollbackOnResize");
-    expect(terminal).toContain("isHostResizeDragActive()");
-    expect(terminal).toContain("isInlineMouseTuiScrollbackSurface(term)");
+    expect(terminal).toContain("shouldPinPtyDuringHostDrag");
+    expect(terminal).toContain("createTerminalResizeDebouncer");
+    expect(terminal).toContain("gridResizeDebouncerRef.current.resize");
+    expect(terminal).not.toContain("applyTerminalPreviewScale");
+    expect(terminal).toContain("hostResizePinRef.current.hold(size)");
+    expect(terminal).toContain("hostResizePinRef.current.debounce(size)");
+    expect(terminal).toContain("hostResizeSurfaceKind(term) === \"shell\"");
     expect(terminal).toContain("hostResizePinRef.current.flush()");
   });
 
