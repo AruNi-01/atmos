@@ -1,0 +1,24 @@
+apps/desktop-electron/src/branding-paths.ts
+  h_5be255725524c8 28-42
+apps/desktop-electron/src/branding.test.ts
+  h_5be255725524c8 9,72-88
+apps/desktop-electron/src/branding.ts
+  h_5be255725524c8 22-28
+apps/desktop-electron/src/ipc/handlers.ts
+  h_5be255725524c8 166-168,179,184-191
+apps/web/src/features/agent/hooks/use-agent-notifications.tsx
+  h_5be255725524c8 185-186
+apps/web/src/shared/lib/notifications.ts
+  h_5be255725524c8 236-239,244-246
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "242564687b790c5876201cad4960857b867e18cb",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
