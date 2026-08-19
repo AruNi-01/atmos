@@ -27,6 +27,7 @@ import {
   pushStickyLeavingContext,
   resolveContextIdsToRender,
   resolveFrameActiveTab,
+  resolveWorkspaceFrameActiveTabIds,
   mountedKeysForContext,
 } from "@/app-shell/workspace-surface-policies";
 import { scheduleIdle } from "@/app-shell/workspace-surface-switch";
@@ -34,6 +35,11 @@ import { readCenterStageLastTab } from "@/shared/stores/use-ui-pref-hooks";
 import { useEditorStore } from "@/features/editor/store/use-editor-store";
 import { useGithubCenterTabsStore } from "@/features/github/store/use-github-center-tabs";
 import { useBrowserCenterTabsStore } from "@/features/browser/store/use-browser-center-tabs";
+import {
+  collectActiveTabIds,
+} from "@/app-shell/center-pane/center-pane-layout";
+import { useCenterPaneLayoutStore } from "@/app-shell/center-pane/center-pane-layout-store";
+import { isTerminalCenterTabValue } from "@/app-shell/center-stage-tabs";
 import {
   EMPTY_MOUNTED_TAB_IDS,
   WorkspaceCenterFrame,
@@ -185,6 +191,7 @@ export function CenterStagePanels({
   const getOpenFiles = useEditorStore((s) => s.getOpenFiles);
   const githubTabsByContext = useGithubCenterTabsStore((s) => s.tabsByContext);
   const browserTabsByContext = useBrowserCenterTabsStore((s) => s.tabsByContext);
+  const layoutsByContext = useCenterPaneLayoutStore((s) => s.byContext);
 
   // Sticky leave tracks paint (live) id so the shell we just left stays mounted
   // while deferred URL-sync catches up.
@@ -243,6 +250,7 @@ export function CenterStagePanels({
         lightIds: string[];
         namedTerminals: Array<"project-wiki" | "code-review">;
         frameActiveTab: string;
+        frameActiveTabIds?: readonly string[];
       }> = [];
       for (const contextId of contextIds) {
         const isActive = contextId === activeId;
@@ -279,45 +287,66 @@ export function CenterStagePanels({
           fallbackTab: FIXED_TERMINAL_TAB_VALUE,
           validTabs: validForContext,
         });
+        const contextLayout = layoutsByContext[contextId];
+        const paneActiveTabIds =
+          contextLayout && contextLayout.order.length > 1
+            ? collectActiveTabIds(contextLayout).filter(Boolean)
+            : [];
+        const preferKeepIds =
+          paneActiveTabIds.length > 0 ? paneActiveTabIds : [frameActiveTab];
         const lightIds: string[] = [];
-        if (
-          frameActiveTab === "overview" ||
-          frameActiveTab === "wiki" ||
-          frameActiveTab === "simulator" ||
-          frameActiveTab === "git-history" ||
-          frameActiveTab === "changes" ||
-          frameActiveTab === "review" ||
-          frameActiveTab === "run" ||
-          frameActiveTab === "github" ||
-          frameActiveTab === "files" ||
-          frameActiveTab === "pt-design"
-        ) {
-          lightIds.push(frameActiveTab);
+        for (const tabId of preferKeepIds) {
+          if (
+            tabId === "overview" ||
+            tabId === "wiki" ||
+            tabId === "simulator" ||
+            tabId === "git-history" ||
+            tabId === "changes" ||
+            tabId === "review" ||
+            tabId === "run" ||
+            tabId === "github" ||
+            tabId === "files" ||
+            tabId === "pt-design"
+          ) {
+            lightIds.push(tabId);
+          }
         }
-        // GitHub center tabs are light surfaces — only last-active / active-tab ids enter mount plan.
+        // GitHub center tabs are light surfaces — pane-active / last-active ids enter mount plan.
         const ghTabs = githubTabsByContext[contextId] ?? [];
         for (const tab of ghTabs) {
-          if (frameActiveTab === tab.value || (isActive && activeValue === tab.value)) {
+          if (
+            preferKeepIds.includes(tab.value) ||
+            (isActive && activeValue === tab.value)
+          ) {
             lightIds.push(tab.value);
           }
         }
         const named: Array<"project-wiki" | "code-review"> = [];
         if (
-          frameActiveTab === "project-wiki" ||
+          preferKeepIds.includes("project-wiki") ||
           (isActive && projectWikiTabVisible)
         ) {
           named.push("project-wiki");
         }
         if (
-          frameActiveTab === "code-review" ||
+          preferKeepIds.includes("code-review") ||
           (isActive && codeReviewTabVisible)
         ) {
           named.push("code-review");
         }
-        const terminalTabIds = (isActive
-          ? mountedTerminalTabsByContext[contextId] ?? tabs.map((tab) => tab.id)
-          : mountedTerminalTabsByContext[contextId] ?? [FIXED_TERMINAL_TAB_VALUE]
-        ).filter(Boolean);
+        const paneActiveTerminals = preferKeepIds.filter((id) =>
+          isTerminalCenterTabValue(id),
+        );
+        const terminalTabIds = Array.from(
+          new Set(
+            (isActive
+              ? mountedTerminalTabsByContext[contextId] ?? tabs.map((tab) => tab.id)
+              : mountedTerminalTabsByContext[contextId] ?? [FIXED_TERMINAL_TAB_VALUE]
+            )
+              .concat(paneActiveTerminals)
+              .filter(Boolean),
+          ),
+        );
         const terminalPaneCountByTabId: Record<string, number> = {};
         for (const tabId of terminalTabIds) {
           const panes = liveGetPanes(
@@ -335,6 +364,7 @@ export function CenterStagePanels({
           lightIds,
           namedTerminals: named,
           frameActiveTab,
+          frameActiveTabIds: preferKeepIds,
         });
       }
       // One notify for N contexts — avoids N mountPlan recomputes mid-idle.
@@ -365,6 +395,7 @@ export function CenterStagePanels({
     visibleTerminalTabs,
     effectiveContextId,
     paintContextId,
+    layoutsByContext,
   ]);
 
   const fallbackTerminalTitle = t("fallbackTerminalTitle");
@@ -385,6 +416,11 @@ export function CenterStagePanels({
         const mountedTabIds =
           mountedTerminalTabsByContext[contextId] ?? EMPTY_MOUNTED_TAB_IDS;
         const mountPlanKeys = mountedKeysForContext(mountPlan, contextId).join("\0");
+        const contextLayout = layoutsByContext[contextId];
+        const retainedActiveTabIds =
+          contextLayout && contextLayout.order.length > 1
+            ? collectActiveTabIds(contextLayout)
+            : null;
 
         return (
           <WorkspaceCenterFrame
@@ -397,7 +433,12 @@ export function CenterStagePanels({
             mountedTabIds={mountedTabIds}
             fallbackTerminalTitle={fallbackTerminalTitle}
             activeValue={isUrlSyncedActive ? activeValue : null}
-            activeTabIds={isUrlSyncedActive ? activeTabIds : null}
+            activeTabIds={resolveWorkspaceFrameActiveTabIds({
+              isActiveContext,
+              isUrlSyncedActive,
+              liveActiveTabIds: activeTabIds,
+              retainedActiveTabIds,
+            })}
             tabToPaneId={isUrlSyncedActive ? tabToPaneId : null}
             paneSlotBoxes={isUrlSyncedActive ? paneSlotBoxes : null}
             visibleTerminalTabs={isUrlSyncedActive ? visibleTerminalTabs : undefined}
@@ -452,6 +493,7 @@ export function CenterStagePanels({
       */}
       {wikiCenterEligible && (
         <div
+          data-center-pane-owner={tabToPaneId?.wiki}
           className={cn(
             "absolute inset-0 z-[2] min-h-0 min-w-0 overflow-hidden bg-background",
             !(

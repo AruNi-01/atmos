@@ -35,6 +35,8 @@ interface BrowserPanelProps {
   syncUrlQueryParam?: boolean;
   canvasViewportControllerRef?: React.MutableRefObject<BrowserCanvasViewportController | null>;
   className?: string;
+  /** Owning center pane; copied onto the maximized portal (outside overlay host). */
+  centerPaneOwnerId?: string | null;
 }
 
 export const BrowserPanel: React.FC<BrowserPanelProps> = ({
@@ -48,6 +50,7 @@ export const BrowserPanel: React.FC<BrowserPanelProps> = ({
   syncUrlQueryParam = true,
   canvasViewportControllerRef,
   className,
+  centerPaneOwnerId,
 }) => {
   const previewToolbarT = useTranslations("browser.toolbar");
   const [isPreviewMaximized, setIsPreviewMaximized] = useState(false);
@@ -234,15 +237,20 @@ export const BrowserPanel: React.FC<BrowserPanelProps> = ({
     "relative h-full min-h-0 w-full overflow-hidden bg-background",
     className,
   );
+  const browserSurfaceProps = {
+    "data-atmos-browser-surface": "true",
+    "data-center-pane-owner": centerPaneOwnerId || undefined,
+  } as const;
 
   if (isPreviewMaximized && typeof document !== "undefined") {
     return (
-      <div className={panelShellClassName}>
+      <div className={panelShellClassName} {...browserSurfaceProps}>
         {createPortal(
           // Fullscreen browser portal — mark for webview pointer-events policy
           // so sibling desktop guests do not steal clicks under this overlay.
           <div
             data-atmos-browser-surface-overlay="true"
+            {...browserSurfaceProps}
             className="fixed inset-0 z-[1000] h-screen w-screen overflow-hidden bg-background animate-in fade-in zoom-in-95 slide-in-from-bottom-2"
           >
             {browserContent}
@@ -254,7 +262,7 @@ export const BrowserPanel: React.FC<BrowserPanelProps> = ({
   }
 
   return (
-    <div className={panelShellClassName}>
+    <div className={panelShellClassName} {...browserSurfaceProps}>
       {browserContent}
     </div>
   );

@@ -10,6 +10,7 @@ import {
   centerPaneSlotOccupancyKey,
   centerPaneTreeKey,
   isUsablePaneSlotBox,
+  shouldWithholdUnmeasuredPaneTerminal,
 } from "@/app-shell/center-pane/use-center-pane-slot-boxes";
 
 const dir = import.meta.dir;
@@ -22,7 +23,8 @@ describe("center pane tab isolation", () => {
   it("filters the grouped-tab popover to the pane allow-list", () => {
     const stage = readSibling("CenterStage.tsx");
     expect(stage).toContain("filterGroupedTabItemsByAllowedIds");
-    expect(stage).toContain("orderedGroupedTabItems={filterGroupedTabItemsByAllowedIds(");
+    expect(stage).toContain("orderGroupsForPane(");
+    expect(stage).toContain("filterGroupedTabItemsByAllowedIds(groupedTabItems, allowed)");
     expect(stage).toContain("allowedTabIds: allowed");
     expect(stage).toContain("paneId: pane.id");
   });
@@ -69,6 +71,10 @@ describe("center pane tab isolation", () => {
     expect(css).toContain("[data-live-resizing]");
     expect(stage).toContain("seedFromFullPane");
     expect(stage).toContain("showMosaic");
+    expect(stage).toContain("shouldSeedMosaicFromFullPane");
+    expect(stage).toContain("collapsedStripOrderForContext");
+    expect(stage).toContain("resolveStripOrderForContext");
+    expect(stage).not.toContain("prevPaneCountRef");
     expect(stage).toContain("desktop-no-drag relative min-h-0 flex-1");
     expect(stage).toContain('data-center-panel-host=""');
     expect(css).toContain("border-radius: var(--radius-xl)");
@@ -92,8 +98,8 @@ describe("center pane tab isolation", () => {
     expect(slots).toContain("centerPaneSlotOccupancyKey(layout)");
     expect(slots).toContain("treeKey");
     expect(slots).toContain("centerPaneTreeKey");
-    expect(frame).toContain("isUsablePaneSlotBox");
-    expect(frame).toContain("!isUsablePaneSlotBox(paneSlotBoxes?.[tabToPaneId?.[tab.id] ?? \"\"])");
+    expect(frame).toContain("shouldWithholdUnmeasuredPaneTerminal");
+    expect(frame).toContain("applySlotGeometry: isUrlSyncedActive");
   });
 
   it("changes slot occupancy when an empty pane gets its first tab", () => {
@@ -132,5 +138,19 @@ describe("center pane tab isolation", () => {
     expect(isUsablePaneSlotBox(undefined)).toBe(false);
     expect(isUsablePaneSlotBox({ top: 0, left: 400, width: 0, height: 0 })).toBe(false);
     expect(isUsablePaneSlotBox({ top: 0, left: 400, width: 480, height: 320 })).toBe(true);
+    expect(
+      shouldWithholdUnmeasuredPaneTerminal({
+        applySlotGeometry: true,
+        isPaneActive: true,
+        slotBox: undefined,
+      }),
+    ).toBe(true);
+    expect(
+      shouldWithholdUnmeasuredPaneTerminal({
+        applySlotGeometry: false,
+        isPaneActive: true,
+        slotBox: undefined,
+      }),
+    ).toBe(false);
   });
 });

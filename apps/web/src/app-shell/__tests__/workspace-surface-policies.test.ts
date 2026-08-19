@@ -10,6 +10,7 @@ import {
   pushStickyLeavingContext,
   resolveContextIdsToRender,
   resolveFrameActiveTab,
+  resolveWorkspaceFrameActiveTabIds,
   selectEditorMountSet,
   sweepWarmByTtl,
   browserKeepAlivePanelClass,
@@ -96,6 +97,39 @@ describe("resolveFrameActiveTab / panel visibility", () => {
         panelTabId: "terminal",
       }),
     ).toBe(false);
+  });
+
+  it("does not activate retained pane tabs on a visually active unsynced hop frame", () => {
+    const hopIds = resolveWorkspaceFrameActiveTabIds({
+      isActiveContext: true,
+      isUrlSyncedActive: false,
+      liveActiveTabIds: ["terminal", "overview"],
+      retainedActiveTabIds: ["terminal", "overview"],
+    });
+    expect(hopIds).toBeNull();
+    expect(
+      isFramePanelVisible({
+        isActiveFrame: true,
+        frameActiveTab: "terminal",
+        frameActiveTabIds: hopIds,
+        panelTabId: "overview",
+      }),
+    ).toBe(false);
+
+    const warmIds = resolveWorkspaceFrameActiveTabIds({
+      isActiveContext: false,
+      isUrlSyncedActive: false,
+      retainedActiveTabIds: ["terminal", "overview"],
+    });
+    expect(warmIds).toEqual(["terminal", "overview"]);
+    expect(
+      isFramePanelVisible({
+        isActiveFrame: false,
+        frameActiveTab: "terminal",
+        frameActiveTabIds: warmIds,
+        panelTabId: "overview",
+      }),
+    ).toBe(true);
   });
 
   it("terminal keep-alive panels avoid display:none class names", () => {

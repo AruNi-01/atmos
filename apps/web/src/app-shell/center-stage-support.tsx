@@ -15,7 +15,7 @@ import { TaskManagementView } from "@/features/task/components/TaskManagementVie
 import { TokenUsagePage } from "@/app-shell/TokenUsagePage";
 import type { OpenFile } from "@/features/editor/store/use-editor-store";
 import type { TerminalCenterTab } from "@/features/terminal/store/use-terminal-store";
-import { FIXED_TABS, isTerminalCenterTabValue } from "@/app-shell/center-stage-tabs";
+import { isTerminalCenterTabValue } from "@/app-shell/center-stage-tabs";
 import type { Project, Workspace } from "@/shared/types/domain";
 import { useWorkspaceSurfaceCacheStore } from "@/features/workspace/store/use-workspace-surface-cache-store";
 import { schedulePromoteWorkspaceSurfaceSwitch } from "@/app-shell/workspace-surface-switch";
@@ -272,51 +272,6 @@ export function useTerminalTabMountLifecycle({
       };
     });
   }, [effectiveContextId, setMountedTerminalTabsByContext, visibleTerminalTabs]);
-}
-
-export function useCenterStageTabScrollEffects({
-  activeValue,
-  codeReviewTabVisible,
-  effectiveContextId,
-  openFilesCount,
-  projectWikiTabVisible,
-  scrollableTabsRef,
-  visibleTerminalTabsCount,
-}: {
-  activeValue: string;
-  codeReviewTabVisible: boolean;
-  effectiveContextId: string | null | undefined;
-  openFilesCount: number;
-  projectWikiTabVisible: boolean;
-  /** Horizontal scroller (or chain clip root) for the center tab strip. */
-  scrollableTabsRef: React.RefObject<HTMLDivElement | null>;
-  visibleTerminalTabsCount: number;
-}) {
-  React.useEffect(() => {
-    const container = scrollableTabsRef.current;
-    if (!activeValue || !container) return;
-    if (FIXED_TABS.has(activeValue)) return;
-
-    const timer = setTimeout(() => {
-      const current = scrollableTabsRef.current;
-      if (!current) return;
-      const activeTab = current.querySelector<HTMLElement>('[data-active], [aria-selected="true"]');
-      if (!activeTab) return;
-
-      // Prefer the nearest horizontal scroller (unpinned lane in chained layout).
-      const lane =
-        activeTab.closest<HTMLElement>("[data-center-tabs-scroll]") ?? current;
-      const laneRect = lane.getBoundingClientRect();
-      const tabRect = activeTab.getBoundingClientRect();
-      const isVisible =
-        tabRect.left >= laneRect.left && tabRect.right <= laneRect.right;
-      if (!isVisible) {
-        activeTab.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
-      }
-    }, 0);
-
-    return () => clearTimeout(timer);
-  }, [activeValue, effectiveContextId, openFilesCount, projectWikiTabVisible, codeReviewTabVisible, visibleTerminalTabsCount, scrollableTabsRef]);
 }
 
 export type PendingNamedTerminalRun = {

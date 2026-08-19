@@ -111,9 +111,14 @@ export function workspaceCenterFramePropsAreEqual(
   if (!sameStringList(prev.mountedTabIds, next.mountedTabIds)) return false;
   // mountPlan object identity may churn globally; this frame only cares about its keys.
 
-  // Both warm / non-url-synced: skip host chrome props entirely.
+  // Warm frames skip host chrome, but pane-active retention is per-context
+  // identity — changing it must remount/keep the right surfaces.
   if (!prev.isUrlSyncedActive && !next.isUrlSyncedActive) {
-    return true;
+    return (
+      sameStringList(prev.activeTabIds ?? [], next.activeTabIds ?? []) &&
+      prev.tabToPaneId === next.tabToPaneId &&
+      prev.paneSlotBoxes === next.paneSlotBoxes
+    );
   }
 
   return (

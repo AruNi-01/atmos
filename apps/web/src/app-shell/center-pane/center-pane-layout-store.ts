@@ -8,8 +8,11 @@ import {
   closePane,
   createDefaultLayout,
   focusPane,
+  migrateLegacySinglePaneStripOrder,
   normalizeCenterPaneLayout,
   openTabOnFocusedPane,
+  withCanonicalTabStrip,
+  reorderPaneTabIds,
   reorderPanes,
   resizeAdjacentFractions,
   setColumnCount,
@@ -38,6 +41,7 @@ type CenterPaneLayoutStore = {
     contextId: string,
     openTabIds: string[],
     activeTabId: string,
+    legacyStripOrder?: readonly string[],
   ) => CenterPaneLayout;
   setLayout: (contextId: string, layout: CenterPaneLayout) => void;
   patchLayout: (
@@ -52,6 +56,7 @@ type CenterPaneLayoutStore = {
   ) => void;
   close: (contextId: string, paneId: string) => void;
   reorder: (contextId: string, fromIndex: number, toIndex: number) => void;
+  reorderTabs: (contextId: string, paneId: string, orderedTabIds: readonly string[]) => void;
   resizeColumns: (contextId: string, boundaryIndex: number, delta: number) => void;
   resizeRows: (contextId: string, boundaryIndex: number, delta: number) => void;
   setActiveTab: (contextId: string, paneId: string, tabId: string) => void;
@@ -105,8 +110,10 @@ export const useCenterPaneLayoutStore = create<CenterPaneLayoutStore>((set, get)
     return get().byContext[contextId] ?? null;
   },
 
-  ensureLayout: (contextId, openTabIds, activeTabId) => {
-    if (!contextId) return createDefaultLayout(openTabIds, activeTabId);
+  ensureLayout: (contextId, openTabIds, activeTabId, legacyStripOrder = []) => {
+    if (!contextId) {
+      return withCanonicalTabStrip(createDefaultLayout(openTabIds, activeTabId));
+    }
     const existing = get().byContext[contextId];
     if (existing) {
       const reconciled = reconcileOpenTabs(
@@ -114,12 +121,18 @@ export const useCenterPaneLayoutStore = create<CenterPaneLayoutStore>((set, get)
         openTabIds,
         activeTabId,
       );
-      if (reconciled !== existing) {
-        get().setLayout(contextId, reconciled);
+      const migrated = migrateLegacySinglePaneStripOrder(
+        reconciled,
+        legacyStripOrder,
+      );
+      if (!centerPaneLayoutsEqual(existing, migrated)) {
+        get().setLayout(contextId, migrated);
       }
-      return get().byContext[contextId] ?? reconciled;
+      return get().byContext[contextId] ?? migrated;
     }
-    const layout = createDefaultLayout(openTabIds, activeTabId);
+    const layout = withCanonicalTabStrip(
+      createDefaultLayout(openTabIds, activeTabId),
+    );
     get().setLayout(contextId, layout);
     return layout;
   },
@@ -169,6 +182,12 @@ export const useCenterPaneLayoutStore = create<CenterPaneLayoutStore>((set, get)
 
   reorder: (contextId, fromIndex, toIndex) => {
     get().patchLayout(contextId, (layout) => reorderPanes(layout, fromIndex, toIndex));
+  },
+
+  reorderTabs: (contextId, paneId, orderedTabIds) => {
+    get().patchLayout(contextId, (layout) =>
+      reorderPaneTabIds(layout, paneId, orderedTabIds),
+    );
   },
 
   resizeColumns: (contextId, boundaryIndex, delta) => {

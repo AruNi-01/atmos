@@ -27,7 +27,7 @@ describe("PT Design Atmos host wiring", () => {
       "utf8",
     );
     expect(panels).toMatch(/validForContext[\s\S]*"pt-design"/);
-    expect(panels).toContain('frameActiveTab === "pt-design"');
+    expect(panels).toContain('tabId === "pt-design"');
   });
 
   test("left sidebar launchpad opens the standalone /pt-design page", () => {

@@ -52,6 +52,10 @@ import {
   SquareTerminal as TerminalIcon,
 } from "lucide-react";
 import type { CenterToolTabValue } from "@/app-shell/center-tool-tabs";
+import {
+  applyHorizontalTabStripWheel,
+  scrollActiveTabIntoStripView,
+} from "@/app-shell/center-stage-tab-scroll";
 import { useTranslations } from "next-intl";
 import type { OpenFile } from "@/features/editor/store/use-editor-store";
 import { cn } from "@/shared/lib/utils";
@@ -110,7 +114,6 @@ interface CenterStageTabBarProps {
   projectWikiTabVisible: boolean;
   simulatorTabVisible: boolean;
   gitHistoryTabVisible: boolean;
-  scrollableTabsRef: React.RefObject<HTMLDivElement | null>;
   sessionDisplay: SessionDisplay;
   tabGroupDndSensors: React.ComponentProps<typeof CenterStageTabGroupPopover>["sensors"];
   /** Saved strip order (tab ids). Missing/new tabs append after. */
@@ -183,7 +186,6 @@ export function CenterStageTabBar({
   githubHubTabVisible,
   filesTabVisible,
   ptDesignTabVisible,
-  scrollableTabsRef,
   sessionDisplay,
   tabGroupDndSensors,
   tabStripOrder,
@@ -446,6 +448,8 @@ export function CenterStageTabBar({
     [baseOrderedDescriptors, tabStripOrder],
   );
 
+  const scrollableTabsRef = React.useRef<HTMLDivElement>(null);
+
   const stripDndSensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
@@ -483,27 +487,31 @@ export function CenterStageTabBar({
     if (!root) return;
 
     const handleWheel = (event: WheelEvent) => {
-      if (event.ctrlKey) return;
-      if (!(event.target instanceof Element) || !root.contains(event.target)) return;
-
-      const primaryDelta =
-        Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
-      if (primaryDelta === 0) return;
-
-      const maxScrollLeft = root.scrollWidth - root.clientWidth;
-      if (maxScrollLeft <= 0) return;
-
-      const next = Math.max(0, Math.min(maxScrollLeft, root.scrollLeft + primaryDelta));
-      if (next === root.scrollLeft) return;
-      event.preventDefault();
-      root.scrollLeft = next;
+      applyHorizontalTabStripWheel(root, event, event.target);
     };
 
     root.addEventListener("wheel", handleWheel, { passive: false });
     return () => {
       root.removeEventListener("wheel", handleWheel);
     };
-  }, [scrollableTabsRef, orderedDescriptors.length]);
+  }, [orderedDescriptors.length]);
+
+  React.useEffect(() => {
+    if (!activeValue) return;
+    const timer = window.setTimeout(() => {
+      const root = scrollableTabsRef.current;
+      if (!root) return;
+      scrollActiveTabIntoStripView(root);
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [
+    activeValue,
+    effectiveContextId,
+    openFiles.length,
+    projectWikiTabVisible,
+    codeReviewTabVisible,
+    visibleTerminalTabs.length,
+  ]);
 
   const renderDescriptorTab = (tab: CenterTabDescriptor) => {
     if (tab.kind === "terminal") {

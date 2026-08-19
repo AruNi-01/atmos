@@ -15,7 +15,12 @@ import {
   readCenterStageTabGroupOrder,
   writeCenterStageTabGroupOrder,
 } from "@/shared/stores/use-ui-pref-hooks";
-import { collectDiffGroupTabs } from "@/app-shell/center-stage-tab-groups";
+import {
+  collectDiffGroupTabs,
+  paneScopedTabGroupKey,
+  readPaneTabGroupOrder,
+  type GroupedTabColumn,
+} from "@/app-shell/center-stage-tab-groups";
 import type { GithubCenterTab } from "@/features/github/store/use-github-center-tabs";
 import type { BrowserCenterTab } from "@/features/browser/store/use-browser-center-tabs";
 import {
@@ -42,6 +47,7 @@ function applySectionedGroupOrder(
   contextOrder: Record<string, string[] | undefined> | undefined,
   getSectionId: (tab: TabGroupItem) => string | undefined,
   sectionKeyPrefix: string,
+  paneId?: string,
 ) {
   const sections: TabGroupItem[][] = [];
   let currentSection: TabGroupItem[] = [];
@@ -65,7 +71,7 @@ function applySectionedGroupOrder(
     const orderedSection = orderKey
       ? applySavedTabGroupOrder(
           { key: orderKey, label: group.label, tabs: section },
-          contextOrder?.[orderKey],
+          readPaneTabGroupOrder(contextOrder, paneId, orderKey),
         ).tabs
       : section;
 
@@ -84,20 +90,48 @@ function applySectionedGroupOrder(
 function applyBrowserGroupOrder(
   group: { key: string; label: string; tabs: TabGroupItem[] },
   contextOrder?: Record<string, string[] | undefined>,
+  paneId?: string,
 ) {
-  return applySectionedGroupOrder(group, contextOrder, (tab) => tab.browserId, "browser-instance");
+  return applySectionedGroupOrder(
+    group,
+    contextOrder,
+    (tab) => tab.browserId,
+    "browser-instance",
+    paneId,
+  );
 }
 
 function applyTerminalGroupOrder(
   group: { key: string; label: string; tabs: TabGroupItem[] },
   contextOrder?: Record<string, string[] | undefined>,
+  paneId?: string,
 ) {
   return applySectionedGroupOrder(
     group,
     contextOrder,
     (tab) => tab.terminalSection ?? tab.kind,
     "terminal-section",
+    paneId,
   );
+}
+
+export function applyPaneTabGroupOrders(
+  groups: readonly GroupedTabColumn[],
+  contextOrder: Record<string, string[] | undefined> | undefined,
+  paneId?: string,
+): GroupedTabColumn[] {
+  return groups.map((group) => {
+    if (group.key === "browser") {
+      return applyBrowserGroupOrder(group, contextOrder, paneId);
+    }
+    if (group.key === "terminal") {
+      return applyTerminalGroupOrder(group, contextOrder, paneId);
+    }
+    return applySavedTabGroupOrder(
+      group,
+      readPaneTabGroupOrder(contextOrder, paneId, group.key),
+    );
+  });
 }
 
 function resolveSectionedColumnKey(activeGroupKey: string): {
@@ -407,22 +441,26 @@ export function useCenterStageTabGroups({
     terminalTabs,
   ]);
 
-  const orderedGroupedTabItems = React.useMemo(() => {
-    const contextOrder = effectiveContextId ? tabGroupOrderByContext[effectiveContextId] : undefined;
-    return groupedTabItems.map((group) => {
-      // Browser / terminal columns mix multiple families. Order is stored and
-      // applied per section so tabs cannot be interleaved across separators.
-      if (group.key === "browser") {
-        return applyBrowserGroupOrder(group, contextOrder);
-      }
-      if (group.key === "terminal") {
-        return applyTerminalGroupOrder(group, contextOrder);
-      }
-      return applySavedTabGroupOrder(group, contextOrder?.[group.key]);
-    });
-  }, [effectiveContextId, groupedTabItems, tabGroupOrderByContext]);
+  const contextOrder = effectiveContextId
+    ? tabGroupOrderByContext[effectiveContextId]
+    : undefined;
 
-  const handleTabGroupDragEnd = React.useCallback((event: DragEndEvent) => {
+  const orderGroupsForPane = React.useCallback(
+    (groups: readonly GroupedTabColumn[], paneId?: string) =>
+      applyPaneTabGroupOrders(groups, contextOrder, paneId),
+    [contextOrder],
+  );
+
+  const orderedGroupedTabItems = React.useMemo(
+    () => orderGroupsForPane(groupedTabItems),
+    [groupedTabItems, orderGroupsForPane],
+  );
+
+  const handleTabGroupDragEnd = React.useCallback((
+    event: DragEndEvent,
+    paneId?: string,
+    paneGroups?: readonly GroupedTabColumn[],
+  ) => {
     if (!effectiveContextId || !event.over || event.active.id === event.over.id) return;
 
     const activeGroupKey = event.active.data.current?.groupKey;
@@ -433,7 +471,8 @@ export function useCenterStageTabGroups({
     // (`browser-instance:<id>` / `terminal-section:<id>`). Same-key check above
     // already rejects those.
     const { columnKey, sectionFilter } = resolveSectionedColumnKey(activeGroupKey);
-    const group = orderedGroupedTabItems.find((item) => item.key === columnKey);
+    const groups = paneGroups ?? orderGroupsForPane(groupedTabItems, paneId);
+    const group = groups.find((item) => item.key === columnKey);
     if (!group) return;
 
     const ids = sectionFilter
@@ -445,21 +484,25 @@ export function useCenterStageTabGroups({
     if (oldIndex === -1 || newIndex === -1) return;
 
     const nextOrder = arrayMove(ids, oldIndex, newIndex);
+    const orderKey = paneScopedTabGroupKey(paneId, activeGroupKey);
     setTabGroupOrderByContext((current) => {
       const next: TabGroupOrderByContext = {
         ...current,
         [effectiveContextId]: {
           ...(current[effectiveContextId] ?? {}),
-          [activeGroupKey]: nextOrder,
+          [orderKey]: nextOrder,
         },
       };
       writeCenterStageTabGroupOrder(next);
       return next;
     });
-  }, [effectiveContextId, orderedGroupedTabItems]);
+  }, [effectiveContextId, groupedTabItems, orderGroupsForPane]);
 
   return {
+    groupedTabItems,
     handleTabGroupDragEnd,
+    orderGroupsForPane,
     orderedGroupedTabItems,
+    tabGroupOrderByContext,
   };
 }

@@ -51,6 +51,12 @@ export type CenterPaneLayout = {
   columnFractions: number[];
   rowFractions: number[];
   focusedPaneId: string;
+  /**
+   * Once true, `pane.tabIds` is the strip source of truth. Absent on layouts
+   * persisted before this field existed so {@link migrateLegacySinglePaneStripOrder}
+   * can apply stored `tabStripOrder` exactly once.
+   */
+  tabStripCanonical?: boolean;
 };
 
 export type SplitDirection = "right" | "down";
@@ -320,6 +326,104 @@ export function findPaneIdForTab(layout: CenterPaneLayout, tabId: string): strin
   return null;
 }
 
+/** Tab id → owning pane id (active id included so empty-looking actives still map). */
+export function buildTabToPaneId(layout: CenterPaneLayout): Record<string, string> {
+  const map: Record<string, string> = {};
+  for (const pane of layout.panes) {
+    for (const tabId of pane.tabIds) {
+      map[tabId] = pane.id;
+    }
+    if (pane.activeTabId) {
+      map[pane.activeTabId] = pane.id;
+    }
+  }
+  return map;
+}
+
+export function withCanonicalTabStrip(layout: CenterPaneLayout): CenterPaneLayout {
+  return layout.tabStripCanonical ? layout : { ...layout, tabStripCanonical: true };
+}
+
+/**
+ * Replace one pane's strip order. Unknown ids are ignored; missing owned ids
+ * append so a pane cannot drop tabs via reorder. Sibling panes are untouched.
+ */
+export function reorderPaneTabIds(
+  layout: CenterPaneLayout,
+  paneId: string,
+  orderedTabIds: readonly string[],
+): CenterPaneLayout {
+  const pane = getPane(layout, paneId);
+  if (!pane) return layout;
+  const owned = new Set(pane.tabIds);
+  const nextIds = orderedTabIds.filter((id) => owned.has(id));
+  for (const id of pane.tabIds) {
+    if (!nextIds.includes(id)) nextIds.push(id);
+  }
+  if (sameStringList(pane.tabIds, nextIds)) {
+    return layout.tabStripCanonical ? layout : withCanonicalTabStrip(layout);
+  }
+  const panes = layout.panes.map((p) => (p.id === paneId ? { ...p, tabIds: nextIds } : p));
+  const next: CenterPaneLayout = withCanonicalTabStrip({ ...layout, panes });
+  return centerPaneLayoutsEqual(layout, next) ? layout : next;
+}
+
+/**
+ * Pane `tabIds` are canonical whenever a layout pane exists (including a
+ * remaining single pane after collapse). Legacy `tabStripOrder` is only a
+ * fallback for empty panes / one-shot migration of pre-canonical layouts.
+ */
+export function resolvePaneTabStripOrder(
+  paneTabIds: readonly string[] | null | undefined,
+  legacyStripOrder: readonly string[],
+): string[] {
+  if (paneTabIds && paneTabIds.length > 0) return [...paneTabIds];
+  return [...legacyStripOrder];
+}
+
+/**
+ * Apply stored single-pane strip prefs onto an existing layout exactly once.
+ * Multi-pane layouts and already-canonical layouts ignore global prefs so a
+ * later reorder/collapse cannot snap back to stale strip storage.
+ */
+export function migrateLegacySinglePaneStripOrder(
+  layout: CenterPaneLayout,
+  legacyStripOrder: readonly string[],
+): CenterPaneLayout {
+  if (layout.tabStripCanonical) return layout;
+  if (layout.order.length !== 1) {
+    return withCanonicalTabStrip(layout);
+  }
+  if (legacyStripOrder.length === 0) return layout;
+  const pane = getPane(layout, layout.order[0]!) ?? layout.panes[0];
+  if (!pane) return withCanonicalTabStrip(layout);
+  const nextIds = applyLegacyStripOrder(pane.tabIds, legacyStripOrder);
+  const panes = sameStringList(pane.tabIds, nextIds)
+    ? layout.panes
+    : layout.panes.map((p) => (p.id === pane.id ? { ...p, tabIds: nextIds } : p));
+  return withCanonicalTabStrip({ ...layout, panes });
+}
+
+/**
+ * Seed a new single-pane layout from persisted strip prefs without dropping
+ * open tabs the prefs do not yet list.
+ */
+export function applyLegacyStripOrder(
+  openTabIds: readonly string[],
+  legacyStripOrder: readonly string[],
+): string[] {
+  const open = new Set(openTabIds);
+  const ordered: string[] = [];
+  for (const id of legacyStripOrder) {
+    if (!open.has(id) || ordered.includes(id)) continue;
+    ordered.push(id);
+  }
+  for (const id of openTabIds) {
+    if (!ordered.includes(id)) ordered.push(id);
+  }
+  return ordered;
+}
+
 /** Replace the mosaic tree (drag-dock / split-resize). Panes stay owned. */
 export function applyCenterPaneTree(
   layout: CenterPaneLayout,
@@ -421,16 +525,18 @@ export function splitPane(
   );
 
   // Do not prune the new empty pane — empty is the intended post-split state.
-  return normalizeCenterPaneLayout({
-    ...current,
-    panes: [...current.panes, newPane],
-    tree,
-    focusedPaneId: newId,
-    columnCount:
-      options.direction === "right"
-        ? Math.min(MAX_CENTER_PANES, Math.max(current.columnCount, 2))
-        : current.columnCount,
-  });
+  return withCanonicalTabStrip(
+    normalizeCenterPaneLayout({
+      ...current,
+      panes: [...current.panes, newPane],
+      tree,
+      focusedPaneId: newId,
+      columnCount:
+        options.direction === "right"
+          ? Math.min(MAX_CENTER_PANES, Math.max(current.columnCount, 2))
+          : current.columnCount,
+    }),
+  );
 }
 
 export function closePane(layout: CenterPaneLayout, paneId: string): CenterPaneLayout {
@@ -469,15 +575,17 @@ export function closePane(layout: CenterPaneLayout, paneId: string): CenterPaneL
   let columnCount = layout.columnCount;
   if (order.length === 1) columnCount = 1;
 
-  return normalizeCenterPaneLayout(
-    enforceOverviewPrimaryOnly({
-      ...layout,
-      panes,
-      tree: tree ?? order[0] ?? DEFAULT_PANE_ID,
-      order,
-      columnCount,
-      focusedPaneId,
-    }),
+  return withCanonicalTabStrip(
+    normalizeCenterPaneLayout(
+      enforceOverviewPrimaryOnly({
+        ...layout,
+        panes,
+        tree: tree ?? order[0] ?? DEFAULT_PANE_ID,
+        order,
+        columnCount,
+        focusedPaneId,
+      }),
+    ),
   );
 }
 
@@ -557,6 +665,7 @@ export function centerPaneLayoutsEqual(a: CenterPaneLayout, b: CenterPaneLayout)
   if (
     a.focusedPaneId !== b.focusedPaneId ||
     a.columnCount !== b.columnCount ||
+    Boolean(a.tabStripCanonical) !== Boolean(b.tabStripCanonical) ||
     !sameStringList(a.order, b.order) ||
     !centerPaneTreesEqual(
       a.tree ?? treeFromReadingOrder(a.order, a.columnCount),
@@ -679,7 +788,7 @@ export function removeTabFromLayout(layout: CenterPaneLayout, tabId: string): Ce
   let next: CenterPaneLayout = { ...layout, panes };
   next = pruneEmptySecondaryPanes(next, layout);
   next = enforceOverviewPrimaryOnly(next);
-  return next;
+  return withCanonicalTabStrip(next);
 }
 
 /**

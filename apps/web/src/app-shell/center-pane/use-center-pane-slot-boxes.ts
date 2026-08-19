@@ -40,6 +40,23 @@ export function isUsablePaneSlotBox(
 }
 
 /**
+ * Live mosaic only: don't mount a pane-active terminal until its slot has a
+ * real box (avoids fitting PTY at full-stage size). Warm frames have no
+ * live geometry — withholding there would unmount retained split terminals.
+ */
+export function shouldWithholdUnmeasuredPaneTerminal(input: {
+  applySlotGeometry: boolean;
+  isPaneActive: boolean;
+  slotBox: PaneSlotBox | null | undefined;
+}): boolean {
+  return (
+    input.applySlotGeometry &&
+    input.isPaneActive &&
+    !isUsablePaneSlotBox(input.slotBox)
+  );
+}
+
+/**
  * Measure `[data-center-pane-content-slot]` boxes relative to `hostRef`.
  * Used to position keep-alive panels into multi-pane content slots without remounting.
  */

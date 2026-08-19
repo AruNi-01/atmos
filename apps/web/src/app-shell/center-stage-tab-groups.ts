@@ -8,10 +8,27 @@ export type GroupedTabColumn = {
   tabs: TabGroupItem[];
 };
 
-/**
- * Keep only tabs owned by one center pane. Used so split panes do not share
- * the grouped-tab popover (each region lists its own surfaces).
- */
+/** Persist group order per pane so reordering pane A cannot reset pane B. */
+export function paneScopedTabGroupKey(
+  paneId: string | undefined,
+  groupKey: string,
+): string {
+  return paneId ? `pane:${paneId}:${groupKey}` : groupKey;
+}
+
+export function readPaneTabGroupOrder(
+  contextOrder: Record<string, string[] | undefined> | undefined,
+  paneId: string | undefined,
+  groupKey: string,
+): string[] | undefined {
+  if (paneId) {
+    const scoped = contextOrder?.[paneScopedTabGroupKey(paneId, groupKey)];
+    if (scoped && scoped.length > 0) return scoped;
+  }
+  return contextOrder?.[groupKey];
+}
+
+/** Keep only tabs owned by one center pane. */
 export function filterGroupedTabItemsByAllowedIds(
   groups: readonly GroupedTabColumn[],
   allowedIds?: ReadonlySet<string> | null,
