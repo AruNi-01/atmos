@@ -70,7 +70,13 @@ import {
   shouldDiscardXtermScrollbackOnResize,
   shouldPinPtyDuringHostDrag,
 } from "../lib/host-resize-pin";
-import { createTerminalResizeDebouncer } from "../lib/terminal-resize-debouncer";
+import { createStableGridScheduler } from "../lib/terminal-stable-fit";
+import {
+  captureXtermResizeScroll,
+  clampProposedTerminalRows,
+  isXtermNearBottom,
+  restoreXtermResizeScroll,
+} from "../lib/terminal-resize-scroll";
 import { TerminalChrome } from "./TerminalChrome";
 import { TerminalSelectionToolbar } from "./TerminalSelectionToolbar";
 import { buildTerminalWsUrl } from "../lib/terminal-ws-url";
@@ -118,6 +124,15 @@ const INITIAL_CONNECT_STABLE_FRAMES = 2;
 const INITIAL_CONNECT_MAX_WAIT_FRAMES = 20;
 const CANVAS_TERMINAL_SCALE_FIT_DEBOUNCE_MS = 300;
 
+function readCssCellHeight(term: XTerm): number {
+  const height = (
+    term as XTerm & {
+      _core?: { _renderService?: { dimensions?: { css?: { cell?: { height?: number } } } } };
+    }
+  )._core?._renderService?.dimensions?.css?.cell?.height;
+  return typeof height === "number" && height > 0 ? height : 0;
+}
+
 function proposeTerminalGrid(
   term: XTerm,
   fit: FitAddon,
@@ -132,7 +147,24 @@ function proposeTerminalGrid(
   ) {
     return null;
   }
-  return { cols: proposed.cols, rows: proposed.rows };
+  const parent = term.element?.parentElement;
+  const cellHeight = readCssCellHeight(term);
+  const rows = parent
+    ? clampProposedTerminalRows(proposed.rows, parent.clientHeight, cellHeight)
+    : proposed.rows;
+  return { cols: proposed.cols, rows };
+}
+
+function resizeXtermPreservingScroll(
+  term: XTerm,
+  cols: number,
+  rows: number,
+): boolean {
+  if (term.cols === cols && term.rows === rows) return false;
+  const snapshot = captureXtermResizeScroll(term);
+  term.resize(cols, rows);
+  restoreXtermResizeScroll(term, snapshot, () => jumpXtermToBottom(term));
+  return true;
 }
 
 function fitTerminalPreservingScroll(
@@ -150,29 +182,15 @@ function fitTerminalPreservingScroll(
     return { cols: prevCols, rows: prevRows, changed: false };
   }
 
-  const before = term.buffer.active;
-  const wasAtBottom = before.viewportY >= before.baseY;
-  const distanceFromBottom = Math.max(0, before.baseY - before.viewportY);
-
   // Prefer direct resize over FitAddon.fit() when we already know the target:
   // FitAddon clears the render service before resize, which blanks the canvas
   // for a frame and makes inline TUIs flash even when the app redraws quickly.
+  let changed = false;
   if (proposed) {
-    term.resize(proposed.cols, proposed.rows);
+    changed = resizeXtermPreservingScroll(term, proposed.cols, proposed.rows);
   } else {
     fit.fit();
-  }
-
-  const changed = term.cols !== prevCols || term.rows !== prevRows;
-  if (changed) {
-    if (wasAtBottom) {
-      jumpXtermToBottom(term);
-    } else {
-      const after = term.buffer.active;
-      term.scrollToLine(Math.max(0, after.baseY - distanceFromBottom));
-    }
-    // Direct resize skips FitAddon's renderer clear. Refresh from the
-    // reflowed buffer so WebGL does not keep the previous grid as remnants.
+    changed = term.cols !== prevCols || term.rows !== prevRows;
   }
 
   return {
@@ -306,33 +324,59 @@ const Terminal = ({
   // Dedup pins so warm reveal / double onResize do not re-fire refresh-client
   // (SIGWINCH → full Grok/TUI redraw flash) when the grid is already correct.
   const lastPinnedSizeRef = useRef<{ cols: number; rows: number } | null>(null);
-  const hostResizePinRef = useRef(createHostResizePinScheduler({
-    send: (size) => {
-      lastPinnedSizeRef.current = { cols: size.cols, rows: size.rows };
-      sendResizeRef.current(size);
-    },
-  }));
+  const followBottomAfterPinRef = useRef(false);
+  const followBottomGenRef = useRef(0);
+  const followBottomTimersRef = useRef<Array<ReturnType<typeof setTimeout>>>([]);
+  const cancelFollowBottom = () => {
+    followBottomGenRef.current += 1;
+    for (const timer of followBottomTimersRef.current) {
+      clearTimeout(timer);
+    }
+    followBottomTimersRef.current = [];
+  };
+  const jumpAndTrackBottom = (term: XTerm) => {
+    jumpXtermToBottom(term);
+    const buf = term.buffer.active;
+    setShowScrollDown(!isXtermNearBottom(buf.viewportY, buf.baseY));
+  };
+  const scheduleFollowBottom = () => {
+    for (const timer of followBottomTimersRef.current) {
+      clearTimeout(timer);
+    }
+    followBottomTimersRef.current = [];
+    const gen = ++followBottomGenRef.current;
+    const run = () => {
+      if (gen !== followBottomGenRef.current) return;
+      const term = terminalRef.current;
+      if (!term) return;
+      jumpAndTrackBottom(term);
+    };
+    requestAnimationFrame(run);
+    followBottomTimersRef.current.push(setTimeout(run, 48));
+  };
   const applyXtermGrid = (size: { cols: number; rows: number }) => {
     const term = terminalRef.current;
     if (!term || !isUsableTerminalGrid(size.cols, size.rows)) return;
-    if (term.cols === size.cols && term.rows === size.rows) return;
-    const before = term.buffer.active;
-    const wasAtBottom = before.viewportY >= before.baseY;
-    const distanceFromBottom = Math.max(0, before.baseY - before.viewportY);
-    term.resize(size.cols, size.rows);
-    if (wasAtBottom) {
-      jumpXtermToBottom(term);
-    } else {
-      const after = term.buffer.active;
-      term.scrollToLine(Math.max(0, after.baseY - distanceFromBottom));
+    const snapshot = captureXtermResizeScroll(term);
+    followBottomAfterPinRef.current = snapshot.kind === "follow";
+    if (term.cols === size.cols && term.rows === size.rows) {
+      if (followBottomAfterPinRef.current) {
+        jumpAndTrackBottom(term);
+        scheduleFollowBottom();
+      }
+      return;
     }
+    term.resize(size.cols, size.rows);
+    restoreXtermResizeScroll(term, snapshot, () => jumpAndTrackBottom(term));
+    if (followBottomAfterPinRef.current) scheduleFollowBottom();
   };
-  const gridResizeDebouncerRef = useRef(createTerminalResizeDebouncer({
-    apply: (size) => applyXtermGrid(size),
-    applyRows: (rows) => {
-      const term = terminalRef.current;
-      if (!term || rows < 1 || term.rows === rows) return;
-      applyXtermGrid({ cols: term.cols, rows });
+  const hostResizePinRef = useRef(createHostResizePinScheduler({
+    send: (size) => {
+      // Mark the pin first so onResize → pin is a no-op, then resize xterm
+      // before SIGWINCH so the pane dumps into the matching grid.
+      lastPinnedSizeRef.current = { cols: size.cols, rows: size.rows };
+      applyXtermGrid(size);
+      sendResizeRef.current(size);
     },
   }));
   const pinTerminalSizeRef = useRef<
@@ -347,31 +391,45 @@ const Terminal = ({
       last.cols === size.cols &&
       last.rows === size.rows
     ) {
-      // Drop a stale hold/debounce (shrink then return to the original grid).
       hostResizePinRef.current.cancel();
       return;
     }
     if (options?.force) {
       hostResizePinRef.current.cancel();
       lastPinnedSizeRef.current = { cols: size.cols, rows: size.rows };
+      applyXtermGrid(size);
       sendResizeRef.current(size);
       return;
     }
     const surface = hostResizeSurfaceKind(terminalRef.current);
-    if (isHostResizeDragActive()) {
-      if (!shouldPinPtyDuringHostDrag(surface)) {
+    if (!shouldPinPtyDuringHostDrag(surface)) {
+      // Local wrap only. Shells redraw the prompt on SIGWINCH — hold that
+      // until the gesture settles so history does not flash.
+      applyXtermGrid(size);
+      if (isHostResizeDragActive()) {
         hostResizePinRef.current.hold(size);
-        return;
+      } else {
+        hostResizePinRef.current.debounce(size);
       }
-      hostResizePinRef.current.schedule(size);
-      return;
-    }
-    if (surface === "shell") {
-      hostResizePinRef.current.debounce(size);
       return;
     }
     hostResizePinRef.current.schedule(size);
   };
+  const stableFitRef = useRef(
+    createStableGridScheduler({
+      measure: () => {
+        const term = terminalRef.current;
+        const fit = fitAddonRef.current;
+        if (!term || !fit) return null;
+        return proposeTerminalGrid(term, fit);
+      },
+      isCurrent: (size) => {
+        const term = terminalRef.current;
+        return Boolean(term && term.cols === size.cols && term.rows === size.rows);
+      },
+      apply: (size) => pinTerminalSizeRef.current(size),
+    }),
+  );
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === "dark";
   const currentTheme = isDark ? atmosDarkTheme : atmosLightTheme;
@@ -1503,7 +1561,8 @@ const Terminal = ({
     // Show button when user scrolls away from bottom.
     terminal.onScroll(() => {
       const buf = terminal.buffer.active;
-      const atBottom = buf.viewportY >= buf.baseY;
+      const atBottom = isXtermNearBottom(buf.viewportY, buf.baseY);
+      if (!atBottom) cancelFollowBottom();
       setShowScrollDown(!atBottom);
     });
 
@@ -1535,38 +1594,9 @@ const Terminal = ({
         }
       }
 
-      // Inline TUIs wrap the previous frame if we resize xterm before SIGWINCH.
-      // Hold the old grid and let the throttled pin apply cols/rows + PTY together.
-      if (
-        isHostResizeDragActive() &&
-        isInlineMouseTuiScrollbackSurface(term)
-      ) {
-        const proposed = proposeTerminalGrid(term, fit);
-        if (proposed) pinTerminalSizeRef.current(proposed);
-        connectWhenVisible();
-        return;
-      }
-
-      // Shells: VS Code split — rows now, cols coalesced. PTY pin is held
-      // until the splitter is released so tmux does not dump wrapped copies.
-      if (hostResizeSurfaceKind(term) === "shell") {
-        const proposed = proposeTerminalGrid(term, fit);
-        if (!proposed) {
-          connectWhenVisible();
-          return;
-        }
-        if (proposed.cols === term.cols && proposed.rows === term.rows) {
-          gridResizeDebouncerRef.current.cancel();
-          connectWhenVisible();
-          return;
-        }
-        gridResizeDebouncerRef.current.resize(proposed);
-        pinTerminalSizeRef.current(proposed);
-        connectWhenVisible();
-        return;
-      }
-
-      fitTerminalPreservingScroll(term, fit);
+      // Wait for the proposed grid to sit still one frame (or a small cap)
+      // before fitting. Pointermove must not SIGWINCH every tick.
+      stableFitRef.current.request();
       connectWhenVisible();
     };
     const scheduleResizeFit = () => {
@@ -1634,6 +1664,8 @@ const Terminal = ({
         clearTimeout(resizeDebounceTimerRef.current);
         resizeDebounceTimerRef.current = null;
       }
+      stableFitRef.current.cancel();
+      cancelFollowBottom();
       disconnect();
       resizeObserverRef.current?.disconnect();
       if (cmdStartTimerRef.current) clearTimeout(cmdStartTimerRef.current);
@@ -1663,6 +1695,8 @@ const Terminal = ({
     if (!surfaceActive) {
       ro.disconnect();
       suppressNextRoFitRef.current = false;
+      stableFitRef.current.cancel();
+      cancelFollowBottom();
       if (resizeRafIdRef.current) {
         cancelAnimationFrame(resizeRafIdRef.current);
         resizeRafIdRef.current = 0;
@@ -1721,12 +1755,12 @@ const Terminal = ({
   }, [surfaceActive]);
 
   // Drag end (sidebar / mosaic / in-pane split) drops the host attribute.
-  // Flush the latest PTY size and one TUI scrollback discard so we do not
-  // CSI 3J on every pointermove.
+  // Shells have been preview-scaling; flush one real grid + SIGWINCH so only
+  // the prompt line redraws. TUIs get one scrollback discard.
   useEffect(() => {
     const root = document.documentElement;
     const flushHostResize = () => {
-      gridResizeDebouncerRef.current.flush();
+      stableFitRef.current.flush();
       hostResizePinRef.current.flush();
       const term = terminalRef.current;
       if (term && isInlineMouseTuiScrollbackSurface(term)) {
@@ -1743,6 +1777,7 @@ const Terminal = ({
     });
     return () => {
       observer.disconnect();
+      stableFitRef.current.cancel();
       hostResizePinRef.current.dispose();
     };
   }, []);

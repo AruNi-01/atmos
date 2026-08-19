@@ -11,9 +11,13 @@ export type TerminalGridSize = { cols: number; rows: number };
 export type HostResizeSurfaceKind = "shell" | "inline-tui" | "alt-screen";
 
 export type HostResizePinScheduler = {
-  /** Leading + trailing throttle — interactive TUIs that must SIGWINCH live. */
+  /**
+   * Leading + trailing throttle for every surface (shell, inline TUI, alt-screen).
+   * First new grid goes out immediately, then at most once per interval, then
+   * {@link HostResizePinScheduler.flush} on pointerup / settle.
+   */
   schedule: (size: TerminalGridSize) => void;
-  /** Trailing debounce — window resize of an idle shell. */
+  /** Trailing-only debounce. Prefer {@link HostResizePinScheduler.schedule}. */
   debounce: (size: TerminalGridSize) => void;
   /** Remember size only; send on {@link HostResizePinScheduler.flush}. */
   hold: (size: TerminalGridSize) => void;
@@ -63,9 +67,11 @@ export function hostResizeSurfaceKind(term: {
 }
 
 /**
- * Idle shells must not SIGWINCH (or incrementally reflow) on every splitter
- * move: tmux `refresh-client` re-dumps the pane and xterm cannot invert many
- * wide-glyph wraps. Preview-scale the bitmap; pin once when the drag ends.
+ * Interactive TUIs must SIGWINCH live so they can paint a new frame.
+ * Idle shells must not: each pin reflows xterm and the multiplexer dumps
+ * the pane, which flashes the whole viewport and garbles wide glyphs.
+ * Fit xterm locally during the gesture; forward the PTY size once on settle
+ * so only the prompt line redraws.
  */
 export function shouldPinPtyDuringHostDrag(kind: HostResizeSurfaceKind): boolean {
   return kind !== "shell";
@@ -89,11 +95,13 @@ type ScheduleTimeout = (
 
 /**
  * Leading + trailing throttle for `terminal_resize`.
- * During a host drag the first new grid goes out immediately, then at most
- * once per {@link HOST_RESIZE_PIN_INTERVAL_MS}, then `flush()` on pointerup.
+ * Always coalesces — window resize and splitter drag both flood ResizeObserver.
+ * First new grid goes out immediately, then at most once per
+ * {@link HOST_RESIZE_PIN_INTERVAL_MS}, then `flush()` on pointerup / settle.
  */
 export function createHostResizePinScheduler(options: {
   send: (size: TerminalGridSize) => void;
+  /** Accepted for call-site compat; schedule always throttles. */
   isDragActive?: () => boolean;
   intervalMs?: number;
   now?: () => number;
@@ -101,7 +109,6 @@ export function createHostResizePinScheduler(options: {
   clearTimeout?: (handle: ReturnType<typeof setTimeout>) => void;
 }): HostResizePinScheduler {
   const intervalMs = options.intervalMs ?? HOST_RESIZE_PIN_INTERVAL_MS;
-  const isDragActive = options.isDragActive ?? isHostResizeDragActive;
   const now = options.now ?? Date.now;
   const scheduleTimeout = options.scheduleTimeout ?? setTimeout;
   const clearScheduled = options.clearTimeout ?? clearTimeout;
@@ -123,12 +130,6 @@ export function createHostResizePinScheduler(options: {
   };
 
   const schedule = (size: TerminalGridSize) => {
-    if (!isDragActive()) {
-      clearTimer();
-      sendNow(size);
-      return;
-    }
-
     pending = size;
     const elapsed = now() - lastSentAt;
     if (elapsed >= intervalMs) {

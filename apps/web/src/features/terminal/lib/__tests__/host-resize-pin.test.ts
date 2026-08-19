@@ -82,17 +82,25 @@ describe("host-resize-pin", () => {
     ).toBe("shell");
   });
 
-  it("sends immediately when the host is not dragging", () => {
+  it("leading-edges the first size then coalesces even when not dragging", () => {
+    const clock = createManualClock();
     const sent: TerminalGridSize[] = [];
     const scheduler = createHostResizePinScheduler({
       send: (size) => sent.push(size),
       isDragActive: () => false,
+      intervalMs: HOST_RESIZE_PIN_INTERVAL_MS,
+      now: clock.now,
+      scheduleTimeout: clock.scheduleTimeout,
+      clearTimeout: clock.clearTimeout,
     });
     scheduler.schedule({ cols: 80, rows: 24 });
     scheduler.schedule({ cols: 90, rows: 24 });
+    scheduler.schedule({ cols: 100, rows: 30 });
+    expect(sent).toEqual([{ cols: 80, rows: 24 }]);
+    clock.advance(HOST_RESIZE_PIN_INTERVAL_MS);
     expect(sent).toEqual([
       { cols: 80, rows: 24 },
-      { cols: 90, rows: 24 },
+      { cols: 100, rows: 30 },
     ]);
   });
 
@@ -180,20 +188,30 @@ describe("host-resize-pin", () => {
 });
 
 describe("host resize wiring", () => {
-  it("uses VS Code-style grid debounce and holds shell PTY pins until drag end", () => {
+  it("fits xterm locally and holds shell PTY until settle", () => {
     const terminal = readFileSync(
       join(import.meta.dir, "../../components/Terminal.tsx"),
       "utf8",
     );
     expect(terminal).toContain("createHostResizePinScheduler");
-    expect(terminal).toContain("shouldPinPtyDuringHostDrag");
-    expect(terminal).toContain("createTerminalResizeDebouncer");
-    expect(terminal).toContain("gridResizeDebouncerRef.current.resize");
-    expect(terminal).not.toContain("applyTerminalPreviewScale");
+    expect(terminal).toContain("createStableGridScheduler");
+    expect(terminal).toContain("captureXtermResizeScroll");
+    expect(terminal).toContain("scheduleFollowBottom");
+    expect(terminal).toContain("applyXtermGrid(size)");
+    expect(terminal).toContain("sendResizeRef.current(size)");
     expect(terminal).toContain("hostResizePinRef.current.hold(size)");
     expect(terminal).toContain("hostResizePinRef.current.debounce(size)");
-    expect(terminal).toContain("hostResizeSurfaceKind(term) === \"shell\"");
+    expect(terminal).toContain("hostResizePinRef.current.schedule(size)");
+    expect(terminal).not.toContain("createTerminalResizeDebouncer");
+    expect(terminal).not.toContain("applyTerminalPreviewScale");
+    expect(terminal).not.toContain("clearTextureAtlas");
+    expect(terminal).not.toContain("paintXtermAfterGridChange");
     expect(terminal).toContain("hostResizePinRef.current.flush()");
+    const theme = readFileSync(
+      join(import.meta.dir, "../theme.ts"),
+      "utf8",
+    );
+    expect(theme).toContain("reflowCursorLine: false");
   });
 
   it("keeps mosaic and in-pane split geometry local until pointerup", () => {
