@@ -119,9 +119,10 @@ interface BuildGlobalSearchItemsParams {
 
   setIsLeftCollapsed: (collapsed: boolean) => void;
   setSubView: (view: "todo" | "commit" | "usage") => void;
-  showCreating: () => void;
-  showOpening: (workspaceId: string) => void;
-  clearWorkspaceCreationOverlay: () => void;
+  startCreating: (input: { originKey: string; label?: string | null }) => string;
+  bindWorkspace: (jobId: string, workspaceId: string, label?: string | null) => void;
+  failCreating: (jobId: string) => void;
+  createOriginKey: string;
 }
 
 export function buildGlobalSearchItems({
@@ -149,9 +150,10 @@ export function buildGlobalSearchItems({
   setCanvasOpen,
   setIsLeftCollapsed,
   setSubView,
-  showCreating,
-  showOpening,
-  clearWorkspaceCreationOverlay,
+  startCreating,
+  bindWorkspace,
+  failCreating,
+  createOriginKey,
 }: BuildGlobalSearchItemsParams): AppSearchItem[] {
   const items: AppSearchItem[] = [];
   const setPendingSettingsHighlight = (query: string | null) => {
@@ -452,7 +454,7 @@ export function buildGlobalSearchItems({
       icon: <Settings className="size-4 text-muted-foreground" />,
       action: () => {
         setPendingSettingsHighlight(null);
-        router.push(settingsHref("about"));
+        router.push(settingsHref("general", "about"));
         setGlobalSearchOpen(false);
       },
     },
@@ -558,13 +560,12 @@ export function buildGlobalSearchItems({
       keywords: ["new", "workspace", "quick", "create", project.name],
       icon: <Zap className="size-4 text-muted-foreground" />,
       action: async () => {
-        showCreating();
+        const jobId = startCreating({ originKey: createOriginKey });
         const workspaceId = await quickAddWorkspace(project.id);
         if (workspaceId) {
-          showOpening(workspaceId);
-          router.push(`/workspace?id=${workspaceId}`);
+          bindWorkspace(jobId, workspaceId);
         } else {
-          clearWorkspaceCreationOverlay();
+          failCreating(jobId);
         }
         setGlobalSearchOpen(false);
       },

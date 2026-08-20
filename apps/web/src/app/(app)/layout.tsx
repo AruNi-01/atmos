@@ -5,7 +5,6 @@ import { ModalAgentChatPanel } from "@/features/agent/components/ModalAgentChatP
 import { HostedBootstrapBoundary } from "@/app-shell/HostedAppShellGate";
 import { DocumentTitle } from "@/app-shell/DocumentTitle";
 import { SidebarLayoutProvider } from "@/app-shell/SidebarLayoutContext";
-import { WorkspaceCreationOverlay } from "@/app-shell/WorkspaceCreationOverlay";
 import { CanvasOverlay } from "@/features/canvas/components/CanvasOverlay";
 import { ConnectionBootstrapper } from "@/app-shell/bootstrap/ConnectionBootstrapper";
 import { DiffWorkerPoolProvider } from "@/features/diff/components/DiffWorkerPoolProvider";
@@ -56,8 +55,6 @@ export default function AppLayout({ children }: Props) {
                 <ModalAgentChatPanel />
 
                 <DocumentTitle />
-
-                <WorkspaceCreationOverlay />
 
                 <CanvasOverlay />
               </OnboardingGate>

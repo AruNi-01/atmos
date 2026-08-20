@@ -57,9 +57,11 @@ import {
   useWorkspaceLabels,
   useProjectBootstrapQuery,
 } from "@/features/project/hooks/use-project-bootstrap-query";
-import { useWorkspaceCreationStore } from "@/features/workspace/store/workspace-creation-store";
+import {
+  getWorkspaceCreateOriginKey,
+  useWorkspaceCreationStore,
+} from "@/features/workspace/store/workspace-creation-store";
 import { useTaskWorkspaceDraftStore } from "@/features/task/store/task-workspace-draft-store";
-import { useAppRouter } from "@/shared/hooks/use-app-router";
 import { useDialogStore } from "@/app-shell/state/use-dialog-store";
 import type {
   WorkspaceLabel,
@@ -132,14 +134,13 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
   className,
 }) => {
   const t = useTranslations("Welcome.components");
-  const { effectiveContextId } = useContextParams();
+  const { effectiveContextId, currentView, workspaceId: routeWorkspaceId, projectId: routeProjectId } = useContextParams();
   const tr = React.useCallback(
     (key: string, values?: Record<string, string | number | boolean | null | undefined>) =>
       t(key as never, values as never),
     [t],
   );
   const [isMounted, setIsMounted] = React.useState(false);
-  const router = useAppRouter();
   const selectedProjectIdFromLauncher = useDialogStore((s) => s.selectedProjectId);
   const projects = useProjects();
   const workspaceLabels = useWorkspaceLabels();
@@ -148,10 +149,10 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
   const addWorkspace = useProjectStore((s) => s.addWorkspace);
   const fetchProjects = useProjectStore((s) => s.fetchProjects);
   const createWorkspaceLabel = useProjectStore((s) => s.createWorkspaceLabel);
-  const showCreating = useWorkspaceCreationStore((s) => s.showCreating);
-  const showOpening = useWorkspaceCreationStore((s) => s.showOpening);
+  const startCreating = useWorkspaceCreationStore((s) => s.startCreating);
+  const bindWorkspace = useWorkspaceCreationStore((s) => s.bindWorkspace);
+  const failCreating = useWorkspaceCreationStore((s) => s.failCreating);
   const queueAgentRun = useWorkspaceCreationStore((s) => s.queueAgentRun);
-  const clearWorkspaceCreationOverlay = useWorkspaceCreationStore((s) => s.clear);
 
   const [projectId, setProjectId] = React.useState("");
   const [initialRequirement, setInitialRequirement] = React.useState("");
@@ -887,7 +888,15 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
     setIsSubmitting(true);
     setSubmitError(null);
     setBranchError(null);
-    showCreating();
+    const originKey = getWorkspaceCreateOriginKey({
+      currentView,
+      workspaceId: routeWorkspaceId,
+      projectId: routeProjectId,
+    });
+    const jobId = startCreating({
+      originKey,
+      label: name.trim() || null,
+    });
 
     try {
       const finalDisplayName = prPreview
@@ -1003,13 +1012,12 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
       });
 
       keepGlobalLoading = true;
-      showOpening(workspaceId);
+      bindWorkspace(jobId, workspaceId, finalDisplayName || null);
       // Clean up composer + attachments after successful create.
       clearAttachments();
       composerRef.current?.clear();
-      router.push(`/workspace?id=${workspaceId}`);
     } catch (error) {
-      clearWorkspaceCreationOverlay();
+      failCreating(jobId);
       const message = sanitizeCreateWorkspaceErrorMessage(
         error instanceof Error ? error.message : t("page.errors.failedToCreateWorkspace"),
       );

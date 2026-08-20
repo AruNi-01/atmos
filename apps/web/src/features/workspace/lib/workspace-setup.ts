@@ -138,3 +138,13 @@ export function getWorkspaceSetupProgressValue(progress: WorkspaceSetupProgress)
 
   return (currentStepIndex + 0.5) * (100 / Math.max(1, steps.length));
 }
+
+const SETUP_POPOVER_VIEWPORT_GUTTER_PX = 24;
+
+export function getWorkspaceSetupPopoverWidth(
+  stepCount: number,
+  viewportWidth: number,
+): number {
+  const ideal = stepCount <= 3 ? 720 : stepCount === 4 ? 840 : 960;
+  return Math.min(ideal, Math.max(280, viewportWidth - SETUP_POPOVER_VIEWPORT_GUTTER_PX));
+}

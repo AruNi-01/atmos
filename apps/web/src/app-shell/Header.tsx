@@ -52,7 +52,7 @@ import {
   PanelLeftOpen,
   RotateCw,
 } from "lucide-react";
-import { WorkspaceStatusPopover } from './WorkspaceStatusPopover';
+import { HeaderWorkspaceJobs } from './HeaderWorkspaceJobs';
 import { isWorkspaceSetupBlocking } from '@/features/workspace/lib/workspace-setup';
 import { useTranslations } from "next-intl";
 import { getBranchSyncIndicatorState, getSessionUrgency } from './header-parts';
@@ -115,8 +115,9 @@ const Header: React.FC = () => {
   const currentProjectIdForContext = currentProject?.id ?? null;
   const currentProjectMainFilePath = currentProject?.mainFilePath ?? null;
   const currentWorkspaceLocalPath = currentWorkspace?.localPath ?? null;
-  const currentWorkspaceSetupProgress = currentWorkspaceId ? setupProgress[currentWorkspaceId] : null;
-  const isSettingUp = isWorkspaceSetupBlocking(currentWorkspaceSetupProgress);
+  const isSettingUp = isWorkspaceSetupBlocking(
+    currentWorkspaceId ? setupProgress[currentWorkspaceId] : null,
+  );
 
   const headerRepoPath = currentWorkspaceLocalPath || currentProjectMainFilePath || editorRepoPath || null;
 
@@ -197,7 +198,7 @@ const Header: React.FC = () => {
   );
   useEffect(() => {
     if (!isLlmProvidersOpen) return;
-    router.push(settingsHref("ai"));
+    router.push(settingsHref("models"));
     void setLlmProvidersOpen(false);
   }, [isLlmProvidersOpen, router, setLlmProvidersOpen]);
   const desktopWebSearch = useMemo(() => {
@@ -253,7 +254,6 @@ const Header: React.FC = () => {
   } | null>(null);
 
   const deleteProject = useProjectStore(s => s.deleteProject);
-  const clearSetupProgress = useProjectStore(s => s.clearSetupProgress);
 
   useHeaderHotkeys({
     refreshCurrentRoute,
@@ -542,14 +542,7 @@ const Header: React.FC = () => {
               </motion.div>
             ) : null}
           </div>
-          {currentWorkspace && currentWorkspaceSetupProgress && (
-            <div className="desktop-no-drag">
-              <WorkspaceStatusPopover
-                progress={currentWorkspaceSetupProgress}
-                onFinish={() => clearSetupProgress(currentWorkspace.id)}
-              />
-            </div>
-          )}
+          <HeaderWorkspaceJobs />
         </div>
 
         {showHeaderGitToolbar && (

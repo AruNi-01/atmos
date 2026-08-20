@@ -26,7 +26,6 @@ import {
   useProjectsLoading,
 } from "@/features/project/hooks/use-project-bootstrap-query";
 import { useProjectStore } from "@/features/project/store/use-project-store";
-import { useWorkspaceCreationStore } from "@/features/workspace/store/workspace-creation-store";
 import { useAppRouter } from "@/shared/hooks/use-app-router";
 import {
   runFiltersForAutomation,
@@ -72,7 +71,7 @@ export function useAutomationPageState() {
     schedulePreview,
   } = useAutomations();
   const router = useAppRouter();
-  const showOpening = useWorkspaceCreationStore((state) => state.showOpening);
+
   const githubPrereqs = useGithubRelayPrerequisites();
   const projects = useProjects();
   const isProjectsLoading = useProjectsLoading();
@@ -557,7 +556,6 @@ export function useAutomationPageState() {
         }
 
         if (response.workspace_guid) {
-          showOpening(response.workspace_guid);
           const workspaceReady = await ensureWorkspaceVisible(
             response.workspace_guid,
           );
@@ -593,7 +591,7 @@ export function useAutomationPageState() {
         );
       }
     },
-    [continueInTerminal, ensureWorkspaceVisible, router, showOpening, t],
+    [continueInTerminal, ensureWorkspaceVisible, router, t],
   );
 
   const handleSaveMemory = React.useCallback(
