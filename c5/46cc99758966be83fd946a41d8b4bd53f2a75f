@@ -1,0 +1,24 @@
+apps/web/src/features/terminal/components/TerminalChrome.tsx
+  h_5be255725524c8 72-76,103-104
+apps/web/src/features/terminal/components/TerminalSplitView.tsx
+  h_5be255725524c8 28,246-251,271-296,522-523,533,544,560-561,577-588
+apps/web/src/features/terminal/components/__tests__/terminal-pane-title-chrome.test.ts
+  h_5be255725524c8 57-69
+apps/web/src/features/terminal/components/terminal-grid.css
+  h_5be255725524c8 152,158-170,653
+apps/web/src/features/terminal/lib/__tests__/terminal-layout-tree.test.ts
+  h_5be255725524c8 12,176-202
+apps/web/src/features/terminal/lib/terminal-layout-tree.ts
+  h_5be255725524c8 38-52
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "c546cc99758966be83fd946a41d8b4bd53f2a75f",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
