@@ -1,0 +1,61 @@
+crates/core-service/src/service/terminal/runtime.rs
+  s_d07e98b2f683ca::t_3f6ae9b3d0f670 50-87,96-97,837
+  s_d07e98b2f683ca::t_0dfcc3b1c977bf 40-43,341
+  s_d07e98b2f683ca::t_ecf344bb056c01 303-304,308-309
+  s_d07e98b2f683ca::t_41e04bac1db86c 825
+  s_d07e98b2f683ca::t_a97e753db21c54 788,790,793-794,803-814
+  s_d07e98b2f683ca::t_fe19799a2eccd0 219
+  s_d07e98b2f683ca::t_17cb6254284709 21
+  s_d07e98b2f683ca::t_e077784484ac1a 441-456
+  s_d07e98b2f683ca::t_06f410467d4c17 29-39,307,313
+  s_d07e98b2f683ca::t_819a1bb6b72b33 791,815-824
+  s_d07e98b2f683ca::t_e9a1721ee4e57b 559-560
+  s_d07e98b2f683ca::t_929ff5b41b71a0 457-472,561
+  s_d07e98b2f683ca::t_79fda08dbcb907 88-95
+  s_d07e98b2f683ca::t_d979f8374a20b3 281-283,300-302,314,352-354,375-377
+  s_d07e98b2f683ca::t_8a5e98ac8b9f8b 772
+  s_d07e98b2f683ca::t_821b6ce0b91258 792,826-835
+  s_d07e98b2f683ca::t_43eeeeffe28b44 44-49,381-383
+  s_d07e98b2f683ca::t_45115fb44c6574 785-787,789,795-802,836
+  s_d07e98b2f683ca::t_477ab7ad006d83 384-385
+crates/core-service/src/service/terminal.rs
+  s_d07e98b2f683ca::t_335b1a5611b3cc 47
+  s_d07e98b2f683ca::t_ba03011e91f177 1022,1116,1139,1171
+  s_d07e98b2f683ca::t_c9517c9356cb37 1240,1269,1277,1280-1295
+  s_d07e98b2f683ca::t_ff79003f30d25f 969,990-995
+  s_d07e98b2f683ca::t_c53431fd456dff 971
+  s_d07e98b2f683ca::t_bcaa67c28e7c08 723-730,732-733,739
+  s_d07e98b2f683ca::t_b33a1a3cc8806f 705
+  s_d07e98b2f683ca::t_c81b8fe46e7ce1 1243,1257-1268
+  s_d07e98b2f683ca::t_e327351d4ae525 1245,1247-1249,1271-1276
+  s_d07e98b2f683ca::t_e1e6a8a3988840 1270
+  s_d07e98b2f683ca::t_6d938b1c01f4e3 1296
+crates/core-engine/src/tmux/capture.rs
+  s_d07e98b2f683ca::t_2938ef70c81213 325-353,388,393,429
+  s_d07e98b2f683ca::t_d42893b06c37f4 96-105,108,114,118-125,129-139,141-143,159-177,196
+  s_d07e98b2f683ca::t_01b2a0ab05184c 66,184,313,315
+  s_d07e98b2f683ca::t_284c3c17387082 312
+  s_d07e98b2f683ca::t_2ad489ca435f05 67-79,430
+  s_d07e98b2f683ca::t_6d525c7b6b7b2e 416
+  s_d07e98b2f683ca::t_70a7ce3677f872 314,316-318
+  s_d07e98b2f683ca::t_a27b59a3f04a85 408-415,417-428
+  s_d07e98b2f683ca::t_ab6942b08d33fb 95
+crates/core-service/src/service/terminal/types.rs
+  s_d07e98b2f683ca::t_468729ffa90260 17-18
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "acffe407279f13b948891271fbd92ba86db08667",
+  "prompts": {},
+  "sessions": {
+    "s_d07e98b2f683ca": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "38055a67-2c74-4ca2-9846-725a58ddd791",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
