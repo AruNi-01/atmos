@@ -1,0 +1,52 @@
+apps/web/src/features/workspace/components/CreateWorkspaceDialog.tsx
+  s_d07e98b2f683ca::t_c8cd84778320ac 31-35,76,79-81,603-611,681,684
+apps/web/src/app-shell/Header.tsx
+  s_6d116104f5f839::t_57e39e07d9a514 201
+  s_d07e98b2f683ca::t_29bb5f329b51f5 55,118-120
+  s_d07e98b2f683ca::t_5369c6b8c0ff50 545
+apps/web/src/app-shell/__tests__/workspace-status-popover.test.ts
+  s_d07e98b2f683ca::t_38b727779bdb47 7-8,22-41
+  s_d07e98b2f683ca::t_b0508ca824374c 9-10,21,42-55
+  s_d07e98b2f683ca::t_d8431f118ee44d 1-6,11-20
+apps/web/src/features/welcome/components/WelcomePage.tsx
+  s_d07e98b2f683ca::t_fe8b76b656355c 60-63,137,152-154,891-899,1015,1020
+apps/web/src/app-shell/GlobalSearch.tsx
+  s_d07e98b2f683ca::t_bd056cc3801b7a 18-21,124,291-298,365-368,370
+apps/web/src/app-shell/global-search-app-items.tsx
+  s_6d116104f5f839::t_b51732b54f2246 457
+  s_d07e98b2f683ca::t_bd056cc3801b7a 122-125,153-156,563,566,568
+apps/web/src/features/workspace/components/__tests__/workspace-setup-progress.dom.test.tsx
+  s_d07e98b2f683ca::t_44dd8003b8bebd 127-128
+  s_d07e98b2f683ca::t_f561cbe8a4ea73 130,137,155-180
+  s_d07e98b2f683ca::t_3631c9a6df97a2 1-126,129,131-136,138-154,181
+apps/web/src/features/automations/hooks/use-automation-page-state.ts
+  s_d07e98b2f683ca::t_b3a09c3133a163 74
+apps/web/src/app-shell/WorkspaceStatusPopover.tsx
+  s_d07e98b2f683ca::t_7c8118ee71eaf2 5,17,22-44,146-149,152-156,188-189,191-198
+apps/web/src/features/workspace/components/WorkspaceSetupProgress.tsx
+  s_d07e98b2f683ca::t_c72ebe246016be 24,46,53,60,269,271-277,283,307,316,419-428,432,443-448,452-455,459,468,484,495,510,520,522,536-539,550-551,555-556,559,562,566-569,579-582,593,606,615-725,728-731,767,770,773,807,827-835,837-847,849-851,853-854,856,860,867
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "3b9102de255a8760b5ccb0262f1adbe41324c558",
+  "prompts": {},
+  "sessions": {
+    "s_6d116104f5f839": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "49373ef8-05ca-4669-b91d-64bb67b4e606",
+        "model": "grok-4.6"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_d07e98b2f683ca": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "38055a67-2c74-4ca2-9846-725a58ddd791",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
