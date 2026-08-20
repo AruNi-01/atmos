@@ -16,6 +16,38 @@
 # --init-file replaces .bashrc loading, so we must do it ourselves.
 [ -f "$HOME/.bashrc" ] && source "$HOME/.bashrc"
 
+# Atmos-local command wrappers must stay ahead of PATH changes from direnv,
+# virtualenvs, and prompt hooks.
+__atmos_ensure_shims_path() {
+    [[ -z "${ATMOS_SHIMS_BIN:-}" || ! -d "$ATMOS_SHIMS_BIN" ]] && return
+    local filtered_path=":$PATH:"
+    local shim_path="${ATMOS_SHIMS_BIN%/}"
+    local shim_path_slash="$shim_path/"
+    while [[ "$filtered_path" == *":$shim_path:"* || "$filtered_path" == *":$shim_path_slash:"* ]]; do
+        filtered_path="${filtered_path//":$shim_path:"/:}"
+        filtered_path="${filtered_path//":$shim_path_slash:"/:}"
+    done
+    filtered_path="${filtered_path#:}"
+    filtered_path="${filtered_path%:}"
+    export ATMOS_GROK_REAL_PATH="$filtered_path"
+    export PATH="$shim_path${filtered_path:+:$filtered_path}"
+}
+__atmos_ensure_shims_path
+
+# PATH can be rewritten asynchronously after shell startup, and prompt
+# frameworks may replace the hooks below. Keep manual `grok` launches routed
+# through the Atmos wrapper with a session-local shell function instead.
+unalias grok 2>/dev/null || true
+grok() {
+    __atmos_ensure_shims_path
+    local wrapper="${ATMOS_SHIMS_BIN%/}/grok"
+    if [[ -n "${ATMOS_SHIMS_BIN:-}" && -x "$wrapper" ]]; then
+        command "$wrapper" "$@"
+    else
+        command grok "$@"
+    fi
+}
+
 # ── 2. Atmos hooks ────────────────────────────────────────────────────
 __atmos_send_meta() {
     if [ -n "$TMUX" ]; then
@@ -37,11 +69,13 @@ __atmos_at_prompt=true
 __atmos_preexec() {
     [ "$__atmos_at_prompt" != true ] && return
     __atmos_at_prompt=false
+    __atmos_ensure_shims_path
     __atmos_send_meta "CMD_START" "$BASH_COMMAND"
 }
 
 __atmos_precmd() {
     __atmos_at_prompt=true
+    __atmos_ensure_shims_path
     __atmos_send_meta "CMD_END" "$PWD"
 }
 
@@ -52,5 +86,5 @@ trap '__atmos_preexec' DEBUG
 if [[ -z "$PROMPT_COMMAND" ]]; then
     PROMPT_COMMAND="__atmos_precmd"
 elif [[ "$PROMPT_COMMAND" != *"__atmos_precmd"* ]]; then
-    PROMPT_COMMAND="__atmos_precmd;${PROMPT_COMMAND}"
+    PROMPT_COMMAND="${PROMPT_COMMAND};__atmos_precmd"
 fi

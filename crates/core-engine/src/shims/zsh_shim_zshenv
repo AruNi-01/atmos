@@ -4,7 +4,16 @@
 # real .zshenv so that environment variables are set correctly.
 #
 # Chain: ZDOTDIR=~/.atmos/shims/zdotdir → this file → $HOME/.zshenv
+#
+# `source` is a special builtin in zsh, so a leading
+# `ZDOTDIR="$HOME" source ...` assignment persists after the command. Preserve
+# the managed ZDOTDIR explicitly or zsh will skip Atmos's .zshrc and load the
+# user's .zshrc directly.
 
 if [ -f "$HOME/.zshenv" ]; then
-    ZDOTDIR="$HOME" source "$HOME/.zshenv"
+    __atmos_zdotdir="$ZDOTDIR"
+    ZDOTDIR="$HOME"
+    source "$HOME/.zshenv"
+    ZDOTDIR="$__atmos_zdotdir"
+    unset __atmos_zdotdir
 fi
