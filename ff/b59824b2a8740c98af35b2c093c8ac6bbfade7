@@ -1,0 +1,16 @@
+apps/web/src/app-shell/LeftSidebar.tsx
+  h_5be255725524c8 499-504
+apps/web/src/app-shell/__tests__/left-sidebar-workspace-jobs.test.ts
+  h_5be255725524c8 1-14
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "ffb59824b2a8740c98af35b2c093c8ac6bbfade7",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
