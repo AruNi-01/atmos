@@ -2,23 +2,19 @@
 
 import React from 'react';
 import { useTranslations } from 'next-intl';
+import { Button, Skeleton } from '@workspace/ui';
 import {
-  Button,
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-  Skeleton,
-} from '@workspace/ui';
-import {
-  ChevronDown,
   CircleCheck,
   CircleMinus,
   CircleX,
   LoaderCircle,
   PlugZap,
   Trash2,
-  Webhook,
 } from 'lucide-react';
+import {
+  SettingsGroupCard,
+  SettingsGroupRow,
+} from '@/features/settings/components/settings/SettingsGroupCard';
 import {
   agentHooksApi,
   type AgentHookInstallReport,
@@ -260,25 +256,13 @@ export function AgentHookStatusCard() {
   const anyDetected = report && HOOK_TOOL_META.some((tool) => report[tool.key].detected);
 
   return (
-    <Collapsible
+    <SettingsGroupCard
       open={expanded}
       onOpenChange={setExpanded}
-      className="overflow-hidden rounded-2xl border border-border"
-    >
-      <div className="grid grid-cols-[minmax(0,1fr)_220px] gap-8 px-6 py-5">
-        <CollapsibleTrigger className="group flex min-w-0 cursor-pointer items-start gap-3 pt-0.5 text-left">
-          <span className="relative mt-0.5 size-5 shrink-0">
-            <Webhook className="absolute inset-0 size-5 transition-opacity duration-150 group-hover:opacity-0" />
-            <ChevronDown className="absolute inset-0 size-5 opacity-0 transition-all duration-150 group-hover:opacity-100 group-data-[state=closed]:-rotate-90" />
-          </span>
-          <div className="min-w-0">
-            <p className="text-base font-medium text-foreground">{t('title')}</p>
-            <p className="mt-2 text-sm leading-6 text-muted-foreground">
-              {t('description')}
-            </p>
-          </div>
-        </CollapsibleTrigger>
-        <div className="flex items-center justify-end gap-2">
+      title={t('title')}
+      description={t('description')}
+      headerEnd={
+        <div className="flex items-center gap-2">
           <Button
             variant="outline"
             size="sm"
@@ -303,94 +287,87 @@ export function AgentHookStatusCard() {
             </Button>
           )}
         </div>
-      </div>
-
-      <CollapsibleContent>
-        <div className="border-t border-border px-4">
-          {loading && !report ? (
-            <div className="px-2 py-4">
-              <Skeleton className="h-10 w-full rounded-xl" />
-            </div>
-          ) : loadError && !report ? (
-            <div className="flex items-center justify-between gap-3 px-2 py-4">
-              <p className="text-sm text-muted-foreground">{t('loadError')}</p>
-              <Button variant="outline" size="sm" onClick={retryStatus}>
-                {t('actions.retry')}
-              </Button>
-            </div>
-          ) : report ? (
-            HOOK_TOOL_META.map(({ key, labelKey }) => {
-              const tool = report[key];
-              const label = t(labelKey as never);
-              const isBusy = actingTool === key;
-              return (
-                <div key={key} className="border-b border-border px-2 py-3 last:border-b-0">
-                  <div className="flex items-center gap-3">
-                    {tool.detected
-                      ? tool.installed
-                        ? <CircleCheck className="size-3.5 shrink-0 text-emerald-500" />
-                        : <CircleX className="size-3.5 shrink-0 text-amber-500" />
-                      : <CircleMinus className="size-3.5 shrink-0 text-muted-foreground/50" />
-                    }
-                    <span className="w-28 shrink-0 text-sm font-medium text-foreground">{label}</span>
-                    <div className="flex min-w-0 flex-1 items-center gap-2">
-                      {tool.config_path && (
-                        <span
-                          className="truncate font-mono text-[10px] text-muted-foreground"
-                          title={tool.config_path}
-                        >
-                          {tool.config_path.split(/[\\/]/).slice(-2).join('/')}
-                        </span>
-                      )}
-                      {!tool.detected && (
-                        <span className="text-xs text-muted-foreground">{t('status.notDetected')}</span>
-                      )}
-                      {tool.error && (
-                        <span className="truncate text-xs text-destructive" title={tool.error}>
-                          {t('status.error', { error: tool.error })}
-                        </span>
-                      )}
-                    </div>
-                    <div className="shrink-0">
-                      {tool.detected && !tool.error && (
-                        tool.installed ? (
-                          <Button
-                            variant="secondary"
-                            size="icon"
-                            className="size-6 text-destructive hover:text-destructive"
-                            disabled={isBusy || acting}
-                            onClick={() => handleUninstallTool(key)}
-                            aria-label={t('actions.uninstallTool', { label })}
-                            title={t('actions.uninstallTool', { label })}
-                          >
-                            {isBusy ? <LoaderCircle className="size-3 animate-spin-reverse" /> : <Trash2 className="size-3" />}
-                          </Button>
-                        ) : (
-                          <Button
-                            variant="secondary"
-                            size="icon"
-                            className="size-6 text-emerald-500 hover:text-emerald-500"
-                            disabled={isBusy || acting}
-                            onClick={() => handleInstallTool(key)}
-                            aria-label={t('actions.installTool', { label })}
-                            title={t('actions.installTool', { label })}
-                          >
-                            {isBusy ? <LoaderCircle className="size-3 animate-spin-reverse" /> : <PlugZap className="size-3" />}
-                          </Button>
-                        )
-                      )}
-                    </div>
-                  </div>
-                </div>
-              );
-            })
-          ) : (
-            <div className="px-2 py-4 text-sm text-muted-foreground">
-              {!anyDetected && t('empty')}
-            </div>
-          )}
+      }
+    >
+      {loading && !report ? (
+        <div className="px-2 py-3">
+          <Skeleton className="h-10 w-full rounded-xl" />
         </div>
-      </CollapsibleContent>
-    </Collapsible>
+      ) : loadError && !report ? (
+        <SettingsGroupRow
+          wide
+          title={t('loadError')}
+          description=""
+        >
+          <Button variant="outline" size="sm" onClick={retryStatus}>
+            {t('actions.retry')}
+          </Button>
+        </SettingsGroupRow>
+      ) : report ? (
+        HOOK_TOOL_META.map(({ key, labelKey }) => {
+          const tool = report[key];
+          const label = t(labelKey as never);
+          const isBusy = actingTool === key;
+          const statusIcon = tool.detected
+            ? tool.installed
+              ? <CircleCheck className="size-3.5 shrink-0 text-emerald-500" />
+              : <CircleX className="size-3.5 shrink-0 text-amber-500" />
+            : <CircleMinus className="size-3.5 shrink-0 text-muted-foreground/50" />;
+          return (
+            <SettingsGroupRow
+              key={key}
+              wide
+              title={
+                <span className="inline-flex items-center gap-2">
+                  {statusIcon}
+                  {label}
+                </span>
+              }
+              description={
+                tool.error
+                  ? t('status.error', { error: tool.error })
+                  : !tool.detected
+                    ? t('status.notDetected')
+                    : tool.config_path
+                      ? tool.config_path.split(/[\\/]/).slice(-2).join('/')
+                      : null
+              }
+            >
+              {tool.detected && !tool.error ? (
+                tool.installed ? (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="size-7 text-destructive hover:text-destructive"
+                    disabled={isBusy || acting}
+                    onClick={() => handleUninstallTool(key)}
+                    aria-label={t('actions.uninstallTool', { label })}
+                    title={t('actions.uninstallTool', { label })}
+                  >
+                    {isBusy ? <LoaderCircle className="size-3 animate-spin-reverse" /> : <Trash2 className="size-3.5" />}
+                  </Button>
+                ) : (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="size-7 text-emerald-500 hover:text-emerald-500"
+                    disabled={isBusy || acting}
+                    onClick={() => handleInstallTool(key)}
+                    aria-label={t('actions.installTool', { label })}
+                    title={t('actions.installTool', { label })}
+                  >
+                    {isBusy ? <LoaderCircle className="size-3 animate-spin-reverse" /> : <PlugZap className="size-3.5" />}
+                  </Button>
+                )
+              ) : null}
+            </SettingsGroupRow>
+          );
+        })
+      ) : (
+        <p className="px-2 py-3 text-sm text-muted-foreground">
+          {!anyDetected && t('empty')}
+        </p>
+      )}
+    </SettingsGroupCard>
   );
 }

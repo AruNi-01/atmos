@@ -14,6 +14,8 @@ pub(super) enum SessionCommand {
         cols: u16,
         rows: u16,
     },
+    /// Snapshot hydration is complete; tmux control output may now be forwarded.
+    HydrationComplete,
     /// Close the terminal session. Control-mode sessions already know their
     /// client session/socket; fields are kept so simple and tmux sessions share
     /// one command shape.

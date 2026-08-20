@@ -39,10 +39,10 @@ import {
   ensureTerminalFontsLoaded,
   extractCommandName,
   isFindShortcut,
-  isInlineMouseTuiCommand,
   isTerminalContainerVisible,
   markTerminalSessionLive,
   scheduleTerminalSessionDead,
+  shouldEnableTuiMouseOnCommandStart,
   wasTerminalSessionLive,
   isTerminalEmulatorReport,
   isUsableTerminalGrid,
@@ -1281,14 +1281,13 @@ const Terminal = ({
 
     const applyDynamicTitleCmdStart = (payload: string) => {
       const title = extractCommandName(payload);
-      // Enable mouse is safe for both 9998 and 9999 when a TUI is indicated.
-      // (Disable is gated separately — only real shell 9999 CMD_END may clear.)
-      const onAlternate = terminal.buffer.active.type === "alternate";
-      const wantMouse =
-        onAlternate ||
-        tuiMouseDesiredRef.current ||
-        isInlineMouseTuiCommand(payload) ||
-        isInlineMouseTuiCommand(title);
+      // CMD_START arrives before the process can enter alternate screen or
+      // enable DEC mouse. Reassert only state already observed/restored; a
+      // command name alone must never trigger the inline scrollback policy.
+      const wantMouse = shouldEnableTuiMouseOnCommandStart(
+        terminal.buffer.active.type,
+        tuiMouseDesiredRef.current,
+      );
       if (wantMouse) {
         tuiMouseDesiredRef.current = true;
         const seq =

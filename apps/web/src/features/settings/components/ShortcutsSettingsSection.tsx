@@ -1,6 +1,7 @@
 'use client';
 
 import { useTranslations } from 'next-intl';
+import { SettingsGroup, SettingsPageStack } from '@/features/settings/components/settings/SettingsGroupCard';
 import { ShortcutKeySequence } from '@/shared/components/shortcut-key-sequence';
 
 interface ShortcutEntry {
@@ -10,28 +11,20 @@ interface ShortcutEntry {
 
 function ShortcutGroup({ title, shortcuts }: { title: string; shortcuts: ShortcutEntry[] }) {
   return (
-    <div>
-      <h3 className="mb-3 text-sm font-semibold text-foreground">{title}</h3>
-      <div className="overflow-hidden rounded-xl border border-border">
-        <table className="w-full">
-          <tbody>
-            {shortcuts.map((shortcut, i) => (
-              <tr
-                key={i}
-                className={i !== shortcuts.length - 1 ? 'border-b border-border' : ''}
-              >
-                <td className="w-[200px] px-4 py-3">
-                  <ShortcutKeySequence keys={shortcut.keys} />
-                </td>
-                <td className="px-4 py-3 text-sm text-muted-foreground">
-                  {shortcut.description}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
+    <section className="space-y-3">
+      <h3 className="px-0.5 text-sm font-medium text-foreground">{title}</h3>
+      <SettingsGroup>
+        {shortcuts.map((shortcut, i) => (
+          <div
+            key={i}
+            className="flex items-center justify-between gap-6 border-b border-border/60 px-2 py-3 last:border-b-0"
+          >
+            <p className="text-sm text-muted-foreground">{shortcut.description}</p>
+            <ShortcutKeySequence keys={shortcut.keys} />
+          </div>
+        ))}
+      </SettingsGroup>
+    </section>
   );
 }
 
@@ -39,7 +32,7 @@ export function ShortcutsSettingsSection() {
   const t = useTranslations('settings.shortcutsSection');
 
   return (
-    <div className="space-y-8">
+    <SettingsPageStack>
       <ShortcutGroup
         title={t('groups.global.title')}
         shortcuts={[
@@ -114,6 +107,6 @@ export function ShortcutsSettingsSection() {
           { keys: ['⇧', 'Click'], description: t('groups.diffViewer.items.multiSelectLines') },
         ]}
       />
-    </div>
+    </SettingsPageStack>
   );
 }

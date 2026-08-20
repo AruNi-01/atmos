@@ -29,88 +29,36 @@ function settingsModalT(key: string): string {
 
 export const SETTINGS_GROUPS = [
   {
-    id: "personal",
-    label: settingsModalT("groups.personal.label"),
-    description: settingsModalT("groups.personal.description"),
-    items: ["appearance", "account", "layout", "editor", "canvas", "terminal"] as const,
+    id: "you",
+    label: settingsModalT("groups.you.label"),
+    description: settingsModalT("groups.you.description"),
+    items: ["general", "account"] as const,
   },
   {
-    id: "coding",
-    label: settingsModalT("groups.coding.label"),
-    description: settingsModalT("groups.coding.description"),
-    items: ["ai", "code-agent", "workspace", "labels"] as const,
+    id: "workspace",
+    label: settingsModalT("groups.workspace.label"),
+    description: settingsModalT("groups.workspace.description"),
+    items: ["interface", "editor", "terminal", "workspace"] as const,
   },
   {
-    id: "remote-access",
-    label: settingsModalT("groups.remoteAccess.label"),
-    description: settingsModalT("groups.remoteAccess.description"),
-    items: ["atmos-computer", "tunnel-connector"] as const,
+    id: "agents",
+    label: settingsModalT("groups.agents.label"),
+    description: settingsModalT("groups.agents.description"),
+    items: ["agents", "models", "notifications"] as const,
   },
   {
-    id: "system-integration",
-    label: settingsModalT("groups.systemIntegration.label"),
-    description: settingsModalT("groups.systemIntegration.description"),
-    items: ["integrations", "browser", "desktop-use", "notify"] as const,
-  },
-  {
-    id: "privacy-security",
-    label: settingsModalT("groups.privacySecurity.label"),
-    description: settingsModalT("groups.privacySecurity.description"),
-    items: ["permission-access"] as const,
-  },
-  {
-    id: "more",
-    label: settingsModalT("groups.more.label"),
-    description: settingsModalT("groups.more.description"),
-    items: ["shortcuts", "experiments", "about"] as const,
+    id: "system",
+    label: settingsModalT("groups.system.label"),
+    description: settingsModalT("groups.system.description"),
+    items: ["remote-access", "apps", "privacy", "keyboard"] as const,
   },
 ] as const;
 
 export const SETTINGS_SECTIONS = [
   {
-    id: "layout",
-    label: settingsModalT("sections.layout.label"),
-    description: settingsModalT("sections.layout.description"),
-  },
-  {
-    id: "editor",
-    label: settingsModalT("sections.editor.label"),
-    description: settingsModalT("sections.editor.description"),
-  },
-  {
-    id: "canvas",
-    label: settingsModalT("sections.canvas.label"),
-    description: settingsModalT("sections.canvas.description"),
-  },
-  {
-    id: "code-agent",
-    label: settingsModalT("sections.codeAgent.label"),
-    description: settingsModalT("sections.codeAgent.description"),
-  },
-  {
-    id: "terminal",
-    label: settingsModalT("sections.terminal.label"),
-    description: settingsModalT("sections.terminal.description"),
-  },
-  {
-    id: "browser",
-    label: settingsModalT("sections.browser.label"),
-    description: settingsModalT("sections.browser.description"),
-  },
-  {
-    id: "workspace",
-    label: settingsModalT("sections.workspace.label"),
-    description: settingsModalT("sections.workspace.description"),
-  },
-  {
-    id: "labels",
-    label: settingsModalT("sections.labels.label"),
-    description: settingsModalT("sections.labels.description"),
-  },
-  {
-    id: "appearance",
-    label: settingsModalT("sections.appearance.label"),
-    description: settingsModalT("sections.appearance.description"),
+    id: "general",
+    label: settingsModalT("sections.general.label"),
+    description: settingsModalT("sections.general.description"),
   },
   {
     id: "account",
@@ -118,54 +66,59 @@ export const SETTINGS_SECTIONS = [
     description: settingsModalT("sections.account.description"),
   },
   {
-    id: "integrations",
-    label: settingsModalT("sections.integrations.label"),
-    description: settingsModalT("sections.integrations.description"),
+    id: "interface",
+    label: settingsModalT("sections.interface.label"),
+    description: settingsModalT("sections.interface.description"),
   },
   {
-    id: "ai",
-    label: settingsModalT("sections.ai.label"),
-    description: settingsModalT("sections.ai.description"),
+    id: "editor",
+    label: settingsModalT("sections.editor.label"),
+    description: settingsModalT("sections.editor.description"),
   },
   {
-    id: "notify",
-    label: settingsModalT("sections.notify.label"),
-    description: settingsModalT("sections.notify.description"),
+    id: "terminal",
+    label: settingsModalT("sections.terminal.label"),
+    description: settingsModalT("sections.terminal.description"),
   },
   {
-    id: "tunnel-connector",
-    label: settingsModalT("sections.tunnelConnector.label"),
-    description: settingsModalT("sections.tunnelConnector.description"),
+    id: "workspace",
+    label: settingsModalT("sections.workspace.label"),
+    description: settingsModalT("sections.workspace.description"),
   },
   {
-    id: "atmos-computer",
-    label: settingsModalT("sections.atmosComputer.label"),
-    description: settingsModalT("sections.atmosComputer.description"),
+    id: "agents",
+    label: settingsModalT("sections.agents.label"),
+    description: settingsModalT("sections.agents.description"),
   },
   {
-    id: "desktop-use",
-    label: settingsModalT("sections.desktopUse.label"),
-    description: settingsModalT("sections.desktopUse.description"),
+    id: "models",
+    label: settingsModalT("sections.models.label"),
+    description: settingsModalT("sections.models.description"),
   },
   {
-    id: "permission-access",
-    label: settingsModalT("sections.permissionAccess.label"),
-    description: settingsModalT("sections.permissionAccess.description"),
+    id: "notifications",
+    label: settingsModalT("sections.notifications.label"),
+    description: settingsModalT("sections.notifications.description"),
   },
   {
-    id: "shortcuts",
-    label: settingsModalT("sections.shortcuts.label"),
-    description: settingsModalT("sections.shortcuts.description"),
+    id: "remote-access",
+    label: settingsModalT("sections.remoteAccess.label"),
+    description: settingsModalT("sections.remoteAccess.description"),
   },
   {
-    id: "experiments",
-    label: settingsModalT("sections.experiments.label"),
-    description: settingsModalT("sections.experiments.description"),
+    id: "apps",
+    label: settingsModalT("sections.apps.label"),
+    description: settingsModalT("sections.apps.description"),
   },
   {
-    id: "about",
-    label: settingsModalT("sections.about.label"),
-    description: settingsModalT("sections.about.description"),
+    id: "privacy",
+    label: settingsModalT("sections.privacy.label"),
+    description: settingsModalT("sections.privacy.description"),
+  },
+  {
+    id: "keyboard",
+    label: settingsModalT("sections.keyboard.label"),
+    description: settingsModalT("sections.keyboard.description"),
   },
 ] as const satisfies ReadonlyArray<{
   id: SettingsModalTab;
@@ -185,14 +138,14 @@ const SECTION_GROUP_TERMS = SETTINGS_GROUPS.reduce(
   {} as Record<SettingsSectionId, string[]>,
 );
 
-const SETTINGS_SECTION_KEYWORDS: Record<SettingsSectionId, readonly string[]> = {
+const SETTINGS_TOPIC_KEYWORDS: Record<string, readonly string[]> = {
   appearance: ["theme", "language", "locale", "dark", "light", "system", "appearance"],
   account: ["account", "login", "sign in", "hub", "github", "google", "device", "identity"],
-  layout: [
-    "layout",
+  interface: [
+    "interface",
     "panel",
     "sidebar",
-    "interface",
+    "launchpad",
     "project files show side",
     "left sidebar",
     "workspace sidebar two-column layout",
@@ -266,8 +219,8 @@ const SETTINGS_SECTION_KEYWORDS: Record<SettingsSectionId, readonly string[]> = 
     "tmux pane",
     "live xterm buffer",
   ],
-  "code-agent": [
-    "code agent",
+  agents: [
+    "agents",
     "agent",
     "claude",
     "codex",
@@ -386,8 +339,8 @@ const SETTINGS_SECTION_KEYWORDS: Record<SettingsSectionId, readonly string[]> = 
     "tmux",
     "atmos tmux configuration",
   ],
-  ai: [
-    "ai",
+  models: [
+    "models",
     "provider",
     "providers",
     "llm",
@@ -407,10 +360,9 @@ const SETTINGS_SECTION_KEYWORDS: Record<SettingsSectionId, readonly string[]> = 
     "managed local model",
     "runtime",
   ],
-  notify: [
-    "notify",
-    "notification",
+  notifications: [
     "notifications",
+    "notification",
     "channels",
     "browser notifications",
     "desktop notifications",
@@ -482,9 +434,9 @@ const SETTINGS_SECTION_KEYWORDS: Record<SettingsSectionId, readonly string[]> = 
     "click",
     "type",
   ],
-  "permission-access": [
-    "permission access",
+  privacy: [
     "privacy",
+    "permission access",
     "security",
     "privacy and security",
     "keychain",
@@ -496,9 +448,9 @@ const SETTINGS_SECTION_KEYWORDS: Record<SettingsSectionId, readonly string[]> = 
     "screen recording",
     "desktop use",
   ],
-  shortcuts: [
-    "shortcuts",
+  keyboard: [
     "keyboard",
+    "shortcuts",
     "hotkeys",
     "command palette",
     "global search",
@@ -561,13 +513,13 @@ function settingsModalSearchItem(
   };
 }
 
-const SETTINGS_SETTING_ITEMS: Record<SettingsSectionId, readonly SettingsSearchItemDefinition[]> = {
+const SETTINGS_TOPIC_ITEMS: Record<string, readonly SettingsSearchItemDefinition[]> = {
   appearance: [
     settingsModalSearchItem("appearance.theme", { keywords: ["theme", "light", "dark", "system"] }),
     settingsModalSearchItem("appearance.language", { keywords: ["language", "locale", "english", "chinese", "zh"] }),
   ],
   account: [],
-  layout: [
+  interface: [
     settingsModalSearchItem("layout.projectFilesShowSide", {
       hasDescription: true,
       keywords: ["left sidebar", "project file tree", "files column"],
@@ -730,7 +682,7 @@ const SETTINGS_SETTING_ITEMS: Record<SettingsSectionId, readonly SettingsSearchI
       keywords: ["copying a canvas terminal", "extract-text", "tmux pane", "xterm buffer"],
     }),
   ],
-  "code-agent": [
+  agents: [
     settingsModalSearchItem("codeAgent.builtInAgents", {
       keywords: ["startup command", "parameters", "claude", "codex", "gemini", "antigravity", "grok", "grok build"],
     }),
@@ -923,7 +875,7 @@ const SETTINGS_SETTING_ITEMS: Record<SettingsSectionId, readonly SettingsSearchI
       keywords: ["~/.atmos/atmos.sock", "terminal persistence", "session management"],
     }),
   ],
-  ai: [
+  models: [
     settingsModalSearchItem("ai.providers", {
       keywords: ["api keys", "endpoints", "default models", "background tasks", "add provider"],
     }),
@@ -946,7 +898,7 @@ const SETTINGS_SETTING_ITEMS: Record<SettingsSectionId, readonly SettingsSearchI
       keywords: ["on-device", "no api key", "managed local model", "runtime"],
     }),
   ],
-  notify: [
+  notifications: [
     settingsModalSearchItem("notify.notificationChannels", {
       keywords: ["agents need attention", "notification channel"],
     }),
@@ -1073,7 +1025,7 @@ const SETTINGS_SETTING_ITEMS: Record<SettingsSectionId, readonly SettingsSearchI
       keywords: ["computers linked", "refresh", "remove computer", "connect"],
     }),
   ],
-  shortcuts: [
+  keyboard: [
     settingsModalSearchItem("shortcuts.globalShortcuts", {
       keywords: [
         "toggle left sidebar",
@@ -1112,7 +1064,7 @@ const SETTINGS_SETTING_ITEMS: Record<SettingsSectionId, readonly SettingsSearchI
     }),
   ],
 
-  "permission-access": [
+  privacy: [
     settingsModalSearchItem("permissionAccess.browserCookies", {
       hasDescription: true,
       keywords: ["keychain", "chrome safe storage", "cursor", "cookie"],
@@ -1138,6 +1090,70 @@ const SETTINGS_SETTING_ITEMS: Record<SettingsSectionId, readonly SettingsSearchI
       keywords: ["desktop updates", "check update"],
     }),
   ],
+};
+
+function mergeTopicKeywords(...topics: string[]): string[] {
+  return topics.flatMap((topic) => SETTINGS_TOPIC_KEYWORDS[topic] ?? []);
+}
+
+function mergeTopicItems(...topics: string[]): readonly SettingsSearchItemDefinition[] {
+  return topics.flatMap((topic) => SETTINGS_TOPIC_ITEMS[topic] ?? []);
+}
+
+const SETTINGS_SECTION_KEYWORDS: Record<SettingsSectionId, readonly string[]> = {
+  general: [
+    "general",
+    "appearance",
+    "about",
+    "experiments",
+    ...mergeTopicKeywords("appearance", "about", "experiments"),
+  ],
+  account: [...mergeTopicKeywords("account")],
+  interface: [
+    "interface",
+    "launchpad",
+    "sidebar",
+    "header",
+    "footer",
+    ...mergeTopicKeywords("interface"),
+  ],
+  editor: ["editor", "canvas", ...mergeTopicKeywords("editor", "canvas")],
+  terminal: [...mergeTopicKeywords("terminal")],
+  workspace: ["workspace", "labels", ...mergeTopicKeywords("workspace", "labels")],
+  agents: [...mergeTopicKeywords("agents")],
+  models: [...mergeTopicKeywords("models")],
+  notifications: [...mergeTopicKeywords("notifications")],
+  "remote-access": [
+    "remote access",
+    "atmos computer",
+    "tunnel connector",
+    ...mergeTopicKeywords("atmos-computer", "tunnel-connector"),
+  ],
+  apps: [
+    "apps",
+    "integrations",
+    "browser",
+    "desktop use",
+    ...mergeTopicKeywords("integrations", "browser", "desktop-use"),
+  ],
+  privacy: [...mergeTopicKeywords("privacy")],
+  keyboard: [...mergeTopicKeywords("keyboard")],
+};
+
+const SETTINGS_SETTING_ITEMS: Record<SettingsSectionId, readonly SettingsSearchItemDefinition[]> = {
+  general: mergeTopicItems("appearance", "about", "experiments"),
+  account: mergeTopicItems("account"),
+  interface: mergeTopicItems("interface"),
+  editor: mergeTopicItems("editor", "canvas"),
+  terminal: mergeTopicItems("terminal"),
+  workspace: mergeTopicItems("workspace", "labels"),
+  agents: mergeTopicItems("agents"),
+  models: mergeTopicItems("models"),
+  notifications: mergeTopicItems("notifications"),
+  "remote-access": mergeTopicItems("atmos-computer", "tunnel-connector"),
+  apps: mergeTopicItems("integrations", "browser", "desktop-use"),
+  privacy: mergeTopicItems("privacy"),
+  keyboard: mergeTopicItems("keyboard"),
 };
 
 const slugSettingSearchId = (value: string) =>

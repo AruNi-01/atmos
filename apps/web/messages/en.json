@@ -162,6 +162,17 @@
       "forward": "Forward",
       "refresh": "Refresh"
     },
+    "workspaceJobs": {
+      "creating": "Creating workspace",
+      "countAria": "{count} workspaces in progress",
+      "listTitle": "{count} workspaces in progress",
+      "preparing": "Preparing worktree",
+      "ready": "Ready — click to open",
+      "autoOpen": "Opens automatically",
+      "back": "Back",
+      "open": "Open",
+      "creatingHint": "Preparing the worktree. Setup details appear once the workspace exists."
+    },
     "searchAria": "Search",
     "searchPlaceholder": "Search...",
     "projectFallback": "Atmosphere for Agentic Builders",
@@ -3234,6 +3245,10 @@
         "retry": "Retry",
         "description": "Unable to load the canvas. Try again."
       },
+      "licenseBlocked": {
+        "title": "Canvas is unavailable",
+        "description": "The drawing engine license has expired, so the board was hidden after a few seconds. Renew the tldraw license and rebuild Atmos."
+      },
       "toolbar": {
         "expandAria": "Expand toolbar",
         "collapseAria": "Collapse toolbar",
@@ -4700,39 +4715,67 @@
         "noSettingsFound": "No settings found."
       },
       "groups": {
-        "personal": {
-          "label": "Personal",
-          "description": "Appearance, account, layout, editor, canvas, and terminal"
+        "you": {
+          "label": "You",
+          "description": "General and account"
         },
-        "coding": {
-          "label": "Coding",
-          "description": "AI, code agent, workspace, and labels"
+        "workspace": {
+          "label": "Workspace",
+          "description": "Interface, editor, terminal, and workspace"
         },
-        "remoteAccess": {
-          "label": "Remote Access",
-          "description": "Atmos Computer and Tunnel Connector"
+        "agents": {
+          "label": "Agents",
+          "description": "Agents, models, and notifications"
         },
-        "systemIntegration": {
-          "label": "System Integration",
-          "description": "Integrations, Browser, Desktop Use, and notifications"
-        },
-        "privacySecurity": {
-          "label": "Privacy & Security",
-          "description": "Permission Access and other privacy controls"
-        },
-        "more": {
-          "label": "More",
-          "description": "Shortcuts, experiments, and about"
+        "system": {
+          "label": "System",
+          "description": "Remote access, apps, privacy, and keyboard"
         }
       },
       "sections": {
+        "general": {
+          "label": "General",
+          "description": "Theme, language, and updates."
+        },
+        "interface": {
+          "label": "Interface",
+          "description": "Launchpad, sidebar, header, and footer."
+        },
+        "agents": {
+          "label": "Agents",
+          "description": "Built-in agents, custom agents, and session behaviour."
+        },
+        "models": {
+          "label": "Models",
+          "description": "Providers, routing, and local models."
+        },
+        "notifications": {
+          "label": "Notifications",
+          "description": "Desktop notifications and alert behavior."
+        },
+        "remoteAccess": {
+          "label": "Remote Access",
+          "description": "Atmos Computer and Tunnel Connector."
+        },
+        "apps": {
+          "label": "Apps",
+          "description": "Integrations, Browser, and Desktop Use."
+        },
+        "privacy": {
+          "label": "Privacy",
+          "description": "Permission access and local secrets."
+        },
+        "keyboard": {
+          "label": "Keyboard",
+          "description": "Keyboard shortcuts and quick actions."
+        },
         "layout": {
           "label": "Layout",
           "description": "Sidebar, tab, and overall layout behavior."
         },
         "editor": {
           "label": "Editor",
-          "description": "Editor experience, previews, and code settings."
+          "description": "Editor, Canvas, and diff settings."
         },
         "canvas": {
           "label": "Canvas",
@@ -5698,9 +5741,7 @@
     "notifySection": {
       "actions": {
         "test": "Test",
-        "testing": "Testing...",
-        "testUpper": "TEST",
-        "testingUpper": "TESTING..."
+        "testing": "Testing..."
       },
       "toasts": {
         "testSent": "Test notification sent",
@@ -9124,6 +9165,7 @@
         "couldNotRemove": "Could not remove",
         "computerRemoved": "Computer removed"
       },
+      "developmentWarning": "Atmos Computer is still in active development. You may encounter bugs or incomplete behavior.",
       "panels": {
         "accountRequired": {
           "title": "Account required",

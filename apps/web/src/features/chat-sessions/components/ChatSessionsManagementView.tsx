@@ -443,7 +443,7 @@ export const ChatSessionsManagementView: React.FC<ChatSessionsManagementViewProp
     <div
       className={cn(
         "shrink-0",
-        compact ? "border-b border-border/40 bg-background/50 px-8 py-4 backdrop-blur-sm" : "px-8 pb-6",
+        compact ? "bg-background/50 px-8 py-4 backdrop-blur-sm" : "px-8 pb-6",
       )}
     >
       <div className="mx-auto flex w-full max-w-5xl flex-col gap-3 sm:flex-row">

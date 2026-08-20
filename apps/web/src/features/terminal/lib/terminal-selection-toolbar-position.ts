@@ -2,6 +2,10 @@ export type SelectionToolbarAnchor = { x: number; y: number };
 
 export type SelectionToolbarPlacement = "above" | "below";
 
+export type SelectionToolbarAlign = "start" | "end";
+
+export type SelectionToolbarDensity = "labeled" | "icon";
+
 export interface ClampSelectionToolbarPositionInput {
   anchor: SelectionToolbarAnchor;
   toolbarWidth: number;
@@ -16,16 +20,21 @@ export interface ClampSelectionToolbarPositionInput {
 }
 
 export interface ClampSelectionToolbarPositionResult {
-  /** CSS `left` when the toolbar uses `translateX(-50%)` (center-aligned to this x). */
+  /** CSS `left` of the toolbar's left edge (no horizontal translate). */
   left: number;
   top: number;
   placement: SelectionToolbarPlacement;
+  /** `start` grows right from the anchor; `end` grows left. */
+  align: SelectionToolbarAlign;
 }
 
 /**
  * Keep the terminal selection toolbar fully inside its positioned container.
  *
- * Horizontal: `left` is the toolbar center (pair with `translateX(-50%)`).
+ * Horizontal: expand toward the side of the anchor with more room, then clamp
+ * the left edge so the toolbar stays inside the margin. Pair with `left` as
+ * the toolbar's left edge (do not use `translateX(-50%)` — that shrink-to-fits
+ * against the remaining space and wraps CJK labels).
  * Vertical: prefer above the anchor; flip below when there is not enough room.
  */
 export function clampSelectionToolbarPosition({
@@ -45,16 +54,27 @@ export function clampSelectionToolbarPosition({
   const boundsWidth = Math.max(0, containerWidth);
   const boundsHeight = Math.max(0, containerHeight);
 
-  // Center-aligned left, clamped so left ± width/2 stays inside the margin.
-  const halfWidth = width / 2;
-  const minCenter = safeMargin + halfWidth;
-  const maxCenter = boundsWidth - safeMargin - halfWidth;
-  let left = Number.isFinite(anchor.x) ? anchor.x : boundsWidth / 2;
-  if (maxCenter < minCenter) {
-    // Toolbar wider than the usable area — pin to geometric center.
-    left = boundsWidth / 2;
+  const anchorX = Number.isFinite(anchor.x) ? anchor.x : boundsWidth / 2;
+  const innerWidth = Math.max(0, boundsWidth - 2 * safeMargin);
+  const minLeft = safeMargin;
+  const maxLeft = boundsWidth - safeMargin - width;
+
+  let left: number;
+  let align: SelectionToolbarAlign;
+  if (width >= innerWidth || maxLeft < minLeft) {
+    left = minLeft;
+    align = "start";
   } else {
-    left = Math.min(Math.max(left, minCenter), maxCenter);
+    const spaceRight = boundsWidth - safeMargin - anchorX;
+    const spaceLeft = anchorX - safeMargin;
+    if (spaceRight >= spaceLeft) {
+      align = "start";
+      left = anchorX;
+    } else {
+      align = "end";
+      left = anchorX - width;
+    }
+    left = Math.min(Math.max(left, minLeft), maxLeft);
   }
 
   const aboveTop = (Number.isFinite(anchor.y) ? anchor.y : 0) - safeGap - height;
@@ -73,7 +93,6 @@ export function clampSelectionToolbarPosition({
       placement = "below";
       top = belowTop;
     } else {
-      // Neither side fits cleanly — keep preferred side and clamp.
       placement = "above";
       top = Math.min(Math.max(aboveTop, minTop), maxTop);
     }
@@ -90,5 +109,20 @@ export function clampSelectionToolbarPosition({
 
   top = Math.min(Math.max(top, minTop), maxTop);
 
-  return { left, top, placement };
+  return { left, top, placement, align };
+}
+
+/** Use icon-only actions when labeled buttons cannot fit in the pane. */
+export function selectionToolbarDensity({
+  labeledWidth,
+  containerWidth,
+  margin = 8,
+}: {
+  labeledWidth: number;
+  containerWidth: number;
+  margin?: number;
+}): SelectionToolbarDensity {
+  if (!(labeledWidth > 0)) return "labeled";
+  const available = Math.max(0, containerWidth - 2 * Math.max(0, margin));
+  return labeledWidth > available ? "icon" : "labeled";
 }

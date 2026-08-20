@@ -7,6 +7,11 @@ import { Download, ExternalLink, LoaderCircle, RotateCcw } from "lucide-react";
 
 import { AtmosWordmark } from "@/shared/components/ui/AtmosWordmark";
 import {
+  SettingsGroup,
+  SettingsGroupRow,
+  SettingsSection,
+} from "@/features/settings/components/settings/SettingsGroupCard";
+import {
   getUpdateReleaseNotesUrl,
   type UpdateInfo,
   type UpdateStatus,
@@ -50,6 +55,7 @@ export function SettingsAboutSection({
   onCheckForUpdate,
 }: SettingsAboutSectionProps) {
   const t = useTranslations("settings.aboutSection");
+  const pageT = useTranslations("settings.modal");
   const isChecking = status.stage === "checking";
   const isDownloading = status.stage === "downloading";
   const isInstalling = status.stage === "installing";
@@ -61,18 +67,20 @@ export function SettingsAboutSection({
     : runtimeLabel;
 
   return (
-    <>
-      <div className="mb-10 mt-4">
-        <AtmosWordmark className="w-full" />
+    <SettingsSection
+      id="about"
+      title={pageT("sections.about.label")}
+      description={pageT("sections.about.description")}
+    >
+      <div className="px-0.5">
+        <AtmosWordmark className="w-full max-w-xs" />
       </div>
-      <div className="overflow-hidden rounded-2xl border border-border">
-        <div className="grid grid-cols-[minmax(0,1fr)_320px] gap-8 border-b border-border px-6 py-5">
-          <div>
-            <p className="text-base font-medium text-foreground">{t("runtime.title")}</p>
-            <p className="mt-2 text-sm leading-6 text-muted-foreground">
-              {t("runtime.description")}
-            </p>
-          </div>
+      <SettingsGroup>
+        <SettingsGroupRow
+          wide
+          title={t("runtime.title")}
+          description={t("runtime.description")}
+        >
           <div className="flex flex-wrap items-center justify-end gap-2">
             <span className="text-sm font-medium text-foreground">
               {runtimeValue}
@@ -99,15 +107,13 @@ export function SettingsAboutSection({
               </Button>
             ) : null}
           </div>
-        </div>
+        </SettingsGroupRow>
 
-        <div className="grid grid-cols-[minmax(0,1fr)_320px] gap-8 px-6 py-5">
-          <div>
-            <p className="text-base font-medium text-foreground">{t("cli.title")}</p>
-            <p className="mt-2 text-sm leading-6 text-muted-foreground">
-              {t("cli.description")}
-            </p>
-          </div>
+        <SettingsGroupRow
+          wide
+          title={t("cli.title")}
+          description={t("cli.description")}
+        >
           <div className="flex flex-wrap items-center justify-end gap-2">
             {cliVersionInfo?.installed === false ? (
               <>
@@ -173,9 +179,9 @@ export function SettingsAboutSection({
               </>
             )}
           </div>
-        </div>
-      </div>
-    </>
+        </SettingsGroupRow>
+      </SettingsGroup>
+    </SettingsSection>
   );
 }
 

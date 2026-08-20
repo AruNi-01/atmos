@@ -2,6 +2,7 @@
 
 import React from "react";
 import { useLocale } from "next-intl";
+import { useReducedMotion } from "motion/react";
 import {
   AnimatedNumber,
   Popover,
@@ -13,9 +14,33 @@ import {
 import { WorkspaceSetupProgressView } from "@/features/workspace/components/WorkspaceSetupProgress";
 import type { WorkspaceSetupProgress } from "@/features/project/store/use-project-store";
 import {
+  getWorkspaceSetupPopoverWidth,
   getWorkspaceSetupProgressValue,
   getWorkspaceSetupSteps,
 } from "@/features/workspace/lib/workspace-setup";
+
+function SetupPopoverSizeFrame({
+  width,
+  children,
+}: {
+  width: number;
+  children: React.ReactNode;
+}) {
+  const reduceMotion = useReducedMotion();
+
+  return (
+    <div
+      className={cn(
+        "h-auto [interpolate-size:allow-keywords]",
+        !reduceMotion &&
+          "transition-[width,height] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]",
+      )}
+      style={{ width }}
+    >
+      {children}
+    </div>
+  );
+}
 
 interface WorkspaceStatusPopoverProps {
   progress: WorkspaceSetupProgress;
@@ -118,25 +143,17 @@ export function WorkspaceStatusPopover({
     return undefined;
   }, [isReviewingTodos, needsScriptTrust, progress.status]);
   const stepCount = getWorkspaceSetupSteps(progress).length;
-  const popoverWidthClass =
-    stepCount <= 3
-      ? "w-[720px] max-w-[min(720px,calc(100vw-24px))]"
-      : stepCount === 4
-        ? "w-[840px] max-w-[min(840px,calc(100vw-24px))]"
-        : "w-[960px] max-w-[min(960px,calc(100vw-24px))]";
+  const [viewportWidth, setViewportWidth] = React.useState(() =>
+    typeof window === "undefined" ? 1200 : window.innerWidth,
+  );
+  const popoverWidth = getWorkspaceSetupPopoverWidth(stepCount, viewportWidth);
 
   React.useEffect(() => {
-    if (progress.status !== "completed") {
-      return;
-    }
-
-    const timer = window.setTimeout(() => {
-      setOpen(false);
-      onFinish();
-    }, 5000);
-
-    return () => window.clearTimeout(timer);
-  }, [onFinish, progress.status]);
+    const updateViewportWidth = () => setViewportWidth(window.innerWidth);
+    updateViewportWidth();
+    window.addEventListener("resize", updateViewportWidth);
+    return () => window.removeEventListener("resize", updateViewportWidth);
+  }, []);
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -168,12 +185,17 @@ export function WorkspaceStatusPopover({
       <PopoverContent
         align="start"
         sideOffset={8}
-        className={cn(
-          popoverWidthClass,
-          "border border-border/70 bg-popover/96 p-0 shadow-xl",
-        )}
+        forceMount={progress.status === "completed" ? true : undefined}
+        className="w-auto max-w-[calc(100vw-24px)] overflow-x-hidden border border-border/70 bg-popover/96 p-0 data-[state=closed]:hidden"
       >
-        <WorkspaceSetupProgressView progress={progress} onFinish={onFinish} compact />
+        <SetupPopoverSizeFrame width={popoverWidth}>
+          <WorkspaceSetupProgressView
+            progress={progress}
+            onFinish={onFinish}
+            compact
+            pauseAutoFinishEnabled={open}
+          />
+        </SetupPopoverSizeFrame>
       </PopoverContent>
     </Popover>
   );

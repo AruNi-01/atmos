@@ -18,7 +18,6 @@ import {
 } from "@/app/hub-auth/hub-auth-channel";
 import {
   Button,
-  Card,
   Popover,
   PopoverContent,
   PopoverTrigger,
@@ -27,7 +26,6 @@ import {
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-  cn,
 } from "@workspace/ui";
 import { Laptop, Loader2, Smartphone } from "lucide-react";
 import {
@@ -46,6 +44,11 @@ import {
   isHubSocialProvider,
   openHubOAuth,
 } from "@/features/settings/components/hub-oauth-open";
+import {
+  SettingsGroupCard,
+  SettingsGroupRow,
+  SettingsPageStack,
+} from "@/features/settings/components/settings/SettingsGroupCard";
 
 const PROVIDERS: Array<{
   id: HubSocialProvider;
@@ -79,37 +82,6 @@ function parseUserAgent(ua: string | null | undefined): {
   if (os) return { isMobile, label: os };
   if (browser) return { isMobile, label: browser };
   return { isMobile, label: null };
-}
-
-function SettingsSection({
-  title,
-  description,
-  children,
-  isPending,
-}: {
-  title: string;
-  description: string;
-  children: React.ReactNode;
-  isPending?: boolean;
-}) {
-  return (
-    <section className="overflow-hidden rounded-xl border border-border bg-background text-foreground shadow-none">
-      <div className="space-y-1 border-b border-border px-6 py-4">
-        <p className="text-base font-semibold leading-none">{title}</p>
-        <p className="text-sm text-muted-foreground">{description}</p>
-      </div>
-      <div className="grid gap-3 px-6 py-4">
-        {isPending ? (
-          <>
-            <Skeleton className="h-14 w-full rounded-lg" />
-            <Skeleton className="h-14 w-full rounded-lg" />
-          </>
-        ) : (
-          children
-        )}
-      </div>
-    </section>
-  );
 }
 
 function LinkedAccountsCard() {
@@ -205,11 +177,16 @@ function LinkedAccountsCard() {
   }, [qc]);
 
   return (
-    <SettingsSection
+    <SettingsGroupCard
       title={t("linkedAccounts")}
       description={t("linkedAccountsDescription")}
-      isPending={accountsQuery.isLoading}
     >
+      {accountsQuery.isLoading ? (
+        <div className="space-y-3 py-3">
+          <Skeleton className="h-14 w-full rounded-lg" />
+          <Skeleton className="h-14 w-full rounded-lg" />
+        </div>
+      ) : (
       <TooltipProvider delayDuration={200}>
         {PROVIDERS.map(({ id, name, Icon }) => {
           const account = linkedByProvider.get(id) ?? null;
@@ -237,26 +214,26 @@ function LinkedAccountsCard() {
           );
 
           return (
-            <Card
+            <SettingsGroupRow
               key={id}
-              className="flex min-w-0 flex-row items-center gap-3 border-border bg-background px-4 py-3 shadow-none"
-            >
-              <Icon className="size-4 shrink-0" />
-              <div className="flex min-w-0 flex-1 flex-col">
-                <div className="text-sm font-medium">{name}</div>
-                <span className="truncate text-xs text-muted-foreground">
-                  {isLinked && account
-                    ? linkedSubtitle(account)
-                    : t("notLinked")}
+              wide
+              title={
+                <span className="inline-flex items-center gap-2">
+                  <Icon className="size-4 shrink-0" />
+                  {name}
                 </span>
-              </div>
+              }
+              description={
+                isLinked && account
+                  ? linkedSubtitle(account)
+                  : t("notLinked")
+              }
+            >
               {isLinked ? (
                 unlinkBlocked ? (
-                  // Native title on disabled buttons does not show in most browsers.
-                  // Wrap so Tooltip can receive pointer events.
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <span className="ms-auto inline-flex cursor-not-allowed">
+                      <span className="inline-flex cursor-not-allowed">
                         {unlinkButton}
                       </span>
                     </TooltipTrigger>
@@ -265,14 +242,14 @@ function LinkedAccountsCard() {
                     </TooltipContent>
                   </Tooltip>
                 ) : (
-                  <div className="ms-auto">{unlinkButton}</div>
+                  unlinkButton
                 )
               ) : (
                 <Button
                   type="button"
                   size="sm"
                   variant="default"
-                  className="relative ms-auto shrink-0"
+                  className="relative shrink-0"
                   disabled={busy || accountsQuery.isError}
                   title={t("linkOpensNewTab")}
                   onClick={() => void link(id)}
@@ -281,19 +258,20 @@ function LinkedAccountsCard() {
                   {t("link")}
                 </Button>
               )}
-            </Card>
+            </SettingsGroupRow>
           );
         })}
       </TooltipProvider>
-      {error ? <p className="text-xs text-destructive">{error}</p> : null}
+      )}
+      {error ? <p className="px-2 py-3 text-xs text-destructive">{error}</p> : null}
       {accountsQuery.isError ? (
-        <p className="text-xs text-destructive">
+        <p className="px-2 py-3 text-xs text-destructive">
           {accountsQuery.error instanceof Error
             ? accountsQuery.error.message
             : t("errors.listAccountsFailed")}
         </p>
       ) : null}
-    </SettingsSection>
+    </SettingsGroupCard>
   );
 }
 
@@ -366,40 +344,41 @@ function ActiveSessionsCard() {
   }, [sessionsQuery.data, currentId]);
 
   return (
-    <SettingsSection
+    <SettingsGroupCard
       title={t("activeSessions")}
       description={t("activeSessionsDescription")}
-      isPending={sessionQuery.isLoading || sessionsQuery.isLoading}
     >
-      {sessions.length === 0 && !sessionsQuery.isLoading ? (
-        <p className="text-sm text-muted-foreground">{t("sessionsEmpty")}</p>
+      {sessionQuery.isLoading || sessionsQuery.isLoading ? (
+        <div className="space-y-3 py-3">
+          <Skeleton className="h-14 w-full rounded-lg" />
+          <Skeleton className="h-14 w-full rounded-lg" />
+        </div>
+      ) : (
+        <>
+      {sessions.length === 0 ? (
+        <p className="px-2 py-3 text-sm text-muted-foreground">{t("sessionsEmpty")}</p>
       ) : null}
       {sessions.map((session) => {
         const isCurrent = session.id === currentId;
         const busy = busyToken === session.token;
         const { isMobile, label } = parseUserAgent(session.userAgent);
         const deviceLabel = label || session.userAgent || t("sessionUnknown");
+        const DeviceIcon = isMobile ? Smartphone : Laptop;
 
         return (
-          <Card
+          <SettingsGroupRow
             key={session.id}
-            className="flex flex-row items-center gap-3 border-border bg-background px-4 py-3 shadow-none"
-          >
-            {isMobile ? (
-              <Smartphone className="size-4 shrink-0 text-muted-foreground" />
-            ) : (
-              <Laptop className="size-4 shrink-0 text-muted-foreground" />
-            )}
-            <div className="flex min-w-0 flex-1 flex-col">
-              <span className="text-sm font-semibold">
+            wide
+            title={
+              <span className="inline-flex items-center gap-2">
+                <DeviceIcon className="size-4 shrink-0 text-muted-foreground" />
                 {isCurrent
                   ? t("currentSession")
                   : session.ipAddress?.trim() || t("otherSession")}
               </span>
-              <span className="truncate text-xs text-muted-foreground">
-                {deviceLabel}
-              </span>
-            </div>
+            }
+            description={deviceLabel}
+          >
             {isCurrent ? (
               <Popover
                 open={signOutConfirmToken === session.token}
@@ -412,7 +391,7 @@ function ActiveSessionsCard() {
                     type="button"
                     size="sm"
                     variant="outline"
-                    className={cn("relative ms-auto shrink-0")}
+                    className="relative shrink-0"
                     disabled={busy}
                   >
                     {busy ? (
@@ -460,7 +439,7 @@ function ActiveSessionsCard() {
                 type="button"
                 size="sm"
                 variant="outline"
-                className={cn("relative ms-auto shrink-0")}
+                className="relative shrink-0"
                 disabled={busy}
                 onClick={() => void revoke(session)}
               >
@@ -468,27 +447,29 @@ function ActiveSessionsCard() {
                 {t("revoke")}
               </Button>
             )}
-          </Card>
+          </SettingsGroupRow>
         );
       })}
-      {error ? <p className="text-xs text-destructive">{error}</p> : null}
+        </>
+      )}
+      {error ? <p className="px-2 py-3 text-xs text-destructive">{error}</p> : null}
       {sessionsQuery.isError ? (
-        <p className="text-xs text-destructive">
+        <p className="px-2 py-3 text-xs text-destructive">
           {sessionsQuery.error instanceof Error
             ? sessionsQuery.error.message
             : t("errors.listSessionsFailed")}
         </p>
       ) : null}
-    </SettingsSection>
+    </SettingsGroupCard>
   );
 }
 
 /** Security block: Linked accounts + Active sessions (better-auth-ui security settings). */
 export function HubSecuritySettingsCards() {
   return (
-    <div className="flex w-full flex-col gap-4 md:gap-6">
+    <SettingsPageStack>
       <LinkedAccountsCard />
       <ActiveSessionsCard />
-    </div>
+    </SettingsPageStack>
   );
 }

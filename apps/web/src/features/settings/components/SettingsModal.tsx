@@ -51,6 +51,7 @@ import {
   SETTINGS_SECTIONS,
   type SettingsSectionId,
 } from '@/features/settings/components/settings-modal-data';
+import { settingsSectionDomId } from '@/features/settings/components/settings/SettingsGroupCard';
 import { SettingsModalSidebar } from '@/features/settings/components/settings-modal-sidebar';
 import { useSettingsUpdateActions } from '@/features/settings/components/use-settings-update-actions';
 import { leaveSettingsPage } from '@/features/settings/lib/open-settings';
@@ -787,9 +788,22 @@ export function SettingsPage({ onLeave }: { onLeave?: () => void } = {}) {
     };
   }, []);
 
-  const resolvedActiveSection = activeSection ?? 'about';
+  const resolvedActiveSection = activeSection ?? 'interface';
   const activeSectionMeta = SETTINGS_SECTIONS.find((section) => section.id === resolvedActiveSection) ?? SETTINGS_SECTIONS[0];
   useSettingsContentHighlight(settingsContentElement, settingsSearchQuery, resolvedActiveSection);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const hash = window.location.hash.replace(/^#/, '');
+    if (!hash) return;
+    const frame = window.requestAnimationFrame(() => {
+      document.getElementById(settingsSectionDomId(hash))?.scrollIntoView({
+        block: 'start',
+        behavior: 'smooth',
+      });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [resolvedActiveSection]);
   const localAgentOptions = React.useMemo(
     () =>
       buildLocalAgentOptions([
@@ -1036,16 +1050,13 @@ export function SettingsPage({ onLeave }: { onLeave?: () => void } = {}) {
             ref={setSettingsContentElement}
             className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
           >
-          <div className="px-8 py-4">
+          <div className="px-8 py-5">
             <h2 className="text-[28px] font-semibold tracking-tight text-foreground">
               {t(`sections.${toCamelCase(activeSectionMeta.id)}.label`)}
             </h2>
             <p className="mt-1 max-w-md text-sm leading-5 text-muted-foreground">
               {t(`sections.${toCamelCase(activeSectionMeta.id)}.description`)}
             </p>
-          </div>
-          <div className="px-8">
-            <div className="border-b border-border" />
           </div>
 
           <div className="min-h-0 flex-1 overflow-hidden">

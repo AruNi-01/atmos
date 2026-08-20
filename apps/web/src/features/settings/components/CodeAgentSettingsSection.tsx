@@ -15,11 +15,8 @@ import {
   Bot,
   ChevronDown,
   LoaderCircle,
-  Package,
   Plus,
   Trash2,
-  UserCog,
-  Zap,
 } from "lucide-react";
 import { AGENT_OPTIONS, getInteractiveAgentParams } from "@/features/wiki/components/AgentSelect";
 import { resolveAgentLaunchFlags } from "@/features/agent/lib/terminal-agent-yolo";
@@ -33,6 +30,13 @@ import {
 } from "@/features/settings/components/CodeAgentBehaviourSettingsSection";
 import { CodeAgentRunConfigSettingsSection } from "@/features/settings/components/CodeAgentRunConfigSettingsSection";
 import { SaveActionButton } from "@/features/settings/components/settings/SaveActionButton";
+import {
+  SettingsGroup,
+  SettingsGroupCard,
+  SettingsGroupRow,
+  SettingsPageStack,
+} from "@/features/settings/components/settings/SettingsGroupCard";
+import { SettingsToggleRow } from "@/features/settings/components/settings/SettingsToggleRow";
 import type { TerminalAgentSavedRunConfig } from "@/features/agent/lib/terminal-agent-run-config";
 
 export type { BehaviourSettingsValues };
@@ -160,26 +164,16 @@ export function CodeAgentSettingsSection({
   const t = useTranslations("settings.codeAgentSection");
 
   return (
-    <div className="space-y-4">
-      <div className="overflow-hidden rounded-2xl border border-border">
-        <div className="flex items-start justify-between gap-4 px-6 py-5">
-          <div className="flex min-w-0 items-start gap-3">
-            <Zap className="mt-0.5 size-5 shrink-0 text-foreground" />
-            <div className="min-w-0">
-              <p className="text-base font-medium text-foreground">{t("yolo.title")}</p>
-              <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                {t("yolo.description")}
-              </p>
-            </div>
-          </div>
-          <Switch
-            checked={yoloMode}
-            disabled={yoloModeSyncing || yoloModeRestoring}
-            onCheckedChange={(checked) => onYoloModeChange(!!checked)}
-          />
-        </div>
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border px-6 py-4">
-          <p className="text-xs leading-5 text-muted-foreground">{t("yolo.restoreHint")}</p>
+    <SettingsPageStack>
+      <SettingsGroup>
+        <SettingsToggleRow
+          title={t("yolo.title")}
+          description={t("yolo.description")}
+          checked={yoloMode}
+          disabled={yoloModeSyncing || yoloModeRestoring}
+          onCheckedChange={(checked) => onYoloModeChange(checked)}
+        />
+        <SettingsGroupRow title={t("yolo.restoreAll")} description={t("yolo.restoreHint")} wide>
           <Button
             type="button"
             size="sm"
@@ -193,64 +187,35 @@ export function CodeAgentSettingsSection({
             ) : null}
             {t("yolo.restoreAll")}
           </Button>
-        </div>
-      </div>
+        </SettingsGroupRow>
+      </SettingsGroup>
 
-      <div className="overflow-hidden rounded-2xl border border-border">
-        <div className="flex items-start justify-between gap-4 px-6 py-5">
-          <div className="flex min-w-0 items-start gap-3">
-            <Bot className="mt-0.5 size-5 shrink-0 text-foreground" />
-            <div className="min-w-0">
-              <p className="text-base font-medium text-foreground">
-                {t("showAgentName.title")}
-              </p>
-              <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                {t("showAgentName.description")}
-              </p>
-            </div>
-          </div>
-          <Switch
-            checked={showAgentNameInTerminalTitles}
-            disabled={showAgentNameInTerminalTitlesSyncing}
-            onCheckedChange={(checked) => onShowAgentNameInTerminalTitlesChange(!!checked)}
-          />
-        </div>
-      </div>
+      <SettingsGroup>
+        <SettingsToggleRow
+          title={t("showAgentName.title")}
+          description={t("showAgentName.description")}
+          checked={showAgentNameInTerminalTitles}
+          disabled={showAgentNameInTerminalTitlesSyncing}
+          onCheckedChange={(checked) => onShowAgentNameInTerminalTitlesChange(checked)}
+        />
+      </SettingsGroup>
 
       <AgentActivityIndicatorsSettingsSection />
 
-      <Collapsible
+      <SettingsGroupCard
         open={builtInAgentsExpanded}
         onOpenChange={setBuiltInAgentsExpanded}
-        className="overflow-hidden rounded-2xl border border-border"
+        title={t("builtIn.title")}
+        description={t("builtIn.description")}
       >
-        <div className="flex items-start justify-between gap-4 px-6 py-5">
-          <CollapsibleTrigger className="group min-w-0 flex-1 cursor-pointer text-left">
-            <div className="flex items-start gap-3">
-              <span className="relative mt-0.5 size-5 shrink-0">
-                <Package className="absolute inset-0 size-5 transition-opacity duration-150 group-hover:opacity-0" />
-                <ChevronDown className="absolute inset-0 size-5 opacity-0 transition-all duration-150 group-hover:opacity-100 group-data-[state=closed]:-rotate-90" />
-              </span>
-              <div className="min-w-0">
-                <p className="text-base font-medium text-foreground">{t("builtIn.title")}</p>
-                <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                  {t("builtIn.description")}
-                </p>
-              </div>
-            </div>
-          </CollapsibleTrigger>
-        </div>
-
-        <CollapsibleContent>
-          {agentSettingsLoading ? (
-            <div className="space-y-3 border-t border-border px-6 py-4">
-              <Skeleton className="h-14 w-full rounded-xl" />
-              <Skeleton className="h-14 w-full rounded-xl" />
-              <Skeleton className="h-14 w-full rounded-xl" />
-            </div>
-          ) : (
-            <div className="border-t border-border px-4">
-              {AGENT_OPTIONS.map((agent) => {
+        {agentSettingsLoading ? (
+          <div className="space-y-3 py-3">
+            <Skeleton className="h-14 w-full rounded-xl" />
+            <Skeleton className="h-14 w-full rounded-xl" />
+            <Skeleton className="h-14 w-full rounded-xl" />
+          </div>
+        ) : (
+          AGENT_OPTIONS.map((agent) => {
                 const custom = agentCustomSettings[agent.id];
                 const isOpen = builtInAgentOpen[agent.id] ?? false;
                 const defaults = resolveAgentLaunchFlags(agent, yoloMode);
@@ -276,16 +241,11 @@ export function CodeAgentSettingsSection({
                     key={agent.id}
                     open={isOpen}
                     onOpenChange={(open) => setBuiltInAgentOpen((prev) => ({ ...prev, [agent.id]: open }))}
-                    className="border-b border-border px-2 py-4 last:border-b-0"
+                    className="border-b border-border/60 px-2 py-3 last:border-b-0"
                   >
                     <div className="flex items-center gap-3">
-                      <CollapsibleTrigger className="group flex min-w-0 flex-1 cursor-pointer items-center gap-3 text-left">
-                        <span className="relative size-5 shrink-0">
-                          <span className="absolute inset-0 transition-opacity duration-150 group-hover:opacity-0">
-                            <AgentIcon registryId={agent.id} name={agent.label} size={20} />
-                          </span>
-                          <ChevronDown className="absolute inset-0 size-5 opacity-0 transition-all duration-150 group-hover:opacity-100 group-data-[state=closed]:-rotate-90" />
-                        </span>
+                      <CollapsibleTrigger className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 text-left">
+                        <AgentIcon registryId={agent.id} name={agent.label} size={20} />
                         <div className="min-w-0 flex-1">
                           <p className="text-sm font-medium text-foreground">{agent.label}</p>
                           <p className="mt-1 truncate text-xs text-muted-foreground">
@@ -303,6 +263,11 @@ export function CodeAgentSettingsSection({
                           disabled={isSyncingEnabled}
                           onCheckedChange={(checked) => onBuiltInEnabledChange(agent.id, !!checked)}
                         />
+                        <CollapsibleTrigger className="cursor-pointer text-muted-foreground">
+                          <ChevronDown
+                            className={`size-4 transition-transform duration-150 ${!isOpen ? "-rotate-90" : ""}`}
+                          />
+                        </CollapsibleTrigger>
                       </div>
                     </div>
 
@@ -345,46 +310,28 @@ export function CodeAgentSettingsSection({
                     </CollapsibleContent>
                   </Collapsible>
                 );
-              })}
-            </div>
-          )}
-        </CollapsibleContent>
-      </Collapsible>
+              })
+        )}
+      </SettingsGroupCard>
 
-      <Collapsible
+      <SettingsGroupCard
         open={customAgentsExpanded}
         onOpenChange={setCustomAgentsExpanded}
-        className="overflow-hidden rounded-2xl border border-border"
-      >
-        <div className="flex items-start justify-between gap-4 px-6 py-5">
-          <CollapsibleTrigger className="group min-w-0 flex-1 cursor-pointer text-left">
-            <div className="flex items-start gap-3">
-              <span className="relative mt-0.5 size-5 shrink-0">
-                <UserCog className="absolute inset-0 size-5 transition-opacity duration-150 group-hover:opacity-0" />
-                <ChevronDown className="absolute inset-0 size-5 opacity-0 transition-all duration-150 group-hover:opacity-100 group-data-[state=closed]:-rotate-90" />
-              </span>
-              <div className="min-w-0">
-                <p className="text-base font-medium text-foreground">{t("custom.title")}</p>
-                <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                  {t("custom.description")}
-                </p>
-              </div>
-            </div>
-          </CollapsibleTrigger>
+        title={t("custom.title")}
+        description={t("custom.description")}
+        headerEnd={
           <Button variant="outline" onClick={onAddCustomAgent}>
             <Plus className="mr-2 size-4" />
             {t("custom.addAgent")}
           </Button>
-        </div>
-
-        <CollapsibleContent>
+        }
+      >
           {customAgents.length === 0 ? (
-            <div className="border-t border-border px-6 py-5 text-sm text-muted-foreground">
+            <div className="py-3 text-sm text-muted-foreground">
               {t("custom.empty")}
             </div>
           ) : (
-            <div className="border-t border-border px-4">
-              {customAgents.map((agent) => {
+            customAgents.map((agent) => {
                 const isOpen = customAgentOpen[agent.id] ?? false;
                 const savedAgent = savedCustomAgents.find((item) => item.id === agent.id);
                 const isDirty =
@@ -403,14 +350,11 @@ export function CodeAgentSettingsSection({
                     key={agent.id}
                     open={isOpen}
                     onOpenChange={(open) => setCustomAgentOpen((prev) => ({ ...prev, [agent.id]: open }))}
-                    className="border-b border-border px-2 py-4 last:border-b-0"
+                    className="border-b border-border/60 px-2 py-3 last:border-b-0"
                   >
                     <div className="flex items-center gap-3">
-                      <CollapsibleTrigger className="group flex min-w-0 flex-1 cursor-pointer items-center gap-3 text-left">
-                        <span className="relative size-5 shrink-0">
-                          <Bot className="absolute inset-0 size-5 transition-opacity duration-150 group-hover:opacity-0" />
-                          <ChevronDown className="absolute inset-0 size-5 opacity-0 transition-all duration-150 group-hover:opacity-100 group-data-[state=closed]:-rotate-90" />
-                        </span>
+                      <CollapsibleTrigger className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 text-left">
+                        <Bot className="size-5 shrink-0 text-muted-foreground" />
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-sm font-medium text-foreground">
                             {agent.label || t("custom.newAgent")}
@@ -430,6 +374,11 @@ export function CodeAgentSettingsSection({
                           disabled={isSyncingEnabled}
                           onCheckedChange={(checked) => onCustomAgentEnabledChange(agent.id, !!checked)}
                         />
+                        <CollapsibleTrigger className="cursor-pointer text-muted-foreground">
+                          <ChevronDown
+                            className={`size-4 transition-transform duration-150 ${!isOpen ? "-rotate-90" : ""}`}
+                          />
+                        </CollapsibleTrigger>
                       </div>
                       <button
                         className="flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
@@ -480,11 +429,9 @@ export function CodeAgentSettingsSection({
                     </CollapsibleContent>
                   </Collapsible>
                 );
-              })}
-            </div>
+              })
           )}
-        </CollapsibleContent>
-      </Collapsible>
+      </SettingsGroupCard>
 
       <CodeAgentRunConfigSettingsSection
         agentOptions={runConfigAgentOptions}
@@ -515,6 +462,6 @@ export function CodeAgentSettingsSection({
       />
 
       <AgentHookStatusCard />
-    </div>
+    </SettingsPageStack>
   );
 }

@@ -69,11 +69,11 @@ export function TerminalChrome({
   const scrollbarWidth = Math.max(2, 6 * normalizedTerminalScale);
   const scrollbarHoverWidth = Math.max(3, 8 * normalizedTerminalScale);
   const scrollbarOffset = Math.max(1, 2 * normalizedTerminalScale);
-  // Inset the square xterm canvas from the rounded-xl card. Bottom
-  // matches top so the AI-input trigger is not sitting in a taller
-  // empty band than the padding below it.
-  const padTop = 8 * normalizedTerminalScale;
-  const padSide = 12 * normalizedTerminalScale;
+  // Tight inset so split panes sit close to the 1px divider. No right
+  // padding — the overlay scrollbar already occupies that edge.
+  const padTop = 2 * normalizedTerminalScale;
+  const padLeft = 8 * normalizedTerminalScale;
+  const padRight = 0;
   const padBottom = 8 * normalizedTerminalScale;
   const terminalScrollbarStyle = {
     "--atmos-terminal-scrollbar-width": `${scrollbarWidth}px`,
@@ -100,8 +100,8 @@ export function TerminalChrome({
       style={{
         width: "100%",
         height: "100%",
-        padding: `${padTop}px ${padSide}px ${padBottom}px ${padSide}px`,
-        backgroundColor: "transparent",
+        padding: `${padTop}px ${padRight}px ${padBottom}px ${padLeft}px`,
+        backgroundColor: currentTheme.background ?? "transparent",
         position: "relative",
         boxSizing: "border-box",
       }}

@@ -75,7 +75,7 @@ export const AgentManagerView: React.FC = () => {
   return (
     <div className="flex h-full flex-col overflow-hidden bg-background">
       <div
-        className="border-b border-border bg-background/50 px-8 py-6 backdrop-blur-sm sticky top-0 z-10 cursor-pointer"
+        className="sticky top-0 z-10 cursor-pointer bg-background/50 px-8 py-6 backdrop-blur-sm"
         onMouseEnter={() => setIconHovered(true)}
         onMouseLeave={() => setIconHovered(false)}
         onClick={handleViewChange}

@@ -299,12 +299,12 @@ export function DesktopUsePermissionsPanel({
         return (
           <div
             key={name}
-            className="border-b border-border px-2 py-4 last:border-b-0"
+            className="border-b border-border/60 px-2 py-3 last:border-b-0"
           >
-            <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-8">
+            <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-6">
               <div>
-                <p className="text-base font-medium text-foreground">{title}</p>
-                <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                <p className="text-sm font-medium text-foreground">{title}</p>
+                <p className="mt-1 text-xs leading-5 text-muted-foreground">
                   {description}
                 </p>
               </div>

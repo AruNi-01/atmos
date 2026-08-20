@@ -140,6 +140,21 @@ pre.shiki-line-numbers code:has(.line:nth-child(2)) .line::before {
 }
 
 @layer base {
+/*
+ * Match the desktop window background (#06070b) before .dark lands.
+ * :root tokens are light; without this the titlebar / rounded chrome
+ * flashes white while the theme script (or hydration) catches up.
+ */
+html {
+  background-color: #06070b;
+  color-scheme: dark;
+}
+
+html.light {
+  background-color: oklch(1 0 0);
+  color-scheme: light;
+}
+
 html:not([data-theme-ready="true"]) body {
   visibility: hidden;
 }
@@ -524,6 +539,21 @@ html:not([data-theme-ready="true"]) body {
   animation: welcome-placeholder-hint-slide 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
+@keyframes atmos-logo-breathe {
+  0%,
+  100% {
+    color: color-mix(in oklab, var(--foreground) 28%, var(--background));
+  }
+  50% {
+    color: var(--foreground);
+  }
+}
+
+.atmos-logo-breathe {
+  color: var(--foreground);
+  animation: atmos-logo-breathe 2.6s ease-in-out infinite;
+}
+
 /* Reduced motion */
 @media (prefers-reduced-motion: reduce) {
   ::view-transition-old(*),
@@ -537,6 +567,11 @@ html:not([data-theme-ready="true"]) body {
   .agent-attention-ring,
   .agent-attention-ring-tab {
     animation-duration: 0s !important;
+  }
+
+  .atmos-logo-breathe {
+    animation: none;
+    color: color-mix(in oklab, var(--foreground) 72%, var(--background));
   }
 }
 

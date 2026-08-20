@@ -18,13 +18,82 @@ use tracing::{debug, info, warn};
 
 use crate::error::{Result, ServiceError};
 
-use super::{is_usable_browser_size, SessionCommand};
+use super::{is_usable_browser_size, SessionCommand, HYDRATION_COMPLETE_MESSAGE};
 
 type PtySetup = (
     Box<dyn portable_pty::MasterPty + Send>,
     Box<dyn std::io::Read + Send>,
     Box<dyn std::io::Write + Send>,
 );
+
+// Control mode emits one response for attach-session itself, followed by one
+// for each initialization command Atmos writes (resize-window, refresh-client).
+const INITIAL_CONTROL_RESPONSES: u8 = 3;
+
+fn consume_initial_control_response(remaining: &mut u8) -> bool {
+    if *remaining > 0 {
+        *remaining -= 1;
+    }
+    *remaining > 0
+}
+
+fn should_forward_control_output(hydration_complete: &AtomicBool) -> bool {
+    hydration_complete.load(Ordering::Acquire)
+}
+
+fn is_hydration_complete_notification(notification: &str) -> bool {
+    notification
+        .strip_prefix("%message ")
+        .is_some_and(|message| message == HYDRATION_COMPLETE_MESSAGE)
+}
+
+fn parse_control_client_name(raw: &str, client_pid: u32) -> Option<String> {
+    raw.lines().find_map(|line| {
+        let mut parts = line.split('|');
+        let name = parts.next()?.trim();
+        let pid = parts.next()?.trim().parse::<u32>().ok()?;
+        let control_mode = parts.next()?.trim();
+        (pid == client_pid && control_mode == "1" && !name.is_empty()).then(|| name.to_string())
+    })
+}
+
+fn resolve_control_client_name(
+    socket_path: &str,
+    client_session: &str,
+    client_pid: u32,
+) -> Result<String> {
+    let mut command = std::process::Command::new("tmux");
+    command.args([
+        "-u",
+        "-f",
+        "/dev/null",
+        "-S",
+        socket_path,
+        "list-clients",
+        "-t",
+        client_session,
+        "-F",
+        "#{client_name}|#{client_pid}|#{client_control_mode}",
+    ]);
+    apply_utf8_env_to_tmux_command(&mut command);
+    let output = command.output().map_err(|error| {
+        ServiceError::Processing(format!("Failed to list tmux control clients: {}", error))
+    })?;
+    if !output.status.success() {
+        return Err(ServiceError::Processing(format!(
+            "Failed to list tmux control clients: {}",
+            String::from_utf8_lossy(&output.stderr).trim()
+        )));
+    }
+    parse_control_client_name(&String::from_utf8_lossy(&output.stdout), client_pid).ok_or_else(
+        || {
+            ServiceError::Processing(format!(
+                "Tmux control client process {} not found in session '{}'",
+                client_pid, client_session
+            ))
+        },
+    )
+}
 
 fn is_utf8_locale(value: &str) -> bool {
     let upper = value.to_ascii_uppercase();
@@ -147,7 +216,7 @@ pub(super) fn run_control_mode_tmux_session(
     rows: u16,
     mut command_rx: mpsc::UnboundedReceiver<SessionCommand>,
     output_tx: mpsc::UnboundedSender<Vec<u8>>,
-    init_tx: oneshot::Sender<Result<()>>,
+    init_tx: oneshot::Sender<Result<String>>,
 ) {
     if let Err(error) = wait_for_tmux_session(&client_session, &socket_path) {
         let _ = init_tx.send(Err(error));
@@ -209,6 +278,9 @@ pub(super) fn run_control_mode_tmux_session(
 
     let running = Arc::new(AtomicBool::new(true));
     let reader_running = running.clone();
+    let hydration_complete = Arc::new(AtomicBool::new(false));
+    let reader_hydration_complete = hydration_complete.clone();
+    let (init_ready_tx, init_ready_rx) = std::sync::mpsc::sync_channel::<()>(1);
     let reader_session_id = session_id.clone();
     let reader_pane_id = pane_id.clone();
     let reader_handle = thread::spawn(move || {
@@ -225,26 +297,21 @@ pub(super) fn run_control_mode_tmux_session(
             .flatten()
             .unwrap_or_default();
 
-        // Suppress %output bytes that flow during the tmux control client's
-        // initial attach/resize/refresh cycle. Those bytes are tmux replaying
-        // the pane's current visible state — the exact same content that
-        // `capture_pane_snapshot` (called by the caller right after this
-        // thread finishes init) hands the frontend as a one-shot JSON snapshot
-        // applied via xterm `writeSync`. Forwarding the replay too would force
-        // the slow rAF-batched `term.write()` path to redraw the same pixels,
-        // which is what users see as "the terminal slowly scrolls from the
-        // top" after switching workspaces or reattaching.
+        // Suppress %output until the caller captures the hydration snapshot.
+        // Attach/resize/refresh output is tmux replaying the current viewport;
+        // forwarding it after the snapshot would render the same cells twice.
+        // An ordered tmux message marks the snapshot/live boundary; the
+        // HydrationComplete command is only a degraded fallback.
         //
         // Boundary: tmux processes commands serially in its event loop and
-        // emits %begin/%end (or %error on failure) per command. We send
-        // exactly two init commands below (resize-window + refresh-client),
-        // so the 2nd %end / %error means all redundant repaint %output is
-        // behind us and any subsequent %output is genuine PTY activity.
+        // emits %begin/%end (or %error on failure) for the initial attach plus
+        // each command. Snapshot capture starts only after attach-session,
+        // resize-window, and refresh-client have all responded.
         //
         // Still parse mouse modes during suppress: apps often re-DECSET mouse
         // on SIGWINCH from our init resize, and those sequences must not be lost.
-        let mut suppress_pane_output = true;
-        let mut init_responses_remaining: u8 = 2;
+        let mut init_responses_remaining = INITIAL_CONTROL_RESPONSES;
+        let mut init_ready_tx = Some(init_ready_tx);
 
         while reader_running.load(Ordering::SeqCst) {
             line.clear();
@@ -271,7 +338,7 @@ pub(super) fn run_control_mode_tmux_session(
                                 );
                             }
                         }
-                        if suppress_pane_output {
+                        if !should_forward_control_output(&reader_hydration_complete) {
                             continue;
                         }
                         // Preserve synchronized-output markers. Modern TUIs use
@@ -282,10 +349,9 @@ pub(super) fn run_control_mode_tmux_session(
                         }
                     }
                     Some(ControlModeEvent::End) => {
-                        if init_responses_remaining > 0 {
-                            init_responses_remaining -= 1;
-                            if init_responses_remaining == 0 {
-                                suppress_pane_output = false;
+                        if !consume_initial_control_response(&mut init_responses_remaining) {
+                            if let Some(tx) = init_ready_tx.take() {
+                                let _ = tx.send(());
                             }
                         }
                     }
@@ -306,11 +372,15 @@ pub(super) fn run_control_mode_tmux_session(
                         // %end does, so it still counts against our init
                         // response budget — otherwise a failed init command
                         // would leave the suppress flag stuck forever.
-                        if init_responses_remaining > 0 {
-                            init_responses_remaining -= 1;
-                            if init_responses_remaining == 0 {
-                                suppress_pane_output = false;
+                        if !consume_initial_control_response(&mut init_responses_remaining) {
+                            if let Some(tx) = init_ready_tx.take() {
+                                let _ = tx.send(());
                             }
+                        }
+                    }
+                    Some(ControlModeEvent::Notification(notification)) => {
+                        if is_hydration_complete_notification(&notification) {
+                            reader_hydration_complete.store(true, Ordering::Release);
                         }
                     }
                     Some(_) | None => {}
@@ -368,7 +438,38 @@ pub(super) fn run_control_mode_tmux_session(
         return;
     }
 
-    if init_tx.send(Ok(())).is_err() {
+    if init_ready_rx
+        .recv_timeout(std::time::Duration::from_secs(5))
+        .is_err()
+    {
+        let _ = init_tx.send(Err(ServiceError::Processing(
+            "Tmux control client initialization timed out".to_string(),
+        )));
+        running.store(false, Ordering::SeqCst);
+        let _ = child.kill();
+        let _ = reader_handle.join();
+        if let Some(handle) = stderr_handle {
+            let _ = handle.join();
+        }
+        return;
+    }
+
+    let control_client_name =
+        match resolve_control_client_name(&socket_path, &client_session, child.id()) {
+            Ok(name) => name,
+            Err(error) => {
+                let _ = init_tx.send(Err(error));
+                running.store(false, Ordering::SeqCst);
+                let _ = child.kill();
+                let _ = reader_handle.join();
+                if let Some(handle) = stderr_handle {
+                    let _ = handle.join();
+                }
+                return;
+            }
+        };
+
+    if init_tx.send(Ok(control_client_name)).is_err() {
         running.store(false, Ordering::SeqCst);
         let _ = child.kill();
         let _ = reader_handle.join();
@@ -454,6 +555,9 @@ pub(super) fn run_control_mode_tmux_session(
                     }
                     last_pinned_cols = cols;
                     last_pinned_rows = rows;
+                }
+                SessionCommand::HydrationComplete => {
+                    hydration_complete.store(true, Ordering::Release);
                 }
                 SessionCommand::Close {
                     client_session,
@@ -665,6 +769,7 @@ pub(super) fn run_simple_pty_session(
                         warn!("Failed to resize PTY for session {}: {}", session_id, e);
                     }
                 }
+                SessionCommand::HydrationComplete => {}
                 SessionCommand::Close { .. } => {
                     debug!("Closing session {}", session_id);
                     break;
@@ -676,4 +781,57 @@ pub(super) fn run_simple_pty_session(
     // Wait for reader thread to finish
     let _ = reader_handle.join();
     debug!("PTY session thread exited for session: {}", session_id);
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::atomic::{AtomicBool, Ordering};
+
+    use super::{
+        consume_initial_control_response, is_hydration_complete_notification,
+        parse_control_client_name, should_forward_control_output, INITIAL_CONTROL_RESPONSES,
+    };
+
+    #[test]
+    fn initial_output_gate_waits_for_attach_resize_and_refresh() {
+        let mut remaining = INITIAL_CONTROL_RESPONSES;
+
+        assert!(consume_initial_control_response(&mut remaining));
+        assert!(consume_initial_control_response(&mut remaining));
+        assert!(!consume_initial_control_response(&mut remaining));
+        assert_eq!(remaining, 0);
+    }
+
+    #[test]
+    fn output_stays_suppressed_after_init_until_snapshot_hydration_completes() {
+        let hydration_complete = AtomicBool::new(false);
+        let mut remaining = INITIAL_CONTROL_RESPONSES;
+
+        while consume_initial_control_response(&mut remaining) {}
+        assert!(!should_forward_control_output(&hydration_complete));
+
+        hydration_complete.store(true, Ordering::Release);
+        assert!(should_forward_control_output(&hydration_complete));
+    }
+
+    #[test]
+    fn hydration_marker_matches_only_the_targeted_control_message() {
+        assert!(is_hydration_complete_notification(
+            "%message atmos-hydration-complete"
+        ));
+        assert!(!is_hydration_complete_notification(
+            "%message another-message"
+        ));
+        assert!(!is_hydration_complete_notification("%window-add @1"));
+    }
+
+    #[test]
+    fn control_client_name_is_bound_to_the_spawned_process() {
+        let clients = "client-10|10|1\nclient-20|20|1\nclient-30|30|0";
+        assert_eq!(
+            parse_control_client_name(clients, 20).as_deref(),
+            Some("client-20")
+        );
+        assert_eq!(parse_control_client_name(clients, 30), None);
+    }
 }

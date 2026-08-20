@@ -11,6 +11,9 @@ import { Button, Input, cn } from "@workspace/ui";
 import { Loader2 } from "lucide-react";
 import { getHubAuthClient } from "@/api/hub-auth-client";
 import { useQueryClient } from "@tanstack/react-query";
+import {
+  SettingsGroupCard,
+} from "@/features/settings/components/settings/SettingsGroupCard";
 
 const NAME_MAX = 32;
 
@@ -66,14 +69,10 @@ export function HubNameSettingsCard({
   };
 
   return (
-    <section className="overflow-hidden rounded-xl border border-border bg-background text-foreground shadow-none">
-      <div className="flex items-start justify-between gap-4 border-b border-border px-6 py-4">
-        <div className="min-w-0 space-y-1">
-          <p className="text-base font-semibold leading-none">{t("nameTitle")}</p>
-          <p className="text-sm text-muted-foreground">
-            {t("nameDescription")}
-          </p>
-        </div>
+    <SettingsGroupCard
+      title={t("nameTitle")}
+      description={t("nameDescription")}
+      headerEnd={
         <Button
           type="button"
           size="sm"
@@ -84,9 +83,9 @@ export function HubNameSettingsCard({
           {busy ? <Loader2 className="size-3.5 animate-spin" /> : null}
           {t("nameSave")}
         </Button>
-      </div>
-
-      <div className="space-y-2 px-6 py-4">
+      }
+    >
+      <div className="space-y-2 px-2 py-3">
         <Input
           value={name}
           onChange={(e) => {
@@ -115,6 +114,6 @@ export function HubNameSettingsCard({
         ) : null}
         {error ? <p className="text-xs text-destructive">{error}</p> : null}
       </div>
-    </section>
+    </SettingsGroupCard>
   );
 }

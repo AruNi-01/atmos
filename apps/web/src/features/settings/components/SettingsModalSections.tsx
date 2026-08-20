@@ -27,8 +27,10 @@ import { WorkspaceSettingsSection } from '@/features/settings/components/Workspa
 import { SettingsAboutSection } from '@/features/settings/components/SettingsAboutSection';
 import { SettingsAiSection, type ProviderTestState } from '@/features/settings/components/SettingsAiSection';
 import type { LocalAgentOption } from '@/app-shell/llm-providers-modal-utils';
+import { SettingsPageStack, SettingsSection } from '@/features/settings/components/settings/SettingsGroupCard';
 import type { SettingsSectionId } from '@/features/settings/components/settings-modal-data';
 import type { TerminalAgentSavedRunConfig } from '@/features/agent/lib/terminal-agent-run-config';
+import { useTranslations } from 'next-intl';
 
 type BuiltInAgentSettings = Record<string, { cmd?: string; flags?: string; enabled?: boolean }>;
 type AgentOption = { id: string; label: string };
@@ -165,21 +167,52 @@ interface SettingsModalSectionsProps {
   onTestPushServer: (index: number) => Promise<{ ok: boolean; error?: string }>;
 }
 
+function NestedSettingsSection({
+  id,
+  titleKey,
+  children,
+}: {
+  id: string;
+  titleKey:
+    | 'labels'
+    | 'atmosComputer'
+    | 'tunnelConnector'
+    | 'integrations'
+    | 'browser'
+    | 'desktopUse';
+  children: React.ReactNode;
+}) {
+  const t = useTranslations('settings.modal');
+  return (
+    <SettingsSection
+      id={id}
+      title={t(`sections.${titleKey}.label`)}
+      description={t(`sections.${titleKey}.description`)}
+    >
+      {children}
+    </SettingsSection>
+  );
+}
+
 export function SettingsModalSections(props: SettingsModalSectionsProps) {
   switch (props.activeSection) {
-    case 'about':
+    case 'general':
       return (
-        <SettingsAboutSection
-          appVersion={props.appVersion}
-          cliVersionInfo={props.cliVersionInfo}
-          isInstallingCli={props.isInstallingCli}
-          isCheckingCliVersion={props.isCheckingCliVersion}
-          isCheckingDesktopUpdate={props.isCheckingDesktopUpdate}
-          status={props.status}
-          onInstallCli={props.onInstallCli}
-          onCheckCliVersion={props.onCheckCliVersion}
-          onCheckForUpdate={props.onCheckForUpdate}
-        />
+        <SettingsPageStack>
+          <AppearanceSettingsSection />
+          <SettingsAboutSection
+            appVersion={props.appVersion}
+            cliVersionInfo={props.cliVersionInfo}
+            isInstallingCli={props.isInstallingCli}
+            isCheckingCliVersion={props.isCheckingCliVersion}
+            isCheckingDesktopUpdate={props.isCheckingDesktopUpdate}
+            status={props.status}
+            onInstallCli={props.onInstallCli}
+            onCheckCliVersion={props.onCheckCliVersion}
+            onCheckForUpdate={props.onCheckForUpdate}
+          />
+          <ExperimentSettingsSection />
+        </SettingsPageStack>
       );
     case 'terminal':
       return (
@@ -200,7 +233,7 @@ export function SettingsModalSections(props: SettingsModalSectionsProps) {
           setMaxGlobalTerminalPanes={props.setMaxGlobalTerminalPanes}
         />
       );
-    case 'code-agent':
+    case 'agents':
       return (
         <CodeAgentSettingsSection
           agentCustomSettings={props.agentCustomSettings}
@@ -262,16 +295,17 @@ export function SettingsModalSections(props: SettingsModalSectionsProps) {
         />
       );
     case 'workspace':
-      return <WorkspaceSettingsSection />;
-    case 'labels':
-      return <LabelSettingsSection />;
-    case 'appearance':
-      return <AppearanceSettingsSection />;
+      return (
+        <SettingsPageStack>
+          <WorkspaceSettingsSection />
+          <NestedSettingsSection id="labels" titleKey="labels">
+            <LabelSettingsSection />
+          </NestedSettingsSection>
+        </SettingsPageStack>
+      );
     case 'account':
       return <AccountSettingsSection />;
-    case 'integrations':
-      return <IntegrationsSettingsSection />;
-    case 'ai':
+    case 'models':
       return (
         <SettingsAiSection
           handleLlmConfigUpdate={props.handleLlmConfigUpdate}
@@ -292,7 +326,7 @@ export function SettingsModalSections(props: SettingsModalSectionsProps) {
           setRoutingExpanded={props.setRoutingExpanded}
         />
       );
-    case 'notify':
+    case 'notifications':
       return (
         <NotifySettingsSection
           settings={props.notifySettings}
@@ -310,26 +344,44 @@ export function SettingsModalSections(props: SettingsModalSectionsProps) {
           onTestPushServer={props.onTestPushServer}
         />
       );
-    case 'tunnel-connector':
-      return <TunnelConnectorSection />;
-    case 'atmos-computer':
-      return <AtmosComputerSection />;
-    case 'desktop-use':
-      return <DesktopUseSettingsSection />;
-    case 'browser':
-      return <BrowserSettingsSection />;
-    case 'permission-access':
+    case 'remote-access':
+      return (
+        <SettingsPageStack>
+          <NestedSettingsSection id="atmos-computer" titleKey="atmosComputer">
+            <AtmosComputerSection />
+          </NestedSettingsSection>
+          <NestedSettingsSection id="tunnel-connector" titleKey="tunnelConnector">
+            <TunnelConnectorSection />
+          </NestedSettingsSection>
+        </SettingsPageStack>
+      );
+    case 'apps':
+      return (
+        <SettingsPageStack>
+          <NestedSettingsSection id="integrations" titleKey="integrations">
+            <IntegrationsSettingsSection />
+          </NestedSettingsSection>
+          <NestedSettingsSection id="browser" titleKey="browser">
+            <BrowserSettingsSection />
+          </NestedSettingsSection>
+          <NestedSettingsSection id="desktop-use" titleKey="desktopUse">
+            <DesktopUseSettingsSection />
+          </NestedSettingsSection>
+        </SettingsPageStack>
+      );
+    case 'privacy':
       return <PermissionAccessSettingsSection />;
-    case 'shortcuts':
+    case 'keyboard':
       return <ShortcutsSettingsSection />;
-    case 'experiments':
-      return <ExperimentSettingsSection />;
-    case 'layout':
+    case 'interface':
       return <LayoutSettingsSection />;
     case 'editor':
-      return <EditorSettingsSection />;
-    case 'canvas':
-      return <CanvasSettingsSection />;
+      return (
+        <SettingsPageStack>
+          <EditorSettingsSection />
+          <CanvasSettingsSection />
+        </SettingsPageStack>
+      );
     default:
       return null;
   }

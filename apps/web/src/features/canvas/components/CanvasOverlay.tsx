@@ -38,7 +38,7 @@ function CanvasOverlayLoading() {
 /**
  * Full-screen immersive Canvas overlay.
  *
- * Lives at the top of the app layout (next to <WorkspaceCreationOverlay/>) so it
+ * Lives at the top of the app layout so it
  * covers the entire app — including sidebars and header — when the `canvas=true`
  * query param is active. Open with the Canvas item in Launchpad;
  * collapse via the chevron-down "pull tab" rendered at the top-center (mirrors

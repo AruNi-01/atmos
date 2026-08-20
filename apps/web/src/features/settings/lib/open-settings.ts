@@ -14,9 +14,10 @@ type NavigationLike = {
   entries?: () => Array<{ url?: string }>;
 };
 
-export function settingsHref(tab?: SettingsModalTab | null): string {
+export function settingsHref(tab?: SettingsModalTab | null, hash?: string): string {
   if (!tab) return "/settings";
-  return `/settings?activeSettingTab=${tab}`;
+  const href = `/settings?activeSettingTab=${tab}`;
+  return hash ? `${href}#${hash}` : href;
 }
 
 export function leaveSettingsPage(router: { replace: (path: string) => void }): void {
@@ -35,9 +36,9 @@ export function useOpenSettings() {
   const router = useAppRouter();
 
   return useCallback(
-    (tab?: SettingsModalTab | null) => {
+    (tab?: SettingsModalTab | null, hash?: string) => {
       rememberSettingsReturnPath();
-      router.push(settingsHref(tab));
+      router.push(settingsHref(tab, hash));
     },
     [router],
   );

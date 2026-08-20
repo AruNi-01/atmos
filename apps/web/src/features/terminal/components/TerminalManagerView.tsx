@@ -112,7 +112,7 @@ export const TerminalManagerView: React.FC = () => {
 
   return (
     <div className="flex flex-col h-full overflow-hidden bg-background">
-      <div className="border-b border-border bg-background/50 px-8 py-6 backdrop-blur-sm sticky top-0 z-10">
+      <div className="sticky top-0 z-10 bg-background/50 px-8 py-6 backdrop-blur-sm">
         <div className="flex items-center justify-between gap-6 max-w-5xl mx-auto w-full">
           <div className="flex items-center gap-4">
             <div className="flex size-12 items-center justify-center rounded-2xl bg-primary/10 text-primary shadow-sm ring-1 ring-primary/20">

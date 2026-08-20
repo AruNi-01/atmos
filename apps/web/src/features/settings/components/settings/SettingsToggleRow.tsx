@@ -9,6 +9,7 @@ interface SettingsToggleRowProps {
   description: string;
   checked: boolean;
   disabled?: boolean;
+  trailing?: React.ReactNode;
   onCheckedChange: (checked: boolean) => void;
 }
 
@@ -21,19 +22,27 @@ export function SettingsToggleRow({
   description,
   checked,
   disabled,
+  trailing,
   onCheckedChange,
 }: SettingsToggleRowProps) {
   return (
-    <div className="border-b border-border px-2 py-4 last:border-b-0">
-      <div className="grid grid-cols-[minmax(0,1fr)_100px] gap-8">
+    <div className="border-b border-border/60 px-2 py-3 last:border-b-0">
+      <div
+        className={
+          trailing
+            ? 'grid grid-cols-[minmax(0,1fr)_auto] gap-6'
+            : 'grid grid-cols-[minmax(0,1fr)_100px] gap-6'
+        }
+      >
         <div className={icon ? 'flex gap-3' : undefined}>
           {icon ? <span className="mt-0.5 size-4 shrink-0 text-muted-foreground">{icon}</span> : null}
           <div>
             <p className="text-sm font-medium text-foreground">{title}</p>
-            <p className="mt-1 text-xs text-muted-foreground">{description}</p>
+            <p className="mt-1 text-xs leading-5 text-muted-foreground">{description}</p>
           </div>
         </div>
-        <div className="flex items-center justify-end">
+        <div className="flex items-center justify-end gap-2">
+          {trailing}
           <Switch
             checked={checked}
             disabled={disabled}

@@ -28,8 +28,11 @@ import {
   wsScriptApi,
   wsGithubApi,
 } from '@/api/ws-api';
-import { useAppRouter } from '@/shared/hooks/use-app-router';
-import { useWorkspaceCreationStore } from '@/features/workspace/store/workspace-creation-store';
+import { useContextParams } from '@/shared/hooks/use-context-params';
+import {
+  getWorkspaceCreateOriginKey,
+  useWorkspaceCreationStore,
+} from '@/features/workspace/store/workspace-creation-store';
 import {
   ISSUE_CACHE_TTL_MS,
   issueListCache,
@@ -70,12 +73,12 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
   preselectedIssue,
 }: CreateWorkspaceDialogProps) => {
   const t = useTranslations('Workspace.components');
-  const router = useAppRouter();
+  const { currentView, workspaceId: currentWorkspaceId, projectId: currentProjectId } = useContextParams();
   const projects = useProjects();
   const addWorkspace = useProjectStore((s) => s.addWorkspace);
-  const showCreating = useWorkspaceCreationStore((s) => s.showCreating);
-  const showOpening = useWorkspaceCreationStore((s) => s.showOpening);
-  const clearWorkspaceCreationOverlay = useWorkspaceCreationStore((s) => s.clear);
+  const startCreating = useWorkspaceCreationStore((s) => s.startCreating);
+  const bindWorkspace = useWorkspaceCreationStore((s) => s.bindWorkspace);
+  const failCreating = useWorkspaceCreationStore((s) => s.failCreating);
 
   const [projectId, setProjectId] = useState(() => {
     if (defaultProjectId) return defaultProjectId;
@@ -595,9 +598,17 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
 
     let keepGlobalLoading = false;
     setIsSubmitting(true);
-    showCreating();
     setBranchError(null);
     setSubmitError(null);
+    const originKey = getWorkspaceCreateOriginKey({
+      currentView,
+      workspaceId: currentWorkspaceId,
+      projectId: currentProjectId,
+    });
+    const jobId = startCreating({
+      originKey,
+      label: name.trim() || null,
+    });
     try {
       const finalDisplayName = prPreview
         ? name.trim() || prToWorkspaceName(prPreview)
@@ -667,11 +678,10 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
         labels: labelsToUse,
       });
       keepGlobalLoading = true;
-      showOpening(workspaceId);
+      bindWorkspace(jobId, workspaceId, finalDisplayName || null);
       onClose();
-      router.push(`/workspace?id=${workspaceId}`);
     } catch (error) {
-      clearWorkspaceCreationOverlay();
+      failCreating(jobId);
       const message = sanitizeCreateWorkspaceErrorMessage(
         error instanceof Error ? error.message : t('createDialog.errors.failedToCreateWorkspace'),
       );

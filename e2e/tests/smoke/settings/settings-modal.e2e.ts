@@ -9,10 +9,10 @@ import {
 } from "../support/app-smoke";
 
 const SETTINGS_HEADINGS: Record<string, RegExp> = {
-  shortcuts: /^(Shortcuts|快捷键)$/,
-  layout: /^(Layout|布局)$/,
-  "atmos-computer": /^Atmos Computer$/,
-  about: /^(About|关于)$/,
+  keyboard: /^(Keyboard|键盘)$/,
+  interface: /^(Interface|界面)$/,
+  "remote-access": /^(Remote Access|远程访问)$/,
+  general: /^(General|通用)$/,
 };
 
 test.describe("smoke settings", () => {
@@ -24,7 +24,7 @@ test.describe("smoke settings", () => {
 
     await openSettingsPage(page);
     await expect(page.getByRole("dialog", { name: /^(Settings|设置)$/ })).toHaveCount(0);
-    await expect(page.getByRole("heading", { name: /^(Layout|Appearance|布局|外观)$/ }).first()).toBeVisible();
+    await expect(page.getByRole("heading", { name: /^(Interface|General|界面|通用)$/ }).first()).toBeVisible();
 
     await closeSettingsPage(page);
   });
@@ -33,9 +33,9 @@ test.describe("smoke settings", () => {
     await stubComputerClientSettingsApi(page);
     await connectLocalComputer(page);
 
-    await gotoSettingsRoute(page, "shortcuts");
+    await gotoSettingsRoute(page, "keyboard");
     await expect(page.getByRole("dialog", { name: /^(Settings|设置)$/ })).toHaveCount(0);
-    await expect(page.getByRole("heading", { name: SETTINGS_HEADINGS.shortcuts })).toBeVisible();
+    await expect(page.getByRole("heading", { name: SETTINGS_HEADINGS.keyboard })).toBeVisible();
 
     await closeSettingsPage(page);
   });
@@ -46,7 +46,7 @@ test.describe("smoke settings", () => {
     await stubComputerClientSettingsApi(page);
     await connectLocalComputer(page);
 
-    for (const activeSettingTab of ["layout", "atmos-computer", "about"] as const) {
+    for (const activeSettingTab of ["interface", "remote-access", "general"] as const) {
       await gotoSettingsRoute(page, activeSettingTab);
       await expect(page.getByRole("dialog", { name: /^(Settings|设置)$/ })).toHaveCount(0);
       await expect

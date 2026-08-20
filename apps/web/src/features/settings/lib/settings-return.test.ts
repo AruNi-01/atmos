@@ -26,7 +26,7 @@ describe("settings return href", () => {
         [
           { url: "https://app.atmos.local/" },
           { url: "https://app.atmos.local/project?id=p1" },
-          { url: "https://app.atmos.local/settings?activeSettingTab=about" },
+          { url: "https://app.atmos.local/settings?activeSettingTab=general" },
           { url: "https://app.atmos.local/settings?activeSettingTab=workspace" },
         ],
         "https://app.atmos.local",
@@ -38,8 +38,8 @@ describe("settings return href", () => {
     expect(
       resolveSettingsReturnHref(
         [
-          { url: "https://app.atmos.local/settings?activeSettingTab=layout" },
-          { url: "https://app.atmos.local/settings?activeSettingTab=about" },
+          { url: "https://app.atmos.local/settings?activeSettingTab=interface" },
+          { url: "https://app.atmos.local/settings?activeSettingTab=general" },
         ],
         "https://app.atmos.local",
       ),
@@ -47,8 +47,8 @@ describe("settings return href", () => {
     expect(
       findSettingsReturnHref(
         [
-          { url: "https://app.atmos.local/settings?activeSettingTab=layout" },
-          { url: "https://app.atmos.local/settings?activeSettingTab=about" },
+          { url: "https://app.atmos.local/settings?activeSettingTab=interface" },
+          { url: "https://app.atmos.local/settings?activeSettingTab=general" },
         ],
         "https://app.atmos.local",
       ),
@@ -57,7 +57,7 @@ describe("settings return href", () => {
 
   test("keeps the last workbench path when later settings URLs are ignored", () => {
     rememberSettingsReturnPath("/project?id=proj-1&tab=files");
-    rememberSettingsReturnPath("/settings?activeSettingTab=about");
+    rememberSettingsReturnPath("/settings?activeSettingTab=general");
     rememberSettingsReturnPath("/settings?activeSettingTab=workspace");
 
     expect(resolveStoredSettingsReturnPath()).toBe("/project?id=proj-1&tab=files");

@@ -136,14 +136,14 @@ test.describe("smoke workspace", () => {
       .poll(async () => new URL(page.url()).searchParams.get("lsTask") ?? "")
       .toBe("");
 
-    await gotoSettingsRoute(page, "shortcuts", { locale: "zh" });
+    await gotoSettingsRoute(page, "keyboard", { locale: "zh" });
     await expect
       .poll(async () => normalizePathname(new URL(page.url()).pathname))
       .toBe("/settings");
     await expect
       .poll(async () => new URL(page.url()).searchParams.get("activeSettingTab"))
-      .toBe("shortcuts");
-    await expect(page.getByRole("heading", { name: /^(Shortcuts|快捷键)$/ })).toBeVisible();
+      .toBe("keyboard");
+    await expect(page.getByRole("heading", { name: /^(Keyboard|键盘)$/ })).toBeVisible();
     await expect(page.getByRole("dialog", { name: /^(Settings|设置)$/ })).toHaveCount(0);
 
     await closeSettingsPage(page);

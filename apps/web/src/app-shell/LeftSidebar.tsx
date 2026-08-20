@@ -71,7 +71,10 @@ import {
   serializeWorkspaceSidebarFilters,
 } from '@/app-shell/left-sidebar-settings';
 import { isWorkspaceSetupBlocking } from '@/features/workspace/lib/workspace-setup';
-import { useWorkspaceCreationStore } from '@/features/workspace/store/workspace-creation-store';
+import {
+  getWorkspaceCreateOriginKey,
+  useWorkspaceCreationStore,
+} from '@/features/workspace/store/workspace-creation-store';
 import { useLayoutSettingsStore } from '@/features/settings/store/layout-settings-store';
 import { useExperimentSettingsStore } from '@/features/settings/store/experiment-settings-store';
 import { useInitialProjectsLoading } from '@/features/project/store/use-initial-projects-loading';
@@ -490,11 +493,11 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
     const isSettingUp = isWorkspaceSetupBlocking(
         currentWorkspaceId ? setupProgress[currentWorkspaceId] : null,
     );
-    const showCreating = useWorkspaceCreationStore((s) => s.showCreating);
-    const showOpening = useWorkspaceCreationStore((s) => s.showOpening);
-    const clearWorkspaceCreationOverlay = useWorkspaceCreationStore((s) => s.clear);
-    const openingWorkspaceId = useWorkspaceCreationStore(
-        (s) => (s.phase === 'opening' ? s.pendingWorkspaceId : null),
+    const startCreating = useWorkspaceCreationStore((s) => s.startCreating);
+    const bindWorkspace = useWorkspaceCreationStore((s) => s.bindWorkspace);
+    const failCreating = useWorkspaceCreationStore((s) => s.failCreating);
+    const openingWorkspaceIds = useWorkspaceCreationStore((s) =>
+      s.jobs.map((job) => job.workspaceId).filter((id): id is string => Boolean(id)),
     );
 
     // One-shot: onboarding/import asks the sidebar to highlight a project without
@@ -548,7 +551,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
         );
 
         if (!workspaceStillExists) {
-            if (openingWorkspaceId === currentWorkspaceId) return;
+            if (openingWorkspaceIds.includes(currentWorkspaceId)) return;
             router.replace('/');
         }
     }, [
@@ -556,7 +559,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
         currentWorkspaceId,
         hasLoadedProjects,
         isLoading,
-        openingWorkspaceId,
+        openingWorkspaceIds,
         projects,
         router,
     ]);
@@ -1002,14 +1005,19 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
     );
 
     const handleQuickAddWorkspace = async (projectId: string) => {
-        showCreating();
+        const jobId = startCreating({
+            originKey: getWorkspaceCreateOriginKey({
+                currentView,
+                workspaceId: currentWorkspaceId,
+                projectId: currentProjectIdFromUrl,
+            }),
+        });
         const workspaceId = await quickAddWorkspace(projectId);
         if (workspaceId) {
-            showOpening(workspaceId);
-            router.push(`/workspace?id=${workspaceId}`);
+            bindWorkspace(jobId, workspaceId);
             return;
         }
-        clearWorkspaceCreationOverlay();
+        failCreating(jobId);
     };
 
     const handleSetColor = async (projectId: string, color?: string) => {

@@ -93,7 +93,7 @@ type HeaderActionControlsProps = {
   setIsQuotaPopoverOpen: React.Dispatch<React.SetStateAction<boolean>>;
 };
 
-type RemoteAccessSettingsSection = "atmos-computer" | "tunnel-connector";
+type RemoteAccessSettingsHash = "atmos-computer" | "tunnel-connector";
 
 const LOCAL_SWITCH_BUSY_ID = "__local_switch__";
 
@@ -124,9 +124,9 @@ function RemoteAccessPopover({
   const openSettingsPage = useOpenSettings();
 
   const openSettings = React.useCallback(
-    (section: RemoteAccessSettingsSection) => {
+    (hash: RemoteAccessSettingsHash) => {
       setDesktopWebPopoverOpen(false);
-      openSettingsPage(section);
+      openSettingsPage("remote-access", hash);
     },
     [openSettingsPage, setDesktopWebPopoverOpen],
   );

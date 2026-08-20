@@ -21,6 +21,7 @@ import { cn } from "@/shared/lib/utils";
 import { WorkspaceSetupProgress, useProjectStore } from "@/features/project/store/use-project-store";
 import { wsScriptApi, wsWorkspaceApi } from "@/api/ws-api";
 import { MarkdownRenderer } from "@/shared/components/markdown/MarkdownRenderer";
+import { motion, useReducedMotion } from "motion/react";
 import { useHotkeys } from "react-hotkeys-hook";
 import { Terminal as XTerm } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
@@ -42,18 +43,21 @@ interface WorkspaceSetupProgressProps {
   progress: WorkspaceSetupProgress;
   onFinish: () => void;
   compact?: boolean;
+  pauseAutoFinishEnabled?: boolean;
 }
 
 export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> = ({
   progress,
   onFinish,
   compact = false,
+  pauseAutoFinishEnabled = true,
 }) => {
   const t = useTranslations("Workspace.components.setupProgress");
   const stepT = useTranslations("Workspace.components.workspaceSetup.steps");
   const { status, stepTitle, output, workspaceId, stepKey, lastStepKey, failedStepKey, setupContext } =
     progress;
   const retryWorkspaceSetup = useProjectStore((s) => s.retryWorkspaceSetup);
+  const reduceMotion = useReducedMotion();
   const needsScriptTrust = progress.requiresScriptTrust === true;
   const [isTrustingScript, setIsTrustingScript] = useState(false);
 
@@ -262,15 +266,21 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
       lastWrittenLengthRef.current = output.length;
     }
 
+    let fitFrame = 0;
     const resizeObserver = new ResizeObserver(() => {
-      if (terminalContainerRef.current) {
-        fitAddon.fit();
-      }
+      if (fitFrame) return;
+      fitFrame = window.requestAnimationFrame(() => {
+        fitFrame = 0;
+        if (terminalContainerRef.current) {
+          fitAddon.fit();
+        }
+      });
     });
     resizeObserver.observe(terminalContainerRef.current);
 
     return () => {
       resizeObserver.disconnect();
+      if (fitFrame) window.cancelAnimationFrame(fitFrame);
       term.dispose();
       terminalRef.current = null;
       lastWrittenLengthRef.current = 0;
@@ -294,7 +304,7 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
   useEffect(() => {
     if (status !== "completed") return;
 
-    if (localCountdown > 0 && !isHovered) {
+    if (localCountdown > 0 && !(isHovered && pauseAutoFinishEnabled)) {
       const timer = setInterval(() => {
         setLocalCountdownState((prev) => ({
           status,
@@ -303,7 +313,7 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
       }, 1000);
       return () => clearInterval(timer);
     }
-  }, [isHovered, localCountdown, status]);
+  }, [isHovered, localCountdown, pauseAutoFinishEnabled, status]);
 
   useEffect(() => {
     if (status === "completed" && localCountdown === 0) {
@@ -406,13 +416,20 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
     return <Circle className="size-5 text-muted-foreground" />;
   };
 
+  const statusPanelClass = cn(
+    "flex w-full items-center justify-center border text-center text-sm text-muted-foreground",
+    compact ? "rounded-lg px-4 py-5" : "min-h-[200px] flex-1 rounded-xl px-6",
+  );
+  const reviewPanelClass = cn(
+    "flex w-full flex-col overflow-hidden border bg-background",
+    compact ? "max-h-[280px] rounded-lg" : "min-h-[260px] flex-1 rounded-xl",
+  );
+  const actionSize = compact ? "sm" : "default";
+
   const renderBody = () => {
     if (status === "completed") {
       return (
-        <div className={cn(
-          "flex w-full flex-1 items-center justify-center border border-border bg-background text-center text-sm text-muted-foreground",
-          compact ? "min-h-[140px] rounded-lg px-4" : "min-h-[200px] rounded-xl px-6",
-        )}>
+        <div className={cn(statusPanelClass, "border-border bg-background")}>
           <div className="max-w-md space-y-2">
             <p className="text-sm font-medium text-foreground">{t("states.readyTitle")}</p>
             <p>{t("states.readyDescription")}</p>
@@ -423,21 +440,23 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
 
     if (showTerminalPanel) {
       return (
-          <div className={cn(
-            "relative flex w-full flex-1 flex-col overflow-hidden border border-border bg-[#09090b]",
-            compact ? "min-h-[180px] rounded-lg shadow-lg" : "min-h-[60px] rounded-xl shadow-2xl",
-          )}>
+        <div
+          className={cn(
+            "relative flex w-full flex-col overflow-hidden border border-border bg-[#09090b]",
+            compact ? "h-52 rounded-lg" : "min-h-[60px] flex-1 rounded-xl",
+          )}
+        >
           <div className="flex items-center justify-between border-b border-white/5 bg-[#161b22] px-4 py-2">
             <div className="flex gap-1.5">
               <div className="size-2.5 rounded-full bg-[#ff5f56]" />
-            <div className="size-2.5 rounded-full bg-[#ffbd2e]" />
-            <div className="size-2.5 rounded-full bg-[#27c93f]" />
-          </div>
-          <span className="font-mono text-[10px] uppercase tracking-widest text-[#8b949e]">
+              <div className="size-2.5 rounded-full bg-[#ffbd2e]" />
+              <div className="size-2.5 rounded-full bg-[#27c93f]" />
+            </div>
+            <span className="font-mono text-[10px] uppercase tracking-widest text-[#8b949e]">
               {t("outputLabel")}
             </span>
           </div>
-          <div className={cn("flex-1 overflow-hidden bg-[#09090b]", compact ? "p-3" : "p-4")}>
+          <div className={cn("min-h-0 flex-1 overflow-hidden bg-[#09090b]", compact ? "p-3" : "p-4")}>
             <div ref={terminalContainerRef} className="h-full w-full" />
           </div>
         </div>
@@ -446,10 +465,7 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
 
     if (status === "error") {
       return (
-        <div className={cn(
-          "flex w-full flex-1 items-center justify-center border border-destructive/30 bg-destructive/5 text-center",
-          compact ? "min-h-[160px] rounded-lg px-4" : "min-h-[200px] rounded-xl px-6",
-        )}>
+        <div className={cn(statusPanelClass, "border-destructive/30 bg-destructive/5")}>
           <div className="max-w-md space-y-2">
             <p className="text-sm font-medium text-foreground">{t("states.failedTitle")}</p>
             <p className="text-sm text-muted-foreground">
@@ -465,10 +481,7 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
 
     if (currentStepKey === "create_worktree") {
       return (
-        <div className={cn(
-          "flex w-full flex-1 items-center justify-center border border-border bg-background text-center text-sm text-muted-foreground",
-          compact ? "min-h-[140px] rounded-lg px-4" : "min-h-[200px] rounded-xl px-6",
-        )}>
+        <div className={cn(statusPanelClass, "border-border bg-background")}>
           <div className="max-w-md space-y-2">
             <p className="text-sm font-medium text-foreground">{t("states.creatingWorktreeTitle")}</p>
             <p>{t("states.creatingWorktreeDescription")}</p>
@@ -479,10 +492,7 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
 
     if (needsScriptTrust) {
       return (
-        <div className={cn(
-          "flex w-full flex-1 flex-col overflow-hidden border border-destructive/40 bg-background",
-          compact ? "min-h-[220px] rounded-lg" : "min-h-[260px] rounded-xl",
-        )}>
+        <div className={cn(reviewPanelClass, "border-destructive/40")}>
           <div className={cn(
             "flex items-start gap-3 border-b border-destructive/40 bg-destructive/5",
             compact ? "px-4 py-3" : "px-5 py-4",
@@ -497,7 +507,7 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
               </p>
             </div>
           </div>
-          <div className={cn("flex-1 overflow-auto", compact ? "px-4 py-3" : "px-5 py-4")}>
+          <div className={cn("min-h-0 flex-1 overflow-auto", compact ? "px-4 py-3" : "px-5 py-4")}>
             <ScriptTrustReview scripts={scriptsForReview} highlightField="setup" />
           </div>
         </div>
@@ -507,12 +517,9 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
     if (currentStepKey === "extract_todos") {
       const todoContent = editedTodoOutput ?? output;
       return (
-        <div className={cn(
-          "flex w-full flex-1 flex-col overflow-hidden border border-border bg-background",
-          compact ? "min-h-[220px] rounded-lg" : "min-h-[260px] rounded-xl",
-        )}>
+        <div className={cn(reviewPanelClass, "border-border")}>
           <div className={cn(
-            "flex items-start justify-between border-b border-border",
+            "flex items-start justify-between gap-2 border-b border-border",
             compact ? "px-4 py-3" : "px-5 py-4",
           )}>
             <div>
@@ -526,35 +533,40 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
               )}
             </div>
             {progress.requiresConfirmation && todoContent.trim().length > 0 && (
-              <button
+              <Button
+                type="button"
+                variant="ghost"
+                size="xs"
                 onClick={() => {
                   if (!isTodoEditing && editedTodoOutput === null) {
                     setEditedTodoOutput(output);
                   }
                   setIsTodoEditing(!isTodoEditing);
                 }}
-                className="flex shrink-0 items-center gap-1.5 rounded px-2.5 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground cursor-pointer"
                 title={isTodoEditing ? t("todo.switchToPreviewMode") : t("todo.switchToEditMode")}
               >
                 {isTodoEditing ? (
                   <>
-                    <Eye className="size-3" />
-                    <span>{t("todo.preview")}</span>
+                    <Eye />
+                    {t("todo.preview")}
                   </>
                 ) : (
                   <>
-                    <Pencil className="size-3" />
-                    <span>{t("todo.edit")}</span>
+                    <Pencil />
+                    {t("todo.edit")}
                   </>
                 )}
-              </button>
+              </Button>
             )}
           </div>
-          <div className={cn("flex-1 overflow-y-auto", compact ? "px-4 py-3" : "px-5 py-4")}>
+          <div className={cn("min-h-0 flex-1 overflow-y-auto", compact ? "px-4 py-3" : "px-5 py-4")}>
             {todoContent.trim().length > 0 ? (
               isTodoEditing ? (
                 <Textarea
-                  className="min-h-[240px] w-full resize-none border-none bg-transparent px-3 py-2 font-mono text-sm text-foreground shadow-none focus-visible:ring-0"
+                  className={cn(
+                    "w-full resize-none border-none bg-transparent px-3 py-2 font-mono text-sm text-foreground shadow-none focus-visible:ring-0",
+                    compact ? "min-h-[120px]" : "min-h-[240px]",
+                  )}
                   value={editedTodoOutput ?? output}
                   onChange={(e) => setEditedTodoOutput(e.target.value)}
                 />
@@ -564,7 +576,10 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
                 </MarkdownRenderer>
               )
             ) : (
-              <div className="flex h-full min-h-[160px] items-center justify-center text-sm text-muted-foreground">
+              <div className={cn(
+                "flex items-center justify-center text-sm text-muted-foreground",
+                compact ? "min-h-[72px]" : "h-full min-h-[160px]",
+              )}>
                 {t("todo.waiting")}
               </div>
             )}
@@ -575,10 +590,7 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
 
     if (currentStepKey === "run_setup_script") {
       return (
-        <div className={cn(
-          "flex w-full flex-1 items-center justify-center border border-border bg-background text-center text-sm text-muted-foreground",
-          compact ? "min-h-[140px] rounded-lg px-4" : "min-h-[200px] rounded-xl px-6",
-        )}>
+        <div className={cn(statusPanelClass, "border-border bg-background")}>
           <div className="max-w-md space-y-2">
             <p className="text-sm font-medium text-foreground">{t("states.runningSetupScriptTitle")}</p>
             <p>
@@ -591,10 +603,7 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
     }
 
     return (
-        <div className={cn(
-          "flex w-full flex-1 items-center justify-center border border-border bg-background text-center text-sm text-muted-foreground",
-          compact ? "min-h-[140px] rounded-lg px-4" : "min-h-[200px] rounded-xl px-6",
-        )}>
+      <div className={cn(statusPanelClass, "border-border bg-background")}>
         <div className="max-w-md space-y-2">
           <p className="text-sm font-medium text-foreground">{t("states.preparingTitle")}</p>
           <p>{t("states.preparingDescription")}</p>
@@ -603,10 +612,123 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
     );
   };
 
+  const renderActions = () => {
+    if (status === "completed") {
+      return (
+        <Button
+          size={actionSize}
+          onClick={onFinish}
+          onMouseEnter={() => setIsHovered(true)}
+          onMouseLeave={() => setIsHovered(false)}
+        >
+          <Clock />
+          {localCountdown > 0
+            ? t("actions.startBuildingWithCountdown", { seconds: localCountdown })
+            : t("actions.startBuilding")}
+          <ArrowRight />
+        </Button>
+      );
+    }
+
+    if (status === "error") {
+      return (
+        <>
+          {canSkipFailedStep && (
+            <Button
+              variant="outline"
+              size={actionSize}
+              loading={isSkippingFailedStep}
+              onClick={handleSkipFailedStep}
+            >
+              {isSkippingFailedStep ? t("actions.skipping") : t("actions.skip")}
+            </Button>
+          )}
+          <Button
+            variant="destructive"
+            size={actionSize}
+            onClick={() => retryWorkspaceSetup(workspaceId)}
+          >
+            {t("actions.retryInitialization")}
+          </Button>
+        </>
+      );
+    }
+
+    if (isStale) {
+      return (
+        <>
+          <Button variant="outline" size={actionSize} onClick={onFinish}>
+            {t("actions.skipAndEnterWorkspace")}
+          </Button>
+          <Button
+            variant="destructive"
+            size={actionSize}
+            onClick={() => retryWorkspaceSetup(workspaceId)}
+          >
+            {t("actions.retryInitialization")}
+          </Button>
+        </>
+      );
+    }
+
+    if (needsScriptTrust) {
+      return (
+        <>
+          <Button
+            variant="outline"
+            size={actionSize}
+            disabled={isTrustingScript}
+            onClick={onFinish}
+          >
+            {t("scriptTrust.skip")}
+          </Button>
+          <Button
+            variant="destructive"
+            size={actionSize}
+            loading={isTrustingScript}
+            disabled={!progress.scriptHash}
+            onClick={handleTrustScript}
+          >
+            {isTrustingScript ? t("scriptTrust.trusting") : t("scriptTrust.trustAndRun")}
+            {!isTrustingScript && <ArrowRight />}
+          </Button>
+        </>
+      );
+    }
+
+    if (progress.requiresConfirmation) {
+      return (
+        <Button
+          size={actionSize}
+          loading={isConfirmingTodos}
+          disabled={(editedTodoOutput ?? output).trim().length === 0}
+          onClick={handleConfirmTodos}
+        >
+          {isConfirmingTodos ? t("actions.savingTodos") : t("actions.nextSaveTodos")}
+          {!isConfirmingTodos && <ArrowRight />}
+        </Button>
+      );
+    }
+
+    return null;
+  };
+
+  const actions = renderActions();
+  const showKeyboardTip = status === "completed" && !compact;
+  const bodyKey = [
+    status,
+    currentStepKey,
+    showTerminalPanel ? "term" : "copy",
+    needsScriptTrust ? "trust" : "plain",
+    progress.requiresConfirmation ? "confirm" : "run",
+  ].join(":");
+
   return (
     <div className={cn(
-      "mx-auto flex flex-col overflow-hidden bg-background",
-      compact ? "w-full max-w-none gap-4 rounded-xl p-4" : "h-full max-w-5xl gap-6 p-6",
+      "mx-auto flex flex-col bg-background",
+      compact
+        ? "h-auto w-full max-w-none gap-4 overflow-visible rounded-xl p-4"
+        : "h-full max-w-5xl gap-6 overflow-hidden p-6",
     )}>
       <div className={cn(
         "w-full shrink-0 space-y-2 text-center",
@@ -642,13 +764,13 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
             <div
               key={step.id}
               className={cn(
-                "min-w-0 flex-1 basis-0 border transition-all duration-300",
+                "min-w-0 flex-1 basis-0 border transition-[border-color,background-color] duration-300",
                 compact || useCompactSteps ? "rounded-lg px-2.5 py-2" : "rounded-xl p-4",
                 isActive
-                  ? "border-primary bg-primary/5 ring-1 ring-primary"
+                  ? "border-primary bg-primary/5"
                   : "border-border bg-muted/30",
                 isDone && !isActive && "border-emerald-500/30 bg-emerald-500/5",
-                isFailed && "border-destructive bg-destructive/5 ring-1 ring-destructive",
+                isFailed && "border-destructive bg-destructive/5",
               )}
             >
               <div className={cn("flex min-w-0 items-center", useCompactSteps ? "mb-1 gap-2" : "mb-2 gap-3")}>
@@ -682,7 +804,7 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
         })}
       </div>
 
-      <div className="w-full shrink-0 space-y-4">
+      <div className={cn("w-full shrink-0", compact ? "space-y-2" : "space-y-4")}>
         <div className="flex items-center justify-between text-sm">
           <span className="flex items-center gap-2 font-medium">
             {status === "error" ? (
@@ -702,168 +824,47 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
         />
       </div>
 
-      {renderBody()}
+      <motion.div
+        key={bodyKey}
+        initial={compact && !reduceMotion ? { opacity: 0 } : false}
+        animate={{ opacity: 1 }}
+        transition={{ duration: compact && !reduceMotion ? 0.18 : 0, ease: [0.22, 1, 0.36, 1] }}
+        className={cn("w-full min-w-0", !compact && "flex min-h-0 flex-1 flex-col")}
+      >
+        {renderBody()}
+      </motion.div>
 
-      <div className={cn(
-        "flex w-full shrink-0 flex-col items-center gap-2",
-        compact ? "pb-0" : "pb-2",
-      )}>
-        <div className={cn("flex justify-center gap-3", compact ? "min-h-[44px]" : "min-h-[60px]")}>
-          {status === "completed" ? (
-            <Button
-              size={compact ? "default" : "lg"}
-              className={cn(
-                "gap-3 rounded-sm font-bold text-primary-foreground shadow-lg transition-all hover:scale-105 hover:shadow-primary/20 active:scale-95",
-                compact ? "px-4 py-2 text-sm" : "px-12 py-6 text-lg",
-              )}
-              onClick={onFinish}
-              onMouseEnter={() => setIsHovered(true)}
-              onMouseLeave={() => setIsHovered(false)}
+      {(actions || showKeyboardTip) && (
+        <div className={cn(
+          "flex w-full shrink-0 flex-col items-center gap-2",
+          !compact && "pb-2",
+        )}>
+          {actions && (
+            <motion.div
+              initial={compact && !reduceMotion ? { opacity: 0 } : false}
+              animate={{ opacity: 1 }}
+              transition={{ duration: compact && !reduceMotion ? 0.18 : 0, ease: [0.22, 1, 0.36, 1] }}
+              className="flex flex-wrap justify-center gap-2"
             >
-              <Clock className="size-5" />
-              {localCountdown > 0
-                ? t("actions.startBuildingWithCountdown", { seconds: localCountdown })
-                : t("actions.startBuilding")}
-              <ArrowRight className="size-5" />
-            </Button>
-          ) : status === "error" ? (
-            <>
-              {canSkipFailedStep && (
-                <Button
-                  variant="outline"
-                  size={compact ? "default" : "lg"}
-                  className={cn(
-                    "rounded-sm shadow-lg transition-all hover:scale-105 active:scale-95",
-                    compact ? "px-4" : "px-8",
-                  )}
-                  disabled={isSkippingFailedStep}
-                  onClick={handleSkipFailedStep}
-                >
-                  {isSkippingFailedStep ? (
-                    <>
-                      <Loader2 className="mr-2 size-4 animate-spin" />
-                      {t("actions.skipping")}
-                    </>
-                  ) : (
-                    t("actions.skip")
-                  )}
-                </Button>
-              )}
-              <Button
-                variant="destructive"
-                size={compact ? "default" : "lg"}
-                className={cn(
-                  "rounded-sm shadow-lg transition-all hover:scale-105 active:scale-95",
-                  compact ? "px-4" : "px-12",
-                )}
-                onClick={() => retryWorkspaceSetup(workspaceId)}
-              >
-                {t("actions.retryInitialization")}
-              </Button>
-            </>
-          ) : isStale ? (
-            <>
-              <Button
-                variant="outline"
-                size={compact ? "default" : "lg"}
-                className={cn(
-                  "rounded-sm shadow-lg transition-all hover:scale-105 active:scale-95",
-                  compact ? "px-4" : "px-8",
-                )}
-                onClick={onFinish}
-              >
-                {t("actions.skipAndEnterWorkspace")}
-              </Button>
-              <Button
-                variant="destructive"
-                size={compact ? "default" : "lg"}
-                className={cn(
-                  "rounded-sm shadow-lg transition-all hover:scale-105 active:scale-95",
-                  compact ? "px-4" : "px-12",
-                )}
-                onClick={() => retryWorkspaceSetup(workspaceId)}
-              >
-                {t("actions.retryInitialization")}
-              </Button>
-            </>
-          ) : needsScriptTrust ? (
-            <>
-              <Button
-                variant="outline"
-                size={compact ? "default" : "lg"}
-                className={cn(
-                  "rounded-sm shadow-lg transition-all hover:scale-105 active:scale-95",
-                  compact ? "px-4" : "px-8",
-                )}
-                disabled={isTrustingScript}
-                onClick={onFinish}
-              >
-                {t("scriptTrust.skip")}
-              </Button>
-              <Button
-                variant="destructive"
-                size={compact ? "default" : "lg"}
-                className={cn(
-                  "gap-3 rounded-sm shadow-lg transition-all hover:scale-105 active:scale-95",
-                  compact ? "px-4" : "px-12",
-                )}
-                disabled={isTrustingScript || !progress.scriptHash}
-                onClick={handleTrustScript}
-              >
-                {isTrustingScript ? (
-                  <>
-                    <Loader2 className="size-5 animate-spin" />
-                    {t("scriptTrust.trusting")}
-                  </>
-                ) : (
-                  <>
-                    {t("scriptTrust.trustAndRun")}
-                    <ArrowRight className="size-5" />
-                  </>
-                )}
-              </Button>
-            </>
-          ) : progress.requiresConfirmation ? (
-            <Button
-              size={compact ? "default" : "lg"}
-              className={cn(
-                "gap-3 rounded-sm shadow-lg transition-all hover:scale-105 active:scale-95",
-                compact ? "px-4" : "px-12",
-              )}
-              disabled={isConfirmingTodos || (editedTodoOutput ?? output).trim().length === 0}
-              onClick={handleConfirmTodos}
-            >
-              {isConfirmingTodos ? (
-                <>
-                  <Loader2 className="size-5 animate-spin" />
-                  {t("actions.savingTodos")}
-                </>
-              ) : (
-                <>
-                  {t("actions.nextSaveTodos")}
-                  <ArrowRight className="size-5" />
-                </>
-              )}
-            </Button>
-          ) : null}
-        </div>
+              {actions}
+            </motion.div>
+          )}
 
-        <div className={cn("flex w-full items-center justify-center", compact ? "h-5" : "h-6")}>
-          {status === "completed" && !compact && (
-            <p className="animate-pulse text-center text-xs text-muted-foreground">
+          {showKeyboardTip && (
+            <p className="text-center text-xs text-muted-foreground">
               {t("tip.press")}{" "}
-              <kbd className="rounded border bg-muted px-1.5 py-0.5 text-[10px] font-bold font-sans">
+              <kbd className="rounded border bg-muted px-1.5 py-0.5 text-[10px] font-medium font-sans">
                 ⌘
               </kbd>{" "}
               +{" "}
-              <kbd className="rounded border bg-muted px-1.5 py-0.5 text-[10px] font-bold font-sans">
+              <kbd className="rounded border bg-muted px-1.5 py-0.5 text-[10px] font-medium font-sans">
                 Enter
               </kbd>{" "}
               {t("tip.toContinue")}
             </p>
           )}
         </div>
-      </div>
+      )}
     </div>
   );
 };

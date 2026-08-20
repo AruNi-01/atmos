@@ -162,6 +162,17 @@
       "forward": "前进",
       "refresh": "刷新"
     },
+    "workspaceJobs": {
+      "creating": "正在创建工作区",
+      "countAria": "{count} 个工作区正在准备",
+      "listTitle": "{count} 个工作区正在准备",
+      "preparing": "正在准备工作树",
+      "ready": "已就绪，点击打开",
+      "autoOpen": "就绪后自动打开",
+      "back": "返回",
+      "open": "打开",
+      "creatingHint": "正在预留工作树。工作区就绪后会显示完整初始化进度。"
+    },
     "searchAria": "搜索",
     "searchPlaceholder": "搜索...",
     "projectFallback": "Atmosphere for Agentic Builders",
@@ -3234,6 +3245,10 @@
         "retry": "重试",
         "description": "无法加载 Canvas，请重试。"
       },
+      "licenseBlocked": {
+        "title": "Canvas 暂不可用",
+        "description": "绘图引擎许可证已过期，画板会在打开数秒后被隐藏。请更新 tldraw 许可证并重新构建 Atmos。"
+      },
       "toolbar": {
         "expandAria": "展开工具栏",
         "collapseAria": "收起工具栏",
@@ -4700,39 +4715,67 @@
         "noSettingsFound": "没有找到设置项。"
       },
       "groups": {
-        "personal": {
+        "you": {
           "label": "个人",
-          "description": "外观、账号、布局、编辑器、画布与终端"
+          "description": "通用与账号"
         },
-        "coding": {
-          "label": "Coding",
-          "description": "AI、代码 Agent、工作区与标签"
+        "workspace": {
+          "label": "工作区",
+          "description": "界面、编辑器、终端与工作区"
         },
-        "remoteAccess": {
-          "label": "远程访问",
-          "description": "Atmos Computer 与 Tunnel Connector"
+        "agents": {
+          "label": "Agent",
+          "description": "Agent、模型与通知"
         },
-        "systemIntegration": {
-          "label": "系统集成",
-          "description": "集成、Browser、Desktop Use 与通知"
-        },
-        "privacySecurity": {
-          "label": "隐私与安全性",
-          "description": "权限访问及其他隐私相关设置"
-        },
-        "more": {
-          "label": "更多",
-          "description": "快捷键、实验功能与关于"
+        "system": {
+          "label": "系统",
+          "description": "远程访问、应用、隐私与键盘"
         }
       },
       "sections": {
+        "general": {
+          "label": "通用",
+          "description": "主题、语言与更新。"
+        },
+        "interface": {
+          "label": "界面",
+          "description": "启动台、侧边栏、顶栏与底栏。"
+        },
+        "agents": {
+          "label": "Agent",
+          "description": "内置 Agent、自定义 Agent 与会话行为。"
+        },
+        "models": {
+          "label": "模型",
+          "description": "Provider、路由与本地模型。"
+        },
+        "notifications": {
+          "label": "通知",
+          "description": "桌面通知与提醒行为。"
+        },
+        "remoteAccess": {
+          "label": "远程访问",
+          "description": "Atmos Computer 与 Tunnel Connector。"
+        },
+        "apps": {
+          "label": "应用",
+          "description": "集成、浏览器与 Desktop Use。"
+        },
+        "privacy": {
+          "label": "隐私",
+          "description": "权限访问与本机密钥。"
+        },
+        "keyboard": {
+          "label": "键盘",
+          "description": "键盘快捷键与快捷操作。"
+        },
         "layout": {
           "label": "布局",
           "description": "侧边栏、标签页和整体布局行为。"
         },
         "editor": {
           "label": "编辑器",
-          "description": "编辑器体验、预览和代码设置。"
+          "description": "编辑器、画布与 diff 设置。"
         },
         "canvas": {
           "label": "画布",
@@ -4747,8 +4790,8 @@
           "description": "终端行为、恢复和文件链接处理。"
         },
         "browser": {
-          "label": "Browser",
-          "description": "Agent 如何打开和使用应用内 Browser。"
+          "label": "浏览器",
+          "description": "Agent 如何打开和使用应用内浏览器。"
         },
         "workspace": {
           "label": "工作区",
@@ -5698,9 +5741,7 @@
     "notifySection": {
       "actions": {
         "test": "测试",
-        "testing": "测试中...",
-        "testUpper": "测试",
-        "testingUpper": "测试中..."
+        "testing": "测试中..."
       },
       "toasts": {
         "testSent": "测试通知已发送",
@@ -9124,6 +9165,7 @@
         "couldNotRemove": "无法移除",
         "computerRemoved": "设备已移除"
       },
+      "developmentWarning": "Atmos Computer 仍在积极开发中，可能会遇到缺陷或不完整的行为。",
       "panels": {
         "accountRequired": {
           "title": "需要登录账号",
