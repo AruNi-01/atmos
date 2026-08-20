@@ -4,6 +4,7 @@ import {
   applyTuiMouseScrollbackPolicy,
   CLEAR_XTERM_SCROLLBACK,
   discardXtermScrollbackWhileMouseTui,
+  shouldEnableTuiMouseOnCommandStart,
 } from "../terminal-runtime-utils";
 import { DEFAULT_TERMINAL_SCROLLBACK } from "../theme";
 import { isInlineMouseTuiScrollbackSurface } from "../tui-mouse-wheel";
@@ -18,6 +19,17 @@ function makeTerm(scrollback: number) {
     },
   };
 }
+
+describe("shouldEnableTuiMouseOnCommandStart", () => {
+  it("does not synthesize mouse on the normal buffer before a TUI enters alternate screen", () => {
+    expect(shouldEnableTuiMouseOnCommandStart("normal", false)).toBe(false);
+  });
+
+  it("retains mouse already established by alternate screen or a live stream", () => {
+    expect(shouldEnableTuiMouseOnCommandStart("alternate", false)).toBe(true);
+    expect(shouldEnableTuiMouseOnCommandStart("normal", true)).toBe(true);
+  });
+});
 
 describe("applyTuiMouseScrollbackPolicy", () => {
   it("forces scrollback 0 and clears history when inline mouse TUI becomes active", () => {

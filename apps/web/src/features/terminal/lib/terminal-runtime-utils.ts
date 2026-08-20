@@ -99,13 +99,16 @@ export function mouseTrackingRestoreSequence(snapshot: {
   return "";
 }
 
-/** Keep in sync with @atmos/shared and core-engine inline mouse TUI whitelist. */
-export function isInlineMouseTuiCommand(cmd: string): boolean {
-  const trimmed = cmd.trim();
-  if (!trimmed) return false;
-  const parts = trimmed.split(/[/\\]/);
-  const name = parts[parts.length - 1] || trimmed;
-  return name === "grok" || name.startsWith("grok-");
+/**
+ * CMD_START runs before an application can enter alternate screen or enable
+ * mouse reporting. Command names alone are not evidence that either mode is
+ * active; only retain state already established by the live stream/snapshot.
+ */
+export function shouldEnableTuiMouseOnCommandStart(
+  bufferType: string | undefined,
+  mouseAlreadyDesired: boolean,
+): boolean {
+  return bufferType === "alternate" || mouseAlreadyDesired;
 }
 
 let terminalFontLoadPromise: Promise<void> | null = null;
