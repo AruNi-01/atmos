@@ -215,11 +215,9 @@ export class CanvasWidgetShapeSchemaUtil extends BaseBoxShapeUtil<CanvasWidgetSh
 }
 
 export function getCanvasWidgetIndicatorCornerRadius(
-  shape: Pick<CanvasWidgetShape, "props">,
+  _shape: Pick<CanvasWidgetShape, "props">,
 ) {
-  return shape.props.widgetType === "browser" || shape.props.source.type === "browser"
-    ? 0
-    : CANVAS_CARD_CORNER_RADIUS;
+  return CANVAS_CARD_CORNER_RADIUS;
 }
 
 function createEmptyCanvasContextRef(): CanvasContextRef {
