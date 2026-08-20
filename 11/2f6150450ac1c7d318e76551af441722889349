@@ -1,0 +1,18 @@
+apps/web/src/features/terminal/components/TerminalSelectionToolbar.tsx
+  h_5be255725524c8 9-13,16-18,34-35,46-50,61-74,90,94,104,119-123,132,137-141,150,168-171
+apps/web/src/features/terminal/lib/__tests__/terminal-selection-toolbar-position.test.ts
+  h_5be255725524c8 3-6,9,12,16,19-20,25,29,32-34,39,41-54,56-58,61-62,69,88,97-129
+apps/web/src/features/terminal/lib/terminal-selection-toolbar-position.ts
+  h_5be255725524c8 5-8,23,27-28,34-37,57-66,68-77,112-127
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "112f6150450ac1c7d318e76551af441722889349",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
