@@ -1,0 +1,255 @@
+apps/web/src/features/settings/components/WorkspaceSettingsSection.tsx
+  s_6d116104f5f839::t_85719d34c715ad 15
+  s_6d116104f5f839::t_c8daba716adf01 275-276,279-280,282-291,294-295,299,302-303,305-329,331,334-335,337-356
+  s_6d116104f5f839::t_2b4086379ff5d4 209
+  s_6d116104f5f839::t_1ab4b273204e24 19-24
+  s_6d116104f5f839::t_1eceaae7f3260b 63,66-74
+  s_6d116104f5f839::t_4bd13d61364356 359
+apps/web/src/features/appshot/lib/open-desktop-use-settings.ts
+  s_6d116104f5f839::t_67d57389f27fba 16
+  s_6d116104f5f839::t_6c25d327229265 18,20,23,25,28,30,33,36-37,40,42,45,47
+apps/web/src/features/settings/components/ShortcutsSettingsSection.tsx
+  s_6d116104f5f839::t_8dfd1757ab4fe2 14-27
+  s_6d116104f5f839::t_7ab7b9b31c1441 4
+  s_6d116104f5f839::t_b749b4bf5c3f44 110
+  s_6d116104f5f839::t_942c975881ecd1 35
+apps/web/src/features/settings/components/ExperimentSettingsSection.tsx
+  s_6d116104f5f839::t_01484116efe315 7-11,15,27-40
+apps/web/src/app-shell/header-action-controls.tsx
+  s_6d116104f5f839::t_9b1f8b60dcb401 96
+  s_6d116104f5f839::t_03288eb5e3cca0 127,129
+apps/web/src/features/atmos-computer/components/AtmosComputerSection.tsx
+  s_6d116104f5f839::t_84d61b03218ea8 549-554,557,560-569,581,584-585,587-595,597,603-666,674,685,687,691-709,711-721,724-731,734,736,738,741-744,747-794
+  s_6d116104f5f839::t_9b1e67b8e70d68 884
+  s_6d116104f5f839::t_594c791d2857ee 52-58
+  s_6d116104f5f839::t_9abe398dc559d8 80-87,89-95
+  s_6d116104f5f839::t_6ae915ff4c5104 804
+apps/web/src/features/settings/components/NotifySettingsSection.tsx
+  s_6d116104f5f839::t_81b8ea0fdf4c2a 200,203,208-232,234-255,257-263,265-277,279-304,306,309-311,314,334-354,356-395,397-406,409-410,412,414-416,421-423,425,428,434-439,441-443,448-449,451-488
+  s_6d116104f5f839::t_0a73d1d019e221 16,26-31
+apps/web/src/features/settings/components/SettingsAboutSection.tsx
+  s_6d116104f5f839::t_0adabaca72b911 58
+  s_6d116104f5f839::t_eb0b5ad291b17f 10-13
+  s_6d116104f5f839::t_118460f425713a 70-76,78-83,110,112-116,182-184
+  s_6d116104f5f839::t_1b11b765f857f2 9
+apps/web/src/features/settings/components/HubNameSettingsCard.tsx
+  s_6d116104f5f839::t_e77de9cb2a2e14 88
+  s_6d116104f5f839::t_edf00b4d487284 72-75,86-87,117
+  s_6d116104f5f839::t_7486f729cf87b7 14-16
+apps/web/src/features/settings/components/HubSecuritySettingsCards.tsx
+  s_6d116104f5f839::t_70157399c6d7f0 180,184-189
+  s_6d116104f5f839::t_cd0556238316ff 217,219-223,225-231
+  s_6d116104f5f839::t_2f4ba322ec62ca 347,351-359,366,369,371-374,379-381,394,442,450,453-455,457,463,470,473
+  s_6d116104f5f839::t_81e51011a1766f 236,245,252,261,265-266,268,274
+  s_6d116104f5f839::t_4e86d0b2d8544e 47-51
+apps/web/src/features/settings/components/__tests__/browser-settings-section.test.ts
+  s_6d116104f5f839::t_1eeb61d0e97e88 8,13,19,24-25,28,34-35
+  s_6d116104f5f839::t_742ed9f9ed5cbe 16
+apps/desktop-electron/src/ipc/handlers.ts
+  s_6d116104f5f839::t_9e8024764dd558 684-685
+apps/web/messages/zh.json
+  s_6d116104f5f839::t_1854b75d32afbc 4718,4720-4727
+  s_d07e98b2f683ca::t_29bb5f329b51f5 165-170
+  s_6d116104f5f839::t_61103636932eb1 4731-4754,4758,4760-4762,4764-4766,4770,4778,4794
+  s_d07e98b2f683ca::t_0d19a566ed4b45 171-173
+  s_6d116104f5f839::t_711bae80bc87d1 4728
+  s_6d116104f5f839::t_da0641f916f677 4730
+  s_6d116104f5f839::t_d2cfbca20c5919 4767-4769
+  s_6d116104f5f839::t_46956f81c50571 4793
+apps/web/src/features/settings/components/EditorSettingsSection.tsx
+  s_6d116104f5f839::t_285000fc68abde 154
+  s_6d116104f5f839::t_df3c7ad86a0489 26
+  s_6d116104f5f839::t_c7c002bb26bd51 262
+apps/web/src/features/settings/components/settings-modal-data.ts
+  s_6d116104f5f839::t_cdba69748fe944 363,365
+  s_6d116104f5f839::t_8bb64fb95d23b3 144-145,148
+  s_6d116104f5f839::t_ac84fa04a2d65a 516
+  s_6d116104f5f839::t_424eb6b32a82a8 901
+  s_6d116104f5f839::t_e800f2cbac73bb 141
+  s_6d116104f5f839::t_1fefb04699d998 1095-1105,1107-1110,1112-1117,1119-1120,1122,1126-1138,1141-1145,1147-1149,1153-1154,1157
+  s_6d116104f5f839::t_1c6771aa1a2d7b 451,453
+  s_6d116104f5f839::t_b2d3b0da51de69 1028
+  s_6d116104f5f839::t_aaf6ef912c5473 222-223
+  s_6d116104f5f839::t_dab2436e1d1778 437,439
+  s_6d116104f5f839::t_e480d45391efdb 878
+  s_6d116104f5f839::t_8012e0dc6f366b 522
+  s_6d116104f5f839::t_0586c67e6b4a45 342-343
+  s_6d116104f5f839::t_2e104f83735f34 1106,1111,1118,1121,1123-1125,1139-1140,1146,1150-1152,1155-1156
+  s_6d116104f5f839::t_560bd9196b5e90 1067
+  s_6d116104f5f839::t_9d37b04ad7925b 32-35,38-41,44-47,50-53,59-61,64-66,69-71,74-76,89-91,94-96,99-101,104-106,109-111,114-116,119-121
+  s_6d116104f5f839::t_499e225246394e 685
+  s_6d116104f5f839::t_d82b23bcf913db 1158
+apps/web/src/features/settings/components/LayoutSettingsSection.tsx
+  s_6d116104f5f839::t_e0811351564d46 192-194,203
+  s_6d116104f5f839::t_b380696926c3d2 6,12-17,54-57,75,81-82,85-88,92-151,158-159,162-165,169-191,195-202,204-236,238-240
+apps/web/src/features/task/components/TaskLinearPanel.tsx
+  s_6d116104f5f839::t_0d594986f5dfdb 105
+apps/web/src/features/settings/lib/settings-return.test.ts
+  s_6d116104f5f839::t_3444ea417f0dbf 29
+  s_6d116104f5f839::t_708caff6e8cdf3 60
+  s_6d116104f5f839::t_14dd4b7f51fa89 41-42,50-51
+apps/web/src/features/settings/components/CodeAgentRunConfigSettingsSection.tsx
+  s_6d116104f5f839::t_a4551bc952e399 157-158,161-163,168-170
+  s_6d116104f5f839::t_4228adc256f7ad 31
+  s_6d116104f5f839::t_89bde89af02ca2 257-258
+  s_6d116104f5f839::t_56a7c18da9a19e 326
+  s_6d116104f5f839::t_01b3c861bc5d83 21
+apps/web/src/features/settings/components/HubDeleteAccountSection.tsx
+  s_6d116104f5f839::t_48c4da2d6bfeac 157
+  s_6d116104f5f839::t_6e9882b6802dcb 87,90
+  s_6d116104f5f839::t_970a2cc462d446 25
+  s_6d116104f5f839::t_1ab2f6b8759788 88-89,100-101
+apps/web/src/features/settings/components/settings/SettingsToggleRow.tsx
+  s_6d116104f5f839::t_b74e86e712d390 29,41
+  s_6d116104f5f839::t_6ac1f484248910 12,25,30-36,44-45
+apps/web/src/features/automations/components/AutomationSetup.tsx
+  s_6d116104f5f839::t_08645076698f42 536
+apps/web/src/features/settings/components/CanvasSettingsSection.tsx
+  s_6d116104f5f839::t_b57d39a76a6a6e 143-146,148-149
+  s_6d116104f5f839::t_139467c1bf1ab1 21
+  s_6d116104f5f839::t_823cd363969d11 13-17
+  s_6d116104f5f839::t_7b62537914646d 88-114,116-137,139-142,150-166,168-170
+apps/web/src/features/settings/components/DesktopUsePermissionsPanel.tsx
+  s_6d116104f5f839::t_23e02f8961c59e 302,304,306-307
+apps/web/messages/en.json
+  s_6d116104f5f839::t_f4acfa19113ce1 4718-4727
+  s_d07e98b2f683ca::t_29bb5f329b51f5 165-170
+  s_6d116104f5f839::t_535d4417d3270e 4731-4750,4752-4754,4758,4760-4762,4764-4766,4770,4778
+  s_d07e98b2f683ca::t_58f50082714354 171-173
+  s_6d116104f5f839::t_b0868a18c9d8f0 4728-4730
+  s_6d116104f5f839::t_3f8880ebfc55db 4767-4769
+apps/web/src/features/settings/components/AccountSettingsSection.tsx
+  s_6d116104f5f839::t_af789efa5c2131 296,299-300,302-317,319-322,324,327-329,406,408,410-418,425
+  s_6d116104f5f839::t_5accbbeb2b5f47 470
+  s_6d116104f5f839::t_b52120035646a3 23
+  s_6d116104f5f839::t_d1ca9cd0073f83 50-54
+  s_6d116104f5f839::t_94f8d0176a5dae 298,301,318,323,325
+  s_6d116104f5f839::t_c65c4169e3d319 62-68
+apps/web/src/features/settings/components/settings-modal-sidebar.tsx
+  s_6d116104f5f839::t_9b96cc65afc96f 98-100,104-110
+  s_6d116104f5f839::t_6a481baeb5fb2c 124
+  s_6d116104f5f839::t_e029c1d5f041f7 95
+apps/web/src/features/agent/components/TerminalAgentRunConfigDialog.tsx
+  s_6d116104f5f839::t_6bc00cca2531f2 231
+e2e/tests/smoke/support/app-smoke.ts
+  s_6d116104f5f839::t_1ee086315c63fd 269
+apps/web/src/features/tunnel-connector/components/TunnelConnectorSection.tsx
+  s_964a604bdd4d41::t_fc324092b28490 325
+  s_6d116104f5f839::t_237f80b42fc4e2 45
+  s_6d116104f5f839::t_2d2d30d1e71c89 123,129,131
+  s_6d116104f5f839::t_dea57c22b9538f 60-62
+  s_6d116104f5f839::t_fcdefab9b5e2c1 148
+  s_6d116104f5f839::t_d51c57f110e2b3 102-105,120-121
+apps/web/src/features/settings/components/AppearanceSettingsSection.tsx
+  s_6d116104f5f839::t_df9b77e0a41c76 14,16-21,31,46-66,68-77,79-90,92-95,97-106
+apps/web/src/features/settings/components/SettingsAiSection.tsx
+  s_6d116104f5f839::t_01085592fa4c45 18,32-36,132-133,136-153,155-158,160-221,226-230,232,234-246,248-268,270-273,275,278-282,284-330,334,338-360,362-406,410,414-434,436-439,441-447,449-450,452-453
+e2e/tests/smoke/settings/settings-modal.e2e.ts
+  s_6d116104f5f839::t_7afee8747a370a 27
+  s_6d116104f5f839::t_9811796722c992 12-15
+  s_6d116104f5f839::t_e32fef6321defb 49
+  s_6d116104f5f839::t_aeae296cf453f3 36,38
+e2e/tests/smoke/workspace/workspace-sidebar-routes.e2e.ts
+  s_6d116104f5f839::t_042f6dcc408224 139,145-146
+apps/web/src/features/settings/components/LaunchpadLayoutSettings.tsx
+  s_6d116104f5f839::t_11c1c097e6c169 33
+  s_6d116104f5f839::t_f60ca3c199ebd6 197
+  s_6d116104f5f839::t_3ef0c736ad4cd6 101-102,105-108,112-114
+apps/web/src/features/settings/components/SettingsModalSections.tsx
+  s_6d116104f5f839::t_e0dddfaff0dcca 30,33
+  s_6d116104f5f839::t_aa62f8c556bf1d 236,298-305,308,329,347-372,374,376,379-384
+  s_6d116104f5f839::t_704edd96e25821 170-175,183-196,199,201-215
+  s_6d116104f5f839::t_35d0119a56b787 176-182
+apps/web/src/features/settings/components/HeaderLayoutSettingsSection.tsx
+  s_6d116104f5f839::t_8248d2a0539e7d 63-64,67-70,72-74
+  s_6d116104f5f839::t_93768ffc3c6a3e 145
+  s_6d116104f5f839::t_001093fb1380e4 18
+apps/web/src/features/settings/components/AgentActivityIndicatorsSettingsSection.tsx
+  s_6d116104f5f839::t_93feb0307e6a4e 257
+  s_6d116104f5f839::t_f8a330ea63e195 260-261,272,274-281
+  s_6d116104f5f839::t_3bfda7e19f3f77 323,326-327,329-337
+  s_6d116104f5f839::t_078a4d796b92da 32
+apps/web/src/shared/lib/nuqs/searchParams.ts
+  s_6d116104f5f839::t_44aaec0523fa1b 176-178,182-188,193-195,199-205,207
+apps/web/src/features/settings/components/AgentHookStatusCard.tsx
+  s_6d116104f5f839::t_436efa28264cc6 5,14-17
+  s_6d116104f5f839::t_6a610fd2dccb29 259,262-265,290-294,296-371
+apps/web/src/features/settings/components/settings/SettingsGroupCard.tsx
+  s_6d116104f5f839::t_88e4c5acaa1634 84,96,100-106
+  s_6d116104f5f839::t_2f671a075fe75e 28,44,46
+  s_6d116104f5f839::t_25e8d136620a16 130,140,142
+  s_6d116104f5f839::t_86e0bc0d202657 12-27,29-43,45,47-75,91,94,115,117,125-128,134-135,143-152,157-161,166,168,173,185-188
+  s_6d116104f5f839::t_8bcbf8caf8aa9a 136-139,141,153-156,169-172,175-182,184
+  s_6d116104f5f839::t_f35cf8ed89a46d 85
+apps/web/src/features/settings/components/PermissionAccessSettingsSection.tsx
+  s_6d116104f5f839::t_bca26114ae1ed8 6-10,65,73,76,86,88-95,100-106
+apps/web/src/features/settings/components/CodeAgentSettingsSection.tsx
+  s_6d116104f5f839::t_3362467c041b24 356-357,377-381
+  s_6d116104f5f839::t_d44db578d605df 313-315,317,320-322,327-328,330,334
+  s_6d116104f5f839::t_5a5e475102e06e 247-248,266-270
+  s_6d116104f5f839::t_074e04ba9dcb10 244,353
+  s_6d116104f5f839::t_674bfde9b8b557 167-176,190-191,193-201,205,208-209
+  s_6d116104f5f839::t_0e948a9726b906 33-39
+  s_6d116104f5f839::t_fd1d635960a1b7 432,434
+  s_6d116104f5f839::t_aebdf7dd98bca3 211-218
+  s_6d116104f5f839::t_58227df0c3d043 465
+apps/web/src/features/settings/components/reference/SettingsModalRule.md
+  s_6d116104f5f839::t_4ac8c66fe98af6 8,10,12-16,18,20-23,25,27-29,31,33-34,36,38-40,42,44-45
+apps/web/src/features/settings/components/__tests__/desktop-use-settings-section.test.ts
+  s_6d116104f5f839::t_af32c86be24703 13-16,18
+  s_6d116104f5f839::t_790c5edd5d6e97 8,17,22,27-28,31,37-38
+  s_6d116104f5f839::t_eec7183fe96819 276,284-286
+  s_6d116104f5f839::t_b0b4f05d074099 19
+apps/web/src/features/settings/components/SettingsModal.tsx
+  s_6d116104f5f839::t_ee18128313f14d 794-806
+  s_6d116104f5f839::t_bd7b431389869a 791
+  s_6d116104f5f839::t_0c59ad89fc25f9 1053
+  s_6d116104f5f839::t_f8581e6f0fb9da 54
+apps/web/src/features/settings/components/IntegrationsSettingsSection.tsx
+  s_6d116104f5f839::t_7fad9733571fe8 784-799,802-856,859-861,865-874,877-879,881-886,888-933,935-970,978-987
+  s_6d116104f5f839::t_688aa54cf27cea 528-548,550-562,574,576-589,607-651,653,655-698,702-703,705,708,710-753,756-758
+  s_6d116104f5f839::t_62426cd7405382 55-59
+e2e/tests/smoke/project/project-context-route.e2e.ts
+  s_6d116104f5f839::t_f3b06f264bf7d3 63,69-70
+apps/web/src/features/settings/lib/open-settings.ts
+  s_6d116104f5f839::t_de6104b41a2bfd 17,19-20
+  s_6d116104f5f839::t_5d87884327f760 39,41
+apps/web/src/app-shell/LocalModelDownloadProgress.tsx
+  s_6d116104f5f839::t_9686c8ec5f92ad 116
+apps/web/src/features/settings/components/CodeAgentBehaviourSettingsSection.tsx
+  s_6d116104f5f839::t_cd99842219c9c5 14
+  s_6d116104f5f839::t_99da64059c63ed 210,213-214
+  s_6d116104f5f839::t_5b12beb6412f8d 340
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "76edc841db618be8c2372cf005cc0c7e4efa9550",
+  "prompts": {},
+  "sessions": {
+    "s_6d116104f5f839": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "49373ef8-05ca-4669-b91d-64bb67b4e606",
+        "model": "grok-4.6"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_964a604bdd4d41": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "eed5dd16-75fe-4735-9003-214f6336a4ff",
+        "model": "gpt-5.6-sol-xhigh"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_d07e98b2f683ca": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "38055a67-2c74-4ca2-9846-725a58ddd791",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
