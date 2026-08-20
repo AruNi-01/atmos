@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import { GeistSans } from "geist/font/sans";
 import { GeistMono } from "geist/font/mono";
-import Script from "next/script";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
 import { defaultLocale } from "@atmos/i18n/config";
 import { ThemeProvider } from "@/providers/app/theme-provider";
@@ -38,8 +37,10 @@ const THEME_INIT_SCRIPT = `
         ? (systemDark ? "dark" : "light")
         : "dark";
 
-    root.classList.remove("light", "dark");
-    root.classList.add(theme);
+    if (!root.classList.contains(theme)) {
+      root.classList.remove("light", "dark");
+      root.classList.add(theme);
+    }
     root.style.colorScheme = theme;
   } finally {
     root.dataset.themeReady = "true";
@@ -54,11 +55,15 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang={defaultLocale} data-theme-ready="true" suppressHydrationWarning>
+    <html lang={defaultLocale} suppressHydrationWarning>
       <head>
-        <Script
+        {/*
+          Plain script, not next/script: Next queues those as self.__next_s and
+          they only run after hydration. That paints :root light first, then
+          flips to dark and strobes the native window chrome.
+        */}
+        <script
           id="theme-init"
-          strategy="beforeInteractive"
           dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }}
         />
       </head>
