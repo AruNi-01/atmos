@@ -5,24 +5,15 @@ import { useTranslations } from 'next-intl';
 import {
   Badge,
   Button,
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
   Input,
   toastManager,
-  Switch,
   cn,
 } from '@workspace/ui';
 import {
-  ChevronDown,
-  Computer,
   FlaskConical,
   Laptop,
-  Link2,
   LoaderCircle,
   RotateCw,
-  Server,
-  Smartphone,
   Trash2,
 } from 'lucide-react';
 import { getWebRelayClient } from '@/features/connection/lib/create-web-relay-client';
@@ -58,11 +49,17 @@ import { ComputerDetailsDialog } from '@/features/atmos-computer/components/Comp
 import { MobilePairQrPanel } from '@/features/atmos-computer/components/MobilePairQrPanel';
 import { RemoteComputerSetupBlock } from '@/features/atmos-computer/components/RemoteComputerSetupBlock';
 import { clearRemoteComputerRegisterTokenCache } from '@/features/connection/lib/remote-computer-register-token-cache';
+import {
+  SettingsGroup,
+  SettingsGroupCard,
+  SettingsGroupRow,
+  SettingsPageStack,
+} from '@/features/settings/components/settings/SettingsGroupCard';
+import { SettingsToggleRow } from '@/features/settings/components/settings/SettingsToggleRow';
 
 function SettingsBlock({
   title,
   description,
-  icon,
   headerAction,
   headerEnd,
   collapsible = false,
@@ -71,7 +68,6 @@ function SettingsBlock({
 }: {
   title: string;
   description?: string;
-  icon: ReactNode;
   headerAction?: ReactNode;
   headerEnd?: ReactNode;
   collapsible?: boolean;
@@ -80,75 +76,23 @@ function SettingsBlock({
 }) {
   const [open, setOpen] = useState(defaultOpen);
 
-  if (collapsible) {
-    return (
-      <Collapsible
-        open={open}
-        onOpenChange={setOpen}
-        className="overflow-hidden rounded-2xl border border-border"
-      >
-        <div className="flex items-start justify-between gap-4 px-6 py-5">
-          <CollapsibleTrigger className="group min-w-0 flex-1 cursor-pointer text-left">
-            <div className="flex min-w-0 gap-3">
-              <span className="relative flex h-6 w-5 shrink-0 items-center justify-center">
-                <span className="absolute flex size-5 items-center justify-center transition-opacity duration-150 group-hover:opacity-0 [&_svg]:size-5">
-                  {icon}
-                </span>
-                <ChevronDown className="absolute size-5 opacity-0 transition-all duration-150 group-hover:opacity-100 group-data-[state=closed]:-rotate-90" />
-              </span>
-              <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <h3 className="text-base font-medium leading-6 text-foreground">{title}</h3>
-                  {headerAction}
-                </div>
-                {description ? (
-                  <p className="mt-2 text-sm leading-6 text-muted-foreground">{description}</p>
-                ) : null}
-              </div>
-            </div>
-          </CollapsibleTrigger>
-          {headerEnd ? <div className="shrink-0 pt-0.5">{headerEnd}</div> : null}
-        </div>
-        <CollapsibleContent>
-          <div className="space-y-4 border-t border-border px-6 py-5">{children}</div>
-        </CollapsibleContent>
-      </Collapsible>
-    );
-  }
-
   return (
-    <section className="overflow-hidden rounded-2xl border border-border">
-      <div className="border-b border-border/60 px-6 py-5">
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex min-w-0 flex-1 gap-3">
-            <span
-              className={cn(
-                'flex w-5 shrink-0 items-center justify-center [&_svg]:size-5',
-                headerAction ? 'h-8' : 'h-6',
-              )}
-            >
-              {icon}
-            </span>
-            <div className="min-w-0 flex-1">
-              <div
-                className={cn(
-                  'flex flex-wrap items-center gap-2',
-                  headerAction ? 'min-h-8' : 'min-h-6',
-                )}
-              >
-                <h3 className="text-base font-medium leading-6 text-foreground">{title}</h3>
-                {headerAction}
-              </div>
-              {description ? (
-                <p className="mt-2 text-sm leading-6 text-muted-foreground">{description}</p>
-              ) : null}
-            </div>
+    <SettingsGroupCard
+      title={title}
+      description={description}
+      headerEnd={
+        headerAction || headerEnd ? (
+          <div className="flex items-center gap-2">
+            {headerAction}
+            {headerEnd}
           </div>
-          {headerEnd ? <div className="shrink-0 pt-0.5">{headerEnd}</div> : null}
-        </div>
-      </div>
-      <div className="space-y-4 px-6 py-5">{children}</div>
-    </section>
+        ) : undefined
+      }
+      open={collapsible ? open : undefined}
+      onOpenChange={collapsible ? setOpen : undefined}
+    >
+      {children}
+    </SettingsGroupCard>
   );
 }
 
@@ -602,31 +546,31 @@ export function AtmosComputerSection() {
   const relaySecretChanged = relaySecretDraftTrimmed !== relaySecretKey.trim();
 
   return (
-    <div className="space-y-4">
-      <div className="overflow-hidden rounded-2xl border border-amber-500/35 bg-amber-500/10">
-        <div className="flex items-start gap-3 px-6 py-5">
-          <FlaskConical className="size-5 shrink-0 text-amber-600 dark:text-amber-400" />
-          <p className="min-w-0 flex-1 text-sm leading-6 text-muted-foreground">
-            Atmos Computer is still in active development, you may encounter bugs or incomplete
-            behavior.
+    <SettingsPageStack>
+      <SettingsGroup className="bg-amber-500/10">
+        <div className="flex items-start gap-2 px-2 py-3">
+          <FlaskConical className="mt-0.5 size-4 shrink-0 text-amber-600 dark:text-amber-400" />
+          <p className="min-w-0 text-xs leading-5 text-muted-foreground">
+            {t("developmentWarning")}
           </p>
         </div>
-      </div>
+      </SettingsGroup>
 
       {!hasConfiguredKey ? (
-        <div className="overflow-hidden rounded-2xl border border-border bg-muted/15 px-6 py-5">
-          <p className="text-sm font-medium text-foreground">{t("panels.accountRequired.title")}</p>
-          <p className="mt-2 text-sm leading-6 text-muted-foreground">
-            {accountSyncBusy
-              ? t("panels.accountRequired.syncing")
-              : t("panels.accountRequired.description")}
-          </p>
-        </div>
+        <SettingsGroup>
+          <div className="px-2 py-3">
+            <p className="text-sm font-medium text-foreground">{t("panels.accountRequired.title")}</p>
+            <p className="mt-1 text-xs leading-5 text-muted-foreground">
+              {accountSyncBusy
+                ? t("panels.accountRequired.syncing")
+                : t("panels.accountRequired.description")}
+            </p>
+          </div>
+        </SettingsGroup>
       ) : null}
 
       <SettingsBlock
         title={t("panels.mobilePair.title")}
-        icon={<Smartphone className="size-5" />}
         description={t("panels.mobilePair.description")}
         collapsible
         defaultOpen={false}
@@ -634,137 +578,100 @@ export function AtmosComputerSection() {
         <MobilePairQrPanel enabled={hasConfiguredKey} />
       </SettingsBlock>
 
-      <Collapsible
+      <SettingsGroupCard
         open={remoteComputerExpanded}
         onOpenChange={setRemoteComputerExpanded}
-        className="overflow-hidden rounded-2xl border border-border"
+        title={t("panels.registerComputer.title")}
+        description={t("panels.registerComputer.description")}
       >
-        <div className="flex items-start justify-between gap-4 px-6 py-5">
-          <CollapsibleTrigger className="group min-w-0 flex-1 cursor-pointer text-left">
-            <div className="flex gap-3">
-              <span className="relative flex h-6 w-5 shrink-0 items-center justify-center">
-                <Server className="absolute size-5 transition-opacity duration-150 group-hover:opacity-0" />
-                <ChevronDown className="absolute size-5 opacity-0 transition-all duration-150 group-hover:opacity-100 group-data-[state=closed]:-rotate-90" />
-              </span>
-              <div className="min-w-0">
-                <p className="text-base font-medium leading-6 text-foreground">{t("panels.registerComputer.title")}</p>
-                <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                  {t("panels.registerComputer.description")}
-                </p>
-              </div>
-            </div>
-          </CollapsibleTrigger>
+        <div className="px-2 py-3">
+          <RemoteComputerSetupBlock
+            active={remoteComputerExpanded}
+            hasAccessToken={hasConfiguredKey}
+            relayUrl={relayUrl}
+            accessToken={accessToken}
+            relaySecretKey={relaySecretKey}
+            busy={busy !== null}
+          />
         </div>
-
-        <CollapsibleContent>
-          <div className="border-t border-border px-6 py-5">
-            <RemoteComputerSetupBlock
-              active={remoteComputerExpanded}
-              hasAccessToken={hasConfiguredKey}
-              relayUrl={relayUrl}
-              accessToken={accessToken}
-              relaySecretKey={relaySecretKey}
-              busy={busy !== null}
-            />
-          </div>
-        </CollapsibleContent>
-      </Collapsible>
+      </SettingsGroupCard>
 
       <SettingsBlock
         title={t("panels.thisComputer.title")}
-        icon={<Laptop className="size-5" />}
         description={t("panels.thisComputer.description")}
       >
-        <div className="min-w-0 space-y-3">
-            <div className="space-y-2">
-              <p className="text-base font-semibold tracking-tight text-foreground">
-                {currentDeviceName}
-              </p>
-            </div>
-
-            <div className="flex items-center justify-between gap-4 rounded-xl border border-border/80 bg-muted/15 px-4 py-3">
-              <div>
-                <p className="text-sm font-medium text-foreground">{t("panels.thisComputer.registerTitle")}</p>
-                <p className="text-xs text-muted-foreground">
-                  {isLocalRegistered
-                    ? isCurrentRelayReachable
-                      ? t("panels.thisComputer.status.online")
-                      : t("panels.thisComputer.status.connecting")
-                    : t("panels.thisComputer.status.notRegistered")}
-                </p>
-              </div>
-              <Switch
-                checked={isLocalRegistered}
-                disabled={busy === 'remote' || !hasConfiguredKey}
-                onCheckedChange={checked => void onRemoteToggle(checked)}
-              />
-            </div>
-            {connectionMode === 'relay' ? (
-              <div className="flex flex-col gap-3 rounded-xl border border-border/80 bg-muted/15 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="min-w-0">
-                  <p className="text-sm font-medium text-foreground">{t("panels.thisComputer.useLocalTitle")}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {t("panels.thisComputer.useLocalDescription")}
-                  </p>
-                </div>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="secondary"
-                  className="shrink-0"
-                  disabled={busy !== null}
-                  onClick={() => void switchToLocalConnection('local-switch')}
-                >
-                  {busy === 'local-switch' ? (
-                    <LoaderCircle className="mr-2 size-4 animate-spin" />
-                  ) : (
-                    <Laptop className="mr-2 size-4" />
-                  )}
-                  {t("panels.thisComputer.useLocalButton")}
-                </Button>
-              </div>
-            ) : null}
-            {showRelayReconnect ? (
-              <div className="space-y-2 rounded-xl border border-amber-500/35 bg-amber-500/10 px-4 py-3">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <p className="text-sm font-medium text-foreground">{t("panels.thisComputer.reconnectTitle")}</p>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    disabled={busy !== null}
-                    onClick={() => void onRelayReconnect()}
-                  >
-                    {busy === 'relay-sync' ? (
-                      <LoaderCircle className="mr-2 size-4 animate-spin" />
-                    ) : (
-                      <RotateCw className="mr-2 size-4" />
-                    )}
-                    {t("panels.thisComputer.reconnectButton")}
-                  </Button>
-                </div>
-                {relayLastError ? (
-                  <p className="text-xs leading-5 text-destructive">{relayLastError}</p>
-                ) : (
-                  <p className="text-xs text-muted-foreground">
-                    {t("panels.thisComputer.reconnectHelper")}
-                  </p>
-                )}
-              </div>
-            ) : null}
-            {!hasConfiguredKey ? (
-              <p className="text-xs text-muted-foreground">{t("panels.thisComputer.signInPrompt")}</p>
-            ) : null}
-        </div>
+        <SettingsToggleRow
+          title={t("panels.thisComputer.registerTitle")}
+          description={
+            isLocalRegistered
+              ? isCurrentRelayReachable
+                ? `${currentDeviceName} · ${t("panels.thisComputer.status.online")}`
+                : `${currentDeviceName} · ${t("panels.thisComputer.status.connecting")}`
+              : `${currentDeviceName} · ${t("panels.thisComputer.status.notRegistered")}`
+          }
+          checked={isLocalRegistered}
+          disabled={busy === 'remote' || !hasConfiguredKey}
+          onCheckedChange={(checked) => void onRemoteToggle(checked)}
+        />
+        {connectionMode === 'relay' ? (
+          <SettingsGroupRow
+            wide
+            title={t("panels.thisComputer.useLocalTitle")}
+            description={t("panels.thisComputer.useLocalDescription")}
+          >
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              disabled={busy !== null}
+              onClick={() => void switchToLocalConnection('local-switch')}
+            >
+              {busy === 'local-switch' ? (
+                <LoaderCircle className="mr-2 size-4 animate-spin" />
+              ) : (
+                <Laptop className="mr-2 size-4" />
+              )}
+              {t("panels.thisComputer.useLocalButton")}
+            </Button>
+          </SettingsGroupRow>
+        ) : null}
+        {showRelayReconnect ? (
+          <SettingsGroupRow
+            wide
+            title={t("panels.thisComputer.reconnectTitle")}
+            description={
+              relayLastError || t("panels.thisComputer.reconnectHelper")
+            }
+          >
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={busy !== null}
+              onClick={() => void onRelayReconnect()}
+            >
+              {busy === 'relay-sync' ? (
+                <LoaderCircle className="mr-2 size-4 animate-spin" />
+              ) : (
+                <RotateCw className="mr-2 size-4" />
+              )}
+              {t("panels.thisComputer.reconnectButton")}
+            </Button>
+          </SettingsGroupRow>
+        ) : null}
+        {!hasConfiguredKey ? (
+          <p className="px-2 py-3 text-xs text-muted-foreground">
+            {t("panels.thisComputer.signInPrompt")}
+          </p>
+        ) : null}
       </SettingsBlock>
 
       <SettingsBlock
         title={t("panels.myComputers.title")}
-        icon={<Computer className="size-5" />}
         description={t("panels.myComputers.description")}
         headerEnd={
           <Button
-            variant="ghost"
+            variant="outline"
             size="sm"
             disabled={!hasConfiguredKey || busy !== null}
             onClick={() => void refreshComputerList()}
@@ -775,126 +682,126 @@ export function AtmosComputerSection() {
         }
       >
         {!hasConfiguredKey ? (
-          <p className="text-sm text-muted-foreground">{t("panels.myComputers.signInPrompt")}</p>
+          <p className="px-2 py-3 text-sm text-muted-foreground">{t("panels.myComputers.signInPrompt")}</p>
         ) : activeComputers.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
+          <p className="px-2 py-3 text-sm text-muted-foreground">
             {t("panels.myComputers.empty")}
           </p>
         ) : (
-          <ul className="divide-y divide-border rounded-xl border border-border">
-            {activeComputers.map(c => {
-              const isCurrent = isCurrentLocalComputer(c, currentServerId);
-              const isUsingLocal = isCurrent && connectionMode === 'local';
-              const isConnected = !isCurrent && connectedServerId === c.server_id;
-              const relayReachable = isCurrent
-                ? isCurrentRelayReachable
-                : Boolean(c.online);
-              const name = (c.display_name ?? t("panels.myComputers.fallbackName")).slice(0, 64);
-              return (
-                <li
-                  key={c.server_id}
-                  className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
-                >
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="truncate text-sm font-medium text-foreground">{name}</span>
-                      {isCurrent ? (
-                        <Badge variant="secondary" className="text-xs">
-                          {t("panels.myComputers.current")}
-                        </Badge>
-                      ) : null}
-                      {isConnected ? (
-                        <Badge className="bg-primary/15 text-xs text-primary">{t("panels.myComputers.connected")}</Badge>
-                      ) : null}
-                      <span
-                        className={cn(
-                          'text-xs',
-                          relayReachable
-                            ? 'text-emerald-600 dark:text-emerald-400'
-                            : 'text-muted-foreground',
-                        )}
-                      >
-                        {relayReachable ? t("panels.myComputers.online") : t("panels.myComputers.offline")}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {isCurrent && showRelayReconnect ? (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        disabled={busy !== null}
-                        onClick={() => void onRelayReconnect()}
-                      >
-                        {busy === 'relay-sync' ? (
-                          <LoaderCircle className="size-4 animate-spin" />
-                        ) : (
-                          <>
-                            <RotateCw className="mr-2 size-4" />
-                            {t("panels.myComputers.reconnect")}
-                          </>
-                        )}
-                      </Button>
+          activeComputers.map(c => {
+            const isCurrent = isCurrentLocalComputer(c, currentServerId);
+            const isUsingLocal = isCurrent && connectionMode === 'local';
+            const isConnected = !isCurrent && connectedServerId === c.server_id;
+            const relayReachable = isCurrent
+              ? isCurrentRelayReachable
+              : Boolean(c.online);
+            const name = (c.display_name ?? t("panels.myComputers.fallbackName")).slice(0, 64);
+            return (
+              <SettingsGroupRow
+                key={c.server_id}
+                wide
+                title={
+                  <span className="inline-flex flex-wrap items-center gap-2">
+                    <span className="truncate">{name}</span>
+                    {isCurrent ? (
+                      <Badge variant="secondary" className="text-xs font-normal">
+                        {t("panels.myComputers.current")}
+                      </Badge>
                     ) : null}
-                    <Button
-                      size="sm"
-                      variant={isConnected || isUsingLocal ? 'secondary' : 'default'}
-                      disabled={
-                        busy !== null ||
-                        isConnected ||
-                        isUsingLocal
-                      }
-                      onClick={() => void onConnect(c.server_id)}
-                    >
-                      {busy === `connect-${c.server_id}` ? (
-                        <LoaderCircle className="size-4 animate-spin" />
-                      ) : isCurrent ? (
-                        t("panels.myComputers.useLocally")
-                      ) : isConnected ? (
-                        t("panels.myComputers.inUse")
-                      ) : (
-                        t("panels.myComputers.connect")
+                    {isConnected ? (
+                      <Badge className="bg-primary/15 text-xs font-normal text-primary">
+                        {t("panels.myComputers.connected")}
+                      </Badge>
+                    ) : null}
+                    <span
+                      className={cn(
+                        'text-xs font-normal',
+                        relayReachable
+                          ? 'text-emerald-600 dark:text-emerald-400'
+                          : 'text-muted-foreground',
                       )}
-                    </Button>
+                    >
+                      {relayReachable ? t("panels.myComputers.online") : t("panels.myComputers.offline")}
+                    </span>
+                  </span>
+                }
+                description={null}
+              >
+                <div className="flex flex-wrap items-center justify-end gap-1.5">
+                  {isCurrent && showRelayReconnect ? (
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={() => {
-                        setDetailsComputer(c);
-                        setDetailsOpen(true);
-                      }}
-                    >
-                      {t("panels.myComputers.details")}
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="text-destructive hover:text-destructive"
                       disabled={busy !== null}
-                      onClick={() => void onRemove(c.server_id)}
+                      onClick={() => void onRelayReconnect()}
                     >
-                      {busy === `remove-${c.server_id}` ? (
+                      {busy === 'relay-sync' ? (
                         <LoaderCircle className="size-4 animate-spin" />
                       ) : (
-                        <Trash2 className="size-4" />
+                        <>
+                          <RotateCw className="mr-2 size-4" />
+                          {t("panels.myComputers.reconnect")}
+                        </>
                       )}
                     </Button>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
+                  ) : null}
+                  <Button
+                    size="sm"
+                    variant={isConnected || isUsingLocal ? 'secondary' : 'default'}
+                    disabled={
+                      busy !== null ||
+                      isConnected ||
+                      isUsingLocal
+                    }
+                    onClick={() => void onConnect(c.server_id)}
+                  >
+                    {busy === `connect-${c.server_id}` ? (
+                      <LoaderCircle className="size-4 animate-spin" />
+                    ) : isCurrent ? (
+                      t("panels.myComputers.useLocally")
+                    ) : isConnected ? (
+                      t("panels.myComputers.inUse")
+                    ) : (
+                      t("panels.myComputers.connect")
+                    )}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      setDetailsComputer(c);
+                      setDetailsOpen(true);
+                    }}
+                  >
+                    {t("panels.myComputers.details")}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="text-destructive hover:text-destructive"
+                    disabled={busy !== null}
+                    onClick={() => void onRemove(c.server_id)}
+                  >
+                    {busy === `remove-${c.server_id}` ? (
+                      <LoaderCircle className="size-4 animate-spin" />
+                    ) : (
+                      <Trash2 className="size-4" />
+                    )}
+                  </Button>
+                </div>
+              </SettingsGroupRow>
+            );
+          })
         )}
       </SettingsBlock>
 
       <SettingsBlock
         title={t("panels.privateRelay.title")}
-        icon={<Link2 className="size-5" />}
         description={t("panels.privateRelay.description")}
         collapsible
         defaultOpen={false}
       >
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-4 px-2 py-3">
           <div className="flex flex-col gap-2">
             <label className="text-sm font-medium text-muted-foreground" htmlFor="private-relay-url">
               {t("panels.privateRelay.urlLabel")}
@@ -974,6 +881,6 @@ export function AtmosComputerSection() {
         computer={detailsComputer}
         isCurrent={detailsComputer?.server_id === currentServerId}
       />
-    </div>
+    </SettingsPageStack>
   );
 }

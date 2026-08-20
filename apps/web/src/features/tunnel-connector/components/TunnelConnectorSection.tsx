@@ -10,7 +10,6 @@ import {
   cn,
 } from '@workspace/ui';
 import {
-  Cable,
   Check,
   Download,
   KeyRound,
@@ -43,6 +42,7 @@ import {
   providerInstallLabel,
   supportsTokenConfig,
 } from '@/features/tunnel-connector/components/tunnel-connector-controls';
+import { SettingsGroup, SettingsGroupCard } from '@/features/settings/components/settings/SettingsGroupCard';
 
 export {
   CopyableLabel,
@@ -57,19 +57,9 @@ export function TunnelConnectorSection() {
   const t = useTranslations("tunnelConnector.section");
   if (!isDesktopRuntime()) {
     return (
-      <div className="overflow-hidden rounded-2xl border border-border">
-        <div className="px-6 py-5">
-          <div className="flex items-start gap-3">
-            <Cable className="mt-0.5 size-5 shrink-0" />
-            <div className="min-w-0">
-              <p className="text-base font-medium text-foreground">{t("title")}</p>
-              <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                {t("desktopOnly")}
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
+      <SettingsGroup>
+        <p className="px-2 py-3 text-sm text-muted-foreground">{t("desktopOnly")}</p>
+      </SettingsGroup>
     );
   }
 
@@ -109,18 +99,10 @@ function TunnelConnectorContent() {
   };
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-border">
-      {/* Header */}
-      <div className="flex items-center justify-between gap-4 px-6 py-5">
-        <div className="flex min-w-0 items-start gap-3">
-          <Cable className="mt-0.5 size-5 shrink-0" />
-          <div className="min-w-0">
-            <p className="text-base font-medium text-foreground">{t("providersTitle")}</p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {t("providersDescription")}
-            </p>
-          </div>
-        </div>
+    <SettingsGroupCard
+      title={t("providersTitle")}
+      description={t("providersDescription")}
+      headerEnd={
         <Button
           variant="outline"
           size="sm"
@@ -135,20 +117,18 @@ function TunnelConnectorContent() {
           )}
           {t("refresh")}
         </Button>
-      </div>
-
-      {/* Provider list */}
-      <div className="border-t border-border">
+      }
+    >
         {isLoading && providers.length === 0 ? (
-          <div className="space-y-px px-6 py-4">
+          <div className="space-y-2 py-3">
             <Skeleton className="h-12 w-full rounded-lg" />
             <Skeleton className="h-12 w-full rounded-lg" />
             <Skeleton className="h-12 w-full rounded-lg" />
           </div>
         ) : providers.length === 0 ? (
-          <div className="px-6 py-5 text-sm text-muted-foreground">{t("empty")}</div>
+          <div className="py-3 text-sm text-muted-foreground">{t("empty")}</div>
         ) : (
-          <div className="border-t border-border px-4">
+          <div>
             {providers.map((p) => {
               const install = providerInstallLabel(p);
               const auth = providerAuthLabel(p);
@@ -165,7 +145,7 @@ function TunnelConnectorContent() {
               const sessionUrgency = isThisRunning ? getSessionUrgency(providerStatus?.expires_at ?? null) : 'ok';
 
               return (
-                <div key={p.provider} className="border-b border-border px-2 py-4 last:border-b-0">
+                <div key={p.provider} className="border-b border-border/60 px-2 py-3 last:border-b-0">
                   <div className="flex items-center gap-3">
                     {/* Provider info */}
                     <div className="min-w-0 flex-1">
@@ -342,7 +322,6 @@ function TunnelConnectorContent() {
             })}
           </div>
         )}
-      </div>
-    </div>
+    </SettingsGroupCard>
   );
 }

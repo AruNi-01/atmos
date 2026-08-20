@@ -266,7 +266,7 @@ export async function buildProjectWorkspaceDeepLink(page: Page): Promise<string>
   const targetUrl = new URL(`/project`, origin);
   targetUrl.searchParams.set("id", target.projectGuid);
   targetUrl.searchParams.set("pvUrl", `${origin}/workspace?id=${target.workspaceGuid}`);
-  targetUrl.searchParams.set("activeSettingTab", "shortcuts");
+  targetUrl.searchParams.set("activeSettingTab", "keyboard");
   targetUrl.searchParams.set("tab", "files");
   return targetUrl.toString();
 }

@@ -60,14 +60,14 @@ test.describe("smoke project", () => {
       .poll(async () => new URL(page.url()).searchParams.get("tab"))
       .toBe("files");
 
-    await gotoSettingsRoute(page, "about");
+    await gotoSettingsRoute(page, "general");
     await expect
       .poll(async () => normalizePathname(new URL(page.url()).pathname))
       .toBe("/settings");
     await expect
       .poll(async () => new URL(page.url()).searchParams.get("activeSettingTab"))
-      .toBe("about");
-    await expect(page.getByRole("heading", { name: /^(About|关于)$/ })).toBeVisible();
+      .toBe("general");
+    await expect(page.getByRole("heading", { name: /^(General|通用)$/ })).toBeVisible();
     await expect(page.getByRole("dialog", { name: /^(Settings|设置)$/ })).toHaveCount(0);
 
     await gotoSettingsRoute(page, "workspace");

@@ -13,35 +13,36 @@ import {
   settingsHref,
   useOpenSettings,
 } from "@/features/settings/lib/open-settings";
+import type { SettingsModalTab } from "@/shared/lib/nuqs/searchParams";
 
-function openSettingsTabInApp(tab: "desktop-use" | "permission-access"): void {
+function openSettingsTabInApp(tab: SettingsModalTab, hash?: string): void {
   if (typeof window === "undefined") return;
-  window.location.assign(settingsHref(tab));
+  window.location.assign(settingsHref(tab, hash));
 }
 
-/** Open Settings → Desktop Use (engine / CLI). */
+/** Open Settings → Apps → Desktop Use (engine / CLI). */
 export function openDesktopUseSettingsInApp(): void {
-  openSettingsTabInApp("desktop-use");
+  openSettingsTabInApp("apps", "desktop-use");
 }
 
-/** Open Settings → Privacy & Security → Permission access (OS / cookie grants). */
+/** Open Settings → Privacy (OS / cookie grants). */
 export function openPermissionAccessSettingsInApp(): void {
-  openSettingsTabInApp("permission-access");
+  openSettingsTabInApp("privacy");
 }
 
-function useOpenSettingsTab(tab: "desktop-use" | "permission-access"): () => void {
+function useOpenSettingsTab(tab: SettingsModalTab, hash?: string): () => void {
   const openSettings = useOpenSettings();
   return useCallback(() => {
-    openSettings(tab);
-  }, [openSettings, tab]);
+    openSettings(tab, hash);
+  }, [openSettings, tab, hash]);
 }
 
-/** Hook: open Settings → Desktop Use (engine / CLI). */
+/** Hook: open Settings → Apps → Desktop Use (engine / CLI). */
 export function useOpenDesktopUseSettings(): () => void {
-  return useOpenSettingsTab("desktop-use");
+  return useOpenSettingsTab("apps", "desktop-use");
 }
 
-/** Hook: open Settings → Permission access (TCC + browser-cookie grants). */
+/** Hook: open Settings → Privacy (TCC + browser-cookie grants). */
 export function useOpenPermissionAccessSettings(): () => void {
-  return useOpenSettingsTab("permission-access");
+  return useOpenSettingsTab("privacy");
 }

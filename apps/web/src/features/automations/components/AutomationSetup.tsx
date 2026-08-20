@@ -533,7 +533,7 @@ export function AutomationSetup({
   }, [startGithubSetup]);
 
   const handleOpenComputerSettings = React.useCallback(() => {
-    openSettings("atmos-computer");
+    openSettings("remote-access", "atmos-computer");
   }, [openSettings]);
 
   if (mode === "edit" && initialAutomationLoading && !initialAutomation) {

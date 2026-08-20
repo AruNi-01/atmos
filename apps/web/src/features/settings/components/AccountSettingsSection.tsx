@@ -20,7 +20,7 @@ import {
   Skeleton,
   cn,
 } from "@workspace/ui";
-import { LogIn, LogOut, RefreshCw, User } from "lucide-react";
+import { LogIn, LogOut, RefreshCw } from "lucide-react";
 import {
   HUB_AUTH_DONE_CHANNEL,
   HUB_AUTH_DONE_MESSAGE,
@@ -47,10 +47,11 @@ import { loadComputerClientSettingsFromDisk } from "@/features/connection/lib/sy
 import { applyIdentityBearingComputerSettings } from "@/features/connection/lib/query-identity-lifecycle";
 import { clearWebRelayClientCache } from "@/features/connection/lib/create-web-relay-client";
 import { isDesktopRuntime } from "@/shared/lib/desktop-runtime";
-
-/** Shared Atmos surface: use page background (not muted/gray card). */
-const accountSurfaceClass =
-  "overflow-hidden rounded-xl border border-border bg-background text-foreground shadow-none";
+import {
+  SettingsGroup,
+  SettingsPageStack,
+  SettingsSection,
+} from "@/features/settings/components/settings/SettingsGroupCard";
 
 export function AccountSettingsSection() {
   const t = useTranslations("settings.accountSection");
@@ -58,12 +59,13 @@ export function AccountSettingsSection() {
 
   if (!configured) {
     return (
-      <div className="rounded-xl border border-border bg-background p-6">
-        <p className="text-sm font-medium text-foreground">{t("title")}</p>
-        <p className="mt-2 text-sm text-muted-foreground">
-          {t("hubNotConfigured")}
-        </p>
-      </div>
+      <SettingsSection title={t("title")}>
+        <SettingsGroup>
+          <p className="px-2 py-3 text-sm text-muted-foreground">
+            {t("hubNotConfigured")}
+          </p>
+        </SettingsGroup>
+      </SettingsSection>
     );
   }
 
@@ -291,54 +293,40 @@ function AccountSettingsBody() {
     (sessionQuery.isLoading || meQuery.isLoading) && !signedIn;
 
   return (
-    <div className="space-y-4">
+    <SettingsPageStack>
       {!signedIn ? (
-        /* ── Signed out: title + Sign in in status slot ── */
-        <section className={accountSurfaceClass}>
-          <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-6 px-6 py-5">
-            <div className="flex items-start gap-3">
-              <User className="mt-0.5 size-5 shrink-0" />
-              <div>
-                <p className="text-base font-medium text-foreground">
-                  {t("title")}
-                </p>
-                <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                  {t("description")}
-                </p>
-              </div>
-            </div>
-            <div className="flex flex-col items-end gap-1.5">
-              {identityPending ? (
-                <Skeleton className="h-9 w-28 rounded-xl" />
-              ) : (
-                <Button
-                  type="button"
-                  size="sm"
-                  className="h-9 gap-1.5"
-                  onClick={() => setSignInOpen(true)}
-                >
-                  <LogIn className="size-3.5" />
-                  {t("signIn")}
-                </Button>
-              )}
-              {waitingBrowser ? (
-                <p className="max-w-[16rem] text-right text-xs text-muted-foreground">
-                  {desktop ? t("waitingBrowser") : t("waitingBrowserWeb")}
-                </p>
-              ) : null}
-              {error ? (
-                <p className="max-w-[16rem] text-right text-xs text-destructive">
-                  {error}
-                </p>
-              ) : null}
-            </div>
-          </div>
-        </section>
+        <SettingsSection
+          title={t("title")}
+          description={t("description")}
+          action={
+            identityPending ? (
+              <Skeleton className="h-9 w-28 rounded-xl" />
+            ) : (
+              <Button
+                type="button"
+                size="sm"
+                className="h-9 gap-1.5"
+                onClick={() => setSignInOpen(true)}
+              >
+                <LogIn className="size-3.5" />
+                {t("signIn")}
+              </Button>
+            )
+          }
+        >
+          {waitingBrowser ? (
+            <p className="text-xs text-muted-foreground">
+              {desktop ? t("waitingBrowser") : t("waitingBrowserWeb")}
+            </p>
+          ) : null}
+          {error ? (
+            <p className="text-xs text-destructive">{error}</p>
+          ) : null}
+        </SettingsSection>
       ) : (
-        /* ── Signed in: profile + account security + delete ── */
-        <div className="flex w-full flex-col gap-4">
-          <section className={accountSurfaceClass}>
-            <div className="flex flex-wrap items-center justify-between gap-4 px-6 py-5">
+        <>
+          <SettingsGroup>
+            <div className="flex flex-wrap items-center justify-between gap-4 px-2 py-3">
               {profileUser ? (
                 <UserView
                   key={`${profileUser.id}:${profileUser.name ?? ""}`}
@@ -415,31 +403,26 @@ function AccountSettingsBody() {
               </div>
             </div>
             {error ? (
-              <div className="border-t border-border px-6 py-3">
-                <p className="text-xs text-destructive">{error}</p>
-              </div>
+              <p className="px-2 py-3 text-xs text-destructive">{error}</p>
             ) : null}
-          </section>
+          </SettingsGroup>
 
-          <div className="flex w-full flex-col gap-4 md:gap-6">
-            {cookieUser ? (
-              <HubNameSettingsCard
-                value={cookieUser.name ?? ""}
-                onSaved={() => {
-                  void qc.invalidateQueries({ queryKey: ["hub"] });
-                }}
-              />
-            ) : null}
-            <HubSecuritySettingsCards />
-          </div>
-
+          {cookieUser ? (
+            <HubNameSettingsCard
+              value={cookieUser.name ?? ""}
+              onSaved={() => {
+                void qc.invalidateQueries({ queryKey: ["hub"] });
+              }}
+            />
+          ) : null}
+          <HubSecuritySettingsCards />
           <HubDeleteAccountSection
             onDeleted={() => {
               setError(null);
               void qc.invalidateQueries({ queryKey: ["hub"] });
             }}
           />
-        </div>
+        </>
       )}
 
       <Dialog open={signInOpen} onOpenChange={setSignInOpen}>
@@ -484,6 +467,6 @@ function AccountSettingsBody() {
           </div>
         </DialogContent>
       </Dialog>
-    </div>
+    </SettingsPageStack>
   );
 }

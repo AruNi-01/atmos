@@ -4,9 +4,6 @@ import * as React from "react";
 import { useTranslations } from "next-intl";
 import {
   Button,
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
   Dialog,
   DialogContent,
   DialogDescription,
@@ -21,7 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@workspace/ui";
-import { Bot, ChevronDown, LoaderCircle, Pencil, Plus, Trash2 } from "lucide-react";
+import { LoaderCircle, Pencil, Plus, Trash2 } from "lucide-react";
 
 import { TerminalAgentRunConfigContent } from "@/features/agent/components/TerminalAgentRunConfigDialog";
 import { AgentIcon } from "@/features/agent/components/AgentIcon";
@@ -31,6 +28,7 @@ import {
   type TerminalAgentRunConfigInput,
   type TerminalAgentSavedRunConfig,
 } from "@/features/agent/lib/terminal-agent-run-config";
+import { SettingsGroupCard } from "@/features/settings/components/settings/SettingsGroupCard";
 
 interface AgentOption {
   id: string;
@@ -156,34 +154,20 @@ export function CodeAgentRunConfigSettingsSection({
   }, [agentOptions, runConfigs]);
 
   return (
-    <Collapsible
+    <>
+    <SettingsGroupCard
       open={expanded}
       onOpenChange={setExpanded}
-      className="overflow-hidden rounded-2xl border border-border"
-    >
-      <div className="flex items-start justify-between gap-4 px-6 py-5">
-        <CollapsibleTrigger className="group min-w-0 flex-1 cursor-pointer text-left">
-          <div className="flex items-start gap-3">
-            <span className="relative mt-0.5 size-5 shrink-0">
-              <Bot className="absolute inset-0 size-5 transition-opacity duration-150 group-hover:opacity-0" />
-              <ChevronDown className="absolute inset-0 size-5 opacity-0 transition-all duration-150 group-hover:opacity-100 group-data-[state=closed]:-rotate-90" />
-            </span>
-            <div className="min-w-0">
-              <p className="text-base font-medium text-foreground">{t("title")}</p>
-              <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                {t("description")}
-              </p>
-            </div>
-          </div>
-        </CollapsibleTrigger>
+      title={t("title")}
+      description={t("description")}
+      headerEnd={
         <Button variant="outline" onClick={openCreate}>
           <Plus className="mr-2 size-4" />
           {t("actions.addConfig")}
         </Button>
-      </div>
-
-      <CollapsibleContent>
-        <div className="border-t border-border px-6 py-5">
+      }
+    >
+      <div className="py-3">
           {loading ? (
             <p className="text-sm text-muted-foreground">{t("loading")}</p>
           ) : runConfigs.length === 0 ? (
@@ -270,8 +254,8 @@ export function CodeAgentRunConfigSettingsSection({
               ))}
             </div>
           )}
-        </div>
-      </CollapsibleContent>
+      </div>
+    </SettingsGroupCard>
 
       <Dialog open={editorOpen} onOpenChange={(nextOpen) => (!nextOpen ? resetEditor() : setEditorOpen(true))}>
         <DialogContent className="sm:max-w-[640px]">
@@ -339,6 +323,6 @@ export function CodeAgentRunConfigSettingsSection({
           </div>
         </DialogContent>
       </Dialog>
-    </Collapsible>
+    </>
   );
 }

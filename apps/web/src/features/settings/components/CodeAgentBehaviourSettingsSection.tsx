@@ -3,18 +3,15 @@
 import React from "react";
 import { useTranslations } from "next-intl";
 import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
   Input,
   Switch,
   cn,
 } from "@workspace/ui";
-import { ChevronDown, Timer } from "lucide-react";
 import { useAutomationAgentCapabilitiesQuery } from "@/features/automations/hooks/use-automations-query";
 import { WelcomeAgentSelector } from "@/features/welcome/components/WelcomeComposerControls";
 import type { AgentMenuOption } from "@/features/welcome/lib/welcome-page-helpers";
 import type { TerminalAgentRunConfigInput } from "@/features/agent/lib/terminal-agent-run-config";
+import { SettingsGroupCard } from "@/features/settings/components/settings/SettingsGroupCard";
 
 export type BehaviourSettingsValues = {
   idleSessionTimeoutMins: number;
@@ -210,30 +207,12 @@ export function CodeAgentBehaviourSettingsSection({
   }, [attentionSummaryDelayMins, commitBehaviour, setAttentionSummaryDelayMins]);
 
   return (
-    <Collapsible
+    <SettingsGroupCard
       open={behaviourExpanded}
       onOpenChange={setBehaviourExpanded}
-      className="overflow-hidden rounded-2xl border border-border"
+      title={t("behavior.title")}
+      description={t("behavior.description")}
     >
-      <div className="flex items-start justify-between gap-4 px-6 py-5">
-        <CollapsibleTrigger className="group min-w-0 flex-1 cursor-pointer text-left">
-          <div className="flex items-start gap-3">
-            <span className="relative mt-0.5 size-5 shrink-0">
-              <Timer className="absolute inset-0 size-5 transition-opacity duration-150 group-hover:opacity-0" />
-              <ChevronDown className="absolute inset-0 size-5 opacity-0 transition-all duration-150 group-hover:opacity-100 group-data-[state=closed]:-rotate-90" />
-            </span>
-            <div className="min-w-0">
-              <p className="text-base font-medium text-foreground">{t("behavior.title")}</p>
-              <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                {t("behavior.description")}
-              </p>
-            </div>
-          </div>
-        </CollapsibleTrigger>
-      </div>
-
-      <CollapsibleContent>
-        <div className="border-t border-border px-4">
           {/* Idle session cleanup — group row (same level as Need-attention) */}
           <div className="border-b border-border px-2 py-4">
             <div className="flex items-center gap-3">
@@ -358,8 +337,6 @@ export function CodeAgentBehaviourSettingsSection({
               </div>
             </div>
           </div>
-        </div>
-      </CollapsibleContent>
-    </Collapsible>
+    </SettingsGroupCard>
   );
 }

@@ -173,52 +173,38 @@ export const llmProvidersModalParams = {
 };
 
 export type SettingsModalTab =
-  | "about"
-  | "layout"
-  | "editor"
-  | "canvas"
-  | "terminal"
-  | "code-agent"
-  | "workspace"
-  | "labels"
-  | "appearance"
+  | "general"
   | "account"
-  | "integrations"
-  | "ai"
-  | "notify"
-  | "tunnel-connector"
-  | "atmos-computer"
-  | "desktop-use"
-  | "browser"
-  | "permission-access"
-  | "shortcuts"
-  | "experiments";
+  | "interface"
+  | "editor"
+  | "terminal"
+  | "workspace"
+  | "agents"
+  | "models"
+  | "notifications"
+  | "remote-access"
+  | "apps"
+  | "privacy"
+  | "keyboard";
 
 export const settingsModalParams = {
   settingsModal: parseAsBoolean.withDefault(false),
   activeSettingTab: parseAsStringEnum<SettingsModalTab>([
-    "about",
-    "layout",
-    "editor",
-    "canvas",
-    "terminal",
-    "code-agent",
-    "workspace",
-    "labels",
-    "appearance",
+    "general",
     "account",
-    "integrations",
-    "ai",
-    "notify",
-    "tunnel-connector",
-    "atmos-computer",
-    "desktop-use",
-    "browser",
-    "permission-access",
-    "shortcuts",
-    "experiments",
+    "interface",
+    "editor",
+    "terminal",
+    "workspace",
+    "agents",
+    "models",
+    "notifications",
+    "remote-access",
+    "apps",
+    "privacy",
+    "keyboard",
   ])
-    .withDefault("layout")
+    .withDefault("interface")
     .withOptions({ history: "replace" }),
 };
 

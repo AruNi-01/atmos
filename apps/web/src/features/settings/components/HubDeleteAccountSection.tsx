@@ -22,6 +22,7 @@ import {
 import { Loader2 } from "lucide-react";
 import { hubDeleteAccount } from "@/api/hub-auth-client";
 import { clearStoredDeviceCredential } from "@/api/hub-client";
+import { SettingsSection } from "@/features/settings/components/settings/SettingsGroupCard";
 
 type HubDeleteAccountSectionProps = {
   /** Called after successful delete so parent can clear UI / close settings. */
@@ -83,16 +84,10 @@ export function HubDeleteAccountSection({
   };
 
   return (
-    <section className="overflow-hidden rounded-xl border border-destructive/40 bg-background text-foreground shadow-none">
-      <div className="flex flex-wrap items-start justify-between gap-4 px-6 py-4">
-        <div className="min-w-0 space-y-1">
-          <p className="text-base font-semibold leading-none text-destructive">
-            {t("deleteAccount")}
-          </p>
-          <p className="text-sm text-muted-foreground">
-            {t("deleteAccountDescription")}
-          </p>
-        </div>
+    <SettingsSection
+      title={t("deleteAccount")}
+      description={t("deleteAccountDescription")}
+      action={
         <Button
           type="button"
           size="sm"
@@ -102,8 +97,8 @@ export function HubDeleteAccountSection({
         >
           {t("deleteAccount")}
         </Button>
-      </div>
-
+      }
+    >
       <Dialog open={open} onOpenChange={handleOpenChange}>
         <DialogContent className="z-[70] sm:max-w-md" overlayClassName="z-[70]">
           <DialogHeader>
@@ -159,6 +154,6 @@ export function HubDeleteAccountSection({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </section>
+    </SettingsSection>
   );
 }

@@ -113,7 +113,7 @@ export function LocalModelDownloadProgress() {
   };
 
   const handleClick = () => {
-    openSettings("ai");
+    openSettings("models");
   };
 
   const downloadText = isDownloadingRuntime ? t("downloadingRuntime") : t("downloadingModel");

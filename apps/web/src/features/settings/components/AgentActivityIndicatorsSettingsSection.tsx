@@ -9,7 +9,6 @@ import {
   cn,
 } from "@workspace/ui";
 import {
-  Activity,
   AppWindow,
   Bot,
   ChevronDown,
@@ -30,6 +29,7 @@ import {
   type IndicatorFamily,
 } from "@/features/agent/lib/agent-activity-indicator-styles";
 import { useAgentActivityIndicatorSettingsStore } from "@/features/settings/store/agent-activity-indicator-settings-store";
+import { SettingsGroupCard } from "@/features/settings/components/settings/SettingsGroupCard";
 
 /** Picker Orbs need a slight bump so their sparse geometry matches unicode mono glyphs. */
 const PICKER_ORB_SIZE = 22;
@@ -254,14 +254,11 @@ function PlacementRow({
     <Collapsible
       open={open}
       onOpenChange={onOpenChange}
-      className="border-b border-border px-2 py-4 last:border-b-0"
+      className="border-b border-border/60 px-2 py-3 last:border-b-0"
     >
       <div className="flex items-center gap-3">
-        <CollapsibleTrigger className="group flex min-w-0 flex-1 cursor-pointer items-center gap-3 text-left">
-          <span className="relative size-5 shrink-0">
-            <PlacementIcon className="absolute inset-0 size-5 transition-opacity duration-150 group-hover:opacity-0" />
-            <ChevronDown className="absolute inset-0 size-5 opacity-0 transition-all duration-150 group-hover:opacity-100 group-data-[state=closed]:-rotate-90" />
-          </span>
+        <CollapsibleTrigger className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 text-left">
+          <PlacementIcon className="size-5 shrink-0 text-muted-foreground" />
           <div className="min-w-0 flex-1">
             <p className="text-sm font-medium text-foreground">
               {t(placementTitleKey(placement) as never)}
@@ -272,8 +269,16 @@ function PlacementRow({
           </div>
         </CollapsibleTrigger>
 
-        <div className="shrink-0">
+        <div className="flex shrink-0 items-center gap-2">
           <PlacementMockPreview placement={placement} styleId={styleId} />
+          <CollapsibleTrigger className="cursor-pointer text-muted-foreground">
+            <ChevronDown
+              className={cn(
+                "size-4 transition-transform duration-150",
+                !open && "-rotate-90",
+              )}
+            />
+          </CollapsibleTrigger>
         </div>
       </div>
 
@@ -315,38 +320,20 @@ export function AgentActivityIndicatorsSettingsSection() {
   }, [loadSettings]);
 
   return (
-    <Collapsible
+    <SettingsGroupCard
       open={sectionOpen}
       onOpenChange={setSectionOpen}
-      className="overflow-hidden rounded-2xl border border-border"
+      title={t("title")}
+      description={t("description")}
     >
-      <div className="flex items-start justify-between gap-4 px-6 py-5">
-        <CollapsibleTrigger className="group min-w-0 flex-1 cursor-pointer text-left">
-          <div className="flex items-start gap-3">
-            <span className="relative mt-0.5 size-5 shrink-0">
-              <Activity className="absolute inset-0 size-5 transition-opacity duration-150 group-hover:opacity-0" />
-              <ChevronDown className="absolute inset-0 size-5 opacity-0 transition-all duration-150 group-hover:opacity-100 group-data-[state=closed]:-rotate-90" />
-            </span>
-            <div className="min-w-0">
-              <p className="text-base font-medium text-foreground">{t("title")}</p>
-              <p className="mt-2 text-sm leading-6 text-muted-foreground">{t("description")}</p>
-            </div>
-          </div>
-        </CollapsibleTrigger>
-      </div>
-
-      <CollapsibleContent>
-        <div className="border-t border-border px-4">
-          {INDICATOR_PLACEMENTS.map((placement) => (
-            <PlacementRow
-              key={placement}
-              placement={placement}
-              open={openPlacement === placement}
-              onOpenChange={(open) => setOpenPlacement(open ? placement : null)}
-            />
-          ))}
-        </div>
-      </CollapsibleContent>
-    </Collapsible>
+      {INDICATOR_PLACEMENTS.map((placement) => (
+        <PlacementRow
+          key={placement}
+          placement={placement}
+          open={openPlacement === placement}
+          onOpenChange={(open) => setOpenPlacement(open ? placement : null)}
+        />
+      ))}
+    </SettingsGroupCard>
   );
 }

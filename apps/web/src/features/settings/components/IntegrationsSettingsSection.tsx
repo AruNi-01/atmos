@@ -8,12 +8,8 @@ import {
   CircleMinus,
   CircleX,
   ExternalLink,
-  Github,
-  GitBranch,
   RefreshCw,
 } from 'lucide-react';
-import { LinearIcon } from '@workspace/ui/components/icons/linear-icon';
-import { TmuxIcon } from '@workspace/ui/components/icons/tmux-icon';
 import {
   useGhCliStatusQuery,
   useTmuxStatusQuery,
@@ -56,6 +52,11 @@ import {
 import { useComputerQueryScope } from '@/api/query/query-scope';
 import { queryKeys } from '@/api/query/query-keys';
 import { settingsModalParams } from '@/shared/lib/nuqs/searchParams';
+import {
+  SettingsGroupCard,
+  SettingsGroupRow,
+  SettingsPageStack,
+} from '@/features/settings/components/settings/SettingsGroupCard';
 
 type RateLimitKey = 'core' | 'search' | 'graphql';
 
@@ -524,49 +525,41 @@ function LinearIntegrationCard() {
   };
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-border">
-      <div className="grid grid-cols-[minmax(0,1fr)_320px] gap-8 px-6 py-5">
-        <div className="flex items-start gap-3">
-          <LinearIcon className="mt-0.5 size-5 shrink-0 text-foreground" size={20} />
-          <div>
-            <p className="text-base font-medium text-foreground">{t('linear.title')}</p>
-            <p className="mt-2 text-sm leading-6 text-muted-foreground">{t('linear.description')}</p>
+    <SettingsGroupCard
+      title={t('linear.title')}
+      description={t('linear.description')}
+      headerEnd={
+        oauthStatusQuery.isLoading && selection.mode !== 'local' ? (
+          <Skeleton className="h-8 w-28 rounded-xl" />
+        ) : connected ? (
+          <div className="flex flex-wrap items-center justify-end gap-2 text-sm text-emerald-500">
+            <CircleCheck className="size-4" />
+            <span>
+              {viewer
+                ? t('linear.connectedAs', { name: viewer })
+                : t('githubCli.status.authenticatedAs', {
+                    username: t('shared.userFallback'),
+                  })}
+            </span>
+            <span className="rounded-full border border-border bg-muted/40 px-2 py-0.5 text-[11px] font-medium text-foreground">
+              {source === 'local'
+                ? t('linear.chip.localApiKey')
+                : t('linear.chip.oauthAccount')}
+            </span>
           </div>
-        </div>
-        <div className="flex flex-col items-end justify-center gap-2">
-          {oauthStatusQuery.isLoading && selection.mode !== 'local' ? (
-            <Skeleton className="h-10 w-28 rounded-xl" />
-          ) : connected ? (
-            <div className="flex flex-wrap items-center justify-end gap-2 text-sm text-emerald-500">
-              <CircleCheck className="size-4" />
-              <span>
-                {viewer
-                  ? t('linear.connectedAs', { name: viewer })
-                  : t('githubCli.status.authenticatedAs', {
-                      username: t('shared.userFallback'),
-                    })}
-              </span>
-              <span className="rounded-full border border-border bg-muted/40 px-2 py-0.5 text-[11px] font-medium text-foreground">
-                {source === 'local'
-                  ? t('linear.chip.localApiKey')
-                  : t('linear.chip.oauthAccount')}
-              </span>
-            </div>
-          ) : (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <CircleMinus className="size-4" />
-              <span>
-                {needsHubLogin && selection.mode === 'oauth'
-                  ? t('linear.needsHubLogin')
-                  : t('linear.notConnected')}
-              </span>
-            </div>
-          )}
-        </div>
-      </div>
-
-      <div className="space-y-4 border-t border-border px-6 py-4">
-        {/* Rate limits first (match GitHub card layout: status then quota bars). */}
+        ) : (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <CircleMinus className="size-4" />
+            <span>
+              {needsHubLogin && selection.mode === 'oauth'
+                ? t('linear.needsHubLogin')
+                : t('linear.notConnected')}
+            </span>
+          </div>
+        )
+      }
+    >
+      <div className="px-2 py-3">
         <LinearRateLimitPanel
           enabled={connected}
           authKey={
@@ -578,70 +571,22 @@ function LinearIntegrationCard() {
             source === 'local' ? activeLocal?.api_key ?? null : null
           }
         />
+      </div>
 
-        {/* Recommended: OAuth */}
-        <div className="rounded-xl border border-border bg-muted/10 p-4">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-2">
-                <p className="text-sm font-medium text-foreground">{t('linear.oauth.title')}</p>
-                <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
-                  {t('linear.oauth.recommended')}
-                </span>
-              </div>
-              <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                {t('linear.oauth.hint')}
-              </p>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              {/* Hub OAuth is account-scoped: manage whenever Hub has a connection,
-                  even if this machine has not set selection=oauth yet.
-                  Active credential is a chip only; "Use" only when switching away from local. */}
-              {oauthConnected ? (
-                <>
-                  {selection.mode === 'oauth' ? (
-                    <span className="rounded-full border border-border bg-muted/40 px-2 py-0.5 text-[11px] font-medium text-foreground">
-                      {t('linear.usingThis')}
-                    </span>
-                  ) : (
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      className="h-8"
-                      onClick={() => {
-                        void selectLinearOauth().then(bumpKeys);
-                      }}
-                    >
-                      {t('linear.useThis')}
-                    </Button>
-                  )}
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="ghost"
-                    className="h-8 text-destructive hover:bg-destructive/10 hover:text-destructive"
-                    disabled={busy}
-                    onClick={() => void disconnectOauth()}
-                  >
-                    {t('linear.disconnect')}
-                  </Button>
-                </>
-              ) : (
-                <Button
-                  type="button"
-                  size="sm"
-                  className="h-8"
-                  disabled={!canConnectOauth}
-                  onClick={() => void connectOauth()}
-                >
-                  {busy ? t('linear.connecting') : t('linear.connectOauth')}
-                </Button>
-              )}
-            </div>
-          </div>
-          {needsHubLogin || !hasDevice ? (
-            <div className="mt-3 flex flex-wrap items-center gap-2 rounded-lg border border-border bg-background/60 px-3 py-2 text-xs text-muted-foreground">
+      <SettingsGroupRow
+        wide
+        title={
+          <span className="inline-flex items-center gap-2">
+            {t('linear.oauth.title')}
+            <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
+              {t('linear.oauth.recommended')}
+            </span>
+          </span>
+        }
+        description={t('linear.oauth.hint')}
+        footer={
+          needsHubLogin || !hasDevice ? (
+            <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
               <span>
                 {needsHubLogin
                   ? t('linear.needsHubLoginHint')
@@ -659,118 +604,158 @@ function LinearIntegrationCard() {
                 {t('linear.openAccount')}
               </Button>
             </div>
-          ) : null}
-        </div>
-
-        {/* Local API keys */}
-        <div className="rounded-xl border border-border p-4">
-          <p className="text-sm font-medium text-foreground">{t('linear.local.title')}</p>
-          <p className="mt-1 text-xs leading-5 text-muted-foreground">
-            {t('linear.local.hint')}
-          </p>
-          <p className="mt-1 text-[11px] text-muted-foreground">
-            {hydrating
-              ? t('linear.local.storageLoading')
-              : storeMeta.onDisk
-                ? t('linear.local.storageDisk')
-                : t('linear.local.storageBrowserFallback')}
-          </p>
-          <a
-            href={LINEAR_API_KEYS_CREATE_URL}
-            target="_blank"
-            rel="noreferrer"
-            className="mt-2 inline-flex items-center gap-1 text-xs text-primary hover:underline"
-          >
-            {t('linear.local.createKeyLink')}
-            <ExternalLink className="size-3" />
-          </a>
-
-          {localKeys.length > 0 ? (
-            <ul className="mt-3 space-y-2">
-              {localKeys.map((key) => {
-                const selected =
-                  selection.mode === 'local' && selection.keyId === key.id;
-                return (
-                  <li
-                    key={key.id}
-                    className={cn(
-                      'flex flex-wrap items-center justify-between gap-2 rounded-lg border px-3 py-2',
-                      selected ? 'border-primary/40 bg-primary/5' : 'border-border',
-                    )}
-                  >
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-medium text-foreground">{key.name}</p>
-                      <p className="truncate text-xs text-muted-foreground">
-                        {key.viewer_name || key.viewer_email || t('linear.local.unnamedViewer')}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      {selected ? (
-                        <span className="rounded-full border border-border bg-muted/40 px-2 py-0.5 text-[11px] font-medium text-foreground">
-                          {t('linear.usingThis')}
-                        </span>
-                      ) : (
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          className="h-7"
-                          onClick={() => {
-                            void selectLinearLocalKey(key.id).then(bumpKeys);
-                          }}
-                        >
-                          {t('linear.useThis')}
-                        </Button>
-                      )}
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="ghost"
-                        className="h-7 text-destructive"
-                        onClick={() => {
-                          void removeLinearLocalKey(key.id).then(bumpKeys);
-                        }}
-                      >
-                        {t('linear.local.remove')}
-                      </Button>
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          ) : null}
-
-          <div className="mt-3 grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)_auto]">
-            <input
-              type="text"
-              value={draftName}
-              onChange={(e) => setDraftName(e.target.value)}
-              placeholder={t('linear.local.namePlaceholder')}
-              className="h-9 rounded-lg border border-border bg-background px-3 text-sm"
-            />
-            <input
-              type="password"
-              value={draftKey}
-              onChange={(e) => setDraftKey(e.target.value)}
-              placeholder={t('linear.local.apiKeyPlaceholder')}
-              autoComplete="off"
-              className="h-9 rounded-lg border border-border bg-background px-3 text-sm"
-            />
+          ) : null
+        }
+      >
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          {oauthConnected ? (
+            <>
+              {selection.mode === 'oauth' ? (
+                <span className="rounded-full border border-border bg-muted/40 px-2 py-0.5 text-[11px] font-medium text-foreground">
+                  {t('linear.usingThis')}
+                </span>
+              ) : (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="h-8"
+                  onClick={() => {
+                    void selectLinearOauth().then(bumpKeys);
+                  }}
+                >
+                  {t('linear.useThis')}
+                </Button>
+              )}
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                className="h-8 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                disabled={busy}
+                onClick={() => void disconnectOauth()}
+              >
+                {t('linear.disconnect')}
+              </Button>
+            </>
+          ) : (
             <Button
               type="button"
               size="sm"
-              className="h-9"
-              disabled={busy || !draftKey.trim()}
-              onClick={() => void saveLocalKey()}
+              className="h-8"
+              disabled={!canConnectOauth}
+              onClick={() => void connectOauth()}
             >
-              {t('linear.local.save')}
+              {busy ? t('linear.connecting') : t('linear.connectOauth')}
             </Button>
-          </div>
+          )}
         </div>
+      </SettingsGroupRow>
 
-        {error ? <p className="text-xs text-destructive">{error}</p> : null}
+      <div className="border-b border-border/60 px-2 py-3 last:border-b-0">
+        <p className="text-sm font-medium text-foreground">{t('linear.local.title')}</p>
+        <p className="mt-1 text-xs leading-5 text-muted-foreground">
+          {t('linear.local.hint')}
+        </p>
+        <p className="mt-1 text-[11px] text-muted-foreground">
+          {hydrating
+            ? t('linear.local.storageLoading')
+            : storeMeta.onDisk
+              ? t('linear.local.storageDisk')
+              : t('linear.local.storageBrowserFallback')}
+        </p>
+        <a
+          href={LINEAR_API_KEYS_CREATE_URL}
+          target="_blank"
+          rel="noreferrer"
+          className="mt-2 inline-flex items-center gap-1 text-xs text-primary hover:underline"
+        >
+          {t('linear.local.createKeyLink')}
+          <ExternalLink className="size-3" />
+        </a>
+
+        {localKeys.length > 0 ? (
+          <ul className="mt-3 divide-y divide-border/60">
+            {localKeys.map((key) => {
+              const selected =
+                selection.mode === 'local' && selection.keyId === key.id;
+              return (
+                <li
+                  key={key.id}
+                  className="flex flex-wrap items-center justify-between gap-2 py-2 first:pt-0 last:pb-0"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-foreground">{key.name}</p>
+                    <p className="truncate text-xs text-muted-foreground">
+                      {key.viewer_name || key.viewer_email || t('linear.local.unnamedViewer')}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    {selected ? (
+                      <span className="rounded-full border border-border bg-muted/40 px-2 py-0.5 text-[11px] font-medium text-foreground">
+                        {t('linear.usingThis')}
+                      </span>
+                    ) : (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="h-7"
+                        onClick={() => {
+                          void selectLinearLocalKey(key.id).then(bumpKeys);
+                        }}
+                      >
+                        {t('linear.useThis')}
+                      </Button>
+                    )}
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 text-destructive"
+                      onClick={() => {
+                        void removeLinearLocalKey(key.id).then(bumpKeys);
+                      }}
+                    >
+                      {t('linear.local.remove')}
+                    </Button>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        ) : null}
+
+        <div className="mt-3 grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)_auto]">
+          <input
+            type="text"
+            value={draftName}
+            onChange={(e) => setDraftName(e.target.value)}
+            placeholder={t('linear.local.namePlaceholder')}
+            className="h-9 rounded-lg border border-border bg-background px-3 text-sm"
+          />
+          <input
+            type="password"
+            value={draftKey}
+            onChange={(e) => setDraftKey(e.target.value)}
+            placeholder={t('linear.local.apiKeyPlaceholder')}
+            autoComplete="off"
+            className="h-9 rounded-lg border border-border bg-background px-3 text-sm"
+          />
+          <Button
+            type="button"
+            size="sm"
+            className="h-9"
+            disabled={busy || !draftKey.trim()}
+            onClick={() => void saveLocalKey()}
+          >
+            {t('linear.local.save')}
+          </Button>
+        </div>
       </div>
-    </div>
+
+      {error ? <p className="px-2 py-3 text-xs text-destructive">{error}</p> : null}
+    </SettingsGroupCard>
   );
 }
 
@@ -796,244 +781,193 @@ export function IntegrationsSettingsSection() {
   }, [tmuxQuery]);
 
   return (
-    <div className="space-y-4">
-      <div className="overflow-hidden rounded-2xl border border-border">
-        <div className="grid grid-cols-[minmax(0,1fr)_320px] gap-8 px-6 py-5">
-          <div className="flex items-start gap-3">
-            <Github className="mt-0.5 size-5 shrink-0" />
-            <div>
-              <p className="text-base font-medium text-foreground">{t('githubCli.title')}</p>
-              <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                {t('githubCli.description')}
-              </p>
+    <SettingsPageStack>
+      <SettingsGroupCard
+        title={t('githubCli.title')}
+        description={t('githubCli.description')}
+        headerEnd={
+          isLoading ? (
+            <Skeleton className="h-8 w-28 rounded-xl" />
+          ) : ghCliStatus?.installed && ghCliStatus.authenticated ? (
+            <div className="flex items-center gap-2 text-sm text-emerald-500">
+              <CircleCheck className="size-4" />
+              <span>{t('githubCli.status.authenticatedAs', { username: ghCliStatus.username || t('shared.userFallback') })}</span>
             </div>
-          </div>
-          <div className="flex items-center justify-end gap-3">
-            {isLoading ? (
-              <Skeleton className="h-10 w-28 rounded-xl" />
-            ) : ghCliStatus?.installed && ghCliStatus.authenticated ? (
-              <div className="flex items-center gap-2 text-sm text-emerald-500">
-                <CircleCheck className="size-4" />
-                <span>{t('githubCli.status.authenticatedAs', { username: ghCliStatus.username || t('shared.userFallback') })}</span>
-              </div>
-            ) : ghCliStatus?.installed ? (
-              <div className="flex items-center gap-2 text-sm text-amber-500">
-                <CircleX className="size-4" />
-                <span>{t('shared.status.notAuthenticated')}</span>
-              </div>
-            ) : (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <CircleMinus className="size-4" />
-                <span>{t('shared.status.notInstalled')}</span>
-              </div>
-            )}
-          </div>
-        </div>
-        <div className="border-t border-border px-6 py-4">
-          {isLoading ? (
-            <Skeleton className="h-20 w-full rounded-xl" />
+          ) : ghCliStatus?.installed ? (
+            <div className="flex items-center gap-2 text-sm text-amber-500">
+              <CircleX className="size-4" />
+              <span>{t('shared.status.notAuthenticated')}</span>
+            </div>
           ) : (
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  {ghCliStatus?.installed ? (
-                    <CircleCheck className="size-4 text-emerald-500" />
-                  ) : (
-                    <CircleX className="size-4 text-destructive" />
-                  )}
-                  <div>
-                    <p className="text-sm font-medium text-foreground">{t('shared.installationStatusTitle')}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {ghCliStatus?.installed
-                        ? t('githubCli.installation.installed', { version: ghCliStatus.version || '' })
-                        : t('githubCli.installation.notInstalled')}
-                    </p>
-                  </div>
-                </div>
-                {!ghCliStatus?.installed && (
-                  <InstallToolPopover
-                    toolId="gh"
-                    toolName="GitHub CLI (gh)"
-                    onInstalled={refetchGh}
-                    triggerClassName="h-8 rounded-lg px-3 text-xs font-medium"
-                  />
-                )}
-              </div>
-              {ghCliStatus?.installed && (
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    {ghCliStatus.authenticated ? (
-                      <CircleCheck className="size-4 text-emerald-500" />
-                    ) : (
-                      <CircleX className="size-4 text-destructive" />
-                    )}
-                    <div>
-                      <p className="text-sm font-medium text-foreground">{t('shared.authenticationStatusTitle')}</p>
-                      {ghCliStatus.authenticated ? (
-                        <div className="mt-1 flex items-center gap-2">
-                          <p className="text-xs text-muted-foreground">{t('githubCli.authentication.authenticatedAsLabel')}</p>
-                          <p className="text-xs font-medium text-foreground">{ghCliStatus.username || t('shared.userFallback')}</p>
-                        </div>
-                      ) : (
-                        <p className="mt-1 text-xs text-muted-foreground">{t('githubCli.authentication.notAuthenticated')}</p>
-                      )}
-                    </div>
-                  </div>
-                  {!ghCliStatus.authenticated && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => window.open('https://cli.github.com/manual/gh_auth_login', '_blank', 'noopener,noreferrer')}
-                      className="cursor-pointer"
-                    >
-                      <ExternalLink className="mr-2 size-4" />
-                      {t('githubCli.actions.authenticate')}
-                    </Button>
-                  )}
-                </div>
-              )}
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <CircleMinus className="size-4" />
+              <span>{t('shared.status.notInstalled')}</span>
+            </div>
+          )
+        }
+      >
+        {isLoading ? (
+          <div className="px-2 py-3">
+            <Skeleton className="h-14 w-full rounded-xl" />
+          </div>
+        ) : (
+          <>
+            <SettingsGroupRow
+              wide
+              title={t('shared.installationStatusTitle')}
+              description={
+                ghCliStatus?.installed
+                  ? t('githubCli.installation.installed', { version: ghCliStatus.version || '' })
+                  : t('githubCli.installation.notInstalled')
+              }
+            >
+              {!ghCliStatus?.installed ? (
+                <InstallToolPopover
+                  toolId="gh"
+                  toolName="GitHub CLI (gh)"
+                  onInstalled={refetchGh}
+                  triggerClassName="h-8 rounded-lg px-3 text-xs font-medium"
+                />
+              ) : null}
+            </SettingsGroupRow>
+            {ghCliStatus?.installed ? (
+              <SettingsGroupRow
+                wide
+                title={t('shared.authenticationStatusTitle')}
+                description={
+                  ghCliStatus.authenticated
+                    ? `${t('githubCli.authentication.authenticatedAsLabel')} ${ghCliStatus.username || t('shared.userFallback')}`
+                    : t('githubCli.authentication.notAuthenticated')
+                }
+              >
+                {!ghCliStatus.authenticated ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => window.open('https://cli.github.com/manual/gh_auth_login', '_blank', 'noopener,noreferrer')}
+                    className="cursor-pointer"
+                  >
+                    <ExternalLink className="mr-2 size-4" />
+                    {t('githubCli.actions.authenticate')}
+                  </Button>
+                ) : null}
+              </SettingsGroupRow>
+            ) : null}
+            <div className="px-2 py-3">
               <GithubRateLimitPanel enabled={ghAuthenticated} />
             </div>
-          )}
-        </div>
-      </div>
+          </>
+        )}
+      </SettingsGroupCard>
 
       <LinearIntegrationCard />
 
-      <div className="overflow-hidden rounded-2xl border border-border">
-        <div className="grid grid-cols-[minmax(0,1fr)_320px] gap-8 px-6 py-5">
-          <div className="flex items-start gap-3">
-            <GitBranch className="mt-0.5 size-5 shrink-0" />
-            <div>
-              <p className="text-base font-medium text-foreground">{t('git.title')}</p>
-              <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                {t('git.description')}
-              </p>
+      <SettingsGroupCard
+        title={t('git.title')}
+        description={t('git.description')}
+        headerEnd={
+          isLoading ? (
+            <Skeleton className="h-8 w-28 rounded-xl" />
+          ) : gitStatus?.installed ? (
+            <div className="flex items-center gap-2 text-sm text-emerald-500">
+              <CircleCheck className="size-4" />
+              <span>{t('git.status.installed', { version: gitStatus.version || '' })}</span>
             </div>
-          </div>
-          <div className="flex items-center justify-end gap-3">
-            {isLoading ? (
-              <Skeleton className="h-10 w-28 rounded-xl" />
-            ) : gitStatus?.installed ? (
-              <div className="flex items-center gap-2 text-sm text-emerald-500">
-                <CircleCheck className="size-4" />
-                <span>{t('git.status.installed', { version: gitStatus.version || '' })}</span>
-              </div>
-            ) : (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <CircleMinus className="size-4" />
-                <span>{t('shared.status.notInstalled')}</span>
-              </div>
-            )}
-          </div>
-        </div>
-        <div className="border-t border-border px-6 py-4">
-          {isLoading ? (
-            <Skeleton className="h-20 w-full rounded-xl" />
           ) : (
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  {gitStatus?.installed ? (
-                    <CircleCheck className="size-4 text-emerald-500" />
-                  ) : (
-                    <CircleX className="size-4 text-destructive" />
-                  )}
-                  <div>
-                    <p className="text-sm font-medium text-foreground">{t('shared.installationStatusTitle')}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {gitStatus?.installed
-                        ? t('git.installation.installed', { version: gitStatus.version || '' })
-                        : t('git.installation.notInstalled')}
-                    </p>
-                  </div>
-                </div>
-                {!gitStatus?.installed && (
-                  <InstallToolPopover
-                    toolId="git"
-                    toolName="Git"
-                    onInstalled={refetchGit}
-                    triggerClassName="h-8 rounded-lg px-3 text-xs font-medium"
-                  />
-                )}
-              </div>
-              {gitStatus?.installed && (gitStatus.username || gitStatus.email) && (
-                <div className="rounded-xl border border-border bg-muted/20 px-4 py-3">
-                  <p className="text-sm font-medium text-foreground">{t('git.configuration.title')}</p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {t('git.configuration.description', {
-                      username: gitStatus.username || t('shared.userFallback'),
-                      email: gitStatus.email || t('shared.userFallback'),
-                    })}
-                  </p>
-                </div>
-              )}
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <CircleMinus className="size-4" />
+              <span>{t('shared.status.notInstalled')}</span>
             </div>
-          )}
-        </div>
-      </div>
+          )
+        }
+      >
+        {isLoading ? (
+          <div className="px-2 py-3">
+            <Skeleton className="h-14 w-full rounded-xl" />
+          </div>
+        ) : (
+          <>
+            <SettingsGroupRow
+              wide
+              title={t('shared.installationStatusTitle')}
+              description={
+                gitStatus?.installed
+                  ? t('git.installation.installed', { version: gitStatus.version || '' })
+                  : t('git.installation.notInstalled')
+              }
+            >
+              {!gitStatus?.installed ? (
+                <InstallToolPopover
+                  toolId="git"
+                  toolName="Git"
+                  onInstalled={refetchGit}
+                  triggerClassName="h-8 rounded-lg px-3 text-xs font-medium"
+                />
+              ) : null}
+            </SettingsGroupRow>
+            {gitStatus?.installed && (gitStatus.username || gitStatus.email) ? (
+              <SettingsGroupRow
+                title={t('git.configuration.title')}
+                description={t('git.configuration.description', {
+                  username: gitStatus.username || t('shared.userFallback'),
+                  email: gitStatus.email || t('shared.userFallback'),
+                })}
+              >
+                {null}
+              </SettingsGroupRow>
+            ) : null}
+          </>
+        )}
+      </SettingsGroupCard>
 
-      <div className="overflow-hidden rounded-2xl border border-border">
-        <div className="grid grid-cols-[minmax(0,1fr)_320px] gap-8 px-6 py-5">
-          <div className="flex items-start gap-3">
-            <TmuxIcon className="mt-0.5 size-5 shrink-0" />
-            <div>
-              <p className="text-base font-medium text-foreground">{t('tmux.title')}</p>
-              <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                {t('tmux.description')}
-              </p>
+      <SettingsGroupCard
+        title={t('tmux.title')}
+        description={t('tmux.description')}
+        headerEnd={
+          isLoading ? (
+            <Skeleton className="h-8 w-28 rounded-xl" />
+          ) : tmuxStatus?.installed ? (
+            <div className="flex items-center gap-2 text-sm text-emerald-500">
+              <CircleCheck className="size-4" />
+              <span>{t('tmux.status.installed', { version: tmuxStatus.version || '' })}</span>
             </div>
-          </div>
-          <div className="flex items-center justify-end gap-3">
-            {isLoading ? (
-              <Skeleton className="h-10 w-28 rounded-xl" />
-            ) : tmuxStatus?.installed ? (
-              <div className="flex items-center gap-2 text-sm text-emerald-500">
-                <CircleCheck className="size-4" />
-                <span>{t('tmux.status.installed', { version: tmuxStatus.version || '' })}</span>
-              </div>
-            ) : (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <CircleMinus className="size-4" />
-                <span>{t('shared.status.notInstalled')}</span>
-              </div>
-            )}
-          </div>
-        </div>
-        <div className="border-t border-border px-6 py-4">
-          {isLoading ? (
-            <Skeleton className="h-20 w-full rounded-xl" />
           ) : (
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  {tmuxStatus?.installed ? (
-                    <CircleCheck className="size-4 text-emerald-500" />
-                  ) : (
-                    <CircleX className="size-4 text-destructive" />
-                  )}
-                  <div>
-                    <p className="text-sm font-medium text-foreground">{t('shared.installationStatusTitle')}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {tmuxStatus?.installed
-                        ? t('tmux.installation.installed', { version: tmuxStatus.version || '' })
-                        : t('tmux.installation.notInstalled')}
-                    </p>
-                  </div>
-                </div>
-                {!tmuxStatus?.installed && (
-                  <InstallToolPopover
-                    toolId="tmux"
-                    toolName="tmux"
-                    onInstalled={refetchTmux}
-                    triggerClassName="h-8 rounded-lg px-3 text-xs font-medium"
-                  />
-                )}
-              </div>
-              {tmuxStatus?.installed && (
-                <div className="rounded-xl border border-border bg-muted/20 px-4 py-3">
-                  <p className="text-sm font-medium text-foreground">{t('tmux.configuration.title')}</p>
-                  <p className="mt-1 text-xs text-muted-foreground">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <CircleMinus className="size-4" />
+              <span>{t('shared.status.notInstalled')}</span>
+            </div>
+          )
+        }
+      >
+        {isLoading ? (
+          <div className="px-2 py-3">
+            <Skeleton className="h-14 w-full rounded-xl" />
+          </div>
+        ) : (
+          <>
+            <SettingsGroupRow
+              wide
+              title={t('shared.installationStatusTitle')}
+              description={
+                tmuxStatus?.installed
+                  ? t('tmux.installation.installed', { version: tmuxStatus.version || '' })
+                  : t('tmux.installation.notInstalled')
+              }
+            >
+              {!tmuxStatus?.installed ? (
+                <InstallToolPopover
+                  toolId="tmux"
+                  toolName="tmux"
+                  onInstalled={refetchTmux}
+                  triggerClassName="h-8 rounded-lg px-3 text-xs font-medium"
+                />
+              ) : null}
+            </SettingsGroupRow>
+            {tmuxStatus?.installed ? (
+              <SettingsGroupRow
+                title={t('tmux.configuration.title')}
+                description={
+                  <>
                     {t('tmux.configuration.description', {
                       socketPath: '~/.atmos/atmos.sock',
                     }).split('~/.atmos/atmos.sock')[0]}
@@ -1041,13 +975,15 @@ export function IntegrationsSettingsSection() {
                     {t('tmux.configuration.description', {
                       socketPath: '~/.atmos/atmos.sock',
                     }).split('~/.atmos/atmos.sock').slice(1).join('~/.atmos/atmos.sock')}
-                  </p>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
+                  </>
+                }
+              >
+                {null}
+              </SettingsGroupRow>
+            ) : null}
+          </>
+        )}
+      </SettingsGroupCard>
+    </SettingsPageStack>
   );
 }

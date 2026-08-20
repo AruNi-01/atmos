@@ -102,7 +102,7 @@ export function TaskLinearPanel({
   const openSettings = useOpenSettings();
 
   const openLinearIntegrations = useCallback(() => {
-    openSettings("integrations");
+    openSettings("apps", "integrations");
   }, [openSettings]);
 
   const openAccountSettings = useCallback(() => {

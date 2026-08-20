@@ -681,7 +681,8 @@ export function createAllHandlers(
       if (win && !win.isDestroyed()) {
         const url = new URL(win.webContents.getURL());
         const next = new URL("/settings", url.origin);
-        next.searchParams.set("activeSettingTab", "desktop-use");
+        next.searchParams.set("activeSettingTab", "apps");
+        next.hash = "desktop-use";
         await win.loadURL(next.toString());
         win.show();
         win.focus();

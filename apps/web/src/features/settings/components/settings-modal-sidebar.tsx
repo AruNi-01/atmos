@@ -21,21 +21,15 @@ import TerminalIcon from "@workspace/ui/components/icons/terminal-icon";
 import { BotIcon } from "@workspace/ui/components/icons/bot-icon";
 import BrainCircuitIcon from "@workspace/ui/components/icons/brain-circuit-icon";
 import { BellIcon } from "@workspace/ui/components/icons/bell-icon";
-import WorldIcon from "@workspace/ui/components/icons/world-icon";
 import ComputerIcon from "@workspace/ui/components/icons/computer-icon";
-import DesktopUseIcon from "@workspace/ui/components/icons/desktop-use-icon";
 import { FolderKanbanIcon } from "@workspace/ui/components/icons/folder-kanban-icon";
-import { TagIcon } from "@workspace/ui/components/icons/tag-icon";
 import KeyboardIcon from "@workspace/ui/components/icons/keyboard-icon";
 import { BlocksIcon } from "@workspace/ui/components/icons/blocks-icon";
 import { UserIcon } from "@workspace/ui/components/icons/user-icon";
 import CodeXmlIcon from "@workspace/ui/components/ui/code-xml-icon";
-import CanvasIcon from "@workspace/ui/components/icons/canvas-icon";
 import { SunMoonIcon } from "@workspace/ui/components/icons/sun-moon-icon";
-import BrandChromeIcon from "@workspace/ui/components/icons/brand-chrome-icon";
 import { KeyCircleIcon } from "@workspace/ui/components/icons/key-circle-icon";
 import type { AnimatedIconHandle } from "@workspace/ui/components/icons/types";
-import { FlaskIcon, type FlaskIconHandle } from "@/shared/components/ui/flask-icon";
 import {
   SETTINGS_GROUPS,
   SETTINGS_SEARCH_ENTRIES,
@@ -98,36 +92,22 @@ function SettingsSectionIcon({
   iconRef,
   sectionId,
 }: {
-  iconRef: React.RefObject<AnimatedIconHandle | FlaskIconHandle | null>;
+  iconRef: React.RefObject<AnimatedIconHandle | null>;
   sectionId: SettingsSectionId;
 }) {
-  if (sectionId === "layout") return <LayoutDashboardIcon ref={iconRef} className="shrink-0" size={16} />;
-  if (sectionId === "editor") return <CodeXmlIcon ref={iconRef} className="shrink-0" size={16} />;
-  if (sectionId === "canvas") return <CanvasIcon ref={iconRef} className="shrink-0" size={16} />;
-  if (sectionId === "terminal") return <TerminalIcon ref={iconRef} className="shrink-0" size={16} />;
-  if (sectionId === "code-agent") return <BotIcon ref={iconRef} className="shrink-0" size={16} />;
-  if (sectionId === "workspace") return <FolderKanbanIcon ref={iconRef} className="shrink-0" size={16} />;
-  if (sectionId === "labels") return <TagIcon ref={iconRef} className="shrink-0" size={16} />;
-  if (sectionId === "appearance") return <SunMoonIcon ref={iconRef} className="shrink-0" size={16} />;
+  if (sectionId === "general") return <SunMoonIcon ref={iconRef} className="shrink-0" size={16} />;
   if (sectionId === "account") return <UserIcon ref={iconRef} className="shrink-0" size={16} />;
-  if (sectionId === "integrations") return <BlocksIcon ref={iconRef} className="shrink-0" size={16} />;
-  if (sectionId === "ai") return <BrainCircuitIcon ref={iconRef} className="shrink-0" size={16} />;
-  if (sectionId === "notify") return <BellIcon ref={iconRef} className="shrink-0" size={16} />;
-  if (sectionId === "tunnel-connector") return <WorldIcon ref={iconRef} className="shrink-0" size={16} />;
-  if (sectionId === "atmos-computer") return <ComputerIcon ref={iconRef} className="shrink-0" size={16} />;
-  if (sectionId === "desktop-use") {
-    return <DesktopUseIcon ref={iconRef} className="shrink-0" size={16} />;
-  }
-  if (sectionId === "browser") {
-    return <BrandChromeIcon ref={iconRef} className="shrink-0" size={16} />;
-  }
-  if (sectionId === "permission-access") {
-    return <KeyCircleIcon ref={iconRef} className="shrink-0" size={16} />;
-  }
-  if (sectionId === "shortcuts") return <KeyboardIcon ref={iconRef} className="shrink-0" size={16} />;
-  if (sectionId === "experiments") {
-    return <FlaskIcon ref={iconRef as React.Ref<FlaskIconHandle>} className="shrink-0" size={16} />;
-  }
+  if (sectionId === "interface") return <LayoutDashboardIcon ref={iconRef} className="shrink-0" size={16} />;
+  if (sectionId === "editor") return <CodeXmlIcon ref={iconRef} className="shrink-0" size={16} />;
+  if (sectionId === "terminal") return <TerminalIcon ref={iconRef} className="shrink-0" size={16} />;
+  if (sectionId === "workspace") return <FolderKanbanIcon ref={iconRef} className="shrink-0" size={16} />;
+  if (sectionId === "agents") return <BotIcon ref={iconRef} className="shrink-0" size={16} />;
+  if (sectionId === "models") return <BrainCircuitIcon ref={iconRef} className="shrink-0" size={16} />;
+  if (sectionId === "notifications") return <BellIcon ref={iconRef} className="shrink-0" size={16} />;
+  if (sectionId === "remote-access") return <ComputerIcon ref={iconRef} className="shrink-0" size={16} />;
+  if (sectionId === "apps") return <BlocksIcon ref={iconRef} className="shrink-0" size={16} />;
+  if (sectionId === "privacy") return <KeyCircleIcon ref={iconRef} className="shrink-0" size={16} />;
+  if (sectionId === "keyboard") return <KeyboardIcon ref={iconRef} className="shrink-0" size={16} />;
   return <InfoCircleIcon ref={iconRef} className="shrink-0" size={16} />;
 }
 
@@ -141,7 +121,7 @@ export function SettingsModalSidebar({
 }: SettingsModalSidebarProps) {
   const t = useTranslations("settings.modal");
   const [sectionIconRefs] = React.useState(() => {
-    const refs: Record<string, React.RefObject<AnimatedIconHandle | FlaskIconHandle | null>> = {};
+    const refs: Record<string, React.RefObject<AnimatedIconHandle | null>> = {};
     for (const section of SETTINGS_SECTIONS) {
       refs[section.id] = React.createRef();
     }

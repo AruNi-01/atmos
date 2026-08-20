@@ -5,37 +5,34 @@ import { join } from "node:path";
 const root = join(import.meta.dir, "../../../../../../..");
 
 describe("APP-059 Browser settings wiring", () => {
-  it("registers browser settings section in System Integration", () => {
+  it("registers browser settings under Apps", () => {
     const data = readFileSync(
       join(root, "apps/web/src/features/settings/components/settings-modal-data.ts"),
       "utf8",
     );
-    expect(data).toContain("sections.browser");
+    expect(data).toContain('items: ["remote-access", "apps", "privacy", "keyboard"] as const');
     expect(data).toContain("browser.agentChrome");
     expect(data).not.toContain("browser.defaultSurface");
-    expect(data).toContain(
-      'items: ["appearance", "account", "layout", "editor", "canvas", "terminal"] as const',
-    );
-    expect(data).toContain(
-      'items: ["integrations", "browser", "desktop-use", "notify"] as const',
-    );
+    expect(data).toContain('apps: mergeTopicItems("integrations", "browser", "desktop-use")');
   });
 
-  it("includes browser in SettingsModalTab enum list", () => {
+  it("includes apps in SettingsModalTab enum list", () => {
     const params = readFileSync(
       join(root, "apps/web/src/shared/lib/nuqs/searchParams.ts"),
       "utf8",
     );
-    expect(params).toContain('"browser"');
+    expect(params).toContain('"apps"');
+    expect(params).not.toContain('"browser"');
   });
 
-  it("SettingsModalSections renders BrowserSettingsSection", () => {
+  it("SettingsModalSections renders BrowserSettingsSection on Apps", () => {
     const sections = readFileSync(
       join(root, "apps/web/src/features/settings/components/SettingsModalSections.tsx"),
       "utf8",
     );
     expect(sections).toContain("BrowserSettingsSection");
-    expect(sections).toContain("case 'browser'");
+    expect(sections).toContain("case 'apps'");
+    expect(sections).not.toContain("case 'browser'");
   });
 
   it("Browser page no longer owns sidebar placement or visibility", () => {

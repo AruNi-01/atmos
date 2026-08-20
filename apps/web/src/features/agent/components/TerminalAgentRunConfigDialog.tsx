@@ -228,7 +228,7 @@ export function TerminalAgentRunConfigContent({
 
   const handleOpenCodeAgentSettings = React.useCallback(() => {
     onManageConfigs?.();
-    openSettings("code-agent");
+    openSettings("agents");
   }, [onManageConfigs, openSettings]);
 
   return (
