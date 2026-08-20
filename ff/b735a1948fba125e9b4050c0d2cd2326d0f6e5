@@ -1,0 +1,58 @@
+crates/core-engine/src/shims/zsh_shim_zshenv
+  s_d07e98b2f683ca::t_a5691dd884ac0a 7-11,14-18
+crates/core-engine/src/shims/zsh_shim_zshrc
+  s_d07e98b2f683ca::t_3935c0bdd937b4 60-62,64,66-73
+  s_d07e98b2f683ca::t_0d13857c23cab4 17-26,36,38,40
+  s_d07e98b2f683ca::t_da2a9cc41a9845 42-45,52,57-58,90-93
+  s_d07e98b2f683ca::t_18c9191820f68b 63,65
+  s_d07e98b2f683ca::t_587df700e46c50 46-51,53-56,86-89
+  s_d07e98b2f683ca::t_31602fc461c0a2 37,39
+  s_d07e98b2f683ca::t_0bc8593a4ff8c7 41
+  s_d07e98b2f683ca::t_55b6c6076a4248 59
+crates/core-engine/src/shims/grok_wrapper.sh
+  s_d07e98b2f683ca::t_cacf33fb1008d0 11-12
+  s_d07e98b2f683ca::t_3de52ccf46b2b3 1-4,9-10,13-18
+  s_d07e98b2f683ca::t_6f8904a21e78a1 6-8
+  s_d07e98b2f683ca::t_10d35300a35a95 5
+crates/core-engine/src/shims/fish_shim.fish
+  s_d07e98b2f683ca::t_2133f6bf77396b 28-31,33-42,46,60,66
+  s_d07e98b2f683ca::t_f3d393028c5fdf 17-18,20-21
+  s_d07e98b2f683ca::t_6249d7c2f726d2 16,19,23-24,59
+  s_d07e98b2f683ca::t_86a3db3ae5206d 32
+  s_d07e98b2f683ca::t_56fe0ac026e548 14-15,22,25-27,43-45,47,65
+crates/core-engine/src/shims/bash_shim.sh
+  s_d07e98b2f683ca::t_57f189d06a9087 42
+  s_d07e98b2f683ca::t_df84deee5b4788 36
+  s_d07e98b2f683ca::t_74da634e6a2662 37-41,43-50
+  s_d07e98b2f683ca::t_ebf6d1fb6b9453 23-28,30-33,72
+  s_d07e98b2f683ca::t_4835bebf83118b 19-22,29,34-35,78,89
+crates/core-engine/src/shims/mod.rs
+  s_d07e98b2f683ca::t_dcffcb89892cdb 294,316-319
+  s_d07e98b2f683ca::t_ed2a74b7782e34 290,462-519
+  s_d07e98b2f683ca::t_853fc04a5f49a4 401-455,457-461
+  s_d07e98b2f683ca::t_3ae3692d737c63 456
+  s_d07e98b2f683ca::t_5939fb28e600cc 329,385
+  s_d07e98b2f683ca::t_d187e133c85c32 342-344,520-546
+  s_d07e98b2f683ca::t_cc6e1f41745a8b 356
+  s_d07e98b2f683ca::t_65e3feee235d35 30,48-51,53,55,62-67,87-107,140-143,154-155,170,183-184,220-224,229-270,274-276,278-289
+  s_d07e98b2f683ca::t_de51e10238799d 291-293,295-315,320-328,330-341
+  s_d07e98b2f683ca::t_c0b78808723764 277
+  s_d07e98b2f683ca::t_8be34b70882d61 271-273
+  s_d07e98b2f683ca::t_c2a22611043c20 345-355,357-384,386-400
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "ffb735a1948fba125e9b4050c0d2cd2326d0f6e5",
+  "prompts": {},
+  "sessions": {
+    "s_d07e98b2f683ca": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "38055a67-2c74-4ca2-9846-725a58ddd791",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
