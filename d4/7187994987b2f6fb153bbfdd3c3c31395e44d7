@@ -1,0 +1,22 @@
+apps/web/src/features/canvas/__tests__/canvas-widget-shape.test.ts
+  h_5be255725524c8 245,264-266
+apps/web/src/features/canvas/components/CanvasView.tsx
+  h_5be255725524c8 77,254,256,897-912,1419-1422,1497-1510
+apps/web/src/features/canvas/lib/__tests__/canvas-tldraw-license.test.ts
+  h_5be255725524c8 1-38
+apps/web/src/features/canvas/lib/canvas-tldraw-license.ts
+  h_5be255725524c8 1-13
+apps/web/src/features/canvas/lib/canvas-widget-shape.ts
+  h_5be255725524c8 218,220
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "d47187994987b2f6fb153bbfdd3c3c31395e44d7",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
