@@ -1,0 +1,25 @@
+apps/web/src/features/terminal/lib/terminal-runtime-utils.ts
+  s_d07e98b2f683ca::t_f37a48d6e18e6d 102-111
+apps/web/src/features/terminal/lib/__tests__/tui-mouse-scrollback-policy.test.ts
+  s_d07e98b2f683ca::t_3e6b1e8600440b 7,23-32
+  s_d07e98b2f683ca::t_e2d785204cc15b 33
+apps/web/src/features/terminal/components/Terminal.tsx
+  s_d07e98b2f683ca::t_8132c988b0ad83 45,1287-1290
+  s_d07e98b2f683ca::t_adc3d82b9d0536 1284-1286
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "70b805f8b0c22d2b829aa4cf0762fc457ca4d327",
+  "prompts": {},
+  "sessions": {
+    "s_d07e98b2f683ca": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "38055a67-2c74-4ca2-9846-725a58ddd791",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
