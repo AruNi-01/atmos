@@ -496,8 +496,12 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
     const startCreating = useWorkspaceCreationStore((s) => s.startCreating);
     const bindWorkspace = useWorkspaceCreationStore((s) => s.bindWorkspace);
     const failCreating = useWorkspaceCreationStore((s) => s.failCreating);
-    const openingWorkspaceIds = useWorkspaceCreationStore((s) =>
-      s.jobs.map((job) => job.workspaceId).filter((id): id is string => Boolean(id)),
+    // useShallow: mapping jobs to ids returns a new array each call. React 19
+    // useSyncExternalStore treats that as a changed snapshot and loops (error #185).
+    const openingWorkspaceIds = useWorkspaceCreationStore(
+      useShallow((s) =>
+        s.jobs.map((job) => job.workspaceId).filter((id): id is string => Boolean(id)),
+      ),
     );
 
     // One-shot: onboarding/import asks the sidebar to highlight a project without
