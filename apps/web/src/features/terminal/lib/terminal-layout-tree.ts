@@ -35,6 +35,21 @@ export type TerminalLeafBox = {
   height: number;
 };
 
+const UNIT_SQUARE_EDGE_EPS = 0.001;
+
+/** Which edges of the unit-square mosaic a leaf tile sits on. */
+export function unitSquareEdgeFlags(
+  box: Pick<TerminalLeafBox, "left" | "top" | "width" | "height">,
+  eps = UNIT_SQUARE_EDGE_EPS,
+): { left: boolean; right: boolean; top: boolean; bottom: boolean } {
+  return {
+    left: box.left <= eps,
+    top: box.top <= eps,
+    right: box.left + box.width >= 1 - eps,
+    bottom: box.top + box.height >= 1 - eps,
+  };
+}
+
 export type TerminalSplitBox = {
   path: TerminalLayoutPath;
   direction: TerminalLayoutDirection;

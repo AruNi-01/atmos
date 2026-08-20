@@ -25,6 +25,7 @@ import {
   getLeaves,
   hitDockEdge,
   terminalLayoutTopologyEqual,
+  unitSquareEdgeFlags,
   updateSplitPercentageAtPath,
   type TerminalDockEdge,
   type TerminalLayoutNode,
@@ -242,7 +243,12 @@ export function TerminalSplitView({
 
   if (maximizedId) {
     return (
-      <div className={cn("h-full w-full min-h-0 min-w-0", className)}>
+      <div
+        className={cn("h-full w-full min-h-0 min-w-0", className)}
+        data-edge-bottom=""
+        data-edge-left=""
+        data-edge-right=""
+      >
         {renderPane(maximizedId)}
       </div>
     );
@@ -262,26 +268,32 @@ export function TerminalSplitView({
         className={cn("relative h-full w-full min-h-0 min-w-0", className)}
         data-terminal-split-root=""
       >
-        {geometry.leaves.map((leaf) => (
-          <div
-            key={leaf.id}
-            className="absolute min-h-0 min-w-0 overflow-hidden"
-            style={{
-              left: `${leaf.left * 100}%`,
-              top: `${leaf.top * 100}%`,
-              width: `${leaf.width * 100}%`,
-              height: `${leaf.height * 100}%`,
-            }}
-          >
-            <SplitLeaf
-              paneId={leaf.id}
-              canDrag={canDrag}
-              draggingPaneId={draggingPaneId}
-              hover={hover}
-              renderPane={renderPane}
-            />
-          </div>
-        ))}
+        {geometry.leaves.map((leaf) => {
+          const edges = unitSquareEdgeFlags(leaf);
+          return (
+            <div
+              key={leaf.id}
+              className="absolute min-h-0 min-w-0 overflow-hidden"
+              data-edge-bottom={edges.bottom ? "" : undefined}
+              data-edge-left={edges.left ? "" : undefined}
+              data-edge-right={edges.right ? "" : undefined}
+              style={{
+                left: `${leaf.left * 100}%`,
+                top: `${leaf.top * 100}%`,
+                width: `${leaf.width * 100}%`,
+                height: `${leaf.height * 100}%`,
+              }}
+            >
+              <SplitLeaf
+                paneId={leaf.id}
+                canDrag={canDrag}
+                draggingPaneId={draggingPaneId}
+                hover={hover}
+                renderPane={renderPane}
+              />
+            </div>
+          );
+        })}
         {geometry.splits.map((split) => (
           <SplitHandle
             key={split.path.join("/") || "root"}
@@ -507,9 +519,8 @@ function SplitHandle({
     (event: React.PointerEvent) => {
       event.preventDefault();
       event.stopPropagation();
-      const root = (event.currentTarget as HTMLElement).closest(
-        "[data-terminal-split-root]",
-      );
+      const handle = event.currentTarget as HTMLElement;
+      const root = handle.closest("[data-terminal-split-root]");
       if (!(root instanceof HTMLElement)) return;
       const rootRect = root.getBoundingClientRect();
       const size = isRow
@@ -519,6 +530,7 @@ function SplitHandle({
       const origin = isRow
         ? rootRect.left + split.parent.left * rootRect.width
         : rootRect.top + split.parent.top * rootRect.height;
+      handle.setAttribute("data-resizing", "");
       onResizeStart();
 
       const onMove = (ev: PointerEvent) => {
@@ -529,6 +541,7 @@ function SplitHandle({
         );
       };
       const onUp = () => {
+        handle.removeAttribute("data-resizing");
         onResizeEnd();
         window.removeEventListener("pointermove", onMove);
         window.removeEventListener("pointerup", onUp);
@@ -544,10 +557,8 @@ function SplitHandle({
       role="separator"
       aria-orientation={isRow ? "vertical" : "horizontal"}
       className={cn(
-        "absolute z-10 touch-none bg-transparent",
-        isRow
-          ? "w-2 -ml-1 cursor-col-resize hover:bg-border/60"
-          : "h-2 -mt-1 cursor-row-resize hover:bg-border/60",
+        "group absolute z-10 touch-none bg-transparent",
+        isRow ? "w-2 -ml-1 cursor-col-resize" : "h-2 -mt-1 cursor-row-resize",
       )}
       style={
         isRow
@@ -563,7 +574,18 @@ function SplitHandle({
             }
       }
       onPointerDown={startResize}
-    />
+    >
+      <span
+        aria-hidden
+        className={cn(
+          "pointer-events-none absolute bg-transparent transition-colors duration-200",
+          "group-hover:bg-border/50 group-data-[resizing]:bg-border/50",
+          isRow
+            ? "inset-y-0 left-1/2 w-px -translate-x-1/2"
+            : "inset-x-0 top-1/2 h-px -translate-y-1/2",
+        )}
+      />
+    </div>
   );
 }
 

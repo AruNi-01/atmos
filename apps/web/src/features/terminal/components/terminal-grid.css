@@ -149,9 +149,23 @@
   inset: 0;
   z-index: 7;
   pointer-events: none;
+  box-sizing: border-box;
   border: 1.5px solid transparent;
   border-radius: 2px;
   animation: agent-attention-pane-border-pulse 2.4s ease-in-out infinite;
+}
+
+/*
+ * Center-stage cards clip terminals to rounded-xl at the bottom corners
+ * (.atmos-terminal-panel-active). A 2px overlay at inset 0 sits in that
+ * clipped square corner — follow the card radius so the pulse stays visible.
+ */
+[data-edge-bottom][data-edge-left] .terminal-pane.agent-attention-ring::after {
+  border-bottom-left-radius: var(--radius-xl);
+}
+
+[data-edge-bottom][data-edge-right] .terminal-pane.agent-attention-ring::after {
+  border-bottom-right-radius: var(--radius-xl);
 }
 
 .terminal-split-theme .terminal-pane.agent-attention-ring-permission {
@@ -636,7 +650,7 @@
   background-color: #09090b !important;
 }
 
-/* xterm-scrollable-element: scrollbar overlays but FitAddon reserves space — compensate with left padding */
+/* Overlay scrollbar sits on the right edge; FitAddon uses the full mount width. */
 .atmos-terminal .xterm-scrollable-element {
   position: relative;
   /* Actual scroll container for xterm buffer; contain avoids chaining to parent (e.g. tldraw canvas) */

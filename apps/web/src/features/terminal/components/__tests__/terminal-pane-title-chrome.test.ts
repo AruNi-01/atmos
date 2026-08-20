@@ -54,5 +54,18 @@ describe("terminal pane title chrome", () => {
     expect(workspace).toContain("TerminalPaneDragHandle");
     expect(scoped).toContain("TerminalPaneDragHandle");
   });
+
+  it("follows center-stage rounded-xl at bottom card corners so the attention pulse is not clipped", () => {
+    const css = readSibling("terminal-grid.css");
+    const split = readSibling("TerminalSplitView.tsx");
+    expect(css).toContain("[data-edge-bottom][data-edge-left] .terminal-pane.agent-attention-ring::after");
+    expect(css).toContain("[data-edge-bottom][data-edge-right] .terminal-pane.agent-attention-ring::after");
+    expect(css).toContain("border-bottom-left-radius: var(--radius-xl)");
+    expect(css).toContain("border-bottom-right-radius: var(--radius-xl)");
+    expect(split).toContain("unitSquareEdgeFlags");
+    expect(split).toContain("data-edge-bottom");
+    expect(split).toContain("data-edge-left");
+    expect(split).toContain("data-edge-right");
+  });
 });
 

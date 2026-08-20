@@ -9,6 +9,7 @@ import {
   splitPaneInLayoutTree,
   swapLeavesInLayoutTree,
   terminalLayoutTopologyEqual,
+  unitSquareEdgeFlags,
   updateSplitPercentageAtPath,
 } from "@/features/terminal/lib/terminal-layout-tree";
 import {
@@ -171,6 +172,33 @@ describe("terminal-layout-tree", () => {
     expect(hitDockEdge(rect, 90, 50)).toBe("right");
     expect(hitDockEdge(rect, 8, 8)).toBe("top");
     expect(hitDockEdge(rect, 50, 50)).toBe("top");
+  });
+
+  it("marks mosaic leaves that sit on the unit-square card edges", () => {
+    expect(unitSquareEdgeFlags({ left: 0, top: 0, width: 1, height: 1 })).toEqual({
+      left: true,
+      top: true,
+      right: true,
+      bottom: true,
+    });
+    expect(unitSquareEdgeFlags({ left: 0, top: 0, width: 0.3, height: 1 })).toEqual({
+      left: true,
+      top: true,
+      right: false,
+      bottom: true,
+    });
+    expect(unitSquareEdgeFlags({ left: 0.3, top: 0, width: 0.7, height: 0.4 })).toEqual({
+      left: false,
+      top: true,
+      right: true,
+      bottom: false,
+    });
+    expect(unitSquareEdgeFlags({ left: 0.3, top: 0.4, width: 0.7, height: 0.6 })).toEqual({
+      left: false,
+      top: false,
+      right: true,
+      bottom: true,
+    });
   });
 });
 
