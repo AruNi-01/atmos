@@ -19,6 +19,7 @@ import { GeistPixelSquare } from "geist/font/pixel";
 import LogoSvg from "@workspace/ui/components/logo-svg";
 import { GithubUserHoverCard } from "@/features/github/components/GithubUserHoverCard";
 
+import { HandleComputerCount } from "@/features/token-usage/HandleComputerCount";
 import type {
   PublicLeaderboardEntry,
   PublicLeaderboards,
@@ -308,7 +309,10 @@ function LeaderRow({
       <td className="py-1.5 pl-1 group-hover:bg-muted/60">
         <span className="flex min-w-0 items-center gap-2">
           <Avatar handle={row.handle} url={row.avatar_url} />
-          <span className="min-w-0 truncate">@{row.handle}</span>
+          <span className="inline-flex min-w-0 items-baseline">
+            <span className="truncate">@{row.handle}</span>
+            <HandleComputerCount count={row.computer_count} />
+          </span>
         </span>
       </td>
       <td className="py-1.5 pl-2 text-left text-xs group-hover:bg-muted/60">

@@ -139,6 +139,7 @@ These files are not requirements sources. Requirements live in `PRD.md`, archite
 | **APP-060** | Vendor serve-sim (compiled helper, on-demand `~/.atmos`, embed preview) | `specs/APP/APP-060_vendor-serve-sim/` (`BRAINSTORM.md`, `PRD.md`, `TECH.md`, `TEST.md`) |
 | **APP-061** | Token Usage public share (`atmos.land/tok/@handle`; one snapshot; claim-once handle) | `specs/APP/APP-061_token-usage-public-share/` (`BRAINSTORM.md`, `PRD.md`, `TECH.md`, `TEST.md`) |
 | **APP-062** | PT Design — full product: package (MCP + Ink CLI/Skill) + Atmos left sidebar → center stage | `specs/APP/APP-062_pt-design/` (`BRAINSTORM.md`, `PRD.md`, `TECH.md`, `TEST.md`) |
+| **APP-063** | Token Usage Computer scope (All Computers / per-Computer via Relay; device uniqueness) | `specs/APP/APP-063_token-usage-computer-scope/` (`BRAINSTORM.md`, `PRD.md`, `TECH.md`, `TEST.md`) |
 | **QUALITY-001** | Large File Code Debt Cleanup | `specs/APP/QUALITY-001_large-file-code-debt-cleanup/` (`TECH.md`, `TEST.md`) |
 | **QUALITY-002** | Spec Test Execution Loop | `specs/APP/QUALITY-002_spec-test-execution-loop/` (`TECH.md`, `TEST.md`) |
 | **QUALITY-003** | Playwright E2E Harness | `specs/APP/QUALITY-003_playwright-e2e-harness/` (`TECH.md`, `TEST.md`) |

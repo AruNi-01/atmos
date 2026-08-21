@@ -50,6 +50,8 @@ export type TokenUsageSharePayload = {
     model_count: number;
     total_cost_usd?: number;
     mix: TokenUsageShareMix;
+    /** Present when the snapshot is a unique-Computer aggregate (APP-063). */
+    computer_count?: number;
   };
   by_client: TokenUsageShareRankRow[];
   by_model: TokenUsageShareRankRow[];
@@ -238,6 +240,10 @@ export function mapOverviewToSharePayload(
         ? { total_cost_usd: overview.summary.total_cost_usd ?? 0 }
         : {}),
       mix,
+      ...(typeof overview.computer_count === "number" &&
+      overview.computer_count > 1
+        ? { computer_count: Math.floor(overview.computer_count) }
+        : {}),
     },
     by_client,
     by_model,

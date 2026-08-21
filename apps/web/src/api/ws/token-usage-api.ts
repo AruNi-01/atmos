@@ -109,6 +109,8 @@ export interface TokenUsageOverviewResponse {
   generated_at: number;
   partial_warnings: string[];
   browser_cookie_access?: BrowserCookieAccessResponse[];
+  /** Unique Computers that contributed to this overview (client merge only). */
+  computer_count?: number;
 }
 
 export interface TokenUsageUpdateResponse {

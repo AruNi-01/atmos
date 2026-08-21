@@ -33,6 +33,7 @@ describe("APP-061 static wiring", () => {
     expect(page).toContain("TokenUsageOverviewView");
     expect(page).toContain("payload={payload}");
     expect(page).toContain("@{handle}");
+    expect(page).toContain("HandleComputerCount");
     expect(page).toContain("https://x.com/");
     expect(page).toContain("https://github.com/");
     expect(page).toContain("GitHubIcon");
@@ -47,6 +48,7 @@ describe("APP-061 static wiring", () => {
     const boards = read(
       "apps/web/src/features/token-usage/PublicTokLeaderboards.tsx",
     );
+    expect(boards).toContain("HandleComputerCount");
     expect(boards).toContain("Crown");
     expect(boards).toContain("GithubUserHoverCard");
     expect(boards).toContain("GithubCell");

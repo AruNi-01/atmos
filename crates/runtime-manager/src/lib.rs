@@ -33,6 +33,7 @@ pub use computer_client_settings::{
     COMPUTER_CLIENT_SETTINGS_VERSION,
 };
 pub use computer_name::{local_computer_display_name, local_computer_display_name_opt};
+pub use device_identity::app_device_id;
 pub use identity::{
     clear_server_identity, read_server_identity, relay_identity_path, resolve_server_identity_path,
     server_identity_env_path_override, write_server_identity, ServerIdentity,

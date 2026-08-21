@@ -141,6 +141,29 @@ describe("queryKeys", () => {
     ]);
   });
 
+  test("scoped token usage overview is isolated from the workbench computer key", () => {
+    expect(queryKeys.computer.tokenUsageOverview(scope)).toEqual([
+      "atmos",
+      "computer",
+      "local",
+      2,
+      3,
+      "tokenUsage",
+      "overview",
+      { year: null, since: null, until: null, clients: null, groupBy: null },
+    ]);
+    expect(queryKeys.tokenUsage.scopedOverview(relayScope, "all")).toEqual([
+      "atmos",
+      "relay",
+      "https://relay.atmos.land",
+      1,
+      "tokenUsage",
+      "overview",
+      "all",
+      { year: null, since: null, until: null, clients: null, groupBy: null },
+    ]);
+  });
+
   test("public GitHub user card is not scoped to a computer", () => {
     expect(queryKeys.publicGithub.userCard("octocat")).toEqual([
       "atmos",

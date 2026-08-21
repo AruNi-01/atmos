@@ -629,6 +629,14 @@
         "loadOverviewFallback": "加载 Token 用量概览失败",
         "loadOverviewTitle": "加载 Token 用量失败"
       },
+      "computerScope": {
+        "allComputers": "全部 Computer",
+        "loadOtherError": "无法连接到这台 Computer。",
+        "missedComputer": "未计入 {name}",
+        "missedBanner": "有的 Computer 没连上，合计只包含已扫到的机器。",
+        "noneReached": "没有任何 Computer 可以连接。",
+        "aggregatedTooltip": "来自 {count} 台 Computer 的合计"
+      },
       "browserCookie": {
         "title": "包含已登录网页用量",
         "note": "检测到本机安装了 {products}。若要把对应控制台的 token 用量算进来，Atmos Server 会向钥匙串申请权限，用于解密浏览器里的登录 Cookie。密钥只留在本机，且仅用于读取用量。",

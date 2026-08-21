@@ -7,9 +7,13 @@ type HmacSha256 = Hmac<Sha256>;
 
 const APP_DEVICE_ID_CONTEXT: &[u8] = b"atmos-device-v1:computer-registration";
 
-pub(crate) fn derive_app_device_id() -> Result<String, String> {
+pub fn app_device_id() -> Result<String, String> {
     let machine_id = machine_uid::get().map_err(|err| format!("machine id unavailable: {err}"))?;
     app_device_id_from_machine_id(&machine_id)
+}
+
+pub(crate) fn derive_app_device_id() -> Result<String, String> {
+    app_device_id()
 }
 
 fn app_device_id_from_machine_id(machine_id: &str) -> Result<String, String> {
