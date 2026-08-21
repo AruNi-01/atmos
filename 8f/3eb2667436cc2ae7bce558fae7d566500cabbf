@@ -1,0 +1,14 @@
+apps/web/src/app-shell/center-pane/center-pane-saved-layout.ts
+  h_5be255725524c8 4-6,11,41-44,59-79,143-145,185-187,237,241,245,252-258,286-298,302-306,308-309
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.23",
+  "base_commit_sha": "8f3eb2667436cc2ae7bce558fae7d566500cabbf",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
