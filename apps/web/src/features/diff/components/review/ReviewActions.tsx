@@ -9,6 +9,7 @@ import React, {
 } from "react";
 import { useTranslations } from "next-intl";
 import {
+  Button,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -20,7 +21,7 @@ import {
   Input,
   toastManager,
 } from "@workspace/ui";
-import { Check, ChevronRight, LoaderCircle, RotateCcw } from "lucide-react";
+import { Check, ChevronDown, ChevronRight, LoaderCircle, RotateCcw } from "lucide-react";
 import { cn } from "@/shared/lib/utils";
 import { useReviewCtx } from "@/features/diff/components/review/ReviewContextProvider";
 import { FixActionsMenu } from "@/features/diff/components/review/FixActionsMenu";
@@ -155,7 +156,7 @@ export const ReviewActions: React.FC = () => {
           setShowRefresh(false);
         }
       } else if (width > state.hideThreshold + 40) {
-        // Hysteresis of 40px: refresh+separator reclaim ~29px when hidden, so
+        // Hysteresis of 40px: the refresh icon reclaims ~24px when hidden, so
         // we need enough extra headroom to avoid immediately re-hiding after
         // bringing refresh back.
         state.show = true;
@@ -412,25 +413,28 @@ export const ReviewActions: React.FC = () => {
   );
 
   return (
-    <div ref={containerRef} className="flex-1 flex items-stretch min-w-0">
-      <div ref={innerRef} className="flex items-stretch flex-1 min-w-0">
-        <div className="flex items-stretch shrink min-w-0 max-w-[60%]">
+    <div ref={containerRef} className="flex min-w-0 flex-1 items-center gap-1 px-2">
+      <div ref={innerRef} className="flex min-w-0 flex-1 items-center gap-1">
+        <div className="flex min-w-0 max-w-[60%] shrink items-center">
           <DropdownMenu
             onOpenChange={(open) => {
               if (!open) setRenameSessionGuid(null);
             }}
           >
             <DropdownMenuTrigger asChild>
-              <button
+              <Button
                 type="button"
-                className="inline-flex items-center gap-1.5 px-2.5 h-full text-[13px] text-foreground hover:bg-sidebar-accent/30 transition-colors cursor-pointer min-w-0 max-w-full"
+                variant="ghost"
+                size="xs"
                 title={currentSession?.title?.trim() || t("session.title")}
+                className="min-w-0 max-w-full justify-start gap-1 rounded-md px-2 text-xs text-muted-foreground shadow-none hover:bg-sidebar-accent hover:text-foreground"
               >
-                <span className="font-medium shrink-0">{revisionLabel}</span>
-                <span className="text-muted-foreground truncate min-w-0">
+                <span className="shrink-0 font-medium text-foreground">{revisionLabel}</span>
+                <span className="min-w-0 truncate">
                   {currentSession?.title?.trim() || t("session.title")}
                 </span>
-              </button>
+                <ChevronDown className="size-3 shrink-0" />
+              </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent
               align="start"
@@ -494,8 +498,6 @@ export const ReviewActions: React.FC = () => {
           </DropdownMenu>
         </div>
 
-        <div className="w-px self-stretch bg-sidebar-border shrink-0" />
-
         <FixActionsMenu
           disabled={fixDisabled}
           isLoading={isCreatingAgentRun}
@@ -516,22 +518,22 @@ export const ReviewActions: React.FC = () => {
       </div>
 
       {showRefresh && (
-        <>
-          <div className="w-px self-stretch bg-sidebar-border shrink-0" />
-          <button
-            type="button"
-            onClick={handleRefresh}
-            disabled={isRefreshing}
-            className="flex items-center justify-center px-2 h-full text-muted-foreground hover:text-foreground hover:bg-sidebar-accent/30 transition-colors cursor-pointer disabled:opacity-50 shrink-0"
-            title={t("actions.refreshReviewData")}
-          >
-            {isRefreshing ? (
-              <LoaderCircle className="size-3.5 animate-spin" />
-            ) : (
-              <RotateCcw className="size-3.5" />
-            )}
-          </button>
-        </>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-xs"
+          onClick={handleRefresh}
+          disabled={isRefreshing}
+          className="shrink-0 text-muted-foreground shadow-none hover:bg-sidebar-accent hover:text-foreground"
+          aria-label={t("actions.refreshReviewData")}
+          title={t("actions.refreshReviewData")}
+        >
+          {isRefreshing ? (
+            <LoaderCircle className="size-3.5 animate-spin" />
+          ) : (
+            <RotateCcw className="size-3.5" />
+          )}
+        </Button>
       )}
     </div>
   );

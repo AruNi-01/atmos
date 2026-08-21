@@ -83,7 +83,7 @@ export const FileTreePanel: React.FC<FileTreePanelProps> = ({
   return (
     <div className="flex flex-col h-full min-h-0">
       {projectName && (
-        <div className="flex items-center justify-between px-3 py-1.5 border-b border-sidebar-border shrink-0">
+        <div className="flex items-center justify-between px-3 py-1.5 shrink-0">
           <span className="text-[12px] font-medium text-muted-foreground truncate">
             {projectName}
           </span>

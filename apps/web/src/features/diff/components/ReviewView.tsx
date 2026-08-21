@@ -240,7 +240,7 @@ const ReviewView: React.FC<ReviewViewProps> = ({
   return (
     <div className="flex flex-col h-full min-h-0">
       {/* Inline stats line */}
-      <div className="flex items-center gap-2 px-3 py-1.5 text-xs text-muted-foreground shrink-0 border-b border-sidebar-border/50">
+      <div className="flex items-center gap-2 px-2 py-1.5 text-xs text-muted-foreground shrink-0">
         <div className="flex min-w-0 flex-1 items-center gap-2">
           {/* N2: scope badge */}
           <span className="shrink-0 rounded px-1 py-0.5 text-[10px] font-medium bg-muted text-muted-foreground border border-border">
@@ -263,21 +263,23 @@ const ReviewView: React.FC<ReviewViewProps> = ({
             </>
           )}
         </div>
-        <button
+        <Button
           type="button"
+          variant="ghost"
+          size="icon-xs"
           title={fileViewMode === "tree" ? t("viewMode.showAsList") : t("viewMode.showAsTree")}
           aria-label={fileViewMode === "tree" ? t("viewMode.ariaList") : t("viewMode.ariaTree")}
           onClick={() =>
             setFileViewMode(fileViewMode === "tree" ? "list" : "tree")
           }
-          className="cursor-pointer rounded-sm p-1 text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground"
+          className="text-muted-foreground shadow-none hover:bg-sidebar-accent hover:text-foreground"
         >
           {fileViewMode === "tree" ? (
             <List className="size-3.5" />
           ) : (
             <ListTree className="size-3.5" />
           )}
-        </button>
+        </Button>
       </div>
 
       {/* Scrollable body */}

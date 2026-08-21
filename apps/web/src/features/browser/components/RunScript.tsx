@@ -473,7 +473,7 @@ export const RunScript: React.FC<RunScriptProps> = ({ workspaceId, projectId, is
           onValueChange={setActiveTabId}
           className="flex flex-col h-full w-full"
         >
-          <div className="flex items-center justify-between px-2 h-9 border-b border-border bg-muted/20 shrink-0">
+          <div className="flex items-center justify-between px-2 h-9 bg-muted/20 shrink-0">
             <div className="flex items-center gap-1 overflow-x-auto overflow-y-hidden no-scrollbar flex-1 mr-2 h-full">
               <TabsList variant='underline' className="h-full bg-transparent p-0 gap-1 border-b-0 w-auto justify-start">
                 {tabs.map(tab => (

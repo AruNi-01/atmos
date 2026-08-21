@@ -85,7 +85,7 @@ function CanvasReviewWidgetBody({
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
-      <div className="flex h-9 shrink-0 items-stretch border-b border-sidebar-border bg-background/50 backdrop-blur-sm">
+      <div className="flex h-9 shrink-0 items-center bg-background/50 backdrop-blur-sm">
         <ReviewActions />
       </div>
       <div className="min-h-0 flex-1">

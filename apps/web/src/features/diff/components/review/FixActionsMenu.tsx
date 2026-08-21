@@ -2,10 +2,10 @@
 
 import React from "react";
 import {
+  Button,
   DropdownMenuItem,
 } from "@workspace/ui";
 import { Bot, Settings2 } from "lucide-react";
-import { cn } from "@/shared/lib/utils";
 import { type AgentId } from "@/features/wiki/components/AgentSelect";
 import { AgentIcon } from "@/features/agent/components/AgentIcon";
 import type { ReviewAgentRunModel } from "@/api/ws-api";
@@ -70,18 +70,17 @@ export const FixActionsMenu: React.FC<FixActionsMenuProps> = ({
           }}
           purpose="interactive"
           trigger={
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="icon-xs"
               disabled={(!isRunActive && disabled) || isLoading}
-              className={cn(
-                "inline-flex shrink-0 items-center justify-center disabled:cursor-not-allowed disabled:opacity-50",
-                settingsClassName,
-              )}
+              className={settingsClassName}
               title="Choose agent"
               aria-label="Choose review fix agent"
             >
               <Settings2 className="size-3.5" />
-            </button>
+            </Button>
           }
           menuHeader={
             <DropdownMenuItem
