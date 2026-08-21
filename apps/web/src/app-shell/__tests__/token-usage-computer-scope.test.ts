@@ -16,6 +16,13 @@ describe("Token Usage Computer scope chrome", () => {
     expect(shareAt).toBeGreaterThan(selectAt);
   });
 
+  it("shows a settings hint when the Computer select is hidden", () => {
+    const hintAt = pageSource.indexOf("<TokenUsageComputerScopeHint");
+    const shareAt = pageSource.indexOf("<TokenUsageSharePopover");
+    expect(hintAt).toBeGreaterThan(0);
+    expect(hintAt).toBeLessThan(shareAt);
+  });
+
   it("does not switch the workbench Computer from Token Usage", () => {
     expect(pageSource).not.toContain("createHostedRemoteSession");
     expect(pageSource).not.toContain("setSelectedServerId");

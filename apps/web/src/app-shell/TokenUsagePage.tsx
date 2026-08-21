@@ -22,12 +22,14 @@ import { TokenUsageSharePopover } from "@/app-shell/TokenUsageShareDialog";
 import { TokenUsageCookieConsentBanner } from "@/app-shell/TokenUsageCookieConsentBanner";
 import { TokenUsageOverviewView } from "@/features/token-usage/TokenUsageOverviewView";
 import { TokenUsageComputerSelect } from "@/features/token-usage/TokenUsageComputerSelect";
+import { TokenUsageComputerScopeHint } from "@/features/token-usage/TokenUsageComputerScopeHint";
 import { fetchLocalComputerStatus } from "@/features/connection/lib/atmos-computer-local";
 import { useAtmosComputerStore } from "@/features/connection/lib/atmos-computer-store";
 import { fetchAllComputersTokenUsageLive } from "@/features/token-usage/lib/fetch-all-token-usage";
 import { fetchRemoteTokenUsageOverviewFromRelay } from "@/features/token-usage/lib/fetch-remote-token-usage";
 import {
   ALL_COMPUTERS_VALUE,
+  computerScopeHintKind,
   currentUniqueComputer,
   shouldShowComputerSelect,
   uniqueComputers,
@@ -175,6 +177,10 @@ export function TokenUsagePage() {
   );
   const currentDevice = currentUniqueComputer(devices);
   const showSelect = shouldShowComputerSelect({
+    signedIn,
+    uniqueCount: devices.length,
+  });
+  const scopeHintKind = computerScopeHintKind({
     signedIn,
     uniqueCount: devices.length,
   });
@@ -370,6 +376,8 @@ export function TokenUsagePage() {
                     allLabel={t("computerScope.allComputers")}
                     isDark={isDark}
                   />
+                ) : scopeHintKind ? (
+                  <TokenUsageComputerScopeHint kind={scopeHintKind} isDark={isDark} />
                 ) : null}
                 <TokenUsageSharePopover
                   captureTargetRef={captureTargetRef}

@@ -635,7 +635,11 @@
         "missedComputer": "{name} was not included",
         "missedBanner": "Some Computers could not be reached. Totals are only for machines that answered.",
         "noneReached": "Could not reach any Computer.",
-        "aggregatedTooltip": "Aggregated from {count} computers"
+        "aggregatedTooltip": "Aggregated from {count} computers",
+        "hintSignIn": "Sign in",
+        "hintSignInTooltip": "Sign in, then add another Computer, to include local token usage from each machine.",
+        "hintAddComputer": "Add Computer",
+        "hintAddComputerTooltip": "Add another Computer in Settings to include local token usage from each machine."
       },
       "browserCookie": {
         "title": "Include signed-in web usage",

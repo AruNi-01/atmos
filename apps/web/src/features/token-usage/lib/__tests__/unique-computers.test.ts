@@ -4,6 +4,7 @@ import type { ComputerRow } from "@atmos/relay-client";
 import {
   ALL_COMPUTERS_VALUE,
   allComputersFetchTargets,
+  computerScopeHintKind,
   shouldShowComputerSelect,
   uniqueComputers,
 } from "@/features/token-usage/lib/unique-computers";
@@ -108,6 +109,11 @@ describe("uniqueComputers", () => {
     expect(shouldShowComputerSelect({ signedIn: false, uniqueCount: 4 })).toBe(false);
     expect(shouldShowComputerSelect({ signedIn: true, uniqueCount: 1 })).toBe(false);
     expect(shouldShowComputerSelect({ signedIn: true, uniqueCount: 2 })).toBe(true);
+    expect(computerScopeHintKind({ signedIn: false, uniqueCount: 1 })).toBe("sign-in");
+    expect(computerScopeHintKind({ signedIn: true, uniqueCount: 1 })).toBe(
+      "add-computer",
+    );
+    expect(computerScopeHintKind({ signedIn: true, uniqueCount: 2 })).toBeNull();
     expect(ALL_COMPUTERS_VALUE).toBe("all");
   });
 });
