@@ -3734,15 +3734,15 @@
           "questionMark": "?",
           "spinUpNext": {
             "prefix": "What do you want",
-            "suffix": "to spin up next?"
+            "suffix": "to spin up next"
           },
           "startBuildingWithYou": {
             "prefix": "What should",
-            "suffix": "start building with you?"
+            "suffix": "start building with you"
           },
           "deservesWorkspace": {
             "prefix": "What idea deserves an",
-            "suffix": "workspace?"
+            "suffix": "workspace"
           }
         }
       },

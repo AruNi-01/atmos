@@ -208,6 +208,24 @@ export type {
 export { TextShimmerWave } from "./components/ui/text-shimmer-wave";
 export { TextScramble } from "./components/ui/text-scramble";
 export { TextMorph } from "./components/ui/text-morph";
+export {
+  TypewriterEffect,
+  TypewriterEffectSmooth,
+} from "./components/ui/typewriter-effect";
+export type {
+  TypewriterEffectProps,
+  TypewriterWord,
+} from "./components/ui/typewriter-effect";
+export {
+  ShootingStars,
+  ShootingStarsBackground,
+  StarsBackground,
+} from "./components/ui/shooting-stars-background";
+export type {
+  ShootingStarsBackgroundProps,
+  ShootingStarsProps,
+  StarsBackgroundProps,
+} from "./components/ui/shooting-stars-background";
 export { NativeFollowCursor } from "./components/native/native-follow-cursor";
 export type { NativeFollowCursorProps } from "./components/native/native-follow-cursor";
 export { AnimatedNumber } from "./components/ui/animated-number";

@@ -3731,18 +3731,18 @@
           "comeAlive": {
             "prefix": "你希望什么在"
           },
-          "questionMark": "里活起来？",
+          "questionMark": "里活起来",
           "spinUpNext": {
             "prefix": "你想让",
-            "suffix": "接下来启动什么？"
+            "suffix": "接下来启动什么"
           },
           "startBuildingWithYou": {
             "prefix": "你希望",
-            "suffix": "和你一起开始构建什么？"
+            "suffix": "和你一起开始构建什么"
           },
           "deservesWorkspace": {
             "prefix": "什么想法值得拥有一个",
-            "suffix": "工作区？"
+            "suffix": "工作区"
           }
         }
       },
