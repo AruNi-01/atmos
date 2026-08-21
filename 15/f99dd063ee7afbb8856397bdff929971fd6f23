@@ -1,0 +1,2782 @@
+.envrc
+  h_5be255725524c8 1-6
+.github/workflows/deploy-docs-pages.yml
+  h_5be255725524c8 50-51
+.github/workflows/deploy-landing-pages.yml
+  h_5be255725524c8 1-64
+.github/workflows/pullfrog.yml
+  h_5be255725524c8 1-77
+.github/workflows/release-serve-sim.yml
+  h_5be255725524c8 1-79
+.gitignore
+  h_5be255725524c8 46
+AGENTS.md
+  h_5be255725524c8 23,222-229
+Cargo.lock
+  h_5be255725524c8 266,1318,4446-4455,5010,7485
+DESIGN.md
+  h_5be255725524c8 296
+NOTICE
+  h_5be255725524c8 343-471
+agents/AGENTS.md
+  h_5be255725524c8 19,36
+agents/references/design/components.md
+  h_5be255725524c8 94
+agents/references/design/foundations.md
+  h_5be255725524c8 124-126
+agents/references/design/mobile.md
+  h_5be255725524c8 161-163,174
+agents/references/design/web-desktop.md
+  h_5be255725524c8 35
+agents/references/dev-environment.md
+  h_5be255725524c8 1-130
+agents/references/mobile/native-navigation.md
+  h_5be255725524c8 35
+agents/references/runtime/AGENTS.md
+  h_5be255725524c8 37
+agents/references/runtime/atmos-home-layout.md
+  h_5be255725524c8 16,19,28,31-33,36,39,41,57-73
+apps/api/.env.example
+  h_5be255725524c8 11-12,18-31,38
+apps/api/AGENTS.md
+  h_5be255725524c8 58-59,73-74
+apps/api/Cargo.toml
+  h_5be255725524c8 21
+apps/api/build.rs
+  h_5be255725524c8 1-3,6,14,19
+apps/api/macos/Server-Info.plist
+  h_5be255725524c8 6,8,10,12
+apps/api/simulator/serve-sim-requirement.json
+  h_5be255725524c8 1-11
+apps/api/src/api/cli/actions.rs
+  h_5be255725524c8 13,29
+apps/api/src/api/cli/mod.rs
+  h_5be255725524c8 1
+apps/api/src/api/hooks/mod.rs
+  h_5be255725524c8 70-74,77,252-256,262-266,274-281,294-301
+apps/api/src/api/mod.rs
+  h_5be255725524c8 7-8,29
+apps/api/src/api/pt_design.rs
+  h_5be255725524c8 1-191
+apps/api/src/api/pt_design_agent.rs
+  h_5be255725524c8 1-321
+apps/api/src/api/system/computer.rs
+  h_5be255725524c8 66-76
+apps/api/src/api/system/linear_local.rs
+  h_5be255725524c8 169
+apps/api/src/api/ws/message.rs
+  h_5be255725524c8 183-184,196-209,253-258,307-308,331-336,379-380,439,441,443,445,777-778,783-792,825-828,845-846,857-858,1077-1088,1194-1201,1266-1277
+apps/api/src/api/ws/message/disk_analyzer.rs
+  h_5be255725524c8 30-34
+apps/api/src/api/ws/message/git.rs
+  h_5be255725524c8 395-411
+apps/api/src/api/ws/message/linear.rs
+  h_5be255725524c8 3-4,6-7,9-10,13-19,25-34,72-74,81-82,101-109,116-117
+apps/api/src/api/ws/message/terminal.rs
+  h_5be255725524c8 12
+apps/api/src/api/ws/message/workspace.rs
+  h_5be255725524c8 96-104
+apps/api/src/api/ws/mod.rs
+  h_5be255725524c8 9,24,36-37
+apps/api/src/api/ws/pt_design.rs
+  h_5be255725524c8 1-247
+apps/api/src/api/ws/router/disk_analyzer.rs
+  h_5be255725524c8 7-8,49-57
+apps/api/src/api/ws/router/git.rs
+  h_5be255725524c8 16-18,599-614
+apps/api/src/api/ws/router/github.rs
+  h_5be255725524c8 2410,2425,2431
+apps/api/src/api/ws/router/linear.rs
+  h_5be255725524c8 33,61,67,151-155,184-186,193-198,209,211-215,217-222
+apps/api/src/api/ws/router/mod.rs
+  h_5be255725524c8 17,22,45-46,72,80,96,125,133,173,228-236,291,334-342,396-399,1129-1131,1139-1143,1220-1289,1347
+apps/api/src/api/ws/router/permission_access.rs
+  h_5be255725524c8 1-38
+apps/api/src/api/ws/router/project.rs
+  h_5be255725524c8 12-14,199,287-288,290-295,297-313,315-316,320-323,331,342-348
+apps/api/src/api/ws/router/quota.rs
+  h_5be255725524c8 9-10,119,128,135-146
+apps/api/src/api/ws/router/settings.rs
+  h_5be255725524c8 103-110,248-274
+apps/api/src/api/ws/router/simulator.rs
+  h_5be255725524c8 1-61
+apps/api/src/api/ws/router/terminal.rs
+  h_5be255725524c8 12
+apps/api/src/api/ws/router/workspace.rs
+  h_5be255725524c8 641-691
+apps/api/src/api/ws/router/workspace_setup.rs
+  h_5be255725524c8 6,48,50-60,130-148,180,182-184,211-213,269-271,309-311,339-341,380-382,445-447,494-496,556-558,582-612,625-627,674-676,779-781,815-817
+apps/api/src/app_state.rs
+  h_5be255725524c8 3,29,47,49,56-57,76,83,112,119
+apps/api/src/config/mod.rs
+  h_5be255725524c8 15-17,70-80,88,116-118,122,124-131,136-156,158-167,171-183,186-200,202-208,217,219,221,226-248,252-253,258-317
+apps/api/src/main.rs
+  h_5be255725524c8 7,14,110-116,262-263,300-385,391-392,397-403,428-438,553,571,585,630,827-831,840-843,910-917
+apps/api/src/middleware/mod.rs
+  h_5be255725524c8 3-6,12-14,26-69,188-289
+apps/api/src/relay/http_gateway.rs
+  h_5be255725524c8 100-105
+apps/api/src/simulator.rs
+  h_5be255725524c8 1-996
+apps/cli/AGENTS.md
+  h_5be255725524c8 5,25,90
+apps/cli/src/commands/browser_use.rs
+  h_5be255725524c8 4,9-26,28-29,33,37-39,43-44,48-50,56,60-61,63-64,66,70,74-75,77-78,81,84,88-89,91-92,94-95,99-100,102-103,106,115,119-120,122-123,128-129,133-134,136-137,139-141,144-190,193-218,225,239-246,251-252,271-273,276,279,298-299,314-315,331-332,339-340,366-367,382-386,388-395,397-405,408-423,425-426,428,440,442-443
+apps/cli/src/commands/product.rs
+  h_5be255725524c8 1
+apps/cli/src/envelope.rs
+  h_5be255725524c8 1
+apps/desktop-electron/AGENTS.md
+  h_5be255725524c8 47,49
+apps/desktop-electron/electron-builder.yml
+  h_5be255725524c8 8-13
+apps/desktop-electron/package.json
+  h_5be255725524c8 4
+apps/desktop-electron/resources/icons/README.md
+  h_5be255725524c8 7,12,18-19,52-53,83
+apps/desktop-electron/resources/icons/icon.icon/icon.json
+  h_5be255725524c8 5,11,17,43-64
+apps/desktop-electron/scripts/macos-icon.test.ts
+  h_5be255725524c8 2,29-105,128-130,133-135
+apps/desktop-electron/scripts/prepare-dev-app.ts
+  h_5be255725524c8 102-126
+apps/desktop-electron/scripts/regen-legacy-icns.ts
+  h_5be255725524c8 11-12,38,60-66,68-69,71-128,131-134,145-161,202,241,244-251,255,282-298,303
+apps/desktop-electron/src/appshot/frontmost-route.test.ts
+  h_5be255725524c8 21,25-35
+apps/desktop-electron/src/branding-paths.ts
+  h_5be255725524c8 28-42
+apps/desktop-electron/src/branding.test.ts
+  h_5be255725524c8 9,72-88
+apps/desktop-electron/src/branding.ts
+  h_5be255725524c8 22-28
+apps/desktop-electron/src/browser/browser-use-control.structural.test.ts
+  h_5be255725524c8 19-34,46-68,70-82,101,112-114,117-119
+apps/desktop-electron/src/browser/browser-use-control.ts
+  h_5be255725524c8 8,10-19,27,36-56,65,67-89,96-99,102-156,168,171,177-192,196-204,211,259-264,268-269,274-287,292,294-303,310-314,337,342-575,578,580-582,584-585,587-588,590-633,637-640,643,646,648-653,663-664,666-688,692-696,702-747,753-787,846-851,853-870,873-874,886,893,916-938,944-949,954,959-974,976-977,991-993,996,1036,1241,1249,1311-1326,1330,1334-1338,1344-1345,1350-1359,1361,1366,1373-1374,1376,1383-1390,1397,1402-1453,1460-1468,1482-1484,1490-1503,1508-1566,1568-1573,1590-1592,1596,1603,1605-1622,1625-1683,1685-1688,1692,1727,1771-1797,1804,1842-1846,1849,1859-2001,2003-2004,2006-2007
+apps/desktop-electron/src/browser/surface-manager.ts
+  h_5be255725524c8 26,35,72-77,81,212-220,224,235-236,327-447,471-475,502,510,521,606-628,889,1025-1026
+apps/desktop-electron/src/browser/system-downloads.ts
+  h_5be255725524c8 1-23
+apps/desktop-electron/src/browser/webview-attach-policy.test.ts
+  h_5be255725524c8 8,207-227
+apps/desktop-electron/src/browser/webview-attach-policy.ts
+  h_5be255725524c8 242-269
+apps/desktop-electron/src/deep-link.test.ts
+  h_5be255725524c8 1-27
+apps/desktop-electron/src/deep-link.ts
+  h_5be255725524c8 1-26
+apps/desktop-electron/src/desktop-use/client.ts
+  h_5be255725524c8 497-498
+apps/desktop-electron/src/desktop-use/host-branding.test.ts
+  h_5be255725524c8 1-55
+apps/desktop-electron/src/desktop-use/host-branding.ts
+  h_5be255725524c8 1-209
+apps/desktop-electron/src/desktop-use/lifecycle.structural.test.ts
+  h_5be255725524c8 1-44
+apps/desktop-electron/src/desktop-use/lifecycle.ts
+  h_5be255725524c8 1-42
+apps/desktop-electron/src/ipc/handlers.ts
+  h_5be255725524c8 166-168,179,184-191,509-588,683-686
+apps/desktop-electron/src/main.ts
+  h_5be255725524c8 7,9-13,84-119,169-179,248-249,254-267,271-276,329-336
+apps/desktop-electron/src/runtime/ensure.test.ts
+  h_5be255725524c8 5-6,9,72-105
+apps/desktop-electron/src/runtime/ensure.ts
+  h_5be255725524c8 20-21,88-89,96-232,345-383,389,504,506-510,513-515,574-578,640-647,653-657
+apps/desktop-electron/src/tunnel/gateway.ts
+  h_5be255725524c8 164-166
+apps/desktop/src-tauri/icons/icon.svg
+  h_5be255725524c8 2-10
+apps/docs/.env.example
+  h_5be255725524c8 1-3
+apps/docs/AGENTS.md
+  h_5be255725524c8 13-21
+apps/docs/package.json
+  h_5be255725524c8 27
+apps/docs/src/app/[lang]/layout.tsx
+  h_5be255725524c8 2,22-34
+apps/docs/src/app/og/[...slug]/route.tsx
+  h_5be255725524c8 1,9-13,19-20,23-24,26
+apps/docs/src/components/atmos-brand-icon.tsx
+  h_5be255725524c8 1-21,24-26
+apps/docs/src/components/atmos-logo.tsx
+  h_5be255725524c8 5-7,10-13,17,19
+apps/docs/src/components/docs-layout-shell.tsx
+  h_5be255725524c8 16,24-29
+apps/docs/src/components/posthog-provider.tsx
+  h_5be255725524c8 1-59
+apps/docs/src/lib/posthog.ts
+  h_5be255725524c8 1-8
+apps/landing/.env.example
+  h_5be255725524c8 1-13
+apps/landing/.gitignore
+  h_5be255725524c8 25,33-35
+apps/landing/AGENTS.md
+  h_5be255725524c8 11-12,15-51,110-111
+apps/landing/functions/_lib/tok-app-proxy.test.ts
+  h_5be255725524c8 1-121
+apps/landing/functions/_lib/tok-app-proxy.ts
+  h_5be255725524c8 1-174
+apps/landing/functions/_middleware.ts
+  h_5be255725524c8 1-5
+apps/landing/messages/en.json
+  h_5be255725524c8 9
+apps/landing/messages/zh.json
+  h_5be255725524c8 9
+apps/landing/next.config.ts
+  h_5be255725524c8 6-7,9-10,12
+apps/landing/package.json
+  h_5be255725524c8 9-10,33
+apps/landing/public/_routes.json
+  h_5be255725524c8 2-11
+apps/landing/scripts/generate-feature-posters.sh
+  h_5be255725524c8 3-4
+apps/landing/src/app/[locale]/layout.tsx
+  h_5be255725524c8 8,22-24,75-89
+apps/landing/src/components/blocks/feature-showcase.tsx
+  h_5be255725524c8 28,52,56-57,60-61,64-65,68-69,72-73,76-77,80-81,84-85,88-89,92-93,96-97,100-101,104-105,108-109,112-113,115,150-151
+apps/landing/src/components/blocks/ready-download.tsx
+  h_5be255725524c8 98
+apps/landing/src/components/image-sphere/create-feature-cover.ts
+  h_5be255725524c8 9-10,196,269
+apps/landing/src/components/layout/footer.tsx
+  h_5be255725524c8 9-14,17,19,22-23,25-29,31
+apps/landing/src/components/layout/header.tsx
+  h_5be255725524c8 3,5,26-27,113,129-133,170-175
+apps/landing/src/components/layout/mode-toggle.tsx
+  h_5be255725524c8 4,6-8,14-21,24-25,27
+apps/landing/src/components/logo.tsx
+  h_5be255725524c8 6,8,17
+apps/landing/src/components/providers/posthog-provider.tsx
+  h_5be255725524c8 1-59
+apps/landing/src/components/ui/github-star-button.tsx
+  h_5be255725524c8 1-122
+apps/landing/src/components/ui/header-action.ts
+  h_5be255725524c8 1-2
+apps/landing/src/lib/changelog-data.ts
+  h_5be255725524c8 36-274
+apps/landing/src/lib/github-desktop-release.ts
+  h_5be255725524c8 2
+apps/landing/src/lib/landing-assets.ts
+  h_5be255725524c8 1-39
+apps/landing/src/lib/posthog.ts
+  h_5be255725524c8 1-8
+apps/landing/wrangler.jsonc
+  h_5be255725524c8 1-6
+apps/mobile/AGENTS.md
+  h_5be255725524c8 56-58,75
+apps/mobile/app.json
+  h_5be255725524c8 17-20,25,30,36-41
+apps/mobile/app/+not-found.tsx
+  h_5be255725524c8 1-5,11-16,25-43
+apps/mobile/app/_layout.tsx
+  h_5be255725524c8 27-51
+apps/mobile/app/settings/_layout.tsx
+  h_5be255725524c8 10-12,16
+apps/mobile/app/settings/computer.tsx
+  h_5be255725524c8 1-15
+apps/mobile/app/settings/computers.tsx
+  h_5be255725524c8 12
+apps/mobile/app/settings/register.tsx
+  h_5be255725524c8 1-15
+apps/mobile/app/settings/relay.tsx
+  h_5be255725524c8 1-15
+apps/mobile/app/sign-in.tsx
+  h_5be255725524c8 1-3,6-7,9-19,22-38,42-44,46
+apps/mobile/metro.config.js
+  h_5be255725524c8 8
+apps/mobile/package.json
+  h_5be255725524c8 6-9,11,22,28,34,50,54
+apps/mobile/script/generate-mobile-global-theme.ts
+  h_5be255725524c8 1-18
+apps/mobile/src/features/computers/ComputerConnectScreen.tsx
+  h_5be255725524c8 1-2,9,15,18-19,27-29,37,39,48,72,76-77,79-94,133,141,269-278
+apps/mobile/src/features/computers/ComputerPicker.tsx
+  h_5be255725524c8 1-4,7-10,25,28-45,52-54,56,66-72,78
+apps/mobile/src/features/git/ChangedFilesList.tsx
+  h_5be255725524c8 1-3,10-12,90-109,120-129,131
+apps/mobile/src/features/git/ChangesScreen.tsx
+  h_5be255725524c8 1-2,4,17-19,159-179,222-231
+apps/mobile/src/features/git/CommitSheet.tsx
+  h_5be255725524c8 1-3,5,8-13,50-89,109-118
+apps/mobile/src/features/onboarding/AuthConnectContent.tsx
+  h_5be255725524c8 1-715
+apps/mobile/src/features/onboarding/AuthSignInContent.tsx
+  h_5be255725524c8 1-11
+apps/mobile/src/features/onboarding/LoginSheet.tsx
+  h_5be255725524c8 1-14
+apps/mobile/src/features/onboarding/OnboardingScreen.tsx
+  h_5be255725524c8 1,3,5
+apps/mobile/src/features/onboarding/PairQrScanner.tsx
+  h_5be255725524c8 1-6,8-9,11-16,18-22,24-101,104,106,108-111,115-136,138-145,149-155,157-161,163-164,166-168,170-174,176-180,182-198,200-207,209-217
+apps/mobile/src/features/onboarding/use-auth-sign-in.ts
+  h_5be255725524c8 1-127
+apps/mobile/src/features/projects/ImportProjectScreen.tsx
+  h_5be255725524c8 1-2,4,8,16,18-24,156-172,190-206,219-242,259-279,304-335,368-377,390,406-408
+apps/mobile/src/features/settings/SettingsComputerDetailScreen.tsx
+  h_5be255725524c8 1-6,8-42,44,46-56,58-74,76-78,83-94,97-111,113-128,130-133,136
+apps/mobile/src/features/settings/SettingsComputersScreen.tsx
+  h_5be255725524c8 1-136
+apps/mobile/src/features/settings/SettingsIndexScreen.tsx
+  h_5be255725524c8 1-136
+apps/mobile/src/features/settings/SettingsRegisterScreen.tsx
+  h_5be255725524c8 1-106
+apps/mobile/src/features/settings/SettingsRelayScreen.tsx
+  h_5be255725524c8 1-108
+apps/mobile/src/features/settings/SettingsScreen.tsx
+  h_5be255725524c8 1-9
+apps/mobile/src/features/settings/relay-url-settings.test.ts
+  h_5be255725524c8 31-75
+apps/mobile/src/features/settings/relay-url-settings.ts
+  h_5be255725524c8 9-36,45-54
+apps/mobile/src/features/settings/settings-shared.tsx
+  h_5be255725524c8 1-253
+apps/mobile/src/features/settings/use-mobile-settings-controller.ts
+  h_5be255725524c8 9-16,26-28,46,48,54-56,64-68,90-93,95-98,103,113-118,123,131-135,140-141,150-151,156,164,167,169,178,180-185,196-200,203-214,217-229,237,240-241,243,259
+apps/mobile/src/features/terminal/TerminalKeyboardDismissButton.ios.tsx
+  h_5be255725524c8 19,22
+apps/mobile/src/features/terminal/TerminalKeyboardDismissButton.tsx
+  h_5be255725524c8 2,9-11,14,24
+apps/mobile/src/features/terminal/TerminalScreen.tsx
+  h_5be255725524c8 31-33,314-317,321,325-328,394-403,411,416,419
+apps/mobile/src/features/terminal/TerminalShortcutBar.tsx
+  h_5be255725524c8 16-18,60-69,72,75-82,85,96,116-118,121,124,198,209,211,214,225
+apps/mobile/src/features/terminal/terminal-dom-css.ts
+  h_5be255725524c8 3,98,108
+apps/mobile/src/features/workspaces/CreateWorkspaceScreen.tsx
+  h_5be255725524c8 1-4,8,14-18,20,22-23,25-31,73-80,157,222-231,237-244,277-292,362-384,393-412,448-464,468-500,513-522,544-546,549
+apps/mobile/src/features/workspaces/WorkspaceHeaderActions.android.tsx
+  h_5be255725524c8 3-4,52-56,66-74,82-89,107
+apps/mobile/src/features/workspaces/WorkspaceListScreen.tsx
+  h_5be255725524c8 1-3,5,11,13,18-25,47,50-55,68,70,81,85,97,109,123-124,135-139,141-152,154-156,158-159,161-163,165-173,175-176,180-218,220-221,243-248,255-263,285-287
+apps/mobile/src/features/workspaces/WorkspacePickerScreen.tsx
+  h_5be255725524c8 1-3,15,27-28,34-36,83,88,93,118-126,130-137,388,393-408,441-450
+apps/mobile/src/features/workspaces/WorkspaceScreen.tsx
+  h_5be255725524c8 32,385-387,394
+apps/mobile/src/features/workspaces/WorkspaceTabs.android.tsx
+  h_5be255725524c8 4,27,71-72
+apps/mobile/src/features/workspaces/WorkspaceTabs.tsx
+  h_5be255725524c8 3,17,33-34
+apps/mobile/src/features/workspaces/create-workspace-helpers.ts
+  h_5be255725524c8 1-40
+apps/mobile/src/features/workspaces/use-create-workspace-setup.ts
+  h_5be255725524c8 1-136
+apps/mobile/src/features/workspaces/workspace-status.tsx
+  h_5be255725524c8 91,93,95,97
+apps/mobile/src/global.css
+  h_5be255725524c8 4-5,7-13
+apps/mobile/src/lib/access-token-format.ts
+  h_5be255725524c8 1,5
+apps/mobile/src/lib/auto-connect.ts
+  h_5be255725524c8 1-43
+apps/mobile/src/lib/cn.ts
+  h_5be255725524c8 1-6
+apps/mobile/src/lib/dev-device-import.test.ts
+  h_5be255725524c8 3-6,9-10,14-15,19,22-23,26-27,30,32-34,36-38,43-44,53-54,60,62,64,68
+apps/mobile/src/lib/dev-device-import.ts
+  h_5be255725524c8 1,4-5,10,14,18-20,26-27,31-35,38-39,41-42,46-48,55-60,68,71-72
+apps/mobile/src/lib/device-credential.ts
+  h_5be255725524c8 1-78
+apps/mobile/src/lib/hub-auth-native.ts
+  h_5be255725524c8 1-64
+apps/mobile/src/lib/hub-config.ts
+  h_5be255725524c8 1-92
+apps/mobile/src/lib/mobile-pair-claim.ts
+  h_5be255725524c8 1-36
+apps/mobile/src/lib/relay-url.ts
+  h_5be255725524c8 9-11
+apps/mobile/src/providers/AppProviders.tsx
+  h_5be255725524c8 7,10-20,22,28-30,37-40,42,46-64,70,73-74,80,83-85,105-112
+apps/mobile/src/providers/MobileThemeVariablesProvider.tsx
+  h_5be255725524c8 1-30
+apps/mobile/src/stores/session-store.ts
+  h_5be255725524c8 8-11,17,29-30,36,38-39,70-71
+apps/mobile/src/theme/colors.ts
+  h_5be255725524c8 1-21,32-33,43-44,61-64,74,77-78,88-89,106-109,121
+apps/mobile/src/theme/css-variables.test.ts
+  h_5be255725524c8 1-50
+apps/mobile/src/theme/css-variables.ts
+  h_5be255725524c8 1-98
+apps/mobile/src/theme/generated-theme.css
+  h_5be255725524c8 1-115
+apps/mobile/src/theme/generated-theme.snapshot.ts
+  h_5be255725524c8 1-115
+apps/mobile/src/theme/pressed.ts
+  h_5be255725524c8 1-6
+apps/mobile/src/theme/radii.ts
+  h_5be255725524c8 1-11
+apps/mobile/src/theme/shadows.ts
+  h_5be255725524c8 1-8
+apps/mobile/src/theme/spacing.ts
+  h_5be255725524c8 1-24
+apps/mobile/src/theme/tokens.ts
+  h_5be255725524c8 1-13
+apps/mobile/src/theme/typography.ts
+  h_5be255725524c8 1-83
+apps/mobile/src/types/env.d.ts
+  h_5be255725524c8 4-6
+apps/mobile/src/ui/README.md
+  h_5be255725524c8 7,9,12-30,34,37
+apps/mobile/src/ui/icons/lucide-native.ts
+  h_5be255725524c8 10-11,14-15,23-24,34,36-37,40-41,49-50
+apps/mobile/src/ui/icons/oauth-marks.tsx
+  h_5be255725524c8 1-43
+apps/mobile/src/ui/layout/app-screen.tsx
+  h_5be255725524c8 2-10,12,17-18,23-31,33,35-79,81-83,86,89,92-106,109-118,130-138,140-148,151-154,170-183,185-193,204,208,212-241,243-253,256-264,276-297
+apps/mobile/src/ui/layout/row.tsx
+  h_5be255725524c8 3-4,22-44,52-57,64-70,75-78,88-93,102-111
+apps/mobile/src/ui/primitives/expo-ui-button-modifiers.ts
+  h_5be255725524c8 1-19
+apps/mobile/src/ui/primitives/expo-ui-button-styles.test.ts
+  h_5be255725524c8 1-39
+apps/mobile/src/ui/primitives/expo-ui-button-styles.ts
+  h_5be255725524c8 1-72
+apps/mobile/src/ui/primitives/glass-panel.tsx
+  h_5be255725524c8 7,64,70
+apps/mobile/src/ui/primitives/native-segmented-control.android.tsx
+  h_5be255725524c8 14,16
+apps/mobile/src/ui/primitives/native-segmented-control.tsx
+  h_5be255725524c8 3-4,15,17,34,88,91
+apps/web/messages/en.json
+  h_5be255725524c8 165-177,239-240,243,290,315-319,367-382,384-399,428,611-619,650,660,673-721,750-765,838-840,847-849,1016-1018,1115-1118,1238,1334,1338,1358,1363-1364,1376-1379,1469-1472,1485-1491,1495-1547,1551-1552,1556-1570,1630-1632,1643,1691,1823-1889,1898,1900-1939,1958,1967,1970,1974-2001,2003-2017,2021-2022,2061-2068,2298-2299,2359-2361,2370,2376-2381,2412-2419,2456,2458-2460,2529-2537,3132-3133,3150-3173,3253-3256,3693,3824,3827-3829,3831-3832,3863-3872,3933,4250,4256-4262,4264-4265,4267,4270-4272,4275-4277,4280-4287,4291,4294-4298,4382-4389,4409-4412,4420,4723-4744,4747,4749-4759,4763,4765-4767,4769-4775,4783,4797-4800,4845-4852,4855,4858-4862,4867-4880,4894,4935-4937,4992-4994,5065-5076,5318-5319,5321-5322,5377-5382,5397-5420,5438-5445,5696-5697,5700,5705,5761,5857-5860,5916,5919-5926,5956,5974-5976,6045-6048,6325,6404,6412,6414,6429,6433-6436,6448,6451,6464-6466,6469-6473,6531-6597,6619-6623,6742-6758,6761-6762,6765-6771,6774-6775,6777-6799,6802-6811,6815-6822,7047,7244-7248,7510-7512,8083-8109,8120,8167-8170,8509-8535,9156-9159,9179,9181,9183-9186,9188-9190,9224,9230-9231,9337,9340,9343-9352,9430-9437,9693-9697,9713-9721,9735-9736,9800,10053,10057,10063,10066,10087-10105,10108-10150,10162,10172-10174,10179,10190,10193,10199-10208,10212,10219-10221,10223-10225,10230,10232-10234,10239,10248,10250-10252,10256,10262,10281,10288,10295,10304,10353-10462
+apps/web/messages/zh.json
+  h_5be255725524c8 165-177,239-240,243,290,315-319,367-382,384-399,428,611-619,650,660,673-721,750-765,838-840,847-849,1016-1018,1115-1118,1238,1334,1338,1358,1363-1364,1376-1379,1469-1472,1481,1485-1491,1495-1547,1551-1552,1556-1570,1630-1632,1643,1691,1823-1889,1898,1900-1939,1958,1967,1970,1974-2001,2003-2017,2021-2022,2061-2068,2298-2299,2359-2361,2378-2382,2412-2419,2456,2458-2460,2529-2537,3132-3133,3150-3173,3253-3256,3693,3824,3827-3829,3831-3832,3863-3872,3933,4250,4256-4262,4264,4267,4270-4272,4275-4277,4280-4287,4291,4295,4297-4298,4382-4389,4409-4412,4723-4744,4747-4751,4753-4759,4763,4765-4767,4769-4775,4783,4797-4800,4845-4852,4855,4858-4862,4867-4880,4894,4935-4937,4992-4994,5065-5076,5318-5319,5321-5322,5377-5382,5397-5420,5438-5445,5696-5697,5761,5857-5860,5916,5919-5926,5956,5974-5976,6045-6048,6325,6404,6411-6412,6414,6429,6433-6436,6448,6451,6464-6466,6469-6473,6531-6597,6619-6623,6742-6758,6761-6762,6765-6771,6774-6775,6777-6799,6802-6811,6815-6822,7047,7244-7248,7510-7512,8083-8109,8167-8170,8509-8535,9156-9159,9179,9181,9183-9186,9188-9190,9224,9230-9231,9337,9340-9352,9430-9437,9693-9697,9713-9721,9735-9736,9800,10053,10057,10063,10066,10087-10105,10108-10150,10162,10172-10174,10179,10190,10193,10199-10208,10212,10219-10221,10223-10225,10230,10232-10234,10239,10248,10250-10252,10256,10262,10281,10288,10296,10305,10354-10463
+apps/web/next.config.ts
+  h_5be255725524c8 104-107,114
+apps/web/package.json
+  h_5be255725524c8 21,49,62,81-82,90,103,112,115,121
+apps/web/public/_redirects
+  h_5be255725524c8 1-2
+apps/web/src/api/hub-auth-client.ts
+  h_5be255725524c8 9-10,12-13,15,17,19-20,22
+apps/web/src/api/hub-bootstrap.ts
+  h_5be255725524c8 3-5,10,12-15,24
+apps/web/src/api/hub-client.ts
+  h_5be255725524c8 5-6,11,15,17-18,21,30-35,38,40,42-43,49-53
+apps/web/src/api/query/__tests__/query-keys.test.ts
+  h_5be255725524c8 144-153
+apps/web/src/api/query/api-operation-inventory.ts
+  h_5be255725524c8 181-190
+apps/web/src/api/query/query-keys.ts
+  h_5be255725524c8 127-129,266-271,549-553
+apps/web/src/api/rest-api.ts
+  h_5be255725524c8 665-676,680-683,690-691,696-704,715-726,733,737-751,1093-1127
+apps/web/src/api/ws-api-types.ts
+  h_5be255725524c8 21-24,50
+apps/web/src/api/ws-api.ts
+  h_5be255725524c8 26,34,64-67,76,337-348,387-400,1103-1106,1108-1109,1115,1126-1143
+apps/web/src/api/ws/disk-analyzer-api.ts
+  h_5be255725524c8 14-17,50-51,57-63,106-110
+apps/web/src/api/ws/linear-api.ts
+  h_5be255725524c8 7,15-18,33-36,40,42,44-50,61-64,93,100-102,108-109
+apps/web/src/api/ws/permission-access-api.ts
+  h_5be255725524c8 1-34
+apps/web/src/api/ws/settings-api.ts
+  h_5be255725524c8 60,73-77,129-133,139,144-153,321-324
+apps/web/src/api/ws/simulator-api.ts
+  h_5be255725524c8 1-46
+apps/web/src/api/ws/token-usage-api.ts
+  h_5be255725524c8 87-100,111,124,133,141-150
+apps/web/src/app-shell/AppShellMain.tsx
+  h_5be255725524c8 1-134
+apps/web/src/app-shell/CenterStage.tsx
+  h_5be255725524c8 31,83,92-96,99,109-163,174,202,209-233,240,256-260,286-294,302-303,335,451-501,514-516,542-543,602-603,704-710,714,717-720,726,728,730,738-793,799-801,812-819,830-837,843-845,853-856,859,870-880,882,887,889,986,989-1040,1130-1132,1436,1467,1489,1493-1494,1519,1835-1860,1877-1879,2004-2008,2012-2014,2051-2056,2076,2078,2083-2089,2126-2140,2164-2166,2222-2555,2557,2562,2571-2745,2750,2755,2760-2906
+apps/web/src/app-shell/CenterStagePanels.tsx
+  h_5be255725524c8 30,38-42,55-62,94-101,121-123,142-149,194,253,273-280,290-296,298-312,314,317-320,326,332,337-349,367,387-394,398,419-423,436-443,456-463,496,499-503,505-518
+apps/web/src/app-shell/CenterStageTabBar.tsx
+  h_5be255725524c8 12-18,36-40,42,44-46,49-51,54-58,74-75,78,115-116,124-128,136,138-147,158-167,181-188,195-196,203,205-208,219-223,229-230,232-258,283-286,318-389,430,432-438,451-452,490,497-514,564-683,741-803,808,810-814,853,864,901-909,928,951,955-959,1013,1015,1018,1024,1034-1037,1039-1040,1044,1048-1049,1058-1062,1064-1073,1075,1077,1079-1083,1086-1090,1092-1101,1103,1105,1107-1111,1114-1116,1118,1131,1136-1174,1177-1183,1185-1222,1224-1231,1234-1442,1444-1478,1502,1504,1507,1509-1513
+apps/web/src/app-shell/DocumentTitle.tsx
+  h_5be255725524c8 4,8,16,22-25,54-57
+apps/web/src/app-shell/Footer.tsx
+  h_5be255725524c8 42,47,162-166,493-494,504,507,517,530,535,617-624
+apps/web/src/app-shell/GlobalSearch.tsx
+  h_5be255725524c8 18-21,25,124,210,291-298,365-368,370
+apps/web/src/app-shell/Header.tsx
+  h_5be255725524c8 6,41,55,64,68,72,74,91,118-120,200-203,401-402,411,414,416-417,443,463,483,503,545
+apps/web/src/app-shell/HeaderAttentionBell.tsx
+  h_5be255725524c8 60
+apps/web/src/app-shell/HeaderWorkspaceJobs.tsx
+  h_5be255725524c8 1-468
+apps/web/src/app-shell/HostedAppShellGate.tsx
+  h_5be255725524c8 3-4,9,12-19,104-107,134-143
+apps/web/src/app-shell/HostedLandingLoading.tsx
+  h_5be255725524c8 3-5,7-12,15-23
+apps/web/src/app-shell/LeftSidebar.tsx
+  h_5be255725524c8 9-11,62,75-78,83-84,87,108,134-138,225,232,250,354,456-466,468-476,497-505,559,567,1002,1006,1013-1019,1022,1025,1065,1077,1197,1461-1468,1475,1478-1482,1489,1506-1509,1511-1516
+apps/web/src/app-shell/LeftSidebarLaunchpad.tsx
+  h_5be255725524c8 9,11-30,38,46-58,60-63,69-134,153,193-364,372,378-380,384-399,411-412,418-420,423-427,429-430,432-434,438-439,442-465,468,481-596,609-610,612,615-616,619-621,624-631,634,643-649,673,676,697-701,704,722-732,734-740,742-752,754-762,764-779,781,784,787-791
+apps/web/src/app-shell/LeftSidebarPinnedSection.tsx
+  h_5be255725524c8 28,32-36,44,58,109,120-125,139-140,157,163
+apps/web/src/app-shell/LocalModelDownloadProgress.tsx
+  h_5be255725524c8 13,20,116,127,134
+apps/web/src/app-shell/NewWorkspaceWelcomeOverlay.tsx
+  h_5be255725524c8 5-11,28-41,48-52,58-64
+apps/web/src/app-shell/PanelLayout.tsx
+  h_5be255725524c8 22-23,27-28,40,56-68,91,96,134-135,137,154-160,222-225,232,234-272,277,283,285-288,302,312,315,318-321,324-326,329-345
+apps/web/src/app-shell/QuickOpen.tsx
+  h_5be255725524c8 129,136,153
+apps/web/src/app-shell/QuotaPopover.tsx
+  h_5be255725524c8 54-55,106-107,111,119,261,270,282,324-343,433,447,936
+apps/web/src/app-shell/SidebarPeekShell.tsx
+  h_5be255725524c8 62-63,76
+apps/web/src/app-shell/TokenUsageCookieConsentBanner.tsx
+  h_5be255725524c8 1-105
+apps/web/src/app-shell/TokenUsageOverviewTab.tsx
+  h_5be255725524c8 1-5
+apps/web/src/app-shell/TokenUsagePage.tsx
+  h_5be255725524c8 4-6,13,18-35,37,39-47,50-73,75-94,104-105,115-154,157,167,175,201-211,214-223,226-234,236-237,239,241-242,246-255,257-263
+apps/web/src/app-shell/TokenUsageShareDialog.tsx
+  h_5be255725524c8 4,21-26,46-52,60,78-266,274,278-280,282-283,292,341,344,490-494,498,503-546,593,597-600,602,609-613,618-623,628-632,637-642,644-665,667-678,680-695
+apps/web/src/app-shell/WorkspaceStatusPopover.tsx
+  h_5be255725524c8 5,17,22-44,54,59,65-69,76-78,127,129,131-132,136,138-139,144,146-149,152-156,163,170,188-189,191-198
+apps/web/src/app-shell/__tests__/center-pane-defects.test.ts
+  h_5be255725524c8 1-828
+apps/web/src/app-shell/__tests__/center-pane-drag-preview.test.ts
+  h_5be255725524c8 1-45
+apps/web/src/app-shell/__tests__/center-pane-empty-state.test.ts
+  h_5be255725524c8 1-111
+apps/web/src/app-shell/__tests__/center-pane-isolation.test.ts
+  h_5be255725524c8 1-186
+apps/web/src/app-shell/__tests__/center-pane-layout-motion.test.ts
+  h_5be255725524c8 1-51
+apps/web/src/app-shell/__tests__/center-pane-layout.test.ts
+  h_5be255725524c8 1-266
+apps/web/src/app-shell/__tests__/center-pane-leaf-metrics.test.ts
+  h_5be255725524c8 1-45
+apps/web/src/app-shell/__tests__/center-pane-saved-layout.test.ts
+  h_5be255725524c8 1-79
+apps/web/src/app-shell/__tests__/center-stage-chrome.test.ts
+  h_5be255725524c8 1-118
+apps/web/src/app-shell/__tests__/center-stage-last-tab-restore.test.ts
+  h_5be255725524c8 1-25
+apps/web/src/app-shell/__tests__/center-stage-tab-activation-stack.test.ts
+  h_5be255725524c8 88-94,102-108
+apps/web/src/app-shell/__tests__/center-stage-tab-group-hover.test.ts
+  h_5be255725524c8 1-46
+apps/web/src/app-shell/__tests__/center-stage-tab-groups.test.ts
+  h_5be255725524c8 1-114
+apps/web/src/app-shell/__tests__/center-stage-tab-hover.test.ts
+  h_5be255725524c8 1-68
+apps/web/src/app-shell/__tests__/center-stage-tab-model.test.ts
+  h_5be255725524c8 3-4,31-85
+apps/web/src/app-shell/__tests__/center-tool-tabs.test.ts
+  h_5be255725524c8 1-17
+apps/web/src/app-shell/__tests__/footer-usage-carousel-order.test.ts
+  h_5be255725524c8 1-23
+apps/web/src/app-shell/__tests__/global-search-item-hover.test.ts
+  h_5be255725524c8 1-17
+apps/web/src/app-shell/__tests__/header-button-hover.test.ts
+  h_5be255725524c8 1-28
+apps/web/src/app-shell/__tests__/hosted-landing-loading.test.ts
+  h_5be255725524c8 1-29
+apps/web/src/app-shell/__tests__/left-sidebar-launchpad-outside-hover.test.ts
+  h_5be255725524c8 1-105
+apps/web/src/app-shell/__tests__/left-sidebar-workspace-jobs.test.ts
+  h_5be255725524c8 1-14
+apps/web/src/app-shell/__tests__/list-hover.test.ts
+  h_5be255725524c8 1-137
+apps/web/src/app-shell/__tests__/pt-design-host.test.ts
+  h_5be255725524c8 1-184
+apps/web/src/app-shell/__tests__/quota-popover-provider-order.test.ts
+  h_5be255725524c8 1-103
+apps/web/src/app-shell/__tests__/token-usage-cookie-banner.test.ts
+  h_5be255725524c8 1-26
+apps/web/src/app-shell/__tests__/token-usage-model-icon.test.ts
+  h_5be255725524c8 1-212
+apps/web/src/app-shell/__tests__/token-usage-share-card.test.ts
+  h_5be255725524c8 1-17
+apps/web/src/app-shell/__tests__/workspace-center-frame.test.ts
+  h_5be255725524c8 33-40,74-94
+apps/web/src/app-shell/__tests__/workspace-list-hover.test.ts
+  h_5be255725524c8 1-32
+apps/web/src/app-shell/__tests__/workspace-status-popover.test.ts
+  h_5be255725524c8 1-75
+apps/web/src/app-shell/__tests__/workspace-surface-policies.test.ts
+  h_5be255725524c8 13,16,70-85,102-134,144-151,460
+apps/web/src/app-shell/bootstrap/legacy-server-state-reset.ts
+  h_5be255725524c8 14,21,35-37
+apps/web/src/app-shell/center-pane/CenterPaneEmptyState.tsx
+  h_5be255725524c8 1-313
+apps/web/src/app-shell/center-pane/CenterPaneGrid.tsx
+  h_5be255725524c8 1-648
+apps/web/src/app-shell/center-pane/center-pane-close-fallback.ts
+  h_5be255725524c8 1-119
+apps/web/src/app-shell/center-pane/center-pane-collapse-persist.ts
+  h_5be255725524c8 1-86
+apps/web/src/app-shell/center-pane/center-pane-dnd.tsx
+  h_5be255725524c8 1-62
+apps/web/src/app-shell/center-pane/center-pane-drag-preview.ts
+  h_5be255725524c8 1-114
+apps/web/src/app-shell/center-pane/center-pane-empty-layout.ts
+  h_5be255725524c8 1-287
+apps/web/src/app-shell/center-pane/center-pane-grid.css
+  h_5be255725524c8 1-133
+apps/web/src/app-shell/center-pane/center-pane-layout-motion.ts
+  h_5be255725524c8 1-104
+apps/web/src/app-shell/center-pane/center-pane-layout-store.ts
+  h_5be255725524c8 1-236
+apps/web/src/app-shell/center-pane/center-pane-layout.ts
+  h_5be255725524c8 1-906
+apps/web/src/app-shell/center-pane/center-pane-leaf-metrics.ts
+  h_5be255725524c8 1-47
+apps/web/src/app-shell/center-pane/center-pane-open-tab-hydration.ts
+  h_5be255725524c8 1-16
+apps/web/src/app-shell/center-pane/center-pane-overlay-focus.ts
+  h_5be255725524c8 1-79
+apps/web/src/app-shell/center-pane/center-pane-saved-layout-store.ts
+  h_5be255725524c8 1-153
+apps/web/src/app-shell/center-pane/center-pane-saved-layout.ts
+  h_5be255725524c8 1-287
+apps/web/src/app-shell/center-pane/center-pane-strip-prefs.ts
+  h_5be255725524c8 1-21
+apps/web/src/app-shell/center-pane/use-animated-pane-tiles.ts
+  h_5be255725524c8 1-127
+apps/web/src/app-shell/center-pane/use-center-pane-slot-boxes.ts
+  h_5be255725524c8 1-204
+apps/web/src/app-shell/center-stage-chrome.tsx
+  h_5be255725524c8 1-38
+apps/web/src/app-shell/center-stage-fixed-tabs.ts
+  h_5be255725524c8 1-25
+apps/web/src/app-shell/center-stage-shared-tabs.tsx
+  h_5be255725524c8 15-19,24-26,30-31,33-34,56-133,152,155-156,158,161-162,165,167,171-182,199,217,220,241,243-247,250,295,349,355-378,381,390-393,406,411,439,449,451,454,456,474-479,483,492,501,510,522,530-539,546-608,612,621-630,639-648,651-653
+apps/web/src/app-shell/center-stage-support.tsx
+  h_5be255725524c8 4,18,26-34,63,69,71-82,84,86,89-93
+apps/web/src/app-shell/center-stage-tab-activation-stack.ts
+  h_5be255725524c8 98-105,115-122
+apps/web/src/app-shell/center-stage-tab-groups.ts
+  h_5be255725524c8 1-85
+apps/web/src/app-shell/center-stage-tab-model.ts
+  h_5be255725524c8 18-26,72-105,109-110,132-152
+apps/web/src/app-shell/center-stage-tab-scroll.ts
+  h_5be255725524c8 1-45
+apps/web/src/app-shell/center-stage-tabs.tsx
+  h_5be255725524c8 43-46,68-76,250-260,282-285,333-336,343-345,349,406,419-429
+apps/web/src/app-shell/center-tool-tabs.ts
+  h_5be255725524c8 1-68
+apps/web/src/app-shell/global-search-app-items.tsx
+  h_5be255725524c8 26,30-31,33,123-126,154-157,388-400,433,458,482,509-512,567,570,572
+apps/web/src/app-shell/global-search-content.tsx
+  h_5be255725524c8 72,404
+apps/web/src/app-shell/global-search-parts.tsx
+  h_5be255725524c8 164-167,170,201,228,231,242
+apps/web/src/app-shell/header-action-controls.tsx
+  h_5be255725524c8 54,96,124,127,129,131,618,659
+apps/web/src/app-shell/header-git-context.tsx
+  h_5be255725524c8 108,123,168,175,186,229
+apps/web/src/app-shell/header-workspace-jobs.test.ts
+  h_5be255725524c8 1-173
+apps/web/src/app-shell/header-workspace-jobs.ts
+  h_5be255725524c8 1-83
+apps/web/src/app-shell/header-workspace-widgets.tsx
+  h_5be255725524c8 278
+apps/web/src/app-shell/left-sidebar-controls.tsx
+  h_5be255725524c8 38,43,53-54,281-283,383-386,394,464,471,588,641,644,693-697,701-708,711-716,719-724,896-897,899-902,952-957,970,1032
+apps/web/src/app-shell/left-sidebar-derived.test.ts
+  h_5be255725524c8 3,101-131
+apps/web/src/app-shell/left-sidebar-derived.ts
+  h_5be255725524c8 78-119
+apps/web/src/app-shell/left-sidebar-tab-footer-controls.tsx
+  h_5be255725524c8 5-6,12-17,19-21,23-24,27-36,62-68,82,90,97
+apps/web/src/app-shell/quota-popover-utils.ts
+  h_5be255725524c8 3-68
+apps/web/src/app-shell/sidebar-layout-constants.ts
+  h_5be255725524c8 1,4-54
+apps/web/src/app-shell/sidebar/ChangeSection.tsx
+  h_5be255725524c8 145,480
+apps/web/src/app-shell/sidebar/ChangesToolbar.tsx
+  h_5be255725524c8 6,8-12,16-17,19-20,22,24,34,38,41,43-47,50,59,63,68-69,71,73-74,88-94,98,100,105-106,114,123,126-130,138,140,142-145,151,154-200,203-206,209-356
+apps/web/src/app-shell/sidebar/CommitActions.tsx
+  h_5be255725524c8 782,802-803,863,866,868-869
+apps/web/src/app-shell/sidebar/ProjectItem.tsx
+  h_5be255725524c8 60,408-409,411,494,731-732
+apps/web/src/app-shell/sidebar/UserGroupSidebarContent.tsx
+  h_5be255725524c8 55,351,354,452,455,489,540-544,548-554,557-560,562-567,700,898-903,909
+apps/web/src/app-shell/sidebar/WorkspaceContent.tsx
+  h_5be255725524c8 38,572-573,575-576,740-746
+apps/web/src/app-shell/sidebar/WorkspaceKanbanCard.tsx
+  h_5be255725524c8 24,394-399,401-421,423,425-426,430,433-444
+apps/web/src/app-shell/sidebar/WorkspaceKanbanFilterMenu.tsx
+  h_5be255725524c8 122,143,231-234,249-250
+apps/web/src/app-shell/sidebar/WorkspaceKanbanView.tsx
+  h_5be255725524c8 40,60,185-189,402,449,548,583,699-702,706,708,803-821,824-831
+apps/web/src/app-shell/sidebar/kanban-columns.test.ts
+  h_5be255725524c8 1-71
+apps/web/src/app-shell/sidebar/kanban-columns.ts
+  h_5be255725524c8 11,13,16-19,27,41-42,169-178,301,303,305,325
+apps/web/src/app-shell/sidebar/workspace-grouping.test.ts
+  h_5be255725524c8 9-13,140-220
+apps/web/src/app-shell/sidebar/workspace-grouping.ts
+  h_5be255725524c8 12-17,174-177,184,189-206
+apps/web/src/app-shell/sidebar/workspace-status.tsx
+  h_5be255725524c8 19-21,26-27,30-34,42-59,192,198-249
+apps/web/src/app-shell/token-usage-dialog-parts.tsx
+  h_5be255725524c8 149
+apps/web/src/app-shell/token-usage-dialog-utils.ts
+  h_5be255725524c8 1
+apps/web/src/app-shell/token-usage-share-card.ts
+  h_5be255725524c8 8-31,194,200,209,215,217-218,221-224,228-229,240-243,250-251,254-255,257-262,266-271,273-278,282,299,310
+apps/web/src/app-shell/use-center-stage-tab-groups.ts
+  h_5be255725524c8 18-23,50,74,93,95-101,107,114,118-136,164-170,180-186,246-261,274-283,287-297,304-311,353,360-367,369-376,380-394,427,429-432,437-438,444-457,459-463,474-475,487,493,499,502,504,506
+apps/web/src/app-shell/use-header-hotkeys.ts
+  h_5be255725524c8 1,13,23
+apps/web/src/app-shell/use-left-sidebar-file-tree-sync.ts
+  h_5be255725524c8 1-6,9-13,17-21,25-29,31-36,38-43,45-64,66-93
+apps/web/src/app-shell/use-left-sidebar-workspace-derived.ts
+  h_5be255725524c8 30-33,43,55,68,80,114,116,127,134-135,164-168,170
+apps/web/src/app-shell/use-open-tool-center-tab.ts
+  h_5be255725524c8 1-30
+apps/web/src/app-shell/use-workspace-create-auto-open.ts
+  h_5be255725524c8 1-51
+apps/web/src/app-shell/workspace-center-frame-equality.ts
+  h_5be255725524c8 23-29,42-50,63-70,114-115,117-121,126-128,141-148
+apps/web/src/app-shell/workspace-center-frame.tsx
+  h_5be255725524c8 40,48-53,144-189,193-232,241-243,256-263,331-338,349-383,396-400,404,406-408,410-419,421,428-431,433,456,469,472-473,475-477,487,496,499-500,502-504,514,524,529-531,553,562-567,577-579,620,631,639-641,647,665,675,691,713,717,721-725,734,740,745-872
+apps/web/src/app-shell/workspace-surface-policies.ts
+  h_5be255725524c8 138,141-145,148-151,155-174,189,193-194,203-214,367,379-383,393-405,469,473,476-484,488,492-497,504,506,517-518,520,522-528,530-534,542,551,557,559
+apps/web/src/app-shell/workspace-surface-switch.ts
+  h_5be255725524c8 103-104
+apps/web/src/app/(app)/layout.tsx
+  h_5be255725524c8 2,20,23-29,31-33,35-38,40,51
+apps/web/src/app/(app)/pt-design/page.tsx
+  h_5be255725524c8 1-6
+apps/web/src/app/(app)/settings/page.tsx
+  h_5be255725524c8 1-6
+apps/web/src/app/globals.css
+  h_5be255725524c8 10-14,21-22,143-157,220,232-234,237-238,260-262,542-556,571-575
+apps/web/src/app/hub-auth/bridge/page.tsx
+  h_5be255725524c8 1-140
+apps/web/src/app/hub-auth/done/page.tsx
+  h_5be255725524c8 1-118
+apps/web/src/app/hub-auth/error/page.tsx
+  h_5be255725524c8 1-116
+apps/web/src/app/hub-auth/hub-auth-channel.ts
+  h_5be255725524c8 1-4
+apps/web/src/app/integrations/linear/callback/page.tsx
+  h_5be255725524c8 8-20,29-32,49,51-54,57-63,66-69,73-74,80-86,88-102,109-114
+apps/web/src/app/layout.tsx
+  h_5be255725524c8 40-43,58,60-65
+apps/web/src/app/loading.tsx
+  h_5be255725524c8 3,6
+apps/web/src/app/tok/leaderboard/page.tsx
+  h_5be255725524c8 1
+apps/web/src/app/tok/page.tsx
+  h_5be255725524c8 1-342
+apps/web/src/features/AGENTS.md
+  h_5be255725524c8 37
+apps/web/src/features/agent/components/AgentManagerView.tsx
+  h_5be255725524c8 29,78,83-85,149-166,172,180,192,199
+apps/web/src/features/agent/components/TerminalAgentRunConfigDialog.tsx
+  h_5be255725524c8 37,71,231-232
+apps/web/src/features/agent/hooks/use-agent-notifications.tsx
+  h_5be255725524c8 185-186
+apps/web/src/features/agent/hooks/use-workspace-agent-status.ts
+  h_5be255725524c8 15-16,18,20,60-102
+apps/web/src/features/agent/lib/__tests__/agent-hook-navigation.test.ts
+  h_5be255725524c8 1-136
+apps/web/src/features/agent/lib/__tests__/workspace-agent-status.test.ts
+  h_5be255725524c8 5-6,8,10,76-175
+apps/web/src/features/agent/lib/agent-hook-navigation.ts
+  h_5be255725524c8 31-36,38-44,46-89,93,97,105,109-113,115-150
+apps/web/src/features/agent/lib/agent-hook-toast.tsx
+  h_5be255725524c8 18-19,97-102
+apps/web/src/features/agent/lib/workspace-agent-status.ts
+  h_5be255725524c8 17-96
+apps/web/src/features/agent/store/agent-attention-store.test.ts
+  h_5be255725524c8 7,16-19,70-92
+apps/web/src/features/agent/store/agent-attention-summary-store.test.ts
+  h_5be255725524c8 1-141
+apps/web/src/features/agent/store/agent-attention-summary-store.ts
+  h_5be255725524c8 1-241
+apps/web/src/features/agent/store/agent-chat-status-store.ts
+  h_5be255725524c8 7-8
+apps/web/src/features/agent/store/agent-hooks-store.reset.test.ts
+  h_5be255725524c8 1-55
+apps/web/src/features/agent/store/agent-hooks-store.ts
+  h_5be255725524c8 7-10,15-18,116-121,126-130,155-156,167-170,284-319,325-326,330-332,334-338,340-343,351-358,523-646
+apps/web/src/features/appshot/__tests__/appshots-history-popover.test.tsx
+  h_5be255725524c8 262-264,268-270
+apps/web/src/features/appshot/components/AppshotsHeaderButton.tsx
+  h_5be255725524c8 34
+apps/web/src/features/appshot/components/AppshotsHistoryPopover.tsx
+  h_5be255725524c8 25,51,266,269
+apps/web/src/features/appshot/lib/appshot-client.ts
+  h_5be255725524c8 138,143,146
+apps/web/src/features/appshot/lib/open-desktop-use-settings.ts
+  h_5be255725524c8 5,7,12-16,18,20,23-31,33-34,36-47
+apps/web/src/features/atmos-computer/components/AtmosComputerSection.tsx
+  h_5be255725524c8 43,49,52-58,80-87,89-95,123,126-127,232-249,345-346,470-471,495-496,549-554,557-597,600-621,623,625,627,629,632,634,636-645,647,649-651,653-658,660,662-795,804,870-873,875,884
+apps/web/src/features/atmos-computer/components/ComputerDetailsDialog.tsx
+  h_5be255725524c8 148-160,162-163,165-167
+apps/web/src/features/atmos-computer/components/MobilePairQrPanel.tsx
+  h_5be255725524c8 1-186
+apps/web/src/features/atmos-computer/components/RemoteComputerSetupBlock.tsx
+  h_5be255725524c8 74,82,178
+apps/web/src/features/automations/components/AutomationDashboardTabs.tsx
+  h_5be255725524c8 1,3-4,6-7,9-16,18-31
+apps/web/src/features/automations/components/AutomationEnvironmentPicker.tsx
+  h_5be255725524c8 3,6-11,13-15,24-25,140-143,149,160-164,172-178,180-182,193-285
+apps/web/src/features/automations/components/AutomationHistoryPage.tsx
+  h_5be255725524c8 3,8-10,14,23,72,95,98-100,105-110,131-135,156-168,195-232,283
+apps/web/src/features/automations/components/AutomationListFilterMenu.tsx
+  h_5be255725524c8 1-267
+apps/web/src/features/automations/components/AutomationListPanel.tsx
+  h_5be255725524c8 41,52,56-70,81-83,85-87,90-92,94-95,107-109,111-113,116-118,120-121,131,136,147,156,167-182,184,190-217,235-250,262,265-268,283,338,349,394-398,405-408,434,438-443,445,475,482,489,497,500,503,506,508,522
+apps/web/src/features/automations/components/AutomationMemoryEditor.tsx
+  h_5be255725524c8 1-144
+apps/web/src/features/automations/components/AutomationPage.tsx
+  h_5be255725524c8 83-85,87-93,96-98,100-103,106-108
+apps/web/src/features/automations/components/AutomationPageShell.tsx
+  h_5be255725524c8 2-4,7-9,12,22-24,26-32,35-37,39-42,45-47,55-57,59-65,68-70,72-75,78-80,96-98,100-102,105-107,109-110,114-127
+apps/web/src/features/automations/components/AutomationRunDrawer.tsx
+  h_5be255725524c8 1-165
+apps/web/src/features/automations/components/AutomationRunFilterMenu.tsx
+  h_5be255725524c8 1-308
+apps/web/src/features/automations/components/AutomationRunHistoryList.tsx
+  h_5be255725524c8 1-257
+apps/web/src/features/automations/components/AutomationSetup.tsx
+  h_5be255725524c8 5-7,13-14,19-22,32,50-51,66,109,118,134,145,336-414,416,433,439,468,488,506,508,511,516,522-530,536-537,558-570,572-574,576-579,581-597,599-601,603-605,607-739,741-757,759-765,767-773,775-781,784-847,849-861,866-879
+apps/web/src/features/automations/components/AutomationSetupControls.tsx
+  h_5be255725524c8 8,10,40-49,51-59,61,63-64,66-70,86-93
+apps/web/src/features/automations/components/AutomationSetupUnsavedDialog.tsx
+  h_5be255725524c8 1-57
+apps/web/src/features/automations/components/AutomationTriggerPicker.tsx
+  h_5be255725524c8 38,203-208,328,379-396,399-403
+apps/web/src/features/automations/components/GithubSetupCompletionPage.tsx
+  h_5be255725524c8 5-9,16,19-27,29-36
+apps/web/src/features/automations/components/RunDetailPanel.tsx
+  h_5be255725524c8 5,9-10,30,42,52,118-125,166,183,198-203,219-220,222-235,266,317,324,342-355
+apps/web/src/features/automations/components/__tests__/automation-agent-display.test.ts
+  h_5be255725524c8 1-60
+apps/web/src/features/automations/components/__tests__/automation-list-filters.test.ts
+  h_5be255725524c8 1-93
+apps/web/src/features/automations/components/__tests__/automation-run-filters.test.ts
+  h_5be255725524c8 1-164
+apps/web/src/features/automations/components/__tests__/automation-schedule.test.ts
+  h_5be255725524c8 1-106
+apps/web/src/features/automations/components/automation-common.tsx
+  h_5be255725524c8 7,9-10,14,19-20,31,33-35,72,92-93,99-100,105,114
+apps/web/src/features/automations/hooks/use-automation-page-state.ts
+  h_5be255725524c8 6,15,30-33,36,74,84-95,104-108,113-159,211-216,227-230,238,346,426,594,597-612,614-616,625-633,635-637,640,692-694,713-715,719,730,732
+apps/web/src/features/automations/hooks/use-automation-run-history-state.ts
+  h_5be255725524c8 12-15,28,78,111,113,132-144,151-153,155-157,159,163,165-179,181-188
+apps/web/src/features/automations/hooks/use-automation-setup-form.ts
+  h_5be255725524c8 57,78,110,124,132-134,291,307,322
+apps/web/src/features/automations/hooks/use-automation-setup-leave-guard.ts
+  h_5be255725524c8 1-166
+apps/web/src/features/automations/hooks/use-automation-websocket-sync.ts
+  h_5be255725524c8 25
+apps/web/src/features/automations/hooks/use-github-trigger-setup.ts
+  h_5be255725524c8 26-30,470-474,478,481
+apps/web/src/features/automations/lib/automation-format.ts
+  h_5be255725524c8 60-61,63,66,69,195-259
+apps/web/src/features/automations/lib/automation-list-filters.ts
+  h_5be255725524c8 1-58
+apps/web/src/features/automations/lib/automation-run-filters.ts
+  h_5be255725524c8 1-140
+apps/web/src/features/automations/lib/automation-schedule.ts
+  h_5be255725524c8 40-55,180,183-185,190,196,241
+apps/web/src/features/automations/lib/automations-query-options.ts
+  h_5be255725524c8 8,45-71,77,83-87
+apps/web/src/features/automations/types.ts
+  h_5be255725524c8 79-80,117,130
+apps/web/src/features/browser/components/BrowserPanel.tsx
+  h_5be255725524c8 18,20,38-39,53,64,74,81-97,213,221-222,240-243,247,253,265
+apps/web/src/features/browser/components/BrowserSession.tsx
+  h_5be255725524c8 39,70,79-80,112,121,141-143,172-173,185,345-354,382-384,409,439-486,856,1256
+apps/web/src/features/browser/components/BrowserStandalonePage.tsx
+  h_5be255725524c8 17,19,34,43,51-67,141-142
+apps/web/src/features/browser/components/BrowserTabBar.tsx
+  h_5be255725524c8 19,49-50
+apps/web/src/features/browser/components/BrowserToolbar.tsx
+  h_5be255725524c8 35,80,93,145,288,329,764-781
+apps/web/src/features/browser/components/BrowserViewport.tsx
+  h_5be255725524c8 288-290,298
+apps/web/src/features/browser/components/DesktopBrowserWebview.tsx
+  h_5be255725524c8 9,18-21,39,170-171,188,203,241,321-323,326
+apps/web/src/features/browser/components/RunScript.tsx
+  h_5be255725524c8 4,8-23,27,139-144,156-164,270,325,328-334,679-746
+apps/web/src/features/browser/components/morphing-tabs.tsx
+  h_5be255725524c8 355-358
+apps/web/src/features/browser/hooks/__tests__/webview-host-policy.test.ts
+  h_5be255725524c8 28
+apps/web/src/features/browser/hooks/use-browser-agent-tab-bridge.ts
+  h_5be255725524c8 1-295
+apps/web/src/features/browser/hooks/use-browser-navigation.ts
+  h_5be255725524c8 130
+apps/web/src/features/browser/hooks/use-browser-state.ts
+  h_5be255725524c8 19-22,155,176-180,210-212,214,216-220,325-328,363,415,424,429-444,446-451,453-456,462,526,528-530,537,540-564,567,570,572,575-577,594,603
+apps/web/src/features/browser/hooks/use-open-browser-center-tab.ts
+  h_5be255725524c8 6,8,14-16
+apps/web/src/features/browser/hooks/use-webview-pointer-policy.ts
+  h_5be255725524c8 14
+apps/web/src/features/browser/lib/__tests__/app-053-browser-webview.structural.test.ts
+  h_5be255725524c8 23,61-82,169-170,172-190,195-196,198,202,204,305-389
+apps/web/src/features/browser/lib/__tests__/app-059-experience-kernel.structural.test.ts
+  h_5be255725524c8 1-95
+apps/web/src/features/browser/lib/__tests__/browser-loading-chrome.test.ts
+  h_5be255725524c8 1-20
+apps/web/src/features/browser/lib/__tests__/browser-url-focus.test.ts
+  h_5be255725524c8 1-28
+apps/web/src/features/browser/lib/__tests__/browser-use-user-picks.test.ts
+  h_5be255725524c8 1-39
+apps/web/src/features/browser/lib/browser-labels.ts
+  h_5be255725524c8 38
+apps/web/src/features/browser/lib/browser-loading-chrome.ts
+  h_5be255725524c8 1-24
+apps/web/src/features/browser/lib/browser-transports/desktop-transport.ts
+  h_5be255725524c8 5,126-134
+apps/web/src/features/browser/lib/browser-url-focus.ts
+  h_5be255725524c8 1-23
+apps/web/src/features/browser/lib/browser-use-user-picks.ts
+  h_5be255725524c8 1-53
+apps/web/src/features/browser/lib/browser-utils.tsx
+  h_5be255725524c8 1,3
+apps/web/src/features/browser/lib/ensure-browser-surface.ts
+  h_5be255725524c8 1-110
+apps/web/src/features/browser/store/__tests__/resolve-browser-context.test.ts
+  h_5be255725524c8 1-61
+apps/web/src/features/browser/store/resolve-browser-context.ts
+  h_5be255725524c8 1-60
+apps/web/src/features/browser/store/use-browser-center-tabs.ts
+  h_5be255725524c8 22-23,106-112
+apps/web/src/features/browser/store/use-browser-session-map.ts
+  h_5be255725524c8 1-102
+apps/web/src/features/browser/store/use-browser-tab-commands.ts
+  h_5be255725524c8 6-11,13,15-31,34-41,46-64,66-68,71-78,82-109,111-113,115-117
+apps/web/src/features/browser/store/use-browser-use-activity.ts
+  h_5be255725524c8 1-65
+apps/web/src/features/canvas/__tests__/canvas-widget-shape.test.ts
+  h_5be255725524c8 245,264-266
+apps/web/src/features/canvas/components/CanvasOverlay.tsx
+  h_5be255725524c8 8-12,15,41,47-50,57-63,72-73,75-76,86,91-93,95,98-108,110-112,139-145,153,157-158,161-166,169,172-174
+apps/web/src/features/canvas/components/CanvasTerminalCard.tsx
+  h_5be255725524c8 158,251
+apps/web/src/features/canvas/components/CanvasView.tsx
+  h_5be255725524c8 76-77,231,254,256,825-826,828,846,897-912,1057,1078,1419-1422,1497-1510
+apps/web/src/features/canvas/components/__tests__/canvas-overlay-keep-alive.test.ts
+  h_5be255725524c8 29-43
+apps/web/src/features/canvas/components/widgets/CanvasAIQuotaUsageWidget.tsx
+  h_5be255725524c8 4,13,21
+apps/web/src/features/canvas/components/widgets/CanvasAgentStatusWidget.tsx
+  h_5be255725524c8 12,63-67
+apps/web/src/features/canvas/components/widgets/CanvasCenterWidget.tsx
+  h_5be255725524c8 341-369
+apps/web/src/features/canvas/components/widgets/CanvasChangesWidget.tsx
+  h_5be255725524c8 5,27,68,81,157-180,234-249
+apps/web/src/features/canvas/lib/__tests__/canvas-tldraw-license.test.ts
+  h_5be255725524c8 2-9,11-15,17-19,21,23-24,26-36
+apps/web/src/features/canvas/lib/canvas-overlay-activity.tsx
+  h_5be255725524c8 1-14
+apps/web/src/features/canvas/lib/canvas-terminal-focus.ts
+  h_5be255725524c8 3,47-53,55-56,60-61,81,93
+apps/web/src/features/canvas/lib/canvas-tldraw-license.ts
+  h_5be255725524c8 1-13
+apps/web/src/features/canvas/lib/canvas-widget-shape.ts
+  h_5be255725524c8 218,220
+apps/web/src/features/chat-sessions/components/ChatSessionsManagementView.tsx
+  h_5be255725524c8 446
+apps/web/src/features/code-review/components/ReviewReportMetadataCard.tsx
+  h_5be255725524c8 9-10,21,27,29-30,38,48-50,58-59
+apps/web/src/features/connection/hooks/use-websocket.ts
+  h_5be255725524c8 326
+apps/web/src/features/connection/lib/app-connection-bootstrap.ts
+  h_5be255725524c8 7,16-20
+apps/web/src/features/connection/lib/ensure-local-hub-device.ts
+  h_5be255725524c8 1-160
+apps/web/src/features/connection/lib/sync-computer-client-settings.ts
+  h_5be255725524c8 54-56,69,114,131-149,174-185,207-216,252,261-270
+apps/web/src/features/desktop-use/components/DesktopUseReadinessDialog.tsx
+  h_5be255725524c8 22-25,95,132-136
+apps/web/src/features/desktop-use/lib/__tests__/readiness-gate-wiring.structural.test.ts
+  h_5be255725524c8 20-29,49,60,72
+apps/web/src/features/diff/components/DiffFileTree.tsx
+  h_5be255725524c8 378,385
+apps/web/src/features/diff/components/ReviewCenterPanel.tsx
+  h_5be255725524c8 1-32
+apps/web/src/features/diff/components/review/FrozenFileList.tsx
+  h_5be255725524c8 247
+apps/web/src/features/disk-analyzer/components/DiskAnalyzerPage.tsx
+  h_5be255725524c8 3,29-34,39,46,49,51,54-56,58,60,62-64,68-152,155-161,163-174,176,182-191,219-220,224-242,253-286,288,290-300,307-311,315,334,336,354-355,396-410,443,452-459,509-510,552-554,557,581-585,597,601-602,608-669,671,678,686-688,695-697,723-724,742-746,776-780,814-827,833-835,919-924,927,940,965-967,985-986,992-998,1004-1013,1015-1021,1024-1035,1049-1112,1154-1156,1159-1166,1169-1171,1181-1187,1242-1244,1247-1253,1266,1269,1275-1276,1278-1283,1294
+apps/web/src/features/disk-analyzer/components/DiskAnalyzerSuggestPanel.tsx
+  h_5be255725524c8 1-262
+apps/web/src/features/disk-analyzer/components/DiskUsageChart.tsx
+  h_5be255725524c8 16,20-21,62-63,92-94,97,112-114,117,231,243,250,286-290,294-296,309,496-498,695-697,705-710
+apps/web/src/features/disk-analyzer/hooks/use-disk-analyzer.ts
+  h_5be255725524c8 25,31,69-70,92-93,145,161,164,166-170,277-289,293,306,312,323-324,332,373,414,480-493,519-528,531-532,534,537-545,550-575,578-586,588-619,621-634,636-667,760,762-764,792-793,795
+apps/web/src/features/disk-analyzer/lib/tree-adapters.test.ts
+  h_5be255725524c8 3-8,11-20,24,26-29,32-33,143-308,615-646,917-921,981-1238
+apps/web/src/features/disk-analyzer/lib/tree-adapters.ts
+  h_5be255725524c8 1-5,25-200,219-229,372-379,436-439,558-561,592-593,606-609,649-807,834-835,850-852,897-904,911-917,954-955
+apps/web/src/features/editor/components/CodeMirrorEditor.tsx
+  h_5be255725524c8 33,38,77,135-136,157,159,162-163
+apps/web/src/features/files/components/FileTreeRow.tsx
+  h_5be255725524c8 93
+apps/web/src/features/git/__tests__/git-history-center-tab.test.ts
+  h_5be255725524c8 1-42
+apps/web/src/features/git/components/ChangesPanel.tsx
+  h_5be255725524c8 3,5-7,16-25,32,62-76,78-81,147,150-151,154-155,172,223,233-240,251-254,267-274,277-293,297-306,309-312,315-320,323-376,378,380-403,405-409,411-421,423-451,453,456-465
+apps/web/src/features/git/components/GitHistoryPanel.tsx
+  h_5be255725524c8 1-439
+apps/web/src/features/git/components/git-history-graph-svg.tsx
+  h_5be255725524c8 1-73
+apps/web/src/features/git/components/git-history-row.tsx
+  h_5be255725524c8 1-283
+apps/web/src/features/git/components/git-history-table-chrome.tsx
+  h_5be255725524c8 1-109
+apps/web/src/features/git/hooks/use-git-history.ts
+  h_5be255725524c8 1-52
+apps/web/src/features/git/hooks/use-open-git-history-center-tab.ts
+  h_5be255725524c8 1-30
+apps/web/src/features/git/index.ts
+  h_5be255725524c8 1-6
+apps/web/src/features/git/lib/__tests__/git-history-panel.structural.test.ts
+  h_5be255725524c8 1-113
+apps/web/src/features/git/lib/git-changed-files-selection.ts
+  h_5be255725524c8 17-26
+apps/web/src/features/git/lib/git-history-columns.test.ts
+  h_5be255725524c8 1-75
+apps/web/src/features/git/lib/git-history-columns.ts
+  h_5be255725524c8 1-104
+apps/web/src/features/git/lib/git-history-graph.test.ts
+  h_5be255725524c8 1-91
+apps/web/src/features/git/lib/git-history-graph.ts
+  h_5be255725524c8 1-194
+apps/web/src/features/git/lib/git-history-search.test.ts
+  h_5be255725524c8 1-83
+apps/web/src/features/git/lib/git-history-search.ts
+  h_5be255725524c8 1-81
+apps/web/src/features/git/lib/git-query-options.ts
+  h_5be255725524c8 3,10,12,18,203-236
+apps/web/src/features/git/store/use-git-history-center-tab.ts
+  h_5be255725524c8 1-54
+apps/web/src/features/git/types.ts
+  h_5be255725524c8 1
+apps/web/src/features/github/components/ActionsDetailView.tsx
+  h_5be255725524c8 8-9,90,361-366
+apps/web/src/features/github/components/ActionsPanel.tsx
+  h_5be255725524c8 147
+apps/web/src/features/github/components/CommitDetailView.tsx
+  h_5be255725524c8 9-16,48,116-121,123-143
+apps/web/src/features/github/components/CreatePrDialog.tsx
+  h_5be255725524c8 11,15-17,20-21,25-30,32-39,41
+apps/web/src/features/github/components/GithubHubPanel.tsx
+  h_5be255725524c8 1-204
+apps/web/src/features/github/components/GithubUserHoverCard.tsx
+  h_5be255725524c8 17,24-29,49-53,74,183-184,191-196,224-245,247-262,269-270,284,319,322,550,565
+apps/web/src/features/github/components/IssueDetailView.tsx
+  h_5be255725524c8 14,106,186,204
+apps/web/src/features/github/components/IssuePanel.tsx
+  h_5be255725524c8 161
+apps/web/src/features/github/components/PRDetailView.tsx
+  h_5be255725524c8 15-16,98,426,440
+apps/web/src/features/github/components/PRPanel.tsx
+  h_5be255725524c8 97,101,117,119-120,126,130,140,142-143,155,177,226-227
+apps/web/src/features/github/hooks/use-github-pr-query.ts
+  h_5be255725524c8 188
+apps/web/src/features/github/hooks/use-github-user-card-query.ts
+  h_5be255725524c8 1-64
+apps/web/src/features/github/lib/__tests__/public-github-user-card.test.ts
+  h_5be255725524c8 1-156
+apps/web/src/features/github/lib/public-github-user-card.ts
+  h_5be255725524c8 1-153
+apps/web/src/features/local-services/components/LocalServicesFooterItem.tsx
+  h_5be255725524c8 6,20,64,66,68,71-75,99,101
+apps/web/src/features/project/store/__tests__/script-trust-payload.test.ts
+  h_5be255725524c8 1-41
+apps/web/src/features/project/store/project-store-setup-progress.ts
+  h_5be255725524c8 33-40,74-76,193-194
+apps/web/src/features/project/store/project-store-subscriptions.ts
+  h_5be255725524c8 64-66
+apps/web/src/features/project/store/use-project-store.ts
+  h_5be255725524c8 376
+apps/web/src/features/pt-design/PtDesignCenterPanel.tsx
+  h_5be255725524c8 1-86
+apps/web/src/features/pt-design/PtDesignGuestStage.tsx
+  h_5be255725524c8 1-67
+apps/web/src/features/pt-design/PtDesignStandaloneStage.tsx
+  h_5be255725524c8 1-11
+apps/web/src/features/pt-design/collab-invite.test.ts
+  h_5be255725524c8 1-34
+apps/web/src/features/pt-design/collab-invite.ts
+  h_5be255725524c8 1-33
+apps/web/src/features/pt-design/library-adapter.ts
+  h_5be255725524c8 1-36
+apps/web/src/features/pt-design/storage-key.ts
+  h_5be255725524c8 1-3
+apps/web/src/features/pt-design/use-pt-design-agent-bridge.ts
+  h_5be255725524c8 1-78
+apps/web/src/features/settings/components/AccountSettingsSection.tsx
+  h_5be255725524c8 6-27,30,32-34,37,41-54,60-86,94-96,98-102,104,107-112,115,119-120,122-191,193-198,200-249,255,259,262,264-265,271-272,274,280-293,296-302,309,312,314-339,345-346,348-354,356-387,389-402,405-470
+apps/web/src/features/settings/components/AgentActivityIndicatorsSettingsSection.tsx
+  h_5be255725524c8 32,92,257,260-261,272,274-281,323,326-327,329-337
+apps/web/src/features/settings/components/AgentHookStatusCard.tsx
+  h_5be255725524c8 5,14-17,259,262-265,290-294,296-371
+apps/web/src/features/settings/components/AppearanceSettingsSection.tsx
+  h_5be255725524c8 3,6-12,14-16,18-21,23-27,29-33,35-37,39-42,45-72,74-101
+apps/web/src/features/settings/components/BrowserCookiesSettingsCard.tsx
+  h_5be255725524c8 1-226
+apps/web/src/features/settings/components/BrowserSettingsSection.tsx
+  h_5be255725524c8 1-45
+apps/web/src/features/settings/components/CanvasSettingsSection.tsx
+  h_5be255725524c8 13-17,87-109,111-132,134-141,143-161,163-165
+apps/web/src/features/settings/components/CodeAgentBehaviourSettingsSection.tsx
+  h_5be255725524c8 1-342
+apps/web/src/features/settings/components/CodeAgentRunConfigSettingsSection.tsx
+  h_5be255725524c8 21,31,157-158,161-163,168-170,257-258,326
+apps/web/src/features/settings/components/CodeAgentSettingsSection.tsx
+  h_5be255725524c8 14-20,27-30,33-38,41-42,55-58,66-69,92,99-102,114-117,125-128,151,158-161,166-179,193-201,205,208-209,211-218,244,247-248,266-270,313-315,317,320-322,327-328,330,334,353,356-357,377-381,432,434,444-462,464-465
+apps/web/src/features/settings/components/DesktopUsePermissionsPanel.tsx
+  h_5be255725524c8 20,68,266-277,302,304,306-307
+apps/web/src/features/settings/components/DesktopUseSettingsSection.tsx
+  h_5be255725524c8 28,31,133,137,393,521-522,601-617,619-634,636-649,651-652,893,895-909
+apps/web/src/features/settings/components/EditorSettingsSection.tsx
+  h_5be255725524c8 26,154,262
+apps/web/src/features/settings/components/ExperimentSettingsSection.tsx
+  h_5be255725524c8 7-11,26-35
+apps/web/src/features/settings/components/HeaderLayoutSettingsSection.tsx
+  h_5be255725524c8 18,63-64,67-70,72-74,145
+apps/web/src/features/settings/components/HubAuthUIProvider.tsx
+  h_5be255725524c8 1-205
+apps/web/src/features/settings/components/HubDeleteAccountSection.tsx
+  h_5be255725524c8 1-159
+apps/web/src/features/settings/components/HubNameSettingsCard.tsx
+  h_5be255725524c8 1-119
+apps/web/src/features/settings/components/HubSecuritySettingsCards.tsx
+  h_5be255725524c8 1-245
+apps/web/src/features/settings/components/IntegrationsSettingsSection.tsx
+  h_5be255725524c8 47-51,55-59,62-100,437-439,454-463,479-483,546-550,562,564-577,595-639,641,643-686,690,696,698-741,744-746,772-779,781-800,802-854,857-859,863-869,871-890,892-926,928-947,949-966,974-983
+apps/web/src/features/settings/components/LaunchpadLayoutSettings.tsx
+  h_5be255725524c8 19,33,51,66,101-102,105-108,112-114,197
+apps/web/src/features/settings/components/LayoutSettingsSection.tsx
+  h_5be255725524c8 6,12-17,30,36,45,54-57,64-65,75,81-82,85-88,92-151,158-159,162-165,169-236,238-240
+apps/web/src/features/settings/components/NotifySettingsSection.tsx
+  h_5be255725524c8 16,26-31,200,203,208-232,234-255,257-263,265-277,279-304,306,309-311,314,334-354,356-395,397-406,409-410,412,414-416,421-423,425,428,434-439,441-443,448-449,451-488
+apps/web/src/features/settings/components/PermissionAccessSettingsSection.tsx
+  h_5be255725524c8 1-108
+apps/web/src/features/settings/components/SettingsAboutSection.tsx
+  h_5be255725524c8 8-12,18,37-44,60-65,68-99,101,103-108,111,113,115,118,121,123,130-134,136,139,142,144,151-155,158,161,164,166,173-175
+apps/web/src/features/settings/components/SettingsAiSection.tsx
+  h_5be255725524c8 18,32-36,132-133,136-153,155-158,160-221,226-230,232,234-246,248-268,270-273,275,278-282,284-330,334,338-360,362-406,410,414-434,436-439,441-447,449-450,452-453
+apps/web/src/features/settings/components/SettingsModal.tsx
+  h_5be255725524c8 3,8-9,49,54,57-77,79-80,96-110,243,245-246,290-297,383-394,414,417,424,440,754-793,814,826-830,832-844,1038-1069,1071-1107,1109,1111-1114,1116,1148-1151,1159-1162,1199-1200,1208-1211,1246,1258-1259,1261-1263
+apps/web/src/features/settings/components/SettingsModalSections.tsx
+  h_5be255725524c8 12-13,19,30,33,40,77-80,88-91,114-120,127-130,171-180,183-202,222,233-236,244-247,270,277-280,284-295,298,319,337-372,374,377-384
+apps/web/src/features/settings/components/SettingsPageTabs.tsx
+  h_5be255725524c8 1-49
+apps/web/src/features/settings/components/ShortcutsSettingsSection.tsx
+  h_5be255725524c8 4,14-27,35,110
+apps/web/src/features/settings/components/WorkspaceSettingsSection.tsx
+  h_5be255725524c8 15,19-24,40,63,66-74,209,235,237,275-276,279-280,282-291,294-295,299,302-303,305-329,331,334-335,337-356,359
+apps/web/src/features/settings/components/__tests__/browser-settings-section.test.ts
+  h_5be255725524c8 1-53
+apps/web/src/features/settings/components/__tests__/desktop-use-settings-section.test.ts
+  h_5be255725524c8 8,13-19,22,27-28,31,37-38,41,49-57,76-77,201,255-256,271-272,276,284-286
+apps/web/src/features/settings/components/__tests__/settings-page-tabs.test.ts
+  h_5be255725524c8 1-41
+apps/web/src/features/settings/components/hub-oauth-open.ts
+  h_5be255725524c8 1-133
+apps/web/src/features/settings/components/reference/SettingsModalRule.md
+  h_5be255725524c8 8,10,12-18,20,22-25,27,29-31,33,35-36,38,40-42,44,46-47
+apps/web/src/features/settings/components/settings-modal-data.ts
+  h_5be255725524c8 32-35,38-41,44-47,50-53,59-61,64-66,69-71,74-76,89-91,94-96,99-101,104-106,109-111,114-116,119-121,141-142,144-145,148,180-181,222-223,249-254,280-294,348-349,369,371,414-415,443-457,459,522-526,528,531,535,561-563,567,619-621,691-703,744-757,896,919,1018-1019,1021-1022,1046,1085-1090,1113-1176
+apps/web/src/features/settings/components/settings-modal-sidebar.tsx
+  h_5be255725524c8 7-14,17,28,30-31,87-88,95,98-100,104-110,119-120,124,186-195,197-228,230-244,246-247,249-271
+apps/web/src/features/settings/components/settings/SettingsGroupCard.tsx
+  h_5be255725524c8 12-75,84-85,91,94,96,100-106,115,117,125-128,130,134-161,166,168-173,175-182,184-188
+apps/web/src/features/settings/components/settings/SettingsToggleRow.tsx
+  h_5be255725524c8 12,17,25,29-36,41,44-45
+apps/web/src/features/settings/hooks/use-settings-group-tab.ts
+  h_5be255725524c8 1-72
+apps/web/src/features/settings/lib/launchpad-items.test.ts
+  h_5be255725524c8 1-119
+apps/web/src/features/settings/lib/launchpad-items.ts
+  h_5be255725524c8 1-239
+apps/web/src/features/settings/lib/linear-local-keys.test.ts
+  h_5be255725524c8 73-97,109,131-146
+apps/web/src/features/settings/lib/linear-local-keys.ts
+  h_5be255725524c8 349-354,357-365,368,444-450
+apps/web/src/features/settings/lib/open-settings.ts
+  h_5be255725524c8 1-45
+apps/web/src/features/settings/lib/settings-return.test.ts
+  h_5be255725524c8 1-65
+apps/web/src/features/settings/lib/settings-return.ts
+  h_5be255725524c8 1-104
+apps/web/src/features/settings/lib/settings-section-group-tabs.test.ts
+  h_5be255725524c8 1-64
+apps/web/src/features/settings/lib/settings-section-group-tabs.ts
+  h_5be255725524c8 1-146
+apps/web/src/features/settings/store/__tests__/browser-settings-store.test.ts
+  h_5be255725524c8 1-19
+apps/web/src/features/settings/store/browser-settings-store.ts
+  h_5be255725524c8 1-94
+apps/web/src/features/settings/store/experiment-settings-store.test.ts
+  h_5be255725524c8 4-11,22,24,28-33,35,40-45,66,100,106,110-151
+apps/web/src/features/settings/store/experiment-settings-store.ts
+  h_5be255725524c8 4,6-39,67-69,88-97,113,118-121,123,134-136,157-170,172,196-199,201,207,210,229-267
+apps/web/src/features/settings/store/layout-settings-store.agent-grouping.test.ts
+  h_5be255725524c8 1-9
+apps/web/src/features/settings/store/layout-settings-store.ts
+  h_5be255725524c8 28,38,50,122,159,224-230
+apps/web/src/features/simulator/__tests__/simulator.test.ts
+  h_5be255725524c8 1-230
+apps/web/src/features/simulator/components/SimulatorPanel.tsx
+  h_5be255725524c8 1-78
+apps/web/src/features/simulator/components/SimulatorSetupCard.tsx
+  h_5be255725524c8 5-8,10-23,25-28,31-34,36,39-49,51-55
+apps/web/src/features/simulator/hooks/use-simulator-session.ts
+  h_5be255725524c8 1-178
+apps/web/src/features/simulator/index.ts
+  h_5be255725524c8 1-3
+apps/web/src/features/simulator/simulator-guest.css
+  h_5be255725524c8 1-10
+apps/web/src/features/simulator/store/use-simulator-center-tab.ts
+  h_5be255725524c8 1-37
+apps/web/src/features/simulator/store/use-simulator-runtime-store.ts
+  h_5be255725524c8 1-29
+apps/web/src/features/simulator/types.ts
+  h_5be255725524c8 1-101
+apps/web/src/features/skills/components/InstalledSkillListCard.tsx
+  h_5be255725524c8 51,57,149,167
+apps/web/src/features/skills/components/SkillCard.tsx
+  h_5be255725524c8 45-54,79,107
+apps/web/src/features/skills/components/SkillDetail.tsx
+  h_5be255725524c8 366-380,535
+apps/web/src/features/skills/components/SkillsFilterMenu.tsx
+  h_5be255725524c8 1-129
+apps/web/src/features/skills/components/SkillsView.tsx
+  h_5be255725524c8 3,7,9,11,32,34,45,53,57-62,72-73,77-80,160,163-183,187-205,209,213-215,224,238-248,250,259,264,268-280,286,288-289,298-300,304-333,336-373,377-419,421-434
+apps/web/src/features/skills/lib/skills-view-utils.ts
+  h_5be255725524c8 61-85
+apps/web/src/features/task/components/TaskGithubCreateIssueDialog.tsx
+  h_5be255725524c8 35-39,47,53,55-60,79,87,93-99,103,105,111,115,122,125,129,281,303-305,311,315
+apps/web/src/features/task/components/TaskGithubPanel.tsx
+  h_5be255725524c8 10-15,17-19,73-78,111-112,125,156,266,277,279-281,288-295,596-599,604-608,616-618,626-630,640-643,656-661,663,668,676-725,740,810,820,822-862,864,874
+apps/web/src/features/task/components/TaskGithubTable.tsx
+  h_5be255725524c8 11,220-225,229-231,253-254,272,278,289,294-309,437,496
+apps/web/src/features/task/components/TaskGithubTemplateFormFields.tsx
+  h_5be255725524c8 1-299
+apps/web/src/features/task/components/TaskLinearDrawer.tsx
+  h_5be255725524c8 1-410
+apps/web/src/features/task/components/TaskLinearFilterMenu.tsx
+  h_5be255725524c8 1-544
+apps/web/src/features/task/components/TaskLinearPanel.tsx
+  h_5be255725524c8 3-4,8-10,20,28-53,79-83,86-88,90-91,93-97,102,104-106,108-127,130-136,154-158,160-161,165-168,184-188,191-206,209-210,215-221,225,229-230,236-245,249-260,262-263,267-276,278-286,288-291,293-327,330-339,342,344,347-359,361-364,367-389,391,394-410,412-470,472-476,481,483,487-491,493-494,497-526,532-533,535-572,574-582,584-627,629-639
+apps/web/src/features/task/components/TaskLinearTable.tsx
+  h_5be255725524c8 1-309
+apps/web/src/features/task/components/TaskManagementView.tsx
+  h_5be255725524c8 3,7-11,15,39-42,48-51,70,118-140,209-213,215,219,221,225-240,246,249-255,258-259,262-263,266,270,274-340
+apps/web/src/features/task/components/WorkspaceLinearSummary.tsx
+  h_5be255725524c8 1-93
+apps/web/src/features/task/components/task-github-drawer/TaskGithubDrawerHost.tsx
+  h_5be255725524c8 9-10,17,59,175,201-207,298-302,354,356,450-459,470,478,615,619-621,634,638-640
+apps/web/src/features/task/components/task-github-drawer/__tests__/drawer-close-chrome.test.ts
+  h_5be255725524c8 1-60
+apps/web/src/features/task/components/task-github-drawer/__tests__/drawer-insets.test.ts
+  h_5be255725524c8 1-22
+apps/web/src/features/task/components/task-github-drawer/use-task-drawer-insets.ts
+  h_5be255725524c8 4-10,13-14,24-63,65,67-69,72,74,80-95,99-112,119-124
+apps/web/src/features/task/components/task-linear-visuals.tsx
+  h_5be255725524c8 1-240
+apps/web/src/features/task/hooks/use-project-github-repos.ts
+  h_5be255725524c8 3-4,6-9,22-24,28-30,33-35,46-49,51-52,54-57,59-71,90-97,99-102
+apps/web/src/features/task/lib/find-linked-workspace.ts
+  h_5be255725524c8 3-7,252-287
+apps/web/src/features/task/lib/load-local-github-issue-templates.ts
+  h_5be255725524c8 1-101
+apps/web/src/features/task/lib/open-task-workspace-create.ts
+  h_5be255725524c8 6,9,12,16-22,25-30,33-47
+apps/web/src/features/task/lib/pending-linear-link.ts
+  h_5be255725524c8 1,3-4,6-16,19-24,27,29
+apps/web/src/features/task/lib/task-github-panel-model.ts
+  h_5be255725524c8 1-33
+apps/web/src/features/task/lib/task-linear-panel-model.ts
+  h_5be255725524c8 1-3
+apps/web/src/features/task/lib/task-source-preference.test.ts
+  h_5be255725524c8 1-53
+apps/web/src/features/task/lib/task-source-preference.ts
+  h_5be255725524c8 1-31
+apps/web/src/features/task/store/task-workspace-draft-store.ts
+  h_5be255725524c8 13-16,27-30,33-59,62-74
+apps/web/src/features/terminal/components/AttentionSummaryPanel.tsx
+  h_5be255725524c8 1-125
+apps/web/src/features/terminal/components/Terminal.tsx
+  h_5be255725524c8 23,45,65-79,116-117,120,127-135,150-167,188,190,193,327-381,394,397-416,418-432,907-911,1284-1290,1373,1375,1432-1433,1438-1440,1563-1564,1596-1598,1666-1667,1697-1698,1756-1783
+apps/web/src/features/terminal/components/TerminalAgentInputOverlay.css
+  h_5be255725524c8 11,24-28,36,45-49,163-218,226-227,239-243
+apps/web/src/features/terminal/components/TerminalAgentInputOverlay.tsx
+  h_5be255725524c8 47,49,53,102-107,111-122,126-127,175,194,204-211,235,641,644-659,663,949-950,961-962,1068,1095,1121,1154,1156,1163,1187-1193,1203-1220,1265-1270,1275-1282,1284-1293,1302
+apps/web/src/features/terminal/components/TerminalAgentInputShell.tsx
+  h_5be255725524c8 26,50,67,73-74,88-97
+apps/web/src/features/terminal/components/TerminalChrome.tsx
+  h_5be255725524c8 72-79,105-106
+apps/web/src/features/terminal/components/TerminalGrid.tsx
+  h_5be255725524c8 7,9,19-22,31,43,258,413-418,559,786,789,883,889-890,928-929,1005,1028,1034-1044
+apps/web/src/features/terminal/components/TerminalManagerView.tsx
+  h_5be255725524c8 115
+apps/web/src/features/terminal/components/TerminalPaneAgentStatus.tsx
+  h_5be255725524c8 10
+apps/web/src/features/terminal/components/TerminalScopedPane.tsx
+  h_5be255725524c8 24,43,66,90,222,224,229,232,238-241,248,251,253,256,260,283,319,355,373,387,389,481,510
+apps/web/src/features/terminal/components/TerminalSelectionToolbar.tsx
+  h_5be255725524c8 9-13,16-18,34-35,46-50,61-74,90,94,104,119-123,132,137-141,150,168-171
+apps/web/src/features/terminal/components/TerminalSideChatDots.tsx
+  h_5be255725524c8 6,10,14-15,28-30,38-43,48-49,54,63,66,72-73
+apps/web/src/features/terminal/components/TerminalSideChatLayer.tsx
+  h_5be255725524c8 16,44,72
+apps/web/src/features/terminal/components/TerminalSideChatModal.tsx
+  h_5be255725524c8 12-16,18-19,25,42,65,116-126,179-182,186-188,191,195,199-226,235,237,252,256-257,261,269-318,376,378,380-384,408,449,453,468
+apps/web/src/features/terminal/components/TerminalSplitView.tsx
+  h_5be255725524c8 1-738
+apps/web/src/features/terminal/components/TerminalWorkspacePane.tsx
+  h_5be255725524c8 25,41,52,65,88-90,138,263,265,270,273,279-282,289,292,294,297,301,326,364,401,419,434,436,518,547
+apps/web/src/features/terminal/components/__tests__/attention-summary-input-chrome.dom.test.tsx
+  h_5be255725524c8 1-195
+apps/web/src/features/terminal/components/__tests__/attention-summary-input-chrome.test.ts
+  h_5be255725524c8 1-100
+apps/web/src/features/terminal/components/__tests__/terminal-pane-title-chrome.test.ts
+  h_5be255725524c8 1-83
+apps/web/src/features/terminal/components/terminal-grid.css
+  h_5be255725524c8 1,3-128,137-138,142,149,154,167,172,178,184-197,201,205,207,217,221,225,229,234,239,253,267-271,275,289,300,440,455-456,463,478,483,629,679,767-768,779,783-784,790,795,799,804,809,815,821-824,828
+apps/web/src/features/terminal/components/terminal-pane-dnd.tsx
+  h_5be255725524c8 1-62
+apps/web/src/features/terminal/hooks/use-terminal-side-chat-records.ts
+  h_5be255725524c8 4,8-9,19,40-43,46-50,121-122,159,164,176-178,180,185,189-190,195-197,199-200,217,219
+apps/web/src/features/terminal/hooks/use-terminal-side-chats.tsx
+  h_5be255725524c8 115,117,339,358
+apps/web/src/features/terminal/hooks/use-terminal-toolbar-title.ts
+  h_5be255725524c8 22,24,29,52,81,130
+apps/web/src/features/terminal/index.ts
+  h_5be255725524c8 13-16
+apps/web/src/features/terminal/lib/__tests__/host-resize-pin.test.ts
+  h_5be255725524c8 1-234
+apps/web/src/features/terminal/lib/__tests__/terminal-layout-tree.test.ts
+  h_5be255725524c8 1-230
+apps/web/src/features/terminal/lib/__tests__/terminal-resize-scroll.test.ts
+  h_5be255725524c8 1-77
+apps/web/src/features/terminal/lib/__tests__/terminal-selection-toolbar-position.test.ts
+  h_5be255725524c8 3-6,9,12,16,19-20,25,29,32-34,39,41-54,56-58,61-62,69,88,97-129
+apps/web/src/features/terminal/lib/__tests__/terminal-side-chat.test.ts
+  h_5be255725524c8 11,13,93-141
+apps/web/src/features/terminal/lib/__tests__/terminal-stable-fit.test.ts
+  h_5be255725524c8 1-120
+apps/web/src/features/terminal/lib/__tests__/tui-mouse-scrollback-policy.test.ts
+  h_5be255725524c8 7,23-33
+apps/web/src/features/terminal/lib/host-resize-pin.ts
+  h_5be255725524c8 1-179
+apps/web/src/features/terminal/lib/terminal-center-tab-presentation.ts
+  h_5be255725524c8 9,11,38,43,178
+apps/web/src/features/terminal/lib/terminal-grid-utils.ts
+  h_5be255725524c8 4-10,164-165
+apps/web/src/features/terminal/lib/terminal-layout-document.ts
+  h_5be255725524c8 3,16,37,117
+apps/web/src/features/terminal/lib/terminal-layout-tree.ts
+  h_5be255725524c8 1-334
+apps/web/src/features/terminal/lib/terminal-pane-drag-preview.ts
+  h_5be255725524c8 1-30
+apps/web/src/features/terminal/lib/terminal-resize-scroll.ts
+  h_5be255725524c8 1-89
+apps/web/src/features/terminal/lib/terminal-runtime-utils.ts
+  h_5be255725524c8 102-111
+apps/web/src/features/terminal/lib/terminal-selection-toolbar-position.ts
+  h_5be255725524c8 5-8,23,27-28,34-37,57-66,68-77,112-127
+apps/web/src/features/terminal/lib/terminal-side-chat.ts
+  h_5be255725524c8 166-188
+apps/web/src/features/terminal/lib/terminal-stable-fit.ts
+  h_5be255725524c8 1-96
+apps/web/src/features/terminal/lib/terminal-xterm-preview.ts
+  h_5be255725524c8 1-129
+apps/web/src/features/terminal/lib/theme.ts
+  h_5be255725524c8 123-125
+apps/web/src/features/terminal/lib/use-live-split-layout.ts
+  h_5be255725524c8 1-69
+apps/web/src/features/terminal/store/terminal-store-auxiliary-actions.ts
+  h_5be255725524c8 4-5,109,307
+apps/web/src/features/terminal/store/terminal-store-helpers.ts
+  h_5be255725524c8 5,24,92,103,108,116,308,408,481,503,520,822,824,840,843-844
+apps/web/src/features/terminal/store/terminal-store-types.ts
+  h_5be255725524c8 3,30,43,59,63,66,102,104,107,118,123,125,136
+apps/web/src/features/terminal/store/use-terminal-store.ts
+  h_5be255725524c8 5-6,444
+apps/web/src/features/terminal/types/index.ts
+  h_5be255725524c8 162-167,169,171-173
+apps/web/src/features/token-usage/PublicTokLeaderboards.tsx
+  h_5be255725524c8 1-410
+apps/web/src/features/token-usage/PublicTokPage.tsx
+  h_5be255725524c8 1-155
+apps/web/src/features/token-usage/TokenUsageIcons.tsx
+  h_5be255725524c8 1-149
+apps/web/src/features/token-usage/TokenUsageOverviewTab.tsx
+  h_5be255725524c8 1-701
+apps/web/src/features/token-usage/TokenUsageOverviewView.tsx
+  h_5be255725524c8 1-483
+apps/web/src/features/token-usage/TokenUsagePublishControls.tsx
+  h_5be255725524c8 1-500
+apps/web/src/features/token-usage/TokenUsageStatChip.tsx
+  h_5be255725524c8 1-265
+apps/web/src/features/token-usage/__tests__/token-usage-public-share-static.test.ts
+  h_5be255725524c8 1-121
+apps/web/src/features/token-usage/__tests__/token-usage-share-payload.test.ts
+  h_5be255725524c8 1-187
+apps/web/src/features/token-usage/__tests__/token-usage-share-resume.test.ts
+  h_5be255725524c8 1-36
+apps/web/src/features/token-usage/fetch-public-tok.ts
+  h_5be255725524c8 1-205
+apps/web/src/features/token-usage/public-tok-preview.ts
+  h_5be255725524c8 1-134
+apps/web/src/features/token-usage/token-usage-dialog-utils.ts
+  h_5be255725524c8 1-1387
+apps/web/src/features/token-usage/token-usage-share-payload.ts
+  h_5be255725524c8 1-388
+apps/web/src/features/token-usage/token-usage-share-resume.ts
+  h_5be255725524c8 1-110
+apps/web/src/features/tunnel-connector/components/TunnelConnectorSection.tsx
+  h_5be255725524c8 45,60-62,102-105,120-121,123,129,131,148,325
+apps/web/src/features/welcome/components/HostedWelcomeGate.tsx
+  h_5be255725524c8 851
+apps/web/src/features/welcome/components/PromptComposer.tsx
+  h_5be255725524c8 1217,1224-1226,1248-1249,1251-1253
+apps/web/src/features/welcome/components/WelcomeAdvancedOptions.tsx
+  h_5be255725524c8 44,46,67-69,72,76,84-86,89,93,95-99,109,114,136,139-141,144,148-149,156-158,161,165,167-172,181,186,334,339,343-344,346-349,354,358,360-377,383,395,402-413,425,429,433,448,453,458,466-480,497-532,538,542,546,558,562,566,618-624,705,710,715,725,730,735,786-792,890-1037
+apps/web/src/features/welcome/components/WelcomeComposerFooter.tsx
+  h_5be255725524c8 13,27,45-46
+apps/web/src/features/welcome/components/WelcomePage.tsx
+  h_5be255725524c8 34,36,40,60-64,104-105,117-121,137,150,152-154,212-213,236-240,337-339,342,345,353-355,358,362,364-368,373,378,412-465,672,674-689,693,847,852-863,867-871,891-899,904-906,911,915-916,918-932,965,967-988,990,993-994,1015,1020,1078-1080,1083,1087,1095-1097,1100,1104,1106-1110,1138,1143
+apps/web/src/features/welcome/components/__tests__/prompt-composer-appshot-paste.test.tsx
+  h_5be255725524c8 364-388,403-412
+apps/web/src/features/welcome/hooks/use-welcome-project-context.ts
+  h_5be255725524c8 13-19,26-27,31-36,41-43,45,93-95,99-100,105-135,139-140,146-147,156-168,173-178,185-190,206-260,263,268,324,329-330,340-349,354-355,362-384,411,415,419,428-432,438-444,447,459,463,467-468,472-473,477,480,484,492-564,568-747,750-770,775,783,785,789,797,799,803-804,806-807,819,821-842,846-858,868,882,888-926,997-1020,1029-1031,1034,1037,1045-1047,1050,1054,1056-1060,1065,1070
+apps/web/src/features/welcome/lib/__tests__/linear-issue-branch-name.test.ts
+  h_5be255725524c8 1-49
+apps/web/src/features/welcome/lib/__tests__/slash-browser-use.test.ts
+  h_5be255725524c8 5,57-60
+apps/web/src/features/welcome/lib/__tests__/workspace-external-meta.test.ts
+  h_5be255725524c8 1-99
+apps/web/src/features/welcome/lib/slash-browser-use.ts
+  h_5be255725524c8 3,63-82
+apps/web/src/features/welcome/lib/welcome-linear-link.ts
+  h_5be255725524c8 1-32
+apps/web/src/features/welcome/lib/welcome-page-helpers.tsx
+  h_5be255725524c8 45,182,193,224-233,425-428,433,437,442-468,472,480-483,489-496
+apps/web/src/features/welcome/lib/workspace-external-meta.ts
+  h_5be255725524c8 1-265
+apps/web/src/features/workspace/components/ArchivedWorkspacesView.tsx
+  h_5be255725524c8 311
+apps/web/src/features/workspace/components/CreateWorkspaceDialog.tsx
+  h_5be255725524c8 31-35,76,79-81,346,603-611,681,684
+apps/web/src/features/workspace/components/OverviewTab.tsx
+  h_5be255725524c8 493
+apps/web/src/features/workspace/components/RecentWorkspacesView.tsx
+  h_5be255725524c8 404
+apps/web/src/features/workspace/components/TaskListPanel.tsx
+  h_5be255725524c8 27-28,40-41,44,46,48,50,54-59,61-64,240,244,248,251-252
+apps/web/src/features/workspace/components/WorkspaceScriptDialog.tsx
+  h_5be255725524c8 1,3-5,7,12-65,76,78-84,88-98,101-103,106-109,111-133,135-144,147-149,152,154-156,159,162,164-165,167,170-219,225-233,236-245,248-257,259-294,297,300-303,310,312-313,316-328,335-448
+apps/web/src/features/workspace/components/WorkspaceSetupProgress.tsx
+  h_5be255725524c8 9,22,24,31,46,53,60-106,269,271-277,283,307,316,419-428,432,443-448,452-455,459,468,484,493-516,520,522,536-539,550-551,555-556,559,562,566-569,579-582,593,606,615-725,728-731,767,770,773,807,827-835,837-847,849-851,853-854,856,860,867
+apps/web/src/features/workspace/components/WorkspacesManagementView.tsx
+  h_5be255725524c8 3-5,7-9,13,17-37,40-45,51
+apps/web/src/features/workspace/components/__tests__/workspace-script-dialog.dom.test.tsx
+  h_5be255725524c8 1-218
+apps/web/src/features/workspace/components/__tests__/workspace-setup-progress.dom.test.tsx
+  h_5be255725524c8 1-181
+apps/web/src/features/workspace/lib/workspace-script-dialog.test.ts
+  h_5be255725524c8 1-75
+apps/web/src/features/workspace/lib/workspace-script-dialog.ts
+  h_5be255725524c8 1-66
+apps/web/src/features/workspace/lib/workspace-setup.test.ts
+  h_5be255725524c8 1-16
+apps/web/src/features/workspace/lib/workspace-setup.ts
+  h_5be255725524c8 141-150
+apps/web/src/features/workspace/store/use-workspace-surface-cache-store.ts
+  h_5be255725524c8 144-145
+apps/web/src/features/workspace/store/workspace-creation-store.test.ts
+  h_5be255725524c8 1-152
+apps/web/src/features/workspace/store/workspace-creation-store.ts
+  h_5be255725524c8 7-43,62-64,66-69,72-78,82-84,86-130
+apps/web/src/providers/app/websocket-provider.tsx
+  h_5be255725524c8 4,13,39,41-42
+apps/web/src/shared/components/LaunchpadPageTabs.tsx
+  h_5be255725524c8 1-49
+apps/web/src/shared/components/PageFilterButton.tsx
+  h_5be255725524c8 1-47
+apps/web/src/shared/components/ScriptTrustReview.tsx
+  h_5be255725524c8 1-81
+apps/web/src/shared/components/__tests__/ScriptTrustReview.test.tsx
+  h_5be255725524c8 1-88
+apps/web/src/shared/components/__tests__/breakout-error-page.test.tsx
+  h_5be255725524c8 1-74
+apps/web/src/shared/components/breakout-error-page.tsx
+  h_5be255725524c8 348-349,351-355,357,361-362,369-381,412-415
+apps/web/src/shared/components/oauth-callback-shell.tsx
+  h_5be255725524c8 1-282
+apps/web/src/shared/components/ui/AtmosWordmark.tsx
+  h_5be255725524c8 29-30,36,38,41,44-46,49-50,54
+apps/web/src/shared/components/ui/RefreshableTabsTab.tsx
+  h_5be255725524c8 40-41,115
+apps/web/src/shared/hooks/__tests__/use-context-params-parse.test.ts
+  h_5be255725524c8 1-43
+apps/web/src/shared/hooks/app-navigation-intercept.tsx
+  h_5be255725524c8 3,35-53
+apps/web/src/shared/hooks/use-app-router.ts
+  h_5be255725524c8 9-12,63-65,82-84
+apps/web/src/shared/hooks/use-context-params.ts
+  h_5be255725524c8 5-8,10-23,32,49-50,52-55,91-92,96-147
+apps/web/src/shared/hooks/use-desktop-traffic-lights-padding.ts
+  h_5be255725524c8 11-13
+apps/web/src/shared/hooks/use-oauth-callback-return.ts
+  h_5be255725524c8 1-24
+apps/web/src/shared/lib/__tests__/desktop-gates.test.ts
+  h_5be255725524c8 7,96-103
+apps/web/src/shared/lib/__tests__/notifications.test.ts
+  h_5be255725524c8 98
+apps/web/src/shared/lib/__tests__/oauth-callback-return.test.ts
+  h_5be255725524c8 1-202
+apps/web/src/shared/lib/desktop-browser-bridge.ts
+  h_5be255725524c8 13-16,38-40
+apps/web/src/shared/lib/desktop-runtime.ts
+  h_5be255725524c8 80-91,104-110
+apps/web/src/shared/lib/notifications.ts
+  h_5be255725524c8 99,236-239,244-246
+apps/web/src/shared/lib/nuqs/searchParams.ts
+  h_5be255725524c8 20-33,42-43,70-90,96-98,101-132,176-178,182-188,193-195,199-208,223,225-226,232,235,284-285,300
+apps/web/src/shared/lib/oauth-callback-return.ts
+  h_5be255725524c8 1-239
+apps/web/src/shared/lib/suppress-react19-ref-warning.ts
+  h_5be255725524c8 6
+automations/review/quality/result/2026-08/08-10_score-76_RESULT.md
+  h_5be255725524c8 1-124
+automations/review/quality/result/2026-08/08-11_score-75_RESULT.md
+  h_5be255725524c8 1-158
+automations/review/quality/result/2026-08/08-12_score-80_RESULT.md
+  h_5be255725524c8 1-129
+automations/review/quality/result/2026-08/08-16_score-79_RESULT.md
+  h_5be255725524c8 1-158
+bun.lock
+  h_5be255725524c8 27,53,92,121,124,135,141,147,167,180,208,221,240-241,249,262,271,274,280,363-364,367-369,387-415,476,489,562-563,584-585,744-745,756-757,766-776,780-781,856-859,976-985,1048,1072-1073,1078-1081,1152-1159,1178,1210-1211,1250-1251,1256-1257,1324-1339,1342-1345,1352-1353,1372-1377,1498-1534,1536,1538,1584-1585,1604-1607,1612-1613,1710-1711,1714-1715,1828-1835,1910-1911,1954-1955,2100-2101,2148-2149,2152,2156,2160-2161,2208-2209,2238-2239,2252-2253,2258-2259,2266-2267,2276-2277,2310,2316-2317,2320,2330-2333,2352-2354,2358-2359,2372-2373,2388-2389,2408-2411,2414-2420,2424-2425,2430-2431,2434-2435,2440-2441,2552-2553,2600-2601,2620,2656-2657,2664-2667,2674-2675,2704-2705,2776-2777,2784-2785,2836-2837,2840-2843,2890,2906-2909,2912,2934-2935,2972-2973,3040-3041,3046-3047,3052-3053,3068,3076-3077,3082,3090,3096-3097,3102-3103,3112-3115,3128-3129,3152,3160-3161,3174-3175,3194-3195,3202,3222-3225,3244-3245,3272-3273,3282-3283,3348,3412-3413,3416-3417,3538,3540,3542,3568-3569,3572-3573,3616-3617,3652,3660-3661,3676-3677,3680-3681,3690-3691,3694-3695,3714-3715,3718-3721,3726-3727,3736-3742,3746,3758-3759,3764,3770-3771,3774-3775,3820-3821,3830-3839,3854,3856,3860-3861,3872-3874,3906-3909,3946,3950-3951,4012-4013,4032,4048-4050,4070-4071,4080-4081,4090,4094-4095,4144-4147,4150-4157,4174-4175,4200,4218,4244-4245,4254-4255,4272-4273,4326-4329,4334-4336,4438-4449,4456-4457,4464-4469,4474-4475,4484,4492-4493,4496-4497,4504,4516-4517,4532-4533,4540-4541,4550-4551,4566-4577,4582-4583,4606-4619,4622-4623,4628-4629,4632-4637,4640-4645,4648-4649,4652-4654,4656,4658,4660,4666-4667,4672-4673,4680-4681,4686-4687,4724-4725,4740-4741,4744-4745,4748,4752-4753,4766-4767,4772-4773,4776-4777,4780-4782,4788-4789,4792,4794,4802,4810-4811,4830-4833,4838-4841,4856-4857,4860-4861,4866-4869,4876,4882-4883,4898-4899,4902-4903,4906-4907,4912-4915,4932-4935,4938-4939,4966-4969,4972-4973,4982-4983,4986-4987,4990-4991,4996,5004,5008-5011,5016-5017,5020-5021,5024-5025,5030,5032,5034,5038,5044-5045,5054-5059,5074-5077,5080-5083,5134-5191,5194-5203,5206-5209,5230-5231,5240-5241,5250-5253,5262-5263,5266-5267,5274-5279,5284-5288,5296-5299,5306-5309,5312,5400-5403,5414-5415,5480-5497,5500-5501,5606-5657,5686-5705,5711-5718
+crates/AGENTS.md
+  h_5be255725524c8 18
+crates/browser-cookies/src/keychain.rs
+  h_5be255725524c8 12
+crates/browser-use/src/backends/embedded.rs
+  h_5be255725524c8 4-5,20-23,25-26,32-37,55-65,69,80-82,84-101,105,107-115,118-120,122-124,126,155-157,171-174,219-222,226-229,231,239-250,255-257,274-286,443-449,454-469,474-524,536-539,541-547,550,564-565,570,572,579-583,590,593-601,633-635,665-697,704-762
+crates/browser-use/src/backends/external.rs
+  h_5be255725524c8 6-9,11,21-27,82-85,126-131,394-399,407,411-453,457-572,581-590,594-597,599-605,613,619,623-630,632-636,651-654,656-665,670-683,685,687-692,696-716
+crates/browser-use/src/binding.rs
+  h_5be255725524c8 1-747
+crates/browser-use/src/chrome.rs
+  h_5be255725524c8 29-33,76-80,194-197
+crates/browser-use/src/download.rs
+  h_5be255725524c8 1-170
+crates/browser-use/src/envelope.rs
+  h_5be255725524c8 1-157
+crates/browser-use/src/errors.rs
+  h_5be255725524c8 1-258
+crates/browser-use/src/lib.rs
+  h_5be255725524c8 10,12-15,19-24,29,31-33,37,40-60,62-106,128,383-498
+crates/browser-use/src/surface.rs
+  h_5be255725524c8 1-36
+crates/browser-use/src/types.rs
+  h_5be255725524c8 16-18,59,61-85,91-92,110,116,141-142,144-151,154-170,181-221,267
+crates/core-engine/src/disk_analyzer/activity.rs
+  h_5be255725524c8 1-171
+crates/core-engine/src/disk_analyzer/agent_roots.rs
+  h_5be255725524c8 1-210
+crates/core-engine/src/disk_analyzer/budget.rs
+  h_5be255725524c8 1-84
+crates/core-engine/src/disk_analyzer/delete.rs
+  h_5be255725524c8 1-109
+crates/core-engine/src/disk_analyzer/mod.rs
+  h_5be255725524c8 3-5,7-14,18-23,36-38,63,90-93,121,145,161-162,174-175,188-226,238-239,250-251,262-263,274-275,286-287,317-318,329-330,356-363,428-429,441-442,455-456,469-470,487-657,664,667,672-850
+crates/core-engine/src/disk_analyzer/prune.rs
+  h_5be255725524c8 1-130
+crates/core-engine/src/disk_analyzer/scan.rs
+  h_5be255725524c8 1-869
+crates/core-engine/src/disk_analyzer/suggestions.rs
+  h_5be255725524c8 1-382
+crates/core-engine/src/disk_analyzer/types.rs
+  h_5be255725524c8 1-164
+crates/core-engine/src/git/history.rs
+  h_5be255725524c8 1-283
+crates/core-engine/src/git/mod.rs
+  h_5be255725524c8 12,21-22,24
+crates/core-engine/src/git/tests.rs
+  h_5be255725524c8 999-1111
+crates/core-engine/src/git/types.rs
+  h_5be255725524c8 102-141
+crates/core-engine/src/git/worktrees.rs
+  h_5be255725524c8 1,3-5,14-75,281-724
+crates/core-engine/src/lib.rs
+  h_5be255725524c8 18-22,31-32
+crates/core-engine/src/linear/mod.rs
+  h_5be255725524c8 83-84,91-92,97-110,165-171,221-250,272-296,501,515,702-703,768-827,867-869,885-887,898-937,989-990
+crates/core-engine/src/shims/bash_shim.sh
+  h_5be255725524c8 19-50,72,78,89
+crates/core-engine/src/shims/fish_shim.fish
+  h_5be255725524c8 14-47,59-60,65-66
+crates/core-engine/src/shims/grok_wrapper.sh
+  h_5be255725524c8 1-18
+crates/core-engine/src/shims/mod.rs
+  h_5be255725524c8 30,48-51,53,55,62-67,87-107,140-143,154-155,170,183-184,220-224,229-546
+crates/core-engine/src/shims/zsh_shim_zshenv
+  h_5be255725524c8 7-11,14-18
+crates/core-engine/src/shims/zsh_shim_zshrc
+  h_5be255725524c8 17-26,36-73,86-93
+crates/core-engine/src/tmux/capture.rs
+  h_5be255725524c8 66-79,95-105,108,114,118-125,129-139,141-143,159-177,184,196,312-318,325-353,388,393,408-430
+crates/core-service/Cargo.toml
+  h_5be255725524c8 20
+crates/core-service/src/lib.rs
+  h_5be255725524c8 8-13,57,60-64
+crates/core-service/src/service/agent_hooks.rs
+  h_5be255725524c8 4-5,18,34-38,40-42,183-184,203-206,229-230,245-264,296-298,343-344,347,903,905-925,929-977
+crates/core-service/src/service/agent_hooks/attention.rs
+  h_5be255725524c8 8,43-45,122,134-141,148-151,153-167,169,171-173,178-179,188-201,203,205-221,232-237,243-257,267-289,319-321,358,432-669
+crates/core-service/src/service/agent_hooks/attention_summary.rs
+  h_5be255725524c8 1-603
+crates/core-service/src/service/agent_hooks/attention_summary_generate.rs
+  h_5be255725524c8 1-483
+crates/core-service/src/service/agent_hooks/workspace_agent_group.rs
+  h_5be255725524c8 1-346
+crates/core-service/src/service/automation/agents.rs
+  h_5be255725524c8 1452,1473,1800
+crates/core-service/src/service/automation/artifacts.rs
+  h_5be255725524c8 13,44-47,58-81,90,93,156-186,190,199,211-223,228,237-239,253-255
+crates/core-service/src/service/automation/github_trigger.rs
+  h_5be255725524c8 218-232,235-237,239,242,244-251,259-262,265-268,425,427,431-437,786-787,889,1014-1016
+crates/core-service/src/service/automation/lifecycle.rs
+  h_5be255725524c8 1,85-86,299-303,305-319,321-329
+crates/core-service/src/service/automation/mod.rs
+  h_5be255725524c8 41-42,65-79,238-239,260-261,269,271,275-284,302-303,358-359,519,631-636,744-753,755-759,840,844-845,1018,1033,1046,1067,1108-1158
+crates/core-service/src/service/automation/runner.rs
+  h_5be255725524c8 12,15,101,118-119,212-262,353,378,416-417,422-423,426-435,440-465
+crates/core-service/src/service/disk_analyzer/delete.rs
+  h_5be255725524c8 1-180
+crates/core-service/src/service/disk_analyzer/mod.rs
+  h_5be255725524c8 1-1212
+crates/core-service/src/service/disk_analyzer/overview.rs
+  h_5be255725524c8 1,3,5,10-12,18-19,22-27,29-34,38,69,92,148,184-185,188-195,199-221,225-229,232-245,249-250,252-261,263-267,269,271-273,275-278,281-282,284-303,306-332,337,342,368-399,410-413,419-426,454-456,496-497,500,503,540-544,552,574-588,615,718,720,746,760-770,804-807,831-866,869-872,874-877,879-895,898-900,902-1032,1036-1044,1050,1074,1096-1120,1124,1147-1148,1173-1208,1223-1224
+crates/core-service/src/service/disk_analyzer/walk.rs
+  h_5be255725524c8 1-209
+crates/core-service/src/service/linear.rs
+  h_5be255725524c8 5,14,24-25,63-128,232-279,339-341,373-388,432,434-447,455,457-471,478-505,509-510,520-528,605-606,611-613,625-627,644-688,724,819-820
+crates/core-service/src/service/linear_credentials.rs
+  h_5be255725524c8 5,67-70,87,98,109-118,120,123-130,150-172,305-349,363-365,367
+crates/core-service/src/service/llm_text_generation.rs
+  h_5be255725524c8 16-18,80-95
+crates/core-service/src/service/project.rs
+  h_5be255725524c8 36-94,131-203,366-649
+crates/core-service/src/service/terminal.rs
+  h_5be255725524c8 27,34-36,38-41,47,705,723-730,732-733,739,969,971,990-995,1022,1116,1139,1171,1240,1243,1245,1247-1249,1257-1277,1280-1296
+crates/core-service/src/service/terminal/management.rs
+  h_5be255725524c8 12-16,18-20,24-28,30-31,44-46,48-64,96-100,103,112,115,120-148
+crates/core-service/src/service/terminal/run_log_tee.rs
+  h_5be255725524c8 17-19
+crates/core-service/src/service/terminal/runtime.rs
+  h_5be255725524c8 21,29-97,219,281-283,300-304,307-309,313-314,341,352-354,375-377,381-385,441-472,559-561,772,785-837
+crates/core-service/src/service/terminal/text_capture.rs
+  h_5be255725524c8 1-321
+crates/core-service/src/service/terminal/types.rs
+  h_5be255725524c8 17-18,251-288,314-333
+crates/desktop-use/src/engine_protocol.rs
+  h_5be255725524c8 51-71,292-302
+crates/desktop-use/src/host.rs
+  h_5be255725524c8 16-19,45-47,49-51,54-55,96-97,131,207-236,247,557-565
+crates/desktop-use/src/install.rs
+  h_5be255725524c8 20-28,53,342-484,493-496,510-512,597,673-734
+crates/infra/src/db/entities/project.rs
+  h_5be255725524c8 27-31
+crates/infra/src/db/migration/m20260813_000037_add_project_trusted_scripts_hash.rs
+  h_5be255725524c8 1-97
+crates/infra/src/db/migration/mod.rs
+  h_5be255725524c8 43,86
+crates/infra/src/db/repo/automation_repo.rs
+  h_5be255725524c8 280-295
+crates/infra/src/db/repo/project_repo.rs
+  h_5be255725524c8 82,153-174
+crates/permission-access/AGENTS.md
+  h_5be255725524c8 1-27
+crates/permission-access/Cargo.toml
+  h_5be255725524c8 1-11
+crates/permission-access/src/check.rs
+  h_5be255725524c8 1-88
+crates/permission-access/src/consent.rs
+  h_5be255725524c8 1-196
+crates/permission-access/src/lib.rs
+  h_5be255725524c8 1-16
+crates/permission-access/src/paths.rs
+  h_5be255725524c8 1-10,12-17
+crates/permission-access/src/presence.rs
+  h_5be255725524c8 1-182
+crates/permission-access/src/resources.rs
+  h_5be255725524c8 1-138
+crates/quota-usage/Cargo.toml
+  h_5be255725524c8 27
+crates/quota-usage/src/lib.rs
+  h_5be255725524c8 21-25
+crates/quota-usage/src/paths.rs
+  h_5be255725524c8 3,10
+crates/quota-usage/src/providers/cursor.rs
+  h_5be255725524c8 12-14,35-36,139,145-152,154,156,165-169,355,362,389-391,523-579,591,683,715-717,734,777-792,794-795,838-920
+crates/quota-usage/src/providers/factory/mod.rs
+  h_5be255725524c8 121-126
+crates/quota-usage/src/providers/factory/session.rs
+  h_5be255725524c8 91
+crates/quota-usage/src/refresh.rs
+  h_5be255725524c8 25
+crates/quota-usage/src/runtime.rs
+  h_5be255725524c8 318-327,642-648
+crates/quota-usage/src/support/browser.rs
+  h_5be255725524c8 63,98,124,129,134,139,144,149,154,159,162-163,191-221
+crates/quota-usage/src/support/browser_access.rs
+  h_5be255725524c8 1-138
+crates/quota-usage/src/support/mod.rs
+  h_5be255725524c8 2
+crates/runtime-manager/AGENTS.md
+  h_5be255725524c8 33
+crates/runtime-manager/src/layout.rs
+  h_5be255725524c8 100,105,114-124,145-163,191-202
+crates/runtime-manager/src/lib.rs
+  h_5be255725524c8 42-48
+crates/runtime-manager/src/linear_local_keys.rs
+  h_5be255725524c8 29,32,35-37
+crates/token-usage/Cargo.toml
+  h_5be255725524c8 8
+crates/token-usage/src/cursor_sync.rs
+  h_5be255725524c8 8-9,21-37,44-46,53-138,145-146,152,155-158,160,162-165,167,197,199-229,233,236,247-253,319-321,428-520
+crates/token-usage/src/lib.rs
+  h_5be255725524c8 3,8,10-12
+crates/token-usage/src/models.rs
+  h_5be255725524c8 151-174,186-187
+crates/token-usage/src/paths.rs
+  h_5be255725524c8 1-135
+crates/token-usage/src/service.rs
+  h_5be255725524c8 35-40,48-56,67,69,81,84-119,139,176,186-194,202,212-215,220-230,247,249-250,255,270-271,290,294,297,300-318,321-324,332-380,414,432-461,621-623
+crates/token-usage/src/tests.rs
+  h_5be255725524c8 10,47-75,273-308
+crates/tunnel-connector/src/gateway.rs
+  h_5be255725524c8 140-147
+docs/plans/2026-03-06-cli-design.md
+  h_5be255725524c8 6-7
+e2e/tests/smoke/app-shell/app-shell-navigation.e2e.ts
+  h_5be255725524c8 27
+e2e/tests/smoke/app-shell/app-shell-preferences-menu.e2e.ts
+  h_5be255725524c8 4,9,15-16,18,23-24,31
+e2e/tests/smoke/project/project-context-route.e2e.ts
+  h_5be255725524c8 4,7,39,52,60-61,63,65-66,69-71,73,77,79,81-82
+e2e/tests/smoke/settings/settings-modal.e2e.ts
+  h_5be255725524c8 4-5,7,11-17,19,25-27,29,32,36-38,40,43,49-51,54-55,58
+e2e/tests/smoke/support/app-smoke.ts
+  h_5be255725524c8 101-143,269-270,289-292,311-312
+e2e/tests/smoke/workspace/workspace-sidebar-routes.e2e.ts
+  h_5be255725524c8 4,7,9,16,31,35,38,42,44-55,57,61,64,68,71,75,77-80,83,122,133,139,141-142,145-147,149,151-152
+e2e/tests/specs/APP-058_agent-status-workspace-grouping.e2e.ts
+  h_5be255725524c8 1-41
+flake.lock
+  h_5be255725524c8 1-82
+flake.nix
+  h_5be255725524c8 1-116
+justfile
+  h_5be255725524c8 187-192,273-276,351-356
+package.json
+  h_5be255725524c8 23,27
+packages/AGENTS.md
+  h_5be255725524c8 20,41-42,53
+packages/api-types/fixtures/actions.server.json
+  h_5be255725524c8 19-21,45,56-58,77,268,270-274
+packages/api-types/src/ws/actions.ts
+  h_5be255725524c8 21-23,47,58-60,79,270,273-276
+packages/api-types/src/ws/dto/git.ts
+  h_5be255725524c8 94-119
+packages/api-types/src/ws/dto/linear.ts
+  h_5be255725524c8 26,32
+packages/api-types/src/ws/dto/project.ts
+  h_5be255725524c8 20-35
+packages/hub-client/AGENTS.md
+  h_5be255725524c8 12-31,36,38-39,45-53,55,57,60,67
+packages/hub-client/package.json
+  h_5be255725524c8 23-24,26-28
+packages/hub-client/src/auth-material.ts
+  h_5be255725524c8 1-110
+packages/hub-client/src/auth/browser.ts
+  h_5be255725524c8 3,5-7,9,11-15,40-51,60-98,100,112-177,181-202
+packages/hub-client/src/auth/native.ts
+  h_5be255725524c8 2-3,5-9,11-76,79,84-95,97,100-102
+packages/hub-client/src/device-storage/registry.test.ts
+  h_5be255725524c8 1-9,37-38,42-46,52,54,59-60,63-82,84-107,109-110
+packages/hub-client/src/device-storage/registry.ts
+  h_5be255725524c8 1,27-30
+packages/hub-client/src/devices.ts
+  h_5be255725524c8 28-40
+packages/hub-client/src/http.ts
+  h_5be255725524c8 1,5-10,21
+packages/hub-client/src/index.ts
+  h_5be255725524c8 14-24,26-41,43-49,59
+packages/hub-client/src/mobile-pair.ts
+  h_5be255725524c8 1-101
+packages/hub-client/src/types.ts
+  h_5be255725524c8 8,39-42
+packages/hub-client/src/usage-page.ts
+  h_5be255725524c8 1-129
+packages/hub/AGENTS.md
+  h_5be255725524c8 18-20
+packages/hub/README.md
+  h_5be255725524c8 58
+packages/hub/docs/BETTER_AUTH_CHECKLIST.md
+  h_5be255725524c8 13,39,41-48,50,52-68,75-76
+packages/hub/drizzle/0001_usage_page.sql
+  h_5be255725524c8 1-40
+packages/hub/drizzle/0002_usage_leaderboard.sql
+  h_5be255725524c8 1-9
+packages/hub/drizzle/meta/_journal.json
+  h_5be255725524c8 11-24
+packages/hub/src/auth.ts
+  h_5be255725524c8 21,31-35,38-48,50,53,105-109,125-134,141-144,158-160,164-173,185-196
+packages/hub/src/db/schema.ts
+  h_5be255725524c8 7,145-146,148,153-164,167-171,174-180,212
+packages/hub/src/desktop-auth.ts
+  h_5be255725524c8 1-139
+packages/hub/src/env.ts
+  h_5be255725524c8 20-23,25
+packages/hub/src/index.ts
+  h_5be255725524c8 36-72,92,94,120,122,124,132-133,138-264,267,288,327,356,373-695,697-698,700,712,728,744,751-809,812,820,830,847,903-907
+packages/hub/src/mobile-pair.ts
+  h_5be255725524c8 1-175
+packages/hub/src/oauth-start.ts
+  h_5be255725524c8 1-119
+packages/hub/src/require-user.ts
+  h_5be255725524c8 1-108
+packages/hub/src/usage-leaderboard.ts
+  h_5be255725524c8 1-289
+packages/hub/src/usage-page.ts
+  h_5be255725524c8 1-690
+packages/hub/src/user-security.ts
+  h_5be255725524c8 1-259
+packages/hub/test/desktop-auth.test.ts
+  h_5be255725524c8 1-43
+packages/hub/test/mobile-pair.test.ts
+  h_5be255725524c8 1-50
+packages/hub/test/oauth-start.test.ts
+  h_5be255725524c8 1-155
+packages/hub/test/usage-leaderboard.test.ts
+  h_5be255725524c8 1-288
+packages/hub/test/usage-page.test.ts
+  h_5be255725524c8 1-560
+packages/hub/test/user-security-prune.test.ts
+  h_5be255725524c8 1-8
+packages/hub/test/user-security-shapes.ts
+  h_5be255725524c8 1-13
+packages/hub/test/user-security.test.ts
+  h_5be255725524c8 1-21
+packages/hub/wrangler.toml
+  h_5be255725524c8 25-30
+packages/pt-design/AGENTS.md
+  h_5be255725524c8 1-27
+packages/pt-design/README.md
+  h_5be255725524c8 1-135
+packages/pt-design/bin/pt-design-mcp.mjs
+  h_5be255725524c8 1-2
+packages/pt-design/bin/pt-design.mjs
+  h_5be255725524c8 1-5
+packages/pt-design/package.json
+  h_5be255725524c8 1-41
+packages/pt-design/playground/main.tsx
+  h_5be255725524c8 1-9
+packages/pt-design/playground/server.ts
+  h_5be255725524c8 1-67
+packages/pt-design/skills/pt-design/SKILL.md
+  h_5be255725524c8 1-84
+packages/pt-design/src/agent/agent.test.ts
+  h_5be255725524c8 1-255
+packages/pt-design/src/agent/api.ts
+  h_5be255725524c8 1-109
+packages/pt-design/src/agent/errors.ts
+  h_5be255725524c8 1-47
+packages/pt-design/src/agent/file-required.ts
+  h_5be255725524c8 1-16
+packages/pt-design/src/agent/mutating.ts
+  h_5be255725524c8 1-16
+packages/pt-design/src/agent/session-tools.ts
+  h_5be255725524c8 1-150
+packages/pt-design/src/agent/tool-defs.ts
+  h_5be255725524c8 1-143
+packages/pt-design/src/catalog/catalog.test.ts
+  h_5be255725524c8 1-241
+packages/pt-design/src/catalog/labels.ts
+  h_5be255725524c8 1-14
+packages/pt-design/src/catalog/place-clear.test.ts
+  h_5be255725524c8 1-95
+packages/pt-design/src/catalog/place-clear.ts
+  h_5be255725524c8 1-197
+packages/pt-design/src/catalog/place-sets.ts
+  h_5be255725524c8 1-106
+packages/pt-design/src/catalog/primitives.ts
+  h_5be255725524c8 1-222
+packages/pt-design/src/catalog/registry.ts
+  h_5be255725524c8 1-161
+packages/pt-design/src/catalog/shadcn-list.ts
+  h_5be255725524c8 1-82
+packages/pt-design/src/catalog/templates.ts
+  h_5be255725524c8 1-1014
+packages/pt-design/src/cli/bin.ts
+  h_5be255725524c8 1-148
+packages/pt-design/src/cli/help.tsx
+  h_5be255725524c8 1-22
+packages/pt-design/src/collab/client.ts
+  h_5be255725524c8 1-343
+packages/pt-design/src/collab/constants.ts
+  h_5be255725524c8 1-62
+packages/pt-design/src/collab/crypto.ts
+  h_5be255725524c8 1-79
+packages/pt-design/src/collab/file-room.ts
+  h_5be255725524c8 1-14
+packages/pt-design/src/collab/local-api.ts
+  h_5be255725524c8 1-21
+packages/pt-design/src/collab/names.test.ts
+  h_5be255725524c8 1-141
+packages/pt-design/src/collab/names.ts
+  h_5be255725524c8 1-42
+packages/pt-design/src/collab/official.ts
+  h_5be255725524c8 1-55
+packages/pt-design/src/collab/publish.ts
+  h_5be255725524c8 1-122
+packages/pt-design/src/collab/room.ts
+  h_5be255725524c8 1-146
+packages/pt-design/src/collab/wire.ts
+  h_5be255725524c8 1-150
+packages/pt-design/src/core/document.test.ts
+  h_5be255725524c8 1-28
+packages/pt-design/src/core/document.ts
+  h_5be255725524c8 1-106
+packages/pt-design/src/core/ids.test.ts
+  h_5be255725524c8 1-27
+packages/pt-design/src/core/ids.ts
+  h_5be255725524c8 1-30
+packages/pt-design/src/core/session.test.ts
+  h_5be255725524c8 1-284
+packages/pt-design/src/core/session.ts
+  h_5be255725524c8 1-283
+packages/pt-design/src/core/types.ts
+  h_5be255725524c8 1-82
+packages/pt-design/src/css-modules.d.ts
+  h_5be255725524c8 1
+packages/pt-design/src/embed/ComponentCatalog.tsx
+  h_5be255725524c8 1-297
+packages/pt-design/src/embed/ExcalidrawBoard.tsx
+  h_5be255725524c8 1-517
+packages/pt-design/src/embed/LibraryOverlay.tsx
+  h_5be255725524c8 1-164
+packages/pt-design/src/embed/PtDesignApp.tsx
+  h_5be255725524c8 1-634
+packages/pt-design/src/embed/SharePopover.tsx
+  h_5be255725524c8 1-374
+packages/pt-design/src/embed/agent-prompt.ts
+  h_5be255725524c8 1-49
+packages/pt-design/src/embed/apply-gate.test.ts
+  h_5be255725524c8 1-102
+packages/pt-design/src/embed/apply-gate.ts
+  h_5be255725524c8 1-20
+packages/pt-design/src/embed/catalog-icons.tsx
+  h_5be255725524c8 1-243
+packages/pt-design/src/embed/chrome.test.ts
+  h_5be255725524c8 1-146
+packages/pt-design/src/embed/chrome.ts
+  h_5be255725524c8 1-52
+packages/pt-design/src/embed/excalidraw-assets.ts
+  h_5be255725524c8 1-12
+packages/pt-design/src/embed/excalidraw-theme.css
+  h_5be255725524c8 1-338
+packages/pt-design/src/embed/motion-slide-menu.tsx
+  h_5be255725524c8 1-234
+packages/pt-design/src/embed/persist-debounce.test.ts
+  h_5be255725524c8 1-34
+packages/pt-design/src/embed/persist-debounce.ts
+  h_5be255725524c8 1-39
+packages/pt-design/src/embed/place-reveal.test.ts
+  h_5be255725524c8 1-40
+packages/pt-design/src/embed/place-reveal.ts
+  h_5be255725524c8 1-57
+packages/pt-design/src/embed/playground.test.ts
+  h_5be255725524c8 1-56
+packages/pt-design/src/embed/scene-bridge.test.ts
+  h_5be255725524c8 1-150
+packages/pt-design/src/embed/scene-bridge.ts
+  h_5be255725524c8 1-172
+packages/pt-design/src/embed/theme-palette.test.ts
+  h_5be255725524c8 1-69
+packages/pt-design/src/embed/theme-palette.ts
+  h_5be255725524c8 1-122
+packages/pt-design/src/embed/use-collab.ts
+  h_5be255725524c8 1-259
+packages/pt-design/src/headless.ts
+  h_5be255725524c8 1-22
+packages/pt-design/src/host/adapters.ts
+  h_5be255725524c8 1-55
+packages/pt-design/src/index.ts
+  h_5be255725524c8 1-22
+packages/pt-design/src/ir/apply.ts
+  h_5be255725524c8 1-93
+packages/pt-design/src/ir/encode.ts
+  h_5be255725524c8 1-113
+packages/pt-design/src/ir/handoff.ts
+  h_5be255725524c8 1-42
+packages/pt-design/src/ir/schema.ts
+  h_5be255725524c8 1-34
+packages/pt-design/src/isolation.test.ts
+  h_5be255725524c8 1-75
+packages/pt-design/src/mcp/args.test.ts
+  h_5be255725524c8 1-48
+packages/pt-design/src/mcp/args.ts
+  h_5be255725524c8 1-36
+packages/pt-design/src/mcp/bin.ts
+  h_5be255725524c8 1-9
+packages/pt-design/src/mcp/format.ts
+  h_5be255725524c8 1-147
+packages/pt-design/src/mcp/schemas.ts
+  h_5be255725524c8 1-146
+packages/pt-design/src/mcp/server.test.ts
+  h_5be255725524c8 1-84
+packages/pt-design/src/mcp/server.ts
+  h_5be255725524c8 1-243
+packages/pt-design/tsconfig.json
+  h_5be255725524c8 1-11
+packages/relay/AGENTS.md
+  h_5be255725524c8 24,71
+packages/relay/README.md
+  h_5be255725524c8 6,197-206
+packages/relay/src/index.ts
+  h_5be255725524c8 21-25,29,48,72,107-118,147,899-917
+packages/relay/src/pt-design-room-protocol.ts
+  h_5be255725524c8 1-37
+packages/relay/src/pt-design-room.ts
+  h_5be255725524c8 1-125
+packages/relay/test/pt-design-room.test.ts
+  h_5be255725524c8 1-87
+packages/relay/wrangler.toml
+  h_5be255725524c8 19-20,27-30
+packages/ui/components.json
+  h_5be255725524c8 28-29
+packages/ui/package.json
+  h_5be255725524c8 44,57
+packages/ui/src/components/dither/DitherDonut.tsx
+  h_5be255725524c8 19-23,65-76,95-97,125-127,131,141-142,145-147,169,250,267-268,274-276
+packages/ui/src/components/dither/DitherFunnel.tsx
+  h_5be255725524c8 3,11-15,57-60,63,65,67-74,90-93,101,111,123,144,147
+packages/ui/src/components/dither/DitherGrowth.tsx
+  h_5be255725524c8 6-10,15,27-33,70-71,88-89,94-120,124,132-133,135,137-149,158,178,181-189,225,227,276-281,335,338
+packages/ui/src/components/dither/DitherHeatmap.tsx
+  h_5be255725524c8 3-7,10-14,22-43,49-53,74-127,130,136-137,144-171,188-189,192-202,206-209,211-241,243-247,249,256-265,270-271,281-283,294-296,305-335,339,341-342,346-353,361-364
+packages/ui/src/components/dither/DitherRevenueLines.tsx
+  h_5be255725524c8 12-16,64-66,69-75,90-101,256
+packages/ui/src/components/dither/DitherShareBar.tsx
+  h_5be255725524c8 3-8,16-20,25,42-49,62-65,74-81,86-88,91-106,122,125-128,136-137,140,152,154-155,174,198-200,202-211,218-220,223-227,230-240,255
+packages/ui/src/components/dither/DitherStackedBars.tsx
+  h_5be255725524c8 18-22,27,46-54,66-68,77-78,81-84,95-128,146-149,151-152,159-160,162-164,166-169,173,180-182,195-199,211-221,231,235,238-240,244-253,272,277,296,326,329,332,337,347-351,367-368,372
+packages/ui/src/components/dither/DitherTooltip.tsx
+  h_5be255725524c8 4,13-18,23-27,62-70,75-85,104-135,137,139-140,142-143,146-147,151,162-167,170-176,178,184,186-188,207-208,210,234-235
+packages/ui/src/components/dither/index.ts
+  h_5be255725524c8 8-14,38
+packages/ui/src/components/icons/brand-chrome-icon.tsx
+  h_5be255725524c8 1-77
+packages/ui/src/components/icons/canvas-icon.tsx
+  h_5be255725524c8 1,12,41,51-56
+packages/ui/src/components/icons/chart-column-big-icon.tsx
+  h_5be255725524c8 1-119
+packages/ui/src/components/icons/folder-kanban-icon.tsx
+  h_5be255725524c8 20-24,33-40,62-65,85-86
+packages/ui/src/components/icons/hard-drive-icon.tsx
+  h_5be255725524c8 1-109
+packages/ui/src/components/icons/key-circle-icon.tsx
+  h_5be255725524c8 1-93
+packages/ui/src/components/icons/list-todo-icon.tsx
+  h_5be255725524c8 1-116
+packages/ui/src/components/icons/pencil-ruler-icon.tsx
+  h_5be255725524c8 1-116
+packages/ui/src/components/icons/plus-icon.tsx
+  h_5be255725524c8 1-92
+packages/ui/src/components/icons/puzzle-icon.tsx
+  h_5be255725524c8 1-90
+packages/ui/src/components/icons/rocket-icon.tsx
+  h_5be255725524c8 1-130
+packages/ui/src/components/icons/sun-moon-icon.tsx
+  h_5be255725524c8 1-137
+packages/ui/src/components/icons/terminal-icon.tsx
+  h_5be255725524c8 1,17,45-51,56-61
+packages/ui/src/components/icons/timer-icon.tsx
+  h_5be255725524c8 1-136
+packages/ui/src/components/icons/user-icon.tsx
+  h_5be255725524c8 1-115
+packages/ui/src/components/logo-svg.tsx
+  h_5be255725524c8 1,3-23,25-50
+packages/ui/src/components/motion/action-swap-cascade.tsx
+  h_5be255725524c8 1-33
+packages/ui/src/components/motion/action-swap.tsx
+  h_5be255725524c8 1-349
+packages/ui/src/components/motion/icon-swap.tsx
+  h_5be255725524c8 1-46
+packages/ui/src/components/motion/push-page-stack.tsx
+  h_5be255725524c8 1-238
+packages/ui/src/components/motion/tabs.tsx
+  h_5be255725524c8 1-233
+packages/ui/src/components/ui/drawer.tsx
+  h_5be255725524c8 4,9-54,243-244,252-254
+packages/ui/src/components/ui/dropdown-menu.tsx
+  h_5be255725524c8 7,38-39,49,52,232-233,241,244
+packages/ui/src/components/ui/popover.tsx
+  h_5be255725524c8 6,39-40,55-56,59
+packages/ui/src/components/ui/qr-code.tsx
+  h_5be255725524c8 1-138
+packages/ui/src/components/ui/select.tsx
+  h_5be255725524c8 7,62-63,72,79
+packages/ui/src/components/ui/sidebar.tsx
+  h_5be255725524c8 1-732
+packages/ui/src/components/ui/sliding-metric.test.ts
+  h_5be255725524c8 1-54
+packages/ui/src/components/ui/sliding-metric.tsx
+  h_5be255725524c8 1-225
+packages/ui/src/components/ui/sliding-number.tsx
+  h_5be255725524c8 3,10,19-31,33-37,43-60,62-79,84-92,94,96-97,99,104-105,111,120-125,132-133,135-173,176-202,204-206,208,210-211,214,217,220-222,226
+packages/ui/src/index.ts
+  h_5be255725524c8 7,44-78,120-145,188-189,191,204,217-228,279-280
+packages/ui/src/lib/dither/morph.test.ts
+  h_5be255725524c8 1-140
+packages/ui/src/lib/dither/morph.ts
+  h_5be255725524c8 1-331
+packages/ui/src/lib/dither/use-dither-canvas.ts
+  h_5be255725524c8 16-20,25-29,71-72,117
+packages/ui/src/lib/ease.ts
+  h_5be255725524c8 1-54
+packages/ui/src/lib/isolate-overlay-scroll.test.ts
+  h_5be255725524c8 1-40
+packages/ui/src/lib/isolate-overlay-scroll.ts
+  h_5be255725524c8 1-31
+packages/ui/src/styles/globals.css
+  h_5be255725524c8 373-431
+packages/ui/tsconfig.json
+  h_5be255725524c8 15
+prompt/attention-summary/attention-summary-system.md
+  h_5be255725524c8 1-20
+prompt/attention-summary/attention-summary-user.md
+  h_5be255725524c8 1-7
+"releasenotes/Atmos Desktop 2026.8.11.md"
+  h_5be255725524c8 1-50
+"releasenotes/Atmos Desktop 2026.8.14-beta.1.md"
+  h_5be255725524c8 1-46
+"releasenotes/Atmos Desktop 2026.8.14-beta.2.md"
+  h_5be255725524c8 1-56
+"releasenotes/Atmos Desktop 2026.8.15.md"
+  h_5be255725524c8 1-54
+"releasenotes/Atmos Desktop 2026.8.16.md"
+  h_5be255725524c8 1-52
+"releasenotes/Atmos Desktop 2026.8.18-beta.1.md"
+  h_5be255725524c8 1-50
+rust-toolchain.toml
+  h_5be255725524c8 1-8
+scripts/check-package-boundaries.ts
+  h_5be255725524c8 65-105,113
+scripts/desktop/build-web-static.mjs
+  h_5be255725524c8 102-107
+scripts/dev/setup.sh
+  h_5be255725524c8 1-36
+scripts/dev/start.sh
+  h_5be255725524c8 1-65
+scripts/pages/README.md
+  h_5be255725524c8 3,5-11,25-59,67-72,78,95,102-103,105,109,114,118-119,123
+scripts/pages/build-pages-landing.mjs
+  h_5be255725524c8 1-199
+scripts/pages/deploy-pages-landing.mjs
+  h_5be255725524c8 1-113
+scripts/serve-sim/pack.sh
+  h_5be255725524c8 1-125
+scripts/typecheck-all.ts
+  h_5be255725524c8 66
+skills/atmos-browser-use/SKILL.md
+  h_5be255725524c8 3,13-14,16,18-22,24,27-39,42-43,45,47,49-76,79-81,84-85,87,89-94,100-104
+specs/APP/APP-042_disk-analyzer/IMPROVEMENT.md
+  h_5be255725524c8 1-249
+specs/APP/APP-042_disk-analyzer/TECH.md
+  h_5be255725524c8 76-79,108-155,165-166,190,198,208
+specs/APP/APP-042_disk-analyzer/TEST.md
+  h_5be255725524c8 23,41,118-123,166-167
+specs/APP/APP-056_usage-share-and-accounts/PRD.md
+  h_5be255725524c8 5-6
+specs/APP/APP-056_usage-share-and-accounts/TECH.md
+  h_5be255725524c8 5-6
+specs/APP/APP-057_linear-task-integration/TECH.md
+  h_5be255725524c8 28,72
+specs/APP/APP-058_agent-status-workspace-grouping/BRAINSTORM.md
+  h_5be255725524c8 1-84
+specs/APP/APP-058_agent-status-workspace-grouping/PRD.md
+  h_5be255725524c8 1-98
+specs/APP/APP-058_agent-status-workspace-grouping/REVIEW.md
+  h_5be255725524c8 1-188
+specs/APP/APP-058_agent-status-workspace-grouping/TECH.md
+  h_5be255725524c8 1-191
+specs/APP/APP-058_agent-status-workspace-grouping/TEST.md
+  h_5be255725524c8 1-204
+specs/APP/APP-059_browser-host-and-settings/BRAINSTORM.md
+  h_5be255725524c8 1-63
+specs/APP/APP-059_browser-host-and-settings/PRD.md
+  h_5be255725524c8 1-96
+specs/APP/APP-059_browser-host-and-settings/TECH.md
+  h_5be255725524c8 1-184
+specs/APP/APP-059_browser-host-and-settings/TEST.md
+  h_5be255725524c8 1-121
+specs/APP/APP-060_vendor-serve-sim/BRAINSTORM.md
+  h_5be255725524c8 1-85
+specs/APP/APP-060_vendor-serve-sim/PRD.md
+  h_5be255725524c8 1-96
+specs/APP/APP-060_vendor-serve-sim/TECH.md
+  h_5be255725524c8 1-274
+specs/APP/APP-060_vendor-serve-sim/TEST.md
+  h_5be255725524c8 1-238
+specs/APP/APP-061_token-usage-public-share/BRAINSTORM.md
+  h_5be255725524c8 1-88
+specs/APP/APP-061_token-usage-public-share/PRD.md
+  h_5be255725524c8 1-125
+specs/APP/APP-061_token-usage-public-share/TECH.md
+  h_5be255725524c8 1-371
+specs/APP/APP-061_token-usage-public-share/TEST.md
+  h_5be255725524c8 1-289
+specs/APP/APP-062_pt-design/BRAINSTORM.md
+  h_5be255725524c8 1-96
+specs/APP/APP-062_pt-design/PRD.md
+  h_5be255725524c8 1-165
+specs/APP/APP-062_pt-design/TECH.md
+  h_5be255725524c8 1-497
+specs/APP/APP-062_pt-design/TEST.md
+  h_5be255725524c8 1-239
+specs/APP/APP-063_agent-first-product-cli/BRAINSTORM.md
+  h_5be255725524c8 1
+specs/APP/APP-063_agent-first-product-cli/PRD.md
+  h_5be255725524c8 1
+specs/APP/APP-063_agent-first-product-cli/TECH.md
+  h_5be255725524c8 1,3,501
+specs/APP/APP-063_agent-first-product-cli/TEST.md
+  h_5be255725524c8 1,3
+specs/README.md
+  h_5be255725524c8 137-142
+specs/SPEC-INVENTORY.md
+  h_5be255725524c8 54
+vendor/serve-sim/.gitignore
+  h_5be255725524c8 1-11
+vendor/serve-sim/ATMOS-PATCHES.md
+  h_5be255725524c8 1-24
+vendor/serve-sim/LICENSE
+  h_5be255725524c8 1-202
+vendor/serve-sim/README.md
+  h_5be255725524c8 1
+vendor/serve-sim/UPSTREAM.md
+  h_5be255725524c8 1-16
+vendor/serve-sim/bun.lock
+  h_5be255725524c8 1-301
+vendor/serve-sim/package.json
+  h_5be255725524c8 1-21
+vendor/serve-sim/packages/serve-sim/LICENSE
+  h_5be255725524c8 1-202
+vendor/serve-sim/packages/serve-sim/Package.resolved
+  h_5be255725524c8 1-24
+vendor/serve-sim/packages/serve-sim/Package.swift
+  h_5be255725524c8 1-67
+vendor/serve-sim/packages/serve-sim/README.md
+  h_5be255725524c8 1-293
+vendor/serve-sim/packages/serve-sim/Sources/SimAXSettings/build.sh
+  h_5be255725524c8 1-21
+vendor/serve-sim/packages/serve-sim/Sources/SimAXSettings/sim-ax-settings.m
+  h_5be255725524c8 1-273
+vendor/serve-sim/packages/serve-sim/Sources/SimCameraHelper/build.sh
+  h_5be255725524c8 1-33
+vendor/serve-sim/packages/serve-sim/Sources/SimCameraHelper/main.m
+  h_5be255725524c8 1-955
+vendor/serve-sim/packages/serve-sim/Sources/SimCameraInjector/SimCamFakes.h
+  h_5be255725524c8 1-88
+vendor/serve-sim/packages/serve-sim/Sources/SimCameraInjector/SimCamFakes.m
+  h_5be255725524c8 1-704
+vendor/serve-sim/packages/serve-sim/Sources/SimCameraInjector/SimCamFrameSource.h
+  h_5be255725524c8 1-26
+vendor/serve-sim/packages/serve-sim/Sources/SimCameraInjector/SimCamFrameSource.m
+  h_5be255725524c8 1-577
+vendor/serve-sim/packages/serve-sim/Sources/SimCameraInjector/SimCamLog.h
+  h_5be255725524c8 1-5
+vendor/serve-sim/packages/serve-sim/Sources/SimCameraInjector/SimCamLog.m
+  h_5be255725524c8 1-9
+vendor/serve-sim/packages/serve-sim/Sources/SimCameraInjector/SimCamSwizzles.h
+  h_5be255725524c8 1-3
+vendor/serve-sim/packages/serve-sim/Sources/SimCameraInjector/SimCamSwizzles.m
+  h_5be255725524c8 1-1338
+vendor/serve-sim/packages/serve-sim/Sources/SimCameraInjector/SimCameraInjector.m
+  h_5be255725524c8 1-17,19
+vendor/serve-sim/packages/serve-sim/Sources/SimCameraInjector/build.sh
+  h_5be255725524c8 1-39
+vendor/serve-sim/packages/serve-sim/Sources/SimCameraInjector/include/SimCamShared.h
+  h_5be255725524c8 1-79
+vendor/serve-sim/packages/serve-sim/Sources/SimNative/AccessibilityBridge.swift
+  h_5be255725524c8 1-635
+vendor/serve-sim/packages/serve-sim/Sources/SimNative/CaptureEngine.swift
+  h_5be255725524c8 1-424
+vendor/serve-sim/packages/serve-sim/Sources/SimNative/FrameCapture.swift
+  h_5be255725524c8 1-365
+vendor/serve-sim/packages/serve-sim/Sources/SimNative/FrameRateGate.swift
+  h_5be255725524c8 1-39
+vendor/serve-sim/packages/serve-sim/Sources/SimNative/H264Encoder.swift
+  h_5be255725524c8 1-353
+vendor/serve-sim/packages/serve-sim/Sources/SimNative/HIDInjector.swift
+  h_5be255725524c8 1-631
+vendor/serve-sim/packages/serve-sim/Sources/SimNative/PixelBufferScaler.swift
+  h_5be255725524c8 1-84
+vendor/serve-sim/packages/serve-sim/Sources/SimNative/PixelBufferUtils.swift
+  h_5be255725524c8 1-62
+vendor/serve-sim/packages/serve-sim/Sources/SimNative/SimFrameworks.swift
+  h_5be255725524c8 1-25
+vendor/serve-sim/packages/serve-sim/Sources/SimNative/StreamFormat.swift
+  h_5be255725524c8 1-55
+vendor/serve-sim/packages/serve-sim/Sources/SimNative/VideoEncoder.swift
+  h_5be255725524c8 1-60
+vendor/serve-sim/packages/serve-sim/Sources/SimNative/WebRTCPublisher.swift
+  h_5be255725524c8 1-1559
+vendor/serve-sim/packages/serve-sim/Sources/SimNative/Xcode.swift
+  h_5be255725524c8 1-25
+vendor/serve-sim/packages/serve-sim/Sources/SimNative/build.sh
+  h_5be255725524c8 1-121
+vendor/serve-sim/packages/serve-sim/Sources/SimNative/sim-module.swift
+  h_5be255725524c8 1-270
+vendor/serve-sim/packages/serve-sim/build.ts
+  h_5be255725524c8 1-276
+vendor/serve-sim/packages/serve-sim/dev.ts
+  h_5be255725524c8 1-297
+vendor/serve-sim/packages/serve-sim/docs/scroll-injection-devicehub.md
+  h_5be255725524c8 1-339
+vendor/serve-sim/packages/serve-sim/docs/webrtc-architecture.md
+  h_5be255725524c8 1-322
+vendor/serve-sim/packages/serve-sim/package.json
+  h_5be255725524c8 1-99
+vendor/serve-sim/packages/serve-sim/scripts/build-trails.ts
+  h_5be255725524c8 1-221
+vendor/serve-sim/packages/serve-sim/src/__tests__/SimulatorFrame.test.tsx
+  h_5be255725524c8 1-78
+vendor/serve-sim/packages/serve-sim/src/__tests__/SimulatorToolbar.test.tsx
+  h_5be255725524c8 1-158
+vendor/serve-sim/packages/serve-sim/src/__tests__/accessibility-endpoint.test.ts
+  h_5be255725524c8 1-122
+vendor/serve-sim/packages/serve-sim/src/__tests__/app-detection-tool.test.tsx
+  h_5be255725524c8 1-70
+vendor/serve-sim/packages/serve-sim/src/__tests__/app-permissions-tool.test.tsx
+  h_5be255725524c8 1-32
+vendor/serve-sim/packages/serve-sim/src/__tests__/app-toasts.test.tsx
+  h_5be255725524c8 1-39
+vendor/serve-sim/packages/serve-sim/src/__tests__/avcc-codec.test.ts
+  h_5be255725524c8 1-185
+vendor/serve-sim/packages/serve-sim/src/__tests__/avcc-fallback.test.ts
+  h_5be255725524c8 1-54
+vendor/serve-sim/packages/serve-sim/src/__tests__/avcc-stream-endpoint.test.ts
+  h_5be255725524c8 1-157
+vendor/serve-sim/packages/serve-sim/src/__tests__/ax-streamer-cache.test.ts
+  h_5be255725524c8 1-40
+vendor/serve-sim/packages/serve-sim/src/__tests__/bundle-portability.test.ts
+  h_5be255725524c8 1-65
+vendor/serve-sim/packages/serve-sim/src/__tests__/camera-status.test.ts
+  h_5be255725524c8 1-121
+vendor/serve-sim/packages/serve-sim/src/__tests__/camera-tool.test.tsx
+  h_5be255725524c8 1-357
+vendor/serve-sim/packages/serve-sim/src/__tests__/collapsible-section.test.tsx
+  h_5be255725524c8 1-18
+vendor/serve-sim/packages/serve-sim/src/__tests__/cors-allow-origin.test.ts
+  h_5be255725524c8 1-47
+vendor/serve-sim/packages/serve-sim/src/__tests__/cpu-mem-sampler.test.ts
+  h_5be255725524c8 1-399
+vendor/serve-sim/packages/serve-sim/src/__tests__/device-placeholder.test.tsx
+  h_5be255725524c8 1-135
+vendor/serve-sim/packages/serve-sim/src/__tests__/device-row.test.tsx
+  h_5be255725524c8 1-133
+vendor/serve-sim/packages/serve-sim/src/__tests__/device-sidebar-toggle.test.tsx
+  h_5be255725524c8 1-19
+vendor/serve-sim/packages/serve-sim/src/__tests__/devicekit-chrome.test.ts
+  h_5be255725524c8 1-96
+vendor/serve-sim/packages/serve-sim/src/__tests__/devtools-proxy.test.ts
+  h_5be255725524c8 1-139
+vendor/serve-sim/packages/serve-sim/src/__tests__/devtools-targets.test.ts
+  h_5be255725524c8 1-45
+vendor/serve-sim/packages/serve-sim/src/__tests__/devtools-url.test.ts
+  h_5be255725524c8 1-26
+vendor/serve-sim/packages/serve-sim/src/__tests__/digital-crown.test.ts
+  h_5be255725524c8 1-21
+vendor/serve-sim/packages/serve-sim/src/__tests__/drop-upload.test.ts
+  h_5be255725524c8 1-137
+vendor/serve-sim/packages/serve-sim/src/__tests__/event-log-format.test.ts
+  h_5be255725524c8 1-61
+vendor/serve-sim/packages/serve-sim/src/__tests__/event-log.test.ts
+  h_5be255725524c8 1-286
+vendor/serve-sim/packages/serve-sim/src/__tests__/exec-auth.test.ts
+  h_5be255725524c8 1-110
+vendor/serve-sim/packages/serve-sim/src/__tests__/exec-ws.test.ts
+  h_5be255725524c8 1-208
+vendor/serve-sim/packages/serve-sim/src/__tests__/foreground-tracker.test.ts
+  h_5be255725524c8 1-152
+vendor/serve-sim/packages/serve-sim/src/__tests__/format-metrics.test.ts
+  h_5be255725524c8 1-49
+vendor/serve-sim/packages/serve-sim/src/__tests__/global-css.test.ts
+  h_5be255725524c8 1-12
+vendor/serve-sim/packages/serve-sim/src/__tests__/grid-paging.test.ts
+  h_5be255725524c8 1-27
+vendor/serve-sim/packages/serve-sim/src/__tests__/grid-panel.test.tsx
+  h_5be255725524c8 1-155
+vendor/serve-sim/packages/serve-sim/src/__tests__/hid-malformed-input.test.ts
+  h_5be255725524c8 1-128
+vendor/serve-sim/packages/serve-sim/src/__tests__/host-bin.test.ts
+  h_5be255725524c8 1-39
+vendor/serve-sim/packages/serve-sim/src/__tests__/idle-floor.test.ts
+  h_5be255725524c8 1-239
+vendor/serve-sim/packages/serve-sim/src/__tests__/location-emulation-tool.test.tsx
+  h_5be255725524c8 1-30
+vendor/serve-sim/packages/serve-sim/src/__tests__/media-drop.test.ts
+  h_5be255725524c8 1-37
+vendor/serve-sim/packages/serve-sim/src/__tests__/metrics-endpoint.test.ts
+  h_5be255725524c8 1-105
+vendor/serve-sim/packages/serve-sim/src/__tests__/metrics-route.test.ts
+  h_5be255725524c8 1-164
+vendor/serve-sim/packages/serve-sim/src/__tests__/middleware-response-lifecycle.test.ts
+  h_5be255725524c8 1-198
+vendor/serve-sim/packages/serve-sim/src/__tests__/middleware-selection.test.ts
+  h_5be255725524c8 1-250
+vendor/serve-sim/packages/serve-sim/src/__tests__/mjpeg-frame-parser.test.ts
+  h_5be255725524c8 1-138
+vendor/serve-sim/packages/serve-sim/src/__tests__/multi-device.test.ts
+  h_5be255725524c8 1-86
+vendor/serve-sim/packages/serve-sim/src/__tests__/panel.test.tsx
+  h_5be255725524c8 1-29
+vendor/serve-sim/packages/serve-sim/src/__tests__/permissions.e2e.test.ts
+  h_5be255725524c8 1-221
+vendor/serve-sim/packages/serve-sim/src/__tests__/permissions.test.ts
+  h_5be255725524c8 1-165
+vendor/serve-sim/packages/serve-sim/src/__tests__/ports.test.ts
+  h_5be255725524c8 1-53
+vendor/serve-sim/packages/serve-sim/src/__tests__/preview-config.test.ts
+  h_5be255725524c8 1-57
+vendor/serve-sim/packages/serve-sim/src/__tests__/readiness-endpoints.test.ts
+  h_5be255725524c8 1-25
+vendor/serve-sim/packages/serve-sim/src/__tests__/screen-config-state.test.ts
+  h_5be255725524c8 1-58
+vendor/serve-sim/packages/serve-sim/src/__tests__/screenshot-toast.test.tsx
+  h_5be255725524c8 1-56
+vendor/serve-sim/packages/serve-sim/src/__tests__/scroll-wheel.test.ts
+  h_5be255725524c8 1-23
+vendor/serve-sim/packages/serve-sim/src/__tests__/shm-probe.integration.test.ts
+  h_5be255725524c8 1-422
+vendor/serve-sim/packages/serve-sim/src/__tests__/simulator-geometry.test.ts
+  h_5be255725524c8 1-143
+vendor/serve-sim/packages/serve-sim/src/__tests__/simulator-resize-size-badge.test.tsx
+  h_5be255725524c8 1-14
+vendor/serve-sim/packages/serve-sim/src/__tests__/simulator-resize-visuals.test.ts
+  h_5be255725524c8 1-36
+vendor/serve-sim/packages/serve-sim/src/__tests__/simulator-settings-tool.test.tsx
+  h_5be255725524c8 1-24
+vendor/serve-sim/packages/serve-sim/src/__tests__/simulator-stream-routing.test.ts
+  h_5be255725524c8 1-58
+vendor/serve-sim/packages/serve-sim/src/__tests__/state-file-permissions.test.ts
+  h_5be255725524c8 1-36
+vendor/serve-sim/packages/serve-sim/src/__tests__/stream-config.test.ts
+  h_5be255725524c8 1-133
+vendor/serve-sim/packages/serve-sim/src/__tests__/stream-runtime-args.test.ts
+  h_5be255725524c8 1-138
+vendor/serve-sim/packages/serve-sim/src/__tests__/stream-settings-tool.test.tsx
+  h_5be255725524c8 1-66
+vendor/serve-sim/packages/serve-sim/src/__tests__/stream-settings.test.ts
+  h_5be255725524c8 1-103
+vendor/serve-sim/packages/serve-sim/src/__tests__/stream-status-pill.test.tsx
+  h_5be255725524c8 1-20
+vendor/serve-sim/packages/serve-sim/src/__tests__/tools-panel.test.tsx
+  h_5be255725524c8 1-39
+vendor/serve-sim/packages/serve-sim/src/__tests__/trails.test.ts
+  h_5be255725524c8 1-118
+vendor/serve-sim/packages/serve-sim/src/__tests__/type-command-sim.test.ts
+  h_5be255725524c8 1-123
+vendor/serve-sim/packages/serve-sim/src/__tests__/type-command.test.ts
+  h_5be255725524c8 1-141
+vendor/serve-sim/packages/serve-sim/src/__tests__/ui-settings.e2e.test.ts
+  h_5be255725524c8 1-196
+vendor/serve-sim/packages/serve-sim/src/__tests__/ui-settings.test.ts
+  h_5be255725524c8 1-111
+vendor/serve-sim/packages/serve-sim/src/__tests__/video-dimensions.test.ts
+  h_5be255725524c8 1-61
+vendor/serve-sim/packages/serve-sim/src/__tests__/webrtc-codec-fallback.test.ts
+  h_5be255725524c8 1-38
+vendor/serve-sim/packages/serve-sim/src/__tests__/webrtc-cors.test.ts
+  h_5be255725524c8 1-23
+vendor/serve-sim/packages/serve-sim/src/__tests__/webrtc-failure-policy.test.ts
+  h_5be255725524c8 1-17
+vendor/serve-sim/packages/serve-sim/src/__tests__/webrtc-ice.test.ts
+  h_5be255725524c8 1-8
+vendor/serve-sim/packages/serve-sim/src/__tests__/webrtc-negotiation.test.ts
+  h_5be255725524c8 1-78
+vendor/serve-sim/packages/serve-sim/src/__tests__/webrtc-signaling.test.ts
+  h_5be255725524c8 1-49
+vendor/serve-sim/packages/serve-sim/src/__tests__/ws-send-queue.test.ts
+  h_5be255725524c8 1-83
+vendor/serve-sim/packages/serve-sim/src/ax-shared.ts
+  h_5be255725524c8 1-25
+vendor/serve-sim/packages/serve-sim/src/ax.ts
+  h_5be255725524c8 1-258
+vendor/serve-sim/packages/serve-sim/src/camera-helper.ts
+  h_5be255725524c8 1-150
+vendor/serve-sim/packages/serve-sim/src/client/Panel.tsx
+  h_5be255725524c8 1-76
+vendor/serve-sim/packages/serve-sim/src/client/avcc-codec.ts
+  h_5be255725524c8 1-133
+vendor/serve-sim/packages/serve-sim/src/client/avcc-fallback.ts
+  h_5be255725524c8 1-72
+vendor/serve-sim/packages/serve-sim/src/client/client.tsx
+  h_5be255725524c8 1-1365
+vendor/serve-sim/packages/serve-sim/src/client/components/app-detection-tool.tsx
+  h_5be255725524c8 1-226
+vendor/serve-sim/packages/serve-sim/src/client/components/app-permissions-tool.tsx
+  h_5be255725524c8 1-218
+vendor/serve-sim/packages/serve-sim/src/client/components/app-toasts.tsx
+  h_5be255725524c8 1-64
+vendor/serve-sim/packages/serve-sim/src/client/components/ax-dom-overlay.tsx
+  h_5be255725524c8 1-38
+vendor/serve-sim/packages/serve-sim/src/client/components/ax-state-provider.tsx
+  h_5be255725524c8 1-47
+vendor/serve-sim/packages/serve-sim/src/client/components/ax-target.tsx
+  h_5be255725524c8 1-78
+vendor/serve-sim/packages/serve-sim/src/client/components/ax-toolbar-button.tsx
+  h_5be255725524c8 1-39
+vendor/serve-sim/packages/serve-sim/src/client/components/ax-tree-tool.tsx
+  h_5be255725524c8 1-138
+vendor/serve-sim/packages/serve-sim/src/client/components/camera-tool.tsx
+  h_5be255725524c8 1-907
+vendor/serve-sim/packages/serve-sim/src/client/components/collapsible-section.tsx
+  h_5be255725524c8 1-45
+vendor/serve-sim/packages/serve-sim/src/client/components/device-chrome-frame.tsx
+  h_5be255725524c8 1-377
+vendor/serve-sim/packages/serve-sim/src/client/components/device-glyph.tsx
+  h_5be255725524c8 1-80
+vendor/serve-sim/packages/serve-sim/src/client/components/device-placeholder.tsx
+  h_5be255725524c8 1-263
+vendor/serve-sim/packages/serve-sim/src/client/components/device-row.tsx
+  h_5be255725524c8 1-128
+vendor/serve-sim/packages/serve-sim/src/client/components/device-sidebar-toggle.tsx
+  h_5be255725524c8 1-19
+vendor/serve-sim/packages/serve-sim/src/client/components/event-log-tool.tsx
+  h_5be255725524c8 1-130
+vendor/serve-sim/packages/serve-sim/src/client/components/grid-capacity-banner.tsx
+  h_5be255725524c8 1-31
+vendor/serve-sim/packages/serve-sim/src/client/components/grid-panel.tsx
+  h_5be255725524c8 1-237
+vendor/serve-sim/packages/serve-sim/src/client/components/metrics-tool.tsx
+  h_5be255725524c8 1-144
+vendor/serve-sim/packages/serve-sim/src/client/components/panel-colors.ts
+  h_5be255725524c8 1-2
+vendor/serve-sim/packages/serve-sim/src/client/components/resize-handle.tsx
+  h_5be255725524c8 1-63
+vendor/serve-sim/packages/serve-sim/src/client/components/screenshot-toast.tsx
+  h_5be255725524c8 1-157
+vendor/serve-sim/packages/serve-sim/src/client/components/select.tsx
+  h_5be255725524c8 1-154
+vendor/serve-sim/packages/serve-sim/src/client/components/serve-sim-brand-link.tsx
+  h_5be255725524c8 1-16
+vendor/serve-sim/packages/serve-sim/src/client/components/setting-switch.tsx
+  h_5be255725524c8 1-7,9-35
+vendor/serve-sim/packages/serve-sim/src/client/components/simulator-resize-corner-handle.tsx
+  h_5be255725524c8 1-252
+vendor/serve-sim/packages/serve-sim/src/client/components/simulator-resize-size-badge.tsx
+  h_5be255725524c8 1-28
+vendor/serve-sim/packages/serve-sim/src/client/components/simulator-settings-tool.tsx
+  h_5be255725524c8 1-492
+vendor/serve-sim/packages/serve-sim/src/client/components/stop-preview-button.tsx
+  h_5be255725524c8 1-67
+vendor/serve-sim/packages/serve-sim/src/client/components/stream-settings-tool.tsx
+  h_5be255725524c8 1-196
+vendor/serve-sim/packages/serve-sim/src/client/components/stream-status-pill.tsx
+  h_5be255725524c8 1-20
+vendor/serve-sim/packages/serve-sim/src/client/components/tools-panel.tsx
+  h_5be255725524c8 1-91
+vendor/serve-sim/packages/serve-sim/src/client/components/webkit-devtools-panel.tsx
+  h_5be255725524c8 1-84
+vendor/serve-sim/packages/serve-sim/src/client/components/webkit-target-picker.tsx
+  h_5be255725524c8 1-160
+vendor/serve-sim/packages/serve-sim/src/client/global.css
+  h_5be255725524c8 1-120
+vendor/serve-sim/packages/serve-sim/src/client/hooks/use-app-icons.ts
+  h_5be255725524c8 1-32
+vendor/serve-sim/packages/serve-sim/src/client/hooks/use-avcc-stream.ts
+  h_5be255725524c8 1-18
+vendor/serve-sim/packages/serve-sim/src/client/hooks/use-ax-snapshot.ts
+  h_5be255725524c8 1-68
+vendor/serve-sim/packages/serve-sim/src/client/hooks/use-grid-devices.ts
+  h_5be255725524c8 1-58
+vendor/serve-sim/packages/serve-sim/src/client/hooks/use-grid-memory.ts
+  h_5be255725524c8 1-21
+vendor/serve-sim/packages/serve-sim/src/client/hooks/use-media-drop.ts
+  h_5be255725524c8 1-149
+vendor/serve-sim/packages/serve-sim/src/client/hooks/use-metrics-stream.ts
+  h_5be255725524c8 1-82
+vendor/serve-sim/packages/serve-sim/src/client/hooks/use-mjpeg-stream.ts
+  h_5be255725524c8 1-85
+vendor/serve-sim/packages/serve-sim/src/client/hooks/use-prefers-more-contrast.ts
+  h_5be255725524c8 1-20
+vendor/serve-sim/packages/serve-sim/src/client/hooks/use-prefers-reduced-motion.ts
+  h_5be255725524c8 1-20
+vendor/serve-sim/packages/serve-sim/src/client/hooks/use-resizable-width.ts
+  h_5be255725524c8 1-63
+vendor/serve-sim/packages/serve-sim/src/client/hooks/use-screenshot-toast.tsx
+  h_5be255725524c8 1-156
+vendor/serve-sim/packages/serve-sim/src/client/hooks/use-simulator-resize.ts
+  h_5be255725524c8 1-426
+vendor/serve-sim/packages/serve-sim/src/client/hooks/use-stream-settings.ts
+  h_5be255725524c8 1-193
+vendor/serve-sim/packages/serve-sim/src/client/hooks/use-upload-toasts.tsx
+  h_5be255725524c8 1-67
+vendor/serve-sim/packages/serve-sim/src/client/hooks/use-webkit-devtools.ts
+  h_5be255725524c8 1-43
+vendor/serve-sim/packages/serve-sim/src/client/hooks/use-webrtc-stream.ts
+  h_5be255725524c8 1-295
+vendor/serve-sim/packages/serve-sim/src/client/icons/chrome.tsx
+  h_5be255725524c8 1-18
+vendor/serve-sim/packages/serve-sim/src/client/icons/index.ts
+  h_5be255725524c8 1-4
+vendor/serve-sim/packages/serve-sim/src/client/icons/modes.tsx
+  h_5be255725524c8 1-31
+vendor/serve-sim/packages/serve-sim/src/client/icons/playback.tsx
+  h_5be255725524c8 1-30
+vendor/serve-sim/packages/serve-sim/src/client/icons/reload.tsx
+  h_5be255725524c8 1-5
+vendor/serve-sim/packages/serve-sim/src/client/location-emulation-tool.tsx
+  h_5be255725524c8 1-883
+vendor/serve-sim/packages/serve-sim/src/client/simulator/SimulatorFrame.tsx
+  h_5be255725524c8 1-130
+vendor/serve-sim/packages/serve-sim/src/client/simulator/SimulatorStream.tsx
+  h_5be255725524c8 1-221
+vendor/serve-sim/packages/serve-sim/src/client/simulator/SimulatorToolbar.tsx
+  h_5be255725524c8 1-561
+vendor/serve-sim/packages/serve-sim/src/client/simulator/SimulatorView.tsx
+  h_5be255725524c8 1-1410
+vendor/serve-sim/packages/serve-sim/src/client/simulator/deviceFrames.tsx
+  h_5be255725524c8 1-466
+vendor/serve-sim/packages/serve-sim/src/client/simulator/digitalCrown.ts
+  h_5be255725524c8 1-26
+vendor/serve-sim/packages/serve-sim/src/client/simulator/index.ts
+  h_5be255725524c8 1-54
+vendor/serve-sim/packages/serve-sim/src/client/simulator/orientation.ts
+  h_5be255725524c8 1-201
+vendor/serve-sim/packages/serve-sim/src/client/simulator/screen-config-state.ts
+  h_5be255725524c8 1-32
+vendor/serve-sim/packages/serve-sim/src/client/simulator/scroll-wheel.ts
+  h_5be255725524c8 1-18
+vendor/serve-sim/packages/serve-sim/src/client/simulator/simulator-stream-routing.ts
+  h_5be255725524c8 1-40
+vendor/serve-sim/packages/serve-sim/src/client/simulator/use-avcc-stream.ts
+  h_5be255725524c8 1-226
+vendor/serve-sim/packages/serve-sim/src/client/simulator/useSimStream.ts
+  h_5be255725524c8 1-145
+vendor/serve-sim/packages/serve-sim/src/client/simulator/video-dimensions.ts
+  h_5be255725524c8 1-39
+vendor/serve-sim/packages/serve-sim/src/client/trails.ts
+  h_5be255725524c8 1-428
+vendor/serve-sim/packages/serve-sim/src/client/types.ts
+  h_5be255725524c8 1-36
+vendor/serve-sim/packages/serve-sim/src/client/utils/app-icon.ts
+  h_5be255725524c8 1-107
+vendor/serve-sim/packages/serve-sim/src/client/utils/ax.ts
+  h_5be255725524c8 1-75
+vendor/serve-sim/packages/serve-sim/src/client/utils/devtools.ts
+  h_5be255725524c8 1-118
+vendor/serve-sim/packages/serve-sim/src/client/utils/drop.ts
+  h_5be255725524c8 1-152
+vendor/serve-sim/packages/serve-sim/src/client/utils/exec.ts
+  h_5be255725524c8 1-275
+vendor/serve-sim/packages/serve-sim/src/client/utils/format-metrics.ts
+  h_5be255725524c8 1-38
+vendor/serve-sim/packages/serve-sim/src/client/utils/grid.ts
+  h_5be255725524c8 1-110
+vendor/serve-sim/packages/serve-sim/src/client/utils/hid.ts
+  h_5be255725524c8 1-32
+vendor/serve-sim/packages/serve-sim/src/client/utils/mjpeg-frame-parser.ts
+  h_5be255725524c8 1-143
+vendor/serve-sim/packages/serve-sim/src/client/utils/panel-widths.ts
+  h_5be255725524c8 1-3
+vendor/serve-sim/packages/serve-sim/src/client/utils/permissions.ts
+  h_5be255725524c8 1-18
+vendor/serve-sim/packages/serve-sim/src/client/utils/preview-config.ts
+  h_5be255725524c8 1-30
+vendor/serve-sim/packages/serve-sim/src/client/utils/sim-endpoint.ts
+  h_5be255725524c8 1-92
+vendor/serve-sim/packages/serve-sim/src/client/utils/simulator-resize.ts
+  h_5be255725524c8 1-209
+vendor/serve-sim/packages/serve-sim/src/client/utils/ws-send-queue.ts
+  h_5be255725524c8 1-61
+vendor/serve-sim/packages/serve-sim/src/client/webrtc-codec-fallback.ts
+  h_5be255725524c8 1-42
+vendor/serve-sim/packages/serve-sim/src/client/webrtc-failure-policy.ts
+  h_5be255725524c8 1-15
+vendor/serve-sim/packages/serve-sim/src/client/webrtc-ice.ts
+  h_5be255725524c8 1-9
+vendor/serve-sim/packages/serve-sim/src/client/webrtc-negotiation.ts
+  h_5be255725524c8 1-134
+vendor/serve-sim/packages/serve-sim/src/connect-to-fetch.ts
+  h_5be255725524c8 1-239
+vendor/serve-sim/packages/serve-sim/src/cpu-mem-sampler.ts
+  h_5be255725524c8 1-327
+vendor/serve-sim/packages/serve-sim/src/debug.ts
+  h_5be255725524c8 1-12
+vendor/serve-sim/packages/serve-sim/src/device-session.ts
+  h_5be255725524c8 1-912
+vendor/serve-sim/packages/serve-sim/src/device.ts
+  h_5be255725524c8 1-49
+vendor/serve-sim/packages/serve-sim/src/devicekit-chrome.ts
+  h_5be255725524c8 1-1057
+vendor/serve-sim/packages/serve-sim/src/devtools-targets.ts
+  h_5be255725524c8 1-35
+vendor/serve-sim/packages/serve-sim/src/event-log-format.ts
+  h_5be255725524c8 1-97
+vendor/serve-sim/packages/serve-sim/src/event-log.ts
+  h_5be255725524c8 1-673
+vendor/serve-sim/packages/serve-sim/src/exec-ws-utils.ts
+  h_5be255725524c8 1-30
+vendor/serve-sim/packages/serve-sim/src/exec-ws.ts
+  h_5be255725524c8 1-257
+vendor/serve-sim/packages/serve-sim/src/foreground-tracker.ts
+  h_5be255725524c8 1-253
+vendor/serve-sim/packages/serve-sim/src/host-bin.ts
+  h_5be255725524c8 1-37
+vendor/serve-sim/packages/serve-sim/src/index.ts
+  h_5be255725524c8 1-2042
+vendor/serve-sim/packages/serve-sim/src/middleware-utils.ts
+  h_5be255725524c8 1-150
+vendor/serve-sim/packages/serve-sim/src/middleware.ts
+  h_5be255725524c8 1-2242
+vendor/serve-sim/packages/serve-sim/src/native.ts
+  h_5be255725524c8 1-294
+vendor/serve-sim/packages/serve-sim/src/permissions.ts
+  h_5be255725524c8 1-597
+vendor/serve-sim/packages/serve-sim/src/ports.ts
+  h_5be255725524c8 1-40
+vendor/serve-sim/packages/serve-sim/src/runtime-utils.ts
+  h_5be255725524c8 1-87
+vendor/serve-sim/packages/serve-sim/src/runtime.ts
+  h_5be255725524c8 1-260
+vendor/serve-sim/packages/serve-sim/src/state.ts
+  h_5be255725524c8 1-86
+vendor/serve-sim/packages/serve-sim/src/stream-runtime-args.ts
+  h_5be255725524c8 1-116
+vendor/serve-sim/packages/serve-sim/src/stream-settings.ts
+  h_5be255725524c8 1-216
+vendor/serve-sim/packages/serve-sim/src/text-to-keys.ts
+  h_5be255725524c8 1-119
+vendor/serve-sim/packages/serve-sim/src/ui-settings.ts
+  h_5be255725524c8 1-319
+vendor/serve-sim/packages/serve-sim/src/webrtc-signaling.ts
+  h_5be255725524c8 1-110
+vendor/serve-sim/tsconfig.json
+  h_5be255725524c8 1-20
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.23",
+  "base_commit_sha": "15f99dd063ee7afbb8856397bdff929971fd6f23",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
