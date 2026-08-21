@@ -5,6 +5,7 @@ import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { NextIntlClientProvider } from "next-intl";
 import enMessages from "../../../../messages/en.json";
+import zhMessages from "../../../../messages/zh.json";
 
 mock.module("next/font/local", () => ({
   default: () => ({ className: "", style: {}, variable: "" }),
@@ -41,7 +42,7 @@ describe("BreakoutErrorPage", () => {
     );
 
     expect(actionKinds(container)).toEqual(["retry", "home"]);
-    expect(container.textContent).toContain("TRY AGAIN");
+    expect(container.textContent).toContain("Try again");
     expect(container.textContent).toContain("Go back home");
     expect(container.querySelector("[data-error-action='home']")?.tagName).toBe(
       "A",
@@ -57,12 +58,41 @@ describe("BreakoutErrorPage", () => {
     expect(retryClass).toContain("bg-primary");
     expect(homeClass).toContain("hover:bg-accent");
     expect(homeClass).not.toContain("bg-primary");
+
+    const code = [...container.querySelectorAll("div")].find((node) =>
+      (node.textContent ?? "").trim() === "500",
+    );
+    expect(code?.className).toContain("geist-pixel");
+    expect(retryClass).not.toContain("geist-pixel");
+    expect(homeClass).not.toContain("geist-pixel");
   });
 
   it("still offers home when retry is unavailable", () => {
     const container = renderErrorPage(<BreakoutErrorPage kind="server" />);
 
     expect(actionKinds(container)).toEqual(["home"]);
+  });
+
+  it("keeps Chinese retry copy on the UI font, not the pixel display font", () => {
+    const html = renderToStaticMarkup(
+      <NextIntlClientProvider locale="zh" messages={zhMessages} timeZone="UTC">
+        <BreakoutErrorPage kind="server" onRetry={() => {}} />
+      </NextIntlClientProvider>,
+    );
+    const doc = new Window({ url: "https://app.atmos.local/workspace" }).document;
+    doc.body.innerHTML = html;
+    const container = doc.body as unknown as HTMLElement;
+
+    expect(container.textContent).toContain("重试");
+    expect(container.textContent).toContain("返回首页");
+
+    const retryClass =
+      container.querySelector("[data-error-action='retry']")?.className ?? "";
+    const homeClass =
+      container.querySelector("[data-error-action='home']")?.className ?? "";
+    expect(retryClass).not.toContain("geist-pixel");
+    expect(homeClass).not.toContain("geist-pixel");
+    expect(container.querySelector("main")?.className).not.toContain("geist-pixel");
   });
 
   it("keeps the 404 home link", () => {
