@@ -7,12 +7,21 @@ export const APP_FOOTER_HEIGHT_CLASS = "h-9";
 export const APP_FOOTER_HEIGHT_PX = 36;
 
 /**
- * Floating center-stage card gutters (Tailwind `px-2 py-1`).
- * Keep New Workspace overlay insets in sync with these values.
+ * Floating center-stage card gutters (Tailwind `px-1 py-px`).
+ * 1px vertical keeps the card ring from clipping against header/footer
+ * while lining up with the left sidebar. Keep overlay insets in sync.
  */
-export const CENTER_STAGE_GUTTER_X_PX = 8;
-export const CENTER_STAGE_GUTTER_Y_PX = 4;
-export const CENTER_STAGE_GUTTER_CLASS = "px-2 py-1";
+export const CENTER_STAGE_GUTTER_X_PX = 4;
+export const CENTER_STAGE_GUTTER_Y_PX = 1;
+export const CENTER_STAGE_GUTTER_CLASS = "px-1 py-px";
+
+/**
+ * Left sidebar inset against the root sidebar↔center divider.
+ * Keep this equal to the center card's left gutter so the split is even.
+ */
+export const LEFT_SIDEBAR_DIVIDER_GUTTER_PX = CENTER_STAGE_GUTTER_X_PX;
+export const LEFT_SIDEBAR_DIVIDER_GUTTER_PR_CLASS = "pr-1";
+export const LEFT_SIDEBAR_DIVIDER_GUTTER_MR_CLASS = "mr-1";
 
 /** Shell behind the floating card — matches sidebar so gutters read as inset. */
 export const CENTER_STAGE_SHELL_CLASS =

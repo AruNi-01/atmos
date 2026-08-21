@@ -50,6 +50,7 @@ import {
   selectAttentionFilterMode,
   useAgentAttentionStore,
 } from "@/features/agent/store/agent-attention-store";
+import { LEFT_SIDEBAR_DIVIDER_GUTTER_PR_CLASS } from "@/app-shell/sidebar-layout-constants";
 export { LeftSidebarFooter } from "./left-sidebar-tab-footer-controls";
 
 type DndSensors = React.ComponentProps<typeof DndContext>["sensors"];
@@ -584,7 +585,7 @@ export function GroupedWorkspaceOneColumnContent({
           }
           strategy={verticalListSortingStrategy}
         >
-          <div className="space-y-0.5 px-2">
+          <div className={cn("space-y-0.5 pl-2", LEFT_SIDEBAR_DIVIDER_GUTTER_PR_CLASS)}>
             {visibleGroups.map((group) => {
               const stateKey = `${groupingMode}:${group.key}`;
               return (
@@ -689,11 +690,11 @@ export function GroupedWorkspaceTwoColumnRightContent({
   } = useWorkspaceListVisibleCount(groupItems.length, selectedGroup?.key);
   const visibleItems = groupItems.slice(0, visibleCount);
 
-  // Primary open: px-3 breathing room from the divider.
-  // Primary collapsed: pl-5 lines up group icon with Launchpad; pr-2 keeps the
-  // expand control near the right edge (not inset as far as the left).
-  // List always uses px-3 so workspace rows match the two-column spacing.
-  const headerPad = isPrimaryCollapsed ? "pl-5 pr-2" : "px-3";
+  // Primary open: pl-3, with the shared divider gutter on the right.
+  // Primary collapsed: pl-5 lines up group icon with Launchpad.
+  const headerPad = isPrimaryCollapsed
+    ? cn("pl-5", LEFT_SIDEBAR_DIVIDER_GUTTER_PR_CLASS)
+    : cn("pl-3", LEFT_SIDEBAR_DIVIDER_GUTTER_PR_CLASS);
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -715,7 +716,12 @@ export function GroupedWorkspaceTwoColumnRightContent({
           />
         </div>
       </div>
-      <div className="scrollbar-on-hover flex-1 overflow-y-auto px-3 py-2">
+      <div
+        className={cn(
+          "scrollbar-on-hover flex-1 overflow-y-auto py-2 pl-3",
+          LEFT_SIDEBAR_DIVIDER_GUTTER_PR_CLASS,
+        )}
+      >
         {!selectedGroup ? (
           <div className="px-3 py-6 text-sm text-muted-foreground">
             {t("leftSidebarControls.selectGroupDescription")}
@@ -887,12 +893,13 @@ export function ProjectWorkspaceTwoColumnRightContent({
     </DndContext>
   );
 
-  // Primary open: px-3 from the divider. Primary collapsed: pl-5 for Launchpad
-  // alignment, pr-2 so the expand control sits near the right edge.
+  // Primary open: pl-3, with the shared divider gutter on the right.
+  // Primary collapsed: pl-5 for Launchpad alignment.
   // Only bleed the left so ProjectItem doesn't collide with the toggle.
-  // List always px-3 — same indent whether one or two columns are visible.
-  const headerPad = isPrimaryCollapsed ? "pl-5 pr-2" : "px-3";
-  const projectHeaderBleed = isPrimaryCollapsed ? "-ml-5" : "-mx-3";
+  const headerPad = isPrimaryCollapsed
+    ? cn("pl-5", LEFT_SIDEBAR_DIVIDER_GUTTER_PR_CLASS)
+    : cn("pl-3", LEFT_SIDEBAR_DIVIDER_GUTTER_PR_CLASS);
+  const projectHeaderBleed = isPrimaryCollapsed ? "-ml-5" : "-ml-3 -mr-1";
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -942,7 +949,12 @@ export function ProjectWorkspaceTwoColumnRightContent({
           </div>
         </div>
       </div>
-      <div className="scrollbar-on-hover flex-1 overflow-y-auto px-3 py-2">
+      <div
+        className={cn(
+          "scrollbar-on-hover flex-1 overflow-y-auto py-2 pl-3",
+          LEFT_SIDEBAR_DIVIDER_GUTTER_PR_CLASS,
+        )}
+      >
         {!selectedProject ? (
           <div className="px-3 py-6 text-sm text-muted-foreground">
             {t("leftSidebarControls.selectProjectDescription")}

@@ -52,6 +52,7 @@ import {
   selectAttentionFilterMode,
   useAgentAttentionStore,
 } from "@/features/agent/store/agent-attention-store";
+import { LEFT_SIDEBAR_DIVIDER_GUTTER_PR_CLASS } from "@/app-shell/sidebar-layout-constants";
 
 type DndSensors = DndContextProps["sensors"];
 
@@ -536,10 +537,11 @@ export function UserGroupTwoColumnRightContent({
   const { activeProjectId, activeWorkspaceId, ...sharedProjectItemProps } =
     projectItemProps;
 
-  // Primary open: px-3 from the divider. Primary collapsed: pl-5 for Launchpad
-  // alignment, pr-2 so the expand control sits near the right edge.
-  // List always px-3 — same indent whether one or two columns are visible.
-  const headerPad = isPrimaryCollapsed ? "pl-5 pr-2" : "px-3";
+  // Primary open: pl-3, with the shared divider gutter on the right.
+  // Primary collapsed: pl-5 for Launchpad alignment.
+  const headerPad = isPrimaryCollapsed
+    ? cn("pl-5", LEFT_SIDEBAR_DIVIDER_GUTTER_PR_CLASS)
+    : cn("pl-3", LEFT_SIDEBAR_DIVIDER_GUTTER_PR_CLASS);
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -557,7 +559,12 @@ export function UserGroupTwoColumnRightContent({
           onClick={onTogglePrimaryPanel}
         />
       </div>
-      <div className="scrollbar-on-hover flex-1 overflow-y-auto px-3 py-2">
+      <div
+        className={cn(
+          "scrollbar-on-hover flex-1 overflow-y-auto py-2 pl-3",
+          LEFT_SIDEBAR_DIVIDER_GUTTER_PR_CLASS,
+        )}
+      >
         {!selectedView ? (
           <div className="px-3 py-6 text-sm text-muted-foreground">
             {chromeT("leftSidebarControls.selectGroupDescription")}
@@ -888,13 +895,18 @@ export function UserGroupOneColumnContent({
 
   return (
     <div className="scrollbar-on-hover flex h-full flex-col overflow-y-auto no-scrollbar">
-      <div className="flex items-center justify-between px-3 py-1.5">
+      <div
+        className={cn(
+          "flex items-center justify-between py-1.5 pl-3",
+          LEFT_SIDEBAR_DIVIDER_GUTTER_PR_CLASS,
+        )}
+      >
         <span className="text-[11px] font-semibold tracking-[0.03em] text-muted-foreground">
           Groups
         </span>
         <CreateGroupPopoverButton variant="labeled" onCreate={onCreateGroup} />
       </div>
-      <div className="space-y-0.5 px-2 pb-2">
+      <div className={cn("space-y-0.5 pb-2 pl-2", LEFT_SIDEBAR_DIVIDER_GUTTER_PR_CLASS)}>
         {canReorder ? (
           <DndContext
             collisionDetection={(args) => {

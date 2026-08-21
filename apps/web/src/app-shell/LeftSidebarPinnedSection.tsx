@@ -33,6 +33,7 @@ import {
   parseWorkspaceAgentGroupKey,
   type WorkspaceAgentGroupKey,
 } from "@/features/agent/lib/workspace-agent-status";
+import { LEFT_SIDEBAR_DIVIDER_GUTTER_PR_CLASS } from "@/app-shell/sidebar-layout-constants";
 
 type DndSensors = React.ComponentProps<typeof DndContext>["sensors"];
 
@@ -105,7 +106,7 @@ export function LeftSidebarPinnedSection({
             isCollapsed ? "grid-rows-[0fr]" : "grid-rows-[1fr]",
           )}>
             <div className="overflow-hidden">
-              <div className="space-y-0.5 px-2 pb-1">
+              <div className={cn("space-y-0.5 pb-1 pl-2", LEFT_SIDEBAR_DIVIDER_GUTTER_PR_CLASS)}>
                 {pinnedWorkspaces.map((entry) => {
                   const statusMeta = getWorkspaceWorkflowStatusMeta(entry.workspace.workflowStatus);
                   const StatusIcon = statusMeta.icon;
