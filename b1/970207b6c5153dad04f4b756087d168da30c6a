@@ -1,0 +1,30 @@
+apps/web/messages/en.json
+  h_5be255725524c8 374-375,384-387,6538,6609,9739,9743
+apps/web/messages/zh.json
+  h_5be255725524c8 374-375,384-387,6538,6609
+apps/web/src/features/atmos-computer/components/AtmosComputerSection.tsx
+  h_5be255725524c8 52,550-552
+apps/web/src/features/settings/components/AccountSettingsSection.tsx
+  h_5be255725524c8 52,329-332,412
+apps/web/src/features/settings/components/BrowserSettingsSection.tsx
+  h_5be255725524c8 7,28-31
+apps/web/src/features/settings/components/DesktopUseSettingsSection.tsx
+  h_5be255725524c8 35,602-605
+apps/web/src/features/settings/components/__tests__/browser-settings-section.test.ts
+  h_5be255725524c8 50-51
+apps/web/src/features/settings/components/__tests__/desktop-use-settings-section.test.ts
+  h_5be255725524c8 90-91
+apps/web/src/features/settings/components/settings/SettingsGroupCard.tsx
+  h_5be255725524c8 10,76-89
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.23",
+  "base_commit_sha": "b1970207b6c5153dad04f4b756087d168da30c6a",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
