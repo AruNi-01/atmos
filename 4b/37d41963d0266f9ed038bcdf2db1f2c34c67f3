@@ -1,0 +1,18 @@
+apps/web/src/app-shell/__tests__/overlay-scroll-bounce.test.ts
+  h_5be255725524c8 17,34
+apps/web/src/app/globals.css
+  h_5be255725524c8 273-277,280-294,364-365,369-371,373-379,383,385-387,391-399
+apps/web/src/features/editor/components/BaseCodeMirrorEditor.tsx
+  h_5be255725524c8 95
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.23",
+  "base_commit_sha": "4b37d41963d0266f9ed038bcdf2db1f2c34c67f3",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
