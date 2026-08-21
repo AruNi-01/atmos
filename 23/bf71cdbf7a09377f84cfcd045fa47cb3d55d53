@@ -1,0 +1,36 @@
+apps/web/src/app-shell/AppShellMain.tsx
+  h_5be255725524c8 113-116
+apps/web/src/app-shell/__tests__/center-pane-isolation.test.ts
+  h_5be255725524c8 71
+apps/web/src/app-shell/__tests__/center-pane-leaf-metrics.test.ts
+  h_5be255725524c8 4,46-52
+apps/web/src/app-shell/__tests__/center-stage-chrome.test.ts
+  h_5be255725524c8 6,66,71
+apps/web/src/app-shell/__tests__/center-stage-fullscreen.test.ts
+  h_5be255725524c8 11,13-14,17-18,20-21,25-26,28-29,31,35,39-40,44-65,73,80,84-98,119,122,126-142,144-146
+apps/web/src/app-shell/center-pane/CenterPaneGrid.tsx
+  h_5be255725524c8 52-55,69-70,109,305,311-316,321,329-346
+apps/web/src/app-shell/center-pane/center-pane-grid.css
+  h_5be255725524c8 9-23
+apps/web/src/app-shell/center-pane/center-pane-leaf-metrics.ts
+  h_5be255725524c8 1-2,50-66
+apps/web/src/app-shell/center-pane/use-center-pane-slot-boxes.ts
+  h_5be255725524c8 90,97,203-212
+apps/web/src/app-shell/center-stage-fullscreen.ts
+  h_5be255725524c8 7,28-29,31-34,38-39,42-43,46-48,52-59
+apps/web/src/app-shell/sidebar-layout-constants.ts
+  h_5be255725524c8 51,57-58
+apps/web/src/app-shell/use-center-stage-fullscreen.ts
+  h_5be255725524c8 3,12-14,19-31,58
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.23",
+  "base_commit_sha": "23bf71cdbf7a09377f84cfcd045fa47cb3d55d53",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
