@@ -98,6 +98,13 @@ describe("center pane tab isolation", () => {
     expect(stage).toContain("closeCenterPane(renderContextId, pane.id)");
   });
 
+  it("does not wrap file editors in Base UI TabsPanel", () => {
+    const frame = readSibling("workspace-center-frame.tsx");
+    // Mosaic hosts panels in a sibling overlay outside <Tabs.Root>.
+    // <TabsPanel> would throw Base UI error #64 (missing TabsRootContext).
+    expect(frame).not.toMatch(/<TabsPanel\b/);
+  });
+
   it("remasures pane slots when occupancy changes and withholds an unmeasured terminal", () => {
     const slots = readSibling("center-pane/use-center-pane-slot-boxes.ts");
     const frame = readSibling("workspace-center-frame.tsx");

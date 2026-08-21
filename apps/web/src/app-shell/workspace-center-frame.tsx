@@ -9,7 +9,7 @@
 
 import React from "react";
 import dynamic from "next/dynamic";
-import { Loader2, TabsPanel } from "@workspace/ui";
+import { Loader2 } from "@workspace/ui";
 import {
   ReviewContextProvider,
 } from "@/features/diff/components/review/ReviewContextProvider";
@@ -569,14 +569,13 @@ function WorkspaceCenterFrameImpl({
             }
           }
         }
+        // Not TabsPanel: mosaic hosts this outside <Tabs.Root> (Base UI #64).
         return (
-          <TabsPanel
+          <div
             key={`${contextId}:${file.path}`}
-            value={file.path}
-            keepMounted
             data-center-pane-owner={paneOwner(file.path)}
             className={cn(lightSurfacePanelClass(panelVisible(file.path)), interactivePaneClass(panelVisible(file.path)))}
-          style={panelStyle(file.path, panelVisible(file.path))}
+            style={panelStyle(file.path, panelVisible(file.path))}
           >
             {isDiffGroupEditorPath(file.path) && currentRepoPath && isUrlSyncedActive ? (
               <ChangesCodeView repoPath={currentRepoPath} groupPath={file.path} />
@@ -621,7 +620,7 @@ function WorkspaceCenterFrameImpl({
                 }
               />
             )}
-          </TabsPanel>
+          </div>
         );
       })}
 
