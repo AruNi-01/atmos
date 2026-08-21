@@ -69,12 +69,17 @@ pub struct LinearStatusRequest {
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct LinearRateLimitRequest {
+    /// Public Linear OAuth client id — used to refresh expired Hub tokens.
+    #[serde(default)]
+    pub client_id: Option<String>,
     #[serde(flatten)]
     pub hub: HubSessionFields,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct LinearFilterOptionsRequest {
+    #[serde(default)]
+    pub client_id: Option<String>,
     #[serde(flatten)]
     pub hub: HubSessionFields,
 }
@@ -108,6 +113,8 @@ pub struct LinearIssueListRequest {
     pub first: Option<u32>,
     #[serde(default)]
     pub after: Option<String>,
+    #[serde(default)]
+    pub client_id: Option<String>,
     #[serde(flatten)]
     pub hub: HubSessionFields,
 }
