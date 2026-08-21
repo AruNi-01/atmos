@@ -1,0 +1,92 @@
+apps/api/src/api/system/computer.rs
+  h_5be255725524c8 9-14,49,95
+apps/web/messages/en.json
+  h_5be255725524c8 632-639
+apps/web/messages/zh.json
+  h_5be255725524c8 632-639
+apps/web/src/api/query/__tests__/query-keys.test.ts
+  h_5be255725524c8 144-166
+apps/web/src/api/query/query-keys.ts
+  h_5be255725524c8 549-574
+apps/web/src/api/rest-api.ts
+  h_5be255725524c8 316
+apps/web/src/api/ws/token-usage-api.ts
+  h_5be255725524c8 112-113
+apps/web/src/app-shell/TokenUsagePage.tsx
+  h_5be255725524c8 7,10,16-19,24-35,118,123-191,194-230,234-237,315,349-358,364-383,395
+apps/web/src/app-shell/__tests__/token-usage-computer-scope.test.ts
+  h_5be255725524c8 1-33
+apps/web/src/features/connection/lib/atmos-computer-local.ts
+  h_5be255725524c8 24,180
+apps/web/src/features/token-usage/HandleComputerCount.tsx
+  h_5be255725524c8 1-37
+apps/web/src/features/token-usage/PublicTokLeaderboards.tsx
+  h_5be255725524c8 22,312-315
+apps/web/src/features/token-usage/PublicTokPage.tsx
+  h_5be255725524c8 10,76-79
+apps/web/src/features/token-usage/TokenUsageComputerSelect.tsx
+  h_5be255725524c8 1-54
+apps/web/src/features/token-usage/__tests__/token-usage-public-share-static.test.ts
+  h_5be255725524c8 36,51
+apps/web/src/features/token-usage/__tests__/token-usage-share-payload.test.ts
+  h_5be255725524c8 112-120
+apps/web/src/features/token-usage/fetch-public-tok.ts
+  h_5be255725524c8 31,143
+apps/web/src/features/token-usage/lib/__tests__/fetch-token-usage-scope.test.ts
+  h_5be255725524c8 1-156
+apps/web/src/features/token-usage/lib/__tests__/merge-token-usage-overviews.test.ts
+  h_5be255725524c8 1-194
+apps/web/src/features/token-usage/lib/__tests__/unique-computers.test.ts
+  h_5be255725524c8 1-113
+apps/web/src/features/token-usage/lib/cloud-api-clients.ts
+  h_5be255725524c8 1-82
+apps/web/src/features/token-usage/lib/fetch-all-token-usage.ts
+  h_5be255725524c8 1-90
+apps/web/src/features/token-usage/lib/fetch-remote-token-usage.ts
+  h_5be255725524c8 1-97
+apps/web/src/features/token-usage/lib/merge-token-usage-overviews.ts
+  h_5be255725524c8 1-335
+apps/web/src/features/token-usage/lib/unique-computers.ts
+  h_5be255725524c8 1-140
+apps/web/src/features/token-usage/public-tok-preview.ts
+  h_5be255725524c8 91
+apps/web/src/features/token-usage/token-usage-share-payload.ts
+  h_5be255725524c8 53-54,243-246
+crates/runtime-manager/src/device_identity.rs
+  h_5be255725524c8 10,15-18
+crates/runtime-manager/src/lib.rs
+  h_5be255725524c8 36
+packages/hub/src/usage-leaderboard.ts
+  h_5be255725524c8 45,63,67-71,75,82-84,101,119-121,139,155,161
+packages/hub/src/usage-page.ts
+  h_5be255725524c8 243-250
+packages/hub/test/usage-page.test.ts
+  h_5be255725524c8 193-209
+packages/relay-client/src/types.ts
+  h_5be255725524c8 14-15
+packages/relay/src/index.ts
+  h_5be255725524c8 51-52,623,634,645,732-733,736-750
+packages/relay/test/computer-list-and-sessions.test.ts
+  h_5be255725524c8 1-223
+specs/APP/APP-063_token-usage-computer-scope/BRAINSTORM.md
+  h_5be255725524c8 1-100
+specs/APP/APP-063_token-usage-computer-scope/PRD.md
+  h_5be255725524c8 1-147
+specs/APP/APP-063_token-usage-computer-scope/TECH.md
+  h_5be255725524c8 1-311
+specs/APP/APP-063_token-usage-computer-scope/TEST.md
+  h_5be255725524c8 1-346
+specs/README.md
+  h_5be255725524c8 142
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.23",
+  "base_commit_sha": "78c9c42075f1acbe6422e23dc6e9041a25c93c4c",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
