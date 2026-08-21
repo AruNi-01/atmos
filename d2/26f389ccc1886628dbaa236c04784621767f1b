@@ -1,0 +1,23 @@
+apps/web/src/app-shell/workspace-center-frame.tsx
+  s_af0a21f09ac35c::t_6b13a76071c502 49,55,200,205-215,250,259,395-401,403,418-423,557,878-886
+apps/web/src/features/terminal/components/TerminalGrid.tsx
+  s_af0a21f09ac35c::t_145f57846b7f8b 45,209-210,212,214,221
+apps/web/src/features/terminal/components/TerminalWorkspacePane.tsx
+  s_af0a21f09ac35c::t_d7b60feefef88f 38,162,167,171,175,197-198,201
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.23",
+  "base_commit_sha": "d226f389ccc1886628dbaa236c04784621767f1b",
+  "prompts": {},
+  "sessions": {
+    "s_af0a21f09ac35c": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "528bd303-5a0f-4d14-a1f0-51094e345c46",
+        "model": "cursor-grok-4.6-xhigh"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
