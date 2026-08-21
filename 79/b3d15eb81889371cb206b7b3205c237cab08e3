@@ -1,0 +1,22 @@
+apps/desktop-electron/src/windows/main-window.ts
+  h_5be255725524c8 40-41
+apps/desktop-electron/src/windows/secondary.ts
+  h_5be255725524c8 54-55
+apps/web/src/app-shell/__tests__/overlay-scroll-bounce.test.ts
+  h_5be255725524c8 1-43
+apps/web/src/app/globals.css
+  h_5be255725524c8 272-281,284,288-291,351-355,357-358,362-363,365,367
+apps/web/src/features/editor/components/BaseCodeMirrorEditor.tsx
+  h_5be255725524c8 95
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.23",
+  "base_commit_sha": "79b3d15eb81889371cb206b7b3205c237cab08e3",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
