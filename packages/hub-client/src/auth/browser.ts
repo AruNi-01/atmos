@@ -3,7 +3,7 @@
  * Uses `better-auth/react` so UI libraries (e.g. better-auth-ui) can call `useSession`.
  * @see https://better-auth.com/docs/installation (Client section)
  *
- * Linked accounts / sessions use Hub `/v1/me/*` so both session cookie (web)
+ * Linked accounts use Hub `/v1/me/*` so both session cookie (web)
  * and device Bearer (desktop / phone) resolve the same user_id-bound data.
  */
 import { createAuthClient } from "better-auth/react";
@@ -47,17 +47,6 @@ export type HubLinkedAccount = {
   scopes: string[];
   /** Provider profile email when known (not necessarily Atmos user.email). */
   email?: string | null;
-};
-
-export type HubAuthSessionRow = {
-  id: string;
-  token: string;
-  userId: string;
-  expiresAt: Date | string;
-  createdAt: Date | string | null;
-  updatedAt: Date | string | null;
-  ipAddress?: string | null;
-  userAgent?: string | null;
 };
 
 export async function hubGetSession() {
@@ -160,29 +149,6 @@ export async function hubListAccounts(): Promise<HubLinkedAccount[]> {
   }
   const body = (await res.json()) as { accounts?: HubLinkedAccount[] };
   return Array.isArray(body.accounts) ? body.accounts : [];
-}
-
-/** Active Better Auth browser sessions for the current user. */
-export async function hubListSessions(): Promise<HubAuthSessionRow[]> {
-  if (!hubConfigured()) return [];
-  const res = await hubFetch("/v1/me/sessions");
-  if (res.status === 401) return [];
-  if (!res.ok) {
-    throw new Error(`Failed to list sessions (${res.status})`);
-  }
-  const body = (await res.json()) as { sessions?: HubAuthSessionRow[] };
-  return Array.isArray(body.sessions) ? body.sessions : [];
-}
-
-export async function hubRevokeSession(token: string): Promise<void> {
-  const res = await hubFetch("/v1/me/sessions/revoke", {
-    method: "POST",
-    body: JSON.stringify({ token }),
-  });
-  if (!res.ok) {
-    const err = (await res.json().catch(() => ({}))) as { error?: string };
-    throw new Error(err.error || `Failed to revoke session (${res.status})`);
-  }
 }
 
 export async function hubUnlinkAccount(opts: {

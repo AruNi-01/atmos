@@ -52,10 +52,8 @@ import {
   consumeLinkTicket,
   createLinkTicket,
   deleteUserAndRelated,
-  listActiveSessions,
   listLinkedAccounts,
   publicLinkedAccount,
-  revokeUserSession,
   unlinkLinkedAccount,
 } from "./user-security";
 import { makeSignature } from "better-auth/crypto";
@@ -195,56 +193,6 @@ export default {
           providerId,
           accountId: body.account_id?.trim() || undefined,
         });
-        if (!result.ok) {
-          return withCors(
-            env,
-            request,
-            json({ error: result.error }, result.status),
-          );
-        }
-        return withCors(env, request, json({ ok: true }));
-      }
-
-      if (path === "/v1/me/sessions" && request.method === "GET") {
-        const session = await requireUser(env, request);
-        if (session instanceof Response) return withCors(env, request, session);
-        const db = createDb(env);
-        // Prefer not pruning the browser's current session when over the cap.
-        let keepToken: string | undefined;
-        try {
-          const auth = authFromEnv(env);
-          const ba = await auth.api.getSession({
-            headers: new Headers({
-              cookie: request.headers.get("cookie") ?? "",
-              origin: request.headers.get("origin") ?? "",
-            }),
-          });
-          keepToken = ba?.session?.token;
-        } catch {
-          /* device-only: no cookie */
-        }
-        const sessions = await listActiveSessions(db, session.userId, {
-          keepToken,
-        });
-        return withCors(env, request, json({ sessions }));
-      }
-
-      if (path === "/v1/me/sessions/revoke" && request.method === "POST") {
-        const session = await requireUser(env, request);
-        if (session instanceof Response) return withCors(env, request, session);
-        const body = (await request.json().catch(() => ({}))) as {
-          token?: string;
-        };
-        const token = (body.token ?? "").trim();
-        if (!token) {
-          return withCors(
-            env,
-            request,
-            json({ error: "invalid_token", message: "token required" }, 400),
-          );
-        }
-        const db = createDb(env);
-        const result = await revokeUserSession(db, session.userId, token);
         if (!result.ok) {
           return withCors(
             env,
@@ -493,7 +441,7 @@ export default {
           }
           const ctx = await auth.$context;
           // Temporary session only for the internal link-social call — deleted after
-          // OAuth URL is minted so it does not clutter Active sessions as "Unknown".
+          // OAuth URL is minted so it does not linger as an extra Hub session.
           const created = await ctx.internalAdapter.createSession(claimed.userId);
           if (!created?.token) {
             return withCors(

@@ -10,14 +10,4 @@ export const LINK_TICKET_SHAPES = {
     scopes: ["read:user"],
     email: null as string | null,
   },
-  sampleSession: {
-    id: "sess_1",
-    token: "tok_abcdefghijklmnop",
-    userId: "user_1",
-    expiresAt: new Date("2026-12-01"),
-    createdAt: new Date("2026-01-01"),
-    updatedAt: new Date("2026-01-01"),
-    ipAddress: "1.2.3.4",
-    userAgent: "Mozilla/5.0",
-  },
 };

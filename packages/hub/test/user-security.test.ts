@@ -11,12 +11,6 @@ describe("user-security shapes", () => {
     expect(row.scopes).toEqual(["read:user"]);
   });
 
-  test("session row keeps token for revoke", () => {
-    const row = LINK_TICKET_SHAPES.sampleSession;
-    expect(row.token.length).toBeGreaterThan(8);
-    expect(row.userId).toBeTruthy();
-  });
-
   test("emailFromIdToken reads OIDC payload email", () => {
     const payload = btoa(JSON.stringify({ email: "user@gmail.com", sub: "1" }));
     const token = `hdr.${payload}.sig`;
