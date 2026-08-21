@@ -1,0 +1,30 @@
+apps/web/messages/en.json
+  h_5be255725524c8 638-642
+apps/web/messages/zh.json
+  h_5be255725524c8 638-642
+apps/web/src/app-shell/TokenUsagePage.tsx
+  h_5be255725524c8 25,32,183-186,379-380
+apps/web/src/app-shell/__tests__/token-usage-computer-scope.test.ts
+  h_5be255725524c8 19-25
+apps/web/src/features/token-usage/TokenUsageComputerScopeHint.tsx
+  h_5be255725524c8 1-56
+apps/web/src/features/token-usage/__tests__/token-usage-computer-scope-hint.test.ts
+  h_5be255725524c8 1-18
+apps/web/src/features/token-usage/lib/__tests__/unique-computers.test.ts
+  h_5be255725524c8 7,112-116
+apps/web/src/features/token-usage/lib/unique-computers.ts
+  h_5be255725524c8 123-133
+specs/APP/APP-063_token-usage-computer-scope/TECH.md
+  h_5be255725524c8 312
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.23",
+  "base_commit_sha": "b9ac8681bc4c3ce0774c5e792623fed20c972e65",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
