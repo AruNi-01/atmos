@@ -48,9 +48,11 @@ export const ROOT_RESIZE_HAIRLINE_BOTTOM_CSS = `calc(${APP_FOOTER_HEIGHT_PX}px +
 export const CENTER_STAGE_CARD_CLASS =
   "desktop-no-drag h-full min-h-0 overflow-hidden rounded-xl bg-background ring-1 ring-border/40";
 
-/** Column above the center-stage footer — drawer insets prefer this over the panel. */
+/** Column above the center-stage footer — drawer insets and stage fullscreen fill this. */
 export const CENTER_STAGE_BODY_ATTR = "data-center-stage-body";
 /** Visual floating card inside the center-stage shell. */
 export const CENTER_STAGE_CARD_ATTR = "data-center-stage-card";
 /** Root row under the header: left sidebar + center + footer. */
 export const APP_SHELL_PANEL_LAYOUT_ATTR = "data-app-shell-panel-layout";
+/** Center column (stage + footer). Fullscreen must not pin to this — it includes the footer. */
+export const APP_SHELL_CENTER_COLUMN_ATTR = "data-app-shell-center-column";

@@ -49,7 +49,10 @@ import {
   type CenterPaneDockRect,
 } from "@/app-shell/center-pane/center-pane-dock-hover";
 import { buildCenterPaneLivePreview } from "@/app-shell/center-pane/center-pane-drag-preview";
-import { centerPaneLeafTileStyle } from "@/app-shell/center-pane/center-pane-leaf-metrics";
+import {
+  centerPaneFullscreenTileStyle,
+  centerPaneLeafTileStyle,
+} from "@/app-shell/center-pane/center-pane-leaf-metrics";
 
 import "./center-pane-grid.css";
 
@@ -63,6 +66,8 @@ export type CenterPaneGridProps = {
   seedFromFullPane?: boolean;
   /** Painted workspace/project id — hops snap instead of morphing the previous split. */
   contextId?: string;
+  /** Focused pane that should cover sibling center regions (not the footer). */
+  fullscreenPaneId?: string | null;
   className?: string;
 };
 
@@ -101,6 +106,7 @@ export function CenterPaneGrid({
   renderPaneChrome,
   seedFromFullPane = false,
   contextId = "",
+  fullscreenPaneId = null,
   className,
 }: CenterPaneGridProps) {
   const normalized = React.useMemo(() => normalizeCenterPaneLayout(layout), [layout]);
@@ -296,17 +302,23 @@ export function CenterPaneGrid({
           const pane = paneById.get(leaf.id) ?? paneCacheRef.current.get(leaf.id);
           if (!pane) return null;
           const exiting = leaf.phase === "exit";
+          const isPaneFullscreen = !exiting && fullscreenPaneId === leaf.id;
           return (
             <div
               key={leaf.id}
               className="center-pane-leaf absolute min-h-0 min-w-0"
               data-phase={leaf.phase}
-              style={centerPaneLeafTileStyle(leaf)}
+              data-center-pane-fullscreen={isPaneFullscreen ? "" : undefined}
+              style={
+                isPaneFullscreen
+                  ? centerPaneFullscreenTileStyle()
+                  : centerPaneLeafTileStyle(leaf)
+              }
             >
               <SplitLeaf
                 pane={pane}
                 isFocused={!exiting && normalized.focusedPaneId === pane.id}
-                canDrag={canDrag && !exiting}
+                canDrag={canDrag && !exiting && !fullscreenPaneId}
                 draggingPaneId={draggingPaneId}
                 onFocus={onFocus}
                 renderPaneChrome={renderPaneChrome}
@@ -314,22 +326,24 @@ export function CenterPaneGrid({
             </div>
           );
         })}
-        {geometry.splits.map((split) => (
-          <SplitHandle
-            key={split.path.join("/") || "root"}
-            split={split}
-            treeRef={liveRef}
-            onLiveTree={publishLive}
-            onResizeStart={() => {
-              setLiveResizing(true);
-              beginLiveResize();
-            }}
-            onResizeEnd={() => {
-              commitLiveResize(onTreeChange);
-              setLiveResizing(false);
-            }}
-          />
-        ))}
+        {fullscreenPaneId
+          ? null
+          : geometry.splits.map((split) => (
+              <SplitHandle
+                key={split.path.join("/") || "root"}
+                split={split}
+                treeRef={liveRef}
+                onLiveTree={publishLive}
+                onResizeStart={() => {
+                  setLiveResizing(true);
+                  beginLiveResize();
+                }}
+                onResizeEnd={() => {
+                  commitLiveResize(onTreeChange);
+                  setLiveResizing(false);
+                }}
+              />
+            ))}
         {draggingPaneId
           ? ROOT_EDGES.map((edge) => <RootEdgeDrop key={edge} edge={edge} />)
           : null}

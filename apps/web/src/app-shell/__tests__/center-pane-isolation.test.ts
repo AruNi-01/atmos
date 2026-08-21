@@ -68,6 +68,7 @@ describe("center pane tab isolation", () => {
     expect(grid).toContain("data-center-pane-dragging");
     expect(grid).toContain("useAnimatedPaneTiles");
     expect(grid).toContain("centerPaneLeafTileStyle");
+    expect(grid).toContain("centerPaneFullscreenTileStyle");
     expect(grid).toContain("center-pane-leaf");
     expect(grid).toContain("data-pane-snap");
     expect(grid).toContain("contextId");

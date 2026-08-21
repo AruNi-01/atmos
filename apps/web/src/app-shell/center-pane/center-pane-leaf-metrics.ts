@@ -1,3 +1,5 @@
+import { CENTER_STAGE_FULLSCREEN_Z_INDEX } from "@/app-shell/center-stage-fullscreen";
+
 /** Gap between adjacent mosaic cards. Outer edges sit on the stage gutter. */
 export const CENTER_PANE_LEAF_GAP_PX = 4;
 const EDGE_EPS = 0.001;
@@ -43,5 +45,22 @@ export function centerPaneLeafTileStyle(
     top: `calc(${pct(leaf.top)} + ${inset.top}px)`,
     width: `calc(${pct(leaf.width)} - ${inset.left + inset.right}px)`,
     height: `calc(${pct(leaf.height)} - ${inset.top + inset.bottom}px)`,
+  };
+}
+
+/** Fill the mosaic so this pane covers sibling center regions, not the footer. */
+export function centerPaneFullscreenTileStyle(): {
+  left: string;
+  top: string;
+  width: string;
+  height: string;
+  zIndex: string;
+} {
+  return {
+    left: "calc(0% + 0px)",
+    top: "calc(0% + 0px)",
+    width: "calc(100% - 0px)",
+    height: "calc(100% - 0px)",
+    zIndex: String(CENTER_STAGE_FULLSCREEN_Z_INDEX),
   };
 }

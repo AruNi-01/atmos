@@ -87,12 +87,14 @@ export function paneSlotBoxesForContextSwitch(input: {
 /**
  * Measure `[data-center-pane-content-slot]` boxes relative to `hostRef`.
  * Used to position keep-alive panels into multi-pane content slots without remounting.
+ * `remeasureKey` re-runs the observer when overlay geometry changes (e.g. pane fullscreen).
  */
 export function useCenterPaneSlotBoxes(
   hostRef: React.RefObject<HTMLElement | null>,
   layout: CenterPaneLayout | null,
   enabled: boolean,
   contextId?: string | null,
+  remeasureKey?: string | null,
 ): Record<string, PaneSlotBox> {
   const [boxes, setBoxes] = React.useState<Record<string, PaneSlotBox>>({});
   const cacheRef = React.useRef<Record<string, Record<string, PaneSlotBox>>>({});
@@ -198,7 +200,16 @@ export function useCenterPaneSlotBoxes(
       window.removeEventListener("resize", measure);
     };
     // Depend on stable string keys only — never the layout object identity.
-  }, [contextId, enabled, fractionKey, hostRef, occupancyKey, orderKey, treeKey]);
+  }, [
+    contextId,
+    enabled,
+    fractionKey,
+    hostRef,
+    occupancyKey,
+    orderKey,
+    remeasureKey,
+    treeKey,
+  ]);
 
   return boxes;
 }

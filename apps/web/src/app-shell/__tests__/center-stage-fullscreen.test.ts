@@ -8,33 +8,61 @@ import {
   centerStageFullscreenPinStyle,
   describeRectGrowth,
   measureExpandedCenterStageRect,
+  paneHiddenByCenterFullscreen,
 } from "@/app-shell/center-stage-fullscreen";
+import { APP_FOOTER_HEIGHT_PX } from "@/app-shell/sidebar-layout-constants";
+import { centerPaneFullscreenTileStyle } from "@/app-shell/center-pane/center-pane-leaf-metrics";
 
 describe("center stage fullscreen geometry", () => {
-  it("expands a right-hand stage left and down over the panel layout", () => {
-    const resting = { top: 48, left: 320, width: 960, height: 700 };
+  it("expands a left pane across sibling center regions, not the footer or sidebar", () => {
+    const resting = { top: 48, left: 320, width: 480, height: 700 };
     const expanded = measureExpandedCenterStageRect({
-      panel: { top: 48, left: 0, width: 1280, height: 752 },
+      body: { top: 48, left: 320, width: 960, height: 700 },
+      footerHeight: APP_FOOTER_HEIGHT_PX,
       viewportWidth: 1280,
       viewportHeight: 800,
     });
-    expect(expanded).toEqual({ top: 48, left: 0, width: 1280, height: 752 });
+    expect(expanded).toEqual({ top: 48, left: 320, width: 960, height: 700 });
+    expect(expanded.height).toBe(resting.height);
     expect(describeRectGrowth(resting, expanded)).toEqual({
-      growsLeft: true,
-      growsRight: false,
+      growsLeft: false,
+      growsRight: true,
       growsUp: false,
-      growsDown: true,
+      growsDown: false,
     });
   });
 
-  it("falls back to the area below the header when the panel is missing", () => {
+  it("falls back below the header without covering the left sidebar or footer", () => {
     expect(
       measureExpandedCenterStageRect({
         headerBottom: 48,
+        fallbackLeft: 320,
+        footerHeight: APP_FOOTER_HEIGHT_PX,
         viewportWidth: 1280,
         viewportHeight: 800,
       }),
-    ).toEqual({ top: 48, left: 0, width: 1280, height: 752 });
+    ).toEqual({
+      top: 48,
+      left: 320,
+      width: 960,
+      height: 800 - 48 - APP_FOOTER_HEIGHT_PX,
+    });
+  });
+
+  it("falls back to the area below the header when the body is missing", () => {
+    expect(
+      measureExpandedCenterStageRect({
+        headerBottom: 48,
+        footerHeight: APP_FOOTER_HEIGHT_PX,
+        viewportWidth: 1280,
+        viewportHeight: 800,
+      }),
+    ).toEqual({
+      top: 48,
+      left: 0,
+      width: 1280,
+      height: 800 - 48 - APP_FOOTER_HEIGHT_PX,
+    });
   });
 
   it("pins with viewport-fixed box geometry instead of a scale transform", () => {
@@ -42,16 +70,31 @@ describe("center stage fullscreen geometry", () => {
       top: 48,
       left: 0,
       width: 1280,
-      height: 752,
+      height: 700,
     });
     expect(style.position).toBe("fixed");
     expect(style.zIndex).toBe(String(CENTER_STAGE_FULLSCREEN_Z_INDEX));
     expect(style.top).toBe("48px");
     expect(style.left).toBe("0px");
     expect(style.width).toBe("1280px");
-    expect(style.height).toBe("752px");
+    expect(style.height).toBe("700px");
     expect(style).not.toHaveProperty("transform");
     expect(CENTER_STAGE_FULLSCREEN_MOTION_MS).toBeGreaterThan(0);
+  });
+
+  it("hides sibling overlay content while the focused pane is fullscreen", () => {
+    expect(paneHiddenByCenterFullscreen("pane-a", "pane-b")).toBe(true);
+    expect(paneHiddenByCenterFullscreen("pane-a", "pane-a")).toBe(false);
+    expect(paneHiddenByCenterFullscreen(null, "pane-b")).toBe(false);
+  });
+
+  it("fills the mosaic with calc geometry so the leaf can transition over siblings", () => {
+    const style = centerPaneFullscreenTileStyle();
+    expect(style.left).toBe("calc(0% + 0px)");
+    expect(style.top).toBe("calc(0% + 0px)");
+    expect(style.width).toBe("calc(100% - 0px)");
+    expect(style.height).toBe("calc(100% - 0px)");
+    expect(style.zIndex).toBe(String(CENTER_STAGE_FULLSCREEN_Z_INDEX));
   });
 });
 
@@ -73,15 +116,34 @@ describe("center stage fullscreen wiring", () => {
     expect(splitDownAt).toBeGreaterThan(splitRightAt);
     expect(menuBlock).toContain("Maximize2");
     expect(menuBlock).toContain("Minimize2");
+    expect(menuBlock).toContain("toggleCenterFullscreen(paneId)");
   });
 
-  it("keeps an in-flow slot so overlaying the stage does not collapse other regions", () => {
+  it("keeps an in-flow slot and expands the focused mosaic pane over siblings", () => {
     const stage = readFileSync(join(import.meta.dir, "../CenterStage.tsx"), "utf8");
     expect(stage).toContain('data-center-stage-fullscreen-slot=""');
     expect(stage).toContain("useCenterStageFullscreenMotion");
+    expect(stage).toContain("fullscreenPaneId={activeFullscreenPaneId}");
+    expect(stage).not.toContain("APP_SHELL_CENTER_COLUMN_ATTR");
 
-    const layout = readFileSync(join(import.meta.dir, "../PanelLayout.tsx"), "utf8");
-    expect(layout).toContain('data-app-shell-panel-layout=""');
+    const hook = readFileSync(
+      join(import.meta.dir, "../use-center-stage-fullscreen.ts"),
+      "utf8",
+    );
+    expect(hook).not.toContain("APP_SHELL_CENTER_COLUMN_ATTR");
+    expect(hook).not.toContain("APP_SHELL_PANEL_LAYOUT_ATTR");
+    expect(hook).toContain("paneId");
+
+    const grid = readFileSync(
+      join(import.meta.dir, "../center-pane/CenterPaneGrid.tsx"),
+      "utf8",
+    );
+    expect(grid).toContain("centerPaneFullscreenTileStyle");
+    expect(grid).toContain("data-center-pane-fullscreen");
+
+    const shell = readFileSync(join(import.meta.dir, "../AppShellMain.tsx"), "utf8");
+    expect(shell).toContain("data-center-stage-body");
+    expect(shell).toContain("<Footer />");
   });
 
   it("localizes fullscreen menu labels in every locale", () => {

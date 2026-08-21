@@ -1,6 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import {
   CENTER_PANE_LEAF_GAP_PX,
+  centerPaneFullscreenTileStyle,
   centerPaneLeafEdgeInsets,
   centerPaneLeafTileStyle,
 } from "@/app-shell/center-pane/center-pane-leaf-metrics";
@@ -41,5 +42,12 @@ describe("center pane leaf insets", () => {
     expect(centerPaneLeafTileStyle(topLeaf).top).toBe("calc(0% + 0px)");
     expect(centerPaneLeafTileStyle(bottomLeaf).top).toBe("calc(50% + 4px)");
     expect(centerPaneLeafTileStyle(bottomLeaf).height).toBe("calc(50% - 4px)");
+  });
+
+  it("fullscreen tile fills the mosaic without the sibling gap insets", () => {
+    const style = centerPaneFullscreenTileStyle();
+    expect(style.left).toBe("calc(0% + 0px)");
+    expect(style.width).toBe("calc(100% - 0px)");
+    expect(style.height).toBe("calc(100% - 0px)");
   });
 });

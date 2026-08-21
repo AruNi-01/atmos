@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
   APP_FOOTER_HEIGHT_PX,
+  APP_SHELL_CENTER_COLUMN_ATTR,
   APP_SHELL_PANEL_LAYOUT_ATTR,
   CENTER_STAGE_CARD_CLASS,
   CENTER_STAGE_GUTTER_CLASS,
@@ -62,10 +63,12 @@ describe("center-stage chrome", () => {
 
     const shell = read("../AppShellMain.tsx");
     expect(shell).toContain("data-center-stage-body");
+    expect(shell).toContain('data-app-shell-center-column=""');
     expect(shell).toContain("<Footer />");
 
     const layout = read("../PanelLayout.tsx");
     expect(APP_SHELL_PANEL_LAYOUT_ATTR).toBe("data-app-shell-panel-layout");
+    expect(APP_SHELL_CENTER_COLUMN_ATTR).toBe("data-app-shell-center-column");
     expect(layout).toContain('data-app-shell-panel-layout=""');
   });
 

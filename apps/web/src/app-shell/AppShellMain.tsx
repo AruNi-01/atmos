@@ -110,7 +110,10 @@ export function AppShellMain() {
           <PanelLayout
             leftSidebar={<LeftSidebar />}
             centerStage={
-              <div className="flex h-full min-h-0 flex-col overflow-hidden bg-sidebar">
+              <div
+                data-app-shell-center-column=""
+                className="flex h-full min-h-0 flex-col overflow-hidden bg-sidebar"
+              >
                 <div
                   data-center-stage-body
                   className="min-h-0 flex-1 overflow-hidden"
