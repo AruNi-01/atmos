@@ -308,5 +308,5 @@ If this breaks in production: hide the select (M12 false) or revert the page; wo
 
 - Share payload `summary.computer_count` (only when > 1). Hub `normalizeSharePayload` allowlists it. Leaderboard entries copy it from the snapshot.
 - Public handle and leaderboard render a superscript after `@handle` with a hover tooltip (`HandleComputerCount`).
-- Merge treats `cursor` as a **cloud API** client (`cloud-api-clients.ts`). Matching daily series (same account) keeps one copy; different series (different accounts) still sum. Local clients (claude, codex, …) always sum.
+- Merge treats tokscale account-level dumps as **cloud API** clients (`cloud-api-clients.ts`: `cursor`, `trae`, `warp`). Matching daily series (same account) keeps one copy; different series still sum. Per-machine clients (claude, codex, antigravity, …) always sum.
 - When the Computer select is hidden, the same toolbar slot shows a hint button: **Sign in** → Settings Account; **Add Computer** → Settings Remote access / Atmos Computer. Tooltip explains how to aggregate local usage.

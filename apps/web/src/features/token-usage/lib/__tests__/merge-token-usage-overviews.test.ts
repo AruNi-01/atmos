@@ -112,15 +112,40 @@ describe("mergeTokenUsageOverviews", () => {
     expect(merged.computer_count).toBe(2);
   });
 
-  it("sums Cursor usage from different accounts", () => {
-    const work = withClients(overview({ total_tokens: 0, days: [] }), {
-      cursor: [100, "2026-01-01"],
+  for (const clientId of ["cursor", "trae", "warp"] as const) {
+    it(`does not double-count the same ${clientId} account-level dump`, () => {
+      const laptop = withClients(overview({ total_tokens: 0, days: [] }), {
+        [clientId]: [100, "2026-01-01"],
+      });
+      const desktop = withClients(overview({ total_tokens: 0, days: [] }), {
+        [clientId]: [100, "2026-01-01"],
+      });
+      const merged = mergeTokenUsageOverviews([laptop, desktop]);
+      expect(clientTokens(merged, clientId)).toBe(100);
+      expect(merged.summary.total_tokens).toBe(100);
     });
-    const personal = withClients(overview({ total_tokens: 0, days: [] }), {
-      cursor: [40, "2026-01-01"],
+
+    it(`sums ${clientId} usage from different accounts`, () => {
+      const work = withClients(overview({ total_tokens: 0, days: [] }), {
+        [clientId]: [100, "2026-01-01"],
+      });
+      const personal = withClients(overview({ total_tokens: 0, days: [] }), {
+        [clientId]: [40, "2026-01-01"],
+      });
+      const merged = mergeTokenUsageOverviews([work, personal]);
+      expect(clientTokens(merged, clientId)).toBe(140);
     });
-    const merged = mergeTokenUsageOverviews([work, personal]);
-    expect(clientTokens(merged, "cursor")).toBe(140);
+  }
+
+  it("still sums identical Antigravity series (per-machine cache)", () => {
+    const laptop = withClients(overview({ total_tokens: 0, days: [] }), {
+      antigravity: [50, "2026-01-01"],
+    });
+    const desktop = withClients(overview({ total_tokens: 0, days: [] }), {
+      antigravity: [50, "2026-01-01"],
+    });
+    const merged = mergeTokenUsageOverviews([laptop, desktop]);
+    expect(clientTokens(merged, "antigravity")).toBe(100);
   });
 });
 
@@ -147,7 +172,7 @@ function withClients(
         const row = {
           client_id,
           model_id: "m",
-          provider_id: client_id === "cursor" ? "cursor" : "anthropic",
+          provider_id: client_id,
           breakdown: {
             input_tokens: tokens,
             output_tokens: 0,

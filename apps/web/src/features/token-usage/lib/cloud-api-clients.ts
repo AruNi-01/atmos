@@ -1,10 +1,18 @@
 /**
- * Token Usage clients whose numbers come from a **cloud account API**
- * (not per-machine session files). Atmos currently enriches Cursor this way
- * (`crates/token-usage` cursor CSV sync). The same account on two Computers
- * must not be summed when aggregating.
+ * Token Usage clients whose numbers are **account-level API dumps**, not
+ * per-machine session files. Classification follows tokscale-core parsers
+ * (`vendor/tokscale-core/src/sessions/{cursor,trae,warp}.rs`):
+ *
+ * - cursor — official usage CSV (`~/.config/tokscale/cursor-cache`)
+ * - trae — official session usage JSON (`trae-cache/sessions`)
+ * - warp — account requests/spend (`warp-cache`)
+ *
+ * Atmos only *fetches* Cursor today (`crates/token-usage` cursor CSV sync).
+ * Trae/Warp still count if a tokscale cache is already on disk. Matching
+ * daily series on two Computers must not be summed. `antigravity-cache` is
+ * that machine's IDE RPC dump — still per-Computer, not in this set.
  */
-export const CLOUD_API_CLIENT_IDS = new Set(["cursor"]);
+export const CLOUD_API_CLIENT_IDS = new Set(["cursor", "trae", "warp"]);
 
 export function isCloudApiClient(clientId: string): boolean {
   return CLOUD_API_CLIENT_IDS.has(clientId.trim().toLowerCase());
