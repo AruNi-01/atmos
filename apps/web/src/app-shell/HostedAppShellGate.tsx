@@ -1,11 +1,21 @@
 "use client";
 
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import dynamic from "next/dynamic";
 import { HostedLandingLoading } from "@/app-shell/HostedLandingLoading";
 import { useDesktopStartupPrefetchLoading } from "@/app-shell/bootstrap/DesktopStartupPrefetchBootstrap";
 import { HostedWelcomeGate } from "@/features/welcome/components/HostedWelcomeGate";
 import { useHostedConnectionStore } from "@/features/connection/store/hosted-connection-store";
+import { hasPtDesignCollabInvite } from "@/features/pt-design/collab-invite";
 import { isHostedAtmosOrigin } from "@/shared/lib/desktop-runtime";
+
+const PtDesignGuestStage = dynamic(
+  () =>
+    import("@/features/pt-design/PtDesignGuestStage").then(
+      (mod) => mod.PtDesignGuestStage,
+    ),
+  { ssr: false },
+);
 
 interface HostedBootstrapBoundaryProps {
   children: React.ReactNode;
@@ -91,6 +101,10 @@ export function HostedBootstrapBoundary({
   const desktopStartupLoading = useDesktopStartupPrefetchLoading(
     mounted && !hosted,
   );
+  const collabInviteOnLoad = useMemo(
+    () => (mounted ? hasPtDesignCollabInvite() : false),
+    [mounted],
+  );
 
   if (!mounted) {
     return <div className="flex min-h-0 flex-1 bg-background" />;
@@ -117,6 +131,16 @@ export function HostedBootstrapBoundary({
   }
 
   if (phase === "onboarding") {
+    if (collabInviteOnLoad) {
+      return (
+        <div
+          key="hosted-shell-pt-design-guest"
+          className="flex min-h-0 flex-1 animate-in flex-col bg-background fade-in duration-200"
+        >
+          <PtDesignGuestStage />
+        </div>
+      );
+    }
     return (
       <div
         key="hosted-shell-onboarding"

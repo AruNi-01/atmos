@@ -331,3 +331,8 @@ html[lang^="zh"] .excalidraw .pt-design-library-sidebar .sidebar-triggers .sideb
     box-shadow: 0 0 0 2px currentColor;
   }
 }
+
+/* Follow overlay is a square stroke; round it to match the center-stage card. */
+.excalidraw .follow-mode {
+  border-radius: var(--radius-xl, 0.875rem);
+}
