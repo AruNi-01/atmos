@@ -51,6 +51,8 @@ function openOrFocus(
       nodeIntegration: false,
       sandbox: false,
       webviewTag: true,
+      // macOS: nested overflow:auto rubber-banding. Default is false.
+      scrollBounce: true,
     },
   });
 

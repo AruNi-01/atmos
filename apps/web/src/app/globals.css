@@ -269,25 +269,26 @@ html:not([data-theme-ready="true"]) body {
     width: 100%;
   }
 
-  *::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
-  }
-
-  *::-webkit-scrollbar-track {
-    background: transparent;
-  }
-
-  *::-webkit-scrollbar-thumb {
-    @apply bg-muted-foreground/20 rounded-full;
-  }
-
-  *::-webkit-scrollbar-thumb:hover {
-    @apply bg-muted-foreground/40;
+  /*
+   * Overlay-safe scrollbar tint.
+   * Setting width/height on `::-webkit-scrollbar` switches Chromium from macOS
+   * overlay scrollbars to classic gutters and kills rubber-banding at the
+   * edges of overflow:auto regions. `scrollbar-color` tints the overlay thumb
+   * without changing the scrollbar theme.
+   */
+  * {
+    scrollbar-color: color-mix(in oklab, var(--muted-foreground) 28%, transparent) transparent;
+    scrollbar-width: auto;
   }
 
   *::-webkit-scrollbar-corner {
     background: transparent;
+  }
+
+  /* use-stick-to-bottom hardcodes `scrollbar-gutter: stable both-edges` inline.
+     Classic gutters also drop overlay rubber-banding on the chat transcript. */
+  .agent-chat-scroll {
+    scrollbar-gutter: auto !important;
   }
 }
 
@@ -347,58 +348,23 @@ html:not([data-theme-ready="true"]) body {
     scrollbar-width: none; /* Firefox */
   }
 
-  /* Scrollbar visible only on hover of container */
-  .scrollbar-on-hover::-webkit-scrollbar-thumb {
-    background: transparent;
-    transition: background 0.2s ease;
+  /* Hide classic thumbs until hover without forcing a classic scrollbar width
+     (which would disable overlay rubber-banding). Native overlay bars already
+     fade on idle. */
+  .scrollbar-on-hover {
+    scrollbar-color: transparent transparent;
   }
-  .scrollbar-on-hover:hover::-webkit-scrollbar-thumb {
-    @apply bg-muted-foreground/20;
-  }
-  .scrollbar-on-hover:hover::-webkit-scrollbar-thumb:hover {
-    @apply bg-muted-foreground/40;
+  .scrollbar-on-hover:hover {
+    scrollbar-color: color-mix(in oklab, var(--muted-foreground) 28%, transparent) transparent;
   }
 
   .scrollbar-overlay-on-hover {
-    -ms-overflow-style: none;
-    scrollbar-width: none;
+    scrollbar-color: transparent transparent;
+    scrollbar-width: auto;
   }
-  .scrollbar-overlay-on-hover::-webkit-scrollbar {
-    width: 0;
-    height: 0;
-  }
-  .scrollbar-overlay-on-hover:hover {
-    scrollbar-width: thin;
-  }
+  .scrollbar-overlay-on-hover:hover,
   .scrollbar-overlay-on-hover.is-scrolling {
-    scrollbar-width: thin;
-  }
-  .scrollbar-overlay-on-hover:hover::-webkit-scrollbar {
-    width: 4px;
-    height: 4px;
-  }
-  .scrollbar-overlay-on-hover.is-scrolling::-webkit-scrollbar {
-    width: 4px;
-    height: 4px;
-  }
-  .scrollbar-overlay-on-hover::-webkit-scrollbar-track {
-    background: transparent;
-  }
-  .scrollbar-overlay-on-hover::-webkit-scrollbar-thumb {
-    background: transparent;
-    border-radius: 9999px;
-  }
-  .scrollbar-overlay-on-hover:hover::-webkit-scrollbar-thumb {
-    @apply bg-muted-foreground/20;
-  }
-  .scrollbar-overlay-on-hover.is-scrolling::-webkit-scrollbar-thumb {
-    @apply bg-muted-foreground/20;
-  }
-  .scrollbar-overlay-on-hover:hover::-webkit-scrollbar-thumb:hover {
-    @apply bg-muted-foreground/40;
-  }
-  .scrollbar-overlay-on-hover.is-scrolling::-webkit-scrollbar-thumb:hover {
-    @apply bg-muted-foreground/40;
+    scrollbar-color: color-mix(in oklab, var(--muted-foreground) 28%, transparent) transparent;
   }
 }
 

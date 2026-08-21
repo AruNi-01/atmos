@@ -37,6 +37,8 @@ function baseWindowOptions(preload: string | undefined) {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false,
+      // macOS: nested overflow:auto rubber-banding. Default is false.
+      scrollBounce: true,
     },
   };
 }

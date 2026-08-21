@@ -92,7 +92,7 @@ function createEditorTheme(isDark: boolean): Extension {
         fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace',
         lineHeight: '1.6',
         overflow: 'auto',
-        scrollbarWidth: 'thin',
+        scrollbarWidth: 'auto',
         scrollbarColor: isDark ? 'rgba(161, 161, 170, 0.28) transparent' : 'rgba(113, 113, 122, 0.24) transparent',
       },
       '.cm-content': {
@@ -493,26 +493,6 @@ function createEditorTheme(isDark: boolean): Extension {
       },
       '.cm-minimap-overlay': {
         backgroundColor: isDark ? 'rgba(161, 161, 170, 0.55)' : 'rgba(113, 113, 122, 0.45)',
-      },
-      '.cm-scroller::-webkit-scrollbar': {
-        width: '6px',
-        height: '6px',
-      },
-      '.cm-scroller::-webkit-scrollbar-button': {
-        display: 'none',
-        width: '0',
-        height: '0',
-      },
-      '.cm-scroller::-webkit-scrollbar-thumb': {
-        backgroundColor: isDark ? 'rgba(161, 161, 170, 0.28)' : 'rgba(113, 113, 122, 0.24)',
-        borderRadius: '9999px',
-        border: 'none',
-      },
-      '.cm-scroller::-webkit-scrollbar-thumb:hover': {
-        backgroundColor: isDark ? 'rgba(161, 161, 170, 0.42)' : 'rgba(113, 113, 122, 0.38)',
-      },
-      '.cm-scroller::-webkit-scrollbar-track': {
-        background: 'transparent',
       },
       '.cm-scroller::-webkit-scrollbar-corner': {
         background: 'transparent',

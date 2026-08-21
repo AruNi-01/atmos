@@ -786,25 +786,6 @@
   box-shadow: none !important;
 }
 
-/* Unified Scrollbar */
-.terminal-grid-container ::-webkit-scrollbar {
-  width: 6px !important;
-  height: 6px !important;
-}
-
-.terminal-grid-container ::-webkit-scrollbar-track {
-  background: transparent !important;
-}
-
-.terminal-grid-container ::-webkit-scrollbar-thumb {
-  background: rgba(156, 163, 175, 0.2) !important;
-  border-radius: 10px !important;
-}
-
-.terminal-grid-container ::-webkit-scrollbar-thumb:hover {
-  background: rgba(156, 163, 175, 0.4) !important;
-}
-
 /* Maximization Overlay Logic */
 .terminal-grid-container {
   /* Create a containing block for position: fixed children */
