@@ -13,7 +13,8 @@ import {
   TextMorph,
 } from "@workspace/ui";
 import { ChevronRight, FileText } from "lucide-react";
-import { useContextParams } from "@/shared/hooks/use-context-params";
+import { attachCenterTab } from "@/app-shell/center-space/center-open-context";
+import { useCenterPaintContextId } from "@/app-shell/center-space/use-center-paint-context-id";
 import { useEditorStore } from "@/features/editor/store/use-editor-store";
 import { MarkdownCodeBlock } from "@/shared/components/markdown/MarkdownRenderer";
 import { resolveAgentVendor } from "@/features/agent/lib/agent/agent-vendor";
@@ -33,11 +34,13 @@ const REVIEW_PATH_RE = /(?:\/[\w.~-]+)*\/\.atmos\/reviews\/[\w./:~-]+\.md/;
 
 function useReviewLinkComponents() {
   const openFile = useEditorStore(s => s.openFile);
-  const { effectiveContextId } = useContextParams();
+  const paintContextId = useCenterPaintContextId();
 
   return useMemo(() => {
     const handleOpen = (path: string) => {
-      void openFile(path, effectiveContextId || undefined, { preview: true });
+      if (!paintContextId) return;
+      void openFile(path, paintContextId, { preview: true });
+      attachCenterTab(paintContextId, path);
     };
 
     const ReviewCode = (props: React.ComponentPropsWithoutRef<"code"> & { node?: unknown }) => {
@@ -61,7 +64,7 @@ function useReviewLinkComponents() {
     };
 
     return { code: ReviewCode };
-  }, [openFile, effectiveContextId]);
+  }, [openFile, paintContextId]);
 }
 
 function isBlockHidden(

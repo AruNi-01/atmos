@@ -11,6 +11,7 @@ import {
 import { cn } from "@/shared/lib/utils";
 import { useAppStorage } from "@atmos/shared";
 import { useContextParams } from "@/shared/hooks/use-context-params";
+import { useCenterPaintContextId } from "@/app-shell/center-space/use-center-paint-context-id";
 import { useSidebarLayout } from "@/app-shell/SidebarLayoutContext";
 import { logSidebarLayout } from "@/app-shell/sidebar-layout-debug";
 import {
@@ -38,6 +39,7 @@ export function PanelLayout({
 }: PanelLayoutProps) {
   const storage = useAppStorage();
   const { currentView, effectiveContextId } = useContextParams();
+  const paintContextId = useCenterPaintContextId();
   const layoutRootRef = useRef<HTMLDivElement>(null);
   const panelGroupRef = useRef<ImperativePanelGroupHandle>(null);
   const leftPanelRef = useRef<ImperativePanelHandle>(null);
@@ -63,9 +65,9 @@ export function PanelLayout({
   }, []);
   useEffect(() => {
     registerBrowserHostChrome({
-      currentContextId: () => effectiveContextId,
+      currentContextId: () => paintContextId || effectiveContextId,
     });
-  }, [effectiveContextId]);
+  }, [effectiveContextId, paintContextId]);
   const [layoutRootWidth, setLayoutRootWidth] = useState(0);
   const [leftOverlaySize, setLeftOverlaySize] = useState(
     leftSidebarSize > 0 ? leftSidebarSize : DEFAULT_LEFT_SIDEBAR_SIZE,

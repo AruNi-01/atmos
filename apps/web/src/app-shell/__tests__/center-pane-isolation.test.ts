@@ -41,7 +41,7 @@ describe("center pane tab isolation", () => {
   it("runs create and popover select on the pane that owns the tab bar", () => {
     const stage = readSibling("CenterStage.tsx");
     expect(stage).toContain("const runOnThisPane = (run: () => void) => {");
-    expect(stage).toContain("focusCenterPane(renderContextId, opts.paneId)");
+    expect(stage).toContain("focusCenterPane(mosaicWriteContextId, opts.paneId)");
     expect(stage).toContain("handleCreateTerminalCenterTab={() =>");
     expect(stage).toContain("runOnThisPane(handleCreateTerminalCenterTab)");
     expect(stage).toContain("appendTabToStripOrder(nextTab.id)");
@@ -96,7 +96,7 @@ describe("center pane tab isolation", () => {
     expect(empty).not.toContain("emptyPaneHint");
     expect(empty).toContain("closePane");
     expect(empty).toContain("onClose");
-    expect(stage).toContain("closeCenterPane(renderContextId, pane.id)");
+    expect(stage).toContain("closeCenterPane(mosaicWriteContextId, pane.id)");
   });
 
   it("does not wrap file editors in Base UI TabsPanel", () => {

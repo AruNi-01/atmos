@@ -12,9 +12,11 @@ const ReviewView = dynamic(() => import("@/features/diff/components/ReviewView")
 
 export function ReviewCenterPanel({
   filePath,
+  contextId,
   reviewTarget,
 }: {
   filePath: string;
+  contextId?: string | null;
   reviewTarget: ReviewTarget | null;
 }) {
   return (
@@ -24,7 +26,7 @@ export function ReviewCenterPanel({
           <ReviewActions />
         </div>
         <div className="min-h-0 flex-1">
-          <ReviewView />
+          <ReviewView contextId={contextId} />
         </div>
       </div>
     </ReviewContextProvider>

@@ -219,7 +219,9 @@ export function TerminalWorkspacePane(props: TerminalWorkspacePaneProps) {
     workspaceName: workspaceInfo?.workspaceName ?? null,
     localPath: workspaceInfo?.localPath ?? null,
     projectRootPath: activeProject?.mainFilePath ?? workspaceInfo?.localPath ?? null,
-    sourcePaneId: pane.tmuxWindowName ? `${workspaceId}:${pane.tmuxWindowName}` : pane.sessionId,
+    sourcePaneId: pane.tmuxWindowName
+      ? `${hostWorkspaceId}:${pane.tmuxWindowName}`
+      : pane.sessionId,
     sourceSessionId: pane.sessionId,
     sourceSurfaceKind: "terminal_pane",
     sourceSurfaceRef: {
@@ -255,7 +257,7 @@ export function TerminalWorkspacePane(props: TerminalWorkspacePaneProps) {
     : "Close (⌘W)";
 
   const stablePaneId = pane.tmuxWindowName
-    ? `${workspaceId}:${pane.tmuxWindowName}`
+    ? `${hostWorkspaceId}:${pane.tmuxWindowName}`
     : pane.sessionId;
   const attentionReason = useAgentAttentionStore(
     (s) => s.panes.get(stablePaneId)?.reason ?? null,
@@ -465,6 +467,7 @@ export function TerminalWorkspacePane(props: TerminalWorkspacePaneProps) {
           }}
           sessionId={pane.sessionId}
           workspaceId={pane.workspaceId}
+          openContextId={workspaceId}
           tmuxWindowName={pane.tmuxWindowName}
           projectName={workspaceInfo?.projectName}
           workspaceName={workspaceInfo?.workspaceName}

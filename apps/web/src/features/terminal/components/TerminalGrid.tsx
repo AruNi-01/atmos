@@ -281,7 +281,7 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
       const pane = panes[paneId];
       if (!pane) return;
       const stablePaneId = pane.tmuxWindowName
-        ? `${workspaceId}:${pane.tmuxWindowName}`
+        ? `${hostIdFromCenterKey(workspaceId)}:${pane.tmuxWindowName}`
         : pane.sessionId;
       useAgentAttentionStore.getState().notifyPaneFocused(stablePaneId);
     },
@@ -411,7 +411,7 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
   const clearAgentHookSessionForPane = useCallback((pane: { tmuxWindowName?: string | null }) => {
     const windowName = pane.tmuxWindowName;
     if (!windowName || !workspaceId) return;
-    const stablePaneId = `${workspaceId}:${windowName}`;
+    const stablePaneId = `${hostIdFromCenterKey(workspaceId)}:${windowName}`;
     useAgentAttentionStore.getState().clearPane(stablePaneId);
     useAgentAttentionSummaryStore.getState().clearPane(stablePaneId);
     void agentHooksApi

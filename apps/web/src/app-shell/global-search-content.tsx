@@ -19,10 +19,12 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
+} from "@workspace/ui";
+import {
   Tabs,
   TabsList,
-  TabsTab,
-} from "@workspace/ui";
+  TabsTrigger,
+} from "@workspace/ui/components/motion/tabs";
 import type { SearchMatch } from "@/api/ws-api";
 import type { Task } from "@/features/workspace/hooks/use-workspace-context";
 import { TaskListPanel } from "@/features/workspace/components/TaskListPanel";
@@ -448,21 +450,25 @@ export function GlobalSearchMainView({
         hoveredValue={hoveredValue}
         selectedValue={selectedValue}
       />
-      <div className="px-1">
-        <Tabs value={globalSearchTab} onValueChange={(value) => setGlobalSearchTab(value as SearchTab)} className="h-full w-full">
-          <TabsList variant="underline" className="flex h-12 w-full border-b border-border">
-            <TabsTab value="app" className="flex h-full flex-1 gap-2 text-[12px] font-semibold transition-all">
-              <Layers className="size-3.5" />
-              <span>{t("globalSearch.tabs.app")}</span>
-            </TabsTab>
-            <TabsTab value="files" className="flex h-full flex-1 gap-2 text-[12px] font-semibold transition-all">
-              <File className="size-3.5" />
-              <span>{t("globalSearch.tabs.files")}</span>
-            </TabsTab>
-            <TabsTab value="code" className="flex h-full flex-1 gap-2 text-[12px] font-semibold transition-all">
-              <Code className="size-3.5" />
-              <span>{t("globalSearch.tabs.code")}</span>
-            </TabsTab>
+      <div className="flex h-12 shrink-0 items-center px-3 pt-2">
+        <Tabs
+          value={globalSearchTab}
+          onValueChange={(value) => setGlobalSearchTab(value as SearchTab)}
+          variant="pill"
+        >
+          <TabsList className="h-8 gap-0.5 p-0.5">
+            <TabsTrigger value="app" className="h-7 gap-1.5 px-3 text-xs">
+              <Layers className="size-3.5 shrink-0" />
+              {t("globalSearch.tabs.app")}
+            </TabsTrigger>
+            <TabsTrigger value="files" className="h-7 gap-1.5 px-3 text-xs">
+              <File className="size-3.5 shrink-0" />
+              {t("globalSearch.tabs.files")}
+            </TabsTrigger>
+            <TabsTrigger value="code" className="h-7 gap-1.5 px-3 text-xs">
+              <Code className="size-3.5 shrink-0" />
+              {t("globalSearch.tabs.code")}
+            </TabsTrigger>
           </TabsList>
         </Tabs>
       </div>

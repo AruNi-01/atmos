@@ -57,6 +57,7 @@ import {
 import { formatLocalDateTime } from '@atmos/shared';
 import { MarkdownRenderer } from '@/shared/components/markdown/MarkdownRenderer';
 import { useWorkspaceContext, type TaskStatus } from '@/features/workspace/hooks/use-workspace-context';
+import { attachCenterTab } from "@/app-shell/center-space/center-open-context";
 import { useEditorStore } from '@/features/editor/store/use-editor-store';
 import { useProjectStore } from '@/features/project/store/use-project-store';
 import { useWorkspaceLabels } from '@/features/project/hooks/use-project-bootstrap-query';
@@ -81,6 +82,8 @@ type OverviewPullRequest = {
 
 interface OverviewTabProps {
   contextId: string;
+  /** Center paint id for opening files/tabs. Defaults to `contextId`. */
+  editorContextId?: string;
   projectId?: string;
   projectName?: string;
   projectPath?: string;
@@ -217,6 +220,7 @@ function MetadataControlGroup({
 
 export const OverviewTab: React.FC<OverviewTabProps> = ({
   contextId,
+  editorContextId,
   projectId,
   projectName,
   projectPath,
@@ -239,6 +243,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
   const t = useTranslations('Workspace.components.overviewTab');
   const relativeTimeLocale = locale.startsWith('zh') ? zhCN : enUS;
   const openFile = useEditorStore(s => s.openFile);
+  const fileOpenContextId = editorContextId || contextId;
   const updateWorkspacePriority = useProjectStore(s => s.updateWorkspacePriority);
   const updateWorkspaceWorkflowStatus = useProjectStore(s => s.updateWorkspaceWorkflowStatus);
   const updateWorkspaceLabels = useProjectStore(s => s.updateWorkspaceLabels);
@@ -430,10 +435,12 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
         prNumber: pr.number,
         repo: githubRepo,
         title: pr.title as string | undefined,
+        contextId: fileOpenContextId,
       });
     },
     [
       effectiveGitBranch,
+      fileOpenContextId,
       githubOwner,
       githubRepo,
       onOpenPullRequest,
@@ -448,9 +455,14 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
         return;
       }
       if (!githubOwner || !githubRepo) return;
-      openActionRunTab({ owner: githubOwner, repo: githubRepo, run });
+      openActionRunTab({
+        owner: githubOwner,
+        repo: githubRepo,
+        run,
+        contextId: fileOpenContextId,
+      });
     },
-    [githubOwner, githubRepo, onOpenActionRun, openActionRunTab],
+    [fileOpenContextId, githubOwner, githubRepo, onOpenActionRun, openActionRunTab],
   );
 
   const taskDragOverlay = (
@@ -670,7 +682,10 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                         <Tooltip>
                           <TooltipTrigger asChild>
                             <div
-                              onClick={() => openFile(file.path, contextId, { preview: true })}
+                              onClick={() => {
+                                void openFile(file.path, fileOpenContextId, { preview: true });
+                                attachCenterTab(fileOpenContextId, file.path);
+                              }}
                               className="flex items-center gap-2.5 p-2 rounded-md bg-muted/20 hover:bg-muted/40 transition-colors cursor-pointer group min-w-0"
                             >
                               <FileCheck className="size-3.5 shrink-0 text-muted-foreground group-hover:text-foreground transition-colors" />

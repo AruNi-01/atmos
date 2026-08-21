@@ -13,7 +13,8 @@ import { MessageSquarePlus, ChevronRight, LoaderCircle, List, ListTree } from "l
 import { cn } from "@/shared/lib/utils";
 import { useReviewCtx } from "@/features/diff/components/review/ReviewContextProvider";
 import { useReviewSnapshotStore } from "@/features/code-review/store/review-snapshot-store";
-import { useContextParams } from "@/shared/hooks/use-context-params";
+import { attachCenterTab } from "@/app-shell/center-space/center-open-context";
+import { useCenterPaintContextId } from "@/app-shell/center-space/use-center-paint-context-id";
 import {
   useEditorStore,
   EDITOR_REVIEW_DIFF_PREFIX,
@@ -58,8 +59,8 @@ const ReviewView: React.FC<ReviewViewProps> = ({
 }) => {
   const t = useTranslations("diff.reviewView");
   const locale = useLocale();
-  const { effectiveContextId } = useContextParams();
-  const reviewEditorKey = contextId ?? effectiveContextId;
+  const paintContextId = useCenterPaintContextId();
+  const reviewEditorKey = contextId ?? paintContextId;
   const getActiveFilePath = useEditorStore((s) => s.getActiveFilePath);
   const rawFilePath = (reviewEditorKey && getActiveFilePath(reviewEditorKey)) || "";
   const activeGroupedFilePath = useEditorStore((s) =>
@@ -174,6 +175,9 @@ const ReviewView: React.FC<ReviewViewProps> = ({
         reviewCommentGuid,
         reviewMessageGuid,
       });
+      if (reviewEditorKey) {
+        attachCenterTab(reviewEditorKey, reviewGroupPath);
+      }
       if (!preview) {
         pinFile(reviewGroupPath, reviewEditorKey ?? undefined);
       }

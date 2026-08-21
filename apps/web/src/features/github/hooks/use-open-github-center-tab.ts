@@ -10,11 +10,18 @@ import { useContextParams } from "@/shared/hooks/use-context-params";
 import { useAppRouter } from "@/shared/hooks/use-app-router";
 import { centerStageParams } from "@/shared/lib/nuqs/searchParams";
 import { useTaskGithubDrawerNav } from "@/features/task/components/task-github-drawer/task-github-drawer-nav-context";
+import { hostIdFromCenterKey } from "@/app-shell/center-space/center-space";
+import {
+  attachCenterTab,
+  resolveCenterOpenContextId,
+} from "@/app-shell/center-space/center-open-context";
+import { useCenterPaintContextId } from "@/app-shell/center-space/use-center-paint-context-id";
 
 export function useOpenGithubCenterTab() {
   const t = useTranslations("github.centerTabs");
   const router = useAppRouter();
-  const { effectiveContextId } = useContextParams();
+  const { effectiveContextId: hostContextId } = useContextParams();
+  const paintContextId = useCenterPaintContextId();
   const [, setCenterStageParams] = useQueryStates(centerStageParams);
   const drawerNav = useTaskGithubDrawerNav();
   const openPullRequest = useGithubCenterTabsStore(
@@ -32,24 +39,29 @@ export function useOpenGithubCenterTab() {
   /**
    * Activate a center tab on `contextId`. When opening for another workspace,
    * navigate there with `tab` in the query so the surface switch keeps it.
+   * Extra-space paint ids are not workspace route ids.
    */
   const activateTab = React.useCallback(
     (value: string, contextId: string) => {
       setActiveFile(null, contextId);
-      if (contextId !== effectiveContextId) {
+      attachCenterTab(contextId, value);
+      const targetHost = hostIdFromCenterKey(contextId);
+      const currentHost = hostContextId ? hostIdFromCenterKey(hostContextId) : "";
+      if (targetHost && targetHost !== currentHost) {
         router.push(
-          `/workspace?id=${encodeURIComponent(contextId)}&tab=${encodeURIComponent(value)}`,
+          `/workspace?id=${encodeURIComponent(targetHost)}&tab=${encodeURIComponent(value)}`,
         );
         return;
       }
       void setCenterStageParams({ tab: value, wikiPage: null });
     },
-    [effectiveContextId, router, setActiveFile, setCenterStageParams],
+    [hostContextId, router, setActiveFile, setCenterStageParams],
   );
 
   const resolveContextId = React.useCallback(
-    (contextId?: string | null) => contextId || effectiveContextId || null,
-    [effectiveContextId],
+    (contextId?: string | null) =>
+      resolveCenterOpenContextId(contextId, hostContextId, paintContextId),
+    [hostContextId, paintContextId],
   );
 
   const openPullRequestTab = React.useCallback(

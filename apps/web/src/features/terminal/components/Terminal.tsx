@@ -204,6 +204,7 @@ function fitTerminalPreservingScroll(
 const Terminal = ({
   sessionId,
   workspaceId,
+  openContextId,
   className,
   tmuxWindowName,
   projectName,
@@ -473,7 +474,7 @@ const Terminal = ({
     cwd,
     projectRootPath,
     terminalRef,
-    workspaceId,
+    workspaceId: openContextId || workspaceId,
   });
 
   const wsUrl = buildTerminalWsUrl({

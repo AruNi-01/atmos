@@ -27,6 +27,8 @@ export interface TerminalSize {
 export interface TerminalProps {
   sessionId: string;
   workspaceId: string;
+  /** Center paint id for opening file links. Defaults to `workspaceId`. */
+  openContextId?: string;
   className?: string;
   /** tmux window name for reconnection (if set, will try to attach to existing window) */
   tmuxWindowName?: string;

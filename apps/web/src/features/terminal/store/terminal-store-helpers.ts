@@ -188,6 +188,43 @@ export function createFixedTerminalTab(): TerminalCenterTab {
   };
 }
 
+/**
+ * Extra center spaces share the host workspace tmux session (same cwd / git).
+ * Window names must still be unique: backend create is attach-if-exists, so a
+ * second space that opens window "1" would show the first space's terminal.
+ * Prefix is tmux-safe (no `:`) and easy to skip when hydrating the default space.
+ */
+const EXTRA_SPACE_TMUX_WINDOW_MARK = "cs__";
+
+export function extraCenterSpaceTmuxWindowPrefix(
+  paintContextId: string,
+): string | null {
+  const { spaceId } = parseCenterSpaceKey(paintContextId);
+  if (spaceId === DEFAULT_CENTER_SPACE_ID) return null;
+  return `${EXTRA_SPACE_TMUX_WINDOW_MARK}${spaceId}__`;
+}
+
+export function isExtraCenterSpaceTmuxWindowName(name: string): boolean {
+  return name.startsWith(EXTRA_SPACE_TMUX_WINDOW_MARK);
+}
+
+export function namespacedTmuxWindowName(
+  paintContextId: string,
+  localName: string,
+): string {
+  if (
+    !localName ||
+    localName === PROJECT_WIKI_WINDOW_NAME ||
+    localName === CODE_REVIEW_WINDOW_NAME
+  ) {
+    return localName;
+  }
+  const prefix = extraCenterSpaceTmuxWindowPrefix(paintContextId);
+  if (!prefix) return localName;
+  if (localName.startsWith(prefix)) return localName;
+  return `${prefix}${localName}`;
+}
+
 export function createTerminalPane(
   workspaceId: string,
   label: string,
@@ -198,12 +235,13 @@ export function createTerminalPane(
     agent?: TerminalPaneAgent;
   },
 ): TerminalPaneProps {
+  const localName = options.tmuxWindowName ?? label;
   return {
     id: options.id ?? uuidv4(),
     label,
     sessionId: uuidv4(),
     workspaceId: hostIdFromCenterKey(workspaceId),
-    tmuxWindowName: options.tmuxWindowName ?? label,
+    tmuxWindowName: namespacedTmuxWindowName(workspaceId, localName),
     isNewPane: options.isNewPane,
     agent: options.agent,
   };
@@ -537,6 +575,7 @@ export function createLayoutFromTmuxWindows(
   const paneIds: string[] = [];
 
   for (const win of windows) {
+    if (isExtraCenterSpaceTmuxWindowName(win.name)) continue;
     const id = uuidv4();
     paneIds.push(id);
     panes[id] = createTerminalPane(workspaceId, win.name, {
@@ -546,7 +585,10 @@ export function createLayoutFromTmuxWindows(
     });
   }
 
-  let layout: TerminalLayoutNode<string> = paneIds[0];
+  const firstPaneId = paneIds[0];
+  if (!firstPaneId) return null;
+
+  let layout: TerminalLayoutNode<string> = firstPaneId;
   for (let index = 1; index < paneIds.length; index++) {
     layout = {
       direction: "row",
