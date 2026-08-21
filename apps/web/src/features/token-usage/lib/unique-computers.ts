@@ -120,6 +120,17 @@ export function shouldShowComputerSelect(opts: {
   return opts.signedIn && opts.uniqueCount >= 2;
 }
 
+export type ComputerScopeHintKind = "sign-in" | "add-computer";
+
+/** Hint in the select slot when All computers is not available yet. */
+export function computerScopeHintKind(opts: {
+  signedIn: boolean;
+  uniqueCount: number;
+}): ComputerScopeHintKind | null {
+  if (shouldShowComputerSelect(opts)) return null;
+  return opts.signedIn ? "add-computer" : "sign-in";
+}
+
 export function currentUniqueComputer(
   devices: UniqueComputer[],
 ): UniqueComputer | null {

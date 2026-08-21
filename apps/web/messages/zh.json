@@ -635,7 +635,11 @@
         "missedComputer": "未计入 {name}",
         "missedBanner": "有的 Computer 没连上，合计只包含已扫到的机器。",
         "noneReached": "没有任何 Computer 可以连接。",
-        "aggregatedTooltip": "来自 {count} 台 Computer 的合计"
+        "aggregatedTooltip": "来自 {count} 台 Computer 的合计",
+        "hintSignIn": "登录",
+        "hintSignInTooltip": "登录后再添加另一台 Computer，即可合计各台机器的本地 Token 用量。",
+        "hintAddComputer": "添加 Computer",
+        "hintAddComputerTooltip": "在设置里再添加一台 Computer，即可合计各台机器的本地 Token 用量。"
       },
       "browserCookie": {
         "title": "包含已登录网页用量",
