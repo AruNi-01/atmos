@@ -44,6 +44,10 @@ import {
 import { HOST_RESIZE_DRAG_ATTR } from "@/features/terminal/lib/host-resize-pin";
 import { useLiveSplitLayout } from "@/features/terminal/lib/use-live-split-layout";
 import { useAnimatedPaneTiles } from "@/app-shell/center-pane/use-animated-pane-tiles";
+import {
+  shouldSuppressCenterPaneDockHover,
+  type CenterPaneDockRect,
+} from "@/app-shell/center-pane/center-pane-dock-hover";
 import { buildCenterPaneLivePreview } from "@/app-shell/center-pane/center-pane-drag-preview";
 import { centerPaneLeafTileStyle } from "@/app-shell/center-pane/center-pane-leaf-metrics";
 
@@ -144,6 +148,8 @@ export function CenterPaneGrid({
   const [preview, setPreview] = React.useState<PaneDragPreview | null>(null);
   const [ghostPose, setGhostPose] = React.useState<GhostPose | null>(null);
   const grabOffsetRef = React.useRef({ x: 0, y: 0 });
+  const sourceRectRef = React.useRef<CenterPaneDockRect | null>(null);
+  const otherRectsRef = React.useRef<CenterPaneDockRect[]>([]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -163,6 +169,18 @@ export function CenterPaneGrid({
 
   const updateHover = React.useCallback((event: DragMoveEvent) => {
     moveGhost(event);
+    const pointer = pointerFromDragEvent(event);
+    if (
+      shouldSuppressCenterPaneDockHover(
+        pointer,
+        sourceRectRef.current,
+        otherRectsRef.current,
+      )
+    ) {
+      hoverRef.current = null;
+      setHover(null);
+      return;
+    }
     const over = event.over;
     if (!over) {
       hoverRef.current = null;
@@ -183,7 +201,6 @@ export function CenterPaneGrid({
       setHover(null);
       return;
     }
-    const pointer = pointerFromDragEvent(event);
     const edge = pointer
       ? hitDockEdge(over.rect, pointer.x, pointer.y)
       : "bottom";
@@ -198,10 +215,10 @@ export function CenterPaneGrid({
     const el = document.querySelector(
       `[data-center-split-leaf="${CSS.escape(paneId)}"]`,
     );
-    const rect =
-      el instanceof HTMLElement
-        ? el.getBoundingClientRect()
-        : { width: 360, height: 240, left: 0, top: 0 };
+    const sourceRect = el instanceof HTMLElement ? el.getBoundingClientRect() : null;
+    sourceRectRef.current = sourceRect;
+    otherRectsRef.current = collectOtherPaneRects(paneId);
+    const rect = sourceRect ?? { width: 360, height: 240, left: 0, top: 0 };
     const sized = scaleTerminalDragPreview(rect.width, rect.height);
     const pointer = getEventCoordinates(event.activatorEvent);
     const grab = dragPreviewGrabOffset(sized.width);
@@ -230,6 +247,8 @@ export function CenterPaneGrid({
 
   const finishDrag = React.useCallback(() => {
     hoverRef.current = null;
+    sourceRectRef.current = null;
+    otherRectsRef.current = [];
     setDraggingPaneId(null);
     setHover(null);
     setPreview(null);
@@ -611,6 +630,17 @@ function CenterPaneDockPreview({
     />,
     card,
   );
+}
+
+function collectOtherPaneRects(sourcePaneId: string): CenterPaneDockRect[] {
+  const nodes = document.querySelectorAll("[data-center-split-leaf]");
+  const rects: CenterPaneDockRect[] = [];
+  for (const node of nodes) {
+    if (!(node instanceof HTMLElement)) continue;
+    if (node.getAttribute("data-center-split-leaf") === sourcePaneId) continue;
+    rects.push(node.getBoundingClientRect());
+  }
+  return rects;
 }
 
 function readPaneId(data: Record<string, unknown> | undefined): string | null {
