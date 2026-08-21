@@ -53,3 +53,23 @@ describe("workspace create overlay", () => {
     expect(header).toContain("HeaderWorkspaceJobs");
   });
 });
+
+describe("header workspace setup grouping", () => {
+  test("collapses multiple setups into a nested popover instead of sibling chips", () => {
+    const source = readFileSync(
+      join(import.meta.dir, "../HeaderWorkspaceJobs.tsx"),
+      "utf8",
+    );
+
+    expect(source).toContain("collectHeaderWorkspaceSetupItems");
+    expect(source).toContain("isHeaderWorkspaceSetupReadyToOpen");
+    expect(source).toContain("items.length > 1");
+    expect(source).toContain("data-header-setup-nested");
+    expect(source).toContain('side="right"');
+    expect(source).toContain("CheckCircle2");
+    expect(source).toContain('t("ready")');
+    expect(source).not.toContain("border-b border-border/60");
+    expect(source).not.toContain("backgroundJobs");
+    expect(source).not.toContain("showList");
+  });
+});
