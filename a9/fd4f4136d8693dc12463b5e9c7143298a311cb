@@ -1,0 +1,16 @@
+apps/web/src/shared/components/__tests__/breakout-error-page.test.tsx
+  h_5be255725524c8 8,45,61-67,76-97
+apps/web/src/shared/components/breakout-error-page.tsx
+  h_5be255725524c8 388,400-406
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.23",
+  "base_commit_sha": "a9fd4f4136d8693dc12463b5e9c7143298a311cb",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
