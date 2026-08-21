@@ -1,0 +1,16 @@
+apps/web/src/app-shell/__tests__/center-pane-isolation.test.ts
+  h_5be255725524c8 101-107
+apps/web/src/app-shell/workspace-center-frame.tsx
+  h_5be255725524c8 12,572,574,578,623
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.23",
+  "base_commit_sha": "ebf4a9a6a2fb131669a619cd56bfa7c3220a3b6a",
+  "prompts": {},
+  "humans": {
+    "h_5be255725524c8": {
+      "author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
