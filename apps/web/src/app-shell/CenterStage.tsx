@@ -105,6 +105,7 @@ import {
   UnsavedChangesDialog,
 } from "@/app-shell/center-stage-dialogs";
 
+import { useCenterStageFullscreenMotion } from "@/app-shell/use-center-stage-fullscreen";
 import { CenterStagePanels } from "@/app-shell/CenterStagePanels";
 import {
   CenterPaneContentSlot,
@@ -141,6 +142,7 @@ import {
   isToolSurfaceKind,
   materializeSavedLayout,
   resolveSurfaceTabId,
+  shouldConfirmReplaceCenterLayout,
   snapshotCenterLayout,
   type CenterSurfaceKind,
 } from "@/app-shell/center-pane/center-pane-saved-layout";
@@ -157,6 +159,7 @@ import { simulatorApi } from "@/api/ws/simulator-api";
 import { GIT_HISTORY_TAB_VALUE } from "@/features/git/types";
 import { useGitHistoryCenterTabStore } from "@/features/git/store/use-git-history-center-tab";
 import {
+  CENTER_TOOL_TAB_VALUES,
   isCenterToolTabValue,
   useToolCenterTabsStore,
   type CenterToolTabValue,
@@ -856,7 +859,6 @@ const CenterStage: React.FC = () => {
 
       for (const value of closedList) {
         removeCenterTabFromActivationStack(effectiveContextId, value);
-        useCenterPaneLayoutStore.getState().removeTab(effectiveContextId, value);
       }
 
       const open = collectOpenCenterTabValues(closedList);
@@ -875,6 +877,17 @@ const CenterStage: React.FC = () => {
         mruOrder: getCenterTabActivationStack(effectiveContextId),
         fallbackTab: fallbackCenterTab,
       });
+
+      // Apply MRU to the owning pane before chrome navigates. removeTab used
+      // to snap activeTabId to tabIds[0] (Overview), and attach:false would
+      // leave mosaic chrome stuck there.
+      for (const value of closedList) {
+        useCenterPaneLayoutStore.getState().removeTab(
+          effectiveContextId,
+          value,
+          fallback.nextTabId,
+        );
+      }
 
       if (!closedList.includes(active)) return;
 
@@ -2009,10 +2022,19 @@ const CenterStage: React.FC = () => {
     if (val === "wiki" && experimentPrefsLoaded && !centerWikiTabEnabled) {
       setUrlParams({ tab: FIXED_TERMINAL_TAB_VALUE, wikiPage: null });
       setActiveFile(null, effectiveContextId || undefined);
+      if (effectiveContextId) {
+        recordCenterTabActivation(effectiveContextId, FIXED_TERMINAL_TAB_VALUE);
+      }
       if (attach && effectiveContextId) {
         useCenterPaneLayoutStore.getState().openTab(effectiveContextId, FIXED_TERMINAL_TAB_VALUE);
       }
       return;
+    }
+    // Record at click/navigate time. The persist effect also records, but it
+    // often returns early during last-tab restore and would leave the stack
+    // stuck on Overview.
+    if (effectiveContextId && val) {
+      recordCenterTabActivation(effectiveContextId, val);
     }
     if (isTerminalCenterTabValue(val)) {
       if (effectiveContextId) {
@@ -2259,6 +2281,8 @@ const CenterStage: React.FC = () => {
   const savedLayouts = useCenterPaneSavedLayoutStore((s) => s.layouts);
   const saveCenterLayout = useCenterPaneSavedLayoutStore((s) => s.save);
   const panelHostRef = React.useRef<HTMLDivElement>(null);
+  const centerStageFullscreenRef = React.useRef<HTMLElement | null>(null);
+  useCenterStageFullscreenMotion(centerStageFullscreenRef);
 
   React.useEffect(() => {
     hydratePaneLayout();
@@ -2494,37 +2518,85 @@ const CenterStage: React.FC = () => {
       if (!saved) return;
 
       const surfaces = collectSavedSurfaces(saved);
-      let browserTabValue: string | null = null;
 
-      for (const surface of surfaces) {
-        if (surface === "browser") {
-          const existing = browserTabs[0]?.value ?? null;
-          if (existing) {
-            browserTabValue = existing;
-          } else {
-            const tab = openBrowserCenterTab(renderContextId);
-            browserTabValue = tab.value;
-            requestBrowserContextUrlFocus(tab.browserContextId);
-          }
-          continue;
-        }
-        if (surface === "simulator") {
-          openSimulatorTab(renderContextId);
-          continue;
-        }
-        if (surface === "git-history") {
-          openGitHistoryTab(renderContextId);
-          continue;
-        }
-        if (isToolSurfaceKind(surface)) {
-          openToolTab(renderContextId, surface);
-          continue;
-        }
-        // overview / terminal / wiki / github: opened via URL tab selection below
+      for (const file of getOpenFiles(renderContextId)) {
+        closeFile(file.path, renderContextId);
+      }
+      setActiveFile(null, renderContextId);
+
+      for (const tab of githubTabs) {
+        closeGithubTab(renderContextId, tab.value);
       }
 
-      const resolveTabId = (kind: CenterSurfaceKind) =>
-        resolveSurfaceTabId(kind, { browserTabId: browserTabValue });
+      const keepBrowser = surfaces.includes("browser");
+      let browserTabValue: string | null = null;
+      if (keepBrowser) {
+        const existing = browserTabs[0] ?? null;
+        if (existing) {
+          browserTabValue = existing.value;
+          for (const tab of browserTabs) {
+            if (tab.value !== existing.value) {
+              closeBrowserCenterTab(renderContextId, tab.value);
+            }
+          }
+        } else {
+          const tab = openBrowserCenterTab(renderContextId);
+          browserTabValue = tab.value;
+          requestBrowserContextUrlFocus(tab.browserContextId);
+        }
+      } else {
+        for (const tab of browserTabs) {
+          closeBrowserCenterTab(renderContextId, tab.value);
+        }
+      }
+
+      const keepTerminal = surfaces.includes("terminal");
+      const liveTerminalTabs =
+        useTerminalStore.getState().workspaceTerminalTabs[renderContextId] ?? [];
+      let terminalTabId: string | null = null;
+      if (keepTerminal) {
+        terminalTabId = liveTerminalTabs.some((tab) => tab.id === FIXED_TERMINAL_TAB_VALUE)
+          ? FIXED_TERMINAL_TAB_VALUE
+          : (liveTerminalTabs[0]?.id ?? createTerminalTab(renderContextId).id);
+        for (const tab of liveTerminalTabs) {
+          if (tab.id !== terminalTabId) {
+            closeTerminalTab(renderContextId, tab.id);
+          }
+        }
+      } else {
+        for (const tab of liveTerminalTabs) {
+          closeTerminalTab(renderContextId, tab.id);
+        }
+      }
+
+      for (const tool of CENTER_TOOL_TAB_VALUES) {
+        if (!surfaces.includes(tool)) {
+          closeToolTab(renderContextId, tool);
+        }
+      }
+      if (surfaces.includes("simulator")) {
+        openSimulatorTab(renderContextId);
+      } else {
+        closeSimulatorTab(renderContextId);
+        void simulatorApi.stop(renderContextId).catch(() => {});
+      }
+      closeGitHistoryTab(renderContextId);
+      setProjectWikiVisibleMap((prev) => ({ ...prev, [renderContextId]: false }));
+      setCodeReviewVisibleMap((prev) => ({ ...prev, [renderContextId]: false }));
+
+      for (const surface of surfaces) {
+        if (surface === "simulator") continue;
+        if (isToolSurfaceKind(surface)) {
+          openToolTab(renderContextId, surface);
+        }
+      }
+
+      const resolveTabId = (kind: CenterSurfaceKind) => {
+        if (kind === "terminal") {
+          return terminalTabId || FIXED_TERMINAL_TAB_VALUE;
+        }
+        return resolveSurfaceTabId(kind, { browserTabId: browserTabValue });
+      };
 
       const liveLayout = materializeSavedLayout(saved, resolveTabId);
       setCenterPaneLayout(renderContextId, liveLayout);
@@ -2542,13 +2614,24 @@ const CenterStage: React.FC = () => {
     },
     [
       browserTabs,
+      closeBrowserCenterTab,
+      closeFile,
+      closeGitHistoryTab,
+      closeGithubTab,
+      closeSimulatorTab,
+      closeTerminalTab,
+      closeToolTab,
+      createTerminalTab,
+      getOpenFiles,
+      githubTabs,
       openBrowserCenterTab,
-      openGitHistoryTab,
       openSimulatorTab,
       openToolTab,
       renderContextId,
       setActiveFile,
       setCenterPaneLayout,
+      setCodeReviewVisibleMap,
+      setProjectWikiVisibleMap,
       setUrlParams,
     ],
   );
@@ -2689,6 +2772,12 @@ const CenterStage: React.FC = () => {
         }))}
         onSaveLayout={handleSaveCenterLayout}
         onApplyLayout={handleApplyCenterLayout}
+        shouldConfirmApplyLayout={() =>
+          shouldConfirmReplaceCenterLayout({
+            paneCount: resolvedPaneLayout.order.length,
+            openTabIds: openTabIdList,
+          })
+        }
       />
     );
   };
@@ -2759,7 +2848,14 @@ const CenterStage: React.FC = () => {
   return (
     // Inset + rounded cards so all four corners read as a floating main stage.
     // Padding gutters use shell `bg-sidebar` so `bg-background` center pops.
-    <main className={cn(CENTER_STAGE_SHELL_CLASS, CENTER_STAGE_GUTTER_CLASS)}>
+    <div
+      data-center-stage-fullscreen-slot=""
+      className="relative h-full min-h-0 w-full"
+    >
+      <main
+        ref={centerStageFullscreenRef}
+        className={cn(CENTER_STAGE_SHELL_CLASS, CENTER_STAGE_GUTTER_CLASS)}
+      >
       {showMosaic ? (
         <div data-center-stage-card="" className="desktop-no-drag relative min-h-0 flex-1">
           <div className="absolute inset-0 min-h-0">
@@ -2999,7 +3095,8 @@ const CenterStage: React.FC = () => {
         onConfirm={confirmClose}
       />
 
-    </main>
+      </main>
+    </div>
   );
 };
 

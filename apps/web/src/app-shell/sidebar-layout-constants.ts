@@ -52,3 +52,5 @@ export const CENTER_STAGE_CARD_CLASS =
 export const CENTER_STAGE_BODY_ATTR = "data-center-stage-body";
 /** Visual floating card inside the center-stage shell. */
 export const CENTER_STAGE_CARD_ATTR = "data-center-stage-card";
+/** Root row under the header: left sidebar + center + footer. */
+export const APP_SHELL_PANEL_LAYOUT_ATTR = "data-app-shell-panel-layout";

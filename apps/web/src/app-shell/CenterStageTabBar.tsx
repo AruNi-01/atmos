@@ -12,6 +12,7 @@ import {
   Button,
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -41,6 +42,8 @@ import {
   Globe,
   LayoutTemplate,
   LoaderCircle,
+  Maximize2,
+  Minimize2,
   PencilRuler,
   GitGraph,
   Play,
@@ -95,6 +98,7 @@ import {
   getActivePreviewBrowserLabel,
   type PreviewBrowserPrefs,
 } from "@/features/browser/lib/browser-labels";
+import { useCenterStageFullscreenStore } from "@/app-shell/use-center-stage-fullscreen";
 
 type SessionDisplay = {
   sessionTitle?: string | null;
@@ -165,6 +169,8 @@ interface CenterStageTabBarProps {
   onSaveLayout?: (name: string) => void;
   /** Apply a previously saved layout to the current context. */
   onApplyLayout?: (layoutId: string) => void;
+  /** True when apply would replace a split or tabs other than Overview. */
+  shouldConfirmApplyLayout?: () => boolean;
 }
 
 export function CenterStageTabBar({
@@ -221,6 +227,7 @@ export function CenterStageTabBar({
   savedLayouts,
   onSaveLayout,
   onApplyLayout,
+  shouldConfirmApplyLayout,
 }: CenterStageTabBarProps) {
   const t = useTranslations("appShell");
   const newTerminalTabLabel = t("centerStageTabBar.newTerminalTab");
@@ -758,7 +765,13 @@ export function CenterStageTabBar({
             saveLayoutNamePlaceholder={t("centerStageTabBar.saveLayoutNamePlaceholder")}
             saveLayoutConfirmLabel={t("centerStageTabBar.saveLayoutConfirm")}
             saveLayoutCancelLabel={t("centerStageTabBar.saveLayoutCancel")}
+            applyLayoutConfirmTitle={t("centerStageTabBar.applyLayoutConfirmTitle")}
+            applyLayoutConfirmDescription={t("centerStageTabBar.applyLayoutConfirmDescription")}
+            applyLayoutConfirmLabel={t("centerStageTabBar.applyLayoutConfirm")}
+            applyLayoutCancelLabel={t("centerStageTabBar.applyLayoutCancel")}
             simulatorLabel={t("centerStageTabBar.newSimulator")}
+            fullscreenLabel={t("centerStageTabBar.fullscreen")}
+            exitFullscreenLabel={t("centerStageTabBar.exitFullscreen")}
             splitDownLabel={t("centerStageTabBar.splitDown")}
             splitRightLabel={t("centerStageTabBar.splitRight")}
             terminalLabel={newTerminalTabLabel}
@@ -771,6 +784,7 @@ export function CenterStageTabBar({
             onSplitRight={onSplitRight}
             onSaveLayout={onSaveLayout}
             onApplyLayout={onApplyLayout}
+            shouldConfirmApplyLayout={shouldConfirmApplyLayout}
           />
           <CenterStageTabGroupPopover
             open={tabGroupPopoverOpen}
@@ -1068,7 +1082,13 @@ function CenterStageNewTabMenu({
   saveLayoutNamePlaceholder,
   saveLayoutConfirmLabel,
   saveLayoutCancelLabel,
+  applyLayoutConfirmTitle,
+  applyLayoutConfirmDescription,
+  applyLayoutConfirmLabel,
+  applyLayoutCancelLabel,
   simulatorLabel,
+  fullscreenLabel,
+  exitFullscreenLabel,
   splitDownLabel,
   splitRightLabel,
   terminalLabel,
@@ -1081,6 +1101,7 @@ function CenterStageNewTabMenu({
   onSplitRight,
   onSaveLayout,
   onApplyLayout,
+  shouldConfirmApplyLayout,
 }: {
   browserLabel: string;
   changesLabel: string;
@@ -1096,7 +1117,13 @@ function CenterStageNewTabMenu({
   saveLayoutNamePlaceholder: string;
   saveLayoutConfirmLabel: string;
   saveLayoutCancelLabel: string;
+  applyLayoutConfirmTitle: string;
+  applyLayoutConfirmDescription: string;
+  applyLayoutConfirmLabel: string;
+  applyLayoutCancelLabel: string;
   simulatorLabel: string;
+  fullscreenLabel: string;
+  exitFullscreenLabel: string;
   splitDownLabel: string;
   splitRightLabel: string;
   terminalLabel: string;
@@ -1109,11 +1136,18 @@ function CenterStageNewTabMenu({
   onSplitRight?: () => void;
   onSaveLayout?: (name: string) => void;
   onApplyLayout?: (layoutId: string) => void;
+  shouldConfirmApplyLayout?: () => boolean;
 }) {
   const [open, setOpen] = React.useState(false);
   const [layoutsSubOpen, setLayoutsSubOpen] = React.useState(false);
   const [saveDialogOpen, setSaveDialogOpen] = React.useState(false);
   const [layoutName, setLayoutName] = React.useState("");
+  const [applyConfirmOpen, setApplyConfirmOpen] = React.useState(false);
+  const [pendingApplyLayoutId, setPendingApplyLayoutId] = React.useState<string | null>(null);
+  const isCenterFullscreen = useCenterStageFullscreenStore((state) => state.isFullscreen);
+  const toggleCenterFullscreen = useCenterStageFullscreenStore(
+    (state) => state.toggleFullscreen,
+  );
   const closeTimerRef = React.useRef<number | null>(null);
   const layoutsLeaveTimerRef = React.useRef<number | null>(null);
 
@@ -1170,6 +1204,29 @@ function CenterStageNewTabMenu({
     setSaveDialogOpen(false);
     setLayoutName("");
   }, [layoutName, onSaveLayout]);
+
+  const requestApplyLayout = React.useCallback(
+    (layoutId: string) => {
+      if (shouldConfirmApplyLayout?.()) {
+        setPendingApplyLayoutId(layoutId);
+        setApplyConfirmOpen(true);
+        setOpen(false);
+        setLayoutsSubOpen(false);
+        return;
+      }
+      onApplyLayout?.(layoutId);
+      setOpen(false);
+      setLayoutsSubOpen(false);
+    },
+    [onApplyLayout, shouldConfirmApplyLayout],
+  );
+
+  const confirmApplyLayout = React.useCallback(() => {
+    if (!pendingApplyLayoutId) return;
+    onApplyLayout?.(pendingApplyLayoutId);
+    setPendingApplyLayoutId(null);
+    setApplyConfirmOpen(false);
+  }, [onApplyLayout, pendingApplyLayoutId]);
 
   const showLayoutItems = Boolean(onSaveLayout || onApplyLayout);
 
@@ -1331,9 +1388,25 @@ function CenterStageNewTabMenu({
             <Smartphone className="size-3.5 shrink-0 text-muted-foreground" />
             <span className="min-w-0 flex-1 truncate">{simulatorLabel}</span>
           </button>
-          {onSplitRight || onSplitDown || showLayoutItems ? (
-            <div className="my-1 h-px bg-border/60" role="separator" />
-          ) : null}
+          <div className="my-1 h-px bg-border/60" role="separator" />
+          <button
+            type="button"
+            aria-pressed={isCenterFullscreen}
+            className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
+            onClick={() => {
+              toggleCenterFullscreen();
+              setOpen(false);
+            }}
+          >
+            {isCenterFullscreen ? (
+              <Minimize2 className="size-3.5 shrink-0 text-muted-foreground" />
+            ) : (
+              <Maximize2 className="size-3.5 shrink-0 text-muted-foreground" />
+            )}
+            <span className="min-w-0 flex-1 truncate">
+              {isCenterFullscreen ? exitFullscreenLabel : fullscreenLabel}
+            </span>
+          </button>
           {onSplitRight ? (
             <button
               type="button"
@@ -1421,11 +1494,7 @@ function CenterStageNewTabMenu({
                     key={layout.id}
                     type="button"
                     className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
-                    onClick={() => {
-                      onApplyLayout?.(layout.id);
-                      setOpen(false);
-                      setLayoutsSubOpen(false);
-                    }}
+                    onClick={() => requestApplyLayout(layout.id)}
                   >
                     <span className="min-w-0 flex-1 truncate">{layout.name}</span>
                   </button>
@@ -1440,6 +1509,36 @@ function CenterStageNewTabMenu({
           ) : null}
         </PopoverContent>
       </Popover>
+
+      <Dialog
+        open={applyConfirmOpen}
+        onOpenChange={(open) => {
+          setApplyConfirmOpen(open);
+          if (!open) setPendingApplyLayoutId(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>{applyLayoutConfirmTitle}</DialogTitle>
+            <DialogDescription>{applyLayoutConfirmDescription}</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => {
+                setApplyConfirmOpen(false);
+                setPendingApplyLayoutId(null);
+              }}
+            >
+              {applyLayoutCancelLabel}
+            </Button>
+            <Button type="button" onClick={confirmApplyLayout}>
+              {applyLayoutConfirmLabel}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={saveDialogOpen} onOpenChange={setSaveDialogOpen}>
         <DialogContent className="sm:max-w-sm">

@@ -221,6 +221,7 @@ export function PanelLayout({
   return (
     <div
       ref={layoutRootRef}
+      data-app-shell-panel-layout=""
       className="relative flex min-h-0 flex-1 overflow-hidden bg-sidebar"
     >
       <PanelGroup

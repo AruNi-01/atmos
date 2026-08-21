@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
   APP_FOOTER_HEIGHT_PX,
+  APP_SHELL_PANEL_LAYOUT_ATTR,
   CENTER_STAGE_CARD_CLASS,
   CENTER_STAGE_GUTTER_CLASS,
   CENTER_STAGE_GUTTER_X_PX,
@@ -62,6 +63,10 @@ describe("center-stage chrome", () => {
     const shell = read("../AppShellMain.tsx");
     expect(shell).toContain("data-center-stage-body");
     expect(shell).toContain("<Footer />");
+
+    const layout = read("../PanelLayout.tsx");
+    expect(APP_SHELL_PANEL_LAYOUT_ATTR).toBe("data-app-shell-panel-layout");
+    expect(layout).toContain('data-app-shell-panel-layout=""');
   });
 
   test("floating card gutters stay tight to header, footer, and sidebar", () => {
