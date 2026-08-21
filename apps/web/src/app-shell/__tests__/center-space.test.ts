@@ -9,9 +9,13 @@ import {
   makeCenterSpaceKey,
   nextSpaceName,
   normalizeHostCenterSpaces,
+  omitCenterSpaceThumbnails,
   parseCenterSpaceKey,
 } from "@/app-shell/center-space/center-space";
-import { centerSpaceFanPose } from "@/app-shell/center-space/center-space-fan";
+import {
+  centerSpaceFanCssVars,
+  centerSpaceFanPose,
+} from "@/app-shell/center-space/center-space-fan";
 import { useCenterSpaceStore } from "@/app-shell/center-space/center-space-store";
 import {
   createEmptyCenterLayout,
@@ -126,6 +130,39 @@ describe("center space keys", () => {
     expect(hovered.z).toBeGreaterThan(right.z);
     expect(hovered.scale).toBeGreaterThan(mid.scale);
     expect(centerSpaceFanPose(1, 3, false, null).opacity).toBe(0);
+    const vars = centerSpaceFanCssVars(left);
+    expect(vars["--fan-x"]).toBe(`${left.x}px`);
+    expect(vars["--fan-rotate"]).toBe(`${left.rotate}deg`);
+  });
+
+  it("stores thumbnails in memory without going through persist commit", () => {
+    const host = "ws-thumb-memory";
+    useCenterSpaceStore.getState().hydrate();
+    useCenterSpaceStore.getState().ensureHost(host);
+    useCenterSpaceStore
+      .getState()
+      .setThumbnail(host, DEFAULT_CENTER_SPACE_ID, "data:image/jpeg;base64,qq");
+    expect(
+      useCenterSpaceStore.getState().list(host)[0]?.thumbnailDataUrl,
+    ).toBe("data:image/jpeg;base64,qq");
+  });
+
+  it("strips jpeg data urls before durable writes", () => {
+    const stripped = omitCenterSpaceThumbnails({
+      "ws-1": {
+        activeSpaceId: DEFAULT_CENTER_SPACE_ID,
+        spaces: [
+          {
+            id: DEFAULT_CENTER_SPACE_ID,
+            name: DEFAULT_CENTER_SPACE_NAME,
+            createdAt: 1,
+            updatedAt: 1,
+            thumbnailDataUrl: "data:image/jpeg;base64,abc",
+          },
+        ],
+      },
+    });
+    expect(stripped["ws-1"]?.spaces[0]?.thumbnailDataUrl).toBeNull();
   });
 });
 
@@ -162,17 +199,57 @@ describe("center space wiring", () => {
     expect(seedAt).toBeGreaterThan(0);
     expect(createAt).toBeGreaterThan(seedAt);
     expect(switcherSrc).toContain("scheduleIncomingSpaceThumbnail");
+    expect(switcherSrc).toContain("refreshActiveCenterSpacePreview");
+    expect(switcherSrc).toContain("runCenterSpaceSlide");
+    expect(switcherSrc).toContain("invalidateCenterSpaceThumbnailCapture");
+    expect(switcherSrc).not.toContain("useCenterSpaceSlideStore");
+    expect(switcherSrc).not.toContain("await captureActiveCenterSpaceThumbnail(hostId);\n  const outgoing");
     const switcher = readFileSync(join(dir, "center-space/CenterSpaceSwitcher.tsx"), "utf8");
     expect(switcher).toContain("centerSpaceFanPose");
-    expect(switcher).toContain("setHoveredIndex");
     expect(switcher).toContain("handleToggleOpen");
-    expect(switcher).toContain("captureActiveCenterSpaceThumbnail");
-    expect(switcher).toContain("captureCurrentPreview");
+    expect(switcher).toContain("handlePointerEnter");
+    expect(switcher).toContain("onPointerEnter={handlePointerEnter}");
+    expect(switcher).toContain("onPointerLeave={handlePointerLeave}");
+    expect(switcher).toContain("onFocus={handlePointerEnter}");
+    expect(switcher).toContain("schedulePreview");
+    expect(switcher).toContain("ensurePreview");
+    expect(switcher).toContain("void ensurePreview()");
+    expect(switcher).not.toContain("await ensurePreview()");
+    expect(switcher).toContain("refreshActiveCenterSpacePreview");
+    expect(switcher).toContain("center-space-fan.css");
+    expect(switcher).not.toContain("motion/react");
+    expect(switcher).not.toContain("setHoveredIndex");
+    expect(switcher).not.toContain("captureCurrentPreview");
     expect(switcher).toContain('t("defaultSpace")');
     expect(switcher).not.toContain("absolute left-1/2 top-1/2");
     expect(switcher).toContain("buttonCountAria");
-    expect(switcher).toContain("-left-1.5 -top-1.5");
+    expect(switcher).toContain("-left-1 -top-1");
+    expect(switcher).toContain("h-2.5 min-w-2.5");
+    expect(switcher).toContain("text-[8px]");
     expect(switcher).toContain("{spaces.length}");
+    const toggleAt = switcher.indexOf("const handleToggleOpen");
+    const openAt = switcher.indexOf("setOpen(true)", toggleAt);
+    const captureAt = switcher.indexOf("void ensurePreview()", toggleAt);
+    expect(openAt).toBeGreaterThan(toggleAt);
+    expect(captureAt).toBeGreaterThan(openAt);
+    const thumb = readFileSync(join(dir, "center-space/center-space-thumbnail.ts"), "utf8");
+    expect(thumb).toContain("toJpeg");
+    expect(thumb).toContain("skipFonts: true");
+    expect(thumb).toContain("cacheBust: false");
+    expect(thumb).toContain("THUMB_WIDTH = 96");
+    expect(thumb).toContain("includeStyleProperties");
+    expect(thumb).not.toContain("cacheBust: true");
+    expect(thumb).not.toContain("THUMB_WIDTH = 280");
+    const fanCss = readFileSync(join(dir, "center-space/center-space-fan.css"), "utf8");
+    expect(fanCss).toContain("translate3d(var(--fan-x), var(--fan-y), 0)");
+    expect(fanCss).toContain("will-change: transform, opacity");
+    const storeSrc = readFileSync(join(dir, "center-space/center-space-store.ts"), "utf8");
+    expect(storeSrc).toContain("omitCenterSpaceThumbnails");
+    const setThumbAt = storeSrc.indexOf("setThumbnail:");
+    const renameAt = storeSrc.indexOf("renameSpace:", setThumbAt);
+    const setThumbBlock = storeSrc.slice(setThumbAt, renameAt);
+    expect(setThumbBlock).not.toContain("commit(");
+    expect(setThumbBlock).toContain("set({");
   });
 
   it("does not invent a default terminal tab for extra spaces", () => {

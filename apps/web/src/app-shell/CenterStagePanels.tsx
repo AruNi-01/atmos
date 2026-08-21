@@ -42,7 +42,6 @@ import {
 import { isExtraCenterSpaceKey } from "@/app-shell/center-space/center-space";
 import { useCenterPaneLayoutStore } from "@/app-shell/center-pane/center-pane-layout-store";
 import { paneHiddenByCenterFullscreen } from "@/app-shell/center-stage-fullscreen";
-import { useCenterSpaceSlideStore } from "@/app-shell/center-space/center-space-switch";
 import { isTerminalCenterTabValue } from "@/app-shell/center-stage-tabs";
 import {
   EMPTY_MOUNTED_TAB_IDS,
@@ -423,8 +422,6 @@ export function CenterStagePanels({
   ]);
 
   const fallbackTerminalTitle = t("fallbackTerminalTitle");
-  const spaceSlideOutgoingId = useCenterSpaceSlideStore((s) => s.outgoingId);
-  const spaceSlideIncomingId = useCenterSpaceSlideStore((s) => s.incomingId);
 
   return (
     // Single flex child so wiki does not share height 50/50 with workspace frames.
@@ -448,18 +445,10 @@ export function CenterStagePanels({
             ? collectActiveTabIds(contextLayout)
             : null;
 
-        const spaceSlide =
-          contextId === spaceSlideIncomingId
-            ? "in"
-            : contextId === spaceSlideOutgoingId
-              ? "out"
-              : null;
-
         return (
           <WorkspaceCenterFrame
             key={contextId}
             contextId={contextId}
-            spaceSlide={spaceSlide}
             isActiveContext={isActiveContext}
             isUrlSyncedActive={isUrlSyncedActive}
             mountPlan={mountPlan}
@@ -545,8 +534,9 @@ export function CenterStagePanels({
             tabToPaneId?.wiki &&
             paneSlotBoxes?.[tabToPaneId.wiki]
               ? {
-                  inset: "auto",
                   top: paneSlotBoxes[tabToPaneId.wiki]!.top,
+                  right: "auto",
+                  bottom: "auto",
                   left: paneSlotBoxes[tabToPaneId.wiki]!.left,
                   width: paneSlotBoxes[tabToPaneId.wiki]!.width,
                   height: paneSlotBoxes[tabToPaneId.wiki]!.height,

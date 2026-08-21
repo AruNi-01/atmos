@@ -4,6 +4,9 @@
  * The default space keeps the host context id so existing keep-alive, terminal
  * persistence, and tab stores stay compatible. Extra spaces use a namespaced
  * paint id so their frames/tabs stay isolated and can remain mounted (warm).
+ * Extra-space terminals still attach to the host workspace tmux session (same
+ * cwd) but use namespaced window names so they do not attach-if-exists onto
+ * another space's panes.
  */
 
 export const DEFAULT_CENTER_SPACE_ID = "main";
@@ -140,6 +143,48 @@ export function normalizeCenterSpacesByHost(
   for (const [hostId, value] of Object.entries(raw as Record<string, unknown>)) {
     if (!hostId || hostId.includes(CENTER_SPACE_KEY_MARK)) continue;
     out[hostId] = normalizeHostCenterSpaces(value);
+  }
+  return out;
+}
+
+/** Prefer the space before the deleted one; otherwise the one after. */
+export function neighborSpaceIdAfterDelete(
+  spaces: readonly CenterSpaceRecord[],
+  deletedId: string,
+): string {
+  const index = spaces.findIndex((space) => space.id === deletedId);
+  if (index <= 0) {
+    return spaces[index + 1]?.id ?? spaces[0]?.id ?? DEFAULT_CENTER_SPACE_ID;
+  }
+  return spaces[index - 1]?.id ?? DEFAULT_CENTER_SPACE_ID;
+}
+
+/** Later list index = forward (new space from the right). */
+export function centerSpaceSlideDirection(
+  spaces: readonly Pick<CenterSpaceRecord, "id">[],
+  fromSpaceId: string,
+  toSpaceId: string,
+): "forward" | "back" {
+  const from = spaces.findIndex((space) => space.id === fromSpaceId);
+  const to = spaces.findIndex((space) => space.id === toSpaceId);
+  if (from < 0 || to < 0) return "forward";
+  return to >= from ? "forward" : "back";
+}
+
+/** Thumbnails are session visual cache — never write JPEG data URLs to disk. */
+export function omitCenterSpaceThumbnails(
+  byHost: Record<string, HostCenterSpaces>,
+): Record<string, HostCenterSpaces> {
+  const out: Record<string, HostCenterSpaces> = {};
+  for (const [hostId, host] of Object.entries(byHost)) {
+    out[hostId] = {
+      activeSpaceId: host.activeSpaceId,
+      spaces: host.spaces.map((space) =>
+        space.thumbnailDataUrl == null
+          ? space
+          : { ...space, thumbnailDataUrl: null },
+      ),
+    };
   }
   return out;
 }

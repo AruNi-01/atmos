@@ -9,9 +9,11 @@ import {
   defaultHostSpaces,
   MAX_CENTER_SPACES_PER_HOST,
   makeCenterSpaceKey,
+  neighborSpaceIdAfterDelete,
   nextSpaceName,
   normalizeCenterSpacesByHost,
   normalizeHostCenterSpaces,
+  omitCenterSpaceThumbnails,
   type CenterSpaceRecord,
   type HostCenterSpaces,
 } from "@/app-shell/center-space/center-space";
@@ -44,7 +46,7 @@ type CenterSpaceStore = {
 };
 
 function persistLocal(byHost: Record<string, HostCenterSpaces>) {
-  writeJson(STORAGE_KEY, byHost);
+  writeJson(STORAGE_KEY, omitCenterSpaceThumbnails(byHost));
 }
 
 function readLocal(): Record<string, HostCenterSpaces> {
@@ -54,7 +56,11 @@ function readLocal(): Record<string, HostCenterSpaces> {
 }
 
 async function persistDisk(byHost: Record<string, HostCenterSpaces>): Promise<void> {
-  await functionSettingsApi.update("center_stage", "spaces", byHost);
+  await functionSettingsApi.update(
+    "center_stage",
+    "spaces",
+    omitCenterSpaceThumbnails(byHost),
+  );
 }
 
 async function readDiskSpaces(): Promise<Record<string, HostCenterSpaces>> {
@@ -172,13 +178,16 @@ export const useCenterSpaceStore = create<CenterSpaceStore>((set, get) => ({
 
   setThumbnail: (hostId, spaceId, thumbnailDataUrl) => {
     if (!hostId) return;
-    const current = get().ensureHost(hostId);
+    const current = get().byHost[hostId] ?? get().ensureHost(hostId);
+    if (!current) return;
     const spaces = current.spaces.map((space) =>
       space.id === spaceId
         ? { ...space, thumbnailDataUrl, updatedAt: Date.now() }
         : space,
     );
-    commit(set, { ...get().byHost, [hostId]: { ...current, spaces } });
+    set({
+      byHost: { ...get().byHost, [hostId]: { ...current, spaces } },
+    });
   },
 
   renameSpace: (hostId, spaceId, name) => {
@@ -199,7 +208,7 @@ export const useCenterSpaceStore = create<CenterSpaceStore>((set, get) => ({
     const spaces = current.spaces.filter((space) => space.id !== spaceId);
     const activeSpaceId =
       current.activeSpaceId === spaceId
-        ? (spaces[0]?.id ?? DEFAULT_CENTER_SPACE_ID)
+        ? neighborSpaceIdAfterDelete(current.spaces, spaceId)
         : current.activeSpaceId;
     commit(set, { ...get().byHost, [hostId]: { spaces, activeSpaceId } });
     return makeCenterSpaceKey(hostId, spaceId);

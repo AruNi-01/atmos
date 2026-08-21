@@ -1,0 +1,43 @@
+.center-space-fan-stage {
+  isolation: isolate;
+}
+
+.center-space-fan-card {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 148px;
+  margin-left: -74px;
+  transform-origin: top center;
+  transform: translate3d(var(--fan-x), var(--fan-y), 0)
+    rotate(var(--fan-rotate))
+    scale(var(--fan-scale));
+  opacity: var(--fan-opacity);
+  z-index: var(--fan-z);
+  pointer-events: auto;
+  will-change: transform, opacity;
+  transition:
+    transform 280ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 180ms ease;
+}
+
+.center-space-fan-stage[data-fan-open="false"] .center-space-fan-card {
+  pointer-events: none;
+  transition-duration: 200ms, 140ms;
+}
+
+.center-space-fan-card:hover {
+  z-index: 80;
+  transform: translate3d(var(--fan-x), calc(var(--fan-y) - 16px), 0)
+    rotate(calc(var(--fan-rotate-deg) * 0.22deg))
+    scale(1.08);
+  transition-duration: 180ms, 140ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .center-space-fan-card,
+  .center-space-fan-stage[data-fan-open="false"] .center-space-fan-card,
+  .center-space-fan-card:hover {
+    transition: none;
+  }
+}

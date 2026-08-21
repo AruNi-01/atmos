@@ -3,7 +3,6 @@
 import React from "react";
 import { createPortal } from "react-dom";
 import { useTranslations } from "next-intl";
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { Layers, Trash2 } from "lucide-react";
 import { cn } from "@workspace/ui";
 import { useContextParams } from "@/shared/hooks/use-context-params";
@@ -12,20 +11,23 @@ import {
   MAX_CENTER_SPACES_PER_HOST,
   type CenterSpaceRecord,
 } from "@/app-shell/center-space/center-space";
-import { centerSpaceFanPose } from "@/app-shell/center-space/center-space-fan";
+import {
+  CENTER_SPACE_FAN_EXIT_MS,
+  centerSpaceFanCssVars,
+  centerSpaceFanPose,
+} from "@/app-shell/center-space/center-space-fan";
 import { useCenterSpaceStore } from "@/app-shell/center-space/center-space-store";
 import {
-  captureActiveCenterSpaceThumbnail,
   deleteCenterSpace,
+  refreshActiveCenterSpacePreview,
   switchCenterSpace,
 } from "@/app-shell/center-space/center-space-switch";
+import "./center-space-fan.css";
 
-const FAN_EASE = { type: "spring", stiffness: 320, damping: 26, mass: 0.7 } as const;
 const EMPTY_CENTER_SPACES: CenterSpaceRecord[] = [];
 
 export function CenterSpaceSwitcher() {
   const t = useTranslations("header.centerSpace");
-  const reduceMotion = useReducedMotion();
   const { effectiveContextId: hostId, currentView } = useContextParams();
   const hydrate = useCenterSpaceStore((s) => s.hydrate);
   const spaces = useCenterSpaceStore((s) =>
@@ -35,52 +37,147 @@ export function CenterSpaceSwitcher() {
     hostId ? s.getActiveSpaceId(hostId) : DEFAULT_CENTER_SPACE_ID,
   );
   const [open, setOpen] = React.useState(false);
-  const [hoveredIndex, setHoveredIndex] = React.useState<number | null>(null);
-  const rootRef = React.useRef<HTMLDivElement>(null);
-  const capturingRef = React.useRef(false);
-
-  const captureCurrentPreview = React.useCallback(() => {
-    if (!hostId || capturingRef.current) return;
-    capturingRef.current = true;
-    void captureActiveCenterSpaceThumbnail(hostId).finally(() => {
-      capturingRef.current = false;
-    });
-  }, [hostId]);
-
-  const handleToggleOpen = React.useCallback(() => {
-    if (open) {
-      setOpen(false);
-      return;
-    }
-    captureCurrentPreview();
-    setOpen(true);
-  }, [captureCurrentPreview, open]);
+  const [mounted, setMounted] = React.useState(false);
+  const [spread, setSpread] = React.useState(false);
   const [fanOrigin, setFanOrigin] = React.useState<{ top: number; left: number } | null>(
     null,
   );
+  const rootRef = React.useRef<HTMLDivElement>(null);
+  const previewPromiseRef = React.useRef<Promise<void> | null>(null);
+  const previewReadyRef = React.useRef(false);
+  const previewCancelRef = React.useRef<(() => void) | null>(null);
+  const spreadAllowedRef = React.useRef(false);
+  const openingRef = React.useRef(false);
+
+  const readFanOrigin = React.useCallback(() => {
+    const root = rootRef.current;
+    if (!root) return null;
+    const rect = root.getBoundingClientRect();
+    return { top: rect.bottom, left: rect.left + rect.width / 2 };
+  }, []);
+
+  const ensurePreview = React.useCallback(() => {
+    previewCancelRef.current?.();
+    previewCancelRef.current = null;
+    if (!hostId) return Promise.resolve();
+    if (previewReadyRef.current) return Promise.resolve();
+    if (previewPromiseRef.current) return previewPromiseRef.current;
+    const pending = refreshActiveCenterSpacePreview(hostId)
+      .then(() => {
+        previewReadyRef.current = true;
+      })
+      .finally(() => {
+        previewPromiseRef.current = null;
+      });
+    previewPromiseRef.current = pending;
+    return pending;
+  }, [hostId]);
+
+  const schedulePreview = React.useCallback(() => {
+    if (open || !hostId) return;
+    if (previewReadyRef.current || previewPromiseRef.current) return;
+    if (previewCancelRef.current) return;
+
+    let raf = 0;
+    let idle = 0;
+    let timeout = 0;
+    const cancel = () => {
+      if (raf) cancelAnimationFrame(raf);
+      if (idle && typeof cancelIdleCallback === "function") cancelIdleCallback(idle);
+      if (timeout) window.clearTimeout(timeout);
+      if (previewCancelRef.current === cancel) previewCancelRef.current = null;
+    };
+    previewCancelRef.current = cancel;
+
+    // Hover highlight must paint first. Capture only after this frame, on idle.
+    raf = requestAnimationFrame(() => {
+      raf = 0;
+      const run = () => {
+        if (previewCancelRef.current === cancel) previewCancelRef.current = null;
+        void ensurePreview();
+      };
+      if (typeof requestIdleCallback === "function") {
+        idle = requestIdleCallback(run, { timeout: 200 });
+      } else {
+        timeout = window.setTimeout(run, 0);
+      }
+    });
+  }, [ensurePreview, hostId, open]);
+
+  const closeFan = React.useCallback(() => {
+    spreadAllowedRef.current = false;
+    setSpread(false);
+    setOpen(false);
+    previewReadyRef.current = false;
+  }, []);
+
+  const handlePointerEnter = React.useCallback(() => {
+    if (open) return;
+    schedulePreview();
+  }, [open, schedulePreview]);
+
+  const handlePointerLeave = React.useCallback(() => {
+    if (open || openingRef.current) return;
+    if (previewPromiseRef.current) return;
+    previewCancelRef.current?.();
+  }, [open]);
+
+  const handleToggleOpen = React.useCallback(() => {
+    if (open) {
+      closeFan();
+      return;
+    }
+    if (openingRef.current) return;
+    openingRef.current = true;
+    const origin = readFanOrigin();
+    if (origin) setFanOrigin(origin);
+    spreadAllowedRef.current = true;
+    setMounted(true);
+    setOpen(true);
+    openingRef.current = false;
+    void ensurePreview();
+  }, [closeFan, ensurePreview, open, readFanOrigin]);
 
   React.useEffect(() => {
     hydrate();
   }, [hydrate]);
 
+  React.useEffect(() => {
+    return () => {
+      previewCancelRef.current?.();
+    };
+  }, []);
+
   React.useLayoutEffect(() => {
     if (!open) return;
     const update = () => {
-      const root = rootRef.current;
-      if (!root) return;
-      const rect = root.getBoundingClientRect();
-      setFanOrigin({ top: rect.bottom, left: rect.left + rect.width / 2 });
+      const origin = readFanOrigin();
+      if (origin) setFanOrigin(origin);
     };
     update();
     window.addEventListener("resize", update);
     return () => window.removeEventListener("resize", update);
+  }, [open, readFanOrigin]);
+
+  React.useEffect(() => {
+    if (open) {
+      setMounted(true);
+      return;
+    }
+    const timer = window.setTimeout(() => setMounted(false), CENTER_SPACE_FAN_EXIT_MS);
+    return () => window.clearTimeout(timer);
   }, [open]);
 
   React.useEffect(() => {
-    if (!open) {
-      setHoveredIndex(null);
-      return;
-    }
+    if (!open || !mounted) return;
+    const frame = requestAnimationFrame(() => {
+      if (spreadAllowedRef.current) setSpread(true);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [open, mounted]);
+
+  React.useEffect(() => {
+    if (!open) return;
     const onPointerDown = (event: PointerEvent) => {
       const target = event.target;
       if (
@@ -89,10 +186,11 @@ export function CenterSpaceSwitcher() {
       ) {
         return;
       }
-      setOpen(false);
+      closeFan();
     };
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setOpen(false);
+      if (event.key !== "Escape") return;
+      closeFan();
     };
     window.addEventListener("pointerdown", onPointerDown);
     window.addEventListener("keydown", onKeyDown);
@@ -100,7 +198,7 @@ export function CenterSpaceSwitcher() {
       window.removeEventListener("pointerdown", onPointerDown);
       window.removeEventListener("keydown", onKeyDown);
     };
-  }, [open]);
+  }, [closeFan, open]);
 
   if (
     !hostId ||
@@ -126,7 +224,12 @@ export function CenterSpaceSwitcher() {
         aria-expanded={open}
         aria-label={t("buttonCountAria", { count: spaces.length })}
         title={spaceLabel(active)}
-        onClick={handleToggleOpen}
+        onPointerEnter={handlePointerEnter}
+        onPointerLeave={handlePointerLeave}
+        onFocus={handlePointerEnter}
+        onClick={() => {
+          void handleToggleOpen();
+        }}
         className={cn(
           "flex h-8 w-full min-w-0 max-w-[220px] items-center gap-1.5 rounded-md px-2.5 text-[12px] font-medium",
           "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
@@ -137,134 +240,106 @@ export function CenterSpaceSwitcher() {
           <Layers className="size-3.5" />
           <span
             aria-hidden="true"
-            className="absolute -left-1.5 -top-1.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-primary px-0.5 text-[9px] font-semibold tabular-nums leading-none text-primary-foreground"
+            className="absolute -left-1 -top-1 flex h-2.5 min-w-2.5 items-center justify-center rounded-full bg-primary px-px text-[8px] font-semibold tabular-nums leading-none text-primary-foreground"
           >
             {spaces.length}
           </span>
         </span>
         <span className="min-w-0 flex-1 truncate text-left">{spaceLabel(active)}</span>
       </button>
-      {typeof document !== "undefined" && fanOrigin
+      {typeof document !== "undefined" && mounted && fanOrigin
         ? createPortal(
-            <AnimatePresence>
-              {open ? (
-                <div
-                  data-center-space-switcher=""
-                  className="pointer-events-none"
-                  style={{
-                    position: "fixed",
-                    top: fanOrigin.top,
-                    left: fanOrigin.left,
-                    zIndex: 80,
-                    width: fanStageWidth(spaces.length),
-                  }}
-                >
-            <div className="relative h-[188px] w-full -translate-x-1/2 pt-2">
-              {spaces.map((space, index) => {
-                const pose = centerSpaceFanPose(
-                  index,
-                  spaces.length,
-                  true,
-                  hoveredIndex,
-                );
-                const selected = space.id === activeSpaceId;
-                const canDelete =
-                  space.id !== DEFAULT_CENTER_SPACE_ID && spaces.length > 1;
-                const transition = reduceMotion
-                  ? { duration: 0 }
-                  : { ...FAN_EASE, delay: index * 0.035 };
-                return (
-                  <motion.div
-                    key={space.id}
-                    initial={
-                      reduceMotion
-                        ? false
-                        : centerSpaceFanPose(index, spaces.length, false, null)
-                    }
-                    animate={pose}
-                    exit={
-                      reduceMotion
-                        ? undefined
-                        : centerSpaceFanPose(index, spaces.length, false, null)
-                    }
-                    transition={transition}
-                    style={{ zIndex: pose.z, marginLeft: -74 }}
-                    className="group/space pointer-events-auto absolute left-1/2 top-0 w-[148px] origin-top"
-                    onMouseEnter={() => setHoveredIndex(index)}
-                    onMouseLeave={() =>
-                      setHoveredIndex((current) => (current === index ? null : current))
-                    }
-                  >
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (!hostId) return;
-                        if (space.id === activeSpaceId) {
-                          captureCurrentPreview();
-                          setOpen(false);
-                          return;
-                        }
-                        void switchCenterSpace(hostId, space.id);
-                        setOpen(false);
-                      }}
-                      className={cn(
-                        "relative flex w-full flex-col overflow-hidden rounded-xl border bg-background text-left shadow-[0_18px_40px_rgb(0_0_0/0.28)]",
-                        selected ? "border-primary/55" : "border-border/70",
-                      )}
+            <div
+              data-center-space-switcher=""
+              className="pointer-events-none"
+              style={{
+                position: "fixed",
+                top: fanOrigin.top,
+                left: fanOrigin.left,
+                zIndex: 80,
+                width: fanStageWidth(spaces.length),
+              }}
+            >
+              <div
+                data-fan-open={spread ? "true" : "false"}
+                className="center-space-fan-stage relative h-[188px] w-full -translate-x-1/2 pt-2"
+              >
+                {spaces.map((space, index) => {
+                  const pose = centerSpaceFanPose(index, spaces.length, spread);
+                  const selected = space.id === activeSpaceId;
+                  const canDelete =
+                    space.id !== DEFAULT_CENTER_SPACE_ID && spaces.length > 1;
+                  return (
+                    <div
+                      key={space.id}
+                      className="center-space-fan-card group/space"
+                      style={centerSpaceFanCssVars(pose) as React.CSSProperties}
                     >
-                      <div className="relative aspect-[16/10] w-full bg-muted/40">
-                        {space.thumbnailDataUrl ? (
-                          // eslint-disable-next-line @next/next/no-img-element -- captured JPEG thumbnail
-                          <img
-                            src={space.thumbnailDataUrl}
-                            alt=""
-                            className="size-full object-cover"
-                          />
-                        ) : (
-                          <div className="flex size-full items-center justify-center text-[11px] text-muted-foreground">
-                            {t("noPreview")}
-                          </div>
-                        )}
-                      </div>
-                      <div
-                        className="truncate px-2 py-1.5 text-[12px] font-medium text-foreground"
-                        title={spaceLabel(space)}
-                      >
-                        {spaceLabel(space)}
-                      </div>
-                    </button>
-                    {canDelete ? (
                       <button
                         type="button"
-                        aria-label={t("deleteSpace", { name: space.name })}
-                        className={cn(
-                          "absolute right-1.5 top-1.5 inline-flex size-6 items-center justify-center rounded-md",
-                          "bg-background/90 text-muted-foreground opacity-0 shadow-sm",
-                          "transition-opacity hover:bg-destructive hover:text-destructive-foreground",
-                          "group-hover/space:opacity-100",
-                        )}
-                        onClick={(event) => {
-                          event.preventDefault();
-                          event.stopPropagation();
+                        onClick={() => {
                           if (!hostId) return;
-                          void deleteCenterSpace(hostId, space.id);
+                          closeFan();
+                          if (space.id === activeSpaceId) return;
+                          void switchCenterSpace(hostId, space.id);
                         }}
+                        className={cn(
+                          "relative flex w-full flex-col overflow-hidden rounded-xl border bg-background text-left shadow-[0_10px_24px_rgb(0_0_0/0.22)]",
+                          selected ? "border-primary/55" : "border-border/70",
+                        )}
                       >
-                        <Trash2 className="size-3.5" />
+                        <div className="relative aspect-[16/10] w-full bg-muted/40">
+                          {space.thumbnailDataUrl ? (
+                            // eslint-disable-next-line @next/next/no-img-element -- captured JPEG thumbnail
+                            <img
+                              src={space.thumbnailDataUrl}
+                              alt=""
+                              draggable={false}
+                              className="size-full object-cover"
+                            />
+                          ) : (
+                            <div className="flex size-full items-center justify-center text-[11px] text-muted-foreground">
+                              {t("noPreview")}
+                            </div>
+                          )}
+                        </div>
+                        <div
+                          className="truncate px-2 py-1.5 text-[12px] font-medium text-foreground"
+                          title={spaceLabel(space)}
+                        >
+                          {spaceLabel(space)}
+                        </div>
                       </button>
-                    ) : null}
-                  </motion.div>
-                );
-              })}
-            </div>
-            {spaces.length >= MAX_CENTER_SPACES_PER_HOST ? (
-              <p className="relative left-1/2 w-[220px] -translate-x-1/2 pt-1 text-center text-[11px] text-muted-foreground">
-                {t("limitReached")}
-              </p>
-            ) : null}
-                </div>
+                      {canDelete ? (
+                        <button
+                          type="button"
+                          aria-label={t("deleteSpace", { name: space.name })}
+                          className={cn(
+                            "absolute right-1.5 top-1.5 inline-flex size-6 items-center justify-center rounded-md",
+                            "bg-background/90 text-muted-foreground opacity-0 shadow-sm",
+                            "transition-opacity hover:bg-destructive hover:text-destructive-foreground",
+                            "group-hover/space:opacity-100",
+                          )}
+                          onClick={(event) => {
+                            event.preventDefault();
+                            event.stopPropagation();
+                            if (!hostId) return;
+                            void deleteCenterSpace(hostId, space.id);
+                          }}
+                        >
+                          <Trash2 className="size-3.5" />
+                        </button>
+                      ) : null}
+                    </div>
+                  );
+                })}
+              </div>
+              {spaces.length >= MAX_CENTER_SPACES_PER_HOST ? (
+                <p className="relative left-1/2 w-[220px] -translate-x-1/2 pt-1 text-center text-[11px] text-muted-foreground">
+                  {t("limitReached")}
+                </p>
               ) : null}
-            </AnimatePresence>,
+            </div>,
             document.body,
           )
         : null}

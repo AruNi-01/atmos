@@ -205,7 +205,10 @@ function multiPanePanelStyle(
   if (paneHiddenByCenterFullscreen(fullscreenPaneId, paneId)) {
     return {
       position: "absolute",
-      inset: "auto",
+      top: 0,
+      right: "auto",
+      bottom: "auto",
+      left: 0,
       width: 0,
       height: 0,
       overflow: "hidden",
@@ -219,7 +222,10 @@ function multiPanePanelStyle(
   if (!isUsablePaneSlotBox(box)) {
     return {
       position: "absolute",
-      inset: "auto",
+      top: 0,
+      right: "auto",
+      bottom: "auto",
+      left: 0,
       width: 0,
       height: 0,
       overflow: "hidden",
@@ -229,8 +235,9 @@ function multiPanePanelStyle(
   }
   return {
     position: "absolute",
-    inset: "auto",
     top: box.top,
+    right: "auto",
+    bottom: "auto",
     left: box.left,
     width: box.width,
     height: box.height,
@@ -247,7 +254,6 @@ function multiPanePanelStyle(
 function WorkspaceCenterFrameImpl({
   contextId,
   isActiveContext,
-  spaceSlide,
   isUrlSyncedActive,
   mountPlan,
   mountedTabIds,
@@ -418,8 +424,6 @@ function WorkspaceCenterFrameImpl({
       className={cn(
         "absolute inset-0 flex min-h-0 min-w-0 flex-col",
         multiActiveTabIds && "pointer-events-none",
-        spaceSlide === "in" && "push-page-slide-in-x z-20",
-        spaceSlide === "out" && "push-page-slide-out-x z-10",
       )}
     >
       {tabs
@@ -555,6 +559,7 @@ function WorkspaceCenterFrameImpl({
         >
           <OverviewTab
             contextId={hostIdFromCenterKey(contextId)}
+            editorContextId={contextId}
             projectId={isUrlSyncedActive ? currentProject?.id : undefined}
             projectName={isUrlSyncedActive ? currentProject?.name : undefined}
             projectPath={isUrlSyncedActive ? currentProject?.mainFilePath : undefined}
@@ -601,7 +606,11 @@ function WorkspaceCenterFrameImpl({
             style={panelStyle(file.path, panelVisible(file.path))}
           >
             {isDiffGroupEditorPath(file.path) && currentRepoPath && isUrlSyncedActive ? (
-              <ChangesCodeView repoPath={currentRepoPath} groupPath={file.path} />
+              <ChangesCodeView
+                repoPath={currentRepoPath}
+                groupPath={file.path}
+                contextId={contextId}
+              />
             ) : isReviewGroupEditorPath(file.path) && isUrlSyncedActive ? (
               <ReviewContextProvider
                 target={reviewTarget ?? null}
@@ -609,7 +618,7 @@ function WorkspaceCenterFrameImpl({
                 fileSnapshotGuid={null}
                 revisionGuid={getReviewGroupRevisionGuid(file.path)}
               >
-                <ReviewCodeView groupPath={file.path} />
+                <ReviewCodeView groupPath={file.path} contextId={contextId} />
               </ReviewContextProvider>
             ) : file.path.startsWith(EDITOR_REVIEW_DIFF_PREFIX) &&
               currentRepoPath &&
@@ -625,6 +634,7 @@ function WorkspaceCenterFrameImpl({
                   repoPath={currentRepoPath}
                   filePath={getEditorSourcePath(file.path)}
                   originalPath={file.path}
+                  contextId={contextId}
                 />
               </ReviewContextProvider>
             ) : isConflictResolveEditorPath(file.path) && isUrlSyncedActive ? (
@@ -637,6 +647,7 @@ function WorkspaceCenterFrameImpl({
               <FileViewer
                 file={file}
                 className="flex-1"
+                contextId={contextId}
                 surfaceActive={
                   isActiveContext &&
                   panelVisible(file.path)
@@ -827,6 +838,7 @@ function WorkspaceCenterFrameImpl({
         >
           <ReviewCenterPanel
             filePath=""
+            contextId={contextId}
             reviewTarget={isUrlSyncedActive ? (reviewTarget ?? null) : null}
           />
         </div>

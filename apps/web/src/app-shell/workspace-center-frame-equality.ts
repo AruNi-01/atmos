@@ -30,8 +30,6 @@ export type PaneSlotBox = {
 export type WorkspaceCenterFrameProps = {
   contextId: string;
   isActiveContext: boolean;
-  /** Settings-style slide while switching spaces inside the same host. */
-  spaceSlide?: "in" | "out" | null;
   isUrlSyncedActive: boolean;
   /** Mount keys for this context only (stable string for memo). */
   mountPlanKeys: string;
@@ -108,7 +106,6 @@ export function workspaceCenterFramePropsAreEqual(
   next: WorkspaceCenterFrameProps,
 ): boolean {
   if (prev.contextId !== next.contextId) return false;
-  if (prev.spaceSlide !== next.spaceSlide) return false;
   if (prev.isActiveContext !== next.isActiveContext) return false;
   if (prev.isUrlSyncedActive !== next.isUrlSyncedActive) return false;
   if (prev.mountPlanKeys !== next.mountPlanKeys) return false;

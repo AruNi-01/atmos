@@ -443,6 +443,51 @@ html:not([data-theme-ready="true"]) body {
   animation: 220ms ease-in both fade-in;
 }
 
+/*
+ * Center-space hops: zoom fade. Must come after freeze-all `::view-transition-*(*)`.
+ * Exit expands outward while fading; enter comes inward from larger and settles.
+ */
+@keyframes space-zoom-out {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(1.12);
+  }
+}
+@keyframes space-zoom-in {
+  from {
+    opacity: 0;
+    transform: scale(1.12);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+::view-transition-group(center-space-card) {
+  overflow: hidden;
+  border-radius: var(--radius-xl);
+}
+
+::view-transition-image-pair(center-space-card) {
+  isolation: isolate;
+}
+
+::view-transition-old(center-space-card) {
+  mix-blend-mode: normal;
+  transform-origin: center;
+  animation: space-zoom-out 220ms ease-in both;
+}
+::view-transition-new(center-space-card) {
+  mix-blend-mode: normal;
+  transform-origin: center;
+  animation: space-zoom-in 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
 @keyframes fade-out {
   to { opacity: 0; }
 }
