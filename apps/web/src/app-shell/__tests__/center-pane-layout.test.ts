@@ -208,6 +208,26 @@ describe("center-pane-layout", () => {
     expect(next.panes[0]!.activeTabId).toBe("terminal");
   });
 
+  it("activates the preferred MRU tab instead of the first strip item", () => {
+    const layout = createDefaultLayout(["overview", "a", "b", "c"], "c");
+    const next = removeTabFromLayout(layout, "c", "b");
+    expect(next.panes[0]!.tabIds).toEqual(["overview", "a", "b"]);
+    expect(next.panes[0]!.activeTabId).toBe("b");
+  });
+
+  it("skips Overview when closing the active tab without an MRU hint", () => {
+    const layout = createDefaultLayout(["overview", "a", "b"], "b");
+    const next = removeTabFromLayout(layout, "b");
+    expect(next.panes[0]!.activeTabId).toBe("a");
+  });
+
+  it("reconciles a missing active tab to preferred over Overview", () => {
+    const layout = createDefaultLayout(["overview", "a", "gone"], "gone");
+    const next = reconcileOpenTabs(layout, ["overview", "a"], "a");
+    expect(next.panes[0]!.tabIds).toEqual(["overview", "a"]);
+    expect(next.panes[0]!.activeTabId).toBe("a");
+  });
+
   it("computes row count from pane count and columns", () => {
     expect(rowCountFor(1, 2)).toBe(1);
     expect(rowCountFor(3, 2)).toBe(2);

@@ -61,7 +61,11 @@ type CenterPaneLayoutStore = {
   resizeRows: (contextId: string, boundaryIndex: number, delta: number) => void;
   setActiveTab: (contextId: string, paneId: string, tabId: string) => void;
   openTab: (contextId: string, tabId: string) => void;
-  removeTab: (contextId: string, tabId: string) => void;
+  removeTab: (
+    contextId: string,
+    tabId: string,
+    preferredNextActiveId?: string | null,
+  ) => void;
   reconcile: (
     contextId: string,
     openTabIds: string[],
@@ -216,8 +220,10 @@ export const useCenterPaneLayoutStore = create<CenterPaneLayoutStore>((set, get)
     get().patchLayout(contextId, (layout) => openTabOnFocusedPane(layout, tabId));
   },
 
-  removeTab: (contextId, tabId) => {
-    get().patchLayout(contextId, (layout) => removeTabFromLayout(layout, tabId));
+  removeTab: (contextId, tabId, preferredNextActiveId) => {
+    get().patchLayout(contextId, (layout) =>
+      removeTabFromLayout(layout, tabId, preferredNextActiveId),
+    );
   },
 
   reconcile: (contextId, openTabIds, preferredActiveTabId) => {

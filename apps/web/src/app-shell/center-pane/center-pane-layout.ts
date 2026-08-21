@@ -230,6 +230,19 @@ function pickNonOverviewTab(tabIds: readonly string[], preferred?: string | null
 }
 
 /**
+ * Next active tab after the current one leaves this pane.
+ * Honor `preferred` (MRU) even when it is Overview; otherwise skip Overview
+ * so close/steal does not snap to the first strip item.
+ */
+function pickReplacementActiveTab(
+  remainingTabIds: readonly string[],
+  preferred?: string | null,
+): string {
+  if (preferred && remainingTabIds.includes(preferred)) return preferred;
+  return remainingTabIds.find((id) => id !== OVERVIEW_TAB_ID) ?? remainingTabIds[0]!;
+}
+
+/**
  * Move Overview onto primary only; strip it from every other pane.
  * Empty secondary panes are kept (launcher empty state) — they are only closed
  * when the last tab is removed via {@link removeTabFromLayout}.
@@ -636,7 +649,7 @@ export function setPaneActiveTab(
     return {
       ...p,
       tabIds,
-      activeTabId: p.activeTabId === tabId ? tabIds[0]! : p.activeTabId,
+      activeTabId: p.activeTabId === tabId ? pickReplacementActiveTab(tabIds) : p.activeTabId,
     };
   });
 
@@ -747,7 +760,7 @@ export function openTabOnFocusedPane(layout: CenterPaneLayout, tabId: string): C
     return {
       ...p,
       tabIds,
-      activeTabId: p.activeTabId === tabId ? tabIds[0]! : p.activeTabId,
+      activeTabId: p.activeTabId === tabId ? pickReplacementActiveTab(tabIds) : p.activeTabId,
     };
   });
 
@@ -758,7 +771,11 @@ export function openTabOnFocusedPane(layout: CenterPaneLayout, tabId: string): C
 }
 
 /** Remove a tab from whichever pane owns it; auto-close empty secondary panes. */
-export function removeTabFromLayout(layout: CenterPaneLayout, tabId: string): CenterPaneLayout {
+export function removeTabFromLayout(
+  layout: CenterPaneLayout,
+  tabId: string,
+  preferredNextActiveId?: string | null,
+): CenterPaneLayout {
   const primaryId = getPrimaryPaneId(layout);
   let changed = false;
   const panes = layout.panes.map((p) => {
@@ -780,7 +797,10 @@ export function removeTabFromLayout(layout: CenterPaneLayout, tabId: string): Ce
     return {
       ...p,
       tabIds,
-      activeTabId: p.activeTabId === tabId ? tabIds[0]! : p.activeTabId,
+      activeTabId:
+        p.activeTabId === tabId
+          ? pickReplacementActiveTab(tabIds, preferredNextActiveId)
+          : p.activeTabId,
     };
   });
 
@@ -842,7 +862,9 @@ export function reconcileOpenTabs(
       // Became empty because owned tabs closed — mark for prune.
       return createEmptyPane(p.id);
     }
-    const nextActive = tabIds.includes(p.activeTabId) ? p.activeTabId : tabIds[0]!;
+    const nextActive = tabIds.includes(p.activeTabId)
+      ? p.activeTabId
+      : pickReplacementActiveTab(tabIds, preferredActiveTabId);
     if (sameStringList(p.tabIds, tabIds) && p.activeTabId === nextActive) return p;
     return {
       ...p,

@@ -198,6 +198,64 @@ describe("pane-local close fallback", () => {
     });
     expect(fallback.nextTabId).toBe("a");
   });
+
+  it("does not snap to Overview when the strip starts with it", () => {
+    const layout = createDefaultLayout(["overview", "a", "b", "c"], "c");
+    const fallback = resolvePaneLocalCloseFallback({
+      layoutBefore: layout,
+      closedTabIds: ["c"],
+      activeTabId: "c",
+      openTabValues: new Set(["overview", "a", "b"]),
+      mruOrder: ["c", "b", "a", "overview"],
+      fallbackTab: "overview",
+    });
+    expect(fallback.nextTabId).toBe("b");
+    const after = removeTabFromLayout(layout, "c", fallback.nextTabId);
+    expect(after.panes[0]!.activeTabId).toBe("b");
+  });
+
+  it("skips Overview when pane-local MRU is empty and other tabs remain", () => {
+    const { layout } = splitWithSecondaryTab(["overview", "a", "b"], "b", "c");
+    const fallback = resolvePaneLocalCloseFallback({
+      layoutBefore: layout,
+      closedTabIds: ["b"],
+      activeTabId: "b",
+      openTabValues: new Set(["overview", "a", "c"]),
+      mruOrder: [],
+      fallbackTab: "overview",
+    });
+    expect(fallback.nextTabId).toBe("a");
+    const after = removeTabFromLayout(layout, "b", fallback.nextTabId);
+    expect(getPane(after, DEFAULT_PANE_ID)!.activeTabId).toBe("a");
+  });
+
+  it("returns Overview when it is the most recently activated remaining tab", () => {
+    const layout = createDefaultLayout(["overview", "a", "b"], "b");
+    const fallback = resolvePaneLocalCloseFallback({
+      layoutBefore: layout,
+      closedTabIds: ["b"],
+      activeTabId: "b",
+      openTabValues: new Set(["overview", "a"]),
+      mruOrder: ["overview", "a"],
+      fallbackTab: "a",
+    });
+    expect(fallback.nextTabId).toBe("overview");
+  });
+
+  it("skips Overview on single-pane close when the stack has no other entry", () => {
+    const layout = createDefaultLayout(["overview", "a", "b"], "b");
+    const fallback = resolvePaneLocalCloseFallback({
+      layoutBefore: layout,
+      closedTabIds: ["b"],
+      activeTabId: "b",
+      openTabValues: new Set(["overview", "a"]),
+      mruOrder: [],
+      fallbackTab: "overview",
+    });
+    expect(fallback.nextTabId).toBe("a");
+    const after = removeTabFromLayout(layout, "b", fallback.nextTabId);
+    expect(after.panes[0]!.activeTabId).toBe("a");
+  });
 });
 
 describe("warm multi-pane active retention", () => {
