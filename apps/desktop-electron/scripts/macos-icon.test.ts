@@ -5,8 +5,10 @@ import { createHash } from "node:crypto";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
+  DMG_ICON_PLATE_INSET,
   hasIconComposerPackage,
   ICON_COMPOSER_REL,
+  ICON_DMG_ICNS_REL,
   ICON_ICNS_REL,
 } from "./macos-icon.ts";
 
@@ -106,13 +108,70 @@ print("ok", w / im.width)
   });
 
   it("keeps legacy icns for DMG / older macOS when synced", () => {
-    // icon.icns is gitignored and produced by `bun run sync-icons` / packaging.
-    // CI smoke without a local sync should not fail — Icon Composer package is the tracked source.
+    // icon.icns / dmg-icon.icns are gitignored locally and produced by
+    // `bun run regen-legacy-icns` / `sync-icons`. CI smoke without a local
+    // sync should not fail — Icon Composer package is the tracked source.
     const appIcns = join(appRoot, ICON_ICNS_REL);
+    const dmgIcns = join(appRoot, ICON_DMG_ICNS_REL);
     if (!existsSync(appIcns)) {
       return;
     }
     expect(existsSync(appIcns)).toBe(true);
+    expect(existsSync(dmgIcns)).toBe(true);
+  });
+
+  it("points electron-builder DMG volume icon at the padded icns", () => {
+    const yml = readFileSync(join(appRoot, "electron-builder.yml"), "utf8");
+    const dmg = yml.split("\ndmg:")[1] ?? "";
+    expect(dmg).toContain("icon: resources/icons/dmg-icon.icns");
+    expect(yml).toContain("icon: resources/icons/icon.icns");
+  });
+
+  it("keeps DMG icns inset so Finder desktop wells have margin", () => {
+    const dmgIcns = join(repoRoot, "apps/desktop/src-tauri/icons/dmg-icon.icns");
+    const appIcns = join(repoRoot, "apps/desktop/src-tauri/icons/icon.icns");
+    if (!existsSync(dmgIcns) || !existsSync(appIcns)) {
+      return;
+    }
+    const py = `
+from PIL import Image
+import subprocess, tempfile, os
+
+def midline_inset(path):
+    with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp:
+        out = tmp.name
+    subprocess.check_call(
+        ["sips", "-s", "format", "png", "-z", "1024", "1024", path, "--out", out],
+        stdout=subprocess.DEVNULL,
+    )
+    im = Image.open(out).convert("RGBA")
+    os.unlink(out)
+    w, h = im.size
+    mid = h // 2
+    for x in range(w):
+        if im.getpixel((x, mid))[3] > 16:
+            return x / w
+    raise SystemExit("no opaque pixels")
+
+app = midline_inset(${JSON.stringify(appIcns)})
+dmg = midline_inset(${JSON.stringify(dmgIcns)})
+if app > 0.02:
+    raise SystemExit(f"app icns should stay full-bleed, inset={app}")
+lo = ${DMG_ICON_PLATE_INSET} - 0.02
+hi = ${DMG_ICON_PLATE_INSET} + 0.02
+if not (lo <= dmg <= hi):
+    raise SystemExit(f"dmg icns inset {dmg} not in [{lo}, {hi}]")
+print("ok", app, dmg)
+`;
+    const result = spawnSync("python3", ["-c", py], { encoding: "utf8" });
+    if (result.status !== 0) {
+      const err = `${result.stderr || ""}${result.stdout || ""}`;
+      if (/Pillow|PIL|sips/.test(err)) {
+        return;
+      }
+      throw new Error(err || `python3 exited ${result.status}`);
+    }
+    expect(result.stdout).toContain("ok");
   });
 
   it("keeps Desktop Use host + notification icons in lockstep with app icns", () => {
